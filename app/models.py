@@ -150,6 +150,15 @@ OutputKind = Literal[
     # avatar_videos. This kind is the "what does voice_dubbing produce
     # on an existing ad" probe surface.
     "spokesperson_ad_dubbed",
+    # PR FA — Aleph `video_to_video` style remix. Runway's gen4_aleph
+    # model transforms the entire visual stream (color, texture,
+    # lighting) toward a style prompt while preserving timing +
+    # composition. Source is any prior rendered MP4; output is a new
+    # MP4 with the requested aesthetic. The `remix_style` field on
+    # OutputRecord carries the preset id (noir / anime / chrome /
+    # watercolor / cyberpunk) so the Videos gallery can sub-bucket
+    # remixes by style.
+    "spokesperson_ad_remix",
 ]
 
 
@@ -201,6 +210,12 @@ class OutputRecord(BaseModel):
     # "ja", "fr"). The Videos gallery uses this to render a 🌐 lang
     # badge so the operator can tell their dubbed versions apart.
     dub_lang: Optional[str] = None
+    # PR FA — Aleph style preset id for `spokesperson_ad_remix`
+    # outputs. One of the keys in
+    # `services.aleph_client.STYLE_PRESETS` (noir, anime, chrome,
+    # watercolor, cyberpunk). Frontend uses this to sub-bucket
+    # remixes under the 🎨 Style Remixes group.
+    remix_style: Optional[str] = None
     created_at: datetime
 
 

@@ -2122,6 +2122,9 @@ def get_campaign_output(
         # audio stream), lives in finished/ next to the other
         # ffmpeg-built finals.
         "spokesperson_ad_dubbed",
+        # PR FA — Aleph `video_to_video` style remix. Runway-hosted
+        # output downloaded to data/finished/ at remix time.
+        "spokesperson_ad_remix",
     }:
         cache_dir = settings.data_path / "finished"
     elif match.kind in {"cinematic_video"}:
@@ -3175,6 +3178,174 @@ def post_dub_ad(
     logger.info(
         "dub-ad ok campaign=%s output=%s lang=%s new_output=%s",
         campaign_id, body.output_id, target_lang, new_output_id,
+    )
+    return updated
+
+
+# ---- PR FA — Aleph `video_to_video` style remix --------------------
+#
+# Operator-facing flow: open a campaign workspace, click the
+# 🎨 Remix button on any rendered output tile (spokesperson ads,
+# dialogue scenes, etc.), pick a style preset (Noir / Anime / Chrome
+# / Watercolor / Cyberpunk), fire. Backend reads the cached MP4,
+# posts to Runway `/v1/video_to_video` with `model: "gen4_aleph"`
+# and the preset's prompt, polls to terminal, downloads the
+# remixed MP4 into data/finished/, appends a new OutputRecord
+# (kind=spokesperson_ad_remix, remix_style=<preset>).
+#
+# Body shape locked via empty-body 400-probe on 2026-05-12. See
+# `scripts/probe-video-to-video.py` for the discovery record.
+
+
+class RemixOutputBody(BaseModel):
+    """PR FA — body for `POST /api/campaigns/{id}/remix-output`."""
+
+    output_id: str = Field(..., min_length=8, max_length=64)
+    style_id: str = Field(
+        ...,
+        description=(
+            "Aleph style preset id. One of "
+            "{noir, anime, chrome, watercolor, cyberpunk}."
+        ),
+        max_length=32,
+    )
+
+
+# Same dubbable-source rule applies: only rendered ads/scenes get
+# style remix. Reels are reframes; remixing them double-processes
+# the same content with worse fidelity.
+REMIXABLE_KINDS: set[str] = {
+    "spokesperson_ad",
+    "long_spokesperson_ad",
+    "voiced_commercial",
+    "storyboard_voiced",
+    "dialogue_scene",
+    "spokesperson_ad_dubbed",  # remix a Spanish dub into Anime, etc.
+    "cinematic_video",  # silent cinematic visuals are perfect for Aleph
+}
+
+
+@router.get("/remix/style-presets")
+def get_remix_style_presets() -> dict[str, dict[str, str]]:
+    """PR FA — public list of available Aleph style presets. The
+    frontend reads this to populate the picker so the prompts live
+    server-side and can be tuned without an SPA redeploy.
+    """
+    from ..services.aleph_client import STYLE_PRESETS
+
+    # Strip the full prompt; the UI only needs id + label.
+    return {
+        sid: {"label": preset["label"]}
+        for sid, preset in STYLE_PRESETS.items()
+    }
+
+
+@router.post("/{campaign_id}/remix-output", response_model=Campaign)
+def post_remix_output(
+    campaign_id: str,
+    body: RemixOutputBody,
+    settings: Settings = Depends(get_settings),
+    store: CampaignStore = Depends(_store),
+) -> Campaign:
+    """PR FA — remix an existing OutputRecord's video through
+    Runway Aleph (`/v1/video_to_video`, model `gen4_aleph`) with a
+    style preset's prompt. Appends a new `spokesperson_ad_remix`
+    OutputRecord to the campaign.
+
+    Failure modes:
+    - 404 — campaign or output not found.
+    - 400 — unknown style_id.
+    - 409 — output kind is non-remixable (reels, etc.).
+    - 502 — Runway video_to_video upstream failure.
+    """
+    from ..services.aleph_client import STYLE_PRESETS, remix_output_video
+
+    record = store.get(campaign_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="campaign not found")
+
+    style_id = body.style_id.strip().lower()
+    if style_id not in STYLE_PRESETS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"unknown style_id '{style_id}'. supported: "
+                f"{sorted(STYLE_PRESETS.keys())}"
+            ),
+        )
+
+    output = next((o for o in record.outputs if o.id == body.output_id), None)
+    if not output:
+        raise HTTPException(
+            status_code=404,
+            detail=f"output '{body.output_id}' not found on this campaign",
+        )
+
+    if output.kind not in REMIXABLE_KINDS:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"output kind '{output.kind}' is not remixable. "
+                f"Supported: {sorted(REMIXABLE_KINDS)}"
+            ),
+        )
+
+    # Resolve source MP4 path. Same kind→dir mapping as dub + the
+    # /output/{id} serve route.
+    if output.kind == "spokesperson_ad":
+        source_path = (
+            host_path_for(settings, campaign_id).parent / output.cache_filename
+        )
+    elif output.kind == "cinematic_video":
+        source_path = settings.data_path / "videos" / output.cache_filename
+    else:
+        source_path = settings.data_path / "finished" / output.cache_filename
+    if not source_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"source video file missing at {source_path}",
+        )
+
+    result = remix_output_video(
+        source_video_path=source_path,
+        campaign_id=campaign_id,
+        output_id=body.output_id,
+        style_id=style_id,
+        settings=settings,
+    )
+
+    if result.status != "ok" or not result.cache_filename:
+        logger.warning(
+            "remix failed campaign=%s output=%s style=%s err=%s",
+            campaign_id, body.output_id, style_id, result.error,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=f"video_to_video failed: {result.error or 'unknown error'}",
+        )
+
+    new_output_id = uuid.uuid4().hex[:12]
+    new_entry = {
+        "id": new_output_id,
+        "kind": "spokesperson_ad_remix",
+        "video_url": f"/api/campaigns/{campaign_id}/output/{new_output_id}",
+        "cache_filename": result.cache_filename,
+        "script": output.script,
+        "task_id": result.task_id,
+        "mock_mode": result.mock_mode,
+        "parent_output_id": output.id,
+        "variant_id": output.variant_id,
+        "variant_title": output.variant_title,
+        "remix_style": style_id,
+        "duration_estimate": result.duration_s,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    updated = store.append_output(campaign_id, new_entry)
+    if not updated:
+        raise HTTPException(status_code=404, detail="campaign not found")
+    logger.info(
+        "remix ok campaign=%s output=%s style=%s new_output=%s",
+        campaign_id, body.output_id, style_id, new_output_id,
     )
     return updated
 
