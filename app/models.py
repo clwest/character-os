@@ -178,6 +178,13 @@ OutputKind = Literal[
     # repurposes two existing campaign outputs. Audio = avatar's
     # voice (cinematic clips are silent).
     "spokesperson_ad_with_backdrop",
+    # PR FE — Multi-avatar PiP / co-host composite. Main spokesperson
+    # ad fills the frame (audio source); co-host avatar clip (from
+    # ANY campaign / character) shrinks into a top-LEFT corner tile
+    # with white border, looped if shorter than main, audio muted.
+    # Pure ffmpeg, no Runway. Visual co-presence of two avatars;
+    # scripted audio alternation deferred to a later slice.
+    "spokesperson_ad_with_cohost",
 ]
 
 

@@ -2390,6 +2390,9 @@ def get_campaign_output(
         # PR FD — Reverse-PiP cinematic-backdrop composite. ffmpeg-
         # built; lives in finished/.
         "spokesperson_ad_with_backdrop",
+        # PR FE — Multi-avatar PiP / co-host composite. ffmpeg-built;
+        # lives in finished/.
+        "spokesperson_ad_with_cohost",
     }:
         cache_dir = settings.data_path / "finished"
     elif match.kind in {"cinematic_video"}:
@@ -4091,6 +4094,175 @@ def post_add_backdrop(
     logger.info(
         "backdrop ok campaign=%s fg=%s bg=%s new_output=%s",
         campaign_id, body.output_id, body.backdrop_output_id, new_output_id,
+    )
+    return updated
+
+
+# ---- PR FE — Multi-avatar PiP / co-host composite -----------------
+#
+# Two avatars on screen at once. Main spokesperson ad fills the
+# frame (audio source); a co-host avatar from ANY campaign/character
+# shrinks into a top-LEFT corner tile, audio muted. Pure ffmpeg, no
+# Runway. Visual co-presence is v1; scripted audio alternation
+# requires per-beat timing and is parked as a follow-up.
+
+
+class AddCohostBody(BaseModel):
+    """PR FE — body for POST /api/campaigns/{id}/add-cohost.
+
+    The co-host can be a rendered avatar clip from ANY campaign on
+    ANY character — operators can pair Donny with Riggs, mix
+    characters across product lines, etc. Both fields together
+    uniquely locate the source clip.
+    """
+
+    output_id: str = Field(..., min_length=8, max_length=64)
+    cohost_campaign_id: str = Field(..., min_length=8, max_length=64)
+    cohost_output_id: str = Field(..., min_length=8, max_length=64)
+
+
+# Spokesperson kinds eligible as MAIN (frame source + audio source)
+# AND as CO-HOST (corner tile, audio muted). Same set both ways.
+COHOST_KINDS: set[str] = {
+    "spokesperson_ad",
+    "long_spokesperson_ad",
+    "spokesperson_ad_dubbed",
+    "spokesperson_ad_remix",
+    "spokesperson_ad_polished",
+    "voiced_commercial",
+}
+
+
+def _resolve_spokesperson_path(
+    record: Campaign, output, settings: Settings,
+) -> Path:
+    """Same kind→dir mapping used by polish / dub / remix / backdrop
+    routes. Centralised here so cross-campaign cohost lookups work
+    against any campaign's storage layout."""
+    if output.kind == "spokesperson_ad":
+        return host_path_for(settings, record.id).parent / output.cache_filename
+    return settings.data_path / "finished" / output.cache_filename
+
+
+@router.post("/{campaign_id}/add-cohost", response_model=Campaign)
+def post_add_cohost(
+    campaign_id: str,
+    body: AddCohostBody,
+    settings: Settings = Depends(get_settings),
+    store: CampaignStore = Depends(_store),
+) -> Campaign:
+    """PR FE — composite a main spokesperson ad with a co-host
+    avatar clip from any campaign. Pure ffmpeg, no Runway.
+
+    Failure modes:
+    - 404 — main / co-host campaign or output not found.
+    - 409 — kind not eligible (only spokesperson kinds; reels excluded).
+    - 500 — ffmpeg failure.
+    """
+    from ..services.cohost_client import compose_with_cohost
+
+    main_record = store.get(campaign_id)
+    if not main_record:
+        raise HTTPException(status_code=404, detail="campaign not found")
+
+    main_output = next(
+        (o for o in main_record.outputs if o.id == body.output_id), None,
+    )
+    if not main_output:
+        raise HTTPException(
+            status_code=404,
+            detail=f"main output '{body.output_id}' not found",
+        )
+    if main_output.kind not in COHOST_KINDS:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"main output kind '{main_output.kind}' not eligible. "
+                f"Supported: {sorted(COHOST_KINDS)}"
+            ),
+        )
+
+    cohost_record = store.get(body.cohost_campaign_id)
+    if not cohost_record:
+        raise HTTPException(
+            status_code=404,
+            detail=f"co-host campaign '{body.cohost_campaign_id}' not found",
+        )
+    cohost_output = next(
+        (o for o in cohost_record.outputs if o.id == body.cohost_output_id),
+        None,
+    )
+    if not cohost_output:
+        raise HTTPException(
+            status_code=404,
+            detail=f"co-host output '{body.cohost_output_id}' not found",
+        )
+    if cohost_output.kind not in COHOST_KINDS:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"co-host output kind '{cohost_output.kind}' not eligible. "
+                f"Supported: {sorted(COHOST_KINDS)}"
+            ),
+        )
+
+    main_path = _resolve_spokesperson_path(
+        main_record, main_output, settings,
+    )
+    if not main_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"main video missing at {main_path}",
+        )
+    cohost_path = _resolve_spokesperson_path(
+        cohost_record, cohost_output, settings,
+    )
+    if not cohost_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"co-host video missing at {cohost_path}",
+        )
+
+    result = compose_with_cohost(
+        main_video_path=main_path,
+        cohost_video_path=cohost_path,
+        campaign_id=campaign_id,
+        output_id=body.output_id,
+        settings=settings,
+    )
+
+    if result.status != "ok" or not result.cache_filename:
+        logger.warning(
+            "cohost failed campaign=%s output=%s err=%s",
+            campaign_id, body.output_id, result.error,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"cohost failed: {result.error or 'unknown error'}",
+        )
+
+    new_output_id = uuid.uuid4().hex[:12]
+    new_entry = {
+        "id": new_output_id,
+        "kind": "spokesperson_ad_with_cohost",
+        "video_url": f"/api/campaigns/{campaign_id}/output/{new_output_id}",
+        "cache_filename": result.cache_filename,
+        "script": main_output.script,
+        "task_id": None,
+        "mock_mode": False,
+        "parent_output_id": main_output.id,
+        "variant_id": main_output.variant_id,
+        "variant_title": main_output.variant_title,
+        "duration_estimate": result.duration_s,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    updated = store.append_output(campaign_id, new_entry)
+    if not updated:
+        raise HTTPException(status_code=404, detail="campaign not found")
+    logger.info(
+        "cohost ok campaign=%s main=%s cohost=%s/%s new_output=%s",
+        campaign_id, body.output_id,
+        body.cohost_campaign_id, body.cohost_output_id, new_output_id,
     )
     return updated
 
