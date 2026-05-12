@@ -36,6 +36,7 @@ import subprocess
 import time
 import uuid
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -460,3 +461,233 @@ def dub_brand_voice(
     except Exception as exc:  # pragma: no cover — defensive
         logger.exception("dub unexpected")
         return DubResult(status="failed", error=f"unexpected: {exc!s}"[:300])
+
+
+# ---- PR EY — voice_dubbing applied to an existing Spokesperson Ad ----
+#
+# Pipeline:
+#   1. Resolve the source MP4 from the OutputRecord
+#   2. ffmpeg-extract its audio track → MP3 (mono 128k, fits the 4MB
+#      data URI cap for typical 30-60s ads)
+#   3. base64-encode → POST /v1/voice_dubbing (existing `_dub_real`)
+#   4. Download the dubbed audio MP3
+#   5. ffmpeg-mux: replace the original audio stream with the dubbed
+#      MP3 while keeping the video stream intact ("-c:v copy" so we
+#      don't re-encode video)
+#   6. Save to data/finished/<campaign>-dubbed-<lang>-<output>-<ts>.mp4
+#
+# Known limitation (documented for the operator + future sessions):
+# lip-sync will NOT match the new language because the original video
+# stream still has the avatar's mouth moving to English phonemes.
+# True lip-synced localization needs LLM-translate the script + re-
+# render via avatar_videos — a separate Path B slice.
+
+
+@dataclass
+class DubbedAdResult:
+    """Returned from `dub_output_ad`."""
+
+    status: str  # "ok" | "failed"
+    output_path: Optional[Path] = None
+    cache_filename: Optional[str] = None
+    duration_s: Optional[float] = None
+    task_id: Optional[str] = None
+    error: Optional[str] = None
+    mock_mode: bool = False
+
+
+def dub_output_ad(
+    *,
+    source_video_path: Path,
+    campaign_id: str,
+    output_id: str,
+    target_lang: str,
+    settings: Settings,
+) -> DubbedAdResult:
+    """Dub the audio of an existing rendered ad into ``target_lang``,
+    muxing the dubbed audio back into the original video stream.
+
+    Caller is responsible for: validating the OutputRecord exists,
+    confirming the source MP4 lives at ``source_video_path``, and
+    appending the resulting OutputRecord to the campaign.
+    """
+    if target_lang not in SUPPORTED_DUB_LANGS:
+        return DubbedAdResult(
+            status="failed",
+            error=(
+                f"unsupported target_lang '{target_lang}'. supported: "
+                f"{sorted(SUPPORTED_DUB_LANGS)}"
+            ),
+            mock_mode=settings.runway_mock,
+        )
+
+    if not source_video_path.exists():
+        return DubbedAdResult(
+            status="failed",
+            error=f"source video not found at {source_video_path}",
+            mock_mode=settings.runway_mock,
+        )
+
+    if not is_ffmpeg_available():
+        return DubbedAdResult(
+            status="failed",
+            error="ffmpeg unavailable",
+            mock_mode=settings.runway_mock,
+        )
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    finished_dir = settings.data_path / "finished"
+    finished_dir.mkdir(parents=True, exist_ok=True)
+    cache_filename = (
+        f"{campaign_id}-dubbed-{target_lang}-{output_id}-{timestamp}.mp4"
+    )
+    output_path = finished_dir / cache_filename
+
+    # Mock mode: produce a deterministic copy of the source so the UI
+    # flow exercises end-to-end (gallery + tile + playback) without
+    # hitting Runway. The "dubbed" file is just the original — no
+    # language transform, but the OutputRecord pathing is real.
+    if settings.runway_mock:
+        try:
+            shutil.copyfile(source_video_path, output_path)
+        except Exception as exc:
+            return DubbedAdResult(
+                status="failed",
+                error=f"mock copy failed: {exc!s}"[:300],
+                mock_mode=True,
+            )
+        return DubbedAdResult(
+            status="ok",
+            output_path=output_path,
+            cache_filename=cache_filename,
+            duration_s=_ffprobe_duration(source_video_path),
+            task_id=f"mock_dub_ad_{uuid.uuid4().hex[:8]}",
+            mock_mode=True,
+        )
+
+    # Real mode: extract → dub → mux.
+    extracted_audio: Optional[Path] = None
+    dubbed_audio: Optional[Path] = None
+    try:
+        # 1. Extract audio from source MP4 → MP3 (mono 128k).
+        extracted_audio = (
+            finished_dir / f"{campaign_id}-extract-{output_id}-{timestamp}.mp3"
+        )
+        subprocess.run(
+            [
+                "ffmpeg", "-y", "-loglevel", "error",
+                "-i", str(source_video_path),
+                "-vn",                  # no video
+                "-ac", "1",             # mono
+                "-ar", "44100",
+                "-b:a", "128k",
+                str(extracted_audio),
+            ],
+            check=True, capture_output=True, text=True, timeout=60,
+        )
+        audio_bytes = extracted_audio.read_bytes()
+        if len(audio_bytes) > 4 * 1024 * 1024:
+            return DubbedAdResult(
+                status="failed",
+                error=(
+                    f"extracted audio {len(audio_bytes):,} bytes exceeds "
+                    f"the 4MB data URI cap. Try a shorter ad or lower bitrate."
+                ),
+            )
+        import base64 as _b64
+        audio_uri = (
+            "data:audio/mpeg;base64,"
+            + _b64.b64encode(audio_bytes).decode("ascii")
+        )
+
+        # 2. Fire Runway voice_dubbing.
+        task_id, out_url = _dub_real(audio_uri, target_lang, settings)
+
+        # 3. Download the dubbed audio.
+        dubbed_audio = (
+            finished_dir / f"{campaign_id}-dubbed-audio-{output_id}-{timestamp}.mp3"
+        )
+        _download(out_url, dubbed_audio, accept_prefix="audio/")
+
+        # 4. Mux dubbed audio + original video. `-c:v copy` keeps the
+        #    video stream untouched (no re-encode). `-shortest` so
+        #    the output truncates if the audio is slightly off the
+        #    video duration. AAC re-encode of the dubbed audio for
+        #    MP4 container compatibility.
+        subprocess.run(
+            [
+                "ffmpeg", "-y", "-loglevel", "error",
+                "-i", str(source_video_path),
+                "-i", str(dubbed_audio),
+                "-c:v", "copy",
+                "-c:a", "aac",
+                "-b:a", "192k",
+                "-map", "0:v:0",
+                "-map", "1:a:0",
+                "-shortest",
+                "-movflags", "+faststart",
+                str(output_path),
+            ],
+            check=True, capture_output=True, text=True, timeout=120,
+        )
+        duration = _ffprobe_duration(output_path)
+        logger.info(
+            "dub-ad ok campaign=%s lang=%s output=%s bytes=%d duration=%.2f task=%s",
+            campaign_id, target_lang, output_id,
+            output_path.stat().st_size, duration or 0.0, task_id,
+        )
+        return DubbedAdResult(
+            status="ok",
+            output_path=output_path,
+            cache_filename=cache_filename,
+            duration_s=duration,
+            task_id=task_id,
+        )
+    except AudioError as exc:
+        logger.warning(
+            "dub-ad failed campaign=%s lang=%s: %s",
+            campaign_id, target_lang, exc,
+        )
+        return DubbedAdResult(status="failed", error=str(exc)[:300])
+    except subprocess.CalledProcessError as exc:
+        stderr = (exc.stderr or "").strip()[:300] if exc.stderr else ""
+        logger.warning(
+            "dub-ad ffmpeg failed campaign=%s lang=%s err=%s",
+            campaign_id, target_lang, stderr,
+        )
+        return DubbedAdResult(
+            status="failed",
+            error=f"ffmpeg failed: {stderr}"[:300],
+        )
+    except httpx.HTTPError as exc:
+        logger.warning("dub-ad http error: %s", exc)
+        return DubbedAdResult(status="failed", error=f"http error: {exc!s}"[:300])
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.exception("dub-ad unexpected")
+        return DubbedAdResult(status="failed", error=f"unexpected: {exc!s}"[:300])
+    finally:
+        # Cleanup intermediate files (extracted source audio + dubbed
+        # audio). Best-effort.
+        for p in (extracted_audio, dubbed_audio):
+            try:
+                if p is not None and p.exists():
+                    p.unlink()
+            except Exception:
+                pass
+
+
+def _ffprobe_duration(path: Path) -> Optional[float]:
+    """Best-effort duration extraction; returns None on failure."""
+    try:
+        out = subprocess.run(
+            [
+                "ffprobe", "-v", "error",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                str(path),
+            ],
+            check=True, capture_output=True, text=True, timeout=10,
+        )
+        return float(out.stdout.strip() or 0.0)
+    except Exception:
+        return None

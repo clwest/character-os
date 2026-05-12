@@ -141,6 +141,15 @@ OutputKind = Literal[
     # the polished final cut. Local-only feature; requires Resolve
     # Studio running on the same machine.
     "spokesperson_ad_resolve",
+    # PR EY — voice_dubbing applied to an existing Spokesperson Ad's
+    # audio track. Original video stream stays; audio is replaced
+    # with Runway's dubbed-into-{target_lang} version. Lip-sync will
+    # NOT match the new language (avatar's mouth still moves to the
+    # original English phonemes) — for proper lip-synced localization,
+    # the path is LLM-translate the script + re-render via
+    # avatar_videos. This kind is the "what does voice_dubbing produce
+    # on an existing ad" probe surface.
+    "spokesperson_ad_dubbed",
 ]
 
 
@@ -187,6 +196,11 @@ class OutputRecord(BaseModel):
     chunk_count: Optional[int] = None
     duration_estimate: Optional[float] = None
     stitched_from_output_ids: Optional[list[str]] = None
+    # PR EY — voice_dubbing target language for `spokesperson_ad_dubbed`
+    # outputs. Two-letter code from SUPPORTED_DUB_LANGS (e.g. "es",
+    # "ja", "fr"). The Videos gallery uses this to render a 🌐 lang
+    # badge so the operator can tell their dubbed versions apart.
+    dub_lang: Optional[str] = None
     created_at: datetime
 
 
@@ -610,6 +624,13 @@ class Character(BaseModel):
     runway_avatar_status: Optional[CharacterAvatarStatus] = None
     runway_avatar_thumbnail_url: Optional[str] = None
     runway_avatar_error: Optional[str] = None
+
+    # PR EP — set to True when a portrait is regenerated AFTER the
+    # avatar was already built (so the cached avatar still binds the
+    # OLD portrait and new ad renders will show the old face).
+    # Cleared back to False when the operator rebuilds the avatar.
+    # Drives the stale-avatar banner in IdentityPanelV2.
+    portrait_drift_from_avatar: bool = False
 
     # Provenance
     source_campaign_id: Optional[str] = None

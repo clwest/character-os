@@ -12,7 +12,8 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Literal, Optional
+from pathlib import Path
+from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
@@ -124,6 +125,30 @@ class ApplyVoiceBody(BaseModel):
     """
 
     mode: Optional[Literal["apply", "repair"]] = None
+
+
+class IdentityPatchBody(BaseModel):
+    """PR EN — request body for the identity-patch route.
+
+    Partial update of the user-visible identity fields on a Character.
+    The v2 Identity panel needs the operator to edit ``personality``
+    (system-prompt cue that flows into every realtime session via
+    ``_build_session_overrides``), ``voice_preset`` (Runway preset id
+    bound on the next avatar create / apply), and ``subject`` (the
+    one-line description rendered under the header).
+
+    Semantics:
+    - Missing keys are left alone.
+    - Empty strings are normalised to ``None`` for ``personality``
+      and ``subject`` so an operator can clear them.
+    - ``voice_preset`` validates against ``SUPPORTED_VOICE_PRESETS``;
+      ``None`` is not a valid clear value (every character must have
+      a preset).
+    """
+
+    personality: Optional[str] = Field(default=None, max_length=600)
+    voice_preset: Optional[str] = Field(default=None)
+    subject: Optional[str] = Field(default=None, max_length=300)
 
 
 class MetadataPatchBody(BaseModel):
@@ -273,12 +298,19 @@ def post_generate_portrait(
     )
 
     if result.status == "ok":
+        # PR EP — if an avatar was already built before this portrait
+        # generation, the cached avatar now binds the OLD portrait. Set
+        # `portrait_drift_from_avatar` so the Identity panel can surface
+        # a stale-avatar banner with a Rebuild Avatar CTA. First-time
+        # portrait generations (no avatar yet) keep the flag at False.
+        portrait_drift_from_avatar = bool(record.runway_avatar_id)
         updated = store.update(
             character_id,
             portrait_url=result.portrait_url,
             portrait_source=result.portrait_source,
             portrait_prompt=result.portrait_prompt,
             portrait_last_error=None,  # PR CS — clear on success
+            portrait_drift_from_avatar=portrait_drift_from_avatar,
             template=template,
             subject=(body.subject if body else None) or record.subject,
             style=(body.style if body else None) or record.style,
@@ -387,6 +419,9 @@ def post_create_avatar(
             runway_avatar_thumbnail_url=result.thumbnail_url,
             runway_avatar_error=None,
             voice_preset=(voice_preset or record.voice_preset).lower(),
+            # PR EP — avatar just rebuilt, clear the drift flag so the
+            # stale-avatar banner disappears.
+            portrait_drift_from_avatar=False,
             mock_mode=result.mock_mode,
         )
         return updated or record
@@ -897,6 +932,66 @@ def post_character_metadata(
     return updated
 
 
+@router.post("/{character_id}/identity", response_model=Character)
+def post_character_identity(
+    character_id: str,
+    body: IdentityPatchBody,
+    store: CharacterStore = Depends(_store),
+) -> Character:
+    """PR EN — partial update of the editable Identity fields.
+
+    Surfaced by the v2 Identity panel so the operator can revise the
+    spokesperson's ``personality`` cue (highest-leverage field — it
+    flows straight into the realtime session's system prompt),
+    ``voice_preset`` (bound on the next avatar create / apply), or
+    ``subject`` (one-line description) without a full character
+    recreate.
+
+    Failure modes:
+    - 404 — character not found.
+    - 400 — voice_preset not in SUPPORTED_VOICE_PRESETS.
+    - 422 — pydantic validation (max lengths).
+    """
+    record = store.get(character_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="character not found")
+
+    patch: dict[str, Any] = {}
+    if body.personality is not None:
+        patch["personality"] = body.personality.strip() or None
+    if body.subject is not None:
+        patch["subject"] = body.subject.strip() or None
+    if body.voice_preset is not None:
+        preset = body.voice_preset.strip().lower()
+        if not preset:
+            raise HTTPException(
+                status_code=400,
+                detail="voice_preset cannot be empty",
+            )
+        if preset not in SUPPORTED_VOICE_PRESETS:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"unsupported voice_preset '{body.voice_preset}'. "
+                    f"supported: {sorted(SUPPORTED_VOICE_PRESETS)}"
+                ),
+            )
+        patch["voice_preset"] = preset
+
+    if not patch:
+        return record
+
+    updated = store.update(character_id, **patch)
+    if not updated:
+        raise HTTPException(status_code=404, detail="character not found")
+    logger.info(
+        "character %s identity patched (%s)",
+        character_id,
+        ", ".join(sorted(patch.keys())),
+    )
+    return updated
+
+
 @router.get("/{character_id}/portrait")
 def get_character_portrait(
     character_id: str,
@@ -909,6 +1004,377 @@ def get_character_portrait(
         str(path),
         media_type="image/png",
         filename=f"adspark-character-{character_id}.png",
+    )
+
+
+# ---- PR EX — Act-Two character_performance probe ------------------
+#
+# Wraps the CLI probe (`scripts/probe-character-performance.py`) as
+# a real backend route so the frontend can record + fire + display
+# the result without round-tripping through the terminal. Operator
+# records a 5-10s performance video in the browser, POSTs it here,
+# the route fires `POST /v1/character_performance` with the
+# character's cached portrait as the `character.uri` and the
+# uploaded video as the `reference.uri`, polls to completion, and
+# downloads the output to `backend/data/characters/<id>-act-two-
+# <ts>.mp4`. Returned `output_url` is a same-origin path the
+# frontend can plug into `<video src>` directly.
+
+_MAX_PERFORMANCE_BYTES = 8 * 1024 * 1024  # 8 MB cap on the upload
+_ACT_TWO_POLL_DEADLINE_S = 300
+
+
+class ActTwoProbeResult(BaseModel):
+    """Response from the Act-Two probe route."""
+
+    status: str  # "succeeded" | "failed"
+    task_id: Optional[str] = None
+    output_url: Optional[str] = None  # same-origin /api/characters/{id}/act-two-output/{name}
+    output_filename: Optional[str] = None
+    output_duration_s: Optional[float] = None
+    output_bytes: Optional[int] = None
+    elapsed_s: Optional[float] = None
+    failure_code: Optional[str] = None
+    failure_message: Optional[str] = None
+
+
+@router.post(
+    "/{character_id}/act-two-probe", response_model=ActTwoProbeResult,
+)
+async def post_act_two_probe(
+    character_id: str,
+    performance: UploadFile = File(..., description="5-10s performance video (≤8 MB)"),
+    settings: Settings = Depends(get_settings),
+    store: CharacterStore = Depends(_store),
+) -> ActTwoProbeResult:
+    """PR EX — fire `POST /v1/character_performance` against the
+    character's cached portrait and an operator-recorded performance
+    video. The route handles upload, base64 encoding, task polling,
+    and result download. Returns a same-origin URL the frontend can
+    plug straight into `<video src>`.
+
+    Failure modes:
+    - 404 — character not found.
+    - 409 — character has no cached portrait.
+    - 413 — performance video exceeds the 8 MB upload cap.
+    - 422 — empty / unreadable performance body.
+    - 502 — Runway upstream task failure (returns ActTwoProbeResult
+      with status="failed" + failure_code).
+    - 503 — mock mode (no real Runway key to probe with).
+    """
+    if settings.runway_mock:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Act-Two probe requires a real Runway API key. "
+                "Mock mode is unsupported (no deterministic placeholder)."
+            ),
+        )
+
+    record = store.get(character_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="character not found")
+
+    portrait = store.portrait_path(character_id)
+    if not portrait.exists() or portrait.stat().st_size == 0:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "character has no cached portrait — generate one first "
+                "via POST /generate-portrait."
+            ),
+        )
+
+    perf_bytes = await performance.read()
+    if not perf_bytes:
+        raise HTTPException(status_code=422, detail="performance video is empty")
+    if len(perf_bytes) > _MAX_PERFORMANCE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                f"performance video is {len(perf_bytes):,} bytes "
+                f"(cap {_MAX_PERFORMANCE_BYTES:,}). Trim to ≤10 seconds "
+                f"or lower resolution."
+            ),
+        )
+
+    mime = (performance.content_type or "").lower().strip() or "video/webm"
+
+    import base64 as _b64
+    import subprocess as _sp
+    import tempfile as _tmp
+    import time as _time
+    import httpx as _httpx
+
+    # PR EX follow-up — browser MediaRecorder produces WebM files
+    # whose EBML duration header is UNKNOWN (the spec doesn't require
+    # the recorder to seek back and patch it at stop time). Browser
+    # video players infer duration by seeking to the end; Runway's
+    # `character_performance` validator reads the header field
+    # directly and 400s with "Video duration could not be determined."
+    # Fix: transcode the upload to MP4 via ffmpeg before forwarding.
+    # ffmpeg's writer fills in the moov atom + duration correctly.
+    # Same pattern as the storyboard / dialogue finishing layer.
+    perf_to_send_bytes = perf_bytes
+    perf_to_send_mime = mime
+    if "webm" in mime or "matroska" in mime:
+        try:
+            with _tmp.NamedTemporaryFile(suffix=".webm", delete=False) as src:
+                src.write(perf_bytes)
+                src_path = src.name
+            with _tmp.NamedTemporaryFile(suffix=".mp4", delete=False) as dst:
+                dst_path = dst.name
+            # Transcode H.264 + (no audio — we requested video-only
+            # getUserMedia in the modal). `-movflags +faststart`
+            # writes the moov atom up front so Runway can read
+            # duration without scanning the whole file.
+            # PR EX follow-up — quality-tuned transcode. The previous
+            # `-preset veryfast` produced low-bitrate output that
+            # appears to lose enough facial detail for Runway's face
+            # detector to reject (NO_FACE_FOUND even on recordings
+            # where the operator's face is clearly visible in the
+            # source). High-quality preset + visually-lossless CRF +
+            # standard 30fps + High profile / Level 4.0 (broadest
+            # compatibility) should give the detector everything it
+            # needs. Trade: ~3-5s more transcode time for a 8-10s
+            # source. Acceptable since the operator is already
+            # waiting 30-90s for Runway anyway.
+            _sp.run(
+                [
+                    "ffmpeg", "-y", "-loglevel", "error",
+                    "-i", src_path,
+                    "-c:v", "libx264",
+                    "-preset", "slow",         # was: veryfast
+                    "-crf", "18",              # visually-lossless (default 23 was too lossy)
+                    "-pix_fmt", "yuv420p",
+                    "-profile:v", "high",
+                    "-level", "4.0",
+                    "-r", "30",                # force 30fps (webcam timing can be uneven)
+                    "-an",                     # video-only
+                    "-movflags", "+faststart",
+                    dst_path,
+                ],
+                check=True, capture_output=True, text=True, timeout=60,
+            )
+            perf_to_send_bytes = Path(dst_path).read_bytes()
+            perf_to_send_mime = "video/mp4"
+            # Log the transcoded dimensions/duration via ffprobe so
+            # we can correlate Runway failures with what we actually
+            # sent. Best-effort — failure here doesn't block.
+            transcoded_meta = "(ffprobe failed)"
+            try:
+                meta_out = _sp.run(
+                    [
+                        "ffprobe", "-v", "error",
+                        "-select_streams", "v:0",
+                        "-show_entries", "stream=width,height,r_frame_rate,duration",
+                        "-of", "default=noprint_wrappers=1",
+                        dst_path,
+                    ],
+                    check=True, capture_output=True, text=True, timeout=10,
+                )
+                transcoded_meta = meta_out.stdout.strip().replace("\n", " ")
+            except Exception:
+                pass
+            logger.info(
+                "act-two transcode webm→mp4 character=%s in=%d bytes out=%d bytes meta=[%s]",
+                character_id, len(perf_bytes), len(perf_to_send_bytes), transcoded_meta,
+            )
+            # Cleanup temp files (best-effort).
+            for p in (src_path, dst_path):
+                try:
+                    Path(p).unlink(missing_ok=True)
+                except Exception:
+                    pass
+        except _sp.CalledProcessError as exc:
+            logger.warning(
+                "act-two transcode failed character=%s err=%s",
+                character_id, exc.stderr[:300] if exc.stderr else exc,
+            )
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    f"ffmpeg transcode of performance video failed: "
+                    f"{(exc.stderr or '').strip()[:300]}"
+                ),
+            )
+        except FileNotFoundError:
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    "ffmpeg not on PATH — required to transcode browser "
+                    "WebM uploads so Runway can read the duration."
+                ),
+            )
+
+    portrait_b64 = _b64.b64encode(portrait.read_bytes()).decode("ascii")
+    portrait_uri = f"data:image/png;base64,{portrait_b64}"
+    perf_b64 = _b64.b64encode(perf_to_send_bytes).decode("ascii")
+    perf_uri = f"data:{perf_to_send_mime};base64,{perf_b64}"
+
+    body = {
+        "model": "act_two",
+        "character": {"type": "image", "uri": portrait_uri},
+        "reference": {"type": "video", "uri": perf_uri},
+    }
+
+    headers = {
+        "Authorization": f"Bearer {settings.runway_api_key}",
+        "X-Runway-Version": settings.runway_api_version,
+        "Content-Type": "application/json",
+    }
+    create_url = f"{settings.runway_api_base}/v1/character_performance"
+
+    logger.info(
+        "act-two-probe character=%s portrait_bytes=%d performance_bytes=%d mime=%s",
+        character_id, portrait.stat().st_size, len(perf_bytes), mime,
+    )
+
+    fire_t0 = _time.time()
+    with _httpx.Client(timeout=60.0) as client:
+        resp = client.post(create_url, headers=headers, json=body)
+    if resp.status_code != 200:
+        logger.warning(
+            "act-two create failed character=%s status=%s body=%s",
+            character_id, resp.status_code, resp.text[:400],
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                f"character_performance create failed: "
+                f"{resp.status_code} {resp.text[:400]}"
+            ),
+        )
+    created = resp.json()
+    task_id = created.get("id")
+    if not task_id:
+        raise HTTPException(
+            status_code=502,
+            detail=f"character_performance missing task id: {created}",
+        )
+    logger.info("act-two task created character=%s task=%s", character_id, task_id)
+
+    # Poll until terminal
+    poll_url = f"{settings.runway_api_base}/v1/tasks/{task_id}"
+    deadline = _time.time() + _ACT_TWO_POLL_DEADLINE_S
+    payload: dict = created
+    last_status = ""
+    with _httpx.Client(timeout=20.0) as client:
+        while _time.time() < deadline:
+            r = client.get(poll_url, headers=headers)
+            r.raise_for_status()
+            payload = r.json()
+            status = (payload.get("status") or "").upper()
+            if status != last_status:
+                logger.info("act-two task %s -> %s", task_id, status)
+                last_status = status
+            if status in {"SUCCEEDED", "FAILED", "CANCELED"}:
+                break
+            _time.sleep(5)
+        else:
+            raise HTTPException(
+                status_code=502,
+                detail=f"act-two task {task_id} timed out after {_ACT_TWO_POLL_DEADLINE_S}s",
+            )
+
+    elapsed = _time.time() - fire_t0
+    status = (payload.get("status") or "").upper()
+    if status != "SUCCEEDED":
+        failure_message = payload.get("failure") or payload.get("error") or "unknown failure"
+        failure_code = payload.get("failureCode") or "UNKNOWN"
+        logger.warning(
+            "act-two task %s terminal=%s code=%s msg=%s",
+            task_id, status, failure_code, failure_message,
+        )
+        return ActTwoProbeResult(
+            status="failed",
+            task_id=task_id,
+            elapsed_s=round(elapsed, 1),
+            failure_code=str(failure_code),
+            failure_message=str(failure_message),
+        )
+
+    # Download the output to a local cache so it survives the
+    # presigned URL expiry. Same pattern as the portrait + host clip
+    # caches (PR F).
+    output_urls = payload.get("output") or []
+    out_url = next((u for u in output_urls if isinstance(u, str)), None)
+    if not out_url:
+        raise HTTPException(
+            status_code=502,
+            detail=f"act-two SUCCEEDED but no output URL: {payload}",
+        )
+
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    out_filename = f"{character_id}-act-two-{ts}.mp4"
+    out_path = Path(settings.data_path) / "characters" / out_filename
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    downloaded_bytes = 0
+    with _httpx.stream("GET", out_url, timeout=120.0, follow_redirects=True) as resp:
+        resp.raise_for_status()
+        with open(out_path, "wb") as fh:
+            for chunk in resp.iter_bytes():
+                downloaded_bytes += len(chunk)
+                fh.write(chunk)
+
+    # ffprobe-derive the output duration so the frontend can render
+    # a "5.2s · 4.1 MB" caption without doing it itself.
+    out_duration: Optional[float] = None
+    try:
+        import subprocess as _sp
+        result = _sp.run(
+            [
+                "ffprobe", "-v", "error",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                str(out_path),
+            ],
+            check=True, capture_output=True, text=True, timeout=10,
+        )
+        out_duration = float(result.stdout.strip() or 0.0)
+    except Exception as exc:  # pragma: no cover — ffprobe diagnostic
+        logger.warning("ffprobe failed on act-two output: %s", exc)
+
+    output_url = f"/api/characters/{character_id}/act-two-output/{out_filename}"
+    logger.info(
+        "act-two probe success character=%s task=%s elapsed=%.1fs out=%s (%d bytes, %.2fs)",
+        character_id, task_id, elapsed, out_filename, downloaded_bytes,
+        out_duration or 0.0,
+    )
+    return ActTwoProbeResult(
+        status="succeeded",
+        task_id=task_id,
+        output_url=output_url,
+        output_filename=out_filename,
+        output_duration_s=out_duration,
+        output_bytes=downloaded_bytes,
+        elapsed_s=round(elapsed, 1),
+    )
+
+
+@router.get("/{character_id}/act-two-output/{filename}")
+def get_act_two_output(
+    character_id: str,
+    filename: str,
+    settings: Settings = Depends(get_settings),
+) -> FileResponse:
+    """PR EX — serve a cached Act-Two probe output back to the
+    frontend's `<video src>`. Same pattern as the portrait route.
+    Path-traverse guarded by Pydantic-validated filename + prefix
+    check below.
+    """
+    # Defensive: only serve files matching the expected name pattern.
+    if "/" in filename or ".." in filename or not filename.endswith(".mp4"):
+        raise HTTPException(status_code=400, detail="invalid filename")
+    if not filename.startswith(character_id):
+        raise HTTPException(status_code=403, detail="filename / character mismatch")
+    path = Path(settings.data_path) / "characters" / filename
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="no such act-two output")
+    return FileResponse(
+        str(path),
+        media_type="video/mp4",
+        filename=filename,
     )
 
 

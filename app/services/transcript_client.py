@@ -231,8 +231,36 @@ def fetch_transcript(
             error=f"non-json transcript response: {exc!s}"[:200],
         )
 
+    # PR ER — inspect Runway's session-level status BEFORE falling
+    # back to "empty turns." Real-mode sessions can fail on Runway's
+    # side (WebRTC issues, recording-pipeline failure, etc.) and
+    # surface as `{status: "failed", failureCode: "UNKNOWN", failure:
+    # "Unknown error", transcript: []}` — same shape as a legitimately
+    # empty short session, but fundamentally different: the failed
+    # session is permanently dead (`endedAt` is null, no `recordingUrl`),
+    # so no amount of retry / wait / re-fetch will produce turns.
+    # Before PR ER we labelled both as "empty" which made it look like
+    # our auto-fetch was firing too early when in fact Runway had
+    # marked the session unrecoverable. Now we surface "failed" with
+    # the upstream failureCode so the UI can show *"Runway marked this
+    # session as failed"* instead of *"waiting for transcript…"*.
+    runway_status = (payload.get("status") or "").lower()
+    if runway_status == "failed":
+        fcode = payload.get("failureCode") or "UNKNOWN"
+        fmsg = payload.get("failure") or "session failed"
+        return TranscriptResult(
+            status="failed",
+            conversation_id=cid,
+            error=f"runway session failed [code={fcode}]: {fmsg}",
+            fetched_at=_now(),
+        )
+
     turns = _normalise_turns(payload)
     if not turns:
+        # Genuinely empty: Runway didn't mark the session failed, just
+        # has no turns yet. Could be still-processing or actually a
+        # silent session. The frontend retry loop in handleEnd polls
+        # for this case.
         return TranscriptResult(
             status="empty",
             conversation_id=cid,

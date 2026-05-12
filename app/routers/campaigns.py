@@ -1832,6 +1832,10 @@ class AutoWriteScriptBody(BaseModel):
 
 class AutoWriteScriptResponse(BaseModel):
     script: str
+    # PR EU — LLM-generated variant title. Empty string when the LLM
+    # ignored the TITLE: line in the prompt or the parser couldn't
+    # extract one — frontend falls back to "Ad N" in that case.
+    title: str = ""
     provider: str
     model: str
     mode: Literal["short", "long"]
@@ -1878,6 +1882,7 @@ def post_auto_write_script(
     )
     return AutoWriteScriptResponse(
         script=result["script"],
+        title=result.get("title", "") or "",
         provider=result["provider"],
         model=result["model"],
         mode=result["mode"],
@@ -2112,6 +2117,11 @@ def get_campaign_output(
         # finals (per-chunk MP4s live separately under data/long_ad/
         # and are deleted after the stitch).
         "long_spokesperson_ad",
+        # PR EY — voice_dubbing applied to an existing Spokesperson Ad.
+        # Output is the ffmpeg mux of (original video stream + dubbed
+        # audio stream), lives in finished/ next to the other
+        # ffmpeg-built finals.
+        "spokesperson_ad_dubbed",
     }:
         cache_dir = settings.data_path / "finished"
     elif match.kind in {"cinematic_video"}:
@@ -2908,6 +2918,13 @@ class DubBody(BaseModel):
     target_lang: str = Field(..., description="ISO 639-1 lang code")
 
 
+class DubAdBody(BaseModel):
+    """PR EY — body for `POST /api/campaigns/{id}/dub-ad`."""
+
+    output_id: str = Field(..., min_length=8, max_length=64)
+    target_lang: str = Field(..., description="ISO 639-1 lang code")
+
+
 @router.post("/{campaign_id}/brand-voice", response_model=Campaign)
 def post_design_brand_voice(
     campaign_id: str,
@@ -3022,6 +3039,144 @@ def post_dub_voice(
             error=result.error,
         )
     return updated or record
+
+
+# ---- PR EY — voice_dubbing on an existing Spokesperson Ad --------
+#
+# Operator-facing flow: open a campaign workspace, find a rendered
+# Spokesperson Ad in the outputs grid, click 🌐 Dub, pick a language
+# from the picker, fire. Backend extracts the ad's audio, sends to
+# Runway voice_dubbing, mux the dubbed audio back into the original
+# video, save as a new OutputRecord (kind=spokesperson_ad_dubbed)
+# with `dub_lang` set so the UI can show a language badge.
+#
+# Limitation surfaced for the operator on the frontend: lip-sync
+# will NOT match the new language because the original video stream
+# is preserved (avatar's mouth moves to English phonemes regardless
+# of the audio language). For proper lip-synced localization the
+# path is LLM-translate + re-render via avatar_videos — a separate
+# Path B slice.
+
+
+@router.post("/{campaign_id}/dub-ad", response_model=Campaign)
+def post_dub_ad(
+    campaign_id: str,
+    body: DubAdBody,
+    settings: Settings = Depends(get_settings),
+    store: CampaignStore = Depends(_store),
+) -> Campaign:
+    """PR EY — dub an existing OutputRecord's audio into `target_lang`,
+    mux back into the original video, append a new
+    `spokesperson_ad_dubbed` OutputRecord to the campaign.
+
+    Failure modes:
+    - 404 — campaign or output not found.
+    - 400 — unsupported target_lang.
+    - 409 — output kind is non-dubbable (only spokesperson_ad /
+      long_spokesperson_ad / voiced_commercial supported; reels +
+      cinematic_video are silent or already-finalised stitches we
+      don't dub).
+    - 502 — Runway voice_dubbing upstream failure.
+    """
+    record = store.get(campaign_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="campaign not found")
+    target_lang = body.target_lang.strip().lower()
+    if target_lang not in SUPPORTED_DUB_LANGS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"unsupported target_lang '{target_lang}'. supported: "
+                f"{sorted(SUPPORTED_DUB_LANGS)}"
+            ),
+        )
+
+    output = next((o for o in record.outputs if o.id == body.output_id), None)
+    if not output:
+        raise HTTPException(
+            status_code=404,
+            detail=f"output '{body.output_id}' not found on this campaign",
+        )
+
+    # Only ads with spoken audio are dubbable. Silent cinematic +
+    # reels (which are reframes of an already-dubbed source) skip.
+    DUBBABLE_KINDS = {
+        "spokesperson_ad",
+        "long_spokesperson_ad",
+        "voiced_commercial",
+        "storyboard_voiced",
+        "dialogue_scene",
+    }
+    if output.kind not in DUBBABLE_KINDS:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"output kind '{output.kind}' is not dubbable. "
+                f"Supported: {sorted(DUBBABLE_KINDS)}"
+            ),
+        )
+
+    # Resolve the source MP4 path. Mirrors the kind→dir mapping in
+    # the get_campaign_output route. `host_path_for` is the alias for
+    # `services.character_host_client.path_for` set up at module top.
+    if output.kind == "spokesperson_ad":
+        source_path = (
+            host_path_for(settings, campaign_id).parent / output.cache_filename
+        )
+    else:
+        source_path = settings.data_path / "finished" / output.cache_filename
+    if not source_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"source video file missing at {source_path}",
+        )
+
+    from ..services.audio_client import dub_output_ad
+
+    result = dub_output_ad(
+        source_video_path=source_path,
+        campaign_id=campaign_id,
+        output_id=body.output_id,
+        target_lang=target_lang,
+        settings=settings,
+    )
+
+    if result.status != "ok" or not result.cache_filename:
+        logger.warning(
+            "dub-ad failed campaign=%s output=%s lang=%s err=%s",
+            campaign_id, body.output_id, target_lang, result.error,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=f"voice_dubbing failed: {result.error or 'unknown error'}",
+        )
+
+    # Append a new OutputRecord. Mock-mode results carry the source
+    # filename through unchanged so the gallery still works.
+    new_output_id = uuid.uuid4().hex[:12]
+    new_entry = {
+        "id": new_output_id,
+        "kind": "spokesperson_ad_dubbed",
+        "video_url": f"/api/campaigns/{campaign_id}/output/{new_output_id}",
+        "cache_filename": result.cache_filename,
+        "script": output.script,  # carry through the source's script
+        "task_id": result.task_id,
+        "mock_mode": result.mock_mode,
+        "parent_output_id": output.id,
+        "variant_id": output.variant_id,
+        "variant_title": output.variant_title,
+        "dub_lang": target_lang,
+        "duration_estimate": result.duration_s,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    updated = store.append_output(campaign_id, new_entry)
+    if not updated:
+        raise HTTPException(status_code=404, detail="campaign not found")
+    logger.info(
+        "dub-ad ok campaign=%s output=%s lang=%s new_output=%s",
+        campaign_id, body.output_id, target_lang, new_output_id,
+    )
+    return updated
 
 
 # ---- PR K — Character Studio attachment ---------------------------

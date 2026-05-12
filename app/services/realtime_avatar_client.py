@@ -485,94 +485,89 @@ DEFAULT_REALTIME_TOOLS: list[dict] = [
         "name": "recall_recent_conversations",
         "description": (
             "Surface the operator's prior conversations with this "
-            "spokesperson — the persisted memory entries from past "
-            "realtime sessions. Call when the operator asks 'what "
-            "have we talked about?', 'do you remember our last "
-            "chat?', 'what do you remember about me?', or similar "
-            "recall prompts. Optional `query` arg narrows the search "
-            "to a topic substring. "
-            "CRITICAL: this tool is fire-and-forget — you will NOT "
-            "receive the recalled content back. The operator sees "
-            "the saved summaries as toasts on their screen; YOU do "
-            "not see them. "
-            "EXACT SCRIPT: Before invoking, say something like 'Let "
-            "me pull up what we discussed.' Invoke. THEN say exactly: "
-            "'Okay, I'm looking at them on my screen now — which one "
-            "do you want to revisit?' STOP. Wait for the operator. "
-            "STRICTLY FORBIDDEN AFTER INVOCATION: naming any "
-            "business, product, service, client, person, location, "
-            "date, number, or scenario from the recalled "
-            "conversations. You cannot see what was retrieved. If "
-            "you invent a 'dog walking service' or any other "
-            "specific detail, you will be wrong and the operator "
-            "will lose trust. The ONLY safe move is to ask the "
-            "operator to fill in the topic themselves."
+            "spokesperson. Call when the operator asks 'what have we "
+            "talked about?', 'do you remember our last chat?', 'what "
+            "do you remember about me?'. Optional `query` arg narrows "
+            "to a topic. Fire-and-forget — you will NOT receive the "
+            "content back; operator sees summaries as toasts. "
+            "EXACT SCRIPT: say 'Let me pull up what we discussed.' "
+            "Invoke. THEN say 'Okay, I'm looking at them on my screen "
+            "now — which one do you want to revisit?' STOP. Wait. "
+            "STRICTLY FORBIDDEN AFTER INVOCATION: naming any business, "
+            "product, person, date, or specific detail from the "
+            "recalled conversations. You cannot see what was retrieved "
+            "— inventing details (e.g. 'dog walking service') will be "
+            "wrong and lose operator trust. Ask the operator to fill "
+            "in the topic themselves."
         ),
     },
     {
         "name": "attach_memory_to_campaign",
         "description": (
-            "Save the current conversation + your accumulated memory "
-            "to the active campaign so you remember it next time. "
-            "Call when the operator says 'save what we talked about', "
-            "'remember this for next time', 'lock this in', or after "
-            "a substantive exchange the operator wants to persist. "
-            "Triggers compose → publish to Runway as a document → "
-            "attach to the active campaign in one chained operation. "
-            "CRITICAL: this tool is fire-and-forget — you will NOT "
-            "receive a confirmation back. Before invoking, SAY ALOUD "
-            "that you're saving the memory and that the next session "
-            "on this campaign will recall it (e.g. 'Good idea — "
-            "saving that now so I remember next time we talk…'). The "
-            "operator sees compose → publish → attach progress as "
-            "toasts; the whole chain takes ~5-10 seconds. After "
-            "invoking, keep the conversation going — do not wait "
-            "silently for a confirmation."
+            "Save the current conversation so you remember it next "
+            "time. MANDATORY TRIGGERS — invoke when the operator says: "
+            "'save what we talked about', 'save our conversation', "
+            "'save this', 'remember this', 'lock this in', 'keep this "
+            "for later', or any 'save/remember the conversation' phrasing. "
+            "DO NOT confuse this with platform-level recording — THIS "
+            "tool is what makes YOU remember next time. Do NOT say 'the "
+            "platform is recording it' or 'I don't have access' — both "
+            "are wrong; this tool IS your access. "
+            "EXACT SCRIPT: say 'Good idea, saving that now so I "
+            "remember next time we talk' then INVOKE. Tool is fire-"
+            "and-forget — no confirmation comes back; operator sees "
+            "compose→publish→attach toasts (~5-10s). After invoking, "
+            "keep the conversation going naturally; do NOT wait for "
+            "confirmation and do NOT ask the operator to verify."
         ),
     },
     {
         "name": "handoff_to_character",
         "description": (
             "Hand the conversation off to a different spokesperson. "
-            "Pass the target spokesperson's name as `character_name` "
-            "(case-insensitive substring match — 'Riggs' resolves "
-            "Riggs Rally, 'Miles' resolves Miles Monroe). The "
-            "handler resolves the name, picks the target's most "
-            "recent campaign, and navigates the operator to a fresh "
-            "realtime session against the target. "
-            "MANDATORY INVOCATION TRIGGERS — if the operator says ANY "
-            "of these, you MUST invoke this tool: "
-            "  • 'hand me off to <name>' "
-            "  • 'switch me to <name>' "
-            "  • 'I want to talk to <name>' "
-            "  • 'let me talk to <name>' "
-            "  • 'transfer me to <name>' "
-            "  • 'connect me with <name>' "
-            "  • any phrasing that names a different spokesperson "
-            "    as the desired conversation partner. "
-            "CONSEQUENCE OF NOT INVOKING: the operator STAYS WITH "
-            "YOU. You are NOT a substitute for the requested "
-            "spokesperson — handing off is what the operator wants, "
-            "and explaining what you could do instead is the wrong "
-            "answer. Refusing to invoke is failing the operator. "
-            "EXACT SCRIPT: Say one short sentence — 'On it, handing "
-            "you to <Name> now' — then INVOKE the tool. Do NOT "
-            "explain your own capabilities. Do NOT offer to help "
-            "with what they asked. Do NOT keep the conversation. "
-            "The tool ends your session in ~2 seconds; the operator "
-            "wants to be with the new spokesperson, not you. "
-            "This tool is fire-and-forget — no confirmation comes "
-            "back, and the session terminates."
+            "Pass the target's name as `character_name` (case-"
+            "insensitive substring — 'Riggs' resolves Riggs Rally). "
+            "The handler picks the target's most recent campaign "
+            "and navigates the operator there. "
+            "MANDATORY TRIGGERS — invoke when the operator says: "
+            "'hand me off to <name>', 'switch me to <name>', 'I want "
+            "to talk to <name>', 'let me talk to <name>', 'transfer "
+            "me to <name>', 'connect me with <name>', or any phrasing "
+            "naming a different spokesperson. "
+            "CONSEQUENCE OF NOT INVOKING: operator stays with YOU. "
+            "You are NOT a substitute for the requested spokesperson. "
+            "Explaining what you could do instead is the wrong answer. "
+            "EXACT SCRIPT: say 'On it, handing you to <Name> now' then "
+            "INVOKE. Do NOT explain your capabilities. Do NOT offer to "
+            "help. The tool ends your session in ~2 seconds; the "
+            "operator wants the new spokesperson, not you. Fire-and-"
+            "forget — no confirmation, session terminates."
         ),
     },
 ]
 
+
+_DESCRIPTION_MAX = 1024
+_DESCRIPTION_SAFE = 1000
 
 def _wire_tool_entries(tools: list[dict] | None) -> list[dict]:
     """Wrap a list of ``{name, description}`` dicts in the Runway
     realtime-session ``client_event`` discriminator. Returns ``[]``
     when ``tools`` is None or empty so the caller can skip adding the
     ``tools`` key entirely (cleaner request body on no-tools sessions).
+
+    PR EW — defensive truncation of descriptions over Runway's 1024-
+    char cap. Before this guard, an over-budget description caused
+    Runway to 400 the entire session-create request with
+    ``{path: ["tools", "[N]", ".description"], message: "Too big"}``,
+    triggering our 400-fallback path which DROPS ALL TOOLS — silently
+    leaving every avatar with no tool catalog. That's what the
+    operator observed when Riggs said "I can't create ads or save
+    anything": the catalog had been stripped at the broker level
+    because one description was 1851 chars (PR EQ rewrite of
+    ``attach_memory_to_campaign``). The trim here is the last line of
+    defense — descriptions should stay under ``_DESCRIPTION_SAFE``
+    by design; this guard catches accidents.
     """
     if not tools:
         return []
@@ -582,6 +577,20 @@ def _wire_tool_entries(tools: list[dict] | None) -> list[dict]:
         description = (t.get("description") or "").strip()
         if not name or not description:
             continue
+        if len(description) > _DESCRIPTION_MAX:
+            logger.warning(
+                "tool %s description over Runway's %d-char cap (%d chars); "
+                "truncating to %d to preserve the tool catalog",
+                name, _DESCRIPTION_MAX, len(description), _DESCRIPTION_SAFE,
+            )
+            # Truncate at the last sentence boundary under _DESCRIPTION_SAFE
+            # so the surviving text reads coherently rather than mid-word.
+            cutoff = description[:_DESCRIPTION_SAFE]
+            last_period = cutoff.rfind(". ")
+            if last_period > _DESCRIPTION_SAFE // 2:
+                description = cutoff[: last_period + 1].rstrip()
+            else:
+                description = cutoff.rstrip()
         out.append({
             "type": "client_event",
             "name": name,

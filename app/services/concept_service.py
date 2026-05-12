@@ -116,33 +116,83 @@ def _coerce_response(payload: dict, fallback: ConceptResponse) -> ConceptRespons
 # operator can paste straight into Step 2's variant.
 
 SCRIPT_SYSTEM_PROMPT_SHORT = (
-    "You write punchy spoken ad scripts for an AI brand spokesperson. "
-    "The script will be read aloud by an avatar on camera, so write "
-    "in natural spoken English. No stage directions. No parenthetical "
-    "asides. No quotation marks around the whole script. No 'voiceover' "
-    "labels. Just the words the avatar will say. "
-    "Target length: 200-260 characters (the avatar API caps the line "
-    "at 300 chars total). Open with a hook in the first 10 words. "
-    "Deliver value in the middle. End with one clear, specific "
-    "call-to-action."
+    "You write ONE 15-second spoken commercial for an AI brand "
+    "spokesperson. ONE complete ad, NOT a fragment of a longer story.\n"
+    "\n"
+    "STRUCTURE — mandatory three beats:\n"
+    "  1. HOOK (1 sentence, 8-15 words). A surprising claim, a "
+    "question, or a tension that grabs attention.\n"
+    "  2. SINGLE CLAIM (1-2 sentences). Make ONE specific promise. "
+    "Pick THE punchiest angle from the campaign brief. Do NOT try to "
+    "summarise everything in the brief.\n"
+    "  3. CTA (1 sentence, 6-10 words). A specific action with a verb.\n"
+    "\n"
+    "STAND-ALONE RULE — if a listener heard ONLY this script, they "
+    "should feel the ad is COMPLETE. No setup-without-payoff. No "
+    "'first… then… finally…' narratives. No 'this is how we built it' "
+    "stories that need 30+ seconds to land. If the campaign brief "
+    "contains a complex story (a build journey, a multi-stage feature "
+    "set, a founder narrative), pick ONE angle from it and go deep on "
+    "that single angle. The rest of the story is for a longer ad — "
+    "not this one.\n"
+    "\n"
+    "VOICE — natural spoken English. The avatar reads this aloud on "
+    "camera. No stage directions. No parenthetical asides. No "
+    "quotation marks around the whole script. No 'voiceover' labels. "
+    "Just the words the avatar will say.\n"
+    "\n"
+    "LENGTH — STRICT MAX 280 characters total. The avatar API rejects "
+    "anything over 300 chars and we truncate at 300, which produces "
+    "mid-word cutoffs. Stay well under 280. Target 200-260 characters. "
+    "If your draft is over 280, you wrote too much — cut a sentence, "
+    "don't rely on the truncator.\n"
+    "\n"
+    "TITLE — also generate a 3-6 word noun phrase title summarising the "
+    "ad's angle. The operator sees this in the variant chip row instead "
+    "of generic 'Ad 1, Ad 2, Ad 3'. Examples: 'Founder pitch for indie "
+    "SaaS', 'Coffee subscription hook', 'YC application angle'.\n"
+    "\n"
+    "OUTPUT FORMAT — return EXACTLY two lines, no preamble:\n"
+    "TITLE: <your 3-6 word noun phrase>\n"
+    "SCRIPT: <your single complete ≤280-char ad>\n"
+    "\n"
+    "Do NOT add any words like 'Here is your spoken ad script:' or any "
+    "other framing. Just TITLE: and SCRIPT: lines."
 )
 
 
 SCRIPT_SYSTEM_PROMPT_LONG = (
-    "You write longer-form spoken ad scripts for an AI brand "
-    "spokesperson. The script will be read aloud by an avatar on "
-    "camera AND chunked at sentence boundaries for rendering — so "
-    "use SHORT, SELF-CONTAINED SENTENCES. Each sentence should "
-    "stand on its own. Avoid run-ons or sentences that depend on "
-    "the previous one. No stage directions. No parenthetical "
-    "asides. No quotation marks around the script. No 'voiceover' "
-    "labels. Just the spoken words. "
-    "Target length: 1000-1400 characters total (roughly 35-50 "
-    "seconds when read aloud). Structure: open with a 1-2 sentence "
-    "hook, three or four micro-beats of substance / proof in the "
-    "middle, close with one clear call-to-action. Treat each "
-    "sentence as a distinct beat — the renderer cuts on sentence "
-    "boundaries."
+    "You write longer-form (45-60 second) spoken ad scripts for an AI "
+    "brand spokesperson. The script will be read aloud by an avatar on "
+    "camera AND chunked at sentence boundaries for rendering — so use "
+    "SHORT, SELF-CONTAINED SENTENCES. Each sentence should stand on "
+    "its own. Avoid run-ons or sentences that depend on the previous "
+    "one. No stage directions. No parenthetical asides. No quotation "
+    "marks around the script. No 'voiceover' labels. Just the spoken "
+    "words.\n"
+    "\n"
+    "STRUCTURE — open with a 1-2 sentence hook, three or four micro-"
+    "beats of substance / proof in the middle, close with one clear "
+    "call-to-action. Treat each sentence as a distinct beat — the "
+    "renderer cuts on sentence boundaries. THIS format gives you the "
+    "room to tell a multi-beat story (a build journey, a feature tour, "
+    "a founder narrative). Use that room.\n"
+    "\n"
+    "LENGTH — Target 1000-1400 characters total (roughly 35-50 seconds "
+    "when read aloud). Hard ceiling 1500 chars.\n"
+    "\n"
+    "TITLE — also generate a 3-6 word noun phrase title summarising "
+    "the ad's angle. The operator sees this in the variant chip row "
+    "instead of generic 'Ad 1, Ad 2, Ad 3'. For long ads, the title "
+    "should signal the story arc: 'Why we built Character OS', "
+    "'Founder origin story', 'Hackathon-to-product journey'.\n"
+    "\n"
+    "OUTPUT FORMAT — return EXACTLY two lines, no preamble:\n"
+    "TITLE: <your 3-6 word noun phrase>\n"
+    "SCRIPT: <your spoken ad script>\n"
+    "\n"
+    "Do NOT add any framing words like 'Here is your spoken ad script:' "
+    "Just TITLE: and SCRIPT: lines."
 )
 
 
@@ -187,13 +237,23 @@ def _clean_script_output(raw: str) -> str:
             text = text.rstrip("`~ \n")
     # Strip leading "Here is the script:" / "Here's the ad:" / etc.
     # ornaments that smaller open models add despite instructions.
+    # PR EU — added "Here is your spoken ad script:" + variants that
+    # Llama keeps emitting despite the explicit prompt instruction.
     for prefix in (
+        "Here is your spoken ad script:",
+        "Here's your spoken ad script:",
+        "Here is your ad script:",
+        "Here's your ad script:",
+        "Here is your ad:",
+        "Here's your ad:",
         "Here is the script:",
         "Here's the script:",
         "Here is the ad:",
         "Here's the ad:",
         "Here is the spoken script:",
         "Here's the spoken script:",
+        "Here's a punchy spoken ad script:",
+        "Here is a punchy spoken ad script:",
         "Script:",
         "Ad:",
         "Script -",
@@ -205,6 +265,83 @@ def _clean_script_output(raw: str) -> str:
     if len(text) >= 2 and text[0] in {'"', "'", "“", "‘"} and text[-1] in {'"', "'", "”", "’"}:
         text = text[1:-1].strip()
     return text
+
+
+# PR EU — sentence-boundary truncation safety net. The system prompt
+# asks Llama for ≤280 chars but it routinely exceeds that. Without
+# this, the 300-char DB / Runway cap truncates mid-word ("...buil")
+# and the spoken ad ends abruptly. Find the last sentence-ending
+# punctuation under `max_chars` and truncate there; if no sentence
+# boundary fits, truncate at the last word boundary.
+_SENTENCE_ENDERS = ".!?"
+
+def _truncate_at_sentence(text: str, max_chars: int = 280) -> str:
+    if not text or len(text) <= max_chars:
+        return text
+    window = text[:max_chars]
+    # Find the last sentence ender in the window.
+    last_end = -1
+    for ender in _SENTENCE_ENDERS:
+        idx = window.rfind(ender)
+        if idx > last_end:
+            last_end = idx
+    if last_end >= 60:
+        # Include the ender itself; strip trailing whitespace.
+        return window[: last_end + 1].rstrip()
+    # No sentence-ending punctuation found in window — fall back to
+    # last word boundary so we at least don't cut mid-word.
+    last_space = window.rfind(" ")
+    if last_space >= 60:
+        return window[:last_space].rstrip()
+    # Last resort — hard truncate. Unlikely to hit because the prompt
+    # already targets 200-260 chars.
+    return window.rstrip()
+
+
+# PR EU — parse the TITLE: / SCRIPT: structured output the prompt
+# requests. Returns (title, script). Falls back gracefully when the
+# model didn't follow the format — older mock paths and any LLM that
+# emits plain script without the TITLE prefix still work.
+def _parse_titled_output(raw: str) -> tuple[str, str]:
+    text = (raw or "").strip()
+    if not text:
+        return "", ""
+    title = ""
+    script_lines: list[str] = []
+    in_script = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            if in_script:
+                script_lines.append("")
+            continue
+        lower = stripped.lower()
+        if not title and (lower.startswith("title:") or lower.startswith("title -")):
+            colon = stripped.find(":")
+            dash = stripped.find("-")
+            cut = colon if colon != -1 else dash
+            title = stripped[cut + 1 :].strip().strip('"\'""\'\'')
+            continue
+        if lower.startswith("script:") or lower.startswith("script -"):
+            colon = stripped.find(":")
+            dash = stripped.find("-")
+            cut = colon if colon != -1 else dash
+            script_lines.append(stripped[cut + 1 :].lstrip())
+            in_script = True
+            continue
+        # Once we're in the SCRIPT block, everything else is body.
+        if in_script:
+            script_lines.append(stripped)
+        elif not title:
+            # No labels at all; treat the whole blob as script.
+            script_lines.append(stripped)
+            in_script = True
+    script = "\n".join(s for s in script_lines if s is not None).strip()
+    # Cap title; the avatar variant title input has its own length
+    # limit (80 chars). Trim aggressively here.
+    if title and len(title) > 60:
+        title = title[:60].rstrip()
+    return title, script
 
 
 def generate_ad_script(
@@ -259,6 +396,7 @@ def generate_ad_script(
                 "Visit our site, watch a real demo, and see for yourself.",
             ]
             script = " ".join(sentences)
+            title = f"{biz} long-form pitch"
         else:
             script = (
                 f"Hey {aud} — meet {biz}. {prod} done right, no fluff. "
@@ -266,8 +404,10 @@ def generate_ad_script(
             )
             if len(script) > 260:
                 script = script[:257].rstrip() + "..."
+            title = f"{biz} hook"
         return {
             "script": script,
+            "title": title,
             "provider": provider,
             "model": "(template fallback)",
             "mode": mode_norm,
@@ -318,26 +458,37 @@ def generate_ad_script(
             temperature=0.95,
         )
         raw: Optional[str] = completion.choices[0].message.content
-        cleaned = _clean_script_output(raw or "")
+        # PR EU — parse the TITLE: / SCRIPT: structured format first,
+        # THEN clean the script portion. Title may be empty for long
+        # mode (system prompt only asks for title in short mode) or
+        # when the LLM ignores the format (graceful fallback handled
+        # in _parse_titled_output).
+        parsed_title, parsed_script = _parse_titled_output(raw or "")
+        cleaned = _clean_script_output(parsed_script)
         if not cleaned:
             logger.warning("ad script generation returned empty content")
             return _mock_script()
-        # Soft length guard — different ceilings per mode. Short
-        # mode is hard-bounded by Runway's avatar_videos 300-char
-        # cap; long mode is bounded by the AdVariant.long_script
-        # 1500-char cap.
-        ceiling = 1500 if mode_norm == "long" else 280
-        if len(cleaned) > ceiling:
-            cut = cleaned[:ceiling]
-            for sep in (". ", "! ", "? "):
-                idx = cut.rfind(sep)
-                if idx > 100:
-                    cleaned = cut[: idx + 1].rstrip()
-                    break
-            else:
-                cleaned = cut.rstrip() + "..."
+        # PR EU — sentence-boundary truncation. Short mode is hard-
+        # bounded by Runway's 300-char cap; truncate at the last
+        # sentence ender below 280 so spoken ads never cut off mid-
+        # word. Long mode keeps the existing 1500-char ceiling via
+        # the previous loop pattern.
+        if mode_norm == "long":
+            ceiling = 1500
+            if len(cleaned) > ceiling:
+                cut = cleaned[:ceiling]
+                for sep in (". ", "! ", "? "):
+                    idx = cut.rfind(sep)
+                    if idx > 100:
+                        cleaned = cut[: idx + 1].rstrip()
+                        break
+                else:
+                    cleaned = cut.rstrip() + "..."
+        else:
+            cleaned = _truncate_at_sentence(cleaned, 280)
         return {
             "script": cleaned,
+            "title": parsed_title or "",
             "provider": provider,
             "model": model,
             "mode": mode_norm,
