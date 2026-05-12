@@ -159,6 +159,13 @@ OutputKind = Literal[
     # watercolor / cyberpunk) so the Videos gallery can sub-bucket
     # remixes by style.
     "spokesperson_ad_remix",
+    # PR FB — Polish pass. ffmpeg-burns captions (estimated timing
+    # from the OutputRecord's script field) + a lower-third
+    # ("character · business") + a 1.5s intro card with the business
+    # name + a 1.5s outro CTA card. Pure ffmpeg, no Runway. Lands
+    # in finished/ next to the other ffmpeg-built finals. Output
+    # duration ≈ source + 3s (intro + outro).
+    "spokesperson_ad_polished",
 ]
 
 

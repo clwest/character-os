@@ -2125,6 +2125,10 @@ def get_campaign_output(
         # PR FA — Aleph `video_to_video` style remix. Runway-hosted
         # output downloaded to data/finished/ at remix time.
         "spokesperson_ad_remix",
+        # PR FB — Polish pass (ffmpeg-built; captions + lower-third
+        # + intro/outro cards). Lives next to the other finished/
+        # finals.
+        "spokesperson_ad_polished",
     }:
         cache_dir = settings.data_path / "finished"
     elif match.kind in {"cinematic_video"}:
@@ -3346,6 +3350,156 @@ def post_remix_output(
     logger.info(
         "remix ok campaign=%s output=%s style=%s new_output=%s",
         campaign_id, body.output_id, style_id, new_output_id,
+    )
+    return updated
+
+
+# ---- PR FB — Polish pass (ffmpeg captions + cards + lower-third) --
+#
+# Operator clicks 🪄 Polish on any rendered ad tile. Backend reads
+# the source MP4 + the script that produced it + character/campaign
+# metadata, runs a single ffmpeg -filter_complex pipeline that:
+#
+#   1. Prepends a 1.5s intro card with the business name.
+#   2. Burns captions onto the body (timing estimated by splitting
+#      the script into ~6-word chunks distributed uniformly across
+#      the body duration — we don't have word-level timings from
+#      avatar_videos).
+#   3. Burns a persistent lower-third ("character · business") on
+#      the body.
+#   4. Appends a 1.5s CTA card.
+#
+# Pure ffmpeg — no Runway calls, no credits, ~10s wall time.
+
+
+class PolishOutputBody(BaseModel):
+    """PR FB — body for POST /api/campaigns/{id}/polish-output."""
+
+    output_id: str = Field(..., min_length=8, max_length=64)
+    # Optional override; falls back to "Learn more" when blank.
+    cta_text: Optional[str] = Field(default=None, max_length=120)
+
+
+# Kinds that have a video stream + a script we can use for captions.
+# Reels excluded (they're a reframe of an already-finished source).
+# Dialogue scenes excluded for v1 (multi-cast lower-thirds need a
+# different approach than the single character · business string).
+POLISHABLE_KINDS: set[str] = {
+    "spokesperson_ad",
+    "long_spokesperson_ad",
+    "spokesperson_ad_dubbed",
+    "spokesperson_ad_remix",
+    "voiced_commercial",
+    "storyboard_voiced",
+}
+
+
+@router.post("/{campaign_id}/polish-output", response_model=Campaign)
+def post_polish_output(
+    campaign_id: str,
+    body: PolishOutputBody,
+    settings: Settings = Depends(get_settings),
+    store: CampaignStore = Depends(_store),
+) -> Campaign:
+    """PR FB — burn captions + lower-third + intro/outro cards onto
+    an existing OutputRecord's video. Pure ffmpeg, no Runway.
+
+    Failure modes:
+    - 404 — campaign or output not found.
+    - 409 — output kind is not polishable.
+    - 500 — ffmpeg failure (missing fonts, ffmpeg crashed, etc.).
+    """
+    from ..services.polish_client import polish_output_video
+
+    record = store.get(campaign_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="campaign not found")
+
+    output = next((o for o in record.outputs if o.id == body.output_id), None)
+    if not output:
+        raise HTTPException(
+            status_code=404,
+            detail=f"output '{body.output_id}' not found on this campaign",
+        )
+
+    if output.kind not in POLISHABLE_KINDS:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"output kind '{output.kind}' is not polishable. "
+                f"Supported: {sorted(POLISHABLE_KINDS)}"
+            ),
+        )
+
+    # Resolve source MP4 path. Same kind→dir mapping as the
+    # /output/{id} serve route + the remix/dub routes.
+    if output.kind == "spokesperson_ad":
+        source_path = (
+            host_path_for(settings, campaign_id).parent / output.cache_filename
+        )
+    else:
+        source_path = settings.data_path / "finished" / output.cache_filename
+    if not source_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"source video file missing at {source_path}",
+        )
+
+    # Resolve character name (for the lower-third) via the campaign's
+    # attached character. Falls through to None — polish degrades
+    # gracefully to a business-only lower-third. Inline-construct
+    # CharacterStore here because the `_character_store` factory is
+    # defined later in this module (after PR K's `# ---- PR K` block)
+    # and Python resolves function names at call time but parameter
+    # defaults at module load.
+    character_name: Optional[str] = None
+    if record.character_id:
+        ch = CharacterStore(settings.data_path).get(record.character_id)
+        if ch:
+            character_name = ch.name
+
+    result = polish_output_video(
+        source_video_path=source_path,
+        campaign_id=campaign_id,
+        output_id=body.output_id,
+        character_name=character_name,
+        business=record.business,
+        script=output.script,
+        cta_text=body.cta_text,
+        settings=settings,
+    )
+
+    if result.status != "ok" or not result.cache_filename:
+        logger.warning(
+            "polish failed campaign=%s output=%s err=%s",
+            campaign_id, body.output_id, result.error,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"polish failed: {result.error or 'unknown error'}",
+        )
+
+    new_output_id = uuid.uuid4().hex[:12]
+    new_entry = {
+        "id": new_output_id,
+        "kind": "spokesperson_ad_polished",
+        "video_url": f"/api/campaigns/{campaign_id}/output/{new_output_id}",
+        "cache_filename": result.cache_filename,
+        "script": output.script,
+        "task_id": None,  # no Runway task; pure ffmpeg
+        "mock_mode": False,
+        "parent_output_id": output.id,
+        "variant_id": output.variant_id,
+        "variant_title": output.variant_title,
+        "duration_estimate": result.duration_s,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    updated = store.append_output(campaign_id, new_entry)
+    if not updated:
+        raise HTTPException(status_code=404, detail="campaign not found")
+    logger.info(
+        "polish ok campaign=%s output=%s new_output=%s",
+        campaign_id, body.output_id, new_output_id,
     )
     return updated
 
