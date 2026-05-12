@@ -1705,6 +1705,57 @@ def post_cinematic_video(
         )
         if not updated:
             raise HTTPException(status_code=404, detail="campaign not found")
+
+        # PR FD fix — also append a `cinematic_video` OutputRecord
+        # so the new Backdrop modal (PR FD) and Aleph remix flow
+        # (PR FA) can see this generation as a pickable output.
+        # The legacy `cached_video_url` keeps pointing at the
+        # shared {campaign_id}.mp4 path for backward-compat
+        # consumers; we COPY that file to a per-output cache
+        # filename so historical regenerations don't clobber each
+        # other in the gallery.
+        try:
+            import shutil
+            from datetime import datetime as _dt, timezone as _tz
+            canonical = cache.path_for(campaign_id)
+            new_output_id = uuid.uuid4().hex[:12]
+            timestamp = _dt.now(_tz.utc).strftime("%Y%m%d-%H%M%S")
+            historical_name = (
+                f"{campaign_id}-cinematic-{new_output_id}-{timestamp}.mp4"
+            )
+            historical_path = cache.dir / historical_name
+            shutil.copyfile(canonical, historical_path)
+            store.append_output(
+                campaign_id,
+                {
+                    "id": new_output_id,
+                    "kind": "cinematic_video",
+                    "video_url": (
+                        f"/api/campaigns/{campaign_id}/output/{new_output_id}"
+                    ),
+                    "cache_filename": historical_name,
+                    "script": None,
+                    "task_id": None,
+                    "mock_mode": False,
+                    "parent_output_id": None,
+                    "variant_id": None,
+                    "variant_title": None,
+                    "created_at": _dt.now(_tz.utc).isoformat(),
+                },
+            )
+            updated = store.get(campaign_id) or updated
+            logger.info(
+                "campaign %s cinematic-video OutputRecord appended id=%s",
+                campaign_id, new_output_id,
+            )
+        except Exception:
+            # Defensive: legacy persist path must not break if the
+            # OutputRecord append fails. The cached_video_url field
+            # is already set above, so legacy gallery still works.
+            logger.exception(
+                "campaign %s cinematic-video OutputRecord append failed",
+                campaign_id,
+            )
         return updated
     logger.warning(
         "campaign %s cinematic-video persist failed: %s",
@@ -1721,6 +1772,210 @@ def post_cinematic_video(
         status_code=502,
         detail=result.error or "failed to fetch upstream video",
     )
+
+
+# PR FD fix-2 — Atomic generate-and-persist for the Backdrop modal.
+# The legacy flow (CinematicLane) was: frontend POSTs /api/runway/
+# generate to fire image_to_video, polls /api/runway/task/{id}
+# itself, then POSTs /api/campaigns/{id}/cinematic-video to persist
+# the resulting URL. That's 3 round-trips + frontend orchestration.
+# This route does fire+poll+persist in ONE call so the Backdrop
+# modal (and any future "I just need a cinematic for X" surface)
+# can wait on a single endpoint and get back an updated Campaign
+# with the new OutputRecord already appended.
+#
+# Reuses the existing runway_client primitives so no duplication
+# of the Runway plumbing.
+
+
+@router.post(
+    "/{campaign_id}/generate-cinematic-output", response_model=Campaign,
+)
+def post_generate_cinematic_output(
+    campaign_id: str,
+    settings: Settings = Depends(get_settings),
+    store: CampaignStore = Depends(_store),
+    cache: VideoCache = Depends(_video_cache),
+) -> Campaign:
+    """PR FD fix-2 — fire `image_to_video`, poll, persist, append an
+    OutputRecord. One call from the operator's perspective.
+
+    Failure modes:
+    - 404 — campaign not found.
+    - 409 — campaign has no `runway_prompt` (the source the legacy
+      flow used; we can't fire without it).
+    - 502 — Runway upstream failure (create / poll / download).
+    - 504 — Runway poll timed out (5 min cap).
+    """
+    import time as _time
+    from ..models import RunwayGenerateRequest as _GenReq
+    from ..services.runway_client import (
+        create_task as _create_task,
+        get_task as _get_task,
+    )
+
+    record = store.get(campaign_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="campaign not found")
+    prompt_text = (record.runway_prompt or "").strip()
+    if not prompt_text:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "campaign has no `runway_prompt`. Save the campaign "
+                "brief through the legacy concept flow so a prompt "
+                "exists, then retry."
+            ),
+        )
+
+    # PR FD fix-2 — resolve a prompt_image. gen4_turbo (the default
+    # model) rejects requests without one; fall back through the
+    # same sources PiP uses (campaign reference → character portrait).
+    # Without this fallback, campaigns whose `reference_image_url`
+    # was never persisted (the common case for campaigns created
+    # through the v2 lanes that didn't generate an image first) get
+    # a 500 from runway_client.create_task with
+    # `prompt_image is required for Runway image_to_video`.
+    prompt_image: Optional[str] = (record.reference_image_url or "").strip() or None
+    if not prompt_image and record.character_id:
+        # Character portrait URL is the canonical fallback.
+        prompt_image = f"/api/characters/{record.character_id}/portrait"
+
+    # Same defaults the v2 CinematicLane uses (PR BT). Mirrors what
+    # handleGenerateCinematicVideo passes in.
+    req = _GenReq(
+        prompt_text=prompt_text,
+        prompt_image=prompt_image,
+        duration=5,
+        ratio="1280:720",
+        model=None,  # falls through to settings default
+    )
+
+    try:
+        created = _create_task(req, settings)
+    except httpx.HTTPError as exc:
+        logger.warning(
+            "generate-cinematic-output create failed campaign=%s: %s",
+            campaign_id, exc,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=f"image_to_video create failed: {exc!s}"[:300],
+        )
+    task_id = created.task_id
+    logger.info(
+        "generate-cinematic-output created campaign=%s task=%s mock=%s",
+        campaign_id, task_id, created.mock_mode,
+    )
+
+    # Poll. 600s ceiling matches the Aleph chunker pattern — Runway
+    # `image_to_video` regularly runs 5-8 min under load, so a 300s
+    # cap was too aggressive and surfaced 504s on healthy fires.
+    deadline = _time.time() + 600.0
+    final = None
+    while _time.time() < deadline:
+        try:
+            t = _get_task(task_id, settings)
+        except httpx.HTTPError as exc:
+            logger.warning("poll http error %s", exc)
+            _time.sleep(5)
+            continue
+        status = (t.status or "").upper()
+        if status == "SUCCEEDED":
+            final = t
+            break
+        if status in {"FAILED", "CANCELED"}:
+            reason = t.failure_reason or status
+            raise HTTPException(
+                status_code=502,
+                detail=f"image_to_video task {status}: {reason}",
+            )
+        _time.sleep(5)
+    if not final:
+        raise HTTPException(
+            status_code=504,
+            detail=f"image_to_video task {task_id} timed out after 10 min",
+        )
+    outputs = final.output or []
+    out_url: Optional[str] = next(
+        (str(v) for v in outputs if isinstance(v, str) and v), None,
+    )
+    if not out_url:
+        raise HTTPException(
+            status_code=502,
+            detail=f"image_to_video task {task_id} produced no output url",
+        )
+
+    # Persist via VideoCache.fetch (same as the legacy
+    # /cinematic-video route) + append OutputRecord. This piggybacks
+    # on the Fix 1 OutputRecord-append behaviour by routing through
+    # the same store.append_output call.
+    result = cache.fetch(campaign_id, out_url)
+    if result.status != "ok":
+        store.update_cache_fields(
+            campaign_id,
+            cached_video_url=None,
+            cache_status="failed",
+            cache_error=result.error,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=result.error or "failed to fetch upstream video",
+        )
+    store.update_cache_fields(
+        campaign_id,
+        cached_video_url=f"/api/campaigns/{campaign_id}/video",
+        cache_status="ok",
+        cache_error=None,
+    )
+
+    # Copy + append a `cinematic_video` OutputRecord. Same shape as
+    # the legacy /cinematic-video route (Fix 1).
+    import shutil
+    from datetime import datetime as _dt, timezone as _tz
+    canonical = cache.path_for(campaign_id)
+    new_output_id = uuid.uuid4().hex[:12]
+    timestamp = _dt.now(_tz.utc).strftime("%Y%m%d-%H%M%S")
+    historical_name = (
+        f"{campaign_id}-cinematic-{new_output_id}-{timestamp}.mp4"
+    )
+    historical_path = cache.dir / historical_name
+    try:
+        shutil.copyfile(canonical, historical_path)
+    except Exception as exc:
+        logger.warning(
+            "generate-cinematic-output copy failed campaign=%s: %s",
+            campaign_id, exc,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"failed to copy cached cinematic: {exc!s}"[:300],
+        )
+    updated = store.append_output(
+        campaign_id,
+        {
+            "id": new_output_id,
+            "kind": "cinematic_video",
+            "video_url": (
+                f"/api/campaigns/{campaign_id}/output/{new_output_id}"
+            ),
+            "cache_filename": historical_name,
+            "script": None,
+            "task_id": task_id,
+            "mock_mode": created.mock_mode,
+            "parent_output_id": None,
+            "variant_id": None,
+            "variant_title": None,
+            "created_at": _dt.now(_tz.utc).isoformat(),
+        },
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="campaign not found")
+    logger.info(
+        "generate-cinematic-output ok campaign=%s task=%s new_output=%s",
+        campaign_id, task_id, new_output_id,
+    )
+    return updated
 
 
 @router.post("/{campaign_id}/script", response_model=Campaign)
@@ -2129,6 +2384,12 @@ def get_campaign_output(
         # + intro/outro cards). Lives next to the other finished/
         # finals.
         "spokesperson_ad_polished",
+        # PR FC — Picture-in-Picture overlay (ffmpeg-built; reference
+        # image overlaid bottom-right). Lives in finished/.
+        "spokesperson_ad_with_pip",
+        # PR FD — Reverse-PiP cinematic-backdrop composite. ffmpeg-
+        # built; lives in finished/.
+        "spokesperson_ad_with_backdrop",
     }:
         cache_dir = settings.data_path / "finished"
     elif match.kind in {"cinematic_video"}:
@@ -3500,6 +3761,336 @@ def post_polish_output(
     logger.info(
         "polish ok campaign=%s output=%s new_output=%s",
         campaign_id, body.output_id, new_output_id,
+    )
+    return updated
+
+
+# ---- PR FC — Picture-in-Picture overlay ---------------------------
+#
+# Operator clicks 🖼️ PiP on a polishable ad tile. Backend resolves a
+# still image source (campaign.reference_image_url → character
+# portrait → 409), then ffmpeg-overlays the image in the bottom-
+# right corner of the source video. Pure ffmpeg, no Runway calls.
+
+
+class AddPipBody(BaseModel):
+    """PR FC — body for POST /api/campaigns/{id}/add-pip."""
+
+    output_id: str = Field(..., min_length=8, max_length=64)
+
+
+# PR FC — output kinds with a video stream worth overlaying a PiP on.
+# Reels excluded (already reframed). Match POLISHABLE_KINDS.
+PIP_SOURCE_KINDS: set[str] = {
+    "spokesperson_ad",
+    "long_spokesperson_ad",
+    "spokesperson_ad_dubbed",
+    "spokesperson_ad_remix",
+    "spokesperson_ad_polished",
+    "voiced_commercial",
+}
+
+
+def _resolve_pip_image_path(
+    record: Campaign, settings: Settings,
+) -> Optional[Path]:
+    """Return the local file path for the campaign's preferred PiP
+    image: campaign reference image first, character portrait second.
+    None when neither is available — caller surfaces a 409.
+
+    The convention for reference_image_url is `/api/runway/image/<id>`
+    (set in `routers.runway.post_upload_image` + the generator path);
+    we strip the prefix and pass the id through to
+    `image_client.find_image_path` which handles png/jpg/jpeg/webp.
+    Character portraits live at
+    `CharacterStore.portrait_path(<id>) = <data>/characters/<id>-portrait.png`.
+    """
+    from ..services.image_client import find_image_path  # noqa: WPS433
+
+    # Try the campaign's reference image first.
+    ref_url = (record.reference_image_url or "").strip()
+    if ref_url:
+        # Robust to the convention `/api/runway/image/<id>`.
+        image_id = ref_url.rsplit("/", 1)[-1]
+        if image_id:
+            local = find_image_path(settings, image_id)
+            if local and local.exists():
+                return local
+
+    # Fall back to the attached character's cached portrait.
+    if record.character_id:
+        try:
+            portrait = CharacterStore(settings.data_path).portrait_path(
+                record.character_id,
+            )
+        except Exception:
+            portrait = None
+        if portrait and portrait.exists():
+            return portrait
+
+    return None
+
+
+@router.post("/{campaign_id}/add-pip", response_model=Campaign)
+def post_add_pip(
+    campaign_id: str,
+    body: AddPipBody,
+    settings: Settings = Depends(get_settings),
+    store: CampaignStore = Depends(_store),
+) -> Campaign:
+    """PR FC — overlay the campaign reference image (or character
+    portrait) onto an existing OutputRecord's video in the bottom-
+    right corner. Pure ffmpeg, no Runway.
+
+    Failure modes:
+    - 404 — campaign or output not found.
+    - 409 — output kind doesn't support PiP, or no image available.
+    - 500 — ffmpeg failure.
+    """
+    from ..services.pip_client import add_pip_overlay
+
+    record = store.get(campaign_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="campaign not found")
+
+    output = next((o for o in record.outputs if o.id == body.output_id), None)
+    if not output:
+        raise HTTPException(
+            status_code=404,
+            detail=f"output '{body.output_id}' not found on this campaign",
+        )
+
+    if output.kind not in PIP_SOURCE_KINDS:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"output kind '{output.kind}' is not a PiP source. "
+                f"Supported: {sorted(PIP_SOURCE_KINDS)}"
+            ),
+        )
+
+    pip_image = _resolve_pip_image_path(record, settings)
+    if not pip_image:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "No PiP image available. Upload or generate a reference "
+                "image for this campaign, or attach a character with a "
+                "cached portrait."
+            ),
+        )
+
+    # Resolve source MP4 path. Same kind→dir mapping as polish/remix/dub.
+    if output.kind == "spokesperson_ad":
+        source_path = (
+            host_path_for(settings, campaign_id).parent / output.cache_filename
+        )
+    else:
+        source_path = settings.data_path / "finished" / output.cache_filename
+    if not source_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"source video file missing at {source_path}",
+        )
+
+    result = add_pip_overlay(
+        source_video_path=source_path,
+        pip_image_path=pip_image,
+        campaign_id=campaign_id,
+        output_id=body.output_id,
+        settings=settings,
+    )
+
+    if result.status != "ok" or not result.cache_filename:
+        logger.warning(
+            "pip failed campaign=%s output=%s err=%s",
+            campaign_id, body.output_id, result.error,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"pip failed: {result.error or 'unknown error'}",
+        )
+
+    new_output_id = uuid.uuid4().hex[:12]
+    new_entry = {
+        "id": new_output_id,
+        "kind": "spokesperson_ad_with_pip",
+        "video_url": f"/api/campaigns/{campaign_id}/output/{new_output_id}",
+        "cache_filename": result.cache_filename,
+        "script": output.script,
+        "task_id": None,
+        "mock_mode": False,
+        "parent_output_id": output.id,
+        "variant_id": output.variant_id,
+        "variant_title": output.variant_title,
+        "duration_estimate": result.duration_s,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    updated = store.append_output(campaign_id, new_entry)
+    if not updated:
+        raise HTTPException(status_code=404, detail="campaign not found")
+    logger.info(
+        "pip ok campaign=%s output=%s new_output=%s pip_src=%s",
+        campaign_id, body.output_id, new_output_id, pip_image.name,
+    )
+    return updated
+
+
+# ---- PR FD — Reverse-PiP / cinematic-backdrop composite -----------
+#
+# Operator picks a spokesperson ad + a `cinematic_video` from the
+# same campaign. Backend ffmpeg-composites: cinematic fills the
+# background (looped to ad duration), spokesperson ad shrinks into
+# a top-right corner tile. Audio comes from the spokesperson ad
+# (cinematics are silent — image_to_video doesn't produce audio).
+#
+# Pure ffmpeg, no Runway calls, no credits — repurposes two existing
+# campaign outputs.
+
+
+class AddBackdropBody(BaseModel):
+    """PR FD — body for POST /api/campaigns/{id}/add-backdrop."""
+
+    output_id: str = Field(..., min_length=8, max_length=64)
+    backdrop_output_id: str = Field(..., min_length=8, max_length=64)
+
+
+# Output kinds eligible as the FOREGROUND (avatar) tile. Same set as
+# PR FC PiP — we want to support polished / dubbed / remixed
+# foregrounds, so the operator can stack polish + backdrop.
+BACKDROP_FOREGROUND_KINDS: set[str] = {
+    "spokesperson_ad",
+    "long_spokesperson_ad",
+    "spokesperson_ad_dubbed",
+    "spokesperson_ad_remix",
+    "spokesperson_ad_polished",
+    "voiced_commercial",
+}
+
+
+@router.post("/{campaign_id}/add-backdrop", response_model=Campaign)
+def post_add_backdrop(
+    campaign_id: str,
+    body: AddBackdropBody,
+    settings: Settings = Depends(get_settings),
+    store: CampaignStore = Depends(_store),
+) -> Campaign:
+    """PR FD — composite a spokesperson ad over a cinematic backdrop.
+    Pure ffmpeg, no Runway.
+
+    Failure modes:
+    - 404 — campaign / foreground / backdrop output not found.
+    - 409 — foreground or backdrop kind doesn't fit the slots
+      (only spokesperson kinds can be foreground; only cinematic_video
+      can be the backdrop).
+    - 500 — ffmpeg failure.
+    """
+    from ..services.backdrop_client import compose_with_backdrop
+
+    record = store.get(campaign_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="campaign not found")
+
+    foreground = next(
+        (o for o in record.outputs if o.id == body.output_id), None,
+    )
+    if not foreground:
+        raise HTTPException(
+            status_code=404,
+            detail=f"foreground output '{body.output_id}' not found",
+        )
+    if foreground.kind not in BACKDROP_FOREGROUND_KINDS:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"output kind '{foreground.kind}' is not a valid "
+                f"backdrop foreground. Supported: "
+                f"{sorted(BACKDROP_FOREGROUND_KINDS)}"
+            ),
+        )
+
+    backdrop = next(
+        (o for o in record.outputs if o.id == body.backdrop_output_id), None,
+    )
+    if not backdrop:
+        raise HTTPException(
+            status_code=404,
+            detail=f"backdrop output '{body.backdrop_output_id}' not found",
+        )
+    if backdrop.kind != "cinematic_video":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"backdrop must be a cinematic_video (got "
+                f"'{backdrop.kind}'). Generate one via the cinematic "
+                f"lane first."
+            ),
+        )
+
+    # Resolve foreground path. Same kind→dir mapping as the other
+    # ffmpeg pipelines.
+    if foreground.kind == "spokesperson_ad":
+        fg_path = (
+            host_path_for(settings, campaign_id).parent
+            / foreground.cache_filename
+        )
+    else:
+        fg_path = (
+            settings.data_path / "finished" / foreground.cache_filename
+        )
+    if not fg_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"foreground video missing at {fg_path}",
+        )
+
+    # Cinematic videos live under data/videos/.
+    bg_path = settings.data_path / "videos" / backdrop.cache_filename
+    if not bg_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"backdrop video missing at {bg_path}",
+        )
+
+    result = compose_with_backdrop(
+        foreground_video_path=fg_path,
+        backdrop_video_path=bg_path,
+        campaign_id=campaign_id,
+        output_id=body.output_id,
+        settings=settings,
+    )
+
+    if result.status != "ok" or not result.cache_filename:
+        logger.warning(
+            "backdrop failed campaign=%s output=%s err=%s",
+            campaign_id, body.output_id, result.error,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"backdrop failed: {result.error or 'unknown error'}",
+        )
+
+    new_output_id = uuid.uuid4().hex[:12]
+    new_entry = {
+        "id": new_output_id,
+        "kind": "spokesperson_ad_with_backdrop",
+        "video_url": f"/api/campaigns/{campaign_id}/output/{new_output_id}",
+        "cache_filename": result.cache_filename,
+        "script": foreground.script,
+        "task_id": None,
+        "mock_mode": False,
+        "parent_output_id": foreground.id,
+        "variant_id": foreground.variant_id,
+        "variant_title": foreground.variant_title,
+        "duration_estimate": result.duration_s,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    updated = store.append_output(campaign_id, new_entry)
+    if not updated:
+        raise HTTPException(status_code=404, detail="campaign not found")
+    logger.info(
+        "backdrop ok campaign=%s fg=%s bg=%s new_output=%s",
+        campaign_id, body.output_id, body.backdrop_output_id, new_output_id,
     )
     return updated
 

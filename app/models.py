@@ -166,6 +166,18 @@ OutputKind = Literal[
     # in finished/ next to the other ffmpeg-built finals. Output
     # duration ≈ source + 3s (intro + outro).
     "spokesperson_ad_polished",
+    # PR FC — Picture-in-Picture overlay. Source spokesperson ad with
+    # the campaign's reference image (or character portrait fallback)
+    # overlaid in the bottom-right corner. Pure ffmpeg, no Runway.
+    # Lands in finished/ next to the other ffmpeg-built finals.
+    "spokesperson_ad_with_pip",
+    # PR FD — Reverse-PiP / cinematic-backdrop composite. The
+    # spokesperson ad becomes a top-right corner tile; a chosen
+    # `cinematic_video` output fills the background (cover-cropped,
+    # looped to the avatar ad's duration). Pure ffmpeg, no Runway —
+    # repurposes two existing campaign outputs. Audio = avatar's
+    # voice (cinematic clips are silent).
+    "spokesperson_ad_with_backdrop",
 ]
 
 
