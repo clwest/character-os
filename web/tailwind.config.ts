@@ -54,6 +54,24 @@ const config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      fontFamily: {
+        // Body sans — referenced via the default `font-sans` utility
+        // since we want Geist to be the document default.
+        sans: ['"Geist"', "ui-sans-serif", "system-ui", "sans-serif"],
+        // `font-serif` → editorial display.
+        serif: ['"Fraunces"', "ui-serif", "Georgia", "serif"],
+        // `font-mono` → ids, hashes, code.
+        mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
+        // Alias `font-display` for explicit display use.
+        display: ['"Fraunces"', "ui-serif", "Georgia", "serif"],
+      },
+      boxShadow: {
+        // "Photo-on-paper" lift for cards. Soft, warm-tinted, not
+        // material-design crisp.
+        paper: "0 1px 2px hsl(30 20% 20% / 0.06), 0 8px 24px hsl(30 20% 20% / 0.05)",
+        "paper-hover":
+          "0 2px 4px hsl(30 20% 20% / 0.08), 0 12px 32px hsl(30 20% 20% / 0.08)",
+      },
     },
   },
   plugins: [],

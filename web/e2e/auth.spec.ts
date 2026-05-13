@@ -16,8 +16,12 @@ import { test, expect } from "@playwright/test";
 // can clean via Django admin). Adding a cleanup endpoint is a queued
 // follow-up — flagged in SPA_ARCHITECTURE.md §"Smoke test pattern".
 
-test.describe("auth flow (sign-up → dashboard)", () => {
-  test("a fresh user can sign up and land on the dashboard", async ({ page }) => {
+test.describe("auth flow (sign-up + sign-in forms)", () => {
+  // The signup → dashboard happy path lives in `dashboard.spec.ts`
+  // now that the dashboard has real content to assert on. This file
+  // covers auth-specific behaviour: redirect on success + error UX.
+
+  test("a fresh signup redirects to /dashboard", async ({ page }) => {
     const email = `e2e-auth-${Date.now()}-${Math.floor(Math.random() * 1e6)}@character-os.test`;
     const password = "playwright-test-pw-x4q9z!";
 
@@ -31,11 +35,7 @@ test.describe("auth flow (sign-up → dashboard)", () => {
       page.waitForURL("**/dashboard"),
       page.getByRole("button", { name: /create account/i }).click(),
     ]);
-
-    // Dashboard placeholder asserts the cascade landed on the row +
-    // surfaces the signed-in email via data-testid="auth-confirm".
-    await expect(page.getByTestId("auth-confirm")).toContainText(email);
-    await expect(page.getByRole("button", { name: /sign out/i })).toBeVisible();
+    await expect(page).toHaveURL(/\/dashboard/);
   });
 
   test("sign-in route shows a useful error on bad credentials", async ({ page }) => {

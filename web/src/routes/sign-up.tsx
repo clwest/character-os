@@ -5,14 +5,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { useSignup } from "@/lib/auth/use-session";
 import { ApiError } from "@/lib/api/client";
 
@@ -33,7 +25,6 @@ export function SignUpRoute() {
 
   function extractApiMessage(err: unknown): string {
     if (err instanceof ApiError) {
-      // allauth returns `{ status, errors: [{ message, code, param? }] }`.
       const body = err.body as { errors?: Array<{ message?: string }> } | null;
       const first = body?.errors?.[0]?.message;
       if (first) return first;
@@ -47,66 +38,89 @@ export function SignUpRoute() {
       await signup.mutateAsync(input);
       navigate("/dashboard", { replace: true });
     } catch {
-      // mutation error is surfaced via signup.error; no extra handling needed
+      // surfaced via signup.error
     }
   });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Create your account</CardTitle>
-        <CardDescription>
+    <div className="reveal flex flex-col gap-10">
+      <header className="flex flex-col gap-3 border-b border-border pb-6">
+        <span className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+          New account
+        </span>
+        <h1 className="font-display text-5xl leading-[0.95] tracking-tight">
+          Start your
+          <br />
+          workspace.
+        </h1>
+        <p className="text-sm text-muted-foreground">
           One workspace per account. You can rename it later.
-        </CardDescription>
-      </CardHeader>
-      <form onSubmit={onSubmit}>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              {...form.register("email")}
-            />
-            {form.formState.errors.email && (
-              <p className="text-sm text-destructive">
-                {form.formState.errors.email.message}
-              </p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="new-password"
-              {...form.register("password")}
-            />
-            {form.formState.errors.password && (
-              <p className="text-sm text-destructive">
-                {form.formState.errors.password.message}
-              </p>
-            )}
-          </div>
-          {signup.isError && (
-            <p className="text-sm text-destructive">
-              {extractApiMessage(signup.error)}
-            </p>
-          )}
-        </CardContent>
-        <CardFooter className="flex flex-col gap-3">
-          <Button type="submit" disabled={signup.isPending} className="w-full">
-            {signup.isPending ? "Creating account…" : "Create account"}
-          </Button>
-          <p className="text-sm text-muted-foreground">
-            Already have an account?{" "}
-            <Link to="/sign-in" className="underline">
-              Sign in
-            </Link>
-          </p>
-        </CardFooter>
+        </p>
+      </header>
+
+      <form onSubmit={onSubmit} className="flex flex-col gap-6">
+        <Field
+          id="email"
+          label="Email"
+          type="email"
+          autoComplete="email"
+          register={form.register("email")}
+          error={form.formState.errors.email?.message}
+        />
+        <Field
+          id="password"
+          label="Password"
+          type="password"
+          autoComplete="new-password"
+          register={form.register("password")}
+          error={form.formState.errors.password?.message}
+        />
+        {signup.isError && (
+          <p className="text-sm text-destructive">{extractApiMessage(signup.error)}</p>
+        )}
+
+        <Button type="submit" disabled={signup.isPending} className="mt-2">
+          {signup.isPending ? "Creating account…" : "Create account"}
+        </Button>
       </form>
-    </Card>
+
+      <p className="border-t border-border pt-6 font-mono text-xs uppercase tracking-wider text-muted-foreground">
+        Already have an account?{" "}
+        <Link to="/sign-in" className="font-medium text-foreground underline-offset-4 hover:underline">
+          Sign in
+        </Link>
+      </p>
+    </div>
+  );
+}
+
+function Field({
+  id,
+  label,
+  type,
+  autoComplete,
+  register,
+  error,
+}: {
+  id: string;
+  label: string;
+  type: string;
+  autoComplete: string;
+  register: ReturnType<typeof useForm<SignUpForm>>["register"] extends (...args: never[]) => infer R
+    ? R
+    : never;
+  error?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <Label
+        htmlFor={id}
+        className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground"
+      >
+        {label}
+      </Label>
+      <Input id={id} type={type} autoComplete={autoComplete} {...register} />
+      {error && <p className="text-sm text-destructive">{error}</p>}
+    </div>
   );
 }
