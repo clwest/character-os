@@ -138,6 +138,39 @@ REST_FRAMEWORK = {
 MEDIA_ENGINE_BASE_URL = "http://localhost:8001"
 
 
+# ---- Celery / Redis --------------------------------------------------
+#
+# Broker + result backend both ride on a single Redis instance
+# (``infra/docker-compose.yml`` brings it up on :6379). Logical DB
+# split keeps broker queues and result payloads in separate keyspaces
+# so a ``FLUSHDB`` against one doesn't take out the other.
+#
+# All settings are env-overridable to keep production deploys driving
+# off a managed Redis (e.g. ElastiCache) without code changes.
+import os as _os  # noqa: E402 — keep imports terse at top of file
+
+CELERY_BROKER_URL = _os.environ.get(
+    "CELERY_BROKER_URL", "redis://localhost:6381/0",
+)
+CELERY_RESULT_BACKEND = _os.environ.get(
+    "CELERY_RESULT_BACKEND", "redis://localhost:6381/1",
+)
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+# Hard cap each task wall-clock at 15 min so a hung Runway poll can't
+# pin a worker. Video generation should finish in <3 min in practice
+# (mock mode is sub-second).
+CELERY_TASK_TIME_LIMIT = 15 * 60
+CELERY_TASK_SOFT_TIME_LIMIT = 14 * 60
+# Keep results around 24h for debugging; we don't read them in the
+# happy path (state lives on the Video row), but eyeballing failures
+# via celery-inspect is useful.
+CELERY_RESULT_EXPIRES = 24 * 60 * 60
+
+
 # ---- Authentication --------------------------------------------------
 
 AUTHENTICATION_BACKENDS = [

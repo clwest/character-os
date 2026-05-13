@@ -1,0 +1,40 @@
+# Local dev infrastructure for character-os.
+#
+# Brings up Redis (Celery broker + result backend) on :6379.
+# Postgres lands here in Phase 2's later slices when SQLite gets
+# swapped out — for now SQLite + Redis is the minimum.
+#
+# Usage:
+#   cd infra && docker compose up -d        # start in background
+#   docker compose ps                       # check status
+#   docker compose logs -f redis            # tail logs
+#   docker compose down                     # stop, keep volumes
+#   docker compose down -v                  # stop and wipe data
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: character_os_redis
+    # Host port shifted to 6381 to dodge collisions with other dev
+    # projects already binding :6379 (e.g. session1115-redis) and
+    # :6380 (unified-redis-verify). Internal port stays at 6379;
+    # only the host-side mapping moves.
+    ports:
+      - "6381:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+
+volumes:
+  redis_data:
+    name: character_os_redis_data

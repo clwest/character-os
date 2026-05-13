@@ -21,9 +21,11 @@ dependencies = [
     # Billing (Phase 1)
     "dj-stripe>=2.9",
 
-    # Async task queue (Phase 4 — spider/agent port)
-    # "celery>=5.4",
-    # "redis>=5.0",
+    # Async task queue — Redis broker, in-band result backend.
+    # Landed early (Phase 2 / SESSION 109) because the media-engine
+    # video pipeline needs fire-then-poll for 60-120 s Runway tasks.
+    "celery>=5.4",
+    "redis>=5.0",
 
     # HTTP client for talking to media-engine
     "httpx>=0.28",

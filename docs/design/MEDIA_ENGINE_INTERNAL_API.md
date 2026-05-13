@@ -78,13 +78,11 @@ window of at least one full phase.
 | GET    | `/internal/avatars/{avatar_id}/`    | Poll avatar status                            | Planned |
 | POST   | `/internal/voices/`                 | Clone a voice from an audio sample            | Planned |
 | GET    | `/internal/voices/{voice_id}/`      | Poll voice clone status                       | Planned |
-| POST   | `/internal/videos/`                 | Generate a video (kind-discriminated body)    | Planned |
-| GET    | `/internal/videos/{task_id}/`       | Poll video task status, get `output_url`      | Planned |
+| POST   | `/internal/videos/`                 | Generate a video (kind-discriminated body)    | **SESSION 109** |
+| GET    | `/internal/videos/{task_id}/`       | Poll video task status, get `output_url`      | **SESSION 109** |
 
-The SESSION 108 slice implements **only** `POST /internal/avatars/`.
-Everything else lands in subsequent sessions as Django features
-need them — adding one endpoint at a time keeps the diff reviewable
-and the contract honest.
+Endpoints are added one at a time as Django features need them, to
+keep the diff reviewable and the contract honest.
 
 ---
 
@@ -177,6 +175,147 @@ matching `/internal/*` endpoint shipping first.
 
 ---
 
+## POST /internal/videos/
+
+Fire a video render. Returns immediately with a `task_id` — does
+**not** wait for Runway to finish. Caller polls
+`GET /internal/videos/{task_id}/` for terminal state.
+
+### Request body
+
+```json
+{
+  "kind": "spokesperson_ad",
+  "spokesperson_avatar_id": "runway_avatar_abc123",
+  "brief": "Black Friday sale — 30 % off everything.",
+  "ratio": "1280:720",
+  "duration": 5,
+  "prompt_image": "/api/runway/image/abc123"
+}
+```
+
+| Field                    | Type   | Required | Notes |
+|--------------------------|--------|----------|-------|
+| `kind`                   | enum   | yes      | One of `spokesperson_ad`, `cinematic_video`, `dialogue_scene`, `long_ad`. SESSION 109 ships `spokesperson_ad` only; other kinds 400 until landed. |
+| `spokesperson_avatar_id` | string | yes      | The avatar id returned by `POST /internal/avatars/`. Mock-mode avatars (prefix `mock_avatar_`) drive mock-mode video. |
+| `brief`                  | string | yes      | The campaign brief / script seed. ≤ 2000 chars. |
+| `ratio`                  | string | no       | `1280:720` \| `720:1280` \| `960:960`. Defaults to `1280:720`. |
+| `duration`               | int    | no       | Seconds. Per-model policy enforced server-side (5 / 8 / 10 for `gen4.5`). Defaults to 5. |
+| `prompt_image`           | string | no       | Optional starting frame. Same shape as the legacy `/api/runway/generate` `prompt_image`. |
+
+### Response — 200 OK
+
+```json
+{
+  "task_id": "runway_task_xyz789",
+  "status": "pending",
+  "kind": "spokesperson_ad",
+  "mock_mode": false
+}
+```
+
+`status` is one of `pending` / `rendering` — never terminal on the
+create call. Terminal state lives on the GET.
+
+### Error codes
+
+| HTTP | `code`                  | When |
+|------|-------------------------|------|
+| 400  | `unsupported_kind`      | `kind` not in the supported set. |
+| 400  | `invalid_settings`      | ratio / duration combination rejected by the per-model policy. |
+| 422  | `validation_error`      | Body shape mismatch. |
+| 502  | `upstream_runway_error` | Runway upstream rejection. |
+
+---
+
+## GET /internal/videos/{task_id}/
+
+Poll the task. Idempotent and cheap; safe to call on a tight loop
+from the Celery worker.
+
+### Response — 200 OK (terminal — ready)
+
+```json
+{
+  "task_id": "runway_task_xyz789",
+  "status": "ready",
+  "output_url": "/data/_internal/videos/abc.mp4",
+  "duration_seconds": 5.0,
+  "mock_mode": false
+}
+```
+
+### Response — 200 OK (still running)
+
+```json
+{
+  "task_id": "runway_task_xyz789",
+  "status": "rendering",
+  "progress": 0.42,
+  "mock_mode": false
+}
+```
+
+### Response — 200 OK (terminal — failed)
+
+```json
+{
+  "task_id": "runway_task_xyz789",
+  "status": "failed",
+  "error": "human-readable Runway failure message",
+  "failure_code": "BAD_OUTPUT",
+  "mock_mode": false
+}
+```
+
+### Status state machine
+
+```
+pending ──► rendering ──► ready    (terminal)
+                     └──► failed   (terminal)
+```
+
+Terminal states (`ready`, `failed`) never transition further; once
+the worker observes one, it can stop polling.
+
+### Mock-mode behaviour
+
+The mock task store inside `runway_client._MOCK_STORE` simulates a
+12-second render. The first ~3 polls return `rendering` with a
+climbing progress value; subsequent polls return `ready` with a
+canned sample-MP4 URL. Deterministic enough to write Celery state-
+machine assertions against without burning Runway credits.
+
+---
+
+## Django-side polling pattern (Celery)
+
+The Django shell uses Celery (broker: Redis on `:6381` for local
+dev, env-overridable for deploys) to drive the poll loop. The
+pattern:
+
+1. `VideoViewSet.perform_create` saves the row and calls
+   `MediaEngineClient.create_video(...)`.
+2. The row gets `media_engine_task_id` + `status="rendering"`
+   persisted.
+3. `poll_video_until_terminal.delay(video_id)` enqueues a Celery
+   task on the `default` queue.
+4. The worker polls `GET /internal/videos/{task_id}/` on a 2-second
+   loop (configurable per call) up to a 10-minute deadline.
+5. On terminal state the worker writes `status`, `output_path`,
+   `duration_seconds`, `error_message`, `completed_at` to the row
+   and stops.
+6. If the worker dies mid-poll, the row stays in `rendering` until
+   either a janitor re-enqueues the task or the operator retries
+   from the SPA. (Janitor is Phase 3 scope; SESSION 109 accepts
+   the "stuck row" failure mode.)
+
+The poll task is idempotent — re-running it against the same
+`media_engine_task_id` is safe; it picks up the latest terminal
+state and writes it back (no-op if the row is already terminal).
+
+---
+
 ## Django side — `MediaEngineClient` wrapper shape
 
 ```python
@@ -200,22 +339,28 @@ operator.
 
 ## Open questions (resolve before adding each new endpoint)
 
-- **Video generation kinds.** The launch product covers four
-  (`spokesperson_ad`, `cinematic_video`, `dialogue_scene`,
-  `long_ad`). Each has different required inputs. Resolve as we add
-  `POST /internal/videos/`.
-- **Async vs sync.** Today `POST /internal/avatars/` polls Runway
-  inline and returns when terminal. Video generation can take 90+
-  seconds — likely needs a fire-then-poll shape (`POST` returns
-  `{task_id, status: "pending"}`, separate `GET` polls). Confirm
-  when wiring video.
+- **Other video kinds.** SESSION 109 ships only `spokesperson_ad`.
+  The other three (`cinematic_video`, `dialogue_scene`, `long_ad`)
+  each have different required inputs (e.g. dialogue takes two
+  avatars, long_ad takes a multi-scene script). Resolve as each one
+  lands.
+- **Voice clone.** `POST /internal/voices/` still pending. Similar
+  shape to avatars (audio data URI in, voice_id out). Likely the
+  next slice if video generation stabilises.
 - **Auth.** Internal endpoints are currently unprotected (both
   services bind to localhost). When we deploy off the operator's
   machine, the internal surface needs a shared-secret header.
-  Out of scope for SESSION 108.
+  Out of scope for SESSION 109.
+- **Stuck-row janitor.** When a Celery worker dies mid-poll the
+  Video row stays in `rendering` forever. Phase 3 needs a
+  scheduled task (`celery beat`) that re-enqueues polls for rows
+  in `rendering` older than N minutes.
 
 ---
 
 ## Change log
 
 - 2026-05-13 (SESSION 108) — Initial draft + `POST /internal/avatars/`.
+- 2026-05-13 (SESSION 109) — Added `POST /internal/videos/` +
+  `GET /internal/videos/{task_id}/`. Pinned the fire-then-poll
+  shape and documented the Django-side Celery polling pattern.

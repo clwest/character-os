@@ -1,14 +1,23 @@
 """DRF viewset for Video."""
 from __future__ import annotations
 
-from rest_framework import status, viewsets
+import logging
+
+from rest_framework import viewsets
 from rest_framework.response import Response
 
 from apps.billing.services import TierLimitExceeded, check_video_limit
+from character_os.clients.media_engine import (
+    MediaEngineClient,
+    MediaEngineError,
+)
 from character_os.permissions import IsWorkspaceMember
 
 from .models import Video
 from .serializers import VideoSerializer
+from .tasks import poll_video_until_terminal
+
+logger = logging.getLogger(__name__)
 
 
 # HTTP 402 Payment Required — semantically right for "your tier
@@ -45,6 +54,96 @@ class VideoViewSet(viewsets.ModelViewSet):
                 except TierLimitExceeded as exc:
                     return Response(exc.payload, status=HTTP_PAYMENT_REQUIRED)
         return super().create(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        """After the row lands, fire the media-engine create call and
+        enqueue the Celery poll task. Failure to enqueue surfaces as
+        ``status=failed`` on the row — better to fail fast than leave
+        the row in ``pending`` indefinitely.
+
+        Note: in SESSION 109 we always fire the media-engine call on
+        create. A future "draft mode" (create row without rendering)
+        is possible via a request-level flag — but adds complexity
+        the SPA doesn't need yet.
+        """
+        instance: Video = serializer.save()
+
+        spokesperson = instance.spokesperson
+        if not spokesperson.runway_avatar_id:
+            instance.status = Video.Status.FAILED
+            instance.error_message = (
+                "spokesperson has no avatar yet — create one before "
+                "rendering a video"
+            )
+            instance.save(
+                update_fields=["status", "error_message", "updated_at"]
+            )
+            return
+
+        brief = instance.brief.strip() or spokesperson.business_brief.strip()
+        if not brief:
+            instance.status = Video.Status.FAILED
+            instance.error_message = (
+                "no brief supplied and the spokesperson has no "
+                "default business_brief"
+            )
+            instance.save(
+                update_fields=["status", "error_message", "updated_at"]
+            )
+            return
+
+        try:
+            with MediaEngineClient() as client:
+                result = client.create_video(
+                    kind=instance.kind,
+                    spokesperson_avatar_id=spokesperson.runway_avatar_id,
+                    brief=brief,
+                )
+        except MediaEngineError as exc:
+            logger.warning(
+                "media-engine create_video failed video=%s err=%s",
+                instance.pk, exc,
+            )
+            instance.status = Video.Status.FAILED
+            instance.error_message = f"media-engine: {exc}"[:500]
+            instance.save(
+                update_fields=["status", "error_message", "updated_at"]
+            )
+            return
+
+        instance.media_engine_task_id = result.task_id
+        instance.status = Video.Status.RENDERING
+        instance.save(
+            update_fields=[
+                "media_engine_task_id",
+                "status",
+                "updated_at",
+            ]
+        )
+
+        # Enqueue the poll. delay() returns immediately; the Celery
+        # worker writes terminal state back to the row asynchronously.
+        try:
+            poll_video_until_terminal.delay(str(instance.pk))
+        except Exception as exc:
+            # Broker unreachable / serialisation failure. The row
+            # would otherwise sit in `rendering` forever — surface
+            # the failure so the SPA can prompt a retry.
+            logger.warning(
+                "failed to enqueue poll_video_until_terminal video=%s err=%s",
+                instance.pk, exc,
+            )
+            instance.status = Video.Status.FAILED
+            instance.error_message = f"failed to enqueue poll: {exc}"[:500]
+            instance.save(
+                update_fields=["status", "error_message", "updated_at"]
+            )
+            return
+
+        logger.info(
+            "video %s create→render task=%s kind=%s mock=%s",
+            instance.pk, result.task_id, result.kind, result.mock_mode,
+        )
 
     @staticmethod
     def _workspace_for_spokesperson(spokesperson_id):

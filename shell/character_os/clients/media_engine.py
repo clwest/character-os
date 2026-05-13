@@ -29,6 +29,17 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 
+def _as_float_or_none(value: Any) -> float | None:
+    """Coerce JSON numbers (which may arrive as int or float) into a
+    float, leaving None through. Reject everything else so a contract
+    drift fails loud."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    raise TypeError(f"expected number or None, got {type(value).__name__}")
+
+
 class MediaEngineError(Exception):
     """Anything that can go wrong calling the media engine."""
 
@@ -79,6 +90,40 @@ class AvatarCreateResult:
     @property
     def ok(self) -> bool:
         return self.status in {"ready", "mock"}
+
+
+@dataclass
+class VideoCreateResult:
+    """Decoded response from ``POST /internal/videos/`` — fire-then-poll.
+    The status is always non-terminal here (``pending`` or
+    ``rendering``); terminal state lives on the poll endpoint."""
+
+    task_id: str
+    status: str  # "pending" | "rendering"
+    kind: str
+    mock_mode: bool
+
+
+@dataclass
+class VideoPollResult:
+    """Decoded response from ``GET /internal/videos/{task_id}/``."""
+
+    task_id: str
+    status: str  # "pending" | "rendering" | "ready" | "failed"
+    progress: float | None
+    output_url: str | None
+    duration_seconds: float | None
+    error: str | None
+    failure_code: str | None
+    mock_mode: bool
+
+    @property
+    def terminal(self) -> bool:
+        return self.status in {"ready", "failed"}
+
+    @property
+    def succeeded(self) -> bool:
+        return self.status == "ready"
 
 
 class MediaEngineClient:
@@ -174,6 +219,68 @@ class MediaEngineClient:
         except (KeyError, TypeError, ValueError) as exc:
             raise MediaEngineError(
                 f"create_avatar response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
+    def create_video(
+        self,
+        *,
+        kind: str,
+        spokesperson_avatar_id: str,
+        brief: str,
+        ratio: str | None = None,
+        duration: int | None = None,
+        prompt_image: str | None = None,
+    ) -> VideoCreateResult:
+        """Hit ``POST /internal/videos/``. Returns immediately with a
+        Runway task id; the caller polls ``poll_video(task_id)`` for
+        terminal state. Raises ``MediaEngineError`` on transport or
+        protocol failure."""
+        body: dict[str, Any] = {
+            "kind": kind,
+            "spokesperson_avatar_id": spokesperson_avatar_id,
+            "brief": brief,
+        }
+        if ratio is not None:
+            body["ratio"] = ratio
+        if duration is not None:
+            body["duration"] = duration
+        if prompt_image is not None:
+            body["prompt_image"] = prompt_image
+
+        data = self.request("POST", "/internal/videos/", json=body)
+        try:
+            return VideoCreateResult(
+                task_id=str(data["task_id"]),
+                status=str(data["status"]),
+                kind=str(data["kind"]),
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"create_video response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
+    def poll_video(self, task_id: str) -> VideoPollResult:
+        """Hit ``GET /internal/videos/{task_id}/``. Cheap and
+        idempotent; safe to call on a tight loop from the Celery
+        worker."""
+        data = self.request("GET", f"/internal/videos/{task_id}/")
+        try:
+            return VideoPollResult(
+                task_id=str(data["task_id"]),
+                status=str(data["status"]),
+                progress=_as_float_or_none(data.get("progress")),
+                output_url=data.get("output_url"),
+                duration_seconds=_as_float_or_none(data.get("duration_seconds")),
+                error=data.get("error"),
+                failure_code=data.get("failure_code"),
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"poll_video response not in expected shape: {data!r}",
                 response_text=str(data),
             ) from exc
 
