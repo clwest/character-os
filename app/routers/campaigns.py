@@ -2396,6 +2396,9 @@ def get_campaign_output(
         # PR FF — Music bed mixed under the avatar's voice.
         # ffmpeg-built; lives in finished/.
         "spokesperson_ad_with_music",
+        # PR FG — B-roll cutaway. ffmpeg-built; cinematic clip
+        # spliced into the avatar's mid-roll. Lives in finished/.
+        "spokesperson_ad_with_broll",
     }:
         cache_dir = settings.data_path / "finished"
     elif match.kind in {"cinematic_video"}:
@@ -4532,6 +4535,181 @@ def post_add_music(
     logger.info(
         "music-bed ok campaign=%s output=%s bed=%s new_output=%s",
         campaign_id, body.output_id, body.bed_id, new_output_id,
+    )
+    return updated
+
+
+# ---- PR FG — B-roll cutaway composite -----------------------------
+#
+# Splice a cinematic_video clip INTO the avatar's video timeline
+# mid-roll. Avatar audio plays continuously over the entire output
+# so it reads as the avatar narrating the inset scene. Pure
+# ffmpeg, no Runway. Like PR FD, repurposes existing
+# cinematic_video outputs (cross-campaign).
+
+
+class AddBrollBody(BaseModel):
+    """PR FG — body for POST /api/campaigns/{id}/add-broll."""
+
+    output_id: str = Field(..., min_length=8, max_length=64)
+    broll_campaign_id: str = Field(..., min_length=8, max_length=64)
+    broll_output_id: str = Field(..., min_length=8, max_length=64)
+    # Optional timing overrides. Defaults computed server-side:
+    # `insert_start_s` = `source_dur * 0.3`, `broll_duration_s` =
+    # `min(broll_natural_dur, source_dur * 0.4)`.
+    insert_start_s: Optional[float] = Field(default=None, ge=0.0, le=300.0)
+    broll_duration_s: Optional[float] = Field(default=None, ge=1.5, le=60.0)
+
+
+# Spokesperson kinds eligible as the MAIN of a b-roll cutaway. Same
+# set as the other compositors. Reels excluded (reframe of an
+# already-finished source).
+BROLL_FOREGROUND_KINDS: set[str] = {
+    "spokesperson_ad",
+    "long_spokesperson_ad",
+    "spokesperson_ad_dubbed",
+    "spokesperson_ad_remix",
+    "spokesperson_ad_polished",
+    "voiced_commercial",
+}
+
+
+@router.post("/{campaign_id}/add-broll", response_model=Campaign)
+def post_add_broll(
+    campaign_id: str,
+    body: AddBrollBody,
+    settings: Settings = Depends(get_settings),
+    store: CampaignStore = Depends(_store),
+) -> Campaign:
+    """PR FG — splice a cinematic b-roll clip into the avatar ad's
+    mid-roll. Pure ffmpeg, no Runway.
+
+    Failure modes:
+    - 404 — campaign / foreground / b-roll output not found.
+    - 409 — kind not eligible OR cutaway timing math doesn't fit
+      (e.g. very short ad + very long requested cutaway).
+    - 500 — ffmpeg failure.
+    """
+    from ..services.broll_client import compose_with_broll_cutaway
+
+    main_record = store.get(campaign_id)
+    if not main_record:
+        raise HTTPException(status_code=404, detail="campaign not found")
+
+    foreground = next(
+        (o for o in main_record.outputs if o.id == body.output_id), None,
+    )
+    if not foreground:
+        raise HTTPException(
+            status_code=404,
+            detail=f"output '{body.output_id}' not found on this campaign",
+        )
+    if foreground.kind not in BROLL_FOREGROUND_KINDS:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"output kind '{foreground.kind}' not eligible as b-roll "
+                f"main. Supported: {sorted(BROLL_FOREGROUND_KINDS)}"
+            ),
+        )
+
+    broll_record = store.get(body.broll_campaign_id)
+    if not broll_record:
+        raise HTTPException(
+            status_code=404,
+            detail=f"b-roll campaign '{body.broll_campaign_id}' not found",
+        )
+    broll_output = next(
+        (o for o in broll_record.outputs if o.id == body.broll_output_id),
+        None,
+    )
+    if not broll_output:
+        raise HTTPException(
+            status_code=404,
+            detail=f"b-roll output '{body.broll_output_id}' not found",
+        )
+    if broll_output.kind != "cinematic_video":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"b-roll must be a cinematic_video (got '{broll_output.kind}')"
+            ),
+        )
+
+    # Resolve foreground path — same kind→dir mapping as the other
+    # compositors.
+    if foreground.kind == "spokesperson_ad":
+        fg_path = (
+            host_path_for(settings, campaign_id).parent
+            / foreground.cache_filename
+        )
+    else:
+        fg_path = (
+            settings.data_path / "finished" / foreground.cache_filename
+        )
+    if not fg_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"foreground video missing at {fg_path}",
+        )
+
+    # Cinematic videos live in data/videos/.
+    broll_path = settings.data_path / "videos" / broll_output.cache_filename
+    if not broll_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"b-roll video missing at {broll_path}",
+        )
+
+    result = compose_with_broll_cutaway(
+        source_video_path=fg_path,
+        broll_video_path=broll_path,
+        campaign_id=campaign_id,
+        output_id=body.output_id,
+        settings=settings,
+        insert_start_s=body.insert_start_s,
+        broll_duration_s=body.broll_duration_s,
+    )
+
+    if result.status != "ok" or not result.cache_filename:
+        # Timing-mismatch failures come back with operator-friendly
+        # error strings from the service — surface as 409 not 500.
+        err = result.error or "unknown error"
+        status = 409 if "cutaway window" in err else 500
+        logger.warning(
+            "broll failed campaign=%s output=%s err=%s",
+            campaign_id, body.output_id, err,
+        )
+        raise HTTPException(
+            status_code=status,
+            detail=f"b-roll cutaway failed: {err}",
+        )
+
+    new_output_id = uuid.uuid4().hex[:12]
+    new_entry = {
+        "id": new_output_id,
+        "kind": "spokesperson_ad_with_broll",
+        "video_url": f"/api/campaigns/{campaign_id}/output/{new_output_id}",
+        "cache_filename": result.cache_filename,
+        "script": foreground.script,
+        "task_id": None,
+        "mock_mode": False,
+        "parent_output_id": foreground.id,
+        "variant_id": foreground.variant_id,
+        "variant_title": foreground.variant_title,
+        "duration_estimate": result.duration_s,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    updated = store.append_output(campaign_id, new_entry)
+    if not updated:
+        raise HTTPException(status_code=404, detail="campaign not found")
+    logger.info(
+        "broll ok campaign=%s fg=%s broll=%s/%s insert=%.2f cut=%.2f "
+        "new_output=%s",
+        campaign_id, body.output_id,
+        body.broll_campaign_id, body.broll_output_id,
+        result.insert_start_s or 0.0, result.broll_duration_s or 0.0,
+        new_output_id,
     )
     return updated
 

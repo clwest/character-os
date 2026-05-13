@@ -190,6 +190,11 @@ OutputKind = Literal[
     # -18 dB (broadcast-standard music-under-dialogue). Pure ffmpeg,
     # no Runway.
     "spokesperson_ad_with_music",
+    # PR FG — B-roll cutaway. A cinematic_video clip splices INTO
+    # the middle of the avatar ad's video timeline (default 30%→70%
+    # of the duration); the avatar's audio plays continuously
+    # across the entire output. Pure ffmpeg, no Runway.
+    "spokesperson_ad_with_broll",
 ]
 
 
