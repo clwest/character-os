@@ -10,10 +10,13 @@ from django.urls import include, path
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    # allauth — /accounts/login/, /accounts/signup/, /accounts/google/login/,
+    # /accounts/password/reset/, /accounts/logout/, etc.
+    path("accounts/", include("allauth.urls")),
+    # REST API — one path("api/", …) per app router.
     path("api/", include("apps.accounts.urls")),
     path("api/", include("apps.spokespeople.urls")),
     path("api/", include("apps.videos.urls")),
     path("api/", include("apps.conversations.urls")),
     # path("api/billing/", include("apps.billing.urls")),
-    # path("api/auth/", include("apps.accounts.auth_urls")),  # Google OAuth slice
 ]

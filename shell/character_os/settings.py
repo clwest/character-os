@@ -31,9 +31,15 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # django-allauth requirement
+    "django.contrib.sites",
     # Third-party
     "rest_framework",
     "corsheaders",
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
     # Local apps — empty scaffold; models land in their own slices.
     "apps.accounts",
     "apps.spokespeople",
@@ -45,6 +51,8 @@ INSTALLED_APPS = [
     "apps.embeddings",
 ]
 
+SITE_ID = 1
+
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
@@ -54,6 +62,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # allauth account middleware — must come last; handles session
+    # invalidation when sensitive account state changes.
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 ROOT_URLCONF = "character_os.urls"
@@ -125,3 +136,47 @@ REST_FRAMEWORK = {
 # Media-engine endpoint — the internal HTTP API for the FastAPI service.
 # Defaults to localhost during dev; env-overridden in deployments.
 MEDIA_ENGINE_BASE_URL = "http://localhost:8001"
+
+
+# ---- Authentication --------------------------------------------------
+
+AUTHENTICATION_BACKENDS = [
+    # Django's default — for the Django admin and email/password.
+    "django.contrib.auth.backends.ModelBackend",
+    # allauth — handles social auth (Google) + its own email-based flow.
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
+
+# allauth account config — design doc §6.4: email/password backup,
+# Google OAuth primary. Magic links explicitly out.
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+ACCOUNT_EMAIL_VERIFICATION = "optional"  # tighten to "mandatory" pre-launch
+ACCOUNT_SESSION_REMEMBER = True
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_PRESERVE_USERNAME_CASING = False
+
+LOGIN_REDIRECT_URL = "/api/me/"
+LOGOUT_REDIRECT_URL = "/accounts/login/"
+
+# Google OAuth — credentials land via env in deploy; the provider is
+# scaffolded here so the URL routes resolve but won't function until
+# GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET are wired through the admin
+# (SocialApp model) or via SOCIALACCOUNT_PROVIDERS["google"]["APP"].
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "SCOPE": ["profile", "email"],
+        "AUTH_PARAMS": {"access_type": "online"},
+        "OAUTH_PKCE_ENABLED": True,
+    },
+}
+SOCIALACCOUNT_AUTO_SIGNUP = True
+SOCIALACCOUNT_EMAIL_VERIFICATION = "none"
+SOCIALACCOUNT_EMAIL_REQUIRED = True
+
+
+# Dev convenience — email backend prints verification emails to console
+# instead of sending them. Replace with SMTP/SES/Mailgun pre-launch.
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = "noreply@character-os.local"
