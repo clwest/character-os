@@ -19,7 +19,7 @@ SECRET_KEY = "django-insecure-scaffold-key-replace-before-deploy"  # noqa: S105
 
 DEBUG = True
 
-ALLOWED_HOSTS: list[str] = []
+ALLOWED_HOSTS: list[str] = ["localhost", "127.0.0.1", "testserver"]
 
 
 # Application definition

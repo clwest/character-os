@@ -1,0 +1,55 @@
+"""Serializer for Spokesperson."""
+from __future__ import annotations
+
+from rest_framework import serializers
+
+from apps.accounts.models import Membership
+
+from .models import Spokesperson
+
+
+class SpokespersonSerializer(serializers.ModelSerializer):
+    workspace_name = serializers.CharField(source="workspace.name", read_only=True)
+    video_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Spokesperson
+        fields = [
+            "id",
+            "workspace",
+            "workspace_name",
+            "name",
+            "business_brief",
+            "status",
+            "runway_avatar_id",
+            "runway_avatar_status",
+            "portrait_path",
+            "voice_id",
+            "video_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "workspace_name",
+            "runway_avatar_id",
+            "runway_avatar_status",
+            "portrait_path",
+            "voice_id",
+            "video_count",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_video_count(self, obj: Spokesperson) -> int:
+        return obj.videos.count()
+
+    def validate_workspace(self, workspace):
+        """Block creating a spokesperson in a workspace the user
+        isn't a member of."""
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            raise serializers.ValidationError("authentication required")
+        if not Membership.objects.filter(user=request.user, workspace=workspace).exists():
+            raise serializers.ValidationError("not a member of this workspace")
+        return workspace
