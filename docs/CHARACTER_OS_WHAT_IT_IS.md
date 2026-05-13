@@ -2,9 +2,9 @@
 title: "Character OS — What It Actually Is"
 status: populated
 generated: 2026-05-13
-last_revised: 2026-05-13 (SESSION 112)
+last_revised: 2026-05-13 (SESSION 113)
 companion_doc: CHARACTER_OS_INVENTORY.md
-covers_sessions: "106-112"
+covers_sessions: "106-113"
 ---
 
 # Character OS — What It Actually Is
@@ -229,13 +229,12 @@ first, then the runtime anchors. Inheritable across operators.
 
 ### Stale or drifting
 
-- **`docs/design/UI_REDESIGN_V2.md` doesn't exist** but is
-  referenced by `CLAUDE.md`, `00-START-NEXT-SESSION.md`, and
-  multiple handoffs as the canonical design lock. Either the
-  doc never got copied into `docs/design/` during the
-  context-kit scaffold (SESSION 106), or it was deleted. **This
-  is the biggest drift gap right now.** Land or restore in
-  SESSION 111-112.
+- ~~**`docs/design/UI_REDESIGN_V2.md` doesn't exist**~~ — closed
+  in SESSION 113. The 845-line design lock had been left in
+  `runway-hackathon/docs/design/` during the SESSION 106
+  scaffold; SESSION 113 copied it across with a provenance
+  preamble. Phase status reconciled in CLAUDE.md the same
+  session.
 - ~~**`CHARACTER_OS_INVENTORY.md`** is still the stub~~ — closed
   in SESSION 112. `python manage.py inventory` regenerates it
   from runtime introspection. Re-run after any model / route /

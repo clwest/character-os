@@ -70,8 +70,11 @@ Update this section when a phase completes.
 - Phase 0 — Pre-flight (design lock). **DONE** —
   `docs/design/UI_REDESIGN_V2.md` at 845 lines, sign-off log at the
   bottom.
-- Phase 1 — Django shell scaffold. **IN PROGRESS.**
-- Phase 2 — Media data model migration. Pending.
+- Phase 1 — Django shell scaffold. **DONE** (SESSION 107).
+- Phase 2 — Media data model migration. **MOSTLY DONE.**
+  `/internal/*` contract feature-complete (SESSIONS 108-110:
+  avatars, voices, videos). Campaigns→Django backfill script
+  still pending.
 - Phase 3 — Build new UI. Pending.
 - Phase 4 — u-d-b feature port. Pending.
 - Phase 5 — Agency tier UI. Pending.
@@ -88,8 +91,8 @@ pattern's load-bearing conventions:
   session end to preview the next session.
 - **Runtime wins** — when narrative docs and runtime-derived state
   disagree, runtime is correct. `docs/CHARACTER_OS_INVENTORY.md` is
-  the runtime anchor (regenerable once the inventory generator is
-  wired up).
+  the runtime anchor; regenerate it via
+  `python manage.py inventory` (wired in SESSION 112).
 - **AI drafts, human edits** — not the reverse. AI is expected to
   push back when a request contradicts memory or the framing looks
   wrong.

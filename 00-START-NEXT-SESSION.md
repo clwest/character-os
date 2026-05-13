@@ -4,136 +4,131 @@ state: active
 
 # Next Session — Start Here
 
-> **Design lock:** `docs/design/UI_REDESIGN_V2.md` — **still missing.**
-> Referenced everywhere but doesn't exist at that path. SESSION 111
-> surfaced this; SESSION 112 carried it forward. **Operator input
-> required.**
+> **Design lock:** `docs/design/UI_REDESIGN_V2.md` — **imported
+> SESSION 113.** 845-line canonical design lock with chris@donkeybetz.com
+> sign-off; covers customer + naming + data model + monetization +
+> architecture + phase list + screen inventory.
 > **Contract lock:** `docs/design/MEDIA_ENGINE_INTERNAL_API.md` —
 > feature-complete after SESSION 110.
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md` —
-> populated SESSION 111, refined SESSION 112 to defer to the
-> inventory for hard numbers.
+> covers SESSIONS 106-113.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
-> **regeneratable** as of SESSION 112 via
-> `python manage.py inventory`.
-> **Last handoff:**
-> `docs/handoffs/SESSION_112_INVENTORY_GENERATOR.md`.
-
----
-
-## Read first (SESSION 113 specifically)
-
-**Top of queue: the missing design doc.** This has been carried
-forward two sessions now. Three possible answers:
-
-1. **It exists somewhere off-path** (e.g. `~/Documents/` or a
-   sibling repo). Move it to `docs/design/UI_REDESIGN_V2.md`.
-2. **It was never written.** Phase 0 was marked DONE based on
-   verbal alignment, not a checked-in document. If so, write what
-   needs to exist for Phase 3 to start (customer, pricing, screen
-   inventory, naming, data model).
-3. **It's not needed.** The design is small enough that the
-   handoffs + the narrative anchor are enough. If so, remove the
-   stale references in `CLAUDE.md` and the start-here.
-
-Whatever the answer, **Phase 3 (SPA) is blocked on this.** The
-SPA is design-led work; without a design lock you're guessing.
+> regen via `python manage.py inventory`.
+> **Last handoff:** `docs/handoffs/SESSION_113_DESIGN_LOCK_RESOLVED.md`.
 
 ---
 
 ## Where we are
 
-**Phase 0 — Pre-flight (design lock):** DONE-ISH (see above).
-**Phase 1 — Django shell scaffold + monetization:** DONE.
-**Phase 2 — Media-engine data model migration:** DONE for the
-core contract; queued operational work (janitor, additional
-video kinds) is optional.
-**Context-kit anchor pattern:** DONE. Both narrative and runtime
-anchors now exist with real content + a regenerator.
+**Phase 0 — Pre-flight (design lock):** DONE.
+**Phase 1 — Django DRF shell scaffold:** DONE (SESSION 107).
+**Phase 2 — Media data model migration:** MOSTLY DONE.
+Core contract feature-complete; only the campaigns→Django
+backfill script is pending.
+**Phase 3 — Build new UI:** **NEXT.** Now unblocked — design lock
+in place.
 
-What's working end-to-end after SESSION 112:
+What's working end-to-end after SESSION 113:
 
-  - Everything from SESSIONS 107-111.
-  - `python manage.py inventory` regenerates the runtime anchor
-    from live state. Probes the media-engine via `/openapi.json`;
-    falls back gracefully when it's not running.
-  - Real numbers in the inventory:
-    - 6 project-owned models / 5 apps
-    - 35 `/api/*` Django routes / 26 `/accounts/*` / 89 admin
-    - 93 user-defined FastAPI routes (88 legacy + 4 `/internal/*` + health)
-    - 2 Celery tasks
-    - 40/40 migrations
-    - ~30K LOC total
+  - Everything from SESSIONS 107-112.
+  - Design lock now lives in `docs/design/UI_REDESIGN_V2.md`.
+  - `CLAUDE.md` phase status is accurate.
+  - `CHARACTER_OS_WHAT_IT_IS.md` state-honesty section has one
+    fewer flagged drift (the missing design lock is closed).
 
 ---
 
-## SESSION 113 — Recommendation: resolve the design-doc drift
+## SESSION 114 — Phase 3 scope lock
 
-Two-session pivot point. Either:
+Phase 3 is multi-session. Today's job is to **scope-lock the first
+slice**, not to ship a full SPA. The design lock's §5 (screen
+inventory) gives 9 screens; §7 says Phase 3 needs "wireframes →
+components → screens per §5" + auth + activation videos +
+landing/pricing. That's a lot.
 
-### A — Locate / write / retire `UI_REDESIGN_V2.md`
+### Recommended first Phase 3 slice — auth + dashboard skeleton
 
-The unblocking move. Quick path: 5-minute file move if the doc
-already exists somewhere. Slow path: multi-hour write if it
-doesn't. Either way, the next session shouldn't be starting Phase
-3 work without knowing.
+The smallest thing that exercises the full stack:
 
-### B — Phase 3 SPA kickoff (blocked on A)
+1. **`allauth.headless` setup** — JSON signup/login/logout
+   endpoints (already queued investigation). One-slice deliverable.
+2. **SPA scaffold** — Vite + React + TypeScript + shadcn/ui per
+   the scattered references. Just enough to:
+   - Sign up (calls Django headless auth).
+   - Sign in.
+   - See a Workspace dashboard.
+   - Sign out.
+3. **Workspace dashboard screen** — lists the user's spokespeople
+   (via `GET /api/spokespeople/`) and most recent videos (via
+   `GET /api/videos/?limit=10`). Empty state when both are
+   empty.
+4. **One end-to-end test** — Playwright or Cypress, sign-up →
+   dashboard. Hermetic against the dev stack.
 
-Needs scope lock first. Likely shape:
-- Framework + bundler decision (Vite + React + shadcn/ui is the
-  default per scattered references).
-- Auth flow: `allauth.headless` for JSON signup/login.
-- First screen: Workspace dashboard listing spokespeople +
-  videos.
-- Wire `MediaEngineClient` calls through the SPA's data layer.
+This is roughly two sessions of work. Don't try to land it in
+SESSION 114; **scope-lock it in SESSION 114** with the same
+"contract → endpoint → wrapper → smoke" pattern that worked for
+Phase 2.
 
-Don't start B without A resolved. The risk: building a SPA
-against an invented design is more expensive than building it
-against a real one.
+### Alternative first slices (smaller scope)
 
-### C — Stuck-row janitor (parallel-safe)
+- **A — Just `allauth.headless`.** Backend-only. ~30-line
+  settings change + a smoke test that the endpoints respond.
+  Unblocks the SPA without committing to the SPA shape.
+- **B — Stuck-row janitor.** SESSION 109's known failure mode.
+  ~30-min slice. `celery beat` schedule + re-enqueue logic.
+- **C — Campaigns→Django backfill script.** The pending Phase 2
+  deliverable. ~half-session. Walks
+  `runway-hackathon/backend/data/campaigns.json` and creates
+  Django Video records. Only useful once SPA renders them, so
+  defer-ability is real.
 
-If A turns out to be slow (operator deciding what the design
-should be), the janitor is a clean 30-min slice that doesn't
-touch design:
-- `celery beat` schedule entry: every 60 seconds, scan for
-  Videos in `rendering` older than 5 min, re-enqueue
-  `poll_video_until_terminal`.
-- Tiny code, real operational hardening. Worth landing before
-  Phase 3 stress-tests the polling pipeline.
+### Recommendation: **A (just headless auth), then Phase 3 scope lock in SESSION 115.**
 
-### Recommendation: **A first, then either B (if design exists)
-or C (if design takes a session to write).**
+Reasoning: Phase 3 is the biggest scope expansion in the project
+to date. Locking it without first proving the auth layer can talk
+to a JSON-API client is premature. A is a 30-line slice that
+makes the actual scope-lock conversation in SESSION 115 grounded
+in real running code.
 
-### Out of scope for SESSION 113
+### Out of scope for SESSION 114
 
-- The other three video kinds. Defer until SPA renders them.
-- dj-stripe + real Google OAuth + `allauth.headless` — all
-  pending credentials/config from operator.
-- Legacy doc rename (`WHAT_IT_IS_LEGACY.md` →
-  `RUNWAY_HACKATHON_WHAT_IT_WAS.md`). Cosmetic; defer.
+- The full SPA. Locked, not shipped, in SESSION 114.
+- Real Stripe Checkout integration. Pending dj-stripe credentials.
+- Real Google OAuth. Pending client credentials.
+- The activation video series (§4 of design lock). Phase 3 sub-
+  deliverable but depends on the SPA existing first.
+- Marketing site / landing page (also §5 / §7). Same — depends on
+  SPA.
 
 ---
 
 ## Queued investigations (priority-ordered)
 
-1. **Missing `docs/design/UI_REDESIGN_V2.md`** — see above.
-2. **Stuck-row janitor** — operational hardening before Phase 3
-   load lands.
-3. **`allauth.headless`** — required for Phase 3 SPA auth.
-4. **Legacy doc rename** — cosmetic.
+1. **`allauth.headless`** — bumped to recommended first slice
+   above. JSON signup/login for the SPA.
+2. **Phase 3 SPA scope lock** — multi-session; needs SESSION 114
+   prep work first.
+3. **Stuck-row janitor** — operational hardening.
+4. **Campaigns→Django backfill script** — pending Phase 2
+   deliverable.
 5. **dj-stripe install** — when operator has Stripe credentials.
 6. **Real Google OAuth** — when operator creates the client.
 7. **Tag `v-final-pre-migration` on runway-hackathon** — safe
-   any time.
-8. **Numbered handoff gap** (`SESSION_053`) — cosmetic.
-9. **Smoke-test helper consolidation** — three commands share a
-   stub-request pattern. Extract when a fourth lands.
-10. **Drift verifier** — `verify_doc_claims --only-drift`. The
-    inventory now exists; the verifier would diff doc-claimed
-    numbers against the inventory. Pattern doc reference,
-    nothing wired.
+   any time. Worth doing now that the design lock has been
+   copied across.
+8. **Legacy doc rename** (`WHAT_IT_IS_LEGACY.md` →
+   `RUNWAY_HACKATHON_WHAT_IT_WAS.md`). Cosmetic.
+9. **Numbered handoff gap** (`SESSION_053`) — cosmetic.
+10. **Smoke-test helper consolidation** — three commands share a
+    stub-request pattern.
+11. **Drift verifier** — `verify_doc_claims --only-drift`. The
+    inventory now exists; verifier would diff doc-claimed numbers
+    against runtime truth. Would have caught the
+    `UI_REDESIGN_V2.md` missing-file drift on session 1.
+12. **Find-missing-paths check in context-kit orient** — would
+    have caught the missing design doc immediately. Pattern-
+    level upgrade; cheap to add.
 
 ---
 
@@ -168,18 +163,19 @@ python manage.py smoke_video        # SESSION 109 (needs Celery worker)
 
 ## AI / assistant context
 
-- Last session: SESSION 112 — inventory generator. Closed the
-  seven-session gap where the runtime anchor was a stub.
-  Surfaced a real discrepancy: narrative said 106 FastAPI
-  routes, inventory says 93. The narrative deferred to the
-  inventory. Two-doc pattern earning its keep.
-- Calibration carried forward: this operator prefers right-
-  shaping foundations early. When the AI offers "smallest thing
-  now" vs. "real foundation now," default to the foundation if
-  it'll be needed within 1-3 sessions.
-- Real drift carried forward: `docs/design/UI_REDESIGN_V2.md`
-  doesn't exist. Two sessions of "flag this on session start"
-  hasn't resolved it. **SESSION 113 should ask the operator
-  directly, before any code lands.**
+- Last session: SESSION 113 — resolved a five-session drift by
+  importing the design lock from `runway-hackathon/`. Reconciled
+  `CLAUDE.md` phase status. Closed one flagged drift in the
+  narrative anchor.
+- Calibration carried forward: this operator prefers right-shaping
+  foundations early. Applies when scoping Phase 3 — don't ship a
+  "minimal" SPA if the real one is one cleanup pass away.
+- Meta-lesson from this session: when CLAUDE.md or the start-here
+  doc references a file path, sanity-check the file exists during
+  the same session the reference is made. Five sessions of
+  reliance on a non-existent doc could have been five seconds of
+  `ls`. **For SESSION 114: if scope-locking SPA work, verify each
+  referenced design-doc section is actually in `UI_REDESIGN_V2.md`
+  before treating it as canonical.**
 - Collaboration conventions: AI drafts, human edits.
 - Handoff `## AI Notes` section required at session end.
