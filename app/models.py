@@ -195,6 +195,14 @@ OutputKind = Literal[
     # of the duration); the avatar's audio plays continuously
     # across the entire output. Pure ffmpeg, no Runway.
     "spokesperson_ad_with_broll",
+    # PR FH — Animated PiP. Dynamic upgrade to PR FC's static-image
+    # PiP overlay. Backend fires `image_to_video` on the campaign
+    # reference image (or character portrait fallback) with a motion
+    # preset prompt, then ffmpeg-loops the result as the corner tile.
+    # One Runway credit per fire (image_to_video, 5s); subsequent
+    # ffmpeg composite is free. `motion_id` carries the preset
+    # (push-in / pan-left / pan-right / parallax / zoom-out).
+    "spokesperson_ad_with_animated_pip",
 ]
 
 
@@ -252,6 +260,12 @@ class OutputRecord(BaseModel):
     # watercolor, cyberpunk). Frontend uses this to sub-bucket
     # remixes under the 🎨 Style Remixes group.
     remix_style: Optional[str] = None
+    # PR FH — Animated PiP motion preset id for
+    # `spokesperson_ad_with_animated_pip` outputs. One of
+    # MOTION_PRESETS keys (push-in / pan-left / pan-right /
+    # parallax / zoom-out). Frontend uses this to badge tiles by
+    # motion style.
+    motion_id: Optional[str] = None
     created_at: datetime
 
 

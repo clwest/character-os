@@ -2399,6 +2399,10 @@ def get_campaign_output(
         # PR FG — B-roll cutaway. ffmpeg-built; cinematic clip
         # spliced into the avatar's mid-roll. Lives in finished/.
         "spokesperson_ad_with_broll",
+        # PR FH — Animated PiP. Runway image_to_video output looped
+        # as the corner overlay; ffmpeg-built composite lives in
+        # finished/.
+        "spokesperson_ad_with_animated_pip",
     }:
         cache_dir = settings.data_path / "finished"
     elif match.kind in {"cinematic_video"}:
@@ -4710,6 +4714,417 @@ def post_add_broll(
         body.broll_campaign_id, body.broll_output_id,
         result.insert_start_s or 0.0, result.broll_duration_s or 0.0,
         new_output_id,
+    )
+    return updated
+
+
+# ---- PR FH — Animated PiP -----------------------------------------
+#
+# Dynamic upgrade to PR FC's static-image PiP. Fires
+# `image_to_video` on the campaign reference image (or character
+# portrait fallback) with a motion preset prompt → 5s clip → ffmpeg
+# loops as the corner overlay on the avatar ad. ~30s-5min wall
+# time (one image_to_video call), 1 Runway credit per fire.
+
+
+class AddAnimatedPipBody(BaseModel):
+    """PR FH — body for POST /api/campaigns/{id}/add-animated-pip."""
+
+    output_id: str = Field(..., min_length=8, max_length=64)
+    motion_id: str = Field(
+        ...,
+        description=(
+            "Motion preset id. One of "
+            "{push-in, pan-left, pan-right, parallax, zoom-out}."
+        ),
+        max_length=32,
+    )
+
+
+# Eligible MAIN kinds for animated-PiP overlay (same set as PR FC
+# static PiP).
+ANIMATED_PIP_SOURCE_KINDS: set[str] = {
+    "spokesperson_ad",
+    "long_spokesperson_ad",
+    "spokesperson_ad_dubbed",
+    "spokesperson_ad_remix",
+    "spokesperson_ad_polished",
+    "voiced_commercial",
+}
+
+
+@router.get("/animated-pip/motion-presets")
+def get_animated_pip_motion_presets() -> dict[str, dict[str, str]]:
+    """PR FH — list available motion presets (id → label). Frontend
+    uses this to populate the picker without round-tripping the
+    full prompt text (which is server-side so it can be tuned
+    without an SPA redeploy)."""
+    from ..services.animated_pip_client import MOTION_PRESETS
+    return {
+        mid: {"label": preset["label"]}
+        for mid, preset in MOTION_PRESETS.items()
+    }
+
+
+@router.post("/{campaign_id}/add-animated-pip", response_model=Campaign)
+def post_add_animated_pip(
+    campaign_id: str,
+    body: AddAnimatedPipBody,
+    settings: Settings = Depends(get_settings),
+    store: CampaignStore = Depends(_store),
+) -> Campaign:
+    """PR FH — generate an animated PiP source via image_to_video
+    and ffmpeg-overlay it on the avatar ad.
+
+    Failure modes:
+    - 404 — campaign / output / pip image not found.
+    - 400 — unknown motion_id.
+    - 409 — output kind not eligible.
+    - 502 — image_to_video upstream failure.
+    """
+    from ..services.animated_pip_client import (
+        animate_and_compose,
+        MOTION_PRESETS,
+    )
+
+    record = store.get(campaign_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="campaign not found")
+
+    motion_id = body.motion_id.strip().lower()
+    if motion_id not in MOTION_PRESETS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"unknown motion_id '{motion_id}'. supported: "
+                f"{sorted(MOTION_PRESETS.keys())}"
+            ),
+        )
+
+    output = next((o for o in record.outputs if o.id == body.output_id), None)
+    if not output:
+        raise HTTPException(
+            status_code=404,
+            detail=f"output '{body.output_id}' not found on this campaign",
+        )
+    if output.kind not in ANIMATED_PIP_SOURCE_KINDS:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"output kind '{output.kind}' not eligible for animated "
+                f"PiP. Supported: {sorted(ANIMATED_PIP_SOURCE_KINDS)}"
+            ),
+        )
+
+    # Resolve the source image — same fallback chain as PR FC PiP:
+    # campaign.reference_image_url → character portrait → 409.
+    pip_image = _resolve_pip_image_path(record, settings)
+    if not pip_image:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "No PiP image available. Upload or generate a reference "
+                "image for this campaign, or attach a character with a "
+                "cached portrait."
+            ),
+        )
+
+    # Resolve avatar ad source path — same kind→dir mapping.
+    if output.kind == "spokesperson_ad":
+        source_path = (
+            host_path_for(settings, campaign_id).parent / output.cache_filename
+        )
+    else:
+        source_path = settings.data_path / "finished" / output.cache_filename
+    if not source_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"source video file missing at {source_path}",
+        )
+
+    result = animate_and_compose(
+        source_video_path=source_path,
+        pip_image_path=pip_image,
+        campaign_id=campaign_id,
+        output_id=body.output_id,
+        motion_id=motion_id,
+        settings=settings,
+    )
+
+    if result.status != "ok" or not result.cache_filename:
+        logger.warning(
+            "animated-pip failed campaign=%s output=%s motion=%s err=%s",
+            campaign_id, body.output_id, motion_id, result.error,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=f"animated PiP failed: {result.error or 'unknown error'}",
+        )
+
+    new_output_id = uuid.uuid4().hex[:12]
+    new_entry = {
+        "id": new_output_id,
+        "kind": "spokesperson_ad_with_animated_pip",
+        "video_url": f"/api/campaigns/{campaign_id}/output/{new_output_id}",
+        "cache_filename": result.cache_filename,
+        "script": output.script,
+        "task_id": result.task_id,
+        "mock_mode": result.mock_mode,
+        "parent_output_id": output.id,
+        "variant_id": output.variant_id,
+        "variant_title": output.variant_title,
+        "motion_id": motion_id,
+        "duration_estimate": result.duration_s,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    updated = store.append_output(campaign_id, new_entry)
+    if not updated:
+        raise HTTPException(status_code=404, detail="campaign not found")
+    logger.info(
+        "animated-pip ok campaign=%s output=%s motion=%s new_output=%s",
+        campaign_id, body.output_id, motion_id, new_output_id,
+    )
+    return updated
+
+
+# ---- PR FI — Scene composite (generate-and-composite atomic) ------
+#
+# Operator types a scene prompt + picks an image source. Backend
+# fires image_to_video with that prompt + source, then composites
+# the result as the backdrop of the avatar ad (PR FD pattern with
+# avatar in top-right corner tile).
+#
+# Lands TWO OutputRecords:
+#   - cinematic_video (the generated scene — reusable in Backdrop
+#     and B-Roll modals for future composites without re-firing
+#     image_to_video)
+#   - spokesperson_ad_with_backdrop (the final composite)
+
+
+class SceneCompositeBody(BaseModel):
+    """PR FI — body for POST /api/campaigns/{id}/scene-composite."""
+
+    output_id: str = Field(..., min_length=8, max_length=64)
+    scene_prompt: str = Field(
+        ...,
+        min_length=4,
+        max_length=1000,
+        description="What the scene shows. Sent to image_to_video.",
+    )
+    # Image source selector. Default = "avatar" so the avatar
+    # appears IN the generated scene; "campaign" uses the saved
+    # reference_image_url; "upload" uses the operator-supplied
+    # upload_image_url.
+    image_source: str = Field(
+        default="avatar",
+        description="One of 'avatar', 'campaign', 'upload'.",
+        max_length=16,
+    )
+    upload_image_url: Optional[str] = Field(
+        default=None,
+        description=(
+            "Required when `image_source` == 'upload'. URL of an "
+            "image uploaded via /api/runway/upload-image."
+        ),
+        max_length=2048,
+    )
+    motion_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Optional motion preset id to append to the prompt. "
+            "One of {push-in, pan-left, pan-right, parallax, zoom-out}."
+        ),
+        max_length=32,
+    )
+
+
+# Spokesperson kinds eligible as the foreground tile of a scene
+# composite. Same set as PR FD Backdrop (since the underlying
+# compositing helper is shared).
+SCENE_FOREGROUND_KINDS: set[str] = {
+    "spokesperson_ad",
+    "long_spokesperson_ad",
+    "spokesperson_ad_dubbed",
+    "spokesperson_ad_remix",
+    "spokesperson_ad_polished",
+    "voiced_commercial",
+}
+
+
+def _resolve_scene_source_image(
+    record: Campaign,
+    body: SceneCompositeBody,
+    settings: Settings,
+) -> Optional[Path]:
+    """Resolve the local image file path for the image_to_video
+    source. None when the chosen source isn't available — caller
+    surfaces 409 with a hint."""
+    from ..services.image_client import find_image_path
+
+    src = (body.image_source or "avatar").strip().lower()
+    if src == "upload":
+        url = (body.upload_image_url or "").strip()
+        if not url:
+            return None
+        image_id = url.rsplit("/", 1)[-1]
+        return find_image_path(settings, image_id) if image_id else None
+    if src == "campaign":
+        url = (record.reference_image_url or "").strip()
+        if not url:
+            return None
+        image_id = url.rsplit("/", 1)[-1]
+        return find_image_path(settings, image_id) if image_id else None
+    # Default — "avatar": use the attached character's portrait.
+    if record.character_id:
+        try:
+            portrait = CharacterStore(settings.data_path).portrait_path(
+                record.character_id,
+            )
+        except Exception:
+            portrait = None
+        if portrait and portrait.exists():
+            return portrait
+    return None
+
+
+@router.post("/{campaign_id}/scene-composite", response_model=Campaign)
+def post_scene_composite(
+    campaign_id: str,
+    body: SceneCompositeBody,
+    settings: Settings = Depends(get_settings),
+    store: CampaignStore = Depends(_store),
+) -> Campaign:
+    """PR FI — generate a fresh cinematic scene + composite it as
+    the backdrop of the avatar ad. Burns one image_to_video credit.
+
+    Failure modes:
+    - 404 — campaign / output / source image not found.
+    - 409 — kind not eligible OR no image source available.
+    - 502 — image_to_video upstream failure.
+    """
+    from ..services.scene_composite_client import (
+        generate_scene_and_composite,
+    )
+
+    record = store.get(campaign_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="campaign not found")
+
+    output = next((o for o in record.outputs if o.id == body.output_id), None)
+    if not output:
+        raise HTTPException(
+            status_code=404,
+            detail=f"output '{body.output_id}' not found on this campaign",
+        )
+    if output.kind not in SCENE_FOREGROUND_KINDS:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"output kind '{output.kind}' not eligible as scene "
+                f"composite foreground. Supported: "
+                f"{sorted(SCENE_FOREGROUND_KINDS)}"
+            ),
+        )
+
+    image_path = _resolve_scene_source_image(record, body, settings)
+    if not image_path:
+        src_hint = (body.image_source or "avatar").lower()
+        hint = {
+            "avatar": (
+                "No character portrait found. Attach a character with a "
+                "generated portrait, or pick a different image_source."
+            ),
+            "campaign": (
+                "Campaign has no reference_image_url. Set one via the "
+                "legacy concept flow, or upload an image, or pick "
+                "image_source='avatar'."
+            ),
+            "upload": (
+                "image_source='upload' requires an upload_image_url. "
+                "Upload an image first via /api/runway/upload-image and "
+                "pass the resulting URL."
+            ),
+        }.get(src_hint, "No usable image source.")
+        raise HTTPException(status_code=409, detail=hint)
+
+    # Resolve avatar ad source path.
+    if output.kind == "spokesperson_ad":
+        source_path = (
+            host_path_for(settings, campaign_id).parent / output.cache_filename
+        )
+    else:
+        source_path = settings.data_path / "finished" / output.cache_filename
+    if not source_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"source video file missing at {source_path}",
+        )
+
+    result = generate_scene_and_composite(
+        source_video_path=source_path,
+        pip_image_path=image_path,
+        scene_prompt=body.scene_prompt,
+        motion_id=(body.motion_id.strip().lower() if body.motion_id else None),
+        campaign_id=campaign_id,
+        output_id=body.output_id,
+        settings=settings,
+    )
+
+    if result.status != "ok" or not result.composite_filename:
+        logger.warning(
+            "scene-composite failed campaign=%s output=%s err=%s",
+            campaign_id, body.output_id, result.error,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=f"scene composite failed: {result.error or 'unknown error'}",
+        )
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    # 1. Append the generated scene as a reusable cinematic_video.
+    if result.scene_filename:
+        scene_output_id = uuid.uuid4().hex[:12]
+        scene_entry = {
+            "id": scene_output_id,
+            "kind": "cinematic_video",
+            "video_url": (
+                f"/api/campaigns/{campaign_id}/output/{scene_output_id}"
+            ),
+            "cache_filename": result.scene_filename,
+            "script": None,
+            "task_id": result.task_id,
+            "mock_mode": result.mock_mode,
+            "parent_output_id": None,
+            "variant_id": None,
+            "variant_title": None,
+            "duration_estimate": result.scene_duration_s,
+            "created_at": now,
+        }
+        store.append_output(campaign_id, scene_entry)
+
+    # 2. Append the spokesperson_ad_with_backdrop composite.
+    composite_id = uuid.uuid4().hex[:12]
+    composite_entry = {
+        "id": composite_id,
+        "kind": "spokesperson_ad_with_backdrop",
+        "video_url": f"/api/campaigns/{campaign_id}/output/{composite_id}",
+        "cache_filename": result.composite_filename,
+        "script": output.script,
+        "task_id": result.task_id,
+        "mock_mode": result.mock_mode,
+        "parent_output_id": output.id,
+        "variant_id": output.variant_id,
+        "variant_title": output.variant_title,
+        "duration_estimate": result.composite_duration_s,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    updated = store.append_output(campaign_id, composite_entry)
+    if not updated:
+        raise HTTPException(status_code=404, detail="campaign not found")
+    logger.info(
+        "scene-composite ok campaign=%s output=%s composite=%s",
+        campaign_id, body.output_id, composite_id,
     )
     return updated
 
