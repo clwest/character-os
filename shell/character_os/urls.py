@@ -13,6 +13,10 @@ urlpatterns = [
     # allauth — /accounts/login/, /accounts/signup/, /accounts/google/login/,
     # /accounts/password/reset/, /accounts/logout/, etc.
     path("accounts/", include("allauth.urls")),
+    # allauth.headless — JSON-API surface consumed by the SPA. Lives
+    # under /_allauth/ so /accounts/ stays the HTML surface; the two
+    # coexist during the Phase 3 SPA transition.
+    path("_allauth/", include("allauth.headless.urls")),
     # REST API — one path("api/", …) per app router.
     path("api/", include("apps.accounts.urls")),
     path("api/", include("apps.spokespeople.urls")),

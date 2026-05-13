@@ -216,17 +216,20 @@ def _collect_endpoints() -> dict:
             buckets["accounts/"] += 1
         elif p.startswith("admin/"):
             buckets["admin/"] += 1
+        elif p.startswith("_allauth/"):
+            buckets["_allauth/"] += 1
         else:
             buckets["other"] += 1
 
     return {
         "total": len(routes),
         "by_prefix": dict(buckets),
-        # Surface just the /api/* and /accounts/* routes by name —
-        # admin is too noisy to render.
+        # Surface just the named /api/* + /accounts/* + /_allauth/*
+        # routes — admin is too noisy to render.
         "named_api": sorted({
             r["name"] for r in routes
-            if r["name"] and _normalise(r["path"]).startswith(("api/", "accounts/"))
+            if r["name"]
+            and _normalise(r["path"]).startswith(("api/", "accounts/", "_allauth/"))
         }),
     }
 

@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "allauth",
     "allauth.account",
+    "allauth.headless",
     "allauth.socialaccount",
     "allauth.socialaccount.providers.google",
     # Local apps — empty scaffold; models land in their own slices.
@@ -213,3 +214,35 @@ SOCIALACCOUNT_EMAIL_REQUIRED = True
 # instead of sending them. Replace with SMTP/SES/Mailgun pre-launch.
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = "noreply@character-os.local"
+
+
+# ---- allauth.headless ----------------------------------------------
+#
+# JSON-API surface for the Phase 3 SPA. The legacy HTML allauth flow
+# stays alive (HEADLESS_ONLY=False) so the Django admin + the
+# old-style /accounts/login/ pages keep working during the SPA
+# transition. The headless surface mounts at /_allauth/ (router in
+# urls.py) and splits by client type:
+#
+#   /_allauth/browser/v1/...   — session-cookie auth (this is the SPA)
+#   /_allauth/app/v1/...       — token-based auth (mobile, deferred)
+#
+# We only enable the browser client today; the SPA will run as a
+# first-party Vite/React app sharing the same origin (or a CORS-
+# allowed origin) as Django, so session cookies are the natural fit.
+#
+# HEADLESS_FRONTEND_URLS tells allauth where to redirect users after
+# email-verify / password-reset / account-confirm flows complete.
+# These point at the SPA's eventual routes; until the SPA exists,
+# they're 404s — that's fine, the headless API still works for the
+# signup/login JSON calls.
+HEADLESS_ONLY = False
+HEADLESS_CLIENTS = ("browser",)
+HEADLESS_FRONTEND_URLS = {
+    # Tokens land in the URL query string; the SPA reads and forwards
+    # to its own confirmation views.
+    "account_confirm_email": "/account/verify-email/{key}",
+    "account_reset_password": "/account/password/reset",
+    "account_reset_password_from_key": "/account/password/reset/key/{key}",
+    "account_signup": "/account/signup",
+}
