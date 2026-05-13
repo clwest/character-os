@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import logging
 
-from rest_framework import viewsets
+from rest_framework import status as drf_status, viewsets
+from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.billing.services import TierLimitExceeded, check_spokesperson_limit
@@ -106,6 +107,84 @@ class SpokespersonViewSet(viewsets.ModelViewSet):
         logger.info(
             "spokesperson %s avatar=%s status=%s mock=%s",
             instance.pk, result.avatar_id, result.status, result.mock_mode,
+        )
+
+    @action(detail=True, methods=["post"], url_path="clone-voice")
+    def clone_voice(self, request, pk=None):
+        """``POST /api/spokespeople/{id}/clone-voice/``.
+
+        Takes ``{audio_data_uri, name?}``, forwards to the media-
+        engine's ``POST /internal/voices/``, and persists the
+        returned ``voice_id`` onto the Spokesperson row. The Runway-
+        hosted ``preview_url`` is returned in the response for the
+        SPA to play back; we don't persist it (Runway can re-vend it
+        via a future poll route when one lands).
+
+        Response shape:
+
+            {
+              "spokesperson": <serialized Spokesperson>,
+              "voice": {
+                "voice_id": "...",
+                "status": "ready|mock",
+                "preview_url": "https://...",
+                "mock_mode": false
+              }
+            }
+
+        Errors:
+            400 — audio_data_uri missing.
+            502 — media-engine unreachable, or upstream Runway
+                  rejection (carries upstream message).
+        """
+        spokesperson: Spokesperson = self.get_object()  # type: ignore[assignment]
+        audio_data_uri = (request.data.get("audio_data_uri") or "").strip()
+        if not audio_data_uri:
+            return Response(
+                {"error": "audio_data_uri is required", "code": "missing_audio"},
+                status=drf_status.HTTP_400_BAD_REQUEST,
+            )
+        name = (request.data.get("name") or "").strip() or None
+
+        try:
+            with MediaEngineClient() as client:
+                result = client.clone_voice(
+                    audio_data_uri=audio_data_uri,
+                    name=name,
+                )
+        except MediaEngineError as exc:
+            logger.warning(
+                "clone_voice failed spokesperson=%s err=%s",
+                spokesperson.pk, exc,
+            )
+            return Response(
+                {
+                    "error": str(exc)[:500],
+                    "code": "upstream_media_engine",
+                    "status_code": exc.status_code,
+                },
+                status=drf_status.HTTP_502_BAD_GATEWAY,
+            )
+
+        spokesperson.voice_id = result.voice_id
+        spokesperson.save(update_fields=["voice_id", "updated_at"])
+
+        logger.info(
+            "spokesperson %s voice cloned voice=%s status=%s mock=%s",
+            spokesperson.pk, result.voice_id, result.status, result.mock_mode,
+        )
+
+        serializer = self.get_serializer(spokesperson)
+        return Response(
+            {
+                "spokesperson": serializer.data,
+                "voice": {
+                    "voice_id": result.voice_id,
+                    "status": result.status,
+                    "preview_url": result.preview_url,
+                    "mock_mode": result.mock_mode,
+                },
+            }
         )
 
     @staticmethod

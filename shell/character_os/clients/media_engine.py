@@ -93,6 +93,21 @@ class AvatarCreateResult:
 
 
 @dataclass
+class VoiceCloneResult:
+    """Decoded response from ``POST /internal/voices/``. Contract lives
+    in ``docs/design/MEDIA_ENGINE_INTERNAL_API.md``."""
+
+    voice_id: str
+    status: str  # "ready" | "mock" | "failed"
+    preview_url: str | None
+    mock_mode: bool
+
+    @property
+    def ok(self) -> bool:
+        return self.status in {"ready", "mock"}
+
+
+@dataclass
 class VideoCreateResult:
     """Decoded response from ``POST /internal/videos/`` — fire-then-poll.
     The status is always non-terminal here (``pending`` or
@@ -281,6 +296,32 @@ class MediaEngineClient:
         except (KeyError, TypeError, ValueError) as exc:
             raise MediaEngineError(
                 f"poll_video response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
+    def clone_voice(
+        self,
+        *,
+        audio_data_uri: str,
+        name: str | None = None,
+    ) -> VoiceCloneResult:
+        """Hit ``POST /internal/voices/``. Inline / synchronous —
+        Runway voice clones return in <10 s; no polling needed."""
+        body: dict[str, Any] = {"audio_data_uri": audio_data_uri}
+        if name is not None:
+            body["name"] = name
+
+        data = self.request("POST", "/internal/voices/", json=body)
+        try:
+            return VoiceCloneResult(
+                voice_id=str(data["voice_id"]),
+                status=str(data["status"]),
+                preview_url=data.get("preview_url"),
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"clone_voice response not in expected shape: {data!r}",
                 response_text=str(data),
             ) from exc
 

@@ -10,7 +10,8 @@ the Phase 2 transition.
 
 SESSION 108 — ``POST /internal/avatars/`` (avatar create).
 SESSION 109 — ``POST /internal/videos/`` + ``GET /internal/videos/{task_id}/``
-(fire-then-poll video generation). Voice clone still pending.
+(fire-then-poll video generation).
+SESSION 110 — ``POST /internal/voices/`` (inline voice clone).
 """
 from __future__ import annotations
 
@@ -41,6 +42,11 @@ from ..services.runway_client import (
     resolve_model,
     validate_generation_settings,
 )
+from ..services.voice_clone_client import (
+    MAX_AUDIO_BYTES,
+    SUPPORTED_AUDIO_MIMES,
+    clone_voice_from_audio,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +61,12 @@ _MIME_EXT = {
     "image/jpg": "jpg",
     "image/webp": "webp",
 }
+
+# Audio data URI parser. Wider mime set than portraits — see
+# voice_clone_client.SUPPORTED_AUDIO_MIMES for the allowlist.
+_AUDIO_DATA_URI_RE = re.compile(
+    r"^data:(audio/[a-zA-Z0-9.+\-]+);base64,(.+)$", re.IGNORECASE,
+)
 
 
 class InternalAvatarCreate(BaseModel):
@@ -383,4 +395,111 @@ def get_internal_video(
         error=runway_resp.failure_reason if contract_status == "failed" else None,
         failure_code=None,  # Runway exposes this only on character_performance
         mock_mode=runway_resp.mock_mode,
+    )
+
+
+# ---- POST /internal/voices/ ---------------------------------------
+#
+# Inline / synchronous voice cloning. Runway's clone returns in <10 s
+# in real mode and a fraction of a second in mock mode, so there's no
+# value in fire-then-poll for this endpoint. The Django side blocks
+# on the response.
+#
+# The media-engine holds zero state across calls — the decoded audio
+# is in memory only as long as the Runway upload takes.
+
+
+class InternalVoiceCreate(BaseModel):
+    """Request body for ``POST /internal/voices/``."""
+
+    audio_data_uri: str = Field(..., min_length=32)
+    name: Optional[str] = Field(default=None, max_length=80)
+
+
+class InternalVoiceResponse(BaseModel):
+    voice_id: str
+    status: str  # "ready" | "mock" | "failed"
+    preview_url: Optional[str] = None
+    mock_mode: bool
+
+
+def _decode_audio(data_uri: str) -> tuple[str, bytes] | JSONResponse:
+    """Validate + decode a ``data:audio/...;base64,...`` payload.
+
+    Returns ``(mime, raw_bytes)`` on success or a JSONResponse error.
+    Mime is normalised to lowercase and validated against
+    ``SUPPORTED_AUDIO_MIMES``. Decoded cap matches the legacy
+    multipart route (``MAX_AUDIO_BYTES`` = 15 MB).
+    """
+    match = _AUDIO_DATA_URI_RE.match(data_uri.strip())
+    if not match:
+        return _error(
+            400,
+            "invalid_data_uri",
+            "audio_data_uri must be data:audio/{mp3|wav|m4a|webm|ogg|aac};base64,...",
+        )
+    mime = match.group(1).lower()
+    if mime not in SUPPORTED_AUDIO_MIMES:
+        return _error(
+            400,
+            "invalid_data_uri",
+            f"unsupported audio mime {mime!r}; accepted: {sorted(SUPPORTED_AUDIO_MIMES)}",
+        )
+    try:
+        raw = base64.b64decode(match.group(2), validate=True)
+    except (ValueError, binascii.Error):
+        return _error(
+            400, "invalid_data_uri",
+            "audio_data_uri base64 payload is malformed",
+        )
+    if not raw:
+        return _error(422, "empty_audio", "audio_data_uri decoded to zero bytes")
+    if len(raw) > MAX_AUDIO_BYTES:
+        return _error(
+            413,
+            "audio_too_large",
+            f"audio decodes to {len(raw):,} bytes; cap is {MAX_AUDIO_BYTES:,}",
+        )
+    return mime, raw
+
+
+@router.post("/voices/", response_model=InternalVoiceResponse)
+def post_internal_voice(
+    body: InternalVoiceCreate,
+    settings: Settings = Depends(get_settings),
+):
+    """Clone a voice from an inline audio sample.
+
+    Stateless — no local cache; the decoded audio is forwarded
+    immediately to Runway (real mode) or hashed for the mock id
+    (mock mode). Mock-mode ids are deterministic on
+    ``sha256(name + audio_bytes)`` so re-uploads are idempotent.
+    """
+    decoded = _decode_audio(body.audio_data_uri)
+    if isinstance(decoded, JSONResponse):
+        return decoded
+    mime, raw = decoded
+
+    name = (body.name or "Custom Voice").strip() or "Custom Voice"
+    result = clone_voice_from_audio(name, raw, mime, settings)
+
+    if result.status == "failed" or not result.voice_id:
+        logger.warning(
+            "internal voice clone failed name=%s err=%s",
+            name, result.error,
+        )
+        return _error(
+            502, "upstream_runway_error",
+            result.error or "voice clone failed",
+        )
+
+    logger.info(
+        "internal voice clone ok name=%s voice=%s status=%s mock=%s",
+        name, result.voice_id, result.status, result.mock_mode,
+    )
+    return InternalVoiceResponse(
+        voice_id=result.voice_id,
+        status=result.status,
+        preview_url=result.preview_url,
+        mock_mode=result.mock_mode,
     )

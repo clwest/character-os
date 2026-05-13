@@ -7,11 +7,10 @@ state: active
 > **Design lock:** `docs/design/UI_REDESIGN_V2.md` is canonical for
 > what we're building.
 > **Contract lock:** `docs/design/MEDIA_ENGINE_INTERNAL_API.md` is
-> canonical for Phase 2's Django↔FastAPI boundary.
+> canonical for the Django↔FastAPI boundary. **Feature-complete after
+> SESSION 110** — all three core verbs (avatars, voices, videos) live.
 > **Last handoff:**
-> `docs/handoffs/SESSION_109_VIDEO_PIPELINE_CELERY_REDIS.md` — fire-
-> then-poll video pipeline complete + Celery/Redis foundation pulled
-> in early.
+> `docs/handoffs/SESSION_110_VOICE_CLONE_ENDPOINT.md`.
 
 ---
 
@@ -19,117 +18,130 @@ state: active
 
 **Phase 0 — Pre-flight (design lock):** DONE.
 **Phase 1 — Django shell scaffold + monetization layer:** DONE.
-**Phase 2 — Media-engine data model migration:** IN PROGRESS.
+**Phase 2 — Media-engine data model migration:** MOSTLY DONE.
 
-What's working end-to-end after SESSION 109:
+What's working end-to-end after SESSION 110:
 
-  - Everything from SESSION 107 + 108 (24 REST endpoints, signup →
-    workspace → tier-gated CRUD, `POST /internal/avatars/`,
-    `MediaEngineClient.create_avatar`).
-  - Fire-then-poll video pipeline:
-    - `POST /api/videos/` returns 201 immediately with
-      `status=rendering` + `media_engine_task_id`.
-    - Celery worker polls `GET /internal/videos/{task_id}/` on a
-      2 s loop with a 10-min deadline, writes terminal state to
-      the row.
-    - SPA can poll `GET /api/videos/{id}/` for live status.
-  - Celery + Redis foundation:
-    - Redis runs in Docker on `:6381` (`infra/docker-compose.yml`).
-    - Broker (`db=0`) + result backend (`db=1`).
-    - `apps.videos.tasks.poll_video_until_terminal` is the first
-      consumer; autodiscovery picks up future `apps/*/tasks.py`.
-  - `python manage.py smoke_video` — end-to-end test, passes in
-    ~13 s against mock-mode media-engine.
+  - 25 REST endpoints under `/api/` covering Workspace / Membership /
+    Spokesperson / Video / ConversationThread CRUD + custom actions
+    (`/workspaces/{id}/members/`, `/spokespeople/{id}/clone-voice/`)
+    + `/me/` + `/billing/*`.
+  - Three `/internal/*` verbs on the media-engine, all live:
+    - `POST /internal/avatars/` (SESSION 108) — synchronous.
+    - `POST /internal/videos/` + `GET /internal/videos/{task_id}/`
+      (SESSION 109) — fire-then-poll via Celery.
+    - `POST /internal/voices/` (SESSION 110) — synchronous.
+  - Celery + Redis foundation (broker db=0, results db=1 on
+    Redis :6381).
+  - Three hermetic smoke commands:
+    - `python manage.py smoke_avatar` (~1 s in mock mode).
+    - `python manage.py smoke_video` (~13 s in mock mode).
+    - `python manage.py smoke_voice` (~1 s in mock mode).
 
 ---
 
-## SESSION 110 — Phase 2 continuation
+## SESSION 111 — Phase 2 wrap or Phase 3 start
 
-Three natural next slices. Operator picks first; all three are
-single-session-sized.
+Phase 2's load-bearing work is done. The next session sits at a
+decision point.
 
-### Slice A — `POST /internal/voices/` (recommended)
+### Option 1 — Land `pyrightconfig.json` (recommended pre-work)
 
-The remaining major `/internal/*` verb. Voice cloning is needed
-for the Pro / Agency tiers (the Starter happy path uses the
-Runway voice preset that ships with each avatar). Shape mirrors
-the avatar slice closely:
+**Five sessions in a row** have flagged the same cross-stack
+pyright noise: `apps.* could not be resolved`,
+`GenericAPIView.get_queryset` "Never" return drift, unreachable
+code warnings after `sys.exit`. None of it is real — runtime is
+clean. But the warnings cost cognitive bandwidth on every session
+("is this a new bug or the same noise?") and they'll only get
+louder as Phase 3 lands more files.
 
-- Request: `{audio_data_uri: "data:audio/wav;base64,...", name}`.
-- Response: `{voice_id, status: "ready" | "mock", mock_mode}`.
-- Inline / synchronous (Runway's voice clone returns in <10 s
-  even in real mode — no Celery needed).
-- Wraps the existing `voice_clone_client.clone_voice_from_audio`
-  service so behaviour matches the legacy
-  `POST /api/characters/{id}/clone-voice` route.
+Scope: ~10 minutes. Create `shell/pyrightconfig.json` with:
+- `extraPaths` for `shell/` so cross-app imports resolve.
+- `reportIncompatibleMethodOverride` set to a milder level
+  (DRF's typing stubs are upstream noise).
+- `reportUnreachable` toned down (post-`sys.exit` noise).
 
-Django-side: a new `POST /api/spokespeople/{id}/clone-voice/`
-action endpoint that takes the audio data URI, calls the media-
-engine, and persists `voice_id` onto the Spokesperson.
+Worth doing **before** Phase 3 starts so the next operator can
+trust new warnings.
 
-### Slice B — Additional video kinds
+### Option 2 — Start Phase 3 (SPA scaffolding)
 
-SESSION 109 shipped `kind="spokesperson_ad"` only. Three remain:
+The contract surface is feature-complete. Phase 3 begins with the
+SPA: `web/` is already on the repo (currently empty/stub). Phase
+3 plans live in `docs/design/UI_REDESIGN_V2.md` §8. Starting Phase
+3 work means:
 
-- `cinematic_video` — text-to-video without an avatar (gen4.5
-  text-only path). Simplest of the three.
-- `dialogue_scene` — two avatars + a script. Needs a second avatar
-  field in the contract.
-- `long_ad` — multi-scene composition. Heaviest; wraps
-  `long_ad_service` on the media-engine side.
+1. Decide the SPA framework + bundler (likely Vite + React + the
+   shadcn/ui pattern documented in the design doc).
+2. Land the auth flow — `allauth.headless` JSON signup/login (one
+   of the queued investigations from SESSION 107).
+3. Scaffold the first screen: Workspace dashboard listing
+   spokespeople + videos.
 
-Each kind is a separate slice; don't try to land all three in one
-session. Cinematic is the obvious first because it doesn't change
-the contract shape.
+This is **the big one**. Multi-session, multi-slice. Worth
+locking the scope explicitly before any code lands.
 
-### Slice C — Stuck-row janitor
+### Option 3 — Operational hardening (stuck-row janitor)
 
-The SESSION 109 known failure mode: a Celery worker dies mid-poll
-and the Video row stays in `rendering` indefinitely. The fix is a
+The SESSION 109 known failure mode: a Celery worker dying mid-poll
+leaves the Video row in `rendering` indefinitely. The fix is a
 `celery beat`-scheduled task that re-enqueues
 `poll_video_until_terminal` for every Video in `rendering` older
-than ~5 minutes. Small slice — ~30 lines of code + a beat
-schedule entry. Worth landing soon because it removes the only
-operational footgun on the current pipeline.
+than ~5 minutes. ~30 lines of code + a beat schedule entry. Worth
+landing before Phase 3 stress-tests the polling pipeline.
 
-### Recommendation: **Slice A (voice clone)**.
+### Option 4 — Additional video kinds
 
-Reasoning: it closes the last major `/internal/*` verb, which
-makes the contract feature-complete enough to begin Phase 3 (SPA
-work) without further backend changes. Slice B is more frontend-
-shaped work that can defer until the SPA is rendering videos.
-Slice C is an operational hardening that defers nicely until
-production traffic creates the actual stuck-row pressure.
+SESSION 109 shipped `kind="spokesperson_ad"` only. The other three
+(`cinematic_video`, `dialogue_scene`, `long_ad`) each need their own
+slice. **Defer until the SPA actually renders them** — each one is
+a small slice that doesn't reshape anything, easy to land on
+demand once Phase 3 tells us which kind matters first.
 
-### Out of scope for SESSION 110
+### Recommendation: **Option 1 (pyrightconfig.json), then Option 2
+(Phase 3 kickoff).**
 
-- Real Runway calls. Mock mode is still the right path until the
-  SPA + auth + the contract are all stable.
-- Frontend / SPA work (Phase 3).
-- The campaigns-to-django migration script.
-- `celery beat` (defer with Slice C).
+Five sessions of accumulated noise is enough — 10 minutes now buys
+quiet for the rest of Phase 3. After that, the operator picks the
+Phase 3 first slice.
+
+### Out of scope for SESSION 111
+
+- All four media-engine integration paths are real-mode-untested.
+  Mock mode is fine for development; switching to real Runway is
+  an environment-and-credentials step, not a code change. Defer
+  until the operator has Runway credits to burn on a smoke run.
+- The campaigns-to-django migration script. Equally valid in any
+  future session; not blocking.
+- dj-stripe install, real Google OAuth, `allauth.headless`. All
+  still queued; the first two block real billing / login, the
+  third blocks Phase 3 SPA auth.
 
 ---
 
-## Queued investigations (not blocking SESSION 110)
+## Queued investigations (priority-ordered)
 
-- **`shell/pyrightconfig.json`** — silences the cross-app import +
-  `GenericAPIView.get_queryset` "Never" return warnings. Three
-  sessions in a row have flagged this; please land it soon. 2-line
-  slice.
-- **Inventory generator** (`python manage.py inventory`) — emits
-  runtime truth as JSON for `docs/CHARACTER_OS_INVENTORY.md`.
-- **dj-stripe install** — when operator has Stripe credentials.
-- **Real Google OAuth** — when operator creates the OAuth client.
-- **`allauth.headless`** — JSON signup/login for the SPA. Defer
-  until Phase 3 starts.
-- **Tag `v-final-pre-migration` on runway-hackathon** (Q6 of design
-  doc). Operator decision; nothing in SESSION 108-109 touched the
-  legacy `/api/*` surface so the tag remains safe to apply.
-- **Numbered handoff gap** — `SESSION_053` still missing. Drop a
-  placeholder when convenient to silence the orient warning.
-- **Stuck-row janitor** (Slice C above) — operational hardening
-  for the Celery polling pattern.
+1. **`shell/pyrightconfig.json`** — overdue. Five sessions in a row
+   have flagged the same cross-stack drift. 10-minute slice.
+2. **`allauth.headless`** — JSON signup/login for the SPA. Lands
+   when Phase 3 starts; bumping in priority because Phase 3 is
+   imminent.
+3. **Stuck-row janitor** — `celery beat` scheduled re-enqueue for
+   rows in `rendering` older than ~5 min.
+4. **Inventory generator** (`python manage.py inventory`) — emits
+   runtime truth as JSON for `docs/CHARACTER_OS_INVENTORY.md`.
+   This is becoming a real gap — five sessions worth of state are
+   not represented in the runtime anchor.
+5. **dj-stripe install** — when operator has Stripe credentials.
+6. **Real Google OAuth** — when operator creates the OAuth client.
+7. **Tag `v-final-pre-migration` on runway-hackathon** — operator
+   decision. Nothing in SESSION 108-110 touched the legacy
+   `/api/*` surface so the tag remains safe to apply.
+8. **Numbered handoff gap** — `SESSION_053` still missing.
+9. **Smoke-test helper consolidation** — three smoke commands now
+   share an in-line stub-request pattern. Worth extracting a
+   shared `apps/_testing/stub_request.py` helper if a fourth
+   command lands.
 
 ---
 
@@ -145,31 +157,34 @@ uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload
 cd shell && source .venv/bin/activate
 python manage.py runserver                 # :8000
 
-# (new terminal)
+# (new terminal — only needed for video pipeline)
 cd shell && source .venv/bin/activate
 celery -A character_os worker --loglevel=info --pool=solo
 ```
 
-Smoke check after each change:
+Smoke checks after each change:
 
 ```bash
 cd shell && source .venv/bin/activate
-python manage.py smoke_avatar   # SESSION 108 path
-python manage.py smoke_video    # SESSION 109 path
+python manage.py smoke_avatar    # SESSION 108
+python manage.py smoke_voice     # SESSION 110
+python manage.py smoke_video     # SESSION 109 (needs Celery worker)
 ```
 
 ---
 
 ## AI / assistant context
 
-- Last session: SESSION 109 — fire-then-poll video pipeline + Celery/
-  Redis foundation. Operator opted in to Celery early, ahead of the
-  Phase 4 plan, after a quick tradeoff discussion.
-- Calibration note (worth remembering): this operator prefers
-  right-shaping foundations early over deferring. When the option
-  is "smallest thing now" vs. "real thing now", lean toward the
-  real thing if it'll merge as the project grows.
+- Last session: SESSION 110 — voice clone endpoint. Smallest slice
+  in the Phase 2 run; the contract pattern is well-established
+  enough that voice clone landed in under half the lines of
+  SESSION 108-109.
+- Calibration note carried forward (SESSION 109): this operator
+  prefers right-shaping foundations early over deferring. Apply
+  this when sizing Phase 3 work — don't try to ship a "minimal"
+  SPA if the real one is one cleanup pass away.
 - Collaboration conventions: AI drafts, human edits.
 - Handoff `## AI Notes` section required at session end.
 - `docs/TRUST_CALIBRATION.md` still empty — the Celery decision
-  is calibration-worthy; consider populating it next session.
+  (SESSION 109) is calibration-worthy; consider populating it
+  next session before Phase 3 starts.

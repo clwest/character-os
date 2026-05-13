@@ -76,7 +76,7 @@ window of at least one full phase.
 |--------|-------------------------------------|----------------------------------------------|--------|
 | POST   | `/internal/avatars/`                | Create a Runway avatar from a portrait        | **SESSION 108** |
 | GET    | `/internal/avatars/{avatar_id}/`    | Poll avatar status                            | Planned |
-| POST   | `/internal/voices/`                 | Clone a voice from an audio sample            | Planned |
+| POST   | `/internal/voices/`                 | Clone a voice from an audio sample            | **SESSION 110** |
 | GET    | `/internal/voices/{voice_id}/`      | Poll voice clone status                       | Planned |
 | POST   | `/internal/videos/`                 | Generate a video (kind-discriminated body)    | **SESSION 109** |
 | GET    | `/internal/videos/{task_id}/`       | Poll video task status, get `output_url`      | **SESSION 109** |
@@ -172,6 +172,80 @@ The internal route:
 When the Phase 3 SPA replaces the runway-hackathon UI, the legacy
 `/api/*` surface can be retired in chunks — each chunk gated on a
 matching `/internal/*` endpoint shipping first.
+
+---
+
+## POST /internal/voices/
+
+Clone a voice from an audio sample. Inline / synchronous — Runway's
+voice clone API returns in <10 s in real mode and a fraction of a
+second in mock mode, so there's no value in fire-then-poll for this
+endpoint. The Django side blocks on the response.
+
+### Request body
+
+```json
+{
+  "audio_data_uri": "data:audio/wav;base64,UklGRiQAAABXQVZF...",
+  "name": "Casey — founder voice"
+}
+```
+
+| Field            | Type   | Required | Notes |
+|------------------|--------|----------|-------|
+| `audio_data_uri` | string | yes      | `data:audio/{mp3,wav,m4a,webm,ogg,aac};base64,...`. Decoded cap: 15 MB. Runway documents a 10 MB hard limit — we accept up to 15 MB locally so an oversized upload fails with a friendly 413 instead of a wire truncation. |
+| `name`           | string | no       | Display name for the voice resource. ≤ 80 chars. Defaults to `"Custom Voice"` server-side. Logging + Runway metadata only; Django holds the canonical name. |
+
+### Supported audio mime types
+
+`audio/mpeg`, `audio/mp3`, `audio/wav`, `audio/x-wav`, `audio/wave`,
+`audio/m4a`, `audio/mp4`, `audio/x-m4a`, `audio/aac`, `audio/webm`,
+`audio/ogg`.
+
+### Response — 200 OK
+
+```json
+{
+  "voice_id": "runway_voice_abc123",
+  "status": "ready",
+  "preview_url": "https://runway.example/voices/abc123/preview.mp3",
+  "mock_mode": false
+}
+```
+
+| Field         | Type             | Notes |
+|---------------|------------------|-------|
+| `voice_id`    | string           | Persist on `Spokesperson.voice_id`. |
+| `status`      | enum             | `ready` (real-mode success) \| `mock` (mock-mode success) \| `failed`. |
+| `preview_url` | string \| null   | Optional Runway-hosted preview MP3. `null` in mock mode and when Runway's poll didn't surface one before timeout. The SPA renders an `<audio>` element when present. |
+| `mock_mode`   | bool             | True when the service ran without a Runway key. |
+
+### Error codes
+
+| HTTP | `code`                  | When |
+|------|-------------------------|------|
+| 400  | `invalid_data_uri`      | `audio_data_uri` missing, malformed, or not a supported mime type. |
+| 413  | `audio_too_large`       | Decoded audio > 15 MB. |
+| 422  | `empty_audio`           | Data URI decoded to zero bytes. |
+| 502  | `upstream_runway_error` | Runway upstream rejection; `error` carries the upstream message. |
+| 500  | `internal_error`        | Bug. Operator-visible only via logs. |
+
+### Stateless contract
+
+The media-engine does **not** persist the voice locally. The
+decoded audio is held in memory just long enough to be forwarded to
+Runway (real mode) or hashed for the mock id (mock mode). No
+`data/_internal/voices/` directory — voices are cheap to re-clone,
+unlike portraits whose Runway upload latency makes the local cache
+worthwhile.
+
+### Mock-mode behaviour
+
+When `RUNWAY_MOCK=1` (the operator hasn't set `RUNWAY_API_KEY`),
+the endpoint returns immediately with `status: "mock"`,
+`voice_id: "mock_voice_<sha256(name + audio_bytes)[:16]>"`, and
+`preview_url: null`. Deterministic — same inputs yield the same
+id so smoke tests stay hermetic.
 
 ---
 
@@ -344,9 +418,12 @@ operator.
   each have different required inputs (e.g. dialogue takes two
   avatars, long_ad takes a multi-scene script). Resolve as each one
   lands.
-- **Voice clone.** `POST /internal/voices/` still pending. Similar
-  shape to avatars (audio data URI in, voice_id out). Likely the
-  next slice if video generation stabilises.
+- **Voice clone poll.** SESSION 110 ships `POST /internal/voices/`
+  synchronously. A future `GET /internal/voices/{voice_id}/` would
+  let the SPA re-fetch the preview URL after Runway eventually
+  populates it (Runway's voice preview URL sometimes lands after
+  the create call returns). Defer until the SPA has a real
+  "preview unavailable, retry" UX.
 - **Auth.** Internal endpoints are currently unprotected (both
   services bind to localhost). When we deploy off the operator's
   machine, the internal surface needs a shared-secret header.
@@ -364,3 +441,5 @@ operator.
 - 2026-05-13 (SESSION 109) — Added `POST /internal/videos/` +
   `GET /internal/videos/{task_id}/`. Pinned the fire-then-poll
   shape and documented the Django-side Celery polling pattern.
+- 2026-05-13 (SESSION 110) — Added `POST /internal/voices/`.
+  Inline / synchronous; no polling needed.
