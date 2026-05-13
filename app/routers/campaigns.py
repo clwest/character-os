@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -2393,6 +2393,9 @@ def get_campaign_output(
         # PR FE — Multi-avatar PiP / co-host composite. ffmpeg-built;
         # lives in finished/.
         "spokesperson_ad_with_cohost",
+        # PR FF — Music bed mixed under the avatar's voice.
+        # ffmpeg-built; lives in finished/.
+        "spokesperson_ad_with_music",
     }:
         cache_dir = settings.data_path / "finished"
     elif match.kind in {"cinematic_video"}:
@@ -4263,6 +4266,272 @@ def post_add_cohost(
         "cohost ok campaign=%s main=%s cohost=%s/%s new_output=%s",
         campaign_id, body.output_id,
         body.cohost_campaign_id, body.cohost_output_id, new_output_id,
+    )
+    return updated
+
+
+# ---- PR FF — Music bed mixer --------------------------------------
+#
+# ffmpeg-mixes a music bed (from backend/data/audio_beds/) at -18 dB
+# under the avatar's voice. Bed loops if shorter than the ad,
+# truncated if longer. Pure ffmpeg, no Runway.
+#
+# Operator drops .mp3 / .wav / .m4a / .aac / .ogg / .flac files into
+# the audio_beds directory; the picker route lists whatever's there.
+
+
+class AddMusicBody(BaseModel):
+    """PR FF — body for POST /api/campaigns/{id}/add-music."""
+
+    output_id: str = Field(..., min_length=8, max_length=64)
+    bed_id: str = Field(..., min_length=1, max_length=128)
+    # Optional override of the default -18 dB (0.13) mix level.
+    # Linear amplitude — 0.05 ≈ very subtle, 0.5 ≈ aggressive.
+    bed_level: Optional[float] = Field(default=None, ge=0.0, le=2.0)
+
+
+# Spokesperson kinds eligible for music bed mixing. Anything with a
+# voice track works. Mirrors POLISHABLE_KINDS / COHOST_KINDS.
+MUSIC_SOURCE_KINDS: set[str] = {
+    "spokesperson_ad",
+    "long_spokesperson_ad",
+    "spokesperson_ad_dubbed",
+    "spokesperson_ad_remix",
+    "spokesperson_ad_polished",
+    "spokesperson_ad_with_pip",
+    "spokesperson_ad_with_backdrop",
+    "spokesperson_ad_with_cohost",
+    "voiced_commercial",
+}
+
+
+@router.get("/music/beds")
+def get_music_beds(
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    """PR FF — list available music bed files. Returns
+    `{beds: [{id, label, filename, duration_s, bytes}]}`. Empty list
+    when the directory is empty so the frontend can show a clear
+    "drop MP3s here" empty state.
+    """
+    from ..services.music_bed_client import list_beds, audio_beds_dir
+    return {
+        "beds": list_beds(settings),
+        # Echo the absolute path so the empty-state UI can tell the
+        # operator exactly where to drop their files.
+        "dir": str(audio_beds_dir(settings)),
+    }
+
+
+# PR FF — multipart upload so the operator can add beds from the
+# browser instead of dropping files into the data directory by hand.
+# Mirrors the shape of /api/runway/upload-image (PR R).
+_MUSIC_UPLOAD_MAX_BYTES = 25 * 1024 * 1024  # 25 MB
+_MUSIC_UPLOAD_EXT_FOR_TYPE = {
+    "audio/mpeg": "mp3",
+    "audio/mp3": "mp3",
+    "audio/wav": "wav",
+    "audio/wave": "wav",
+    "audio/x-wav": "wav",
+    "audio/aac": "aac",
+    "audio/mp4": "m4a",
+    "audio/x-m4a": "m4a",
+    "audio/ogg": "ogg",
+    "audio/flac": "flac",
+    "audio/x-flac": "flac",
+}
+
+
+def _slug_for_upload(name: str) -> str:
+    """Strip the path + extension, lowercase, normalise to a-z0-9-_."""
+    stem = Path(name).stem if name else "bed"
+    # Lowercase, replace spaces with dashes, drop anything weird.
+    import re as _re
+    cleaned = _re.sub(r"[^a-z0-9_-]+", "-", stem.lower()).strip("-_")
+    return cleaned or f"bed-{uuid.uuid4().hex[:8]}"
+
+
+@router.post("/music/beds/upload")
+async def post_upload_music_bed(
+    file: UploadFile = File(...),
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    """PR FF — accept a multipart audio upload (mp3 / wav / m4a /
+    aac / ogg / flac, ≤25 MB) and save it under
+    `backend/data/audio_beds/<slug>.<ext>` so the picker route
+    (`GET /api/campaigns/music/beds`) lists it next time. Filename
+    is slugified to avoid path-traversal / shell-special tokens.
+    Returns the same dict shape as one bed entry from the listing
+    route, so the frontend can append it to its local list without
+    a re-fetch.
+
+    Collision behaviour: if a file with the same slug already
+    exists, the slug gets a `-<8 random hex>` suffix so the upload
+    never overwrites a previous bed by accident.
+    """
+    from ..services.music_bed_client import (
+        audio_beds_dir, _humanize_bed_id,
+    )
+    from .. services.finisher_service import probe_duration
+
+    ctype = (file.content_type or "").lower().split(";")[0].strip()
+    ext = _MUSIC_UPLOAD_EXT_FOR_TYPE.get(ctype)
+    if not ext:
+        # Some browsers send "application/octet-stream" for audio
+        # picked through <input type="file" accept="audio/*">. Fall
+        # back to the filename extension when the content-type isn't
+        # one of the recognised audio types.
+        suffix = (Path(file.filename or "").suffix or "").lstrip(".").lower()
+        if suffix in {"mp3", "wav", "m4a", "aac", "ogg", "flac"}:
+            ext = suffix
+    if not ext:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"unsupported content-type {ctype or '(missing)'!r} for "
+                f"music bed upload. accepted: "
+                f"{sorted(set(_MUSIC_UPLOAD_EXT_FOR_TYPE))} or one of "
+                f"mp3/wav/m4a/aac/ogg/flac by extension."
+            ),
+        )
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="empty upload")
+    if len(raw) > _MUSIC_UPLOAD_MAX_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                f"audio exceeds cap "
+                f"({_MUSIC_UPLOAD_MAX_BYTES:,} bytes; received {len(raw):,})"
+            ),
+        )
+
+    slug = _slug_for_upload(file.filename or "bed")
+    target_dir = audio_beds_dir(settings)
+    target = target_dir / f"{slug}.{ext}"
+    # Collision guard — never silently overwrite.
+    if target.exists():
+        suffix_id = uuid.uuid4().hex[:8]
+        slug = f"{slug}-{suffix_id}"
+        target = target_dir / f"{slug}.{ext}"
+
+    tmp = target.with_suffix(target.suffix + ".tmp")
+    tmp.write_bytes(raw)
+    tmp.replace(target)
+    logger.info(
+        "music bed uploaded: %s (%d bytes, ctype=%s)",
+        target.name, len(raw), ctype,
+    )
+    return {
+        "id": slug,
+        "label": _humanize_bed_id(slug),
+        "filename": target.name,
+        "duration_s": probe_duration(target),
+        "bytes": len(raw),
+    }
+
+
+@router.post("/{campaign_id}/add-music", response_model=Campaign)
+def post_add_music(
+    campaign_id: str,
+    body: AddMusicBody,
+    settings: Settings = Depends(get_settings),
+    store: CampaignStore = Depends(_store),
+) -> Campaign:
+    """PR FF — ffmpeg-mix a music bed under the source ad's audio.
+
+    Failure modes:
+    - 404 — campaign / output / bed not found.
+    - 409 — output kind not eligible.
+    - 500 — ffmpeg failure.
+    """
+    from ..services.music_bed_client import find_bed_path, mix_music_bed
+
+    record = store.get(campaign_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="campaign not found")
+
+    output = next((o for o in record.outputs if o.id == body.output_id), None)
+    if not output:
+        raise HTTPException(
+            status_code=404,
+            detail=f"output '{body.output_id}' not found on this campaign",
+        )
+    if output.kind not in MUSIC_SOURCE_KINDS:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"output kind '{output.kind}' is not eligible for music. "
+                f"Supported: {sorted(MUSIC_SOURCE_KINDS)}"
+            ),
+        )
+
+    bed_path = find_bed_path(settings, body.bed_id.strip())
+    if not bed_path:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"music bed '{body.bed_id}' not found. Drop the file into "
+                f"backend/data/audio_beds/ and retry."
+            ),
+        )
+
+    # Resolve source path — same kind→dir mapping the polish / dub /
+    # remix / backdrop / cohost routes use.
+    if output.kind == "spokesperson_ad":
+        source_path = (
+            host_path_for(settings, campaign_id).parent / output.cache_filename
+        )
+    else:
+        source_path = settings.data_path / "finished" / output.cache_filename
+    if not source_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"source video file missing at {source_path}",
+        )
+
+    bed_level = body.bed_level if body.bed_level is not None else 0.13
+    result = mix_music_bed(
+        source_video_path=source_path,
+        bed_path=bed_path,
+        campaign_id=campaign_id,
+        output_id=body.output_id,
+        settings=settings,
+        bed_level=bed_level,
+    )
+
+    if result.status != "ok" or not result.cache_filename:
+        logger.warning(
+            "music-bed failed campaign=%s output=%s err=%s",
+            campaign_id, body.output_id, result.error,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"music-bed failed: {result.error or 'unknown error'}",
+        )
+
+    new_output_id = uuid.uuid4().hex[:12]
+    new_entry = {
+        "id": new_output_id,
+        "kind": "spokesperson_ad_with_music",
+        "video_url": f"/api/campaigns/{campaign_id}/output/{new_output_id}",
+        "cache_filename": result.cache_filename,
+        "script": output.script,
+        "task_id": None,
+        "mock_mode": False,
+        "parent_output_id": output.id,
+        "variant_id": output.variant_id,
+        "variant_title": output.variant_title,
+        "duration_estimate": result.duration_s,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    updated = store.append_output(campaign_id, new_entry)
+    if not updated:
+        raise HTTPException(status_code=404, detail="campaign not found")
+    logger.info(
+        "music-bed ok campaign=%s output=%s bed=%s new_output=%s",
+        campaign_id, body.output_id, body.bed_id, new_output_id,
     )
     return updated
 

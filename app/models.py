@@ -185,6 +185,11 @@ OutputKind = Literal[
     # Pure ffmpeg, no Runway. Visual co-presence of two avatars;
     # scripted audio alternation deferred to a later slice.
     "spokesperson_ad_with_cohost",
+    # PR FF — Music bed mixed under the avatar's voice. Bed file
+    # comes from `backend/data/audio_beds/`; mix level defaults to
+    # -18 dB (broadcast-standard music-under-dialogue). Pure ffmpeg,
+    # no Runway.
+    "spokesperson_ad_with_music",
 ]
 
 
