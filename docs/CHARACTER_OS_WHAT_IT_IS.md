@@ -2,9 +2,9 @@
 title: "Character OS — What It Actually Is"
 status: populated
 generated: 2026-05-13
-last_revised: 2026-05-13 (SESSION 113)
+last_revised: 2026-05-13 (SESSION 115)
 companion_doc: CHARACTER_OS_INVENTORY.md
-covers_sessions: "106-113"
+covers_sessions: "106-115"
 ---
 
 # Character OS — What It Actually Is
@@ -113,10 +113,20 @@ old one.
 
 ### Layer 3 — SPA (`web/`)
 
-Currently empty scaffold. Phase 3 work. Design lock in
-`docs/design/UI_REDESIGN_V2.md` *(see "Current State Honesty"
-below — the design doc is referenced everywhere but doesn't
-exist at that path yet).*
+Currently empty scaffold (`.gitkeep` only). **Phase 3 in
+progress.** Scope locked in `docs/design/SPA_ARCHITECTURE.md`
+(SESSION 115): Vite + React + TypeScript + shadcn/ui + Tailwind,
+session-cookie auth via `/_allauth/browser/v1/*`, TanStack Query
+data layer, React Router routing, Playwright smoke tests.
+
+First three slices land starting SESSION 116:
+
+1. Sign-up + sign-in (S-03, S-04 of design lock).
+2. Workspace dashboard (S-09).
+3. Spokesperson detail (S-10).
+
+See `SPA_ARCHITECTURE.md` for the full scope lock + folder
+structure + out-of-scope list.
 
 ### Infrastructure
 
@@ -274,6 +284,9 @@ first, then the runtime anchors. Inheritable across operators.
    voice / tone / source-of-truth contract.
 6. [`docs/design/MEDIA_ENGINE_INTERNAL_API.md`](design/MEDIA_ENGINE_INTERNAL_API.md) —
    Django↔FastAPI contract.
+6b. [`docs/design/SPA_ARCHITECTURE.md`](design/SPA_ARCHITECTURE.md) —
+   Phase 3 SPA scope lock (stack, auth client, API client, first
+   three screens).
 7. [`docs/handoffs/`](handoffs/) — session-by-session build
    history. SESSION 106-110 cover the Phase 1 + Phase 2 work.
 8. [`docs/TRUST_CALIBRATION.md`](TRUST_CALIBRATION.md) — append-

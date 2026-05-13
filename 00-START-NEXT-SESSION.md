@@ -4,14 +4,16 @@ state: active
 
 # Next Session — Start Here
 
-> **Design lock:** `docs/design/UI_REDESIGN_V2.md` — 845-line canonical
-> doc with operator sign-off, imported SESSION 113.
+> **Design lock:** `docs/design/UI_REDESIGN_V2.md` — what to build
+> (845 lines, screens S-01 to S-19 + admin).
 > **Contract lock:** `docs/design/MEDIA_ENGINE_INTERNAL_API.md` —
-> feature-complete after SESSION 110.
+> Django ↔ FastAPI boundary, feature-complete.
+> **SPA scope lock:** `docs/design/SPA_ARCHITECTURE.md` —
+> stack + auth client + API client + first three slices.
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory`.
-> **Last handoff:** `docs/handoffs/SESSION_114_ALLAUTH_HEADLESS.md`.
+> **Last handoff:** `docs/handoffs/SESSION_115_SPA_SCOPE_LOCK.md`.
 
 ---
 
@@ -19,112 +21,132 @@ state: active
 
 **Phase 0 — Pre-flight (design lock):** DONE.
 **Phase 1 — Django DRF shell scaffold:** DONE (SESSION 107).
-**Phase 2 — Media data model migration:** MOSTLY DONE
-(campaigns→Django backfill still pending; everything else done).
-**Phase 3 — Build new UI:** **STARTED.** Headless auth surface
-shipped (SESSION 114); SPA scaffold is the next slice.
+**Phase 2 — Media data model migration:** MOSTLY DONE.
+**Phase 3 — Build new UI:** **IN PROGRESS.**
+  Foundation done: `allauth.headless` wired (SESSION 114) +
+  SPA architecture scope-locked (SESSION 115). First SPA slice
+  starts SESSION 116.
 
-What's working end-to-end after SESSION 114:
+What's working end-to-end after SESSION 115:
 
-  - Everything from SESSIONS 107-113.
-  - `allauth.headless` mounted at `/_allauth/browser/v1/*`
-    (19 JSON routes). Phase 1 auto-Workspace cascade fires
-    through it.
-  - `python manage.py smoke_headless_auth` — drives the full
-    auth-and-cascade pipeline in <1 second.
-  - URL inventory bumped 150 → 169.
+  - Everything from SESSIONS 107-114.
+  - `docs/design/SPA_ARCHITECTURE.md` locks the SPA's shape —
+    Vite + React + TS + shadcn/ui + Tailwind, TanStack Query +
+    zod, session-cookie auth via `/_allauth/`, React Router,
+    Playwright e2e tests.
+  - Folder structure under `web/`, contract rules, and the
+    first three slices are all documented before any code
+    lands.
 
 ---
 
-## SESSION 115 — Phase 3 SPA scope-lock
+## SESSION 116 — first SPA slice (sign-up + sign-in)
 
-The technical unblockers are all in place. SESSION 115's job is
-to **lock the SPA scope** with the same discipline that worked
-for Phase 2 (contract → endpoint → wrapper → smoke). The risk
-is shipping a sloppy SPA because the temptation is high; the
-operator already noted (SESSION 109 calibration entry) a
-preference for right-shaping foundations early.
+The narrowest implementable slice that exercises the auth
+contract end-to-end. Roughly maps to S-03 + S-04 of the design
+lock.
 
-### Recommended scope-lock deliverable for SESSION 115
+### Recommended scope
 
-A `docs/design/SPA_ARCHITECTURE.md` doc (sibling to
-`MEDIA_ENGINE_INTERNAL_API.md`) that pins:
+1. **Scaffold `web/`** with the locked stack:
+   - `pnpm init` + Vite React-TS template.
+   - Install pinned deps (TanStack Query, React Router,
+     react-hook-form, zod, Tailwind, shadcn/ui CLI, lucide-react,
+     Vitest, Playwright).
+   - Set up `vite.config.ts` with the documented proxy paths
+     (`/api`, `/_allauth`, `/accounts`).
+   - Set up `tailwind.config.ts` + shadcn/ui init.
+   - Set up tsconfig strict mode + eslint + prettier.
+   - Commit the lockfile.
+2. **`src/lib/api/client.ts`** — fetch wrapper with CSRF + JSON.
+3. **`src/lib/api/auth.ts`** — `getSession()`,
+   `signup({email, password})`, `signin(...)`, `signout()`.
+   zod schemas for each response shape.
+4. **`src/lib/auth/use-session.ts`** — TanStack Query hook.
+   `<RequireAuth>` router guard component.
+5. **`/sign-up` and `/sign-in` routes** — react-hook-form +
+   zod-validated forms. Submit → mutation → invalidate session
+   → router pushes to a placeholder `/dashboard` (just a
+   "you're authed" page in this slice; the real dashboard is
+   SESSION 117).
+6. **Tailwind + shadcn primitives** — install `button`,
+   `input`, `label`, `card`. Nothing custom yet.
+7. **`web/e2e/auth.spec.ts`** — Playwright spec that:
+   - Starts from `/sign-up`
+   - Fills + submits the form
+   - Asserts the URL is `/dashboard` and the placeholder text
+     renders
+   - Asserts a teardown query reverts the test user
+8. **Verification:** `pnpm build` clean, `pnpm test` (Vitest)
+   passes, `pnpm exec playwright test` passes. Backend smoke
+   tests still pass.
 
-1. **Framework + bundler.** Vite + React + TypeScript +
-   shadcn/ui is the recurring assumption in references.
-   Confirm and lock.
-2. **Auth client shape.** How the SPA's data layer talks to
-   `/_allauth/browser/v1/*` — `fetch` directly, an auth provider
-   wrapper, TanStack Query, whatever. Lock one approach.
-3. **API client shape.** Same question for `/api/*` (DRF
-   resources). Probably the same client + a thin wrapper per
-   resource. Lock the shape.
-4. **First three screens.** §5 of `UI_REDESIGN_V2.md` lists 9
-   total. Pick the three that exercise the auth surface +
-   workspace data flow:
-   - **Sign-in / sign-up.** Wraps headless auth.
-   - **Workspace dashboard.** Lists spokespeople + recent videos.
-   - **Spokesperson detail.** Shows one spokesperson + their
-     videos.
-5. **Smoke test pattern.** Probably Playwright; needs to drive
-   the same headless flow `smoke_headless_auth` does, then
-   render the dashboard.
-6. **Out of scope explicitly.** Everything else in §5: video
-   creation flow, billing screens, account settings, agency
-   features. Defer to subsequent SPA slices.
+### Critical constraints (from SPA_ARCHITECTURE.md)
 
-### SESSION 116 onwards (post scope-lock)
+- Stay strict-mode TypeScript. No `any` without a comment.
+- No state library other than TanStack Query + React hooks.
+- No form library other than react-hook-form.
+- All API responses parsed through zod before they hit the
+  cache.
+- Errors surface; no silent fallbacks.
 
-Each SPA slice ships as one cross-stack commit (the Phase 2
-pattern) — scaffold + first screen + smoke test in one slice,
-not three.
+### Out of scope for SESSION 116
 
-### Alternative slices if Phase 3 scope-lock feels premature
+- Real dashboard (SESSION 117, Slice 2).
+- Google OAuth button (queued; needs operator credentials).
+- Forgotten-password flow (allauth has it; not in slice 1).
+- Account settings, billing, anything S-11+.
+- Toasts, theme, error tracking — see "Open questions" in
+  SPA_ARCHITECTURE.md.
+
+---
+
+## Alternative slices if SPA scaffold feels premature
+
+Three options remain available, in priority order:
 
 - **A — Stuck-row janitor.** `celery beat`-scheduled re-enqueue
   for Video rows in `rendering` longer than 5 min. ~30-line
-  slice. Pre-Phase 3 operational hardening.
-- **B — Campaigns→Django backfill script.** Pending Phase 2
-  deliverable. Half-session. Only useful once SPA renders
-  legacy artefacts, so defer-ability is real.
+  slice. Operational hardening pre-real-traffic.
+- **B — Real Google OAuth (headless flow).** Adds Google as a
+  `/_allauth/browser/v1/auth/provider/redirect` option once
+  operator-supplied OAuth credentials arrive. Backend-only;
+  unblocks the OAuth button in the SESSION 116 scaffold.
 - **C — Real Stripe Checkout / dj-stripe wiring.** Pending
-  operator-supplied Stripe credentials.
-- **D — Real Google OAuth (headless flow).** Adds Google as a
-  `/_allauth/browser/v1/auth/provider/redirect` option. Needs
-  operator-supplied OAuth client credentials.
+  operator-supplied Stripe credentials. Unblocks S-17 (billing)
+  later in Phase 3.
 
-### Out of scope for SESSION 115
-
-- SPA implementation. Locked, not shipped.
-- Stripe / Google credentials (operator gates these).
-- The activation video series (§4 of design lock). Phase 3
-  sub-deliverable but depends on the SPA shipping first.
+If A is the choice, do A and then SESSION 117 starts the SPA
+scaffold. If B or C, the operator needs to supply credentials
+first.
 
 ---
 
 ## Queued investigations (priority-ordered)
 
-1. **Phase 3 SPA scope-lock** — recommended SESSION 115 slice.
-2. **Phase 3 SPA scaffold + first screen** — SESSION 116+
-   after scope-lock.
-3. **Stuck-row janitor** — operational hardening.
-4. **Campaigns→Django backfill script** — pending Phase 2
-   deliverable.
-5. **dj-stripe install** — operator gate.
-6. **Real Google OAuth** — operator gate; consumes the headless
-   socialaccount surface once enabled.
-7. **Tag `v-final-pre-migration` on runway-hackathon** — safe
-   any time. Recommended now that the design lock has been
-   copied across.
-8. **Legacy doc rename** (`WHAT_IT_IS_LEGACY.md` →
-   `RUNWAY_HACKATHON_WHAT_IT_WAS.md`). Cosmetic.
-9. **Numbered handoff gap** (`SESSION_053`) — cosmetic.
-10. **Smoke-test helper consolidation** — 4 commands share a
-    stub/client pattern now; extract when a fifth lands.
-11. **Drift verifier** — `verify_doc_claims --only-drift`.
-    Inventory exists; verifier would catch doc-vs-runtime drift.
-12. **Find-missing-paths check in `context-kit orient`** — would
-    have caught the missing design doc on session 1.
+1. **Phase 3 SPA slice 1** — sign-up + sign-in scaffold
+   (SESSION 116 recommendation).
+2. **Phase 3 SPA slice 2** — workspace dashboard (SESSION 117+).
+3. **Phase 3 SPA slice 3** — spokesperson detail (SESSION 118+).
+4. **Stuck-row janitor** — operational hardening.
+5. **Real Google OAuth** — operator gate.
+6. **dj-stripe install** — operator gate.
+7. **Campaigns→Django backfill script** — pending Phase 2
+   deliverable. Defer until SPA renders legacy artefacts.
+8. **Tag `v-final-pre-migration` on runway-hackathon** — safe
+   any time. Recommended once SESSION 116 confirms the new
+   surface works for real.
+9. **Legacy doc rename** — cosmetic.
+10. **Numbered handoff gap** (`SESSION_053`) — cosmetic.
+11. **Smoke-test helper consolidation** — 4 backend commands +
+    incoming Playwright specs.
+12. **Drift verifier** — `verify_doc_claims --only-drift`.
+13. **Find-missing-paths in `context-kit orient`**.
+14. **Extend `python manage.py inventory` to count SPA routes**
+    once the SPA stabilises.
+15. **Brand Identity doc** — colors, typography, component
+    style. Multiple open questions in SPA_ARCHITECTURE.md
+    defer to it.
 
 ---
 
@@ -143,9 +165,12 @@ python manage.py runserver                 # :8000
 # (new terminal — only for video pipeline)
 cd shell && source .venv/bin/activate
 celery -A character_os worker --loglevel=info --pool=solo
+
+# (new terminal — once web/ is scaffolded)
+cd web && pnpm dev                         # Vite :5173, proxies to :8000
 ```
 
-Smoke checks + runtime refresh:
+Smoke checks:
 
 ```bash
 cd shell && source .venv/bin/activate
@@ -156,7 +181,7 @@ python manage.py smoke_video              # SESSION 109 (needs Celery worker)
 python manage.py smoke_headless_auth      # SESSION 114
 ```
 
-Probe the headless surface manually:
+Manual headless probe:
 
 ```bash
 curl http://127.0.0.1:8000/_allauth/browser/v1/config
@@ -167,16 +192,22 @@ curl http://127.0.0.1:8000/_allauth/browser/v1/auth/session
 
 ## AI / assistant context
 
-- Last session: SESSION 114 — `allauth.headless` wired in <1
-  hour, smoke test PASSED, all gates clean. Textbook small slice.
+- Last session: SESSION 115 — doc-only, ~25 minutes. SPA
+  architecture scope-locked. Same pattern as the Phase 2
+  contract doc.
 - Calibration carried forward: this operator prefers right-
-  shaping foundations early. Applies hard to Phase 3 — don't
-  ship a "minimal" SPA. Lock scope thoroughly in SESSION 115
-  before any frontend code lands.
-- Meta-lesson from SESSION 113 still applies: when a reference
-  in a handoff or start-here points at a file path, sanity-
-  check it exists during the same session. The SPA architecture
-  doc proposed for SESSION 115 is a **new** file; don't trust
-  any cross-references to it until the doc lands.
+  shaping foundations early. SESSION 116 is the first SPA slice;
+  resist the temptation to add anything beyond what
+  `SPA_ARCHITECTURE.md` locks. The "real" looking thing is the
+  locked thing — don't invent new shapes.
+- Meta-lesson from SESSION 113 still applies: when a doc
+  references a file path or component, sanity-check it exists
+  during the same session. SESSION 116 must verify Vite + shadcn
+  + each dep actually install + boot before claiming a slice
+  done.
+- Open questions Q1-Q7 in `SPA_ARCHITECTURE.md` will surface as
+  decisions during SESSION 116-119. Defer answering them until
+  the relevant slice actually needs the answer; that prevents
+  invention.
 - Collaboration conventions: AI drafts, human edits.
 - Handoff `## AI Notes` section required at session end.
