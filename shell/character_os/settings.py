@@ -120,6 +120,23 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 CORS_ALLOWED_ORIGINS: list[str] = []
 
 
+# CSRF trusted origins. Django 4+ compares the request's Origin header
+# against this list on POST/PUT/DELETE; if the Origin doesn't match the
+# request's Host *and* isn't in this list, CSRF middleware rejects with
+# 403 even when the cookie + X-CSRFToken header are correct. The Vite
+# dev server runs on :5174 (port-shifted to dodge the runway-hackathon
+# frontend on :5173) and proxies /api + /_allauth to Django on :8000;
+# the SPA's POSTs carry `Origin: http://localhost:5174` so we trust it
+# in dev.
+#
+# Production is same-origin (Django serves the built SPA), so no entry
+# is needed there.
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+]
+
+
 # DRF — minimal scaffold config.
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
@@ -190,6 +207,14 @@ ACCOUNT_EMAIL_VERIFICATION = "optional"  # tighten to "mandatory" pre-launch
 ACCOUNT_SESSION_REMEMBER = True
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_PRESERVE_USERNAME_CASING = False
+
+# Custom adapter — auto-fills ``username`` from a hash of the email
+# so multiple email-only signups don't collide on Django's stock
+# ``auth.User`` UNIQUE constraint. See
+# ``apps/accounts/adapter.py`` for the why. When we eventually move
+# to a custom email-as-PK User model (queued investigation), this
+# setting + the adapter go away.
+ACCOUNT_ADAPTER = "apps.accounts.adapter.WorkspaceAccountAdapter"
 
 LOGIN_REDIRECT_URL = "/api/me/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"

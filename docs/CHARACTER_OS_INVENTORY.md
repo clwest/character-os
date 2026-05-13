@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-13T22:56:00.877946+00:00
-git_sha: 352bdee (working tree dirty)
+generated_at: 2026-05-13T23:27:43.440074+00:00
+git_sha: d805291 (working tree dirty)
 git_branch: main
 ---
 
@@ -15,7 +15,7 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-13T22:56:00.877946+00:00** against commit **352bdee**
+Generated **2026-05-13T23:27:43.440074+00:00** against commit **d805291**
 on branch **main** (working tree dirty).
 
 Python 3.11.6 · Django 5.2.14 ·
@@ -33,7 +33,7 @@ Celery 5.6.3 · httpx 0.28.1.
 | FastAPI routes | **93** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **2** | `celery_app.tasks` filter |
 | Migrations (applied / total) | **40 / 40** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **4,304** in 79 files | `pathlib.Path.rglob("*.py")` |
+| Shell LOC (`*.py`, no venv/migrations) | **4,376** in 80 files | `pathlib.Path.rglob("*.py")` |
 | Media-engine LOC (`*.py`, no venv/migrations) | **25,519** in 48 files | same |
 
 ---
@@ -195,11 +195,11 @@ Total: **2** registered tasks (excluding `celery.*` built-ins).
 | Service | Files | Lines |
 |---|---|---|
 | `media-engine/` | 48 | 25,519 |
-| `shell/` | 79 | 4,304 |
-| **total** | **127** | **29,823** |
+| `shell/` | 80 | 4,376 |
+| **total** | **128** | **29,895** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-05-13T22:56:00.877946+00:00 from commit 352bdee. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-13T23:27:43.440074+00:00 from commit d805291. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
