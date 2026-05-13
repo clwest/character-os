@@ -2,9 +2,9 @@
 title: "Character OS — What It Actually Is"
 status: populated
 generated: 2026-05-13
-last_revised: 2026-05-13 (SESSION 111)
+last_revised: 2026-05-13 (SESSION 112)
 companion_doc: CHARACTER_OS_INVENTORY.md
-covers_sessions: "106-110"
+covers_sessions: "106-112"
 ---
 
 # Character OS — What It Actually Is
@@ -28,11 +28,15 @@ composites; the launch product is a Django+FastAPI+React stack
 with tier-based billing, replacing the single-tenant hackathon
 demo it inherited the media engine from.
 
-**Scale (post-SESSION 110):** ~25 REST endpoints in Django, 106
-routes in FastAPI, 3 services + Redis. ~10K LOC across `shell/`
-+ `media-engine/`. Currently 1-developer / 0-customer; launch
-target is small-business operators (the hackathon validated the
-product shape, this repo is the productisation).
+**Scale:** see [`CHARACTER_OS_INVENTORY.md`](CHARACTER_OS_INVENTORY.md)
+for the canonical numbers (regenerated via
+`python manage.py inventory`). At time of writing (SESSION 112):
+~35 `/api/*` routes in Django, ~93 user-defined routes in FastAPI
+(~88 legacy + 4 `/internal/*` + health), 3 services + Redis,
+~30K LOC across `shell/` + `media-engine/`. Currently 1-developer /
+0-customer; launch target is small-business operators (the
+hackathon validated the product shape, this repo is the
+productisation).
 
 ---
 
@@ -77,9 +81,9 @@ billing, and the public REST API.
 
 | Component | Count | Purpose |
 |---|---|---|
-| Django apps | 8 | accounts, spokespeople, videos, conversations, memory, billing, agents, embeddings (last two empty scaffold) |
-| Models | ~10 | Workspace, Membership, Spokesperson, Video, ConversationThread, Subscription + supporting |
-| REST endpoints | ~25 | Workspace / Membership / Spokesperson / Video / ConversationThread CRUD + `/spokespeople/{id}/clone-voice/` action + `/me/` + `/billing/*` |
+| Django apps | 8 | accounts, spokespeople, videos, conversations, memory, billing, agents, embeddings (last four empty scaffold post-SESSION 112; see inventory for live counts) |
+| Models (project-owned) | inventory | Workspace, Membership, Spokesperson, Video, ConversationThread, Subscription |
+| REST endpoints | inventory | Workspace / Membership / Spokesperson / Video / ConversationThread CRUD + `/spokespeople/{id}/clone-voice/` action + `/me/` + `/billing/*` |
 | Auth backends | 2 | django-allauth (email/password + Google OAuth scaffold) + Django default |
 | Tier gating | 3 tiers | Starter / Pro / Agency, enforced via `apps.billing.services` returning HTTP 402 |
 | Async task queue | Celery | Redis broker on :6381; `apps.videos.tasks.poll_video_until_terminal` is the first consumer |
@@ -97,7 +101,7 @@ then extended with a stateless `/internal/*` surface for Django.
 
 | Component | Count | Purpose |
 |---|---|---|
-| Routes | 106 (post-SESSION 110) | 102 legacy `/api/*` routes (consumed by the runway-hackathon SPA, still functional) + 4 new `/internal/*` routes (consumed by Django) |
+| Routes | inventory | ~88 legacy `/api/*` routes (consumed by the runway-hackathon SPA, still functional) + 4 new `/internal/*` routes (consumed by Django) + 1 health endpoint |
 | Services | ~25 | Avatar, voice, image, video, dialogue, memory, polish, broll, music — wrap Runway endpoints with consistent error vocabulary |
 | Storage | filesystem only | `media-engine/data/*` — gitignored, regenerable artefacts; legacy state lives here too |
 | Mock mode | first-class | Every Runway-backed call short-circuits deterministically when `RUNWAY_API_KEY` is unset |
@@ -232,11 +236,10 @@ first, then the runtime anchors. Inheritable across operators.
   context-kit scaffold (SESSION 106), or it was deleted. **This
   is the biggest drift gap right now.** Land or restore in
   SESSION 111-112.
-- **`CHARACTER_OS_INVENTORY.md`** is still the stub generated
-  by `context-kit init` — no `python manage.py inventory`
-  generator has been wired up. Every "regenerated" claim in
-  that file is currently a lie. Queued investigation since
-  SESSION 107.
+- ~~**`CHARACTER_OS_INVENTORY.md`** is still the stub~~ — closed
+  in SESSION 112. `python manage.py inventory` regenerates it
+  from runtime introspection. Re-run after any model / route /
+  task change.
 - **SQLite still in use.** Phase 2 was supposed to switch to
   Postgres + pgvector "when the media data model migrates."
   The data model migrated; the DB swap didn't.
@@ -297,14 +300,18 @@ cd shell && python manage.py smoke_video
 cd shell && python manage.py ping_media_engine
 ```
 
-### Inventory regeneration (planned, not yet wired)
+### Inventory regeneration
 
 ```bash
+cd shell && source .venv/bin/activate
 python manage.py inventory          # → docs/CHARACTER_OS_INVENTORY.md
+python manage.py inventory --dry-run   # preview without writing
+python manage.py inventory --json      # machine-readable
 ```
 
-Slice queued; bumps in priority as Phase 3 starts and the
-anchor drift becomes load-bearing.
+Probes the live media-engine for FastAPI routes; falls back to a
+"unreachable" marker if the FastAPI service isn't running, so the
+inventory always regenerates cleanly.
 
 ---
 

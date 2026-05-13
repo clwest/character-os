@@ -4,164 +4,136 @@ state: active
 
 # Next Session — Start Here
 
-> **Design lock:** `docs/design/UI_REDESIGN_V2.md` — **CAUTION:
-> this file is referenced everywhere but doesn't actually exist
-> at that path.** SESSION 111 surfaced this drift; operator
-> clarification needed.
+> **Design lock:** `docs/design/UI_REDESIGN_V2.md` — **still missing.**
+> Referenced everywhere but doesn't exist at that path. SESSION 111
+> surfaced this; SESSION 112 carried it forward. **Operator input
+> required.**
 > **Contract lock:** `docs/design/MEDIA_ENGINE_INTERNAL_API.md` —
 > feature-complete after SESSION 110.
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md` —
-> populated in SESSION 111, covers sessions 106-110.
+> populated SESSION 111, refined SESSION 112 to defer to the
+> inventory for hard numbers.
+> **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
+> **regeneratable** as of SESSION 112 via
+> `python manage.py inventory`.
 > **Last handoff:**
-> `docs/handoffs/SESSION_111_PYRIGHT_CONFIG_AND_CONTEXT_KIT_MAINTENANCE.md`.
+> `docs/handoffs/SESSION_112_INVENTORY_GENERATOR.md`.
 
 ---
 
-## Read first (SESSION 112 specifically)
+## Read first (SESSION 113 specifically)
 
-Two real drift items SESSION 111 documented but didn't fix —
-either or both might need attention before SESSION 112's recommended
-slice lands:
+**Top of queue: the missing design doc.** This has been carried
+forward two sessions now. Three possible answers:
 
-1. **`docs/design/UI_REDESIGN_V2.md` is missing.** CLAUDE.md,
-   handoffs, and this very doc treat it as the canonical design
-   lock. `ls docs/design/` shows only `MEDIA_ENGINE_INTERNAL_API.md`.
-   Did the file never get copied during the context-kit scaffold,
-   or does it live somewhere else? Operator decision: recreate,
-   restore, or move on without it.
-2. **`CHARACTER_OS_INVENTORY.md` is still a stub** because the
-   generator (`python manage.py inventory`) hasn't been written.
-   The narrative anchor (now populated) compensates with hand-
-   maintained scale numbers, but the runtime half of the two-doc
-   anchor pattern only works when it's actually regenerated. The
-   recommended SESSION 112 slice closes this gap.
+1. **It exists somewhere off-path** (e.g. `~/Documents/` or a
+   sibling repo). Move it to `docs/design/UI_REDESIGN_V2.md`.
+2. **It was never written.** Phase 0 was marked DONE based on
+   verbal alignment, not a checked-in document. If so, write what
+   needs to exist for Phase 3 to start (customer, pricing, screen
+   inventory, naming, data model).
+3. **It's not needed.** The design is small enough that the
+   handoffs + the narrative anchor are enough. If so, remove the
+   stale references in `CLAUDE.md` and the start-here.
+
+Whatever the answer, **Phase 3 (SPA) is blocked on this.** The
+SPA is design-led work; without a design lock you're guessing.
 
 ---
 
 ## Where we are
 
-**Phase 0 — Pre-flight (design lock):** DONE (subject to the
-UI_REDESIGN_V2.md drift question above).
+**Phase 0 — Pre-flight (design lock):** DONE-ISH (see above).
 **Phase 1 — Django shell scaffold + monetization:** DONE.
-**Phase 2 — Media-engine data model migration:** MOSTLY DONE.
-Three of three core verbs (avatars, voices, videos) live.
+**Phase 2 — Media-engine data model migration:** DONE for the
+core contract; queued operational work (janitor, additional
+video kinds) is optional.
+**Context-kit anchor pattern:** DONE. Both narrative and runtime
+anchors now exist with real content + a regenerator.
 
-What's working end-to-end after SESSION 111:
+What's working end-to-end after SESSION 112:
 
-  - Everything from SESSIONS 107-110.
-  - Pyright noise quieted (`shell/pyrightconfig.json` configured).
-  - Narrative anchor `CHARACTER_OS_WHAT_IT_IS.md` reflects real
-    state instead of scaffold stubs.
-  - `TRUST_CALIBRATION.md` has its first real entry (the SESSION
-    109 Celery decision).
-  - All three smoke commands still pass in mock mode:
-    - `python manage.py smoke_avatar` (~1 s)
-    - `python manage.py smoke_voice` (~1 s)
-    - `python manage.py smoke_video` (~13 s, needs Celery worker)
-
----
-
-## SESSION 112 — Recommendation: build the inventory generator
-
-Half-session-sized slice that closes the last anchor gap.
-
-### Scope
-
-`shell/apps/_core/management/commands/inventory.py` (or wherever
-the natural home is — possibly directly in `character_os/`).
-Emits `docs/CHARACTER_OS_INVENTORY.md` from runtime introspection:
-
-1. **Django models** — count, names, FK relationships. Pull from
-   `apps.get_models()`.
-2. **DRF endpoints** — count + paths. Pull from
-   `rest_framework.routers.DefaultRouter().get_routes()` or walk
-   `urls.py` via Django's URL resolver.
-3. **Celery tasks** — registered task names. Pull from
-   `celery_app.tasks`.
-4. **FastAPI routes** — call the media-engine's `/health` (and
-   optionally a new `/internal/_meta/routes` if we want
-   introspection-as-a-service) and count routes.
-5. **Migrations** — count applied vs pending.
-6. **Code stats** — LOC per service via `wc -l` on `.py` files.
-
-Output: the actual `docs/CHARACTER_OS_INVENTORY.md` file with
-the same frontmatter (`status: regenerated`, `generated:
-<ISO datetime>`, command:`python manage.py inventory`) and real
-tables under each section. Hand-edit warnings as the header.
-
-### Why this slice
-
-- `context-kit orient` has flagged inventory freshness as a
-  warning every session.
-- The narrative anchor populated in SESSION 111 carries
-  scale numbers that **will** drift. Without a regenerator,
-  every future session is back to handwritten claims.
-- Phase 3 (SPA) starts smoother with a runtime-truth doc to
-  point operators at.
-
-### Out of scope for SESSION 112
-
-- The drift-verifier piece (`verify_doc_claims`) — pattern docs
-  describe it; separate slice.
-- Hooking the generator into pre-commit / CI — separate slice.
-- The missing `UI_REDESIGN_V2.md` decision — operator call.
+  - Everything from SESSIONS 107-111.
+  - `python manage.py inventory` regenerates the runtime anchor
+    from live state. Probes the media-engine via `/openapi.json`;
+    falls back gracefully when it's not running.
+  - Real numbers in the inventory:
+    - 6 project-owned models / 5 apps
+    - 35 `/api/*` Django routes / 26 `/accounts/*` / 89 admin
+    - 93 user-defined FastAPI routes (88 legacy + 4 `/internal/*` + health)
+    - 2 Celery tasks
+    - 40/40 migrations
+    - ~30K LOC total
 
 ---
 
-## Alternative slices (operator picks if not inventory)
+## SESSION 113 — Recommendation: resolve the design-doc drift
 
-### A — Resolve the UI_REDESIGN_V2.md drift
+Two-session pivot point. Either:
 
-If the design lock either exists somewhere off-path or needs
-recreating, untangle that before Phase 3 starts. Could be a
-5-minute file move or a multi-hour rewrite — depends entirely
-on what the operator wants from that doc.
+### A — Locate / write / retire `UI_REDESIGN_V2.md`
 
-### B — Phase 3 kickoff (SPA scaffolding)
+The unblocking move. Quick path: 5-minute file move if the doc
+already exists somewhere. Slow path: multi-hour write if it
+doesn't. Either way, the next session shouldn't be starting Phase
+3 work without knowing.
 
-Multi-session. Requires scope lock first:
-- Framework + bundler (likely Vite + React + shadcn/ui).
-- Auth flow (`allauth.headless` JSON signup/login).
-- First screen (Workspace dashboard listing spokespeople +
-  videos).
+### B — Phase 3 SPA kickoff (blocked on A)
 
-Hard to do well without a design lock; see Alternative A.
+Needs scope lock first. Likely shape:
+- Framework + bundler decision (Vite + React + shadcn/ui is the
+  default per scattered references).
+- Auth flow: `allauth.headless` for JSON signup/login.
+- First screen: Workspace dashboard listing spokespeople +
+  videos.
+- Wire `MediaEngineClient` calls through the SPA's data layer.
 
-### C — Stuck-row janitor (operational hardening)
+Don't start B without A resolved. The risk: building a SPA
+against an invented design is more expensive than building it
+against a real one.
 
-`celery beat`-scheduled re-enqueue for Video rows stuck in
-`rendering` longer than ~5 min. ~30-line slice. Worth landing
-before real-mode video traffic creates the actual pressure.
+### C — Stuck-row janitor (parallel-safe)
 
-### D — Additional video kinds
+If A turns out to be slow (operator deciding what the design
+should be), the janitor is a clean 30-min slice that doesn't
+touch design:
+- `celery beat` schedule entry: every 60 seconds, scan for
+  Videos in `rendering` older than 5 min, re-enqueue
+  `poll_video_until_terminal`.
+- Tiny code, real operational hardening. Worth landing before
+  Phase 3 stress-tests the polling pipeline.
 
-`cinematic_video`, `dialogue_scene`, `long_ad`. Defer until the
-SPA tells us which kind matters first.
+### Recommendation: **A first, then either B (if design exists)
+or C (if design takes a session to write).**
+
+### Out of scope for SESSION 113
+
+- The other three video kinds. Defer until SPA renders them.
+- dj-stripe + real Google OAuth + `allauth.headless` — all
+  pending credentials/config from operator.
+- Legacy doc rename (`WHAT_IT_IS_LEGACY.md` →
+  `RUNWAY_HACKATHON_WHAT_IT_WAS.md`). Cosmetic; defer.
 
 ---
 
 ## Queued investigations (priority-ordered)
 
-1. **Missing `docs/design/UI_REDESIGN_V2.md`** — real drift,
-   surfaced this session. Operator decision.
-2. **Inventory generator** — see SESSION 112 recommendation
-   above.
-3. **`allauth.headless`** — JSON signup/login for the SPA. Lands
-   when Phase 3 starts.
-4. **Stuck-row janitor** — operational hardening.
-5. **Legacy doc rename** — `WHAT_IT_IS_LEGACY.md` and
-   `INVENTORY_LEGACY.md` are runway-hackathon predecessor docs;
-   names imply staleness rather than predecessor-product.
-   Cosmetic.
-6. **dj-stripe install** — when operator has Stripe credentials.
-7. **Real Google OAuth** — when operator creates the client.
-8. **Tag `v-final-pre-migration` on runway-hackathon** — operator
-   decision. SESSION 108-111 didn't touch the legacy `/api/*`
-   surface; tag remains safe to apply.
-9. **Numbered handoff gap** (`SESSION_053`) — cosmetic;
-   `context-kit orient` warning.
-10. **Smoke-test helper consolidation** — three commands now
-    share a stub-request pattern. Extract when a fourth lands.
+1. **Missing `docs/design/UI_REDESIGN_V2.md`** — see above.
+2. **Stuck-row janitor** — operational hardening before Phase 3
+   load lands.
+3. **`allauth.headless`** — required for Phase 3 SPA auth.
+4. **Legacy doc rename** — cosmetic.
+5. **dj-stripe install** — when operator has Stripe credentials.
+6. **Real Google OAuth** — when operator creates the client.
+7. **Tag `v-final-pre-migration` on runway-hackathon** — safe
+   any time.
+8. **Numbered handoff gap** (`SESSION_053`) — cosmetic.
+9. **Smoke-test helper consolidation** — three commands share a
+   stub-request pattern. Extract when a fourth lands.
+10. **Drift verifier** — `verify_doc_claims --only-drift`. The
+    inventory now exists; the verifier would diff doc-claimed
+    numbers against the inventory. Pattern doc reference,
+    nothing wired.
 
 ---
 
@@ -182,28 +154,32 @@ cd shell && source .venv/bin/activate
 celery -A character_os worker --loglevel=info --pool=solo
 ```
 
-Smoke checks after each change:
+Smoke checks + runtime refresh:
 
 ```bash
 cd shell && source .venv/bin/activate
-python manage.py smoke_avatar    # SESSION 108
-python manage.py smoke_voice     # SESSION 110
-python manage.py smoke_video     # SESSION 109 (needs Celery worker)
+python manage.py inventory          # regen the runtime anchor
+python manage.py smoke_avatar       # SESSION 108
+python manage.py smoke_voice        # SESSION 110
+python manage.py smoke_video        # SESSION 109 (needs Celery worker)
 ```
 
 ---
 
 ## AI / assistant context
 
-- Last session: SESSION 111 — quiet pyright, populate narrative
-  anchor, record the SESSION 109 calibration event.
-- Calibration carried forward (from `TRUST_CALIBRATION.md`):
-  this operator prefers right-shaping foundations early. When
-  the AI offers "smallest thing now" vs. "real foundation now,"
-  default to the foundation if it'll be needed within 1-3
-  sessions.
-- Real drift surfaced this session that needs operator input:
-  the `docs/design/UI_REDESIGN_V2.md` file is referenced
-  everywhere but doesn't exist. Flag this on session start.
-- Collaboration conventions: AI drafts, human edits. Handoff
-  `## AI Notes` section required at session end.
+- Last session: SESSION 112 — inventory generator. Closed the
+  seven-session gap where the runtime anchor was a stub.
+  Surfaced a real discrepancy: narrative said 106 FastAPI
+  routes, inventory says 93. The narrative deferred to the
+  inventory. Two-doc pattern earning its keep.
+- Calibration carried forward: this operator prefers right-
+  shaping foundations early. When the AI offers "smallest thing
+  now" vs. "real foundation now," default to the foundation if
+  it'll be needed within 1-3 sessions.
+- Real drift carried forward: `docs/design/UI_REDESIGN_V2.md`
+  doesn't exist. Two sessions of "flag this on session start"
+  hasn't resolved it. **SESSION 113 should ask the operator
+  directly, before any code lands.**
+- Collaboration conventions: AI drafts, human edits.
+- Handoff `## AI Notes` section required at session end.

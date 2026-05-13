@@ -1,18 +1,25 @@
 ---
-title: "Character Os Platform Inventory"
-status: stub
-generator: <wire this to your stack's inventory command>
-command: <e.g. python manage.py generate_platform_inventory>
+title: "Character OS Platform Inventory"
+status: regenerated
+generator: shell/apps/accounts/management/commands/inventory.py
+command: python manage.py inventory
+generated_at: 2026-05-13T22:42:01.459804+00:00
+git_sha: a0d6fed
+git_branch: main
 ---
 
-# Character Os Platform Inventory
+# Character OS Platform Inventory
 
-> **This document is regenerated.** Do not hand-edit — once the generator is
-> wired up, run it to refresh. Until then, this is a stub placeholder.
-> Last regenerated: _stub (generator not yet implemented, 2026-05-13)_.
+> **This document is regenerated.** Do not hand-edit — run
+> ``python manage.py inventory`` (from ``shell/``) to refresh.
+> Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
+> that doc explains *what it is*; this one is *what exists right now*.
 
-Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
-the narrative doc. This file is the runtime-truth complement.
+Generated **2026-05-13T22:42:01.459804+00:00** against commit **a0d6fed**
+on branch **main**.
+
+Python 3.11.6 · Django 5.2.14 ·
+Celery 5.6.3 · httpx 0.28.1.
 
 ---
 
@@ -20,42 +27,159 @@ the narrative doc. This file is the runtime-truth complement.
 
 | Metric | Value | Source |
 |---|---|---|
-| TBD | _stub_ | <registry / loader> |
-
-<Populate once the generator script exists. Each row should cite where the
-value comes from (function, table, config key) — never hand-maintained.>
-
----
-
-## Table of Contents
-
-Sections to populate (adapt to your stack):
-
-1. Agents / Services
-2. Database Models
-3. API Routes
-4. Background Tasks
-5. Scheduled Jobs
-6. Integrations
-7. LLM Providers
-8. Infrastructure (workers, queues, DBs)
-9. Code Statistics
-10. Doc-vs-Reality Verifier State
+| Django models (project-owned) | **6** | `apps.get_models()` filtered to first-party apps |
+| URL routes (total) | **150** | `get_resolver().url_patterns` walk |
+| URL routes (`/api/*`) | **35** | same |
+| FastAPI routes | **93** | media-engine `/openapi.json` (reachable) |
+| Celery tasks (registered) | **2** | `celery_app.tasks` filter |
+| Migrations (applied / total) | **40 / 40** | `MigrationRecorder` ∩ `MigrationLoader` |
+| Shell LOC (`*.py`, no venv/migrations) | **4,069** in 78 files | `pathlib.Path.rglob("*.py")` |
+| Media-engine LOC (`*.py`, no venv/migrations) | **25,519** in 48 files | same |
 
 ---
 
-## Verifier State (placeholder)
+## Django Models (project-owned)
 
-Once `verify_doc_claims` is wired up, the final section of this inventory
-should embed the drift rollup:
+Total: **6** models across **5** apps.
 
-| Doc | OK | Drift | Error |
+| App | Model | DB Table | Fields | FKs |
+|---|---|---|---|---|
+| `accounts` | `Membership` | `accounts_membership` | 5 | 2 |
+| `accounts` | `Workspace` | `accounts_workspace` | 6 | 1 |
+| `billing` | `Subscription` | `billing_subscription` | 9 | 0 |
+| `conversations` | `ConversationThread` | `conversations_conversationthread` | 5 | 1 |
+| `spokespeople` | `Spokesperson` | `spokespeople_spokesperson` | 11 | 1 |
+| `videos` | `Video` | `videos_video` | 14 | 1 |
+
+---
+
+## URL Routes
+
+Total: **150** resolved patterns.
+
+| Prefix | Count |
+|---|---|
+| `accounts/` | 26 |
+| `admin/` | 89 |
+| `api/` | 35 |
+
+### Named API + auth routes
+
+- `account_change_password`
+- `account_confirm_email`
+- `account_confirm_login_code`
+- `account_email`
+- `account_email_verification_sent`
+- `account_inactive`
+- `account_login`
+- `account_logout`
+- `account_reauthenticate`
+- `account_reset_password`
+- `account_reset_password_done`
+- `account_reset_password_from_key`
+- `account_reset_password_from_key_done`
+- `account_set_password`
+- `account_signup`
+- `api-root`
+- `billing-subscription`
+- `billing-tiers`
+- `conversation-detail`
+- `conversation-list`
+- `google_callback`
+- `google_login`
+- `google_login_by_token`
+- `me`
+- `membership-detail`
+- `membership-list`
+- `socialaccount_connections`
+- `socialaccount_login_cancelled`
+- `socialaccount_login_error`
+- `socialaccount_signup`
+- `spokesperson-clone-voice`
+- `spokesperson-detail`
+- `spokesperson-list`
+- `video-detail`
+- `video-list`
+- `workspace-detail`
+- `workspace-list`
+- `workspace-members`
+
+---
+
+## FastAPI Media-Engine Routes
+
+Probed `http://localhost:8001/openapi.json` — `Character OS API` v0.1.0.
+
+Total: **93** routes.
+
+| Prefix | Count |
+|---|---|
+| `/api/` | 88 |
+| `/internal/` | 4 |
+| `other` | 1 |
+
+### `/internal/*` surface (Phase 2 contract)
+
+- `/internal/avatars/`
+- `/internal/videos/`
+- `/internal/videos/{task_id}/`
+- `/internal/voices/`
+
+---
+
+## Celery Tasks
+
+Total: **2** registered tasks (excluding `celery.*` built-ins).
+
+- `apps.videos.tasks.poll_video_until_terminal`
+- `character_os.celery.debug_task`
+
+---
+
+## Migrations
+
+**40 of 40** migrations applied.
+
+| App | Applied | Total | Pending |
 |---|---|---|---|
-| _(nothing registered yet)_ | 0 | 0 | 0 |
-
-Full drift list: `python manage.py verify_doc_claims --only-drift`.
+| `account` | 9 | 9 | 0 |
+| `accounts` | 1 | 1 | 0 |
+| `admin` | 3 | 3 | 0 |
+| `auth` | 12 | 12 | 0 |
+| `billing` | 1 | 1 | 0 |
+| `contenttypes` | 2 | 2 | 0 |
+| `conversations` | 1 | 1 | 0 |
+| `sessions` | 1 | 1 | 0 |
+| `sites` | 2 | 2 | 0 |
+| `socialaccount` | 6 | 6 | 0 |
+| `spokespeople` | 1 | 1 | 0 |
+| `videos` | 1 | 1 | 0 |
 
 ---
 
-*Stub generated 2026-05-13. Replace this content as soon as the runtime
-generator exists — the pattern only pays off once regeneration is automated.*
+## Infrastructure
+
+| Component | State | Source |
+|---|---|---|
+| Django runserver | `:8000` (when running) | `python manage.py runserver` |
+| FastAPI media-engine | `http://localhost:8001` (reachable) | live probe |
+| Redis | `redis://localhost:6381` (Docker) | `infra/docker-compose.yml` |
+| Celery broker | `redis://localhost:6381/0` | `settings.CELERY_BROKER_URL` |
+| Celery result backend | `redis://localhost:6381/1` | `settings.CELERY_RESULT_BACKEND` |
+| Default DB | `sqlite3` | `settings.DATABASES` |
+
+---
+
+## Code Statistics
+
+| Service | Files | Lines |
+|---|---|---|
+| `media-engine/` | 48 | 25,519 |
+| `shell/` | 78 | 4,069 |
+| **total** | **126** | **29,588** |
+
+_Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
+
+---
+
+*Regenerated 2026-05-13T22:42:01.459804+00:00 from commit a0d6fed. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
