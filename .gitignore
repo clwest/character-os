@@ -1,0 +1,83 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+shell/media/
+shell/staticfiles/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
+# Vite / React build
+web/dist/
+web/build/
+.vite/
+
+# Environment + secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Media artefacts — never commit
+media-engine/data/
+media-engine/backend/data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+
+# Logs
+logs/
+*.log
+
+# Context-kit caches (generated artifacts, regeneratable)
+context-coverage.json
+context-doctor.json
+context-hotpath.txt
+context-inspect*.json
+coverage-*.json
+behavior-*.json

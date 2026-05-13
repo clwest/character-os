@@ -1,0 +1,26 @@
+[project]
+name = "character-os"
+version = "0.0.0"
+description = "Character OS monorepo — Django DRF shell + FastAPI media engine + SPA"
+requires-python = ">=3.11"
+
+# Top-level pyproject is a placeholder for monorepo-wide tooling
+# (ruff, black, mypy, pytest config). Per-service requirements live
+# in shell/pyproject.toml and media-engine/pyproject.toml.
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [
+    "media-engine/",  # has its own ruff config carried over
+    ".venv/",
+    "web/",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "W"]
+ignore = ["E501"]  # line length — let formatter handle
+
+[tool.pytest.ini_options]
+testpaths = ["shell/tests", "media-engine/tests"]
+python_files = ["test_*.py", "*_test.py"]
