@@ -1,0 +1,171 @@
+"""HTTP client for the FastAPI media engine.
+
+The architectural boundary between the Django shell and the FastAPI
+media engine (design doc §6.2). All cross-service calls go through
+this client; Django code never imports from `media-engine/` directly,
+never reaches into the media-engine's database, and never reads from
+its filesystem.
+
+v1 surface is minimal — just `health_check()` and a typed `request()`
+helper. Real endpoint wrappers (create avatar, render video, etc.)
+land in follow-up slices as the data model migration in Phase 2 settles
+the API contract.
+
+Error model — all transport / status / parsing failures normalize to a
+single ``MediaEngineError`` so callers don't have to catch four
+different exception types. Callers can inspect ``.status_code`` to
+distinguish "service unreachable" (None) from "service returned an
+error" (4xx/5xx).
+"""
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+from typing import Any
+
+import httpx
+from django.conf import settings
+
+logger = logging.getLogger(__name__)
+
+
+class MediaEngineError(Exception):
+    """Anything that can go wrong calling the media engine."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        response_text: str = "",
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.response_text = response_text
+
+    def __repr__(self) -> str:
+        return (
+            f"MediaEngineError({self.args[0]!r}, status_code={self.status_code}, "
+            f"response_text={self.response_text[:80]!r})"
+        )
+
+
+@dataclass
+class HealthStatus:
+    """Decoded response from the media engine's ``/health`` endpoint."""
+
+    status: str
+    service: str
+    openai_mock: bool
+    runway_mock: bool
+    image_gen_mock: bool
+    extras: dict[str, Any]
+
+    @property
+    def healthy(self) -> bool:
+        return self.status == "ok"
+
+
+class MediaEngineClient:
+    """Thin wrapper around ``httpx.Client`` aimed at the FastAPI media
+    engine. Stateless except for the underlying connection pool.
+
+    Use as a short-lived per-request object, or as a long-lived
+    application-wide singleton if you want connection reuse — both
+    are safe because ``httpx.Client`` is thread-safe for concurrent
+    request issuing.
+    """
+
+    def __init__(
+        self,
+        base_url: str | None = None,
+        *,
+        timeout: float = 10.0,
+    ) -> None:
+        self.base_url = (base_url or settings.MEDIA_ENGINE_BASE_URL).rstrip("/")
+        self._timeout = timeout
+        self._client = httpx.Client(base_url=self.base_url, timeout=timeout)
+
+    def __enter__(self) -> "MediaEngineClient":
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
+
+    def close(self) -> None:
+        self._client.close()
+
+    # ---- public API --------------------------------------------------
+
+    def health_check(self) -> HealthStatus:
+        """Hit ``GET /health`` and return the parsed status.
+
+        Raises ``MediaEngineError`` if the service is unreachable, the
+        response isn't 2xx, or the body isn't JSON-shaped as expected.
+        """
+        data = self.request("GET", "/health")
+        try:
+            return HealthStatus(
+                status=str(data.get("status", "")),
+                service=str(data.get("service", "")),
+                openai_mock=bool(data.get("openai_mock", False)),
+                runway_mock=bool(data.get("runway_mock", False)),
+                image_gen_mock=bool(data.get("image_gen_mock", False)),
+                extras={
+                    k: v
+                    for k, v in data.items()
+                    if k not in {"status", "service", "openai_mock", "runway_mock", "image_gen_mock"}
+                },
+            )
+        except (TypeError, AttributeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"health response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict | None = None,
+        json: Any = None,
+    ) -> dict:
+        """Low-level wrapper. Returns parsed JSON; raises ``MediaEngineError``
+        on any non-2xx response or transport error."""
+        url = path if path.startswith("/") else f"/{path}"
+        try:
+            response = self._client.request(method, url, params=params, json=json)
+        except httpx.TimeoutException as exc:
+            logger.warning("media-engine timeout %s %s after %ss", method, url, self._timeout)
+            raise MediaEngineError(
+                f"timeout calling {method} {url}",
+                status_code=None,
+            ) from exc
+        except httpx.ConnectError as exc:
+            logger.warning("media-engine unreachable %s %s: %s", method, url, exc)
+            raise MediaEngineError(
+                f"unable to reach media engine at {self.base_url}",
+                status_code=None,
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise MediaEngineError(
+                f"http error calling {method} {url}: {exc!s}",
+                status_code=None,
+            ) from exc
+
+        if response.status_code >= 400:
+            raise MediaEngineError(
+                f"{method} {url} returned {response.status_code}",
+                status_code=response.status_code,
+                response_text=response.text[:500],
+            )
+
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise MediaEngineError(
+                f"non-JSON response from {method} {url}",
+                status_code=response.status_code,
+                response_text=response.text[:500],
+            ) from exc
