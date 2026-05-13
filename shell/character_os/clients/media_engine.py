@@ -66,6 +66,21 @@ class HealthStatus:
         return self.status == "ok"
 
 
+@dataclass
+class AvatarCreateResult:
+    """Decoded response from ``POST /internal/avatars/``. Contract lives
+    in ``docs/design/MEDIA_ENGINE_INTERNAL_API.md``."""
+
+    avatar_id: str
+    status: str  # "ready" | "mock" | "failed"
+    thumbnail_url: str | None
+    mock_mode: bool
+
+    @property
+    def ok(self) -> bool:
+        return self.status in {"ready", "mock"}
+
+
 class MediaEngineClient:
     """Thin wrapper around ``httpx.Client`` aimed at the FastAPI media
     engine. Stateless except for the underlying connection pool.
@@ -120,6 +135,45 @@ class MediaEngineClient:
         except (TypeError, AttributeError, ValueError) as exc:
             raise MediaEngineError(
                 f"health response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
+    def create_avatar(
+        self,
+        *,
+        name: str,
+        portrait_data_uri: str,
+        voice_preset: str | None = None,
+        personality: str | None = None,
+    ) -> AvatarCreateResult:
+        """Hit ``POST /internal/avatars/`` and return the parsed result.
+
+        Raises ``MediaEngineError`` on transport failure, non-2xx, or
+        unexpected body shape. Callers inspect ``result.ok`` for the
+        ready/mock success path; the ``failed`` status is reserved for
+        in-band failures the contract may surface in the future
+        (today, real failures come back as 4xx/5xx and raise).
+        """
+        body: dict[str, Any] = {
+            "name": name,
+            "portrait_data_uri": portrait_data_uri,
+        }
+        if voice_preset is not None:
+            body["voice_preset"] = voice_preset
+        if personality is not None:
+            body["personality"] = personality
+
+        data = self.request("POST", "/internal/avatars/", json=body)
+        try:
+            return AvatarCreateResult(
+                avatar_id=str(data["avatar_id"]),
+                status=str(data["status"]),
+                thumbnail_url=data.get("thumbnail_url"),
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"create_avatar response not in expected shape: {data!r}",
                 response_text=str(data),
             ) from exc
 

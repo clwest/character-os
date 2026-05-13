@@ -6,9 +6,11 @@ state: active
 
 > **Design lock:** `docs/design/UI_REDESIGN_V2.md` is canonical for
 > what we're building.
-> **Last handoff:** `docs/handoffs/SESSION_107_PHASE_1_DJANGO_SHELL.md`
-> — Phase 1 substantively complete (5 slices: data model, media-engine
-> client, DRF API, auth, billing).
+> **Contract lock:** `docs/design/MEDIA_ENGINE_INTERNAL_API.md` is
+> canonical for Phase 2's Django↔FastAPI boundary.
+> **Last handoff:**
+> `docs/handoffs/SESSION_108_MEDIA_ENGINE_INTERNAL_API_AVATAR_SLICE.md`
+> — Phase 2 contract locked + `POST /internal/avatars/` shipped.
 
 ---
 
@@ -16,129 +18,142 @@ state: active
 
 **Phase 0 — Pre-flight (design lock):** DONE.
 **Phase 1 — Django shell scaffold + monetization layer:** DONE.
+**Phase 2 — Media-engine data model migration:** IN PROGRESS.
 
-What's working end-to-end after SESSION 107:
+What's working end-to-end after SESSION 108:
 
-  - `python manage.py runserver` boots cleanly on `:8000`.
-  - `python manage.py ping_media_engine` smoke-tests the
-    Django↔FastAPI boundary (FastAPI runs on `:8001`).
-  - Email/password signup at `POST /accounts/signup/` creates a User,
-    auto-creates `"$Email's workspace"` + owner Membership +
-    Starter+trialing Subscription in one transaction.
-  - 24 REST endpoints under `/api/` covering Workspace / Membership /
-    Spokesperson / Video / ConversationThread CRUD + custom
-    `/workspaces/{id}/members/` action + `/me/` identity endpoint +
-    `/billing/subscription/` (auth) + `/billing/tiers/` (public).
-  - Multi-tenant isolation enforced by permission class + queryset
-    scoping — bob can't see / read / modify any of alice's resources.
-  - Tier-limit gating returns HTTP 402 with a structured payload
-    (code, current_tier, suggested_tier, message) at every cap:
-    Starter (10 videos / 1 spokesperson), Pro (30/3), Agency
-    (unlimited).
-
-**Phase 2 — Media-engine data model migration:** NEXT.
+  - Everything from SESSION 107 (24 REST endpoints, signup → workspace
+    → tier-gated CRUD).
+  - `POST /internal/avatars/` on the FastAPI media-engine (route 103)
+    — pure JSON in/out, stateless, mock-mode safe.
+  - `MediaEngineClient.create_avatar(...)` on the Django shell —
+    typed result, errors normalised through `MediaEngineError`.
+  - `POST /api/spokespeople/` with an optional `portrait_data_uri`
+    field — the viewset fires the avatar create inline and persists
+    `runway_avatar_id` + `runway_avatar_status` onto the row.
+  - `python manage.py smoke_avatar` — end-to-end pipeline test,
+    passes in <2 s against a mock-mode media-engine.
 
 ---
 
-## SESSION 108 — Phase 2 entry point
+## SESSION 109 — Phase 2 continuation
 
-The shell now speaks the new mental model (Workspace → Spokesperson →
-Video). The FastAPI media-engine still speaks the legacy model
-(Campaign → Character → OutputRecord) with its own JSON-file storage
-and 102 endpoints. Phase 2 closes the gap.
+The contract is the lever. Five rules (locked in
+`docs/design/MEDIA_ENGINE_INTERNAL_API.md`) bind every new endpoint:
+JSON-only, stateless, idempotent in mock mode, errors as
+`{error, code}`, mock mode as a first-class output. New endpoints
+that compromise these compromise the deploy story.
 
-### Two equally valid starting points — pick first
+Three equally valid next slices — operator picks first:
 
-The operator decides:
+### Slice A — `POST /internal/videos/` (recommended)
 
-**Option A — Contract first.** Design the new media-engine internal
-API (what the Django shell will call), then refactor the existing
-FastAPI service to expose that contract while keeping the legacy
-endpoints alive during transition. *Recommended.* Lets the Django
-side keep building without waiting on data migration.
+The highest-leverage next endpoint. Unlocks the rest of the
+Spokesperson workflow: once the avatar exists, the operator wants
+to render an ad. Forces a design decision the contract has been
+deferring — **fire-then-poll vs synchronous**. Real-mode Runway
+video calls run 60-120 s, which is too long for an inline HTTP
+hold, so:
 
-**Option B — Data first.** Write the one-shot migration script
-(`scripts/migrate-campaigns-to-django.py`) that walks every
-`backend/data/campaigns.json` entry from runway-hackathon, promotes
-the campaign's `business`/`product`/`audience`/`tone` fields onto
-the matching Spokesperson, and creates Django `Video` records for
-each `OutputRecord` with the campaign's selected_concept as the
-brief. Lower risk; gets the historical artefacts surfacing in the
-new shell sooner.
+  1. `POST /internal/videos/` returns `{task_id, status: "pending"}`
+     immediately after firing Runway.
+  2. `GET /internal/videos/{task_id}/` is the matching poll
+     endpoint. Returns `{status, output_url?}` — `output_url` is
+     populated only on `status: "ready"` / `mock`.
+  3. Django side adds an async-or-sync polling helper on
+     `MediaEngineClient` and a `Video` row state machine
+     (`pending` → `ready` | `failed`).
 
-### Recommended scope for SESSION 108 (assumes Option A)
+Implementation order: contract → media-engine endpoint → client
+wrapper → `VideoViewSet.create` wires it → smoke test. Same
+five-step pattern SESSION 108 used.
 
-1. **Internal API contract spec** at `docs/design/MEDIA_ENGINE_INTERNAL_API.md`.
-   Lists the verbs Django needs:
-   - `POST /internal/avatars/` — create a Runway avatar from a
-     spokesperson's portrait + voice settings.
-   - `GET /internal/avatars/{id}/` — poll status.
-   - `POST /internal/videos/` — generate a video given a kind
-     (spokesperson_ad / cinematic_video / dialogue_scene / ...), an
-     avatar id, a script or brief, and any per-kind options.
-   - `GET /internal/videos/{task_id}/` — poll status, return
-     output_url when ready.
-   - `POST /internal/voices/` — clone a voice from an audio sample.
-   - Pure JSON in/out; no state held by media-engine across calls;
-     all persistence lives in the Django shell.
+**Open question for slice A:** does the Django side poll in-process
+(simple, but the HTTP request hangs for ~60-120 s — bad UX) or
+queue a Celery task (real fix, but pulls Celery into the build
+ahead of where Phase 2's scope wanted it)? The middle path is a
+small `polling.py` thread helper that writes back to the Video row
+asynchronously after returning a `201 Created` with `status:
+"pending"` to the client; the SPA polls `GET /api/videos/{id}/`.
+Worth pinning down before writing code.
 
-2. **One real wrapper method on `MediaEngineClient`.** Pick the
-   simplest endpoint to validate the contract end-to-end. Strong
-   candidate: `create_avatar(portrait_path, voice_id)` since
-   spokesperson creation is the first user action.
+### Slice B — `POST /internal/voices/` (voice clone)
 
-3. **One real endpoint on the media-engine** matching the contract.
-   `POST /internal/avatars/` that creates a Runway avatar and returns
-   a task id. Implement it alongside (not replacing) the legacy
-   `/api/campaigns/.../avatar` endpoint.
+Lower-stakes endpoint. Maps to the legacy
+`POST /api/characters/{id}/clone-voice` flow but stateless. Needed
+for the Pro / Agency tiers; not needed for the Starter happy path.
+Same shape as the avatar slice: accepts an audio sample as a
+`data:audio/...;base64,...` URI, returns a `voice_id`. Skip if
+Slice A goes first.
 
-4. **Wire the Django side.** Override `SpokespersonViewSet.create` so
-   that after the DB row lands, an async-or-sync job fires the
-   media-engine call and updates `runway_avatar_id` +
-   `runway_avatar_status` when it completes.
+### Slice C — Avatar status poll (`GET /internal/avatars/{id}/`)
 
-5. **Smoke test** — POST `/api/spokespeople/` from Django, watch
-   the media-engine task fire (mock mode is fine), confirm
-   `runway_avatar_id` populates.
+Documented in the contract but unshipped because SESSION 108's
+synchronous create returns terminal already. Becomes load-bearing
+when create needs to go async — which happens the moment video
+joins this surface, since the same polling infrastructure should
+work for both. Better to land it as part of Slice A.
 
-### Out of scope for SESSION 108
+### Recommended scope for SESSION 109 (assumes Slice A)
 
-- Migrating all 102 legacy endpoints. Add new ones one at a time as
-  each Django feature needs them.
-- Real Runway calls — mock mode is the right path until the contract
+1. **Pin the fire-then-poll design.** Update
+   `docs/design/MEDIA_ENGINE_INTERNAL_API.md` §`POST /internal/videos/`
+   with the chosen poll strategy.
+2. **`POST /internal/videos/`** on media-engine. Discriminate on
+   `kind` (`spokesperson_ad` for now). Wraps existing service code
+   so Runway-side behaviour matches the legacy route.
+3. **`GET /internal/videos/{task_id}/`** matching poll endpoint.
+4. **`MediaEngineClient.create_video(...)`** + `poll_video(task_id)`.
+5. **`VideoViewSet.create`** wires it. Persists `runway_task_id` +
+   `runway_task_status` + `output_url` (when ready) on the `Video`
+   row.
+6. **Smoke test** — `python manage.py smoke_video`. Mock mode runs
+   inline; tests assert the polling state machine transitions
+   correctly.
+
+### Out of scope for SESSION 109
+
+- All four video kinds (`spokesperson_ad`, `cinematic_video`,
+  `dialogue_scene`, `long_ad`). Land one (`spokesperson_ad`) first;
+  add the others as the SPA needs them.
+- Celery — see open question above. The thread-helper middle path
+  defers Celery to Phase 3.
+- Real Runway calls — mock mode is the right path until the polling
   shape is locked.
 - Frontend / SPA work (Phase 3).
-- Celery — start with `django.utils.async_to_sync` or a simple
-  background thread; bring Celery in when there's a real throughput
-  reason.
+- The campaigns-to-django migration script. Still pending; equally
+  valid alternative to slice A if the operator wants legacy
+  artefacts surfacing in the new shell sooner.
 
 ---
 
-## Queued investigations (not blocking SESSION 108)
+## Queued investigations (not blocking SESSION 109)
 
-- **dj-stripe install** — when operator has Stripe credentials, swap
-  the placeholder `Subscription` model's `stripe_customer_id` +
-  `stripe_subscription_id` into the dj-stripe-managed flow.
-- **Real Google OAuth** — create a Google Cloud OAuth client, add
-  the `SocialApp` row via admin or env. `/accounts/google/login/`
-  will work after that.
-- **`allauth.headless`** — JSON signup/login endpoints for the SPA.
-  Defer until Phase 3 starts.
-- **`shell/pyrightconfig.json`** — quiets cross-app import warnings.
-  2-line slice.
+- **`shell/pyrightconfig.json`** — silences the cross-app import +
+  `GenericAPIView.get_queryset` "Never" return warnings. 2-line
+  slice; pre-existing noise the SESSION 107 + 108 handoffs both
+  flagged. Should land soon.
 - **Inventory generator** (`python manage.py inventory`) — emits
-  runtime truth as JSON for `docs/CHARACTER_OS_INVENTORY.md`.
+  runtime truth as JSON for `docs/CHARACTER_OS_INVENTORY.md`. Still
+  the right project memory upgrade once Phase 2 stabilises.
+- **dj-stripe install** — when operator has Stripe credentials.
+- **Real Google OAuth** — when operator creates the OAuth client.
+- **`allauth.headless`** — JSON signup/login for the SPA. Defer
+  until Phase 3 starts.
 - **Tag `v-final-pre-migration` on runway-hackathon** (Q6 of design
-  doc). Operator decision; recommended once SESSION 108 confirms the
-  media-engine refactor path works.
+  doc). Operator decision; the SESSION 108 work didn't touch the
+  legacy `/api/*` surface so the tag remains safe to apply.
+- **Numbered handoff gap** — `SESSION_053` is missing from
+  `docs/handoffs/`. `context-kit orient` flags this. Non-blocking;
+  drop a placeholder when the operator wants the warning gone.
 
 ---
 
 ## AI / assistant context
 
-- Last session: SESSION 107 — Phase 1 substantively complete in
-  five slices (1b80ebf, 6fe96f1, 45b36de, 7d6279b, 9f28b78).
+- Last session: SESSION 108 — Phase 2 contract locked +
+  `POST /internal/avatars/` shipped end-to-end.
 - Collaboration conventions: AI drafts, human edits.
 - Handoff `## AI Notes` section required at session end.
-- `docs/TRUST_CALIBRATION.md` still empty — first real calibration
-  event ready to land.
+- `docs/TRUST_CALIBRATION.md` still empty — no calibration events
+  in this session either.

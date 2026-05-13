@@ -7,6 +7,7 @@ from .config import Settings, get_settings
 from .routers.campaigns import router as campaigns_router
 from .routers.characters import router as characters_router
 from .routers.concepts import router as concepts_router
+from .routers.internal import router as internal_router
 from .routers.runway import router as runway_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -26,6 +27,7 @@ app.include_router(concepts_router)
 app.include_router(runway_router)
 app.include_router(campaigns_router)
 app.include_router(characters_router)
+app.include_router(internal_router)
 
 
 @app.get("/health")
