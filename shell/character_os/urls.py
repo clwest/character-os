@@ -18,5 +18,5 @@ urlpatterns = [
     path("api/", include("apps.spokespeople.urls")),
     path("api/", include("apps.videos.urls")),
     path("api/", include("apps.conversations.urls")),
-    # path("api/billing/", include("apps.billing.urls")),
+    path("api/", include("apps.billing.urls")),
 ]
