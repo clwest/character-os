@@ -47,6 +47,7 @@ from .polish import (
 )
 from .split_script import SplitScriptPrimitive
 from .visual_clip import GenerateVisualClipPrimitive
+from .voice import DesignVoicePrimitive, DubAudioPrimitive
 
 
 class Primitive(Protocol):
@@ -90,7 +91,8 @@ _REGISTRY: dict[str, Type[Primitive]] = {
     "add_intro_outro": AddIntroOutroPrimitive,  # V9
     "trim_clip": TrimClipPrimitive,  # V9
     "reformat_clip": ReformatClipPrimitive,  # V9
-    # V10+: design_voice, dub_audio
+    "design_voice": DesignVoicePrimitive,  # V10
+    "dub_audio": DubAudioPrimitive,  # V10
     # V11+: style_remix
     # V12+: transcribe
     # V13+: generate_image

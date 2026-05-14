@@ -204,6 +204,26 @@ class ProcessedClipResult:
 
 
 @dataclass
+class VoiceDesignResult:
+    """Decoded response from ``POST /internal/voices/design/``."""
+
+    voice_id: str
+    preview_url: str | None
+    mock_mode: bool
+
+
+@dataclass
+class AudioDubResult:
+    """Decoded response from ``POST /internal/audio/dub/``."""
+
+    output_url: str
+    duration_seconds: float | None
+    size_bytes: int | None
+    target_language: str
+    mock_mode: bool
+
+
+@dataclass
 class VideoPollResult:
     """Decoded response from ``GET /internal/videos/{task_id}/``."""
 
@@ -626,6 +646,60 @@ class MediaEngineClient:
             json={"clip_url": clip_url, "target_ratio": target_ratio},
         )
         return _parse_processed_clip(data, "reformat_clip")
+
+    def design_voice(
+        self,
+        *,
+        description: str,
+        name: str | None = None,
+    ) -> "VoiceDesignResult":
+        """Hit ``POST /internal/voices/design/`` — generate a
+        custom Runway voice from a text description. Synchronous;
+        Runway voice design typically completes in 10-30s."""
+        body: dict[str, Any] = {"description": description}
+        if name is not None:
+            body["name"] = name
+        data = self.request("POST", "/internal/voices/design/", json=body)
+        try:
+            return VoiceDesignResult(
+                voice_id=str(data["voice_id"]),
+                preview_url=data.get("preview_url"),
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"design_voice response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
+    def dub_audio(
+        self,
+        *,
+        audio_url: str,
+        target_language: str,
+    ) -> "AudioDubResult":
+        """Hit ``POST /internal/audio/dub/`` — multilingual voice
+        dub. 29 supported languages (ported from the hackathon's
+        audio_client). Synchronous; Runway dub typically
+        completes in 30-240s."""
+        body = {"audio_url": audio_url, "target_language": target_language}
+        data = self.request("POST", "/internal/audio/dub/", json=body)
+        try:
+            return AudioDubResult(
+                output_url=str(data["output_url"]),
+                duration_seconds=_as_float_or_none(data.get("duration_seconds")),
+                size_bytes=(
+                    int(data["size_bytes"]) if data.get("size_bytes") is not None
+                    else None
+                ),
+                target_language=str(data.get("target_language", target_language)),
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"dub_audio response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
 
     def poll_task(self, task_id: str) -> VideoPollResult:
         """Hit ``GET /internal/tasks/{task_id}/`` — the generalised

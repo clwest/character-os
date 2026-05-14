@@ -900,6 +900,131 @@ def reels_format(
 
 
 @transaction.atomic
+def voice_design(
+    *,
+    workspace: "Workspace",
+    spokesperson: "Spokesperson",
+    description: str,
+    voice_name: str = "",
+    mock_mode: bool = False,
+    name: str = "",
+    created_by: "AbstractBaseUser | None" = None,
+) -> Composition:
+    """Single-step voice-design composition. The operator
+    supplies a text description of how they want the brand
+    voice to sound; the composition runs ``design_voice``
+    via Runway's ``/v1/voices`` and produces a VOICE Asset
+    whose ``source_spec.voice_id`` holds the Runway voice_id
+    (and whose ``file_path`` holds a playable preview MP3).
+
+    Args:
+        workspace: Composition workspace anchor.
+        spokesperson: Brand owner — the voice is workspace
+            scoped but each spokesperson can have its own
+            distinct voice.
+        description: Free-form description (4-1000 chars).
+            Examples: "warm, conversational founder voice",
+            "energetic young female with a slight British
+            accent".
+        voice_name: Optional display name. Defaults to
+            "Character OS Voice" server-side.
+        mock_mode: Run in mock-mode (V0 contract rule 9).
+        name: Composition display name. Defaults to
+            "Voice design — {description[:40]}".
+    """
+    if not description.strip():
+        raise ValueError("voice_design requires a non-empty description")
+    if len(description.strip()) < 4:
+        raise ValueError("voice_design description must be at least 4 characters")
+    if spokesperson.workspace_id != workspace.pk:
+        raise ValueError(
+            f"spokesperson {spokesperson.name!r} not in workspace {workspace.pk}"
+        )
+
+    composition_name = name.strip() or f"Voice design — {description.strip()[:40]}"
+    composition = Composition.objects.create(
+        workspace=workspace,
+        spokesperson=spokesperson,
+        name=composition_name,
+        template_kind="voice_design",
+        mock_mode=mock_mode,
+        created_by=created_by,
+    )
+    CompositionStep.objects.create(
+        composition=composition,
+        position=0,
+        primitive="design_voice",
+        inputs=[],
+        params={
+            "description": description.strip(),
+            "name": voice_name.strip(),
+        },
+    )
+    return composition
+
+
+@transaction.atomic
+def multi_lang_dub(
+    *,
+    workspace: "Workspace",
+    spokesperson: "Spokesperson",
+    source_audio,
+    target_language: str,
+    mock_mode: bool = False,
+    name: str = "",
+    created_by: "AbstractBaseUser | None" = None,
+) -> Composition:
+    """Single-step multilingual dub composition. Takes an
+    existing AUDIO Asset and a target language ISO code,
+    produces a new AUDIO Asset in that language.
+
+    v1 covers the audio-only dub path (the hackathon's
+    production-tested capability). V12 will extend this
+    starter to a two-step composition: ``transcribe``
+    (extract audio from a video clip) → ``dub_audio``. For
+    now operators dub already-extracted audio assets
+    (voice design previews, talking-head audio extracted
+    separately, etc.).
+
+    Args:
+        source_audio: AUDIO Asset to dub. Must belong to
+            ``workspace``.
+        target_language: One of the 29 supported ISO codes
+            (en/hi/pt/zh/es/fr/de/ja/ar/ru/ko/id/it/nl/tr/
+            pl/sv/fil/ms/ro/uk/el/cs/da/fi/bg/hr/sk/ta).
+        mock_mode: Run in mock-mode (V0 contract rule 9).
+    """
+    _validate_workspace_assets(workspace, [source_audio])
+    if spokesperson.workspace_id != workspace.pk:
+        raise ValueError("spokesperson not in workspace")
+    if source_audio.asset_type != "audio":
+        raise ValueError(
+            f"multi_lang_dub source_audio must be an AUDIO asset; "
+            f"got {source_audio.asset_type}"
+        )
+
+    composition_name = (
+        name.strip() or f"Dub → {target_language.lower()}"
+    )
+    composition = Composition.objects.create(
+        workspace=workspace,
+        spokesperson=spokesperson,
+        name=composition_name,
+        template_kind="multi_lang_dub",
+        mock_mode=mock_mode,
+        created_by=created_by,
+    )
+    CompositionStep.objects.create(
+        composition=composition,
+        position=0,
+        primitive="dub_audio",
+        inputs=[{"slot": "source", "asset_id": str(source_audio.id)}],
+        params={"target_language": target_language.lower().strip()},
+    )
+    return composition
+
+
+@transaction.atomic
 def music_bed_pass(
     *,
     workspace: "Workspace",

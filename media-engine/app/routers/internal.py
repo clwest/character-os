@@ -2062,6 +2062,398 @@ def post_internal_reformat(
     )
 
 
+# ---- V10 voice flows ---------------------------------------------
+#
+# SESSION 143 / V10. Ports the hackathon's audio_client.py voice
+# design + multilingual dubbing into the V0+ composition arc.
+# These were already shipped + production-tested at the
+# hackathon (the operator used dub_audio across 29 languages);
+# V10 restores them under Asset+Composition shape rather than
+# Campaign storage.
+#
+#   POST /internal/voices/design/ — generate a custom Runway
+#                                   voice from a text
+#                                   description. Synchronous
+#                                   (Runway voice design
+#                                   completes in ~10-30s).
+#   POST /internal/audio/dub/     — multilingual voice dub of
+#                                   an existing audio track.
+#                                   Synchronous (Runway dub
+#                                   completes in 30-240s).
+#
+# Both use the same Runway-side anchors as the hackathon
+# (eleven_multilingual_ttv_v2 for design, eleven_voice_dubbing
+# for dubbing) so billing + behavior match what operators
+# already experienced.
+
+
+_VOICE_DESIGN_MODEL = "eleven_multilingual_ttv_v2"
+_VOICE_DUB_MODEL = "eleven_voice_dubbing"
+
+
+# Ported verbatim from audio_client.py — 29 languages enumerated
+# in the dub schema probe. Keep this tuple identical to the
+# hackathon's set so any operator who used a language there
+# can use the same code here.
+SUPPORTED_DUB_LANGS: tuple[str, ...] = (
+    "en", "hi", "pt", "zh", "es", "fr", "de", "ja", "ar", "ru",
+    "ko", "id", "it", "nl", "tr", "pl", "sv", "fil", "ms", "ro",
+    "uk", "el", "cs", "da", "fi", "bg", "hr", "sk", "ta",
+)
+
+
+# ---- POST /internal/voices/design/ -------------------------------
+
+
+class InternalVoiceDesignCreate(BaseModel):
+    """Request body for ``POST /internal/voices/design/``."""
+
+    description: str = Field(..., min_length=4, max_length=1000)
+    name: Optional[str] = Field(default=None, max_length=80)
+
+
+class InternalVoiceDesignResponse(BaseModel):
+    voice_id: str
+    preview_url: Optional[str] = None
+    mock_mode: bool
+
+
+def _voice_design_dir(settings: Settings) -> Path:
+    target = settings.data_path / "_internal" / "voices"
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+@router.post(
+    "/voices/design/", response_model=InternalVoiceDesignResponse,
+)
+def post_internal_voice_design(
+    body: InternalVoiceDesignCreate,
+    settings: Settings = Depends(get_settings),
+):
+    """Design a Runway custom voice from a text description.
+    Synchronous — Runway's voice design polls inside the
+    handler. Returns voice_id + preview MP3 URL (Runway-hosted
+    or local mock)."""
+    description = body.description.strip()
+    name = (body.name or "").strip() or "Character OS Voice"
+
+    if settings.runway_mock:
+        digest = hashlib.sha256(
+            (description + name).encode("utf-8")
+        ).hexdigest()[:16]
+        voice_id = f"mock_voice_{digest}"
+        preview_url = f"/data/_internal/voices/mock-{digest}.mp3"
+        logger.info(
+            "internal voice_design mock voice=%s description_chars=%d",
+            voice_id, len(description),
+        )
+        return InternalVoiceDesignResponse(
+            voice_id=voice_id,
+            preview_url=preview_url,
+            mock_mode=True,
+        )
+
+    body_payload = {
+        "name": name[:80],
+        "from": {
+            "type": "text",
+            "prompt": description,
+            "model": _VOICE_DESIGN_MODEL,
+        },
+    }
+    create_url = f"{settings.runway_api_base}/v1/voices"
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.post(
+                create_url, headers=_runway_headers(settings), json=body_payload,
+            )
+            if resp.status_code != 200:
+                logger.warning(
+                    "voice design create rc=%s body=%s",
+                    resp.status_code, resp.text[:300],
+                )
+                return _error(
+                    502, "upstream_runway_error",
+                    f"runway returned {resp.status_code}",
+                )
+            created = resp.json()
+    except httpx.HTTPError as exc:
+        logger.warning("voice design http error: %s", exc)
+        return _error(502, "upstream_runway_error", f"http error: {exc!s}"[:300])
+    except Exception as exc:  # pragma: no cover
+        logger.exception("voice design unexpected")
+        return _error(500, "internal_error", f"unexpected: {exc!s}"[:300])
+
+    voice_id = created.get("id")
+    if not voice_id:
+        return _error(
+            502, "upstream_runway_error",
+            "runway voice design response missing id",
+        )
+
+    # Poll until READY/FAILED. Matches the hackathon's 90s
+    # ceiling — voice design usually completes in ~10-30s.
+    import time as _time
+
+    detail_url = f"{settings.runway_api_base}/v1/voices/{voice_id}"
+    final_status = (created.get("status") or "").upper()
+    payload = created
+    deadline = _time.time() + 90
+    try:
+        with httpx.Client(timeout=20.0) as client:
+            while _time.time() < deadline and final_status not in {"READY", "FAILED"}:
+                _time.sleep(3)
+                r = client.get(detail_url, headers=_runway_headers(settings))
+                r.raise_for_status()
+                payload = r.json()
+                final_status = (payload.get("status") or "").upper()
+    except httpx.HTTPError as exc:
+        return _error(502, "upstream_runway_error", f"poll error: {exc!s}"[:300])
+    except Exception as exc:  # pragma: no cover
+        logger.exception("voice design poll unexpected")
+        return _error(500, "internal_error", f"unexpected: {exc!s}"[:300])
+
+    if final_status == "FAILED":
+        return _error(
+            502, "upstream_runway_error",
+            "runway rejected the voice design request",
+        )
+    if final_status != "READY":
+        return _error(
+            500, "internal_error",
+            f"voice design did not reach READY (final: {final_status})",
+        )
+
+    preview_url = payload.get("previewUrl") or payload.get("preview_url")
+    logger.info(
+        "internal voice_design ready voice=%s preview=%s",
+        voice_id, bool(preview_url),
+    )
+    return InternalVoiceDesignResponse(
+        voice_id=voice_id,
+        preview_url=preview_url,
+        mock_mode=False,
+    )
+
+
+# ---- POST /internal/audio/dub/ -----------------------------------
+
+
+class InternalAudioDubCreate(BaseModel):
+    """Request body for ``POST /internal/audio/dub/``."""
+
+    audio_url: str = Field(..., min_length=1, max_length=2048)
+    target_language: str = Field(..., min_length=2, max_length=10)
+
+
+class InternalAudioDubResponse(BaseModel):
+    output_url: str
+    duration_seconds: Optional[float] = None
+    size_bytes: Optional[int] = None
+    target_language: str
+    mock_mode: bool
+
+
+def _dub_dir(settings: Settings) -> Path:
+    target = settings.data_path / "_internal" / "dubs"
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+@router.post(
+    "/audio/dub/", response_model=InternalAudioDubResponse,
+)
+def post_internal_audio_dub(
+    body: InternalAudioDubCreate,
+    settings: Settings = Depends(get_settings),
+):
+    """Dub an audio track into the target language.
+    Synchronous — Runway's dub task polls inside the handler.
+    Returns the cached dubbed MP3 URL."""
+    target_lang = body.target_language.strip().lower()
+    if target_lang not in SUPPORTED_DUB_LANGS:
+        return _error(
+            400, "unsupported_language",
+            f"target_language must be one of {sorted(SUPPORTED_DUB_LANGS)}; "
+            f"got {body.target_language!r}",
+        )
+
+    audio_url = body.audio_url.strip()
+    cache_seed = f"{audio_url}|dub|{target_lang}".encode("utf-8")
+    cache_key = hashlib.sha256(cache_seed).hexdigest()[:16]
+
+    if settings.runway_mock:
+        output_url = f"/data/_internal/dubs/mock-{target_lang}-{cache_key}.mp3"
+        logger.info(
+            "internal audio_dub mock lang=%s output=%s",
+            target_lang, output_url,
+        )
+        return InternalAudioDubResponse(
+            output_url=output_url,
+            duration_seconds=3.0,
+            size_bytes=1024 * 50,
+            target_language=target_lang,
+            mock_mode=True,
+        )
+
+    target_dir = _dub_dir(settings)
+    output_path = target_dir / f"{cache_key}-{target_lang}.mp3"
+    if output_path.exists():
+        return InternalAudioDubResponse(
+            output_url=f"/data/_internal/dubs/{output_path.name}",
+            duration_seconds=None,
+            size_bytes=output_path.stat().st_size,
+            target_language=target_lang,
+            mock_mode=False,
+        )
+
+    # Resolve source URL to a local file then encode as data URI
+    # for Runway. Same pattern as concat_clips download.
+    try:
+        local_audio = _download_concat_input(
+            audio_url, target_dir / "sources", settings,
+        )
+    except FileNotFoundError as exc:
+        return _error(400, "validation_error", str(exc))
+    except httpx.HTTPError as exc:
+        return _error(502, "upstream_runway_error", f"download error: {exc!s}"[:300])
+
+    # Encode as audio data URI for the Runway dub endpoint.
+    try:
+        audio_bytes = local_audio.read_bytes()
+    except OSError as exc:
+        return _error(500, "internal_error", f"failed to read source audio: {exc}")
+    if len(audio_bytes) > 25 * 1024 * 1024:
+        return _error(
+            413, "audio_too_large",
+            "source audio exceeds 25 MB cap",
+        )
+    # Determine mime from extension; default to audio/mpeg.
+    ext = local_audio.suffix.lower().lstrip(".")
+    mime_by_ext = {
+        "mp3": "audio/mpeg", "wav": "audio/wav", "m4a": "audio/mp4",
+        "ogg": "audio/ogg", "webm": "audio/webm", "aac": "audio/aac",
+    }
+    mime = mime_by_ext.get(ext, "audio/mpeg")
+    audio_data_uri = f"data:{mime};base64," + base64.b64encode(audio_bytes).decode("ascii")
+
+    create_url = f"{settings.runway_api_base}/v1/voice_dubbing"
+    body_payload = {
+        "model": _VOICE_DUB_MODEL,
+        "audioUri": audio_data_uri,
+        "targetLang": target_lang,
+    }
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.post(
+                create_url, headers=_runway_headers(settings), json=body_payload,
+            )
+            if resp.status_code != 200:
+                logger.warning(
+                    "dub create rc=%s body=%s",
+                    resp.status_code, resp.text[:300],
+                )
+                return _error(
+                    502, "upstream_runway_error",
+                    f"runway returned {resp.status_code}",
+                )
+            created = resp.json()
+    except httpx.HTTPError as exc:
+        return _error(502, "upstream_runway_error", f"http error: {exc!s}"[:300])
+    except Exception as exc:  # pragma: no cover
+        logger.exception("dub create unexpected")
+        return _error(500, "internal_error", f"unexpected: {exc!s}"[:300])
+
+    task_id = created.get("id")
+    if not task_id:
+        return _error(
+            502, "upstream_runway_error",
+            "runway dub response missing task id",
+        )
+
+    # Poll /v1/tasks/{id} until terminal. Matches hackathon's
+    # 4-minute deadline; voice dubbing typically completes in
+    # 30-240s depending on source length + target language.
+    import time as _time
+
+    deadline = _time.time() + 240
+    final_payload = None
+    try:
+        with httpx.Client(timeout=20.0) as client:
+            while _time.time() < deadline:
+                r = client.get(
+                    f"{settings.runway_api_base}/v1/tasks/{task_id}",
+                    headers=_runway_headers(settings),
+                )
+                r.raise_for_status()
+                payload = r.json()
+                status = (payload.get("status") or "").upper()
+                if status == "SUCCEEDED":
+                    final_payload = payload
+                    break
+                if status in {"FAILED", "CANCELED"}:
+                    reason = payload.get("failure") or payload.get("error") or status
+                    return _error(
+                        502, "upstream_runway_error",
+                        f"dub task {status}: {reason}",
+                    )
+                _time.sleep(5)
+    except httpx.HTTPError as exc:
+        return _error(502, "upstream_runway_error", f"poll error: {exc!s}"[:300])
+    except Exception as exc:  # pragma: no cover
+        logger.exception("dub poll unexpected")
+        return _error(500, "internal_error", f"unexpected: {exc!s}"[:300])
+
+    if not final_payload:
+        return _error(500, "internal_error", f"dub task {task_id} timed out")
+
+    output = final_payload.get("output")
+    out_url: Optional[str] = None
+    if isinstance(output, list):
+        for v in output:
+            if isinstance(v, str):
+                out_url = v
+                break
+    if not out_url:
+        return _error(
+            502, "upstream_runway_error",
+            f"dub task {task_id} produced no output url",
+        )
+
+    # Download the dubbed audio to local cache so downstream
+    # primitives can re-use it without re-downloading from
+    # Runway's CDN. Same pattern as character_host_client._download.
+    tmp = output_path.with_suffix(".mp3.tmp")
+    try:
+        with httpx.Client(timeout=120.0) as client:
+            with client.stream("GET", out_url) as r:
+                r.raise_for_status()
+                with tmp.open("wb") as fh:
+                    for chunk in r.iter_bytes(64 * 1024):
+                        fh.write(chunk)
+        tmp.replace(output_path)
+    except httpx.HTTPError as exc:
+        tmp.unlink(missing_ok=True)
+        return _error(502, "upstream_runway_error", f"download error: {exc!s}"[:300])
+    except Exception as exc:  # pragma: no cover
+        tmp.unlink(missing_ok=True)
+        logger.exception("dub download unexpected")
+        return _error(500, "internal_error", f"unexpected: {exc!s}"[:300])
+
+    logger.info(
+        "internal audio_dub done lang=%s task=%s output=%s size=%d",
+        target_lang, task_id, output_path.name, output_path.stat().st_size,
+    )
+    return InternalAudioDubResponse(
+        output_url=f"/data/_internal/dubs/{output_path.name}",
+        duration_seconds=None,
+        size_bytes=output_path.stat().st_size,
+        target_language=target_lang,
+        mock_mode=False,
+    )
+
+
 # ---- POST /internal/voices/ ---------------------------------------
 #
 # Inline / synchronous voice cloning. Runway's clone returns in <10 s
