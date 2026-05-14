@@ -34,7 +34,7 @@ from django.db import IntegrityError, transaction
 
 from apps.accounts.models import Workspace
 
-from . import pdf
+from . import pdf, url_fetch
 from .models import (
     DocumentStatus,
     DocumentType,
@@ -218,6 +218,63 @@ def ingest_pdf(
         raw_content=extract.text,
         processed_content=normalised,
         ingested_via=IngestedVia.UPLOAD,
+        source_metadata=metadata,
+        created_by=created_by,
+        spokespeople=spokespeople,
+    )
+
+
+def ingest_url(
+    *,
+    workspace: Workspace,
+    url: str,
+    title: str = "",
+    created_by: "AbstractBaseUser | None" = None,
+    spokespeople: "list[Spokesperson] | None" = None,
+    source_metadata: dict | None = None,
+    ingested_via: IngestedVia = IngestedVia.PASTE,
+) -> IngestResult:
+    """Ingest a URL.
+
+    Fetches via ``url_fetch.fetch_url`` (httpx + trafilatura
+    main-content extraction), then routes through the same
+    persistence path as ``ingest_text``. ``source_url`` is
+    populated on the resulting row; the title falls back to
+    the page's ``<title>`` if the caller didn't supply one.
+
+    Args:
+        workspace: anchor workspace.
+        url: an http(s) URL.
+        title: optional title override; defaults to extracted
+            page title or hostname.
+        ingested_via: ``PASTE`` when operator typed the URL,
+            ``SERPER`` when it came from search discovery.
+            Both flow through the same fetch+extract pipeline.
+
+    Raises:
+        ``url_fetch.UrlFetchError`` for any fetch / extract
+        failure. Callers (the serializer) turn that into a
+        clean 400 for the operator.
+    """
+    extract = url_fetch.fetch_url(url)
+    normalised = _normalize(extract.text)
+    if not normalised:
+        raise ValueError("URL extraction yielded empty text")
+
+    metadata = dict(source_metadata or {})
+    metadata.update(extract.metadata)
+    metadata.setdefault("source_url", url)
+
+    final_title = title.strip() or extract.title or url
+
+    return _persist(
+        workspace=workspace,
+        title=final_title,
+        document_type=DocumentType.URL,
+        raw_content=extract.text,
+        processed_content=normalised,
+        ingested_via=ingested_via,
+        source_url=url,
         source_metadata=metadata,
         created_by=created_by,
         spokespeople=spokespeople,

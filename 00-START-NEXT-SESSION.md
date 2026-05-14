@@ -16,7 +16,7 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_139_K6_RENDER_INTEGRATION.md`.
+> **Last handoff:** `docs/handoffs/SESSION_140_K7_URL_INGESTION.md`.
 
 ---
 
@@ -28,10 +28,11 @@ real-mode (SESSION 136). Knowledge-layer scope-locked
 (SESSION 137) — `docs/design/KNOWLEDGE_LAYER.md` is the new
 contract.
 
-**Phase 4 (knowledge arc):** K7 — URL ingestion + serper
-discovery. K1-K6 all shipped (K1-K5 in SESSION 138, K6 in
-SESSION 139). Cast members are now *informed* — they speak
-from real workspace knowledge at render time.
+**Phase 4 (knowledge arc):** K8 — Conversation pipeline. K1-K7
+all shipped. Operators can now ingest from paste / PDF /
+URL paste / web-search discovery; informed-render flow runs
+gpt-5-mini synthesis at create time. Knowledge ingestion is
+feature-complete for v1.
 
 | Slice | Deliverable                                  | Status |
 |-------|----------------------------------------------|--------|
@@ -44,7 +45,8 @@ from real workspace knowledge at render time.
 | K4 | Workspace knowledge route (SPA + REST)          | DONE (SESSION 138) |
 | K5 | Spokesperson "Knowledge" tab                    | DONE (SESSION 138) |
 | K6 | Render flow integration                         | DONE (SESSION 139) |
-| K7 | URL ingestion + serper discovery                | **NEXT** |
+| K7 | URL ingestion + serper discovery                | DONE (SESSION 140) |
+| K8 | Conversation pipeline (message + embedding)     | **NEXT** |
 | K3 | Ingestion pipeline (paste + upload + PDF)       | Queued |
 | K4 | Workspace knowledge route (SPA + REST)          | Queued |
 | K5 | Spokesperson "Knowledge" tab                    | Queued |
@@ -68,6 +70,70 @@ Cast can render *informed* videos now (K6 shipped SESSION 139)
 create time, citations persist on the Video row. Operators
 attach workspace docs to spokespeople via K4/K5; renders draw
 on those docs automatically.
+
+---
+
+## SESSION 140 status — K7 shipped
+
+**K7 (URL ingestion + serper discovery):** the last
+*ingestion-side* slice. Operators can now bring in workspace
+knowledge four ways: paste, PDF upload, URL paste, or
+web-search discovery.
+
+* New `shell/apps/embeddings/url_fetch.py` — httpx GET +
+  `trafilatura.bare_extraction` for HTML main-content
+  extraction. Snapshot-at-ingest semantics (no re-fetch).
+  Size cap 10 MB, timeout 15s, polite UA. Surfaces 4xx/5xx,
+  paywall / empty extract, connection errors as
+  `UrlFetchError`.
+* New `shell/apps/embeddings/serper.py` — serper.dev wrapper
+  ported from u-d-b's `core/tools/web_search.py:WebSearchTool`.
+  Returns `[SearchResult(title, url, snippet, position)]`.
+  Django cache (Redis db 2) by `sha256(query|top_k)` with
+  1-hour TTL. **Fourth force-mock flag:** `SERPER_FORCE_MOCK=1`
+  matches the other three; returns deterministic stubs.
+* Extended `ingestion.ingest_url()` and the serializer's
+  three-way XOR — exactly one of `text_content` /
+  `pdf_data_uri` / `source_url_input` is required on create.
+  `via_serper=True` flag drives `ingested_via='serper'`.
+* New `@action(detail=False, methods=["post"], url_path="search")`
+  on the viewset. Body: `{"q", "top_k"}` → returns serper
+  results. Authenticated-only; not workspace-scoped (search
+  results aren't documents yet).
+* SPA: added "URL" and "Search" tabs to the
+  `/workspace/knowledge` upload panel. Search tab UX: type
+  query → submit → results list → per-row "Ingest" button
+  flows the URL through the same fetch+extract path with
+  `via_serper=true`.
+* Title becomes optional on URL ingests — falls back to the
+  page's `<title>` tag (via trafilatura) or hostname.
+* **32 K7 backend tests** (9 url_fetch + 11 serper + 12 API)
+  + **3 K7 e2e specs** (tab switchability + URL form
+  validation + search results render).
+
+**Test counts (cumulative): 99 K-tests** across the embeddings +
+videos apps. Plus 46 prompts pytest = **145 backend tests**.
+**38 e2e specs** (35 prior + 3 K7).
+
+### Next: K8 — Conversation pipeline
+
+K2 already shipped the `ConversationMessage` +
+`ConversationEmbedding` schema. K8 adds the pipeline that
+populates it: `POST /api/conversations/threads/{id}/messages/`
+creates a user-role message, kicks off
+`embed_conversation_message` Celery task, calls
+`retrieve_for_thread` + LLM script synthesis (similar to K6
+but conversational), persists the spokesperson reply, returns
+both messages.
+
+Per the K0 scope-lock §"Open questions" Q-k-1: conversation
+chunk size is TBD. Lock in K8 — probably 500 chars / 0
+overlap (chat turns are short; overlap is wasted).
+
+### What's NOT K8
+
+- Conversation SPA — K9.
+- Onboarding seed — K10.
 
 ---
 
@@ -288,40 +354,39 @@ Knowledge-layer arc (K-prefixed) is locked in
 `docs/design/KNOWLEDGE_LAYER.md` §Slice breakdown. Everything
 else is ordered by independence + priority.
 
-1. **K7 — URL ingestion + serper discovery.**
-2. **K8 — Conversation models** (message + embedding pipeline
-   on top of the K2 schema).
-3. **K9 — Conversation REST + SPA.**
-4. **K10 — Onboarding seed.**
-5. **First marketing video** — now possible since K6 ships
+1. **K8 — Conversation pipeline** (message + embedding +
+   reply synthesis on top of the K2 schema).
+2. **K9 — Conversation REST + SPA.**
+3. **K10 — Onboarding seed.**
+4. **First marketing video** — now possible since K6 ships
    informed renders. Attach Character-OS knowledge to the
    admin workspace, render a real video about the product.
-6. **Voice preset audit** — listen to the four cast members
+5. **Voice preset audit** — listen to the four cast members
    with real-mode knowledge-informed renders.
-7. **E2e detritus cleanup** — Postgres carries ~495+
+6. **E2e detritus cleanup** — Postgres carries ~495+
    e2e-generated workspaces; `Workspace.objects.filter(slug__startswith='e2e-').delete()`
    when the operator decides the window is right.
-8. **OpenAI client factory port** — u-d-b has
+7. **OpenAI client factory port** — u-d-b has
    `core/services/openai_client_factory.py` that centralises
    timeout/retry config. Now that K3 + K6 are both call
    sites, the factory pattern is worth porting (memory
    `feedback_openai_gpt5_responses_api.md` flags this
    inflection).
-9. **W11.1 — Edit-spokesperson modal.**
-10. **W12 — Legacy form retirement.**
-11. **Cast sync command** — pull updates from
+8. **W11.1 — Edit-spokesperson modal.**
+9. **W12 — Legacy form retirement.**
+10. **Cast sync command** — pull updates from
     `spokesperson_templates.py` into existing rows.
-12. **Tier 2 prompt helpers** — likely subsumed by K6's
+11. **Tier 2 prompt helpers** — likely subsumed by K6's
     `build_render_brief` synthesis.
-13. **Stuck-row janitor.**
-14. **Additional video kinds** — cinematic / dialogue / long_ad.
-15. **Act-Two performance capture.**
-16. **`lesson` video kind.**
-17. **Real Google OAuth + dj-stripe.**
-18. **Allauth legacy-settings cleanup.**
-19. **smoke_voice / smoke_avatar transaction discipline.**
-20. **Drift verifier** (`verify_doc_claims --only-drift`).
-21. **Brand Identity v2 + dark mode.**
+12. **Stuck-row janitor.**
+13. **Additional video kinds** — cinematic / dialogue / long_ad.
+14. **Act-Two performance capture.**
+15. **`lesson` video kind.**
+16. **Real Google OAuth + dj-stripe.**
+17. **Allauth legacy-settings cleanup.**
+18. **smoke_voice / smoke_avatar transaction discipline.**
+19. **Drift verifier** (`verify_doc_claims --only-drift`).
+20. **Brand Identity v2 + dark mode.**
 
 ---
 
@@ -399,15 +464,15 @@ python manage.py seed_cast --workspace-slug admins-workspace --key maya --force
 
 ## AI / assistant context
 
-- Last session: SESSION 139 — **K6 shipped** (render flow
-  integration). `build_render_brief` in
-  `shell/character_os/script_synthesis.py` runs RAG + a
-  `gpt-5-mini` Responses-API call at video create time;
-  citations persist on `Video.knowledge_chunk_ids`.
-  `RENDER_SCRIPT_FORCE_MOCK=1` mock path. Graceful
-  degradation everywhere — render never fails because of
-  synthesis. **Cumulative tests: 113 backend pytest, 35 e2e
-  specs, all green.** Previous SESSION 138 shipped K1-K5.
+- Last session: SESSION 140 — **K7 shipped** (URL ingestion +
+  serper discovery). `url_fetch.py` (trafilatura),
+  `serper.py` (with `SERPER_FORCE_MOCK=1`), three-way XOR
+  on the create endpoint (`text_content` | `pdf_data_uri` |
+  `source_url_input`), new "URL" + "Search" tabs on the
+  workspace knowledge page. Knowledge ingestion is now
+  feature-complete for v1. **Cumulative tests: 145 backend
+  pytest, 38 e2e specs, all green.** Previous sessions
+  shipped K1-K5 (SESSION 138) and K6 (SESSION 139).
 - **Calibration carried forward:**
   - **Cast is example data, not product shape.** When
     discussing capabilities, ask "is this true of every

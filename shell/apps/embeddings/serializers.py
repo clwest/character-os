@@ -48,6 +48,11 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
 
     workspace_name = serializers.CharField(source="workspace.name", read_only=True)
     chunk_count = serializers.SerializerMethodField()
+    # Title becomes optional so URL ingests can fall back to the
+    # extracted page title; the model still requires non-empty,
+    # but ``_persist`` substitutes "Untitled" and ``ingest_url``
+    # substitutes the page's <title> tag.
+    title = serializers.CharField(max_length=500, required=False, allow_blank=True)
     spokesperson_ids = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=Spokesperson.objects.all(),
@@ -69,6 +74,22 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
         allow_blank=True,
         max_length=PDF_MAX_BYTES * 2,  # base64 inflates ~33%; loose cap
         trim_whitespace=False,
+    )
+    # SESSION 140 / K7 — URL ingest path. Writable on create only.
+    # Reuses the model's ``source_url`` column for the response.
+    source_url_input = serializers.URLField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        max_length=2000,
+    )
+    # SESSION 140 / K7 — flag set by the SPA when the URL came
+    # from a serper search result rather than a direct paste.
+    # Drives ``ingested_via`` on the created row.
+    via_serper = serializers.BooleanField(
+        write_only=True,
+        required=False,
+        default=False,
     )
 
     class Meta:
@@ -94,6 +115,8 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
             # write-only
             "text_content",
             "pdf_data_uri",
+            "source_url_input",
+            "via_serper",
         ]
         read_only_fields = [
             "id",
@@ -126,11 +149,15 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
         if self.instance is None:
             text = (attrs.get("text_content") or "").strip()
             pdf = (attrs.get("pdf_data_uri") or "").strip()
+            url = (attrs.get("source_url_input") or "").strip()
 
-            if bool(text) == bool(pdf):
+            # Three-way XOR — exactly one must be present.
+            supplied = sum(1 for v in (text, pdf, url) if v)
+            if supplied != 1:
                 raise serializers.ValidationError(
-                    "Supply exactly one of ``text_content`` or "
-                    "``pdf_data_uri`` — not both, not neither."
+                    "Supply exactly one of ``text_content``, "
+                    "``pdf_data_uri``, or ``source_url_input`` — "
+                    "not zero, not more than one."
                 )
 
             if pdf:
@@ -194,11 +221,13 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
         from .tasks import embed_document
 
         workspace: Workspace = validated_data["workspace"]
-        title: str = validated_data["title"]
+        title: str = validated_data.get("title") or ""
         spokespeople: list[Spokesperson] = list(validated_data.get("spokespeople") or [])
 
         text = (validated_data.get("text_content") or "").strip()
         pdf_uri = (validated_data.get("pdf_data_uri") or "").strip()
+        source_url = (validated_data.get("source_url_input") or "").strip()
+        via_serper = bool(validated_data.get("via_serper") or False)
 
         request = self.context.get("request")
         created_by = request.user if request and request.user.is_authenticated else None
@@ -216,6 +245,21 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
             except ingestion.pdf.PdfExtractionError as exc:
                 raise serializers.ValidationError({
                     "pdf_data_uri": f"PDF extraction failed: {exc}",
+                })
+        elif source_url:
+            from .models import IngestedVia
+            try:
+                result = ingestion.ingest_url(
+                    workspace=workspace,
+                    url=source_url,
+                    title=title,
+                    spokespeople=spokespeople,
+                    created_by=created_by,
+                    ingested_via=IngestedVia.SERPER if via_serper else IngestedVia.PASTE,
+                )
+            except ingestion.url_fetch.UrlFetchError as exc:
+                raise serializers.ValidationError({
+                    "source_url_input": f"URL fetch failed: {exc}",
                 })
         else:
             # Heuristic: if the text starts with ``#`` or contains

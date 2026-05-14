@@ -155,9 +155,11 @@ export function useKnowledgeDocument(
 
 export interface CreateKnowledgePayload {
   workspace: string;
-  title: string;
+  title?: string;             // optional for URL path — page title is derived
   text_content?: string;
   pdf_data_uri?: string;
+  source_url_input?: string;  // K7 — URL ingest
+  via_serper?: boolean;       // K7 — flag set when URL came from search
   spokesperson_ids?: string[];
 }
 
@@ -285,6 +287,42 @@ export function useDeleteKnowledge(workspaceId: string | undefined) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["knowledge", "list", workspaceId] });
     },
+  });
+}
+
+// ---- search discovery (SESSION 140 / K7) ---------------
+
+const searchResultSchema = z.object({
+  title: z.string(),
+  url: z.string(),
+  snippet: z.string(),
+  position: z.number(),
+});
+
+export type SearchResult = z.infer<typeof searchResultSchema>;
+
+const searchResponseSchema = z.object({
+  query: z.string(),
+  results: z.array(searchResultSchema),
+});
+
+export async function searchKnowledge(
+  query: string,
+  topK: number = 8,
+): Promise<SearchResult[]> {
+  return apiJson(
+    "/api/knowledge/search/",
+    { method: "POST", body: { q: query, top_k: topK } },
+    (json) => searchResponseSchema.parse(json).results,
+  );
+}
+
+export function useKnowledgeSearch() {
+  // Mutation rather than query — the search fires on operator
+  // submit, not on render. Result lives in the component's
+  // useState until the operator picks one to ingest.
+  return useMutation({
+    mutationFn: (q: string) => searchKnowledge(q),
   });
 }
 

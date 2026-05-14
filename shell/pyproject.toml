@@ -35,6 +35,10 @@ dependencies = [
     "pdfminer.six>=20231228", # PDF text extraction
     "django-redis>=5.4",     # embedding cache backend
 
+    # SESSION 140 / K7 — URL ingestion + serper discovery.
+    "trafilatura>=1.10",     # HTML main-content extraction
+    "lxml_html_clean>=0.4",  # trafilatura → justext → lxml shim
+
     # Settings
     "django-environ>=0.11",
 ]

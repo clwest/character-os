@@ -156,3 +156,43 @@ class KnowledgeDocumentViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(doc)
         return Response(serializer.data)
+
+    # ---- search discovery (K7) -------------------------
+
+    @action(detail=False, methods=["post"], url_path="search")
+    def search(self, request, *args, **kwargs):
+        """Serper-backed search. Body: ``{"q": "<query>", "top_k": N}``.
+
+        Returns ``{"results": [{title, url, snippet, position}, ...]}``.
+        Not workspace-scoped — search results aren't documents
+        yet. Operator picks one → SPA POSTs to ``/api/knowledge/``
+        with the URL.
+
+        Authenticated-only. Cached for 1 hour by sha256(query).
+        ``SERPER_FORCE_MOCK=1`` returns deterministic stubs
+        without hitting the API.
+        """
+        from . import serper
+
+        query = (request.data.get("q") or "").strip()
+        if not query:
+            raise ValidationError({"q": "Required."})
+        top_k = request.data.get("top_k") or serper.DEFAULT_TOP_K
+
+        try:
+            results = serper.search(query, top_k=top_k)
+        except ValueError as exc:
+            raise ValidationError({"q": str(exc)}) from exc
+        except serper.SerperError as exc:
+            # 502 — upstream failure. Operator should retry or
+            # paste a URL directly.
+            return Response(
+                {"detail": str(exc)},
+                status=drf_status.HTTP_502_BAD_GATEWAY,
+            )
+
+        from dataclasses import asdict as _asdict
+        return Response({
+            "query": query,
+            "results": [_asdict(r) for r in results],
+        })

@@ -12,7 +12,7 @@
  */
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, FileText, Trash2 } from "lucide-react";
+import { ChevronLeft, FileText, Search, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,8 +25,10 @@ import {
   useCreateKnowledge,
   useDeleteKnowledge,
   useKnowledgeList,
+  useKnowledgeSearch,
   type DocumentStatus,
   type KnowledgeDocument,
+  type SearchResult,
 } from "@/lib/api/knowledge";
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
@@ -148,6 +150,12 @@ function UploadPanel({ workspaceId }: { workspaceId: string | undefined }) {
           <TabsTrigger value="upload" data-testid="tab-upload">
             Upload PDF
           </TabsTrigger>
+          <TabsTrigger value="url" data-testid="tab-url">
+            URL
+          </TabsTrigger>
+          <TabsTrigger value="search" data-testid="tab-search">
+            Search
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="paste" className="mt-4">
@@ -156,6 +164,14 @@ function UploadPanel({ workspaceId }: { workspaceId: string | undefined }) {
 
         <TabsContent value="upload" className="mt-4">
           <UploadForm workspaceId={workspaceId} />
+        </TabsContent>
+
+        <TabsContent value="url" className="mt-4">
+          <UrlForm workspaceId={workspaceId} />
+        </TabsContent>
+
+        <TabsContent value="search" className="mt-4">
+          <SearchForm workspaceId={workspaceId} />
         </TabsContent>
       </Tabs>
     </section>
@@ -333,6 +349,192 @@ function UploadForm({ workspaceId }: { workspaceId: string | undefined }) {
         {create.isPending ? "Uploading + extracting…" : "Upload PDF"}
       </Button>
     </form>
+  );
+}
+
+
+function UrlForm({ workspaceId }: { workspaceId: string | undefined }) {
+  const [title, setTitle] = useState("");
+  const [url, setUrl] = useState("");
+  const create = useCreateKnowledge(workspaceId);
+
+  const disabled = !workspaceId || !url.trim() || create.isPending;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!workspaceId) return;
+    try {
+      await create.mutateAsync({
+        workspace: workspaceId,
+        title: title.trim() || undefined,
+        source_url_input: url.trim(),
+      });
+      setTitle("");
+      setUrl("");
+    } catch (err) {
+      console.error("url ingest failed", err);
+    }
+  }
+
+  return (
+    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="url-input">URL</Label>
+        <Input
+          id="url-input"
+          data-testid="url-input"
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://example.com/article-to-ingest"
+          required
+        />
+        <p className="text-xs text-muted-foreground">
+          Snapshot at ingest — content is captured as it looks now and
+          isn't re-fetched. Delete + re-ingest if you need fresh.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="url-title">Title (optional)</Label>
+        <Input
+          id="url-title"
+          data-testid="url-title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Defaults to the page's title tag"
+          maxLength={500}
+        />
+      </div>
+
+      {create.error && (
+        <p
+          data-testid="url-error"
+          className="text-sm text-destructive"
+        >
+          {readableError(create.error)}
+        </p>
+      )}
+
+      <Button
+        type="submit"
+        data-testid="url-submit"
+        disabled={disabled}
+      >
+        {create.isPending ? "Fetching + extracting…" : "Ingest URL"}
+      </Button>
+    </form>
+  );
+}
+
+
+function SearchForm({ workspaceId }: { workspaceId: string | undefined }) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const searchMut = useKnowledgeSearch();
+  const create = useCreateKnowledge(workspaceId);
+  const [ingestingUrl, setIngestingUrl] = useState<string | null>(null);
+
+  async function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    if (!query.trim()) return;
+    try {
+      const hits = await searchMut.mutateAsync(query.trim());
+      setResults(hits);
+    } catch (err) {
+      console.error("search failed", err);
+      setResults([]);
+    }
+  }
+
+  async function handleIngest(result: SearchResult) {
+    if (!workspaceId) return;
+    setIngestingUrl(result.url);
+    try {
+      await create.mutateAsync({
+        workspace: workspaceId,
+        title: result.title,
+        source_url_input: result.url,
+        via_serper: true,
+      });
+      // Remove the ingested result from the list so the operator
+      // can see what's left.
+      setResults((prev) => prev.filter((r) => r.url !== result.url));
+    } catch (err) {
+      console.error("serper-result ingest failed", err);
+    } finally {
+      setIngestingUrl(null);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <form className="flex flex-col gap-3 sm:flex-row" onSubmit={handleSearch}>
+        <Input
+          data-testid="search-query"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search the web for content to ingest…"
+          className="flex-1"
+        />
+        <Button
+          type="submit"
+          data-testid="search-submit"
+          disabled={!query.trim() || searchMut.isPending}
+        >
+          <Search className="mr-2 h-4 w-4" />
+          {searchMut.isPending ? "Searching…" : "Search"}
+        </Button>
+      </form>
+
+      {searchMut.error && (
+        <p
+          data-testid="search-error"
+          className="text-sm text-destructive"
+        >
+          {readableError(searchMut.error)}
+        </p>
+      )}
+
+      {results.length > 0 && (
+        <ul
+          data-testid="search-results"
+          className="divide-y divide-border rounded-md border border-border bg-card"
+        >
+          {results.map((r) => (
+            <li
+              key={r.url}
+              data-testid={`search-result-${r.position}`}
+              className="flex items-start gap-3 px-4 py-3"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="truncate text-sm font-medium" title={r.title}>
+                  {r.title}
+                </p>
+                <p className="truncate text-xs text-muted-foreground" title={r.url}>
+                  {r.url}
+                </p>
+                {r.snippet && (
+                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                    {r.snippet}
+                  </p>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                data-testid={`search-ingest-${r.position}`}
+                disabled={ingestingUrl === r.url}
+                onClick={() => handleIngest(r)}
+              >
+                {ingestingUrl === r.url ? "…" : "Ingest"}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
