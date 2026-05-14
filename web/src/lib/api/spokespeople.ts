@@ -7,7 +7,7 @@
  * both shapes here so the SPA doesn't break when pagination flips on.
  */
 import { z } from "zod";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiJson } from "./client";
 
 const spokespersonSchema = z.object({
@@ -73,5 +73,44 @@ export function useSpokesperson(id: string | undefined) {
     // to show within a few seconds). Real avatar / voice status
     // transitions land here too in future slices.
     staleTime: 15 * 1000,
+  });
+}
+
+// ---- Create (S-06) -------------------------------------------------
+
+export interface CreateSpokespersonInput {
+  workspace: string;
+  name: string;
+  business_brief: string;
+  /** ``data:image/{png|jpeg|webp};base64,...`` — optional. When
+   * supplied, the backend fires the media-engine avatar create
+   * synchronously and persists `runway_avatar_id` on the row. */
+  portrait_data_uri?: string;
+  voice_preset?: string;
+}
+
+export async function createSpokesperson(
+  input: CreateSpokespersonInput,
+): Promise<Spokesperson> {
+  return apiJson(
+    "/api/spokespeople/",
+    { method: "POST", body: input },
+    (json) => spokespersonSchema.parse(json),
+  );
+}
+
+export function useCreateSpokesperson() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: createSpokesperson,
+    onSuccess: (spokesperson) => {
+      // Invalidate the list so the dashboard refreshes when the
+      // user navigates back. Also seed the single-resource cache
+      // so the detail page renders instantly on redirect.
+      qc.invalidateQueries({ queryKey: ["spokespeople"] });
+      qc.setQueryData(["spokesperson", spokesperson.id], spokesperson);
+      // Subscription usage might have shifted (spokespeople count).
+      qc.invalidateQueries({ queryKey: ["subscription"] });
+    },
   });
 }

@@ -1,4 +1,5 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSession, useSignout } from "@/lib/auth/use-session";
 import { useMe, useSubscription } from "@/lib/api/workspaces";
@@ -162,14 +163,32 @@ function SpokespeoplePanel({
 }) {
   return (
     <section className="flex flex-col gap-5">
-      <PanelHeader title="Spokespeople" count={data?.length} />
+      <PanelHeader
+        title="Spokespeople"
+        count={data?.length}
+        action={
+          <Link
+            to="/spokespeople/new"
+            className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+            data-testid="new-spokesperson-link"
+          >
+            <Plus className="h-3 w-3" />
+            New
+          </Link>
+        }
+      />
       {loading && <SpokespeopleSkeleton />}
       {error ? <ErrorRow message={extractMessage(error)} /> : null}
       {data && data.length === 0 && (
         <EmptyState
           headline="No spokespeople yet"
-          body="A spokesperson is the on-camera identity behind every video — a portrait, a voice, a one-paragraph business brief. You'll set up the first one in the next slice."
+          body="A spokesperson is the on-camera identity behind every video — a portrait, a voice, a one-paragraph business brief."
           testId="spokespeople-empty"
+          action={
+            <Link to="/spokespeople/new" data-testid="empty-create-cta">
+              <Button size="lg">Create your first spokesperson</Button>
+            </Link>
+          }
         />
       )}
       {data && data.length > 0 && (
@@ -255,15 +274,24 @@ function RecentVideosPanel({
 
 // ---- Atoms ---------------------------------------------------------
 
-function PanelHeader({ title, count }: { title: string; count: number | undefined }) {
+function PanelHeader({
+  title,
+  count,
+  action,
+}: {
+  title: string;
+  count: number | undefined;
+  action?: React.ReactNode;
+}) {
   return (
     <div className="flex items-baseline justify-between border-b border-border/60 pb-3">
-      <h2 className="font-display text-xl tracking-tight">{title}</h2>
-      {typeof count === "number" && (
-        <span className="font-mono text-xs text-muted-foreground">
-          {count}
-        </span>
-      )}
+      <div className="flex items-baseline gap-3">
+        <h2 className="font-display text-xl tracking-tight">{title}</h2>
+        {typeof count === "number" && (
+          <span className="font-mono text-xs text-muted-foreground">{count}</span>
+        )}
+      </div>
+      {action}
     </div>
   );
 }
@@ -272,18 +300,21 @@ function EmptyState({
   headline,
   body,
   testId,
+  action,
 }: {
   headline: string;
   body: string;
   testId?: string;
+  action?: React.ReactNode;
 }) {
   return (
     <div
-      className="reveal flex flex-col gap-2 rounded-md border border-dashed border-border bg-card/50 p-8 text-center"
+      className="reveal flex flex-col items-center gap-4 rounded-md border border-dashed border-border bg-card/50 p-10 text-center"
       data-testid={testId}
     >
       <p className="font-display text-xl tracking-tight">{headline}</p>
       <p className="mx-auto max-w-md text-sm text-muted-foreground">{body}</p>
+      {action}
     </div>
   );
 }
