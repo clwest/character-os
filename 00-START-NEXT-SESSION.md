@@ -14,116 +14,122 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_134_HIDE_ON_COMPLETION.md`.
+> **Last handoff:** `docs/handoffs/SESSION_135_TEMPLATE_CONTENT.md`.
 
 ---
 
 ## Where we are
 
 **Phase 0-2:** Done.
-**Phase 3:** Five SPA slices + User model + Prompt Tier 1 + Wizard
-arc complete (W1-W11). Legacy form retirement + content polish +
-new feature arcs ahead.
+**Phase 3:** Wizard arc complete (W1-W11) + content refined for
+the Character OS marketing cast. Ready for real-mode validation,
+Tier 2 prompt helpers, or render-flow polish.
 
 | Slice | Deliverable                                  | Status |
 |-------|----------------------------------------------|--------|
-| W1-W9 | Create-spokesperson wizard end-to-end        | DONE (SESSIONS 124-132) |
-| W10   | Template tiles (Riggs / Sasha / Donny / Maya) | DONE (SESSION 133) |
-| W11   | Hide-on-completion detail page rework        | DONE (SESSION 134) |
-| W12   | Retire legacy single-form                    | After Runway real-mode validation |
-| W11.1 | Edit-spokesperson modal                      | Queued (deferred from W11) |
+| W1-W11 | Create-spokesperson wizard end-to-end       | DONE (SESSIONS 124-134) |
+| Content | Cast refinement (Riggs/Sasha/Donny/Maya as Character OS animals) | DONE (SESSION 135) |
+| W12   | Retire legacy single-form                    | After real-mode Runway validation |
+| W11.1 | Edit-spokesperson modal                      | Queued |
 
-**The wizard arc is complete.** What's working end-to-end after
-SESSION 134:
+**The four animals are now Character OS's first employees:**
 
-  - Everything from SESSIONS 107-133.
-  - Detail page hides the setup checklist when fully configured
-    (brief + avatar bound + voice set); shows only the unfinished
-    items otherwise.
-  - "Ready to render" badge in the masthead signals fully-configured.
-  - Done items disappear from the checklist (not struck-through).
-  - Videos panel takes full width on fully-configured detail pages.
-  - 30 of 30 Playwright specs pass in one shot.
+  - **Riggs** the Donkey — founder voice ("why we built this")
+  - **Sasha** the Raccoon — sales / hook videos for socials
+  - **Donny** the Sloth — user stories / documentary interviews
+  - **Maya** the Panda — product education + onboarding tutor
+    (dual-mode: lessons + Q&A; the latter foreshadows surfacing
+    the `ConversationThread` data model in a future slice)
+
+James's classroom battle unicorn is *not* a template — it's the
+demo of an operator using Character OS to build a fully-custom
+spokesperson.
 
 ---
 
-## SESSION 135 — Four options
+## SESSION 136 — Five options
 
-The wizard arc is finished. No single dominant "next slice" —
-pick by priority:
+The wizard arc + content polish are done. No single dominant
+next slice — pick by priority:
 
-### Option A — Template content refinement (operator-collaborative)
+### Option A — First real marketing video (recommended)
 
-**Quarter-session of operator time.** The four briefs in
-`shell/character_os/templates/spokesperson_templates.py` are first
-drafts. An hour of operator voice would replace them with the real
-thing. No code changes; no spec changes (specs check structure +
-proper-noun matches, not exact strings).
+**Highest-information next step.** Use one of the cast members
+(Sasha probably — sales is the natural launch shape) against
+real Runway, end-to-end through the wizard + render flow. This
+is the *real-mode validation* the legacy-form retirement
+(W12) is waiting on.
 
-### Option B — Edit-spokesperson modal (W11.1)
+Requires real Runway credits + likely some real-mode tuning of
+the existing `/internal/*` pipeline. Outputs a real video asset
+Chris can actually post somewhere.
 
-**Half-to-full session.** Adds an "Edit" button on the detail
-page masthead → modal with name + brief + tone + visual_subject
-fields → PATCH `/api/spokespeople/{id}/`. The DRF viewset already
-supports PATCH (`ModelViewSet`), so this is UI-only.
+### Option B — Voice preset audit
 
-Out of scope for this slice: portrait re-generation, voice
-re-clone (both have existing affordances).
+**Quarter-session.** Listen to vincent / clara / drew / victoria
+against each character's personality. Swap any that don't fit.
+The current assignments are name-fit intuition, not actual
+hearing — the wrong voice on a character is uniquely jarring
+because audio is unforgiving.
 
-### Option C — Legacy form retirement (W12)
+### Option C — Tier 2 prompt helpers (DynamicPromptBuilder)
 
-**Half-session, but defer until real-mode Runway validation.**
-The legacy `?legacy=1` single-form is the cheapest insurance
-against wizard-introduced bugs. Don't retire until the wizard
-has been exercised against real Runway calls.
+**Full session.** Larger port from unified-donkey-betz. Tier 1
+(sharpening + brand palettes + creative principles + tone
+heuristic) ported in SESSION 122. Tier 2 is the composer that
+takes a structured spec and emits a rendered prompt — useful
+when render-flow scripts grow beyond the current minimal
+brief→prompt path.
 
-When ready: delete `LegacyCreateForm`, drop the `?legacy=1` gate,
-rewrite/delete `create-spokesperson.spec.ts` +
-`portrait-camera.spec.ts` + the legacy parts of
-`make-video.spec.ts`.
+### Option D — Edit-spokesperson modal (W11.1)
 
-### Option D — Tier 2 prompt helpers (DynamicPromptBuilder)
+**Half-session.** PATCH-shaped modal launched from the detail
+page masthead. The DRF viewset already supports PATCH — UI-only
+slice.
 
-**Full session at minimum.** Larger port from u-d-b. Tier 1 ported
-in SESSION 122 (sharpening + brand palettes + creative principles +
-tone heuristic). Tier 2 is the prompt composer that takes a
-structured spec and emits a rendered prompt — useful for richer
-video script composition when the make-video flow grows beyond
-the current minimal brief→prompt path.
+### Option E — Surface the conversational tutor mode
 
-### Recommendation: **A** (content refinement, quick win), then
-**D** (Tier 2 helpers, next big arc) once content is dialed.
+**Session+.** Maya's brief now mentions "answers the question
+when the student is stuck" — a dual-mode that needs UI to
+exist. The `ConversationThread` model has been scaffolded since
+Phase 1 with no UI. This unlocks a *second product surface*
+beyond video rendering (the chat-with-your-spokesperson
+surface). Bigger arc than the others.
 
-Reasoning: the wizard is operational; the lowest-hanging fruit
-left is template voice. **D** is the natural next big arc —
-unblocks richer scripts which is where the operator's product
-voice will start showing on every render. **B** + **C** are
-queued but not blocking anything.
+### Recommendation: **A** → **B** → **C** in that order.
+
+Reasoning: A forces real-mode learnings the rest of the queue
+benefits from. B follows naturally once you've heard the cast.
+C is the next big arc with cleaner foundations afterward.
+
+D + E are queued; both more discretionary.
 
 ---
 
 ## Queued investigations (priority-ordered)
 
-1. **Template content refinement** — operator-collaborative pass
-   on `shell/character_os/templates/spokesperson_templates.py`.
-2. **Tier 2 prompt helpers** (`DynamicPromptBuilder` from u-d-b).
-3. **W11.1 — Edit-spokesperson modal.**
-4. **W12 — Legacy form retirement** — after real-mode Runway
-   validation.
-5. **Stuck-row janitor** — operational hardening.
-6. **Additional video kinds** — cinematic / dialogue / long_ad.
-7. **Act-Two performance capture** — deferred until Runway
+1. **First real marketing video** — Sasha or Riggs against
+   real Runway, end-to-end.
+2. **Voice preset audit** — verify vincent/clara/drew/victoria
+   against the new character personalities.
+3. **Tier 2 prompt helpers** (`DynamicPromptBuilder` from u-d-b).
+4. **W11.1 — Edit-spokesperson modal.**
+5. **Surface the conversational tutor mode** — Maya's dual-mode
+   brief implies a chat surface; `ConversationThread` model is
+   ready.
+6. **W12 — Legacy form retirement** — after real-mode validation.
+7. **Stuck-row janitor** — operational hardening.
+8. **Additional video kinds** — cinematic / dialogue / long_ad.
+9. **Act-Two performance capture** — deferred until Runway
    credits land.
-8. **`lesson` video kind** for James-shaped educators.
-9. **Real Google OAuth + dj-stripe** — operator gates.
-10. **Allauth legacy-settings cleanup** (deprecation warnings on
-    every Django manage command).
-11. **smoke_voice / smoke_avatar transaction discipline** — tiny
-    fix that's bitten us 3+ times.
-12. **Drift verifier** — `verify_doc_claims --only-drift`. Covers
-    `SUPPORTED_VOICE_PRESETS`, `SUPPORTED_PORTRAIT_TEMPLATES`,
-    and `TONE_ARCHETYPES` mirrors in one pass.
-13. **Brand Identity v2 + dark mode.**
+10. **`lesson` video kind** for James-shaped educators (pairs
+    with the conversational tutor surface).
+11. **Real Google OAuth + dj-stripe** — operator gates.
+12. **Allauth legacy-settings cleanup** (deprecation warnings).
+13. **smoke_voice / smoke_avatar transaction discipline** —
+    tiny fix that's bitten 3+ times.
+14. **Drift verifier** — `verify_doc_claims --only-drift`.
+15. **Brand Identity v2 + dark mode.**
 
 ---
 
@@ -139,7 +145,7 @@ cd shell && source .venv/bin/activate
 python manage.py runserver                 # :8000 — DO NOT pass --noreload
 
 cd shell && source .venv/bin/activate
-celery -A character_os worker --loglevel=info --pool=solo   # required for video pipeline
+celery -A character_os worker --loglevel=info --pool=solo
 
 cd web && pnpm dev                          # :5174
 ```
@@ -158,7 +164,7 @@ python -m pytest character_os/prompts/        # 46 tests
 
 # SPA (from web/)
 pnpm test
-pnpm e2e            # full lifecycle ~47s (30 specs), single-shot
+pnpm e2e            # full lifecycle ~46s (30 specs), single-shot
 ```
 
 To poke the wizard:
@@ -167,30 +173,34 @@ To poke the wizard:
 http://localhost:5174/spokespeople/new
 ```
 
-The wizard ships end-to-end. Click **Maya** to see the tutor /
-educator use case fully pre-filled. After submit, the detail
-page shows the "Ready to render" badge + no setup checklist —
-just the identity panel + the (empty) render history.
+Try **Riggs** (the donkey) — that's the founder voice video
+you'd post about why Character OS exists. Or **Maya** (the
+panda) for an onboarding "how do I make my first spokesperson"
+tutorial video.
 
 ---
 
 ## AI / assistant context
 
-- Last session: SESSION 134 — wizard slice 11 (hide-on-completion).
-  Detail page now branches by completion: fully-configured rows
-  hide the checklist + show a Ready badge; partial rows show only
-  the unfinished items. **The wizard arc (W1-W11) is complete.**
-- **Calibration carried forward:** the wizard arc spanned 11 slices
-  (W1-W11) across SESSIONS 124-134. Pattern that worked: scope-
-  lock-first → foundation slices → scaffold-before-bodies →
-  one-slice-at-a-time commits. No big-bang rewrites; every gate
-  run green at slice close. The pattern is the calibration — keep
-  it for the next big arc (likely Tier 2 prompt helpers).
-- **Template content** is the cheapest remaining work item.
-  Operator-collaborative pass on
-  `shell/character_os/templates/spokesperson_templates.py`. Quick
-  win that benefits every new-operator first-impression.
-- **Don't retire the legacy form yet.** Wait for real-mode Runway
-  validation.
+- Last session: SESSION 135 — template content refinement.
+  Reframed the four templates from generic archetypes into
+  **Character OS's in-house marketing cast** (anthropomorphic
+  animal characters in hoodies + tees). Riggs/Donkey =
+  founder voice; Sasha/Raccoon = sales; Donny/Sloth = user
+  stories; Maya/Panda = education + tutor.
+- **Real-mode validation is the next big unlock.** Mock-mode
+  has carried the wizard arc; real Runway calls surface failure
+  modes that mock-mode can't.
+- **Voice presets are unverified by ear.** Don't trust
+  vincent/clara/drew/victoria as final until they've been
+  heard against the new character personalities.
+- **Maya's brief foreshadows a conversational tutor surface.**
+  The `ConversationThread` model is ready; the UI doesn't
+  exist. Queued as option E for future arc planning.
+- **The templates are now load-bearing content, not starter
+  material.** Future edits to
+  `shell/character_os/templates/spokesperson_templates.py` are
+  product-positioning changes; treat with the same care as
+  website tagline edits.
 - Collaboration conventions: AI drafts, human edits. Handoff
   `## AI Notes` section required at session end.
