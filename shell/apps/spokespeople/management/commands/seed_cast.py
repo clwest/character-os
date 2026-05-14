@@ -221,9 +221,13 @@ class Command(BaseCommand):
                     seeded += 1
                     continue
 
-                # 4d — persist avatar + voice on the row.
+                # 4d — persist avatar + voice + portrait_path on the
+                #      row. thumbnail_url is the Runway CDN URL (real
+                #      mode) or a base64 data URI (mock mode); either
+                #      flavor renders directly in <img src=...>.
                 spokesperson.runway_avatar_id = avatar.avatar_id
                 spokesperson.runway_avatar_status = avatar.status
+                spokesperson.portrait_path = avatar.thumbnail_url or ""
                 spokesperson.voice_id = t.voice_preset
                 if avatar.ok:
                     spokesperson.status = Spokesperson.Status.READY
@@ -231,6 +235,7 @@ class Command(BaseCommand):
                     update_fields=[
                         "runway_avatar_id",
                         "runway_avatar_status",
+                        "portrait_path",
                         "voice_id",
                         "status",
                         "updated_at",

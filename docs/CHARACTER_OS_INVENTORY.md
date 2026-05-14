@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-14T04:56:02.712044+00:00
-git_sha: 6269e6e
+generated_at: 2026-05-14T05:13:24.977645+00:00
+git_sha: e0697ad (working tree dirty)
 git_branch: main
 ---
 
@@ -15,8 +15,8 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-14T04:56:02.712044+00:00** against commit **6269e6e**
-on branch **main**.
+Generated **2026-05-14T05:13:24.977645+00:00** against commit **e0697ad**
+on branch **main** (working tree dirty).
 
 Python 3.11.6 · Django 5.2.14 ·
 Celery 5.6.3 · httpx 0.28.1.
@@ -32,8 +32,8 @@ Celery 5.6.3 · httpx 0.28.1.
 | URL routes (`/api/*`) | **42** | same |
 | FastAPI routes | **94** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **2** | `celery_app.tasks` filter |
-| Migrations (applied / total) | **41 / 41** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **6,616** in 90 files | `pathlib.Path.rglob("*.py")` |
+| Migrations (applied / total) | **42 / 42** | `MigrationRecorder` ∩ `MigrationLoader` |
+| Shell LOC (`*.py`, no venv/migrations) | **6,638** in 90 files | `pathlib.Path.rglob("*.py")` |
 | Media-engine LOC (`*.py`, no venv/migrations) | **25,634** in 48 files | same |
 
 ---
@@ -164,7 +164,7 @@ Total: **2** registered tasks (excluding `celery.*` built-ins).
 
 ## Migrations
 
-**41 of 41** migrations applied.
+**42 of 42** migrations applied.
 
 | App | Applied | Total | Pending |
 |---|---|---|---|
@@ -178,7 +178,7 @@ Total: **2** registered tasks (excluding `celery.*` built-ins).
 | `sessions` | 1 | 1 | 0 |
 | `sites` | 2 | 2 | 0 |
 | `socialaccount` | 6 | 6 | 0 |
-| `spokespeople` | 2 | 2 | 0 |
+| `spokespeople` | 3 | 3 | 0 |
 | `videos` | 1 | 1 | 0 |
 
 ---
@@ -201,11 +201,11 @@ Total: **2** registered tasks (excluding `celery.*` built-ins).
 | Service | Files | Lines |
 |---|---|---|
 | `media-engine/` | 48 | 25,634 |
-| `shell/` | 90 | 6,616 |
-| **total** | **138** | **32,250** |
+| `shell/` | 90 | 6,638 |
+| **total** | **138** | **32,272** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-05-14T04:56:02.712044+00:00 from commit 6269e6e. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-14T05:13:24.977645+00:00 from commit e0697ad. Re-run `python manage.py inventory` (from `shell/`) to refresh.*

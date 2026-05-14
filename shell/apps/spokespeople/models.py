@@ -86,7 +86,18 @@ class Spokesperson(models.Model):
     # until the avatar is created.
     runway_avatar_id = models.CharField(max_length=120, blank=True, default="")
     runway_avatar_status = models.CharField(max_length=40, blank=True, default="")
-    portrait_path = models.CharField(max_length=512, blank=True, default="")
+    portrait_path = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "Renderable URL or data URI for the spokesperson's portrait. "
+            "Set by perform_create / seed_cast from the media-engine's "
+            "AvatarCreateResult.thumbnail_url after a successful avatar "
+            "bind. Real-mode: Runway CDN URL (~200 chars). Mock-mode: "
+            "base64 data URI of the placeholder PNG (~2 KB). TextField "
+            "(not CharField) because mock-mode URIs exceed 512 chars."
+        ),
+    )
     voice_id = models.CharField(max_length=120, blank=True, default="")
 
     created_at = models.DateTimeField(auto_now_add=True)

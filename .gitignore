@@ -41,8 +41,7 @@ web/build/
 
 # Environment + secrets
 .env
-.env.local
-.env.*.local
+.env.*
 *.pem
 *.key
 

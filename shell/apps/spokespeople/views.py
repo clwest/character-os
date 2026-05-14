@@ -112,6 +112,11 @@ class SpokespersonViewSet(viewsets.ModelViewSet):
 
         instance.runway_avatar_id = result.avatar_id
         instance.runway_avatar_status = result.status
+        # SESSION 137: persist the Runway thumbnail URL (or mock-mode
+        # data URI) so the detail page's <Portrait> can actually
+        # render the image. Without this, every avatar-bound
+        # spokesperson rendered the initials-fallback box.
+        instance.portrait_path = result.thumbnail_url or ""
         if voice_preset:
             instance.voice_id = voice_preset
         # Once the avatar is ready (or its mock equivalent), the
@@ -122,6 +127,7 @@ class SpokespersonViewSet(viewsets.ModelViewSet):
             update_fields=[
                 "runway_avatar_id",
                 "runway_avatar_status",
+                "portrait_path",
                 "voice_id",
                 "status",
                 "updated_at",
