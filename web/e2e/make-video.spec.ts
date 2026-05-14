@@ -63,7 +63,9 @@ test.describe("make-a-video lifecycle (S-12 + S-11)", () => {
 
     // 4) Render form — brief should be pre-filled from the
     //    spokesperson's business_brief.
-    await expect(page.getByText(/Make a video/i)).toBeVisible();
+    // SESSION 138 — narrow to the page heading; the submit button
+    // also reads "Make a video" so a plain getByText is ambiguous.
+    await expect(page.getByRole("heading", { name: /Make a video/i })).toBeVisible();
     const brief = page.getByLabel("Brief");
     await expect(brief).toHaveValue(/artisan bicycle bells/i);
 

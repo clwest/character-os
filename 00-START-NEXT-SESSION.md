@@ -11,34 +11,49 @@ state: active
 > **Brand identity lock:** `docs/design/BRAND_IDENTITY_V1.md`.
 > **Prompt helpers:** `docs/design/PROMPT_HELPERS.md`.
 > **Wizard scope lock:** `docs/design/CREATE_SPOKESPERSON_WIZARD.md`.
-> **Knowledge layer scope lock:** TBD (write in SESSION 137).
+> **Knowledge layer scope lock:** `docs/design/KNOWLEDGE_LAYER.md`
+> (locked SESSION 137 — 7 contract rules, K1-K10 slice breakdown).
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_136_CAST_WENT_LIVE.md`.
+> **Last handoff:** `docs/handoffs/SESSION_138_K1_THROUGH_K5.md`.
 
 ---
 
 ## Where we are
 
 **Phase 0-2:** Done.
-**Phase 3:** Wizard arc complete (W1-W11) + cast went live in
-real-mode (SESSION 136). Cast members exist as real Spokesperson
-rows in admin@mail.com's workspace, all four bound to real Runway
-avatars with their preset voices.
+**Phase 3:** Wizard arc complete (W1-W11). Cast went live in
+real-mode (SESSION 136). Knowledge-layer scope-locked
+(SESSION 137) — `docs/design/KNOWLEDGE_LAYER.md` is the new
+contract.
 
-**Phase 4 (loosely renamed):** Knowledge layer. SESSION 137 is
-the scope-lock conversation; no code lands until the shape is
-agreed.
+**Phase 4 (knowledge arc):** K6 — render flow integration.
+K1-K5 all shipped SESSION 138. K6 is where knowledge starts
+*informing* video renders rather than just sitting in
+storage.
 
 | Slice | Deliverable                                  | Status |
 |-------|----------------------------------------------|--------|
 | W1-W11 | Create-spokesperson wizard end-to-end       | DONE (SESSIONS 124-134) |
-| Content | Cast refinement (animals + hoodies)        | DONE (SESSION 135) |
 | Cast Live | generate_cast + seed_cast + bugs fixed   | DONE (SESSION 136) |
-| W12 | Legacy single-form retirement                 | Whenever (now ungated) |
+| K0 | Knowledge-layer scope lock                      | DONE (SESSION 137) |
+| K1 | Postgres + pgvector migration                   | DONE (SESSION 138) |
+| K2 | KnowledgeDocument + KnowledgeChunk + retrieval skeleton | DONE (SESSION 138) |
+| K3 | Ingestion pipeline (paste + upload + PDF)       | DONE (SESSION 138) |
+| K4 | Workspace knowledge route (SPA + REST)          | DONE (SESSION 138) |
+| K5 | Spokesperson "Knowledge" tab                    | DONE (SESSION 138) |
+| K6 | Render flow integration                         | **NEXT** |
+| K3 | Ingestion pipeline (paste + upload + PDF)       | Queued |
+| K4 | Workspace knowledge route (SPA + REST)          | Queued |
+| K5 | Spokesperson "Knowledge" tab                    | Queued |
+| K6 | Render flow integration                         | Queued |
+| K7 | URL ingestion + serper discovery                | Queued |
+| K8 | ConversationMessage + ConversationEmbedding     | Queued |
+| K9 | Conversation REST + SPA                         | Queued |
+| K10 | Onboarding seed                                | Queued |
+| W12 | Legacy single-form retirement                  | Whenever (now ungated) |
 | W11.1 | Edit-spokesperson modal                      | Queued |
-| K0 | Knowledge layer scope-lock                      | NEXT (SESSION 137) |
 
 **Cast roster in workspace `admins-workspace`:**
 
@@ -47,151 +62,201 @@ agreed.
   - Donny the Sloth (user stories) — id `f30b2980-...`
   - Maya the Panda (educator) — id `9410f23f-...`
 
-All four have bound Runway avatars + Cloudfront-hosted portrait
-URLs + correct voice presets. They can render videos *right now*,
-but they have nothing to talk about — which is exactly the next
-problem.
+Cast can render videos right now. After K6 ships they'll
+render *informed* videos — script synthesis with RAG-injected
+knowledge instead of LLM hallucination from the brief alone.
 
 ---
 
-## SESSION 137 — Knowledge layer scope-lock conversation
+## SESSION 138 status — K1 through K5 all shipped
 
-**Don't start coding.** This session is a design conversation
-that produces a scope-lock doc, same pattern as the wizard arc
-opened with `CREATE_SPOKESPERSON_WIZARD.md` in SESSION 123.
+**K1 (Postgres + pgvector):** infra-only swap. sqlite → Postgres,
+pgvector extension installed via
+`apps.embeddings.migrations.0001_install_pgvector`. All 2,718
+sqlite rows migrated successfully. Details in
+`docs/POSTGRES_MIGRATION.md`. Two `post_save` signals
+(`accounts.signals`, `billing.signals`) gained `raw=True`
+guards so future `loaddata` runs don't collide on
+auto-created rows. Pre-K1 unblocker (`RUNWAY_FORCE_MOCK=1`)
+also shipped.
 
-### The framing problem
+**K2 (Knowledge schema + retrieval skeleton):** the load-bearing
+privacy guarantees. `KnowledgeDocument` + `KnowledgeChunk` in
+`apps.embeddings.models`; `ConversationMessage` +
+`ConversationEmbedding` in `apps.conversations.models`. Single
+retrieval surface at `apps/embeddings/retrieval.py` with two
+named functions. `m2m_changed` signal vetoes cross-workspace
+spokesperson attaches.
 
-The four cast members have `business_brief` strings that describe
-HOW they sound (Riggs's substantive founder voice, Sasha's cool-
-composed sales, Donny's slow attentive listening, Maya's patient
-scaffolded teaching). They do NOT have anything that describes
-WHAT they know about Character OS specifically. Every render
-would be the LLM hallucinating product details from the prompt
-+ the spokesperson's tone.
+**K3 (ingestion pipeline):** operator input → KnowledgeDocument.
+* `apps/embeddings/text_splitter.py` — paragraph-aware,
+  sentence-fallback splitter (chunk_size=1000, overlap=200).
+* `apps/embeddings/embedding_service.py` — OpenAI
+  `text-embedding-3-small` (1536-dim), Redis cache via
+  Django CACHES on db 2, `EMBEDDING_FORCE_MOCK=1` env/settings
+  override mirroring the `RUNWAY_FORCE_MOCK` pattern.
+* `apps/embeddings/pdf.py` — `pdfminer.six` text extraction
+  (text-based PDFs only; OCR is out of scope).
+* `apps/embeddings/ingestion.py` — `ingest_text()` +
+  `ingest_pdf()` orchestrators with content-hash dedup.
+* `apps/embeddings/tasks.py` — `embed_document` Celery task,
+  idempotent, retries on network errors.
+* `apps/embeddings/management/commands/smoke_ingest.py` — full
+  end-to-end smoke (`ingest_text → embed_document → retrieve`).
 
-A real spokesperson carries an internal mental model of the
-product they represent. We need that.
+**K4 (workspace knowledge route):** end-to-end CRUD surface.
+* REST: `KnowledgeDocumentViewSet` at `/api/knowledge/`
+  (list/create/detail/patch/destroy), workspace-scoped via
+  `?workspace=<uuid>` query param + `IsWorkspaceMember`
+  permission. Soft delete sets `is_active=False` (chunks stay
+  for admin audit).
+* `apps/embeddings/serializers.py` — `KnowledgeDocumentSerializer`
+  with `text_content` + `pdf_data_uri` write-only fields
+  (exactly one required on create). Auto-detects markdown vs
+  plain text via heading-prefix heuristic.
+* `apps/embeddings/views.py` + `apps/embeddings/urls.py` —
+  wired into `character_os/urls.py`.
+* SPA: `/workspace/knowledge` route at
+  `web/src/routes/workspace/knowledge.tsx`. List + paste +
+  PDF upload tabs + status pills + soft delete + 3s polling
+  while any doc is mid-pipeline.
+* SPA API client: `web/src/lib/api/knowledge.ts` — zod
+  schemas, React Query hooks, helper to convert a `File` to
+  the `data:application/pdf;base64,...` data URI.
+* Dashboard now has a "Knowledge" link in the masthead
+  (`nav-knowledge` testid).
+* **16 K4 API tests** in `apps/embeddings/tests/test_api.py`
+  cover create paths, validation, scoping, M2M veto, soft
+  delete. **3 K4 e2e specs** in
+  `web/e2e/workspace-knowledge.spec.ts` cover the full
+  user-visible flow.
 
-### Already in the data layer (Phase 1 scaffold, all stubs)
+**K5 (spokesperson "Knowledge" panel):** per-spokesperson view.
+* Backend: `?spokesperson=<uuid>` filter on the list endpoint
+  (visibility = empty M2M OR M2M includes them — mirrors
+  `retrieve_for_spokesperson`). Two custom actions:
+  `POST /api/knowledge/<id>/attach/` and `.../detach/` with
+  `{spokesperson_id}` payload. Both idempotent;
+  cross-workspace attaches rejected.
+* SPA: `web/src/components/knowledge-panel.tsx` — new
+  reusable component. Filtered list view + per-row toggle
+  ("Make {name}-only" / "Detach") + empty state + status
+  pills + 3s polling while docs are mid-pipeline. Wired into
+  `routes/spokespeople/$id.tsx` as a panel section.
+* SPA API client: `useSpokespersonKnowledge` hook +
+  `useToggleSpokespersonAttachment` mutation in
+  `lib/api/knowledge.ts`.
+* **10 K5 backend tests** in `test_api_k5.py` + **2 K5 e2e
+  specs** in `web/e2e/spokesperson-knowledge.spec.ts`.
 
-  - `apps/memory/` — empty app, name suggests per-character
-    persistent memory
-  - `apps/embeddings/` — empty app, name suggests vector storage
-  - `apps/conversations/` — `ConversationThread` model exists,
-    no UI yet (Maya's tutor mode is the eventual surface)
+**Test counts: 56 K-tests** (7 privacy + 6 splitter + 6
+embedding service + 10 ingestion + 16 K4 API + 10 K5 API + 1
+grep). Plus 46 prompts pytest = **102 backend tests**.
+**35 e2e specs** (30 wizard/etc + 3 K4 + 2 K5).
 
-### Prior art to read before the conversation
+### Next: K6 — render flow integration
 
-u-d-b (the project we've been porting in tiers) has a real
-RAG / memory layer. Tier 2 prompt helpers (`DynamicPromptBuilder`)
-was queued — likely related. **First thing to do in SESSION 137:**
-spend ~30 min reading `unified-donkey-betz/core/memory/` and
-`unified-donkey-betz/core/embeddings/` (or wherever the
-equivalent modules live) to surface what's already designed.
-The scope-lock conversation will be more grounded with the prior
-art on the table.
+K6 is where the knowledge layer stops being inert storage
+and starts *informing* video renders. Per the scope-lock doc
+§"Render flow integration":
 
-### Five design axes — converge in conversation, lock in doc
+- New `shell/character_os/script_synthesis.py` (or similar):
+  `build_render_brief(spokesperson, operator_prompt) -> str`.
+  Calls `retrieve_for_spokesperson` with the operator's
+  prompt, injects top-k chunks into an LLM call, returns a
+  synthesized brief string.
+- Wire `build_render_brief` into `apps/videos/views.py`
+  (or the equivalent ingestion path) just before the
+  `MediaEngineClient.create_video()` call. The
+  media-engine contract stays unchanged — it still
+  receives a finished `brief` string.
+- LLM provider — figure out what shell already uses
+  (probably OpenAI gpt-4o-mini per media-engine's default).
+  Add `RENDER_SCRIPT_FORCE_MOCK=1` for dev (deterministic
+  brief = `f"{spokesperson.business_brief}\n\n{prompt}\n\n[knowledge: {len(chunks)} chunks]"`).
+- Graceful degradation: if `retrieve_for_spokesperson`
+  returns 0 chunks, skip the synthesis step entirely and
+  use the existing `brief or business_brief` fallback.
+  Contract rule 6.
+- Citation logging: persist which chunks fed which render
+  on the `Video` row (probably a new
+  `Video.knowledge_chunk_ids = JSONField`). No UI in v1.
 
-1. **Unit of knowledge.** Document uploads (PDFs, markdown,
-   transcripts)? Structured facts (FAQ entries, feature lists)?
-   Conversational ingestion ("talk to your spokesperson to teach
-   them")? Pasted URLs that get crawled? All / hybrid?
+### What's NOT K6
 
-2. **Scope: per-spokesperson, per-workspace, or both?** Riggs and
-   Sasha both need to know what Character OS *is* (workspace
-   level), but each pulls different angles for their job (per-
-   spokesperson framing on the same corpus). Two extremes:
-   - Pure per-spokesperson: each cast member has their own
-     corpus; no shared workspace knowledge
-   - Pure per-workspace: one corpus, each spokesperson filters /
-     reframes via their `tone_archetype`
-   - Hybrid: shared workspace corpus + per-spokesperson overlays
+- URL/serper discovery — K7.
+- Conversation surface — K8/K9.
+- Onboarding seed — K10.
 
-3. **How does knowledge reach the render?**
-   - RAG: vector search at render-time, inject top-k chunks into
-     the prompt
-   - LLM-summarise-at-ingest: compress corpus into per-render
-     briefs at ingest time; render just reads the summary
-   - Operator-curated: operator picks which knowledge entries
-     apply per video (no automation)
+### How to run all K tests
 
-4. **Operator management surface.** Where does the operator
-   ingest / edit / review knowledge?
-   - Dedicated tab on the spokesperson detail page
-   - Workspace-level "facts" surface (separate route)
-   - Inline during render ("attach context to this video")
-   - All of the above?
+```bash
+cd shell && source .venv/bin/activate
+python -m pytest apps/embeddings/tests/ -v   # 56 K-tests
+EMBEDDING_FORCE_MOCK=1 python manage.py smoke_ingest  # end-to-end
 
-5. **Maya's tutor-mode tie-in.** Maya's brief explicitly
-   mentions "answers the question when the student is stuck" —
-   the `ConversationThread` surface that implies needs knowledge
-   too. Same store as render knowledge? Different store? Shared
-   retrieval logic? The decision shapes whether the knowledge
-   layer is render-flow-only or a deeper product surface.
+cd ../web
+pnpm test                                       # 3 SPA unit
+pnpm e2e --grep 'knowledge'                     # K4 + K5 specs (5 tests)
+```
 
-### Deliverable for SESSION 137
+If any of these fail during K6+, the load-bearing privacy or
+ingestion contract has broken. Fix the implementation, not
+the tests.
 
-`docs/design/KNOWLEDGE_LAYER.md` — scope-lock doc covering:
+**To run Celery + Django with the embedding mock active for
+local SPA development:**
 
-- The 5 axes, locked
-- Data model (which Phase 1 apps get fleshed out, new models if
-  needed)
-- Backend API surface (probably `/internal/embeddings/` +
-  `/api/spokespeople/{id}/knowledge/*`)
-- SPA surface
-- Migration / database considerations (pgvector? Currently
-  sqlite; this may force the Postgres migration that's been
-  queued since Phase 2)
-- Slice breakdown (probably 6-12 slices like the wizard)
-- Out of scope
+```bash
+EMBEDDING_FORCE_MOCK=1 python manage.py runserver 8000
+EMBEDDING_FORCE_MOCK=1 celery -A character_os worker --pool=solo
+```
 
-After scope-lock signs off, slices land like the wizard arc did:
-one at a time, with handoffs, with gates clean each time.
-
-### What's NOT SESSION 137
-
-- Any code in `apps/memory/`, `apps/embeddings/`, or
-  `apps/conversations/` beyond reading what's there
-- Reading u-d-b's modules counts as research, not implementation
-- Writing the scope-lock doc IS the deliverable
+The `EMBEDDING_FORCE_MOCK` flag was added in K3 — same shape
+as `RUNWAY_FORCE_MOCK`. Without it, the embedding step needs
+`OPENAI_API_KEY`.
 
 ---
 
 ## Queued investigations (priority-ordered)
 
-1. **Knowledge layer scope-lock** (SESSION 137; the framing arc).
-2. **`RUNWAY_FORCE_MOCK=1` env override** — tiny config change
-   in `media-engine/app/config.py`. Fixes the e2e-breaks-in-
-   real-mode workaround (`mv .env .env.real`). Worth landing
-   *before* the knowledge arc generates new specs.
-3. **Voice preset audit** — happens naturally when first real-
-   mode renders land.
-4. **First marketing video** — happens naturally once knowledge
-   layer ships.
-5. **W11.1 — Edit-spokesperson modal.**
-6. **W12 — Legacy form retirement.**
-7. **Cast sync command** — pull updates from
-   `spokesperson_templates.py` into existing rows.
-8. **Tier 2 prompt helpers** — may be subsumed by the knowledge
-   layer arc; revisit after scope-lock.
-9. **Stuck-row janitor** — operational hardening.
-10. **Additional video kinds** — cinematic / dialogue / long_ad.
-11. **Act-Two performance capture.**
-12. **`lesson` video kind** — pairs with conversational tutor.
-13. **Real Google OAuth + dj-stripe.**
-14. **Allauth legacy-settings cleanup.**
-15. **smoke_voice / smoke_avatar transaction discipline.**
-16. **Drift verifier** (`verify_doc_claims --only-drift`).
-17. **Brand Identity v2 + dark mode.**
+Knowledge-layer arc (K-prefixed) is locked in
+`docs/design/KNOWLEDGE_LAYER.md` §Slice breakdown. Everything
+else is ordered by independence + priority.
+
+1. **K6 — Render flow integration.** Knowledge starts
+   *informing* renders here.
+2. **K7 — URL ingestion + serper discovery.**
+3. **K8 — Conversation models.**
+4. **K9 — Conversation REST + SPA.**
+5. **K10 — Onboarding seed.**
+6. **E2e detritus cleanup** — Postgres carries 495
+   e2e-generated workspaces; `Workspace.objects.filter(slug__startswith='e2e-').delete()`
+   when the operator decides the window is right.
+7. **Voice preset audit** — naturally happens post-K6.
+8. **First marketing video** — naturally happens post-K6.
+9. **W11.1 — Edit-spokesperson modal.**
+10. **W12 — Legacy form retirement.**
+11. **Cast sync command** — pull updates from
+    `spokesperson_templates.py` into existing rows.
+12. **Tier 2 prompt helpers** — likely subsumed by K6's
+    `script_synthesis.synthesize()`.
+13. **Stuck-row janitor.**
+14. **Additional video kinds** — cinematic / dialogue / long_ad.
+15. **Act-Two performance capture.**
+16. **`lesson` video kind.**
+17. **Real Google OAuth + dj-stripe.**
+18. **Allauth legacy-settings cleanup.**
+19. **smoke_voice / smoke_avatar transaction discipline.**
+20. **Drift verifier** (`verify_doc_claims --only-drift`).
+21. **Brand Identity v2 + dark mode.**
 
 ---
 
 ## How to bring the stack up locally
 
 ```bash
-cd infra && docker compose up -d           # Redis on :6381
+cd infra && docker compose up -d           # Redis on :6381, Postgres on :5433
 
 cd media-engine && source .venv/bin/activate
 uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload
@@ -205,20 +270,27 @@ celery -A character_os worker --loglevel=info --pool=solo
 cd web && pnpm dev                          # :5174
 ```
 
+Postgres details + troubleshooting in
+`docs/POSTGRES_MIGRATION.md` (SESSION 138 / K1 shipped).
+
 **Real-mode vs. mock-mode:** the media-engine reads
 `<repo-root>/.env` for `RUNWAY_API_KEY`. With the key present
 (real-mode), Runway calls take 15-30s each — fine for CLI use
 (`seed_cast`, manual wizard runs) but breaks the e2e suite which
-expects sub-second responses. Workaround for tests:
+expects sub-second responses. For deterministic mock-mode without
+stashing the real `.env`:
 
 ```bash
-mv .env .env.real           # stash real .env
-# restart media-engine in mock mode
-mv .env.real .env           # restore when done
+# Either set in shell before starting media-engine:
+RUNWAY_FORCE_MOCK=1 uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload
+
+# Or export for the session:
+export RUNWAY_FORCE_MOCK=1
 ```
 
-Queued #2 in this START doc is a `RUNWAY_FORCE_MOCK=1` override
-that'll fix this properly.
+The override forces `Settings.runway_mock=True` regardless of
+`RUNWAY_API_KEY` presence. Landed SESSION 138 as the pre-K1
+unblocker.
 
 Smoke checks:
 
@@ -231,10 +303,12 @@ python manage.py smoke_voice
 python manage.py smoke_video
 python manage.py smoke_portrait
 python -m pytest character_os/prompts/        # 46 tests
+python -m pytest apps/embeddings/tests/       # 46 K-tests (privacy + ingestion + splitter + embedding service + API)
+EMBEDDING_FORCE_MOCK=1 python manage.py smoke_ingest    # end-to-end ingest → embed → retrieve
 
 # SPA (from web/, in mock mode only)
 pnpm test
-pnpm e2e            # full lifecycle ~46s (30 specs), single-shot
+pnpm e2e            # full lifecycle ~50s (30 specs), single-shot
 ```
 
 Cast management CLIs:
@@ -253,25 +327,41 @@ python manage.py seed_cast --workspace-slug admins-workspace --key maya --force
 
 ## AI / assistant context
 
-- Last session: SESSION 136 — cast went live in real-mode. Four
-  cast members in admin@mail.com's workspace with bound Runway
-  avatars + portrait URLs + voice presets. Three small bug fixes
-  surfaced: client timeout 10s → 60s, portrait_path
-  silently-blank bug (was wizard-wide, not just cast),
-  `.gitignore` widened to `.env.*`.
-- **Calibration carried forward:** the operator caught the next
-  framing problem before we wasted credits on hollow marketing
-  videos. "Step back, what do they talk about?" is the right
-  question after "they exist." Apply the same instinct in the
-  knowledge arc — design before code.
-- **The knowledge layer is multi-session.** Don't try to ship
-  it in one. Wizard arc was 11 slices. Knowledge layer likely
-  similar scale.
-- **Read u-d-b first.** Phase 1 deliberately scaffolded
-  `apps/memory/` + `apps/embeddings/` for this moment. There's
-  likely prior art worth porting rather than designing from
-  scratch.
-- **Don't start coding without scope-lock.** Same pattern as
-  the wizard. The conversation IS the work.
+- Last session: SESSION 138 — **K1 + K2 + K3 + K4 + K5** all
+  shipped same session. Pre-K1 `RUNWAY_FORCE_MOCK=1` unblocker
+  and two `raw=True` signal guards (`accounts.signals`,
+  `billing.signals`) rode along. K3 added the
+  `EMBEDDING_FORCE_MOCK=1` flag mirroring the runway-mock
+  pattern. K4 shipped `/workspace/knowledge` (paste + PDF
+  upload, polling, soft delete, dashboard link). K5 shipped
+  the per-spokesperson Knowledge panel on the detail page with
+  attach/detach toggles. **Cumulative tests: 102 backend
+  pytest, 35 e2e specs, all green.**
+- **Calibration carried forward:**
+  - **Cast is example data, not product shape.** When
+    discussing capabilities, ask "is this true of every
+    spokesperson, or just this one's framing?" Capabilities
+    live on the model; framing lives in `business_brief`.
+  - **Ask for prior art before grading severity on
+    hypotheticals.** The operator caught two of my
+    hypotheticals (cost-cap concern, "Maya tutor-mode" axis)
+    with concrete prior knowledge. Default forward to: surface
+    a concern, ask "is this hypothetical or have you seen
+    this happen," then size accordingly.
+  - **Push back when framing looks wrong.** Three times in
+    SESSION 137 this caused convergence rather than friction.
+    Continue.
+- **The knowledge layer is K1-K10.** Don't try to ship in one
+  session. Wizard was 11 slices; knowledge layer is on par.
+  Pace accordingly.
+- **K1 ships nothing visible.** That's by design. Don't try
+  to bundle a "small UI improvement" into the migration slice
+  — keep K1 surgical.
+- **Privacy guarantees from K0 are load-bearing.** When K2
+  lands the schema, the three named tests
+  (`test_cross_workspace_chunk_isolation`,
+  `test_cross_thread_conversation_isolation`,
+  `test_only_retrieval_module_queries_chunk_tables`) are part
+  of the deliverable, not optional.
 - Collaboration conventions: AI drafts, human edits. Handoff
   `## AI Notes` section required at session end.

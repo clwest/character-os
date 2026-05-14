@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-14T05:13:24.977645+00:00
-git_sha: e0697ad (working tree dirty)
+generated_at: 2026-05-14T18:47:07.764742+00:00
+git_sha: a7f5a1d (working tree dirty)
 git_branch: main
 ---
 
@@ -15,7 +15,7 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-14T05:13:24.977645+00:00** against commit **e0697ad**
+Generated **2026-05-14T18:47:07.764742+00:00** against commit **a7f5a1d**
 on branch **main** (working tree dirty).
 
 Python 3.11.6 · Django 5.2.14 ·
@@ -27,20 +27,20 @@ Celery 5.6.3 · httpx 0.28.1.
 
 | Metric | Value | Source |
 |---|---|---|
-| Django models (project-owned) | **7** | `apps.get_models()` filtered to first-party apps |
-| URL routes (total) | **176** | `get_resolver().url_patterns` walk |
-| URL routes (`/api/*`) | **42** | same |
+| Django models (project-owned) | **11** | `apps.get_models()` filtered to first-party apps |
+| URL routes (total) | **210** | `get_resolver().url_patterns` walk |
+| URL routes (`/api/*`) | **52** | same |
 | FastAPI routes | **94** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **2** | `celery_app.tasks` filter |
-| Migrations (applied / total) | **42 / 42** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **6,638** in 90 files | `pathlib.Path.rglob("*.py")` |
-| Media-engine LOC (`*.py`, no venv/migrations) | **25,634** in 48 files | same |
+| Migrations (applied / total) | **45 / 45** | `MigrationRecorder` ∩ `MigrationLoader` |
+| Shell LOC (`*.py`, no venv/migrations) | **10,322** in 108 files | `pathlib.Path.rglob("*.py")` |
+| Media-engine LOC (`*.py`, no venv/migrations) | **25,676** in 49 files | same |
 
 ---
 
 ## Django Models (project-owned)
 
-Total: **7** models across **5** apps.
+Total: **11** models across **6** apps.
 
 | App | Model | DB Table | Fields | FKs |
 |---|---|---|---|---|
@@ -48,7 +48,11 @@ Total: **7** models across **5** apps.
 | `accounts` | `User` | `accounts_user` | 8 | 0 |
 | `accounts` | `Workspace` | `accounts_workspace` | 6 | 1 |
 | `billing` | `Subscription` | `billing_subscription` | 9 | 0 |
+| `conversations` | `ConversationEmbedding` | `conversations_conversationembedding` | 8 | 1 |
+| `conversations` | `ConversationMessage` | `conversations_conversationmessage` | 5 | 1 |
 | `conversations` | `ConversationThread` | `conversations_conversationthread` | 5 | 1 |
+| `embeddings` | `KnowledgeChunk` | `embeddings_knowledgechunk` | 12 | 1 |
+| `embeddings` | `KnowledgeDocument` | `embeddings_knowledgedocument` | 16 | 2 |
 | `spokespeople` | `Spokesperson` | `spokespeople_spokesperson` | 13 | 1 |
 | `videos` | `Video` | `videos_video` | 14 | 1 |
 
@@ -56,14 +60,14 @@ Total: **7** models across **5** apps.
 
 ## URL Routes
 
-Total: **176** resolved patterns.
+Total: **210** resolved patterns.
 
 | Prefix | Count |
 |---|---|
 | `_allauth/` | 19 |
 | `accounts/` | 26 |
-| `admin/` | 89 |
-| `api/` | 42 |
+| `admin/` | 113 |
+| `api/` | 52 |
 
 ### Named API + auth routes
 
@@ -94,6 +98,10 @@ Total: **176** resolved patterns.
 - `google_callback`
 - `google_login`
 - `google_login_by_token`
+- `knowledge-attach`
+- `knowledge-detach`
+- `knowledge-detail`
+- `knowledge-list`
 - `login`
 - `manage_email`
 - `manage_phone`
@@ -164,7 +172,7 @@ Total: **2** registered tasks (excluding `celery.*` built-ins).
 
 ## Migrations
 
-**42 of 42** migrations applied.
+**45 of 45** migrations applied.
 
 | App | Applied | Total | Pending |
 |---|---|---|---|
@@ -174,7 +182,8 @@ Total: **2** registered tasks (excluding `celery.*` built-ins).
 | `auth` | 12 | 12 | 0 |
 | `billing` | 1 | 1 | 0 |
 | `contenttypes` | 2 | 2 | 0 |
-| `conversations` | 1 | 1 | 0 |
+| `conversations` | 2 | 2 | 0 |
+| `embeddings` | 2 | 2 | 0 |
 | `sessions` | 1 | 1 | 0 |
 | `sites` | 2 | 2 | 0 |
 | `socialaccount` | 6 | 6 | 0 |
@@ -192,7 +201,7 @@ Total: **2** registered tasks (excluding `celery.*` built-ins).
 | Redis | `redis://localhost:6381` (Docker) | `infra/docker-compose.yml` |
 | Celery broker | `redis://localhost:6381/0` | `settings.CELERY_BROKER_URL` |
 | Celery result backend | `redis://localhost:6381/1` | `settings.CELERY_RESULT_BACKEND` |
-| Default DB | `sqlite3` | `settings.DATABASES` |
+| Default DB | `postgresql` | `settings.DATABASES` |
 
 ---
 
@@ -200,12 +209,12 @@ Total: **2** registered tasks (excluding `celery.*` built-ins).
 
 | Service | Files | Lines |
 |---|---|---|
-| `media-engine/` | 48 | 25,634 |
-| `shell/` | 90 | 6,638 |
-| **total** | **138** | **32,272** |
+| `media-engine/` | 49 | 25,676 |
+| `shell/` | 108 | 10,322 |
+| **total** | **157** | **35,998** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-05-14T05:13:24.977645+00:00 from commit e0697ad. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-14T18:47:07.764742+00:00 from commit a7f5a1d. Re-run `python manage.py inventory` (from `shell/`) to refresh.*

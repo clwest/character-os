@@ -1,0 +1,783 @@
+---
+title: "Knowledge Layer — scope lock"
+status: active (scope-locked, no code yet)
+generated: 2026-05-14 (SESSION 137)
+companion_docs:
+  - "UI_REDESIGN_V2.md"
+  - "SPA_ARCHITECTURE.md"
+  - "MEDIA_ENGINE_INTERNAL_API.md"
+  - "CREATE_SPOKESPERSON_WIZARD.md"
+phase: 4
+---
+
+# Knowledge Layer
+
+> **Read first:** `CREATE_SPOKESPERSON_WIZARD.md` (the prior
+> scope-lock pattern this doc follows), `UI_REDESIGN_V2.md` §4
+> (data model + Phase 1 scaffold), and the SESSION 136 handoff
+> (cast went live; the framing problem this doc resolves).
+>
+> **Prior art:** `unified-donkey-betz/content/models.py` +
+> `unified-donkey-betz/content/embeddings.py` —
+> the production RAG pipeline this doc ports selectively.
+> `unified-donkey-betz/core/conversation_memory.py` — the
+> conversation-embedding pattern. `unified-donkey-betz/core/rag_integration.py` —
+> the namespace-based scoping pattern we are explicitly **not**
+> porting (separate-table is the character-os shape).
+
+---
+
+## Purpose
+
+The cast went live in SESSION 136 — Riggs, Sasha, Donny, and Maya
+exist in `admins-workspace` as real `Spokesperson` rows with
+Runway-bound avatars and voice presets. They can render videos
+right now, but they have **nothing to talk about**: each
+spokesperson's `business_brief` describes *how* they sound, not
+*what* they know about Character OS or any other product. Every
+render today is the LLM hallucinating product details from the
+operator's prompt plus the spokesperson's tone.
+
+The knowledge layer fills that gap. It is the persistent,
+queryable, per-workspace store of facts each spokesperson can
+draw on at render time and at conversation time. It is the
+foundation for two universal capabilities on every
+spokesperson — **render** (the working video pipeline) and
+**converse** (the `ConversationThread` shell that has no UI
+yet).
+
+### Why scope-lock first
+
+The knowledge layer touches every load-bearing piece of the
+platform: database engine (forces Postgres + pgvector), media
+engine (changes what shell hands it), every spokesperson
+detail page, a new workspace-level route, and the render
+pipeline itself. Multi-tenant privacy guarantees must be
+correct by construction — there is a real prior incident in
+the runway-hackathon predecessor where an avatar leaked
+context (referenced `context-kit` instead of staying on the
+hackathon platform). Locking the surface area before any code
+lands keeps the implementation slices honest.
+
+This doc plays the same role for the knowledge layer that
+`SPA_ARCHITECTURE.md` plays for the SPA and
+`CREATE_SPOKESPERSON_WIZARD.md` plays for the wizard arc —
+locks shape, not implementation.
+
+---
+
+## Contract rules (load-bearing)
+
+These bind every knowledge-layer slice the same way
+`MEDIA_ENGINE_INTERNAL_API.md`'s rules bind every media-engine
+endpoint.
+
+1. **Every knowledge artifact has an explicit workspace
+   anchor.** `KnowledgeDocument.workspace` is a required FK
+   (DB-level NOT NULL). Workspace is never derivable through
+   M2M relations or inferred from the requesting user — it is
+   stored on the row.
+
+2. **Retrieval flows through exactly two named functions.**
+   `apps/embeddings/retrieval.py` exposes
+   `retrieve_for_spokesperson()` and `retrieve_for_thread()`.
+   No code outside that module imports the chunk-level models.
+   A repo-level test enforces this.
+
+3. **Workspace scoping is unconditional.** Both retrieval
+   functions take a `spokesperson` or `thread` argument and
+   derive the workspace filter from it. There is no
+   `workspace=None` opt-out parameter, no `bypass_filter`
+   admin flag, no `is_superuser` shortcut. The leak shape is
+   *any* code path that returns chunks without a workspace
+   filter; that shape must not exist.
+
+4. **Documents and conversation turns live in separate
+   tables.** `KnowledgeDocument` + `KnowledgeChunk` for
+   intentional uploaded knowledge. `ConversationMessage` +
+   `ConversationEmbedding` for chat artifacts. The separation
+   is structural, not discriminated — the leak shape (a
+   conversation turn surfacing as workspace knowledge) is
+   eliminated by schema, not by filter.
+
+5. **Content-hash dedup at ingest.** Every document carries a
+   SHA-256 of its processed content. Unique constraint on
+   `(workspace, content_hash)` means re-ingesting the same
+   content is idempotent. Re-embedding loops cost zero.
+
+6. **Render degrades gracefully on empty knowledge.** If a
+   spokesperson has no documents attached (and no workspace
+   docs are visible to it), the render flow runs the
+   pre-knowledge-layer path — operator's prompt plus
+   `business_brief`, no RAG injection. Knowledge enhances
+   renders; it does not gate them.
+
+7. **No cross-workspace knowledge sharing in v1.** Each
+   workspace has its own corpus. There is no "marketplace,"
+   no "public knowledge base," no "templates that ship with
+   pre-ingested docs across workspaces." The seed corpus
+   (§"Onboarding seed") is per-workspace ingested at workspace
+   creation, not a shared reference.
+
+---
+
+## Framing corrections (carried from SESSION 137 conversation)
+
+Two framings the initial start-here doc used that this doc
+explicitly supersedes:
+
+- **The "Maya tutor-mode" framing is gone.** The cast members
+  are example data, not product features. Every spokesperson
+  has the same two universal capability surfaces: **render**
+  (today) and **converse** (this arc). The knowledge layer
+  feeds both uniformly. There is no Maya-specific code path,
+  no "tutor mode" enum, no special-casing.
+
+- **The "per-spokesperson vs per-workspace vs hybrid" framing
+  is gone.** It read as three options; in practice only one
+  shape doesn't fork the system: workspace-level
+  `KnowledgeDocument`, optional per-spokesperson visibility
+  via M2M. Empty M2M = visible to all spokespeople in the
+  workspace.
+
+---
+
+## Data model
+
+### `KnowledgeDocument`
+
+```python
+class KnowledgeDocument(models.Model):
+    id = UUIDField(primary_key=True, default=uuid.uuid4)
+
+    # The load-bearing anchor — required, never null
+    workspace = ForeignKey(
+        Workspace, on_delete=CASCADE,
+        related_name='knowledge_documents',
+    )
+
+    # Visibility filter — empty M2M = visible to all spokespeople in workspace
+    spokespeople = ManyToManyField(
+        Spokesperson, related_name='knowledge_documents', blank=True,
+    )
+
+    # Identity
+    title = CharField(max_length=500)
+    document_type = CharField(
+        max_length=20,
+        choices=[
+            ('text', 'Plain Text'),
+            ('markdown', 'Markdown'),
+            ('pdf', 'PDF'),
+            ('url', 'Web Page'),
+        ],
+    )
+
+    # Content
+    raw_content = TextField()           # as-ingested
+    processed_content = TextField()     # cleaned, chunkable
+    content_hash = CharField(max_length=64, db_index=True)
+                                        # SHA-256 of processed_content
+
+    # Ingestion provenance
+    source_url = URLField(blank=True)   # for document_type='url'
+    source_metadata = JSONField(default=dict)
+                                        # serper search query, PDF page count, etc.
+    ingested_via = CharField(
+        max_length=20,
+        choices=[
+            ('paste', 'Paste'),
+            ('upload', 'Upload'),
+            ('serper', 'Serper Discovery'),
+            ('seed', 'Onboarding Seed'),
+        ],
+    )
+
+    # Lifecycle
+    status = CharField(
+        max_length=20,
+        choices=[
+            ('pending', 'Pending'),
+            ('processing', 'Processing'),
+            ('processed', 'Processed'),
+            ('failed', 'Failed'),
+        ],
+        default='pending',
+    )
+    error_message = TextField(blank=True)
+    is_active = BooleanField(default=True)  # soft delete
+
+    created_by = ForeignKey(User, on_delete=SET_NULL, null=True)
+    created_at = DateTimeField(auto_now_add=True)
+    updated_at = DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=['workspace', 'content_hash'],
+                name='knowledge_unique_workspace_content',
+            ),
+        ]
+        indexes = [
+            Index(fields=['workspace', 'is_active']),
+            Index(fields=['content_hash']),
+            Index(fields=['workspace', 'document_type']),
+        ]
+```
+
+**Cross-workspace spokesperson check** runs on save and on
+M2M change. A spokesperson on the M2M whose `workspace_id`
+differs from the document's raises `ValidationError`.
+
+### `KnowledgeChunk`
+
+```python
+class KnowledgeChunk(models.Model):
+    id = UUIDField(primary_key=True, default=uuid.uuid4)
+    document = ForeignKey(
+        KnowledgeDocument, on_delete=CASCADE, related_name='chunks',
+    )
+
+    chunk_index = PositiveIntegerField()
+    chunk_text = TextField()
+    chunk_size = PositiveIntegerField()  # characters
+    overlap_size = PositiveIntegerField(default=0)
+
+    # pgvector — 1536 for text-embedding-3-small
+    embedding_vector = VectorField(dimensions=1536)
+    embedding_model = CharField(max_length=100,
+                                 default='text-embedding-3-small')
+    embedding_dimension = PositiveIntegerField(default=1536)
+
+    # Cost tracking (per-chunk, summed in admin)
+    embedding_cost_micros = PositiveIntegerField(default=0)
+    processing_time_ms = PositiveIntegerField(null=True, blank=True)
+
+    created_at = DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('document', 'chunk_index')]
+        indexes = [
+            Index(fields=['document', 'chunk_index']),
+            HnswIndex(
+                name='knowchunk_vec_hnsw_idx',
+                fields=['embedding_vector'],
+                m=16, ef_construction=64,
+                opclasses=['vector_cosine_ops'],
+            ),
+        ]
+```
+
+### `ConversationMessage`
+
+The existing `apps/conversations/models.py` already has
+`ConversationThread`. This adds messages.
+
+```python
+class ConversationMessage(models.Model):
+    id = UUIDField(primary_key=True, default=uuid.uuid4)
+    thread = ForeignKey(
+        ConversationThread, on_delete=CASCADE, related_name='messages',
+    )
+    role = CharField(
+        max_length=20,
+        choices=[('user', 'User'), ('spokesperson', 'Spokesperson')],
+    )
+    content = TextField()
+    created_at = DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['thread', 'created_at']
+        indexes = [
+            Index(fields=['thread', 'created_at']),
+        ]
+```
+
+### `ConversationEmbedding`
+
+```python
+class ConversationEmbedding(models.Model):
+    id = UUIDField(primary_key=True, default=uuid.uuid4)
+    message = ForeignKey(
+        ConversationMessage, on_delete=CASCADE, related_name='embeddings',
+    )
+
+    chunk_index = PositiveIntegerField()
+    chunk_text = TextField()
+    chunk_size = PositiveIntegerField()
+
+    embedding_vector = VectorField(dimensions=1536)
+    embedding_model = CharField(max_length=100,
+                                 default='text-embedding-3-small')
+
+    created_at = DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('message', 'chunk_index')]
+        indexes = [
+            HnswIndex(
+                name='convemb_vec_hnsw_idx',
+                fields=['embedding_vector'],
+                m=16, ef_construction=64,
+                opclasses=['vector_cosine_ops'],
+            ),
+        ]
+```
+
+---
+
+## Retrieval surface
+
+`apps/embeddings/retrieval.py` exposes exactly two functions.
+This is the entire RAG API for character-os.
+
+```python
+def retrieve_for_spokesperson(
+    spokesperson: Spokesperson,
+    query: str,
+    top_k: int = 5,
+) -> list[KnowledgeChunk]:
+    """The ONE doc-retrieval entry point.
+
+    Workspace filter is unconditional and derived from the
+    spokesperson argument. No bypass parameter exists.
+    """
+    query_embedding = embedding_service.embed(query)
+    return list(
+        KnowledgeChunk.objects.filter(
+            document__workspace=spokesperson.workspace,
+            document__is_active=True,
+            document__status='processed',
+        ).filter(
+            Q(document__spokespeople__isnull=True) |
+            Q(document__spokespeople=spokesperson),
+        ).distinct().annotate(
+            distance=CosineDistance('embedding_vector', query_embedding),
+        ).order_by('distance')[:top_k]
+    )
+
+
+def retrieve_for_thread(
+    thread: ConversationThread,
+    query: str,
+    top_k_docs: int = 3,
+    top_k_history: int = 5,
+) -> tuple[list[KnowledgeChunk], list[ConversationEmbedding]]:
+    """The ONE conversation-retrieval entry point.
+
+    Returns (doc_chunks, history_chunks) so prompt assembly
+    can present them visually separated in the LLM prompt.
+    Conversation history is scoped to THIS thread only.
+    """
+    doc_chunks = retrieve_for_spokesperson(
+        thread.spokesperson, query, top_k=top_k_docs,
+    )
+
+    query_embedding = embedding_service.embed(query)
+    history_chunks = list(
+        ConversationEmbedding.objects.filter(
+            message__thread=thread,
+        ).annotate(
+            distance=CosineDistance('embedding_vector', query_embedding),
+        ).order_by('distance')[:top_k_history]
+    )
+
+    return doc_chunks, history_chunks
+```
+
+### Repo-level enforcement test
+
+```python
+# tests/test_retrieval_isolation.py
+
+def test_only_retrieval_module_queries_chunk_tables():
+    """No code outside apps/embeddings/retrieval.py imports the
+    chunk-level models. This is the privacy guarantee."""
+    forbidden_imports = {'KnowledgeChunk', 'ConversationEmbedding'}
+    allowed_files = {'apps/embeddings/retrieval.py',
+                     'apps/embeddings/models.py',
+                     'apps/embeddings/admin.py',
+                     'apps/conversations/models.py'}
+    # walk repo, grep for forbidden_imports, assert all hits in allowed_files
+```
+
+---
+
+## Ingestion pipeline
+
+Mirrors u-d-b's `content/embeddings.py:RAGSystem.process_document_for_rag_sync`
+with the workspace-anchor + content-hash dedup gates added.
+
+### Flow (one document)
+
+1. Operator submits a doc (paste / upload / serper-pick / seed).
+2. Server normalizes:
+   - `text` / `markdown`: trim, normalize line endings.
+   - `pdf`: extract text via `pdfminer.six`. Text-based PDFs
+     only in v1; scanned PDFs / OCR is out of scope.
+   - `url`: fetch via httpx, extract main content via
+     `trafilatura` (or `readability-lxml` as fallback). Strip
+     nav / ads / footer. Snapshot the extracted text at
+     ingest time. **No re-fetch ever** (URL freshness
+     contract — see below).
+3. Compute `content_hash = sha256(processed_content)`.
+4. Check `(workspace, content_hash)` uniqueness. If duplicate,
+   return the existing document — idempotent.
+5. Create `KnowledgeDocument` row with `status='pending'`.
+6. Enqueue Celery task `embed_document(document_id)`.
+7. Task: chunk with `TextSplitter(chunk_size=1000, chunk_overlap=200)`,
+   embed each chunk via `embedding_service` (Redis-cached),
+   persist `KnowledgeChunk` rows. On success, set
+   `status='processed'`. On failure, set `status='failed'`
+   with `error_message` populated.
+
+### Conversation embedding flow
+
+When a `ConversationMessage` is created (user OR spokesperson
+role), a post-save signal enqueues `embed_conversation_message(message_id)`.
+Task chunks the content (smaller chunks — `chunk_size=500` is
+likely right for chat-length text, but lock the number in the
+first slice that lands), embeds, persists `ConversationEmbedding`
+rows. No content_hash dedup on conversation turns (every turn
+is unique by definition).
+
+### Embedding service
+
+Port u-d-b's `core/services/embedding_service.py`:
+- OpenAI `text-embedding-3-small` only in v1 (locked).
+- Redis cache keyed by `sha256(text)` — same text never
+  re-embedded across documents within cache TTL.
+- Per-call cost tracked in `embedding_cost_micros` on the chunk.
+- Graceful degradation: if the embedding API fails, the
+  document goes to `status='failed'` with the error preserved
+  — no half-embedded documents in the corpus.
+
+---
+
+## Operator surfaces
+
+Two surfaces. The workspace route is the system-of-record;
+the spokesperson tab is a filtered view.
+
+### `/workspace/knowledge` (workspace-level)
+
+The canonical CRUD surface for all knowledge in a workspace.
+
+- **List**: all documents in this workspace, paginated,
+  filterable by `document_type`, `ingested_via`, attached
+  spokespeople. Shows: title, type, attached-spokesperson
+  count, chunk count, ingested-at.
+- **Upload**: tabbed input — Paste / Upload PDF / Paste URL /
+  Search the web. Search tab uses serper; results render as a
+  list of `{title, url, snippet}` with an Ingest button per
+  row.
+- **Detail**: read-only view of the processed content,
+  per-spokesperson attach/detach controls (M2M editor),
+  re-ingest button, soft-delete button.
+- **Empty state**: prompts operator to seed (links to the
+  Onboarding Seed control if eligible — see §"Onboarding seed").
+
+### Spokesperson detail page — "Knowledge" tab
+
+A new tab alongside the existing identity / video / voice
+panels. Shows:
+
+- Documents currently visible to *this* spokesperson (i.e.,
+  workspace docs where `spokespeople__isnull=True` OR
+  `spokespeople=this_spokesperson`).
+- Per-row attach/detach affordance ("Make this Riggs-only" /
+  "Make this workspace-wide").
+- Inline "Attach existing doc" search (autocompletes against
+  workspace knowledge).
+- "Upload new doc" button that routes to the workspace upload
+  flow with this spokesperson pre-attached.
+
+The tab is a filtered view, not a separate store. Edits go
+through the workspace API.
+
+---
+
+## Render flow integration
+
+Today: shell builds `brief` = operator's typed input OR
+spokesperson's `business_brief` fallback → sends to
+`/internal/video/`. No LLM script-generation step.
+
+After this arc: shell gains a script-generation step
+**before** the media-engine call. The contract with
+media-engine does not change.
+
+### New step in shell (location TBD by implementation slice)
+
+```python
+def build_render_brief(spokesperson, operator_prompt: str) -> str:
+    """Assemble the brief that gets sent to media-engine.
+    Uses RAG when knowledge is available; falls back to
+    pre-knowledge-layer behavior when empty."""
+
+    chunks = retrieve_for_spokesperson(
+        spokesperson, query=operator_prompt, top_k=5,
+    )
+
+    if not chunks:
+        # Empty-knowledge graceful degradation (contract rule 6)
+        return operator_prompt or spokesperson.business_brief
+
+    # Otherwise: LLM-assemble a script using prompt + tone + chunks
+    return script_synthesis.synthesize(
+        operator_prompt=operator_prompt,
+        spokesperson=spokesperson,
+        knowledge_chunks=chunks,
+    )
+```
+
+The synthesized brief gets logged as a citation record on
+the video row (which chunks fed which render) — no UI in v1
+but the audit data is captured.
+
+### Why shell, not media-engine
+
+Confirmed during scope-lock: `media-engine/app/routers/internal.py`
+receives `body.brief` as a pre-built string and passes it to
+Runway. Adding RAG + script synthesis in shell is an
+**addition**, not a refactor of the contract. Media-engine
+stays a dumb pipe to Runway.
+
+---
+
+## Conversation flow integration
+
+`ConversationThread` exists; messages and an SPA surface do
+not. This arc adds:
+
+- `POST /api/conversations/threads/{thread_id}/messages/`
+  with `role='user'` + `content`. Creates the message,
+  enqueues its embedding, fires retrieval, synthesizes the
+  spokesperson's reply via LLM, persists that as a second
+  message with `role='spokesperson'`, returns both.
+- WebSocket or SSE stream variant if the latency feels long
+  — defer the streaming decision to the implementation slice.
+- SPA surface: a "Conversations" tab on the spokesperson
+  detail page, plus a `/conversations/{thread_id}` route for
+  a focused chat view.
+
+Same scope rules: messages exist in a thread, embeddings
+exist on messages, retrieval filters by thread. Cross-thread
+bleed is structurally impossible.
+
+---
+
+## URL freshness contract
+
+- Snapshot extraction at ingest. Never re-fetch.
+- If the operator wants fresh content from a URL, they
+  delete and re-ingest. No "refresh" button in v1.
+- The contract is documented next to the URL input ("we'll
+  store the content of this page as it looks today —
+  re-ingest later if it changes").
+
+Rationale: re-fetch introduces non-determinism, anti-bot
+failures over time, and silent knowledge drift (the
+spokesperson saying different things on the same prompt week
+to week). Snapshot is honest about its trade-off.
+
+---
+
+## Onboarding seed
+
+When a workspace is created with `Workspace.is_operator=True`
+(needs adding to the workspace model; defaults to False), a
+post-save signal enqueues `seed_workspace_knowledge(workspace_id)`.
+The task ingests a fixed set of markdown files into the
+workspace as `ingested_via='seed'`.
+
+- **Source**: `docs/seeds/character_os/*.md` — a curated set
+  of Character OS reference docs (what the product is, how
+  spokespeople work, pricing, etc.).
+- **Trigger**: workspace creation only. Not on subsequent
+  doc edits. If the seed corpus updates, operators
+  re-ingest manually via the workspace knowledge UI.
+- **Idempotent**: each seed doc has a stable content_hash;
+  re-running the seed task is a no-op via the
+  `(workspace, content_hash)` unique constraint.
+- **Customer workspaces** (`is_operator=False`): no seed.
+  Customers bring their own knowledge.
+
+The seed corpus is hand-curated, not auto-generated from
+the codebase. Treat each seed doc as a piece of marketing
++ product copy — the spokesperson's voice depends on this
+quality.
+
+---
+
+## Migration: K1 — Postgres + pgvector
+
+pgvector is non-negotiable. This forces character-os off
+sqlite. K1 is the first knowledge-layer slice and produces
+**zero user-visible value** — it is pure infra. We name this
+explicitly so neither operator nor AI gets demoralized
+mid-slice.
+
+### Scope of K1
+
+- Add `postgres:16` + `pgvector/pgvector:pg16` service to
+  `infra/docker-compose.yml`.
+- Switch Django `DATABASES['default']` to Postgres.
+- Install `psycopg[binary]`, `pgvector`, `pgvector.django`.
+- Apply pgvector extension as a Django migration.
+- `dumpdata` from sqlite → `loaddata` into Postgres. Handle
+  any type-coercion failures inline (the existing data is
+  small — admin user, admins-workspace, 4 cast members,
+  bound avatars/portraits/voices).
+- Update smoke commands + e2e to point at Postgres.
+- Update `00-START-NEXT-SESSION.md` "How to bring the stack
+  up locally" with the new docker compose command.
+- Documentation: a `docs/POSTGRES_MIGRATION.md` short note
+  explaining the local-dev change.
+
+K1 ships when `python manage.py check`, every smoke
+command, the prompts test suite, and the e2e suite all pass
+against Postgres. No knowledge-layer schema yet — that's K2.
+
+---
+
+## Slice breakdown
+
+Like the wizard arc, the knowledge layer is a sequence of
+slices that can land independently. Recommended order:
+
+- **K1 — Postgres + pgvector migration.** Infra-only.
+  Forcing function for everything downstream.
+- **K2 — `KnowledgeDocument` + `KnowledgeChunk` models +
+  retrieval module skeleton.** Schema + the two named
+  retrieval functions (working, tested, but no ingestion
+  pipeline yet). Repo-level isolation test lands here.
+- **K3 — Ingestion pipeline (paste + upload + PDF).**
+  Celery task, `TextSplitter`, embedding service, content-hash
+  dedup. Admin-only CRUD endpoints — no SPA yet.
+- **K4 — Workspace knowledge route (SPA + REST).**
+  `/workspace/knowledge` page. Paste / Upload / Detail / Soft
+  delete. M2M attach affordance.
+- **K5 — Spokesperson "Knowledge" tab.** Filtered view of
+  workspace docs visible to that spokesperson. Inline attach
+  / detach.
+- **K6 — Render flow integration.** `build_render_brief()`
+  in shell. Citation logging on video rows. Graceful
+  degradation when knowledge is empty.
+- **K7 — URL ingestion + serper discovery.** `trafilatura`
+  fetch+extract. Serper search tab on the workspace upload
+  surface. Both flow into the same Celery embedding task.
+- **K8 — `ConversationMessage` + `ConversationEmbedding`
+  models + `retrieve_for_thread()`.** Schema only. No SPA.
+- **K9 — Conversation REST + SPA.** `POST messages`,
+  thread view, spokesperson detail "Conversations" tab.
+- **K10 — Onboarding seed.** `seed_workspace_knowledge`
+  task. `docs/seeds/character_os/*.md` corpus. Trigger on
+  `is_operator=True` workspace creation.
+
+Roughly 10 slices, 8–12 sessions of work. K1 → K6 is the
+"render is informed" arc; K7 enables real customer corpora;
+K8 → K10 is the conversational surface.
+
+---
+
+## Out of scope (explicitly)
+
+- **Cross-workspace knowledge sharing.** No marketplace, no
+  public KBs, no global templates with pre-ingested
+  knowledge. Contract rule 7.
+- **Active web crawling.** URL ingestion fetches the single
+  URL the operator paste; it does not follow links, traverse
+  subdomains, or schedule re-crawls. Serper discovery
+  surfaces candidates but the operator picks each one.
+- **OCR / scanned PDFs.** Text-based PDFs only in v1.
+  `pdfminer.six` extraction. Scanned PDFs fail loudly.
+- **Multi-language embeddings.** English-only v1. The
+  embedding model is locked to `text-embedding-3-small`
+  which handles multilingual content acceptably, but no
+  language detection / per-language routing.
+- **Multi-model embeddings.** Locked to
+  `text-embedding-3-small` in v1. Switching models is a
+  re-embed-all event; we defer that decision.
+- **Risk-aware re-ranking.** u-d-b's `is_critical` boost,
+  document_class taxonomy, and context-budget tiers from
+  Session 949 are over-engineering for a launch product.
+  Cosine similarity + top-k is sufficient.
+- **Encryption-at-rest of chunk content.** Workspace ACL
+  + the structural retrieval guarantee are the v1 protection.
+  Field-level encryption is a v2 hardening.
+- **URL re-fetch / freshness automation.** Snapshot at
+  ingest. Operator re-ingests if they want fresh.
+- **Citations rendered in video output.** Citation data is
+  logged server-side per render; no on-screen attribution in
+  the rendered video. Operator-facing audit UI is post-v1.
+- **Knowledge versioning / history.** Editing a doc replaces
+  its chunks; there is no version history. Re-ingest if you
+  want a snapshot of an older version.
+
+---
+
+## Open questions (resolve in implementation slices)
+
+- **Q-k-1 — Conversation chunk size.** Doc chunks are
+  1000 chars / 200 overlap (u-d-b default). Conversation
+  turns are typically much shorter (one message = a few
+  hundred chars). Lock the conversation chunk size in K8.
+  Likely 500 chars / 0 overlap, but verify against real
+  Maya-style turns.
+- **Q-k-2 — `script_synthesis.synthesize()` LLM choice.**
+  K6 needs an LLM call. OpenAI? Anthropic? What's already
+  wired in shell? Resolve in K6 planning — likely whatever
+  the prompts module already uses.
+- **Q-k-3 — Streaming vs. polling for conversation replies.**
+  K9 decides: WebSocket / SSE stream, or POST-and-poll. Lean
+  POST-and-poll for v1 simplicity; revisit if latency feels
+  bad.
+- **Q-k-4 — Cost tracking surface.** Per-chunk
+  `embedding_cost_micros` is stored. Where does it surface?
+  Admin-only stat? Per-workspace dashboard tile? Defer to
+  post-v1 if no surfaces are urgent.
+- **Q-k-5 — Conversation retention.** Conversations grow
+  unboundedly. v1 default: keep forever. v1.1 likely
+  introduces a per-workspace TTL or a manual "archive
+  thread" action.
+- **Q-k-6 — `pgvector.django` vs raw SQL for retrieval.**
+  u-d-b uses `pgvector.django.CosineDistance`. We adopt the
+  same. Verify it composes correctly with the
+  `Q(spokespeople__isnull=True) | Q(spokespeople=...)`
+  filter in K2.
+
+---
+
+## How to verify the privacy guarantee
+
+Before K2 closes, three test cases must pass:
+
+1. **`test_cross_workspace_chunk_isolation`**: create
+   workspaces A and B, each with a spokesperson and a
+   document. `retrieve_for_spokesperson(spokesperson_a, ...)`
+   never returns workspace B's chunks even when querying for
+   text that exists in both.
+2. **`test_cross_thread_conversation_isolation`**: two
+   threads in the same workspace. `retrieve_for_thread(thread_a, ...)`
+   returns no embeddings from `thread_b`.
+3. **`test_only_retrieval_module_queries_chunk_tables`**:
+   the repo-level grep test from §"Retrieval surface."
+
+The three tests are the contract. Implementation can vary;
+the tests cannot fail.
+
+---
+
+## Change log
+
+- 2026-05-14 (SESSION 137) — Initial scope lock. No code yet.
+  Five decisions locked: M2M spokesperson visibility, shell
+  does RAG, yes onboarding seed (operator workspaces only),
+  Postgres+pgvector as K1, URL ingestion via paste OR serper
+  → fetch+extract pipeline. Two high-severity privacy
+  guarantees designed in: explicit `KnowledgeDocument.workspace`
+  FK + single-named-retrieval-functions surface, and
+  separate-table conversation embeddings (not discriminated
+  rows in the docs table). Embedding cost concern dropped in
+  favor of content-hash dedup discipline.

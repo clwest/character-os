@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     )
 
     runway_api_key: str = ""
+    # SESSION 138 — force-mock override. When ``RUNWAY_FORCE_MOCK=1`` is
+    # set, the media engine treats the runway path as mock-mode regardless
+    # of whether ``RUNWAY_API_KEY`` is present. Lets the e2e suite run
+    # against a populated real-mode .env without stashing it to .env.real.
+    runway_force_mock: bool = False
     runway_api_base: str = "https://api.dev.runwayml.com"
     runway_api_version: str = "2024-11-06"
     runway_model: str = "gen4_turbo"
@@ -56,6 +61,8 @@ class Settings(BaseSettings):
 
     @property
     def runway_mock(self) -> bool:
+        if self.runway_force_mock:
+            return True
         return not self.runway_api_key.strip()
 
     @property

@@ -10,6 +10,7 @@ import {
 import { useVideos, type Video } from "@/lib/api/videos";
 import { VideoRow } from "@/components/video-row";
 import { VoiceCapture, type VoiceCaptureValue } from "@/components/voice-capture";
+import { KnowledgePanel } from "@/components/knowledge-panel";
 import { cn } from "@/lib/utils";
 
 /**
@@ -73,6 +74,21 @@ export function SpokespersonDetailRoute() {
           <SetupPanel spokesperson={s} pendingItems={pendingItems} />
         </section>
       )}
+
+      {/* SESSION 138 / K5 — Knowledge panel.
+          Filtered view of workspace knowledge visible to this
+          spokesperson (empty M2M OR M2M-attached). Per-row
+          attach/detach toggles flip the visibility scope. */}
+      <section
+        className="reveal"
+        style={{ "--reveal-delay": "0.06s" } as React.CSSProperties}
+      >
+        <KnowledgePanel
+          workspaceId={s.workspace}
+          spokespersonId={s.id}
+          spokespersonName={s.name}
+        />
+      </section>
     </div>
   );
 }

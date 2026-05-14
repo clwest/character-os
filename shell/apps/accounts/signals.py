@@ -24,7 +24,12 @@ logger = logging.getLogger(__name__)
 
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
-def ensure_default_workspace(sender, instance, created, **kwargs) -> None:
+def ensure_default_workspace(sender, instance, created, raw=False, **kwargs) -> None:
+    if raw:
+        # SESSION 138 — `loaddata` calls save_base(raw=True). The fixture
+        # already carries the user's workspace; auto-creating another one
+        # collides on the slug unique constraint. Skip during raw loads.
+        return
     if not created:
         return
     if Workspace.objects.filter(owner=instance).exists():

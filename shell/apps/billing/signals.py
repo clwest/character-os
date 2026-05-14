@@ -19,7 +19,11 @@ logger = logging.getLogger(__name__)
 
 
 @receiver(post_save, sender=Workspace)
-def ensure_default_subscription(sender, instance, created, **kwargs) -> None:
+def ensure_default_subscription(sender, instance, created, raw=False, **kwargs) -> None:
+    if raw:
+        # SESSION 138 — skip during loaddata; fixtures carry their own
+        # Subscription rows. Same fix as accounts.signals.
+        return
     if not created:
         return
     if Subscription.objects.filter(workspace=instance).exists():

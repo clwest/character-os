@@ -11,8 +11,8 @@ dependencies = [
 
     # Database
     "psycopg[binary]>=3.2",
-    # pgvector wired in Phase 4 when embeddings port lands
-    # "pgvector>=0.3",
+    # SESSION 138 — K1 wired pgvector when Postgres landed
+    "pgvector>=0.3",
 
     # Auth (Phase 1)
     "django-allauth[socialaccount]>=64.0",
@@ -29,6 +29,11 @@ dependencies = [
 
     # HTTP client for talking to media-engine
     "httpx>=0.28",
+
+    # SESSION 138 / K3 — knowledge ingestion pipeline.
+    "openai>=1.0",           # text-embedding-3-small
+    "pdfminer.six>=20231228", # PDF text extraction
+    "django-redis>=5.4",     # embedding cache backend
 
     # Settings
     "django-environ>=0.11",

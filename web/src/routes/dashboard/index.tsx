@@ -103,6 +103,13 @@ function Masthead({
           {workspaceName}
         </h1>
         <div className="flex items-center gap-4">
+          <Link
+            to="/workspace/knowledge"
+            data-testid="nav-knowledge"
+            className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Knowledge
+          </Link>
           {userEmail && (
             <span className="hidden font-mono text-xs text-muted-foreground sm:inline">
               {userEmail}

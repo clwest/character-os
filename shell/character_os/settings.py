@@ -2,13 +2,14 @@
 Django settings for character_os shell.
 
 Phase 1 scaffold — minimal config that boots `python manage.py check`.
-Database stays SQLite for the scaffold; Postgres+pgvector switches in
-Phase 2 when the media data model migrates.
+SESSION 138 (K1) — Postgres + pgvector replaced sqlite. pgvector
+itself becomes load-bearing when K2 lands the knowledge-layer schema.
 
 Secrets, allowed-hosts, and OAuth client ids land via django-environ
 from a .env file once Phase 1 auth wiring begins.
 """
 
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -89,11 +90,17 @@ WSGI_APPLICATION = "character_os.wsgi.application"
 ASGI_APPLICATION = "character_os.asgi.application"
 
 
-# Database — SQLite for scaffold. Postgres+pgvector in Phase 2.
+# Database — Postgres + pgvector (SESSION 138 / K1).
+# Local dev defaults match infra/docker-compose.yml; override per-env
+# with DB_HOST / DB_PORT / DB_NAME / DB_USER / DB_PASSWORD.
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("DB_NAME", "character_os"),
+        "USER": os.environ.get("DB_USER", "character_os"),
+        "PASSWORD": os.environ.get("DB_PASSWORD", "character_os_dev"),
+        "HOST": os.environ.get("DB_HOST", "localhost"),
+        "PORT": os.environ.get("DB_PORT", "5433"),
     }
 }
 
@@ -180,6 +187,28 @@ CELERY_BROKER_URL = _os.environ.get(
 CELERY_RESULT_BACKEND = _os.environ.get(
     "CELERY_RESULT_BACKEND", "redis://localhost:6381/1",
 )
+
+# SESSION 138 / K3 — Django cache on the same Redis instance.
+# Logical DB 2 keeps the embedding cache separate from
+# Celery broker (db 0) and result backend (db 1). The
+# embedding service in apps.embeddings.embedding_service
+# uses this to dedupe identical-text embed calls.
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": _os.environ.get(
+            "EMBEDDING_CACHE_URL", "redis://localhost:6381/2",
+        ),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+        # 30 days — embeddings of stable text rarely change before
+        # the cost-of-storing-them does. Renaming the model below
+        # invalidates the key namespace anyway.
+        "TIMEOUT": 60 * 60 * 24 * 30,
+        "KEY_PREFIX": "char_os_embed",
+    }
+}
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]

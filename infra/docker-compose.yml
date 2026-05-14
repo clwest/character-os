@@ -1,13 +1,13 @@
 # Local dev infrastructure for character-os.
 #
-# Brings up Redis (Celery broker + result backend) on :6379.
-# Postgres lands here in Phase 2's later slices when SQLite gets
-# swapped out — for now SQLite + Redis is the minimum.
+# Brings up Redis (Celery broker + result backend) on host :6381
+# and Postgres (with pgvector preinstalled) on host :5433.
 #
 # Usage:
 #   cd infra && docker compose up -d        # start in background
 #   docker compose ps                       # check status
-#   docker compose logs -f redis            # tail logs
+#   docker compose logs -f redis            # tail Redis logs
+#   docker compose logs -f postgres         # tail Postgres logs
 #   docker compose down                     # stop, keep volumes
 #   docker compose down -v                  # stop and wipe data
 
@@ -35,6 +35,31 @@ services:
       --maxmemory 256mb
       --maxmemory-policy allkeys-lru
 
+  postgres:
+    # SESSION 138 — K1 — Postgres + pgvector.
+    # Image bundles Postgres 16 + the pgvector extension; the
+    # CREATE EXTENSION vector migration in apps.embeddings makes it
+    # available at the DB level. Host port :5433 to dodge collisions
+    # with other dev projects on :5432.
+    image: pgvector/pgvector:pg16
+    container_name: character_os_postgres
+    environment:
+      POSTGRES_DB: character_os
+      POSTGRES_USER: character_os
+      POSTGRES_PASSWORD: character_os_dev
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U character_os -d character_os"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
 volumes:
   redis_data:
     name: character_os_redis_data
+  postgres_data:
+    name: character_os_postgres_data
