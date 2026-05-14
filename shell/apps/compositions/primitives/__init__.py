@@ -28,6 +28,7 @@ from __future__ import annotations
 
 from typing import Protocol, Type
 
+from .avatar_speech import GenerateAvatarSpeechPrimitive
 from .mock import (
     MockFailurePrimitive,
     MockPassthroughPrimitive,
@@ -66,8 +67,10 @@ _REGISTRY: dict[str, Type[Primitive]] = {
     "mock_passthrough": MockPassthroughPrimitive,
     "mock_failure": MockFailurePrimitive,
     "mock_slow": MockSlowPrimitive,
-    # V3+: "generate_avatar_speech": GenerateAvatarSpeechPrimitive,
+    "generate_avatar_speech": GenerateAvatarSpeechPrimitive,  # V3
     # V4+: "generate_visual_clip": GenerateVisualClipPrimitive,
+    # V5+: "split_script": SplitScriptPrimitive,
+    # V5+: "concat_clips": ConcatClipsPrimitive,
     # ...etc through V14
 }
 

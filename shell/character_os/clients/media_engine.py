@@ -311,6 +311,72 @@ class MediaEngineClient:
                 response_text=str(data),
             ) from exc
 
+    def create_avatar_speech(
+        self,
+        *,
+        spokesperson_avatar_id: str,
+        script: str,
+        ratio: str | None = None,
+        duration: int | None = None,
+    ) -> VideoCreateResult:
+        """Hit ``POST /internal/clips/avatar_speech/`` — Runway's
+        talking-head endpoint (``/v1/avatar_videos`` / ``gwm1_avatars``).
+        Returns immediately with a Runway task id; the caller polls
+        ``poll_task(task_id)`` for terminal state.
+
+        Same fire-then-poll shape as ``create_video``, same Runway
+        task ID space — the V3 endpoint that fixes K6.5's
+        wrong-endpoint bug. Cast members will render speaking,
+        not as silent animated portraits.
+        """
+        body: dict[str, Any] = {
+            "spokesperson_avatar_id": spokesperson_avatar_id,
+            "script": script,
+        }
+        if ratio is not None:
+            body["ratio"] = ratio
+        if duration is not None:
+            body["duration"] = duration
+
+        data = self.request("POST", "/internal/clips/avatar_speech/", json=body)
+        try:
+            return VideoCreateResult(
+                task_id=str(data["task_id"]),
+                status=str(data["status"]),
+                kind=str(data.get("kind", "avatar_speech")),
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"create_avatar_speech response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
+    def poll_task(self, task_id: str) -> VideoPollResult:
+        """Hit ``GET /internal/tasks/{task_id}/`` — the generalised
+        poll for every async primitive in the V0+ composition arc.
+        Same Runway task ID space + identical response shape as
+        ``poll_video``; ``poll_video`` stays for backwards-compat
+        with the legacy ``Video`` model until V5/V15 retire it.
+        """
+        data = self.request("GET", f"/internal/tasks/{task_id}/")
+        try:
+            return VideoPollResult(
+                task_id=str(data["task_id"]),
+                status=str(data["status"]),
+                progress=_as_float_or_none(data.get("progress")),
+                output_url=data.get("output_url"),
+                duration_seconds=_as_float_or_none(data.get("duration_seconds")),
+                error=data.get("error"),
+                failure_code=data.get("failure_code"),
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"poll_task response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
     def create_portrait(
         self,
         *,

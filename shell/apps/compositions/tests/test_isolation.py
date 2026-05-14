@@ -45,10 +45,15 @@ ALLOWED_FILES = {
     # state-machine transitions. Cross-workspace validation
     # still flows through the V1 signal at save time.
     "apps/compositions/tasks.py",
+    # V3 starter helpers — create Composition + first
+    # CompositionStep rows from named recipes. Same workspace-
+    # anchor guarantee as direct creation.
+    "apps/compositions/starters.py",
     # Tests need to create rows directly to exercise paths
     "apps/compositions/tests/test_models.py",
     "apps/compositions/tests/test_isolation.py",
     "apps/compositions/tests/test_runtime.py",
+    "apps/compositions/tests/test_primitive_avatar_speech.py",
 }
 
 
