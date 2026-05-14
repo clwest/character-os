@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import {
   PortraitUpload,
   type PortraitUploadResult,
 } from "@/components/portrait-upload";
+import { SpokespersonWizard } from "@/components/spokesperson-wizard";
 import { useMe } from "@/lib/api/workspaces";
 import { useCreateSpokesperson } from "@/lib/api/spokespeople";
 import { ApiError } from "@/lib/api/client";
@@ -57,6 +58,20 @@ interface TierLimitPayload {
 }
 
 export function CreateSpokespersonRoute() {
+  // SESSION 128 — wizard scaffold (slice 5) lands behind ?wizard=1.
+  // Default route serves the legacy single-form so the 12 existing
+  // Playwright specs stay green. Slices 6-9 fill in the wizard's
+  // step bodies; when slice 9 ships, we flip the default + retire
+  // the legacy form in a separate slice.
+  const [searchParams] = useSearchParams();
+  if (searchParams.get("wizard") === "1") {
+    return <SpokespersonWizard />;
+  }
+
+  return <LegacyCreateForm />;
+}
+
+function LegacyCreateForm() {
   const navigate = useNavigate();
   const me = useMe();
   const create = useCreateSpokesperson();
