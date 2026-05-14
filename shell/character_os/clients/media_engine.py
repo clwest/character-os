@@ -167,7 +167,7 @@ class MediaEngineClient:
         self,
         base_url: str | None = None,
         *,
-        timeout: float = 10.0,
+        timeout: float = 60.0,
     ) -> None:
         self.base_url = (base_url or settings.MEDIA_ENGINE_BASE_URL).rstrip("/")
         self._timeout = timeout
