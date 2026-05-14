@@ -31,30 +31,61 @@ export function SpokespersonDetailRoute() {
   if (!sp.data) return <DetailError message="Spokesperson not found." />;
 
   const s = sp.data;
+  // Hoisted from SetupPanel in SESSION 134 (slice 11). The layout
+  // diverges by completion state — fully configured spokespeople
+  // skip the setup column entirely; partial ones show only the
+  // unfinished rows.
+  const setupItems = buildSetupItems(s);
+  const allDone = setupItems.every((it) => it.done);
+  const pendingItems = setupItems.filter((it) => !it.done);
 
   return (
-    <div className="flex flex-col gap-12">
-      <Masthead spokesperson={s} />
+    <div
+      className="flex flex-col gap-12"
+      data-testid="spokesperson-detail"
+      data-configured={allDone ? "full" : "partial"}
+    >
+      <Masthead spokesperson={s} ready={allDone} />
       <IdentityPanel spokesperson={s} />
 
-      <section
-        className="reveal grid grid-cols-1 gap-6 lg:grid-cols-[2fr,1fr]"
-        style={{ "--reveal-delay": "0.04s" } as React.CSSProperties}
-      >
-        <VideosPanel
-          videos={videos.data}
-          loading={videos.isLoading}
-          error={videos.error}
-        />
-        <SetupPanel spokesperson={s} />
-      </section>
+      {allDone ? (
+        <section
+          className="reveal"
+          style={{ "--reveal-delay": "0.04s" } as React.CSSProperties}
+          data-testid="ready-state"
+        >
+          <VideosPanel
+            videos={videos.data}
+            loading={videos.isLoading}
+            error={videos.error}
+          />
+        </section>
+      ) : (
+        <section
+          className="reveal grid grid-cols-1 gap-6 lg:grid-cols-[2fr,1fr]"
+          style={{ "--reveal-delay": "0.04s" } as React.CSSProperties}
+        >
+          <VideosPanel
+            videos={videos.data}
+            loading={videos.isLoading}
+            error={videos.error}
+          />
+          <SetupPanel spokesperson={s} pendingItems={pendingItems} />
+        </section>
+      )}
     </div>
   );
 }
 
 // ---- Sections -------------------------------------------------------
 
-function Masthead({ spokesperson }: { spokesperson: Spokesperson }) {
+function Masthead({
+  spokesperson,
+  ready,
+}: {
+  spokesperson: Spokesperson;
+  ready: boolean;
+}) {
   return (
     <header
       className="reveal flex flex-col gap-3 border-b border-border pb-8"
@@ -70,9 +101,19 @@ function Masthead({ spokesperson }: { spokesperson: Spokesperson }) {
       </Link>
       <div className="flex flex-wrap items-end justify-between gap-6">
         <div className="flex flex-col gap-3">
-          <span className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-            Spokesperson
-          </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+              Spokesperson
+            </span>
+            {ready && (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-sm border border-primary/40 bg-primary/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-primary"
+                data-testid="ready-badge"
+              >
+                Ready to render
+              </span>
+            )}
+          </div>
           <h1
             className="font-display text-5xl leading-[0.95] tracking-tight md:text-6xl"
             style={
@@ -213,9 +254,18 @@ function MetadataGrid({ spokesperson }: { spokesperson: Spokesperson }) {
   );
 }
 
-function SetupPanel({ spokesperson }: { spokesperson: Spokesperson }) {
-  const items = buildSetupItems(spokesperson);
-  const allDone = items.every((it) => it.done);
+function SetupPanel({
+  spokesperson,
+  pendingItems,
+}: {
+  spokesperson: Spokesperson;
+  pendingItems: SetupItem[];
+}) {
+  // Hide-on-completion (SESSION 134 — slice 11): the panel only
+  // renders when there are pending items. Fully configured rows
+  // skip this whole column up in the parent. We still defensively
+  // guard here in case a caller forgets to filter.
+  if (pendingItems.length === 0) return null;
 
   return (
     <aside
@@ -223,45 +273,30 @@ function SetupPanel({ spokesperson }: { spokesperson: Spokesperson }) {
       aria-label="Setup checklist"
       data-testid="setup-panel"
     >
-      <PanelHeader title="Setup" />
+      <PanelHeader title="Set up" count={pendingItems.length} />
       <div className="rounded-md border bg-card p-6 shadow-paper">
-        {allDone ? (
-          <p className="font-display text-lg tracking-tight">
-            Ready to render. Everything this spokesperson needs is in place.
-          </p>
-        ) : (
-          <ol className="flex flex-col gap-6">
-            {items.map((it, i) => (
-              <li
-                key={it.kind}
-                className="grid grid-cols-[2rem,1fr] items-baseline gap-4"
-              >
-                <span
-                  className={cn(
-                    "font-display text-2xl leading-none tabular-nums",
-                    it.done ? "text-primary" : "text-muted-foreground",
-                  )}
-                >
-                  {it.done ? "✓" : String(i + 1).padStart(2, "0")}
+        <ol className="flex flex-col gap-6">
+          {pendingItems.map((it, i) => (
+            <li
+              key={it.kind}
+              className="grid grid-cols-[2rem,1fr] items-baseline gap-4"
+              data-testid={`setup-item-${it.kind}`}
+            >
+              <span className="font-display text-2xl leading-none tabular-nums text-muted-foreground">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <div className="flex flex-col gap-2">
+                <span className="font-display text-lg leading-snug tracking-tight">
+                  {it.label}
                 </span>
-                <div className="flex flex-col gap-2">
-                  <span
-                    className={cn(
-                      "font-display text-lg leading-snug tracking-tight",
-                      it.done && "text-muted-foreground line-through decoration-1",
-                    )}
-                  >
-                    {it.label}
-                  </span>
-                  <span className="text-xs text-muted-foreground">{it.body}</span>
-                  {it.kind === "voice" && !it.done && (
-                    <VoiceSetupAffordance spokespersonId={spokesperson.id} />
-                  )}
-                </div>
-              </li>
-            ))}
-          </ol>
-        )}
+                <span className="text-xs text-muted-foreground">{it.body}</span>
+                {it.kind === "voice" && (
+                  <VoiceSetupAffordance spokespersonId={spokesperson.id} />
+                )}
+              </div>
+            </li>
+          ))}
+        </ol>
       </div>
     </aside>
   );
