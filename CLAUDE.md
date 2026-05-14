@@ -97,20 +97,24 @@ Update this section when a phase completes.
     K4.2 + K6.2. Remaining: K8/K9 (conversation pipeline +
     REST/SPA), K10 (onboarding seed). Scope lock:
     `docs/design/KNOWLEDGE_LAYER.md`.
-  - **Video composition arc (V0-V15).** V0 scope lock + V1
-    schema + V2 runtime all shipped SESSION 142
+  - **Video composition arc (V0-V15).** V0-V6 all shipped
     (`docs/design/VIDEO_COMPOSITION_V1.md`). `apps.compositions`
-    has 31 tests passing (13 V1 models + 18 V2 runtime).
-    **V5 slice promoted from V7 late-session**: long-form ad
-    (`split_script` + `concat_clips` + `long_form_ad` starter)
-    is now the third capability slice rather than the seventh,
-    because long-form is the launch differentiator (no AI
-    provider ships single-call video >20s; everything long-
-    form is stitched). New sequence:
-    V3 (`generate_avatar_speech` + `talking_head`, absorbs
-    K6.5) → V4 (`generate_visual_clip`) → V5 (long-form) →
-    V6 (backwards-compat) → V7 (`talking_head_with_backdrop`)
-    → V8-V15. **V3 is the next slice.**
+    + `apps.videos` together have 86 tests passing (13 V1
+    schema + 18 V2 runtime + 12 V3 avatar_speech + 16 V4
+    visual_clip + 13 V5 splitter + 18 V5 long-form + 7 V6
+    shim + 4 K6/K6.2 existing). After SESSION 143 close:
+    legacy `/api/videos/` POST for `spokesperson_ad` rides on
+    the new `talking_head` composition (V6 shim); cast members
+    render *speaking* via `/v1/avatar_videos` end-to-end.
+    Long-form ads via `long_form_ad` starter unlock multi-
+    minute outputs (V5 launch differentiator).
+    **Second slice reorder SESSION 143** — V9 (composite
+    primitives) promoted to V7 because V8
+    (`talking_head_with_backdrop`) structurally depends on
+    `composite_video`. New sequence:
+    V7 (composite + mix_audio, was V9) → V8
+    (`talking_head_with_backdrop`, was V7) → V9 (polish
+    primitives, was V8) → V10-V15. **V7 is the next slice.**
   - **Realtime avatar arc (R0-R10).** R0 scope lock shipped
     SESSION 142 (`docs/design/REALTIME_AVATAR_V1.md`). 10
     contract rules, RealtimeSession + RealtimeToolInvocation

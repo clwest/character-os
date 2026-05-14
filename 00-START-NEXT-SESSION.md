@@ -76,12 +76,14 @@ contract.
 | V0 | Video composition scope lock                    | DONE (SESSION 142) |
 | V1 | Asset + Composition + CompositionStep schema   | DONE (SESSION 142) |
 | V2 | Composition runtime + state machine + resume   | DONE (SESSION 142) |
-| V3 | `generate_avatar_speech` primitive + `talking_head` starter (absorbs K6.5) | **NEXT (SESSION 143)** |
-| V4 | `generate_visual_clip` primitive (migrate gen4_turbo) | Queued |
-| V5 | `split_script` + `concat_clips` + `long_form_ad` starter — **promoted to position 5 SESSION 142**: long-form is a launch differentiator (no provider ships >20s single-call) | Queued |
-| V6 | Backwards-compat shim (`Video` → `Composition` wrapper, was V5) | Queued |
-| V7 | First multi-step starter: `talking_head_with_backdrop` (was V6) | Queued |
-| V8-V14 | Capability roll-out (primitives + starters) | Queued |
+| V3 | `generate_avatar_speech` primitive + `talking_head` starter (absorbs K6.5) | DONE (SESSION 143) |
+| V4 | `generate_visual_clip` primitive (`gen4_turbo`/`gen4.5`) + `cinematic_visual` starter | DONE (SESSION 143) |
+| V5 | `split_script` + `concat_clips` + `long_form_ad` starter — launch differentiator (promoted from V7) | DONE (SESSION 143) |
+| V6 | Backwards-compat shim (`Video` → `talking_head` composition wrapper) | DONE (SESSION 143) |
+| V7 | Composite primitives (`composite_video` + `mix_audio`) + layout-modifier starters — **promoted from V9 SESSION 143** so V8 is unblocked structurally | **NEXT (SESSION 144)** |
+| V8 | First multi-step starter: `talking_head_with_backdrop` (was V7; depends on V7's `composite_video`) | Queued |
+| V9 | Polish + format primitives: captions / intro+outro / trim / reformat (was V8) | Queued |
+| V10-V14 | Voice flows, style remix, transcribe, image+storyboard, dialogue | Queued |
 | V15 | SPA recipe gallery (retires legacy single-form) | Queued |
 | R0 | Realtime avatar arc — scope lock                | DONE (SESSION 142) |
 | R1 | RealtimeSession + RealtimeToolInvocation schema | Queued |
@@ -89,7 +91,7 @@ contract.
 | R3 | Django broker (`/api/realtime_sessions/`) + tier-limit gate | Queued |
 | R4-R10 | Knowledge bridge, transcript persist, memory, tools, SPA, cost governance | Queued |
 | K6.3 | Brief length cap in script synthesis           | Queued |
-| K6.4 | Duration derived from script length            | Queued (deprecated by V8 trim/reformat primitives) |
+| K6.4 | Duration derived from script length            | Queued (deprecated by V9 trim/reformat primitives) |
 | K7.1 | Per-chunk cost telemetry surface in UI         | Queued |
 | K8 | Conversation pipeline                           | Queued (parallel to V arc) |
 | K9 | Conversation REST + SPA                         | Queued |
@@ -183,51 +185,91 @@ slice (after V3 + V4) positions the platform's distinctive
 selling point as early as possible. Change log in
 `docs/design/VIDEO_COMPOSITION_V1.md` §"Change log".
 
-### Next: V3 — `generate_avatar_speech` primitive (absorbs K6.5)
+### SESSION 143 — V3, V4, V5, V6 shipped; V9→V7 reorder
 
-The first real primitive. End-to-end:
+Six commits landed this session (all on `main`, not pushed):
 
-- New media-engine route
-  `POST /internal/clips/avatar_speech/` calling Runway's
-  `/v1/avatar_videos` (`gwm1_avatars` model) — the talking-
-  head endpoint the SESSION 141 audit identified as the
-  correct one. The legacy `/internal/videos/` keeps working
-  for `kind=spokesperson_ad` callers during the transition.
-- Generalised poll endpoint
-  `GET /internal/tasks/{task_id}/` (renames the existing
-  video poll; same state machine).
-- Shell-side `GenerateAvatarSpeechPrimitive` class in
-  `apps/compositions/primitives/avatar_speech.py`. Registry
-  entry: `"generate_avatar_speech"`.
-- `talking_head` starter composition — one step,
-  `generate_avatar_speech`. Available via admin / CLI for
-  V3 verification. SPA still uses the legacy `/api/videos/`
-  endpoint until V6 (backwards-compat shim) + V15 (recipe
-  gallery).
-- Knowledge integration: primitive optionally pipes its
-  script through K6's `build_render_brief` synthesis before
-  firing media-engine. Same RAG citation pattern as the
-  current `apps/videos/views.py:perform_create` flow.
-- ~10-15 new tests covering the primitive + the media-engine
-  route + the starter composition end-to-end (real-mode
-  mocked).
+1. **`54032c2`** — V3: `generate_avatar_speech` primitive +
+   `talking_head` starter (absorbs K6.5). 12 V3 tests.
+2. **`1251def`** — V4: `generate_visual_clip` primitive +
+   `cinematic_visual` starter. 16 V4 tests.
+3. **`c2c4ba2`** — V5: `split_script` + `concat_clips`
+   primitives + `long_form_ad` starter (the launch
+   differentiator). +31 V5 tests (13 splitter + 18
+   long-form).
+4. **`7c968a5`** — V6: Video model backwards-compat shim
+   via Composition→Video sync signal. Legacy `/api/videos/`
+   SPA surface unchanged; under the hood it rides on a
+   talking_head composition. 7 V6 tests.
+5. **(this commit)** — V9→V7 reorder: composite primitives
+   promoted ahead of `talking_head_with_backdrop` (V8 now)
+   because V8 structurally depends on `composite_video`.
 
-V3 closes the K6.5 audit finding: cast members will render
-*speaking* the synthesized scripts, not silent animated
-portraits. Same Runway endpoint target as the original
-K6.5; better data shape underneath.
+Cumulative: **199 backend tests pass** (up from 133 at start
+of session). Media-engine: 111 routes (up from 109).
 
-### After V3
+### Next: V7 — composite primitives + layout-modifier starters
 
-- **V4** — `generate_visual_clip` primitive (migrate
-  `gen4_turbo` image-to-video into a single-step
-  composition + `cinematic_visual` starter).
-- **V5** — long-form ad (promoted in late SESSION 142):
-  `split_script` + `concat_clips` + `long_form_ad`
-  starter. First launch-differentiating capability.
-- **V6** — backwards-compat shim, **V7** —
-  `talking_head_with_backdrop`, then V8-V15 capability
-  roll-out.
+Was V9; promoted to V7 because **V8
+(`talking_head_with_backdrop`) needs `composite_video` to
+exist before it can land**. The original sequence had V7
+depending on V9 — a latent dependency the V5-promotion
+reorder exposed by removing the slices between them.
+
+Two new primitives + five starter compositions:
+
+- **`composite_video`** primitive — ffmpeg
+  `-filter_complex` overlay engine. Inputs: list[CLIP] +
+  layout_spec (param). Output: CLIP. Layout specs in v1:
+  - `backdrop` — avatar clip top-right corner, cinematic
+    clip looping behind
+  - `pip` — avatar clip with a static or animated
+    picture-in-picture tile
+  - `cohost` — two avatar clips side-by-side
+  - `broll` — splice cinematic cutaways into an avatar
+    talking-head timeline
+- **`mix_audio`** primitive — ffmpeg audio mix engine.
+  Inputs: CLIP (base) + list[AUDIO] (overlay tracks) +
+  mix_spec (param: per-track gain, fade in/out, ducking).
+  Output: CLIP with new audio mix.
+- **Starters**: `pip_layout`, `backdrop_layout`,
+  `cohost_layout`, `music_bed_pass`, `broll_splice` —
+  each a single-step "modifier composition" that takes
+  one or more existing CLIP assets and produces a new
+  composited CLIP. Operators use these to build agency-
+  tier ads from atomic clips.
+
+**Media-engine endpoints:**
+- `POST /internal/clips/composite/` — fire ffmpeg
+  filter_complex. Synchronous (same shape as
+  `/internal/clips/concat/` from V5). Caches output by
+  hash of inputs + layout_spec.
+- `POST /internal/audio/mix/` — same shape, audio-only
+  filter graph.
+
+**Reference reads before V7:**
+1. `docs/design/VIDEO_COMPOSITION_V1.md` §"Step primitives"
+   + §"Starter compositions" — the contract V7 implements.
+2. `runway-hackathon/backend/app/services/scene_composite_client.py`
+   — the ffmpeg overlay patterns to port (PiP / backdrop /
+   cohost / broll layouts).
+3. `media-engine/app/routers/internal.py:post_internal_concat_clips`
+   (V5) — the synchronous-ffmpeg endpoint shape to mirror.
+4. `shell/apps/compositions/primitives/concat_clips.py`
+   (V5) — the input-resolution + single-output primitive
+   pattern.
+
+### After V7
+
+- **V8** — `talking_head_with_backdrop` starter (was V7).
+  First multi-step starter that combines V3's avatar
+  speech + V4's visual clip via V7's composite primitive.
+  Unblocked by V7 landing.
+- **V9** — Polish primitives (was V8): `add_captions`,
+  `add_intro_outro`, `trim_clip`, `reformat_clip` +
+  `talking_head_polished` + `reels_format` starters.
+- **V10-V14** — voice flows, style remix, transcribe,
+  image+storyboard, dialogue.
 
 ### Alternative next slice: R1 — RealtimeSession schema
 
@@ -238,27 +280,8 @@ Schema only; broker is R3.
 
 R1 is a viable next session if you want to advance the
 realtime arc in parallel — V2's runtime patterns inform
-R3's broker design, but R1 doesn't require V3 to ship
+R3's broker design but R1 doesn't require V7 to ship
 first.
-
-### Reference reads before V3
-
-1. `docs/design/VIDEO_COMPOSITION_V1.md` §"Step primitives"
-   + §"Media-engine `/internal/*` extensions" — the
-   contract V3 implements.
-2. `media-engine/app/services/character_host_client.py:_generate_real`
-   (lines 412-492) — the existing `/v1/avatar_videos`
-   integration to port from Campaign-based to per-call
-   stateless.
-3. `media-engine/app/routers/internal.py:post_internal_video`
-   (lines ~286-329) — the current wrong-endpoint
-   implementation V3 replaces.
-4. `shell/apps/compositions/primitives/mock.py` — the
-   shape every primitive class follows (`execute()` +
-   `estimate_cost()` static methods).
-5. `shell/apps/videos/tasks.py:poll_video_until_terminal`
-   — the polling pattern V3's primitive should reuse for
-   the async fire-then-poll flow.
 
 ---
 

@@ -571,14 +571,14 @@ Each can ship independently.
 | POST | `/internal/voices/design/` | `design_voice` | **V10** |
 | POST | `/internal/audio/dub/` | `dub_audio` | **V10** |
 | POST | `/internal/clips/style_remix/` | `style_remix` | **V11** |
-| POST | `/internal/clips/composite/` | `composite_video` | **V9** |
-| POST | `/internal/audio/mix/` | `mix_audio` | **V9** |
-| POST | `/internal/clips/captions/` | `add_captions` | **V8** |
-| POST | `/internal/clips/intro_outro/` | `add_intro_outro` | **V8** |
+| POST | `/internal/clips/composite/` | `composite_video` | **V7** |
+| POST | `/internal/audio/mix/` | `mix_audio` | **V7** |
+| POST | `/internal/clips/captions/` | `add_captions` | **V9** |
+| POST | `/internal/clips/intro_outro/` | `add_intro_outro` | **V9** |
 | POST | `/internal/transcribe/` | `transcribe` | **V12** |
-| POST | `/internal/clips/trim/` | `trim_clip` | **V8** |
+| POST | `/internal/clips/trim/` | `trim_clip` | **V9** |
 | POST | `/internal/clips/concat/` | `concat_clips` | **V5** |
-| POST | `/internal/clips/reformat/` | `reformat_clip` | **V8** |
+| POST | `/internal/clips/reformat/` | `reformat_clip` | **V9** |
 | GET | `/internal/tasks/{task_id}/` | (generalised poll) | **V3** (replaces `/internal/videos/{task_id}/`) |
 
 ### Generalised poll endpoint
@@ -652,12 +652,12 @@ is ~1-2 sessions.
 | **V4** | `generate_visual_clip` primitive (migrate the current `/internal/videos/` behavior — `gen4_turbo` image-to-video — into a single-step composition). Add `cinematic_visual` starter. | "Additional video kinds — cinematic" |
 | **V5** | `split_script` primitive (gpt-5-mini sentence-boundary chunker) + `concat_clips` primitive (ffmpeg) + `long_form_ad` starter composition. Ports hackathon's `long_ad_service.py`. Operator can render multi-minute talking-head ads. **Reordered to position 5 in SESSION 142** — long-form is a launch differentiator (no AI provider ships >20s in one call; everything long-form is stitched). Lands as the third capability slice instead of the seventh. | "Additional video kinds — long_ad" |
 | **V6** | Backwards-compat shim: existing `Video` model becomes a thin wrapper that creates a `talking_head` composition on `Video.create`. `/api/videos/` SPA surface unchanged. | — |
-| **V7** | First multi-step starter: `talking_head_with_backdrop`. End-to-end: SPA picks the recipe → fills inputs → composition runs → operator gets a real avatar-over-cinematic-backdrop output, knowledge-informed via K6. | — |
-| **V8** | Polish + format primitives: `add_captions` (script-driven), `add_intro_outro`, `trim_clip`, `reformat_clip`. Adds `talking_head_polished` + `reels_format` starters. | "Cast sync command" priority shift |
-| **V9** | Composite primitives: `composite_video` + `mix_audio`. Adds all layout-modifier starters (`pip_layout`, `backdrop_layout`, `cohost_layout`, `music_bed_pass`, `broll_splice`). Unlocks scene composition entirely. | — |
+| **V7** | Composite primitives: `composite_video` + `mix_audio`. Adds all layout-modifier starters (`pip_layout`, `backdrop_layout`, `cohost_layout`, `music_bed_pass`, `broll_splice`). Unlocks scene composition entirely. **Reordered to position 7 in SESSION 143** — V8 (`talking_head_with_backdrop`) depends on `composite_video`, so the composite primitives must land first. | — |
+| **V8** | First multi-step starter: `talking_head_with_backdrop`. End-to-end: SPA picks the recipe → fills inputs → composition runs → operator gets a real avatar-over-cinematic-backdrop output, knowledge-informed via K6. Unblocked by V7's `composite_video` primitive. | — |
+| **V9** | Polish + format primitives: `add_captions` (script-driven), `add_intro_outro`, `trim_clip`, `reformat_clip`. Adds `talking_head_polished` + `reels_format` starters. | "Cast sync command" priority shift |
 | **V10** | Voice flows: `design_voice` + `dub_audio` primitives. Adds operator-facing voice design UX (separate from the avatar-bound preset). | "Voice preset audit" |
 | **V11** | `style_remix` primitive + `style_remix_pass` starter. 5 style presets (noir/anime/chrome/watercolor/cyberpunk). | — |
-| **V12** | `transcribe` primitive (OpenAI Whisper) + `add_captions` (auto mode, picks up from V8 stub) + `recut_teaser` composition. Net-new capability over hackathon. | — |
+| **V12** | `transcribe` primitive (OpenAI Whisper) + `add_captions` (auto mode, picks up from V9 stub) + `recut_teaser` composition. Net-new capability over hackathon. | — |
 | **V13** | `generate_image` primitive (generalise `/internal/portrait/`) + `storyboard_ad` + `storyboard_voiced` starters. Ports hackathon's `storyboard_service.py`. | "Additional video kinds — cinematic" (storyboard arc) |
 | **V14** | `dialogue_scene` starter + `dialogue_with_shot_reverse_shot` new composition. Ports hackathon's `dialogue_service.py` plus the AI-cut variant. | "Additional video kinds — dialogue" |
 | **V15** | SPA recipe gallery. Operator picks from starter compositions; form maps to step inputs. Replaces the legacy single-form video create UI. | "W12 — Legacy form retirement" |
@@ -815,7 +815,8 @@ until V6 + V15).
   we may want them to short-circuit too. Lean: ffmpeg
   primitives respect `RUNWAY_FORCE_MOCK` and return
   deterministic stub outputs (a 1-frame black MP4) when
-  set. Resolve in V9.
+  set. Resolve in V7 (composite primitive slice, was V9
+  before SESSION 143 reorder).
 
 ---
 
@@ -894,3 +895,23 @@ the tests cannot fail.
   between V5 and V6 (backwards-compat) because V3 fixed
   the underlying media-engine endpoint routing as part
   of K6.5 absorption.
+
+- 2026-05-14 (SESSION 143, post-V6) — Second slice reorder:
+  promoted composite primitives to V7 (was V9); demoted
+  `talking_head_with_backdrop` to V8 (was V7) and polish
+  primitives to V9 (was V8). Trigger: V8's
+  `talking_head_with_backdrop` recipe is "avatar over
+  cinematic backdrop", which structurally requires the
+  `composite_video` primitive. The original sequence had
+  V7 depending on a slice (V9) that was scheduled after
+  it — a latent dependency the V5-promotion reorder
+  exposed (V5 was already in the right place, V7's
+  hidden need was the next thing to surface).
+  Resolution: composite primitives land first so V8 is
+  unblocked structurally. Polish primitives (captions /
+  intro / outro / trim / reformat) shift to V9 — they
+  remain independent of composite and could in principle
+  parallelize with V8. V10-V15 unchanged. Same "land the
+  dependency before the consumer" discipline as V1 →
+  V3 (schema before primitive) and V2 → V3 (runtime
+  before primitive).
