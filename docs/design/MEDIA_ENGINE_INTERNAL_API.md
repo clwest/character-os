@@ -80,6 +80,7 @@ window of at least one full phase.
 | GET    | `/internal/voices/{voice_id}/`      | Poll voice clone status                       | Planned |
 | POST   | `/internal/videos/`                 | Generate a video (kind-discriminated body)    | **SESSION 109** |
 | GET    | `/internal/videos/{task_id}/`       | Poll video task status, get `output_url`      | **SESSION 109** |
+| POST   | `/internal/portrait/`               | Generate a portrait via Runway gen4_image     | **SESSION 125** |
 
 Endpoints are added one at a time as Django features need them, to
 keep the diff reviewable and the contract honest.
@@ -149,6 +150,83 @@ When `RUNWAY_MOCK=1` (the operator hasn't set `RUNWAY_API_KEY`), the
 endpoint returns immediately with `status: "mock"` and a derived id
 of the form `mock_avatar_<sha256(name + portrait_bytes)[:12]>`. Same
 inputs → same id, so smoke tests stay deterministic.
+
+---
+
+## POST /internal/portrait/
+
+Generate a portrait via Runway `gen4_image`. SESSION 125 — wizard
+slice 2 of the create-spokesperson scope. Synchronous (~10-20 s
+real mode, instant in mock). Wraps the inherited
+`character_studio_client.generate_portrait()` service so portrait
+shape matches the legacy `/api/characters/{id}/generate-portrait`
+route exactly — same prompt composer, same Runway model, same
+deterministic mock placeholder.
+
+### Request body
+
+```json
+{
+  "template": "mascot",
+  "subject": "armored battle unicorn warrior",
+  "style": "editorial illustration"
+}
+```
+
+| Field      | Type   | Required | Notes |
+|------------|--------|----------|-------|
+| `template` | enum   | yes      | One of `mascot` / `founder` / `coach` / `local_guide`. Drives the prompt composer's per-template expression cue. |
+| `subject`  | string | no       | Free-form subject hint, ≤ 300 chars. Defaults to the template's `TEMPLATE_DEFAULTS` entry. |
+| `style`    | string | no       | Optional style hint, ≤ 300 chars. Accepts chip names (`stylized`, `editorial`, `muted palette`, …) OR free-form wardrobe text after a `;`. |
+
+### Response — 200 OK
+
+```json
+{
+  "portrait_data_uri": "data:image/png;base64,iVBORw0K...",
+  "template": "mascot",
+  "prompt": "Polished commercial portrait of an armored battle unicorn...",
+  "mock_mode": true
+}
+```
+
+| Field               | Type   | Notes |
+|---------------------|--------|-------|
+| `portrait_data_uri` | string | `data:image/png;base64,...`. The Django side persists this on `Spokesperson.portrait_path` OR passes it forward to `POST /internal/avatars/`. |
+| `template`          | string | Echo of the chosen template (lowercased). |
+| `prompt`            | string | The composed Runway prompt — useful for diagnostics + audit trails. |
+| `mock_mode`         | bool   | True when the service ran without a Runway key. |
+
+### Error codes
+
+| HTTP | `code`                  | When |
+|------|-------------------------|------|
+| 400  | `unsupported_template`  | `template` not in `{mascot, founder, coach, local_guide}`. |
+| 502  | `upstream_runway_error` | Runway gen4_image upstream rejection; `error` carries the upstream message. |
+| 500  | `internal_error`        | Bug or filesystem I/O failure during the temp-file caching step. |
+
+### Stateless contract
+
+The media-engine writes the generated portrait to a temp file
+under `media-engine/data/_internal/portraits/<sha256(prompt)>.png`
+(gitignored). The filename is content-addressed: same `template` +
+`subject` + `style` always hits the same file, so re-posts with
+identical inputs are cheap. Django is the only system of record for
+which portrait was actually shown to the operator.
+
+### Mock-mode behaviour
+
+When `RUNWAY_MOCK=1`, the endpoint short-circuits to a
+deterministic placeholder PNG (`_solid_png(512, 512, color)` where
+`color = _mock_color_for(prompt)` — same prompt always produces the
+same colour). Useful for testing the create-spokesperson wizard's
+"Generate portrait" path without burning Runway credits.
+
+### Smoke test
+
+`python manage.py smoke_portrait` (from `shell/`) exercises every
+template against a running media-engine. Asserts each response's
+data URI has the right MIME prefix + a non-trivial payload.
 
 ---
 
@@ -443,3 +521,8 @@ operator.
   shape and documented the Django-side Celery polling pattern.
 - 2026-05-13 (SESSION 110) — Added `POST /internal/voices/`.
   Inline / synchronous; no polling needed.
+- 2026-05-13 (SESSION 125) — Added `POST /internal/portrait/`.
+  Wizard slice 2 of the create-spokesperson scope; wraps the
+  inherited `character_studio_client.generate_portrait()` so
+  prompt composition + Runway model + mock-mode placeholder all
+  match the legacy `/api/characters/{id}/generate-portrait` route.

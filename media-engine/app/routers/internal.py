@@ -12,6 +12,8 @@ SESSION 108 — ``POST /internal/avatars/`` (avatar create).
 SESSION 109 — ``POST /internal/videos/`` + ``GET /internal/videos/{task_id}/``
 (fire-then-poll video generation).
 SESSION 110 — ``POST /internal/voices/`` (inline voice clone).
+SESSION 125 — ``POST /internal/portrait/`` (Runway-generated portraits
+via gen4_image; wizard slice 2 of the create-spokesperson scope).
 """
 from __future__ import annotations
 
@@ -33,7 +35,13 @@ from ..models import RunwayGenerateRequest
 from ..services.character_host_client import SUPPORTED_VOICE_PRESETS
 from ..services.character_studio_client import (
     CharacterStudioError,
+    PORTRAIT_TEMPLATES,
+    _atomic_write_bytes,
     _create_avatar_real,
+    _generate_portrait_real,
+    _mock_color_for,
+    _solid_png,
+    build_prompt,
 )
 from ..services.runway_client import (
     GenerationSettingsError,
@@ -502,4 +510,111 @@ def post_internal_voice(
         status=result.status,
         preview_url=result.preview_url,
         mock_mode=result.mock_mode,
+    )
+
+
+# ---- POST /internal/portrait/ -------------------------------------
+#
+# Synchronous Runway gen4_image portrait generation. SESSION 125 —
+# wizard slice 2. Operator types a subject + picks a visual archetype
+# (template); we hand the inherited build_prompt() the combo, call
+# Runway, and return the result as a base64 data URI. Stateless: no
+# CharacterStore touch, no spokesperson record kept.
+
+
+class InternalPortraitCreate(BaseModel):
+    """Request body for ``POST /internal/portrait/``."""
+
+    template: str = Field(..., min_length=1, max_length=40)
+    subject: Optional[str] = Field(default=None, max_length=300)
+    style: Optional[str] = Field(default=None, max_length=300)
+
+
+class InternalPortraitResponse(BaseModel):
+    portrait_data_uri: str
+    template: str
+    prompt: str
+    mock_mode: bool
+
+
+@router.post("/portrait/", response_model=InternalPortraitResponse)
+def post_internal_portrait(
+    body: InternalPortraitCreate,
+    settings: Settings = Depends(get_settings),
+):
+    """Generate a portrait via Runway gen4_image (or the deterministic
+    mock placeholder when ``RUNWAY_API_KEY`` is unset).
+
+    Mock-mode short-circuits to ``_solid_png()`` with a deterministic
+    colour seeded from the composed prompt — same inputs always
+    produce the same placeholder. Real-mode calls
+    ``_generate_portrait_real()`` against Runway gen4_image.
+    """
+    template = body.template.strip().lower()
+    if template not in PORTRAIT_TEMPLATES:
+        return _error(
+            400,
+            "unsupported_template",
+            f"template {body.template!r} not in {sorted(PORTRAIT_TEMPLATES)}",
+        )
+
+    # Compose the prompt via the inherited builder so the wizard's
+    # portrait generation produces the same shape as the legacy
+    # /api/characters/{id}/generate-portrait route.
+    prompt = build_prompt(
+        template=template,
+        subject=body.subject,
+        style=body.style,
+    )
+
+    # Cache the rendered portrait under data/_internal/portraits/
+    # (gitignored). Filename is the sha256 of the prompt so repeated
+    # calls with the same inputs hit the same file — useful for
+    # idempotency + smoke-test determinism.
+    digest = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:20]
+    target_dir = settings.data_path / "_internal" / "portraits"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target = target_dir / f"{digest}.png"
+
+    if settings.runway_mock:
+        try:
+            payload = _solid_png(512, 512, _mock_color_for(prompt))
+            _atomic_write_bytes(target, payload)
+        except OSError as exc:
+            return _error(500, "internal_error", f"mock write failed: {exc}"[:200])
+        logger.info(
+            "internal portrait mock template=%s subject=%r prompt_len=%d",
+            template, body.subject, len(prompt),
+        )
+    else:
+        try:
+            _generate_portrait_real(prompt, target, settings)
+        except CharacterStudioError as exc:
+            logger.warning("internal portrait failed template=%s: %s", template, exc)
+            return _error(502, "upstream_runway_error", str(exc)[:300])
+        except httpx.HTTPError as exc:
+            logger.warning("internal portrait http error: %s", exc)
+            return _error(502, "upstream_runway_error", f"http error: {exc!s}"[:300])
+        except Exception as exc:  # pragma: no cover — defensive
+            logger.exception("internal portrait unexpected")
+            return _error(500, "internal_error", f"unexpected: {exc!s}"[:300])
+        logger.info(
+            "internal portrait ready template=%s subject=%r path=%s",
+            template, body.subject, target.name,
+        )
+
+    # Read back as data URI. The cached file stays on disk for
+    # diagnostics; Django is the system of record for what was
+    # actually shown to the operator.
+    try:
+        portrait_bytes = target.read_bytes()
+    except OSError as exc:
+        return _error(500, "internal_error", f"read-back failed: {exc}"[:200])
+    portrait_data_uri = "data:image/png;base64," + base64.b64encode(portrait_bytes).decode("ascii")
+
+    return InternalPortraitResponse(
+        portrait_data_uri=portrait_data_uri,
+        template=template,
+        prompt=prompt,
+        mock_mode=settings.runway_mock,
     )

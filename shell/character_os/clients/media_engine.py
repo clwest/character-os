@@ -108,6 +108,18 @@ class VoiceCloneResult:
 
 
 @dataclass
+class PortraitCreateResult:
+    """Decoded response from ``POST /internal/portrait/`` (SESSION 125 —
+    wizard slice 2). Mock-mode returns a deterministic placeholder PNG;
+    real-mode calls Runway gen4_image."""
+
+    portrait_data_uri: str
+    template: str
+    prompt: str
+    mock_mode: bool
+
+
+@dataclass
 class VideoCreateResult:
     """Decoded response from ``POST /internal/videos/`` — fire-then-poll.
     The status is always non-terminal here (``pending`` or
@@ -296,6 +308,38 @@ class MediaEngineClient:
         except (KeyError, TypeError, ValueError) as exc:
             raise MediaEngineError(
                 f"poll_video response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
+    def create_portrait(
+        self,
+        *,
+        template: str,
+        subject: str | None = None,
+        style: str | None = None,
+    ) -> PortraitCreateResult:
+        """Hit ``POST /internal/portrait/``. Synchronous — Runway
+        gen4_image returns in ~10-20 s real mode, instant in mock.
+        Templates must be one of the inherited PORTRAIT_TEMPLATES
+        (mascot / founder / coach / local_guide).
+        """
+        body: dict[str, Any] = {"template": template}
+        if subject is not None:
+            body["subject"] = subject
+        if style is not None:
+            body["style"] = style
+
+        data = self.request("POST", "/internal/portrait/", json=body)
+        try:
+            return PortraitCreateResult(
+                portrait_data_uri=str(data["portrait_data_uri"]),
+                template=str(data["template"]),
+                prompt=str(data["prompt"]),
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"create_portrait response not in expected shape: {data!r}",
                 response_text=str(data),
             ) from exc
 
