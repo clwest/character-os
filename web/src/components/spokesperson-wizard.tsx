@@ -10,6 +10,9 @@ import {
   TONE_ARCHETYPES,
   useCloneVoice,
   useCreateSpokesperson,
+  useSpokespersonTemplates,
+  type PortraitTemplate,
+  type SpokespersonTemplate,
   type ToneArchetype,
 } from "@/lib/api/spokespeople";
 import { WizardPortraitStep } from "@/components/wizard-portrait-step";
@@ -64,6 +67,12 @@ interface WizardState {
     name: string;
     business_brief: string;
     visual_subject: string;
+    // Wizard-internal: drives Step 2's GeneratePanel default. NOT
+    // sent to the create-spokesperson backend (the payload is
+    // built from the resulting portrait_data_uri, not the template
+    // key). Populated by Step 1 (template tile picker) or stays
+    // at the default until the operator picks one on Step 2.
+    visual_template: PortraitTemplate;
     tone_archetype: string;
   };
   portrait: {
@@ -106,6 +115,7 @@ const INITIAL_STATE: WizardState = {
     name: "",
     business_brief: "",
     visual_subject: "",
+    visual_template: "mascot", // matches GeneratePanel's prior local default
     tone_archetype: "expert", // matches model default
   },
   portrait: {
@@ -416,8 +426,10 @@ function Step1Identity({
       <StepHeading
         kicker="Step 1 of 4"
         title="Identity"
-        body="What this spokesperson is called, what they speak about, and how they sound. Drives every video the workspace renders against them."
+        body="Pick a template to start from, or fill the fields yourself. You can edit anything either way."
       />
+
+      <TemplateTilePicker state={state} dispatch={dispatch} />
 
       <div className="flex flex-col gap-2">
         <Label
@@ -526,6 +538,130 @@ function Step1Identity({
   );
 }
 
+function TemplateTilePicker({
+  state,
+  dispatch,
+}: {
+  state: WizardState;
+  dispatch: React.Dispatch<WizardAction>;
+}) {
+  const templates = useSpokespersonTemplates();
+
+  const pickTemplate = (template: SpokespersonTemplate) => {
+    dispatch({
+      type: "SET_IDENTITY",
+      patch: {
+        name: template.name,
+        business_brief: template.business_brief,
+        tone_archetype: template.tone_archetype,
+        visual_subject: template.visual_subject,
+        visual_template: template.visual_template,
+      },
+    });
+    // Pre-fill the voice picker too — operator can change on Step 3.
+    dispatch({
+      type: "SET_VOICE",
+      patch: {
+        mode: "preset",
+        preset: template.voice_preset,
+        dataUri: null,
+        fileName: null,
+        mime: null,
+        bytes: null,
+        durationMs: null,
+      },
+    });
+  };
+
+  const clearTemplate = () => {
+    // "Start from scratch" — only reset if the operator hasn't
+    // already started typing. The dispatch is idempotent on empty
+    // input; we keep it simple and just clear the identity bag.
+    dispatch({
+      type: "SET_IDENTITY",
+      patch: {
+        name: "",
+        business_brief: "",
+        tone_archetype: "expert",
+        visual_subject: "",
+        visual_template: "mascot",
+      },
+    });
+    dispatch({
+      type: "SET_VOICE",
+      patch: {
+        mode: null,
+        preset: null,
+        dataUri: null,
+        fileName: null,
+        mime: null,
+        bytes: null,
+        durationMs: null,
+      },
+    });
+  };
+
+  if (templates.isLoading || templates.isError || !templates.data) {
+    // Templates fail-soft — the rest of Step 1 still works without
+    // them. No need to surface an error; the operator can fill the
+    // form manually.
+    return null;
+  }
+
+  // A template is "active" when the name + brief + tone match it.
+  // We compare on a few key fields rather than every field so that
+  // editing the brief slightly doesn't lose the visual cue.
+  const activeKey = templates.data.find(
+    (t) =>
+      t.name === state.identity.name &&
+      t.tone_archetype === state.identity.tone_archetype &&
+      t.business_brief === state.identity.business_brief,
+  )?.key;
+
+  return (
+    <div className="flex flex-col gap-3" data-testid="wizard-template-picker">
+      <Label className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+        Start from a template
+      </Label>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {templates.data.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => pickTemplate(t)}
+            className={cn(
+              "flex flex-col gap-2 rounded-md border p-4 text-left transition-colors",
+              activeKey === t.key
+                ? "border-primary bg-primary/5"
+                : "border-border bg-card/40 hover:border-primary/40 hover:bg-card/70",
+            )}
+            data-testid={`wizard-template-${t.key}`}
+            aria-pressed={activeKey === t.key}
+          >
+            <span className="font-display text-xl leading-tight tracking-tight">
+              {t.name}
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              {t.visual_template} · {t.tone_archetype}
+            </span>
+            <span className="text-xs leading-snug text-muted-foreground">
+              {t.tagline}
+            </span>
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={clearTemplate}
+        className="self-start font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+        data-testid="wizard-template-clear"
+      >
+        Or start from scratch →
+      </button>
+    </div>
+  );
+}
+
 function ToneSuggestion({
   suggested,
   onAccept,
@@ -605,7 +741,14 @@ function Step2Portrait({
             patch: { visual_subject: subject },
           })
         }
+        onTemplateChange={(t) =>
+          dispatch({
+            type: "SET_IDENTITY",
+            patch: { visual_template: t },
+          })
+        }
         initialSubject={state.identity.visual_subject}
+        initialTemplate={state.identity.visual_template}
       />
     </>
   );

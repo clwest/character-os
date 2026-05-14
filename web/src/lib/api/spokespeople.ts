@@ -203,6 +203,43 @@ export function useGeneratePortrait() {
   });
 }
 
+// ---- Spokesperson templates (SESSION 133 — wizard slice 10) ---------
+
+const spokespersonTemplateSchema = z.object({
+  key: z.string(),
+  name: z.string(),
+  tagline: z.string(),
+  business_brief: z.string(),
+  tone_archetype: z.enum(TONE_ARCHETYPES),
+  visual_template: z.enum(PORTRAIT_TEMPLATES),
+  visual_subject: z.string(),
+  voice_preset: z.string(),
+});
+
+export type SpokespersonTemplate = z.infer<typeof spokespersonTemplateSchema>;
+
+const templatesResponseSchema = z.object({
+  templates: z.array(spokespersonTemplateSchema),
+});
+
+export async function listSpokespersonTemplates(): Promise<SpokespersonTemplate[]> {
+  return apiJson(
+    "/api/spokespeople/templates/",
+    {},
+    (json) => templatesResponseSchema.parse(json).templates,
+  );
+}
+
+export function useSpokespersonTemplates() {
+  return useQuery({
+    queryKey: ["spokespeople", "templates"],
+    queryFn: listSpokespersonTemplates,
+    // Static-ish data; refresh aggressively only when the operator
+    // navigates away + back.
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
 // ---- Voice presets (SESSION 126 — wizard slice 3) ------------------
 
 const voicePresetsResponseSchema = z.object({

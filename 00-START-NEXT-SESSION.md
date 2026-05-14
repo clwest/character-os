@@ -14,7 +14,7 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_132_WIZARD_STEP_4.md`.
+> **Last handoff:** `docs/handoffs/SESSION_133_TEMPLATE_TILES.md`.
 
 ---
 
@@ -22,8 +22,8 @@ state: active
 
 **Phase 0-2:** Done.
 **Phase 3:** Five SPA slices + User model + Prompt Tier 1 + Wizard
-scope lock + Wizard slices 1-9. Slices 10-11 + legacy retirement
-ahead.
+scope lock + Wizard slices 1-10. Slice 11 ahead + legacy retirement
+later.
 
 | Slice | Deliverable                                  | Status |
 |-------|----------------------------------------------|--------|
@@ -37,94 +37,74 @@ ahead.
 | W7    | Wizard Step 2 — Portrait body (incl. Generate) | DONE (SESSION 130) |
 | W8    | Wizard Step 3 — Voice body                   | DONE (SESSION 131) |
 | W9    | Wizard Step 4 — Confirm + submit + flip      | DONE (SESSION 132) |
-| W10   | Template content (Riggs / Sasha / Donny / …) | NEXT (operator-collaborative) |
-| W11   | Hide-on-completion detail page rework        | Future |
+| W10   | Template tiles (Riggs / Sasha / Donny / Maya) | DONE (SESSION 133) |
+| W11   | Hide-on-completion detail page rework        | NEXT |
 | W12   | Retire legacy single-form                    | After Runway real-mode validation |
 
-**The wizard ships.** What's working end-to-end after SESSION 132:
+What's working end-to-end after SESSION 133:
 
-  - Everything from SESSIONS 107-131.
-  - `/spokespeople/new` serves the 4-step wizard by default.
-  - Full happy-path: Sign up → dashboard → wizard → Step 1
-    (identity + tone) → Step 2 (portrait: upload/camera/generate)
-    → Step 3 (voice: preset/upload/record + skip) → Step 4
-    (review + create) → POST /api/spokespeople/ + optional
-    POST /clone-voice/ → detail page with everything bound.
-  - Tier-limit 402 surfaces as an upgrade callout.
-  - Inline error renderer for general create failures.
-  - Legacy single-form at `/spokespeople/new?legacy=1` as an
-    escape hatch until real-mode validation.
-  - 25 of 25 Playwright specs pass.
+  - Everything from SESSIONS 107-132.
+  - 4-tile template picker on Step 1 (Riggs / Sasha / Donny / Maya).
+    Click a tile → name + brief + tone + visual_subject +
+    visual_template + voice_preset all pre-fill in one shot.
+  - "Start from scratch" link clears the identity fields.
+  - Template content is starter material — operator can rewrite the
+    strings in `shell/character_os/templates/spokesperson_templates.py`
+    without touching any spec or wiring.
+  - 28 of 28 Playwright specs pass.
 
 ---
 
-## SESSION 133 — Three parallel-safe options
+## SESSION 134 — Wizard slice 11: Hide-on-completion (recommended)
 
-### Option A — Wizard slice 10: Template content (recommended)
-
-**Operator-collaborative.** Design 3-4 named template
-spokespeople with real content, then wire the tile picker on
-Step 1.
-
-The mechanism is small. The content is the hard part:
-
-| Template | Visual archetype | Tone archetype | Brief (TBD) | Audience |
-|----------|------------------|----------------|-------------|----------|
-| **Riggs** | `mascot` | `friend` | TBD | Casual-friendly SMBs |
-| **Sasha** | `founder` | `authority` | TBD | Premium / authoritative brands |
-| **Donny** | `local_guide` | `expert` | TBD | Local businesses |
-| **Maya** | `mascot` | `tutor` | TBD | Educators (James's use case) |
+Half-to-full session. Reshapes the spokesperson detail page's
+setup checklist into the explicit "either / or" surface promised
+by the scope-lock.
 
 **Recommended scope:**
 
-1. **`character_os/templates/spokesperson_templates.py`** — new
-   module. Static dict of templates with `name / business_brief /
-   tone_archetype / visual_subject / visual_template /
-   voice_preset` per entry.
-2. **`GET /api/spokespeople/templates/`** — thin DRF action
-   returning the list. Same shape as `voice-presets/`.
-3. **`useSpokespersonTemplates()`** SPA hook + zod schema.
-4. **Tile picker on Step 1** — 4 clickable tiles at the top.
-   Clicking dispatches `SET_IDENTITY` with the template's content.
-   "Start from scratch" stays as an alternative.
-5. **Playwright spec** — `wizard-templates.spec.ts`. Click a tile,
-   advance to Step 2, confirm Step 1's fields are pre-filled.
+1. **Two-state detail page** —
+   - **Fully configured** (avatar bound + voice set): clean
+     identity panel + render history + a small "Edit" affordance
+     that surfaces a modal with wizard fields for in-place changes.
+     No setup checklist visible at all.
+   - **Partially configured**: setup callouts for *just* the items
+     that aren't done. The SESSION 126 voice-clone affordance is
+     already this shape — generalize to avatar + (future)
+     Act-Two + (future) tone-update.
+2. **`buildSetupItems` extension** in
+   `web/src/routes/spokespeople/$id.tsx` — current items are
+   `brief / avatar / voice`. Add a "ready to render" affirmation
+   when all three are done; that state replaces the checklist
+   with a single celebratory affordance.
+3. **Edit modal** (optional this slice) — clicking "Edit" on a
+   fully configured spokesperson opens a modal with wizard
+   fields. Saves via PATCH `/api/spokespeople/{id}/`. If this
+   slips, defer to a follow-up; the partially-configured surface
+   is the priority.
+4. **Playwright spec** — `web/e2e/detail-hide-on-completion.spec.ts`.
+   Sign up + create a fully-configured spokesperson via the wizard
+   → assert detail page shows the "ready" affordance + no
+   checklist. Then create a partially-configured one → assert
+   checklist appears with only the unfinished rows.
 
-This is operator-led on content + AI-led on mechanism. Ideal
-session shape.
+### Out of scope for SESSION 134
 
-### Option B — Wizard slice 11: Hide-on-completion detail page
-
-Half-to-full session. The detail page's setup-checklist becomes
-the explicit "either / or" surface:
-
-- Fully configured: clean identity panel + render history + small
-  "Edit" affordance (modal with wizard fields).
-- Partially configured: focused setup callouts for *just* the
-  skipped items.
-
-### Option C — Retire the legacy form
-
-**Defer to after real-mode validation.** Delete `LegacyCreateForm`,
-drop the `?legacy=1` gate, delete `create-spokesperson.spec.ts` +
-`portrait-camera.spec.ts` + the legacy parts of `make-video.spec.ts`.
-
-Don't do this until the wizard's been exercised with real Runway
-calls — mock-mode is too forgiving.
-
-### Recommendation: **A**.
-
-Templates are the highest-leverage operator-collaborative work
-left. They unblock the "I want to start with a known shape, not a
-blank wizard" UX for new operators. B + C can come after.
+- Template content refinement (operator-collaborative — separate
+  pass).
+- Legacy form retirement (waits for real-mode validation).
+- Tier 2 prompt helpers (`DynamicPromptBuilder`).
+- Real Runway calls / credentials.
 
 ---
 
 ## Queued investigations (priority-ordered)
 
-1. **Wizard slice 10 — Template content** (SESSION 133;
-   operator-collaborative).
-2. **Wizard slice 11 — Hide-on-completion full rework.**
+1. **Wizard slice 11 — Hide-on-completion detail page rework**
+   (SESSION 134).
+2. **Template content refinement** — operator-collaborative pass
+   on `shell/character_os/templates/spokesperson_templates.py`.
+   Briefs are starter material; benefits from operator's voice.
 3. **Legacy form retirement** — after real-mode validation.
 4. **Tier 2 prompt helpers** (`DynamicPromptBuilder` from u-d-b).
 5. **Stuck-row janitor** — operational hardening.
@@ -136,7 +116,7 @@ blank wizard" UX for new operators. B + C can come after.
 10. **Allauth legacy-settings cleanup** (deprecation warnings on
     every Django manage command).
 11. **smoke_voice / smoke_avatar transaction discipline** — tiny
-    fix that's bitten us 3+ times now.
+    fix that's bitten us 3+ times.
 12. **Drift verifier** — `verify_doc_claims --only-drift`. Could
     cover the `SUPPORTED_VOICE_PRESETS`,
     `SUPPORTED_PORTRAIT_TEMPLATES`, and `TONE_ARCHETYPES` mirrors
@@ -176,7 +156,7 @@ python -m pytest character_os/prompts/        # 46 tests
 
 # SPA (from web/)
 pnpm test
-pnpm e2e            # full lifecycle ~42s (25 specs), single-shot
+pnpm e2e            # full lifecycle ~45s (28 specs), single-shot
 ```
 
 To poke the wizard:
@@ -185,35 +165,27 @@ To poke the wizard:
 http://localhost:5174/spokespeople/new
 ```
 
-It's the default now. End-to-end create flow works against
-mock-mode (no Runway credits needed). Try a tutor-shaped brief
-("high school history teacher building lesson plans") + the
-mascot template + "armored battle unicorn warrior" subject to
-see James's full use case land.
-
-Legacy form available at `/spokespeople/new?legacy=1` as an
-escape hatch.
+Click **Maya** to see James's tutor-shaped use case fully pre-filled.
 
 ---
 
 ## AI / assistant context
 
-- Last session: SESSION 132 — wizard slice 9 (Confirm + submit
-  + wizard-as-default flip). The 4-step create flow that's been
-  the central thread of W1-W9 is now end-to-end. Real review
-  panel + atomic submit orchestration + tier-limit handling +
-  inline errors + legacy form behind `?legacy=1`.
-- **Calibration carried forward:** this operator prefers right-
-  shaping foundations early. The 9 wizard slices (W1-W9) were a
-  long arc; **the wizard ships**. SESSION 133's recommendation
-  (templates) is the natural next step — content work that
-  unblocks "I want a known-shape spokesperson" UX.
-- Templates (Riggs / Sasha / Donny / Maya) need real
-  operator-collaborative content design. The slice mechanism is
-  small; the content is the hard part.
-- **Don't retire the legacy form yet.** Wait for real-mode Runway
-  validation. Mock-mode passes everything; real Runway calls
-  surface subtle failures that the wizard hasn't been pressure-
-  tested against.
+- Last session: SESSION 133 — wizard slice 10 (template tiles).
+  4-tile picker on Step 1 + new
+  `character_os.templates.spokesperson_templates` module +
+  endpoint + reducer extension to remember `visual_template`
+  across steps.
+- **Template content is starter material.** The mechanism is the
+  deliverable; the four briefs are first drafts. Future sessions
+  can rewrite *only the constants* in
+  `shell/character_os/templates/spokesperson_templates.py`
+  without touching the spec suite (the tests check structure, not
+  exact strings — except for proper-noun matches like template
+  names and the `victoria` voice_preset).
+- **Calibration carried forward:** the wizard arc is essentially
+  complete. W11 (hide-on-completion) is polish; W12 (legacy
+  retirement) waits for real-mode validation. After SESSION 134,
+  the next big arc is render-flow polish or real-Runway exercise.
 - Collaboration conventions: AI drafts, human edits. Handoff
   `## AI Notes` section required at session end.

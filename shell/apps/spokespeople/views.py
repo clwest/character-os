@@ -13,6 +13,7 @@ from character_os.clients.media_engine import (
     MediaEngineError,
 )
 from character_os.permissions import IsWorkspaceMember
+from character_os.templates import TEMPLATES
 
 from .models import Spokesperson
 from .serializers import SpokespersonSerializer
@@ -255,6 +256,54 @@ class SpokespersonViewSet(viewsets.ModelViewSet):
                 },
             }
         )
+
+    @action(detail=False, methods=["get"], url_path="templates")
+    def templates(self, _request):
+        """``GET /api/spokespeople/templates/``.
+
+        Returns the named-template tiles for the wizard's Step 1
+        picker (SESSION 133 — wizard slice 10). Each tile gives
+        the operator a starting point: name + brief + tone +
+        visual_subject + visual_template + voice_preset. Picking a
+        tile dispatches the fields into the wizard reducer; the
+        operator can edit anything before submit.
+
+        Static data — no DB, no Spokesperson row. Content is
+        operator-collaborative starter material defined in
+        ``character_os/templates/spokesperson_templates.py``.
+
+        Shape::
+
+            {
+              "templates": [
+                {
+                  "key": "riggs",
+                  "name": "Riggs",
+                  "tagline": "SMB owners — ...",
+                  "business_brief": "...",
+                  "tone_archetype": "authority",
+                  "visual_template": "founder",
+                  "visual_subject": "...",
+                  "voice_preset": "vincent"
+                },
+                ...
+              ]
+            }
+        """
+        payload = [
+            {
+                "key": t.key,
+                "name": t.name,
+                "tagline": t.tagline,
+                "business_brief": t.business_brief,
+                "tone_archetype": t.tone_archetype,
+                "visual_template": t.visual_template,
+                "visual_subject": t.visual_subject,
+                "voice_preset": t.voice_preset,
+            }
+            for t in TEMPLATES
+        ]
+        return Response({"templates": payload})
 
     @action(detail=False, methods=["get"], url_path="voice-presets")
     def voice_presets(self, _request):

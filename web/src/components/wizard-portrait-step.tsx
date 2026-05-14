@@ -55,7 +55,9 @@ interface WizardPortraitStepProps {
   value: PortraitUploadResult | null;
   onChange: (value: PortraitUploadResult | null) => void;
   onSubjectChange: (subject: string) => void;
+  onTemplateChange?: (template: PortraitTemplate) => void;
   initialSubject?: string;
+  initialTemplate?: PortraitTemplate;
   className?: string;
 }
 
@@ -63,7 +65,9 @@ export function WizardPortraitStep({
   value,
   onChange,
   onSubjectChange,
+  onTemplateChange,
   initialSubject = "",
+  initialTemplate = "mascot",
   className,
 }: WizardPortraitStepProps) {
   if (value) {
@@ -128,7 +132,9 @@ export function WizardPortraitStep({
         <GeneratePanel
           onChange={onChange}
           onSubjectChange={onSubjectChange}
+          onTemplateChange={onTemplateChange}
           initialSubject={initialSubject}
+          initialTemplate={initialTemplate}
         />
       </TabsContent>
     </Tabs>
@@ -180,13 +186,21 @@ function PortraitPreview({
 function GeneratePanel({
   onChange,
   onSubjectChange,
+  onTemplateChange,
   initialSubject,
+  initialTemplate,
 }: {
   onChange: (value: PortraitUploadResult) => void;
   onSubjectChange: (subject: string) => void;
+  onTemplateChange?: (template: PortraitTemplate) => void;
   initialSubject: string;
+  initialTemplate: PortraitTemplate;
 }) {
-  const [template, setTemplate] = useState<PortraitTemplate>("mascot");
+  const [template, setTemplateState] = useState<PortraitTemplate>(initialTemplate);
+  const setTemplate = (t: PortraitTemplate) => {
+    setTemplateState(t);
+    onTemplateChange?.(t);
+  };
   const [subject, setSubject] = useState(initialSubject);
   const [style, setStyle] = useState("");
   const generate = useGeneratePortrait();
