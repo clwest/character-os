@@ -2,9 +2,9 @@
 title: "Character OS — What It Actually Is"
 status: populated
 generated: 2026-05-13
-last_revised: 2026-05-14 (SESSION 132)
+last_revised: 2026-05-14 (SESSION 136)
 companion_doc: CHARACTER_OS_INVENTORY.md
-covers_sessions: "106-132"
+covers_sessions: "106-136"
 ---
 
 # Character OS — What It Actually Is
@@ -246,13 +246,48 @@ verifier that could keep all three in sync automatically.
 
 ### What's still ahead
 
-- **W10 — Template content** (operator-collaborative): named
-  templates (Riggs / Sasha / Donny / Maya) with real briefs +
-  tones + visual_subject defaults, surfaced as tiles on Step 1.
-- **W11 — Hide-on-completion detail page rework**: full version
-  of the SESSION 126 partial foundation.
-- **W12 — Legacy form retirement**: after real-mode Runway
-  validation has exercised the wizard.
+- **W10/W11 — DONE** (SESSIONS 133-134). The wizard arc closed
+  with templates + hide-on-completion. The cast went live in
+  real-mode in SESSION 136 (all four animal characters bound to
+  real Runway avatars in admin@mail.com's workspace).
+- **W12 — Legacy form retirement**: now ungated since real-mode
+  validation happened; queued for whenever.
+
+---
+
+## The Knowledge Layer (SESSION 137+)
+
+**The cast can render videos. They have nothing to talk about.**
+
+`business_brief` is a *style guide* for HOW each spokesperson
+sounds (Riggs's substantive founder voice, Sasha's cool-composed
+sales, etc.) — not a *knowledge base* for WHAT they know about
+Character OS specifically. Without a knowledge layer, every
+render relies on the LLM hallucinating product details from the
+prompt + the spokesperson's tone. Real spokespeople carry an
+internal mental model of the product they represent.
+
+Phase 1 scaffolded for this moment but didn't implement it:
+
+  - `apps/memory/` — empty app, per-character persistent memory
+  - `apps/embeddings/` — empty app, vector storage
+  - `apps/conversations/` — `ConversationThread` model exists,
+    no UI yet (Maya's tutor mode is the eventual surface)
+
+Scope-lock conversation lives in SESSION 137. The 5 axes to
+decide before any code lands:
+
+1. Unit of knowledge — documents / structured facts / conversational
+   ingestion / URLs / hybrid?
+2. Scope — per-spokesperson, per-workspace, or both?
+3. Retrieval at render-time — RAG / summarise-at-ingest / curated?
+4. Operator management surface — detail-page tab / workspace
+   facts / inline-during-render?
+5. Maya's tutor-mode tie-in — same store as render knowledge or
+   different?
+
+u-d-b has prior art on RAG / memory worth reading before the
+scope-lock conversation.
 
 ---
 
