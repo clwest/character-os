@@ -54,3 +54,24 @@ export function useSpokespeople() {
     queryFn: listSpokespeople,
   });
 }
+
+// ---- Single-resource fetch (detail page) ---------------------------
+
+export async function getSpokesperson(id: string): Promise<Spokesperson> {
+  return apiJson(`/api/spokespeople/${id}/`, {}, (json) =>
+    spokespersonSchema.parse(json),
+  );
+}
+
+export function useSpokesperson(id: string | undefined) {
+  return useQuery({
+    queryKey: ["spokesperson", id],
+    queryFn: () => getSpokesperson(id!),
+    enabled: Boolean(id),
+    // Detail page refresh cadence: tighter than the list (operator
+    // is actively looking at one row, expects status pill changes
+    // to show within a few seconds). Real avatar / voice status
+    // transitions land here too in future slices.
+    staleTime: 15 * 1000,
+  });
+}

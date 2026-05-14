@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import type { Spokesperson } from "@/lib/api/spokespeople";
 
@@ -28,10 +29,13 @@ export function SpokespersonCard({
     <article
       className={cn(
         "reveal group relative flex flex-col gap-5 rounded-md border bg-card p-6 shadow-paper",
-        "transition-shadow duration-150 ease-out hover:shadow-paper-hover",
+        "transition-all duration-150 ease-out",
+        "hover:shadow-paper-hover hover:-translate-y-px",
+        "focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background",
         className,
       )}
       style={revealDelay ? ({ "--reveal-delay": revealDelay } as React.CSSProperties) : undefined}
+      data-testid="spokesperson-card"
     >
       <Portrait
         initials={initials}
@@ -39,7 +43,20 @@ export function SpokespersonCard({
       />
       <div className="flex flex-col gap-2">
         <h3 className="font-display text-2xl leading-tight tracking-tight">
-          {spokesperson.name}
+          {/* Stretched-link pattern: the link's ::after expands to
+            * cover the whole card so the entire surface is clickable
+            * while keeping the article semantics + the rest of the
+            * card content selectable. */}
+          <Link
+            to={`/spokespeople/${spokesperson.id}`}
+            className={cn(
+              "outline-none after:absolute after:inset-0 after:rounded-md",
+              "after:transition-colors",
+            )}
+            data-testid="spokesperson-card-link"
+          >
+            {spokesperson.name}
+          </Link>
         </h3>
         <p className="text-sm leading-relaxed text-muted-foreground">
           {briefSnippet}

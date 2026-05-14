@@ -3,6 +3,7 @@ import { RequireAuth } from "@/lib/auth/require-auth";
 import { SignUpRoute } from "@/routes/sign-up";
 import { SignInRoute } from "@/routes/sign-in";
 import { DashboardRoute } from "@/routes/dashboard";
+import { SpokespersonDetailRoute } from "@/routes/spokespeople/$id";
 import { Layout } from "@/routes/_layout";
 
 export function App() {
@@ -18,6 +19,14 @@ export function App() {
             element={
               <RequireAuth>
                 <DashboardRoute />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/spokespeople/:id"
+            element={
+              <RequireAuth>
+                <SpokespersonDetailRoute />
               </RequireAuth>
             }
           />
