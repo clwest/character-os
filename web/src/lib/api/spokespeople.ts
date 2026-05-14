@@ -10,12 +10,26 @@ import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiJson } from "./client";
 
+// Tone archetype literals. Mirrors `Spokesperson.Tone` on the Django
+// side + `TONE_ARCHETYPES` in `character_os/prompts/brand.py`. Keep
+// in sync when any side shifts.
+export const TONE_ARCHETYPES = [
+  "tutor",
+  "authority",
+  "friend",
+  "expert",
+  "performer",
+] as const;
+export type ToneArchetype = (typeof TONE_ARCHETYPES)[number];
+
 const spokespersonSchema = z.object({
   id: z.string(),
   workspace: z.string(),
   workspace_name: z.string().optional(),
   name: z.string(),
   business_brief: z.string(),
+  visual_subject: z.string(),
+  tone_archetype: z.enum(TONE_ARCHETYPES),
   status: z.enum(["setup_needed", "ready", "archived"]),
   runway_avatar_id: z.string(),
   runway_avatar_status: z.string(),
@@ -82,6 +96,14 @@ export interface CreateSpokespersonInput {
   workspace: string;
   name: string;
   business_brief: string;
+  /** Free-text "what this spokesperson looks like" — "armored
+   * battle unicorn", "neon-pink raccoon". Persists on the row;
+   * Wizard Step 2 (W7) threads it into `/internal/portrait/`
+   * generation when no portrait_data_uri is supplied. */
+  visual_subject?: string;
+  /** Persona axis. One of `TONE_ARCHETYPES`. Defaults server-side
+   * to `expert` if omitted. */
+  tone_archetype?: ToneArchetype;
   /** ``data:image/{png|jpeg|webp};base64,...`` — optional. When
    * supplied, the backend fires the media-engine avatar create
    * synchronously and persists `runway_avatar_id` on the row. */

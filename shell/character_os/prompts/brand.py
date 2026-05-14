@@ -168,3 +168,72 @@ def suggest_palette_from_brief(brief: str) -> str:
         if any(h in text for h in hints):
             return INDUSTRY_PALETTE_MAP[industry]
     return "professional_corporate"
+
+
+# ---- Tone archetype helpers (SESSION 127 — wizard slice 4) ---------
+#
+# The five archetypes mirror ``Spokesperson.Tone`` and the wizard
+# scope-lock (`docs/design/CREATE_SPOKESPERSON_WIZARD.md`
+# §"Tone archetypes"). Keep this list in sync with the model when
+# either side changes.
+
+TONE_ARCHETYPES: tuple[str, ...] = (
+    "tutor",
+    "authority",
+    "friend",
+    "expert",
+    "performer",
+)
+
+
+# Keyword signals per archetype. Same shape as _BRIEF_INDUSTRY_HINTS:
+# first match wins, falls back to ``expert``. Hints are deliberately
+# spelled as substrings so common stems match without us writing every
+# inflection (`teach` matches `teaches`, `teaching`, `teacher`).
+_BRIEF_TONE_HINTS: list[tuple[str, list[str]]] = [
+    # tutor — education + scaffolded explanation
+    ("tutor", [
+        "teach", "tutor", "lesson", "classroom", "student", "course",
+        "curriculum", "educator", "homeschool", "learn ", "explainer",
+    ]),
+    # performer — entertainment, hype, persuasion
+    ("performer", [
+        "entertain", "perform", "host", "comedian", "showman", "creator",
+        "influencer", "viral", "stage", "stand-up", "hype", "promote",
+    ]),
+    # friend — peer-level, casual, community
+    ("friend", [
+        "friend", "buddy", "neighbor", "community", "peer", "casual",
+        "approachable", "small-business", "local shop", "mom-and-pop",
+    ]),
+    # authority — direct, decisive, expert claim
+    ("authority", [
+        "leader", "authoritative", "decisive", "blunt", "no-nonsense",
+        "straight-talk", "ceo", "executive", "command", "the truth",
+    ]),
+    # expert is the fallback — no positive hints, just structured /
+    # credentialed signals as a tiebreaker before the default kicks in.
+    ("expert", [
+        "expert", "specialist", "phd", "research", "academic", "evidence",
+        "credential", "engineer", "scientist", "consult",
+    ]),
+]
+
+
+def suggest_tone_from_brief(brief: str) -> str:
+    """Infer the best-fit tone archetype from a business brief.
+
+    Returns one of ``TONE_ARCHETYPES``. Falls back to ``"expert"`` when
+    no keywords match — the safest neutral for SMBs (same calibration
+    as ``suggest_palette_from_brief``'s ``professional_corporate``
+    default).
+
+    Pure function: no I/O, no LLM calls. Cheap keyword scan, ordered
+    so that the more distinctive archetypes (tutor, performer) win
+    over the generic ones when both could match.
+    """
+    text = (brief or "").lower()
+    for tone, hints in _BRIEF_TONE_HINTS:
+        if any(h in text for h in hints):
+            return tone
+    return "expert"

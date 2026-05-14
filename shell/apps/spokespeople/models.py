@@ -22,6 +22,19 @@ class Spokesperson(models.Model):
         READY = "ready", "Ready"
         ARCHIVED = "archived", "Archived"
 
+    class Tone(models.TextChoices):
+        """Tone archetypes — the persona axis (orthogonal to the
+        visual axis above). Five options, mirrored in the wizard
+        scope-lock (`docs/design/CREATE_SPOKESPERSON_WIZARD.md`
+        §"Tone archetypes"). Drives voice-preset suggestions today
+        and render-flow prompt augmentation later.
+        """
+        TUTOR = "tutor", "Tutor"
+        AUTHORITY = "authority", "Authority"
+        FRIEND = "friend", "Friend"
+        EXPERT = "expert", "Expert"
+        PERFORMER = "performer", "Performer"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     workspace = models.ForeignKey(
         Workspace,
@@ -35,6 +48,31 @@ class Spokesperson(models.Model):
             "One-paragraph description of the business this spokesperson "
             "represents. Promoted up from the legacy per-campaign "
             "brief_prompt (design doc §4.3)."
+        ),
+    )
+    visual_subject = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+        help_text=(
+            "Free-text description of what this spokesperson looks "
+            "like — 'armored battle unicorn', 'neon-pink raccoon in a "
+            "denim jacket'. Threaded into the media-engine's "
+            "/internal/portrait/ subject parameter when generating. "
+            "Empty means 'use the visual template's built-in default "
+            "subject' (e.g. mascot → 'a friendly brand mascot')."
+        ),
+    )
+    tone_archetype = models.CharField(
+        max_length=20,
+        choices=Tone.choices,
+        default=Tone.EXPERT,
+        help_text=(
+            "Persona axis: how the spokesperson sounds + scripts read. "
+            "Five options (tutor / authority / friend / expert / "
+            "performer). Defaults to 'expert' — the safest neutral for "
+            "SMBs. Inferable from business_brief via "
+            "character_os.prompts.brand.suggest_tone_from_brief()."
         ),
     )
     status = models.CharField(

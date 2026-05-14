@@ -22,9 +22,11 @@ from .brand import (
     BRAND_STYLES,
     COLOR_PALETTES,
     INDUSTRY_PALETTE_MAP,
+    TONE_ARCHETYPES,
     get_palette,
     get_style,
     suggest_palette_from_brief,
+    suggest_tone_from_brief,
 )
 from .creative import CREATIVE_PRINCIPLES, principles_for_kind
 from .sharpening import (
@@ -52,9 +54,11 @@ __all__ = [
     "COLOR_PALETTES",
     "BRAND_STYLES",
     "INDUSTRY_PALETTE_MAP",
+    "TONE_ARCHETYPES",
     "get_palette",
     "get_style",
     "suggest_palette_from_brief",
+    "suggest_tone_from_brief",
     # creative
     "CREATIVE_PRINCIPLES",
     "principles_for_kind",

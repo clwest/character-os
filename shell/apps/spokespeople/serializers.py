@@ -40,6 +40,8 @@ class SpokespersonSerializer(serializers.ModelSerializer):
             "workspace_name",
             "name",
             "business_brief",
+            "visual_subject",
+            "tone_archetype",
             "status",
             "runway_avatar_id",
             "runway_avatar_status",

@@ -137,11 +137,14 @@ Three input modes (tabbed UI):
   - `founder` — polished business spokesperson
   - `coach` — energetic motivator
   - `local_guide` — welcoming local-business face
-  Operator types a subject hint ("battle unicorn warrior" /
-  "fifty-something accountant"); SPA POSTs to a new
+  Operator types a subject hint into the `visual_subject` input
+  ("battle unicorn warrior" / "fifty-something accountant" /
+  "neon-pink raccoon in a denim jacket"); SPA POSTs to a new
   `/internal/portrait/` endpoint (see §"Backend additions");
   Runway gen4_image generates a portrait; operator approves or
-  regenerates.
+  regenerates. The subject text persists on the row as
+  `Spokesperson.visual_subject` so later regenerations + the
+  detail-page "edit visual" affordance can reuse it.
 
 Backend calls on Step 2:
 - **Camera + Upload:** none yet. Image data accumulated
@@ -278,9 +281,19 @@ Drive `gen4_image` portrait generation:
 
 The visual archetype is stored implicitly via the resulting
 portrait — there's no `Spokesperson.visual_archetype` field
-yet. **Decision deferred:** add the field if a future detail-
-page slice needs to re-generate the portrait with a different
-subject.
+(the *category* lives only in the portrait that got generated).
+**However**, we **do** store `Spokesperson.visual_subject` — a
+free-text description of the subject ("armored battle unicorn",
+"neon-pink raccoon in a denim jacket"). This is the field
+operators were asking for after SESSION 126 ("where do I say my
+spokesperson is a raccoon?"). Landed ahead of slice 4 as **slice
+3.5** — see `docs/handoffs/SESSION_127_*` once it ships.
+
+`visual_subject` is `blank=True` — empty means "use the template's
+built-in default subject" (e.g. `mascot` template's default is
+"a friendly brand mascot"). When set, it's threaded into
+`/internal/portrait/`'s `subject` parameter on portrait
+generation.
 
 ### Tone archetypes (5)
 

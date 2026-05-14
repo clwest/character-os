@@ -190,6 +190,8 @@ function Portrait({
 
 function MetadataGrid({ spokesperson }: { spokesperson: Spokesperson }) {
   const rows: Array<[string, string]> = [
+    ["Tone", spokesperson.tone_archetype],
+    ["Visual subject", spokesperson.visual_subject || "—"],
     ["Avatar id", spokesperson.runway_avatar_id || "—"],
     ["Voice id", spokesperson.voice_id || "—"],
     ["Created", formatDate(spokesperson.created_at)],

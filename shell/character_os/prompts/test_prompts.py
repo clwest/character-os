@@ -13,6 +13,7 @@ from character_os.prompts import (
     COLOR_PALETTES,
     CREATIVE_PRINCIPLES,
     INDUSTRY_PALETTE_MAP,
+    TONE_ARCHETYPES,
     check_prompt_sharpness,
     clean_business_brief,
     get_palette,
@@ -20,6 +21,7 @@ from character_os.prompts import (
     principles_for_kind,
     sharpen_prompt,
     suggest_palette_from_brief,
+    suggest_tone_from_brief,
 )
 
 
@@ -156,6 +158,62 @@ class TestSuggestPalette:
                 f"INDUSTRY_PALETTE_MAP[{industry!r}] → {palette_key!r} "
                 f"but no such key in COLOR_PALETTES"
             )
+
+
+class TestSuggestTone:
+    @pytest.mark.parametrize(
+        "brief,expected",
+        [
+            # tutor — education
+            ("High school history teacher building lessons.", "tutor"),
+            ("Online course for homeschool students.", "tutor"),
+            ("AI-powered tutor for math homework.", "tutor"),
+            # performer — entertainment / persuasion
+            ("YouTube creator who entertains a viral audience.", "performer"),
+            ("Stand-up comedian touring small clubs.", "performer"),
+            # friend — community / casual
+            ("Local mom-and-pop coffee shop for our neighbors.", "friend"),
+            ("Community garden run by a casual collective of friends.", "friend"),
+            # authority — decisive / leader
+            ("CEO with a no-nonsense leadership style.", "authority"),
+            ("Blunt straight-talk newsletter for executives.", "authority"),
+            # expert — credentialed / research
+            ("PhD scientist consulting on engineering projects.", "expert"),
+            ("Research-backed evidence for B2B specialists.", "expert"),
+            # fallback
+            ("Nothing interesting at all.", "expert"),
+            ("", "expert"),
+        ],
+    )
+    def test_brief_maps_to_tone(self, brief: str, expected: str):
+        assert suggest_tone_from_brief(brief) == expected
+
+    def test_returned_tone_is_always_in_archetypes(self):
+        # Every output value must be one of the five canonical
+        # archetypes — guards against typos in the hint table.
+        sample_briefs = [
+            "",
+            "random text",
+            "teacher",
+            "executive",
+            "friend",
+            "creator",
+            "scientist",
+        ]
+        for brief in sample_briefs:
+            assert suggest_tone_from_brief(brief) in TONE_ARCHETYPES, (
+                f"suggest_tone_from_brief({brief!r}) returned a value "
+                f"not in TONE_ARCHETYPES"
+            )
+
+    def test_distinctive_keyword_beats_generic(self):
+        # When a brief mentions both 'teacher' (tutor) and 'expert',
+        # the more-distinctive archetype (tutor, listed first in the
+        # hint table) wins.
+        assert (
+            suggest_tone_from_brief("expert teacher with credentials")
+            == "tutor"
+        )
 
 
 # ---- creative ------------------------------------------------------
