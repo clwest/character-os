@@ -17,7 +17,12 @@ state: active
 > **Video composition scope lock:** `docs/design/VIDEO_COMPOSITION_V1.md`
 > (locked SESSION 142 — 9 contract rules, V0-V15 slice breakdown;
 > K6.5 absorbed into V3; replaces the legacy "additional video
-> kinds" queue items).
+> kinds" queue items). V1 schema shipped same session.
+> **Realtime avatar scope lock:** `docs/design/REALTIME_AVATAR_V1.md`
+> (locked SESSION 142 — 10 contract rules, R0-R10 slice
+> breakdown; live two-way WebRTC conversations grounded in
+> workspace knowledge; uses V1's Asset shape for transcript
+> persistence).
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
@@ -45,12 +50,13 @@ contract.
   new Asset+Composition architecture, not as a one-off
   endpoint swap. Replaces "additional video kinds" queue.
   V1 (schema only) is next.
-- **Realtime avatar arc (R1-?).** Scope lock pending. Will
-  port `runway-hackathon/backend/app/services/realtime_avatar_client.py`
-  + `/v1/realtime_sessions` so spokespeople can have live
-  two-way WebRTC conversations grounded in workspace
-  knowledge. Sits parallel to V (recorded video) + K8/K9
-  (text-based conversation).
+- **Realtime avatar arc (R0-R10).** R0 scope lock shipped
+  SESSION 142 (`docs/design/REALTIME_AVATAR_V1.md`). 10
+  contract rules locked, two-table data model
+  (RealtimeSession + RealtimeToolInvocation) sharing V1's
+  Asset shape, provider abstraction registry, knowledge
+  one-way bridge (Runway documents composed FROM
+  KnowledgeDocument rows). R1 (schema) is the next slice.
 
 | Slice | Deliverable                                  | Status |
 |-------|----------------------------------------------|--------|
@@ -68,15 +74,19 @@ contract.
 | K6.2 | Pre-render validation (portrait/avatar required) | DONE (SESSION 142) |
 | K7 | URL ingestion + serper discovery                | DONE (SESSION 140) |
 | V0 | Video composition scope lock                    | DONE (SESSION 142) |
-| V1 | Asset + Composition + CompositionStep schema   | **NEXT (SESSION 143)** |
-| V2 | Composition runtime + state machine + resume   | Queued |
+| V1 | Asset + Composition + CompositionStep schema   | DONE (SESSION 142) |
+| V2 | Composition runtime + state machine + resume   | **NEXT (SESSION 143)** |
 | V3 | `generate_avatar_speech` primitive + `talking_head` starter (absorbs K6.5) | Queued |
 | V4 | `generate_visual_clip` primitive (migrate gen4_turbo) | Queued |
 | V5 | Backwards-compat shim (`Video` → `Composition` wrapper) | Queued |
 | V6 | First multi-step starter: `talking_head_with_backdrop` | Queued |
 | V7-V14 | Capability roll-out (primitives + starters) | Queued |
 | V15 | SPA recipe gallery (retires legacy single-form) | Queued |
-| R0 | Realtime avatar arc — scope lock                | Queued |
+| R0 | Realtime avatar arc — scope lock                | DONE (SESSION 142) |
+| R1 | RealtimeSession + RealtimeToolInvocation schema | Queued |
+| R2 | Media-engine `/internal/realtime_sessions/` + provider abstraction | Queued |
+| R3 | Django broker (`/api/realtime_sessions/`) + tier-limit gate | Queued |
+| R4-R10 | Knowledge bridge, transcript persist, memory, tools, SPA, cost governance | Queued |
 | K6.3 | Brief length cap in script synthesis           | Queued |
 | K6.4 | Duration derived from script length            | Queued (deprecated by V8 trim/reformat primitives) |
 | K7.1 | Per-chunk cost telemetry surface in UI         | Queued |
@@ -143,87 +153,99 @@ web-search discovery.
 videos apps. Plus 46 prompts pytest = **145 backend tests**.
 **38 e2e specs** (35 prior + 3 K7).
 
-### Next: V1 — Asset + Composition schema (the ground for everything)
+### SESSION 142 outcome summary
 
-**SESSION 142 reframed K6.5.** After mapping the runway-hackathon
-pipeline (15+ output kinds, 5 Runway endpoints, ~2,000 lines of
-dormant composition logic), the talking-head rewire stopped
-being "swap one endpoint" and became "this is the moment to
-fix the architecture before we keep stacking endpoints." Scope
-lock landed: `docs/design/VIDEO_COMPOSITION_V1.md` (9 contract
-rules, 16 step primitives, 16 slices V0-V15).
+Three commits landed this session, all on `main` (not pushed):
 
-**The core idea:** Asset + Composition + CompositionStep
-replace today's "one endpoint per output kind" model. Every
-existing hackathon capability is a step primitive; every
-existing output is a starter composition. Operators can finally
-combine them (e.g., talking-head + cinematic backdrop + music
-bed + auto-captions + reels format = one composition, not five
-manual chain calls).
+1. **`4321fdb`** — K4.2 dedup-restore + K6.2 portrait
+   validation cleanups (3 new K-tests).
+2. **`ab3610c`** — V0 video composition scope lock
+   (`docs/design/VIDEO_COMPOSITION_V1.md`, 851 lines, 9
+   contract rules, 16 slices V0-V15).
+3. **`68561fd`** — V1 schema: `apps.compositions` app with
+   Asset / Composition / CompositionStep models, signals,
+   admin, and 13 V-tests. Schema only — runtime is V2.
 
-K6.5 is absorbed into **V3** — the `generate_avatar_speech`
-primitive is the first one wired. Same Runway endpoint
-(`/v1/avatar_videos`, `gwm1_avatars`), but landing inside the
-new Asset+Composition shape so future primitives compose with
-it.
+Plus the R0 realtime scope lock (`docs/design/REALTIME_AVATAR_V1.md`,
+818 lines, 10 contract rules, 11 slices R0-R10) — to be
+committed at end of session.
 
-### V1 scope (this session)
+### Next: V2 — Composition runtime (recommended) OR R1 — Realtime schema
 
-- New Django app `apps.compositions`.
-- Models: `Asset`, `Composition`, `CompositionStep`. Schemas in
-  `VIDEO_COMPOSITION_V1.md` §"Data model".
-- Migration. Postgres-backed (pgvector unaffected).
-- Cross-workspace asset reference test
-  (`test_step_rejects_cross_workspace_assets`).
-- Repo-level isolation test
-  (`test_only_composition_module_writes_assets`) — mirrors K2's
-  retrieval-isolation pattern.
+Both unblocked. Pick one.
+
+**V2 — Composition runtime** is the natural continuation of
+the recorded-video arc:
+
+- `execute_composition` Celery task in `apps/compositions/tasks.py`.
+- Per-step state machine: PENDING → RUNNING → SUCCEEDED |
+  FAILED. Composition status: DRAFT → PLANNING → RUNNING →
+  COMPLETED | PARTIAL | FAILED.
+- Partial-failure resume — operator retries from the failed
+  step without re-running prior successes.
+- Per-step cost estimator skeleton (`apps/compositions/cost.py`)
+  — concrete primitive estimators land per-slice starting V3.
+- Mock primitive (`apps/compositions/primitives/mock.py`)
+  for runtime testing without burning Runway credits.
+- 4-5 new tests covering the state machine + resume +
+  cost aggregation.
+
+V2 ships with no production Runway calls — V3 is the first
+real primitive (`generate_avatar_speech`, absorbing K6.5).
+V2 plus a mock primitive is enough to exercise the runtime
+end-to-end in tests.
+
+**R1 — RealtimeSession schema** is the realtime equivalent
+of V1:
+
+- New Django app `apps.realtime`.
+- Models: `RealtimeSession`, `RealtimeToolInvocation` per
+  `REALTIME_AVATAR_V1.md` §"Data model".
+- Cross-workspace tool-invocation rejection signal +
+  `clean()`.
+- Repo-level isolation test mirroring V1's pattern.
 - Admin registration.
-- Zero user-visible value. Same "pure infra" discipline as K1.
 
-V1 ships when `python manage.py check`, `migrate --check`,
-every existing K-test + V-test (4-5 new), and smoke commands
-all pass. **The existing `Video` model + `apps/videos/views.py`
-stays untouched.** V5 is the backwards-compat shim, not V1.
+Same "pure infra" discipline as V1 + K1. Schema only;
+broker is R3.
 
-### What's NOT V1
+### Recommended next move
 
-- Composition execution (V2).
-- Any step primitive (V3+).
-- Migration of the existing `Video` model (V5).
-- SPA changes (V15).
-- Realtime WebRTC (R arc — separate scope lock).
+**V2 first.** Reasons:
 
-### Reference reads before V1
+- V2's runtime is the bridge from "schema exists" to "first
+  user-visible composition" (V6 ships
+  `talking_head_with_backdrop`). Without V2, every later V
+  slice waits on it.
+- R1 is also a "schema only" slice that ships without
+  user-visible value. Sequencing R1 immediately after V1
+  means two consecutive infra slices with nothing operators
+  can use yet.
+- V2 establishes the Celery task patterns + state-machine
+  shape that R3 (realtime broker) will mirror. Building V2
+  first means R3's design has prior art to copy from.
 
-1. `docs/design/VIDEO_COMPOSITION_V1.md` §"Data model" — the
-   three model definitions, copy-shape them into
-   `apps/compositions/models.py`.
-2. `docs/design/KNOWLEDGE_LAYER.md` §"Data model" — same
-   workspace-anchor + cross-workspace-validation pattern.
-   K2's `apps/embeddings/models.py` is the implementation
-   template.
-3. SESSION 142 conversation: the recurring failure mode at
-   the hackathon was "endpoints don't compose." V1 is the
-   shape that fixes that by construction.
+### What's NOT in either slice
 
-### Parallel arc: R0 — Realtime WebRTC scope lock
+- Real Runway calls (V3 / R2 ship those).
+- SPA changes (V15 / R8 ship those).
+- Backwards compatibility shim for the existing `Video`
+  model (V5).
+- Knowledge → Runway document bridge (R4).
+- Memory loop (R6).
 
-Confirmed in-scope SESSION 142. Sits parallel to V (recorded
-video) and K8/K9 (text conversation). Will port:
+### Reference reads before V2
 
-1. `runway-hackathon/backend/app/services/realtime_avatar_client.py`
-   — WebRTC session orchestration + tool injection.
-2. `runway-hackathon/backend/app/services/documents_client.py`
-   — RAG documents for avatar conversations.
-3. Hackathon's `/v1/realtime_sessions` Runway endpoint.
-
-R0 is a future scope-lock doc (`docs/design/REALTIME_AVATAR_V1.md`
-when locked); not part of V1. The data model decision V1 makes
-must remain compatible — assets generated during a realtime
-session may want to land as `Asset` rows so they're
-addressable later, but no realtime-specific tables get added
-in V1.
+1. `docs/design/VIDEO_COMPOSITION_V1.md` §"Composition
+   execution" — the state machine + partial-failure resume
+   shape.
+2. `shell/apps/embeddings/tasks.py` — K3's
+   `embed_document` Celery task is the implementation
+   template for `execute_composition` (idempotent, retry-
+   aware, status flips via `update_fields`).
+3. `shell/apps/videos/tasks.py:poll_video_until_terminal` —
+   the existing async polling pattern V2 should mirror for
+   primitives that fire-then-poll (avatar_speech, etc.).
 
 ---
 

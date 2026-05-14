@@ -29,6 +29,10 @@ product — Django DRF shell + FastAPI media engine + new SPA).
 7. `docs/design/VIDEO_COMPOSITION_V1.md` — video composition arc
    scope lock (V0-V15, locked SESSION 142, 9 contract rules; K6.5
    absorbed into V3).
+8. `docs/design/REALTIME_AVATAR_V1.md` — realtime WebRTC avatar
+   arc scope lock (R0-R10, locked SESSION 142, 10 contract
+   rules; live two-way conversations grounded in workspace
+   knowledge).
 
 ---
 
@@ -87,18 +91,28 @@ Update this section when a phase completes.
   content (operator-collaborative) + W11 hide-on-completion
   detail-page rework + legacy single-form retirement after the
   video composition recipe gallery (V15) lands.
-- Phase 4 — Knowledge + video composition arcs. **IN FLIGHT.**
-  Two parallel sub-arcs:
-  - **Knowledge arc (K1-K10).** 7 shipped — K1-K7 + K4.1.
-    Remaining: K8/K9 (conversation pipeline + REST/SPA), K10
-    (onboarding seed), K4.2 + K6.2 cleanups landed SESSION 142.
-    Scope lock: `docs/design/KNOWLEDGE_LAYER.md`.
-  - **Video composition arc (V0-V15).** Scope lock shipped
+- Phase 4 — Knowledge + video composition + realtime arcs.
+  **IN FLIGHT.** Three parallel sub-arcs:
+  - **Knowledge arc (K1-K10).** 7 shipped — K1-K7 + K4.1 +
+    K4.2 + K6.2. Remaining: K8/K9 (conversation pipeline +
+    REST/SPA), K10 (onboarding seed). Scope lock:
+    `docs/design/KNOWLEDGE_LAYER.md`.
+  - **Video composition arc (V0-V15).** V0 scope lock shipped
     SESSION 142 (`docs/design/VIDEO_COMPOSITION_V1.md`).
-    Replaces the "additional video kinds" queue items + absorbs
-    K6.5. V1 (Asset/Composition schema) is the next slice.
-  Tier 1 prompt helpers ported in SESSION 122 as partial credit
-  toward earlier "u-d-b feature port" framing of this phase.
+    V1 (Asset / Composition / CompositionStep schema) shipped
+    SESSION 142 — `apps.compositions` with 13 V-tests
+    passing. Replaces the "additional video kinds" queue
+    items + absorbs K6.5. V2 (composition runtime) is the
+    next slice.
+  - **Realtime avatar arc (R0-R10).** R0 scope lock shipped
+    SESSION 142 (`docs/design/REALTIME_AVATAR_V1.md`). 10
+    contract rules, RealtimeSession + RealtimeToolInvocation
+    models sharing V1's Asset persistence, provider-
+    abstraction registry. R1 (schema) is the next slice;
+    unblocked by V1.
+  Tier 1 prompt helpers ported in SESSION 122 as partial
+  credit toward earlier "u-d-b feature port" framing of this
+  phase.
 - Phase 5 — Agency tier UI. Pending.
 
 ---

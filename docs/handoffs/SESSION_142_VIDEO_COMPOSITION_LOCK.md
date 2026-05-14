@@ -1,26 +1,26 @@
 ---
-title: "Session 142 — Video composition scope lock + pre-K6.5 cleanups + realtime arc confirmed"
+title: "Session 142 — Cleanups, V0+V1 video composition, R0 realtime scope lock"
 date: 2026-05-14
 status: complete
 session: 142
 previous_handoff: ./SESSION_141_K4_DETAIL_AND_RENDER_AUDIT.md
 ---
 
-# Session 142 — V0 scope lock, K4.2 + K6.2 cleanups, R arc confirmed
+# Session 142 — Cleanups + V0/V1 video composition + R0 realtime scope lock
 
 ## TL;DR
 
-Three outcomes:
+Five outcomes — the largest session since the K-arc scope
+lock:
 
 1. **Pre-K6.5 cleanups shipped (K4.2 + K6.2).** Soft-deleted
    knowledge documents now restore on re-ingest instead of
    blocking; missing portrait_path on render now fails fast
    with a clear operator message instead of an opaque
-   media-engine 400. 102 K-tests pass (3 new). Committed as
-   `4321fdb`.
+   media-engine 400. 3 new K-tests. Committed as `4321fdb`.
 
-2. **Architecture reframe — K6.5 absorbed into V3.** Mapped
-   the runway-hackathon pipeline (15+ output kinds, 5 Runway
+2. **V0 — Video composition scope lock shipped.** Mapped the
+   runway-hackathon pipeline (15+ output kinds, 5 Runway
    endpoints, ~2,000 lines of dormant composition logic in
    `media-engine/app/services/*`). Discovered the *real*
    blocker isn't one wrong endpoint; it's that every endpoint
@@ -30,16 +30,43 @@ Three outcomes:
    (851 lines, 9 contract rules, 16 step primitives, 16 slices
    V0-V15). K6.5 absorbed into V3 — same Runway endpoint
    target (`/v1/avatar_videos`), landing inside the new
-   Asset+Composition shape so it's reusable.
+   Asset+Composition shape so it's reusable. Committed as
+   `ab3610c` alongside CLAUDE.md + start-here updates.
 
-3. **Realtime WebRTC confirmed in-scope as a parallel arc
-   (R0+).** Operator surfaced mid-session that realtime
-   conversation video is a launch requirement, not a v2 nice-
-   to-have. Removed from VIDEO_COMPOSITION_V1.md's "out of
-   scope"; reframed as a separate scope lock to land after
-   V1. Shared dependency: V1's `Asset` shape must support
-   realtime-captured artifacts so the two arcs don't fork
-   the data model.
+3. **V1 — Asset + Composition + CompositionStep schema
+   shipped.** New `apps.compositions` Django app. Three
+   models matching `VIDEO_COMPOSITION_V1.md` §"Data model"
+   exactly. Cross-workspace validation enforced two ways
+   (pre_save signal + `clean()`) — defense in depth. Admin
+   registration with inline steps. 13 V-tests pass
+   (12 model tests + 1 repo-level isolation test mirroring
+   K2's pattern). 115 backend tests total. Existing `Video`
+   model is untouched per the scope lock; V5 introduces the
+   backwards-compat shim. Committed as `68561fd`.
+
+4. **R0 — Realtime avatar scope lock shipped.** Operator
+   pulled realtime WebRTC into Phase 4 mid-session. Scope-
+   locked `docs/design/REALTIME_AVATAR_V1.md` (818 lines, 10
+   contract rules, R0-R10 slice breakdown). Two-table data
+   model (`RealtimeSession` + `RealtimeToolInvocation`)
+   shares V1's `Asset` shape for transcript persistence —
+   the two arcs don't fork the data model. Provider
+   abstraction registry pattern locked. Knowledge layer
+   one-way bridge (Runway documents composed from
+   `KnowledgeDocument` rows via K2's `retrieve_for_spokesperson`
+   surface). Tool catalog narrowed from hackathon's 9 to 6,
+   each workspace-scoped with operator-approval thresholds
+   for expensive tools. To commit alongside this handoff.
+
+5. **Three parallel arcs locked in Phase 4.** Knowledge
+   (K1-K10, 7 shipped), Video composition (V0-V15, V1
+   shipped), Realtime avatar (R0-R10, R0 shipped). Each has
+   its own scope-lock doc + slice plan. K6.5 dissolved
+   completely; the "additional video kinds" queue items
+   dissolved completely; realtime added to Phase 4 rather
+   than punted to v2. The shape that supports all three:
+   one shared `Asset` table, one shared workspace anchor
+   pattern, one shared cross-workspace-rejection discipline.
 
 ## What shipped (code)
 
@@ -126,21 +153,86 @@ Cross-workspace reference rejection, knowledge-layer one-way
 integration, and cost transparency are the three architectural
 guarantees worth re-reading before any V-slice implementation.
 
+### `docs/design/REALTIME_AVATAR_V1.md` (NEW — 818 lines)
+
+The architecture scope lock for the realtime avatar arc.
+Same shape as VIDEO_COMPOSITION_V1.md + KNOWLEDGE_LAYER.md.
+Section breakdown:
+
+- **Purpose** — why realtime is in launch scope (operators
+  + customers talking to spokespeople), three constraints
+  hackathon didn't carry (multi-tenant, knowledge
+  integration, asset-shape persistence).
+- **10 contract rules** — workspace anchors, Runway API key
+  never reaches frontend, transcripts persist as Assets,
+  knowledge one-way, workspace-scoped tools, cost ceilings
+  enforced pre-create, provider-abstraction registry,
+  mock-mode at session-level, K8/K9 thread continuity.
+- **Framing corrections** — realtime is launch product,
+  realtime is composable, WebRTC is the easy part.
+- **Data model** — `RealtimeSession` +
+  `RealtimeToolInvocation`, both sharing V1's `Asset` for
+  transcript persistence.
+- **Provider abstraction** — single named adapter pattern;
+  adding Synthesia/HeyGen is a single-file change.
+- **Knowledge integration (R4 — the bridge)** — Runway
+  documents composed from `retrieve_for_spokesperson` top-30
+  chunks + business_brief + transcript history; 40k char cap.
+- **Tools surface** — 6-tool v1 catalog (down from
+  hackathon's 9), operator-approval threshold for expensive
+  tools.
+- **Cost governance** — three layers (per-workspace minutes
+  budget + per-session length cap + per-tool approval).
+- **SPA integration** — `@runwayml/avatars-react`
+  `<AvatarCall>` SDK handles WebRTC; cost forecasting UI;
+  tool-approval modal.
+- **Slice breakdown R0-R10** — 11 slices, ~10-14 sessions.
+- **Out of scope** — operator-defined tools, multi-spokesperson
+  live conversations, customer-facing sessions, session
+  recording, autonomous tool calling.
+- **9 open questions** — resolved per-slice.
+- **6 verification tests** — must pass before R8 closes.
+
+### `shell/apps/compositions/` (NEW — 1,368 lines across 11 files)
+
+The V1 schema implementation. Files:
+
+- `__init__.py`, `apps.py` (AppConfig with signals wired in
+  `ready()`).
+- `models.py` — Asset (5 type choices), Composition (6
+  status choices, 2 anchors workspace+spokesperson), CompositionStep
+  (5 status choices, UniqueConstraint on position).
+- `signals.py` — pre_save validator rejecting cross-workspace
+  asset references in `inputs` + `output_asset`.
+- `admin.py` — all three models registered with inline
+  CompositionStep on Composition pages.
+- `migrations/0001_initial.py` — auto-generated.
+- `tests/test_models.py` — 12 model tests covering all 9
+  contract rules touched by V1.
+- `tests/test_isolation.py` — 1 repo-level grep test
+  mirroring `apps/embeddings/tests/test_retrieval_privacy.py`.
+
+### `shell/character_os/settings.py`
+
+`apps.compositions` added to `INSTALLED_APPS`.
+
 ### `00-START-NEXT-SESSION.md` (overwritten)
 
-- Phase 4 reframed as two parallel arcs (Knowledge K1-K10,
-  Video V0-V15) plus a third pending (Realtime R0+).
-- Slice table updated: K6.5 row replaced with V0 (done) +
-  V1 (next) + V2-V15 (queued). K4.2 + K6.2 marked DONE.
-- "Next: K6.5" section replaced with "Next: V1 — Asset +
-  Composition schema" plus the R0 parallel-arc note.
+- Phase 4 reframed as three parallel arcs (Knowledge K1-K10,
+  Video V0-V15, Realtime R0-R10).
+- Slice table updated: K6.5 row dissolved into V3; V0 + V1
+  + R0 marked DONE; V2 + R1 added as candidate next slices.
+  K4.2 + K6.2 marked DONE.
+- "Next: K6.5" section replaced with "Next: V2 (recommended)
+  OR R1" plus reasoning for the recommendation (V2 unlocks
+  V3-V15; sequencing two consecutive infra slices is wasteful).
 
 ### `CLAUDE.md` (amended)
 
-- "Read-first" gains entries 6 (KNOWLEDGE_LAYER.md) + 7
-  (VIDEO_COMPOSITION_V1.md).
-- Phase 4 status table updated to reflect two parallel arcs
-  + pending realtime arc.
+- "Read-first" now has 8 entries (added 6: KNOWLEDGE_LAYER.md,
+  7: VIDEO_COMPOSITION_V1.md, 8: REALTIME_AVATAR_V1.md).
+- Phase 4 status table updated to reflect three parallel
+  arcs, V1 shipped, R0 shipped.
 
 ## The architecture reframe — what changed about the problem
 
@@ -196,23 +288,43 @@ V1 lands first, R0 locks against the V1 shape.
 
 ## What's next (SESSION 143)
 
-**V1 — Asset + Composition + CompositionStep schema.**
+V1 shipped this session — V2 (composition runtime) is the
+recommended next slice. R1 (realtime schema) is also unblocked
+and could ship in parallel, but my recommendation is V2 first
+so two consecutive schema-only slices don't stack.
 
-- New Django app `apps.compositions`.
-- Three models per `VIDEO_COMPOSITION_V1.md` §"Data model".
-- Cross-workspace reference test
-  (`test_step_rejects_cross_workspace_assets`).
-- Repo-level isolation test
-  (`test_only_composition_module_writes_assets`) — mirrors
-  K2's pattern.
-- Admin registration.
+**V2 — Composition runtime.**
 
-Zero user-visible value (same discipline as K1). The existing
-`Video` model + `apps/videos/views.py` stays untouched; V5 is
-the backwards-compat shim, not V1.
+- `execute_composition` Celery task in `apps/compositions/tasks.py`.
+- Per-step state machine: PENDING → RUNNING → SUCCEEDED |
+  FAILED. Composition status: DRAFT → PLANNING → RUNNING →
+  COMPLETED | PARTIAL | FAILED.
+- Partial-failure resume — operator retries from failed step
+  without re-running prior successes.
+- Per-step cost estimator skeleton
+  (`apps/compositions/cost.py`) — concrete per-primitive
+  estimators land starting V3.
+- Mock primitive (`apps/compositions/primitives/mock.py`) so
+  runtime can be exercised end-to-end without Runway credits.
+- 4-5 new tests covering state machine + resume + cost
+  aggregation.
 
-After V1: V2 (composition runtime), V3 (first primitive +
-absorbs K6.5).
+V2 ships with no production Runway calls — V3 is the first
+real primitive (`generate_avatar_speech`, absorbing K6.5).
+V2 + mock primitive is enough to exercise the runtime in
+tests + give V3 stable ground.
+
+After V2: V3 (`generate_avatar_speech` — K6.5 absorbed),
+V4 (`generate_visual_clip`), V5 (Video backwards-compat
+shim), V6 (`talking_head_with_backdrop` — first new
+capability).
+
+### Alternative next slice: R1
+
+If preferred, R1 (`RealtimeSession` schema, mirrors V1's
+shape) is fully unblocked. Same pattern: `apps.realtime`
+app, two models, cross-workspace signal + `clean()`, admin,
+isolation test. 12-15 tests. Schema only; broker is R3.
 
 ## Calibration carried forward
 
