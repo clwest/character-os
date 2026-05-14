@@ -22,6 +22,32 @@ export const TONE_ARCHETYPES = [
 ] as const;
 export type ToneArchetype = (typeof TONE_ARCHETYPES)[number];
 
+// Visual templates. Mirrors `SUPPORTED_PORTRAIT_TEMPLATES` in
+// `shell/apps/spokespeople/views.py`, which itself mirrors
+// `media-engine/app/services/character_studio_client.PORTRAIT_TEMPLATES`.
+// Used by the wizard's Step 2 Generate tab.
+export const PORTRAIT_TEMPLATES = [
+  "mascot",
+  "founder",
+  "coach",
+  "local_guide",
+] as const;
+export type PortraitTemplate = (typeof PORTRAIT_TEMPLATES)[number];
+
+export const PORTRAIT_TEMPLATE_LABELS: Record<PortraitTemplate, string> = {
+  mascot: "Mascot",
+  founder: "Founder",
+  coach: "Coach",
+  local_guide: "Local guide",
+};
+
+export const PORTRAIT_TEMPLATE_HINTS: Record<PortraitTemplate, string> = {
+  mascot: "Anthropomorphic brand character (battle unicorns live here).",
+  founder: "Polished, mid-30s, founder-shaped spokesperson.",
+  coach: "Energetic motivator with a confident, bright expression.",
+  local_guide: "Welcoming neighborhood face for local-business shops.",
+};
+
 const spokespersonSchema = z.object({
   id: z.string(),
   workspace: z.string(),
@@ -134,6 +160,46 @@ export function useCreateSpokesperson() {
       // Subscription usage might have shifted (spokespeople count).
       qc.invalidateQueries({ queryKey: ["subscription"] });
     },
+  });
+}
+
+// ---- Generate portrait (SESSION 130 — wizard slice 7) ---------------
+
+const generatePortraitResponseSchema = z.object({
+  portrait_data_uri: z.string(),
+  template: z.string(),
+  prompt: z.string(),
+  mock_mode: z.boolean(),
+});
+
+export type GeneratePortraitResponse = z.infer<typeof generatePortraitResponseSchema>;
+
+export interface GeneratePortraitInput {
+  template: PortraitTemplate;
+  /** Free-text subject — "armored battle unicorn", "neon-pink
+   * raccoon in a denim jacket". Empty means "use the template's
+   * built-in default subject." */
+  subject?: string;
+  /** Optional style hint (free-form text or chip names). */
+  style?: string;
+}
+
+export async function generatePortrait(
+  input: GeneratePortraitInput,
+): Promise<GeneratePortraitResponse> {
+  return apiJson(
+    "/api/spokespeople/generate-portrait/",
+    { method: "POST", body: input },
+    (json) => generatePortraitResponseSchema.parse(json),
+  );
+}
+
+export function useGeneratePortrait() {
+  return useMutation({
+    mutationFn: generatePortrait,
+    // No cache invalidation — this generates a transient portrait
+    // that the wizard accumulates in client state until Confirm.
+    // No Spokesperson row exists yet.
   });
 }
 

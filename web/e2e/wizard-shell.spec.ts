@@ -85,6 +85,20 @@ test.describe("wizard scaffold (slice 5)", () => {
       "step",
     );
 
+    // Step 2 (SESSION 130 — slice 7) gates Next on a chosen
+    // portrait. Drop a tiny PNG via the Upload tab to unblock.
+    await expect(next).toBeDisabled();
+    const tinyPng = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+      "base64",
+    );
+    await page.getByTestId("portrait-input").setInputFiles({
+      name: "tiny.png",
+      mimeType: "image/png",
+      buffer: tinyPng,
+    });
+    await expect(next).toBeEnabled();
+
     // Advance to Step 3 (scaffold accepts unconditionally).
     await next.click();
     await expect(page.getByTestId("wizard-step-3")).toBeVisible();

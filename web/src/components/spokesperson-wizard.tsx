@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useMe } from "@/lib/api/workspaces";
 import { useSuggestTone } from "@/lib/api/prompts";
 import { TONE_ARCHETYPES, type ToneArchetype } from "@/lib/api/spokespeople";
+import { WizardPortraitStep } from "@/components/wizard-portrait-step";
 import { cn } from "@/lib/utils";
 
 /**
@@ -132,8 +133,11 @@ function canAdvance(state: WizardState): boolean {
         state.identity.business_brief.trim().length >= MIN_BRIEF_CHARS
       );
     case 2:
+      // Step 2 (slice 7): a portrait must be chosen via one of the
+      // three modes (Upload / Camera / Generate).
+      return state.portrait.dataUri != null;
     case 3:
-      // Slices 7 + 8 wire the real gates; placeholder always advances.
+      // Slice 8 wires the real gate; placeholder always advances.
       return true;
     case 4:
       // Confirm: scaffolded today as a stub. Slice 9 wires the
@@ -171,7 +175,7 @@ export function SpokespersonWizard() {
         data-testid={`wizard-step-${state.step}`}
       >
         {state.step === 1 && <Step1Identity state={state} dispatch={dispatch} />}
-        {state.step === 2 && <Step2Portrait state={state} />}
+        {state.step === 2 && <Step2Portrait state={state} dispatch={dispatch} />}
         {state.step === 3 && <Step3Voice state={state} />}
         {state.step === 4 && <Step4Confirm state={state} workspaceId={workspaceId} />}
       </div>
@@ -435,22 +439,59 @@ function ToneSuggestion({
   );
 }
 
-function Step2Portrait({ state }: { state: WizardState }) {
+function Step2Portrait({
+  state,
+  dispatch,
+}: {
+  state: WizardState;
+  dispatch: React.Dispatch<WizardAction>;
+}) {
+  // Compose the wizard's loose `portrait` bag into the
+  // PortraitUploadResult shape the embedded component expects.
+  const portraitValue = state.portrait.dataUri
+    ? {
+        dataUri: state.portrait.dataUri,
+        fileName: state.portrait.fileName ?? "portrait.png",
+        mime: state.portrait.mime ?? "image/png",
+        bytes: state.portrait.bytes ?? 0,
+      }
+    : null;
+
   return (
     <>
       <StepHeading
         kicker="Step 2 of 4"
         title="Portrait"
-        body="Upload, take a picture, or generate from a visual subject. Slice 7 wires the three-mode input + the visual_subject field threading."
+        body="Upload an image, take a picture, or generate one from a visual subject. The chosen portrait binds a Runway avatar when this wizard finishes."
       />
-      <ScaffoldBlock label="Portrait input" hint="Empty until slice 7." />
-      <SliceCallout>
-        Slice 7 lands: <code>&lt;PortraitUpload&gt;</code> (SESSION 124)
-        + the new Generate tab (subject text → POST /internal/portrait/
-        → preview → commit). Persists into state.portrait + writes to
-        the visual_subject field on submit.
-      </SliceCallout>
-      <DebugState label="Wizard knows" payload={debugIdentity(state)} />
+      <WizardPortraitStep
+        value={portraitValue}
+        onChange={(value) =>
+          dispatch({
+            type: "SET_PORTRAIT",
+            patch: value
+              ? {
+                  dataUri: value.dataUri,
+                  fileName: value.fileName,
+                  mime: value.mime,
+                  bytes: value.bytes,
+                }
+              : {
+                  dataUri: null,
+                  fileName: null,
+                  mime: null,
+                  bytes: null,
+                },
+          })
+        }
+        onSubjectChange={(subject) =>
+          dispatch({
+            type: "SET_IDENTITY",
+            patch: { visual_subject: subject },
+          })
+        }
+        initialSubject={state.identity.visual_subject}
+      />
     </>
   );
 }

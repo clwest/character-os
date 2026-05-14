@@ -35,6 +35,14 @@ SUPPORTED_VOICE_PRESETS: frozenset[str] = frozenset({
     "petra", "adam", "zach", "violet", "roman", "luna",
 })
 
+# Visual templates, mirrored from
+# ``media-engine/app/services/character_studio_client.py``
+# (PORTRAIT_TEMPLATES). Same rationale as SUPPORTED_VOICE_PRESETS —
+# CLAUDE.md forbids direct cross-service imports.
+SUPPORTED_PORTRAIT_TEMPLATES: frozenset[str] = frozenset({
+    "mascot", "founder", "coach", "local_guide",
+})
+
 
 class SpokespersonViewSet(viewsets.ModelViewSet):
     """CRUD on spokespeople in the requesting user's workspaces."""
@@ -262,6 +270,91 @@ class SpokespersonViewSet(viewsets.ModelViewSet):
         sorted for stable UI ordering.
         """
         return Response({"presets": sorted(SUPPORTED_VOICE_PRESETS)})
+
+    @action(detail=False, methods=["post"], url_path="generate-portrait")
+    def generate_portrait(self, request):
+        """``POST /api/spokespeople/generate-portrait/``.
+
+        Generates a portrait via Runway gen4_image (in mock mode
+        when ``RUNWAY_API_KEY`` is unset) by wrapping the
+        media-engine's ``POST /internal/portrait/`` (SESSION 125).
+
+        Used by the wizard's Step 2 (Generate tab) — the operator
+        picks a visual template + types a subject + optional style,
+        and the returned data URI flows through the same Step-4
+        submit path that Upload + Camera modes use. No
+        Spokesperson row created here; the wizard accumulates
+        client-side state until Confirm.
+
+        Request body::
+
+            {
+              "template": "mascot" | "founder" | "coach" | "local_guide",
+              "subject": "optional free-text — defaults to the template's built-in",
+              "style": "optional free-text style hint"
+            }
+
+        Response::
+
+            {
+              "portrait_data_uri": "data:image/png;base64,...",
+              "template": "mascot",
+              "prompt": "a friendly brand mascot ...",
+              "mock_mode": true
+            }
+
+        Errors:
+            400 — unknown / missing template.
+            502 — media-engine unreachable, or upstream Runway
+                  rejection.
+        """
+        template = (request.data.get("template") or "").strip().lower()
+        if not template:
+            return Response(
+                {"error": "template is required", "code": "missing_template"},
+                status=drf_status.HTTP_400_BAD_REQUEST,
+            )
+        if template not in SUPPORTED_PORTRAIT_TEMPLATES:
+            return Response(
+                {
+                    "error": f"unknown visual template: {template!r}",
+                    "code": "unknown_template",
+                },
+                status=drf_status.HTTP_400_BAD_REQUEST,
+            )
+
+        subject = (request.data.get("subject") or "").strip() or None
+        style = (request.data.get("style") or "").strip() or None
+
+        try:
+            with MediaEngineClient() as client:
+                result = client.create_portrait(
+                    template=template,
+                    subject=subject,
+                    style=style,
+                )
+        except MediaEngineError as exc:
+            logger.warning(
+                "generate_portrait failed template=%s err=%s",
+                template, exc,
+            )
+            return Response(
+                {
+                    "error": str(exc)[:500],
+                    "code": "upstream_media_engine",
+                    "status_code": exc.status_code,
+                },
+                status=drf_status.HTTP_502_BAD_GATEWAY,
+            )
+
+        return Response(
+            {
+                "portrait_data_uri": result.portrait_data_uri,
+                "template": result.template,
+                "prompt": result.prompt,
+                "mock_mode": result.mock_mode,
+            }
+        )
 
     @staticmethod
     def _workspace(workspace_id):

@@ -124,8 +124,14 @@ function PortraitPreview({
 }
 
 // ---- Upload tab (existing dropzone, extracted) ---------------------
+//
+// Exported alongside CameraCapture so the wizard's Step 2 (SESSION
+// 130 — slice 7) can compose them inside its own 3-tab UI without
+// duplicating the implementation. PortraitUpload stays as the
+// convenience wrapper for the legacy create form + any future
+// 2-mode use case.
 
-function UploadDropzone({
+export function UploadDropzone({
   id,
   onChange,
   className,
@@ -239,7 +245,7 @@ function UploadDropzone({
 
 type CameraState = "idle" | "starting" | "live" | "denied" | "unsupported" | "error";
 
-function CameraCapture({
+export function CameraCapture({
   onChange,
 }: {
   onChange: (value: PortraitUploadResult) => void;

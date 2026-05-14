@@ -14,7 +14,7 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_129_WIZARD_STEP_1.md`.
+> **Last handoff:** `docs/handoffs/SESSION_130_WIZARD_STEP_2.md`.
 
 ---
 
@@ -22,7 +22,7 @@ state: active
 
 **Phase 0-2:** Done.
 **Phase 3:** Five SPA slices + User model + Prompt Tier 1 + Wizard
-scope lock + Wizard slices 1-6. Slices 7-11 ahead.
+scope lock + Wizard slices 1-7. Slices 8-11 ahead.
 
 | Slice | Deliverable                                  | Status |
 |-------|----------------------------------------------|--------|
@@ -33,81 +33,76 @@ scope lock + Wizard slices 1-6. Slices 7-11 ahead.
 | W4    | Tone archetype field + helper                | DONE (SESSION 127) |
 | W5    | Wizard scaffold (4 steps, empty bodies)      | DONE (SESSION 128) |
 | W6    | Wizard Step 1 — Identity body                | DONE (SESSION 129) |
-| W7    | Wizard Step 2 — Portrait body (incl. Generate) | NEXT |
-| W8    | Wizard Step 3 — Voice body                   | Future |
+| W7    | Wizard Step 2 — Portrait body (incl. Generate) | DONE (SESSION 130) |
+| W8    | Wizard Step 3 — Voice body                   | NEXT |
 | W9    | Wizard Step 4 — Confirm + submit             | Future |
 | W10   | Template content (Riggs / Sasha / Donny / …) | Operator-collaborative |
 | W11   | Hide-on-completion detail page rework        | Future (foundations landed in W3) |
 
-What's working end-to-end after SESSION 129:
+What's working end-to-end after SESSION 130:
 
-  - Everything from SESSIONS 107-128.
-  - Wizard Step 1 — real Identity form with name + brief +
-    tone_archetype select + inline tone suggestion (powered by
-    `GET /api/prompts/suggest-tone/?brief=...`).
-  - `canAdvance` for Step 1 gates on name AND brief (≥ 8 chars,
-    matches the legacy form's createSchema).
-  - 17 of 17 Playwright specs pass (was 15 — slice added 2).
+  - Everything from SESSIONS 107-129.
+  - Wizard Step 2 — three-mode Portrait input (Upload / Camera /
+    Generate) wired through the reducer + a new
+    `POST /api/spokespeople/generate-portrait/` action.
+  - `visual_subject` field has a UI write site (Generate tab's
+    subject input) — closes the SESSION 127 loop.
+  - 19 of 19 Playwright specs pass (was 17 — slice added 2).
   - 46 of 46 pytest prompt tests.
 
 ---
 
-## SESSION 130 — Wizard slice 7: Step 2 (Portrait) body (recommended)
+## SESSION 131 — Wizard slice 8: Step 3 (Voice) body (recommended)
 
-Session-sized — this is the largest remaining slice. Brings together
-SESSION 124 (`<PortraitUpload>`), SESSION 125
-(`POST /internal/portrait/`), and SESSION 127's `visual_subject`
-foundation into a three-mode portrait input.
+Half-session. Wire the SESSION 126 `<VoiceCapture>` component into
+Step 3.
 
 **Recommended scope:**
 
-1. **Three-mode input** — wire `<PortraitUpload>` (Upload + Camera
-   tabs) into the Step 2 body. Each mode commits via
-   `SET_PORTRAIT` dispatches.
-2. **Generate tab** — third option alongside Upload + Camera.
-   Inputs:
-   - **Visual template select** — 4 options from inherited
-     `PORTRAIT_TEMPLATES` (`mascot / founder / coach /
-     local_guide`).
-   - **`visual_subject` text input** — free-text "what they look
-     like." Wires to the SESSION 127 model field.
-   - **Optional `style` text** — passes to the
-     `/internal/portrait/` `style` param.
-   - **Submit** — POSTs to a new
-     `POST /api/spokespeople/generate-portrait/` endpoint that
-     wraps `MediaEngineClient.create_portrait()`. Returns
-     `{portrait_data_uri, prompt}`. The SPA renders a preview +
-     a "Use this portrait" CTA + a "Regenerate" CTA.
-3. **State threading** — the chosen mode + the
-   `portrait_data_uri` + the typed `visual_subject` text all
-   route through the reducer (`SET_PORTRAIT` carries the data;
-   `SET_IDENTITY` already accepts `visual_subject`). Slice 9 reads
-   from both bags on submit.
-4. **Tighten `canAdvance` for Step 2** — require a portrait
-   chosen (any mode). Today it's `true` unconditionally.
-5. **Remove ScaffoldBlock + SliceCallout from Step 2** (keep on
-   Steps 3 + 4 until slices 8 + 9 ship).
-6. **Playwright spec** — `web/e2e/wizard-step-2.spec.ts`. Upload
-   path + Generate path (mock-mode is deterministic; same shape
-   as the SESSION 126 voice-capture Upload spec).
+1. **Embed `<VoiceCapture>`** — render in Step 3 body. Component
+   already supports all three modes (Preset / Upload / Record) +
+   shared preview pattern. Same testids as the detail-page wiring.
+2. **State threading** — `SET_VOICE` reducer action takes the
+   tagged-union `VoiceCaptureValue` shape:
+   - `{mode: "preset", preset}` → wizard stores `preset` in
+     `state.voice.preset` (and the Step 4 submit fires
+     `voice_preset` on the create call).
+   - `{mode: "upload", dataUri, ...}` or `{mode: "record", ...}` →
+     wizard stores `dataUri` in `state.voice.dataUri` (and Step 4
+     fires the create + a follow-up `POST /clone-voice/` with
+     `audio_data_uri`).
+3. **Skip option** — wizard's voice step is optional per the
+   scope-lock. Add a "Skip this step" affordance on Step 3 that
+   sets `state.voice.mode = "preset"` + `state.voice.preset =
+   "vincent"` (Runway's default) and advances. `canAdvance(step=3)`
+   stays loose (any state advances) but the skip is explicit so
+   the operator knows.
+4. **Remove Step 3's ScaffoldBlock + SliceCallout + DebugState.**
+5. **Playwright spec** — `web/e2e/wizard-step-3.spec.ts`. Preset
+   path (pick vincent → advance). Upload path (drop tiny wav →
+   advance). Skip path (click Skip → state.voice has the default
+   preset). Defer the Record path (synthetic-audio flake; same
+   deferral as SESSION 126's voice-capture spec).
 
-### Out of scope for SESSION 130
+### Out of scope for SESSION 131
 
-- Wizard Step 3 body (slice 8) — Voice capture.
-- Wizard Step 4 body (slice 9) — Confirm + submit + atomic
-  create-spokesperson orchestration.
+- Wizard Step 4 body (slice 9) — Confirm + submit orchestration.
 - Template content (slice 10).
 - Hide-on-completion full rework (slice 11).
 - Flipping the wizard to be the default (lands with slice 9).
+- Allauth rate-limit override (queued #14; consider as a
+  small standalone slice between W8 and W9 since it's bitten
+  three sessions in a row now).
 
 ---
 
 ## Queued investigations (priority-ordered)
 
-1. **Wizard slice 7 — Step 2 (Portrait) body** (SESSION 130).
-   Includes the deferred-from-SESSION-127 visual_subject →
-   /internal/portrait/ → /internal/avatars/ orchestration.
-2. **Wizard slice 8 — Step 3 (Voice) body.**
+1. **Wizard slice 8 — Step 3 (Voice) body** (SESSION 131).
+2. **Allauth signup rate-limit override for tests** — consider
+   between W8 and W9. Default 20/m has bitten SESSIONS 129 + 130.
+   Small standalone slice: tiny `ACCOUNT_RATE_LIMITS = {}`
+   override gated on a test settings flag.
 3. **Wizard slice 9 — Step 4 (Confirm + submit).** When this
    ships, also flip the default + retire the legacy form +
    remove the `DebugState` blocks from `<SpokespersonWizard>`.
@@ -125,14 +120,10 @@ foundation into a three-mode portrait input.
 12. **Allauth legacy-settings cleanup.**
 13. **smoke_voice / smoke_avatar transaction discipline** — tiny
     fix that's bitten us 3 times now.
-14. **Allauth signup rate-limit override for tests** — SESSION 129
-    hit the 20/m default on a full e2e sweep. Worth a tiny
-    `ACCOUNT_RATE_LIMITS = {}` override gated on a test settings
-    flag.
-15. **Drift verifier** — `verify_doc_claims --only-drift`.
-    Could cover both `SUPPORTED_VOICE_PRESETS` and
-    `TONE_ARCHETYPES` mirrors.
-16. **Brand Identity v2 + dark mode.**
+14. **Drift verifier** — `verify_doc_claims --only-drift`. Could
+    cover `SUPPORTED_VOICE_PRESETS`, `SUPPORTED_PORTRAIT_TEMPLATES`,
+    and `TONE_ARCHETYPES` mirrors in one pass.
+15. **Brand Identity v2 + dark mode.**
 
 ---
 
@@ -167,7 +158,7 @@ python -m pytest character_os/prompts/        # 46 tests
 
 # SPA (from web/)
 pnpm test
-pnpm e2e            # full lifecycle ~32s (17 specs). Note: allauth
+pnpm e2e            # full lifecycle ~34s (19 specs). Note: allauth
                     # signup rate limits at 20/m per IP, so
                     # back-to-back runs may need a 60s wait.
 ```
@@ -178,23 +169,28 @@ To poke the wizard:
 http://localhost:5174/spokespeople/new?wizard=1
 ```
 
+Step 2 is the new playground — try the Generate tab with a
+mascot template + "armored battle unicorn warrior" subject.
+
 ---
 
 ## AI / assistant context
 
-- Last session: SESSION 129 — wizard slice 6 (Step 1 Identity
-  body). Form + inline tone suggestion + tighter gate. Template
-  tile picker deferred to slice 10 (operator-collaborative
-  content).
+- Last session: SESSION 130 — wizard slice 7 (Step 2 Portrait
+  body). Three-mode tabbed UI: Upload + Camera (both reuse
+  `<UploadDropzone>` / `<CameraCapture>` exports from SESSION 124),
+  Generate (new — wraps the SESSION 125 `/internal/portrait/`
+  endpoint via a thin Django proxy action). `visual_subject`
+  field has a UI write site for the first time.
 - **Calibration carried forward:** this operator prefers right-
-  shaping foundations early. SESSION 130's recommendation
-  (Step 2 / Portrait body) is the biggest remaining wizard slice
-  because it brings together three prior foundations (camera,
-  /internal/portrait/, visual_subject).
-- **Watch:** the allauth signup rate-limit (20/m) bit during
-  SESSION 129's first full e2e run. Queued #14 for a test-settings
-  override; for now, back-to-back e2e runs may need a 60s wait.
-- **Watch:** the `DebugState` blocks still live on Steps 2-4 — by
+  shaping foundations early. SESSION 131's recommendation
+  (Step 3 / Voice body) is the smallest remaining body slice —
+  most of the work is plumbing the existing `<VoiceCapture>`
+  component into the reducer.
+- **Watch:** the allauth signup rate-limit bit again on the first
+  full e2e run. **Worth landing the override as a tiny standalone
+  slice** between W8 and W9. Two sessions in a row noting it now.
+- **Watch:** the `DebugState` blocks still live on Steps 3-4 — by
   design (visible progress signal). Slated for removal in slice 9.
 - Collaboration conventions: AI drafts, human edits. Handoff
   `## AI Notes` section required at session end.
