@@ -58,6 +58,7 @@ ALLOWED_FILES = {
     "apps/compositions/tests/test_v5_long_form.py",
     "apps/compositions/tests/test_v7_composite.py",
     "apps/compositions/tests/test_v8_backdrop.py",
+    "apps/compositions/tests/test_v9_polish.py",
     # V6 — videos app shim tests construct Composition/Asset
     # rows directly to simulate terminal-state sync paths.
     "apps/videos/tests/test_v6_shim.py",

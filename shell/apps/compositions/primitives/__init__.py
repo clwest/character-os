@@ -39,6 +39,12 @@ from .mock import (
     PrimitiveError,
     PrimitiveResult,
 )
+from .polish import (
+    AddCaptionsPrimitive,
+    AddIntroOutroPrimitive,
+    ReformatClipPrimitive,
+    TrimClipPrimitive,
+)
 from .split_script import SplitScriptPrimitive
 from .visual_clip import GenerateVisualClipPrimitive
 
@@ -80,7 +86,10 @@ _REGISTRY: dict[str, Type[Primitive]] = {
     "composite_video": CompositeVideoPrimitive,  # V7
     "mix_audio": MixAudioPrimitive,  # V7
     # V8 — no new primitives (talking_head_with_backdrop starter only)
-    # V9+: add_captions, add_intro_outro, trim_clip, reformat_clip
+    "add_captions": AddCaptionsPrimitive,  # V9
+    "add_intro_outro": AddIntroOutroPrimitive,  # V9
+    "trim_clip": TrimClipPrimitive,  # V9
+    "reformat_clip": ReformatClipPrimitive,  # V9
     # V10+: design_voice, dub_audio
     # V11+: style_remix
     # V12+: transcribe

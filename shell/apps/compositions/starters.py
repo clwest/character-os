@@ -757,6 +757,149 @@ def talking_head_with_backdrop(
 
 
 @transaction.atomic
+def talking_head_polished(
+    *,
+    workspace: "Workspace",
+    spokesperson: "Spokesperson",
+    script: str,
+    captions: list[dict] | None = None,
+    intro: dict | None = None,
+    outro: dict | None = None,
+    use_knowledge: bool = False,
+    mock_mode: bool = False,
+    name: str = "",
+    created_by: "AbstractBaseUser | None" = None,
+) -> Composition:
+    """Polished talking-head ad — speech → captions → intro/outro.
+
+    Three-step composition that produces a finished spokesperson
+    ad with burnt-in subtitles and a brand intro/outro card.
+
+    Args:
+        captions: Operator-supplied caption timing as
+            ``[{start_s, end_s, text}, ...]``. When None, the
+            captions step is skipped — useful for operators who
+            want the polish format without subtitles (or when
+            V12 lands and auto-captioning is the default).
+        intro / outro: Title-card specs as
+            ``{text, duration_s, bg_color, text_color, font_size}``.
+            At least one must be supplied for the intro_outro
+            step to fire; otherwise both can be None and the
+            step is skipped.
+    """
+    if not script.strip():
+        raise ValueError("talking_head_polished requires a non-empty script")
+    if spokesperson.workspace_id != workspace.pk:
+        raise ValueError(
+            f"spokesperson {spokesperson.name!r} not in workspace {workspace.pk}"
+        )
+
+    composition_name = (
+        name.strip() or f"Polished talking-head — {script.strip()[:40]}"
+    )
+    composition = Composition.objects.create(
+        workspace=workspace,
+        spokesperson=spokesperson,
+        name=composition_name,
+        template_kind="talking_head_polished",
+        mock_mode=mock_mode,
+        created_by=created_by,
+    )
+
+    # Step 0 — speech
+    CompositionStep.objects.create(
+        composition=composition,
+        position=0,
+        primitive="generate_avatar_speech",
+        inputs=[],
+        params={
+            "script": script.strip(),
+            "use_knowledge": bool(use_knowledge),
+        },
+    )
+
+    # Step 1 — captions (optional). When provided, takes step 0's
+    # speech clip as its base input.
+    next_position = 1
+    last_output_position = 0
+    if captions:
+        CompositionStep.objects.create(
+            composition=composition,
+            position=next_position,
+            primitive="add_captions",
+            inputs=[
+                {"slot": "base", "from_step_position": last_output_position},
+            ],
+            params={"captions": list(captions)},
+        )
+        last_output_position = next_position
+        next_position += 1
+
+    # Step 2 (or 1 if no captions) — intro/outro. Skipped when
+    # both intro and outro are None.
+    if intro is not None or outro is not None:
+        step_params: dict[str, object] = {}
+        if intro is not None:
+            step_params["intro"] = dict(intro)
+        if outro is not None:
+            step_params["outro"] = dict(outro)
+        CompositionStep.objects.create(
+            composition=composition,
+            position=next_position,
+            primitive="add_intro_outro",
+            inputs=[
+                {"slot": "base", "from_step_position": last_output_position},
+            ],
+            params=step_params,
+        )
+
+    logger.info(
+        "starter talking_head_polished created composition=%s steps=%d "
+        "use_knowledge=%s has_captions=%s has_intro=%s has_outro=%s",
+        composition.id, composition.steps.count(), use_knowledge,
+        bool(captions), intro is not None, outro is not None,
+    )
+    return composition
+
+
+@transaction.atomic
+def reels_format(
+    *,
+    workspace: "Workspace",
+    spokesperson: "Spokesperson",
+    base_clip,
+    mock_mode: bool = False,
+    name: str = "",
+    created_by: "AbstractBaseUser | None" = None,
+) -> Composition:
+    """Convert a landscape clip to 9:16 vertical (Reels format).
+
+    Single-step modifier composition. Takes an existing CLIP and
+    runs ``reformat_clip`` with ``target_ratio="720:1280"``.
+    """
+    _validate_workspace_assets(workspace, [base_clip])
+    if spokesperson.workspace_id != workspace.pk:
+        raise ValueError("spokesperson not in workspace")
+
+    composition = Composition.objects.create(
+        workspace=workspace,
+        spokesperson=spokesperson,
+        name=name.strip() or "Reels format",
+        template_kind="reels_format",
+        mock_mode=mock_mode,
+        created_by=created_by,
+    )
+    CompositionStep.objects.create(
+        composition=composition,
+        position=0,
+        primitive="reformat_clip",
+        inputs=[{"slot": "base", "asset_id": str(base_clip.id)}],
+        params={"target_ratio": "720:1280"},
+    )
+    return composition
+
+
+@transaction.atomic
 def music_bed_pass(
     *,
     workspace: "Workspace",

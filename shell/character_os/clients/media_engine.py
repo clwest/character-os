@@ -29,6 +29,26 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 
+def _parse_processed_clip(data: dict, op_name: str) -> "ProcessedClipResult":
+    """Shared parser for the V9 polish endpoints. They all return
+    the same shape; this helper keeps the per-method bodies tiny."""
+    try:
+        return ProcessedClipResult(
+            output_url=str(data["output_url"]),
+            duration_seconds=_as_float_or_none(data.get("duration_seconds")),
+            size_bytes=(
+                int(data["size_bytes"]) if data.get("size_bytes") is not None
+                else None
+            ),
+            mock_mode=bool(data.get("mock_mode", False)),
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise MediaEngineError(
+            f"{op_name} response not in expected shape: {data!r}",
+            response_text=str(data),
+        ) from exc
+
+
 def _as_float_or_none(value: Any) -> float | None:
     """Coerce JSON numbers (which may arrive as int or float) into a
     float, leaving None through. Reject everything else so a contract
@@ -162,6 +182,20 @@ class AudioMixResult:
     """Decoded response from ``POST /internal/audio/mix/``.
     Same shape — synchronous ffmpeg audio mix with a cached
     MP4 output (video stream copied through, audio re-encoded)."""
+
+    output_url: str
+    duration_seconds: float | None
+    size_bytes: int | None
+    mock_mode: bool
+
+
+@dataclass
+class ProcessedClipResult:
+    """Generic response shape for V9's four polish endpoints —
+    captions, intro_outro, trim, reformat. Same fields as the
+    earlier per-operation results; consolidated here because
+    all four primitives produce CLIPs with no operation-specific
+    metadata beyond the output URL."""
 
     output_url: str
     duration_seconds: float | None
@@ -531,6 +565,67 @@ class MediaEngineClient:
                 f"mix_audio response not in expected shape: {data!r}",
                 response_text=str(data),
             ) from exc
+
+    def add_captions(
+        self,
+        *,
+        clip_url: str,
+        captions: list[dict],
+    ) -> "ProcessedClipResult":
+        """Hit ``POST /internal/clips/captions/`` — burn-in
+        subtitles. ``captions`` is a list of
+        ``{"start_s", "end_s", "text"}`` entries."""
+        data = self.request(
+            "POST", "/internal/clips/captions/",
+            json={"clip_url": clip_url, "captions": captions},
+        )
+        return _parse_processed_clip(data, "add_captions")
+
+    def add_intro_outro(
+        self,
+        *,
+        clip_url: str,
+        intro: dict | None = None,
+        outro: dict | None = None,
+    ) -> "ProcessedClipResult":
+        """Hit ``POST /internal/clips/intro_outro/`` — prepend
+        and/or append title cards. At least one of ``intro`` /
+        ``outro`` must be supplied."""
+        body: dict[str, Any] = {"clip_url": clip_url}
+        if intro is not None:
+            body["intro"] = intro
+        if outro is not None:
+            body["outro"] = outro
+        data = self.request("POST", "/internal/clips/intro_outro/", json=body)
+        return _parse_processed_clip(data, "add_intro_outro")
+
+    def trim_clip(
+        self,
+        *,
+        clip_url: str,
+        start_ms: int,
+        end_ms: int,
+    ) -> "ProcessedClipResult":
+        """Hit ``POST /internal/clips/trim/`` — stream-copy trim."""
+        data = self.request(
+            "POST", "/internal/clips/trim/",
+            json={"clip_url": clip_url, "start_ms": start_ms, "end_ms": end_ms},
+        )
+        return _parse_processed_clip(data, "trim_clip")
+
+    def reformat_clip(
+        self,
+        *,
+        clip_url: str,
+        target_ratio: str,
+    ) -> "ProcessedClipResult":
+        """Hit ``POST /internal/clips/reformat/`` — scale + crop
+        to ``target_ratio`` (e.g., ``720:1280`` for Reels)."""
+        data = self.request(
+            "POST", "/internal/clips/reformat/",
+            json={"clip_url": clip_url, "target_ratio": target_ratio},
+        )
+        return _parse_processed_clip(data, "reformat_clip")
 
     def poll_task(self, task_id: str) -> VideoPollResult:
         """Hit ``GET /internal/tasks/{task_id}/`` — the generalised
