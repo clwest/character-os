@@ -53,6 +53,28 @@ class Video(models.Model):
         on_delete=models.CASCADE,
         related_name="videos",
     )
+
+    # SESSION 143 / V6 — backwards-compat link. Each Video now
+    # rides on a ``talking_head`` Composition (for kind=
+    # spokesperson_ad); the legacy SPA surface keeps reading
+    # ``output_path``/``status``/etc. but those fields are
+    # populated by syncing from the composition's terminal
+    # state via ``apps.videos.signals``. Null for in-flight
+    # rows on the legacy media-engine path (un-supported
+    # kinds) and for rows that pre-date the migration.
+    composition = models.ForeignKey(
+        "compositions.Composition",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="videos",
+        help_text=(
+            "Underlying Composition that produces this Video's "
+            "output. Populated by perform_create when kind is "
+            "supported by a starter composition; null for "
+            "legacy / unsupported kinds."
+        ),
+    )
     title = models.CharField(max_length=200, blank=True, default="")
     brief = models.TextField(
         blank=True,

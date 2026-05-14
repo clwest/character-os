@@ -38,12 +38,17 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture(autouse=True)
 def _force_mocks():
-    """All three mocks: embeddings, render-script synthesis,
-    Celery eager. The media-engine call itself is patched
-    per-test so we can inspect the brief argument it received."""
+    """All four mocks: embeddings, render-script synthesis,
+    runway (so V6 builds composition with mock_mode=True),
+    and Celery eager. ``RUNWAY_FORCE_MOCK=True`` propagates
+    into the talking_head starter so the V3
+    GenerateAvatarSpeechPrimitive short-circuits to
+    deterministic stubs — no media-engine call needed.
+    """
     with override_settings(
         EMBEDDING_FORCE_MOCK=True,
         RENDER_SCRIPT_FORCE_MOCK=True,
+        RUNWAY_FORCE_MOCK=True,
         CELERY_TASK_ALWAYS_EAGER=True,
         CELERY_TASK_EAGER_PROPAGATES=True,
     ):
@@ -93,6 +98,11 @@ def _patched_client_ctx(fake_result, calls_capture):
 
 
 def test_video_create_with_knowledge_persists_citation_ids() -> None:
+    """V6: the synthesized brief lands as the talking_head
+    composition's first step's ``script`` param. ``RUNWAY_FORCE_MOCK``
+    makes the composition run in mock-mode so no real Runway
+    call is needed — composition reaches COMPLETED and the
+    sync signal flips Video.status to READY."""
     ws, sp, user = _setup("k6i_int@test", "K6 Riggs", sp_brief="Sell bicycle bells.")
     res = ingest_text(
         workspace=ws,
@@ -101,46 +111,44 @@ def test_video_create_with_knowledge_persists_citation_ids() -> None:
     )
     embed_document.apply(args=[str(res.document.pk)])
 
-    calls: list[dict] = []
     client = APIClient()
     client.force_authenticate(user=user)
 
-    with patch(
-        "apps.videos.views.MediaEngineClient",
-        return_value=_patched_client_ctx(_fake_media_engine_result(), calls),
-    ), patch(
-        # Suppress the eager poll task — we're testing the create
-        # path, not the polling path. The fake task id won't be
-        # recognised by the media-engine poll endpoint.
-        "apps.videos.views.poll_video_until_terminal.delay",
-    ):
-        response = client.post(
-            "/api/videos/",
-            {
-                "spokesperson": str(sp.pk),
-                "brief": "Tell viewers about our bells.",
-                "kind": Video.Kind.SPOKESPERSON_AD,
-            },
-            format="json",
-        )
+    response = client.post(
+        "/api/videos/",
+        {
+            "spokesperson": str(sp.pk),
+            "brief": "Tell viewers about our bells.",
+            "kind": Video.Kind.SPOKESPERSON_AD,
+        },
+        format="json",
+    )
 
     assert response.status_code == http.HTTP_201_CREATED, response.content
     video_id = response.json()["id"]
     video = Video.objects.get(pk=video_id)
 
-    # Citation persisted on the row
+    # Citation persisted on the row + linked to the composition
     assert len(video.knowledge_chunk_ids) >= 1
-    # The brief that hit media-engine includes the chunk-ids
-    # marker from the mock synthesis (see _mock_brief in
-    # script_synthesis.py — "[knowledge: N chunks: <ids>]")
-    assert len(calls) == 1
-    sent_brief = calls[0]["brief"]
-    assert "[knowledge:" in sent_brief
-    assert video.knowledge_chunk_ids[0] in sent_brief
-    # Operator's typed brief carried through too
-    assert "Tell viewers about our bells." in sent_brief
-    # Status flipped to rendering after the media-engine call
-    assert video.status == Video.Status.RENDERING
+    assert video.composition is not None
+    assert video.composition.template_kind == "talking_head"
+    assert list(video.composition.knowledge_chunk_ids) == list(video.knowledge_chunk_ids)
+
+    # The brief landed as the speech step's script param
+    step = video.composition.steps.first()
+    assert step is not None
+    assert step.primitive == "generate_avatar_speech"
+    sent_script = step.params["script"]
+    assert "[knowledge:" in sent_script
+    assert video.knowledge_chunk_ids[0] in sent_script
+    assert "Tell viewers about our bells." in sent_script
+
+    # Composition runs mock-mode to COMPLETED → signal syncs
+    # Video.status to READY.
+    video.composition.refresh_from_db()
+    assert video.composition.status == "completed"
+    assert video.status == Video.Status.READY
+    assert video.output_path  # final asset's file_path
 
 
 def test_video_create_without_knowledge_has_empty_citations() -> None:
@@ -149,38 +157,34 @@ def test_video_create_without_knowledge_has_empty_citations() -> None:
     _, sp, user = _setup("k6j_int@test", "Empty SP", sp_brief="A brief.")
     # No ingestion → no chunks → degraded path.
 
-    calls: list[dict] = []
     client = APIClient()
     client.force_authenticate(user=user)
 
-    with patch(
-        "apps.videos.views.MediaEngineClient",
-        return_value=_patched_client_ctx(_fake_media_engine_result(), calls),
-    ), patch(
-        # Suppress the eager poll task — we're testing the create
-        # path, not the polling path. The fake task id won't be
-        # recognised by the media-engine poll endpoint.
-        "apps.videos.views.poll_video_until_terminal.delay",
-    ):
-        response = client.post(
-            "/api/videos/",
-            {
-                "spokesperson": str(sp.pk),
-                "brief": "Just say hello.",
-                "kind": Video.Kind.SPOKESPERSON_AD,
-            },
-            format="json",
-        )
+    response = client.post(
+        "/api/videos/",
+        {
+            "spokesperson": str(sp.pk),
+            "brief": "Just say hello.",
+            "kind": Video.Kind.SPOKESPERSON_AD,
+        },
+        format="json",
+    )
 
     assert response.status_code == http.HTTP_201_CREATED
     video = Video.objects.get(pk=response.json()["id"])
     assert video.knowledge_chunk_ids == []
-    # The brief that hit media-engine is still the mock-shape
-    # string (force-mock is on for this test); empty citation
-    # block on the end.
-    sent = calls[0]["brief"]
-    assert "[knowledge: 0 chunks: ]" in sent
-    assert "Just say hello." in sent
+    assert video.composition is not None
+
+    # The script param is the mock-synthesis output even without
+    # knowledge — "[knowledge: 0 chunks: ]" is its empty-citation
+    # marker.
+    step = video.composition.steps.first()
+    sent_script = step.params["script"]
+    assert "[knowledge: 0 chunks: ]" in sent_script
+    assert "Just say hello." in sent_script
+
+    # Composition completes in mock-mode → Video synced to READY.
+    assert video.status == Video.Status.READY
 
 
 def test_video_create_with_no_avatar_fails_fast_and_skips_synthesis() -> None:
