@@ -49,6 +49,7 @@ web/build/
 # Media artefacts — never commit
 media-engine/data/
 media-engine/backend/data/
+shell/data/
 
 # IDE
 .vscode/
