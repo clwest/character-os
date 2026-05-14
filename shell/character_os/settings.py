@@ -224,6 +224,17 @@ ACCOUNT_EMAIL_VERIFICATION = "optional"  # tighten to "mandatory" pre-launch
 ACCOUNT_SESSION_REMEMBER = True
 ACCOUNT_UNIQUE_EMAIL = True
 
+# Allauth rate limits — disabled in DEBUG so the Playwright e2e suite
+# can sign up 20+ fresh users back-to-back without hitting the 20/m
+# signup cap. Production keeps the defaults (allauth ships them on by
+# default for the obvious anti-abuse reasons). Queued #14 closed in
+# SESSION 131 alongside wizard slice 8.
+#
+# `False` is the documented disable value — `{}` falls through to the
+# default-merge path inside allauth.account.app_settings.RATE_LIMITS.
+if DEBUG:
+    ACCOUNT_RATE_LIMITS = False
+
 # (SESSION 116 ACCOUNT_ADAPTER band-aid removed in SESSION 119 once
 # the custom email-as-PK User model landed — the UNIQUE-on-empty-
 # string bug it papered over no longer exists.)

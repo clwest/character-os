@@ -8,7 +8,14 @@ import { useMe } from "@/lib/api/workspaces";
 import { useSuggestTone } from "@/lib/api/prompts";
 import { TONE_ARCHETYPES, type ToneArchetype } from "@/lib/api/spokespeople";
 import { WizardPortraitStep } from "@/components/wizard-portrait-step";
+import { VoiceCapture, type VoiceCaptureValue } from "@/components/voice-capture";
 import { cn } from "@/lib/utils";
+
+// Default skip-target preset. When the operator skips Step 3, the
+// wizard pre-fills this preset so submit can fire without a manual
+// voice pick. Matches the SESSION 126 detail-page UX where `vincent`
+// is the showcased default in the Preset tab dropdown.
+const DEFAULT_SKIP_PRESET = "vincent";
 
 /**
  * Create-spokesperson wizard scaffold (SESSION 128 — wizard slice 5).
@@ -52,10 +59,18 @@ interface WizardState {
     bytes: number | null;
   };
   voice: {
-    // SESSION 126 VoiceCaptureValue shape, similarly loose.
+    // SESSION 126 VoiceCaptureValue shape, kept loose so navigation
+    // back/forward preserves enough info to round-trip the
+    // <VoiceCapture> preview. Only `preset` is populated for preset
+    // mode; only `dataUri` (+ optional fileName / mime / bytes /
+    // durationMs) for upload + record modes.
     mode: "preset" | "upload" | "record" | null;
     preset: string | null;
     dataUri: string | null;
+    fileName: string | null;
+    mime: string | null;
+    bytes: number | null;
+    durationMs: number | null;
   };
 }
 
@@ -86,6 +101,10 @@ const INITIAL_STATE: WizardState = {
     mode: null,
     preset: null,
     dataUri: null,
+    fileName: null,
+    mime: null,
+    bytes: null,
+    durationMs: null,
   },
 };
 
@@ -176,7 +195,7 @@ export function SpokespersonWizard() {
       >
         {state.step === 1 && <Step1Identity state={state} dispatch={dispatch} />}
         {state.step === 2 && <Step2Portrait state={state} dispatch={dispatch} />}
-        {state.step === 3 && <Step3Voice state={state} />}
+        {state.step === 3 && <Step3Voice state={state} dispatch={dispatch} />}
         {state.step === 4 && <Step4Confirm state={state} workspaceId={workspaceId} />}
       </div>
 
@@ -496,24 +515,133 @@ function Step2Portrait({
   );
 }
 
-function Step3Voice({ state }: { state: WizardState }) {
+function Step3Voice({
+  state,
+  dispatch,
+}: {
+  state: WizardState;
+  dispatch: React.Dispatch<WizardAction>;
+}) {
+  // Bridge the wizard's loose voice bag to <VoiceCapture>'s
+  // tagged-union value. When the operator navigates away + back,
+  // the component re-hydrates with the same selection.
+  const voiceValue = voiceBagToValue(state.voice);
+
+  const setVoice = (value: VoiceCaptureValue | null) => {
+    dispatch({
+      type: "SET_VOICE",
+      patch:
+        value === null
+          ? {
+              mode: null,
+              preset: null,
+              dataUri: null,
+              fileName: null,
+              mime: null,
+              bytes: null,
+              durationMs: null,
+            }
+          : valueToVoiceBag(value),
+    });
+  };
+
+  const skip = () => {
+    setVoice({ mode: "preset", preset: DEFAULT_SKIP_PRESET });
+    dispatch({ type: "NEXT" });
+  };
+
   return (
     <>
       <StepHeading
         kicker="Step 3 of 4"
         title="Voice"
-        body="Preset, upload, or record. Slice 8 wires the <VoiceCapture> component from SESSION 126."
+        body={
+          "Pick a Runway preset, upload an audio clip, or record one " +
+          "in-browser. Optional — skip to use the default Runway voice."
+        }
       />
-      <ScaffoldBlock label="Voice input" hint="Empty until slice 8." />
-      <SliceCallout>
-        Slice 8 lands: <code>&lt;VoiceCapture&gt;</code> (SESSION 126)
-        with the same three-tab UI used on the detail page. Submission
-        defers to Confirm (Step 4) — voice is part of the
-        atomically-fired create.
-      </SliceCallout>
-      <DebugState label="Wizard knows" payload={debugIdentity(state)} />
+      <VoiceCapture
+        value={voiceValue}
+        onChange={setVoice}
+        id="wizard-voice"
+      />
+      <div className="flex items-center justify-end border-t border-border/60 pt-4">
+        <button
+          type="button"
+          onClick={skip}
+          className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+          data-testid="wizard-voice-skip"
+        >
+          Skip — use the default Runway voice
+        </button>
+      </div>
     </>
   );
+}
+
+// ---- Voice bag ↔ VoiceCaptureValue bridge --------------------------
+
+function voiceBagToValue(
+  bag: WizardState["voice"],
+): VoiceCaptureValue | null {
+  if (bag.mode === "preset" && bag.preset) {
+    return { mode: "preset", preset: bag.preset };
+  }
+  if (bag.mode === "upload" && bag.dataUri) {
+    return {
+      mode: "upload",
+      dataUri: bag.dataUri,
+      fileName: bag.fileName ?? "voice-clip",
+      bytes: bag.bytes ?? 0,
+      mime: bag.mime ?? "audio/webm",
+    };
+  }
+  if (bag.mode === "record" && bag.dataUri) {
+    return {
+      mode: "record",
+      dataUri: bag.dataUri,
+      bytes: bag.bytes ?? 0,
+      mime: bag.mime ?? "audio/webm",
+      durationMs: bag.durationMs ?? 0,
+    };
+  }
+  return null;
+}
+
+function valueToVoiceBag(
+  value: VoiceCaptureValue,
+): WizardState["voice"] {
+  if (value.mode === "preset") {
+    return {
+      mode: "preset",
+      preset: value.preset,
+      dataUri: null,
+      fileName: null,
+      mime: null,
+      bytes: null,
+      durationMs: null,
+    };
+  }
+  if (value.mode === "upload") {
+    return {
+      mode: "upload",
+      preset: null,
+      dataUri: value.dataUri,
+      fileName: value.fileName,
+      mime: value.mime,
+      bytes: value.bytes,
+      durationMs: null,
+    };
+  }
+  return {
+    mode: "record",
+    preset: null,
+    dataUri: value.dataUri,
+    fileName: null,
+    mime: value.mime,
+    bytes: value.bytes,
+    durationMs: value.durationMs,
+  };
 }
 
 function Step4Confirm({
@@ -678,15 +806,6 @@ function DebugState({
 }
 
 // ---- Debug helpers (visible in DebugState) -------------------------
-
-function debugIdentity(state: WizardState) {
-  return {
-    name: state.identity.name,
-    business_brief: state.identity.business_brief,
-    visual_subject: state.identity.visual_subject,
-    tone_archetype: state.identity.tone_archetype,
-  };
-}
 
 function debugFullPayload(
   state: WizardState,
