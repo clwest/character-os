@@ -34,9 +34,26 @@ def reject_cross_workspace_asset_references(
     **kwargs,
 ) -> None:
     """Veto any ``CompositionStep`` whose ``inputs`` reference
-    Assets in another workspace."""
+    Assets in another workspace.
+
+    Skips validation when an update touches neither ``inputs``
+    nor ``output_asset`` — those are the only paths that can
+    introduce a cross-workspace reference. State transitions
+    (status / error_message / timestamps / cost) leave the
+    reference shape unchanged, so re-running the expensive
+    asset query on every save is wasteful and (worse) blocks
+    the V2 runtime's status-update saves when a row already
+    happens to be in an inconsistent state from a raw-SQL
+    bypass test or migration.
+    """
     if not instance.composition_id:
         return
+
+    update_fields = kwargs.get("update_fields")
+    if update_fields is not None:
+        validated_fields = {"inputs", "output_asset"}
+        if not (set(update_fields) & validated_fields):
+            return
 
     composition_workspace_id = (
         Composition.objects.filter(pk=instance.composition_id)

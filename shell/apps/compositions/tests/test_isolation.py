@@ -41,9 +41,14 @@ ALLOWED_FILES = {
     # Admin (read-mostly; raw create paths are gated by Django
     # admin's own form validation, which runs clean())
     "apps/compositions/admin.py",
-    # This test file + the model tests need to create rows
+    # V2 runtime — the sanctioned writer for step-output Assets +
+    # state-machine transitions. Cross-workspace validation
+    # still flows through the V1 signal at save time.
+    "apps/compositions/tasks.py",
+    # Tests need to create rows directly to exercise paths
     "apps/compositions/tests/test_models.py",
     "apps/compositions/tests/test_isolation.py",
+    "apps/compositions/tests/test_runtime.py",
 }
 
 
