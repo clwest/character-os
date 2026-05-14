@@ -27,6 +27,11 @@ from typing import TYPE_CHECKING
 from django.db import transaction
 
 from .models import Composition, CompositionStep
+from .script_splitter import (
+    DEFAULT_CHUNK_MAX_CHARS,
+    chunk_script,
+    split_script_with_llm,
+)
 
 if TYPE_CHECKING:
     from apps.accounts.models import Workspace
@@ -205,5 +210,148 @@ def cinematic_visual(
         "mock=%s has_image=%s ratio=%s duration=%s",
         composition.id, spokesperson.id, mock_mode,
         bool(prompt_image), ratio, duration,
+    )
+    return composition
+
+
+@transaction.atomic
+def long_form_ad(
+    *,
+    workspace: "Workspace",
+    spokesperson: "Spokesperson",
+    script: str,
+    max_chars: int = DEFAULT_CHUNK_MAX_CHARS,
+    use_llm_split: bool = False,
+    use_knowledge: bool = False,
+    reencode_concat: bool = False,
+    mock_mode: bool = False,
+    name: str = "",
+    created_by: "AbstractBaseUser | None" = None,
+) -> Composition:
+    """Create a long-form ad composition: split → N× speak → concat.
+
+    No AI video provider ships single-call generation longer than
+    ~20 seconds — every long-form AI video output in the wild is
+    stitched. This starter is the platform's launch
+    differentiator. The script gets pre-split into chunks at
+    sentence boundaries (≤ ``max_chars`` per chunk to fit
+    Runway's ``/v1/avatar_videos`` per-call ceiling), then a
+    fixed N+1-step composition is laid down:
+
+      Step 0..N-1: generate_avatar_speech (one per chunk)
+      Step N: concat_clips (consumes all prior step outputs)
+
+    The split happens **at starter time**, not at runtime —
+    contract rule 5 (linear ordering only) means the
+    composition needs a deterministic step count when it
+    runs. The runtime then just walks the plan.
+
+    Args:
+        workspace: Composition workspace anchor.
+        spokesperson: Who's on camera. Must have a runway
+            avatar (the speech primitive validates).
+        script: Long-form script. The whole thing is what
+            the spokesperson will say across the chunks.
+        max_chars: Per-chunk character cap. Defaults to
+            ``DEFAULT_CHUNK_MAX_CHARS`` (280).
+        use_llm_split: When True, the splitter consults
+            gpt-5-mini for semantically clean boundaries
+            (graceful fallback to naive on any failure).
+            Default False — naive is deterministic and free.
+        use_knowledge: When True, each speech step pipes its
+            chunk through K6's ``build_render_brief`` before
+            firing media-engine. The same chunk text becomes
+            knowledge-informed per-step. Costs N synthesis
+            calls instead of 1; tradeoff worth measuring.
+        reencode_concat: Forces filter_complex normalization
+            during concat. Default False uses the demuxer
+            (-c copy) — fast, requires uniform inputs.
+            Long-form ads are uniform (all gwm1_avatars),
+            so False is safe.
+        mock_mode: Run in mock-mode (V0 contract rule 9).
+            All chunks render deterministic stubs; concat
+            returns a stub output. End-to-end test-runnable.
+        name: Operator-visible name. Defaults to
+            "Long-form — {first 40 chars of script}".
+        created_by: Optional User for audit attribution.
+
+    Returns:
+        The fresh ``Composition`` row with N+1 (or 1) steps
+        already laid down. Caller enqueues
+        ``execute_composition.delay(str(comp.id))`` to run.
+
+    Raises:
+        ``ValueError`` for empty script, cross-workspace
+        spokesperson, or a splitter that produces zero
+        chunks (impossible in practice, but defensive).
+    """
+    if not script.strip():
+        raise ValueError("long_form_ad starter requires a non-empty script")
+    if spokesperson.workspace_id != workspace.pk:
+        raise ValueError(
+            f"spokesperson {spokesperson.name!r} (workspace "
+            f"{spokesperson.workspace_id}) is not in workspace "
+            f"{workspace.pk}"
+        )
+
+    # Pre-split at starter time. Choose path based on use_llm_split
+    # (always naive when mock_mode — no point calling the LLM if
+    # the renders are stubs).
+    if use_llm_split and not mock_mode:
+        chunks = split_script_with_llm(script, max_chars=max_chars)
+    else:
+        chunks = chunk_script(script, max_chars=max_chars)
+
+    if not chunks:
+        raise ValueError(
+            "long_form_ad splitter produced zero chunks from "
+            f"a {len(script)}-char input"
+        )
+
+    composition_name = name.strip() or f"Long-form — {script.strip()[:40]}"
+    composition = Composition.objects.create(
+        workspace=workspace,
+        spokesperson=spokesperson,
+        name=composition_name,
+        template_kind="long_form_ad",
+        mock_mode=mock_mode,
+        created_by=created_by,
+    )
+
+    # Lay down one generate_avatar_speech step per chunk.
+    for i, chunk in enumerate(chunks):
+        CompositionStep.objects.create(
+            composition=composition,
+            position=i,
+            primitive="generate_avatar_speech",
+            inputs=[],
+            params={
+                "script": chunk,
+                "use_knowledge": bool(use_knowledge),
+            },
+        )
+
+    # Optimization: skip the concat step when there's exactly one
+    # chunk — the composition is functionally identical to
+    # ``talking_head``. Keeps the data clean (no degenerate
+    # 1-input concat).
+    if len(chunks) > 1:
+        concat_inputs = [
+            {"slot": "clip", "from_step_position": i}
+            for i in range(len(chunks))
+        ]
+        CompositionStep.objects.create(
+            composition=composition,
+            position=len(chunks),
+            primitive="concat_clips",
+            inputs=concat_inputs,
+            params={"reencode": bool(reencode_concat)},
+        )
+
+    logger.info(
+        "starter long_form_ad created composition=%s spokesperson=%s "
+        "mock=%s chunks=%d use_llm_split=%s use_knowledge=%s",
+        composition.id, spokesperson.id, mock_mode,
+        len(chunks), use_llm_split, use_knowledge,
     )
     return composition

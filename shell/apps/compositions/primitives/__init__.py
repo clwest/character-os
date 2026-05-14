@@ -29,6 +29,7 @@ from __future__ import annotations
 from typing import Protocol, Type
 
 from .avatar_speech import GenerateAvatarSpeechPrimitive
+from .concat_clips import ConcatClipsPrimitive
 from .mock import (
     MockFailurePrimitive,
     MockPassthroughPrimitive,
@@ -36,6 +37,7 @@ from .mock import (
     PrimitiveError,
     PrimitiveResult,
 )
+from .split_script import SplitScriptPrimitive
 from .visual_clip import GenerateVisualClipPrimitive
 
 
@@ -70,9 +72,15 @@ _REGISTRY: dict[str, Type[Primitive]] = {
     "mock_slow": MockSlowPrimitive,
     "generate_avatar_speech": GenerateAvatarSpeechPrimitive,  # V3
     "generate_visual_clip": GenerateVisualClipPrimitive,  # V4
-    # V5+: "split_script": SplitScriptPrimitive,
-    # V5+: "concat_clips": ConcatClipsPrimitive,
-    # ...etc through V14
+    "split_script": SplitScriptPrimitive,  # V5
+    "concat_clips": ConcatClipsPrimitive,  # V5
+    # V6+: backwards-compat shim (no primitives, just Video wrapper)
+    # V8+: add_captions, add_intro_outro, trim_clip, reformat_clip
+    # V9+: composite_video, mix_audio
+    # V10+: design_voice, dub_audio
+    # V11+: style_remix
+    # V12+: transcribe
+    # V13+: generate_image
 }
 
 

@@ -713,6 +713,245 @@ def post_internal_visual_clip(
     )
 
 
+# ---- POST /internal/clips/concat/ ---------------------------------
+#
+# SESSION 143 / V5. Synchronous ffmpeg concat — fires the long-form
+# stitch the hackathon's ``long_ad_service.py`` was doing inline.
+# Operators ship multi-minute talking-head ads via the
+# ``long_form_ad`` starter: split_script → N× generate_avatar_speech →
+# concat_clips. This endpoint is the third leg.
+#
+# Synchronous, not fire-then-poll: ffmpeg concat of ~10 clips takes
+# 5-30 seconds wall-clock — well within HTTP keep-alive. The
+# operation is CPU-bound + idempotent; no polling infrastructure
+# needed. Matches the ``/internal/voices/`` shape (also synchronous).
+#
+# Mock-mode returns a deterministic stub URL keyed off the input
+# URLs so tests stay hermetic.
+
+
+class InternalConcatClipsCreate(BaseModel):
+    """Request body for ``POST /internal/clips/concat/``."""
+
+    clip_urls: list[str] = Field(..., min_length=1, max_length=64)
+    # ``reencode=True`` runs filter_complex normalization so heterogeneous
+    # inputs (e.g. clips from different Runway models) concat cleanly.
+    # Default False uses the demuxer (-c copy) — fast, requires uniform
+    # codec/dims/fps. V5's long-form path is uniform (all gwm1_avatars
+    # output), so the default is safe.
+    reencode: bool = Field(default=False)
+
+
+class InternalConcatClipsResponse(BaseModel):
+    output_url: str
+    duration_seconds: Optional[float] = None
+    size_bytes: Optional[int] = None
+    mock_mode: bool
+
+
+def _concat_clips_dir(settings: Settings) -> Path:
+    target = settings.data_path / "_internal" / "concats"
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def _download_concat_input(
+    url: str,
+    target_dir: Path,
+    settings: Settings,
+) -> Path:
+    """Resolve a concat input URL to a local path. External
+    ``http(s)://`` URLs are downloaded to ``target_dir``; already-
+    local paths under ``settings.data_path`` are returned as-is."""
+    target_dir.mkdir(parents=True, exist_ok=True)
+    if url.startswith(("http://", "https://")):
+        digest = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+        dest = target_dir / f"src-{digest}.mp4"
+        if dest.exists():
+            return dest
+        tmp = dest.with_suffix(".mp4.tmp")
+        with httpx.Client(timeout=60.0) as client:
+            with client.stream("GET", url) as resp:
+                resp.raise_for_status()
+                with tmp.open("wb") as fh:
+                    for chunk in resp.iter_bytes(64 * 1024):
+                        fh.write(chunk)
+        tmp.replace(dest)
+        return dest
+    # Local path — strip optional leading ``/`` and resolve under
+    # data_path. Operators driving the endpoint via shell pass
+    # paths like ``/data/_internal/...`` (relative to
+    # ``settings.data_path``); the host filesystem path is the
+    # same prefix.
+    candidate = Path(url)
+    if not candidate.is_absolute():
+        candidate = settings.data_path / url.lstrip("/")
+    if not candidate.exists():
+        raise FileNotFoundError(f"concat input not found: {url}")
+    return candidate
+
+
+@router.post(
+    "/clips/concat/", response_model=InternalConcatClipsResponse,
+)
+def post_internal_concat_clips(
+    body: InternalConcatClipsCreate,
+    settings: Settings = Depends(get_settings),
+):
+    """Stitch N video clips into one MP4 via ffmpeg concat.
+
+    Synchronous — operator's Celery worker blocks for the
+    duration. Output is cached at
+    ``data/_internal/concats/<hash>.mp4`` keyed off the input
+    URL list so re-calls with the same inputs are idempotent.
+    """
+    clip_urls = [u.strip() for u in body.clip_urls if u and u.strip()]
+    if not clip_urls:
+        return _error(422, "validation_error", "clip_urls must contain at least one URL")
+
+    # Deterministic cache key from input URLs + reencode flag.
+    cache_seed = ("|".join(clip_urls) + f"|reencode={body.reencode}").encode("utf-8")
+    cache_key = hashlib.sha256(cache_seed).hexdigest()[:16]
+
+    if settings.runway_mock:
+        output_url = f"/data/_internal/concats/mock-{cache_key}.mp4"
+        logger.info(
+            "internal concat_clips mock output=%s inputs=%d",
+            output_url, len(clip_urls),
+        )
+        return InternalConcatClipsResponse(
+            output_url=output_url,
+            duration_seconds=float(len(clip_urls) * 5),
+            size_bytes=1024 * 1024,
+            mock_mode=True,
+        )
+
+    import shutil
+    import subprocess
+
+    if not shutil.which("ffmpeg"):
+        return _error(
+            500, "internal_error",
+            "ffmpeg not found on PATH — install ffmpeg in the "
+            "media-engine container",
+        )
+
+    target_dir = _concat_clips_dir(settings)
+    output_path = target_dir / f"{cache_key}.mp4"
+    if output_path.exists():
+        return InternalConcatClipsResponse(
+            output_url=f"/data/_internal/concats/{output_path.name}",
+            duration_seconds=None,
+            size_bytes=output_path.stat().st_size,
+            mock_mode=False,
+        )
+
+    # Resolve every input to a local path (downloading externals).
+    try:
+        local_paths = [
+            _download_concat_input(u, target_dir / "sources", settings)
+            for u in clip_urls
+        ]
+    except FileNotFoundError as exc:
+        return _error(400, "validation_error", str(exc))
+    except httpx.HTTPError as exc:
+        logger.warning("concat_clips download failed: %s", exc)
+        return _error(502, "upstream_runway_error", f"download error: {exc!s}"[:300])
+
+    tmp = output_path.with_suffix(".mp4.tmp")
+    try:
+        if body.reencode:
+            cmd = _build_reencode_cmd(local_paths, tmp)
+        else:
+            # concat demuxer with -c copy. Fast, requires uniform inputs.
+            filelist_path = target_dir / f"{cache_key}.txt"
+            with filelist_path.open("w") as fh:
+                for p in local_paths:
+                    # ffmpeg concat-demuxer file lines must be POSIX-quoted.
+                    fh.write(f"file '{p.as_posix()}'\n")
+            cmd = [
+                "ffmpeg", "-y", "-loglevel", "error",
+                "-f", "concat", "-safe", "0",
+                "-i", str(filelist_path),
+                "-c", "copy",
+                "-movflags", "+faststart",
+                "-f", "mp4",
+                str(tmp),
+            ]
+
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=300,
+        )
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()[-400:]
+            tmp.unlink(missing_ok=True)
+            logger.warning(
+                "concat_clips ffmpeg rc=%s stderr=%s",
+                result.returncode, stderr,
+            )
+            return _error(
+                500, "internal_error",
+                f"ffmpeg rc={result.returncode}: {stderr}",
+            )
+        if not tmp.exists():
+            return _error(500, "internal_error", "ffmpeg produced no output file")
+        tmp.replace(output_path)
+    except subprocess.TimeoutExpired:
+        tmp.unlink(missing_ok=True)
+        return _error(500, "internal_error", "ffmpeg concat timed out")
+    except Exception as exc:  # pragma: no cover — defensive
+        tmp.unlink(missing_ok=True)
+        logger.exception("concat_clips unexpected")
+        return _error(500, "internal_error", f"unexpected: {exc!s}"[:300])
+
+    logger.info(
+        "internal concat_clips done output=%s inputs=%d size=%d",
+        output_path.name, len(clip_urls), output_path.stat().st_size,
+    )
+    return InternalConcatClipsResponse(
+        output_url=f"/data/_internal/concats/{output_path.name}",
+        duration_seconds=None,
+        size_bytes=output_path.stat().st_size,
+        mock_mode=False,
+    )
+
+
+def _build_reencode_cmd(local_paths: list[Path], tmp: Path) -> list[str]:
+    """Build the filter_complex normalization cmd for
+    heterogeneous inputs. Mirrors finisher_service's storyboard
+    concat but preserves audio (concat=n=N:v=1:a=1)."""
+    target_w, target_h, fps = 1280, 720, 30
+    norm_filters = []
+    concat_in = ""
+    for idx in range(len(local_paths)):
+        norm_filters.append(
+            f"[{idx}:v]scale={target_w}:{target_h}:force_original_aspect_ratio=increase,"
+            f"crop={target_w}:{target_h},setsar=1,fps={fps}[v{idx}]"
+        )
+        norm_filters.append(
+            f"[{idx}:a]aresample=async=1[a{idx}]"
+        )
+        concat_in += f"[v{idx}][a{idx}]"
+    filter_complex = (
+        ";".join(norm_filters)
+        + f";{concat_in}concat=n={len(local_paths)}:v=1:a=1[outv][outa]"
+    )
+    cmd = ["ffmpeg", "-y", "-loglevel", "error"]
+    for p in local_paths:
+        cmd += ["-i", str(p)]
+    cmd += [
+        "-filter_complex", filter_complex,
+        "-map", "[outv]", "-map", "[outa]",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+        "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "192k",
+        "-movflags", "+faststart",
+        "-f", "mp4",
+        str(tmp),
+    ]
+    return cmd
+
+
 # ---- POST /internal/voices/ ---------------------------------------
 #
 # Inline / synchronous voice cloning. Runway's clone returns in <10 s

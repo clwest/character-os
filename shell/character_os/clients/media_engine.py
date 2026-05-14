@@ -132,6 +132,20 @@ class VideoCreateResult:
 
 
 @dataclass
+class ConcatClipsResult:
+    """Decoded response from ``POST /internal/clips/concat/``.
+
+    Synchronous endpoint — there's no polling. The output URL
+    points at a cached MP4 the media-engine produced from the
+    operator-supplied inputs."""
+
+    output_url: str
+    duration_seconds: float | None
+    size_bytes: int | None
+    mock_mode: bool
+
+
+@dataclass
 class VideoPollResult:
     """Decoded response from ``GET /internal/videos/{task_id}/``."""
 
@@ -389,6 +403,43 @@ class MediaEngineClient:
         except (KeyError, TypeError, ValueError) as exc:
             raise MediaEngineError(
                 f"create_visual_clip response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
+    def concat_clips(
+        self,
+        *,
+        clip_urls: list[str],
+        reencode: bool = False,
+    ) -> "ConcatClipsResult":
+        """Hit ``POST /internal/clips/concat/`` — synchronous
+        ffmpeg stitch. Returns the cached output URL + size.
+
+        Inputs may be external URLs (Runway-hosted) or local
+        paths the media-engine can reach (``/data/_internal/...``).
+        The endpoint downloads externals on the fly, then runs
+        ``ffmpeg -f concat -c copy`` by default. ``reencode=True``
+        forces filter_complex normalization for heterogeneous
+        inputs.
+        """
+        body: dict[str, Any] = {
+            "clip_urls": clip_urls,
+            "reencode": reencode,
+        }
+        data = self.request("POST", "/internal/clips/concat/", json=body)
+        try:
+            return ConcatClipsResult(
+                output_url=str(data["output_url"]),
+                duration_seconds=_as_float_or_none(data.get("duration_seconds")),
+                size_bytes=(
+                    int(data["size_bytes"]) if data.get("size_bytes") is not None
+                    else None
+                ),
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"concat_clips response not in expected shape: {data!r}",
                 response_text=str(data),
             ) from exc
 
