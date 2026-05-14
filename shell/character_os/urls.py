@@ -8,6 +8,8 @@ its own DRF router and gets included here under `/api/`.
 from django.contrib import admin
 from django.urls import include, path
 
+from character_os.api_prompts import suggest_tone
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     # allauth — /accounts/login/, /accounts/signup/, /accounts/google/login/,
@@ -23,4 +25,6 @@ urlpatterns = [
     path("api/", include("apps.videos.urls")),
     path("api/", include("apps.conversations.urls")),
     path("api/", include("apps.billing.urls")),
+    # Thin wrappers around character_os.prompts helpers (SESSION 129).
+    path("api/prompts/suggest-tone/", suggest_tone, name="suggest-tone"),
 ]

@@ -58,13 +58,22 @@ test.describe("wizard scaffold (slice 5)", () => {
     await expect(page.getByTestId("wizard-step-1")).toBeVisible();
     await expect(page.getByText(/Step 1 of 4/i)).toBeVisible();
 
-    // Next is gated until a name is typed.
+    // Next is gated until name AND a long-enough brief are typed
+    // (SESSION 129 — slice 6 tightened the gate beyond just-a-name).
     const next = page.getByTestId("wizard-next");
     await expect(next).toBeDisabled();
 
-    // Type a name → Next enables.
     const nameInput = page.getByTestId("wizard-name-input");
+    const briefInput = page.getByTestId("wizard-brief-input");
     await nameInput.fill("Wizard Test Spokesperson");
+    // Brief alone is too short — Next still disabled.
+    // (5 chars; the gate floor is 8.)
+    await briefInput.fill("Short");
+    await expect(next).toBeDisabled();
+    // Push brief past the 8-char floor → Next enables.
+    await briefInput.fill(
+      "Sells artisan bicycle bells to small bike shops.",
+    );
     await expect(next).toBeEnabled();
 
     // Advance to Step 2.

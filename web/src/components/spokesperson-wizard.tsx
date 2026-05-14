@@ -1,10 +1,12 @@
 import { useCallback, useReducer } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Check } from "lucide-react";
+import { ArrowLeft, Check, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useMe } from "@/lib/api/workspaces";
+import { useSuggestTone } from "@/lib/api/prompts";
+import { TONE_ARCHETYPES, type ToneArchetype } from "@/lib/api/spokespeople";
 import { cn } from "@/lib/utils";
 
 /**
@@ -116,13 +118,19 @@ function reducer(state: WizardState, action: WizardAction): WizardState {
 // rule as they wire the real bodies; today the rules are loose
 // placeholders that match the scaffold's minimal inputs.
 
+// Min business_brief length — matches the legacy form's createSchema
+// (`min(8, "Give the spokesperson at least a sentence of context.")`).
+const MIN_BRIEF_CHARS = 8;
+
 function canAdvance(state: WizardState): boolean {
   switch (state.step) {
     case 1:
-      // Slice 6 will require name + brief; for now, the placeholder
-      // input is the name field, so we accept any non-empty value to
-      // prove state preservation across navigation.
-      return state.identity.name.trim().length > 0;
+      // Step 1 (slice 6): name AND brief required. tone_archetype
+      // has a sane default (`expert`) so we don't gate on it.
+      return (
+        state.identity.name.trim().length > 0 &&
+        state.identity.business_brief.trim().length >= MIN_BRIEF_CHARS
+      );
     case 2:
     case 3:
       // Slices 7 + 8 wire the real gates; placeholder always advances.
@@ -272,13 +280,26 @@ function Step1Identity({
   state: WizardState;
   dispatch: React.Dispatch<WizardAction>;
 }) {
+  const briefTrimmed = state.identity.business_brief.trim();
+  const briefTooShort =
+    briefTrimmed.length > 0 && briefTrimmed.length < MIN_BRIEF_CHARS;
+
+  // Reactive tone suggestion — fires only when the brief is long
+  // enough that the keyword scan can return something useful. The
+  // hook itself debounces by way of TanStack Query's `staleTime`.
+  const suggestion = useSuggestTone(state.identity.business_brief);
+  const showSuggestion =
+    suggestion.data != null &&
+    suggestion.data !== state.identity.tone_archetype;
+
   return (
     <>
       <StepHeading
         kicker="Step 1 of 4"
         title="Identity"
-        body="Name, business brief, and tone. Slice 6 wires the full Identity form; today's scaffold accepts just a name to prove state preservation across navigation."
+        body="What this spokesperson is called, what they speak about, and how they sound. Drives every video the workspace renders against them."
       />
+
       <div className="flex flex-col gap-2">
         <Label
           htmlFor="wizard-name"
@@ -286,10 +307,15 @@ function Step1Identity({
         >
           Name
         </Label>
+        <p className="text-xs text-muted-foreground">
+          What this spokesperson is called inside the workspace.
+        </p>
         <Input
           id="wizard-name"
           type="text"
           placeholder="Casey, Coach Ben, The Bell Curve…"
+          autoComplete="off"
+          maxLength={120}
           value={state.identity.name}
           onChange={(e) =>
             dispatch({ type: "SET_IDENTITY", patch: { name: e.target.value } })
@@ -297,11 +323,115 @@ function Step1Identity({
           data-testid="wizard-name-input"
         />
       </div>
-      <SliceCallout>
-        Slice 6 lands: business_brief textarea, tone_archetype select
-        (with <code>suggest_tone_from_brief</code> inline suggestion).
-      </SliceCallout>
+
+      <div className="flex flex-col gap-2">
+        <Label
+          htmlFor="wizard-brief"
+          className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground"
+        >
+          Business brief
+        </Label>
+        <p className="text-xs text-muted-foreground">
+          One paragraph the spokesperson speaks from. The business,
+          the product, the audience, the tone.
+        </p>
+        <textarea
+          id="wizard-brief"
+          rows={5}
+          maxLength={4000}
+          className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          placeholder="Sells artisan bicycle bells to small bike shops. Tone: warm, opinionated, just-the-facts. Audience: shop owners under 45 who care about hand-built parts."
+          value={state.identity.business_brief}
+          onChange={(e) =>
+            dispatch({
+              type: "SET_IDENTITY",
+              patch: { business_brief: e.target.value },
+            })
+          }
+          data-testid="wizard-brief-input"
+        />
+        {briefTooShort && (
+          <p
+            className="text-xs text-destructive"
+            data-testid="wizard-brief-error"
+          >
+            Give the spokesperson at least a sentence of context
+            ({MIN_BRIEF_CHARS}+ characters).
+          </p>
+        )}
+        {showSuggestion && (
+          <ToneSuggestion
+            suggested={suggestion.data!}
+            onAccept={() =>
+              dispatch({
+                type: "SET_IDENTITY",
+                patch: { tone_archetype: suggestion.data! },
+              })
+            }
+          />
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label
+          htmlFor="wizard-tone"
+          className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground"
+        >
+          Tone archetype
+        </Label>
+        <p className="text-xs text-muted-foreground">
+          How the spokesperson sounds + how scripts read. Defaults to
+          <strong> expert</strong> — change it if the brief suggests
+          otherwise.
+        </p>
+        <select
+          id="wizard-tone"
+          value={state.identity.tone_archetype}
+          onChange={(e) =>
+            dispatch({
+              type: "SET_IDENTITY",
+              patch: { tone_archetype: e.target.value as ToneArchetype },
+            })
+          }
+          className="h-10 rounded-md border border-border bg-card px-3 font-mono text-sm capitalize transition-colors focus:border-primary focus:outline-none"
+          data-testid="wizard-tone-select"
+        >
+          {TONE_ARCHETYPES.map((tone) => (
+            <option key={tone} value={tone} className="capitalize">
+              {tone}
+            </option>
+          ))}
+        </select>
+      </div>
     </>
+  );
+}
+
+function ToneSuggestion({
+  suggested,
+  onAccept,
+}: {
+  suggested: ToneArchetype;
+  onAccept: () => void;
+}) {
+  return (
+    <div
+      className="flex flex-wrap items-center justify-between gap-3 rounded-sm border-l-2 border-primary/40 bg-primary/5 px-3 py-2 text-xs"
+      data-testid="wizard-tone-suggestion"
+    >
+      <span className="flex items-center gap-2 text-foreground/80">
+        <Sparkles className="h-3 w-3 text-primary" aria-hidden />
+        Looks like a <strong className="capitalize">{suggested}</strong> brief.
+      </span>
+      <button
+        type="button"
+        onClick={onAccept}
+        className="font-mono text-[11px] uppercase tracking-[0.18em] text-primary transition-colors hover:text-primary/80"
+        data-testid="wizard-tone-suggestion-accept"
+      >
+        Pick {suggested} →
+      </button>
+    </div>
   );
 }
 
