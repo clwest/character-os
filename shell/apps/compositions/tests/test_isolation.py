@@ -54,6 +54,7 @@ ALLOWED_FILES = {
     "apps/compositions/tests/test_isolation.py",
     "apps/compositions/tests/test_runtime.py",
     "apps/compositions/tests/test_primitive_avatar_speech.py",
+    "apps/compositions/tests/test_primitive_visual_clip.py",
 }
 
 

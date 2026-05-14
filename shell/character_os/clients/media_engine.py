@@ -352,6 +352,46 @@ class MediaEngineClient:
                 response_text=str(data),
             ) from exc
 
+    def create_visual_clip(
+        self,
+        *,
+        prompt: str,
+        ratio: str | None = None,
+        duration: int | None = None,
+        prompt_image: str | None = None,
+    ) -> VideoCreateResult:
+        """Hit ``POST /internal/clips/visual/`` — Runway's silent
+        visual pipeline. Routes through ``gen4_turbo`` (image-to-
+        video) when ``prompt_image`` is supplied, ``gen4.5``
+        (text-to-video) otherwise.
+
+        Returns immediately with a Runway task id; caller polls
+        ``poll_task(task_id)`` for terminal state. Same shape as
+        ``create_avatar_speech`` — both endpoints share the
+        generalised poll route.
+        """
+        body: dict[str, Any] = {"prompt": prompt}
+        if ratio is not None:
+            body["ratio"] = ratio
+        if duration is not None:
+            body["duration"] = duration
+        if prompt_image is not None:
+            body["prompt_image"] = prompt_image
+
+        data = self.request("POST", "/internal/clips/visual/", json=body)
+        try:
+            return VideoCreateResult(
+                task_id=str(data["task_id"]),
+                status=str(data["status"]),
+                kind=str(data.get("kind", "visual_clip")),
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"create_visual_clip response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
     def poll_task(self, task_id: str) -> VideoPollResult:
         """Hit ``GET /internal/tasks/{task_id}/`` — the generalised
         poll for every async primitive in the V0+ composition arc.

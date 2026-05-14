@@ -36,6 +36,7 @@ from .mock import (
     PrimitiveError,
     PrimitiveResult,
 )
+from .visual_clip import GenerateVisualClipPrimitive
 
 
 class Primitive(Protocol):
@@ -68,7 +69,7 @@ _REGISTRY: dict[str, Type[Primitive]] = {
     "mock_failure": MockFailurePrimitive,
     "mock_slow": MockSlowPrimitive,
     "generate_avatar_speech": GenerateAvatarSpeechPrimitive,  # V3
-    # V4+: "generate_visual_clip": GenerateVisualClipPrimitive,
+    "generate_visual_clip": GenerateVisualClipPrimitive,  # V4
     # V5+: "split_script": SplitScriptPrimitive,
     # V5+: "concat_clips": ConcatClipsPrimitive,
     # ...etc through V14

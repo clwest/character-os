@@ -113,3 +113,97 @@ def talking_head(
         composition.id, spokesperson.id, mock_mode, use_knowledge,
     )
     return composition
+
+
+@transaction.atomic
+def cinematic_visual(
+    *,
+    workspace: "Workspace",
+    spokesperson: "Spokesperson",
+    prompt: str,
+    prompt_image: str | None = None,
+    ratio: str | None = None,
+    duration: int | None = None,
+    mock_mode: bool = False,
+    name: str = "",
+    created_by: "AbstractBaseUser | None" = None,
+) -> Composition:
+    """Create a single-step ``cinematic_visual`` composition.
+
+    One step: ``generate_visual_clip`` with the operator's
+    prompt. Silent visual output — no avatar, no speech. Use for
+    cinematic backdrops, b-roll, or standalone visual ads.
+
+    Routes through Runway's ``gen4_turbo`` (image-to-video) when
+    ``prompt_image`` is supplied, ``gen4.5`` (text-to-video)
+    otherwise.
+
+    Args:
+        workspace: Composition's workspace anchor (V0 contract
+            rule 1). Must contain ``spokesperson``.
+        spokesperson: Brand owner for the clip — required on
+            Composition even though the visual itself doesn't
+            feature the avatar. The clip belongs to "Sasha's
+            brand" even if Sasha isn't on screen.
+        prompt: Visual prompt for Runway. Required.
+        prompt_image: Optional reference image URL. When
+            present, drives the ``gen4_turbo`` image-to-video
+            path. Mirrors V13's eventual ``generate_image`` →
+            ``generate_visual_clip`` chain via the
+            ``reference_image`` input slot, but takes
+            precedence over it when both are provided.
+        ratio: ``1280:720`` | ``720:1280`` | ``960:960``.
+            Server-side default ``1280:720``.
+        duration: Output length in seconds. ``gen4_turbo``
+            accepts ``{5}``; ``gen4.5`` accepts ``{5, 8, 10}``.
+            Server-side default 5.
+        mock_mode: Run in mock-mode (V0 contract rule 9).
+        name: Operator-visible name. Defaults to
+            "Cinematic visual — {prompt[:40]}".
+        created_by: Optional User for audit attribution.
+
+    Returns:
+        The fresh ``Composition`` row. Caller enqueues
+        ``execute_composition.delay(str(comp.id))`` to run it.
+    """
+    if not prompt.strip():
+        raise ValueError("cinematic_visual starter requires a non-empty prompt")
+    if spokesperson.workspace_id != workspace.pk:
+        raise ValueError(
+            f"spokesperson {spokesperson.name!r} (workspace "
+            f"{spokesperson.workspace_id}) is not in workspace "
+            f"{workspace.pk}"
+        )
+
+    composition_name = name.strip() or f"Cinematic visual — {prompt[:40]}"
+    composition = Composition.objects.create(
+        workspace=workspace,
+        spokesperson=spokesperson,
+        name=composition_name,
+        template_kind="cinematic_visual",
+        mock_mode=mock_mode,
+        created_by=created_by,
+    )
+    params: dict[str, object] = {"prompt": prompt.strip()}
+    if prompt_image is not None:
+        params["prompt_image"] = prompt_image
+    if ratio is not None:
+        params["ratio"] = ratio
+    if duration is not None:
+        params["duration"] = duration
+
+    CompositionStep.objects.create(
+        composition=composition,
+        position=0,
+        primitive="generate_visual_clip",
+        inputs=[],
+        params=params,
+    )
+
+    logger.info(
+        "starter cinematic_visual created composition=%s spokesperson=%s "
+        "mock=%s has_image=%s ratio=%s duration=%s",
+        composition.id, spokesperson.id, mock_mode,
+        bool(prompt_image), ratio, duration,
+    )
+    return composition

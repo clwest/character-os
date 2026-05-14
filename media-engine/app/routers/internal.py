@@ -615,6 +615,104 @@ def get_internal_task(
     return _poll_runway_task(task_id, settings)
 
 
+# ---- POST /internal/clips/visual/ ---------------------------------
+#
+# SESSION 143 / V4. Silent visual clip generation via Runway's
+# ``/v1/image_to_video`` (``gen4_turbo``) or ``/v1/text_to_video``
+# (``gen4.5``) — the same underlying call ``/internal/videos/``
+# makes today, but exposed as a V0-aligned primitive endpoint
+# without the legacy ``kind`` discriminator + avatar_id baggage.
+#
+# Same Runway task ID space as ``/internal/clips/avatar_speech/`` —
+# both poll through ``GET /internal/tasks/{task_id}/``. The legacy
+# ``/internal/videos/`` stays in place until V6 retires it.
+
+
+class InternalVisualClipCreate(BaseModel):
+    """Request body for ``POST /internal/clips/visual/``."""
+
+    prompt: str = Field(..., min_length=1, max_length=2000)
+    ratio: str = Field(default="1280:720")
+    duration: int = Field(default=5, ge=5, le=10)
+    prompt_image: Optional[str] = Field(default=None, max_length=2048)
+
+
+class InternalVisualClipCreateResponse(BaseModel):
+    task_id: str
+    status: str  # "pending" | "rendering"
+    kind: Literal["visual_clip"] = "visual_clip"
+    mock_mode: bool
+
+
+@router.post(
+    "/clips/visual/", response_model=InternalVisualClipCreateResponse,
+)
+def post_internal_visual_clip(
+    body: InternalVisualClipCreate,
+    settings: Settings = Depends(get_settings),
+):
+    """Fire a silent visual clip render. Returns immediately with
+    a Runway task id; caller polls
+    ``GET /internal/tasks/{task_id}/`` for terminal state.
+
+    Model resolution mirrors ``/internal/videos/``: ``gen4_turbo``
+    when ``prompt_image`` is supplied (image-to-video),
+    ``gen4.5`` otherwise (text-to-video).
+
+    Same validation as the legacy route — per-model ratio +
+    duration enforcement via ``validate_generation_settings``.
+    """
+    model = resolve_model(None, settings)
+    has_image = bool(body.prompt_image and body.prompt_image.strip())
+    try:
+        validate_generation_settings(
+            model=model,
+            ratio=body.ratio,
+            duration=body.duration,
+            has_image=has_image,
+            enforce_image_required=not settings.runway_mock,
+        )
+    except GenerationSettingsError as exc:
+        return _error(400, "invalid_settings", str(exc))
+
+    req = RunwayGenerateRequest(
+        prompt_text=body.prompt,
+        prompt_image=body.prompt_image,
+        ratio=body.ratio,
+        duration=body.duration,
+        model=model,
+    )
+
+    try:
+        runway_resp = runway_create_task(req, settings)
+    except httpx.HTTPStatusError as exc:
+        logger.warning(
+            "internal visual_clip runway error %s: %s",
+            exc.response.status_code, exc.response.text[:300],
+        )
+        return _error(
+            502, "upstream_runway_error",
+            f"runway returned {exc.response.status_code}",
+        )
+    except httpx.HTTPError as exc:
+        logger.warning("internal visual_clip http error: %s", exc)
+        return _error(502, "upstream_runway_error", f"http error: {exc!s}"[:300])
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.exception("internal visual_clip unexpected")
+        return _error(500, "internal_error", f"unexpected: {exc!s}"[:300])
+
+    contract_status = _RUNWAY_TO_CONTRACT_STATUS.get(runway_resp.status, "pending")
+    logger.info(
+        "internal visual_clip task created model=%s has_image=%s task=%s status=%s mock=%s",
+        model, has_image, runway_resp.task_id, contract_status, runway_resp.mock_mode,
+    )
+    return InternalVisualClipCreateResponse(
+        task_id=runway_resp.task_id,
+        status=contract_status,
+        mock_mode=runway_resp.mock_mode,
+    )
+
+
 # ---- POST /internal/voices/ ---------------------------------------
 #
 # Inline / synchronous voice cloning. Runway's clone returns in <10 s
