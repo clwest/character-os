@@ -59,8 +59,10 @@ def _setup(email: str, sp_name: str, sp_brief: str = "Brief.") -> tuple[Workspac
         name=sp_name,
         business_brief=sp_brief,
         # The viewset short-circuits to FAILED when there's no
-        # runway_avatar_id. Set a fake one so the render path runs.
+        # runway_avatar_id or portrait_path (K6.2). Set fakes so
+        # the render path runs.
         runway_avatar_id="fake-avatar-id-for-test",
+        portrait_path="https://fake.test/portrait.png",
     )
     return ws, sp, user
 
@@ -210,5 +212,41 @@ def test_video_create_with_no_avatar_fails_fast_and_skips_synthesis() -> None:
     assert video.status == Video.Status.FAILED
     assert "avatar" in video.error_message
     # Media-engine never called → synthesis is skipped
+    mc.assert_not_called()
+    assert video.knowledge_chunk_ids == []
+
+
+def test_video_create_with_no_portrait_fails_fast_and_skips_synthesis() -> None:
+    """K6.2 — if the spokesperson has an avatar but no portrait,
+    real-mode media-engine would 400 opaquely on missing
+    ``prompt_image``. Shell catches this and fails fast with a
+    clear operator-facing message instead."""
+    ws, _, user = _setup("k62_portrait@test", "TempSp")
+    sp = Spokesperson.objects.create(
+        workspace=ws,
+        name="No Portrait",
+        business_brief="brief.",
+        runway_avatar_id="has-avatar-but-no-portrait",
+        # portrait_path intentionally left blank.
+    )
+
+    client = APIClient()
+    client.force_authenticate(user=user)
+
+    with patch("apps.videos.views.MediaEngineClient") as mc:
+        response = client.post(
+            "/api/videos/",
+            {
+                "spokesperson": str(sp.pk),
+                "brief": "Anything.",
+                "kind": Video.Kind.SPOKESPERSON_AD,
+            },
+            format="json",
+        )
+
+    assert response.status_code == http.HTTP_201_CREATED
+    video = Video.objects.get(pk=response.json()["id"])
+    assert video.status == Video.Status.FAILED
+    assert "portrait" in video.error_message
     mc.assert_not_called()
     assert video.knowledge_chunk_ids == []

@@ -86,18 +86,49 @@ def _persist(
     spokespeople: "list[Spokesperson] | None" = None,
 ) -> IngestResult:
     """Create-or-return the KnowledgeDocument row. Dedup via
-    ``(workspace, content_hash)`` unique constraint."""
+    ``(workspace, content_hash)`` unique constraint.
+
+    SESSION 142 / K4.2: if the matching row is soft-deleted
+    (``is_active=False``), restore it — flip active, reset to
+    PENDING, clear the error message, update the title, and
+    return ``deduped=False`` so the caller re-fires the
+    embedding task. Otherwise an operator who deletes a doc
+    then re-ingests the same content is stuck: dedup hands back
+    a row they can't see and never re-fires embeds.
+    """
     digest = _content_hash(processed_content)
 
     existing = KnowledgeDocument.objects.filter(
         workspace=workspace, content_hash=digest,
     ).first()
     if existing is not None:
+        if existing.is_active:
+            logger.info(
+                "knowledge ingest deduped workspace=%s hash=%s doc=%s",
+                workspace.slug, digest[:12], existing.pk,
+            )
+            return IngestResult(document=existing, deduped=True)
+
+        # Soft-deleted row with the same content: restore +
+        # re-embed. embed_document is idempotent — it wipes
+        # stale chunks before re-running, so calling it on a
+        # previously-processed doc is safe.
+        existing.is_active = True
+        existing.status = DocumentStatus.PENDING
+        existing.error_message = ""
+        new_title = title.strip()
+        if new_title:
+            existing.title = new_title
+        existing.save(update_fields=[
+            "is_active", "status", "error_message", "title", "updated_at",
+        ])
+        if spokespeople:
+            existing.spokespeople.set(spokespeople)
         logger.info(
-            "knowledge ingest deduped workspace=%s hash=%s doc=%s",
+            "knowledge ingest restored workspace=%s hash=%s doc=%s",
             workspace.slug, digest[:12], existing.pk,
         )
-        return IngestResult(document=existing, deduped=True)
+        return IngestResult(document=existing, deduped=False)
 
     try:
         with transaction.atomic():

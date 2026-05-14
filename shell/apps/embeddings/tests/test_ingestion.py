@@ -118,6 +118,53 @@ def test_ingest_text_with_spokespeople_m2m_works() -> None:
 
 
 @pytest.mark.django_db
+def test_ingest_text_restores_soft_deleted_row() -> None:
+    """K4.2 — re-ingesting the same content as a soft-deleted
+    row should restore (flip ``is_active=True``, reset to
+    PENDING, clear error) and return ``deduped=False`` so the
+    caller re-fires ``embed_document``. Otherwise dedup hands
+    back a row the operator can't see and never re-embeds."""
+    ws = _make_workspace("restore@test.local", "Restore WS")
+    text = "Content that will get soft-deleted then restored."
+
+    first = ingest_text(workspace=ws, title="original", content=text)
+    assert first.deduped is False
+
+    # Operator soft-deletes (mirrors the viewset's destroy).
+    doc = first.document
+    doc.is_active = False
+    doc.status = DocumentStatus.FAILED
+    doc.error_message = "stale failure"
+    doc.save()
+
+    # Re-ingest — same content, new title.
+    second = ingest_text(workspace=ws, title="restored", content=text)
+    assert second.deduped is False, "restored row should re-fire embed"
+    assert second.document.pk == first.document.pk, "same row, not a new one"
+    assert second.document.is_active is True
+    assert second.document.status == DocumentStatus.PENDING
+    assert second.document.error_message == ""
+    assert second.document.title == "restored", "new title wins"
+
+
+@pytest.mark.django_db
+def test_ingest_text_restore_preserves_title_when_new_is_blank() -> None:
+    """K4.2 — when restoring, an empty new title shouldn't
+    clobber the operator's original title."""
+    ws = _make_workspace("restore-title@test.local", "Restore Title WS")
+    text = "Content to test title preservation."
+
+    first = ingest_text(workspace=ws, title="keep me", content=text)
+    first.document.is_active = False
+    first.document.save(update_fields=["is_active"])
+
+    # URL-ingest path passes title="" when nothing supplied.
+    second = ingest_text(workspace=ws, title="", content=text)
+    assert second.deduped is False
+    assert second.document.title == "keep me"
+
+
+@pytest.mark.django_db
 def test_ingest_text_rejects_cross_workspace_spokesperson_attach() -> None:
     ws_a = _make_workspace("x1@test.local", "X1")
     ws_b = _make_workspace("x2@test.local", "X2")

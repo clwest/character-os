@@ -70,11 +70,26 @@ class VideoViewSet(viewsets.ModelViewSet):
         instance: Video = serializer.save()
 
         spokesperson = instance.spokesperson
+        # SESSION 142 / K6.2 — pre-render validation. Fail fast
+        # at the shell layer with a clear operator-facing message
+        # rather than letting media-engine return an opaque 400
+        # ("avatar_id is required" / "prompt_image is required").
         if not spokesperson.runway_avatar_id:
             instance.status = Video.Status.FAILED
             instance.error_message = (
-                "spokesperson has no avatar yet — create one before "
-                "rendering a video"
+                "spokesperson has no avatar yet — finish the create-"
+                "spokesperson wizard (or run seed_cast) before rendering"
+            )
+            instance.save(
+                update_fields=["status", "error_message", "updated_at"]
+            )
+            return
+        if not spokesperson.portrait_path:
+            instance.status = Video.Status.FAILED
+            instance.error_message = (
+                "spokesperson has no portrait yet — finish the create-"
+                "spokesperson wizard (the portrait is generated alongside "
+                "the avatar) before rendering"
             )
             instance.save(
                 update_fields=["status", "error_message", "updated_at"]
