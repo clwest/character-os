@@ -601,6 +601,162 @@ def broll_splice(
 
 
 @transaction.atomic
+def talking_head_with_backdrop(
+    *,
+    workspace: "Workspace",
+    spokesperson: "Spokesperson",
+    script: str,
+    backdrop_prompt: str,
+    backdrop_ratio: str | None = None,
+    backdrop_duration: int | None = None,
+    fg_width: int = 320,
+    margin_x: int = 40,
+    margin_y: int = 40,
+    use_knowledge: bool = False,
+    mock_mode: bool = False,
+    name: str = "",
+    created_by: "AbstractBaseUser | None" = None,
+) -> Composition:
+    """Avatar talking over a cinematic backdrop. The first
+    multi-step starter that combines V3 + V4 + V7's
+    composite_video primitive.
+
+    Three steps:
+
+      Step 0 — generate_visual_clip (cinematic backdrop):
+        Runway gen4_turbo (image-to-video, if prompt_image
+        supplied via ratio params later) or gen4.5
+        (text-to-video). Produces a silent cinematic clip
+        sized to the composition's target aspect ratio.
+
+      Step 1 — generate_avatar_speech (avatar talking):
+        Runway gwm1_avatars. Produces a talking-head clip
+        with audio. Knowledge integration (K6) optional
+        via ``use_knowledge``.
+
+      Step 2 — composite_video kind=backdrop:
+        Step 0's output is the background canvas; step 1's
+        output is the foreground avatar tile in top-right
+        corner. Audio map = foreground (avatar).
+
+    Args:
+        workspace: Composition workspace anchor.
+        spokesperson: Avatar identity for the speech step.
+            Must have a runway_avatar_id.
+        script: Words the avatar should say.
+        backdrop_prompt: Visual prompt for the cinematic
+            backdrop. Goes to generate_visual_clip's prompt
+            param.
+        backdrop_ratio: Optional aspect ratio for the
+            backdrop. Defaults to media-engine's server-side
+            default (1280:720).
+        backdrop_duration: Optional output duration in
+            seconds for the backdrop. The avatar clip's
+            duration is controlled by Runway based on script
+            length; for clean composite the backdrop should
+            be at least as long as the avatar (the composite
+            primitive trims to the shorter input).
+        fg_width: Width in pixels of the avatar tile in the
+            backdrop composite. Default 320 (~25% of a
+            720p backdrop).
+        margin_x, margin_y: Avatar tile margin from
+            top-right corner.
+        use_knowledge: Pipe the speech script through K6's
+            build_render_brief synthesis.
+        mock_mode: Run the composition in mock-mode (V0
+            contract rule 9). All three steps short-circuit
+            to deterministic stub assets; end-to-end
+            test-runnable.
+        name: Operator-visible name. Defaults to
+            "Avatar over backdrop — {first 40 chars of script}".
+        created_by: Optional User for audit attribution.
+
+    Returns:
+        The fresh ``Composition`` with 3 steps laid down.
+        Caller enqueues ``execute_composition.delay()``.
+    """
+    if not script.strip():
+        raise ValueError("talking_head_with_backdrop requires a non-empty script")
+    if not backdrop_prompt.strip():
+        raise ValueError("talking_head_with_backdrop requires a non-empty backdrop_prompt")
+    if spokesperson.workspace_id != workspace.pk:
+        raise ValueError(
+            f"spokesperson {spokesperson.name!r} (workspace "
+            f"{spokesperson.workspace_id}) is not in workspace "
+            f"{workspace.pk}"
+        )
+
+    composition_name = (
+        name.strip() or f"Avatar over backdrop — {script.strip()[:40]}"
+    )
+    composition = Composition.objects.create(
+        workspace=workspace,
+        spokesperson=spokesperson,
+        name=composition_name,
+        template_kind="talking_head_with_backdrop",
+        mock_mode=mock_mode,
+        created_by=created_by,
+    )
+
+    # Step 0 — cinematic backdrop. Params mirror the
+    # cinematic_visual starter shape.
+    backdrop_params: dict[str, object] = {"prompt": backdrop_prompt.strip()}
+    if backdrop_ratio is not None:
+        backdrop_params["ratio"] = backdrop_ratio
+    if backdrop_duration is not None:
+        backdrop_params["duration"] = backdrop_duration
+    CompositionStep.objects.create(
+        composition=composition,
+        position=0,
+        primitive="generate_visual_clip",
+        inputs=[],
+        params=backdrop_params,
+    )
+
+    # Step 1 — avatar speech. Mirrors the talking_head starter.
+    CompositionStep.objects.create(
+        composition=composition,
+        position=1,
+        primitive="generate_avatar_speech",
+        inputs=[],
+        params={
+            "script": script.strip(),
+            "use_knowledge": bool(use_knowledge),
+        },
+    )
+
+    # Step 2 — composite the avatar over the backdrop.
+    # composite_video's `backdrop` layout expects
+    # [0] = background (cinematic), [1] = foreground (avatar).
+    CompositionStep.objects.create(
+        composition=composition,
+        position=2,
+        primitive="composite_video",
+        inputs=[
+            {"slot": "background", "from_step_position": 0},
+            {"slot": "foreground", "from_step_position": 1},
+        ],
+        params={
+            "layout_spec": {
+                "kind": "backdrop",
+                "options": {
+                    "fg_width": fg_width,
+                    "margin_x": margin_x,
+                    "margin_y": margin_y,
+                },
+            },
+        },
+    )
+
+    logger.info(
+        "starter talking_head_with_backdrop created composition=%s "
+        "spokesperson=%s mock=%s use_knowledge=%s fg_width=%d",
+        composition.id, spokesperson.id, mock_mode, use_knowledge, fg_width,
+    )
+    return composition
+
+
+@transaction.atomic
 def music_bed_pass(
     *,
     workspace: "Workspace",
