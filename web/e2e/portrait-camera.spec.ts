@@ -29,7 +29,7 @@ test.describe("portrait camera capture (wizard slice 1)", () => {
     ]);
 
     // 2) Go to the create form
-    await page.goto("/spokespeople/new");
+    await page.goto("/spokespeople/new?legacy=1");
     await page.getByLabel("Name").fill(name);
     await page.getByLabel("Business brief").fill(brief);
 
@@ -98,7 +98,7 @@ test.describe("portrait camera capture (wizard slice 1)", () => {
       page.getByRole("button", { name: /create account/i }).click(),
     ]);
 
-    await page.goto("/spokespeople/new");
+    await page.goto("/spokespeople/new?legacy=1");
     await page.getByLabel("Name").fill("Upload Tab Smoke");
     await page.getByLabel("Business brief").fill("Confirms upload tab is intact post-refactor.");
 

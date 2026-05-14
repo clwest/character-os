@@ -29,7 +29,7 @@ async function signUpAndOpenWizard(
     page.getByRole("button", { name: /create account/i }).click(),
   ]);
 
-  await page.goto("/spokespeople/new?wizard=1");
+  await page.goto("/spokespeople/new");
   await expect(page.getByTestId("wizard")).toBeVisible();
 
   // Step 1 — fill the gate. Brief is long enough to satisfy >= 8.

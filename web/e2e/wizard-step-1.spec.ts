@@ -37,7 +37,7 @@ test.describe("wizard step 1 — Identity body (slice 6)", () => {
     page,
   }) => {
     await signUp(page);
-    await page.goto("/spokespeople/new?wizard=1");
+    await page.goto("/spokespeople/new");
     await expect(page.getByTestId("wizard")).toBeVisible();
 
     const nameInput = page.getByTestId("wizard-name-input");
@@ -81,7 +81,7 @@ test.describe("wizard step 1 — Identity body (slice 6)", () => {
     page,
   }) => {
     await signUp(page);
-    await page.goto("/spokespeople/new?wizard=1");
+    await page.goto("/spokespeople/new");
 
     const briefInput = page.getByTestId("wizard-brief-input");
     await briefInput.fill("Hi");

@@ -58,17 +58,17 @@ interface TierLimitPayload {
 }
 
 export function CreateSpokespersonRoute() {
-  // SESSION 128 — wizard scaffold (slice 5) lands behind ?wizard=1.
-  // Default route serves the legacy single-form so the 12 existing
-  // Playwright specs stay green. Slices 6-9 fill in the wizard's
-  // step bodies; when slice 9 ships, we flip the default + retire
-  // the legacy form in a separate slice.
+  // SESSION 132 — wizard slice 9 flipped the default. The 4-step
+  // wizard now serves /spokespeople/new; the SESSION 121 legacy
+  // single-form lives behind ?legacy=1 as a temporary escape
+  // hatch. The legacy form will be retired entirely in a follow-up
+  // once the wizard's been exercised against real Runway calls.
   const [searchParams] = useSearchParams();
-  if (searchParams.get("wizard") === "1") {
-    return <SpokespersonWizard />;
+  if (searchParams.get("legacy") === "1") {
+    return <LegacyCreateForm />;
   }
 
-  return <LegacyCreateForm />;
+  return <SpokespersonWizard />;
 }
 
 function LegacyCreateForm() {

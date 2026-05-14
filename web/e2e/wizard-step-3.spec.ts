@@ -36,7 +36,7 @@ async function signUpAndReachStep3(
     page.getByRole("button", { name: /create account/i }).click(),
   ]);
 
-  await page.goto("/spokespeople/new?wizard=1");
+  await page.goto("/spokespeople/new");
   await expect(page.getByTestId("wizard")).toBeVisible();
 
   // Step 1 — fill identity.
@@ -81,15 +81,12 @@ test.describe("wizard step 3 — Voice body (slice 8)", () => {
     await expect(page.getByTestId("voice-preview")).toBeVisible();
     await expect(page.getByTestId("voice-preview")).toContainText(/vincent/i);
 
-    // Advance to Step 4.
+    // Advance to Step 4 — the review panel shows the preset.
     await page.getByTestId("wizard-next").click();
     await expect(page.getByTestId("wizard-step-4")).toBeVisible();
-
-    // The assembled payload (rendered via Step 4's DebugState) shows
-    // the preset committed.
-    const debug = page.getByTestId("wizard-debug-state");
-    await expect(debug).toContainText(/vincent/);
-    await expect(debug).toContainText(/preset/);
+    await expect(page.getByTestId("wizard-confirm-voice")).toContainText(
+      /runway preset · vincent/i,
+    );
   });
 
   test("upload path: drop wav → preview → advance", async ({ page }) => {
@@ -118,11 +115,10 @@ test.describe("wizard step 3 — Voice body (slice 8)", () => {
 
     await page.getByTestId("wizard-next").click();
     await expect(page.getByTestId("wizard-step-4")).toBeVisible();
-
-    // The payload debug shows the upload data URI was supplied.
-    const debug = page.getByTestId("wizard-debug-state");
-    await expect(debug).toContainText(/upload/);
-    await expect(debug).toContainText(/supplied/);
+    // Step 4 review row surfaces the upload + filename.
+    await expect(page.getByTestId("wizard-confirm-voice")).toContainText(
+      /uploaded · silence\.wav/i,
+    );
   });
 
   test("skip path: click Skip → land on Step 4 with default preset", async ({
@@ -134,9 +130,8 @@ test.describe("wizard step 3 — Voice body (slice 8)", () => {
     // advances.
     await page.getByTestId("wizard-voice-skip").click();
     await expect(page.getByTestId("wizard-step-4")).toBeVisible();
-
-    const debug = page.getByTestId("wizard-debug-state");
-    await expect(debug).toContainText(/vincent/);
-    await expect(debug).toContainText(/preset/);
+    await expect(page.getByTestId("wizard-confirm-voice")).toContainText(
+      /runway preset · vincent/i,
+    );
   });
 });

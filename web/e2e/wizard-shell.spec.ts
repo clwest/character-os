@@ -39,7 +39,7 @@ test.describe("wizard scaffold (slice 5)", () => {
     await signUp(page);
 
     // Land on the wizard route (opt-in via query gate).
-    await page.goto("/spokespeople/new?wizard=1");
+    await page.goto("/spokespeople/new");
     await expect(page.getByTestId("wizard")).toBeVisible();
 
     // Step indicator shows 4 pills; pill 1 is current.
@@ -109,10 +109,13 @@ test.describe("wizard scaffold (slice 5)", () => {
     await expect(page.getByTestId("wizard-step-4")).toBeVisible();
     await expect(page.getByText(/Step 4 of 4/i)).toBeVisible();
 
-    // On Step 4, the Next button reads "Create (slice 9)" and stays
-    // disabled — slice 9 will replace the gate.
-    await expect(next).toBeDisabled();
-    await expect(next).toContainText(/create/i);
+    // On Step 4 (SESSION 132 — slice 9 wired the submit), the
+    // primary button reads "Create spokesperson" and is enabled when
+    // all upstream gates pass. We don't click — that's covered by
+    // wizard-step-4.spec.ts. Here we just verify the navigation +
+    // gating shape.
+    await expect(next).toContainText(/create spokesperson/i);
+    await expect(next).toBeEnabled();
 
     // Navigate back all the way to Step 1.
     const prev = page.getByTestId("wizard-prev");
@@ -132,7 +135,7 @@ test.describe("wizard scaffold (slice 5)", () => {
 
   test("cancel returns to the dashboard", async ({ page }) => {
     await signUp(page);
-    await page.goto("/spokespeople/new?wizard=1");
+    await page.goto("/spokespeople/new");
 
     await Promise.all([
       page.waitForURL("**/dashboard"),
@@ -140,14 +143,22 @@ test.describe("wizard scaffold (slice 5)", () => {
     ]);
   });
 
-  test("legacy form still serves /spokespeople/new without the flag", async ({
+  test("wizard is the default at /spokespeople/new (no flag)", async ({
     page,
   }) => {
     await signUp(page);
-    // No ?wizard=1 → legacy form (the SESSION 121 single-form). The
-    // existing create-spokesperson.spec.ts covers the happy path; here
-    // we just confirm the legacy form's marker isn't gone.
+    // SESSION 132 flipped the route: wizard is the default; legacy
+    // form lives behind ?legacy=1 as an escape hatch.
     await page.goto("/spokespeople/new");
+    await expect(page.getByTestId("wizard")).toBeVisible();
+    await expect(page.getByTestId("create-submit")).toBeHidden();
+  });
+
+  test("legacy form still serves ?legacy=1 (escape hatch)", async ({
+    page,
+  }) => {
+    await signUp(page);
+    await page.goto("/spokespeople/new?legacy=1");
     await expect(page.getByTestId("wizard")).toBeHidden();
     await expect(page.getByTestId("create-submit")).toBeVisible();
   });

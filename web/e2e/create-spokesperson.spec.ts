@@ -39,11 +39,11 @@ test.describe("create spokesperson (S-06)", () => {
     await expect(empty).toBeVisible();
     await expect(empty).toContainText(/no spokespeople yet/i);
 
-    // 3) Click into the create flow
-    await Promise.all([
-      page.waitForURL("**/spokespeople/new"),
-      page.getByTestId("empty-create-cta").click(),
-    ]);
+    // 3) Navigate into the legacy create flow. After SESSION 132
+    //    the dashboard CTA goes to the wizard by default — this
+    //    spec covers the legacy form's regression. The wizard's
+    //    happy path is covered separately in wizard-step-4.spec.ts.
+    await page.goto("/spokespeople/new?legacy=1");
 
     // 4) Masthead renders
     await expect(page.getByText(/define\s*the spokesperson\./i)).toBeVisible();
@@ -79,7 +79,7 @@ test.describe("create spokesperson (S-06)", () => {
       page.getByRole("button", { name: /create account/i }).click(),
     ]);
 
-    await page.goto("/spokespeople/new");
+    await page.goto("/spokespeople/new?legacy=1");
 
     await page.getByLabel("Name").fill("With Portrait");
     await page

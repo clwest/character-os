@@ -6,9 +6,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useMe } from "@/lib/api/workspaces";
 import { useSuggestTone } from "@/lib/api/prompts";
-import { TONE_ARCHETYPES, type ToneArchetype } from "@/lib/api/spokespeople";
+import {
+  TONE_ARCHETYPES,
+  useCloneVoice,
+  useCreateSpokesperson,
+  type ToneArchetype,
+} from "@/lib/api/spokespeople";
 import { WizardPortraitStep } from "@/components/wizard-portrait-step";
 import { VoiceCapture, type VoiceCaptureValue } from "@/components/voice-capture";
+import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
 // Default skip-target preset. When the operator skips Step 3, the
@@ -16,6 +22,17 @@ import { cn } from "@/lib/utils";
 // voice pick. Matches the SESSION 126 detail-page UX where `vincent`
 // is the showcased default in the Preset tab dropdown.
 const DEFAULT_SKIP_PRESET = "vincent";
+
+// Tier-limit (HTTP 402) payload — mirrors the legacy form's shape so
+// the wizard surfaces the same upgrade callout.
+interface TierLimitPayload {
+  code: string;
+  message: string;
+  current_tier?: string;
+  suggested_tier?: string | null;
+  spokespeople_used?: number;
+  spokespeople_limit?: number;
+}
 
 /**
  * Create-spokesperson wizard scaffold (SESSION 128 — wizard slice 5).
@@ -145,23 +162,29 @@ const MIN_BRIEF_CHARS = 8;
 function canAdvance(state: WizardState): boolean {
   switch (state.step) {
     case 1:
-      // Step 1 (slice 6): name AND brief required. tone_archetype
-      // has a sane default (`expert`) so we don't gate on it.
+      // Step 1: name AND brief required. tone_archetype has a sane
+      // default (`expert`) so we don't gate on it.
       return (
         state.identity.name.trim().length > 0 &&
         state.identity.business_brief.trim().length >= MIN_BRIEF_CHARS
       );
     case 2:
-      // Step 2 (slice 7): a portrait must be chosen via one of the
-      // three modes (Upload / Camera / Generate).
+      // Step 2: a portrait must be chosen via one of the three
+      // modes (Upload / Camera / Generate).
       return state.portrait.dataUri != null;
     case 3:
-      // Slice 8 wires the real gate; placeholder always advances.
+      // Step 3: voice is optional (the operator can Skip → pre-
+      // filled default preset). Loose gate by design.
       return true;
     case 4:
-      // Confirm: scaffolded today as a stub. Slice 9 wires the
-      // actual create-spokesperson submit.
-      return false;
+      // Step 4 (SESSION 132 — slice 9): re-check the upstream gates
+      // defensively. Submit fires when all of name + brief +
+      // portrait are present.
+      return (
+        state.identity.name.trim().length > 0 &&
+        state.identity.business_brief.trim().length >= MIN_BRIEF_CHARS &&
+        state.portrait.dataUri != null
+      );
   }
 }
 
@@ -179,10 +202,74 @@ export function SpokespersonWizard() {
   const navigate = useNavigate();
   const me = useMe();
   const workspaceId = me.data?.default_workspace?.id;
+  const create = useCreateSpokesperson();
+  const clone = useCloneVoice();
 
   const onNext = useCallback(() => dispatch({ type: "NEXT" }), []);
   const onPrev = useCallback(() => dispatch({ type: "PREV" }), []);
   const onCancel = useCallback(() => navigate("/dashboard"), [navigate]);
+
+  const onSubmit = useCallback(async () => {
+    if (!workspaceId) return;
+    const voicePreset =
+      state.voice.mode === "preset" && state.voice.preset
+        ? state.voice.preset
+        : undefined;
+
+    let createdId: string;
+    try {
+      const sp = await create.mutateAsync({
+        workspace: workspaceId,
+        name: state.identity.name.trim(),
+        business_brief: state.identity.business_brief.trim(),
+        visual_subject: state.identity.visual_subject.trim() || undefined,
+        tone_archetype: state.identity.tone_archetype as ToneArchetype,
+        portrait_data_uri: state.portrait.dataUri ?? undefined,
+        voice_preset: voicePreset,
+      });
+      createdId = sp.id;
+    } catch {
+      // mutation error surfaces via create.error — stay on Step 4
+      // so the operator can read the error + retry.
+      return;
+    }
+
+    // Upload / record voice → follow-up clone-voice. Failure here
+    // doesn't roll back the row (the spokesperson is real + the
+    // detail page's setup checklist (SESSION 126) catches the
+    // missing voice). We still navigate on a clone failure.
+    if (
+      (state.voice.mode === "upload" || state.voice.mode === "record") &&
+      state.voice.dataUri
+    ) {
+      try {
+        await clone.mutateAsync({
+          id: createdId,
+          audio_data_uri: state.voice.dataUri,
+        });
+      } catch {
+        // intentionally swallowed — see comment above
+      }
+    }
+
+    navigate(`/spokespeople/${createdId}`, { replace: true });
+  }, [
+    workspaceId,
+    state.voice.mode,
+    state.voice.preset,
+    state.voice.dataUri,
+    state.identity.name,
+    state.identity.business_brief,
+    state.identity.visual_subject,
+    state.identity.tone_archetype,
+    state.portrait.dataUri,
+    create,
+    clone,
+    navigate,
+  ]);
+
+  const tierLimit = extractTierLimit(create.error);
+  const generalError = !tierLimit ? extractMessage(create.error) : null;
 
   return (
     <div className="reveal flex flex-col gap-10" data-testid="wizard">
@@ -196,15 +283,24 @@ export function SpokespersonWizard() {
         {state.step === 1 && <Step1Identity state={state} dispatch={dispatch} />}
         {state.step === 2 && <Step2Portrait state={state} dispatch={dispatch} />}
         {state.step === 3 && <Step3Voice state={state} dispatch={dispatch} />}
-        {state.step === 4 && <Step4Confirm state={state} workspaceId={workspaceId} />}
+        {state.step === 4 && (
+          <Step4Confirm
+            state={state}
+            workspaceId={workspaceId}
+            tierLimit={tierLimit}
+            generalError={generalError}
+          />
+        )}
       </div>
 
       <Navigation
         step={state.step}
         canAdvance={canAdvance(state)}
+        pending={create.isPending || clone.isPending}
         onNext={onNext}
         onPrev={onPrev}
         onCancel={onCancel}
+        onSubmit={onSubmit}
       />
     </div>
   );
@@ -223,7 +319,7 @@ function Masthead() {
         Workspace
       </Link>
       <span className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-        New spokesperson · wizard
+        New spokesperson
       </span>
       <h1
         className="font-display text-5xl leading-[0.95] tracking-tight md:text-6xl"
@@ -647,34 +743,178 @@ function valueToVoiceBag(
 function Step4Confirm({
   state,
   workspaceId,
+  tierLimit,
+  generalError,
 }: {
   state: WizardState;
   workspaceId: string | undefined;
+  tierLimit: TierLimitPayload | null;
+  generalError: string | null;
 }) {
+  const voiceSummary = describeVoice(state.voice);
   return (
     <>
       <StepHeading
         kicker="Step 4 of 4"
         title="Confirm"
-        body="Review + create. Slice 9 wires the actual POST + clone-voice orchestration."
+        body="One last look. Click Create to bind the spokesperson + fire the avatar build. You can edit anything from the detail page afterward."
       />
-      <ScaffoldBlock
-        label="Review panel"
-        hint="Empty until slice 9. The Create button below stays disabled."
-      />
-      <SliceCallout>
-        Slice 9 lands: review of all wizard state + fires
-        <code> useCreateSpokesperson()</code> with the assembled
-        payload + (if Step 3 picked upload/record) a follow-up
-        <code> useCloneVoice()</code>. Both succeed → navigate to
-        <code> /spokespeople/{"{id}"}</code>.
-      </SliceCallout>
-      <DebugState
-        label="Assembled payload"
-        payload={debugFullPayload(state, workspaceId)}
-      />
+
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[10rem,1fr]">
+        <PortraitSummary dataUri={state.portrait.dataUri} name={state.identity.name} />
+        <div className="flex flex-col gap-5">
+          <ReviewRow label="Name" value={state.identity.name || "—"} mono />
+          <ReviewRow
+            label="Business brief"
+            value={state.identity.business_brief || "—"}
+            wrap
+          />
+          <ReviewRow
+            label="Tone"
+            value={state.identity.tone_archetype}
+            capitalize
+          />
+          <ReviewRow
+            label="Visual subject"
+            value={state.identity.visual_subject || "—"}
+            wrap
+            muted={!state.identity.visual_subject}
+          />
+          <ReviewRow label="Voice" value={voiceSummary} />
+          {!workspaceId && (
+            <p className="text-xs text-muted-foreground">
+              Loading workspace…
+            </p>
+          )}
+        </div>
+      </div>
+
+      {tierLimit && <TierLimitCallout payload={tierLimit} />}
+      {generalError && (
+        <div
+          className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive"
+          data-testid="wizard-submit-error"
+        >
+          {generalError}
+        </div>
+      )}
     </>
   );
+}
+
+function PortraitSummary({
+  dataUri,
+  name,
+}: {
+  dataUri: string | null;
+  name: string;
+}) {
+  if (dataUri) {
+    return (
+      <div className="aspect-square w-full overflow-hidden rounded-md border border-border bg-muted">
+        <img
+          src={dataUri}
+          alt=""
+          className="h-full w-full object-cover"
+          data-testid="wizard-confirm-portrait"
+        />
+      </div>
+    );
+  }
+  const initials = deriveInitials(name);
+  return (
+    <div className="flex aspect-square w-full items-center justify-center rounded-md border border-dashed border-border bg-muted/40">
+      <span
+        className="font-display text-5xl font-light text-muted-foreground"
+        style={{ fontVariationSettings: '"opsz" 144, "SOFT" 50' } as React.CSSProperties}
+        aria-hidden
+      >
+        {initials || "?"}
+      </span>
+    </div>
+  );
+}
+
+function ReviewRow({
+  label,
+  value,
+  wrap,
+  mono,
+  capitalize,
+  muted,
+}: {
+  label: string;
+  value: string;
+  wrap?: boolean;
+  mono?: boolean;
+  capitalize?: boolean;
+  muted?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+        {label}
+      </span>
+      <span
+        className={cn(
+          "text-sm leading-snug",
+          wrap ? "whitespace-pre-wrap break-words" : "truncate",
+          mono && "font-mono",
+          capitalize && "capitalize",
+          muted && "text-muted-foreground",
+        )}
+        data-testid={`wizard-confirm-${label.toLowerCase().replace(/\s+/g, "-")}`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function TierLimitCallout({ payload }: { payload: TierLimitPayload }) {
+  return (
+    <div
+      className="flex flex-col gap-3 rounded-md border border-primary/40 bg-primary/5 p-5"
+      data-testid="wizard-tier-limit-callout"
+    >
+      <div className="flex flex-col gap-1">
+        <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-primary">
+          {payload.current_tier ?? "your plan"} · cap reached
+        </span>
+        <p className="font-display text-xl leading-snug tracking-tight">
+          {payload.message}
+        </p>
+      </div>
+      {payload.suggested_tier && (
+        <p className="text-sm text-muted-foreground">
+          Upgrade to <strong className="capitalize">{payload.suggested_tier}</strong> to
+          add more. (Stripe wiring lands when credentials arrive.)
+        </p>
+      )}
+    </div>
+  );
+}
+
+function describeVoice(voice: WizardState["voice"]): string {
+  if (voice.mode === "preset" && voice.preset) {
+    return `Runway preset · ${voice.preset}`;
+  }
+  if (voice.mode === "upload" && voice.fileName) {
+    return `Uploaded · ${voice.fileName}`;
+  }
+  if (voice.mode === "record") {
+    const seconds = Math.floor((voice.durationMs ?? 0) / 1000);
+    return `Recorded · ${seconds}s clip`;
+  }
+  return "Default Runway voice";
+}
+
+function deriveInitials(name: string): string {
+  const cleaned = (name || "").trim();
+  if (!cleaned) return "";
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  if (words.length === 1) return words[0]!.slice(0, 2).toUpperCase();
+  return (words[0]![0]! + words[words.length - 1]![0]!).toUpperCase();
 }
 
 // ---- Navigation -----------------------------------------------------
@@ -682,24 +922,38 @@ function Step4Confirm({
 function Navigation({
   step,
   canAdvance,
+  pending,
   onNext,
   onPrev,
   onCancel,
+  onSubmit,
 }: {
   step: WizardState["step"];
   canAdvance: boolean;
+  pending: boolean;
   onNext: () => void;
   onPrev: () => void;
   onCancel: () => void;
+  onSubmit: () => void;
 }) {
   const isFirst = step === 1;
   const isLast = step === 4;
+  // On Step 4 the primary CTA fires submit; on earlier steps it
+  // advances. Same testid so e2e specs can drive either with the
+  // same selector.
+  const primaryDisabled = pending || !canAdvance;
+  const primaryLabel = isLast
+    ? pending
+      ? "Creating…"
+      : "Create spokesperson"
+    : "Next";
   return (
     <div className="flex items-center justify-between border-t border-border pt-6">
       <button
         type="button"
         onClick={onCancel}
-        className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+        disabled={pending}
+        className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
         data-testid="wizard-cancel"
       >
         Cancel
@@ -710,7 +964,7 @@ function Navigation({
           variant="outline"
           size="sm"
           onClick={onPrev}
-          disabled={isFirst}
+          disabled={isFirst || pending}
           data-testid="wizard-prev"
         >
           Back
@@ -718,18 +972,16 @@ function Navigation({
         <Button
           type="button"
           size="sm"
-          onClick={onNext}
-          disabled={!canAdvance || isLast}
+          onClick={isLast ? onSubmit : onNext}
+          disabled={primaryDisabled}
           data-testid="wizard-next"
           title={
-            isLast
-              ? "Slice 9 wires the submit"
-              : canAdvance
-                ? undefined
-                : "Fill in the required fields to continue."
+            primaryDisabled
+              ? "Fill in the required fields to continue."
+              : undefined
           }
         >
-          {isLast ? "Create (slice 9)" : "Next"}
+          {primaryLabel}
         </Button>
       </div>
     </div>
@@ -762,64 +1014,33 @@ function StepHeading({
   );
 }
 
-function ScaffoldBlock({ label, hint }: { label: string; hint: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border bg-muted/30 p-8 text-center">
-      <span className="font-display text-lg leading-tight tracking-tight text-muted-foreground">
-        {label}
-      </span>
-      <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-        {hint}
-      </span>
-    </div>
-  );
+// ---- Error helpers (mirrors the legacy form) -----------------------
+
+function extractTierLimit(error: unknown): TierLimitPayload | null {
+  if (!(error instanceof ApiError)) return null;
+  if (error.status !== 402) return null;
+  const body = error.body;
+  if (
+    body &&
+    typeof body === "object" &&
+    "code" in body &&
+    typeof (body as { code: unknown }).code === "string"
+  ) {
+    return body as TierLimitPayload;
+  }
+  return null;
 }
 
-function SliceCallout({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="rounded-sm border-l-2 border-primary/40 bg-primary/5 px-4 py-3 text-xs leading-relaxed text-foreground/80">
-      {children}
-    </p>
-  );
-}
-
-function DebugState({
-  label,
-  payload,
-}: {
-  label: string;
-  payload: Record<string, unknown>;
-}) {
-  return (
-    <details className="rounded-md border border-border bg-muted/20 p-3 text-xs">
-      <summary className="cursor-pointer select-none font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-        {label}
-      </summary>
-      <pre
-        className="mt-2 overflow-x-auto whitespace-pre-wrap break-words text-[11px] leading-relaxed text-foreground/80"
-        data-testid="wizard-debug-state"
-      >
-        {JSON.stringify(payload, null, 2)}
-      </pre>
-    </details>
-  );
-}
-
-// ---- Debug helpers (visible in DebugState) -------------------------
-
-function debugFullPayload(
-  state: WizardState,
-  workspaceId: string | undefined,
-) {
-  return {
-    workspace: workspaceId ?? "(loading)",
-    ...state.identity,
-    portrait: state.portrait.dataUri ? "(supplied)" : "(none)",
-    voice:
-      state.voice.mode === "preset"
-        ? { mode: "preset", preset: state.voice.preset }
-        : state.voice.mode === null
-          ? "(none)"
-          : { mode: state.voice.mode, dataUri: "(supplied)" },
-  };
+function extractMessage(error: unknown): string | null {
+  if (!error) return null;
+  if (error instanceof ApiError) {
+    const body = error.body as
+      | { detail?: string; errors?: Array<{ message?: string }> }
+      | null;
+    if (body?.errors?.[0]?.message) return body.errors[0]!.message!;
+    if (body?.detail) return body.detail;
+    return `Request failed (${error.status}).`;
+  }
+  if (error instanceof Error) return error.message;
+  return "Something went wrong. Try again.";
 }

@@ -31,8 +31,10 @@ test.describe("make-a-video lifecycle (S-12 + S-11)", () => {
       page.getByRole("button", { name: /create account/i }).click(),
     ]);
 
-    // 2) Create spokesperson with portrait (avatar binds in mock mode)
-    await page.goto("/spokespeople/new");
+    // 2) Create spokesperson with portrait (avatar binds in mock mode).
+    //    Uses the legacy single-form (?legacy=1) — faster than the
+    //    4-step wizard for this make-video-focused lifecycle test.
+    await page.goto("/spokespeople/new?legacy=1");
     await page.getByLabel("Name").fill("Render Test Spokesperson");
     await page
       .getByLabel("Business brief")
