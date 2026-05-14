@@ -24,6 +24,11 @@ product — Django DRF shell + FastAPI media engine + new SPA).
    runway-hackathon; new handoffs start at SESSION 106+).
 5. The sibling `runway-hackathon/` repo — frozen pre-migration. Read-only
    reference for *how things worked before*.
+6. `docs/design/KNOWLEDGE_LAYER.md` — knowledge arc scope lock
+   (K0-K10, locked SESSION 137, 7 contract rules).
+7. `docs/design/VIDEO_COMPOSITION_V1.md` — video composition arc
+   scope lock (V0-V15, locked SESSION 142, 9 contract rules; K6.5
+   absorbed into V3).
 
 ---
 
@@ -80,10 +85,20 @@ Update this section when a phase completes.
   detail (S-10) + make-video flow (S-11/S-12) + 4-step create
   wizard (W1-W9, SESSIONS 124-132). Remaining: W10 template
   content (operator-collaborative) + W11 hide-on-completion
-  detail-page rework + legacy single-form retirement after
-  real-mode Runway validation.
-- Phase 4 — u-d-b feature port. Pending. (Tier 1 prompt helpers
-  ported in SESSION 122 as a partial credit toward this phase.)
+  detail-page rework + legacy single-form retirement after the
+  video composition recipe gallery (V15) lands.
+- Phase 4 — Knowledge + video composition arcs. **IN FLIGHT.**
+  Two parallel sub-arcs:
+  - **Knowledge arc (K1-K10).** 7 shipped — K1-K7 + K4.1.
+    Remaining: K8/K9 (conversation pipeline + REST/SPA), K10
+    (onboarding seed), K4.2 + K6.2 cleanups landed SESSION 142.
+    Scope lock: `docs/design/KNOWLEDGE_LAYER.md`.
+  - **Video composition arc (V0-V15).** Scope lock shipped
+    SESSION 142 (`docs/design/VIDEO_COMPOSITION_V1.md`).
+    Replaces the "additional video kinds" queue items + absorbs
+    K6.5. V1 (Asset/Composition schema) is the next slice.
+  Tier 1 prompt helpers ported in SESSION 122 as partial credit
+  toward earlier "u-d-b feature port" framing of this phase.
 - Phase 5 — Agency tier UI. Pending.
 
 ---

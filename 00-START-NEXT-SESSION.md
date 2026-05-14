@@ -6,17 +6,22 @@ state: active
 
 > **Design lock:** `docs/design/UI_REDESIGN_V2.md`.
 > **Contract lock:** `docs/design/MEDIA_ENGINE_INTERNAL_API.md`
-> (5 verbs shipped after SESSION 125).
+> (5 verbs shipped after SESSION 125; ~12 per-primitive verbs
+> sequenced V3-V14 in the video composition arc).
 > **SPA scope lock:** `docs/design/SPA_ARCHITECTURE.md`.
 > **Brand identity lock:** `docs/design/BRAND_IDENTITY_V1.md`.
 > **Prompt helpers:** `docs/design/PROMPT_HELPERS.md`.
 > **Wizard scope lock:** `docs/design/CREATE_SPOKESPERSON_WIZARD.md`.
 > **Knowledge layer scope lock:** `docs/design/KNOWLEDGE_LAYER.md`
 > (locked SESSION 137 — 7 contract rules, K1-K10 slice breakdown).
+> **Video composition scope lock:** `docs/design/VIDEO_COMPOSITION_V1.md`
+> (locked SESSION 142 — 9 contract rules, V0-V15 slice breakdown;
+> K6.5 absorbed into V3; replaces the legacy "additional video
+> kinds" queue items).
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_141_K4_DETAIL_AND_RENDER_AUDIT.md`.
+> **Last handoff:** `docs/handoffs/SESSION_142_VIDEO_COMPOSITION_LOCK.md`.
 
 ---
 
@@ -28,15 +33,24 @@ real-mode (SESSION 136). Knowledge-layer scope-locked
 (SESSION 137) — `docs/design/KNOWLEDGE_LAYER.md` is the new
 contract.
 
-**Phase 4 (knowledge arc):** K6.5 — talking-head render
-rewire. K1-K7 shipped + K4.1 (detail view) shipped, but
-SESSION 141 surfaced that K6's render path hits the wrong
-Runway endpoint (`gen4_turbo` image-to-video instead of
-`/v1/avatar_videos` talking-head). The cast members can be
-rendered as silent animated portraits today; K6.5 wires the
-real talking-head pipeline so they actually *speak* the
-synthesized scripts. Conversation pipeline (K8) deferred
-until video processing is right.
+**Phase 4 (two parallel arcs as of SESSION 142):**
+
+- **Knowledge arc (K1-K10).** K1-K7 shipped + K4.1 + K4.2 +
+  K6.2 cleanups landed SESSION 142. Remaining: K8/K9
+  conversation pipeline + REST/SPA, K10 onboarding seed.
+- **Video composition arc (V0-V15).** Scope-locked SESSION
+  142 — `docs/design/VIDEO_COMPOSITION_V1.md`. **K6.5 absorbed
+  into V3** — the talking-head render rewire ships as the
+  first step primitive (`generate_avatar_speech`) inside the
+  new Asset+Composition architecture, not as a one-off
+  endpoint swap. Replaces "additional video kinds" queue.
+  V1 (schema only) is next.
+- **Realtime avatar arc (R1-?).** Scope lock pending. Will
+  port `runway-hackathon/backend/app/services/realtime_avatar_client.py`
+  + `/v1/realtime_sessions` so spokespeople can have live
+  two-way WebRTC conversations grounded in workspace
+  knowledge. Sits parallel to V (recorded video) + K8/K9
+  (text-based conversation).
 
 | Slice | Deliverable                                  | Status |
 |-------|----------------------------------------------|--------|
@@ -48,20 +62,29 @@ until video processing is right.
 | K3 | Ingestion pipeline (paste + upload + PDF)       | DONE (SESSION 138) |
 | K4 | Workspace knowledge route (SPA + REST)          | DONE (SESSION 138) |
 | K4.1 | Knowledge document detail view (chunks)       | DONE (SESSION 141) |
+| K4.2 | Dedup-restore bug fix                          | DONE (SESSION 142) |
 | K5 | Spokesperson "Knowledge" tab                    | DONE (SESSION 138) |
 | K6 | Render flow integration (synthesis only)        | DONE (SESSION 139) |
+| K6.2 | Pre-render validation (portrait/avatar required) | DONE (SESSION 142) |
 | K7 | URL ingestion + serper discovery                | DONE (SESSION 140) |
-| K6.5 | Talking-head render rewire (avatar_videos)     | **NEXT (SESSION 142)** |
-| K4.2 | Dedup-restore bug fix                          | Queued |
-| K6.2 | Pre-render validation (portrait/avatar required) | Queued |
+| V0 | Video composition scope lock                    | DONE (SESSION 142) |
+| V1 | Asset + Composition + CompositionStep schema   | **NEXT (SESSION 143)** |
+| V2 | Composition runtime + state machine + resume   | Queued |
+| V3 | `generate_avatar_speech` primitive + `talking_head` starter (absorbs K6.5) | Queued |
+| V4 | `generate_visual_clip` primitive (migrate gen4_turbo) | Queued |
+| V5 | Backwards-compat shim (`Video` → `Composition` wrapper) | Queued |
+| V6 | First multi-step starter: `talking_head_with_backdrop` | Queued |
+| V7-V14 | Capability roll-out (primitives + starters) | Queued |
+| V15 | SPA recipe gallery (retires legacy single-form) | Queued |
+| R0 | Realtime avatar arc — scope lock                | Queued |
 | K6.3 | Brief length cap in script synthesis           | Queued |
-| K6.4 | Duration derived from script length            | Queued |
+| K6.4 | Duration derived from script length            | Queued (deprecated by V8 trim/reformat primitives) |
 | K7.1 | Per-chunk cost telemetry surface in UI         | Queued |
-| K8 | Conversation pipeline                           | Queued (after K6.5) |
+| K8 | Conversation pipeline                           | Queued (parallel to V arc) |
 | K9 | Conversation REST + SPA                         | Queued |
 | K10 | Onboarding seed                                | Queued |
-| W12 | Legacy single-form retirement                  | Whenever |
 | W11.1 | Edit-spokesperson modal                      | Queued |
+| W12 | Legacy single-form retirement                  | Folded into V15 |
 
 **Cast roster in workspace `admins-workspace`:**
 
@@ -120,90 +143,87 @@ web-search discovery.
 videos apps. Plus 46 prompts pytest = **145 backend tests**.
 **38 e2e specs** (35 prior + 3 K7).
 
-### Next: K6.5 — talking-head render rewire
+### Next: V1 — Asset + Composition schema (the ground for everything)
 
-**The bug surfaced in SESSION 141 UI testing.** K6 wired the
-RAG + gpt-5-mini script synthesis correctly — the brief
-synthesized from real workspace knowledge is good. But the
-synthesized brief gets sent to Runway's `gen4_turbo` model
-(image-to-video animation), which doesn't generate speech,
-lip-sync, or audio. Result: a 5-second silent visual
-animation of the spokesperson's portrait — the avatar moves
-slightly but doesn't speak.
+**SESSION 142 reframed K6.5.** After mapping the runway-hackathon
+pipeline (15+ output kinds, 5 Runway endpoints, ~2,000 lines of
+dormant composition logic), the talking-head rewire stopped
+being "swap one endpoint" and became "this is the moment to
+fix the architecture before we keep stacking endpoints." Scope
+lock landed: `docs/design/VIDEO_COMPOSITION_V1.md` (9 contract
+rules, 16 step primitives, 16 slices V0-V15).
 
-The **right** endpoint exists in
-`media-engine/app/services/character_host_client.py:_generate_real`
-— it calls `/v1/avatar_videos` with model `gwm1_avatars`,
-shape:
+**The core idea:** Asset + Composition + CompositionStep
+replace today's "one endpoint per output kind" model. Every
+existing hackathon capability is a step primitive; every
+existing output is a starter composition. Operators can finally
+combine them (e.g., talking-head + cinematic backdrop + music
+bed + auto-captions + reels format = one composition, not five
+manual chain calls).
 
-```python
-body = {
-    "model": "gwm1_avatars",
-    "avatar": {"type": "custom", "avatarId": avatar_id},
-    "speech": {"type": "text", "text": script},
-}
-url = f"{settings.runway_api_base}/v1/avatar_videos"
-```
+K6.5 is absorbed into **V3** — the `generate_avatar_speech`
+primitive is the first one wired. Same Runway endpoint
+(`/v1/avatar_videos`, `gwm1_avatars`), but landing inside the
+new Asset+Composition shape so future primitives compose with
+it.
 
-The bound voice rides along automatically (voice presets are
-bound at avatar-creation time per SESSION 134/136).
+### V1 scope (this session)
 
-### K6.5 scope
+- New Django app `apps.compositions`.
+- Models: `Asset`, `Composition`, `CompositionStep`. Schemas in
+  `VIDEO_COMPOSITION_V1.md` §"Data model".
+- Migration. Postgres-backed (pgvector unaffected).
+- Cross-workspace asset reference test
+  (`test_step_rejects_cross_workspace_assets`).
+- Repo-level isolation test
+  (`test_only_composition_module_writes_assets`) — mirrors K2's
+  retrieval-isolation pattern.
+- Admin registration.
+- Zero user-visible value. Same "pure infra" discipline as K1.
 
-The implementation gap is in **media-engine**, not shell —
-shell already passes everything we need (kind, avatar_id,
-brief, portrait_path). Media-engine needs to route
-`kind=spokesperson_ad` through avatar_videos:
+V1 ships when `python manage.py check`, `migrate --check`,
+every existing K-test + V-test (4-5 new), and smoke commands
+all pass. **The existing `Video` model + `apps/videos/views.py`
+stays untouched.** V5 is the backwards-compat shim, not V1.
 
-- In `media-engine/app/routers/internal.py:post_internal_video`,
-  branch on `kind`. For `spokesperson_ad` (and likely several
-  other speaking kinds), build the `/v1/avatar_videos` request
-  shape and POST to that endpoint instead of going through
-  `runway_client.create_task`.
-- Same `task_id` response shape so the shell's poll task
-  doesn't change.
-- The polling endpoint (`GET /v1/tasks/{task_id}/`) is the
-  same.
-- The legacy `_generate_real` is wrapped around the
-  `Campaign` model and hardcodes a single avatar/voice
-  combo. The new path needs to accept the avatar_id from
-  the request body (not from a Campaign lookup) — same
-  three fields, just different lookup.
+### What's NOT V1
 
-### What's NOT K6.5
+- Composition execution (V2).
+- Any step primitive (V3+).
+- Migration of the existing `Video` model (V5).
+- SPA changes (V15).
+- Realtime WebRTC (R arc — separate scope lock).
 
-- Brief length cap (K6.3) — separate slice.
-- Pre-render avatar/portrait check (K6.2) — separate.
-- Conversation pipeline (K8) — deferred until video is right.
+### Reference reads before V1
 
-### Pre-K6.5 cleanup recommended
+1. `docs/design/VIDEO_COMPOSITION_V1.md` §"Data model" — the
+   three model definitions, copy-shape them into
+   `apps/compositions/models.py`.
+2. `docs/design/KNOWLEDGE_LAYER.md` §"Data model" — same
+   workspace-anchor + cross-workspace-validation pattern.
+   K2's `apps/embeddings/models.py` is the implementation
+   template.
+3. SESSION 142 conversation: the recurring failure mode at
+   the hackathon was "endpoints don't compose." V1 is the
+   shape that fixes that by construction.
 
-The audit surfaced five queued fixes. Worth landing the
-quick ones first so K6.5 has clean ground:
+### Parallel arc: R0 — Realtime WebRTC scope lock
 
-- **K4.2** — dedup-restore bug. ~15 min. Soft-deleted docs
-  block re-ingestion of the same content; should restore
-  + re-fire embed_document instead.
-- **K6.2** — pre-render validation. ~10 min. Shell viewset
-  should fail fast with a clear message if
-  `spokesperson.runway_avatar_id` is empty, rather than
-  letting media-engine return an opaque 400.
+Confirmed in-scope SESSION 142. Sits parallel to V (recorded
+video) and K8/K9 (text conversation). Will port:
 
-### Reference reads before K6.5
+1. `runway-hackathon/backend/app/services/realtime_avatar_client.py`
+   — WebRTC session orchestration + tool injection.
+2. `runway-hackathon/backend/app/services/documents_client.py`
+   — RAG documents for avatar conversations.
+3. Hackathon's `/v1/realtime_sessions` Runway endpoint.
 
-Per the carried calibration ("when adding integration with
-an external service, READ u-d-b / the predecessor first"):
-
-1. `media-engine/app/services/character_host_client.py:_generate_real`
-   (lines 412-492) — the existing avatar_videos integration.
-   This is what we're porting from Campaign-based to
-   Spokesperson-based.
-2. `media-engine/app/routers/internal.py:post_internal_video`
-   (lines 286-329) — current implementation that hits the
-   wrong endpoint. The branch lands here.
-3. The K6 handoff
-   (`docs/handoffs/SESSION_139_K6_RENDER_INTEGRATION.md`)
-   for why the synthesis side is already correct.
+R0 is a future scope-lock doc (`docs/design/REALTIME_AVATAR_V1.md`
+when locked); not part of V1. The data model decision V1 makes
+must remain compatible — assets generated during a realtime
+session may want to land as `Asset` rows so they're
+addressable later, but no realtime-specific tables get added
+in V1.
 
 ---
 
