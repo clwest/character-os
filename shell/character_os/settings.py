@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "apps.billing",
     "apps.agents",
     "apps.embeddings",
+    "apps.compositions",
 ]
 
 SITE_ID = 1
