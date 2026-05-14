@@ -12,6 +12,7 @@ from character_os.clients.media_engine import (
     MediaEngineError,
 )
 from character_os.permissions import IsWorkspaceMember
+from character_os.script_synthesis import build_render_brief
 
 from .models import Video
 from .serializers import VideoSerializer
@@ -80,8 +81,8 @@ class VideoViewSet(viewsets.ModelViewSet):
             )
             return
 
-        brief = instance.brief.strip() or spokesperson.business_brief.strip()
-        if not brief:
+        operator_brief = instance.brief.strip() or spokesperson.business_brief.strip()
+        if not operator_brief:
             instance.status = Video.Status.FAILED
             instance.error_message = (
                 "no brief supplied and the spokesperson has no "
@@ -91,6 +92,18 @@ class VideoViewSet(viewsets.ModelViewSet):
                 update_fields=["status", "error_message", "updated_at"]
             )
             return
+
+        # SESSION 139 / K6 — RAG + script synthesis.
+        # ``build_render_brief`` is always safe: never raises,
+        # degrades to the operator's brief when knowledge is
+        # empty or the LLM call fails. Persist the citation
+        # before firing the media-engine so a Runway failure
+        # later still leaves us able to audit what fed the
+        # render.
+        script = build_render_brief(spokesperson, operator_brief)
+        instance.knowledge_chunk_ids = script.chunk_ids
+        instance.save(update_fields=["knowledge_chunk_ids", "updated_at"])
+        brief = script.brief
 
         try:
             with MediaEngineClient() as client:

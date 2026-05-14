@@ -84,6 +84,22 @@ class Video(models.Model):
     media_engine_task_id = models.CharField(max_length=120, blank=True, default="")
     error_message = models.TextField(blank=True, default="")
 
+    # SESSION 139 / K6 — citation log. Which KnowledgeChunk ids fed
+    # the synthesized brief sent to the media-engine. Empty list when
+    # no knowledge was visible to the spokesperson at render time
+    # (graceful-degradation path; see contract rule 6 in
+    # ``docs/design/KNOWLEDGE_LAYER.md``).
+    knowledge_chunk_ids = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            "List of KnowledgeChunk UUIDs (as strings) injected into the "
+            "render-time prompt synthesis. No UI in v1 — present for "
+            "audit + future operator-facing 'why did the spokesperson say "
+            "that?' surfaces."
+        ),
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     completed_at = models.DateTimeField(null=True, blank=True)

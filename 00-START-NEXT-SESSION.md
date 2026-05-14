@@ -16,7 +16,7 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_138_K1_THROUGH_K5.md`.
+> **Last handoff:** `docs/handoffs/SESSION_139_K6_RENDER_INTEGRATION.md`.
 
 ---
 
@@ -28,10 +28,10 @@ real-mode (SESSION 136). Knowledge-layer scope-locked
 (SESSION 137) — `docs/design/KNOWLEDGE_LAYER.md` is the new
 contract.
 
-**Phase 4 (knowledge arc):** K6 — render flow integration.
-K1-K5 all shipped SESSION 138. K6 is where knowledge starts
-*informing* video renders rather than just sitting in
-storage.
+**Phase 4 (knowledge arc):** K7 — URL ingestion + serper
+discovery. K1-K6 all shipped (K1-K5 in SESSION 138, K6 in
+SESSION 139). Cast members are now *informed* — they speak
+from real workspace knowledge at render time.
 
 | Slice | Deliverable                                  | Status |
 |-------|----------------------------------------------|--------|
@@ -43,7 +43,8 @@ storage.
 | K3 | Ingestion pipeline (paste + upload + PDF)       | DONE (SESSION 138) |
 | K4 | Workspace knowledge route (SPA + REST)          | DONE (SESSION 138) |
 | K5 | Spokesperson "Knowledge" tab                    | DONE (SESSION 138) |
-| K6 | Render flow integration                         | **NEXT** |
+| K6 | Render flow integration                         | DONE (SESSION 139) |
+| K7 | URL ingestion + serper discovery                | **NEXT** |
 | K3 | Ingestion pipeline (paste + upload + PDF)       | Queued |
 | K4 | Workspace knowledge route (SPA + REST)          | Queued |
 | K5 | Spokesperson "Knowledge" tab                    | Queued |
@@ -62,13 +63,98 @@ storage.
   - Donny the Sloth (user stories) — id `f30b2980-...`
   - Maya the Panda (educator) — id `9410f23f-...`
 
-Cast can render videos right now. After K6 ships they'll
-render *informed* videos — script synthesis with RAG-injected
-knowledge instead of LLM hallucination from the brief alone.
+Cast can render *informed* videos now (K6 shipped SESSION 139)
+— `build_render_brief` runs RAG + gpt-5-mini synthesis at video
+create time, citations persist on the Video row. Operators
+attach workspace docs to spokespeople via K4/K5; renders draw
+on those docs automatically.
 
 ---
 
-## SESSION 138 status — K1 through K5 all shipped
+## SESSION 139 status — K6 shipped
+
+**K6 (render flow integration):** the load-bearing slice where
+knowledge starts *informing* renders.
+
+* New `shell/character_os/script_synthesis.py` —
+  `build_render_brief(spokesperson, operator_prompt) ->
+  ScriptResult(brief, chunk_ids, used_knowledge, model,
+  tokens_*)`. Calls `retrieve_for_spokesperson(top_k=5)`,
+  injects chunks into a `gpt-5-mini` Responses-API call
+  (NOT chat-completions — gpt-4o-mini is deprecating).
+  System prompt anchored to `tone_archetype` +
+  `business_brief`. `reasoning_effort='low'`.
+* `RENDER_SCRIPT_FORCE_MOCK=1` env / settings override
+  mirrors `RUNWAY_FORCE_MOCK` + `EMBEDDING_FORCE_MOCK`.
+  Returns deterministic
+  `"{business_brief}\n\n{prompt}\n\n[knowledge: N chunks: <ids>]"`
+  for dev/test.
+* Graceful degradation everywhere: empty knowledge → operator
+  brief; retrieval failure → operator brief; missing
+  OPENAI_API_KEY → operator brief (with chunk_ids still
+  logged for audit); OpenAI failure → operator brief (with
+  chunk_ids still logged). Render never fails because of
+  synthesis.
+* `Video.knowledge_chunk_ids` JSONField (migration 0002)
+  persists which chunks fed which render. No UI in v1 —
+  audit data only.
+* Wired into `apps/videos/views.py:perform_create` between
+  brief resolution and `MediaEngineClient.create_video`.
+  Media-engine contract unchanged.
+* **11 K6 tests** in `apps/videos/tests/test_script_synthesis.py`
+  (8 unit) + `test_render_with_knowledge.py` (3 integration).
+  Covers force-mock, degradation, real-mode without key, OpenAI
+  failure, retrieval failure, citation persistence, the no-avatar
+  short-circuit (synthesis correctly skipped).
+
+**Calibration carried into the session memory:**
+
+The earlier-saved feedback memory `feedback_openai_gpt5_responses_api.md`
+now anchors every future LLM call site in shell. Operator caught
+me mid-plan trying to reach for `gpt-4o-mini` + chat-completions
+— the right answer was `gpt-5-mini` + Responses API, with the
+shape already documented in u-d-b's
+`core/services/llm_provider_registry.py:122`. Same pattern as
+the K3 cost-cap correction: when adding infrastructure that
+u-d-b already has, READ u-d-b first.
+
+**Test counts (cumulative): 64 K-tests** across the embeddings +
+videos apps. Plus 46 prompts pytest = **113 backend tests**.
+**35 e2e specs** (unchanged from SESSION 138 — K6 has no
+user-visible UI beyond the existing render flow, so no new e2e).
+
+### Next: K7 — URL ingestion + serper discovery
+
+K7 was deferred from K3 (scope was paste + PDF only). Adds:
+
+* `apps/embeddings/url_extract.py` — `trafilatura` fetch +
+  main-content extraction. Snapshot-at-ingest semantics (no
+  re-fetch; URL freshness contract from scope-lock).
+* `apps/embeddings/serper.py` — serper.dev search client port
+  from u-d-b's `core/tools/web_search.py:WebSearchTool`.
+  Returns `{title, url, snippet}` triples. Redis-cached.
+* `ingestion.ingest_url(url) -> IngestResult` — fetch +
+  extract → through the same `_persist` path.
+* New `pdf_data_uri`-shaped field: `url` (just a URL string)
+  on the create endpoint. Or new sibling endpoint
+  `POST /api/knowledge/url/` — settle in slice planning.
+* SPA: new "Search" tab on `/workspace/knowledge` upload
+  panel. Operator types a query → serper returns candidates
+  → operator picks → fetch + ingest pipeline runs.
+* `SERPER_API_KEY` env var. Add to `.env.example`.
+* Tests cover: URL fetch (mocked httpx), extraction
+  (mocked trafilatura), idempotent re-ingest of the same
+  URL (content_hash dedup still works), 4xx/5xx URL
+  handling, serper API mocking.
+
+### What's NOT K7
+
+- Active crawling (follow links, traverse subdomains) —
+  explicitly out of scope per K0 contract rule.
+- Auto re-fetch on a schedule — out of scope. Operator
+  deletes + re-ingests if they want fresh content.
+- Conversation surface — K8/K9.
+- Onboarding seed — K10.
 
 **K1 (Postgres + pgvector):** infra-only swap. sqlite → Postgres,
 pgvector extension installed via
@@ -131,6 +217,10 @@ spokesperson attaches.
   `web/e2e/workspace-knowledge.spec.ts` cover the full
   user-visible flow.
 
+---
+
+## SESSION 138 status — K1 through K5 all shipped
+
 **K5 (spokesperson "Knowledge" panel):** per-spokesperson view.
 * Backend: `?spokesperson=<uuid>` filter on the list endpoint
   (visibility = empty M2M OR M2M includes them — mirrors
@@ -149,72 +239,46 @@ spokesperson attaches.
 * **10 K5 backend tests** in `test_api_k5.py` + **2 K5 e2e
   specs** in `web/e2e/spokesperson-knowledge.spec.ts`.
 
-**Test counts: 56 K-tests** (7 privacy + 6 splitter + 6
-embedding service + 10 ingestion + 16 K4 API + 10 K5 API + 1
-grep). Plus 46 prompts pytest = **102 backend tests**.
-**35 e2e specs** (30 wizard/etc + 3 K4 + 2 K5).
+**SESSION 138 test counts: 56 K-tests** in
+`apps/embeddings/tests/` (7 privacy + 6 splitter + 6 embedding
+service + 10 ingestion + 16 K4 API + 10 K5 API + 1 grep). Plus
+46 prompts pytest = 102 backend tests at SESSION 138 ship.
 
-### Next: K6 — render flow integration
-
-K6 is where the knowledge layer stops being inert storage
-and starts *informing* video renders. Per the scope-lock doc
-§"Render flow integration":
-
-- New `shell/character_os/script_synthesis.py` (or similar):
-  `build_render_brief(spokesperson, operator_prompt) -> str`.
-  Calls `retrieve_for_spokesperson` with the operator's
-  prompt, injects top-k chunks into an LLM call, returns a
-  synthesized brief string.
-- Wire `build_render_brief` into `apps/videos/views.py`
-  (or the equivalent ingestion path) just before the
-  `MediaEngineClient.create_video()` call. The
-  media-engine contract stays unchanged — it still
-  receives a finished `brief` string.
-- LLM provider — figure out what shell already uses
-  (probably OpenAI gpt-4o-mini per media-engine's default).
-  Add `RENDER_SCRIPT_FORCE_MOCK=1` for dev (deterministic
-  brief = `f"{spokesperson.business_brief}\n\n{prompt}\n\n[knowledge: {len(chunks)} chunks]"`).
-- Graceful degradation: if `retrieve_for_spokesperson`
-  returns 0 chunks, skip the synthesis step entirely and
-  use the existing `brief or business_brief` fallback.
-  Contract rule 6.
-- Citation logging: persist which chunks fed which render
-  on the `Video` row (probably a new
-  `Video.knowledge_chunk_ids = JSONField`). No UI in v1.
-
-### What's NOT K6
-
-- URL/serper discovery — K7.
-- Conversation surface — K8/K9.
-- Onboarding seed — K10.
-
-### How to run all K tests
+### How to run all K tests (now spans embeddings + videos)
 
 ```bash
 cd shell && source .venv/bin/activate
-python -m pytest apps/embeddings/tests/ -v   # 56 K-tests
-EMBEDDING_FORCE_MOCK=1 python manage.py smoke_ingest  # end-to-end
+python -m pytest apps/embeddings/tests/ apps/videos/tests/ -v   # 67 K-tests
+EMBEDDING_FORCE_MOCK=1 python manage.py smoke_ingest  # ingestion smoke
+python manage.py smoke_video                          # render smoke (uses K6 path)
 
 cd ../web
 pnpm test                                       # 3 SPA unit
 pnpm e2e --grep 'knowledge'                     # K4 + K5 specs (5 tests)
 ```
 
-If any of these fail during K6+, the load-bearing privacy or
-ingestion contract has broken. Fix the implementation, not
-the tests.
+If any of these fail during K7+, the load-bearing privacy,
+ingestion, or render contract has broken. Fix the
+implementation, not the tests.
 
-**To run Celery + Django with the embedding mock active for
-local SPA development:**
+**To run Celery + Django with all three mocks active for local
+SPA + render dev:**
 
 ```bash
-EMBEDDING_FORCE_MOCK=1 python manage.py runserver 8000
-EMBEDDING_FORCE_MOCK=1 celery -A character_os worker --pool=solo
+EMBEDDING_FORCE_MOCK=1 \
+RENDER_SCRIPT_FORCE_MOCK=1 \
+python manage.py runserver 8000
+
+EMBEDDING_FORCE_MOCK=1 \
+RENDER_SCRIPT_FORCE_MOCK=1 \
+celery -A character_os worker --pool=solo
 ```
 
-The `EMBEDDING_FORCE_MOCK` flag was added in K3 — same shape
-as `RUNWAY_FORCE_MOCK`. Without it, the embedding step needs
-`OPENAI_API_KEY`.
+The three `*_FORCE_MOCK` flags mirror each other. Without
+them, the corresponding pipeline step needs the relevant API
+key (`OPENAI_API_KEY` for embedding + render-script;
+`RUNWAY_API_KEY` for the media-engine — but `RUNWAY_FORCE_MOCK`
+is the media-engine's setting, set when starting `uvicorn`).
 
 ---
 
@@ -224,23 +288,31 @@ Knowledge-layer arc (K-prefixed) is locked in
 `docs/design/KNOWLEDGE_LAYER.md` §Slice breakdown. Everything
 else is ordered by independence + priority.
 
-1. **K6 — Render flow integration.** Knowledge starts
-   *informing* renders here.
-2. **K7 — URL ingestion + serper discovery.**
-3. **K8 — Conversation models.**
-4. **K9 — Conversation REST + SPA.**
-5. **K10 — Onboarding seed.**
-6. **E2e detritus cleanup** — Postgres carries 495
+1. **K7 — URL ingestion + serper discovery.**
+2. **K8 — Conversation models** (message + embedding pipeline
+   on top of the K2 schema).
+3. **K9 — Conversation REST + SPA.**
+4. **K10 — Onboarding seed.**
+5. **First marketing video** — now possible since K6 ships
+   informed renders. Attach Character-OS knowledge to the
+   admin workspace, render a real video about the product.
+6. **Voice preset audit** — listen to the four cast members
+   with real-mode knowledge-informed renders.
+7. **E2e detritus cleanup** — Postgres carries ~495+
    e2e-generated workspaces; `Workspace.objects.filter(slug__startswith='e2e-').delete()`
    when the operator decides the window is right.
-7. **Voice preset audit** — naturally happens post-K6.
-8. **First marketing video** — naturally happens post-K6.
+8. **OpenAI client factory port** — u-d-b has
+   `core/services/openai_client_factory.py` that centralises
+   timeout/retry config. Now that K3 + K6 are both call
+   sites, the factory pattern is worth porting (memory
+   `feedback_openai_gpt5_responses_api.md` flags this
+   inflection).
 9. **W11.1 — Edit-spokesperson modal.**
 10. **W12 — Legacy form retirement.**
 11. **Cast sync command** — pull updates from
     `spokesperson_templates.py` into existing rows.
 12. **Tier 2 prompt helpers** — likely subsumed by K6's
-    `script_synthesis.synthesize()`.
+    `build_render_brief` synthesis.
 13. **Stuck-row janitor.**
 14. **Additional video kinds** — cinematic / dialogue / long_ad.
 15. **Act-Two performance capture.**
@@ -303,12 +375,12 @@ python manage.py smoke_voice
 python manage.py smoke_video
 python manage.py smoke_portrait
 python -m pytest character_os/prompts/        # 46 tests
-python -m pytest apps/embeddings/tests/       # 46 K-tests (privacy + ingestion + splitter + embedding service + API)
+python -m pytest apps/embeddings/tests/ apps/videos/tests/  # 67 K-tests
 EMBEDDING_FORCE_MOCK=1 python manage.py smoke_ingest    # end-to-end ingest → embed → retrieve
 
 # SPA (from web/, in mock mode only)
 pnpm test
-pnpm e2e            # full lifecycle ~50s (30 specs), single-shot
+pnpm e2e            # full lifecycle ~50s (35 specs), single-shot
 ```
 
 Cast management CLIs:
@@ -327,41 +399,40 @@ python manage.py seed_cast --workspace-slug admins-workspace --key maya --force
 
 ## AI / assistant context
 
-- Last session: SESSION 138 — **K1 + K2 + K3 + K4 + K5** all
-  shipped same session. Pre-K1 `RUNWAY_FORCE_MOCK=1` unblocker
-  and two `raw=True` signal guards (`accounts.signals`,
-  `billing.signals`) rode along. K3 added the
-  `EMBEDDING_FORCE_MOCK=1` flag mirroring the runway-mock
-  pattern. K4 shipped `/workspace/knowledge` (paste + PDF
-  upload, polling, soft delete, dashboard link). K5 shipped
-  the per-spokesperson Knowledge panel on the detail page with
-  attach/detach toggles. **Cumulative tests: 102 backend
-  pytest, 35 e2e specs, all green.**
+- Last session: SESSION 139 — **K6 shipped** (render flow
+  integration). `build_render_brief` in
+  `shell/character_os/script_synthesis.py` runs RAG + a
+  `gpt-5-mini` Responses-API call at video create time;
+  citations persist on `Video.knowledge_chunk_ids`.
+  `RENDER_SCRIPT_FORCE_MOCK=1` mock path. Graceful
+  degradation everywhere — render never fails because of
+  synthesis. **Cumulative tests: 113 backend pytest, 35 e2e
+  specs, all green.** Previous SESSION 138 shipped K1-K5.
 - **Calibration carried forward:**
   - **Cast is example data, not product shape.** When
     discussing capabilities, ask "is this true of every
     spokesperson, or just this one's framing?" Capabilities
     live on the model; framing lives in `business_brief`.
   - **Ask for prior art before grading severity on
-    hypotheticals.** The operator caught two of my
-    hypotheticals (cost-cap concern, "Maya tutor-mode" axis)
-    with concrete prior knowledge. Default forward to: surface
-    a concern, ask "is this hypothetical or have you seen
-    this happen," then size accordingly.
-  - **Push back when framing looks wrong.** Three times in
-    SESSION 137 this caused convergence rather than friction.
-    Continue.
-- **The knowledge layer is K1-K10.** Don't try to ship in one
-  session. Wizard was 11 slices; knowledge layer is on par.
-  Pace accordingly.
-- **K1 ships nothing visible.** That's by design. Don't try
-  to bundle a "small UI improvement" into the migration slice
-  — keep K1 surgical.
-- **Privacy guarantees from K0 are load-bearing.** When K2
-  lands the schema, the three named tests
-  (`test_cross_workspace_chunk_isolation`,
-  `test_cross_thread_conversation_isolation`,
-  `test_only_retrieval_module_queries_chunk_tables`) are part
-  of the deliverable, not optional.
+    hypotheticals.** Already caught three times (cost-cap
+    math, Maya tutor-mode axis, gpt-5 vs gpt-4o-mini). When
+    adding infrastructure that u-d-b already has, READ
+    u-d-b first.
+  - **OpenAI gpt-5 family uses the Responses API, not
+    chat.completions.** New memory captures the shape from
+    u-d-b's `llm_provider_registry`.
+  - **Push back when framing looks wrong.** Convergence
+    happens through pushback, not in spite of it.
+- **The knowledge layer is K1-K10. Six shipped, four to go.**
+  Don't try to ship the remainder in one session. K7 (URL +
+  serper) is the next user-visible win; K8/K9 (conversation)
+  is the deepest behavioral arc.
+- **Privacy guarantees from K0 are load-bearing.** All seven
+  tests in `apps/embeddings/tests/test_retrieval_privacy.py`
+  must keep passing — they're the contract, not the
+  implementation detail.
+- **Three force-mocks now exist.** `RUNWAY_FORCE_MOCK`,
+  `EMBEDDING_FORCE_MOCK`, `RENDER_SCRIPT_FORCE_MOCK` — same
+  shape. Set all three for fully-offline local dev.
 - Collaboration conventions: AI drafts, human edits. Handoff
   `## AI Notes` section required at session end.
