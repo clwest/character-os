@@ -14,7 +14,7 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_125_INTERNAL_PORTRAIT_ENDPOINT.md`.
+> **Last handoff:** `docs/handoffs/SESSION_126_VOICE_TABS_SCAFFOLD.md`.
 
 ---
 
@@ -22,131 +22,93 @@ state: active
 
 **Phase 0-2:** Done.
 **Phase 3:** Five SPA slices + User model + Prompt Tier 1 + Wizard
-scope lock + Wizard slices 1 & 2. Wizard slices 3-11 ahead.
+scope lock + Wizard slices 1-3. Wizard slices 4-11 ahead.
 
 | Slice | Deliverable                                  | Status |
 |-------|----------------------------------------------|--------|
 | W1    | Camera capture for `<PortraitUpload>`        | DONE (SESSION 124) |
 | W2    | `POST /internal/portrait/` backend           | DONE (SESSION 125) |
-| W3    | Voice tabs scaffold                          | NEXT |
-| W4    | Tone archetype field + helper                | (parallel-safe with W3) |
-| W5-9  | Wizard scaffold + steps 1-4                  | Future |
+| W3    | Voice tabs scaffold + clone-voice preset path | DONE (SESSION 126) |
+| W4    | Tone archetype field + helper                | NEXT |
+| W5    | Wizard scaffold (4 steps, empty shells)      | (parallel-safe with W4) |
+| W6-9  | Wizard steps 1-4 individually                | Future |
 | W10   | Template content (Riggs / Sasha / Donny / …) | Operator-collaborative |
-| W11   | Hide-on-completion detail page rework        | Future |
+| W11   | Hide-on-completion detail page rework        | Future (foundations landed in W3) |
 
-What's working end-to-end after SESSION 125:
+What's working end-to-end after SESSION 126:
 
-  - Everything from SESSIONS 107-124.
-  - `POST /internal/portrait/` live on the media-engine.
-    Synchronous, mock-safe, content-addressed temp-file cache.
-  - `MediaEngineClient.create_portrait()` Django-side wrapper.
-  - `python manage.py smoke_portrait` covers all 4 templates
-    (mascot / founder / coach / local_guide) — passes in mock
-    mode.
-  - 10 Playwright specs still pass (no SPA changes this slice).
+  - Everything from SESSIONS 107-125.
+  - `POST /api/spokespeople/{id}/clone-voice/` accepts either
+    `{preset}` or `{audio_data_uri}` — preset wins if both.
+  - `GET /api/spokespeople/voice-presets/` — alpha-sorted list of
+    the 30 supported Runway voice presets.
+  - `<VoiceCapture>` component with three tabs (Preset / Upload /
+    Record) wired into the spokesperson detail page's setup
+    checklist. Hides on completion (voice_id set → ✓).
+  - Portrait camera capture: now flake-free across 3 consecutive
+    runs (waits for `loadeddata` before flipping to live).
+  - 12 of 12 Playwright specs pass (was 10/10 — slice added two).
 
 ---
 
-## SESSION 126 — Two parallel-safe options
+## SESSION 127 — Three parallel-safe options
 
-### Option A — Wizard slice 3: Voice tabs scaffold (recommended)
+### Option A — Wizard slice 4: Tone archetype field (recommended start)
 
-Session-sized. Builds the 3-mode voice capture component
-(`<VoiceCapture>`) and wires it into the spokesperson detail
-page's setup checklist BEFORE the wizard itself ships.
+Half-session. Pure backend + zod schema.
 
-**Why this slice next:** the SESSION 110 backend already
-supports voice cloning; the SESSION 124 Tabs primitive + camera
-capture pattern is now well-rehearsed. Operators get visible
-voice-clone UI immediately, and the wizard's Step 3 inherits
-the component when it lands.
-
-**Recommended scope:**
-
-1. **`web/src/components/voice-capture.tsx`** — new component.
-   Three tabs (`Preset` / `Upload` / `Record`):
-   - **Preset** — `<select>` populated from a small set of
-     Runway voice presets (`vincent`, `marina`, etc.). When
-     picked, `value` is `{mode: 'preset', preset: 'vincent'}`.
-     No backend call yet — the parent decides what to do.
-   - **Upload** — drag-and-drop OR file picker for an audio
-     file. `accept="audio/mp3,audio/wav,audio/m4a,audio/webm"`,
-     15 MB cap (matches backend `MAX_AUDIO_BYTES`). FileReader
-     → base64 data URI. Value: `{mode: 'upload', dataUri,
-     fileName, bytes, mime}`.
-   - **Record** — `MediaRecorder` API. Permission flow (same
-     5-state branching as `<CameraCapture>`: starting / live /
-     denied / unsupported / error). Start/Stop/Discard/Use
-     buttons. 10-second minimum enforced (Runway's documented
-     floor), 5-min cap. Playback preview via
-     `<audio src={URL.createObjectURL(blob)}>`. Final value:
-     `{mode: 'record', dataUri, bytes, mime: 'audio/webm'}`.
-   - **Browser feature detection:** if `MediaRecorder` is
-     unavailable, hide the Record tab + show inline "your
-     browser doesn't support recording — try Upload" copy on
-     the disabled tab.
-
-2. **`useCloneVoice()` mutation hook** in
-   `web/src/lib/api/spokespeople.ts`. POSTs to
-   `/api/spokespeople/{id}/clone-voice/` (SESSION 110 backend
-   action). zod-parsed response. onSuccess invalidates
-   `["spokesperson", id]`.
-
-3. **Wire into the spokesperson detail page.** Replace the
-   current setup-checklist's "Voice" row with a real "Set up
-   voice →" callout that expands to `<VoiceCapture>` inline.
-   Operator picks a mode, submits, sees the result.
-
-4. **Playwright spec** — `e2e/voice-capture.spec.ts`. Three
-   tests, one per tab:
-   - Preset path: pick `vincent` → submit → assert voice_id
-     persists on the spokesperson.
-   - Upload path: `setInputFiles` with an in-memory silent WAV
-     buffer (same trick `smoke_voice` uses) → submit → assert
-     voice_id persists.
-   - Record path: tricky in Playwright — `MediaRecorder` may
-     not work with the synthetic stream. **Defer to a manual
-     test** OR find a Playwright recipe (e.g., use Chrome's
-     `--use-fake-device-for-media-stream` audio variant). If
-     no quick win, skip and document.
-
-### Option B — Wizard slice 4: Tone archetype field
-
-Half-session. Pure backend.
-
-1. `Spokesperson.tone_archetype` CharField with 5 choices
+1. **`Spokesperson.tone_archetype` CharField** with 5 choices
    (`tutor / authority / friend / expert / performer`).
    Migration. Default: `expert`.
-2. `suggest_tone_from_brief(brief: str) -> str` in
+2. **`suggest_tone_from_brief(brief: str) -> str`** in
    `character_os/prompts/brand.py` (mirrors
    `suggest_palette_from_brief` shape). Pytest cases per
    archetype.
 3. Surface in `SpokespersonSerializer` (read + write).
 4. Surface in zod schemas on the SPA (`spokesperson.ts`).
-5. No UI changes yet — wizard Step 1 picks this up when slice 6
+5. No UI changes yet — Wizard Step 1 picks this up when slice 6
    lands.
 
-### Recommendation: **A** (voice tabs).
+### Option B — Wizard slice 5: Wizard scaffold
 
-Reasoning: A unblocks a more visible feature (operators see a
-real voice-clone affordance on the detail page). B is
-foundation-only — important, but invisible until the wizard
-ships. The operator's calibration prefers right-shaping
-foundations, but A is also a foundation (the voice-capture
-component is the most complex remaining wizard step). Doing A
-first means the wizard's Step 3 is mostly already built when
-the wizard scaffold lands in slice 5.
+Session-sized. Build the 4-step wizard shell now, fill in steps
+later.
 
-If you'd rather land both, A → B in the same session is
-plausible if A ships small. Doing A alone is the cleaner
-default.
+1. **`web/src/components/spokesperson-wizard.tsx`** — `<Wizard>`
+   container + `<WizardStep>` slots + step navigation
+   (`onNext`, `onPrev`, `canAdvance` per step).
+2. **`web/src/routes/spokespeople/new.tsx`** — switch from the
+   current single-form to the wizard. Steps:
+   - 1. Identity (name + brief + tone)
+   - 2. Portrait (`<PortraitUpload>` already exists)
+   - 3. Voice (`<VoiceCapture>` already exists)
+   - 4. Confirm + create
+3. **State shape** — `useReducer` for wizard state (each step
+   commits to a slice of the create-spokesperson payload).
+4. **Existing flow stays working** — gate the wizard behind a
+   feature flag or query param if needed, so SESSION 121's existing
+   create-spokesperson specs don't break mid-slice.
+5. **Playwright spec** — `e2e/wizard-shell.spec.ts`. Step
+   navigation + back-button preserves state.
 
-### Out of scope for SESSION 126
+### Option C — Pair both (A → B in one session)
 
-- Wizard scaffold (slice 5).
+Plausible: slice 4 is half-session, slice 5 is session-sized. If
+A lands quickly, B is the natural next step (the wizard scaffold
+will need the tone archetype field surfaced anyway).
+
+### Recommendation: **A → B**.
+
+Reasoning: A is the smaller foundation piece; landing it first means
+the wizard's Step 1 has a real field to bind to when slice 6 lands.
+B then has a stable shape to build against. Both ship in one session
+if the operator wants it; split across two sessions otherwise.
+
+### Out of scope for SESSION 127
+
 - Wizard steps 1-4 individually (slices 6-9).
 - Template content (slice 10).
-- Hide-on-completion (slice 11).
+- Hide-on-completion full rework (foundations already landed in W3).
 - Act-Two performance capture.
 - Real Runway calls / credentials.
 
@@ -154,13 +116,12 @@ default.
 
 ## Queued investigations (priority-ordered)
 
-1. **Wizard slice 3 — Voice tabs scaffold** (SESSION 126
-   recommendation).
-2. **Wizard slice 4 — Tone archetype field.**
-3. **Wizard slices 5-9 — wizard scaffold + steps.**
+1. **Wizard slice 4 — Tone archetype field** (SESSION 127 part 1).
+2. **Wizard slice 5 — Wizard scaffold** (SESSION 127 part 2).
+3. **Wizard slices 6-9 — wizard steps individually.**
 4. **Wizard slice 10 — Template content** (Riggs / Sasha /
    Donny / Maya; operator-collaborative content work).
-5. **Wizard slice 11 — Hide-on-completion detail page rework.**
+5. **Wizard slice 11 — Hide-on-completion full rework.**
 6. **Tier 2 prompt helpers** (`DynamicPromptBuilder` from u-d-b).
 7. **Stuck-row janitor** — operational hardening.
 8. **Additional video kinds** — cinematic / dialogue / long_ad.
@@ -170,8 +131,11 @@ default.
 11. **Real Google OAuth + dj-stripe** — operator gates.
 12. **Allauth legacy-settings cleanup.**
 13. **smoke_voice / smoke_avatar transaction discipline** —
-    tiny fix that's bitten us 3 times now.
-14. **Drift verifier** — `verify_doc_claims --only-drift`.
+    tiny fix that's bitten us 3 times now (did not bite SESSION 126,
+    but conditions for recurrence still present).
+14. **Drift verifier** — `verify_doc_claims --only-drift`. Could
+    cover the new `SUPPORTED_VOICE_PRESETS` mirror between Django
+    and the media-engine.
 15. **Brand Identity v2 + dark mode.**
 
 ---
@@ -185,7 +149,7 @@ cd media-engine && source .venv/bin/activate
 uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload
 
 cd shell && source .venv/bin/activate
-python manage.py runserver                 # :8000
+python manage.py runserver                 # :8000 — DO NOT pass --noreload
 
 cd shell && source .venv/bin/activate
 celery -A character_os worker --loglevel=info --pool=solo   # required for video pipeline
@@ -202,30 +166,34 @@ python manage.py smoke_headless_auth
 python manage.py smoke_avatar
 python manage.py smoke_voice
 python manage.py smoke_video
-python manage.py smoke_portrait              # SESSION 125
+python manage.py smoke_portrait
 python -m pytest character_os/prompts/        # 31 tests
 
 # SPA (from web/)
 pnpm test
-pnpm e2e            # full lifecycle ~24s (10 specs)
+pnpm e2e            # full lifecycle ~26s (12 specs)
 ```
 
 ---
 
 ## AI / assistant context
 
-- Last session: SESSION 125 — wizard slice 2 (`/internal/portrait/`
-  backend). Half-session; pattern-matched against SESSIONS
-  108/109/110 (extract from legacy service, wrap in `/internal/*`
-  contract, write smoke). All gates clean.
+- Last session: SESSION 126 — wizard slice 3 (voice tabs scaffold).
+  Three-mode `<VoiceCapture>` component + clone-voice preset path
+  on the backend + 2 new Playwright specs. Camera capture flake
+  fix landed as a side-quest (wait for `loadeddata` before live).
+  All gates clean; 12/12 specs.
 - **Calibration carried forward:** this operator prefers right-
-  shaping foundations early. SESSION 126's recommendation
-  (voice tabs) is foundation-shaped — the most complex wizard
-  step landing before the wizard's outer scaffold.
-- Templates (Riggs / Sasha / Donny / Maya) still need real
-  content work — operator-collaborative pass.
-- **Watch:** the smoke_voice / smoke_avatar transaction
-  discipline issue bit again this session. Three sessions in a
-  row noting it. Worth landing the fix soon (it's tiny).
+  shaping foundations early. SESSION 127's recommendation (slice 4
+  → slice 5) keeps that shape — small foundation field first, then
+  the wizard scaffold structure.
+- Templates (Riggs / Sasha / Donny / Maya) still need real content
+  work — operator-collaborative pass, queued at slice 10.
+- **Watch:** the smoke_voice / smoke_avatar transaction discipline
+  issue didn't bite SESSION 126 but it's queued #13. Worth landing
+  the fix soon (it's tiny).
+- **Watch:** if Django runserver gets started with `--noreload`,
+  view changes won't be picked up. The local-dev section above
+  notes this; the canonical command is `runserver` without flags.
 - Collaboration conventions: AI drafts, human edits. Handoff
   `## AI Notes` section required at session end.

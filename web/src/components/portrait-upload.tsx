@@ -278,16 +278,33 @@ function CameraCapture({
           return;
         }
         streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+        const video = videoRef.current;
+        if (video) {
+          video.srcObject = stream;
+          // Wait for the first frame before flipping to "live" — the
+          // capture path early-returns when readyState < HAVE_CURRENT_DATA,
+          // so flipping on `play()` alone is racy under headless Chromium
+          // (the synthetic stream can take ~50-200ms to fill the
+          // readyState).
+          const markLive = () => {
+            if (!cancelled) setState("live");
+          };
+          if (video.readyState >= 2) {
+            markLive();
+          } else {
+            video.addEventListener("loadeddata", markLive, { once: true });
+          }
           // Play kicks off in React via the autoplay attribute, but
           // Safari sometimes needs an explicit play() after src set.
-          videoRef.current.play().catch(() => {
+          video.play().catch(() => {
             // Some browsers throw on programmatic play; harmless —
             // the video will start on its own.
           });
+        } else {
+          // No <video> element yet — should be impossible after mount,
+          // but don't strand the state machine.
+          setState("live");
         }
-        setState("live");
       } catch (exc) {
         if (cancelled) return;
         const err = exc as DOMException;

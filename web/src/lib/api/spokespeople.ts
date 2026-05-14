@@ -114,3 +114,79 @@ export function useCreateSpokesperson() {
     },
   });
 }
+
+// ---- Voice presets (SESSION 126 — wizard slice 3) ------------------
+
+const voicePresetsResponseSchema = z.object({
+  presets: z.array(z.string()),
+});
+
+export async function listVoicePresets(): Promise<string[]> {
+  return apiJson(
+    "/api/spokespeople/voice-presets/",
+    {},
+    (json) => voicePresetsResponseSchema.parse(json).presets,
+  );
+}
+
+export function useVoicePresets() {
+  return useQuery({
+    queryKey: ["spokespeople", "voice-presets"],
+    queryFn: listVoicePresets,
+    // Presets are effectively static (Runway's list shifts on the
+    // order of months). Cache aggressively.
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
+// ---- Clone-voice mutation (SESSION 126 — wizard slice 3) -----------
+
+const cloneVoiceResponseSchema = z.object({
+  spokesperson: spokespersonSchema,
+  voice: z.object({
+    voice_id: z.string(),
+    status: z.string(),
+    preview_url: z.string().nullable(),
+    mock_mode: z.boolean(),
+  }),
+});
+
+export type CloneVoiceResponse = z.infer<typeof cloneVoiceResponseSchema>;
+
+/**
+ * Either ``{preset: "vincent"}`` OR ``{audio_data_uri: ...}`` —
+ * preset wins if both are sent. Mirrors the backend contract in
+ * ``SpokespersonViewSet.clone_voice``.
+ */
+export interface CloneVoiceInput {
+  id: string;
+  preset?: string;
+  audio_data_uri?: string;
+  name?: string;
+}
+
+export async function cloneVoice(input: CloneVoiceInput): Promise<CloneVoiceResponse> {
+  const { id, ...body } = input;
+  return apiJson(
+    `/api/spokespeople/${id}/clone-voice/`,
+    { method: "POST", body },
+    (json) => cloneVoiceResponseSchema.parse(json),
+  );
+}
+
+export function useCloneVoice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: cloneVoice,
+    onSuccess: (data) => {
+      // Refresh the single-resource cache + invalidate the list so
+      // the workspace dashboard reflects voice_id changes when the
+      // operator navigates back.
+      qc.setQueryData(
+        ["spokesperson", data.spokesperson.id],
+        data.spokesperson,
+      );
+      qc.invalidateQueries({ queryKey: ["spokespeople"] });
+    },
+  });
+}

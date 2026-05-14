@@ -1,9 +1,15 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Wand2 } from "lucide-react";
+import { ArrowLeft, Mic, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useSpokesperson, type Spokesperson } from "@/lib/api/spokespeople";
+import {
+  useCloneVoice,
+  useSpokesperson,
+  type Spokesperson,
+} from "@/lib/api/spokespeople";
 import { useVideos, type Video } from "@/lib/api/videos";
 import { VideoRow } from "@/components/video-row";
+import { VoiceCapture, type VoiceCaptureValue } from "@/components/voice-capture";
 import { cn } from "@/lib/utils";
 
 /**
@@ -222,10 +228,10 @@ function SetupPanel({ spokesperson }: { spokesperson: Spokesperson }) {
             Ready to render. Everything this spokesperson needs is in place.
           </p>
         ) : (
-          <ol className="flex flex-col gap-4">
+          <ol className="flex flex-col gap-6">
             {items.map((it, i) => (
               <li
-                key={it.label}
+                key={it.kind}
                 className="grid grid-cols-[2rem,1fr] items-baseline gap-4"
               >
                 <span
@@ -236,7 +242,7 @@ function SetupPanel({ spokesperson }: { spokesperson: Spokesperson }) {
                 >
                   {it.done ? "✓" : String(i + 1).padStart(2, "0")}
                 </span>
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-2">
                   <span
                     className={cn(
                       "font-display text-lg leading-snug tracking-tight",
@@ -246,6 +252,9 @@ function SetupPanel({ spokesperson }: { spokesperson: Spokesperson }) {
                     {it.label}
                   </span>
                   <span className="text-xs text-muted-foreground">{it.body}</span>
+                  {it.kind === "voice" && !it.done && (
+                    <VoiceSetupAffordance spokespersonId={spokesperson.id} />
+                  )}
                 </div>
               </li>
             ))}
@@ -253,6 +262,80 @@ function SetupPanel({ spokesperson }: { spokesperson: Spokesperson }) {
         )}
       </div>
     </aside>
+  );
+}
+
+function VoiceSetupAffordance({ spokespersonId }: { spokespersonId: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [value, setValue] = useState<VoiceCaptureValue | null>(null);
+  const clone = useCloneVoice();
+
+  if (!expanded) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="mt-1 self-start"
+        onClick={() => setExpanded(true)}
+        data-testid="voice-setup-open"
+      >
+        <Mic className="mr-1 h-3 w-3" />
+        Set up voice
+      </Button>
+    );
+  }
+
+  const submit = () => {
+    if (!value) return;
+    const payload = (() => {
+      if (value.mode === "preset") {
+        return { id: spokespersonId, preset: value.preset };
+      }
+      return { id: spokespersonId, audio_data_uri: value.dataUri };
+    })();
+    clone.mutate(payload, {
+      onSuccess: () => {
+        setValue(null);
+        setExpanded(false);
+      },
+    });
+  };
+
+  return (
+    <div className="mt-2 flex flex-col gap-3" data-testid="voice-setup-panel">
+      <VoiceCapture value={value} onChange={setValue} />
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setValue(null);
+            setExpanded(false);
+            clone.reset();
+          }}
+          disabled={clone.isPending}
+          data-testid="voice-setup-cancel"
+        >
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          onClick={submit}
+          disabled={!value || clone.isPending}
+          data-testid="voice-setup-submit"
+        >
+          {clone.isPending ? "Saving…" : "Save voice"}
+        </Button>
+      </div>
+      {clone.isError && (
+        <p className="text-xs text-destructive" data-testid="voice-setup-error">
+          Couldn't save the voice. Try again, or pick a different mode.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -412,6 +495,7 @@ function DetailError({ message }: { message: string }) {
 // ---- Helpers -------------------------------------------------------
 
 interface SetupItem {
+  kind: "brief" | "avatar" | "voice";
   label: string;
   body: string;
   done: boolean;
@@ -420,18 +504,21 @@ interface SetupItem {
 function buildSetupItems(s: Spokesperson): SetupItem[] {
   return [
     {
+      kind: "brief",
       label: "Business brief",
       body: "One paragraph describing what this spokesperson speaks about.",
       done: Boolean(s.business_brief.trim()),
     },
     {
+      kind: "avatar",
       label: "Runway avatar",
       body: "Portrait + Runway avatar id bound. Ships with create-spokesperson (S-06).",
       done: Boolean(s.runway_avatar_id) && s.runway_avatar_status !== "failed",
     },
     {
+      kind: "voice",
       label: "Voice",
-      body: "Either a Runway preset or a custom clone. Voice clone UI ships in a later slice.",
+      body: "Either a Runway preset or a custom clone — pick one and you're done.",
       done: Boolean(s.voice_id),
     },
   ];

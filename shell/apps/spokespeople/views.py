@@ -21,6 +21,20 @@ logger = logging.getLogger(__name__)
 
 HTTP_PAYMENT_REQUIRED = 402
 
+# Runway voice presets, mirrored from
+# ``media-engine/app/services/character_host_client.py``
+# (SUPPORTED_VOICE_PRESETS). Kept local because CLAUDE.md forbids
+# direct cross-service imports — Django talks to the media-engine
+# over HTTP/JSON only. If Runway's preset list ever shifts, the
+# media-engine side is authoritative + this list needs an update.
+SUPPORTED_VOICE_PRESETS: frozenset[str] = frozenset({
+    "victoria", "vincent", "clara", "drew", "skye", "max",
+    "morgan", "felix", "mia", "marcus", "summer", "ruby",
+    "aurora", "jasper", "leo", "adrian", "nina", "emma",
+    "blake", "david", "maya", "nathan", "sam", "georgia",
+    "petra", "adam", "zach", "violet", "roman", "luna",
+})
+
 
 class SpokespersonViewSet(viewsets.ModelViewSet):
     """CRUD on spokespeople in the requesting user's workspaces."""
@@ -113,35 +127,82 @@ class SpokespersonViewSet(viewsets.ModelViewSet):
     def clone_voice(self, request, pk=None):
         """``POST /api/spokespeople/{id}/clone-voice/``.
 
-        Takes ``{audio_data_uri, name?}``, forwards to the media-
-        engine's ``POST /internal/voices/``, and persists the
-        returned ``voice_id`` onto the Spokesperson row. The Runway-
-        hosted ``preview_url`` is returned in the response for the
-        SPA to play back; we don't persist it (Runway can re-vend it
-        via a future poll route when one lands).
+        Set the spokesperson's voice. Two mutually-exclusive payload
+        shapes:
 
-        Response shape:
+        1. **Preset** — ``{"preset": "vincent"}``. Validates against
+           ``SUPPORTED_VOICE_PRESETS`` and persists the preset name
+           as ``voice_id`` directly. No media-engine call (Runway
+           identifies presets by name on the avatar_video request).
+        2. **Clone** — ``{"audio_data_uri": "...", "name?": "..."}``.
+           Forwards to ``POST /internal/voices/`` on the media-
+           engine. The returned ``voice_id`` (Runway-vended) is
+           persisted. The hosted ``preview_url`` is returned for the
+           SPA to play back but not persisted (we re-vend via a
+           future poll route when one lands).
+
+        If both are supplied, ``preset`` wins — keeps the contract
+        deterministic without needing a strict-mode flag.
+
+        Response shape (uniform across both paths):
 
             {
               "spokesperson": <serialized Spokesperson>,
               "voice": {
                 "voice_id": "...",
-                "status": "ready|mock",
-                "preview_url": "https://...",
+                "status": "preset|ready|mock",
+                "preview_url": "https://..." | null,
                 "mock_mode": false
               }
             }
 
         Errors:
-            400 — audio_data_uri missing.
+            400 — neither preset nor audio_data_uri supplied, or
+                  the supplied preset is not in the supported set.
             502 — media-engine unreachable, or upstream Runway
-                  rejection (carries upstream message).
+                  rejection (carries upstream message). Clone path
+                  only.
         """
         spokesperson: Spokesperson = self.get_object()  # type: ignore[assignment]
+        preset = (request.data.get("preset") or "").strip().lower()
         audio_data_uri = (request.data.get("audio_data_uri") or "").strip()
+
+        # --- Preset path ---
+        if preset:
+            if preset not in SUPPORTED_VOICE_PRESETS:
+                return Response(
+                    {
+                        "error": f"unknown voice preset: {preset!r}",
+                        "code": "unknown_preset",
+                    },
+                    status=drf_status.HTTP_400_BAD_REQUEST,
+                )
+            spokesperson.voice_id = preset
+            spokesperson.save(update_fields=["voice_id", "updated_at"])
+            logger.info(
+                "spokesperson %s voice preset=%s",
+                spokesperson.pk, preset,
+            )
+            serializer = self.get_serializer(spokesperson)
+            return Response(
+                {
+                    "spokesperson": serializer.data,
+                    "voice": {
+                        "voice_id": preset,
+                        "status": "preset",
+                        "preview_url": None,
+                        "mock_mode": False,
+                    },
+                }
+            )
+
+        # --- Clone path ---
         if not audio_data_uri:
             return Response(
-                {"error": "audio_data_uri is required", "code": "missing_audio"},
+                {
+                    "error": "Provide either 'preset' or 'audio_data_uri'.",
+                    "code": "missing_input",
+                },
                 status=drf_status.HTTP_400_BAD_REQUEST,
             )
         name = (request.data.get("name") or "").strip() or None
@@ -186,6 +247,21 @@ class SpokespersonViewSet(viewsets.ModelViewSet):
                 },
             }
         )
+
+    @action(detail=False, methods=["get"], url_path="voice-presets")
+    def voice_presets(self, _request):
+        """``GET /api/spokespeople/voice-presets/``.
+
+        Returns the supported Runway voice presets for the Preset
+        tab of the spokesperson voice-capture UI. Hard-coded here +
+        mirrored from the media-engine's
+        ``SUPPORTED_VOICE_PRESETS`` (cross-service imports are
+        forbidden by CLAUDE.md).
+
+        Shape: ``{"presets": ["adam", "adrian", ...]}`` — alpha-
+        sorted for stable UI ordering.
+        """
+        return Response({"presets": sorted(SUPPORTED_VOICE_PRESETS)})
 
     @staticmethod
     def _workspace(workspace_id):
