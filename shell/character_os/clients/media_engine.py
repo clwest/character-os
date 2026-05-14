@@ -224,6 +224,23 @@ class AudioDubResult:
 
 
 @dataclass
+class StyleRemixResult:
+    """Decoded response from ``POST /internal/clips/style_remix/``.
+
+    Carries the chunked-path flag + Runway task ids so audit trails
+    can reconstruct which Aleph fires produced the output (single-fire
+    vs N-chunk fires)."""
+
+    output_url: str
+    duration_seconds: float | None
+    size_bytes: int | None
+    style_preset: str
+    chunked: bool
+    task_ids: list[str]
+    mock_mode: bool
+
+
+@dataclass
 class VideoPollResult:
     """Decoded response from ``GET /internal/videos/{task_id}/``."""
 
@@ -698,6 +715,44 @@ class MediaEngineClient:
         except (KeyError, TypeError, ValueError) as exc:
             raise MediaEngineError(
                 f"dub_audio response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
+    def style_remix(
+        self,
+        *,
+        clip_url: str,
+        style_preset: str,
+        seed: int | None = None,
+    ) -> "StyleRemixResult":
+        """Hit ``POST /internal/clips/style_remix/`` — Runway
+        Aleph (gen4_aleph) via /v1/video_to_video. Synchronous;
+        media-engine handles the chunked path internally for
+        sources >5.5s. v1 supports 5 presets: noir, anime, chrome,
+        watercolor, cyberpunk."""
+        body: dict[str, Any] = {
+            "clip_url": clip_url,
+            "style_preset": style_preset,
+        }
+        if seed is not None:
+            body["seed"] = seed
+        data = self.request("POST", "/internal/clips/style_remix/", json=body)
+        try:
+            return StyleRemixResult(
+                output_url=str(data["output_url"]),
+                duration_seconds=_as_float_or_none(data.get("duration_seconds")),
+                size_bytes=(
+                    int(data["size_bytes"]) if data.get("size_bytes") is not None
+                    else None
+                ),
+                style_preset=str(data.get("style_preset", style_preset)),
+                chunked=bool(data.get("chunked", False)),
+                task_ids=list(data.get("task_ids") or []),
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"style_remix response not in expected shape: {data!r}",
                 response_text=str(data),
             ) from exc
 

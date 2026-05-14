@@ -1025,6 +1025,67 @@ def multi_lang_dub(
 
 
 @transaction.atomic
+def style_remix_pass(
+    *,
+    workspace: "Workspace",
+    spokesperson: "Spokesperson",
+    source_clip,
+    style_preset: str,
+    seed: int | None = None,
+    mock_mode: bool = False,
+    name: str = "",
+    created_by: "AbstractBaseUser | None" = None,
+) -> Composition:
+    """Single-step Aleph style remix composition.
+
+    Takes an existing CLIP and a preset id, produces a remixed
+    CLIP. Sources >5.5s are chunked + parallel-remixed +
+    concatenated server-side (Aleph has a hard ~5s output cap);
+    the composition step sees one input + one output regardless.
+
+    v1 supports 5 presets — noir / anime / chrome / watercolor /
+    cyberpunk — matching the hackathon's STYLE_PRESETS dict
+    byte-for-byte.
+    """
+    _validate_workspace_assets(workspace, [source_clip])
+    if spokesperson.workspace_id != workspace.pk:
+        raise ValueError("spokesperson not in workspace")
+    preset = style_preset.lower().strip()
+    if preset not in {"noir", "anime", "chrome", "watercolor", "cyberpunk"}:
+        raise ValueError(
+            f"style_preset {style_preset!r} not supported. "
+            "Supported: ['anime', 'chrome', 'cyberpunk', 'noir', 'watercolor']"
+        )
+    if source_clip.asset_type != "clip":
+        raise ValueError(
+            f"style_remix_pass source_clip must be a CLIP asset; "
+            f"got {source_clip.asset_type}"
+        )
+
+    composition_name = name.strip() or f"Style remix — {preset}"
+    composition = Composition.objects.create(
+        workspace=workspace,
+        spokesperson=spokesperson,
+        name=composition_name,
+        template_kind="style_remix_pass",
+        mock_mode=mock_mode,
+        created_by=created_by,
+    )
+    step_params: dict[str, object] = {"style_preset": preset}
+    if seed is not None:
+        step_params["seed"] = int(seed)
+
+    CompositionStep.objects.create(
+        composition=composition,
+        position=0,
+        primitive="style_remix",
+        inputs=[{"slot": "source", "asset_id": str(source_clip.id)}],
+        params=step_params,
+    )
+    return composition
+
+
+@transaction.atomic
 def music_bed_pass(
     *,
     workspace: "Workspace",

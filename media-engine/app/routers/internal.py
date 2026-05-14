@@ -2454,6 +2454,433 @@ def post_internal_audio_dub(
     )
 
 
+# ---- V11 style_remix (Aleph) -------------------------------------
+#
+# SESSION 143 / V11. Ports the hackathon's aleph_client.py — full
+# chunked path included. Aleph (gen4_aleph) has a hard ~5s output
+# cap regardless of source length, so sources longer than ~5.5s
+# get split → parallel-remix → concat to cover the whole timeline.
+#
+# The capability shipped at the hackathon and operators used the
+# style presets in production; V11 is a restoration under
+# Asset+Composition shape, not a net-new feature.
+#
+#   POST /internal/clips/style_remix/  — synchronous; handles
+#                                        both single-clip and
+#                                        chunked paths internally.
+#
+# Style presets are hardcoded server-side (operator can't typo
+# into a no-op prompt; ops can tune prompts without re-shipping
+# the SPA).
+
+
+_ALEPH_MODEL = "gen4_aleph"
+_ALEPH_MAX_SOURCE_BYTES = 16 * 1024 * 1024  # 16 MB per-clip data-URI cap
+_ALEPH_CHUNK_SECONDS = 5
+_ALEPH_CHUNK_THRESHOLD_S = 5.5
+_ALEPH_PARALLEL_CHUNKS = 4
+_ALEPH_POLL_DEADLINE_S = 600.0
+
+
+# Style presets ported verbatim from
+# runway-hackathon/backend/app/services/aleph_client.py:STYLE_PRESETS.
+# Keep this dict identical so operators who used a preset in
+# production get the same Aleph behavior here.
+ALEPH_STYLE_PRESETS: dict[str, dict[str, str]] = {
+    "noir": {
+        "label": "Cinematic Noir",
+        "prompt": (
+            "Cinematic film noir, high contrast black-and-white, deep "
+            "shadows, dramatic side lighting, 35mm film grain, vintage "
+            "1940s cinematography"
+        ),
+    },
+    "anime": {
+        "label": "Anime",
+        "prompt": (
+            "Hand-drawn anime style, bold flat colors, expressive line "
+            "art, soft cel shading, Studio Ghibli-inspired backgrounds, "
+            "exaggerated character features"
+        ),
+    },
+    "chrome": {
+        "label": "Liquid Chrome",
+        "prompt": (
+            "Liquid chrome metallic style, reflective polished metal "
+            "surfaces, futuristic neon highlights, mirror-finish "
+            "subject, electric blue and silver palette"
+        ),
+    },
+    "watercolor": {
+        "label": "Watercolor",
+        "prompt": (
+            "Loose watercolor painting style, soft pastel washes, "
+            "bleeding edges, visible brush strokes, hand-painted on "
+            "textured paper, dreamy diffused light"
+        ),
+    },
+    "cyberpunk": {
+        "label": "Cyberpunk Neon",
+        "prompt": (
+            "Cyberpunk neon style, saturated magenta and cyan lighting, "
+            "rain-soaked streets, holographic overlays, Blade Runner "
+            "atmosphere, high-tech low-life aesthetic"
+        ),
+    },
+}
+
+
+class InternalStyleRemixCreate(BaseModel):
+    """Request body for ``POST /internal/clips/style_remix/``."""
+
+    clip_url: str = Field(..., min_length=1, max_length=2048)
+    style_preset: str = Field(..., min_length=1, max_length=40)
+    seed: Optional[int] = Field(default=None, ge=0, le=2**32 - 1)
+
+
+class InternalStyleRemixResponse(BaseModel):
+    output_url: str
+    duration_seconds: Optional[float] = None
+    size_bytes: Optional[int] = None
+    style_preset: str
+    chunked: bool
+    task_ids: list[str] = Field(default_factory=list)
+    mock_mode: bool
+
+
+def _style_remix_dir(settings: Settings) -> Path:
+    target = settings.data_path / "_internal" / "style_remixes"
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def _aleph_create_task(
+    *,
+    video_uri: str,
+    prompt: str,
+    seed: Optional[int],
+    settings: Settings,
+) -> str:
+    """POST /v1/video_to_video with model=gen4_aleph. Returns
+    Runway task id. Raises httpx errors on transport failure."""
+    body: dict = {
+        "model": _ALEPH_MODEL,
+        "videoUri": video_uri,
+        "promptText": prompt,
+    }
+    if seed is not None:
+        body["seed"] = int(seed)
+    url = f"{settings.runway_api_base}/v1/video_to_video"
+    with httpx.Client(timeout=60.0) as client:
+        resp = client.post(url, headers=_runway_headers(settings), json=body)
+        if resp.status_code != 200:
+            raise RuntimeError(
+                f"aleph create rejected: {resp.status_code} {resp.text[:300]}"
+            )
+        created = resp.json()
+    task_id = created.get("id")
+    if not task_id:
+        raise RuntimeError(f"aleph create missing task id: {created}")
+    return task_id
+
+
+def _aleph_poll_task(task_id: str, settings: Settings) -> str:
+    """Poll /v1/tasks/{id} until terminal. Returns the output
+    URL on SUCCEEDED; raises on FAILED/CANCELED/timeout."""
+    import time as _time
+
+    deadline = _time.time() + _ALEPH_POLL_DEADLINE_S
+    with httpx.Client(timeout=30.0) as client:
+        while _time.time() < deadline:
+            r = client.get(
+                f"{settings.runway_api_base}/v1/tasks/{task_id}",
+                headers=_runway_headers(settings),
+            )
+            r.raise_for_status()
+            payload = r.json()
+            status = (payload.get("status") or "").upper()
+            if status == "SUCCEEDED":
+                output = payload.get("output")
+                if isinstance(output, list):
+                    for v in output:
+                        if isinstance(v, str):
+                            return v
+                raise RuntimeError(
+                    f"aleph task {task_id} succeeded with no output url"
+                )
+            if status in {"FAILED", "CANCELED"}:
+                reason = payload.get("failure") or payload.get("error") or status
+                raise RuntimeError(f"aleph task {status}: {reason}")
+            _time.sleep(5)
+    raise RuntimeError(
+        f"aleph task {task_id} timed out after {_ALEPH_POLL_DEADLINE_S:.0f}s"
+    )
+
+
+def _aleph_download(url: str, target: Path) -> int:
+    """Stream Runway output to ``target``. Returns bytes written."""
+    tmp = target.with_suffix(target.suffix + ".tmp")
+    try:
+        with httpx.Client(timeout=120.0) as client:
+            with client.stream("GET", url) as r:
+                r.raise_for_status()
+                size = 0
+                with tmp.open("wb") as fh:
+                    for chunk in r.iter_bytes(64 * 1024):
+                        fh.write(chunk)
+                        size += len(chunk)
+        tmp.replace(target)
+        return size
+    except Exception:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
+def _aleph_remix_one(
+    *,
+    source_path: Path,
+    prompt: str,
+    seed: Optional[int],
+    target_path: Path,
+    settings: Settings,
+) -> str:
+    """End-to-end single Aleph fire: read → POST → poll →
+    download. Returns the Runway task_id."""
+    clip_bytes = source_path.read_bytes()
+    if len(clip_bytes) > _ALEPH_MAX_SOURCE_BYTES:
+        raise RuntimeError(
+            f"clip {source_path.name} is {len(clip_bytes):,} bytes; "
+            f"exceeds the {_ALEPH_MAX_SOURCE_BYTES // (1024 * 1024)} MB cap"
+        )
+    video_uri = (
+        "data:video/mp4;base64," + base64.b64encode(clip_bytes).decode("ascii")
+    )
+    task_id = _aleph_create_task(
+        video_uri=video_uri, prompt=prompt, seed=seed, settings=settings,
+    )
+    out_url = _aleph_poll_task(task_id, settings)
+    _aleph_download(out_url, target_path)
+    return task_id
+
+
+def _aleph_split_into_chunks(
+    source: Path, chunk_seconds: int, scratch_dir: Path,
+) -> list[Path]:
+    """ffmpeg-split source into N-second chunks with FORCED
+    keyframes so cuts land at exact chunk_seconds boundaries.
+    Aleph truncates to ~5s regardless of source length, so
+    keyframe-aligned 8s chunks would still get truncated."""
+    import subprocess as _subprocess
+
+    chunk_glob = scratch_dir / "chunk-%03d.mp4"
+    _subprocess.run(
+        [
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-i", str(source),
+            "-c:v", "libx264",
+            "-preset", "fast",
+            "-crf", "18",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-force_key_frames", f"expr:gte(t,n_forced*{chunk_seconds})",
+            "-map", "0",
+            "-f", "segment",
+            "-segment_time", str(chunk_seconds),
+            "-reset_timestamps", "1",
+            str(chunk_glob),
+        ],
+        check=True, capture_output=True, text=True, timeout=180,
+    )
+    chunks = sorted(scratch_dir.glob("chunk-*.mp4"))
+    if not chunks:
+        raise RuntimeError(f"ffmpeg segment produced no chunks for {source}")
+    return chunks
+
+
+def _aleph_concat_chunks(chunk_paths: list[Path], target: Path) -> None:
+    """ffmpeg-concat the remixed chunks with -c copy. Same seed
+    across chunks means encoding parameters align, so no re-encode
+    needed."""
+    import subprocess as _subprocess
+
+    list_file = target.parent / f"{target.stem}-concat-list.txt"
+    try:
+        list_file.write_text(
+            "\n".join(f"file '{p.resolve()}'" for p in chunk_paths) + "\n"
+        )
+        _subprocess.run(
+            [
+                "ffmpeg", "-y", "-loglevel", "error",
+                "-f", "concat",
+                "-safe", "0",
+                "-i", str(list_file),
+                "-c", "copy",
+                "-movflags", "+faststart",
+                str(target),
+            ],
+            check=True, capture_output=True, text=True, timeout=180,
+        )
+    finally:
+        list_file.unlink(missing_ok=True)
+
+
+@router.post(
+    "/clips/style_remix/", response_model=InternalStyleRemixResponse,
+)
+def post_internal_style_remix(
+    body: InternalStyleRemixCreate,
+    settings: Settings = Depends(get_settings),
+):
+    """Style-remix a CLIP via Runway Aleph. Routes internally
+    on duration: ≤5.5s single-fires; longer sources go through
+    the chunked path (ffmpeg split → parallel Aleph → concat).
+
+    Cached by hash(clip_url + preset + seed). Operators rerunning
+    the same remix don't pay Runway twice."""
+    preset_id = body.style_preset.strip().lower()
+    preset = ALEPH_STYLE_PRESETS.get(preset_id)
+    if preset is None:
+        return _error(
+            400, "unsupported_preset",
+            f"style_preset must be one of {sorted(ALEPH_STYLE_PRESETS.keys())}; "
+            f"got {body.style_preset!r}",
+        )
+
+    # Lock seed at request time. The chunked path reuses one
+    # seed across every chunk so the visual style stays coherent
+    # at chunk boundaries. Operator-supplied seed wins for
+    # reproducibility; otherwise we pick a random one and record
+    # it in the cache key so retries with new randomness still
+    # cache-miss correctly.
+    import random as _random
+
+    seed = body.seed if body.seed is not None else _random.randrange(0, 2**32)
+
+    cache_seed = f"{body.clip_url}|aleph|{preset_id}|{seed}".encode("utf-8")
+    cache_key = hashlib.sha256(cache_seed).hexdigest()[:16]
+
+    if settings.runway_mock:
+        output_url = f"/data/_internal/style_remixes/mock-{preset_id}-{cache_key}.mp4"
+        return InternalStyleRemixResponse(
+            output_url=output_url,
+            duration_seconds=5.0,
+            size_bytes=1024 * 1024,
+            style_preset=preset_id,
+            chunked=False,
+            task_ids=[f"mock_aleph_{cache_key}"],
+            mock_mode=True,
+        )
+
+    import shutil as _shutil
+
+    if not _shutil.which("ffmpeg") or not _shutil.which("ffprobe"):
+        return _error(
+            500, "internal_error",
+            "ffmpeg/ffprobe not found on PATH",
+        )
+
+    target_dir = _style_remix_dir(settings)
+    output_path = target_dir / f"{preset_id}-{cache_key}.mp4"
+    if output_path.exists():
+        return InternalStyleRemixResponse(
+            output_url=f"/data/_internal/style_remixes/{output_path.name}",
+            duration_seconds=None,
+            size_bytes=output_path.stat().st_size,
+            style_preset=preset_id,
+            chunked=False,  # cache hit — unknown
+            task_ids=[],
+            mock_mode=False,
+        )
+
+    try:
+        source_path = _download_concat_input(
+            body.clip_url, target_dir / "sources", settings,
+        )
+    except FileNotFoundError as exc:
+        return _error(400, "validation_error", str(exc))
+    except httpx.HTTPError as exc:
+        return _error(502, "upstream_runway_error", f"download error: {exc!s}"[:300])
+
+    source_duration = _probe_duration(source_path)
+    use_chunking = source_duration > _ALEPH_CHUNK_THRESHOLD_S
+
+    try:
+        if not use_chunking:
+            # Single-fire path.
+            task_id = _aleph_remix_one(
+                source_path=source_path,
+                prompt=preset["prompt"],
+                seed=seed,
+                target_path=output_path,
+                settings=settings,
+            )
+            task_ids = [task_id]
+        else:
+            # Chunked path. Split → parallel remix → concat.
+            import concurrent.futures
+            import tempfile as _tempfile
+
+            with _tempfile.TemporaryDirectory(prefix="aleph-chunks-") as tmpd:
+                scratch = Path(tmpd)
+                chunks = _aleph_split_into_chunks(
+                    source_path, _ALEPH_CHUNK_SECONDS, scratch,
+                )
+                chunk_outputs: list[Path] = [
+                    scratch / f"remix-out-{idx:03d}.mp4"
+                    for idx in range(len(chunks))
+                ]
+                task_ids: list[str] = ["" for _ in chunks]
+                errors: list[str] = []
+
+                def _fire_one(idx: int) -> None:
+                    try:
+                        tid = _aleph_remix_one(
+                            source_path=chunks[idx],
+                            prompt=preset["prompt"],
+                            seed=seed,
+                            target_path=chunk_outputs[idx],
+                            settings=settings,
+                        )
+                        task_ids[idx] = tid
+                    except Exception as exc:
+                        errors.append(f"chunk {idx + 1}/{len(chunks)}: {exc!s}")
+
+                with concurrent.futures.ThreadPoolExecutor(
+                    max_workers=min(_ALEPH_PARALLEL_CHUNKS, len(chunks)),
+                ) as pool:
+                    list(pool.map(_fire_one, range(len(chunks))))
+
+                if errors:
+                    return _error(
+                        502, "upstream_runway_error",
+                        f"{len(errors)}/{len(chunks)} chunks failed: "
+                        + "; ".join(errors[:3]),
+                    )
+
+                _aleph_concat_chunks(chunk_outputs, output_path)
+
+        logger.info(
+            "internal style_remix done preset=%s chunked=%s output=%s tasks=%d",
+            preset_id, use_chunking, output_path.name, len(task_ids),
+        )
+        return InternalStyleRemixResponse(
+            output_url=f"/data/_internal/style_remixes/{output_path.name}",
+            duration_seconds=None,
+            size_bytes=output_path.stat().st_size,
+            style_preset=preset_id,
+            chunked=use_chunking,
+            task_ids=task_ids,
+            mock_mode=False,
+        )
+    except RuntimeError as exc:
+        return _error(502, "upstream_runway_error", str(exc)[:300])
+    except httpx.HTTPError as exc:
+        return _error(502, "upstream_runway_error", f"http error: {exc!s}"[:300])
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.exception("style_remix unexpected")
+        return _error(500, "internal_error", f"unexpected: {exc!s}"[:300])
+
+
 # ---- POST /internal/voices/ ---------------------------------------
 #
 # Inline / synchronous voice cloning. Runway's clone returns in <10 s
