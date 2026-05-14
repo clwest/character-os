@@ -72,11 +72,18 @@ Update this section when a phase completes.
   bottom.
 - Phase 1 — Django shell scaffold. **DONE** (SESSION 107).
 - Phase 2 — Media data model migration. **MOSTLY DONE.**
-  `/internal/*` contract feature-complete (SESSIONS 108-110:
-  avatars, voices, videos). Campaigns→Django backfill script
-  still pending.
-- Phase 3 — Build new UI. Pending.
-- Phase 4 — u-d-b feature port. Pending.
+  `/internal/*` contract feature-complete after SESSION 125
+  (avatars, voices, videos, portraits — 5 verbs shipped).
+  Campaigns→Django backfill script still pending.
+- Phase 3 — Build new UI. **MOSTLY DONE** (SESSIONS 116-132).
+  Auth (SESSION 116) + workspace dashboard (S-09) + spokesperson
+  detail (S-10) + make-video flow (S-11/S-12) + 4-step create
+  wizard (W1-W9, SESSIONS 124-132). Remaining: W10 template
+  content (operator-collaborative) + W11 hide-on-completion
+  detail-page rework + legacy single-form retirement after
+  real-mode Runway validation.
+- Phase 4 — u-d-b feature port. Pending. (Tier 1 prompt helpers
+  ported in SESSION 122 as a partial credit toward this phase.)
 - Phase 5 — Agency tier UI. Pending.
 
 ---

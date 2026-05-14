@@ -2,9 +2,9 @@
 title: "Character OS — What It Actually Is"
 status: populated
 generated: 2026-05-13
-last_revised: 2026-05-13 (SESSION 123)
+last_revised: 2026-05-14 (SESSION 132)
 companion_doc: CHARACTER_OS_INVENTORY.md
-covers_sessions: "106-123"
+covers_sessions: "106-132"
 ---
 
 # Character OS — What It Actually Is
@@ -30,10 +30,12 @@ demo it inherited the media engine from.
 
 **Scale:** see [`CHARACTER_OS_INVENTORY.md`](CHARACTER_OS_INVENTORY.md)
 for the canonical numbers (regenerated via
-`python manage.py inventory`). At time of writing (SESSION 112):
-~35 `/api/*` routes in Django, ~93 user-defined routes in FastAPI
-(~88 legacy + 4 `/internal/*` + health), 3 services + Redis,
-~30K LOC across `shell/` + `media-engine/`. Currently 1-developer /
+`python manage.py inventory`). At time of writing (SESSION 132):
+~40 `/api/*` routes in Django, ~94 user-defined routes in FastAPI
+(~88 legacy + 5 `/internal/*` + health), 4 services + Redis (Django
++ FastAPI + React SPA + Celery), ~31K LOC across `shell/` +
+`media-engine/` + `web/`. The 4-step create-spokesperson wizard
+ships end-to-end after SESSION 132. Currently 1-developer /
 0-customer; launch target is small-business operators (the
 hackathon validated the product shape, this repo is the
 productisation).
@@ -113,20 +115,29 @@ old one.
 
 ### Layer 3 — SPA (`web/`)
 
-Currently empty scaffold (`.gitkeep` only). **Phase 3 in
-progress.** Scope locked in `docs/design/SPA_ARCHITECTURE.md`
-(SESSION 115): Vite + React + TypeScript + shadcn/ui + Tailwind,
-session-cookie auth via `/_allauth/browser/v1/*`, TanStack Query
-data layer, React Router routing, Playwright smoke tests.
+**Operational after SESSION 132.** Vite + React + TypeScript +
+shadcn/ui + Tailwind, session-cookie auth via
+`/_allauth/browser/v1/*`, TanStack Query data layer, React Router
+routing, Playwright smoke tests (25 specs as of SESSION 132).
+Scope locked in `docs/design/SPA_ARCHITECTURE.md` (SESSION 115);
+detailed wizard scope in `docs/design/CREATE_SPOKESPERSON_WIZARD.md`
+(SESSION 123).
 
-First three slices land starting SESSION 116:
+What ships:
 
-1. Sign-up + sign-in (S-03, S-04 of design lock).
-2. Workspace dashboard (S-09).
-3. Spokesperson detail (S-10).
+| Surface | Status | Source |
+|---|---|---|
+| Sign-up / sign-in | DONE (SESSION 116) | `routes/sign-{up,in}.tsx` |
+| Workspace dashboard (S-09) | DONE (SESSION 118) | `routes/dashboard.tsx` |
+| Spokesperson detail (S-10) | DONE (SESSION 118) | `routes/spokespeople/$id.tsx` |
+| Create spokesperson — legacy single-form (S-06) | DONE (SESSION 121); behind `?legacy=1` escape hatch after SESSION 132 | `routes/spokespeople/new.tsx::LegacyCreateForm` |
+| Make-a-video flow (S-11/S-12) | DONE (SESSION 121) | `routes/spokespeople/$id/render.tsx` + `routes/videos/$id.tsx` |
+| Voice-clone affordance on detail page | DONE (SESSION 126) | `components/voice-capture.tsx` |
+| **4-step Create-Spokesperson Wizard** | **DONE (SESSIONS 124-132)** — the default at `/spokespeople/new` | `components/spokesperson-wizard.tsx` (see next section) |
+| Template tile picker on Step 1 | Pending (W10) | — |
+| Hide-on-completion detail page rework | Foundations landed in SESSION 126; full rework pending (W11) | — |
 
-See `SPA_ARCHITECTURE.md` for the full scope lock + folder
-structure + out-of-scope list.
+See `SPA_ARCHITECTURE.md` for folder structure + out-of-scope list.
 
 ### Infrastructure
 
@@ -155,15 +166,93 @@ load-bearing — these rules bind every new endpoint:
    `mock_mode: bool`.
 5. **Idempotent in mock mode** so smoke tests stay deterministic.
 
-Three verbs ship as of SESSION 110:
+Five verbs ship as of SESSION 125:
 
 | Endpoint | Shape | Latency | Persistence |
 |---|---|---|---|
 | `POST /internal/avatars/` | Sync | ~20 s real / <1 s mock | `Spokesperson.runway_avatar_id` |
 | `POST /internal/voices/` | Sync | ~10 s real / <1 s mock | `Spokesperson.voice_id` |
 | `POST /internal/videos/` + `GET .../{task_id}/` | Fire-then-poll via Celery | 60-120 s real / ~12 s mock | `Video.media_engine_task_id` + `output_path` |
+| `POST /internal/portrait/` | Sync | ~10-20 s real / <1 s mock | Wizard accumulates client-side (no row until Confirm) |
 
 Full contract: `docs/design/MEDIA_ENGINE_INTERNAL_API.md`.
+
+---
+
+## The Create-Spokesperson Wizard (W1-W9, SESSIONS 124-132)
+
+The central UX of the launch product. Replaces the single-form
+operator flow with a 4-step wizard so new operators don't face a
+blank Brief textarea + unclear portrait/voice setup. Default at
+`/spokespeople/new` after the SESSION 132 flip.
+
+### Step shape
+
+| Step | Component | Inputs | Foundation |
+|---|---|---|---|
+| 1 — Identity | `Step1Identity` | `name` + `business_brief` (≥8 chars) + `tone_archetype` (5 choices, default `expert`). Inline tone suggestion fires on briefs ≥30 chars via `GET /api/prompts/suggest-tone/`. | W4 (`tone_archetype` field), W6 (form body) |
+| 2 — Portrait | `WizardPortraitStep` | Three-mode tabs: Upload (file picker), Camera (`getUserMedia`), Generate (`/api/spokespeople/generate-portrait/` → 4 visual templates × free-text `visual_subject`). | W1 (camera), W2 (`/internal/portrait/`), W3.5 (`visual_subject` field), W7 (composition) |
+| 3 — Voice | `<VoiceCapture>` (reused from detail page) | Three-mode tabs: Preset (Runway voice from `voice-presets/`), Upload (audio file), Record (`MediaRecorder`). Optional — "Skip" affordance pre-fills `vincent`. | W3 (voice-capture + clone-voice preset path), W8 (wizard wiring) |
+| 4 — Confirm | `Step4Confirm` | Read-only review panel: portrait thumbnail + identity summary + voice summary. Fires the atomic submit: `POST /api/spokespeople/` (with `voice_preset` if applicable) followed by `POST /clone-voice/` if voice mode is upload/record. Tier-limit 402 surfaces as upgrade callout; row creates regardless of clone-voice success (detail-page setup checklist catches partial state). | W9 (submit orchestration + wizard-as-default flip) |
+
+### Reducer shape
+
+`WizardState` matches the eventual create payload, not the UI
+grouping:
+
+```ts
+interface WizardState {
+  step: 1 | 2 | 3 | 4;
+  identity: { name; business_brief; visual_subject; tone_archetype }
+  portrait: { dataUri; fileName; mime; bytes }
+  voice:    { mode; preset; dataUri; fileName; mime; bytes; durationMs }
+}
+```
+
+Step 2's UI surfaces `visual_subject` next to the portrait picker
+even though it lives in the `identity` bag — UI grouping and
+backend grouping diverge by design. The Confirm step reads from
+one consistent bag.
+
+### Atomicity is at the UX level, not the API level
+
+The submit fires up to two API calls (create + optional
+clone-voice). A failed clone-voice doesn't roll back the row — the
+operator lands on the detail page with a "Set up voice" affordance
+(SESSION 126) waiting for them. A half-created spokesperson with a
+missing voice is still useful.
+
+### Mirrored constants
+
+Three SPA-side constants mirror Django + media-engine values
+(cross-service imports forbidden per CLAUDE.md):
+
+| Constant | Django | Media-engine | SPA |
+|---|---|---|---|
+| `TONE_ARCHETYPES` (5) | `Spokesperson.Tone` + `character_os/prompts/brand.py` | — | `web/src/lib/api/spokespeople.ts` |
+| `SUPPORTED_VOICE_PRESETS` (30) | `apps/spokespeople/views.py` | `character_host_client.py` (authoritative) | Loaded via `voice-presets/` endpoint |
+| `SUPPORTED_PORTRAIT_TEMPLATES` (4) | `apps/spokespeople/views.py` | `character_studio_client.PORTRAIT_TEMPLATES` (authoritative) | `web/src/lib/api/spokespeople.ts` |
+
+Queued #12 in the START doc tracks a `verify_doc_claims --only-drift`
+verifier that could keep all three in sync automatically.
+
+### What ships *with* the wizard
+
+- `Spokesperson.visual_subject` field (W3.5, SESSION 127)
+- `Spokesperson.tone_archetype` field (W4, SESSION 127)
+- `suggest_tone_from_brief()` keyword helper (SESSION 127)
+- Camera-capture readyState bug fix (SESSION 126 side-quest)
+- Allauth rate-limit DEBUG override (SESSION 131 side-quest)
+
+### What's still ahead
+
+- **W10 — Template content** (operator-collaborative): named
+  templates (Riggs / Sasha / Donny / Maya) with real briefs +
+  tones + visual_subject defaults, surfaced as tiles on Step 1.
+- **W11 — Hide-on-completion detail page rework**: full version
+  of the SESSION 126 partial foundation.
+- **W12 — Legacy form retirement**: after real-mode Runway
+  validation has exercised the wizard.
 
 ---
 
