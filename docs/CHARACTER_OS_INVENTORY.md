@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-14T01:03:11.681157+00:00
-git_sha: 798544f
+generated_at: 2026-05-14T01:40:36.790045+00:00
+git_sha: 3ffba2f (working tree dirty)
 git_branch: main
 ---
 
@@ -15,11 +15,11 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-14T01:03:11.681157+00:00** against commit **798544f**
-on branch **main**.
+Generated **2026-05-14T01:40:36.790045+00:00** against commit **3ffba2f**
+on branch **main** (working tree dirty).
 
-Python 3.11.6 · Django 5.0.6 ·
-Celery 5.5.3 · httpx 0.28.1.
+Python 3.11.6 · Django 5.2.14 ·
+Celery 5.6.3 · httpx 0.28.1.
 
 ---
 
@@ -28,7 +28,7 @@ Celery 5.5.3 · httpx 0.28.1.
 | Metric | Value | Source |
 |---|---|---|
 | Django models (project-owned) | **7** | `apps.get_models()` filtered to first-party apps |
-| URL routes (total) | **180** | `get_resolver().url_patterns` walk |
+| URL routes (total) | **169** | `get_resolver().url_patterns` walk |
 | URL routes (`/api/*`) | **35** | same |
 | FastAPI routes | **93** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **2** | `celery_app.tasks` filter |
@@ -56,11 +56,11 @@ Total: **7** models across **5** apps.
 
 ## URL Routes
 
-Total: **180** resolved patterns.
+Total: **169** resolved patterns.
 
 | Prefix | Count |
 |---|---|
-| `_allauth/` | 30 |
+| `_allauth/` | 19 |
 | `accounts/` | 26 |
 | `admin/` | 89 |
 | `api/` | 35 |
@@ -96,6 +96,7 @@ Total: **180** resolved patterns.
 - `google_login_by_token`
 - `login`
 - `manage_email`
+- `manage_phone`
 - `manage_providers`
 - `me`
 - `membership-detail`
@@ -105,6 +106,8 @@ Total: **180** resolved patterns.
 - `reauthenticate`
 - `redirect_to_provider`
 - `request_password_reset`
+- `resend_email_verification_code`
+- `resend_phone_verification_code`
 - `reset_password`
 - `signup`
 - `socialaccount_connections`
@@ -115,6 +118,7 @@ Total: **180** resolved patterns.
 - `spokesperson-detail`
 - `spokesperson-list`
 - `verify_email`
+- `verify_phone`
 - `video-detail`
 - `video-list`
 - `workspace-detail`
@@ -199,4 +203,4 @@ _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-w
 
 ---
 
-*Regenerated 2026-05-14T01:03:11.681157+00:00 from commit 798544f. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-14T01:40:36.790045+00:00 from commit 3ffba2f. Re-run `python manage.py inventory` (from `shell/`) to refresh.*

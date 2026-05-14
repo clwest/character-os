@@ -2,9 +2,9 @@
 title: "Character OS — What It Actually Is"
 status: populated
 generated: 2026-05-13
-last_revised: 2026-05-13 (SESSION 115)
+last_revised: 2026-05-13 (SESSION 123)
 companion_doc: CHARACTER_OS_INVENTORY.md
-covers_sessions: "106-115"
+covers_sessions: "106-123"
 ---
 
 # Character OS — What It Actually Is
@@ -287,8 +287,18 @@ first, then the runtime anchors. Inheritable across operators.
 6b. [`docs/design/SPA_ARCHITECTURE.md`](design/SPA_ARCHITECTURE.md) —
    Phase 3 SPA scope lock (stack, auth client, API client, first
    three screens).
+6c. [`docs/design/BRAND_IDENTITY_V1.md`](design/BRAND_IDENTITY_V1.md) —
+   v1 visual aesthetic (editorial-warm). Locked SESSION 117.
+6d. [`docs/design/PROMPT_HELPERS.md`](design/PROMPT_HELPERS.md) —
+   Tier 1 prompt helpers ported from unified-donkey-betz
+   (SESSION 122). Public API of `character_os/prompts/`.
+6e. [`docs/design/CREATE_SPOKESPERSON_WIZARD.md`](design/CREATE_SPOKESPERSON_WIZARD.md) —
+   Wizard scope lock (SESSION 123). 4-step flow, two-axis
+   archetypes (visual + tone), 3-mode voice input, hide-on-
+   completion via setup-checklist.
 7. [`docs/handoffs/`](handoffs/) — session-by-session build
-   history. SESSION 106-110 cover the Phase 1 + Phase 2 work.
+   history. SESSION 106-110 cover the Phase 1 + Phase 2 work;
+   111-123 cover Phase 3 + supporting work.
 8. [`docs/TRUST_CALIBRATION.md`](TRUST_CALIBRATION.md) — append-
    only log of AI-vs-operator calibration events.
 9. [`CLAUDE.md`](../CLAUDE.md) — AI session entry point + hard
