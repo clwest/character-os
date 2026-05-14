@@ -75,12 +75,13 @@ contract.
 | K7 | URL ingestion + serper discovery                | DONE (SESSION 140) |
 | V0 | Video composition scope lock                    | DONE (SESSION 142) |
 | V1 | Asset + Composition + CompositionStep schema   | DONE (SESSION 142) |
-| V2 | Composition runtime + state machine + resume   | **NEXT (SESSION 143)** |
-| V3 | `generate_avatar_speech` primitive + `talking_head` starter (absorbs K6.5) | Queued |
+| V2 | Composition runtime + state machine + resume   | DONE (SESSION 142) |
+| V3 | `generate_avatar_speech` primitive + `talking_head` starter (absorbs K6.5) | **NEXT (SESSION 143)** |
 | V4 | `generate_visual_clip` primitive (migrate gen4_turbo) | Queued |
-| V5 | Backwards-compat shim (`Video` → `Composition` wrapper) | Queued |
-| V6 | First multi-step starter: `talking_head_with_backdrop` | Queued |
-| V7-V14 | Capability roll-out (primitives + starters) | Queued |
+| V5 | `split_script` + `concat_clips` + `long_form_ad` starter — **promoted to position 5 SESSION 142**: long-form is a launch differentiator (no provider ships >20s single-call) | Queued |
+| V6 | Backwards-compat shim (`Video` → `Composition` wrapper, was V5) | Queued |
+| V7 | First multi-step starter: `talking_head_with_backdrop` (was V6) | Queued |
+| V8-V14 | Capability roll-out (primitives + starters) | Queued |
 | V15 | SPA recipe gallery (retires legacy single-form) | Queued |
 | R0 | Realtime avatar arc — scope lock                | DONE (SESSION 142) |
 | R1 | RealtimeSession + RealtimeToolInvocation schema | Queued |
@@ -155,97 +156,109 @@ videos apps. Plus 46 prompts pytest = **145 backend tests**.
 
 ### SESSION 142 outcome summary
 
-Three commits landed this session, all on `main` (not pushed):
+Five commits landed this session, all on `main` (not pushed):
 
 1. **`4321fdb`** — K4.2 dedup-restore + K6.2 portrait
    validation cleanups (3 new K-tests).
 2. **`ab3610c`** — V0 video composition scope lock
-   (`docs/design/VIDEO_COMPOSITION_V1.md`, 851 lines, 9
-   contract rules, 16 slices V0-V15).
+   (`docs/design/VIDEO_COMPOSITION_V1.md`, 9 contract rules,
+   16 slices V0-V15).
 3. **`68561fd`** — V1 schema: `apps.compositions` app with
    Asset / Composition / CompositionStep models, signals,
-   admin, and 13 V-tests. Schema only — runtime is V2.
+   admin, and 13 V-tests.
+4. **`0e01493`** — R0 realtime scope lock
+   (`docs/design/REALTIME_AVATAR_V1.md`, 10 contract rules,
+   11 slices R0-R10).
+5. **`a8692aa`** — V2 composition runtime: registry pattern,
+   3 mock primitives, `execute_composition` + `retry_step`
+   Celery tasks, partial-failure resume, cost aggregation,
+   18 V2 tests (133 backend total).
 
-Plus the R0 realtime scope lock (`docs/design/REALTIME_AVATAR_V1.md`,
-818 lines, 10 contract rules, 11 slices R0-R10) — to be
-committed at end of session.
+Also locked late-session: **V5 slice promoted from V7
+position** (long-form ad). Long-form is a launch
+differentiator — no AI provider ships single-call video
+longer than ~20s, so every long-form AI video in the wild
+is stitched. Bringing it forward to the third capability
+slice (after V3 + V4) positions the platform's distinctive
+selling point as early as possible. Change log in
+`docs/design/VIDEO_COMPOSITION_V1.md` §"Change log".
 
-### Next: V2 — Composition runtime (recommended) OR R1 — Realtime schema
+### Next: V3 — `generate_avatar_speech` primitive (absorbs K6.5)
 
-Both unblocked. Pick one.
+The first real primitive. End-to-end:
 
-**V2 — Composition runtime** is the natural continuation of
-the recorded-video arc:
+- New media-engine route
+  `POST /internal/clips/avatar_speech/` calling Runway's
+  `/v1/avatar_videos` (`gwm1_avatars` model) — the talking-
+  head endpoint the SESSION 141 audit identified as the
+  correct one. The legacy `/internal/videos/` keeps working
+  for `kind=spokesperson_ad` callers during the transition.
+- Generalised poll endpoint
+  `GET /internal/tasks/{task_id}/` (renames the existing
+  video poll; same state machine).
+- Shell-side `GenerateAvatarSpeechPrimitive` class in
+  `apps/compositions/primitives/avatar_speech.py`. Registry
+  entry: `"generate_avatar_speech"`.
+- `talking_head` starter composition — one step,
+  `generate_avatar_speech`. Available via admin / CLI for
+  V3 verification. SPA still uses the legacy `/api/videos/`
+  endpoint until V6 (backwards-compat shim) + V15 (recipe
+  gallery).
+- Knowledge integration: primitive optionally pipes its
+  script through K6's `build_render_brief` synthesis before
+  firing media-engine. Same RAG citation pattern as the
+  current `apps/videos/views.py:perform_create` flow.
+- ~10-15 new tests covering the primitive + the media-engine
+  route + the starter composition end-to-end (real-mode
+  mocked).
 
-- `execute_composition` Celery task in `apps/compositions/tasks.py`.
-- Per-step state machine: PENDING → RUNNING → SUCCEEDED |
-  FAILED. Composition status: DRAFT → PLANNING → RUNNING →
-  COMPLETED | PARTIAL | FAILED.
-- Partial-failure resume — operator retries from the failed
-  step without re-running prior successes.
-- Per-step cost estimator skeleton (`apps/compositions/cost.py`)
-  — concrete primitive estimators land per-slice starting V3.
-- Mock primitive (`apps/compositions/primitives/mock.py`)
-  for runtime testing without burning Runway credits.
-- 4-5 new tests covering the state machine + resume +
-  cost aggregation.
+V3 closes the K6.5 audit finding: cast members will render
+*speaking* the synthesized scripts, not silent animated
+portraits. Same Runway endpoint target as the original
+K6.5; better data shape underneath.
 
-V2 ships with no production Runway calls — V3 is the first
-real primitive (`generate_avatar_speech`, absorbing K6.5).
-V2 plus a mock primitive is enough to exercise the runtime
-end-to-end in tests.
+### After V3
 
-**R1 — RealtimeSession schema** is the realtime equivalent
-of V1:
+- **V4** — `generate_visual_clip` primitive (migrate
+  `gen4_turbo` image-to-video into a single-step
+  composition + `cinematic_visual` starter).
+- **V5** — long-form ad (promoted in late SESSION 142):
+  `split_script` + `concat_clips` + `long_form_ad`
+  starter. First launch-differentiating capability.
+- **V6** — backwards-compat shim, **V7** —
+  `talking_head_with_backdrop`, then V8-V15 capability
+  roll-out.
 
-- New Django app `apps.realtime`.
-- Models: `RealtimeSession`, `RealtimeToolInvocation` per
-  `REALTIME_AVATAR_V1.md` §"Data model".
-- Cross-workspace tool-invocation rejection signal +
-  `clean()`.
-- Repo-level isolation test mirroring V1's pattern.
-- Admin registration.
+### Alternative next slice: R1 — RealtimeSession schema
 
-Same "pure infra" discipline as V1 + K1. Schema only;
-broker is R3.
+Unblocked since V1 shipped. Mirrors V1's pattern: new
+`apps.realtime` app, two models, cross-workspace signal +
+`clean()`, repo-level isolation test, admin registration.
+Schema only; broker is R3.
 
-### Recommended next move
+R1 is a viable next session if you want to advance the
+realtime arc in parallel — V2's runtime patterns inform
+R3's broker design, but R1 doesn't require V3 to ship
+first.
 
-**V2 first.** Reasons:
+### Reference reads before V3
 
-- V2's runtime is the bridge from "schema exists" to "first
-  user-visible composition" (V6 ships
-  `talking_head_with_backdrop`). Without V2, every later V
-  slice waits on it.
-- R1 is also a "schema only" slice that ships without
-  user-visible value. Sequencing R1 immediately after V1
-  means two consecutive infra slices with nothing operators
-  can use yet.
-- V2 establishes the Celery task patterns + state-machine
-  shape that R3 (realtime broker) will mirror. Building V2
-  first means R3's design has prior art to copy from.
-
-### What's NOT in either slice
-
-- Real Runway calls (V3 / R2 ship those).
-- SPA changes (V15 / R8 ship those).
-- Backwards compatibility shim for the existing `Video`
-  model (V5).
-- Knowledge → Runway document bridge (R4).
-- Memory loop (R6).
-
-### Reference reads before V2
-
-1. `docs/design/VIDEO_COMPOSITION_V1.md` §"Composition
-   execution" — the state machine + partial-failure resume
-   shape.
-2. `shell/apps/embeddings/tasks.py` — K3's
-   `embed_document` Celery task is the implementation
-   template for `execute_composition` (idempotent, retry-
-   aware, status flips via `update_fields`).
-3. `shell/apps/videos/tasks.py:poll_video_until_terminal` —
-   the existing async polling pattern V2 should mirror for
-   primitives that fire-then-poll (avatar_speech, etc.).
+1. `docs/design/VIDEO_COMPOSITION_V1.md` §"Step primitives"
+   + §"Media-engine `/internal/*` extensions" — the
+   contract V3 implements.
+2. `media-engine/app/services/character_host_client.py:_generate_real`
+   (lines 412-492) — the existing `/v1/avatar_videos`
+   integration to port from Campaign-based to per-call
+   stateless.
+3. `media-engine/app/routers/internal.py:post_internal_video`
+   (lines ~286-329) — the current wrong-endpoint
+   implementation V3 replaces.
+4. `shell/apps/compositions/primitives/mock.py` — the
+   shape every primitive class follows (`execute()` +
+   `estimate_cost()` static methods).
+5. `shell/apps/videos/tasks.py:poll_video_until_terminal`
+   — the polling pattern V3's primitive should reuse for
+   the async fire-then-poll flow.
 
 ---
 

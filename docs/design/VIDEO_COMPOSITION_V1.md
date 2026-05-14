@@ -442,6 +442,10 @@ maps to at most two primitives. Most of the work in V3-V14
 below is **wrapping** existing service code as a step
 primitive, not writing new code.
 
+The two primitives `split_script` + `concat_clips` ship
+together in V5 (long-form ad) — they're co-dependent, and
+neither stands alone outside that composition.
+
 ---
 
 ## Composition execution
@@ -573,7 +577,7 @@ Each can ship independently.
 | POST | `/internal/clips/intro_outro/` | `add_intro_outro` | **V8** |
 | POST | `/internal/transcribe/` | `transcribe` | **V12** |
 | POST | `/internal/clips/trim/` | `trim_clip` | **V8** |
-| POST | `/internal/clips/concat/` | `concat_clips` | **V7** |
+| POST | `/internal/clips/concat/` | `concat_clips` | **V5** |
 | POST | `/internal/clips/reformat/` | `reformat_clip` | **V8** |
 | GET | `/internal/tasks/{task_id}/` | (generalised poll) | **V3** (replaces `/internal/videos/{task_id}/`) |
 
@@ -646,9 +650,9 @@ is ~1-2 sessions.
 | **V2** | Composition runtime: `execute_composition` Celery task + per-step state machine + partial-failure resume + retry-step. No primitives wired yet; runtime tested with a mock primitive. | — |
 | **V3** | `generate_avatar_speech` primitive end-to-end (media-engine endpoint + shell wrapper + the `talking_head` starter composition). Talking-head renders work correctly via `/v1/avatar_videos`. | **K6.5** |
 | **V4** | `generate_visual_clip` primitive (migrate the current `/internal/videos/` behavior — `gen4_turbo` image-to-video — into a single-step composition). Add `cinematic_visual` starter. | "Additional video kinds — cinematic" |
-| **V5** | Backwards-compat shim: existing `Video` model becomes a thin wrapper that creates a `talking_head` composition on `Video.create`. `/api/videos/` SPA surface unchanged. | — |
-| **V6** | First multi-step starter: `talking_head_with_backdrop`. End-to-end: SPA picks the recipe → fills inputs → composition runs → operator gets a real avatar-over-cinematic-backdrop output, knowledge-informed via K6. | — |
-| **V7** | `concat_clips` primitive + `long_form_ad` starter. Ports hackathon's `long_ad_service.py`. Operator can render >5-second talking-head ads. | "Additional video kinds — long_ad" |
+| **V5** | `split_script` primitive (gpt-5-mini sentence-boundary chunker) + `concat_clips` primitive (ffmpeg) + `long_form_ad` starter composition. Ports hackathon's `long_ad_service.py`. Operator can render multi-minute talking-head ads. **Reordered to position 5 in SESSION 142** — long-form is a launch differentiator (no AI provider ships >20s in one call; everything long-form is stitched). Lands as the third capability slice instead of the seventh. | "Additional video kinds — long_ad" |
+| **V6** | Backwards-compat shim: existing `Video` model becomes a thin wrapper that creates a `talking_head` composition on `Video.create`. `/api/videos/` SPA surface unchanged. | — |
+| **V7** | First multi-step starter: `talking_head_with_backdrop`. End-to-end: SPA picks the recipe → fills inputs → composition runs → operator gets a real avatar-over-cinematic-backdrop output, knowledge-informed via K6. | — |
 | **V8** | Polish + format primitives: `add_captions` (script-driven), `add_intro_outro`, `trim_clip`, `reformat_clip`. Adds `talking_head_polished` + `reels_format` starters. | "Cast sync command" priority shift |
 | **V9** | Composite primitives: `composite_video` + `mix_audio`. Adds all layout-modifier starters (`pip_layout`, `backdrop_layout`, `cohost_layout`, `music_bed_pass`, `broll_splice`). Unlocks scene composition entirely. | — |
 | **V10** | Voice flows: `design_voice` + `dub_audio` primitives. Adds operator-facing voice design UX (separate from the avatar-bound preset). | "Voice preset audit" |
@@ -659,10 +663,15 @@ is ~1-2 sessions.
 | **V15** | SPA recipe gallery. Operator picks from starter compositions; form maps to step inputs. Replaces the legacy single-form video create UI. | "W12 — Legacy form retirement" |
 
 Roughly 16 slices, ~12-18 sessions. V0 ships on commit of
-this doc. V1-V5 is the "ground re-laid" arc (no new user-
-visible kinds, but the architecture is right). V6 is the
-first slice that gives the operator something they couldn't
-do before. V7-V15 is the capability roll-out.
+this doc. V1-V4 is the "ground re-laid" arc (architecture +
+two foundational primitives, no user-visible compositions
+yet). **V5 is the first slice that gives operators a
+capability the legacy flow cannot match** — long-form
+talking-head ads via script-chunk-and-stitch. V6
+backfills backwards-compat so the legacy `/api/videos/`
+surface keeps working while the SPA migrates. V7-V15 is
+the capability roll-out for the remaining starter
+compositions.
 
 ### Critical-path framing
 
@@ -672,14 +681,17 @@ Three slices are load-bearing for the rest of the work:
   depends on this.
 - **V2** establishes the execution model. Every primitive
   beyond V3 plugs into this runtime.
-- **V5** establishes backwards-compat. Without it, the SPA
+- **V6** establishes backwards-compat. Without it, the SPA
   has to ship V15 the same session V3 ships, which is too
   much in one slice.
 
-Everything from V6 onward is parallelizable in principle.
-Two sessions could run V7 (long-form) and V8 (polish) in
-parallel without blocking each other if the runtime + the
-backwards-compat shim are stable.
+Everything from V7 onward is parallelizable in principle.
+V5 (long-form) sits ahead of V6 deliberately — long-form
+is the first launch-differentiating capability and it
+doesn't depend on the backwards-compat shim (operators can
+drive it via the new Composition surface during the
+transition; the legacy `/api/videos/` flow stays unchanged
+until V6 + V15).
 
 ---
 
@@ -861,3 +873,24 @@ the tests cannot fail.
   arc (R0+) under its own scope lock, not part of V0-V15.
   Shared dependency: V1's Asset shape must support realtime
   artifacts so the two arcs don't fork the data model.
+
+- 2026-05-14 (SESSION 142, late-session) — Slice reorder:
+  promoted long-form to V5 (was V7); demoted backwards-
+  compat to V6 and `talking_head_with_backdrop` to V7.
+  Trigger: operator's realization that no AI provider
+  ships single-call video longer than ~20 seconds, so
+  every long-form AI video output in the wild is stitched
+  from short clips. Long-form (`split_script` + `concat_clips`
+  + `long_form_ad`) is the first launch-differentiating
+  capability — most SaaS competitors sell 5-15 second
+  outputs because that's what the providers ship.
+  Bringing it forward to the third capability slice
+  (right after the two foundational primitives V3 + V4)
+  positions the platform's distinctive selling point as
+  early as possible. The reorder is safe: V5's only
+  dependency is V3 (`generate_avatar_speech`) for pure
+  talking-head long-form; V4 is independent. The legacy
+  `/api/videos/` flow stays functional during the gap
+  between V5 and V6 (backwards-compat) because V3 fixed
+  the underlying media-engine endpoint routing as part
+  of K6.5 absorption.
