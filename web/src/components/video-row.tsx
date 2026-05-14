@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import type { Video } from "@/lib/api/videos";
 
@@ -28,17 +29,26 @@ export function VideoRow({ video, index, className, revealDelay }: VideoRowProps
   return (
     <li
       className={cn(
-        "reveal group relative grid grid-cols-[2.5rem,1fr,auto] items-baseline gap-4 border-b border-border/60 py-4 last:border-b-0",
+        "reveal group relative grid grid-cols-[2.5rem,1fr,auto] items-baseline gap-4 border-b border-border/60 py-4 transition-colors last:border-b-0 hover:bg-card/40",
         className,
       )}
       style={revealDelay ? ({ "--reveal-delay": revealDelay } as React.CSSProperties) : undefined}
+      data-testid="video-row"
     >
       <span className="font-display text-3xl font-light leading-none text-muted-foreground tabular-nums">
         {String(index + 1).padStart(2, "0")}
       </span>
       <div className="flex min-w-0 flex-col gap-1">
         <span className="truncate font-display text-lg leading-snug tracking-tight">
-          {title}
+          {/* Stretched-link: same pattern SESSION 118 introduced on
+            * SpokespersonCard. ::after covers the row so the entire
+            * surface is clickable but child semantics stay intact. */}
+          <Link
+            to={`/videos/${video.id}`}
+            className="outline-none after:absolute after:inset-0"
+          >
+            {title}
+          </Link>
         </span>
         <span className="truncate text-xs uppercase tracking-wider text-muted-foreground">
           {kicker}

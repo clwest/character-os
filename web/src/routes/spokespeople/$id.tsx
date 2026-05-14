@@ -1,5 +1,5 @@
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSpokesperson, type Spokesperson } from "@/lib/api/spokespeople";
 import { useVideos, type Video } from "@/lib/api/videos";
@@ -79,22 +79,41 @@ function Masthead({ spokesperson }: { spokesperson: Spokesperson }) {
             {spokesperson.name}
           </h1>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusPill
-            label="Status"
-            value={prettyStatus(spokesperson.status)}
-            tone={statusTone(spokesperson.status)}
-          />
-          <StatusPill
-            label="Avatar"
-            value={prettyAvatarStatus(spokesperson.runway_avatar_status)}
-            tone={avatarTone(spokesperson.runway_avatar_status)}
-          />
-          <StatusPill
-            label="Voice"
-            value={spokesperson.voice_id ? "Bound" : "Not set"}
-            tone={spokesperson.voice_id ? "ready" : "muted"}
-          />
+        <div className="flex flex-col items-end gap-3">
+          <Link
+            to={`/spokespeople/${spokesperson.id}/render`}
+            data-testid="make-video-link"
+          >
+            <Button
+              size="lg"
+              disabled={!spokesperson.runway_avatar_id}
+              title={
+                spokesperson.runway_avatar_id
+                  ? undefined
+                  : "Add a portrait first — the render needs a bound avatar."
+              }
+            >
+              <Wand2 className="mr-1.5 h-4 w-4" />
+              Make a video
+            </Button>
+          </Link>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <StatusPill
+              label="Status"
+              value={prettyStatus(spokesperson.status)}
+              tone={statusTone(spokesperson.status)}
+            />
+            <StatusPill
+              label="Avatar"
+              value={prettyAvatarStatus(spokesperson.runway_avatar_status)}
+              tone={avatarTone(spokesperson.runway_avatar_status)}
+            />
+            <StatusPill
+              label="Voice"
+              value={spokesperson.voice_id ? "Bound" : "Not set"}
+              tone={spokesperson.voice_id ? "ready" : "muted"}
+            />
+          </div>
         </div>
       </div>
     </header>
