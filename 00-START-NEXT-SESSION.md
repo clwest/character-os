@@ -9,20 +9,19 @@ state: active
 > **SPA scope lock:** `docs/design/SPA_ARCHITECTURE.md`.
 > **Brand identity lock:** `docs/design/BRAND_IDENTITY_V1.md`.
 > **Prompt helpers:** `docs/design/PROMPT_HELPERS.md`.
-> **Wizard scope lock:** `docs/design/CREATE_SPOKESPERSON_WIZARD.md` (NEW SESSION 123).
+> **Wizard scope lock:** `docs/design/CREATE_SPOKESPERSON_WIZARD.md`.
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_123_WIZARD_SCOPE_LOCK.md`.
+> **Last handoff:** `docs/handoffs/SESSION_124_PORTRAIT_CAMERA_CAPTURE.md`.
 
 ---
 
 ## Where we are
 
 **Phase 0-2:** Done.
-**Phase 3:** Five SPA slices shipped + Custom User model +
-Prompt-helper Tier 1 + Wizard scope-lock doc. Wizard
-implementation begins SESSION 124.
+**Phase 3:** Five SPA slices + User model + Prompt Tier 1 + Wizard
+scope lock + Wizard slice 1 (camera). Wizard slices 2-11 ahead.
 
 | Slice | Deliverable                          | Status |
 |-------|--------------------------------------|--------|
@@ -34,150 +33,110 @@ implementation begins SESSION 124.
 | 5     | Make-a-video (S-12) + status (S-11)  | DONE (SESSION 121) |
 | —     | Prompt helpers from u-d-b (Tier 1)   | DONE (SESSION 122) |
 | —     | Wizard scope-lock doc                | DONE (SESSION 123) |
-| 6+    | Wizard implementation slices         | NEXT (SESSION 124) |
+| W1    | Wizard slice 1 — camera capture      | DONE (SESSION 124) |
+| W2-11 | Wizard slices 2-11                   | NEXT |
 
-What's working end-to-end after SESSION 123:
+What's working end-to-end after SESSION 124:
 
-  - Everything from SESSIONS 107-122.
-  - `docs/design/CREATE_SPOKESPERSON_WIZARD.md` locks 4-step
-    wizard, two-axis archetype model, 3-mode voice input,
-    hide-on-completion, prompt-helper wiring, camera + audio
-    capture browser-API contract.
-  - No code added this session (doc-only slice).
+  - Everything from SESSIONS 107-123.
+  - `<PortraitUpload>` has Upload + Camera tabs. Camera uses
+    `getUserMedia` → canvas → data URI. Same
+    `PortraitUploadResult` shape regardless of input mode.
+  - `web/src/components/ui/tabs.tsx` — new shadcn-style Radix
+    Tabs primitive. Future wizard Step 3 voice tabs use it too.
+  - **10 Playwright specs pass** (8 existing + 2 new portrait-
+    camera tests via Chromium's `--use-fake-device-for-media-stream`).
 
 ---
 
-## SESSION 124 — Camera capture for `<PortraitUpload>`
+## SESSION 125 — Wizard slice 2: `/internal/portrait/` backend
 
-Recommended first wizard-related slice. Pure SPA work; pure
-foundation; no backend changes.
-
-### Why this slice first
-
-The wizard scope-lock (SESSION 123 §"Implementation order")
-recommends 11 ordered slices. Slice 1 is camera capture for the
-existing `<PortraitUpload>` component. Three reasons it goes
-first:
-
-1. **Pure SPA + reusable immediately.** The existing SESSION
-   120 `/spokespeople/new` create-spokesperson flow gains
-   camera capture without any other slice landing. Operator can
-   demo it end-to-end.
-2. **Browser-API foundation for the rest of the wizard.** The
-   wizard's Step 2 portrait camera capture + Step 3 audio
-   recording share the same shape: `getUserMedia` permission
-   flow, error/fallback handling, stream cleanup. Landing the
-   pattern here pays off twice.
-3. **Smallest natural slice.** Half a session. Zero backend
-   risk.
+Recommended next slice. Wraps the inherited
+`character_studio_client.generate_portrait()` with the
+`/internal/*` JSON contract so the wizard's Step 2 "Generate"
+path (operator types a subject; Runway gen4_image returns a
+portrait) has a real backend. Half-session, backend-only.
 
 ### Recommended scope
 
-1. **Extend `web/src/components/portrait-upload.tsx`** —
-   replace the single dropzone state with a tabbed UI: **Upload
-   / Take a picture**. The existing drag-and-drop file path
-   stays as the Upload tab.
-2. **Camera tab implementation:**
-   - On tab activate: `navigator.mediaDevices.getUserMedia(
-     { video: { facingMode: "user", width: { ideal: 1024 } },
-     audio: false })`.
-   - Render the `MediaStream` in a `<video>` preview element.
-   - "Take picture" button → `<canvas>.drawImage(video, ...)`
-     → `canvas.toDataURL("image/png")` → commit as the same
-     `PortraitUploadResult.dataUri` value the Upload path
-     already produces.
-   - "Re-take" affordance to discard and re-capture.
-   - Cleanup on commit / unmount / tab switch:
-     `stream.getTracks().forEach(t => t.stop())`.
-3. **Permission denial handling:** if `getUserMedia` rejects,
-   show inline copy ("Camera access needed — or upload a file
-   instead") with the Upload tab as the fallback. No app-level
-   error state.
-4. **Browser feature detection:** if `navigator.mediaDevices`
-   is undefined (older browsers / Safari in some contexts),
-   hide the Take a picture tab entirely.
-5. **Playwright spec** — `e2e/portrait-camera.spec.ts`.
-   Playwright's Chromium ships with a fake video stream
-   (`--use-fake-device-for-media-stream` and
-   `--use-fake-ui-for-media-stream`) so e2e tests can drive
-   `getUserMedia` deterministically without a real camera.
-   Test asserts: sign up → /spokespeople/new → switch to
-   Take a picture tab → camera permission auto-grants → click
-   Take picture → preview shows → submit → land on detail
-   page with avatar bound (mock mode).
+1. **`media-engine/app/routers/internal.py`** — extend with
+   `POST /internal/portrait/`:
+   - Request: `{template, subject, style?}` per
+     `CREATE_SPOKESPERSON_WIZARD.md` §"Backend additions".
+   - Validates `template ∈ PORTRAIT_TEMPLATES`.
+   - Calls `studio_generate_portrait(record=..., portrait_path=...,
+     settings=..., template=..., subject=..., style=...)`.
+   - Returns `{portrait_data_uri, template, mock_mode}` — synchronous,
+     ~10-20 s real mode, instant in mock.
+   - Mock-mode short-circuits to a deterministic placeholder PNG
+     (already what the legacy code does — just wire it through).
+2. **`shell/character_os/clients/media_engine.py`** — add
+   `MediaEngineClient.create_portrait()` wrapper. Same shape as
+   the existing `create_avatar`. Errors normalise through
+   `MediaEngineError`.
+3. **Smoke test** — `shell/apps/spokespeople/management/commands/smoke_portrait.py`.
+   Hits `POST /internal/portrait/` directly via the client.
+   Asserts the response data URI starts with `data:image/png;base64,`.
+   Mock-mode only — no Runway credits burned.
+4. **Verify the contract spec** is up-to-date — `MEDIA_ENGINE_INTERNAL_API.md`
+   already has the §"Backend additions" pre-spec; just confirm
+   it matches what landed.
 
 ### Critical constraints
 
-- Stay strict-mode TypeScript. No `any`.
-- The data shape returned by the camera path must be IDENTICAL
-  to the file-upload path (same `PortraitUploadResult` type) so
-  consumers don't branch on input mode.
-- Editorial-warm aesthetic inheritance: tabs use the same
-  pattern as future wizard tabs will. shadcn doesn't ship a
-  Tabs primitive in our current install; add via
-  `pnpm dlx shadcn@latest add tabs` or write a tiny one inline.
-- Permission denial / browser-not-supported are NOT silent
-  failures (per BRAND_IDENTITY_V1.md rule 6 + wizard contract
-  rule 6). Both surface visible copy.
+- Pure JSON in/out per `MEDIA_ENGINE_INTERNAL_API.md` rule 1.
+- Mock-mode deterministic (same `template` + `subject` → same
+  placeholder PNG).
+- Reuses the legacy `character_studio_client.generate_portrait()`
+  service — no duplication of Runway-side logic.
+- Stateless: no CharacterStore touch, no spokesperson record
+  kept on the media-engine.
 
-### Out of scope for SESSION 124
+### Out of scope for SESSION 125
 
-- The wizard itself (slices 5-9 of the implementation order).
-- Audio recording (SESSION 124's pattern informs it but doesn't
-  ship it).
-- Runway-generated portraits via `/internal/portrait/` (slice 2
-  of the implementation order).
-- Tone archetype field + helper (slice 4).
-- Voice tabbed UI (slice 3).
+- SPA wiring to consume the new endpoint (lands with wizard
+  slice 7 — Step 2 implementation).
+- `regenerate-portrait` detail-page action (deferred per
+  `CREATE_SPOKESPERSON_WIZARD.md` Q-wiz-4).
+- Real Runway calls (mock mode is the right surface until
+  operator has credits).
 
 ---
 
-## Alternative slices
+## Alternative slices (parallel-safe)
 
-If you'd rather not start with camera, three other
-foundation-tier wizard slices are parallel-safe:
+- **Wizard slice 3 — Voice tabs scaffold** (session). 3-mode
+  voice input as a reusable component. Lands on the detail
+  page's setup checklist before wizard ships.
+- **Wizard slice 4 — Tone archetype field** (half-session).
+  `Spokesperson.tone_archetype` migration + `suggest_tone_from_brief`
+  helper in `character_os/prompts/`.
 
-- **`/internal/portrait/` backend endpoint** (slice 2). Wraps
-  the inherited `character_studio_client.generate_portrait()`
-  with the `/internal/*` JSON contract. New
-  `MediaEngineClient.create_portrait()` wrapper. Half-session.
-  Unlocks the wizard's "Generate" portrait path.
-- **Voice tabs scaffold** (slice 3). The 3-mode voice input
-  (Preset / Upload / Record) as a reusable component. Lands on
-  the existing `/spokespeople/{id}/clone-voice/` action (SESSION
-  110 backend) without wiring into the wizard. Session-sized.
-- **Tone archetype field + suggest_tone_from_brief** (slice 4).
-  Migration + helper in `character_os/prompts/`. Half-session.
+Both are independent of slice 2. Pick whichever you want next.
 
 ---
 
 ## Queued investigations (priority-ordered)
 
-1. **Wizard slice 1 — Camera capture** (SESSION 124
-   recommendation).
-2. **Wizard slice 2 — `/internal/portrait/` endpoint.**
-3. **Wizard slice 3 — Voice tabs scaffold.**
-4. **Wizard slice 4 — Tone archetype field.**
-5. **Wizard slices 5-9 — wizard scaffold + steps.**
-6. **Wizard slice 10 — Template content** (Riggs / Sasha /
+1. **Wizard slice 2 — `/internal/portrait/` backend** (SESSION
+   125 recommendation).
+2. **Wizard slice 3 — Voice tabs scaffold.**
+3. **Wizard slice 4 — Tone archetype field.**
+4. **Wizard slices 5-9 — wizard scaffold + steps.**
+5. **Wizard slice 10 — Template content** (Riggs / Sasha /
    Donny / Maya; operator-collaborative content work).
-7. **Wizard slice 11 — Hide-on-completion detail page rework.**
-8. **Tier 2 prompt helpers** (`DynamicPromptBuilder` from
-   u-d-b). Defer until make-a-video flow needs richer scripts.
-9. **Stuck-row janitor** — operational hardening.
-10. **Additional video kinds** — cinematic / dialogue /
-    long_ad. `CREATIVE_PRINCIPLES` is ready for them.
-11. **Act-Two performance capture** — deferred to a future
-    detail-page slice when Runway credits land.
-12. **`lesson` video kind** for James-shaped educators. Phase 4
-    content addition.
-13. **Real Google OAuth + dj-stripe** — operator gates.
-14. **Allauth legacy-settings cleanup** — when allauth drops
-    the legacy keys.
-15. **smoke_voice transaction discipline** — tiny fix.
-16. **Drift verifier** — `verify_doc_claims --only-drift`.
-17. **Brand Identity v2 + dark mode** — when user-testing
-    happens.
+6. **Wizard slice 11 — Hide-on-completion detail page rework.**
+7. **Tier 2 prompt helpers** (`DynamicPromptBuilder` from u-d-b).
+8. **Stuck-row janitor** — operational hardening.
+9. **Additional video kinds** — cinematic / dialogue / long_ad.
+10. **Act-Two performance capture** — deferred until Runway
+    credits land.
+11. **`lesson` video kind** for James-shaped educators.
+12. **Real Google OAuth + dj-stripe** — operator gates.
+13. **Allauth legacy-settings cleanup.**
+14. **smoke_voice transaction discipline.**
+15. **Drift verifier** — `verify_doc_claims --only-drift`.
+16. **Brand Identity v2 + dark mode.**
 
 ---
 
@@ -211,25 +170,24 @@ python -m pytest character_os/prompts/        # 31 tests
 
 # SPA (from web/)
 pnpm test
-pnpm e2e            # full lifecycle ~22s
+pnpm e2e            # full lifecycle ~24s (10 specs)
 ```
 
 ---
 
 ## AI / assistant context
 
-- Last session: SESSION 123 — wizard scope-lock doc. ~25
-  minutes. Came out of a discussion-heavy series of decisions
-  about archetypes (visual + tone separated after the unicorn
-  anecdote), UX (form-driven, no chat), and scope (Act-Two
-  deferred, voice all-3-modes, hide-on-completion).
+- Last session: SESSION 124 — wizard slice 1 (camera capture
+  for `<PortraitUpload>`). ~25 minutes; 10 Playwright specs
+  pass first try; Radix Tabs primitive landed for reuse on
+  future wizard steps.
 - **Calibration carried forward:** this operator prefers right-
-  shaping foundations early. Three scope-lock docs in a row
-  (SPA architecture, prompt helpers, wizard) is the right
-  shape for a project with this much remaining surface area.
-- The wizard is 11 slices, 6-8 sessions estimated.
-- Templates (Riggs / Sasha / Donny / Maya) need real content
-  work — operator-collaborative pass, separate from
+  shaping foundations early. The Tabs primitive + the
+  CameraCapture lifecycle pattern (cancelled flag, stopStream
+  cleanup, exhaustive state branches) are foundations that
+  later slices inherit.
+- Templates (Riggs / Sasha / Donny / Maya) still need real
+  content work — operator-collaborative pass, separate from
   implementation sessions.
 - Collaboration conventions: AI drafts, human edits. Handoff
   `## AI Notes` section required at session end.

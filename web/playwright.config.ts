@@ -24,7 +24,19 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        // SESSION 124: camera capture spec uses `getUserMedia`.
+        // These Chromium flags inject a synthetic camera stream so
+        // `getUserMedia` resolves deterministically without prompting
+        // for permission. Harmless for the non-camera specs.
+        launchOptions: {
+          args: [
+            "--use-fake-ui-for-media-stream",
+            "--use-fake-device-for-media-stream",
+          ],
+        },
+      },
     },
   ],
   webServer: {
