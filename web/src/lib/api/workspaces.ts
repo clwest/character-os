@@ -22,7 +22,6 @@ const defaultWorkspaceSchema = z.object({
 
 const meSchema = z.object({
   id: z.union([z.number(), z.string()]),
-  username: z.string(),
   email: z.string(),
   is_staff: z.boolean(),
   default_workspace: defaultWorkspaceSchema.nullable(),

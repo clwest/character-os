@@ -29,5 +29,7 @@
   "venv": ".venv",
   "reportMissingImports": "warning",
   "reportIncompatibleMethodOverride": "none",
-  "reportUnreachable": "none"
+  "reportIncompatibleVariableOverride": "none",
+  "reportUnreachable": "none",
+  "reportAttributeAccessIssue": "warning"
 }

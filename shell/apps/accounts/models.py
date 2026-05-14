@@ -1,17 +1,108 @@
-"""Workspace + Membership — the multi-tenant root.
+"""User + Workspace + Membership — the multi-tenant root.
 
 A Workspace owns Spokespeople, Videos, and Conversations. Memberships
 join Users to Workspaces with a role; v1 always has exactly one
 owner-role membership, but the schema is multi-seat-ready for the
 Agency tier (design doc §6.6).
+
+The User model is **custom** (SESSION 119) — email as the primary
+identifier, no username column. Replaces the SESSION 116
+``WorkspaceAccountAdapter`` band-aid that papered over Django's
+stock ``auth.User`` UNIQUE-constraint on the username column when
+allauth signed everyone up with ``username=""``.
 """
 from __future__ import annotations
 
 import uuid
 
 from django.conf import settings
+from django.contrib.auth.models import (
+    AbstractBaseUser,
+    BaseUserManager,
+    PermissionsMixin,
+)
 from django.db import models
+from django.utils import timezone
 from django.utils.text import slugify
+
+
+class UserManager(BaseUserManager["User"]):
+    """Manager for the custom email-as-PK User model.
+
+    ``use_in_migrations = True`` so Django's migration framework can
+    refer back to the manager when generating user-touching
+    migrations (e.g., ``createsuperuser``).
+    """
+
+    use_in_migrations = True
+
+    def _create_user(self, email: str, password: str | None, **extra_fields):
+        if not email:
+            raise ValueError("Email is required.")
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_user(self, email: str, password: str | None = None, **extra_fields):
+        extra_fields.setdefault("is_staff", False)
+        extra_fields.setdefault("is_superuser", False)
+        return self._create_user(email, password, **extra_fields)
+
+    def create_superuser(self, email: str, password: str | None = None, **extra_fields):
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("Superuser must have is_staff=True.")
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("Superuser must have is_superuser=True.")
+        return self._create_user(email, password, **extra_fields)
+
+
+class User(AbstractBaseUser, PermissionsMixin):
+    """Custom user. Email is the primary identifier.
+
+    No username column. ``allauth.headless`` signs users up with just
+    email + password; the SESSION 116 band-aid populated ``username``
+    from a hash of the email to satisfy Django's stock UNIQUE
+    constraint. This model removes the column entirely so future
+    signups don't carry the indirection.
+    """
+
+    email = models.EmailField(unique=True)
+    is_staff = models.BooleanField(
+        default=False,
+        help_text="Designates whether the user can log into the admin site.",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Set to False to disable the account without deleting it.",
+    )
+    date_joined = models.DateTimeField(default=timezone.now)
+
+    objects = UserManager()
+
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS: list[str] = []
+
+    class Meta:
+        ordering = ["-date_joined"]
+        verbose_name = "user"
+        verbose_name_plural = "users"
+
+    def __str__(self) -> str:
+        return self.email
+
+    def get_full_name(self) -> str:
+        """``allauth``'s default adapter calls this when serialising
+        the user. Email is the most-stable identifier we have at v1;
+        when a profile model lands, this overrides to ``f"{first} {last}"``.
+        """
+        return self.email
+
+    def get_short_name(self) -> str:
+        return self.email.split("@", 1)[0]
 
 
 class Workspace(models.Model):
@@ -82,7 +173,7 @@ class Membership(models.Model):
         return f"{self.user} @ {self.workspace} ({self.role})"
 
 
-def default_workspace_for(user) -> Workspace | None:
+def default_workspace_for(user: User) -> Workspace | None:
     """Return the user's primary workspace.
 
     v1 model: every user has one workspace they own. This helper picks

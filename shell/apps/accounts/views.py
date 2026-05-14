@@ -82,7 +82,6 @@ def me(request: Request) -> Response:
     workspace = default_workspace_for(user)
     payload: dict = {
         "id": user.id,
-        "username": user.username,
         "email": user.email,
         "is_staff": user.is_staff,
         "default_workspace": None,

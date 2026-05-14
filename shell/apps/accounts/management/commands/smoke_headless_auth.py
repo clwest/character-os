@@ -70,10 +70,17 @@ class Command(BaseCommand):
         if resp.status_code != 200:
             self._fail(f"GET /_allauth/browser/v1/config returned {resp.status_code}")
         config = resp.json()
+        account_cfg = config["data"]["account"]
+        # allauth emits either `login_methods` (when ACCOUNT_LOGIN_METHODS
+        # is the canonical setting) or `authentication_method` (when
+        # ACCOUNT_AUTHENTICATION_METHOD is set). Tolerate both.
+        auth_methods = account_cfg.get("login_methods") or [
+            account_cfg.get("authentication_method")
+        ]
         self.stdout.write(
             f"  ✓ /_allauth/browser/v1/config "
-            f"(login_methods={config['data']['account']['login_methods']}, "
-            f"signup_open={config['data']['account']['is_open_for_signup']})"
+            f"(auth_methods={auth_methods}, "
+            f"signup_open={account_cfg['is_open_for_signup']})"
         )
 
         # 2 — anonymous session probe should return 401 with the

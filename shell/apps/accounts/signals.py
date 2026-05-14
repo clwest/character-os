@@ -44,17 +44,16 @@ def ensure_default_workspace(sender, instance, created, **kwargs) -> None:
     logger.info(
         "auto-created workspace=%s for user=%s",
         workspace.slug,
-        instance.username or instance.email,
+        instance.email,
     )
 
 
 def _suggested_workspace_name(user) -> str:
-    """Build a friendly workspace name from whatever identifier the
-    user signed up with. Prefers email prefix; falls back to username."""
+    """Build a friendly workspace name from the user's email. The
+    custom User model (SESSION 119) makes email the sole identifier,
+    so the previous ``username`` fallback is gone."""
     email = (getattr(user, "email", "") or "").strip()
     if email and "@" in email:
         prefix = email.split("@", 1)[0]
         return f"{prefix.capitalize()}'s workspace"
-    if user.username:
-        return f"{user.username}'s workspace"
     return "My workspace"

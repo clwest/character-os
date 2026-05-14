@@ -98,6 +98,13 @@ DATABASES = {
 }
 
 
+# Custom User model. SESSION 119 — replaces Django's stock auth.User
+# with apps.accounts.User where email is the primary identifier and
+# there is no username column. Closes the SESSION 116 UNIQUE-on-empty-
+# string bug at the model layer.
+AUTH_USER_MODEL = "accounts.User"
+
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -203,18 +210,23 @@ AUTHENTICATION_BACKENDS = [
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+ACCOUNT_USER_MODEL_EMAIL_FIELD = "email"
+# Legacy-key duplicates of the above. Required because allauth's
+# `runserver`-time system check evaluates the older settings'
+# defaults (which assume a username field) even when the newer keys
+# override behaviour. Both must say "email-only / no username" for
+# the check to pass. allauth emits deprecation warnings on these —
+# remove when allauth drops the legacy keys entirely.
+ACCOUNT_AUTHENTICATION_METHOD = "email"
+ACCOUNT_USERNAME_REQUIRED = False
+ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_EMAIL_VERIFICATION = "optional"  # tighten to "mandatory" pre-launch
 ACCOUNT_SESSION_REMEMBER = True
 ACCOUNT_UNIQUE_EMAIL = True
-ACCOUNT_PRESERVE_USERNAME_CASING = False
 
-# Custom adapter — auto-fills ``username`` from a hash of the email
-# so multiple email-only signups don't collide on Django's stock
-# ``auth.User`` UNIQUE constraint. See
-# ``apps/accounts/adapter.py`` for the why. When we eventually move
-# to a custom email-as-PK User model (queued investigation), this
-# setting + the adapter go away.
-ACCOUNT_ADAPTER = "apps.accounts.adapter.WorkspaceAccountAdapter"
+# (SESSION 116 ACCOUNT_ADAPTER band-aid removed in SESSION 119 once
+# the custom email-as-PK User model landed — the UNIQUE-on-empty-
+# string bug it papered over no longer exists.)
 
 LOGIN_REDIRECT_URL = "/api/me/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
