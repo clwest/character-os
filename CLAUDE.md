@@ -97,13 +97,20 @@ Update this section when a phase completes.
     K4.2 + K6.2. Remaining: K8/K9 (conversation pipeline +
     REST/SPA), K10 (onboarding seed). Scope lock:
     `docs/design/KNOWLEDGE_LAYER.md`.
-  - **Video composition arc (V0-V15).** V0 scope lock shipped
-    SESSION 142 (`docs/design/VIDEO_COMPOSITION_V1.md`).
-    V1 (Asset / Composition / CompositionStep schema) shipped
-    SESSION 142 — `apps.compositions` with 13 V-tests
-    passing. Replaces the "additional video kinds" queue
-    items + absorbs K6.5. V2 (composition runtime) is the
-    next slice.
+  - **Video composition arc (V0-V15).** V0 scope lock + V1
+    schema + V2 runtime all shipped SESSION 142
+    (`docs/design/VIDEO_COMPOSITION_V1.md`). `apps.compositions`
+    has 31 tests passing (13 V1 models + 18 V2 runtime).
+    **V5 slice promoted from V7 late-session**: long-form ad
+    (`split_script` + `concat_clips` + `long_form_ad` starter)
+    is now the third capability slice rather than the seventh,
+    because long-form is the launch differentiator (no AI
+    provider ships single-call video >20s; everything long-
+    form is stitched). New sequence:
+    V3 (`generate_avatar_speech` + `talking_head`, absorbs
+    K6.5) → V4 (`generate_visual_clip`) → V5 (long-form) →
+    V6 (backwards-compat) → V7 (`talking_head_with_backdrop`)
+    → V8-V15. **V3 is the next slice.**
   - **Realtime avatar arc (R0-R10).** R0 scope lock shipped
     SESSION 142 (`docs/design/REALTIME_AVATAR_V1.md`). 10
     contract rules, RealtimeSession + RealtimeToolInvocation

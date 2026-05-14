@@ -2,9 +2,9 @@
 title: "Character OS — What It Actually Is"
 status: populated
 generated: 2026-05-13
-last_revised: 2026-05-14 (SESSION 136)
+last_revised: 2026-05-14 (SESSION 142)
 companion_doc: CHARACTER_OS_INVENTORY.md
-covers_sessions: "106-136"
+covers_sessions: "106-142"
 ---
 
 # Character OS — What It Actually Is
@@ -255,39 +255,140 @@ verifier that could keep all three in sync automatically.
 
 ---
 
-## The Knowledge Layer (SESSION 137+)
+## Phase 4 — three parallel arcs
+
+After Phase 3 closed the wizard arc (W1-W11) and brought the
+cast live in real-mode (SESSION 136), Phase 4 opened with
+three arcs running in parallel. Each is scope-locked under
+its own design doc, each has a slice plan, each adds
+capability without forcing the others to advance in lockstep.
+
+The three arcs share one architectural shape — workspace-
+anchored data, structural cross-workspace rejection, mock-mode
+at the right granularity, the Asset table from V1 as the
+common persistence surface. The doc that captures the shape
+across all three is the V0 scope lock
+(`docs/design/VIDEO_COMPOSITION_V1.md` §"Contract rules") —
+the contract rules there are a superset of what each arc
+imposes.
+
+### Arc 1 — Knowledge Layer (K0-K10)
 
 **The cast can render videos. They have nothing to talk about.**
 
 `business_brief` is a *style guide* for HOW each spokesperson
-sounds (Riggs's substantive founder voice, Sasha's cool-composed
-sales, etc.) — not a *knowledge base* for WHAT they know about
-Character OS specifically. Without a knowledge layer, every
-render relies on the LLM hallucinating product details from the
-prompt + the spokesperson's tone. Real spokespeople carry an
-internal mental model of the product they represent.
+sounds — not a *knowledge base* for WHAT they know. Without a
+knowledge layer, every render relies on the LLM hallucinating
+product details from the prompt + the spokesperson's tone.
 
-Phase 1 scaffolded for this moment but didn't implement it:
+Scope-locked SESSION 137 (`docs/design/KNOWLEDGE_LAYER.md`).
+**Seven slices shipped through SESSION 142:**
 
-  - `apps/memory/` — empty app, per-character persistent memory
-  - `apps/embeddings/` — empty app, vector storage
-  - `apps/conversations/` — `ConversationThread` model exists,
-    no UI yet (Maya's tutor mode is the eventual surface)
+- **K1** Postgres + pgvector migration (the SQLite drift
+  finally closed)
+- **K2** `KnowledgeDocument` + `KnowledgeChunk` models, two
+  named retrieval functions, repo-level isolation test
+- **K3** Ingestion pipeline — paste + PDF upload, Celery
+  embed task, content-hash dedup
+- **K4** Workspace knowledge route (SPA + REST) +
+  **K4.1** detail view + **K4.2** dedup-restore bug
+- **K5** Spokesperson "Knowledge" tab — per-spokesperson
+  visibility via M2M attach/detach
+- **K6** Render flow integration — `build_render_brief`
+  pipes RAG chunks into the script before media-engine
+  fires; citations log on the Video row + **K6.2**
+  pre-render portrait validation
+- **K7** URL ingestion + serper discovery — `trafilatura`
+  fetch + serper.dev search → same ingestion pipeline
 
-Scope-lock conversation lives in SESSION 137. The 5 axes to
-decide before any code lands:
+Remaining: **K8** ConversationMessage + ConversationEmbedding
+schema, **K9** conversation REST + SPA, **K10** onboarding
+seed (operator-workspace only).
 
-1. Unit of knowledge — documents / structured facts / conversational
-   ingestion / URLs / hybrid?
-2. Scope — per-spokesperson, per-workspace, or both?
-3. Retrieval at render-time — RAG / summarise-at-ingest / curated?
-4. Operator management surface — detail-page tab / workspace
-   facts / inline-during-render?
-5. Maya's tutor-mode tie-in — same store as render knowledge or
-   different?
+### Arc 2 — Video Composition (V0-V15)
 
-u-d-b has prior art on RAG / memory worth reading before the
-scope-lock conversation.
+**The hackathon shipped 15+ video kinds, all terminal endpoints.**
+
+SESSION 142's runway-hackathon pipeline audit surfaced that
+every hackathon endpoint is a leaf operation — input goes in,
+finished MP4 comes out. There's no notion of one clip being
+an *input* to a larger composition. Operators can't ask for
+"talking-head + cinematic backdrop + music bed + captions"
+because combination isn't a concept the data model holds.
+
+Scope-locked SESSION 142
+(`docs/design/VIDEO_COMPOSITION_V1.md`). The architecture:
+
+- **`Asset`** — a generated artifact (clip / audio / image /
+  transcript / voice). Workspace-anchored. Reusable.
+- **`Composition`** — an ordered sequence of steps producing
+  one final Asset. Carries workspace + spokesperson FK.
+- **`CompositionStep`** — one step invoking one step
+  primitive. Linear ordering (DAG is v2). Partial-failure
+  resume per contract rule 6.
+- **Step primitives** — 16 named operations (generate
+  speech, generate visual, composite, mix audio, add
+  captions, etc.). Adding capability = adding a primitive
+  + a starter composition. Never an enum value.
+
+**Three slices shipped SESSION 142:**
+
+- **V0** scope lock — 9 contract rules, 16-slice plan
+- **V1** schema — `apps.compositions` app, 13 model tests
+- **V2** runtime — `execute_composition` Celery task,
+  partial-failure resume, mock-primitive registry, 18
+  runtime tests
+
+**V5 promoted from V7 late-session.** No AI provider ships
+single-call video longer than ~20 seconds; every long-form
+AI video in the wild is stitched. Long-form
+(`split_script` + `concat_clips` + `long_form_ad`) is
+therefore not a v2 nice-to-have — it's the launch-
+differentiating capability. Promoting it to the third
+capability slice (right after V3 + V4) positions the
+platform's distinctive selling point as early as possible.
+
+New sequence: V3 (generate_avatar_speech, absorbs K6.5) →
+V4 (generate_visual_clip) → V5 (long-form) → V6 (backwards-
+compat shim) → V7 (talking_head_with_backdrop) → V8-V15.
+**V3 is the next slice.**
+
+### Arc 3 — Realtime Avatar (R0-R10)
+
+**Operators (and eventually customers) need to *talk to* their
+spokespeople, not just render them.**
+
+The hackathon shipped a working WebRTC realtime flow against
+Runway's `/v1/realtime_sessions` endpoint with
+`@runwayml/avatars-react` handling the client-side handshake.
+It worked for a single operator with no auth, no workspace
+scoping, file-based Character storage, and a Runway-side
+document corpus separate from the knowledge layer.
+
+Scope-locked SESSION 142 (`docs/design/REALTIME_AVATAR_V1.md`)
+under three constraints the hackathon didn't carry:
+
+1. **Multi-tenant by construction.** Sessions workspace-scoped;
+   the Runway API key never reaches the frontend
+   (load-bearing privacy guarantee — contract rule 3).
+2. **Knowledge layer integration.** Runway's per-session
+   document corpus is *composed from* `KnowledgeDocument`
+   rows via K2's `retrieve_for_spokesperson` surface.
+   Operators don't curate two knowledge bases.
+3. **Asset-shape persistence.** Transcripts persist as
+   `Asset` rows of type TRANSCRIPT. Both arcs share one
+   persistence model.
+
+Two new tables (`RealtimeSession` + `RealtimeToolInvocation`),
+six tools the avatar's LLM can invoke mid-conversation
+(narrowed from hackathon's 9; expensive ones require
+operator approval), three-layer cost governance (workspace
+minutes budget + session length cap + tool approval
+threshold), provider-abstraction registry (Runway is the v1
+provider; adding Synthesia/HeyGen is a single-file change).
+
+**R0 scope lock shipped SESSION 142.** R1 (schema) is the
+next R-slice and is unblocked by V1.
 
 ---
 
@@ -350,45 +451,68 @@ first, then the runtime anchors. Inheritable across operators.
 
 ## Current State Honesty
 
-### Working well (as of SESSION 110, 2026-05-13)
+### Working well (as of SESSION 142, 2026-05-14)
 
-- Django shell + FastAPI media-engine speak the new internal
-  contract for all three core verbs.
-- Tier gating returns structured 402 payloads with upgrade hints.
-- Multi-tenant isolation enforced by `IsWorkspaceMember` +
-  queryset scoping.
-- Hermetic mock-mode smoke tests for all three pipelines.
-- Celery worker polls happily; ~13 s end-to-end video render in
-  mock mode.
+- Django shell + FastAPI media-engine speak the `/internal/*`
+  contract for the five hackathon-imported verbs (avatars,
+  voices, videos, portrait, polling) — though `/internal/videos/`
+  currently routes to the wrong Runway endpoint (silent
+  animated portrait instead of talking-head; closes in V3).
+- Tier gating returns structured 402 payloads with upgrade
+  hints.
+- Multi-tenant isolation enforced three ways: `IsWorkspaceMember`
+  queryset scoping (legacy + K + V), m2m_changed signals
+  for cross-workspace M2M (K2 contract rule 3), pre_save
+  signal for cross-workspace Asset references in
+  CompositionStep inputs (V1 contract rule 3).
+- Hermetic mock-mode for every pipeline: `RUNWAY_FORCE_MOCK`,
+  `EMBEDDING_FORCE_MOCK`, `RENDER_SCRIPT_FORCE_MOCK`,
+  `SERPER_FORCE_MOCK`. 133 backend tests + 46 prompts +
+  38 e2e specs all green at SESSION 142 close.
+- Knowledge layer K1-K7 shipped — operators can ingest
+  paste / PDF / URL / serper-search results; renders are
+  RAG-informed via gpt-5-mini synthesis + citation logging.
+- Composition runtime V2 shipped — `execute_composition`
+  walks ordered steps, persists outputs as Assets, supports
+  partial-failure resume + retry_step. Mock-primitive
+  registry exercises the runtime end-to-end without burning
+  Runway credits. Adding a real primitive (V3+) is a
+  registry-entry change.
+- Postgres + pgvector running locally via
+  `infra/docker-compose.yml`. SQLite drift closed (K1).
 
 ### Stale or drifting
 
-- ~~**`docs/design/UI_REDESIGN_V2.md` doesn't exist**~~ — closed
-  in SESSION 113. The 845-line design lock had been left in
-  `runway-hackathon/docs/design/` during the SESSION 106
-  scaffold; SESSION 113 copied it across with a provenance
-  preamble. Phase status reconciled in CLAUDE.md the same
-  session.
-- ~~**`CHARACTER_OS_INVENTORY.md`** is still the stub~~ — closed
-  in SESSION 112. `python manage.py inventory` regenerates it
-  from runtime introspection. Re-run after any model / route /
-  task change.
-- **SQLite still in use.** Phase 2 was supposed to switch to
-  Postgres + pgvector "when the media data model migrates."
-  The data model migrated; the DB swap didn't.
-- **Numbered handoff gap.** `SESSION_053` is missing from
-  `docs/handoffs/`. Cosmetic; flagged by `context-kit orient`.
+- ~~**SQLite still in use**~~ — closed in K1 (SESSION 138).
+- ~~**Numbered handoff gap `SESSION_053`**~~ — pre-migration
+  cosmetic gap; still flagged by `context-kit orient` but
+  the handoffs from runway-hackathon were spliced in and
+  the numbering predates this project.
+- **K6.5 talking-head endpoint not yet fixed** — SESSION 141
+  audit identified `/v1/avatar_videos` as the correct
+  endpoint; absorbed into V3 (next session). Cast members
+  currently render as silent animated portraits, not
+  speaking. Don't ship a real-mode demo until V3 lands.
+- **The legacy `Video` model is going to be wrapped, not
+  retired** — V5 (backwards-compat shim, formerly V6 before
+  the SESSION 142 reorder) turns `Video.create` into a
+  thin `talking_head` composition wrapper. The
+  `/api/videos/` SPA surface stays stable; under the hood
+  it'll route through the V2 runtime. V15 (recipe gallery)
+  retires the legacy form UX.
 
 ### Known issues queued for follow-up
 
-- **Stuck-row janitor** — Celery worker dying mid-poll leaves a
-  Video row in `rendering` indefinitely. Easy fix via
-  `celery beat`; deferred until SPA load creates pressure.
-- **Real Runway credentials never smoke-tested.** Mock mode is
-  fully wired; real mode is theoretically wired but untested
-  against the new `/internal/*` shape.
-- **dj-stripe** + real Google OAuth + `allauth.headless` — all
-  pending credentials / config from the operator.
+- **Stuck-row janitor** — Celery worker dying mid-poll leaves
+  a Video row in `rendering` indefinitely. Same shape
+  applies to `Composition.status='running'` after V2.
+  Deferred until SPA load creates pressure.
+- **Real Runway credentials smoke-tested partially.** The
+  three "real API keys present" pre-K7 work confirmed
+  Runway + OpenAI + Serper end-to-end, but the K6 render
+  hits the wrong endpoint (covered above).
+- **dj-stripe** + real Google OAuth + `allauth.headless` —
+  all pending credentials / config from the operator.
 
 ---
 
@@ -476,9 +600,16 @@ inventory always regenerates cleanly.
 | **Tier** | One of `starter` / `pro` / `agency`. Defines spokesperson + video creation caps. Enforced via HTTP 402. |
 | **Fire-then-poll** | The video generation shape: `POST /internal/videos/` returns immediately with a task id; a Celery worker polls until terminal. |
 | **Context-kit** | The session-orientation framework this repo uses. See `docs/docs-pattern/`. |
+| **Knowledge layer** | The K-arc data + retrieval surface. `KnowledgeDocument` + `KnowledgeChunk` in `apps.embeddings`, retrieval through two named functions. Scope lock: `docs/design/KNOWLEDGE_LAYER.md`. |
+| **Asset** | V1 unit of generated artifact (clip / audio / image / transcript / voice). Workspace-anchored. Reusable across compositions. |
+| **Composition** | V1 ordered sequence of `CompositionStep`s producing one final Asset. Replaces the "one endpoint per output kind" model from the hackathon. Scope lock: `docs/design/VIDEO_COMPOSITION_V1.md`. |
+| **Step primitive** | A unit of work the composition runtime can dispatch to (`generate_avatar_speech`, `concat_clips`, `composite_video`, etc.). 16 named primitives in v1; adding capability = adding a primitive, never an enum value. |
+| **Starter composition** | A predefined recipe of primitives (`talking_head`, `long_form_ad`, `talking_head_with_backdrop`, etc.). Operator picks a starter, fills inputs, runtime executes. |
+| **Long-form** | Multi-minute video output produced by stitching N short clips. **No AI provider ships >20s single-call** — every long-form AI video in the wild is stitched. Lands as V5 (the platform's first launch differentiator). |
+| **RealtimeSession** | R-arc model for a live WebRTC conversation with a spokesperson. Sessions are workspace-anchored; Runway API key never reaches the frontend (load-bearing privacy guarantee). Scope lock: `docs/design/REALTIME_AVATAR_V1.md`. |
 
 ---
 
-*Last revised SESSION 111, 2026-05-13. When this doc drifts from
-reality, regenerate `CHARACTER_OS_INVENTORY.md` first — that's
-always authoritative (or will be, once the generator lands).*
+*Last revised SESSION 142, 2026-05-14. When this doc drifts
+from reality, regenerate `CHARACTER_OS_INVENTORY.md` first —
+that's the runtime anchor and always authoritative.*

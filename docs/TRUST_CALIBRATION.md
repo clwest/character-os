@@ -159,3 +159,96 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   one-line probe (`python -c "from library import setting_view;
   print(setting_view)"`) takes 10 seconds and prevents an
   e2e-suite-rerun debugging spiral.
+
+## 2026-05-14 — Near-miss: K6.5 framed too narrowly; operator's scope-up was the right call
+
+- **Context / claim:** SESSION 141's render-pipeline audit
+  found that K6 routes to the wrong Runway endpoint
+  (`gen4_turbo` image-to-video instead of `/v1/avatar_videos`
+  talking-head). The end-of-session handoff scoped this as
+  **K6.5 — one endpoint swap, ~one session of work**. SESSION
+  142 opened ready to execute that swap.
+- **Reality / outcome:** Before writing any code, the AI ran
+  a `runway-hackathon` pipeline-audit Explore call (because the
+  CLAUDE.md "map the predecessor first" calibration from K3 /
+  K6 sessions was carried forward). The audit surfaced **15+
+  output kinds shipped at the hackathon + 5 distinct Runway
+  endpoints in active use + ~2,000 lines of dormant
+  composition logic** in `media-engine/app/services/*` that
+  the migration left intact but the `/internal/*` contract
+  doesn't expose. The *real* architectural blocker isn't K6's
+  wrong endpoint — it's that every existing endpoint is a
+  **terminal leaf** (input → finished MP4) with no notion of
+  one clip being an *input* to a bigger composition. K6.5 as
+  "swap the endpoint" papers over the architecture gap and
+  guarantees the same shape continues. K6.5 absorbed into
+  **V3** (a step primitive in the new Asset+Composition arc)
+  — same Runway endpoint target, the data shape that ships
+  with it is now reusable for every later primitive.
+- **Found by:** The runway-hackathon pipeline audit at the
+  start of SESSION 142, which the AI ran by default rather
+  than as a debugging step. Operator's pushback ("we should
+  import ALL the endpoints we built; the way we built
+  everything none of the possibilities connect together")
+  then anchored the architecture conversation on connectivity
+  rather than endpoint selection.
+- **Lesson:** **Map the predecessor before scoping** is now a
+  default rule, not a debug-mode escalation. The pattern fired
+  four times across SESSIONS 138 → 142 (cost-cap math, Maya
+  tutor-mode framing, gpt-5 vs gpt-4o-mini, K6.5 → V3) — every
+  time the operator + AI converged faster when one of them ran
+  the predecessor mapping first. **For this operator
+  specifically:** when scoping a slice that touches a system
+  imported from `runway-hackathon/` or `unified-donkey-betz`,
+  spend the first 10-30 minutes mapping what existed in the
+  predecessor before locking the slice. Tokens spent on the
+  audit pay back 3-5x in scope-correctness downstream.
+
+## 2026-05-14 — AI confidently wrong (deferred-to-v2 framing): long-form AI video is a launch differentiator
+
+- **Context / claim:** SESSION 142's first draft of
+  `VIDEO_COMPOSITION_V1.md` sequenced **V7 — long-form ad
+  (`split_script` + `concat_clips`)** as the seventh
+  capability slice — after backwards-compat (V5),
+  talking_head_with_backdrop (V6), and before polish (V8) +
+  composite (V9). The AI's reasoning: "long-form is a more
+  advanced capability that builds on the simpler starters."
+  The AI was rendering long-form as a power-user feature, not
+  a launch differentiator.
+- **Reality / outcome:** Operator surfaced (via a ChatGPT
+  conversation) the realization that **no major AI video
+  provider — Runway, Sora, Veo, Kling, Pika, Luma — ships
+  single-call video generations longer than ~10-20 seconds.**
+  Every "AI movie" / multi-minute ad / long-form AI video
+  output in the wild is N short clips stitched with ffmpeg
+  (or MoviePy, or Premiere, or Resolve). The model providers
+  don't advertise this because "we make movies" is a better
+  marketing story than "we make 10-second clips you
+  assemble." Most SaaS competitors sell 5-15 second outputs
+  because that's what the provider APIs ship. A platform
+  that says "give me your script, get back a 2-minute ad
+  your spokesperson stars in" is the actual positioning
+  advantage. V7 promoted to V5 (third capability slice
+  instead of seventh) the same session, before any V3-V6
+  code lands.
+- **Found by:** Operator's external research + the dawning
+  realization that the hackathon's `long_ad_service.py`
+  (already imported into `media-engine/app/services/`) was
+  doing the load-bearing capability — but the migration's
+  narrow `/internal/*` contract dropped it.
+- **Lesson:** **Capability that competitors don't ship is a
+  feature ordering signal, not just a feature.** The AI was
+  ordering slices by "architectural dependency from simple
+  → complex" — a defensible engineering frame, but a
+  *wrong* product frame when one of the "complex" slices is
+  the one differentiating capability. **For this operator
+  specifically:** when scoping a multi-slice capability arc,
+  ask "which of these slices does no AI SaaS competitor
+  ship today?" early in the design lock — that slice is the
+  product story, and it should land as soon as the
+  dependency graph allows, not when the architectural
+  comfort says "we've earned it." The reorder cost zero code
+  (V5's only hard dependency is V3, which was already going
+  to be first). The wrong ordering would have cost months
+  of "we have the architecture but no differentiating
+  capability yet" until V7 finally shipped.
