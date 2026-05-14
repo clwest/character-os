@@ -29,7 +29,9 @@ from __future__ import annotations
 from typing import Protocol, Type
 
 from .avatar_speech import GenerateAvatarSpeechPrimitive
+from .composite_video import CompositeVideoPrimitive
 from .concat_clips import ConcatClipsPrimitive
+from .mix_audio import MixAudioPrimitive
 from .mock import (
     MockFailurePrimitive,
     MockPassthroughPrimitive,
@@ -74,9 +76,11 @@ _REGISTRY: dict[str, Type[Primitive]] = {
     "generate_visual_clip": GenerateVisualClipPrimitive,  # V4
     "split_script": SplitScriptPrimitive,  # V5
     "concat_clips": ConcatClipsPrimitive,  # V5
-    # V6+: backwards-compat shim (no primitives, just Video wrapper)
-    # V8+: add_captions, add_intro_outro, trim_clip, reformat_clip
-    # V9+: composite_video, mix_audio
+    # V6 — no new primitives (backwards-compat shim only)
+    "composite_video": CompositeVideoPrimitive,  # V7
+    "mix_audio": MixAudioPrimitive,  # V7
+    # V8 — no new primitives (talking_head_with_backdrop starter only)
+    # V9+: add_captions, add_intro_outro, trim_clip, reformat_clip
     # V10+: design_voice, dub_audio
     # V11+: style_remix
     # V12+: transcribe

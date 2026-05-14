@@ -355,3 +355,295 @@ def long_form_ad(
         len(chunks), use_llm_split, use_knowledge,
     )
     return composition
+
+
+# ---- V7 layout-modifier starters ---------------------------------
+#
+# Each starter takes one or more existing CLIP/AUDIO Assets and
+# creates a single-step Composition that produces a new composited
+# Asset. These are "modifier compositions" — they don't generate
+# new clips, they recombine ones the operator already has.
+#
+# All five share a pattern: validate the input assets against the
+# composition's workspace, build a one-step Composition with the
+# right primitive + layout_spec/mix_spec, return it. The
+# CompositionStep's ``inputs`` list references each Asset by id.
+
+
+def _validate_workspace_assets(
+    workspace: "Workspace",
+    assets: list,
+) -> None:
+    """Defense in depth — the V1 signal already rejects
+    cross-workspace asset references at save time. Catching it
+    in the starter gives the operator a clearer error message
+    than the signal's ValidationError."""
+    for a in assets:
+        if a.workspace_id != workspace.pk:
+            raise ValueError(
+                f"asset {a.id} (workspace {a.workspace_id}) is not in "
+                f"workspace {workspace.pk}"
+            )
+
+
+@transaction.atomic
+def pip_layout(
+    *,
+    workspace: "Workspace",
+    spokesperson: "Spokesperson",
+    base_clip,
+    pip_clip,
+    pip_width: int = 360,
+    margin_x: int = 40,
+    margin_y: int = 40,
+    mock_mode: bool = False,
+    name: str = "",
+    created_by: "AbstractBaseUser | None" = None,
+) -> Composition:
+    """Picture-in-picture layout. ``pip_clip`` overlays
+    bottom-right on ``base_clip`` with a white border tile.
+    Audio = base."""
+    _validate_workspace_assets(workspace, [base_clip, pip_clip])
+    if spokesperson.workspace_id != workspace.pk:
+        raise ValueError("spokesperson not in workspace")
+
+    composition = Composition.objects.create(
+        workspace=workspace,
+        spokesperson=spokesperson,
+        name=name.strip() or "PiP layout",
+        template_kind="pip_layout",
+        mock_mode=mock_mode,
+        created_by=created_by,
+    )
+    CompositionStep.objects.create(
+        composition=composition,
+        position=0,
+        primitive="composite_video",
+        inputs=[
+            {"slot": "base", "asset_id": str(base_clip.id)},
+            {"slot": "pip", "asset_id": str(pip_clip.id)},
+        ],
+        params={
+            "layout_spec": {
+                "kind": "pip",
+                "options": {
+                    "pip_width": pip_width,
+                    "margin_x": margin_x,
+                    "margin_y": margin_y,
+                },
+            },
+        },
+    )
+    return composition
+
+
+@transaction.atomic
+def backdrop_layout(
+    *,
+    workspace: "Workspace",
+    spokesperson: "Spokesperson",
+    background_clip,
+    foreground_clip,
+    fg_width: int = 320,
+    margin_x: int = 40,
+    margin_y: int = 40,
+    mock_mode: bool = False,
+    name: str = "",
+    created_by: "AbstractBaseUser | None" = None,
+) -> Composition:
+    """Backdrop layout — the V8 building block.
+
+    Inputs are ordered (background, foreground); ffmpeg uses
+    input 0 as the canvas size, so the cinematic backdrop is
+    [0] and the avatar tile is [1]. Audio = foreground avatar.
+
+    This is the primitive shape ``talking_head_with_backdrop``
+    (V8) composes on top of.
+    """
+    _validate_workspace_assets(workspace, [background_clip, foreground_clip])
+    if spokesperson.workspace_id != workspace.pk:
+        raise ValueError("spokesperson not in workspace")
+
+    composition = Composition.objects.create(
+        workspace=workspace,
+        spokesperson=spokesperson,
+        name=name.strip() or "Backdrop layout",
+        template_kind="backdrop_layout",
+        mock_mode=mock_mode,
+        created_by=created_by,
+    )
+    CompositionStep.objects.create(
+        composition=composition,
+        position=0,
+        primitive="composite_video",
+        inputs=[
+            {"slot": "background", "asset_id": str(background_clip.id)},
+            {"slot": "foreground", "asset_id": str(foreground_clip.id)},
+        ],
+        params={
+            "layout_spec": {
+                "kind": "backdrop",
+                "options": {
+                    "fg_width": fg_width,
+                    "margin_x": margin_x,
+                    "margin_y": margin_y,
+                },
+            },
+        },
+    )
+    return composition
+
+
+@transaction.atomic
+def cohost_layout(
+    *,
+    workspace: "Workspace",
+    spokesperson: "Spokesperson",
+    main_clip,
+    cohost_clip,
+    cohost_width: int = 240,
+    margin_x: int = 40,
+    margin_y: int = 40,
+    mock_mode: bool = False,
+    name: str = "",
+    created_by: "AbstractBaseUser | None" = None,
+) -> Composition:
+    """Cohost layout — main avatar with smaller cohost tile in
+    the top-left corner. Audio = main."""
+    _validate_workspace_assets(workspace, [main_clip, cohost_clip])
+    if spokesperson.workspace_id != workspace.pk:
+        raise ValueError("spokesperson not in workspace")
+
+    composition = Composition.objects.create(
+        workspace=workspace,
+        spokesperson=spokesperson,
+        name=name.strip() or "Cohost layout",
+        template_kind="cohost_layout",
+        mock_mode=mock_mode,
+        created_by=created_by,
+    )
+    CompositionStep.objects.create(
+        composition=composition,
+        position=0,
+        primitive="composite_video",
+        inputs=[
+            {"slot": "main", "asset_id": str(main_clip.id)},
+            {"slot": "cohost", "asset_id": str(cohost_clip.id)},
+        ],
+        params={
+            "layout_spec": {
+                "kind": "cohost",
+                "options": {
+                    "cohost_width": cohost_width,
+                    "margin_x": margin_x,
+                    "margin_y": margin_y,
+                },
+            },
+        },
+    )
+    return composition
+
+
+@transaction.atomic
+def broll_splice(
+    *,
+    workspace: "Workspace",
+    spokesperson: "Spokesperson",
+    base_clip,
+    broll_clip,
+    cutaway_start_s: float,
+    cutaway_end_s: float,
+    mock_mode: bool = False,
+    name: str = "",
+    created_by: "AbstractBaseUser | None" = None,
+) -> Composition:
+    """B-roll cutaway — splice a cinematic clip into the middle
+    of an avatar's timeline at ``[cutaway_start_s, cutaway_end_s]``.
+    Audio stays from the base avatar (the cutaway is
+    video-only). The window must be strictly inside the base
+    clip's duration.
+    """
+    _validate_workspace_assets(workspace, [base_clip, broll_clip])
+    if spokesperson.workspace_id != workspace.pk:
+        raise ValueError("spokesperson not in workspace")
+    if cutaway_end_s <= cutaway_start_s:
+        raise ValueError(
+            "broll cutaway_end_s must be greater than cutaway_start_s"
+        )
+
+    composition = Composition.objects.create(
+        workspace=workspace,
+        spokesperson=spokesperson,
+        name=name.strip() or "B-roll splice",
+        template_kind="broll_splice",
+        mock_mode=mock_mode,
+        created_by=created_by,
+    )
+    CompositionStep.objects.create(
+        composition=composition,
+        position=0,
+        primitive="composite_video",
+        inputs=[
+            {"slot": "base", "asset_id": str(base_clip.id)},
+            {"slot": "broll", "asset_id": str(broll_clip.id)},
+        ],
+        params={
+            "layout_spec": {
+                "kind": "broll",
+                "options": {
+                    "cutaway_start_s": float(cutaway_start_s),
+                    "cutaway_end_s": float(cutaway_end_s),
+                },
+            },
+        },
+    )
+    return composition
+
+
+@transaction.atomic
+def music_bed_pass(
+    *,
+    workspace: "Workspace",
+    spokesperson: "Spokesperson",
+    base_clip,
+    music_asset,
+    music_gain_db: float = -18.0,
+    fade_in_ms: int = 1000,
+    fade_out_ms: int = 2000,
+    mock_mode: bool = False,
+    name: str = "",
+    created_by: "AbstractBaseUser | None" = None,
+) -> Composition:
+    """Music bed — mix a music AUDIO track under the base
+    clip's voice. Default gain -18 dB matches the hackathon's
+    music_bed_client.
+    """
+    _validate_workspace_assets(workspace, [base_clip, music_asset])
+    if spokesperson.workspace_id != workspace.pk:
+        raise ValueError("spokesperson not in workspace")
+
+    composition = Composition.objects.create(
+        workspace=workspace,
+        spokesperson=spokesperson,
+        name=name.strip() or "Music bed pass",
+        template_kind="music_bed_pass",
+        mock_mode=mock_mode,
+        created_by=created_by,
+    )
+    CompositionStep.objects.create(
+        composition=composition,
+        position=0,
+        primitive="mix_audio",
+        inputs=[
+            {"slot": "base", "asset_id": str(base_clip.id)},
+            {"slot": "music", "asset_id": str(music_asset.id)},
+        ],
+        params={
+            "mix_spec": {
+                "music_gain_db": float(music_gain_db),
+                "fade_in_ms": int(fade_in_ms),
+                "fade_out_ms": int(fade_out_ms),
+            },
+        },
+    )
+    return composition

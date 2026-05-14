@@ -20,6 +20,7 @@ from __future__ import annotations
 import base64
 import binascii
 import hashlib
+import json
 import logging
 import re
 from pathlib import Path
@@ -950,6 +951,471 @@ def _build_reencode_cmd(local_paths: list[Path], tmp: Path) -> list[str]:
         str(tmp),
     ]
     return cmd
+
+
+# ---- POST /internal/clips/composite/ + /internal/audio/mix/ ------
+#
+# SESSION 143 / V7. Composite primitives — the missing piece that
+# unlocks every scene-composition starter (pip / backdrop / cohost /
+# broll) + the music_bed mix path. Same synchronous shape as the V5
+# concat endpoint; same cache-by-hash discipline.
+#
+# Layout kinds (composite_video):
+#   * "pip"      — base + tile overlaid bottom-right with a white
+#                  border. Audio = base.
+#   * "backdrop" — bg cinematic clip + fg avatar tile overlaid
+#                  top-right. Audio = foreground (avatar).
+#   * "cohost"   — main + cohost overlay (top-left by default).
+#                  Audio = main; cohost is video-only.
+#   * "broll"    — base avatar with a single cinematic cutaway
+#                  spliced into a window of the avatar timeline.
+#                  Audio = base avatar (cutaway is video-only).
+#
+# Mix specs (mix_audio):
+#   * music_gain_db (default -18): how much the music sits under
+#     the base clip's voice track.
+#   * fade_in_ms / fade_out_ms (default 1000/2000): smooth boundary.
+#
+# Each layout is a different filter_complex builder; the dispatch
+# table at the bottom of this block keeps the handler small.
+
+
+_COMPOSITE_KINDS = {"pip", "backdrop", "cohost", "broll"}
+
+# Layout defaults — tunable per-layout without forcing operators
+# to send all the knobs. Hackathon's empirical values for the
+# corresponding clients.
+_PIP_DEFAULT_WIDTH = 360
+_PIP_DEFAULT_MARGIN = 40
+_PIP_BORDER_PX = 6
+
+_BACKDROP_DEFAULT_FG_WIDTH = 320
+_BACKDROP_DEFAULT_MARGIN = 40
+_BACKDROP_BORDER_PX = 6
+
+_COHOST_DEFAULT_WIDTH = 240
+_COHOST_DEFAULT_MARGIN = 40
+_COHOST_BORDER_PX = 6
+
+
+class InternalCompositeCreate(BaseModel):
+    """Request body for ``POST /internal/clips/composite/``."""
+
+    clip_urls: list[str] = Field(..., min_length=2, max_length=8)
+    layout_spec: dict = Field(...)
+
+
+class InternalCompositeResponse(BaseModel):
+    output_url: str
+    duration_seconds: Optional[float] = None
+    size_bytes: Optional[int] = None
+    mock_mode: bool
+
+
+class InternalAudioMixCreate(BaseModel):
+    """Request body for ``POST /internal/audio/mix/``."""
+
+    base_clip_url: str = Field(..., min_length=1, max_length=2048)
+    audio_urls: list[str] = Field(..., min_length=1, max_length=4)
+    mix_spec: dict = Field(default_factory=dict)
+
+
+class InternalAudioMixResponse(BaseModel):
+    output_url: str
+    duration_seconds: Optional[float] = None
+    size_bytes: Optional[int] = None
+    mock_mode: bool
+
+
+def _composite_dir(settings: Settings) -> Path:
+    target = settings.data_path / "_internal" / "composites"
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def _build_pip_filter(options: dict) -> str:
+    """filter_complex for `pip` layout — base at [0], tile at [1]."""
+    pip_w = int(options.get("pip_width", _PIP_DEFAULT_WIDTH))
+    margin_x = int(options.get("margin_x", _PIP_DEFAULT_MARGIN))
+    margin_y = int(options.get("margin_y", _PIP_DEFAULT_MARGIN))
+    border = int(options.get("border_px", _PIP_BORDER_PX))
+    return (
+        f"[1:v]scale={pip_w}:-2[pip_scaled];"
+        f"[pip_scaled]pad=iw+{2 * border}:ih+{2 * border}:"
+        f"{border}:{border}:color=white[pip_bordered];"
+        f"[0:v][pip_bordered]overlay=W-w-{margin_x}:H-h-{margin_y}[outv]"
+    )
+
+
+def _build_backdrop_filter(options: dict) -> str:
+    """filter_complex for `backdrop` — cinematic bg at [0],
+    foreground avatar tile at [1]. Output sized to background's
+    dims with the avatar tile overlaid top-right."""
+    fg_w = int(options.get("fg_width", _BACKDROP_DEFAULT_FG_WIDTH))
+    margin_x = int(options.get("margin_x", _BACKDROP_DEFAULT_MARGIN))
+    margin_y = int(options.get("margin_y", _BACKDROP_DEFAULT_MARGIN))
+    border = int(options.get("border_px", _BACKDROP_BORDER_PX))
+    return (
+        f"[0:v]setpts=PTS-STARTPTS[bg];"
+        f"[1:v]scale={fg_w}:-2,setpts=PTS-STARTPTS[fg_scaled];"
+        f"[fg_scaled]pad=iw+{2 * border}:ih+{2 * border}:"
+        f"{border}:{border}:color=white[fg_bordered];"
+        f"[bg][fg_bordered]overlay=W-w-{margin_x}:{margin_y}[outv]"
+    )
+
+
+def _build_cohost_filter(options: dict) -> str:
+    """filter_complex for `cohost` — main at [0], cohost overlay
+    at [1]. Cohost positioned top-left by default."""
+    cohost_w = int(options.get("cohost_width", _COHOST_DEFAULT_WIDTH))
+    margin_x = int(options.get("margin_x", _COHOST_DEFAULT_MARGIN))
+    margin_y = int(options.get("margin_y", _COHOST_DEFAULT_MARGIN))
+    border = int(options.get("border_px", _COHOST_BORDER_PX))
+    return (
+        f"[1:v]scale={cohost_w}:-2[cohost_scaled];"
+        f"[cohost_scaled]pad=iw+{2 * border}:ih+{2 * border}:"
+        f"{border}:{border}:color=white[cohost_bordered];"
+        f"[0:v][cohost_bordered]overlay={margin_x}:{margin_y}[outv]"
+    )
+
+
+def _build_broll_filter(options: dict, base_dur: float) -> str:
+    """filter_complex for `broll` — base at [0], cutaway at [1].
+    Splices [start, end] of base with cutaway scaled to base
+    dims. Audio stays from base (mapped via -map 0:a outside
+    the filter)."""
+    start = float(options.get("cutaway_start_s", base_dur * 0.3))
+    end = float(options.get("cutaway_end_s", base_dur * 0.7))
+    cut_dur = end - start
+    if cut_dur <= 0 or start < 0 or end > base_dur:
+        raise ValueError(
+            f"broll cutaway window [{start:.2f}, {end:.2f}] must be inside "
+            f"base [0, {base_dur:.2f}] with positive duration"
+        )
+    return (
+        f"[0:v]trim=start=0:end={start:.3f},setpts=PTS-STARTPTS[v_pre];"
+        f"[1:v]trim=start=0:end={cut_dur:.3f},setpts=PTS-STARTPTS,"
+        f"scale=1280:720:force_original_aspect_ratio=increase,"
+        f"crop=1280:720,setsar=1[v_cut];"
+        f"[0:v]trim=start={end:.3f}:end={base_dur:.3f},"
+        f"setpts=PTS-STARTPTS[v_post];"
+        f"[v_pre][v_cut][v_post]concat=n=3:v=1:a=0[outv]"
+    )
+
+
+def _probe_duration(path: Path) -> float:
+    """Use ffprobe to get a clip's duration in seconds. Falls
+    back to 5.0 if probing fails."""
+    import shutil
+    import subprocess
+
+    if not shutil.which("ffprobe"):
+        return 5.0
+    try:
+        out = subprocess.run(
+            [
+                "ffprobe", "-v", "error",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                str(path),
+            ],
+            capture_output=True, text=True, timeout=30,
+        )
+        return float(out.stdout.strip()) if out.returncode == 0 else 5.0
+    except (ValueError, subprocess.TimeoutExpired, OSError):
+        return 5.0
+
+
+@router.post(
+    "/clips/composite/", response_model=InternalCompositeResponse,
+)
+def post_internal_composite(
+    body: InternalCompositeCreate,
+    settings: Settings = Depends(get_settings),
+):
+    """Stitch N clips via ffmpeg filter_complex according to
+    ``layout_spec.kind``. Synchronous; output cached by hash of
+    inputs + spec."""
+    layout = body.layout_spec or {}
+    kind = (layout.get("kind") or "").strip()
+    if kind not in _COMPOSITE_KINDS:
+        return _error(
+            400, "unsupported_layout",
+            f"layout_spec.kind must be one of {sorted(_COMPOSITE_KINDS)}; "
+            f"got {kind!r}",
+        )
+
+    clip_urls = [u.strip() for u in body.clip_urls if u and u.strip()]
+    if len(clip_urls) < 2:
+        return _error(
+            422, "validation_error",
+            "composite requires at least two clip_urls (base + overlay)",
+        )
+
+    options = layout.get("options") or {}
+    cache_seed = (
+        "|".join(clip_urls) + "|" + json.dumps({"kind": kind, "options": options}, sort_keys=True)
+    ).encode("utf-8")
+    cache_key = hashlib.sha256(cache_seed).hexdigest()[:16]
+
+    if settings.runway_mock:
+        output_url = f"/data/_internal/composites/mock-{cache_key}.mp4"
+        logger.info(
+            "internal composite mock kind=%s output=%s inputs=%d",
+            kind, output_url, len(clip_urls),
+        )
+        return InternalCompositeResponse(
+            output_url=output_url,
+            duration_seconds=5.0,
+            size_bytes=1024 * 1024,
+            mock_mode=True,
+        )
+
+    import shutil as _shutil
+    import subprocess as _subprocess
+
+    if not _shutil.which("ffmpeg"):
+        return _error(
+            500, "internal_error",
+            "ffmpeg not found on PATH — install ffmpeg in the "
+            "media-engine container",
+        )
+
+    target_dir = _composite_dir(settings)
+    output_path = target_dir / f"{kind}-{cache_key}.mp4"
+    if output_path.exists():
+        return InternalCompositeResponse(
+            output_url=f"/data/_internal/composites/{output_path.name}",
+            duration_seconds=None,
+            size_bytes=output_path.stat().st_size,
+            mock_mode=False,
+        )
+
+    try:
+        local_paths = [
+            _download_concat_input(u, target_dir / "sources", settings)
+            for u in clip_urls
+        ]
+    except FileNotFoundError as exc:
+        return _error(400, "validation_error", str(exc))
+    except httpx.HTTPError as exc:
+        logger.warning("composite download failed: %s", exc)
+        return _error(502, "upstream_runway_error", f"download error: {exc!s}"[:300])
+
+    # Dispatch to per-kind filter builder.
+    try:
+        if kind == "pip":
+            filter_complex = _build_pip_filter(options)
+            map_audio = ["-map", "0:a?"]
+        elif kind == "backdrop":
+            filter_complex = _build_backdrop_filter(options)
+            # Audio from fg (avatar) — the bg is the silent cinematic.
+            map_audio = ["-map", "1:a?"]
+        elif kind == "cohost":
+            filter_complex = _build_cohost_filter(options)
+            map_audio = ["-map", "0:a?"]
+        elif kind == "broll":
+            base_dur = _probe_duration(local_paths[0])
+            filter_complex = _build_broll_filter(options, base_dur)
+            map_audio = ["-map", "0:a?"]
+        else:  # pragma: no cover — guarded by _COMPOSITE_KINDS
+            return _error(400, "unsupported_layout", f"unknown kind {kind!r}")
+    except ValueError as exc:
+        return _error(400, "validation_error", str(exc))
+
+    tmp = output_path.with_suffix(".mp4.tmp")
+    cmd = ["ffmpeg", "-y", "-loglevel", "error"]
+    for p in local_paths:
+        cmd += ["-i", str(p)]
+    cmd += [
+        "-filter_complex", filter_complex,
+        "-map", "[outv]",
+        *map_audio,
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+        "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "192k",
+        "-movflags", "+faststart",
+        "-f", "mp4",
+        str(tmp),
+    ]
+
+    try:
+        result = _subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()[-400:]
+            tmp.unlink(missing_ok=True)
+            logger.warning(
+                "composite ffmpeg rc=%s stderr=%s", result.returncode, stderr,
+            )
+            return _error(
+                500, "internal_error",
+                f"ffmpeg rc={result.returncode}: {stderr}",
+            )
+        if not tmp.exists():
+            return _error(500, "internal_error", "ffmpeg produced no output")
+        tmp.replace(output_path)
+    except _subprocess.TimeoutExpired:
+        tmp.unlink(missing_ok=True)
+        return _error(500, "internal_error", "ffmpeg composite timed out")
+    except Exception as exc:  # pragma: no cover — defensive
+        tmp.unlink(missing_ok=True)
+        logger.exception("composite unexpected")
+        return _error(500, "internal_error", f"unexpected: {exc!s}"[:300])
+
+    logger.info(
+        "internal composite done kind=%s output=%s inputs=%d size=%d",
+        kind, output_path.name, len(clip_urls), output_path.stat().st_size,
+    )
+    return InternalCompositeResponse(
+        output_url=f"/data/_internal/composites/{output_path.name}",
+        duration_seconds=None,
+        size_bytes=output_path.stat().st_size,
+        mock_mode=False,
+    )
+
+
+def _mixed_audio_dir(settings: Settings) -> Path:
+    target = settings.data_path / "_internal" / "mixes"
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+@router.post(
+    "/audio/mix/", response_model=InternalAudioMixResponse,
+)
+def post_internal_audio_mix(
+    body: InternalAudioMixCreate,
+    settings: Settings = Depends(get_settings),
+):
+    """Mix N audio tracks under a base clip. v1 supports the
+    ``music_bed`` pattern: one base clip + one audio track,
+    music sits at ``mix_spec.music_gain_db`` (default -18 dB)
+    under the base voice.
+
+    Synchronous; output cached by hash of inputs + spec."""
+    base = body.base_clip_url.strip()
+    audio_urls = [u.strip() for u in body.audio_urls if u and u.strip()]
+    if not base or not audio_urls:
+        return _error(
+            422, "validation_error",
+            "audio mix requires a base_clip_url and at least one audio_url",
+        )
+
+    spec = body.mix_spec or {}
+    music_gain_db = float(spec.get("music_gain_db", -18))
+    fade_in_ms = int(spec.get("fade_in_ms", 1000))
+    fade_out_ms = int(spec.get("fade_out_ms", 2000))
+
+    cache_seed = (
+        base + "|" + "|".join(audio_urls)
+        + "|" + json.dumps(spec, sort_keys=True)
+    ).encode("utf-8")
+    cache_key = hashlib.sha256(cache_seed).hexdigest()[:16]
+
+    if settings.runway_mock:
+        output_url = f"/data/_internal/mixes/mock-{cache_key}.mp4"
+        logger.info(
+            "internal audio_mix mock output=%s tracks=%d gain=%.1fdB",
+            output_url, len(audio_urls), music_gain_db,
+        )
+        return InternalAudioMixResponse(
+            output_url=output_url,
+            duration_seconds=5.0,
+            size_bytes=1024 * 1024,
+            mock_mode=True,
+        )
+
+    import shutil as _shutil
+    import subprocess as _subprocess
+
+    if not _shutil.which("ffmpeg"):
+        return _error(
+            500, "internal_error",
+            "ffmpeg not found on PATH",
+        )
+
+    target_dir = _mixed_audio_dir(settings)
+    output_path = target_dir / f"{cache_key}.mp4"
+    if output_path.exists():
+        return InternalAudioMixResponse(
+            output_url=f"/data/_internal/mixes/{output_path.name}",
+            duration_seconds=None,
+            size_bytes=output_path.stat().st_size,
+            mock_mode=False,
+        )
+
+    try:
+        base_path = _download_concat_input(base, target_dir / "sources", settings)
+        audio_paths = [
+            _download_concat_input(u, target_dir / "sources", settings)
+            for u in audio_urls
+        ]
+    except FileNotFoundError as exc:
+        return _error(400, "validation_error", str(exc))
+    except httpx.HTTPError as exc:
+        logger.warning("audio_mix download failed: %s", exc)
+        return _error(502, "upstream_runway_error", f"download error: {exc!s}"[:300])
+
+    # v1: support one audio track (music bed). Multi-track is a
+    # later capability; the API accepts a list for forward-compat.
+    audio_path = audio_paths[0]
+
+    fade_in_s = fade_in_ms / 1000.0
+    fade_out_s = fade_out_ms / 1000.0
+    # Filter graph: scale music to gain + fade in/out, then amix
+    # with normalize=0 so the base voice keeps full volume.
+    filter_complex = (
+        f"[1:a]volume={music_gain_db}dB,"
+        f"afade=t=in:st=0:d={fade_in_s:.2f},"
+        f"afade=t=out:st=999999:d={fade_out_s:.2f}[bed];"
+        f"[0:a][bed]amix=inputs=2:duration=first:normalize=0[outa]"
+    )
+
+    tmp = output_path.with_suffix(".mp4.tmp")
+    cmd = [
+        "ffmpeg", "-y", "-loglevel", "error",
+        "-i", str(base_path), "-i", str(audio_path),
+        "-filter_complex", filter_complex,
+        "-map", "0:v",
+        "-map", "[outa]",
+        "-c:v", "copy",
+        "-c:a", "aac", "-b:a", "192k",
+        "-movflags", "+faststart",
+        "-f", "mp4",
+        str(tmp),
+    ]
+
+    try:
+        result = _subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()[-400:]
+            tmp.unlink(missing_ok=True)
+            return _error(
+                500, "internal_error",
+                f"ffmpeg rc={result.returncode}: {stderr}",
+            )
+        if not tmp.exists():
+            return _error(500, "internal_error", "ffmpeg produced no output")
+        tmp.replace(output_path)
+    except _subprocess.TimeoutExpired:
+        tmp.unlink(missing_ok=True)
+        return _error(500, "internal_error", "ffmpeg audio mix timed out")
+    except Exception as exc:  # pragma: no cover — defensive
+        tmp.unlink(missing_ok=True)
+        logger.exception("audio_mix unexpected")
+        return _error(500, "internal_error", f"unexpected: {exc!s}"[:300])
+
+    logger.info(
+        "internal audio_mix done output=%s tracks=%d gain=%.1fdB size=%d",
+        output_path.name, len(audio_urls), music_gain_db,
+        output_path.stat().st_size,
+    )
+    return InternalAudioMixResponse(
+        output_url=f"/data/_internal/mixes/{output_path.name}",
+        duration_seconds=None,
+        size_bytes=output_path.stat().st_size,
+        mock_mode=False,
+    )
 
 
 # ---- POST /internal/voices/ ---------------------------------------

@@ -146,6 +146,30 @@ class ConcatClipsResult:
 
 
 @dataclass
+class CompositeResult:
+    """Decoded response from ``POST /internal/clips/composite/``.
+    Same shape as ConcatClipsResult — synchronous ffmpeg with
+    a cached MP4 output."""
+
+    output_url: str
+    duration_seconds: float | None
+    size_bytes: int | None
+    mock_mode: bool
+
+
+@dataclass
+class AudioMixResult:
+    """Decoded response from ``POST /internal/audio/mix/``.
+    Same shape — synchronous ffmpeg audio mix with a cached
+    MP4 output (video stream copied through, audio re-encoded)."""
+
+    output_url: str
+    duration_seconds: float | None
+    size_bytes: int | None
+    mock_mode: bool
+
+
+@dataclass
 class VideoPollResult:
     """Decoded response from ``GET /internal/videos/{task_id}/``."""
 
@@ -440,6 +464,71 @@ class MediaEngineClient:
         except (KeyError, TypeError, ValueError) as exc:
             raise MediaEngineError(
                 f"concat_clips response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
+    def create_composite(
+        self,
+        *,
+        clip_urls: list[str],
+        layout_spec: dict,
+    ) -> "CompositeResult":
+        """Hit ``POST /internal/clips/composite/`` — synchronous
+        ffmpeg filter_complex overlay according to
+        ``layout_spec.kind``. v1 supports ``pip``, ``backdrop``,
+        ``cohost``, ``broll``."""
+        body: dict[str, Any] = {
+            "clip_urls": clip_urls,
+            "layout_spec": layout_spec,
+        }
+        data = self.request("POST", "/internal/clips/composite/", json=body)
+        try:
+            return CompositeResult(
+                output_url=str(data["output_url"]),
+                duration_seconds=_as_float_or_none(data.get("duration_seconds")),
+                size_bytes=(
+                    int(data["size_bytes"]) if data.get("size_bytes") is not None
+                    else None
+                ),
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"create_composite response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
+    def mix_audio(
+        self,
+        *,
+        base_clip_url: str,
+        audio_urls: list[str],
+        mix_spec: dict | None = None,
+    ) -> "AudioMixResult":
+        """Hit ``POST /internal/audio/mix/`` — synchronous
+        ffmpeg audio mix. v1 ships the music_bed pattern (one
+        base clip + one music track at ``mix_spec.music_gain_db``
+        gain). The API accepts a list for forwards-compat with
+        multi-track mixing."""
+        body: dict[str, Any] = {
+            "base_clip_url": base_clip_url,
+            "audio_urls": audio_urls,
+            "mix_spec": mix_spec or {},
+        }
+        data = self.request("POST", "/internal/audio/mix/", json=body)
+        try:
+            return AudioMixResult(
+                output_url=str(data["output_url"]),
+                duration_seconds=_as_float_or_none(data.get("duration_seconds")),
+                size_bytes=(
+                    int(data["size_bytes"]) if data.get("size_bytes") is not None
+                    else None
+                ),
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"mix_audio response not in expected shape: {data!r}",
                 response_text=str(data),
             ) from exc
 
