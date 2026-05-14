@@ -36,6 +36,19 @@ export const DOCUMENT_STATUSES = [
 ] as const;
 export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
 
+const knowledgeChunkSchema = z.object({
+  id: z.string(),
+  chunk_index: z.number(),
+  chunk_text: z.string(),
+  chunk_size: z.number(),
+  overlap_size: z.number(),
+  embedding_model: z.string(),
+  embedding_cost_micros: z.number(),
+  processing_time_ms: z.number().nullable(),
+});
+
+export type KnowledgeChunk = z.infer<typeof knowledgeChunkSchema>;
+
 const knowledgeDocumentSchema = z.object({
   id: z.string(),
   workspace: z.string(),
@@ -53,6 +66,8 @@ const knowledgeDocumentSchema = z.object({
   chunk_count: z.number(),
   created_at: z.string(),
   updated_at: z.string(),
+  // K4.1 — populated only on the detail endpoint, not list.
+  chunks: z.array(knowledgeChunkSchema).optional(),
 });
 
 export type KnowledgeDocument = z.infer<typeof knowledgeDocumentSchema>;

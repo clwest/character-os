@@ -16,7 +16,7 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_140_K7_URL_INGESTION.md`.
+> **Last handoff:** `docs/handoffs/SESSION_141_K4_DETAIL_AND_RENDER_AUDIT.md`.
 
 ---
 
@@ -28,11 +28,15 @@ real-mode (SESSION 136). Knowledge-layer scope-locked
 (SESSION 137) — `docs/design/KNOWLEDGE_LAYER.md` is the new
 contract.
 
-**Phase 4 (knowledge arc):** K8 — Conversation pipeline. K1-K7
-all shipped. Operators can now ingest from paste / PDF /
-URL paste / web-search discovery; informed-render flow runs
-gpt-5-mini synthesis at create time. Knowledge ingestion is
-feature-complete for v1.
+**Phase 4 (knowledge arc):** K6.5 — talking-head render
+rewire. K1-K7 shipped + K4.1 (detail view) shipped, but
+SESSION 141 surfaced that K6's render path hits the wrong
+Runway endpoint (`gen4_turbo` image-to-video instead of
+`/v1/avatar_videos` talking-head). The cast members can be
+rendered as silent animated portraits today; K6.5 wires the
+real talking-head pipeline so they actually *speak* the
+synthesized scripts. Conversation pipeline (K8) deferred
+until video processing is right.
 
 | Slice | Deliverable                                  | Status |
 |-------|----------------------------------------------|--------|
@@ -43,19 +47,20 @@ feature-complete for v1.
 | K2 | KnowledgeDocument + KnowledgeChunk + retrieval skeleton | DONE (SESSION 138) |
 | K3 | Ingestion pipeline (paste + upload + PDF)       | DONE (SESSION 138) |
 | K4 | Workspace knowledge route (SPA + REST)          | DONE (SESSION 138) |
+| K4.1 | Knowledge document detail view (chunks)       | DONE (SESSION 141) |
 | K5 | Spokesperson "Knowledge" tab                    | DONE (SESSION 138) |
-| K6 | Render flow integration                         | DONE (SESSION 139) |
+| K6 | Render flow integration (synthesis only)        | DONE (SESSION 139) |
 | K7 | URL ingestion + serper discovery                | DONE (SESSION 140) |
-| K8 | Conversation pipeline (message + embedding)     | **NEXT** |
-| K3 | Ingestion pipeline (paste + upload + PDF)       | Queued |
-| K4 | Workspace knowledge route (SPA + REST)          | Queued |
-| K5 | Spokesperson "Knowledge" tab                    | Queued |
-| K6 | Render flow integration                         | Queued |
-| K7 | URL ingestion + serper discovery                | Queued |
-| K8 | ConversationMessage + ConversationEmbedding     | Queued |
+| K6.5 | Talking-head render rewire (avatar_videos)     | **NEXT (SESSION 142)** |
+| K4.2 | Dedup-restore bug fix                          | Queued |
+| K6.2 | Pre-render validation (portrait/avatar required) | Queued |
+| K6.3 | Brief length cap in script synthesis           | Queued |
+| K6.4 | Duration derived from script length            | Queued |
+| K7.1 | Per-chunk cost telemetry surface in UI         | Queued |
+| K8 | Conversation pipeline                           | Queued (after K6.5) |
 | K9 | Conversation REST + SPA                         | Queued |
 | K10 | Onboarding seed                                | Queued |
-| W12 | Legacy single-form retirement                  | Whenever (now ungated) |
+| W12 | Legacy single-form retirement                  | Whenever |
 | W11.1 | Edit-spokesperson modal                      | Queued |
 
 **Cast roster in workspace `admins-workspace`:**
@@ -115,25 +120,90 @@ web-search discovery.
 videos apps. Plus 46 prompts pytest = **145 backend tests**.
 **38 e2e specs** (35 prior + 3 K7).
 
-### Next: K8 — Conversation pipeline
+### Next: K6.5 — talking-head render rewire
 
-K2 already shipped the `ConversationMessage` +
-`ConversationEmbedding` schema. K8 adds the pipeline that
-populates it: `POST /api/conversations/threads/{id}/messages/`
-creates a user-role message, kicks off
-`embed_conversation_message` Celery task, calls
-`retrieve_for_thread` + LLM script synthesis (similar to K6
-but conversational), persists the spokesperson reply, returns
-both messages.
+**The bug surfaced in SESSION 141 UI testing.** K6 wired the
+RAG + gpt-5-mini script synthesis correctly — the brief
+synthesized from real workspace knowledge is good. But the
+synthesized brief gets sent to Runway's `gen4_turbo` model
+(image-to-video animation), which doesn't generate speech,
+lip-sync, or audio. Result: a 5-second silent visual
+animation of the spokesperson's portrait — the avatar moves
+slightly but doesn't speak.
 
-Per the K0 scope-lock §"Open questions" Q-k-1: conversation
-chunk size is TBD. Lock in K8 — probably 500 chars / 0
-overlap (chat turns are short; overlap is wasted).
+The **right** endpoint exists in
+`media-engine/app/services/character_host_client.py:_generate_real`
+— it calls `/v1/avatar_videos` with model `gwm1_avatars`,
+shape:
 
-### What's NOT K8
+```python
+body = {
+    "model": "gwm1_avatars",
+    "avatar": {"type": "custom", "avatarId": avatar_id},
+    "speech": {"type": "text", "text": script},
+}
+url = f"{settings.runway_api_base}/v1/avatar_videos"
+```
 
-- Conversation SPA — K9.
-- Onboarding seed — K10.
+The bound voice rides along automatically (voice presets are
+bound at avatar-creation time per SESSION 134/136).
+
+### K6.5 scope
+
+The implementation gap is in **media-engine**, not shell —
+shell already passes everything we need (kind, avatar_id,
+brief, portrait_path). Media-engine needs to route
+`kind=spokesperson_ad` through avatar_videos:
+
+- In `media-engine/app/routers/internal.py:post_internal_video`,
+  branch on `kind`. For `spokesperson_ad` (and likely several
+  other speaking kinds), build the `/v1/avatar_videos` request
+  shape and POST to that endpoint instead of going through
+  `runway_client.create_task`.
+- Same `task_id` response shape so the shell's poll task
+  doesn't change.
+- The polling endpoint (`GET /v1/tasks/{task_id}/`) is the
+  same.
+- The legacy `_generate_real` is wrapped around the
+  `Campaign` model and hardcodes a single avatar/voice
+  combo. The new path needs to accept the avatar_id from
+  the request body (not from a Campaign lookup) — same
+  three fields, just different lookup.
+
+### What's NOT K6.5
+
+- Brief length cap (K6.3) — separate slice.
+- Pre-render avatar/portrait check (K6.2) — separate.
+- Conversation pipeline (K8) — deferred until video is right.
+
+### Pre-K6.5 cleanup recommended
+
+The audit surfaced five queued fixes. Worth landing the
+quick ones first so K6.5 has clean ground:
+
+- **K4.2** — dedup-restore bug. ~15 min. Soft-deleted docs
+  block re-ingestion of the same content; should restore
+  + re-fire embed_document instead.
+- **K6.2** — pre-render validation. ~10 min. Shell viewset
+  should fail fast with a clear message if
+  `spokesperson.runway_avatar_id` is empty, rather than
+  letting media-engine return an opaque 400.
+
+### Reference reads before K6.5
+
+Per the carried calibration ("when adding integration with
+an external service, READ u-d-b / the predecessor first"):
+
+1. `media-engine/app/services/character_host_client.py:_generate_real`
+   (lines 412-492) — the existing avatar_videos integration.
+   This is what we're porting from Campaign-based to
+   Spokesperson-based.
+2. `media-engine/app/routers/internal.py:post_internal_video`
+   (lines 286-329) — current implementation that hits the
+   wrong endpoint. The branch lands here.
+3. The K6 handoff
+   (`docs/handoffs/SESSION_139_K6_RENDER_INTEGRATION.md`)
+   for why the synthesis side is already correct.
 
 ---
 
@@ -354,39 +424,54 @@ Knowledge-layer arc (K-prefixed) is locked in
 `docs/design/KNOWLEDGE_LAYER.md` §Slice breakdown. Everything
 else is ordered by independence + priority.
 
-1. **K8 — Conversation pipeline** (message + embedding +
+1. **K6.5 — Talking-head render rewire** (route through
+   `/v1/avatar_videos` instead of `gen4_turbo`; the real
+   spokesperson speech pipeline). See "Next" section above.
+2. **K4.2 — Dedup-restore bug** (~15 min). Soft-deleted
+   docs block re-ingestion; should restore + re-embed.
+3. **K6.2 — Pre-render validation** (~10 min). Shell
+   viewset should fail fast when avatar_id/portrait is
+   missing; better operator-facing error than the current
+   opaque 400 from media-engine.
+4. **K6.3 — Brief length cap** in `script_synthesis.py`.
+   Truncate to <=2000 chars before sending to media-engine.
+5. **K6.4 — Duration matching**. Default `duration=5s`
+   doesn't fit a 30-second synthesized script; derive from
+   script word count.
+6. **K7.1 — Cost telemetry surface**. Per-chunk
+   `embedding_cost_micros` is stored but no UI shows it.
+7. **K8 — Conversation pipeline** (message + embedding +
    reply synthesis on top of the K2 schema).
-2. **K9 — Conversation REST + SPA.**
-3. **K10 — Onboarding seed.**
-4. **First marketing video** — now possible since K6 ships
-   informed renders. Attach Character-OS knowledge to the
-   admin workspace, render a real video about the product.
-5. **Voice preset audit** — listen to the four cast members
-   with real-mode knowledge-informed renders.
-6. **E2e detritus cleanup** — Postgres carries ~495+
-   e2e-generated workspaces; `Workspace.objects.filter(slug__startswith='e2e-').delete()`
-   when the operator decides the window is right.
-7. **OpenAI client factory port** — u-d-b has
-   `core/services/openai_client_factory.py` that centralises
-   timeout/retry config. Now that K3 + K6 are both call
-   sites, the factory pattern is worth porting (memory
-   `feedback_openai_gpt5_responses_api.md` flags this
-   inflection).
-8. **W11.1 — Edit-spokesperson modal.**
-9. **W12 — Legacy form retirement.**
-10. **Cast sync command** — pull updates from
+8. **K9 — Conversation REST + SPA.**
+9. **K10 — Onboarding seed.**
+10. **First marketing video** — unlocked once K6.5 ships
+    real talking-head renders. Attach Character-OS knowledge
+    to the admin workspace, render Sasha (or any cast
+    member) actually speaking the script.
+11. **Voice preset audit** — listen to the four cast members
+    with real talking-head renders post-K6.5.
+12. **E2e detritus cleanup** — Postgres carries ~495+
+    e2e-generated workspaces; `Workspace.objects.filter(slug__startswith='e2e-').delete()`.
+13. **OpenAI client factory port** — u-d-b has
+    `core/services/openai_client_factory.py` that
+    centralises timeout/retry config. K3 + K6 + K8 will be
+    three call sites; the factory pattern is worth porting.
+14. **W11.1 — Edit-spokesperson modal.**
+15. **W12 — Legacy form retirement.**
+16. **Cast sync command** — pull updates from
     `spokesperson_templates.py` into existing rows.
-11. **Tier 2 prompt helpers** — likely subsumed by K6's
+17. **Tier 2 prompt helpers** — likely subsumed by K6's
     `build_render_brief` synthesis.
-12. **Stuck-row janitor.**
-13. **Additional video kinds** — cinematic / dialogue / long_ad.
-14. **Act-Two performance capture.**
-15. **`lesson` video kind.**
-16. **Real Google OAuth + dj-stripe.**
-17. **Allauth legacy-settings cleanup.**
-18. **smoke_voice / smoke_avatar transaction discipline.**
-19. **Drift verifier** (`verify_doc_claims --only-drift`).
-20. **Brand Identity v2 + dark mode.**
+18. **Stuck-row janitor.**
+19. **Additional video kinds** — cinematic / dialogue / long_ad
+    (depend on K6.5 patterns).
+20. **Act-Two performance capture.**
+21. **`lesson` video kind.**
+22. **Real Google OAuth + dj-stripe.**
+23. **Allauth legacy-settings cleanup.**
+24. **smoke_voice / smoke_avatar transaction discipline.**
+25. **Drift verifier** (`verify_doc_claims --only-drift`).
+26. **Brand Identity v2 + dark mode.**
 
 ---
 
@@ -464,15 +549,20 @@ python manage.py seed_cast --workspace-slug admins-workspace --key maya --force
 
 ## AI / assistant context
 
-- Last session: SESSION 140 — **K7 shipped** (URL ingestion +
-  serper discovery). `url_fetch.py` (trafilatura),
-  `serper.py` (with `SERPER_FORCE_MOCK=1`), three-way XOR
-  on the create endpoint (`text_content` | `pdf_data_uri` |
-  `source_url_input`), new "URL" + "Search" tabs on the
-  workspace knowledge page. Knowledge ingestion is now
-  feature-complete for v1. **Cumulative tests: 145 backend
-  pytest, 38 e2e specs, all green.** Previous sessions
-  shipped K1-K5 (SESSION 138) and K6 (SESSION 139).
+- Last session: SESSION 141 — **K4.1 shipped** (knowledge
+  document detail view at `/workspace/knowledge/:id`) +
+  **major audit finding**: K6's render path uses
+  `gen4_turbo` (image-to-video) instead of `/v1/avatar_videos`
+  (talking-head). Cast members render as silent animated
+  portraits, not speaking. K6.5 (rewire) is the next slice.
+  Also shipped a `prompt_image` fix in `apps/videos/views.py`
+  so renders against real Runway don't 400 on missing image.
+  Five smaller fixes queued (K4.2, K6.2-K6.4, K7.1) from
+  the audit. Stack now has all four real API keys
+  (RUNWAY, OPENAI, SERPER, plus pre-existing) so end-to-end
+  real-mode testing works for everything except K6's
+  output (the wrong endpoint). **Cumulative tests: 145
+  backend pytest, 38 e2e specs, all green.**
 - **Calibration carried forward:**
   - **Cast is example data, not product shape.** When
     discussing capabilities, ask "is this true of every

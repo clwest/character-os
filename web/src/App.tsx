@@ -8,6 +8,7 @@ import { CreateSpokespersonRoute } from "@/routes/spokespeople/new";
 import { MakeVideoRoute } from "@/routes/spokespeople/render";
 import { VideoStatusRoute } from "@/routes/videos/$id";
 import { WorkspaceKnowledgeRoute } from "@/routes/workspace/knowledge";
+import { KnowledgeDocumentDetailRoute } from "@/routes/workspace/knowledge.$id";
 import { Layout } from "@/routes/_layout";
 
 export function App() {
@@ -65,6 +66,14 @@ export function App() {
             element={
               <RequireAuth>
                 <WorkspaceKnowledgeRoute />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/workspace/knowledge/:id"
+            element={
+              <RequireAuth>
+                <KnowledgeDocumentDetailRoute />
               </RequireAuth>
             }
           />

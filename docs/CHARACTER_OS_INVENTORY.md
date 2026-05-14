@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-14T19:40:50.862307+00:00
-git_sha: 64c1afe (working tree dirty)
+generated_at: 2026-05-14T20:50:09.531373+00:00
+git_sha: 670332a (working tree dirty)
 git_branch: main
 ---
 
@@ -15,7 +15,7 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-14T19:40:50.862307+00:00** against commit **64c1afe**
+Generated **2026-05-14T20:50:09.531373+00:00** against commit **670332a**
 on branch **main** (working tree dirty).
 
 Python 3.11.6 · Django 5.2.14 ·
@@ -33,7 +33,7 @@ Celery 5.6.3 · httpx 0.28.1.
 | FastAPI routes | **94** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **2** | `celery_app.tasks` filter |
 | Migrations (applied / total) | **46 / 46** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **12,324** in 117 files | `pathlib.Path.rglob("*.py")` |
+| Shell LOC (`*.py`, no venv/migrations) | **12,395** in 117 files | `pathlib.Path.rglob("*.py")` |
 | Media-engine LOC (`*.py`, no venv/migrations) | **25,676** in 49 files | same |
 
 ---
@@ -211,11 +211,11 @@ Total: **2** registered tasks (excluding `celery.*` built-ins).
 | Service | Files | Lines |
 |---|---|---|
 | `media-engine/` | 49 | 25,676 |
-| `shell/` | 117 | 12,324 |
-| **total** | **166** | **38,000** |
+| `shell/` | 117 | 12,395 |
+| **total** | **166** | **38,071** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-05-14T19:40:50.862307+00:00 from commit 64c1afe. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-14T20:50:09.531373+00:00 from commit 670332a. Re-run `python manage.py inventory` (from `shell/`) to refresh.*

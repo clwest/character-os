@@ -8,6 +8,11 @@ on which write-only payload field is supplied.
 Pure JSON in, pure JSON out (same rule as the wizard +
 media-engine contract): PDF uploads arrive as base64 data
 URIs, not multipart form data.
+
+SESSION 140 / K4.1: ``KnowledgeDocumentDetailSerializer`` adds
+a chunk list to the detail response so operators can verify
+what actually got captured. List responses still use the
+base serializer (chunks would be a perf cliff at scale).
 """
 from __future__ import annotations
 
@@ -20,7 +25,7 @@ from rest_framework import serializers
 from apps.accounts.models import Workspace
 from apps.spokespeople.models import Spokesperson
 
-from .models import DocumentType, KnowledgeDocument
+from .models import DocumentType, KnowledgeChunk, KnowledgeDocument
 
 
 # Cap the inbound PDF payload at 10 MB. The base64 encoded form
@@ -305,3 +310,51 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
         if "spokespeople" in validated_data:
             instance.spokespeople.set(validated_data["spokespeople"])
         return instance
+
+
+# ---- SESSION 140 / K4.1 — detail view chunks ---------------
+
+
+class KnowledgeChunkSerializer(serializers.ModelSerializer):
+    """Per-chunk view for the operator detail page. Drops the
+    vector column (huge + not human-meaningful); keeps the
+    text + indexing metadata."""
+
+    class Meta:
+        model = KnowledgeChunk
+        fields = [
+            "id",
+            "chunk_index",
+            "chunk_text",
+            "chunk_size",
+            "overlap_size",
+            "embedding_model",
+            "embedding_cost_micros",
+            "processing_time_ms",
+        ]
+        read_only_fields = fields
+
+
+class KnowledgeDocumentDetailSerializer(KnowledgeDocumentSerializer):
+    """Detail-view serializer. Same shape as the base list
+    serializer, plus an inline list of chunks so the operator
+    can verify what got captured (per K4.1 polish — answering
+    "what exactly did I just ingest?").
+
+    The base serializer stays the list serializer; chunks would
+    be a perf cliff if surfaced for every row of a long list.
+    """
+
+    chunks = serializers.SerializerMethodField()
+
+    class Meta(KnowledgeDocumentSerializer.Meta):
+        fields = KnowledgeDocumentSerializer.Meta.fields + ["chunks"]
+
+    def get_chunks(self, obj: KnowledgeDocument) -> list[dict]:
+        # Reverse FK access via the parent document — already
+        # scoped to this document so we never cross workspaces.
+        # The K2 privacy-grep test only flags the chunk model's
+        # default-manager entry point, which we deliberately
+        # avoid by going through ``obj.chunks`` instead.
+        qs = obj.chunks.all().order_by("chunk_index")
+        return KnowledgeChunkSerializer(qs, many=True).data

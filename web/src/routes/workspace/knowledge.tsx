@@ -11,7 +11,7 @@
  * docs are settled.
  */
 import { useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ChevronLeft, FileText, Search, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -138,8 +138,8 @@ function UploadPanel({ workspaceId }: { workspaceId: string | undefined }) {
     >
       <h2 className="font-display text-2xl tracking-tight">Add knowledge</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Pick paste for typed content, upload for PDFs. URL ingestion and
-        web-search discovery are coming.
+        Pick paste for typed content, upload for PDFs, URL to ingest a
+        web page snapshot, or Search to find content via the web.
       </p>
 
       <Tabs defaultValue="paste" className="mt-6">
@@ -563,9 +563,14 @@ function KnowledgeRow({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <p className="truncate font-medium" title={doc.title}>
+          <Link
+            to={`/workspace/knowledge/${doc.id}`}
+            data-testid={`knowledge-row-link-${doc.id}`}
+            className="truncate font-medium underline-offset-4 hover:underline"
+            title={doc.title}
+          >
             {doc.title}
-          </p>
+          </Link>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
           {labelForType(doc.document_type)} · {doc.chunk_count} chunk

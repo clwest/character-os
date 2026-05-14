@@ -105,12 +105,19 @@ class VideoViewSet(viewsets.ModelViewSet):
         instance.save(update_fields=["knowledge_chunk_ids", "updated_at"])
         brief = script.brief
 
+        # SESSION 140 — Runway gen4_turbo is image-to-video: it
+        # animates the spokesperson's portrait based on the brief.
+        # Pass the portrait URL (populated by the avatar bind in
+        # the wizard / seed_cast pipeline). Real-mode media-engine
+        # rejects with 400 "prompt_image is required" without it;
+        # mock-mode tolerates either.
         try:
             with MediaEngineClient() as client:
                 result = client.create_video(
                     kind=instance.kind,
                     spokesperson_avatar_id=spokesperson.runway_avatar_id,
                     brief=brief,
+                    prompt_image=spokesperson.portrait_path or None,
                 )
         except MediaEngineError as exc:
             logger.warning(

@@ -37,7 +37,10 @@ from apps.spokespeople.models import Spokesperson
 from character_os.permissions import IsWorkspaceMember
 
 from .models import KnowledgeDocument
-from .serializers import KnowledgeDocumentSerializer
+from .serializers import (
+    KnowledgeDocumentDetailSerializer,
+    KnowledgeDocumentSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +50,14 @@ class KnowledgeDocumentViewSet(viewsets.ModelViewSet):
 
     serializer_class = KnowledgeDocumentSerializer
     permission_classes = [IsWorkspaceMember]
+
+    def get_serializer_class(self):
+        """SESSION 140 / K4.1 — detail responses include chunks
+        so the operator can verify what got captured. List
+        responses keep the lighter serializer."""
+        if self.action == "retrieve":
+            return KnowledgeDocumentDetailSerializer
+        return KnowledgeDocumentSerializer
 
     def get_queryset(self):
         user = self.request.user
