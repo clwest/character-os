@@ -586,14 +586,34 @@ independently-shipping slices.
   and idempotency tests. The auto-ingested corpus
   fills the F8 banner's step-2 prerequisite for
   operator workspaces.
-- **F9 — Legacy single-form deletion.** Delete
-  `web/src/routes/spokespeople/render.tsx` +
-  `/spokespeople/<id>/render` route. The legacy
-  `/api/videos/` endpoint stays (V6 backwards-compat
-  shim) because composition→Video sync rides through it;
-  only the SPA surface is removed. The deletion is gated
-  on F1 covering the use case + the operator confirming
-  no external bookmarks point at the legacy URL.
+- **F9 — Legacy single-form deletion.** ✓ SHIPPED
+  SESSION 144 (commit TBD). Deleted
+  `web/src/routes/spokespeople/render.tsx` and removed
+  the `/spokespeople/<id>/render` route from
+  `web/src/App.tsx`. The V6 backend shim and
+  `/api/videos/` endpoint stay intact —
+  composition→Video sync still rides through them; only
+  the SPA surface is gone.
+
+  Last lingering link cleanup: `routes/videos/$id.tsx`
+  had a "Try again" button on failed renders that
+  pointed at the legacy route. Flipped to
+  `/recipes?spokesperson=<id>` (same hint shape F1
+  established). Operator following a failed-render
+  retry from `/videos/<id>` now lands in the gallery
+  with the spokesperson pre-bound — better UX than
+  the legacy single-form flow because the operator
+  can also pick a different recipe.
+
+  No backend changes; 438 backend tests pass. tsc +
+  vite build green. The e2e recipes.spec.ts mentions
+  the retired route in a doc-string history note —
+  intentionally left for context.
+
+  V15.4 retired the CTA pointing at the legacy route;
+  F9 removes the route file itself. The two-slice
+  retirement gave the V-arc time to bed in before
+  hard deletion.
 - **F10 — Arc closure.** Summary + retro. Identify what
   the next arc should be (K-arc finish via K8-K10, R-arc
   start via R1, or Phase 5 agency-tier UI).

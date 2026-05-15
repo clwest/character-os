@@ -198,7 +198,7 @@ function FailedCallout({ video }: { video: Video }) {
           </p>
         )}
       </div>
-      <Link to={`/spokespeople/${video.spokesperson}/render`}>
+      <Link to={`/recipes?spokesperson=${video.spokesperson}`}>
         <Button variant="outline" size="sm">
           Try again
         </Button>

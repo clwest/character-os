@@ -107,8 +107,8 @@ contract.
 | F7 | Knowledge doc → compositions reverse panel | DONE (SESSION 144) |
 | F8 | Onboarding walkthrough (tour banner only — split from K10 seed) | DONE (SESSION 144) |
 | F8.1 | K10 seed corpus (operator-authored markdown + signal/task wiring) | Queued (needs operator-authored seed docs) |
-| F9 | Legacy single-form SPA deletion (`/spokespeople/<id>/render` route) | **NEXT (SESSION 144)** |
-| F10 | Fabric arc closure + retro | Queued |
+| F9 | Legacy single-form SPA deletion (`/spokespeople/<id>/render` route) | DONE (SESSION 144) |
+| F10 | Fabric arc closure + retro | **NEXT (SESSION 144)** |
 | R0 | Realtime avatar arc — scope lock                | DONE (SESSION 142) |
 | R1 | RealtimeSession + RealtimeToolInvocation schema | Queued |
 | R2 | Media-engine `/internal/realtime_sessions/` + provider abstraction | Queued |
