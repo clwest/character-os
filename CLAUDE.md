@@ -491,9 +491,41 @@ Update this section when a phase completes.
     Test totals after SESSION 156: Django **659**
     (641 → 659, +18). SPA vitest **37** (35 → 37, +2).
 
-    **R-arc state: R1-R9 done.** R10 (multi-provider
-    drift verifier — small one-test slice) is the
-    last R slice.
+    **R10 shipped SESSION 157** (`0f71889`) —
+    multi-provider drift verifier. **R-ARC CLOSES.**
+    Last R slice. All 10 + R6.1 sub-slices shipped.
+
+    Two drift surfaces guarded via
+    `media-engine/tests/test_r10_provider_drift.py`:
+
+    * **Protocol method drift** — parametrized
+      over each concrete provider class (Mock +
+      Runway). Asserts every method in
+      `PROTOCOL_METHODS` is defined. AST analysis
+      rejects bare `raise NotImplementedError`
+      stubs. Adding a Protocol method forces a
+      stub-or-impl decision on every existing
+      provider.
+    * **Registry drift** — package-directory test
+      enumerates `*.py` files; any module not in
+      `known_modules` fires the test. Adding a
+      future provider forces a code-review event.
+
+    Supporting tests verify `get_provider` returns
+    Runway when `runway_mock=False`, Mock when
+    `runway_mock=True`, raises for unknown names.
+    Contract rule 8 (provider abstraction) +
+    contract rule 9 (mock mode) both explicitly
+    asserted.
+
+    **Test totals after SESSION 157**: Media-engine
+    **108** (99 → 108, +9). Django unchanged at
+    **659**. SPA vitest unchanged at **37**.
+
+    **R-arc state: ALL 10 SLICES + R6.1 SHIPPED.**
+    Operator-visible product complete + cost
+    governance complete + provider abstraction
+    drift-verified.
   - **Workspace fabric arc (F0-F10). COMPLETE.** All 10
     slices shipped SESSION 144
     (`docs/design/WORKSPACE_FABRIC_V1.md`). 9 contract

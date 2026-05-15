@@ -16,109 +16,101 @@ state: active
 > (locked SESSION 142 — 9 contract rules, V0-V15 slice breakdown).
 > **Realtime avatar scope lock:** `docs/design/REALTIME_AVATAR_V1.md`
 > (locked SESSION 142 — 10 contract rules, R0-R10 slice
-> breakdown). **R1-R9 shipped; R10 (drift verifier) is the last R slice.**
+> breakdown). **R-ARC COMPLETE — all 10 slices + R6.1 shipped.**
 > **Workspace fabric scope lock:** `docs/design/WORKSPACE_FABRIC_V1.md`
 > (locked SESSION 144 — 9 contract rules, F0-F10 slice
 > breakdown). **F0-F10 complete; F8.1 queued.**
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_156_R9_COST_GOVERNANCE.md`.
+> **Last handoff:** `docs/handoffs/SESSION_157_R10_RARC_CLOSE.md`.
 
 ---
 
-## SESSION 156 outcome — milestone doc refresh + R9 cost governance backend
+## SESSION 157 outcome — R10 + R-ARC CLOSES
 
-Two-phase session:
-
-**Phase 1 — milestone doc refresh** (`a632aef`).
-After R8 closed in SESSION 155, the narrative anchor
-(`WHAT_IT_IS.md`) was 9 sessions stale (`last_revised:
-SESSION 146`) and TRUST_CALIBRATION ended at SESSION
-147's drift-audit entry. Refreshed both:
-* `WHAT_IT_IS.md` — frontmatter bumped to SESSION
-  155 / covers 106-155; "three parallel arcs"
-  framing → "four parallel arcs (three complete,
-  R-arc operator-visible)" with status table
-  pointing at INVENTORY + start-here as canonical
-  sources for per-slice detail; K/V/F/R arc sections
-  refreshed.
-* `TRUST_CALIBRATION.md` — 4 new entries promoted
-  from per-session handoffs: R7+R8 sub-slicing
-  discipline, sendClientEvent-doesn't-exist,
-  jest-dom type-vs-runtime drift, fake-timer
-  double-count.
-
-**Phase 2 — R9 cost governance backend** (`d33b8cf`).
-Closes the hardcoded-constants gap from R8.1 + R8.2.
+Last R slice. **The realtime avatar arc is complete.**
+All 10 slices + R6.1 shipped across SESSIONS 142-157
+(16 commits, 12 sessions, zero scope-lock revisions).
 
 | Commit | What it shipped |
 |---|---|
-| `a632aef` | docs: refresh WHAT_IT_IS for SESSIONS 148-155 + 4 TRUST_CALIBRATION entries |
-| `d33b8cf` | R9 feat — cost.py module + realtime_minutes_per_month TIER_LIMITS + check_realtime_minutes_budget + broker cost stamps + cost_estimate endpoint + SPA useRealtimeCostEstimate hook + IdlePanel "X of Y min left" hint + 18 backend tests + 2 SPA tests |
-| (this commit) | SESSION 156 handoff + this start-here rewrite + SHA backfill + INVENTORY regen + CLAUDE.md row update |
+| `0f71889` | R10 feat — multi-provider drift verifier (9 tests). Two drift surfaces guarded: Protocol method drift (AST-based stub detection) + registry drift (package-directory enumeration). R-arc closes. |
+| (this commit) | SESSION 157 handoff + this start-here rewrite + SHA backfill + INVENTORY regen + CLAUDE.md row update |
 
-**Three cost-governance layers now all active**:
+**Test totals after R-arc close**:
+- **Media-engine**: 99 → **108** (+9 R10).
+- **Django**: **659** (unchanged this session).
+- **SPA vitest**: **37** (unchanged this session).
 
-1. **Per-workspace monthly minutes budget** —
-   starter=30, pro=120, agency=unlimited. New
-   `check_realtime_minutes_budget` fires alongside
-   R3's session-count gate.
-2. **Per-session length cap** — provider 5 min
-   (Runway-enforced); CostTicker visualizes.
-3. **Per-tool approval threshold** — R7.0
-   ($0.05).
+**The realtime arc shipped**:
 
-R8.1's IdlePanel cost forecast + R8.2's CostTicker no
-longer use hardcoded constants — both pull from the
-new `useRealtimeCostEstimate` hook backed by `GET
-/api/realtime_sessions/cost_estimate/`. IdlePanel
-gains a "X of Y min left this month" hint pill for
-capped tiers.
+| Slice | Session | Commit |
+|---|---|---|
+| R0 (scope lock) | 142 | `0e01493` |
+| R1 (schema) | 146 | `9299dcf` |
+| R2 (provider abstraction) | 146 | `e8eb7d1` |
+| R3 (Django broker + tier gate) | 146 | `26378e9` |
+| R4 (knowledge → Runway doc bridge) | 146 | `6521451` |
+| R5 (transcript capture) | 146 | `885508d` |
+| R6 (cross-session memory) | 148 | `dbb22e0` |
+| R7.0 (tool dispatch foundation) | 149 | `646c492` |
+| R7.1 (3 sync tools + tier filtering) | 150 | `611ae94` |
+| R7.2 (async dispatch + render_video) | 151 | `e8564f9` |
+| R7.3 + R6.1 (attach_memory + R6 widen) | 152 | `b3f76cb` |
+| R8.0 (SPA foundation) | 153 | `7669007` |
+| R8.1 (modal + cost forecast) | 154 | `aac6ee4` |
+| R8.2 (SDK native + ticker + WebRTC fallback) | 155 | `5697269` |
+| R9 (cost governance backend) | 156 | `d33b8cf` |
+| R10 (provider drift verifier) | 157 | `0f71889` |
 
-**Test totals**: Django **659** (641 → 659, +18 R9).
-SPA vitest **37** (35 → 37, +2 R9). SPA build clean.
+**Operator-visible product**: a fully-configured
+spokesperson can hold a live realtime session with
+knowledge grounding + cross-session memory + a 6-tool
+catalog the avatar invokes mid-session + cost ticker
++ tool-approval modal + WebRTC fallback. All three
+cost-governance layers active (R9). Provider
+abstraction drift-verified (R10).
 
-**R-arc state: R1-R9 done.** R10 (multi-provider
-drift verifier) is the last R slice — small
-one-test follow-up.
+**Q-r questions** — 8 of 9 resolved; Q-r-2 (rejection
+narration) is partial v1 (Runway SDK doesn't expose
+`sendClientEvent`; v1 narration is operator-mediated).
 
 Full handoff at
-`docs/handoffs/SESSION_156_R9_COST_GOVERNANCE.md`.
+`docs/handoffs/SESSION_157_R10_RARC_CLOSE.md`.
 
-### FIRST THING (SESSION 157): R10 (multi-provider drift verifier)
+### FIRST THING (SESSION 158): pick one
 
-One-test slice. Verifies the provider abstraction
-(scope-lock §"Provider abstraction" + R2's
-`RealtimeProvider` Protocol) stays honored as new
-providers land.
+**Highest-value: First marketing video.** Flip
+`RUNWAY_FORCE_MOCK` off on the media-engine. Walk
+through a real session with a cast spokesperson
+against real Runway. Render Sasha (or Riggs)
+speaking a real script grounded in attached
+Character OS knowledge. **Operator-mediated** — the
+AI guides; the operator executes (real API budget,
+real Runway render times).
 
-* New `apps/realtime/tests/test_r10_provider_drift.py`
-  — imports the provider registry from
-  `media-engine/app/services/realtime_provider/`,
-  asserts every method on the Protocol is
-  implemented by Runway + the mock provider.
-* Fails when a new method lands on the Protocol
-  without a Runway implementation, OR when a future
-  provider lands without all methods.
-* No new code beyond the test.
+This is the highest-value demonstration output now
+that R-arc is closed. Exercising the full stack
+once end-to-end against real Runway proves it
+operationally.
 
-Estimated scope: ~30 minutes. Closes R-arc fully.
+**Alternative — drift-prevention backlog item 2 +
+3** (context-kit work):
+* **Item 2** — auto-bump `last_revised` on handoff
+  write. New `context-kit handoff write <N>`
+  subcommand. Half-session.
+* **Item 3** — promote calibration entries to
+  TRUST_CALIBRATION at handoff-write time
+  (depends on item 2). Half-session.
 
-### After SESSION 157
+Closes SESSION 147's drift audit backlog fully.
 
-* **First marketing video** — flips RUNWAY_FORCE_MOCK
-  off, walks through a real session with a cast
-  spokesperson against real Runway. Highest-value
-  demonstrable output. Operator-mediated.
-* **Drift-prevention backlog items 2 + 3** —
-  auto-bump `last_revised` on handoff write +
-  TRUST_CALIBRATION promotion at handoff-write.
-  Context-kit work; small.
-* **F8.1 — K10 seed corpus** (blocked on
-  operator-authored markdown).
-* **K7.x — YouTube ingest fix.**
-* **K6.3 / K7.1 / W11.1.**
+**Alternative — non-realtime cleanup**:
+* F8.1 (K10 seed corpus) — blocked on
+  operator-authored markdown.
+* K7.x (YouTube ingest fix).
+* K6.3 / K7.1 / W11.1.
 
 ### Drift-prevention backlog status
 
@@ -138,35 +130,28 @@ Estimated scope: ~30 minutes. Closes R-arc fully.
 **Phase 3:** Wizard arc complete (W1-W11). Cast went live
 in real-mode (SESSION 136).
 
-**Phase 4 (four arcs in flight, three complete):**
+**Phase 4 (four arcs, three complete-or-effectively-so):**
 
 - **Knowledge arc (K1-K10).** K1-K9 shipped. K10 →
   F8.1 queued.
-- **Video composition arc (V0-V15). COMPLETE**.
-- **Workspace fabric arc (F0-F10). COMPLETE**.
-- **Realtime avatar arc (R0-R10).** **R1-R9 shipped**
-  (SESSIONS 146-156). R10 (drift verifier) is the
-  last R slice.
+- **Video composition arc (V0-V15). COMPLETE.**
+- **Workspace fabric arc (F0-F10). COMPLETE.**
+- **Realtime avatar arc (R0-R10). COMPLETE.**
+  (SESSIONS 146-157).
 
-| Slice | Deliverable                                  | Status |
-|-------|----------------------------------------------|--------|
-| W1-W11 | Create-spokesperson wizard end-to-end       | DONE (SESSIONS 124-134) |
-| Cast Live | generate_cast + seed_cast + bugs fixed   | DONE (SESSION 136) |
-| K0-K9 | Knowledge layer end-to-end                    | DONE (SESSIONS 137-145) |
-| V0-V15 | Video composition arc + recipe gallery     | DONE (SESSIONS 142-144) |
-| F0-F10 | Workspace fabric arc                       | DONE (SESSION 144) |
-| R0-R5 | Realtime arc backend                          | DONE (SESSION 146) |
-| R6 + R6.1 | Cross-session memory                      | DONE (SESSIONS 148, 152) |
-| R7.0-R7.3 | Tool dispatch + 6-tool catalog            | DONE (SESSIONS 149-152) |
-| R8.0-R8.2 | SPA realtime UX                           | DONE (SESSIONS 153-155) |
-| R9 | Cost governance backend                          | DONE (SESSION 156) |
-| R10 | Multi-provider drift verifier (last R slice)    | Next (SESSION 157) |
-| K6.3 | Brief length cap in script synthesis           | Queued |
-| K7.1 | Per-chunk cost telemetry surface in UI         | Queued |
-| K10 | Onboarding seed                                | → F8.1 (needs operator-authored markdown) |
-| W11.1 | Edit-spokesperson modal                      | Queued |
+| Slice | Status |
+|-------|--------|
+| W1-W11 | DONE |
+| K0-K9 | DONE |
+| V0-V15 | DONE |
+| F0-F10 | DONE |
+| **R0-R10 + R6.1** | **DONE** (SESSIONS 142-157) |
+| F8.1 (K10 seed corpus) | Queued (operator markdown) |
+| K7.x (YouTube ingest fix) | Queued |
+| K6.3 / K7.1 / W11.1 | Queued |
+| **First marketing video** | Queued (operator-mediated) |
 
-**Cast roster in workspace `admins-workspace`:**
+**Cast roster in workspace `admins-workspace`**:
 
   - Riggs the Donkey (founder voice) — id `06bf999f-...`
   - Sasha the Raccoon (sales) — id `79d48883-...`
@@ -177,29 +162,29 @@ in real-mode (SESSION 136).
 
 ## Queued investigations (priority-ordered)
 
-1. **R10 — Multi-provider drift verifier** (one-test
-   slice; closes R-arc fully).
-2. **First marketing video** — exercises the whole
+1. **First marketing video** — exercises the whole
    stack against real Runway. Highest-value
-   demonstrable output.
-3. **Drift-prevention backlog item 2 + 3.**
-4. **F8.1 — K10 seed corpus** (blocked).
-5. **K7.x — YouTube ingest fix.**
-6. **K6.3 — Brief length cap.**
-7. **K7.1 — Cost telemetry surface.**
-8. **W11.1 — Edit-spokesperson modal.**
-9. **Voice preset audit.**
-10. **E2e detritus cleanup.**
-11. **OpenAI client factory port.**
-12. **Cast sync command.**
-13. **Stuck-row janitor.**
-14. **Act-Two performance capture.**
-15. **`lesson` video kind.**
-16. **Real Google OAuth + dj-stripe.**
-17. **Allauth legacy-settings cleanup.**
-18. **smoke_voice / smoke_avatar transaction discipline.**
-19. **INVENTORY working-tree-dirty flag fix.**
-20. **Brand Identity v2 + dark mode.**
+   demonstration output.
+2. **Drift-prevention backlog items 2 + 3** —
+   auto-bump + TRUST_CALIBRATION promotion. Small.
+3. **F8.1 — K10 seed corpus** (blocked on
+   operator-authored markdown).
+4. **K7.x — YouTube ingest fix.**
+5. **K6.3 — Brief length cap.**
+6. **K7.1 — Cost telemetry surface.**
+7. **W11.1 — Edit-spokesperson modal.**
+8. **Voice preset audit.**
+9. **E2e detritus cleanup.**
+10. **OpenAI client factory port.**
+11. **Cast sync command.**
+12. **Stuck-row janitor.**
+13. **Act-Two performance capture.**
+14. **`lesson` video kind.**
+15. **Real Google OAuth + dj-stripe.**
+16. **Allauth legacy-settings cleanup.**
+17. **smoke_voice / smoke_avatar transaction discipline.**
+18. **INVENTORY working-tree-dirty flag fix.**
+19. **Brand Identity v2 + dark mode.**
 
 ---
 
@@ -237,6 +222,9 @@ Smoke checks:
 python manage.py inventory
 python -m pytest                              # 659 tests
 
+# Media-engine (from media-engine/)
+python -m pytest                              # 108 tests
+
 # SPA (from web/)
 pnpm build                                    # type-check + bundle
 pnpm test                                     # 37 vitest tests
@@ -247,38 +235,37 @@ pnpm e2e                                      # Playwright (in mock mode only)
 
 ## AI / assistant context
 
-- **Last session: SESSION 156 — R9 shipped + doc
-  refresh.** Cost governance backend closes the
-  hardcoded-constants gap. Three cost layers all
-  active. 659 backend + 37 SPA tests pass.
+- **Last session: SESSION 157 — R10 shipped, R-arc
+  closes.** Multi-provider drift verifier. 108
+  media-engine + 659 backend + 37 SPA tests pass.
+- **R-arc complete**: 16 commits, 12 sessions, R0 →
+  R10. Operator-visible product complete + cost
+  governance complete + provider abstraction
+  drift-verified.
 - **Calibration carried forward:**
+  - **Drift verifiers belong as early scaffolding,
+    not late closure** — R10 could have shipped
+    alongside R2 to catch the NotImplementedError
+    drift class across R3-R5. Place verifier slices
+    early in future arcs.
+  - **AST-based assertions on source are tractable**
+    when verifying implementation shape across a
+    registry. Duck-typed calls need meaningful args
+    + might have side effects.
   - **Milestone-level doc refresh has its own
-    cadence** — at arc closures, pair the
-    slice-close commit with a refresh of WHAT_IT_IS
-    + TRUST_CALIBRATION. Per-slice discipline
-    handles INVENTORY + design docs + handoffs;
-    these don't.
-  - **Match exception payload shape when adding a
-    gate to an existing gate's surface** — R9's
-    `realtime_minutes_limit_reached` mirrored R3's
-    `realtime_session_limit_reached`. SPA needs
-    zero changes.
-  - **Hardcoded UI constants that match a backend
-    default are a smell** — placeholder is a TODO,
-    not a contract. The backend endpoint that
-    supplies the real value should ship before the
-    second consumer of the constant.
-  - **Fake timers double-count** (SESSION 155).
-  - **SDK features are hypotheses until exercised**
-    (SESSION 155).
-  - **Type-system + runtime drift on testing-library**
-    (SESSION 154).
+    cadence** (SESSION 156).
+  - **Match exception payload shape across gates**
+    (SESSION 156).
+  - **Hardcoded UI constants are a smell**
+    (SESSION 156).
   - **Mock-mode is first-class UX** (SESSION 153).
   - **Doctor is the drift tool** (SESSION 151).
   - **Pyright in this repo is noisy on Django/DRF.**
   - **OpenAI gpt-5 family uses the Responses API.**
-- **R10 = 1 more session to close R-arc fully.** One
-  test verifying the provider abstraction.
+- **No realtime backlog remains.** Next sessions
+  pick from: marketing video, context-kit drift
+  backlog items 2/3, non-realtime cleanups (F8.1,
+  K7.x, K6.3, K7.1, W11.1).
 - Collaboration conventions: AI drafts, human edits.
   Handoff `## AI Notes` + per-slice doc updates
   required at session end.
