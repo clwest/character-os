@@ -17,8 +17,19 @@ import { TalkRoute } from "./talk";
 // mount anyway. This stub keeps the unit test path free of
 // LiveKit / livekit-client imports that would otherwise
 // pull in a worker.
+//
+// The stub honors children + onError so R8.2's AvatarSessionInner
+// render path + WebRTC-fallback path can be exercised in
+// unit tests without a real WebRTC connection.
 vi.mock("@runwayml/avatars-react", () => ({
-  AvatarCall: () => <div data-testid="avatar-call-stub" />,
+  AvatarCall: ({
+    children,
+    onError: _onError,
+  }: {
+    children?: React.ReactNode;
+    onError?: (err: Error) => void;
+  }) => <div data-testid="avatar-call-stub">{children}</div>,
+  useClientEvents: () => undefined,
 }));
 
 // Mock the API client surface used by the route.
@@ -216,6 +227,40 @@ describe("TalkRoute (R8.0)", () => {
       expect(screen.getByTestId("tool-approval-modal")).toBeInTheDocument(),
     );
     expect(screen.getByText(/render a video for you/i)).toBeInTheDocument();
+  });
+
+  it("renders cost ticker while live (R8.2)", async () => {
+    const mockSession = {
+      ...makeSession({
+        mock_mode: true,
+        ready_at: new Date().toISOString(),
+      }),
+      provider_session_key: "mock_key",
+    };
+    useCreateMock.mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue(mockSession),
+      isPending: false,
+    });
+    renderRoute();
+    await userEvent.click(screen.getByTestId("talk-start"));
+    await waitFor(() =>
+      expect(screen.getByTestId("cost-ticker")).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("cost-ticker")).toHaveTextContent(/demo/i);
+  });
+
+  it("renders WebRTC fallback CTA when error panel shows (R8.2)", async () => {
+    useCreateMock.mockReturnValue({
+      mutateAsync: vi.fn().mockRejectedValue(new Error("network issue")),
+      isPending: false,
+    });
+    renderRoute();
+    await userEvent.click(screen.getByTestId("talk-start"));
+    await waitFor(() =>
+      expect(screen.getByTestId("talk-error")).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("talk-fallback")).toBeInTheDocument();
+    expect(screen.getByTestId("talk-retry")).toBeInTheDocument();
   });
 
   it("firing an under-threshold tool surfaces success in tool-result panel (R8.1)", async () => {

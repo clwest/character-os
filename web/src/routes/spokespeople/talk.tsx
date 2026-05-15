@@ -43,6 +43,8 @@ import {
   ToolApprovalModal,
   type PendingInvocation,
 } from "@/components/tool-approval-modal";
+import { AvatarSessionInner } from "@/components/avatar-session-inner";
+import { CostTicker } from "@/components/cost-ticker";
 
 // R8.1 — cost forecasting placeholder. The Runway pricing for
 // avatar-conversation minutes is on the order of a few cents
@@ -234,6 +236,12 @@ export function TalkRoute() {
           onInvokeTool={handleInvokeTool}
           invokingTool={invokeTool.isPending}
           lastToolResult={lastToolResult}
+          onSdkError={(err) =>
+            setLifecycle({
+              kind: "error",
+              message: extractMessage(err),
+            })
+          }
         />
       )}
 
@@ -360,6 +368,7 @@ function LivePanel({
   onInvokeTool,
   invokingTool,
   lastToolResult,
+  onSdkError,
 }: {
   session: RealtimeSession;
   sessionKey: string;
@@ -370,13 +379,22 @@ function LivePanel({
   onInvokeTool: (toolName: string, args: Record<string, unknown>) => void;
   invokingTool: boolean;
   lastToolResult: DispatchResult | null;
+  onSdkError: (err: Error) => void;
 }) {
+  // Counting basis for the cost ticker. ``ready_at`` lands
+  // once the broker's state machine flips READY; in mock
+  // mode it's set in the create response. Fall back to
+  // ``started_at`` then ``created_at`` so the ticker
+  // always has SOMETHING to count from.
+  const tickerStart =
+    session.ready_at ?? session.started_at ?? session.created_at;
+
   return (
     <section
       className="flex flex-col gap-4"
       data-testid="talk-live"
     >
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <LiveIndicator mock={session.mock_mode} />
           <p className="text-sm">
@@ -384,24 +402,32 @@ function LivePanel({
             <span className="font-medium">{spokespersonName}</span>
           </p>
         </div>
-        <Button
-          variant="secondary"
-          onClick={onEnd}
-          disabled={ending}
-          data-testid="talk-end"
-        >
-          {ending ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Ending…
-            </>
-          ) : (
-            <>
-              <MicOff className="mr-2 h-4 w-4" />
-              End session
-            </>
-          )}
-        </Button>
+        <div className="flex items-center gap-3">
+          <CostTicker
+            startedAt={tickerStart}
+            costPerMinuteMicros={ESTIMATED_COST_PER_MINUTE_MICROS}
+            maxMinutes={PROVIDER_MAX_SESSION_MINUTES}
+            mockMode={session.mock_mode}
+          />
+          <Button
+            variant="secondary"
+            onClick={onEnd}
+            disabled={ending}
+            data-testid="talk-end"
+          >
+            {ending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Ending…
+              </>
+            ) : (
+              <>
+                <MicOff className="mr-2 h-4 w-4" />
+                End session
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {session.mock_mode ? (
@@ -416,8 +442,15 @@ function LivePanel({
           sessionId={session.provider_session_id}
           sessionKey={sessionKey}
           audio
+          onError={onSdkError}
           data-testid="avatar-call"
-        />
+        >
+          {/* R8.2 — inside-AvatarCall hook consumer.
+              Receives tool-invocation events from the
+              avatar's data channel + dispatches via the
+              parent's onInvokeTool callback. */}
+          <AvatarSessionInner onToolInvocation={onInvokeTool} />
+        </AvatarCall>
       )}
 
       {lastToolResult && (
@@ -645,16 +678,29 @@ function ErrorPanel({
 }) {
   return (
     <section
-      className="rounded-lg border border-destructive bg-destructive/5 p-6"
+      className="flex flex-col gap-4 rounded-lg border border-destructive bg-destructive/5 p-6"
       data-testid="talk-error"
     >
-      <h2 className="text-base font-semibold text-destructive">
-        Couldn't start the session
-      </h2>
-      <p className="mt-2 text-sm">{message}</p>
-      <div className="mt-4">
-        <Button variant="secondary" onClick={onRetry}>
+      <div>
+        <h2 className="text-base font-semibold text-destructive">
+          Couldn't keep the live session going
+        </h2>
+        <p className="mt-2 text-sm">{message}</p>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Real-time sessions can fail to connect under
+          restrictive network conditions (firewalls, VPNs)
+          or when the device's microphone isn't accessible.
+          You can retry below, or switch to a recorded
+          video — same spokesperson, same knowledge, no
+          WebRTC.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" onClick={onRetry} data-testid="talk-retry">
           Try again
+        </Button>
+        <Button asChild variant="outline" data-testid="talk-fallback">
+          <Link to="/recipes">Make a recorded video instead</Link>
         </Button>
       </div>
     </section>

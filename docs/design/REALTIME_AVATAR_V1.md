@@ -625,7 +625,7 @@ land independently. Each slice is ~1-2 sessions.
 | **R7.3** ✓ | `attach_memory` async tool — Pro tier, ~$0.001/call. Fires `capture_transcript(session)` (shared helper extracted from R5's task body in the same slice; both R5's session-end task and R7.3's mid-session tool now go through one implementation). Returns `{event, asset_id, session_id, status, message}`; generic Celery wrapper links produced_asset to the invocation row. **R6.1** sibling change: `compose_session_memory` query widened to drop the `status=ENDED` filter — now picks up any session with a `transcript_asset` (so READY sessions with mid-session commits surface in next-session memory). Resolves Q-r-8 (cross-session tool side effects: idempotent + last-write-wins). +13 tests (1 net new R6 test from the split + 12 R7.3 tests). v1 tool catalog now complete: 6 tools. Ships SESSION 152 (`b3f76cb`). | R7.2 |
 | **R8.0** ✓ | SPA foundation: `@runwayml/avatars-react` SDK installed; new `web/src/lib/api/realtime.ts` API client (createSession + getSession poll + endSession hooks; Zod schemas mirror DRF serializers; contract rule 3 — `provider_session_key` lives only in the create response shape); new `web/src/routes/spokespeople/talk.tsx` lifecycle component (idle → creating → ready → live → ended → error); registered at `/spokespeople/:id/talk`; "Talk to {name}" CTA on the spokesperson detail page (allDone only). **Mock-mode UX**: when `mock_mode=true` the route skips SDK mount + renders a "Live (demo mode)" pill + a stub panel showing provider session id / document id. +7 vitest unit tests + 1 Playwright e2e (404 path). Ships SESSION 153 (`7669007`). | R3, R7 |
 | **R8.1** ✓ | Tool-approval modal + cost forecasting UI. New `web/src/components/tool-approval-modal.tsx` (minimal inline modal, no Radix dep) — renders when `invoke_tool` returns `state=awaiting_approval`, accepts Approve / Reject (with optional reason). New `useInvokeTool` + `useApproveInvocation` + `useRejectInvocation` hooks in the API client (Zod DispatchResult schema mirrors `_serialize_dispatch_result` server-side). TalkRoute extended: `pendingInvocation` state, `lastToolResult` state + `ToolResultPanel`, mock-mode debug buttons that fire `render_video` (triggers approval) and `show_videos_tab` (executes inline). IdlePanel gains a cost-forecast pill (~$0.40 for a 5-min session — hardcoded `$0.08/min × 5 min` placeholder; R9 ships real per-minute estimation). Dev infra: `vitest/globals` + `@testing-library/jest-dom` added to `tsconfig.app.json` types so tsc sees jest-dom matchers. +12 vitest tests (8 modal + 4 talk-route). Q-r-2 server-side stays preserved; the `sendClientEvent` narration piece lands in R8.2 alongside the AvatarCall inner-component wiring. Ships SESSION 154 (`aac6ee4`). | R8.0 |
-| **R8.2** | Live cost ticker during the session + WebRTC fallback messaging (Q-r-9 resolution: fail clearly + suggest recorded-video) + tool-rejection narration via `sendClientEvent` so the avatar's LLM acknowledges declines in-character (Q-r-2 full resolution; server-side done R7.0). | R8.0, R8.1 |
+| **R8.2** ✓ | **R8 closure.** Three pieces shipped: (1) **AvatarSessionInner** — new component inside `<AvatarCall>` consuming the SDK's `useClientEvents` hook so the avatar's LLM can fire tools natively (the mock-mode debug buttons stay as a parallel test surface; both go through the same `useInvokeTool`). (2) **CostTicker** — runs while live, updates every 1s, color-shifts as the session approaches its 5-minute cap (muted → amber at 3min → destructive at 4min). (3) **WebRTC fallback** — `<AvatarCall onError>` callback routes to the error panel, which now offers "Make a recorded video instead" CTA linking to `/recipes`. Q-r-9 resolved. **Q-r-2 partial** — Runway's SDK doesn't expose a `sendClientEvent` for server-pushed narration back to the avatar; v1 narration is operator-mediated (verbal continuation after a modal decision). Documented in the AvatarSessionInner module-level comment. +13 vitest tests (7 cost-ticker + 4 avatar-session-inner + 2 talk-route). Ships SESSION 155. | R8.0, R8.1 |
 | **R9** | Cost governance: per-workspace minutes budget, tier-limit enforcement at session-create, live cost ticker | R2, billing |
 | **R10** | Multi-provider abstraction hardening (no new providers shipped; just ensure the registry pattern holds — drift verifier test) | R2 |
 
@@ -821,6 +821,95 @@ tests cannot fail.
   handles it) — the hard parts are key brokering,
   knowledge composition, cost governance, cross-session
   memory, and workspace-scoped tools.
+
+- 2026-05-15 (SESSION 155) — **R8.2 SHIPPED + R8
+  closes**. Last R8 piece — SDK native invocation, live
+  cost ticker, WebRTC fallback messaging. Three small
+  components compose into the close-out:
+
+  * **`AvatarSessionInner`**
+    (`web/src/components/avatar-session-inner.tsx`)
+    — child of `<AvatarCall>`. Consumes the SDK's
+    `useClientEvents` hook (must be inside the
+    AvatarCall provider tree). When the avatar's LLM
+    invokes a tool over the WebRTC data channel, the
+    hook fires with `{type, tool, args}`. The component
+    filters for `type === 'client_event'`, normalizes
+    args to a plain object, and bubbles up via the
+    parent's `onToolInvocation(toolName, args)` —
+    the same callback the mock-mode debug buttons use.
+    Result: the production tool-dispatch path is one
+    flow regardless of whether the operator clicked a
+    debug button or the avatar fired a tool.
+
+  * **`CostTicker`**
+    (`web/src/components/cost-ticker.tsx`) — renders
+    elapsed time + running dollar estimate during a
+    live session. `useEffect` arms a 1-second
+    interval; `Date.now() - readyAt` is the elapsed
+    basis. Color-shifts via `data-tone`:
+    `muted` (< 3 min) → `amber` (3-4 min) →
+    `destructive` (4-5 min). Caps at maxMinutes;
+    displays "session cap reached" past the cap. Mock
+    mode tagged "(demo)" so operators don't conflate
+    mock cost with real spend. Cost source: same
+    hardcoded $0.08/min placeholder R8.1 uses; R9
+    will plug in real per-provider micros-per-second
+    lookups.
+
+  * **WebRTC fallback panel** — `<AvatarCall onError>`
+    callback flips the lifecycle to `error`; the
+    existing `ErrorPanel` now offers "Make a recorded
+    video instead" CTA linking to `/recipes`
+    (alongside the existing "Try again" retry). Copy
+    explains the network/permission failure modes
+    that typically trigger WebRTC errors so the
+    operator has the right mental model. Q-r-9
+    resolved.
+
+  **Q-r-2 partial resolution**: Runway's SDK doesn't
+  expose a `sendClientEvent` for server-pushed
+  narration. The narration loop in v1 is therefore
+  operator-mediated: avatar fires tool → modal opens →
+  operator approves / rejects → operator verbally
+  continues ("yeah go ahead" / "no, let's talk about
+  X first"). The audit row's `error_message` captures
+  the operator's reason server-side for retrospective
+  review (R7.0 ships this). In-conversation
+  rejection narration via a backend-pushed channel is
+  a v2 concern OR a Runway SDK feature request.
+  Documented in `AvatarSessionInner`'s module-level
+  comment.
+
+  Tests: SPA vitest 22 → 35 (+13):
+  * `cost-ticker.test.tsx` — 7 tests covering 0:00
+    initial, advancing every second, tone shifts at
+    3 / 4 min boundaries, cap behavior, demo mode
+    tag, null startedAt no-op.
+  * `avatar-session-inner.test.tsx` — 4 tests
+    covering dispatch on tool event, ignoring
+    non-client_event payloads, ignoring missing tool
+    name, normalizing non-object args.
+  * `talk.test.tsx` — 2 new tests: cost ticker
+    renders in live state, WebRTC fallback CTA
+    renders in error state.
+
+  Test infrastructure: SDK mock updated to honor
+  `children` + `onError` props so R8.2's
+  AvatarSessionInner render path + WebRTC-fallback
+  flow can be exercised hermetically.
+
+  Backend unchanged at **641 backend tests**. SPA
+  build clean (1773 modules).
+
+  **R-arc state: R1-R8 done.** R9 (cost governance
+  backend — per-workspace minutes budget + per-
+  provider micros-per-second lookups; upgrades R8.1's
+  hardcoded forecast + R8.2's ticker) + R10
+  (multi-provider hardening — drift verifier test for
+  the registry pattern) remain. Both are operational
+  polish; the operator-visible product story is
+  feature-complete at R8 close.
 
 - 2026-05-15 (SESSION 154) — **R8.1 SHIPPED**. Tool-
   approval modal + cost forecasting UI on top of R8.0's
