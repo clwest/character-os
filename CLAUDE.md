@@ -241,10 +241,42 @@ Update this section when a phase completes.
     Test totals after SESSION 149: **596 backend
     tests**. Migration count: 49 → 50.
 
-    R7.1 (sync tools) is the next slice; R7.2 (async
-    tools via Celery) + R8 (SPA — operator-visible
-    moment) + R9 (cost governance) + R10 (provider
-    hardening) remain.
+    **R7.1 shipped SESSION 150** (`611ae94`) — three
+    sync tools + tier-aware filtering. Resolves Q-r-4.
+    Tools:
+    * `recall_knowledge` — RAG against K2 via
+      `retrieve_for_spokesperson`. Starter tier;
+      ~$0.001/call.
+    * `recall_recent_conversations` — reads prior
+      ENDED `RealtimeSession` rows with attached
+      `Asset(TRANSCRIPT)`, excludes current session,
+      returns per-session previews. Starter tier; $0.
+    * `handoff_to_spokesperson` — cross-spokesperson
+      nav event with same-workspace gate. Pro tier
+      (Starter has spokespeople=1 — handoff is
+      meaningless). $0.
+
+    Tier infrastructure: new `tier_required: str =
+    'starter'` field on `ToolSpec`; `_TIER_RANK` map
+    (starter=0, pro=1, agency=2);
+    `get_workspace_tools(workspace)` filters by
+    `_tier_rank(workspace_tier) >= _tier_rank(
+    tool.tier_required)`; defense-in-depth tier check
+    in `dispatch_tool` (raises `DispatchError(403)`
+    for over-tier invocations). New public helper
+    `apps.billing.services.get_workspace_tier(
+    workspace) -> str`.
+
+    Starter tier sees 3 tools; Pro + Agency see 4.
+    When R7.2 lands, Starter+Pro+Agency all see
+    `render_video` (starter-tier tool gated by the
+    per-month video cap); Pro+Agency add
+    `attach_memory`. 17 new tests; 613 backend total.
+
+    R7.2 (async tools via Celery — `render_video` +
+    `attach_memory`) is the next slice; R8 (SPA —
+    operator-visible moment) + R9 (cost governance) +
+    R10 (provider hardening) remain.
   - **Workspace fabric arc (F0-F10). COMPLETE.** All 10
     slices shipped SESSION 144
     (`docs/design/WORKSPACE_FABRIC_V1.md`). 9 contract
