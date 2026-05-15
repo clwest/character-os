@@ -186,10 +186,25 @@ Update this section when a phase completes.
     abstraction); contract rule 9 lands (R2 + R3 — SDK
     token never in admin / list / retrieve / logs).
 
-    R6 (cross-session memory) is the next slice; R7
-    (tool catalog) + R8 (SPA) can parallelize from there.
-    R9 (cost governance) + R10 (provider hardening) are
-    smaller follow-ups.
+    **R6 shipped SESSION 148** (`dbb22e0`) — cross-session
+    memory. New `shell/character_os/realtime_memory.py`
+    with `compose_session_memory(spokesperson, *,
+    max_sessions=3)` summarizes prior `Asset(TRANSCRIPT)`
+    rows via one `gpt-5-mini` Responses-API call;
+    `realtime_document.py` extended to inject a
+    `## Recent Conversations` section between `## About`
+    and `## Knowledge` (drops first under the 40k cap
+    per scope-lock §R4 priority). Sixth `*_FORCE_MOCK`
+    flag — `REALTIME_MEMORY_FORCE_MOCK`. 14 new tests
+    (`apps/realtime/tests/test_r6_session_memory.py`).
+    Q-r-7 resolved: returning-operator threshold = 1.
+    No new persistence, no migrations, no new Celery
+    tasks — pure composition slice. Test totals after
+    SESSION 148: **574 backend tests**.
+
+    R7 (tool catalog) is the next slice; R8 (SPA) is
+    the operator-visible moment. R9 (cost governance)
+    + R10 (provider hardening) are smaller follow-ups.
   - **Workspace fabric arc (F0-F10). COMPLETE.** All 10
     slices shipped SESSION 144
     (`docs/design/WORKSPACE_FABRIC_V1.md`). 9 contract
