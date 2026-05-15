@@ -98,6 +98,11 @@ ALLOWED_FILES = {
     # R5 tests verify the task creates the right Asset
     # row + wires it to the session.
     "apps/realtime/tests/test_r5_transcript_capture.py",
+    # R6 cross-session-memory tests seed Asset(TRANSCRIPT)
+    # rows on the session's workspace to exercise the
+    # memory composer's transcript-read path. Same
+    # workspace-anchor guarantee as R5.
+    "apps/realtime/tests/test_r6_session_memory.py",
     # V6 — videos app shim tests construct Composition/Asset
     # rows directly to simulate terminal-state sync paths.
     "apps/videos/tests/test_v6_shim.py",

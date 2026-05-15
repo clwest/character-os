@@ -52,6 +52,10 @@ ALLOWED_FILES = {
     # R5 transcript-capture tests seed sessions to verify
     # the Celery task's post-end flow.
     "apps/realtime/tests/test_r5_transcript_capture.py",
+    # R6 cross-session-memory tests seed ENDED sessions with
+    # transcript_asset attached so the memory composer can
+    # read them at compose time.
+    "apps/realtime/tests/test_r6_session_memory.py",
 }
 
 

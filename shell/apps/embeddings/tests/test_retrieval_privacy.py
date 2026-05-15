@@ -331,6 +331,10 @@ ALLOWED_FILES = {
     # R4 knowledge-bridge tests seed KnowledgeChunk rows
     # directly to exercise the document composer.
     "apps/realtime/tests/test_r4_knowledge_bridge.py",
+    # R6 cross-session-memory tests seed KnowledgeChunk
+    # rows to verify memory + knowledge co-exist in the
+    # composed document body.
+    "apps/realtime/tests/test_r6_session_memory.py",
     # K9 endpoint tests do read-side queries on
     # ConversationEmbedding to verify the K8 ↔ K9 pipeline
     # integration (count of embeddings produced after send).

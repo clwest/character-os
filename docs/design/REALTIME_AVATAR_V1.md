@@ -618,7 +618,7 @@ land independently. Each slice is ~1-2 sessions.
 | **R3** ✓ | Django broker: `/api/realtime_sessions/` (POST + GET + DELETE + POST `/end/`), workspace auth + new `check_realtime_session_limit` tier gate, session state machine, Runway provider `end_session` implemented. Ships SESSION 146 (`26378e9`). | R2 |
 | **R4** ✓ | Knowledge → Runway document bridge: `compose_realtime_document` (uses K2's `retrieve_for_spokesperson` anchored on `business_brief`), media-engine `POST /internal/realtime_documents/`, Runway `create_document` + `attach_documents` implemented, broker create flow now composes → pushes → persists `provider_document_id` + `knowledge_chunk_ids` + passes `document_ids` into session create. Ships SESSION 146 (`6521451`). | R3, K1-K5 |
 | **R5** ✓ | Transcript capture: Runway provider `fetch_transcript` impl, `GET /internal/realtime_sessions/<id>/transcript/`, `apps.realtime.tasks.fetch_transcript_for_session` Celery task fires on broker end, persists `Asset(TRANSCRIPT)` + wires `RealtimeSession.transcript_asset`. Idempotent (replaces stale Asset on rerun). Ships SESSION 146 (`885508d`). | R3 |
-| **R6** | Cross-session memory: transcript summarization (gpt-5-mini), `realtime_transcript_history` projection into the next session's document, returning-operator personality cue | R5, K8 (parallel) |
+| **R6** ✓ | Cross-session memory: `character_os.realtime_memory.compose_session_memory` summarizes the last 3 ENDED sessions' `Asset(TRANSCRIPT)` rows via gpt-5-mini Responses API; injected as a `## Recent Conversations` section between `## About` and `## Knowledge` in the R4 document body; drops first under the 40k budget per scope-lock priority; sixth `*_FORCE_MOCK` flag (`REALTIME_MEMORY_FORCE_MOCK`). +14 tests. Ships SESSION 148. | R5, K8 (parallel) |
 | **R7** | Tool catalog (6 tools, workspace-scoped) + `RealtimeToolInvocation` audit trail + approval-threshold modal | R3, V (for `render_video`) |
 | **R8** | SPA `/spokespeople/:id/talk` route + `@runwayml/avatars-react` integration + cost forecasting UI + tool-approval modal | R3, R7 |
 | **R9** | Cost governance: per-workspace minutes budget, tier-limit enforcement at session-create, live cost ticker | R2, billing |
@@ -816,3 +816,43 @@ tests cannot fail.
   handles it) — the hard parts are key brokering,
   knowledge composition, cost governance, cross-session
   memory, and workspace-scoped tools.
+
+- 2026-05-15 (SESSION 148) — R6 SHIPPED. New
+  `shell/character_os/realtime_memory.py` implements
+  `compose_session_memory(spokesperson, *, max_sessions=3)`
+  — queries prior ENDED `RealtimeSession` rows with
+  attached `Asset(TRANSCRIPT)` newest-first, summarizes
+  via one `gpt-5-mini` Responses-API call
+  (`reasoning_effort='low'`, `max_output_tokens=400`),
+  returns `MemoryResult(body, session_ids, used_synthesis,
+  model, tokens_*)`. Sixth `*_FORCE_MOCK` flag —
+  `REALTIME_MEMORY_FORCE_MOCK` settings/env. Mirrors K6
+  + K9 degradation pattern: empty memory on
+  no-history / no-key / synthesis-failure (avatar opens
+  cold, never crashes). `realtime_document.py` extended
+  to inject a `## Recent Conversations` section between
+  `## About` and `## Knowledge`; per scope-lock §R4
+  priority order, memory drops FIRST under the 40k cap
+  budget. `RealtimeDocumentResult` gains
+  `memory_session_ids` for the broker's audit trail
+  (already-persisted alongside `knowledge_chunk_ids` —
+  no schema change). Contract rule alignment: rule 1
+  preserved (workspace anchor flows via spokesperson),
+  rule 4 preserved (reuses R5's `Asset(TRANSCRIPT)` —
+  zero new persistence), rule 9 preserved (force-mock
+  shape parity with the other five flags). Opens Q-r-7
+  ("returning-operator threshold") with threshold=1 — any
+  prior transcript triggers projection; no operator
+  opt-out in v1 (deferred to R8 SPA settings). 14 new
+  tests in `apps/realtime/tests/test_r6_session_memory.py`
+  — full coverage on no-history, force-mock, real-mode
+  synthesis, ordering, max_sessions cap,
+  ENDED-without-transcript filter, non-ENDED filter,
+  no-key degradation, synthesis-failure degradation,
+  cross-workspace isolation, composer-injection,
+  composer-skip-when-empty, budget-drop-memory-first,
+  no-knowledge-with-memory. Three `ALLOWED_FILES`
+  whitelist additions (realtime + compositions +
+  embeddings isolation guards). Test totals: Django 560
+  → 574 (+14). No new media-engine routes; no migrations;
+  no new Celery tasks. R1-R6 done; R7-R10 remain.

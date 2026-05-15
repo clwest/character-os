@@ -43,6 +43,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from apps.embeddings.retrieval import retrieve_for_spokesperson
+from character_os.realtime_memory import compose_session_memory
 
 if TYPE_CHECKING:
     from apps.spokespeople.models import Spokesperson
@@ -65,12 +66,21 @@ DEFAULT_TOP_K = 30
 @dataclass(slots=True)
 class RealtimeDocumentResult:
     """Composed document + provenance for the broker to
-    persist on RealtimeSession."""
+    persist on RealtimeSession.
+
+    ``memory_session_ids`` (R6) records which prior
+    sessions' transcripts fed the ``## Recent Conversations``
+    section, so admins can audit the memory loop. Empty when
+    no memory was injected (first-ever session for a
+    spokesperson) or when the section was dropped to fit
+    the ``max_chars`` budget.
+    """
 
     body: str
     chunk_ids: list[str] = field(default_factory=list)
     truncated: bool = False
     chars: int = 0
+    memory_session_ids: list[str] = field(default_factory=list)
 
 
 def compose_realtime_document(
@@ -112,17 +122,50 @@ def compose_realtime_document(
         )
         chunks = []
 
+    # R6 — pull prior-session memory. Never raises; returns
+    # an empty result when there's nothing to project.
+    memory = compose_session_memory(spokesperson)
+
     # Build the markdown body, tracking the byte budget so
-    # we know which chunks to drop on truncation.
+    # we know which sections to drop on truncation. Drop
+    # order under budget (per scope-lock §R4): memory first,
+    # then knowledge tail chunks. About + header never drop.
     header_lines = [f"# {name}", ""]
     if brief:
         header_lines += ["## About", "", brief, ""]
     header = "\n".join(header_lines)
 
+    memory_block = ""
+    memory_session_ids: list[str] = []
+    if memory.body:
+        candidate = (
+            "## Recent Conversations\n\n"
+            + memory.body.rstrip()
+            + "\n\n"
+        )
+        # Reserve room for at least the knowledge header
+        # even if zero chunks fit; if memory alone would
+        # exhaust the budget, drop it entirely (per
+        # scope-lock priority order).
+        reserve = len(header) + len("## Knowledge\n\n")
+        if len(candidate) + reserve <= max_chars:
+            memory_block = candidate
+            memory_session_ids = list(memory.session_ids)
+        else:
+            logger.info(
+                "compose_realtime_document: dropping memory section "
+                "sp=%s (would exceed max_chars=%d)",
+                spokesperson.pk, max_chars,
+            )
+
     if not chunks:
-        body = header.rstrip() + "\n"
+        body = (header + memory_block).rstrip() + "\n"
         return RealtimeDocumentResult(
-            body=body, chunk_ids=[], truncated=False, chars=len(body),
+            body=body,
+            chunk_ids=[],
+            truncated=False,
+            chars=len(body),
+            memory_session_ids=memory_session_ids,
         )
 
     # Group chunks by document so the avatar sees coherent
@@ -142,11 +185,14 @@ def compose_realtime_document(
         doc_buckets[doc_id]["chunks"].append(chunk)
 
     # Assemble the knowledge section incrementally so we can
-    # stop when we'd exceed max_chars.
+    # stop when we'd exceed max_chars. Budget already
+    # accounts for the (possibly empty) memory block.
     knowledge_lines = ["## Knowledge", ""]
     used_chunk_ids: list[str] = []
     truncated = False
-    current_chars = len(header) + len("\n".join(knowledge_lines))
+    current_chars = (
+        len(header) + len(memory_block) + len("\n".join(knowledge_lines))
+    )
 
     for doc_id in doc_order:
         bucket = doc_buckets[doc_id]
@@ -170,10 +216,11 @@ def compose_realtime_document(
         if truncated:
             break
 
-    body = header + "\n".join(knowledge_lines).rstrip() + "\n"
+    body = header + memory_block + "\n".join(knowledge_lines).rstrip() + "\n"
     return RealtimeDocumentResult(
         body=body,
         chunk_ids=used_chunk_ids,
         truncated=truncated,
         chars=len(body),
+        memory_session_ids=memory_session_ids,
     )
