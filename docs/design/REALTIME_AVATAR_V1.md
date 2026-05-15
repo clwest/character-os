@@ -624,7 +624,7 @@ land independently. Each slice is ~1-2 sessions.
 | **R7.2** ✓ | Async tool dispatch + `render_video`: new `QUEUED` status (migration `0003_r7_2_queued_status`), generic `execute_tool_invocation` Celery task in `apps/realtime/tasks.py` (resolves invocation + spec, calls executor, links `produced_composition`/`produced_asset`), `dispatch_tool` async branch enqueues Celery (was a stub in R7.0), `approve_invocation` enqueues for async tools. **`render_video`** — fires a composition starter (default `talking_head`; configurable via `args.recipe`); $0.08 cost (over $0.05 threshold so exercises approval flow end-to-end); checks `check_video_limit` tier gate. Bonus — fixes the SESSION 147-deferred INVENTORY Celery undercount bug (call `celery_app.loader.import_default_modules()` in `_collect_celery_tasks`; count goes from 5 → 8). +14 tests. Ships SESSION 151 (`e8564f9`). | R7.0, V starters |
 | **R7.3** ✓ | `attach_memory` async tool — Pro tier, ~$0.001/call. Fires `capture_transcript(session)` (shared helper extracted from R5's task body in the same slice; both R5's session-end task and R7.3's mid-session tool now go through one implementation). Returns `{event, asset_id, session_id, status, message}`; generic Celery wrapper links produced_asset to the invocation row. **R6.1** sibling change: `compose_session_memory` query widened to drop the `status=ENDED` filter — now picks up any session with a `transcript_asset` (so READY sessions with mid-session commits surface in next-session memory). Resolves Q-r-8 (cross-session tool side effects: idempotent + last-write-wins). +13 tests (1 net new R6 test from the split + 12 R7.3 tests). v1 tool catalog now complete: 6 tools. Ships SESSION 152 (`b3f76cb`). | R7.2 |
 | **R8.0** ✓ | SPA foundation: `@runwayml/avatars-react` SDK installed; new `web/src/lib/api/realtime.ts` API client (createSession + getSession poll + endSession hooks; Zod schemas mirror DRF serializers; contract rule 3 — `provider_session_key` lives only in the create response shape); new `web/src/routes/spokespeople/talk.tsx` lifecycle component (idle → creating → ready → live → ended → error); registered at `/spokespeople/:id/talk`; "Talk to {name}" CTA on the spokesperson detail page (allDone only). **Mock-mode UX**: when `mock_mode=true` the route skips SDK mount + renders a "Live (demo mode)" pill + a stub panel showing provider session id / document id. +7 vitest unit tests + 1 Playwright e2e (404 path). Ships SESSION 153 (`7669007`). | R3, R7 |
-| **R8.1** | Tool-approval modal: pops up when `invoke_tool` returns `state=awaiting_approval` (today's only such tool is `render_video`); operator clicks Approve → POST to `.../approve/`, Reject → POST to `.../reject/` with optional reason. Cost forecasting UI shows "~$X for a 5-min session" before session-start (uses tier minutes-cap + per-minute estimate). | R8.0 |
+| **R8.1** ✓ | Tool-approval modal + cost forecasting UI. New `web/src/components/tool-approval-modal.tsx` (minimal inline modal, no Radix dep) — renders when `invoke_tool` returns `state=awaiting_approval`, accepts Approve / Reject (with optional reason). New `useInvokeTool` + `useApproveInvocation` + `useRejectInvocation` hooks in the API client (Zod DispatchResult schema mirrors `_serialize_dispatch_result` server-side). TalkRoute extended: `pendingInvocation` state, `lastToolResult` state + `ToolResultPanel`, mock-mode debug buttons that fire `render_video` (triggers approval) and `show_videos_tab` (executes inline). IdlePanel gains a cost-forecast pill (~$0.40 for a 5-min session — hardcoded `$0.08/min × 5 min` placeholder; R9 ships real per-minute estimation). Dev infra: `vitest/globals` + `@testing-library/jest-dom` added to `tsconfig.app.json` types so tsc sees jest-dom matchers. +12 vitest tests (8 modal + 4 talk-route). Q-r-2 server-side stays preserved; the `sendClientEvent` narration piece lands in R8.2 alongside the AvatarCall inner-component wiring. Ships SESSION 154. | R8.0 |
 | **R8.2** | Live cost ticker during the session + WebRTC fallback messaging (Q-r-9 resolution: fail clearly + suggest recorded-video) + tool-rejection narration via `sendClientEvent` so the avatar's LLM acknowledges declines in-character (Q-r-2 full resolution; server-side done R7.0). | R8.0, R8.1 |
 | **R9** | Cost governance: per-workspace minutes budget, tier-limit enforcement at session-create, live cost ticker | R2, billing |
 | **R10** | Multi-provider abstraction hardening (no new providers shipped; just ensure the registry pattern holds — drift verifier test) | R2 |
@@ -821,6 +821,134 @@ tests cannot fail.
   handles it) — the hard parts are key brokering,
   knowledge composition, cost governance, cross-session
   memory, and workspace-scoped tools.
+
+- 2026-05-15 (SESSION 154) — **R8.1 SHIPPED**. Tool-
+  approval modal + cost forecasting UI on top of R8.0's
+  SPA foundation. `render_video` (the threshold-
+  crossing tool) is now demonstrable end-to-end from
+  the SPA in mock mode.
+
+  Code changes:
+
+  * **API client extensions**
+    (`web/src/lib/api/realtime.ts`) — three new hooks:
+    `useInvokeTool` (POST
+    `/api/realtime_sessions/<id>/invoke_tool/`),
+    `useApproveInvocation` (POST
+    `/api/realtime_tool_invocations/<id>/approve/`),
+    `useRejectInvocation` (POST `.../reject/` with
+    optional `reason`). New Zod schema
+    `dispatchResultSchema` mirrors the server-side
+    `_serialize_dispatch_result` shape (state +
+    invocation_id + tool_name + cost_micros + optional
+    result / error_message / reason).
+
+  * **ToolApprovalModal**
+    (`web/src/components/tool-approval-modal.tsx`,
+    220 lines) — minimal inline modal. No Radix
+    dependency — fixed-positioned backdrop + card with
+    its own focus / dismiss behavior. Renders cost in
+    dollars, the args dict (truncated to 80 chars per
+    value), an optional reason textarea, and Approve /
+    Reject buttons. Dismiss via Esc / backdrop click /
+    explicit X button (only when no async op is in
+    flight — don't strand the operator mid-decision).
+    Tool labels are voiced in first person
+    (`render_video` → "render a video for you") to
+    keep the modal's voice aligned with the
+    spokesperson.
+
+  * **TalkRoute extensions**
+    (`web/src/routes/spokespeople/talk.tsx`) — new
+    state slots `pendingInvocation` +
+    `lastToolResult`. New `handleInvokeTool` callback
+    that POSTs to the dispatcher and routes the result
+    by state: `awaiting_approval` opens the modal,
+    everything else (succeeded / failed / queued /
+    rejected) lands in the new `ToolResultPanel`.
+    `handleApprovalResolved` clears the pending state
+    + records the final result.
+
+  * **Mock-mode debug buttons** — load-bearing for the
+    demo. `MockSessionPanel` now renders a "Test tool
+    dispatch" section with two buttons: "Fire
+    render_video" (over-threshold; triggers the modal)
+    and "Fire show_videos_tab" (under-threshold;
+    succeeds inline). R8.2 will replace the manual
+    buttons with the SDK's `useClientEvent` hook so
+    the avatar fires tools natively; until then the
+    debug buttons let operators exercise the full
+    approval / inline-execute paths end-to-end.
+
+  * **Cost forecasting pill** on IdlePanel —
+    "~$0.40 for 5 min" next to the Start button.
+    Hardcoded placeholder constants
+    (`ESTIMATED_COST_PER_MINUTE_MICROS = 80_000`,
+    `PROVIDER_MAX_SESSION_MINUTES = 5`). R9 (cost
+    governance backend) ships per-provider
+    micros-per-second lookups; R8.1's UI gracefully
+    upgrades when those constants get replaced with a
+    backend-fetched estimate.
+
+  * **`ToolResultPanel`** — surfaces the final state
+    of a tool invocation below the live panel. Color-
+    coded by state (emerald = succeeded, blue =
+    queued, yellow = rejected, destructive = failed).
+    Pulls `composition_id` / `asset_id` / `event` from
+    the result payload as appropriate.
+
+  * **`tsconfig.app.json`** — added `vitest/globals`
+    + `@testing-library/jest-dom` to the `types`
+    array so `tsc` sees the matcher types that R8.0
+    wired into vitest at runtime. R8.0's SPA build
+    was passing because tsc didn't traverse the test
+    file (only `pnpm test` did); R8.1's build
+    surfaced the gap when more matcher calls landed.
+
+  Contract rule alignment:
+
+  * Rule 6 (workspace-scoped tools) — preserved: the
+    SPA POSTs to `/invoke_tool/` which goes through
+    the dispatcher's existing workspace + tier
+    defense-in-depth.
+  * Rule 7 (cost ceilings) — exercised end-to-end:
+    `render_video`'s $0.08 cost > the $0.05 threshold
+    triggers the approval modal; the operator's
+    decision is the gating signal.
+  * Rule 9 (mock mode) — preserved: the mock-mode UX
+    is the load-bearing demo path. SPA detects via
+    `session.mock_mode` and exposes the debug
+    buttons.
+
+  Open questions touched:
+
+  * **Q-r-2 (rejection narration)** — server-side
+    already done R7.0; the SPA → avatar
+    `sendClientEvent` piece lands in R8.2 alongside
+    the AvatarCall inner-component wiring.
+  * Q-r-9 (WebRTC fallback) — still R8.2.
+
+  Test counts:
+
+  * `web/src/components/tool-approval-modal.test.tsx`
+    — 8 tests covering modal render, args dict
+    visibility, approve happy path, reject without
+    reason, reject with trimmed reason, dismiss
+    button, Esc dismiss, error path stays on modal.
+  * `web/src/routes/spokespeople/talk.test.tsx` —
+    4 new tests added (cost-pill render, mock-mode
+    tool buttons render, fire-over-threshold opens
+    modal, fire-under-threshold lands in result
+    panel). Total in this file: 7 → 11.
+
+  SPA vitest totals: 10 → 22 (+12). Backend
+  unchanged at **641 backend tests**. SPA build
+  clean (1770 modules).
+
+  R8 sub-slice state: R8.0 + R8.1 done; R8.2 (live
+  cost ticker + WebRTC fallback + rejection
+  narration via sendClientEvent) is the last R8
+  piece. R9 + R10 follow.
 
 - 2026-05-15 (SESSION 153) — **R8.0 SHIPPED**. SPA
   realtime arc lands operator-visible. R8 sub-sliced

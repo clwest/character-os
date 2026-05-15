@@ -33,10 +33,23 @@ import { useSpokesperson } from "@/lib/api/spokespeople";
 import {
   useCreateRealtimeSession,
   useEndRealtimeSession,
+  useInvokeTool,
   useRealtimeSession,
+  type DispatchResult,
   type RealtimeSession,
 } from "@/lib/api/realtime";
 import { ApiError } from "@/lib/api/client";
+import {
+  ToolApprovalModal,
+  type PendingInvocation,
+} from "@/components/tool-approval-modal";
+
+// R8.1 — cost forecasting placeholder. The Runway pricing for
+// avatar-conversation minutes is on the order of a few cents
+// per minute; conservative estimate until R9 (cost governance
+// backend) ships per-provider micros-per-second lookups.
+const ESTIMATED_COST_PER_MINUTE_MICROS = 80_000; // ~$0.08/min
+const PROVIDER_MAX_SESSION_MINUTES = 5;
 
 type Lifecycle =
   | { kind: "idle" }
@@ -50,8 +63,13 @@ export function TalkRoute() {
   const navigate = useNavigate();
   const sp = useSpokesperson(id);
   const [lifecycle, setLifecycle] = useState<Lifecycle>({ kind: "idle" });
+  const [pendingInvocation, setPendingInvocation] =
+    useState<PendingInvocation | null>(null);
+  const [lastToolResult, setLastToolResult] =
+    useState<DispatchResult | null>(null);
   const createSession = useCreateRealtimeSession();
   const endSession = useEndRealtimeSession();
+  const invokeTool = useInvokeTool();
 
   // Poll once the session is mid-creation so the UI advances
   // from CREATING → READY without operator action.
@@ -109,6 +127,55 @@ export function TalkRoute() {
     }
   }
 
+  // R8.1 — operator-triggered tool invocation. In real-mode
+  // (R8.2) this will be wired to the SDK's `useClientEvent`
+  // hook inside <AvatarCall> so the avatar's LLM can fire
+  // tools natively. R8.1 ships the dispatch + approval
+  // surface; the mock-mode debug button exercises it
+  // end-to-end without a real avatar.
+  async function handleInvokeTool(
+    toolName: string,
+    args: Record<string, unknown>,
+  ) {
+    if (lifecycle.kind !== "ready") return;
+    setLastToolResult(null);
+    try {
+      const result = await invokeTool.mutateAsync({
+        sessionId: lifecycle.session.id,
+        tool_name: toolName,
+        args,
+      });
+      if (result.state === "awaiting_approval") {
+        setPendingInvocation({
+          invocation_id: result.invocation_id,
+          tool_name: result.tool_name,
+          cost_micros: result.cost_micros,
+          reason: result.reason ?? "",
+          args,
+        });
+      } else {
+        setLastToolResult(result);
+      }
+    } catch (err) {
+      setLastToolResult({
+        state: "failed",
+        invocation_id: "",
+        tool_name: toolName,
+        cost_micros: 0,
+        error_message: extractMessage(err),
+      });
+    }
+  }
+
+  function handleApprovalResolved(result: DispatchResult) {
+    setPendingInvocation(null);
+    setLastToolResult(result);
+  }
+
+  function handleApprovalDismiss() {
+    setPendingInvocation(null);
+  }
+
   if (sp.isLoading) return <TalkSkeleton />;
   if (sp.isError || !sp.data) {
     return (
@@ -164,6 +231,18 @@ export function TalkRoute() {
           avatarId={spokesperson.runway_avatar_id ?? ""}
           onEnd={handleEnd}
           ending={endSession.isPending}
+          onInvokeTool={handleInvokeTool}
+          invokingTool={invokeTool.isPending}
+          lastToolResult={lastToolResult}
+        />
+      )}
+
+      {pendingInvocation && (
+        <ToolApprovalModal
+          invocation={pendingInvocation}
+          spokespersonName={spokesperson.name}
+          onResolved={handleApprovalResolved}
+          onDismiss={handleApprovalDismiss}
         />
       )}
 
@@ -198,6 +277,11 @@ function IdlePanel({
   starting: boolean;
   spokespersonName: string;
 }) {
+  const fullSessionCostMicros =
+    ESTIMATED_COST_PER_MINUTE_MICROS * PROVIDER_MAX_SESSION_MINUTES;
+  const fullSessionDollars = (
+    fullSessionCostMicros / 1_000_000
+  ).toFixed(2);
   return (
     <section
       className="rounded-lg border bg-card p-6"
@@ -211,10 +295,11 @@ function IdlePanel({
           live audio session.
         </p>
         <p className="text-xs text-muted-foreground">
-          Sessions last up to 5 minutes (Runway's per-session
-          cap). You can end early or reconnect afterward.
+          Sessions last up to {PROVIDER_MAX_SESSION_MINUTES}{" "}
+          minutes (Runway's per-session cap). You can end
+          early or reconnect afterward.
         </p>
-        <div>
+        <div className="flex flex-wrap items-center gap-3">
           <Button
             onClick={onStart}
             disabled={starting}
@@ -233,6 +318,16 @@ function IdlePanel({
               </>
             )}
           </Button>
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground"
+            data-testid="cost-forecast"
+            title="Estimated. Real per-minute cost ships in R9."
+          >
+            <span>~${fullSessionDollars}</span>
+            <span className="text-[10px] uppercase tracking-wide">
+              for {PROVIDER_MAX_SESSION_MINUTES} min
+            </span>
+          </span>
         </div>
       </div>
     </section>
@@ -262,6 +357,9 @@ function LivePanel({
   avatarId,
   onEnd,
   ending,
+  onInvokeTool,
+  invokingTool,
+  lastToolResult,
 }: {
   session: RealtimeSession;
   sessionKey: string;
@@ -269,6 +367,9 @@ function LivePanel({
   avatarId: string;
   onEnd: () => void;
   ending: boolean;
+  onInvokeTool: (toolName: string, args: Record<string, unknown>) => void;
+  invokingTool: boolean;
+  lastToolResult: DispatchResult | null;
 }) {
   return (
     <section
@@ -304,7 +405,11 @@ function LivePanel({
       </div>
 
       {session.mock_mode ? (
-        <MockSessionPanel session={session} />
+        <MockSessionPanel
+          session={session}
+          onInvokeTool={onInvokeTool}
+          invokingTool={invokingTool}
+        />
       ) : (
         <AvatarCall
           avatarId={avatarId}
@@ -313,6 +418,10 @@ function LivePanel({
           audio
           data-testid="avatar-call"
         />
+      )}
+
+      {lastToolResult && (
+        <ToolResultPanel result={lastToolResult} />
       )}
 
       <SessionMeta session={session} />
@@ -342,26 +451,133 @@ function LiveIndicator({ mock }: { mock: boolean }) {
   );
 }
 
-function MockSessionPanel({ session }: { session: RealtimeSession }) {
+function MockSessionPanel({
+  session,
+  onInvokeTool,
+  invokingTool,
+}: {
+  session: RealtimeSession;
+  onInvokeTool: (toolName: string, args: Record<string, unknown>) => void;
+  invokingTool: boolean;
+}) {
   return (
     <div
-      className="rounded-lg border-2 border-dashed bg-muted/50 p-6 text-center"
+      className="flex flex-col gap-4 rounded-lg border-2 border-dashed bg-muted/50 p-6"
       data-testid="mock-session-panel"
     >
-      <p className="text-sm font-medium">Demo mode</p>
-      <p className="mt-2 text-xs text-muted-foreground">
-        Mock-mode session — no real WebRTC handshake. The
-        backend composed the document + memory loop end-to-
-        end; click End to fire the transcript capture flow.
-      </p>
-      <dl className="mt-4 grid grid-cols-2 gap-2 text-xs">
+      <div className="text-center">
+        <p className="text-sm font-medium">Demo mode</p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Mock-mode session — no real WebRTC handshake. The
+          backend composed the document + memory loop
+          end-to-end; click End to fire the transcript
+          capture flow.
+        </p>
+      </div>
+      <dl className="grid grid-cols-2 gap-2 text-xs">
         <dt className="text-muted-foreground">Provider session</dt>
         <dd className="font-mono">{session.provider_session_id || "—"}</dd>
         <dt className="text-muted-foreground">Document</dt>
         <dd className="font-mono">{session.provider_document_id || "—"}</dd>
       </dl>
+
+      {/* R8.1 — operator-triggered tool dispatch. R8.2 wires
+          these to the SDK's `useClientEvent` so the avatar
+          can fire them natively; for now the demo path
+          exercises the dispatch → modal → approve/reject
+          flow end-to-end. */}
+      <div
+        className="flex flex-col gap-2 border-t pt-4"
+        data-testid="mock-tool-buttons"
+      >
+        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          Test tool dispatch
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={invokingTool}
+            onClick={() =>
+              onInvokeTool("render_video", {
+                script: "Pitch the spring sale to my audience.",
+              })
+            }
+            data-testid="mock-fire-render-video"
+          >
+            Fire <span className="ml-1 font-mono text-xs">render_video</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={invokingTool}
+            onClick={() => onInvokeTool("show_videos_tab", {})}
+            data-testid="mock-fire-show-videos-tab"
+          >
+            Fire <span className="ml-1 font-mono text-xs">show_videos_tab</span>
+          </Button>
+        </div>
+      </div>
     </div>
   );
+}
+
+function ToolResultPanel({ result }: { result: DispatchResult }) {
+  const ok = result.state === "succeeded";
+  const queued = result.state === "queued";
+  const failed = result.state === "failed";
+  const rejected = result.state === "rejected";
+  return (
+    <div
+      className={
+        "flex flex-col gap-1 rounded border px-4 py-3 text-xs " +
+        (ok
+          ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+          : queued
+            ? "border-blue-300 bg-blue-50 text-blue-900"
+            : rejected
+              ? "border-yellow-300 bg-yellow-50 text-yellow-900"
+              : failed
+                ? "border-destructive bg-destructive/10 text-destructive"
+                : "border-border bg-muted")
+      }
+      data-testid="tool-result-panel"
+      data-state={result.state}
+    >
+      <div className="flex items-baseline gap-2">
+        <span className="font-mono font-semibold">{result.tool_name}</span>
+        <span className="text-[10px] uppercase tracking-wide">
+          {result.state}
+        </span>
+      </div>
+      {result.error_message && <p>{result.error_message}</p>}
+      {result.reason && <p className="italic">{result.reason}</p>}
+      {ok && isResultObject(result.result) && (
+        <p className="font-mono text-foreground/80">
+          {summariseResultObject(result.result)}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function isResultObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function summariseResultObject(obj: Record<string, unknown>): string {
+  // Common ids the dispatcher might surface — show the most
+  // useful one without overwhelming the panel.
+  if (typeof obj.composition_id === "string") {
+    return `composition: ${obj.composition_id}`;
+  }
+  if (typeof obj.asset_id === "string") {
+    return `asset: ${obj.asset_id}`;
+  }
+  if (typeof obj.event === "string") {
+    return `event: ${obj.event}`;
+  }
+  return "(succeeded)";
 }
 
 function SessionMeta({ session }: { session: RealtimeSession }) {

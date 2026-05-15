@@ -165,3 +165,91 @@ export function useEndRealtimeSession() {
     },
   });
 }
+
+// ---- Tool dispatch (R8.1) ---------------------------------------
+
+// Mirrors DispatchResult on the Django side
+// (apps.realtime.views._serialize_dispatch_result).
+const dispatchResultSchema = z.object({
+  state: z.enum([
+    "succeeded",
+    "awaiting_approval",
+    "failed",
+    "queued",
+    "rejected",
+  ]),
+  invocation_id: z.string(),
+  tool_name: z.string(),
+  cost_micros: z.number().int(),
+  result: z.unknown().optional(),
+  error_message: z.string().optional(),
+  reason: z.string().optional(),
+});
+
+export type DispatchResult = z.infer<typeof dispatchResultSchema>;
+export type DispatchState = DispatchResult["state"];
+
+export interface InvokeToolInput {
+  sessionId: string;
+  tool_name: string;
+  args?: Record<string, unknown>;
+}
+
+export async function invokeTool(
+  input: InvokeToolInput,
+): Promise<DispatchResult> {
+  return apiJson(
+    `/api/realtime_sessions/${input.sessionId}/invoke_tool/`,
+    {
+      method: "POST",
+      body: { tool_name: input.tool_name, args: input.args ?? {} },
+    },
+    (json) => dispatchResultSchema.parse(json),
+  );
+}
+
+export function useInvokeTool() {
+  return useMutation({
+    mutationFn: invokeTool,
+  });
+}
+
+export async function approveInvocation(
+  invocationId: string,
+): Promise<DispatchResult> {
+  return apiJson(
+    `/api/realtime_tool_invocations/${invocationId}/approve/`,
+    { method: "POST", body: {} },
+    (json) => dispatchResultSchema.parse(json),
+  );
+}
+
+export function useApproveInvocation() {
+  return useMutation({
+    mutationFn: approveInvocation,
+  });
+}
+
+export interface RejectInvocationInput {
+  invocationId: string;
+  reason?: string;
+}
+
+export async function rejectInvocation(
+  input: RejectInvocationInput,
+): Promise<DispatchResult> {
+  return apiJson(
+    `/api/realtime_tool_invocations/${input.invocationId}/reject/`,
+    {
+      method: "POST",
+      body: input.reason ? { reason: input.reason } : {},
+    },
+    (json) => dispatchResultSchema.parse(json),
+  );
+}
+
+export function useRejectInvocation() {
+  return useMutation({
+    mutationFn: rejectInvocation,
+  });
+}

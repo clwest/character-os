@@ -29,19 +29,28 @@ vi.mock("@/lib/api/realtime", () => ({
   useCreateRealtimeSession: vi.fn(),
   useEndRealtimeSession: vi.fn(),
   useRealtimeSession: vi.fn(),
+  useInvokeTool: vi.fn(),
+  useApproveInvocation: vi.fn(),
+  useRejectInvocation: vi.fn(),
 }));
 
 import { useSpokesperson } from "@/lib/api/spokespeople";
 import {
+  useApproveInvocation,
   useCreateRealtimeSession,
   useEndRealtimeSession,
+  useInvokeTool,
   useRealtimeSession,
+  useRejectInvocation,
 } from "@/lib/api/realtime";
 
 const useSpokespersonMock = useSpokesperson as unknown as ReturnType<typeof vi.fn>;
 const useCreateMock = useCreateRealtimeSession as unknown as ReturnType<typeof vi.fn>;
 const useEndMock = useEndRealtimeSession as unknown as ReturnType<typeof vi.fn>;
 const useGetMock = useRealtimeSession as unknown as ReturnType<typeof vi.fn>;
+const useInvokeMock = useInvokeTool as unknown as ReturnType<typeof vi.fn>;
+const useApproveMock = useApproveInvocation as unknown as ReturnType<typeof vi.fn>;
+const useRejectMock = useRejectInvocation as unknown as ReturnType<typeof vi.fn>;
 
 function makeSpokesperson(overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -126,6 +135,18 @@ describe("TalkRoute (R8.0)", () => {
       mutateAsync: vi.fn(),
       isPending: false,
     });
+    useInvokeMock.mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    });
+    useApproveMock.mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    });
+    useRejectMock.mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    });
   });
 
   it("renders idle state with Start button", () => {
@@ -135,6 +156,102 @@ describe("TalkRoute (R8.0)", () => {
       "idle",
     );
     expect(screen.getByTestId("talk-start")).toBeInTheDocument();
+  });
+
+  it("idle panel renders cost forecast pill (R8.1)", () => {
+    renderRoute();
+    const pill = screen.getByTestId("cost-forecast");
+    expect(pill).toBeInTheDocument();
+    // 5 min × $0.08/min = $0.40 placeholder
+    expect(pill).toHaveTextContent("$0.40");
+    expect(pill).toHaveTextContent(/for 5 min/i);
+  });
+
+  it("mock-mode session exposes tool dispatch buttons (R8.1)", async () => {
+    const mockSession = {
+      ...makeSession({ mock_mode: true }),
+      provider_session_key: "mock_key",
+    };
+    useCreateMock.mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue(mockSession),
+      isPending: false,
+    });
+    renderRoute();
+    await userEvent.click(screen.getByTestId("talk-start"));
+    await waitFor(() =>
+      expect(screen.getByTestId("mock-tool-buttons")).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByTestId("mock-fire-render-video"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId("mock-fire-show-videos-tab"),
+    ).toBeInTheDocument();
+  });
+
+  it("firing an over-threshold tool opens the approval modal (R8.1)", async () => {
+    const mockSession = {
+      ...makeSession({ mock_mode: true }),
+      provider_session_key: "mock_key",
+    };
+    useCreateMock.mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue(mockSession),
+      isPending: false,
+    });
+    const awaitingResult = {
+      state: "awaiting_approval" as const,
+      invocation_id: "inv_42",
+      tool_name: "render_video",
+      cost_micros: 80_000,
+      reason: "tool cost $0.08 exceeds workspace threshold $0.05",
+    };
+    useInvokeMock.mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue(awaitingResult),
+      isPending: false,
+    });
+    renderRoute();
+    await userEvent.click(screen.getByTestId("talk-start"));
+    await userEvent.click(screen.getByTestId("mock-fire-render-video"));
+    await waitFor(() =>
+      expect(screen.getByTestId("tool-approval-modal")).toBeInTheDocument(),
+    );
+    expect(screen.getByText(/render a video for you/i)).toBeInTheDocument();
+  });
+
+  it("firing an under-threshold tool surfaces success in tool-result panel (R8.1)", async () => {
+    const mockSession = {
+      ...makeSession({ mock_mode: true }),
+      provider_session_key: "mock_key",
+    };
+    useCreateMock.mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue(mockSession),
+      isPending: false,
+    });
+    const succeededResult = {
+      state: "succeeded" as const,
+      invocation_id: "inv_43",
+      tool_name: "show_videos_tab",
+      cost_micros: 0,
+      result: { event: "show_videos_tab", spokesperson_id: "sp_1" },
+    };
+    useInvokeMock.mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue(succeededResult),
+      isPending: false,
+    });
+    renderRoute();
+    await userEvent.click(screen.getByTestId("talk-start"));
+    await userEvent.click(screen.getByTestId("mock-fire-show-videos-tab"));
+    await waitFor(() =>
+      expect(screen.getByTestId("tool-result-panel")).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("tool-result-panel")).toHaveAttribute(
+      "data-state",
+      "succeeded",
+    );
+    // Modal should NOT have opened.
+    expect(
+      screen.queryByTestId("tool-approval-modal"),
+    ).not.toBeInTheDocument();
   });
 
   it("transitions to live with mock-mode pill after Start", async () => {
