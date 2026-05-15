@@ -460,12 +460,40 @@ Update this section when a phase completes.
     (22 → 35, +13). Backend unchanged at **641
     backend tests**.
 
-    **R-arc state: R1-R8 done.** R9 (cost governance
-    backend — upgrades R8.1's hardcoded forecast +
-    R8.2's ticker) + R10 (multi-provider drift
-    verifier) remain. Both operational polish; the
-    operator-visible product story is feature-
-    complete at R8 close.
+    **R9 shipped SESSION 156** (`d33b8cf`) — cost
+    governance backend. Closes the hardcoded-constants
+    gap from R8.1 + R8.2. Three cost-governance layers
+    now all active (scope-lock §"Cost governance"):
+
+    * **Per-workspace monthly minutes budget** — new
+      `realtime_minutes_per_month` in TIER_LIMITS
+      (starter=30, pro=120, agency=null). New
+      `check_realtime_minutes_budget` in billing
+      services fires alongside the existing session-
+      count gate.
+    * **Per-session length cap** — provider-enforced
+      (Runway 5 min); CostTicker visualizes.
+    * **Per-tool approval threshold** — R7.0 ships
+      this ($0.05).
+
+    New `apps/realtime/cost.py` — per-provider rate
+    table + `estimate_session_cost_micros` +
+    `actual_session_cost_micros`. Broker stamps
+    `cost_estimate_micros` at create +
+    `cost_actual_micros` at end (fields existed since
+    R1; populated now). New `GET
+    /api/realtime_sessions/cost_estimate/` returns the
+    SPA cost shape. SPA `useRealtimeCostEstimate` hook
+    replaces R8.1/R8.2 hardcoded constants;
+    IdlePanel gains a "X of Y min left this month"
+    hint for capped tiers.
+
+    Test totals after SESSION 156: Django **659**
+    (641 → 659, +18). SPA vitest **37** (35 → 37, +2).
+
+    **R-arc state: R1-R9 done.** R10 (multi-provider
+    drift verifier — small one-test slice) is the
+    last R slice.
   - **Workspace fabric arc (F0-F10). COMPLETE.** All 10
     slices shipped SESSION 144
     (`docs/design/WORKSPACE_FABRIC_V1.md`). 9 contract
