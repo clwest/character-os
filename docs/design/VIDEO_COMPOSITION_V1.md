@@ -664,7 +664,7 @@ is ~1-2 sessions.
 | **V15.0** ✓ | Backend foundation for the SPA gallery — `apps/compositions/recipes.py` registry of 17 recipe metadata entries + REST surface (`GET /api/recipes/`, `POST /api/compositions/`, `GET /api/compositions/{id}/`). 24 V15.0 backend tests. Ships SESSION 144 (`1781cb1`). | "W12 — Legacy form retirement" |
 | **V15.1** ✓ | SPA gallery shell + first three live recipes (`talking_head`, `cinematic_visual`, `talking_head_polished`); other 14 cards "coming soon". Dashboard CTA flips to `/recipes`. New routes: `/recipes`, `/recipes/:kind`, `/compositions/:id`. Ships SESSION 144 (`74a70d7`). | — |
 | **V15.2** ✓ | Layout + format family forms live (7 recipes: `pip_layout`, `backdrop_layout`, `cohost_layout`, `broll_splice`, `music_bed_pass`, `reels_format`, `talking_head_with_backdrop`). Adds `GET /api/assets/` + SPA `asset_picker` field renderer. Ships SESSION 144 (`c9a5d8c`). | — |
-| **V15.3** | Voice + style + long-form + storyboard + recut family forms live (6 recipes). | — |
+| **V15.3** ✓ | Voice + style + long-form + storyboard + recut family forms live (6 recipes: `voice_design`, `multi_lang_dub`, `style_remix_pass`, `long_form_ad`, `storyboard_ad`, `recut_teaser`). One-line `LIVE_RECIPE_KINDS` flip — the form renderer + asset_picker shipped in V15.1-V15.2 already cover all field types these recipes need. Ships SESSION 144 (commit TBD). | — |
 | **V15.4** | Dialogue (`dialogue_scene`) form + ship the `storyboard_voiced` bonus recipe (V14 audio_extract unblocks it) + soft-retire legacy single-form UI + V-arc closure. | — |
 
 Roughly 16 slices, ~12-18 sessions. V0 ships on commit of
@@ -1152,3 +1152,38 @@ the tests cannot fail.
   asset_type, cross-workspace exclusion, auth gate,
   end-to-end pip_layout create with two CLIP inputs).
   387 backend tests total. tsc + vite build green.
+
+- 2026-05-14 (SESSION 144, V15.3, commit TBD) — Voice
+  / style / long-form / storyboard / recut family
+  forms live. Six more recipes flip from "coming soon"
+  to driveable: `voice_design`, `multi_lang_dub`,
+  `style_remix_pass`, `long_form_ad`, `storyboard_ad`,
+  `recut_teaser`. Sixteen of seventeen recipes have
+  live forms after V15.3; `dialogue_scene` lands V15.4
+  with the dialogue-lines field renderer.
+
+  This slice is structurally trivial — one
+  `LIVE_RECIPE_KINDS` addition in
+  web/src/lib/api/recipes.ts. The form renderer
+  (V15.1) + asset_picker (V15.2) + spokesperson_picker
+  already cover every field type these six recipes
+  need: text, textarea, checkbox, select, number,
+  asset_picker, spokesperson_picker. Worth noticing —
+  V15.2's investment in the metadata-driven form
+  renderer paid off here.
+
+  +4 backend regression tests for the six recipes'
+  creation paths: voice_design minimal, storyboard_ad
+  produces 7 steps, long_form_ad chunks a ~500-char
+  script into N+1 steps, style_remix_pass takes a CLIP
+  + preset. 391 backend tests total.
+
+  Operator note on `multi_lang_dub`: it needs an AUDIO
+  Asset as input, but V15.0-V15.3 produces no AUDIO
+  assets in a fresh workspace (voice_design produces a
+  VOICE asset, not AUDIO; audio_extract is a V14
+  primitive but not exposed as a starter recipe). The
+  asset_picker's empty-state hint covers this; the
+  natural producer of AUDIO assets in v1 will be
+  `storyboard_voiced` (V15.4) which uses audio_extract
+  on a narration clip.

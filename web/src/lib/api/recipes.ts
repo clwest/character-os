@@ -103,6 +103,13 @@ export const LIVE_RECIPE_KINDS = new Set<string>([
   "music_bed_pass",
   "reels_format",
   "talking_head_with_backdrop",
+  // V15.3 — voice / style / long-form / storyboard / recut
+  "voice_design",
+  "multi_lang_dub",
+  "style_remix_pass",
+  "long_form_ad",
+  "storyboard_ad",
+  "recut_teaser",
 ]);
 
 // ---- List recipes -----------------------------------------------

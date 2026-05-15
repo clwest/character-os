@@ -568,6 +568,127 @@ def test_list_assets_requires_auth() -> None:
     }
 
 
+def test_create_voice_design_minimal() -> None:
+    """V15.3 — voice_design has no asset inputs; pure text params."""
+    ws, user = _make_workspace_with_user("v15voice@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "voice_design",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "description": "warm conversational founder voice",
+                "voice_name": "Test voice",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    assert response.json()["template_kind"] == "voice_design"
+
+
+def test_create_storyboard_ad_seven_steps() -> None:
+    """V15.3 — storyboard_ad creates 7 steps (3 images + 3 clips + concat)."""
+    ws, user = _make_workspace_with_user("v15sb@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "storyboard_ad",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "hook_prompt": "neon city skyline at dusk",
+                "action_prompt": "founder walks confidently into the office",
+                "payoff_prompt": "team raises glasses in celebration",
+                "clip_duration": 5,
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    assert data["template_kind"] == "storyboard_ad"
+    assert len(data["steps"]) == 7
+
+
+def test_create_long_form_ad_chunks_script() -> None:
+    """V15.3 — long_form_ad pre-splits the script at starter time
+    so the runtime sees a fixed N+1 plan."""
+    ws, user = _make_workspace_with_user("v15lf@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    # ~500 char script splits into 2 chunks at default
+    # DEFAULT_CHUNK_MAX_CHARS=280; that gives 2 speech steps +
+    # 1 concat = 3 steps.
+    script = (
+        "Welcome to our spring launch event. "
+        "We've been working all year on something special. "
+        "Today we're proud to introduce three new products. "
+        "First, our flagship pen — designed for daily writing. "
+        "Second, our notebook line — premium recycled paper. "
+        "Third, our gift box — perfect for any occasion. "
+        "Order today and get free shipping on every order. "
+        "Visit our website to learn more about each piece."
+    )
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "long_form_ad",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": script,
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    assert data["template_kind"] == "long_form_ad"
+    # At least 2 speech steps + 1 concat = 3+
+    assert len(data["steps"]) >= 3
+
+
+def test_create_style_remix_pass_with_clip() -> None:
+    """V15.3 — style_remix_pass takes a CLIP + preset."""
+    ws, user = _make_workspace_with_user("v15style@test")
+    sp = _make_spokesperson(ws)
+    clip = _make_clip(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "style_remix_pass",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "source_clip_id": str(clip.pk),
+                "style_preset": "noir",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    assert response.json()["template_kind"] == "style_remix_pass"
+
+
 def test_create_layout_recipe_uses_two_workspace_assets() -> None:
     """End-to-end V15.2 happy path: pip_layout takes two CLIP
     assets + integer styling params. Confirms the asset_picker
