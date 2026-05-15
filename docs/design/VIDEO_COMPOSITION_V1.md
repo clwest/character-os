@@ -663,7 +663,7 @@ is ~1-2 sessions.
 | **V14** ✓ | `dialogue_scene` starter (ports hackathon's `dialogue_service.py`) + `audio_extract` primitive (unlocks the deferred `storyboard_voiced`). Ships SESSION 143 (`6f61e4b`). | "Additional video kinds — dialogue" |
 | **V15.0** ✓ | Backend foundation for the SPA gallery — `apps/compositions/recipes.py` registry of 17 recipe metadata entries + REST surface (`GET /api/recipes/`, `POST /api/compositions/`, `GET /api/compositions/{id}/`). 24 V15.0 backend tests. Ships SESSION 144 (`1781cb1`). | "W12 — Legacy form retirement" |
 | **V15.1** ✓ | SPA gallery shell + first three live recipes (`talking_head`, `cinematic_visual`, `talking_head_polished`); other 14 cards "coming soon". Dashboard CTA flips to `/recipes`. New routes: `/recipes`, `/recipes/:kind`, `/compositions/:id`. Ships SESSION 144 (`74a70d7`). | — |
-| **V15.2** | Layout + format family forms live (7 recipes). | — |
+| **V15.2** ✓ | Layout + format family forms live (7 recipes: `pip_layout`, `backdrop_layout`, `cohost_layout`, `broll_splice`, `music_bed_pass`, `reels_format`, `talking_head_with_backdrop`). Adds `GET /api/assets/` + SPA `asset_picker` field renderer. Ships SESSION 144 (commit TBD). | — |
 | **V15.3** | Voice + style + long-form + storyboard + recut family forms live (6 recipes). | — |
 | **V15.4** | Dialogue (`dialogue_scene`) form + ship the `storyboard_voiced` bonus recipe (V14 audio_extract unblocks it) + soft-retire legacy single-form UI + V-arc closure. | — |
 
@@ -1111,3 +1111,44 @@ the tests cannot fail.
   No SPA tests in V15.1 — playwright e2e specs land at
   V15.4 after all 17 recipes have live forms. tsc + vite
   build green; 382 backend tests still pass.
+
+- 2026-05-14 (SESSION 144, V15.2, commit TBD) —
+  Layout + format family forms live. Seven more recipes
+  flip from "coming soon" to fully driveable in the
+  gallery: `pip_layout`, `backdrop_layout`,
+  `cohost_layout`, `broll_splice`, `music_bed_pass`,
+  `reels_format`, `talking_head_with_backdrop`.
+  Ten of seventeen recipes (V15.1's three + V15.2's
+  seven) now have live forms; six more land V15.3, the
+  last (dialogue) V15.4.
+
+  Backend addition: new `AssetViewSet` exposing
+  `GET /api/assets/?workspace=<id>&asset_type=<type>`.
+  Read-only, workspace-scoped via `IsWorkspaceMember`
+  + queryset filter (same shape as
+  `KnowledgeDocumentViewSet`). Output cap 200 newest;
+  no pagination yet. Cross-workspace ids drop out of
+  the queryset cleanly (no auth leak).
+
+  SPA addition: `asset_picker` field renderer
+  (web/src/routes/recipes/$kind.tsx) — one query per
+  distinct `asset_type` declared by a recipe's fields,
+  using a new `useAssets` hook in
+  web/src/lib/api/recipes.ts. Empty-state panel when a
+  workspace has zero assets of the needed type
+  ("Run a producing recipe first…") + a single top-level
+  hint above the form summarizing the same point so
+  operators new to the gallery don't get stuck on a
+  silent disabled dropdown.
+
+  V0 contract holds — asset uploads are still out of
+  scope (operators feed the layout recipes with assets
+  produced by prior compositions). That is the
+  intended v1 flow: render with talking_head /
+  cinematic_visual first, then layer with the
+  layout family.
+
+  +5 backend tests (asset list filters by workspace +
+  asset_type, cross-workspace exclusion, auth gate,
+  end-to-end pip_layout create with two CLIP inputs).
+  387 backend tests total. tsc + vite build green.

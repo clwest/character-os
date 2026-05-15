@@ -508,6 +508,97 @@ def test_retrieve_cross_workspace_rejected() -> None:
     assert response.status_code == http.HTTP_404_NOT_FOUND
 
 
+def test_list_assets_filters_by_workspace() -> None:
+    ws_a, user_a = _make_workspace_with_user("v15assa@test", "A")
+    ws_b, _user_b = _make_workspace_with_user("v15assb@test", "B")
+    _make_clip(ws_a, "/data/a-clip.mp4")
+    _make_clip(ws_b, "/data/b-clip.mp4")
+    client = APIClient()
+    _login(client, user_a)
+
+    response = client.get(f"/api/assets/?workspace={ws_a.pk}")
+    assert response.status_code == http.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["workspace"] == str(ws_a.pk)
+
+
+def test_list_assets_filters_by_asset_type() -> None:
+    ws, user = _make_workspace_with_user("v15assfilter@test")
+    _make_clip(ws)
+    _make_audio(ws)
+    client = APIClient()
+    _login(client, user)
+
+    clip_response = client.get(
+        f"/api/assets/?workspace={ws.pk}&asset_type=clip"
+    )
+    assert clip_response.status_code == http.HTTP_200_OK
+    clip_data = clip_response.json()
+    assert len(clip_data) == 1
+    assert clip_data[0]["asset_type"] == "clip"
+
+    audio_response = client.get(
+        f"/api/assets/?workspace={ws.pk}&asset_type=audio"
+    )
+    audio_data = audio_response.json()
+    assert len(audio_data) == 1
+    assert audio_data[0]["asset_type"] == "audio"
+
+
+def test_list_assets_excludes_foreign_workspaces() -> None:
+    ws_a, _user_a = _make_workspace_with_user("v15assfa@test", "A")
+    _ws_b, user_b = _make_workspace_with_user("v15assfb@test", "B")
+    _make_clip(ws_a)
+    client = APIClient()
+    _login(client, user_b)
+
+    response = client.get(f"/api/assets/?workspace={ws_a.pk}")
+    # User B has no membership in workspace A — queryset filter
+    # drops the rows.
+    assert response.status_code == http.HTTP_200_OK
+    assert response.json() == []
+
+
+def test_list_assets_requires_auth() -> None:
+    client = APIClient()
+    response = client.get("/api/assets/")
+    assert response.status_code in {
+        http.HTTP_401_UNAUTHORIZED, http.HTTP_403_FORBIDDEN,
+    }
+
+
+def test_create_layout_recipe_uses_two_workspace_assets() -> None:
+    """End-to-end V15.2 happy path: pip_layout takes two CLIP
+    assets + integer styling params. Confirms the asset_picker
+    flow + param_map FK renaming both work."""
+    ws, user = _make_workspace_with_user("v15pip@test")
+    sp = _make_spokesperson(ws)
+    base = _make_clip(ws, "/data/base.mp4")
+    pip = _make_clip(ws, "/data/pip.mp4")
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "pip_layout",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "base_clip_id": str(base.pk),
+                "pip_clip_id": str(pip.pk),
+                "pip_width": 320,
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    assert data["template_kind"] == "pip_layout"
+
+
 def test_list_compositions_scoped_to_caller() -> None:
     ws_a, user_a = _make_workspace_with_user("v15lista@test", "A")
     ws_b, user_b = _make_workspace_with_user("v15listb@test", "B")

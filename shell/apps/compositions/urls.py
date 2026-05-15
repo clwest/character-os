@@ -13,10 +13,11 @@ from __future__ import annotations
 
 from rest_framework.routers import DefaultRouter
 
-from .views import CompositionViewSet, RecipeViewSet
+from .views import AssetViewSet, CompositionViewSet, RecipeViewSet
 
 router = DefaultRouter()
 router.register(r"recipes", RecipeViewSet, basename="recipe")
 router.register(r"compositions", CompositionViewSet, basename="composition")
+router.register(r"assets", AssetViewSet, basename="asset")
 
 urlpatterns = router.urls

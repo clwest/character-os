@@ -47,6 +47,60 @@ from .tasks import execute_composition
 logger = logging.getLogger(__name__)
 
 
+class AssetViewSet(viewsets.GenericViewSet):
+    """Read-only list of workspace assets — powers the V15.2
+    `asset_picker` form field. Filters by ``workspace`` (required)
+    and optional ``asset_type``.
+
+    In v1 assets are produced by composition runs; there is no
+    upload UI yet. Operators pick from previously-rendered output
+    assets when wiring a layout/composite recipe.
+    """
+
+    permission_classes = [IsWorkspaceMember]
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return Asset.objects.none()
+        return (
+            Asset.objects.filter(workspace__memberships__user=user)
+            .select_related("workspace")
+            .distinct()
+        )
+
+    def list(self, request):
+        qs = self.get_queryset()
+        workspace_id = request.query_params.get("workspace")
+        if workspace_id:
+            qs = qs.filter(workspace_id=workspace_id)
+        asset_type = request.query_params.get("asset_type")
+        if asset_type:
+            qs = qs.filter(asset_type=asset_type)
+        # Newest first; cap to 200 — gallery picker isn't paginated yet.
+        qs = qs.order_by("-created_at")[:200]
+        # Inline shape (no separate serializer module dep) — same
+        # fields the CompositionSerializer's AssetSerializer ships.
+        data = [
+            {
+                "id": str(a.id),
+                "workspace": str(a.workspace_id),
+                "asset_type": a.asset_type,
+                "file_path": a.file_path,
+                "duration_ms": a.duration_ms,
+                "width": a.width,
+                "height": a.height,
+                "mime_type": a.mime_type,
+                "size_bytes": a.size_bytes,
+                "cost_micros": a.cost_micros,
+                "composition": str(a.composition_id) if a.composition_id else None,
+                "created_at": a.created_at.isoformat(),
+            }
+            for a in qs
+        ]
+        return Response(data)
+
+
 class RecipeViewSet(viewsets.ViewSet):
     """Read-only metadata for the 17 starter compositions.
 

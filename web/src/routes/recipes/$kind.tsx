@@ -15,8 +15,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   LIVE_RECIPE_KINDS,
+  type AssetListItem,
   type Recipe,
   type RecipeField,
+  useAssets,
   useCreateComposition,
   useRecipe,
 } from "@/lib/api/recipes";
@@ -68,6 +70,18 @@ export function RecipeFormRoute() {
     (s) => s.workspace === workspaceId,
   );
 
+  // Determine which asset types this recipe needs. Each
+  // asset_picker field declares its asset_type; we fetch one
+  // query per distinct type so the picker dropdowns are ready
+  // when the field renders.
+  const assetTypesNeeded = Array.from(
+    new Set(
+      r.fields
+        .filter((f) => f.type === "asset_picker" && f.asset_type)
+        .map((f) => f.asset_type as AssetListItem["asset_type"]),
+    ),
+  );
+
   const handleChange = (name: string, value: unknown) => {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
@@ -116,8 +130,12 @@ export function RecipeFormRoute() {
             value={form[field.name]}
             onChange={(value) => handleChange(field.name, value)}
             spokespeople={workspaceSpokespeople}
+            workspaceId={workspaceId}
           />
         ))}
+        {assetTypesNeeded.length > 0 && (
+          <AssetHint types={assetTypesNeeded} workspaceId={workspaceId} />
+        )}
 
         {submitError && (
           <div
@@ -172,11 +190,13 @@ function FieldRenderer({
   value,
   onChange,
   spokespeople,
+  workspaceId,
 }: {
   field: RecipeField;
   value: unknown;
   onChange: (value: unknown) => void;
   spokespeople: Spokesperson[];
+  workspaceId: string;
 }) {
   const id = `field-${field.name}`;
 
@@ -200,6 +220,7 @@ function FieldRenderer({
         value={value}
         onChange={onChange}
         spokespeople={spokespeople}
+        workspaceId={workspaceId}
       />
     </div>
   );
@@ -211,12 +232,14 @@ function FieldInput({
   value,
   onChange,
   spokespeople,
+  workspaceId,
 }: {
   id: string;
   field: RecipeField;
   value: unknown;
   onChange: (value: unknown) => void;
   spokespeople: Spokesperson[];
+  workspaceId: string;
 }) {
   const defaultedValue = value ?? field.default;
 
@@ -315,8 +338,13 @@ function FieldInput({
       );
     case "asset_picker":
       return (
-        <UnsupportedField
-          message={`Asset picker (${field.asset_type}) ships in V15.2.`}
+        <AssetPicker
+          id={id}
+          assetType={field.asset_type as AssetListItem["asset_type"]}
+          workspaceId={workspaceId}
+          value={defaultedValue as string | undefined}
+          onChange={(v) => onChange(v || undefined)}
+          required={field.required}
         />
       );
     case "dialogue_lines":
@@ -326,6 +354,116 @@ function FieldInput({
     default:
       return <UnsupportedField message={`Unknown field type`} />;
   }
+}
+
+function AssetPicker({
+  id,
+  assetType,
+  workspaceId,
+  value,
+  onChange,
+  required,
+}: {
+  id: string;
+  assetType: AssetListItem["asset_type"];
+  workspaceId: string;
+  value: string | undefined;
+  onChange: (value: string) => void;
+  required: boolean;
+}) {
+  const assets = useAssets({ workspace: workspaceId, assetType });
+
+  if (assets.isLoading) {
+    return (
+      <div className="h-10 animate-pulse rounded-md border bg-muted/30" />
+    );
+  }
+  if (assets.isError) {
+    return (
+      <UnsupportedField
+        message={`Couldn't load ${assetType} assets: ${
+          assets.error instanceof Error ? assets.error.message : "unknown error"
+        }`}
+      />
+    );
+  }
+
+  const list = assets.data ?? [];
+  if (list.length === 0) {
+    return (
+      <div className="flex flex-col gap-1 rounded-md border border-dashed bg-muted/20 p-4 text-xs text-muted-foreground">
+        <p className="font-mono uppercase tracking-[0.22em]">
+          No {assetType} assets yet
+        </p>
+        <p className="normal-case tracking-normal">
+          Run a recipe that produces a {assetType} first (e.g. a
+          {assetType === "clip" ? " talking head or cinematic visual" : ""}
+          {assetType === "audio" ? " voice design" : ""}), then come back here
+          to use it as input.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <select
+      id={id}
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value)}
+      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+    >
+      {!required && <option value="">— none —</option>}
+      {required && !value && (
+        <option value="" disabled>
+          — select a {assetType} —
+        </option>
+      )}
+      {list.map((a) => (
+        <option key={a.id} value={a.id}>
+          {assetLabel(a)}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function assetLabel(a: AssetListItem): string {
+  const seconds = a.duration_ms != null ? ` · ${(a.duration_ms / 1000).toFixed(1)}s` : "";
+  const filename = a.file_path.split("/").pop() || a.file_path;
+  const trimmedName = filename.length > 40 ? `${filename.slice(0, 37)}…` : filename;
+  return `${trimmedName}${seconds}`;
+}
+
+function AssetHint({
+  types,
+  workspaceId,
+}: {
+  types: AssetListItem["asset_type"][];
+  workspaceId: string;
+}) {
+  // Surface a single hint row when any picker has zero options —
+  // operators new to the gallery want a quick "what do I do now?"
+  // signal.
+  const clipsQuery = useAssets(
+    types.includes("clip") ? { workspace: workspaceId, assetType: "clip" } : undefined,
+  );
+  const audioQuery = useAssets(
+    types.includes("audio") ? { workspace: workspaceId, assetType: "audio" } : undefined,
+  );
+  const anyMissing =
+    (types.includes("clip") && clipsQuery.data?.length === 0) ||
+    (types.includes("audio") && audioQuery.data?.length === 0);
+  if (!anyMissing) return null;
+  return (
+    <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-4 text-xs text-amber-800 dark:text-amber-300">
+      <p className="font-mono uppercase tracking-[0.22em]">Tip</p>
+      <p className="mt-1 normal-case tracking-normal">
+        This recipe needs existing workspace assets as input. Run a producing
+        recipe first (Talking head or Cinematic visual produce clips; Voice
+        design produces audio in V15.3), then come back here.
+      </p>
+    </div>
+  );
 }
 
 function UnsupportedField({ message }: { message: string }) {

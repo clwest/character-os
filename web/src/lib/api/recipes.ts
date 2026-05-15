@@ -86,18 +86,75 @@ const recipeSchema = z.object({
 
 export type Recipe = z.infer<typeof recipeSchema>;
 
-// V15.1 ships three live recipe forms; the others render as
-// "coming soon" cards in the gallery. Update this set as V15.2-V15.4
-// add more.
+// Live recipe forms — opt in here once a kind has been wired
+// end-to-end (form renders all fields + composition runs). V15.1
+// shipped the first three; V15.2 added the 7 layout/format recipes
+// once the asset_picker field landed.
 export const LIVE_RECIPE_KINDS = new Set<string>([
+  // V15.1
   "talking_head",
   "cinematic_visual",
   "talking_head_polished",
+  // V15.2 — layout + format family
+  "pip_layout",
+  "backdrop_layout",
+  "cohost_layout",
+  "broll_splice",
+  "music_bed_pass",
+  "reels_format",
+  "talking_head_with_backdrop",
 ]);
 
 // ---- List recipes -----------------------------------------------
 
 const recipeListSchema = z.array(recipeSchema);
+
+// ---- Assets (V15.2 asset_picker) -------------------------------
+
+const assetListItemSchema = z.object({
+  id: z.string(),
+  workspace: z.string(),
+  asset_type: z.enum(["clip", "audio", "image", "transcript", "voice"]),
+  file_path: z.string(),
+  duration_ms: z.number().int().nullable(),
+  width: z.number().int().nullable(),
+  height: z.number().int().nullable(),
+  mime_type: z.string(),
+  size_bytes: z.number().int().nullable(),
+  cost_micros: z.number().int(),
+  composition: z.string().nullable(),
+  created_at: z.string(),
+});
+
+export type AssetListItem = z.infer<typeof assetListItemSchema>;
+
+const assetListSchema = z.array(assetListItemSchema);
+
+export interface ListAssetsOptions {
+  workspace: string;
+  assetType?: AssetListItem["asset_type"];
+}
+
+export async function listAssets(
+  options: ListAssetsOptions,
+): Promise<AssetListItem[]> {
+  const params = new URLSearchParams({ workspace: options.workspace });
+  if (options.assetType) params.set("asset_type", options.assetType);
+  return apiJson(
+    `/api/assets/?${params.toString()}`,
+    {},
+    (json) => assetListSchema.parse(json),
+  );
+}
+
+export function useAssets(options: ListAssetsOptions | undefined) {
+  return useQuery({
+    queryKey: ["assets", options],
+    queryFn: () => listAssets(options!),
+    enabled: Boolean(options?.workspace),
+    staleTime: 30 * 1000,
+  });
+}
 
 export async function listRecipes(): Promise<Recipe[]> {
   return apiJson("/api/recipes/", {}, (json) => recipeListSchema.parse(json));
