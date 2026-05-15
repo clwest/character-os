@@ -34,6 +34,7 @@ import {
   useCreateRealtimeSession,
   useEndRealtimeSession,
   useInvokeTool,
+  useRealtimeCostEstimate,
   useRealtimeSession,
   type DispatchResult,
   type RealtimeSession,
@@ -46,12 +47,14 @@ import {
 import { AvatarSessionInner } from "@/components/avatar-session-inner";
 import { CostTicker } from "@/components/cost-ticker";
 
-// R8.1 — cost forecasting placeholder. The Runway pricing for
-// avatar-conversation minutes is on the order of a few cents
-// per minute; conservative estimate until R9 (cost governance
-// backend) ships per-provider micros-per-second lookups.
-const ESTIMATED_COST_PER_MINUTE_MICROS = 80_000; // ~$0.08/min
-const PROVIDER_MAX_SESSION_MINUTES = 5;
+// Fallback constants used when the cost-estimate hook
+// (R9 /api/realtime_sessions/cost_estimate/) hasn't
+// responded yet OR returns an error. Conservative
+// placeholders that match the backend's
+// DEFAULT_RATE_MICROS_PER_MINUTE +
+// PROVIDER_MAX_SESSION_MINUTES.
+const FALLBACK_COST_PER_MINUTE_MICROS = 80_000; // ~$0.08/min
+const FALLBACK_MAX_SESSION_MINUTES = 5;
 
 type Lifecycle =
   | { kind: "idle" }
@@ -72,6 +75,22 @@ export function TalkRoute() {
   const createSession = useCreateRealtimeSession();
   const endSession = useEndRealtimeSession();
   const invokeTool = useInvokeTool();
+  // R9 — backend-fetched cost forecast. Fallback to the
+  // hardcoded constants when the hook hasn't resolved or
+  // errors (don't block the UX on a transient billing
+  // endpoint failure).
+  const costEstimate = useRealtimeCostEstimate({
+    workspaceId: sp.data?.workspace,
+  });
+  const costPerMinuteMicros =
+    costEstimate.data?.cost_per_minute_micros ??
+    FALLBACK_COST_PER_MINUTE_MICROS;
+  const maxSessionMinutes =
+    costEstimate.data?.max_session_minutes ??
+    FALLBACK_MAX_SESSION_MINUTES;
+  const minutesRemaining =
+    costEstimate.data?.monthly_minutes_remaining ?? null;
+  const minutesLimit = costEstimate.data?.monthly_minutes_limit ?? null;
 
   // Poll once the session is mid-creation so the UI advances
   // from CREATING → READY without operator action.
@@ -220,6 +239,10 @@ export function TalkRoute() {
           onStart={handleStart}
           starting={createSession.isPending}
           spokespersonName={spokesperson.name}
+          costPerMinuteMicros={costPerMinuteMicros}
+          maxSessionMinutes={maxSessionMinutes}
+          minutesRemaining={minutesRemaining}
+          minutesLimit={minutesLimit}
         />
       )}
 
@@ -236,6 +259,8 @@ export function TalkRoute() {
           onInvokeTool={handleInvokeTool}
           invokingTool={invokeTool.isPending}
           lastToolResult={lastToolResult}
+          costPerMinuteMicros={costPerMinuteMicros}
+          maxSessionMinutes={maxSessionMinutes}
           onSdkError={(err) =>
             setLifecycle({
               kind: "error",
@@ -280,16 +305,26 @@ function IdlePanel({
   onStart,
   starting,
   spokespersonName,
+  costPerMinuteMicros,
+  maxSessionMinutes,
+  minutesRemaining,
+  minutesLimit,
 }: {
   onStart: () => void;
   starting: boolean;
   spokespersonName: string;
+  costPerMinuteMicros: number;
+  maxSessionMinutes: number;
+  minutesRemaining: number | null;
+  minutesLimit: number | null;
 }) {
-  const fullSessionCostMicros =
-    ESTIMATED_COST_PER_MINUTE_MICROS * PROVIDER_MAX_SESSION_MINUTES;
-  const fullSessionDollars = (
-    fullSessionCostMicros / 1_000_000
-  ).toFixed(2);
+  const fullSessionCostMicros = costPerMinuteMicros * maxSessionMinutes;
+  const fullSessionDollars = (fullSessionCostMicros / 1_000_000).toFixed(2);
+  // R9 — operator-facing minutes-remaining hint. Only
+  // shows when the tier has a budget (Agency is null →
+  // skip the hint).
+  const showMinutesHint =
+    minutesRemaining !== null && minutesLimit !== null;
   return (
     <section
       className="rounded-lg border bg-card p-6"
@@ -303,9 +338,9 @@ function IdlePanel({
           live audio session.
         </p>
         <p className="text-xs text-muted-foreground">
-          Sessions last up to {PROVIDER_MAX_SESSION_MINUTES}{" "}
-          minutes (Runway's per-session cap). You can end
-          early or reconnect afterward.
+          Sessions last up to {maxSessionMinutes} minutes
+          (Runway's per-session cap). You can end early or
+          reconnect afterward.
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <Button
@@ -329,13 +364,25 @@ function IdlePanel({
           <span
             className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground"
             data-testid="cost-forecast"
-            title="Estimated. Real per-minute cost ships in R9."
+            title="Estimated session cost at the provider's per-minute rate."
           >
             <span>~${fullSessionDollars}</span>
             <span className="text-[10px] uppercase tracking-wide">
-              for {PROVIDER_MAX_SESSION_MINUTES} min
+              for {maxSessionMinutes} min
             </span>
           </span>
+          {showMinutesHint && (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground"
+              data-testid="minutes-remaining"
+              title="Your remaining realtime minutes this month."
+            >
+              <span>{minutesRemaining}</span>
+              <span className="text-[10px] uppercase tracking-wide">
+                of {minutesLimit} min left this month
+              </span>
+            </span>
+          )}
         </div>
       </div>
     </section>
@@ -368,6 +415,8 @@ function LivePanel({
   onInvokeTool,
   invokingTool,
   lastToolResult,
+  costPerMinuteMicros,
+  maxSessionMinutes,
   onSdkError,
 }: {
   session: RealtimeSession;
@@ -379,6 +428,8 @@ function LivePanel({
   onInvokeTool: (toolName: string, args: Record<string, unknown>) => void;
   invokingTool: boolean;
   lastToolResult: DispatchResult | null;
+  costPerMinuteMicros: number;
+  maxSessionMinutes: number;
   onSdkError: (err: Error) => void;
 }) {
   // Counting basis for the cost ticker. ``ready_at`` lands
@@ -405,8 +456,8 @@ function LivePanel({
         <div className="flex items-center gap-3">
           <CostTicker
             startedAt={tickerStart}
-            costPerMinuteMicros={ESTIMATED_COST_PER_MINUTE_MICROS}
-            maxMinutes={PROVIDER_MAX_SESSION_MINUTES}
+            costPerMinuteMicros={costPerMinuteMicros}
+            maxMinutes={maxSessionMinutes}
             mockMode={session.mock_mode}
           />
           <Button

@@ -52,6 +52,13 @@ class Usage:
     # `realtime_sessions_per_month` in TIER_LIMITS.
     realtime_sessions_used: int
     realtime_sessions_limit: int | None
+    # R9 — finer-grained minutes budget. Aggregates
+    # `RealtimeSession.duration_seconds` across the
+    # current period (rounded up to whole minutes for
+    # operator-facing display). The session-count gate
+    # still fires as the cheaper coarse check.
+    realtime_minutes_used: int
+    realtime_minutes_limit: int | None
     period_start: str
     period_end: str
 
@@ -65,6 +72,8 @@ class Usage:
             "spokespeople_limit": self.spokespeople_limit,
             "realtime_sessions_used": self.realtime_sessions_used,
             "realtime_sessions_limit": self.realtime_sessions_limit,
+            "realtime_minutes_used": self.realtime_minutes_used,
+            "realtime_minutes_limit": self.realtime_minutes_limit,
             "period_start": self.period_start,
             "period_end": self.period_end,
         }
@@ -85,6 +94,8 @@ def get_usage(workspace: "Workspace") -> Usage:
     # finishes loading after billing starts being read.
     from apps.realtime.models import RealtimeSession
 
+    from django.db.models import Sum
+
     sub = _subscription_for(workspace)
     videos_used = Video.objects.filter(
         spokesperson__workspace=workspace,
@@ -92,11 +103,24 @@ def get_usage(workspace: "Workspace") -> Usage:
         created_at__lt=sub.current_period_end,
     ).count()
     spokespeople_used = Spokesperson.objects.filter(workspace=workspace).count()
-    realtime_sessions_used = RealtimeSession.objects.filter(
+    period_sessions = RealtimeSession.objects.filter(
         workspace=workspace,
         created_at__gte=sub.current_period_start,
         created_at__lt=sub.current_period_end,
-    ).count()
+    )
+    realtime_sessions_used = period_sessions.count()
+    # R9 — sum duration_seconds across the period; round
+    # up to whole minutes for the operator-facing meter.
+    # In-flight sessions (status<>ENDED) have
+    # duration_seconds=0 until the broker's _end_session
+    # writes the final value; partial-minute granularity
+    # is a v2 concern (the SPA's CostTicker covers live
+    # accumulation).
+    period_seconds = period_sessions.aggregate(
+        total=Sum("duration_seconds"),
+    ).get("total") or 0
+    realtime_minutes_used = (period_seconds + 59) // 60  # round up
+    tier_table = TIER_LIMITS.get(sub.tier, TIER_LIMITS["starter"])
     return Usage(
         tier=sub.tier,
         status=sub.status,
@@ -105,9 +129,9 @@ def get_usage(workspace: "Workspace") -> Usage:
         spokespeople_used=spokespeople_used,
         spokespeople_limit=sub.spokespeople_limit,
         realtime_sessions_used=realtime_sessions_used,
-        realtime_sessions_limit=TIER_LIMITS.get(sub.tier, TIER_LIMITS["starter"]).get(
-            "realtime_sessions_per_month",
-        ),
+        realtime_sessions_limit=tier_table.get("realtime_sessions_per_month"),
+        realtime_minutes_used=realtime_minutes_used,
+        realtime_minutes_limit=tier_table.get("realtime_minutes_per_month"),
         period_start=sub.current_period_start.isoformat(),
         period_end=sub.current_period_end.isoformat(),
     )
@@ -160,9 +184,13 @@ def check_spokesperson_limit(workspace: "Workspace") -> None:
 
 def check_realtime_session_limit(workspace: "Workspace") -> None:
     """Raise TierLimitExceeded if creating a realtime session now
-    would push the workspace past its monthly cap. R3 first
-    line of defense — each session burns Runway minutes; R9
-    will refine with live per-minute metering."""
+    would push the workspace past its monthly session-count cap.
+
+    R3 first line of defense — coarse gate that catches obvious
+    abuse (many short sessions). R9 added the finer-grained
+    minutes budget gate (``check_realtime_minutes_budget``) that
+    fires alongside this one.
+    """
     usage = get_usage(workspace)
     if usage.realtime_sessions_limit is None:
         return  # unlimited tier
@@ -178,6 +206,56 @@ def check_realtime_session_limit(workspace: "Workspace") -> None:
                 "current_tier": usage.tier,
                 "realtime_sessions_used": usage.realtime_sessions_used,
                 "realtime_sessions_limit": usage.realtime_sessions_limit,
+                "suggested_tier": _suggest_upgrade(usage.tier),
+            }
+        )
+
+
+def check_realtime_minutes_budget(
+    workspace: "Workspace",
+    requested_minutes: int = 5,
+) -> None:
+    """Raise TierLimitExceeded if creating a realtime session
+    now would push the workspace past its monthly minutes
+    budget.
+
+    R9 second line of defense — finer-grained than
+    ``check_realtime_session_limit``. Both gates fire at
+    session-create time; either can independently veto.
+
+    Args:
+        workspace: workspace the session would belong to.
+        requested_minutes: projected session length in
+            minutes. Defaults to the provider cap (5 for
+            Runway). The check enforces "current usage +
+            requested <= cap"; if a partial-minute session
+            (say 3 min) is the realistic projection, pass
+            ``requested_minutes=3``.
+
+    The session-count gate stays the primary surface; this
+    one catches long-talkers that the session-count gate
+    misses (e.g., 5 × 5-minute sessions = 25 minutes burned
+    by Starter, under the 5-session cap but at the 30-min
+    minutes cap).
+    """
+    usage = get_usage(workspace)
+    if usage.realtime_minutes_limit is None:
+        return  # unlimited tier
+    projected = usage.realtime_minutes_used + max(1, requested_minutes)
+    if projected > usage.realtime_minutes_limit:
+        raise TierLimitExceeded(
+            {
+                "code": "realtime_minutes_limit_reached",
+                "message": (
+                    f"You've used {usage.realtime_minutes_used} of "
+                    f"{usage.realtime_minutes_limit} realtime minutes "
+                    f"in your {usage.tier.capitalize()} plan this "
+                    "month."
+                ),
+                "current_tier": usage.tier,
+                "realtime_minutes_used": usage.realtime_minutes_used,
+                "realtime_minutes_limit": usage.realtime_minutes_limit,
+                "requested_minutes": requested_minutes,
                 "suggested_tier": _suggest_upgrade(usage.tier),
             }
         )
@@ -215,6 +293,7 @@ __all__ = [
     "TIER_LIMITS",
     "TierLimitExceeded",
     "Usage",
+    "check_realtime_minutes_budget",
     "check_realtime_session_limit",
     "check_spokesperson_limit",
     "check_video_limit",

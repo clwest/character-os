@@ -43,6 +43,7 @@ vi.mock("@/lib/api/realtime", () => ({
   useInvokeTool: vi.fn(),
   useApproveInvocation: vi.fn(),
   useRejectInvocation: vi.fn(),
+  useRealtimeCostEstimate: vi.fn(),
 }));
 
 import { useSpokesperson } from "@/lib/api/spokespeople";
@@ -51,6 +52,7 @@ import {
   useCreateRealtimeSession,
   useEndRealtimeSession,
   useInvokeTool,
+  useRealtimeCostEstimate,
   useRealtimeSession,
   useRejectInvocation,
 } from "@/lib/api/realtime";
@@ -62,6 +64,7 @@ const useGetMock = useRealtimeSession as unknown as ReturnType<typeof vi.fn>;
 const useInvokeMock = useInvokeTool as unknown as ReturnType<typeof vi.fn>;
 const useApproveMock = useApproveInvocation as unknown as ReturnType<typeof vi.fn>;
 const useRejectMock = useRejectInvocation as unknown as ReturnType<typeof vi.fn>;
+const useCostMock = useRealtimeCostEstimate as unknown as ReturnType<typeof vi.fn>;
 
 function makeSpokesperson(overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -158,6 +161,11 @@ describe("TalkRoute (R8.0)", () => {
       mutateAsync: vi.fn(),
       isPending: false,
     });
+    useCostMock.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+    });
   });
 
   it("renders idle state with Start button", () => {
@@ -169,13 +177,57 @@ describe("TalkRoute (R8.0)", () => {
     expect(screen.getByTestId("talk-start")).toBeInTheDocument();
   });
 
-  it("idle panel renders cost forecast pill (R8.1)", () => {
+  it("idle panel renders cost forecast pill (R8.1) — fallback constants", () => {
     renderRoute();
     const pill = screen.getByTestId("cost-forecast");
     expect(pill).toBeInTheDocument();
-    // 5 min × $0.08/min = $0.40 placeholder
+    // 5 min × $0.08/min = $0.40 fallback
     expect(pill).toHaveTextContent("$0.40");
     expect(pill).toHaveTextContent(/for 5 min/i);
+    // No tier-cap → no minutes-remaining hint
+    expect(screen.queryByTestId("minutes-remaining")).not.toBeInTheDocument();
+  });
+
+  it("idle panel uses backend cost estimate when available (R9)", () => {
+    useCostMock.mockReturnValue({
+      data: {
+        provider: "runway",
+        cost_per_minute_micros: 100_000, // $0.10/min — different from fallback
+        max_session_minutes: 5,
+        monthly_minutes_used: 12,
+        monthly_minutes_limit: 30,
+        monthly_minutes_remaining: 18,
+        tier: "starter",
+      },
+      isLoading: false,
+      isError: false,
+    });
+    renderRoute();
+    const pill = screen.getByTestId("cost-forecast");
+    // 5 min × $0.10/min = $0.50 (backend-driven)
+    expect(pill).toHaveTextContent("$0.50");
+    // Minutes-remaining hint renders for capped tiers.
+    const hint = screen.getByTestId("minutes-remaining");
+    expect(hint).toHaveTextContent("18");
+    expect(hint).toHaveTextContent("of 30 min left this month");
+  });
+
+  it("idle panel hides minutes-remaining hint for unlimited tier (R9)", () => {
+    useCostMock.mockReturnValue({
+      data: {
+        provider: "runway",
+        cost_per_minute_micros: 80_000,
+        max_session_minutes: 5,
+        monthly_minutes_used: 1000,
+        monthly_minutes_limit: null,
+        monthly_minutes_remaining: null,
+        tier: "agency",
+      },
+      isLoading: false,
+      isError: false,
+    });
+    renderRoute();
+    expect(screen.queryByTestId("minutes-remaining")).not.toBeInTheDocument();
   });
 
   it("mock-mode session exposes tool dispatch buttons (R8.1)", async () => {

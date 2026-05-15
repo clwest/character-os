@@ -626,7 +626,7 @@ land independently. Each slice is ~1-2 sessions.
 | **R8.0** ✓ | SPA foundation: `@runwayml/avatars-react` SDK installed; new `web/src/lib/api/realtime.ts` API client (createSession + getSession poll + endSession hooks; Zod schemas mirror DRF serializers; contract rule 3 — `provider_session_key` lives only in the create response shape); new `web/src/routes/spokespeople/talk.tsx` lifecycle component (idle → creating → ready → live → ended → error); registered at `/spokespeople/:id/talk`; "Talk to {name}" CTA on the spokesperson detail page (allDone only). **Mock-mode UX**: when `mock_mode=true` the route skips SDK mount + renders a "Live (demo mode)" pill + a stub panel showing provider session id / document id. +7 vitest unit tests + 1 Playwright e2e (404 path). Ships SESSION 153 (`7669007`). | R3, R7 |
 | **R8.1** ✓ | Tool-approval modal + cost forecasting UI. New `web/src/components/tool-approval-modal.tsx` (minimal inline modal, no Radix dep) — renders when `invoke_tool` returns `state=awaiting_approval`, accepts Approve / Reject (with optional reason). New `useInvokeTool` + `useApproveInvocation` + `useRejectInvocation` hooks in the API client (Zod DispatchResult schema mirrors `_serialize_dispatch_result` server-side). TalkRoute extended: `pendingInvocation` state, `lastToolResult` state + `ToolResultPanel`, mock-mode debug buttons that fire `render_video` (triggers approval) and `show_videos_tab` (executes inline). IdlePanel gains a cost-forecast pill (~$0.40 for a 5-min session — hardcoded `$0.08/min × 5 min` placeholder; R9 ships real per-minute estimation). Dev infra: `vitest/globals` + `@testing-library/jest-dom` added to `tsconfig.app.json` types so tsc sees jest-dom matchers. +12 vitest tests (8 modal + 4 talk-route). Q-r-2 server-side stays preserved; the `sendClientEvent` narration piece lands in R8.2 alongside the AvatarCall inner-component wiring. Ships SESSION 154 (`aac6ee4`). | R8.0 |
 | **R8.2** ✓ | **R8 closure.** Three pieces shipped: (1) **AvatarSessionInner** — new component inside `<AvatarCall>` consuming the SDK's `useClientEvents` hook so the avatar's LLM can fire tools natively (the mock-mode debug buttons stay as a parallel test surface; both go through the same `useInvokeTool`). (2) **CostTicker** — runs while live, updates every 1s, color-shifts as the session approaches its 5-minute cap (muted → amber at 3min → destructive at 4min). (3) **WebRTC fallback** — `<AvatarCall onError>` callback routes to the error panel, which now offers "Make a recorded video instead" CTA linking to `/recipes`. Q-r-9 resolved. **Q-r-2 partial** — Runway's SDK doesn't expose a `sendClientEvent` for server-pushed narration back to the avatar; v1 narration is operator-mediated (verbal continuation after a modal decision). Documented in the AvatarSessionInner module-level comment. +13 vitest tests (7 cost-ticker + 4 avatar-session-inner + 2 talk-route). Ships SESSION 155 (`5697269`). | R8.0, R8.1 |
-| **R9** | Cost governance: per-workspace minutes budget, tier-limit enforcement at session-create, live cost ticker | R2, billing |
+| **R9** ✓ | Cost governance backend: new `apps/realtime/cost.py` (per-provider micros-per-minute table + `estimate_session_cost_micros` + `actual_session_cost_micros`); new `check_realtime_minutes_budget` in billing/services (per-workspace per-month minutes cap — starter=30, pro=120, agency=null); broker stamps `cost_estimate_micros` at create + `cost_actual_micros` at end (fields existed since R1; populated now); new `GET /api/realtime_sessions/cost_estimate/` returns rate + remaining-minutes shape; SPA `useRealtimeCostEstimate` hook replaces R8.1/R8.2 hardcoded constants; new "X of Y min left this month" hint on IdlePanel for capped tiers. +18 backend tests + 2 SPA tests. Ships SESSION 156. | R2, billing |
 | **R10** | Multi-provider abstraction hardening (no new providers shipped; just ensure the registry pattern holds — drift verifier test) | R2 |
 
 Roughly 11 slices, ~10-14 sessions. R1-R3 is the "live
@@ -821,6 +821,126 @@ tests cannot fail.
   handles it) — the hard parts are key brokering,
   knowledge composition, cost governance, cross-session
   memory, and workspace-scoped tools.
+
+- 2026-05-15 (SESSION 156) — **R9 SHIPPED**. Cost
+  governance backend. Closes the hardcoded-constants
+  gap from R8.1 + R8.2's UI work.
+
+  Backend:
+
+  * **`apps/realtime/cost.py`** — new module. Per-
+    provider rate table (`_PROVIDER_RATES`; one entry
+    for `runway` at $0.08/min). `cost_per_minute_micros`
+    + `estimate_session_cost_micros` + `actual_session_cost_micros`
+    helpers. `PROVIDER_MAX_SESSION_MINUTES = 5`
+    constant shared with SPA via the cost_estimate
+    endpoint. Defensive default for unknown providers
+    matches the rate (no free-tier-by-mistake on
+    misconfigured workspace).
+  * **TIER_LIMITS** in `apps/billing/models.py` —
+    new `realtime_minutes_per_month` key: starter=30,
+    pro=120, agency=None. Same `int | None` shape as
+    the existing `videos_per_month` etc.
+  * **`Usage` shape** in `apps/billing/services.py` —
+    two new fields: `realtime_minutes_used` (sums
+    `RealtimeSession.duration_seconds` across the
+    period, rounds up to whole minutes) +
+    `realtime_minutes_limit`. Surfaced in
+    `to_dict()`.
+  * **`check_realtime_minutes_budget(workspace,
+    requested_minutes=5)`** — new gate in
+    `apps/billing/services.py`. Fires alongside the
+    existing `check_realtime_session_limit` at
+    session-create. Raises `TierLimitExceeded` with
+    `code='realtime_minutes_limit_reached'` payload
+    when projected usage > cap.
+  * **Broker create** (`apps/realtime/views.py`) —
+    after successful media-engine create, stamps
+    `session.cost_estimate_micros =
+    estimate_session_cost_micros(provider)`. Fires
+    `check_realtime_minutes_budget` alongside the
+    existing session-count gate. Both gates can
+    independently veto with 402.
+  * **Broker `_end_session`** — stamps
+    `session.cost_actual_micros =
+    actual_session_cost_micros(session)` from the
+    final `duration_seconds`.
+
+  REST surface:
+
+  * **`GET /api/realtime_sessions/cost_estimate/`** —
+    new `@action(detail=False)` on
+    `RealtimeSessionViewSet`. Query params:
+    `workspace` (optional UUID; defaults to user's
+    first membership) + `provider` (optional;
+    defaults to `runway`). Returns
+    `{provider, cost_per_minute_micros,
+    max_session_minutes, monthly_minutes_used,
+    monthly_minutes_limit, monthly_minutes_remaining,
+    tier}`. Cross-workspace access returns 404
+    (avoid leaking workspace existence).
+
+  SPA:
+
+  * **`useRealtimeCostEstimate`** hook in
+    `web/src/lib/api/realtime.ts` — Zod
+    `costEstimateSchema` matches the backend
+    response shape. `staleTime: 60s` so the SPA
+    doesn't hammer the endpoint on every render.
+  * **TalkRoute** — pulls the hook value, passes
+    `costPerMinuteMicros` + `maxSessionMinutes` +
+    `minutesRemaining` + `minutesLimit` into
+    IdlePanel + LivePanel.
+  * **IdlePanel** — replaces the hardcoded
+    `ESTIMATED_COST_PER_MINUTE_MICROS` /
+    `PROVIDER_MAX_SESSION_MINUTES` with the hook
+    values. New "X of Y min left this month" hint
+    pill for capped tiers (renders only when
+    `minutesRemaining !== null`). Falls back to the
+    `FALLBACK_*` constants when the hook hasn't
+    resolved yet OR errored (don't strand UX on a
+    transient billing endpoint failure).
+  * **LivePanel** — passes the same
+    `costPerMinuteMicros` + `maxSessionMinutes`
+    through to `CostTicker`. The ticker's per-second
+    math now uses real backend rates.
+
+  Tests:
+
+  * `apps/realtime/tests/test_r9_cost.py` — 18 tests
+    covering cost estimator (5), minutes budget
+    gate (3), Usage shape (2), broker stamps (3),
+    REST endpoint (4), cross-workspace 404 (1).
+  * `talk.test.tsx` — 2 new tests: idle panel uses
+    backend cost estimate when available; idle
+    panel hides minutes-remaining hint for
+    unlimited tier. Plus updated the fallback-mode
+    test to assert the no-tier-cap path doesn't
+    render the hint.
+
+  Test totals after SESSION 156: **659 backend
+  tests** (641 → 659, +18). **37 SPA vitest tests**
+  (35 → 37, +2). SPA build clean.
+
+  Contract rule alignment:
+  * Rule 7 (cost ceilings) — now fully load-bearing.
+    Three layers all active:
+    1. Per-workspace monthly minutes budget
+       (R9, this slice).
+    2. Per-session length cap (provider 5 min;
+       enforced by Runway + the SPA cost ticker).
+    3. Per-tool approval threshold (R7.0, $0.05).
+
+  Both `check_realtime_session_limit` (session count
+  gate from R3) + `check_realtime_minutes_budget`
+  (this slice) fire at create. Either can veto.
+  Sessions-per-month catches obvious abuse;
+  minutes-per-month catches long-talkers that the
+  session count gate misses.
+
+  R-arc state after R9: **R1-R7 + R8 + R9 done**.
+  R10 (multi-provider drift verifier) is the last R
+  slice — small one-test slice.
 
 - 2026-05-15 (SESSION 155) — **R8.2 SHIPPED + R8
   closes**. Last R8 piece — SDK native invocation, live

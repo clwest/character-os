@@ -85,6 +85,10 @@ ALLOWED_FILES = {
     # attach_memory tool's audit row creation through
     # dispatch_tool.
     "apps/realtime/tests/test_r7_3_attach_memory.py",
+    # R9 cost-governance tests seed ENDED RealtimeSession
+    # rows to drive the minutes-budget gate + the actual
+    # cost-micros computation.
+    "apps/realtime/tests/test_r9_cost.py",
 }
 
 

@@ -253,3 +253,47 @@ export function useRejectInvocation() {
     mutationFn: rejectInvocation,
   });
 }
+
+// ---- Cost estimate (R9) ----------------------------------------
+
+const costEstimateSchema = z.object({
+  provider: z.string(),
+  cost_per_minute_micros: z.number().int(),
+  max_session_minutes: z.number().int(),
+  monthly_minutes_used: z.number().int(),
+  monthly_minutes_limit: z.number().int().nullable(),
+  monthly_minutes_remaining: z.number().int().nullable(),
+  tier: z.string(),
+});
+
+export type RealtimeCostEstimate = z.infer<typeof costEstimateSchema>;
+
+export interface UseRealtimeCostEstimateOptions {
+  workspaceId?: string;
+  provider?: string;
+}
+
+export async function getRealtimeCostEstimate(
+  options: UseRealtimeCostEstimateOptions = {},
+): Promise<RealtimeCostEstimate> {
+  const params = new URLSearchParams();
+  if (options.workspaceId) params.set("workspace", options.workspaceId);
+  if (options.provider) params.set("provider", options.provider);
+  const qs = params.toString();
+  const path = qs
+    ? `/api/realtime_sessions/cost_estimate/?${qs}`
+    : "/api/realtime_sessions/cost_estimate/";
+  return apiJson(path, {}, (json) => costEstimateSchema.parse(json));
+}
+
+export function useRealtimeCostEstimate(
+  options: UseRealtimeCostEstimateOptions = {},
+) {
+  return useQuery({
+    queryKey: ["realtime-cost-estimate", options],
+    queryFn: () => getRealtimeCostEstimate(options),
+    // Cache shape rarely changes intra-session — refetch
+    // when the workspace param flips or the SPA reloads.
+    staleTime: 60_000,
+  });
+}

@@ -39,6 +39,7 @@ from rest_framework.response import Response
 from apps.accounts.models import Membership
 from apps.billing.services import (
     TierLimitExceeded,
+    check_realtime_minutes_budget,
     check_realtime_session_limit,
 )
 from apps.spokespeople.models import Spokesperson
@@ -167,6 +168,14 @@ class RealtimeSessionViewSet(viewsets.GenericViewSet):
         except TierLimitExceeded as exc:
             return Response(exc.payload, status=402)
 
+        # R9 — finer-grained minutes-budget gate fires
+        # alongside the session-count gate. Either can
+        # independently veto.
+        try:
+            check_realtime_minutes_budget(workspace)
+        except TierLimitExceeded as exc:
+            return Response(exc.payload, status=402)
+
         personality = (body.get("personality") or "").strip()
         start_script = (body.get("start_script") or "").strip()
         title = (body.get("title") or "").strip()
@@ -249,6 +258,15 @@ class RealtimeSessionViewSet(viewsets.GenericViewSet):
         session.status = _map_status(result.status)
         if session.status == RealtimeSession.Status.READY:
             session.ready_at = timezone.now()
+        # R9 — stamp the provider-rate-based cost estimate
+        # for the full session cap. The CostTicker /
+        # session-end actual landing happens via
+        # _end_session below.
+        from .cost import estimate_session_cost_micros
+
+        session.cost_estimate_micros = estimate_session_cost_micros(
+            provider,
+        )
         if title:
             # `title` isn't a model field — kept on the
             # ConversationThread side when bound. For v1
@@ -260,7 +278,7 @@ class RealtimeSessionViewSet(viewsets.GenericViewSet):
             "provider_session_id", "provider_session_key",
             "provider_document_id", "knowledge_chunk_ids",
             "expires_at", "mock_mode", "status", "ready_at",
-            "updated_at",
+            "cost_estimate_micros", "updated_at",
         ])
 
         logger.info(
@@ -289,6 +307,76 @@ class RealtimeSessionViewSet(viewsets.GenericViewSet):
         session = self._get_session_or_404(pk)
         self._end_session(session)
         return Response(RealtimeSessionSerializer(session).data)
+
+    # ---- COST ESTIMATE (R9) -------------------------------------
+
+    @action(detail=False, methods=["get"], url_path="cost_estimate")
+    def cost_estimate(self, request):
+        """Return per-provider rate + session cap + the
+        workspace's remaining monthly minutes. SPA's
+        IdlePanel + CostTicker use this to render real
+        cost forecasts rather than the hardcoded
+        placeholders R8.1 + R8.2 shipped.
+
+        Query params:
+          - ``workspace`` (optional): UUID. Defaults to
+            the user's first membership. Useful when the
+            SPA has multi-workspace context.
+          - ``provider`` (optional): defaults to ``runway``.
+        """
+        from .cost import (
+            PROVIDER_MAX_SESSION_MINUTES,
+            cost_per_minute_micros,
+        )
+        from apps.accounts.models import Membership, Workspace
+        from apps.billing.services import get_usage
+
+        provider = (
+            (request.query_params.get("provider") or "runway").strip()
+            or "runway"
+        )
+        workspace_id = request.query_params.get("workspace")
+
+        if workspace_id:
+            try:
+                workspace = Workspace.objects.get(pk=workspace_id)
+            except Workspace.DoesNotExist:
+                raise NotFound("Workspace not found")
+            if not Membership.objects.filter(
+                user=request.user, workspace=workspace,
+            ).exists():
+                raise NotFound("Workspace not found")
+        else:
+            membership = (
+                Membership.objects.filter(user=request.user)
+                .select_related("workspace")
+                .first()
+            )
+            if not membership:
+                raise NotFound("No workspaces for this user")
+            workspace = membership.workspace
+
+        rate = cost_per_minute_micros(provider)
+        usage = get_usage(workspace)
+        remaining = (
+            None
+            if usage.realtime_minutes_limit is None
+            else max(
+                0,
+                usage.realtime_minutes_limit - usage.realtime_minutes_used,
+            )
+        )
+        return Response(
+            {
+                "provider": provider,
+                "cost_per_minute_micros": rate,
+                "max_session_minutes": PROVIDER_MAX_SESSION_MINUTES,
+                "monthly_minutes_used": usage.realtime_minutes_used,
+                "monthly_minutes_limit": usage.realtime_minutes_limit,
+                "monthly_minutes_remaining": remaining,
+                "tier": usage.tier,
+            }
+        )
 
     # ---- TOOL DISPATCH (R7.0) -----------------------------------
 
@@ -411,8 +499,16 @@ class RealtimeSessionViewSet(viewsets.GenericViewSet):
         if session.started_at:
             delta = (now - session.started_at).total_seconds()
             session.duration_seconds = max(0, int(round(delta)))
+        # R9 — stamp actual cost from the final duration.
+        # Helper handles the duration=0 short-circuit
+        # (sessions that flipped to ENDED without going
+        # live).
+        from .cost import actual_session_cost_micros
+
+        session.cost_actual_micros = actual_session_cost_micros(session)
         session.save(update_fields=[
-            "status", "ended_at", "duration_seconds", "updated_at",
+            "status", "ended_at", "duration_seconds",
+            "cost_actual_micros", "updated_at",
         ])
 
         # R5 — enqueue post-end transcript capture. Best-effort

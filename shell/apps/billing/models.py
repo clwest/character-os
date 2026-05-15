@@ -36,9 +36,15 @@ TIER_LIMITS: dict[str, dict[str, int | None]] = {
         "seats": 1,
         # R3 — realtime session monthly cap. Each session
         # burns Runway audio/video minutes; the cap is the
-        # first line of defense against runaway cost.
-        # R9 (per-minute metering) will refine.
+        # first line of defense against runaway cost. R9
+        # adds `realtime_minutes_per_month` as the
+        # finer-grained second gate.
         "realtime_sessions_per_month": 5,
+        # R9 (SESSION 156) — per-month minutes budget.
+        # `check_realtime_minutes_budget` enforces at
+        # session-create alongside the session-count
+        # gate.
+        "realtime_minutes_per_month": 30,
         "price_usd": 29,
     },
     "pro": {
@@ -46,6 +52,7 @@ TIER_LIMITS: dict[str, dict[str, int | None]] = {
         "spokespeople": 3,
         "seats": 1,
         "realtime_sessions_per_month": 20,
+        "realtime_minutes_per_month": 120,
         "price_usd": 79,
     },
     "agency": {
@@ -53,6 +60,7 @@ TIER_LIMITS: dict[str, dict[str, int | None]] = {
         "spokespeople": None,
         "seats": 5,
         "realtime_sessions_per_month": None,
+        "realtime_minutes_per_month": None,
         "price_usd": 199,
     },
 }
