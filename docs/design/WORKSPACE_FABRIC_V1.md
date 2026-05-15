@@ -427,7 +427,7 @@ independently-shipping slices.
   isolation, best-effort retrieval failure. SPA
   build green. 416 backend tests total.
 - **F5 — Asset lineage on composition status.** ✓ SHIPPED
-  SESSION 144 (commit TBD). New
+  SESSION 144 (`f50ba2b`). New
   `GET /api/compositions/<id>/lineage/` custom action.
   Returns `{composition_id, derived_from, used_by}`.
   * `derived_from` walks this composition's step inputs
