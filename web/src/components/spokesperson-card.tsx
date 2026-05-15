@@ -23,12 +23,11 @@ export function SpokespersonCard({
 }: SpokespersonCardProps) {
   const initials = deriveInitials(spokesperson.name);
   const brief = spokesperson.business_brief.trim() || "No brief yet.";
-  const briefSnippet = brief.length > 140 ? brief.slice(0, 137) + "…" : brief;
 
   return (
     <article
       className={cn(
-        "reveal group relative flex flex-col gap-5 rounded-md border bg-card p-6 shadow-paper",
+        "reveal group relative flex flex-col gap-4 rounded-md border bg-card p-5 shadow-paper",
         "transition-all duration-150 ease-out",
         "hover:shadow-paper-hover hover:-translate-y-px",
         "focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background",
@@ -41,8 +40,8 @@ export function SpokespersonCard({
         initials={initials}
         portraitPath={spokesperson.portrait_path}
       />
-      <div className="flex flex-col gap-2">
-        <h3 className="font-display text-2xl leading-tight tracking-tight">
+      <div className="flex min-h-0 flex-1 flex-col gap-1.5">
+        <h3 className="font-display text-xl leading-tight tracking-tight">
           {/* Stretched-link pattern: the link's ::after expands to
             * cover the whole card so the entire surface is clickable
             * while keeping the article semantics + the rest of the
@@ -58,11 +57,11 @@ export function SpokespersonCard({
             {spokesperson.name}
           </Link>
         </h3>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {briefSnippet}
+        <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+          {brief}
         </p>
       </div>
-      <div className="mt-auto flex items-center justify-between border-t border-border pt-4 text-xs">
+      <div className="mt-auto flex items-center justify-between border-t border-border pt-3 text-xs">
         <StatusBadge status={spokesperson.status} />
         <span className="font-mono text-muted-foreground">
           {spokesperson.video_count ?? 0} video
@@ -82,7 +81,7 @@ function Portrait({
 }) {
   if (portraitPath) {
     return (
-      <div className="aspect-square w-full overflow-hidden rounded border border-border bg-muted">
+      <div className="aspect-[4/3] w-full overflow-hidden rounded border border-border bg-muted">
         <img
           src={portraitPath}
           alt=""
@@ -94,13 +93,13 @@ function Portrait({
   return (
     <div
       className={cn(
-        "flex aspect-square w-full items-center justify-center rounded border border-border",
+        "flex aspect-[4/3] w-full items-center justify-center rounded border border-border",
         "bg-gradient-to-br from-muted via-card to-muted/70",
       )}
       aria-hidden
     >
       <span
-        className="font-display text-5xl font-light text-foreground/70"
+        className="font-display text-4xl font-light text-foreground/70"
         style={{ fontVariationSettings: '"opsz" 144, "SOFT" 50' }}
       >
         {initials}

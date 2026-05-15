@@ -6,7 +6,7 @@ import { test, expect } from "@playwright/test";
 //   2. RequireAuth lets them through
 //   3. Dashboard masthead shows their auto-created workspace name
 //   4. Spokespeople panel renders the empty state
-//   5. Recent renders panel renders the empty state
+//   5. Recent activity panel renders the empty state (F3)
 //   6. Usage meter shows "0 / 10 starter trialing"
 //
 // Same backend dependencies as auth.spec.ts (Django :8000 up).
@@ -44,9 +44,13 @@ test.describe("workspace dashboard (S-09)", () => {
       /no spokespeople yet/i,
     );
 
-    // 5) Recent renders empty state
-    await expect(page.getByTestId("videos-empty")).toBeVisible();
-    await expect(page.getByTestId("videos-empty")).toContainText(/no renders yet/i);
+    // 5) Recent activity empty state (F3 fabric arc)
+    await expect(page.getByTestId("activity-empty")).toBeVisible();
+    await expect(page.getByTestId("activity-empty")).toContainText(/no activity yet/i);
+
+    // 5b) Knowledge corpus tile shows zero state on a fresh workspace
+    await expect(page.getByTestId("knowledge-corpus")).toBeVisible();
+    await expect(page.getByTestId("knowledge-doc-count")).toHaveText("0");
 
     // 6) Usage meter — should render "0 / 10" on Starter trialing
     await expect(page.getByText(/^0\s*\/\s*10$/)).toBeVisible();

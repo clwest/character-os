@@ -359,10 +359,28 @@ independently-shipping slices.
   rail covers it. New e2e spec (`nav-rail.spec.ts`)
   asserts the four-item hard count + active highlight
   + auth-route hiding.
-- **F3 — Workspace overview dashboard.** New aggregate
-  endpoint + dashboard tiles. Activity feed unifies
-  compositions + legacy Videos. Knowledge corpus stats.
-  Spokesperson cards grow doc + composition badges.
+- **F3 — Workspace overview dashboard.** ✓ SHIPPED
+  SESSION 144 (commit TBD). New `GET /api/workspace/overview/`
+  endpoint (`apps/accounts/views.py:workspace_overview`)
+  returns one aggregate shape — spokespeople with
+  composition + doc badges, knowledge corpus stats
+  (counts, source mix, most recent), and recent
+  compositions feed with cost. Chunk counting goes
+  through a new sanctioned `count_chunks_for_workspace`
+  in `apps/embeddings/retrieval.py` so K0 contract
+  rule 2 stays intact. Dashboard SPA tiles:
+  `ActivityFeedPanel` (replaces "Recent renders" with
+  a unified composition feed; per-row link to
+  `/compositions/<id>`) + `KnowledgeCorpusPanel`
+  (counts, source mix, most-recent link) + per-card
+  badges below each Spokesperson card. SpokespersonCard
+  tightened to a squarer ratio (portrait switched from
+  aspect-square to aspect-[4/3], padding p-6→p-5, brief
+  line-clamp-2) per operator feedback that the cards
+  looked too tall. +13 backend tests
+  (`apps/accounts/tests/test_workspace_overview.py`).
+  Dashboard e2e spec updated (videos-empty →
+  activity-empty + knowledge-corpus zero state).
 - **F4 — Knowledge preview on recipe forms.** New
   `POST /api/knowledge/preview/` endpoint + inline panel
   in the recipe form when `use_knowledge` + spokesperson

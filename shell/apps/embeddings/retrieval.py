@@ -48,6 +48,26 @@ def _embed_query(query: str) -> list[float]:
     return embed(query).vector
 
 
+def count_chunks_for_workspace(workspace) -> int:
+    """Return the total number of active chunks in a workspace.
+
+    Added in F3 (workspace fabric arc) so the dashboard overview
+    endpoint can show "N chunks" without importing the chunk
+    model directly — K0 contract rule 2 keeps chunk-level access
+    inside this module. The count never leaves chunk content
+    across workspaces; only an integer escapes.
+
+    Workspace is passed as the FK target, not by id, to match
+    the function signatures above. Empty / inactive docs are
+    excluded so the count matches what the SPA's
+    `/workspace/knowledge` list sees.
+    """
+    return KnowledgeChunk.objects.filter(
+        document__workspace=workspace,
+        document__is_active=True,
+    ).count()
+
+
 def retrieve_for_spokesperson(
     spokesperson: Spokesperson,
     query: str = "",

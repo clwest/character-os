@@ -74,6 +74,9 @@ ALLOWED_FILES = {
     "apps/compositions/tests/test_v13_storyboard.py",
     "apps/compositions/tests/test_v14_dialogue.py",
     "apps/compositions/tests/test_v15_api.py",
+    # F3 overview endpoint tests construct Composition rows
+    # directly to exercise the dashboard cross-cut query path.
+    "apps/accounts/tests/test_workspace_overview.py",
     # V6 — videos app shim tests construct Composition/Asset
     # rows directly to simulate terminal-state sync paths.
     "apps/videos/tests/test_v6_shim.py",

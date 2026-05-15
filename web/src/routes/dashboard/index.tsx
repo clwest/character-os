@@ -1,13 +1,17 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Plus, Loader2, CheckCircle2, XCircle, MinusCircle, Library } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSession, useSignout } from "@/lib/auth/use-session";
 import { useMe, useSubscription } from "@/lib/api/workspaces";
 import { useSpokespeople } from "@/lib/api/spokespeople";
-import { useVideos } from "@/lib/api/videos";
 import { SpokespersonCard } from "@/components/spokesperson-card";
-import { VideoRow } from "@/components/video-row";
 import { UsageMeter } from "@/components/usage-meter";
+import {
+  useWorkspaceOverview,
+  type OverviewComposition,
+  type OverviewSpokesperson,
+  type WorkspaceOverview,
+} from "@/lib/api/overview";
 import { cn } from "@/lib/utils";
 
 /**
@@ -24,7 +28,11 @@ export function DashboardRoute() {
   const me = useMe();
   const sub = useSubscription();
   const spokespeople = useSpokespeople();
-  const videos = useVideos({ limit: 6 });
+  const workspaceId = me.data?.default_workspace?.id;
+  const overview = useWorkspaceOverview(workspaceId);
+  const overviewByName = new Map<string, OverviewSpokesperson>(
+    overview.data?.spokespeople.map((s) => [s.id, s]) ?? [],
+  );
 
   async function handleSignOut() {
     await signout.mutateAsync();
@@ -56,6 +64,7 @@ export function DashboardRoute() {
           loading={spokespeople.isLoading}
           error={spokespeople.error}
           data={spokespeople.data}
+          overviewByName={overviewByName}
         />
         <UsagePanel
           loading={sub.isLoading}
@@ -64,11 +73,21 @@ export function DashboardRoute() {
         />
       </section>
 
-      <RecentVideosPanel
-        loading={videos.isLoading}
-        error={videos.error}
-        data={videos.data}
-      />
+      <section
+        className="reveal grid grid-cols-1 gap-6 md:grid-cols-[1fr,18rem]"
+        style={{ "--reveal-delay": "0.06s" } as React.CSSProperties}
+      >
+        <ActivityFeedPanel
+          loading={overview.isLoading}
+          error={overview.error}
+          data={overview.data}
+        />
+        <KnowledgeCorpusPanel
+          loading={overview.isLoading}
+          error={overview.error}
+          data={overview.data}
+        />
+      </section>
     </div>
   );
 }
@@ -155,10 +174,12 @@ function SpokespeoplePanel({
   loading,
   error,
   data,
+  overviewByName,
 }: {
   loading: boolean;
   error: unknown;
   data: Awaited<ReturnType<typeof import("@/lib/api/spokespeople").listSpokespeople>> | undefined;
+  overviewByName: Map<string, OverviewSpokesperson>;
 }) {
   return (
     <section className="flex flex-col gap-5">
@@ -195,13 +216,30 @@ function SpokespeoplePanel({
           className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3"
           data-testid="spokespeople-grid"
         >
-          {data.map((s, i) => (
-            <SpokespersonCard
-              key={s.id}
-              spokesperson={s}
-              revealDelay={`${0.04 + i * 0.06}s`}
-            />
-          ))}
+          {data.map((s, i) => {
+            const o = overviewByName.get(s.id);
+            return (
+              <div key={s.id} className="flex flex-col gap-2">
+                <SpokespersonCard
+                  spokesperson={s}
+                  revealDelay={`${0.04 + i * 0.06}s`}
+                />
+                {o && (o.composition_count > 0 || o.attached_docs_count > 0) && (
+                  <div
+                    className="flex gap-3 px-1 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground"
+                    data-testid={`spokesperson-badges-${s.id}`}
+                  >
+                    {o.composition_count > 0 && (
+                      <span>{o.composition_count} comp{o.composition_count === 1 ? "" : "s"}</span>
+                    )}
+                    {o.attached_docs_count > 0 && (
+                      <span>{o.attached_docs_count} doc{o.attached_docs_count === 1 ? "" : "s"}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </section>
@@ -234,38 +272,194 @@ function UsagePanel({
   );
 }
 
-function RecentVideosPanel({
+function ActivityFeedPanel({
   loading,
   error,
   data,
 }: {
   loading: boolean;
   error: unknown;
-  data: Awaited<ReturnType<typeof import("@/lib/api/videos").listVideos>> | undefined;
+  data: WorkspaceOverview | undefined;
 }) {
+  const recent = data?.compositions.recent ?? [];
   return (
-    <section className="flex flex-col gap-5">
-      <PanelHeader title="Recent renders" count={data?.length} />
+    <section className="flex flex-col gap-5" data-testid="activity-feed">
+      <PanelHeader
+        title="Recent activity"
+        count={data?.compositions.total_count}
+        action={
+          data && data.compositions.running_count > 0 ? (
+            <span className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.22em] text-blue-700 dark:text-blue-300">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              {data.compositions.running_count} running
+            </span>
+          ) : null
+        }
+      />
       {loading && <VideoListSkeleton />}
       {error ? <ErrorRow message={extractMessage(error)} /> : null}
-      {data && data.length === 0 && (
+      {data && recent.length === 0 && (
         <EmptyState
-          headline="No renders yet"
-          body="Your videos will appear here once you've made one. Renders take about 60–120 seconds in real mode; the SPA polls the status automatically."
-          testId="videos-empty"
+          headline="No activity yet"
+          body="Compositions you create from the recipe gallery show up here. The first one's a sign you're off the ground."
+          testId="activity-empty"
+          action={
+            <Link to="/recipes">
+              <Button size="lg">Pick a recipe</Button>
+            </Link>
+          }
         />
       )}
-      {data && data.length > 0 && (
-        <ol className="flex flex-col" data-testid="videos-list">
-          {data.map((v, i) => (
-            <VideoRow
-              key={v.id}
-              video={v}
-              index={i}
-              revealDelay={`${0.06 + i * 0.05}s`}
-            />
+      {recent.length > 0 && (
+        <ol className="flex flex-col" data-testid="activity-list">
+          {recent.map((c) => (
+            <ActivityRow key={c.id} composition={c} />
           ))}
         </ol>
+      )}
+    </section>
+  );
+}
+
+function ActivityRow({ composition }: { composition: OverviewComposition }) {
+  const cost = composition.cost_actual_micros / 1_000_000;
+  return (
+    <Link
+      to={`/compositions/${composition.id}`}
+      className="flex items-center gap-4 border-b py-3 transition-colors last:border-b-0 hover:bg-muted/40"
+      data-testid="activity-row"
+    >
+      <StatusIcon status={composition.status} />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex items-baseline gap-2">
+          <span className="truncate font-medium">{composition.name}</span>
+          {composition.mock_mode && (
+            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-amber-700 dark:text-amber-300">
+              mock
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+          <span>{composition.template_kind}</span>
+          <span>{composition.spokesperson_name}</span>
+        </div>
+      </div>
+      <div className="flex flex-col items-end gap-1 text-xs text-muted-foreground">
+        <span className="font-mono">{composition.status}</span>
+        {composition.cost_actual_micros > 0 && (
+          <span className="font-mono">${cost.toFixed(4)}</span>
+        )}
+      </div>
+    </Link>
+  );
+}
+
+function StatusIcon({ status }: { status: OverviewComposition["status"] }) {
+  switch (status) {
+    case "completed":
+      return <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-600" />;
+    case "running":
+    case "draft":
+    case "planning":
+      return <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-blue-600" />;
+    case "failed":
+      return <XCircle className="h-4 w-4 flex-shrink-0 text-destructive" />;
+    case "partial":
+      return <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-amber-600" />;
+    default:
+      return <MinusCircle className="h-4 w-4 flex-shrink-0 text-muted-foreground" />;
+  }
+}
+
+function KnowledgeCorpusPanel({
+  loading,
+  error,
+  data,
+}: {
+  loading: boolean;
+  error: unknown;
+  data: WorkspaceOverview | undefined;
+}) {
+  if (loading) {
+    return (
+      <div className="h-48 animate-pulse rounded-md border bg-card" />
+    );
+  }
+  if (error) {
+    return <ErrorRow message={extractMessage(error)} />;
+  }
+  if (!data) return null;
+  const k = data.knowledge;
+  const nonZeroSources = Object.entries(k.source_mix).filter(([_, n]) => n > 0);
+  return (
+    <section
+      className="flex flex-col gap-4 rounded-md border bg-card p-5 shadow-paper"
+      data-testid="knowledge-corpus"
+    >
+      <div className="flex items-baseline justify-between border-b pb-2">
+        <div className="flex items-center gap-2">
+          <Library className="h-4 w-4 text-muted-foreground" />
+          <h2 className="font-display text-base tracking-tight">Knowledge</h2>
+        </div>
+        <Link
+          to="/workspace/knowledge"
+          className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+          data-testid="knowledge-corpus-link"
+        >
+          View all
+        </Link>
+      </div>
+      <div className="flex items-baseline gap-4">
+        <div className="flex flex-col">
+          <span
+            className="font-display text-3xl leading-none tracking-tight"
+            data-testid="knowledge-doc-count"
+          >
+            {k.doc_count}
+          </span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+            doc{k.doc_count === 1 ? "" : "s"}
+          </span>
+        </div>
+        <div className="flex flex-col">
+          <span className="font-display text-3xl leading-none tracking-tight">
+            {k.chunk_count}
+          </span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+            chunks
+          </span>
+        </div>
+      </div>
+      {nonZeroSources.length > 0 && (
+        <ul className="flex flex-col gap-1 text-xs">
+          {nonZeroSources.map(([src, n]) => (
+            <li
+              key={src}
+              className="flex items-baseline justify-between font-mono uppercase tracking-[0.22em] text-muted-foreground"
+            >
+              <span>{src}</span>
+              <span>{n}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {k.most_recent && (
+        <div className="border-t pt-2 text-xs">
+          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+            Most recent
+          </p>
+          <Link
+            to={`/workspace/knowledge/${k.most_recent.id}`}
+            className="mt-1 line-clamp-2 hover:underline"
+          >
+            {k.most_recent.title}
+          </Link>
+        </div>
+      )}
+      {k.doc_count === 0 && (
+        <p className="text-xs text-muted-foreground">
+          No docs yet. Add some from the Knowledge tab so renders can draw on them.
+        </p>
       )}
     </section>
   );

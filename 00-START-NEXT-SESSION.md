@@ -100,8 +100,8 @@ contract.
 | F0 | Workspace fabric scope lock — F1-F10 slice breakdown, 9 contract rules | DONE (SESSION 144) |
 | F1 | Per-spokesperson recipe entry (`/recipes?spokesperson=<id>` hint propagation) | DONE (SESSION 144) |
 | F2 | Persistent nav rail (Dashboard / Spokespeople / Knowledge / Recipes) | DONE (SESSION 144) |
-| F3 | Workspace overview dashboard (activity feed + knowledge corpus stats) | **NEXT (SESSION 144)** |
-| F4 | Knowledge preview on recipe forms (best-effort retrieval surface) | Queued |
+| F3 | Workspace overview dashboard (activity feed + knowledge corpus stats + spokesperson badges + squarer cards) | DONE (SESSION 144) |
+| F4 | Knowledge preview on recipe forms (best-effort retrieval surface) | **NEXT (SESSION 144)** |
 | F5 | Asset lineage on composition status (Derived from / Used by) | Queued |
 | F6 | Knowledge citations on composition status (resolve chunk_ids → docs) | Queued |
 | F7 | Knowledge doc → compositions reverse panel | Queued |
