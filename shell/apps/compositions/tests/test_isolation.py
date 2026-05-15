@@ -83,6 +83,9 @@ ALLOWED_FILES = {
     # F6 citation tests seed compositions with
     # knowledge_chunk_ids to exercise the doc resolver.
     "apps/compositions/tests/test_f6_citations.py",
+    # F7 reverse-lookup tests seed compositions to verify
+    # the doc → compositions reverse-query path.
+    "apps/embeddings/tests/test_f7_compositions_reverse.py",
     # V6 — videos app shim tests construct Composition/Asset
     # rows directly to simulate terminal-state sync paths.
     "apps/videos/tests/test_v6_shim.py",

@@ -208,6 +208,69 @@ class KnowledgeDocumentViewSet(viewsets.ModelViewSet):
             "results": [_asdict(r) for r in results],
         })
 
+    # ---- compositions reverse (F7, workspace fabric arc) -
+
+    @action(detail=True, methods=["get"], url_path="compositions")
+    def compositions(self, request, *args, **kwargs):
+        """Compositions that drew on chunks from this doc.
+
+        Inverse of F6's citations panel — the doc-detail page
+        ``/workspace/knowledge/<id>`` consumes this to render
+        "Used in N compositions." Workspace-scoped via the
+        ViewSet's existing queryset filter.
+
+        Implementation: pulls the doc's chunk ids via the
+        sanctioned retrieval helper, then walks workspace
+        compositions whose ``knowledge_chunk_ids`` JSON list
+        intersects. Per-row chunk count surfaces how heavily
+        a composition leaned on this doc.
+
+        Returns ``{"compositions": [...]}`` ordered newest
+        first; cap at 100 for v1.
+        """
+        from apps.compositions.models import Composition
+        from apps.embeddings.retrieval import list_chunk_ids_for_document
+
+        doc = self.get_object()  # honors IsWorkspaceMember
+        doc_chunk_ids = set(list_chunk_ids_for_document(doc))
+        if not doc_chunk_ids:
+            return Response({"compositions": []})
+
+        # v1 — Python-side filter. For workspace sizes this is
+        # cheap (the workspace's composition count is small).
+        # When this gets slow, a Postgres-native
+        # ``knowledge_chunk_ids @> jsonb`` lookup is the upgrade.
+        candidates = (
+            Composition.objects.filter(workspace=doc.workspace)
+            .select_related("spokesperson")
+            .order_by("-created_at")
+            .only(
+                "id", "name", "template_kind", "status",
+                "created_at", "knowledge_chunk_ids",
+                "spokesperson",
+            )
+        )
+        matches: list[dict] = []
+        for comp in candidates:
+            used_ids = doc_chunk_ids.intersection(
+                {str(c) for c in (comp.knowledge_chunk_ids or [])}
+            )
+            if not used_ids:
+                continue
+            matches.append({
+                "composition_id": str(comp.id),
+                "composition_name": comp.name,
+                "template_kind": comp.template_kind,
+                "status": comp.status,
+                "created_at": comp.created_at.isoformat(),
+                "spokesperson_name": comp.spokesperson.name,
+                "chunk_count": len(used_ids),
+            })
+            if len(matches) >= 100:
+                break
+
+        return Response({"compositions": matches})
+
     # ---- knowledge preview (F4, workspace fabric arc) ---
 
     @action(detail=False, methods=["post"], url_path="preview")

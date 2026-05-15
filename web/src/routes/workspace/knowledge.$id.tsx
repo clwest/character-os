@@ -16,16 +16,18 @@
  * detail page (K5 panel); this view focuses on content audit.
  */
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { ChevronLeft, ExternalLink, Trash2 } from "lucide-react";
+import { ChevronLeft, ExternalLink, Trash2, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
   statusTone,
   useDeleteKnowledge,
+  useKnowledgeCompositions,
   useKnowledgeDocument,
   type DocumentStatus,
   type KnowledgeChunk,
   type KnowledgeDocument,
+  type KnowledgeUsedByItem,
 } from "@/lib/api/knowledge";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +45,10 @@ export function KnowledgeDocumentDetailRoute() {
     },
   });
   const del = useDeleteKnowledge(doc.data?.workspace);
+  // F7 — load the reverse composition list. Hook fires only
+  // when an id is available; the panel hides when the list
+  // is empty so unused docs don't dangle a section header.
+  const usedBy = useKnowledgeCompositions(id);
 
   if (doc.isLoading) {
     return (
@@ -112,7 +118,50 @@ export function KnowledgeDocumentDetailRoute() {
       </header>
 
       <ChunksSection chunks={data.chunks} status={data.status} />
+
+      {usedBy.data && usedBy.data.length > 0 && (
+        <UsedByCompositionsPanel items={usedBy.data} />
+      )}
     </div>
+  );
+}
+
+function UsedByCompositionsPanel({ items }: { items: KnowledgeUsedByItem[] }) {
+  return (
+    <section
+      className="flex flex-col gap-3 rounded-md border bg-card p-5 shadow-paper"
+      data-testid="knowledge-used-by-compositions"
+    >
+      <div className="flex items-center justify-between border-b pb-2">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-muted-foreground" />
+          <h2 className="font-display text-base tracking-tight">
+            Used by {items.length} composition{items.length === 1 ? "" : "s"}
+          </h2>
+        </div>
+      </div>
+      <ul className="flex flex-col gap-1.5">
+        {items.map((item) => (
+          <li key={item.composition_id}>
+            <Link
+              to={`/compositions/${item.composition_id}`}
+              data-testid={`knowledge-used-by-${item.composition_id}`}
+              className="flex items-baseline justify-between gap-3 rounded-sm border bg-muted/30 px-3 py-2 transition-colors hover:border-foreground"
+            >
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="truncate text-sm">{item.composition_name}</span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                  {item.template_kind} · {item.spokesperson_name}
+                </span>
+              </div>
+              <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                {item.chunk_count} chunk{item.chunk_count === 1 ? "" : "s"}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

@@ -166,6 +166,50 @@ export function useKnowledgeDocument(
   });
 }
 
+// ---- compositions reverse (F7, workspace fabric) -------
+
+const knowledgeUsedByItemSchema = z.object({
+  composition_id: z.string(),
+  composition_name: z.string(),
+  template_kind: z.string(),
+  status: z.enum([
+    "draft",
+    "planning",
+    "running",
+    "partial",
+    "completed",
+    "failed",
+  ]),
+  created_at: z.string(),
+  spokesperson_name: z.string(),
+  chunk_count: z.number().int(),
+});
+
+const knowledgeUsedByResponseSchema = z.object({
+  compositions: z.array(knowledgeUsedByItemSchema),
+});
+
+export type KnowledgeUsedByItem = z.infer<typeof knowledgeUsedByItemSchema>;
+
+export async function getKnowledgeCompositions(
+  id: string,
+): Promise<KnowledgeUsedByItem[]> {
+  return apiJson(
+    `/api/knowledge/${id}/compositions/`,
+    {},
+    (json) => knowledgeUsedByResponseSchema.parse(json).compositions,
+  );
+}
+
+export function useKnowledgeCompositions(id: string | undefined) {
+  return useQuery({
+    queryKey: ["knowledge", "compositions", id],
+    queryFn: () => getKnowledgeCompositions(id!),
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+}
+
 // ---- create ---------------------------------------------
 
 export interface CreateKnowledgePayload {

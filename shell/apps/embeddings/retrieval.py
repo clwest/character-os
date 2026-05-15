@@ -106,6 +106,24 @@ def resolve_chunk_ids_to_docs(
     ]
 
 
+def list_chunk_ids_for_document(document) -> list[str]:
+    """Return the list of active chunk ids belonging to a
+    KnowledgeDocument as strings.
+
+    Added in F7 (workspace fabric arc) so the "used in N
+    compositions" reverse panel on the doc detail page can
+    look up its chunks without importing the chunk model
+    directly — K0 contract rule 2. Only ids escape this
+    function; no chunk content.
+    """
+    return [
+        str(cid)
+        for cid in KnowledgeChunk.objects.filter(
+            document=document,
+        ).values_list("id", flat=True)
+    ]
+
+
 def count_chunks_for_workspace(workspace) -> int:
     """Return the total number of active chunks in a workspace.
 

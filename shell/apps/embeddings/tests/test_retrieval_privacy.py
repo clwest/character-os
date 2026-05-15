@@ -317,6 +317,9 @@ ALLOWED_FILES = {
     # F6 citation tests seed KnowledgeChunk rows to exercise
     # the chunk-id-to-doc resolver.
     "apps/compositions/tests/test_f6_citations.py",
+    # F7 reverse-lookup tests seed chunks to exercise the
+    # doc → compositions reverse endpoint.
+    "apps/embeddings/tests/test_f7_compositions_reverse.py",
 }
 
 # The pattern we actually care about: ``<Model>.objects`` —

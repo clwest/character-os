@@ -496,11 +496,43 @@ independently-shipping slices.
   covering empty list, single-doc count, multi-doc
   ordering, stale-id resilience, workspace isolation.
   431 backend tests total. SPA build green.
-- **F7 — Knowledge document → compositions reverse.**
-  `/workspace/knowledge/<id>` grows a "Used in N
-  compositions" panel that queries the inverse of F6's
-  data. The same data already exists; this is a SPA-only
-  slice.
+- **F7 — Knowledge document → compositions reverse.** ✓
+  SHIPPED SESSION 144 (commit TBD). Scope-lock said
+  "SPA-only" but the inverse query needed an endpoint —
+  new `@action` `GET /api/knowledge/<id>/compositions/`
+  on `KnowledgeDocumentViewSet`. Returns
+  `{compositions: [{composition_id, composition_name,
+  template_kind, status, spokesperson_name, created_at,
+  chunk_count}]}` ordered newest first, capped 100.
+  Implementation walks workspace compositions, intersects
+  each one's `knowledge_chunk_ids` set with the doc's
+  chunk ids (sourced via a new sanctioned
+  `list_chunk_ids_for_document` helper in
+  `apps/embeddings/retrieval.py` — K0 rule 2 stays
+  intact). Python-side filter for v1 dataset sizes; a
+  Postgres-native JSONB lookup is the upgrade once we
+  outgrow it.
+
+  SPA: new `useKnowledgeCompositions` hook +
+  `UsedByCompositionsPanel` rendered below the chunks
+  list on `/workspace/knowledge/:id`. Each row links to
+  `/compositions/<id>` and shows the spokesperson +
+  chunk_count from this doc. Panel hides when the doc
+  has no consumers.
+
+  Together with F6, the F7 panel closes the round-trip:
+  a composition's status page shows which docs informed
+  it (F6); each doc's detail page shows which renders
+  drew from it (F7). Operator can navigate the
+  knowledge ↔ composition graph in either direction
+  without an audit query.
+
+  +7 backend tests
+  (`apps/embeddings/tests/test_f7_compositions_reverse.py`)
+  covering auth gate, cross-workspace 404, unused-doc
+  empty list, single-consumer surface, unrelated-comp
+  exclusion, multi-consumer dedup, workspace
+  isolation. 438 backend tests total. SPA build green.
 - **F8 — Onboarding walkthrough.** A guided "make your
   first video" tour for fresh workspaces. Touches three
   sections in order: create-spokesperson wizard → add a
