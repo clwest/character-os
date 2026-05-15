@@ -195,16 +195,56 @@ Update this section when a phase completes.
     `## Recent Conversations` section between `## About`
     and `## Knowledge` (drops first under the 40k cap
     per scope-lock §R4 priority). Sixth `*_FORCE_MOCK`
-    flag — `REALTIME_MEMORY_FORCE_MOCK`. 14 new tests
-    (`apps/realtime/tests/test_r6_session_memory.py`).
+    flag — `REALTIME_MEMORY_FORCE_MOCK`. 14 new tests.
     Q-r-7 resolved: returning-operator threshold = 1.
-    No new persistence, no migrations, no new Celery
-    tasks — pure composition slice. Test totals after
-    SESSION 148: **574 backend tests**.
 
-    R7 (tool catalog) is the next slice; R8 (SPA) is
-    the operator-visible moment. R9 (cost governance)
-    + R10 (provider hardening) are smaller follow-ups.
+    **R7 sub-sliced + R7.0 shipped SESSION 149**
+    (`646c492`) — tool dispatch foundation. R7 was
+    scope-locked SESSION 142 as one slice but proved
+    too large under the SESSION 148 one-slice-per-
+    session calibration. Sub-sliced into R7.0/R7.1/R7.2
+    (foundation / sync tools / async tools), mirroring
+    V15.0-V15.4. R7.0 ships:
+    * `apps/realtime/tools/` registry with
+      `register_tool(name, *, description,
+      cost_micros, workspace_scoped, is_async)`
+      decorator + `ToolSpec` frozen dataclass +
+      `get_tool` / `list_tools` /
+      `get_workspace_tools` accessors.
+    * `apps/realtime/tools/show_videos_tab.py` —
+      first tool. UI-only nav event, $0 cost.
+    * `apps/realtime/dispatch.py` —
+      `dispatch_tool(session, tool_name, args, *,
+      user)` + `approve_invocation` +
+      `reject_invocation` + `DispatchResult` +
+      `DispatchError`. Workspace-scope check (rule 6),
+      cost-vs-threshold gate, audit-row creation,
+      inline-execute vs awaiting-approval branch.
+      Threshold via `getattr(settings,
+      'REALTIME_TOOL_APPROVAL_THRESHOLD_MICROS',
+      50_000)`.
+    * Model: `AWAITING_APPROVAL` status +
+      `workspace` property on `RealtimeToolInvocation`.
+      Migration `0002_r7_awaiting_approval_status`
+      (TextChoices metadata; no DDL change).
+    * REST: `POST /api/realtime_sessions/<id>/invoke_tool/`
+      action + new `RealtimeToolInvocationViewSet`
+      at `/api/realtime_tool_invocations/` with
+      retrieve + list (filterable by `?session=`) +
+      approve + reject.
+    * 22 tests covering registry, dispatch, approval
+      flow, and REST surface. Q-r-2 (tool rejection
+      narration) resolved server-side; Q-r-4 (per-
+      workspace tool catalog overrides) — seam in
+      place for R7.1.
+
+    Test totals after SESSION 149: **596 backend
+    tests**. Migration count: 49 → 50.
+
+    R7.1 (sync tools) is the next slice; R7.2 (async
+    tools via Celery) + R8 (SPA — operator-visible
+    moment) + R9 (cost governance) + R10 (provider
+    hardening) remain.
   - **Workspace fabric arc (F0-F10). COMPLETE.** All 10
     slices shipped SESSION 144
     (`docs/design/WORKSPACE_FABRIC_V1.md`). 9 contract
