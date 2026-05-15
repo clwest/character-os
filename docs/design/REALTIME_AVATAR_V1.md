@@ -619,7 +619,9 @@ land independently. Each slice is ~1-2 sessions.
 | **R4** ✓ | Knowledge → Runway document bridge: `compose_realtime_document` (uses K2's `retrieve_for_spokesperson` anchored on `business_brief`), media-engine `POST /internal/realtime_documents/`, Runway `create_document` + `attach_documents` implemented, broker create flow now composes → pushes → persists `provider_document_id` + `knowledge_chunk_ids` + passes `document_ids` into session create. Ships SESSION 146 (`6521451`). | R3, K1-K5 |
 | **R5** ✓ | Transcript capture: Runway provider `fetch_transcript` impl, `GET /internal/realtime_sessions/<id>/transcript/`, `apps.realtime.tasks.fetch_transcript_for_session` Celery task fires on broker end, persists `Asset(TRANSCRIPT)` + wires `RealtimeSession.transcript_asset`. Idempotent (replaces stale Asset on rerun). Ships SESSION 146 (`885508d`). | R3 |
 | **R6** ✓ | Cross-session memory: `character_os.realtime_memory.compose_session_memory` summarizes the last 3 ENDED sessions' `Asset(TRANSCRIPT)` rows via gpt-5-mini Responses API; injected as a `## Recent Conversations` section between `## About` and `## Knowledge` in the R4 document body; drops first under the 40k budget per scope-lock priority; sixth `*_FORCE_MOCK` flag (`REALTIME_MEMORY_FORCE_MOCK`). +14 tests. Ships SESSION 148 (`dbb22e0`). | R5, K8 (parallel) |
-| **R7** | Tool catalog (6 tools, workspace-scoped) + `RealtimeToolInvocation` audit trail + approval-threshold modal | R3, V (for `render_video`) |
+| **R7.0** ✓ | Tool catalog foundation: `apps/realtime/tools/` registry with `register_tool` decorator + `ToolSpec` shape, `apps/realtime/dispatch.py` (`dispatch_tool` + `approve_invocation` + `reject_invocation` + `DispatchResult`), `RealtimeToolInvocation.AWAITING_APPROVAL` status (migration `0002_r7_awaiting_approval_status`), `POST /api/realtime_sessions/<id>/invoke_tool/` action, new `RealtimeToolInvocationViewSet` (retrieve + list + approve + reject at `/api/realtime_tool_invocations/`), workspace property on the invocation model so shared permission resolver finds it, `REALTIME_TOOL_APPROVAL_THRESHOLD_MICROS=50_000` ($0.05) settings fallback. First tool — `show_videos_tab` (UI-only nav event, $0 cost). +22 tests. Ships SESSION 149. | R3 |
+| **R7.1** | Three sync tools: `recall_knowledge` (RAG against K2 via `retrieve_for_spokesperson`), `recall_recent_conversations` (read prior `Asset(TRANSCRIPT)` for this spokesperson), `handoff_to_spokesperson` (cross-spokesperson event with same-workspace gate). Tier-aware filtering lands in `get_workspace_tools(workspace)` here (resolves Q-r-4). | R7.0, K2, R5 |
+| **R7.2** | Two async tools via Celery: `render_video` (fires a composition starter — the threshold-crossing tool that exercises the approval modal end-to-end), `attach_memory` (mid-session memory commit — pulls partial transcript, composes via R6, pushes as fresh Runway document). Async dispatch path (queued state) becomes load-bearing here. | R7.0, V starters, R6 |
 | **R8** | SPA `/spokespeople/:id/talk` route + `@runwayml/avatars-react` integration + cost forecasting UI + tool-approval modal | R3, R7 |
 | **R9** | Cost governance: per-workspace minutes budget, tier-limit enforcement at session-create, live cost ticker | R2, billing |
 | **R10** | Multi-provider abstraction hardening (no new providers shipped; just ensure the registry pattern holds — drift verifier test) | R2 |
@@ -816,6 +818,117 @@ tests cannot fail.
   handles it) — the hard parts are key brokering,
   knowledge composition, cost governance, cross-session
   memory, and workspace-scoped tools.
+
+- 2026-05-15 (SESSION 149) — R7 split into three
+  sub-slices and **R7.0 SHIPPED**. The original R7 row
+  ("Tool catalog (6 tools, workspace-scoped) +
+  RealtimeToolInvocation audit + approval-threshold
+  modal") was too big for one session per the
+  one-slice-per-session discipline calibrated in
+  SESSION 148. Sub-slicing pattern matches V15.0-V15.4
+  (foundation → sync tools → async tools). R7.0
+  ships the foundation:
+
+  * New `apps/realtime/tools/__init__.py` — registry
+    with `register_tool(name, *, description,
+    cost_micros, workspace_scoped, is_async)`
+    decorator, `ToolSpec` frozen-slotted dataclass,
+    `get_tool` / `list_tools` / `get_workspace_tools`
+    accessors. The `get_workspace_tools(workspace)`
+    function is the seam R7.1 will fill with
+    tier-based filtering (Q-r-4).
+  * New `apps/realtime/tools/show_videos_tab.py` —
+    first tool. UI-only nav event, $0 cost,
+    workspace_scoped=False. Returns
+    `{event: "show_videos_tab", spokesperson_id: ...}`
+    payload the SPA will dispatch on.
+  * New `apps/realtime/dispatch.py` —
+    `dispatch_tool(session, tool_name, args, *, user)`
+    resolves from the registry, gates on workspace
+    scope (per contract rule 6), compares cost
+    against the v1 approval threshold, creates the
+    `RealtimeToolInvocation` audit row, executes
+    inline or returns `awaiting_approval`. Threshold
+    reads via `getattr(settings,
+    'REALTIME_TOOL_APPROVAL_THRESHOLD_MICROS',
+    50_000)` so tests can `override_settings` it.
+    Executor exceptions are caught + recorded as
+    FAILED so the SPA never sees a 5xx from this
+    surface.
+  * `approve_invocation` + `reject_invocation` —
+    operator approval gate. Idempotent on already-
+    resolved invocations. Reject records the
+    optional `reason` on `error_message` so the SPA
+    can narrate it back via the WebRTC data channel
+    (resolves Q-r-2 server-side; SPA wiring lands
+    in R8).
+  * `apps/realtime/models.py` — added
+    `AWAITING_APPROVAL = "awaiting_approval"` to
+    `RealtimeToolInvocation.Status`. Migration
+    `0002_r7_awaiting_approval_status` (TextChoices
+    metadata only; no DDL change). Migration count:
+    49 → 50. Also added a `workspace` property to
+    `RealtimeToolInvocation` so the shared
+    `IsWorkspaceMember._workspace_of` resolver finds
+    `session.workspace` without traversing an extra
+    FK.
+  * `apps/realtime/views.py` — new `invoke_tool`
+    action on `RealtimeSessionViewSet` + new
+    `RealtimeToolInvocationViewSet` with retrieve +
+    list (filterable by `?session=<uuid>`) +
+    approve + reject actions. Workspace-scoped via
+    `session__workspace__memberships__user=user`
+    queryset filter.
+  * `apps/realtime/urls.py` — registers the
+    invocation viewset at
+    `/api/realtime_tool_invocations/`.
+  * `_serialize_dispatch_result` helper translates
+    `DispatchResult` → wire JSON; `result` /
+    `error_message` / `reason` fields are
+    conditionally omitted based on state.
+
+  Contract rule alignment:
+
+  * Rule 6 (workspace-scoped tools) — preserved:
+    every workspace_scoped tool dispatches under
+    the session's workspace anchor; cross-workspace
+    tool invocations are structurally impossible at
+    the view-layer (queryset filter on the session)
+    + the audit row's `clean()` rejects
+    cross-workspace `produced_asset` /
+    `produced_composition` refs (existing R1 guard).
+  * Rule 9 (mock mode) — preserved: tools call
+    their respective `*_FORCE_MOCK` flags
+    internally. The dispatcher is provider-agnostic.
+
+  22 new tests in
+  `apps/realtime/tests/test_r7_dispatch.py` covering
+  registry (3), `get_workspace_tools` shape, dispatch
+  Python-level paths (5: unknown tool, inline
+  execute, above-threshold, executor failure, args
+  persistence), approval flow (4: execute deferred,
+  idempotent, after-deregister, reject + reason +
+  idempotent), and REST surface (8: inline execute,
+  above-threshold 202, unknown tool 400,
+  cross-workspace 404, approve, reject, list-by-
+  session, list workspace-scoped).
+
+  Two `ALLOWED_FILES` whitelist additions on
+  `apps/realtime/tests/test_isolation.py` — added
+  `apps/realtime/tests/test_r7_dispatch.py` (tests
+  seed sessions + create invocation rows) and
+  `apps/realtime/dispatch.py` (sanctioned writer
+  for the audit row — every `dispatch_tool` call
+  creates one, workspace-anchored via the session
+  FK).
+
+  Test totals: Django 574 → 596 (+22). One new
+  migration. Sixth `*_FORCE_MOCK` flag was added by
+  R6; R7.0 doesn't add a seventh (no force-mock
+  flag needed for dispatch — tools handle their own
+  mock state).
+
+  R7.0 ships SESSION 149.
 
 - 2026-05-15 (SESSION 148) — R6 SHIPPED. New
   `shell/character_os/realtime_memory.py` implements

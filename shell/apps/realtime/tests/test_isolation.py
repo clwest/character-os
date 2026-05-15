@@ -56,6 +56,15 @@ ALLOWED_FILES = {
     # transcript_asset attached so the memory composer can
     # read them at compose time.
     "apps/realtime/tests/test_r6_session_memory.py",
+    # R7.0 dispatch tests seed RealtimeSession rows + create
+    # RealtimeToolInvocation rows directly to exercise the
+    # dispatch / approval / rejection flows.
+    "apps/realtime/tests/test_r7_dispatch.py",
+    # R7.0 dispatch module — sanctioned writer for
+    # RealtimeToolInvocation rows (creates the audit row
+    # on every dispatch_tool call; workspace-scoped via the
+    # session FK at view-layer).
+    "apps/realtime/dispatch.py",
 }
 
 

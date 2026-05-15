@@ -206,9 +206,10 @@ class RealtimeToolInvocation(models.Model):
 
     class Status(models.TextChoices):
         INVOKED = "invoked", "Invoked"
+        AWAITING_APPROVAL = "awaiting_approval", "Awaiting Approval"
         SUCCEEDED = "succeeded", "Succeeded"
         FAILED = "failed", "Failed"
-        REJECTED = "rejected", "Rejected (cross-workspace)"
+        REJECTED = "rejected", "Rejected"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
@@ -260,6 +261,17 @@ class RealtimeToolInvocation(models.Model):
 
     def __str__(self) -> str:
         return f"{self.tool_name}@{self.session_id}:{self.status}"
+
+    @property
+    def workspace(self):
+        """Surface the session's workspace as a direct
+        attribute so shared workspace-scoped permission
+        resolvers (``character_os.permissions._workspace_of``)
+        find it without traversing an extra FK. R7 introduces
+        this when the invocation viewset starts using
+        ``IsWorkspaceMember``.
+        """
+        return self.session.workspace
 
     def clean(self) -> None:
         """Reject produced_asset / produced_composition refs

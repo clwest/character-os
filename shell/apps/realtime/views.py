@@ -48,10 +48,17 @@ from character_os.clients.media_engine import (
 )
 from character_os.permissions import IsWorkspaceMember
 
-from .models import RealtimeSession
+from .dispatch import (
+    DispatchError,
+    approve_invocation,
+    dispatch_tool,
+    reject_invocation,
+)
+from .models import RealtimeSession, RealtimeToolInvocation
 from .serializers import (
     RealtimeSessionSerializer,
     RealtimeSessionWithKeySerializer,
+    RealtimeToolInvocationSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -283,6 +290,59 @@ class RealtimeSessionViewSet(viewsets.GenericViewSet):
         self._end_session(session)
         return Response(RealtimeSessionSerializer(session).data)
 
+    # ---- TOOL DISPATCH (R7.0) -----------------------------------
+
+    @action(detail=True, methods=["post"], url_path="invoke_tool")
+    def invoke_tool(self, request, pk=None):
+        """Dispatch a tool the avatar's LLM invoked.
+
+        The SPA receives a tool-invocation event from the
+        Runway SDK's `onClientEvent` callback, POSTs here
+        with `{tool_name, args}`. The dispatcher resolves
+        the tool in the registry, gates on workspace scope
+        + cost threshold, and either executes inline or
+        returns ``awaiting_approval``.
+
+        Response shapes (always JSON, never 5xx for
+        executor failures — the dispatcher catches +
+        records):
+
+        * Executed inline → 200 with `state=succeeded` +
+          `result`.
+        * Over threshold → 202 with `state=awaiting_approval`
+          + `invocation_id` + `cost_micros` + `reason`.
+        * Executor raised → 200 with `state=failed` +
+          `error_message`.
+        * Unknown tool / workspace mismatch → 400 / 403.
+        """
+        session = self._get_session_or_404(pk)
+        body = request.data or {}
+        tool_name = (body.get("tool_name") or "").strip()
+        if not tool_name:
+            raise ValidationError({"tool_name": "required"})
+        args = body.get("args") or {}
+        if not isinstance(args, dict):
+            raise ValidationError({"args": "must be an object"})
+
+        try:
+            result = dispatch_tool(
+                session, tool_name, args, user=request.user,
+            )
+        except DispatchError as exc:
+            return Response(
+                {"detail": str(exc), "tool_name": tool_name},
+                status=exc.http_status,
+            )
+
+        return Response(
+            _serialize_dispatch_result(result),
+            status=(
+                status.HTTP_202_ACCEPTED
+                if result.state == "awaiting_approval"
+                else status.HTTP_200_OK
+            ),
+        )
+
     # ---- helpers -----------------------------------------------
 
     def _get_session_or_404(self, pk) -> RealtimeSession:
@@ -392,3 +452,108 @@ def _parse_iso(value):
         return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except (ValueError, TypeError):
         return None
+
+
+# ---- Tool invocation viewset (R7.0) -------------------------------
+
+
+def _serialize_dispatch_result(result) -> dict:
+    """Serialize ``DispatchResult`` into the JSON shape the
+    SPA expects. ``result`` (tool-specific payload) is
+    omitted when None so awaiting-approval responses stay
+    tight."""
+    out = {
+        "state": result.state,
+        "invocation_id": result.invocation_id,
+        "tool_name": result.tool_name,
+        "cost_micros": result.cost_micros,
+    }
+    if result.result is not None:
+        out["result"] = result.result
+    if result.error_message:
+        out["error_message"] = result.error_message
+    if result.reason:
+        out["reason"] = result.reason
+    return out
+
+
+class RealtimeToolInvocationViewSet(viewsets.GenericViewSet):
+    """Audit + approval-gate surface for
+    ``RealtimeToolInvocation`` rows.
+
+    Workspace-scoped via the session FK: the queryset
+    filters by the requesting user's workspace
+    memberships, and `RealtimeToolInvocation.workspace`
+    (the property added in R7.0) resolves the indirect FK
+    for the shared `IsWorkspaceMember` permission.
+
+    Actions:
+    * ``list`` — recent invocations, filterable by
+      ``?session=<uuid>``.
+    * ``retrieve`` — single invocation detail.
+    * ``approve`` — operator approves a deferred tool;
+      executes it now + returns the dispatch result.
+    * ``reject`` — operator declines; records the optional
+      ``reason``.
+    """
+
+    queryset = RealtimeToolInvocation.objects.all()
+    serializer_class = RealtimeToolInvocationSerializer
+    permission_classes = [IsAuthenticated, IsWorkspaceMember]
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return RealtimeToolInvocation.objects.none()
+        return (
+            RealtimeToolInvocation.objects.filter(
+                session__workspace__memberships__user=user,
+            )
+            .select_related("session", "session__workspace")
+            .distinct()
+        )
+
+    def list(self, request):
+        qs = self.get_queryset()
+        session_id = request.query_params.get("session")
+        if session_id:
+            qs = qs.filter(session_id=session_id)
+        # Sensible default page — same shape as the session
+        # list cap. SPA can paginate when this gets crowded.
+        return Response(
+            RealtimeToolInvocationSerializer(qs[:100], many=True).data,
+        )
+
+    def retrieve(self, request, pk=None):
+        invocation = self._get_invocation_or_404(pk)
+        return Response(
+            RealtimeToolInvocationSerializer(invocation).data,
+        )
+
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        """Operator approved a deferred tool — execute it.
+        Idempotent: already-resolved invocations return
+        their current state."""
+        invocation = self._get_invocation_or_404(pk)
+        result = approve_invocation(invocation)
+        return Response(_serialize_dispatch_result(result))
+
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        """Operator declined a deferred tool. Optional
+        ``reason`` lands on the audit row's error_message
+        so the SPA can narrate it back through the WebRTC
+        data channel."""
+        invocation = self._get_invocation_or_404(pk)
+        reason = (request.data or {}).get("reason", "")
+        result = reject_invocation(invocation, reason=reason)
+        return Response(_serialize_dispatch_result(result))
+
+    def _get_invocation_or_404(self, pk) -> RealtimeToolInvocation:
+        try:
+            invocation = self.get_queryset().get(pk=pk)
+        except RealtimeToolInvocation.DoesNotExist:
+            raise NotFound("Realtime tool invocation not found")
+        self.check_object_permissions(self.request, invocation)
+        return invocation
