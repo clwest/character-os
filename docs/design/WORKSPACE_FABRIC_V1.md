@@ -497,7 +497,7 @@ independently-shipping slices.
   ordering, stale-id resilience, workspace isolation.
   431 backend tests total. SPA build green.
 - **F7 — Knowledge document → compositions reverse.** ✓
-  SHIPPED SESSION 144 (commit TBD). Scope-lock said
+  SHIPPED SESSION 144 (`0b6be9d`). Scope-lock said
   "SPA-only" but the inverse query needed an endpoint —
   new `@action` `GET /api/knowledge/<id>/compositions/`
   on `KnowledgeDocumentViewSet`. Returns
