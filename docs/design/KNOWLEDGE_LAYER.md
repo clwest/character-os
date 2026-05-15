@@ -668,7 +668,22 @@ slices that can land independently. Recommended order:
   fetch+extract. Serper search tab on the workspace upload
   surface. Both flow into the same Celery embedding task.
 - **K8 — `ConversationMessage` + `ConversationEmbedding`
-  models + `retrieve_for_thread()`.** Schema only. No SPA.
+  models + `retrieve_for_thread()`.** ✓ SHIPPED. Schema +
+  retrieval landed during K2 (SESSION 138); the
+  message-embedding pipeline completion shipped SESSION
+  145 (commit TBD) — new
+  `apps/conversations/tasks.py:embed_message` Celery task
+  + post-save signal in `apps/conversations/signals.py`.
+  Conversation chunk size locked at **500 chars / 0
+  overlap** (Q-k-1 resolved). Both USER and SPOKESPERSON
+  roles trigger embedding so the LLM can rebuild context
+  across both sides on the next turn. +11 backend tests
+  (`apps/conversations/tests/test_embed_message.py`)
+  covering short/long message chunking, empty-content
+  no-op, idempotency, signal fires per-role, no refire
+  on update, broker-down resilience, end-to-end
+  `retrieve_for_thread` integration, cross-thread
+  isolation.
 - **K9 — Conversation REST + SPA.** `POST messages`,
   thread view, spokesperson detail "Conversations" tab.
 - **K10 — Onboarding seed.** `seed_workspace_knowledge`

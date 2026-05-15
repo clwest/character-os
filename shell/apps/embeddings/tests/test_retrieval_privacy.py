@@ -320,6 +320,14 @@ ALLOWED_FILES = {
     # F7 reverse-lookup tests seed chunks to exercise the
     # doc → compositions reverse endpoint.
     "apps/embeddings/tests/test_f7_compositions_reverse.py",
+    # K8 message-embedding tests verify the pipeline via
+    # the read-side queries — counting ConversationEmbedding
+    # rows after the signal fires.
+    "apps/conversations/tests/test_embed_message.py",
+    # K8 task itself writes ConversationEmbedding rows — the
+    # sanctioned-writer side of the K0 contract (mirrors
+    # `embed_document`).
+    "apps/conversations/tasks.py",
 }
 
 # The pattern we actually care about: ``<Model>.objects`` —

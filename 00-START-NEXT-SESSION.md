@@ -62,11 +62,13 @@ Full handoff at
 ### What's next (SESSION 145) — pick one
 
 **Option A — K8/K9 conversation pipeline (recommended).**
-Heaviest remaining capability. K8 schema (mirrors K2's
-shape), K9 REST + SPA. Unlocks the
-ConversationThread surface that's existed in models since
-SESSION 117 but has no UI. After K9, every spokesperson
-exposes "talk to me" as a top-level capability.
+Heaviest remaining capability. **K8 shipped SESSION 145** —
+`embed_message` Celery task + post-save signal landed; +11
+tests. K9 (REST + SPA) is the next slice — POST messages,
+thread view, spokesperson detail "Conversations" tab.
+Unlocks the ConversationThread surface that's existed in
+models since SESSION 117 but has no UI. After K9, every
+spokesperson exposes "talk to me" as a top-level capability.
 
 **Option B — R1+ realtime avatar.** WebRTC two-way
 conversations. Scope-locked SESSION 142
