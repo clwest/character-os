@@ -2,9 +2,9 @@
 title: "Character OS — What It Actually Is"
 status: populated
 generated: 2026-05-13
-last_revised: 2026-05-15 (SESSION 155)
+last_revised: 2026-05-15 (SESSION 158)
 companion_doc: CHARACTER_OS_INVENTORY.md
-covers_sessions: "106-155"
+covers_sessions: "106-158"
 ---
 
 # Character OS — What It Actually Is
@@ -259,7 +259,7 @@ verifier that could keep all three in sync automatically.
 
 ---
 
-## Phase 4 — four parallel arcs (three complete, R-arc operator-visible)
+## Phase 4 — four parallel arcs (three complete, R-arc complete, first marketing video shipped)
 
 After Phase 3 closed the wizard arc (W1-W11) and brought the
 cast live in real-mode (SESSION 136), Phase 4 opened with
@@ -268,14 +268,15 @@ mid-flight. Each is scope-locked under its own design doc,
 each has a slice plan, each adds capability without forcing
 the others to advance in lockstep.
 
-**State as of SESSION 155**:
+**State as of SESSION 158**: all four arcs complete +
+first end-to-end real-Runway marketing video shipped.
 
 | Arc | Status | Scope lock |
 |---|---|---|
 | Knowledge layer (K0-K10) | K1-K9 done; K10 → F8.1 queued | `docs/design/KNOWLEDGE_LAYER.md` |
 | Video composition (V0-V15) | **COMPLETE** (SESSIONS 142-144) | `docs/design/VIDEO_COMPOSITION_V1.md` |
 | Workspace fabric (F0-F10) | **COMPLETE** (SESSION 144) | `docs/design/WORKSPACE_FABRIC_V1.md` |
-| Realtime avatar (R0-R10) | R1-R8 done (operator-visible product complete); R9 + R10 operational-polish | `docs/design/REALTIME_AVATAR_V1.md` |
+| Realtime avatar (R0-R10) | **COMPLETE** (SESSIONS 146-157); first marketing video shipped against real Runway SESSION 158 | `docs/design/REALTIME_AVATAR_V1.md` |
 
 All four arcs share one architectural shape — workspace-
 anchored data, structural cross-workspace rejection, mock-mode
@@ -495,10 +496,29 @@ decision → operator verbally continues. Audit row's
 `error_message` captures the operator's reason for
 retrospective review.
 
-R9 (cost governance backend — upgrades hardcoded
-forecast / ticker constants with per-provider
-micros-per-second lookups) + R10 (multi-provider
-drift verifier test) remain as operational polish.
+**R9 + R10 shipped SESSIONS 156-157** — R-arc closes.
+R9 wired the cost governance backend (per-provider
+rate table + per-workspace minutes budget alongside
+R3's session-count gate + cost_estimate/actual stamps
+on session create + end). R10 shipped a 9-test
+multi-provider drift verifier — AST analysis catches
+bare `raise NotImplementedError` stubs across the
+provider registry; package-directory enumeration
+catches unregistered new providers.
+
+**SESSION 158 — first real-Runway marketing video**.
+Operator-mediated validation: exercised the full
+Phase 4 stack end-to-end (K2 retrieval → K6
+synthesis → V3 talking_head → V2 Celery → Runway
+`/v1/avatar_videos` → Asset persistence). Two renders,
+$0.50 total Runway spend, one publishable cut
+(Sasha + `clara` voice). Operational calibration
+landed: avatar voice × lip-sync quality is a real
+operator-visible axis — `drew` voice produced dental
+artifacts on Donny's avatar bake; `clara` voice on
+Sasha's bake rendered clean. R9's hardcoded
+$0.08/min placeholder confirmed accurate within
+~5x of real spend.
 
 ---
 

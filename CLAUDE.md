@@ -526,6 +526,18 @@ Update this section when a phase completes.
     Operator-visible product complete + cost
     governance complete + provider abstraction
     drift-verified.
+
+    **SESSION 158 — first real-Runway marketing video
+    shipped.** Operator-mediated validation:
+    exercised the full Phase 4 stack end-to-end
+    (K2 → K6 → V3 → V2 → Runway → Asset persistence)
+    against real keys. Two renders, $0.50 spend, one
+    publishable cut (Sasha + `clara`). Operational
+    calibration: avatar voice × lip-sync quality
+    varies — `drew` produces dental artifacts on
+    Donny's bake; `clara` clean on Sasha's. R9's
+    hardcoded $0.08/min placeholder confirmed
+    accurate within ~5x of real spend.
   - **Workspace fabric arc (F0-F10). COMPLETE.** All 10
     slices shipped SESSION 144
     (`docs/design/WORKSPACE_FABRIC_V1.md`). 9 contract
