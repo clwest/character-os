@@ -147,13 +147,10 @@ function PrimaryAction() {
           Get a video ad.
         </p>
       </div>
-      <Button
-        size="lg"
-        disabled
-        title="Coming in the next slice (S-12)"
-        className="self-start md:self-auto"
-      >
-        Make a video
+      <Button asChild size="lg" className="self-start md:self-auto">
+        <Link to="/recipes" data-testid="make-video-cta">
+          Make a video
+        </Link>
       </Button>
     </section>
   );

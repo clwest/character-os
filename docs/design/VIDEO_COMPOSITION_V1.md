@@ -662,7 +662,7 @@ is ~1-2 sessions.
 | **V13** ✓ | `generate_image` primitive (Runway `gen4_image`) + `storyboard_ad` starter (7-step Hook/Action/Payoff with reference-image coherence chain). `storyboard_voiced` deferred — requires an `audio_extract` primitive scheduled for V14+. Ships SESSION 143 (`43be57b`). | "Additional video kinds — cinematic" (storyboard arc) |
 | **V14** ✓ | `dialogue_scene` starter (ports hackathon's `dialogue_service.py`) + `audio_extract` primitive (unlocks the deferred `storyboard_voiced`). Ships SESSION 143 (`6f61e4b`). | "Additional video kinds — dialogue" |
 | **V15.0** ✓ | Backend foundation for the SPA gallery — `apps/compositions/recipes.py` registry of 17 recipe metadata entries + REST surface (`GET /api/recipes/`, `POST /api/compositions/`, `GET /api/compositions/{id}/`). 24 V15.0 backend tests. Ships SESSION 144 (`1781cb1`). | "W12 — Legacy form retirement" |
-| **V15.1** | SPA gallery shell + first three live recipes (`talking_head`, `cinematic_visual`, `talking_head_polished`); other 14 cards "coming soon". Dashboard CTA flips to `/recipes`. | — |
+| **V15.1** ✓ | SPA gallery shell + first three live recipes (`talking_head`, `cinematic_visual`, `talking_head_polished`); other 14 cards "coming soon". Dashboard CTA flips to `/recipes`. New routes: `/recipes`, `/recipes/:kind`, `/compositions/:id`. Ships SESSION 144 (commit TBD). | — |
 | **V15.2** | Layout + format family forms live (7 recipes). | — |
 | **V15.3** | Voice + style + long-form + storyboard + recut family forms live (6 recipes). | — |
 | **V15.4** | Dialogue (`dialogue_scene`) form + ship the `storyboard_voiced` bonus recipe (V14 audio_extract unblocks it) + soft-retire legacy single-form UI + V-arc closure. | — |
@@ -1067,3 +1067,47 @@ the tests cannot fail.
   missing required field / unauthenticated. 382 backend
   tests total. Media-engine routes unchanged (V15 is
   shell-only).
+
+- 2026-05-14 (SESSION 144, V15.1, commit TBD) — SPA
+  gallery shell + three live recipes. Operator can now
+  drive `talking_head`, `cinematic_visual`, and
+  `talking_head_polished` end-to-end from the UI (no more
+  Postman / curl). The other 14 recipes show as "coming
+  soon" cards in the gallery and lead to a placeholder
+  detail page (forms land V15.2-V15.4).
+
+  New SPA routes (web/src/App.tsx):
+    /recipes              — recipe gallery (all 17 cards)
+    /recipes/:kind        — per-recipe form (3 live;
+                            placeholder for the other 14)
+    /compositions/:id     — status/poll page mirroring
+                            the /videos/:id pattern (2s
+                            refetch until terminal)
+
+  Recipe gallery cards group by family
+  (talking_head / cinematic / layout / polish / voice /
+  style / creative / dialogue), each family heading +
+  per-card sparkle/lock icons. Live cards open the form;
+  locked cards show a "Coming soon" panel.
+
+  Form rendering is metadata-driven — the per-recipe page
+  reads `GET /api/recipes/<kind>/`, walks the fields list,
+  and renders one of 7 input types
+  (text/textarea/checkbox/select/number/spokesperson_picker;
+  asset_picker + dialogue_lines remain placeholders for
+  V15.2 / V15.4). Submit posts to
+  `POST /api/compositions/`, then navigates to
+  `/compositions/:id`.
+
+  Dashboard "Make a video" CTA flipped from disabled to a
+  link to `/recipes` (was "Coming in the next slice
+  (S-12)" — that slice is V15.1).
+
+  API client: web/src/lib/api/recipes.ts is the single
+  module — recipe schema + composition schema + 4 hooks
+  (useRecipes, useRecipe, useCreateComposition,
+  useComposition with 2s polling until terminal status).
+
+  No SPA tests in V15.1 — playwright e2e specs land at
+  V15.4 after all 17 recipes have live forms. tsc + vite
+  build green; 382 backend tests still pass.

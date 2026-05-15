@@ -9,6 +9,9 @@ import { MakeVideoRoute } from "@/routes/spokespeople/render";
 import { VideoStatusRoute } from "@/routes/videos/$id";
 import { WorkspaceKnowledgeRoute } from "@/routes/workspace/knowledge";
 import { KnowledgeDocumentDetailRoute } from "@/routes/workspace/knowledge.$id";
+import { RecipeGalleryRoute } from "@/routes/recipes";
+import { RecipeFormRoute } from "@/routes/recipes/$kind";
+import { CompositionStatusRoute } from "@/routes/compositions/$id";
 import { Layout } from "@/routes/_layout";
 
 export function App() {
@@ -74,6 +77,30 @@ export function App() {
             element={
               <RequireAuth>
                 <KnowledgeDocumentDetailRoute />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/recipes"
+            element={
+              <RequireAuth>
+                <RecipeGalleryRoute />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/recipes/:kind"
+            element={
+              <RequireAuth>
+                <RecipeFormRoute />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/compositions/:id"
+            element={
+              <RequireAuth>
+                <CompositionStatusRoute />
               </RequireAuth>
             }
           />

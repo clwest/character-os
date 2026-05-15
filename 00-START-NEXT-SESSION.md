@@ -89,8 +89,8 @@ contract.
 | V13 | `generate_image` + `storyboard_ad` starter (storyboard_voiced deferred to V14) | DONE (SESSION 143) |
 | V14 | `dialogue_scene` starter + `audio_extract` primitive (unblocks deferred storyboard_voiced) | DONE (SESSION 143) |
 | V15.0 | Backend foundation: recipe registry + REST surface (`/api/recipes/`, `/api/compositions/`) | DONE (SESSION 144) |
-| V15.1 | SPA gallery shell + 3 simplest recipes live | **NEXT (SESSION 144)** |
-| V15.2 | Layout + format family forms live (7 recipes) | Queued |
+| V15.1 | SPA gallery shell + 3 simplest recipes live (`talking_head`, `cinematic_visual`, `talking_head_polished`) | DONE (SESSION 144) |
+| V15.2 | Layout + format family forms live (7 recipes) | **NEXT (SESSION 144)** |
 | V15.3 | Voice + style + long-form + storyboard + recut forms live (6 recipes) | Queued |
 | V15.4 | Dialogue form + storyboard_voiced bonus + legacy CTA retirement | Queued |
 | R0 | Realtime avatar arc — scope lock                | DONE (SESSION 142) |
