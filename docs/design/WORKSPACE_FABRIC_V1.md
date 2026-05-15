@@ -345,7 +345,7 @@ independently-shipping slices.
   to the filtered gallery. New e2e spec covers the URL
   contract.
 - **F2 — Persistent nav rail.** ✓ SHIPPED SESSION 144
-  (commit TBD). Four-section sidebar (vertical at >=md,
+  (`bcc8914`). Four-section sidebar (vertical at >=md,
   horizontal tab bar at sm) shipping in
   `web/src/components/nav-rail.tsx` and wired into
   `_layout.tsx`. Sections: Dashboard / Spokespeople /
