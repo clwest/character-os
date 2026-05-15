@@ -470,7 +470,7 @@ independently-shipping slices.
 
   426 backend tests total. SPA build green.
 - **F6 — Knowledge citations on composition status.** ✓
-  SHIPPED SESSION 144 (commit TBD). No new endpoint —
+  SHIPPED SESSION 144 (`7980de7`). No new endpoint —
   the existing `GET /api/compositions/<id>/` now resolves
   `knowledge_chunk_ids` server-side into a doc-level
   `knowledge_docs_used: [{id, title, chunk_count}]` field
