@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Mic, Wand2 } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, Mic, MessageCircle, Plus, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   useCloneVoice,
@@ -11,6 +11,11 @@ import { useVideos, type Video } from "@/lib/api/videos";
 import { VideoRow } from "@/components/video-row";
 import { VoiceCapture, type VoiceCaptureValue } from "@/components/voice-capture";
 import { KnowledgePanel } from "@/components/knowledge-panel";
+import {
+  useThreads,
+  useCreateThread,
+  type ConversationThread,
+} from "@/lib/api/conversations";
 import { cn } from "@/lib/utils";
 
 /**
@@ -89,7 +94,118 @@ export function SpokespersonDetailRoute() {
           spokespersonName={s.name}
         />
       </section>
+
+      {/* SESSION 145 / K9 — Conversations panel.
+          Lists threads with this spokesperson + a CTA to
+          start a new one. Empty state for fresh spokespeople
+          encourages picking the conversational surface. */}
+      <section
+        className="reveal"
+        style={{ "--reveal-delay": "0.07s" } as React.CSSProperties}
+      >
+        <ConversationsPanel
+          spokespersonId={s.id}
+          spokespersonName={s.name}
+        />
+      </section>
     </div>
+  );
+}
+
+function ConversationsPanel({
+  spokespersonId,
+  spokespersonName,
+}: {
+  spokespersonId: string;
+  spokespersonName: string;
+}) {
+  const threads = useThreads({ spokesperson: spokespersonId });
+  const createThread = useCreateThread();
+  const navigate = useNavigate();
+
+  async function handleNewThread() {
+    try {
+      const t = await createThread.mutateAsync({
+        spokesperson: spokespersonId,
+      });
+      navigate(`/conversations/${t.id}`);
+    } catch {
+      // surfaces via createThread.error below
+    }
+  }
+
+  return (
+    <div
+      className="flex flex-col gap-4 rounded-md border bg-card p-5 shadow-paper"
+      data-testid="spokesperson-conversations-panel"
+    >
+      <div className="flex items-baseline justify-between border-b pb-2">
+        <div className="flex items-center gap-2">
+          <MessageCircle className="h-4 w-4 text-muted-foreground" />
+          <h2 className="font-display text-base tracking-tight">Conversations</h2>
+          {threads.data && (
+            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+              {threads.data.length}
+            </span>
+          )}
+        </div>
+        <Button
+          size="sm"
+          onClick={handleNewThread}
+          disabled={createThread.isPending}
+          data-testid="conversation-new"
+        >
+          <Plus className="mr-1 h-3.5 w-3.5" />
+          {createThread.isPending ? "Starting…" : "Start a chat"}
+        </Button>
+      </div>
+
+      {createThread.error instanceof Error && (
+        <p className="text-sm text-destructive">{createThread.error.message}</p>
+      )}
+
+      {threads.isLoading && (
+        <div className="h-20 animate-pulse rounded bg-muted/40" />
+      )}
+
+      {threads.data && threads.data.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No chats yet. Start one to talk to {spokespersonName} — they'll draw
+          on the workspace knowledge attached above.
+        </p>
+      )}
+
+      {threads.data && threads.data.length > 0 && (
+        <ul className="flex flex-col gap-2">
+          {threads.data.map((t) => (
+            <ConversationRow key={t.id} thread={t} />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function ConversationRow({ thread }: { thread: ConversationThread }) {
+  const preview = thread.last_message_preview || "(no messages yet)";
+  return (
+    <li>
+      <Link
+        to={`/conversations/${thread.id}`}
+        data-testid={`conversation-row-${thread.id}`}
+        className="flex items-baseline justify-between gap-3 rounded-sm border bg-muted/30 px-3 py-2 transition-colors hover:border-foreground"
+      >
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate text-sm">
+            {thread.title || `Chat ${thread.id.slice(0, 8)}`}
+          </span>
+          <span className="line-clamp-1 text-xs text-muted-foreground">{preview}</span>
+        </div>
+        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+          {thread.message_count} msg{thread.message_count === 1 ? "" : "s"}
+        </span>
+      </Link>
+    </li>
   );
 }
 

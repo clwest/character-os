@@ -328,6 +328,10 @@ ALLOWED_FILES = {
     # sanctioned-writer side of the K0 contract (mirrors
     # `embed_document`).
     "apps/conversations/tasks.py",
+    # K9 endpoint tests do read-side queries on
+    # ConversationEmbedding to verify the K8 ↔ K9 pipeline
+    # integration (count of embeddings produced after send).
+    "apps/conversations/tests/test_k9_messages.py",
 }
 
 # The pattern we actually care about: ``<Model>.objects`` —

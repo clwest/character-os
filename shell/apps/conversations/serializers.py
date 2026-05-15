@@ -1,15 +1,24 @@
-"""Serializer for ConversationThread."""
+"""Serializers for ConversationThread + ConversationMessage."""
 from __future__ import annotations
 
 from rest_framework import serializers
 
 from apps.accounts.models import Membership
 
-from .models import ConversationThread
+from .models import ConversationMessage, ConversationThread
+
+
+class ConversationMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConversationMessage
+        fields = ["id", "thread", "role", "content", "created_at"]
+        read_only_fields = ["id", "thread", "role", "created_at"]
 
 
 class ConversationThreadSerializer(serializers.ModelSerializer):
     spokesperson_name = serializers.CharField(source="spokesperson.name", read_only=True)
+    message_count = serializers.SerializerMethodField()
+    last_message_preview = serializers.SerializerMethodField()
 
     class Meta:
         model = ConversationThread
@@ -18,12 +27,16 @@ class ConversationThreadSerializer(serializers.ModelSerializer):
             "spokesperson",
             "spokesperson_name",
             "title",
+            "message_count",
+            "last_message_preview",
             "created_at",
             "last_activity_at",
         ]
         read_only_fields = [
             "id",
             "spokesperson_name",
+            "message_count",
+            "last_message_preview",
             "created_at",
             "last_activity_at",
         ]
@@ -38,3 +51,13 @@ class ConversationThreadSerializer(serializers.ModelSerializer):
         ).exists():
             raise serializers.ValidationError("spokesperson not in your workspaces")
         return spokesperson
+
+    def get_message_count(self, obj) -> int:
+        return obj.messages.count()
+
+    def get_last_message_preview(self, obj) -> str:
+        last = obj.messages.order_by("-created_at").first()
+        if last is None:
+            return ""
+        preview = (last.content or "").strip().replace("\n", " ")
+        return preview[:160]

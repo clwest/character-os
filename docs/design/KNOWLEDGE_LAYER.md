@@ -684,8 +684,62 @@ slices that can land independently. Recommended order:
   on update, broker-down resilience, end-to-end
   `retrieve_for_thread` integration, cross-thread
   isolation.
-- **K9 — Conversation REST + SPA.** `POST messages`,
-  thread view, spokesperson detail "Conversations" tab.
+- **K9 — Conversation REST + SPA.** ✓ SHIPPED SESSION
+  145 (commit TBD). Three pieces:
+
+  Backend
+  * `POST /api/conversations/<id>/messages/` —
+    server-synchronous send. Creates user message
+    (K8's signal embeds it), calls
+    `synthesize_spokesperson_reply` to generate the
+    spokesperson's reply, persists the reply (also
+    embedded by signal), bumps
+    `thread.last_activity_at`, returns both messages
+    + chunk_ids in one round-trip.
+  * `GET /api/conversations/<id>/messages/` —
+    chronological message list.
+  * `character_os/conversation_synthesis.py` —
+    mirrors K6's `script_synthesis`. Uses
+    `retrieve_for_thread` for docs + history, calls
+    gpt-5-mini Responses API, degrades gracefully on
+    missing key / retrieval failure / API error.
+    `CONVERSATION_REPLY_FORCE_MOCK=1` env flag for
+    dev determinism (third force-mock alongside
+    `RUNWAY_FORCE_MOCK`, `EMBEDDING_FORCE_MOCK`,
+    `RENDER_SCRIPT_FORCE_MOCK`).
+  * `ConversationThreadSerializer` grew
+    `message_count` + `last_message_preview` for the
+    SPA's thread list.
+  * Optional `?spokesperson=<id>` filter on the
+    thread list for the SPA's "Conversations" panel.
+
+  Frontend
+  * `web/src/routes/conversations/$id.tsx` — focused
+    chat view. Message list + composer with
+    Cmd/Ctrl+Enter send. Auto-scroll on new
+    messages. Pending bubble while synthesis runs.
+  * `web/src/lib/api/conversations.ts` — typed
+    hooks (`useThreads`, `useThread`,
+    `useCreateThread`, `useMessages`,
+    `useSendMessage`). Send mutation seeds the
+    message cache so the SPA renders the reply
+    instantly without a refetch.
+  * Spokesperson detail page grew a `ConversationsPanel`
+    (`web/src/routes/spokespeople/$id.tsx`) listing
+    threads for that spokesperson + a "Start a chat"
+    button.
+
+  +14 backend tests in
+  `apps/conversations/tests/test_k9_messages.py`
+  covering thread CRUD, message GET/POST, empty/long
+  content rejection, cross-workspace 404,
+  last_activity bump, K8 ↔ K9 pipeline integration
+  (sent messages produce ConversationEmbedding rows).
+  463 backend tests total. SPA build green.
+
+  Streaming/SSE deferred per Q-k-3 — POST-and-resolve
+  is fast enough at gpt-5-mini latencies for v1.
+  Revisit if operator feedback flags it.
 - **K10 — Onboarding seed.** `seed_workspace_knowledge`
   task. `docs/seeds/character_os/*.md` corpus. Trigger on
   `is_operator=True` workspace creation.

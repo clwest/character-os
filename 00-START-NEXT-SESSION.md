@@ -61,14 +61,19 @@ Full handoff at
 
 ### What's next (SESSION 145) — pick one
 
-**Option A — K8/K9 conversation pipeline (recommended).**
-Heaviest remaining capability. **K8 shipped SESSION 145** —
-`embed_message` Celery task + post-save signal landed; +11
-tests. K9 (REST + SPA) is the next slice — POST messages,
-thread view, spokesperson detail "Conversations" tab.
-Unlocks the ConversationThread surface that's existed in
-models since SESSION 117 but has no UI. After K9, every
-spokesperson exposes "talk to me" as a top-level capability.
+**Option A — K8/K9 conversation pipeline. SHIPPED SESSION 145.**
+* **K8** (`31af09d`) — `embed_message` Celery task +
+  post-save signal. +11 tests.
+* **K9** (commit TBD) — `POST /api/conversations/<id>/messages/`
+  endpoint with server-synchronous LLM synthesis,
+  `character_os/conversation_synthesis.py` mirroring K6,
+  SPA chat route at `/conversations/<id>`, "Conversations"
+  panel on the spokesperson detail page. +14 tests. **463
+  backend tests total.**
+
+Every spokesperson now exposes "talk to me" as a top-level
+capability. Knowledge arc is K1-K9 shipped (K10 → F8.1
+queued; K7 YouTube fix queued).
 
 **Option B — R1+ realtime avatar.** WebRTC two-way
 conversations. Scope-locked SESSION 142
