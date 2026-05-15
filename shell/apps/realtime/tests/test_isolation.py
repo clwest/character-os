@@ -70,6 +70,16 @@ ALLOWED_FILES = {
     # `recall_recent_conversations` + cross-workspace
     # exclusion paths.
     "apps/realtime/tests/test_r7_1_sync_tools.py",
+    # R7.2 async-tool tests seed RealtimeSession rows +
+    # create RealtimeToolInvocation rows directly to
+    # exercise the async dispatch + approval + Celery
+    # execution paths.
+    "apps/realtime/tests/test_r7_2_async_tools.py",
+    # R7.2 — Celery task is a sanctioned writer for
+    # RealtimeToolInvocation rows (updates status +
+    # error_message + completed_at on tool execution
+    # completion).
+    "apps/realtime/tasks.py",
 }
 
 

@@ -237,11 +237,37 @@ def _collect_endpoints() -> dict:
 def _collect_celery_tasks() -> dict:
     """Pull registered tasks from the Celery app. Filters out
     Celery's built-in ``celery.*`` plumbing so only our tasks land
-    in the inventory."""
+    in the inventory.
+
+    SESSION 151 — fix for the SESSION 147-noted undercount. Celery's
+    autodiscovery is lazy: at management-command start the
+    ``celery_app.tasks`` registry only contains tasks imported via
+    direct top-level imports (the celery module's own ``debug_task``
+    + whatever else has already been imported). Tasks defined in
+    ``apps/*/tasks.py`` don't appear until something forces the
+    module import.
+
+    ``celery_app.loader.import_default_modules()`` walks every
+    installed Django app + imports its ``tasks`` module if it
+    exists — same shape that ``celery worker`` startup does. After
+    this call the registry contains every ``@shared_task``-decorated
+    function in the codebase.
+    """
     try:
         from character_os.celery import app as celery_app
     except Exception as exc:  # pragma: no cover — defensive
         return {"total": 0, "tasks": [], "error": f"celery import: {exc}"}
+
+    # Force autodiscovery before reading the registry. Mirrors
+    # what the worker does at boot; the management-command path
+    # skips this step otherwise.
+    try:
+        celery_app.loader.import_default_modules()
+    except Exception:  # pragma: no cover — defensive
+        # If autodiscovery fails (a tasks.py with an import error
+        # somewhere), we still return what we have rather than
+        # crash the inventory regen.
+        pass
 
     tasks = sorted(
         name for name in celery_app.tasks

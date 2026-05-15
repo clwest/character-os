@@ -184,3 +184,153 @@ def _is_retryable(exc: MediaEngineError) -> bool:
     return any(token in msg for token in (
         "timeout", "ratelimit", "rate_limit", "connection", "apiconnection",
     ))
+
+
+# ---- R7.2 — async tool execution -------------------------------
+
+
+@shared_task(
+    name="realtime.execute_tool_invocation",
+    bind=True,
+    max_retries=0,  # tool executors handle their own retries
+)
+def execute_tool_invocation(self, invocation_id: str) -> dict:
+    """Generic Celery task that runs an async tool's executor.
+
+    R7.2 — the dispatcher enqueues this task for any tool
+    registered with ``is_async=True``. The task:
+
+    1. Resolves the ``RealtimeToolInvocation`` row + the
+       tool spec from the registry.
+    2. Calls the executor with ``(session, args)``.
+    3. Updates the audit row to SUCCEEDED (linking any
+       ``composition_id`` / ``asset_id`` the executor
+       returned) or FAILED with the error message.
+
+    Idempotent on terminal rows: re-running on an already-
+    succeeded / failed / rejected invocation no-ops and
+    returns the current state.
+
+    The task does NOT raise — exceptions are caught and
+    recorded on the audit row so the SPA can render the
+    failure cleanly.
+
+    Args:
+        invocation_id: ``RealtimeToolInvocation.pk``.
+
+    Returns:
+        ``{invocation_id, status, ...}`` — telemetry shape.
+    """
+    # Lazy imports — keep this module free of the realtime
+    # tools package at import time.
+    from .models import RealtimeToolInvocation
+    from .tools import get_tool
+
+    try:
+        invocation = (
+            RealtimeToolInvocation.objects
+            .select_related("session", "session__workspace", "session__spokesperson")
+            .get(pk=invocation_id)
+        )
+    except RealtimeToolInvocation.DoesNotExist:
+        logger.warning(
+            "execute_tool_invocation: invocation=%s not found",
+            invocation_id,
+        )
+        return {
+            "invocation_id": invocation_id,
+            "status": "not_found",
+        }
+
+    # Idempotency — terminal states stay put.
+    if invocation.status in (
+        RealtimeToolInvocation.Status.SUCCEEDED,
+        RealtimeToolInvocation.Status.FAILED,
+        RealtimeToolInvocation.Status.REJECTED,
+    ):
+        return {
+            "invocation_id": str(invocation.id),
+            "status": invocation.status,
+            "note": "already terminal",
+        }
+
+    try:
+        spec = get_tool(invocation.tool_name)
+    except KeyError:
+        # Tool was de-registered between dispatch and
+        # execution. Record FAILED.
+        _mark_failed(
+            invocation,
+            f"tool {invocation.tool_name!r} no longer registered",
+        )
+        return {
+            "invocation_id": str(invocation.id),
+            "status": "failed",
+            "reason": "unknown_tool",
+        }
+
+    try:
+        result = spec.executor(invocation.session, invocation.args or {})
+    except Exception as exc:
+        logger.exception(
+            "execute_tool_invocation: executor raised tool=%s "
+            "invocation=%s",
+            spec.name, invocation.id,
+        )
+        _mark_failed(invocation, str(exc)[:500])
+        return {
+            "invocation_id": str(invocation.id),
+            "status": "failed",
+            "error": str(exc)[:200],
+        }
+
+    # Link produced_composition / produced_asset if the
+    # executor returned ids. Cross-workspace refs are
+    # rejected by the model's clean() guard (existing R1).
+    update_fields = ["status", "completed_at"]
+    if isinstance(result, dict):
+        comp_id = result.get("composition_id")
+        if comp_id:
+            try:
+                from apps.compositions.models import Composition
+
+                invocation.produced_composition = Composition.objects.get(
+                    pk=comp_id,
+                )
+                update_fields.append("produced_composition")
+            except Composition.DoesNotExist:
+                pass
+        asset_id = result.get("asset_id")
+        if asset_id:
+            try:
+                from apps.compositions.models import Asset
+
+                invocation.produced_asset = Asset.objects.get(pk=asset_id)
+                update_fields.append("produced_asset")
+            except Asset.DoesNotExist:
+                pass
+
+    invocation.status = RealtimeToolInvocation.Status.SUCCEEDED
+    invocation.completed_at = timezone.now()
+    invocation.save(update_fields=update_fields)
+
+    logger.info(
+        "execute_tool_invocation: succeeded tool=%s invocation=%s",
+        spec.name, invocation.id,
+    )
+    return {
+        "invocation_id": str(invocation.id),
+        "status": "succeeded",
+        "result": result if isinstance(result, dict) else {},
+    }
+
+
+def _mark_failed(invocation, message: str) -> None:
+    """Helper — flip an invocation to FAILED with the given
+    error message + completed_at stamp."""
+    invocation.status = invocation.Status.FAILED
+    invocation.error_message = message
+    invocation.completed_at = timezone.now()
+    invocation.save(update_fields=[
+        "status", "error_message", "completed_at",
+    ])

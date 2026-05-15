@@ -207,6 +207,7 @@ class RealtimeToolInvocation(models.Model):
     class Status(models.TextChoices):
         INVOKED = "invoked", "Invoked"
         AWAITING_APPROVAL = "awaiting_approval", "Awaiting Approval"
+        QUEUED = "queued", "Queued (Celery)"
         SUCCEEDED = "succeeded", "Succeeded"
         FAILED = "failed", "Failed"
         REJECTED = "rejected", "Rejected"

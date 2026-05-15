@@ -621,7 +621,8 @@ land independently. Each slice is ~1-2 sessions.
 | **R6** ✓ | Cross-session memory: `character_os.realtime_memory.compose_session_memory` summarizes the last 3 ENDED sessions' `Asset(TRANSCRIPT)` rows via gpt-5-mini Responses API; injected as a `## Recent Conversations` section between `## About` and `## Knowledge` in the R4 document body; drops first under the 40k budget per scope-lock priority; sixth `*_FORCE_MOCK` flag (`REALTIME_MEMORY_FORCE_MOCK`). +14 tests. Ships SESSION 148 (`dbb22e0`). | R5, K8 (parallel) |
 | **R7.0** ✓ | Tool catalog foundation: `apps/realtime/tools/` registry with `register_tool` decorator + `ToolSpec` shape, `apps/realtime/dispatch.py` (`dispatch_tool` + `approve_invocation` + `reject_invocation` + `DispatchResult`), `RealtimeToolInvocation.AWAITING_APPROVAL` status (migration `0002_r7_awaiting_approval_status`), `POST /api/realtime_sessions/<id>/invoke_tool/` action, new `RealtimeToolInvocationViewSet` (retrieve + list + approve + reject at `/api/realtime_tool_invocations/`), workspace property on the invocation model so shared permission resolver finds it, `REALTIME_TOOL_APPROVAL_THRESHOLD_MICROS=50_000` ($0.05) settings fallback. First tool — `show_videos_tab` (UI-only nav event, $0 cost). +22 tests. Ships SESSION 149 (`646c492`). | R3 |
 | **R7.1** ✓ | Three sync tools: `recall_knowledge` (RAG against K2 via `retrieve_for_spokesperson`; starter tier; ~$0.001/call), `recall_recent_conversations` (read prior `Asset(TRANSCRIPT)` for this spokesperson, returns per-session previews; starter tier; $0), `handoff_to_spokesperson` (cross-spokesperson nav event with same-workspace gate; **pro tier** — Starter has spokespeople=1 so handoff is meaningless). Tier-aware filtering in `get_workspace_tools(workspace)` via new `tier_required` field on `ToolSpec` + new `apps.billing.services.get_workspace_tier` helper. Defense-in-depth tier check in the dispatcher (403 if workspace tier < tool tier). Resolves Q-r-4. +17 tests. Ships SESSION 150 (`611ae94`). | R7.0, K2, R5 |
-| **R7.2** | Two async tools via Celery: `render_video` (fires a composition starter — the threshold-crossing tool that exercises the approval modal end-to-end), `attach_memory` (mid-session memory commit — pulls partial transcript, composes via R6, pushes as fresh Runway document). Async dispatch path (queued state) becomes load-bearing here. | R7.0, V starters, R6 |
+| **R7.2** ✓ | Async tool dispatch + `render_video`: new `QUEUED` status (migration `0003_r7_2_queued_status`), generic `execute_tool_invocation` Celery task in `apps/realtime/tasks.py` (resolves invocation + spec, calls executor, links `produced_composition`/`produced_asset`), `dispatch_tool` async branch enqueues Celery (was a stub in R7.0), `approve_invocation` enqueues for async tools. **`render_video`** — fires a composition starter (default `talking_head`; configurable via `args.recipe`); $0.08 cost (over $0.05 threshold so exercises approval flow end-to-end); checks `check_video_limit` tier gate. Bonus — fixes the SESSION 147-deferred INVENTORY Celery undercount bug (call `celery_app.loader.import_default_modules()` in `_collect_celery_tasks`; count goes from 5 → 8). +14 tests. Ships SESSION 151. | R7.0, V starters |
+| **R7.3** | `attach_memory` async tool — mid-session memory commit. Pro tier. Requires **R6.1** as a prerequisite: widen R6's query to include in-progress sessions / explicitly-committed memory snapshots, or accept a new `Asset(MEMORY_SNAPSHOT)` sub-type R6 reads in addition to ENDED-session transcripts. Deferred from R7.2 (SESSION 151) — the architectural change to R6 deserves its own slice. Resolves Q-r-8 (cross-session tool side effects: composition idempotent + last-write-wins). | R6.1, R7.2 |
 | **R8** | SPA `/spokespeople/:id/talk` route + `@runwayml/avatars-react` integration + cost forecasting UI + tool-approval modal | R3, R7 |
 | **R9** | Cost governance: per-workspace minutes budget, tier-limit enforcement at session-create, live cost ticker | R2, billing |
 | **R10** | Multi-provider abstraction hardening (no new providers shipped; just ensure the registry pattern holds — drift verifier test) | R2 |
@@ -818,6 +819,104 @@ tests cannot fail.
   handles it) — the hard parts are key brokering,
   knowledge composition, cost governance, cross-session
   memory, and workspace-scoped tools.
+
+- 2026-05-15 (SESSION 151) — **R7.2 SHIPPED** + `attach_memory`
+  deferred to R7.3 + INVENTORY Celery undercount fixed
+  (SESSION 147 drift-prevention backlog item 5).
+
+  Why split R7.2 in half: `attach_memory` as originally
+  scoped ("ingest current transcript → compose memory
+  document → publish to Runway → attach to spokesperson
+  for next session") requires R6's query to widen. R6
+  currently filters `RealtimeSession` rows by
+  `status=ENDED`, which excludes the in-progress
+  session `attach_memory` would commit. Wiring it
+  end-to-end needs either R6 to accept any TRANSCRIPT
+  Asset (not just ENDED-session ones) or a new
+  `Asset(MEMORY_SNAPSHOT)` sub-type. Both are
+  architectural changes that deserve their own slice
+  (R6.1 + R7.3 together). R7.2 ships `render_video`
+  only.
+
+  Code changes:
+
+  * `apps/realtime/models.py` — adds `QUEUED` choice to
+    `RealtimeToolInvocation.Status`. Migration
+    `0003_r7_2_queued_status` (TextChoices metadata only;
+    no DDL).
+  * `apps/realtime/tasks.py` — new
+    `execute_tool_invocation` generic Celery task. One
+    task for all async tools; resolves
+    `RealtimeToolInvocation` → looks up the spec from
+    the registry → calls executor → updates the row to
+    SUCCEEDED with `produced_composition` /
+    `produced_asset` linkage (read from the executor's
+    return payload) or FAILED with the error message.
+    Idempotent on terminal rows. Never raises.
+  * `apps/realtime/dispatch.py` — async branch now
+    actually enqueues Celery (R7.0 was a stub). New
+    initial-status logic: `AWAITING_APPROVAL` if
+    over threshold, `QUEUED` if async, `INVOKED` if
+    sync. `approve_invocation` flips async to `QUEUED`
+    and enqueues; sync stays inline. `_maybe_result`
+    helper snapshots `produced_composition_id` /
+    `produced_asset_id` into the SPA-facing
+    `result` dict for SUCCEEDED async invocations.
+    `_status_to_state` mapping extended for `QUEUED →
+    "queued"`.
+  * `apps/realtime/tools/render_video.py` — first
+    real async tool. Fires `talking_head` by default;
+    operator can override via `args.recipe`. Cost
+    `80_000` micros ($0.08) — over the $0.05
+    default threshold so the approval flow lands.
+    Calls `check_video_limit(workspace)` for the
+    per-month tier gate (10 / 30 / unlimited). Calls
+    `recipe.starter(...)` to create the Composition
+    + `execute_composition.delay(...)` to start the
+    V-arc execution chain. Returns
+    `{event: "render_video_queued", composition_id,
+    recipe, message}`; the Celery task wrapper picks
+    up the `composition_id` and writes it to the
+    invocation row.
+  * `apps/realtime/tools/__init__.py` — registers
+    `render_video` (5th tool in the catalog).
+  * `apps/accounts/management/commands/inventory.py`
+    — `_collect_celery_tasks()` now calls
+    `celery_app.loader.import_default_modules()`
+    before reading `celery_app.tasks`. Fixes the
+    SESSION 147-noted undercount (was 5 because of
+    lazy autodiscovery; real count is 8 after R7.2's
+    new task lands).
+
+  Test count progression: 613 → 627 (+14). The 14 new
+  tests cover the async dispatch path (3: under-
+  threshold/over-threshold/approve), the generic Celery
+  task (3: failure recording, tool de-registered race,
+  terminal-state idempotency), `render_video` (6: happy
+  path, missing script, unknown recipe, tier-limit
+  exceeded, cost > threshold sanity, recipe override),
+  end-to-end REST flow (1), and the inventory undercount
+  fix (1).
+
+  Two `ALLOWED_FILES` additions on
+  `apps/realtime/tests/test_isolation.py`:
+  `test_r7_2_async_tools.py` (seeds sessions + creates
+  invocations) and `apps/realtime/tasks.py` (sanctioned
+  Celery writer for invocation rows).
+
+  Migrations: 50/50 → 51/51. Sixth Celery task added
+  (`realtime.execute_tool_invocation`). One new force-
+  mock dependency: tests use `CELERY_TASK_ALWAYS_EAGER`
+  so the generic task runs synchronously and assertions
+  on final state work without polling.
+
+  Q-r-2 stays partly resolved (rejection narration —
+  server-side done R7.0; SPA in R8). Q-r-3 (mid-session
+  document refresh) not touched. Q-r-8 (cross-session
+  tool side effects) deferred to R7.3 alongside
+  `attach_memory`.
+
+  R7.2 ships SESSION 151.
 
 - 2026-05-15 (SESSION 150) — **R7.1 SHIPPED**. Three
   sync tools on top of R7.0's foundation, plus

@@ -171,16 +171,20 @@ def dispatch_tool(
     threshold = _approval_threshold_micros()
     needs_approval = spec.cost_micros > threshold
 
+    # Initial status depends on the gate + sync/async flavor.
+    if needs_approval:
+        initial_status = RealtimeToolInvocation.Status.AWAITING_APPROVAL
+    elif spec.is_async:
+        initial_status = RealtimeToolInvocation.Status.QUEUED
+    else:
+        initial_status = RealtimeToolInvocation.Status.INVOKED
+
     with transaction.atomic():
         invocation = RealtimeToolInvocation.objects.create(
             session=session,
             tool_name=spec.name,
             args=args,
-            status=(
-                RealtimeToolInvocation.Status.AWAITING_APPROVAL
-                if needs_approval
-                else RealtimeToolInvocation.Status.INVOKED
-            ),
+            status=initial_status,
         )
 
     if needs_approval:
@@ -197,18 +201,53 @@ def dispatch_tool(
         )
 
     if spec.is_async:
-        # R7.2 will enqueue a Celery task here + return
-        # ``queued``. R7.0 only registers sync tools so
-        # this branch is unreachable today; it's wired
-        # ahead so R7.2 is a smaller diff.
+        # R7.2 — enqueue the generic Celery task. Eager
+        # mode in tests runs synchronously so assertions
+        # on the final invocation state work without
+        # polling.
+        _enqueue_async(invocation)
+        # Re-read so the test/SPA caller sees the
+        # post-Celery state (eager mode) without an
+        # extra round trip.
+        invocation.refresh_from_db()
         return DispatchResult(
-            state="queued",
+            state=_status_to_state(invocation.status),
             invocation_id=str(invocation.id),
             tool_name=spec.name,
             cost_micros=spec.cost_micros,
+            result=_maybe_result(invocation),
         )
 
     return _execute_inline(invocation, spec, args)
+
+
+def _enqueue_async(invocation: RealtimeToolInvocation) -> None:
+    """Hand the invocation to the generic Celery executor.
+    Import is lazy to avoid app-load ordering issues
+    (`tasks.py` imports models; models can't depend on
+    tasks)."""
+    from .tasks import execute_tool_invocation
+
+    execute_tool_invocation.delay(str(invocation.id))
+
+
+def _maybe_result(invocation: RealtimeToolInvocation) -> dict | None:
+    """Pull a structured result payload off a SUCCEEDED
+    invocation if the executor recorded one via the
+    produced_composition / produced_asset linkage. The
+    raw executor return value isn't persisted on the
+    invocation row — only the FK links are. The SPA can
+    resolve them through their own endpoints; the
+    dispatcher's `result` field is a convenience snapshot
+    for the inline-execute path."""
+    if invocation.status != RealtimeToolInvocation.Status.SUCCEEDED:
+        return None
+    out: dict[str, str] = {}
+    if invocation.produced_composition_id:
+        out["composition_id"] = str(invocation.produced_composition_id)
+    if invocation.produced_asset_id:
+        out["asset_id"] = str(invocation.produced_asset_id)
+    return out or None
 
 
 def approve_invocation(invocation: RealtimeToolInvocation) -> DispatchResult:
@@ -245,19 +284,24 @@ def approve_invocation(invocation: RealtimeToolInvocation) -> DispatchResult:
             error_message=invocation.error_message,
         )
 
-    # Flip back to INVOKED so the audit trail reflects that
-    # the operator approved + execution proceeded.
-    invocation.status = RealtimeToolInvocation.Status.INVOKED
-    invocation.save(update_fields=["status"])
-
     if spec.is_async:
+        # R7.2 — flip to QUEUED + enqueue Celery. Sync
+        # tools fall through to the inline path below.
+        invocation.status = RealtimeToolInvocation.Status.QUEUED
+        invocation.save(update_fields=["status"])
+        _enqueue_async(invocation)
+        invocation.refresh_from_db()
         return DispatchResult(
-            state="queued",
+            state=_status_to_state(invocation.status),
             invocation_id=str(invocation.id),
             tool_name=spec.name,
             cost_micros=spec.cost_micros,
+            result=_maybe_result(invocation),
         )
 
+    # Sync — flip to INVOKED + execute inline.
+    invocation.status = RealtimeToolInvocation.Status.INVOKED
+    invocation.save(update_fields=["status"])
     return _execute_inline(invocation, spec, invocation.args or {})
 
 
@@ -344,6 +388,7 @@ def _status_to_state(status: str) -> DispatchState:
     mapping: dict[str, DispatchState] = {
         RealtimeToolInvocation.Status.INVOKED: "succeeded",
         RealtimeToolInvocation.Status.AWAITING_APPROVAL: "awaiting_approval",
+        RealtimeToolInvocation.Status.QUEUED: "queued",
         RealtimeToolInvocation.Status.SUCCEEDED: "succeeded",
         RealtimeToolInvocation.Status.FAILED: "failed",
         RealtimeToolInvocation.Status.REJECTED: "rejected",

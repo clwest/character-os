@@ -229,3 +229,4 @@ from . import show_videos_tab  # noqa: F401,E402
 from . import recall_knowledge  # noqa: F401,E402
 from . import recall_recent_conversations  # noqa: F401,E402
 from . import handoff_to_spokesperson  # noqa: F401,E402
+from . import render_video  # noqa: F401,E402
