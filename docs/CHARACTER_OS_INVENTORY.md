@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-15T15:59:04.820006+00:00
-git_sha: 354ccf5 (working tree dirty)
+generated_at: 2026-05-15T16:56:52.605957+00:00
+git_sha: 8a98147
 git_branch: main
 ---
 
@@ -15,8 +15,8 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-15T15:59:04.820006+00:00** against commit **354ccf5**
-on branch **main** (working tree dirty).
+Generated **2026-05-15T16:56:52.605957+00:00** against commit **8a98147**
+on branch **main**.
 
 Python 3.11.6 · Django 5.2.14 ·
 Celery 5.6.3 · httpx 0.28.1.
@@ -33,7 +33,7 @@ Celery 5.6.3 · httpx 0.28.1.
 | FastAPI routes | **114** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **5** | `celery_app.tasks` filter |
 | Migrations (applied / total) | **49 / 49** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **34,774** in 192 files | `pathlib.Path.rglob("*.py")` |
+| Shell LOC (`*.py`, no venv/migrations) | **35,575** in 194 files | `pathlib.Path.rglob("*.py")` |
 | Media-engine LOC (`*.py`, no venv/migrations) | **30,118** in 53 files | same |
 
 ---
@@ -254,11 +254,11 @@ Total: **5** registered tasks (excluding `celery.*` built-ins).
 | Service | Files | Lines |
 |---|---|---|
 | `media-engine/` | 53 | 30,118 |
-| `shell/` | 192 | 34,774 |
-| **total** | **245** | **64,892** |
+| `shell/` | 194 | 35,575 |
+| **total** | **247** | **65,693** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-05-15T15:59:04.820006+00:00 from commit 354ccf5. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-15T16:56:52.605957+00:00 from commit 8a98147. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
