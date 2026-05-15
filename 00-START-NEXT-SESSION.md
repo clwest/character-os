@@ -34,6 +34,85 @@ state: active
 
 ---
 
+## SESSION 146 outcome — realtime arc R1-R5 buildout
+
+Five sequential R-arc slices closed in one extended session.
+The realtime avatar arc (scope-locked SESSION 142) now has
+its first end-to-end smoke path: live sessions work,
+grounded in workspace knowledge, with post-session
+transcripts persisted as Assets.
+
+* **R1** (`9299dcf`) — `apps.realtime` schema +
+  cross-workspace guards + isolation test. 14 tests.
+* **R2** (`e8eb7d1`) — Media-engine provider abstraction
+  package + Runway impl + mock + two endpoints. 18 tests.
+* **R3** (`26378e9`) — Django broker
+  `/api/realtime_sessions/` + tier-limit gate
+  (`realtime_sessions_per_month`: starter=5, pro=20,
+  agency=unlimited) + state machine + 4-layer
+  `provider_session_key` secrecy enforcement. 18 tests.
+* **R4** (`6521451`) — Knowledge → Runway document
+  bridge. `compose_realtime_document` + media-engine
+  `/internal/realtime_documents/` + broker integration.
+  K0 privacy holds end-to-end. 10 tests + 4 media-engine.
+* **R5** (`885508d`) — Transcript capture. Runway
+  `fetch_transcript` + media-engine `GET .../transcript/`
+  + Celery task creates `Asset(TRANSCRIPT)` + wires
+  `RealtimeSession.transcript_asset`. 9 tests + 1
+  media-engine.
+
+**Test totals**: Django 463 → 514 (+51). Media-engine 0
+→ 23 (suite created with R2).
+
+Every method on `RealtimeProvider` is implemented for
+Runway. No `NotImplementedError` markers remain in the
+provider. R-arc state: **R1-R5 done; R6-R10 remain.**
+
+Full handoff at
+`docs/handoffs/SESSION_146_REALTIME_BUILDOUT.md`.
+
+### What's next (SESSION 147) — pick one
+
+**Option A — R6 (cross-session memory, recommended).**
+Summarize prior `Asset(TRANSCRIPT)` bodies via
+gpt-5-mini → project into the next session's
+`compose_realtime_document` body. Fifth `*_FORCE_MOCK`
+flag (`REALTIME_MEMORY_FORCE_MOCK`). R5's idempotent
+transcript persistence makes R6 a clean composition.
+Avatar opens with "returning operator" warmth instead
+of re-introducing itself.
+
+**Option B — R7 (tool catalog).** 6 workspace-scoped
+tools the avatar can invoke mid-session.
+`RealtimeToolInvocation` audit trail already exists
+from R1. R7 ships the registry + workspace-scoped
+routing + approval-threshold modal for expensive tools
+(`render_video`, `capture_clip`). Bigger surface than
+R6; doesn't require R6 first.
+
+**Option C — R8 (SPA).** `/spokespeople/:id/talk` route
++ `@runwayml/avatars-react` SDK + cost forecasting UI
++ tool-approval modal. The backend is ready — every
+shape R8 needs is already on `RealtimeSession`. R8 is
+where the realtime arc becomes operator-visible. R7
+unblocks the modal piece; landing R7 → R8 together
+makes sense.
+
+**Option D — F8.1 / K7.x / R9 / R10.** Smaller
+follow-ups (seed corpus, YouTube ingest fix, cost
+ticker, provider hardening). None gating.
+
+**Recommendation**: **R6**, then R7, then R8. R6 closes
+the memory loop; R7 prepares the tool-approval surface
+R8 consumes; R8 finally surfaces the arc to the
+operator. R9 + R10 can ride a smaller follow-up.
+
+If the operator wants the realtime arc visible *now*,
+pick R8 directly — but the avatar will feel cold (no
+memory) and toolless until R6 + R7 land.
+
+---
+
 ## SESSION 144 outcome — V14 + V-arc closure + fabric arc
 
 Three sequential arcs closed in one extended session.

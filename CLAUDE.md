@@ -144,28 +144,52 @@ Update this section when a phase completes.
     workspace-fabric arc, not the V-arc.
   - **Realtime avatar arc (R0-R10).** R0 scope lock shipped
     SESSION 142 (`docs/design/REALTIME_AVATAR_V1.md`).
-    **R1 + R2 + R3 shipped SESSION 146**:
+    **R1-R5 shipped SESSION 146** — live sessions work
+    end-to-end, grounded in workspace knowledge, with
+    post-session transcripts persisted as Assets.
     * **R1** (`9299dcf`) — `apps.realtime` schema +
-      cross-workspace guards + isolation test.
-    * **R2** (`e8eb7d1`) — media-engine
-      `/internal/realtime_sessions/` (POST + GET + DELETE)
-      + provider abstraction package +
-      `MockRealtimeProvider` + `RunwayRealtimeProvider`.
-    * **R3** — Django broker
+      cross-workspace guards (clean() + pre_save signal)
+      + isolation test.
+    * **R2** (`e8eb7d1`) — Media-engine provider
+      abstraction package + `RealtimeProvider` Protocol
+      + `RunwayRealtimeProvider` (create + poll) +
+      `MockRealtimeProvider` + two endpoints.
+    * **R3** (`26378e9`) — Django broker
       `/api/realtime_sessions/` (POST + GET + DELETE +
-      POST `/end/` action), workspace auth via
-      `IsWorkspaceMember`, new
-      `check_realtime_session_limit` tier gate
-      (starter=5, pro=20, agency=unlimited),
-      state machine (DRAFT → CREATING → READY → ENDED
-      with FAILED branch on upstream errors), media-engine
-      client methods (`realtime_session_create` +
-      `realtime_session_poll` + `realtime_session_end`),
-      Runway provider's `end_session` implemented (was
-      NotImplementedError from R2). 18 R3 tests. **495
-      backend tests + 18 media-engine tests.**
-    R4 (knowledge → Runway document bridge) is the next
-    slice and adds the K-arc intersection.
+      POST `/end/`), `check_realtime_session_limit` tier
+      gate (starter=5, pro=20, agency=unlimited), state
+      machine (DRAFT → CREATING → READY → ENDED + FAILED),
+      Runway `end_session` impl. Contract rule 9
+      enforced at 4 layers — `provider_session_key`
+      returned only in the POST create response.
+    * **R4** (`6521451`) — Knowledge → Runway document
+      bridge. `compose_realtime_document` builds the
+      Markdown body from K2 retrieval, caps at Runway's
+      40k ceiling, returns chunk_ids. New
+      `POST /internal/realtime_documents/`. Broker
+      composes → pushes → persists
+      `provider_document_id` + `knowledge_chunk_ids`.
+      K0 privacy holds end-to-end.
+    * **R5** (`885508d`) — Transcript capture. Runway
+      `fetch_transcript` impl, `GET .../transcript/`,
+      `apps.realtime.tasks.fetch_transcript_for_session`
+      Celery task fires on broker end, persists
+      `Asset(TRANSCRIPT)` in the workspace + wires
+      `RealtimeSession.transcript_asset`. Idempotent.
+
+    Every method on `RealtimeProvider` is now implemented
+    for Runway. **514 backend tests + 23 media-engine
+    tests.** Test count progression for SESSION 146:
+    463 → 514 (+51). Contract rule 4 lands (R5 — realtime
+    sessions share V1's Asset persistence surface);
+    contract rule 8 lands (R2 — single provider
+    abstraction); contract rule 9 lands (R2 + R3 — SDK
+    token never in admin / list / retrieve / logs).
+
+    R6 (cross-session memory) is the next slice; R7
+    (tool catalog) + R8 (SPA) can parallelize from there.
+    R9 (cost governance) + R10 (provider hardening) are
+    smaller follow-ups.
   - **Workspace fabric arc (F0-F10). COMPLETE.** All 10
     slices shipped SESSION 144
     (`docs/design/WORKSPACE_FABRIC_V1.md`). 9 contract
