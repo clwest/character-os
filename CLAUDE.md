@@ -273,10 +273,45 @@ Update this section when a phase completes.
     per-month video cap); Pro+Agency add
     `attach_memory`. 17 new tests; 613 backend total.
 
-    R7.2 (async tools via Celery — `render_video` +
-    `attach_memory`) is the next slice; R8 (SPA —
-    operator-visible moment) + R9 (cost governance) +
-    R10 (provider hardening) remain.
+    **R7.2 shipped SESSION 151** (`e8564f9`) — async tool
+    dispatch + `render_video` + INVENTORY Celery undercount
+    fix. Original R7.2 scope split because `attach_memory`
+    needs R6 widened first; ships as R7.3 paired with
+    R6.1. Code:
+    * New `QUEUED` status on `RealtimeToolInvocation.Status`
+      (migration `0003_r7_2_queued_status`). Migration
+      count: 50 → 51.
+    * New generic `execute_tool_invocation` Celery task in
+      `apps/realtime/tasks.py` — one task for all async
+      tools. Resolves invocation + spec, calls executor,
+      links `produced_composition`/`produced_asset` from
+      executor return, updates row SUCCEEDED/FAILED.
+      Idempotent on terminal rows.
+    * `dispatch_tool` async branch now enqueues Celery
+      (was a stub in R7.0). `approve_invocation` flips
+      async invocations to QUEUED + enqueues; sync stays
+      inline. `_maybe_result` snapshots `produced_*_id`
+      into the SPA-facing dispatch result.
+    * `render_video` tool — fires `talking_head` by
+      default; `recipe` overridable via args. Cost
+      `80_000` micros ($0.08) — over the $0.05 threshold
+      so exercises the approval flow with a real
+      side-effect. Calls `check_video_limit(workspace)`
+      for the per-month tier gate.
+    * INVENTORY Celery undercount fix (SESSION 147 drift
+      backlog item 5) —
+      `celery_app.loader.import_default_modules()`
+      before reading `celery_app.tasks`. Count goes from
+      5 → 8.
+
+    Test totals after SESSION 151: **627 backend tests**.
+    Six Celery tasks now correctly reflected in INVENTORY
+    (R7.2 added the 7th).
+
+    R7.3 (attach_memory + R6.1 R6 widen) is the next
+    realtime slice; R8 (SPA — operator-visible moment) +
+    R9 (cost governance) + R10 (provider hardening)
+    remain.
   - **Workspace fabric arc (F0-F10). COMPLETE.** All 10
     slices shipped SESSION 144
     (`docs/design/WORKSPACE_FABRIC_V1.md`). 9 contract
@@ -353,32 +388,54 @@ SESSION 143 spent ~30 minutes catching up 11 slices because
 the per-slice updates weren't done inline. Per-slice updates
 are 30 seconds each. The discipline avoids the catch-up.
 
-### Session-start drift sweep (codified SESSION 147)
+### Session-start drift sweep (codified SESSION 147, updated SESSION 151)
 
 SESSION 147's drift audit found 5 items of accumulated
 drift (2 operational, 3 documentation) across SESSIONS
 144-146. Root cause: nothing programmatically checked for
 drift between session boundaries. The discipline added:
 
-- **Every session starts with a drift sweep** before any
-  slice is opened. Four categories to check:
-  1. Stale running processes (`ps` vs latest commit on the
-     service's directory).
-  2. Pending migrations (`python manage.py showmigrations
-     --plan | grep '\[ \]'` from `shell/`).
-  3. Anchor frontmatter `last_revised` vs latest handoff
-     date.
-  4. INVENTORY `git_sha` vs `HEAD`.
+- **Every session starts with `context-kit doctor`** before
+  any slice is opened. Doctor is the drift-prevention tool
+  — it's been extended to cover the four manual checks the
+  SESSION 147 audit identified (process age, pending
+  migrations, anchor frontmatter date drift, INVENTORY
+  `git_sha` vs `HEAD`). Operator clarified SESSION 151:
+  "doctor is in place of drift" — doctor replaces what was
+  originally scoped as a separate `context-kit drift`
+  subcommand.
+
+  ```bash
+  python3 /Users/donkeyking/development/context-kit/context_kit.py doctor
+  # or, if context-kit is on PATH:
+  context-kit doctor
+  ```
+
+  Exit code 0 = clean (warnings are advisory); exit 1 =
+  blocking issues that should be fixed before opening a
+  slice.
+
+- **For drift categories doctor doesn't yet cover** (the
+  feature set is still expanding), spot-check manually:
+  1. Stale running processes (`ps aux | grep -E
+     "(uvicorn|runserver|celery)"` vs latest commit on
+     the service's directory).
+  2. INVENTORY `git_sha` vs `HEAD` (`grep git_sha
+     docs/CHARACTER_OS_INVENTORY.md` then `git log
+     --oneline -1`).
+
+  When doctor's coverage expands to these, the manual
+  checks can drop.
+
 - **If drift is found, fix it before opening any slice.**
   Commit as `docs: SESSION NNN boot — drift sweep`.
 - **Note the sweep in the handoff** even when clean — the
   absence of the note is the failure mode.
 
-The `context-kit drift` subcommand (scheduled SESSION 148)
-will productise this into one command. Until it lands, run
-the four checks manually. See
-`docs/handoffs/SESSION_147_DRIFT_AUDIT.md` for the full
-backlog of prevention tooling.
+See `docs/handoffs/SESSION_147_DRIFT_AUDIT.md` for the
+original prevention backlog (items 2-5 remain queued;
+item 1 evolved into the doctor extension; item 5
+shipped in SESSION 151 alongside R7.2).
 
 Anchor docs (will be fleshed out as the build proceeds):
 - `docs/CHARACTER_OS_WHAT_IT_IS.md` — narrative anchor.

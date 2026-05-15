@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-15T17:43:02.438912+00:00
-git_sha: 611ae94 (working tree dirty)
+generated_at: 2026-05-15T18:18:01.063186+00:00
+git_sha: e8564f9 (working tree dirty)
 git_branch: main
 ---
 
@@ -15,7 +15,7 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-15T17:43:02.438912+00:00** against commit **611ae94**
+Generated **2026-05-15T18:18:01.063186+00:00** against commit **e8564f9**
 on branch **main** (working tree dirty).
 
 Python 3.11.6 · Django 5.2.14 ·
@@ -31,9 +31,9 @@ Celery 5.6.3 · httpx 0.28.1.
 | URL routes (total) | **281** | `get_resolver().url_patterns` walk |
 | URL routes (`/api/*`) | **93** | same |
 | FastAPI routes | **114** | media-engine `/openapi.json` (reachable) |
-| Celery tasks (registered) | **5** | `celery_app.tasks` filter |
-| Migrations (applied / total) | **50 / 50** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **37,777** in 202 files | `pathlib.Path.rglob("*.py")` |
+| Celery tasks (registered) | **8** | `celery_app.tasks` filter |
+| Migrations (applied / total) | **51 / 51** | `MigrationRecorder` ∩ `MigrationLoader` |
+| Shell LOC (`*.py`, no venv/migrations) | **38,627** in 204 files | `pathlib.Path.rglob("*.py")` |
 | Media-engine LOC (`*.py`, no venv/migrations) | **30,118** in 53 files | same |
 
 ---
@@ -207,19 +207,22 @@ Total: **114** routes.
 
 ## Celery Tasks
 
-Total: **5** registered tasks (excluding `celery.*` built-ins).
+Total: **8** registered tasks (excluding `celery.*` built-ins).
 
 - `apps.compositions.tasks.execute_composition`
 - `apps.compositions.tasks.retry_step`
 - `apps.videos.tasks.poll_video_until_terminal`
 - `character_os.celery.debug_task`
 - `conversations.embed_message`
+- `embeddings.embed_document`
+- `realtime.execute_tool_invocation`
+- `realtime.fetch_transcript_for_session`
 
 ---
 
 ## Migrations
 
-**50 of 50** migrations applied.
+**51 of 51** migrations applied.
 
 | App | Applied | Total | Pending |
 |---|---|---|---|
@@ -232,7 +235,7 @@ Total: **5** registered tasks (excluding `celery.*` built-ins).
 | `contenttypes` | 2 | 2 | 0 |
 | `conversations` | 2 | 2 | 0 |
 | `embeddings` | 2 | 2 | 0 |
-| `realtime` | 2 | 2 | 0 |
+| `realtime` | 3 | 3 | 0 |
 | `sessions` | 1 | 1 | 0 |
 | `sites` | 2 | 2 | 0 |
 | `socialaccount` | 6 | 6 | 0 |
@@ -259,11 +262,11 @@ Total: **5** registered tasks (excluding `celery.*` built-ins).
 | Service | Files | Lines |
 |---|---|---|
 | `media-engine/` | 53 | 30,118 |
-| `shell/` | 202 | 37,777 |
-| **total** | **255** | **67,895** |
+| `shell/` | 204 | 38,627 |
+| **total** | **257** | **68,745** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-05-15T17:43:02.438912+00:00 from commit 611ae94. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-15T18:18:01.063186+00:00 from commit e8564f9. Re-run `python manage.py inventory` (from `shell/`) to refresh.*

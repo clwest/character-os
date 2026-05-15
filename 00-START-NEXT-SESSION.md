@@ -16,99 +16,112 @@ state: active
 > (locked SESSION 142 — 9 contract rules, V0-V15 slice breakdown).
 > **Realtime avatar scope lock:** `docs/design/REALTIME_AVATAR_V1.md`
 > (locked SESSION 142 — 10 contract rules, R0-R10 slice
-> breakdown). **R1-R6 + R7.0 + R7.1 shipped; R7.2, R8, R9, R10 remain.**
+> breakdown). **R1-R6 + R7.0 + R7.1 + R7.2 shipped; R7.3, R8, R9, R10 remain.**
 > **Workspace fabric scope lock:** `docs/design/WORKSPACE_FABRIC_V1.md`
 > (locked SESSION 144 — 9 contract rules, F0-F10 slice
 > breakdown). **F0-F10 complete; F8.1 queued.**
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_150_R7_SYNC_TOOLS.md`.
+> **Last handoff:** `docs/handoffs/SESSION_151_R7_ASYNC.md`.
 
 ---
 
-## SESSION 150 outcome — R7.1 sync tools + tier-aware filtering
+## SESSION 151 outcome — R7.2 async dispatch + render_video + INVENTORY fix
 
-Single-slice session. R7.1 shipped three sync tools on
-top of R7.0's dispatch foundation, plus tier-aware
-filtering that resolves **Q-r-4** (per-workspace tool
-catalog overrides).
+Single-slice session with one bundled bug fix. Three
+things shipped under R7.2:
 
 | Commit | What it shipped |
 |---|---|
-| `611ae94` | R7.1 feat — three sync tools + ToolSpec.tier_required + tier filtering + dispatcher defense-in-depth + `get_workspace_tier` helper + 17 tests + 3 ALLOWED_FILES + R7.0 test rename |
-| (this commit) | SESSION 150 handoff + this start-here rewrite + SHA backfill + INVENTORY regen + CLAUDE.md row bump |
+| `e8564f9` | R7.2 feat — QUEUED status (migration `0003`) + generic `execute_tool_invocation` Celery task + dispatcher async wiring + approve enqueues Celery + `render_video` tool ($0.08, over threshold) + INVENTORY Celery undercount fix (drift backlog item 5) + 14 tests + 2 ALLOWED_FILES additions |
+| (this commit) | SESSION 151 handoff + this start-here rewrite + SHA backfill + INVENTORY regen + CLAUDE.md updates (Phase 4 row + drift-sweep section pointing at `context-kit doctor`) |
+
+**`attach_memory` split out to R7.3** (was originally
+part of R7.2). Reason: end-to-end attach_memory requires
+R6's query to widen — R6 currently filters by
+`status=ENDED` which excludes the in-progress session's
+transcript snapshot. R7.3 pairs R6.1 (R6 widen) +
+`attach_memory` tool.
 
 **Tool catalog now**:
 
-| Tool | Tier | Cost | Notes |
-|---|---|---|---|
-| `show_videos_tab` | starter | $0 | UI nav (R7.0) |
-| `recall_knowledge` | starter | ~$0.001 | RAG against K2 |
-| `recall_recent_conversations` | starter | $0 | per-session previews |
-| `handoff_to_spokesperson` | **pro** | $0 | cross-spokesperson nav |
+| Tool | Tier | Cost | Sync/Async | Slice |
+|---|---|---|---|---|
+| `show_videos_tab` | starter | $0 | sync | R7.0 |
+| `recall_knowledge` | starter | ~$0.001 | sync | R7.1 |
+| `recall_recent_conversations` | starter | $0 | sync | R7.1 |
+| `handoff_to_spokesperson` | pro | $0 | sync | R7.1 |
+| `render_video` | starter | $0.08 | **async** | R7.2 |
+| `attach_memory` | pro | TBD | async | R7.3 (queued) |
 
-**Test totals**: Django 596 → 613 (+17). No new
-migrations, Celery tasks, media-engine routes, or
-force-mock flags. Q-r-4 resolved.
+**Test totals**: Django 613 → 627 (+14). Migrations
+50/50 → 51/51. INVENTORY Celery count correctly reads
+**8** now (was 5 because of lazy autodiscovery).
+
+**Drift sweep tool**: per operator clarification this
+session, `context-kit doctor` IS the drift tool
+(replaces what was originally scoped as a separate
+`drift` subcommand). CLAUDE.md's session-start
+drift-sweep section updated to point there.
+
+**Stack restarted mid-session** at operator's request
+after the SPA returned 502s — killed three stale
+processes (Django May 14, Celery May 14, uvicorn May
+15) + restarted fresh. New R7.0 + R7.1 + R7.2 routes
+verified to respond (403 auth-required, not 404).
 
 Full handoff at
-`docs/handoffs/SESSION_150_R7_SYNC_TOOLS.md`.
+`docs/handoffs/SESSION_151_R7_ASYNC.md`.
 
-### FIRST THING (SESSION 151): R7.2 (async tools via Celery)
+### FIRST THING (SESSION 152): R7.3 (`attach_memory` + R6.1 prerequisite)
 
-Two async tools that share `is_async=True`:
+Two parts paired in one slice:
 
-1. **`render_video`** — fires a composition starter
-   via Celery (default `talking_head`). Pro tier
-   (subject to per-month video cap). Cost:
-   ~$0.05-0.50 depending on starter + duration.
-   **The threshold-crossing tool** — exercises
-   R7.0's `awaiting_approval` flow end-to-end
-   (only synthetic high-cost test tools have
-   exercised it before).
-2. **`attach_memory`** — mid-session memory commit.
-   Pro tier. Pulls partial transcript from
-   media-engine, composes via R6's
-   `compose_session_memory`, pushes as a fresh
-   Runway document, attaches to spokesperson.
-   Cost: ~$0.001. Resolves **Q-r-8** (cross-session
-   tool side effects — composition is idempotent +
-   last-write-wins).
+**R6.1 — widen R6 to include in-progress sessions**.
+Lean Option A: change R6's query from
+`status=ENDED` to "any session with `transcript_asset`,
+excluding the current session by pk." Crash-state
+sessions surfacing in memory is acceptable (avatar
+references a partial earlier conversation; SPA can
+frame it as "earlier today").
 
-R7.2 makes the `queued` dispatch state load-bearing
-(R7.0 wired it; only R7.2 fills in the Celery
-dispatch + result-polling shapes).
+**R7.3 — `attach_memory` tool**:
 
-**Bundle with R7.2**: drift-prevention backlog item 5
-(INVENTORY Celery undercount fix). R7.2 adds 1-2 new
-Celery tasks; the undercount in INVENTORY becomes
-more obvious. ~30 minutes; either inline or as a
-follow-up `docs:` commit after R7.2's INVENTORY regen
-surfaces the wrong number.
+* Fires `fetch_transcript_for_session.delay(session_id)`
+  on the CURRENT session (R5's existing task is
+  idempotent and works on non-ENDED sessions).
+* Async; cost ~$0.001.
+* Pro tier (power-user feature — discrete checkpoints
+  during long planning calls).
+* Returns `{event: "memory_committed", asset_id, message}`.
+* Resolves Q-r-8 (cross-session tool side effects —
+  composition is idempotent + last-write-wins).
 
-Estimated scope: ~2 new Celery tasks, ~15 tests, no
-migrations.
+Estimated scope: ~10 new tests, no migrations, 1 new
+tool, ~20 lines of R6 widen.
 
-### After SESSION 151
+### After SESSION 152
 
 * **R8 (SPA)** — `/spokespeople/:id/talk` route +
-  `@runwayml/avatars-react` SDK + cost forecasting
-  UI + tool-approval modal + live cost ticker. The
-  operator-visible moment.
+  `@runwayml/avatars-react` SDK + cost forecasting UI
+  + tool-approval modal + live cost ticker. The
+  operator-visible moment. After R7.3 lands, R8 ships
+  against the complete 6-tool v1 catalog.
 * **R9 (cost governance)** — per-workspace minutes
   budget + live cost ticker.
-* **R10 (provider hardening)** — drift verifier test.
+* **R10 (provider hardening)** — drift verifier test
+  for the registry pattern.
 
-### Drift-prevention backlog status (from SESSION 147)
+### Drift-prevention backlog status
 
 | # | Item | Status |
 |---|---|---|
-| 1 | `context-kit drift` subcommand | In flight (parallel context-kit agent) |
+| 1 | `context-kit drift` subcommand | **Superseded** — operator clarified `doctor` IS the drift tool |
 | 2 | Auto-bump `last_revised` on handoff write | Queued |
 | 3 | Promote calibration entries to TRUST_CALIBRATION at handoff-write | Queued |
-| 4 | Codify session-start drift sweep in CLAUDE.md | Done SESSION 147 |
-| 5 | Fix INVENTORY's two known generator bugs | **Recommend bundling with R7.2** |
+| 4 | Codify session-start drift sweep in CLAUDE.md | Done SESSION 147; updated SESSION 151 to point at `doctor` |
+| 5 | Fix INVENTORY's two known generator bugs | **Done SESSION 151** (Celery undercount fix). Working-tree-dirty flag still pending. |
 
 ---
 
@@ -120,16 +133,15 @@ in real-mode (SESSION 136).
 
 **Phase 4 (four arcs in flight, two complete):**
 
-- **Knowledge arc (K1-K10).** K1-K9 shipped.
-  K10 → F8.1 queued. K7.x YouTube ingest fix queued.
+- **Knowledge arc (K1-K10).** K1-K9 shipped. K10 → F8.1
+  queued. K7.x YouTube ingest fix queued.
 - **Video composition arc (V0-V15). COMPLETE**
-  (SESSIONS 142-144). 13 step primitives, 18 starter
-  recipes, SPA recipe gallery at `/recipes`.
+  (SESSIONS 142-144).
 - **Workspace fabric arc (F0-F10). COMPLETE**
   (SESSION 144). F8.1 K10 seed corpus queued.
 - **Realtime avatar arc (R0-R10).** R1-R6 + R7.0 +
-  R7.1 shipped (SESSIONS 146-150). R7.2 (async tools)
-  is next. R8 (SPA) + R9 + R10 remain.
+  R7.1 + R7.2 shipped (SESSIONS 146-151). R7.3 is next.
+  R8 (SPA) + R9 + R10 remain.
 
 | Slice | Deliverable                                  | Status |
 |-------|----------------------------------------------|--------|
@@ -142,7 +154,8 @@ in real-mode (SESSION 136).
 | R6 | Cross-session memory projection                | DONE (SESSION 148) |
 | R7.0 | Tool dispatch foundation                       | DONE (SESSION 149) |
 | R7.1 | Three sync tools + tier-aware filtering        | DONE (SESSION 150) |
-| R7.2 | Two async tools via Celery (`render_video`, `attach_memory`) | Next (SESSION 151) |
+| R7.2 | Async dispatch + `render_video` + INVENTORY fix | DONE (SESSION 151) |
+| R7.3 | R6.1 R6 widen + `attach_memory` tool          | Next (SESSION 152) |
 | R8 | SPA `/spokespeople/:id/talk` + SDK integration   | Queued |
 | R9 | Cost governance: minutes budget + live ticker    | Queued |
 | R10 | Multi-provider hardening (drift verifier test)  | Queued |
@@ -162,20 +175,21 @@ Cast can render *informed* videos (K6 / SESSION 139),
 hold text conversations (K8/K9 / SESSION 145), hold
 live realtime sessions grounded in workspace knowledge
 that remember prior conversations (R1-R6), invoke
-tools mid-session (R7.0 / SESSION 149), and **now use
-RAG + recall prior sessions + suggest handoffs live**
-(R7.1 / SESSION 150).
+five tools mid-session (R7.0 + R7.1 + R7.2 across
+SESSIONS 149-151) including **`render_video` which
+actually fires the V-arc composition chain via Celery**
+(R7.2 / SESSION 151).
 
 ---
 
 ## Queued investigations (priority-ordered)
 
-1. **R7.2 — Async tools** (`render_video` +
-   `attach_memory`; next session's primary slice).
-2. **Drift-prevention backlog item 5** — INVENTORY
-   generator bugs. Bundle with R7.2.
-3. **R8 — SPA realtime route.**
-4. **R9 — Cost governance.**
+1. **R7.3 — `attach_memory` + R6.1 R6 widen** (next
+   session's primary slice).
+2. **R8 — SPA realtime route.**
+3. **R9 — Cost governance.**
+4. **Drift-prevention backlog item 2 + 3** (auto-bump
+   `last_revised` + TRUST_CALIBRATION promotion).
 5. **F8.1 — K10 seed corpus** (blocked on
    operator-authored markdown).
 6. **K7.x — YouTube ingest fix.**
@@ -185,9 +199,7 @@ RAG + recall prior sessions + suggest handoffs live**
 10. **First marketing video.**
 11. **Voice preset audit.**
 12. **E2e detritus cleanup.**
-13. **OpenAI client factory port** — three call sites
-    now (K6 + K9 + R6); factory pattern starts paying
-    off.
+13. **OpenAI client factory port.**
 14. **R10 — Multi-provider hardening.**
 15. **Cast sync command.**
 16. **Stuck-row janitor.**
@@ -196,7 +208,8 @@ RAG + recall prior sessions + suggest handoffs live**
 19. **Real Google OAuth + dj-stripe.**
 20. **Allauth legacy-settings cleanup.**
 21. **smoke_voice / smoke_avatar transaction discipline.**
-22. **Drift verifier (the original).**
+22. **INVENTORY working-tree-dirty flag fix** (the
+    other half of drift backlog item 5; not blocking).
 23. **Brand Identity v2 + dark mode.**
 
 ---
@@ -218,7 +231,18 @@ celery -A character_os worker --loglevel=info --pool=solo
 cd web && pnpm dev                          # :5174
 ```
 
-**Six force-mocks** (RUNWAY on the media-engine;
+**Session-start drift sweep** (per CLAUDE.md, updated
+this session):
+
+```bash
+python3 /Users/donkeyking/development/context-kit/context_kit.py doctor
+```
+
+Doctor is the primary drift-detection tool. Manual
+spot-checks remain for stale processes + INVENTORY
+git_sha (categories doctor doesn't yet cover).
+
+**Six force-mocks** (RUNWAY on media-engine;
 EMBEDDING + RENDER_SCRIPT + CONVERSATION_REPLY + SERPER
 + REALTIME_MEMORY on Django). Set all six for fully-
 offline local dev.
@@ -233,8 +257,8 @@ python manage.py smoke_avatar
 python manage.py smoke_voice
 python manage.py smoke_video
 python manage.py smoke_portrait
-python -m pytest                              # 613 tests
-python -m pytest apps/realtime/tests/         # 104 tests (R1-R6 + R7.0 + R7.1)
+python -m pytest                              # 627 tests
+python -m pytest apps/realtime/tests/         # 118 tests (R1-R6 + R7.0 + R7.1 + R7.2)
 
 # SPA (from web/, in mock mode only)
 pnpm test
@@ -245,35 +269,34 @@ pnpm e2e
 
 ## AI / assistant context
 
-- **Last session: SESSION 150 — R7.1 shipped.** Three
-  sync tools + tier-aware filtering. Q-r-4 resolved.
-  613 backend tests pass.
+- **Last session: SESSION 151 — R7.2 shipped.** Async
+  dispatch + `render_video` + INVENTORY Celery fix.
+  Original R7.2 scope split: `attach_memory` → R7.3
+  (needs R6.1 prerequisite). 627 backend tests pass.
+  Migration 51/51.
 - **Calibration carried forward:**
-  - **Tier as a defense-in-depth axis.** Catalog
-    filter is the primary gate; dispatcher tier
-    check is the safety net. Pattern matches V's
-    workspace-scoped guards (view-layer filter +
-    model `clean()`).
-  - **Per-item permission metadata over per-bucket
-    lists.** Each tool's `tier_required` lives with
-    its other declarative fields. Avoids the coupling
-    of `STARTER_TOOLS = [...]` / `PRO_TOOLS = [...]`
-    style.
-  - **Privacy tests at slice boundaries are cheap
-    insurance.** Each new tool/endpoint that reads
-    workspace-scoped data gets one
-    `..._other_workspace_excluded` test. None caught
-    a bug this session but the next refactor will.
-  - **Over-scoped slices get sub-sliced at proposal
-    time** (R7 → R7.0/R7.1/R7.2).
-  - **Test fixtures touching singletons: snapshot +
-    restore, not module-reload.**
-  - **Pyright in this repo is noisy on Django/DRF.**
+  - **Doctor is the drift tool**, not a separate
+    `drift` subcommand. CLAUDE.md drift-sweep section
+    updated to point at `context-kit doctor`.
+  - **Splitting a scope-locked slice mid-
+    implementation is fine** when dependencies
+    surface late. Better than half-shipping.
+  - **Fast bug fixes can ride feature commits** when
+    the operator agrees + scope is small (R7.2's
+    Celery undercount fix was ~3 lines, bundled
+    naturally with the feat).
+  - **Pyright in this repo is noisy on Django/DRF**
+    — same false-positives every session
+    (FK auto-attrs, UserManager.create_user, DRF
+    queryset narrowing). Filter for novel ones.
+  - **Cross-arc isolation guards add 1-3 whitelist
+    edits per new test file.**
   - **OpenAI gpt-5 family uses the Responses API.**
-- **R7.2 / R8 / R9 / R10 = ~4 more sessions to close
-  the realtime arc.** R7.2 + R8 together make the arc
-  operator-visible with the full tool set.
+- **R7.3 / R8 / R9 / R10 = ~4 more sessions to close
+  the realtime arc.** R7.3 closes the tool catalog at
+  v1 spec (6 tools); R8 makes everything
+  operator-visible.
 - Collaboration conventions: AI drafts, human edits.
   Handoff `## AI Notes` + per-slice doc updates
   required at session end (codified SESSION 143;
-  reinforced SESSION 147; honored SESSIONS 148-150).
+  reinforced SESSION 147; honored SESSIONS 148-151).
