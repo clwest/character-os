@@ -2,9 +2,9 @@
 title: "Character OS — What It Actually Is"
 status: populated
 generated: 2026-05-13
-last_revised: 2026-05-14 (SESSION 143)
+last_revised: 2026-05-15 (SESSION 146)
 companion_doc: CHARACTER_OS_INVENTORY.md
-covers_sessions: "106-143"
+covers_sessions: "106-146"
 ---
 
 # Character OS — What It Actually Is
@@ -30,15 +30,19 @@ demo it inherited the media engine from.
 
 **Scale:** see [`CHARACTER_OS_INVENTORY.md`](CHARACTER_OS_INVENTORY.md)
 for the canonical numbers (regenerated via
-`python manage.py inventory`). At time of writing (SESSION 132):
-~40 `/api/*` routes in Django, ~94 user-defined routes in FastAPI
-(~88 legacy + 5 `/internal/*` + health), 4 services + Redis (Django
-+ FastAPI + React SPA + Celery), ~31K LOC across `shell/` +
-`media-engine/` + `web/`. The 4-step create-spokesperson wizard
-ships end-to-end after SESSION 132. Currently 1-developer /
-0-customer; launch target is small-business operators (the
-hackathon validated the product shape, this repo is the
-productisation).
+`python manage.py inventory`). Headline shape at SESSION 146:
+8 Django apps + ~16 models, ~80+ `/api/*` routes, ~25 `/internal/*`
+routes on the media-engine (plus the legacy hackathon surface),
+4 services + Redis (Django + FastAPI + React SPA + Celery). The
+4-step create-spokesperson wizard ships end-to-end (SESSION 132);
+the knowledge arc (K1-K7 + K8/K9) gives spokespeople grounded
+retrieval; the video composition arc (V0-V15) gives them a
+12-primitive / 17-recipe composition pipeline; the realtime arc
+(R1-R5) gives them live two-way WebRTC sessions with persisted
+transcripts. Numbers move per slice — always trust INVENTORY
+over any quote here. Currently 1-developer / 0-customer; launch
+target is small-business operators (the hackathon validated the
+product shape, this repo is the productisation).
 
 ---
 

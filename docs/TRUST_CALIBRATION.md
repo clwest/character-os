@@ -362,3 +362,147 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   behind code are a real session-cost (next session has
   to re-derive the state from `git log`). The catch-up
   works once; the discipline avoids the catch-up.
+
+## 2026-05-14 — Near-miss: operator's "brief mode" insight reshaped F4
+
+- **Context / claim:** SESSION 144's F4 was scoped as
+  "video-recipe knowledge preview" — show the operator the
+  retrieval results their script will surface, debounced.
+  Mid-scoping the operator asked: *"are we using the LLM to
+  write the script? Can I just say 'Create a 60-sec ad about
+  X'?"* The capability was already there (K6's
+  `script_synthesis` writes the script from the brief), but
+  the SPA labelled the field "Script — what the avatar will
+  say." Operators were reading the label literally and
+  pasting in pre-written scripts, not realizing they could
+  hand off the writing to the model.
+- **Reality / outcome:** F4 expanded mid-slice from
+  preview-only to also include a **brief-mode helper** — a
+  toggle that re-labels the field "Brief" and re-frames the
+  generation flow as "describe the video, model writes the
+  script." No model change; pure SPA framing + a label
+  toggle. Operators surface the capability they already
+  had.
+- **Found by:** Operator's direct question during F4
+  scoping. The handoff records this as "without the
+  operator's question, F4 would have shipped a useful but
+  smaller surface."
+- **Lesson:** **Ask the operator what they think a field
+  does, not what the model thinks.** When the label and the
+  capability diverge, the label wins for the operator's
+  mental model — and the capability stays hidden. **For
+  this operator specifically:** when locking a UI-touching
+  slice, ask "what would the operator type here?" before
+  the field copy ships. F4 is the second instance of the
+  same pattern (W3.5 was the first — visual_subject field
+  collected client-side without a persistence layer until
+  operator flagged it). Both shipped from "operator names
+  the gap I missed."
+
+## 2026-05-14 — AI confidently wrong (scope-lock taken at face value): K8 was partly shipped during K2
+
+- **Context / claim:** SESSION 145 opened K8 with the K0
+  scope-lock framing: *"K8 — `ConversationMessage` +
+  `ConversationEmbedding` models + `retrieve_for_thread()`.
+  Schema slice; mirrors K2."* The implicit assumption was
+  that K8 is a fresh schema slice — design the migration,
+  ship the models, add the retrieval helper.
+- **Reality / outcome:** On opening K8 to scaffold the
+  migration, the discovery: **all three of those models +
+  retrieve_for_thread() landed during K2 in SESSION 138.**
+  K2's commit shipped the full conversation-side schema as
+  a sibling to KnowledgeDocument's, just without the
+  ingestion-side pipeline. What was actually missing for
+  K8 was `embed_message` (the Celery task) + the post-save
+  signal on `ConversationMessage` that fires it. The K8
+  work this session shipped exactly that — 11 backend
+  tests + the task + the signal, no model migration.
+- **Found by:** AI reading `apps/conversations/models.py`
+  before drafting the K8 migration. The models existed;
+  the scope-lock had over-counted what K8 needed to do.
+- **Lesson:** **Before opening a scope-locked slice, read
+  the modules it claims to touch — the scope-lock can be
+  stale from earlier slice landings.** K0 was drafted at
+  K-arc start; K2's actual implementation went further
+  than K2's slice description (it shipped the conversation
+  schema "while we were here"). The slice-lock didn't
+  track the over-delivery, so K8 read as bigger than it
+  was. **For this operator specifically:** opening a
+  slice always starts with "what's already here?" — five
+  minutes of reading the target modules before writing
+  the migration prevents the next AI session from
+  re-shipping work that already exists. Generalisation:
+  scope-lock documents are a snapshot; the modules they
+  reference are the ground truth.
+
+## 2026-05-15 — Multi-failure-mode session: TIER_LIMITS edit shadowing + cross-arc isolation rule + replace_all hazard + hackathon-client coexistence
+
+- **Context / claim:** SESSION 146's R1-R5 buildout
+  surfaced four distinct failure modes worth carrying
+  forward as separate rules. Bundling them here because
+  they all fired in the same session — separate entries
+  would scatter the same calibration moment across the
+  log.
+- **Reality / outcome:**
+  1. **TIER_LIMITS edit shadowing** — twice the
+     `realtime_sessions_per_month` Edit on
+     `apps/billing/models.py` reported success but the
+     R3 tier-limit test still failed. Recovery: read the
+     file to verify state, then re-Edit with a slightly
+     different context window. The pattern looked like
+     Edit's `old_string` matched a *cached* view of the
+     file from a prior read rather than disk. **Rule:**
+     after any Edit on a hot file (one that other edits
+     have touched in the same turn), read a small window
+     of the target to confirm the change landed before
+     moving on.
+  2. **Cross-arc isolation `ALLOWED_FILES`** — R1's
+     `test_models.py` creates a `Composition` to
+     exercise the `RealtimeToolInvocation.produced_composition`
+     cross-workspace check; R5's transcript tests create
+     `Asset(TRANSCRIPT)` rows via the broker. Both
+     tripped `apps/compositions/tests/test_isolation.py`
+     until the new test paths were added to
+     `ALLOWED_FILES` in the *composition* isolation test
+     (not just the realtime one). **Rule:** every new
+     test file that creates rows in a cross-arc model
+     needs an `ALLOWED_FILES` entry in *both* isolation
+     tests (and embeddings if it touches chunks). The
+     isolation tests are the right gate — adding the
+     path is a code-review event with a one-line note.
+  3. **`replace_all=true` back-fill hazard** — three
+     slices had back-fill commit attempts fail because
+     `Edit replace_all=true` on the literal `(commit TBD)`
+     matched *multiple* TBD markers and replaced them
+     all to the same hash, which is wrong if they
+     reference different slices. **Rule:** never use
+     `replace_all=true` for back-fills like `(commit
+     TBD)`. Use targeted Edits with a unique context
+     window per occurrence.
+  4. **Hackathon client coexistence** — R2's provider
+     abstraction is the v2 path the R-arc consumes; the
+     hackathon's 807-line `realtime_avatar_client.py`
+     stays alongside it for the legacy `/api/*` surface
+     (no retirement slice planned). **Rule:** when an
+     arc has a hackathon implementation, read it for
+     HTTP shapes / endpoint contracts — don't port from
+     it. The hackathon code optimized for fewer
+     abstraction layers; character-os optimizes for
+     arc-by-arc substitution. Same Runway endpoint can
+     have different consumer code in both files; that's
+     fine.
+- **Found by:** Test failures (1, 2) + Edit no-op
+  symptom (3) + reading both clients before the R2
+  provider design (4). All caught in-session, no
+  downstream cost.
+- **Lesson:** **For this operator specifically:** when a
+  session adds a new arc, the first slice's test pass is
+  also a check on every prior arc's isolation gate.
+  Cross-arc isolation `ALLOWED_FILES` updates are
+  cheaper than letting a new test file trip an unrelated
+  isolation test on a stranger's session. Generalisation:
+  defensive structural tests (isolation grep, repo-level
+  lints) become noisier as the system grows — keep them
+  by paying the maintenance cost (one `ALLOWED_FILES`
+  line per new sanctioned test file), not by relaxing
+  them.
