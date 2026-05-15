@@ -31,12 +31,13 @@ import logging
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.accounts.models import Membership, Workspace
-from apps.compositions.models import Asset, Composition
+from apps.compositions.models import Asset, Composition, CompositionStep
 from apps.spokespeople.models import Spokesperson
 from character_os.permissions import IsWorkspaceMember
 
@@ -164,6 +165,130 @@ class CompositionViewSet(viewsets.GenericViewSet):
             raise NotFound("Composition not found")
         self.check_object_permissions(request, comp)
         return Response(CompositionSerializer(comp).data)
+
+    @action(detail=True, methods=["get"])
+    def lineage(self, request, pk: str | None = None):
+        """F5 — asset lineage for a composition.
+
+        Returns the immediate-parent + immediate-child
+        compositions that share assets with this one:
+
+        * ``derived_from``: source compositions whose output
+          assets this composition consumes as inputs. Walks
+          each step's ``inputs`` JSON looking for
+          ``asset_id`` entries (the ``from_step_position``
+          shape is same-composition and not lineage). One hop
+          per Q-f-5; the gallery doesn't surface chains.
+        * ``used_by``: downstream compositions that consume
+          assets produced by this one. Scans all
+          ``CompositionStep.inputs`` whose JSON includes any
+          of this composition's produced asset ids.
+
+        Workspace scoping is structural — the parent
+        composition lookup goes through the user's queryset;
+        the asset_id strings can only resolve to in-workspace
+        assets because of the V1 cross-workspace signal on
+        save. Both lists are deduped by composition.
+        """
+        try:
+            comp = self.get_queryset().get(pk=pk)
+        except Composition.DoesNotExist:
+            raise NotFound("Composition not found")
+        self.check_object_permissions(request, comp)
+
+        # ---- derived_from ------------------------------------
+        # Collect every asset_id referenced as an input in
+        # this composition's steps. asset_id appears when an
+        # operator picked a workspace asset in the recipe form
+        # (e.g. layout recipes' base_clip); from_step_position
+        # is same-composition and excluded.
+        input_asset_ids: set[str] = set()
+        for step in comp.steps.all():
+            for entry in step.inputs or []:
+                if isinstance(entry, dict):
+                    aid = entry.get("asset_id")
+                    if aid:
+                        input_asset_ids.add(str(aid))
+
+        derived_from: list[dict] = []
+        seen_source_comp_ids: set[str] = set()
+        if input_asset_ids:
+            source_assets = (
+                Asset.objects.filter(
+                    id__in=input_asset_ids,
+                    workspace=comp.workspace,
+                )
+                .select_related("composition", "composition__spokesperson")
+            )
+            for asset in source_assets:
+                src_comp = asset.composition
+                if src_comp is None or str(src_comp.id) == str(comp.id):
+                    continue
+                # Dedup: one entry per source composition even
+                # when several of its assets feed this one.
+                if str(src_comp.id) in seen_source_comp_ids:
+                    continue
+                seen_source_comp_ids.add(str(src_comp.id))
+                derived_from.append({
+                    "asset_id": str(asset.id),
+                    "asset_type": asset.asset_type,
+                    "composition_id": str(src_comp.id),
+                    "composition_name": src_comp.name,
+                    "template_kind": src_comp.template_kind,
+                    "status": src_comp.status,
+                })
+
+        # ---- used_by ----------------------------------------
+        # Compositions whose steps reference any asset this
+        # composition produced. Asset ids are stored as
+        # strings inside CompositionStep.inputs JSON; we scan
+        # the JSON for substring matches per asset to find
+        # candidate steps, then group by composition.
+        produced_asset_ids = list(
+            comp.produced_assets.values_list("id", flat=True),
+        )
+        used_by: list[dict] = []
+        seen_consumer_ids: set[str] = set()
+        if produced_asset_ids:
+            from django.db.models import Q
+
+            # Per-id contains query — SQLite + Postgres both
+            # support the JSON __icontains lookup well enough
+            # for our v1 dataset sizes. Pre-cap to 100
+            # candidates to keep the query bounded.
+            q = Q()
+            for aid in produced_asset_ids:
+                q |= Q(inputs__icontains=str(aid))
+            candidate_steps = (
+                CompositionStep.objects
+                .filter(q)
+                .exclude(composition_id=comp.id)
+                .select_related("composition", "composition__spokesperson")
+                # Read-side workspace scope — the user must
+                # be a member. Tests cover the cross-workspace
+                # case; structurally V1's cross-workspace
+                # signal prevents foreign assets from being
+                # referenced in the first place.
+                .filter(composition__workspace=comp.workspace)
+                [:100]
+            )
+            for step in candidate_steps:
+                consumer = step.composition
+                if str(consumer.id) in seen_consumer_ids:
+                    continue
+                seen_consumer_ids.add(str(consumer.id))
+                used_by.append({
+                    "composition_id": str(consumer.id),
+                    "composition_name": consumer.name,
+                    "template_kind": consumer.template_kind,
+                    "status": consumer.status,
+                })
+
+        return Response({
+            "composition_id": str(comp.id),
+            "derived_from": derived_from,
+            "used_by": used_by,
+        })
 
     def create(self, request):
         body = request.data or {}

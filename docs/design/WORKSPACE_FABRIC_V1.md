@@ -426,10 +426,49 @@ independently-shipping slices.
   shape, doc-grouping math, top_k clamp, workspace
   isolation, best-effort retrieval failure. SPA
   build green. 416 backend tests total.
-- **F5 — Asset lineage on composition status.**
-  `GET /api/compositions/<id>/lineage/` returns
-  `derived_from` + `used_by` shapes. SPA renders both as
-  composition-status panels.
+- **F5 — Asset lineage on composition status.** ✓ SHIPPED
+  SESSION 144 (commit TBD). New
+  `GET /api/compositions/<id>/lineage/` custom action.
+  Returns `{composition_id, derived_from, used_by}`.
+  * `derived_from` walks this composition's step inputs
+    for `asset_id` references (excluding the same-comp
+    `from_step_position` shape), resolves each to its
+    producing composition, dedups by composition_id.
+    One hop only per Q-f-5.
+  * `used_by` scans `CompositionStep.inputs` JSON for
+    substring matches on this composition's produced
+    asset ids, filters to in-workspace consumers, dedups
+    by composition_id. Caps to 100 candidates.
+  Workspace scoping is structural — both queries filter
+  through the workspace FK so cross-workspace lineage
+  is impossible.
+
+  SPA additions in `web/src/routes/compositions/$id.tsx`:
+  * `useCompositionLineage` hook in
+    `web/src/lib/api/recipes.ts` (alongside the existing
+    composition hooks). staleTime 30s.
+  * `DerivedFromPanel` — rendered above the step list
+    when `derived_from` is non-empty. Each row is a
+    link to the source composition with template_kind
+    + asset_type + status badge.
+  * `UsedByPanel` — rendered after the final asset when
+    `used_by` is non-empty. Same row shape minus the
+    asset metadata.
+  Both panels hide entirely when their respective lists
+  are empty (lineage is read-only and unobtrusive per
+  F0 contract rule 4).
+
+  +10 backend tests
+  (`apps/compositions/tests/test_f5_lineage.py`)
+  covering auth gate, cross-workspace 404, empty
+  shape on standalone compositions, derived_from
+  surfaces the parent, dedup when multiple assets
+  share a parent, `from_step_position` is NOT
+  treated as lineage, used_by surfaces consumers,
+  dedup on multi-input consumers, multiple
+  consumers, workspace isolation.
+
+  426 backend tests total. SPA build green.
 - **F6 — Knowledge citations on composition status.**
   Resolve `Composition.knowledge_chunk_ids` to a
   doc-level list. New panel on `/compositions/<id>`. No

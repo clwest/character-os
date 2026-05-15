@@ -77,6 +77,9 @@ ALLOWED_FILES = {
     # F3 overview endpoint tests construct Composition rows
     # directly to exercise the dashboard cross-cut query path.
     "apps/accounts/tests/test_workspace_overview.py",
+    # F5 lineage endpoint tests construct producer/consumer
+    # composition graphs to exercise both lineage shapes.
+    "apps/compositions/tests/test_f5_lineage.py",
     # V6 — videos app shim tests construct Composition/Asset
     # rows directly to simulate terminal-state sync paths.
     "apps/videos/tests/test_v6_shim.py",

@@ -339,3 +339,46 @@ export function useCompositions() {
 export function isTerminalStatus(status: CompositionStatus): boolean {
   return COMPOSITION_TERMINAL_STATUSES.includes(status);
 }
+
+// ---- Lineage (F5, workspace fabric arc) -------------------------
+
+const lineageRefSchema = z.object({
+  composition_id: z.string(),
+  composition_name: z.string(),
+  template_kind: z.string(),
+  status: z.enum(COMPOSITION_STATUSES),
+});
+
+const derivedFromEntrySchema = lineageRefSchema.extend({
+  asset_id: z.string(),
+  asset_type: z.enum(["clip", "audio", "image", "transcript", "voice"]),
+});
+
+const compositionLineageSchema = z.object({
+  composition_id: z.string(),
+  derived_from: z.array(derivedFromEntrySchema),
+  used_by: z.array(lineageRefSchema),
+});
+
+export type CompositionLineage = z.infer<typeof compositionLineageSchema>;
+export type LineageDerivedFromEntry = z.infer<typeof derivedFromEntrySchema>;
+export type LineageRef = z.infer<typeof lineageRefSchema>;
+
+export async function getCompositionLineage(
+  id: string,
+): Promise<CompositionLineage> {
+  return apiJson(
+    `/api/compositions/${id}/lineage/`,
+    {},
+    (json) => compositionLineageSchema.parse(json),
+  );
+}
+
+export function useCompositionLineage(id: string | undefined) {
+  return useQuery({
+    queryKey: ["composition-lineage", id],
+    queryFn: () => getCompositionLineage(id!),
+    enabled: Boolean(id),
+    staleTime: 30_000,
+  });
+}

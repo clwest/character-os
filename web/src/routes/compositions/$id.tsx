@@ -4,18 +4,22 @@
  * when the composition reaches a terminal status.
  */
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Circle, XCircle, Loader2, MinusCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Circle, XCircle, Loader2, MinusCircle, CornerDownRight, CornerUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   type Composition,
   type CompositionStep,
+  type LineageRef,
+  type LineageDerivedFromEntry,
   isTerminalStatus,
   useComposition,
+  useCompositionLineage,
 } from "@/lib/api/recipes";
 
 export function CompositionStatusRoute() {
   const { id } = useParams<{ id: string }>();
   const composition = useComposition(id);
+  const lineage = useCompositionLineage(id);
 
   if (composition.isLoading) {
     return <StatusSkeleton />;
@@ -39,10 +43,16 @@ export function CompositionStatusRoute() {
     <div className="flex flex-col gap-8 py-10">
       <Header composition={c} />
       <StatusBadge composition={c} />
+      {lineage.data && lineage.data.derived_from.length > 0 && (
+        <DerivedFromPanel entries={lineage.data.derived_from} />
+      )}
       <StepList steps={c.steps} />
       {terminal && c.final_asset && <FinalAsset composition={c} />}
       {terminal && !c.final_asset && c.status === "failed" && (
         <FailedCallout composition={c} />
+      )}
+      {lineage.data && lineage.data.used_by.length > 0 && (
+        <UsedByPanel entries={lineage.data.used_by} />
       )}
     </div>
   );
@@ -175,6 +185,76 @@ function StatusIcon({
     default:
       return <Circle className="h-5 w-5 text-muted-foreground" />;
   }
+}
+
+function DerivedFromPanel({ entries }: { entries: LineageDerivedFromEntry[] }) {
+  return (
+    <section
+      className="flex flex-col gap-3 rounded-md border bg-muted/30 p-4"
+      data-testid="lineage-derived-from"
+    >
+      <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+        <CornerDownRight className="h-3.5 w-3.5" />
+        Derived from
+      </div>
+      <ul className="flex flex-col gap-2">
+        {entries.map((entry) => (
+          <li key={`${entry.composition_id}-${entry.asset_id}`}>
+            <Link
+              to={`/compositions/${entry.composition_id}`}
+              className="flex items-baseline justify-between gap-3 rounded-sm border bg-card px-3 py-2 transition-colors hover:border-foreground"
+              data-testid={`derived-from-${entry.composition_id}`}
+            >
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="truncate text-sm">{entry.composition_name}</span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                  {entry.template_kind} · {entry.asset_type}
+                </span>
+              </div>
+              <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                {entry.status}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function UsedByPanel({ entries }: { entries: LineageRef[] }) {
+  return (
+    <section
+      className="flex flex-col gap-3 rounded-md border bg-muted/30 p-4"
+      data-testid="lineage-used-by"
+    >
+      <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+        <CornerUpRight className="h-3.5 w-3.5" />
+        Used by {entries.length} composition{entries.length === 1 ? "" : "s"}
+      </div>
+      <ul className="flex flex-col gap-2">
+        {entries.map((entry) => (
+          <li key={entry.composition_id}>
+            <Link
+              to={`/compositions/${entry.composition_id}`}
+              className="flex items-baseline justify-between gap-3 rounded-sm border bg-card px-3 py-2 transition-colors hover:border-foreground"
+              data-testid={`used-by-${entry.composition_id}`}
+            >
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="truncate text-sm">{entry.composition_name}</span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                  {entry.template_kind}
+                </span>
+              </div>
+              <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                {entry.status}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 function FinalAsset({ composition }: { composition: Composition }) {
