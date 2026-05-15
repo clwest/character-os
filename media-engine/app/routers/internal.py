@@ -3828,6 +3828,65 @@ def get_internal_realtime_session(
     )
 
 
+class InternalRealtimeDocumentCreate(BaseModel):
+    """Request body for ``POST /internal/realtime_documents/``.
+
+    R4 — broker calls this with the composed Markdown body
+    (built shell-side from K2 retrieval) to push a
+    knowledge document to Runway. Returns the
+    ``document_id`` the broker persists on
+    ``RealtimeSession.provider_document_id``.
+    """
+
+    name: str = Field(..., min_length=1, max_length=200)
+    content: str = Field(..., min_length=1, max_length=40_000)
+    provider: str = Field(default="runway", max_length=20)
+
+
+class InternalRealtimeDocumentResponse(BaseModel):
+    document_id: str
+    mock_mode: bool
+
+
+@router.post(
+    "/realtime_documents/",
+    response_model=InternalRealtimeDocumentResponse,
+)
+def post_internal_realtime_document(
+    body: InternalRealtimeDocumentCreate,
+    settings: Settings = Depends(get_settings),
+):
+    """Create a Runway document via the configured provider.
+    R4 — the realtime-session create flow calls this before
+    create_session, then passes the returned document_id in
+    the session payload's ``document_ids`` array."""
+    from ..services.realtime_provider import (
+        RealtimeProviderError,
+        get_provider,
+    )
+
+    try:
+        provider_impl = get_provider(body.provider, settings)
+    except RealtimeProviderError as exc:
+        return _error(503, "realtime_unavailable", str(exc)[:300])
+
+    try:
+        result = provider_impl.create_document(
+            name=body.name, content=body.content,
+        )
+    except RealtimeProviderError as exc:
+        return _error(502, "upstream_runway_error", str(exc)[:300])
+
+    logger.info(
+        "internal realtime_document create doc_id=%s name=%r chars=%d mock=%s",
+        result.document_id, body.name, len(body.content), settings.runway_mock,
+    )
+    return InternalRealtimeDocumentResponse(
+        document_id=result.document_id,
+        mock_mode=settings.runway_mock,
+    )
+
+
 class InternalRealtimeSessionEndResponse(BaseModel):
     session_id: str
     ended: bool

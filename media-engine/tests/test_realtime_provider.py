@@ -132,18 +132,31 @@ def test_mock_implements_all_six_protocol_methods():
 # ---- runway provider stubs raise --------------------------------
 
 
-def test_runway_attach_documents_raises_not_implemented(tmp_path):
+def test_runway_attach_documents_requires_avatar_id(tmp_path):
+    """R4 — attach_documents now implemented; raises
+    RealtimeProviderError on missing avatar_id rather than
+    NotImplementedError."""
     settings = Settings(runway_api_key="rwk_test_123", data_dir=str(tmp_path))
     p = RunwayRealtimeProvider(settings)
-    with pytest.raises(NotImplementedError, match="R4"):
-        p.attach_documents("av", ["d"])
+    with pytest.raises(RealtimeProviderError, match="avatar_id is required"):
+        p.attach_documents("", ["d"])
 
 
-def test_runway_create_document_raises_not_implemented(tmp_path):
+def test_runway_create_document_requires_name(tmp_path):
+    """R4 — Runway provider's create_document now
+    implemented; raises RealtimeProviderError on missing
+    inputs rather than NotImplementedError."""
     settings = Settings(runway_api_key="rwk_test_123", data_dir=str(tmp_path))
     p = RunwayRealtimeProvider(settings)
-    with pytest.raises(NotImplementedError, match="R4"):
-        p.create_document("name", "content")
+    with pytest.raises(RealtimeProviderError, match="name is required"):
+        p.create_document("", "content")
+
+
+def test_runway_create_document_requires_content(tmp_path):
+    settings = Settings(runway_api_key="rwk_test_123", data_dir=str(tmp_path))
+    p = RunwayRealtimeProvider(settings)
+    with pytest.raises(RealtimeProviderError, match="content is required"):
+        p.create_document("name", "")
 
 
 def test_runway_fetch_transcript_raises_not_implemented(tmp_path):
@@ -255,6 +268,38 @@ def test_get_poll_session_mock_mode(mock_client):
 
 
 # ---- security: session_key never leaks to logs ------------------
+
+
+def test_post_create_document_mock_mode(mock_client):
+    """R4 — POST /internal/realtime_documents/ in mock mode
+    returns a deterministic document_id."""
+    response = mock_client.post(
+        "/internal/realtime_documents/",
+        json={
+            "name": "Spokesperson Sasha",
+            "content": "# Sasha\n\n## About\n\nA brand voice.",
+        },
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["document_id"].startswith("mock_doc_")
+    assert data["mock_mode"] is True
+
+
+def test_post_create_document_requires_name(mock_client):
+    response = mock_client.post(
+        "/internal/realtime_documents/",
+        json={"name": "", "content": "x"},
+    )
+    assert response.status_code == 422
+
+
+def test_post_create_document_requires_content(mock_client):
+    response = mock_client.post(
+        "/internal/realtime_documents/",
+        json={"name": "x", "content": ""},
+    )
+    assert response.status_code == 422
 
 
 def test_session_key_not_logged(mock_client, caplog):

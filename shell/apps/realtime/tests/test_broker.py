@@ -97,8 +97,16 @@ def _mock_create_result() -> RealtimeSessionResult:
 def _patch_create(result: RealtimeSessionResult | None = None):
     """Patch the broker's MediaEngineClient usage so we
     don't hit a real media-engine. Returns the patcher
-    context manager."""
+    context manager.
+
+    R4 — broker also calls `realtime_document_create` before
+    `realtime_session_create`; both must be stubbed."""
+    from character_os.clients.media_engine import RealtimeDocumentResult
+
     fake_client = MagicMock()
+    fake_client.realtime_document_create.return_value = RealtimeDocumentResult(
+        document_id="doc_test", mock_mode=True,
+    )
     fake_client.realtime_session_create.return_value = result or _mock_create_result()
     cm = MagicMock()
     cm.__enter__.return_value = fake_client

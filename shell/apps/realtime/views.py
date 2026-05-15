@@ -182,15 +182,37 @@ class RealtimeSessionViewSet(viewsets.GenericViewSet):
                 created_by=request.user,
             )
 
-        # Outside the transaction — the upstream call can take
-        # a few seconds and we don't want a DB row lock open.
+        # R4 — compose the Runway document from K-arc retrieval.
+        # The doc is the avatar's grounding context. Composition
+        # never raises (degrades to business_brief-only when
+        # retrieval fails); empty knowledge produces a usable
+        # but knowledge-less doc.
+        from character_os.realtime_document import compose_realtime_document
+
+        doc_result = compose_realtime_document(spokesperson)
+        provider_document_id = ""
+        document_ids: list[str] = []
+        chunk_ids: list[str] = list(doc_result.chunk_ids)
+
         try:
             with MediaEngineClient() as client:
+                # R4 — push the composed document to the
+                # provider FIRST so we have a document_id to
+                # pass into session_create.
+                if doc_result.body.strip():
+                    doc = client.realtime_document_create(
+                        name=f"Spokesperson {spokesperson.name}",
+                        content=doc_result.body,
+                        provider=provider,
+                    )
+                    provider_document_id = doc.document_id
+                    document_ids.append(doc.document_id)
+
                 result = client.realtime_session_create(
                     avatar_id=spokesperson.runway_avatar_id,
                     personality=personality,
                     start_script=start_script,
-                    document_ids=[],  # R4 will populate
+                    document_ids=document_ids,
                     tools=list(tools),
                     provider=provider,
                 )
@@ -213,6 +235,8 @@ class RealtimeSessionViewSet(viewsets.GenericViewSet):
         # Persist upstream details + flip status.
         session.provider_session_id = result.session_id
         session.provider_session_key = result.session_key
+        session.provider_document_id = provider_document_id
+        session.knowledge_chunk_ids = chunk_ids
         session.expires_at = _parse_iso(result.expires_at)
         session.mock_mode = result.mock_mode
         session.status = _map_status(result.status)
@@ -227,6 +251,7 @@ class RealtimeSessionViewSet(viewsets.GenericViewSet):
             pass
         session.save(update_fields=[
             "provider_session_id", "provider_session_key",
+            "provider_document_id", "knowledge_chunk_ids",
             "expires_at", "mock_mode", "status", "ready_at",
             "updated_at",
         ])

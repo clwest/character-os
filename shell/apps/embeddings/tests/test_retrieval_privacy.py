@@ -328,6 +328,9 @@ ALLOWED_FILES = {
     # sanctioned-writer side of the K0 contract (mirrors
     # `embed_document`).
     "apps/conversations/tasks.py",
+    # R4 knowledge-bridge tests seed KnowledgeChunk rows
+    # directly to exercise the document composer.
+    "apps/realtime/tests/test_r4_knowledge_bridge.py",
     # K9 endpoint tests do read-side queries on
     # ConversationEmbedding to verify the K8 ↔ K9 pipeline
     # integration (count of embeddings produced after send).

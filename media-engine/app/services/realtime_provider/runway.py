@@ -204,14 +204,96 @@ class RunwayRealtimeProvider:
     def attach_documents(
         self, avatar_id: str, document_ids: list[str],
     ) -> None:
-        raise NotImplementedError(
-            "attach_documents lands in R4 (knowledge bridge)"
+        """Attach knowledge documents to an avatar so future
+        sessions pick them up by default.
+
+        R4 — implemented but not used in the R4 session-
+        create flow (documents are passed via
+        ``document_ids`` on session_create directly). This
+        method is the surface for the "attach docs to a
+        running avatar" path that lands when the SPA
+        surface (R8) supports doc swapping mid-session.
+        """
+        if not avatar_id:
+            raise RealtimeProviderError("avatar_id is required")
+        url = (
+            f"{self.settings.runway_api_base}"
+            f"/v1/avatars/{avatar_id}/documents"
         )
+        try:
+            with httpx.Client(timeout=20.0) as client:
+                resp = client.post(
+                    url,
+                    headers=_headers(self.settings),
+                    json={"documentIds": list(document_ids or [])},
+                )
+        except httpx.HTTPError as exc:
+            raise RealtimeProviderError(
+                f"runway POST {url} failed: {type(exc).__name__}"
+            ) from exc
+        if resp.status_code >= 400:
+            logger.warning(
+                "runway attach_documents avatar=%s rc=%s body=%s",
+                avatar_id, resp.status_code, _redact(resp.text),
+            )
+            raise RealtimeProviderError(
+                f"runway returned {resp.status_code} on attach_documents"
+            )
 
     def create_document(self, name: str, content: str) -> DocumentCreate:
-        raise NotImplementedError(
-            "create_document lands in R4 (knowledge bridge)"
+        """Push a knowledge document body to Runway's
+        ``/v1/documents``. Returns the upstream document_id
+        the broker persists on
+        ``RealtimeSession.provider_document_id``.
+
+        Content cap is the caller's responsibility — see
+        ``compose_realtime_document`` (shell side) which
+        caps at Runway's 40k-char ceiling and reports
+        ``truncated``."""
+        if not name:
+            raise RealtimeProviderError("name is required")
+        if not content:
+            raise RealtimeProviderError("content is required")
+
+        url = f"{self.settings.runway_api_base}/v1/documents"
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                resp = client.post(
+                    url,
+                    headers=_headers(self.settings),
+                    json={"name": name[:200], "content": content},
+                )
+        except httpx.HTTPError as exc:
+            raise RealtimeProviderError(
+                f"runway POST /v1/documents failed: {type(exc).__name__}"
+            ) from exc
+
+        if resp.status_code >= 400:
+            logger.warning(
+                "runway create_document name=%r rc=%s body=%s",
+                name, resp.status_code, _redact(resp.text),
+            )
+            raise RealtimeProviderError(
+                f"runway returned {resp.status_code} on create_document"
+            )
+
+        payload = resp.json()
+        doc_id = (
+            payload.get("id")
+            or payload.get("documentId")
+            or payload.get("document_id")
+            or ""
         )
+        if not doc_id:
+            raise RealtimeProviderError(
+                "runway create_document returned malformed payload "
+                "(missing id)"
+            )
+        logger.info(
+            "runway create_document doc_id=%s name=%r chars=%d",
+            doc_id, name, len(content),
+        )
+        return DocumentCreate(document_id=doc_id)
 
     def fetch_transcript(self, session_id: str) -> TranscriptResult:
         raise NotImplementedError(

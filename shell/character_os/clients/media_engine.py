@@ -239,6 +239,16 @@ class RealtimeSessionResult:
 
 
 @dataclass
+class RealtimeDocumentResult:
+    """Result of `realtime_document_create`. R4 — the broker
+    persists `document_id` on
+    `RealtimeSession.provider_document_id`."""
+
+    document_id: str
+    mock_mode: bool
+
+
+@dataclass
 class RealtimeSessionPollResult:
     """Result of `realtime_session_poll`. No session_key — the
     SDK already holds it from the create response."""
