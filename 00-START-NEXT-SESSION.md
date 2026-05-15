@@ -75,7 +75,7 @@ Every spokesperson now exposes "talk to me" as a top-level
 capability. Knowledge arc is K1-K9 shipped (K10 → F8.1
 queued; K7 YouTube fix queued).
 
-**Option B — R1+ realtime avatar.** WebRTC two-way
+**Option B — R1 SHIPPED SESSION 146; R2+ next.** WebRTC two-way
 conversations. Scope-locked SESSION 142
 (`docs/design/REALTIME_AVATAR_V1.md`). R1 (schema)
 mirrors V1's shape and is unblocked by V1. Qualitatively
@@ -177,7 +177,7 @@ contract.
 | F9 | Legacy single-form SPA deletion (`/spokespeople/<id>/render` route) | DONE (SESSION 144) |
 | F10 | Fabric arc closure + retro — **FABRIC ARC COMPLETE** | DONE (SESSION 144) |
 | R0 | Realtime avatar arc — scope lock                | DONE (SESSION 142) |
-| R1 | RealtimeSession + RealtimeToolInvocation schema | Queued |
+| R1 | RealtimeSession + RealtimeToolInvocation schema + isolation tests | DONE (SESSION 146) |
 | R2 | Media-engine `/internal/realtime_sessions/` + provider abstraction | Queued |
 | R3 | Django broker (`/api/realtime_sessions/`) + tier-limit gate | Queued |
 | R4-R10 | Knowledge bridge, transcript persist, memory, tools, SPA, cost governance | Queued |

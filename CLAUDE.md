@@ -143,11 +143,16 @@ Update this section when a phase completes.
     the legacy single-form code path sits with the
     workspace-fabric arc, not the V-arc.
   - **Realtime avatar arc (R0-R10).** R0 scope lock shipped
-    SESSION 142 (`docs/design/REALTIME_AVATAR_V1.md`). 10
-    contract rules, RealtimeSession + RealtimeToolInvocation
-    models sharing V1's Asset persistence, provider-
-    abstraction registry. R1 (schema) is the next slice;
-    unblocked by V1.
+    SESSION 142 (`docs/design/REALTIME_AVATAR_V1.md`). **R1
+    (schema) shipped SESSION 146** — `apps.realtime` app
+    with `RealtimeSession` + `RealtimeToolInvocation`,
+    cross-workspace `clean()` + pre_save signals (defense
+    in depth), repo-level isolation test, admin
+    registration (provider_session_key hidden per
+    contract rule 9), migration 0001. 14 R1 tests. 477
+    backend tests total. R2 (media-engine
+    `/internal/realtime_sessions/` + provider abstraction)
+    is the next slice.
   - **Workspace fabric arc (F0-F10). COMPLETE.** All 10
     slices shipped SESSION 144
     (`docs/design/WORKSPACE_FABRIC_V1.md`). 9 contract

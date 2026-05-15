@@ -86,6 +86,10 @@ ALLOWED_FILES = {
     # F7 reverse-lookup tests seed compositions to verify
     # the doc → compositions reverse-query path.
     "apps/embeddings/tests/test_f7_compositions_reverse.py",
+    # R1 tests construct Composition rows to exercise the
+    # tool-invocation cross-workspace check
+    # (produced_composition refs).
+    "apps/realtime/tests/test_models.py",
     # V6 — videos app shim tests construct Composition/Asset
     # rows directly to simulate terminal-state sync paths.
     "apps/videos/tests/test_v6_shim.py",

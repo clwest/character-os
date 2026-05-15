@@ -613,7 +613,7 @@ land independently. Each slice is ~1-2 sessions.
 | Slice | Deliverable | Depends on |
 |---|---|---|
 | **R0** | Scope lock (this doc) | V1 (Asset shape) |
-| **R1** | `RealtimeSession` + `RealtimeToolInvocation` models + schema + isolation tests | V1 |
+| **R1** ✓ | `RealtimeSession` + `RealtimeToolInvocation` models + schema + isolation tests. Ships SESSION 146 (commit TBD). | V1 |
 | **R2** | Media-engine `/internal/realtime_sessions/` endpoint — provider-abstraction layer + Runway implementation. POST creates session, GET polls. | R1 |
 | **R3** | Django broker: `/api/realtime_sessions/` (POST + GET + DELETE), workspace auth + tier-limit gate, session state machine | R2 |
 | **R4** | Knowledge → Runway document bridge: `compose_realtime_document` (uses K2's `retrieve_for_spokesperson`), media-engine document endpoint, document attached on session-create | R3, K1-K5 (shipped) |
