@@ -219,8 +219,40 @@ class RunwayRealtimeProvider:
         )
 
     def end_session(self, session_id: str) -> None:
-        raise NotImplementedError(
-            "end_session lands in R3 (broker)"
+        """R3 — explicit session teardown. Best-effort; the
+        broker marks the Django row ENDED regardless of
+        upstream response. Most session lifecycles end via
+        Runway's own expiry timer; this endpoint exists for
+        the operator-initiated close path."""
+        if not session_id:
+            raise RealtimeProviderError("session_id is required")
+        url = (
+            f"{self.settings.runway_api_base}"
+            f"/v1/realtime_sessions/{session_id}"
+        )
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                resp = client.delete(url, headers=_headers(self.settings))
+        except httpx.HTTPError as exc:
+            raise RealtimeProviderError(
+                f"runway DELETE /v1/realtime_sessions/{session_id} failed: "
+                f"{type(exc).__name__}"
+            ) from exc
+
+        # 404 + 410 are fine — session already gone is success
+        # for our purposes.
+        if resp.status_code in (200, 204, 404, 410):
+            logger.info(
+                "runway realtime end session_id=%s rc=%s",
+                session_id, resp.status_code,
+            )
+            return
+        logger.warning(
+            "runway realtime end session=%s rc=%s body=%s",
+            session_id, resp.status_code, _redact(resp.text),
+        )
+        raise RealtimeProviderError(
+            f"runway returned {resp.status_code} on session end"
         )
 
 

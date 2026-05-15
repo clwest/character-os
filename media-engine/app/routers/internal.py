@@ -3826,3 +3826,47 @@ def get_internal_realtime_session(
         error_message=state.error_message,
         mock_mode=settings.runway_mock,
     )
+
+
+class InternalRealtimeSessionEndResponse(BaseModel):
+    session_id: str
+    ended: bool
+    mock_mode: bool
+
+
+@router.delete(
+    "/realtime_sessions/{session_id}/",
+    response_model=InternalRealtimeSessionEndResponse,
+)
+def delete_internal_realtime_session(
+    session_id: str,
+    provider: str = "runway",
+    settings: Settings = Depends(get_settings),
+):
+    """End a realtime session. R3 — the Django broker calls this
+    on operator-initiated close. Best-effort: upstream 404 / 410
+    (already gone) is treated as success."""
+    from ..services.realtime_provider import (
+        RealtimeProviderError,
+        get_provider,
+    )
+
+    try:
+        provider_impl = get_provider(provider, settings)
+    except RealtimeProviderError as exc:
+        return _error(503, "realtime_unavailable", str(exc)[:300])
+
+    try:
+        provider_impl.end_session(session_id)
+    except RealtimeProviderError as exc:
+        return _error(502, "upstream_runway_error", str(exc)[:300])
+
+    logger.info(
+        "internal realtime_session end session_id=%s mock=%s",
+        session_id, settings.runway_mock,
+    )
+    return InternalRealtimeSessionEndResponse(
+        session_id=session_id,
+        ended=True,
+        mock_mode=settings.runway_mock,
+    )

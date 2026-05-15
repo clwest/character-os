@@ -39,6 +39,13 @@ ALLOWED_FILES = {
     # Tests need to create rows directly to exercise paths.
     "apps/realtime/tests/test_models.py",
     "apps/realtime/tests/test_isolation.py",
+    # R3 broker tests seed RealtimeSession rows to exercise
+    # the state machine + tier-limit path.
+    "apps/realtime/tests/test_broker.py",
+    # R3 broker writes RealtimeSession rows via the
+    # sanctioned create/update path (workspace-scoped,
+    # validation flows through the same signal).
+    "apps/realtime/views.py",
 }
 
 

@@ -143,16 +143,29 @@ Update this section when a phase completes.
     the legacy single-form code path sits with the
     workspace-fabric arc, not the V-arc.
   - **Realtime avatar arc (R0-R10).** R0 scope lock shipped
-    SESSION 142 (`docs/design/REALTIME_AVATAR_V1.md`). **R1
-    (schema) shipped SESSION 146** — `apps.realtime` app
-    with `RealtimeSession` + `RealtimeToolInvocation`,
-    cross-workspace `clean()` + pre_save signals (defense
-    in depth), repo-level isolation test, admin
-    registration (provider_session_key hidden per
-    contract rule 9), migration 0001. 14 R1 tests. 477
-    backend tests total. R2 (media-engine
-    `/internal/realtime_sessions/` + provider abstraction)
-    is the next slice.
+    SESSION 142 (`docs/design/REALTIME_AVATAR_V1.md`).
+    **R1 + R2 + R3 shipped SESSION 146**:
+    * **R1** (`9299dcf`) — `apps.realtime` schema +
+      cross-workspace guards + isolation test.
+    * **R2** (`e8eb7d1`) — media-engine
+      `/internal/realtime_sessions/` (POST + GET + DELETE)
+      + provider abstraction package +
+      `MockRealtimeProvider` + `RunwayRealtimeProvider`.
+    * **R3** — Django broker
+      `/api/realtime_sessions/` (POST + GET + DELETE +
+      POST `/end/` action), workspace auth via
+      `IsWorkspaceMember`, new
+      `check_realtime_session_limit` tier gate
+      (starter=5, pro=20, agency=unlimited),
+      state machine (DRAFT → CREATING → READY → ENDED
+      with FAILED branch on upstream errors), media-engine
+      client methods (`realtime_session_create` +
+      `realtime_session_poll` + `realtime_session_end`),
+      Runway provider's `end_session` implemented (was
+      NotImplementedError from R2). 18 R3 tests. **495
+      backend tests + 18 media-engine tests.**
+    R4 (knowledge → Runway document bridge) is the next
+    slice and adds the K-arc intersection.
   - **Workspace fabric arc (F0-F10). COMPLETE.** All 10
     slices shipped SESSION 144
     (`docs/design/WORKSPACE_FABRIC_V1.md`). 9 contract

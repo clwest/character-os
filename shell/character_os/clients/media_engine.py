@@ -224,6 +224,33 @@ class AudioDubResult:
 
 
 @dataclass
+class RealtimeSessionResult:
+    """Result of `realtime_session_create`. session_key is the
+    JWT-shaped SDK token — passed to the SPA ONCE in the
+    create response, persisted on RealtimeSession.provider_session_key,
+    never returned in subsequent retrieves."""
+
+    session_id: str
+    session_key: str
+    status: str
+    expires_at: str | None
+    avatar_id: str | None
+    mock_mode: bool
+
+
+@dataclass
+class RealtimeSessionPollResult:
+    """Result of `realtime_session_poll`. No session_key — the
+    SDK already holds it from the create response."""
+
+    session_id: str
+    status: str
+    expires_at: str | None
+    error_message: str
+    mock_mode: bool
+
+
+@dataclass
 class TranscriptSegment:
     """One sentence-level segment from Whisper's verbose_json
     response. Timing is in seconds (Whisper convention)."""
@@ -928,6 +955,88 @@ class MediaEngineClient:
                 f"create_portrait response not in expected shape: {data!r}",
                 response_text=str(data),
             ) from exc
+
+    # ---- realtime (R3 — workspace fabric realtime arc) -----------
+
+    def realtime_session_create(
+        self,
+        *,
+        avatar_id: str,
+        personality: str = "",
+        start_script: str = "",
+        document_ids: list[str] | None = None,
+        tools: list[dict] | None = None,
+        provider: str = "runway",
+    ) -> "RealtimeSessionResult":
+        """Hit ``POST /internal/realtime_sessions/``. Synchronous —
+        the media-engine handler creates the upstream session and
+        returns the SDK-safe payload. The broker persists session_id
+        + session_key on RealtimeSession."""
+        body: dict[str, Any] = {
+            "avatar_id": avatar_id,
+            "personality": personality,
+            "start_script": start_script,
+            "document_ids": list(document_ids or []),
+            "tools": list(tools or []),
+            "provider": provider,
+        }
+        data = self.request("POST", "/internal/realtime_sessions/", json=body)
+        try:
+            return RealtimeSessionResult(
+                session_id=str(data["session_id"]),
+                session_key=str(data["session_key"]),
+                status=str(data["status"]),
+                expires_at=data.get("expires_at"),
+                avatar_id=data.get("avatar_id"),
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"realtime_session_create response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
+    def realtime_session_poll(
+        self,
+        session_id: str,
+        *,
+        provider: str = "runway",
+    ) -> "RealtimeSessionPollResult":
+        """Hit ``GET /internal/realtime_sessions/<id>/``. Returns the
+        upstream session state for the broker's state machine."""
+        params = {"provider": provider} if provider != "runway" else None
+        data = self.request(
+            "GET", f"/internal/realtime_sessions/{session_id}/",
+            params=params,
+        )
+        try:
+            return RealtimeSessionPollResult(
+                session_id=str(data["session_id"]),
+                status=str(data["status"]),
+                expires_at=data.get("expires_at"),
+                error_message=str(data.get("error_message") or ""),
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"realtime_session_poll response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
+    def realtime_session_end(
+        self,
+        session_id: str,
+        *,
+        provider: str = "runway",
+    ) -> None:
+        """Hit ``DELETE /internal/realtime_sessions/<id>/``. Best-effort
+        teardown — the broker marks the session ENDED regardless of
+        whether the upstream call succeeds."""
+        params = {"provider": provider} if provider != "runway" else None
+        self.request(
+            "DELETE", f"/internal/realtime_sessions/{session_id}/",
+            params=params,
+        )
 
     def clone_voice(
         self,

@@ -48,6 +48,10 @@ class Usage:
     videos_limit: int | None
     spokespeople_used: int
     spokespeople_limit: int | None
+    # R3 — realtime sessions count against tier. See
+    # `realtime_sessions_per_month` in TIER_LIMITS.
+    realtime_sessions_used: int
+    realtime_sessions_limit: int | None
     period_start: str
     period_end: str
 
@@ -59,6 +63,8 @@ class Usage:
             "videos_limit": self.videos_limit,
             "spokespeople_used": self.spokespeople_used,
             "spokespeople_limit": self.spokespeople_limit,
+            "realtime_sessions_used": self.realtime_sessions_used,
+            "realtime_sessions_limit": self.realtime_sessions_limit,
             "period_start": self.period_start,
             "period_end": self.period_end,
         }
@@ -74,6 +80,11 @@ def _suggest_upgrade(current_tier: str) -> str | None:
 
 def get_usage(workspace: "Workspace") -> Usage:
     """Build the workspace's current usage snapshot for the SPA meter."""
+    # Lazy import (see top-of-file note) — apps.realtime
+    # depends on apps.compositions whose AppConfig graph
+    # finishes loading after billing starts being read.
+    from apps.realtime.models import RealtimeSession
+
     sub = _subscription_for(workspace)
     videos_used = Video.objects.filter(
         spokesperson__workspace=workspace,
@@ -81,6 +92,11 @@ def get_usage(workspace: "Workspace") -> Usage:
         created_at__lt=sub.current_period_end,
     ).count()
     spokespeople_used = Spokesperson.objects.filter(workspace=workspace).count()
+    realtime_sessions_used = RealtimeSession.objects.filter(
+        workspace=workspace,
+        created_at__gte=sub.current_period_start,
+        created_at__lt=sub.current_period_end,
+    ).count()
     return Usage(
         tier=sub.tier,
         status=sub.status,
@@ -88,6 +104,10 @@ def get_usage(workspace: "Workspace") -> Usage:
         videos_limit=sub.videos_per_month,
         spokespeople_used=spokespeople_used,
         spokespeople_limit=sub.spokespeople_limit,
+        realtime_sessions_used=realtime_sessions_used,
+        realtime_sessions_limit=TIER_LIMITS.get(sub.tier, TIER_LIMITS["starter"]).get(
+            "realtime_sessions_per_month",
+        ),
         period_start=sub.current_period_start.isoformat(),
         period_end=sub.current_period_end.isoformat(),
     )
@@ -138,6 +158,31 @@ def check_spokesperson_limit(workspace: "Workspace") -> None:
         )
 
 
+def check_realtime_session_limit(workspace: "Workspace") -> None:
+    """Raise TierLimitExceeded if creating a realtime session now
+    would push the workspace past its monthly cap. R3 first
+    line of defense — each session burns Runway minutes; R9
+    will refine with live per-minute metering."""
+    usage = get_usage(workspace)
+    if usage.realtime_sessions_limit is None:
+        return  # unlimited tier
+    if usage.realtime_sessions_used >= usage.realtime_sessions_limit:
+        raise TierLimitExceeded(
+            {
+                "code": "realtime_session_limit_reached",
+                "message": (
+                    f"You've used all {usage.realtime_sessions_limit} "
+                    f"realtime sessions in your {usage.tier.capitalize()} "
+                    "plan this month."
+                ),
+                "current_tier": usage.tier,
+                "realtime_sessions_used": usage.realtime_sessions_used,
+                "realtime_sessions_limit": usage.realtime_sessions_limit,
+                "suggested_tier": _suggest_upgrade(usage.tier),
+            }
+        )
+
+
 def _subscription_for(workspace: "Workspace") -> Subscription:
     """Return the workspace's subscription. If it doesn't exist (e.g.,
     legacy workspace pre-signal), create a default Starter subscription
@@ -158,6 +203,7 @@ __all__ = [
     "TIER_LIMITS",
     "TierLimitExceeded",
     "Usage",
+    "check_realtime_session_limit",
     "check_spokesperson_limit",
     "check_video_limit",
     "get_usage",

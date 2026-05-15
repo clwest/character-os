@@ -153,11 +153,13 @@ def test_runway_fetch_transcript_raises_not_implemented(tmp_path):
         p.fetch_transcript("s")
 
 
-def test_runway_end_session_raises_not_implemented(tmp_path):
+def test_runway_end_session_requires_session_id(tmp_path):
+    """R3 — Runway provider's end_session now implemented;
+    raises on empty session_id rather than NotImplementedError."""
     settings = Settings(runway_api_key="rwk_test_123", data_dir=str(tmp_path))
     p = RunwayRealtimeProvider(settings)
-    with pytest.raises(NotImplementedError, match="R3"):
-        p.end_session("s")
+    with pytest.raises(RealtimeProviderError, match="session_id is required"):
+        p.end_session("")
 
 
 # ---- POST /internal/realtime_sessions/ --------------------------
