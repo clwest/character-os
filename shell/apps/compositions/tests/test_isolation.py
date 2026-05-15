@@ -90,6 +90,14 @@ ALLOWED_FILES = {
     # tool-invocation cross-workspace check
     # (produced_composition refs).
     "apps/realtime/tests/test_models.py",
+    # R5 transcript-capture task creates Asset(TRANSCRIPT)
+    # rows in the session's workspace. Sanctioned writer
+    # — Asset.workspace inherits from session.workspace,
+    # so the row is always in-workspace by construction.
+    "apps/realtime/tasks.py",
+    # R5 tests verify the task creates the right Asset
+    # row + wires it to the session.
+    "apps/realtime/tests/test_r5_transcript_capture.py",
     # V6 — videos app shim tests construct Composition/Asset
     # rows directly to simulate terminal-state sync paths.
     "apps/videos/tests/test_v6_shim.py",

@@ -46,6 +46,12 @@ ALLOWED_FILES = {
     # sanctioned create/update path (workspace-scoped,
     # validation flows through the same signal).
     "apps/realtime/views.py",
+    # R4 knowledge-bridge tests seed RealtimeSession rows
+    # via the broker — same sanctioned path.
+    "apps/realtime/tests/test_r4_knowledge_bridge.py",
+    # R5 transcript-capture tests seed sessions to verify
+    # the Celery task's post-end flow.
+    "apps/realtime/tests/test_r5_transcript_capture.py",
 }
 
 

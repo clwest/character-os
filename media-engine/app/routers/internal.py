@@ -3887,6 +3887,73 @@ def post_internal_realtime_document(
     )
 
 
+class InternalRealtimeTranscriptSegment(BaseModel):
+    role: str
+    text: str
+    ts: Optional[str] = None
+
+
+class InternalRealtimeTranscriptResponse(BaseModel):
+    """Response for ``GET /internal/realtime_sessions/<id>/transcript/``.
+    R5 — broker calls this after a session ends to persist
+    the transcript as an Asset(TRANSCRIPT)."""
+
+    session_id: str
+    text: str
+    segments: list[InternalRealtimeTranscriptSegment]
+    mock_mode: bool
+
+
+@router.get(
+    "/realtime_sessions/{session_id}/transcript/",
+    response_model=InternalRealtimeTranscriptResponse,
+)
+def get_internal_realtime_session_transcript(
+    session_id: str,
+    provider: str = "runway",
+    settings: Settings = Depends(get_settings),
+):
+    """Pull the post-session transcript. Returns an empty
+    result (rather than 404) when the conversation isn't
+    recorded yet — the broker treats empty transcripts as
+    "no content captured this session" rather than a
+    failure."""
+    from ..services.realtime_provider import (
+        RealtimeProviderError,
+        get_provider,
+    )
+
+    try:
+        provider_impl = get_provider(provider, settings)
+    except RealtimeProviderError as exc:
+        return _error(503, "realtime_unavailable", str(exc)[:300])
+
+    try:
+        result = provider_impl.fetch_transcript(session_id)
+    except RealtimeProviderError as exc:
+        return _error(502, "upstream_runway_error", str(exc)[:300])
+
+    # Normalize segments to the pydantic shape.
+    segments = [
+        InternalRealtimeTranscriptSegment(
+            role=str(s.get("role", "")),
+            text=str(s.get("text", "")),
+            ts=(str(s["ts"]) if s.get("ts") is not None else None),
+        )
+        for s in result.segments
+    ]
+    logger.info(
+        "internal realtime_session transcript session_id=%s turns=%d chars=%d mock=%s",
+        session_id, len(segments), len(result.text), settings.runway_mock,
+    )
+    return InternalRealtimeTranscriptResponse(
+        session_id=session_id,
+        text=result.text,
+        segments=segments,
+        mock_mode=settings.runway_mock,
+    )
+
+
 class InternalRealtimeSessionEndResponse(BaseModel):
     session_id: str
     ended: bool

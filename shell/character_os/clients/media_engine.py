@@ -249,6 +249,19 @@ class RealtimeDocumentResult:
 
 
 @dataclass
+class RealtimeTranscriptResult:
+    """Result of `realtime_session_fetch_transcript`. R5 — the
+    broker persists `text` as the inline content of an
+    Asset(TRANSCRIPT) row and wires it to
+    RealtimeSession.transcript_asset."""
+
+    session_id: str
+    text: str
+    segments: list[dict]
+    mock_mode: bool
+
+
+@dataclass
 class RealtimeSessionPollResult:
     """Result of `realtime_session_poll`. No session_key — the
     SDK already holds it from the create response."""
@@ -1030,6 +1043,39 @@ class MediaEngineClient:
         except (KeyError, TypeError, ValueError) as exc:
             raise MediaEngineError(
                 f"realtime_session_poll response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
+    def realtime_session_fetch_transcript(
+        self,
+        session_id: str,
+        *,
+        provider: str = "runway",
+    ) -> "RealtimeTranscriptResult":
+        """Hit ``GET /internal/realtime_sessions/<id>/transcript/``.
+        R5 — broker calls this post-end to persist the transcript
+        as a TRANSCRIPT Asset on the workspace.
+
+        Empty transcripts ("conversation not recorded yet") return
+        a result with empty text + segments; the caller decides
+        whether to retry or accept the empty shape."""
+        params = {"provider": provider} if provider != "runway" else None
+        data = self.request(
+            "GET",
+            f"/internal/realtime_sessions/{session_id}/transcript/",
+            params=params,
+        )
+        try:
+            segments = list(data.get("segments") or [])
+            return RealtimeTranscriptResult(
+                session_id=str(data["session_id"]),
+                text=str(data.get("text") or ""),
+                segments=segments,
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"realtime_session_fetch_transcript response not in expected shape: {data!r}",
                 response_text=str(data),
             ) from exc
 

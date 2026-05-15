@@ -181,7 +181,8 @@ contract.
 | R2 | Media-engine `/internal/realtime_sessions/` + provider abstraction | DONE (SESSION 146) |
 | R3 | Django broker (`/api/realtime_sessions/`) + tier-limit gate | DONE (SESSION 146) |
 | R4 | Knowledge → Runway document bridge (compose + push + persist citations) | DONE (SESSION 146) |
-| R5-R10 | Transcript persist, memory, tools, SPA, cost governance | Queued |
+| R5 | Transcript capture (Asset(TRANSCRIPT) on session end) | DONE (SESSION 146) |
+| R6-R10 | Memory, tools, SPA, cost governance | Queued |
 | K6.3 | Brief length cap in script synthesis           | Queued |
 | K6.4 | Duration derived from script length            | Deprecated by V9 trim/reformat primitives (shipped SESSION 143) |
 | K7.1 | Per-chunk cost telemetry surface in UI         | Queued |

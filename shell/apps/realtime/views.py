@@ -355,6 +355,24 @@ class RealtimeSessionViewSet(viewsets.GenericViewSet):
             "status", "ended_at", "duration_seconds", "updated_at",
         ])
 
+        # R5 — enqueue post-end transcript capture. Best-effort
+        # via Celery; broker enqueue failure (broker down,
+        # etc.) doesn't block the end response. Mock-mode
+        # sessions still produce a deterministic transcript
+        # stub so the SPA can render the empty/persisted UX
+        # without real Runway calls.
+        if session.provider_session_id:
+            try:
+                from .tasks import fetch_transcript_for_session
+
+                fetch_transcript_for_session.delay(str(session.id))
+            except Exception as exc:
+                logger.warning(
+                    "realtime broker end transcript-enqueue failed "
+                    "session=%s err=%s",
+                    session.id, exc,
+                )
+
         logger.info(
             "realtime broker end session=%s duration=%ds",
             session.id, session.duration_seconds,

@@ -296,9 +296,83 @@ class RunwayRealtimeProvider:
         return DocumentCreate(document_id=doc_id)
 
     def fetch_transcript(self, session_id: str) -> TranscriptResult:
-        raise NotImplementedError(
-            "fetch_transcript lands in R5 (transcript capture)"
+        """R5 — pull the post-session transcript.
+
+        Runway's session id doubles as the conversation id
+        for transcript retrieval (`GET
+        /v1/avatar_conversations/<id>`). Returns the
+        normalized transcript shape so the Django broker
+        can persist it as a TRANSCRIPT Asset (contract
+        rule 4 — same shape as V1's transcribe primitive
+        output).
+
+        Empty / 404 responses don't raise — they return an
+        empty TranscriptResult so the broker can mark the
+        transcript fetch as "no content recorded yet"
+        without flipping the session to failed.
+        """
+        if not session_id:
+            raise RealtimeProviderError("session_id is required")
+        url = (
+            f"{self.settings.runway_api_base}"
+            f"/v1/avatar_conversations/{session_id}"
         )
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                resp = client.get(url, headers=_headers(self.settings))
+        except httpx.HTTPError as exc:
+            raise RealtimeProviderError(
+                f"runway GET /v1/avatar_conversations/{session_id} "
+                f"failed: {type(exc).__name__}"
+            ) from exc
+
+        if resp.status_code == 404:
+            # Conversation not recorded yet — empty result is
+            # not a failure mode; operator can re-fetch later.
+            logger.info(
+                "runway fetch_transcript session=%s 404 (not recorded)",
+                session_id,
+            )
+            return TranscriptResult(text="", segments=[])
+        if resp.status_code >= 400:
+            logger.warning(
+                "runway fetch_transcript session=%s rc=%s body=%s",
+                session_id, resp.status_code, _redact(resp.text),
+            )
+            raise RealtimeProviderError(
+                f"runway returned {resp.status_code} on fetch_transcript"
+            )
+
+        try:
+            payload = resp.json()
+        except ValueError as exc:
+            raise RealtimeProviderError(
+                f"non-json transcript response: {exc!s}"[:200]
+            ) from exc
+
+        # Normalize. Runway's documented shape carries
+        # `turns: [{role, text, timestamp}, ...]`. We
+        # rebuild a single readable text blob alongside
+        # the structured segment list.
+        turns_raw = payload.get("turns") or payload.get("messages") or []
+        segments: list[dict] = []
+        text_parts: list[str] = []
+        for raw in turns_raw:
+            role = str(raw.get("role") or raw.get("speaker") or "")
+            content = str(raw.get("text") or raw.get("content") or "").strip()
+            ts = raw.get("timestamp") or raw.get("ts") or raw.get("createdAt")
+            if not content:
+                continue
+            segments.append({"role": role, "text": content, "ts": ts})
+            speaker = role.title() if role else "Speaker"
+            text_parts.append(f"{speaker}: {content}")
+
+        text = "\n".join(text_parts)
+        logger.info(
+            "runway fetch_transcript session=%s turns=%d chars=%d",
+            session_id, len(segments), len(text),
+        )
+        return TranscriptResult(text=text, segments=segments)
 
     def end_session(self, session_id: str) -> None:
         """R3 — explicit session teardown. Best-effort; the

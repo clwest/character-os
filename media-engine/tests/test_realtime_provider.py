@@ -159,11 +159,14 @@ def test_runway_create_document_requires_content(tmp_path):
         p.create_document("name", "")
 
 
-def test_runway_fetch_transcript_raises_not_implemented(tmp_path):
+def test_runway_fetch_transcript_requires_session_id(tmp_path):
+    """R5 — Runway provider's fetch_transcript now
+    implemented; raises RealtimeProviderError on empty
+    session_id rather than NotImplementedError."""
     settings = Settings(runway_api_key="rwk_test_123", data_dir=str(tmp_path))
     p = RunwayRealtimeProvider(settings)
-    with pytest.raises(NotImplementedError, match="R5"):
-        p.fetch_transcript("s")
+    with pytest.raises(RealtimeProviderError, match="session_id is required"):
+        p.fetch_transcript("")
 
 
 def test_runway_end_session_requires_session_id(tmp_path):
@@ -300,6 +303,21 @@ def test_post_create_document_requires_content(mock_client):
         json={"name": "x", "content": ""},
     )
     assert response.status_code == 422
+
+
+def test_get_transcript_mock_mode(mock_client):
+    """R5 — GET /internal/realtime_sessions/<id>/transcript/
+    returns the mock provider's deterministic transcript
+    stub."""
+    response = mock_client.get(
+        "/internal/realtime_sessions/mock_sess_xyz/transcript/",
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["session_id"] == "mock_sess_xyz"
+    assert "[mock transcript for session mock_sess_xyz]" in data["text"]
+    assert len(data["segments"]) >= 2
+    assert data["mock_mode"] is True
 
 
 def test_session_key_not_logged(mock_client, caplog):
