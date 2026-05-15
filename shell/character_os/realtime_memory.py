@@ -120,13 +120,27 @@ def compose_session_memory(
 ) -> MemoryResult:
     """Build the memory projection for the next session.
 
-    Queries prior ENDED ``RealtimeSession`` rows for this
+    Queries prior ``RealtimeSession`` rows for this
     spokesperson that have a ``transcript_asset`` attached,
-    newest first. Summarizes up to ``max_sessions`` of
-    them via ``gpt-5-mini`` Responses API. Returns a
+    newest first. Includes any status — ENDED sessions
+    from the natural session-end flow (R5) and READY
+    sessions from a mid-session ``attach_memory`` commit
+    (R7.3). Summarizes up to ``max_sessions`` of them via
+    ``gpt-5-mini`` Responses API. Returns a
     ``MemoryResult`` whose ``body`` is empty when there's
     nothing to project (composer skips the section) and
     populated markdown otherwise.
+
+    R6.1 (SESSION 152) — dropped the ``status=ENDED``
+    filter. Sessions with a transcript Asset are
+    structurally evidence of a real conversation worth
+    remembering, regardless of whether the operator
+    formally ended the session before the next one
+    opened. Edge case: a FAILED or crashed session that
+    somehow has a transcript still surfaces — the
+    operator-facing payoff is minor ("we started talking
+    about X earlier today") and the architectural
+    simplicity is worth it.
 
     Never raises. Failure paths log + return an empty
     result.
@@ -139,7 +153,6 @@ def compose_session_memory(
     sessions = list(
         RealtimeSession.objects.filter(
             spokesperson=spokesperson,
-            status=RealtimeSession.Status.ENDED,
             transcript_asset__isnull=False,
         )
         .select_related("transcript_asset")

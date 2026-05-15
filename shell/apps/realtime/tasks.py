@@ -37,6 +37,138 @@ from .models import RealtimeSession
 logger = logging.getLogger(__name__)
 
 
+def capture_transcript(session: RealtimeSession) -> dict:
+    """Fetch the transcript snapshot for ``session`` and
+    persist it as an ``Asset(TRANSCRIPT)`` row.
+
+    Shared helper extracted from R5's Celery task body in
+    SESSION 152 (R7.3) so the same code path serves both:
+
+    * **R5's `fetch_transcript_for_session`** — fired on
+      session-end via the broker's `_end_session`. Captures
+      the final transcript when the session terminates
+      naturally.
+    * **R7.3's `attach_memory`** — fired mid-session by the
+      avatar's LLM. Captures a partial transcript snapshot
+      while the session is still live, so the next
+      session's R6 memory projection can reference it.
+
+    Idempotent: re-running on a session that already has a
+    `transcript_asset` deletes the old one + creates a fresh
+    one with the latest content. The shape is what makes
+    Q-r-8 (cross-session tool side effects) safe — last-
+    write-wins, no merge logic, no race conditions beyond
+    the standard "media-engine fetched stale data" risk.
+
+    Args:
+        session: the `RealtimeSession` to capture. Any
+            status — R5 calls on ENDED, R7.3 calls on READY.
+
+    Returns:
+        ``{session_id, asset_id?, status, chars}`` where
+        ``status`` is one of:
+        ``persisted`` | ``empty`` | ``upstream_error``.
+
+    Raises:
+        Never. ``MediaEngineError`` is caught + returned as
+        ``upstream_error`` status; callers (R5's Celery
+        wrapper handles its own retry) decide what to do.
+    """
+    if not session.provider_session_id:
+        logger.info(
+            "capture_transcript: session=%s has no "
+            "provider_session_id — skipping",
+            session.id,
+        )
+        return {
+            "session_id": str(session.id),
+            "asset_id": None,
+            "status": "empty",
+            "chars": 0,
+        }
+
+    try:
+        with MediaEngineClient() as client:
+            result = client.realtime_session_fetch_transcript(
+                session.provider_session_id, provider=session.provider,
+            )
+    except MediaEngineError as exc:
+        logger.warning(
+            "capture_transcript: media-engine failed session=%s: %s",
+            session.id, exc,
+        )
+        return {
+            "session_id": str(session.id),
+            "asset_id": None,
+            "status": "upstream_error",
+            "chars": 0,
+            "error": str(exc)[:200],
+            "_retryable": _is_retryable(exc),  # caller can use
+        }
+
+    if not result.text.strip():
+        logger.info(
+            "capture_transcript: empty transcript session=%s "
+            "(runway hasn't recorded yet?)",
+            session.id,
+        )
+        return {
+            "session_id": str(session.id),
+            "asset_id": None,
+            "status": "empty",
+            "chars": 0,
+        }
+
+    # Idempotency — if the session already has a
+    # transcript_asset, replace it with the fresh one. The
+    # old asset gets dropped (transcript Assets aren't
+    # referenced by Compositions; safe to delete).
+    if session.transcript_asset_id:
+        try:
+            Asset.objects.filter(pk=session.transcript_asset_id).delete()
+        except Exception:  # pragma: no cover — defensive
+            logger.exception(
+                "capture_transcript: stale-asset cleanup failed "
+                "session=%s asset=%s",
+                session.id, session.transcript_asset_id,
+            )
+
+    inline_content = result.text
+    source_spec = {
+        "primitive_kind": "realtime_transcript",
+        "session_id": str(session.id),
+        "provider_session_id": session.provider_session_id,
+        "provider": session.provider,
+        "segments": result.segments,
+        "fetched_at": timezone.now().isoformat(),
+        "mock_mode": result.mock_mode,
+    }
+
+    asset = Asset.objects.create(
+        workspace=session.workspace,
+        asset_type=AssetType.TRANSCRIPT,
+        file_path="",
+        inline_content=inline_content,
+        source_spec=source_spec,
+        mime_type="text/plain",
+        size_bytes=len(inline_content.encode("utf-8")),
+    )
+    session.transcript_asset = asset
+    session.save(update_fields=["transcript_asset", "updated_at"])
+
+    logger.info(
+        "capture_transcript: persisted session=%s asset=%s "
+        "chars=%d turns=%d",
+        session.id, asset.id, len(inline_content), len(result.segments),
+    )
+    return {
+        "session_id": str(session.id),
+        "asset_id": str(asset.id),
+        "status": "persisted",
+        "chars": len(inline_content),
+    }
+
+
 @shared_task(
     name="realtime.fetch_transcript_for_session",
     bind=True,
@@ -48,6 +180,10 @@ def fetch_transcript_for_session(
 ) -> dict:
     """Pull the transcript from media-engine and persist
     it as an Asset(TRANSCRIPT) on the session.
+
+    Celery task wrapper around `capture_transcript`. Adds
+    session-row resolution + retry logic for transient
+    upstream errors.
 
     Args:
         session_id: ``RealtimeSession.pk``.
@@ -74,107 +210,23 @@ def fetch_transcript_for_session(
             "chars": 0,
         }
 
-    if not session.provider_session_id:
-        logger.info(
-            "fetch_transcript_for_session: session=%s has no "
-            "provider_session_id — skipping",
-            session.id,
+    result = capture_transcript(session)
+    # Honor the retry signal extracted from the helper —
+    # only the Celery wrapper has retry context, so the
+    # helper just reports retryability.
+    if (
+        result["status"] == "upstream_error"
+        and result.pop("_retryable", False)
+        and self.request.retries < self.max_retries
+    ):
+        raise self.retry(
+            exc=MediaEngineError(result.get("error", "upstream error")),
+            countdown=2 ** self.request.retries,
         )
-        return {
-            "session_id": str(session.id),
-            "asset_id": None,
-            "status": "empty",
-            "chars": 0,
-        }
-
-    try:
-        with MediaEngineClient() as client:
-            result = client.realtime_session_fetch_transcript(
-                session.provider_session_id, provider=session.provider,
-            )
-    except MediaEngineError as exc:
-        logger.warning(
-            "fetch_transcript_for_session: media-engine failed "
-            "session=%s: %s",
-            session.id, exc,
-        )
-        if (
-            self.request.retries < self.max_retries
-            and _is_retryable(exc)
-        ):
-            raise self.retry(exc=exc, countdown=2 ** self.request.retries)
-        return {
-            "session_id": str(session.id),
-            "asset_id": None,
-            "status": "upstream_error",
-            "chars": 0,
-            "error": str(exc)[:200],
-        }
-
-    if not result.text.strip():
-        logger.info(
-            "fetch_transcript_for_session: empty transcript "
-            "session=%s (runway hasn't recorded yet?)",
-            session.id,
-        )
-        return {
-            "session_id": str(session.id),
-            "asset_id": None,
-            "status": "empty",
-            "chars": 0,
-        }
-
-    # Idempotency — if the session already has a
-    # transcript_asset, replace it with the fresh one. The
-    # old asset gets dropped (transcript Assets aren't
-    # referenced by Compositions; safe to delete).
-    if session.transcript_asset_id:
-        try:
-            Asset.objects.filter(pk=session.transcript_asset_id).delete()
-        except Exception:  # pragma: no cover — defensive
-            logger.exception(
-                "fetch_transcript_for_session: stale-asset cleanup "
-                "failed session=%s asset=%s",
-                session.id, session.transcript_asset_id,
-            )
-
-    inline_content = result.text
-    # Stash segments in source_spec for provenance (the
-    # structured per-turn shape is useful for downstream
-    # tooling — R6 summary, R8 SPA playback).
-    source_spec = {
-        "primitive_kind": "realtime_transcript",
-        "session_id": str(session.id),
-        "provider_session_id": session.provider_session_id,
-        "provider": session.provider,
-        "segments": result.segments,
-        "fetched_at": timezone.now().isoformat(),
-        "mock_mode": result.mock_mode,
-    }
-
-    asset = Asset.objects.create(
-        workspace=session.workspace,
-        asset_type=AssetType.TRANSCRIPT,
-        file_path="",
-        inline_content=inline_content,
-        source_spec=source_spec,
-        mime_type="text/plain",
-        size_bytes=len(inline_content.encode("utf-8")),
-    )
-    session.transcript_asset = asset
-    session.save(update_fields=["transcript_asset", "updated_at"])
-
-    logger.info(
-        "fetch_transcript_for_session: persisted session=%s "
-        "asset=%s chars=%d turns=%d",
-        session.id, asset.id, len(inline_content), len(result.segments),
-    )
-    return {
-        "session_id": str(session.id),
-        "asset_id": str(asset.id),
-        "status": "persisted",
-        "chars": len(inline_content),
-    }
+    # Strip the internal flag if it survived (non-retryable
+    # path or retries exhausted).
+    result.pop("_retryable", None)
+    return result
 
 
 def _is_retryable(exc: MediaEngineError) -> bool:

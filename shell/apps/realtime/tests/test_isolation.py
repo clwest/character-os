@@ -80,6 +80,11 @@ ALLOWED_FILES = {
     # error_message + completed_at on tool execution
     # completion).
     "apps/realtime/tasks.py",
+    # R7.3 attach_memory tests seed RealtimeSession rows +
+    # exercise the capture_transcript helper + the
+    # attach_memory tool's audit row creation through
+    # dispatch_tool.
+    "apps/realtime/tests/test_r7_3_attach_memory.py",
 }
 
 

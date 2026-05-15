@@ -622,7 +622,7 @@ land independently. Each slice is ~1-2 sessions.
 | **R7.0** ✓ | Tool catalog foundation: `apps/realtime/tools/` registry with `register_tool` decorator + `ToolSpec` shape, `apps/realtime/dispatch.py` (`dispatch_tool` + `approve_invocation` + `reject_invocation` + `DispatchResult`), `RealtimeToolInvocation.AWAITING_APPROVAL` status (migration `0002_r7_awaiting_approval_status`), `POST /api/realtime_sessions/<id>/invoke_tool/` action, new `RealtimeToolInvocationViewSet` (retrieve + list + approve + reject at `/api/realtime_tool_invocations/`), workspace property on the invocation model so shared permission resolver finds it, `REALTIME_TOOL_APPROVAL_THRESHOLD_MICROS=50_000` ($0.05) settings fallback. First tool — `show_videos_tab` (UI-only nav event, $0 cost). +22 tests. Ships SESSION 149 (`646c492`). | R3 |
 | **R7.1** ✓ | Three sync tools: `recall_knowledge` (RAG against K2 via `retrieve_for_spokesperson`; starter tier; ~$0.001/call), `recall_recent_conversations` (read prior `Asset(TRANSCRIPT)` for this spokesperson, returns per-session previews; starter tier; $0), `handoff_to_spokesperson` (cross-spokesperson nav event with same-workspace gate; **pro tier** — Starter has spokespeople=1 so handoff is meaningless). Tier-aware filtering in `get_workspace_tools(workspace)` via new `tier_required` field on `ToolSpec` + new `apps.billing.services.get_workspace_tier` helper. Defense-in-depth tier check in the dispatcher (403 if workspace tier < tool tier). Resolves Q-r-4. +17 tests. Ships SESSION 150 (`611ae94`). | R7.0, K2, R5 |
 | **R7.2** ✓ | Async tool dispatch + `render_video`: new `QUEUED` status (migration `0003_r7_2_queued_status`), generic `execute_tool_invocation` Celery task in `apps/realtime/tasks.py` (resolves invocation + spec, calls executor, links `produced_composition`/`produced_asset`), `dispatch_tool` async branch enqueues Celery (was a stub in R7.0), `approve_invocation` enqueues for async tools. **`render_video`** — fires a composition starter (default `talking_head`; configurable via `args.recipe`); $0.08 cost (over $0.05 threshold so exercises approval flow end-to-end); checks `check_video_limit` tier gate. Bonus — fixes the SESSION 147-deferred INVENTORY Celery undercount bug (call `celery_app.loader.import_default_modules()` in `_collect_celery_tasks`; count goes from 5 → 8). +14 tests. Ships SESSION 151 (`e8564f9`). | R7.0, V starters |
-| **R7.3** | `attach_memory` async tool — mid-session memory commit. Pro tier. Requires **R6.1** as a prerequisite: widen R6's query to include in-progress sessions / explicitly-committed memory snapshots, or accept a new `Asset(MEMORY_SNAPSHOT)` sub-type R6 reads in addition to ENDED-session transcripts. Deferred from R7.2 (SESSION 151) — the architectural change to R6 deserves its own slice. Resolves Q-r-8 (cross-session tool side effects: composition idempotent + last-write-wins). | R6.1, R7.2 |
+| **R7.3** ✓ | `attach_memory` async tool — Pro tier, ~$0.001/call. Fires `capture_transcript(session)` (shared helper extracted from R5's task body in the same slice; both R5's session-end task and R7.3's mid-session tool now go through one implementation). Returns `{event, asset_id, session_id, status, message}`; generic Celery wrapper links produced_asset to the invocation row. **R6.1** sibling change: `compose_session_memory` query widened to drop the `status=ENDED` filter — now picks up any session with a `transcript_asset` (so READY sessions with mid-session commits surface in next-session memory). Resolves Q-r-8 (cross-session tool side effects: idempotent + last-write-wins). +13 tests (1 net new R6 test from the split + 12 R7.3 tests). v1 tool catalog now complete: 6 tools. Ships SESSION 152. | R7.2 |
 | **R8** | SPA `/spokespeople/:id/talk` route + `@runwayml/avatars-react` integration + cost forecasting UI + tool-approval modal | R3, R7 |
 | **R9** | Cost governance: per-workspace minutes budget, tier-limit enforcement at session-create, live cost ticker | R2, billing |
 | **R10** | Multi-provider abstraction hardening (no new providers shipped; just ensure the registry pattern holds — drift verifier test) | R2 |
@@ -819,6 +819,115 @@ tests cannot fail.
   handles it) — the hard parts are key brokering,
   knowledge composition, cost governance, cross-session
   memory, and workspace-scoped tools.
+
+- 2026-05-15 (SESSION 152) — **R7.3 SHIPPED + R6.1
+  shipped + v1 tool catalog complete**. The realtime
+  tool catalog reaches its v1 spec at six tools across
+  starter + pro tiers. R6.1 (widening R6's memory
+  query) lands as a sibling change in the same commit
+  because `attach_memory`'s value depends on it.
+
+  R6.1 (`character_os/realtime_memory.py`):
+
+  * Dropped the `status=ENDED` filter from
+    `compose_session_memory`'s query. Keeps the
+    `transcript_asset__isnull=False` gate. Any session
+    with a transcript snapshot surfaces in
+    next-session memory, regardless of status. Edge
+    case — a FAILED or crashed session that
+    somehow has a transcript still surfaces — the
+    operator-facing payoff is minor and architectural
+    simplicity is worth it.
+  * R6's prior test
+    `test_non_ended_sessions_excluded` (asserted
+    READY sessions are filtered out) rewritten to
+    `test_non_ended_sessions_with_transcript_included`
+    (asserts the opposite). New sibling test
+    `test_sessions_without_transcript_still_excluded`
+    confirms the asset gate still holds.
+
+  Capture helper (`apps/realtime/tasks.py`):
+
+  * New `capture_transcript(session) -> dict` helper.
+    Extracted from R5's `fetch_transcript_for_session`
+    Celery task body. Pulls the transcript snapshot
+    from media-engine, persists as
+    `Asset(asset_type=TRANSCRIPT)` in the session's
+    workspace, wires `session.transcript_asset`.
+    Idempotent — replaces stale Asset on rerun.
+    Status return: `persisted | empty |
+    upstream_error`. Never raises (MediaEngineError
+    becomes a structured `upstream_error` payload).
+  * R5's Celery task body is now a thin wrapper:
+    resolve session row → call helper → honor retry
+    signal for transient errors. Same external
+    behavior; same idempotency guarantees.
+
+  `attach_memory` tool (`apps/realtime/tools/attach_memory.py`):
+
+  * `cost_micros=1_000` ($0.001) — under the $0.05
+    approval threshold so executes inline.
+  * `is_async=True` — goes through the generic
+    Celery task. Network I/O (the media-engine
+    fetch) shouldn't block the request handler in
+    production.
+  * `tier_required="pro"`. Mid-session memory commits
+    are a power-user feature for long planning calls;
+    Starter operators get end-of-session memory
+    automatically via R5.
+  * Returns `{event: "memory_committed", asset_id,
+    session_id, status, message}`. The generic Celery
+    wrapper sees `asset_id` and writes it to the
+    invocation's `produced_asset` FK.
+  * Operator-facing messages differentiated by
+    upstream status: persisted → "I'll remember
+    this", empty → "not enough yet", upstream_error
+    → "I'll try again at session-end".
+
+  13 new tests in
+  `apps/realtime/tests/test_r7_3_attach_memory.py`
+  covering `capture_transcript` helper directly (3),
+  `attach_memory` tool through dispatch (7: happy path
+  with produced_asset linkage, idempotency, empty
+  upstream, upstream error, no provider id,
+  Starter-blocked-403, cost-below-threshold sanity),
+  R6.1 memory loop end-to-end (2: attach_memory →
+  next-session R6 picks it up, no-transcript still
+  filtered), REST integration (1). Plus 1 net new R6
+  test from splitting the prior
+  `test_non_ended_sessions_excluded` into two
+  (included-with-transcript + excluded-without).
+
+  One `ALLOWED_FILES` whitelist addition on
+  `apps/realtime/tests/test_isolation.py`
+  (`test_r7_3_attach_memory.py` — seeds sessions +
+  creates invocations).
+
+  Test totals: Django 627 → 641 (+14). No new
+  migrations, no new Celery tasks, no new media-engine
+  routes, no new force-mock flags.
+
+  **v1 tool catalog (6 tools)**:
+  * `show_videos_tab` — starter, $0, sync (R7.0)
+  * `recall_knowledge` — starter, ~$0.001, sync (R7.1)
+  * `recall_recent_conversations` — starter, $0, sync (R7.1)
+  * `handoff_to_spokesperson` — pro, $0, sync (R7.1)
+  * `render_video` — starter, $0.08, async (R7.2)
+  * `attach_memory` — pro, ~$0.001, async (R7.3)
+
+  Three Q-r questions resolved this slice:
+  * **Q-r-8** (cross-session tool side effects) —
+    `capture_transcript` is idempotent + last-write-
+    wins; the race window is the standard media-
+    engine fetch delay, not a multi-write merge
+    problem.
+
+  R-arc state after R7.3: **R1-R7 done**. R8 (SPA),
+  R9 (cost governance), R10 (provider hardening)
+  remain. R8 is the operator-visible moment — the
+  backend is complete; the SPA wires up the SDK +
+  cost forecasting + tool-approval modal against
+  the full v1 catalog.
 
 - 2026-05-15 (SESSION 151) — **R7.2 SHIPPED** + `attach_memory`
   deferred to R7.3 + INVENTORY Celery undercount fixed

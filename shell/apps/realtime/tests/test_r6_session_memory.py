@@ -260,11 +260,19 @@ def test_ended_session_without_transcript_excluded():
     assert result.session_ids == []
 
 
-def test_non_ended_sessions_excluded():
-    """READY/CREATING/FAILED sessions don't contribute to
-    memory — only completed conversations do."""
+def test_non_ended_sessions_with_transcript_included():
+    """R6.1 (SESSION 152): the original R6 filtered by
+    ``status=ENDED``. R7.3's ``attach_memory`` tool needs
+    READY sessions with mid-session transcript snapshots
+    to surface in next-session memory. After R6.1's widen,
+    ANY session with a transcript_asset surfaces,
+    regardless of status."""
     ws, _u = _make_workspace("r6nonend@test")
     sp = _make_spokesperson(ws)
+    # Five non-ENDED sessions, each with a transcript
+    # attached (simulating mid-session attach_memory commit
+    # in different lifecycle states).
+    expected_ids = []
     for st in (
         RealtimeSession.Status.READY,
         RealtimeSession.Status.CREATING,
@@ -272,7 +280,27 @@ def test_non_ended_sessions_excluded():
         RealtimeSession.Status.NOT_READY,
         RealtimeSession.Status.DRAFT,
     ):
-        _make_ended_session(ws, sp, status=st)
+        s = _make_ended_session(ws, sp, status=st)
+        expected_ids.append(str(s.id))
+    with override_settings(REALTIME_MEMORY_FORCE_MOCK=True):
+        # Default max_sessions=3 — only the 3 newest land
+        result = compose_session_memory(sp, max_sessions=5)
+    assert len(result.session_ids) == 5
+    assert set(result.session_ids) == set(expected_ids)
+
+
+def test_sessions_without_transcript_still_excluded():
+    """The transcript_asset filter still gates — any
+    status without an Asset attached doesn't surface
+    (no content to summarize)."""
+    ws, _u = _make_workspace("r6noasset@test")
+    sp = _make_spokesperson(ws)
+    for st in (
+        RealtimeSession.Status.READY,
+        RealtimeSession.Status.ENDED,
+        RealtimeSession.Status.FAILED,
+    ):
+        _make_ended_session(ws, sp, status=st, attach_transcript=False)
     with override_settings(REALTIME_MEMORY_FORCE_MOCK=True):
         result = compose_session_memory(sp)
     assert result.session_ids == []
