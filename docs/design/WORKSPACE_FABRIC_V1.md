@@ -327,14 +327,23 @@ existing data. None create new rows. Contract rule 1.
 Like the V-arc and K-arc, fabric is a sequence of
 independently-shipping slices.
 
-- **F0 — Scope lock (this doc).** No code.
-- **F1 — Per-spokesperson recipe entry.** Spokesperson
-  detail "Make a video" CTA → `/recipes?spokesperson=<id>`.
-  Recipe gallery reads the hint and passes it through to
-  the form, which pre-binds the spokesperson dropdown.
-  All 18 recipes participate (the form renderer is
-  metadata-driven, so the change is in the form, not
-  per-recipe). Closes the V15.4 small UX regression.
+- **F0 — Scope lock (this doc).** No code. Shipped
+  SESSION 144 (`825e0b9`).
+- **F1 — Per-spokesperson recipe entry.** ✓ SHIPPED
+  SESSION 144 (commit TBD). Spokesperson detail "Make a
+  video" CTA → `/recipes?spokesperson=<id>`. Recipe
+  gallery reads the hint, shows it in the header ("What
+  can <name> do?" + a chip with a "clear" link), and
+  passes it through to every card link. The form
+  pre-binds the spokesperson_picker field (and
+  `primary_spokesperson_id` for `dialogue_scene`) from
+  the hint via a useEffect that fires once recipe
+  metadata lands. Operator can still change the
+  selection — the hint is the initial value only (F0
+  contract rule 2). Cancel + "All recipes" back-links
+  in the form preserve the hint so cancelling returns
+  to the filtered gallery. New e2e spec covers the URL
+  contract.
 - **F2 — Persistent nav rail.** Four-section sidebar /
   topbar shipping in `_layout.tsx`. No new routes; the
   rail is purely a navigation affordance. The current

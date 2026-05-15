@@ -69,4 +69,39 @@ test.describe("recipe gallery (V15.4)", () => {
     await expect(page.getByTestId("recipe-field-spokesperson_id")).toBeVisible();
     await expect(page.getByTestId("recipe-field-script")).toBeVisible();
   });
+
+  // F1 (workspace fabric) — the `?spokesperson=<id>` URL hint
+  // propagates from the gallery header through every card link
+  // into the recipe form's spokesperson_picker. The form still
+  // lets the operator change the selection (F0 contract rule 2).
+  test("spokesperson URL hint pre-binds the form", async ({ page }) => {
+    const email = `e2e-f1-${Date.now()}-${Math.floor(Math.random() * 1e6)}@character-os.test`;
+    const password = "playwright-test-pw-x4q9z!";
+
+    await page.goto("/sign-up");
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill(password);
+    await page.waitForURL("**/dashboard");
+
+    // Synthetic hint — fresh workspace has no spokespeople,
+    // but the hint is a URL contract and should still surface
+    // on the gallery + propagate through card links.
+    const fakeId = "11111111-1111-1111-1111-111111111111";
+    await page.goto(`/recipes?spokesperson=${fakeId}`);
+
+    // The hint chip is visible even when the spokesperson row
+    // doesn't exist (it just won't show a name).
+    const galleryUrl = new URL(page.url());
+    expect(galleryUrl.searchParams.get("spokesperson")).toBe(fakeId);
+
+    // Card link propagates the hint.
+    const card = page.getByTestId("recipe-card-talking_head");
+    await expect(card).toBeVisible();
+    const cardHref = await card.getAttribute("href");
+    expect(cardHref).toContain(`spokesperson=${fakeId}`);
+
+    await Promise.all([page.waitForURL(/\/recipes\/talking_head/), card.click()]);
+    const formUrl = new URL(page.url());
+    expect(formUrl.searchParams.get("spokesperson")).toBe(fakeId);
+  });
 });

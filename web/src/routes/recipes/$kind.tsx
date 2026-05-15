@@ -7,8 +7,8 @@
  * and dialogue_lines (V15.4) come later — coming-soon recipes
  * short-circuit with a placeholder.
  */
-import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,9 +35,38 @@ export function RecipeFormRoute() {
   const spokespeople = useSpokespeople();
   const create = useCreateComposition();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // F1 (workspace fabric) — when the gallery passes a
+  // `?spokesperson=<id>` hint we pre-bind the recipe's
+  // spokesperson_picker field. The operator can still
+  // change it; the hint just sets the initial value
+  // (F0 contract rule 2).
+  const spokespersonHint = searchParams.get("spokesperson") ?? undefined;
 
   const [form, setForm] = useState<FormState>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Pre-bind the spokesperson_picker fields from the URL hint
+  // once the recipe metadata lands. The operator can still
+  // change the selection — the hint is the initial value
+  // only (F0 contract rule 2). Re-runs only when the hint
+  // or recipe identity changes; doesn't clobber subsequent
+  // operator edits.
+  useEffect(() => {
+    if (!spokespersonHint || !recipe.data) return;
+    setForm((prev) => {
+      const next = { ...prev };
+      let touched = false;
+      for (const field of recipe.data!.fields) {
+        if (field.type === "spokesperson_picker" && !prev[field.name]) {
+          next[field.name] = spokespersonHint;
+          touched = true;
+        }
+      }
+      return touched ? next : prev;
+    });
+  }, [spokespersonHint, recipe.data]);
 
   if (recipe.isLoading || me.isLoading) {
     return <FormSkeleton />;
@@ -115,9 +144,13 @@ export function RecipeFormRoute() {
     }
   };
 
+  const galleryHref = spokespersonHint
+    ? `/recipes?spokesperson=${spokespersonHint}`
+    : "/recipes";
+
   return (
     <div className="flex flex-col gap-8 py-10">
-      <Header recipe={r} />
+      <Header recipe={r} galleryHref={galleryHref} />
       <form
         onSubmit={onSubmit}
         className="flex flex-col gap-6"
@@ -148,7 +181,7 @@ export function RecipeFormRoute() {
 
         <div className="flex items-center justify-between border-t pt-6">
           <Link
-            to="/recipes"
+            to={galleryHref}
             className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
           >
             Cancel
@@ -167,11 +200,17 @@ export function RecipeFormRoute() {
   );
 }
 
-function Header({ recipe }: { recipe: Recipe }) {
+function Header({
+  recipe,
+  galleryHref,
+}: {
+  recipe: Recipe;
+  galleryHref: string;
+}) {
   return (
     <header className="flex flex-col gap-3 border-b pb-6">
       <Link
-        to="/recipes"
+        to={galleryHref}
         className="inline-flex w-fit items-center gap-1 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-3 w-3" />

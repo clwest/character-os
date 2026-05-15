@@ -1,14 +1,16 @@
 /**
- * Recipe gallery — the V15 SPA entry point for video creation.
+ * Recipe gallery — SPA entry point for video creation.
  *
- * Lists all 17 starter compositions as cards grouped by family.
- * V15.1 has three live recipes (talking_head, cinematic_visual,
- * talking_head_polished); the rest are "coming soon" cards that
- * preview the gallery shape. Forms land family-by-family in
- * V15.2-V15.4.
+ * V15.1-V15.4 turned this into the 18-card live gallery.
+ * F1 (workspace fabric arc) adds the `?spokesperson=<id>`
+ * URL hint: when present, every card link propagates the
+ * hint to the recipe form so the spokesperson dropdown
+ * comes pre-bound. Per F0 contract rule 2 the hint is
+ * never a binding — the form still lets operators change
+ * the selection.
  */
-import { Link } from "react-router-dom";
-import { ArrowLeft, Lock, Sparkles } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { ArrowLeft, Lock, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   LIVE_RECIPE_KINDS,
@@ -18,23 +20,35 @@ import {
   type RecipeFamily,
   useRecipes,
 } from "@/lib/api/recipes";
+import { useSpokespeople } from "@/lib/api/spokespeople";
 
 export function RecipeGalleryRoute() {
   const recipes = useRecipes();
+  const [searchParams] = useSearchParams();
+  const spokespersonHint = searchParams.get("spokesperson") ?? undefined;
+  const spokespeople = useSpokespeople();
+  const hintedSpokesperson = spokespersonHint
+    ? spokespeople.data?.find((s) => s.id === spokespersonHint)
+    : undefined;
 
   return (
     <div className="flex flex-col gap-8 py-10">
-      <Header />
+      <Header hintedSpokespersonName={hintedSpokesperson?.name} />
       {recipes.isLoading && <GallerySkeleton />}
       {recipes.isError && (
         <ErrorState message={extractMessage(recipes.error)} />
       )}
-      {recipes.data && <RecipeGrid recipes={recipes.data} />}
+      {recipes.data && (
+        <RecipeGrid
+          recipes={recipes.data}
+          spokespersonHint={spokespersonHint}
+        />
+      )}
     </div>
   );
 }
 
-function Header() {
+function Header({ hintedSpokespersonName }: { hintedSpokespersonName?: string }) {
   return (
     <header className="flex flex-col gap-3">
       <Link
@@ -49,19 +63,43 @@ function Header() {
           Make a video
         </span>
         <h1 className="font-display text-4xl leading-tight tracking-tight">
-          Pick a recipe.
+          {hintedSpokespersonName ? `What can ${hintedSpokespersonName} do?` : "Pick a recipe."}
         </h1>
         <p className="max-w-2xl text-muted-foreground">
           Each card is a starter composition — a prebuilt sequence of steps the
           render engine knows how to run. Pick one, fill in the form, and the
           composition runs against the media engine.
         </p>
+        {hintedSpokespersonName && (
+          <div
+            className="mt-2 inline-flex w-fit items-center gap-2 rounded-full border border-foreground/20 bg-foreground/5 px-3 py-1 text-xs"
+            data-testid="spokesperson-hint-chip"
+          >
+            <User className="h-3 w-3" />
+            <span>
+              Pre-bound to <strong>{hintedSpokespersonName}</strong>
+            </span>
+            <Link
+              to="/recipes"
+              className="ml-1 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+              data-testid="spokesperson-hint-clear"
+            >
+              clear
+            </Link>
+          </div>
+        )}
       </div>
     </header>
   );
 }
 
-function RecipeGrid({ recipes }: { recipes: Recipe[] }) {
+function RecipeGrid({
+  recipes,
+  spokespersonHint,
+}: {
+  recipes: Recipe[];
+  spokespersonHint?: string;
+}) {
   const byFamily = groupByFamily(recipes);
 
   return (
@@ -74,7 +112,11 @@ function RecipeGrid({ recipes }: { recipes: Recipe[] }) {
             <FamilyHeading family={family} count={list.length} />
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {list.map((recipe) => (
-                <RecipeCard key={recipe.kind} recipe={recipe} />
+                <RecipeCard
+                  key={recipe.kind}
+                  recipe={recipe}
+                  spokespersonHint={spokespersonHint}
+                />
               ))}
             </div>
           </section>
@@ -103,12 +145,21 @@ function FamilyHeading({
   );
 }
 
-function RecipeCard({ recipe }: { recipe: Recipe }) {
+function RecipeCard({
+  recipe,
+  spokespersonHint,
+}: {
+  recipe: Recipe;
+  spokespersonHint?: string;
+}) {
   const isLive = LIVE_RECIPE_KINDS.has(recipe.kind);
+  const href = spokespersonHint
+    ? `/recipes/${recipe.kind}?spokesperson=${spokespersonHint}`
+    : `/recipes/${recipe.kind}`;
 
   return (
     <Link
-      to={`/recipes/${recipe.kind}`}
+      to={href}
       data-testid={`recipe-card-${recipe.kind}`}
       data-live={isLive ? "true" : "false"}
       className={
