@@ -30,7 +30,7 @@ import logging
 from django.db.models import Q
 from rest_framework import status as drf_status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.response import Response
 
 from apps.spokespeople.models import Spokesperson
@@ -206,4 +206,102 @@ class KnowledgeDocumentViewSet(viewsets.ModelViewSet):
         return Response({
             "query": query,
             "results": [_asdict(r) for r in results],
+        })
+
+    # ---- knowledge preview (F4, workspace fabric arc) ---
+
+    @action(detail=False, methods=["post"], url_path="preview")
+    def preview(self, request, *args, **kwargs):
+        """Return doc-level summary of what `retrieve_for_spokesperson`
+        would surface for a given query — powers the F4 preview
+        panel on recipe forms.
+
+        Body: ``{"spokesperson": <uuid>, "query": "<text>", "top_k": N?}``
+
+        Response: ``{
+            "docs_used": [{"id", "title", "chunk_count"}, ...],
+            "total_chunks": int,
+            "query_used": str,
+        }``
+
+        Workspace scoping derives from the spokesperson — the
+        caller must be a workspace member. Best-effort per F0
+        contract rule 6: any retrieval failure returns an empty
+        result instead of a 500 so the SPA's preview panel
+        never blocks the recipe form's submit.
+        """
+        from collections import Counter
+
+        from apps.accounts.models import Membership
+        from apps.embeddings.retrieval import retrieve_for_spokesperson
+        from apps.spokespeople.models import Spokesperson
+
+        sp_id = (request.data.get("spokesperson") or "").strip()
+        query = (request.data.get("query") or "").strip()
+        if not sp_id:
+            raise ValidationError({"spokesperson": "Required."})
+        if not query:
+            raise ValidationError({"query": "Required."})
+
+        top_k = request.data.get("top_k")
+        try:
+            top_k_int = int(top_k) if top_k is not None else 5
+        except (TypeError, ValueError):
+            top_k_int = 5
+        top_k_int = max(1, min(top_k_int, 20))
+
+        try:
+            spokesperson = Spokesperson.objects.get(pk=sp_id)
+        except Spokesperson.DoesNotExist:
+            raise ValidationError({"spokesperson": "Not found."})
+        if not Membership.objects.filter(
+            user=request.user, workspace=spokesperson.workspace,
+        ).exists():
+            raise PermissionDenied("Not a member of this spokesperson's workspace.")
+
+        # Best-effort retrieval. Any failure becomes an empty
+        # result so the SPA panel can show "no preview available"
+        # without surfacing an HTTP error to the operator.
+        try:
+            chunks = retrieve_for_spokesperson(
+                spokesperson, query, top_k=top_k_int,
+            )
+        except Exception as exc:
+            logger.warning(
+                "knowledge preview failed for spokesperson=%s: %s",
+                spokesperson.id, exc,
+            )
+            return Response({
+                "docs_used": [],
+                "total_chunks": 0,
+                "query_used": query,
+                "preview_failed": True,
+            })
+
+        # Group chunks by document, preserving the highest-match
+        # ordering (the first time we see a doc id is its first
+        # chunk's position in the result list).
+        doc_order: list[str] = []
+        doc_titles: dict[str, str] = {}
+        counts: Counter[str] = Counter()
+        for chunk in chunks:
+            doc_id = str(chunk.document_id)
+            if doc_id not in doc_titles:
+                doc_titles[doc_id] = chunk.document.title
+                doc_order.append(doc_id)
+            counts[doc_id] += 1
+
+        docs_used = [
+            {
+                "id": doc_id,
+                "title": doc_titles[doc_id],
+                "chunk_count": counts[doc_id],
+            }
+            for doc_id in doc_order
+        ]
+
+        return Response({
+            "docs_used": docs_used,
+            "total_chunks": len(chunks),
+            "query_used": query,
         })

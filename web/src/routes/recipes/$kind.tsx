@@ -24,6 +24,7 @@ import {
 } from "@/lib/api/recipes";
 import { useMe } from "@/lib/api/workspaces";
 import { useSpokespeople, type Spokesperson } from "@/lib/api/spokespeople";
+import { useKnowledgePreview } from "@/lib/api/knowledge-preview";
 import { ApiError } from "@/lib/api/client";
 
 type FormState = Record<string, unknown>;
@@ -99,6 +100,42 @@ export function RecipeFormRoute() {
     (s) => s.workspace === workspaceId,
   );
 
+  // F4 — when the recipe has a `use_knowledge` checkbox and
+  // it's checked, render the knowledge preview + brief-mode
+  // helper. The preview's query is the recipe's primary
+  // textarea field value (script / narration_script /
+  // backdrop_prompt / etc). The first textarea wins; most
+  // knowledge-aware recipes only have one.
+  const useKnowledgeField = r.fields.find(
+    (f) => f.name === "use_knowledge" && f.type === "checkbox",
+  );
+  const hasUseKnowledge = Boolean(useKnowledgeField);
+  const useKnowledgeChecked = hasUseKnowledge
+    ? Boolean(
+        (form.use_knowledge as boolean | undefined) ??
+          useKnowledgeField?.default ??
+          false,
+      )
+    : false;
+  const primaryTextareaField = r.fields.find((f) => f.type === "textarea");
+  const queryValue =
+    typeof form[primaryTextareaField?.name ?? ""] === "string"
+      ? (form[primaryTextareaField?.name ?? ""] as string)
+      : "";
+  const spokespersonValue = (form.spokesperson_id ??
+    form.primary_spokesperson_id ?? "") as string;
+  const debouncedQuery = useDebounced(queryValue, 500);
+  const previewEnabled =
+    hasUseKnowledge &&
+    useKnowledgeChecked &&
+    Boolean(spokespersonValue) &&
+    debouncedQuery.trim().length >= 8;
+  const preview = useKnowledgePreview(
+    previewEnabled
+      ? { spokesperson: spokespersonValue, query: debouncedQuery.trim() }
+      : null,
+  );
+
   // Determine which asset types this recipe needs. Each
   // asset_picker field declares its asset_type; we fetch one
   // query per distinct type so the picker dropdowns are ready
@@ -164,10 +201,23 @@ export function RecipeFormRoute() {
             onChange={(value) => handleChange(field.name, value)}
             spokespeople={workspaceSpokespeople}
             workspaceId={workspaceId}
+            briefModeHelper={
+              field.name === primaryTextareaField?.name && useKnowledgeChecked
+            }
           />
         ))}
         {assetTypesNeeded.length > 0 && (
           <AssetHint types={assetTypesNeeded} workspaceId={workspaceId} />
+        )}
+        {hasUseKnowledge && useKnowledgeChecked && (
+          <KnowledgePreviewPanel
+            enabled={previewEnabled}
+            spokespersonPicked={Boolean(spokespersonValue)}
+            queryReady={debouncedQuery.trim().length >= 8}
+            isLoading={preview.isFetching}
+            data={preview.data}
+            error={preview.error}
+          />
         )}
 
         {submitError && (
@@ -230,12 +280,18 @@ function FieldRenderer({
   onChange,
   spokespeople,
   workspaceId,
+  briefModeHelper = false,
 }: {
   field: RecipeField;
   value: unknown;
   onChange: (value: unknown) => void;
   spokespeople: Spokesperson[];
   workspaceId: string;
+  /** When true (F4), append a "this is a brief — the LLM
+   *  expands it" hint to the field's help_text. Only the
+   *  primary textarea of a use_knowledge-enabled recipe sets
+   *  this. */
+  briefModeHelper?: boolean;
 }) {
   const id = `field-${field.name}`;
 
@@ -251,6 +307,18 @@ function FieldRenderer({
         </Label>
         {field.help_text && (
           <p className="text-xs text-muted-foreground">{field.help_text}</p>
+        )}
+        {briefModeHelper && (
+          <p
+            className="text-xs text-foreground/80"
+            data-testid="brief-mode-helper"
+          >
+            <strong>Knowledge mode:</strong> what you type here becomes a
+            brief — gpt-5-mini expands it into a polished script using your
+            workspace docs at render time. One or two sentences is plenty
+            (e.g. "60-second spot about our spring launch, focused on the
+            early-bird discount").
+          </p>
         )}
       </div>
       <FieldInput
@@ -610,6 +678,113 @@ function DialogueLinesEditor({
         <Plus className="h-3 w-3" />
         Add line
       </button>
+    </div>
+  );
+}
+
+function useDebounced<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const handle = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(handle);
+  }, [value, delayMs]);
+  return debounced;
+}
+
+function KnowledgePreviewPanel({
+  enabled,
+  spokespersonPicked,
+  queryReady,
+  isLoading,
+  data,
+  error,
+}: {
+  enabled: boolean;
+  spokespersonPicked: boolean;
+  queryReady: boolean;
+  isLoading: boolean;
+  data: import("@/lib/api/knowledge-preview").KnowledgePreview | undefined;
+  error: unknown;
+}) {
+  let body: React.ReactNode;
+  if (!spokespersonPicked) {
+    body = (
+      <p className="text-xs text-muted-foreground">
+        Pick a spokesperson above to preview what knowledge would inform this
+        render.
+      </p>
+    );
+  } else if (!queryReady) {
+    body = (
+      <p className="text-xs text-muted-foreground">
+        Type a brief above (at least 8 characters) to preview the knowledge
+        that would feed the LLM-synthesized script.
+      </p>
+    );
+  } else if (isLoading && !data) {
+    body = (
+      <p className="text-xs text-muted-foreground">
+        Checking what knowledge applies…
+      </p>
+    );
+  } else if (error || data?.preview_failed) {
+    body = (
+      <p className="text-xs text-muted-foreground">
+        Preview unavailable. The render will still pull knowledge at submit time.
+      </p>
+    );
+  } else if (data && data.total_chunks === 0) {
+    body = (
+      <p className="text-xs text-muted-foreground">
+        No matching knowledge for this brief. The render will use just your
+        prompt + the spokesperson's business brief.
+      </p>
+    );
+  } else if (data) {
+    body = (
+      <>
+        <p className="text-xs text-muted-foreground">
+          The LLM would draw from{" "}
+          <strong>
+            {data.docs_used.length} doc{data.docs_used.length === 1 ? "" : "s"}
+          </strong>{" "}
+          (<strong>{data.total_chunks} chunks</strong>):
+        </p>
+        <ul className="flex flex-col gap-1 text-xs">
+          {data.docs_used.map((d) => (
+            <li
+              key={d.id}
+              className="flex items-baseline justify-between"
+            >
+              <span className="line-clamp-1">{d.title}</span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                {d.chunk_count} chunk{d.chunk_count === 1 ? "" : "s"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </>
+    );
+  } else {
+    body = null;
+  }
+
+  return (
+    <div
+      className="flex flex-col gap-2 rounded-md border border-dashed bg-muted/30 p-4"
+      data-testid="knowledge-preview-panel"
+      aria-busy={isLoading || undefined}
+    >
+      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+        Knowledge preview
+      </p>
+      {body}
+      {!enabled && spokespersonPicked && queryReady && (
+        // Defensive — should not normally render; covers a
+        // theoretical state where enabled is false despite
+        // the prerequisites being met (e.g. mid-debounce).
+        <p className="text-xs text-muted-foreground">Updating preview…</p>
+      )}
     </div>
   );
 }

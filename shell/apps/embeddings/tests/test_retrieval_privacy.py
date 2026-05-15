@@ -311,6 +311,9 @@ ALLOWED_FILES = {
     # This test file itself + the ingestion test
     "apps/embeddings/tests/test_retrieval_privacy.py",
     "apps/embeddings/tests/test_ingestion.py",
+    # F4 preview endpoint tests seed chunks directly to
+    # exercise the doc-level grouping path.
+    "apps/embeddings/tests/test_preview.py",
 }
 
 # The pattern we actually care about: ``<Model>.objects`` —

@@ -381,11 +381,51 @@ independently-shipping slices.
   (`apps/accounts/tests/test_workspace_overview.py`).
   Dashboard e2e spec updated (videos-empty →
   activity-empty + knowledge-corpus zero state).
-- **F4 — Knowledge preview on recipe forms.** New
-  `POST /api/knowledge/preview/` endpoint + inline panel
-  in the recipe form when `use_knowledge` + spokesperson
-  are both bound. Debounced retrieval on script edits.
-  Best-effort (contract rule 6) — never blocks submit.
+- **F4 — Knowledge preview on recipe forms.** ✓ SHIPPED
+  SESSION 144 (commit TBD). New
+  `POST /api/knowledge/preview/` endpoint (custom action
+  on `KnowledgeDocumentViewSet`) wraps
+  `retrieve_for_spokesperson`, groups returned chunks by
+  document, returns `{docs_used: [{id, title,
+  chunk_count}], total_chunks, query_used,
+  preview_failed?}`. Workspace-scoped via spokesperson's
+  workspace + Membership check. Best-effort per F0
+  contract rule 6 — retrieval failure becomes
+  `preview_failed=true` + empty list, never an HTTP 500.
+
+  SPA additions in
+  `web/src/routes/recipes/$kind.tsx`:
+  * `useDebounced` hook (500ms, Q-f-4).
+  * `KnowledgePreviewPanel` rendered below the form's
+    fields when `use_knowledge` is checked. Shows
+    "would draw from N docs (M chunks)" with per-doc
+    chunk counts. Empty-state messaging for the four
+    transition cases (no spokesperson, no query yet,
+    loading, no matches).
+  * **Expanded F4 scope** added at operator's prompt: a
+    "Knowledge mode" brief-mode helper text rendered
+    under the primary textarea when `use_knowledge` is
+    on. Explains explicitly that gpt-5-mini expands the
+    input into a polished script — surfaces K6's
+    already-shipped capability that the SPA had been
+    hiding. New `briefModeHelper` prop on
+    `FieldRenderer`.
+
+  Original F4 scope was preview-only. The expansion
+  (brief-mode helper + clearer field semantics)
+  resolves a UX bug: operators were writing full
+  scripts in a field whose value K6 was already
+  treating as a brief. Operator caught this mid-F4
+  scoping. The brief-mode helper is the structural
+  fix; the preview panel makes the seam visible.
+
+  +10 backend tests
+  (`apps/embeddings/tests/test_preview.py`) covering
+  auth gate, cross-workspace rejection, missing
+  spokesperson/query 400s, empty-workspace zero
+  shape, doc-grouping math, top_k clamp, workspace
+  isolation, best-effort retrieval failure. SPA
+  build green. 416 backend tests total.
 - **F5 — Asset lineage on composition status.**
   `GET /api/compositions/<id>/lineage/` returns
   `derived_from` + `used_by` shapes. SPA renders both as

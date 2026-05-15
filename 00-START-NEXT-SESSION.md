@@ -101,8 +101,8 @@ contract.
 | F1 | Per-spokesperson recipe entry (`/recipes?spokesperson=<id>` hint propagation) | DONE (SESSION 144) |
 | F2 | Persistent nav rail (Dashboard / Spokespeople / Knowledge / Recipes) | DONE (SESSION 144) |
 | F3 | Workspace overview dashboard (activity feed + knowledge corpus stats + spokesperson badges + squarer cards) | DONE (SESSION 144) |
-| F4 | Knowledge preview on recipe forms (best-effort retrieval surface) | **NEXT (SESSION 144)** |
-| F5 | Asset lineage on composition status (Derived from / Used by) | Queued |
+| F4 | Knowledge preview on recipe forms + brief-mode helper text (expanded scope; surfaces K6 LLM synthesis) | DONE (SESSION 144) |
+| F5 | Asset lineage on composition status (Derived from / Used by) | **NEXT (SESSION 144)** |
 | F6 | Knowledge citations on composition status (resolve chunk_ids → docs) | Queued |
 | F7 | Knowledge doc → compositions reverse panel | Queued |
 | F8 | Onboarding walkthrough (subsumes K10 onboarding seed) | Queued |
