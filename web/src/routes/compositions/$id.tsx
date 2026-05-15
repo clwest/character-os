@@ -4,11 +4,12 @@
  * when the composition reaches a terminal status.
  */
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Circle, XCircle, Loader2, MinusCircle, CornerDownRight, CornerUpRight } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Circle, XCircle, Loader2, MinusCircle, CornerDownRight, CornerUpRight, Library } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   type Composition,
   type CompositionStep,
+  type KnowledgeDocCitation,
   type LineageRef,
   type LineageDerivedFromEntry,
   isTerminalStatus,
@@ -50,6 +51,9 @@ export function CompositionStatusRoute() {
       {terminal && c.final_asset && <FinalAsset composition={c} />}
       {terminal && !c.final_asset && c.status === "failed" && (
         <FailedCallout composition={c} />
+      )}
+      {c.knowledge_docs_used.length > 0 && (
+        <CitationsPanel docs={c.knowledge_docs_used} />
       )}
       {lineage.data && lineage.data.used_by.length > 0 && (
         <UsedByPanel entries={lineage.data.used_by} />
@@ -185,6 +189,43 @@ function StatusIcon({
     default:
       return <Circle className="h-5 w-5 text-muted-foreground" />;
   }
+}
+
+function CitationsPanel({ docs }: { docs: KnowledgeDocCitation[] }) {
+  const totalChunks = docs.reduce((sum, d) => sum + d.chunk_count, 0);
+  return (
+    <section
+      className="flex flex-col gap-3 rounded-md border bg-card p-5 shadow-paper"
+      data-testid="composition-citations"
+    >
+      <div className="flex items-center justify-between border-b pb-2">
+        <div className="flex items-center gap-2">
+          <Library className="h-4 w-4 text-muted-foreground" />
+          <h2 className="font-display text-base tracking-tight">Knowledge used</h2>
+        </div>
+        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+          {docs.length} doc{docs.length === 1 ? "" : "s"} · {totalChunks} chunk
+          {totalChunks === 1 ? "" : "s"}
+        </span>
+      </div>
+      <ul className="flex flex-col gap-1.5">
+        {docs.map((doc) => (
+          <li key={doc.id}>
+            <Link
+              to={`/workspace/knowledge/${doc.id}`}
+              className="flex items-baseline justify-between gap-3 rounded-sm border bg-muted/30 px-3 py-2 transition-colors hover:border-foreground"
+              data-testid={`citation-${doc.id}`}
+            >
+              <span className="truncate text-sm">{doc.title}</span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                {doc.chunk_count} chunk{doc.chunk_count === 1 ? "" : "s"}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 function DerivedFromPanel({ entries }: { entries: LineageDerivedFromEntry[] }) {

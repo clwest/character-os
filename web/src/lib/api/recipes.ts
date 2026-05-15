@@ -239,6 +239,14 @@ export const COMPOSITION_STATUSES = [
 
 export type CompositionStatus = (typeof COMPOSITION_STATUSES)[number];
 
+const knowledgeDocCitationSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  chunk_count: z.number().int(),
+});
+
+export type KnowledgeDocCitation = z.infer<typeof knowledgeDocCitationSchema>;
+
 const compositionSchema = z.object({
   id: z.string(),
   workspace: z.string(),
@@ -250,6 +258,11 @@ const compositionSchema = z.object({
   cost_estimate_micros: z.number().int(),
   cost_actual_micros: z.number().int(),
   knowledge_chunk_ids: z.array(z.string()),
+  // F6 — server-resolved doc-level view of the chunk ids
+  // above. Empty array when the composition didn't draw on
+  // knowledge. Older composition rows that pre-date F6 will
+  // surface as empty (until/unless re-rendered).
+  knowledge_docs_used: z.array(knowledgeDocCitationSchema).default([]),
   error_message: z.string(),
   created_at: z.string(),
   updated_at: z.string(),

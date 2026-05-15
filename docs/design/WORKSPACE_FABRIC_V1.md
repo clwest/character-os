@@ -469,11 +469,33 @@ independently-shipping slices.
   consumers, workspace isolation.
 
   426 backend tests total. SPA build green.
-- **F6 — Knowledge citations on composition status.**
-  Resolve `Composition.knowledge_chunk_ids` to a
-  doc-level list. New panel on `/compositions/<id>`. No
-  new endpoint — the chunk ids already round-trip; the
-  resolution is a join.
+- **F6 — Knowledge citations on composition status.** ✓
+  SHIPPED SESSION 144 (commit TBD). No new endpoint —
+  the existing `GET /api/compositions/<id>/` now resolves
+  `knowledge_chunk_ids` server-side into a doc-level
+  `knowledge_docs_used: [{id, title, chunk_count}]` field
+  on the response (CompositionSerializer
+  SerializerMethodField). Resolution flows through a new
+  sanctioned `resolve_chunk_ids_to_docs(chunk_ids,
+  workspace=...)` helper in
+  `apps/embeddings/retrieval.py` so K0 contract rule 2
+  stays intact. The resolver:
+  * Dedups by document, ordered by first-occurrence
+    (same shape as F4's preview).
+  * Optional workspace filter is defense in depth —
+    K6 only writes in-workspace chunk ids, but a stale
+    foreign id in the JSON list would silently drop here
+    instead of surfacing in another workspace's UI.
+  * Stale chunk ids (deleted-since-render) silently
+    drop without 500.
+  SPA: new `CitationsPanel` rendered after the final
+  asset on `/compositions/:id` (hidden when empty). Each
+  row links to `/workspace/knowledge/<id>`.
+  +5 backend tests
+  (`apps/compositions/tests/test_f6_citations.py`)
+  covering empty list, single-doc count, multi-doc
+  ordering, stale-id resilience, workspace isolation.
+  431 backend tests total. SPA build green.
 - **F7 — Knowledge document → compositions reverse.**
   `/workspace/knowledge/<id>` grows a "Used in N
   compositions" panel that queries the inverse of F6's

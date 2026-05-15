@@ -87,6 +87,7 @@ class CompositionSerializer(serializers.ModelSerializer):
 
     steps = CompositionStepSerializer(many=True, read_only=True)
     final_asset = AssetSerializer(read_only=True)
+    knowledge_docs_used = serializers.SerializerMethodField()
 
     class Meta:
         model = Composition
@@ -101,6 +102,7 @@ class CompositionSerializer(serializers.ModelSerializer):
             "cost_estimate_micros",
             "cost_actual_micros",
             "knowledge_chunk_ids",
+            "knowledge_docs_used",
             "error_message",
             "created_at",
             "updated_at",
@@ -108,3 +110,22 @@ class CompositionSerializer(serializers.ModelSerializer):
             "final_asset",
         )
         read_only_fields = fields
+
+    def get_knowledge_docs_used(self, obj):
+        """F6 (workspace fabric) — resolve the K6-populated
+        knowledge_chunk_ids JSON list into a doc-level
+        summary [{id, title, chunk_count}]. Empty list when
+        the composition didn't use knowledge. Resolution
+        goes through the sanctioned retrieval module so K0
+        contract rule 2 stays intact."""
+        chunk_ids = obj.knowledge_chunk_ids or []
+        if not chunk_ids:
+            return []
+        # Lazy import to avoid pulling the embeddings app at
+        # module-load time (V1's signal also lazy-imports).
+        from apps.embeddings.retrieval import resolve_chunk_ids_to_docs
+
+        return resolve_chunk_ids_to_docs(
+            [str(cid) for cid in chunk_ids],
+            workspace=obj.workspace,
+        )

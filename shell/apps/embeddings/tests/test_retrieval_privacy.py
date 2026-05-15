@@ -314,6 +314,9 @@ ALLOWED_FILES = {
     # F4 preview endpoint tests seed chunks directly to
     # exercise the doc-level grouping path.
     "apps/embeddings/tests/test_preview.py",
+    # F6 citation tests seed KnowledgeChunk rows to exercise
+    # the chunk-id-to-doc resolver.
+    "apps/compositions/tests/test_f6_citations.py",
 }
 
 # The pattern we actually care about: ``<Model>.objects`` —

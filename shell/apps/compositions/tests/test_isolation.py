@@ -80,6 +80,9 @@ ALLOWED_FILES = {
     # F5 lineage endpoint tests construct producer/consumer
     # composition graphs to exercise both lineage shapes.
     "apps/compositions/tests/test_f5_lineage.py",
+    # F6 citation tests seed compositions with
+    # knowledge_chunk_ids to exercise the doc resolver.
+    "apps/compositions/tests/test_f6_citations.py",
     # V6 — videos app shim tests construct Composition/Asset
     # rows directly to simulate terminal-state sync paths.
     "apps/videos/tests/test_v6_shim.py",

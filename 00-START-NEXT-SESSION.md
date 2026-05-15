@@ -103,8 +103,8 @@ contract.
 | F3 | Workspace overview dashboard (activity feed + knowledge corpus stats + spokesperson badges + squarer cards) | DONE (SESSION 144) |
 | F4 | Knowledge preview on recipe forms + brief-mode helper text (expanded scope; surfaces K6 LLM synthesis) | DONE (SESSION 144) |
 | F5 | Asset lineage on composition status (Derived from / Used by) | DONE (SESSION 144) |
-| F6 | Knowledge citations on composition status (resolve chunk_ids → docs) | **NEXT (SESSION 144)** |
-| F7 | Knowledge doc → compositions reverse panel | Queued |
+| F6 | Knowledge citations on composition status (resolve chunk_ids → docs) | DONE (SESSION 144) |
+| F7 | Knowledge doc → compositions reverse panel | **NEXT (SESSION 144)** |
 | F8 | Onboarding walkthrough (subsumes K10 onboarding seed) | Queued |
 | F9 | Legacy single-form SPA deletion (`/spokespeople/<id>/render` route) | Queued |
 | F10 | Fabric arc closure + retro | Queued |

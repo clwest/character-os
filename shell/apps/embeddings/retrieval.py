@@ -48,6 +48,64 @@ def _embed_query(query: str) -> list[float]:
     return embed(query).vector
 
 
+def resolve_chunk_ids_to_docs(
+    chunk_ids: list[str],
+    *,
+    workspace=None,
+) -> list[dict]:
+    """Resolve a flat list of chunk ids into a deduped
+    document-level summary list.
+
+    Added in F6 (workspace fabric arc) so the composition
+    detail page can show "this render drew from <doc A> (3
+    chunks), <doc B> (1 chunk)" by resolving the K6-populated
+    ``Composition.knowledge_chunk_ids`` JSON list.
+
+    Output is ``[{"id", "title", "chunk_count"}]`` ordered by
+    first occurrence in the input list — same convention as
+    F4's preview endpoint so the panel shapes line up.
+
+    Optional ``workspace`` filter drops any chunk whose
+    document doesn't belong to that workspace. K0 contract
+    rule 2 — chunk-level access stays in this module. K6
+    only writes in-workspace chunk ids today, but defense in
+    depth: a future bug could leak a foreign id into the JSON
+    field and this resolver must not silently surface it.
+    """
+    if not chunk_ids:
+        return []
+    qs = KnowledgeChunk.objects.filter(id__in=chunk_ids).select_related(
+        "document",
+    )
+    if workspace is not None:
+        qs = qs.filter(document__workspace=workspace)
+    chunks_by_id: dict[str, KnowledgeChunk] = {
+        str(chunk.id): chunk for chunk in qs
+    }
+
+    doc_order: list[str] = []
+    doc_titles: dict[str, str] = {}
+    counts: dict[str, int] = {}
+    for raw_id in chunk_ids:
+        chunk = chunks_by_id.get(str(raw_id))
+        if chunk is None:
+            continue
+        doc_id = str(chunk.document_id)
+        if doc_id not in doc_titles:
+            doc_titles[doc_id] = chunk.document.title
+            doc_order.append(doc_id)
+            counts[doc_id] = 0
+        counts[doc_id] += 1
+    return [
+        {
+            "id": doc_id,
+            "title": doc_titles[doc_id],
+            "chunk_count": counts[doc_id],
+        }
+        for doc_id in doc_order
+    ]
+
+
 def count_chunks_for_workspace(workspace) -> int:
     """Return the total number of active chunks in a workspace.
 
