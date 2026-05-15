@@ -266,6 +266,33 @@ SESSION 143 spent ~30 minutes catching up 11 slices because
 the per-slice updates weren't done inline. Per-slice updates
 are 30 seconds each. The discipline avoids the catch-up.
 
+### Session-start drift sweep (codified SESSION 147)
+
+SESSION 147's drift audit found 5 items of accumulated
+drift (2 operational, 3 documentation) across SESSIONS
+144-146. Root cause: nothing programmatically checked for
+drift between session boundaries. The discipline added:
+
+- **Every session starts with a drift sweep** before any
+  slice is opened. Four categories to check:
+  1. Stale running processes (`ps` vs latest commit on the
+     service's directory).
+  2. Pending migrations (`python manage.py showmigrations
+     --plan | grep '\[ \]'` from `shell/`).
+  3. Anchor frontmatter `last_revised` vs latest handoff
+     date.
+  4. INVENTORY `git_sha` vs `HEAD`.
+- **If drift is found, fix it before opening any slice.**
+  Commit as `docs: SESSION NNN boot — drift sweep`.
+- **Note the sweep in the handoff** even when clean — the
+  absence of the note is the failure mode.
+
+The `context-kit drift` subcommand (scheduled SESSION 148)
+will productise this into one command. Until it lands, run
+the four checks manually. See
+`docs/handoffs/SESSION_147_DRIFT_AUDIT.md` for the full
+backlog of prevention tooling.
+
 Anchor docs (will be fleshed out as the build proceeds):
 - `docs/CHARACTER_OS_WHAT_IT_IS.md` — narrative anchor.
 - `docs/CHARACTER_OS_INVENTORY.md` — runtime truth (regenerable).

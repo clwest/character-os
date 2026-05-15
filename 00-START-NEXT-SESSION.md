@@ -30,7 +30,79 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_145_KNOWLEDGE_ARC_CLOSE.md`.
+> **Last handoff:** `docs/handoffs/SESSION_147_DRIFT_AUDIT.md`.
+
+---
+
+## SESSION 147 outcome — context-kit drift audit + boot fixes
+
+Pre-feature housekeeping pass. Operator opened the session
+asking for a drift audit before R6. Audit found **5 drift
+items** — all closed in-session, no feature work shipped.
+
+| Item | Class | Fix |
+|---|---|---|
+| Stale media-engine PID 15420 | operational | killed; fresh uvicorn now serves 25 `/internal/` routes (was 5 stale) |
+| Pending `realtime/0001_initial` | operational | applied; 48/49 → 49/49 |
+| `WHAT_IT_IS.md` frontmatter / TL;DR | docs | bumped to SESSION 146; TL;DR redirected to INVENTORY |
+| `TRUST_CALIBRATION.md` 3-session gap | docs | 3 entries appended (S144 brief-mode, S145 K8-partly-shipped, S146 four-failure-mode bundle) |
+| INVENTORY `git_sha` / route-count drift | docs | regenerated against fresh media-engine + applied migration |
+
+Single commit: **`ac59aa9`** (`docs: SESSION 147 boot —
+context-kit drift audit fixes`). Full handoff at
+`docs/handoffs/SESSION_147_DRIFT_AUDIT.md`.
+
+The handoff also defines a **5-item drift-prevention
+backlog** to stop this class of drift recurring. **The
+recommendation for SESSION 148 is backlog item 1.**
+
+### FIRST THING (SESSION 148): implement `context-kit drift` subcommand
+
+Cheapest of the 5 backlog items, highest leverage. A
+read-only subcommand that programmatically detects the 4
+drift classes this audit found:
+
+1. **Stale processes** — parse `ps`; flag any uvicorn /
+   runserver / celery whose `lstart` predates the most
+   recent commit touching that service's directory.
+2. **Pending migrations** — `python manage.py
+   showmigrations --plan | grep '\[ \]'` from `shell/`.
+3. **Frontmatter date drift** — `last_revised` in
+   `*_WHAT_IT_IS.md` vs `date:` field of the latest
+   `docs/handoffs/SESSION_*.md`.
+4. **INVENTORY `git_sha` vs `HEAD`** — flag when INVENTORY
+   is N commits behind HEAD.
+
+Wire it into `context-kit orient` so every session-start
+surfaces drift before the AI proposes a slice. Exit 0 on
+clean; exit 1 on drift (so pre-commit / CI can adopt it).
+
+Estimated cost: one session. Same shape as the existing
+`context-kit doctor` subcommand. Detection logic is 20-40
+lines per category.
+
+**Don't bundle this with R6.** This slice is meta-tooling
+on context-kit itself; mixing with feature work splits
+focus and produces two half-done slices.
+
+### After SESSION 148
+
+Remaining backlog items in cost-to-value order:
+
+* **(2)** Auto-bump `last_revised` on handoff write —
+  `context-kit handoff write <N>` subcommand that re-stamps
+  every anchor doc's frontmatter in one shot. Removes the
+  forgetting surface that caused this audit.
+* **(3)** Promote calibration entries from handoffs to
+  TRUST_CALIBRATION at handoff-write time (depends on (2)).
+* **(4)** Codify "session-start drift sweep" in CLAUDE.md
+  doc-discipline (10 minutes of CLAUDE.md editing; lands
+  with or after (1)).
+* **(5)** Fix INVENTORY's two known counter bugs (Celery
+  task undercount, working-tree-dirty handling).
+
+Feature work (R6 cross-session memory + R7 tools + R8 SPA)
+resumes after either (1) lands alone OR (1)+(2) together.
 
 ---
 
