@@ -342,13 +342,53 @@ Update this section when a phase completes.
     * `attach_memory` — pro, ~$0.001, async (R7.3)
 
     Test totals after SESSION 152: **641 backend
-    tests**. R-arc state: **R1-R7 done**. R8 (SPA —
-    operator-visible moment) + R9 (cost governance) +
-    R10 (provider hardening) remain. R8 is where the
-    realtime arc becomes operator-visible — the
-    backend is feature-complete; R8 wires the SDK +
-    cost forecasting + tool-approval modal against
-    the full v1 catalog.
+    tests**.
+
+    **R8 sub-sliced + R8.0 shipped SESSION 153**
+    (`7669007`) — SPA realtime arc lands
+    operator-visible. R8 → R8.0 (foundation + demo) /
+    R8.1 (tool-approval modal + cost forecast) / R8.2
+    (live cost ticker + WebRTC fallback + rejection
+    narration). R8.0:
+
+    * `@runwayml/avatars-react@0.16.0` SDK installed
+      (MIT, official Runway). Transitive deps include
+      LiveKit's React + JS clients.
+    * New `web/src/lib/api/realtime.ts` API client —
+      createRealtimeSession (POST), useRealtimeSession
+      (GET with poll while CREATING / NOT_READY),
+      endRealtimeSession (POST `/end/`). Zod schemas
+      mirror DRF serializers; contract rule 3 honored
+      (`provider_session_key` lives only in the
+      create-response shape).
+    * New `web/src/routes/spokespeople/talk.tsx`
+      lifecycle component. State machine:
+      `idle → creating → ready → live → ended → error`.
+      Each state has its own panel.
+    * **Mock-mode UX** load-bearing for the demo
+      while RUNWAY_FORCE_MOCK is on the media-engine.
+      `session.mock_mode === true` → skip SDK mount,
+      render "Live (demo mode)" pill + MockSessionPanel
+      showing provider session id / document id.
+      Real-mode mounts `<AvatarCall>` with `(avatarId,
+      sessionId, sessionKey, audio)`.
+    * `App.tsx` registers `/spokespeople/:id/talk`
+      BEFORE the `/spokespeople/:id` route (React
+      Router precedence). Spokesperson detail page
+      gains a `TalkCta` between IdentityPanel + the
+      videos/setup panels; renders only when `allDone`.
+    * 7 vitest unit tests + 1 Playwright e2e (404
+      path). SPA vitest count: 3 → 10. Dev infra:
+      `@testing-library/user-event` devDep +
+      `web/vitest.setup.ts` imports jest-dom matchers.
+    * No backend changes; backend test count
+      unchanged at **641 backend tests**.
+
+    R-arc state: **R1-R7 done; R8.0 done**. R8.1
+    (tool-approval modal + cost forecasting UI) +
+    R8.2 (live cost ticker + WebRTC fallback + Q-r-2
+    rejection narration) + R9 (cost governance) +
+    R10 (provider hardening) remain.
   - **Workspace fabric arc (F0-F10). COMPLETE.** All 10
     slices shipped SESSION 144
     (`docs/design/WORKSPACE_FABRIC_V1.md`). 9 contract
