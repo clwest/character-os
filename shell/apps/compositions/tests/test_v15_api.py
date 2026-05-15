@@ -106,10 +106,11 @@ def _login(client: APIClient, user) -> None:
 # ---- registry shape ----------------------------------------------
 
 
-def test_recipe_registry_has_seventeen_entries() -> None:
-    """V15 ships the SPA gallery for 17 starter compositions.
-    If a new starter lands, the registry should grow with it."""
-    assert len(RECIPES) == 17
+def test_recipe_registry_has_eighteen_entries() -> None:
+    """V15.4 added ``storyboard_voiced`` (was deferred from V13
+    until V14 shipped ``audio_extract``), bringing the gallery
+    to 18 starter compositions."""
+    assert len(RECIPES) == 18
 
 
 def test_every_recipe_has_required_metadata() -> None:
@@ -164,14 +165,14 @@ def test_recipe_asset_picker_fields_have_asset_type() -> None:
 # ---- GET /api/recipes/ -------------------------------------------
 
 
-def test_get_recipes_returns_all_seventeen() -> None:
+def test_get_recipes_returns_all_eighteen() -> None:
     ws, user = _make_workspace_with_user("v15list@test")
     client = APIClient()
     _login(client, user)
     response = client.get("/api/recipes/")
     assert response.status_code == http.HTTP_200_OK
     data = response.json()
-    assert len(data) == 17
+    assert len(data) == 18
 
 
 def test_get_recipes_requires_auth() -> None:
@@ -566,6 +567,83 @@ def test_list_assets_requires_auth() -> None:
     assert response.status_code in {
         http.HTTP_401_UNAUTHORIZED, http.HTTP_403_FORBIDDEN,
     }
+
+
+def test_create_storyboard_voiced_ten_steps() -> None:
+    """V15.4 — storyboard_voiced creates 10 steps:
+    3 images + 3 clips + concat + speech + audio_extract + mix_audio.
+    Unblocked by V14's audio_extract primitive."""
+    ws, user = _make_workspace_with_user("v15sbv@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "storyboard_voiced",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "hook_prompt": "neon city skyline at dusk",
+                "action_prompt": "founder walking confidently down a hallway",
+                "payoff_prompt": "team celebrating around a table",
+                "narration_script": (
+                    "Welcome to our company. We build things that matter. "
+                    "Join us today and see what's possible."
+                ),
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    assert data["template_kind"] == "storyboard_voiced"
+    assert len(data["steps"]) == 10
+    primitives = [s["primitive"] for s in sorted(data["steps"], key=lambda s: s["position"])]
+    assert primitives == [
+        "generate_image", "generate_image", "generate_image",
+        "generate_visual_clip", "generate_visual_clip", "generate_visual_clip",
+        "concat_clips",
+        "generate_avatar_speech",
+        "audio_extract",
+        "mix_audio",
+    ]
+
+
+def test_create_dialogue_scene_via_recipe_registry() -> None:
+    """V15.4 confirms the dialogue_scene custom resolver still
+    works post-V15 changes (covers regression risk from the
+    storyboard_voiced addition)."""
+    ws, user = _make_workspace_with_user("v15dlg154@test")
+    sp_a = _make_spokesperson(ws, name="A", avatar_id="av_a")
+    sp_b = _make_spokesperson(ws, name="B", avatar_id="av_b")
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "dialogue_scene",
+            "workspace": str(ws.pk),
+            "params": {
+                "primary_spokesperson_id": str(sp_a.pk),
+                "lines": [
+                    {"spokesperson_id": str(sp_a.pk), "text": "Welcome."},
+                    {"spokesperson_id": str(sp_b.pk), "text": "Glad to be here."},
+                    {"spokesperson_id": str(sp_a.pk), "text": "Let's get into it."},
+                ],
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    assert data["template_kind"] == "dialogue_scene"
+    # 3 speech + 1 concat = 4 steps
+    assert len(data["steps"]) == 4
 
 
 def test_create_voice_design_minimal() -> None:

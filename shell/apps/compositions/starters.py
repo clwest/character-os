@@ -1501,6 +1501,194 @@ def dialogue_scene(
 
 
 @transaction.atomic
+def storyboard_voiced(
+    *,
+    workspace: "Workspace",
+    spokesperson: "Spokesperson",
+    hook_prompt: str,
+    action_prompt: str,
+    payoff_prompt: str,
+    narration_script: str,
+    image_seed: int | None = None,
+    clip_duration: int = 5,
+    mock_mode: bool = False,
+    name: str = "",
+    created_by: "AbstractBaseUser | None" = None,
+) -> Composition:
+    """Three-shot storyboard with avatar narration mixed under.
+
+    The V13 deferral — needed V14's ``audio_extract`` primitive to
+    pull audio from a talking-head clip so it could be mixed under
+    a silent storyboard. Composition shape:
+
+      Step 0-2: generate_image (Hook / Action / Payoff frames)
+      Step 3-5: generate_visual_clip (each from matching image
+                via reference_image slot; same pattern as
+                ``storyboard_ad``)
+      Step 6:   concat_clips (silent storyboard)
+      Step 7:   generate_avatar_speech (narration; the audio
+                from this clip becomes the storyboard's
+                voiceover)
+      Step 8:   audio_extract (pull AUDIO off step 7's CLIP)
+      Step 9:   mix_audio (base = step 6 silent storyboard,
+                music_slot = step 8 audio_extract output;
+                ``music_gain_db`` overridden to 0 so the
+                narration sits at full level)
+
+    Per-shot duration is hard-coded to 5s by Runway's
+    gen4_turbo today; the storyboard is therefore ~15s total
+    and the narration clip's length should match — operators
+    write narration that fits 15s.
+
+    Args:
+        hook_prompt / action_prompt / payoff_prompt: One short
+            prompt per visual beat. Same as ``storyboard_ad``.
+        narration_script: Words the avatar speaks. Avatar voice
+            comes from ``spokesperson.runway_avatar_id``.
+        image_seed: Optional shared seed across the three
+            ``generate_image`` steps for visual coherence.
+        clip_duration: Per-shot duration in seconds. gen4_turbo
+            accepts only ``{5}`` today.
+        mock_mode: Deterministic stubs end-to-end (V0 rule 9).
+
+    Returns:
+        ``Composition`` with 10 steps. Caller enqueues
+        ``execute_composition.delay(str(c.id))``.
+
+    Note: The narration is rendered as a talking-head clip first
+    (step 7) and then the audio is extracted (step 8). That
+    "wasted" talking-head render is the cleanest way to use the
+    avatar's bound voice + the existing avatar_speech primitive
+    without a separate "voice-only" call path — and the clip
+    survives in the workspace as an Asset the operator can
+    reuse.
+    """
+    if not hook_prompt.strip():
+        raise ValueError("storyboard_voiced requires a non-empty hook_prompt")
+    if not action_prompt.strip():
+        raise ValueError("storyboard_voiced requires a non-empty action_prompt")
+    if not payoff_prompt.strip():
+        raise ValueError("storyboard_voiced requires a non-empty payoff_prompt")
+    if not narration_script.strip():
+        raise ValueError("storyboard_voiced requires a non-empty narration_script")
+    if spokesperson.workspace_id != workspace.pk:
+        raise ValueError(
+            f"spokesperson {spokesperson.name!r} not in workspace {workspace.pk}"
+        )
+
+    composition_name = (
+        name.strip() or f"Storyboard voiced — {hook_prompt.strip()[:30]}"
+    )
+    composition = Composition.objects.create(
+        workspace=workspace,
+        spokesperson=spokesperson,
+        name=composition_name,
+        template_kind="storyboard_voiced",
+        mock_mode=mock_mode,
+        created_by=created_by,
+    )
+
+    shot_prompts = [
+        ("hook", hook_prompt.strip()),
+        ("action", action_prompt.strip()),
+        ("payoff", payoff_prompt.strip()),
+    ]
+
+    # Steps 0-2 — three reference images. Same seed = coherent
+    # visual style across the storyboard. Mirrors ``storyboard_ad``.
+    for idx, (_label, prompt) in enumerate(shot_prompts):
+        image_params: dict[str, object] = {"prompt": prompt}
+        if image_seed is not None:
+            image_params["seed"] = int(image_seed)
+        CompositionStep.objects.create(
+            composition=composition,
+            position=idx,
+            primitive="generate_image",
+            inputs=[],
+            params=image_params,
+        )
+
+    # Steps 3-5 — image-to-video, each consuming the matching
+    # image step via reference_image slot. Identical to
+    # ``storyboard_ad``.
+    for idx, (_label, prompt) in enumerate(shot_prompts):
+        CompositionStep.objects.create(
+            composition=composition,
+            position=3 + idx,
+            primitive="generate_visual_clip",
+            inputs=[
+                {"slot": "reference_image", "from_step_position": idx},
+            ],
+            params={"prompt": prompt, "duration": clip_duration},
+        )
+
+    # Step 6 — concat the three clips into the silent storyboard.
+    CompositionStep.objects.create(
+        composition=composition,
+        position=6,
+        primitive="concat_clips",
+        inputs=[
+            {"slot": "clip", "from_step_position": 3 + idx}
+            for idx in range(3)
+        ],
+        params={},
+    )
+
+    # Step 7 — narration as a talking-head clip. We render the
+    # avatar (not just audio) because the existing
+    # generate_avatar_speech primitive is the cleanest way to
+    # use the spokesperson's bound voice + the avatar_videos
+    # endpoint; audio_extract pulls the audio in the next step.
+    CompositionStep.objects.create(
+        composition=composition,
+        position=7,
+        primitive="generate_avatar_speech",
+        inputs=[],
+        params={
+            "script": narration_script.strip(),
+            "use_knowledge": False,
+        },
+    )
+
+    # Step 8 — extract the narration audio.
+    CompositionStep.objects.create(
+        composition=composition,
+        position=8,
+        primitive="audio_extract",
+        inputs=[{"slot": "base", "from_step_position": 7}],
+        params={"format": "mp3"},
+    )
+
+    # Step 9 — mix the narration AUDIO under the silent
+    # storyboard CLIP. music_gain_db=0 so the narration sits
+    # at full level (the music_bed default of -18 dB would
+    # bury it).
+    CompositionStep.objects.create(
+        composition=composition,
+        position=9,
+        primitive="mix_audio",
+        inputs=[
+            {"slot": "base", "from_step_position": 6},
+            {"slot": "music", "from_step_position": 8},
+        ],
+        params={
+            "mix_spec": {
+                "music_gain_db": 0.0,
+                "fade_in_ms": 0,
+                "fade_out_ms": 0,
+            },
+        },
+    )
+
+    logger.info(
+        "starter storyboard_voiced created composition=%s "
+        "spokesperson=%s mock=%s seed=%s",
+        composition.id, spokesperson.id, mock_mode, image_seed,
+    )
+    return composition
+
+
+@transaction.atomic
 def music_bed_pass(
     *,
     workspace: "Workspace",

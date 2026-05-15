@@ -9,7 +9,7 @@
  */
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -349,7 +349,11 @@ function FieldInput({
       );
     case "dialogue_lines":
       return (
-        <UnsupportedField message="Dialogue line builder ships in V15.4." />
+        <DialogueLinesEditor
+          value={(defaultedValue as DialogueLine[] | undefined) ?? []}
+          onChange={(v) => onChange(v)}
+          spokespeople={spokespeople}
+        />
       );
     default:
       return <UnsupportedField message={`Unknown field type`} />;
@@ -462,6 +466,111 @@ function AssetHint({
         recipe first (Talking head or Cinematic visual produce clips; Voice
         design produces audio in V15.3), then come back here.
       </p>
+    </div>
+  );
+}
+
+interface DialogueLine {
+  spokesperson_id: string;
+  text: string;
+}
+
+function DialogueLinesEditor({
+  value,
+  onChange,
+  spokespeople,
+}: {
+  value: DialogueLine[];
+  onChange: (lines: DialogueLine[]) => void;
+  spokespeople: Spokesperson[];
+}) {
+  const lines = value.length === 0 ? [{ spokesperson_id: "", text: "" }] : value;
+
+  const updateLine = (idx: number, patch: Partial<DialogueLine>) => {
+    const next = lines.map((l, i) => (i === idx ? { ...l, ...patch } : l));
+    onChange(next);
+  };
+
+  const addLine = () => {
+    onChange([...lines, { spokesperson_id: "", text: "" }]);
+  };
+
+  const removeLine = (idx: number) => {
+    if (lines.length === 1) {
+      onChange([{ spokesperson_id: "", text: "" }]);
+      return;
+    }
+    onChange(lines.filter((_, i) => i !== idx));
+  };
+
+  if (spokespeople.length < 2) {
+    return (
+      <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-4 text-xs text-amber-800 dark:text-amber-300">
+        <p className="font-mono uppercase tracking-[0.22em]">Need 2+ spokespeople</p>
+        <p className="mt-1 normal-case tracking-normal">
+          Dialogue scenes work best with at least two characters. Create another
+          spokesperson first, then come back.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3" data-testid="dialogue-lines-editor">
+      {lines.map((line, idx) => (
+        <div
+          key={idx}
+          className="flex flex-col gap-2 rounded-md border bg-card p-3"
+          data-testid={`dialogue-line-${idx}`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+              Line {idx + 1}
+            </span>
+            <button
+              type="button"
+              onClick={() => removeLine(idx)}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-destructive"
+              data-testid={`dialogue-line-remove-${idx}`}
+              aria-label={`Remove line ${idx + 1}`}
+            >
+              <Trash2 className="h-3 w-3" />
+              Remove
+            </button>
+          </div>
+          <select
+            value={line.spokesperson_id}
+            onChange={(e) => updateLine(idx, { spokesperson_id: e.target.value })}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            data-testid={`dialogue-line-speaker-${idx}`}
+          >
+            <option value="">— who speaks? —</option>
+            {spokespeople.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+                {s.runway_avatar_id === "" ? " (no avatar)" : ""}
+              </option>
+            ))}
+          </select>
+          <textarea
+            rows={2}
+            value={line.text}
+            onChange={(e) => updateLine(idx, { text: e.target.value })}
+            placeholder="What this character says…"
+            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            data-testid={`dialogue-line-text-${idx}`}
+          />
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={addLine}
+        className="inline-flex w-fit items-center gap-1.5 rounded-md border border-dashed px-3 py-2 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
+        data-testid="dialogue-line-add"
+      >
+        <Plus className="h-3 w-3" />
+        Add line
+      </button>
     </div>
   );
 }

@@ -110,6 +110,10 @@ export const LIVE_RECIPE_KINDS = new Set<string>([
   "long_form_ad",
   "storyboard_ad",
   "recut_teaser",
+  // V15.4 — dialogue + storyboard_voiced bonus (V14
+  // audio_extract unblocked it)
+  "dialogue_scene",
+  "storyboard_voiced",
 ]);
 
 // ---- List recipes -----------------------------------------------

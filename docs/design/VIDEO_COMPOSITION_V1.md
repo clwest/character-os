@@ -665,7 +665,7 @@ is ~1-2 sessions.
 | **V15.1** ✓ | SPA gallery shell + first three live recipes (`talking_head`, `cinematic_visual`, `talking_head_polished`); other 14 cards "coming soon". Dashboard CTA flips to `/recipes`. New routes: `/recipes`, `/recipes/:kind`, `/compositions/:id`. Ships SESSION 144 (`74a70d7`). | — |
 | **V15.2** ✓ | Layout + format family forms live (7 recipes: `pip_layout`, `backdrop_layout`, `cohost_layout`, `broll_splice`, `music_bed_pass`, `reels_format`, `talking_head_with_backdrop`). Adds `GET /api/assets/` + SPA `asset_picker` field renderer. Ships SESSION 144 (`c9a5d8c`). | — |
 | **V15.3** ✓ | Voice + style + long-form + storyboard + recut family forms live (6 recipes: `voice_design`, `multi_lang_dub`, `style_remix_pass`, `long_form_ad`, `storyboard_ad`, `recut_teaser`). One-line `LIVE_RECIPE_KINDS` flip — the form renderer + asset_picker shipped in V15.1-V15.2 already cover all field types these recipes need. Ships SESSION 144 (`8530a08`). | — |
-| **V15.4** | Dialogue (`dialogue_scene`) form + ship the `storyboard_voiced` bonus recipe (V14 audio_extract unblocks it) + soft-retire legacy single-form UI + V-arc closure. | — |
+| **V15.4** ✓ | Dialogue (`dialogue_scene`) form with dynamic line-list editor + ships `storyboard_voiced` bonus recipe (10 steps; V14 `audio_extract` unblocked it) + flips spokesperson detail "Make a video" CTA to `/recipes` (soft-retires legacy single-form UI). Closes the V-arc. Ships SESSION 144 (commit TBD). | — |
 
 Roughly 16 slices, ~12-18 sessions. V0 ships on commit of
 this doc. V1-V4 is the "ground re-laid" arc (architecture +
@@ -1187,3 +1187,97 @@ the tests cannot fail.
   natural producer of AUDIO assets in v1 will be
   `storyboard_voiced` (V15.4) which uses audio_extract
   on a narration clip.
+
+- 2026-05-14 (SESSION 144, V15.4, commit TBD) — V-arc
+  closure. Three pieces ship together:
+
+  1. **`dialogue_scene` form live.** New
+     `DialogueLinesEditor` component renders the
+     dynamic line list — per-line spokesperson dropdown
+     + text input + add/remove buttons. Lone "Need 2+
+     spokespeople" empty state when the workspace has
+     fewer than two cast members (dialogue scenes
+     don't make sense with one). All 18 recipes are
+     now driveable from the gallery.
+
+  2. **`storyboard_voiced` bonus recipe shipped.**
+     New 10-step starter — three image generations +
+     three image-to-video clips + concat + avatar
+     speech + audio_extract + mix_audio. The V13
+     deferral finally lands; V14's audio_extract was
+     the blocker. `mix_audio` is called with
+     `music_gain_db=0` so the narration sits at full
+     level (the music_bed default of -18 dB would
+     bury it). The "wasted" talking-head render in
+     step 7 is the cleanest way to use the
+     spokesperson's bound voice + the existing
+     avatar_speech primitive; the clip survives as a
+     reusable Asset in the workspace.
+
+  3. **Legacy single-form CTA retired.** The
+     "Make a video" button on `/spokespeople/:id` now
+     links to `/recipes` instead of
+     `/spokespeople/:id/render`. The legacy
+     `MakeVideoRoute` + `/api/videos/` route
+     intentionally stay functional (V6 backwards-
+     compat shim) — only the SPA CTA is rewired. The
+     small UX regression (operator re-picks the
+     spokesperson in the recipe form) is captured in
+     the new project memory
+     `project_workspace_fabric_merge.md` and will be
+     resolved by the eventual workspace-fabric arc.
+
+  E2e: replaced `make-video.spec.ts` (tested the
+  retired flow) with new `recipes.spec.ts` covering
+  dashboard CTA → gallery → 18 cards + form-opens
+  smoke check. Backend tests: +2 (storyboard_voiced
+  10-step plan + dialogue_scene registry happy path).
+  393 backend tests total.
+
+  Registry counts after V15.4:
+    starters.py:    18 starter functions
+    recipes.py:     18 RECIPES entries
+    primitives:     13 (mock × 3 + real × 10; unchanged
+                    since V14 — V15 added no new
+                    primitives)
+    media-engine:   123 routes (unchanged since V14)
+
+### V-arc closure — what V0-V15 delivered
+
+Sixteen sequential slices spanning SESSIONS 142-144.
+Started from a hackathon backend with five `/internal/*`
+verbs and one rigid talking-head endpoint; closed with
+a metadata-driven SPA gallery, 18 starter compositions
+backed by 13 step primitives, 14 sanctioned
+`/internal/*` routes, and a runtime that walks
+arbitrary linear step plans through partial-failure
+resume.
+
+Three load-bearing architectural shifts the V-arc
+established as platform conventions:
+
+* **Recipe = metadata, not code.** Every starter has a
+  registry entry describing its form fields; the SPA
+  renders forms from that metadata, not from
+  hand-written per-recipe components. Adding a new
+  recipe is a starter function + a registry entry —
+  no SPA changes. V15.3 demonstrated this — six
+  recipes flipped live with a one-line constant
+  change.
+* **Workspace isolation is structural, not procedural.**
+  Asset / Spokesperson / Composition lookups go through
+  `.objects.get(pk=..., workspace=ws)` so foreign ids
+  raise `DoesNotExist` at the ORM layer. V1's cross-
+  workspace signal is the second line of defense; the
+  isolation test enforces the write surface.
+* **Mock-mode propagates through composition.** V0
+  rule 9 — mock_mode is a composition-level flag that
+  every primitive honors at execute time. End-to-end
+  test runs without provider credits; the operator
+  toggle on every recipe form gives the same control
+  in production.
+
+The deferred legacy form retirement (full deletion of
+`MakeVideoRoute` + the legacy single-form code path)
+sits in the queue under the workspace-fabric arc, not
+the V-arc. The V-arc closes here.

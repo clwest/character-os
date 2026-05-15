@@ -362,6 +362,34 @@ RECIPES: dict[str, Recipe] = {
         ),
         starter=starters.cinematic_visual,
     ),
+    "storyboard_voiced": Recipe(
+        kind="storyboard_voiced",
+        display_name="Storyboard with avatar narration",
+        family=FAMILY_CINEMATIC,
+        description="Three-shot cinematic storyboard with the spokesperson narrating over it. Unblocked by V14's audio_extract primitive.",
+        fields=(
+            RecipeField(name="spokesperson_id", type="spokesperson_picker", label="Narrator"),
+            RecipeField(name="hook_prompt", type="textarea", label="Hook prompt", min_chars=4, max_chars=600),
+            RecipeField(name="action_prompt", type="textarea", label="Action prompt", min_chars=4, max_chars=600),
+            RecipeField(name="payoff_prompt", type="textarea", label="Payoff prompt", min_chars=4, max_chars=600),
+            RecipeField(
+                name="narration_script", type="textarea", label="Narration script",
+                min_chars=8, max_chars=4000,
+                help_text="What the avatar says over the storyboard. ~15s of speech fits the default 3-shot 15s storyboard.",
+            ),
+            RecipeField(
+                name="image_seed", type="number", label="Image seed (optional)",
+                required=False, help_text="Same seed across shots = same visual style.",
+            ),
+            RecipeField(
+                name="clip_duration", type="number", label="Per-shot duration (seconds)",
+                required=False, default=5, min_value=5, max_value=5,
+            ),
+            _NAME_FIELD,
+            _MOCK_MODE_FIELD,
+        ),
+        starter=starters.storyboard_voiced,
+    ),
     "storyboard_ad": Recipe(
         kind="storyboard_ad",
         display_name="Storyboard ad (Hook / Action / Payoff)",

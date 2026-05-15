@@ -143,10 +143,7 @@ function Masthead({
           </h1>
         </div>
         <div className="flex flex-col items-end gap-3">
-          <Link
-            to={`/spokespeople/${spokesperson.id}/render`}
-            data-testid="make-video-link"
-          >
+          <Link to="/recipes" data-testid="make-video-link">
             <Button
               size="lg"
               disabled={!spokesperson.runway_avatar_id}
