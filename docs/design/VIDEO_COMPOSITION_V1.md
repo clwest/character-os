@@ -660,7 +660,7 @@ is ~1-2 sessions.
 | **V11** ✓ | `style_remix` primitive (Aleph `gen4_aleph` with full chunked-path support — split→parallel remix→concat for sources >5.5s) + `style_remix_pass` starter. 5 style presets (noir/anime/chrome/watercolor/cyberpunk). Ships SESSION 143 (`cfe9214`). | — |
 | **V12** ✓ | `transcribe` primitive (OpenAI Whisper) + `add_captions` auto mode (reads TRANSCRIPT input) + `recut_teaser` composition. **First net-new capability beyond what the hackathon shipped.** Ships SESSION 143 (`8b24465`). | — |
 | **V13** ✓ | `generate_image` primitive (Runway `gen4_image`) + `storyboard_ad` starter (7-step Hook/Action/Payoff with reference-image coherence chain). `storyboard_voiced` deferred — requires an `audio_extract` primitive scheduled for V14+. Ships SESSION 143 (`43be57b`). | "Additional video kinds — cinematic" (storyboard arc) |
-| **V14** ✓ | `dialogue_scene` starter (ports hackathon's `dialogue_service.py`) + `audio_extract` primitive (unlocks the deferred `storyboard_voiced`). Ships SESSION 143 (commit TBD). | "Additional video kinds — dialogue" |
+| **V14** ✓ | `dialogue_scene` starter (ports hackathon's `dialogue_service.py`) + `audio_extract` primitive (unlocks the deferred `storyboard_voiced`). Ships SESSION 143 (`6f61e4b`). | "Additional video kinds — dialogue" |
 | **V15** | SPA recipe gallery. Operator picks from starter compositions; form maps to step inputs. Replaces the legacy single-form video create UI. | "W12 — Legacy form retirement" |
 
 Roughly 16 slices, ~12-18 sessions. V0 ships on commit of
@@ -978,11 +978,12 @@ the tests cannot fail.
   + change log entry); end-of-session handoff aggregates
   the per-slice updates.
 
-- 2026-05-14 (SESSION 143, V14) — `dialogue_scene` starter
-  + `audio_extract` primitive shipped. First slice
-  exercising the new doc-with-commit discipline — slice
-  table mark + this change log entry + start-here update
-  ride in the same commit as the feature code.
+- 2026-05-14 (SESSION 143, V14, `6f61e4b`) —
+  `dialogue_scene` starter + `audio_extract` primitive
+  shipped. First slice exercising the new doc-with-commit
+  discipline — slice table mark + this change log entry +
+  start-here update + CLAUDE.md Phase 4 refresh all rode
+  in the same commit as the feature code.
 
   `audio_extract` primitive: CLIP → AUDIO via ffmpeg
   `-vn` through new `POST /internal/audio/extract/`
