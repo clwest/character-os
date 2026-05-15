@@ -2,9 +2,9 @@
 title: "Character OS — What It Actually Is"
 status: populated
 generated: 2026-05-13
-last_revised: 2026-05-15 (SESSION 146)
+last_revised: 2026-05-15 (SESSION 155)
 companion_doc: CHARACTER_OS_INVENTORY.md
-covers_sessions: "106-146"
+covers_sessions: "106-155"
 ---
 
 # Character OS — What It Actually Is
@@ -259,15 +259,25 @@ verifier that could keep all three in sync automatically.
 
 ---
 
-## Phase 4 — three parallel arcs
+## Phase 4 — four parallel arcs (three complete, R-arc operator-visible)
 
 After Phase 3 closed the wizard arc (W1-W11) and brought the
 cast live in real-mode (SESSION 136), Phase 4 opened with
-three arcs running in parallel. Each is scope-locked under
-its own design doc, each has a slice plan, each adds
-capability without forcing the others to advance in lockstep.
+three arcs in parallel and added a fourth (workspace fabric)
+mid-flight. Each is scope-locked under its own design doc,
+each has a slice plan, each adds capability without forcing
+the others to advance in lockstep.
 
-The three arcs share one architectural shape — workspace-
+**State as of SESSION 155**:
+
+| Arc | Status | Scope lock |
+|---|---|---|
+| Knowledge layer (K0-K10) | K1-K9 done; K10 → F8.1 queued | `docs/design/KNOWLEDGE_LAYER.md` |
+| Video composition (V0-V15) | **COMPLETE** (SESSIONS 142-144) | `docs/design/VIDEO_COMPOSITION_V1.md` |
+| Workspace fabric (F0-F10) | **COMPLETE** (SESSION 144) | `docs/design/WORKSPACE_FABRIC_V1.md` |
+| Realtime avatar (R0-R10) | R1-R8 done (operator-visible product complete); R9 + R10 operational-polish | `docs/design/REALTIME_AVATAR_V1.md` |
+
+All four arcs share one architectural shape — workspace-
 anchored data, structural cross-workspace rejection, mock-mode
 at the right granularity, the Asset table from V1 as the
 common persistence surface. The doc that captures the shape
@@ -275,6 +285,14 @@ across all three is the V0 scope lock
 (`docs/design/VIDEO_COMPOSITION_V1.md` §"Contract rules") —
 the contract rules there are a superset of what each arc
 imposes.
+
+> **Canonical state lives in
+> [`docs/CHARACTER_OS_INVENTORY.md`](CHARACTER_OS_INVENTORY.md)
+> (runtime) +
+> [`00-START-NEXT-SESSION.md`](../00-START-NEXT-SESSION.md)
+> (current slice). The sections below describe each arc's
+> shape + key shipped capabilities; when a slice table
+> disagrees, the start-here doc wins.**
 
 ### Arc 1 — Knowledge Layer (K0-K10)
 
@@ -286,28 +304,27 @@ knowledge layer, every render relies on the LLM hallucinating
 product details from the prompt + the spokesperson's tone.
 
 Scope-locked SESSION 137 (`docs/design/KNOWLEDGE_LAYER.md`).
-**Seven slices shipped through SESSION 142:**
+**K1-K9 shipped** plus an architectural refinement (R6.1)
+in SESSION 152:
 
-- **K1** Postgres + pgvector migration (the SQLite drift
-  finally closed)
-- **K2** `KnowledgeDocument` + `KnowledgeChunk` models, two
-  named retrieval functions, repo-level isolation test
-- **K3** Ingestion pipeline — paste + PDF upload, Celery
-  embed task, content-hash dedup
-- **K4** Workspace knowledge route (SPA + REST) +
-  **K4.1** detail view + **K4.2** dedup-restore bug
-- **K5** Spokesperson "Knowledge" tab — per-spokesperson
-  visibility via M2M attach/detach
-- **K6** Render flow integration — `build_render_brief`
-  pipes RAG chunks into the script before media-engine
-  fires; citations log on the Video row + **K6.2**
-  pre-render portrait validation
-- **K7** URL ingestion + serper discovery — `trafilatura`
-  fetch + serper.dev search → same ingestion pipeline
+- **K1-K7** (SESSIONS 138-142) — Postgres + pgvector,
+  KnowledgeDocument + KnowledgeChunk schema, ingestion
+  (paste / PDF / URL / serper search), workspace +
+  spokesperson visibility surfaces, render-flow RAG
+  integration (`build_render_brief`).
+- **K8** (SESSION 145) — `embed_message` Celery task +
+  post-save signal that backfills
+  `ConversationEmbedding` rows.
+- **K9** (SESSION 145) — `POST /api/conversations/<id>/messages/`
+  with server-synchronous LLM synthesis +
+  `character_os/conversation_synthesis.py` mirroring K6
+  + SPA chat route at `/conversations/<id>` +
+  "Conversations" panel on the spokesperson detail page.
 
-Remaining: **K8** ConversationMessage + ConversationEmbedding
-schema, **K9** conversation REST + SPA, **K10** onboarding
-seed (operator-workspace only).
+K-arc state: 9 of 10 slices done; **K10 → F8.1**
+(onboarding seed corpus) queued, blocked on
+operator-authored markdown. K7.x YouTube ingest fix
+queued.
 
 ### Arc 2 — Video Composition (V0-V15)
 
@@ -335,90 +352,153 @@ Scope-locked SESSION 142
   etc.). Adding capability = adding a primitive + a starter
   composition. Never an enum value.
 
-**Fourteen V-slices shipped through SESSION 143** (V0-V13):
+**V-arc COMPLETE.** All 16 slices (V0-V15) shipped across
+SESSIONS 142-144. The arc closed at:
 
-* **V0** — scope lock (SESSION 142)
-* **V1** — `Asset` + `Composition` + `CompositionStep` schema
-* **V2** — `execute_composition` runtime + partial-failure resume
-* **V3** — `generate_avatar_speech` + `talking_head` (closes K6.5)
-* **V4** — `generate_visual_clip` + `cinematic_visual`
-* **V5** — `split_script` + `concat_clips` + `long_form_ad`
-  **(launch differentiator; promoted from V7)**
-* **V6** — Video backwards-compat shim
-* **V7** — `composite_video` + `mix_audio` + 5 layout starters
-  **(promoted from V9 to unblock V8)**
-* **V8** — `talking_head_with_backdrop`
-* **V9** — polish primitives (captions/intro_outro/trim/reformat)
-  + 2 starters
-* **V10** — `design_voice` + `dub_audio` + 2 starters
-  **(restores hackathon-shipped 29-language dubbing)**
-* **V11** — `style_remix` (Aleph, with chunked-path support)
-* **V12** — `transcribe` (Whisper) + auto-captions + `recut_teaser`
-  **(first net-new capability beyond hackathon)**
-* **V13** — `generate_image` + `storyboard_ad` (3-shot Hook/
-  Action/Payoff)
+* **13 step primitives** — `generate_avatar_speech`,
+  `generate_visual_clip`, `split_script`,
+  `concat_clips`, `composite_video`, `mix_audio`,
+  `add_captions`, `add_intro_outro`, `trim_clip`,
+  `reformat_clip`, `design_voice`, `dub_audio`,
+  `style_remix`, `transcribe`, `generate_image`,
+  `audio_extract` (16 listed; the runtime registry
+  filters the V2 mock primitives).
+* **18 starter compositions** — `talking_head`,
+  `cinematic_visual`, `long_form_ad` (launch
+  differentiator), 5 layout-modifier starters
+  (`pip_layout` / `backdrop_layout` /
+  `cohost_layout` / `broll_splice` /
+  `music_bed_pass`), `talking_head_with_backdrop`,
+  `talking_head_polished`, `reels_format`,
+  `voice_design`, `multi_lang_dub` (restores
+  hackathon's 29-language dubbing),
+  `style_remix_pass`, `recut_teaser` (first
+  net-new beyond hackathon), `storyboard_ad`,
+  `dialogue_scene`, `storyboard_voiced`.
+* **SPA recipe gallery** (V15) at `/recipes` —
+  metadata-driven forms; legacy single-form
+  CTA retired in F9 while V6 backward-compat shim
+  preserves the `Video` model.
 
-After V13: 12 step primitives registered + 12 starter
-compositions live. 339 backend tests, 122 media-engine
-routes (+13 new `/internal/*` endpoints since V0). Two
-mid-arc reorders (V5 from V7, V9 to V7) both surfaced the
-same pattern — latent dependencies between slices that the
-original sequence missed.
+**Net-new vs. hackathon-shipped**: V5 (long_form
+stitching — no AI provider ships single-call >20s
+video), V6 (Video shim), V8 (talking_head_with_backdrop
+recipe combines V3+V4+V7), V12 (Whisper — first
+non-Runway provider in the media engine).
 
-**Net-new vs. hackathon-shipped:** V3, V4, V7-V9, V10, V11,
-V13 all restore capabilities the hackathon shipped (the
-operator confirmed live production usage for V10's 29-lang
-dubbing, V11's Aleph remix, V13's storyboard). V5, V6, V8,
-V12 are net-new — V5 because no AI provider ships >20s
-single-call video so stitching is the whole product, V6
-because the architecture wraps the legacy `Video` model,
-V8 because the recipe pattern combines V3+V4+V7 into
-something hackathon couldn't express, V12 because OpenAI
-Whisper transcription is the first non-Runway provider in
-the media engine.
+Two mid-arc reorders (V5 from V7, V9 to V7) both
+surfaced the same pattern — latent dependencies
+between slices that the original sequence missed.
+The discipline became "check the dependency graph of
+every prior slice's data shape before locking the
+next slice's scope, not just the immediate
+predecessor."
 
-**Deferred from V-arc:** `storyboard_voiced` (needs
-`audio_extract` primitive — scheduled V14+).
+### Arc 3 — Workspace Fabric (F0-F10) — COMPLETE
 
-Remaining: **V14 — `dialogue_scene` + optional
-`audio_extract`. V15 — SPA recipe gallery.**
+**The platform had three SPA islands (Spokespeople,
+Knowledge, Recipes) that didn't talk to each other.**
 
-### Arc 3 — Realtime Avatar (R0-R10)
+Scope-locked + shipped SESSION 144
+(`docs/design/WORKSPACE_FABRIC_V1.md`). All 10 slices
+landed in one extended session. **Zero new persistence**
+— the arc consolidates existing surfaces into one
+workspace experience.
 
-**Operators (and eventually customers) need to *talk to* their
-spokespeople, not just render them.**
+The shipped shape:
+* **Persistent nav rail** (Dashboard / Spokespeople /
+  Knowledge / Recipes) replaces the previous
+  per-island navigation.
+* **Cross-cut dashboard** (`/api/workspace/overview/`)
+  surfaces activity feed + knowledge corpus stats +
+  spokesperson badges.
+* **Knowledge ↔ composition bidirectional graph** —
+  `/api/compositions/<id>/lineage/` (asset producers
+  + consumers) +
+  `/api/knowledge/<id>/compositions/` (reverse-lookup
+  of compositions that used a knowledge doc).
+* **Brief-mode helper** on recipe forms surfaces K6's
+  LLM synthesis output before render.
+* **Onboarding walkthrough** (tour banner).
+* **Legacy single-form retirement** — the
+  `/spokespeople/<id>/render` route was deleted;
+  operators now flow through the recipe gallery.
 
-The hackathon shipped a working WebRTC realtime flow against
-Runway's `/v1/realtime_sessions` endpoint with
-`@runwayml/avatars-react` handling the client-side handshake.
-It worked for a single operator with no auth, no workspace
-scoping, file-based Character storage, and a Runway-side
-document corpus separate from the knowledge layer.
+F8.1 (K10 seed corpus) queued — blocked on
+operator-authored markdown.
 
-Scope-locked SESSION 142 (`docs/design/REALTIME_AVATAR_V1.md`)
-under three constraints the hackathon didn't carry:
+### Arc 4 — Realtime Avatar (R0-R10) — operator-visible product complete
 
-1. **Multi-tenant by construction.** Sessions workspace-scoped;
-   the Runway API key never reaches the frontend
-   (load-bearing privacy guarantee — contract rule 3).
-2. **Knowledge layer integration.** Runway's per-session
-   document corpus is *composed from* `KnowledgeDocument`
-   rows via K2's `retrieve_for_spokesperson` surface.
-   Operators don't curate two knowledge bases.
-3. **Asset-shape persistence.** Transcripts persist as
-   `Asset` rows of type TRANSCRIPT. Both arcs share one
-   persistence model.
+**Operators need to *talk to* their spokespeople, not
+just render them.**
 
-Two new tables (`RealtimeSession` + `RealtimeToolInvocation`),
-six tools the avatar's LLM can invoke mid-conversation
-(narrowed from hackathon's 9; expensive ones require
-operator approval), three-layer cost governance (workspace
-minutes budget + session length cap + tool approval
-threshold), provider-abstraction registry (Runway is the v1
-provider; adding Synthesia/HeyGen is a single-file change).
+The hackathon shipped a working WebRTC realtime flow
+against Runway's `/v1/realtime_sessions` endpoint with
+`@runwayml/avatars-react` handling the client-side
+handshake. Worked for a single operator with no auth,
+no workspace scoping, file-based Character storage, and
+a Runway-side document corpus separate from the
+knowledge layer.
 
-**R0 scope lock shipped SESSION 142.** R1 (schema) is the
-next R-slice and is unblocked by V1.
+Scope-locked SESSION 142
+(`docs/design/REALTIME_AVATAR_V1.md`) under three
+constraints the hackathon didn't carry:
+
+1. **Multi-tenant by construction.** Sessions
+   workspace-scoped; the Runway API key never reaches
+   the frontend (contract rule 3).
+2. **Knowledge layer integration.** Runway's
+   per-session document corpus is *composed from*
+   `KnowledgeDocument` rows via K2's
+   `retrieve_for_spokesperson` surface.
+3. **Asset-shape persistence.** Transcripts persist
+   as `Asset` rows of type TRANSCRIPT. Realtime and
+   recorded arcs share one persistence model.
+
+**R1-R8 shipped across SESSIONS 146-155** —
+operator-visible product complete. The shipped shape:
+
+* **R1-R5** (SESSION 146) — `RealtimeSession` +
+  `RealtimeToolInvocation` schema, media-engine
+  provider abstraction, Django broker
+  (`/api/realtime_sessions/`) with tier-limit gate,
+  knowledge → Runway document bridge
+  (`compose_realtime_document`), Celery transcript
+  capture (`Asset(TRANSCRIPT)`).
+* **R6 + R6.1** (SESSIONS 148, 152) —
+  `compose_session_memory` summarizes prior
+  transcripts via gpt-5-mini into a
+  `## Recent Conversations` section in the
+  Runway document body. R6.1 widened the query
+  to include mid-session memory snapshots.
+* **R7.0-R7.3** (SESSIONS 149-152) — tool dispatch
+  foundation + 6-tool catalog. Tools:
+  `show_videos_tab` (starter), `recall_knowledge`
+  (starter, ~$0.001), `recall_recent_conversations`
+  (starter, $0), `handoff_to_spokesperson` (pro,
+  $0), `render_video` (starter, $0.08 — over
+  $0.05 threshold, exercises the approval flow
+  end-to-end), `attach_memory` (pro, ~$0.001,
+  mid-session memory commit).
+* **R8.0-R8.2** (SESSIONS 153-155) — SPA
+  realtime UX. `/spokespeople/:id/talk` route +
+  `@runwayml/avatars-react` SDK mount + tool-
+  approval modal + cost forecasting + live cost
+  ticker + WebRTC fallback messaging. Mock-mode
+  UX is a first-class surface so the demo runs
+  end-to-end without real Runway creds.
+
+**Q-r-2 partial v1 resolution**: Runway's SDK doesn't
+expose a `sendClientEvent` for server-pushed
+narration. v1 narration is operator-mediated — modal
+decision → operator verbally continues. Audit row's
+`error_message` captures the operator's reason for
+retrospective review.
+
+R9 (cost governance backend — upgrades hardcoded
+forecast / ticker constants with per-provider
+micros-per-second lookups) + R10 (multi-provider
+drift verifier test) remain as operational polish.
 
 ---
 

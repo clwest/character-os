@@ -506,3 +506,160 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   by paying the maintenance cost (one `ALLOWED_FILES`
   line per new sanctioned test file), not by relaxing
   them.
+
+## 2026-05-15 — Sub-slicing the over-scope-locked: R7, R8, and the one-slice-per-session calibration
+
+- **Context:** SESSION 148 (R6 cross-session memory)
+  landed in one focused single-slice session. The
+  resulting calibration moment — "one slice per
+  session is the natural unit when the discipline is
+  honored" — got applied retroactively to the
+  scope-locked R7 and R8 in subsequent sessions.
+- **Direction:** Carry-forward calibration.
+- **Detail:** R7 was scope-locked SESSION 142 as
+  "tool catalog (6 tools, workspace-scoped) +
+  RealtimeToolInvocation audit trail + approval-
+  threshold modal" — one slice. R8 was scope-locked
+  as "SPA `/spokespeople/:id/talk` route +
+  `@runwayml/avatars-react` integration + cost
+  forecasting + tool-approval modal." Both proved
+  too large for the one-slice-per-session discipline.
+  Sub-sliced at proposal time:
+  - **R7 → R7.0 / R7.1 / R7.2 / R7.3** —
+    foundation, sync tools + tier filtering, async
+    dispatch + render_video, attach_memory + R6.1
+    widen (SESSIONS 149-152).
+  - **R8 → R8.0 / R8.1 / R8.2** — SPA foundation,
+    tool-approval modal + cost forecast, SDK native
+    invocation + cost ticker + WebRTC fallback
+    (SESSIONS 153-155).
+- **Found by:** Operator's SESSION 148 framing held
+  across 7 subsequent slices. Each sub-slice landed
+  in 1 session with full doc-with-commit discipline +
+  inline test coverage. No catch-up passes needed
+  (contrast SESSION 143's V3-V13 11-commit catch-up).
+- **Lesson:** **For this operator specifically:** the
+  one-slice-per-session unit is real, not aspirational.
+  Scope-locks predate the calibration; treat the
+  scope-lock as "the v1 contract about what
+  eventually lands" rather than "the boundary of one
+  commit." Sub-slice in the design doc at proposal
+  time with the operator's explicit confirmation +
+  update the slice table in the same commit batch.
+  Generalisation: when a discipline calibrates after
+  scope-locks land, audit the unshipped slices' sizes
+  against the new discipline. Splitting at proposal
+  time is free; splitting mid-implementation costs a
+  session.
+
+## 2026-05-15 — AI confidently wrong: `sendClientEvent` exists in the Runway SDK
+
+- **Context:** R0 scope-lock (SESSION 142) said the
+  Runway SDK's `<AvatarCall>` exposes
+  "`onClientEvent` for tool invocations and
+  `sendClientEvent` for narration back to the
+  avatar's LLM." The narration loop was the basis
+  for Q-r-2's planned resolution: server-side
+  rejection records the reason, SPA sends the
+  reason back via `sendClientEvent`, avatar
+  narrates apologetically.
+- **Direction:** AI was wrong; operator's R8 design
+  + my own AvatarCall integration in R8.2 surfaced
+  it.
+- **Detail:** Runway's `@runwayml/avatars-react@0.16.0`
+  exposes `useClientEvent` / `useClientEvents` /
+  `onClientEvent` — all *listeners* for events
+  FROM the avatar. There's no `sendClientEvent` in
+  the public API. `clientTool(...)` lets you
+  register tools whose handlers run client-side,
+  but the handler's return value doesn't appear to
+  flow back to the avatar's LLM as a server-pushed
+  narration cue.
+- **Found by:** SESSION 155 reading
+  `node_modules/.pnpm/@runwayml+avatars*/dist/*.d.ts`
+  to wire `AvatarSessionInner`. The R8.2 plan
+  assumed `sendClientEvent` based on the
+  scope-lock — first verification was attempting
+  the import.
+- **Lesson:** **For this operator specifically:**
+  scope-locks codify the v1 *intent*; SDK feature
+  names in a scope-lock are *hypotheses* until
+  exercised by code. The R0 scope-lock was correct
+  about every other API surface (the avatar invokes
+  via data channel, the SDK handles WebRTC
+  handshake, `(sessionId, sessionKey)` is the
+  client mount surface); just wrong about one
+  return-channel name. Generalisation: when a
+  scope-lock references SDK features, verify each
+  one before relying on it for downstream scope. The
+  fix for this miss was straightforward — Q-r-2
+  shifted to "partial v1 resolution; narration is
+  operator-mediated" — but the misdirection cost
+  ~10 minutes of looking for an API that doesn't
+  exist.
+
+## 2026-05-15 — Near-miss: type-system + runtime config drift on testing-library
+
+- **Context:** R8.0 (SESSION 153) wired
+  `@testing-library/jest-dom` into vitest's setup
+  file. Tests ran clean. SPA build also passed —
+  because tsc didn't traverse the one R8.0 test
+  file that used `toBeInTheDocument`.
+- **Direction:** AI noticed in time (R8.1 surfaced
+  it).
+- **Detail:** R8.1 (SESSION 154) added more matcher
+  calls in the new modal test. Build broke
+  immediately:
+  `Property 'toBeInTheDocument' does not exist on
+  type 'Assertion<HTMLElement>'`. The fix was one
+  line in `tsconfig.app.json`:
+  `"types": ["vite/client", "vitest/globals",
+  "@testing-library/jest-dom"]`. But the gap had
+  been latent for an entire session — runtime
+  worked while build was secretly missing the
+  types.
+- **Found by:** SPA build failure on R8.1's new
+  modal test file.
+- **Lesson:** **For this operator specifically:**
+  when wiring a test framework plugin at runtime,
+  also wire it at type-check time. One-test
+  consumers paper over the gap. Generalisation:
+  type system + runtime config are two
+  configuration surfaces for the same logical
+  feature; treat them as a pair. Vitest setup
+  files + tsconfig types are the same shape — once
+  per project, not per test.
+
+## 2026-05-15 — Near-miss: fake timers + setSystemTime double-count
+
+- **Context:** SESSION 155 R8.2 CostTicker tests
+  drive fake timers to verify the 1-second
+  interval. First draft used:
+  `vi.setSystemTime(new Date(ANCHOR + 30_000))` +
+  `vi.advanceTimersByTime(1000)` to simulate "30s
+  elapsed, interval fires."
+- **Direction:** AI noticed in time (test failure
+  surfaced it).
+- **Detail:** Vitest's `vi.useFakeTimers()` makes
+  `Date.now()` mock-controlled. `setSystemTime`
+  sets the clock to ANCHOR + 30s.
+  `advanceTimersByTime(1000)` then advances BOTH
+  the timer queue AND the system clock by 1s. So
+  at interval-fire time, `Date.now()` returns
+  ANCHOR + 31s. The component reads `elapsed =
+  31`, test asserts `30`, fail.
+- **Found by:** Test failure with off-by-one in
+  `data-elapsed-seconds` attribute. Initially
+  looked like a state-management bug; the timer
+  arithmetic was the actual cause.
+- **Lesson:** **For this operator specifically:**
+  when using `vi.useFakeTimers()`, pick ONE control
+  surface — `setSystemTime` for arbitrary jumps OR
+  `advanceTimersByTime` for "elapse N ms + fire
+  intervals." Mixing them double-counts.
+  Generalisation: when a test framework controls
+  both clock-time and timer-queue advancement,
+  identify which APIs touch which channel before
+  composing them. The double-count is a recurring
+  shape in fake-timer libraries (Jest's
+  `jest.useFakeTimers()` has the same gotcha).
