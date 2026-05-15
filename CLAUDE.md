@@ -424,11 +424,48 @@ Update this section when a phase completes.
     (10 → 22, +12: 8 modal + 4 talk-route).
     Backend unchanged at **641 backend tests**.
 
-    R-arc state: **R1-R7 + R8.0 + R8.1 done**. R8.2
-    (live cost ticker + WebRTC fallback + Q-r-2
-    rejection narration via `sendClientEvent`) is
-    the last R8 piece. R9 (cost governance) + R10
-    (provider hardening) follow.
+    **R8.2 shipped SESSION 155** (`5697269`) — R8
+    closes. Three components compose the close-out:
+
+    * **`AvatarSessionInner`**
+      (`web/src/components/avatar-session-inner.tsx`)
+      — child of `<AvatarCall>`. Consumes the SDK's
+      `useClientEvents` hook to receive
+      tool-invocation events from the avatar's data
+      channel. Dispatches via the same
+      `onToolInvocation` callback the mock-mode debug
+      buttons use — one production tool-dispatch
+      surface.
+    * **`CostTicker`**
+      (`web/src/components/cost-ticker.tsx`) — renders
+      elapsed time + running dollar estimate during a
+      live session. 1-second interval; tone shifts
+      muted → amber (3 min) → destructive (4 min).
+      Caps at maxMinutes. Mock mode tagged "(demo)".
+    * **WebRTC fallback** — `<AvatarCall onError>`
+      routes to the error panel; ErrorPanel now
+      offers "Make a recorded video instead" CTA
+      linking to `/recipes`. Q-r-9 resolved.
+
+    **Q-r-2 partial resolution**: Runway's SDK
+    doesn't expose a `sendClientEvent` for
+    server-pushed narration. v1 narration is
+    operator-mediated (verbal continuation after a
+    modal decision). The audit row's `error_message`
+    captures the operator's reason server-side.
+    Documented in `AvatarSessionInner` module-level
+    comment.
+
+    Test totals after SESSION 155: SPA vitest **35**
+    (22 → 35, +13). Backend unchanged at **641
+    backend tests**.
+
+    **R-arc state: R1-R8 done.** R9 (cost governance
+    backend — upgrades R8.1's hardcoded forecast +
+    R8.2's ticker) + R10 (multi-provider drift
+    verifier) remain. Both operational polish; the
+    operator-visible product story is feature-
+    complete at R8 close.
   - **Workspace fabric arc (F0-F10). COMPLETE.** All 10
     slices shipped SESSION 144
     (`docs/design/WORKSPACE_FABRIC_V1.md`). 9 contract
