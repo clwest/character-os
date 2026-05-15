@@ -1,34 +1,51 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useSession } from "@/lib/auth/use-session";
+import { NavRail } from "@/components/nav-rail";
 
 /**
- * Outer chrome. Editorial masthead + content well. The masthead is
- * intentionally restrained on auth pages (no nav, no clutter); the
- * dashboard's own header carries the workspace identity.
+ * Outer chrome. Editorial masthead + content well + (F2) the
+ * persistent nav rail when the operator is signed in.
  *
- * We fire `useSession()` at the layout level so every page primes
- * the csrftoken cookie before any form submit (avoids a 403 on
- * fresh-tab signups). See SESSION 116 handoff for the full why.
+ * Auth pages stay minimal — no rail, no main padding shift.
+ * Authenticated pages render the rail as a vertical sidebar
+ * at >=md and a horizontal tab bar at sm.
+ *
+ * We fire `useSession()` at the layout level so every page
+ * primes the csrftoken cookie before any form submit (avoids
+ * a 403 on fresh-tab signups). See SESSION 116 handoff for
+ * the full why.
  */
 export function Layout() {
-  useSession();
+  const session = useSession();
   const location = useLocation();
   const isAuthRoute =
     location.pathname.startsWith("/sign-in") ||
     location.pathname.startsWith("/sign-up");
+  const showRail = !isAuthRoute && Boolean(session.data?.isAuthenticated);
 
   return (
     <div className="min-h-screen">
       <SiteHeader compact={!isAuthRoute} />
-      <main
-        className={
-          isAuthRoute
-            ? "container mx-auto flex max-w-md flex-col justify-center px-6 py-16"
-            : "container mx-auto max-w-6xl px-6 py-12"
-        }
-      >
-        <Outlet />
-      </main>
+      {showRail ? (
+        <div className="container mx-auto max-w-6xl px-6 py-8">
+          <div className="flex flex-col gap-6 md:flex-row md:gap-10">
+            <NavRail />
+            <main className="min-w-0 flex-1">
+              <Outlet />
+            </main>
+          </div>
+        </div>
+      ) : (
+        <main
+          className={
+            isAuthRoute
+              ? "container mx-auto flex max-w-md flex-col justify-center px-6 py-16"
+              : "container mx-auto max-w-6xl px-6 py-12"
+          }
+        >
+          <Outlet />
+        </main>
+      )}
       <SiteFooter />
     </div>
   );

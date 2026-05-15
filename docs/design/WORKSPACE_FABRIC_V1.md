@@ -344,11 +344,21 @@ independently-shipping slices.
   in the form preserve the hint so cancelling returns
   to the filtered gallery. New e2e spec covers the URL
   contract.
-- **F2 — Persistent nav rail.** Four-section sidebar /
-  topbar shipping in `_layout.tsx`. No new routes; the
-  rail is purely a navigation affordance. The current
-  ad-hoc back-links + masthead knowledge link retire to
-  the rail.
+- **F2 — Persistent nav rail.** ✓ SHIPPED SESSION 144
+  (commit TBD). Four-section sidebar (vertical at >=md,
+  horizontal tab bar at sm) shipping in
+  `web/src/components/nav-rail.tsx` and wired into
+  `_layout.tsx`. Sections: Dashboard / Spokespeople /
+  Knowledge / Recipes. Active section computed by
+  pathname prefix; the matching is conservative so
+  detail routes stay on their parent (e.g.
+  `/spokespeople/<id>/...` highlights Spokespeople).
+  Rail mounts only when authenticated + not on auth
+  routes; auth pages stay minimal. Retired the ad-hoc
+  Knowledge link from the dashboard masthead — the
+  rail covers it. New e2e spec (`nav-rail.spec.ts`)
+  asserts the four-item hard count + active highlight
+  + auth-route hiding.
 - **F3 — Workspace overview dashboard.** New aggregate
   endpoint + dashboard tiles. Activity feed unifies
   compositions + legacy Videos. Knowledge corpus stats.
