@@ -382,7 +382,7 @@ independently-shipping slices.
   Dashboard e2e spec updated (videos-empty →
   activity-empty + knowledge-corpus zero state).
 - **F4 — Knowledge preview on recipe forms.** ✓ SHIPPED
-  SESSION 144 (commit TBD). New
+  SESSION 144 (`0122f26`). New
   `POST /api/knowledge/preview/` endpoint (custom action
   on `KnowledgeDocumentViewSet`) wraps
   `retrieve_for_spokesperson`, groups returned chunks by
