@@ -1,0 +1,110 @@
+"""DRF serializers for V15 recipe + composition REST surface.
+
+SESSION 144 / V15.0. Three shapes:
+
+* ``RecipeSerializer`` — read-only metadata for the gallery.
+  Sourced from ``apps.compositions.recipes.RECIPES``.
+* ``CompositionStepSerializer`` / ``AssetSerializer`` — nested
+  read shapes for composition detail responses.
+* ``CompositionSerializer`` — read shape for list + detail;
+  the create endpoint takes a separate body (kind + workspace
+  + params) handled directly in the view.
+
+The create flow is intentionally NOT a ``ModelSerializer.save``
+because the composition is built by a starter callable, not a
+direct model create. The serializer here is read-shape only.
+"""
+from __future__ import annotations
+
+from rest_framework import serializers
+
+from .models import Asset, Composition, CompositionStep
+from .recipes import list_recipes
+
+
+class RecipeSerializer(serializers.Serializer):
+    """Read-only metadata for one recipe.
+
+    Output mirrors ``Recipe.to_json()``; the serializer exists
+    so the viewset can use the standard DRF response shape.
+    """
+
+    kind = serializers.CharField()
+    display_name = serializers.CharField()
+    family = serializers.CharField()
+    description = serializers.CharField()
+    fields = serializers.ListField(child=serializers.DictField())
+
+    @classmethod
+    def all(cls) -> list[dict]:
+        return [r.to_json() for r in list_recipes()]
+
+
+class AssetSerializer(serializers.ModelSerializer):
+    """Compact asset shape for composition responses."""
+
+    class Meta:
+        model = Asset
+        fields = (
+            "id",
+            "asset_type",
+            "file_path",
+            "duration_ms",
+            "width",
+            "height",
+            "mime_type",
+            "size_bytes",
+            "cost_micros",
+            "created_at",
+        )
+        read_only_fields = fields
+
+
+class CompositionStepSerializer(serializers.ModelSerializer):
+    """One step in a composition's plan."""
+
+    output_asset = AssetSerializer(read_only=True)
+
+    class Meta:
+        model = CompositionStep
+        fields = (
+            "id",
+            "position",
+            "primitive",
+            "status",
+            "inputs",
+            "params",
+            "cost_estimate_micros",
+            "cost_actual_micros",
+            "error_message",
+            "output_asset",
+        )
+        read_only_fields = fields
+
+
+class CompositionSerializer(serializers.ModelSerializer):
+    """Composition read shape with nested steps + final asset."""
+
+    steps = CompositionStepSerializer(many=True, read_only=True)
+    final_asset = AssetSerializer(read_only=True)
+
+    class Meta:
+        model = Composition
+        fields = (
+            "id",
+            "workspace",
+            "spokesperson",
+            "name",
+            "template_kind",
+            "status",
+            "mock_mode",
+            "cost_estimate_micros",
+            "cost_actual_micros",
+            "knowledge_chunk_ids",
+            "error_message",
+            "created_at",
+            "updated_at",
+            "steps",
+            "final_asset",
+        )
+        read_only_fields = fields

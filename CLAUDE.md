@@ -98,10 +98,11 @@ Update this section when a phase completes.
     REST/SPA), K10 (onboarding seed). Scope lock:
     `docs/design/KNOWLEDGE_LAYER.md`.
   - **Video composition arc (V0-V15).** V0-V14 all shipped
-    (`docs/design/VIDEO_COMPOSITION_V1.md`). Twelve capability
-    slices (V3-V14) landed across one extended session (SESSION
-    143). 358 backend tests pass. Media-engine 123 routes
-    (+14 new `/internal/*` endpoints).
+    (`docs/design/VIDEO_COMPOSITION_V1.md`). V15 split into
+    5 staged sub-slices at operator request — V15.0 (backend
+    foundation) shipped SESSION 144; V15.1-V15.4 (SPA family
+    rollouts) queued. 382 backend tests pass. Media-engine
+    123 routes (+14 new `/internal/*` endpoints).
     **Step primitive registry:** 13 primitives —
     `generate_avatar_speech` (V3), `generate_visual_clip` (V4),
     `split_script` + `concat_clips` (V5), `composite_video` +
@@ -110,25 +111,30 @@ Update this section when a phase completes.
     `dub_audio` (V10), `style_remix` (V11), `transcribe` (V12),
     `generate_image` (V13), `audio_extract` (V14). Plus the
     three mock primitives from V2 for runtime tests.
-    **Starter compositions:** 13 recipes — `talking_head`
+    **Starter compositions:** 17 recipes — `talking_head`
     (V3), `cinematic_visual` (V4), `long_form_ad` (V5; launch
     differentiator), `pip_layout` / `backdrop_layout` /
     `cohost_layout` / `broll_splice` / `music_bed_pass` (V7),
     `talking_head_with_backdrop` (V8), `talking_head_polished`
     + `reels_format` (V9), `voice_design` + `multi_lang_dub`
     (V10), `style_remix_pass` (V11), `recut_teaser` (V12),
-    `storyboard_ad` (V13), `dialogue_scene` (V14). The legacy
-    `Video` model rides on `talking_head` via the V6
-    backwards-compat shim — SPA contract unchanged. Two
+    `storyboard_ad` (V13), `dialogue_scene` (V14). All 17
+    surfaced via `apps/compositions/recipes.py` registry +
+    `GET /api/recipes/` for the V15 SPA gallery (V15.0
+    shipped SESSION 144). The legacy `Video` model rides on
+    `talking_head` via the V6 backwards-compat shim — SPA
+    contract unchanged. Two
     reorders during the arc: V5 promoted from V7 (SESSION
     142), V9 promoted to V7 (SESSION 143) — both restored
     "land the dependency before the consumer" discipline.
     **Unblocked by V14:** `storyboard_voiced` recipe (the
     only deferred V-arc starter) is now buildable —
     storyboard concat → avatar_speech narration →
-    audio_extract → mix_audio over the storyboard. **V15
-    (SPA recipe gallery)** closes the V-arc and retires the
-    legacy single-form video create UI.
+    audio_extract → mix_audio over the storyboard;
+    scheduled to land in V15.4 alongside the dialogue form.
+    **V15.1-V15.4** ship the SPA recipe gallery family by
+    family and retire the legacy single-form video create
+    UI; V15.0 (backend foundation) is in.
   - **Realtime avatar arc (R0-R10).** R0 scope lock shipped
     SESSION 142 (`docs/design/REALTIME_AVATAR_V1.md`). 10
     contract rules, RealtimeSession + RealtimeToolInvocation

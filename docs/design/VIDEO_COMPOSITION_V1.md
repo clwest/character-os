@@ -661,7 +661,11 @@ is ~1-2 sessions.
 | **V12** ✓ | `transcribe` primitive (OpenAI Whisper) + `add_captions` auto mode (reads TRANSCRIPT input) + `recut_teaser` composition. **First net-new capability beyond what the hackathon shipped.** Ships SESSION 143 (`8b24465`). | — |
 | **V13** ✓ | `generate_image` primitive (Runway `gen4_image`) + `storyboard_ad` starter (7-step Hook/Action/Payoff with reference-image coherence chain). `storyboard_voiced` deferred — requires an `audio_extract` primitive scheduled for V14+. Ships SESSION 143 (`43be57b`). | "Additional video kinds — cinematic" (storyboard arc) |
 | **V14** ✓ | `dialogue_scene` starter (ports hackathon's `dialogue_service.py`) + `audio_extract` primitive (unlocks the deferred `storyboard_voiced`). Ships SESSION 143 (`6f61e4b`). | "Additional video kinds — dialogue" |
-| **V15** | SPA recipe gallery. Operator picks from starter compositions; form maps to step inputs. Replaces the legacy single-form video create UI. | "W12 — Legacy form retirement" |
+| **V15.0** ✓ | Backend foundation for the SPA gallery — `apps/compositions/recipes.py` registry of 17 recipe metadata entries + REST surface (`GET /api/recipes/`, `POST /api/compositions/`, `GET /api/compositions/{id}/`). 24 V15.0 backend tests. Ships SESSION 144 (commit TBD). | "W12 — Legacy form retirement" |
+| **V15.1** | SPA gallery shell + first three live recipes (`talking_head`, `cinematic_visual`, `talking_head_polished`); other 14 cards "coming soon". Dashboard CTA flips to `/recipes`. | — |
+| **V15.2** | Layout + format family forms live (7 recipes). | — |
+| **V15.3** | Voice + style + long-form + storyboard + recut family forms live (6 recipes). | — |
+| **V15.4** | Dialogue (`dialogue_scene`) form + ship the `storyboard_voiced` bonus recipe (V14 audio_extract unblocks it) + soft-retire legacy single-form UI + V-arc closure. | — |
 
 Roughly 16 slices, ~12-18 sessions. V0 ships on commit of
 this doc. V1-V4 is the "ground re-laid" arc (architecture +
@@ -1012,3 +1016,54 @@ the tests cannot fail.
   +19 tests (test_v14_dialogue.py). 358 backend tests
   total. Media-engine: 123 routes (+1 audio/extract).
   V15 (SPA recipe gallery) is the last V-arc slice.
+
+- 2026-05-14 (SESSION 144, V15.0, commit TBD) — backend
+  foundation for the SPA gallery. V15 split into 5 staged
+  sub-slices (V15.0 backend, V15.1-V15.4 SPA family
+  rollouts) at operator request so each slice can be
+  tested + tweaked before the next.
+
+  `apps/compositions/recipes.py` — single source of truth
+  for the 17 starter compositions. Each entry carries
+  `kind`, `display_name`, `family`, `description`, and a
+  `fields` list (text / textarea / checkbox / select /
+  number / spokesperson_picker / asset_picker /
+  dialogue_lines). The SPA reads metadata via
+  `GET /api/recipes/`. `resolve_kwargs` maps form params
+  to starter kwargs, resolving spokesperson + asset ids
+  to ORM rows scoped to the request workspace.
+  `dialogue_scene` opts into a custom resolver because
+  its `lines` field is dict-of-dicts; everything else
+  uses the default resolver + per-recipe `param_map` for
+  starter kwarg name differences.
+
+  REST surface — three endpoints. `GET /api/recipes/` +
+  `GET /api/recipes/<kind>/` are read-only metadata, no
+  workspace scoping (gallery is global). `POST
+  /api/compositions/` accepts `{kind, workspace, params}`,
+  validates owner membership, resolves params, calls the
+  recipe's starter, fires `execute_composition.delay()`.
+  `GET /api/compositions/<id>/` + list view return
+  workspace-scoped status/poll data with nested steps +
+  final_asset.
+
+  Workspace isolation is structural — Spokesperson /
+  Asset lookups go through `Model.objects.get(pk=...,
+  workspace=ws)`, so foreign ids raise `DoesNotExist`
+  the view turns into 400. V1's cross-workspace signal
+  is the second line of defense at save time.
+
+  Family vocabulary for the gallery: talking_head,
+  cinematic, layout, polish, voice, style, creative,
+  dialogue. V15.1 will use these to group recipe cards.
+
+  +24 tests (test_v15_api.py): registry shape
+  invariants (every kind matches a starters function,
+  every select has choices, every asset_picker has
+  asset_type), happy paths for talking_head /
+  reels_format / dialogue_scene (covers default + asset
+  + custom resolver), failure paths for unknown kind /
+  cross-workspace ids / non-member / non-owner /
+  missing required field / unauthenticated. 382 backend
+  tests total. Media-engine routes unchanged (V15 is
+  shell-only).

@@ -49,6 +49,15 @@ ALLOWED_FILES = {
     # CompositionStep rows from named recipes. Same workspace-
     # anchor guarantee as direct creation.
     "apps/compositions/starters.py",
+    # V15.0 — recipe registry's custom resolver builds the
+    # ``lines`` list for dialogue_scene (no direct ORM creates,
+    # but it does call Spokesperson.objects.get).
+    "apps/compositions/recipes.py",
+    # V15.0 REST surface. The viewset calls each recipe's
+    # starter; no direct ``.objects.create`` on composition
+    # tables — Spokesperson/Asset ``.objects.get`` resolution
+    # only.
+    "apps/compositions/views.py",
     # Tests need to create rows directly to exercise paths
     "apps/compositions/tests/test_models.py",
     "apps/compositions/tests/test_isolation.py",
@@ -64,6 +73,7 @@ ALLOWED_FILES = {
     "apps/compositions/tests/test_v12_transcribe.py",
     "apps/compositions/tests/test_v13_storyboard.py",
     "apps/compositions/tests/test_v14_dialogue.py",
+    "apps/compositions/tests/test_v15_api.py",
     # V6 — videos app shim tests construct Composition/Asset
     # rows directly to simulate terminal-state sync paths.
     "apps/videos/tests/test_v6_shim.py",

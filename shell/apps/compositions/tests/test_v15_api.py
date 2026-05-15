@@ -1,0 +1,547 @@
+"""V15.0 tests — recipe gallery + composition REST surface.
+
+Covers:
+
+* ``GET /api/recipes/`` — lists all 17 recipes with valid metadata.
+* ``GET /api/recipes/<kind>/`` — single recipe detail.
+* Recipe registry consistency — every recipe.starter is the matching
+  function from ``apps.compositions.starters``.
+* ``POST /api/compositions/`` — happy path for talking_head
+  (simplest single-step recipe).
+* ``POST /api/compositions/`` — happy path for an asset-input recipe
+  (reels_format) — confirms workspace-scoped Asset resolution.
+* ``POST /api/compositions/`` — happy path for dialogue_scene
+  (exercises the custom resolver).
+* ``POST /api/compositions/`` — workspace isolation: cross-workspace
+  spokesperson_id raises 400.
+* ``POST /api/compositions/`` — workspace isolation: cross-workspace
+  asset_id raises 400.
+* ``POST /api/compositions/`` — workspace membership: non-member 403.
+* ``POST /api/compositions/`` — non-owner role 403 in v1.
+* ``POST /api/compositions/`` — unknown kind 400.
+* ``GET /api/compositions/<id>/`` — retrieve includes steps + final asset.
+* ``GET /api/compositions/<id>/`` — cross-workspace caller 404.
+* ``GET /api/compositions/`` — list scoped to caller's workspaces.
+* Unauthenticated → 403/401 on all endpoints.
+
+Celery runs eagerly so ``execute_composition.delay()`` actually
+runs the composition in-process and the final_asset is populated
+on the response.
+"""
+from __future__ import annotations
+
+import pytest
+from django.contrib.auth import get_user_model
+from django.test import override_settings
+from rest_framework import status as http
+from rest_framework.test import APIClient
+
+from apps.accounts.models import Membership, Workspace
+from apps.compositions.models import (
+    Asset,
+    AssetType,
+    Composition,
+    CompositionStatus,
+)
+from apps.compositions.recipes import RECIPES, list_recipes
+from apps.spokespeople.models import Spokesperson
+
+User = get_user_model()
+
+pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture(autouse=True)
+def _eager_celery():
+    with override_settings(
+        CELERY_TASK_ALWAYS_EAGER=True,
+        CELERY_TASK_EAGER_PROPAGATES=True,
+    ):
+        yield
+
+
+# ---- helpers ------------------------------------------------------
+
+
+def _make_workspace_with_user(email: str, ws_name: str = "WS") -> tuple[Workspace, User]:
+    user = User.objects.create_user(email=email, password="x")
+    ws = Workspace.objects.filter(owner=user).first()
+    assert ws is not None
+    ws.name = ws_name
+    ws.save()
+    return ws, user
+
+
+def _make_spokesperson(
+    ws: Workspace, name: str = "Sp", avatar_id: str = "fake-avatar"
+) -> Spokesperson:
+    return Spokesperson.objects.create(
+        workspace=ws, name=name,
+        runway_avatar_id=avatar_id,
+        portrait_path="https://fake/p.png",
+        business_brief="b",
+    )
+
+
+def _make_clip(
+    ws: Workspace, file_path: str = "/data/_assets/clip.mp4"
+) -> Asset:
+    return Asset.objects.create(
+        workspace=ws, asset_type=AssetType.CLIP,
+        file_path=file_path, duration_ms=5000, mime_type="video/mp4",
+    )
+
+
+def _make_audio(ws: Workspace) -> Asset:
+    return Asset.objects.create(
+        workspace=ws, asset_type=AssetType.AUDIO,
+        file_path="/data/a.mp3", duration_ms=5000, mime_type="audio/mpeg",
+    )
+
+
+def _login(client: APIClient, user) -> None:
+    client.force_authenticate(user=user)
+
+
+# ---- registry shape ----------------------------------------------
+
+
+def test_recipe_registry_has_seventeen_entries() -> None:
+    """V15 ships the SPA gallery for 17 starter compositions.
+    If a new starter lands, the registry should grow with it."""
+    assert len(RECIPES) == 17
+
+
+def test_every_recipe_has_required_metadata() -> None:
+    for recipe in RECIPES.values():
+        assert recipe.kind, f"{recipe} missing kind"
+        assert recipe.display_name, f"{recipe.kind} missing display_name"
+        assert recipe.family, f"{recipe.kind} missing family"
+        assert recipe.description, f"{recipe.kind} missing description"
+        assert recipe.fields, f"{recipe.kind} has no fields"
+        assert recipe.starter is not None, f"{recipe.kind} has no starter"
+
+
+def test_every_recipe_kind_matches_starter_name() -> None:
+    from apps.compositions import starters
+    for recipe in RECIPES.values():
+        starter_attr = getattr(starters, recipe.kind, None)
+        assert starter_attr is recipe.starter, (
+            f"recipe {recipe.kind!r}'s starter doesn't match "
+            f"starters.{recipe.kind}"
+        )
+
+
+def test_recipe_field_types_use_allowed_vocab() -> None:
+    allowed = {
+        "text", "textarea", "checkbox", "select", "number",
+        "spokesperson_picker", "asset_picker", "dialogue_lines",
+    }
+    for recipe in RECIPES.values():
+        for f in recipe.fields:
+            assert f.type in allowed, (
+                f"recipe {recipe.kind!r} field {f.name!r}: "
+                f"unknown type {f.type!r}"
+            )
+
+
+def test_recipe_select_fields_have_choices() -> None:
+    for recipe in RECIPES.values():
+        for f in recipe.fields:
+            if f.type == "select":
+                assert f.choices, f"{recipe.kind}.{f.name} select missing choices"
+
+
+def test_recipe_asset_picker_fields_have_asset_type() -> None:
+    for recipe in RECIPES.values():
+        for f in recipe.fields:
+            if f.type == "asset_picker":
+                assert f.asset_type, (
+                    f"{recipe.kind}.{f.name} asset_picker missing asset_type"
+                )
+
+
+# ---- GET /api/recipes/ -------------------------------------------
+
+
+def test_get_recipes_returns_all_seventeen() -> None:
+    ws, user = _make_workspace_with_user("v15list@test")
+    client = APIClient()
+    _login(client, user)
+    response = client.get("/api/recipes/")
+    assert response.status_code == http.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 17
+
+
+def test_get_recipes_requires_auth() -> None:
+    client = APIClient()
+    response = client.get("/api/recipes/")
+    assert response.status_code in {http.HTTP_401_UNAUTHORIZED, http.HTTP_403_FORBIDDEN}
+
+
+def test_get_recipe_detail_by_kind() -> None:
+    ws, user = _make_workspace_with_user("v15detail@test")
+    client = APIClient()
+    _login(client, user)
+    response = client.get("/api/recipes/talking_head/")
+    assert response.status_code == http.HTTP_200_OK
+    data = response.json()
+    assert data["kind"] == "talking_head"
+    assert data["family"] == "talking_head"
+    field_names = {f["name"] for f in data["fields"]}
+    assert "spokesperson_id" in field_names
+    assert "script" in field_names
+
+
+def test_get_recipe_unknown_kind_404() -> None:
+    ws, user = _make_workspace_with_user("v15unknown@test")
+    client = APIClient()
+    _login(client, user)
+    response = client.get("/api/recipes/no_such_recipe/")
+    assert response.status_code == http.HTTP_404_NOT_FOUND
+
+
+# ---- POST /api/compositions/ — happy paths -----------------------
+
+
+def test_create_talking_head_composition_runs_end_to_end() -> None:
+    ws, user = _make_workspace_with_user("v15th@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": "Welcome to our channel. Today we explore something new.",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    assert data["template_kind"] == "talking_head"
+    assert data["status"] == CompositionStatus.COMPLETED
+    assert data["final_asset"] is not None
+    assert data["final_asset"]["asset_type"] == AssetType.CLIP
+    assert len(data["steps"]) == 1
+
+
+def test_create_reels_format_resolves_workspace_asset() -> None:
+    ws, user = _make_workspace_with_user("v15reels@test")
+    sp = _make_spokesperson(ws)
+    base = _make_clip(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "reels_format",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "base_clip_id": str(base.pk),
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    assert data["template_kind"] == "reels_format"
+    assert data["status"] == CompositionStatus.COMPLETED
+
+
+def test_create_dialogue_scene_uses_custom_resolver() -> None:
+    ws, user = _make_workspace_with_user("v15dlg@test")
+    sp_a = _make_spokesperson(ws, name="A", avatar_id="av_a")
+    sp_b = _make_spokesperson(ws, name="B", avatar_id="av_b")
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "dialogue_scene",
+            "workspace": str(ws.pk),
+            "params": {
+                "primary_spokesperson_id": str(sp_a.pk),
+                "lines": [
+                    {"spokesperson_id": str(sp_a.pk), "text": "Line one"},
+                    {"spokesperson_id": str(sp_b.pk), "text": "Line two"},
+                ],
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    assert data["template_kind"] == "dialogue_scene"
+    # 2 speech steps + 1 concat
+    assert len(data["steps"]) == 3
+    assert data["status"] == CompositionStatus.COMPLETED
+
+
+# ---- POST /api/compositions/ — failure paths ---------------------
+
+
+def test_create_rejects_unknown_kind() -> None:
+    ws, user = _make_workspace_with_user("v15unk@test")
+    client = APIClient()
+    _login(client, user)
+    response = client.post(
+        "/api/compositions/",
+        {"kind": "no_such", "workspace": str(ws.pk), "params": {}},
+        format="json",
+    )
+    assert response.status_code == http.HTTP_400_BAD_REQUEST
+
+
+def test_create_rejects_missing_kind() -> None:
+    ws, user = _make_workspace_with_user("v15nokind@test")
+    client = APIClient()
+    _login(client, user)
+    response = client.post(
+        "/api/compositions/",
+        {"workspace": str(ws.pk), "params": {}},
+        format="json",
+    )
+    assert response.status_code == http.HTTP_400_BAD_REQUEST
+
+
+def test_create_rejects_cross_workspace_spokesperson() -> None:
+    ws_a, user_a = _make_workspace_with_user("v15xspa@test", "A")
+    ws_b, _user_b = _make_workspace_with_user("v15xspb@test", "B")
+    foreign_sp = _make_spokesperson(ws_b)
+    client = APIClient()
+    _login(client, user_a)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head",
+            "workspace": str(ws_a.pk),
+            "params": {
+                "spokesperson_id": str(foreign_sp.pk),
+                "script": "some script content here",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_400_BAD_REQUEST
+
+
+def test_create_rejects_cross_workspace_asset() -> None:
+    ws_a, user_a = _make_workspace_with_user("v15xasa@test", "A")
+    ws_b, _user_b = _make_workspace_with_user("v15xasb@test", "B")
+    sp_a = _make_spokesperson(ws_a)
+    foreign_clip = _make_clip(ws_b)
+    client = APIClient()
+    _login(client, user_a)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "reels_format",
+            "workspace": str(ws_a.pk),
+            "params": {
+                "spokesperson_id": str(sp_a.pk),
+                "base_clip_id": str(foreign_clip.pk),
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_400_BAD_REQUEST
+
+
+def test_create_rejects_non_member() -> None:
+    ws_a, _user_a = _make_workspace_with_user("v15nmema@test", "A")
+    _ws_b, user_b = _make_workspace_with_user("v15nmemb@test", "B")
+    sp_a = _make_spokesperson(ws_a)
+    client = APIClient()
+    _login(client, user_b)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head",
+            "workspace": str(ws_a.pk),
+            "params": {
+                "spokesperson_id": str(sp_a.pk),
+                "script": "trying to render in foreign workspace",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_403_FORBIDDEN
+
+
+def test_create_rejects_non_owner_role() -> None:
+    ws, owner = _make_workspace_with_user("v15roleown@test")
+    sp = _make_spokesperson(ws)
+    editor = User.objects.create_user(email="editor@test", password="x")
+    Membership.objects.create(
+        user=editor, workspace=ws, role=Membership.Role.EDITOR,
+    )
+    client = APIClient()
+    _login(client, editor)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": "editors cannot create comps in v1",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_403_FORBIDDEN
+
+
+def test_create_rejects_missing_required_field() -> None:
+    ws, user = _make_workspace_with_user("v15missingfield@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+    # talking_head requires script — omit it.
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_400_BAD_REQUEST
+
+
+def test_create_unauthenticated_rejected() -> None:
+    client = APIClient()
+    response = client.post(
+        "/api/compositions/",
+        {"kind": "talking_head", "workspace": "x", "params": {}},
+        format="json",
+    )
+    assert response.status_code in {
+        http.HTTP_401_UNAUTHORIZED, http.HTTP_403_FORBIDDEN,
+    }
+
+
+# ---- GET /api/compositions/ + retrieve ---------------------------
+
+
+def test_retrieve_composition_includes_steps_and_final_asset() -> None:
+    ws, user = _make_workspace_with_user("v15ret@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    create_response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": "retrieve flow test script content here.",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert create_response.status_code == http.HTTP_201_CREATED
+    comp_id = create_response.json()["id"]
+
+    response = client.get(f"/api/compositions/{comp_id}/")
+    assert response.status_code == http.HTTP_200_OK
+    data = response.json()
+    assert data["id"] == comp_id
+    assert data["template_kind"] == "talking_head"
+    assert data["final_asset"] is not None
+    assert len(data["steps"]) == 1
+
+
+def test_retrieve_cross_workspace_rejected() -> None:
+    ws_a, user_a = _make_workspace_with_user("v15xret_a@test", "A")
+    _ws_b, user_b = _make_workspace_with_user("v15xret_b@test", "B")
+    sp_a = _make_spokesperson(ws_a)
+    client_a = APIClient()
+    _login(client_a, user_a)
+    create_response = client_a.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head",
+            "workspace": str(ws_a.pk),
+            "params": {
+                "spokesperson_id": str(sp_a.pk),
+                "script": "private content in workspace A",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    comp_id = create_response.json()["id"]
+
+    # User B (different workspace) tries to read it.
+    client_b = APIClient()
+    _login(client_b, user_b)
+    response = client_b.get(f"/api/compositions/{comp_id}/")
+    assert response.status_code == http.HTTP_404_NOT_FOUND
+
+
+def test_list_compositions_scoped_to_caller() -> None:
+    ws_a, user_a = _make_workspace_with_user("v15lista@test", "A")
+    ws_b, user_b = _make_workspace_with_user("v15listb@test", "B")
+    sp_a = _make_spokesperson(ws_a)
+    sp_b = _make_spokesperson(ws_b)
+    client_a = APIClient()
+    _login(client_a, user_a)
+    client_b = APIClient()
+    _login(client_b, user_b)
+
+    # Each user creates one composition in their workspace.
+    for client, ws, sp in [(client_a, ws_a, sp_a), (client_b, ws_b, sp_b)]:
+        r = client.post(
+            "/api/compositions/",
+            {
+                "kind": "talking_head",
+                "workspace": str(ws.pk),
+                "params": {
+                    "spokesperson_id": str(sp.pk),
+                    "script": "list scoping content",
+                    "mock_mode": True,
+                },
+            },
+            format="json",
+        )
+        assert r.status_code == http.HTTP_201_CREATED, r.content
+
+    response_a = client_a.get("/api/compositions/")
+    assert response_a.status_code == http.HTTP_200_OK
+    data_a = response_a.json()
+    assert len(data_a) == 1
+    assert data_a[0]["workspace"] == str(ws_a.pk)
+
+    response_b = client_b.get("/api/compositions/")
+    data_b = response_b.json()
+    assert len(data_b) == 1
+    assert data_b[0]["workspace"] == str(ws_b.pk)
