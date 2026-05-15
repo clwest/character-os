@@ -614,8 +614,7 @@ independently-shipping slices.
   F9 removes the route file itself. The two-slice
   retirement gave the V-arc time to bed in before
   hard deletion.
-- **F10 — Arc closure.** ✓ SHIPPED SESSION 144 (commit
-  TBD). Docs-only — this doc's slice table is now fully
+- **F10 — Arc closure.** ✓ SHIPPED SESSION 144 (`94b2d13`). Docs-only — this doc's slice table is now fully
   marked, the SESSION 144 handoff at
   `docs/handoffs/SESSION_144_FABRIC_ARC.md` aggregates
   the arc summary + V14 + V15 buildout, CLAUDE.md
