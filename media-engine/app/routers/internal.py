@@ -3095,6 +3095,256 @@ def post_internal_transcribe(
     return InternalTranscribeResponse(**response_dict)
 
 
+# ---- V13 generate_image ------------------------------------------
+#
+# SESSION 143 / V13. Generic Runway image generation via
+# /v1/text_to_image with model gen4_image. The existing
+# /internal/portrait/ stays in place for the wizard's
+# portrait-template flow; /internal/images/ is the generic
+# version that accepts free-form prompts + optional
+# reference images for the V13 storyboard recipe.
+
+
+_GEN4_IMAGE_MODEL = "gen4_image"
+_IMAGE_GEN_DEADLINE_S = 90.0
+_IMAGE_RATIOS = {"1280:720", "720:1280", "1024:1024"}
+
+
+class InternalImageCreate(BaseModel):
+    """Request body for ``POST /internal/images/``."""
+
+    prompt: str = Field(..., min_length=4, max_length=2000)
+    ratio: str = Field(default="1280:720")
+    seed: Optional[int] = Field(default=None, ge=0, le=2**32 - 1)
+    reference_image_url: Optional[str] = Field(default=None, max_length=2048)
+
+
+class InternalImageResponse(BaseModel):
+    image_url: str
+    width: Optional[int] = None
+    height: Optional[int] = None
+    seed: Optional[int] = None
+    mock_mode: bool
+
+
+def _images_dir(settings: Settings) -> Path:
+    target = settings.data_path / "_internal" / "images"
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def _ratio_dims(ratio: str) -> tuple[int, int]:
+    w, _, h = ratio.partition(":")
+    try:
+        return int(w), int(h)
+    except ValueError:
+        return 1280, 720
+
+
+@router.post(
+    "/images/", response_model=InternalImageResponse,
+)
+def post_internal_image(
+    body: InternalImageCreate,
+    settings: Settings = Depends(get_settings),
+):
+    """Generate an image via Runway gen4_image. Synchronous;
+    polls /v1/tasks/{id} inside the handler. Caches output by
+    hash(prompt + ratio + seed + reference_image)."""
+    if body.ratio not in _IMAGE_RATIOS:
+        return _error(
+            400, "invalid_settings",
+            f"ratio must be one of {sorted(_IMAGE_RATIOS)}; got {body.ratio!r}",
+        )
+
+    prompt = body.prompt.strip()
+    ref_url = (body.reference_image_url or "").strip() or None
+    seed = body.seed
+
+    cache_seed = (
+        f"{prompt}|{body.ratio}|{seed}|{ref_url or ''}"
+    ).encode("utf-8")
+    cache_key = hashlib.sha256(cache_seed).hexdigest()[:16]
+
+    target_dir = _images_dir(settings)
+    output_path = target_dir / f"{cache_key}.png"
+    width, height = _ratio_dims(body.ratio)
+
+    if output_path.exists():
+        return InternalImageResponse(
+            image_url=f"/data/_internal/images/{output_path.name}",
+            width=width, height=height, seed=seed,
+            mock_mode=False,
+        )
+
+    if settings.runway_mock:
+        # Deterministic 1x1 mock PNG keyed off cache_key. Same
+        # _solid_png helper the existing portrait endpoint uses
+        # — picks a deterministic color from the seed string.
+        mock_color = _mock_color_for(cache_key)
+        png_bytes = _solid_png(width, height, mock_color)
+        _atomic_write_bytes(output_path, png_bytes)
+        logger.info(
+            "internal image mock prompt_chars=%d ratio=%s output=%s",
+            len(prompt), body.ratio, output_path.name,
+        )
+        return InternalImageResponse(
+            image_url=f"/data/_internal/images/{output_path.name}",
+            width=width, height=height, seed=seed,
+            mock_mode=True,
+        )
+
+    # Real mode — POST /v1/text_to_image, poll, download.
+    body_payload: dict = {
+        "model": _GEN4_IMAGE_MODEL,
+        "promptText": prompt[:2000],
+        "ratio": body.ratio,
+    }
+    if seed is not None:
+        body_payload["seed"] = int(seed)
+    # Reference image is required by gen4_image; if the operator
+    # didn't supply one, seed with a 1x1 neutral grey so the API
+    # doesn't reject. Same workaround the existing portrait
+    # endpoint uses.
+    ref_data_uri = _image_url_to_data_uri(ref_url, settings) if ref_url else None
+    if ref_data_uri is None:
+        ref_data_uri = _seed_neutral_data_uri()
+    body_payload["referenceImages"] = [{"uri": ref_data_uri, "tag": "ref"}]
+
+    create_url = f"{settings.runway_api_base}/v1/text_to_image"
+    import time as _time
+
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.post(
+                create_url, headers=_runway_headers(settings), json=body_payload,
+            )
+            if resp.status_code != 200:
+                logger.warning(
+                    "image create rc=%s body=%s",
+                    resp.status_code, resp.text[:300],
+                )
+                return _error(
+                    502, "upstream_runway_error",
+                    f"runway returned {resp.status_code}",
+                )
+            created = resp.json()
+    except httpx.HTTPError as exc:
+        return _error(502, "upstream_runway_error", f"http error: {exc!s}"[:300])
+    except Exception as exc:  # pragma: no cover
+        logger.exception("image create unexpected")
+        return _error(500, "internal_error", f"unexpected: {exc!s}"[:300])
+
+    task_id = created.get("id")
+    if not task_id:
+        return _error(
+            502, "upstream_runway_error",
+            "runway image response missing task id",
+        )
+
+    deadline = _time.time() + _IMAGE_GEN_DEADLINE_S
+    final_payload = None
+    try:
+        with httpx.Client(timeout=20.0) as client:
+            while _time.time() < deadline:
+                r = client.get(
+                    f"{settings.runway_api_base}/v1/tasks/{task_id}",
+                    headers=_runway_headers(settings),
+                )
+                r.raise_for_status()
+                payload = r.json()
+                status = (payload.get("status") or "").upper()
+                if status == "SUCCEEDED":
+                    final_payload = payload
+                    break
+                if status in {"FAILED", "CANCELED"}:
+                    reason = payload.get("failure") or payload.get("error") or status
+                    code = payload.get("failureCode") or ""
+                    return _error(
+                        502, "upstream_runway_error",
+                        f"image task {status}: {reason}"
+                        + (f" [code={code}]" if code else ""),
+                    )
+                _time.sleep(3)
+    except httpx.HTTPError as exc:
+        return _error(502, "upstream_runway_error", f"poll error: {exc!s}"[:300])
+
+    if not final_payload:
+        return _error(500, "internal_error", f"image task {task_id} timed out")
+
+    output = final_payload.get("output")
+    out_url: Optional[str] = None
+    if isinstance(output, list):
+        for v in output:
+            if isinstance(v, str):
+                out_url = v
+                break
+    if not out_url:
+        return _error(
+            502, "upstream_runway_error",
+            f"image task {task_id} produced no output url",
+        )
+
+    # Download the generated image to local cache.
+    tmp = output_path.with_suffix(".png.tmp")
+    try:
+        with httpx.Client(timeout=60.0) as client:
+            with client.stream("GET", out_url) as r:
+                r.raise_for_status()
+                with tmp.open("wb") as fh:
+                    for chunk in r.iter_bytes(64 * 1024):
+                        fh.write(chunk)
+        tmp.replace(output_path)
+    except httpx.HTTPError as exc:
+        tmp.unlink(missing_ok=True)
+        return _error(502, "upstream_runway_error", f"download error: {exc!s}"[:300])
+
+    logger.info(
+        "internal image done prompt_chars=%d ratio=%s task=%s size=%d",
+        len(prompt), body.ratio, task_id, output_path.stat().st_size,
+    )
+    return InternalImageResponse(
+        image_url=f"/data/_internal/images/{output_path.name}",
+        width=width, height=height, seed=seed,
+        mock_mode=False,
+    )
+
+
+def _seed_neutral_data_uri() -> str:
+    """1x1 neutral-grey PNG as a base64 data URI. Used as the
+    referenceImages seed when the operator didn't supply one
+    (gen4_image rejects requests without at least one reference
+    image)."""
+    png = _solid_png(1, 1, (200, 200, 200))
+    return "data:image/png;base64," + base64.b64encode(png).decode("ascii")
+
+
+def _image_url_to_data_uri(url: str, settings: Settings) -> Optional[str]:
+    """Resolve a reference image URL to a data URI. Tries local
+    path under data_path first, then HTTP(S) download. Returns
+    None if the URL can't be resolved (caller falls back to the
+    neutral seed)."""
+    try:
+        local = _download_concat_input(
+            url, _images_dir(settings) / "refs", settings,
+        )
+    except Exception:
+        return None
+    if not local.exists():
+        return None
+    try:
+        data = local.read_bytes()
+    except OSError:
+        return None
+    ext = local.suffix.lower().lstrip(".")
+    mime_by_ext = {
+        "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+        "webp": "image/webp",
+    }
+    mime = mime_by_ext.get(ext, "image/png")
+    return f"data:{mime};base64," + base64.b64encode(data).decode("ascii")
+
+
 # ---- POST /internal/voices/ ---------------------------------------
 #
 # Inline / synchronous voice cloning. Runway's clone returns in <10 s

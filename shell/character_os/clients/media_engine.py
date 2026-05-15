@@ -245,6 +245,17 @@ class TranscribeResult:
 
 
 @dataclass
+class GenerateImageResult:
+    """Decoded response from ``POST /internal/images/``."""
+
+    image_url: str
+    width: int | None
+    height: int | None
+    seed: int | None
+    mock_mode: bool
+
+
+@dataclass
 class StyleRemixResult:
     """Decoded response from ``POST /internal/clips/style_remix/``.
 
@@ -774,6 +785,40 @@ class MediaEngineClient:
         except (KeyError, TypeError, ValueError) as exc:
             raise MediaEngineError(
                 f"style_remix response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
+    def generate_image(
+        self,
+        *,
+        prompt: str,
+        ratio: str = "1280:720",
+        seed: int | None = None,
+        reference_image_url: str | None = None,
+    ) -> "GenerateImageResult":
+        """Hit ``POST /internal/images/`` — gen4_image text-to-image.
+        Synchronous; polls Runway internally. v1 supports the same
+        three aspect ratios as visual_clip (1280:720, 720:1280,
+        1024:1024). Reference image is optional; gen4_image's
+        hard requirement is satisfied server-side with a neutral
+        seed when the operator doesn't supply one."""
+        body: dict[str, Any] = {"prompt": prompt, "ratio": ratio}
+        if seed is not None:
+            body["seed"] = seed
+        if reference_image_url is not None:
+            body["reference_image_url"] = reference_image_url
+        data = self.request("POST", "/internal/images/", json=body)
+        try:
+            return GenerateImageResult(
+                image_url=str(data["image_url"]),
+                width=(int(data["width"]) if data.get("width") is not None else None),
+                height=(int(data["height"]) if data.get("height") is not None else None),
+                seed=(int(data["seed"]) if data.get("seed") is not None else None),
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"generate_image response not in expected shape: {data!r}",
                 response_text=str(data),
             ) from exc
 

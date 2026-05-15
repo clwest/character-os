@@ -1237,6 +1237,136 @@ def style_remix_pass(
 
 
 @transaction.atomic
+def storyboard_ad(
+    *,
+    workspace: "Workspace",
+    spokesperson: "Spokesperson",
+    hook_prompt: str,
+    action_prompt: str,
+    payoff_prompt: str,
+    image_seed: int | None = None,
+    clip_duration: int = 5,
+    mock_mode: bool = False,
+    name: str = "",
+    created_by: "AbstractBaseUser | None" = None,
+) -> Composition:
+    """Three-shot cinematic ad — Hook / Action / Payoff.
+
+    Ports the hackathon's storyboard_service.py pattern into
+    the V0+ composition arc. Seven-step recipe:
+
+      Step 0-2: generate_image (Hook / Action / Payoff frames)
+      Step 3-5: generate_visual_clip (each step takes the
+        matching image as reference_image; gen4_turbo image-
+        to-video animates the still into a clip)
+      Step 6: concat_clips (Hook + Action + Payoff in order)
+
+    The reference_image chain keeps visual identity consistent
+    across the three shots — same color palette, same subject,
+    same composition logic. ``image_seed`` reused across all
+    three generate_image steps for further coherence.
+
+    Args:
+        hook_prompt / action_prompt / payoff_prompt: Three
+            visual beats. Operator writes one short prompt per
+            shot. Order is preserved in the concat.
+        image_seed: Optional Runway seed for image generation.
+            Same seed across all three shots keeps visual
+            style coherent. None lets Runway pick.
+        clip_duration: Per-shot duration in seconds. gen4_turbo
+            accepts only ``{5}``. Default 5 → ~15s total.
+        mock_mode: Run in mock-mode (V0 contract rule 9). All
+            seven steps short-circuit to deterministic stubs.
+
+    Returns:
+        ``Composition`` with 7 steps. Caller enqueues
+        ``execute_composition.delay(str(c.id))``.
+
+    Note: ``storyboard_voiced`` (the voiced variant per V0
+    design) is deferred — it requires extracting the audio
+    track from a generate_avatar_speech CLIP, which needs an
+    ``audio_extract`` primitive we haven't built yet. Land
+    that primitive (V14+) before adding the voiced starter.
+    """
+    if not hook_prompt.strip():
+        raise ValueError("storyboard_ad requires a non-empty hook_prompt")
+    if not action_prompt.strip():
+        raise ValueError("storyboard_ad requires a non-empty action_prompt")
+    if not payoff_prompt.strip():
+        raise ValueError("storyboard_ad requires a non-empty payoff_prompt")
+    if spokesperson.workspace_id != workspace.pk:
+        raise ValueError(
+            f"spokesperson {spokesperson.name!r} not in workspace {workspace.pk}"
+        )
+
+    composition_name = (
+        name.strip() or f"Storyboard — {hook_prompt.strip()[:30]}"
+    )
+    composition = Composition.objects.create(
+        workspace=workspace,
+        spokesperson=spokesperson,
+        name=composition_name,
+        template_kind="storyboard_ad",
+        mock_mode=mock_mode,
+        created_by=created_by,
+    )
+
+    shot_prompts = [
+        ("hook", hook_prompt.strip()),
+        ("action", action_prompt.strip()),
+        ("payoff", payoff_prompt.strip()),
+    ]
+
+    # Steps 0-2 — three reference images. Same seed across
+    # shots for visual coherence.
+    for idx, (_label, prompt) in enumerate(shot_prompts):
+        image_params: dict[str, object] = {"prompt": prompt}
+        if image_seed is not None:
+            image_params["seed"] = int(image_seed)
+        CompositionStep.objects.create(
+            composition=composition,
+            position=idx,
+            primitive="generate_image",
+            inputs=[],
+            params=image_params,
+        )
+
+    # Steps 3-5 — three image-to-video clips, each consuming
+    # the matching image step's output via reference_image
+    # slot.
+    for idx, (_label, prompt) in enumerate(shot_prompts):
+        CompositionStep.objects.create(
+            composition=composition,
+            position=3 + idx,
+            primitive="generate_visual_clip",
+            inputs=[
+                {"slot": "reference_image", "from_step_position": idx},
+            ],
+            params={"prompt": prompt, "duration": clip_duration},
+        )
+
+    # Step 6 — concat the three clips in order.
+    concat_inputs = [
+        {"slot": "clip", "from_step_position": 3 + idx}
+        for idx in range(3)
+    ]
+    CompositionStep.objects.create(
+        composition=composition,
+        position=6,
+        primitive="concat_clips",
+        inputs=concat_inputs,
+        params={},
+    )
+
+    logger.info(
+        "starter storyboard_ad created composition=%s spokesperson=%s "
+        "mock=%s seed=%s duration_per_shot=%d",
+        composition.id, spokesperson.id, mock_mode, image_seed, clip_duration,
+    )
+    return composition
+
+
+@transaction.atomic
 def music_bed_pass(
     *,
     workspace: "Workspace",

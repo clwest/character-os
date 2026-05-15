@@ -31,6 +31,7 @@ from typing import Protocol, Type
 from .avatar_speech import GenerateAvatarSpeechPrimitive
 from .composite_video import CompositeVideoPrimitive
 from .concat_clips import ConcatClipsPrimitive
+from .generate_image import GenerateImagePrimitive
 from .mix_audio import MixAudioPrimitive
 from .mock import (
     MockFailurePrimitive,
@@ -97,7 +98,9 @@ _REGISTRY: dict[str, Type[Primitive]] = {
     "dub_audio": DubAudioPrimitive,  # V10
     "style_remix": StyleRemixPrimitive,  # V11
     "transcribe": TranscribePrimitive,  # V12
-    # V13+: generate_image
+    "generate_image": GenerateImagePrimitive,  # V13
+    # V14+: dialogue_scene (uses generate_avatar_speech)
+    # V15: SPA recipe gallery (no new primitives)
 }
 
 
