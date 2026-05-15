@@ -30,7 +30,67 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_142_VIDEO_COMPOSITION_LOCK.md`.
+> **Last handoff:** `docs/handoffs/SESSION_144_FABRIC_ARC.md`.
+
+---
+
+## SESSION 144 outcome — V14 + V-arc closure + fabric arc
+
+Three sequential arcs closed in one extended session.
+**99 new backend tests** (339 → 438). **Zero new
+persistence** across the entire fabric arc.
+
+* **V14** (`6f61e4b`) — `dialogue_scene` + `audio_extract`.
+  First doc-with-commit-discipline slice.
+* **V15.0-V15.4** — V-arc closure. 18 starter recipes / 13
+  step primitives / 123 media-engine routes / 393 backend
+  tests at V-arc close. SPA recipe gallery live at
+  `/recipes` with metadata-driven forms. Legacy
+  `MakeVideoRoute` deleted (F9) while V6 backend shim
+  stays intact.
+* **F0-F10** — workspace fabric arc. Scope-locked +
+  shipped in the same session. Three SPA islands
+  collapsed into one workspace. 4 new read-only REST
+  endpoints, persistent nav rail, cross-cut dashboard,
+  knowledge ↔ composition bidirectional graph,
+  brief-mode helper that surfaces K6's LLM synthesis,
+  onboarding tour.
+
+Full handoff at
+`docs/handoffs/SESSION_144_FABRIC_ARC.md`.
+
+### What's next (SESSION 145) — pick one
+
+**Option A — K8/K9 conversation pipeline (recommended).**
+Heaviest remaining capability. K8 schema (mirrors K2's
+shape), K9 REST + SPA. Unlocks the
+ConversationThread surface that's existed in models since
+SESSION 117 but has no UI. After K9, every spokesperson
+exposes "talk to me" as a top-level capability.
+
+**Option B — R1+ realtime avatar.** WebRTC two-way
+conversations. Scope-locked SESSION 142
+(`docs/design/REALTIME_AVATAR_V1.md`). R1 (schema)
+mirrors V1's shape and is unblocked by V1. Qualitatively
+different surface from K8/K9 (live vs persisted).
+
+**Option C — F8.1 K10 seed corpus.** Small slice. Blocks
+on operator-authored `docs/seeds/character_os/*.md` —
+once those land, F8.1 wires migration + signal + Celery
+task + tests in 30-60 minutes.
+
+**Option D — K7.x YouTube ingest fix.** Captured in
+project memory
+`project_youtube_ingest_silent_failure.md`. Detect-reject
+silent trafilatura failures + per-host YouTube
+transcript extractor. Small slice; useful operator-facing
+fix.
+
+**Recommendation**: K8/K9. The fabric arc closed the
+"render workflow feels unified" gap; K8/K9 closes the
+"every spokesperson should be conversational" gap which
+is the last remaining product-level capability hole.
+R1+ + F8.1 + K7.x can each ride a smaller session.
 
 ---
 
@@ -108,7 +168,7 @@ contract.
 | F8 | Onboarding walkthrough (tour banner only — split from K10 seed) | DONE (SESSION 144) |
 | F8.1 | K10 seed corpus (operator-authored markdown + signal/task wiring) | Queued (needs operator-authored seed docs) |
 | F9 | Legacy single-form SPA deletion (`/spokespeople/<id>/render` route) | DONE (SESSION 144) |
-| F10 | Fabric arc closure + retro | **NEXT (SESSION 144)** |
+| F10 | Fabric arc closure + retro — **FABRIC ARC COMPLETE** | DONE (SESSION 144) |
 | R0 | Realtime avatar arc — scope lock                | DONE (SESSION 142) |
 | R1 | RealtimeSession + RealtimeToolInvocation schema | Queued |
 | R2 | Media-engine `/internal/realtime_sessions/` + provider abstraction | Queued |

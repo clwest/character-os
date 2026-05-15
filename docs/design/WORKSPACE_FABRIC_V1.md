@@ -614,9 +614,112 @@ independently-shipping slices.
   F9 removes the route file itself. The two-slice
   retirement gave the V-arc time to bed in before
   hard deletion.
-- **F10 — Arc closure.** Summary + retro. Identify what
-  the next arc should be (K-arc finish via K8-K10, R-arc
-  start via R1, or Phase 5 agency-tier UI).
+- **F10 — Arc closure.** ✓ SHIPPED SESSION 144 (commit
+  TBD). Docs-only — this doc's slice table is now fully
+  marked, the SESSION 144 handoff at
+  `docs/handoffs/SESSION_144_FABRIC_ARC.md` aggregates
+  the arc summary + V14 + V15 buildout, CLAUDE.md
+  Phase 4 reflects the fabric arc as COMPLETE, and the
+  start-here doc names the candidate next arcs.
+
+---
+
+## Arc closure — what F0-F9 delivered
+
+Ten slices spanning SESSION 144. Started from three
+operator surfaces that worked in isolation (Spokespeople,
+Knowledge, Recipes) and closed with one workspace
+experience. Roughly 35 commits — feature commits + paired
+docs + commit-ref back-fills — all under 50 LoC of net
+SPA-only state and one new client-side feature flag
+(localStorage dismiss).
+
+**Zero new models.** F0 contract rule 1 held across every
+slice. Every fabric surface is a cross-cut of existing
+data — `Composition.knowledge_chunk_ids`, `Asset.composition`,
+`KnowledgeChunk.document`, `Spokesperson.workspace` — all
+shipped before the F-arc opened.
+
+**Four new REST endpoints, all read-only views:**
+* `GET /api/workspace/overview/` (F3) — single-roundtrip
+  cross-cut for the dashboard.
+* `POST /api/knowledge/preview/` (F4) — F4 retrieval
+  preview for the recipe form, wrapping
+  `retrieve_for_spokesperson`.
+* `GET /api/compositions/<id>/lineage/` (F5) — derived_from
+  + used_by asset-graph shapes.
+* `GET /api/knowledge/<id>/compositions/` (F7) — reverse
+  view to F6 (which is a `SerializerMethodField`, not an
+  endpoint).
+
+**Six load-bearing patterns the fabric arc established:**
+
+1. **URL hints, not bindings (F1).** Cross-section
+   navigation passes context via query params the
+   receiving surface respects without depending on. The
+   recipe form's spokesperson dropdown still works without
+   the hint; with the hint it pre-binds. Same shape
+   reused in F9 for the "Try again" link from failed
+   renders.
+
+2. **One nav rail to anchor the workspace mental model
+   (F2).** Four sections, stable, contract rule 7
+   protects against accidental fifth section drift.
+
+3. **State-derived UX over stored progress (F3 + F8).**
+   Dashboard tiles and the onboarding banner both
+   compute their state from actual workspace data —
+   no "step completed" flags to keep in sync. Operator
+   completes a step in another tab; the banner reflects
+   it on next load.
+
+4. **Best-effort surfaces (F4).** Preview panels can
+   fail, time out, or return empty without blocking the
+   form submit. The retrieval call is informative, not
+   load-bearing. F4's `preview_failed=True` shape lets
+   the SPA render gracefully even when the backend
+   sneezes.
+
+5. **Bidirectional graph navigation closed (F5 + F6 +
+   F7).** Composition → docs (F6 citations), docs →
+   compositions (F7 reverse), composition → composition
+   (F5 lineage). Same shape on both ends of each pair
+   so the operator's navigation pattern carries across.
+
+6. **Two-slice retirement (V15.4 + F9).** Retire CTAs
+   first (V15.4 flipped every link to `/recipes`), then
+   delete the route file after operators have time to
+   find the new path. F9's deletion was 31 lines added
+   and 373 deleted — clean removal of a fully-replaced
+   surface.
+
+**One scope-lock honesty correction (F7).** The scope
+lock called F7 "SPA-only" but the inverse query needed
+a real backend endpoint. F0 contract rule 1 (no new
+persistence) held; the doc was just optimistic about
+client-side feasibility. Calibration note in the
+SESSION 144 handoff.
+
+**One scope-lock split (F8 → F8 + F8.1).** Original F8
+conflated the tour UI with the K10 seed corpus; per F0
+rule 9 (one journey per slice) these are two journeys
+and the seed corpus is operator-authored content that
+shouldn't be ghost-written. F8 ships the tour now; F8.1
+queued for when operator drops curated markdown into
+`docs/seeds/character_os/*.md`.
+
+**Test progression**: 393 backend (start of fabric arc,
+V-arc closure) → 438 backend (F9 close). +45 tests
+across F3-F7. F8 + F9 are SPA-only. F4 covered by 10
+backend tests + the most-tested SPA panel in the arc
+(the brief-mode helper resolves a UX bug + the
+preview panel proves K6's value).
+
+The fabric arc closes here. Next arc candidates are
+queued in `00-START-NEXT-SESSION.md` — K8-K10
+conversation pipeline, R1+ realtime, F8.1 once corpus
+lands, or the K7 YouTube ingest fix surfaced
+mid-arc.
 
 Roughly 10 slices, 4-6 sessions of work. F1 is the highest
 single-slice leverage; F2 is the highest scaffolding

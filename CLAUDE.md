@@ -148,18 +148,23 @@ Update this section when a phase completes.
     models sharing V1's Asset persistence, provider-
     abstraction registry. R1 (schema) is the next slice;
     unblocked by V1.
-  - **Workspace fabric arc (F0-F10).** F0 scope lock shipped
-    SESSION 144 (`docs/design/WORKSPACE_FABRIC_V1.md`).
-    9 contract rules; merges Spokespeople / Knowledge /
-    Recipes into one workspace experience without adding
-    persistence (rule 1: no new models). 10 slices —
-    per-spokesperson recipe entry (F1), persistent nav rail
-    (F2), workspace overview (F3), knowledge preview on
-    recipe forms (F4), asset lineage (F5), citations (F6),
-    knowledge-doc → compositions reverse (F7), onboarding
-    walkthrough subsuming K10 (F8), legacy single-form
-    deletion (F9), arc closure (F10). F1 is the next slice;
-    unblocked by the V-arc closure.
+  - **Workspace fabric arc (F0-F10). COMPLETE.** All 10
+    slices shipped SESSION 144
+    (`docs/design/WORKSPACE_FABRIC_V1.md`). 9 contract
+    rules held; zero new persistence (rule 1). Four
+    new read-only REST endpoints
+    (`/api/workspace/overview/`,
+    `/api/knowledge/preview/`,
+    `/api/compositions/<id>/lineage/`,
+    `/api/knowledge/<id>/compositions/`). 438 backend
+    tests. Three SPA islands (Spokespeople / Knowledge /
+    Recipes) collapsed into one workspace shell with
+    persistent nav, cross-cut dashboard, knowledge ↔
+    composition bidirectional graph, brief-mode
+    explainer surfacing K6's LLM synthesis, onboarding
+    tour, legacy single-form retired (V6 backend shim
+    intact). **F8.1 — K10 seed corpus** queued (blocked
+    on operator-authored markdown).
   Tier 1 prompt helpers ported in SESSION 122 as partial
   credit toward earlier "u-d-b feature port" framing of this
   phase.
