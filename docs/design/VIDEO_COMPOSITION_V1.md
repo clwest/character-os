@@ -663,7 +663,7 @@ is ~1-2 sessions.
 | **V14** ✓ | `dialogue_scene` starter (ports hackathon's `dialogue_service.py`) + `audio_extract` primitive (unlocks the deferred `storyboard_voiced`). Ships SESSION 143 (`6f61e4b`). | "Additional video kinds — dialogue" |
 | **V15.0** ✓ | Backend foundation for the SPA gallery — `apps/compositions/recipes.py` registry of 17 recipe metadata entries + REST surface (`GET /api/recipes/`, `POST /api/compositions/`, `GET /api/compositions/{id}/`). 24 V15.0 backend tests. Ships SESSION 144 (`1781cb1`). | "W12 — Legacy form retirement" |
 | **V15.1** ✓ | SPA gallery shell + first three live recipes (`talking_head`, `cinematic_visual`, `talking_head_polished`); other 14 cards "coming soon". Dashboard CTA flips to `/recipes`. New routes: `/recipes`, `/recipes/:kind`, `/compositions/:id`. Ships SESSION 144 (`74a70d7`). | — |
-| **V15.2** ✓ | Layout + format family forms live (7 recipes: `pip_layout`, `backdrop_layout`, `cohost_layout`, `broll_splice`, `music_bed_pass`, `reels_format`, `talking_head_with_backdrop`). Adds `GET /api/assets/` + SPA `asset_picker` field renderer. Ships SESSION 144 (commit TBD). | — |
+| **V15.2** ✓ | Layout + format family forms live (7 recipes: `pip_layout`, `backdrop_layout`, `cohost_layout`, `broll_splice`, `music_bed_pass`, `reels_format`, `talking_head_with_backdrop`). Adds `GET /api/assets/` + SPA `asset_picker` field renderer. Ships SESSION 144 (`c9a5d8c`). | — |
 | **V15.3** | Voice + style + long-form + storyboard + recut family forms live (6 recipes). | — |
 | **V15.4** | Dialogue (`dialogue_scene`) form + ship the `storyboard_voiced` bonus recipe (V14 audio_extract unblocks it) + soft-retire legacy single-form UI + V-arc closure. | — |
 
@@ -1112,7 +1112,7 @@ the tests cannot fail.
   V15.4 after all 17 recipes have live forms. tsc + vite
   build green; 382 backend tests still pass.
 
-- 2026-05-14 (SESSION 144, V15.2, commit TBD) —
+- 2026-05-14 (SESSION 144, V15.2, `c9a5d8c`) —
   Layout + format family forms live. Seven more recipes
   flip from "coming soon" to fully driveable in the
   gallery: `pip_layout`, `backdrop_layout`,
