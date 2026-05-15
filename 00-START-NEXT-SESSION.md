@@ -30,7 +30,7 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_144_FABRIC_ARC.md`.
+> **Last handoff:** `docs/handoffs/SESSION_145_KNOWLEDGE_ARC_CLOSE.md`.
 
 ---
 
