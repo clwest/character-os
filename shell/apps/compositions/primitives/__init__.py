@@ -28,6 +28,7 @@ from __future__ import annotations
 
 from typing import Protocol, Type
 
+from .audio_extract import AudioExtractPrimitive
 from .avatar_speech import GenerateAvatarSpeechPrimitive
 from .composite_video import CompositeVideoPrimitive
 from .concat_clips import ConcatClipsPrimitive
@@ -99,7 +100,7 @@ _REGISTRY: dict[str, Type[Primitive]] = {
     "style_remix": StyleRemixPrimitive,  # V11
     "transcribe": TranscribePrimitive,  # V12
     "generate_image": GenerateImagePrimitive,  # V13
-    # V14+: dialogue_scene (uses generate_avatar_speech)
+    "audio_extract": AudioExtractPrimitive,  # V14
     # V15: SPA recipe gallery (no new primitives)
 }
 

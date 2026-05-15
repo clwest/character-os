@@ -3345,6 +3345,130 @@ def _image_url_to_data_uri(url: str, settings: Settings) -> Optional[str]:
     return f"data:{mime};base64," + base64.b64encode(data).decode("ascii")
 
 
+# ---- V14 audio_extract -------------------------------------------
+#
+# SESSION 143 / V14. Extract the audio track from a CLIP via
+# ffmpeg `-vn`. Synchronous; output cached by source URL hash.
+# Unblocks the deferred storyboard_voiced starter (V13) by
+# making it possible to take a generate_avatar_speech CLIP and
+# pull its audio for mixing under a silent storyboard.
+
+
+_AUDIO_EXTRACT_FORMATS = {"mp3", "aac", "wav"}
+
+
+class InternalAudioExtractCreate(BaseModel):
+    """Request body for ``POST /internal/audio/extract/``."""
+
+    clip_url: str = Field(..., min_length=1, max_length=2048)
+    format: str = Field(default="mp3")
+
+
+def _audio_extract_dir(settings: Settings) -> Path:
+    target = settings.data_path / "_internal" / "audio_extracts"
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+@router.post(
+    "/audio/extract/", response_model=InternalProcessedClipResponse,
+)
+def post_internal_audio_extract(
+    body: InternalAudioExtractCreate,
+    settings: Settings = Depends(get_settings),
+):
+    """Extract the audio track from a CLIP. Synchronous;
+    output cached by hash(clip_url + format)."""
+    fmt = body.format.strip().lower()
+    if fmt not in _AUDIO_EXTRACT_FORMATS:
+        return _error(
+            400, "invalid_settings",
+            f"format must be one of {sorted(_AUDIO_EXTRACT_FORMATS)}; "
+            f"got {body.format!r}",
+        )
+
+    cache_seed = f"{body.clip_url}|extract|{fmt}".encode("utf-8")
+    cache_key = hashlib.sha256(cache_seed).hexdigest()[:16]
+    ext = "m4a" if fmt == "aac" else fmt
+    target_dir = _audio_extract_dir(settings)
+    output_path = target_dir / f"{cache_key}.{ext}"
+
+    if settings.runway_mock:
+        output_url = f"/data/_internal/audio_extracts/mock-{cache_key}.{ext}"
+        return InternalProcessedClipResponse(
+            output_url=output_url,
+            duration_seconds=5.0,
+            size_bytes=1024 * 50,
+            mock_mode=True,
+        )
+
+    if output_path.exists():
+        return InternalProcessedClipResponse(
+            output_url=f"/data/_internal/audio_extracts/{output_path.name}",
+            duration_seconds=None,
+            size_bytes=output_path.stat().st_size,
+            mock_mode=False,
+        )
+
+    import shutil as _shutil
+    import subprocess as _subprocess
+
+    if not _shutil.which("ffmpeg"):
+        return _error(500, "internal_error", "ffmpeg not found on PATH")
+
+    try:
+        clip_path = _download_concat_input(
+            body.clip_url, target_dir / "sources", settings,
+        )
+    except FileNotFoundError as exc:
+        return _error(400, "validation_error", str(exc))
+    except httpx.HTTPError as exc:
+        return _error(502, "upstream_runway_error", f"download error: {exc!s}"[:300])
+
+    tmp = output_path.with_suffix(output_path.suffix + ".tmp")
+    codec_args: list[str] = []
+    if fmt == "mp3":
+        codec_args = ["-c:a", "libmp3lame", "-b:a", "192k"]
+    elif fmt == "aac":
+        codec_args = ["-c:a", "aac", "-b:a", "192k"]
+    elif fmt == "wav":
+        codec_args = ["-c:a", "pcm_s16le"]
+    cmd = [
+        "ffmpeg", "-y", "-loglevel", "error",
+        "-i", str(clip_path),
+        "-vn",
+        *codec_args,
+        "-f", fmt if fmt != "aac" else "mp4",
+        str(tmp),
+    ]
+
+    try:
+        result = _subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()[-400:]
+            tmp.unlink(missing_ok=True)
+            return _error(
+                500, "internal_error",
+                f"ffmpeg rc={result.returncode}: {stderr}",
+            )
+        if not tmp.exists():
+            return _error(500, "internal_error", "ffmpeg produced no output")
+        tmp.replace(output_path)
+    except _subprocess.TimeoutExpired:
+        tmp.unlink(missing_ok=True)
+        return _error(500, "internal_error", "ffmpeg audio_extract timed out")
+    except Exception as exc:  # pragma: no cover — defensive
+        tmp.unlink(missing_ok=True)
+        return _error(500, "internal_error", f"unexpected: {exc!s}"[:300])
+
+    return InternalProcessedClipResponse(
+        output_url=f"/data/_internal/audio_extracts/{output_path.name}",
+        duration_seconds=None,
+        size_bytes=output_path.stat().st_size,
+        mock_mode=False,
+    )
+
+
 # ---- POST /internal/voices/ ---------------------------------------
 #
 # Inline / synchronous voice cloning. Runway's clone returns in <10 s

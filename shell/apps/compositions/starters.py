@@ -1367,6 +1367,140 @@ def storyboard_ad(
 
 
 @transaction.atomic
+def dialogue_scene(
+    *,
+    workspace: "Workspace",
+    primary_spokesperson: "Spokesperson",
+    lines: list[dict],
+    mock_mode: bool = False,
+    name: str = "",
+    created_by: "AbstractBaseUser | None" = None,
+) -> Composition:
+    """Multi-character dialogue scene — N speech turns + 1 concat.
+
+    Ports the hackathon's ``dialogue_service.py`` 6-line skit
+    pattern into the V0+ composition arc. Each line is a
+    `generate_avatar_speech` step that overrides the
+    composition's primary spokesperson via the
+    ``spokesperson_avatar_id`` param, so different characters
+    can speak across the turns without forking the
+    Composition.spokesperson FK.
+
+    Pattern mirrors V5's ``long_form_ad`` — pre-computation at
+    starter creation (the lines list is fixed before the
+    composition runs); V2 runtime sees a deterministic N+1
+    step plan.
+
+    Args:
+        workspace: Composition workspace anchor.
+        primary_spokesperson: The Composition.spokesperson FK
+            owner. Typically the "narrator" / lead character.
+            Used for audit + permission scoping; per-line
+            avatar overrides handle the actual rendering.
+        lines: Ordered list of dialogue turns. Each entry:
+            ``{"spokesperson": <Spokesperson>, "text": "..."}``.
+            All spokespeople must belong to ``workspace``;
+            cross-workspace turns raise ValueError.
+        mock_mode: V0 contract rule 9 — all primitives short-
+          circuit to stub assets.
+
+    Returns:
+        ``Composition`` with N+1 steps (or 1 step for a
+        single-line scene, same degenerate-case optimization
+        as ``long_form_ad``).
+
+    Raises:
+        ``ValueError`` for empty lines, cross-workspace
+        spokespeople, missing avatars, empty text.
+    """
+    if not lines:
+        raise ValueError("dialogue_scene requires at least one line")
+    if primary_spokesperson.workspace_id != workspace.pk:
+        raise ValueError(
+            f"primary spokesperson {primary_spokesperson.name!r} not in workspace"
+        )
+
+    # Validate all per-line spokespeople before creating
+    # anything (atomic-or-bust).
+    validated_lines: list[tuple] = []
+    for idx, entry in enumerate(lines):
+        if not isinstance(entry, dict):
+            raise ValueError(
+                f"dialogue_scene line {idx} must be a dict; got {type(entry).__name__}"
+            )
+        sp = entry.get("spokesperson")
+        if sp is None:
+            raise ValueError(f"dialogue_scene line {idx} missing spokesperson")
+        text = str(entry.get("text", "")).strip()
+        if not text:
+            raise ValueError(f"dialogue_scene line {idx} requires non-empty text")
+        if sp.workspace_id != workspace.pk:
+            raise ValueError(
+                f"dialogue_scene line {idx}: spokesperson {sp.name!r} "
+                f"(workspace {sp.workspace_id}) is not in workspace {workspace.pk}"
+            )
+        if not sp.runway_avatar_id:
+            raise ValueError(
+                f"dialogue_scene line {idx}: spokesperson {sp.name!r} has no "
+                "runway_avatar_id; finish the create-spokesperson wizard first"
+            )
+        validated_lines.append((sp, text))
+
+    composition_name = (
+        name.strip()
+        or f"Dialogue — {validated_lines[0][1][:30]}"
+    )
+    composition = Composition.objects.create(
+        workspace=workspace,
+        spokesperson=primary_spokesperson,
+        name=composition_name,
+        template_kind="dialogue_scene",
+        mock_mode=mock_mode,
+        created_by=created_by,
+    )
+
+    # Steps 0..N-1: one generate_avatar_speech per line, each
+    # overriding the avatar via params.
+    for idx, (sp, text) in enumerate(validated_lines):
+        CompositionStep.objects.create(
+            composition=composition,
+            position=idx,
+            primitive="generate_avatar_speech",
+            inputs=[],
+            params={
+                "script": text,
+                "use_knowledge": False,
+                "spokesperson_avatar_id": sp.runway_avatar_id,
+            },
+        )
+
+    # Step N: concat all prior steps. Skip when there's only
+    # one line — same degenerate-case optimization as
+    # long_form_ad.
+    if len(validated_lines) > 1:
+        concat_inputs = [
+            {"slot": "clip", "from_step_position": i}
+            for i in range(len(validated_lines))
+        ]
+        CompositionStep.objects.create(
+            composition=composition,
+            position=len(validated_lines),
+            primitive="concat_clips",
+            inputs=concat_inputs,
+            params={},
+        )
+
+    logger.info(
+        "starter dialogue_scene created composition=%s primary=%s "
+        "mock=%s lines=%d distinct_avatars=%d",
+        composition.id, primary_spokesperson.id, mock_mode,
+        len(validated_lines),
+        len({sp.runway_avatar_id for sp, _ in validated_lines}),
+    )
+    return composition
+
+
+@transaction.atomic
 def music_bed_pass(
     *,
     workspace: "Workspace",

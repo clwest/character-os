@@ -822,6 +822,21 @@ class MediaEngineClient:
                 response_text=str(data),
             ) from exc
 
+    def audio_extract(
+        self,
+        *,
+        clip_url: str,
+        format: str = "mp3",
+    ) -> "ProcessedClipResult":
+        """Hit ``POST /internal/audio/extract/`` — pull the audio
+        track from a CLIP. Synchronous; returns a cached audio
+        file URL. v1 supports mp3, aac, wav."""
+        data = self.request(
+            "POST", "/internal/audio/extract/",
+            json={"clip_url": clip_url, "format": format},
+        )
+        return _parse_processed_clip(data, "audio_extract")
+
     def transcribe(
         self,
         *,

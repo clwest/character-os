@@ -576,6 +576,7 @@ Each can ship independently.
 | POST | `/internal/clips/captions/` | `add_captions` | ✓ SHIPPED V9 |
 | POST | `/internal/clips/intro_outro/` | `add_intro_outro` | ✓ SHIPPED V9 |
 | POST | `/internal/transcribe/` | `transcribe` | ✓ SHIPPED V12 |
+| POST | `/internal/audio/extract/` | `audio_extract` | ✓ SHIPPED V14 |
 | POST | `/internal/clips/trim/` | `trim_clip` | ✓ SHIPPED V9 |
 | POST | `/internal/clips/concat/` | `concat_clips` | ✓ SHIPPED V5 |
 | POST | `/internal/clips/reformat/` | `reformat_clip` | ✓ SHIPPED V9 |
@@ -659,7 +660,7 @@ is ~1-2 sessions.
 | **V11** ✓ | `style_remix` primitive (Aleph `gen4_aleph` with full chunked-path support — split→parallel remix→concat for sources >5.5s) + `style_remix_pass` starter. 5 style presets (noir/anime/chrome/watercolor/cyberpunk). Ships SESSION 143 (`cfe9214`). | — |
 | **V12** ✓ | `transcribe` primitive (OpenAI Whisper) + `add_captions` auto mode (reads TRANSCRIPT input) + `recut_teaser` composition. **First net-new capability beyond what the hackathon shipped.** Ships SESSION 143 (`8b24465`). | — |
 | **V13** ✓ | `generate_image` primitive (Runway `gen4_image`) + `storyboard_ad` starter (7-step Hook/Action/Payoff with reference-image coherence chain). `storyboard_voiced` deferred — requires an `audio_extract` primitive scheduled for V14+. Ships SESSION 143 (`43be57b`). | "Additional video kinds — cinematic" (storyboard arc) |
-| **V14** | `dialogue_scene` starter (ports hackathon's `dialogue_service.py`) + optional `audio_extract` primitive (unlocks the deferred `storyboard_voiced`). | "Additional video kinds — dialogue" |
+| **V14** ✓ | `dialogue_scene` starter (ports hackathon's `dialogue_service.py`) + `audio_extract` primitive (unlocks the deferred `storyboard_voiced`). Ships SESSION 143 (commit TBD). | "Additional video kinds — dialogue" |
 | **V15** | SPA recipe gallery. Operator picks from starter compositions; form maps to step inputs. Replaces the legacy single-form video create UI. | "W12 — Legacy form retirement" |
 
 Roughly 16 slices, ~12-18 sessions. V0 ships on commit of
@@ -976,3 +977,37 @@ the tests cannot fail.
   followed by context-kit doc updates (slice table mark
   + change log entry); end-of-session handoff aggregates
   the per-slice updates.
+
+- 2026-05-14 (SESSION 143, V14) — `dialogue_scene` starter
+  + `audio_extract` primitive shipped. First slice
+  exercising the new doc-with-commit discipline — slice
+  table mark + this change log entry + start-here update
+  ride in the same commit as the feature code.
+
+  `audio_extract` primitive: CLIP → AUDIO via ffmpeg
+  `-vn` through new `POST /internal/audio/extract/`
+  endpoint. Supports mp3 / aac / wav. Unblocks the
+  deferred `storyboard_voiced` recipe from V13 (the
+  hackathon-shipped storyboard with avatar narration
+  mixed under).
+
+  `dialogue_scene` starter: ports the hackathon's
+  `dialogue_service.py` multi-character skit pattern.
+  Operator supplies an ordered list of
+  `{"spokesperson": <Spokesperson>, "text": "..."}`
+  turns; the starter creates N `generate_avatar_speech`
+  steps (each overriding the avatar via the V3
+  primitive's existing `spokesperson_avatar_id` params
+  knob — no V3 changes needed) + 1 `concat_clips` step.
+  Same pre-computation + degenerate-single-line pattern
+  as V5's `long_form_ad`.
+
+  Composition holds one `primary_spokesperson` FK
+  (audit + permission owner); per-line spokespeople
+  flow through step params for the actual avatar
+  rendering. All per-line spokespeople validated
+  workspace-scoped + avatar-bound at starter time.
+
+  +19 tests (test_v14_dialogue.py). 358 backend tests
+  total. Media-engine: 123 routes (+1 audio/extract).
+  V15 (SPA recipe gallery) is the last V-arc slice.

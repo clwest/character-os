@@ -86,10 +86,9 @@ contract.
 | V10 | Voice flows: `design_voice` + `dub_audio` + 2 starters (restores 29-lang hackathon dubbing) | DONE (SESSION 143) |
 | V11 | `style_remix` (Aleph, chunked path) + `style_remix_pass` starter | DONE (SESSION 143) |
 | V12 | `transcribe` (Whisper) + `add_captions` auto mode + `recut_teaser` (FIRST NET-NEW) | DONE (SESSION 143) |
-| V13 | `generate_image` + `storyboard_ad` starter (storyboard_voiced deferred to V14+) | DONE (SESSION 143) |
-| V14 | `dialogue_scene` starter + optional `audio_extract` (unblocks deferred storyboard_voiced) | **NEXT (SESSION 144)** |
-| V15 | SPA recipe gallery (retires legacy single-form video create UI) | Queued |
-| V15 | SPA recipe gallery (retires legacy single-form) | Queued |
+| V13 | `generate_image` + `storyboard_ad` starter (storyboard_voiced deferred to V14) | DONE (SESSION 143) |
+| V14 | `dialogue_scene` starter + `audio_extract` primitive (unblocks deferred storyboard_voiced) | DONE (SESSION 143) |
+| V15 | SPA recipe gallery (retires legacy single-form video create UI) | **NEXT (SESSION 144)** |
 | R0 | Realtime avatar arc — scope lock                | DONE (SESSION 142) |
 | R1 | RealtimeSession + RealtimeToolInvocation schema | Queued |
 | R2 | Media-engine `/internal/realtime_sessions/` + provider abstraction | Queued |
@@ -190,9 +189,9 @@ slice (after V3 + V4) positions the platform's distinctive
 selling point as early as possible. Change log in
 `docs/design/VIDEO_COMPOSITION_V1.md` §"Change log".
 
-### SESSION 143 — V3 through V13 shipped (eleven capability slices)
+### SESSION 143 — V3 through V14 shipped (twelve capability slices)
 
-Twelve commits landed (eleven feature commits + one
+Thirteen commits landed (twelve feature commits + one
 mid-session reorder), all on `main`, not pushed:
 
 | Slice | Commit | Capability |
@@ -209,18 +208,19 @@ mid-session reorder), all on `main`, not pushed:
 | V11 | `cfe9214` | `style_remix` (Aleph, chunked path) + `style_remix_pass` |
 | V12 | `8b24465` | `transcribe` (Whisper) + `recut_teaser` (FIRST NET-NEW) |
 | V13 | `43be57b` | `generate_image` + `storyboard_ad` |
+| V14 | (TBD) | `dialogue_scene` starter + `audio_extract` primitive (first doc-with-commit slice) |
 
-**Test progression:** 133 → 339 backend tests (+206
-across the slice run). Media-engine: 109 → 122 routes
-(+13 new `/internal/*` endpoints).
+**Test progression:** 133 → 358 backend tests (+225
+across the slice run). Media-engine: 109 → 123 routes
+(+14 new `/internal/*` endpoints).
 
 **Architecture surface after SESSION 143:**
-* 12 step primitives registered (mock + 8 real V3-V13).
-* 12 starter compositions across talking-head, long-form,
+* 13 step primitives registered (3 mock + 10 real V3-V14).
+* 13 starter compositions across talking-head, long-form,
   cinematic, polish, voice, style, teaser, storyboard,
-  + 5 layout modifiers.
+  dialogue, + 5 layout modifiers.
 * 14 sanctioned media-engine `/internal/*` routes for the
-  composition arc.
+  composition arc (audio_extract added in V14).
 * `Video` model wraps a `talking_head` composition under
   the hood; SPA contract unchanged.
 
