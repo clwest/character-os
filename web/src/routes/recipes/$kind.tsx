@@ -69,44 +69,15 @@ export function RecipeFormRoute() {
     });
   }, [spokespersonHint, recipe.data]);
 
-  if (recipe.isLoading || me.isLoading) {
-    return <FormSkeleton />;
-  }
-  if (recipe.isError || !recipe.data) {
-    return (
-      <NotFound
-        message={
-          recipe.error instanceof Error
-            ? recipe.error.message
-            : "Recipe not found"
-        }
-      />
-    );
-  }
-
+  // Rules of Hooks — every hook call has to fire on every
+  // render in the same order. The early returns below for
+  // loading / error / coming-soon / no-workspace states must
+  // come AFTER all hook calls; we compute F4's preview inputs
+  // here so useDebounced + useKnowledgePreview are called
+  // unconditionally and gated by their `enabled` flags
+  // instead of by component-level returns.
   const r = recipe.data;
-  const isLive = LIVE_RECIPE_KINDS.has(r.kind);
-
-  if (!isLive) {
-    return <ComingSoon recipe={r} />;
-  }
-
-  const workspaceId = me.data?.default_workspace?.id;
-  if (!workspaceId) {
-    return <NoWorkspace />;
-  }
-
-  const workspaceSpokespeople = (spokespeople.data ?? []).filter(
-    (s) => s.workspace === workspaceId,
-  );
-
-  // F4 — when the recipe has a `use_knowledge` checkbox and
-  // it's checked, render the knowledge preview + brief-mode
-  // helper. The preview's query is the recipe's primary
-  // textarea field value (script / narration_script /
-  // backdrop_prompt / etc). The first textarea wins; most
-  // knowledge-aware recipes only have one.
-  const useKnowledgeField = r.fields.find(
+  const useKnowledgeField = r?.fields.find(
     (f) => f.name === "use_knowledge" && f.type === "checkbox",
   );
   const hasUseKnowledge = Boolean(useKnowledgeField);
@@ -117,7 +88,7 @@ export function RecipeFormRoute() {
           false,
       )
     : false;
-  const primaryTextareaField = r.fields.find((f) => f.type === "textarea");
+  const primaryTextareaField = r?.fields.find((f) => f.type === "textarea");
   const queryValue =
     typeof form[primaryTextareaField?.name ?? ""] === "string"
       ? (form[primaryTextareaField?.name ?? ""] as string)
@@ -134,6 +105,36 @@ export function RecipeFormRoute() {
     previewEnabled
       ? { spokesperson: spokespersonValue, query: debouncedQuery.trim() }
       : null,
+  );
+
+  if (recipe.isLoading || me.isLoading) {
+    return <FormSkeleton />;
+  }
+  if (recipe.isError || !r) {
+    return (
+      <NotFound
+        message={
+          recipe.error instanceof Error
+            ? recipe.error.message
+            : "Recipe not found"
+        }
+      />
+    );
+  }
+
+  const isLive = LIVE_RECIPE_KINDS.has(r.kind);
+
+  if (!isLive) {
+    return <ComingSoon recipe={r} />;
+  }
+
+  const workspaceId = me.data?.default_workspace?.id;
+  if (!workspaceId) {
+    return <NoWorkspace />;
+  }
+
+  const workspaceSpokespeople = (spokespeople.data ?? []).filter(
+    (s) => s.workspace === workspaceId,
   );
 
   // Determine which asset types this recipe needs. Each
