@@ -16,102 +16,92 @@ state: active
 > (locked SESSION 142 — 9 contract rules, V0-V15 slice breakdown).
 > **Realtime avatar scope lock:** `docs/design/REALTIME_AVATAR_V1.md`
 > (locked SESSION 142 — 10 contract rules, R0-R10 slice
-> breakdown). **R1-R7 + R8.0 shipped; R8.1, R8.2, R9, R10 remain.**
+> breakdown). **R1-R7 + R8.0 + R8.1 shipped; R8.2, R9, R10 remain.**
 > **Workspace fabric scope lock:** `docs/design/WORKSPACE_FABRIC_V1.md`
 > (locked SESSION 144 — 9 contract rules, F0-F10 slice
 > breakdown). **F0-F10 complete; F8.1 queued.**
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_153_R8_SPA_FOUNDATION.md`.
+> **Last handoff:** `docs/handoffs/SESSION_154_R8_APPROVAL_MODAL.md`.
 
 ---
 
-## SESSION 153 outcome — R8.0 SPA realtime foundation
+## SESSION 154 outcome — R8.1 tool-approval modal + cost forecasting
 
-Single-slice session. **The realtime arc is now
-operator-visible.** Operator with a fully-configured
-spokesperson clicks "Talk to {name}" CTA on the detail
-page → lands at `/spokespeople/:id/talk` → walks
-through the full lifecycle (idle → creating → ready →
-live → ended) against the R3 broker + R4 doc composer
-+ R6/R6.1 memory + R5 transcript capture.
+Single-slice session. **`render_video` is now
+demonstrable end-to-end from the SPA in mock mode** —
+the threshold-crossing tool fires the approval modal,
+operator clicks Approve, backend Celery executes the
+Composition, result lands in the tool-result panel.
 
 | Commit | What it shipped |
 |---|---|
-| `7669007` | R8.0 feat — `@runwayml/avatars-react@0.16.0` SDK + `web/src/lib/api/realtime.ts` (createSession + poll + end with Zod schemas honoring contract rule 3) + `web/src/routes/spokespeople/talk.tsx` (lifecycle component) + route registration + "Talk to {name}" CTA + 7 vitest tests + 1 Playwright spec + jest-dom matchers wired into vitest |
-| (this commit) | SESSION 153 handoff + this start-here rewrite + SHA backfill + INVENTORY regen + CLAUDE.md row update |
+| `aac6ee4` | R8.1 feat — `useInvokeTool` + `useApproveInvocation` + `useRejectInvocation` hooks + `ToolApprovalModal` (no Radix dep) + TalkRoute `pendingInvocation` + `lastToolResult` state + IdlePanel cost forecast pill (~$0.40 for 5 min, hardcoded placeholder) + MockSessionPanel debug buttons (fire render_video / show_videos_tab) + ToolResultPanel + tsconfig types fix (jest-dom matchers) + 12 vitest tests |
+| (this commit) | SESSION 154 handoff + this start-here rewrite + SHA backfill + INVENTORY regen + CLAUDE.md row update |
 
-**Mock-mode UX is load-bearing for the demo**:
-`session.mock_mode === true` → SPA skips SDK mount,
-renders "Live (demo mode)" pill + MockSessionPanel
-(shows provider session id / document id). The whole
-realtime arc is now demonstrable end-to-end locally
-without real Runway creds.
+**Test totals**: SPA vitest **22** (10 → 22, +12 R8.1).
+Backend unchanged at **641 backend tests**. SPA build
+clean (1770 modules).
 
-**Test totals**: SPA vitest 3 → 10 (+7). Backend
-unchanged at 641. SPA build clean (1768 modules).
-
-**R8 sub-sliced** at proposal time (per SESSION 149-150
-calibration): R8.0 / R8.1 / R8.2. R8.0 ships the
-minimum viable demo; R8.1 + R8.2 add the
-tool-approval modal + cost forecasting + live cost
-ticker + error paths.
+**The realtime arc demo path now exercises**:
+1. Sign in / sign up.
+2. Create + fully configure a spokesperson.
+3. Click "Talk to {name}" CTA on detail page.
+4. See cost forecast pill ("~$0.40 for 5 min") next to
+   Start button.
+5. Click Start → mock session creates.
+6. Click "Fire `render_video`" debug button.
+7. Approval modal pops ("Sasha wants to render a video
+   for you. Estimated cost: $0.08").
+8. Click Approve → backend Celery fires composition →
+   tool-result panel renders success + composition_id.
+9. Click End → transcript persists.
 
 Full handoff at
-`docs/handoffs/SESSION_153_R8_SPA_FOUNDATION.md`.
+`docs/handoffs/SESSION_154_R8_APPROVAL_MODAL.md`.
 
-### FIRST THING (SESSION 154): R8.1 (tool-approval modal + cost forecasting)
+### FIRST THING (SESSION 155): R8.2 (last R8 piece)
 
-Two visible pieces in one slice:
+Three pieces remaining to close R8:
 
-**Tool-approval modal**:
-* When the avatar's LLM invokes a tool that returns
-  `state=awaiting_approval` (today: `render_video`,
-  $0.08 > $0.05 threshold), SPA renders a modal:
-  "Sasha wants to render an ad — cost ~$0.08.
-  Approve / Reject?"
-* Approve → `POST /api/realtime_tool_invocations/<id>/approve/`
-  → result feeds back to the avatar via the SDK's
-  `sendClientEvent`.
-* Reject → `POST .../reject/` with optional `reason`
-  → narrated back via `sendClientEvent` so the
-  avatar's LLM can apologetically pivot.
-* The SDK's `useClientEvent` hook receives the
-  tool-invocation event from the avatar's data
-  channel; the SPA POSTs to `/invoke_tool/`, the
-  dispatcher creates an audit row, and if cost > $0.05
-  the modal fires.
+**SDK inner-component wiring** — replace the mock-mode
+debug buttons with the SDK's native invocation
+surface:
+* `useClientEvent` (consumed inside `<AvatarCall>`)
+  receives tool-invocation events from the avatar's
+  data channel.
+* Inner component dispatches via R8.1's `useInvokeTool`.
+* On `succeeded` / `failed` / `rejected` →
+  `sendClientEvent` so the avatar's LLM narrates the
+  outcome in-character. **Q-r-2 fully resolved.**
 
-**Cost forecasting**:
-* Before session-start: "~$X for a 5-min session" pill
-  next to the Start button. Uses
-  `apps.billing.services.get_usage(workspace)` Usage
-  shape (already returns the tier minutes cap; R3
-  ships).
-* R9 (cost governance backend) refines the
-  per-minute estimate; R8.1 ships with a conservative
-  hardcoded `$0.08/min` placeholder, upgrades to real
-  data when R9 lands.
+**Live cost ticker** — runs during the session.
+Updates on a 1-second interval (`elapsed_seconds ×
+cost_per_minute_micros`). Drives operator awareness
+as sessions approach the 5-minute cap.
 
-Estimated scope: ~6-8 unit tests + 1-2 Playwright
-specs, no backend changes.
+**WebRTC fallback messaging** — when
+`<AvatarCall onError>` fires, show a clear error
+panel + "fall back to recorded video" CTA. **Q-r-9
+resolved.**
 
-### After SESSION 154
+Estimated scope: ~6-10 unit tests + 1 Playwright spec
+driving a fake `useClientEvent` through the flow. No
+backend changes.
 
-* **R8.2** — live cost ticker during the session +
-  WebRTC fallback messaging (Q-r-9) + tool-rejection
-  narration via `sendClientEvent` (Q-r-2 full
-  resolution).
-* **R9** — cost governance backend (per-workspace
-  minutes budget enforcement at session-create + the
-  per-minute estimation primitives).
-* **R10** — provider hardening (drift verifier test
-  for the registry pattern).
+### After SESSION 155
+
+* **R9 (cost governance backend)** — per-workspace
+  minutes budget enforcement + per-provider
+  micros-per-second lookups. Upgrades R8.1's
+  hardcoded cost-forecast constants + R8.2's ticker.
+* **R10 (provider hardening)** — drift verifier test
+  for the registry pattern.
 * **Drift-prevention backlog items 2 + 3** —
   auto-bump `last_revised` + TRUST_CALIBRATION
-  promotion. Small. Worth picking up between R8
-  sub-slices.
+  promotion.
+* **F8.1 / K7.x** — non-realtime cleanup.
 
 ### Drift-prevention backlog status
 
@@ -120,8 +110,8 @@ specs, no backend changes.
 | 1 | `context-kit drift` subcommand | **Superseded** by `doctor` extensions |
 | 2 | Auto-bump `last_revised` on handoff write | Queued |
 | 3 | Promote calibration entries to TRUST_CALIBRATION | Queued |
-| 4 | Codify session-start drift sweep in CLAUDE.md | Done SESSION 147; doctor-based SESSION 151 |
-| 5 | Fix INVENTORY's two known generator bugs | **Celery undercount done SESSION 151**; working-tree-dirty flag still pending |
+| 4 | Codify session-start drift sweep in CLAUDE.md | Done; doctor-based SESSION 151 |
+| 5 | Fix INVENTORY's two known generator bugs | Celery undercount done SESSION 151; working-tree-dirty flag pending |
 
 ---
 
@@ -140,10 +130,10 @@ in real-mode (SESSION 136).
 - **Workspace fabric arc (F0-F10). COMPLETE**
   (SESSION 144).
 - **Realtime avatar arc (R0-R10).** **R1-R7 + R8.0
-  shipped** (SESSIONS 146-153). v1 tool catalog
-  complete (R7.3 / SESSION 152); SPA foundation
-  shipped (R8.0 / SESSION 153). R8.1 (tool-approval
-  modal + cost forecast) is next. R8.2 + R9 + R10
+  + R8.1 shipped** (SESSIONS 146-154). v1 tool
+  catalog complete (SESSION 152); SPA foundation +
+  approval modal + cost forecast shipped
+  (SESSIONS 153-154). R8.2 closes R8; R9 + R10
   remain.
 
 | Slice | Deliverable                                  | Status |
@@ -153,16 +143,12 @@ in real-mode (SESSION 136).
 | K0-K9 | Knowledge layer end-to-end                    | DONE (SESSIONS 137-145) |
 | V0-V15 | Video composition arc + recipe gallery     | DONE (SESSIONS 142-144) |
 | F0-F10 | Workspace fabric arc                       | DONE (SESSION 144) |
-| R0-R5 | Realtime arc backend (schema → broker → docs → transcripts) | DONE (SESSION 146) |
-| R6 | Cross-session memory projection                | DONE (SESSION 148) |
-| R6.1 | Widen R6 query                                 | DONE (SESSION 152) |
-| R7.0 | Tool dispatch foundation                       | DONE (SESSION 149) |
-| R7.1 | Three sync tools + tier-aware filtering        | DONE (SESSION 150) |
-| R7.2 | Async dispatch + `render_video`                | DONE (SESSION 151) |
-| R7.3 | `attach_memory` + capture_transcript helper    | DONE (SESSION 152) |
-| R8.0 | SPA foundation (SDK + API client + TalkRoute + CTA) | DONE (SESSION 153) |
-| R8.1 | Tool-approval modal + cost forecasting UI      | Next (SESSION 154) |
-| R8.2 | Live cost ticker + WebRTC fallback + rejection narration | Queued |
+| R0-R5 | Realtime arc backend                          | DONE (SESSION 146) |
+| R6 + R6.1 | Cross-session memory                      | DONE (SESSIONS 148, 152) |
+| R7.0-R7.3 | Tool dispatch + 6-tool catalog            | DONE (SESSIONS 149-152) |
+| R8.0 | SPA foundation (SDK + API client + TalkRoute) | DONE (SESSION 153) |
+| R8.1 | Tool-approval modal + cost forecasting        | DONE (SESSION 154) |
+| R8.2 | SDK inner-component wiring + cost ticker + WebRTC fallback | Next (SESSION 155) |
 | R9 | Cost governance backend                          | Queued |
 | R10 | Multi-provider hardening (drift verifier test)  | Queued |
 | K6.3 | Brief length cap in script synthesis           | Queued |
@@ -177,44 +163,34 @@ in real-mode (SESSION 136).
   - Donny the Sloth (user stories) — id `f30b2980-...`
   - Maya the Panda (educator) — id `9410f23f-...`
 
-Cast can render *informed* videos (K6 / SESSION 139),
-hold text conversations (K8/K9 / SESSION 145), and
-now hold **live realtime sessions** end-to-end in the
-SPA (R1-R8.0 / SESSIONS 146-153) — grounded in
-workspace knowledge with cross-session memory and a
-6-tool action catalog (only the approval modal +
-cost UX remain before R8 closes).
-
 ---
 
 ## Queued investigations (priority-ordered)
 
-1. **R8.1 — Tool-approval modal + cost forecasting**
-   (next session's primary slice).
-2. **R8.2 — Live cost ticker + error paths +
-   rejection narration.**
-3. **R9 — Cost governance backend.**
-4. **R10 — Multi-provider hardening.**
-5. **Drift-prevention backlog item 2 + 3.**
-6. **F8.1 — K10 seed corpus** (blocked on
+1. **R8.2 — SDK inner-component wiring + cost ticker
+   + WebRTC fallback** (next session; closes R8).
+2. **R9 — Cost governance backend.**
+3. **R10 — Multi-provider hardening.**
+4. **Drift-prevention backlog item 2 + 3.**
+5. **F8.1 — K10 seed corpus** (blocked on
    operator-authored markdown).
-7. **K7.x — YouTube ingest fix.**
-8. **K6.3 — Brief length cap.**
-9. **K7.1 — Cost telemetry surface.**
-10. **W11.1 — Edit-spokesperson modal.**
-11. **First marketing video.**
-12. **Voice preset audit.**
-13. **E2e detritus cleanup.**
-14. **OpenAI client factory port.**
-15. **Cast sync command.**
-16. **Stuck-row janitor.**
-17. **Act-Two performance capture.**
-18. **`lesson` video kind.**
-19. **Real Google OAuth + dj-stripe.**
-20. **Allauth legacy-settings cleanup.**
-21. **smoke_voice / smoke_avatar transaction discipline.**
-22. **INVENTORY working-tree-dirty flag fix.**
-23. **Brand Identity v2 + dark mode.**
+6. **K7.x — YouTube ingest fix.**
+7. **K6.3 — Brief length cap.**
+8. **K7.1 — Cost telemetry surface.**
+9. **W11.1 — Edit-spokesperson modal.**
+10. **First marketing video.**
+11. **Voice preset audit.**
+12. **E2e detritus cleanup.**
+13. **OpenAI client factory port.**
+14. **Cast sync command.**
+15. **Stuck-row janitor.**
+16. **Act-Two performance capture.**
+17. **`lesson` video kind.**
+18. **Real Google OAuth + dj-stripe.**
+19. **Allauth legacy-settings cleanup.**
+20. **smoke_voice / smoke_avatar transaction discipline.**
+21. **INVENTORY working-tree-dirty flag fix.**
+22. **Brand Identity v2 + dark mode.**
 
 ---
 
@@ -245,33 +221,16 @@ python3 /Users/donkeyking/development/context-kit/context_kit.py doctor
 EMBEDDING + RENDER_SCRIPT + CONVERSATION_REPLY + SERPER
 + REALTIME_MEMORY on Django).
 
-**Realtime demo path (mock mode)**:
-1. Sign in / sign up.
-2. Create a spokesperson via the wizard, fully
-   configure it (avatar + portrait).
-3. Navigate to the spokesperson detail page.
-4. Click "Talk to {name}" CTA → lands at
-   `/spokespeople/:id/talk`.
-5. Click Start → mock session creates → "Live
-   (demo mode)" pill shows.
-6. Click End → transcript capture fires.
-
 Smoke checks:
 
 ```bash
 # Backend (from shell/)
 python manage.py inventory
-python manage.py smoke_headless_auth
-python manage.py smoke_avatar
-python manage.py smoke_voice
-python manage.py smoke_video
-python manage.py smoke_portrait
 python -m pytest                              # 641 tests
-python -m pytest apps/realtime/tests/         # 131 tests (R1-R7)
 
 # SPA (from web/)
 pnpm build                                    # type-check + bundle
-pnpm test                                     # 10 vitest tests
+pnpm test                                     # 22 vitest tests
 pnpm e2e                                      # Playwright (in mock mode only)
 ```
 
@@ -279,37 +238,35 @@ pnpm e2e                                      # Playwright (in mock mode only)
 
 ## AI / assistant context
 
-- **Last session: SESSION 153 — R8.0 shipped.** SPA
-  realtime foundation — `/spokespeople/:id/talk`
-  route + SDK + API client. The arc is now
-  operator-visible. 641 backend + 10 SPA tests pass.
+- **Last session: SESSION 154 — R8.1 shipped.**
+  Tool-approval modal + cost forecasting UI.
+  `render_video` is demonstrable end-to-end from the
+  SPA in mock mode. 22 SPA tests pass.
 - **Calibration carried forward:**
-  - **Mock-mode is a first-class UX state**, not a
-    silent fallback. Six force-mock flags on the
-    backend; the SPA renders each explicitly.
-  - **React Router 7 static-beats-dynamic precedence
-    is within-a-Route only.** Order sibling Routes:
-    more specific first.
-  - **Vitest setup files** are easy to forget until
-    a SECOND test consumer arrives. Wire jest-dom +
-    user-event globally, not per-test.
-  - **Ship prerequisites with consumers in one slice**
-    (SESSION 152).
-  - **Extract helpers between two code paths early**
-    (SESSION 152).
-  - **Inverted-test pattern when changing semantics**
-    (SESSION 152).
+  - **Type-system + runtime config drift on testing
+    plugins** — wire jest-dom at both places (vitest
+    setup + tsconfig types). One-test consumers paper
+    over the gap until a second test hits it.
+  - **Voice modal copy in first person** — surface
+    tool intent as "Sasha wants to render a video
+    for you," not "Approve tool `render_video`."
+    Per-tool human translation in `formatToolLabel`.
+  - **Don't strand the operator mid-decision** —
+    modal dismiss is gated on idle state during
+    async ops.
+  - **Mock-mode UX is first-class** (SESSION 153).
+  - **React Router 7 sibling-Route precedence**
+    (SESSION 153).
+  - **Vitest setup file gap** (SESSION 153).
+  - **Ship prerequisites with consumers** (SESSION 152).
   - **Doctor is the drift tool** (SESSION 151).
-  - **Splitting a scope-locked slice mid-
-    implementation is fine** (SESSION 151).
-  - **Pyright in this repo is noisy on Django/DRF**
-    — same false positives every session.
+  - **Pyright in this repo is noisy on Django/DRF.**
   - **OpenAI gpt-5 family uses the Responses API.**
-- **R8.1 / R8.2 / R9 / R10 = ~4 more sessions to close
-  the realtime arc fully.** R8.1 makes the avatar's
-  tool catalog actually demonstrable (currently
-  invocations land but the modal doesn't fire).
+- **R8.2 / R9 / R10 = ~3 more sessions to close
+  the realtime arc fully.** R8.2 makes the avatar
+  natively fire tools (replaces mock debug buttons
+  with the SDK's `useClientEvent`); R9 + R10 are
+  operational polish.
 - Collaboration conventions: AI drafts, human edits.
   Handoff `## AI Notes` + per-slice doc updates
-  required at session end (codified SESSION 143;
-  reinforced SESSION 147; honored SESSIONS 148-153).
+  required at session end.

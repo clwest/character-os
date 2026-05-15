@@ -384,11 +384,51 @@ Update this section when a phase completes.
     * No backend changes; backend test count
       unchanged at **641 backend tests**.
 
-    R-arc state: **R1-R7 done; R8.0 done**. R8.1
-    (tool-approval modal + cost forecasting UI) +
-    R8.2 (live cost ticker + WebRTC fallback + Q-r-2
-    rejection narration) + R9 (cost governance) +
-    R10 (provider hardening) remain.
+    **R8.1 shipped SESSION 154** (`aac6ee4`) — tool-
+    approval modal + cost forecasting UI. The
+    realtime arc's threshold-crossing tool
+    (`render_video`) is now demonstrable end-to-end
+    from the SPA in mock mode.
+
+    * New `useInvokeTool` / `useApproveInvocation` /
+      `useRejectInvocation` hooks in
+      `web/src/lib/api/realtime.ts`. Zod
+      `dispatchResultSchema` mirrors server-side
+      `_serialize_dispatch_result`.
+    * New `ToolApprovalModal` component
+      (`web/src/components/tool-approval-modal.tsx`).
+      Minimal inline modal — no Radix dep. Renders
+      cost in dollars + args dict + optional reason
+      textarea + Approve/Reject buttons. Dismiss via
+      Esc / backdrop / X (only when no async op in
+      flight). Tool labels voiced in first person.
+    * TalkRoute extensions — `pendingInvocation` +
+      `lastToolResult` state. `handleInvokeTool`
+      routes by state (`awaiting_approval` opens
+      modal; everything else lands in
+      `ToolResultPanel`). IdlePanel gains a cost-
+      forecast pill (~$0.40 for 5 min hardcoded
+      placeholder; R9 ships real estimation).
+      MockSessionPanel gains "Test tool dispatch"
+      debug buttons that fire `render_video`
+      (over-threshold → modal) and `show_videos_tab`
+      (under-threshold → inline). R8.2 replaces the
+      debug buttons with the SDK's `useClientEvent`
+      hook for native avatar invocation.
+    * `tsconfig.app.json` — added `vitest/globals`
+      + `@testing-library/jest-dom` to `types` so
+      tsc sees the matcher types R8.0 wired into
+      vitest at runtime.
+
+    Test totals after SESSION 154: SPA vitest **22**
+    (10 → 22, +12: 8 modal + 4 talk-route).
+    Backend unchanged at **641 backend tests**.
+
+    R-arc state: **R1-R7 + R8.0 + R8.1 done**. R8.2
+    (live cost ticker + WebRTC fallback + Q-r-2
+    rejection narration via `sendClientEvent`) is
+    the last R8 piece. R9 (cost governance) + R10
+    (provider hardening) follow.
   - **Workspace fabric arc (F0-F10). COMPLETE.** All 10
     slices shipped SESSION 144
     (`docs/design/WORKSPACE_FABRIC_V1.md`). 9 contract
