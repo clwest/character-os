@@ -33,6 +33,10 @@ product — Django DRF shell + FastAPI media engine + new SPA).
    arc scope lock (R0-R10, locked SESSION 142, 10 contract
    rules; live two-way conversations grounded in workspace
    knowledge).
+9. `docs/design/WORKSPACE_FABRIC_V1.md` — workspace fabric arc
+   scope lock (F0-F10, locked SESSION 144, 9 contract rules;
+   merges Spokespeople / Knowledge / Recipes into one
+   workspace experience without adding persistence).
 
 ---
 
@@ -91,8 +95,8 @@ Update this section when a phase completes.
   content (operator-collaborative) + W11 hide-on-completion
   detail-page rework + legacy single-form retirement after the
   video composition recipe gallery (V15) lands.
-- Phase 4 — Knowledge + video composition + realtime arcs.
-  **IN FLIGHT.** Three parallel sub-arcs:
+- Phase 4 — Knowledge + video composition + realtime + fabric arcs.
+  **IN FLIGHT.** Four parallel sub-arcs:
   - **Knowledge arc (K1-K10).** 7 shipped — K1-K7 + K4.1 +
     K4.2 + K6.2. Remaining: K8/K9 (conversation pipeline +
     REST/SPA), K10 (onboarding seed). Scope lock:
@@ -144,6 +148,18 @@ Update this section when a phase completes.
     models sharing V1's Asset persistence, provider-
     abstraction registry. R1 (schema) is the next slice;
     unblocked by V1.
+  - **Workspace fabric arc (F0-F10).** F0 scope lock shipped
+    SESSION 144 (`docs/design/WORKSPACE_FABRIC_V1.md`).
+    9 contract rules; merges Spokespeople / Knowledge /
+    Recipes into one workspace experience without adding
+    persistence (rule 1: no new models). 10 slices —
+    per-spokesperson recipe entry (F1), persistent nav rail
+    (F2), workspace overview (F3), knowledge preview on
+    recipe forms (F4), asset lineage (F5), citations (F6),
+    knowledge-doc → compositions reverse (F7), onboarding
+    walkthrough subsuming K10 (F8), legacy single-form
+    deletion (F9), arc closure (F10). F1 is the next slice;
+    unblocked by the V-arc closure.
   Tier 1 prompt helpers ported in SESSION 122 as partial
   credit toward earlier "u-d-b feature port" framing of this
   phase.

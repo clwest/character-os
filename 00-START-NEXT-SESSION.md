@@ -23,6 +23,10 @@ state: active
 > breakdown; live two-way WebRTC conversations grounded in
 > workspace knowledge; uses V1's Asset shape for transcript
 > persistence).
+> **Workspace fabric scope lock:** `docs/design/WORKSPACE_FABRIC_V1.md`
+> (locked SESSION 144 — 9 contract rules, F0-F10 slice
+> breakdown; merges Spokespeople / Knowledge / Recipes into
+> one workspace experience without adding persistence).
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
@@ -93,6 +97,17 @@ contract.
 | V15.2 | Layout + format family forms live (7 recipes) + `GET /api/assets/` + asset_picker | DONE (SESSION 144) |
 | V15.3 | Voice + style + long-form + storyboard + recut forms live (6 recipes) | DONE (SESSION 144) |
 | V15.4 | Dialogue form + storyboard_voiced bonus + legacy CTA retirement — **V-ARC CLOSURE** | DONE (SESSION 144) |
+| F0 | Workspace fabric scope lock — F1-F10 slice breakdown, 9 contract rules | DONE (SESSION 144) |
+| F1 | Per-spokesperson recipe entry (`/recipes?spokesperson=<id>` hint propagation) | **NEXT (SESSION 144)** |
+| F2 | Persistent nav rail (Dashboard / Spokespeople / Knowledge / Recipes) | Queued |
+| F3 | Workspace overview dashboard (activity feed + knowledge corpus stats) | Queued |
+| F4 | Knowledge preview on recipe forms (best-effort retrieval surface) | Queued |
+| F5 | Asset lineage on composition status (Derived from / Used by) | Queued |
+| F6 | Knowledge citations on composition status (resolve chunk_ids → docs) | Queued |
+| F7 | Knowledge doc → compositions reverse panel | Queued |
+| F8 | Onboarding walkthrough (subsumes K10 onboarding seed) | Queued |
+| F9 | Legacy single-form SPA deletion (`/spokespeople/<id>/render` route) | Queued |
+| F10 | Fabric arc closure + retro | Queued |
 | R0 | Realtime avatar arc — scope lock                | DONE (SESSION 142) |
 | R1 | RealtimeSession + RealtimeToolInvocation schema | Queued |
 | R2 | Media-engine `/internal/realtime_sessions/` + provider abstraction | Queued |
