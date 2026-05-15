@@ -534,7 +534,7 @@ independently-shipping slices.
   exclusion, multi-consumer dedup, workspace
   isolation. 438 backend tests total. SPA build green.
 - **F8 — Onboarding walkthrough (split).** ✓ SHIPPED
-  SESSION 144 (commit TBD). Scope-lock originally
+  SESSION 144 (`d23bc8c`). Scope-lock originally
   conflated the tour UI with the K10 seed corpus — per
   F0 rule 9 (one journey per slice) these are two
   journeys, and the seed corpus is operator-authored
