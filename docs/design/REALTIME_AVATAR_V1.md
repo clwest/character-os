@@ -614,7 +614,7 @@ land independently. Each slice is ~1-2 sessions.
 |---|---|---|
 | **R0** | Scope lock (this doc) | V1 (Asset shape) |
 | **R1** ✓ | `RealtimeSession` + `RealtimeToolInvocation` models + schema + isolation tests. Ships SESSION 146 (`9299dcf`). | V1 |
-| **R2** | Media-engine `/internal/realtime_sessions/` endpoint — provider-abstraction layer + Runway implementation. POST creates session, GET polls. | R1 |
+| **R2** ✓ | Media-engine `/internal/realtime_sessions/` endpoint — provider-abstraction layer + Runway implementation. POST creates session, GET polls. Ships SESSION 146 (commit TBD). | R1 |
 | **R3** | Django broker: `/api/realtime_sessions/` (POST + GET + DELETE), workspace auth + tier-limit gate, session state machine | R2 |
 | **R4** | Knowledge → Runway document bridge: `compose_realtime_document` (uses K2's `retrieve_for_spokesperson`), media-engine document endpoint, document attached on session-create | R3, K1-K5 (shipped) |
 | **R5** | Transcript capture: post-session fetch + persist as `Asset(TRANSCRIPT)`, wire to `RealtimeSession.transcript_asset` | R3 |

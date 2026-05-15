@@ -3681,3 +3681,148 @@ def post_internal_portrait(
         prompt=prompt,
         mock_mode=settings.runway_mock,
     )
+
+
+# ---- POST /internal/realtime_sessions/ -------------------------
+# SESSION 146 / R2 — realtime avatar arc. Two endpoints in
+# this slice: POST creates a session, GET polls it. End +
+# transcript come in R3 / R5.
+
+
+class InternalRealtimeToolDef(BaseModel):
+    """A tool the avatar may invoke during a session.
+    Matches `RealtimeProvider.ToolDef`."""
+
+    name: str = Field(..., min_length=1, max_length=80)
+    description: str = Field(..., max_length=500)
+    parameters: dict = Field(default_factory=dict)
+
+
+class InternalRealtimeSessionCreate(BaseModel):
+    """Request body for ``POST /internal/realtime_sessions/``.
+
+    Primitive inputs — no `Campaign` coupling. The Django
+    broker (R3) composes these from `RealtimeSession` +
+    spokesperson + K-arc retrieval; this endpoint just
+    forwards to the configured provider.
+    """
+
+    avatar_id: str = Field(..., min_length=1, max_length=200)
+    personality: str = Field(default="", max_length=9500)
+    start_script: str = Field(default="", max_length=280)
+    document_ids: list[str] = Field(default_factory=list)
+    tools: list[InternalRealtimeToolDef] = Field(default_factory=list)
+    provider: str = Field(default="runway", max_length=20)
+
+
+class InternalRealtimeSessionResponse(BaseModel):
+    session_id: str
+    # NEVER log this — JWT-shaped SDK connect token.
+    session_key: str
+    status: str
+    expires_at: Optional[str] = None
+    avatar_id: Optional[str] = None
+    mock_mode: bool
+
+
+@router.post(
+    "/realtime_sessions/",
+    response_model=InternalRealtimeSessionResponse,
+)
+def post_internal_realtime_session(
+    body: InternalRealtimeSessionCreate,
+    settings: Settings = Depends(get_settings),
+):
+    """Create a Runway realtime session via the configured
+    provider. Returns the SDK-safe payload (session id,
+    session key, expiry).
+
+    In mock mode the deterministic stubs land instead;
+    `mock_mode=True` is set on the response.
+    """
+    from ..services.realtime_provider import (
+        RealtimeProviderError,
+        ToolDef,
+        get_provider,
+    )
+
+    try:
+        provider = get_provider(body.provider, settings)
+    except RealtimeProviderError as exc:
+        return _error(503, "realtime_unavailable", str(exc)[:300])
+
+    tool_defs = [
+        ToolDef(name=t.name, description=t.description, parameters=t.parameters)
+        for t in body.tools
+    ]
+
+    try:
+        result = provider.create_session(
+            avatar_id=body.avatar_id,
+            personality=body.personality,
+            start_script=body.start_script,
+            document_ids=list(body.document_ids),
+            tools=tool_defs,
+        )
+    except RealtimeProviderError as exc:
+        return _error(502, "upstream_runway_error", str(exc)[:300])
+
+    # Deliberately log session_id only — never session_key.
+    logger.info(
+        "internal realtime_session create session_id=%s avatar=%s "
+        "status=%s mock=%s docs=%d tools=%d",
+        result.session_id, body.avatar_id, result.status,
+        settings.runway_mock, len(body.document_ids), len(tool_defs),
+    )
+
+    return InternalRealtimeSessionResponse(
+        session_id=result.session_id,
+        session_key=result.session_key,
+        status=result.status,
+        expires_at=result.expires_at,
+        avatar_id=result.avatar_id,
+        mock_mode=settings.runway_mock,
+    )
+
+
+class InternalRealtimeSessionPollResponse(BaseModel):
+    session_id: str
+    status: str
+    expires_at: Optional[str] = None
+    error_message: str = ""
+    mock_mode: bool
+
+
+@router.get(
+    "/realtime_sessions/{session_id}/",
+    response_model=InternalRealtimeSessionPollResponse,
+)
+def get_internal_realtime_session(
+    session_id: str,
+    provider: str = "runway",
+    settings: Settings = Depends(get_settings),
+):
+    """Poll a realtime session. Drives the broker's
+    creating → not_ready → ready state machine."""
+    from ..services.realtime_provider import (
+        RealtimeProviderError,
+        get_provider,
+    )
+
+    try:
+        provider_impl = get_provider(provider, settings)
+    except RealtimeProviderError as exc:
+        return _error(503, "realtime_unavailable", str(exc)[:300])
+
+    try:
+        state = provider_impl.poll_session(session_id)
+    except RealtimeProviderError as exc:
+        return _error(502, "upstream_runway_error", str(exc)[:300])
+
+    return InternalRealtimeSessionPollResponse(
+        session_id=state.session_id,
+        status=state.status,
+        expires_at=state.expires_at,
+        error_message=state.error_message,
+        mock_mode=settings.runway_mock,
+    )

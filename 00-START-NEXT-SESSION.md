@@ -178,7 +178,7 @@ contract.
 | F10 | Fabric arc closure + retro — **FABRIC ARC COMPLETE** | DONE (SESSION 144) |
 | R0 | Realtime avatar arc — scope lock                | DONE (SESSION 142) |
 | R1 | RealtimeSession + RealtimeToolInvocation schema + isolation tests | DONE (SESSION 146) |
-| R2 | Media-engine `/internal/realtime_sessions/` + provider abstraction | Queued |
+| R2 | Media-engine `/internal/realtime_sessions/` + provider abstraction | DONE (SESSION 146) |
 | R3 | Django broker (`/api/realtime_sessions/`) + tier-limit gate | Queued |
 | R4-R10 | Knowledge bridge, transcript persist, memory, tools, SPA, cost governance | Queued |
 | K6.3 | Brief length cap in script synthesis           | Queued |
