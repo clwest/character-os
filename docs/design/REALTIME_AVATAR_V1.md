@@ -623,7 +623,9 @@ land independently. Each slice is ~1-2 sessions.
 | **R7.1** ✓ | Three sync tools: `recall_knowledge` (RAG against K2 via `retrieve_for_spokesperson`; starter tier; ~$0.001/call), `recall_recent_conversations` (read prior `Asset(TRANSCRIPT)` for this spokesperson, returns per-session previews; starter tier; $0), `handoff_to_spokesperson` (cross-spokesperson nav event with same-workspace gate; **pro tier** — Starter has spokespeople=1 so handoff is meaningless). Tier-aware filtering in `get_workspace_tools(workspace)` via new `tier_required` field on `ToolSpec` + new `apps.billing.services.get_workspace_tier` helper. Defense-in-depth tier check in the dispatcher (403 if workspace tier < tool tier). Resolves Q-r-4. +17 tests. Ships SESSION 150 (`611ae94`). | R7.0, K2, R5 |
 | **R7.2** ✓ | Async tool dispatch + `render_video`: new `QUEUED` status (migration `0003_r7_2_queued_status`), generic `execute_tool_invocation` Celery task in `apps/realtime/tasks.py` (resolves invocation + spec, calls executor, links `produced_composition`/`produced_asset`), `dispatch_tool` async branch enqueues Celery (was a stub in R7.0), `approve_invocation` enqueues for async tools. **`render_video`** — fires a composition starter (default `talking_head`; configurable via `args.recipe`); $0.08 cost (over $0.05 threshold so exercises approval flow end-to-end); checks `check_video_limit` tier gate. Bonus — fixes the SESSION 147-deferred INVENTORY Celery undercount bug (call `celery_app.loader.import_default_modules()` in `_collect_celery_tasks`; count goes from 5 → 8). +14 tests. Ships SESSION 151 (`e8564f9`). | R7.0, V starters |
 | **R7.3** ✓ | `attach_memory` async tool — Pro tier, ~$0.001/call. Fires `capture_transcript(session)` (shared helper extracted from R5's task body in the same slice; both R5's session-end task and R7.3's mid-session tool now go through one implementation). Returns `{event, asset_id, session_id, status, message}`; generic Celery wrapper links produced_asset to the invocation row. **R6.1** sibling change: `compose_session_memory` query widened to drop the `status=ENDED` filter — now picks up any session with a `transcript_asset` (so READY sessions with mid-session commits surface in next-session memory). Resolves Q-r-8 (cross-session tool side effects: idempotent + last-write-wins). +13 tests (1 net new R6 test from the split + 12 R7.3 tests). v1 tool catalog now complete: 6 tools. Ships SESSION 152 (`b3f76cb`). | R7.2 |
-| **R8** | SPA `/spokespeople/:id/talk` route + `@runwayml/avatars-react` integration + cost forecasting UI + tool-approval modal | R3, R7 |
+| **R8.0** ✓ | SPA foundation: `@runwayml/avatars-react` SDK installed; new `web/src/lib/api/realtime.ts` API client (createSession + getSession poll + endSession hooks; Zod schemas mirror DRF serializers; contract rule 3 — `provider_session_key` lives only in the create response shape); new `web/src/routes/spokespeople/talk.tsx` lifecycle component (idle → creating → ready → live → ended → error); registered at `/spokespeople/:id/talk`; "Talk to {name}" CTA on the spokesperson detail page (allDone only). **Mock-mode UX**: when `mock_mode=true` the route skips SDK mount + renders a "Live (demo mode)" pill + a stub panel showing provider session id / document id. +7 vitest unit tests + 1 Playwright e2e (404 path). Ships SESSION 153. | R3, R7 |
+| **R8.1** | Tool-approval modal: pops up when `invoke_tool` returns `state=awaiting_approval` (today's only such tool is `render_video`); operator clicks Approve → POST to `.../approve/`, Reject → POST to `.../reject/` with optional reason. Cost forecasting UI shows "~$X for a 5-min session" before session-start (uses tier minutes-cap + per-minute estimate). | R8.0 |
+| **R8.2** | Live cost ticker during the session + WebRTC fallback messaging (Q-r-9 resolution: fail clearly + suggest recorded-video) + tool-rejection narration via `sendClientEvent` so the avatar's LLM acknowledges declines in-character (Q-r-2 full resolution; server-side done R7.0). | R8.0, R8.1 |
 | **R9** | Cost governance: per-workspace minutes budget, tier-limit enforcement at session-create, live cost ticker | R2, billing |
 | **R10** | Multi-provider abstraction hardening (no new providers shipped; just ensure the registry pattern holds — drift verifier test) | R2 |
 
@@ -819,6 +821,115 @@ tests cannot fail.
   handles it) — the hard parts are key brokering,
   knowledge composition, cost governance, cross-session
   memory, and workspace-scoped tools.
+
+- 2026-05-15 (SESSION 153) — **R8.0 SHIPPED**. SPA
+  realtime arc lands operator-visible. R8 sub-sliced
+  into R8.0 / R8.1 / R8.2 at proposal time (per the
+  SESSION 149-150 calibration on over-scoped slices).
+  R8.0 ships the minimum viable demo:
+
+  * **SDK install** —
+    `@runwayml/avatars-react@0.16.0` (MIT, official
+    Runway) added to `web/package.json`. Pulls in
+    `@livekit/components-react` + `livekit-client` as
+    transitive deps.
+
+  * **API client** (`web/src/lib/api/realtime.ts`) —
+    `createRealtimeSession` (POST), `getRealtimeSession`
+    + `useRealtimeSession` (GET with poll while
+    CREATING / NOT_READY), `endRealtimeSession`
+    (POST `/end/`). Zod schemas mirror DRF
+    `RealtimeSessionSerializer` +
+    `RealtimeSessionWithKeySerializer` — contract rule
+    3 honored: `provider_session_key` lives ONLY in
+    the create-response shape; subsequent retrieves
+    use the standard schema that omits it. React
+    Query hooks seed the retrieve cache from the
+    create response (stripping the key) so the SPA
+    has the row available immediately.
+
+  * **TalkRoute** (`web/src/routes/spokespeople/talk.tsx`,
+    420 lines) — lifecycle state machine:
+    `idle → creating → ready → live → ended → error`.
+    Each state has its own panel component. The SDK
+    mounts inside `LivePanel` when `session.mock_mode
+    === false`; mock-mode skips SDK mount and renders
+    `MockSessionPanel` (a "Demo mode" pill + a stub
+    showing provider session id / document id).
+    Poll-while-CREATING handled via
+    `useRealtimeSession`'s refetchInterval. Error
+    state catches both API errors (createSession
+    failure → broker 502 / 402 tier limit / 404
+    spokesperson) and post-create poll errors.
+
+  * **Routing** — `App.tsx` registers
+    `/spokespeople/:id/talk` BEFORE the dynamic
+    `/spokespeople/:id` route so React Router
+    doesn't swallow `talk` as a UUID. Spokesperson
+    detail page (`spokespeople/$id.tsx`) gains a
+    `TalkCta` section between `IdentityPanel` and the
+    videos/setup panels. CTA renders ONLY for
+    fully-configured spokespeople (`allDone`) —
+    operators routed into the talk route always have
+    a `runway_avatar_id` so the broker's pre-create
+    validation never trips.
+
+  * **Mock-mode UX** — load-bearing for the
+    operator-visible demo while RUNWAY_FORCE_MOCK is
+    set on the media-engine. Backend already returns
+    deterministic mock session_id + session_key in
+    that mode; SPA detects via `session.mock_mode` on
+    the create response and renders the demo panel
+    instead of attempting the WebRTC handshake.
+
+  * **Tests** — 7 vitest unit tests in
+    `web/src/routes/spokespeople/talk.test.tsx`
+    covering idle render, mock-mode live transition
+    (SDK NOT mounted), real-mode live transition (SDK
+    mounted), end transition, create failure, loading
+    skeleton, 404 fatal error. SDK + API client both
+    mocked so tests stay hermetic. 1 Playwright e2e in
+    `web/e2e/realtime-talk.spec.ts` guarding route
+    registration (404 path lands the fatal-error
+    panel).
+
+  * **Dev infra** — added `@testing-library/user-event`
+    devDep + a vitest setup file
+    (`web/vitest.setup.ts`) that imports jest-dom's
+    matchers. Previously vitest worked only for the
+    one existing auth test that didn't use
+    `toBeInTheDocument`-style matchers; the setup
+    file unblocks the wider testing-library API.
+
+  Contract rule alignment:
+
+  * Rule 3 (`provider_session_key` never leaks) —
+    preserved. Zod schemas have two shapes: standard
+    (no key) for retrieve / list / poll; with-key
+    only for the create response. The key lives in
+    React state for the session's lifetime, never
+    persisted, never re-fetched.
+  * Rule 9 (mock mode) — preserved. Mock-mode UX
+    is the load-bearing path until real Runway
+    creds land in front-of-customer use.
+
+  Open questions touched:
+
+  * Q-r-2 (rejection narration) — not touched here
+    (R8.2).
+  * Q-r-9 (WebRTC fallback) — not touched here
+    (R8.2). When the SDK fails to establish a
+    connection, today's UX surfaces the SDK's
+    `onError` callback; R8.2 adds the
+    fall-back-to-recorded-video CTA.
+
+  No new backend changes; backend test count
+  unchanged at **641 backend tests**. SPA vitest:
+  3 → 10 (+7). 1 new Playwright spec.
+
+  R8.1 (tool-approval modal + cost forecasting UI)
+  + R8.2 (cost ticker + WebRTC fallback + rejection
+  narration) remain.
 
 - 2026-05-15 (SESSION 152) — **R7.3 SHIPPED + R6.1
   shipped + v1 tool catalog complete**. The realtime

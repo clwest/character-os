@@ -53,6 +53,7 @@ export function SpokespersonDetailRoute() {
     >
       <Masthead spokesperson={s} ready={allDone} />
       <IdentityPanel spokesperson={s} />
+      {allDone && <TalkCta spokesperson={s} />}
 
       {allDone ? (
         <section
@@ -740,4 +741,37 @@ function extractMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
   return "Something went wrong fetching this spokesperson.";
+}
+
+// SESSION 153 / R8.0 — "Talk to {name}" CTA. Renders only
+// for fully-configured spokespeople (allDone) so we don't
+// route operators into a session that can't actually start
+// (the broker rejects creates without runway_avatar_id).
+function TalkCta({ spokesperson }: { spokesperson: Spokesperson }) {
+  return (
+    <section
+      className="reveal flex flex-col gap-3 rounded-md border bg-card p-6 sm:flex-row sm:items-center sm:justify-between"
+      style={{ "--reveal-delay": "0.03s" } as React.CSSProperties}
+      data-testid="talk-cta"
+    >
+      <div className="flex flex-col gap-1">
+        <h2 className="text-base font-semibold tracking-tight">
+          Talk live with {spokesperson.name}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Start a real-time audio session grounded in your
+          workspace knowledge.
+        </p>
+      </div>
+      <Button asChild>
+        <Link
+          to={`/spokespeople/${spokesperson.id}/talk`}
+          data-testid="talk-cta-link"
+        >
+          <Mic className="mr-2 h-4 w-4" />
+          Talk to {spokesperson.name}
+        </Link>
+      </Button>
+    </section>
+  );
 }
