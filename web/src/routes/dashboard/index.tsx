@@ -12,6 +12,7 @@ import {
   type OverviewSpokesperson,
   type WorkspaceOverview,
 } from "@/lib/api/overview";
+import { OnboardingTour } from "@/components/onboarding-tour";
 import { cn } from "@/lib/utils";
 
 /**
@@ -45,6 +46,16 @@ export function DashboardRoute() {
     session.data?.user?.email ??
     "Your workspace";
 
+  // F8 — derive onboarding tour state from actual workspace
+  // data. Banner self-hides once all three milestones land,
+  // and the operator can dismiss it any time (persists in
+  // localStorage).
+  const tourLoading =
+    overview.isLoading || me.isLoading || spokespeople.isLoading;
+  const hasSpokesperson = (spokespeople.data?.length ?? 0) > 0;
+  const hasKnowledge = (overview.data?.knowledge.doc_count ?? 0) > 0;
+  const hasComposition = (overview.data?.compositions.total_count ?? 0) > 0;
+
   return (
     <div className="flex flex-col gap-12">
       <Masthead
@@ -52,6 +63,13 @@ export function DashboardRoute() {
         userEmail={session.data?.user?.email ?? me.data?.email}
         onSignOut={handleSignOut}
         signingOut={signout.isPending}
+      />
+
+      <OnboardingTour
+        loading={tourLoading}
+        hasSpokesperson={hasSpokesperson}
+        hasKnowledge={hasKnowledge}
+        hasComposition={hasComposition}
       />
 
       <PrimaryAction />

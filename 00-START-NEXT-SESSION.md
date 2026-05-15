@@ -105,8 +105,9 @@ contract.
 | F5 | Asset lineage on composition status (Derived from / Used by) | DONE (SESSION 144) |
 | F6 | Knowledge citations on composition status (resolve chunk_ids → docs) | DONE (SESSION 144) |
 | F7 | Knowledge doc → compositions reverse panel | DONE (SESSION 144) |
-| F8 | Onboarding walkthrough (subsumes K10 onboarding seed) | **NEXT (SESSION 144)** |
-| F9 | Legacy single-form SPA deletion (`/spokespeople/<id>/render` route) | Queued |
+| F8 | Onboarding walkthrough (tour banner only — split from K10 seed) | DONE (SESSION 144) |
+| F8.1 | K10 seed corpus (operator-authored markdown + signal/task wiring) | Queued (needs operator-authored seed docs) |
+| F9 | Legacy single-form SPA deletion (`/spokespeople/<id>/render` route) | **NEXT (SESSION 144)** |
 | F10 | Fabric arc closure + retro | Queued |
 | R0 | Realtime avatar arc — scope lock                | DONE (SESSION 142) |
 | R1 | RealtimeSession + RealtimeToolInvocation schema | Queued |

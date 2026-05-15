@@ -533,13 +533,59 @@ independently-shipping slices.
   empty list, single-consumer surface, unrelated-comp
   exclusion, multi-consumer dedup, workspace
   isolation. 438 backend tests total. SPA build green.
-- **F8 — Onboarding walkthrough.** A guided "make your
-  first video" tour for fresh workspaces. Touches three
-  sections in order: create-spokesperson wizard → add a
-  document (paste tab) → pick a recipe → watch it
-  render. Subsumes the deferred K10 onboarding-seed
-  slice (the curated `docs/seeds/character_os/*.md`
-  corpus auto-ingests on `is_operator=True` workspaces).
+- **F8 — Onboarding walkthrough (split).** ✓ SHIPPED
+  SESSION 144 (commit TBD). Scope-lock originally
+  conflated the tour UI with the K10 seed corpus — per
+  F0 rule 9 (one journey per slice) these are two
+  journeys, and the seed corpus is operator-authored
+  marketing copy that shouldn't be ghost-written. F8
+  ships the tour only; F8.1 carries the seed.
+
+  Tour shape: a state-derived dashboard banner
+  (`web/src/components/onboarding-tour.tsx`) rather
+  than a multi-step modal. The "current step" is
+  computed from actual workspace data — first spokesperson
+  missing → step 1, first knowledge doc missing →
+  step 2, first composition missing → step 3, all set
+  → banner hides silently. The operator can complete
+  steps in any order or in another tab; the banner
+  reflects the world.
+
+  Steps:
+    1. Create your first spokesperson → /spokespeople/new
+    2. Add some knowledge → /workspace/knowledge
+    3. Pick a recipe and render → /recipes
+  Three steps, not four — "watch it render" isn't its
+  own step because the operator is already on
+  /compositions/<id> at that point. The terminal state
+  is "everything set up; banner gone."
+
+  Dismiss persists via localStorage (Q-f-6 resolved —
+  v1 keeps it local, server-side dismiss is v1.1). The
+  dismiss flag is permanent until the operator clears
+  it (or another browser).
+
+  Wired into `/dashboard` above PrimaryAction. The
+  banner derives loading state from useMe +
+  useSpokespeople + useWorkspaceOverview so it never
+  flashes "Step 1" before the queries land.
+
+  New e2e spec
+  (`web/e2e/onboarding-tour.spec.ts`): fresh signup
+  sees step 1, dismiss persists across reload, the
+  step CTA navigates to /spokespeople/new.
+
+  Test progression: 438 backend (unchanged — tour is
+  SPA-only). SPA build green.
+
+- **F8.1 — K10 seed corpus.** Queued — needs operator
+  to author the curated docs in
+  `docs/seeds/character_os/*.md` first. Once those
+  land, F8.1 wires the migration (`Workspace.is_operator`
+  bool), the seed Celery task, the post_save signal,
+  and idempotency tests. The auto-ingested corpus
+  fills the F8 banner's step-2 prerequisite for
+  operator workspaces.
 - **F9 — Legacy single-form deletion.** Delete
   `web/src/routes/spokespeople/render.tsx` +
   `/spokespeople/<id>/render` route. The legacy
