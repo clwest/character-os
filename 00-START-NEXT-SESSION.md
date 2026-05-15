@@ -64,7 +64,7 @@ Full handoff at
 **Option A — K8/K9 conversation pipeline. SHIPPED SESSION 145.**
 * **K8** (`31af09d`) — `embed_message` Celery task +
   post-save signal. +11 tests.
-* **K9** (commit TBD) — `POST /api/conversations/<id>/messages/`
+* **K9** (`865c7db`) — `POST /api/conversations/<id>/messages/`
   endpoint with server-synchronous LLM synthesis,
   `character_os/conversation_synthesis.py` mirroring K6,
   SPA chat route at `/conversations/<id>`, "Conversations"

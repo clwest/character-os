@@ -685,7 +685,7 @@ slices that can land independently. Recommended order:
   `retrieve_for_thread` integration, cross-thread
   isolation.
 - **K9 — Conversation REST + SPA.** ✓ SHIPPED SESSION
-  145 (commit TBD). Three pieces:
+  145 (`865c7db`). Three pieces:
 
   Backend
   * `POST /api/conversations/<id>/messages/` —
