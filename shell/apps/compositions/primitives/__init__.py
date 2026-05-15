@@ -47,6 +47,7 @@ from .polish import (
 )
 from .split_script import SplitScriptPrimitive
 from .style_remix import StyleRemixPrimitive
+from .transcribe import TranscribePrimitive
 from .visual_clip import GenerateVisualClipPrimitive
 from .voice import DesignVoicePrimitive, DubAudioPrimitive
 
@@ -95,7 +96,7 @@ _REGISTRY: dict[str, Type[Primitive]] = {
     "design_voice": DesignVoicePrimitive,  # V10
     "dub_audio": DubAudioPrimitive,  # V10
     "style_remix": StyleRemixPrimitive,  # V11
-    # V12+: transcribe
+    "transcribe": TranscribePrimitive,  # V12
     # V13+: generate_image
 }
 

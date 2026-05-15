@@ -224,6 +224,27 @@ class AudioDubResult:
 
 
 @dataclass
+class TranscriptSegment:
+    """One sentence-level segment from Whisper's verbose_json
+    response. Timing is in seconds (Whisper convention)."""
+
+    start_s: float
+    end_s: float
+    text: str
+
+
+@dataclass
+class TranscribeResult:
+    """Decoded response from ``POST /internal/transcribe/``."""
+
+    segments: list[TranscriptSegment]
+    duration_seconds: float | None
+    language: str | None
+    full_text: str
+    mock_mode: bool
+
+
+@dataclass
 class StyleRemixResult:
     """Decoded response from ``POST /internal/clips/style_remix/``.
 
@@ -753,6 +774,41 @@ class MediaEngineClient:
         except (KeyError, TypeError, ValueError) as exc:
             raise MediaEngineError(
                 f"style_remix response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
+    def transcribe(
+        self,
+        *,
+        source_url: str,
+        extract_audio: bool = True,
+    ) -> "TranscribeResult":
+        """Hit ``POST /internal/transcribe/`` — OpenAI Whisper
+        transcription. For CLIP sources set ``extract_audio=True``
+        (default) so the media-engine ffmpeg-extracts the audio
+        track first; for AUDIO sources set False to skip
+        extraction."""
+        body = {"source_url": source_url, "extract_audio": extract_audio}
+        data = self.request("POST", "/internal/transcribe/", json=body)
+        try:
+            segments = [
+                TranscriptSegment(
+                    start_s=float(s["start_s"]),
+                    end_s=float(s["end_s"]),
+                    text=str(s["text"]),
+                )
+                for s in (data.get("segments") or [])
+            ]
+            return TranscribeResult(
+                segments=segments,
+                duration_seconds=_as_float_or_none(data.get("duration_seconds")),
+                language=data.get("language"),
+                full_text=str(data.get("full_text", "")),
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"transcribe response not in expected shape: {data!r}",
                 response_text=str(data),
             ) from exc
 

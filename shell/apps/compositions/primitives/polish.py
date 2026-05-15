@@ -40,22 +40,43 @@ _REFORMAT_MICROS = 80
 
 
 class AddCaptionsPrimitive:
-    """Burn-in subtitles from operator-supplied caption timing.
+    """Burn-in subtitles from operator-supplied caption timing,
+    or — V12 auto mode — from a TRANSCRIPT input slot.
 
-    v1 takes captions via ``params["captions"]`` (list of
-    ``{start_s, end_s, text}``). V12's transcribe primitive
-    will add an "auto mode" that derives captions from a
-    transcription asset; for V9 the operator supplies the
-    timing directly (typically derived from the script the
-    operator already typed into the talking_head step).
+    Two paths:
+
+    * **Manual mode** (V9 default): ``params["captions"]`` is a
+      list of ``{start_s, end_s, text}``. The primitive sends
+      it straight to the media-engine. Operator-supplied
+      timing wins when both modes are available.
+    * **Auto mode** (V12+): ``params["captions"]`` is omitted
+      and a TRANSCRIPT asset arrives via a step input. The
+      primitive parses its ``inline_content`` as the V12
+      transcript shape (``{"segments": [...]}`` or a bare
+      array) and uses the segments as captions.
+
+    The TRANSCRIPT input is identified by slot name
+    (``transcript``) or by asset_type; non-TRANSCRIPT inputs
+    are ignored in auto mode so a CLIP + TRANSCRIPT pair
+    works cleanly.
     """
 
     @staticmethod
     def execute(step, resolved_inputs, mock_mode: bool) -> PrimitiveResult:
-        captions = (step.params or {}).get("captions")
+        params = step.params or {}
+        captions = params.get("captions")
+
+        # Auto mode (V12) — derive captions from a TRANSCRIPT
+        # input if the manual list isn't supplied. The
+        # TRANSCRIPT's inline_content holds the V12 transcript
+        # JSON; we read ``segments`` (or the array directly).
+        if not (isinstance(captions, list) and captions):
+            captions = _captions_from_transcript_input(resolved_inputs)
+
         if not isinstance(captions, list) or not captions:
             raise PrimitiveError(
-                "add_captions requires a non-empty captions list in params"
+                "add_captions requires either a non-empty captions list in "
+                "params OR a TRANSCRIPT input asset (auto mode)"
             )
 
         base = _expect_one_clip(resolved_inputs, primitive="add_captions")
@@ -381,21 +402,74 @@ class ReformatClipPrimitive:
 
 
 def _expect_one_clip(resolved_inputs, *, primitive: str) -> Asset:
-    """Pick the single CLIP asset from resolved_inputs. Raises
-    PrimitiveError if zero or more than one CLIP is supplied."""
+    """Pick the single CLIP asset from resolved_inputs. Other
+    asset types (e.g. TRANSCRIPT for V12 add_captions auto
+    mode) are tolerated — only the CLIP count matters.
+    Raises PrimitiveError if zero or more than one CLIP is
+    supplied."""
     clips: list[Asset] = []
     for entry in resolved_inputs or []:
         asset = entry.get("asset")
         if asset is None:
             continue
-        if asset.asset_type != AssetType.CLIP:
-            raise PrimitiveError(
-                f"{primitive} expects exactly one CLIP input; got "
-                f"{asset.asset_type} in slot {entry.get('slot')!r}"
-            )
-        clips.append(asset)
+        if asset.asset_type == AssetType.CLIP:
+            clips.append(asset)
+            continue
+        # Non-CLIP assets are OK for primitives that take
+        # auxiliary inputs (e.g. add_captions's TRANSCRIPT
+        # slot). The helper's job is just to pick the one CLIP.
     if len(clips) != 1:
         raise PrimitiveError(
             f"{primitive} expects exactly one CLIP input; got {len(clips)}"
         )
     return clips[0]
+
+
+def _captions_from_transcript_input(resolved_inputs) -> list[dict] | None:
+    """V12 auto-mode helper for add_captions. Looks for a
+    TRANSCRIPT input in resolved_inputs and parses its
+    ``inline_content`` as the V12 transcript JSON. Returns a
+    list of caption dicts ``[{start_s, end_s, text}, ...]``
+    suitable for the media-engine, or ``None`` if no
+    TRANSCRIPT was supplied.
+
+    Tolerates two transcript shapes:
+        {"segments": [{start_s, end_s, text}, ...], ...}
+        [{start_s, end_s, text}, ...]
+    """
+    import json as _json
+
+    for entry in resolved_inputs or []:
+        asset = entry.get("asset")
+        if asset is None:
+            continue
+        if asset.asset_type != AssetType.TRANSCRIPT:
+            continue
+        raw = (asset.inline_content or "").strip()
+        if not raw:
+            continue
+        try:
+            parsed = _json.loads(raw)
+        except (ValueError, TypeError):
+            return None
+        if isinstance(parsed, dict):
+            segments = parsed.get("segments")
+        else:
+            segments = parsed
+        if not isinstance(segments, list) or not segments:
+            return None
+        out: list[dict] = []
+        for seg in segments:
+            if not isinstance(seg, dict):
+                continue
+            start = seg.get("start_s") or seg.get("start") or 0
+            end = seg.get("end_s") or seg.get("end") or 0
+            text = (seg.get("text") or "").strip()
+            if text and float(end) > float(start):
+                out.append({
+                    "start_s": float(start),
+                    "end_s": float(end),
+                    "text": text,
+                })
+        return out or None
+    return None

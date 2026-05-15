@@ -22,6 +22,7 @@ import binascii
 import hashlib
 import json
 import logging
+import os
 import re
 from pathlib import Path
 from typing import Literal, Optional
@@ -2879,6 +2880,219 @@ def post_internal_style_remix(
     except Exception as exc:  # pragma: no cover — defensive
         logger.exception("style_remix unexpected")
         return _error(500, "internal_error", f"unexpected: {exc!s}"[:300])
+
+
+# ---- V12 transcribe (Whisper) ------------------------------------
+#
+# SESSION 143 / V12. First net-new capability beyond what the
+# hackathon shipped. OpenAI Whisper transcription unlocks
+# auto-captioning + the recut_teaser composition (take a long
+# rendered ad, auto-pick the strongest sentence, output a
+# vertical teaser).
+#
+# Server-side handling:
+#   1. Download source CLIP or AUDIO to local cache
+#   2. If CLIP: ffmpeg-extract audio to MP3
+#   3. POST audio to OpenAI Whisper API
+#   4. Return verbose JSON with segment-level timing
+#
+# The composition primitive sees one input + one TRANSCRIPT
+# output regardless. Audio extraction is invisible — primitive
+# accepts both CLIP and AUDIO inputs uniformly.
+
+
+_WHISPER_MODEL = "whisper-1"
+_TRANSCRIBE_MAX_AUDIO_BYTES = 25 * 1024 * 1024  # OpenAI's hard limit
+
+
+class InternalTranscribeCreate(BaseModel):
+    """Request body for ``POST /internal/transcribe/``."""
+
+    source_url: str = Field(..., min_length=1, max_length=2048)
+    # Set when source is a video; media-engine extracts the audio
+    # track first. ``True`` is the default since most operator
+    # input is CLIP-shaped (talking_head outputs); AUDIO sources
+    # (e.g. design_voice previews) set False to skip extraction.
+    extract_audio: bool = Field(default=True)
+
+
+class TranscriptSegment(BaseModel):
+    start_s: float
+    end_s: float
+    text: str
+
+
+class InternalTranscribeResponse(BaseModel):
+    segments: list[TranscriptSegment]
+    duration_seconds: Optional[float] = None
+    language: Optional[str] = None
+    full_text: str
+    mock_mode: bool
+
+
+def _transcribe_dir(settings: Settings) -> Path:
+    target = settings.data_path / "_internal" / "transcripts"
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def _extract_audio_for_whisper(source: Path, target: Path) -> None:
+    """ffmpeg-extract audio track to MP3 for Whisper. Quality
+    is set to 64kbps mono — well above Whisper's needs while
+    keeping the upload under OpenAI's 25 MB cap for typical
+    ad-length clips (10+ minutes fits comfortably)."""
+    import subprocess as _subprocess
+
+    _subprocess.run(
+        [
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-i", str(source),
+            "-vn",
+            "-ac", "1",
+            "-ar", "16000",
+            "-acodec", "libmp3lame",
+            "-b:a", "64k",
+            "-f", "mp3",
+            str(target),
+        ],
+        check=True, capture_output=True, text=True, timeout=180,
+    )
+
+
+def _mock_transcript_segments(source_url: str) -> list[dict]:
+    """Deterministic mock segments keyed by source URL hash.
+    Three short sentences spaced across a 9-second window.
+    Same hash → same segments so tests stay stable."""
+    digest = hashlib.sha256(source_url.encode("utf-8")).hexdigest()[:8]
+    return [
+        {"start_s": 0.0, "end_s": 2.5, "text": f"Welcome to the demo {digest[:4]}."},
+        {"start_s": 2.5, "end_s": 6.0, "text": "This is the strongest line in the ad."},
+        {"start_s": 6.0, "end_s": 9.0, "text": "Visit us today."},
+    ]
+
+
+@router.post(
+    "/transcribe/", response_model=InternalTranscribeResponse,
+)
+def post_internal_transcribe(
+    body: InternalTranscribeCreate,
+    settings: Settings = Depends(get_settings),
+):
+    """Transcribe a CLIP or AUDIO asset to sentence-level
+    timing via OpenAI Whisper. Synchronous; output cached by
+    hash of source URL."""
+    source_url = body.source_url.strip()
+    cache_seed = f"{source_url}|whisper|{body.extract_audio}".encode("utf-8")
+    cache_key = hashlib.sha256(cache_seed).hexdigest()[:16]
+    target_dir = _transcribe_dir(settings)
+    output_json = target_dir / f"{cache_key}.json"
+
+    if output_json.exists():
+        try:
+            cached = json.loads(output_json.read_text())
+            return InternalTranscribeResponse(**cached)
+        except (json.JSONDecodeError, ValueError):
+            output_json.unlink(missing_ok=True)  # stale cache; fall through
+
+    # Mock mode short-circuits — deterministic segments + no
+    # OpenAI call. Set when OPENAI_API_KEY is missing or when
+    # the operator forces mock-mode via env.
+    use_mock = settings.runway_mock or not os.environ.get("OPENAI_API_KEY")
+    if use_mock:
+        segments = _mock_transcript_segments(source_url)
+        response_dict = {
+            "segments": segments,
+            "duration_seconds": segments[-1]["end_s"] if segments else None,
+            "language": "en",
+            "full_text": " ".join(s["text"] for s in segments),
+            "mock_mode": True,
+        }
+        output_json.write_text(json.dumps(response_dict))
+        logger.info(
+            "internal transcribe mock source=%s segments=%d",
+            source_url[:80], len(segments),
+        )
+        return InternalTranscribeResponse(**response_dict)
+
+    # Real mode — download source, extract audio if CLIP, POST to Whisper.
+    try:
+        source_path = _download_concat_input(
+            source_url, target_dir / "sources", settings,
+        )
+    except FileNotFoundError as exc:
+        return _error(400, "validation_error", str(exc))
+    except httpx.HTTPError as exc:
+        return _error(502, "upstream_runway_error", f"download error: {exc!s}"[:300])
+
+    if body.extract_audio:
+        audio_path = target_dir / "sources" / f"{cache_key}.mp3"
+        if not audio_path.exists():
+            try:
+                _extract_audio_for_whisper(source_path, audio_path)
+            except Exception as exc:
+                return _error(
+                    500, "internal_error",
+                    f"audio extraction failed: {exc!s}"[:300],
+                )
+    else:
+        audio_path = source_path
+
+    if audio_path.stat().st_size > _TRANSCRIBE_MAX_AUDIO_BYTES:
+        return _error(
+            413, "audio_too_large",
+            f"audio exceeds OpenAI's "
+            f"{_TRANSCRIBE_MAX_AUDIO_BYTES // (1024 * 1024)} MB Whisper cap",
+        )
+
+    try:
+        from openai import OpenAI
+
+        client = OpenAI()
+        with audio_path.open("rb") as fh:
+            result = client.audio.transcriptions.create(
+                model=_WHISPER_MODEL,
+                file=fh,
+                response_format="verbose_json",
+                timestamp_granularities=["segment"],
+            )
+    except Exception as exc:
+        logger.exception("whisper transcribe failed")
+        return _error(
+            502, "upstream_runway_error",
+            f"openai whisper error: {exc!s}"[:300],
+        )
+
+    # The verbose_json response shape from OpenAI's SDK includes
+    # `segments` with start/end/text. Whisper's `segments` are
+    # roughly sentence-level by default.
+    raw_segments = getattr(result, "segments", None) or []
+    segments = [
+        {
+            "start_s": float(getattr(seg, "start", 0.0)),
+            "end_s": float(getattr(seg, "end", 0.0)),
+            "text": str(getattr(seg, "text", "")).strip(),
+        }
+        for seg in raw_segments
+        if str(getattr(seg, "text", "")).strip()
+    ]
+    full_text = str(getattr(result, "text", "") or "")
+    language = getattr(result, "language", None)
+    duration = getattr(result, "duration", None)
+
+    response_dict = {
+        "segments": segments,
+        "duration_seconds": float(duration) if duration is not None else None,
+        "language": language,
+        "full_text": full_text,
+        "mock_mode": False,
+    }
+    output_json.write_text(json.dumps(response_dict))
+
+    logger.info(
+        "internal transcribe done source=%s segments=%d duration=%s lang=%s",
+        source_url[:80], len(segments), duration, language,
+    )
+    return InternalTranscribeResponse(**response_dict)
 
 
 # ---- POST /internal/voices/ ---------------------------------------

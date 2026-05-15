@@ -32,6 +32,11 @@ from .script_splitter import (
     chunk_script,
     split_script_with_llm,
 )
+from .transcription import (
+    Segment,
+    fetch_transcript,
+    pick_strongest_segment,
+)
 
 if TYPE_CHECKING:
     from apps.accounts.models import Workspace
@@ -1020,6 +1025,152 @@ def multi_lang_dub(
         primitive="dub_audio",
         inputs=[{"slot": "source", "asset_id": str(source_audio.id)}],
         params={"target_language": target_language.lower().strip()},
+    )
+    return composition
+
+
+@transaction.atomic
+def recut_teaser(
+    *,
+    workspace: "Workspace",
+    spokesperson: "Spokesperson",
+    source_clip,
+    criterion: str = "hook",
+    target_ratio: str = "720:1280",
+    transcript: list[dict] | None = None,
+    mock_mode: bool = False,
+    name: str = "",
+    created_by: "AbstractBaseUser | None" = None,
+) -> Composition:
+    """First net-new composition beyond what the hackathon
+    shipped. Take a rendered MP4, auto-pick the strongest
+    sentence, output a short vertical teaser.
+
+    Pattern mirrors V5's ``long_form_ad``: the LLM work
+    happens at starter-creation time (synchronous Whisper +
+    gpt-5-mini), the runtime sees a deterministic 2-step
+    plan (trim + reformat).
+
+    Steps laid down:
+      Step 0 — trim_clip (start_ms, end_ms from picked segment)
+      Step 1 — reformat_clip (target_ratio, default 720:1280
+        for Reels)
+
+    Args:
+        source_clip: CLIP Asset to recut. Must belong to
+            ``workspace``. Typically a finished long-form ad
+            or talking_head output.
+        criterion: How to pick the segment. ``"hook"``
+            (default) uses gpt-5-mini; ``"first"`` /
+            ``"last"`` / ``"longest"`` are deterministic
+            fallbacks.
+        target_ratio: Reformat target. Default 720:1280
+            (vertical Reels). Pass ``1280:720`` to keep
+            landscape, ``960:960`` for square.
+        transcript: Pre-computed transcript segments (e.g.
+            from a prior ``transcribe`` step's output asset
+            parsed by the caller). When supplied, skips the
+            synchronous Whisper call at starter time —
+            useful for tests + for chained compositions.
+            Shape: ``[{"start_s", "end_s", "text"}, ...]``.
+        mock_mode: Run in mock-mode (V0 contract rule 9).
+            Forces ``criterion="longest"`` and skips Whisper.
+            When ``transcript`` is None, uses a deterministic
+            stub.
+
+    Returns:
+        ``Composition`` with 2 steps. Caller enqueues
+        ``execute_composition.delay(str(c.id))``.
+
+    Raises:
+        ``ValueError`` for empty source / cross-workspace /
+        empty transcript.
+    """
+    _validate_workspace_assets(workspace, [source_clip])
+    if spokesperson.workspace_id != workspace.pk:
+        raise ValueError("spokesperson not in workspace")
+    if source_clip.asset_type != "clip":
+        raise ValueError(
+            f"recut_teaser source_clip must be a CLIP asset; "
+            f"got {source_clip.asset_type}"
+        )
+
+    # Acquire the transcript. Three paths in priority order:
+    # (1) operator-supplied, (2) mock-mode stub, (3) synchronous
+    # Whisper call via the media-engine.
+    segments: list[Segment]
+    if transcript is not None:
+        if not transcript:
+            raise ValueError("recut_teaser transcript must be non-empty")
+        segments = [
+            Segment(
+                start_s=float(s["start_s"]),
+                end_s=float(s["end_s"]),
+                text=str(s.get("text", "")).strip(),
+            )
+            for s in transcript
+            if str(s.get("text", "")).strip()
+        ]
+    elif mock_mode:
+        # Stub that mirrors what the media-engine returns in
+        # mock-mode — three short sentences across ~9s.
+        segments = [
+            Segment(start_s=0.0, end_s=2.5, text="Welcome to our demo."),
+            Segment(start_s=2.5, end_s=6.0, text="This is the strongest line in the ad."),
+            Segment(start_s=6.0, end_s=9.0, text="Visit us today."),
+        ]
+    else:
+        segments = fetch_transcript(
+            source_clip.file_path, extract_audio=True,
+        )
+
+    if not segments:
+        raise ValueError(
+            "recut_teaser: transcript produced zero segments "
+            "(source may be silent or too short)"
+        )
+
+    # Mock-mode forces the deterministic "longest" pick — no
+    # LLM call needed, hermetic test path.
+    effective_criterion = "longest" if mock_mode else criterion
+    picked = pick_strongest_segment(segments, criterion=effective_criterion)  # type: ignore[arg-type]
+
+    start_ms = max(0, int(round(picked.start_s * 1000)))
+    end_ms = max(start_ms + 100, int(round(picked.end_s * 1000)))
+
+    composition_name = name.strip() or f"Teaser — {picked.text[:40]}"
+    composition = Composition.objects.create(
+        workspace=workspace,
+        spokesperson=spokesperson,
+        name=composition_name,
+        template_kind="recut_teaser",
+        mock_mode=mock_mode,
+        created_by=created_by,
+    )
+
+    # Step 0 — trim to the picked sentence.
+    CompositionStep.objects.create(
+        composition=composition,
+        position=0,
+        primitive="trim_clip",
+        inputs=[{"slot": "base", "asset_id": str(source_clip.id)}],
+        params={"start_ms": start_ms, "end_ms": end_ms},
+    )
+
+    # Step 1 — reformat to the target aspect ratio.
+    CompositionStep.objects.create(
+        composition=composition,
+        position=1,
+        primitive="reformat_clip",
+        inputs=[{"slot": "base", "from_step_position": 0}],
+        params={"target_ratio": target_ratio},
+    )
+
+    logger.info(
+        "starter recut_teaser created composition=%s segments=%d "
+        "picked_window=(%.2f,%.2f) text=%r criterion=%s",
+        composition.id, len(segments),
+        picked.start_s, picked.end_s, picked.text[:40], effective_criterion,
     )
     return composition
 
