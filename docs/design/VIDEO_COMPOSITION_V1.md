@@ -665,7 +665,7 @@ is ~1-2 sessions.
 | **V15.1** ✓ | SPA gallery shell + first three live recipes (`talking_head`, `cinematic_visual`, `talking_head_polished`); other 14 cards "coming soon". Dashboard CTA flips to `/recipes`. New routes: `/recipes`, `/recipes/:kind`, `/compositions/:id`. Ships SESSION 144 (`74a70d7`). | — |
 | **V15.2** ✓ | Layout + format family forms live (7 recipes: `pip_layout`, `backdrop_layout`, `cohost_layout`, `broll_splice`, `music_bed_pass`, `reels_format`, `talking_head_with_backdrop`). Adds `GET /api/assets/` + SPA `asset_picker` field renderer. Ships SESSION 144 (`c9a5d8c`). | — |
 | **V15.3** ✓ | Voice + style + long-form + storyboard + recut family forms live (6 recipes: `voice_design`, `multi_lang_dub`, `style_remix_pass`, `long_form_ad`, `storyboard_ad`, `recut_teaser`). One-line `LIVE_RECIPE_KINDS` flip — the form renderer + asset_picker shipped in V15.1-V15.2 already cover all field types these recipes need. Ships SESSION 144 (`8530a08`). | — |
-| **V15.4** ✓ | Dialogue (`dialogue_scene`) form with dynamic line-list editor + ships `storyboard_voiced` bonus recipe (10 steps; V14 `audio_extract` unblocked it) + flips spokesperson detail "Make a video" CTA to `/recipes` (soft-retires legacy single-form UI). Closes the V-arc. Ships SESSION 144 (commit TBD). | — |
+| **V15.4** ✓ | Dialogue (`dialogue_scene`) form with dynamic line-list editor + ships `storyboard_voiced` bonus recipe (10 steps; V14 `audio_extract` unblocked it) + flips spokesperson detail "Make a video" CTA to `/recipes` (soft-retires legacy single-form UI). Closes the V-arc. Ships SESSION 144 (`68ab5d2`). | — |
 
 Roughly 16 slices, ~12-18 sessions. V0 ships on commit of
 this doc. V1-V4 is the "ground re-laid" arc (architecture +
@@ -1188,7 +1188,7 @@ the tests cannot fail.
   `storyboard_voiced` (V15.4) which uses audio_extract
   on a narration clip.
 
-- 2026-05-14 (SESSION 144, V15.4, commit TBD) — V-arc
+- 2026-05-14 (SESSION 144, V15.4, `68ab5d2`) — V-arc
   closure. Three pieces ship together:
 
   1. **`dialogue_scene` form live.** New
