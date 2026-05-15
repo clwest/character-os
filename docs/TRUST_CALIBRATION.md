@@ -663,3 +663,110 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   composing them. The double-count is a recurring
   shape in fake-timer libraries (Jest's
   `jest.useFakeTimers()` has the same gotcha).
+
+## 2026-05-15 — AI confidently wrong (deliverable framing): "shipped" before operator review
+
+- **Context:** SESSION 158 fired the first real-Runway
+  composition (Donny + trafilatura doc, talking_head).
+  Composition completed; cost stamped; MP4 URL
+  returned. AI's response message led with "✅
+  Marketing video shipped."
+- **Direction:** AI was operationally precise but
+  operator-facing wrong; operator flagged the gap
+  ("Donny has some issues with his teeth").
+- **Detail:** The pipeline ran cleanly — every layer
+  fired, the composition reached `status=completed`,
+  Runway returned a signed MP4. By system criteria,
+  shipped. But the AI hadn't watched the video, and
+  the model output had a visible quality issue
+  (lip-sync artifacts on sustained close-up speech).
+  Operator's framing — "the video is okay but Donny
+  has some issues with his teeth" — surfaced the
+  distinction between "system completed" and
+  "deliverable ready to publish."
+- **Found by:** Operator review of the actual MP4
+  after AI's "shipped" claim.
+- **Lesson:** **For this operator specifically:**
+  when an AI-driven slice produces operator-facing
+  media (video, audio, image, text-someone-will-read),
+  "shipped" framing belongs to the operator after
+  they've reviewed the output — not to the AI after
+  the pipeline closes. The right AI-facing framing
+  is "system completed: cost $X, MP4 at <url>,
+  please review" — present the deliverable as
+  artifact, let the operator's review be the
+  shipping signal. **Generalisation:** when a
+  deliverable's quality depends on a model's output
+  (not just the pipeline returning 2xx), the AI's
+  success criterion is "the pipeline ran cleanly,"
+  not "the deliverable is good." Conflating the two
+  was the failure mode this session.
+
+## 2026-05-15 — Operational calibration: avatar voice × lip-sync quality varies
+
+- **Context:** SESSION 158 second render switched
+  from Donny (`drew` voice) to Sasha (`clara` voice)
+  after the dental-artifact issue. Same recipe, same
+  knowledge doc, shorter script. Render came out
+  clean.
+- **Direction:** Carry-forward operational
+  calibration.
+- **Detail:** Runway's avatar lip-sync model produces
+  visible artifacts on some voice + avatar
+  combinations. The R-arc scope-lock treated voice as
+  a Runway pricing / metering concern; it's also a
+  quality concern operationally. First two real
+  renders this session:
+  * `drew` voice + Donny's avatar bake → dental
+    artifacts on sustained speech.
+  * `clara` voice + Sasha's avatar bake → clean.
+  Whether the variable is voice, avatar bake, script
+  length, or the intersection is unknown without more
+  combinations tested.
+- **Found by:** Operator review of the first render.
+- **Lesson:** **For this operator specifically:** when
+  a future cast member or voice lands, run a 10-second
+  talking_head smoke render before declaring them
+  production-ready. The cast-management CLI
+  (`seed_cast`) could grow a `--smoke-test` flag that
+  fires a tiny render + auto-flags artifacts visible
+  in operator review (v2 work; v1 doesn't need it).
+  **Generalisation:** when a feature shipping
+  end-to-end depends on a third-party model's output
+  quality, the system test ("did the pipeline run?")
+  is necessary but not sufficient. A separate quality
+  test ("does the output meet the operator-facing
+  bar?") needs to ride alongside. The slice plan for
+  R-arc didn't budget for this; future model-output
+  arcs should.
+
+## 2026-05-15 — Near-miss: R9 hardcoded placeholder was accurate enough
+
+- **Context:** R9 (SESSION 156) shipped with
+  `cost_per_minute_micros = 80_000` as a
+  "conservative placeholder until real rates ship."
+  SESSION 158's two real renders cost $0.25 each
+  (~$0.43/min for partial-minute renders).
+- **Direction:** Near-miss / AI calibration win.
+- **Detail:** The R9 placeholder was a stub-and-refine
+  decision — we didn't have real Runway billing data
+  at R9 time. The placeholder estimate matched real
+  spend within ±50% (close enough that the SPA's
+  cost-forecast pill doesn't over- or under-state by
+  more than a multiple). No urgent refinement needed.
+- **Found by:** First two real renders this session
+  surfaced real $/min data.
+- **Lesson:** **For this operator specifically:**
+  stub-and-refine is a valid v1 pattern when the
+  stub's wrongness is bounded AND the operator-facing
+  failure mode is graceful. Here: bounded (~$0.43/min
+  real vs $0.08/min stub — off by ~5x, but
+  over-forecasts; operator under-uses budget rather
+  than overspends). Graceful (UI shows a
+  conservative number; never a panic-inducing
+  surprise). Generalisation: track placeholder
+  constants explicitly so the first real-data event
+  triggers the schedule for refinement. The R9
+  placeholder's "next real render" check is now done;
+  the refinement schedule moves from "TODO" to "when
+  R9 finally ships per-provider rates."
