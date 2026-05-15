@@ -662,7 +662,7 @@ is ~1-2 sessions.
 | **V13** ✓ | `generate_image` primitive (Runway `gen4_image`) + `storyboard_ad` starter (7-step Hook/Action/Payoff with reference-image coherence chain). `storyboard_voiced` deferred — requires an `audio_extract` primitive scheduled for V14+. Ships SESSION 143 (`43be57b`). | "Additional video kinds — cinematic" (storyboard arc) |
 | **V14** ✓ | `dialogue_scene` starter (ports hackathon's `dialogue_service.py`) + `audio_extract` primitive (unlocks the deferred `storyboard_voiced`). Ships SESSION 143 (`6f61e4b`). | "Additional video kinds — dialogue" |
 | **V15.0** ✓ | Backend foundation for the SPA gallery — `apps/compositions/recipes.py` registry of 17 recipe metadata entries + REST surface (`GET /api/recipes/`, `POST /api/compositions/`, `GET /api/compositions/{id}/`). 24 V15.0 backend tests. Ships SESSION 144 (`1781cb1`). | "W12 — Legacy form retirement" |
-| **V15.1** ✓ | SPA gallery shell + first three live recipes (`talking_head`, `cinematic_visual`, `talking_head_polished`); other 14 cards "coming soon". Dashboard CTA flips to `/recipes`. New routes: `/recipes`, `/recipes/:kind`, `/compositions/:id`. Ships SESSION 144 (commit TBD). | — |
+| **V15.1** ✓ | SPA gallery shell + first three live recipes (`talking_head`, `cinematic_visual`, `talking_head_polished`); other 14 cards "coming soon". Dashboard CTA flips to `/recipes`. New routes: `/recipes`, `/recipes/:kind`, `/compositions/:id`. Ships SESSION 144 (`74a70d7`). | — |
 | **V15.2** | Layout + format family forms live (7 recipes). | — |
 | **V15.3** | Voice + style + long-form + storyboard + recut family forms live (6 recipes). | — |
 | **V15.4** | Dialogue (`dialogue_scene`) form + ship the `storyboard_voiced` bonus recipe (V14 audio_extract unblocks it) + soft-retire legacy single-form UI + V-arc closure. | — |
@@ -1068,7 +1068,7 @@ the tests cannot fail.
   tests total. Media-engine routes unchanged (V15 is
   shell-only).
 
-- 2026-05-14 (SESSION 144, V15.1, commit TBD) — SPA
+- 2026-05-14 (SESSION 144, V15.1, `74a70d7`) — SPA
   gallery shell + three live recipes. Operator can now
   drive `talking_head`, `cinematic_visual`, and
   `talking_head_polished` end-to-end from the UI (no more
