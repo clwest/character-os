@@ -360,7 +360,7 @@ independently-shipping slices.
   asserts the four-item hard count + active highlight
   + auth-route hiding.
 - **F3 — Workspace overview dashboard.** ✓ SHIPPED
-  SESSION 144 (commit TBD). New `GET /api/workspace/overview/`
+  SESSION 144 (`59e5fdc`). New `GET /api/workspace/overview/`
   endpoint (`apps/accounts/views.py:workspace_overview`)
   returns one aggregate shape — spokespeople with
   composition + doc badges, knowledge corpus stats
