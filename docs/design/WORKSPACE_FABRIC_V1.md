@@ -330,7 +330,7 @@ independently-shipping slices.
 - **F0 — Scope lock (this doc).** No code. Shipped
   SESSION 144 (`825e0b9`).
 - **F1 — Per-spokesperson recipe entry.** ✓ SHIPPED
-  SESSION 144 (commit TBD). Spokesperson detail "Make a
+  SESSION 144 (`3f9c057`). Spokesperson detail "Make a
   video" CTA → `/recipes?spokesperson=<id>`. Recipe
   gallery reads the hint, shows it in the header ("What
   can <name> do?" + a chip with a "clear" link), and
