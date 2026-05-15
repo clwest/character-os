@@ -587,7 +587,7 @@ independently-shipping slices.
   fills the F8 banner's step-2 prerequisite for
   operator workspaces.
 - **F9 — Legacy single-form deletion.** ✓ SHIPPED
-  SESSION 144 (commit TBD). Deleted
+  SESSION 144 (`73e011d`). Deleted
   `web/src/routes/spokespeople/render.tsx` and removed
   the `/spokespeople/<id>/render` route from
   `web/src/App.tsx`. The V6 backend shim and
