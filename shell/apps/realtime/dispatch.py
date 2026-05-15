@@ -44,7 +44,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from .models import RealtimeSession, RealtimeToolInvocation
-from .tools import ToolSpec, get_tool
+from .tools import ToolSpec, _tier_rank, get_tool
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +149,24 @@ def dispatch_tool(
     # tool-handler's responsibility via the audit row's
     # produced_asset / produced_composition cross-workspace
     # check that already exists in models.py's clean().
+
+    # R7.1 — defense-in-depth tier check. The catalog
+    # filter on `get_workspace_tools` is the primary gate
+    # (the LLM never sees over-tier tools at
+    # session-create), but a malicious or buggy SPA could
+    # POST a tool name the catalog excluded. Reject those
+    # here with a structured error.
+    from apps.billing.services import get_workspace_tier
+
+    workspace_rank = _tier_rank(get_workspace_tier(session.workspace))
+    if _tier_rank(spec.tier_required) > workspace_rank:
+        raise DispatchError(
+            (
+                f"tool {spec.name!r} requires {spec.tier_required!r} "
+                f"tier; workspace is on a lower tier"
+            ),
+            http_status=403,
+        )
 
     threshold = _approval_threshold_micros()
     needs_approval = spec.cost_micros > threshold

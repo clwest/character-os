@@ -620,7 +620,7 @@ land independently. Each slice is ~1-2 sessions.
 | **R5** ✓ | Transcript capture: Runway provider `fetch_transcript` impl, `GET /internal/realtime_sessions/<id>/transcript/`, `apps.realtime.tasks.fetch_transcript_for_session` Celery task fires on broker end, persists `Asset(TRANSCRIPT)` + wires `RealtimeSession.transcript_asset`. Idempotent (replaces stale Asset on rerun). Ships SESSION 146 (`885508d`). | R3 |
 | **R6** ✓ | Cross-session memory: `character_os.realtime_memory.compose_session_memory` summarizes the last 3 ENDED sessions' `Asset(TRANSCRIPT)` rows via gpt-5-mini Responses API; injected as a `## Recent Conversations` section between `## About` and `## Knowledge` in the R4 document body; drops first under the 40k budget per scope-lock priority; sixth `*_FORCE_MOCK` flag (`REALTIME_MEMORY_FORCE_MOCK`). +14 tests. Ships SESSION 148 (`dbb22e0`). | R5, K8 (parallel) |
 | **R7.0** ✓ | Tool catalog foundation: `apps/realtime/tools/` registry with `register_tool` decorator + `ToolSpec` shape, `apps/realtime/dispatch.py` (`dispatch_tool` + `approve_invocation` + `reject_invocation` + `DispatchResult`), `RealtimeToolInvocation.AWAITING_APPROVAL` status (migration `0002_r7_awaiting_approval_status`), `POST /api/realtime_sessions/<id>/invoke_tool/` action, new `RealtimeToolInvocationViewSet` (retrieve + list + approve + reject at `/api/realtime_tool_invocations/`), workspace property on the invocation model so shared permission resolver finds it, `REALTIME_TOOL_APPROVAL_THRESHOLD_MICROS=50_000` ($0.05) settings fallback. First tool — `show_videos_tab` (UI-only nav event, $0 cost). +22 tests. Ships SESSION 149 (`646c492`). | R3 |
-| **R7.1** | Three sync tools: `recall_knowledge` (RAG against K2 via `retrieve_for_spokesperson`), `recall_recent_conversations` (read prior `Asset(TRANSCRIPT)` for this spokesperson), `handoff_to_spokesperson` (cross-spokesperson event with same-workspace gate). Tier-aware filtering lands in `get_workspace_tools(workspace)` here (resolves Q-r-4). | R7.0, K2, R5 |
+| **R7.1** ✓ | Three sync tools: `recall_knowledge` (RAG against K2 via `retrieve_for_spokesperson`; starter tier; ~$0.001/call), `recall_recent_conversations` (read prior `Asset(TRANSCRIPT)` for this spokesperson, returns per-session previews; starter tier; $0), `handoff_to_spokesperson` (cross-spokesperson nav event with same-workspace gate; **pro tier** — Starter has spokespeople=1 so handoff is meaningless). Tier-aware filtering in `get_workspace_tools(workspace)` via new `tier_required` field on `ToolSpec` + new `apps.billing.services.get_workspace_tier` helper. Defense-in-depth tier check in the dispatcher (403 if workspace tier < tool tier). Resolves Q-r-4. +17 tests. Ships SESSION 150. | R7.0, K2, R5 |
 | **R7.2** | Two async tools via Celery: `render_video` (fires a composition starter — the threshold-crossing tool that exercises the approval modal end-to-end), `attach_memory` (mid-session memory commit — pulls partial transcript, composes via R6, pushes as fresh Runway document). Async dispatch path (queued state) becomes load-bearing here. | R7.0, V starters, R6 |
 | **R8** | SPA `/spokespeople/:id/talk` route + `@runwayml/avatars-react` integration + cost forecasting UI + tool-approval modal | R3, R7 |
 | **R9** | Cost governance: per-workspace minutes budget, tier-limit enforcement at session-create, live cost ticker | R2, billing |
@@ -818,6 +818,107 @@ tests cannot fail.
   handles it) — the hard parts are key brokering,
   knowledge composition, cost governance, cross-session
   memory, and workspace-scoped tools.
+
+- 2026-05-15 (SESSION 150) — **R7.1 SHIPPED**. Three
+  sync tools on top of R7.0's foundation, plus
+  tier-aware filtering that resolves Q-r-4.
+
+  Tools:
+
+  * `recall_knowledge` (starter, ~$0.001/call) — RAG
+    against K2 via `retrieve_for_spokesperson`.
+    Returns `{query, count, matches: [{chunk_id,
+    document_id, document_title, text}]}`. Empty
+    query → `ValueError` caught by the dispatcher as
+    a FAILED audit row. `EMBEDDING_FORCE_MOCK` is
+    honored automatically (retrieval module checks
+    internally).
+  * `recall_recent_conversations` (starter, $0) —
+    reads prior ENDED `RealtimeSession` rows with
+    attached `Asset(TRANSCRIPT)` for this
+    spokesperson. Distinct from R6's
+    `compose_session_memory` (which composes a
+    summarized projection at session-create time);
+    this tool returns per-session previews so the
+    avatar can quote a specific prior conversation.
+    Excludes the current session by pk so the avatar
+    doesn't quote its own in-progress conversation.
+    Each preview is capped at 500 chars.
+  * `handoff_to_spokesperson` (**pro**, $0) — returns
+    a `{event, target_spokesperson_id,
+    target_spokesperson_name, message}` nav payload
+    the SPA dispatches on. Cross-workspace target →
+    `ValueError("not in this workspace")` (message
+    intentionally doesn't leak existence of
+    other-workspace spokespeople). Same-spokesperson
+    target → rejected. Pro-tier-only because Starter
+    has `spokespeople=1` in TIER_LIMITS so handoff is
+    structurally meaningless.
+
+  Tier infrastructure (Q-r-4 resolution):
+
+  * New `tier_required: str = 'starter'` field on
+    `ToolSpec` + matching kwarg on `register_tool`.
+  * New `_TIER_RANK` map (`starter=0`, `pro=1`,
+    `agency=2`) + `_tier_rank(tier)` defensive
+    lookup (unknown tier ranks below Starter so
+    misconfigured workspaces can't accidentally
+    unlock Pro/Agency tools).
+  * `get_workspace_tools(workspace)` now filters by
+    `_tier_rank(workspace_tier) >= _tier_rank(
+    tool.tier_required)`. Starter sees 3 tools
+    (`show_videos_tab`, `recall_knowledge`,
+    `recall_recent_conversations`); Pro + Agency see
+    4 (adds `handoff_to_spokesperson`). When R7.2
+    lands, Starter+Pro both see `render_video` (a
+    starter-tier tool gated by the per-month video
+    cap, not catalog visibility); Pro+Agency add
+    `attach_memory`.
+  * Defense-in-depth tier check in
+    `dispatch_tool` — even if a buggy SPA POSTs an
+    over-tier tool name, the dispatcher rejects with
+    `DispatchError(403)`. The catalog filter is the
+    primary gate; the dispatcher check is the
+    safety net.
+  * New public helper `apps.billing.services.get_workspace_tier(
+    workspace) -> str`. Lazily creates a Starter
+    Subscription if one's missing, matching the rest
+    of the billing contract.
+
+  17 new tests in
+  `apps/realtime/tests/test_r7_1_sync_tools.py`
+  covering tier filtering (4: starter / pro / agency
+  catalogs + default tier_required), dispatch tier
+  gate (1), `recall_knowledge` (3: happy path,
+  empty-query rejection, cross-workspace exclusion),
+  `recall_recent_conversations` (4: prior sessions,
+  current-session exclusion, ENDED-only filter,
+  cross-workspace exclusion), `handoff_to_spokesperson`
+  (4: happy path, missing target, same spokesperson,
+  cross-workspace rejection), and REST integration
+  (1: end-to-end through `POST /invoke_tool/` for
+  `recall_knowledge`).
+
+  Pre-existing R7.0 test
+  `test_get_workspace_tools_returns_full_catalog`
+  renamed to `..._for_agency` and updated to set
+  the test workspace's tier to Agency explicitly —
+  the original assertion ("catalog returns all
+  registered tools unconditionally") no longer
+  holds post-R7.1 filtering; Agency tier is the
+  one that still sees the full catalog. Two
+  `ALLOWED_FILES` additions on
+  `apps/compositions/tests/test_isolation.py` +
+  `apps/embeddings/tests/test_retrieval_privacy.py`
+  (R7.1 tests seed Asset + KnowledgeChunk rows).
+
+  Test totals: Django 596 → 613 (+17). No new
+  migrations, no new Celery tasks, no new
+  media-engine routes, no new force-mock flags.
+
+  Q-r-4 resolved.
+
+  R7.1 ships SESSION 150.
 
 - 2026-05-15 (SESSION 149) — R7 split into three
   sub-slices and **R7.0 SHIPPED**. The original R7 row

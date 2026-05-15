@@ -65,6 +65,11 @@ ALLOWED_FILES = {
     # on every dispatch_tool call; workspace-scoped via the
     # session FK at view-layer).
     "apps/realtime/dispatch.py",
+    # R7.1 sync-tool tests seed ENDED RealtimeSession rows
+    # + transcript Assets to exercise
+    # `recall_recent_conversations` + cross-workspace
+    # exclusion paths.
+    "apps/realtime/tests/test_r7_1_sync_tools.py",
 }
 
 

@@ -335,6 +335,10 @@ ALLOWED_FILES = {
     # rows to verify memory + knowledge co-exist in the
     # composed document body.
     "apps/realtime/tests/test_r6_session_memory.py",
+    # R7.1 sync-tool tests seed KnowledgeChunk rows to
+    # exercise `recall_knowledge` (RAG path) + the
+    # cross-workspace privacy assertion.
+    "apps/realtime/tests/test_r7_1_sync_tools.py",
     # K9 endpoint tests do read-side queries on
     # ConversationEmbedding to verify the K8 ↔ K9 pipeline
     # integration (count of embeddings produced after send).

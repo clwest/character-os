@@ -103,6 +103,10 @@ ALLOWED_FILES = {
     # memory composer's transcript-read path. Same
     # workspace-anchor guarantee as R5.
     "apps/realtime/tests/test_r6_session_memory.py",
+    # R7.1 sync-tool tests seed Asset(TRANSCRIPT) rows to
+    # exercise `recall_recent_conversations`. Same
+    # workspace-anchor guarantee as R5/R6.
+    "apps/realtime/tests/test_r7_1_sync_tools.py",
     # V6 — videos app shim tests construct Composition/Asset
     # rows directly to simulate terminal-state sync paths.
     "apps/videos/tests/test_v6_shim.py",

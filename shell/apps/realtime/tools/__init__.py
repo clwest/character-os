@@ -51,6 +51,23 @@ class ToolExecutor(Protocol):
     def __call__(self, session, args: dict) -> dict: ...
 
 
+# Tier rank — used by `get_workspace_tools` to filter the
+# catalog. Higher rank includes everything below it
+# (Agency sees all; Starter sees only Starter-tier tools).
+_TIER_RANK: dict[str, int] = {
+    "starter": 0,
+    "pro": 1,
+    "agency": 2,
+}
+
+
+def _tier_rank(tier: str) -> int:
+    """Defensive lookup — unknown tier strings rank below
+    Starter so a misconfigured Workspace can't accidentally
+    unlock Pro/Agency tools."""
+    return _TIER_RANK.get(tier, -1)
+
+
 @dataclass(frozen=True, slots=True)
 class ToolSpec:
     """Declarative spec for one registered tool.
@@ -76,6 +93,13 @@ class ToolSpec:
             (sync) or be deferred to a Celery task. R7.0
             ships sync only; async lands in R7.2 with
             `render_video` + `attach_memory`.
+        tier_required: minimum tier that exposes this tool
+            (R7.1 — resolves Q-r-4). One of
+            ``'starter'`` / ``'pro'`` / ``'agency'``. The
+            catalog (returned by `get_workspace_tools`)
+            and the dispatcher (defense in depth) both
+            consult this. Default ``'starter'`` keeps
+            tools open to all tiers.
     """
 
     name: str
@@ -84,6 +108,7 @@ class ToolSpec:
     workspace_scoped: bool
     executor: ToolExecutor
     is_async: bool = False
+    tier_required: str = "starter"
 
 
 # In-memory registry. Populated at module import via the
@@ -101,6 +126,7 @@ def register_tool(
     cost_micros: int = 0,
     workspace_scoped: bool = True,
     is_async: bool = False,
+    tier_required: str = "starter",
 ) -> Callable[[ToolExecutor], ToolExecutor]:
     """Decorator that registers a tool with the realtime
     catalog.
@@ -122,6 +148,9 @@ def register_tool(
             workspace-scoped resources must be True; UI-only
             tools can be False.
         is_async: whether to run via Celery instead of inline.
+        tier_required: minimum tier ('starter' / 'pro' /
+            'agency') that exposes this tool. Used by
+            `get_workspace_tools` + the dispatcher.
     """
 
     def _wrap(fn: ToolExecutor) -> ToolExecutor:
@@ -132,6 +161,7 @@ def register_tool(
             workspace_scoped=workspace_scoped,
             executor=fn,
             is_async=is_async,
+            tier_required=tier_required,
         )
         return fn
 
@@ -159,15 +189,28 @@ def list_tools() -> list[ToolSpec]:
 def get_workspace_tools(workspace) -> list[ToolSpec]:
     """Return the tool catalog visible to this workspace.
 
-    R7.0: returns every registered tool unconditionally —
-    no per-workspace or per-tier filtering yet.
+    R7.1 (Q-r-4 resolution): filters by the workspace's
+    subscription tier. A tool with ``tier_required='pro'``
+    is excluded from Starter workspaces' catalogs; an
+    Agency tool would be Pro-or-Agency only. Default
+    ``tier_required='starter'`` keeps tools open to all.
 
-    R7.1+: applies tier-aware filtering (Q-r-4: per-
-    workspace tool catalog overrides). The function
-    signature is stable from R7.0 so callers don't change
-    when the filter lands.
+    Tier resolution lives in
+    ``apps.billing.services.get_workspace_tier`` —
+    the function lazily creates a Starter subscription
+    when one is missing, matching the rest of the billing
+    contract.
     """
-    return list_tools()
+    # Lazy import — billing depends on workspace, which can
+    # be in mid-load when this module first imports.
+    from apps.billing.services import get_workspace_tier
+
+    workspace_rank = _tier_rank(get_workspace_tier(workspace))
+    return [
+        spec
+        for spec in list_tools()
+        if _tier_rank(spec.tier_required) <= workspace_rank
+    ]
 
 
 def clear_registry() -> None:
@@ -183,3 +226,6 @@ def clear_registry() -> None:
 # executor. Order doesn't matter; the registry is a flat
 # dict.
 from . import show_videos_tab  # noqa: F401,E402
+from . import recall_knowledge  # noqa: F401,E402
+from . import recall_recent_conversations  # noqa: F401,E402
+from . import handoff_to_spokesperson  # noqa: F401,E402

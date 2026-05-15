@@ -153,11 +153,21 @@ def test_list_tools_includes_show_videos_tab():
     assert "show_videos_tab" in names
 
 
-def test_get_workspace_tools_returns_full_catalog():
+def test_get_workspace_tools_returns_full_catalog_for_agency():
+    """Agency tier sees every registered tool (R7.1 added
+    tier filtering; agency rank includes all). Earlier R7.0
+    version of this test asserted the same against a default
+    workspace; updated post-R7.1 to use Agency explicitly
+    so the assertion is stable under further tier additions."""
+    from apps.billing.models import Subscription
     ws, _u = _make_workspace("r7gw@test")
+    sub, _ = Subscription.objects.get_or_create(
+        workspace=ws,
+        defaults={"tier": "agency", "status": Subscription.Status.ACTIVE},
+    )
+    sub.tier = "agency"
+    sub.save()
     tools = get_workspace_tools(ws)
-    # R7.0 has no filtering — every registered tool comes
-    # back. R7.1 adds tier-based filtering on top.
     assert {t.name for t in tools} == {t.name for t in list_tools()}
 
 

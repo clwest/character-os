@@ -197,6 +197,18 @@ def _subscription_for(workspace: "Workspace") -> Subscription:
     return sub
 
 
+def get_workspace_tier(workspace: "Workspace") -> str:
+    """Public tier accessor — returns the workspace's tier string
+    (``'starter'`` / ``'pro'`` / ``'agency'``). Used by callers that
+    want to gate features without pulling the full Usage shape
+    (e.g. R7.1's tool-catalog filtering by tier).
+
+    Lazy-creates a Starter subscription for workspaces missing one,
+    matching the rest of the billing module's contract.
+    """
+    return _subscription_for(workspace).tier
+
+
 # Surface TIER_LIMITS for callers (e.g., admin views) that just want
 # to render the tier table without hitting the model layer.
 __all__ = [
@@ -207,4 +219,5 @@ __all__ = [
     "check_spokesperson_limit",
     "check_video_limit",
     "get_usage",
+    "get_workspace_tier",
 ]
