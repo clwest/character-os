@@ -671,7 +671,7 @@ slices that can land independently. Recommended order:
   models + `retrieve_for_thread()`.** ✓ SHIPPED. Schema +
   retrieval landed during K2 (SESSION 138); the
   message-embedding pipeline completion shipped SESSION
-  145 (commit TBD) — new
+  145 (`31af09d`) — new
   `apps/conversations/tasks.py:embed_message` Celery task
   + post-save signal in `apps/conversations/signals.py`.
   Conversation chunk size locked at **500 chars / 0
