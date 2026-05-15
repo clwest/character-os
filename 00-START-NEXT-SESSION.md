@@ -78,12 +78,17 @@ contract.
 | V2 | Composition runtime + state machine + resume   | DONE (SESSION 142) |
 | V3 | `generate_avatar_speech` primitive + `talking_head` starter (absorbs K6.5) | DONE (SESSION 143) |
 | V4 | `generate_visual_clip` primitive (`gen4_turbo`/`gen4.5`) + `cinematic_visual` starter | DONE (SESSION 143) |
-| V5 | `split_script` + `concat_clips` + `long_form_ad` starter — launch differentiator (promoted from V7) | DONE (SESSION 143) |
+| V5 | `split_script` + `concat_clips` + `long_form_ad` starter — launch differentiator | DONE (SESSION 143) |
 | V6 | Backwards-compat shim (`Video` → `talking_head` composition wrapper) | DONE (SESSION 143) |
-| V7 | Composite primitives (`composite_video` + `mix_audio`) + layout-modifier starters — **promoted from V9 SESSION 143** so V8 is unblocked structurally | **NEXT (SESSION 144)** |
-| V8 | First multi-step starter: `talking_head_with_backdrop` (was V7; depends on V7's `composite_video`) | Queued |
-| V9 | Polish + format primitives: captions / intro+outro / trim / reformat (was V8) | Queued |
-| V10-V14 | Voice flows, style remix, transcribe, image+storyboard, dialogue | Queued |
+| V7 | Composite primitives (`composite_video` + `mix_audio`) + 5 layout-modifier starters | DONE (SESSION 143) |
+| V8 | First multi-step starter: `talking_head_with_backdrop` | DONE (SESSION 143) |
+| V9 | Polish + format primitives: captions / intro+outro / trim / reformat + 2 starters | DONE (SESSION 143) |
+| V10 | Voice flows: `design_voice` + `dub_audio` + 2 starters (restores 29-lang hackathon dubbing) | DONE (SESSION 143) |
+| V11 | `style_remix` (Aleph, chunked path) + `style_remix_pass` starter | DONE (SESSION 143) |
+| V12 | `transcribe` (Whisper) + `add_captions` auto mode + `recut_teaser` (FIRST NET-NEW) | DONE (SESSION 143) |
+| V13 | `generate_image` + `storyboard_ad` starter (storyboard_voiced deferred to V14+) | DONE (SESSION 143) |
+| V14 | `dialogue_scene` starter + optional `audio_extract` (unblocks deferred storyboard_voiced) | **NEXT (SESSION 144)** |
+| V15 | SPA recipe gallery (retires legacy single-form video create UI) | Queued |
 | V15 | SPA recipe gallery (retires legacy single-form) | Queued |
 | R0 | Realtime avatar arc — scope lock                | DONE (SESSION 142) |
 | R1 | RealtimeSession + RealtimeToolInvocation schema | Queued |
@@ -91,7 +96,7 @@ contract.
 | R3 | Django broker (`/api/realtime_sessions/`) + tier-limit gate | Queued |
 | R4-R10 | Knowledge bridge, transcript persist, memory, tools, SPA, cost governance | Queued |
 | K6.3 | Brief length cap in script synthesis           | Queued |
-| K6.4 | Duration derived from script length            | Queued (deprecated by V9 trim/reformat primitives) |
+| K6.4 | Duration derived from script length            | Deprecated by V9 trim/reformat primitives (shipped SESSION 143) |
 | K7.1 | Per-chunk cost telemetry surface in UI         | Queued |
 | K8 | Conversation pipeline                           | Queued (parallel to V arc) |
 | K9 | Conversation REST + SPA                         | Queued |
@@ -185,91 +190,92 @@ slice (after V3 + V4) positions the platform's distinctive
 selling point as early as possible. Change log in
 `docs/design/VIDEO_COMPOSITION_V1.md` §"Change log".
 
-### SESSION 143 — V3, V4, V5, V6 shipped; V9→V7 reorder
+### SESSION 143 — V3 through V13 shipped (eleven capability slices)
 
-Six commits landed this session (all on `main`, not pushed):
+Twelve commits landed (eleven feature commits + one
+mid-session reorder), all on `main`, not pushed:
 
-1. **`54032c2`** — V3: `generate_avatar_speech` primitive +
-   `talking_head` starter (absorbs K6.5). 12 V3 tests.
-2. **`1251def`** — V4: `generate_visual_clip` primitive +
-   `cinematic_visual` starter. 16 V4 tests.
-3. **`c2c4ba2`** — V5: `split_script` + `concat_clips`
-   primitives + `long_form_ad` starter (the launch
-   differentiator). +31 V5 tests (13 splitter + 18
-   long-form).
-4. **`7c968a5`** — V6: Video model backwards-compat shim
-   via Composition→Video sync signal. Legacy `/api/videos/`
-   SPA surface unchanged; under the hood it rides on a
-   talking_head composition. 7 V6 tests.
-5. **(this commit)** — V9→V7 reorder: composite primitives
-   promoted ahead of `talking_head_with_backdrop` (V8 now)
-   because V8 structurally depends on `composite_video`.
+| Slice | Commit | Capability |
+|---|---|---|
+| V3 | `54032c2` | `generate_avatar_speech` + `talking_head` (absorbs K6.5) |
+| V4 | `1251def` | `generate_visual_clip` + `cinematic_visual` |
+| V5 | `c2c4ba2` | `split_script` + `concat_clips` + `long_form_ad` (launch differentiator) |
+| V6 | `7c968a5` | Video backwards-compat shim |
+| (reorder) | `7782c34` | V9 → V7 reorder (composite ahead of talking_head_with_backdrop) |
+| V7 | `3af1c28` | `composite_video` + `mix_audio` + 5 layout starters |
+| V8 | `545f991` | `talking_head_with_backdrop` |
+| V9 | `ec130a9` | captions / intro_outro / trim / reformat + 2 starters |
+| V10 | `f237ac7` | `design_voice` + `dub_audio` + 2 starters (29-lang dubbing) |
+| V11 | `cfe9214` | `style_remix` (Aleph, chunked path) + `style_remix_pass` |
+| V12 | `8b24465` | `transcribe` (Whisper) + `recut_teaser` (FIRST NET-NEW) |
+| V13 | `43be57b` | `generate_image` + `storyboard_ad` |
 
-Cumulative: **199 backend tests pass** (up from 133 at start
-of session). Media-engine: 111 routes (up from 109).
+**Test progression:** 133 → 339 backend tests (+206
+across the slice run). Media-engine: 109 → 122 routes
+(+13 new `/internal/*` endpoints).
 
-### Next: V7 — composite primitives + layout-modifier starters
+**Architecture surface after SESSION 143:**
+* 12 step primitives registered (mock + 8 real V3-V13).
+* 12 starter compositions across talking-head, long-form,
+  cinematic, polish, voice, style, teaser, storyboard,
+  + 5 layout modifiers.
+* 14 sanctioned media-engine `/internal/*` routes for the
+  composition arc.
+* `Video` model wraps a `talking_head` composition under
+  the hood; SPA contract unchanged.
 
-Was V9; promoted to V7 because **V8
-(`talking_head_with_backdrop`) needs `composite_video` to
-exist before it can land**. The original sequence had V7
-depending on V9 — a latent dependency the V5-promotion
-reorder exposed by removing the slices between them.
+**Three calibration moments worth carrying forward:**
+* The V9→V7 reorder pattern is the rule, not the
+  exception. After two consecutive reorders (V7-from-V5,
+  V9-from-V7) the discipline is: **check the dependency
+  graph of every prior slice's data shape before locking
+  the next slice's scope, not just the immediate
+  predecessor.**
+* "We already had this" from the operator (V10, V11, V13)
+  is the most valuable signal. The right framing is
+  restoration of shipped hackathon capability under new
+  architecture, not "first-time net-new."
+* Doc discipline gap surfaced at end of session: V3-V13
+  shipped 11 feature commits without paired context-kit
+  refreshes. Resolved with this catch-up + the SESSION
+  143 handoff + new CLAUDE.md rule that ties context-kit
+  updates to feature commits.
 
-Two new primitives + five starter compositions:
+**Deferred from V-arc:**
+* `storyboard_voiced` — needs an `audio_extract` primitive
+  to extract the audio track from an avatar_speech CLIP so
+  it can be mixed under the storyboard. Scheduled for
+  V14+.
 
-- **`composite_video`** primitive — ffmpeg
-  `-filter_complex` overlay engine. Inputs: list[CLIP] +
-  layout_spec (param). Output: CLIP. Layout specs in v1:
-  - `backdrop` — avatar clip top-right corner, cinematic
-    clip looping behind
-  - `pip` — avatar clip with a static or animated
-    picture-in-picture tile
-  - `cohost` — two avatar clips side-by-side
-  - `broll` — splice cinematic cutaways into an avatar
-    talking-head timeline
-- **`mix_audio`** primitive — ffmpeg audio mix engine.
-  Inputs: CLIP (base) + list[AUDIO] (overlay tracks) +
-  mix_spec (param: per-track gain, fade in/out, ducking).
-  Output: CLIP with new audio mix.
-- **Starters**: `pip_layout`, `backdrop_layout`,
-  `cohost_layout`, `music_bed_pass`, `broll_splice` —
-  each a single-step "modifier composition" that takes
-  one or more existing CLIP assets and produces a new
-  composited CLIP. Operators use these to build agency-
-  tier ads from atomic clips.
+### Next: V14 — `dialogue_scene` + optional `audio_extract`
 
-**Media-engine endpoints:**
-- `POST /internal/clips/composite/` — fire ffmpeg
-  filter_complex. Synchronous (same shape as
-  `/internal/clips/concat/` from V5). Caches output by
-  hash of inputs + layout_spec.
-- `POST /internal/audio/mix/` — same shape, audio-only
-  filter graph.
+V14 is the last hackathon-shipped capability port. The
+`dialogue_scene` starter ports the hackathon's
+`dialogue_service.py` — a multi-character skit with N
+stitched avatar lines (each line a `generate_avatar_speech`
+call alternating across the cast).
 
-**Reference reads before V7:**
-1. `docs/design/VIDEO_COMPOSITION_V1.md` §"Step primitives"
-   + §"Starter compositions" — the contract V7 implements.
-2. `runway-hackathon/backend/app/services/scene_composite_client.py`
-   — the ffmpeg overlay patterns to port (PiP / backdrop /
-   cohost / broll layouts).
-3. `media-engine/app/routers/internal.py:post_internal_concat_clips`
-   (V5) — the synchronous-ffmpeg endpoint shape to mirror.
-4. `shell/apps/compositions/primitives/concat_clips.py`
-   (V5) — the input-resolution + single-output primitive
-   pattern.
+Two flavors:
+* **`dialogue_scene` straight stitch** — N speech steps
+  concatenated in script order. Matches the hackathon's
+  shipped output shape exactly.
+* **`audio_extract` primitive** (optional V14 extension) —
+  CLIP → AUDIO via ffmpeg `-vn`. Unblocks the deferred
+  `storyboard_voiced` starter (storyboard → avatar_speech
+  → audio_extract → mix_audio with storyboard as base).
 
-### After V7
+**Reference reads before V14:**
+1. `runway-hackathon/backend/app/services/dialogue_service.py`
+   — the script-to-lines parsing + stitching pattern.
+2. V5's `long_form_ad` starter (the closest precedent for
+   "N speech steps + 1 concat" pre-computation).
 
-- **V8** — `talking_head_with_backdrop` starter (was V7).
-  First multi-step starter that combines V3's avatar
-  speech + V4's visual clip via V7's composite primitive.
-  Unblocked by V7 landing.
-- **V9** — Polish primitives (was V8): `add_captions`,
-  `add_intro_outro`, `trim_clip`, `reformat_clip` +
-  `talking_head_polished` + `reels_format` starters.
-- **V10-V14** — voice flows, style remix, transcribe,
-  image+storyboard, dialogue.
+### After V14
+
+* **V15** — SPA recipe gallery. Operator picks from
+  starter compositions in a card UI; form maps to step
+  inputs. Retires the legacy single-form video create
+  UI. Likely the last V-slice.
 
 ### Alternative next slice: R1 — RealtimeSession schema
 
@@ -280,7 +286,7 @@ Schema only; broker is R3.
 
 R1 is a viable next session if you want to advance the
 realtime arc in parallel — V2's runtime patterns inform
-R3's broker design but R1 doesn't require V7 to ship
+R3's broker design but R1 doesn't require V14 to ship
 first.
 
 ---

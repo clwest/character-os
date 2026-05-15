@@ -564,22 +564,22 @@ Each can ship independently.
 
 | Method | Path | Primitive | Status |
 |---|---|---|---|
-| POST | `/internal/clips/avatar_speech/` | `generate_avatar_speech` | **NEW — V3** (subsumes K6.5) |
-| POST | `/internal/clips/visual/` | `generate_visual_clip` | **V4** (migrate from current `/internal/videos/`) |
-| POST | `/internal/images/` | `generate_image` | **V13** (generalize `/internal/portrait/`) |
-| POST | `/internal/voices/` | `clone_voice` | ALREADY SHIPPED |
-| POST | `/internal/voices/design/` | `design_voice` | **V10** |
-| POST | `/internal/audio/dub/` | `dub_audio` | **V10** |
-| POST | `/internal/clips/style_remix/` | `style_remix` | **V11** |
-| POST | `/internal/clips/composite/` | `composite_video` | **V7** |
-| POST | `/internal/audio/mix/` | `mix_audio` | **V7** |
-| POST | `/internal/clips/captions/` | `add_captions` | **V9** |
-| POST | `/internal/clips/intro_outro/` | `add_intro_outro` | **V9** |
-| POST | `/internal/transcribe/` | `transcribe` | **V12** |
-| POST | `/internal/clips/trim/` | `trim_clip` | **V9** |
-| POST | `/internal/clips/concat/` | `concat_clips` | **V5** |
-| POST | `/internal/clips/reformat/` | `reformat_clip` | **V9** |
-| GET | `/internal/tasks/{task_id}/` | (generalised poll) | **V3** (replaces `/internal/videos/{task_id}/`) |
+| POST | `/internal/clips/avatar_speech/` | `generate_avatar_speech` | ✓ SHIPPED V3 |
+| POST | `/internal/clips/visual/` | `generate_visual_clip` | ✓ SHIPPED V4 |
+| POST | `/internal/images/` | `generate_image` | ✓ SHIPPED V13 |
+| POST | `/internal/voices/` | `clone_voice` | ALREADY SHIPPED (pre-V0) |
+| POST | `/internal/voices/design/` | `design_voice` | ✓ SHIPPED V10 |
+| POST | `/internal/audio/dub/` | `dub_audio` | ✓ SHIPPED V10 |
+| POST | `/internal/clips/style_remix/` | `style_remix` | ✓ SHIPPED V11 (with chunked path) |
+| POST | `/internal/clips/composite/` | `composite_video` | ✓ SHIPPED V7 |
+| POST | `/internal/audio/mix/` | `mix_audio` | ✓ SHIPPED V7 |
+| POST | `/internal/clips/captions/` | `add_captions` | ✓ SHIPPED V9 |
+| POST | `/internal/clips/intro_outro/` | `add_intro_outro` | ✓ SHIPPED V9 |
+| POST | `/internal/transcribe/` | `transcribe` | ✓ SHIPPED V12 |
+| POST | `/internal/clips/trim/` | `trim_clip` | ✓ SHIPPED V9 |
+| POST | `/internal/clips/concat/` | `concat_clips` | ✓ SHIPPED V5 |
+| POST | `/internal/clips/reformat/` | `reformat_clip` | ✓ SHIPPED V9 |
+| GET | `/internal/tasks/{task_id}/` | (generalised poll) | ✓ SHIPPED V3 |
 
 ### Generalised poll endpoint
 
@@ -648,18 +648,18 @@ is ~1-2 sessions.
 | **V0** | Scope lock (this doc) | — |
 | **V1** | `Asset` + `Composition` + `CompositionStep` schema, privacy guards, isolation tests | — |
 | **V2** | Composition runtime: `execute_composition` Celery task + per-step state machine + partial-failure resume + retry-step. No primitives wired yet; runtime tested with a mock primitive. | — |
-| **V3** | `generate_avatar_speech` primitive end-to-end (media-engine endpoint + shell wrapper + the `talking_head` starter composition). Talking-head renders work correctly via `/v1/avatar_videos`. | **K6.5** |
-| **V4** | `generate_visual_clip` primitive (migrate the current `/internal/videos/` behavior — `gen4_turbo` image-to-video — into a single-step composition). Add `cinematic_visual` starter. | "Additional video kinds — cinematic" |
-| **V5** | `split_script` primitive (gpt-5-mini sentence-boundary chunker) + `concat_clips` primitive (ffmpeg) + `long_form_ad` starter composition. Ports hackathon's `long_ad_service.py`. Operator can render multi-minute talking-head ads. **Reordered to position 5 in SESSION 142** — long-form is a launch differentiator (no AI provider ships >20s in one call; everything long-form is stitched). Lands as the third capability slice instead of the seventh. | "Additional video kinds — long_ad" |
-| **V6** | Backwards-compat shim: existing `Video` model becomes a thin wrapper that creates a `talking_head` composition on `Video.create`. `/api/videos/` SPA surface unchanged. | — |
-| **V7** | Composite primitives: `composite_video` + `mix_audio`. Adds all layout-modifier starters (`pip_layout`, `backdrop_layout`, `cohost_layout`, `music_bed_pass`, `broll_splice`). Unlocks scene composition entirely. **Reordered to position 7 in SESSION 143** — V8 (`talking_head_with_backdrop`) depends on `composite_video`, so the composite primitives must land first. | — |
-| **V8** | First multi-step starter: `talking_head_with_backdrop`. End-to-end: SPA picks the recipe → fills inputs → composition runs → operator gets a real avatar-over-cinematic-backdrop output, knowledge-informed via K6. Unblocked by V7's `composite_video` primitive. | — |
-| **V9** | Polish + format primitives: `add_captions` (script-driven), `add_intro_outro`, `trim_clip`, `reformat_clip`. Adds `talking_head_polished` + `reels_format` starters. | "Cast sync command" priority shift |
-| **V10** | Voice flows: `design_voice` + `dub_audio` primitives. Adds operator-facing voice design UX (separate from the avatar-bound preset). | "Voice preset audit" |
-| **V11** | `style_remix` primitive + `style_remix_pass` starter. 5 style presets (noir/anime/chrome/watercolor/cyberpunk). | — |
-| **V12** | `transcribe` primitive (OpenAI Whisper) + `add_captions` (auto mode, picks up from V9 stub) + `recut_teaser` composition. Net-new capability over hackathon. | — |
-| **V13** | `generate_image` primitive (generalise `/internal/portrait/`) + `storyboard_ad` + `storyboard_voiced` starters. Ports hackathon's `storyboard_service.py`. | "Additional video kinds — cinematic" (storyboard arc) |
-| **V14** | `dialogue_scene` starter + `dialogue_with_shot_reverse_shot` new composition. Ports hackathon's `dialogue_service.py` plus the AI-cut variant. | "Additional video kinds — dialogue" |
+| **V3** ✓ | `generate_avatar_speech` primitive + `talking_head` starter. Talking-head renders work correctly via `/v1/avatar_videos`. Ships SESSION 143 (`54032c2`). **Closes K6.5.** | **K6.5** |
+| **V4** ✓ | `generate_visual_clip` primitive (`gen4_turbo` image-to-video, `gen4.5` text-to-video) + `cinematic_visual` starter. Ships SESSION 143 (`1251def`). | "Additional video kinds — cinematic" |
+| **V5** ✓ | `split_script` + `concat_clips` primitives + `long_form_ad` starter. Ports hackathon's `long_ad_service.py`. Operator can render multi-minute talking-head ads. **Promoted from V7 SESSION 142** — long-form is a launch differentiator (no AI provider ships >20s in one call; everything long-form is stitched). Ships SESSION 143 (`c2c4ba2`). | "Additional video kinds — long_ad" |
+| **V6** ✓ | Backwards-compat shim — existing `Video` model becomes a thin wrapper that creates a `talking_head` composition on `Video.create`. `/api/videos/` SPA surface unchanged. Composition→Video sync via post_save signal. Ships SESSION 143 (`7c968a5`). | — |
+| **V7** ✓ | Composite primitives: `composite_video` (4 layouts: pip/backdrop/cohost/broll) + `mix_audio` (music_bed). 5 layout-modifier starters (`pip_layout`, `backdrop_layout`, `cohost_layout`, `music_bed_pass`, `broll_splice`). **Reordered from V9 SESSION 143** — V8 structurally depends on `composite_video`. Ships SESSION 143 (`3af1c28`). | — |
+| **V8** ✓ | First multi-step starter: `talking_head_with_backdrop` (3 steps: `generate_visual_clip` + `generate_avatar_speech` → `composite_video` kind=backdrop). Demonstrates the composition architecture's payoff — zero new primitives, zero new endpoints. Ships SESSION 143 (`545f991`). | — |
+| **V9** ✓ | Polish + format primitives: `add_captions` (script-driven), `add_intro_outro`, `trim_clip`, `reformat_clip`. Adds `talking_head_polished` + `reels_format` starters. Ships SESSION 143 (`ec130a9`). | "Cast sync command" priority shift |
+| **V10** ✓ | Voice flows: `design_voice` + `dub_audio` primitives + `voice_design` + `multi_lang_dub` starters. Restores hackathon-shipped 29-language dubbing (the operator confirmed live production usage). Ships SESSION 143 (`f237ac7`). | "Voice preset audit" |
+| **V11** ✓ | `style_remix` primitive (Aleph `gen4_aleph` with full chunked-path support — split→parallel remix→concat for sources >5.5s) + `style_remix_pass` starter. 5 style presets (noir/anime/chrome/watercolor/cyberpunk). Ships SESSION 143 (`cfe9214`). | — |
+| **V12** ✓ | `transcribe` primitive (OpenAI Whisper) + `add_captions` auto mode (reads TRANSCRIPT input) + `recut_teaser` composition. **First net-new capability beyond what the hackathon shipped.** Ships SESSION 143 (`8b24465`). | — |
+| **V13** ✓ | `generate_image` primitive (Runway `gen4_image`) + `storyboard_ad` starter (7-step Hook/Action/Payoff with reference-image coherence chain). `storyboard_voiced` deferred — requires an `audio_extract` primitive scheduled for V14+. Ships SESSION 143 (`43be57b`). | "Additional video kinds — cinematic" (storyboard arc) |
+| **V14** | `dialogue_scene` starter (ports hackathon's `dialogue_service.py`) + optional `audio_extract` primitive (unlocks the deferred `storyboard_voiced`). | "Additional video kinds — dialogue" |
 | **V15** | SPA recipe gallery. Operator picks from starter compositions; form maps to step inputs. Replaces the legacy single-form video create UI. | "W12 — Legacy form retirement" |
 
 Roughly 16 slices, ~12-18 sessions. V0 ships on commit of
@@ -915,3 +915,64 @@ the tests cannot fail.
   dependency before the consumer" discipline as V1 →
   V3 (schema before primitive) and V2 → V3 (runtime
   before primitive).
+
+- 2026-05-14 (SESSION 143, end of session) — V3-V13
+  capability buildout shipped. Eleven slices in one
+  session, each a per-commit feature drop on `main`:
+
+    V3  (`54032c2`) — generate_avatar_speech + talking_head
+    V4  (`1251def`) — generate_visual_clip + cinematic_visual
+    V5  (`c2c4ba2`) — split_script + concat_clips + long_form_ad
+    V6  (`7c968a5`) — Video backwards-compat shim
+    V7  (`3af1c28`) — composite_video + mix_audio + 5 layout starters
+    V8  (`545f991`) — talking_head_with_backdrop
+    V9  (`ec130a9`) — captions + intro_outro + trim + reformat + 2 starters
+    V10 (`f237ac7`) — design_voice + dub_audio + voice_design + multi_lang_dub
+    V11 (`cfe9214`) — style_remix (Aleph, chunked path) + style_remix_pass
+    V12 (`8b24465`) — transcribe (Whisper) + recut_teaser (first net-new
+                       capability beyond hackathon)
+    V13 (`43be57b`) — generate_image + storyboard_ad
+
+  Plus the V9→V7 reorder commit (`7782c34`) between V6 and
+  V7 to clear the latent composite_video dependency.
+
+  Test count progression: 199 (V6 start) → 222 (V7) → 233
+  (V8) → 257 (V9) → 276 (V10) → 293 (V11) → 318 (V12) →
+  339 (V13). Media-engine routes: 113 → 122. 14 new
+  `/internal/*` endpoints, 8 new step primitives, 12 new
+  starter compositions.
+
+  Three calibration moments worth carrying:
+
+  - **The V9→V7 reorder pattern repeated.** First V0
+    reorder was V5 from V7 (SESSION 142); this session's
+    reorder was V9 to V7. Both surfaced the same way: a
+    "next slice" turned out to have a latent dependency on
+    something scheduled later. After two repetitions this
+    is now the rule, not the exception: **when planning
+    the next slice, check it against the dependency graph
+    of every prior slice's data shape, not just the
+    immediate predecessor.**
+  - **"We already had this" is the operator's most
+    valuable signal.** V10 (29-language dubbing), V11
+    (Aleph style remix), V13 (storyboard) were all
+    framed in the V0 doc as "ports" but the operator
+    flagged each one with "I used this in production at
+    the hackathon." The correct framing is restoration of
+    shipped capability under a new architecture, not
+    "first-time-shipping new features."
+  - **storyboard_voiced deferred to V14+.** The V0 design
+    listed it under V13; implementing it requires an
+    `audio_extract` primitive (CLIP → AUDIO) that doesn't
+    exist yet. Calling out the deferral in V13's commit
+    so V14 picks it up.
+
+  Doc discipline gap caught at end of session: V3-V13
+  shipped 11 feature commits without paired context-kit
+  refreshes. This change log entry + the SESSION 143
+  handoff + the inventory regen close that gap.
+  Going-forward discipline codified in CLAUDE.md:
+  feature commits SHOULD include or be immediately
+  followed by context-kit doc updates (slice table mark
+  + change log entry); end-of-session handoff aggregates
+  the per-slice updates.

@@ -97,24 +97,37 @@ Update this section when a phase completes.
     K4.2 + K6.2. Remaining: K8/K9 (conversation pipeline +
     REST/SPA), K10 (onboarding seed). Scope lock:
     `docs/design/KNOWLEDGE_LAYER.md`.
-  - **Video composition arc (V0-V15).** V0-V6 all shipped
-    (`docs/design/VIDEO_COMPOSITION_V1.md`). `apps.compositions`
-    + `apps.videos` together have 86 tests passing (13 V1
-    schema + 18 V2 runtime + 12 V3 avatar_speech + 16 V4
-    visual_clip + 13 V5 splitter + 18 V5 long-form + 7 V6
-    shim + 4 K6/K6.2 existing). After SESSION 143 close:
-    legacy `/api/videos/` POST for `spokesperson_ad` rides on
-    the new `talking_head` composition (V6 shim); cast members
-    render *speaking* via `/v1/avatar_videos` end-to-end.
-    Long-form ads via `long_form_ad` starter unlock multi-
-    minute outputs (V5 launch differentiator).
-    **Second slice reorder SESSION 143** — V9 (composite
-    primitives) promoted to V7 because V8
-    (`talking_head_with_backdrop`) structurally depends on
-    `composite_video`. New sequence:
-    V7 (composite + mix_audio, was V9) → V8
-    (`talking_head_with_backdrop`, was V7) → V9 (polish
-    primitives, was V8) → V10-V15. **V7 is the next slice.**
+  - **Video composition arc (V0-V15).** V0-V13 all shipped
+    (`docs/design/VIDEO_COMPOSITION_V1.md`). Eleven capability
+    slices (V3-V13) landed across one extended session (SESSION
+    143). 339 backend tests pass. Media-engine 122 routes
+    (+13 new `/internal/*` endpoints).
+    **Step primitive registry:** 12 primitives —
+    `generate_avatar_speech` (V3), `generate_visual_clip` (V4),
+    `split_script` + `concat_clips` (V5), `composite_video` +
+    `mix_audio` (V7), `add_captions` + `add_intro_outro` +
+    `trim_clip` + `reformat_clip` (V9), `design_voice` +
+    `dub_audio` (V10), `style_remix` (V11), `transcribe` (V12),
+    `generate_image` (V13). Plus the three mock primitives
+    from V2 for runtime tests.
+    **Starter compositions:** 12 recipes — `talking_head`
+    (V3), `cinematic_visual` (V4), `long_form_ad` (V5; launch
+    differentiator), `pip_layout` / `backdrop_layout` /
+    `cohost_layout` / `broll_splice` / `music_bed_pass` (V7),
+    `talking_head_with_backdrop` (V8), `talking_head_polished`
+    + `reels_format` (V9), `voice_design` + `multi_lang_dub`
+    (V10), `style_remix_pass` (V11), `recut_teaser` (V12),
+    `storyboard_ad` (V13). The legacy `Video` model rides on
+    `talking_head` via the V6 backwards-compat shim — SPA
+    contract unchanged. Two reorders during the arc: V5
+    promoted from V7 (SESSION 142), V9 promoted to V7
+    (SESSION 143) — both restored "land the dependency before
+    the consumer" discipline.
+    **Deferred from V-arc:** `storyboard_voiced` needs an
+    `audio_extract` primitive (scheduled V14+).
+    **V14 (`dialogue_scene` + optional `audio_extract`)** is
+    the next slice. V15 (SPA recipe gallery) closes the
+    V-arc.
   - **Realtime avatar arc (R0-R10).** R0 scope lock shipped
     SESSION 142 (`docs/design/REALTIME_AVATAR_V1.md`). 10
     contract rules, RealtimeSession + RealtimeToolInvocation
@@ -143,6 +156,42 @@ pattern's load-bearing conventions:
 - **AI drafts, human edits** — not the reverse. AI is expected to
   push back when a request contradicts memory or the framing looks
   wrong.
+
+### Doc-with-commit discipline (codified SESSION 143)
+
+Feature commits and context-kit doc updates are paired, not
+optional. After SESSION 143's catch-up event (V3-V13 shipped
+11 feature commits without paired context-kit updates), the
+rule is:
+
+- **Per-slice feature commits MUST update the slice's row in
+  the relevant design lock doc** (e.g.
+  `docs/design/VIDEO_COMPOSITION_V1.md` for V-slices,
+  `docs/design/KNOWLEDGE_LAYER.md` for K-slices). The update
+  is small — one row marked "✓ SHIPPED" with the commit ref.
+  Include it in the feature commit OR immediately follow
+  with a `docs:` commit.
+- **Design lock change log gets one line per shipped slice**
+  with the commit ref + what landed. Same commit or
+  immediately-after `docs:` commit.
+- **`00-START-NEXT-SESSION.md`** slice-status table updated
+  the same way. When the operator changes plans mid-session
+  (reorder, defer, accelerate), the start-here doc gets the
+  new "Next:" section in the same commit batch.
+- **End-of-session handoff** in `docs/handoffs/` aggregates
+  but does not replace per-slice updates. The handoff is
+  the narrative; the per-slice updates are the contract
+  state.
+- **`docs/CHARACTER_OS_INVENTORY.md` regeneration** runs at
+  session end if any model / route / Celery task changed.
+  `python manage.py inventory` from `shell/`.
+- **`docs/TRUST_CALIBRATION.md` entries** for calibration
+  events go in at session end with the handoff. Append-only.
+
+The expense of skipping these is the catch-up pass —
+SESSION 143 spent ~30 minutes catching up 11 slices because
+the per-slice updates weren't done inline. Per-slice updates
+are 30 seconds each. The discipline avoids the catch-up.
 
 Anchor docs (will be fleshed out as the build proceeds):
 - `docs/CHARACTER_OS_WHAT_IT_IS.md` — narrative anchor.

@@ -252,3 +252,113 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   to be first). The wrong ordering would have cost months
   of "we have the architecture but no differentiating
   capability yet" until V7 finally shipped.
+
+## 2026-05-14 — Near-miss: latent slice-dependency caught twice (V5 promotion, V9→V7 promotion)
+
+- **Context / claim:** Both V0's slice plan (locked SESSION
+  142) and the post-V5-promotion sequence I shipped looked
+  internally consistent at design time. V7
+  (`talking_head_with_backdrop`) and V9 (composite primitives)
+  were both reasonable next-slice candidates after V6's
+  backwards-compat shim.
+- **Reality / outcome:** SESSION 143's V6 close exposed that
+  V7's `talking_head_with_backdrop` recipe structurally
+  requires the `composite_video` primitive, which was
+  scheduled for V9. The same shape as SESSION 142's V5
+  promotion (long-form's "no provider ships >20s single-
+  call" reality). Both reorders required only docs edits +
+  rationale; zero code was wasted because the dependency
+  was caught between slices, not after. The second
+  reorder (V9 → V7) was operator-prompted with a single
+  flag — *"V7 needs `composite_video`?"* — that I
+  confirmed against the V7 starter design.
+- **Found by:** Operator's pattern recognition (same shape
+  as V5 promotion) plus my own re-read of V7's recipe
+  before locking the next slice.
+- **Lesson:** **The slice-dependency check has to happen
+  against the dependency graph of every prior slice's data
+  shape, not just the immediate predecessor.** V0's
+  contract rules locked workspace anchors + cross-workspace
+  rejection + linear ordering — but didn't lock per-slice
+  inputs/outputs against per-primitive needs. Two reorder
+  events into the arc, this is now the rule: **at the end
+  of each slice, list the next 2-3 slices' required
+  primitives + check the registry for gaps before
+  committing to a sequence.**
+  Generalisation: when a design lock enumerates more than
+  ~8 slices, the latent-dependency rate goes up. Either
+  scope-lock fewer slices, or run an explicit "what does
+  the next-next slice need" pass per slice. For this
+  operator: the latent-dependency call-out is welcome
+  (zero-cost catch); don't paper over it with "this works
+  in isolation."
+
+## 2026-05-14 — AI confidently wrong (v2-deferral framing): "we already had this" for V10, V11, V13
+
+- **Context / claim:** V0's slice plan labeled V10 (voice
+  flows), V11 (Aleph), and V13 (storyboard) as
+  hackathon-port slices. My slice-intro framing for each
+  treated them as "first-time implementations under the
+  new architecture" — language matched a new feature
+  rollout (cost estimation, contract rule fit, etc.).
+- **Reality / outcome:** Operator flagged each one
+  explicitly:
+  - V10 (mid-slice): *"We should have had the multi-
+    language connected in the hackathon project; I used
+    it."*
+  - V11 (post-V10 framing): *"another hackathon-shipped
+    capability to restore."* (My commit message language
+    converged toward "restoration" after this.)
+  - V13: same pattern. The 29-language dubbing,
+    `noir`/`anime`/etc. style presets, and the 3-shot
+    Hook/Action/Payoff storyboard had all shipped in
+    production at the hackathon.
+- **Found by:** Operator's recall of live production
+  usage at the hackathon, which I didn't have direct
+  access to (`runway-hackathon/` repo only shows code,
+  not what operators used).
+- **Lesson:** **When porting from runway-hackathon,
+  default-frame as "restoration of shipped capability"
+  not "first-time feature implementation."** The
+  hackathon's `audio_client.py`, `aleph_client.py`, and
+  `storyboard_service.py` exist because operators ran
+  them in production — that's stronger evidence than
+  "the code is here." When the operator says "I used
+  this," update commit-message framing + design-lock
+  language to match. The shipped behavior + Runway
+  billing + operator muscle memory all need to stay
+  consistent; "restoration under new architecture" makes
+  that constraint explicit.
+
+## 2026-05-14 — Near-miss: doc-discipline gap (V3-V13 commits without context-kit updates)
+
+- **Context / claim:** SESSION 143's V3-V13 shipped 11
+  feature commits without paired context-kit updates.
+  My (incorrect) implicit assumption: per-commit feature
+  messages would serve as documentation; the slice table
+  + change log + handoff would catch up at end-of-session
+  in one batch.
+- **Reality / outcome:** At end of session the operator
+  asked *"Are you updating documentation and committing
+  each step?"* The honest answer was "no — commits yes,
+  docs no." Stale state across 6 anchor docs (slice
+  tables, START-HERE Next section, CLAUDE.md Phase 4
+  row, WHAT_IT_IS arcs section, TRUST_CALIBRATION log,
+  inventory). A new session starting from those anchors
+  would have gotten 11-slices-of-drift wrong.
+- **Found by:** Operator directly. The catch-up pass
+  (this commit batch) closed the gap.
+- **Lesson:** **Feature commits and context-kit updates
+  are paired by design, not optional.** Per-slice
+  context-kit work is tiny (one slice-table mark + one
+  change-log line + a status column flip) — the expense
+  is forgetting to do it, not doing it. **Rule
+  codified in CLAUDE.md as "Doc-with-commit discipline":
+  every feature commit either includes the slice-table /
+  change-log updates or is immediately followed by a
+  docs commit that does. The session handoff aggregates
+  but doesn't replace per-slice updates.**
+  For this operator specifically: anchor docs that lag
+  behind code are a real session-cost (next session has
+  to re-derive the state from `git log`). The catch-up
+  works once; the discipline avoids the catch-up.

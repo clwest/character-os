@@ -2,9 +2,9 @@
 title: "Character OS — What It Actually Is"
 status: populated
 generated: 2026-05-13
-last_revised: 2026-05-14 (SESSION 142)
+last_revised: 2026-05-14 (SESSION 143)
 companion_doc: CHARACTER_OS_INVENTORY.md
-covers_sessions: "106-142"
+covers_sessions: "106-143"
 ---
 
 # Character OS — What It Actually Is
@@ -326,32 +326,58 @@ Scope-locked SESSION 142
 - **`CompositionStep`** — one step invoking one step
   primitive. Linear ordering (DAG is v2). Partial-failure
   resume per contract rule 6.
-- **Step primitives** — 16 named operations (generate
-  speech, generate visual, composite, mix audio, add
-  captions, etc.). Adding capability = adding a primitive
-  + a starter composition. Never an enum value.
+- **Step primitives** — named operations (generate speech,
+  generate visual, composite, mix audio, add captions,
+  etc.). Adding capability = adding a primitive + a starter
+  composition. Never an enum value.
 
-**Three slices shipped SESSION 142:**
+**Fourteen V-slices shipped through SESSION 143** (V0-V13):
 
-- **V0** scope lock — 9 contract rules, 16-slice plan
-- **V1** schema — `apps.compositions` app, 13 model tests
-- **V2** runtime — `execute_composition` Celery task,
-  partial-failure resume, mock-primitive registry, 18
-  runtime tests
+* **V0** — scope lock (SESSION 142)
+* **V1** — `Asset` + `Composition` + `CompositionStep` schema
+* **V2** — `execute_composition` runtime + partial-failure resume
+* **V3** — `generate_avatar_speech` + `talking_head` (closes K6.5)
+* **V4** — `generate_visual_clip` + `cinematic_visual`
+* **V5** — `split_script` + `concat_clips` + `long_form_ad`
+  **(launch differentiator; promoted from V7)**
+* **V6** — Video backwards-compat shim
+* **V7** — `composite_video` + `mix_audio` + 5 layout starters
+  **(promoted from V9 to unblock V8)**
+* **V8** — `talking_head_with_backdrop`
+* **V9** — polish primitives (captions/intro_outro/trim/reformat)
+  + 2 starters
+* **V10** — `design_voice` + `dub_audio` + 2 starters
+  **(restores hackathon-shipped 29-language dubbing)**
+* **V11** — `style_remix` (Aleph, with chunked-path support)
+* **V12** — `transcribe` (Whisper) + auto-captions + `recut_teaser`
+  **(first net-new capability beyond hackathon)**
+* **V13** — `generate_image` + `storyboard_ad` (3-shot Hook/
+  Action/Payoff)
 
-**V5 promoted from V7 late-session.** No AI provider ships
-single-call video longer than ~20 seconds; every long-form
-AI video in the wild is stitched. Long-form
-(`split_script` + `concat_clips` + `long_form_ad`) is
-therefore not a v2 nice-to-have — it's the launch-
-differentiating capability. Promoting it to the third
-capability slice (right after V3 + V4) positions the
-platform's distinctive selling point as early as possible.
+After V13: 12 step primitives registered + 12 starter
+compositions live. 339 backend tests, 122 media-engine
+routes (+13 new `/internal/*` endpoints since V0). Two
+mid-arc reorders (V5 from V7, V9 to V7) both surfaced the
+same pattern — latent dependencies between slices that the
+original sequence missed.
 
-New sequence: V3 (generate_avatar_speech, absorbs K6.5) →
-V4 (generate_visual_clip) → V5 (long-form) → V6 (backwards-
-compat shim) → V7 (talking_head_with_backdrop) → V8-V15.
-**V3 is the next slice.**
+**Net-new vs. hackathon-shipped:** V3, V4, V7-V9, V10, V11,
+V13 all restore capabilities the hackathon shipped (the
+operator confirmed live production usage for V10's 29-lang
+dubbing, V11's Aleph remix, V13's storyboard). V5, V6, V8,
+V12 are net-new — V5 because no AI provider ships >20s
+single-call video so stitching is the whole product, V6
+because the architecture wraps the legacy `Video` model,
+V8 because the recipe pattern combines V3+V4+V7 into
+something hackathon couldn't express, V12 because OpenAI
+Whisper transcription is the first non-Runway provider in
+the media engine.
+
+**Deferred from V-arc:** `storyboard_voiced` (needs
+`audio_extract` primitive — scheduled V14+).
+
+Remaining: **V14 — `dialogue_scene` + optional
+`audio_extract`. V15 — SPA recipe gallery.**
 
 ### Arc 3 — Realtime Avatar (R0-R10)
 
@@ -451,13 +477,14 @@ first, then the runtime anchors. Inheritable across operators.
 
 ## Current State Honesty
 
-### Working well (as of SESSION 142, 2026-05-14)
+### Working well (as of SESSION 143, 2026-05-14)
 
 - Django shell + FastAPI media-engine speak the `/internal/*`
-  contract for the five hackathon-imported verbs (avatars,
-  voices, videos, portrait, polling) — though `/internal/videos/`
-  currently routes to the wrong Runway endpoint (silent
-  animated portrait instead of talking-head; closes in V3).
+  contract across 14 V-arc routes (avatar_speech, visual,
+  images, composite, audio mix, captions, intro_outro, trim,
+  reformat, concat, style_remix, transcribe, voices/design,
+  audio/dub) + the 5 hackathon-imported verbs + the
+  generalised `/internal/tasks/{id}/` poll.
 - Tier gating returns structured 402 payloads with upgrade
   hints.
 - Multi-tenant isolation enforced three ways: `IsWorkspaceMember`
@@ -467,19 +494,21 @@ first, then the runtime anchors. Inheritable across operators.
   CompositionStep inputs (V1 contract rule 3).
 - Hermetic mock-mode for every pipeline: `RUNWAY_FORCE_MOCK`,
   `EMBEDDING_FORCE_MOCK`, `RENDER_SCRIPT_FORCE_MOCK`,
-  `SERPER_FORCE_MOCK`. 133 backend tests + 46 prompts +
-  38 e2e specs all green at SESSION 142 close.
+  `SERPER_FORCE_MOCK`. **339 backend tests** + 46 prompts +
+  38 e2e specs all green at SESSION 143 close.
 - Knowledge layer K1-K7 shipped — operators can ingest
   paste / PDF / URL / serper-search results; renders are
   RAG-informed via gpt-5-mini synthesis + citation logging.
-- Composition runtime V2 shipped — `execute_composition`
-  walks ordered steps, persists outputs as Assets, supports
-  partial-failure resume + retry_step. Mock-primitive
-  registry exercises the runtime end-to-end without burning
-  Runway credits. Adding a real primitive (V3+) is a
-  registry-entry change.
+- Video composition arc V0-V13 shipped — 12 step primitives
+  registered, 12 starter compositions live, partial-failure
+  resume + retry_step + Asset audit trail. Legacy `Video`
+  model wraps a `talking_head` composition under the hood
+  (V6 shim); SPA contract unchanged.
 - Postgres + pgvector running locally via
   `infra/docker-compose.yml`. SQLite drift closed (K1).
+- K6.5 closed via V3 — cast members render *speaking* via
+  Runway's `/v1/avatar_videos` (`gwm1_avatars`) end-to-end
+  in real mode.
 
 ### Stale or drifting
 
@@ -488,18 +517,16 @@ first, then the runtime anchors. Inheritable across operators.
   cosmetic gap; still flagged by `context-kit orient` but
   the handoffs from runway-hackathon were spliced in and
   the numbering predates this project.
-- **K6.5 talking-head endpoint not yet fixed** — SESSION 141
-  audit identified `/v1/avatar_videos` as the correct
-  endpoint; absorbed into V3 (next session). Cast members
-  currently render as silent animated portraits, not
-  speaking. Don't ship a real-mode demo until V3 lands.
-- **The legacy `Video` model is going to be wrapped, not
-  retired** — V5 (backwards-compat shim, formerly V6 before
-  the SESSION 142 reorder) turns `Video.create` into a
-  thin `talking_head` composition wrapper. The
-  `/api/videos/` SPA surface stays stable; under the hood
-  it'll route through the V2 runtime. V15 (recipe gallery)
-  retires the legacy form UX.
+- ~~**K6.5 talking-head endpoint not yet fixed**~~ — closed
+  via V3 (SESSION 143).
+- ~~**The legacy `Video` model needs wrapping**~~ — closed
+  via V6 (SESSION 143). `Video.create` now creates a
+  `talking_head` composition; the Composition→Video
+  post_save signal syncs terminal state back to the row.
+- **`storyboard_voiced` deferred** — V13 shipped
+  `storyboard_ad` but not the voiced variant; needs an
+  `audio_extract` primitive (CLIP → AUDIO via ffmpeg `-vn`)
+  scheduled for V14+.
 
 ### Known issues queued for follow-up
 
@@ -509,10 +536,16 @@ first, then the runtime anchors. Inheritable across operators.
   Deferred until SPA load creates pressure.
 - **Real Runway credentials smoke-tested partially.** The
   three "real API keys present" pre-K7 work confirmed
-  Runway + OpenAI + Serper end-to-end, but the K6 render
-  hits the wrong endpoint (covered above).
+  Runway + OpenAI + Serper end-to-end. After V3-V13, the
+  same keys cover every new `/internal/*` endpoint —
+  real-mode end-to-end smoke for the full V-arc is
+  pending operator-time.
 - **dj-stripe** + real Google OAuth + `allauth.headless` —
   all pending credentials / config from the operator.
+- **SPA recipe gallery not yet built** — V15 surfaces the
+  composition arc to operators via a card-style picker;
+  until then operators drive compositions via admin / CLI /
+  the legacy `/api/videos/` shim.
 
 ---
 
@@ -607,9 +640,13 @@ inventory always regenerates cleanly.
 | **Starter composition** | A predefined recipe of primitives (`talking_head`, `long_form_ad`, `talking_head_with_backdrop`, etc.). Operator picks a starter, fills inputs, runtime executes. |
 | **Long-form** | Multi-minute video output produced by stitching N short clips. **No AI provider ships >20s single-call** — every long-form AI video in the wild is stitched. Lands as V5 (the platform's first launch differentiator). |
 | **RealtimeSession** | R-arc model for a live WebRTC conversation with a spokesperson. Sessions are workspace-anchored; Runway API key never reaches the frontend (load-bearing privacy guarantee). Scope lock: `docs/design/REALTIME_AVATAR_V1.md`. |
+| **Step primitive registry** | The single source of truth for what step types V2's runtime can dispatch to. Maps a string name (`"generate_avatar_speech"`) to a primitive class. Adding capability = registering a new class. Never an enum value. |
+| **Chunked path** | V11 pattern for Aleph's hard ~5s output cap. Source CLIPs >5.5s are server-side split into 5s chunks, parallel-remixed (same seed for coherence), then concat'd. Invisible to the primitive — just one CLIP input + one CLIP output from the runtime's view. |
+| **Pre-computation pattern** | V5/V12 starter trick: synchronous LLM work happens at composition-create time (Whisper, sentence-pick, script-split) so the runtime sees a deterministic step plan rather than dynamic step expansion. Honors V0 contract rule 5 (linear ordering only). |
+| **Net-new capability** | A composition feature that doesn't restore something the hackathon shipped. V5 (long-form via stitching), V8 (multi-recipe combo), V12 (Whisper transcription + AI editorial cuts) are net-new. Everything else through V13 is restoration under the new architecture. |
 
 ---
 
-*Last revised SESSION 142, 2026-05-14. When this doc drifts
+*Last revised SESSION 143, 2026-05-14. When this doc drifts
 from reality, regenerate `CHARACTER_OS_INVENTORY.md` first —
 that's the runtime anchor and always authoritative.*
