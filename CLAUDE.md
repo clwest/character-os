@@ -308,10 +308,47 @@ Update this section when a phase completes.
     Six Celery tasks now correctly reflected in INVENTORY
     (R7.2 added the 7th).
 
-    R7.3 (attach_memory + R6.1 R6 widen) is the next
-    realtime slice; R8 (SPA — operator-visible moment) +
-    R9 (cost governance) + R10 (provider hardening)
-    remain.
+    **R7.3 + R6.1 shipped SESSION 152** (`b3f76cb`) —
+    `attach_memory` async tool + R6 query widen.
+    Resolves Q-r-8. The v1 tool catalog is now
+    complete at six tools. Three pieces in one commit:
+
+    * **R6.1** (`character_os/realtime_memory.py`) —
+      dropped `status=ENDED` filter from
+      `compose_session_memory`'s query. Sessions with
+      a `transcript_asset` surface in next-session
+      memory regardless of status. Load-bearing change
+      for mid-session commits to flow into memory.
+    * **`capture_transcript` helper**
+      (`apps/realtime/tasks.py`) — extracted from R5's
+      Celery task body. Both R5 (session-end) and R7.3
+      (mid-session) now call one implementation. Same
+      idempotency, workspace anchor, failure
+      semantics.
+    * **`attach_memory` tool**
+      (`apps/realtime/tools/attach_memory.py`) — Pro
+      tier, ~$0.001, async via generic Celery wrapper.
+      Returns `{event, asset_id, session_id, status,
+      message}` with status-differentiated operator
+      messages. Generic Celery wrapper links
+      produced_asset to the invocation row.
+
+    **v1 tool catalog (6 tools, complete)**:
+    * `show_videos_tab` — starter, $0, sync (R7.0)
+    * `recall_knowledge` — starter, ~$0.001, sync (R7.1)
+    * `recall_recent_conversations` — starter, $0, sync (R7.1)
+    * `handoff_to_spokesperson` — pro, $0, sync (R7.1)
+    * `render_video` — starter, $0.08, async (R7.2)
+    * `attach_memory` — pro, ~$0.001, async (R7.3)
+
+    Test totals after SESSION 152: **641 backend
+    tests**. R-arc state: **R1-R7 done**. R8 (SPA —
+    operator-visible moment) + R9 (cost governance) +
+    R10 (provider hardening) remain. R8 is where the
+    realtime arc becomes operator-visible — the
+    backend is feature-complete; R8 wires the SDK +
+    cost forecasting + tool-approval modal against
+    the full v1 catalog.
   - **Workspace fabric arc (F0-F10). COMPLETE.** All 10
     slices shipped SESSION 144
     (`docs/design/WORKSPACE_FABRIC_V1.md`). 9 contract
