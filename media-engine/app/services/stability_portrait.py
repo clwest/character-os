@@ -117,6 +117,77 @@ _TEMPLATE_NEGATIVE_PROMPT = {
     ),
 }
 
+# W11.6.1 — purpose-aware prompt prefixes for non-avatar surfaces.
+# The avatar path keeps its template-driven prefix above
+# (mascot/founder/coach/local_guide). The new purposes target
+# different operator journeys (Journeys 1-4 in MEDIA_GENERATION_V1).
+#
+# Each prefix sits where the template prefix sits in the
+# avatar prompt — operator's subject text is appended directly
+# after a single space.
+_PURPOSE_PROMPT_PREFIX = {
+    "scene": "A detailed scene illustration of",
+    "broll": "A supplementary establishing shot of",
+    "product": "A high-quality product image of",
+    "ad": "A striking advertising visual of",
+}
+
+# Purpose-specific framing — replaces the tight-portrait framing
+# the avatar path uses. Avatar framing optimizes for Runway's
+# deterministic centre-crop (eyes / mouth must land in a fixed
+# region); the non-avatar purposes have no such constraint and
+# benefit from broader compositions.
+_PURPOSE_FRAMING = {
+    "scene": (
+        "Wide environmental composition. Clear focus on the subject "
+        "within its surroundings. Thoughtful lighting that suits the "
+        "scene's mood."
+    ),
+    "broll": (
+        "Establishing-shot framing with environmental context. "
+        "The subject is clearly visible. Cinematic composition "
+        "appropriate for cutaway footage."
+    ),
+    "product": (
+        "Centered product composition on a clean, uncluttered "
+        "background. Studio lighting. The product is the sole "
+        "focus of the frame."
+    ),
+    "ad": (
+        "Bold advertising composition. Strong visual hierarchy "
+        "with a striking subject and eye-catching framing."
+    ),
+}
+
+# Negative prompts for non-avatar purposes. Shorter than the
+# avatar negatives — the avatar set is heavy on "no back view /
+# face obscured" anti-patterns specific to Runway's rig, which
+# don't apply outside avatars.
+_PURPOSE_NEGATIVE_PROMPT = {
+    "scene": (
+        "low quality, deformed, blurry, watermark, text, "
+        "amateurish, distorted composition"
+    ),
+    "broll": (
+        "low quality, deformed, blurry, watermark, text, "
+        "amateurish, distorted composition"
+    ),
+    "product": (
+        "low quality, deformed, blurry, watermark, text, "
+        "clutter, multiple products, distracting background, "
+        "people in frame"
+    ),
+    "ad": (
+        "low quality, deformed, blurry, watermark, text, "
+        "amateurish, low resolution"
+    ),
+}
+
+# v1 purpose enum — Contract rule 1 (single image surface,
+# purpose-routed). ``avatar`` routes through the existing
+# template path; the rest route through the purpose path.
+VALID_PURPOSES = frozenset({"avatar", "scene", "broll", "product", "ad"})
+
 
 @dataclass(slots=True)
 class StabilityPortraitResult:
@@ -143,27 +214,40 @@ class StabilityPortraitError(RuntimeError):
 def build_stability_prompt(
     subject: str,
     *,
+    purpose: str = "avatar",
     template: str = "mascot",
     style_preset: Optional[str] = None,
 ) -> str:
-    """Compose a Stability prompt from (template, subject, style_preset).
+    """Compose a Stability prompt from (purpose, template, subject, style_preset).
 
-    Shape:
-        "{template_prefix} {subject}. {style_suffix}. "
-        "Head-and-shoulders composition on a clean background. "
-        "Centered solo subject, one character only."
+    Two branches:
 
-    The template prefix carries the anthropomorphic/photorealistic
-    intent (the SESSION 171 fix for Marcus's part-human regression).
-    The style preset adds aesthetic/medium guidance ("oil painting",
-    "cyberpunk", "pixar 3d", etc.) from the ported u-d-b library.
+    * ``purpose="avatar"`` (default) uses the template-driven
+      prefix + Runway-rig-tuned portrait framing (locked
+      SESSION 171). ``template`` selects between mascot /
+      founder / coach / local_guide.
+    * ``purpose`` ∈ {scene, broll, product, ad} — non-avatar
+      surfaces. The avatar template is ignored; purpose-specific
+      prefix + framing apply. No anthropomorphic auto-inject
+      (Contract rule 5 — drop mascot-anatomy guidance outside
+      the avatar surface).
     """
     subject_clean = (subject or "").strip()
     if not subject_clean:
         raise StabilityPortraitError("subject is required")
 
-    tmpl = (template or "mascot").lower()
-    prefix = _TEMPLATE_PROMPT_PREFIX.get(tmpl) or _TEMPLATE_PROMPT_PREFIX["mascot"]
+    purpose_clean = (purpose or "avatar").lower()
+    if purpose_clean not in VALID_PURPOSES:
+        raise StabilityPortraitError(
+            f"unknown purpose {purpose!r} "
+            f"(expected one of {sorted(VALID_PURPOSES)})"
+        )
+
+    if purpose_clean == "avatar":
+        tmpl = (template or "mascot").lower()
+        prefix = _TEMPLATE_PROMPT_PREFIX.get(tmpl) or _TEMPLATE_PROMPT_PREFIX["mascot"]
+    else:
+        prefix = _PURPOSE_PROMPT_PREFIX[purpose_clean]
 
     parts = [f"{prefix} {subject_clean}."]
     if style_preset:
@@ -175,40 +259,57 @@ def build_stability_prompt(
                 "unknown style_preset=%r — skipping suffix", style_preset,
             )
 
-    # Composition framing. SESSION 171 — avatar-purpose framing
-    # arrived at by iteration:
-    #   1st attempt: "Head-and-shoulders" → Runway over-cropped
-    #      face, lost ornament (horn) + speaking area.
-    #   2nd attempt: "Medium shot + body context + breathing room"
-    #      → Stability rendered figure from BEHIND.
-    #   3rd attempt: "Front-facing + medium shot" → figure too
-    #      low in the frame, face dropped below Runway's crop
-    #      center.
-    #   Landing: tight portrait framing where the face dominates
-    #   the upper-center of the frame so Runway's deterministic
-    #   center-crop catches the face cleanly, with mouth + eyes
-    #   as explicit landmarks (avatar rig needs both). No body
-    #   below shoulders (body context is the wrong purpose for
-    #   avatars — that's W11.6's "scene" purpose).
-    parts.append(
-        "Tight portrait composition. The face fills the central "
-        "portion of the frame with the eyes positioned slightly "
-        "above center. Both eyes and the full mouth are clearly "
-        "visible and unobstructed. Only the head and the top of "
-        "the shoulders are in frame — no hands, no torso, no body "
-        "below the shoulders. Generous headroom above the head. "
-        "Front-facing, looking directly at the camera. Clean "
-        "studio background. Centered solo subject, one character only."
-    )
+    if purpose_clean == "avatar":
+        # Composition framing. SESSION 171 — avatar-purpose framing
+        # arrived at by iteration:
+        #   1st attempt: "Head-and-shoulders" → Runway over-cropped
+        #      face, lost ornament (horn) + speaking area.
+        #   2nd attempt: "Medium shot + body context + breathing room"
+        #      → Stability rendered figure from BEHIND.
+        #   3rd attempt: "Front-facing + medium shot" → figure too
+        #      low in the frame, face dropped below Runway's crop
+        #      center.
+        #   Landing: tight portrait framing where the face dominates
+        #   the upper-center of the frame so Runway's deterministic
+        #   center-crop catches the face cleanly, with mouth + eyes
+        #   as explicit landmarks (avatar rig needs both). No body
+        #   below shoulders (body context is the wrong purpose for
+        #   avatars — that's W11.6's "scene" purpose).
+        parts.append(
+            "Tight portrait composition. The face fills the central "
+            "portion of the frame with the eyes positioned slightly "
+            "above center. Both eyes and the full mouth are clearly "
+            "visible and unobstructed. Only the head and the top of "
+            "the shoulders are in frame — no hands, no torso, no body "
+            "below the shoulders. Generous headroom above the head. "
+            "Front-facing, looking directly at the camera. Clean "
+            "studio background. Centered solo subject, one character only."
+        )
+    else:
+        parts.append(_PURPOSE_FRAMING[purpose_clean])
 
     return " ".join(parts)
 
 
-def build_stability_negative_prompt(template: str = "mascot") -> str:
-    """Return the negative prompt for the given template — drops
-    human anatomy for mascots, drops cartoon/illustration for
-    photoreal humans.
+def build_stability_negative_prompt(
+    template: str = "mascot",
+    *,
+    purpose: str = "avatar",
+) -> str:
+    """Return the negative prompt for the given (purpose, template).
+
+    Avatar purpose — selects per ``template`` (drops human anatomy
+    for mascots, drops cartoon/illustration for photoreal humans).
+
+    Non-avatar purposes — uses the purpose-specific negative; the
+    avatar-only "back view / face obscured" anti-patterns don't
+    apply outside the Runway rig.
     """
+    purpose_clean = (purpose or "avatar").lower()
+    if purpose_clean != "avatar":
+        return _PURPOSE_NEGATIVE_PROMPT.get(
+            purpose_clean, _PURPOSE_NEGATIVE_PROMPT["scene"],
+        )
     tmpl = (template or "mascot").lower()
     return _TEMPLATE_NEGATIVE_PROMPT.get(tmpl) or _TEMPLATE_NEGATIVE_PROMPT["mascot"]
 
@@ -216,6 +317,7 @@ def build_stability_negative_prompt(template: str = "mascot") -> str:
 def generate_stability_portrait(
     subject: str,
     *,
+    purpose: str = "avatar",
     template: str = "mascot",
     style_preset: Optional[str] = None,
     model: str = "sd3-large",
@@ -223,15 +325,26 @@ def generate_stability_portrait(
     cache_dir: Optional[Path] = None,
     negative_prompt: Optional[str] = None,
 ) -> StabilityPortraitResult:
-    """Generate a portrait via Stability AI.
+    """Generate an image via Stability AI.
+
+    Originally avatar-only (SESSION 171); W11.6.1 extended to
+    cover the workspace-wide non-avatar image surface (scene /
+    broll / product / ad).
 
     Args:
         subject: Free-text subject (the operator's
             ``visual_subject`` — e.g. "battle unicorn in lorica
-            segmentata"). Required.
+            segmentata", or "a small craft brewery owner at
+            sunrise" for a scene). Required.
+        purpose: One of ``avatar`` / ``scene`` / ``broll`` /
+            ``product`` / ``ad``. ``avatar`` keeps the
+            template-driven prompt + Runway-rig-tuned portrait
+            framing; the other purposes use purpose-specific
+            prefix + framing. Defaults to ``avatar`` for backward
+            compatibility with the existing rebake flow.
         template: One of ``mascot`` / ``founder`` / ``coach`` /
-            ``local_guide``. Drives the prompt prefix + negative
-            prompt selection. Defaults to ``mascot``.
+            ``local_guide``. Only consulted when ``purpose="avatar"``.
+            Defaults to ``mascot``.
         style_preset: Optional style preset name from
             ``style_library`` (e.g. ``"pixar"``, ``"oil_painting"``,
             ``"cyberpunk"``). Adds aesthetic guidance to the prompt.
@@ -239,11 +352,14 @@ def generate_stability_portrait(
             credits), ``sd3-large-turbo`` (4), ``sd3-medium`` (3.5),
             ``ultra`` (8, premium), ``core`` (3, fastest).
         aspect_ratio: Stability output ratio. Default 16:9 matches
-            Runway gen4_image's portrait shape.
+            Runway gen4_image's portrait shape; non-avatar
+            purposes commonly use 1:1, 9:16, or 21:9.
         cache_dir: Where to write the PNG. Defaults to
-            ``<data_dir>/_internal/portraits_stability/``.
-        negative_prompt: Override the template default negative
-            prompt.
+            ``<data_dir>/_internal/images_stability/`` for
+            non-avatar purposes; ``portraits_stability/`` for
+            avatar purpose.
+        negative_prompt: Override the default negative prompt
+            (per purpose + template).
 
     Returns:
         ``StabilityPortraitResult`` with ``status="ok"``, the on-disk
@@ -265,7 +381,8 @@ def generate_stability_portrait(
             status="ok",
             portrait_path=None,
             prompt=build_stability_prompt(
-                subject, template=template, style_preset=style_preset,
+                subject, purpose=purpose, template=template,
+                style_preset=style_preset,
             ),
             model=model,
             style_preset=style_preset,
@@ -282,9 +399,12 @@ def generate_stability_portrait(
         )
 
     prompt = build_stability_prompt(
-        subject, template=template, style_preset=style_preset,
+        subject, purpose=purpose, template=template,
+        style_preset=style_preset,
     )
-    neg = (negative_prompt or build_stability_negative_prompt(template))
+    neg = (negative_prompt or build_stability_negative_prompt(
+        template, purpose=purpose,
+    ))
 
     # Resolve endpoint. sd3-large / sd3-large-turbo / sd3-medium all
     # go through the SD3 endpoint with the ``model`` form field
@@ -355,7 +475,15 @@ def generate_stability_portrait(
         )
 
     # Write to disk under data_dir for parity with the Runway path.
-    target_dir = cache_dir or (settings.data_path / "_internal" / "portraits_stability")
+    # Avatar purpose lands under ``portraits_stability/`` (preserves
+    # the SESSION 171 layout); other purposes land under
+    # ``images_stability/`` so cache files don't mix surfaces.
+    if cache_dir is not None:
+        target_dir = cache_dir
+    elif (purpose or "avatar").lower() == "avatar":
+        target_dir = settings.data_path / "_internal" / "portraits_stability"
+    else:
+        target_dir = settings.data_path / "_internal" / "images_stability"
     target_dir.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:20]
     target = target_dir / f"{digest}.png"

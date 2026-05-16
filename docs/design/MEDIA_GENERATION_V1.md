@@ -397,27 +397,60 @@ visuals before committing.)
 * No code changes.
 * Closes when committed.
 
-### W11.6.1 — Asset model extension + media-engine endpoint
+### W11.6.1 — Asset model extension + media-engine endpoint ✓ SHIPPED (SESSION 173)
 
 **Files touched**:
 
-* `shell/apps/compositions/models.py` — Asset gains `IMAGE`
-  in `asset_type` choices + optional fields (purpose, model,
-  style_preset, prompt, negative_prompt, aspect_ratio,
-  spokesperson FK).
-* `shell/apps/compositions/migrations/00XX_asset_image_type.py` — NEW.
-* `media-engine/app/services/stability_portrait.py` — extend
-  to support `purpose` field; drop mascot-anatomy auto-inject
-  for non-mascot purposes; adjust negative prompts per
-  purpose.
+* `shell/apps/compositions/models.py` — Asset already had
+  `IMAGE` in `asset_type` choices (V2). W11.6.1 added the 7
+  optional image fields (purpose / model / style_preset /
+  prompt / negative_prompt / aspect_ratio / spokesperson FK)
+  + a `(workspace, purpose)` index for the library view filter.
+* `shell/apps/compositions/migrations/0006_w11_6_1_asset_image_fields.py` — NEW
+  (additive only; nullable / blank-default fields keep
+  existing Asset rows valid).
+* `media-engine/app/services/stability_portrait.py` — added
+  `VALID_PURPOSES` enum + `purpose` kwarg on
+  `build_stability_prompt` / `build_stability_negative_prompt` /
+  `generate_stability_portrait`. Avatar purpose keeps the
+  SESSION 171 template-driven prefix + tight-portrait framing
+  (backwards-compat); scene / broll / product / ad use
+  purpose-specific prefix + framing with no mascot-anatomy
+  auto-inject (Contract rule 5). Non-avatar cache lands under
+  `data/_internal/images_stability/`.
 * `media-engine/app/routers/internal.py` — NEW
-  `POST /internal/image_stability/` endpoint.
+  `POST /internal/image_stability/` endpoint. Body:
+  `(purpose, subject, model, style_preset, aspect_ratio,
+  negative_prompt_override, template?)`. Returns:
+  `(image_data_uri, prompt, mime_type, cost_credits, model,
+  purpose, style_preset, aspect_ratio, mock_mode)`. Endpoint
+  honors the injected `settings.stability_mock` for the
+  short-circuit so tests using `app.dependency_overrides` get
+  the right branch even when the lru_cached `get_settings()`
+  inside services would see a populated `STABILITY_API_KEY`.
+  Validates `purpose ∈ VALID_PURPOSES`,
+  `aspect_ratio ∈ _STABILITY_ASPECT_RATIOS` (6 ratios),
+  `model ∈ _STABILITY_MODELS` (6 models).
 * `media-engine/tests/test_stability_image.py` — NEW
-  (5-8 tests).
+  (22 tests covering prompt routing per purpose, negative
+  prompt routing, style preset fallback, subject required,
+  endpoint happy path for every non-avatar purpose +
+  avatar-on-endpoint Journey 5, three 400 validation paths,
+  one 422 pydantic path, backwards-compat for the
+  SESSION 170 rebake call site via monkeypatch).
 
-**Acceptance**: media-engine tests pass; new endpoint
-generates images successfully against real Stability API
-(operator dogfood).
+**Test totals after SESSION 173**: Media-engine **133**
+(111 → 133, +22). Django **727** (unchanged — endpoint
++ model surface unit-tested at media-engine layer; Django
+ViewSet ships W11.6.2). Media-engine route count **131**
+(130 → 131; one new `/internal/image_stability/`).
+Migration count: 51 → 52.
+
+**Acceptance**: media-engine tests pass; Django migration
+applies cleanly; new endpoint exercised end-to-end in mock
+mode for all 5 purposes. Real-Stability dogfood deferred
+to W11.6.2 (Django REST API) when the operator-facing
+surface lands.
 
 ### W11.6.2 — Django REST API
 

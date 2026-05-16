@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-16T20:12:07.874882+00:00
-git_sha: 4e8f4d1
+generated_at: 2026-05-16T20:39:56.894753+00:00
+git_sha: 2eb3a8c (working tree dirty)
 git_branch: main
 ---
 
@@ -15,8 +15,8 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-16T20:12:07.874882+00:00** against commit **4e8f4d1**
-on branch **main**.
+Generated **2026-05-16T20:39:56.894753+00:00** against commit **2eb3a8c**
+on branch **main** (working tree dirty).
 
 Python 3.11.6 · Django 5.2.14 ·
 Celery 5.6.3 · httpx 0.28.1.
@@ -30,11 +30,11 @@ Celery 5.6.3 · httpx 0.28.1.
 | Django models (project-owned) | **16** | `apps.get_models()` filtered to first-party apps |
 | URL routes (total) | **289** | `get_resolver().url_patterns` walk |
 | URL routes (`/api/*`) | **101** | same |
-| FastAPI routes | **116** | media-engine `/openapi.json` (reachable) |
+| FastAPI routes | **117** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **8** | `celery_app.tasks` filter |
-| Migrations (applied / total) | **58 / 58** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **43,613** in 218 files | `pathlib.Path.rglob("*.py")` |
-| Media-engine LOC (`*.py`, no venv/migrations) | **31,938** in 57 files | same |
+| Migrations (applied / total) | **59 / 59** | `MigrationRecorder` ∩ `MigrationLoader` |
+| Shell LOC (`*.py`, no venv/migrations) | **43,689** in 218 files | `pathlib.Path.rglob("*.py")` |
+| Media-engine LOC (`*.py`, no venv/migrations) | **32,567** in 58 files | same |
 
 ---
 
@@ -48,7 +48,7 @@ Total: **16** models across **8** apps.
 | `accounts` | `User` | `accounts_user` | 8 | 0 |
 | `accounts` | `Workspace` | `accounts_workspace` | 6 | 1 |
 | `billing` | `Subscription` | `billing_subscription` | 9 | 0 |
-| `compositions` | `Asset` | `compositions_asset` | 15 | 3 |
+| `compositions` | `Asset` | `compositions_asset` | 22 | 4 |
 | `compositions` | `Composition` | `compositions_composition` | 19 | 4 |
 | `compositions` | `CompositionStep` | `compositions_compositionstep` | 15 | 2 |
 | `conversations` | `ConversationEmbedding` | `conversations_conversationembedding` | 8 | 1 |
@@ -171,12 +171,12 @@ Total: **289** resolved patterns.
 
 Probed `http://localhost:8001/openapi.json` — `Character OS API` v0.1.0.
 
-Total: **116** routes.
+Total: **117** routes.
 
 | Prefix | Count |
 |---|---|
 | `/api/` | 88 |
-| `/internal/` | 27 |
+| `/internal/` | 28 |
 | `other` | 1 |
 
 ### `/internal/*` surface (Phase 2 contract)
@@ -196,6 +196,7 @@ Total: **116** routes.
 - `/internal/clips/style_remix/`
 - `/internal/clips/trim/`
 - `/internal/clips/visual/`
+- `/internal/image_stability/`
 - `/internal/images/`
 - `/internal/portrait/`
 - `/internal/realtime_documents/`
@@ -228,7 +229,7 @@ Total: **8** registered tasks (excluding `celery.*` built-ins).
 
 ## Migrations
 
-**58 of 58** migrations applied.
+**59 of 59** migrations applied.
 
 | App | Applied | Total | Pending |
 |---|---|---|---|
@@ -237,7 +238,7 @@ Total: **8** registered tasks (excluding `celery.*` built-ins).
 | `admin` | 3 | 3 | 0 |
 | `auth` | 12 | 12 | 0 |
 | `billing` | 1 | 1 | 0 |
-| `compositions` | 5 | 5 | 0 |
+| `compositions` | 6 | 6 | 0 |
 | `contenttypes` | 2 | 2 | 0 |
 | `conversations` | 4 | 4 | 0 |
 | `embeddings` | 2 | 2 | 0 |
@@ -267,12 +268,12 @@ Total: **8** registered tasks (excluding `celery.*` built-ins).
 
 | Service | Files | Lines |
 |---|---|---|
-| `media-engine/` | 57 | 31,938 |
-| `shell/` | 218 | 43,613 |
-| **total** | **275** | **75,551** |
+| `media-engine/` | 58 | 32,567 |
+| `shell/` | 218 | 43,689 |
+| **total** | **276** | **76,256** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-05-16T20:12:07.874882+00:00 from commit 4e8f4d1. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-16T20:39:56.894753+00:00 from commit 2eb3a8c. Re-run `python manage.py inventory` (from `shell/`) to refresh.*

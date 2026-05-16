@@ -168,6 +168,80 @@ class Asset(models.Model):
         related_name="produced_assets",
     )
 
+    # W11.6.1 (Media Generation V1) — image-specific provenance.
+    # All fields are optional; populated only when the asset is an
+    # ``image`` produced via ``POST /api/images/``. Existing
+    # ``clip`` / ``audio`` / ``transcript`` / ``voice`` rows leave
+    # them empty. Scope: ``docs/design/MEDIA_GENERATION_V1.md``
+    # §"Surface inventory".
+    purpose = models.CharField(
+        max_length=20,
+        blank=True,
+        default="",
+        help_text=(
+            "Image purpose: avatar / scene / broll / product / ad. "
+            "Empty for non-image assets."
+        ),
+    )
+    model = models.CharField(
+        max_length=40,
+        blank=True,
+        default="",
+        help_text=(
+            "Stability model name (sd3-large / ultra / core / etc.) "
+            "for image assets. Empty for non-image assets."
+        ),
+    )
+    style_preset = models.CharField(
+        max_length=60,
+        blank=True,
+        default="",
+        help_text=(
+            "Selected style preset slug from "
+            "``media-engine/app/services/style_library.py``. Empty "
+            "when no preset was applied (or for non-image assets)."
+        ),
+    )
+    prompt = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "Composed prompt actually sent to Stability. Empty for "
+            "non-image assets. Preserved verbatim for regenerate / "
+            "library detail views."
+        ),
+    )
+    negative_prompt = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "Composed negative prompt sent to Stability. Empty for "
+            "non-image assets or when the default for the chosen "
+            "purpose was used."
+        ),
+    )
+    aspect_ratio = models.CharField(
+        max_length=10,
+        blank=True,
+        default="",
+        help_text=(
+            "Output ratio (1:1 / 16:9 / 9:16 / 4:3 / 3:4 / 21:9). "
+            "Empty for non-image assets."
+        ),
+    )
+    # Optional linkage — set when the image was generated *for* a
+    # specific spokesperson (e.g. b-roll for one of their videos).
+    # SET_NULL because the image survives independently; deleting
+    # a spokesperson should not nuke library assets attributed to
+    # them.
+    spokesperson = models.ForeignKey(
+        "spokespeople.Spokesperson",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="related_assets",
+    )
+
     created_by = models.ForeignKey(
         "accounts.User",
         on_delete=models.SET_NULL,
@@ -181,6 +255,8 @@ class Asset(models.Model):
         indexes = [
             models.Index(fields=["workspace", "asset_type"]),
             models.Index(fields=["composition"]),
+            # W11.6.1 — filterable on purpose for the library view.
+            models.Index(fields=["workspace", "purpose"]),
         ]
         ordering = ["-created_at"]
 

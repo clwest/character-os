@@ -3792,6 +3792,194 @@ def post_internal_portrait(
     )
 
 
+# ---- POST /internal/image_stability/ ------------------------------
+#
+# W11.6.1 — workspace-wide non-avatar image generation via
+# Stability AI. Distinct from ``/internal/images/`` (V13 — Runway
+# gen4_image generic image gen) and ``/internal/portrait/``
+# (SESSION 125 — Runway portraits for the wizard). Contract rule 1
+# (single image surface, purpose-routed): operators pick a
+# ``purpose`` (scene / broll / product / ad) — provider is
+# implementation detail. ``purpose="avatar"`` is supported but
+# normally routes through ``/internal/portrait/`` instead; allowed
+# here for the operator-iterates-cheaply-before-baking journey.
+
+
+_STABILITY_ASPECT_RATIOS = frozenset({
+    "1:1", "16:9", "9:16", "4:3", "3:4", "21:9",
+})
+
+_STABILITY_MODELS = frozenset({
+    "core", "sdxl", "sd3-medium", "sd3-large", "sd3-large-turbo", "ultra",
+})
+
+
+class InternalImageStabilityCreate(BaseModel):
+    """Request body for ``POST /internal/image_stability/``.
+
+    Stateless — Django composes from operator input + workspace
+    context and persists the resulting Asset.
+    """
+
+    purpose: str = Field(..., min_length=1, max_length=20)
+    subject: str = Field(..., min_length=1, max_length=2000)
+    model: str = Field(default="sd3-large", min_length=1, max_length=40)
+    style_preset: Optional[str] = Field(default=None, max_length=60)
+    aspect_ratio: str = Field(default="16:9", max_length=10)
+    negative_prompt_override: Optional[str] = Field(
+        default=None, max_length=2000,
+    )
+    # Avatar-purpose only — template (mascot/founder/coach/local_guide).
+    # Ignored when purpose != "avatar".
+    template: Optional[str] = Field(default=None, max_length=40)
+
+
+class InternalImageStabilityResponse(BaseModel):
+    image_data_uri: str
+    prompt: str
+    mime_type: str
+    cost_credits: float
+    model: str
+    purpose: str
+    style_preset: Optional[str] = None
+    aspect_ratio: str
+    mock_mode: bool
+
+
+@router.post(
+    "/image_stability/",
+    response_model=InternalImageStabilityResponse,
+)
+def post_internal_image_stability(
+    body: InternalImageStabilityCreate,
+    settings: Settings = Depends(get_settings),
+):
+    """Generate an image via Stability AI for a workspace purpose.
+
+    Mock-mode short-circuits to a deterministic placeholder PNG so
+    dev / test runs don't burn credits (matches ``/internal/portrait/``
+    + ``/internal/images/`` patterns).
+    """
+    from ..services.stability_portrait import (
+        StabilityPortraitError,
+        VALID_PURPOSES,
+        build_stability_prompt,
+        generate_stability_portrait,
+    )
+
+    purpose = (body.purpose or "").strip().lower()
+    if purpose not in VALID_PURPOSES:
+        return _error(
+            400,
+            "unsupported_purpose",
+            f"purpose {body.purpose!r} not in {sorted(VALID_PURPOSES)}",
+        )
+
+    if body.aspect_ratio not in _STABILITY_ASPECT_RATIOS:
+        return _error(
+            400,
+            "invalid_aspect_ratio",
+            f"aspect_ratio must be one of "
+            f"{sorted(_STABILITY_ASPECT_RATIOS)}; got {body.aspect_ratio!r}",
+        )
+
+    if body.model not in _STABILITY_MODELS:
+        return _error(
+            400,
+            "unsupported_model",
+            f"model {body.model!r} not in {sorted(_STABILITY_MODELS)}",
+        )
+
+    # Mock-mode short-circuit honors the injected settings (so
+    # tests using ``app.dependency_overrides[get_settings]`` get
+    # the correct mock branch even when the lru_cached
+    # ``get_settings()`` would return a STABILITY_API_KEY-populated
+    # real settings object).
+    if settings.stability_mock:
+        try:
+            prompt = build_stability_prompt(
+                body.subject,
+                purpose=purpose,
+                template=(body.template or "mascot"),
+                style_preset=body.style_preset,
+            )
+        except StabilityPortraitError as exc:
+            return _error(400, "invalid_request", str(exc)[:300])
+        try:
+            png_bytes = _solid_png(64, 64, _mock_color_for(prompt))
+        except OSError as exc:
+            return _error(500, "internal_error", f"mock png failed: {exc}"[:200])
+        image_data_uri = (
+            "data:image/png;base64,"
+            + base64.b64encode(png_bytes).decode("ascii")
+        )
+        logger.info(
+            "internal image_stability mock purpose=%s model=%s style=%s ratio=%s",
+            purpose, body.model, body.style_preset, body.aspect_ratio,
+        )
+        return InternalImageStabilityResponse(
+            image_data_uri=image_data_uri,
+            prompt=prompt,
+            mime_type="image/png",
+            cost_credits=0.0,
+            model=body.model,
+            purpose=purpose,
+            style_preset=body.style_preset,
+            aspect_ratio=body.aspect_ratio,
+            mock_mode=True,
+        )
+
+    try:
+        result = generate_stability_portrait(
+            body.subject,
+            purpose=purpose,
+            template=(body.template or "mascot"),
+            style_preset=body.style_preset,
+            model=body.model,
+            aspect_ratio=body.aspect_ratio,
+            negative_prompt=body.negative_prompt_override,
+        )
+    except StabilityPortraitError as exc:
+        return _error(400, "invalid_request", str(exc)[:300])
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.exception("internal image_stability unexpected")
+        return _error(500, "internal_error", f"unexpected: {exc!s}"[:300])
+
+    if result.status != "ok" or result.portrait_path is None:
+        return _error(
+            502, "upstream_stability_error",
+            (result.error or "stability returned no result")[:300],
+        )
+
+    try:
+        image_bytes = result.portrait_path.read_bytes()
+    except OSError as exc:
+        return _error(500, "internal_error", f"read-back failed: {exc}"[:200])
+    image_data_uri = (
+        "data:image/png;base64,"
+        + base64.b64encode(image_bytes).decode("ascii")
+    )
+
+    logger.info(
+        "internal image_stability ready purpose=%s model=%s style=%s "
+        "ratio=%s cost_credits=%.1f",
+        purpose, result.model, result.style_preset, body.aspect_ratio,
+        result.cost_credits,
+    )
+
+    return InternalImageStabilityResponse(
+        image_data_uri=image_data_uri,
+        prompt=result.prompt or "",
+        mime_type="image/png",
+        cost_credits=result.cost_credits,
+        model=result.model or body.model,
+        purpose=purpose,
+        style_preset=result.style_preset,
+        aspect_ratio=body.aspect_ratio,
+        mock_mode=False,
+    )
+
+
 # ---- POST /internal/realtime_sessions/ -------------------------
 # SESSION 146 / R2 — realtime avatar arc. Two endpoints in
 # this slice: POST creates a session, GET polls it. End +
