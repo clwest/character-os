@@ -237,6 +237,7 @@ shipped against real Runway** (SESSION 158).
 | **K6.4 v2.1 (real-Runway dogfood + CTA verbs)** | **DONE (SESSION 167)** |
 | **K6.6 (script structure + opener + brief persist)** | **DONE (SESSION 168)** |
 | **Marcus end-to-end + W11.1 edit modal** | **DONE (SESSION 169)** |
+| **Portrait JWT refresh + hook-order fix** | **DONE (SESSION 169 close, commit `2cdcd26`)** |
 | K7.x (YouTube ingest fix) | Queued |
 | K6.3 / K7.1 / W11.1 | Queued |
 

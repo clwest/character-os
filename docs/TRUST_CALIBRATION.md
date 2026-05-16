@@ -1681,3 +1681,76 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   feature surface area. Budget for the hand-built UI
   alongside every CRUD endpoint, not as a follow-up
   slice.
+
+## 2026-05-16 — AI confidently wrong: hook-order violation across early returns
+
+- **Context:** SESSION 169's W11.1 edit modal added a
+  `useState(editing)` to the SpokespersonDetailRoute
+  component. I placed it after the existing early
+  returns (`if (sp.isLoading) return …`,
+  `if (sp.isError) return …`, etc.). The unit tests
+  passed (Marcus's modal renders fine); the SPA build
+  succeeded; the live SPA opened cleanly.
+- **Direction:** AI confidently wrong.
+- **Detail:** When `sp.isLoading` flipped true → false
+  on the live SPA, React saw a different hook count
+  per render (loading render had 4 hooks; data render
+  had 5). Console error: *"Rendered more hooks than
+  during the previous render."* The unit tests didn't
+  catch it because the test fixture pre-seeds the
+  spokesperson cache, so `isLoading` never flips on
+  mount — both renders have the same hook count.
+- **Found by:** Operator browser console output
+  during a live SPA session.
+- **Lesson:** **For this operator specifically:** when
+  adding hooks to an existing route component with
+  conditional early returns, the new hook must live
+  ABOVE the returns. **Generalisation:** React's
+  Rules of Hooks ban conditional hook calls; an early
+  return *is* a conditional execution path. Unit tests
+  with pre-seeded caches systematically miss this
+  failure mode — the loading → ready transition only
+  fires in real navigation. Pattern to internalize:
+  ALL hook calls at the top of the component, then
+  early returns, then conditional rendering. Audit
+  any route component that has both
+  `useState`/`useEffect` and early returns when adding
+  new hooks.
+
+## 2026-05-16 — Architectural calibration: JWT expiry on external CDN URLs is a recurring class
+
+- **Context:** SESSION 169 surfaced 5× `401 Unauthorized`
+  on cast avatar thumbnails. Runway's CloudFront URLs
+  embed a JWT with `exp` ~30 days from avatar create
+  time. We persist the URL into
+  `Spokesperson.portrait_path` at avatar-bake time and
+  never refresh it.
+- **Direction:** Carry-forward architectural.
+- **Detail:** The original SESSION 137 work persisted
+  the thumbnail URL so the SPA's Portrait component
+  had something to render without re-baking. That was
+  the right v1 call — the alternative (re-fetch on
+  every load) would have hammered Runway. But we never
+  added a refresh path, so the URLs silently rot 30
+  days later. The fix this session (`/internal/avatars/
+  <id>/refresh/` + `useRefreshPortrait` + `<img
+  onError>` auto-refresh) is the v2 shape this should
+  have launched with. Every JWT-bearing URL we persist
+  needs a refresh path budgeted alongside the
+  persistence.
+- **Found by:** Operator browser console — the URLs
+  expired between SESSIONS and started 401-ing
+  organically.
+- **Lesson:** **For this operator specifically:** any
+  persisted URL with `exp` baked in is going to break
+  on schedule. Build the refresh path in alongside
+  the original persistence, not as a follow-up.
+  **Generalisation:** persisting time-bound external
+  identifiers (signed URLs, OAuth tokens, JWT-bearing
+  CDN paths) without an explicit refresh strategy is
+  a debt that resolves itself only when an operator
+  notices broken UX. Audit pattern: grep the codebase
+  for fields that store URLs sourced from external
+  signed APIs; for each, confirm a refresh path
+  exists. If not, ship one with the next adjacent
+  feature.

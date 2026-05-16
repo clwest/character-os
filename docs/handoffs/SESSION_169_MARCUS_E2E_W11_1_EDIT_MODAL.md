@@ -184,6 +184,59 @@ area. Plan for it.
 * `docs/handoffs/SESSION_169_MARCUS_E2E_W11_1_EDIT_MODAL.md`
   — this file.
 
+## Addendum — portrait JWT refresh + hook-order bug (commit `2cdcd26`)
+
+Operator surfaced two console errors after the first SESSION
+169 commit landed:
+
+1. **`Rendered more hooks than during the previous render`** —
+   the `useState(editing)` I added in the SpokespersonDetailRoute
+   sat *after* the early returns for loading / error / not-found
+   states. React saw a different hook count between renders.
+   One-line fix: move `useState` above the early returns.
+2. **5× `401 Unauthorized`** on every cast member's portrait img.
+   Runway's CloudFront thumbnail URLs are JWT-signed with ~30-day
+   expiry; most of the cast had passed `exp`. Marcus's stored URL
+   was missing the JWT entirely (an artifact of the SESSION 169
+   first attempt — when the initial Spokesperson row save failed
+   on visual_subject length, I shortcut with a plain `.png` URL
+   on the retry without realizing it'd never auth).
+
+The JWT-expiry is a system-level recurring pattern, so the fix is
+infrastructure rather than one-shot:
+
+* **Media-engine**: new `fetch_avatar_thumbnail(avatar_id)` in
+  `character_studio_client.py` + new endpoint
+  `POST /internal/avatars/<id>/refresh/`. Hits Runway's
+  `GET /v1/avatars/{id}` and returns the fresh
+  `processedImageUri`/`referenceImageUri`. Mock-safe; returns
+  `None` on Runway-side failure.
+* **Django**: `MediaEngineClient.refresh_avatar_thumbnail()` wraps
+  the new endpoint. `SpokespersonViewSet` gains a
+  `refresh-portrait` action that persists the fresh URL onto
+  the row. New `python manage.py refresh_portraits
+  [--workspace=<slug>] [--dry-run]` loops the cast in one shot.
+* **SPA**: `useRefreshPortrait` hook + the `Portrait` component's
+  `<img onError>` fires refresh-portrait once and swaps the src.
+  So the next JWT expiry (~30 days from now) will self-heal —
+  the operator will never see a broken avatar.
+
+**Live verification**: all 5 cast members refreshed in a single
+mgmt-command run, all URLs `curl 200`, SPA tab reloads clean.
+No Runway spend (read-only GET).
+
+Two new TRUST_CALIBRATION entries paired with this fix (see
+`docs/TRUST_CALIBRATION.md`):
+* **Hook order violation across early returns** — when adding
+  state to a route component with conditional early returns,
+  the hook must live ABOVE the returns. Easy mistake under
+  React's hooks rules; the SPA's existing routes did it right
+  by convention.
+* **JWT expiry on external CDN URLs is a recurring class** —
+  any persisted URL with `exp` baked in is going to break on
+  schedule. Build the refresh path in alongside the original
+  persistence, not as a follow-up.
+
 ## What's next (SESSION 170)
 
 * **W11.2 — voice + avatar edit support.** Voice editing
