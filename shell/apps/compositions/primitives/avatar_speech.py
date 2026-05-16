@@ -93,28 +93,53 @@ def _resolve_avatar_id(step, composition) -> str:
     return spokesperson.runway_avatar_id
 
 
-def _maybe_synthesize_script(step, composition) -> tuple[str, list[str]]:
-    """Return ``(brief, chunk_ids)``. When ``use_knowledge`` is
-    truthy, the operator's script goes through K6's
-    ``build_render_brief`` and we return the synthesized brief +
-    citation ids. Otherwise the script is used verbatim and the
-    citation list is empty."""
+def _maybe_synthesize_script(step, composition) -> tuple[str, list[str], list[dict]]:
+    """Return ``(brief, chunk_ids, verification_warnings)``.
+
+    When ``use_knowledge`` is truthy, the operator's script
+    goes through K6's ``build_render_brief`` and we return the
+    synthesized brief + citation ids + K6.4 verifier output.
+    Otherwise the script is used verbatim, the citation list
+    is empty, and verification is skipped (operator-typed
+    scripts are trusted; the verifier exists to catch LLM
+    invention, not operator typing).
+
+    In Strict verifier mode, ``build_render_brief`` raises
+    ``ClaimVerifierError`` before this function returns; the
+    caller catches it and converts to ``PrimitiveError``.
+    """
     raw_script = (step.params or {}).get("script", "").strip()
     if not raw_script:
         raise PrimitiveError("generate_avatar_speech requires a non-empty script")
 
     use_knowledge = bool((step.params or {}).get("use_knowledge"))
     if not use_knowledge:
-        return raw_script, []
+        return raw_script, [], []
 
     # Lazy import — keep this primitive importable even if K6's
     # script_synthesis isn't wired yet (it is, but defensive).
+    from character_os.claim_verifier import ClaimVerifierError
     from character_os.script_synthesis import build_render_brief
 
-    result = build_render_brief(
-        composition.spokesperson, raw_script,
+    try:
+        result = build_render_brief(
+            composition.spokesperson, raw_script,
+        )
+    except ClaimVerifierError as exc:
+        # Strict mode — surface as a primitive failure so the
+        # composition fails before Runway is asked to render
+        # the bad script. The unsupported claims still get
+        # persisted by the caller (see execute() error path).
+        raise PrimitiveError(
+            f"K6.4 claim verifier rejected the synthesized script "
+            f"({len(exc.unsupported)} unsupported claim(s)): "
+            + ", ".join(f"{u.claim!r}" for u in exc.unsupported)
+        ) from exc
+    return (
+        result.brief,
+        list(result.chunk_ids or []),
+        list(result.verification_warnings or []),
     )
-    return result.brief, list(result.chunk_ids or [])
 
 
 class GenerateAvatarSpeechPrimitive:
@@ -150,7 +175,19 @@ class GenerateAvatarSpeechPrimitive:
         # ---- real-mode path -----------------------------------
 
         avatar_id = _resolve_avatar_id(step, composition)
-        brief, chunk_ids = _maybe_synthesize_script(step, composition)
+        brief, chunk_ids, verification_warnings = _maybe_synthesize_script(step, composition)
+
+        # K6.4 — persist Warn-mode verifier output onto the
+        # composition. Strict mode would have raised in
+        # _maybe_synthesize_script; Off mode returns an empty
+        # list. Append rather than overwrite so a composition
+        # with multiple knowledge-informed steps accumulates
+        # warnings across all of them.
+        if verification_warnings:
+            existing = list(composition.verification_warnings or [])
+            existing.extend(verification_warnings)
+            composition.verification_warnings = existing
+            composition.save(update_fields=["verification_warnings"])
 
         try:
             with MediaEngineClient() as client:

@@ -222,6 +222,18 @@ class Composition(models.Model):
     # composition (empty knowledge, retrieval failure, etc.).
     knowledge_chunk_ids = models.JSONField(default=list, blank=True)
 
+    # K6.4 — post-synthesis claim verifier output. Each entry
+    # is a dict ``{"claim": str, "kind": str, "position": int}``
+    # describing a named entity that appeared in the synthesized
+    # script but had no substring match in the retrieved chunks
+    # (or the allow-list extras: spokesperson name, business
+    # brief, operator prompt, KNOWN_PLATFORM_TERMS).
+    # ``[]`` on a clean render OR when ``K6_CLAIM_VERIFIER_MODE
+    # = "off"``. Strict mode prevents the composition from
+    # leaving DRAFT in the first place, so a strict-failed run
+    # leaves this populated alongside ``status=FAILED``.
+    verification_warnings = models.JSONField(default=list, blank=True)
+
     # Cost transparency (contract rule 7). Estimate is computed
     # before render fires; actual is summed from per-step
     # ``cost_actual_micros`` after execution.

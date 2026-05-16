@@ -919,3 +919,81 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   the drift wasn't there. **Generalisation:** treat the
   first real-target dry-run as a contract test, not a
   demo. The output proves the spec.
+
+## 2026-05-15 — Architectural calibration: v1 verifier caught the load-bearing case despite documented limitation
+
+- **Context:** K6.4 (SESSION 160) shipped substring-based
+  named-entity extraction. The scope-lock acknowledged that
+  lowercase technology names (`trafilatura`, `pgvector`)
+  would slip through v1 — the regex extractor only catches
+  capitalized words 4+ chars + multi-word capitalized
+  phrases + numerics. The trafilatura miss looked like a
+  real gap when scope-locking.
+- **Direction:** Carry-forward architectural.
+- **Detail:** Replaying Donny's SESSION 158 script against
+  the v1 verifier flagged `Wikipedia` (the load-bearing
+  hallucination: "Wikipedia is its absolute home turf")
+  while letting `trafilatura` slip through. But trafilatura
+  is *factually true about the product* (`apps/embeddings/
+  url_fetch.py` does use trafilatura); the Wikipedia
+  "home turf" claim is a pure fabrication. v1 catches the
+  unambiguous fabrication and misses the
+  arguably-true-but-unattributed claim. The cost of catching
+  trafilatura in v2 (semantic similarity, small-model NER,
+  or curated lowercase tech list) trades implementation
+  complexity for a less-bad failure mode.
+- **Found by:** Smoke replay of the actual SESSION 158
+  Composition `e485d9f9-...` script + chunks during
+  SESSION 160 closing checks.
+- **Lesson:** **For this operator specifically:** when
+  scope-locking a verifier / detector / classifier with
+  a known coverage gap, identify which case in the gap is
+  *load-bearing* (catching it justifies the slice) vs
+  *also-nice-to-catch* (catching it would be ideal). v1 is
+  allowed to explicitly miss the second class if catching
+  it requires substantially more machinery. Anchor the
+  miss as a regression test so the upgrade is visible.
+  **Generalisation:** "v1 misses X but catches Y" is a
+  sufficient ship gate when Y is more dangerous than X.
+  Here: a fabrication (Y) reads more confidently than
+  an unattributed-but-true claim (X), so catching Y is
+  the higher-leverage v1 win.
+
+## 2026-05-15 — Near-miss: stoplist grew during test runs, not before
+
+- **Context:** K6.4 (SESSION 160)'s named-entity extractor
+  filters sentence-starter false positives via a hand-
+  curated stoplist of common English words. The first
+  draft stoplist had ~80 entries
+  (`the`/`that`/`turns`/`drop`/...). First test run caught
+  two false positives the stoplist had missed:
+  `Cleanest` and `Welcome`. Both at sentence starts in
+  the test fixtures.
+- **Direction:** Near-miss / AI calibration win.
+- **Detail:** If the verifier had shipped to production
+  with those misses, the failure mode would have been
+  "verifier rejects legitimate renders that start with
+  superlative or greeting words" — a *new* failure class
+  more annoying than the original hallucination problem
+  this slice exists to fix. The two missed words were
+  caught by tests written *before* the stoplist was
+  declared done. One-line edits closed both. The slice
+  shipped without the false-positive class reaching
+  operators.
+- **Found by:** Initial test run of
+  `test_claim_verifier.py` —
+  `test_extract_skips_common_sentence_starters` and
+  `test_verify_claims_returns_empty_on_clean_script`.
+- **Lesson:** **For this operator specifically:** when
+  shipping a detector with a hand-curated stoplist /
+  allow-list / known-pattern table, drive a few false-
+  positive tests *before* declaring the table done. The
+  test set is what makes the table a living list rather
+  than a one-shot guess. Stoplist coverage is testable;
+  stoplist correctness isn't until real data exposes
+  the gap. **Generalisation:** for any classifier with a
+  hand-curated stop / allow list, the test suite should
+  include both representative true-positive cases AND
+  representative false-positive cases the list is
+  supposed to guard against. The false-positive test is
+  what catches the curator's bias.

@@ -77,6 +77,16 @@ class ScriptResult:
     'degraded to operator prompt' case; the caller persists
     ``chunk_ids`` onto ``Video.knowledge_chunk_ids`` regardless
     (empty list on degraded path).
+
+    ``verification_warnings`` (K6.4, SESSION 159) is the list
+    of named entities in the synthesized brief that don't
+    appear in the retrieved chunks (or the allow-list extras —
+    spokesperson name, business brief, operator prompt,
+    ``KNOWN_PLATFORM_TERMS``). Empty when synthesis didn't
+    actually run (degraded path) OR
+    ``settings.K6_CLAIM_VERIFIER_MODE == "off"``. In Strict
+    mode the verifier raises before this list is populated,
+    so callers see the exception, not the field.
     """
     brief: str
     chunk_ids: list[str] = field(default_factory=list)
@@ -84,6 +94,7 @@ class ScriptResult:
     model: str = ""
     tokens_input: int = 0
     tokens_output: int = 0
+    verification_warnings: list[dict] = field(default_factory=list)
 
 
 def _is_force_mock() -> bool:
@@ -183,13 +194,37 @@ def build_render_brief(
             chunk_ids=[str(c.id) for c in chunks],
         )
 
+    final_brief = synthesised.strip() or fallback_brief
+
+    # K6.4 — post-synthesis claim verifier. Runs only when the
+    # LLM actually produced something (the fallback path is
+    # operator-typed and trusted by definition). The verifier
+    # raises in Strict mode; we let that propagate to the
+    # primitive caller, who will fail the composition.
+    from character_os.claim_verifier import build_corpus, run_verifier
+
+    corpus = build_corpus(
+        chunks,
+        spokesperson=spokesperson,
+        operator_prompt=operator_prompt,
+    )
+    unsupported = run_verifier(final_brief, corpus=corpus)
+    if unsupported:
+        logger.warning(
+            "K6.4 verifier flagged %d unsupported claim(s) on sp=%s: %s",
+            len(unsupported),
+            spokesperson.pk,
+            ", ".join(f"{u.claim!r}" for u in unsupported),
+        )
+
     return ScriptResult(
-        brief=synthesised.strip() or fallback_brief,
+        brief=final_brief,
         chunk_ids=[str(c.id) for c in chunks],
         used_knowledge=True,
         model=SCRIPT_MODEL,
         tokens_input=tokens_in,
         tokens_output=tokens_out,
+        verification_warnings=[u.to_dict() for u in unsupported],
     )
 
 

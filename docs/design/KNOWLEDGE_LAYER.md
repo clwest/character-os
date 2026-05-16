@@ -667,17 +667,18 @@ slices that can land independently. Recommended order:
 - **K6.3 — Brief length cap (~15 min).** Truncate the
   synthesized brief to ≤2000 chars before it leaves
   `script_synthesis.py`. Currently queued.
-- **K6.4 — Post-synthesis claim verifier.** Discovered
-  SESSION 159 via the SESSION 158 Donny render fact-check
-  (TRUST_CALIBRATION 2026-05-15 entry "AI confidently
-  wrong (K6 hallucination)"). Problem: the K6 system
-  prompt at `script_synthesis.py:249` says *"Use facts
-  only from the knowledge chunks the user supplies. Do
-  not invent product details, prices, or features. If a
-  fact isn't in the chunks, leave it out."* —
-  `gpt-5-mini` ignores this when it already knows the
-  truth from training data. The Donny script confidently
-  cited `trafilatura` and "Wikipedia is its absolute home
+- **K6.4 — Post-synthesis claim verifier. ✓ SHIPPED
+  SESSION 160.** Discovered SESSION 159 via the SESSION
+  158 Donny render fact-check (TRUST_CALIBRATION
+  2026-05-15 entry "AI confidently wrong (K6
+  hallucination)"). Problem: the K6 system prompt at
+  `script_synthesis.py:249` says *"Use facts only from
+  the knowledge chunks the user supplies. Do not invent
+  product details, prices, or features. If a fact
+  isn't in the chunks, leave it out."* — `gpt-5-mini`
+  ignores this when it already knows the truth from
+  training data. The Donny script confidently cited
+  `trafilatura` and "Wikipedia is its absolute home
   turf" from a doc whose 22 chunks contained zero
   occurrences of either word.
     Slice scope:
@@ -740,6 +741,37 @@ slices that can land independently. Recommended order:
     default. Adds ~5-10s + $0.005-$0.01 per render
     (one extra `gpt-5-mini` Responses call). Strict
     mode + Off mode + SPA toggle adds half a session.
+
+    **SESSION 160 ship notes:**
+    * Implementation went lighter than the scope-lock
+      estimated. Substring-v1 needed *zero* LLM calls —
+      pure regex extraction + substring corpus match.
+      Render latency / cost unchanged.
+    * Three modes (`strict`/`warn`/`off`) ship at the
+      backend level via `settings.K6_CLAIM_VERIFIER_MODE`.
+      SPA toggle deferred to v1.1 — the operator can
+      flip via env or settings today, which covers the
+      v1 use case (dogfood with `warn` default, escalate
+      to `strict` per-recipe later).
+    * `KNOWN_PLATFORM_TERMS = ("Character OS",)` ships.
+      Add to this list as new platform vocabulary
+      emerges.
+    * Conversation parity (Q-k-N "should the verifier
+      run on conversation replies too?") deferred to
+      **K6.5** once dogfooding stabilizes the regex
+      extraction rules. The verifier module is reusable
+      — when K6.5 ships, it'll plumb the same
+      `claim_verifier.verify_claims` into
+      `conversation_synthesis.py`.
+    * **Donny regression smoke:** running v1 against
+      the *actual* SESSION 158 Composition `e485d9f9`'s
+      script + retrieved chunks flags `Wikipedia` (the
+      original hallucination); allow-lists
+      `Character OS` (legitimate via
+      `KNOWN_PLATFORM_TERMS`); slips `trafilatura`
+      (documented v1 limitation — lowercase tech name).
+      Anchored as a regression test in
+      `test_claim_verifier.py`.
 - **K7 — URL ingestion + serper discovery.** `trafilatura`
   fetch+extract. Serper search tab on the workspace upload
   surface. Both flow into the same Celery embedding task.
