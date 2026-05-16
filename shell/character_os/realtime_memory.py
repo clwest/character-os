@@ -60,10 +60,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# Model + reasoning settings match K6 + K9. Memory
-# composition is pattern-matching across prior transcripts,
-# not multi-step reasoning.
-MEMORY_MODEL = "gpt-5-mini"
+# SESSION 171 — promoted from gpt-5-mini to gpt-5 (full).
+# Same rationale as K6 / K9 — generative summarization where
+# capability quality matters and per-call cost stays tiny.
+# REASONING_EFFORT stays 'low' — summarization is genuinely
+# pattern-matching across transcripts.
+MEMORY_MODEL = "gpt-5"
 MAX_OUTPUT_TOKENS = 400
 REASONING_EFFORT = "low"
 

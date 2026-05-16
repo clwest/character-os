@@ -41,9 +41,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# Same model + reasoning effort as K6 — pattern-matching
-# against retrieved context, not multi-step reasoning.
-REPLY_MODEL = "gpt-5-mini"
+# SESSION 171 — promoted from gpt-5-mini to gpt-5 (full).
+# Generative call site (multi-turn dialogue); same rationale as
+# K6 (script_synthesis). REASONING_EFFORT stays 'low' here because
+# K9 doesn't carry the K6 leak-bait risk (no static business_brief
+# pattern matching against retrieved knowledge chunks).
+REPLY_MODEL = "gpt-5"
 MAX_OUTPUT_TOKENS = 400  # conversation replies are shorter than scripts
 REASONING_EFFORT = "low"
 DEFAULT_TOP_K_DOCS = 3

@@ -197,7 +197,8 @@ def test_single_prior_session_summarized():
     assert result.body == fake_text
     assert result.session_ids == [str(session.id)]
     assert result.used_synthesis is True
-    assert result.model == "gpt-5-mini"
+    from character_os.realtime_memory import MEMORY_MODEL
+    assert result.model == MEMORY_MODEL
     assert result.tokens_input == 120
     assert result.tokens_output == 18
 
