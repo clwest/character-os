@@ -306,6 +306,25 @@ class GenerateImageResult:
 
 
 @dataclass
+class StabilityImageResult:
+    """Decoded response from ``POST /internal/image_stability/``
+    (W11.6.1). Bytes are returned inline as a base64 data URI
+    rather than a URL because the media-engine cache layout for
+    Stability images is not yet exposed through ``/data/`` static
+    serving (and may move to S3 in production)."""
+
+    image_data_uri: str
+    prompt: str
+    mime_type: str
+    cost_credits: float
+    model: str
+    purpose: str
+    style_preset: str | None
+    aspect_ratio: str
+    mock_mode: bool
+
+
+@dataclass
 class StyleRemixResult:
     """Decoded response from ``POST /internal/clips/style_remix/``.
 
@@ -905,6 +924,68 @@ class MediaEngineClient:
         except (KeyError, TypeError, ValueError) as exc:
             raise MediaEngineError(
                 f"generate_image response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
+    def list_styles(self) -> dict:
+        """W11.6.2 — hit ``GET /internal/styles/``.
+
+        Returns the categorized 42-preset style library snapshot.
+        Pure data (no Stability call). Caller is responsible for
+        caching — the library is a code-level constant on the
+        media-engine.
+        """
+        return self.request("GET", "/internal/styles/")
+
+    def create_stability_image(
+        self,
+        *,
+        purpose: str,
+        subject: str,
+        model: str = "sd3-large",
+        style_preset: str | None = None,
+        aspect_ratio: str = "16:9",
+        negative_prompt_override: str | None = None,
+        template: str | None = None,
+    ) -> "StabilityImageResult":
+        """W11.6.1 — hit ``POST /internal/image_stability/``.
+
+        Synchronous; the media-engine handles Stability's retry
+        logic internally (sd3-large completes in ~10s real-mode,
+        instant in mock). The result carries the base64 data URI
+        of the image plus the composed prompt + credit cost so
+        the Django side can persist a complete Asset row in one
+        request.
+        """
+        body: dict[str, Any] = {
+            "purpose": purpose,
+            "subject": subject,
+            "model": model,
+            "aspect_ratio": aspect_ratio,
+        }
+        if style_preset is not None:
+            body["style_preset"] = style_preset
+        if negative_prompt_override is not None:
+            body["negative_prompt_override"] = negative_prompt_override
+        if template is not None:
+            body["template"] = template
+
+        data = self.request("POST", "/internal/image_stability/", json=body)
+        try:
+            return StabilityImageResult(
+                image_data_uri=str(data["image_data_uri"]),
+                prompt=str(data.get("prompt") or ""),
+                mime_type=str(data.get("mime_type") or "image/png"),
+                cost_credits=float(data.get("cost_credits") or 0.0),
+                model=str(data.get("model") or model),
+                purpose=str(data.get("purpose") or purpose),
+                style_preset=data.get("style_preset"),
+                aspect_ratio=str(data.get("aspect_ratio") or aspect_ratio),
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"create_stability_image response not in expected shape: {data!r}",
                 response_text=str(data),
             ) from exc
 

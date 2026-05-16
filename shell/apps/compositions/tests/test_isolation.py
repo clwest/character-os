@@ -115,6 +115,12 @@ ALLOWED_FILES = {
     # "no text context" reporting branch. Read-only command
     # otherwise; no row mutation in the watchdog itself.
     "apps/compositions/tests/test_stoplist_watchdog.py",
+    # W11.6.2 — image API tests seed Asset(IMAGE) rows directly
+    # to exercise the list/retrieve/delete paths without firing
+    # an end-to-end generation per row. The production write
+    # path goes through ImageViewSet.create → MediaEngineClient
+    # → Asset.objects.create in views.py (already sanctioned).
+    "apps/compositions/tests/test_images_api.py",
 }
 
 

@@ -452,26 +452,84 @@ mode for all 5 purposes. Real-Stability dogfood deferred
 to W11.6.2 (Django REST API) when the operator-facing
 surface lands.
 
-### W11.6.2 — Django REST API
+### W11.6.2 — Django REST API ✓ SHIPPED (SESSION 173)
+
+**Implementation choice (Q-img-A resolved)**: co-located in
+``apps.compositions`` rather than splitting out an
+``apps.images`` package. Fewer moving parts; Asset already
+lives in compositions; extract later if the surface grows.
 
 **Files touched**:
 
-* `shell/apps/compositions/views.py` (or new `apps/images/` —
-  decide at implementation time based on coupling) — NEW
-  `ImageViewSet` + `POST /api/images/`.
-* `shell/apps/compositions/serializers.py` — Asset serializer
-  extended for image fields.
-* `shell/character_os/clients/media_engine.py` —
-  `create_stability_image` wrapper for the new internal
-  endpoint.
+* `shell/character_os/clients/media_engine.py` — added
+  `StabilityImageResult` dataclass, `create_stability_image`
+  wrapper (POST `/internal/image_stability/`), and
+  `list_styles` wrapper (GET `/internal/styles/`).
+* `shell/apps/compositions/serializers.py` — new
+  `ImageAssetSerializer` surfaces the W11.6.1 image fields
+  alongside the shared Asset fields. Distinct from the
+  existing compact `AssetSerializer` (which composition
+  responses use) to keep the SPA payload shapes clean.
+* `shell/apps/compositions/views.py` — new `ImageViewSet`
+  (POST `/api/images/` + GET list/retrieve + DELETE) and
+  new `StyleLibraryViewSet` (GET `/api/styles/`). Workspace
+  isolation enforced via `IsWorkspaceMember` permission +
+  queryset filtering on `workspace__memberships__user`.
+  Owner-only writes (mirrors composition + spokesperson
+  patterns). `purpose=avatar` rejected with 400 in v1
+  (Contract rule 2 — avatar wizard owns that surface). All
+  4 non-avatar purposes route through the W11.6.1 media-engine
+  endpoint. Stability cost in credits → micros via the
+  1 credit = 1000 micros canonical factor (Contract rule 7).
+  Image bytes returned as a data URI from media-engine are
+  stored directly in `Asset.file_path` (matches spokesperson
+  portrait pattern; media-engine retains the sha-keyed disk
+  cache).
+* `shell/apps/compositions/urls.py` — registered `images` +
+  `styles` routes on the existing DRF router.
+* `shell/apps/compositions/tests/test_isolation.py` —
+  added the new test file to `ALLOWED_FILES` with a code-
+  review note (tests need to seed Asset(IMAGE) rows directly
+  for list/retrieve/delete coverage without firing per-row
+  generation).
+* `media-engine/app/routers/internal.py` — added
+  `GET /internal/styles/` (read-only proxy for the
+  42-preset style library; Pydantic-typed response so the
+  contract is explicit). 131 → 132 media-engine routes.
 * `shell/apps/compositions/tests/test_images_api.py` — NEW
-  (12-15 tests covering create / list / retrieve / delete /
-  purpose routing / tier limit (deferred) / workspace
-  isolation).
+  (24 tests):
+  - happy path for each non-avatar purpose (scene/broll/
+    product/ad) — Asset persistence + media-engine call
+    shape;
+  - optional spokesperson FK linkage;
+  - negative_prompt_override persists;
+  - 400 paths: avatar purpose rejected (with pointer to
+    wizard), unknown purpose, invalid aspect_ratio,
+    unsupported model, missing subject/workspace, cross-
+    workspace spokesperson;
+  - 403 paths: non-member, non-owner (editor role);
+  - 401/403 path: unauthenticated;
+  - 502 path: media-engine error → no Asset row created;
+  - list filters (purpose / model / style_preset) +
+    workspace isolation + clip exclusion;
+  - retrieve cross-workspace 404; delete success then 404;
+    delete non-owner 403;
+  - styles endpoint: proxy through, auth required, 502 on
+    upstream failure.
 
-**Acceptance**: Django test suite passes; `POST /api/images/`
-generates + persists images end-to-end through curl/SPA
-client.
+**Test totals after SESSION 173 (W11.6.2)**:
+Media-engine **133** (unchanged — `/internal/styles/` is
+exercised via Django mocks; a dedicated media-engine test
+for the new endpoint is queued for W11.6.3 when the SPA
+picker consumes it). Django **751** (727 → 751, +24).
+Media-engine route count **132** (131 → 132). Django
+URL count: +5 image / styles patterns.
+
+**Acceptance**: Django test suite passes (751 tests).
+`POST /api/images/`, `GET /api/images/`,
+`GET /api/images/<id>/`, `DELETE /api/images/<id>/`, and
+`GET /api/styles/` all registered + workspace-scoped. SPA
+client wiring + real-Stability dogfood land in W11.6.3.
 
 ### W11.6.3 — SPA route + generation form
 

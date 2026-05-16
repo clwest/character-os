@@ -60,6 +60,47 @@ class AssetSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class ImageAssetSerializer(serializers.ModelSerializer):
+    """W11.6.2 — read shape for the ``/api/images/`` surface.
+
+    Surfaces the image-specific fields added in W11.6.1
+    (purpose / model / style_preset / prompt / negative_prompt /
+    aspect_ratio / spokesperson) alongside the shared Asset
+    fields. Excludes ``inline_content`` (always empty for images)
+    and ``source_spec`` (composition-runtime provenance, not
+    relevant to the operator-facing image library).
+    """
+
+    workspace = serializers.PrimaryKeyRelatedField(read_only=True)
+    spokesperson = serializers.PrimaryKeyRelatedField(read_only=True)
+    composition = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    class Meta:
+        model = Asset
+        fields = (
+            "id",
+            "workspace",
+            "asset_type",
+            "file_path",
+            "mime_type",
+            "width",
+            "height",
+            "size_bytes",
+            "cost_micros",
+            "composition",
+            # W11.6.1 image-specific fields
+            "purpose",
+            "model",
+            "style_preset",
+            "prompt",
+            "negative_prompt",
+            "aspect_ratio",
+            "spokesperson",
+            "created_at",
+        )
+        read_only_fields = fields
+
+
 class CompositionStepSerializer(serializers.ModelSerializer):
     """One step in a composition's plan."""
 

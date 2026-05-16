@@ -3792,6 +3792,77 @@ def post_internal_portrait(
     )
 
 
+# ---- GET /internal/styles/ ----------------------------------------
+#
+# W11.6.2 — read-only snapshot of the 42-preset style library.
+# Django's ``GET /api/styles/`` proxies this so the SPA picker
+# has one cross-service contract for style metadata. Pure data —
+# no Stability call, no auth required (operator-facing on the
+# Django side).
+
+
+class InternalStylePreset(BaseModel):
+    name: str
+    display_name: str
+    category: str
+    description: str
+    best_for: list[str]
+    mood: str
+    example_prompt_suffix: str
+
+
+class InternalStyleCategory(BaseModel):
+    id: str
+    display_name: str
+    description: str
+    icon: str
+    presets: list[InternalStylePreset]
+
+
+class InternalStylesResponse(BaseModel):
+    categories: list[InternalStyleCategory]
+    total_presets: int
+
+
+@router.get("/styles/", response_model=InternalStylesResponse)
+def get_internal_styles():
+    """Return the categorized style preset library.
+
+    Snapshot — every call returns the same payload (the library
+    is a constant in ``style_library.py``). The SPA picker pulls
+    this via Django's ``GET /api/styles/`` proxy and caches
+    indefinitely.
+    """
+    from ..services.style_library import STYLE_CATEGORIES, STYLE_LIBRARY
+
+    categories: list[InternalStyleCategory] = []
+    total = 0
+    for category_id, category_info in STYLE_CATEGORIES.items():
+        presets_raw = STYLE_LIBRARY.get(category_id, [])
+        presets = [
+            InternalStylePreset(
+                name=p.name,
+                display_name=p.display_name,
+                category=p.category,
+                description=p.description,
+                best_for=list(p.best_for),
+                mood=p.mood,
+                example_prompt_suffix=p.example_prompt_suffix,
+            )
+            for p in presets_raw
+        ]
+        total += len(presets)
+        categories.append(InternalStyleCategory(
+            id=category_id,
+            display_name=category_info["display_name"],
+            description=category_info["description"],
+            icon=category_info["icon"],
+            presets=presets,
+        ))
+
+    return InternalStylesResponse(categories=categories, total_presets=total)
+
+
 # ---- POST /internal/image_stability/ ------------------------------
 #
 # W11.6.1 — workspace-wide non-avatar image generation via

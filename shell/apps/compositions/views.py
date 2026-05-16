@@ -15,6 +15,14 @@ The create flow:
   6. Return the freshly-created Composition (status DRAFT or
      RUNNING depending on celery eager mode).
 
+W11.6.2 (SESSION 173) added the image generation surface:
+
+* POST   /api/images/            generate + persist an image
+* GET    /api/images/            list workspace images (filterable)
+* GET    /api/images/<id>/       retrieve one image
+* DELETE /api/images/<id>/       workspace-scoped delete
+* GET    /api/styles/            categorized style preset library
+
 Workspace isolation is structural — Spokesperson + Asset
 lookups are scoped via ``Model.objects.get(pk=..., workspace=ws)``
 so a foreign id raises DoesNotExist → 400. The V1 cross-
@@ -37,15 +45,53 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.accounts.models import Membership, Workspace
-from apps.compositions.models import Asset, Composition, CompositionStep
+from apps.compositions.models import Asset, AssetType, Composition, CompositionStep
 from apps.spokespeople.models import Spokesperson
+from character_os.clients.media_engine import (
+    MediaEngineClient,
+    MediaEngineError,
+)
 from character_os.permissions import IsWorkspaceMember
 
 from .recipes import RECIPES, get_recipe, resolve_kwargs
-from .serializers import CompositionSerializer, RecipeSerializer
+from .serializers import (
+    CompositionSerializer,
+    ImageAssetSerializer,
+    RecipeSerializer,
+)
 from .tasks import execute_composition
 
 logger = logging.getLogger(__name__)
+
+
+# W11.6.2 — image generation constants. Mirror the media-engine
+# enums; duplicated rather than imported because media-engine is
+# a separate service that Django can't (and shouldn't) import.
+IMAGE_VALID_PURPOSES = frozenset({
+    "avatar", "scene", "broll", "product", "ad",
+})
+
+# Purposes that route through Stability (W11.6.1). Everything else
+# (currently just ``avatar``) routes through Runway — but Contract
+# rule 2 reserves the avatar wizard path for Spokesperson creation,
+# so v1 of ``/api/images/`` rejects ``purpose=avatar`` with a 400
+# pointing the operator to the wizard. W11.7+ may relax this if
+# the "iterate cheaply before baking" journey (Journey 5) gains
+# enough operator pull to need its own surface.
+STABILITY_PURPOSES = frozenset({"scene", "broll", "product", "ad"})
+
+STABILITY_VALID_ASPECT_RATIOS = frozenset({
+    "1:1", "16:9", "9:16", "4:3", "3:4", "21:9",
+})
+
+STABILITY_VALID_MODELS = frozenset({
+    "core", "sdxl", "sd3-medium", "sd3-large", "sd3-large-turbo", "ultra",
+})
+
+# Stability credit → micros (per Contract rule 7). 1 credit ≈ $0.001
+# ≈ 1000 micros at the canonical conversion. Display-only multiplier
+# for dollar conversion lives in the SPA (Q-img-G).
+_STABILITY_CREDITS_TO_MICROS = 1000
 
 
 class AssetViewSet(viewsets.GenericViewSet):
@@ -363,3 +409,259 @@ class CompositionViewSet(viewsets.GenericViewSet):
             CompositionSerializer(composition).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+# =============================================================================
+# W11.6.2 — Image generation REST surface (Media Generation V1)
+# =============================================================================
+
+
+class ImageViewSet(viewsets.GenericViewSet):
+    """W11.6.2 — workspace-scoped image generation + library.
+
+    Endpoints:
+
+    * ``POST /api/images/`` — generate via Stability (purpose !=
+      avatar) and persist as an ``Asset(image)`` row. Mock-mode is
+      implicit (driven by ``STABILITY_API_KEY`` on the media-engine).
+    * ``GET /api/images/`` — list workspace images, filterable by
+      ``?workspace=`` (required for cross-workspace owners),
+      ``?purpose=``, ``?model=``, ``?style_preset=``,
+      ``?spokesperson=``. Newest first; capped at 200.
+    * ``GET /api/images/<id>/`` — retrieve one image.
+    * ``DELETE /api/images/<id>/`` — workspace-owner-only delete.
+
+    Contract notes:
+      - Contract rule 1 (purpose-routed) is honored by accepting
+        the full purpose enum; the avatar wizard path is reserved
+        per Contract rule 2 — ``purpose=avatar`` returns 400 with a
+        pointer to the wizard. W11.7+ may relax this.
+      - Stability cost in credits is converted to micros via the
+        canonical 1 credit = 1000 micros factor (Contract rule 7).
+      - Image bytes from Stability arrive as a base64 data URI and
+        are stored directly in ``Asset.file_path`` (matches the
+        spokesperson portrait pattern). Disk cache for re-use
+        lives in media-engine.
+    """
+
+    permission_classes = [IsWorkspaceMember]
+    serializer_class = ImageAssetSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return Asset.objects.none()
+        return (
+            Asset.objects.filter(
+                workspace__memberships__user=user,
+                asset_type=AssetType.IMAGE,
+            )
+            .select_related("workspace", "spokesperson", "composition")
+            .distinct()
+        )
+
+    def list(self, request):
+        qs = self.get_queryset()
+        workspace_id = request.query_params.get("workspace")
+        if workspace_id:
+            qs = qs.filter(workspace_id=workspace_id)
+        purpose = request.query_params.get("purpose")
+        if purpose:
+            qs = qs.filter(purpose=purpose)
+        model_name = request.query_params.get("model")
+        if model_name:
+            qs = qs.filter(model=model_name)
+        style_preset = request.query_params.get("style_preset")
+        if style_preset:
+            qs = qs.filter(style_preset=style_preset)
+        spokesperson_id = request.query_params.get("spokesperson")
+        if spokesperson_id:
+            qs = qs.filter(spokesperson_id=spokesperson_id)
+        qs = qs.order_by("-created_at")[:200]
+        return Response(ImageAssetSerializer(qs, many=True).data)
+
+    def retrieve(self, request, pk: str | None = None):
+        try:
+            asset = self.get_queryset().get(pk=pk)
+        except Asset.DoesNotExist:
+            raise NotFound("Image not found")
+        self.check_object_permissions(request, asset)
+        return Response(ImageAssetSerializer(asset).data)
+
+    def destroy(self, request, pk: str | None = None):
+        try:
+            asset = self.get_queryset().get(pk=pk)
+        except Asset.DoesNotExist:
+            raise NotFound("Image not found")
+        self.check_object_permissions(request, asset)
+        # IsWorkspaceMember already enforced owner for mutating
+        # methods via has_object_permission above.
+        asset_id = asset.pk
+        asset.delete()
+        logger.info("image asset deleted id=%s workspace=%s",
+                    asset_id, asset.workspace_id)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def create(self, request):
+        body = request.data or {}
+        purpose = (body.get("purpose") or "").strip().lower()
+        subject = (body.get("subject") or "").strip()
+        workspace_id = body.get("workspace")
+        model_name = body.get("model") or "sd3-large"
+        style_preset = body.get("style_preset") or None
+        aspect_ratio = body.get("aspect_ratio") or "16:9"
+        negative_prompt_override = body.get("negative_prompt_override") or None
+        spokesperson_id = body.get("spokesperson") or None
+
+        # ---- payload validation -------------------------------------
+        if not workspace_id:
+            raise ValidationError({"workspace": "required"})
+        if not subject:
+            raise ValidationError({"subject": "required"})
+        if not purpose:
+            raise ValidationError({"purpose": "required"})
+        if purpose not in IMAGE_VALID_PURPOSES:
+            raise ValidationError({
+                "purpose": (
+                    f"unknown purpose {purpose!r}; "
+                    f"valid: {sorted(IMAGE_VALID_PURPOSES)}"
+                ),
+            })
+        if purpose == "avatar":
+            # Contract rule 2 — avatar wizard owns the avatar path
+            # for v1. The "iterate cheaply before baking" journey
+            # (Journey 5) is best served by the ``scene`` purpose
+            # with a creature-anatomy style preset, NOT by
+            # circumventing the wizard.
+            raise ValidationError({
+                "purpose": (
+                    "avatar purpose is reserved for the spokesperson "
+                    "wizard in v1 (Contract rule 2). To iterate cheaply "
+                    "on character concepts, use purpose=scene with a "
+                    "creature-anatomy style preset."
+                ),
+            })
+        if aspect_ratio not in STABILITY_VALID_ASPECT_RATIOS:
+            raise ValidationError({
+                "aspect_ratio": (
+                    f"invalid aspect_ratio {aspect_ratio!r}; "
+                    f"valid: {sorted(STABILITY_VALID_ASPECT_RATIOS)}"
+                ),
+            })
+        if model_name not in STABILITY_VALID_MODELS:
+            raise ValidationError({
+                "model": (
+                    f"unsupported model {model_name!r}; "
+                    f"valid: {sorted(STABILITY_VALID_MODELS)}"
+                ),
+            })
+
+        # ---- workspace + membership ---------------------------------
+        try:
+            workspace = Workspace.objects.get(pk=workspace_id)
+        except (Workspace.DoesNotExist, ValueError, DjangoValidationError):
+            raise ValidationError({"workspace": "not found"})
+        try:
+            membership = Membership.objects.get(
+                user=request.user, workspace=workspace,
+            )
+        except Membership.DoesNotExist:
+            raise PermissionDenied("Not a member of this workspace")
+        if membership.role != Membership.Role.OWNER:
+            raise PermissionDenied(
+                "Image generation is restricted to workspace owners in v1"
+            )
+
+        # ---- optional spokesperson linkage --------------------------
+        spokesperson = None
+        if spokesperson_id:
+            try:
+                spokesperson = Spokesperson.objects.get(
+                    pk=spokesperson_id, workspace=workspace,
+                )
+            except (Spokesperson.DoesNotExist, ValueError, DjangoValidationError):
+                raise ValidationError({
+                    "spokesperson": "not in this workspace",
+                })
+
+        # ---- media-engine call --------------------------------------
+        try:
+            with MediaEngineClient() as client:
+                result = client.create_stability_image(
+                    purpose=purpose,
+                    subject=subject,
+                    model=model_name,
+                    style_preset=style_preset,
+                    aspect_ratio=aspect_ratio,
+                    negative_prompt_override=negative_prompt_override,
+                )
+        except MediaEngineError as exc:
+            logger.warning(
+                "media-engine image_stability failed purpose=%s model=%s: %s",
+                purpose, model_name, exc,
+            )
+            return Response(
+                {"error": str(exc), "code": "upstream_media_engine"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        # ---- persist Asset ------------------------------------------
+        # file_path stores the data URI directly so the SPA can
+        # render the image without a separate static-serve route.
+        # The media-engine retains its sha-keyed disk cache for
+        # idempotent regeneration.
+        cost_micros = int(round(
+            (result.cost_credits or 0.0) * _STABILITY_CREDITS_TO_MICROS
+        ))
+        asset = Asset.objects.create(
+            workspace=workspace,
+            asset_type=AssetType.IMAGE,
+            file_path=result.image_data_uri,
+            mime_type=result.mime_type or "image/png",
+            cost_micros=cost_micros,
+            purpose=result.purpose or purpose,
+            model=result.model or model_name,
+            style_preset=result.style_preset or "",
+            prompt=result.prompt or "",
+            negative_prompt=negative_prompt_override or "",
+            aspect_ratio=result.aspect_ratio or aspect_ratio,
+            spokesperson=spokesperson,
+            created_by=request.user,
+        )
+
+        logger.info(
+            "image asset created id=%s workspace=%s purpose=%s model=%s "
+            "style=%s ratio=%s cost_credits=%.2f mock=%s",
+            asset.pk, workspace.pk, purpose, asset.model, asset.style_preset,
+            asset.aspect_ratio, result.cost_credits, result.mock_mode,
+        )
+
+        return Response(
+            ImageAssetSerializer(asset).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class StyleLibraryViewSet(viewsets.ViewSet):
+    """W11.6.2 — ``GET /api/styles/``.
+
+    Returns the categorized 42-preset style library snapshot. Pure
+    proxy to the media-engine's ``/internal/styles/`` endpoint;
+    cached by the SPA (the underlying data is a code-level constant
+    on media-engine). Auth required so the public internet can't
+    enumerate.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        try:
+            with MediaEngineClient() as client:
+                data = client.list_styles()
+        except MediaEngineError as exc:
+            logger.warning("media-engine list_styles failed: %s", exc)
+            return Response(
+                {"error": str(exc), "code": "upstream_media_engine"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response(data)
