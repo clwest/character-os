@@ -35,6 +35,23 @@ class Spokesperson(models.Model):
         EXPERT = "expert", "Expert"
         PERFORMER = "performer", "Performer"
 
+    class VisualTemplate(models.TextChoices):
+        """Portrait templates — the visual axis. Mirrors
+        ``media-engine/app/services/character_studio_client.py``
+        ``PORTRAIT_TEMPLATES``. ``mascot`` is the stylized-creature
+        track (Riggs/Sasha/Donny/Maya/Marcus); the other three are
+        photorealistic-human variants. Persisted on the row so
+        re-bake (W11.2) can default to the operator's original
+        choice instead of a hardcoded fallback. The original W11.2
+        rebake hardcoded ``"coach"`` and re-rendered Marcus as a
+        photorealistic human instead of a battle unicorn —
+        SESSION 171 lesson.
+        """
+        MASCOT = "mascot", "Mascot"
+        FOUNDER = "founder", "Founder"
+        COACH = "coach", "Coach"
+        LOCAL_GUIDE = "local_guide", "Local guide"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     workspace = models.ForeignKey(
         Workspace,
@@ -61,6 +78,21 @@ class Spokesperson(models.Model):
             "/internal/portrait/ subject parameter when generating. "
             "Empty means 'use the visual template's built-in default "
             "subject' (e.g. mascot → 'a friendly brand mascot')."
+        ),
+    )
+    visual_template = models.CharField(
+        max_length=20,
+        choices=VisualTemplate.choices,
+        default=VisualTemplate.MASCOT,
+        help_text=(
+            "Portrait template used when generating this "
+            "spokesperson's image. Mirrors the wizard's Step-1 "
+            "tile choice. Re-bake (W11.2) defaults to this value "
+            "so the operator doesn't have to re-pick the template "
+            "every time. Originally hardcoded to ``coach`` at "
+            "rebake-time, which silently flipped Marcus from a "
+            "stylized battle unicorn to a photorealistic human "
+            "(SESSION 171 fix)."
         ),
     )
     tone_archetype = models.CharField(

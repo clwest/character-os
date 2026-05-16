@@ -23,6 +23,7 @@ const MOCK_SP: Spokesperson = {
   name: "Marcus",
   business_brief: "AP history teacher.",
   visual_subject: "battle unicorn in roman gear",
+  visual_template: "mascot",
   tone_archetype: "tutor",
   status: "ready",
   runway_avatar_id: "av-1",
@@ -54,7 +55,7 @@ describe("W11.1 — SpokespersonEditModal", () => {
     // useVoicePresets fires a GET on mount; the change-voice action
     // returns the {spokesperson, voice_patch} envelope; everything
     // else (PATCH on the spokesperson) returns a bare row.
-    vi.spyOn(global, "fetch").mockImplementation((url, init) => {
+    vi.spyOn(global, "fetch").mockImplementation((url, _init) => {
       const u = String(url);
       if (u.includes("/voice-presets/")) {
         return Promise.resolve(

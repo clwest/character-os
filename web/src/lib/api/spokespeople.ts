@@ -55,6 +55,7 @@ const spokespersonSchema = z.object({
   name: z.string(),
   business_brief: z.string(),
   visual_subject: z.string(),
+  visual_template: z.enum(PORTRAIT_TEMPLATES),
   tone_archetype: z.enum(TONE_ARCHETYPES),
   status: z.enum(["setup_needed", "ready", "archived"]),
   runway_avatar_id: z.string(),
@@ -127,6 +128,13 @@ export interface CreateSpokespersonInput {
    * Wizard Step 2 (W7) threads it into `/internal/portrait/`
    * generation when no portrait_data_uri is supplied. */
   visual_subject?: string;
+  /** Portrait template (mascot / founder / coach / local_guide).
+   * Wizard Step 1 tile choice. Persists on the row so re-bake
+   * (W11.2) can reuse it instead of falling back to a hardcoded
+   * default. SESSION 171 fix — pre-fix, the rebake hardcoded
+   * `coach`, which silently flipped Marcus from a battle
+   * unicorn to a photorealistic human. */
+  visual_template?: PortraitTemplate;
   /** Persona axis. One of `TONE_ARCHETYPES`. Defaults server-side
    * to `expert` if omitted. */
   tone_archetype?: ToneArchetype;

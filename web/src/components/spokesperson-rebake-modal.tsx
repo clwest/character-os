@@ -23,6 +23,7 @@ import { useEffect, useState } from "react";
 import { Flame, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
+  PORTRAIT_TEMPLATE_LABELS,
   useRebakeAvatar,
   type Spokesperson,
 } from "@/lib/api/spokespeople";
@@ -116,6 +117,18 @@ export function SpokespersonRebakeModal({
               data-testid="rebake-visual-subject"
             >
               {spokesperson.visual_subject || "—"}
+            </dd>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <dt className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              Template
+            </dt>
+            <dd
+              className="font-mono text-xs"
+              data-testid="rebake-visual-template"
+            >
+              {PORTRAIT_TEMPLATE_LABELS[spokesperson.visual_template]} (
+              {spokesperson.visual_template})
             </dd>
           </div>
           <div className="flex flex-col gap-0.5">

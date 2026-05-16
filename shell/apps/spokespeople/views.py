@@ -376,7 +376,18 @@ class SpokespersonViewSet(viewsets.ModelViewSet):
         voice_preset = (
             request.data.get("voice_preset") or spokesperson.voice_id or "vincent"
         ).strip()
-        template = (request.data.get("template") or "coach").strip()
+        # SESSION 171 fix — was hardcoded to "coach", which silently
+        # flipped Marcus from a stylized battle unicorn (mascot
+        # template) to a photorealistic human (coach template) on
+        # re-bake. The row now persists ``visual_template`` from
+        # wizard creation (migration 0004), so re-bake defaults to
+        # the operator's original choice. Explicit body override
+        # still wins.
+        template = (
+            request.data.get("template")
+            or spokesperson.visual_template
+            or "mascot"
+        ).strip()
 
         if not visual_subject:
             raise ValidationError({
@@ -386,13 +397,24 @@ class SpokespersonViewSet(viewsets.ModelViewSet):
             raise ValidationError({
                 "voice_preset": f"unsupported preset {voice_preset!r}",
             })
+        if template not in SUPPORTED_PORTRAIT_TEMPLATES:
+            raise ValidationError({
+                "template": f"unsupported template {template!r}",
+            })
 
-        # Persist visual_subject / voice_preset upfront so the row
-        # carries the operator's intent even if the bake fails.
+        # Persist visual_subject / voice_preset / visual_template
+        # upfront so the row carries the operator's intent even if
+        # the bake fails.
         spokesperson.visual_subject = visual_subject
         spokesperson.voice_id = voice_preset
+        spokesperson.visual_template = template
         spokesperson.save(
-            update_fields=["visual_subject", "voice_id", "updated_at"],
+            update_fields=[
+                "visual_subject",
+                "voice_id",
+                "visual_template",
+                "updated_at",
+            ],
         )
 
         try:
