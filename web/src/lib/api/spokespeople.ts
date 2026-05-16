@@ -163,6 +163,46 @@ export function useCreateSpokesperson() {
   });
 }
 
+// ---- W11.1 — edit spokesperson -----------------------------------
+
+export interface UpdateSpokespersonInput {
+  id: string;
+  /** Patch only the fields the operator changed. Send only modified
+   * keys; the backend PATCH will leave the rest alone. Editable
+   * fields per the serializer: name, business_brief, visual_subject,
+   * tone_archetype. Voice + avatar are read-only on this path
+   * (separate action endpoints; W11.2 to wire). */
+  name?: string;
+  business_brief?: string;
+  visual_subject?: string;
+  tone_archetype?: ToneArchetype;
+}
+
+export async function updateSpokesperson(
+  input: UpdateSpokespersonInput,
+): Promise<Spokesperson> {
+  const { id, ...payload } = input;
+  return apiJson(
+    `/api/spokespeople/${id}/`,
+    { method: "PATCH", body: payload },
+    (json) => spokespersonSchema.parse(json),
+  );
+}
+
+export function useUpdateSpokesperson() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: updateSpokesperson,
+    onSuccess: (spokesperson) => {
+      // Seed the single-resource cache so the detail page reflects
+      // the new values instantly; invalidate the list so the
+      // dashboard's name/tone pills refresh.
+      qc.setQueryData(["spokesperson", spokesperson.id], spokesperson);
+      qc.invalidateQueries({ queryKey: ["spokespeople"] });
+    },
+  });
+}
+
 // ---- Generate portrait (SESSION 130 — wizard slice 7) ---------------
 
 const generatePortraitResponseSchema = z.object({

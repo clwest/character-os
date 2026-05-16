@@ -1616,3 +1616,68 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   review. If the operator might ever want to ask
   "what did the model say?", the answer needs to
   live on a persisted row, not a transient log line.
+
+## 2026-05-15 — Methodology calibration: operator-facing test loops scale with audit fields
+
+- **Context:** SESSION 169 dogfooded W11.1 (edit modal) by
+  editing Marcus's business_brief and firing a fresh
+  render. Confirmation was instant: read
+  ``composition.synthesized_brief`` (K6.6, SESSION 168) on
+  the new composition row → spot the new signature phrase
+  in the first sentence.
+- **Direction:** Carry-forward methodology.
+- **Detail:** Pre-K6.6 the same loop would have been:
+  fire render → wait for Runway → download the MP4 →
+  watch it → maybe read media-engine logs to find the
+  brief. ~5-10 minutes. With ``synthesized_brief``
+  persisted: ~5 seconds via a Django shell query. The
+  K6.6 audit field that we built for *retroactive
+  operator review* turned out to also accelerate
+  *iterative prompt tuning*.
+- **Found by:** Realizing during the W11.1 dogfood that
+  I never opened the MP4. The DB row had everything
+  needed.
+- **Lesson:** **For this operator specifically:** audit-
+  trail fields aren't just for debugging or retroactive
+  review — they're test infrastructure. Every "what did
+  the model actually say?" surface collapses the
+  iteration loop on prompt / persona / recipe tuning by
+  an order of magnitude. **Generalisation:** when adding
+  persistence for one stated use case (audit / debug),
+  consider whether the same field unlocks faster
+  iteration loops for adjacent use cases. The marginal
+  cost is zero; the marginal value scales with how often
+  the field gets queried.
+
+## 2026-05-15 — Architectural calibration: the metadata gap is the SPA gap
+
+- **Context:** SESSION 169 surfaced operator feedback:
+  *"We don't have a way to edit the Avatars [on the
+  UI]."* Backend has supported PATCH on Spokesperson
+  since the ``SpokespersonViewSet`` (ModelViewSet)
+  shipped. The gap was the SPA never grew an edit
+  surface.
+- **Direction:** Carry-forward architectural.
+- **Detail:** Six weeks of K-arc work shipped through
+  metadata-driven forms (recipes, verifier toggle, mode
+  select). Each new K-feature got a SPA surface
+  for-free via the metadata renderer. But spokesperson
+  edit is hand-built UI — the ModelViewSet's CRUD is
+  *not* metadata-driven; it's just DRF defaults. The
+  feature was effectively backend-only until W11.1
+  shipped the modal. Operators don't discover features
+  through `curl`; they discover them through visible
+  affordances. The "we don't have X" moment was
+  inevitable.
+- **Found by:** Operator stating the gap mid-session.
+- **Lesson:** **For this operator specifically:** any
+  new model that ships via ModelViewSet should get a
+  SPA surface paired with it within the same arc —
+  otherwise the gap surfaces as
+  *"we don't have a way to do X"* months later.
+  **Generalisation:** read-only metadata-driven
+  surfaces + hand-built write surfaces is a stable
+  pattern, but the write side scales linearly with
+  feature surface area. Budget for the hand-built UI
+  alongside every CRUD endpoint, not as a follow-up
+  slice.

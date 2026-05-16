@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Mic, MessageCircle, Plus, Wand2 } from "lucide-react";
+import { ArrowLeft, Mic, MessageCircle, Pencil, Plus, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   useCloneVoice,
@@ -11,6 +11,7 @@ import { useVideos, type Video } from "@/lib/api/videos";
 import { VideoRow } from "@/components/video-row";
 import { VoiceCapture, type VoiceCaptureValue } from "@/components/voice-capture";
 import { KnowledgePanel } from "@/components/knowledge-panel";
+import { SpokespersonEditModal } from "@/components/spokesperson-edit-modal";
 import {
   useThreads,
   useCreateThread,
@@ -44,6 +45,9 @@ export function SpokespersonDetailRoute() {
   const setupItems = buildSetupItems(s);
   const allDone = setupItems.every((it) => it.done);
   const pendingItems = setupItems.filter((it) => !it.done);
+  // W11.1 — edit-spokesperson modal. Opens via the Edit pencil
+  // on the IdentityPanel header; closes on cancel or save.
+  const [editing, setEditing] = useState(false);
 
   return (
     <div
@@ -52,7 +56,13 @@ export function SpokespersonDetailRoute() {
       data-configured={allDone ? "full" : "partial"}
     >
       <Masthead spokesperson={s} ready={allDone} />
-      <IdentityPanel spokesperson={s} />
+      <IdentityPanel spokesperson={s} onEdit={() => setEditing(true)} />
+      {editing && (
+        <SpokespersonEditModal
+          spokesperson={s}
+          onClose={() => setEditing(false)}
+        />
+      )}
       {allDone && <TalkCta spokesperson={s} />}
 
       {allDone ? (
@@ -300,7 +310,13 @@ function Masthead({
   );
 }
 
-function IdentityPanel({ spokesperson }: { spokesperson: Spokesperson }) {
+function IdentityPanel({
+  spokesperson,
+  onEdit,
+}: {
+  spokesperson: Spokesperson;
+  onEdit?: () => void;
+}) {
   return (
     <section
       className="reveal grid grid-cols-1 gap-6 rounded-md border bg-card p-8 shadow-paper md:grid-cols-[14rem,1fr]"
@@ -312,20 +328,35 @@ function IdentityPanel({ spokesperson }: { spokesperson: Spokesperson }) {
         name={spokesperson.name}
       />
       <div className="flex flex-col gap-5">
-        <div className="flex flex-col gap-2">
-          <span className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-            Business brief
-          </span>
-          {spokesperson.business_brief.trim() ? (
-            <p className="font-display text-xl leading-snug tracking-tight">
-              {spokesperson.business_brief}
-            </p>
-          ) : (
-            <p className="font-display text-xl leading-snug tracking-tight text-muted-foreground">
-              No brief yet. The brief is what the spokesperson speaks
-              about across every render — usually one paragraph
-              describing what the business does and who it's for.
-            </p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-1 flex-col gap-2">
+            <span className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+              Business brief
+            </span>
+            {spokesperson.business_brief.trim() ? (
+              <p className="font-display text-xl leading-snug tracking-tight">
+                {spokesperson.business_brief}
+              </p>
+            ) : (
+              <p className="font-display text-xl leading-snug tracking-tight text-muted-foreground">
+                No brief yet. The brief is what the spokesperson speaks
+                about across every render — usually one paragraph
+                describing what the business does and who it's for.
+              </p>
+            )}
+          </div>
+          {onEdit && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onEdit}
+              data-testid="identity-edit"
+              aria-label={`Edit ${spokesperson.name}`}
+              className="shrink-0"
+            >
+              <Pencil className="mr-1 h-3.5 w-3.5" />
+              Edit
+            </Button>
           )}
         </div>
         <MetadataGrid spokesperson={spokesperson} />

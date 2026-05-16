@@ -236,15 +236,17 @@ shipped against real Runway** (SESSION 158).
 | **K6.4 v2 (semantic-match surgical fixes)** | **DONE (SESSION 166)** |
 | **K6.4 v2.1 (real-Runway dogfood + CTA verbs)** | **DONE (SESSION 167)** |
 | **K6.6 (script structure + opener + brief persist)** | **DONE (SESSION 168)** |
+| **Marcus end-to-end + W11.1 edit modal** | **DONE (SESSION 169)** |
 | K7.x (YouTube ingest fix) | Queued |
 | K6.3 / K7.1 / W11.1 | Queued |
 
 **Cast roster in workspace `admins-workspace`**:
 
   - Riggs the Donkey (founder voice) — id `06bf999f-...`
-  - **Sasha the Raccoon** (sales) — id `79d48883-...` — **first known-good real-render voice (`clara`)**
+  - **Sasha the Raccoon** (sales) — id `79d48883-...` — known-good real-render voice (`clara`)
   - Donny the Sloth (user stories) — id `f30b2980-...` — dental artifacts on `drew` voice; needs re-bake
   - Maya the Panda (educator) — id `9410f23f-...` — untested in real-mode
+  - **Marcus the Battle Unicorn** (AP history tutor) — id `b6a00dd8-...` — **new SESSION 169 end-to-end cast member; `marcus` voice; Nerva–Antonine doc attached; 2 verified strict-mode renders shipped**
 
 ---
 
