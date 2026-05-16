@@ -1069,6 +1069,45 @@ slices that can land independently. Recommended order:
     Test totals: Django 709 → 713 (+4 v2 tests, plus
     one existing v1-limitation test flipped to v2
     expected-catch). SPA + migrations unchanged.
+
+- **K6.4 v2.1 — real-Runway dogfood + CTA-verb stoplist.
+  ✓ SHIPPED SESSION 167.** First production fire of
+  the K-arc verifier stack against real Runway under
+  strict mode. Findings:
+    * **Attempt 1** (strict-mode + "Describe how the
+      knowledge layer ingests pages."): rejected on
+      `Want` + `Reach`. K6 produced a chunk-grounded
+      reply ending in `"Want to see this? Reach out
+      and we'll demo."` — both verbs flagged as
+      sentence-initial proper-noun-shaped tokens.
+      Strict-mode pipeline contract worked end-to-end
+      ($0.00 spent, render blocked, rejected_synthesis
+      persisted) — but the rejection was on innocent
+      CTA verbs, not real hallucinations.
+    * **Calibration fix**: ~40 CTA-verb stoplist
+      additions (`want, reach, need, learn, watch,
+      click, sign, join, follow, subscribe, ...`)
+      anchored by
+      `test_stoplist_cta_verbs_k6_4_v2_dogfood`.
+    * **Attempt 2** (same prompt, post-fix): real
+      Runway render shipped at $0.25,
+      `verification_status="verified"`,
+      `verification_warnings=[]`. K6 under strict
+      pressure produced a grounded reply about
+      embeddings + vector databases + chunking
+      strategies + retrieval — all anchored in the
+      Wikipedia RAG doc chunks.
+    * **Trafilatura env fix**: while running gates the
+      embeddings test suite surfaced
+      `ModuleNotFoundError: trafilatura`. The package
+      was pinned in `pyproject.toml` but uninstalled
+      somehow. Reinstalled
+      `trafilatura>=1.10 lxml_html_clean>=0.4`.
+      Full suite back to green.
+
+    Test totals: Django 713 → 714 (+1 CTA-verb test).
+    Total Runway spend for the dogfood: **$0.25**
+    (one production render, status=verified).
 - **K7 — URL ingestion + serper discovery.** `trafilatura`
   fetch+extract. Serper search tab on the workspace upload
   surface. Both flow into the same Celery embedding task.

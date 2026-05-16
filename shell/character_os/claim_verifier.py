@@ -185,6 +185,53 @@ _COMMON_PROPER_NOUN_FALSE_POSITIVES: frozenset[str] = frozenset({
     "exactly", "precisely", "right",
     "indeed", "certainly",
     "wow", "wait",
+    # K6.4 v2 (SESSION 166) — CTA-verb false-positive class
+    # surfaced by the real-Runway dogfood. K6 produced a
+    # grounded technical reply ending in
+    # "Want to see this? Reach out." — Want / Reach got
+    # flagged because they're capitalized sentence-initial
+    # imperatives. Stoplist additions cover the common
+    # marketing CTA verb forms.
+    "want", "wants", "wanted",
+    "reach", "reaches", "reached",
+    "need", "needs", "needed",
+    "learn", "learns", "learned",
+    "hear", "hears", "heard",
+    "watch", "watches", "watched",
+    "listen", "listens", "listened",
+    "click", "clicks", "clicked",
+    "sign", "signs", "signed",
+    "join", "joins", "joined",
+    "follow", "follows", "followed",
+    "subscribe", "subscribes", "subscribed",
+    "ready", "set", "go",
+    "ping", "pings", "pinged",
+    "email", "emails", "emailed",
+    "call", "calls", "called",
+    "visit", "visits", "visited",
+    "check", "checks", "checked",
+    "discover", "discovers", "discovered",
+    "explore", "explores", "explored",
+    "remember", "remembers", "remembered",
+    "imagine", "imagines", "imagined",
+    "picture", "pictures", "pictured",
+    "consider", "considers", "considered",
+    "skip", "skips", "skipped",
+    "save", "saves", "saved",
+    "share", "shares", "shared",
+    "create", "creates", "created",
+    "build", "builds", "built",
+    "design", "designs", "designed",
+    "send", "sends", "sent",
+    "read", "reads",  # "read" is past tense too (same spelling)
+    "say", "says", "said",
+    "set", "sets",  # set already in list; duplicates are fine
+    "leave", "leaves", "left",
+    "keep", "keeps", "kept",
+    "stay", "stays", "stayed",
+    "wait", "waits", "waited",
+    "pause", "pauses", "paused",
+    "stop", "stops", "stopped",  # stop already in list
     # K6.4.1 — sentence-initial common adjectives. Captured
     # SESSION 161 after the K6.4 strict-mode dogfood flagged
     # "Modern" as a false positive on a real render. Same

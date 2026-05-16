@@ -1469,3 +1469,76 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   it so the future test that flips its assertion can
   share a clear lineage (``_known_v1_gap`` →
   ``_now_catches_..._k6_4_v2``).
+
+## 2026-05-15 — Architectural calibration: strict mode reveals over-rejection cleanly when synthesis is grounded
+
+- **Context:** K6.4 v2.1 (SESSION 167) first real-Runway
+  dogfood under strict mode. Same operator prompt class
+  that originally caused the SESSION 158 hallucination.
+- **Direction:** Carry-forward architectural.
+- **Detail:** The dogfood's surprise was that K6 *didn't*
+  hallucinate this time — it produced clean grounded
+  content (embeddings + vector databases + chunking +
+  retrieval, all in the chunks). v2's extractor + stoplist
+  improvements paid off in shaping the synthesis. But
+  strict mode still rejected, on innocent CTA verbs
+  (`Want` / `Reach` at sentence starts in the closer).
+  The failure mode *shifted*: v1's failures were misses
+  (lowercase trafilatura, etc); v2's failures are false
+  positives on CTA closers; v3's failures will be
+  something else (semantic paraphrase?). The verifier
+  is doing its job at each iteration — the new failure
+  class is the next iteration's input.
+- **Found by:** Live dogfood of strict mode + a fresh
+  composition against Donny's Wikipedia RAG attachment.
+- **Lesson:** **For this operator specifically:** when
+  a verifier / classifier / guardrail ships and gets
+  iterated, expect the failure mode to *shift* with each
+  iteration, not just shrink. v1 misses → v2 false
+  positives → v3 paraphrases. Each iteration is doing
+  its job; the new failure class becomes the next
+  calibration target. **Generalisation:** in classifier
+  pipelines, "fixed failure mode" isn't a destination —
+  it's a moving target that follows the easiest
+  remaining bug. Plan for ongoing calibration; don't
+  expect a final-state shipment. The K6.4 v2.1 stoplist
+  additions are themselves transient (v3 might subsume
+  them via semantic matching) — they're a snapshot of
+  the current failure surface, not a permanent fix.
+
+## 2026-05-15 — Methodology calibration: the watchdog paid for itself on its first production fire
+
+- **Context:** K6.4 stoplist watchdog shipped SESSION 165
+  as speculative tooling — preventive infrastructure for
+  a class of false positives that had been surfacing one
+  at a time across SESSIONS 161-164. SESSION 167's first
+  real-Runway dogfood surfaced two new false positives
+  (`Want`, `Reach`).
+- **Direction:** Carry-forward methodology.
+- **Detail:** Running
+  ``python manage.py stoplist_watchdog --days=1``
+  immediately classified them as sentence-initial
+  candidates + emitted a copy-pasteable Python set
+  literal. Total operator effort to identify: ~10 seconds.
+  Without the watchdog, the loop would have been: read
+  the error message → diff against existing stoplist →
+  guess at the right additions → repeat. ~5-10 minutes
+  per discovery event. The watchdog also captured the
+  `Drop a Wikipedia` historical event + correctly noted
+  v2's regex fix would have prevented it — useful
+  contextual signal for the operator.
+- **Found by:** First production dogfood event after the
+  watchdog shipped. Ran the watchdog reflexively after
+  reading the rejection error; it surfaced the right
+  candidates immediately.
+- **Lesson:** **For this operator specifically:**
+  preventive tooling for known failure classes pays off
+  the moment the next observation event arrives. The
+  watchdog's design (SESSION 165) was speculative; SESSION
+  167's dogfood event validates it. **Generalisation:**
+  when a failure class has surfaced 3+ times manually
+  (the SESSIONS 161-164 dogfood loop), investing in
+  scripted detection beats hoping the next one is the
+  last. The cost is ~30 minutes; the payoff is the
+  observation → patch loop dropping from minutes to
+  seconds.

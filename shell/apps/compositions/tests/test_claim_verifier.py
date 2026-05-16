@@ -178,6 +178,28 @@ def test_stoplist_alright_k6_4_v2() -> None:
     assert "Alright" not in claims
 
 
+def test_stoplist_cta_verbs_k6_4_v2_dogfood() -> None:
+    """v2 — CTA-verb false positives surfaced by the SESSION 166
+    real-Runway dogfood. K6 produced a grounded reply ending
+    in "Want to see this? Reach out." Both verbs were
+    sentence-initial imperatives, not proper nouns. The full
+    CTA-verb set ships in this commit."""
+    text = (
+        "Want to see this in action? Reach out and we'll demo. "
+        "Need help? Learn more on the site. Watch the intro. "
+        "Click below. Sign up today. Join us. Follow along. "
+        "Subscribe for updates. Visit the docs. Discover what's new."
+    )
+    entities = extract_named_entities(text)
+    claims = {e.claim for e in entities}
+    for cta in {
+        "Want", "Reach", "Need", "Learn", "Watch",
+        "Click", "Sign", "Join", "Follow", "Subscribe",
+        "Visit", "Discover",
+    }:
+        assert cta not in claims, f"K6.4 v2 CTA false-positive: {cta} in {claims}"
+
+
 def test_is_sentence_initial_position_zero() -> None:
     assert is_sentence_initial("Wikipedia is great.", 0) is True
 

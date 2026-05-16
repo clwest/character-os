@@ -154,6 +154,16 @@ operator-facing) and the queued cleanups.
   **Donny SESSION 158 canonical case now flags BOTH
   Wikipedia AND trafilatura** — strict mode would block
   the render entirely.
+* ~~**K6.4 v2.1 — real-Runway dogfood + CTA stoplist.**~~
+  **DONE SESSION 167.** First production fire of the
+  verifier stack against real Runway under strict mode.
+  K6 produced grounded content (no hallucinations); the
+  verifier over-rejected on innocent CTA verbs
+  (`Want`/`Reach`). Patched the stoplist with ~40
+  CTA-verb additions; second attempt with same prompt
+  shipped a real Runway render at $0.25,
+  `verification_status="verified"`. Also fixed an
+  environmental `trafilatura` missing from the venv.
 * **K7.x — YouTube ingest fix** if the silent-failure mode
   surfaces during any real-Runway work. ~1 session.
 * **K6.3 — Brief length cap (~15 min)** — cheapest cleanup.
@@ -211,6 +221,7 @@ shipped against real Runway** (SESSION 158).
 | **K6.4 v1.2 (verification_status + recipe rollout)** | **DONE (SESSION 164)** |
 | **K6.4 stoplist watchdog** | **DONE (SESSION 165)** |
 | **K6.4 v2 (semantic-match surgical fixes)** | **DONE (SESSION 166)** |
+| **K6.4 v2.1 (real-Runway dogfood + CTA verbs)** | **DONE (SESSION 167)** |
 | K7.x (YouTube ingest fix) | Queued |
 | K6.3 / K7.1 / W11.1 | Queued |
 
