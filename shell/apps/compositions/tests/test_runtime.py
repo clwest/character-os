@@ -165,6 +165,39 @@ def test_multi_step_composition_completes_in_order() -> None:
 
 
 @pytest.mark.django_db
+def test_output_asset_inherits_title_from_composition_name() -> None:
+    """W11.6.5.3 — every Asset persisted by the runtime
+    auto-titles from the parent composition's name. This is
+    what makes the asset_picker dropdowns readable instead
+    of showing CDN URL tails for clips."""
+    ws = _make_workspace("v2title@test.local", "V2 title")
+    sp = _make_spokesperson(ws)
+    comp = _make_composition(
+        ws, sp, name="Talking-head — Marcus", mock_mode=True,
+    )
+    _add_step(comp, position=0)
+    _run(comp)
+    comp.refresh_from_db()
+    assert comp.final_asset is not None
+    assert comp.final_asset.title == "Talking-head — Marcus"
+
+
+def test_output_asset_title_truncates_long_composition_name() -> None:
+    """W11.6.5.3 — Asset.title is CharField(max_length=120).
+    Long composition names truncate cleanly without raising
+    on save."""
+    ws = _make_workspace("v2titlelong@test.local", "V2 title long")
+    sp = _make_spokesperson(ws)
+    long_name = "A" * 200
+    comp = _make_composition(ws, sp, name=long_name, mock_mode=True)
+    _add_step(comp, position=0)
+    _run(comp)
+    comp.refresh_from_db()
+    assert comp.final_asset is not None
+    assert len(comp.final_asset.title) == 120
+    assert comp.final_asset.title == "A" * 120
+
+
 def test_output_asset_records_provenance() -> None:
     """The Asset created by a step records primitive name,
     step position, composition id, params + mock_mode in

@@ -399,6 +399,15 @@ def _persist_output_asset(
         size_bytes=result.size_bytes,
         cost_micros=result.cost_micros,
         composition=composition,
+        # W11.6.5.3 (SESSION 174) — auto-title from the parent
+        # composition's name so the SPA asset_picker dropdowns
+        # render readable labels instead of CDN URL tails
+        # (e.g. "Talking-head — Marcus" vs
+        # "5cf5ab4e-0398-480c-b33b-f994f567ccc1.mp4?_jwt=eyJh…").
+        # Multi-step compositions get the same title across
+        # step outputs in v1; per-step disambiguation can land
+        # later if operators ask for it.
+        title=(composition.name or "")[:120],
     )
 
 

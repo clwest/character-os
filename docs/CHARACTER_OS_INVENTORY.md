@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-16T22:58:26.693065+00:00
-git_sha: cf8bb69 (working tree dirty)
+generated_at: 2026-05-16T23:07:07.129917+00:00
+git_sha: 40efbcf (working tree dirty)
 git_branch: main
 ---
 
@@ -15,11 +15,11 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-16T22:58:26.693065+00:00** against commit **cf8bb69**
+Generated **2026-05-16T23:07:07.129917+00:00** against commit **40efbcf**
 on branch **main** (working tree dirty).
 
-Python 3.11.6 · Django 5.0.6 ·
-Celery 5.5.3 · httpx 0.28.1.
+Python 3.11.6 · Django 5.2.14 ·
+Celery 5.6.3 · httpx 0.28.1.
 
 ---
 
@@ -28,12 +28,12 @@ Celery 5.5.3 · httpx 0.28.1.
 | Metric | Value | Source |
 |---|---|---|
 | Django models (project-owned) | **16** | `apps.get_models()` filtered to first-party apps |
-| URL routes (total) | **306** | `get_resolver().url_patterns` walk |
+| URL routes (total) | **295** | `get_resolver().url_patterns` walk |
 | URL routes (`/api/*`) | **107** | same |
 | FastAPI routes | **118** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **8** | `celery_app.tasks` filter |
 | Migrations (applied / total) | **61 / 61** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **45,782** in 219 files | `pathlib.Path.rglob("*.py")` |
+| Shell LOC (`*.py`, no venv/migrations) | **45,824** in 219 files | `pathlib.Path.rglob("*.py")` |
 | Media-engine LOC (`*.py`, no venv/migrations) | **32,647** in 58 files | same |
 
 ---
@@ -65,11 +65,11 @@ Total: **16** models across **8** apps.
 
 ## URL Routes
 
-Total: **306** resolved patterns.
+Total: **295** resolved patterns.
 
 | Prefix | Count |
 |---|---|
-| `_allauth/` | 30 |
+| `_allauth/` | 19 |
 | `accounts/` | 26 |
 | `admin/` | 143 |
 | `api/` | 107 |
@@ -119,6 +119,7 @@ Total: **306** resolved patterns.
 - `knowledge-search`
 - `login`
 - `manage_email`
+- `manage_phone`
 - `manage_providers`
 - `me`
 - `membership-detail`
@@ -139,6 +140,8 @@ Total: **306** resolved patterns.
 - `recipe-list`
 - `redirect_to_provider`
 - `request_password_reset`
+- `resend_email_verification_code`
+- `resend_phone_verification_code`
 - `reset_password`
 - `signup`
 - `socialaccount_connections`
@@ -157,6 +160,7 @@ Total: **306** resolved patterns.
 - `style-list`
 - `suggest-tone`
 - `verify_email`
+- `verify_phone`
 - `video-detail`
 - `video-list`
 - `workspace-detail`
@@ -269,11 +273,11 @@ Total: **8** registered tasks (excluding `celery.*` built-ins).
 | Service | Files | Lines |
 |---|---|---|
 | `media-engine/` | 58 | 32,647 |
-| `shell/` | 219 | 45,782 |
-| **total** | **277** | **78,429** |
+| `shell/` | 219 | 45,824 |
+| **total** | **277** | **78,471** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-05-16T22:58:26.693065+00:00 from commit cf8bb69. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-16T23:07:07.129917+00:00 from commit 40efbcf. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
