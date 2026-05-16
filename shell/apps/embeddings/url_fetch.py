@@ -21,16 +21,58 @@ What's in scope:
 * title + author + date metadata when trafilatura can find them
 * size cap (10 MB raw HTML — same as the PDF cap)
 * timeout cap (15 s wall-clock)
+* known-bad host rejection (YouTube — see K7.x note below)
+* boilerplate-signature detection (trafilatura returns
+  navigation chrome as "main content" on JS-heavy sites
+  that defeat its extractor)
 
 Out of scope (per K7 What's NOT):
 * Following links beyond the one URL
 * Auto re-fetch
 * Site-specific extractors (newspaper, readability fallback)
 * Authentication / cookies (no logged-in sites in v1)
+* Per-host extractors (YouTube transcript API, oEmbed) —
+  deferred to K7.x (the proper-fix path; this slice just
+  closes the silent-failure surface)
+
+K7.x (SESSION 174) — YouTube ingest fix
+========================================
+SESSION 173's MEMORY entry + SESSION 174's real-mode
+embedding dogfood both confirmed: trafilatura on a YouTube
+URL returns the page's navigation boilerplate ("About Press
+Copyright Contact us Creators Advertise Developers Terms
+Privacy Policy & Safety How YouTube works…") as
+"main content" instead of any video metadata. The resulting
+single short generic chunk pollutes semantic retrieval
+across the entire workspace — distance ~0.85 to almost any
+query because nav-text is generic enough to be semantically
+close to everything.
+
+Two complementary defenses landed this slice:
+
+1. **Host-based rejection.** Any youtube.com / m.youtube.com /
+   youtu.be / youtube-nocookie.com URL is rejected up-front
+   with an operator-actionable error before any HTTP request
+   fires. Saves the wasted roundtrip + makes the failure
+   path identical to other always-rejects (file://, etc.)
+   Operators paste the transcript or description instead.
+
+2. **Boilerplate signature detection.** Post-extraction, if
+   the cleaned text matches a known nav-boilerplate
+   signature (e.g. the "About Press Copyright Contact us
+   Creators Advertise" sequence), reject as a generic
+   extraction-failure-with-noise. Catches future host
+   classes that fool trafilatura the same way.
+
+When the proper YouTube extractor lands (K7.x v2), the
+host-rejection layer flips to "route to youtube_extractor"
+instead of raising. Boilerplate detection stays as a safety
+net for other JS-heavy sites.
 """
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from urllib.parse import urlparse
 
@@ -53,6 +95,69 @@ USER_AGENT = (
     "Mozilla/5.0 (compatible; CharacterOS-Bot/1.0; "
     "+https://github.com/clwest/character-os)"
 )
+
+
+# K7.x (SESSION 174) — known-bad hosts that defeat trafilatura.
+# Match the parsed netloc lowercased, optionally with a leading
+# subdomain ("www." / "m." / "music."). Membership check uses
+# endswith on a normalised host to allow forward-compat with
+# Shorts / Music / mobile variants.
+_YOUTUBE_HOSTS: frozenset[str] = frozenset({
+    "youtube.com",
+    "youtu.be",
+    "youtube-nocookie.com",
+})
+
+
+def _is_youtube_url(parsed) -> bool:
+    """True when ``parsed.netloc`` is any YouTube property.
+
+    Strips leading subdomain (``www.``, ``m.``, ``music.``)
+    and checks against the host frozenset. Forward-compatible
+    with new YouTube subdomains (Shorts, Studio, Music)
+    because the check is on the registrable domain suffix,
+    not the exact host.
+    """
+    host = (parsed.netloc or "").lower().strip()
+    if not host:
+        return False
+    # Strip user@ if present + port if present.
+    host = host.rsplit("@", 1)[-1].split(":", 1)[0]
+    # Endswith ensures every subdomain variant matches.
+    return any(host == h or host.endswith("." + h) for h in _YOUTUBE_HOSTS)
+
+
+# K7.x — boilerplate signature. The verbatim opening of the
+# YouTube nav-footer sequence trafilatura extracts when it
+# can't find real article content. Match is substring,
+# case-insensitive, and intentionally specific so we don't
+# false-positive on legitimate articles that happen to
+# mention any individual word.
+_BOILERPLATE_SIGNATURES: tuple[re.Pattern[str], ...] = (
+    # YouTube nav-bar. Six consecutive footer terms is a very
+    # high-confidence signal that extraction returned chrome,
+    # not content.
+    re.compile(
+        r"about\s+press\s+copyright\s+contact\s+us\s+creators",
+        re.IGNORECASE,
+    ),
+)
+
+
+def _looks_like_boilerplate(text: str) -> bool:
+    """Heuristic: does ``text`` look like extracted page chrome
+    instead of main content?
+
+    v1 checks a small frozenset of high-confidence signatures.
+    Each signature is a short verbatim sequence that only
+    appears in well-known nav / footer blocks, never in real
+    article prose. Adding a signature here is cheap (one
+    regex); the cost is operator-curation drift, same shape
+    as KNOWN_TECH_TERMS in the verifier.
+    """
+    if not text:
+        return False
+    return any(p.search(text) for p in _BOILERPLATE_SIGNATURES)
 
 
 @dataclass(slots=True)
@@ -100,6 +205,20 @@ def fetch_url(url: str, *, timeout: float = FETCH_TIMEOUT_SECONDS) -> ExtractedU
         )
     if not parsed.netloc:
         raise UrlFetchError(f"URL has no host: {url!r}")
+
+    # K7.x (SESSION 174) — YouTube URLs ALWAYS produce
+    # boilerplate-only extraction via trafilatura. Reject
+    # before the HTTP roundtrip so the operator gets a clear
+    # actionable error instead of a silently-polluted chunk.
+    if _is_youtube_url(parsed):
+        raise UrlFetchError(
+            "YouTube URLs can't be ingested via the generic "
+            "trafilatura extractor — the page chrome is what "
+            "gets returned, not the video. Paste the transcript "
+            "or video description directly as text. (A proper "
+            "YouTube transcript extractor is queued for a "
+            "future slice.)"
+        )
 
     html = _fetch(url, timeout=timeout)
     return _extract(url, html)
@@ -178,6 +297,21 @@ def _extract(url: str, html: str) -> ExtractedUrl:
         raise UrlFetchError(
             "extraction yielded empty text — same caveat as the "
             "no-content case above."
+        )
+
+    # K7.x (SESSION 174) — boilerplate-only catch. Some sites
+    # defeat trafilatura's content/chrome heuristic and return
+    # page chrome as "main content" — a short generic block
+    # that looks valid but pollutes retrieval across the
+    # workspace. Reject with the same actionable advice as the
+    # paywall path.
+    if _looks_like_boilerplate(text):
+        raise UrlFetchError(
+            "extraction returned page navigation / footer "
+            "content, not the article body. This typically "
+            "means the site renders content via JavaScript or "
+            "blocks the extractor. Paste the content directly "
+            "as text instead."
         )
 
     title = _get_attr(extracted, "title", "") or _hostname(url)

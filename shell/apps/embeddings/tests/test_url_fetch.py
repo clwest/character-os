@@ -166,3 +166,111 @@ def test_empty_html_raises() -> None:
         instance.get.return_value = _mock_response(status_code=200, content=b"   ")
         with pytest.raises(UrlFetchError, match="empty"):
             fetch_url("https://example.com/blank")
+
+
+# ---- K7.x (SESSION 174) — YouTube + boilerplate rejections ----
+
+
+@pytest.mark.parametrize("url", [
+    "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "https://youtube.com/watch?v=abc",
+    "https://m.youtube.com/watch?v=abc",
+    "https://music.youtube.com/watch?v=abc",
+    "https://youtu.be/dQw4w9WgXcQ",
+    "https://www.youtube-nocookie.com/embed/abc",
+])
+def test_rejects_youtube_urls_before_http_call(url: str) -> None:
+    """K7.x — every YouTube property is rejected up-front with
+    an operator-actionable error, BEFORE any HTTP request fires.
+    Patch httpx.Client to verify it's never instantiated."""
+    with patch("httpx.Client") as mock_client:
+        with pytest.raises(UrlFetchError, match="YouTube"):
+            fetch_url(url)
+        mock_client.assert_not_called()
+
+
+def test_youtube_error_message_points_to_paste_workaround() -> None:
+    """K7.x — the error message must include the actionable
+    next-step ("paste the transcript directly") because a
+    "YouTube can't be ingested" message without the workaround
+    leaves operators stuck."""
+    with pytest.raises(UrlFetchError) as exc_info:
+        fetch_url("https://www.youtube.com/watch?v=abc")
+    msg = str(exc_info.value)
+    assert "transcript" in msg.lower() or "paste" in msg.lower()
+
+
+def test_rejects_boilerplate_extraction_signature() -> None:
+    """K7.x — when trafilatura returns the known YouTube
+    nav-bar boilerplate as 'main content' (the silent-failure
+    mode the original MEMORY entry described), reject with a
+    clear extraction-failure message rather than silently
+    persisting the chrome as a polluted chunk."""
+    html = b"<html><body>doesn't matter</body></html>"
+    fake_doc = MagicMock()
+    fake_doc.text = (
+        "About Press Copyright Contact us Creators Advertise "
+        "Developers Terms Privacy Policy & Safety How YouTube "
+        "works Test new features"
+    )
+    fake_doc.title = "Some Video"
+    fake_doc.author = None
+    fake_doc.date = None
+    fake_doc.sitename = None
+    fake_doc.hostname = "example.com"
+    # NOTE: use a non-YouTube host so we hit the post-extraction
+    # boilerplate check, not the up-front host rejection.
+    with patch("httpx.Client") as mock_client, \
+         patch("trafilatura.bare_extraction", return_value=fake_doc):
+        instance = mock_client.return_value.__enter__.return_value
+        instance.get.return_value = _mock_response(status_code=200, content=html)
+        with pytest.raises(UrlFetchError, match="navigation"):
+            fetch_url("https://example.com/article")
+
+
+def test_boilerplate_check_is_case_insensitive() -> None:
+    """K7.x — signature matching is case-insensitive so a site
+    that returns the boilerplate in any casing flavor still
+    rejects."""
+    html = b"<html><body>x</body></html>"
+    fake_doc = MagicMock()
+    fake_doc.text = (
+        "ABOUT PRESS COPYRIGHT CONTACT US CREATORS still nav"
+    )
+    fake_doc.title = ""
+    fake_doc.author = None
+    fake_doc.date = None
+    fake_doc.sitename = None
+    fake_doc.hostname = "example.com"
+    with patch("httpx.Client") as mock_client, \
+         patch("trafilatura.bare_extraction", return_value=fake_doc):
+        instance = mock_client.return_value.__enter__.return_value
+        instance.get.return_value = _mock_response(status_code=200, content=html)
+        with pytest.raises(UrlFetchError, match="navigation"):
+            fetch_url("https://example.com/article")
+
+
+def test_normal_content_with_innocent_substrings_still_succeeds() -> None:
+    """K7.x invariant — the boilerplate signature is specific
+    enough that a real article mentioning "About" or "Press"
+    individually (e.g. "About the press conference") still
+    passes. The signature requires the full 5-word sequence."""
+    html = b"<html><body>x</body></html>"
+    fake_doc = MagicMock()
+    fake_doc.text = (
+        "About the press conference: the Creators Guild "
+        "announced new copyright contact policies for advertise "
+        "developers across the industry. The terms apply broadly."
+    )
+    fake_doc.title = "Press Conference Coverage"
+    fake_doc.author = "Jane Doe"
+    fake_doc.date = "2026-05-14"
+    fake_doc.sitename = "TechNews"
+    fake_doc.hostname = "technews.example.com"
+    with patch("httpx.Client") as mock_client, \
+         patch("trafilatura.bare_extraction", return_value=fake_doc):
+        instance = mock_client.return_value.__enter__.return_value
+        instance.get.return_value = _mock_response(status_code=200, content=html)
+        result = fetch_url("https://technews.example.com/article")
+    assert result.title == "Press Conference Coverage"
+    assert "creators guild" in result.text.lower()
