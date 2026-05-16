@@ -337,6 +337,26 @@ cd web && pnpm dev                          # :5174
 python3 /Users/donkeyking/development/context-kit/context_kit.py doctor
 ```
 
+**SESSION 173 stack-up requirement (carried from SESSION 172
+close)**: the Celery worker process running locally (`pid 62107`
+from 2026-05-15 23:52) has stale module imports — it loaded
+before SESSION 171's gpt-5 migration + prompt-composer
+auto-inject + before SESSION 172's W11.6.0 scope-lock. **Restart
+the worker before firing any composition** so K6 synthesis +
+the prompt composer use the current code:
+
+```bash
+# Kill the stale worker (matches the SESSION 172 close pid; adjust if respawned)
+pkill -f "celery -A character_os worker" || true
+
+# Restart in a new terminal
+cd shell && source .venv/bin/activate
+celery -A character_os worker --loglevel=info --pool=solo
+```
+
+Runserver auto-reloads on file changes so it's fine; only
+Celery needs the manual reboot.
+
 **Session-end anchor re-stamp + calibration audit** (new in SESSION 159):
 
 ```bash
