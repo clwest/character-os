@@ -1938,3 +1938,109 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   context for the next session's first code-write. The
   cost is one extra paragraph per session; the savings
   is the second occurrence of every failure mode.
+
+## 2026-05-16 — AI confidently wrong: dependency_overrides reach service-direct `get_settings()`
+
+- **Context / claim:** SESSION 173 W11.6.1 — the new
+  `/internal/image_stability/` endpoint takes
+  `settings: Settings = Depends(get_settings)`. The first
+  test for the backwards-compat call pattern
+  (`generate_stability_portrait(subject, template=...)`
+  without `purpose=`) used the standard mock fixture:
+  `Settings(stability_api_key="")` + `app.dependency_overrides[get_settings] = lambda: settings`.
+  AI's mental model: "the override flows through wherever
+  `get_settings()` is called, so the inner service sees
+  `stability_mock=True` and short-circuits."
+- **Reality / outcome:** `get_settings()` has `@lru_cache`.
+  FastAPI's `Depends` resolution honors the override; *direct*
+  `get_settings()` calls inside service code bypass it
+  entirely and hit the cached real settings. The operator's
+  `.env` had a populated `STABILITY_API_KEY`, so the first
+  test run accidentally fired a real Stability render —
+  9.6 seconds, 6.5 credits, ~$0.0065 burned in CI.
+- **Found by:** First `pytest` run on W11.6.1's test suite.
+  Test assertion `result.mock_mode is True` failed; the real
+  result came back with `mock_mode=False`, `cost_credits=6.5`,
+  `elapsed_ms=9632`, and a path to a real generated PNG on
+  disk. Visible immediately; loud failure.
+- **Lesson:** Two patterns to keep dependency overrides
+  honored: (1) the test monkeypatches the module-level
+  `get_settings` reference inside the service module
+  (`monkeypatch.setattr("app.services.X.get_settings", lambda: fake)`),
+  OR (2) the service accepts `settings` as a parameter and
+  the endpoint passes its `Depends(get_settings)` injection
+  down. The W11.6.1 endpoint switched to pattern 2 (mock-mode
+  short-circuit at the endpoint level using the injected
+  settings); the unit test uses pattern 1. **For future
+  media-engine tests**: assume any `lru_cache` on settings
+  bypasses overrides unless explicitly handled. The 6.5-credit
+  cost is a cheap calibration vs running into this in a
+  larger test suite that burns through credits per run.
+
+## 2026-05-16 — AI confidently wrong: `fireEvent.click` on Radix Tabs under jsdom
+
+- **Context / claim:** SESSION 173 W11.6.3 — testing
+  `StylePresetPicker`, which uses Radix `Tabs`. AI's first
+  pass used the established pattern: `fireEvent.click` on
+  the TabsTrigger to switch tabs, then `findByTestId` on a
+  preset card in the new active panel. AI's expectation:
+  Radix's tab-change is synchronous; the inactive panel
+  becomes interactable after the click.
+- **Reality / outcome:** Test failed. The inactive tabpanel
+  stayed `hidden=""` after `fireEvent.click(genreTab)`, so
+  `findByTestId("style-preset-cyberpunk")` (inside the
+  genre panel) timed out waiting for the element. Radix's
+  Tabs implementation needs real pointer events
+  (`mousedown`/`mouseup`/`click`) to flip the active panel
+  under jsdom — synthetic click events aren't enough.
+- **Found by:** Test run produced a 30-second timeout +
+  DOM dump showing the genre tabpanel still in its hidden
+  state.
+- **Lesson:** For Radix UI primitives under jsdom, default
+  to `userEvent.setup() + await user.click()`. The
+  `tool-approval-modal.test.tsx` (from R8.1) already used
+  this pattern. New pattern established for the SPA test
+  suite: when a component renders Radix Tabs / Dialog /
+  Popover / etc., use `userEvent`, not `fireEvent.click`.
+  Mark it as the default for new test files going forward.
+
+## 2026-05-16 — Near-miss: scope-lock missed prompt-vs-subject distinction
+
+- **Context / claim:** SESSION 172's W11.6.0 scope-lock
+  enumerated 7 image Asset fields (purpose / model /
+  style_preset / prompt / negative_prompt / aspect_ratio /
+  spokesperson). Journey 1 + Journey 3 both described a
+  Regenerate CTA as "re-fires with same params, new seed."
+  AI signed off on the scope-lock without flagging that
+  Regenerate needs more than the listed fields. Through
+  W11.6.1 + W11.6.2 + W11.6.3, the AI continued to build
+  on the 7-field assumption.
+- **Reality / outcome:** When AI got to W11.6.4's
+  ImageDetailModal and went to wire Regenerate, the gap
+  surfaced: the *composed prompt* has the purpose framing
+  baked in ("A detailed scene illustration of…", "A
+  high-quality product image of…"). Sending the composed
+  prompt back as the new `subject` would double-apply the
+  framing ("A detailed scene illustration of A detailed
+  scene illustration of…"). The original operator subject
+  (pre-composition) is what's needed for round-trip — and
+  it wasn't being stored.
+- **Found by:** AI itself, before writing the modal code.
+  The fix landed in W11.6.4 as a small additive change:
+  `Asset.subject` TextField + migration 0007 + ViewSet
+  persistence + serializer surface + SPA schema with
+  `.default("")` so pre-W11.6.4 rows parse cleanly. The
+  modal disables Regenerate (with a tooltip) on those rows.
+  Total scope creep: ~30 minutes for the catch + fix.
+- **Lesson:** **Scope-lock reviews for any composition-step
+  surface should explicitly distinguish *what the operator
+  types* (or selects) from *what the model sees* after
+  composition.** The composed prompt is rarely the right
+  thing to round-trip — operator inputs are. Wherever the
+  product story includes a "Regenerate" / "Adjust" /
+  "Variant" CTA, the scope-lock should list the
+  pre-composition operator inputs as required persistence
+  fields. Apply this lens proactively in future scope-locks
+  (K, V, R, F arcs all had composition-step surfaces; none
+  were caught by the same lens in time, though K6.6
+  shipped a similar gap fix for synthesized_brief).

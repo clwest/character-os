@@ -2,9 +2,9 @@
 title: "Character OS — What It Actually Is"
 status: populated
 generated: 2026-05-13
-last_revised: 2026-05-16 (SESSION 171)
+last_revised: 2026-05-16 (SESSION 173)
 companion_doc: CHARACTER_OS_INVENTORY.md
-covers_sessions: "106-171"
+covers_sessions: "106-173"
 ---
 
 # Character OS — What It Actually Is
@@ -254,6 +254,19 @@ verifier that could keep all three in sync automatically.
   with templates + hide-on-completion. The cast went live in
   real-mode in SESSION 136 (all four animal characters bound to
   real Runway avatars in admin@mail.com's workspace).
+- **W11.1 + W11.2 — DONE** (SESSIONS 169-170). The
+  spokesperson-editing loop closed: persona-fields edit modal,
+  voice swap (PATCH live Runway avatar), full avatar rebake.
+- **W11.6 — DONE** (SESSIONS 172-173). The workspace-wide
+  image generation surface — every operator can produce
+  scene / b-roll / product / ad imagery via Stability AI from
+  the `/images` route. Two providers, one operator-facing
+  surface (`POST /api/images/`): Runway gen4_image for avatars
+  (existing wizard path, unchanged); Stability AI for non-
+  avatar purposes with 42 ported style presets across 8
+  categories. 5th nav item; full library grid with filters,
+  detail modal with Regenerate + Delete. See
+  `docs/design/MEDIA_GENERATION_V1.md` for the scope-lock.
 - **W12 — Legacy form retirement**: now ungated since real-mode
   validation happened; queued for whenever.
 
