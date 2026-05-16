@@ -97,6 +97,19 @@ operator-facing) and the queued cleanups.
   spend).
 * **F8.1 — K10 seed corpus** if operator-authored markdown is
   ready. 30-60 minutes once the markdown lands.
+* **K6.4 — Post-synthesis claim verifier.** New SESSION
+  159 backlog item. Donny's first marketing video
+  fact-check exposed a K6 hallucination class: the script
+  named `trafilatura` and made marketing claims about
+  Wikipedia "home turf" while the retrieved chunks
+  contained zero of those words. The `script_synthesis.py`
+  no-invention prompt is insufficient — `gpt-5-mini`
+  hallucinates training-data facts even when chunks are
+  empty on the topic. Scope-locked in
+  `docs/design/KNOWLEDGE_LAYER.md`; calibration entry in
+  `docs/TRUST_CALIBRATION.md` 2026-05-15 ("AI confidently
+  wrong (K6 hallucination)"). ~1 session for substring-v1
+  with Warn default.
 * **K7.x — YouTube ingest fix** if the silent-failure mode
   surfaces during any real-Runway work. ~1 session.
 * **K6.3 — Brief length cap (~15 min)** — cheapest cleanup.
@@ -147,6 +160,7 @@ shipped against real Runway** (SESSION 158).
 | **First marketing video** | **DONE** (SESSION 158) |
 | **Drift-prevention items 2+3** | **DONE** (SESSION 159; context-kit) |
 | F8.1 (K10 seed corpus) | Queued (operator markdown) |
+| **K6.4 (claim verifier)** | **Queued (SESSION 159 — Donny fact-check)** |
 | K7.x (YouTube ingest fix) | Queued |
 | K6.3 / K7.1 / W11.1 | Queued |
 
@@ -161,13 +175,17 @@ shipped against real Runway** (SESSION 158).
 
 ## Queued investigations (priority-ordered)
 
-1. **More real-Runway exposure** — re-bake Donny,
+1. **K6.4 — Post-synthesis claim verifier.** New
+   SESSION 159 backlog item from the Donny fact-check.
+   Scope-locked. ~1 session for substring-v1 with Warn
+   default; +0.5 session for Strict mode + SPA toggle.
+2. **More real-Runway exposure** — re-bake Donny,
    polished Sasha retake, long_form_ad smoke.
-2. **F8.1 — K10 seed corpus** (blocked).
-3. **K7.x — YouTube ingest fix.**
-4. **K6.3 — Brief length cap (~15 min).**
-5. **K7.1 — Cost telemetry surface.**
-6. **W11.1 — Edit-spokesperson modal.**
+3. **F8.1 — K10 seed corpus** (blocked).
+4. **K7.x — YouTube ingest fix.**
+5. **K6.3 — Brief length cap (~15 min).**
+6. **K7.1 — Cost telemetry surface.**
+7. **W11.1 — Edit-spokesperson modal.**
 7. **Voice preset audit** — smoke-test other voices
    (`drew` flagged; others unknown).
 8. **E2e detritus cleanup.**

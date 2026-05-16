@@ -664,6 +664,82 @@ slices that can land independently. Recommended order:
 - **K6 — Render flow integration.** `build_render_brief()`
   in shell. Citation logging on video rows. Graceful
   degradation when knowledge is empty.
+- **K6.3 — Brief length cap (~15 min).** Truncate the
+  synthesized brief to ≤2000 chars before it leaves
+  `script_synthesis.py`. Currently queued.
+- **K6.4 — Post-synthesis claim verifier.** Discovered
+  SESSION 159 via the SESSION 158 Donny render fact-check
+  (TRUST_CALIBRATION 2026-05-15 entry "AI confidently
+  wrong (K6 hallucination)"). Problem: the K6 system
+  prompt at `script_synthesis.py:249` says *"Use facts
+  only from the knowledge chunks the user supplies. Do
+  not invent product details, prices, or features. If a
+  fact isn't in the chunks, leave it out."* —
+  `gpt-5-mini` ignores this when it already knows the
+  truth from training data. The Donny script confidently
+  cited `trafilatura` and "Wikipedia is its absolute home
+  turf" from a doc whose 22 chunks contained zero
+  occurrences of either word.
+    Slice scope:
+    1. **Claim extraction.** After `build_render_brief()`
+       returns, run a small Responses-API call (or a
+       deterministic regex pass for named entities first)
+       to enumerate the script's factual claims:
+       proper-noun assertions, named libraries / products
+       / companies, numeric claims (counts, prices,
+       dates), superlative claims ("the best", "the
+       cleanest", "the only").
+    2. **Per-claim chunk check.** For each extracted
+       claim, check whether at least one retrieved chunk
+       supports it. v1: substring match on the named
+       entity (case-insensitive). v2: small-model
+       semantic similarity. The bar is "at least one
+       chunk contains the entity / number / phrase the
+       claim hinges on."
+    3. **Decision.** Three modes (operator-configurable):
+        * **Strict:** any unsupported claim → reject the
+          synthesis. Composition status → `failed`,
+          `error_message` lists the unsupported claims.
+        * **Warn (default):** unsupported claims → log
+          to a new `Composition.verification_warnings`
+          field, allow the render to proceed. Operator
+          sees warnings in the SPA.
+        * **Off:** legacy behavior — `gpt-5-mini` is
+          trusted on its honour-system contract.
+    4. **Operator surface.** A "Verify before render"
+       toggle in the SPA make-video flow + the
+       `talking_head` starter signature (defaulting to
+       Warn). Per-recipe defaults so a long-form ad can
+       opt into Strict.
+    5. **Same fix for conversation synthesis.**
+       `character_os/conversation_synthesis.py` has
+       the same prompt-only contract as
+       `script_synthesis.py` — K6.4's verifier should
+       run on conversation replies too. Could ship as
+       K6.5 if K6.4 grows past one session.
+
+    Open questions (Q-k):
+    * **Q-k-N: Substring vs semantic** — v1 ships
+      substring; when does the upgrade pay off?
+      Probably when paraphrases start producing false
+      positives (model says "PostgreSQL extension" when
+      the chunk says "pgvector"). Defer until first
+      false-positive event.
+    * **Q-k-N: Pre-flight title sanity** — second
+      attack surface from the Donny incident: the
+      operator's custom title ("Wikipedia is
+      trafilatura's home turf") biased the operator
+      brief, which biased the model. Should K3
+      ingestion warn (or refuse) when a custom title
+      contains named entities not present in the
+      document body? Cheap regex + named-entity diff.
+      Probably K3.x rather than K6.4 — surface
+      separately.
+
+    Cost: ~1 session if substring-only v1 with the Warn
+    default. Adds ~5-10s + $0.005-$0.01 per render
+    (one extra `gpt-5-mini` Responses call). Strict
+    mode + Off mode + SPA toggle adds half a session.
 - **K7 — URL ingestion + serper discovery.** `trafilatura`
   fetch+extract. Serper search tab on the workspace upload
   surface. Both flow into the same Celery embedding task.

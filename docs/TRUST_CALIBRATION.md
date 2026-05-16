@@ -806,6 +806,88 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   backlog still closes; it just closes on a different
   commit in a different repo.
 
+## 2026-05-15 — AI confidently wrong (K6 hallucination): Donny's first marketing video contained fabricated source claims
+
+- **Context:** SESSION 158 shipped Donny's first
+  real-Runway render against a custom-titled Wikipedia RAG
+  page attached to him as his only knowledge document. The
+  pipeline returned 2xx; cost stamped at $0.25; MP4 URL
+  signed and persisted. The render was framed as "shipped
+  but visual quality bad" (dental artifacts on `drew`
+  voice). SESSION 159 fact-checked the *script* after the
+  operator asked to verify what Donny actually said.
+- **Direction:** AI confidently wrong (system + AI).
+- **Detail:** Donny's ~80-word script makes three
+  substantive claims:
+  1. character-os uses **trafilatura** for URL ingestion.
+  2. The doc he "just studied" with the Character OS team
+     taught him this.
+  3. Trafilatura is "the cleanest text extraction you'll
+     see from any AI tool" with Wikipedia as its
+     "absolute home turf."
+  Verification against the source doc
+  (`KnowledgeDocument 33c07feb-...`, 2,352 words from
+  `https://en.wikipedia.org/wiki/Retrieval-augmented_generation`):
+  * Claim 1: **TRUE about the product** —
+    `shell/apps/embeddings/url_fetch.py` imports
+    `trafilatura` and calls `bare_extraction()`. Landed
+    K7 SESSION 140.
+  * Claim 2: **FALSE** — the attached doc is the Wikipedia
+    article *about RAG-the-concept*. Zero occurrences of
+    "trafilatura," zero occurrences of "Wikipedia" across
+    22 chunks. The doc Donny supposedly learned from
+    teaches nothing about either word.
+  * Claim 3: **FABRICATED** — superlative marketing;
+    "Wikipedia is its home turf" is not in any chunk.
+  Two leak vectors are plausible. The operator-given
+  custom title for that doc was *"Wikipedia is
+  trafilatura's home turf"* — note the verbatim phrase
+  in claim 3.
+  `script_synthesis.py:211-214` only feeds `chunk_text`
+  (not `title`) into the prompt, so vector 1 requires
+  an operator-prompt path that referenced the title.
+  Vector 2 is direct: gpt-5-mini drew on its own training
+  knowledge of trafilatura while pretending to cite
+  chunks. The K6 system prompt at line 249 says
+  explicitly: *"Use facts only from the knowledge chunks
+  the user supplies. Do not invent product details,
+  prices, or features. If a fact isn't in the chunks,
+  leave it out."* The model ignored the instruction.
+- **Found by:** Operator review during SESSION 159 ("verify
+  the facts of the statements that were made"). Forensics:
+  Django shell query against `Composition
+  e485d9f9-...`, `CompositionStep`, `KnowledgeDocument
+  33c07feb-...`, and per-chunk text search for the named
+  terms.
+- **Lesson:** **For this operator specifically:** the K6
+  system-prompt-only no-invention contract is insufficient
+  in practice. `gpt-5-mini` hallucinates factual claims
+  that *happen to be true about the product* even when the
+  retrieved chunks contain zero supporting content. The
+  failure mode is asymmetric and dangerous: the claim
+  sounds authoritative because (a) it's actually true and
+  (b) the model frames it as coming from the source the
+  spokesperson "studied." A reviewer who knows the product
+  reads it as "Donny got the trafilatura fact right";
+  a reviewer who knows the source doc reads it as "Donny
+  made stuff up." Both are correct simultaneously.
+  **Generalisation:** when a knowledge layer instructs the
+  model to cite chunks and the model already knows the
+  truth via training data, the prompt-only no-invention
+  contract leaks. The fix isn't a stronger prompt —
+  prompt strength is already maxed at "Use facts only from
+  chunks. Do not invent. Leave it out." — it's a
+  post-synthesis claim verifier that runs after the script
+  comes back: extract claims, check each against retrieved
+  chunks, fail or retry. **Queued as K6.4.** Second
+  carry-forward: operator-given custom doc titles are a
+  hostile prompt-stuffing surface even when the title
+  isn't directly fed to the LLM, because the title biases
+  the operator's mental model of what the doc contains,
+  which biases the operator brief, which biases the model.
+  Doc titles should match doc content; the system should
+  warn (or refuse to embed) when they don't.
+
 ## 2026-05-15 — Carry-forward methodology: operator-mediated dogfooding caught the silent staleness
 
 - **Context:** SESSION 159 shipped `context-kit handoff
