@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Mic, MessageCircle, Pencil, Plus, Wand2 } from "lucide-react";
+import { ArrowLeft, Flame, Mic, MessageCircle, Pencil, Plus, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   useCloneVoice,
@@ -13,6 +13,7 @@ import { VideoRow } from "@/components/video-row";
 import { VoiceCapture, type VoiceCaptureValue } from "@/components/voice-capture";
 import { KnowledgePanel } from "@/components/knowledge-panel";
 import { SpokespersonEditModal } from "@/components/spokesperson-edit-modal";
+import { SpokespersonRebakeModal } from "@/components/spokesperson-rebake-modal";
 import {
   useThreads,
   useCreateThread,
@@ -39,6 +40,9 @@ export function SpokespersonDetailRoute() {
   // throws "Rendered more hooks than during the previous render"
   // when sp.isLoading flips from true → false.
   const [editing, setEditing] = useState(false);
+  // W11.2 — re-bake avatar confirm modal. Real Runway spend so
+  // gets a dedicated affordance instead of inline-on-edit.
+  const [rebaking, setRebaking] = useState(false);
 
   if (sp.isLoading) return <DetailSkeleton />;
   if (sp.isError) return <DetailError message={extractMessage(sp.error)} />;
@@ -59,12 +63,22 @@ export function SpokespersonDetailRoute() {
       data-testid="spokesperson-detail"
       data-configured={allDone ? "full" : "partial"}
     >
-      <Masthead spokesperson={s} ready={allDone} />
+      <Masthead
+        spokesperson={s}
+        ready={allDone}
+        onRebake={() => setRebaking(true)}
+      />
       <IdentityPanel spokesperson={s} onEdit={() => setEditing(true)} />
       {editing && (
         <SpokespersonEditModal
           spokesperson={s}
           onClose={() => setEditing(false)}
+        />
+      )}
+      {rebaking && (
+        <SpokespersonRebakeModal
+          spokesperson={s}
+          onClose={() => setRebaking(false)}
         />
       )}
       {allDone && <TalkCta spokesperson={s} />}
@@ -229,9 +243,11 @@ function ConversationRow({ thread }: { thread: ConversationThread }) {
 function Masthead({
   spokesperson,
   ready,
+  onRebake,
 }: {
   spokesperson: Spokesperson;
   ready: boolean;
+  onRebake?: () => void;
 }) {
   return (
     <header
@@ -274,23 +290,37 @@ function Masthead({
           </h1>
         </div>
         <div className="flex flex-col items-end gap-3">
-          <Link
-            to={`/recipes?spokesperson=${spokesperson.id}`}
-            data-testid="make-video-link"
-          >
-            <Button
-              size="lg"
-              disabled={!spokesperson.runway_avatar_id}
-              title={
-                spokesperson.runway_avatar_id
-                  ? undefined
-                  : "Add a portrait first — the render needs a bound avatar."
-              }
+          <div className="flex items-center gap-2">
+            {onRebake && spokesperson.runway_avatar_id && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={onRebake}
+                data-testid="rebake-trigger"
+                title="Re-bake avatar (real Runway spend, 30-180s)"
+              >
+                <Flame className="mr-1 h-3.5 w-3.5" />
+                Re-bake
+              </Button>
+            )}
+            <Link
+              to={`/recipes?spokesperson=${spokesperson.id}`}
+              data-testid="make-video-link"
             >
-              <Wand2 className="mr-1.5 h-4 w-4" />
-              Make a video
-            </Button>
-          </Link>
+              <Button
+                size="lg"
+                disabled={!spokesperson.runway_avatar_id}
+                title={
+                  spokesperson.runway_avatar_id
+                    ? undefined
+                    : "Add a portrait first — the render needs a bound avatar."
+                }
+              >
+                <Wand2 className="mr-1.5 h-4 w-4" />
+                Make a video
+              </Button>
+            </Link>
+          </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <StatusPill
               label="Status"

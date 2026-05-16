@@ -23,191 +23,113 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_158_FIRST_MARKETING_VIDEO.md`.
+> **Last handoff:** `docs/handoffs/SESSION_170_W11_2_VOICE_REBAKE.md`.
 
 ---
 
-## SESSION 159 outcome — drift-prevention items 2 + 3 closed
+## SESSION 170 outcome — W11.2 voice swap + avatar re-bake
 
-Both deferred drift-prevention items from the SESSION 147 audit
-shipped this session, in the sibling `context-kit` repo.
+The last operator-facing gap on spokesperson editing
+closes. Voice + avatar are no longer read-only after
+creation:
 
-**`context-kit handoff write <N>` subcommand** lands as
-context-kit commit `9590737` ("Add context-kit handoff write
-for session-end anchor re-stamp + calibration audit"). Two
-side-effects under one verb:
+* **Voice swap** — the existing edit modal gains a Runway
+  voice-preset `<select>`. Save fires two requests in
+  sequence: PATCH for the W11.1 persona fields, then the
+  new `change-voice` action if the voice changed. DB
+  persistence + live Runway PATCH are reported
+  separately (`voice_patch: {status, error}`) so partial
+  success is visible.
+* **Avatar re-bake** — dedicated confirm modal on the
+  spokesperson detail page, mounted from a new "Re-bake"
+  ghost button in the Masthead. Surfaces the cost
+  ($5-10 Runway credits, 30-180s wall-clock) before
+  spending. New `rebake-avatar` Django action fires
+  portrait gen + avatar create against the media-engine
+  and swaps `runway_avatar_id` + `portrait_path` on the
+  row.
 
-* **Re-stamp anchor docs** (item 2). Atomically updates
-  `last_revised:` (and bumps `covers_sessions:` upper bound
-  when present) across `docs/*_WHAT_IT_IS.md`,
-  `*_PIPELINE.md`, `*_BEHAVIOR_LAYER.md`,
-  `*_TRANSLATION_LAYER.md`, and `*_SESSION_START.md`.
-  `*_INVENTORY.md` is excluded (owned by `inventory --write`).
-* **Calibration drift detection** (item 3). Parses the
-  handoff for `## Calibration moments worth carrying` /
-  `## AI Notes` subsections, fuzzy-matches their headlines
-  against same-date `docs/TRUST_CALIBRATION.md` entries,
-  reports `✓ promoted` / `⚠ MISSING`. **Read-only on
-  TRUST_CALIBRATION** — the prose-to-canonical-format
-  translation is operator judgment.
+Implementation surfaces:
 
-**Smoke-tested against this repo as the live target.** The
-SESSION 158 run caught what the original drift audit was
-worried about: four secondary anchors
-(`CHARACTER_OS_PIPELINE.md`,
-`CHARACTER_OS_BEHAVIOR_LAYER.md`,
-`CHARACTER_OS_TRANSLATION_LAYER.md`,
-`CHARACTER_OS_SESSION_START.md`) had been silently sitting
-with `generated: 2026-05-13` and *no* `last_revised:` field
-across 50+ sessions. The subcommand inserted
-`last_revised: 2026-05-15 (SESSION 158)` on all four. Backfill
-committed as `docs: SESSION 158 — backfill last_revised across
-anchor docs (via context-kit handoff write)`. All 3 of
-SESSION 158's calibration moments correctly matched their
-same-date TRUST_CALIBRATION entries.
+* `media-engine/app/services/voice_clone_client.py`
+  gains `voice_kind="preset"` so
+  `PATCH /v1/avatars/<id>` can target Runway voice
+  presets (block type `runway-live-preset`) as well as
+  custom-clone IDs.
+* `media-engine/app/routers/internal.py` —
+  `POST /internal/avatars/<id>/change-voice/`.
+* `shell/apps/spokespeople/views.py` — two new actions
+  (`change-voice`, `rebake-avatar`). Both serialize the
+  full spokesperson on response; rebake additionally
+  returns 502 with `runway_avatar_status="failed"`
+  persisted on bake failure.
+* `shell/character_os/clients/media_engine.py` —
+  `change_avatar_voice` wrapper.
+* `web/src/lib/api/spokespeople.ts` — `useChangeVoice` +
+  `useRebakeAvatar` hooks.
+* `web/src/components/spokesperson-edit-modal.tsx` — voice
+  picker; two-request save.
+* `web/src/components/spokesperson-rebake-modal.tsx` —
+  new.
+* `web/src/routes/spokespeople/$id.tsx` — Re-bake button;
+  `rebaking` state above early returns.
 
-**Total context-kit test count: 1042 → 1076 (+34).**
-character-os codebase is unchanged this session.
+**Tests**: SPA vitest **52 → 53** (+1). Django **718**
+(unchanged — actions live-exercised SESSION 171 pending).
+Media-engine **108** (unchanged). All routes auto-loaded
+via runserver / uvicorn `--reload`; no service restart
+needed.
 
-### Drift-prevention backlog status — CLOSED
+### FIRST THING (SESSION 171): live W11.2 dogfood
 
-| # | Item | Status |
-|---|---|---|
-| 1 | `context-kit drift` subcommand | Superseded by `doctor` |
-| 2 | `handoff write` re-stamps anchor frontmatter | **Done (context-kit SESSION 17 / character-os SESSION 159)** |
-| 3 | Promote calibration entries to TRUST_CALIBRATION | **Done (detect-and-report shape; context-kit SESSION 17)** |
-| 4 | Codify session-start drift sweep in CLAUDE.md | Done (SESSION 151) |
-| 5 | Fix INVENTORY's two known generator bugs | Celery undercount done SESSION 151; working-tree-dirty flag pending |
+The natural follow-up is operator-driven. The endpoint
+contract has been exercised in tests; the production
+side-effect (Runway PATCH on avatar voice; full avatar
+re-bake) hasn't been fired against real keys yet.
 
-### FIRST THING (SESSION 160): pick one
+1. **Voice swap dogfood** — open the SPA edit modal on
+   Marcus, change voice from `marcus` to `clara` (or
+   `roman` — Latin-flavored), save. Confirm
+   `voice_patch.status === "ok"`. Fire a `talking_head`
+   render against the same brief used SESSION 169 and
+   compare lip-sync quality + tonal feel. ~$0.25 spend.
+2. **Re-bake dogfood (optional)** — open the Re-bake
+   modal on Marcus or any cast member with a stale-feeling
+   avatar. Confirm the spend warning text + the 30-180s
+   blocking wait. Avatar id + portrait should swap;
+   previous renders' `final_asset` URLs should still work
+   (they reference the old asset, not the avatar). ~$5-10
+   spend.
 
-Drift-prevention thread fully closed. Remaining backlog is
-small + non-realtime. The chunky things left are real-Runway
-exposure work (one stops being a code session and starts being
-operator-facing) and the queued cleanups.
+Both flows have unit-test coverage on the SPA side; the
+dogfood is to validate Runway's real response shapes
+match the optimistic implementation.
 
-**Recommendation — pick by mood:**
+**Recommendation — after dogfood, pick by mood:**
 
-* **Real-Runway exposure** if you want to keep validating the
-  Phase 4 stack against real keys: re-bake Donny's avatar
-  (recovers him for production); `talking_head_polished`
-  retake of Sasha (V9 — adds captions + intro/outro);
-  `long_form_ad` end-to-end smoke (V5 launch differentiator;
-  proves splitting + concat against real Runway, ~$0.50-$2.00
-  spend).
-* **F8.1 — K10 seed corpus** if operator-authored markdown is
-  ready. 30-60 minutes once the markdown lands.
-* ~~**K6.4 — Post-synthesis claim verifier.**~~ **DONE
-  SESSION 160.** Shipped substring-v1 with Warn default.
-  Donny regression smoke confirms `Wikipedia` flagged,
-  `Character OS` allow-listed, `trafilatura` slips
-  through (documented v1 lowercase-tech limitation).
-  See `docs/design/KNOWLEDGE_LAYER.md` K6.4 ship notes
-  for next-step queue (K6.5 conversation parity, SPA
-  toggle).
-* ~~**K6.4.1 — Strict-mode dogfood follow-ups.**~~
-  **DONE SESSION 161.** Stoplist widening + forensic
-  persistence on strict-mode rejection. Live dogfood
-  validated against Donny — same prompt that flagged
-  `'Modern'` now passes; rejected_synthesis +
-  verification_warnings persist on strict failures
-  for triage.
-* ~~**K6.5 — Conversation-synthesis verifier parity.**~~
-  **DONE SESSION 162.** Same verifier machinery now runs
-  on `/api/conversations/messages/` replies. Strict mode
-  returns 422 with rejected synthesis; Warn mode persists
-  `verification_warnings` on the SPOKESPERSON message.
-  Live dogfood revealed a new false-positive class —
-  refusal-pattern starters (`Short`, `Which`, `HTML`) —
-  fixed in same commit by widening the stoplist.
-* ~~**K6.4 v1.1 — SPA toggle + warning surface.**~~
-  **DONE SESSION 163.** Per-request `verifier_mode`
-  override; SPA composer + recipe form get a
-  Strict/Warn/Off select; conversation view renders a
-  rejection panel on 422; composition detail surfaces
-  `verification_warnings` + `rejected_synthesis` in a
-  dedicated panel.
-* ~~**K6.4 v1.2 — `verification_status` + recipe
-  rollout.**~~ **DONE SESSION 164.** Closes the
-  SESSION 161 bypass-case audit gap with a four-state
-  field on both `Composition` and `ConversationMessage`
-  (verified / trusted_passthrough / skipped / rejected).
-  SPA renders a colored badge on the composition detail
-  header + each spokesperson message bubble. The
-  `_VERIFIER_MODE_FIELD` select now appears on
-  `talking_head_with_backdrop`, `talking_head_polished`,
-  and `long_form_ad` as well as `talking_head`.
-* ~~**K6.4 stoplist watchdog.**~~ **DONE SESSION 165.**
-  `python manage.py stoplist_watchdog [--days=N]
-  [--limit=N] [--workspace=<slug>]` scans recent
-  verifier-flagged events and reports sentence-initial
-  stoplist candidates with copy-pasteable Python literals.
-  Closes the dogfood-only discovery loop that surfaced
-  `Cleanest`, `Welcome`, `Modern`, `Short`, `Alright`
-  one at a time across 5 sessions.
-* ~~**K6.4 v2 — surgical fixes.**~~ **DONE SESSION 166.**
-  Three changes: (1) tightened multi-word regex (dropped
-  `a`/`an` from joining words), (2) new
-  `KNOWN_TECH_TERMS` extractor catches lowercase tech
-  names like `trafilatura`, (3) lowercase casing dedupe.
-  Plus 17 watchdog-surfaced stoplist additions.
-  **Donny SESSION 158 canonical case now flags BOTH
-  Wikipedia AND trafilatura** — strict mode would block
-  the render entirely.
-* ~~**K6.4 v2.1 — real-Runway dogfood + CTA stoplist.**~~
-  **DONE SESSION 167.** First production fire of the
-  verifier stack against real Runway under strict mode.
-  K6 produced grounded content (no hallucinations); the
-  verifier over-rejected on innocent CTA verbs
-  (`Want`/`Reach`). Patched the stoplist with ~40
-  CTA-verb additions; second attempt with same prompt
-  shipped a real Runway render at $0.25,
-  `verification_status="verified"`. Also fixed an
-  environmental `trafilatura` missing from the venv.
-* ~~**K6.6 — script structure + opener + brief
-  persistence.**~~ **DONE SESSION 168.** Operator
-  feedback that scripts "feel like picking up mid
-  conversation" drove three changes: (1) K6 system
-  prompt enforces standalone-video framing (opener →
-  claim → CTA), (2) `opener` kwarg lets the operator
-  pin the first sentence verbatim, (3)
-  `Composition.synthesized_brief` field persists what
-  K6 said on successful renders (closes the SESSION
-  167 audit gap). Live dogfood: 2 real Runway renders
-  at $0.25 each, both `verification_status=verified`,
-  both with clear standalone openers. SPA shows the
-  synthesized brief on the composition detail page.
+* **More real-Runway exposure** — `talking_head_polished`
+  Sasha retake (V9 — captions + intro/outro);
+  `long_form_ad` end-to-end smoke (V5 launch
+  differentiator).
+* **F8.1 — K10 seed corpus** if operator-authored markdown
+  is ready. 30-60 minutes once the markdown lands.
+* **K6.4 v3 — embedding-similarity fallback.** Holds
+  until a real paraphrase miss surfaces during
+  real-Runway work.
 * **K7.x — YouTube ingest fix** if the silent-failure mode
-  surfaces during any real-Runway work. ~1 session.
-* **K6.3 — Brief length cap (~15 min)** — cheapest cleanup.
+  surfaces. ~1 session.
+* **K6.3 — Brief length cap (~15 min)** — cheapest cleanup;
+  might be moot now that K6 produces clean briefs.
 * **K7.1 — Cost telemetry surface** in the SPA. ~1 session.
-* **W11.1 — Edit-spokesperson modal.** ~1-2 sessions.
-
-### Workflow change SESSION 160 onward
-
-The new session-end rhythm:
-
-```bash
-# At session end, after writing docs/handoffs/SESSION_NNN_*.md:
-python3 /Users/donkeyking/development/context-kit/context_kit.py \
-    handoff write <NNN> --project /Users/donkeyking/development/character-os
-```
-
-Pair this command with the handoff commit. It re-stamps
-every anchor doc's frontmatter atomically and flags any
-calibration moments that didn't make it to
-`docs/TRUST_CALIBRATION.md`.
-
-`--dry-run` previews changes; `--date YYYY-MM-DD` overrides
-the handoff date if you need it.
 
 ---
 
 ## Where we are
 
 **Phase 0-2:** Done.
-**Phase 3:** Wizard arc complete (W1-W11). Cast went live
-in real-mode (SESSION 136). **First marketing video
+**Phase 3:** Wizard arc complete (W1-W11; W11.1 + W11.2
+ship operator-facing edit + voice + re-bake). Cast went
+live in real-mode (SESSION 136). **First marketing video
 shipped against real Runway** (SESSION 158).
 
 **Phase 4 (four arcs, three complete; R-arc complete):**
@@ -238,67 +160,54 @@ shipped against real Runway** (SESSION 158).
 | **K6.6 (script structure + opener + brief persist)** | **DONE (SESSION 168)** |
 | **Marcus end-to-end + W11.1 edit modal** | **DONE (SESSION 169)** |
 | **Portrait JWT refresh + hook-order fix** | **DONE (SESSION 169 close, commit `2cdcd26`)** |
+| **W11.2 voice swap + avatar re-bake** | **DONE (SESSION 170)** |
 | K7.x (YouTube ingest fix) | Queued |
-| K6.3 / K7.1 / W11.1 | Queued |
+| K6.3 / K7.1 | Queued |
 
 **Cast roster in workspace `admins-workspace`**:
 
   - Riggs the Donkey (founder voice) — id `06bf999f-...`
   - **Sasha the Raccoon** (sales) — id `79d48883-...` — known-good real-render voice (`clara`)
-  - Donny the Sloth (user stories) — id `f30b2980-...` — dental artifacts on `drew` voice; needs re-bake
+  - Donny the Sloth (user stories) — id `f30b2980-...` — dental artifacts on `drew` voice; eligible for SESSION 171 voice swap or re-bake
   - Maya the Panda (educator) — id `9410f23f-...` — untested in real-mode
-  - **Marcus the Battle Unicorn** (AP history tutor) — id `b6a00dd8-...` — **new SESSION 169 end-to-end cast member; `marcus` voice; Nerva–Antonine doc attached; 2 verified strict-mode renders shipped**
+  - **Marcus the Battle Unicorn** (AP history tutor) — id `b6a00dd8-...` — `marcus` voice; Nerva–Antonine doc attached; 2 verified strict-mode renders shipped; SESSION 171 voice-swap dogfood target
 
 ---
 
 ## Queued investigations (priority-ordered)
 
-1. **More real-Runway exposure** — `talking_head_polished`
-   retake of Sasha (V9 captions + intro/outro), or
-   `long_form_ad` smoke (V5 launch differentiator —
-   ~$0.50-$2.00). Real-Runway renders so far this thread
-   total **3 renders at $0.75** (SESSION 167 + SESSION 168
-   probes). The full v2 + K6.6 stack has been validated;
-   time to stress more recipes.
-2. **K6.4 v3 — embedding-similarity fallback.** v2
-   closes the lowercase-tech + multi-word gaps via
-   curated lists. v3 could add a real semantic check:
-   when a token is substring-flagged, embed it +
-   compare to chunk embeddings; allow if cosine
-   similarity is high. Catches paraphrases (`"the
-   extraction library"` vs chunks describing
-   trafilatura). ~1-2 sessions. Holds until
-   real-Runway exposure surfaces specific paraphrase
-   misses worth fixing.
-3. **Run the watchdog periodically.** `python manage.py
-   stoplist_watchdog --days=14` weekly. Add anything
-   surfaced to `_COMMON_PROPER_NOUN_FALSE_POSITIVES` or
-   `KNOWN_TECH_TERMS` as needed.
-4. **Older backlog**: F8.1 (blocked on operator
-   markdown), K7.x (YouTube ingest silent failure),
-   K6.3 (brief length cap, 15 min), K7.1 (cost
-   telemetry surface), W11.1 (edit-spokesperson
-   modal).
-3. **More real-Runway exposure** — re-bake Donny,
-   polished Sasha retake, long_form_ad smoke.
-4. **F8.1 — K10 seed corpus** (blocked).
-5. **K7.x — YouTube ingest fix.**
-6. **K6.3 — Brief length cap (~15 min).**
-7. **K7.1 — Cost telemetry surface.**
-8. **W11.1 — Edit-spokesperson modal.**
-7. **Voice preset audit** — smoke-test other voices
-   (`drew` flagged; others unknown).
-8. **E2e detritus cleanup.**
-9. **OpenAI client factory port.**
-10. **Cast sync command.**
-11. **Stuck-row janitor.**
-12. **Act-Two performance capture.**
-13. **`lesson` video kind.**
-14. **Real Google OAuth + dj-stripe.**
-15. **Allauth legacy-settings cleanup.**
-16. **smoke_voice / smoke_avatar transaction discipline.**
-17. **INVENTORY working-tree-dirty flag fix.**
-18. **Brand Identity v2 + dark mode.**
+1. **SESSION 171 dogfood** — voice swap + optional re-bake
+   against Marcus. ~$0.25 + ~$5-10.
+2. **More real-Runway exposure on other recipes** —
+   `talking_head_polished` Sasha retake;
+   `long_form_ad` smoke. Real-Runway renders so far this
+   thread: **3 renders at $0.75** (SESSION 167 + 168
+   probes) + **2 renders at $0.50** (SESSION 169 Marcus
+   end-to-end + dogfood loop) + **1 first marketing
+   video at $0.50** (SESSION 158).
+3. **K6.4 v3 — embedding-similarity fallback.** Holds
+   until a real paraphrase miss surfaces in operator
+   dogfood.
+4. **Run the watchdog periodically.** `python manage.py
+   stoplist_watchdog --days=14` weekly.
+5. **Older backlog**: F8.1 (blocked on operator
+   markdown), K7.x (YouTube ingest silent failure), K6.3
+   (brief length cap — likely moot), K7.1 (cost
+   telemetry surface).
+6. **Voice preset audit** — smoke-test other voices
+   beyond `marcus` / `clara` / `drew`. W11.2 makes this
+   cheap (no re-bake required for preset swaps).
+7. **E2e detritus cleanup.**
+8. **OpenAI client factory port.**
+9. **Cast sync command.**
+10. **Stuck-row janitor.**
+11. **Act-Two performance capture.**
+12. **`lesson` video kind.**
+13. **Real Google OAuth + dj-stripe.**
+14. **Allauth legacy-settings cleanup.**
+15. **smoke_voice / smoke_avatar transaction discipline.**
+16. **INVENTORY working-tree-dirty flag fix.**
+17. **Brand Identity v2 + dark mode.**
 
 ---
 
@@ -337,52 +246,53 @@ EMBEDDING + RENDER_SCRIPT + CONVERSATION_REPLY + SERPER
 + REALTIME_MEMORY on Django). With `RUNWAY_API_KEY` set
 in `.env`, media-engine runs in real mode by default.
 
-**Real-mode validation** (SESSION 158): cast members
-configured in workspace `admins-workspace` can fire
-real-Runway renders via the `talking_head` starter +
-K6 RAG synthesis. ~30-60s per render, ~$0.25-$0.50
-each. Sasha (`clara` voice) is the known-good
-spokesperson; Donny (`drew` voice) shows dental
-artifacts.
-
 Smoke checks:
 
 ```bash
 # Backend (from shell/)
 python manage.py inventory
-python -m pytest                              # 659 tests
+python -m pytest                              # 718 tests
 
 # Media-engine (from media-engine/)
 python -m pytest                              # 108 tests
 
 # SPA (from web/)
 pnpm build                                    # type-check + bundle
-pnpm test                                     # 37 vitest tests
+pnpm test                                     # 53 vitest tests
 ```
 
 ---
 
 ## AI / assistant context
 
-- **Last session: SESSION 159 — drift-prevention items 2 + 3
-  closed in the sibling `context-kit` repo.** `context-kit
-  handoff write <N>` shipped (commit `9590737`). Smoke-tested
-  against this repo as the live target. character-os code
-  unchanged; four anchor docs got their `last_revised:`
-  frontmatter backfilled via the new subcommand.
+- **Last session: SESSION 170 — W11.2 voice swap +
+  avatar re-bake.** Operator-facing edits on
+  spokespeople are no longer read-only-after-creation.
+  Two new endpoints (`change-voice`, `rebake-avatar`)
+  + voice picker in the edit modal + dedicated re-bake
+  confirm modal on the detail page. Test counts:
+  SPA **52 → 53**; Django **718**; media-engine **108**.
 - **Calibration carried forward:**
+  - **Distinct request boundaries for distinct
+    side-effects** — when an SPA save spans a DB write
+    + an external-system call, model them as two
+    requests, not one bundled PATCH. The action endpoint
+    surfaces the side-effect result explicitly.
+  - **Mock-fetch should route-switch from day one**
+    once a component hits more than one endpoint. The
+    failure mode (schema parse → mutation throws → far
+    expectation fails) is hard to diagnose.
+  - **Hook order across early returns** (SESSION 169) —
+    pattern held; new state hooks live above the
+    loading/error/not-found returns. Caught preemptively
+    on the `rebaking` state add.
   - **AI's "shipped" framing belongs to the operator
     after review** for any model-output deliverable.
-    The pipeline returning 2xx is system success, not
-    deliverable success.
   - **Avatar voice × lip-sync quality is a real
-    operational axis.** Smoke-test future
-    voices/avatars with a 10s render before declaring
-    them production-ready.
-  - **R9 placeholder accurate to ~5x** — stub-and-
-    refine validated. Track placeholder constants
-    explicitly; refine after first real-data event,
-    not before.
+    operational axis.** W11.2 makes the smoke-test loop
+    cheap; SESSION 171 should exercise it.
+  - **R9 placeholder accurate to ~5x** — stub-and-refine
+    validated.
   - **Drift verifiers belong as early scaffolding**
     (SESSION 157).
   - **Milestone-level doc refresh has its own cadence**
@@ -392,11 +302,11 @@ pnpm test                                     # 37 vitest tests
     paired with `handoff write` at session-end**
     (SESSION 159).
   - **OpenAI gpt-5 family uses the Responses API.**
-- **Realtime arc complete.** Phase 4's four arcs all
-  shipped + first end-to-end real-Runway render
-  validated.
+- **Realtime arc complete; W-arc operator-facing
+  gaps closed.** Phase 4's four arcs all shipped;
+  W11.1 + W11.2 close the spokesperson edit loop.
 - Collaboration conventions: AI drafts, human edits.
-  Handoff `## AI Notes` (or `## Calibration moments
-  worth carrying`) + per-slice doc updates required
-  at session end. **End-of-session `context-kit handoff
-  write` runs alongside the handoff commit.**
+  Handoff `## Calibration moments worth carrying` +
+  per-slice doc updates required at session end.
+  **End-of-session `context-kit handoff write` runs
+  alongside the handoff commit.**

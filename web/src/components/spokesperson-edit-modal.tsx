@@ -26,7 +26,9 @@ import {
   TONE_ARCHETYPES,
   type Spokesperson,
   type ToneArchetype,
+  useChangeVoice,
   useUpdateSpokesperson,
+  useVoicePresets,
 } from "@/lib/api/spokespeople";
 import { ApiError } from "@/lib/api/client";
 
@@ -57,8 +59,17 @@ export function SpokespersonEditModal({
   const [toneArchetype, setToneArchetype] = useState<ToneArchetype>(
     spokesperson.tone_archetype,
   );
+  // W11.2 — voice preset swap. Only the value changes; the live
+  // PATCH against Runway fires via a separate action because the
+  // PATCH endpoint isn't part of the ModelViewSet.
+  const [voicePreset, setVoicePreset] = useState(
+    spokesperson.voice_id ?? "",
+  );
   const [error, setError] = useState<string | null>(null);
   const update = useUpdateSpokesperson();
+  const changeVoice = useChangeVoice();
+  const voicePresets = useVoicePresets();
+  const isPending = update.isPending || changeVoice.isPending;
   const firstInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -68,18 +79,19 @@ export function SpokespersonEditModal({
   // Esc / backdrop dismiss — only when no save is in flight.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && !update.isPending) onClose();
+      if (e.key === "Escape" && !isPending) onClose();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, update.isPending]);
+  }, [onClose, isPending]);
 
   function _hasChanges(): boolean {
     return (
       name.trim() !== spokesperson.name ||
       businessBrief !== (spokesperson.business_brief ?? "") ||
       visualSubject !== (spokesperson.visual_subject ?? "") ||
-      toneArchetype !== spokesperson.tone_archetype
+      toneArchetype !== spokesperson.tone_archetype ||
+      voicePreset !== (spokesperson.voice_id ?? "")
     );
   }
 
@@ -113,7 +125,24 @@ export function SpokespersonEditModal({
       if (toneArchetype !== spokesperson.tone_archetype) {
         payload.tone_archetype = toneArchetype;
       }
-      await update.mutateAsync(payload);
+      // PATCH for the simple fields first.
+      const hasPatchFields =
+        payload.name !== undefined ||
+        payload.business_brief !== undefined ||
+        payload.visual_subject !== undefined ||
+        payload.tone_archetype !== undefined;
+      if (hasPatchFields) {
+        await update.mutateAsync(payload);
+      }
+      // W11.2 — voice change is a separate action (PATCH on the
+      // Runway avatar via the change-voice endpoint). Fire only
+      // when the voice preset actually changed.
+      if (voicePreset && voicePreset !== (spokesperson.voice_id ?? "")) {
+        await changeVoice.mutateAsync({
+          id: spokesperson.id,
+          preset: voicePreset,
+        });
+      }
       onClose();
     } catch (err) {
       const message =
@@ -149,14 +178,15 @@ export function SpokespersonEditModal({
               Edit {spokesperson.name}
             </h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Voice and avatar can't be changed here — they're bound at avatar
-              creation. Use the detail page setup row to re-bake the avatar.
+              Voice changes are live — they PATCH the Runway avatar. To change
+              the visual (re-bake the avatar) use the dedicated button on the
+              detail page.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            disabled={update.isPending}
+            disabled={isPending}
             className="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Close"
             data-testid="edit-modal-close"
@@ -173,7 +203,7 @@ export function SpokespersonEditModal({
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={120}
-            disabled={update.isPending}
+            disabled={isPending}
             data-testid="edit-name"
           />
         </div>
@@ -184,7 +214,7 @@ export function SpokespersonEditModal({
             id="edit-tone"
             value={toneArchetype}
             onChange={(e) => setToneArchetype(e.target.value as ToneArchetype)}
-            disabled={update.isPending}
+            disabled={isPending}
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             data-testid="edit-tone"
           >
@@ -194,6 +224,30 @@ export function SpokespersonEditModal({
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="edit-voice">Voice preset</Label>
+          <select
+            id="edit-voice"
+            value={voicePreset}
+            onChange={(e) => setVoicePreset(e.target.value)}
+            disabled={isPending || voicePresets.isLoading}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            data-testid="edit-voice"
+          >
+            {voicePresets.isLoading && <option value="">Loading…</option>}
+            {voicePresets.data?.map((preset) => (
+              <option key={preset} value={preset}>
+                {preset}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">
+            Live PATCH on Runway. Takes effect on the next render. Failed
+            patches keep the new value in the DB so the next avatar bake
+            picks it up.
+          </p>
         </div>
 
         <div className="flex flex-col gap-2">
@@ -208,13 +262,13 @@ export function SpokespersonEditModal({
             value={visualSubject}
             onChange={(e) => setVisualSubject(e.target.value)}
             maxLength={200}
-            disabled={update.isPending}
+            disabled={isPending}
             placeholder="e.g. battle unicorn in Roman legionary armor"
             data-testid="edit-visual"
           />
           <p className="text-xs text-muted-foreground">
-            Changes here don't re-bake the avatar — they're recorded for the
-            next portrait regen.
+            Changes here don't re-bake the avatar — they're recorded on the
+            row and picked up the next time you re-bake.
           </p>
         </div>
 
@@ -225,7 +279,7 @@ export function SpokespersonEditModal({
             value={businessBrief}
             onChange={(e) => setBusinessBrief(e.target.value)}
             rows={5}
-            disabled={update.isPending}
+            disabled={isPending}
             placeholder="What does this spokesperson sound like, and what business do they represent?"
             className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             data-testid="edit-brief"
@@ -247,17 +301,17 @@ export function SpokespersonEditModal({
             type="button"
             variant="ghost"
             onClick={onClose}
-            disabled={update.isPending}
+            disabled={isPending}
             data-testid="edit-cancel"
           >
             Cancel
           </Button>
           <Button
             type="submit"
-            disabled={update.isPending || !_hasChanges() || !name.trim()}
+            disabled={isPending || !_hasChanges() || !name.trim()}
             data-testid="edit-save"
           >
-            {update.isPending ? (
+            {isPending ? (
               <>
                 <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                 Saving…

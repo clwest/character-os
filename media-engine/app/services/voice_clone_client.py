@@ -467,14 +467,21 @@ def apply_voice_to_avatar(
     *,
     avatar_is_mock: bool = False,
     timeout: float = 15.0,
+    voice_kind: str = "custom",
 ) -> VoiceApplyResult:
     """PATCH ``/v1/avatars/{avatar_id}`` so an existing Runway avatar
-    starts speaking with the supplied custom ``voice_id`` — without
-    recreating the avatar.
+    starts speaking with the supplied voice — without recreating the
+    avatar.
+
+    W11.2 (SESSION 170) extended for preset voices in addition to
+    custom clones. ``voice_kind="preset"`` switches the body to
+    ``{voice: {type: "runway-live-preset", presetId: ...}}``;
+    ``voice_kind="custom"`` (default) keeps the existing
+    custom-voice shape from PR AQ.
 
     Mirrors PR AI's `attach_documents_to_avatar` shape: the route
     treats the result as best-effort, persists the status, and the
-    overall clone flow still succeeds even if the patch fails.
+    overall flow still succeeds even if the patch fails.
 
     Branches:
     - ``pending_avatar`` — caller has no real avatar id yet (mock or
@@ -508,7 +515,11 @@ def apply_voice_to_avatar(
     # The previous shape `{"type": "custom", "voiceId": ...}` was the
     # contract documented in PR AQ + RUNWAY_AVATAR_API_DEEP_REVIEW.md
     # §3.1; Runway accepted it then, rejects it now.
-    body = {"voice": {"type": "custom", "id": voice_id}}
+    if voice_kind == "preset":
+        voice_block = {"type": "runway-live-preset", "presetId": voice_id}
+    else:
+        voice_block = {"type": "custom", "id": voice_id}
+    body = {"voice": voice_block}
     headers = {
         "Authorization": f"Bearer {settings.runway_api_key}",
         "X-Runway-Version": settings.runway_api_version,

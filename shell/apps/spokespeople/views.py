@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import logging
 
-from rest_framework import status as drf_status, viewsets
+from rest_framework import status as drf_status, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from apps.billing.services import TierLimitExceeded, check_spokesperson_limit
@@ -261,6 +262,182 @@ class SpokespersonViewSet(viewsets.ModelViewSet):
                     "mock_mode": result.mock_mode,
                 },
             }
+        )
+
+    @action(detail=True, methods=["post"], url_path="change-voice")
+    def change_voice(self, request, pk=None):
+        """``POST /api/spokespeople/{id}/change-voice/``.
+
+        W11.2 (SESSION 170) — swap the spokesperson's voice preset
+        on an already-baked avatar without re-baking. Mirrors
+        ``clone-voice`` but for the simpler preset path: validates
+        against ``SUPPORTED_VOICE_PRESETS``, fires the media-engine
+        change-voice endpoint, updates ``voice_id`` on the row.
+
+        Body shape: ``{preset: "marcus"}``. Returns the serialized
+        spokesperson + the patch result so the SPA can surface
+        success vs Runway-side failure.
+
+        No-op cases:
+        - Spokesperson has no ``runway_avatar_id``: just update
+          ``voice_id`` in the DB; the next avatar bake will pick
+          up the preset from the row.
+        - Media-engine returns ``status="failed"``: persist the
+          ``voice_id`` anyway (next avatar create / re-bake uses
+          it). Operator sees the failure status and can retry.
+        """
+        preset = (request.data.get("preset") or "").strip()
+        if not preset:
+            raise ValidationError({"preset": "Required."})
+        if preset not in SUPPORTED_VOICE_PRESETS:
+            raise ValidationError({
+                "preset": (
+                    f"unsupported voice preset {preset!r}; pick one of "
+                    f"{sorted(SUPPORTED_VOICE_PRESETS)}"
+                ),
+            })
+
+        spokesperson: Spokesperson = self.get_object()
+        patch_status = "skipped"
+        patch_error: str | None = None
+
+        if spokesperson.runway_avatar_id:
+            try:
+                with MediaEngineClient() as client:
+                    result = client.change_avatar_voice(
+                        avatar_id=spokesperson.runway_avatar_id,
+                        voice_id=preset,
+                        voice_kind="preset",
+                    )
+                patch_status = result.get("status") or "unknown"
+                patch_error = result.get("error")
+            except MediaEngineError as exc:
+                logger.warning(
+                    "change_voice media-engine error spokesperson=%s err=%s",
+                    spokesperson.pk, exc,
+                )
+                patch_status = "failed"
+                patch_error = str(exc)[:200]
+
+        # Persist regardless — the next avatar create / re-bake
+        # will read voice_id from the row even if the live PATCH
+        # failed.
+        spokesperson.voice_id = preset
+        spokesperson.save(update_fields=["voice_id", "updated_at"])
+
+        return Response(
+            {
+                "spokesperson": SpokespersonSerializer(
+                    spokesperson, context={"request": request},
+                ).data,
+                "voice_patch": {
+                    "status": patch_status,
+                    "error": patch_error,
+                },
+            }
+        )
+
+    @action(detail=True, methods=["post"], url_path="rebake-avatar")
+    def rebake_avatar(self, request, pk=None):
+        """``POST /api/spokespeople/{id}/rebake-avatar/``.
+
+        W11.2 (SESSION 170) — regenerate the portrait + bake a new
+        Runway avatar from the spokesperson's current
+        ``visual_subject``. Swaps ``runway_avatar_id``,
+        ``portrait_path``, ``runway_avatar_status``, and
+        (optionally) ``voice_id`` on the row.
+
+        Cost: ~$5-10 Runway credits + 30-180s wait. The operator
+        must explicitly opt in via the SPA confirm modal — this
+        endpoint will fire whatever it's called with.
+
+        Body shape (all fields optional):
+            {
+              "visual_subject": "...",  # override; persisted on the row
+              "voice_preset": "...",    # override; persisted on the row
+              "template": "coach"       # PORTRAIT_TEMPLATES preset
+            }
+
+        Response: serialized spokesperson with the new
+        ``runway_avatar_id`` + ``portrait_path``.
+
+        Errors:
+            400 — invalid voice_preset / template / blank
+                  visual_subject.
+            502 — media-engine portrait or avatar bake failed.
+        """
+        spokesperson: Spokesperson = self.get_object()
+
+        visual_subject = (
+            request.data.get("visual_subject")
+            or spokesperson.visual_subject
+            or ""
+        ).strip()
+        voice_preset = (
+            request.data.get("voice_preset") or spokesperson.voice_id or "vincent"
+        ).strip()
+        template = (request.data.get("template") or "coach").strip()
+
+        if not visual_subject:
+            raise ValidationError({
+                "visual_subject": "Required (non-empty).",
+            })
+        if voice_preset not in SUPPORTED_VOICE_PRESETS:
+            raise ValidationError({
+                "voice_preset": f"unsupported preset {voice_preset!r}",
+            })
+
+        # Persist visual_subject / voice_preset upfront so the row
+        # carries the operator's intent even if the bake fails.
+        spokesperson.visual_subject = visual_subject
+        spokesperson.voice_id = voice_preset
+        spokesperson.save(
+            update_fields=["visual_subject", "voice_id", "updated_at"],
+        )
+
+        try:
+            with MediaEngineClient() as client:
+                portrait = client.create_portrait(
+                    template=template,
+                    subject=visual_subject,
+                )
+                avatar = client.create_avatar(
+                    name=spokesperson.name,
+                    portrait_data_uri=portrait.portrait_data_uri,
+                    voice_preset=voice_preset,
+                    personality=spokesperson.business_brief or None,
+                )
+        except MediaEngineError as exc:
+            logger.warning(
+                "rebake_avatar media-engine error spokesperson=%s err=%s",
+                spokesperson.pk, exc,
+            )
+            spokesperson.runway_avatar_status = "failed"
+            spokesperson.save(update_fields=["runway_avatar_status", "updated_at"])
+            return Response(
+                {"detail": f"avatar re-bake failed: {exc!s}"[:300]},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        spokesperson.runway_avatar_id = avatar.avatar_id
+        spokesperson.runway_avatar_status = avatar.status
+        spokesperson.portrait_path = avatar.thumbnail_url or ""
+        # Ensure status is READY now that the avatar is fresh.
+        if avatar.ok:
+            spokesperson.status = Spokesperson.Status.READY
+        spokesperson.save(
+            update_fields=[
+                "runway_avatar_id",
+                "runway_avatar_status",
+                "portrait_path",
+                "status",
+                "updated_at",
+            ],
+        )
+        return Response(
+            SpokespersonSerializer(
+                spokesperson, context={"request": request},
+            ).data
         )
 
     @action(detail=True, methods=["post"], url_path="refresh-portrait")

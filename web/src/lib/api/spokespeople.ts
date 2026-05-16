@@ -193,6 +193,77 @@ export function useRefreshPortrait() {
 }
 
 
+// ---- W11.2 — voice swap + avatar re-bake -------------------------
+
+const changeVoiceResponseSchema = z.object({
+  spokesperson: spokespersonSchema,
+  voice_patch: z.object({
+    status: z.string(),
+    error: z.string().nullable(),
+  }),
+});
+
+export type ChangeVoiceResponse = z.infer<typeof changeVoiceResponseSchema>;
+
+export interface ChangeVoiceInput {
+  id: string;
+  preset: string;
+}
+
+export async function changeSpokespersonVoice(
+  input: ChangeVoiceInput,
+): Promise<ChangeVoiceResponse> {
+  return apiJson(
+    `/api/spokespeople/${input.id}/change-voice/`,
+    { method: "POST", body: { preset: input.preset } },
+    (json) => changeVoiceResponseSchema.parse(json),
+  );
+}
+
+export function useChangeVoice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: changeSpokespersonVoice,
+    onSuccess: (result) => {
+      qc.setQueryData(
+        ["spokesperson", result.spokesperson.id],
+        result.spokesperson,
+      );
+      qc.invalidateQueries({ queryKey: ["spokespeople"] });
+    },
+  });
+}
+
+export interface RebakeAvatarInput {
+  id: string;
+  visual_subject?: string;
+  voice_preset?: string;
+  template?: PortraitTemplate;
+}
+
+export async function rebakeSpokespersonAvatar(
+  input: RebakeAvatarInput,
+): Promise<Spokesperson> {
+  const { id, ...payload } = input;
+  return apiJson(
+    `/api/spokespeople/${id}/rebake-avatar/`,
+    { method: "POST", body: payload },
+    (json) => spokespersonSchema.parse(json),
+  );
+}
+
+export function useRebakeAvatar() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: rebakeSpokespersonAvatar,
+    onSuccess: (spokesperson) => {
+      qc.setQueryData(["spokesperson", spokesperson.id], spokesperson);
+      qc.invalidateQueries({ queryKey: ["spokespeople"] });
+    },
+  });
+}
+
+
 // ---- W11.1 — edit spokesperson -----------------------------------
 
 export interface UpdateSpokespersonInput {

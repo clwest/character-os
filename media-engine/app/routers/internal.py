@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 import httpx
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -46,6 +46,7 @@ from ..services.character_studio_client import (
     build_prompt,
     fetch_avatar_thumbnail,
 )
+from ..services.voice_clone_client import apply_voice_to_avatar
 from ..services.runway_client import (
     GenerationSettingsError,
     create_task as runway_create_task,
@@ -328,6 +329,68 @@ def post_internal_avatar_refresh(
         avatar_id=avatar_id,
         thumbnail_url=thumbnail,
         mock_mode=False,
+    )
+
+
+class InternalAvatarChangeVoice(BaseModel):
+    """W11.2 (SESSION 170) — change the voice bound to an existing
+    Runway avatar without re-baking. Supports preset (``presetId``)
+    and custom (``id``) voice blocks."""
+
+    voice_id: str = Field(min_length=1, max_length=120)
+    voice_kind: str = Field(default="preset")  # "preset" | "custom"
+
+
+class InternalAvatarChangeVoiceResponse(BaseModel):
+    avatar_id: str
+    status: str  # "applied" | "mock_patched" | "pending_avatar" | "failed"
+    error: Optional[str] = None
+    mock_mode: bool
+
+
+@router.post(
+    "/avatars/{avatar_id}/change-voice/",
+    response_model=InternalAvatarChangeVoiceResponse,
+)
+def post_internal_avatar_change_voice(
+    avatar_id: str,
+    body: InternalAvatarChangeVoice,
+    settings: Settings = Depends(get_settings),
+):
+    """W11.2 — PATCH the existing avatar's voice block on Runway.
+
+    Preset path: ``{voice_kind: "preset"}`` with a value from
+    ``SUPPORTED_VOICE_PRESETS``. Custom path:
+    ``{voice_kind: "custom"}`` with a cloned voice id from a
+    prior ``/internal/voices/`` call.
+
+    Best-effort by design — mirrors ``apply_voice_to_avatar``'s
+    status taxonomy (applied / mock_patched / pending_avatar /
+    failed). Never raises on Runway-side failure.
+    """
+    if body.voice_kind not in ("preset", "custom"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"voice_kind must be 'preset' or 'custom', got {body.voice_kind!r}",
+        )
+    if body.voice_kind == "preset" and body.voice_id not in SUPPORTED_VOICE_PRESETS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"voice preset {body.voice_id!r} not in supported list "
+                f"({sorted(SUPPORTED_VOICE_PRESETS)})"
+            ),
+        )
+    result = apply_voice_to_avatar(
+        avatar_id, body.voice_id, settings,
+        avatar_is_mock=False,
+        voice_kind=body.voice_kind,
+    )
+    return InternalAvatarChangeVoiceResponse(
+        avatar_id=avatar_id,
+        status=result.status,
+        error=result.error,
+        mock_mode=settings.runway_mock,
     )
 
 

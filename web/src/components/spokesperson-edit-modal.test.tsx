@@ -10,7 +10,7 @@
  * fields don't show up.
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { SpokespersonEditModal } from "./spokesperson-edit-modal";
@@ -51,12 +51,38 @@ function renderModal(props: { onClose?: () => void } = {}) {
 
 describe("W11.1 — SpokespersonEditModal", () => {
   beforeEach(() => {
-    vi.spyOn(global, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ ...MOCK_SP, name: "Marcus Aurelius" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }),
-    );
+    // useVoicePresets fires a GET on mount; the change-voice action
+    // returns the {spokesperson, voice_patch} envelope; everything
+    // else (PATCH on the spokesperson) returns a bare row.
+    vi.spyOn(global, "fetch").mockImplementation((url, init) => {
+      const u = String(url);
+      if (u.includes("/voice-presets/")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ presets: ["vincent", "marcus", "clara"] }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      }
+      if (u.includes("/change-voice/")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              spokesperson: { ...MOCK_SP, voice_id: "clara" },
+              voice_patch: { status: "ok", error: null },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      }
+      // Default: spokesperson PATCH / GET.
+      return Promise.resolve(
+        new Response(JSON.stringify({ ...MOCK_SP, name: "Marcus Aurelius" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    });
   });
   afterEach(() => vi.restoreAllMocks());
 
@@ -98,12 +124,47 @@ describe("W11.1 — SpokespersonEditModal", () => {
     await act(async () => {
       fireEvent.submit(screen.getByTestId("edit-save").closest("form")!);
     });
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchSpy.mock.calls[0]!;
+    // Find the PATCH call among the fetches (useVoicePresets also
+    // fires a GET on mount).
+    const patchCall = fetchSpy.mock.calls.find(
+      ([, init]) => (init as RequestInit | undefined)?.method === "PATCH",
+    );
+    expect(patchCall).toBeDefined();
+    const [url, init] = patchCall!;
     expect(url).toBe("/api/spokespeople/sp-1/");
-    expect((init as RequestInit).method).toBe("PATCH");
     const body = JSON.parse((init as RequestInit).body as string);
     expect(body).toEqual({ name: "Marcus Aurelius" });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("W11.2 — voice change fires a separate change-voice action", async () => {
+    const fetchSpy = global.fetch as ReturnType<typeof vi.fn>;
+    const { onClose } = renderModal();
+    // Wait for useVoicePresets to load AND the select to settle on
+    // the spokesperson's current voice_id. Without this wait the
+    // select may transiently show the first option (vincent) while
+    // the controlled value prop catches up.
+    await waitFor(() => {
+      expect(
+        (screen.getByTestId("edit-voice") as HTMLSelectElement).value,
+      ).toBe("marcus");
+    });
+    fireEvent.change(screen.getByTestId("edit-voice"), {
+      target: { value: "clara" },
+    });
+    expect(
+      (screen.getByTestId("edit-voice") as HTMLSelectElement).value,
+    ).toBe("clara");
+    await act(async () => {
+      fireEvent.submit(screen.getByTestId("edit-save").closest("form")!);
+    });
+    const changeVoiceCall = fetchSpy.mock.calls.find(([url]) =>
+      String(url).includes("/change-voice/"),
+    );
+    expect(changeVoiceCall).toBeDefined();
+    const [, init] = changeVoiceCall!;
+    const body = JSON.parse((init as RequestInit).body as string);
+    expect(body).toEqual({ preset: "clara" });
     expect(onClose).toHaveBeenCalled();
   });
 

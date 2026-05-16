@@ -457,6 +457,25 @@ class MediaEngineClient:
         )
         return data.get("thumbnail_url") or None
 
+    def change_avatar_voice(
+        self,
+        *,
+        avatar_id: str,
+        voice_id: str,
+        voice_kind: str = "preset",
+    ) -> dict:
+        """W11.2 (SESSION 170) — PATCH the Runway avatar's voice
+        block without re-baking. Returns the parsed JSON response
+        ``{avatar_id, status, error, mock_mode}``. Raises
+        ``MediaEngineError`` only on transport / non-2xx; Runway-
+        side failures come back as ``status="failed"`` with
+        ``error`` set so the caller can persist + surface.
+        """
+        return self.request(
+            "POST", f"/internal/avatars/{avatar_id}/change-voice/",
+            json={"voice_id": voice_id, "voice_kind": voice_kind},
+        )
+
     def create_video(
         self,
         *,
