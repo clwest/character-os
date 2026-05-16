@@ -89,6 +89,12 @@ ALLOWED_FILES = {
     # rows to drive the minutes-budget gate + the actual
     # cost-micros computation.
     "apps/realtime/tests/test_r9_cost.py",
+    # K7.1 (SESSION 174) — workspace overview's cost_breakdown
+    # tests seed ENDED RealtimeSession rows alongside
+    # Composition + Asset to verify cross-surface aggregation
+    # + workspace isolation. workspace anchor is set explicitly
+    # at row create; the pre_save signal still fires.
+    "apps/accounts/tests/test_workspace_overview.py",
 }
 
 

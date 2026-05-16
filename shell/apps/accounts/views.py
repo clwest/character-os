@@ -216,6 +216,62 @@ def workspace_overview(request: Request) -> Response:
         ],
     }
 
+    # ---- Cost breakdown (K7.1) -------------------------------
+    # Per-surface cost rollup so operators can see where their
+    # spend lives. compositions_micros mirrors the existing
+    # compositions.total_cost_micros (kept for back-compat);
+    # images_micros sums W11.6 image-asset costs; realtime_micros
+    # sums R-arc session actuals. mtd_micros is the same
+    # aggregation but scoped to the current calendar-month
+    # (workspace timezone deferred to W12; UTC for v1).
+    from datetime import datetime, timezone as _tz
+    from apps.compositions.models import Asset, AssetType
+    from apps.realtime.models import RealtimeSession
+
+    now_utc = datetime.now(_tz.utc)
+    month_start = now_utc.replace(
+        day=1, hour=0, minute=0, second=0, microsecond=0,
+    )
+
+    image_assets_qs = Asset.objects.filter(
+        workspace=workspace, asset_type=AssetType.IMAGE,
+    )
+    realtime_qs = RealtimeSession.objects.filter(workspace=workspace)
+
+    def _sum_micros(qs, field: str) -> int:
+        return qs.aggregate(Sum(field))[f"{field}__sum"] or 0
+
+    compositions_micros = total_cost
+    images_micros = _sum_micros(image_assets_qs, "cost_micros")
+    realtime_micros = _sum_micros(realtime_qs, "cost_actual_micros")
+    total_micros = compositions_micros + images_micros + realtime_micros
+
+    mtd_compositions = _sum_micros(
+        comps_qs.filter(created_at__gte=month_start),
+        "cost_actual_micros",
+    )
+    mtd_images = _sum_micros(
+        image_assets_qs.filter(created_at__gte=month_start),
+        "cost_micros",
+    )
+    mtd_realtime = _sum_micros(
+        realtime_qs.filter(created_at__gte=month_start),
+        "cost_actual_micros",
+    )
+    mtd_micros = mtd_compositions + mtd_images + mtd_realtime
+
+    cost_breakdown = {
+        "compositions_micros": compositions_micros,
+        "images_micros": images_micros,
+        "realtime_micros": realtime_micros,
+        "total_micros": total_micros,
+        "mtd_micros": mtd_micros,
+        "mtd_compositions_micros": mtd_compositions,
+        "mtd_images_micros": mtd_images,
+        "mtd_realtime_micros": mtd_realtime,
+        "month_start": month_start.isoformat(),
+    }
+
     return Response(
         {
             "workspace": {
@@ -226,6 +282,7 @@ def workspace_overview(request: Request) -> Response:
             "spokespeople": spokespeople_payload,
             "knowledge": knowledge_payload,
             "compositions": compositions_payload,
+            "cost_breakdown": cost_breakdown,
         }
     )
 

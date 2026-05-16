@@ -62,6 +62,24 @@ const overviewCompositionsSchema = z.object({
   recent: z.array(overviewCompositionSchema),
 });
 
+// K7.1 (SESSION 174) — per-surface + MTD cost rollup. Pre-K7.1
+// servers omit ``cost_breakdown`` entirely; the schema makes it
+// optional so the SPA still parses against an older backend
+// without a hard failure.
+const overviewCostBreakdownSchema = z.object({
+  compositions_micros: z.number().int(),
+  images_micros: z.number().int(),
+  realtime_micros: z.number().int(),
+  total_micros: z.number().int(),
+  mtd_micros: z.number().int(),
+  mtd_compositions_micros: z.number().int(),
+  mtd_images_micros: z.number().int(),
+  mtd_realtime_micros: z.number().int(),
+  month_start: z.string(),
+});
+
+export type OverviewCostBreakdown = z.infer<typeof overviewCostBreakdownSchema>;
+
 const overviewSchema = z.object({
   workspace: z.object({
     id: z.string(),
@@ -71,6 +89,7 @@ const overviewSchema = z.object({
   spokespeople: z.array(overviewSpokespersonSchema),
   knowledge: overviewKnowledgeSchema,
   compositions: overviewCompositionsSchema,
+  cost_breakdown: overviewCostBreakdownSchema.optional(),
 });
 
 export type WorkspaceOverview = z.infer<typeof overviewSchema>;

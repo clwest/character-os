@@ -6,6 +6,7 @@ import { useMe, useSubscription } from "@/lib/api/workspaces";
 import { useSpokespeople } from "@/lib/api/spokespeople";
 import { SpokespersonCard } from "@/components/spokesperson-card";
 import { UsageMeter } from "@/components/usage-meter";
+import { CostPanel } from "@/components/cost-panel";
 import {
   useWorkspaceOverview,
   type OverviewComposition,
@@ -104,6 +105,17 @@ export function DashboardRoute() {
           loading={overview.isLoading}
           error={overview.error}
           data={overview.data}
+        />
+      </section>
+
+      <section
+        className="reveal"
+        style={{ "--reveal-delay": "0.08s" } as React.CSSProperties}
+      >
+        <CostPanel
+          loading={overview.isLoading}
+          error={overview.error}
+          data={overview.data?.cost_breakdown}
         />
       </section>
     </div>

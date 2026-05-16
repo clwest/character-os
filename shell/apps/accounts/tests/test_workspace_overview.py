@@ -284,3 +284,138 @@ def test_overview_isolates_workspaces() -> None:
     assert data["knowledge"]["doc_count"] == 0
     assert len(data["spokespeople"]) == 1
     assert data["spokespeople"][0]["name"] == "A_speaker"
+
+
+# ---- K7.1 — cost_breakdown ----------------------------------------
+
+
+def _make_image_asset(ws: Workspace, *, cost_micros: int = 6_500):
+    from apps.compositions.models import Asset, AssetType
+    return Asset.objects.create(
+        workspace=ws, asset_type=AssetType.IMAGE,
+        file_path="data:image/png;base64,a",
+        cost_micros=cost_micros,
+        purpose="scene", model="sd3-large",
+        aspect_ratio="16:9",
+    )
+
+
+def _make_realtime_session(
+    ws: Workspace, sp: Spokesperson, *, cost_actual_micros: int = 50_000,
+):
+    from apps.realtime.models import RealtimeSession
+    return RealtimeSession.objects.create(
+        workspace=ws, spokesperson=sp,
+        status=RealtimeSession.Status.ENDED,
+        cost_actual_micros=cost_actual_micros,
+    )
+
+
+def test_overview_cost_breakdown_empty_workspace_returns_zero_shape() -> None:
+    ws, user = _make_workspace_with_user("f3costempty@test")
+    client = APIClient()
+    _login(client, user)
+    response = client.get(f"/api/workspace/overview/?workspace={ws.pk}")
+    data = response.json()
+    cb = data["cost_breakdown"]
+    assert cb["compositions_micros"] == 0
+    assert cb["images_micros"] == 0
+    assert cb["realtime_micros"] == 0
+    assert cb["total_micros"] == 0
+    assert cb["mtd_micros"] == 0
+    assert cb["mtd_compositions_micros"] == 0
+    assert cb["mtd_images_micros"] == 0
+    assert cb["mtd_realtime_micros"] == 0
+    assert "month_start" in cb
+
+
+def test_overview_cost_breakdown_aggregates_per_surface() -> None:
+    ws, user = _make_workspace_with_user("f3costagg@test")
+    sp = _make_spokesperson(ws)
+    # Two compositions: 100k + 200k = 300k.
+    _make_composition(ws, sp, cost=100_000)
+    _make_composition(ws, sp, cost=200_000)
+    # Three image assets: 6500 + 3000 + 8000 = 17_500.
+    _make_image_asset(ws, cost_micros=6_500)
+    _make_image_asset(ws, cost_micros=3_000)
+    _make_image_asset(ws, cost_micros=8_000)
+    # One realtime session: 50k.
+    _make_realtime_session(ws, sp, cost_actual_micros=50_000)
+
+    client = APIClient()
+    _login(client, user)
+    response = client.get(f"/api/workspace/overview/?workspace={ws.pk}")
+    cb = response.json()["cost_breakdown"]
+    assert cb["compositions_micros"] == 300_000
+    assert cb["images_micros"] == 17_500
+    assert cb["realtime_micros"] == 50_000
+    assert cb["total_micros"] == 367_500
+    # All rows were just created → MTD = total.
+    assert cb["mtd_micros"] == 367_500
+
+
+def test_overview_cost_breakdown_mtd_excludes_prior_month_rows() -> None:
+    """Rows backdated to a prior calendar month must not appear in
+    mtd_* aggregates but DO appear in the all-time totals."""
+    from datetime import datetime, timedelta, timezone as _tz
+    from apps.compositions.models import Composition
+
+    ws, user = _make_workspace_with_user("f3costmtd@test")
+    sp = _make_spokesperson(ws)
+
+    # Composition with default (now) created_at → counts in MTD.
+    _make_composition(ws, sp, cost=100_000)
+
+    # Backdated composition (~45 days ago, certainly prior month).
+    old = _make_composition(ws, sp, cost=999_000)
+    Composition.objects.filter(pk=old.pk).update(
+        created_at=datetime.now(_tz.utc) - timedelta(days=45),
+    )
+
+    client = APIClient()
+    _login(client, user)
+    response = client.get(f"/api/workspace/overview/?workspace={ws.pk}")
+    cb = response.json()["cost_breakdown"]
+    # All-time picks up both.
+    assert cb["compositions_micros"] == 1_099_000
+    # MTD only picks up the recent row.
+    assert cb["mtd_compositions_micros"] == 100_000
+    assert cb["mtd_micros"] == 100_000
+
+
+def test_overview_cost_breakdown_isolates_workspaces() -> None:
+    ws_a, user_a = _make_workspace_with_user("f3costisoa@test", "A")
+    ws_b, _user_b = _make_workspace_with_user("f3costisob@test", "B")
+    sp_a = _make_spokesperson(ws_a, name="A_speaker")
+    sp_b = _make_spokesperson(ws_b, name="B_speaker")
+    _make_composition(ws_a, sp_a, cost=100_000)
+    _make_image_asset(ws_a, cost_micros=6_500)
+    # ws_b spend must NOT leak.
+    _make_composition(ws_b, sp_b, cost=999_999)
+    _make_image_asset(ws_b, cost_micros=999_999)
+    _make_realtime_session(ws_b, sp_b, cost_actual_micros=999_999)
+
+    client = APIClient()
+    _login(client, user_a)
+    response = client.get(f"/api/workspace/overview/?workspace={ws_a.pk}")
+    cb = response.json()["cost_breakdown"]
+    assert cb["compositions_micros"] == 100_000
+    assert cb["images_micros"] == 6_500
+    assert cb["realtime_micros"] == 0
+    assert cb["total_micros"] == 106_500
+
+
+def test_overview_compositions_total_cost_matches_breakdown() -> None:
+    """Back-compat: the existing compositions.total_cost_micros field
+    must equal the new cost_breakdown.compositions_micros for the
+    same workspace state. Keeps pre-K7.1 SPA consumers honest."""
+    ws, user = _make_workspace_with_user("f3costcompat@test")
+    sp = _make_spokesperson(ws)
+    _make_composition(ws, sp, cost=42_000)
+    _make_composition(ws, sp, cost=58_000)
+    client = APIClient()
+    _login(client, user)
+    response = client.get(f"/api/workspace/overview/?workspace={ws.pk}")
+    data = response.json()
+    assert data["compositions"]["total_cost_micros"] == 100_000
+    assert data["cost_breakdown"]["compositions_micros"] == 100_000
