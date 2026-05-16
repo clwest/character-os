@@ -216,7 +216,10 @@ describe("W11.1 — SpokespersonEditModal", () => {
     const [, init] = changeVoiceCall!;
     const body = JSON.parse((init as RequestInit).body as string);
     expect(body).toEqual({ preset: "clara" });
-    expect(onClose).toHaveBeenCalled();
+    // W11.x.1 (SESSION 175) — voice changes no longer auto-close.
+    // Operator clicks Close themselves after seeing the
+    // voice_patch banner.
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("Esc dismisses without saving", () => {
@@ -250,22 +253,30 @@ describe("W11.1 — SpokespersonEditModal", () => {
 
   // ---- SESSION 174 — voice_patch surface ----------------------------
 
-  it("voice_patch ok renders a success banner and auto-closes", async () => {
+  it("voice_patch ok renders a success banner and keeps the modal open (W11.x.1)", async () => {
+    // W11.x.1 (SESSION 175) — dogfood found the original
+    // auto-close-on-ok behavior unmounted the banner before
+    // operators could see it. Modal now stays open after any
+    // voice change so the success banner is actually visible.
     installFetchSpy({ status: "ok", error: null });
     const { onClose } = renderModal();
     await pickClaraAndSave();
-    await waitFor(() => {
-      expect(onClose).toHaveBeenCalled();
-    });
+    const banner = await screen.findByTestId("voice-patch-banner");
+    expect(banner).toHaveAttribute("data-status", "ok");
+    expect(banner).toHaveTextContent("Voice updated on the live avatar");
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByTestId("edit-cancel")).toHaveTextContent("Close");
   });
 
-  it("voice_patch skipped renders a muted info banner and auto-closes", async () => {
+  it("voice_patch skipped renders a muted info banner and keeps the modal open (W11.x.1)", async () => {
     installFetchSpy({ status: "skipped", error: null });
     const { onClose } = renderModal();
     await pickClaraAndSave();
-    await waitFor(() => {
-      expect(onClose).toHaveBeenCalled();
-    });
+    const banner = await screen.findByTestId("voice-patch-banner");
+    expect(banner).toHaveAttribute("data-status", "skipped");
+    expect(banner).toHaveTextContent("No live avatar exists yet");
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByTestId("edit-cancel")).toHaveTextContent("Close");
   });
 
   it("voice_patch failed renders an error banner and keeps the modal open", async () => {

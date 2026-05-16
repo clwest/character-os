@@ -153,15 +153,16 @@ export function SpokespersonEditModal({
           preset: voicePreset,
         });
         setVoicePatch(result.voice_patch);
-        // SESSION 174 — only auto-close on clean voice-patch
-        // outcomes. ``failed`` keeps the modal open so the
-        // operator sees the error message and can decide whether
-        // to dismiss or retry. ``ok`` / ``skipped`` are both
-        // success-shapes (skipped = no live avatar to PATCH; DB
-        // row updated regardless).
-        if (result.voice_patch.status === "failed") {
-          return;
-        }
+        // W11.x.1 (SESSION 175) — never auto-close after a voice
+        // change. SESSION 174 dogfood: the success/skipped
+        // banners flashed for ~10ms then unmounted because
+        // ``onClose()`` fired in the same React tick that set
+        // the banner state, leaving operators with zero visible
+        // confirmation. Operator clicks Close themselves
+        // (button relabels via the voicePatch-aware footer).
+        // Persona-only edits (no voice change) still auto-close
+        // — they don't carry telemetry to surface.
+        return;
       }
       onClose();
     } catch (err) {
@@ -326,7 +327,7 @@ export function SpokespersonEditModal({
             disabled={isPending}
             data-testid="edit-cancel"
           >
-            {voicePatch?.status === "failed" ? "Close" : "Cancel"}
+            {voicePatch ? "Close" : "Cancel"}
           </Button>
           <Button
             type="submit"
