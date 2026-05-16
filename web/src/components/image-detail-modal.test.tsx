@@ -32,6 +32,7 @@ const ASSET: ImageAsset = {
   style_preset: "minimalist",
   prompt: "A detailed scene illustration of a craft brewery.",
   subject: "a craft brewery at sunrise",
+  title: "a craft brewery at sunrise",
   negative_prompt: "no people",
   aspect_ratio: "16:9",
   spokesperson: null,

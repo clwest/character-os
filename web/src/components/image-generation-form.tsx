@@ -51,6 +51,12 @@ interface FormState {
   stylePreset: string | undefined;
   showAdvanced: boolean;
   negativePromptOverride: string;
+  // W11.6.5.1 — operator-facing label. Auto-derived from
+  // ``subject`` until the operator types here, then locks
+  // (so retyping the subject doesn't clobber operator
+  // intent).
+  title: string;
+  titleEdited: boolean;
 }
 
 const INITIAL_STATE: FormState = {
@@ -61,7 +67,27 @@ const INITIAL_STATE: FormState = {
   stylePreset: undefined,
   showAdvanced: false,
   negativePromptOverride: "",
+  title: "",
+  titleEdited: false,
 };
+
+const TITLE_AUTOFILL_MAX_CHARS = 60;
+
+function autofillTitle(subject: string): string {
+  const cleaned = subject.replace(/\s+/g, " ").trim();
+  if (!cleaned) return "";
+  // Snap to first sentence boundary if it lands in budget.
+  for (const sep of [". ", "! ", "? "]) {
+    const idx = cleaned.indexOf(sep);
+    if (idx > 8 && idx <= TITLE_AUTOFILL_MAX_CHARS) {
+      return cleaned.slice(0, idx + 1).trim();
+    }
+  }
+  if (cleaned.length <= TITLE_AUTOFILL_MAX_CHARS) return cleaned;
+  const cutoff = cleaned.lastIndexOf(" ", TITLE_AUTOFILL_MAX_CHARS - 1);
+  const end = cutoff > 20 ? cutoff : TITLE_AUTOFILL_MAX_CHARS - 1;
+  return cleaned.slice(0, end).replace(/[,;:\-\s]+$/, "") + "…";
+}
 
 export function ImageGenerationForm({
   workspace,
@@ -74,15 +100,37 @@ export function ImageGenerationForm({
     setState((s) => ({ ...s, [key]: value }));
   }
 
+  function handleSubjectChange(next: string) {
+    setState((s) => ({
+      ...s,
+      subject: next,
+      // Auto-fill the title from the subject UNTIL the
+      // operator types into the title field themselves. Once
+      // they've edited it, leave it alone so re-editing the
+      // subject doesn't clobber their label.
+      title: s.titleEdited ? s.title : autofillTitle(next),
+    }));
+  }
+
+  function handleTitleChange(next: string) {
+    setState((s) => ({
+      ...s,
+      title: next,
+      titleEdited: true,
+    }));
+  }
+
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const subject = state.subject.trim();
     if (!subject) return;
+    const title = state.title.trim();
     generate.mutate(
       {
         workspace,
         purpose: state.purpose,
         subject,
+        title: title || undefined,
         model: state.model,
         aspect_ratio: state.aspectRatio,
         style_preset: state.stylePreset,
@@ -151,13 +199,38 @@ export function ImageGenerationForm({
           id="image-subject"
           data-testid="image-subject"
           value={state.subject}
-          onChange={(e) => handleChange("subject", e.target.value)}
+          onChange={(e) => handleSubjectChange(e.target.value)}
           placeholder="Describe what the image should show."
           rows={3}
           required
           disabled={submitting}
           className="min-h-[88px] rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
         />
+      </section>
+
+      {/* W11.6.5.1 — operator-facing title for pickers */}
+      <section className="flex flex-col gap-2">
+        <Label
+          htmlFor="image-title"
+          className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground"
+        >
+          Title
+        </Label>
+        <input
+          id="image-title"
+          data-testid="image-title"
+          type="text"
+          value={state.title}
+          onChange={(e) => handleTitleChange(e.target.value)}
+          placeholder="Auto-filled from subject. Edit to override."
+          maxLength={120}
+          disabled={submitting}
+          className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+        />
+        <p className="text-xs text-muted-foreground">
+          How this image appears in workspace pickers + the library.
+          Auto-populates from subject until you type here.
+        </p>
       </section>
 
       {/* Model */}

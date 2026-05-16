@@ -214,6 +214,123 @@ def test_create_image_with_spokesperson_link():
     assert asset.spokesperson_id == sp.pk
 
 
+def test_create_image_auto_derives_title_from_subject():
+    """W11.6.5.1 — when the operator doesn't supply a title,
+    the ViewSet defaults to the first ~60 chars of the
+    subject. This is what makes the asset_picker dropdown
+    show "a craft brewery at sunrise" instead of a truncated
+    base64 data URI."""
+    ws, user = _make_workspace_with_user("img-title-default@test")
+    api = APIClient()
+    _login(api, user)
+
+    cm, _fake = _patched_client(_stability_result())
+    with patch("apps.compositions.views.MediaEngineClient", return_value=cm):
+        resp = api.post(
+            "/api/images/",
+            {
+                "workspace": str(ws.pk),
+                "purpose": "scene",
+                "subject": "a craft brewery owner tapping a fresh keg at sunrise",
+            },
+            format="json",
+        )
+
+    assert resp.status_code == http.HTTP_201_CREATED
+    data = resp.json()
+    asset = Asset.objects.get(pk=data["id"])
+    # Subject fits in 60 chars — title equals subject exactly.
+    assert asset.title == "a craft brewery owner tapping a fresh keg at sunrise"
+    assert data["title"] == asset.title
+
+
+def test_create_image_truncates_long_subject_to_title_with_ellipsis():
+    """W11.6.5.1 — subjects > 60 chars get word-boundary
+    truncated with a trailing ellipsis so the picker label
+    stays a readable summary."""
+    ws, user = _make_workspace_with_user("img-title-long@test")
+    api = APIClient()
+    _login(api, user)
+
+    long_subject = (
+        "a sweeping cinematic vineyard at golden hour with "
+        "rolling hills and dramatic shadows from distant clouds"
+    )
+    cm, _fake = _patched_client(_stability_result())
+    with patch("apps.compositions.views.MediaEngineClient", return_value=cm):
+        resp = api.post(
+            "/api/images/",
+            {
+                "workspace": str(ws.pk),
+                "purpose": "scene",
+                "subject": long_subject,
+            },
+            format="json",
+        )
+    asset = Asset.objects.get(pk=resp.json()["id"])
+    assert asset.title.endswith("…")
+    assert len(asset.title) <= 61  # 60 chars + ellipsis
+    # Word-boundary truncated — no half-words.
+    pre_ellipsis = asset.title.rstrip("…").strip()
+    assert long_subject.startswith(pre_ellipsis), (
+        f"title {asset.title!r} doesn't word-boundary into subject"
+    )
+
+
+def test_create_image_explicit_title_overrides_subject_default():
+    """W11.6.5.1 — operator-supplied title in the request body
+    wins over the subject-derived default. This is the path
+    operators take when they want a distinctive label like
+    'Hero shot — Q3 campaign' for an image whose subject is
+    long boilerplate prompt text."""
+    ws, user = _make_workspace_with_user("img-title-override@test")
+    api = APIClient()
+    _login(api, user)
+
+    cm, _fake = _patched_client(_stability_result())
+    with patch("apps.compositions.views.MediaEngineClient", return_value=cm):
+        resp = api.post(
+            "/api/images/",
+            {
+                "workspace": str(ws.pk),
+                "purpose": "scene",
+                "subject": "a craft brewery owner at sunrise",
+                "title": "Hero shot — Q3 campaign",
+            },
+            format="json",
+        )
+    asset = Asset.objects.get(pk=resp.json()["id"])
+    assert asset.title == "Hero shot — Q3 campaign"
+
+
+def test_asset_list_endpoint_returns_title_and_subject_for_picker():
+    """W11.6.5.1 — the legacy /api/assets/ endpoint (which
+    powers the recipe asset_picker dropdowns) must return the
+    new title + subject fields so the SPA assetLabel cascade
+    can render readable labels instead of file_path tails."""
+    ws, user = _make_workspace_with_user("img-list-title@test")
+    api = APIClient()
+    _login(api, user)
+
+    # Direct create — no MediaEngineClient call needed; we're
+    # testing the list endpoint's response shape.
+    Asset.objects.create(
+        workspace=ws, asset_type=AssetType.IMAGE,
+        file_path="data:image/png;base64,x",
+        purpose="scene", model="sd3-large",
+        aspect_ratio="16:9",
+        subject="a craft brewery owner at sunrise",
+        title="Brewery hero",
+    )
+
+    resp = api.get(f"/api/assets/?workspace={ws.pk}&asset_type=image")
+    assert resp.status_code == http.HTTP_200_OK
+    rows = resp.json()
+    assert len(rows) == 1
+    assert rows[0]["title"] == "Brewery hero"
+    assert rows[0]["subject"] == "a craft brewery owner at sunrise"
+
+
 def test_create_image_persists_original_subject_for_regenerate():
     """W11.6.4 — Asset.subject preserves the operator's pre-
     composition input so the SPA's Regenerate CTA can re-fire

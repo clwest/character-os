@@ -552,10 +552,34 @@ function AssetPicker({
 }
 
 function assetLabel(a: AssetListItem): string {
-  const seconds = a.duration_ms != null ? ` · ${(a.duration_ms / 1000).toFixed(1)}s` : "";
+  // W11.6.5.1 — operator-facing label cascade:
+  //   1. ``title`` (auto-populated on /api/images/ create from
+  //      subject; operator can override).
+  //   2. ``subject`` (image rows from W11.6.4+ when title is
+  //      empty — typically a pre-W11.6.5.1 row).
+  //   3. ``file_path``-tail filename + duration (the legacy
+  //      shape used for clip/audio assets that don't have
+  //      titles yet).
+  //
+  // Pre-W11.6.5.1 image rows expose data URIs in file_path
+  // which split-tail to garbage like "data:image/png;base64,
+  // iVBORw0KGgo…" — actively misleading. Subject is the
+  // far better fallback for those.
+  if (a.title && a.title.trim()) {
+    return _trim(a.title);
+  }
+  if (a.asset_type === "image" && a.subject && a.subject.trim()) {
+    return _trim(a.subject);
+  }
+  const seconds =
+    a.duration_ms != null ? ` · ${(a.duration_ms / 1000).toFixed(1)}s` : "";
   const filename = a.file_path.split("/").pop() || a.file_path;
-  const trimmedName = filename.length > 40 ? `${filename.slice(0, 37)}…` : filename;
+  const trimmedName = _trim(filename);
   return `${trimmedName}${seconds}`;
+}
+
+function _trim(s: string): string {
+  return s.length > 60 ? `${s.slice(0, 57)}…` : s;
 }
 
 function AssetHint({

@@ -135,6 +135,12 @@ const assetListItemSchema = z.object({
   cost_micros: z.number().int(),
   composition: z.string().nullable(),
   created_at: z.string(),
+  // W11.6.5.1 — operator-facing label + subject for the
+  // recipe asset_picker dropdown. Both optional with empty
+  // default for backward compat with pre-W11.6.5.1 server
+  // responses (the SPA assetLabel falls back to filename).
+  title: z.string().default(""),
+  subject: z.string().default(""),
 });
 
 export type AssetListItem = z.infer<typeof assetListItemSchema>;

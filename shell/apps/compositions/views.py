@@ -93,6 +93,40 @@ STABILITY_VALID_MODELS = frozenset({
 # for dollar conversion lives in the SPA (Q-img-G).
 _STABILITY_CREDITS_TO_MICROS = 1000
 
+# W11.6.5.1 — fallback title length when auto-deriving from
+# subject. 60 chars fits comfortably in dropdown widths without
+# truncation; longer subjects truncate with an ellipsis so the
+# operator can still recognize them.
+_AUTO_TITLE_MAX_CHARS = 60
+
+
+def _derive_title_from_subject(subject: str) -> str:
+    """Pull a usable picker label out of an operator's subject.
+
+    Strategy: trim, collapse internal whitespace, snap to the
+    first sentence boundary OR ``_AUTO_TITLE_MAX_CHARS`` —
+    whichever comes first — and append an ellipsis when we
+    truncated mid-thought. Empty subject → empty title (the
+    picker falls back to the filename / data-URI tail).
+    """
+    if not subject:
+        return ""
+    cleaned = " ".join(subject.split())
+    if not cleaned:
+        return ""
+    # First sentence boundary if it lands within the budget.
+    for end_char in (". ", "! ", "? "):
+        idx = cleaned.find(end_char)
+        if 8 < idx <= _AUTO_TITLE_MAX_CHARS:
+            return cleaned[: idx + 1].strip()
+    if len(cleaned) <= _AUTO_TITLE_MAX_CHARS:
+        return cleaned
+    # Word-boundary truncation.
+    cutoff = cleaned.rfind(" ", 0, _AUTO_TITLE_MAX_CHARS - 1)
+    if cutoff < 20:
+        cutoff = _AUTO_TITLE_MAX_CHARS - 1
+    return cleaned[:cutoff].rstrip(",;:- ") + "…"
+
 
 class AssetViewSet(viewsets.GenericViewSet):
     """Read-only list of workspace assets — powers the V15.2
@@ -142,6 +176,11 @@ class AssetViewSet(viewsets.GenericViewSet):
                 "cost_micros": a.cost_micros,
                 "composition": str(a.composition_id) if a.composition_id else None,
                 "created_at": a.created_at.isoformat(),
+                # W11.6.5.1 — operator-facing label. Empty for
+                # pre-W11.6.5.1 rows; the SPA assetLabel falls
+                # back to filename / subject in that case.
+                "title": a.title,
+                "subject": a.subject,
             }
             for a in qs
         ]
@@ -512,6 +551,14 @@ class ImageViewSet(viewsets.GenericViewSet):
         aspect_ratio = body.get("aspect_ratio") or "16:9"
         negative_prompt_override = body.get("negative_prompt_override") or None
         spokesperson_id = body.get("spokesperson") or None
+        # W11.6.5.1 — operator-facing label for pickers. Auto-
+        # populated from the first ~60 chars of the subject when
+        # the operator doesn't pass an explicit title. The
+        # subject-as-default is the lowest-friction path; the
+        # operator can override (or edit later) for distinctive
+        # cases.
+        title_raw = (body.get("title") or "").strip()
+        title = title_raw[:120] if title_raw else _derive_title_from_subject(subject)
 
         # ---- payload validation -------------------------------------
         if not workspace_id:
@@ -624,6 +671,7 @@ class ImageViewSet(viewsets.GenericViewSet):
             style_preset=result.style_preset or "",
             prompt=result.prompt or "",
             subject=subject,
+            title=title,
             negative_prompt=negative_prompt_override or "",
             aspect_ratio=result.aspect_ratio or aspect_ratio,
             spokesperson=spokesperson,

@@ -118,6 +118,11 @@ const imageAssetSchema = z.object({
   // falls back to "Adjust" (form opens with subject blank) in
   // that case.
   subject: z.string().default(""),
+  // W11.6.5.1 — operator-facing label surfaced in pickers +
+  // library grid. Auto-populated from subject for new images;
+  // empty for pre-W11.6.5.1 rows (label falls back to
+  // subject → filename).
+  title: z.string().default(""),
   negative_prompt: z.string(),
   aspect_ratio: z.string(),
   spokesperson: z.string().nullable(),
@@ -219,6 +224,9 @@ export interface GenerateImageInput {
   aspect_ratio?: ImageAspectRatio;
   negative_prompt_override?: string;
   spokesperson?: string;
+  // W11.6.5.1 — operator-facing label. When omitted the
+  // backend auto-derives from subject's first ~60 chars.
+  title?: string;
 }
 
 export async function generateImage(

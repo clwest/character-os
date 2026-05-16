@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-16T22:04:55.047615+00:00
-git_sha: 3ecb6fe (working tree dirty)
+generated_at: 2026-05-16T22:50:21.539514+00:00
+git_sha: 8e0185b (working tree dirty)
 git_branch: main
 ---
 
@@ -15,7 +15,7 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-16T22:04:55.047615+00:00** against commit **3ecb6fe**
+Generated **2026-05-16T22:50:21.539514+00:00** against commit **8e0185b**
 on branch **main** (working tree dirty).
 
 Python 3.11.6 · Django 5.2.14 ·
@@ -32,8 +32,8 @@ Celery 5.6.3 · httpx 0.28.1.
 | URL routes (`/api/*`) | **107** | same |
 | FastAPI routes | **118** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **8** | `celery_app.tasks` filter |
-| Migrations (applied / total) | **60 / 60** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **44,972** in 219 files | `pathlib.Path.rglob("*.py")` |
+| Migrations (applied / total) | **61 / 61** | `MigrationRecorder` ∩ `MigrationLoader` |
+| Shell LOC (`*.py`, no venv/migrations) | **45,782** in 219 files | `pathlib.Path.rglob("*.py")` |
 | Media-engine LOC (`*.py`, no venv/migrations) | **32,638** in 58 files | same |
 
 ---
@@ -48,7 +48,7 @@ Total: **16** models across **8** apps.
 | `accounts` | `User` | `accounts_user` | 8 | 0 |
 | `accounts` | `Workspace` | `accounts_workspace` | 6 | 1 |
 | `billing` | `Subscription` | `billing_subscription` | 9 | 0 |
-| `compositions` | `Asset` | `compositions_asset` | 23 | 4 |
+| `compositions` | `Asset` | `compositions_asset` | 24 | 4 |
 | `compositions` | `Composition` | `compositions_composition` | 19 | 4 |
 | `compositions` | `CompositionStep` | `compositions_compositionstep` | 15 | 2 |
 | `conversations` | `ConversationEmbedding` | `conversations_conversationembedding` | 8 | 1 |
@@ -233,7 +233,7 @@ Total: **8** registered tasks (excluding `celery.*` built-ins).
 
 ## Migrations
 
-**60 of 60** migrations applied.
+**61 of 61** migrations applied.
 
 | App | Applied | Total | Pending |
 |---|---|---|---|
@@ -242,7 +242,7 @@ Total: **8** registered tasks (excluding `celery.*` built-ins).
 | `admin` | 3 | 3 | 0 |
 | `auth` | 12 | 12 | 0 |
 | `billing` | 1 | 1 | 0 |
-| `compositions` | 7 | 7 | 0 |
+| `compositions` | 8 | 8 | 0 |
 | `contenttypes` | 2 | 2 | 0 |
 | `conversations` | 4 | 4 | 0 |
 | `embeddings` | 2 | 2 | 0 |
@@ -273,11 +273,11 @@ Total: **8** registered tasks (excluding `celery.*` built-ins).
 | Service | Files | Lines |
 |---|---|---|
 | `media-engine/` | 58 | 32,638 |
-| `shell/` | 219 | 44,972 |
-| **total** | **277** | **77,610** |
+| `shell/` | 219 | 45,782 |
+| **total** | **277** | **78,420** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-05-16T22:04:55.047615+00:00 from commit 3ecb6fe. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-16T22:50:21.539514+00:00 from commit 8e0185b. Re-run `python manage.py inventory` (from `shell/`) to refresh.*

@@ -96,6 +96,9 @@ class ImageAssetSerializer(serializers.ModelSerializer):
             # W11.6.4 — original operator subject (pre-composition)
             # for the Regenerate CTA.
             "subject",
+            # W11.6.5.1 — operator-facing label surfaced in
+            # pickers and library grid.
+            "title",
             "negative_prompt",
             "aspect_ratio",
             "spokesperson",

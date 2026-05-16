@@ -125,6 +125,27 @@ class Asset(models.Model):
 
     asset_type = models.CharField(max_length=20, choices=AssetType.choices)
 
+    # W11.6.5.1 (SESSION 174) — operator-facing label. Pickers
+    # (asset_picker dropdowns on recipe forms, image library
+    # grid, detail modal) prefer this over the filename / data-
+    # URI fallback. Auto-populated from the subject for images
+    # created via W11.6.2 ImageViewSet; empty default for
+    # existing pre-W11.6.5.1 rows + non-image surfaces that
+    # don't have a natural human label yet (those can be
+    # backfilled later as separate slices).
+    title = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+        help_text=(
+            "Operator-facing label surfaced in pickers. "
+            "Auto-populated from the image subject for images "
+            "generated via /api/images/; clips + audio "
+            "currently leave empty + fall back to filename "
+            "labels in the SPA."
+        ),
+    )
+
     # Where the bytes live. For clips/audio/images: local file
     # path under ``media-engine/data/_assets/`` OR an external
     # URL. For voice: the Runway voice_id (no local file).
