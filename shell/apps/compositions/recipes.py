@@ -395,6 +395,25 @@ RECIPES: dict[str, Recipe] = {
                 name="prompt", type="textarea", label="Visual prompt",
                 min_chars=4, max_chars=1000,
             ),
+            # W11.6.5 (SESSION 174) — optional workspace image
+            # used as Runway's reference image. When supplied,
+            # routes through gen4_turbo (image-to-video) instead
+            # of gen4.5 (text-to-video). Pick from the workspace
+            # library populated via /images. Resolver extracts
+            # the data URI from the Asset's file_path; the
+            # starter's existing ``prompt_image: str`` param
+            # accepts it directly.
+            RecipeField(
+                name="prompt_image_asset_id",
+                type="asset_picker", label="Reference image (optional)",
+                required=False,
+                asset_type=AssetType.IMAGE,
+                help_text=(
+                    "Pick a workspace image to use as the "
+                    "reference frame. Generates via Runway "
+                    "image-to-video when set."
+                ),
+            ),
             RecipeField(
                 name="ratio", type="select", label="Aspect ratio",
                 required=False, default="1280:720", choices=_RATIO_CHOICES,
@@ -406,6 +425,9 @@ RECIPES: dict[str, Recipe] = {
             _NAME_FIELD,
             _MOCK_MODE_FIELD,
         ),
+        # W11.6.5 — map the asset-picker field name to the
+        # starter's existing ``prompt_image`` param.
+        param_map={"prompt_image_asset_id": "prompt_image"},
         starter=starters.cinematic_visual,
     ),
     "storyboard_voiced": Recipe(
@@ -743,7 +765,19 @@ def resolve_kwargs(
             kwargs[starter_kwarg.removesuffix("_id")] = sp
         elif f.type == "asset_picker":
             asset = Asset.objects.get(pk=value, workspace=workspace)
-            kwargs[starter_kwarg] = asset
+            # W11.6.5 (SESSION 174) — image assets get unwrapped
+            # to their ``file_path`` (data URI for W11.6.1
+            # images) because recipes that consume images take
+            # URL strings, not Asset rows. cinematic_visual's
+            # ``prompt_image: str | None`` is the canonical
+            # example. Clips + audio continue to flow through
+            # as Asset rows because their consuming starters
+            # (e.g. pip_layout's ``base_clip: Asset``) operate
+            # on metadata, not URL strings.
+            if asset.asset_type == AssetType.IMAGE:
+                kwargs[starter_kwarg] = asset.file_path
+            else:
+                kwargs[starter_kwarg] = asset
         else:
             kwargs[starter_kwarg] = value
 

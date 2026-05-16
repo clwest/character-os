@@ -835,3 +835,162 @@ def test_list_compositions_scoped_to_caller() -> None:
     data_b = response_b.json()
     assert len(data_b) == 1
     assert data_b[0]["workspace"] == str(ws_b.pk)
+
+
+# ---- W11.6.5 (SESSION 174) — recipe image-picker ----------------
+
+
+def _make_image_asset(ws: Workspace, *, file_path: str = "data:image/png;base64,abcdef") -> Asset:
+    """Image asset shape mirrors the W11.6.1 ImageViewSet
+    create path. file_path holds the data URI; cinematic_visual
+    will read it through the resolver."""
+    return Asset.objects.create(
+        workspace=ws, asset_type=AssetType.IMAGE,
+        file_path=file_path,
+        mime_type="image/png",
+        purpose="scene", model="sd3-large",
+        aspect_ratio="16:9",
+    )
+
+
+def test_cinematic_visual_recipe_exposes_image_picker_field() -> None:
+    """W11.6.5 — the optional asset_picker field is part of
+    cinematic_visual's metadata so the SPA form renders it."""
+    ws, user = _make_workspace_with_user("w1165meta@test")
+    client = APIClient()
+    _login(client, user)
+    resp = client.get("/api/recipes/cinematic_visual/")
+    assert resp.status_code == http.HTTP_200_OK
+    data = resp.json()
+    image_fields = [
+        f for f in data["fields"]
+        if f["name"] == "prompt_image_asset_id"
+    ]
+    assert len(image_fields) == 1
+    field = image_fields[0]
+    assert field["type"] == "asset_picker"
+    assert field["asset_type"] == AssetType.IMAGE
+    assert field["required"] is False
+
+
+def test_cinematic_visual_with_image_passes_data_uri_to_starter() -> None:
+    """W11.6.5 — when the operator picks a workspace image,
+    the resolver extracts the Asset's file_path (data URI)
+    and passes it as prompt_image. The composition's step
+    params should carry it through to the media-engine call."""
+    ws, user = _make_workspace_with_user("w1165image@test")
+    sp = _make_spokesperson(ws)
+    image = _make_image_asset(
+        ws, file_path="data:image/png;base64,IMAGEBYTES",
+    )
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "cinematic_visual",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "prompt": "A craft brewery at sunrise",
+                "prompt_image_asset_id": str(image.pk),
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    # Composition's single step should carry prompt_image
+    # populated from the picked Asset's file_path.
+    assert len(data["steps"]) == 1
+    step_params = data["steps"][0]["params"]
+    assert step_params.get("prompt_image") == (
+        "data:image/png;base64,IMAGEBYTES"
+    )
+
+
+def test_cinematic_visual_without_image_does_not_set_prompt_image() -> None:
+    """Invariant — the image picker is optional. Omitting it
+    leaves prompt_image absent from step params (so the starter
+    routes through gen4.5 text-to-video instead of gen4_turbo
+    image-to-video)."""
+    ws, user = _make_workspace_with_user("w1165noimage@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "cinematic_visual",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "prompt": "A craft brewery at sunrise",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    step_params = data["steps"][0]["params"]
+    assert "prompt_image" not in step_params
+
+
+def test_cinematic_visual_rejects_cross_workspace_image() -> None:
+    """W11.6.5 — workspace isolation extends to the new
+    image-picker. Picking an image from another workspace
+    fails with 400 via the standard Asset.DoesNotExist path."""
+    ws_a, user_a = _make_workspace_with_user("w1165xa@test", "A")
+    ws_b, _user_b = _make_workspace_with_user("w1165xb@test", "B")
+    sp_a = _make_spokesperson(ws_a)
+    foreign_image = _make_image_asset(ws_b)
+    client = APIClient()
+    _login(client, user_a)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "cinematic_visual",
+            "workspace": str(ws_a.pk),
+            "params": {
+                "spokesperson_id": str(sp_a.pk),
+                "prompt": "A scene",
+                "prompt_image_asset_id": str(foreign_image.pk),
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_400_BAD_REQUEST
+
+
+def test_resolver_passes_asset_row_for_clip_picker_unchanged() -> None:
+    """W11.6.5 invariant — the special-case for IMAGE asset_type
+    didn't change how clip asset_pickers resolve. pip_layout's
+    base_clip + pip_clip should still arrive as Asset rows at
+    the starter, not as file_path strings."""
+    from apps.compositions.recipes import RECIPES, resolve_kwargs
+
+    ws, user = _make_workspace_with_user("w1165clipinv@test")
+    sp = _make_spokesperson(ws)
+    base = _make_clip(ws, file_path="/data/base.mp4")
+    pip = _make_clip(ws, file_path="/data/pip.mp4")
+    recipe = RECIPES["pip_layout"]
+    kwargs = resolve_kwargs(
+        recipe,
+        workspace=ws,
+        params={
+            "spokesperson_id": str(sp.pk),
+            "base_clip_id": str(base.pk),
+            "pip_clip_id": str(pip.pk),
+            "mock_mode": True,
+        },
+        created_by=user,
+    )
+    assert isinstance(kwargs["base_clip"], Asset)
+    assert isinstance(kwargs["pip_clip"], Asset)
+    assert kwargs["base_clip"].file_path == "/data/base.mp4"

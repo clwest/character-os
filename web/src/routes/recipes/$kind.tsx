@@ -508,10 +508,22 @@ function AssetPicker({
           No {assetType} assets yet
         </p>
         <p className="normal-case tracking-normal">
-          Run a recipe that produces a {assetType} first (e.g. a
-          {assetType === "clip" ? " talking head or cinematic visual" : ""}
-          {assetType === "audio" ? " voice design" : ""}), then come back here
-          to use it as input.
+          {assetType === "image" ? (
+            <>
+              Generate one from the{" "}
+              <Link to="/images" className="underline">
+                Images tab
+              </Link>{" "}
+              first, then come back here to use it as a reference frame.
+            </>
+          ) : (
+            <>
+              Run a recipe that produces a {assetType} first (e.g. a
+              {assetType === "clip" ? " talking head or cinematic visual" : ""}
+              {assetType === "audio" ? " voice design" : ""}), then come back
+              here to use it as input.
+            </>
+          )}
         </p>
       </div>
     );
