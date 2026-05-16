@@ -93,6 +93,9 @@ class ImageAssetSerializer(serializers.ModelSerializer):
             "model",
             "style_preset",
             "prompt",
+            # W11.6.4 — original operator subject (pre-composition)
+            # for the Regenerate CTA.
+            "subject",
             "negative_prompt",
             "aspect_ratio",
             "spokesperson",

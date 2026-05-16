@@ -113,6 +113,11 @@ const imageAssetSchema = z.object({
   model: z.string(),
   style_preset: z.string(),
   prompt: z.string(),
+  // W11.6.4 — original operator subject (pre-composition).
+  // Empty for pre-W11.6.4 image rows; the SPA Regenerate CTA
+  // falls back to "Adjust" (form opens with subject blank) in
+  // that case.
+  subject: z.string().default(""),
   negative_prompt: z.string(),
   aspect_ratio: z.string(),
   spokesperson: z.string().nullable(),

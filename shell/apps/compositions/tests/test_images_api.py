@@ -214,6 +214,34 @@ def test_create_image_with_spokesperson_link():
     assert asset.spokesperson_id == sp.pk
 
 
+def test_create_image_persists_original_subject_for_regenerate():
+    """W11.6.4 — Asset.subject preserves the operator's pre-
+    composition input so the SPA's Regenerate CTA can re-fire
+    with the same subject (sending the composed prompt back as
+    a new subject would double-apply the purpose framing)."""
+    ws, user = _make_workspace_with_user("img-subj@test")
+    api = APIClient()
+    _login(api, user)
+
+    cm, _fake = _patched_client(_stability_result())
+    with patch("apps.compositions.views.MediaEngineClient", return_value=cm):
+        resp = api.post(
+            "/api/images/",
+            {
+                "workspace": str(ws.pk),
+                "purpose": "scene",
+                "subject": "a craft brewery owner at sunrise",
+            },
+            format="json",
+        )
+
+    assert resp.status_code == http.HTTP_201_CREATED
+    data = resp.json()
+    assert data["subject"] == "a craft brewery owner at sunrise"
+    asset = Asset.objects.get(pk=data["id"])
+    assert asset.subject == "a craft brewery owner at sunrise"
+
+
 def test_create_image_negative_prompt_override_is_persisted():
     ws, user = _make_workspace_with_user("img-neg@test")
     api = APIClient()

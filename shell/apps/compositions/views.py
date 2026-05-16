@@ -623,6 +623,7 @@ class ImageViewSet(viewsets.GenericViewSet):
             model=result.model or model_name,
             style_preset=result.style_preset or "",
             prompt=result.prompt or "",
+            subject=subject,
             negative_prompt=negative_prompt_override or "",
             aspect_ratio=result.aspect_ratio or aspect_ratio,
             spokesperson=spokesperson,

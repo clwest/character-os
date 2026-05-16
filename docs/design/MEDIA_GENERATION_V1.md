@@ -597,19 +597,93 @@ arrives, lands in library) deferred to W11.6.4 — that
 slice expands the library with filters / delete /
 regenerate, which is what the dogfood loop exercises.
 
-### W11.6.4 — SPA library view
+### W11.6.4 — SPA library view ✓ SHIPPED (SESSION 173)
+
+**Scope-lock omission resolved**: scope-lock listed
+``purpose / model / style_preset / prompt / negative_prompt /
+aspect_ratio / spokesperson`` as the Asset image fields but
+the Regenerate CTA (Journey 1 + Journey 3) needs the
+original *subject* — re-firing with the composed prompt as
+the new subject would double-apply the purpose framing and
+template prefix (e.g. "A detailed scene illustration of A
+detailed scene illustration of…"). Added an 8th field.
 
 **Files touched**:
 
-* `web/src/components/image-library-grid.tsx` — NEW. Grid +
-  filters + pagination.
-* `web/src/components/image-detail-modal.tsx` — NEW. Full
-  prompt + metadata + regenerate / delete CTAs.
-* `web/src/routes/images/index.tsx` — wire library sub-view.
-* Tests (vitest) — 4-6 unit tests.
+* `shell/apps/compositions/models.py` — Asset gains an
+  optional ``subject`` TextField. Helper text explains the
+  pre-composition semantics.
+* `shell/apps/compositions/migrations/0007_w11_6_4_asset_subject.py`
+  — additive; pre-W11.6.4 image rows leave it empty and
+  the SPA disables Regenerate for them (with a tooltip
+  pointing to the Generate tab). Migration count 52 → 53.
+* `shell/apps/compositions/views.py` — ImageViewSet persists
+  the request body's ``subject`` onto the row.
+* `shell/apps/compositions/serializers.py` —
+  ``ImageAssetSerializer.fields`` surfaces ``subject``.
+* `shell/apps/compositions/tests/test_images_api.py` — one
+  new test (``test_create_image_persists_original_subject_for_regenerate``).
+  Django total 751 → 752.
+* `web/src/lib/api/images.ts` — ``imageAssetSchema`` gains
+  ``subject`` with ``.default("")`` so older rows parse.
+* `web/src/components/image-library-grid.tsx` — NEW.
+  Workspace image grid + filter bar (purpose / model /
+  style_preset). Filter selections re-trigger ``useImages``
+  via queryKey change. Empty state is filter-aware ("No
+  images match the active filters" vs "Switch to the
+  Generate tab to create your first one"). Cap hint surfaces
+  when the response hits the 200-newest backend cap;
+  pagination defers to W11.7+.
+* `web/src/components/image-detail-modal.tsx` — NEW.
+  Full image + composed prompt + metadata grid (model /
+  style / cost / created). Regenerate CTA fires
+  ``useGenerateImage`` with the asset's ``subject`` + same
+  params + same negative_prompt_override + same
+  spokesperson FK. Delete CTA requires a confirm tap before
+  firing ``useDeleteImage``. Esc / backdrop / X all dismiss
+  when no async op is in flight. Same minimal inline-modal
+  pattern as ``tool-approval-modal.tsx`` (no Radix
+  dependency).
+* `web/src/routes/images/index.tsx` — wires
+  ``ImageLibraryGrid`` + ``ImageDetailModal`` together;
+  parent owns ``selectedAssetId`` state. ``useImage`` keeps
+  the modal in sync with server-side state across
+  regenerate (which mutates the cache via the
+  ``useGenerateImage`` onSuccess from W11.6.3). Removed the
+  inline ``LibraryPreview`` from W11.6.3 (subsumed).
+* `web/src/components/image-library-grid.test.tsx` — NEW
+  (6 tests: card per asset, empty workspace state, onSelect
+  callback fires with clicked asset, filter selection
+  changes fetch URL, Clear filters control appears with
+  active filter, filter-aware empty message when filters
+  return nothing).
+* `web/src/components/image-detail-modal.test.tsx` — NEW
+  (6 tests: image + metadata render, Regenerate POSTs the
+  *subject* not the composed prompt, Regenerate disabled
+  for pre-W11.6.4 rows with tooltip, Delete requires
+  confirm tap, X dismisses without action, error banner on
+  regenerate failure).
 
-**Acceptance**: operator can browse workspace's generated
-images + filter + regenerate + delete.
+**Test totals after SESSION 173 (W11.6.4)**: SPA vitest
+**82** (70 → 82, +12). Django **752** (751 → 752, +1).
+Media-engine **133** (unchanged). Migrations 52 → 53.
+
+**Calibration moment carried into next session**: the
+scope-lock missed ``subject`` because the journey docs
+described regenerate as "re-fires with same params, new
+seed" without surfacing the prompt-vs-subject distinction.
+The omission only became visible when implementing the
+modal — the composed prompt has the purpose framing baked
+in, so it can't double as the regenerate input. Worth
+calling out in future scope-lock reviews: distinguish
+*what the operator types* from *what the LLM sees*.
+
+**Acceptance**: operator can browse workspace images,
+filter by purpose / model / style preset, open the detail
+modal, regenerate with same params, and delete with a
+confirm step. Real-Stability dogfood (drive a real image
+through the full Generate → Library → Regenerate loop)
+is now the W11.6 arc-close prerequisite.
 
 ### W11.6.5 — Recipe integration (deferred to W11.7)
 

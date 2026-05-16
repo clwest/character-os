@@ -211,6 +211,21 @@ class Asset(models.Model):
             "library detail views."
         ),
     )
+    # W11.6.4 — original operator subject (pre-composition). The
+    # composed ``prompt`` above is what Stability saw; ``subject``
+    # is what the operator typed. We keep both so the SPA's
+    # Regenerate CTA can re-fire with the original subject (sending
+    # the composed prompt as a new subject would double-apply
+    # the purpose framing and template prefix).
+    subject = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "Operator's original subject text, before prompt "
+            "composition. Empty for non-image assets and for "
+            "pre-W11.6.4 image rows."
+        ),
+    )
     negative_prompt = models.TextField(
         blank=True,
         default="",

@@ -1,14 +1,17 @@
 /**
- * Images route — W11.6.3 (generate sub-view).
+ * Images route — W11.6.3 (generate) + W11.6.4 (library).
  *
  * Sibling of /recipes in the workspace fabric nav. Two
  * sub-views surfaced via tabs:
  *   - Generate: the W11.6.3 form (model, ratio, purpose,
  *     style preset, subject).
- *   - Library: simple recent-images list. W11.6.4 expands
- *     this with filters + regenerate + delete; for v1 of
- *     this slice we render a minimal grid so operators
- *     can confirm their newly-generated image landed.
+ *   - Library: W11.6.4's ImageLibraryGrid + ImageDetailModal.
+ *     Filters + regenerate + delete all live here.
+ *
+ * On successful generate, the route auto-switches to library
+ * so the fresh image lands in front of the operator.
+ * Auto-switch lives at the route level rather than the form
+ * so the modal can also pop the new asset on regenerate.
  *
  * Workspace resolution mirrors the rest of the SPA — fall
  * back to ``useMe().data.default_workspace`` until the
@@ -16,7 +19,7 @@
  */
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Image as ImageIcon, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import {
   Tabs,
   TabsContent,
@@ -24,7 +27,9 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { ImageGenerationForm } from "@/components/image-generation-form";
-import { useImages } from "@/lib/api/images";
+import { ImageLibraryGrid } from "@/components/image-library-grid";
+import { ImageDetailModal } from "@/components/image-detail-modal";
+import { useImage, type ImageAsset } from "@/lib/api/images";
 import { useMe } from "@/lib/api/workspaces";
 
 type SubView = "generate" | "library";
@@ -32,7 +37,14 @@ type SubView = "generate" | "library";
 export function ImagesRoute() {
   const me = useMe();
   const [tab, setTab] = useState<SubView>("generate");
+  const [selectedAssetId, setSelectedAssetId] = useState<string | undefined>(
+    undefined,
+  );
   const workspaceId = me.data?.default_workspace?.id;
+  // Re-fetch via useImage when an asset is selected so the modal
+  // always renders the latest server-side state (the queryCache
+  // is also kept warm by useGenerateImage's onSuccess).
+  const selectedAsset = useImage(selectedAssetId);
 
   return (
     <div
@@ -63,9 +75,22 @@ export function ImagesRoute() {
             />
           </TabsContent>
           <TabsContent value="library" className="flex flex-col gap-6">
-            <LibraryPreview workspace={workspaceId} />
+            <ImageLibraryGrid
+              workspace={workspaceId}
+              onSelect={(asset) => setSelectedAssetId(asset.id)}
+            />
           </TabsContent>
         </Tabs>
+      )}
+      {selectedAssetId && selectedAsset.data && (
+        <ImageDetailModal
+          asset={selectedAsset.data}
+          onRegenerated={(newAsset: ImageAsset) => {
+            setSelectedAssetId(newAsset.id);
+          }}
+          onDeleted={() => setSelectedAssetId(undefined)}
+          onDismiss={() => setSelectedAssetId(undefined)}
+        />
       )}
     </div>
   );
@@ -116,74 +141,3 @@ function NoWorkspaceState() {
   );
 }
 
-function LibraryPreview({ workspace }: { workspace: string }) {
-  const images = useImages({ workspace });
-
-  if (images.isLoading) {
-    return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading library…
-      </div>
-    );
-  }
-
-  if (images.isError) {
-    return (
-      <div
-        data-testid="images-library-error"
-        className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive"
-      >
-        Couldn't load your image library. Try again in a moment.
-      </div>
-    );
-  }
-
-  const data = images.data ?? [];
-  if (!data.length) {
-    return (
-      <div
-        data-testid="images-library-empty"
-        className="flex flex-col items-start gap-2 rounded-md border border-dashed border-border p-6 text-sm text-muted-foreground"
-      >
-        <ImageIcon className="h-5 w-5" />
-        <p>
-          No images in this workspace yet. Switch to the Generate tab to
-          create your first one.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      data-testid="images-library-grid"
-      className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
-    >
-      {data.map((asset) => (
-        <article
-          key={asset.id}
-          data-testid={`image-card-${asset.id}`}
-          className="flex flex-col gap-2 rounded-md border border-border bg-card p-3"
-        >
-          <img
-            src={asset.file_path}
-            alt={asset.prompt.slice(0, 120)}
-            className="w-full rounded-sm border border-border"
-          />
-          <div className="flex flex-wrap items-baseline justify-between gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            <span>{asset.purpose}</span>
-            <span>
-              {asset.model} · {asset.aspect_ratio}
-            </span>
-          </div>
-          {asset.style_preset && (
-            <span className="text-xs text-muted-foreground">
-              Style: {asset.style_preset}
-            </span>
-          )}
-        </article>
-      ))}
-    </div>
-  );
-}
