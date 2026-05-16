@@ -23,7 +23,102 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_170_W11_2_VOICE_REBAKE.md`.
+> **Last handoff:** `docs/handoffs/SESSION_171_DOGFOOD_W11_3_STABILITY_PROMPT_FIXES.md`.
+
+---
+
+## SESSION 171 outcome — W11.2 dogfood + Tier 1 fixes + Stability port
+
+Wide-ranging session driven by operator dogfood of W11.2.
+Multiple bugs surfaced, multiple slices shipped:
+
+* **W11.2 dogfood validated** end-to-end against real Runway.
+  Voice swap + rebake actions fire cleanly from the SPA.
+* **Tier 1 visual_template fix** — `Spokesperson` now persists
+  the wizard's template choice (CharField + migration 0004 +
+  backfill of all 5 cast rows to `mascot`). Rebake action
+  defaults from row instead of hardcoded `coach`. SPA rebake
+  modal shows the template in the confirm-spend grid.
+* **K6.6.1 leak fix** — Marcus's first real render leaked
+  `business_brief` into the script ("I'm Marcus, your AP
+  history teacher..."). Fixed three ways in `_system_prompt`:
+  fenced the brief as tone-only guidance, dropped "grounds
+  them in who you are" framing, added anti-recitation rule.
+* **gpt-5 family migration** — K6 / K9 / R6 promoted from
+  `gpt-5-mini` to `gpt-5` (full); `script_splitter` +
+  transcription stayed on mini. K6's `MAX_OUTPUT_TOKENS`
+  raised 500 → 2000.
+* **W11.3 Stability port (reframed)** — ported
+  `stability_ai_service.py` + `style_library.py` (42 presets)
+  + new `stability_portrait.py` from u-d-b. Calibration
+  finding: Stability portraits bake but mis-lip-sync (Runway
+  rig is tuned for gen4_image geometry). **Reframed for
+  W11.6**: Stability is the right provider for non-avatar
+  image generation (scenes, b-roll, products). Avatars stay
+  on Runway gen4_image.
+* **Mascot auto-inject (Tier 1, shipped)** — when
+  `template=="mascot"` and the operator's subject lacks
+  `"anthropomorphic"`, the composer silently injects a
+  creature-anatomy clause. Operators don't have to know the
+  magic word.
+* **Tier 2 attempt + revert** — tried changing the mascot
+  opening + dropping "Professional advertising character
+  design" line. Operator visual judgment: still plasticy.
+  Diffed runway-hackathon's prompts → bit-identical to
+  character-os. Plastic-vs-natural is variance + subject
+  complexity, not the template. Reverted Tier 2; Tier 1
+  stays.
+
+Tests: Django **727** (+9). Media-engine **111** (+3). SPA
+vitest **53** (unchanged).
+
+### Final state at session close
+
+Cast roster after the SESSION 171 re-bakes:
+
+  - Riggs the Donkey — natural-looking bake (cast seed)
+  - **Sasha the Raccoon** — re-baked, voice `clara`, operator
+    verdict "nailed it"
+  - Donny the Sloth — natural-looking bake (cast seed)
+  - Maya the Panda — natural-looking bake (cast seed)
+  - **Marcus the Battle Unicorn** — re-baked, voice `marcus`,
+    visual_subject reset to clean operator-intent form,
+    Tier 1 auto-inject anchoring creature-anatomy
+
+### FIRST THING (SESSION 172): W11.6 scope-lock + image gen registry
+
+The Stability port is in-tree and tested but not yet wired
+through the production paths. W11.6 should formalize the
+multi-purpose image generation surface:
+
+1. **Purpose registry** — `purpose=avatar` → Runway gen4_image
+   (current path), `purpose=scene` / `broll` / `product` →
+   Stability with style preset selection.
+2. **New Django endpoints** — `POST /api/images/` for
+   non-avatar image gen (subject + purpose + style_preset +
+   negative_prompt).
+3. **SPA picker** — surface the 42 preset library somewhere
+   useful (probably recipe-launch or a dedicated "Images"
+   tab in the workspace fabric).
+4. **Cost telemetry** — `cost_micros` (Stability) tracked
+   alongside Runway credits in the cost ledger.
+
+Scope-lock the slice properly before writing code — this is
+a real surface that touches multiple subsystems.
+
+### Other queued work (in priority-ish order)
+
+1. **F8.1 — K10 seed corpus** — blocked on operator-authored
+   markdown.
+2. **K6.4 v3 — embedding-similarity fallback** — holds until
+   a real paraphrase miss surfaces.
+3. **K7.x — YouTube ingest fix** — silent-failure mode noted
+   in MEMORY.
+4. **K6.3 — Brief length cap** — likely moot now that K6
+   produces clean briefs.
+5. **K7.1 — Cost telemetry surface in SPA**.
+6. **W11.x — surface voice_patch.status in edit modal**
+   (calibration finding from this session).
 
 ---
 
@@ -161,6 +256,11 @@ shipped against real Runway** (SESSION 158).
 | **Marcus end-to-end + W11.1 edit modal** | **DONE (SESSION 169)** |
 | **Portrait JWT refresh + hook-order fix** | **DONE (SESSION 169 close, commit `2cdcd26`)** |
 | **W11.2 voice swap + avatar re-bake** | **DONE (SESSION 170)** |
+| **W11.2 dogfood + Tier 1 visual_template fix** | **DONE (SESSION 171)** |
+| **K6.6.1 system prompt leak fix** | **DONE (SESSION 171)** |
+| **gpt-5 family migration (K6 / K9 / R6)** | **DONE (SESSION 171)** |
+| **W11.3 — Stability port (reframed for W11.6)** | **DONE — Stability is non-avatar image gen (SESSION 171)** |
+| **Mascot anthropomorphic auto-inject (Tier 1)** | **DONE (SESSION 171)** |
 | K7.x (YouTube ingest fix) | Queued |
 | K6.3 / K7.1 | Queued |
 

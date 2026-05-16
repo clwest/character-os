@@ -1822,6 +1822,94 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   branch. Adding endpoints later is cheap; retrofitting
   the switch is expensive.
 
+## 2026-05-16 — AI confidently wrong: Tier 2 prompt-composer hypothesis disproved by hackathon diff
+
+- **Context / claim:** Operator flagged Marcus + Sasha rendering
+  "plasticy" while Donny / Riggs / Maya look natural. AI
+  proposed Tier 2: replace `"Polished commercial portrait"`
+  with `"Character illustration of"` + drop `"Professional
+  advertising character design."` from the mascot path —
+  hypothesis was that these phrases were anchoring gen4_image
+  toward plastic 3D-mascot product-render aesthetic. Operator
+  approved + AI shipped the change with test updates.
+- **Reality / outcome:** Tier 2 visual judgment: still plasticy.
+  Operator asked AI to "go back to the hackathon and see how we
+  were prompting those." Diff revealed the hackathon's
+  `character_studio_client.py` is **bit-identical** to
+  character-os's pre-SESSION-171 state (subtree migration moved
+  it verbatim). Donny / Riggs / Maya were baked with the EXACT
+  same prompt template that's producing Sasha / Marcus today.
+  The plastic-vs-natural difference is **variance + subject
+  complexity** (Marcus's elaborate armor + Sasha's
+  "sleek...subtle branding" push the commercial anchor harder
+  than Donny's casual hoodie), not the prompt template.
+  Reverted Tier 2; kept Tier 1.
+- **Found by:** Operator instinct ("go back to the hackathon")
+  + AI verified by diffing the two files.
+- **Lesson:** When operator says "go back to how X was working
+  in <prior codebase>", **diff the actual files first** before
+  proposing a fix that moves AWAY from <prior codebase>. The
+  subtree migration was verbatim — there was no different
+  hackathon prompt to recover. **For this operator specifically:**
+  when comparing failure modes across the cast, the subject
+  complexity axis matters more than the prompt-template axis.
+
+## 2026-05-16 — AI right (with proof): Runway avatar rig requires Runway-generated portraits
+
+- **Context / claim:** Operator's W11.3 vision (SESSION 171)
+  was to use unused Stability AI credits to generate avatar
+  portraits, piping the resulting PNG into Runway's
+  `create_avatar` reference image — the hackathon proved
+  Runway accepts arbitrary portrait inputs at bake time. AI
+  ported the Stability service + style library + orchestrator
+  and ran the end-to-end test through Marcus.
+- **Reality / outcome:** Every Stability portrait baked
+  cleanly (Runway accepted the referenceImage) but lip-sync
+  consistently mis-mapped — mouth movement landed on the
+  nose tip instead of the actual mouth. Tested multiple
+  style presets (`concept_art`, `pixar`); the mouth-vs-nose
+  problem persisted regardless of style. Conclusion: Runway's
+  avatar rig is trained on gen4_image's face geometry
+  distribution; Stability's output passes the avatar-bake
+  gate but the landmark detection misfires. **Stability is
+  the right provider for non-avatar image gen** (scenes,
+  b-roll, products) — not avatars.
+- **Found by:** AI end-to-end test against real Runway + real
+  Stability.
+- **Lesson:** Provider-mix architectures are only as
+  composable as the **downstream consumer** allows. Runway's
+  avatar rig is the bottleneck here, not the image-gen
+  step. Future "swap provider X for Y" experiments should
+  cheap-test the downstream consumer's tolerance before
+  scoping a full port. Saved as
+  `feedback_runway_avatar_rig_needs_runway_portraits.md` so
+  future sessions don't redo the experiment.
+
+## 2026-05-16 — Calibration: Human/AI testing split during live-services dogfood
+
+- **Context:** Mid-SESSION 171, operator was driving the SPA
+  manually (clicking through edit modal, rebake modal,
+  visual judgment) while AI was running shell scripts
+  (database queries, log tails, curl probes). AI proposed
+  "drive via curl" vs "drive via SPA" as a binary choice for
+  a subsequent step. Operator clarified: *"I was doing the
+  Human testing (i.e. visuals/UI stuff), while you do the
+  other testing lol."*
+- **Direction:** Calibration on collaboration boundaries
+  during real-services dogfood.
+- **Detail:** Operator drives the SPA + visual / auditory
+  judgment — the things only a human can verify. AI drives
+  the parallel API / DB / log verification — the things
+  that don't need human eyes. Not either-or — **both in
+  parallel**.
+- **Found by:** Operator clarification.
+- **Lesson:** When operator says "I'll do X in the UI," AI's
+  default response is "I'll watch the DB/logs/etc. and
+  report what I see" — NOT "should I drive via curl
+  instead?" Saved as
+  `feedback_human_ai_testing_split.md` so the lane-split
+  loads via session-start MEMORY read.
+
 ## 2026-05-15 — AI right (preemptive application): the hook-order lesson held
 
 - **Context:** SESSION 170 added a new `rebaking` state
