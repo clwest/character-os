@@ -51,9 +51,9 @@ function renderModal(props: {
   onDismiss?: () => void;
   fetchImpl?: (url: string, init?: RequestInit) => Promise<Response>;
 } = {}) {
-  const onRegenerated = props.onRegenerated ?? vi.fn();
-  const onDeleted = props.onDeleted ?? vi.fn();
-  const onDismiss = props.onDismiss ?? vi.fn();
+  const onRegenerated = vi.fn(props.onRegenerated);
+  const onDeleted = vi.fn(props.onDeleted);
+  const onDismiss = vi.fn(props.onDismiss);
   const calls: Array<{ url: string; method: string; body: unknown }> = [];
   vi.spyOn(global, "fetch").mockImplementation((url, init) => {
     const method = (init?.method ?? "GET").toUpperCase();

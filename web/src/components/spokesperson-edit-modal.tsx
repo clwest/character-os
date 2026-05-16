@@ -18,12 +18,13 @@
  * no save is in flight.
  */
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Save, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Info, Loader2, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   TONE_ARCHETYPES,
+  type ChangeVoiceResponse,
   type Spokesperson,
   type ToneArchetype,
   useChangeVoice,
@@ -66,6 +67,14 @@ export function SpokespersonEditModal({
     spokesperson.voice_id ?? "",
   );
   const [error, setError] = useState<string | null>(null);
+  // SESSION 174 — surface the voice_patch envelope returned by
+  // the change-voice action so the operator can tell whether the
+  // live Runway PATCH actually succeeded. SESSION 171 dogfood
+  // discovered that the modal previously closed silently
+  // regardless of patch outcome.
+  const [voicePatch, setVoicePatch] = useState<
+    ChangeVoiceResponse["voice_patch"] | null
+  >(null);
   const update = useUpdateSpokesperson();
   const changeVoice = useChangeVoice();
   const voicePresets = useVoicePresets();
@@ -98,6 +107,7 @@ export function SpokespersonEditModal({
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setVoicePatch(null);
     if (!_hasChanges()) {
       onClose();
       return;
@@ -138,10 +148,20 @@ export function SpokespersonEditModal({
       // Runway avatar via the change-voice endpoint). Fire only
       // when the voice preset actually changed.
       if (voicePreset && voicePreset !== (spokesperson.voice_id ?? "")) {
-        await changeVoice.mutateAsync({
+        const result = await changeVoice.mutateAsync({
           id: spokesperson.id,
           preset: voicePreset,
         });
+        setVoicePatch(result.voice_patch);
+        // SESSION 174 — only auto-close on clean voice-patch
+        // outcomes. ``failed`` keeps the modal open so the
+        // operator sees the error message and can decide whether
+        // to dismiss or retry. ``ok`` / ``skipped`` are both
+        // success-shapes (skipped = no live avatar to PATCH; DB
+        // row updated regardless).
+        if (result.voice_patch.status === "failed") {
+          return;
+        }
       }
       onClose();
     } catch (err) {
@@ -290,6 +310,8 @@ export function SpokespersonEditModal({
           </p>
         </div>
 
+        {voicePatch && <VoicePatchBanner voicePatch={voicePatch} />}
+
         {error && (
           <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
             {error}
@@ -304,7 +326,7 @@ export function SpokespersonEditModal({
             disabled={isPending}
             data-testid="edit-cancel"
           >
-            Cancel
+            {voicePatch?.status === "failed" ? "Close" : "Cancel"}
           </Button>
           <Button
             type="submit"
@@ -325,6 +347,92 @@ export function SpokespersonEditModal({
           </Button>
         </div>
       </form>
+    </div>
+  );
+}
+
+/**
+ * SESSION 174 — telemetry banner for the change-voice action's
+ * `voice_patch` envelope. Renders one of three states:
+ *
+ *   - `ok` (green) — live Runway PATCH succeeded; the new voice
+ *     is active immediately on the existing avatar.
+ *   - `skipped` (muted) — there was no live Runway avatar to
+ *     PATCH (avatar wasn't baked yet). The DB row carries the
+ *     new voice; the next bake picks it up.
+ *   - `failed` (destructive) — the live PATCH was rejected. The
+ *     DB row still carries the new voice (so the next bake uses
+ *     it), but the existing avatar still has the old voice.
+ *     Error message surfaces verbatim.
+ *
+ * Any other status (`unknown`, server contract drift) renders as
+ * a muted info banner with the raw status string.
+ */
+function VoicePatchBanner({
+  voicePatch,
+}: {
+  voicePatch: ChangeVoiceResponse["voice_patch"];
+}) {
+  if (voicePatch.status === "ok") {
+    return (
+      <div
+        data-testid="voice-patch-banner"
+        data-status="ok"
+        className="flex items-start gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/5 p-3 text-xs text-emerald-700 dark:text-emerald-300"
+      >
+        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+        <span>
+          Voice updated on the live avatar. The new preset takes effect
+          on the next render.
+        </span>
+      </div>
+    );
+  }
+  if (voicePatch.status === "skipped") {
+    return (
+      <div
+        data-testid="voice-patch-banner"
+        data-status="skipped"
+        className="flex items-start gap-2 rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground"
+      >
+        <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+        <span>
+          Voice saved to the row. No live avatar exists yet — the next
+          bake will use the new preset.
+        </span>
+      </div>
+    );
+  }
+  if (voicePatch.status === "failed") {
+    return (
+      <div
+        data-testid="voice-patch-banner"
+        data-status="failed"
+        className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"
+      >
+        <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+        <div className="flex flex-col gap-1">
+          <strong>Runway rejected the voice change.</strong>
+          <span>
+            The new preset is saved on the row (the next avatar bake
+            will pick it up) but the live avatar still has the previous
+            voice.
+          </span>
+          {voicePatch.error && (
+            <span className="opacity-80">Details: {voicePatch.error}</span>
+          )}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div
+      data-testid="voice-patch-banner"
+      data-status={voicePatch.status}
+      className="flex items-start gap-2 rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground"
+    >
+      <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+      <span>Voice update status: {voicePatch.status}</span>
     </div>
   );
 }

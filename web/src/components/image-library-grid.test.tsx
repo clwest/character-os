@@ -48,7 +48,7 @@ function renderGrid(props: {
   payload?: unknown;
   fetchImpl?: (url: string) => Promise<Response>;
 } = {}) {
-  const onSelect = props.onSelect ?? vi.fn();
+  const onSelect = vi.fn(props.onSelect);
   const fetchUrls: string[] = [];
   vi.spyOn(global, "fetch").mockImplementation((url) => {
     fetchUrls.push(String(url));
