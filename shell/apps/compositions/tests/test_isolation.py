@@ -110,6 +110,11 @@ ALLOWED_FILES = {
     # V6 — videos app shim tests construct Composition/Asset
     # rows directly to simulate terminal-state sync paths.
     "apps/videos/tests/test_v6_shim.py",
+    # K6.4 v2 — stoplist watchdog tests seed Composition rows
+    # with verification_warnings to exercise the warn-mode
+    # "no text context" reporting branch. Read-only command
+    # otherwise; no row mutation in the watchdog itself.
+    "apps/compositions/tests/test_stoplist_watchdog.py",
 }
 
 

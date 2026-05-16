@@ -1321,3 +1321,73 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   prefer real dataclass instances in tests when
   practical, (b) when MagicMock is necessary, treat
   every new dataclass attr as a fixture-touch event.
+
+## 2026-05-15 — Architectural calibration: watchdog reports surface problems in the wrong layer
+
+- **Context:** K6.4 stoplist watchdog (SESSION 165) ran
+  against the live DB. Surfaced `Drop a Wikipedia` as a
+  "sentence-initial false-positive candidate" and
+  recommended adding `"drop a wikipedia"` to the
+  stoplist.
+- **Direction:** Carry-forward architectural.
+- **Detail:** The recommendation can't actually be applied —
+  `_COMMON_PROPER_NOUN_FALSE_POSITIVES` is a single-word
+  set; multi-word entries don't match the extractor's
+  per-token check. The real problem is upstream:
+  `_MULTIWORD_CAPS_RE` includes `a` as a joining word,
+  so `"Drop"` (capitalized sentence-start) + `"a"` +
+  `"Wikipedia"` parses as one multi-word entity. The
+  fix lives in the regex / multi-word extraction layer,
+  not the stoplist.
+- **Found by:** Reading the watchdog's "Suggested
+  additions" output during the SESSION 165 live run.
+- **Lesson:** **For this operator specifically:** when a
+  scripted reporter recommends a fix the receiving
+  subsystem can't apply, the report is correctly
+  identifying a problem but in the wrong layer.
+  Treat the recommendation as signal that the *matcher*
+  needs tightening, not that the stoplist needs widening.
+  **Generalisation:** classifier/filter pipelines
+  have multiple layers; an event flagged by one layer
+  may be fixable only at a different layer. Reporters
+  should surface the event + let the operator decide
+  which layer to touch — auto-applying the reporter's
+  suggestion risks fixing the symptom in the wrong
+  place.
+
+## 2026-05-15 — Methodology calibration: test isolation has its own stoplist (ALLOWED_FILES)
+
+- **Context:** K6.4 stoplist watchdog (SESSION 165) added
+  a new test file (`test_stoplist_watchdog.py`) that
+  seeds `Composition` rows to exercise the warn-mode
+  "no text context" branch. That tripped the V1
+  isolation guard
+  (`test_only_composition_module_writes_composition_tables`)
+  which restricts who can call
+  `Composition.objects.create`.
+- **Direction:** Carry-forward methodology.
+- **Detail:** The fix was a one-line edit to the
+  `ALLOWED_FILES` set in `test_isolation.py` — the same
+  hand-curated allowlist pattern as the verifier's
+  stoplist. Both guards mirror each other: a strict
+  default + a curated allowlist + a CI failure when
+  the allowlist is out of sync. The cost of adding to
+  the list is one line with a code-review-style note;
+  the cost of forgetting is a CI failure that
+  explains itself.
+- **Found by:** Full test suite run after writing the
+  new watchdog tests. CI surfaced the violation with
+  an actionable error message.
+- **Lesson:** **For this operator specifically:**
+  V1's privacy-anchor contract uses the allowlist
+  pattern + clear violation messages — that's the
+  shape every "default-strict + curated exceptions"
+  guard should take. **Generalisation:** when shipping
+  a strict-by-default guard, pair it with (a) a
+  curated allowlist that operators can append to,
+  (b) an error message that explicitly mentions the
+  allowlist + a code-review note convention. Both
+  pieces together make the guard discoverable,
+  modifiable, and self-documenting. K6.4's stoplist
+  and the V1 isolation allowlist are mirror images;
+  the K-arc work has been compounding this pattern.

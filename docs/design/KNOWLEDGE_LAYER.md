@@ -973,6 +973,51 @@ slices that can land independently. Recommended order:
     Same call with explicit ``verifier_mode="off"`` →
     ``verification_status="skipped"``, warnings=[]. The
     bypass-case audit gap is closed end-to-end.
+
+- **K6.4 stoplist watchdog. ✓ SHIPPED SESSION 165.** Closes
+  the dogfood-only stoplist-discovery loop. Every prior
+  session has surfaced 1-3 new sentence-initial false-
+  positive words via operator probes (`Cleanest`,
+  `Welcome`, `Modern`, `Short`, `Alright`). The watchdog
+  reports them as a scripted scan instead.
+    Pieces:
+    * ``is_sentence_initial(text, position)`` helper in
+      ``character_os/claim_verifier.py``. Pure function.
+      True when position is 0 OR preceded by a sentence-
+      ending punctuation (``.!?:``) with optional
+      whitespace. 7 unit tests anchor the edge cases.
+    * ``python manage.py stoplist_watchdog [--days=N]
+      [--limit=N] [--workspace=<slug>]`` scans
+      `Composition.verification_warnings` +
+      `ConversationMessage.verification_warnings` over a
+      configurable window. Three output buckets:
+        * **Sentence-initial candidates** — stoplist
+          suggestions. Renders a markdown-ish table +
+          a copy-pasteable Python set literal of the
+          tokens (lowercased) for direct insertion into
+          ``_COMMON_PROPER_NOUN_FALSE_POSITIVES``.
+        * **Mid-sentence flags** — the verifier doing
+          its job; surfaced for awareness, not action.
+        * **Warn-mode composition flags (no text
+          context)** — Warn-mode composition rejected
+          synthesis is not persisted, so we can only
+          tally the claim; the sentence-initial
+          classification needs the source text.
+        * **Regressions** — tokens already in the
+          stoplist but flagging again (casing /
+          inflection variant slipped through).
+    * 5 integration tests cover the four buckets +
+      ``--days`` windowing.
+
+    **Live run** against the current DB surfaced 2 events
+    from the SESSION 163 K6.5 API dogfood: `Wikipedia`
+    (mid-sentence flag — verifier correct) and `Drop a
+    Wikipedia` (sentence-initial multi-word flag — a
+    real v2 calibration: the multi-word regex includes
+    `a` as a joining word, which is too aggressive).
+
+    Test totals: Django 697 → 709 (+12). SPA unchanged.
+    Migrations unchanged at 56.
 - **K7 — URL ingestion + serper discovery.** `trafilatura`
   fetch+extract. Serper search tab on the workspace upload
   surface. Both flow into the same Celery embedding task.

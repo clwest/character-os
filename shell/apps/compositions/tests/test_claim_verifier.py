@@ -42,6 +42,7 @@ from character_os.claim_verifier import (
     UnsupportedClaim,
     build_corpus,
     extract_named_entities,
+    is_sentence_initial,
     run_verifier,
     verify_claims,
 )
@@ -121,6 +122,43 @@ def test_extract_misses_lowercase_trafilatura_known_v1_gap() -> None:
     entities = extract_named_entities(DONNY_ACTUAL_SCRIPT)
     claims = {e.claim for e in entities}
     assert "trafilatura" not in claims
+
+
+def test_is_sentence_initial_position_zero() -> None:
+    assert is_sentence_initial("Wikipedia is great.", 0) is True
+
+
+def test_is_sentence_initial_after_period_and_space() -> None:
+    text = "I like RAG. Wikipedia is great."
+    # Position 12 == 'W' of "Wikipedia" (after ". ")
+    assert text[12] == "W"
+    assert is_sentence_initial(text, 12) is True
+
+
+def test_is_sentence_initial_after_question_mark() -> None:
+    text = "What's RAG? Wikipedia explains it."
+    pos = text.index("Wikipedia")
+    assert is_sentence_initial(text, pos) is True
+
+
+def test_is_sentence_initial_mid_sentence_returns_false() -> None:
+    text = "I love Wikipedia."
+    pos = text.index("Wikipedia")
+    assert is_sentence_initial(text, pos) is False
+
+
+def test_is_sentence_initial_handles_only_whitespace_before() -> None:
+    text = "   Wikipedia"
+    pos = text.index("Wikipedia")
+    assert is_sentence_initial(text, pos) is True
+
+
+def test_is_sentence_initial_handles_negative_position() -> None:
+    assert is_sentence_initial("text", -1) is False
+
+
+def test_is_sentence_initial_handles_out_of_range() -> None:
+    assert is_sentence_initial("text", 100) is False
 
 
 def test_extract_skips_refusal_pattern_starters_k6_5() -> None:

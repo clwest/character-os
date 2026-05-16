@@ -406,6 +406,48 @@ def _span_overlaps(start: int, end: int, spans: list[tuple[int, int]]) -> bool:
     return False
 
 
+def is_sentence_initial(text: str, position: int) -> bool:
+    """K6.4 v2 — true when ``position`` in ``text`` is the start of
+    a new sentence.
+
+    Used by the stoplist watchdog (SESSION 165) to classify
+    flagged tokens: a sentence-initial flagged token is almost
+    always a false-positive class (a capitalized common word at
+    sentence start that looks proper-noun-shaped); a
+    mid-sentence flagged token is almost always a true positive
+    (the model named an entity not in the chunks).
+
+    A position counts as sentence-initial when:
+
+    * ``position == 0``, OR
+    * the prior non-whitespace character is one of ``.!?:``
+      (sentence-ending punctuation that may be followed by
+      whitespace before the position).
+
+    Edge cases:
+
+    * Position pointing inside the text returns ``False`` for
+      mid-sentence positions even after a period that's part of
+      an abbreviation (the heuristic is intentionally aggressive
+      on false positives — better to suggest a stoplist
+      candidate that turns out to be a real entity than to miss
+      a sentence-initial false positive).
+    * Negative or out-of-range positions return ``False``.
+    """
+    if not text or position < 0 or position >= len(text):
+        return False
+    if position == 0:
+        return True
+    # Walk backwards past whitespace to find the previous
+    # non-whitespace char.
+    cursor = position - 1
+    while cursor >= 0 and text[cursor].isspace():
+        cursor -= 1
+    if cursor < 0:
+        return True  # only whitespace before — treat as start
+    return text[cursor] in ".!?:"
+
+
 def _get_default_mode() -> str:
     """Resolve the default verifier mode.
 
