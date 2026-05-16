@@ -133,6 +133,43 @@ _DEFAULT_ANCHOR = "commercial"
 _PROMPT_HARD_CAP = 700
 
 
+# SESSION 171 — mascot anthropomorphic auto-inject.
+#
+# The operator's typed subject is the source of truth for what the
+# character looks like ("battle unicorn in Roman armor", "raccoon
+# in a hoodie", etc). But gen4_image leans humanoid by default —
+# "battle unicorn" without an "anthropomorphic" anchor reads as
+# "human with a horse face wearing armor". Forcing operators to
+# type the magic word "anthropomorphic" is bad UX.
+#
+# Fix: when ``template == "mascot"`` AND the subject doesn't
+# already contain the keyword, the composer auto-injects this
+# clause as a second sentence (positioned close to the subject
+# token where the model weighs it most). Operators who DO
+# include "anthropomorphic" themselves get their text used as-is
+# — no double-anchor, existing test contracts preserved.
+_MASCOT_CREATURE_CLAUSE = (
+    "The character is a fully anthropomorphic creature with "
+    "creature anatomy (fur, snout, hooves, paws, fangs as "
+    "appropriate) — not a human in a costume, not a human "
+    "in a mask."
+)
+
+
+def _subject_implies_creature_intent(subject: Optional[str]) -> bool:
+    """Detect whether the operator's subject already anchors
+    creature-intent. When False AND ``template == "mascot"``,
+    the composer auto-injects ``_MASCOT_CREATURE_CLAUSE``.
+
+    Conservative match — only ``anthropomorphic`` / ``anthro-``
+    trigger the "already anchored" path. Catches the cast seed's
+    subjects ("an anthropomorphic donkey founder character...")
+    without false-positive on unrelated words.
+    """
+    lower = (subject or "").lower()
+    return "anthropomorphic" in lower or "anthro-" in lower
+
+
 # PR CS — Safe-retry preset. When `gen4_image_turbo` rejects a
 # portrait as `INTERNAL.BAD_OUTPUT.CODE01` (typically because the
 # character's `style` chain stacks unstable concepts — celebrity / IP
@@ -331,6 +368,22 @@ def _compose_clean_prompt(
 
     lines: list[str] = [
         f"Polished {anchor} portrait of {subject_text}{wardrobe_clause}.",
+    ]
+    # SESSION 171 Tier 1 — mascot anthropomorphic auto-inject.
+    # Positioned immediately after the subject so the
+    # creature-anatomy anchor lands close to the subject token
+    # (highest model weight). Conditional on (template == mascot)
+    # AND (subject lacks "anthropomorphic"); operator-typed
+    # anthropomorphic subjects skip the inject to avoid
+    # double-anchoring. NOTE: Tier 2 (changing opening + dropping
+    # "Professional advertising character design.") was reverted —
+    # the hackathon prompts are IDENTICAL to character-os's pre-
+    # SESSION 171 state; Donny/Riggs/Maya bake natural with this
+    # exact template, so the plastic Marcus/Sasha problem is
+    # variance + subject complexity, not the prompt structure.
+    if tmpl == "mascot" and not _subject_implies_creature_intent(subject):
+        lines.append(_MASCOT_CREATURE_CLAUSE)
+    lines.extend([
         # PR DT — singular framing. gen4_image is stochastic and
         # without an explicit "one character" cue it occasionally
         # produces duplicate / mirrored subjects (the Riggs Rally
@@ -339,7 +392,7 @@ def _compose_clean_prompt(
         # subject token where the model weighs it most.
         "Single solitary figure, one character only, centered solo subject.",
         f"{expression_cue}.",
-    ]
+    ])
     if aesthetic:
         lines.append(f"{_capitalize_first(aesthetic)}.")
     lines.append("Head-and-shoulders composition on a clean neutral background.")

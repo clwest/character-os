@@ -227,6 +227,74 @@ def test_clean_prompt_no_duplicated_anthropomorphic():
     assert prompt.lower().count("anthropomorphic") == 1, prompt
 
 
+def test_mascot_auto_injects_anthropomorphic_when_keyword_absent():
+    """SESSION 171 — when operator types a mascot subject WITHOUT
+    'anthropomorphic' / 'anthro-' (e.g. 'battle unicorn in Roman
+    armor'), the composer auto-injects a creature-anatomy clause
+    positioned right after the subject anchor. Operators don't
+    have to know the magic word.
+    """
+    from app.services.character_studio_client import build_prompt
+
+    prompt = build_prompt(
+        "mascot",
+        subject="a battle unicorn in Roman legionary armor",
+    )
+    # Auto-inject fires — clause is in the prompt
+    assert (
+        "The character is a fully anthropomorphic creature with "
+        "creature anatomy"
+    ) in prompt, prompt
+    assert "not a human in a costume" in prompt
+    # Positioned immediately after the subject anchor so the
+    # creature-intent cue lands near the subject token
+    anchor_idx = prompt.find("Polished")
+    inject_idx = prompt.find("The character is a fully anthropomorphic")
+    singular_idx = prompt.find("Single solitary figure")
+    assert anchor_idx < inject_idx < singular_idx, (
+        f"clause positioning broken: anchor={anchor_idx} "
+        f"inject={inject_idx} singular={singular_idx}\n{prompt}"
+    )
+
+
+def test_mascot_no_double_inject_when_anthropomorphic_already_present():
+    """SESSION 171 regression guard — when the operator's subject
+    ALREADY contains 'anthropomorphic' (the seed cast pattern), the
+    composer must NOT auto-inject the clause. Preserves the
+    existing test contracts + avoids the comically over-anchored
+    'anthropomorphic creature... anthropomorphic creature with
+    creature anatomy' chain.
+    """
+    from app.services.character_studio_client import build_prompt
+
+    prompt = build_prompt(
+        "mascot",
+        subject="an anthropomorphic donkey marketing mascot",
+    )
+    # Auto-inject does NOT fire — clause is absent
+    assert (
+        "The character is a fully anthropomorphic creature with "
+        "creature anatomy"
+    ) not in prompt, prompt
+    # "anthropomorphic" appears once (operator-typed) — no duplication
+    assert prompt.lower().count("anthropomorphic") == 1, prompt
+
+
+def test_non_mascot_templates_never_auto_inject():
+    """SESSION 171 — auto-inject is mascot-specific. Founder /
+    coach / local_guide templates produce photorealistic humans
+    and must never see the creature-anatomy clause regardless of
+    operator subject text.
+    """
+    from app.services.character_studio_client import build_prompt
+
+    for template in ("founder", "coach", "local_guide"):
+        prompt = build_prompt(template, subject="a brand spokesperson")
+        assert (
+            "The character is a fully anthropomorphic creature"
+        ) not in prompt, f"clause leaked into template={template}: {prompt}"
+
+
 def test_clean_prompt_under_hard_cap():
     """Even with a maximally noisy subject + every chip, the
     composer caps at 700 chars."""
