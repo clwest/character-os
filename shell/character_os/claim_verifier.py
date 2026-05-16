@@ -282,6 +282,31 @@ _COMMON_PROPER_NOUN_FALSE_POSITIVES: frozenset[str] = frozenset({
     # paraphrase queries that hit only narrow doc sections).
     "from", "with", "without", "through", "throughout",
     "between", "among", "across", "around", "within", "beyond",
+    # K6.4 v2.2 (SESSION 175) — Donny K6 dogfood surfaced
+    # "Respect HTML" (sentence-opener "Respect" + real tech
+    # term "HTML"). Same exact shape as "Think Antoninus" that
+    # v2.1 fixed; "respect" was just missing from the CTA-verb
+    # set v2 (SESSION 166) introduced. Adding a tight batch of
+    # common imperative CTA verbs that K6 emits in marketing
+    # prose. Each entry is almost never a proper noun in
+    # operator-facing text (would be flagged by the watchdog
+    # if it turned out to be).
+    "respect", "respects", "respected", "respecting",
+    "protect", "protects", "protected", "protecting",
+    "prepare", "prepares", "prepared", "preparing",
+    "maintain", "maintains", "maintained", "maintaining",
+    "include", "includes", "included", "including",
+    "ensure", "ensures", "ensured", "ensuring",
+    "verify", "verifies", "verified", "verifying",
+    "focus", "focuses", "focused", "focusing",
+    "avoid", "avoids", "avoided", "avoiding",
+    "prioritize", "prioritizes", "prioritized", "prioritizing",
+    "prefer", "prefers", "preferred", "preferring",
+    "proceed", "proceeds", "proceeded", "proceeding",
+    "treat", "treats", "treated", "treating",
+    "handle", "handles", "handled", "handling",
+    "choose", "chooses", "chose", "chosen", "choosing",
+    "pick", "picks", "picked", "picking",
 })
 
 

@@ -272,6 +272,52 @@ def test_multiword_demotes_only_at_sentence_initial_k6_4_v2_1() -> None:
     assert ("multi_word", "Remember Marcus Aurelius") in claims_by_kind
 
 
+def test_stoplist_cta_verbs_k6_4_v2_2_dogfood() -> None:
+    """K6.4 v2.2 (SESSION 175) — Donny multi-cast K6.6 dogfood
+    surfaced "Respect HTML" (sentence-opener verb + real tech
+    term) flagged as multi_word. Same shape as v2.1's
+    "Think Antoninus" case; "respect" was just missing from
+    the CTA-verb stoplist. v2.2 ships a tight batch of common
+    imperative verbs that K6 emits in marketing prose."""
+    # Construct sentences that put each new verb at the
+    # sentence-initial position followed by a real entity.
+    text = (
+        "Respect HTML structure. Protect Wikipedia citations. "
+        "Prepare RAG corpora carefully. Maintain Postgres indexes. "
+        "Include Trafilatura output as a fallback. "
+        "Ensure pgvector schemas match. "
+        "Verify React renders against fixtures. "
+        "Focus Stripe pipelines on cohorts. "
+        "Avoid GraphQL n+1 issues. "
+        "Prioritize Redis cache hits."
+    )
+    entities = extract_named_entities(text)
+    claims = {(e.kind, e.claim) for e in entities}
+    # None of the imperative-verb + entity pairs should be
+    # extracted as multi_word — the demotion logic from
+    # v2.1 plus the v2.2 stoplist additions should strip
+    # the verb leaders cleanly.
+    forbidden_pairs = {
+        "Respect HTML", "Protect Wikipedia", "Prepare RAG",
+        "Maintain Postgres", "Include Trafilatura",
+        "Ensure pgvector", "Verify React",
+        "Focus Stripe", "Avoid GraphQL", "Prioritize Redis",
+    }
+    for pair in forbidden_pairs:
+        assert ("multi_word", pair) not in claims, (
+            f"K6.4 v2.2 missed multi-word demotion for {pair!r} "
+            f"in claims {sorted(claims)}"
+        )
+    # And the verbs themselves shouldn't be flagged as
+    # proper_nouns either.
+    for verb in {"Respect", "Protect", "Prepare", "Maintain",
+                 "Include", "Ensure", "Verify", "Focus",
+                 "Avoid", "Prioritize"}:
+        assert ("proper_noun", verb) not in claims, (
+            f"K6.4 v2.2 stoplist missed verb {verb!r}"
+        )
+
+
 def test_multiword_demotion_full_session_174_brief_k6_4_v2_1() -> None:
     """v2.1 regression — full brief from SESSION 174 dogfood,
     with a corpus that genuinely supports every real claim.
