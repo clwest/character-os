@@ -5,6 +5,7 @@
  */
 import { Link, useParams } from "react-router-dom";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Circle, CornerDownRight, CornerUpRight, Library, Loader2, MinusCircle, ShieldAlert, XCircle } from "lucide-react";
+import { VerificationStatusBadge } from "@/components/verification-status-badge";
 import { Button } from "@/components/ui/button";
 import {
   type Composition,
@@ -81,17 +82,22 @@ function Header({ composition }: { composition: Composition }) {
       <h1 className="font-display text-3xl leading-tight tracking-tight md:text-4xl">
         {composition.name}
       </h1>
-      <p className="text-sm text-muted-foreground">
-        Composition <span className="font-mono">{composition.id.slice(0, 8)}</span>
-        {composition.mock_mode && (
-          <>
-            {" • "}
-            <span className="font-mono text-amber-700 dark:text-amber-300">
-              mock mode
-            </span>
-          </>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-sm text-muted-foreground">
+          Composition <span className="font-mono">{composition.id.slice(0, 8)}</span>
+          {composition.mock_mode && (
+            <>
+              {" • "}
+              <span className="font-mono text-amber-700 dark:text-amber-300">
+                mock mode
+              </span>
+            </>
+          )}
+        </p>
+        {composition.verification_status && (
+          <VerificationStatusBadge status={composition.verification_status} />
         )}
-      </p>
+      </div>
     </header>
   );
 }

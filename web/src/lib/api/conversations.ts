@@ -119,6 +119,20 @@ const unsupportedClaimSchema = z.object({
 
 export type UnsupportedClaim = z.infer<typeof unsupportedClaimSchema>;
 
+// K6.4 v1.2 — closes the SESSION 161 bypass-case audit gap.
+// Empty string = pre-v1.2 row OR USER message (verifier only
+// runs on spokesperson side). Four explicit states match
+// apps.compositions.models.VerificationStatus.
+export const verificationStatusSchema = z.enum([
+  "",
+  "verified",
+  "trusted_passthrough",
+  "skipped",
+  "rejected",
+]);
+
+export type VerificationStatus = z.infer<typeof verificationStatusSchema>;
+
 const messageSchema = z.object({
   id: z.string(),
   thread: z.string(),
@@ -130,6 +144,8 @@ const messageSchema = z.object({
   // K6.5 parse cleanly without a backfill.
   verification_warnings: z.array(unsupportedClaimSchema).default([]),
   rejected_synthesis: z.string().default(""),
+  // K6.4 v1.2 — verification_status badge surface.
+  verification_status: verificationStatusSchema.default(""),
 });
 
 export type ConversationMessage = z.infer<typeof messageSchema>;

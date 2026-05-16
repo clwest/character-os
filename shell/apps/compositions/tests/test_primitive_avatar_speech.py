@@ -278,6 +278,10 @@ def test_real_mode_with_knowledge_runs_brief_synthesis() -> None:
     fake_script_result = MagicMock()
     fake_script_result.brief = "Synthesized brief about brass bells."
     fake_script_result.chunk_ids = ["chunk-uuid-1", "chunk-uuid-2"]
+    # K6.4 v1.1 + v1.2 — explicit values on the mock so the
+    # primitive's tuple unpack doesn't pick up MagicMock attrs.
+    fake_script_result.verification_warnings = []
+    fake_script_result.verification_status = "verified"
 
     with patch(
         "apps.compositions.primitives.avatar_speech.MediaEngineClient",

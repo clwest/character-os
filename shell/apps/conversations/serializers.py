@@ -20,6 +20,8 @@ class ConversationMessageSerializer(serializers.ModelSerializer):
             # K6.5 — verifier surface for the SPA
             "verification_warnings",
             "rejected_synthesis",
+            # K6.4 v1.2 — verification_status badge
+            "verification_status",
         ]
         read_only_fields = [
             "id",
@@ -28,6 +30,7 @@ class ConversationMessageSerializer(serializers.ModelSerializer):
             "created_at",
             "verification_warnings",
             "rejected_synthesis",
+            "verification_status",
         ]
 
 

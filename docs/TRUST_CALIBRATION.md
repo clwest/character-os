@@ -1247,3 +1247,77 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   than a 30-line function that branches across 4
   paths. Don't equate "user-visible" with "test-
   heavy" — equate "logic-heavy" with "test-heavy."
+
+## 2026-05-15 — Architectural calibration: recipe rollouts get cheaper as the metadata layer matures
+
+- **Context:** K6.4 v1.1 (SESSION 163) added
+  `_VERIFIER_MODE_FIELD` once + applied it to 1 recipe
+  (`talking_head`). K6.4 v1.2 (SESSION 164) rolled the
+  same field to the three remaining K6-aware recipes.
+- **Direction:** Carry-forward architectural.
+- **Detail:** The v1.2 rollout was ~15 minutes total
+  for 3 recipes: 3 one-line tuple insertions (the
+  `RecipeField` reference) + 3 starter-signature
+  additions (the `verifier_mode` kwarg + a 3-line
+  step-params copy). Zero form-renderer changes,
+  zero SPA changes (the field auto-renders), zero
+  serializer changes (the field auto-flows via
+  `resolve_kwargs`). By contrast the v1.1 work — adding
+  the same single field to the metadata model — was a
+  couple of hours including the SPA conversation
+  composer side (which is NOT metadata-driven). The
+  marginal cost of the Nth recipe after the metadata
+  invariant is established approaches zero.
+- **Found by:** Reviewing the v1.2 diff at close-out —
+  the recipe edits were tiny mechanical patches once
+  the design pattern was set.
+- **Lesson:** **For this operator specifically:** when
+  reusable field templates land, roll them to siblings
+  while the design is fresh. The first 1 rollout is
+  design work; the rest is mechanical. Batching v1.x
+  rollouts with the field's debut is cheaper than
+  coming back later when the operator has flipped
+  contexts. **Generalisation:** metadata-driven
+  surfaces have superlinear payoff. The first field
+  costs effort O(renderer + field); each subsequent
+  field is O(field). The total cost of N similar fields
+  is O(renderer + N) vs O(N·renderer) for ad-hoc
+  surfaces. Worth quantifying at design time.
+
+## 2026-05-15 — Near-miss: dataclass evolution + MagicMock leaked through ORM
+
+- **Context:** K6.4 v1.2 refactored
+  `_maybe_synthesize_script` from a 3-tuple to a 4-tuple
+  (added `verification_status`). One existing test
+  patches `build_render_brief` with a `MagicMock()` and
+  sets only `.brief` and `.chunk_ids` explicitly. The
+  new code path reads `.verification_status` from the
+  mock — MagicMock lazily creates the attr as another
+  MagicMock, which then gets passed to the Django ORM
+  field assignment.
+- **Direction:** Near-miss / AI calibration win.
+- **Detail:** The ORM raised a confusing
+  `FieldError: Aggregate functions are not allowed in
+  this query (verification_status=<MagicMock
+  name='mock.verification_status.resolve_expression()
+  .resolve_expression()' id='...'>).` — diagnostically
+  correct but operationally opaque. The root cause was
+  "MagicMock leaked into ORM assignment because the
+  test fixture didn't stamp the new attr." The fix
+  was one line on the fixture; cost was ~5 minutes
+  of confused diff inspection.
+- **Found by:** Running the targeted regression suite
+  after the primitive refactor. Test failed; error
+  trace pointed at the ORM layer; root cause walked
+  back to the unset MagicMock attr.
+- **Lesson:** **For this operator specifically:** when
+  adding new fields to a dataclass that's mocked
+  elsewhere, audit the mocks for attrs the new code
+  path will read. **Generalisation:** Python's
+  duck-typing + MagicMock's structural typing means
+  dataclass evolution + mocks have a sharp edge.
+  Pyright would catch this on a real type; MagicMock
+  is invisible to static analysis. Two mitigations: (a)
+  prefer real dataclass instances in tests when
+  practical, (b) when MagicMock is necessary, treat
+  every new dataclass attr as a fixture-touch event.

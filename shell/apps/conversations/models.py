@@ -95,6 +95,18 @@ class ConversationMessage(models.Model):
     # and Off-mode replies.
     rejected_synthesis = models.TextField(blank=True, default="")
 
+    # K6.4 v1.2 — see ``apps.compositions.models.VerificationStatus``
+    # for the four-state semantics. The state vocabulary is shared
+    # with ``Composition.verification_status`` so the same enum
+    # serves both surfaces. Empty on USER messages (the verifier
+    # only runs on the spokesperson side); empty on pre-v1.2
+    # spokesperson rows for backward compatibility.
+    verification_status = models.CharField(
+        max_length=24,
+        blank=True,
+        default="",
+    )
+
     class Meta:
         ordering = ["thread", "created_at"]
         indexes = [

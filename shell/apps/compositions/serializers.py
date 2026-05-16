@@ -111,6 +111,8 @@ class CompositionSerializer(serializers.ModelSerializer):
             # K6.4 v1.1 — verifier surface for the SPA
             "verification_warnings",
             "rejected_synthesis",
+            # K6.4 v1.2 — verification_status badge
+            "verification_status",
         )
         read_only_fields = fields
 

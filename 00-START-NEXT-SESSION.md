@@ -127,6 +127,16 @@ operator-facing) and the queued cleanups.
   rejection panel on 422; composition detail surfaces
   `verification_warnings` + `rejected_synthesis` in a
   dedicated panel.
+* ~~**K6.4 v1.2 — `verification_status` + recipe
+  rollout.**~~ **DONE SESSION 164.** Closes the
+  SESSION 161 bypass-case audit gap with a four-state
+  field on both `Composition` and `ConversationMessage`
+  (verified / trusted_passthrough / skipped / rejected).
+  SPA renders a colored badge on the composition detail
+  header + each spokesperson message bubble. The
+  `_VERIFIER_MODE_FIELD` select now appears on
+  `talking_head_with_backdrop`, `talking_head_polished`,
+  and `long_form_ad` as well as `talking_head`.
 * **K7.x — YouTube ingest fix** if the silent-failure mode
   surfaces during any real-Runway work. ~1 session.
 * **K6.3 — Brief length cap (~15 min)** — cheapest cleanup.
@@ -181,6 +191,7 @@ shipped against real Runway** (SESSION 158).
 | **K6.4.1 (stoplist widen + strict forensics)** | **DONE (SESSION 161)** |
 | **K6.5 (conversation verifier parity)** | **DONE (SESSION 162)** |
 | **K6.4 v1.1 (SPA toggle + warning surface)** | **DONE (SESSION 163)** |
+| **K6.4 v1.2 (verification_status + recipe rollout)** | **DONE (SESSION 164)** |
 | K7.x (YouTube ingest fix) | Queued |
 | K6.3 / K7.1 / W11.1 | Queued |
 
@@ -195,18 +206,26 @@ shipped against real Runway** (SESSION 158).
 
 ## Queued investigations (priority-ordered)
 
-1. **K6.4 v1.2 — `verification_status` field.** Captured
-   SESSION 161 as a calibration moment: bypass case (no
-   OPENAI_API_KEY → retrieval degrades → verifier skipped)
-   looks identical to clean verified output. Add a
-   TextChoices field distinguishing verified /
-   trusted_passthrough / skipped so the audit trail is
-   honest. ~30 minutes.
-2. **Roll `_VERIFIER_MODE_FIELD` to more recipes.**
-   v1.1 added the field only to `talking_head`. The other
-   recipes that run K6 synthesis (talking_head_with_backdrop,
-   talking_head_polished, long_form_ad) should grow the
-   same field. ~15 minutes — one-line edits.
+1. **More real-Runway exposure** — re-bake Donny,
+   polished Sasha retake (V9 captions + intro/outro),
+   long_form_ad smoke ($0.50-$2.00). The K-arc verifier
+   work has stabilized; time to validate the strict-mode
+   contract against real Runway loads.
+2. **K6.4 v2 — semantic-match upgrade.** Documented v1
+   limitation: lowercase tech names (`trafilatura`,
+   `pgvector`) slip past the substring matcher; some
+   short common-adjective false positives still surface
+   (`Alright` flagged in SESSION 164 dogfood). v2 could
+   add a small-model NER pass or sentence-transformer
+   embedding-similarity check. ~1-2 sessions.
+3. **Stoplist watchdog.** Each session's dogfood has
+   surfaced 1-3 new sentence-initial false-positive
+   words (`Cleanest`, `Welcome`, `Modern`, `Short`,
+   `Alright`...). The list is hand-curated. A scripted
+   "extract sentence-initial words from recent
+   compositions and report any that flagged as
+   unsupported" report would surface these candidates
+   without a live operator probe. ~30 minutes.
 3. **More real-Runway exposure** — re-bake Donny,
    polished Sasha retake, long_form_ad smoke.
 4. **F8.1 — K10 seed corpus** (blocked).

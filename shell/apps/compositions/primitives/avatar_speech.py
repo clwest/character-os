@@ -93,20 +93,22 @@ def _resolve_avatar_id(step, composition) -> str:
     return spokesperson.runway_avatar_id
 
 
-def _maybe_synthesize_script(step, composition) -> tuple[str, list[str], list[dict]]:
-    """Return ``(brief, chunk_ids, verification_warnings)``.
+def _maybe_synthesize_script(step, composition) -> tuple[str, list[str], list[dict], str]:
+    """Return ``(brief, chunk_ids, verification_warnings, verification_status)``.
 
     When ``use_knowledge`` is truthy, the operator's script
     goes through K6's ``build_render_brief`` and we return the
-    synthesized brief + citation ids + K6.4 verifier output.
-    Otherwise the script is used verbatim, the citation list
-    is empty, and verification is skipped (operator-typed
-    scripts are trusted; the verifier exists to catch LLM
-    invention, not operator typing).
+    synthesized brief + citation ids + K6.4 verifier output +
+    K6.4 v1.2 ``verification_status``. Otherwise the script
+    is used verbatim, the citation list is empty, verification
+    is skipped (operator-typed scripts are trusted; the
+    verifier exists to catch LLM invention, not operator
+    typing), and the status is ``trusted_passthrough``.
 
     In Strict verifier mode, ``build_render_brief`` raises
     ``ClaimVerifierError`` before this function returns; the
-    caller catches it and converts to ``PrimitiveError``.
+    caller catches it, persists status=``rejected``, and
+    converts to ``PrimitiveError``.
     """
     raw_script = (step.params or {}).get("script", "").strip()
     if not raw_script:
@@ -114,7 +116,7 @@ def _maybe_synthesize_script(step, composition) -> tuple[str, list[str], list[di
 
     use_knowledge = bool((step.params or {}).get("use_knowledge"))
     if not use_knowledge:
-        return raw_script, [], []
+        return raw_script, [], [], "trusted_passthrough"
 
     # Lazy import — keep this primitive importable even if K6's
     # script_synthesis isn't wired yet (it is, but defensive).
@@ -138,12 +140,19 @@ def _maybe_synthesize_script(step, composition) -> tuple[str, list[str], list[di
         # the bad script. K6.4.1: persist the synthesized text
         # + warning dicts onto the composition so the operator
         # can review what the LLM said and what got flagged.
-        # Without this, the failure surface is just the error
-        # message string and operators have no way to triage.
+        # K6.4 v1.2: stamp verification_status="rejected" so
+        # the audit trail is explicit (status=failed +
+        # verification_status=rejected together distinguish
+        # K6.4 rejections from other primitive failures).
         composition.verification_warnings = [u.to_dict() for u in exc.unsupported]
         composition.rejected_synthesis = exc.synthesized_text or ""
+        composition.verification_status = "rejected"
         composition.save(
-            update_fields=["verification_warnings", "rejected_synthesis"],
+            update_fields=[
+                "verification_warnings",
+                "rejected_synthesis",
+                "verification_status",
+            ],
         )
         raise PrimitiveError(
             f"K6.4 claim verifier rejected the synthesized script "
@@ -154,6 +163,7 @@ def _maybe_synthesize_script(step, composition) -> tuple[str, list[str], list[di
         result.brief,
         list(result.chunk_ids or []),
         list(result.verification_warnings or []),
+        result.verification_status or "",
     )
 
 
@@ -190,19 +200,30 @@ class GenerateAvatarSpeechPrimitive:
         # ---- real-mode path -----------------------------------
 
         avatar_id = _resolve_avatar_id(step, composition)
-        brief, chunk_ids, verification_warnings = _maybe_synthesize_script(step, composition)
+        brief, chunk_ids, verification_warnings, verification_status = (
+            _maybe_synthesize_script(step, composition)
+        )
 
         # K6.4 — persist Warn-mode verifier output onto the
         # composition. Strict mode would have raised in
         # _maybe_synthesize_script; Off mode returns an empty
         # list. Append rather than overwrite so a composition
         # with multiple knowledge-informed steps accumulates
-        # warnings across all of them.
+        # warnings across all of them. K6.4 v1.2: stamp the
+        # composition-level verification_status from the
+        # step's outcome (last writer wins for multi-step
+        # compositions; the final step's status dominates).
+        composition_update_fields: list[str] = []
         if verification_warnings:
             existing = list(composition.verification_warnings or [])
             existing.extend(verification_warnings)
             composition.verification_warnings = existing
-            composition.save(update_fields=["verification_warnings"])
+            composition_update_fields.append("verification_warnings")
+        if verification_status and composition.verification_status != verification_status:
+            composition.verification_status = verification_status
+            composition_update_fields.append("verification_status")
+        if composition_update_fields:
+            composition.save(update_fields=composition_update_fields)
 
         try:
             with MediaEngineClient() as client:

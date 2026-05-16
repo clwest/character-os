@@ -117,6 +117,7 @@ class ConversationThreadViewSet(viewsets.ModelViewSet):
         # + embedded by K8's signal at this point.
         verifier_warnings: list[dict] = []
         rejected_synthesis = ""
+        verifier_status = ""
         try:
             result = synthesize_spokesperson_reply(
                 thread, content, verifier_mode=verifier_mode,
@@ -145,6 +146,8 @@ class ConversationThreadViewSet(viewsets.ModelViewSet):
                     ),
                     verification_warnings=unsupported_dicts,
                     rejected_synthesis=exc.synthesized_text or "",
+                    # K6.4 v1.2 — strict rejection is its own state.
+                    verification_status="rejected",
                 )
                 thread.save(update_fields=["last_activity_at"])
             return Response(
@@ -179,6 +182,7 @@ class ConversationThreadViewSet(viewsets.ModelViewSet):
             reply_text = result.text
             reply_result_chunk_ids = list(result.chunk_ids)
             verifier_warnings = list(result.verification_warnings or [])
+            verifier_status = result.verification_status or ""
 
         with transaction.atomic():
             spokesperson_msg = ConversationMessage.objects.create(
@@ -187,6 +191,7 @@ class ConversationThreadViewSet(viewsets.ModelViewSet):
                 content=reply_text,
                 verification_warnings=verifier_warnings,
                 rejected_synthesis=rejected_synthesis,
+                verification_status=verifier_status,
             )
             # Bump last_activity_at — auto_now only fires on
             # thread.save(). Force the update so the SPA's

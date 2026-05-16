@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { AlertTriangle, ArrowLeft, Loader2, Send, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { VerificationStatusBadge } from "@/components/verification-status-badge";
 import {
   type ConversationMessage,
   type VerifierMode,
@@ -235,9 +236,14 @@ function MessageBubble({
       }
       data-testid={`message-${message.role}`}
     >
-      <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-        {isUser ? "You" : spokespersonName}
-      </span>
+      <div className="flex items-center gap-2">
+        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+          {isUser ? "You" : spokespersonName}
+        </span>
+        {!isUser && message.verification_status && (
+          <VerificationStatusBadge status={message.verification_status} />
+        )}
+      </div>
       <div
         className={
           "max-w-[80%] whitespace-pre-wrap rounded-md border px-4 py-2 text-sm " +

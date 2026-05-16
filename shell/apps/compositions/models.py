@@ -62,6 +62,41 @@ class StepStatus(models.TextChoices):
     SKIPPED = "skipped", "Skipped"
 
 
+class VerificationStatus(models.TextChoices):
+    """K6.4 v1.2 — outcome of the post-synthesis claim verifier
+    for one render. Captured on ``Composition.verification_status``
+    and ``ConversationMessage.verification_status``.
+
+    The four states distinguish *what the verifier actually did*
+    so an empty ``verification_warnings`` list isn't ambiguous
+    between "verified clean" and "verifier didn't run." Closes
+    the SESSION 161 calibration gap (TRUST_CALIBRATION entry
+    "Near-miss: bypass case looks identical to clean render").
+
+    State semantics:
+
+    * ``VERIFIED`` — synthesis ran AND verifier ran in
+      strict/warn mode. The render is grounded by the
+      verifier's contract. ``verification_warnings`` may be
+      empty (clean) OR populated (Warn mode flags).
+    * ``TRUSTED_PASSTHROUGH`` — synthesis path degraded (no
+      chunks, no OpenAI key, retrieval failure, mock mode) so
+      no LLM produced text. The operator's prompt flowed
+      through verbatim; trusted by definition.
+    * ``SKIPPED`` — verifier mode was ``"off"``. The LLM ran
+      but no verification occurred; operator may have invented
+      content.
+    * ``REJECTED`` — strict mode caught unsupported claims and
+      blocked the render. ``rejected_synthesis`` carries what
+      the LLM produced; ``status`` on the parent row will
+      typically be ``FAILED`` for compositions.
+    """
+    VERIFIED = "verified", "Verified"
+    TRUSTED_PASSTHROUGH = "trusted_passthrough", "Trusted Passthrough"
+    SKIPPED = "skipped", "Skipped"
+    REJECTED = "rejected", "Rejected"
+
+
 class Asset(models.Model):
     """A generated media artifact — clip, audio, image,
     transcript, or Runway voice resource.
@@ -241,6 +276,17 @@ class Composition(models.Model):
     # Warn-mode flagged renders (where the brief flows through
     # to Runway), and Off-mode renders.
     rejected_synthesis = models.TextField(blank=True, default="")
+
+    # K6.4 v1.2 — closes the SESSION 161 bypass-case audit gap.
+    # See ``VerificationStatus`` for the four-state semantics.
+    # Empty default keeps pre-v1.2 rows distinguishable from
+    # post-v1.2 explicit statuses.
+    verification_status = models.CharField(
+        max_length=24,
+        choices=VerificationStatus.choices,
+        blank=True,
+        default="",
+    )
 
     # Cost transparency (contract rule 7). Estimate is computed
     # before render fires; actual is summed from per-step

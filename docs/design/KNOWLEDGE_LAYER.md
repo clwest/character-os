@@ -927,6 +927,52 @@ slices that can land independently. Recommended order:
     persisted with ``verification_warnings`` +
     ``rejected_synthesis``. End-to-end SPA-facing surface
     confirmed.
+
+- **K6.4 v1.2 — verification_status field + recipe
+  rollout. ✓ SHIPPED SESSION 164.** Closes the SESSION 161
+  bypass-case audit gap: an empty
+  ``verification_warnings`` list was ambiguous between
+  "verified clean" and "verifier didn't run." v1.2 adds an
+  explicit four-state field on both ``Composition`` and
+  ``ConversationMessage`` so the audit trail is honest.
+    * ``apps.compositions.models.VerificationStatus``
+      TextChoices: ``verified | trusted_passthrough |
+      skipped | rejected``. Default empty for pre-v1.2 rows.
+    * ``ScriptResult.verification_status`` +
+      ``ReplyResult.verification_status`` populated by
+      synthesizers based on which code path runs.
+      ``trusted_passthrough`` for any non-LLM path (mock,
+      retrieval fail, no chunks, no key, LLM call fail);
+      ``verified`` for LLM+verifier ran in strict/warn;
+      ``skipped`` for off mode; ``rejected`` set by the
+      caller on strict-mode ``ClaimVerifierError``.
+    * Migrations:
+      ``0004_composition_verification_status`` +
+      ``0004_conversationmessage_verification_status``.
+    * Both serializers expose the field.
+    * SPA: new
+      ``web/src/components/verification-status-badge.tsx``
+      renders a colored badge keyed off the four states
+      (emerald check / muted info / amber alert / red
+      shield). Rendered on composition detail page header
+      + every spokesperson message bubble.
+    * Recipe rollout: ``_VERIFIER_MODE_FIELD`` added to
+      ``talking_head_with_backdrop``,
+      ``talking_head_polished``, and ``long_form_ad``.
+      Each starter grew a ``verifier_mode`` kwarg that
+      threads onto every K6-synthesizing
+      ``generate_avatar_speech`` step.
+
+    Test totals: Django 693 → 697 (+4 v1.2 backend tests).
+    SPA vitest 40 → 46 (+6 badge tests). Migrations 54 → 56.
+
+    **Live dogfood:** synthesizer runs in warn-mode against
+    a knowledge-attached Donny thread → returns
+    ``verification_status="verified"`` (even with one Warn
+    flag — `verified` means "the verifier saw the output").
+    Same call with explicit ``verifier_mode="off"`` →
+    ``verification_status="skipped"``, warnings=[]. The
+    bypass-case audit gap is closed end-to-end.
 - **K7 — URL ingestion + serper discovery.** `trafilatura`
   fetch+extract. Serper search tab on the workspace upload
   surface. Both flow into the same Celery embedding task.

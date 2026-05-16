@@ -241,6 +241,7 @@ def long_form_ad(
     mock_mode: bool = False,
     name: str = "",
     created_by: "AbstractBaseUser | None" = None,
+    verifier_mode: str | None = None,
 ) -> Composition:
     """Create a long-form ad composition: split → N× speak → concat.
 
@@ -334,15 +335,20 @@ def long_form_ad(
 
     # Lay down one generate_avatar_speech step per chunk.
     for i, chunk in enumerate(chunks):
+        step_params: dict = {
+            "script": chunk,
+            "use_knowledge": bool(use_knowledge),
+        }
+        # K6.4 v1.1 — per-render verifier mode applies to every
+        # synthesis step in the composition (one per chunk).
+        if verifier_mode:
+            step_params["verifier_mode"] = verifier_mode
         CompositionStep.objects.create(
             composition=composition,
             position=i,
             primitive="generate_avatar_speech",
             inputs=[],
-            params={
-                "script": chunk,
-                "use_knowledge": bool(use_knowledge),
-            },
+            params=step_params,
         )
 
     # Optimization: skip the concat step when there's exactly one
@@ -630,6 +636,7 @@ def talking_head_with_backdrop(
     mock_mode: bool = False,
     name: str = "",
     created_by: "AbstractBaseUser | None" = None,
+    verifier_mode: str | None = None,
 ) -> Composition:
     """Avatar talking over a cinematic backdrop. The first
     multi-step starter that combines V3 + V4 + V7's
@@ -728,15 +735,18 @@ def talking_head_with_backdrop(
     )
 
     # Step 1 — avatar speech. Mirrors the talking_head starter.
+    speech_params: dict = {
+        "script": script.strip(),
+        "use_knowledge": bool(use_knowledge),
+    }
+    if verifier_mode:
+        speech_params["verifier_mode"] = verifier_mode
     CompositionStep.objects.create(
         composition=composition,
         position=1,
         primitive="generate_avatar_speech",
         inputs=[],
-        params={
-            "script": script.strip(),
-            "use_knowledge": bool(use_knowledge),
-        },
+        params=speech_params,
     )
 
     # Step 2 — composite the avatar over the backdrop.
@@ -783,6 +793,7 @@ def talking_head_polished(
     mock_mode: bool = False,
     name: str = "",
     created_by: "AbstractBaseUser | None" = None,
+    verifier_mode: str | None = None,
 ) -> Composition:
     """Polished talking-head ad — speech → captions → intro/outro.
 
@@ -821,15 +832,18 @@ def talking_head_polished(
     )
 
     # Step 0 — speech
+    polished_speech_params: dict = {
+        "script": script.strip(),
+        "use_knowledge": bool(use_knowledge),
+    }
+    if verifier_mode:
+        polished_speech_params["verifier_mode"] = verifier_mode
     CompositionStep.objects.create(
         composition=composition,
         position=0,
         primitive="generate_avatar_speech",
         inputs=[],
-        params={
-            "script": script.strip(),
-            "use_knowledge": bool(use_knowledge),
-        },
+        params=polished_speech_params,
     )
 
     # Step 1 — captions (optional). When provided, takes step 0's

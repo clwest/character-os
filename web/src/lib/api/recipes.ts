@@ -285,6 +285,12 @@ const compositionSchema = z.object({
   // LLM produced before strict rejected it (empty otherwise).
   verification_warnings: z.array(unsupportedClaimSchema).default([]),
   rejected_synthesis: z.string().default(""),
+  // K6.4 v1.2 — verification_status badge. Four explicit
+  // states + empty for pre-v1.2 rows. See
+  // apps.compositions.models.VerificationStatus.
+  verification_status: z
+    .enum(["", "verified", "trusted_passthrough", "skipped", "rejected"])
+    .default(""),
 });
 
 export type Composition = z.infer<typeof compositionSchema>;

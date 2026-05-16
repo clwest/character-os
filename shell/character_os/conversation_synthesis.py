@@ -73,6 +73,8 @@ class ReplyResult:
     tokens_input: int = 0
     tokens_output: int = 0
     verification_warnings: list[dict] = field(default_factory=list)
+    # K6.4 v1.2 — see apps.compositions.models.VerificationStatus.
+    verification_status: str = ""
 
 
 def _is_force_mock() -> bool:
@@ -112,7 +114,8 @@ def synthesize_spokesperson_reply(
     spokesperson = thread.spokesperson
 
     # Force-mock: no LLM, deterministic shape. Still pulls
-    # retrieval so the chunk_ids round-trip is testable.
+    # retrieval so the chunk_ids round-trip is testable. v1.2 —
+    # no synthesis means trusted_passthrough.
     if _is_force_mock():
         docs, history = retrieve_for_thread(
             thread, query=user_content or spokesperson.name,
@@ -124,6 +127,7 @@ def synthesize_spokesperson_reply(
             chunk_ids=chunk_ids,
             used_knowledge=bool(chunk_ids),
             model=f"{REPLY_MODEL} (mock)",
+            verification_status="trusted_passthrough",
         )
 
     # Real mode — retrieve first. Any failure degrades.
@@ -137,7 +141,10 @@ def synthesize_spokesperson_reply(
             "retrieve_for_thread failed thread=%s — degrading",
             thread.pk,
         )
-        return ReplyResult(text=_degraded_reply(spokesperson, user_content))
+        return ReplyResult(
+            text=_degraded_reply(spokesperson, user_content),
+            verification_status="trusted_passthrough",
+        )
 
     if not _has_openai_key():
         logger.warning(
@@ -147,6 +154,7 @@ def synthesize_spokesperson_reply(
         return ReplyResult(
             text=_degraded_reply(spokesperson, user_content),
             chunk_ids=[str(c.id) for c in docs],
+            verification_status="trusted_passthrough",
         )
 
     try:
@@ -160,6 +168,7 @@ def synthesize_spokesperson_reply(
         return ReplyResult(
             text=_degraded_reply(spokesperson, user_content),
             chunk_ids=[str(c.id) for c in docs],
+            verification_status="trusted_passthrough",
         )
 
     final_text = text.strip() or _degraded_reply(spokesperson, user_content)
@@ -169,7 +178,7 @@ def synthesize_spokesperson_reply(
     # produced something; the degraded path is operator-trusted
     # by design. Strict mode raises ``ClaimVerifierError`` which
     # the API view catches and surfaces as a 422.
-    from character_os.claim_verifier import build_corpus, run_verifier
+    from character_os.claim_verifier import _get_default_mode, build_corpus, run_verifier
 
     corpus = build_corpus(
         docs,
@@ -177,6 +186,11 @@ def synthesize_spokesperson_reply(
         operator_prompt=user_content,
         extras=[h.chunk_text for h in history if getattr(h, "chunk_text", None)],
     )
+    # K6.4 v1.2 — same mode-resolution dance as script_synthesis
+    # to stamp the right verification_status. Strict rejection
+    # raises; the API view sets status=rejected on the persisted
+    # placeholder message.
+    resolved_mode = (verifier_mode or _get_default_mode()).lower()
     unsupported = run_verifier(final_text, corpus=corpus, mode=verifier_mode)
     if unsupported:
         logger.warning(
@@ -186,6 +200,8 @@ def synthesize_spokesperson_reply(
             ", ".join(f"{u.claim!r}" for u in unsupported),
         )
 
+    status = "skipped" if resolved_mode == "off" else "verified"
+
     return ReplyResult(
         text=final_text,
         chunk_ids=[str(c.id) for c in docs],
@@ -194,6 +210,7 @@ def synthesize_spokesperson_reply(
         tokens_input=tokens_in,
         tokens_output=tokens_out,
         verification_warnings=[u.to_dict() for u in unsupported],
+        verification_status=status,
     )
 
 

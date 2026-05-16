@@ -315,6 +315,7 @@ RECIPES: dict[str, Recipe] = {
                 required=False, default=10, min_value=5, max_value=10,
             ),
             RecipeField(name="use_knowledge", type="checkbox", label="Use workspace knowledge", required=False, default=False),
+            _VERIFIER_MODE_FIELD,
             _NAME_FIELD,
             _MOCK_MODE_FIELD,
         ),
@@ -329,6 +330,7 @@ RECIPES: dict[str, Recipe] = {
             RecipeField(name="spokesperson_id", type="spokesperson_picker", label="Spokesperson"),
             RecipeField(name="script", type="textarea", label="Script", min_chars=8, max_chars=4000),
             RecipeField(name="use_knowledge", type="checkbox", label="Use workspace knowledge", required=False, default=False),
+            _VERIFIER_MODE_FIELD,
             # captions + intro + outro are JSON-shaped; v1 leaves them
             # null and ships the simple flavor. V15.3 may add a captions
             # builder UI.
@@ -355,6 +357,7 @@ RECIPES: dict[str, Recipe] = {
                 help_text="Consults gpt-5-mini for semantically-clean splits (small cost; otherwise naive at sentence boundaries).",
             ),
             RecipeField(name="use_knowledge", type="checkbox", label="Use workspace knowledge per chunk", required=False, default=False),
+            _VERIFIER_MODE_FIELD,
             _NAME_FIELD,
             _MOCK_MODE_FIELD,
         ),

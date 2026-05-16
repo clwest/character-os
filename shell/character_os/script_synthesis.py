@@ -95,6 +95,11 @@ class ScriptResult:
     tokens_input: int = 0
     tokens_output: int = 0
     verification_warnings: list[dict] = field(default_factory=list)
+    # K6.4 v1.2 — see ``apps.compositions.models.VerificationStatus``.
+    # Empty string when the code path doesn't set it (defensive
+    # default; every return path in build_render_brief sets one
+    # of the four explicit values).
+    verification_status: str = ""
 
 
 def _is_force_mock() -> bool:
@@ -142,7 +147,8 @@ def build_render_brief(
     fallback_brief = operator_prompt or (spokesperson.business_brief or "").strip()
 
     # Force-mock: no retrieval, no LLM. Deterministic shape that
-    # tests can assert against.
+    # tests can assert against. v1.2 — no synthesis means
+    # trusted_passthrough.
     if _is_force_mock():
         chunks = retrieve_for_spokesperson(
             spokesperson, query=operator_prompt or spokesperson.name, top_k=top_k,
@@ -153,6 +159,7 @@ def build_render_brief(
             chunk_ids=chunk_ids,
             used_knowledge=bool(chunk_ids),
             model=f"{SCRIPT_MODEL} (mock)",
+            verification_status="trusted_passthrough",
         )
 
     # Real mode — first retrieve. Even if retrieval fails for
@@ -166,12 +173,18 @@ def build_render_brief(
             "retrieve_for_spokesperson failed sp=%s — degrading to operator prompt",
             spokesperson.pk,
         )
-        return ScriptResult(brief=fallback_brief)
+        return ScriptResult(
+            brief=fallback_brief,
+            verification_status="trusted_passthrough",
+        )
 
     if not chunks:
         # Contract rule 6 — graceful degradation. No knowledge,
         # no synthesis, original brief flows through.
-        return ScriptResult(brief=fallback_brief)
+        return ScriptResult(
+            brief=fallback_brief,
+            verification_status="trusted_passthrough",
+        )
 
     if not _has_openai_key():
         # Real mode requested (force-mock not set) but no key.
@@ -185,6 +198,7 @@ def build_render_brief(
         return ScriptResult(
             brief=fallback_brief,
             chunk_ids=[str(c.id) for c in chunks],
+            verification_status="trusted_passthrough",
         )
 
     try:
@@ -199,6 +213,7 @@ def build_render_brief(
         return ScriptResult(
             brief=fallback_brief,
             chunk_ids=[str(c.id) for c in chunks],
+            verification_status="trusted_passthrough",
         )
 
     final_brief = synthesised.strip() or fallback_brief
@@ -215,6 +230,12 @@ def build_render_brief(
         spokesperson=spokesperson,
         operator_prompt=operator_prompt,
     )
+    # K6.4 v1.2 — resolve the mode the verifier *actually* runs
+    # under so we can stamp the right verification_status. Strict
+    # rejection raises; Warn/clean → verified; Off → skipped.
+    from character_os.claim_verifier import _get_default_mode
+
+    resolved_mode = (verifier_mode or _get_default_mode()).lower()
     unsupported = run_verifier(final_brief, corpus=corpus, mode=verifier_mode)
     if unsupported:
         logger.warning(
@@ -224,6 +245,8 @@ def build_render_brief(
             ", ".join(f"{u.claim!r}" for u in unsupported),
         )
 
+    status = "skipped" if resolved_mode == "off" else "verified"
+
     return ScriptResult(
         brief=final_brief,
         chunk_ids=[str(c.id) for c in chunks],
@@ -232,6 +255,7 @@ def build_render_brief(
         tokens_input=tokens_in,
         tokens_output=tokens_out,
         verification_warnings=[u.to_dict() for u in unsupported],
+        verification_status=status,
     )
 
 

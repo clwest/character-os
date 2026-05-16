@@ -245,6 +245,96 @@ def test_api_warn_mode_persists_warnings_returns_201() -> None:
     assert sp_msg.rejected_synthesis == ""  # not strict-rejected
 
 
+def test_verification_status_verified_on_clean_warn_k6_4_v1_2() -> None:
+    """v1.2 — verifier ran in warn mode, no claims unsupported →
+    verification_status='verified'."""
+    ws, _ = _make_workspace("k64v12a@test")
+    sp = _make_spokesperson(ws)
+    _attach_doc(ws, sp)
+    thread = ConversationThread.objects.create(spokesperson=sp)
+
+    clean_reply = "I hear you. The docs lay out RAG plainly: retrieve, then generate."
+
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake"}):
+        with override_settings(
+            CONVERSATION_REPLY_FORCE_MOCK=False,
+            K6_CLAIM_VERIFIER_MODE="warn",
+        ):
+            with patch(
+                "character_os.conversation_synthesis._call_responses_api",
+                return_value=(clean_reply, 100, 30),
+            ):
+                result = synthesize_spokesperson_reply(thread, "Explain RAG.")
+
+    assert result.verification_status == "verified"
+
+
+def test_verification_status_skipped_on_off_mode_k6_4_v1_2() -> None:
+    ws, _ = _make_workspace("k64v12b@test")
+    sp = _make_spokesperson(ws)
+    _attach_doc(ws, sp)
+    thread = ConversationThread.objects.create(spokesperson=sp)
+
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake"}):
+        with override_settings(
+            CONVERSATION_REPLY_FORCE_MOCK=False,
+            K6_CLAIM_VERIFIER_MODE="off",
+        ):
+            with patch(
+                "character_os.conversation_synthesis._call_responses_api",
+                return_value=(DONNY_LIKE_REPLY, 100, 30),
+            ):
+                result = synthesize_spokesperson_reply(thread, "Anything.")
+
+    assert result.verification_status == "skipped"
+    assert result.verification_warnings == []
+
+
+def test_verification_status_trusted_passthrough_when_no_openai_key_k6_4_v1_2() -> None:
+    ws, _ = _make_workspace("k64v12c@test")
+    sp = _make_spokesperson(ws)
+    _attach_doc(ws, sp)
+    thread = ConversationThread.objects.create(spokesperson=sp)
+
+    with patch.dict(os.environ, {}, clear=True):
+        with override_settings(CONVERSATION_REPLY_FORCE_MOCK=False):
+            result = synthesize_spokesperson_reply(thread, "Anything.")
+
+    assert result.verification_status == "trusted_passthrough"
+    assert result.used_knowledge is False
+
+
+def test_api_strict_rejection_persists_status_rejected_k6_4_v1_2() -> None:
+    """K6.4 v1.2 — strict-rejection placeholder spokesperson
+    message carries verification_status='rejected' on the
+    persisted row so the SPA can show a 'rejected' badge."""
+    ws, user = _make_workspace("k64v12d@test")
+    sp = _make_spokesperson(ws)
+    _attach_doc(ws, sp)
+    thread = ConversationThread.objects.create(spokesperson=sp)
+    client = APIClient()
+    _login(client, user)
+
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake"}):
+        with override_settings(
+            CONVERSATION_REPLY_FORCE_MOCK=False,
+            K6_CLAIM_VERIFIER_MODE="strict",
+        ):
+            with patch(
+                "character_os.conversation_synthesis._call_responses_api",
+                return_value=(DONNY_LIKE_REPLY, 100, 30),
+            ):
+                response = client.post(
+                    f"/api/conversations/{thread.id}/messages/",
+                    {"content": "Anything."},
+                    format="json",
+                )
+
+    assert response.status_code == http.HTTP_422_UNPROCESSABLE_ENTITY
+    sp_msg = ConversationMessage.objects.get(pk=response.data["spokesperson_message"]["id"])
+    assert sp_msg.verification_status == "rejected"
+
+
 def test_api_per_request_verifier_mode_overrides_settings_k6_4_v1_1() -> None:
     """K6.4 v1.1 — operator can flip strict/warn/off per-request
     via the POST body without changing
