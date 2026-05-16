@@ -254,6 +254,34 @@ _COMMON_PROPER_NOUN_FALSE_POSITIVES: frozenset[str] = frozenset({
     "online", "offline", "local", "remote",
     "public", "private",
     "modern-day",
+    # K6.4 v2.1 (SESSION 174) — sentence-initial time adverbs.
+    # Real-mode K6 dogfood produced briefs starting "Today, ..."
+    # ("Today, the 'Five Good Emperors'—and why many see their
+    # era as a Roman golden age."). The verifier flagged "Today"
+    # as a proper noun because it's 5 chars + capitalized at
+    # sentence start. Time adverbs are common opening words in
+    # marketing prose and are never proper nouns.
+    "today", "tomorrow", "yesterday", "tonight",
+    "lately", "recently",
+    # K6.4 v2.1 — `think` was missing from the CTA-verbs class
+    # added in v2 (SESSION 166). Dogfood found "Think Antoninus'
+    # peaceful, Senate-sharing reign" — the imperative verb at
+    # sentence start was concatenated with the real proper noun
+    # that followed and flagged as a multi-word entity. With
+    # `think` in the stoplist + the new sentence-initial-leader
+    # demotion (see extract_named_entities), the multi-word
+    # match drops and "Antoninus" alone flows to the single-cap
+    # pass + corpus check.
+    "think", "thinks", "thought", "thinking",
+    # K6.4 v2.1 — sentence-opener prepositions that capitalize
+    # at sentence start but are never proper nouns. Some of
+    # these (``with``, ``from``) typically appear in the
+    # retrieved corpus too so they wouldn't fail the substring
+    # check; the stoplist entries are belt-and-suspenders for
+    # the small-corpus edge cases (single-doc workspaces,
+    # paraphrase queries that hit only narrow doc sections).
+    "from", "with", "without", "through", "throughout",
+    "between", "among", "across", "around", "within", "beyond",
 })
 
 
@@ -438,8 +466,64 @@ def extract_named_entities(text: str) -> list[UnsupportedClaim]:
 
     # 1) Multi-word capitalized phrases first — they take
     #    precedence so we don't extract their parts as singles.
+    #
+    # K6.4 v2.1 (SESSION 174) — sentence-initial demotion:
+    # when the leading word of a multi-word match is sentence-
+    # initial AND in the common-words stoplist, drop just the
+    # leader and let single-cap extraction handle the rest.
+    # Closes the "Think Antoninus" dogfood case where an
+    # imperative verb opener was concatenated with a real
+    # proper noun and flagged as one multi-word entity. After
+    # this change "Think Antoninus" produces zero multi_word
+    # claims; "Antoninus" then flows through the single-cap
+    # pass and matches the corpus correctly.
     for match in _MULTIWORD_CAPS_RE.finditer(text):
         claim = match.group(0).strip()
+        first_word = claim.split(None, 1)[0]
+        if (
+            first_word.lower() in _COMMON_PROPER_NOUN_FALSE_POSITIVES
+            and is_sentence_initial(text, match.start())
+        ):
+            # K6.4 v2.1 demotion — drop the stoplisted leader,
+            # then re-extract the remainder. Two shapes to
+            # preserve:
+            #
+            # 1) "Think Antoninus" — remainder is one cap word.
+            #    Block the leader's span; let single-cap pick
+            #    up "Antoninus" naturally.
+            # 2) "The Federal Bureau of Investigation" —
+            #    remainder is itself a multi-word proper-noun.
+            #    Block the leader's span AND emit the remainder
+            #    as a fresh multi_word claim so single-cap
+            #    doesn't shred it into ("Federal", "Bureau",
+            #    "Investigation").
+            leader_end = match.start() + len(first_word)
+            matched_spans.append((match.start(), leader_end))
+            # Look for a multi-word match inside the remainder
+            # of the original span (start after the leader's
+            # trailing whitespace).
+            remainder_start = leader_end
+            while (
+                remainder_start < match.end()
+                and text[remainder_start].isspace()
+            ):
+                remainder_start += 1
+            if remainder_start < match.end():
+                sub_match = _MULTIWORD_CAPS_RE.search(
+                    text, remainder_start, match.end(),
+                )
+                if sub_match:
+                    sub_claim = sub_match.group(0).strip()
+                    sub_start = sub_match.start()
+                    sub_end = sub_match.end()
+                    if sub_claim not in found:
+                        found[sub_claim] = UnsupportedClaim(
+                            claim=sub_claim,
+                            kind="multi_word",
+                            position=sub_start,
+                        )
+                        matched_spans.append((sub_start, sub_end))
+            continue
         if claim in found:
             continue
         found[claim] = UnsupportedClaim(

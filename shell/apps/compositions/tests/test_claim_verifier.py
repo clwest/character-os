@@ -200,6 +200,108 @@ def test_stoplist_cta_verbs_k6_4_v2_dogfood() -> None:
         assert cta not in claims, f"K6.4 v2 CTA false-positive: {cta} in {claims}"
 
 
+# ---- K6.4 v2.1 (SESSION 174) — sentence-opener fixes -------------
+
+
+def test_stoplist_time_adverbs_k6_4_v2_1() -> None:
+    """v2.1 — time adverbs at sentence start. Real K6 dogfood
+    produced briefs starting "Today, the Five Good Emperors..."
+    and the verifier flagged "Today" as a proper noun."""
+    text = (
+        "Today, the workspace is live. Tomorrow we ship. "
+        "Yesterday we shipped. Tonight we celebrate. "
+        "Lately the trend is up. Recently we hit our goal."
+    )
+    entities = extract_named_entities(text)
+    claims = {e.claim for e in entities}
+    for opener in {"Today", "Tomorrow", "Yesterday", "Tonight",
+                   "Lately", "Recently"}:
+        assert opener not in claims, (
+            f"K6.4 v2.1 time-adverb false-positive: {opener} in {claims}"
+        )
+
+
+def test_multiword_demotes_sentence_initial_stoplisted_leader_k6_4_v2_1() -> None:
+    """v2.1 — the canonical dogfood case. When a multi-word
+    match starts at sentence-initial AND its leading word is
+    in the stoplist, the leader should be dropped and the
+    remainder should fall through to single-cap extraction.
+
+    Input shape lifted from the SESSION 174 K6 brief:
+    "Think Antoninus' peaceful, Senate-sharing reign..."
+    "Think" (imperative verb opener) + "Antoninus" (real
+    proper noun) used to flag as one multi_word entity.
+    After the fix: zero multi_word, one proper_noun for
+    "Antoninus" which will be checked against the corpus.
+    """
+    text = (
+        "Gibbon called their rule absolute power guided by virtue. "
+        "Think Antoninus' peaceful reign and Marcus as a gifted "
+        "administrator."
+    )
+    entities = extract_named_entities(text)
+    claims_by_kind = {(e.kind, e.claim) for e in entities}
+    # No "Think Antoninus" as multi_word.
+    assert ("multi_word", "Think Antoninus") not in claims_by_kind
+    # "Antoninus" surfaces alone as a proper_noun.
+    assert ("proper_noun", "Antoninus") in claims_by_kind
+    # "Think" itself doesn't survive either (stoplisted).
+    assert ("proper_noun", "Think") not in claims_by_kind
+
+
+def test_multiword_demotes_only_at_sentence_initial_k6_4_v2_1() -> None:
+    """v2.1 — the demotion fires ONLY at sentence-initial.
+    Mid-sentence multi-word matches are unaffected.
+
+    "remember Marcus Aurelius" would only ever appear mid-
+    sentence as a phrase (operator-typed prompt or model
+    output). The demotion logic must NOT strip "remember"
+    here — the v1 multi-word regex doesn't match "remember
+    Marcus" anyway because "remember" is lowercase, but the
+    invariant matters: even if the operator writes
+    "...if we Remember Marcus Aurelius...", the mid-sentence
+    capitalized "Remember" shouldn't trigger demotion."""
+    # Construct a mid-sentence multi-word that starts with a
+    # stoplisted word. Capitalize "Remember" to satisfy the
+    # multi-word regex, then put it mid-sentence (after a comma,
+    # not a period).
+    text = "Yes, Remember Marcus Aurelius once said something."
+    entities = extract_named_entities(text)
+    claims_by_kind = {(e.kind, e.claim) for e in entities}
+    # Mid-sentence: the multi-word match survives.
+    assert ("multi_word", "Remember Marcus Aurelius") in claims_by_kind
+
+
+def test_multiword_demotion_full_session_174_brief_k6_4_v2_1() -> None:
+    """v2.1 regression — full brief from SESSION 174 dogfood,
+    with a corpus that genuinely supports every real claim.
+    After the fixes, verify_claims should return EMPTY."""
+    brief = (
+        "Today, the \"Five Good Emperors\"—and why many see their "
+        "era as a Roman golden age. From 96 to 180 AD, Nerva, "
+        "Trajan, Hadrian, Antoninus Pius, and Marcus Aurelius "
+        "mostly chose successors by adoption. Machiavelli praised "
+        "this. Gibbon called their rule absolute power guided by "
+        "wisdom and virtue. Think Antoninus' peaceful, "
+        "Senate-sharing reign and Marcus as an unpretentious, "
+        "gifted administrator—before the shift to a birth heir, "
+        "Commodus, in 180."
+    )
+    # Corpus shape matches what the real Nerva-Antonine chunks
+    # contain — all the real proper nouns appear, including the
+    # numeric "180" + "96" year markers.
+    corpus = (
+        "Nerva Trajan Hadrian Antoninus Pius Marcus Aurelius "
+        "Machiavelli Gibbon Commodus Roman Senate "
+        "Five Good Emperors 96 180 AD adoption "
+    )
+    unsupported = verify_claims(brief, corpus=corpus)
+    assert unsupported == [], (
+        f"K6.4 v2.1 regression — expected zero unsupported "
+        f"claims, got: {[(u.kind, u.claim) for u in unsupported]}"
+    )
+
+
 def test_is_sentence_initial_position_zero() -> None:
     assert is_sentence_initial("Wikipedia is great.", 0) is True
 
