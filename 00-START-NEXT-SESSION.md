@@ -164,6 +164,19 @@ operator-facing) and the queued cleanups.
   shipped a real Runway render at $0.25,
   `verification_status="verified"`. Also fixed an
   environmental `trafilatura` missing from the venv.
+* ~~**K6.6 — script structure + opener + brief
+  persistence.**~~ **DONE SESSION 168.** Operator
+  feedback that scripts "feel like picking up mid
+  conversation" drove three changes: (1) K6 system
+  prompt enforces standalone-video framing (opener →
+  claim → CTA), (2) `opener` kwarg lets the operator
+  pin the first sentence verbatim, (3)
+  `Composition.synthesized_brief` field persists what
+  K6 said on successful renders (closes the SESSION
+  167 audit gap). Live dogfood: 2 real Runway renders
+  at $0.25 each, both `verification_status=verified`,
+  both with clear standalone openers. SPA shows the
+  synthesized brief on the composition detail page.
 * **K7.x — YouTube ingest fix** if the silent-failure mode
   surfaces during any real-Runway work. ~1 session.
 * **K6.3 — Brief length cap (~15 min)** — cheapest cleanup.
@@ -222,6 +235,7 @@ shipped against real Runway** (SESSION 158).
 | **K6.4 stoplist watchdog** | **DONE (SESSION 165)** |
 | **K6.4 v2 (semantic-match surgical fixes)** | **DONE (SESSION 166)** |
 | **K6.4 v2.1 (real-Runway dogfood + CTA verbs)** | **DONE (SESSION 167)** |
+| **K6.6 (script structure + opener + brief persist)** | **DONE (SESSION 168)** |
 | K7.x (YouTube ingest fix) | Queued |
 | K6.3 / K7.1 / W11.1 | Queued |
 
@@ -236,14 +250,13 @@ shipped against real Runway** (SESSION 158).
 
 ## Queued investigations (priority-ordered)
 
-1. **More real-Runway exposure** — re-bake Donny,
-   polished Sasha retake (V9 captions + intro/outro),
-   long_form_ad smoke ($0.50-$2.00). The K-arc verifier
-   work has stabilized; time to validate the strict-mode
-   contract against real Runway loads. Strict mode would
-   now block Donny's SESSION 158 script in production,
-   so this is the moment to fire fresh renders and see
-   the full stack at work.
+1. **More real-Runway exposure** — `talking_head_polished`
+   retake of Sasha (V9 captions + intro/outro), or
+   `long_form_ad` smoke (V5 launch differentiator —
+   ~$0.50-$2.00). Real-Runway renders so far this thread
+   total **3 renders at $0.75** (SESSION 167 + SESSION 168
+   probes). The full v2 + K6.6 stack has been validated;
+   time to stress more recipes.
 2. **K6.4 v3 — embedding-similarity fallback.** v2
    closes the lowercase-tech + multi-word gaps via
    curated lists. v3 could add a real semantic check:

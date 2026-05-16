@@ -1542,3 +1542,77 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   last. The cost is ~30 minutes; the payoff is the
   observation → patch loop dropping from minutes to
   seconds.
+
+## 2026-05-15 — Methodology calibration: operator feedback on rendered output ≠ feedback on the pipeline
+
+- **Context:** SESSION 167 dogfood landed
+  ``verification_status=verified`` + a real Runway
+  render at $0.25. By system metrics: success. SESSION
+  168 the operator watched the actual video and said:
+  *"they still need some tweaking, or clean up on how
+  the conversation is flowing — a couple of them feel
+  like it's picking up mid conversation and you don't
+  really know what's going on."*
+- **Direction:** Carry-forward methodology.
+- **Detail:** Two distinct failure modes were collapsed
+  in our review:
+  * **System failure** — pipeline returns non-2xx,
+    the verifier rejects, or the model hallucinates.
+    The K-arc verifier work catches these.
+  * **Quality failure** — pipeline is green but the
+    rendered output doesn't read well. The verifier
+    doesn't see these — they're rhetorical / structural,
+    not factual. SESSION 167's render was factually
+    grounded but rhetorically jarring (cold open with
+    no setup).
+  The fix in K6.6 was prompt engineering for *structure*,
+  not for *correctness*. They live in different layers
+  and need different feedback loops.
+- **Found by:** Operator-mediated video review at
+  SESSION 168 start, after SESSION 167 closed with a
+  green system signal.
+- **Lesson:** **For this operator specifically:**
+  distinguish "the pipeline worked" from "the output
+  was good." For any AI-output deliverable, treat them
+  as separate review gates — operator-facing preview
+  beats system metrics for quality calls. **For
+  systems with AI-output**: ML correctness and ML
+  quality decouple. A green correctness signal can
+  hide a real quality regression. Build a quality-
+  review surface explicitly (persistence + UI), don't
+  rely on operators noticing.
+
+## 2026-05-15 — Architectural calibration: persistence enables retroactive feedback
+
+- **Context:** K6.6 (SESSION 168) added
+  ``Composition.synthesized_brief`` to persist what K6
+  said on *successful* renders. Pre-K6.6 only
+  ``rejected_synthesis`` (strict-mode failures)
+  survived; successful renders left no trail of the
+  generated text.
+- **Direction:** Carry-forward architectural.
+- **Detail:** The SESSION 167 render that motivated
+  this work isn't recoverable. When the operator said
+  "picking up mid conversation" we couldn't go back
+  and look at the specific text — we only knew it
+  from rejection paths where K6 had been blocked, not
+  from the rendered text that actually shipped. The
+  ``synthesized_brief`` field closes that gap going
+  forward; every future composition's actual rendered
+  text is on the row. Operator can review at any
+  time, give specific feedback; the agent can quote
+  the actual text in calibration entries.
+- **Found by:** Trying to debug "which render was
+  the operator talking about?" during SESSION 168
+  diagnosis. The audit data we needed didn't exist.
+- **Lesson:** **For this operator specifically:**
+  persist the artifact that the operator might
+  review later, even when "the system worked."
+  Audit trails are operator-facing, not just
+  debugging-facing. **Generalisation:** ML pipelines
+  should persist their generated content alongside
+  their state transitions. State alone is necessary
+  but not sufficient for retroactive operator
+  review. If the operator might ever want to ask
+  "what did the model say?", the answer needs to
+  live on a persisted row, not a transient log line.

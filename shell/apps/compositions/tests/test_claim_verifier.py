@@ -560,6 +560,76 @@ def test_build_render_brief_strict_raises() -> None:
                     )
 
 
+def test_synthesized_brief_persists_on_successful_warn_render_k6_6() -> None:
+    """K6.6 — successful renders (verified status) persist the
+    synthesized brief on Composition. Closes the SESSION 168
+    audit gap where operator feedback on rendered video quality
+    had no place to land."""
+    from apps.compositions.models import Composition
+    from apps.compositions.primitives.avatar_speech import (
+        GenerateAvatarSpeechPrimitive,
+    )
+    from apps.compositions.starters import talking_head
+
+    ws = _make_workspace("k66a@test", "K6.6 WS A")
+    sp = _make_spokesperson(ws, "Donny", "Documentary interviewer.")
+    sp.runway_avatar_id = "avatar_test"
+    sp.save()
+    _ingest_attached(ws, sp, title="RAG doc", body=RAG_DOC_EXCERPT * 5)
+
+    composition = talking_head(
+        workspace=ws,
+        spokesperson=sp,
+        script="Tell me about RAG.",
+        use_knowledge=True,
+    )
+    step = composition.steps.first()
+
+    # Patch the LLM to return a clean grounded reply.
+    clean_brief = (
+        "I'm Donny — let me walk you through RAG in plain terms. "
+        "It pulls relevant chunks before generation."
+    )
+    # Patch media-engine + Runway too so we don't try a real
+    # render in this test.
+    from unittest.mock import patch as _patch, MagicMock
+    media_client = MagicMock()
+    media_client.__enter__ = MagicMock(return_value=media_client)
+    media_client.__exit__ = MagicMock(return_value=False)
+    media_client.create_avatar_speech.return_value = MagicMock(
+        task_id="task-1", mock_mode=False,
+    )
+    media_client.poll_avatar_speech.return_value = MagicMock(
+        ready=True, file_path="https://fake.example/clip.mp4",
+        duration_ms=5000, width=1280, height=720, mime_type="video/mp4",
+        size_bytes=1024,
+    )
+
+    with _patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake"}):
+        with override_settings(
+            RENDER_SCRIPT_FORCE_MOCK=False,
+            K6_CLAIM_VERIFIER_MODE="warn",
+        ):
+            with _patch(
+                "character_os.script_synthesis._call_responses_api",
+                return_value=(clean_brief, 100, 30),
+            ):
+                with _patch(
+                    "apps.compositions.primitives.avatar_speech.MediaEngineClient",
+                    return_value=media_client,
+                ):
+                    with _patch(
+                        "apps.compositions.primitives.avatar_speech.time.sleep",
+                    ):
+                        GenerateAvatarSpeechPrimitive.execute(
+                            step, resolved_inputs={}, mock_mode=False,
+                        )
+
+    composition.refresh_from_db()
+    assert composition.synthesized_brief == clean_brief
+    assert composition.verification_status == "verified"
+
+
 def test_strict_failure_persists_warnings_and_synthesis_k6_4_1() -> None:
     """K6.4.1 — when strict mode rejects, the primitive must
     save composition.verification_warnings and
@@ -610,6 +680,104 @@ def test_strict_failure_persists_warnings_and_synthesis_k6_4_1() -> None:
     assert composition.verification_warnings
     claims = {w["claim"] for w in composition.verification_warnings}
     assert "Wikipedia" in claims
+
+
+def test_system_prompt_includes_standalone_video_framing_k6_6() -> None:
+    """K6.6 — system prompt teaches the model that the video is
+    standalone (no prior context). Lock the structural guidance
+    in a test so future refactors don't accidentally regress
+    the operator-feedback fix from SESSION 168."""
+    from character_os.script_synthesis import _system_prompt
+
+    class _FakeSp:
+        name = "Donny"
+        tone_archetype = "expert"
+        business_brief = "Interviewer."
+
+    prompt = _system_prompt(_FakeSp())
+    assert "STANDALONE VIDEO" in prompt
+    assert "viewer has not seen anything else" in prompt
+    assert "Do NOT begin mid-thought" in prompt
+    assert "first sentence must stand alone" in prompt
+
+
+def test_opener_override_appears_in_user_prompt_k6_6() -> None:
+    """K6.6 — when opener is set, the user prompt contains an
+    "Operator-supplied opening line" clause that K6 reads."""
+    from unittest.mock import patch as _patch, MagicMock
+
+    class _FakeSp:
+        name = "Donny"
+        tone_archetype = "expert"
+        business_brief = ""
+
+    class _FakeChunk:
+        document_id = "doc"
+        chunk_text = "Some chunk text about ingestion."
+
+    captured: dict = {}
+
+    def _capture(*args, **kwargs):
+        captured["input"] = kwargs.get("input") or (args[0] if args else "")
+        resp = MagicMock()
+        resp.output_text = "Mock script."
+        resp.usage = MagicMock(input_tokens=0, output_tokens=0)
+        return resp
+
+    fake_client = MagicMock()
+    fake_client.responses.create = _capture
+
+    with _patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake"}):
+        with _patch("openai.OpenAI", return_value=fake_client):
+            from character_os.script_synthesis import _call_responses_api
+            _call_responses_api(
+                _FakeSp(), "topic", [_FakeChunk()],
+                opener="Hi, I'm Donny — let me walk you through ingestion.",
+            )
+
+    assert "Operator-supplied opening line" in captured["input"]
+    assert "Hi, I'm Donny" in captured["input"]
+
+
+def test_opener_blank_does_not_appear_in_user_prompt_k6_6() -> None:
+    """K6.6 — when opener is None/empty, the user prompt has no
+    operator-supplied opening clause; the model picks its own
+    opener under the system prompt's structural guidance."""
+    from unittest.mock import patch as _patch, MagicMock
+
+    class _FakeSp:
+        name = "Donny"
+        tone_archetype = "expert"
+        business_brief = ""
+
+    class _FakeChunk:
+        document_id = "doc"
+        chunk_text = "Some chunk text."
+
+    captured: dict = {}
+
+    def _capture(*args, **kwargs):
+        captured["input"] = kwargs.get("input") or (args[0] if args else "")
+        resp = MagicMock()
+        resp.output_text = "Mock script."
+        resp.usage = MagicMock(input_tokens=0, output_tokens=0)
+        return resp
+
+    fake_client = MagicMock()
+    fake_client.responses.create = _capture
+
+    with _patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake"}):
+        with _patch("openai.OpenAI", return_value=fake_client):
+            from character_os.script_synthesis import _call_responses_api
+            _call_responses_api(
+                _FakeSp(), "topic", [_FakeChunk()], opener=None,
+            )
+            _call_responses_api(
+                _FakeSp(), "topic", [_FakeChunk()], opener="   ",
+            )
+
+    # Last captured input — second call with whitespace opener.
+    assert "Operator-supplied opening line" not in captured["input"]
 
 
 def test_build_render_brief_off_mode_skips_verifier() -> None:

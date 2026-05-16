@@ -291,6 +291,11 @@ const compositionSchema = z.object({
   verification_status: z
     .enum(["", "verified", "trusted_passthrough", "skipped", "rejected"])
     .default(""),
+  // K6.6 — synthesized brief on successful renders. Populated
+  // only when K6 actually synthesized; empty for force-mock,
+  // degraded paths, operator-typed scripts, and pre-K6.6
+  // rows.
+  synthesized_brief: z.string().default(""),
 });
 
 export type Composition = z.infer<typeof compositionSchema>;

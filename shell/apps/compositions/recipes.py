@@ -165,6 +165,22 @@ _MOCK_MODE_FIELD = RecipeField(
 # any recipe that runs K6 synthesis (use_knowledge=True). v1.1
 # adds it only to ``talking_head``; future K6.4 v1.x can roll it
 # out across more recipes as the operator-facing semantics settle.
+_OPENER_FIELD = RecipeField(
+    name="opener",
+    type="text",
+    label="Opening line (optional)",
+    required=False,
+    max_chars=240,
+    help_text=(
+        "Pin the script's first sentence verbatim. K6 uses it as the "
+        "opening line and writes the rest of the script to follow. "
+        "Leave blank to let the model pick the opener under the v2 "
+        "standalone-video framing — recommended unless you want a "
+        "specific hook."
+    ),
+)
+
+
 _VERIFIER_MODE_FIELD = RecipeField(
     name="verifier_mode",
     type="select",
@@ -288,6 +304,7 @@ RECIPES: dict[str, Recipe] = {
                 help_text="Pipe the script through RAG synthesis using attached docs.",
             ),
             _VERIFIER_MODE_FIELD,
+            _OPENER_FIELD,
             _NAME_FIELD,
             _MOCK_MODE_FIELD,
         ),
@@ -316,6 +333,7 @@ RECIPES: dict[str, Recipe] = {
             ),
             RecipeField(name="use_knowledge", type="checkbox", label="Use workspace knowledge", required=False, default=False),
             _VERIFIER_MODE_FIELD,
+            _OPENER_FIELD,
             _NAME_FIELD,
             _MOCK_MODE_FIELD,
         ),
@@ -331,6 +349,7 @@ RECIPES: dict[str, Recipe] = {
             RecipeField(name="script", type="textarea", label="Script", min_chars=8, max_chars=4000),
             RecipeField(name="use_knowledge", type="checkbox", label="Use workspace knowledge", required=False, default=False),
             _VERIFIER_MODE_FIELD,
+            _OPENER_FIELD,
             # captions + intro + outro are JSON-shaped; v1 leaves them
             # null and ships the simple flavor. V15.3 may add a captions
             # builder UI.
@@ -358,6 +377,7 @@ RECIPES: dict[str, Recipe] = {
             ),
             RecipeField(name="use_knowledge", type="checkbox", label="Use workspace knowledge per chunk", required=False, default=False),
             _VERIFIER_MODE_FIELD,
+            _OPENER_FIELD,
             _NAME_FIELD,
             _MOCK_MODE_FIELD,
         ),

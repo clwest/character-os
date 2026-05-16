@@ -129,10 +129,18 @@ def _maybe_synthesize_script(step, composition) -> tuple[str, list[str], list[di
     # ``settings.K6_CLAIM_VERIFIER_MODE``.
     verifier_mode = (step.params or {}).get("verifier_mode") or None
 
+    # K6.6 (SESSION 168) — per-render opener override. When the
+    # operator sets a non-empty opener via the recipe form, K6
+    # uses it verbatim as the script's first sentence. None
+    # falls back to the model-chosen opener under the system
+    # prompt's standalone-video framing.
+    opener = (step.params or {}).get("opener") or None
+
     try:
         result = build_render_brief(
             composition.spokesperson, raw_script,
             verifier_mode=verifier_mode,
+            opener=opener,
         )
     except ClaimVerifierError as exc:
         # Strict mode — surface as a primitive failure so the
@@ -213,6 +221,9 @@ class GenerateAvatarSpeechPrimitive:
         # composition-level verification_status from the
         # step's outcome (last writer wins for multi-step
         # compositions; the final step's status dominates).
+        # K6.6: persist the synthesized brief itself when K6
+        # actually ran (verification_status of "verified" or
+        # "skipped" both mean the LLM synthesized).
         composition_update_fields: list[str] = []
         if verification_warnings:
             existing = list(composition.verification_warnings or [])
@@ -222,6 +233,14 @@ class GenerateAvatarSpeechPrimitive:
         if verification_status and composition.verification_status != verification_status:
             composition.verification_status = verification_status
             composition_update_fields.append("verification_status")
+        # K6.6: synthesized brief persistence. ``brief`` is the
+        # text that went to Runway. Persist only when synthesis
+        # actually produced it (verified / skipped statuses).
+        # Skip for trusted_passthrough (degraded path) — that's
+        # the operator's prompt verbatim, not synthesized.
+        if verification_status in ("verified", "skipped") and brief:
+            composition.synthesized_brief = brief
+            composition_update_fields.append("synthesized_brief")
         if composition_update_fields:
             composition.save(update_fields=composition_update_fields)
 

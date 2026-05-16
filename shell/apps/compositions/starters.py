@@ -57,6 +57,7 @@ def talking_head(
     name: str = "",
     created_by: "AbstractBaseUser | None" = None,
     verifier_mode: str | None = None,
+    opener: str | None = None,
 ) -> Composition:
     """Create a single-step ``talking_head`` composition.
 
@@ -116,6 +117,10 @@ def talking_head(
     # falls back to settings.K6_CLAIM_VERIFIER_MODE.
     if verifier_mode:
         step_params["verifier_mode"] = verifier_mode
+    # K6.6 — opener override. Empty / None ⇒ model picks under
+    # the system prompt's standalone-video framing.
+    if opener and opener.strip():
+        step_params["opener"] = opener.strip()
 
     CompositionStep.objects.create(
         composition=composition,
@@ -127,9 +132,10 @@ def talking_head(
 
     logger.info(
         "starter talking_head created composition=%s spokesperson=%s "
-        "mock=%s use_knowledge=%s verifier_mode=%s",
+        "mock=%s use_knowledge=%s verifier_mode=%s opener=%s",
         composition.id, spokesperson.id, mock_mode, use_knowledge,
         verifier_mode or "(default)",
+        "set" if (opener and opener.strip()) else "(default)",
     )
     return composition
 
@@ -242,6 +248,7 @@ def long_form_ad(
     name: str = "",
     created_by: "AbstractBaseUser | None" = None,
     verifier_mode: str | None = None,
+    opener: str | None = None,
 ) -> Composition:
     """Create a long-form ad composition: split → N× speak → concat.
 
@@ -334,6 +341,9 @@ def long_form_ad(
     )
 
     # Lay down one generate_avatar_speech step per chunk.
+    # K6.6 — opener applies only to the FIRST chunk; later
+    # chunks continue the same script, so re-opening them with
+    # the same line would be redundant.
     for i, chunk in enumerate(chunks):
         step_params: dict = {
             "script": chunk,
@@ -343,6 +353,8 @@ def long_form_ad(
         # synthesis step in the composition (one per chunk).
         if verifier_mode:
             step_params["verifier_mode"] = verifier_mode
+        if i == 0 and opener and opener.strip():
+            step_params["opener"] = opener.strip()
         CompositionStep.objects.create(
             composition=composition,
             position=i,
@@ -637,6 +649,7 @@ def talking_head_with_backdrop(
     name: str = "",
     created_by: "AbstractBaseUser | None" = None,
     verifier_mode: str | None = None,
+    opener: str | None = None,
 ) -> Composition:
     """Avatar talking over a cinematic backdrop. The first
     multi-step starter that combines V3 + V4 + V7's
@@ -741,6 +754,8 @@ def talking_head_with_backdrop(
     }
     if verifier_mode:
         speech_params["verifier_mode"] = verifier_mode
+    if opener and opener.strip():
+        speech_params["opener"] = opener.strip()
     CompositionStep.objects.create(
         composition=composition,
         position=1,
@@ -794,6 +809,7 @@ def talking_head_polished(
     name: str = "",
     created_by: "AbstractBaseUser | None" = None,
     verifier_mode: str | None = None,
+    opener: str | None = None,
 ) -> Composition:
     """Polished talking-head ad — speech → captions → intro/outro.
 
@@ -838,6 +854,8 @@ def talking_head_polished(
     }
     if verifier_mode:
         polished_speech_params["verifier_mode"] = verifier_mode
+    if opener and opener.strip():
+        polished_speech_params["opener"] = opener.strip()
     CompositionStep.objects.create(
         composition=composition,
         position=0,

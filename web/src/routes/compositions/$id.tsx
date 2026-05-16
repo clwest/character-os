@@ -56,6 +56,7 @@ export function CompositionStatusRoute() {
       {(c.verification_warnings.length > 0 || c.rejected_synthesis) && (
         <VerifierPanel composition={c} />
       )}
+      {c.synthesized_brief && <SynthesizedBriefPanel composition={c} />}
       {c.knowledge_docs_used.length > 0 && (
         <CitationsPanel docs={c.knowledge_docs_used} />
       )}
@@ -199,6 +200,33 @@ function StatusIcon({
       return <Circle className="h-5 w-5 text-muted-foreground" />;
   }
 }
+
+function SynthesizedBriefPanel({ composition }: { composition: Composition }) {
+  // K6.6 — what K6 actually said. Renders only on successful
+  // renders where the LLM synthesized (verified / skipped
+  // statuses). Strict-mode rejections show their text in the
+  // VerifierPanel above; this panel covers the "render
+  // shipped — what did it say?" audit case.
+  return (
+    <section
+      className="flex flex-col gap-2 rounded-md border bg-card p-5 text-sm shadow-paper"
+      data-testid="composition-synthesized-brief"
+    >
+      <div className="flex items-center justify-between border-b pb-2">
+        <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+          K6 synthesized brief
+        </span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+          {composition.synthesized_brief.split(/\s+/).length} words
+        </span>
+      </div>
+      <p className="whitespace-pre-wrap text-foreground">
+        {composition.synthesized_brief}
+      </p>
+    </section>
+  );
+}
+
 
 function VerifierPanel({ composition }: { composition: Composition }) {
   const warnings = composition.verification_warnings ?? [];

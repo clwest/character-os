@@ -288,6 +288,26 @@ class Composition(models.Model):
         default="",
     )
 
+    # K6.6 (SESSION 168) — what K6 actually synthesized for a
+    # *successful* render. ``rejected_synthesis`` captures the
+    # strict-mode-rejected case; this field captures the
+    # rendered-to-Runway case. Together they give the operator
+    # a complete record of what the model said, regardless of
+    # whether the verifier passed or blocked.
+    #
+    # Populated only when K6 actually synthesized (real-mode +
+    # OpenAI key + chunks). Empty for:
+    # * Force-mock renders (no LLM call)
+    # * Degraded paths (no chunks / no key / retrieval failure)
+    # * Operator-typed scripts (use_knowledge=False)
+    # * Pre-K6.6 compositions
+    #
+    # Closes the audit gap surfaced SESSION 168: operator
+    # feedback on rendered video quality had no place to land
+    # because the synthesized text wasn't persisted on
+    # successful renders.
+    synthesized_brief = models.TextField(blank=True, default="")
+
     # Cost transparency (contract rule 7). Estimate is computed
     # before render fires; actual is summed from per-step
     # ``cost_actual_micros`` after execution.

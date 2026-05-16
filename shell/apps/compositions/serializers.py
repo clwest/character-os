@@ -113,6 +113,8 @@ class CompositionSerializer(serializers.ModelSerializer):
             "rejected_synthesis",
             # K6.4 v1.2 — verification_status badge
             "verification_status",
+            # K6.6 — synthesized brief on successful renders
+            "synthesized_brief",
         )
         read_only_fields = fields
 

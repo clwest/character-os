@@ -122,6 +122,7 @@ def build_render_brief(
     *,
     top_k: int = DEFAULT_TOP_K,
     verifier_mode: str | None = None,
+    opener: str | None = None,
 ) -> ScriptResult:
     """Build the brief that gets sent to media-engine.
 
@@ -203,7 +204,7 @@ def build_render_brief(
 
     try:
         synthesised, tokens_in, tokens_out = _call_responses_api(
-            spokesperson, operator_prompt, chunks,
+            spokesperson, operator_prompt, chunks, opener=opener,
         )
     except Exception:
         logger.exception(
@@ -266,10 +267,18 @@ def _call_responses_api(
     spokesperson: "Spokesperson",
     operator_prompt: str,
     chunks: list,
+    *,
+    opener: str | None = None,
 ) -> tuple[str, int, int]:
     """Single Responses-API call. Returns ``(text, tokens_in,
     tokens_out)``. Raises on API error — caller handles
-    degradation."""
+    degradation.
+
+    K6.6 (SESSION 168) — optional ``opener`` lets the operator
+    pin the script's first line verbatim. When ``None``, the
+    system prompt's structural guidance steers the model to
+    pick its own standalone opener.
+    """
     from openai import OpenAI
 
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
@@ -280,9 +289,17 @@ def _call_responses_api(
     )
 
     system = _system_prompt(spokesperson)
+    opener_clause = (
+        f"Operator-supplied opening line (use verbatim as the first "
+        f"sentence; the rest of the script must follow naturally from "
+        f"it):\n{opener.strip()}\n\n"
+        if opener and opener.strip()
+        else ""
+    )
     user = (
         f"Operator's brief for this video:\n{operator_prompt or '(no prompt — use the brief above)'}\n\n"
-        f"Knowledge chunks available:\n{chunks_block}\n\n"
+        + opener_clause
+        + f"Knowledge chunks available:\n{chunks_block}\n\n"
         "Write the spokesperson's spoken script for this video. "
         "Use facts only from the chunks above. Keep it to 60-100 "
         "words. Plain spoken English — this becomes voiceover."
@@ -305,17 +322,34 @@ def _call_responses_api(
 def _system_prompt(spokesperson: "Spokesperson") -> str:
     """Anchor the model to the spokesperson's tone + business
     context. Kept minimal — the chunks carry the facts; this
-    just steers voice."""
+    just steers voice.
+
+    K6.6 (SESSION 168) — structural guidance added after operator
+    feedback that scripts "feel like picking up mid conversation."
+    The standalone-video framing tells the model the viewer has
+    no prior context, so it needs to open before claiming.
+    """
     tone = spokesperson.tone_archetype or "expert"
     brief = (spokesperson.business_brief or "").strip()
     return (
         f"You are writing the spoken script for {spokesperson.name}, "
         f"an on-camera spokesperson. Their tone archetype is {tone!r}. "
         + (f"Their business brief is: {brief}\n" if brief else "")
+        + (
+            "This is a SHORT STANDALONE VIDEO (60-100 words, "
+            "about 30-60 seconds). The viewer has not seen "
+            "anything else from you — there is no prior context. "
+            "Open with a brief setup that grounds them in who you "
+            "are and what this video is about (one or two short "
+            "sentences). Then make your one clear claim or insight "
+            "from the knowledge chunks. Then one call to action. "
+            "Do NOT begin mid-thought as if continuing a "
+            "conversation. The first sentence must stand alone.\n"
+        )
         + "Use facts only from the knowledge chunks the user supplies. "
         "Do not invent product details, prices, or features. If a fact "
         "isn't in the chunks, leave it out. Speak naturally — first "
-        "person where appropriate, one clear claim, one call to action."
+        "person where appropriate."
     )
 
 

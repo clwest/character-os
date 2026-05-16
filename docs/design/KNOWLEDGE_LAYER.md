@@ -1108,6 +1108,72 @@ slices that can land independently. Recommended order:
     Test totals: Django 713 → 714 (+1 CTA-verb test).
     Total Runway spend for the dogfood: **$0.25**
     (one production render, status=verified).
+
+- **K6.6 — script structure + opener override + brief
+  persistence. ✓ SHIPPED SESSION 168.** Operator-mediated
+  feedback on the SESSION 167 render: "they still need
+  tweaking on how the conversation is flowing — a couple
+  feel like picking up mid conversation." K6's system
+  prompt enforced "one clear claim, one call to action"
+  but had no structural opener guidance, so the model
+  dove in mid-thought.
+
+  Three changes:
+    1. **Tightened K6 system prompt.** Added explicit
+       standalone-video framing:
+       *"This is a SHORT STANDALONE VIDEO (60-100 words,
+       about 30-60 seconds). The viewer has not seen
+       anything else from you — there is no prior context.
+       Open with a brief setup that grounds them in who
+       you are and what this video is about (one or two
+       short sentences). Then make your one clear claim
+       or insight from the knowledge chunks. Then one
+       call to action. Do NOT begin mid-thought as if
+       continuing a conversation. The first sentence
+       must stand alone."*
+    2. **Opener override.** ``build_render_brief(opener=...)``
+       lets the operator pin the script's first sentence
+       verbatim. K6 uses it as the opening line and writes
+       the rest of the script to follow. ``None`` falls
+       back to the model-chosen opener under the new
+       framing. Wired through 4 K6-aware starters
+       (talking_head + 3 siblings) + a new
+       ``_OPENER_FIELD`` recipe field that auto-renders
+       in the SPA make-video form.
+    3. **`Composition.synthesized_brief` field.** New
+       TextField persists what K6 actually said on
+       *successful* renders. Pre-K6.6 only
+       ``rejected_synthesis`` (strict-mode failures) was
+       persisted; successful renders left no trail. The
+       new field closes that audit gap — operator feedback
+       on rendered video quality now has a place to land.
+       Migration ``0005_k6_6_synthesized_brief``.
+
+  SPA: composition detail page renders a new
+  ``SynthesizedBriefPanel`` section when
+  ``synthesized_brief`` is populated. Shows the text +
+  word count.
+
+  **Live dogfood** (2 real Runway renders, $0.50 total):
+  * **Probe 1** (no opener, new framing): K6 opened with
+    *"I'm Donny, and today I'll quickly explain how the
+    knowledge layer ingests pages."* Standalone setup
+    before the claim — exactly the structural fix the
+    operator asked for.
+  * **Probe 2** (operator-supplied opener): K6 used
+    *"Hey, I'm Donny — I've been sitting with the
+    Character OS team this week."* verbatim, continued
+    naturally with the technical content.
+
+  Both renders passed strict mode (v2.1 CTA stoplist
+  held — "Reach out" / "Get in touch" closers didn't
+  flag). Both rendered to real Runway at $0.25 each
+  with ``verification_status="verified"``.
+
+  Test totals: Django 714 → 718 (+4 K6.6 tests:
+  system prompt content, opener override appears in
+  user prompt, opener blank does not appear, synthesized
+  brief persists on success). SPA + migrations: 56 → 57.
 - **K7 — URL ingestion + serper discovery.** `trafilatura`
   fetch+extract. Serper search tab on the workspace upload
   surface. Both flow into the same Celery embedding task.
