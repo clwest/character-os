@@ -115,13 +115,67 @@ def test_extract_skips_common_sentence_starters() -> None:
         assert noise not in claims, f"false-positive: {noise} in {claims}"
 
 
-def test_extract_misses_lowercase_trafilatura_known_v1_gap() -> None:
-    """Documented v1 limitation: lowercase tech names slip
-    through. Locked in as a test so the day someone widens the
-    extractor, they update both."""
+def test_extract_now_catches_lowercase_trafilatura_k6_4_v2() -> None:
+    """K6.4 v2 (SESSION 166) — closes the SESSION 158
+    canonical case. Lowercase tech names that v1 missed
+    (trafilatura was the original example) now extract via
+    ``KNOWN_TECH_TERMS``. The historical test name
+    ``test_extract_misses_lowercase_trafilatura_known_v1_gap``
+    was the inverse assertion — kept here as documentation
+    of the calibration shift."""
     entities = extract_named_entities(DONNY_ACTUAL_SCRIPT)
     claims = {e.claim for e in entities}
-    assert "trafilatura" not in claims
+    assert "trafilatura" in claims
+    # Kind should be the v2 ``tech_term`` taxonomy so the
+    # operator can distinguish how it was caught.
+    trafilatura_entity = next(e for e in entities if e.claim == "trafilatura")
+    assert trafilatura_entity.kind == "tech_term"
+
+
+def test_known_tech_terms_case_insensitive_k6_4_v2() -> None:
+    """v2 — tech terms match regardless of casing."""
+    text = "We use PyTorch, pytorch, and PYTORCH consistently."
+    entities = extract_named_entities(text)
+    # All three should produce *one* claim (dedupe by lowercase).
+    matching = [e for e in entities if e.claim.lower() == "pytorch"]
+    assert len(matching) == 1
+
+
+def test_multiword_no_longer_greedy_with_lowercase_a_k6_4_v2() -> None:
+    """v2 — ``a`` and ``an`` are no longer multi-word joining
+    words. The watchdog flagged ``"Drop a Wikipedia"`` as a
+    multi-word entity in SESSION 165. After this tightening
+    the same text produces two single-token claims instead."""
+    text = "Drop a Wikipedia link to start."
+    entities = extract_named_entities(text)
+    claims = {e.claim for e in entities}
+    assert "Drop a Wikipedia" not in claims
+    # Drop is in the stoplist so it's silently dropped.
+    # Wikipedia survives as the only flagged entity.
+    assert "Wikipedia" in claims
+
+
+def test_multiword_still_catches_genuine_multiword_proper_nouns_k6_4_v2() -> None:
+    """v2 regression check — tightening the joining words
+    didn't break legitimate multi-word proper-noun extraction.
+    ``Federal Bureau of Investigation`` still works because
+    ``of`` stays in the joining set. (The greedy regex
+    captures the leading "The" too; that's fine because the
+    substring corpus match operates on the whole claim and
+    the leading article doesn't affect verification.)"""
+    entities = extract_named_entities(
+        "The Federal Bureau of Investigation issued a report."
+    )
+    claims = {e.claim for e in entities}
+    assert any("Federal Bureau of Investigation" in c for c in claims)
+
+
+def test_stoplist_alright_k6_4_v2() -> None:
+    """v2 — watchdog-surfaced false positive from SESSION 164
+    dogfood. ``Alright`` at sentence start no longer flags."""
+    entities = extract_named_entities("Alright — the docs say RAG.")
+    claims = {e.claim for e in entities}
+    assert "Alright" not in claims
 
 
 def test_is_sentence_initial_position_zero() -> None:

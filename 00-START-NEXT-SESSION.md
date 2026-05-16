@@ -145,6 +145,15 @@ operator-facing) and the queued cleanups.
   Closes the dogfood-only discovery loop that surfaced
   `Cleanest`, `Welcome`, `Modern`, `Short`, `Alright`
   one at a time across 5 sessions.
+* ~~**K6.4 v2 — surgical fixes.**~~ **DONE SESSION 166.**
+  Three changes: (1) tightened multi-word regex (dropped
+  `a`/`an` from joining words), (2) new
+  `KNOWN_TECH_TERMS` extractor catches lowercase tech
+  names like `trafilatura`, (3) lowercase casing dedupe.
+  Plus 17 watchdog-surfaced stoplist additions.
+  **Donny SESSION 158 canonical case now flags BOTH
+  Wikipedia AND trafilatura** — strict mode would block
+  the render entirely.
 * **K7.x — YouTube ingest fix** if the silent-failure mode
   surfaces during any real-Runway work. ~1 session.
 * **K6.3 — Brief length cap (~15 min)** — cheapest cleanup.
@@ -201,6 +210,7 @@ shipped against real Runway** (SESSION 158).
 | **K6.4 v1.1 (SPA toggle + warning surface)** | **DONE (SESSION 163)** |
 | **K6.4 v1.2 (verification_status + recipe rollout)** | **DONE (SESSION 164)** |
 | **K6.4 stoplist watchdog** | **DONE (SESSION 165)** |
+| **K6.4 v2 (semantic-match surgical fixes)** | **DONE (SESSION 166)** |
 | K7.x (YouTube ingest fix) | Queued |
 | K6.3 / K7.1 / W11.1 | Queued |
 
@@ -219,23 +229,29 @@ shipped against real Runway** (SESSION 158).
    polished Sasha retake (V9 captions + intro/outro),
    long_form_ad smoke ($0.50-$2.00). The K-arc verifier
    work has stabilized; time to validate the strict-mode
-   contract against real Runway loads.
-2. **K6.4 v2 — semantic-match upgrade.** Documented v1
-   limitations:
-   * Lowercase tech names (`trafilatura`, `pgvector`)
-     slip past the substring matcher.
-   * Multi-word regex includes `a` as a joining word
-     and produces over-aggressive matches like `"Drop a
-     Wikipedia"` (caught by the new watchdog).
-   * Short common-adjective false positives still
-     surface (`Alright`, etc).
-   v2 candidates: small-model NER pass, sentence-
-   transformer embedding-similarity check, or tightening
-   the joining-words list. ~1-2 sessions.
+   contract against real Runway loads. Strict mode would
+   now block Donny's SESSION 158 script in production,
+   so this is the moment to fire fresh renders and see
+   the full stack at work.
+2. **K6.4 v3 — embedding-similarity fallback.** v2
+   closes the lowercase-tech + multi-word gaps via
+   curated lists. v3 could add a real semantic check:
+   when a token is substring-flagged, embed it +
+   compare to chunk embeddings; allow if cosine
+   similarity is high. Catches paraphrases (`"the
+   extraction library"` vs chunks describing
+   trafilatura). ~1-2 sessions. Holds until
+   real-Runway exposure surfaces specific paraphrase
+   misses worth fixing.
 3. **Run the watchdog periodically.** `python manage.py
-   stoplist_watchdog --days=14` weekly to refresh
-   stoplist candidates without operator dogfood
-   pressure.
+   stoplist_watchdog --days=14` weekly. Add anything
+   surfaced to `_COMMON_PROPER_NOUN_FALSE_POSITIVES` or
+   `KNOWN_TECH_TERMS` as needed.
+4. **Older backlog**: F8.1 (blocked on operator
+   markdown), K7.x (YouTube ingest silent failure),
+   K6.3 (brief length cap, 15 min), K7.1 (cost
+   telemetry surface), W11.1 (edit-spokesperson
+   modal).
 3. **More real-Runway exposure** — re-bake Donny,
    polished Sasha retake, long_form_ad smoke.
 4. **F8.1 — K10 seed corpus** (blocked).

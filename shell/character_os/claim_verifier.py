@@ -65,6 +65,47 @@ KNOWN_PLATFORM_TERMS: tuple[str, ...] = (
 )
 
 
+# K6.4 v2 — case-insensitive technology / library names the
+# extractor should catch even when lowercase. Closes the
+# SESSION 158 ``trafilatura`` miss: substring extraction's
+# capitalized-only rule missed lowercase tech names entirely,
+# so they were never checked against the corpus and silently
+# passed through hallucination paths.
+#
+# This is a curated allow-list of names worth treating as
+# proper nouns for verification purposes. Adding to it costs
+# nothing at runtime (one extra regex alternation); the cost
+# is operator-curation drift. Run the SESSION 165 watchdog
+# periodically to surface tech names appearing in flagged
+# events that the operator might want to add here.
+#
+# Don't add generic ML terms (``embedding``, ``transformer``,
+# ``vector``) — they appear in normal English prose and would
+# generate noise. Names only (libraries, products, services).
+KNOWN_TECH_TERMS: frozenset[str] = frozenset({
+    # The SESSION 158 hallucination — the canonical case
+    # v2 closes.
+    "trafilatura",
+    # Storage / db
+    "pgvector", "postgres", "postgresql", "sqlite",
+    "redis", "memcached",
+    # Web frameworks
+    "django", "fastapi", "flask", "express",
+    "react", "vite", "nextjs",
+    # ML / AI libraries
+    "pytorch", "tensorflow", "huggingface",
+    "langchain", "llamaindex", "haystack",
+    "openai", "anthropic",
+    # Tooling
+    "celery", "docker", "kubernetes", "ffmpeg",
+    "ollama", "playwright", "pytest",
+    # Models the operator might invoke
+    "gpt", "claude", "gemini", "llama", "mistral",
+    # Evaluation benchmarks (mentioned in the RAG doc)
+    "beir",
+})
+
+
 # Common English words that look proper-noun-shaped because
 # of sentence-initial capitalization but aren't actually named
 # entities. Lowercase, since we lowercase the candidate before
@@ -133,6 +174,17 @@ _COMMON_PROPER_NOUN_FALSE_POSITIVES: frozenset[str] = frozenset({
     "straight", "plain", "plainly", "simply",
     "fine",
     "ok", "okay",
+    # K6.4 v2 (SESSION 166): watchdog-surfaced false positives
+    # from SESSIONS 164-165 dogfood. ``alright`` was caught
+    # by the K6.4.1 strict-mode probe; the watchdog
+    # systematically classifies it as sentence-initial. Adding
+    # here closes the regression.
+    "alright",
+    "sure", "yeah", "yep", "yup", "nope",
+    "agreed", "totally", "absolutely", "definitely",
+    "exactly", "precisely", "right",
+    "indeed", "certainly",
+    "wow", "wait",
     # K6.4.1 — sentence-initial common adjectives. Captured
     # SESSION 161 after the K6.4 strict-mode dogfood flagged
     # "Modern" as a false positive on a real render. Same
@@ -159,10 +211,22 @@ _COMMON_PROPER_NOUN_FALSE_POSITIVES: frozenset[str] = frozenset({
 
 
 # Pattern for multi-word capitalized phrases: 2+ capitalized
-# words in sequence (with optional joining lowercase article).
-# Catches "Character OS", "James Webb Space Telescope".
+# words in sequence (with a small set of joining lowercase
+# connectors that are real proper-noun glue).
+# Catches "Character OS", "James Webb Space Telescope",
+# "Federal Bureau of Investigation".
+#
+# K6.4 v2 (SESSION 166) tightening: dropped ``a`` and ``an``
+# from the joining set. Both are too common in English to be
+# reliable connectors — the SESSION 165 watchdog surfaced
+# ``"Drop a Wikipedia"`` as a multi-word match where "Drop"
+# (sentence-initial common verb) + lowercase "a" + "Wikipedia"
+# (real proper noun) parses as one entity. After this change
+# the same input produces two single-token claims:
+# ``Drop`` (caught by the stoplist) + ``Wikipedia`` (the real
+# entity, correctly flagged if absent from chunks).
 _MULTIWORD_CAPS_RE = re.compile(
-    r"\b[A-Z][a-zA-Z]+(?:\s+(?:of|and|the|a|an|de|du|von)\s+[A-Z][a-zA-Z]+|\s+[A-Z][a-zA-Z]+)+\b"
+    r"\b[A-Z][a-zA-Z]+(?:\s+(?:of|and|the|de|du|von)\s+[A-Z][a-zA-Z]+|\s+[A-Z][a-zA-Z]+)+\b"
 )
 
 # Pattern for single capitalized words 4+ chars. Run after
@@ -176,6 +240,25 @@ _NUMERIC_RE = re.compile(
     r"|\b\d[\d,]*(?:\.\d+)?%"
     r"|\b\d{4}\b"  # standalone 4-digit numbers (years)
 )
+
+# K6.4 v2 — case-insensitive tech-name extractor. Built from
+# ``KNOWN_TECH_TERMS`` so adding a name to the frozenset is the
+# only edit needed. Word-boundary anchored so "post" in
+# "postgres" doesn't match by accident.
+def _build_tech_terms_re() -> re.Pattern[str]:
+    if not KNOWN_TECH_TERMS:
+        # Match nothing — defensive against an empty set.
+        return re.compile(r"(?!)")
+    # Sort longest-first so multi-word names (none in v2's set,
+    # but future-safe) win over their prefixes.
+    sorted_terms = sorted(KNOWN_TECH_TERMS, key=len, reverse=True)
+    return re.compile(
+        r"\b(?:" + "|".join(re.escape(t) for t in sorted_terms) + r")\b",
+        re.IGNORECASE,
+    )
+
+
+_TECH_TERMS_RE = _build_tech_terms_re()
 
 
 # ---------------------------------------------------------------------------
@@ -329,6 +412,12 @@ def extract_named_entities(text: str) -> list[UnsupportedClaim]:
             continue
         if claim in found:
             continue
+        # K6.4 v2 — dedupe by lowercase form so casing variants
+        # ("PyTorch" / "PYTORCH") collapse to one claim. Same
+        # rule the tech-term extractor uses; applied here so
+        # the two passes can't double-count the same entity.
+        if any(claim.lower() == existing.lower() for existing in found):
+            continue
         found[claim] = UnsupportedClaim(
             claim=claim,
             kind="proper_noun",
@@ -343,6 +432,30 @@ def extract_named_entities(text: str) -> list[UnsupportedClaim]:
         found[claim] = UnsupportedClaim(
             claim=claim,
             kind="numeric",
+            position=match.start(),
+        )
+
+    # 4) K6.4 v2 — case-insensitive tech-name extraction.
+    # Closes the SESSION 158 lowercase-tech-name miss
+    # (``trafilatura`` slipped through v1 because the
+    # capitalized-only single-cap regex doesn't see lowercase).
+    # Skip if the same token is already extracted by an earlier
+    # pass (e.g. "PyTorch" caught by single-cap regex).
+    for match in _TECH_TERMS_RE.finditer(text):
+        # Skip overlap with earlier matches.
+        if _span_overlaps(match.start(), match.end(), matched_spans):
+            continue
+        claim = match.group(0).strip()
+        # Dedupe by canonical lowercase form so "PyTorch" and
+        # "pytorch" don't both register if the script mixes
+        # cases.
+        if claim in found:
+            continue
+        if any(claim.lower() == existing.lower() for existing in found):
+            continue
+        found[claim] = UnsupportedClaim(
+            claim=claim,
+            kind="tech_term",
             position=match.start(),
         )
 

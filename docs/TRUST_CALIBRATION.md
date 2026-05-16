@@ -1391,3 +1391,81 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   modifiable, and self-documenting. K6.4's stoplist
   and the V1 isolation allowlist are mirror images;
   the K-arc work has been compounding this pattern.
+
+## 2026-05-15 — Architectural calibration: curated lists carry implicit semantics — naming matters
+
+- **Context:** K6.4 v2 (SESSION 166) added
+  ``KNOWN_TECH_TERMS`` alongside the existing
+  ``KNOWN_PLATFORM_TERMS``. Both start with ``KNOWN_*``
+  and look at first glance like parallel allow-lists.
+  They aren't.
+- **Direction:** Carry-forward architectural.
+- **Detail:** ``KNOWN_PLATFORM_TERMS`` is an
+  *allow-list* — entries flow into ``build_corpus()`` so
+  the substring check finds them and they pass through
+  unchecked (Character OS is always allowed regardless of
+  chunk content). ``KNOWN_TECH_TERMS`` is the opposite —
+  it's an *extraction trigger*. Entries get pulled out of
+  the script as named entities by the new lowercase
+  extractor, then checked against the corpus same as
+  proper nouns. The semantics are nearly inverse.
+  A future reader who skims and adds ``stripe`` thinking
+  they're whitelisting Stripe-the-payment-processor gets
+  the opposite outcome: their script can no longer
+  casually mention Stripe without it appearing in the
+  chunks.
+- **Found by:** Reviewing the v2 diff at close-out —
+  spotted the parallel ``KNOWN_*`` naming + the inverse
+  semantics. The fix was the docstring (explicitly say
+  "this isn't a known-good list — it's a 'worth
+  extracting' list").
+- **Lesson:** **For this operator specifically:** when
+  curated constants accumulate in a verifier /
+  classifier stack, each new one should explain its
+  relationship to the existing ones in its docstring.
+  Parallel naming creates implicit "these are the same
+  shape" assumptions; opposite semantics + parallel
+  naming is a future-reader trap.
+  **Generalisation:** when shipping curated lists,
+  the name + docstring carry the load — a future
+  rename
+  (``EXTRACT_FROM_LOWERCASE`` or ``MUST_EXTRACT_TERMS``)
+  would make the intent self-documenting without
+  requiring careful reading of the docstring. v3
+  candidate.
+
+## 2026-05-15 — Methodology calibration: locked-in-limitation tests can flip when the limitation closes
+
+- **Context:** K6.4 v1 (SESSION 160) shipped with a
+  documented lowercase-tech-name miss. The test
+  ``test_extract_misses_lowercase_trafilatura_known_v1_gap``
+  explicitly asserted ``"trafilatura" not in claims`` —
+  locking in the limitation as a contract about v1's
+  current state. v2 (SESSION 166) closed the
+  limitation; the test got renamed to
+  ``test_extract_now_catches_lowercase_trafilatura_k6_4_v2``
+  and the assertion flipped to ``"trafilatura" in claims``.
+- **Direction:** Carry-forward methodology.
+- **Detail:** The test count stays the same; the test's
+  *intent* shifted from "this is the v1 ceiling" to
+  "v2 broke through it." The historical name + the
+  assertion shift tells the story of how the contract
+  evolved. A future reader doing
+  ``git log -p test_claim_verifier.py`` can trace the
+  ``v1_gap → v2`` calibration without consulting
+  TRUST_CALIBRATION or handoffs.
+- **Found by:** Test-rename moment during the v2 commit
+  prep — almost deleted the v1 test outright, then
+  recognized the value in preserving the name as a
+  pointer.
+- **Lesson:** **For this operator specifically:**
+  locked-in-limitation tests are contracts about
+  *the current state*, not permanent prohibitions.
+  When the limitation closes, flip the test rather than
+  delete it — the rename + assertion swap is a
+  self-documenting story of how the gap got closed.
+  **Generalisation:** test history is documentation.
+  When a "this is intentionally bad" test ships, name
+  it so the future test that flips its assertion can
+  share a clear lineage (``_known_v1_gap`` →
+  ``_now_catches_..._k6_4_v2``).

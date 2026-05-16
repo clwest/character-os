@@ -1018,6 +1018,57 @@ slices that can land independently. Recommended order:
 
     Test totals: Django 697 → 709 (+12). SPA unchanged.
     Migrations unchanged at 56.
+
+- **K6.4 v2 — surgical fixes to v1 limitations.
+  ✓ SHIPPED SESSION 166.** Three changes, all
+  driven by the watchdog's findings + the original
+  SESSION 158 canonical case:
+
+    1. **Tighter `_MULTIWORD_CAPS_RE`.** Dropped ``a``
+       and ``an`` from the joining-word alternatives.
+       The SESSION 165 watchdog surfaced ``"Drop a
+       Wikipedia"`` as a multi-word match — ``Drop``
+       (sentence-initial common verb) + lowercase
+       ``a`` + ``Wikipedia`` parsed as one entity.
+       After the tightening, the same input produces
+       two single-token claims (``Drop`` filtered by
+       stoplist + ``Wikipedia`` retained as the real
+       entity).
+
+    2. **New `KNOWN_TECH_TERMS` extractor.** Curated
+       frozenset of ~40 lowercase tech / library
+       names (``trafilatura``, ``pgvector``,
+       ``django``, ``react``, ``pytorch``,
+       ``celery``, ``openai``, ``anthropic``, ...).
+       Case-insensitive regex extracts them as
+       ``kind="tech_term"`` claims. **Closes the
+       SESSION 158 canonical case**: Donny's script
+       said ``"the library doing the work is called
+       trafilatura"``; v1 missed it because
+       lowercase doesn't trip the capitalized-only
+       regex. v2 catches it; strict mode would have
+       rejected the composition before Runway fired.
+
+    3. **Lowercase casing dedupe.** Both the
+       single-cap pass and the tech-term pass now
+       dedupe by lowercase form, so script that
+       writes ``"PyTorch"`` and ``"PYTORCH"``
+       produces one claim, not two.
+
+    Plus stoplist additions from the watchdog's data:
+    ``alright, sure, yeah, yep, yup, nope, agreed,
+    totally, absolutely, definitely, exactly,
+    precisely, right, indeed, certainly, wow, wait``.
+
+    **Donny regression replay against the live DB**:
+    composition ``e485d9f9`` (the SESSION 158
+    canonical hallucination) now flags BOTH
+    ``Wikipedia`` AND ``trafilatura``. Strict mode
+    would block the render.
+
+    Test totals: Django 709 → 713 (+4 v2 tests, plus
+    one existing v1-limitation test flipped to v2
+    expected-catch). SPA + migrations unchanged.
 - **K7 — URL ingestion + serper discovery.** `trafilatura`
   fetch+extract. Serper search tab on the workspace upload
   surface. Both flow into the same Celery embedding task.
