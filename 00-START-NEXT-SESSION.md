@@ -20,6 +20,9 @@ state: active
 > **Workspace fabric scope lock:** `docs/design/WORKSPACE_FABRIC_V1.md`
 > (locked SESSION 144 — 9 contract rules, F0-F10 slice
 > breakdown). **F0-F10 complete; F8.1 queued.**
+> **Media generation scope lock:** `docs/design/MEDIA_GENERATION_V1.md`
+> (locked SESSION 172 — 10 contract rules, W11.6.0-W11.6.5
+> slice breakdown). **W11.6.0 done; W11.6.1 next.**
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
