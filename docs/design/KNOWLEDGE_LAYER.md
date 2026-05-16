@@ -874,6 +874,59 @@ slices that can land independently. Recommended order:
     refusal-pattern test in
     `apps/compositions/tests/test_claim_verifier.py`).
     Migration count: 53 → 54.
+
+- **K6.4 v1.1 — SPA toggle + verifier surface. ✓ SHIPPED
+  SESSION 163.** Surfaces the verifier in the SPA so the
+  operator doesn't have to flip env vars to test modes.
+    Backend:
+    * Per-request ``verifier_mode`` override flows through
+      ``build_render_brief(verifier_mode=...)`` and
+      ``synthesize_spokesperson_reply(verifier_mode=...)``
+      to ``claim_verifier.run_verifier(mode=...)``. ``None``
+      falls back to ``settings.K6_CLAIM_VERIFIER_MODE``.
+    * ``POST /api/conversations/<id>/messages/`` accepts
+      ``verifier_mode`` in the request body; validated
+      against ``{"strict", "warn", "off"}`` (400 on
+      unknown).
+    * ``talking_head(verifier_mode=...)`` starter stores
+      the override into ``step.params["verifier_mode"]``,
+      which the ``generate_avatar_speech`` primitive
+      reads before calling ``build_render_brief``.
+    * ``RECIPES["talking_head"]`` gains a
+      ``_VERIFIER_MODE_FIELD`` (select). The recipe form
+      auto-renders as a select via the metadata-driven
+      form renderer; ``recipes.resolve_kwargs`` passes
+      ``verifier_mode`` straight to the starter.
+    * ``CompositionSerializer`` + ``ConversationMessageSerializer``
+      expose ``verification_warnings`` + ``rejected_synthesis``.
+
+    SPA:
+    * Conversation chat view (`/conversations/<id>`) gains
+      a Verifier select (Warn / Strict / Off) on the
+      composer. Default Warn. On 422 strict-mode rejection,
+      a ``VerifierRejectionPanel`` renders the unsupported
+      claims + a collapsible "what the LLM almost said."
+      Each persisted message bubble shows a
+      "K6.4 flagged N claim(s)" badge when warnings exist.
+    * Composition detail view (`/compositions/<id>`) gains
+      a ``VerifierPanel`` section above citations when
+      either ``verification_warnings`` or
+      ``rejected_synthesis`` is populated.
+    * Make-video form (recipe `talking_head`) renders the
+      Strict/Warn/Off select automatically (the recipe
+      registry now declares the field).
+
+    Test totals: Django 691 → 693 (+2 v1.1 backend
+    overrides). SPA vitest 37 → 40 (+3 v1.1 schema
+    + UI smoke). Migrations unchanged at 54.
+
+    **Live dogfood:** an HTTP POST with
+    ``verifier_mode=strict`` and a patched
+    fabrication-prone LLM returned 422 with the full
+    ``verifier_rejection`` payload + ``spokesperson_message``
+    persisted with ``verification_warnings`` +
+    ``rejected_synthesis``. End-to-end SPA-facing surface
+    confirmed.
 - **K7 — URL ingestion + serper discovery.** `trafilatura`
   fetch+extract. Serper search tab on the workspace upload
   surface. Both flow into the same Celery embedding task.

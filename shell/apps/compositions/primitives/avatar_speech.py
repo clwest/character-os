@@ -121,9 +121,16 @@ def _maybe_synthesize_script(step, composition) -> tuple[str, list[str], list[di
     from character_os.claim_verifier import ClaimVerifierError
     from character_os.script_synthesis import build_render_brief
 
+    # K6.4 v1.1 — per-render verifier mode. Picked up from
+    # ``step.params['verifier_mode']`` if the caller (starter /
+    # API view) set it; otherwise falls back to
+    # ``settings.K6_CLAIM_VERIFIER_MODE``.
+    verifier_mode = (step.params or {}).get("verifier_mode") or None
+
     try:
         result = build_render_brief(
             composition.spokesperson, raw_script,
+            verifier_mode=verifier_mode,
         )
     except ClaimVerifierError as exc:
         # Strict mode — surface as a primitive failure so the

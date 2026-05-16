@@ -93,6 +93,7 @@ def synthesize_spokesperson_reply(
     *,
     top_k_docs: int = DEFAULT_TOP_K_DOCS,
     top_k_history: int = DEFAULT_TOP_K_HISTORY,
+    verifier_mode: str | None = None,
 ) -> ReplyResult:
     """Build the spokesperson's reply to a user message.
 
@@ -176,7 +177,7 @@ def synthesize_spokesperson_reply(
         operator_prompt=user_content,
         extras=[h.chunk_text for h in history if getattr(h, "chunk_text", None)],
     )
-    unsupported = run_verifier(final_text, corpus=corpus)
+    unsupported = run_verifier(final_text, corpus=corpus, mode=verifier_mode)
     if unsupported:
         logger.warning(
             "K6.5 verifier flagged %d unsupported claim(s) on thread=%s: %s",

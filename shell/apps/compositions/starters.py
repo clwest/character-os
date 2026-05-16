@@ -56,6 +56,7 @@ def talking_head(
     mock_mode: bool = False,
     name: str = "",
     created_by: "AbstractBaseUser | None" = None,
+    verifier_mode: str | None = None,
 ) -> Composition:
     """Create a single-step ``talking_head`` composition.
 
@@ -106,21 +107,29 @@ def talking_head(
         mock_mode=mock_mode,
         created_by=created_by,
     )
+    step_params: dict = {
+        "script": script.strip(),
+        "use_knowledge": bool(use_knowledge),
+    }
+    # K6.4 v1.1 — per-render verifier mode. Only stored when
+    # the caller passed one; otherwise the primitive's lookup
+    # falls back to settings.K6_CLAIM_VERIFIER_MODE.
+    if verifier_mode:
+        step_params["verifier_mode"] = verifier_mode
+
     CompositionStep.objects.create(
         composition=composition,
         position=0,
         primitive="generate_avatar_speech",
         inputs=[],
-        params={
-            "script": script.strip(),
-            "use_knowledge": bool(use_knowledge),
-        },
+        params=step_params,
     )
 
     logger.info(
         "starter talking_head created composition=%s spokesperson=%s "
-        "mock=%s use_knowledge=%s",
+        "mock=%s use_knowledge=%s verifier_mode=%s",
         composition.id, spokesperson.id, mock_mode, use_knowledge,
+        verifier_mode or "(default)",
     )
     return composition
 

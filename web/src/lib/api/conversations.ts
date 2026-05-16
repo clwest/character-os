@@ -108,15 +108,42 @@ export function useCreateThread() {
 
 // ---- Messages ----------------------------------------------------
 
+// K6.4 v1.1 — verifier surface. Each warning is one named
+// entity in the synthesized reply that wasn't supported by
+// the retrieved corpus.
+const unsupportedClaimSchema = z.object({
+  claim: z.string(),
+  kind: z.string(),
+  position: z.number().int(),
+});
+
+export type UnsupportedClaim = z.infer<typeof unsupportedClaimSchema>;
+
 const messageSchema = z.object({
   id: z.string(),
   thread: z.string(),
   role: z.enum(["user", "spokesperson"]),
   content: z.string(),
   created_at: z.string(),
+  // K6.5 / K6.4 v1.1 — exposed by ConversationMessageSerializer.
+  // Optional + default empty so older messages that pre-date
+  // K6.5 parse cleanly without a backfill.
+  verification_warnings: z.array(unsupportedClaimSchema).default([]),
+  rejected_synthesis: z.string().default(""),
 });
 
 export type ConversationMessage = z.infer<typeof messageSchema>;
+
+// K6.4 v1.1 — 422 response body shape when strict mode rejects.
+export const verifierRejectionSchema = z.object({
+  mode: z.literal("strict"),
+  rejected_synthesis: z.string(),
+  unsupported_claims: z.array(unsupportedClaimSchema),
+});
+
+export type VerifierRejection = z.infer<typeof verifierRejectionSchema>;
+
+export type VerifierMode = "strict" | "warn" | "off";
 
 const messageListSchema = z.array(messageSchema);
 
@@ -149,14 +176,20 @@ export type SendMessageResponse = z.infer<typeof sendResponseSchema>;
 export interface SendMessageInput {
   threadId: string;
   content: string;
+  // K6.4 v1.1 — per-request verifier mode override. ``null`` /
+  // omitted = server default (settings.K6_CLAIM_VERIFIER_MODE,
+  // falling back to "warn").
+  verifierMode?: VerifierMode;
 }
 
 export async function sendMessage(
   input: SendMessageInput,
 ): Promise<SendMessageResponse> {
+  const body: Record<string, unknown> = { content: input.content };
+  if (input.verifierMode) body.verifier_mode = input.verifierMode;
   return apiJson(
     `/api/conversations/${input.threadId}/messages/`,
-    { method: "POST", body: { content: input.content } },
+    { method: "POST", body },
     (json) => sendResponseSchema.parse(json),
   );
 }
@@ -164,8 +197,8 @@ export async function sendMessage(
 export function useSendMessage(threadId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (content: string) =>
-      sendMessage({ threadId: threadId!, content }),
+    mutationFn: (input: { content: string; verifierMode?: VerifierMode }) =>
+      sendMessage({ threadId: threadId!, ...input }),
     onSuccess: (response) => {
       // Append both new messages to the cached list so the
       // chat view re-renders without a re-fetch round-trip.

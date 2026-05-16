@@ -116,6 +116,7 @@ def build_render_brief(
     operator_prompt: str,
     *,
     top_k: int = DEFAULT_TOP_K,
+    verifier_mode: str | None = None,
 ) -> ScriptResult:
     """Build the brief that gets sent to media-engine.
 
@@ -125,6 +126,12 @@ def build_render_brief(
         operator_prompt: what the operator typed. Doubles as
             the RAG query and as the rendering topic.
         top_k: how many knowledge chunks to consider.
+        verifier_mode: K6.4 v1.1 — optional per-render
+            override for the verifier mode. ``"strict" |
+            "warn" | "off"``. ``None`` (default) falls back
+            to ``settings.K6_CLAIM_VERIFIER_MODE`` and then
+            ``"warn"``. Lets operators flip per-render from
+            the SPA without restarting Django.
 
     Returns:
         ``ScriptResult`` — always has a usable ``brief`` field
@@ -208,7 +215,7 @@ def build_render_brief(
         spokesperson=spokesperson,
         operator_prompt=operator_prompt,
     )
-    unsupported = run_verifier(final_brief, corpus=corpus)
+    unsupported = run_verifier(final_brief, corpus=corpus, mode=verifier_mode)
     if unsupported:
         logger.warning(
             "K6.4 verifier flagged %d unsupported claim(s) on sp=%s: %s",

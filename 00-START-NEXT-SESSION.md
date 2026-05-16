@@ -120,6 +120,13 @@ operator-facing) and the queued cleanups.
   Live dogfood revealed a new false-positive class —
   refusal-pattern starters (`Short`, `Which`, `HTML`) —
   fixed in same commit by widening the stoplist.
+* ~~**K6.4 v1.1 — SPA toggle + warning surface.**~~
+  **DONE SESSION 163.** Per-request `verifier_mode`
+  override; SPA composer + recipe form get a
+  Strict/Warn/Off select; conversation view renders a
+  rejection panel on 422; composition detail surfaces
+  `verification_warnings` + `rejected_synthesis` in a
+  dedicated panel.
 * **K7.x — YouTube ingest fix** if the silent-failure mode
   surfaces during any real-Runway work. ~1 session.
 * **K6.3 — Brief length cap (~15 min)** — cheapest cleanup.
@@ -173,6 +180,7 @@ shipped against real Runway** (SESSION 158).
 | **K6.4 (claim verifier)** | **DONE (SESSION 160)** |
 | **K6.4.1 (stoplist widen + strict forensics)** | **DONE (SESSION 161)** |
 | **K6.5 (conversation verifier parity)** | **DONE (SESSION 162)** |
+| **K6.4 v1.1 (SPA toggle + warning surface)** | **DONE (SESSION 163)** |
 | K7.x (YouTube ingest fix) | Queued |
 | K6.3 / K7.1 / W11.1 | Queued |
 
@@ -187,21 +195,18 @@ shipped against real Runway** (SESSION 158).
 
 ## Queued investigations (priority-ordered)
 
-1. **K6.4 SPA toggle (v1.1).** Surface
-   `verification_warnings` + `rejected_synthesis` in the
-   SPA. Composition detail page surfaces the warnings
-   list alongside the rendered output. Conversation
-   thread view renders flagged terms inline / 422
-   responses get an operator-friendly review surface.
-   Make-video + send-message forms gain a Strict/Warn/Off
-   toggle (default Warn). ~1 session.
-2. **K6.4 v1.2 — `verification_status` field.** Captured
+1. **K6.4 v1.2 — `verification_status` field.** Captured
    SESSION 161 as a calibration moment: bypass case (no
    OPENAI_API_KEY → retrieval degrades → verifier skipped)
    looks identical to clean verified output. Add a
    TextChoices field distinguishing verified /
    trusted_passthrough / skipped so the audit trail is
    honest. ~30 minutes.
+2. **Roll `_VERIFIER_MODE_FIELD` to more recipes.**
+   v1.1 added the field only to `talking_head`. The other
+   recipes that run K6 synthesis (talking_head_with_backdrop,
+   talking_head_polished, long_form_ad) should grow the
+   same field. ~15 minutes — one-line edits.
 3. **More real-Runway exposure** — re-bake Donny,
    polished Sasha retake, long_form_ad smoke.
 4. **F8.1 — K10 seed corpus** (blocked).

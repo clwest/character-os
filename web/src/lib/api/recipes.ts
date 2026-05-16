@@ -247,6 +247,17 @@ const knowledgeDocCitationSchema = z.object({
 
 export type KnowledgeDocCitation = z.infer<typeof knowledgeDocCitationSchema>;
 
+// K6.4 v1.1 — same shape as the unsupportedClaim schema in
+// conversations.ts. Duplicated here to keep each API module
+// self-contained (no cross-module schema imports).
+const unsupportedClaimSchema = z.object({
+  claim: z.string(),
+  kind: z.string(),
+  position: z.number().int(),
+});
+
+export type UnsupportedClaim = z.infer<typeof unsupportedClaimSchema>;
+
 const compositionSchema = z.object({
   id: z.string(),
   workspace: z.string(),
@@ -268,6 +279,12 @@ const compositionSchema = z.object({
   updated_at: z.string(),
   steps: z.array(compositionStepSchema),
   final_asset: assetSchema.nullable(),
+  // K6.4 v1.1 — verifier surface. Empty array on clean
+  // renders, populated on Warn-mode flags and Strict-mode
+  // rejections. ``rejected_synthesis`` carries the text the
+  // LLM produced before strict rejected it (empty otherwise).
+  verification_warnings: z.array(unsupportedClaimSchema).default([]),
+  rejected_synthesis: z.string().default(""),
 });
 
 export type Composition = z.infer<typeof compositionSchema>;

@@ -108,6 +108,9 @@ class CompositionSerializer(serializers.ModelSerializer):
             "updated_at",
             "steps",
             "final_asset",
+            # K6.4 v1.1 — verifier surface for the SPA
+            "verification_warnings",
+            "rejected_synthesis",
         )
         read_only_fields = fields
 

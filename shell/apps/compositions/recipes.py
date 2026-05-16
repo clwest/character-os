@@ -161,6 +161,28 @@ _MOCK_MODE_FIELD = RecipeField(
     help_text="Run with deterministic stubs — useful for testing without burning credits.",
 )
 
+# K6.4 v1.1 — per-render verifier mode override. Reusable across
+# any recipe that runs K6 synthesis (use_knowledge=True). v1.1
+# adds it only to ``talking_head``; future K6.4 v1.x can roll it
+# out across more recipes as the operator-facing semantics settle.
+_VERIFIER_MODE_FIELD = RecipeField(
+    name="verifier_mode",
+    type="select",
+    label="K6.4 claim verifier",
+    required=False,
+    default="warn",
+    choices=(
+        {"value": "warn", "label": "Warn (flag inventions; let render proceed)"},
+        {"value": "strict", "label": "Strict (reject inventions before Runway fires)"},
+        {"value": "off", "label": "Off (no post-synthesis verification)"},
+    ),
+    help_text=(
+        "Only applies when 'Use workspace knowledge' is on. Strict blocks "
+        "renders with unsupported claims (saves Runway cost); Warn logs "
+        "warnings but ships; Off skips verification entirely."
+    ),
+)
+
 
 # ---- The 17 recipes -----------------------------------------------
 
@@ -265,6 +287,7 @@ RECIPES: dict[str, Recipe] = {
                 label="Use workspace knowledge", required=False, default=False,
                 help_text="Pipe the script through RAG synthesis using attached docs.",
             ),
+            _VERIFIER_MODE_FIELD,
             _NAME_FIELD,
             _MOCK_MODE_FIELD,
         ),

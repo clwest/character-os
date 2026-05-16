@@ -1169,3 +1169,81 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   the third stress-tests the edge cases. Budget for
   3-5 live-system probes alongside the unit suite at
   every verifier-related slice close-out.
+
+## 2026-05-15 — Architectural calibration: metadata-driven forms paid off
+
+- **Context:** K6.4 v1.1 (SESSION 163) needed a
+  Strict/Warn/Off select on the make-video form.
+  Character OS's SPA uses a metadata-driven form
+  renderer — recipe metadata in
+  `apps/compositions/recipes.py` declares each field
+  + the renderer emits the right input.
+- **Direction:** Carry-forward architectural.
+- **Detail:** Adding the new field took two edits:
+  declare `_VERIFIER_MODE_FIELD` once at the top of
+  `recipes.py`, then add it to the `talking_head`
+  recipe's `fields` tuple. Zero form-renderer changes,
+  zero SPA route changes for the make-video path,
+  zero new serializer fields, zero new TypeScript
+  schemas. The metadata layer absorbed the new field
+  without ceremony. By contrast, the conversation
+  composer (non-metadata-driven) needed full SPA
+  component additions: a `VerifierModeSelect`
+  component, state plumbing, schema work — comparable
+  shape to the make-video toggle but ~5x more code
+  to land.
+- **Found by:** Reviewing the diff at K6.4 v1.1
+  close-out — the make-video toggle was buried in a
+  metadata edit; the conversation toggle dominated the
+  SPA diff.
+- **Lesson:** **For this operator specifically:**
+  metadata-driven surfaces compound. When the same
+  pattern needs to scale across many similar things
+  (17 recipes), invest in the metadata layer. Each
+  additional field arrives nearly free. The cost is
+  the upfront renderer; the return is durable
+  cheapness. **Generalisation:** before adding the
+  Nth ad-hoc field to an ad-hoc form, check whether
+  the surface should be metadata-driven. The break-
+  even point is usually low (3-5 similar surfaces).
+  After that, every new field added the ad-hoc way is
+  pure tech debt against an inevitable migration.
+
+## 2026-05-15 — Methodology calibration: SPA tests went lighter than expected
+
+- **Context:** K6.4 v1.1 (SESSION 163) added three
+  user-visible SPA surfaces (toggle, rejection panel,
+  inline warning bubble) but only 3 vitest cases —
+  all on the schema parsing layer
+  (`verifierRejectionSchema`). No component-level
+  tests for `VerifierRejectionPanel`,
+  `VerifierModeSelect`, or `VerifierInlineDetail`.
+- **Direction:** Carry-forward methodology.
+- **Detail:** The components are small (50-100 lines
+  each), encode no real logic (they render flat
+  pre-shaped data), and consume well-tested backend
+  shapes via zod-validated API types. A UI regression
+  that doesn't break the schema parsing wouldn't be
+  caught by the vitest suite — visual confirmation
+  needs operator-driven SPA testing. The trade-off
+  was deliberate: ~15 minutes per component test vs.
+  ~5 minutes to spot-fix a UI regression an operator
+  surfaces.
+- **Found by:** Reviewing test coverage at K6.4 v1.1
+  close-out before commit. Considered adding
+  component tests but the cost-vs-coverage math
+  argued against.
+- **Lesson:** **For this operator specifically:**
+  small UI components hand-tied to a well-tested API
+  can ship with schema-only vitest coverage when
+  the visual is straightforward and the data shape
+  is the load-bearing contract. Component tests
+  earn their weight when the component encodes
+  significant logic (interaction state, conditional
+  rendering, etc), not when they wrap a flat render.
+  **Generalisation:** test depth should follow logic
+  depth, not file count. A 100-line component that's
+  a flat render of pre-shaped data needs less testing
+  than a 30-line function that branches across 4
+  paths. Don't equate "user-visible" with "test-
+  heavy" — equate "logic-heavy" with "test-heavy."

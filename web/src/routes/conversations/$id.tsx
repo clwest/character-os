@@ -13,13 +13,16 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Loader2, Send } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Loader2, Send, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   type ConversationMessage,
+  type VerifierMode,
+  type VerifierRejection,
   useMessages,
   useSendMessage,
   useThread,
+  verifierRejectionSchema,
 } from "@/lib/api/conversations";
 import { ApiError } from "@/lib/api/client";
 
@@ -30,6 +33,14 @@ export function ConversationChatRoute() {
   const send = useSendMessage(id);
   const [draft, setDraft] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // K6.4 v1.1 — per-request verifier mode override. Default
+  // "warn" so the SPA's selection always wins (warns are
+  // visible, strict requires an explicit flip).
+  const [verifierMode, setVerifierMode] = useState<VerifierMode>("warn");
+  // K6.4 v1.1 — when strict mode rejects (422), we don't show
+  // a one-liner submit error; we render a full rejection panel
+  // so the operator can review what the LLM almost said.
+  const [verifierRejection, setVerifierRejection] = useState<VerifierRejection | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to the bottom when a new message lands.
@@ -62,14 +73,31 @@ export function ConversationChatRoute() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitError(null);
+    setVerifierRejection(null);
     const trimmed = draft.trim();
     if (!trimmed) return;
     setDraft("");
     try {
-      await send.mutateAsync(trimmed);
+      await send.mutateAsync({ content: trimmed, verifierMode });
     } catch (err) {
+      // K6.4 v1.1 — strict-mode rejection comes back as 422
+      // with a `verifier_rejection` body. Surface that as a
+      // structured panel, not a one-liner.
+      if (err instanceof ApiError && err.status === 422) {
+        const body = err.body as { verifier_rejection?: unknown } | null;
+        const parsed = body?.verifier_rejection
+          ? verifierRejectionSchema.safeParse(body.verifier_rejection)
+          : null;
+        if (parsed?.success) {
+          setVerifierRejection(parsed.data);
+          // Restore draft so operator can edit + retry; the
+          // placeholder spokesperson message is already in
+          // the thread's message list via the next refetch.
+          setDraft(trimmed);
+          return;
+        }
+      }
       setSubmitError(extractErrorMessage(err));
-      // Restore the draft so the operator can edit + retry.
       setDraft(trimmed);
     }
   }
@@ -101,6 +129,13 @@ export function ConversationChatRoute() {
         </div>
       )}
 
+      {verifierRejection && (
+        <VerifierRejectionPanel
+          rejection={verifierRejection}
+          onDismiss={() => setVerifierRejection(null)}
+        />
+      )}
+
       <form
         onSubmit={handleSubmit}
         className="flex flex-col gap-2"
@@ -123,10 +158,17 @@ export function ConversationChatRoute() {
           }}
           data-testid="conversation-input"
         />
-        <div className="flex items-center justify-between">
-          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-            ⌘ / Ctrl + Enter to send
-          </span>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+              ⌘ / Ctrl + Enter to send
+            </span>
+            <VerifierModeSelect
+              value={verifierMode}
+              onChange={setVerifierMode}
+              disabled={send.isPending}
+            />
+          </div>
           <Button
             type="submit"
             disabled={send.isPending || !draft.trim()}
@@ -181,6 +223,10 @@ function MessageBubble({
   spokespersonName: string;
 }) {
   const isUser = message.role === "user";
+  const warnings = message.verification_warnings ?? [];
+  const rejected = message.rejected_synthesis ?? "";
+  const hasVerifierSurface = warnings.length > 0 || rejected.length > 0;
+  const [expanded, setExpanded] = useState(false);
   return (
     <div
       className={
@@ -202,7 +248,139 @@ function MessageBubble({
       >
         {message.content}
       </div>
+      {!isUser && hasVerifierSurface && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-1 inline-flex items-center gap-1 self-start rounded-md border border-amber-500/40 bg-amber-500/5 px-2 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-amber-700 transition-colors hover:bg-amber-500/10"
+          data-testid={`message-verifier-toggle-${message.id}`}
+        >
+          <AlertTriangle className="h-3 w-3" />
+          {rejected
+            ? "K6.4 strict — reply withheld"
+            : `K6.4 flagged ${warnings.length} claim${warnings.length === 1 ? "" : "s"}`}
+          <span className="text-amber-700/60">{expanded ? "▲" : "▼"}</span>
+        </button>
+      )}
+      {!isUser && hasVerifierSurface && expanded && (
+        <VerifierInlineDetail warnings={warnings} rejected={rejected} />
+      )}
     </div>
+  );
+}
+
+function VerifierInlineDetail({
+  warnings,
+  rejected,
+}: {
+  warnings: ConversationMessage["verification_warnings"];
+  rejected: string;
+}) {
+  return (
+    <div
+      className="max-w-[80%] rounded-md border border-amber-500/30 bg-amber-500/[0.03] p-3 text-xs"
+      data-testid="message-verifier-detail"
+    >
+      {warnings.length > 0 && (
+        <div className="mb-2">
+          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-amber-800 mb-1">
+            Unsupported terms
+          </div>
+          <ul className="list-disc space-y-0.5 pl-5">
+            {warnings.map((w, i) => (
+              <li key={`${w.claim}-${i}`}>
+                <span className="font-mono">"{w.claim}"</span>{" "}
+                <span className="text-muted-foreground">— {w.kind}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {rejected && (
+        <div>
+          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-amber-800 mb-1">
+            What the LLM almost said (withheld)
+          </div>
+          <p className="whitespace-pre-wrap text-muted-foreground">{rejected}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VerifierRejectionPanel({
+  rejection,
+  onDismiss,
+}: {
+  rejection: VerifierRejection;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      className="rounded-md border border-amber-500/50 bg-amber-500/5 p-4 text-sm"
+      data-testid="verifier-rejection-panel"
+      role="alert"
+    >
+      <div className="mb-2 flex items-start gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-amber-800">
+        <ShieldAlert className="h-4 w-4" />
+        Strict mode held the reply
+      </div>
+      <p className="mb-2 text-foreground">
+        K6.4 flagged {rejection.unsupported_claims.length} unsupported claim
+        {rejection.unsupported_claims.length === 1 ? "" : "s"} in the synthesized
+        reply. The user message was recorded; the reply was withheld.
+      </p>
+      <ul className="mb-3 list-disc space-y-0.5 pl-5 text-xs">
+        {rejection.unsupported_claims.map((c, i) => (
+          <li key={`${c.claim}-${i}`}>
+            <span className="font-mono">"{c.claim}"</span>{" "}
+            <span className="text-muted-foreground">({c.kind})</span>
+          </li>
+        ))}
+      </ul>
+      <details className="mb-3 text-xs">
+        <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-[0.18em] text-amber-800">
+          Show what the LLM almost said
+        </summary>
+        <p className="mt-1 whitespace-pre-wrap rounded-md bg-background/60 p-2 text-muted-foreground">
+          {rejection.rejected_synthesis || "(empty)"}
+        </p>
+      </details>
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="inline-flex items-center font-mono text-[10px] uppercase tracking-[0.22em] text-amber-800/80 underline-offset-2 hover:text-amber-900 hover:underline"
+      >
+        Dismiss
+      </button>
+    </div>
+  );
+}
+
+function VerifierModeSelect({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: VerifierMode;
+  onChange: (v: VerifierMode) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <label className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+      Verifier:
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as VerifierMode)}
+        disabled={disabled}
+        className="rounded border border-input bg-background px-1.5 py-0.5 text-[10px] uppercase tracking-[0.18em] disabled:cursor-not-allowed disabled:opacity-50"
+        data-testid="conversation-verifier-mode"
+      >
+        <option value="warn">Warn</option>
+        <option value="strict">Strict</option>
+        <option value="off">Off</option>
+      </select>
+    </label>
   );
 }
 

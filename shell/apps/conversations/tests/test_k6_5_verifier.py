@@ -245,6 +245,55 @@ def test_api_warn_mode_persists_warnings_returns_201() -> None:
     assert sp_msg.rejected_synthesis == ""  # not strict-rejected
 
 
+def test_api_per_request_verifier_mode_overrides_settings_k6_4_v1_1() -> None:
+    """K6.4 v1.1 — operator can flip strict/warn/off per-request
+    via the POST body without changing
+    settings.K6_CLAIM_VERIFIER_MODE. Confirms the override path
+    is wired all the way through view → synthesizer → verifier."""
+    ws, user = _make_workspace("k64v11api@test")
+    sp = _make_spokesperson(ws)
+    _attach_doc(ws, sp)
+    thread = ConversationThread.objects.create(spokesperson=sp)
+
+    client = APIClient()
+    _login(client, user)
+
+    # Default mode = "off"; per-request = "strict" should rule.
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake"}):
+        with override_settings(
+            CONVERSATION_REPLY_FORCE_MOCK=False,
+            K6_CLAIM_VERIFIER_MODE="off",
+        ):
+            with patch(
+                "character_os.conversation_synthesis._call_responses_api",
+                return_value=(DONNY_LIKE_REPLY, 200, 80),
+            ):
+                response = client.post(
+                    f"/api/conversations/{thread.id}/messages/",
+                    {"content": "Tell me.", "verifier_mode": "strict"},
+                    format="json",
+                )
+
+    # Per-request strict overrode settings off → 422.
+    assert response.status_code == http.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_api_invalid_verifier_mode_returns_400_k6_4_v1_1() -> None:
+    ws, user = _make_workspace("k64v11bad@test")
+    sp = _make_spokesperson(ws)
+    thread = ConversationThread.objects.create(spokesperson=sp)
+
+    client = APIClient()
+    _login(client, user)
+    response = client.post(
+        f"/api/conversations/{thread.id}/messages/",
+        {"content": "Hi", "verifier_mode": "totally-wrong"},
+        format="json",
+    )
+    assert response.status_code == http.HTTP_400_BAD_REQUEST
+    assert "verifier_mode" in response.data
+
+
 def test_api_strict_mode_returns_422_with_rejected_synthesis() -> None:
     ws, user = _make_workspace("k65api2@test")
     sp = _make_spokesperson(ws)

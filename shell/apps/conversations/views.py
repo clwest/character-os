@@ -86,6 +86,17 @@ class ConversationThreadViewSet(viewsets.ModelViewSet):
                 {"content": "Message too long (>4000 chars)."}
             )
 
+        # K6.4 v1.1 — per-request verifier mode override. Validated
+        # against the small fixed set. Unknown values fall back to
+        # the default (matches run_verifier's defensive behavior).
+        verifier_mode = request.data.get("verifier_mode")
+        if verifier_mode is not None:
+            verifier_mode = str(verifier_mode).strip().lower()
+            if verifier_mode not in ("strict", "warn", "off"):
+                raise ValidationError({
+                    "verifier_mode": "Must be one of: strict, warn, off.",
+                })
+
         # Lazy-import the synthesizer + verifier so this app
         # doesn't depend on character_os.* at module-load time.
         from character_os.claim_verifier import ClaimVerifierError
@@ -107,7 +118,9 @@ class ConversationThreadViewSet(viewsets.ModelViewSet):
         verifier_warnings: list[dict] = []
         rejected_synthesis = ""
         try:
-            result = synthesize_spokesperson_reply(thread, content)
+            result = synthesize_spokesperson_reply(
+                thread, content, verifier_mode=verifier_mode,
+            )
         except ClaimVerifierError as exc:
             # K6.5 — Strict mode. The LLM produced something
             # the verifier rejected. Persist a SPOKESPERSON

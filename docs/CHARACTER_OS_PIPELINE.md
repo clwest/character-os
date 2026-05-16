@@ -2,7 +2,7 @@
 title: "Character Os — Runtime Flow Map"
 status: stub
 generated: 2026-05-13
-last_revised: 2026-05-15 (SESSION 162)
+last_revised: 2026-05-15 (SESSION 163)
 companion_docs: ["CHARACTER_OS_WHAT_IT_IS.md", "CHARACTER_OS_INVENTORY.md"]
 ---
 

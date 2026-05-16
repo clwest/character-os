@@ -4,7 +4,7 @@
  * when the composition reaches a terminal status.
  */
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Circle, XCircle, Loader2, MinusCircle, CornerDownRight, CornerUpRight, Library } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Circle, CornerDownRight, CornerUpRight, Library, Loader2, MinusCircle, ShieldAlert, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   type Composition,
@@ -51,6 +51,9 @@ export function CompositionStatusRoute() {
       {terminal && c.final_asset && <FinalAsset composition={c} />}
       {terminal && !c.final_asset && c.status === "failed" && (
         <FailedCallout composition={c} />
+      )}
+      {(c.verification_warnings.length > 0 || c.rejected_synthesis) && (
+        <VerifierPanel composition={c} />
       )}
       {c.knowledge_docs_used.length > 0 && (
         <CitationsPanel docs={c.knowledge_docs_used} />
@@ -189,6 +192,61 @@ function StatusIcon({
     default:
       return <Circle className="h-5 w-5 text-muted-foreground" />;
   }
+}
+
+function VerifierPanel({ composition }: { composition: Composition }) {
+  const warnings = composition.verification_warnings ?? [];
+  const rejected = composition.rejected_synthesis ?? "";
+  const isStrictReject = rejected.length > 0;
+  return (
+    <section
+      className="flex flex-col gap-3 rounded-md border border-amber-500/50 bg-amber-500/5 p-5 text-sm"
+      data-testid="composition-verifier-panel"
+    >
+      <div className="flex items-center justify-between border-b border-amber-500/30 pb-2">
+        <div className="flex items-center gap-2">
+          {isStrictReject ? (
+            <ShieldAlert className="h-4 w-4 text-amber-700" />
+          ) : (
+            <AlertTriangle className="h-4 w-4 text-amber-700" />
+          )}
+          <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-amber-800">
+            K6.4 claim verifier
+          </span>
+        </div>
+        <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-amber-700">
+          {isStrictReject
+            ? "Strict — render blocked"
+            : `Warn — ${warnings.length} flag${warnings.length === 1 ? "" : "s"}`}
+        </span>
+      </div>
+      {warnings.length > 0 && (
+        <div>
+          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-amber-800 mb-1">
+            Unsupported claims
+          </div>
+          <ul className="list-disc space-y-0.5 pl-5 text-foreground">
+            {warnings.map((w, i) => (
+              <li key={`${w.claim}-${i}`}>
+                <span className="font-mono">"{w.claim}"</span>{" "}
+                <span className="text-muted-foreground">({w.kind})</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {rejected && (
+        <details>
+          <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-[0.18em] text-amber-800">
+            Show what the LLM almost said
+          </summary>
+          <p className="mt-1 whitespace-pre-wrap rounded-md bg-background/60 p-2 text-xs text-muted-foreground">
+            {rejected}
+          </p>
+        </details>
+      )}
+    </section>
+  );
 }
 
 function CitationsPanel({ docs }: { docs: KnowledgeDocCitation[] }) {
