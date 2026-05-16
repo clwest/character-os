@@ -1754,3 +1754,99 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   signed APIs; for each, confirm a refresh path
   exists. If not, ship one with the next adjacent
   feature.
+
+## 2026-05-15 — Architectural calibration: distinct request boundaries for distinct side-effects
+
+- **Context:** SESSION 170's W11.2 introduced the first
+  spokesperson-edit case where a "save" spans both a DB
+  write and an external-system side-effect (Runway
+  `PATCH /v1/avatars/<id>` for the voice block). W11.1
+  was pure DRF `partial_update`. The temptation was to
+  bundle voice into the same PATCH and have the
+  Spokesperson save loop fire the Runway call.
+- **Direction:** Carry-forward architectural.
+- **Detail:** Two operationally bad shapes if bundled:
+  (1) couples DB transactionality to a 5-15s HTTP call;
+  (2) hides the Runway round-trip from the
+  operator-facing log. The two-request shape — PATCH for
+  persona fields, `change-voice` action for the
+  Runway-bound side-effect — keeps the edit modal thin
+  and surfaces partial success (`voice_patch: {status,
+  error}`) explicitly. Operator sees DB persisted /
+  Runway failed as distinct states.
+- **Found by:** Design call at the start of W11.2; no
+  failure event. Calibration is preemptive.
+- **Lesson:** **For this operator specifically:** when an
+  SPA save spans a DB write + an external-system call,
+  model them as two requests, not one bundled PATCH.
+  The action endpoint surfaces the side-effect result.
+  **Generalisation:** serializer save loops are the wrong
+  layer for synchronous external HTTP calls. Pattern:
+  thin form → DRF default PATCH; expensive/risky
+  side-effects → dedicated `@action` endpoint with an
+  explicit response envelope that distinguishes DB
+  success from side-effect success.
+
+## 2026-05-15 — Methodology calibration: mock-fetch needs route-aware routing once endpoints multiply
+
+- **Context:** SESSION 170's W11.2 broke an existing
+  `spokesperson-edit-modal.test.tsx` test pattern. The
+  mock-fetch was a single switch on `/voice-presets/`
+  (W11.1 only hit two endpoints — voice-presets GET +
+  spokesperson PATCH). W11.2 added a third
+  (`change-voice` POST). The default branch returned the
+  bare Spokesperson shape; the change-voice schema
+  expects `{spokesperson, voice_patch}` envelope. Schema
+  parse threw inside the mutation; `onClose` expectation
+  failed far from the actual cause.
+- **Direction:** Carry-forward methodology.
+- **Detail:** Two test failures in the W11.2 commit ladder:
+  (1) "Save fires a PATCH" — expected fetch count of 1,
+  got 2 because `useVoicePresets` fires a GET on mount.
+  Fixed by finding the PATCH call by method instead of
+  asserting count. (2) "W11.2 voice change" — schema parse
+  threw because the mock didn't route-switch
+  `change-voice` to the envelope shape. Both fixed in the
+  same edit pass, but the diagnostic distance was much
+  larger than the cause.
+- **Found by:** Test failure; root-cause analysis on
+  the second iteration.
+- **Lesson:** **For this operator specifically:**
+  vitest mock-fetch implementations deserve route-aware
+  switching from day one when a component hits more than
+  one endpoint. **Generalisation:** the failure mode
+  (schema parse → mutation throws → distant expectation
+  fails) is hard to diagnose. Pattern: every
+  mock-fetch starts as a `switch (url)` over the
+  endpoints the component hits, not a single default
+  branch. Adding endpoints later is cheap; retrofitting
+  the switch is expensive.
+
+## 2026-05-15 — AI right (preemptive application): the hook-order lesson held
+
+- **Context:** SESSION 170 added a new `rebaking` state
+  hook to the SpokespersonDetailRoute component
+  (same file that surfaced the SESSION 169 hook-order
+  violation when `useState(editing)` was added below the
+  early returns). The SESSION 169 lesson was applied
+  preemptively — `rebaking` went above the early
+  returns on first write.
+- **Direction:** AI right despite no prompt to apply it
+  (the operator didn't surface the rule; the prior
+  TRUST_CALIBRATION entry did).
+- **Detail:** Zero console errors on first live load.
+  The rule is now load-bearing in this route file —
+  every new state hook goes above the loading / error /
+  not-found returns. Pattern internalized one session
+  after the initial failure.
+- **Found by:** Author at write time; verified by
+  operator's clean console.
+- **Lesson:** TRUST_CALIBRATION entries that get
+  surfaced via the start-of-session anchor read pay off
+  by reducing the failure-rediscovery loop to once.
+  **For this operator specifically:** keep adding
+  carry-forward entries to TRUST_CALIBRATION — they're
+  not retrospective ornament, they're load-bearing
+  context for the next session's first code-write. The
+  cost is one extra paragraph per session; the savings
+  is the second occurrence of every failure mode.
