@@ -11,6 +11,7 @@ import { WorkspaceKnowledgeRoute } from "@/routes/workspace/knowledge";
 import { KnowledgeDocumentDetailRoute } from "@/routes/workspace/knowledge.$id";
 import { RecipeGalleryRoute } from "@/routes/recipes";
 import { RecipeFormRoute } from "@/routes/recipes/$kind";
+import { ImagesRoute } from "@/routes/images";
 import { CompositionStatusRoute } from "@/routes/compositions/$id";
 import { ConversationChatRoute } from "@/routes/conversations/$id";
 import { Layout } from "@/routes/_layout";
@@ -94,6 +95,14 @@ export function App() {
             element={
               <RequireAuth>
                 <RecipeFormRoute />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/images"
+            element={
+              <RequireAuth>
+                <ImagesRoute />
               </RequireAuth>
             }
           />

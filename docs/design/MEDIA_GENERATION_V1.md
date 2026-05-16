@@ -531,27 +531,71 @@ URL count: +5 image / styles patterns.
 `GET /api/styles/` all registered + workspace-scoped. SPA
 client wiring + real-Stability dogfood land in W11.6.3.
 
-### W11.6.3 — SPA route + generation form
+### W11.6.3 — SPA route + generation form ✓ SHIPPED (SESSION 173)
 
 **Files touched**:
 
-* `web/src/lib/api/images.ts` — NEW. Schemas + hooks
-  (`useGenerateImage`, `useImages`, `useStyleLibrary`).
-* `web/src/routes/images/index.tsx` — NEW. The `/images`
-  route with sub-views (generate / library).
-* `web/src/components/image-generation-form.tsx` — NEW.
-  Model selector, aspect ratio selector, purpose selector,
-  subject textarea. Each choice has hover-text per Contract
-  rule 9.
+* `web/src/lib/api/images.ts` — NEW. Zod schemas + hooks
+  (`useGenerateImage` / `useImages` / `useImage` /
+  `useDeleteImage` / `useStyleLibrary`). Mirror constants:
+  4 non-avatar purposes, 6 Stability models with locked
+  hint copy + credit costs, 6 aspect ratios with locked
+  hint copy. Avatar purpose deliberately excluded from the
+  SPA enum per Contract rule 2.
 * `web/src/components/style-preset-picker.tsx` — NEW.
-  Categorized gallery of the 42 presets with descriptions.
-* `web/src/App.tsx` — register `/images` route.
-* `web/src/components/workspace-nav.tsx` (or equivalent) —
-  add "Images" tile/link.
-* Tests (vitest) — 8-12 unit tests.
+  Categorized tab gallery of the 42 presets sourced from
+  `useStyleLibrary`. Each preset card shows
+  display_name + description + mood; `best_for` lands as
+  hover-text (Contract rule 9). Selection control + Clear
+  button + selection summary pill.
+* `web/src/components/image-generation-form.tsx` — NEW.
+  Purpose / Subject / Model / Aspect ratio / Style preset
+  pickers with hover-text per Contract rule 9. Defaults to
+  scene + sd3-large + 16:9 per scope-lock §"Operator
+  journeys". Advanced disclosure for the negative-prompt
+  override (Q-img-E). Mutation surfaces result inline +
+  error banner on failure.
+* `web/src/routes/images/index.tsx` — NEW. `/images` route
+  with two tab sub-views (generate / library). Library
+  preview shows recent workspace images via `useImages`;
+  full filters + regenerate + delete land in W11.6.4. On
+  successful generation, auto-switches to library so the
+  fresh image lands in front of the operator.
+* `web/src/App.tsx` — registered `/images` route under
+  RequireAuth.
+* `web/src/components/nav-rail.tsx` — added Images entry
+  (5th nav item; F0 contract rule 7 satisfied via this
+  scope-lock per §"Surface inventory" — "sibling to /recipes
+  in workspace fabric nav"). Docstring updated.
+* `web/src/components/style-preset-picker.test.tsx` — NEW
+  (8 tests: categories render, presets render with
+  description + mood, hover-text presence, onChange callback
+  with userEvent for Radix tabs, controlled value
+  selection state, Clear button fires undefined, selection
+  summary, error banner on library load failure).
+* `web/src/components/image-generation-form.test.tsx` — NEW
+  (9 tests: defaults match scope-lock, model + ratio hover
+  copy, avatar purpose absent from SPA picker, Submit
+  gating by subject, POST shape, result card render,
+  error banner, negative_prompt_override threading).
 
-**Acceptance**: SPA build green; vitest green; operator
-generates an image end-to-end from the SPA.
+**Test totals after SESSION 173 (W11.6.3)**: SPA vitest
+**70** (53 → 70, +17). Django **751** (unchanged). Media-
+engine **133** (unchanged). SPA build clean (bundle size
+warning pre-existing).
+
+**Calibration moment carried into next session**: Radix
+Tabs need real pointer events to flip the active panel
+under jsdom — `fireEvent.click` doesn't always work.
+`userEvent.setup()` + `await user.click()` is the right
+tool. Caught on the first preset-onChange test for a
+preset in the inactive tab.
+
+**Acceptance**: SPA build green; vitest green. Real-
+Stability dogfood (operator clicks Generate, real image
+arrives, lands in library) deferred to W11.6.4 — that
+slice expands the library with filters / delete /
+regenerate, which is what the dogfood loop exercises.
 
 ### W11.6.4 — SPA library view
 

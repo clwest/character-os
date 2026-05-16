@@ -1,21 +1,24 @@
 /**
  * Persistent navigation rail — F2 (workspace fabric arc).
  *
- * Four-section sidebar (vertical at >=md, horizontal tab bar
- * at sm) that turns three previously-isolated SPA sections
- * into one workspace. Renders only on authenticated, non-auth
- * routes; the layout decides when to mount it.
+ * Five-section sidebar (vertical at >=md, horizontal tab bar
+ * at sm) that turns previously-isolated SPA sections into one
+ * workspace. Renders only on authenticated, non-auth routes;
+ * the layout decides when to mount it.
  *
  * Active section is computed from the current pathname. The
  * matching is prefix-based — `/spokespeople/<id>/...` keeps
  * the Spokespeople tab active.
  *
  * Per F0 contract rule 7, this nav set is stable: adding a
- * fifth top-level section requires its own scope-lock event,
- * not a fabric slice.
+ * top-level section requires its own scope-lock event, not a
+ * fabric slice. The fifth section (Images) was authorized by
+ * the W11.6 scope-lock (``docs/design/MEDIA_GENERATION_V1.md``
+ * §"Surface inventory": "/images route ... sibling to /recipes
+ * in workspace fabric nav").
  */
 import { Link, useLocation } from "react-router-dom";
-import { Home, Users, Library, Sparkles } from "lucide-react";
+import { Home, Image as ImageIcon, Users, Library, Sparkles } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 interface NavItem {
@@ -60,6 +63,13 @@ const NAV_ITEMS: NavItem[] = [
     label: "Recipes",
     icon: Sparkles,
     testId: "nav-recipes",
+  },
+  {
+    to: "/images",
+    matches: ["/images"],
+    label: "Images",
+    icon: ImageIcon,
+    testId: "nav-images",
   },
 ];
 
