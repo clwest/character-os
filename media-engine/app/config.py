@@ -36,6 +36,17 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
 
+    # SESSION 171 — Stability AI provider for portrait generation.
+    # An alternative to Runway gen4_image; the rebake flow gains a
+    # ``provider`` selector that routes between the two. See
+    # ``app/services/stability_ai_service.py`` + ``stability_portrait.py``.
+    stability_api_key: str = ""
+    stability_base_url: str = "https://api.stability.ai/v2beta"
+
+    @property
+    def stability_mock(self) -> bool:
+        return not self.stability_api_key.strip()
+
     # PR EH — local LLM via Ollama. When `llm_provider="ollama"`, the
     # concept service points the OpenAI-API-compatible client at the
     # local Ollama server (`/v1/chat/completions` shape, same body).
