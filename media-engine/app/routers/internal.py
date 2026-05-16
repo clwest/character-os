@@ -266,7 +266,14 @@ class InternalVideoCreate(BaseModel):
     brief: str = Field(..., min_length=4, max_length=2000)
     ratio: str = Field(default="1280:720")
     duration: int = Field(default=5, ge=5, le=10)
-    prompt_image: Optional[str] = Field(default=None, max_length=2048)
+    # W11.6.5.2 (SESSION 174) — lifted from 2048 to 10 MB to
+    # accept inline image data URIs from the workspace image
+    # library (W11.6.5 recipe picker). 2048 was sized for
+    # URL-shape inputs only; a 1024×1024 PNG data URI is
+    # ~4-6 MB. Upper bound mirrors the existing portrait
+    # endpoint's 5 MB decoded cap (data URIs are ~4/3 raw,
+    # so 10 MB string ≈ 7.5 MB raw).
+    prompt_image: Optional[str] = Field(default=None, max_length=10_000_000)
 
 
 class InternalVideoCreateResponse(BaseModel):
@@ -745,7 +752,9 @@ class InternalVisualClipCreate(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=2000)
     ratio: str = Field(default="1280:720")
     duration: int = Field(default=5, ge=5, le=10)
-    prompt_image: Optional[str] = Field(default=None, max_length=2048)
+    # W11.6.5.2 (SESSION 174) — see InternalVideoCreate
+    # rationale above. Same 10 MB cap.
+    prompt_image: Optional[str] = Field(default=None, max_length=10_000_000)
 
 
 class InternalVisualClipCreateResponse(BaseModel):
