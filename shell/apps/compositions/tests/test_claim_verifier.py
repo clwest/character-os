@@ -701,6 +701,84 @@ def test_system_prompt_includes_standalone_video_framing_k6_6() -> None:
     assert "first sentence must stand alone" in prompt
 
 
+def test_system_prompt_business_brief_fenced_as_tone_only_k6_6_1() -> None:
+    """K6.6.1 (SESSION 171) — business_brief must be injected
+    as tone/perspective guidance, NOT as plain context the model
+    will treat as content to recite. The pre-fix prompt said
+    "Their business brief is: <brief>" which the model read as
+    instruction to introduce themselves with the brief content.
+    Marcus's real-Runway render leaked "I'm Marcus, your AP
+    history tutor" because of this.
+
+    Lock the fence wording so future refactors don't drop it.
+    """
+    from character_os.script_synthesis import _system_prompt
+
+    class _FakeSp:
+        name = "Marcus"
+        tone_archetype = "tutor"
+        business_brief = "Gen X AP US history teacher for high school students."
+
+    prompt = _system_prompt(_FakeSp())
+
+    # The brief itself still flows in (the model needs it for
+    # tone), but it MUST be fenced.
+    assert "Gen X AP US history teacher" in prompt
+    # Fence wording — the explicit do-not-recite framing.
+    assert "ONLY to shape tone" in prompt
+    assert "do NOT recite, paraphrase, or describe this" in prompt
+    # The pre-K6.6.1 phrasing must NOT appear — that's what
+    # invited the leak.
+    assert "Their business brief is:" not in prompt
+
+
+def test_system_prompt_drops_who_you_are_opener_framing_k6_6_1() -> None:
+    """K6.6.1 (SESSION 171) — K6.6's original opener instruction
+    said "grounds them in who you are and what this video is
+    about". The "who you are" half was a near-explicit invite to
+    self-introduction; combined with the business_brief
+    injection it produced "I'm Marcus, your AP history tutor"
+    openers. New framing drops the speaker-orientation half and
+    keeps only the topic-orientation half.
+    """
+    from character_os.script_synthesis import _system_prompt
+
+    class _FakeSp:
+        name = "Marcus"
+        tone_archetype = "tutor"
+        business_brief = "Gen X AP US history teacher."
+
+    prompt = _system_prompt(_FakeSp())
+
+    # The new framing — topic-oriented opener.
+    assert "grounds the viewer in what this video is about" in prompt
+    # Pre-K6.6.1 wording must not reappear.
+    assert "grounds them in who you are" not in prompt
+
+
+def test_system_prompt_includes_anti_recitation_rule_k6_6_1() -> None:
+    """K6.6.1 (SESSION 171) — explicit rule the prompt now
+    carries: do not introduce yourself / recite role / describe
+    audience / recite background. The Marcus leak proved that
+    structural framing alone (topic-orientation opener) isn't
+    enough; a plain-English don't-do-this rule is the belt to
+    the framing's suspenders.
+    """
+    from character_os.script_synthesis import _system_prompt
+
+    class _FakeSp:
+        name = "Marcus"
+        tone_archetype = "tutor"
+        business_brief = "Gen X AP US history teacher."
+
+    prompt = _system_prompt(_FakeSp())
+
+    assert "Do NOT introduce yourself" in prompt
+    assert "name your role" in prompt
+    assert "describe your audience" in prompt
+    assert "recite your background" in prompt
+
+
 def test_opener_override_appears_in_user_prompt_k6_6() -> None:
     """K6.6 — when opener is set, the user prompt contains an
     "Operator-supplied opening line" clause that K6 reads."""

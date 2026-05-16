@@ -49,20 +49,47 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# Locked to gpt-5-mini (Responses API). Pricing matches the old
-# gpt-4o-mini ($0.15 / $0.60 per 1M tokens). See the memory at
+# SESSION 171 — promoted from gpt-5-mini to gpt-5 (full).
+#
+# Rationale: the K6.6.1 leak fix tightened the system prompt against
+# self-introduction, but gpt-5-mini still produced "I'm Marcus, your
+# AP Roman tutor…" — classic LLM failure mode where negative
+# instructions ("Do NOT introduce yourself") get overridden by
+# strong positive patterns in the brief (Marcus's brief contains a
+# literal quoted opener + role description). Bigger model follows
+# negative instructions more reliably.
+#
+# Cost: ~$0.0002 → ~$0.001 per render (~5x). Absolute cost still
+# rounding error compared to Runway spend per video. Mini is kept
+# for structured-output call sites (split_script, transcription
+# hook picker) where capability gain doesn't justify the cost.
+#
+# Responses API only (NOT chat-completions — same calibration that
+# pinned us to gpt-5 family). See
 # ~/.claude/projects/.../feedback_openai_gpt5_responses_api.md.
-SCRIPT_MODEL = "gpt-5-mini"
+SCRIPT_MODEL = "gpt-5"
 
-# Conservative cap. A single ad spot needs maybe 80-120 words;
-# 500 output tokens is well above the realistic ceiling and gives
-# the model room to phrase a longer cinematic.
-MAX_OUTPUT_TOKENS = 500
+# SESSION 171 — raised from 500 to 2000.
+#
+# ``max_output_tokens`` on the Responses API counts BOTH reasoning
+# tokens AND actual output tokens against the same cap. With
+# ``reasoning_effort="medium"`` on gpt-5, a complex K6 prompt burns
+# 400-1000+ reasoning tokens before producing visible output. The
+# old 500 cap caused gpt-5 to silently hit the cap mid-reasoning,
+# return empty ``output_text``, and fall back to the operator
+# prompt — looked like K6 had degraded when in fact the model
+# was just out of budget. 2000 covers worst-case medium-reasoning +
+# 60-100 word script + headroom. Unused tokens cost nothing.
+MAX_OUTPUT_TOKENS = 2000
 
-# `reasoning_effort='low'` for K6 — script synthesis is
-# pattern-matching against the chunks, not multi-step reasoning.
-# Bumping to 'medium' or 'high' adds latency + cost without
-# improving the output for this task.
+# SESSION 171 — kept at 'low' after a brief experiment with 'medium'.
+# On gpt-5, ``reasoning_effort="medium"`` expanded to consume the
+# full ``max_output_tokens`` budget on reasoning alone (1984 of
+# 2000 tokens — zero visible output) before terminating. The
+# capability gain over 'low' is real but the practical effect on
+# this workload was empty responses falling back to the operator
+# prompt. The leak-suppression bet rides on gpt-5's capability
+# alone at 'low' effort.
 REASONING_EFFORT = "low"
 
 # How many chunks to retrieve. Top-5 fits comfortably inside the
@@ -328,23 +355,41 @@ def _system_prompt(spokesperson: "Spokesperson") -> str:
     feedback that scripts "feel like picking up mid conversation."
     The standalone-video framing tells the model the viewer has
     no prior context, so it needs to open before claiming.
+
+    K6.6.1 (SESSION 171) — business-brief leak fix. The K6.6
+    opener instruction ("grounds them in who you are") combined
+    with the un-fenced ``Their business brief is: …`` injection
+    caused the model to recite role + audience + persona
+    description in the script (e.g. Marcus opening with "I'm
+    Marcus, your AP history tutor…"). Fix is three-part: drop
+    the "who you are" framing so the opener orients the viewer
+    on the *topic*; fence ``business_brief`` as tone-only
+    guidance; add an explicit anti-recitation rule.
     """
     tone = spokesperson.tone_archetype or "expert"
     brief = (spokesperson.business_brief or "").strip()
     return (
         f"You are writing the spoken script for {spokesperson.name}, "
         f"an on-camera spokesperson. Their tone archetype is {tone!r}. "
-        + (f"Their business brief is: {brief}\n" if brief else "")
+        + (
+            f"Context about the speaker (use this ONLY to shape tone "
+            f"and perspective — do NOT recite, paraphrase, or describe "
+            f"this in the script): {brief}\n"
+            if brief else ""
+        )
         + (
             "This is a SHORT STANDALONE VIDEO (60-100 words, "
             "about 30-60 seconds). The viewer has not seen "
             "anything else from you — there is no prior context. "
-            "Open with a brief setup that grounds them in who you "
-            "are and what this video is about (one or two short "
-            "sentences). Then make your one clear claim or insight "
-            "from the knowledge chunks. Then one call to action. "
+            "Open with a brief setup that grounds the viewer in "
+            "what this video is about (one or two short sentences). "
+            "Then make your one clear claim or insight from the "
+            "knowledge chunks. Then one call to action. "
             "Do NOT begin mid-thought as if continuing a "
-            "conversation. The first sentence must stand alone.\n"
+            "conversation. The first sentence must stand alone. "
+            "Do NOT introduce yourself, name your role, describe "
+            "your audience, or recite your background — the viewer "
+            "cares about the topic, not your resume.\n"
         )
         + "Use facts only from the knowledge chunks the user supplies. "
         "Do not invent product details, prices, or features. If a fact "
