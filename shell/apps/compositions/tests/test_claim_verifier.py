@@ -123,6 +123,28 @@ def test_extract_misses_lowercase_trafilatura_known_v1_gap() -> None:
     assert "trafilatura" not in claims
 
 
+def test_extract_skips_sentence_initial_adjectives_k6_4_1() -> None:
+    """K6.4.1 — adjectives like 'Modern', 'Digital', 'Simple' at
+    sentence starts must not be flagged. Triggered by the
+    SESSION 161 strict-mode dogfood where 'Modern' rejected a
+    legitimate render. Each adjective in this list got a real
+    render to confirm — keep the list aligned with the stoplist."""
+    text = (
+        "Modern AI tools change quickly. Digital platforms ship "
+        "weekly. Simple workflows scale better. Advanced features "
+        "come later. Basic plans suit most teams. Smart caching "
+        "saves money. Classic patterns still apply. Premium tiers "
+        "unlock power."
+    )
+    entities = extract_named_entities(text)
+    claims = {e.claim for e in entities}
+    for adj in {
+        "Modern", "Digital", "Simple", "Advanced",
+        "Basic", "Smart", "Classic", "Premium",
+    }:
+        assert adj not in claims, f"K6.4.1 false-positive: {adj} in {claims}"
+
+
 def test_extract_finds_numerics() -> None:
     text = "We're seeing a 30% lift, $100 billion in revenue, in 2020."
     entities = extract_named_entities(text)
@@ -282,6 +304,21 @@ def test_strict_mode_error_carries_full_unsupported_list() -> None:
         assert "K6.4" in str(exc)
 
 
+def test_strict_mode_error_carries_synthesized_text_k6_4_1() -> None:
+    """K6.4.1 — the exception must carry the rejected text so
+    the primitive can persist it onto the composition row.
+    Without this the operator can't see what the LLM said when
+    triaging a strict-mode failure."""
+    try:
+        run_verifier(
+            DONNY_ACTUAL_SCRIPT,
+            corpus=RAG_DOC_EXCERPT,
+            mode="strict",
+        )
+    except ClaimVerifierError as exc:
+        assert exc.synthesized_text == DONNY_ACTUAL_SCRIPT
+
+
 # ---------------------------------------------------------------
 # Integration through build_render_brief
 # ---------------------------------------------------------------
@@ -385,6 +422,58 @@ def test_build_render_brief_strict_raises() -> None:
                         sp,
                         "Tell viewers how character-os ingests pages.",
                     )
+
+
+def test_strict_failure_persists_warnings_and_synthesis_k6_4_1() -> None:
+    """K6.4.1 — when strict mode rejects, the primitive must
+    save composition.verification_warnings and
+    composition.rejected_synthesis before the failure propagates
+    so the operator can triage."""
+    from apps.compositions.models import Composition, CompositionStatus
+    from apps.compositions.primitives.avatar_speech import (
+        GenerateAvatarSpeechPrimitive,
+    )
+    from apps.compositions.starters import talking_head
+
+    ws = _make_workspace("k64-1a@test", "K6.4.1 WS A")
+    sp = _make_spokesperson(ws, "Donny", "Documentary interviewer.")
+    sp.runway_avatar_id = "avatar_test"
+    sp.save()
+    _ingest_attached(ws, sp, title="RAG doc", body=RAG_DOC_EXCERPT * 5)
+
+    composition = talking_head(
+        workspace=ws,
+        spokesperson=sp,
+        script="Pitch how the platform works.",
+        use_knowledge=True,
+    )
+
+    step = composition.steps.first()
+
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake"}):
+        with override_settings(
+            RENDER_SCRIPT_FORCE_MOCK=False,
+            K6_CLAIM_VERIFIER_MODE="strict",
+        ):
+            with patch(
+                "character_os.script_synthesis._call_responses_api",
+                return_value=(DONNY_ACTUAL_SCRIPT, 200, 80),
+            ):
+                with pytest.raises(Exception) as exc_info:
+                    GenerateAvatarSpeechPrimitive.execute(
+                        step, resolved_inputs={}, mock_mode=False,
+                    )
+
+    # PrimitiveError raised
+    assert "K6.4 claim verifier rejected" in str(exc_info.value)
+
+    # Composition got the forensic data persisted before the
+    # exception propagated.
+    composition.refresh_from_db()
+    assert composition.rejected_synthesis == DONNY_ACTUAL_SCRIPT
+    assert composition.verification_warnings
+    claims = {w["claim"] for w in composition.verification_warnings}
+    assert "Wikipedia" in claims
 
 
 def test_build_render_brief_off_mode_skips_verifier() -> None:

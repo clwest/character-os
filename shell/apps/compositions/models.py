@@ -234,6 +234,14 @@ class Composition(models.Model):
     # leaves this populated alongside ``status=FAILED``.
     verification_warnings = models.JSONField(default=list, blank=True)
 
+    # K6.4.1 — the synthesized script that the verifier rejected
+    # in Strict mode. Populated only on strict-mode rejections so
+    # operators can inspect *what the LLM said* alongside the
+    # ``verification_warnings`` list. Empty on clean renders,
+    # Warn-mode flagged renders (where the brief flows through
+    # to Runway), and Off-mode renders.
+    rejected_synthesis = models.TextField(blank=True, default="")
+
     # Cost transparency (contract rule 7). Estimate is computed
     # before render fires; actual is summed from per-step
     # ``cost_actual_micros`` after execution.

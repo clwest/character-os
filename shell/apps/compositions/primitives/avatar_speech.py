@@ -128,8 +128,16 @@ def _maybe_synthesize_script(step, composition) -> tuple[str, list[str], list[di
     except ClaimVerifierError as exc:
         # Strict mode — surface as a primitive failure so the
         # composition fails before Runway is asked to render
-        # the bad script. The unsupported claims still get
-        # persisted by the caller (see execute() error path).
+        # the bad script. K6.4.1: persist the synthesized text
+        # + warning dicts onto the composition so the operator
+        # can review what the LLM said and what got flagged.
+        # Without this, the failure surface is just the error
+        # message string and operators have no way to triage.
+        composition.verification_warnings = [u.to_dict() for u in exc.unsupported]
+        composition.rejected_synthesis = exc.synthesized_text or ""
+        composition.save(
+            update_fields=["verification_warnings", "rejected_synthesis"],
+        )
         raise PrimitiveError(
             f"K6.4 claim verifier rejected the synthesized script "
             f"({len(exc.unsupported)} unsupported claim(s)): "

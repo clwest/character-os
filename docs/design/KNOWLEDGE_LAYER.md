@@ -772,6 +772,51 @@ slices that can land independently. Recommended order:
       (documented v1 limitation — lowercase tech name).
       Anchored as a regression test in
       `test_claim_verifier.py`.
+
+- **K6.4.1 — Strict-mode dogfood follow-ups. ✓ SHIPPED
+  SESSION 161.** Two calibration findings from running
+  K6.4 in strict mode against the live system:
+    1. **Stoplist widening.** First strict-mode render
+       rejected on `'Modern'` — a capitalized common
+       adjective at a sentence start, not a proper noun.
+       Same class as `Cleanest`/`Welcome` from K6.4.
+       Added: `modern, digital, smart, advanced, simple,
+       basic, classic, premium, natural, easy, hard,
+       normal, complete, full, partial, open, closed,
+       small, large, tiny, huge, quick, slow, fast,
+       rapid, instant, live, active, passive, main,
+       primary, secondary, regular, standard, custom,
+       special, general, specific, popular, common,
+       rare, unique, free, paid, young, old, ancient,
+       new, fresh, recent, early, late, final, initial,
+       internal, external, online, offline, local,
+       remote, public, private`. Locked in by a
+       regression test that fires the SESSION 161 false-
+       positive set as input.
+    2. **Forensic persistence on strict failures.**
+       Pre-K6.4.1, strict-mode rejection lost the
+       synthesized text — only `composition.error_message`
+       carried the summary. Operators couldn't see *what*
+       the LLM said. K6.4.1 adds
+       `Composition.rejected_synthesis: TextField` (new
+       migration `0003_k6_4_1_rejected_synthesis`) and
+       `ClaimVerifierError.synthesized_text`. Before
+       re-raising as `PrimitiveError`,
+       `_maybe_synthesize_script` persists
+       `composition.verification_warnings` +
+       `composition.rejected_synthesis` so the operator
+       has the full forensic surface.
+    3. **Live strict-mode dogfood proof:** the SESSION 161
+       follow-up replay of the same prompt that flagged
+       `'Modern'` in K6.4 now passes — K6 produces a
+       script grounded in the chunks under the strict
+       constraint. The render fires clean. The bypass
+       case (no `OPENAI_API_KEY` → retrieval degrades →
+       verifier skipped) is documented as expected v1
+       behavior — operator-typed prompts are trusted.
+
+    Test totals: Django 681 → 684 (+3 K6.4.1 tests).
+    Migration count: 52 → 53.
 - **K7 — URL ingestion + serper discovery.** `trafilatura`
   fetch+extract. Serper search tab on the workspace upload
   surface. Both flow into the same Celery embedding task.

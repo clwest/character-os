@@ -997,3 +997,86 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   representative false-positive cases the list is
   supposed to guard against. The false-positive test is
   what catches the curator's bias.
+
+## 2026-05-15 — Architectural calibration: Strict mode is a forcing function, not just a gate
+
+- **Context:** K6.4 (SESSION 160) shipped the
+  post-synthesis verifier with Warn as the default and
+  Strict as opt-in. SESSION 161 dogfooded Strict mode
+  against the live system. The K6.4.1 stoplist fix
+  closed the `'Modern'` false-positive class. Repeated
+  the dogfood: same operator prompt that produced a
+  `'Modern'`-claiming hallucination in K6.4 now produced
+  a chunk-grounded script in K6.4.1.
+- **Direction:** Carry-forward architectural.
+- **Detail:** The K6.4 design framed the verifier as a
+  *gate* — synthesis runs, verifier checks, gate opens
+  or blocks. The dogfood revealed a second-order effect:
+  under strict-mode pressure, K6's outputs are
+  qualitatively different. Same operator prompt, same
+  retrieved chunks, same model, same temperature —
+  different output distribution because the operator's
+  prompt-writing has shifted to "what will pass the
+  verifier" and the model's generation surface has
+  shifted to "what survives substring-match against the
+  chunks." The verifier is a forcing function on the
+  synthesis, not just a downstream filter.
+- **Found by:** Three real-Runway dogfood renders under
+  `K6_CLAIM_VERIFIER_MODE=strict` during SESSION 161 —
+  all three produced chunk-grounded scripts; none
+  triggered the verifier.
+- **Lesson:** **For this operator specifically:** when
+  designing a constraint layer (verifier, post-filter,
+  validator), expect downstream behavior shifts. The
+  constraint isn't just "block bad output" — it changes
+  the operator's mental model of what the system will
+  generate, which biases prompts, which narrows what the
+  system generates. **Generalisation:** anchor design
+  decisions on the system's *equilibrium* behavior with
+  the constraint active, not just the gate's
+  immediate semantic. A constraint that's "always
+  active in Warn mode" generates one set of equilibrium
+  behaviors; "opt-in Strict" generates another. Worth
+  thinking about which equilibrium you want before
+  picking the default mode.
+
+## 2026-05-15 — Near-miss: bypass case looks identical to clean render
+
+- **Context:** First strict-mode render attempt in
+  SESSION 161 fired without `OPENAI_API_KEY` in the
+  shell environment. The pipeline still completed —
+  retrieval degraded, synthesis didn't run, K6 fell
+  back to the operator's prompt verbatim, verifier
+  never ran. Composition row showed
+  `status=completed`, `verification_warnings=[]`,
+  `rejected_synthesis=""` — visually identical to a
+  successfully-verified render.
+- **Direction:** Near-miss.
+- **Detail:** The operator's prompt happened to contain
+  `"Wikipedia"` and `"Character OS"`. The render fired
+  to Runway and cost $0.25. If strict mode had actually
+  run, those terms would have been allow-listed by
+  `KNOWN_PLATFORM_TERMS` (Character OS) and operator-
+  prompt corpus (Wikipedia), so the outcome would have
+  been the same. But the operator couldn't *audit*
+  whether the result was verified or just trusted —
+  no flag on the composition row distinguishes the
+  two cases.
+- **Found by:** SESSION 161 dogfood post-mortem — the
+  operator noticed the first render hadn't actually
+  exercised the verifier despite the env var being set.
+- **Lesson:** **For this operator specifically:**
+  distinguish "verifier passed" from "verifier didn't
+  run." `ScriptResult.used_knowledge` already encodes
+  this internally; surface it onto the composition row
+  in a future slice (queued as K6.4 v1.2 —
+  `Composition.verification_status` TextChoices
+  `verified | trusted_passthrough | skipped`).
+  **Generalisation:** when a pipeline degrades
+  gracefully (retrieval failure → operator prompt
+  verbatim), the degraded path's output must be
+  visually distinguishable from the happy path's
+  output. Silent degradation that produces the same
+  row shape is the failure mode that hides bypass
+  events. Audit trails want explicit state, not
+  implicit absence.

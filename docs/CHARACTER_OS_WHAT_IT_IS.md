@@ -2,9 +2,9 @@
 title: "Character OS — What It Actually Is"
 status: populated
 generated: 2026-05-13
-last_revised: 2026-05-15 (SESSION 160)
+last_revised: 2026-05-15 (SESSION 161)
 companion_doc: CHARACTER_OS_INVENTORY.md
-covers_sessions: "106-160"
+covers_sessions: "106-161"
 ---
 
 # Character OS — What It Actually Is

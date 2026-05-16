@@ -105,6 +105,13 @@ operator-facing) and the queued cleanups.
   See `docs/design/KNOWLEDGE_LAYER.md` K6.4 ship notes
   for next-step queue (K6.5 conversation parity, SPA
   toggle).
+* ~~**K6.4.1 — Strict-mode dogfood follow-ups.**~~
+  **DONE SESSION 161.** Stoplist widening + forensic
+  persistence on strict-mode rejection. Live dogfood
+  validated against Donny — same prompt that flagged
+  `'Modern'` now passes; rejected_synthesis +
+  verification_warnings persist on strict failures
+  for triage.
 * **K7.x — YouTube ingest fix** if the silent-failure mode
   surfaces during any real-Runway work. ~1 session.
 * **K6.3 — Brief length cap (~15 min)** — cheapest cleanup.
@@ -156,6 +163,7 @@ shipped against real Runway** (SESSION 158).
 | **Drift-prevention items 2+3** | **DONE** (SESSION 159; context-kit) |
 | F8.1 (K10 seed corpus) | Queued (operator markdown) |
 | **K6.4 (claim verifier)** | **DONE (SESSION 160)** |
+| **K6.4.1 (stoplist widen + strict forensics)** | **DONE (SESSION 161)** |
 | K6.5 (verifier parity for conversation_synthesis) | Queued (SESSION 160) |
 | K7.x (YouTube ingest fix) | Queued |
 | K6.3 / K7.1 / W11.1 | Queued |

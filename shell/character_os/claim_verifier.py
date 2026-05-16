@@ -119,6 +119,28 @@ _COMMON_PROPER_NOUN_FALSE_POSITIVES: frozenset[str] = frozenset({
     "even", "still", "again",
     "since", "while", "though", "although", "however",
     "because", "therefore",
+    # K6.4.1 — sentence-initial common adjectives. Captured
+    # SESSION 161 after the K6.4 strict-mode dogfood flagged
+    # "Modern" as a false positive on a real render. Same
+    # class as the originals: adjectives that appear
+    # capitalized at sentence starts in marketing prose but
+    # aren't proper nouns.
+    "modern", "digital", "smart", "advanced", "simple", "basic",
+    "classic", "premium", "natural", "easy", "hard", "normal",
+    "complete", "full", "partial", "open", "closed",
+    "small", "large", "tiny", "huge", "quick", "slow",
+    "fast", "rapid", "instant", "live", "active", "passive",
+    "main", "primary", "secondary", "regular", "standard",
+    "custom", "special", "general", "specific",
+    "popular", "common", "rare", "unique",
+    "free", "paid",
+    "young", "old", "ancient",
+    "new", "fresh", "recent",
+    "early", "late", "final", "initial",
+    "internal", "external",
+    "online", "offline", "local", "remote",
+    "public", "private",
+    "modern-day",
 })
 
 
@@ -159,10 +181,23 @@ class UnsupportedClaim:
 
 
 class ClaimVerifierError(Exception):
-    """Raised in Strict mode when at least one claim is unsupported."""
+    """Raised in Strict mode when at least one claim is unsupported.
 
-    def __init__(self, unsupported: list[UnsupportedClaim]) -> None:
+    Carries both the unsupported claims AND the synthesized text
+    that produced them (added K6.4.1). The text matters at the
+    caller layer: when the primitive catches this exception and
+    fails the composition, the operator needs to see *what the
+    LLM said* to triage. Without it, the failure surface is just
+    "rejected on terms X, Y" — no way to inspect context.
+    """
+
+    def __init__(
+        self,
+        unsupported: list[UnsupportedClaim],
+        synthesized_text: str = "",
+    ) -> None:
         self.unsupported = unsupported
+        self.synthesized_text = synthesized_text
         summary = ", ".join(f"{c.claim!r} ({c.kind})" for c in unsupported)
         super().__init__(
             f"K6.4 claim verifier rejected the synthesized script: "
@@ -210,7 +245,7 @@ def run_verifier(
 
     unsupported = verify_claims(text, corpus=corpus)
     if resolved_mode == "strict" and unsupported:
-        raise ClaimVerifierError(unsupported)
+        raise ClaimVerifierError(unsupported, synthesized_text=text)
     return unsupported
 
 

@@ -2,7 +2,7 @@
 title: "Character Os — Behavior Layer"
 status: stub
 generated: 2026-05-13
-last_revised: 2026-05-15 (SESSION 160)
+last_revised: 2026-05-15 (SESSION 161)
 companion_docs: ["CHARACTER_OS_WHAT_IT_IS.md", "CHARACTER_OS_INVENTORY.md", "CHARACTER_OS_PIPELINE.md"]
 ---
 
