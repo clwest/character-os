@@ -770,3 +770,70 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   placeholder's "next real render" check is now done;
   the refinement schedule moves from "TODO" to "when
   R9 finally ships per-provider rates."
+
+## 2026-05-15 — Architectural calibration: cross-repo workflow worked
+
+- **Context:** SESSION 159 closed drift-prevention items 2
+  + 3 from the SESSION 147 audit backlog. The items lived on
+  character-os's backlog but the right implementation site
+  was the sibling `context-kit` repo (the tool that runs the
+  drift checks). Work happened entirely in context-kit;
+  character-os saw only docs changes (anchor frontmatter
+  backfill + the SESSION 159 handoff + this entry).
+- **Direction:** Carry-forward architectural.
+- **Detail:** Two commits in two repos — context-kit
+  `9590737` (the `handoff write` subcommand + tests + docs)
+  and character-os SESSION 159 (the doc-only commit). The
+  character-os backlog entry closes even though no
+  character-os code changed, because the tool that ships
+  closes the *capability* the backlog entry tracked. The
+  alternative — porting the subcommand into character-os
+  itself — would have duplicated logic across every project
+  using the pattern.
+- **Found by:** Operator framing during SESSION 159 — "let's
+  do drift-prevention items 2 and 3."
+- **Lesson:** **For this operator specifically:** when a
+  backlog item names a *capability* (a thing the workflow
+  should be able to do) rather than a *feature in this repo*,
+  evaluate whether the right implementation site is the
+  tool or the project. The tool repo wins when the
+  capability is general-purpose. The project repo records
+  the trigger event; the tool repo owns the solution.
+  **Generalisation:** when shipping pattern-level
+  infrastructure, the test is "would the next project to
+  hit this drift class benefit from the fix?" If yes —
+  ship in the tool, not the project. The project's
+  backlog still closes; it just closes on a different
+  commit in a different repo.
+
+## 2026-05-15 — Carry-forward methodology: operator-mediated dogfooding caught the silent staleness
+
+- **Context:** SESSION 159 shipped `context-kit handoff
+  write` against character-os SESSION 158 as the live
+  target. The dry-run output named the exact drift the
+  SESSION 147 audit had flagged: four anchor docs sitting
+  with `generated: 2026-05-13` and no `last_revised:`
+  field, across 50+ sessions.
+- **Direction:** Carry-forward methodology.
+- **Detail:** Reading the SESSION 147 audit summary felt
+  different than reading the SESSION 159 dry-run output.
+  The audit *named* the drift class as a category;
+  the dry-run *showed the count of docs affected* and
+  named each by path. The smoke output is the truest
+  validator of "does this catch the thing we said it
+  would catch?" — boring dry-run output (all `unchanged`)
+  would have indicated either a leaky abstraction or a
+  drift class that wasn't actually present.
+- **Found by:** Dry-run output during SESSION 159's smoke
+  test.
+- **Lesson:** **For this operator specifically:** when
+  shipping pattern-level infrastructure (drift checks,
+  invariant validators, doctor-style health probes), land
+  it in dry-run mode against the original problem repo
+  before declaring it done. The smoke output is the
+  validator. If the dry-run is loud (multiple `would
+  restamp` / `would warn` lines), the abstraction is doing
+  real work. If it's boring, the abstraction is leaky or
+  the drift wasn't there. **Generalisation:** treat the
+  first real-target dry-run as a contract test, not a
+  demo. The output proves the spec.

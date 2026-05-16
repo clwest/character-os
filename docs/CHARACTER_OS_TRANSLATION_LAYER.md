@@ -2,6 +2,7 @@
 title: "Character Os — Translation Layer"
 status: project-owned
 generated: 2026-05-13
+last_revised: 2026-05-15 (SESSION 159)
 companion_docs: ["CHARACTER_OS_WHAT_IT_IS.md", "CHARACTER_OS_INVENTORY.md", "CHARACTER_OS_PIPELINE.md", "CHARACTER_OS_BEHAVIOR_LAYER.md"]
 ---
 

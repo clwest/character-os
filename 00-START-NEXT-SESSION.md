@@ -27,103 +27,99 @@ state: active
 
 ---
 
-## SESSION 158 outcome — first real-Runway marketing video
+## SESSION 159 outcome — drift-prevention items 2 + 3 closed
 
-Operator-mediated session. **Exercised the full Phase 4
-stack end-to-end against real Runway for the first time.**
-Two real renders. $0.50 total Runway spend. Second cut
-publishable as-is.
+Both deferred drift-prevention items from the SESSION 147 audit
+shipped this session, in the sibling `context-kit` repo.
 
-Pipeline path validated end-to-end:
+**`context-kit handoff write <N>` subcommand** lands as
+context-kit commit `9590737` ("Add context-kit handoff write
+for session-end anchor re-stamp + calibration audit"). Two
+side-effects under one verb:
 
-```
-KnowledgeDocument (M2M-attached to spokesperson)
-  ↓ K2 retrieval → K6 script synthesis (gpt-5-mini)
-  ↓ V3 talking_head starter → V2 execute_composition (Celery)
-  ↓ generate_avatar_speech primitive → MediaEngineClient
-  ↓ /v1/avatar_videos (real Runway)
-  ↓ Asset(CLIP) persisted with Runway CloudFront URL
-```
+* **Re-stamp anchor docs** (item 2). Atomically updates
+  `last_revised:` (and bumps `covers_sessions:` upper bound
+  when present) across `docs/*_WHAT_IT_IS.md`,
+  `*_PIPELINE.md`, `*_BEHAVIOR_LAYER.md`,
+  `*_TRANSLATION_LAYER.md`, and `*_SESSION_START.md`.
+  `*_INVENTORY.md` is excluded (owned by `inventory --write`).
+* **Calibration drift detection** (item 3). Parses the
+  handoff for `## Calibration moments worth carrying` /
+  `## AI Notes` subsections, fuzzy-matches their headlines
+  against same-date `docs/TRUST_CALIBRATION.md` entries,
+  reports `✓ promoted` / `⚠ MISSING`. **Read-only on
+  TRUST_CALIBRATION** — the prose-to-canonical-format
+  translation is operator judgment.
 
-All eight layers fired clean against real keys.
+**Smoke-tested against this repo as the live target.** The
+SESSION 158 run caught what the original drift audit was
+worried about: four secondary anchors
+(`CHARACTER_OS_PIPELINE.md`,
+`CHARACTER_OS_BEHAVIOR_LAYER.md`,
+`CHARACTER_OS_TRANSLATION_LAYER.md`,
+`CHARACTER_OS_SESSION_START.md`) had been silently sitting
+with `generated: 2026-05-13` and *no* `last_revised:` field
+across 50+ sessions. The subcommand inserted
+`last_revised: 2026-05-15 (SESSION 158)` on all four. Backfill
+committed as `docs: SESSION 158 — backfill last_revised across
+anchor docs (via context-kit handoff write)`. All 3 of
+SESSION 158's calibration moments correctly matched their
+same-date TRUST_CALIBRATION entries.
 
-| | Donny (run 1) | Sasha (run 2) |
-|---|---|---|
-| Voice | `drew` | `clara` |
-| Script | ~80 words / ~35s | ~30 words / ~10s |
-| Render time | 57.6s | 34.2s |
-| Cost | $0.25 | $0.25 |
-| Output | **Dental artifacts** | **Publishable** |
+**Total context-kit test count: 1042 → 1076 (+34).**
+character-os codebase is unchanged this session.
 
-**Publishable cut** (JWT expires ~Jun 14):
-
-```
-https://dnznrvs05pmza.cloudfront.net/051795d7-45f6-4d5e-b63f-24b1532c1344.mp4?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiMTVhYzcyOGQ0MjhlN2VhYyIsImJ1Y2tldCI6InJ1bndheS10YXNrLWFydGlmYWN0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc3OTAyNzg1M30.czrxYRDZvpDd0XbQo-7JA24xRfvGwS7ljt3VslzhLTA
-```
-
-**No code changes this session** — operator-mediated
-validation milestone. Three new TRUST_CALIBRATION
-entries promoted:
-1. AI overstated "shipped" before operator viewed
-   output (Donny render).
-2. Avatar voice × lip-sync quality is a real
-   operational axis (`drew` artifacts vs `clara`
-   clean).
-3. R9 hardcoded placeholder accurate within ~5x —
-   stub-and-refine pattern validated.
-
-Full handoff at
-`docs/handoffs/SESSION_158_FIRST_MARKETING_VIDEO.md`.
-
-### FIRST THING (SESSION 159): pick one
-
-R-arc closed; first marketing video shipped. Remaining
-backlog is small + non-realtime.
-
-**Recommendation — drift-prevention backlog items 2 + 3
-(context-kit work, 1 session total)**:
-
-* **Item 2** — `context-kit handoff write <N>`
-  subcommand that re-stamps every anchor doc's
-  frontmatter in one shot. Removes the forgetting
-  surface that caused SESSION 147's drift audit.
-  Half-session.
-* **Item 3** — promote calibration entries from
-  handoffs to TRUST_CALIBRATION at handoff-write
-  time. Depends on item 2. Half-session.
-
-Together: closes the SESSION 147 drift audit
-backlog fully (items 4 + 5 already done; item 1
-superseded by `doctor`).
-
-### Alternatives
-
-**More real-Runway exposure**:
-* **Re-bake Donny's avatar** — Runway avatar create
-  is slow + costly but recovers Donny for production.
-* **`talking_head_polished` retake of Sasha** —
-  V9 adds captions + intro/outro for a more
-  marketing-ready cut.
-* **`long_form_ad` end-to-end smoke test** — V5's
-  launch differentiator. Cost $0.50-$2.00. Proves
-  the splitting + concat path against real Runway.
-
-**Non-realtime cleanups**:
-* **F8.1** (blocked on operator-authored markdown).
-* **K7.x** YouTube ingest fix.
-* **K6.3** brief length cap (~15 min).
-* **K7.1** cost telemetry surface.
-* **W11.1** edit-spokesperson modal.
-
-### Drift-prevention backlog status
+### Drift-prevention backlog status — CLOSED
 
 | # | Item | Status |
 |---|---|---|
-| 1 | `context-kit drift` subcommand | **Superseded** by `doctor` |
-| 2 | Auto-bump `last_revised` on handoff write | Queued — RECOMMENDED next |
-| 3 | Promote calibration entries to TRUST_CALIBRATION | Queued — depends on item 2 |
-| 4 | Codify session-start drift sweep in CLAUDE.md | Done; doctor-based SESSION 151 |
+| 1 | `context-kit drift` subcommand | Superseded by `doctor` |
+| 2 | `handoff write` re-stamps anchor frontmatter | **Done (context-kit SESSION 17 / character-os SESSION 159)** |
+| 3 | Promote calibration entries to TRUST_CALIBRATION | **Done (detect-and-report shape; context-kit SESSION 17)** |
+| 4 | Codify session-start drift sweep in CLAUDE.md | Done (SESSION 151) |
 | 5 | Fix INVENTORY's two known generator bugs | Celery undercount done SESSION 151; working-tree-dirty flag pending |
+
+### FIRST THING (SESSION 160): pick one
+
+Drift-prevention thread fully closed. Remaining backlog is
+small + non-realtime. The chunky things left are real-Runway
+exposure work (one stops being a code session and starts being
+operator-facing) and the queued cleanups.
+
+**Recommendation — pick by mood:**
+
+* **Real-Runway exposure** if you want to keep validating the
+  Phase 4 stack against real keys: re-bake Donny's avatar
+  (recovers him for production); `talking_head_polished`
+  retake of Sasha (V9 — adds captions + intro/outro);
+  `long_form_ad` end-to-end smoke (V5 launch differentiator;
+  proves splitting + concat against real Runway, ~$0.50-$2.00
+  spend).
+* **F8.1 — K10 seed corpus** if operator-authored markdown is
+  ready. 30-60 minutes once the markdown lands.
+* **K7.x — YouTube ingest fix** if the silent-failure mode
+  surfaces during any real-Runway work. ~1 session.
+* **K6.3 — Brief length cap (~15 min)** — cheapest cleanup.
+* **K7.1 — Cost telemetry surface** in the SPA. ~1 session.
+* **W11.1 — Edit-spokesperson modal.** ~1-2 sessions.
+
+### Workflow change SESSION 160 onward
+
+The new session-end rhythm:
+
+```bash
+# At session end, after writing docs/handoffs/SESSION_NNN_*.md:
+python3 /Users/donkeyking/development/context-kit/context_kit.py \
+    handoff write <NNN> --project /Users/donkeyking/development/character-os
+```
+
+Pair this command with the handoff commit. It re-stamps
+every anchor doc's frontmatter atomically and flags any
+calibration moments that didn't make it to
+`docs/TRUST_CALIBRATION.md`.
+
+`--dry-run` previews changes; `--date YYYY-MM-DD` overrides
+the handoff date if you need it.
 
 ---
 
@@ -149,10 +145,10 @@ shipped against real Runway** (SESSION 158).
 | F0-F10 | DONE |
 | **R0-R10 + R6.1** | **DONE** (SESSIONS 142-157) |
 | **First marketing video** | **DONE** (SESSION 158) |
+| **Drift-prevention items 2+3** | **DONE** (SESSION 159; context-kit) |
 | F8.1 (K10 seed corpus) | Queued (operator markdown) |
 | K7.x (YouTube ingest fix) | Queued |
 | K6.3 / K7.1 / W11.1 | Queued |
-| Drift-prevention items 2 + 3 | Recommended next |
 
 **Cast roster in workspace `admins-workspace`**:
 
@@ -165,28 +161,26 @@ shipped against real Runway** (SESSION 158).
 
 ## Queued investigations (priority-ordered)
 
-1. **Drift-prevention items 2 + 3** (closes
-   SESSION 147 audit backlog).
-2. **More real-Runway exposure** — re-bake Donny,
+1. **More real-Runway exposure** — re-bake Donny,
    polished Sasha retake, long_form_ad smoke.
-3. **F8.1 — K10 seed corpus** (blocked).
-4. **K7.x — YouTube ingest fix.**
-5. **K6.3 — Brief length cap (~15 min).**
-6. **K7.1 — Cost telemetry surface.**
-7. **W11.1 — Edit-spokesperson modal.**
-8. **Voice preset audit** — smoke-test other voices
+2. **F8.1 — K10 seed corpus** (blocked).
+3. **K7.x — YouTube ingest fix.**
+4. **K6.3 — Brief length cap (~15 min).**
+5. **K7.1 — Cost telemetry surface.**
+6. **W11.1 — Edit-spokesperson modal.**
+7. **Voice preset audit** — smoke-test other voices
    (`drew` flagged; others unknown).
-9. **E2e detritus cleanup.**
-10. **OpenAI client factory port.**
-11. **Cast sync command.**
-12. **Stuck-row janitor.**
-13. **Act-Two performance capture.**
-14. **`lesson` video kind.**
-15. **Real Google OAuth + dj-stripe.**
-16. **Allauth legacy-settings cleanup.**
-17. **smoke_voice / smoke_avatar transaction discipline.**
-18. **INVENTORY working-tree-dirty flag fix.**
-19. **Brand Identity v2 + dark mode.**
+8. **E2e detritus cleanup.**
+9. **OpenAI client factory port.**
+10. **Cast sync command.**
+11. **Stuck-row janitor.**
+12. **Act-Two performance capture.**
+13. **`lesson` video kind.**
+14. **Real Google OAuth + dj-stripe.**
+15. **Allauth legacy-settings cleanup.**
+16. **smoke_voice / smoke_avatar transaction discipline.**
+17. **INVENTORY working-tree-dirty flag fix.**
+18. **Brand Identity v2 + dark mode.**
 
 ---
 
@@ -211,6 +205,13 @@ cd web && pnpm dev                          # :5174
 
 ```bash
 python3 /Users/donkeyking/development/context-kit/context_kit.py doctor
+```
+
+**Session-end anchor re-stamp + calibration audit** (new in SESSION 159):
+
+```bash
+python3 /Users/donkeyking/development/context-kit/context_kit.py \
+    handoff write <NNN> --project .
 ```
 
 **Six force-mocks** (RUNWAY on media-engine;
@@ -245,10 +246,12 @@ pnpm test                                     # 37 vitest tests
 
 ## AI / assistant context
 
-- **Last session: SESSION 158 — first marketing video
-  shipped against real Runway.** Two renders, $0.50,
-  one publishable cut. R-arc + V-arc + K-arc all
-  validated end-to-end against real keys.
+- **Last session: SESSION 159 — drift-prevention items 2 + 3
+  closed in the sibling `context-kit` repo.** `context-kit
+  handoff write <N>` shipped (commit `9590737`). Smoke-tested
+  against this repo as the live target. character-os code
+  unchanged; four anchor docs got their `last_revised:`
+  frontmatter backfilled via the new subcommand.
 - **Calibration carried forward:**
   - **AI's "shipped" framing belongs to the operator
     after review** for any model-output deliverable.
@@ -267,11 +270,15 @@ pnpm test                                     # 37 vitest tests
   - **Milestone-level doc refresh has its own cadence**
     (SESSION 156).
   - **Mock-mode is first-class UX** (SESSION 153).
-  - **Doctor is the drift tool** (SESSION 151).
+  - **Doctor is the drift tool** (SESSION 151). **Now
+    paired with `handoff write` at session-end**
+    (SESSION 159).
   - **OpenAI gpt-5 family uses the Responses API.**
 - **Realtime arc complete.** Phase 4's four arcs all
   shipped + first end-to-end real-Runway render
   validated.
 - Collaboration conventions: AI drafts, human edits.
-  Handoff `## AI Notes` + per-slice doc updates
-  required at session end.
+  Handoff `## AI Notes` (or `## Calibration moments
+  worth carrying`) + per-slice doc updates required
+  at session end. **End-of-session `context-kit handoff
+  write` runs alongside the handoff commit.**
