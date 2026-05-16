@@ -11,8 +11,24 @@ from .models import ConversationMessage, ConversationThread
 class ConversationMessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ConversationMessage
-        fields = ["id", "thread", "role", "content", "created_at"]
-        read_only_fields = ["id", "thread", "role", "created_at"]
+        fields = [
+            "id",
+            "thread",
+            "role",
+            "content",
+            "created_at",
+            # K6.5 — verifier surface for the SPA
+            "verification_warnings",
+            "rejected_synthesis",
+        ]
+        read_only_fields = [
+            "id",
+            "thread",
+            "role",
+            "created_at",
+            "verification_warnings",
+            "rejected_synthesis",
+        ]
 
 
 class ConversationThreadSerializer(serializers.ModelSerializer):

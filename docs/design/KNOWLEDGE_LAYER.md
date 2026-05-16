@@ -817,6 +817,63 @@ slices that can land independently. Recommended order:
 
     Test totals: Django 681 → 684 (+3 K6.4.1 tests).
     Migration count: 52 → 53.
+
+- **K6.5 — Conversation-synthesis verifier parity. ✓ SHIPPED
+  SESSION 162.** Mirrors K6.4 / K6.4.1 onto
+  `conversation_synthesis.py` so `/api/conversations/<id>/messages/`
+  replies are verified with the same machinery.
+    Shape parity:
+    * `ConversationMessage.verification_warnings: JSONField` +
+      `ConversationMessage.rejected_synthesis: TextField`
+      (migration `0003_k6_5_verification_warnings`). Same
+      shape as `Composition.verification_warnings` /
+      `Composition.rejected_synthesis`.
+    * `ReplyResult.verification_warnings: list[dict]` — Warn
+      mode populates; Strict mode raises
+      `ClaimVerifierError` (same exception class K6.4 uses).
+    * `build_corpus` extended with `extras=` so thread history
+      chunks (which legitimately introduce terms via prior
+      turns) are part of the allow-list haystack.
+    * `ConversationMessageSerializer` exposes the two new
+      fields so the SPA can surface them.
+
+    API contract for `POST /api/conversations/<id>/messages/`:
+    * Warn / Off / clean → **201** with normal payload,
+      `spokesperson_message.verification_warnings` populated
+      in Warn mode.
+    * Strict + rejection → **422** with payload
+      `{"verifier_rejection": {"mode": "strict",
+      "rejected_synthesis": "...", "unsupported_claims": [...]},
+      "spokesperson_message": <placeholder msg>, ...}`. The
+      placeholder SPOKESPERSON message captures the rejection
+      so thread continuity is maintained; the operator sees
+      the full forensic surface in the response body and via
+      the persisted `rejected_synthesis` field.
+
+    **SESSION 162 dogfood finding — refusal-pattern false-
+    positive class.** Live strict-mode dogfood probed the
+    verifier with a hallucination-prone prompt ("What
+    library do you use for parsing pages?"). K6 responded
+    *honestly*: "the docs don't say which library we use…"
+    The verifier rejected the **honest refusal** because the
+    text started with words like `"Short"`, `"Which"`,
+    `"HTML"` (used in clarification) that didn't appear in
+    chunks. Punishing honest refusals is the opposite of
+    what the verifier exists for. Stoplist widened with
+    refusal-pattern words: `short, long, brief, quick, which,
+    what, where, whose, whom, either, neither, both, many,
+    lots, rather, instead, otherwise, frankly, honestly,
+    actually, really, straight, plain, plainly, simply,
+    fine, ok, okay`. Locked in by
+    `test_extract_skips_refusal_pattern_starters_k6_5`.
+    Same prompt now passes the verifier; honest refusal
+    flows through.
+
+    Test totals: Django 684 → 691 (+7 K6.5 tests: 6 in
+    `apps/conversations/tests/test_k6_5_verifier.py` + 1
+    refusal-pattern test in
+    `apps/compositions/tests/test_claim_verifier.py`).
+    Migration count: 53 → 54.
 - **K7 — URL ingestion + serper discovery.** `trafilatura`
   fetch+extract. Serper search tab on the workspace upload
   surface. Both flow into the same Celery embedding task.

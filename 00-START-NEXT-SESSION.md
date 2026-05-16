@@ -112,6 +112,14 @@ operator-facing) and the queued cleanups.
   `'Modern'` now passes; rejected_synthesis +
   verification_warnings persist on strict failures
   for triage.
+* ~~**K6.5 — Conversation-synthesis verifier parity.**~~
+  **DONE SESSION 162.** Same verifier machinery now runs
+  on `/api/conversations/messages/` replies. Strict mode
+  returns 422 with rejected synthesis; Warn mode persists
+  `verification_warnings` on the SPOKESPERSON message.
+  Live dogfood revealed a new false-positive class —
+  refusal-pattern starters (`Short`, `Which`, `HTML`) —
+  fixed in same commit by widening the stoplist.
 * **K7.x — YouTube ingest fix** if the silent-failure mode
   surfaces during any real-Runway work. ~1 session.
 * **K6.3 — Brief length cap (~15 min)** — cheapest cleanup.
@@ -164,7 +172,7 @@ shipped against real Runway** (SESSION 158).
 | F8.1 (K10 seed corpus) | Queued (operator markdown) |
 | **K6.4 (claim verifier)** | **DONE (SESSION 160)** |
 | **K6.4.1 (stoplist widen + strict forensics)** | **DONE (SESSION 161)** |
-| K6.5 (verifier parity for conversation_synthesis) | Queued (SESSION 160) |
+| **K6.5 (conversation verifier parity)** | **DONE (SESSION 162)** |
 | K7.x (YouTube ingest fix) | Queued |
 | K6.3 / K7.1 / W11.1 | Queued |
 
@@ -179,18 +187,21 @@ shipped against real Runway** (SESSION 158).
 
 ## Queued investigations (priority-ordered)
 
-1. **K6.5 — Conversation synthesis verifier parity.**
-   Plumb `claim_verifier.verify_claims` into
-   `conversation_synthesis.py` so the same hallucination
-   class can't leak through `/api/conversations/`
-   replies. K6.4 module is already reusable; this is
-   wiring + persistence (new field on
-   `ConversationMessage`?) + tests. ~0.5 session.
-2. **K6.4 SPA toggle (v1.1).** Surface
-   `verification_warnings` in the SPA — make-video form
-   gains a Strict/Warn/Off toggle (default Warn);
-   composition detail page surfaces the warnings list
-   alongside the rendered output. ~1 session.
+1. **K6.4 SPA toggle (v1.1).** Surface
+   `verification_warnings` + `rejected_synthesis` in the
+   SPA. Composition detail page surfaces the warnings
+   list alongside the rendered output. Conversation
+   thread view renders flagged terms inline / 422
+   responses get an operator-friendly review surface.
+   Make-video + send-message forms gain a Strict/Warn/Off
+   toggle (default Warn). ~1 session.
+2. **K6.4 v1.2 — `verification_status` field.** Captured
+   SESSION 161 as a calibration moment: bypass case (no
+   OPENAI_API_KEY → retrieval degrades → verifier skipped)
+   looks identical to clean verified output. Add a
+   TextChoices field distinguishing verified /
+   trusted_passthrough / skipped so the audit trail is
+   honest. ~30 minutes.
 3. **More real-Runway exposure** — re-bake Donny,
    polished Sasha retake, long_form_ad smoke.
 4. **F8.1 — K10 seed corpus** (blocked).

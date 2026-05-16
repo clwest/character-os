@@ -56,6 +56,15 @@ class ReplyResult:
     has a usable `text` field — degradation paths still
     return something sensible. `used_knowledge` distinguishes
     "real synthesis ran" from "fell back to a stub."
+
+    ``verification_warnings`` (K6.5, SESSION 162) is the list
+    of named entities in the synthesized reply that don't
+    appear in the retrieved corpus (docs + history + user
+    message + spokesperson allow-list). Empty when synthesis
+    didn't run (degraded path) OR
+    ``settings.K6_CLAIM_VERIFIER_MODE == "off"``. In Strict
+    mode the verifier raises ``ClaimVerifierError`` before
+    this is populated; the API view catches and surfaces.
     """
     text: str
     chunk_ids: list[str] = field(default_factory=list)
@@ -63,6 +72,7 @@ class ReplyResult:
     model: str = ""
     tokens_input: int = 0
     tokens_output: int = 0
+    verification_warnings: list[dict] = field(default_factory=list)
 
 
 def _is_force_mock() -> bool:
@@ -151,13 +161,38 @@ def synthesize_spokesperson_reply(
             chunk_ids=[str(c.id) for c in docs],
         )
 
+    final_text = text.strip() or _degraded_reply(spokesperson, user_content)
+
+    # K6.5 — post-synthesis claim verifier. Mirrors K6.4 in
+    # ``script_synthesis.py``. Runs only when the LLM actually
+    # produced something; the degraded path is operator-trusted
+    # by design. Strict mode raises ``ClaimVerifierError`` which
+    # the API view catches and surfaces as a 422.
+    from character_os.claim_verifier import build_corpus, run_verifier
+
+    corpus = build_corpus(
+        docs,
+        spokesperson=spokesperson,
+        operator_prompt=user_content,
+        extras=[h.chunk_text for h in history if getattr(h, "chunk_text", None)],
+    )
+    unsupported = run_verifier(final_text, corpus=corpus)
+    if unsupported:
+        logger.warning(
+            "K6.5 verifier flagged %d unsupported claim(s) on thread=%s: %s",
+            len(unsupported),
+            thread.pk,
+            ", ".join(f"{u.claim!r}" for u in unsupported),
+        )
+
     return ReplyResult(
-        text=text.strip() or _degraded_reply(spokesperson, user_content),
+        text=final_text,
         chunk_ids=[str(c.id) for c in docs],
         used_knowledge=bool(docs),
         model=REPLY_MODEL,
         tokens_input=tokens_in,
         tokens_output=tokens_out,
+        verification_warnings=[u.to_dict() for u in unsupported],
     )
 
 

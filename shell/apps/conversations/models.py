@@ -78,6 +78,23 @@ class ConversationMessage(models.Model):
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # K6.5 — K6.4 verifier parity on the conversation surface.
+    # Same shape as ``Composition.verification_warnings``: each
+    # entry is ``{"claim": str, "kind": str, "position": int}``.
+    # Populated on SPOKESPERSON messages in Warn mode when the
+    # synthesized reply contains named entities absent from the
+    # retrieved corpus. Always empty on USER messages (user input
+    # is operator-typed and trusted by definition).
+    verification_warnings = models.JSONField(default=list, blank=True)
+
+    # K6.5 — companion to verification_warnings. Populated only
+    # on strict-mode rejections, where the synthesized reply is
+    # withheld and the operator needs to see what the LLM said
+    # for triage. Empty on clean replies, Warn-mode flagged
+    # replies (where the text flows through to ``content``),
+    # and Off-mode replies.
+    rejected_synthesis = models.TextField(blank=True, default="")
+
     class Meta:
         ordering = ["thread", "created_at"]
         indexes = [

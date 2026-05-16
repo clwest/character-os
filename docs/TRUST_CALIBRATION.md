@@ -1080,3 +1080,92 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   row shape is the failure mode that hides bypass
   events. Audit trails want explicit state, not
   implicit absence.
+
+## 2026-05-15 — AI confidently wrong (K6.5): verifier punished an honest refusal
+
+- **Context:** K6.5 (SESSION 162) ported the K6.4 claim
+  verifier onto `conversation_synthesis.py`. Live
+  strict-mode dogfood against Donny's conversation thread.
+  Three prompts tested; the third was the calibration
+  event. User asked "What's the library you use under
+  the hood for parsing pages?" The Wikipedia-RAG doc
+  attached to Donny contains zero information about
+  parsing libraries.
+- **Direction:** AI confidently wrong (system + slice
+  design).
+- **Detail:** The model responded *honestly*: "Short
+  answer: the workspace docs you gave me don't say
+  which library we use to parse pages. What I'd like to
+  do next is clarify what you mean by 'parsing pages'
+  (HTML scraping, PDF/text extraction, or...)." That's
+  the right answer — it refuses to invent, asks for
+  clarification, names the relevant problem space. But
+  the strict-mode verifier rejected it on
+  `'Short', 'Which', 'HTML'`: words used in the refusal
+  meta-language, not as fact claims. The substring
+  matcher can't tell the difference between *"the model
+  invented HTML as a product fact"* and *"the model
+  named HTML while clarifying what kind of parsing the
+  user might mean."* The 422 returned to the user
+  contained no spokesperson reply — the operator never
+  saw the honest answer.
+- **Found by:** Manual probe of the strict-mode
+  conversation surface during SESSION 162 close-out
+  dogfood. Took three prompts to surface; would have
+  remained latent under the unit tests, which inject
+  pre-known hallucinations.
+- **Lesson:** **For this operator specifically:** when
+  a verifier / classifier / guardrail ships, maintain a
+  curated set of *honest refusal* prompts that should
+  always pass through. Treat any change to the verifier
+  stack as gated on those staying green. The K6.5 inline
+  fix widened the stoplist with refusal-pattern words
+  (`Short, Which, Frankly, Honestly, Plain, ...`), but
+  the underlying class — "honest meta-language uses
+  meta-terms not in the source" — can resurface. v2
+  upgrade should add a heuristic for refusal context.
+  **Generalisation:** when a filter's purpose is "block
+  X, pass Y," and X / Y look identical to the filter's
+  primitive, write test cases that include legitimate-Y
+  examples alongside the blocked-X ones. Failing to
+  distinguish inverts the filter's purpose. The K-arc
+  verifier work needs both hallucination test fixtures
+  AND honest-refusal test fixtures from here on.
+
+## 2026-05-15 — Near-miss: live dogfood caught what unit tests didn't
+
+- **Context:** K6.5 shipped with 6 unit tests in
+  `test_k6_5_verifier.py` (warn-mode persistence,
+  strict-mode raise, off-mode bypass, user-prompt
+  allow-list, API 201 in warn, API 422 in strict). All
+  6 used hand-crafted hallucination payloads as the
+  LLM-output fixture. None used an honest-refusal
+  payload. The unit suite went green. The live dogfood
+  surfaced the honest-refusal failure class within three
+  prompts.
+- **Direction:** Near-miss / AI calibration win.
+- **Detail:** The slice would have shipped with the bug
+  latent. Unit tests confirmed the slice handles what
+  the test fixture forces; the live probe confirmed it
+  handles what the model actually produces. SESSION 158
+  had already taught this lesson once ("AI's 'shipped'
+  framing belongs to the operator after review"), but
+  the K6.5 test design didn't yet incorporate it — the
+  K6.4 path under test always assumed the LLM
+  hallucinates because the fixture forced it to.
+- **Found by:** Live operator-mediated dogfood at K6.5
+  close-out. Three prompts in, the verifier rejected an
+  honest refusal. Without the dogfood, the slice would
+  have shipped and the operator would have hit the
+  failure mode in production.
+- **Lesson:** **For this operator specifically:** when
+  a slice's risk surface is "the model behaves
+  unexpectedly," at least one live-system dogfood probe
+  is part of the ship gate. **Generalisation:** for
+  verifiers / classifiers / guardrails specifically,
+  the **third or fourth real prompt** is often the
+  calibration event the test fixture can't anticipate.
+  The first two prompts tend to be on the happy path;
+  the third stress-tests the edge cases. Budget for
+  3-5 live-system probes alongside the unit suite at
+  every verifier-related slice close-out.

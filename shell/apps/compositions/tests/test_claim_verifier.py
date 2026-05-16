@@ -123,6 +123,28 @@ def test_extract_misses_lowercase_trafilatura_known_v1_gap() -> None:
     assert "trafilatura" not in claims
 
 
+def test_extract_skips_refusal_pattern_starters_k6_5() -> None:
+    """K6.5 dogfood finding (SESSION 162): refusal-pattern
+    sentence starters should not flag. The model saying "Short
+    answer: I don't know which library..." is honest, not a
+    hallucination. The verifier exists to catch invented
+    claims, not punish honest meta-language."""
+    text = (
+        "Short answer: the docs don't say. Which library does the "
+        "parsing? Frankly, I don't know. Honestly, I'd rather not "
+        "guess. Instead, here's what the docs do say. Plain answer: "
+        "I can't tell you. Fine — try a different question. Both "
+        "options have tradeoffs. Many people ask this."
+    )
+    entities = extract_named_entities(text)
+    claims = {e.claim for e in entities}
+    for noise in {
+        "Short", "Which", "Frankly", "Honestly", "Instead",
+        "Plain", "Fine", "Both", "Many",
+    }:
+        assert noise not in claims, f"K6.5 refusal false-positive: {noise} in {claims}"
+
+
 def test_extract_skips_sentence_initial_adjectives_k6_4_1() -> None:
     """K6.4.1 — adjectives like 'Modern', 'Digital', 'Simple' at
     sentence starts must not be flagged. Triggered by the

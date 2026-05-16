@@ -119,6 +119,20 @@ _COMMON_PROPER_NOUN_FALSE_POSITIVES: frozenset[str] = frozenset({
     "even", "still", "again",
     "since", "while", "though", "although", "however",
     "because", "therefore",
+    # K6.5 dogfood finding (SESSION 162): refusal-pattern
+    # sentence starters get flagged when the model honestly
+    # says "I don't know X". These aren't fact claims — they
+    # are meta-language framing the refusal. Punishing honest
+    # refusals is the *opposite* of what the verifier is for.
+    "short", "long", "brief", "quick",
+    "which", "what", "where", "whose", "whom",
+    "either", "neither", "both",
+    "many", "lots",
+    "rather", "instead", "otherwise",
+    "frankly", "honestly", "actually", "really",
+    "straight", "plain", "plainly", "simply",
+    "fine",
+    "ok", "okay",
     # K6.4.1 — sentence-initial common adjectives. Captured
     # SESSION 161 after the K6.4 strict-mode dogfood flagged
     # "Modern" as a false positive on a real render. Same

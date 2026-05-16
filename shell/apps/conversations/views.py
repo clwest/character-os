@@ -86,8 +86,9 @@ class ConversationThreadViewSet(viewsets.ModelViewSet):
                 {"content": "Message too long (>4000 chars)."}
             )
 
-        # Lazy-import the synthesizer so this app doesn't
-        # depend on character_os.* at module-load time.
+        # Lazy-import the synthesizer + verifier so this app
+        # doesn't depend on character_os.* at module-load time.
+        from character_os.claim_verifier import ClaimVerifierError
         from character_os.conversation_synthesis import (
             synthesize_spokesperson_reply,
         )
@@ -103,8 +104,51 @@ class ConversationThreadViewSet(viewsets.ModelViewSet):
         # can take seconds; we don't want a long-running DB
         # transaction. The user message is already persisted
         # + embedded by K8's signal at this point.
+        verifier_warnings: list[dict] = []
+        rejected_synthesis = ""
         try:
             result = synthesize_spokesperson_reply(thread, content)
+        except ClaimVerifierError as exc:
+            # K6.5 — Strict mode. The LLM produced something
+            # the verifier rejected. Persist a SPOKESPERSON
+            # message that captures the rejection (rather than
+            # the rejected text) so the thread has continuity,
+            # and return 422 with the forensic surface so the
+            # operator can review what was withheld.
+            logger.warning(
+                "K6.5 strict-mode rejection on thread=%s: %d claim(s)",
+                thread.pk, len(exc.unsupported),
+            )
+            unsupported_dicts = [u.to_dict() for u in exc.unsupported]
+            with transaction.atomic():
+                spokesperson_msg = ConversationMessage.objects.create(
+                    thread=thread,
+                    role=ConversationMessage.Role.SPOKESPERSON,
+                    content=(
+                        "I had a response but it referenced things outside "
+                        "this workspace's knowledge. The operator can review "
+                        "what I almost said and decide whether to relax the "
+                        "verifier."
+                    ),
+                    verification_warnings=unsupported_dicts,
+                    rejected_synthesis=exc.synthesized_text or "",
+                )
+                thread.save(update_fields=["last_activity_at"])
+            return Response(
+                {
+                    "user_message": ConversationMessageSerializer(user_msg).data,
+                    "spokesperson_message": ConversationMessageSerializer(
+                        spokesperson_msg,
+                    ).data,
+                    "knowledge_chunk_ids": [],
+                    "verifier_rejection": {
+                        "mode": "strict",
+                        "rejected_synthesis": exc.synthesized_text or "",
+                        "unsupported_claims": unsupported_dicts,
+                    },
+                },
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
         except Exception as exc:
             logger.exception(
                 "synthesize_spokesperson_reply hard-failed thread=%s",
@@ -121,12 +165,15 @@ class ConversationThreadViewSet(viewsets.ModelViewSet):
         else:
             reply_text = result.text
             reply_result_chunk_ids = list(result.chunk_ids)
+            verifier_warnings = list(result.verification_warnings or [])
 
         with transaction.atomic():
             spokesperson_msg = ConversationMessage.objects.create(
                 thread=thread,
                 role=ConversationMessage.Role.SPOKESPERSON,
                 content=reply_text,
+                verification_warnings=verifier_warnings,
+                rejected_synthesis=rejected_synthesis,
             )
             # Bump last_activity_at — auto_now only fires on
             # thread.save(). Force the update so the SPA's
