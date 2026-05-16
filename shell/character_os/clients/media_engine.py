@@ -440,6 +440,23 @@ class MediaEngineClient:
                 response_text=str(data),
             ) from exc
 
+    def refresh_avatar_thumbnail(
+        self,
+        *,
+        avatar_id: str,
+    ) -> str | None:
+        """SESSION 169 follow-up — hit
+        ``POST /internal/avatars/<id>/refresh/`` to get a fresh
+        JWT-signed thumbnail URL for an existing avatar. Returns
+        ``None`` in mock mode or on Runway-side failure (caller
+        decides what to do — usually leave portrait_path alone).
+        """
+        data = self.request(
+            "POST", f"/internal/avatars/{avatar_id}/refresh/",
+            json={},
+        )
+        return data.get("thumbnail_url") or None
+
     def create_video(
         self,
         *,

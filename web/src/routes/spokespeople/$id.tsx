@@ -4,6 +4,7 @@ import { ArrowLeft, Mic, MessageCircle, Pencil, Plus, Wand2 } from "lucide-react
 import { Button } from "@/components/ui/button";
 import {
   useCloneVoice,
+  useRefreshPortrait,
   useSpokesperson,
   type Spokesperson,
 } from "@/lib/api/spokespeople";
@@ -32,6 +33,12 @@ export function SpokespersonDetailRoute() {
   const { id } = useParams<{ id: string }>();
   const sp = useSpokesperson(id);
   const videos = useVideos({ spokesperson: id });
+  // W11.1 — edit-spokesperson modal. Opens via the Edit pencil
+  // on the IdentityPanel header; closes on cancel or save.
+  // MUST live above the early returns or React's hook-order check
+  // throws "Rendered more hooks than during the previous render"
+  // when sp.isLoading flips from true → false.
+  const [editing, setEditing] = useState(false);
 
   if (sp.isLoading) return <DetailSkeleton />;
   if (sp.isError) return <DetailError message={extractMessage(sp.error)} />;
@@ -45,9 +52,6 @@ export function SpokespersonDetailRoute() {
   const setupItems = buildSetupItems(s);
   const allDone = setupItems.every((it) => it.done);
   const pendingItems = setupItems.filter((it) => !it.done);
-  // W11.1 — edit-spokesperson modal. Opens via the Edit pencil
-  // on the IdentityPanel header; closes on cancel or save.
-  const [editing, setEditing] = useState(false);
 
   return (
     <div
@@ -324,6 +328,7 @@ function IdentityPanel({
       data-testid="identity-panel"
     >
       <Portrait
+        spokespersonId={spokesperson.id}
         portraitPath={spokesperson.portrait_path}
         name={spokesperson.name}
       />
@@ -366,16 +371,53 @@ function IdentityPanel({
 }
 
 function Portrait({
+  spokespersonId,
   portraitPath,
   name,
 }: {
+  spokespersonId?: string;
   portraitPath: string;
   name: string;
 }) {
-  if (portraitPath) {
+  // SESSION 169 follow-up — Runway's CloudFront JWTs expire ~30
+  // days after avatar create. The <img onError> handler fires a
+  // refresh-portrait action which returns a fresh signed URL; we
+  // swap the src and retry once. ``retried`` blocks the second
+  // attempt so a permanently-broken URL can't loop forever.
+  const refresh = useRefreshPortrait();
+  const [retried, setRetried] = useState(false);
+  const [src, setSrc] = useState(portraitPath);
+
+  // Keep src in sync if the parent re-renders with a different
+  // portrait_path (e.g. after the edit modal save).
+  if (src !== portraitPath && !retried) {
+    setSrc(portraitPath);
+  }
+
+  async function handleError() {
+    if (retried || !spokespersonId) return;
+    setRetried(true);
+    try {
+      const fresh = await refresh.mutateAsync(spokespersonId);
+      if (fresh.portrait_path && fresh.portrait_path !== src) {
+        setSrc(fresh.portrait_path);
+      }
+    } catch {
+      // Swallow — the initials fallback will render via the
+      // empty src guard below.
+    }
+  }
+
+  if (src) {
     return (
       <div className="aspect-square w-full overflow-hidden rounded border border-border bg-muted">
-        <img src={portraitPath} alt="" className="h-full w-full object-cover" />
+        <img
+          src={src}
+          alt=""
+          className="h-full w-full object-cover"
+          onError={handleError}
+          data-testid="spokesperson-portrait-img"
+        />
       </div>
     );
   }

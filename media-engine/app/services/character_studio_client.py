@@ -768,6 +768,49 @@ def _create_avatar_real(
     return avatar_id, payload.get("processedImageUri") or payload.get("referenceImageUri")
 
 
+def fetch_avatar_thumbnail(
+    avatar_id: str,
+    settings: Settings,
+    *,
+    timeout: float = 15.0,
+) -> Optional[str]:
+    """SESSION 169 follow-up — return a *fresh* Runway thumbnail URL
+    for an existing avatar by calling ``GET /v1/avatars/{id}``.
+
+    Runway's CloudFront thumbnail URLs are JWT-signed with ~30-day
+    expiry. The thumbnail at avatar-create time eventually 401s.
+    This helper hits Runway again to mint a fresh signed URL so the
+    SPA can render the portrait without a re-bake.
+
+    Mock-safe: returns ``None`` in mock mode (caller falls back to
+    the persisted ``portrait_path``). Returns ``None`` on any
+    HTTP error so the caller can decide whether to surface or
+    swallow.
+    """
+    if not avatar_id:
+        return None
+    if settings.runway_mock or str(avatar_id).startswith("mock_"):
+        return None
+    url = f"{settings.runway_api_base}/v1/avatars/{avatar_id}"
+    try:
+        with httpx.Client(timeout=timeout) as client:
+            resp = client.get(url, headers=_runway_headers(settings))
+            if resp.status_code != 200:
+                logger.warning(
+                    "fetch_avatar_thumbnail avatar=%s non-2xx: %s",
+                    avatar_id, resp.status_code,
+                )
+                return None
+            payload = resp.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.warning(
+            "fetch_avatar_thumbnail avatar=%s failed: %s",
+            avatar_id, exc,
+        )
+        return None
+    return payload.get("processedImageUri") or payload.get("referenceImageUri")
+
+
 def create_avatar(
     character: Character,
     portrait_path: Path,

@@ -263,6 +263,57 @@ class SpokespersonViewSet(viewsets.ModelViewSet):
             }
         )
 
+    @action(detail=True, methods=["post"], url_path="refresh-portrait")
+    def refresh_portrait(self, request, pk=None):
+        """``POST /api/spokespeople/{id}/refresh-portrait/``.
+
+        SESSION 169 follow-up. Runway's CloudFront thumbnail URLs are
+        JWT-signed with ~30-day expiry — after that the SPA's
+        ``<img src=portrait_path>`` 401s. This action re-fetches a
+        fresh signed URL from Runway via the media-engine and
+        persists it onto ``Spokesperson.portrait_path``.
+
+        No-op when:
+        * The spokesperson has no ``runway_avatar_id`` set (nothing
+          to refresh) — returns the current row unchanged.
+        * Media-engine is in mock mode — returns the row unchanged.
+        * Media-engine / Runway returns no fresh URL (network /
+          non-2xx) — returns the row unchanged + 200.
+
+        Response: the serialized spokesperson (so the SPA can
+        replace its cache without a separate GET).
+        """
+        spokesperson: Spokesperson = self.get_object()
+        if not spokesperson.runway_avatar_id:
+            return Response(
+                SpokespersonSerializer(
+                    spokesperson, context={"request": request},
+                ).data
+            )
+        try:
+            with MediaEngineClient() as client:
+                fresh = client.refresh_avatar_thumbnail(
+                    avatar_id=spokesperson.runway_avatar_id,
+                )
+        except MediaEngineError as exc:
+            logger.warning(
+                "refresh_portrait media-engine error spokesperson=%s err=%s",
+                spokesperson.pk, exc,
+            )
+            return Response(
+                SpokespersonSerializer(
+                    spokesperson, context={"request": request},
+                ).data
+            )
+        if fresh:
+            spokesperson.portrait_path = fresh
+            spokesperson.save(update_fields=["portrait_path", "updated_at"])
+        return Response(
+            SpokespersonSerializer(
+                spokesperson, context={"request": request},
+            ).data
+        )
+
     @action(detail=False, methods=["get"], url_path="templates")
     def templates(self, _request):
         """``GET /api/spokespeople/templates/``.

@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-16T04:42:35.794174+00:00
-git_sha: 7c75c1a (working tree dirty)
+generated_at: 2026-05-16T05:04:41.300728+00:00
+git_sha: 03d61af (working tree dirty)
 git_branch: main
 ---
 
@@ -15,7 +15,7 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-16T04:42:35.794174+00:00** against commit **7c75c1a**
+Generated **2026-05-16T05:04:41.300728+00:00** against commit **03d61af**
 on branch **main** (working tree dirty).
 
 Python 3.11.6 · Django 5.0.6 ·
@@ -28,13 +28,13 @@ Celery 5.5.3 · httpx 0.28.1.
 | Metric | Value | Source |
 |---|---|---|
 | Django models (project-owned) | **16** | `apps.get_models()` filtered to first-party apps |
-| URL routes (total) | **294** | `get_resolver().url_patterns` walk |
-| URL routes (`/api/*`) | **95** | same |
-| FastAPI routes | **114** | media-engine `/openapi.json` (reachable) |
+| URL routes (total) | **296** | `get_resolver().url_patterns` walk |
+| URL routes (`/api/*`) | **97** | same |
+| FastAPI routes | **115** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **8** | `celery_app.tasks` filter |
 | Migrations (applied / total) | **57 / 57** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **42,809** in 215 files | `pathlib.Path.rglob("*.py")` |
-| Media-engine LOC (`*.py`, no venv/migrations) | **30,387** in 54 files | same |
+| Shell LOC (`*.py`, no venv/migrations) | **42,977** in 216 files | `pathlib.Path.rglob("*.py")` |
+| Media-engine LOC (`*.py`, no venv/migrations) | **30,476** in 54 files | same |
 
 ---
 
@@ -65,14 +65,14 @@ Total: **16** models across **8** apps.
 
 ## URL Routes
 
-Total: **294** resolved patterns.
+Total: **296** resolved patterns.
 
 | Prefix | Count |
 |---|---|
 | `_allauth/` | 30 |
 | `accounts/` | 26 |
 | `admin/` | 143 |
-| `api/` | 95 |
+| `api/` | 97 |
 
 ### Named API + auth routes
 
@@ -147,6 +147,7 @@ Total: **294** resolved patterns.
 - `spokesperson-detail`
 - `spokesperson-generate-portrait`
 - `spokesperson-list`
+- `spokesperson-refresh-portrait`
 - `spokesperson-templates`
 - `spokesperson-voice-presets`
 - `suggest-tone`
@@ -164,12 +165,12 @@ Total: **294** resolved patterns.
 
 Probed `http://localhost:8001/openapi.json` — `Character OS API` v0.1.0.
 
-Total: **114** routes.
+Total: **115** routes.
 
 | Prefix | Count |
 |---|---|
 | `/api/` | 88 |
-| `/internal/` | 25 |
+| `/internal/` | 26 |
 | `other` | 1 |
 
 ### `/internal/*` surface (Phase 2 contract)
@@ -178,6 +179,7 @@ Total: **114** routes.
 - `/internal/audio/extract/`
 - `/internal/audio/mix/`
 - `/internal/avatars/`
+- `/internal/avatars/{avatar_id}/refresh/`
 - `/internal/clips/avatar_speech/`
 - `/internal/clips/captions/`
 - `/internal/clips/composite/`
@@ -258,12 +260,12 @@ Total: **8** registered tasks (excluding `celery.*` built-ins).
 
 | Service | Files | Lines |
 |---|---|---|
-| `media-engine/` | 54 | 30,387 |
-| `shell/` | 215 | 42,809 |
-| **total** | **269** | **73,196** |
+| `media-engine/` | 54 | 30,476 |
+| `shell/` | 216 | 42,977 |
+| **total** | **270** | **73,453** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-05-16T04:42:35.794174+00:00 from commit 7c75c1a. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-16T05:04:41.300728+00:00 from commit 03d61af. Re-run `python manage.py inventory` (from `shell/`) to refresh.*

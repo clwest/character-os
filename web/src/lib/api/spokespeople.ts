@@ -163,6 +163,36 @@ export function useCreateSpokesperson() {
   });
 }
 
+// ---- Refresh portrait (SESSION 169 follow-up) --------------------
+//
+// Runway's CloudFront thumbnail URLs are JWT-signed with ~30-day
+// expiry. When portrait_path 401s, the SPA can hit this endpoint to
+// get a fresh signed URL and update its image src. The Portrait
+// component's <img onError> uses this so the gap doesn't recur as
+// JWTs expire over time.
+
+export async function refreshSpokespersonPortrait(
+  id: string,
+): Promise<Spokesperson> {
+  return apiJson(
+    `/api/spokespeople/${id}/refresh-portrait/`,
+    { method: "POST", body: {} },
+    (json) => spokespersonSchema.parse(json),
+  );
+}
+
+export function useRefreshPortrait() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: refreshSpokespersonPortrait,
+    onSuccess: (spokesperson) => {
+      qc.setQueryData(["spokesperson", spokesperson.id], spokesperson);
+      qc.invalidateQueries({ queryKey: ["spokespeople"] });
+    },
+  });
+}
+
+
 // ---- W11.1 — edit spokesperson -----------------------------------
 
 export interface UpdateSpokespersonInput {

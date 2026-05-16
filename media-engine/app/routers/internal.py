@@ -44,6 +44,7 @@ from ..services.character_studio_client import (
     _mock_color_for,
     _solid_png,
     build_prompt,
+    fetch_avatar_thumbnail,
 )
 from ..services.runway_client import (
     GenerationSettingsError,
@@ -283,6 +284,51 @@ class InternalVideoPollResponse(BaseModel):
     error: Optional[str] = None
     failure_code: Optional[str] = None
     mock_mode: bool
+
+
+class InternalAvatarRefreshResponse(BaseModel):
+    """SESSION 169 follow-up — ``POST /internal/avatars/<id>/refresh/``
+    returns a fresh signed thumbnail URL. The avatar itself isn't
+    modified; this is purely a re-fetch of the existing avatar's
+    metadata from Runway (JWT-signed URLs expire ~30 days)."""
+
+    avatar_id: str
+    thumbnail_url: Optional[str] = None
+    mock_mode: bool
+
+
+@router.post(
+    "/avatars/{avatar_id}/refresh/",
+    response_model=InternalAvatarRefreshResponse,
+)
+def post_internal_avatar_refresh(
+    avatar_id: str,
+    settings: Settings = Depends(get_settings),
+):
+    """Refresh an existing avatar's signed thumbnail URL.
+
+    Runway's processedImageUri / referenceImageUri are JWT-signed
+    with ~30-day expiry. After the JWT expires the SPA's ``<img>``
+    starts 401-ing. This endpoint hits ``GET /v1/avatars/{id}`` and
+    returns the fresh URL Django can persist onto
+    ``Spokesperson.portrait_path``.
+
+    Mock-safe: returns ``thumbnail_url=None, mock_mode=True`` when
+    in mock mode. Returns ``thumbnail_url=None`` on Runway-side
+    failure so the caller can decide whether to surface the error.
+    """
+    if settings.runway_mock or avatar_id.startswith("mock_"):
+        return InternalAvatarRefreshResponse(
+            avatar_id=avatar_id,
+            thumbnail_url=None,
+            mock_mode=True,
+        )
+    thumbnail = fetch_avatar_thumbnail(avatar_id, settings)
+    return InternalAvatarRefreshResponse(
+        avatar_id=avatar_id,
+        thumbnail_url=thumbnail,
+        mock_mode=False,
+    )
 
 
 @router.post("/videos/", response_model=InternalVideoCreateResponse)
