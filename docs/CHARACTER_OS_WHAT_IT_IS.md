@@ -2,9 +2,9 @@
 title: "Character OS — What It Actually Is"
 status: populated
 generated: 2026-05-13
-last_revised: 2026-05-16 (SESSION 173)
+last_revised: 2026-05-16 (SESSION 174)
 companion_doc: CHARACTER_OS_INVENTORY.md
-covers_sessions: "106-173"
+covers_sessions: "106-174"
 ---
 
 # Character OS — What It Actually Is
@@ -267,6 +267,37 @@ verifier that could keep all three in sync automatically.
   categories. 5th nav item; full library grid with filters,
   detail modal with Regenerate + Delete. See
   `docs/design/MEDIA_GENERATION_V1.md` for the scope-lock.
+- **W11.6.5 — DONE** (SESSION 174). Recipe inline image-
+  picker. `cinematic_visual` recipe gains an optional
+  reference-image field that browses the workspace image
+  library; resolver extracts the data URI for IMAGE-type
+  assets so the starter's existing `prompt_image: str` param
+  works unchanged. Closes the W11.6 arc.
+- **W11.6.5.1 / W11.6.5.3 — DONE** (SESSION 174). Asset
+  picker labels are human-readable. Asset gains an optional
+  `title` CharField; ImageViewSet auto-derives from subject;
+  composition runtime auto-derives from composition.name.
+  Dropdowns read "Talking-head — Marcus" instead of
+  `5cf5ab4e-…mp4?_jwt=eyJh…`.
+- **W11.x voice telemetry — DONE** (SESSION 174). Edit
+  modal surfaces the `voice_patch: {status, error}` envelope
+  from the change-voice action. Operators see whether
+  Runway accepted the live PATCH; modal stays open on
+  failure with the error message.
+- **K7.1 cost telemetry — DONE** (SESSION 174). Workspace
+  dashboard's cost panel surfaces per-surface MTD + all-
+  time spend (compositions / images / realtime). Three-band
+  dollar formatter handles sub-cent → multi-dollar
+  precision automatically.
+- **K6.4 v2.1 — DONE** (SESSION 174). Sentence-opener
+  verifier false-positives ("Today" / "Think Antoninus")
+  closed via stoplist additions + multi-word leader
+  demotion when the leader is sentence-initial and
+  stoplisted.
+- **K7.x YouTube ingest reject — DONE** (SESSION 174).
+  YouTube URLs + boilerplate-extraction patterns rejected
+  up-front with operator-actionable error. A proper
+  YouTube transcript extractor stays queued for K7.x v2.
 - **W12 — Legacy form retirement**: now ungated since real-mode
   validation happened; queued for whenever.
 

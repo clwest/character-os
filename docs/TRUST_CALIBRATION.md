@@ -2169,3 +2169,136 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
      YouTube transcript API or oEmbed instead of trafilatura.
      Heavier lift; more reliable.
   Promote to "next queue item after current session priority."
+
+## 2026-05-16 — Near-miss: W11.6.5.1 narrow-fix rationalisation
+
+- **Context / claim:** Shipped W11.6.5.1 (Asset.title for image
+  pickers) in SESSION 174. My commit message said *"Future work
+  flagged: clip + audio assets still leave title empty (their
+  legacy filename-based labels are at least somewhat readable).
+  Plumbing a title through the composition runtime when it
+  persists step outputs is a natural follow-on, but is its own
+  slice."* The framing was: "images are fixed; clips can wait."
+- **Reality / outcome:** Operator opened the
+  ``backdrop_composite`` recipe minutes later and the clip
+  picker labels read like
+  ``5cf5ab4e-0398-480c-b33b-f994f567ccc1.mp4?_jwt=eyJh…`` —
+  CDN URL tails after `file_path.split("/").pop()` truncation.
+  Indistinguishable from each other; looked exactly like the
+  raw UUIDs the operator had originally complained about. The
+  "somewhat readable" framing was AI rationalisation, not a
+  real assessment of the operator-facing surface. The right
+  answer was to fix all asset types in W11.6.5.1 — the
+  composition runtime change in W11.6.5.3 was 1 line of
+  production code (``title=composition.name``) plus a small
+  backfill. Splitting it bought nothing.
+- **Found by:** Operator opening the recipe immediately after
+  W11.6.5.1 shipped and saying "the background and foreground
+  clips are all listed by id still." Within 15 minutes of the
+  W11.6.5.1 commit.
+- **Lesson:** **Don't rationalise "somewhat readable" — look
+  at what the operator-facing surface ACTUALLY renders for the
+  case being deferred.** Before claiming a fix is "narrow" or
+  scoped, check the rendered output for every variant the SPA
+  surfaces. For asset_picker specifically: the dropdown shows
+  ``assetLabel(asset)`` for EVERY asset_type the picker can
+  list; verify each one renders something human-friendly. The
+  cost of folding W11.6.5.3 into W11.6.5.1 would have been
+  ~15 minutes; the cost of the operator finding the
+  half-fixed state was a small trust-impact + the cycle of
+  shipping the followup.
+
+## 2026-05-16 — Near-miss: W11.6.5.2 cap-too-tight, caught by real dogfood
+
+- **Context / claim:** W11.6.5's unit tests passed. 5 new
+  Django tests covered the recipe metadata, the resolver's
+  data-URI extraction, the workspace isolation path, the
+  clip-picker invariant. All green. I declared the slice
+  shipped + invited operator to dogfood.
+- **Reality / outcome:** The W11.6.5 resolver passes a
+  ~4.5 MB data URI as ``prompt_image`` to the
+  ``cinematic_visual`` starter. Starter passes that through
+  to ``MediaEngineClient.create_visual_clip``. Media-engine's
+  ``/internal/clips/visual/`` endpoint has
+  ``prompt_image: Optional[str] = Field(default=None,
+  max_length=2048)``. Pydantic rejected with 422 the
+  first time the operator-driven dogfood fired. The 2048
+  cap was sized for URL-shape inputs (the pre-W11.6.5
+  contract); data URIs blow through it 2000x over.
+  Unit tests didn't catch this because they used
+  ``mock_mode=True`` which short-circuits before any
+  media-engine HTTP call.
+- **Found by:** First operator-driven real-mode dogfood
+  attempt. Failed composition with the 422 in
+  ``error_message``.
+- **Lesson:** **When a slice adds a NEW input shape to an
+  existing field (here: data URI to a previously-URL-only
+  ``prompt_image``), audit ALL downstream max_length /
+  size guards before declaring success.** Grep for the
+  field name across both Django and media-engine; check
+  every Pydantic Field constraint that mentions it. Better:
+  add at least one real-mode integration test that
+  exercises the new input shape end-to-end, even if it's
+  expensive. The 2048-char cap was visible in source for
+  >a year before W11.6.5; nobody had reason to look at
+  it until the picker landed.
+
+## 2026-05-16 — AI confidently wrong: Celery worker restart rule was too narrow
+
+- **Context / claim:** SESSION 173 close note read: *"Restart
+  Celery only if next session touches K6 / K9 / R6 / R7.2 /
+  render_video flows."* The framing — which I wrote — was that
+  only LLM-using async surfaces need a worker restart.
+- **Reality / outcome:** The W11.6.5 dogfood
+  ``cinematic_visual`` composition crashed at the persistence
+  step with ``null value in column "aspect_ratio" of relation
+  "compositions_asset" violates not-null constraint``. The
+  stale worker (pid 62107, started 2026-05-15 23:52) predated
+  every W11.6 migration. Its in-process Asset model class
+  knew nothing about the 8 W11.6.x image fields. INSERT
+  omitted them; Postgres rejected NOT-NULL because Django's
+  ``default=""`` is Python-level not column-level DEFAULT.
+  Restart fixed it; re-fired succeeded.
+- **Found by:** Real-mode dogfood. The W11.6.5 unit tests
+  ran the resolver + view paths but used eager celery
+  (which runs synchronously in-process with current model
+  classes) so they didn't expose the stale-worker scenario.
+- **Lesson:** **ANY model-extending session needs a Celery
+  worker restart**, not just LLM flows. Generalize the rule:
+  if migrations were applied OR ``apps/compositions/tasks.py``
+  changed OR any primitive in
+  ``apps/compositions/primitives/`` changed OR any model
+  the worker creates rows for added/removed fields, the
+  worker must be restarted before next composition fires.
+  The SESSION 173 close note's narrower phrasing missed
+  the model-change case. Updated the SESSION 174 close
+  note to use the broader rule.
+
+## 2026-05-16 — AI right (preemptive application): real-mode dogfood after every operator-facing slice
+
+- **Context / claim:** SESSION 174 shipped two operator-
+  facing slices in a row (W11.6.5 image picker, W11.6.5.1
+  Asset.title). After each one I proposed a real-mode
+  dogfood to the operator. After the image picker:
+  operator agreed; dogfood found 2 bugs. After
+  W11.6.5.1: operator agreed; dogfood found 1 (the clip
+  pickers still showing CDN URL tails — the W11.6.5.3
+  trigger).
+- **Direction:** AI right despite no prior calibration
+  saying "always dogfood after operator-facing slices."
+  The pattern emerged from the SESSION 173 W11.6 close
+  (which was where the operator first said "dog food it
+  and I will look at the results on the UI") and has
+  carried forward consistently.
+- **Found by:** Author at slice-close; reinforced by
+  the operator's behavior of accepting the dogfood
+  proposal every time.
+- **Lesson:** **Default to "let's dogfood this against
+  real APIs and a real workspace" after every
+  operator-facing slice ships.** The cost is small
+  ($0.005-$0.50 per render depending on path), the
+  value is high (catches bugs unit tests miss + builds
+  operator-AI shared mental model of the working state).
+  Save as `feedback_real_mode_dogfood_after_operator_slices.md`
+  so the lane carries forward into future sessions
+  without re-deriving it.
