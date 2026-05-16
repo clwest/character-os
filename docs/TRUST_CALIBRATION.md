@@ -2044,3 +2044,128 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   (K, V, R, F arcs all had composition-step surfaces; none
   were caught by the same lens in time, though K6.6
   shipped a similar gap fix for synthesized_brief).
+
+## 2026-05-16 — AI confidently wrong: SESSION 173 inventory claimed "mock-only embeddings"
+
+- **Context / claim:** The SESSION 173 mid-session inventory
+  ("what's the platform actually capable of?") listed under
+  "What it can NOT do yet": *"Mock-mode-only embeddings —
+  EMBEDDING_FORCE_MOCK is on by default; real embeddings
+  haven't been dogfood-validated at scale (only ~32 chunks
+  live)."* The claim was the AI's own synthesis from
+  reading docs + grep'ing for the force-mock flag.
+- **Reality / outcome:** SESSION 174 real-mode embedding
+  dogfood probed the live runtime. All 32 chunks across 3
+  knowledge documents in `Admin's workspace` already have
+  **real OpenAI text-embedding-3-small vectors**:
+  unit-normalized (magnitude ≈ 1.0), dense (1536/1536
+  non-zero), `cost_micros` populated, model field reads
+  `text-embedding-3-small` (no "(mock)" suffix). The
+  operator's `.env` has `OPENAI_API_KEY` set and does NOT
+  have `EMBEDDING_FORCE_MOCK` set. Real embeddings have
+  been the active production path for an unknown number
+  of sessions. AI just didn't check the runtime.
+- **Found by:** SESSION 174 dogfood task. Direct shell
+  inspection of `KnowledgeChunk.embedding_vector` magnitude
+  + cost_micros revealed the production reality.
+- **Lesson:** **When the inventory question is "what can we
+  do today?", read the runtime FIRST, the docs and code
+  SECOND.** The runtime is the only authoritative answer to
+  "is this surface live?" The narrative + design lock + grep
+  results all describe *intent* and *guards*, not *state*.
+  The CHARACTER_OS_INVENTORY.md anchor exists for exactly
+  this reason — it's regenerable, it reads runtime, and
+  INVENTORY wins on conflict. I should have driven a 5-line
+  shell query against the chunk magnitudes before asserting
+  anything about embedding mode. Cheaper than the wrong
+  inventory claim that nearly steered the session into a
+  re-embed task that wasn't needed.
+
+## 2026-05-16 — Near-miss: K6.4 verifier false-positives on sentence-opener words
+
+- **Context / claim:** SESSION 174 dogfood drove a real K6
+  brief synthesis for Marcus with the prompt *"Tell me
+  about the five good emperors and why historians consider
+  them a golden age."* Pipeline: real OpenAI embed → real
+  pgvector retrieval (top-5 chunks) → real gpt-5 synthesis
+  → K6.4 verifier in Warn mode → ScriptResult.
+- **Reality / outcome:** Brief was clean, grounded, all
+  claims traceable to the Nerva-Antonine doc. But the
+  verifier flagged 2 "unsupported claims":
+  * `{"claim": "Today", "kind": "proper_noun", "position": 0}`
+  * `{"claim": "Think Antoninus", "kind": "multi_word", "position": 371}`
+  Both are sentence-opener artifacts. "Today" is a
+  sentence-initial capitalized adverb the verifier
+  misidentifies as a proper noun. "Think Antoninus" is the
+  verifier concatenating an imperative-mood sentence opener
+  ("Think Antoninus' peaceful, Senate-sharing reign…") with
+  the genuine proper noun that follows, treating the pair
+  as one multi-word entity.
+  The brief itself was correctly verified — every real
+  named entity (Nerva, Trajan, Hadrian, Antoninus Pius,
+  Marcus Aurelius, Machiavelli, Gibbon, Commodus) traced
+  cleanly. The false positives are verifier-sensitivity
+  noise on capitalized sentence-openers, not actual
+  hallucinations.
+- **Found by:** Real-mode dogfood probe. Without the
+  dogfood, the false-positives would have surfaced first
+  during operator inspection of a render's
+  `verification_warnings` field — confusing because the
+  brief reads correctly.
+- **Lesson:** **K6.4 stoplist / multi-word detection needs
+  sentence-position awareness.** Capitalized words at
+  position 0 of a sentence are not reliably proper nouns
+  (English capitalizes the first word regardless). Two
+  cheap improvements queued for a later K6.4 v2.x:
+  1. Add common sentence-opener adverbs ("Today",
+     "Tomorrow", "Now", "Then", "Here", "There", "Yesterday")
+     to the stoplist.
+  2. Multi-word detection should skip sentence-initial verbs
+     ("Think X", "Consider X", "Imagine X") and treat only X
+     as the candidate proper noun.
+  Real impact: ~2 false positives per warn-mode brief is
+  noisy enough to make operators distrust the warnings list.
+  Worth a small surgical fix in the next K-arc session.
+
+## 2026-05-16 — Near-miss: YouTube ingest pollution confirmed by retrieval probe
+
+- **Context / claim:** The operator's MEMORY entry
+  `project_youtube_ingest_silent_failure.md` noted K7
+  reports YouTube URLs as "processed" but trafilatura
+  captures nothing useful. AI flagged this in the
+  SESSION 173 inventory as a queued backlog item without
+  verifying current impact.
+- **Reality / outcome:** SESSION 174 retrieval dogfood
+  probed off-topic queries against Marcus's knowledge
+  surface (3 docs: Nerva-Antonine + Wikipedia trafilatura
+  test + a YouTube URL titled "Create Your Own Character
+  in 5 Minutes | Runway"). The off-topic query
+  "best ways to bake sourdough at home" surfaced the
+  YouTube doc as top-1 with chunk content:
+  *"About Press Copyright Contact us Creators Advertise
+  Developers Terms Privacy Policy & Safety How YouTube
+  works Test new ..."*. That's YouTube's nav-bar / footer
+  boilerplate — NOT video content. Trafilatura extracted
+  the page chrome, not the transcript or description.
+  Concrete production impact: any operator query against a
+  workspace with YouTube-ingested docs will return
+  meaningless chunks that pollute retrieval. Worse, the
+  YouTube doc's single boilerplate chunk is short and
+  generic enough to be semantically "close" to almost any
+  query (distance ~0.85 to sourdough), so it surfaces above
+  the genuine on-topic chunks in any cross-document query.
+- **Found by:** SESSION 174 deliberate off-topic retrieval
+  probe.
+- **Lesson:** **The K7.x YouTube fix is higher-priority than
+  "queued backlog" framing suggested.** A single bad doc in
+  a workspace degrades retrieval quality across the entire
+  knowledge surface, not just for queries that target that
+  doc. Two practical paths:
+  1. Detect-and-reject at ingest time: if the YouTube URL
+     extraction returns < N chars of useful content (heuristic:
+     "About Press Copyright Contact us" substring match),
+     reject with operator-visible error.
+  2. Per-host extractor: route YouTube URLs to the
+     YouTube transcript API or oEmbed instead of trafilatura.
+     Heavier lift; more reliable.
+  Promote to "next queue item after current session priority."
