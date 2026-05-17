@@ -26,125 +26,111 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_174_OPERATOR_FACING_POLISH.md`.
+> **Last handoff:** `docs/handoffs/SESSION_175_VOICE_TELEMETRY_YOUTUBE_PERSONALITY.md`.
 
 ---
 
-## SESSION 174 outcome — operator-facing polish
+## SESSION 175 outcome — voice telemetry follow-up + YouTube extractor + personality split
 
-Ten commits across one long session driven by the SESSION 173
-mid-session inventory. Three operator-facing gaps closed +
-real-mode embedding dogfood that corrected the inventory +
-uncovered two real bugs no unit test would have caught.
+Five feature commits. Two natural dogfood-driven fixes
+following from SESSION 174's voice-telemetry slice. One
+full arc-close on K7.x YouTube ingest. One operator-
+insight slice — the personality / business_brief split.
 
-* **`3ecb6fe`** — W11.x voice telemetry: edit modal surfaces
-  `voice_patch: {status, error}` (ok/skipped/failed). Holds
-  open on failure.
-* **`5f52bb7`** — K7.1 workspace cost telemetry: dashboard
-  panel with per-surface MTD + all-time. Three-band dollar
-  formatter.
-* **`62353ce`** — real-mode embedding dogfood. Inventory
-  correction: all 32 chunks already had real OpenAI vectors.
-  3 new TRUST_CALIBRATION entries.
-* **`e9256e5`** — K6.4 v2.1: sentence-opener verifier fixes.
-  "Today" + "Think Antoninus" no longer false-positive flagged.
-* **`e4d5761`** — K7.x: YouTube + boilerplate URL rejection.
-  Polluted YouTube doc deleted from admin workspace.
-* **`8e0185b`** — W11.6.5: cinematic_visual recipe image-
-  picker. Closes the W11.6 arc.
-* **`cf8bb69`** — W11.6.5.1: Asset.title for picker labels.
-  Image-only fix initially.
-* **`40efbcf`** — W11.6.5.2: lift prompt_image max_length
-  to 10 MB (real dogfood found 2048-char URL cap rejected
-  4.5 MB data URI). Two bugs caught + fixed.
-* **`a233d10`** — W11.6.5.3: runtime auto-titles output
-  assets from composition.name. Backfilled 26 clip rows.
+* **`edff9f2`** — W11.x.1 voice swap never auto-closes.
+  SESSION 174 dogfood found banners unmounting in the
+  same React tick they rendered.
+* **`1577ce4`** — K6.4 v2.2 sentence-opener stoplist
+  expansion. Donny K6 dogfood "Respect HTML" false-
+  positive closed; 17 new verb families added.
+* **`6f9d5b4`** — K7.x v2 proper YouTube transcript
+  extractor. Replaces v1's rejection with actual
+  ingestion via youtube-transcript-api.
+* **`0b56bd9`** — W11.x.2 voice preview surface in
+  wizard. Operators hear cloned voice before committing
+  via inline audio player.
+* **`47f5166`** — W11.y personality / business_brief
+  split. Independently swappable HOW (personality) vs
+  WHAT (business_brief) across model + K6 + K6.5 +
+  Runway avatar + R-arc realtime document + wizard +
+  edit modal.
 
-Plus the SESSION 173 close commit (`1271c77`) carried over.
+Tests: Django **782 → 814** (+32). Media-engine **133**
+unchanged. SPA vitest **91 → 95** (+4). Migrations 54 → 55.
 
-Tests: Django **727 → 782** (+55). Media-engine **133**
-unchanged. SPA vitest **53 → 91** (+38). Migrations 53 → 54.
-
-Real-mode spend: ~$0.55 total (~$0.30 OpenAI for K6 brief
-dogfoods + $0.25 Runway for one successful cinematic_visual
-image-to-video render).
+Real-mode spend this session: ~$0.06 OpenAI (K6.6
+multi-cast dogfood). $0 Runway / $0 Stability.
 
 ### Calibration moments worth carrying
 
-Four new TRUST_CALIBRATION entries appended this session:
+Three new TRUST_CALIBRATION entries appended:
 
-1. **W11.6.5.1 narrow-fix rationalisation** — said "clips
-   somewhat readable" without looking; operator found
-   backdrop_composite picker unusable in 15 min. Don't
-   rationalise; look at what the operator-facing surface
-   ACTUALLY renders.
-2. **W11.6.5.2 cap-too-tight** — 2048-char cap caught only
-   by real dogfood. When a slice adds a NEW input shape to
-   an existing field, audit ALL downstream size guards.
-3. **Stale Celery worker rule was too narrow** — SESSION 173
-   close said "restart only for K6/R6/render flows." That
-   missed `execute_composition`. ANY model-extending session
-   needs a worker restart.
-4. **Real-mode dogfood after every operator-facing slice**
-   (AI right preemptive). Saved as memory entry
-   `feedback_real_mode_dogfood_after_operator_slices.md`
-   so the lane carries across sessions.
+1. **Vitest atomic assertions mask render → unmount flashes.**
+   When `setVoicePatch` + `onClose()` fire in the same
+   React tick, jsdom asserts both ends true. Human eye
+   sees only the second. Pattern: any "X exists AND
+   onClose called" assertion without a timing gate is
+   suspect.
+2. **Source greps don't match operator UI text → suspect
+   stale browser first.** Hard refresh (Cmd+Shift+R) is
+   the first move, not an afterthought. SPA bundle
+   freshness via `pnpm build` for Django :8000 path; HMR
+   usually for Vite :5174 but glitches.
+3. **K6.4 stoplist curation trickle suggests v3.** v2 +
+   v2.1 + v2.2 cumulatively added ~58 verbs. Each K6
+   dogfood surfaces 1-2 more. v3 (sentence-position-aware
+   imperative-verb detection beyond stoplist) amortizes
+   the maintenance.
 
 ### Final state at session close
 
-* All Phase 4 arcs + W11.6 sub-arc complete + the W11.x
-  polish surfaces (voice telemetry, cost telemetry) live.
-* Cast roster unchanged (Riggs / Sasha / Donny / Maya /
-  Marcus).
-* Admin workspace: 30 compositions (27 completed, 3 failed
-  — the failures were the two W11.6.5.2 pre-fix dogfood
-  attempts), 27 clip assets (all titled via W11.6.5.3
-  backfill), 3 image assets (all titled via W11.6.5.1
-  backfill), 2 knowledge docs (YouTube-polluted doc
-  deleted in `e4d5761`), 31 chunks.
-* Stack-up healthy at session close. Celery worker
-  restarted TWICE this session (W11.6.5.2 + W11.6.5.3);
-  current worker pid 27171 holds the W11.6.5.3 runtime.
+* **W11.y backfill verified**: all 5 cast spokespeople in
+  Admin's workspace have personality populated identically
+  to business_brief. K6 + Runway produce same output until
+  operator splits.
+* **Cast voice swaps from dogfood**: Marcus → `david`,
+  Sasha → `felix`, Donny → `vincent`. Maya + Riggs
+  unchanged.
+* **Maya knowledge attachment**: trafilatura test doc
+  attached for K6.6 dogfood. Operator may detach if not
+  intended for Maya's use case.
+* Stack-up healthy. Celery worker restarted once
+  (W11.y, pid 74011).
 
-### FIRST THING (SESSION 175): pick by mood
+### FIRST THING (SESSION 176): pick by mood
 
-1. **Multi-step composition title disambiguation** — v1
-   leaves the same title across all step outputs in a
-   long_form_ad / storyboard_voiced composition. Operator
-   picking from 3 hook/action/payoff clips will see the
-   same label thrice. ~30 min surgical fix.
-2. **W11.x voice swap dogfood at scale** — SESSION 171
-   shipped voice swap, SESSION 174 added the telemetry.
-   Real operator-driven swap on Marcus (clara → roman →
-   marcus) with banner observation. ~$0.05, ~5 min.
-3. **Cost panel polish** — credit-vs-dollar mode toggle
-   (Stability credits ↔ dollars), per-day chart, per-
-   recipe breakdown. ~1 session.
-4. **K6.6 multi-cast dogfood** — second-render for Donny /
-   Maya to verify gpt-5 family migration + verifier fixes
-   land cleanly across multiple subjects. ~$0.50 spend.
-5. **YouTube transcript extractor (K7.x v2)** — proper
-   per-host extractor (youtube-transcript-api or oEmbed)
-   instead of the W11.6.x reject-with-error stopgap.
+1. **W11.y operator dogfood** — edit Marcus's modal, split
+   his backfilled personality from business_brief, re-fire
+   K6. ~$0.05, ~10 min. **High-value** first move because
+   it validates W11.y against real operator content.
+2. **Voice preview dogfood** — W11.x.2 ships but the
+   preview-after-clone flow hasn't been operator-driven
+   yet. Requires upload/record path. ~$0.05.
+3. **Cost panel polish** — credit ↔ dollar mode toggle
+   for Stability, per-day chart, per-recipe breakdown.
    ~1 session.
-6. **F8.1 — K10 seed corpus** — still blocked on
-   operator-authored markdown.
-7. **TRANSCRIPT + VOICE asset titles** — covered by the
-   W11.6.5.3 runtime change but these don't surface in
-   recipe pickers today. Worth verifying when they do.
-
-Operator preference: pick at session start.
+4. **K6.4 v3 architectural fix** — generalize sentence-
+   position-aware imperative-verb detection beyond
+   stoplist curation. ~1 session. Amortizes the trickle.
+5. **K7.x v3 YouTube oEmbed** — populate doc title with
+   real video title instead of "YouTube · {video_id}"
+   placeholder. ~30 min.
+6. **Multi-step composition title disambiguation** —
+   ~30 min surgical fix.
+7. **F8.1 K10 seed corpus** — blocked on operator markdown.
+8. **TRANSCRIPT + VOICE asset titles** — verify W11.6.5.3
+   covers all asset types. ~15 min.
 
 ---
 
 ## Where we are
 
 **Phase 0-2:** Done.
-**Phase 3:** Wizard arc complete (W1-W11; W11.1 + W11.2 +
-W11.6 + W11.x voice telemetry ship the full operator-facing
-spokesperson + image edit surfaces).
-**Phase 4:** All four arcs (K / V / F / R) complete. W11.6
-sub-arc + W11.6.5 image-picker complete.
+**Phase 3:** Wizard arc complete. Operator-facing edit
+surfaces include voice swap, rebake, voice telemetry,
+voice preview, personality split.
+**Phase 4:** All four arcs (K / V / F / R) complete.
+W11.6 sub-arc complete. K7.x v2 extractor complete.
 
 | Surface | Status |
 |---|---|
@@ -153,30 +139,32 @@ sub-arc + W11.6.5 image-picker complete.
 | V0-V15 | DONE |
 | F0-F10 | DONE |
 | **R0-R10 + R6.1** | **DONE** (SESSIONS 142-157) |
-| **First marketing video** | **DONE** (SESSION 158) |
-| **W11.2 voice swap + avatar re-bake** | **DONE** (SESSION 170) |
-| **W11.6.0-W11.6.4 (media gen arc)** | **DONE** (SESSIONS 172-173) |
-| **W11.x voice telemetry** | **DONE (SESSION 174, `3ecb6fe`)** |
-| **K7.1 cost telemetry** | **DONE (SESSION 174, `5f52bb7`)** |
-| **K6.4 v2.1 sentence-opener fixes** | **DONE (SESSION 174, `e9256e5`)** |
-| **K7.x YouTube reject** | **DONE (SESSION 174, `e4d5761`)** |
-| **W11.6.5 recipe image-picker** | **DONE (SESSION 174, `8e0185b`)** |
-| **W11.6.5.1-3 picker labels** | **DONE (SESSION 174, `cf8bb69` / `40efbcf` / `a233d10`)** |
+| **W11.6.0-W11.6.5 (media gen arc)** | **DONE** (SESSIONS 172-173) |
+| **W11.x voice telemetry** | **DONE** (SESSION 174 + 175 fix) |
+| **W11.x.2 voice preview surface** | **DONE** (SESSION 175, `0b56bd9`) |
+| **W11.y personality split** | **DONE** (SESSION 175, `47f5166`) |
+| **K7.1 cost telemetry** | **DONE** (SESSION 174) |
+| **K6.4 v2.2 stoplist** | **DONE** (SESSION 175, `1577ce4`) |
+| **K7.x v2 YouTube extractor** | **DONE** (SESSION 175, `6f9d5b4`) |
 | F8.1 (K10 seed corpus) | Queued (operator markdown) |
-| K7.x v2 YouTube extractor | Queued |
+| K7.x v3 YouTube oEmbed | Queued |
+| K6.4 v3 architectural fix | Queued (amortization) |
 | Multi-step title disambiguation | Queued (small fix) |
 | W12 legacy form retirement | Queued |
 
-**Cast roster in workspace `admins-workspace`** (unchanged):
+**Cast roster in workspace `admins-workspace`**:
 
-  - Riggs the Donkey — id `06bf999f-...`
-  - **Sasha the Raccoon** — id `79d48883-...` — voice `clara`
-  - Donny the Sloth — id `f30b2980-...` — dental artifacts on `drew`
-  - Maya the Panda — id `9410f23f-...` — untested in real-mode
-  - **Marcus the Battle Unicorn** — id `b6a00dd8-...` — voice `marcus`
+  - Riggs the Donkey — id `06bf999f-...` — voice `vincent`
+  - **Sasha the Raccoon** — id `79d48883-...` — voice `felix` (swapped SESSION 175 dogfood)
+  - Donny the Sloth — id `f30b2980-...` — voice `vincent` (swapped SESSION 175)
+  - Maya the Panda — id `9410f23f-...` — voice `victoria` (trafilatura doc attached for K6.6 dogfood)
+  - **Marcus the Battle Unicorn** — id `b6a00dd8-...` — voice `david` (swapped SESSION 175)
 
-**Workspace image library** (3 images, all titled via
-W11.6.5.1):
+All 5 cast members have `personality` populated identically
+to `business_brief` post-W11.y backfill. Operator splits
+per-spokesperson over time.
+
+**Workspace image library** (3 images, all titled):
 
   - "rolling vineyard hills at golden hour, cinematic depth of…"
   - "a single hand-blown glass coffee mug on a wooden table…"
@@ -193,7 +181,7 @@ cd media-engine && source .venv/bin/activate
 uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload
 
 cd shell && source .venv/bin/activate
-python manage.py runserver                 # :8000 — DO NOT pass --noreload
+python manage.py runserver                 # :8000
 
 cd shell && source .venv/bin/activate
 celery -A character_os worker --loglevel=info --pool=solo
@@ -207,107 +195,81 @@ cd web && pnpm dev                          # :5174
 python3 /Users/donkeyking/development/context-kit/context_kit.py doctor
 ```
 
-**SESSION 175 stack-up note**: Celery worker was restarted
-TWICE in SESSION 174 (once for W11.6.5.2 / model fields,
-once for W11.6.5.3 / tasks.py). Fresh worker holds the
-W11.6.5.3 runtime. If SESSION 175 touches
-`apps/compositions/` models OR `tasks.py` OR any primitive
-in `apps/compositions/primitives/`, **restart the worker
-again** — the SESSION 174 carry-forward TRUST_CALIBRATION
-generalises the rule: ANY model-extending session needs a
-worker restart, not just LLM flows.
+**SESSION 176 stack-up note**: Celery worker was restarted
+once in SESSION 175 (W11.y model change, pid 74011 at
+session-close). If SESSION 176 touches
+`apps/spokespeople/` models OR `apps/compositions/`
+models / tasks / primitives, restart again. **ANY
+model-extending session needs a worker restart** —
+SESSION 174 carry-forward, reinforced in 175.
 
 **Smoke checks** (counts as of session close):
 
 ```bash
 # Backend (from shell/)
 python manage.py inventory
-python -m pytest                              # 782 tests
+python -m pytest                              # 814 tests
 
 # Media-engine (from media-engine/)
 python -m pytest                              # 133 tests
 
 # SPA (from web/)
 pnpm build                                    # type-check + bundle
-pnpm test                                     # 91 vitest tests
+pnpm test                                     # 95 vitest tests
 ```
 
 ---
 
 ## AI / assistant context
 
-- **Last session: SESSION 174 — operator-facing polish.**
-  Ten commits closing 3 backlog gaps + dogfood-driven W11.6.5
-  three-slice mini-arc. Real-mode embedding dogfood corrected
-  the SESSION 173 inventory + caught real bugs unit tests
-  missed. Test counts: Django **782**; SPA **91**;
-  media-engine **133**.
+- **Last session: SESSION 175 — voice telemetry follow-up
+  + YouTube extractor + personality split.** Five
+  feature commits across dogfood-driven UX fixes (W11.x.1,
+  K6.4 v2.2) + a long-queued backlog arc-close (K7.x v2)
+  + an operator-insight slice (W11.y). Tests: Django
+  **814**; SPA **95**; media-engine **133**.
 
-- **Calibration carried forward (NEW SESSION 174)**:
-  - **Real-mode dogfood after operator-facing slices.**
-    Mock-mode tests miss real-world shape mismatches
-    (max_length, data-URI size, stale worker imports).
-    The operator's "dog food it and I will look at the
-    results on the UI" pattern from SESSION 173 became
-    the SESSION 174 default. Saved as memory entry
-    `feedback_real_mode_dogfood_after_operator_slices.md`.
-  - **Stale Celery worker rule is broader than LLM flows.**
-    ANY model-extending session needs a worker restart.
-    Specifically: migrations applied OR
-    `apps/compositions/tasks.py` changed OR any primitive
-    in `apps/compositions/primitives/` changed OR any
-    model the worker creates rows for added/removed fields.
-  - **When a slice adds a NEW input shape to an existing
-    field, audit ALL downstream max_length / size guards.**
-    grep field name across Django + media-engine; check
-    every Pydantic Field constraint that mentions it.
-  - **Don't rationalise "somewhat readable" — look at what
-    the operator-facing surface ACTUALLY renders for every
-    case being deferred.** Especially picker / dropdown
-    surfaces where one shape (image data URI, clip CDN
-    URL with JWT) can render as garbage even if another
-    shape (file path) is fine.
-  - **Read runtime FIRST when assessing capability.**
-    INVENTORY exists for this reason. A 5-line shell query
-    beats docs + grep for "what can we do today?" questions.
-  - **SPA gates need both `pnpm test` AND `pnpm build`.**
-    vitest's esbuild skips full TS check; tsc -b in build
-    catches subtle issues like `unknown error prop as
-    ReactNode` and `props.X ?? vi.fn()` Mock-type unions.
+- **Calibration carried forward (NEW SESSION 175)**:
+  - **Vitest atomic assertions can mask real UX bugs.**
+    Render → unmount in one React tick passes jsdom but
+    invisible to humans. Pattern to watch: "X exists AND
+    onClose called" without a timing gate.
+  - **Stale browser before stale code.** When source
+    greps don't match operator UI text, hard refresh
+    first. Save 5-10 min of source-spelunking.
+  - **K6.4 stoplist curation trickle.** Every K6 dogfood
+    surfaces 1-2 new verb gaps. v3 architectural fix
+    amortizes the maintenance.
 
 - **Calibration carried forward (from earlier sessions)**:
+  - **Real-mode dogfood after operator-facing slices.**
+    Mock-mode tests miss real-world shape mismatches.
+    Saved as memory entry
+    `feedback_real_mode_dogfood_after_operator_slices.md`.
+  - **Celery worker restart for any model-extending
+    session.** Not just LLM flows.
+  - **SPA gates need both `pnpm test` AND `pnpm build`.**
+    vitest's esbuild skips full TS check.
   - **Distinct request boundaries for distinct
-    side-effects** — when an SPA save spans a DB write
-    + an external-system call, model them as two
-    requests, not one bundled PATCH.
-  - **Mock-fetch should route-switch from day one**
-    once a component hits more than one endpoint.
+    side-effects.**
   - **Hook order across early returns** (SESSION 169).
   - **AI's "shipped" framing belongs to the operator
     after review.**
-  - **Avatar voice × lip-sync quality is a real
-    operational axis.**
-  - **R9 placeholder accurate to ~5x** — stub-and-refine
-    validated.
-  - **Drift verifiers belong as early scaffolding.**
-  - **Milestone-level doc refresh has its own cadence.**
-  - **Mock-mode is first-class UX** (SESSION 153).
-  - **Doctor is the drift tool** (SESSION 151). **Now
-    paired with `handoff write` at session-end**
-    (SESSION 159).
+  - **Doctor is the drift tool** + **handoff write at
+    session-end.**
   - **OpenAI gpt-5 family uses the Responses API.**
-  - **Backend write-guards are load-bearing.**
   - **lru_cached `get_settings()` bypasses FastAPI
-    `app.dependency_overrides`.** Use monkeypatch on the
-    module-level reference or pass settings down from the
-    endpoint.
-  - **Radix UI primitives need `userEvent.setup() + await
-    user.click()` under jsdom.**
-  - **Scope-lock reviews should distinguish operator input
-    from LLM input** for composition-step surfaces.
+    dependency_overrides.**
+  - **Radix UI primitives need `userEvent` under jsdom.**
+  - **Scope-lock reviews should distinguish operator
+    input from LLM input.**
+  - **Don't rationalise "somewhat readable" — look at
+    what the operator-facing surface actually renders.**
 
-- **Realtime + W-arc + W11.6 + W11.6.5 all closed.** All
-  arcs are now in operator-facing polish + dogfood phase.
+- **All Phase 4 arcs + W11.6 sub-arc + voice telemetry
+  + personality split all live.** Platform is in
+  operator-facing polish + dogfood-driven refinement
+  phase.
 
 - Collaboration conventions: AI drafts, human edits.
   Handoff `## Calibration moments worth carrying` +

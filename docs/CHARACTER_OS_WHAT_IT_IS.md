@@ -2,9 +2,9 @@
 title: "Character OS — What It Actually Is"
 status: populated
 generated: 2026-05-13
-last_revised: 2026-05-16 (SESSION 174)
+last_revised: 2026-05-17 (SESSION 175)
 companion_doc: CHARACTER_OS_INVENTORY.md
-covers_sessions: "106-174"
+covers_sessions: "106-175"
 ---
 
 # Character OS — What It Actually Is
@@ -296,8 +296,40 @@ verifier that could keep all three in sync automatically.
   stoplisted.
 - **K7.x YouTube ingest reject — DONE** (SESSION 174).
   YouTube URLs + boilerplate-extraction patterns rejected
-  up-front with operator-actionable error. A proper
-  YouTube transcript extractor stays queued for K7.x v2.
+  up-front with operator-actionable error.
+- **K7.x v2 YouTube transcript extractor — DONE**
+  (SESSION 175). Replaces v1's rejection with actual
+  ingestion via youtube-transcript-api. URLs land as
+  knowledge docs with cleaned transcript text; pure music
+  / applause markers stripped; per-mode operator-actionable
+  errors for TranscriptsDisabled / NoTranscriptFound /
+  VideoUnavailable / AgeRestricted / IpBlocked /
+  PoTokenRequired. K7.x v3 (oEmbed for real video titles)
+  queued.
+- **K6.4 v2.2 — DONE** (SESSION 175). Sentence-opener
+  stoplist expansion (respect / protect / prepare /
+  maintain / include / ensure / verify / etc.) +
+  parametrized test. Closes Donny K6 dogfood's
+  "Respect HTML" false-positive.
+- **W11.x.1 voice swap auto-close fix — DONE**
+  (SESSION 175). SESSION 174 voice-telemetry banners
+  unmounted in the same React tick they rendered;
+  operators saw nothing. Modal now stays open for any
+  voice change.
+- **W11.x.2 voice preview surface — DONE** (SESSION 175).
+  Runway's clone-voice preview_url now plays inline in
+  the wizard's final step. Operators hear the cloned
+  voice before committing instead of after a $0.25+
+  talking-head render.
+- **W11.y personality / business_brief split — DONE**
+  (SESSION 175). Operator insight: HOW the spokesperson
+  speaks should be independently swappable from WHAT
+  the business does. New ``personality`` field on
+  Spokesperson; K6 + K6.5 + Runway avatar + R-arc
+  realtime document all updated to use personality for
+  voice + business_brief for facts. Backfill copies
+  business_brief → personality for existing rows so
+  pre-W11.y renders stay identical until operator splits.
 - **W12 — Legacy form retirement**: now ungated since real-mode
   validation happened; queued for whenever.
 

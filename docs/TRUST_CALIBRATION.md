@@ -2302,3 +2302,107 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   Save as `feedback_real_mode_dogfood_after_operator_slices.md`
   so the lane carries forward into future sessions
   without re-deriving it.
+
+## 2026-05-17 — AI confidently wrong: vitest atomic assertions masked a real UX bug
+
+- **Context / claim:** SESSION 174's W11.x voice telemetry
+  slice (commit `3ecb6fe`) shipped with 4 vitests covering
+  the success / skipped / failed banner states. The
+  `voice_patch ok renders a success banner and auto-closes`
+  test asserted both that the banner was in the document
+  AND that `onClose` had fired — both true in jsdom, both
+  passing. AI shipped confident that the success-path
+  telemetry worked.
+- **Reality / outcome:** SESSION 175 operator-driven dogfood
+  (voice swap on Marcus → vincent → david; Sasha →
+  felix) reported "I switched to Vincent's voice and saved
+  it but I didn't see anything to verify it's saved." The
+  banner technically rendered. It just rendered for ~10ms
+  before `onClose()` unmounted the modal in the same React
+  tick that `setVoicePatch` set the banner state. jsdom
+  asserts atomically — both ends of a render→unmount land
+  true in the same test tick — but a human eye sees only
+  the final state.
+- **Found by:** Real-mode operator dogfood. Without the
+  dogfood, the banner would have been invisible in
+  production for an unknown number of operator swaps before
+  the gap surfaced.
+- **Lesson:** **Vitest assertions that fire ATOMICALLY pass
+  for behavior that's INVISIBLE in real time.** When a
+  render → unmount sequence runs in a single React tick,
+  jsdom asserts both ends true; the human eye sees only the
+  second. Pattern to watch: any test that asserts both
+  "X is in the document" AND "onClose was called" without
+  a delay or timing gate between them. Real-mode dogfood
+  is the only way to catch this class. The W11.x.1 fix
+  (commit `edff9f2`) removed the auto-close on voice
+  change — modal stays open until operator clicks Close
+  — and the test was updated to assert the inverse
+  (`onClose NOT called` while banner visible).
+
+## 2026-05-17 — Near-miss: source greps don't match operator-reported UI text → stale browser bundle
+
+- **Context / claim:** SESSION 175 voice-swap dogfood. After
+  the W11.x.1 fix shipped (`edff9f2`), operator reported
+  seeing "Voice applied" text appearing briefly on the card
+  before it closed. AI grepped the entire SPA source — zero
+  matches for "Voice applied" or "applied" (outside an
+  unrelated comment). AI initially considered: third-party
+  browser extension injecting a toast? Service worker
+  serving an old bundle? Different SPA build entirely?
+- **Reality / outcome:** Stale browser bundle. The operator's
+  browser tab held an older SPA bundle in memory. `pnpm
+  build` had rebuilt `dist/` after the W11.x.1 commit, but
+  the browser hadn't picked up the new bundle without a
+  hard refresh. After Cmd+Shift+R (or equivalent), the
+  modal showed the actual W11.x.1 behavior (banner stays
+  visible until operator clicks Close).
+- **Found by:** Process of elimination. AI suggested two
+  diagnostics — port confirmation + hard refresh — and the
+  operator chose to skip the diagnostic + move on. The
+  cache hypothesis was the most likely answer but never
+  formally validated.
+- **Lesson:** **When source greps don't match operator-
+  reported UI text, suspect stale browser BEFORE suspecting
+  the code.** Hard refresh (Cmd+Shift+R) is the first move,
+  not an after-thought. If on Django's :8000 (serves
+  built `dist/` bundle), check whether `pnpm build` has
+  run since the last source change. If on Vite's :5174,
+  HMR usually works but can glitch — full page reload
+  forces a fresh bundle. Save 5-10 minutes of confused
+  source-spelunking by trying the cache hypothesis first.
+
+## 2026-05-17 — Near-miss: K6.4 stoplist curation trickle suggests v3 architectural fix
+
+- **Context / claim:** SESSION 166's K6.4 v2 added ~30 verbs
+  to the sentence-opener stoplist (CTA verbs surfaced by
+  real-Runway dogfood). SESSION 174's v2.1 added 11 more
+  (time adverbs + prepositions + `think`). SESSION 175's
+  v2.2 added 17 more (`respect`, `protect`, `prepare`,
+  etc.). Every K6 dogfood across multiple cast members
+  surfaces 1-2 new gaps the stoplist needed to cover.
+  Each addition is cheap (~1-line + small test).
+- **Reality / outcome:** The cumulative trickle is real.
+  v2 → v2.1 → v2.2 covers a growing slice of
+  imperative-mood English verbs but never the full set.
+  Future K6 dogfoods will keep surfacing 1-2 more per
+  unique operator prompt shape. The pattern is sustainable
+  but compounds maintenance.
+- **Found by:** Pattern recognition across SESSIONS 166,
+  174, 175 dogfood. Three sessions, three near-identical
+  fix shapes (stoplist addition + multi-word leader
+  demotion when leader is stoplisted).
+- **Lesson:** **The K6.4 stoplist curation pattern is a
+  near-miss with v3 architectural debt.** v3 should
+  generalize sentence-position-aware imperative-verb
+  detection beyond the curated stoplist — likely a small
+  NER classifier OR a structural test ("does this leader
+  start an imperative clause? does the rest of the multi-
+  word still contain a real proper noun?"). The curation
+  pattern stays cheap per-addition but compounds across
+  operator content variety. Worth scoping v3 when operators
+  ship more verb-heavy K6 prose OR when the verifier flags
+  start eroding operator trust again (current count: zero
+  false-positive reports since v2.2). The v3 fix amortizes
+  the ongoing maintenance + closes a latent class of
+  false-positives operators haven't surfaced yet.
