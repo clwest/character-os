@@ -38,6 +38,11 @@ dependencies = [
     # SESSION 140 / K7 — URL ingestion + serper discovery.
     "trafilatura>=1.10",     # HTML main-content extraction
     "lxml_html_clean>=0.4",  # trafilatura → justext → lxml shim
+    # SESSION 175 / K7.x v2 — YouTube transcript extractor.
+    # Replaces the v1 up-front rejection: YouTube URLs now
+    # route to YouTubeTranscriptApi instead of trafilatura
+    # (which only returns nav-bar boilerplate on YouTube).
+    "youtube-transcript-api>=1.2",
 
     # Settings
     "django-environ>=0.11",

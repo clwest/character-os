@@ -206,19 +206,19 @@ def fetch_url(url: str, *, timeout: float = FETCH_TIMEOUT_SECONDS) -> ExtractedU
     if not parsed.netloc:
         raise UrlFetchError(f"URL has no host: {url!r}")
 
-    # K7.x (SESSION 174) — YouTube URLs ALWAYS produce
-    # boilerplate-only extraction via trafilatura. Reject
-    # before the HTTP roundtrip so the operator gets a clear
-    # actionable error instead of a silently-polluted chunk.
+    # K7.x v2 (SESSION 175) — YouTube URLs route to the
+    # dedicated transcript extractor instead of trafilatura.
+    # v1 (SESSION 174) rejected up-front because trafilatura
+    # only returned nav-bar boilerplate; v2 actually ingests
+    # the video by pulling captions via youtube-transcript-api.
+    # The extractor raises UrlFetchError with operator-actionable
+    # messages for the failure modes that trafilatura can't
+    # work around either (transcripts disabled, age-gated,
+    # IP-blocked, etc.) — same UX shape as before, just with
+    # a working happy path.
     if _is_youtube_url(parsed):
-        raise UrlFetchError(
-            "YouTube URLs can't be ingested via the generic "
-            "trafilatura extractor — the page chrome is what "
-            "gets returned, not the video. Paste the transcript "
-            "or video description directly as text. (A proper "
-            "YouTube transcript extractor is queued for a "
-            "future slice.)"
-        )
+        from .youtube_extractor import extract_youtube_transcript
+        return extract_youtube_transcript(url)
 
     html = _fetch(url, timeout=timeout)
     return _extract(url, html)

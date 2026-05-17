@@ -173,31 +173,70 @@ def test_empty_html_raises() -> None:
 
 @pytest.mark.parametrize("url", [
     "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    "https://youtube.com/watch?v=abc",
-    "https://m.youtube.com/watch?v=abc",
-    "https://music.youtube.com/watch?v=abc",
     "https://youtu.be/dQw4w9WgXcQ",
-    "https://www.youtube-nocookie.com/embed/abc",
+    "https://m.youtube.com/watch?v=dQw4w9WgXcQ",
+    "https://music.youtube.com/watch?v=dQw4w9WgXcQ",
+    "https://www.youtube.com/embed/dQw4w9WgXcQ",
+    "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ",
 ])
-def test_rejects_youtube_urls_before_http_call(url: str) -> None:
-    """K7.x — every YouTube property is rejected up-front with
-    an operator-actionable error, BEFORE any HTTP request fires.
-    Patch httpx.Client to verify it's never instantiated."""
+def test_youtube_urls_route_to_extractor_not_trafilatura(url: str) -> None:
+    """K7.x v2 (SESSION 175) — replaces v1's up-front rejection.
+    YouTube URLs now route to the youtube_extractor module
+    instead of trafilatura. Patch httpx.Client to verify the
+    trafilatura path is NEVER taken; patch the
+    YouTubeTranscriptApi to return a usable transcript so
+    the extractor returns success."""
+    from unittest.mock import MagicMock
+
+    fake_api = MagicMock()
+    fake_result = MagicMock()
+    snip = MagicMock()
+    snip.text = (
+        "This is a transcript snippet that is long enough "
+        "to pass the 50-character minimum cleanup gate."
+    )
+    fake_result.snippets = [snip]
+    fake_api.fetch.return_value = fake_result
+    with patch("httpx.Client") as mock_httpx, patch(
+        "youtube_transcript_api.YouTubeTranscriptApi",
+        return_value=fake_api,
+    ):
+        result = fetch_url(url)
+        mock_httpx.assert_not_called()
+    assert result.title.startswith("YouTube · ")
+    assert result.metadata["source"] == "youtube"
+
+
+def test_youtube_invalid_video_id_raises_actionable_error() -> None:
+    """K7.x v2 — URL shapes that don't carry a valid 11-char
+    YouTube video ID get a clear "couldn't extract" error
+    pointing at the structural problem. Channel + playlist
+    pages land here too."""
     with patch("httpx.Client") as mock_client:
-        with pytest.raises(UrlFetchError, match="YouTube"):
-            fetch_url(url)
+        with pytest.raises(UrlFetchError, match="video ID"):
+            fetch_url("https://www.youtube.com/watch?v=abc")
         mock_client.assert_not_called()
 
 
-def test_youtube_error_message_points_to_paste_workaround() -> None:
-    """K7.x — the error message must include the actionable
-    next-step ("paste the transcript directly") because a
-    "YouTube can't be ingested" message without the workaround
-    leaves operators stuck."""
-    with pytest.raises(UrlFetchError) as exc_info:
-        fetch_url("https://www.youtube.com/watch?v=abc")
-    msg = str(exc_info.value)
-    assert "transcript" in msg.lower() or "paste" in msg.lower()
+def test_youtube_transcripts_disabled_surfaces_actionable_error() -> None:
+    """K7.x v2 — when YouTube reports transcripts disabled for
+    the video, the operator-facing error still includes
+    'paste' workaround language so they know what to do
+    next."""
+    from youtube_transcript_api import _errors as yt_errors
+
+    fake_api = MagicMock()
+    fake_api.fetch.side_effect = yt_errors.TranscriptsDisabled("vid")
+    with patch("httpx.Client") as mock_client, patch(
+        "youtube_transcript_api.YouTubeTranscriptApi",
+        return_value=fake_api,
+    ):
+        with pytest.raises(UrlFetchError) as exc_info:
+            fetch_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        mock_client.assert_not_called()
+    msg = str(exc_info.value).lower()
+    assert "transcript" in msg
+    assert "paste" in msg or "directly" in msg
 
 
 def test_rejects_boilerplate_extraction_signature() -> None:
