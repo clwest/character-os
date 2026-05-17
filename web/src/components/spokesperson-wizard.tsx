@@ -1,4 +1,4 @@
-import { useCallback, useReducer } from "react";
+import { useCallback, useReducer, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Check, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -207,6 +207,12 @@ const STEP_LABELS: Record<WizardState["step"], string> = {
   4: "Confirm",
 };
 
+interface ClonedPreview {
+  spokespersonId: string;
+  voiceId: string;
+  previewUrl: string;
+}
+
 export function SpokespersonWizard() {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const navigate = useNavigate();
@@ -214,6 +220,16 @@ export function SpokespersonWizard() {
   const workspaceId = me.data?.default_workspace?.id;
   const create = useCreateSpokesperson();
   const clone = useCloneVoice();
+  // W11.x.2 (SESSION 175) — voice preview surface. When the
+  // wizard's clone-voice mutation returns a preview_url
+  // (Runway's hosted preview of the cloned voice), pause the
+  // auto-navigate and surface an inline audio player so the
+  // operator can hear what Runway turned their upload /
+  // recording into BEFORE landing on the detail page. If they
+  // don't like it, they can navigate back to Step 3 and
+  // re-record.
+  const [clonedPreview, setClonedPreview] =
+    useState<ClonedPreview | null>(null);
 
   const onNext = useCallback(() => dispatch({ type: "NEXT" }), []);
   const onPrev = useCallback(() => dispatch({ type: "PREV" }), []);
@@ -254,10 +270,26 @@ export function SpokespersonWizard() {
       state.voice.dataUri
     ) {
       try {
-        await clone.mutateAsync({
+        const result = await clone.mutateAsync({
           id: createdId,
           audio_data_uri: state.voice.dataUri,
         });
+        // W11.x.2 (SESSION 175) — when Runway returns a
+        // hosted preview URL for the cloned voice, hold on
+        // the wizard so the operator can play it before
+        // landing on the detail page. Mock-mode clones
+        // return preview_url=null; same with real-mode
+        // clones that Runway hasn't generated a sample for
+        // yet — both cases fall through to immediate
+        // navigation.
+        if (result.voice.preview_url) {
+          setClonedPreview({
+            spokespersonId: createdId,
+            voiceId: result.voice.voice_id,
+            previewUrl: result.voice.preview_url,
+          });
+          return;
+        }
       } catch {
         // intentionally swallowed — see comment above
       }
@@ -292,28 +324,106 @@ export function SpokespersonWizard() {
         className="flex min-h-[20rem] flex-col gap-6 rounded-md border bg-card p-8 shadow-paper"
         data-testid={`wizard-step-${state.step}`}
       >
-        {state.step === 1 && <Step1Identity state={state} dispatch={dispatch} />}
-        {state.step === 2 && <Step2Portrait state={state} dispatch={dispatch} />}
-        {state.step === 3 && <Step3Voice state={state} dispatch={dispatch} />}
-        {state.step === 4 && (
-          <Step4Confirm
-            state={state}
-            workspaceId={workspaceId}
-            tierLimit={tierLimit}
-            generalError={generalError}
+        {clonedPreview ? (
+          <VoicePreviewPanel
+            preview={clonedPreview}
+            onContinue={() =>
+              navigate(`/spokespeople/${clonedPreview.spokespersonId}`, {
+                replace: true,
+              })
+            }
           />
+        ) : (
+          <>
+            {state.step === 1 && <Step1Identity state={state} dispatch={dispatch} />}
+            {state.step === 2 && <Step2Portrait state={state} dispatch={dispatch} />}
+            {state.step === 3 && <Step3Voice state={state} dispatch={dispatch} />}
+            {state.step === 4 && (
+              <Step4Confirm
+                state={state}
+                workspaceId={workspaceId}
+                tierLimit={tierLimit}
+                generalError={generalError}
+              />
+            )}
+          </>
         )}
       </div>
 
-      <Navigation
-        step={state.step}
-        canAdvance={canAdvance(state)}
-        pending={create.isPending || clone.isPending}
-        onNext={onNext}
-        onPrev={onPrev}
-        onCancel={onCancel}
-        onSubmit={onSubmit}
+      {!clonedPreview && (
+        <Navigation
+          step={state.step}
+          canAdvance={canAdvance(state)}
+          pending={create.isPending || clone.isPending}
+          onNext={onNext}
+          onPrev={onPrev}
+          onCancel={onCancel}
+          onSubmit={onSubmit}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * W11.x.2 (SESSION 175) — voice preview panel shown after a
+ * successful clone-voice mutation. Replaces Step4Confirm in
+ * the wizard's main slot so the operator can hear what Runway
+ * turned their upload / recording into BEFORE the navigation
+ * to the detail page completes.
+ *
+ * If the operator dislikes the result, they hit browser-back
+ * (which lands on Step 3 with the existing audio capture
+ * preserved — the wizard reducer keeps voice.dataUri until
+ * dispatch:RESET). They'd re-record and re-submit; the
+ * spokesperson row already exists but the next clone-voice
+ * call replaces the bound voice on Runway's side.
+ */
+export function VoicePreviewPanel({
+  preview,
+  onContinue,
+}: {
+  preview: ClonedPreview;
+  onContinue: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-5" data-testid="voice-preview-panel">
+      <StepHeading
+        kicker="Voice ready"
+        title="Hear how it sounds."
+        body="Runway turned your recording into the bound spokesperson voice. Listen below — if it sounds right, continue to the detail page. If not, go back and re-record."
       />
+      <div className="rounded-md border border-border bg-muted/30 p-5">
+        <audio
+          controls
+          src={preview.previewUrl}
+          className="w-full"
+          data-testid="voice-preview-audio"
+        >
+          Your browser doesn't support audio playback.
+          <a
+            href={preview.previewUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline"
+          >
+            Open the preview directly
+          </a>
+          .
+        </audio>
+        <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+          voice id · {preview.voiceId}
+        </p>
+      </div>
+      <div className="flex items-center justify-end gap-3">
+        <Button
+          type="button"
+          onClick={onContinue}
+          data-testid="voice-preview-continue"
+        >
+          Continue to detail page
+        </Button>
+      </div>
     </div>
   );
 }
