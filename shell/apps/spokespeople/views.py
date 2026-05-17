@@ -427,7 +427,14 @@ class SpokespersonViewSet(viewsets.ModelViewSet):
                     name=spokesperson.name,
                     portrait_data_uri=portrait.portrait_data_uri,
                     voice_preset=voice_preset,
-                    personality=spokesperson.business_brief or None,
+                    # W11.y (SESSION 175) — personality / brief
+                    # split. The Runway avatar ``personality``
+                    # field maps to our new ``personality``
+                    # field. Pre-split rows have personality
+                    # backfilled from business_brief so rebakes
+                    # produce the same Runway-side personality
+                    # until the operator splits the content.
+                    personality=spokesperson.personality or None,
                 )
         except MediaEngineError as exc:
             logger.warning(

@@ -22,6 +22,7 @@ const MOCK_SP: Spokesperson = {
   workspace_name: "Workspace",
   name: "Marcus",
   business_brief: "AP history teacher.",
+  personality: "AP history teacher.",
   visual_subject: "battle unicorn in roman gear",
   visual_template: "mascot",
   tone_archetype: "tutor",

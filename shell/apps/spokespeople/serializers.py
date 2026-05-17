@@ -40,6 +40,11 @@ class SpokespersonSerializer(serializers.ModelSerializer):
             "workspace_name",
             "name",
             "business_brief",
+            # W11.y (SESSION 175) — see Spokesperson.personality docstring.
+            # Splits HOW (personality) from WHAT (business_brief) so
+            # operators can swap business briefs across personality
+            # types.
+            "personality",
             "visual_subject",
             "visual_template",
             "tone_archetype",

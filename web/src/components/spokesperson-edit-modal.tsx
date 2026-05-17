@@ -54,6 +54,12 @@ export function SpokespersonEditModal({
   const [businessBrief, setBusinessBrief] = useState(
     spokesperson.business_brief ?? "",
   );
+  // W11.y (SESSION 175) — personality / business_brief split.
+  // Pre-W11.y rows had personality backfilled from business_brief
+  // server-side; operator can split per-spokesperson here.
+  const [personality, setPersonality] = useState(
+    spokesperson.personality ?? "",
+  );
   const [visualSubject, setVisualSubject] = useState(
     spokesperson.visual_subject ?? "",
   );
@@ -98,6 +104,7 @@ export function SpokespersonEditModal({
     return (
       name.trim() !== spokesperson.name ||
       businessBrief !== (spokesperson.business_brief ?? "") ||
+      personality !== (spokesperson.personality ?? "") ||
       visualSubject !== (spokesperson.visual_subject ?? "") ||
       toneArchetype !== spokesperson.tone_archetype ||
       voicePreset !== (spokesperson.voice_id ?? "")
@@ -129,6 +136,9 @@ export function SpokespersonEditModal({
       if (businessBrief !== (spokesperson.business_brief ?? "")) {
         payload.business_brief = businessBrief;
       }
+      if (personality !== (spokesperson.personality ?? "")) {
+        payload.personality = personality;
+      }
       if (visualSubject !== (spokesperson.visual_subject ?? "")) {
         payload.visual_subject = visualSubject;
       }
@@ -139,6 +149,7 @@ export function SpokespersonEditModal({
       const hasPatchFields =
         payload.name !== undefined ||
         payload.business_brief !== undefined ||
+        payload.personality !== undefined ||
         payload.visual_subject !== undefined ||
         payload.tone_archetype !== undefined;
       if (hasPatchFields) {
@@ -294,20 +305,53 @@ export function SpokespersonEditModal({
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="edit-brief">Business brief</Label>
+          <Label htmlFor="edit-brief">
+            Business brief{" "}
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+              WHAT
+            </span>
+          </Label>
           <textarea
             id="edit-brief"
             value={businessBrief}
             onChange={(e) => setBusinessBrief(e.target.value)}
             rows={5}
             disabled={isPending}
-            placeholder="What does this spokesperson sound like, and what business do they represent?"
+            placeholder="The product, the audience, pricing, key policies. Facts the spokesperson grounds in."
             className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             data-testid="edit-brief"
           />
           <p className="text-xs text-muted-foreground">
-            Drives K6's render-time script voice. Changes apply to the next
-            video you create.
+            Facts about the business. Treated as authoritative alongside the
+            knowledge corpus.
+          </p>
+        </div>
+
+        {/* W11.y (SESSION 175) — personality split from business_brief.
+            Pre-W11.y rows have personality backfilled from
+            business_brief so this defaults to a copy of the brief
+            until the operator splits them. */}
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="edit-personality">
+            Personality{" "}
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+              HOW
+            </span>
+          </Label>
+          <textarea
+            id="edit-personality"
+            value={personality}
+            onChange={(e) => setPersonality(e.target.value)}
+            rows={4}
+            disabled={isPending}
+            placeholder="Voice, character, mannerisms. How the spokesperson speaks. Distinct from the business brief above."
+            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            data-testid="edit-personality"
+          />
+          <p className="text-xs text-muted-foreground">
+            Drives K6's tone fence + the realtime avatar's
+            personality on Runway's side. Empty falls back to business
+            brief.
           </p>
         </div>
 

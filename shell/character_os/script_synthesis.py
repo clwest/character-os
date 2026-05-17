@@ -353,28 +353,50 @@ def _system_prompt(spokesperson: "Spokesperson") -> str:
 
     K6.6 (SESSION 168) — structural guidance added after operator
     feedback that scripts "feel like picking up mid conversation."
-    The standalone-video framing tells the model the viewer has
-    no prior context, so it needs to open before claiming.
 
-    K6.6.1 (SESSION 171) — business-brief leak fix. The K6.6
-    opener instruction ("grounds them in who you are") combined
-    with the un-fenced ``Their business brief is: …`` injection
-    caused the model to recite role + audience + persona
-    description in the script (e.g. Marcus opening with "I'm
-    Marcus, your AP history tutor…"). Fix is three-part: drop
-    the "who you are" framing so the opener orients the viewer
-    on the *topic*; fence ``business_brief`` as tone-only
-    guidance; add an explicit anti-recitation rule.
+    K6.6.1 (SESSION 171) — business-brief leak fix. Fenced
+    business_brief as tone-only + added anti-recitation rule.
+
+    W11.y (SESSION 175) — personality / business_brief split.
+    Pre-split the single business_brief field did double duty:
+    voice-on-the-page (HOW) AND business facts (WHAT). K6.6.1
+    fenced the whole blob as tone-only, but that meant the
+    model couldn't ground in real business facts; chunks were
+    the only fact source. Post-split:
+
+    * ``personality`` (operator-supplied voice / character) goes
+      in the TONE fence with the recitation guard. This is the
+      previous ``business_brief`` tone-only role.
+    * ``business_brief`` (operator-supplied business facts)
+      moves to the FACT fence alongside chunks. The model MAY
+      paraphrase + ground in it; the recitation guard no
+      longer applies because it's facts the operator wants
+      voiced, not character description.
+
+    Backfill (migration 0005, Option B) populated personality
+    from the old business_brief for every existing row, so
+    pre-W11.y rows produce the same K6 output (both fences
+    see the same content) until the operator splits them.
     """
     tone = spokesperson.tone_archetype or "expert"
+    personality = (
+        getattr(spokesperson, "personality", "") or ""
+    ).strip()
     brief = (spokesperson.business_brief or "").strip()
     return (
         f"You are writing the spoken script for {spokesperson.name}, "
         f"an on-camera spokesperson. Their tone archetype is {tone!r}. "
         + (
-            f"Context about the speaker (use this ONLY to shape tone "
+            f"Speaker voice + character (use this ONLY to shape tone "
             f"and perspective — do NOT recite, paraphrase, or describe "
-            f"this in the script): {brief}\n"
+            f"this in the script): {personality}\n"
+            if personality else ""
+        )
+        + (
+            f"Business facts the speaker can ground in (these ARE "
+            f"the product / business — paraphrase as needed; treat "
+            f"as authoritative alongside the knowledge chunks): "
+            f"{brief}\n"
             if brief else ""
         )
         + (
@@ -384,17 +406,19 @@ def _system_prompt(spokesperson: "Spokesperson") -> str:
             "Open with a brief setup that grounds the viewer in "
             "what this video is about (one or two short sentences). "
             "Then make your one clear claim or insight from the "
-            "knowledge chunks. Then one call to action. "
+            "knowledge chunks or business facts. Then one call to "
+            "action. "
             "Do NOT begin mid-thought as if continuing a "
             "conversation. The first sentence must stand alone. "
             "Do NOT introduce yourself, name your role, describe "
-            "your audience, or recite your background — the viewer "
-            "cares about the topic, not your resume.\n"
+            "your audience, or recite the speaker voice + character "
+            "block — the viewer cares about the topic, not your "
+            "resume.\n"
         )
-        + "Use facts only from the knowledge chunks the user supplies. "
-        "Do not invent product details, prices, or features. If a fact "
-        "isn't in the chunks, leave it out. Speak naturally — first "
-        "person where appropriate."
+        + "Use facts only from the knowledge chunks + business facts "
+        "the user supplies. Do not invent product details, prices, "
+        "or features. If a fact isn't in either source, leave it out. "
+        "Speak naturally — first person where appropriate."
     )
 
 

@@ -66,6 +66,12 @@ interface WizardState {
   identity: {
     name: string;
     business_brief: string;
+    // W11.y (SESSION 175) — HOW the spokesperson speaks (voice,
+    // mannerisms, opener style). Distinct from ``business_brief``
+    // (the WHAT — facts about the business). Optional in the
+    // wizard; operator can leave empty + fill later from the edit
+    // modal. Pre-W11.y rows have it backfilled server-side.
+    personality: string;
     visual_subject: string;
     // Wizard-internal: drives Step 2's GeneratePanel default. NOT
     // sent to the create-spokesperson backend (the payload is
@@ -114,6 +120,7 @@ const INITIAL_STATE: WizardState = {
   identity: {
     name: "",
     business_brief: "",
+    personality: "",
     visual_subject: "",
     visual_template: "mascot", // matches GeneratePanel's prior local default
     tone_archetype: "expert", // matches model default
@@ -248,6 +255,7 @@ export function SpokespersonWizard() {
         workspace: workspaceId,
         name: state.identity.name.trim(),
         business_brief: state.identity.business_brief.trim(),
+        personality: state.identity.personality.trim() || undefined,
         visual_subject: state.identity.visual_subject.trim() || undefined,
         visual_template: state.identity.visual_template,
         tone_archetype: state.identity.tone_archetype as ToneArchetype,
@@ -303,6 +311,7 @@ export function SpokespersonWizard() {
     state.voice.dataUri,
     state.identity.name,
     state.identity.business_brief,
+    state.identity.personality,
     state.identity.visual_subject,
     state.identity.visual_template,
     state.identity.tone_archetype,
@@ -575,15 +584,16 @@ function Step1Identity({
           Business brief
         </Label>
         <p className="text-xs text-muted-foreground">
-          One paragraph the spokesperson speaks from. The business,
-          the product, the audience, the tone.
+          <strong>WHAT</strong> the business does — facts the spokesperson
+          grounds in. Product, audience, pricing, policies. Treated as
+          authoritative alongside the workspace knowledge corpus.
         </p>
         <textarea
           id="wizard-brief"
           rows={5}
           maxLength={4000}
           className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          placeholder="Sells artisan bicycle bells to small bike shops. Tone: warm, opinionated, just-the-facts. Audience: shop owners under 45 who care about hand-built parts."
+          placeholder="Sells artisan bicycle bells to small bike shops. Hand-built parts, $40-120 price range. Audience: shop owners under 45 who care about quality components."
           value={state.identity.business_brief}
           onChange={(e) =>
             dispatch({
@@ -613,6 +623,44 @@ function Step1Identity({
             }
           />
         )}
+      </div>
+
+      {/* W11.y (SESSION 175) — personality is HOW the spokesperson
+          speaks, distinct from business_brief (WHAT). Optional in
+          the wizard; operator can leave empty + fill from edit
+          modal later. Pre-W11.y rows have personality backfilled
+          from business_brief server-side. */}
+      <div className="flex flex-col gap-2">
+        <Label
+          htmlFor="wizard-personality"
+          className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground"
+        >
+          Personality{" "}
+          <span className="ml-1 normal-case tracking-normal text-muted-foreground/70">
+            (optional)
+          </span>
+        </Label>
+        <p className="text-xs text-muted-foreground">
+          <strong>HOW</strong> the spokesperson speaks — voice, character,
+          mannerisms, opener style. K6 reads this as tone guidance and
+          Runway uses it for the avatar's realtime personality. Leave
+          empty to use the business brief as both (pre-split behavior).
+        </p>
+        <textarea
+          id="wizard-personality"
+          rows={4}
+          maxLength={4000}
+          className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          placeholder="Warm, opinionated, just-the-facts. Opens with a single concrete observation, not a greeting. Speaks like someone who's been in the shop for 30 years."
+          value={state.identity.personality}
+          onChange={(e) =>
+            dispatch({
+              type: "SET_IDENTITY",
+              patch: { personality: e.target.value },
+            })
+          }
+          data-testid="wizard-personality-input"
+        />
       </div>
 
       <div className="flex flex-col gap-2">
@@ -1023,6 +1071,12 @@ function Step4Confirm({
             label="Business brief"
             value={state.identity.business_brief || "—"}
             wrap
+          />
+          <ReviewRow
+            label="Personality"
+            value={state.identity.personality || "(blank — brief will be used as both)"}
+            wrap
+            muted={!state.identity.personality}
           />
           <ReviewRow
             label="Tone"

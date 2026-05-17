@@ -849,35 +849,61 @@ def test_system_prompt_includes_standalone_video_framing_k6_6() -> None:
     assert "first sentence must stand alone" in prompt
 
 
-def test_system_prompt_business_brief_fenced_as_tone_only_k6_6_1() -> None:
-    """K6.6.1 (SESSION 171) — business_brief must be injected
-    as tone/perspective guidance, NOT as plain context the model
-    will treat as content to recite. The pre-fix prompt said
-    "Their business brief is: <brief>" which the model read as
-    instruction to introduce themselves with the brief content.
-    Marcus's real-Runway render leaked "I'm Marcus, your AP
-    history tutor" because of this.
+def test_system_prompt_personality_fenced_as_tone_only_w11_y() -> None:
+    """W11.y (SESSION 175) — supersedes K6.6.1's
+    business_brief tone-fencing. With the personality split,
+    PERSONALITY (not business_brief) is the field fenced as
+    tone-only. business_brief moved to the FACT fence
+    alongside knowledge chunks.
 
-    Lock the fence wording so future refactors don't drop it.
+    Lock the new fence wording so future refactors don't
+    drop the recitation guard for personality.
     """
     from character_os.script_synthesis import _system_prompt
 
     class _FakeSp:
         name = "Marcus"
         tone_archetype = "tutor"
-        business_brief = "Gen X AP US history teacher for high school students."
+        personality = "Patient teacher. Opens with a question, never a greeting."
+        business_brief = "Teaches AP US history through the lens of perspective."
 
     prompt = _system_prompt(_FakeSp())
 
-    # The brief itself still flows in (the model needs it for
-    # tone), but it MUST be fenced.
-    assert "Gen X AP US history teacher" in prompt
-    # Fence wording — the explicit do-not-recite framing.
+    # Personality flows in inside the TONE fence.
+    assert "Patient teacher. Opens with a question" in prompt
+    # Fence wording — the do-not-recite framing now applies
+    # to personality, not business_brief.
     assert "ONLY to shape tone" in prompt
     assert "do NOT recite, paraphrase, or describe this" in prompt
-    # The pre-K6.6.1 phrasing must NOT appear — that's what
-    # invited the leak.
+    # business_brief flows in too, but as FACTS (paraphrase
+    # encouraged) — NOT inside the tone fence.
+    assert "Teaches AP US history" in prompt
+    assert "Business facts the speaker can ground in" in prompt
+    # Pre-K6.6.1 phrasing stays gone.
     assert "Their business brief is:" not in prompt
+
+
+def test_system_prompt_no_personality_omits_tone_fence_w11_y() -> None:
+    """W11.y — personality is optional. When empty, the tone
+    fence is omitted entirely (no "ONLY to shape tone" copy
+    appears). business_brief still appears in the FACT fence
+    so its content reaches the model."""
+    from character_os.script_synthesis import _system_prompt
+
+    class _FakeSp:
+        name = "Marcus"
+        tone_archetype = "tutor"
+        personality = ""  # operator hasn't split content yet
+        business_brief = "Teaches AP US history."
+
+    prompt = _system_prompt(_FakeSp())
+
+    # No personality → no tone fence.
+    assert "ONLY to shape tone" not in prompt
+    assert "do NOT recite, paraphrase, or describe this" not in prompt
+    # business_brief still surfaces as facts.
+    assert "Teaches AP US history" in prompt
+    assert "Business facts the speaker can ground in" in prompt
 
 
 def test_system_prompt_drops_who_you_are_opener_framing_k6_6_1() -> None:
@@ -905,18 +931,19 @@ def test_system_prompt_drops_who_you_are_opener_framing_k6_6_1() -> None:
 
 
 def test_system_prompt_includes_anti_recitation_rule_k6_6_1() -> None:
-    """K6.6.1 (SESSION 171) — explicit rule the prompt now
-    carries: do not introduce yourself / recite role / describe
-    audience / recite background. The Marcus leak proved that
-    structural framing alone (topic-orientation opener) isn't
-    enough; a plain-English don't-do-this rule is the belt to
-    the framing's suspenders.
+    """K6.6.1 (SESSION 171) + W11.y (SESSION 175) — the
+    anti-recitation rule the prompt carries. K6.6.1 phrased
+    it as "recite your background"; W11.y narrowed it to
+    "recite the speaker voice + character block" because
+    business_brief is no longer fenced as tone-only (the
+    model SHOULD paraphrase business facts).
     """
     from character_os.script_synthesis import _system_prompt
 
     class _FakeSp:
         name = "Marcus"
         tone_archetype = "tutor"
+        personality = "Patient teacher voice."
         business_brief = "Gen X AP US history teacher."
 
     prompt = _system_prompt(_FakeSp())
@@ -924,7 +951,11 @@ def test_system_prompt_includes_anti_recitation_rule_k6_6_1() -> None:
     assert "Do NOT introduce yourself" in prompt
     assert "name your role" in prompt
     assert "describe your audience" in prompt
-    assert "recite your background" in prompt
+    # W11.y wording — "background" → "speaker voice + character block".
+    # The narrower target reflects the split: business_brief is now
+    # allowed to be paraphrased; only the personality fence
+    # carries the recitation guard.
+    assert "speaker voice + character block" in prompt
 
 
 def test_opener_override_appears_in_user_prompt_k6_6() -> None:

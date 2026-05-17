@@ -638,7 +638,10 @@ def build_corpus(
     Sources, in order:
 
     * Retrieved chunks (`chunk_text` on each).
-    * Spokesperson name + business_brief.
+    * Spokesperson name + business_brief + personality (W11.y
+      split, SESSION 175 — both fields now allow-listed; pre-
+      W11.y rows have personality backfilled from business_brief
+      so this is additive only).
     * Operator prompt (what the operator typed for *this*
       render — they're allowed to introduce terms).
     * KNOWN_PLATFORM_TERMS.
@@ -656,6 +659,13 @@ def build_corpus(
         brief = getattr(spokesperson, "business_brief", "") or ""
         if brief:
             parts.append(brief)
+        # W11.y (SESSION 175) — personality is a separate field
+        # post-split. Operators may put named entities here too
+        # (e.g. "speaks like Marcus Aurelius would"). Allow-list
+        # both fields.
+        personality = getattr(spokesperson, "personality", "") or ""
+        if personality:
+            parts.append(personality)
     if operator_prompt:
         parts.append(operator_prompt)
     parts.extend(KNOWN_PLATFORM_TERMS)

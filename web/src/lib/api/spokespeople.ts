@@ -54,6 +54,11 @@ const spokespersonSchema = z.object({
   workspace_name: z.string().optional(),
   name: z.string(),
   business_brief: z.string(),
+  // W11.y (SESSION 175) — splits HOW (personality) from WHAT
+  // (business_brief). ``.default("")`` keeps the schema parsing
+  // pre-W11.y server responses cleanly (operator could roll
+  // back the SPA to before the field existed).
+  personality: z.string().default(""),
   visual_subject: z.string(),
   visual_template: z.enum(PORTRAIT_TEMPLATES),
   tone_archetype: z.enum(TONE_ARCHETYPES),
@@ -123,6 +128,9 @@ export interface CreateSpokespersonInput {
   workspace: string;
   name: string;
   business_brief: string;
+  // W11.y (SESSION 175) — HOW the spokesperson speaks. Optional
+  // at create time; defaults to "" (operator can edit later).
+  personality?: string;
   /** Free-text "what this spokesperson looks like" — "armored
    * battle unicorn", "neon-pink raccoon". Persists on the row;
    * Wizard Step 2 (W7) threads it into `/internal/portrait/`
@@ -278,11 +286,12 @@ export interface UpdateSpokespersonInput {
   id: string;
   /** Patch only the fields the operator changed. Send only modified
    * keys; the backend PATCH will leave the rest alone. Editable
-   * fields per the serializer: name, business_brief, visual_subject,
-   * tone_archetype. Voice + avatar are read-only on this path
-   * (separate action endpoints; W11.2 to wire). */
+   * fields per the serializer: name, business_brief, personality,
+   * visual_subject, tone_archetype. Voice + avatar are read-only
+   * on this path (separate action endpoints; W11.2 wired). */
   name?: string;
   business_brief?: string;
+  personality?: string;
   visual_subject?: string;
   tone_archetype?: ToneArchetype;
 }

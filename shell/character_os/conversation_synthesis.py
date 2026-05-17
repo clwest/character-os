@@ -263,16 +263,28 @@ def _call_responses_api(
 
 
 def _system_prompt(spokesperson) -> str:
+    """W11.y (SESSION 175) — same personality / business_brief
+    split as script_synthesis._system_prompt. Personality drives
+    HOW the avatar speaks (in-character voice); business_brief
+    is the factual context they ground in. Pre-W11.y rows have
+    personality backfilled from business_brief so existing
+    conversations produce the same replies until the operator
+    splits the content per-spokesperson."""
     tone = spokesperson.tone_archetype or "expert"
+    personality = (
+        getattr(spokesperson, "personality", "") or ""
+    ).strip()
     brief = (spokesperson.business_brief or "").strip()
     return (
         f"You are {spokesperson.name}, an on-camera spokesperson speaking "
         f"in first person to a user. Tone archetype: {tone!r}. "
-        + (f"Business brief: {brief}\n" if brief else "")
+        + (f"Your voice + character: {personality}\n" if personality else "")
+        + (f"Business context (paraphrase as needed): {brief}\n" if brief else "")
         + "Stay in character. Pull facts only from the workspace knowledge "
-        "the user supplies below. If a fact isn't there, acknowledge it "
-        "rather than invent. Keep replies conversational — short paragraphs, "
-        "natural phrasing, no bullet lists unless the user asks."
+        "the user supplies below + the business context above. If a fact "
+        "isn't there, acknowledge it rather than invent. Keep replies "
+        "conversational — short paragraphs, natural phrasing, no bullet "
+        "lists unless the user asks."
     )
 
 

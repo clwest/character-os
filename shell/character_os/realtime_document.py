@@ -108,9 +108,19 @@ def compose_realtime_document(
     """
     name = (spokesperson.name or "").strip() or "Spokesperson"
     brief = (spokesperson.business_brief or "").strip()
-    # Use the business_brief as the implicit query so chunks
-    # most-related to the spokesperson's identity float to
-    # the top. Falls back to the name when brief is empty.
+    # W11.y (SESSION 175) — personality / business_brief split.
+    # Personality describes HOW the avatar speaks (voice,
+    # mannerisms); business_brief describes WHAT the business is
+    # (facts). Both belong in the Runway document. Pre-W11.y
+    # rows have personality backfilled from business_brief so
+    # this is additive only.
+    personality = (
+        getattr(spokesperson, "personality", "") or ""
+    ).strip()
+    # Retrieval query stays anchored on business_brief because
+    # facts make better retrieval queries than voice descriptions
+    # ("AcmeCorp inventory" pulls relevant chunks; "patient
+    # teacher" doesn't). Falls back to name when brief empty.
     query = brief or name
 
     try:
@@ -131,6 +141,11 @@ def compose_realtime_document(
     # order under budget (per scope-lock §R4): memory first,
     # then knowledge tail chunks. About + header never drop.
     header_lines = [f"# {name}", ""]
+    # W11.y — Voice section drives HOW the avatar speaks; About
+    # section drives WHAT they speak about. Voice comes first so
+    # Runway anchors tone before facts.
+    if personality:
+        header_lines += ["## Voice", "", personality, ""]
     if brief:
         header_lines += ["## About", "", brief, ""]
     header = "\n".join(header_lines)

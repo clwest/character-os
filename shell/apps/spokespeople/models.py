@@ -62,9 +62,33 @@ class Spokesperson(models.Model):
     business_brief = models.TextField(
         blank=True,
         help_text=(
-            "One-paragraph description of the business this spokesperson "
-            "represents. Promoted up from the legacy per-campaign "
-            "brief_prompt (design doc §4.3)."
+            "WHAT the business does — facts the spokesperson grounds "
+            "their claims in. Product, target market, pricing, key "
+            "policies. The K6 system prompt treats this as factual "
+            "context (alongside retrieved knowledge chunks). Pre-W11.y "
+            "(SESSION 175) this field held both facts AND personality; "
+            "they're split now — describe the BUSINESS here and put "
+            "voice / character / mannerisms in ``personality``."
+        ),
+    )
+    # W11.y (SESSION 175) — personality is HOW the spokesperson
+    # speaks (voice, character, mannerisms) while ``business_brief``
+    # above is WHAT the business does (facts). Splitting them lets
+    # operators swap business briefs across personality types
+    # without changing the spokesperson's voice on the page.
+    # Backfilled from business_brief in migration 0005 so existing
+    # K6 + Runway flows keep working unchanged.
+    personality = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "HOW the spokesperson speaks — voice, character, "
+            "mannerisms, opener style. K6's tone-guidance fence "
+            "feeds from this; Runway's avatar create + realtime "
+            "session ``personality`` field maps to this. Distinct "
+            "from ``business_brief`` (facts) above so operators can "
+            "swap business briefs across personality types without "
+            "re-baking the voice on the page."
         ),
     )
     visual_subject = models.CharField(
