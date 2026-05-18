@@ -40,11 +40,11 @@ MAX_TOP_K = 5
         "whose answer might be in an attached doc. Pass the "
         "topic as `query`. "
         "SAY ALOUD before invoking: 'Let me check what I have "
-        "on that.' Then INVOKE. After invoking, do NOT wait "
-        "silently — briefly acknowledge ('Here's what I'm "
-        "seeing…') and keep the conversation moving. The SPA "
-        "shows the matches; you do not need to recite chunk "
-        "text verbatim."
+        "on that.' Then INVOKE. The SPA renders a citation "
+        "panel listing matched chunks. AFTER invoking, briefly "
+        "summarise the key point in your own words ('From what "
+        "I'm seeing, …') and keep going — don't recite chunks "
+        "verbatim; the operator already sees them."
     ),
     cost_micros=1_000,  # ~$0.001 per call
     workspace_scoped=True,

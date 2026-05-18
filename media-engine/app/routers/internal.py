@@ -355,6 +355,50 @@ class InternalAvatarChangeVoiceResponse(BaseModel):
     mock_mode: bool
 
 
+class InternalAvatarChangePersonality(BaseModel):
+    """Update the personality / system-prompt text bound to an
+    existing Runway avatar without re-baking. Sibling of
+    `change-voice`; same best-effort status semantics."""
+
+    personality: str = Field(min_length=1, max_length=10_000)
+
+
+class InternalAvatarChangePersonalityResponse(BaseModel):
+    avatar_id: str
+    status: str  # "applied" | "mock_patched" | "pending_avatar" | "failed"
+    error: Optional[str] = None
+    mock_mode: bool
+
+
+@router.post(
+    "/avatars/{avatar_id}/change-personality/",
+    response_model=InternalAvatarChangePersonalityResponse,
+)
+def post_internal_avatar_change_personality(
+    avatar_id: str,
+    body: InternalAvatarChangePersonality,
+    settings: Settings = Depends(get_settings),
+):
+    """PATCH the existing avatar's personality text on Runway.
+
+    Use case: operator edits the local Spokesperson.personality
+    (W11.y); this endpoint pushes the new persona to Runway's
+    avatar resource so non-session-create surfaces (avatar_videos
+    bakes, etc.) inherit the same voice.
+    """
+    from ..services.voice_clone_client import apply_personality_to_avatar
+
+    result = apply_personality_to_avatar(
+        avatar_id, body.personality, settings,
+    )
+    return InternalAvatarChangePersonalityResponse(
+        avatar_id=avatar_id,
+        status=result.status,
+        error=result.error,
+        mock_mode=settings.runway_mock,
+    )
+
+
 @router.post(
     "/avatars/{avatar_id}/change-voice/",
     response_model=InternalAvatarChangeVoiceResponse,

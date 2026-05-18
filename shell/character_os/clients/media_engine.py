@@ -495,6 +495,25 @@ class MediaEngineClient:
             json={"voice_id": voice_id, "voice_kind": voice_kind},
         )
 
+    def change_avatar_personality(
+        self,
+        *,
+        avatar_id: str,
+        personality: str,
+    ) -> dict:
+        """PATCH the Runway avatar's personality text without
+        re-baking. Sibling of `change_avatar_voice`. Same return
+        shape + best-effort semantics. The local
+        Spokesperson.personality is the source of truth; this
+        method pushes the latest value to Runway's avatar
+        resource so non-session-create surfaces (recipes that
+        call avatar_videos directly, etc.) inherit it.
+        """
+        return self.request(
+            "POST", f"/internal/avatars/{avatar_id}/change-personality/",
+            json={"personality": personality},
+        )
+
     def create_video(
         self,
         *,

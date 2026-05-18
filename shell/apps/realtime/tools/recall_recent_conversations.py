@@ -36,10 +36,12 @@ PREVIEW_CHAR_BUDGET = 500
         "about', 'do you remember', 'what do you know about "
         "me'. "
         "SAY ALOUD before invoking: 'Let me pull up what we "
-        "covered last time.' Then INVOKE. After invoking, ask "
-        "which thread they want to revisit. Do NOT invent "
-        "specific dates or topics — if it isn't in your "
-        "already-loaded memory, defer to what the SPA renders."
+        "covered last time.' Then INVOKE. The SPA renders a "
+        "panel listing the prior sessions for the operator. "
+        "AFTER invoking, briefly reference the topics you "
+        "already remember from your loaded document memory "
+        "(e.g. 'I see our Caesar discussion came up') and ask "
+        "which thread they want to pick up."
     ),
     cost_micros=0,
     workspace_scoped=True,

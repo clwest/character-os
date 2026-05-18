@@ -550,3 +550,82 @@ def apply_voice_to_avatar(
             error=f"PATCH rc={resp.status_code}: {resp.text[:200]}",
         )
     return VoiceApplyResult(status="applied")
+
+
+# Runway 400s with "personality: Too big" past this cap; the broker
+# already sentence-trims its session-create override against the same
+# ceiling so this is a defensive guard, not an expected truncation.
+_AVATAR_PERSONALITY_MAX = 9500
+
+
+def apply_personality_to_avatar(
+    avatar_id: Optional[str],
+    personality: Optional[str],
+    settings: Settings,
+    *,
+    timeout: float = 15.0,
+) -> VoiceApplyResult:
+    """PATCH ``/v1/avatars/{avatar_id}`` to update the avatar's
+    persona text without re-baking the avatar.
+
+    Mirrors ``apply_voice_to_avatar``'s shape. Same status taxonomy
+    (``applied`` / ``mock_patched`` / ``pending_avatar`` /
+    ``failed``); never raises; the caller persists the status.
+
+    Use case: W11.y split ``Spokesperson.personality`` out of
+    ``business_brief``. Operator edits the local field; this PATCH
+    pushes the new text to Runway's avatar resource so future flows
+    that bypass the session-create personality override (recipes
+    that call avatar_videos directly, etc.) inherit the same voice.
+    """
+    if not avatar_id:
+        return VoiceApplyResult(
+            status="pending_avatar",
+            error="no avatar to apply personality to",
+        )
+    if personality is None:
+        return VoiceApplyResult(
+            status="failed",
+            error="personality is required",
+        )
+    text = (personality or "").strip()
+    if len(text) > _AVATAR_PERSONALITY_MAX:
+        text = text[:_AVATAR_PERSONALITY_MAX].rstrip()
+    if settings.runway_mock or str(avatar_id).startswith("mock_"):
+        return VoiceApplyResult(status="mock_patched")
+
+    url = f"{settings.runway_api_base}/v1/avatars/{avatar_id}"
+    body = {"personality": text}
+    headers = {
+        "Authorization": f"Bearer {settings.runway_api_key}",
+        "X-Runway-Version": settings.runway_api_version,
+        "Content-Type": "application/json",
+    }
+    try:
+        with httpx.Client(timeout=timeout) as client:
+            resp = client.patch(url, headers=headers, json=body)
+    except httpx.HTTPError as exc:
+        logger.warning(
+            "avatar PATCH personality http error for %s: %s",
+            avatar_id, exc,
+        )
+        return VoiceApplyResult(
+            status="failed",
+            error=f"http error: {exc!s}"[:200],
+        )
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.exception("avatar PATCH personality unexpected")
+        return VoiceApplyResult(
+            status="failed",
+            error=f"unexpected: {exc!s}"[:200],
+        )
+    if resp.status_code >= 400:
+        logger.warning(
+            "avatar PATCH personality non-2xx for %s: %s %s",
+            avatar_id, resp.status_code, resp.text[:200],
+        )
+        return VoiceApplyResult(
+            status="failed",
+            error=f"PATCH rc={resp.status_code}: {resp.text[:200]}",
+        )
+    return VoiceApplyResult(status="applied")

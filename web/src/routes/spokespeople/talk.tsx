@@ -710,10 +710,21 @@ function ToolResultPanel({ result }: { result: DispatchResult }) {
   const queued = result.state === "queued";
   const failed = result.state === "failed";
   const rejected = result.state === "rejected";
+  const resultObj = isResultObject(result.result) ? result.result : null;
+  const isRecallSessions =
+    ok &&
+    result.tool_name === "recall_recent_conversations" &&
+    resultObj !== null &&
+    Array.isArray(resultObj.sessions);
+  const isRecallKnowledge =
+    ok &&
+    result.tool_name === "recall_knowledge" &&
+    resultObj !== null &&
+    Array.isArray(resultObj.matches);
   return (
     <div
       className={
-        "flex flex-col gap-1 rounded border px-4 py-3 text-xs " +
+        "flex flex-col gap-2 rounded border px-4 py-3 text-xs " +
         (ok
           ? "border-emerald-300 bg-emerald-50 text-emerald-900"
           : queued
@@ -735,13 +746,124 @@ function ToolResultPanel({ result }: { result: DispatchResult }) {
       </div>
       {result.error_message && <p>{result.error_message}</p>}
       {result.reason && <p className="italic">{result.reason}</p>}
-      {ok && isResultObject(result.result) && (
+      {isRecallSessions && (
+        <RecallSessionsList
+          sessions={resultObj.sessions as RecallSession[]}
+        />
+      )}
+      {isRecallKnowledge && (
+        <RecallKnowledgeList
+          query={typeof resultObj.query === "string" ? resultObj.query : ""}
+          matches={resultObj.matches as KnowledgeMatch[]}
+        />
+      )}
+      {ok && resultObj !== null && !isRecallSessions && !isRecallKnowledge && (
         <p className="font-mono text-foreground/80">
-          {summariseResultObject(result.result)}
+          {summariseResultObject(resultObj)}
         </p>
       )}
     </div>
   );
+}
+
+interface RecallSession {
+  session_id: string;
+  ended_at: string | null;
+  duration_seconds?: number | null;
+  preview: string;
+}
+
+function RecallSessionsList({ sessions }: { sessions: RecallSession[] }) {
+  if (sessions.length === 0) {
+    return (
+      <p className="italic text-foreground/70">
+        No prior conversations to recall yet.
+      </p>
+    );
+  }
+  return (
+    <ul
+      className="flex flex-col gap-2"
+      data-testid="recall-sessions-list"
+    >
+      {sessions.map((s) => (
+        <li
+          key={s.session_id}
+          className="rounded border border-emerald-200 bg-white/60 px-3 py-2"
+        >
+          <div className="flex items-baseline justify-between gap-2 text-[11px] uppercase tracking-wide text-foreground/60">
+            <span>{formatRecallTimestamp(s.ended_at)}</span>
+            {typeof s.duration_seconds === "number" && (
+              <span>{Math.max(1, Math.round(s.duration_seconds))}s</span>
+            )}
+          </div>
+          <p className="mt-1 whitespace-pre-wrap text-foreground/90">
+            {s.preview}
+          </p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+interface KnowledgeMatch {
+  chunk_id: string;
+  document_title?: string | null;
+  text: string;
+}
+
+function RecallKnowledgeList({
+  query,
+  matches,
+}: {
+  query: string;
+  matches: KnowledgeMatch[];
+}) {
+  if (matches.length === 0) {
+    return (
+      <p className="italic text-foreground/70">
+        No knowledge matches{query ? ` for "${query}"` : ""}.
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-2" data-testid="recall-knowledge-list">
+      {query && (
+        <p className="text-[11px] uppercase tracking-wide text-foreground/60">
+          Query: <span className="normal-case italic">{query}</span>
+        </p>
+      )}
+      <ul className="flex flex-col gap-2">
+        {matches.map((m) => (
+          <li
+            key={m.chunk_id}
+            className="rounded border border-emerald-200 bg-white/60 px-3 py-2"
+          >
+            {m.document_title && (
+              <p className="text-[11px] font-medium uppercase tracking-wide text-foreground/60">
+                {m.document_title}
+              </p>
+            )}
+            <p className="mt-1 whitespace-pre-wrap text-foreground/90">
+              {m.text}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function formatRecallTimestamp(iso: string | null): string {
+  if (!iso) return "Earlier session";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function isResultObject(value: unknown): value is Record<string, unknown> {
