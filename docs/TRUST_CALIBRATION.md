@@ -2761,3 +2761,139 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   (e.g. choosing between subtle palette variants) should
   factor accessibility / color blindness into the choice,
   not assume the operator sees what designers see.
+
+## 2026-05-18 — AI confidently wrong: Celery worker doesn't auto-reload on new primitive registrations
+
+- **Context / claim:** SESSION 179 shipped V16
+  (`remove_avatar_background` primitive). After commit
+  `57c2530`, I told the operator "Django auto-reloaded the
+  new starter (pid 14769). Celery worker (pid 12005) already
+  knows `concat_clips` from V5 — no restart needed." That
+  framing was correct for V5's already-registered primitive
+  but I generalized it to V16's NEW primitive without
+  checking. First operator dogfood failed:
+  `UnknownPrimitiveError: No primitive registered for
+  'remove_avatar_background'`. The Celery worker had been
+  running since SESSION 178 close — before V16's
+  `apps/compositions/primitives/__init__.py` edit registered
+  the new entry. Worker imported the registry at startup;
+  later edits don't hot-reload.
+- **Reality / outcome:** Restart the worker (`kill -TERM <pid>;
+  nohup celery -A character_os worker ...`). New worker
+  imports the post-V16 registry. `retry_step` on the failed
+  step let the composition resume from the matting stage
+  without re-spending Runway credits on already-succeeded
+  backdrop + speech steps.
+- **Found by:** Operator dogfood of the V16 flow surfaced
+  it; Monitor watch caught the `UnknownPrimitiveError` at
+  step transition.
+- **Lesson:** **Django runserver auto-reloads on `.py`
+  changes; Celery does NOT.** Any commit touching
+  `apps/compositions/primitives/` OR `apps/*/tasks.py` OR
+  `apps/*/signals.py` needs a Celery worker restart on the
+  operator's box. The cheap insurance is `ps aux | grep
+  "celery -A"` at session start (already in the boot drift
+  sweep) PLUS the moment any new primitive / task / signal
+  ships. **Pattern**: when committing a registry / signal /
+  task change, include a "Celery restart needed" callout in
+  the commit message AND restart it before telling the
+  operator to dogfood. Same gotcha as the SESSION 147 drift
+  audit's "stale running processes" item but for a different
+  trigger surface.
+
+## 2026-05-18 — AI confidently wrong: ffmpeg can't infer muxer from .webm.tmp tempfile suffix
+
+- **Context / claim:** V16's media-engine endpoint mirrored
+  the existing tempfile pattern from other endpoints
+  (`output_path.with_suffix(".webm.tmp")`) and the ffmpeg
+  cmd relied on ffmpeg's default "infer muxer from output
+  extension" behavior. I shipped V16 (commit `57c2530`)
+  thinking the pipeline was correct — the standalone spike
+  worked when I tested against `/tmp/test-mat-real.webm`
+  (single extension).
+- **Reality / outcome:** First real-mode dogfood failed
+  with a 500. Standalone repro with the actual function's
+  output_path showed ffmpeg dying immediately with "Unable
+  to choose an output format for '<file>.webm.tmp'; use a
+  standard extension for the filename or specify the format
+  manually." This propagated as a BrokenPipeError when the
+  rembg-frame writer hit the closed stdin. ffmpeg's
+  extension-based muxer inference only handles single
+  extensions; `.webm.tmp` is two extensions and the
+  inference silently drops it as unknown. Fix in commit
+  `88b341e`: add `-f webm` to the ffmpeg cmd to pin the
+  muxer explicitly.
+- **Found by:** Operator dogfood + AI standalone repro
+  capturing ffmpeg stderr to a file (the original code
+  routed stderr to PIPE and the BrokenPipeError prevented
+  draining it; capturing to a file bypassed that).
+- **Lesson:** **When shelling out to ffmpeg with double-
+  extension tempfile names (`.webm.tmp`, `.mp4.tmp`,
+  `.mp3.tmp`, etc.), always pair the temp suffix with an
+  explicit `-f <muxer>` flag.** Default behavior of "infer
+  from extension" is silently lost the moment the extension
+  isn't a single recognized format. Why the other tempfile-
+  pattern endpoints (concat / composite / mix) happened to
+  work: their output formats overlap with whatever ffmpeg
+  falls back to for unknown extensions in `.mp4.tmp`. The
+  `.webm.tmp` combination is the failure case. Pattern to
+  watch: when introducing a new output format alongside an
+  existing pattern, always sanity-check the muxer is being
+  chosen as expected with `ffmpeg -loglevel info` on a tiny
+  test invocation. Secondary lesson: capturing stderr to
+  PIPE while writing to stdin can deadlock if stderr buffer
+  fills — the SESSION 179 fix also drains stderr on
+  BrokenPipeError so operators see the real ffmpeg
+  diagnostic instead of a generic 500.
+
+## 2026-05-18 — Reinforcement: real-mode dogfood found a bug in every recipe it touched
+
+- **Context / claim:** SESSION 176's R-arc hardening
+  established the pattern: mock-only test coverage hides
+  upstream drift. The V-arc shipped 18 starter recipes
+  SESSIONS 142-144 with mock-mode tests only;
+  `talking_head` was the only one real-mode validated
+  (SESSION 158). The risk profile was theoretical at
+  slice-ship time.
+- **Reality / outcome:** SESSION 179 validated three more
+  recipes (`long_form_ad`, `cinematic_visual`,
+  `talking_head_with_backdrop`). Each surfaced production
+  bugs that mock-mode coverage missed:
+    - `talking_head_with_backdrop` real-mode → visible 3-
+      second backdrop motion seam during a 22s avatar
+      speech (V8 single-backdrop limitation; mock-mode
+      doesn't render motion so the seam was invisible).
+      Fixed in `077c349`.
+    - `cinematic_visual` real-mode → 400 because text-only
+      prompts defaulted to `gen4_turbo` which requires a
+      reference image. Fixed in `9db31c3`.
+    - `talking_head_with_backdrop` multi-backdrop real-mode
+      → 500 on composite step because concat output's
+      `/data/_internal/...` path couldn't be resolved as an
+      absolute filesystem path on the media-engine side.
+      Fixed in `04fcdb0`.
+    - V16 first real-mode dogfood → 500 because ffmpeg
+      couldn't infer the output format from `.webm.tmp`.
+      Fixed in `88b341e`.
+  Three real-mode runs, four production bugs. Two of those
+  bugs (`cinematic_visual` model selection and the resolver
+  path translation) had been latent for months — would have
+  bitten any operator who tried those recipes in production.
+- **Found by:** Operator-driven real-mode dogfood. Each bug
+  surfaced within seconds of clicking submit; none would
+  have been caught by additional mock-mode unit tests.
+- **Lesson:** **Real-mode dogfood is not optional for
+  operator-facing slices.** Mock-mode test coverage is
+  necessary (catches refactoring regressions, exercises
+  state machines, hits 4/5 nines of correctness) but
+  insufficient (misses upstream provider drift, missing
+  field requirements, model-routing logic, format-
+  inference bugs). Budget the ~$0.50-$2.00 of Runway spend
+  per validation as the cost of not shipping broken
+  recipes. Pattern reinforcement of the existing
+  `feedback_real_mode_dogfood_after_operator_slices`
+  memory: the V-arc's "17 of 18 recipes never real-mode
+  validated" backlog is high-probability hidden-bug
+  territory. SESSION 180 priority: keep walking through
+  the recipes. Don't claim a recipe is "shipped" until a
+  real-mode render succeeds end-to-end.
