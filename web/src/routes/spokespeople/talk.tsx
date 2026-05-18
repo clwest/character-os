@@ -408,7 +408,7 @@ function IdlePanel({
           reconnect afterward.
         </p>
         <div
-          className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200"
+          className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-foreground"
           data-testid="talk-headphones-tip"
         >
           <Headphones className="mt-0.5 h-4 w-4 shrink-0" />
@@ -609,7 +609,7 @@ function LivePanel({
           video={false}
           onEnd={onSdkEnd}
           onError={onSdkError}
-          className="w-full max-w-3xl self-center overflow-hidden rounded-xl border bg-black shadow-lg"
+          className="w-full max-w-3xl self-center overflow-hidden rounded-xl border border-border bg-card shadow-md"
           data-testid="avatar-call"
         >
           {/* `video` is the LOCAL-media flag (operator's
@@ -649,15 +649,15 @@ function LiveIndicator({ mock }: { mock: boolean }) {
       className={
         "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium" +
         (mock
-          ? " bg-yellow-100 text-yellow-800"
-          : " bg-emerald-100 text-emerald-800")
+          ? " bg-muted text-muted-foreground"
+          : " bg-success/15 text-success")
       }
       data-testid={mock ? "live-pill-mock" : "live-pill-real"}
     >
       <span
         className={
           "h-2 w-2 rounded-full" +
-          (mock ? " bg-yellow-500" : " animate-pulse bg-emerald-500")
+          (mock ? " bg-muted-foreground" : " animate-pulse bg-success")
         }
       />
       {mock ? "Live (demo mode)" : "Live"}
@@ -755,15 +755,15 @@ function ToolResultPanel({ result }: { result: DispatchResult }) {
   return (
     <div
       className={
-        "flex flex-col gap-2 rounded border px-4 py-3 text-xs " +
+        "flex flex-col gap-2 rounded border px-4 py-3 text-xs text-foreground " +
         (ok
-          ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+          ? "border-success/40 bg-success/10"
           : queued
-            ? "border-blue-300 bg-blue-50 text-blue-900"
+            ? "border-accent/40 bg-accent/10"
             : rejected
-              ? "border-yellow-300 bg-yellow-50 text-yellow-900"
+              ? "border-warning/40 bg-warning/10"
               : failed
-                ? "border-destructive bg-destructive/10 text-destructive"
+                ? "border-destructive/40 bg-destructive/10 text-destructive"
                 : "border-border bg-muted")
       }
       data-testid="tool-result-panel"
@@ -820,7 +820,7 @@ function RecallSessionsList({ sessions }: { sessions: RecallSession[] }) {
       {sessions.map((s) => (
         <li
           key={s.session_id}
-          className="rounded border border-emerald-200 bg-white/60 px-3 py-2"
+          className="rounded border border-border bg-card/80 px-3 py-2"
         >
           <div className="flex items-baseline justify-between gap-2 text-[11px] uppercase tracking-wide text-foreground/60">
             <span>{formatRecallTimestamp(s.ended_at)}</span>
@@ -868,7 +868,7 @@ function RecallKnowledgeList({
         {matches.map((m) => (
           <li
             key={m.chunk_id}
-            className="rounded border border-emerald-200 bg-white/60 px-3 py-2"
+            className="rounded border border-border bg-card/80 px-3 py-2"
           >
             {m.document_title && (
               <p className="text-[11px] font-medium uppercase tracking-wide text-foreground/60">
