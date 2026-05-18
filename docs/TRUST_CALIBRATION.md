@@ -2593,3 +2593,49 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   triggers — write them like you'd write the avatar's
   script. Length cap 500 for character-os media-engine
   validation; Runway accepts up to 1024.
+
+
+## 2026-05-18 — Lossy paraphrase of scope locks in start-here menu copy
+
+- **Context / claim:** SESSION 176's wrap re-listed the
+  FIRST THING menu for SESSION 177. K10 / F8.1 appeared as:
+  "F8.1 K10 seed corpus — draft one piece of seed content,
+  then K1-K7 ingest flow exercises against real operator
+  knowledge instead of test fixtures. High value because it
+  grounds K-arc + R-arc dogfood in operator-authored
+  content." The framing assumed "operator-authored markdown"
+  was the missing input.
+- **Reality / outcome:** Operator pushed back at SESSION 177
+  boot: "the whole point of the way we set everything up is
+  that the platform creates the content, the user provides
+  all of the data, creates the spokesperson and gives the
+  spokesperson a personality." The actual K10 scope lock
+  (KNOWLEDGE_LAYER.md L1253) is "Onboarding seed:
+  `seed_workspace_knowledge` task. `docs/seeds/character_os/
+  *.md` corpus. Trigger on `is_operator=True` workspace
+  creation." The seed is **platform-shipped content about
+  Character OS itself**, ingested automatically into every
+  new operator's workspace so day-1 dogfood has real
+  reference content. Not operator-authored data uploads;
+  not user content the platform synthesizes — platform-
+  authored docs about the platform.
+- **Found by:** Operator's product-framing pushback against
+  the menu copy. AI menu paraphrase had drifted from the
+  scope lock's actual shape.
+- **Lesson:** **FIRST THING menu items in the start-here
+  doc must quote or paraphrase the scope lock accurately;
+  re-state the actual blocker, not an AI re-interpretation
+  of what the work entails.** When the operator asks "what's
+  the blocker?" the answer should match the scope lock's
+  own description of the slice. Drift between scope lock
+  and menu copy is a load-bearing source of confusion —
+  the operator reads the menu, not the scope lock, in
+  session-start decisions. Pattern to watch: any FIRST
+  THING bullet that paraphrases what a slice involves
+  should be cross-checked against the slice's own
+  description in the relevant design lock doc. Fixed
+  SESSION 177 — start-here K10 entry now references the
+  actual scope-lock wording (`docs/seeds/character_os/*.md`
+  + `is_operator=True` trigger) and accurately names the
+  block as "5-10 short markdown files about Character OS
+  itself need to be authored."

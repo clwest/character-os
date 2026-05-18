@@ -109,11 +109,18 @@ Five new TRUST_CALIBRATION entries appended:
 
 ### FIRST THING (SESSION 177): pick by mood
 
-1. **F8.1 K10 seed corpus** — draft one piece of seed content,
-   then K1-K7 ingest flow exercises against real operator
-   knowledge instead of test fixtures. **High value** because
-   it grounds K-arc + R-arc dogfood in operator-authored
-   content.
+1. **F8.1 K10 seed corpus** — the K10 scope lock is
+   *platform-shipped* content (`docs/seeds/character_os/*.md`)
+   that auto-ingests into every new `is_operator=True`
+   workspace so the operator's first spokesperson can answer
+   "what does Character OS do for me?" without needing
+   operator-uploaded docs. **Block**: 5-10 short markdown
+   files about the platform itself need to be authored
+   (capabilities, FAQ, how-to, value-prop — written FROM the
+   platform's perspective, not any specific operator's
+   business). High leverage because it unblocks every new
+   operator's day-1 dogfood + grounds the R-arc/K-arc
+   pipeline in real reference content.
 2. **Sasha + Donny voice swap re-investigation** — SESSION 175
    swaps didn't persist on either spokesperson. ~30 min.
 3. **R6 memory phrasing polish** — compare composition prompt
