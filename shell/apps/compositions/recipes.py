@@ -332,6 +332,16 @@ RECIPES: dict[str, Recipe] = {
                 required=False, default=10, min_value=5, max_value=10,
             ),
             RecipeField(name="use_knowledge", type="checkbox", label="Use workspace knowledge", required=False, default=False),
+            RecipeField(
+                name="remove_avatar_bg", type="checkbox",
+                label="Remove avatar background (slower)",
+                required=False, default=False,
+                help_text=(
+                    "Mat the avatar out of its baked white background "
+                    "so it sits cleanly over the cinematic backdrop. "
+                    "Adds ~2-3 minutes per render."
+                ),
+            ),
             _VERIFIER_MODE_FIELD,
             _OPENER_FIELD,
             _NAME_FIELD,

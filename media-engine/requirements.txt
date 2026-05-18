@@ -8,3 +8,10 @@ openai==1.51.0
 # PR R — multipart parsing for POST /api/runway/upload-image. FastAPI
 # `UploadFile` / `File` depends on this; otherwise import-time crash.
 python-multipart==0.0.20
+# SESSION 179 / V16 — avatar background removal for
+# composite_video. rembg ships an ONNX-runtime portrait model
+# (u2net_human_seg); opencv is the frame decoder feeding it. Both
+# CPU-only — first call downloads the ~176MB model to ~/.u2net/.
+rembg==2.0.75
+onnxruntime==1.26.0
+opencv-python-headless==4.13.0.92

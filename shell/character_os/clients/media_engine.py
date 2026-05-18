@@ -820,6 +820,27 @@ class MediaEngineClient:
         )
         return _parse_processed_clip(data, "reformat_clip")
 
+    def remove_avatar_background(
+        self,
+        *,
+        clip_url: str,
+        model: str = "u2net_human_seg",
+        # The pipeline runs frame-by-frame through rembg on CPU
+        # (~3-4 fps on M-series); a 22s 24fps clip needs ~2.4 min.
+        # Default timeout covers a generous 60s clip.
+        timeout: float = 900.0,
+    ) -> "ProcessedClipResult":
+        """Hit ``POST /internal/clips/remove_background/`` — mat
+        the avatar out of its Runway-baked white background so a
+        downstream ``composite_video`` can layer it over a real
+        scene. Returns a WebM with alpha (VP9 / yuva420p)."""
+        data = self.request(
+            "POST", "/internal/clips/remove_background/",
+            json={"clip_url": clip_url, "model": model},
+            timeout=timeout,
+        )
+        return _parse_processed_clip(data, "remove_avatar_background")
+
     def design_voice(
         self,
         *,
@@ -1292,14 +1313,27 @@ class MediaEngineClient:
         *,
         params: dict | None = None,
         json: Any = None,
+        timeout: float | None = None,
     ) -> dict:
         """Low-level wrapper. Returns parsed JSON; raises ``MediaEngineError``
-        on any non-2xx response or transport error."""
+        on any non-2xx response or transport error. ``timeout`` overrides
+        the client-level default for one call — used by long-running
+        endpoints like ``remove_avatar_background`` (rembg pipeline takes
+        minutes, not seconds)."""
         url = path if path.startswith("/") else f"/{path}"
+        effective_timeout = (
+            timeout if timeout is not None else self._timeout
+        )
         try:
-            response = self._client.request(method, url, params=params, json=json)
+            response = self._client.request(
+                method, url, params=params, json=json,
+                timeout=effective_timeout,
+            )
         except httpx.TimeoutException as exc:
-            logger.warning("media-engine timeout %s %s after %ss", method, url, self._timeout)
+            logger.warning(
+                "media-engine timeout %s %s after %ss",
+                method, url, effective_timeout,
+            )
             raise MediaEngineError(
                 f"timeout calling {method} {url}",
                 status_code=None,

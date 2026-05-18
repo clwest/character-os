@@ -687,6 +687,13 @@ def talking_head_with_backdrop(
     margin_x: int = 40,
     margin_y: int = 40,
     use_knowledge: bool = False,
+    # SESSION 179 / V16. When True, insert a
+    # remove_avatar_background step between speech + composite
+    # so the avatar tile rides over the backdrop without the
+    # baked-in Runway white square. Default off — the matting
+    # pipeline is slow (~2.4 min for a 22s clip on CPU) and the
+    # operator may not always want to pay that latency.
+    remove_avatar_bg: bool = False,
     mock_mode: bool = False,
     name: str = "",
     created_by: "AbstractBaseUser | None" = None,
@@ -830,8 +837,9 @@ def talking_head_with_backdrop(
     # backdrop. Skipped when N==1 so the single-backdrop path
     # stays a 3-step composition (backwards-compatible with prior
     # tests + small scripts).
+    next_position = speech_position + 1
     if n_backdrops > 1:
-        concat_position = speech_position + 1
+        concat_position = next_position
         CompositionStep.objects.create(
             composition=composition,
             position=concat_position,
@@ -843,10 +851,32 @@ def talking_head_with_backdrop(
             params={},
         )
         background_source = concat_position
-        composite_position = concat_position + 1
+        next_position += 1
     else:
         background_source = 0
-        composite_position = speech_position + 1
+
+    # Step N+? (optional, V16) — strip the avatar's baked white
+    # background so the composite below lays the avatar over the
+    # backdrop without a picture-frame. Inserted only when
+    # ``remove_avatar_bg=True`` so the existing 3-step / chain
+    # contracts (and their tests) hold by default.
+    if remove_avatar_bg:
+        matte_position = next_position
+        CompositionStep.objects.create(
+            composition=composition,
+            position=matte_position,
+            primitive="remove_avatar_background",
+            inputs=[
+                {"slot": "clip", "from_step_position": speech_position},
+            ],
+            params={},
+        )
+        foreground_source = matte_position
+        next_position += 1
+    else:
+        foreground_source = speech_position
+
+    composite_position = next_position
 
     # Final — composite avatar over the (concat'd or single)
     # backdrop. composite_video's `backdrop` layout expects
@@ -859,7 +889,7 @@ def talking_head_with_backdrop(
         primitive="composite_video",
         inputs=[
             {"slot": "background", "from_step_position": background_source},
-            {"slot": "foreground", "from_step_position": speech_position},
+            {"slot": "foreground", "from_step_position": foreground_source},
         ],
         params={
             "layout_spec": {
@@ -876,9 +906,9 @@ def talking_head_with_backdrop(
     logger.info(
         "starter talking_head_with_backdrop created composition=%s "
         "spokesperson=%s mock=%s use_knowledge=%s fg_width=%d "
-        "n_backdrops=%d backdrop_seconds=%d",
+        "n_backdrops=%d backdrop_seconds=%d remove_avatar_bg=%s",
         composition.id, spokesperson.id, mock_mode, use_knowledge,
-        fg_width, n_backdrops, backdrop_seconds,
+        fg_width, n_backdrops, backdrop_seconds, remove_avatar_bg,
     )
     return composition
 

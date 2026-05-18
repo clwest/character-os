@@ -441,3 +441,96 @@ def test_custom_backdrop_duration_changes_chain_length() -> None:
     assert len(backdrop_steps) == 5
     for s in backdrop_steps:
         assert s.params["duration"] == 5
+
+
+# ---- V16 matting opt-in (SESSION 179) -----------------------------
+
+
+def test_remove_avatar_bg_default_omits_matting_step() -> None:
+    """Default behaviour: no remove_avatar_background step. The
+    3-step shape (single-backdrop) survives — load-bearing for
+    every existing V8 test above."""
+    ws = _make_workspace("v16_default@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="Hi there.", backdrop_prompt="A quiet bench.",
+        mock_mode=True,
+    )
+    primitives = [s.primitive for s in c.steps.all().order_by("position")]
+    assert "remove_avatar_background" not in primitives
+    assert primitives == [
+        "generate_visual_clip",
+        "generate_avatar_speech",
+        "composite_video",
+    ]
+
+
+def test_remove_avatar_bg_flag_inserts_matting_before_composite() -> None:
+    """With the flag on, matting lands between speech and
+    composite. The composite's foreground slot is rewired to
+    consume the matted clip instead of the raw avatar speech —
+    that's the whole point of the matting pass."""
+    ws = _make_workspace("v16_single@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="Hi.", backdrop_prompt="alley.",
+        remove_avatar_bg=True,
+        mock_mode=True,
+    )
+    steps = list(c.steps.all().order_by("position"))
+    # Single-backdrop + matting = 4 steps total
+    assert [s.primitive for s in steps] == [
+        "generate_visual_clip",
+        "generate_avatar_speech",
+        "remove_avatar_background",
+        "composite_video",
+    ]
+    matte = steps[2]
+    assert matte.inputs == [
+        {"slot": "clip", "from_step_position": 1},
+    ]
+    composite = steps[3]
+    bg, fg = composite.inputs
+    assert bg["slot"] == "background"
+    assert bg["from_step_position"] == 0  # backdrop
+    assert fg["slot"] == "foreground"
+    assert fg["from_step_position"] == 2  # matted, not raw speech
+
+
+def test_remove_avatar_bg_flag_inserts_matting_after_concat() -> None:
+    """Multi-backdrop chain + matting. Step layout:
+    N backdrops + speech + concat + matte + composite. The
+    composite's background = concat, foreground = matte."""
+    ws = _make_workspace("v16_chain@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 500,  # 5-backdrop chain
+        backdrop_prompt="A busy market.",
+        remove_avatar_bg=True,
+        mock_mode=True,
+    )
+    steps = list(c.steps.all().order_by("position"))
+    # 5 backdrops + speech + concat + matte + composite = 9
+    assert len(steps) == 9
+    assert [s.primitive for s in steps] == [
+        "generate_visual_clip",  # 0
+        "generate_visual_clip",  # 1
+        "generate_visual_clip",  # 2
+        "generate_visual_clip",  # 3
+        "generate_visual_clip",  # 4
+        "generate_avatar_speech",  # 5
+        "concat_clips",  # 6
+        "remove_avatar_background",  # 7
+        "composite_video",  # 8
+    ]
+    # Matte feeds from speech (position 5).
+    assert steps[7].inputs == [
+        {"slot": "clip", "from_step_position": 5},
+    ]
+    # Composite: bg=concat(6), fg=matte(7).
+    bg, fg = steps[8].inputs
+    assert bg["from_step_position"] == 6
+    assert fg["from_step_position"] == 7

@@ -47,6 +47,7 @@ from .polish import (
     ReformatClipPrimitive,
     TrimClipPrimitive,
 )
+from .remove_avatar_background import RemoveAvatarBackgroundPrimitive
 from .split_script import SplitScriptPrimitive
 from .style_remix import StyleRemixPrimitive
 from .transcribe import TranscribePrimitive
@@ -102,6 +103,7 @@ _REGISTRY: dict[str, Type[Primitive]] = {
     "generate_image": GenerateImagePrimitive,  # V13
     "audio_extract": AudioExtractPrimitive,  # V14
     # V15: SPA recipe gallery (no new primitives)
+    "remove_avatar_background": RemoveAvatarBackgroundPrimitive,  # V16
 }
 
 

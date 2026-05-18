@@ -2009,6 +2009,222 @@ def post_internal_intro_outro(
     )
 
 
+# ---- POST /internal/clips/remove_background/ ----------------------
+#
+# SESSION 179 / V16. Strip the white-square background Runway bakes
+# behind avatar talking-heads so composite_video's ``backdrop``
+# layout can put the avatar over any scene without the picture-
+# frame look. Pipeline is ffmpeg-decode → rembg (u2net_human_seg
+# ONNX) → ffmpeg-encode (VP9 with yuva420p alpha). Original audio
+# is muxed straight through. Synchronous, cached by hash of input
+# URL + model. Heavy on CPU — ~2.4 min for a 22s 24fps clip on
+# M-series; the Composition runtime fires it from Celery so no
+# request blocks.
+
+
+_REMOVE_BACKGROUND_MODELS = {"u2net_human_seg"}
+
+
+class InternalRemoveBackgroundCreate(BaseModel):
+    """Request body for ``POST /internal/clips/remove_background/``."""
+
+    clip_url: str = Field(..., min_length=1, max_length=2048)
+    # Restricted to the human-portrait model for v1. The broader
+    # rembg catalog (u2net / isnet / birefnet) opens up later if
+    # operators need scene matting too.
+    model: str = Field(default="u2net_human_seg", max_length=64)
+
+
+class _RemoveBackgroundError(Exception):
+    """Raised when the rembg / ffmpeg pipeline fails. Caught by
+    the route handler and surfaced as a 500."""
+
+
+# Module-cached rembg sessions. The ONNX model load is the
+# expensive part (~1s + 176MB read); per-call would dominate
+# small clips.
+_rembg_sessions: dict[str, object] = {}
+
+
+def _get_rembg_session(model: str):
+    if model not in _rembg_sessions:
+        from rembg import new_session
+        _rembg_sessions[model] = new_session(model)
+    return _rembg_sessions[model]
+
+
+def _remove_background_dir(settings: Settings) -> Path:
+    target = settings.data_path / "_internal" / "matted"
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def _run_remove_background(
+    input_path: Path,
+    output_path: Path,
+    model: str,
+    timeout_seconds: int = 900,
+) -> None:
+    """Stream-mat the input clip into a VP9-alpha webm at
+    ``output_path``. Frames flow source → opencv → rembg → ffmpeg
+    stdin → encoder. Audio is muxed from the original file as a
+    second input. The frame loop self-paces against ffmpeg's stdin
+    buffer."""
+    import subprocess as _subprocess
+
+    import cv2  # type: ignore[import-untyped]
+    from rembg import remove
+
+    session = _get_rembg_session(model)
+    cap = cv2.VideoCapture(str(input_path))
+    if not cap.isOpened():
+        raise _RemoveBackgroundError(f"could not open input: {input_path}")
+    fps = cap.get(cv2.CAP_PROP_FPS) or 24.0
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    if width <= 0 or height <= 0:
+        cap.release()
+        raise _RemoveBackgroundError(
+            f"input has no decodable video stream: {input_path}"
+        )
+
+    tmp = output_path.with_suffix(".webm.tmp")
+    cmd = [
+        "ffmpeg", "-y", "-loglevel", "error",
+        # rawvideo from stdin: RGBA frames at the source fps
+        "-f", "rawvideo",
+        "-pix_fmt", "rgba",
+        "-s", f"{width}x{height}",
+        "-r", f"{fps:.6f}",
+        "-i", "-",
+        # audio comes from the original file (input #1)
+        "-i", str(input_path),
+        "-c:v", "libvpx-vp9",
+        "-pix_fmt", "yuva420p",
+        "-b:v", "1M",
+        "-deadline", "good",
+        "-cpu-used", "5",
+        "-c:a", "libopus", "-b:a", "128k",
+        "-map", "0:v", "-map", "1:a?",
+        "-shortest",
+        str(tmp),
+    ]
+    proc = _subprocess.Popen(
+        cmd, stdin=_subprocess.PIPE, stderr=_subprocess.PIPE,
+    )
+    try:
+        assert proc.stdin is not None
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                break
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            rgba = remove(rgb, session=session)
+            proc.stdin.write(rgba.tobytes())
+        proc.stdin.close()
+        rc = proc.wait(timeout=timeout_seconds)
+        if rc != 0:
+            stderr = (proc.stderr.read() if proc.stderr else b"")
+            err = stderr.decode("utf-8", "replace")[-400:]
+            tmp.unlink(missing_ok=True)
+            raise _RemoveBackgroundError(f"ffmpeg rc={rc}: {err}")
+        if not tmp.exists():
+            raise _RemoveBackgroundError("ffmpeg produced no output")
+        tmp.replace(output_path)
+    except _subprocess.TimeoutExpired:
+        proc.kill()
+        tmp.unlink(missing_ok=True)
+        raise _RemoveBackgroundError(
+            f"remove_background timed out after {timeout_seconds}s"
+        )
+    finally:
+        cap.release()
+
+
+@router.post(
+    "/clips/remove_background/",
+    response_model=InternalProcessedClipResponse,
+)
+def post_internal_remove_background(
+    body: InternalRemoveBackgroundCreate,
+    settings: Settings = Depends(get_settings),
+):
+    """Strip the avatar's baked background; output WebM with
+    alpha so composite_video can layer the avatar over any
+    backdrop without a white square around it."""
+    model = (body.model or "").strip() or "u2net_human_seg"
+    if model not in _REMOVE_BACKGROUND_MODELS:
+        return _error(
+            400, "validation_error",
+            f"model must be one of {sorted(_REMOVE_BACKGROUND_MODELS)}; "
+            f"got {model!r}",
+        )
+
+    cache_seed = (body.clip_url + "|model=" + model).encode("utf-8")
+    cache_key = hashlib.sha256(cache_seed).hexdigest()[:16]
+
+    if settings.runway_mock:
+        output_url = f"/data/_internal/matted/mock-{cache_key}.webm"
+        logger.info(
+            "internal remove_background mock output=%s model=%s",
+            output_url, model,
+        )
+        return InternalProcessedClipResponse(
+            output_url=output_url,
+            duration_seconds=5.0,
+            size_bytes=1024 * 1024,
+            mock_mode=True,
+        )
+
+    import shutil as _shutil
+
+    if not _shutil.which("ffmpeg"):
+        return _error(500, "internal_error", "ffmpeg not found on PATH")
+
+    target_dir = _remove_background_dir(settings)
+    output_path = target_dir / f"{cache_key}.webm"
+    if output_path.exists():
+        return InternalProcessedClipResponse(
+            output_url=f"/data/_internal/matted/{output_path.name}",
+            duration_seconds=None,
+            size_bytes=output_path.stat().st_size,
+            mock_mode=False,
+        )
+
+    try:
+        clip_path = _download_concat_input(
+            body.clip_url, target_dir / "sources", settings,
+        )
+    except FileNotFoundError as exc:
+        return _error(400, "validation_error", str(exc))
+    except httpx.HTTPError as exc:
+        logger.warning("remove_background download failed: %s", exc)
+        return _error(
+            502, "upstream_runway_error",
+            f"download error: {exc!s}"[:300],
+        )
+
+    try:
+        _run_remove_background(clip_path, output_path, model)
+    except _RemoveBackgroundError as exc:
+        logger.warning("remove_background pipeline failed: %s", exc)
+        return _error(500, "internal_error", str(exc))
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.exception("remove_background unexpected")
+        return _error(500, "internal_error", f"unexpected: {exc!s}"[:300])
+
+    logger.info(
+        "internal remove_background done output=%s model=%s size=%d",
+        output_path.name, model, output_path.stat().st_size,
+    )
+    return InternalProcessedClipResponse(
+        output_url=f"/data/_internal/matted/{output_path.name}",
+        duration_seconds=None,
+        size_bytes=output_path.stat().st_size,
+        mock_mode=False,
+    )
+
+
 # ---- POST /internal/clips/trim/ -----------------------------------
 
 
