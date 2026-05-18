@@ -52,10 +52,10 @@ export function useBrand(): Brand {
 // Re-exports so consumers can import sub-pieces directly without
 // touching `BRAND.*`. Useful for `signature.tsx`-style surfaces
 // that want only `parentBrand.contact`.
-export { parentBrand } from "./parent";
+export { parentBrand, productFamily } from "./parent";
 export { characterOsProduct } from "./products/character-os";
 export { tokens, colors, typography, spacing, radius, shadow, motion }
   from "./tokens";
-export type { ParentBrand } from "./parent";
+export type { ParentBrand, ProductFamilyEntry } from "./parent";
 export type { CharacterOsProduct } from "./products/character-os";
 export type { Tokens } from "./tokens";

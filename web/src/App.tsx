@@ -15,6 +15,7 @@ import { ImagesRoute } from "@/routes/images";
 import { CompositionStatusRoute } from "@/routes/compositions/$id";
 import { ConversationChatRoute } from "@/routes/conversations/$id";
 import { SignatureRoute } from "@/routes/signature";
+import { AboutRoute } from "@/routes/about";
 import { Layout } from "@/routes/_layout";
 
 export function App() {
@@ -131,6 +132,11 @@ export function App() {
               </RequireAuth>
             }
           />
+          {/* /about is public — no auth gate. The parent-company
+              identity surface is reachable from the ParentBrandChip
+              in the header on every authenticated page AND from
+              sign-in / sign-up. */}
+          <Route path="/about" element={<AboutRoute />} />
         </Route>
       </Routes>
     </BrowserRouter>

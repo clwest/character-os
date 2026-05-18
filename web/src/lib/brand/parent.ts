@@ -58,4 +58,54 @@ export const parentBrand = {
   },
 } as const;
 
+/**
+ * Product family roster. Mirrors `docs/247_GLOBAL_AI_OVERVIEW.md`
+ * §"Product family". Used by `/about` to render the public-facing
+ * product list. Reserved products are listed so external readers
+ * can see the family shape — actual product code lives in
+ * `web/src/lib/brand/products/*.ts` per the multi-product
+ * architecture (extracts to a shared package when product #2
+ * launches).
+ */
+export const productFamily = [
+  {
+    name: "CharacterOS",
+    slug: "character-os",
+    subtitle: "Persistent AI Spokesperson Infrastructure",
+    status: "live" as const,
+  },
+  {
+    name: "DealerOS",
+    slug: "dealer-os",
+    subtitle: "Dealer & automotive vertical AI infrastructure",
+    status: "reserved" as const,
+  },
+  {
+    name: "AgentOS",
+    slug: "agent-os",
+    subtitle: "Agent network operations infrastructure",
+    status: "reserved" as const,
+  },
+  {
+    name: "OpsOS",
+    slug: "ops-os",
+    subtitle: "Operations automation infrastructure",
+    status: "reserved" as const,
+  },
+  {
+    name: "VoiceOS",
+    slug: "voice-os",
+    subtitle: "Voice-first AI interface infrastructure",
+    status: "reserved" as const,
+  },
+  {
+    name: "SupportOS",
+    slug: "support-os",
+    subtitle: "Customer support intelligence infrastructure",
+    status: "reserved" as const,
+  },
+] as const;
+
+export type ProductFamilyEntry = (typeof productFamily)[number];
+
 export type ParentBrand = typeof parentBrand;

@@ -88,20 +88,25 @@ function SiteHeader({ compact }: { compact: boolean }) {
  * crowding the product name. Gold accent on the company name
  * keeps it discoverable; muted prefix avoids over-signalling.
  *
- * B5 (deferred) will turn this chip into a link to a dedicated
- * `/about` parent-company route. For now it's display-only.
+ * B5 (SESSION 178) — now a link to the dedicated `/about`
+ * parent-company route with the product family + contact +
+ * positioning. Hover state subtly brightens the gold to signal
+ * interactivity without visual noise.
  */
 function ParentBrandChip() {
   return (
-    <div
-      className="hidden items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] sm:flex"
+    <Link
+      to="/about"
+      className="hidden items-center gap-2 rounded-sm font-mono text-[10px] uppercase tracking-[0.22em] transition-colors hover:bg-muted/40 sm:flex sm:px-2 sm:py-1"
       data-testid="parent-brand-chip"
       title={BRAND.parent.tagline}
     >
       <span className="h-2 w-2 rounded-sm bg-accent" aria-hidden="true" />
       <span className="text-muted-foreground">a product of</span>
-      <span className="font-semibold text-accent">{BRAND.parent.name}</span>
-    </div>
+      <span className="font-semibold text-accent transition-colors group-hover:text-accent-bright">
+        {BRAND.parent.name}
+      </span>
+    </Link>
   );
 }
 
