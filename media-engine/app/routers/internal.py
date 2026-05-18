@@ -2107,27 +2107,48 @@ def _run_remove_background(
         "-c:a", "libopus", "-b:a", "128k",
         "-map", "0:v", "-map", "1:a?",
         "-shortest",
+        # Force the muxer; ffmpeg can't infer it from our ".webm.tmp"
+        # suffix and refuses to open the output.
+        "-f", "webm",
         str(tmp),
     ]
     proc = _subprocess.Popen(
         cmd, stdin=_subprocess.PIPE, stderr=_subprocess.PIPE,
     )
+    broken_at_frame: int | None = None
     try:
         assert proc.stdin is not None
+        n_written = 0
         while True:
             ok, frame = cap.read()
             if not ok:
                 break
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             rgba = remove(rgb, session=session)
-            proc.stdin.write(rgba.tobytes())
-        proc.stdin.close()
+            try:
+                proc.stdin.write(rgba.tobytes())
+                n_written += 1
+            except BrokenPipeError:
+                # ffmpeg died (bad muxer args, codec failure, etc.);
+                # surface its stderr instead of a generic 500.
+                broken_at_frame = n_written
+                break
+        try:
+            proc.stdin.close()
+        except BrokenPipeError:
+            pass
         rc = proc.wait(timeout=timeout_seconds)
-        if rc != 0:
+        if rc != 0 or broken_at_frame is not None:
             stderr = (proc.stderr.read() if proc.stderr else b"")
             err = stderr.decode("utf-8", "replace")[-400:]
             tmp.unlink(missing_ok=True)
-            raise _RemoveBackgroundError(f"ffmpeg rc={rc}: {err}")
+            where = (
+                f" (ffmpeg closed stdin after frame {broken_at_frame})"
+                if broken_at_frame is not None else ""
+            )
+            raise _RemoveBackgroundError(
+                f"ffmpeg rc={rc}{where}: {err}"
+            )
         if not tmp.exists():
             raise _RemoveBackgroundError("ffmpeg produced no output")
         tmp.replace(output_path)
