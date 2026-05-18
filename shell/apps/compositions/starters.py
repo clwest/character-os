@@ -46,6 +46,48 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+# Backdrop chain sizing for talking_head_with_backdrop (SESSION 179).
+# gen4.5 video clips top out at 10s per call. When the avatar speech
+# is longer than the backdrop, composite_video used to loop / freeze
+# the single backdrop — operator-visible as "only 3 seconds of real
+# motion in a 22-second video." We now generate N backdrop clips
+# sized to cover the estimated speech duration + concat them so the
+# composite shows continuous motion.
+#
+# Constants tuned against SESSION 179's real-mode dogfood:
+#   - 280-char Riggs script rendered as a 22-second clip → ~12.7 chars/sec
+#   - We use 11 chars/sec (slight over-estimate of duration) plus a
+#     2-second safety buffer so N covers actual speech length even on
+#     slower-paced voices. Composite trims long-edge to short-edge so
+#     over-provisioning by a second or two is free.
+_AVATAR_SPEECH_CHARS_PER_SECOND = 11
+_AVATAR_SPEECH_DURATION_BUFFER_SECONDS = 2
+_DEFAULT_BACKDROP_DURATION_SECONDS = 10
+_MAX_BACKDROP_CHAIN_LENGTH = 6  # 60s of backdrop motion; safety stop
+
+
+def _estimate_avatar_speech_seconds(script_chars: int) -> int:
+    """Conservative estimate of how long an avatar_speech clip will
+    run for a given script length. Over-estimating is safer than
+    under-estimating — N backdrops will cover the avatar; the
+    composite primitive trims the long edge."""
+    base = max(0, script_chars) / _AVATAR_SPEECH_CHARS_PER_SECOND
+    return max(5, int(base) + _AVATAR_SPEECH_DURATION_BUFFER_SECONDS)
+
+
+def _compute_backdrop_chain_length(
+    script_chars: int,
+    backdrop_duration_seconds: int,
+) -> int:
+    """How many backdrop clips to chain so the concat covers the
+    estimated speech duration. Clamped to
+    ``_MAX_BACKDROP_CHAIN_LENGTH`` so a pathological script can't
+    spin up 50 Runway calls."""
+    speech_seconds = _estimate_avatar_speech_seconds(script_chars)
+    n = -(-speech_seconds // max(1, backdrop_duration_seconds))  # ceil
+    return max(1, min(n, _MAX_BACKDROP_CHAIN_LENGTH))
+
+
 @transaction.atomic
 def talking_head(
     *,
@@ -732,24 +774,44 @@ def talking_head_with_backdrop(
         created_by=created_by,
     )
 
-    # Step 0 — cinematic backdrop. Params mirror the
-    # cinematic_visual starter shape.
-    backdrop_params: dict[str, object] = {"prompt": backdrop_prompt.strip()}
-    if backdrop_ratio is not None:
-        backdrop_params["ratio"] = backdrop_ratio
-    if backdrop_duration is not None:
-        backdrop_params["duration"] = backdrop_duration
-    CompositionStep.objects.create(
-        composition=composition,
-        position=0,
-        primitive="generate_visual_clip",
-        inputs=[],
-        params=backdrop_params,
+    # SESSION 179 — multi-backdrop chain. gen4.5 caps at 10s per
+    # clip; if we generate a single 10s backdrop and the avatar
+    # speech is 22s, composite_video used to loop the backdrop
+    # 2.2x (visible as a 3-second motion seam repeating). Instead,
+    # we estimate the speech duration from script length and lay
+    # down N backdrops sized so concat(N) ≥ speech duration. The
+    # composite primitive trims the long edge automatically. N is
+    # clamped to `_MAX_BACKDROP_CHAIN_LENGTH` so a pathological
+    # script can't spin up runaway Runway calls.
+    backdrop_seconds = backdrop_duration or _DEFAULT_BACKDROP_DURATION_SECONDS
+    script_clean = script.strip()
+    n_backdrops = _compute_backdrop_chain_length(
+        len(script_clean), backdrop_seconds,
     )
 
-    # Step 1 — avatar speech. Mirrors the talking_head starter.
+    # Steps 0..N-1 — N cinematic backdrops. Each carries the same
+    # prompt + duration so they read as continuous motion when
+    # concat'd. (Future tuning: vary the prompts per chunk to give
+    # the operator narrative B-roll variety.)
+    base_backdrop_params: dict[str, object] = {
+        "prompt": backdrop_prompt.strip(),
+        "duration": backdrop_seconds,
+    }
+    if backdrop_ratio is not None:
+        base_backdrop_params["ratio"] = backdrop_ratio
+    for i in range(n_backdrops):
+        CompositionStep.objects.create(
+            composition=composition,
+            position=i,
+            primitive="generate_visual_clip",
+            inputs=[],
+            params=dict(base_backdrop_params),
+        )
+
+    # Step N — avatar speech. Mirrors the talking_head starter.
+    speech_position = n_backdrops
     speech_params: dict = {
-        "script": script.strip(),
+        "script": script_clean,
         "use_knowledge": bool(use_knowledge),
     }
     if verifier_mode:
@@ -758,22 +820,46 @@ def talking_head_with_backdrop(
         speech_params["opener"] = opener.strip()
     CompositionStep.objects.create(
         composition=composition,
-        position=1,
+        position=speech_position,
         primitive="generate_avatar_speech",
         inputs=[],
         params=speech_params,
     )
 
-    # Step 2 — composite the avatar over the backdrop.
-    # composite_video's `backdrop` layout expects
-    # [0] = background (cinematic), [1] = foreground (avatar).
+    # Step N+1 (optional) — concat the N backdrops into one long
+    # backdrop. Skipped when N==1 so the single-backdrop path
+    # stays a 3-step composition (backwards-compatible with prior
+    # tests + small scripts).
+    if n_backdrops > 1:
+        concat_position = speech_position + 1
+        CompositionStep.objects.create(
+            composition=composition,
+            position=concat_position,
+            primitive="concat_clips",
+            inputs=[
+                {"slot": "clip", "from_step_position": i}
+                for i in range(n_backdrops)
+            ],
+            params={},
+        )
+        background_source = concat_position
+        composite_position = concat_position + 1
+    else:
+        background_source = 0
+        composite_position = speech_position + 1
+
+    # Final — composite avatar over the (concat'd or single)
+    # backdrop. composite_video's `backdrop` layout expects
+    # background + foreground slots; the primitive trims to the
+    # shorter input, so a slightly-over-provisioned backdrop chain
+    # is free (just gets trimmed to the speech duration).
     CompositionStep.objects.create(
         composition=composition,
-        position=2,
+        position=composite_position,
         primitive="composite_video",
         inputs=[
-            {"slot": "background", "from_step_position": 0},
-            {"slot": "foreground", "from_step_position": 1},
+            {"slot": "background", "from_step_position": background_source},
+            {"slot": "foreground", "from_step_position": speech_position},
         ],
         params={
             "layout_spec": {
@@ -789,8 +875,10 @@ def talking_head_with_backdrop(
 
     logger.info(
         "starter talking_head_with_backdrop created composition=%s "
-        "spokesperson=%s mock=%s use_knowledge=%s fg_width=%d",
-        composition.id, spokesperson.id, mock_mode, use_knowledge, fg_width,
+        "spokesperson=%s mock=%s use_knowledge=%s fg_width=%d "
+        "n_backdrops=%d backdrop_seconds=%d",
+        composition.id, spokesperson.id, mock_mode, use_knowledge,
+        fg_width, n_backdrops, backdrop_seconds,
     )
     return composition
 

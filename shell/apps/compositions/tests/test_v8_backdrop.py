@@ -32,7 +32,12 @@ from apps.compositions.models import (
     AssetType,
     CompositionStatus,
 )
-from apps.compositions.starters import talking_head_with_backdrop
+from apps.compositions.starters import (
+    _MAX_BACKDROP_CHAIN_LENGTH,
+    _compute_backdrop_chain_length,
+    _estimate_avatar_speech_seconds,
+    talking_head_with_backdrop,
+)
 from apps.compositions.tasks import execute_composition
 from apps.spokespeople.models import Spokesperson
 
@@ -163,10 +168,11 @@ def test_use_knowledge_default_is_false() -> None:
     assert speech.params["use_knowledge"] is False
 
 
-def test_starter_omits_optional_backdrop_params_when_unset() -> None:
-    """``ratio`` and ``duration`` only land in params when the
-    operator passed them — server-side defaults take over
-    otherwise."""
+def test_starter_omits_optional_backdrop_ratio_when_unset() -> None:
+    """``ratio`` only lands in params when the operator passed
+    it — media-engine's server-side default takes over otherwise.
+    ``duration`` is always set explicitly (SESSION 179) so the
+    backdrop chain length math has a known per-clip ceiling."""
     ws = _make_workspace("v8optional@test")
     sp = _make_spokesperson(ws)
     c = talking_head_with_backdrop(
@@ -176,7 +182,10 @@ def test_starter_omits_optional_backdrop_params_when_unset() -> None:
     )
     backdrop_step = c.steps.get(position=0)
     assert "ratio" not in backdrop_step.params
-    assert "duration" not in backdrop_step.params
+    # SESSION 179 — duration is always present + defaults to 10
+    # (gen4.5 max) so single-backdrop renders get the longest
+    # possible per-clip motion before any chain math runs.
+    assert backdrop_step.params["duration"] == 10
 
 
 # ---- validation paths --------------------------------------------
@@ -294,3 +303,141 @@ def test_cost_estimate_sums_all_three_primitives() -> None:
     # or scaled costs — confirm total exceeds the most expensive
     # individual primitive (generate_avatar_speech at >250k micros).
     assert total >= 250_000
+
+
+# ---- multi-backdrop chain (SESSION 179) ---------------------------
+
+
+def test_estimate_avatar_speech_seconds_helper() -> None:
+    """Speech estimator: 11 chars/sec + 2s buffer, floor at 5s.
+
+    Empty / tiny scripts clamp to the 5s floor so the chain math
+    never produces a zero-backdrop composition. Long scripts grow
+    linearly with character count."""
+    # Floor: empty + tiny scripts both land at 5s.
+    assert _estimate_avatar_speech_seconds(0) == 5
+    assert _estimate_avatar_speech_seconds(20) == 5
+    # 110 chars = 10s of speech + 2s buffer = 12s.
+    assert _estimate_avatar_speech_seconds(110) == 12
+    # 500 chars = ~45.4s of speech, int() = 45 + 2 buffer = 47s.
+    assert _estimate_avatar_speech_seconds(500) == 47
+
+
+def test_compute_backdrop_chain_length_helper() -> None:
+    """Chain length: ceil(speech / backdrop) clamped to
+    ``_MAX_BACKDROP_CHAIN_LENGTH``."""
+    # Short script + default 10s backdrop = single backdrop.
+    assert _compute_backdrop_chain_length(20, 10) == 1
+    # 500-char script needs 47s of speech / 10s per backdrop = 5.
+    assert _compute_backdrop_chain_length(500, 10) == 5
+    # Pathological script: 11_000 chars = 1002s of speech;
+    # divided by 10s = 101 backdrops; clamped to MAX.
+    assert (
+        _compute_backdrop_chain_length(11_000, 10)
+        == _MAX_BACKDROP_CHAIN_LENGTH
+    )
+
+
+def test_short_script_stays_single_backdrop_three_steps() -> None:
+    """Short scripts get the legacy 3-step shape (backdrop +
+    speech + composite); no concat step is laid down so existing
+    consumers of the 3-step layout keep working."""
+    ws = _make_workspace("v8short_chain@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="Hi there.", backdrop_prompt="A quiet park bench.",
+        mock_mode=True,
+    )
+    steps = list(c.steps.all().order_by("position"))
+    assert len(steps) == 3
+    assert [s.primitive for s in steps] == [
+        "generate_visual_clip",
+        "generate_avatar_speech",
+        "composite_video",
+    ]
+    # Composite background points at the single backdrop (step 0).
+    composite = steps[2]
+    bg = composite.inputs[0]
+    assert bg["slot"] == "background"
+    assert bg["from_step_position"] == 0
+
+
+def test_long_script_generates_n_backdrops_with_concat() -> None:
+    """500-char script triggers a 5-backdrop chain. Step layout:
+    5 backdrops + 1 speech + 1 concat + 1 composite = 8 steps."""
+    ws = _make_workspace("v8long_chain@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 500,
+        backdrop_prompt="A bustling night market.",
+        mock_mode=True,
+    )
+    steps = list(c.steps.all().order_by("position"))
+    assert len(steps) == 8
+    # First five = backdrops.
+    for i in range(5):
+        assert steps[i].primitive == "generate_visual_clip"
+        assert steps[i].params["prompt"] == "A bustling night market."
+        assert steps[i].params["duration"] == 10
+    # Step 5 = speech.
+    assert steps[5].primitive == "generate_avatar_speech"
+    # Step 6 = concat with one input per backdrop in order.
+    assert steps[6].primitive == "concat_clips"
+    concat_inputs = steps[6].inputs
+    assert len(concat_inputs) == 5
+    for i, inp in enumerate(concat_inputs):
+        assert inp["slot"] == "clip"
+        assert inp["from_step_position"] == i
+    # Step 7 = composite with background = concat step (6),
+    # foreground = speech step (5).
+    composite = steps[7]
+    assert composite.primitive == "composite_video"
+    bg, fg = composite.inputs
+    assert bg["slot"] == "background"
+    assert bg["from_step_position"] == 6
+    assert fg["slot"] == "foreground"
+    assert fg["from_step_position"] == 5
+
+
+def test_chain_length_clamps_to_max_for_pathological_scripts() -> None:
+    """A wildly oversized script can't spin up runaway Runway
+    calls — the chain length caps at ``_MAX_BACKDROP_CHAIN_LENGTH``
+    backdrops + concat + composite + speech."""
+    ws = _make_workspace("v8clamp_chain@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="word " * 5_000,  # ~25_000 chars
+        backdrop_prompt="An endless library.",
+        mock_mode=True,
+    )
+    steps = list(c.steps.all().order_by("position"))
+    n = _MAX_BACKDROP_CHAIN_LENGTH
+    # n backdrops + 1 speech + 1 concat + 1 composite
+    assert len(steps) == n + 3
+    backdrop_count = sum(
+        1 for s in steps if s.primitive == "generate_visual_clip"
+    )
+    assert backdrop_count == n
+
+
+def test_custom_backdrop_duration_changes_chain_length() -> None:
+    """A shorter per-clip backdrop forces more clips for the same
+    speech. Demonstrates the operator-tunable knob."""
+    ws = _make_workspace("v8duration_chain@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 220,  # ~22s of speech
+        backdrop_prompt="A glowing aquarium.",
+        backdrop_duration=5,  # 5s per backdrop → ceil(22/5) = 5
+        mock_mode=True,
+    )
+    backdrop_steps = [
+        s for s in c.steps.all() if s.primitive == "generate_visual_clip"
+    ]
+    assert len(backdrop_steps) == 5
+    for s in backdrop_steps:
+        assert s.params["duration"] == 5
