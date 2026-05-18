@@ -28,17 +28,32 @@
  * event channel is a v2 concern (or a Runway SDK feature
  * request).
  */
-import { useClientEvents, type ClientEvent } from "@runwayml/avatars-react";
+import { useEffect, type MutableRefObject } from "react";
+import {
+  useAvatarSession,
+  useClientEvents,
+  type ClientEvent,
+} from "@runwayml/avatars-react";
 
 export interface AvatarSessionInnerProps {
   /** Fires when the avatar invokes a tool. Parent routes
    *  the dispatch result through the TalkRoute lifecycle
    *  (modal for awaiting_approval, panel otherwise). */
   onToolInvocation: (toolName: string, args: Record<string, unknown>) => void;
+  /** Receives the SDK's `end()` callback. Parent assigns
+   *  this ref then calls `.current()` when the operator
+   *  clicks End. The SDK's end publishes an `END_CALL`
+   *  data-channel message BEFORE disconnecting LiveKit —
+   *  Runway only flips the conversation to `ended` (and
+   *  produces a transcript) when it receives that signal.
+   *  Without it Runway sees only the LiveKit room close
+   *  and marks the conversation `failed`. */
+  endRef?: MutableRefObject<(() => Promise<void>) | null>;
 }
 
 export function AvatarSessionInner({
   onToolInvocation,
+  endRef,
 }: AvatarSessionInnerProps) {
   // Listen to ALL client events. Filtering happens here
   // rather than per-tool because v1's tool registry lives
@@ -53,6 +68,17 @@ export function AvatarSessionInner({
         : {};
     onToolInvocation(event.tool, args);
   });
+
+  // Wire the SDK's `end` into the parent's ref so handleEnd
+  // can trigger a proper END_CALL → disconnect sequence.
+  const session = useAvatarSession();
+  useEffect(() => {
+    if (!endRef) return;
+    endRef.current = session.end;
+    return () => {
+      endRef.current = null;
+    };
+  }, [endRef, session.end]);
 
   // No visible markup — the SDK renders the avatar's
   // video/audio via its sibling primitives. This component

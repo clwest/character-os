@@ -316,7 +316,7 @@ def test_broker_end_handles_transcript_enqueue_failure_gracefully() -> None:
     with patch(
         "apps.realtime.views.MediaEngineClient", return_value=cm,
     ), patch(
-        "apps.realtime.tasks.fetch_transcript_for_session.delay",
+        "apps.realtime.tasks.fetch_transcript_for_session.apply_async",
         side_effect=RuntimeError("broker down"),
     ):
         response = client.delete(f"/api/realtime_sessions/{session.id}/")

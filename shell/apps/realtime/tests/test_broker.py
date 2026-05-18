@@ -403,7 +403,16 @@ def test_retrieve_does_not_poll_for_terminal_states() -> None:
 # ---- end ---------------------------------------------------------
 
 
-def test_destroy_calls_upstream_and_marks_ended() -> None:
+def test_destroy_marks_ended_without_upstream_delete() -> None:
+    """DELETE /api/realtime_sessions/<id>/ flips the local DB
+    row to ENDED but deliberately does NOT call upstream
+    DELETE on /v1/realtime_sessions/<id>. Verified against
+    the live Runway dev API (May 2026): the DELETE marks the
+    underlying conversation as `failed` with no transcript.
+    The SDK's LiveKit room close (triggered when AvatarCall
+    unmounts in the SPA) is the natural-end signal; Runway
+    flips the realtime_session to COMPLETED and populates
+    the avatar_conversations transcript on its own."""
     ws, user = _make_workspace("r3end@test")
     sp = _make_spokesperson(ws)
     session = RealtimeSession.objects.create(
@@ -422,9 +431,7 @@ def test_destroy_calls_upstream_and_marks_ended() -> None:
     with patch("apps.realtime.views.MediaEngineClient", return_value=cm):
         response = client.delete(f"/api/realtime_sessions/{session.id}/")
     assert response.status_code == http.HTTP_200_OK
-    fake.realtime_session_end.assert_called_once_with(
-        "rt_end", provider="runway",
-    )
+    fake.realtime_session_end.assert_not_called()
     session.refresh_from_db()
     assert session.status == RealtimeSession.Status.ENDED
     assert session.ended_at is not None

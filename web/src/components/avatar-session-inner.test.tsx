@@ -13,6 +13,12 @@ vi.mock("@runwayml/avatars-react", () => ({
   useClientEvents: (handler: (event: unknown) => void) => {
     captured = handler;
   },
+  useAvatarSession: () => ({
+    state: "live",
+    sessionId: "mock-session",
+    error: null,
+    end: vi.fn().mockResolvedValue(undefined),
+  }),
 }));
 
 import { AvatarSessionInner } from "./avatar-session-inner";

@@ -24,7 +24,7 @@
  * R8.2 adds the live cost ticker + error paths +
  * rejection narration.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { AvatarCall, AvatarVideo } from "@runwayml/avatars-react";
 import { ArrowLeft, Loader2, Mic, MicOff } from "lucide-react";
@@ -60,6 +60,13 @@ type Lifecycle =
   | { kind: "idle" }
   | { kind: "creating" }
   | { kind: "ready"; session: RealtimeSession; sessionKey: string }
+  // `ending` unmounts <AvatarCall> so the SDK can run its WebRTC
+  // cleanup BEFORE we call the broker. Runway interprets DELETE
+  // arriving while the peer is still active as "operator
+  // cancelled" → conversation marked failed → no transcript
+  // persists. Hackathon parity (their `onEnd` callback fires
+  // after SDK cleanup, then triggers backend close).
+  | { kind: "ending"; session: RealtimeSession }
   | { kind: "ended"; session: RealtimeSession }
   | { kind: "error"; message: string };
 
@@ -134,11 +141,42 @@ export function TalkRoute() {
     }
   }
 
-  async function handleEnd() {
+  // The SDK's end() function — assigned by AvatarSessionInner
+  // while a real session is mounted. Calling this publishes an
+  // `END_CALL` data-channel message that Runway needs to flip
+  // the conversation to `ended` (and produce a transcript)
+  // before LiveKit disconnects. Without it Runway marks the
+  // conversation `failed` with no transcript.
+  const sdkEndRef = useRef<(() => Promise<void>) | null>(null);
+
+  function handleEnd() {
     if (lifecycle.kind !== "ready") return;
-    const sid = lifecycle.session.id;
+    // Mock sessions skip the intermediate `ending` state — there's
+    // no SDK / WebRTC peer to drain, so the broker call can fire
+    // immediately and the test stays deterministic.
+    if (lifecycle.session.mock_mode) {
+      void finalizeEnd(lifecycle.session);
+      return;
+    }
+    // Real sessions: fire the SDK's END_CALL message + LiveKit
+    // disconnect FIRST. The SDK's onEnd callback (wired below)
+    // resolves the broker call. Transitioning to `ending` shows
+    // the operator a "Closing…" panel during the handshake.
+    setLifecycle({ kind: "ending", session: lifecycle.session });
+    const sdkEnd = sdkEndRef.current;
+    if (sdkEnd) {
+      void sdkEnd().catch((err) => {
+        // SDK end can fail (already disconnected, etc.) — that's
+        // fine, the defensive timer below still fires finalizeEnd.
+        // eslint-disable-next-line no-console
+        console.warn("SDK end() failed; defensive timer will finalize", err);
+      });
+    }
+  }
+
+  async function finalizeEnd(session: RealtimeSession) {
     try {
-      const ended = await endSession.mutateAsync(sid);
+      const ended = await endSession.mutateAsync(session.id);
       setLifecycle({ kind: "ended", session: ended });
     } catch (err) {
       setLifecycle({
@@ -147,6 +185,19 @@ export function TalkRoute() {
       });
     }
   }
+
+  // When entering `ending`, the SDK's onEnd should fire after
+  // its cleanup. If it doesn't (some SDK paths skip the callback
+  // when the unmount is operator-initiated), this defensive
+  // 2.5s timer calls finalizeEnd anyway. finalizeEnd is
+  // idempotent — the broker tolerates double-end calls.
+  useEffect(() => {
+    if (lifecycle.kind !== "ending") return;
+    const session = lifecycle.session;
+    const timer = setTimeout(() => finalizeEnd(session), 2500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lifecycle.kind]);
 
   // R8.1 — operator-triggered tool invocation. In real-mode
   // (R8.2) this will be wired to the SDK's `useClientEvent`
@@ -267,8 +318,19 @@ export function TalkRoute() {
               message: extractMessage(err),
             })
           }
+          onSdkEnd={() => {
+            // Fires after the SDK's END_CALL + LiveKit
+            // disconnect resolve. Works for both
+            // operator-initiated end (handleEnd called
+            // sdkEnd) and provider-initiated end (Runway
+            // closed the room because of expiry / fault).
+            void finalizeEnd(lifecycle.session);
+          }}
+          sdkEndRef={sdkEndRef}
         />
       )}
+
+      {lifecycle.kind === "ending" && <EndingPanel />}
 
       {pendingInvocation && (
         <ToolApprovalModal
@@ -405,6 +467,22 @@ function CreatingPanel() {
   );
 }
 
+function EndingPanel() {
+  return (
+    <section
+      className="rounded-lg border bg-card p-6"
+      data-testid="talk-ending"
+    >
+      <div className="flex items-center gap-3">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          Closing the session and capturing the transcript…
+        </p>
+      </div>
+    </section>
+  );
+}
+
 function LivePanel({
   session,
   sessionKey,
@@ -418,6 +496,8 @@ function LivePanel({
   costPerMinuteMicros,
   maxSessionMinutes,
   onSdkError,
+  onSdkEnd,
+  sdkEndRef,
 }: {
   session: RealtimeSession;
   sessionKey: string;
@@ -431,6 +511,8 @@ function LivePanel({
   costPerMinuteMicros: number;
   maxSessionMinutes: number;
   onSdkError: (err: Error) => void;
+  onSdkEnd: () => void;
+  sdkEndRef: React.MutableRefObject<(() => Promise<void>) | null>;
 }) {
   // Counting basis for the cost ticker. ``ready_at`` lands
   // once the broker's state machine flips READY; in mock
@@ -494,6 +576,7 @@ function LivePanel({
           sessionKey={sessionKey}
           audio
           video={false}
+          onEnd={onSdkEnd}
           onError={onSdkError}
           className="w-full max-w-3xl self-center overflow-hidden rounded-xl border bg-black shadow-lg"
           data-testid="avatar-call"
@@ -513,7 +596,10 @@ function LivePanel({
               Receives tool-invocation events from the
               avatar's data channel + dispatches via the
               parent's onInvokeTool callback. */}
-          <AvatarSessionInner onToolInvocation={onInvokeTool} />
+          <AvatarSessionInner
+            onToolInvocation={onInvokeTool}
+            endRef={sdkEndRef}
+          />
         </AvatarCall>
       )}
 

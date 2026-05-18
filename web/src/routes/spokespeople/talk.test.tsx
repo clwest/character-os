@@ -31,6 +31,12 @@ vi.mock("@runwayml/avatars-react", () => ({
   }) => <div data-testid="avatar-call-stub">{children}</div>,
   AvatarVideo: () => <div data-testid="avatar-video-stub" />,
   useClientEvents: () => undefined,
+  useAvatarSession: () => ({
+    state: "live",
+    sessionId: "mock-session",
+    error: null,
+    end: vi.fn().mockResolvedValue(undefined),
+  }),
 }));
 
 // Mock the API client surface used by the route.

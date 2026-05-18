@@ -472,26 +472,20 @@ class RealtimeSessionViewSet(viewsets.GenericViewSet):
         session.save(update_fields=update_fields)
 
     def _end_session(self, session: RealtimeSession) -> None:
-        """Mark a session ENDED. Tries to notify upstream but
-        the Django row flips ENDED regardless — keeps state
-        consistent for the operator."""
+        """Mark a session ENDED. The SPA-side SDK unmounts on
+        operator-clicked End, which disconnects the LiveKit
+        room. Runway's lifecycle then naturally flips the
+        underlying realtime_session to COMPLETED and the
+        avatar_conversation to ended (with a populated
+        transcript). We deliberately DO NOT fire a DELETE on
+        /v1/realtime_sessions/<id> — that explicit cancel
+        marks the session CANCELLED and the conversation
+        FAILED with no transcript (proven against the live
+        Runway dev API May 18 2026: same session shape,
+        DELETE → status:failed transcript:[]; no DELETE →
+        status:COMPLETED transcript:[3+ real turns])."""
         if session.status == RealtimeSession.Status.ENDED:
             return  # idempotent
-
-        # Best-effort upstream teardown. If it fails, log
-        # but proceed — the Django row is our source of
-        # truth post-end.
-        if session.provider_session_id:
-            try:
-                with MediaEngineClient() as client:
-                    client.realtime_session_end(
-                        session.provider_session_id, provider=session.provider,
-                    )
-            except MediaEngineError as exc:
-                logger.warning(
-                    "realtime broker end upstream failed session=%s: %s",
-                    session.id, exc,
-                )
 
         now = timezone.now()
         session.status = RealtimeSession.Status.ENDED
@@ -513,15 +507,22 @@ class RealtimeSessionViewSet(viewsets.GenericViewSet):
 
         # R5 — enqueue post-end transcript capture. Best-effort
         # via Celery; broker enqueue failure (broker down,
-        # etc.) doesn't block the end response. Mock-mode
-        # sessions still produce a deterministic transcript
-        # stub so the SPA can render the empty/persisted UX
-        # without real Runway calls.
+        # etc.) doesn't block the end response.
+        #
+        # 30-second countdown: Runway needs time after the
+        # LiveKit room closes to flip /v1/realtime_sessions
+        # to COMPLETED and populate the /v1/avatar_conversations
+        # transcript. Empirically ~5-15s post-disconnect.
+        # Fetching immediately (the pre-fix behavior) returned
+        # an empty transcript even on healthy sessions.
         if session.provider_session_id:
             try:
                 from .tasks import fetch_transcript_for_session
 
-                fetch_transcript_for_session.delay(str(session.id))
+                fetch_transcript_for_session.apply_async(
+                    args=[str(session.id)],
+                    countdown=30,
+                )
             except Exception as exc:
                 logger.warning(
                     "realtime broker end transcript-enqueue failed "
