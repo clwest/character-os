@@ -2,9 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Editorial-warm v1. See docs/design/BRAND_IDENTITY_V1.md for the
- * full rationale. Tokens stay in HSL so shadcn's component output
- * keeps working without modification. */
+/* B1 (SESSION 178) — V2 tokens loaded but inert. The
+ * `[data-brand="v2"]` selector inside tokens.css matches nothing
+ * yet; the V1 :root block below continues to drive Tailwind. B2
+ * flips this by setting `data-brand="v2"` on <html> and
+ * deleting (or scoping) the V1 :root block. See
+ * docs/design/BRAND_ECOSYSTEM_V1.md §slice-breakdown B2. */
+@import "./tokens.css";
+
+/* Editorial-warm v1. See docs/design/BRAND_IDENTITY_V1.md
+ * (DEPRECATED) for the full rationale. Tokens stay in HSL so
+ * shadcn's component output keeps working without modification.
+ * Slated for replacement in B2 by the V2 tokens loaded above. */
 @layer base {
   :root {
     --background: 36 33% 94%;          /* warm paper       #f5efe5 */
