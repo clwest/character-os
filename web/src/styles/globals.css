@@ -1,14 +1,20 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 /* B2 (SESSION 178) — V2 tokens are now ACTIVE. The
  * `[data-brand="v2"]` attribute on <html> (set in index.html)
  * scopes the V2 token block in tokens.css. The V1 :root block
  * below is preserved under `[data-brand="v1"]` for rollback —
  * flipping the html attribute swaps the entire palette + nothing
- * else. See docs/design/BRAND_ECOSYSTEM_V1.md slice B2. */
+ * else. See docs/design/BRAND_ECOSYSTEM_V1.md slice B2.
+ *
+ * IMPORTANT: `@import` MUST be at the very top of the file
+ * before any other CSS at-rule. PostCSS / Tailwind silently
+ * drops @import declarations that come after @tailwind
+ * directives (B2 hit this exact bug — tokens.css wasn't
+ * making it into the bundle until @import moved to the top). */
 @import "./tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* Editorial-warm V1 (DEPRECATED — SESSION 178). Preserved here
  * scoped to `[data-brand="v1"]` so the operator can roll back
