@@ -14,6 +14,7 @@ import { RecipeFormRoute } from "@/routes/recipes/$kind";
 import { ImagesRoute } from "@/routes/images";
 import { CompositionStatusRoute } from "@/routes/compositions/$id";
 import { ConversationChatRoute } from "@/routes/conversations/$id";
+import { SignatureRoute } from "@/routes/signature";
 import { Layout } from "@/routes/_layout";
 
 export function App() {
@@ -119,6 +120,14 @@ export function App() {
             element={
               <RequireAuth>
                 <ConversationChatRoute />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/signature"
+            element={
+              <RequireAuth>
+                <SignatureRoute />
               </RequireAuth>
             }
           />

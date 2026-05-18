@@ -27,7 +27,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { AvatarCall, AvatarVideo } from "@runwayml/avatars-react";
-import { ArrowLeft, Loader2, Mic, MicOff } from "lucide-react";
+import { ArrowLeft, Headphones, Loader2, Mic, MicOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSpokesperson } from "@/lib/api/spokespeople";
 import {
@@ -290,6 +290,7 @@ export function TalkRoute() {
           onStart={handleStart}
           starting={createSession.isPending}
           spokespersonName={spokesperson.name}
+          voiceId={spokesperson.voice_id}
           costPerMinuteMicros={costPerMinuteMicros}
           maxSessionMinutes={maxSessionMinutes}
           minutesRemaining={minutesRemaining}
@@ -367,6 +368,7 @@ function IdlePanel({
   onStart,
   starting,
   spokespersonName,
+  voiceId,
   costPerMinuteMicros,
   maxSessionMinutes,
   minutesRemaining,
@@ -375,6 +377,7 @@ function IdlePanel({
   onStart: () => void;
   starting: boolean;
   spokespersonName: string;
+  voiceId: string;
   costPerMinuteMicros: number;
   maxSessionMinutes: number;
   minutesRemaining: number | null;
@@ -404,6 +407,19 @@ function IdlePanel({
           (Runway's per-session cap). You can end early or
           reconnect afterward.
         </p>
+        <div
+          className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200"
+          data-testid="talk-headphones-tip"
+        >
+          <Headphones className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            <strong>Wear headphones.</strong> Speaker audio leaks
+            back into your microphone otherwise — {spokespersonName} hears
+            themselves and can derail mid-thought. Also make sure
+            your browser has microphone permission granted before
+            you click Start.
+          </span>
+        </div>
         <div className="flex flex-wrap items-center gap-3">
           <Button
             onClick={onStart}
@@ -443,6 +459,21 @@ function IdlePanel({
               <span className="text-[10px] uppercase tracking-wide">
                 of {minutesLimit} min left this month
               </span>
+            </span>
+          )}
+          {voiceId && (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground"
+              data-testid="talk-voice-pill"
+              title={
+                `${spokespersonName} will speak with the '${voiceId}' voice. ` +
+                `Change it from the spokesperson edit modal.`
+              }
+            >
+              <span className="text-[10px] uppercase tracking-wide">
+                Voice
+              </span>
+              <span className="font-mono">{voiceId}</span>
             </span>
           )}
         </div>
