@@ -181,7 +181,21 @@ class RealtimeSessionViewSet(viewsets.GenericViewSet):
         title = (body.get("title") or "").strip()
         thread_id = body.get("thread")
         provider = (body.get("provider") or "runway").strip()
-        tools = body.get("tools") or []
+        tools = body.get("tools")
+        if not tools:
+            # Default to the workspace's registered tool catalog
+            # (tier-filtered). Without this fallback the avatar
+            # has no tool catalog at session-create time — Runway
+            # never advertises render_video / recall_knowledge /
+            # etc. to the LLM, so the avatar can't invoke any
+            # tool no matter what the operator asks for. SPA may
+            # still override via the request body.
+            from .tools import get_workspace_tools
+
+            tools = [
+                {"name": t.name, "description": t.description}
+                for t in get_workspace_tools(workspace)
+            ]
 
         # Build the row in DRAFT; we'll flip to CREATING once
         # the upstream POST succeeds.
