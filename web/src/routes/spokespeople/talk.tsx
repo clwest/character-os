@@ -493,15 +493,21 @@ function LivePanel({
           sessionId={session.provider_session_id}
           sessionKey={sessionKey}
           audio
-          video
+          video={false}
           onError={onSdkError}
           className="w-full max-w-3xl self-center overflow-hidden rounded-xl border bg-black shadow-lg"
           data-testid="avatar-call"
         >
-          {/* The SDK renders nothing visible without an
-              explicit <AvatarVideo /> child — audio still
-              flows, but the operator sees an empty panel.
-              Matches the documented composition pattern. */}
+          {/* `video` is the LOCAL-media flag (operator's
+              webcam). The avatar's video output renders via
+              <AvatarVideo /> regardless. With `video={true}`
+              the SDK requests webcam access; if the operator
+              has no webcam or denies the prompt the WebRTC
+              handshake negotiated tracks mismatch and Runway
+              marks the session FAILED with no transcript
+              (verified on two failed sessions May 18 2026).
+              Hackathon parity — set false, render avatar via
+              the dedicated child below. */}
           <AvatarVideo className="aspect-video w-full" />
           {/* R8.2 — inside-AvatarCall hook consumer.
               Receives tool-invocation events from the

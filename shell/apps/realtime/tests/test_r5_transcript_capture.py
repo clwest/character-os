@@ -213,6 +213,42 @@ def test_task_unknown_session_no_ops() -> None:
     assert result["status"] == "not_found"
 
 
+def test_task_upstream_failed_flips_session_to_failed() -> None:
+    """Runway's session-level ``status: "failed"`` is permanent —
+    the provider raises with the ``runway session marked failed``
+    marker, the broker flips ``RealtimeSession.status = FAILED``
+    and persists the upstream body so the SPA can show the real
+    failureCode instead of an open-ended 'transcript pending'."""
+    from apps.realtime.models import RealtimeSession
+
+    ws, _user = _make_workspace("r5upstreamfailed@test")
+    sp = _make_spokesperson(ws)
+    session = _make_session(ws, sp)
+    upstream_body = (
+        '{"error":"runway session marked failed [code=UNKNOWN]: '
+        'Unknown error","code":"upstream_runway_error"}'
+    )
+    fake = MagicMock()
+    fake.realtime_session_fetch_transcript.side_effect = MediaEngineError(
+        "GET /internal/realtime_sessions/abc/transcript/ returned 502",
+        status_code=502,
+        response_text=upstream_body,
+    )
+    cm = MagicMock()
+    cm.__enter__.return_value = fake
+    cm.__exit__.return_value = False
+    with patch("apps.realtime.tasks.MediaEngineClient", return_value=cm):
+        result = fetch_transcript_for_session.apply(args=[str(session.id)]).get()
+    assert result["status"] == "upstream_failed"
+    session.refresh_from_db()
+    assert session.status == RealtimeSession.Status.FAILED
+    # Persisted error is the upstream body (actionable for triage),
+    # not the MediaEngineClient wrapper ("returned 502").
+    assert "runway session marked failed" in session.error_message
+    assert "code=UNKNOWN" in session.error_message
+    assert session.transcript_asset_id is None
+
+
 def test_task_session_without_provider_id_skips() -> None:
     ws, _user = _make_workspace("r5nopid@test")
     sp = _make_spokesperson(ws)

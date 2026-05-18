@@ -97,6 +97,39 @@ def capture_transcript(session: RealtimeSession) -> dict:
             "capture_transcript: media-engine failed session=%s: %s",
             session.id, exc,
         )
+        # Runway's session-level `status: "failed"` is permanent —
+        # the conversation will never produce a transcript. Flip
+        # the session row to FAILED so the SPA stops showing
+        # "transcript pending" forever. The provider raises with
+        # the marker "runway session marked failed" — check both
+        # the exception args and the response body, since the
+        # MediaEngineClient wraps the upstream message in its own
+        # "returned 502" envelope and stashes the body on
+        # `response_text`.
+        marker = "runway session marked failed"
+        response_text = exc.response_text or ""
+        haystack = (str(exc) + " " + response_text).lower()
+        if marker in haystack:
+            # Prefer the upstream body (contains the failureCode +
+            # human message) over the MediaEngineClient wrapper
+            # ("...returned 502"). The body is what the operator
+            # actually needs to triage the failure.
+            persisted_error = (response_text or str(exc))[:500]
+            if session.status != RealtimeSession.Status.FAILED:
+                session.status = RealtimeSession.Status.FAILED
+                session.error_message = persisted_error
+                if session.ended_at is None:
+                    session.ended_at = timezone.now()
+                session.save(update_fields=[
+                    "status", "error_message", "ended_at", "updated_at",
+                ])
+            return {
+                "session_id": str(session.id),
+                "asset_id": None,
+                "status": "upstream_failed",
+                "chars": 0,
+                "error": persisted_error[:200],
+            }
         return {
             "session_id": str(session.id),
             "asset_id": None,

@@ -443,11 +443,41 @@ class RunwayRealtimeProvider:
                 f"non-json transcript response: {exc!s}"[:200]
             ) from exc
 
-        # Normalize. Runway's documented shape carries
-        # `turns: [{role, text, timestamp}, ...]`. We
-        # rebuild a single readable text blob alongside
-        # the structured segment list.
-        turns_raw = payload.get("turns") or payload.get("messages") or []
+        # Runway's session-level status can be "failed" with a
+        # populated failureCode + empty transcript array — the same
+        # response shape as a legitimately-short empty session, but
+        # fundamentally different: the failed session is permanently
+        # dead (`endedAt` null, no `recordingUrl`), so no retry /
+        # wait / re-fetch will produce turns. Surface this as an
+        # upstream error so the broker can flip the session to
+        # FAILED instead of leaving the operator staring at a
+        # "waiting for transcript…" UI forever. Mirrors the
+        # hackathon broker's PR ER guard.
+        upstream_status = (payload.get("status") or "").lower()
+        if upstream_status == "failed":
+            fcode = payload.get("failureCode") or "UNKNOWN"
+            fmsg = payload.get("failure") or "session failed"
+            logger.warning(
+                "runway fetch_transcript session=%s upstream_failed "
+                "code=%s msg=%s",
+                session_id, fcode, _redact(str(fmsg)),
+            )
+            raise RealtimeProviderError(
+                f"runway session marked failed [code={fcode}]: {fmsg}"
+            )
+
+        # Normalize. Runway's actual response shape uses the
+        # `transcript` key (verified May 2026 against the
+        # `/v1/avatar_conversations/<id>` endpoint). Earlier R5 code
+        # only looked at `turns`/`messages`, which never matched —
+        # every real session returned an empty transcript silently.
+        # Accept all three keys for forward-compat.
+        turns_raw = (
+            payload.get("transcript")
+            or payload.get("turns")
+            or payload.get("messages")
+            or []
+        )
         segments: list[dict] = []
         text_parts: list[str] = []
         for raw in turns_raw:
