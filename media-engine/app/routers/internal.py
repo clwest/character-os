@@ -951,14 +951,23 @@ def _download_concat_input(
                         fh.write(chunk)
         tmp.replace(dest)
         return dest
-    # Local path — strip optional leading ``/`` and resolve under
-    # data_path. Operators driving the endpoint via shell pass
-    # paths like ``/data/_internal/...`` (relative to
-    # ``settings.data_path``); the host filesystem path is the
-    # same prefix.
-    candidate = Path(url)
-    if not candidate.is_absolute():
-        candidate = settings.data_path / url.lstrip("/")
+    # Local path. Two shapes land here:
+    #   1. SPA-facing URLs like ``/data/_internal/concats/x.mp4`` —
+    #      the prefix matches the StaticFiles mount in main.py and
+    #      maps to ``<settings.data_path>/_internal/concats/x.mp4``
+    #      on disk. This is what intermediate Composition assets
+    #      (concat / composite / mix outputs) carry as file_path.
+    #   2. Operator-supplied paths like ``_internal/sources/x.mp4``
+    #      that are already relative to ``settings.data_path``.
+    # Both end up resolved under ``settings.data_path``; a *true*
+    # absolute filesystem path that doesn't live under data_path is
+    # rejected as not-found (consistent with the prior behavior).
+    if url.startswith("/data/"):
+        candidate = settings.data_path / url[len("/data/"):]
+    else:
+        candidate = Path(url)
+        if not candidate.is_absolute():
+            candidate = settings.data_path / url.lstrip("/")
     if not candidate.exists():
         raise FileNotFoundError(f"concat input not found: {url}")
     return candidate
