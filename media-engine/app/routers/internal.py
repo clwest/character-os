@@ -826,8 +826,17 @@ def post_internal_visual_clip(
     Same validation as the legacy route — per-model ratio +
     duration enforcement via ``validate_generation_settings``.
     """
-    model = resolve_model(None, settings)
     has_image = bool(body.prompt_image and body.prompt_image.strip())
+    # SESSION 179 dogfood — `resolve_model(None, ...)` defaults to
+    # gen4_turbo which REQUIRES an image. The cinematic_visual
+    # recipe lists the reference image as optional + the comment
+    # above promises gen4.5 fallback for text-only. Without this
+    # explicit switch, text-only requests return 400
+    # "prompt_image is required for model gen4_turbo".
+    if has_image:
+        model = resolve_model(None, settings)
+    else:
+        model = "gen4.5"
     try:
         validate_generation_settings(
             model=model,
