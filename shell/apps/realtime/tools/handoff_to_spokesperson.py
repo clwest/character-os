@@ -30,10 +30,15 @@ from . import register_tool
 @register_tool(
     name="handoff_to_spokesperson",
     description=(
-        "Suggest ending this session and opening a new "
-        "one with a different spokesperson in the same "
-        "workspace. Use when the user's question is "
-        "outside this spokesperson's expertise."
+        "Suggest switching to a different spokesperson in "
+        "this workspace. Use when the operator's question is "
+        "clearly outside this spokesperson's expertise. "
+        "Pass `target_spokesperson_id`. "
+        "SAY ALOUD before invoking: 'I think <Name> would be "
+        "a better fit for that — want me to hand you off?' "
+        "Then INVOKE. After invoking, the SPA offers a "
+        "confirm dialog. Keep the conversation alive in case "
+        "they decline."
     ),
     cost_micros=0,
     workspace_scoped=True,

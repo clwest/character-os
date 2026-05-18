@@ -177,6 +177,19 @@ class RealtimeSessionViewSet(viewsets.GenericViewSet):
             return Response(exc.payload, status=402)
 
         personality = (body.get("personality") or "").strip()
+        if not personality:
+            # Override the Runway avatar-level personality with the
+            # local W11.y `Spokesperson.personality` (which the
+            # operator can edit; the Runway avatar's persona was
+            # baked at create-time and doesn't sync back). Without
+            # this, the avatar opens every conversation with the
+            # original create-time personality (e.g. Marcus's "Same
+            # event, different lens" catchphrase). business_brief
+            # is a defensive fallback for pre-W11.y rows.
+            personality = (
+                (spokesperson.personality or spokesperson.business_brief or "")
+                .strip()
+            )
         start_script = (body.get("start_script") or "").strip()
         title = (body.get("title") or "").strip()
         thread_id = body.get("thread")

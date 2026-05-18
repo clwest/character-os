@@ -35,10 +35,16 @@ MAX_TOP_K = 5
 @register_tool(
     name="recall_knowledge",
     description=(
-        "Search the spokesperson's workspace knowledge for "
-        "a specific fact. Use when the user asks a "
-        "question whose answer might live in a doc the "
-        "operator has attached."
+        "Search the spokesperson's workspace knowledge for a "
+        "specific fact. Use when the operator asks a question "
+        "whose answer might be in an attached doc. Pass the "
+        "topic as `query`. "
+        "SAY ALOUD before invoking: 'Let me check what I have "
+        "on that.' Then INVOKE. After invoking, do NOT wait "
+        "silently — briefly acknowledge ('Here's what I'm "
+        "seeing…') and keep the conversation moving. The SPA "
+        "shows the matches; you do not need to recite chunk "
+        "text verbatim."
     ),
     cost_micros=1_000,  # ~$0.001 per call
     workspace_scoped=True,

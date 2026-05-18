@@ -31,10 +31,15 @@ PREVIEW_CHAR_BUDGET = 500
 @register_tool(
     name="recall_recent_conversations",
     description=(
-        "List recent past conversations this operator has "
-        "had with this spokesperson. Returns session ids, "
-        "end timestamps, and a short transcript preview "
-        "for each."
+        "Recall the operator's prior conversations with this "
+        "spokesperson. Use when they ask 'what did we talk "
+        "about', 'do you remember', 'what do you know about "
+        "me'. "
+        "SAY ALOUD before invoking: 'Let me pull up what we "
+        "covered last time.' Then INVOKE. After invoking, ask "
+        "which thread they want to revisit. Do NOT invent "
+        "specific dates or topics — if it isn't in your "
+        "already-loaded memory, defer to what the SPA renders."
     ),
     cost_micros=0,
     workspace_scoped=True,

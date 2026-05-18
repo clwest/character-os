@@ -51,11 +51,15 @@ DEFAULT_RECIPE = "talking_head"
 @register_tool(
     name="render_video",
     description=(
-        "Render a video for this spokesperson via a "
-        "composition starter. Use when the operator asks "
-        "for an ad, a short pitch, or any spoken-camera "
-        "clip. Returns a composition_id the operator can "
-        "track to completion."
+        "Render a video clip the operator can share. Use when "
+        "they ask for an ad, a short video, or a clip about X. "
+        "REQUIRED: `script` — verbatim spoken text (3-5 "
+        "sentences). If they give a TOPIC instead, COMPOSE the "
+        "script yourself in your voice, then pass it. "
+        "SAY ALOUD before invoking: 'Got it — let me put that "
+        "together. About 30 seconds.' Then INVOKE. After "
+        "invoking, tell them it's rendering (~30-45 sec) and "
+        "keep talking — do NOT wait silently."
     ),
     cost_micros=COST_MICROS,
     workspace_scoped=True,

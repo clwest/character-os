@@ -24,9 +24,12 @@ from . import register_tool
 @register_tool(
     name="show_videos_tab",
     description=(
-        "Navigate the operator's SPA to the spokesperson's "
-        "videos tab. Use when the operator asks to see "
-        "recorded videos for this spokesperson."
+        "Navigate the operator's SPA to this spokesperson's "
+        "videos tab. Use when they ask to 'see my videos', "
+        "'show me what I've made', 'open the videos page'. "
+        "SAY ALOUD before invoking: 'Pulling those up now.' "
+        "Then INVOKE. The SPA flips routes immediately — you "
+        "do not need a follow-up message."
     ),
     cost_micros=0,
     workspace_scoped=False,

@@ -50,9 +50,15 @@ COST_MICROS = 1_000  # ~$0.001 — one media-engine call
 @register_tool(
     name="attach_memory",
     description=(
-        "Commit the current conversation to memory so I "
-        "remember it next time we talk. Use after a key "
-        "decision or milestone in a long planning call."
+        "Save the current conversation so I remember it next "
+        "time. MANDATORY TRIGGERS: 'save what we talked "
+        "about', 'remember this', 'lock this in', 'keep this "
+        "for later'. "
+        "SAY ALOUD before invoking: 'Good idea — saving that "
+        "now so I remember next time.' Then INVOKE. Fire-"
+        "and-forget — no confirmation comes back. After "
+        "invoking, keep the conversation going naturally. Do "
+        "NOT wait for verification."
     ),
     cost_micros=COST_MICROS,
     workspace_scoped=True,
