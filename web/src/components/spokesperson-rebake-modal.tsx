@@ -84,7 +84,7 @@ export function SpokespersonRebakeModal({
       <div className="flex w-full max-w-lg flex-col gap-4 rounded-md border bg-card p-6 shadow-paper">
         <header className="flex items-start justify-between gap-3 border-b pb-3">
           <div className="flex items-start gap-2">
-            <Flame className="mt-0.5 h-5 w-5 text-amber-700" />
+            <Flame className="mt-0.5 h-5 w-5 text-warning" />
             <div>
               <h2 className="font-display text-2xl leading-tight tracking-tight">
                 Re-bake {spokesperson.name}
@@ -141,8 +141,8 @@ export function SpokespersonRebakeModal({
           </div>
         </dl>
 
-        <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-amber-800">
+        <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-xs">
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-warning">
             What this costs
           </p>
           <ul className="mt-1.5 list-disc space-y-0.5 pl-5">

@@ -423,7 +423,7 @@ function VoicePatchBanner({
       <div
         data-testid="voice-patch-banner"
         data-status="ok"
-        className="flex items-start gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/5 p-3 text-xs text-emerald-700 dark:text-emerald-300"
+        className="flex items-start gap-2 rounded-md border border-success/40 bg-success/10 p-3 text-xs text-success"
       >
         <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
         <span>

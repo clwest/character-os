@@ -112,7 +112,7 @@ function toneClasses(tone: "muted" | "amber" | "destructive"): string {
     case "destructive":
       return "border-destructive bg-destructive/10 text-destructive";
     case "amber":
-      return "border-yellow-400 bg-yellow-50 text-yellow-900";
+      return "border-warning/60 bg-warning/10 text-warning";
     default:
       return "border-border bg-muted/40 text-foreground";
   }

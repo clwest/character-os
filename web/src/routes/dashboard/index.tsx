@@ -319,7 +319,7 @@ function ActivityFeedPanel({
         count={data?.compositions.total_count}
         action={
           data && data.compositions.running_count > 0 ? (
-            <span className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.22em] text-blue-700 dark:text-blue-300">
+            <span className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.22em] text-accent">
               <Loader2 className="h-3 w-3 animate-spin" />
               {data.compositions.running_count} running
             </span>
@@ -364,7 +364,7 @@ function ActivityRow({ composition }: { composition: OverviewComposition }) {
         <div className="flex items-baseline gap-2">
           <span className="truncate font-medium">{composition.name}</span>
           {composition.mock_mode && (
-            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-amber-700 dark:text-amber-300">
+            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-warning">
               mock
             </span>
           )}
@@ -387,15 +387,15 @@ function ActivityRow({ composition }: { composition: OverviewComposition }) {
 function StatusIcon({ status }: { status: OverviewComposition["status"] }) {
   switch (status) {
     case "completed":
-      return <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-600" />;
+      return <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-success" />;
     case "running":
     case "draft":
     case "planning":
-      return <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-blue-600" />;
+      return <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-accent" />;
     case "failed":
       return <XCircle className="h-4 w-4 flex-shrink-0 text-destructive" />;
     case "partial":
-      return <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-amber-600" />;
+      return <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-warning" />;
     default:
       return <MinusCircle className="h-4 w-4 flex-shrink-0 text-muted-foreground" />;
   }

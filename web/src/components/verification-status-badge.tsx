@@ -42,11 +42,11 @@ const STATE_LABELS: Record<Exclude<VerificationStatus, "">, string> = {
 
 const STATE_STYLES: Record<Exclude<VerificationStatus, "">, string> = {
   verified:
-    "border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300",
+    "border-success/40 bg-success/10 text-success",
   trusted_passthrough:
     "border-muted-foreground/30 bg-muted/30 text-muted-foreground",
   skipped:
-    "border-amber-500/40 bg-amber-500/5 text-amber-700 dark:text-amber-300",
+    "border-warning/40 bg-warning/10 text-warning",
   rejected:
     "border-destructive/40 bg-destructive/5 text-destructive",
 };

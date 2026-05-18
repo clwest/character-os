@@ -89,7 +89,7 @@ function Header({ composition }: { composition: Composition }) {
           {composition.mock_mode && (
             <>
               {" • "}
-              <span className="font-mono text-amber-700 dark:text-amber-300">
+              <span className="font-mono text-warning">
                 mock mode
               </span>
             </>
@@ -107,9 +107,9 @@ function StatusBadge({ composition }: { composition: Composition }) {
   const statusStyle: Record<Composition["status"], string> = {
     draft: "border-muted-foreground/30 text-muted-foreground",
     planning: "border-muted-foreground/30 text-muted-foreground",
-    running: "border-blue-500/40 bg-blue-500/5 text-blue-700 dark:text-blue-300",
-    partial: "border-amber-500/40 bg-amber-500/5 text-amber-700 dark:text-amber-300",
-    completed: "border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300",
+    running: "border-accent/40 bg-accent/10 text-accent",
+    partial: "border-warning/40 bg-warning/10 text-warning",
+    completed: "border-success/40 bg-success/10 text-success",
     failed: "border-destructive/40 bg-destructive/5 text-destructive",
   };
   return (
@@ -187,15 +187,15 @@ function StatusIcon({
   switch (status) {
     case "completed":
     case "succeeded":
-      return <CheckCircle2 className="h-5 w-5 text-emerald-600" />;
+      return <CheckCircle2 className="h-5 w-5 text-success" />;
     case "running":
-      return <Loader2 className="h-5 w-5 animate-spin text-blue-600" />;
+      return <Loader2 className="h-5 w-5 animate-spin text-accent" />;
     case "failed":
       return <XCircle className="h-5 w-5 text-destructive" />;
     case "skipped":
       return <MinusCircle className="h-5 w-5 text-muted-foreground" />;
     case "partial":
-      return <CheckCircle2 className="h-5 w-5 text-amber-600" />;
+      return <CheckCircle2 className="h-5 w-5 text-warning" />;
     default:
       return <Circle className="h-5 w-5 text-muted-foreground" />;
   }
@@ -234,21 +234,21 @@ function VerifierPanel({ composition }: { composition: Composition }) {
   const isStrictReject = rejected.length > 0;
   return (
     <section
-      className="flex flex-col gap-3 rounded-md border border-amber-500/50 bg-amber-500/5 p-5 text-sm"
+      className="flex flex-col gap-3 rounded-md border border-warning/40 bg-warning/10 p-5 text-sm"
       data-testid="composition-verifier-panel"
     >
-      <div className="flex items-center justify-between border-b border-amber-500/30 pb-2">
+      <div className="flex items-center justify-between border-b border-warning/30 pb-2">
         <div className="flex items-center gap-2">
           {isStrictReject ? (
-            <ShieldAlert className="h-4 w-4 text-amber-700" />
+            <ShieldAlert className="h-4 w-4 text-warning" />
           ) : (
-            <AlertTriangle className="h-4 w-4 text-amber-700" />
+            <AlertTriangle className="h-4 w-4 text-warning" />
           )}
-          <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-amber-800">
+          <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-warning">
             K6.4 claim verifier
           </span>
         </div>
-        <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-amber-700">
+        <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-warning">
           {isStrictReject
             ? "Strict — render blocked"
             : `Warn — ${warnings.length} flag${warnings.length === 1 ? "" : "s"}`}
@@ -256,7 +256,7 @@ function VerifierPanel({ composition }: { composition: Composition }) {
       </div>
       {warnings.length > 0 && (
         <div>
-          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-amber-800 mb-1">
+          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-warning mb-1">
             Unsupported claims
           </div>
           <ul className="list-disc space-y-0.5 pl-5 text-foreground">
@@ -271,7 +271,7 @@ function VerifierPanel({ composition }: { composition: Composition }) {
       )}
       {rejected && (
         <details>
-          <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-[0.18em] text-amber-800">
+          <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-[0.18em] text-warning">
             Show what the LLM almost said
           </summary>
           <p className="mt-1 whitespace-pre-wrap rounded-md bg-background/60 p-2 text-xs text-muted-foreground">

@@ -329,7 +329,7 @@ function StatusPill({ status }: { status: DocumentStatus }) {
         "inline-flex shrink-0 items-center rounded-sm border px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider",
         tone === "neutral" && "border-border bg-muted text-muted-foreground",
         tone === "info" && "border-primary/40 bg-primary/10 text-primary",
-        tone === "success" && "border-emerald-500/40 bg-emerald-500/10 text-emerald-700",
+        tone === "success" && "border-success/40 bg-success/10 text-success",
         tone === "danger" && "border-destructive/40 bg-destructive/10 text-destructive",
       )}
     >

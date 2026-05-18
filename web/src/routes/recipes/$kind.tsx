@@ -603,7 +603,7 @@ function AssetHint({
     (types.includes("audio") && audioQuery.data?.length === 0);
   if (!anyMissing) return null;
   return (
-    <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-4 text-xs text-amber-800 dark:text-amber-300">
+    <div className="rounded-md border border-warning/40 bg-warning/10 p-4 text-xs text-warning">
       <p className="font-mono uppercase tracking-[0.22em]">Tip</p>
       <p className="mt-1 normal-case tracking-normal">
         This recipe needs existing workspace assets as input. Run a producing
@@ -649,7 +649,7 @@ function DialogueLinesEditor({
 
   if (spokespeople.length < 2) {
     return (
-      <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-4 text-xs text-amber-800 dark:text-amber-300">
+      <div className="rounded-md border border-warning/40 bg-warning/10 p-4 text-xs text-warning">
         <p className="font-mono uppercase tracking-[0.22em]">Need 2+ spokespeople</p>
         <p className="mt-1 normal-case tracking-normal">
           Dialogue scenes work best with at least two characters. Create another
