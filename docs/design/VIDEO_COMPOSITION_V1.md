@@ -666,8 +666,9 @@ is ~1-2 sessions.
 | **V15.2** ✓ | Layout + format family forms live (7 recipes: `pip_layout`, `backdrop_layout`, `cohost_layout`, `broll_splice`, `music_bed_pass`, `reels_format`, `talking_head_with_backdrop`). Adds `GET /api/assets/` + SPA `asset_picker` field renderer. Ships SESSION 144 (`c9a5d8c`). | — |
 | **V15.3** ✓ | Voice + style + long-form + storyboard + recut family forms live (6 recipes: `voice_design`, `multi_lang_dub`, `style_remix_pass`, `long_form_ad`, `storyboard_ad`, `recut_teaser`). One-line `LIVE_RECIPE_KINDS` flip — the form renderer + asset_picker shipped in V15.1-V15.2 already cover all field types these recipes need. Ships SESSION 144 (`8530a08`). | — |
 | **V15.4** ✓ | Dialogue (`dialogue_scene`) form with dynamic line-list editor + ships `storyboard_voiced` bonus recipe (10 steps; V14 `audio_extract` unblocked it) + flips spokesperson detail "Make a video" CTA to `/recipes` (soft-retires legacy single-form UI). Closes the V-arc. Ships SESSION 144 (`68ab5d2`). | — |
+| **V16** ✓ | Post-close polish — `remove_avatar_background` primitive (ffmpeg-decode → rembg `u2net_human_seg` ONNX → ffmpeg-encode VP9 with yuva420p alpha) + opt-in `remove_avatar_bg` kwarg on `talking_head_with_backdrop` so the avatar tile composites over the backdrop without Runway's baked-in white square. Driven by SESSION 179's first multi-backdrop dogfood — the picture-frame around Riggs's tile made the cinematic backdrop read wrong. Default OFF (matting adds ~2.4 min wall-clock per 22s clip). New media-engine endpoint `POST /internal/clips/remove_background/`. 16 new tests (6 endpoint + 10 primitive). Real-mode validated SESSION 179 on Riggs + underwater backdrop — clean silhouette, no white frame. Ships SESSION 179 (`57c2530` + `88b341e` muxer fix). | — |
 
-Roughly 16 slices, ~12-18 sessions. V0 ships on commit of
+Roughly 17 slices, ~12-18 sessions. V0 ships on commit of
 this doc. V1-V4 is the "ground re-laid" arc (architecture +
 two foundational primitives, no user-visible compositions
 yet). **V5 is the first slice that gives operators a
@@ -1242,6 +1243,99 @@ the tests cannot fail.
                     primitives)
     media-engine:   123 routes (unchanged since V14)
 
+- 2026-05-18 (SESSION 179, V16, `57c2530` + muxer fix
+  `88b341e`) — **Post-close polish.** First V-slice
+  added after the V-arc was declared closed at V15.4.
+  Driven by SESSION 179's first real-mode dogfood of
+  `talking_head_with_backdrop`: the multi-backdrop
+  chain landed beautifully (commit `077c349`) but the
+  avatar tile sat over the backdrop with Runway's
+  baked-in white square framing it, killing the
+  cinematic effect.
+
+  Three pieces ship together:
+
+  1. **`remove_avatar_background` primitive.** Single
+     CLIP input → single CLIP output (WebM with VP9
+     yuva420p alpha). Strict single-input rule —
+     chained matting passes lose edge detail. Strict
+     model allowlist (v1 ships `u2net_human_seg`
+     only); broader rembg catalog opens up later if
+     scene matting becomes a thing. 10 primitive tests
+     covering registry / cost / mock-mode / input
+     shape / model allowlist / failure propagation.
+
+  2. **Media-engine endpoint** `POST /internal/clips/
+     remove_background/`. Streaming pipeline:
+     ffmpeg-decode (h264 input) → opencv frame loop →
+     rembg(u2net_human_seg ONNX) → ffmpeg-encode
+     (libvpx-vp9 / yuva420p). Audio is muxed from the
+     original file as input #1. Output cached at
+     `data/_internal/matted/<hash>.webm` keyed off
+     (clip_url + model). 6 endpoint tests cover
+     mock-mode, validation, cache short-circuit. Heavy
+     on CPU — ~3.7 fps through rembg on M-series;
+     ~2.4 min for a 22s 24fps clip. Composition
+     runtime already async via Celery so no request
+     blocks. Three new deps: `rembg==2.0.75`,
+     `onnxruntime==1.26.0`, `opencv-python-
+     headless==4.13.0.92`. First call downloads the
+     ~176MB u2net_human_seg.onnx model to `~/.u2net/`.
+
+  3. **Opt-in starter wiring.** New `remove_avatar_bg:
+     bool = False` kwarg on
+     `talking_head_with_backdrop` inserts the matting
+     step between speech and composite when on;
+     composite's foreground source rewires to the
+     matted clip. Default OFF so existing V8 tests
+     (including the SESSION 179 multi-backdrop chain)
+     stay green. 3 new starter tests cover both
+     single-backdrop and 5-backdrop chain layouts
+     with the flag on. Recipe registry surfaces the
+     flag as a labeled checkbox so the SPA gallery
+     exposes it directly. The `MediaEngineClient.
+     request()` helper gained a per-call `timeout`
+     override so this slow endpoint can sit on a 900s
+     budget without bumping the global default.
+
+  Real-mode validation SESSION 179 — Riggs over an
+  underwater backdrop: clean silhouette, no white
+  frame, the matting reads correctly against high-
+  contrast colored backgrounds. $0.75 / 10s composite
+  produced end-to-end (backdrop + speech + matting +
+  composite).
+
+  One follow-up calibration captured in the same
+  session: the worker-restart-on-primitive-add
+  discipline. The first dogfood hit
+  `UnknownPrimitiveError: No primitive registered for
+  'remove_avatar_background'` because Celery had been
+  running since before V16 landed — Django's
+  runserver auto-reloads on file changes but Celery
+  doesn't. Same gotcha as the SESSION 147 drift
+  audit's "stale running processes" item. Restart
+  fixed it; `retry_step` on the failed step let the
+  composition resume from the matting stage without
+  re-spending Runway credits on the already-
+  succeeded backdrop + speech.
+
+  The follow-up muxer fix (`88b341e`) caught a
+  second issue: ffmpeg couldn't infer the output
+  format from our `.webm.tmp` tempfile suffix and
+  exited immediately, breaking the stdin pipe. Added
+  `-f webm` to the ffmpeg cmd and hardened the
+  streaming write loop to drain ffmpeg's stderr on
+  BrokenPipeError (so operators get the real
+  diagnostic instead of a generic 500).
+
+  Registry counts after V16:
+    starters.py:    18 starter functions (unchanged)
+    recipes.py:     18 RECIPES entries (unchanged)
+    primitives:     14 (mock × 3 + real × 11 — added
+                    remove_avatar_background)
+    media-engine:   124 routes (123 → 124, +1 for
+                    /internal/clips/remove_background/)
+
 ### V-arc closure — what V0-V15 delivered
 
 Sixteen sequential slices spanning SESSIONS 142-144.
@@ -1281,3 +1375,18 @@ The deferred legacy form retirement (full deletion of
 `MakeVideoRoute` + the legacy single-form code path)
 sits in the queue under the workspace-fabric arc, not
 the V-arc. The V-arc closes here.
+
+### Post-close additions
+
+The arc was declared closed at V15.4 — every recipe
+in the locked v1 catalog landed. **V16 (SESSION 179)
+is the first post-close addition** and the precedent
+for how the arc grows: real-mode dogfood surfaces an
+actual production-quality gap (Runway's baked-in
+avatar background reading as a picture frame over
+cinematic backdrops), and a focused single-slice
+extension fixes it without disturbing the V0-V15
+contracts. The pattern — narrow scope, one primitive
++ one starter knob + one media-engine endpoint,
+opt-in by default so backwards-compat holds — is
+the template for any future V17+.

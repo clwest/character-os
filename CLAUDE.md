@@ -106,16 +106,23 @@ Update this section when a phase completes.
     (`docs/design/VIDEO_COMPOSITION_V1.md`). V15 closed
     SESSION 144 in 5 staged sub-slices (V15.0 backend +
     V15.1-V15.4 SPA family rollouts). 393 backend tests
-    pass. Media-engine 123 routes (+14 new `/internal/*`
-    endpoints).
-    **Step primitive registry:** 13 primitives —
+    pass. Media-engine 124 routes after V16 (V15.4 closed
+    at 123 +14 new `/internal/*` endpoints; V16 added
+    `POST /internal/clips/remove_background/`).
+    **V16 post-close (SESSION 179)** added
+    `remove_avatar_background` to fix Runway's baked-in
+    white square on the V8 backdrop layout; sets the
+    template for any future V17+ (narrow scope, opt-in
+    default).
+    **Step primitive registry:** 14 primitives —
     `generate_avatar_speech` (V3), `generate_visual_clip` (V4),
     `split_script` + `concat_clips` (V5), `composite_video` +
     `mix_audio` (V7), `add_captions` + `add_intro_outro` +
     `trim_clip` + `reformat_clip` (V9), `design_voice` +
     `dub_audio` (V10), `style_remix` (V11), `transcribe` (V12),
-    `generate_image` (V13), `audio_extract` (V14). Plus the
-    three mock primitives from V2 for runtime tests.
+    `generate_image` (V13), `audio_extract` (V14),
+    `remove_avatar_background` (V16). Plus the three mock
+    primitives from V2 for runtime tests.
     **Starter compositions:** 18 recipes — `talking_head`
     (V3), `cinematic_visual` (V4), `long_form_ad` (V5; launch
     differentiator), `pip_layout` / `backdrop_layout` /
