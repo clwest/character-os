@@ -1777,3 +1777,115 @@ tests cannot fail.
   embeddings isolation guards). Test totals: Django 560
   → 574 (+14). No new media-engine routes; no migrations;
   no new Celery tasks. R1-R6 done; R7-R10 remain.
+
+- 2026-05-18 (SESSION 176) — **R-arc real-mode hardening.**
+  R0-R10 + R6.1 had all shipped with full mock-mode test
+  coverage (150+ Django tests, 32 media-engine tests, 95+
+  SPA tests; all green); SESSION 158 noted "first real-Runway
+  marketing video shipped" but that was a `talking_head`
+  video bake, not a realtime conversation. SESSION 176 was
+  the first real-mode realtime dogfood with knowledge
+  attached. Found and fixed FIVE distinct day-1 root causes
+  hidden by the mock-only pattern:
+
+  (1) R4 commit message claimed
+  `MediaEngineClient.realtime_document_create` shipped but
+  the diff missed it — the view called a missing method.
+  (2) Runway's `/v1/realtime_sessions` payload contract
+  drifted: `avatar` must nest as `{type:"custom",avatarId:x}`
+  (top-level `avatarId` rejected); tools wrap with
+  `{type:"client_event"}` and drop the `parameters` field
+  (SDK holds parameter schema client-side); descriptions
+  capped at Runway's 1024-char limit. (3) SDK
+  `<AvatarCall>` requires `video={false}` + an explicit
+  `<AvatarVideo />` child to render the avatar without
+  requesting the operator's webcam (which fails the WebRTC
+  handshake if no cam connected). (4) Transcript fetch
+  parsed Runway response with the wrong key (`turns` /
+  `messages`) — Runway actually returns `transcript:[...]`.
+  (5) **The deepest bug**: the broker's upstream DELETE on
+  `/v1/realtime_sessions/<id>` cancels the session AND
+  poisons the linked `/v1/avatar_conversations/<id>` to
+  `status: "failed", failureCode: "UNKNOWN",
+  transcript: []` permanently. Natural WebRTC disconnect
+  (SDK unmount → LiveKit room close) is the correct end
+  signal — Runway flips conversation to `ended` with a
+  populated transcript on its own ~5-15s post-disconnect.
+  Operator's framing "maybe me hitting the End button is
+  causing it" broke three hours of false leads (webcam,
+  DELETE-cleanup race, END_CALL data-channel) in one
+  natural test.
+
+  Fix shipped across 9 commits (`d57013b`, `59bfd3d`,
+  `70500b9`, `a0b1843`, `1b375fd`, `c5cc648`, `ec137e5`,
+  `06351d7`):
+
+  * Broker `_end_session` no longer issues the upstream
+    DELETE — it flips local DB to ENDED and schedules
+    `fetch_transcript_for_session` with
+    `apply_async(countdown=30)` so Runway has time to
+    finalize before we fetch.
+  * Media-engine `RunwayRealtimeProvider.create_session`
+    nests `avatar` correctly + caps tool descriptions
+    + inline-polls until READY so `sessionKey` lands in
+    the broker response (was empty before — broker
+    couldn't pass it to the SPA).
+  * `RunwayRealtimeProvider.fetch_transcript` accepts
+    `transcript` key + detects `status: "failed"` and
+    raises so `capture_transcript` can flip
+    `RealtimeSession.status` to FAILED with the upstream
+    body persisted on `error_message`.
+  * Broker fallback to `get_workspace_tools(workspace)`
+    when SPA doesn't supply tools — R7 was silently
+    broken because the catalog was empty at session-create
+    time.
+  * Tool descriptions rewritten in hackathon "SAY ALOUD
+    before invoking … then keep the conversation going"
+    pattern (closes "Marcus moves head but says nothing"
+    gap).
+  * Session-create personality override: broker passes
+    `Spokesperson.personality` (W11.y) when SPA doesn't
+    supply one, overriding the Runway-side avatar
+    personality baked at create-time.
+  * Personality auto-sync to Runway: post_save signal +
+    `spokespeople.sync_personality_to_runway` Celery task
+    + `apply_personality_to_avatar` in voice_clone_client +
+    new `POST /internal/avatars/<id>/change-personality/`.
+    Operator edits `Spokesperson.personality` locally →
+    Runway's avatar resource updates within seconds.
+  * SPA recall results panels — `recall_recent_conversations`
+    + `recall_knowledge` results now render as
+    operator-visible panels (preview cards / citation
+    cards), not collapsed into "(succeeded)".
+  * IdlePanel polish: amber headphones tip (mic
+    feedback warning + permission reminder) + voice pill
+    so operator confirms which voice the avatar will use
+    before Start.
+
+  Five new TRUST_CALIBRATION entries appended (DELETE
+  poisons conversation; mock-only coverage hides upstream
+  drift; operator framing unlocks AI blockers; gpt-5
+  reasoning eats output budget; tool descriptions need
+  narration scaffolding).
+
+  Test totals: Django 800 → 814 (+14 personality-sync +
+  R5 upstream-failed coverage). SPA 95 unchanged.
+  Media-engine 133 unchanged. One new Celery task
+  (`spokespeople.sync_personality_to_runway`); one new
+  media-engine route (`change-personality`). No
+  migrations.
+
+  **R-arc state**: ALL 10 SLICES + R6.1 SHIPPED AND
+  REAL-MODE VALIDATED END-TO-END. Operator-clicked End
+  now produces real transcripts; cross-session memory
+  injects into the next session's document; tools fire
+  with narration; render_video → V-arc pipeline executes
+  with a real CloudFront-hosted MP4 of Marcus speaking
+  his own composed script. First real `Asset(TRANSCRIPT)`
+  of the project (`5e0a488b-...`, 713 chars) + first
+  realtime-tool-triggered Composition (`757eefda-...`,
+  talking_head, status: completed, $0.25 spend) +
+  first realtime-tool-triggered Asset(clip) (`61846ee2-...`,
+  video/mp4) all created in this session. R-arc is no
+  longer just "shipped" — it is operator-validated under
+  real Runway traffic.

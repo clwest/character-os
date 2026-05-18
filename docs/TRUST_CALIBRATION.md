@@ -2406,3 +2406,190 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   false-positive reports since v2.2). The v3 fix amortizes
   the ongoing maintenance + closes a latent class of
   false-positives operators haven't surfaced yet.
+
+
+## 2026-05-18 — Runway DELETE on /v1/realtime_sessions cancels the conversation
+
+- **Context / claim:** R5 (transcript capture) shipped
+  SESSION 146 with full mock-mode test coverage. The
+  natural-end path was: operator clicks End → SPA calls
+  broker's `_end_session` → broker calls
+  `client.realtime_session_end()` → media-engine PATHs to
+  Runway DELETE `/v1/realtime_sessions/<id>` → broker
+  enqueues `fetch_transcript_for_session` Celery task.
+- **Reality / outcome:** Every real-mode session today
+  (5 attempts) produced an empty transcript. The Runway
+  DELETE returned 204 but the linked
+  `/v1/avatar_conversations/<id>` resource flipped to
+  `status: "failed", failureCode: "UNKNOWN", endedAt: null,
+  transcript: []` permanently. No amount of retry / wait /
+  re-fetch produced turns. Three hours of investigation
+  chased: (a) webcam request mismatch, (b) DELETE-vs-SDK
+  cleanup race, (c) missing END_CALL data-channel message
+  — all shipped + tested; all failed.
+- **Found by:** Operator's framing reframed the problem.
+  "Maybe me hitting the end button is causing the issue?"
+  Natural test: start a session, talk, navigate to dashboard
+  instead of clicking End → no broker DELETE fired → Runway
+  reported `status: "COMPLETED", duration: 76,
+  transcript: [3+ real turns]`. The first real
+  `Asset(TRANSCRIPT)` of the project (`5e0a488b-...`, 713
+  chars, full Caesar-Rubicon dialogue) immediately followed
+  via `capture_transcript` running against the same id.
+- **Lesson:** **Runway's `/v1/realtime_sessions/<id>` DELETE
+  is a cancel, not a normal end.** It marks the session
+  CANCELLED and poisons the linked conversation record to
+  `failed` with no transcript. The hackathon's `_safe_delete`
+  was a teardown-on-failure helper, not the normal end path.
+  For programmatic close: skip the DELETE entirely; let the
+  SDK's WebRTC disconnect propagate the room close — Runway
+  flips to COMPLETED + transcript on its own ~5-15s later.
+  Schedule the transcript fetch with `apply_async(countdown=30)`
+  to give Runway the finalization window. Fixed
+  SESSION 176 (`a0b1843`); persisted as a 1-line comment in
+  `_end_session` so a future refactor can't regress.
+
+## 2026-05-18 — Mock-only test coverage hides real-mode contract drift
+
+- **Context / claim:** R-arc shipped 10 slices + R6.1 across
+  SESSIONS 142-157 with 150+ Django tests + 32 media-engine
+  tests + 95 SPA tests, all green. R10 (the explicit drift
+  verifier) checked that every concrete provider implements
+  every Protocol method via AST analysis. The R-arc was
+  marked "real-mode dogfooded SESSION 158" but that session
+  was actually a `talking_head` video bake, not a realtime
+  session with knowledge attached.
+- **Reality / outcome:** SESSION 176 was the first real-mode
+  realtime dogfood with knowledge attached. Found five
+  distinct day-1 root causes that the mock-mode coverage had
+  hidden:
+  1. R4's `MediaEngineClient.realtime_document_create` method
+     was never added despite the commit message claiming it
+     shipped.
+  2. Runway's `/v1/realtime_sessions` payload contract drifted:
+     `avatar` must nest as `{type:"custom",avatarId:x}`; tools
+     wrap with `{type:"client_event"}`; `parameters` field
+     rejected.
+  3. SDK `<AvatarCall>` requires `<AvatarVideo />` child + the
+     correct `audio`/`video` flag semantics to render anything
+     visible.
+  4. Transcript fetch parsed Runway response with wrong key
+     (`turns`/`messages` instead of `transcript`).
+  5. The DELETE-poisons-conversation root cause above.
+- **Found by:** Operator dogfood, iteratively. Each fix
+  shipped + tested then the next hidden cause surfaced.
+- **Lesson:** **Tests that mock the upstream wire never
+  assert the upstream wire.** When the test stubs the entire
+  external API surface, the test verifies our internal
+  glue, not the contract. Pattern: at scope-lock time AND
+  after every major upstream API touch, add httpx mocks
+  that assert the actual outgoing payload shape against
+  the documented contract. R10 (drift verifier) catches
+  Protocol-method-set drift but not field-shape drift in
+  request bodies. Real-mode dogfood remains the only proof
+  of upstream contract compliance until those payload-shape
+  tests land. Repeated calibration of the
+  `feedback_real_mode_dogfood_after_operator_slices` memory:
+  this isn't a one-off, it's a category.
+
+## 2026-05-18 — Operator framing unlocks blockers AI alone misses
+
+- **Context / claim:** After fixing 4 root causes in
+  SESSION 176's R-arc dogfood, the operator's session END
+  still produced a failed conversation. AI iterated three
+  hypotheses in sequence: (a) webcam request → fixed → still
+  failed; (b) DELETE-before-SDK-cleanup race → fixed with
+  2.5s timer → still failed; (c) missing END_CALL data-channel
+  message → fixed by routing through SDK `end()` → still
+  failed. Each fix shipped with full test coverage. Three
+  hours of work, no real-mode improvement.
+- **Reality / outcome:** Operator suggested: "So I just
+  thought of something. Does me hitting the end button cause
+  the problem? I can tell the avatar bye and that will end
+  the conversation as well." Natural test (talk, say bye,
+  navigate away — no End button) immediately produced the
+  first real transcript of the project. The DELETE itself
+  was the killer, not its timing or any SDK-side handshake
+  detail.
+- **Found by:** Operator's plain-language reframing. The AI
+  was deep in specific code theories ("the END_CALL message
+  isn't reaching Runway because the SDK unmounted before the
+  promise resolved"); operator's question was at a layer
+  above: "what if the End button itself is the problem?"
+- **Lesson:** **When the AI burns iterations on increasingly
+  specific code theories, the operator's plain-language
+  reframing is the broader hypothesis worth testing first.**
+  The pattern recognition: AI fixes that ship with full test
+  coverage but produce zero real-mode improvement on the
+  third iteration are a signal that the theory class is
+  wrong, not the implementation. Stop iterating; ask the
+  operator what they'd test if they were debugging in plain
+  English. Their answer is often one level of abstraction
+  higher than where the AI is stuck.
+
+## 2026-05-18 — gpt-5 reasoning silently eats output budget
+
+- **Context / claim:** `conversation_synthesis` (K9) used
+  `MAX_OUTPUT_TOKENS=400` for chat replies with model
+  `gpt-5`, reasoning effort `low`. Documented as "conversation
+  replies are shorter than scripts" with the script path
+  using 2000.
+- **Reality / outcome:** Operator dogfood (Marcus answering
+  about teaching Rome to bored 17-year-olds) produced replies
+  truncating mid-sentence: "First lens: Machiavelli. He
+  argued" — the visible text was ~3 short paragraphs but the
+  response capped at the token ceiling. gpt-5 with reasoning
+  burns hidden reasoning tokens against the same
+  `max_output_tokens` budget; the visible text gets less than
+  the nominal cap suggests. Bumping to 1000 immediately
+  produced complete 638-token replies with closing questions
+  intact.
+- **Found by:** Operator visible truncation in chat dogfood
+  reply. The token counts in the response confirmed the
+  cap was being hit, not the model deciding to stop.
+- **Lesson:** **Any operator-visible-text surface using
+  gpt-5 needs at least 800-1000 token ceiling.** gpt-5
+  reasoning effort `low` still consumes ~30-50% of the
+  budget invisibly. Pattern to watch: visible text length
+  scales sublinearly with `max_output_tokens` for gpt-5
+  vs gpt-5-mini. If a user-facing reply reads as
+  truncated mid-thought, suspect the ceiling before the
+  prompt.
+
+## 2026-05-18 — Tool descriptions need narration guidance, not just trigger conditions
+
+- **Context / claim:** R7.1's tool descriptions were
+  150-200 chars each ("Search the spokesperson's workspace
+  knowledge for a specific fact. Use when..."). The
+  descriptions told the avatar's LLM WHEN to invoke each
+  tool but said nothing about narration around the
+  invocation.
+- **Reality / outcome:** Operator dogfood: tools fired
+  correctly (R7 dispatcher worked, audit rows created, async
+  approval flow exercised) but Marcus went silent around
+  every invocation. Operator described: "he just moved his
+  head back and forth but never said anything." The avatar's
+  LLM treats tool calls as silent operations unless the
+  description scaffolds the narration explicitly.
+- **Found by:** Operator real-mode dogfood. Mock-mode debug
+  buttons fire tools through the dispatcher directly, never
+  exercising the LLM's narration path. The gap stayed
+  invisible until the avatar actually invoked the tool from
+  the data channel.
+- **Lesson:** **Tool descriptions for LLM-invoked surfaces
+  must include narration guidance.** Hackathon descriptions
+  were 400-700 chars with explicit:
+  * SAY ALOUD before invoking: '<exact phrase>'.
+  * After invoking, do NOT wait silently — '<exact next
+    action>'.
+  * Behavioral rules (do NOT recite chunks verbatim, do NOT
+    invent specific dates, etc.).
+  Without this scaffolding the avatar invokes silently. With
+  it, the next session's transcript showed Marcus saying
+  exactly the words from the description ("Let me pull up
+  what we covered last time" before
+  `recall_recent_conversations`). Pattern: tool descriptions
+  are user-facing prompt material, not just dispatch
+  triggers — write them like you'd write the avatar's
+  script. Length cap 500 for character-os media-engine
+  validation; Runway accepts up to 1024.

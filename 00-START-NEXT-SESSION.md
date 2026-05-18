@@ -16,7 +16,8 @@ state: active
 > (locked SESSION 142 — 9 contract rules, V0-V15 slice breakdown).
 > **Realtime avatar scope lock:** `docs/design/REALTIME_AVATAR_V1.md`
 > (locked SESSION 142 — 10 contract rules, R0-R10 slice
-> breakdown). **R-ARC COMPLETE.**
+> breakdown). **R-ARC COMPLETE + REAL-MODE HARDENED
+> (SESSION 176).**
 > **Workspace fabric scope lock:** `docs/design/WORKSPACE_FABRIC_V1.md`
 > (locked SESSION 144 — 9 contract rules, F0-F10 slice
 > breakdown). **F0-F10 complete; F8.1 queued.**
@@ -26,100 +27,108 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_175_VOICE_TELEMETRY_YOUTUBE_PERSONALITY.md`.
+> **Last handoff:** `docs/handoffs/SESSION_176_R_ARC_REAL_MODE_HARDENING.md`.
 
 ---
 
-## SESSION 175 outcome — voice telemetry follow-up + YouTube extractor + personality split
+## SESSION 176 outcome — R-arc real-mode hardening
 
-Five feature commits. Two natural dogfood-driven fixes
-following from SESSION 174's voice-telemetry slice. One
-full arc-close on K7.x YouTube ingest. One operator-
-insight slice — the personality / business_brief split.
+Nine feature commits. The R-arc shipped 10 slices + R6.1 across
+SESSIONS 142-157 with full mock-mode test coverage — today
+proved every realtime surface real-mode against live Runway for
+the first time. Found and fixed five distinct root causes that
+hid behind the mock-only test pattern.
 
-* **`edff9f2`** — W11.x.1 voice swap never auto-closes.
-  SESSION 174 dogfood found banners unmounting in the
-  same React tick they rendered.
-* **`1577ce4`** — K6.4 v2.2 sentence-opener stoplist
-  expansion. Donny K6 dogfood "Respect HTML" false-
-  positive closed; 17 new verb families added.
-* **`6f9d5b4`** — K7.x v2 proper YouTube transcript
-  extractor. Replaces v1's rejection with actual
-  ingestion via youtube-transcript-api.
-* **`0b56bd9`** — W11.x.2 voice preview surface in
-  wizard. Operators hear cloned voice before committing
-  via inline audio player.
-* **`47f5166`** — W11.y personality / business_brief
-  split. Independently swappable HOW (personality) vs
-  WHAT (business_brief) across model + K6 + K6.5 +
-  Runway avatar + R-arc realtime document + wizard +
-  edit modal.
+* **`d57013b`** — realtime end-to-end (4-layer initial fix:
+  missing client method + Runway payload drift + SDK video
+  render + DRAFT/FAILED quota leak).
+* **`59bfd3d`** — K6/K9 catchphrase guard + bump
+  `MAX_OUTPUT_TOKENS` 400 → 1000.
+* **`70500b9`** — R5 transcript fix (parse drift + failed-status
+  surfacing + webcam-request removed).
+* **`a0b1843`** — R5 root cause: stop DELETE-ing Runway sessions
+  on End (proven by operator's "maybe End button itself is
+  causing it" framing → 3 hours of false leads collapsed).
+* **`1b375fd`** — broker passes workspace tool catalog.
+* **`c5cc648`** — R7 polish: narration-rich tool descriptions +
+  session-create personality override.
+* **`ec137e5`** — personality auto-sync to Runway via post_save
+  signal + Celery task + SPA recall results panels.
+* **`06351d7`** — IdlePanel polish (headphones tip + voice pill)
+  + `/signature` route.
 
-Tests: Django **782 → 814** (+32). Media-engine **133**
-unchanged. SPA vitest **91 → 95** (+4). Migrations 54 → 55.
+Tests: Django **814**, realtime suite **164** (+14). SPA vitest
+**95** unchanged. Media-engine **133** unchanged. Real-mode
+spend: ~$0.74 Runway + ~$0.03 OpenAI. Starter tier ended 4/5
+sessions, 11/30 minutes.
 
-Real-mode spend this session: ~$0.06 OpenAI (K6.6
-multi-cast dogfood). $0 Runway / $0 Stability.
+### Real-mode artifacts created today
+
+* 4+ `RealtimeSession` rows for Marcus (status: ended)
+* 4+ `Asset(TRANSCRIPT)` rows (first project transcripts)
+* 1 `Composition` `757eefda-...` (talking_head, completed)
+* 1 `Asset(clip)` `61846ee2-...` — real CloudFront-hosted MP4
+  of Marcus speaking his own composed script about why
+  studying Rome matters today, rendered through the realtime
+  `render_video` tool with operator approval
 
 ### Calibration moments worth carrying
 
-Three new TRUST_CALIBRATION entries appended:
+Five new TRUST_CALIBRATION entries appended:
 
-1. **Vitest atomic assertions mask render → unmount flashes.**
-   When `setVoicePatch` + `onClose()` fire in the same
-   React tick, jsdom asserts both ends true. Human eye
-   sees only the second. Pattern: any "X exists AND
-   onClose called" assertion without a timing gate is
-   suspect.
-2. **Source greps don't match operator UI text → suspect
-   stale browser first.** Hard refresh (Cmd+Shift+R) is
-   the first move, not an afterthought. SPA bundle
-   freshness via `pnpm build` for Django :8000 path; HMR
-   usually for Vite :5174 but glitches.
-3. **K6.4 stoplist curation trickle suggests v3.** v2 +
-   v2.1 + v2.2 cumulatively added ~58 verbs. Each K6
-   dogfood surfaces 1-2 more. v3 (sentence-position-aware
-   imperative-verb detection beyond stoplist) amortizes
-   the maintenance.
+1. **Runway DELETE on /v1/realtime_sessions cancels the
+   conversation** — DELETE poisons the linked
+   /v1/avatar_conversations to `failed`. Natural WebRTC
+   disconnect is the correct end signal.
+2. **Mock-only test coverage hides real-mode contract drift.**
+   Tests that mock the upstream wire never assert the upstream
+   wire.
+3. **Operator framing unlocks blockers AI alone misses.**
+   "Maybe the End button itself is causing it" broke 3 hours
+   of false leads in one test.
+4. **gpt-5 reasoning silently eats output budget.** Need
+   800-1000 token ceiling for visible-text surfaces.
+5. **Tool descriptions need narration guidance, not just
+   trigger conditions.** SAY ALOUD pattern + "keep the
+   conversation going" rules keep the avatar from going
+   silent around invocations.
 
 ### Final state at session close
 
-* **W11.y backfill verified**: all 5 cast spokespeople in
-  Admin's workspace have personality populated identically
-  to business_brief. K6 + Runway produce same output until
-  operator splits.
-* **Cast voice swaps from dogfood**: Marcus → `david`,
-  Sasha → `felix`, Donny → `vincent`. Maya + Riggs
-  unchanged.
-* **Maya knowledge attachment**: trafilatura test doc
-  attached for K6.6 dogfood. Operator may detach if not
-  intended for Maya's use case.
-* Stack-up healthy. Celery worker restarted once
-  (W11.y, pid 74011).
+* **R-arc real-mode validated end-to-end** — R5 transcripts
+  + R6 cross-session memory + R7 tool dispatch (sync + async
+  with approval) + R7 → V pipeline (render_video produces
+  real Composition + Asset).
+* **W11.y propagation complete** — Spokesperson.personality
+  edits now auto-sync to Runway's avatar resource via Celery
+  signal. Local DB + Runway-side stay in sync without operator
+  intervention.
+* **All 12 SESSION 176 task items completed.**
+* Stack-up healthy. Celery worker last restarted at session-end
+  (pid 5625, picked up `spokespeople.sync_personality_to_runway`).
 
-### FIRST THING (SESSION 176): pick by mood
+### FIRST THING (SESSION 177): pick by mood
 
-1. **W11.y operator dogfood** — edit Marcus's modal, split
-   his backfilled personality from business_brief, re-fire
-   K6. ~$0.05, ~10 min. **High-value** first move because
-   it validates W11.y against real operator content.
-2. **Voice preview dogfood** — W11.x.2 ships but the
-   preview-after-clone flow hasn't been operator-driven
-   yet. Requires upload/record path. ~$0.05.
-3. **Cost panel polish** — credit ↔ dollar mode toggle
-   for Stability, per-day chart, per-recipe breakdown.
-   ~1 session.
-4. **K6.4 v3 architectural fix** — generalize sentence-
-   position-aware imperative-verb detection beyond
-   stoplist curation. ~1 session. Amortizes the trickle.
-5. **K7.x v3 YouTube oEmbed** — populate doc title with
-   real video title instead of "YouTube · {video_id}"
-   placeholder. ~30 min.
-6. **Multi-step composition title disambiguation** —
-   ~30 min surgical fix.
-7. **F8.1 K10 seed corpus** — blocked on operator markdown.
-8. **TRANSCRIPT + VOICE asset titles** — verify W11.6.5.3
-   covers all asset types. ~15 min.
+1. **F8.1 K10 seed corpus** — draft one piece of seed content,
+   then K1-K7 ingest flow exercises against real operator
+   knowledge instead of test fixtures. **High value** because
+   it grounds K-arc + R-arc dogfood in operator-authored
+   content.
+2. **Sasha + Donny voice swap re-investigation** — SESSION 175
+   swaps didn't persist on either spokesperson. ~30 min.
+3. **R6 memory phrasing polish** — compare composition prompt
+   output across 2-3 dogfood sessions for thread-pickup
+   consistency.
+4. **K6.4 v3 architectural fix** — generalize sentence-position-
+   aware imperative-verb detection beyond stoplist curation.
+   Amortizes the v2.x trickle. ~1 session.
+5. **Multi-step composition title disambiguation** — small
+   surgical fix from SESSION 175 backlog. ~30 min.
+6. **Tool description iteration** — once 2-3 more real-mode
+   sessions happen, calibrate SAY ALOUD lines to operator
+   preference.
+7. **Push to remote** — 9 commits ahead of `origin/main`;
+   only with explicit operator approval.
 
 ---
 
@@ -129,7 +138,8 @@ Three new TRUST_CALIBRATION entries appended:
 **Phase 3:** Wizard arc complete. Operator-facing edit
 surfaces include voice swap, rebake, voice telemetry,
 voice preview, personality split.
-**Phase 4:** All four arcs (K / V / F / R) complete.
+**Phase 4:** All four arcs (K / V / F / R) complete AND
+real-mode validated end-to-end (R-arc proven SESSION 176).
 W11.6 sub-arc complete. K7.x v2 extractor complete.
 
 | Surface | Status |
@@ -138,31 +148,36 @@ W11.6 sub-arc complete. K7.x v2 extractor complete.
 | K0-K9 | DONE |
 | V0-V15 | DONE |
 | F0-F10 | DONE |
-| **R0-R10 + R6.1** | **DONE** (SESSIONS 142-157) |
+| **R0-R10 + R6.1** | **DONE + REAL-MODE VALIDATED (SESSION 176)** |
 | **W11.6.0-W11.6.5 (media gen arc)** | **DONE** (SESSIONS 172-173) |
 | **W11.x voice telemetry** | **DONE** (SESSION 174 + 175 fix) |
-| **W11.x.2 voice preview surface** | **DONE** (SESSION 175, `0b56bd9`) |
-| **W11.y personality split** | **DONE** (SESSION 175, `47f5166`) |
+| **W11.x.2 voice preview surface** | **DONE** (SESSION 175) |
+| **W11.y personality split** | **DONE** (SESSION 175 + Runway-sync SESSION 176) |
 | **K7.1 cost telemetry** | **DONE** (SESSION 174) |
-| **K6.4 v2.2 stoplist** | **DONE** (SESSION 175, `1577ce4`) |
-| **K7.x v2 YouTube extractor** | **DONE** (SESSION 175, `6f9d5b4`) |
+| **K6.4 v2.2 stoplist** | **DONE** (SESSION 175) |
+| **K7.x v2 YouTube extractor** | **DONE** (SESSION 175) |
 | F8.1 (K10 seed corpus) | Queued (operator markdown) |
 | K7.x v3 YouTube oEmbed | Queued |
 | K6.4 v3 architectural fix | Queued (amortization) |
+| Sasha + Donny voice swap re-persist | New (from SESSION 176) |
 | Multi-step title disambiguation | Queued (small fix) |
 | W12 legacy form retirement | Queued |
 
 **Cast roster in workspace `admins-workspace`**:
 
   - Riggs the Donkey — id `06bf999f-...` — voice `vincent`
-  - **Sasha the Raccoon** — id `79d48883-...` — voice `felix` (swapped SESSION 175 dogfood)
-  - Donny the Sloth — id `f30b2980-...` — voice `vincent` (swapped SESSION 175)
-  - Maya the Panda — id `9410f23f-...` — voice `victoria` (trafilatura doc attached for K6.6 dogfood)
-  - **Marcus the Battle Unicorn** — id `b6a00dd8-...` — voice `david` (swapped SESSION 175)
+  - Sasha the Raccoon — id `79d48883-...` — voice `vincent`
+    (SESSION 175 swap to `felix` did NOT persist; see backlog)
+  - Donny the Sloth — id `f30b2980-...` — voice `drew`
+    (SESSION 175 swap to `vincent` did NOT persist; see backlog)
+  - Maya the Panda — id `9410f23f-...` — voice `victoria`
+  - **Marcus the Battle Unicorn** — id `b6a00dd8-...` — voice
+    `david` (W11.y personality + voice both confirmed Runway-side
+    SESSION 176)
 
-All 5 cast members have `personality` populated identically
-to `business_brief` post-W11.y backfill. Operator splits
-per-spokesperson over time.
+Marcus is the most dogfooded member of the cast — 4 real-mode
+ENDED sessions + 1 successful render_video composition with a
+real CloudFront-hosted MP4 today.
 
 **Workspace image library** (3 images, all titled):
 
@@ -195,13 +210,11 @@ cd web && pnpm dev                          # :5174
 python3 /Users/donkeyking/development/context-kit/context_kit.py doctor
 ```
 
-**SESSION 176 stack-up note**: Celery worker was restarted
-once in SESSION 175 (W11.y model change, pid 74011 at
-session-close). If SESSION 176 touches
-`apps/spokespeople/` models OR `apps/compositions/`
-models / tasks / primitives, restart again. **ANY
-model-extending session needs a worker restart** —
-SESSION 174 carry-forward, reinforced in 175.
+**SESSION 177 stack-up note**: Celery worker was restarted
+at SESSION 176 close (pid 5625, picked up
+`spokespeople.sync_personality_to_runway`). If SESSION 177
+touches `apps/spokespeople/` OR `apps/realtime/`
+tasks / signals / models, restart again.
 
 **Smoke checks** (counts as of session close):
 
@@ -222,36 +235,39 @@ pnpm test                                     # 95 vitest tests
 
 ## AI / assistant context
 
-- **Last session: SESSION 175 — voice telemetry follow-up
-  + YouTube extractor + personality split.** Five
-  feature commits across dogfood-driven UX fixes (W11.x.1,
-  K6.4 v2.2) + a long-queued backlog arc-close (K7.x v2)
-  + an operator-insight slice (W11.y). Tests: Django
-  **814**; SPA **95**; media-engine **133**.
+- **Last session: SESSION 176 — R-arc real-mode hardening +
+  W11.y propagation.** Nine feature commits proved every
+  realtime surface real-mode against live Runway for the
+  first time. Operator-clicked End now produces a transcript;
+  cross-session memory injects properly; tools fire with
+  narration; render_video → V-arc pipeline executes
+  end-to-end. Personality edits auto-propagate to Runway.
+  Tests: Django **814**; SPA **95**; media-engine **133**.
 
-- **Calibration carried forward (NEW SESSION 175)**:
-  - **Vitest atomic assertions can mask real UX bugs.**
-    Render → unmount in one React tick passes jsdom but
-    invisible to humans. Pattern to watch: "X exists AND
-    onClose called" without a timing gate.
-  - **Stale browser before stale code.** When source
-    greps don't match operator UI text, hard refresh
-    first. Save 5-10 min of source-spelunking.
-  - **K6.4 stoplist curation trickle.** Every K6 dogfood
-    surfaces 1-2 new verb gaps. v3 architectural fix
-    amortizes the maintenance.
+- **Calibration carried forward (NEW SESSION 176)**:
+  - **Runway DELETE poisons the conversation.** Don't use
+    explicit DELETE for normal end — let SDK / WebRTC
+    disconnect handle it.
+  - **Mock-only test coverage hides upstream drift.** Tests
+    that mock the wire never assert the wire.
+  - **Operator framing unlocks AI blockers.** When the AI
+    burns iterations on increasingly specific theories,
+    operator's plain-language reframing is the broader
+    hypothesis worth testing first.
+  - **gpt-5 reasoning eats output budget silently.** Set
+    800-1000 token ceilings for visible-text surfaces.
+  - **Tool descriptions need narration scaffolding.** SAY
+    ALOUD + keep-the-conversation-going rules required.
 
 - **Calibration carried forward (from earlier sessions)**:
   - **Real-mode dogfood after operator-facing slices.**
-    Mock-mode tests miss real-world shape mismatches.
-    Saved as memory entry
-    `feedback_real_mode_dogfood_after_operator_slices.md`.
+    Reinforced SESSION 176 — mock-only R-arc coverage
+    masked 5 distinct real-mode root causes.
   - **Celery worker restart for any model-extending
-    session.** Not just LLM flows.
+    session.** SESSION 176 added `spokespeople` task module
+    + signal; worker restarted at close.
   - **SPA gates need both `pnpm test` AND `pnpm build`.**
-    vitest's esbuild skips full TS check.
-  - **Distinct request boundaries for distinct
-    side-effects.**
+  - **Distinct request boundaries for distinct side-effects.**
   - **Hook order across early returns** (SESSION 169).
   - **AI's "shipped" framing belongs to the operator
     after review.**
@@ -265,11 +281,16 @@ pnpm test                                     # 95 vitest tests
     input from LLM input.**
   - **Don't rationalise "somewhat readable" — look at
     what the operator-facing surface actually renders.**
+  - **Vitest atomic assertions can mask real UX bugs.**
+  - **Stale browser before stale code.**
+  - **K6.4 stoplist curation trickle** suggests v3
+    architectural fix.
 
-- **All Phase 4 arcs + W11.6 sub-arc + voice telemetry
-  + personality split all live.** Platform is in
-  operator-facing polish + dogfood-driven refinement
-  phase.
+- **All Phase 4 arcs real-mode validated end-to-end** as of
+  SESSION 176 close. R-arc + W11.6 + voice telemetry +
+  personality split + Runway sync all live and operator-
+  exercised. Platform is in operator-facing polish +
+  real-world content dogfood phase.
 
 - Collaboration conventions: AI drafts, human edits.
   Handoff `## Calibration moments worth carrying` +

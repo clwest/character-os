@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-17T15:01:57.169238+00:00
-git_sha: 37df108
+generated_at: 2026-05-18T19:04:45.241083+00:00
+git_sha: 06351d7
 git_branch: main
 ---
 
@@ -15,7 +15,7 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-17T15:01:57.169238+00:00** against commit **37df108**
+Generated **2026-05-18T19:04:45.241083+00:00** against commit **06351d7**
 on branch **main**.
 
 Python 3.11.6 · Django 5.2.14 ·
@@ -30,11 +30,11 @@ Celery 5.6.3 · httpx 0.28.1.
 | Django models (project-owned) | **16** | `apps.get_models()` filtered to first-party apps |
 | URL routes (total) | **295** | `get_resolver().url_patterns` walk |
 | URL routes (`/api/*`) | **107** | same |
-| FastAPI routes | **118** | media-engine `/openapi.json` (reachable) |
-| Celery tasks (registered) | **8** | `celery_app.tasks` filter |
+| FastAPI routes | **119** | media-engine `/openapi.json` (reachable) |
+| Celery tasks (registered) | **9** | `celery_app.tasks` filter |
 | Migrations (applied / total) | **62 / 62** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **46,588** in 221 files | `pathlib.Path.rglob("*.py")` |
-| Media-engine LOC (`*.py`, no venv/migrations) | **32,647** in 58 files | same |
+| Shell LOC (`*.py`, no venv/migrations) | **47,188** in 224 files | `pathlib.Path.rglob("*.py")` |
+| Media-engine LOC (`*.py`, no venv/migrations) | **32,893** in 58 files | same |
 
 ---
 
@@ -174,12 +174,12 @@ Total: **295** resolved patterns.
 
 Probed `http://localhost:8001/openapi.json` — `Character OS API` v0.1.0.
 
-Total: **118** routes.
+Total: **119** routes.
 
 | Prefix | Count |
 |---|---|
 | `/api/` | 88 |
-| `/internal/` | 29 |
+| `/internal/` | 30 |
 | `other` | 1 |
 
 ### `/internal/*` surface (Phase 2 contract)
@@ -188,6 +188,7 @@ Total: **118** routes.
 - `/internal/audio/extract/`
 - `/internal/audio/mix/`
 - `/internal/avatars/`
+- `/internal/avatars/{avatar_id}/change-personality/`
 - `/internal/avatars/{avatar_id}/change-voice/`
 - `/internal/avatars/{avatar_id}/refresh/`
 - `/internal/clips/avatar_speech/`
@@ -218,7 +219,7 @@ Total: **118** routes.
 
 ## Celery Tasks
 
-Total: **8** registered tasks (excluding `celery.*` built-ins).
+Total: **9** registered tasks (excluding `celery.*` built-ins).
 
 - `apps.compositions.tasks.execute_composition`
 - `apps.compositions.tasks.retry_step`
@@ -228,6 +229,7 @@ Total: **8** registered tasks (excluding `celery.*` built-ins).
 - `embeddings.embed_document`
 - `realtime.execute_tool_invocation`
 - `realtime.fetch_transcript_for_session`
+- `spokespeople.sync_personality_to_runway`
 
 ---
 
@@ -272,12 +274,12 @@ Total: **8** registered tasks (excluding `celery.*` built-ins).
 
 | Service | Files | Lines |
 |---|---|---|
-| `media-engine/` | 58 | 32,647 |
-| `shell/` | 221 | 46,588 |
-| **total** | **279** | **79,235** |
+| `media-engine/` | 58 | 32,893 |
+| `shell/` | 224 | 47,188 |
+| **total** | **282** | **80,081** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-05-17T15:01:57.169238+00:00 from commit 37df108. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-18T19:04:45.241083+00:00 from commit 06351d7. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
