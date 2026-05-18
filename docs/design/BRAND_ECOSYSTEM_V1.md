@@ -400,3 +400,109 @@ tests cannot fail.
   history. B0 closes with this doc + V2 doc + parent-anchor
   doc + V1 banner update. B1 starts the token
   infrastructure work invisibly.
+
+- 2026-05-18 (SESSION 178) — **B0-B5 shipped end-to-end in
+  a single session; B6-B10 deferred to product #2 reality.**
+  The B-arc is effectively complete at B5 for v1. Eight
+  commits across the arc:
+
+  * **B0** (`4f567e1`) — Scope lock (this doc) +
+    BRAND_IDENTITY_V2.md + 247_GLOBAL_AI_OVERVIEW.md parent
+    anchor + V1 deprecation banner. Architectural
+    foundation; 10 contract rules; 6-product `*OS` family
+    reserved.
+
+  * **B1** (`3902814`) — Token infrastructure shipped
+    invisibly. `web/src/lib/brand/{tokens.ts,parent.ts,
+    products/character-os.ts,index.ts}` + `web/src/styles/
+    tokens.css` (scoped to `[data-brand="v2"]` which nothing
+    activated yet). All 8 acceptance criteria from
+    BRAND_IDENTITY_V2 §B1 green; no visual change.
+
+  * **B2** (`30e2d3f`) — SPA flipped to V2. `<html
+    data-brand="v2">` set, V1 :root rescoped to
+    `[data-brand="v1"]` for rollback, Fraunces dropped from
+    fonts + globals, paper-warm body background removed,
+    `font-display` + `font-serif` consolidated to Geist,
+    `::selection` to gold accent. Layout chrome rewired
+    through `BRAND.product.name` + new `ParentBrandChip` top
+    -right + `BRAND.parent.poweredByLabel` footer.
+
+  * **B2 hotfix** (`b2b6475`) — PostCSS `@import` order
+    bug. The `@import "./tokens.css";` was placed after
+    `@tailwind` directives → silently dropped → V2 tokens
+    not in the bundle → operator saw white background with
+    gold accents. 1-line move + 6-line comment block;
+    TRUST_CALIBRATION entry added.
+
+  * **B3.1** (`a2659c4`) — talk-route + status colors to
+    V2 tokens. Side effect: tailwind.config gains `success`
+    + `warning` color utilities + `accent.muted` + `accent
+    .bright` variants. 5 distinct components migrated
+    (headphones tip, AvatarCall wrapper, LiveIndicator
+    pill, ToolResultPanel 4-state palette, recall results
+    cards).
+
+  * **B3.2** (`c850cfa`) — rest of SPA hardcoded V1
+    colors migrated in one sweep. 11 files touched. After
+    this commit `grep -rE 'bg-(amber|emerald|yellow|blue|
+    ...)-[0-9]'` returns zero hits in SPA source.
+    Replacement convention: `border-X-500/40 bg-X-500/5
+    text-X-700 dark:text-X-300` →  `border-<token>/40
+    bg-<token>/10 text-<token>` per intent. Zero semantic
+    drift.
+
+  * **B4** (`0f97adb`) — messaging refresh to
+    infrastructure-credible tone. Dashboard hero, empty
+    states, recipe gallery header, spokesperson detail
+    CTA, onboarding tour all rewritten. Verbs are
+    infrastructure verbs (provision / compose / ground /
+    fire); no exclamation marks; no "transform your
+    business" copy. Sample: "Type your business. Click.
+    Get a video ad." → "Compose a render. Ground in
+    workspace knowledge. Ship to your channels." "Make a
+    video" → "New render" or "Open recipe gallery."
+    "Create your first spokesperson" → "Provision
+    spokesperson." Onboarding step 3 "Pick a recipe and
+    render" → "Fire a composition."
+
+  * **B5** (`fbf8909`) — dedicated `/about` parent-company
+    route + brand chip clickable. Hero (tagline + parent
+    name + positioning) + Product family table
+    (CharacterOS Live + 5 reserved siblings with status
+    pills) + Contact card + /signature footer link. Public
+    route (no auth gate) so external evaluators can land
+    directly. `productFamily` array added to `parent.ts`
+    mirroring `docs/247_GLOBAL_AI_OVERVIEW.md` §"Product
+    family"; `ProductFamilyEntry` type exported.
+
+  * **B6-B10 deferred.** Operator-caught
+    premature-extraction at the B5/B6 boundary: B6's "stub
+    product config files for DealerOS / AgentOS / etc."
+    contradicted contract rule 10 + §"Out of scope" item
+    "Monorepo split. Reserved for product #2 reality."
+    B7 (enterprise polish), B8 (operator dogfood +
+    screenshot review), B9 (V1 archive cleanup), and B10
+    (formal arc closure) all carry forward as latent
+    items that activate when their preconditions are met
+    (product #2 reality / dogfood-driven polish / doc
+    maintenance). The B-arc is closed for v1.
+
+  **Three TRUST_CALIBRATION entries appended** (PostCSS
+  `@import` order; operator-caught premature extraction;
+  V2-not-applying-was-cache).
+
+  **Test totals:** Django 816 unchanged; SPA vitest 95
+  unchanged; media-engine 133 unchanged. Per contract rule
+  6 zero business-logic / model / route / API touched.
+
+  **Real-mode spend:** $0 — pure SPA + docs work.
+
+  **B-arc state:** B0-B5 SHIPPED; B6-B10 DEFERRED. The
+  CharacterOS SPA now reads as enterprise AI infrastructure
+  under the 24/7 GLOBAL AI parent company. Every public
+  surface names 24/7 GLOBAL AI as the company (contract
+  rule 1); every component string flows through
+  `BRAND.parent` / `BRAND.product` (contract rule 3);
+  tokens are the shared substrate (contract rule 2). Brand
+  layer is extraction-ready when product #2 launches.

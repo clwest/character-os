@@ -2639,3 +2639,125 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   + `is_operator=True` trigger) and accurately names the
   block as "5-10 short markdown files about Character OS
   itself need to be authored."
+
+
+## 2026-05-18 — PostCSS silently drops @import declarations placed after @tailwind directives
+
+- **Context / claim:** B2 (SPA flip to V2 dark + gold) shipped
+  the V2 token CSS via `@import "./tokens.css";` placed in
+  `web/src/styles/globals.css` AFTER the `@tailwind base /
+  components / utilities` directives. The TS-side token
+  source + the HTML `data-brand="v2"` attribute + the
+  Tailwind utility classes all looked correct.
+- **Reality / outcome:** Operator reported: "the colors don't
+  really look Navy and Gold, they still look like its just
+  Black words on a white background." Diagnostic: built CSS
+  bundle was MISSING `[data-brand="v2"]` selector entirely
+  AND missing the V1 `[data-brand="v1"]` block (also wrapped
+  in @layer inside globals.css). CSS spec requires `@import`
+  declarations at the absolute top of a CSS file before any
+  other rule; PostCSS / Tailwind silently drop misplaced
+  imports during compilation. With tokens.css dropped,
+  `bg-background` (Tailwind utility → `hsl(var(--background))`)
+  resolved to `hsl()` with undefined custom property → invalid
+  CSS → browser fallback to white. Gold accents in
+  components rendered fine because some component-level
+  styles used hardcoded `#C8A35F` or shadcn variants that
+  bypassed the var chain.
+- **Found by:** Operator dogfood + post-fix diagnostic
+  scripting (python regex over `dist/assets/index-*.css`
+  checking for `--background:` declarations + their
+  enclosing selectors).
+- **Lesson:** **`@import` MUST be at the very top of any CSS
+  file processed by Tailwind / PostCSS.** No `@tailwind`
+  directives, no `@layer` blocks, no comments-then-rules-then
+  @import. The hotfix was a 1-line move + a 6-line comment
+  block inside globals.css explaining the order requirement so
+  a future refactor can't regress. Pattern to watch: when a
+  Tailwind utility resolves transparent / undefined and the
+  referenced custom property IS defined in an `@import`ed
+  file, check import position before debugging cascade /
+  specificity. The diagnostic that nailed it: `python3` script
+  greppping the built CSS bundle for the selector + the var
+  name — would have surfaced the missing block in seconds at
+  the start instead of an hour of cache + selector + scope
+  speculation.
+
+## 2026-05-18 — Operator catches premature extraction (B-arc B6)
+
+- **Context / claim:** `docs/design/BRAND_ECOSYSTEM_V1.md`
+  locked SESSION 178 included `B6 — multi-product extraction
+  prep` in the slice breakdown: "lib/brand/ shape audited +
+  documented for npm-package extraction. Stub product config
+  files for DealerOS / AgentOS / etc. (config-only, no UI) to
+  prove the structure." After B5 shipped, the natural AI
+  inclination was to keep marching down the slice list and
+  ship B6.
+- **Reality / outcome:** Operator pushback: "Lets hold off on
+  B6 since it sounds like its outside the scope of the actual
+  app we are working in right now. We can go back to finishing
+  up making sure everything is completed, we still need to
+  test the rest of the recipes and things like that anyways."
+  Correct call — the BRAND_ECOSYSTEM_V1 lock itself listed
+  multi-product extraction in §"Out of scope" with the note
+  "Reserved for product #2 reality." B6 was on the boundary of
+  that constraint; the AI hadn't read its own scope-lock §"Out
+  of scope" carefully enough to refuse the slice.
+- **Found by:** Operator pushback at the slice handoff.
+- **Lesson:** **The operator's "are we building this for
+  something that exists?" framing is the right circuit-breaker
+  on architectural slices in a multi-product / extensibility
+  arc.** AI tendency in framework-style arcs is to "complete
+  the framework" by shipping all the slices; operator tendency
+  is "ship for the product reality" and defer extensibility
+  work until the second product is real. Operator wins this
+  trade by default in this project — premature extraction is
+  the trap. Pattern reinforcement of the existing
+  "feedback_real_mode_dogfood_after_operator_slices" memory:
+  shipping for hypothetical future products is YAGNI; ship for
+  the product that exists now, defer the extraction until
+  there's a second concrete product driving the requirement.
+  Scope-lock §"Out of scope" sections are load-bearing — read
+  them before opening a slice that's on the boundary.
+
+## 2026-05-18 — "Visual change isn't applying" mystery was operator cache + color perception, not code
+
+- **Context / claim:** B2 hotfix landed (PostCSS @import bug
+  above). Operator hard-refreshed; reported: "The background,
+  most of the text is still white, theres a 'A product of
+  24/7 GLOBAL AI' in the top left with some of the text in
+  gold, the Make a Video button si gold and some of teh ready
+  buttons are gold." Partial evidence — gold accents were
+  rendering (which proved `--accent` was reaching `bg-accent`
+  classes), but background + body text were reported as
+  unchanged.
+- **Reality / outcome:** Asked operator to paste DevTools
+  console output from a one-line snippet
+  (`getComputedStyle(body).backgroundColor` etc.). Result:
+  `body computed bg: rgb(15, 17, 21)` — exactly V2's
+  `--background: 222 18% 7%` = #0F1115. V2 WAS perfectly
+  applied. The "white" perception had two contributors: (a)
+  operator is color blind and dark navy looks like other dark
+  / desaturated surfaces, (b) several components had
+  hardcoded light backgrounds (`bg-amber-50`, `bg-white/60`,
+  etc.) that were genuinely visible against the V2 dark body
+  — those got cleaned up in B3.1 + B3.2.
+- **Found by:** Targeted DevTools console snippet returning
+  computed style + custom property values. The data
+  immediately ended a multi-hour "is V2 actually applying?"
+  thread.
+- **Lesson:** **When operator reports a visual regression but
+  partial evidence shows the change IS live, the fastest
+  diagnostic is a DevTools console snippet that reads
+  runtime computed styles directly.** Skip code-spelunking,
+  skip rebuilding, skip cache-busting. Ask for the actual
+  computed values + custom property resolution in 5 lines of
+  console output. Pattern to watch: in any "I think the visual
+  change didn't apply" debugging thread, the THIRD round of
+  hypotheses is the right moment to switch from code-side
+  speculation to operator-side DevTools data. Also worth
+  noting: operator color blindness affected perception of
+  the dark navy palette — future B-arc tone calibration
+  (e.g. choosing between subtle palette variants) should
+  factor accessibility / color blindness into the choice,
+  not assume the operator sees what designers see.
