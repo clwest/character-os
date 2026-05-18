@@ -1,11 +1,34 @@
 ---
-title: "Brand Identity v1 — Editorial-warm"
-status: active (v1; revisit when Phase 3 user-tests)
+title: "Brand Identity v1 — Editorial-warm (DEPRECATED — superseded by V2)"
+status: deprecated (V1 lock; superseded SESSION 178)
 generated: 2026-05-13 (SESSION 117)
+deprecated: 2026-05-18 (SESSION 178)
+superseded_by: BRAND_IDENTITY_V2.md
 companion_doc: UI_REDESIGN_V2.md
 ---
 
-# Brand Identity v1
+# Brand Identity v1 — DEPRECATED
+
+> **DEPRECATED — superseded by `BRAND_IDENTITY_V2.md`
+> (SESSION 178).** This document captured the v1
+> editorial-warm light-mode brand locked SESSION 117 for SMB /
+> solo-creator audience ("not call themselves marketers").
+> SESSION 178 operator pivoted to a premium enterprise
+> dark-mode brand under the **24/7 GLOBAL AI** parent company,
+> repositioning CharacterOS as the first product in a
+> multi-product family (DealerOS, AgentOS, OpsOS, VoiceOS,
+> SupportOS reserved).
+>
+> V1 is preserved here as history. **For all visual / brand
+> decisions from SESSION 178 forward, see
+> `BRAND_IDENTITY_V2.md` and the parent scope lock
+> `BRAND_ECOSYSTEM_V1.md`.** The pivot was deliberate, not
+> drift — different audience, different aesthetic, different
+> product hierarchy.
+
+---
+
+# Brand Identity v1 (original content)
 
 > **Read first:** `UI_REDESIGN_V2.md` §10 deferred this to a later
 > doc; SESSION 117 (workspace dashboard) forced the question. This is
