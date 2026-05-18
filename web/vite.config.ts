@@ -47,6 +47,17 @@ export default defineConfig({
         changeOrigin: true,
         cookieDomainRewrite: "",
       },
+      // Media-engine artifacts (long_form_ad concats, composite
+      // videos, audio mixes, etc.) — Asset.file_path is a
+      // `/data/_internal/...` disk path on media-engine. The
+      // FastAPI app mounts StaticFiles at `/data` in main.py;
+      // this proxy makes those files reachable from the SPA's
+      // origin so `<video src="/data/_internal/concats/x.mp4">`
+      // resolves without same-origin CORS / cookie ceremony.
+      "/data": {
+        target: "http://localhost:8001",
+        changeOrigin: true,
+      },
     },
   },
 });

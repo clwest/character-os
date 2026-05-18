@@ -2,6 +2,7 @@ import logging
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from .config import Settings, get_settings
 from .routers.campaigns import router as campaigns_router
@@ -28,6 +29,24 @@ app.include_router(runway_router)
 app.include_router(campaigns_router)
 app.include_router(characters_router)
 app.include_router(internal_router)
+
+# Serve media artifacts from `data/` over HTTP so the SPA can play
+# locally-generated assets (long_form_ad concats, composite videos,
+# audio mixes, etc.) whose Asset.file_path is a `/data/_internal/...`
+# disk path. Without this mount the SPA's
+# `<video src="/data/_internal/concats/<hash>.mp4">` 404s — the
+# concat file exists on the media-engine filesystem but no HTTP
+# route exposes it.
+#
+# Dev: Vite's `/data` proxy in `web/vite.config.ts` forwards
+# `localhost:5174/data/*` to `localhost:8001/data/*`. Production:
+# add a reverse-proxy entry (or a Django streaming proxy view) so
+# `<spa-origin>/data/*` resolves to the media-engine filesystem.
+app.mount(
+    "/data",
+    StaticFiles(directory=settings.data_path, check_dir=False),
+    name="data",
+)
 
 
 @app.get("/health")
