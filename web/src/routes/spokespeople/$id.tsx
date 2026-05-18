@@ -313,11 +313,11 @@ function Masthead({
                 title={
                   spokesperson.runway_avatar_id
                     ? undefined
-                    : "Add a portrait first — the render needs a bound avatar."
+                    : "Bind a portrait first — the render pipeline needs an attached avatar."
                 }
               >
                 <Wand2 className="mr-1.5 h-4 w-4" />
-                Make a video
+                New render
               </Button>
             </Link>
           </div>

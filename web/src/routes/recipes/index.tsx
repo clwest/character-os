@@ -60,15 +60,16 @@ function Header({ hintedSpokespersonName }: { hintedSpokespersonName?: string })
       </Link>
       <div className="flex flex-col gap-2">
         <span className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-          Make a video
+          Recipe gallery
         </span>
-        <h1 className="font-display text-4xl leading-tight tracking-tight">
-          {hintedSpokespersonName ? `What can ${hintedSpokespersonName} do?` : "Pick a recipe."}
+        <h1 className="text-4xl font-semibold leading-tight tracking-tight">
+          {hintedSpokespersonName ? `What can ${hintedSpokespersonName} produce?` : "Pick a composition recipe."}
         </h1>
         <p className="max-w-2xl text-muted-foreground">
-          Each card is a starter composition — a prebuilt sequence of steps the
-          render engine knows how to run. Pick one, fill in the form, and the
-          composition runs against the media engine.
+          Each card is a starter composition — a prebuilt step sequence the
+          render pipeline executes against the media engine. Pick one, fill
+          in the parameters, and the composition runs against your workspace
+          knowledge + the selected spokesperson.
         </p>
         {hintedSpokespersonName && (
           <div

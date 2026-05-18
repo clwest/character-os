@@ -54,9 +54,9 @@ interface Step {
 const STEPS: Step[] = [
   {
     index: 1,
-    label: "Create your first spokesperson",
+    label: "Provision your first spokesperson",
     description:
-      "A spokesperson is the on-camera identity for every video — a portrait, a voice, and a one-paragraph business brief.",
+      "A spokesperson is a persistent AI representative — portrait, voice, and grounding brief — that operates across this workspace's renders and conversations.",
     cta: "Open the wizard",
     to: "/spokespeople/new",
     testId: "tour-step-spokesperson",
@@ -64,20 +64,20 @@ const STEPS: Step[] = [
   },
   {
     index: 2,
-    label: "Add some knowledge",
+    label: "Attach workspace knowledge",
     description:
-      "Paste a few paragraphs about your business, upload a PDF, or drop in a URL. Renders use this to write scripts.",
-    cta: "Add a document",
+      "Paste source text, upload a PDF, or attach a URL. The knowledge layer indexes the content so every render + conversation grounds in real facts instead of model defaults.",
+    cta: "Attach a document",
     to: "/workspace/knowledge",
     testId: "tour-step-knowledge",
     icon: Library,
   },
   {
     index: 3,
-    label: "Pick a recipe and render",
+    label: "Fire a composition",
     description:
-      "Choose one of the 18 starter recipes. With knowledge attached, the LLM expands a short brief into a polished script.",
-    cta: "Browse recipes",
+      "Pick one of the 18 starter recipes. The render pipeline composes a script from your grounded knowledge and produces the final asset against the media engine.",
+    cta: "Open recipe gallery",
     to: "/recipes",
     testId: "tour-step-recipe",
     icon: Sparkles,

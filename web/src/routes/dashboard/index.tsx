@@ -183,17 +183,17 @@ function PrimaryAction() {
     >
       <div className="flex flex-col gap-2">
         <span className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-          Make today's video
+          Render queue
         </span>
-        <p className="font-display text-3xl leading-tight tracking-tight">
-          Type your business.
-          <span className="text-muted-foreground"> Click. </span>
-          Get a video ad.
+        <p className="text-3xl font-semibold leading-tight tracking-tight">
+          Compose a render.
+          <span className="text-muted-foreground"> Ground in workspace knowledge. </span>
+          Ship to your channels.
         </p>
       </div>
       <Button asChild size="lg" className="self-start md:self-auto">
         <Link to="/recipes" data-testid="make-video-cta">
-          Make a video
+          Open recipe gallery
         </Link>
       </Button>
     </section>
@@ -231,12 +231,12 @@ function SpokespeoplePanel({
       {error ? <ErrorRow message={extractMessage(error)} /> : null}
       {data && data.length === 0 && (
         <EmptyState
-          headline="No spokespeople yet"
-          body="A spokesperson is the on-camera identity behind every video — a portrait, a voice, a one-paragraph business brief."
+          headline="No spokespeople provisioned"
+          body="A spokesperson is a persistent AI representative — portrait, voice, and grounding brief — that operates across this workspace's renders and conversations."
           testId="spokespeople-empty"
           action={
             <Link to="/spokespeople/new" data-testid="empty-create-cta">
-              <Button size="lg">Create your first spokesperson</Button>
+              <Button size="lg">Provision spokesperson</Button>
             </Link>
           }
         />
@@ -330,12 +330,12 @@ function ActivityFeedPanel({
       {error ? <ErrorRow message={extractMessage(error)} /> : null}
       {data && recent.length === 0 && (
         <EmptyState
-          headline="No activity yet"
-          body="Compositions you create from the recipe gallery show up here. The first one's a sign you're off the ground."
+          headline="No renders yet"
+          body="Compositions fired from any recipe surface in this workspace appear here with status, cost, and produced assets."
           testId="activity-empty"
           action={
             <Link to="/recipes">
-              <Button size="lg">Pick a recipe</Button>
+              <Button size="lg">Open recipe gallery</Button>
             </Link>
           }
         />
