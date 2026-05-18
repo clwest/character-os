@@ -81,3 +81,6 @@ context-hotpath.txt
 context-inspect*.json
 coverage-*.json
 behavior-*.json
+
+# Claude Code session state (transient lockfiles)
+.claude/scheduled_tasks.lock

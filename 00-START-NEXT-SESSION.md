@@ -33,7 +33,7 @@ state: active
 
 ## SESSION 176 outcome — R-arc real-mode hardening
 
-Nine feature commits. The R-arc shipped 10 slices + R6.1 across
+Eight feature commits. The R-arc shipped 10 slices + R6.1 across
 SESSIONS 142-157 with full mock-mode test coverage — today
 proved every realtime surface real-mode against live Runway for
 the first time. Found and fixed five distinct root causes that
@@ -236,7 +236,7 @@ pnpm test                                     # 95 vitest tests
 ## AI / assistant context
 
 - **Last session: SESSION 176 — R-arc real-mode hardening +
-  W11.y propagation.** Nine feature commits proved every
+  W11.y propagation.** Eight feature commits proved every
   realtime surface real-mode against live Runway for the
   first time. Operator-clicked End now produces a transcript;
   cross-session memory injects properly; tools fire with

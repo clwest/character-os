@@ -1816,7 +1816,7 @@ tests cannot fail.
   DELETE-cleanup race, END_CALL data-channel) in one
   natural test.
 
-  Fix shipped across 9 commits (`d57013b`, `59bfd3d`,
+  Fix shipped across 8 commits (`d57013b`, `59bfd3d`,
   `70500b9`, `a0b1843`, `1b375fd`, `c5cc648`, `ec137e5`,
   `06351d7`):
 

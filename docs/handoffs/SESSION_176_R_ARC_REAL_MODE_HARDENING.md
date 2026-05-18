@@ -10,7 +10,7 @@ previous_handoff: ./SESSION_175_VOICE_TELEMETRY_YOUTUBE_PERSONALITY.md
 
 ## TL;DR
 
-Nine feature commits. The R-arc shipped 10 slices + R6.1 across
+Eight feature commits. The R-arc shipped 10 slices + R6.1 across
 SESSIONS 142-157 with full mock-mode test coverage — today proved
 every realtime surface real-mode against live Runway for the
 first time. Found and fixed five distinct root causes that hid
