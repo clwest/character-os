@@ -1,22 +1,26 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-brand="v2">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Character OS</title>
+    <title>CharacterOS — 24/7 GLOBAL AI</title>
     <!--
-      BRAND_IDENTITY_V1: editorial-warm.
-      Fraunces (variable serif, display) + Geist Sans (body) +
-      JetBrains Mono (code/ids). Self-hosted via Google's stylesheet
-      with `display=swap` so the page paints with a fallback while
-      fonts load.
+      BRAND_IDENTITY_V2 (SESSION 178): premium enterprise dark + gold.
+      Geist (variable sans, display + body) + JetBrains Mono (code/ids).
+      Fraunces (V1 editorial serif) retired with the brand pivot —
+      docs/design/BRAND_IDENTITY_V1.md (DEPRECATED) preserves the
+      audience-pivot history.
+
+      The `data-brand="v2"` attribute on <html> activates the V2
+      token block in src/styles/tokens.css. Switching to "v1" rolls
+      back to the editorial-warm palette scoped in globals.css.
     -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=Geist:wght@300..700&family=JetBrains+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=JetBrains+Mono:wght@400;500&display=swap"
     />
   </head>
   <body>

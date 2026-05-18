@@ -55,22 +55,26 @@ const config = {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        // Body sans — referenced via the default `font-sans` utility
-        // since we want Geist to be the document default.
+        // V2 (SESSION 178) — consolidated to Geist for display +
+        // body. Fraunces (V1 editorial serif) retired with the
+        // brand pivot. JetBrains Mono unchanged.
         sans: ['"Geist"', "ui-sans-serif", "system-ui", "sans-serif"],
-        // `font-serif` → editorial display.
-        serif: ['"Fraunces"', "ui-serif", "Georgia", "serif"],
-        // `font-mono` → ids, hashes, code.
+        // `font-serif` kept as an alias for Geist so existing
+        // class names don't break; V2 has no serif primitive.
+        serif: ['"Geist"', "ui-sans-serif", "system-ui", "sans-serif"],
         mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
-        // Alias `font-display` for explicit display use.
-        display: ['"Fraunces"', "ui-serif", "Georgia", "serif"],
+        display: ['"Geist"', "ui-sans-serif", "system-ui", "sans-serif"],
       },
       boxShadow: {
-        // "Photo-on-paper" lift for cards. Soft, warm-tinted, not
-        // material-design crisp.
-        paper: "0 1px 2px hsl(30 20% 20% / 0.06), 0 8px 24px hsl(30 20% 20% / 0.05)",
-        "paper-hover":
-          "0 2px 4px hsl(30 20% 20% / 0.08), 0 12px 32px hsl(30 20% 20% / 0.08)",
+        // V2 dark-tuned multi-layer shadows. The `paper-*` names
+        // are preserved (existing components reference them) but
+        // re-pointed at the V2 token CSS vars. New code should
+        // prefer `shadow`, `shadow-md`, etc. — the Tailwind
+        // defaults — which now resolve to V2 values via the
+        // `--shadow*` custom properties in tokens.css.
+        paper: "var(--shadow-sm)",
+        "paper-hover": "var(--shadow)",
+        gold: "var(--shadow-gold)",
       },
     },
   },

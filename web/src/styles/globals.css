@@ -2,20 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
-/* B1 (SESSION 178) — V2 tokens loaded but inert. The
- * `[data-brand="v2"]` selector inside tokens.css matches nothing
- * yet; the V1 :root block below continues to drive Tailwind. B2
- * flips this by setting `data-brand="v2"` on <html> and
- * deleting (or scoping) the V1 :root block. See
- * docs/design/BRAND_ECOSYSTEM_V1.md §slice-breakdown B2. */
+/* B2 (SESSION 178) — V2 tokens are now ACTIVE. The
+ * `[data-brand="v2"]` attribute on <html> (set in index.html)
+ * scopes the V2 token block in tokens.css. The V1 :root block
+ * below is preserved under `[data-brand="v1"]` for rollback —
+ * flipping the html attribute swaps the entire palette + nothing
+ * else. See docs/design/BRAND_ECOSYSTEM_V1.md slice B2. */
 @import "./tokens.css";
 
-/* Editorial-warm v1. See docs/design/BRAND_IDENTITY_V1.md
- * (DEPRECATED) for the full rationale. Tokens stay in HSL so
- * shadcn's component output keeps working without modification.
- * Slated for replacement in B2 by the V2 tokens loaded above. */
+/* Editorial-warm V1 (DEPRECATED — SESSION 178). Preserved here
+ * scoped to `[data-brand="v1"]` so the operator can roll back
+ * to the V1 palette without a code edit if needed. The V2 block
+ * in tokens.css is the active palette. See
+ * docs/design/BRAND_IDENTITY_V1.md for the V1 rationale. */
 @layer base {
-  :root {
+  [data-brand="v1"] {
     --background: 36 33% 94%;          /* warm paper       #f5efe5 */
     --foreground: 30 12% 12%;          /* deep ink         #231e1a */
     --card: 40 40% 97%;                /* lifted cream     #faf6ec */
@@ -37,28 +38,6 @@
     --ring: 8 60% 32%;                 /* focus = oxblood family */
     --radius: 0.375rem;                /* 6px max — refined, not blob */
   }
-
-  /* Dark mode is explicitly out of v1 scope. Tokens reserved so the
-   * structure is in place when it lands. */
-  .dark {
-    --background: 30 12% 12%;
-    --foreground: 36 33% 94%;
-    --card: 30 12% 14%;
-    --card-foreground: 36 33% 94%;
-    --primary: 8 60% 52%;
-    --primary-foreground: 30 12% 12%;
-    --border: 30 10% 22%;
-    --input: 30 10% 22%;
-    --ring: 8 60% 52%;
-    --muted: 30 10% 18%;
-    --muted-foreground: 36 18% 70%;
-    --secondary: 30 10% 18%;
-    --secondary-foreground: 36 33% 94%;
-    --accent: 30 10% 18%;
-    --accent-foreground: 36 33% 94%;
-    --destructive: 4 60% 50%;
-    --destructive-foreground: 36 33% 94%;
-  }
 }
 
 @layer base {
@@ -67,9 +46,6 @@
   }
 
   html {
-    /* Optical sizing for Fraunces (variable). Tightens letter forms
-     * automatically at large sizes. */
-    font-variation-settings: "opsz" 14;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -77,36 +53,31 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: "Geist", ui-sans-serif, system-ui, sans-serif;
+    /* Geist stylistic sets — keeps mono digits + 1/I disambiguation. */
     font-feature-settings: "ss01", "ss02", "cv11";
-    /* Subtle paper-grain backdrop. Layered SVG noise via data URI so
-     * we don't ship an asset for a 2KB texture. */
-    background-image:
-      radial-gradient(at 8% 12%, hsl(40 60% 92% / 0.55), transparent 50%),
-      radial-gradient(at 92% 88%, hsl(20 40% 90% / 0.45), transparent 55%);
-    background-attachment: fixed;
   }
 
-  /* Display headings use Fraunces. Trust optical-sizing. */
+  /* V2 display headings: Geist variable. Tracking carries the
+   * hierarchy; no separate serif. */
   h1,
   h2,
   h3 {
-    font-family: "Fraunces", ui-serif, Georgia, serif;
-    font-weight: 500;
+    font-family: "Geist", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 600;
     letter-spacing: -0.02em;
   }
 
-  h1 { font-variation-settings: "opsz" 96, "SOFT" 30; }
-  h2 { font-variation-settings: "opsz" 60, "SOFT" 25; }
-  h3 { font-variation-settings: "opsz" 36, "SOFT" 20; }
+  h1 { letter-spacing: -0.03em; font-weight: 700; }
+  h2 { letter-spacing: -0.025em; }
 
   code, kbd, samp, pre {
     font-family: "JetBrains Mono", ui-monospace, "SFMono-Regular",
       Menlo, monospace;
   }
 
-  /* Selection highlights — oxblood at 18% alpha. */
+  /* Selection highlights — gold accent at 22% alpha. */
   ::selection {
-    background-color: hsl(var(--primary) / 0.18);
+    background-color: hsl(var(--accent) / 0.22);
     color: hsl(var(--foreground));
   }
 }
