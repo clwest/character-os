@@ -401,14 +401,39 @@ def _persist_output_asset(
         composition=composition,
         # W11.6.5.3 (SESSION 174) — auto-title from the parent
         # composition's name so the SPA asset_picker dropdowns
-        # render readable labels instead of CDN URL tails
-        # (e.g. "Talking-head — Marcus" vs
-        # "5cf5ab4e-0398-480c-b33b-f994f567ccc1.mp4?_jwt=eyJh…").
-        # Multi-step compositions get the same title across
-        # step outputs in v1; per-step disambiguation can land
-        # later if operators ask for it.
-        title=(composition.name or "")[:120],
+        # render readable labels instead of CDN URL tails. SESSION
+        # 177 — for multi-step compositions (long_form_ad chunks,
+        # storyboard beats, etc.), append a per-step suffix so
+        # the dropdown distinguishes step outputs that would
+        # otherwise share the same title verbatim.
+        title=_step_asset_title(composition, step),
     )
+
+
+def _step_asset_title(composition: Composition, step: CompositionStep) -> str:
+    """Compose the auto-title for a step's output Asset.
+
+    Single-step compositions: just the composition name (no suffix
+    — operator UX stays unchanged from W11.6.5.3 for the common
+    case). Multi-step compositions: append `— step N/M
+    (<primitive>)` so the SPA asset_picker can distinguish the
+    intermediate + final outputs of a long_form_ad / storyboard /
+    chunked render. Total cap 120 chars to stay within the
+    `Asset.title` column ceiling.
+    """
+    base = (composition.name or "").strip()
+    total = composition.steps.count()
+    if total <= 1:
+        return base[:120]
+    human_pos = (step.position or 0) + 1
+    suffix = f" — step {human_pos}/{total} ({step.primitive})"
+    # Reserve the suffix length first so the base gets truncated
+    # rather than the suffix.
+    base_budget = 120 - len(suffix)
+    if base_budget < 1:
+        # Implausibly long primitive names — fall back to base only.
+        return base[:120]
+    return (base[:base_budget] + suffix)[:120]
 
 
 def _mark_step_failed(

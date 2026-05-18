@@ -198,6 +198,61 @@ def test_output_asset_title_truncates_long_composition_name() -> None:
     assert comp.final_asset.title == "A" * 120
 
 
+@pytest.mark.django_db
+def test_multi_step_assets_disambiguate_titles() -> None:
+    """SESSION 177 — when a composition has more than one step,
+    each step's output Asset gets a `— step N/M (<primitive>)`
+    suffix so the SPA asset_picker can tell intermediate +
+    final outputs apart. Single-step compositions stay
+    unchanged (W11.6.5.3 behavior preserved by
+    test_output_asset_inherits_title_from_composition_name)."""
+    from apps.compositions.models import Asset
+
+    ws = _make_workspace("v2multititle@test.local", "V2 multi title")
+    sp = _make_spokesperson(ws)
+    comp = _make_composition(
+        ws, sp, name="Long-form Ad — Marcus", mock_mode=True,
+    )
+    _add_step(comp, position=0)
+    _add_step(comp, position=1)
+    _add_step(comp, position=2)
+    _run(comp)
+    comp.refresh_from_db()
+    assets = list(
+        Asset.objects.filter(composition=comp).order_by("created_at")
+    )
+    assert len(assets) == 3
+    assert assets[0].title == "Long-form Ad — Marcus — step 1/3 (mock_passthrough)"
+    assert assets[1].title == "Long-form Ad — Marcus — step 2/3 (mock_passthrough)"
+    assert assets[2].title == "Long-form Ad — Marcus — step 3/3 (mock_passthrough)"
+
+
+@pytest.mark.django_db
+def test_multi_step_title_respects_120_char_cap() -> None:
+    """When the composition name + step suffix would exceed
+    `Asset.title`'s 120-char ceiling, the base name truncates
+    first so the suffix stays intact (the suffix is what makes
+    the title disambiguatable)."""
+    from apps.compositions.models import Asset
+
+    ws = _make_workspace("v2multilong@test.local", "V2 multi long")
+    sp = _make_spokesperson(ws)
+    long_name = "A" * 200
+    comp = _make_composition(ws, sp, name=long_name, mock_mode=True)
+    _add_step(comp, position=0)
+    _add_step(comp, position=1)
+    _run(comp)
+    comp.refresh_from_db()
+    assets = list(
+        Asset.objects.filter(composition=comp).order_by("created_at")
+    )
+    for a in assets:
+        assert len(a.title) <= 120
+        # Suffix must survive even when base is truncated.
+        assert "— step " in a.title
+        assert "(mock_passthrough)" in a.title
+
+
 def test_output_asset_records_provenance() -> None:
     """The Asset created by a step records primitive name,
     step position, composition id, params + mock_mode in
