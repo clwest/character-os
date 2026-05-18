@@ -27,115 +27,97 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_176_R_ARC_REAL_MODE_HARDENING.md`.
+> **Last handoff:** `docs/handoffs/SESSION_177_DRIFT_SWEEP_TITLE_DISAMBIG_K10_REFRAME.md`.
 
 ---
 
-## SESSION 176 outcome — R-arc real-mode hardening
+## SESSION 177 outcome — drift sweep + title disambiguation + K10 reframe
 
-Eight feature commits. The R-arc shipped 10 slices + R6.1 across
-SESSIONS 142-157 with full mock-mode test coverage — today
-proved every realtime surface real-mode against live Runway for
-the first time. Found and fixed five distinct root causes that
-hid behind the mock-only test pattern.
+Three commits + one data-only fix. Short session that closed out
+the loose ends from SESSION 176 plus two task-board items.
 
-* **`d57013b`** — realtime end-to-end (4-layer initial fix:
-  missing client method + Runway payload drift + SDK video
-  render + DRAFT/FAILED quota leak).
-* **`59bfd3d`** — K6/K9 catchphrase guard + bump
-  `MAX_OUTPUT_TOKENS` 400 → 1000.
-* **`70500b9`** — R5 transcript fix (parse drift + failed-status
-  surfacing + webcam-request removed).
-* **`a0b1843`** — R5 root cause: stop DELETE-ing Runway sessions
-  on End (proven by operator's "maybe End button itself is
-  causing it" framing → 3 hours of false leads collapsed).
-* **`1b375fd`** — broker passes workspace tool catalog.
-* **`c5cc648`** — R7 polish: narration-rich tool descriptions +
-  session-create personality override.
-* **`ec137e5`** — personality auto-sync to Runway via post_save
-  signal + Celery task + SPA recall results panels.
-* **`06351d7`** — IdlePanel polish (headphones tip + voice pill)
-  + `/signature` route.
+* **`f5f49e4`** — SESSION 177 boot drift sweep (commit-count
+  typo across handoff/start-here/R-arc change log, narrative
+  anchor staleness, gitignore for `.claude/scheduled_tasks.lock`).
+* **`bdc6b6c`** — multi-step composition asset titles get
+  per-step `— step N/M (<primitive>)` suffix.
+* **`e1caee8`** — fix K10 FIRST THING menu paraphrase +
+  TRUST_CALIBRATION entry on lossy menu drift from scope
+  locks.
 
-Tests: Django **814**, realtime suite **164** (+14). SPA vitest
-**95** unchanged. Media-engine **133** unchanged. Real-mode
-spend: ~$0.74 Runway + ~$0.03 OpenAI. Starter tier ended 4/5
-sessions, 11/30 minutes.
+Plus task #13 (voice swap re-persist): no code change. Verified
+the `change_voice` endpoint works end-to-end, fired it
+programmatically against Sasha (vincent → felix) and Donny
+(drew → vincent) — both DB + Runway now in sync. SESSION 175
+handoff had overclaimed swap completion without verifying.
 
-### Real-mode artifacts created today
+Tests: Django **816** (+2). SPA + media-engine unchanged.
 
-* 4+ `RealtimeSession` rows for Marcus (status: ended)
-* 4+ `Asset(TRANSCRIPT)` rows (first project transcripts)
-* 1 `Composition` `757eefda-...` (talking_head, completed)
-* 1 `Asset(clip)` `61846ee2-...` — real CloudFront-hosted MP4
-  of Marcus speaking his own composed script about why
-  studying Rome matters today, rendered through the realtime
-  `render_video` tool with operator approval
+**SESSION 177 pushed to `origin/main`** — 13 local commits
+ahead at session-end (10 from SESSION 176 wrap-and-restamp +
+3 from SESSION 177).
 
 ### Calibration moments worth carrying
 
-Five new TRUST_CALIBRATION entries appended:
-
-1. **Runway DELETE on /v1/realtime_sessions cancels the
-   conversation** — DELETE poisons the linked
-   /v1/avatar_conversations to `failed`. Natural WebRTC
-   disconnect is the correct end signal.
-2. **Mock-only test coverage hides real-mode contract drift.**
-   Tests that mock the upstream wire never assert the upstream
-   wire.
-3. **Operator framing unlocks blockers AI alone misses.**
-   "Maybe the End button itself is causing it" broke 3 hours
-   of false leads in one test.
-4. **gpt-5 reasoning silently eats output budget.** Need
-   800-1000 token ceiling for visible-text surfaces.
-5. **Tool descriptions need narration guidance, not just
-   trigger conditions.** SAY ALOUD pattern + "keep the
-   conversation going" rules keep the avatar from going
-   silent around invocations.
+* **Lossy paraphrase of scope locks in menu copy.** FIRST
+  THING bullets that paraphrase slice work can drift from
+  the scope lock; operator reads the menu not the scope lock
+  in session-start decisions, so menu drift is load-bearing
+  confusion. Pattern: cross-check FIRST THING wording against
+  the slice's description in the relevant design lock doc.
+* **SESSION 175 voice-swap handoff overclaimed.** Variant of
+  the existing "AI's 'shipped' framing belongs to the operator
+  after review" calibration: handoffs that say "swapped" or
+  "edited" must reference a verifiable post-action state (DB
+  query, not just intent). SESSION 177's roster check caught
+  this 2 sessions later.
 
 ### Final state at session close
 
-* **R-arc real-mode validated end-to-end** — R5 transcripts
-  + R6 cross-session memory + R7 tool dispatch (sync + async
-  with approval) + R7 → V pipeline (render_video produces
-  real Composition + Asset).
-* **W11.y propagation complete** — Spokesperson.personality
-  edits now auto-sync to Runway's avatar resource via Celery
-  signal. Local DB + Runway-side stay in sync without operator
-  intervention.
-* **All 12 SESSION 176 task items completed.**
-* Stack-up healthy. Celery worker last restarted at session-end
-  (pid 5625, picked up `spokespeople.sync_personality_to_runway`).
+* SESSION 177 complete + pushed.
+* Operator flagged a **branding / name change** for immediate
+  attention before further build work. SESSION 178 opens on
+  that conversation, not on the regular FIRST THING menu.
+* Stack-up healthy. Celery worker pid 5625 (still holds the
+  SESSION 176 `spokespeople.sync_personality_to_runway`
+  registration).
 
-### FIRST THING (SESSION 177): pick by mood
+### FIRST THING (SESSION 178): branding / name change
 
-1. **F8.1 K10 seed corpus** — the K10 scope lock is
-   *platform-shipped* content (`docs/seeds/character_os/*.md`)
-   that auto-ingests into every new `is_operator=True`
-   workspace so the operator's first spokesperson can answer
-   "what does Character OS do for me?" without needing
-   operator-uploaded docs. **Block**: 5-10 short markdown
-   files about the platform itself need to be authored
-   (capabilities, FAQ, how-to, value-prop — written FROM the
-   platform's perspective, not any specific operator's
-   business). High leverage because it unblocks every new
-   operator's day-1 dogfood + grounds the R-arc/K-arc
-   pipeline in real reference content.
-2. **Sasha + Donny voice swap re-investigation** — SESSION 175
-   swaps didn't persist on either spokesperson. ~30 min.
-3. **R6 memory phrasing polish** — compare composition prompt
-   output across 2-3 dogfood sessions for thread-pickup
-   consistency.
-4. **K6.4 v3 architectural fix** — generalize sentence-position-
-   aware imperative-verb detection beyond stoplist curation.
-   Amortizes the v2.x trickle. ~1 session.
-5. **Multi-step composition title disambiguation** — small
-   surgical fix from SESSION 175 backlog. ~30 min.
-6. **Tool description iteration** — once 2-3 more real-mode
-   sessions happen, calibrate SAY ALOUD lines to operator
-   preference.
-7. **Push to remote** — 9 commits ahead of `origin/main`;
-   only with explicit operator approval.
+Hold any further build work until the operator's branding
+decision is resolved. Likely scope:
+
+1. **Naming change** — Character OS may rename. "24/7
+   Global AI" surfaced in the email-signature card built
+   SESSION 176 is one candidate. Scope of mechanical
+   changes if the rename is a 1:1 swap: package names,
+   repo name, README + design lock doc titles, SPA UI
+   strings, INVENTORY frontmatter, handoff doc titles,
+   wizard greetings, dashboard headings, conversation
+   defaults, signature card. Bigger surgery if the
+   product framing also changes.
+2. **Domain / DNS** — new domain (if any) may affect CORS
+   configs, public URLs, Runway / OpenAI rate-limit
+   allowlists tied to referrer URLs, email signatures.
+3. **Operator-facing copy** — full pass on user-visible
+   strings.
+
+After the branding decision is clear, return to the
+queued backlog:
+
+4. **F8.1 K10 seed corpus** — platform-shipped markdown
+   about Character OS (or whatever the renamed product is)
+   in `docs/seeds/<app>/*.md`, auto-ingested into every
+   new `is_operator=True` workspace. 5-10 short files +
+   `seed_workspace_knowledge` task wiring.
+5. **R6 memory phrasing polish** — needs real-mode session
+   quota (4/5 used; check status at session start).
+6. **K6.4 v3 architectural fix** — generalize sentence-
+   position-aware imperative-verb detection beyond
+   stoplist curation. ~1 session.
+7. **Thruman cleanup** — workspace has a stale "Thruman"
+   spokesperson (voice=marcus) at `9410f23f-...` that
+   may have shadowed Maya; verify + remove.
 
 ---
 
@@ -163,28 +145,32 @@ W11.6 sub-arc complete. K7.x v2 extractor complete.
 | **K7.1 cost telemetry** | **DONE** (SESSION 174) |
 | **K6.4 v2.2 stoplist** | **DONE** (SESSION 175) |
 | **K7.x v2 YouTube extractor** | **DONE** (SESSION 175) |
-| F8.1 (K10 seed corpus) | Queued (operator markdown) |
+| **Multi-step composition title disambiguation** | **DONE** (SESSION 177) |
+| **Sasha + Donny voice re-persist** | **DONE** (SESSION 177, data-only) |
+| F8.1 (K10 seed corpus) | Queued (platform-authored markdown) |
 | K7.x v3 YouTube oEmbed | Queued |
 | K6.4 v3 architectural fix | Queued (amortization) |
-| Sasha + Donny voice swap re-persist | New (from SESSION 176) |
-| Multi-step title disambiguation | Queued (small fix) |
+| Branding / name change | **SESSION 178 FIRST THING** |
 | W12 legacy form retirement | Queued |
+| Thruman stale spokesperson cleanup | New (SESSION 177 surfaced) |
 
 **Cast roster in workspace `admins-workspace`**:
 
   - Riggs the Donkey — id `06bf999f-...` — voice `vincent`
-  - Sasha the Raccoon — id `79d48883-...` — voice `vincent`
-    (SESSION 175 swap to `felix` did NOT persist; see backlog)
-  - Donny the Sloth — id `f30b2980-...` — voice `drew`
-    (SESSION 175 swap to `vincent` did NOT persist; see backlog)
+  - **Sasha the Raccoon — id `79d48883-...` — voice `felix`**
+    (re-persisted SESSION 177)
+  - **Donny the Sloth — id `f30b2980-...` — voice `vincent`**
+    (re-persisted SESSION 177)
   - Maya the Panda — id `9410f23f-...` — voice `victoria`
+    (note: workspace also has a "Thruman" with same UUID
+    prefix and voice `marcus` — stale row, cleanup queued)
   - **Marcus the Battle Unicorn** — id `b6a00dd8-...` — voice
-    `david` (W11.y personality + voice both confirmed Runway-side
-    SESSION 176)
+    `david` (W11.y personality + voice both confirmed
+    Runway-side SESSION 176)
 
-Marcus is the most dogfooded member of the cast — 4 real-mode
-ENDED sessions + 1 successful render_video composition with a
-real CloudFront-hosted MP4 today.
+Marcus is the most dogfooded — 4 real-mode ENDED sessions +
+1 successful render_video composition with a real CloudFront-
+hosted MP4.
 
 **Workspace image library** (3 images, all titled):
 
@@ -217,9 +203,9 @@ cd web && pnpm dev                          # :5174
 python3 /Users/donkeyking/development/context-kit/context_kit.py doctor
 ```
 
-**SESSION 177 stack-up note**: Celery worker was restarted
-at SESSION 176 close (pid 5625, picked up
-`spokespeople.sync_personality_to_runway`). If SESSION 177
+**SESSION 178 stack-up note**: Celery worker was last
+restarted at SESSION 176 close (pid 5625, picked up
+`spokespeople.sync_personality_to_runway`). If SESSION 178
 touches `apps/spokespeople/` OR `apps/realtime/`
 tasks / signals / models, restart again.
 
@@ -228,7 +214,7 @@ tasks / signals / models, restart again.
 ```bash
 # Backend (from shell/)
 python manage.py inventory
-python -m pytest                              # 814 tests
+python -m pytest                              # 816 tests
 
 # Media-engine (from media-engine/)
 python -m pytest                              # 133 tests
@@ -242,42 +228,34 @@ pnpm test                                     # 95 vitest tests
 
 ## AI / assistant context
 
-- **Last session: SESSION 176 — R-arc real-mode hardening +
-  W11.y propagation.** Eight feature commits proved every
-  realtime surface real-mode against live Runway for the
-  first time. Operator-clicked End now produces a transcript;
-  cross-session memory injects properly; tools fire with
-  narration; render_video → V-arc pipeline executes
-  end-to-end. Personality edits auto-propagate to Runway.
-  Tests: Django **814**; SPA **95**; media-engine **133**.
+- **Last session: SESSION 177 — drift sweep + multi-step
+  title disambiguation + K10 reframe.** Three commits + one
+  data-only fix (Sasha + Donny voice re-persist). Tests:
+  Django **816**; SPA **95**; media-engine **133**.
 
-- **Calibration carried forward (NEW SESSION 176)**:
-  - **Runway DELETE poisons the conversation.** Don't use
-    explicit DELETE for normal end — let SDK / WebRTC
-    disconnect handle it.
-  - **Mock-only test coverage hides upstream drift.** Tests
-    that mock the wire never assert the wire.
-  - **Operator framing unlocks AI blockers.** When the AI
-    burns iterations on increasingly specific theories,
-    operator's plain-language reframing is the broader
-    hypothesis worth testing first.
-  - **gpt-5 reasoning eats output budget silently.** Set
-    800-1000 token ceilings for visible-text surfaces.
-  - **Tool descriptions need narration scaffolding.** SAY
-    ALOUD + keep-the-conversation-going rules required.
+- **Calibration carried forward (NEW SESSION 177)**:
+  - **FIRST THING menu drift from scope locks** — cross-
+    check bullet wording against the slice's design lock
+    description before writing the menu.
+  - **Handoff "swapped/edited" claims need verification** —
+    quote a post-action DB state, not intent.
 
 - **Calibration carried forward (from earlier sessions)**:
+  - **Runway DELETE poisons the conversation.** Don't use
+    explicit DELETE for normal end.
+  - **Mock-only test coverage hides upstream drift.** Tests
+    that mock the wire never assert the wire.
+  - **Operator framing unlocks AI blockers.**
+  - **gpt-5 reasoning eats output budget silently** — 800+
+    token ceiling for visible-text surfaces.
+  - **Tool descriptions need narration scaffolding.**
   - **Real-mode dogfood after operator-facing slices.**
-    Reinforced SESSION 176 — mock-only R-arc coverage
-    masked 5 distinct real-mode root causes.
-  - **Celery worker restart for any model-extending
-    session.** SESSION 176 added `spokespeople` task module
-    + signal; worker restarted at close.
+  - **Celery worker restart for any model-extending session.**
   - **SPA gates need both `pnpm test` AND `pnpm build`.**
   - **Distinct request boundaries for distinct side-effects.**
   - **Hook order across early returns** (SESSION 169).
-  - **AI's "shipped" framing belongs to the operator
-    after review.**
+  - **AI's "shipped" framing belongs to the operator after
+    review.**
   - **Doctor is the drift tool** + **handoff write at
     session-end.**
   - **OpenAI gpt-5 family uses the Responses API.**
@@ -294,10 +272,9 @@ pnpm test                                     # 95 vitest tests
     architectural fix.
 
 - **All Phase 4 arcs real-mode validated end-to-end** as of
-  SESSION 176 close. R-arc + W11.6 + voice telemetry +
-  personality split + Runway sync all live and operator-
-  exercised. Platform is in operator-facing polish +
-  real-world content dogfood phase.
+  SESSION 176 close. SESSION 177 closed out loose ends + 2
+  task-board items. **Branding / name change is the next
+  conversation** before further build.
 
 - Collaboration conventions: AI drafts, human edits.
   Handoff `## Calibration moments worth carrying` +
