@@ -29,6 +29,7 @@ vi.mock("@runwayml/avatars-react", () => ({
     children?: React.ReactNode;
     onError?: (err: Error) => void;
   }) => <div data-testid="avatar-call-stub">{children}</div>,
+  AvatarVideo: () => <div data-testid="avatar-video-stub" />,
   useClientEvents: () => undefined,
 }));
 

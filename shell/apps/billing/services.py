@@ -103,10 +103,22 @@ def get_usage(workspace: "Workspace") -> Usage:
         created_at__lt=sub.current_period_end,
     ).count()
     spokespeople_used = Spokesperson.objects.filter(workspace=workspace).count()
+    # Exclude DRAFT (never reached the upstream provider) and
+    # FAILED (upstream rejected before any Runway resource was
+    # held). Both states consume zero Runway quota; counting
+    # them against the operator's monthly cap surfaces as
+    # premature 402s when create flows fail. CREATING / READY /
+    # NOT_READY / ENDED all represent a session the provider
+    # accepted.
     period_sessions = RealtimeSession.objects.filter(
         workspace=workspace,
         created_at__gte=sub.current_period_start,
         created_at__lt=sub.current_period_end,
+    ).exclude(
+        status__in=[
+            RealtimeSession.Status.DRAFT,
+            RealtimeSession.Status.FAILED,
+        ],
     )
     realtime_sessions_used = period_sessions.count()
     # R9 — sum duration_seconds across the period; round

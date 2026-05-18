@@ -1098,6 +1098,35 @@ class MediaEngineClient:
 
     # ---- realtime (R3 — workspace fabric realtime arc) -----------
 
+    def realtime_document_create(
+        self,
+        *,
+        name: str,
+        content: str,
+        provider: str = "runway",
+    ) -> "RealtimeDocumentResult":
+        """Hit ``POST /internal/realtime_documents/``. R4 — the broker
+        calls this with the composed Markdown body (built shell-side
+        from K2 retrieval) before ``realtime_session_create`` so the
+        returned ``document_id`` can ride in the session payload's
+        ``document_ids`` array."""
+        body: dict[str, Any] = {
+            "name": name,
+            "content": content,
+            "provider": provider,
+        }
+        data = self.request("POST", "/internal/realtime_documents/", json=body)
+        try:
+            return RealtimeDocumentResult(
+                document_id=str(data["document_id"]),
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"realtime_document_create response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
     def realtime_session_create(
         self,
         *,

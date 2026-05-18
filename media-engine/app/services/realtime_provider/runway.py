@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from datetime import datetime, timezone
 
 import httpx
@@ -40,6 +41,21 @@ logger = logging.getLogger(__name__)
 _REALTIME_MODEL = "gwm1_avatars"
 _PERSONALITY_MAX = 9500
 _START_SCRIPT_MAX = 280
+# Runway 400s the whole session-create when any tool description
+# exceeds 1024 chars (`{path: ["tools", "[N]", ".description"],
+# message: "Too big"}`). The SAFE cap leaves a small margin so the
+# truncation lands cleanly on a sentence boundary.
+_DESCRIPTION_MAX = 1024
+_DESCRIPTION_SAFE = 1000
+
+# Runway's session create returns NOT_READY initially; sessionKey
+# only lands in the GET payload once the upstream session reaches
+# READY (~1.5s typical, occasionally longer under load). Block in
+# create_session until READY so the broker can persist the key on
+# the DRAFT → CREATING → READY transition. Matches the working
+# hackathon broker (`backend/app/services/realtime_avatar_client.py`).
+_READY_POLL_INTERVAL_S = 0.5
+_READY_POLL_TIMEOUT_S = 150.0
 
 
 def _redact(text: str, limit: int = 200) -> str:
@@ -87,7 +103,16 @@ class RunwayRealtimeProvider:
         personality = (personality or "")[:_PERSONALITY_MAX]
         start_script = (start_script or "")[:_START_SCRIPT_MAX]
 
-        body: dict = {"model": _REALTIME_MODEL, "avatarId": avatar_id}
+        # Runway's /v1/realtime_sessions requires `avatar` as a
+        # nested object with `type` + `avatarId`. The earlier
+        # flat `avatarId` shape returns
+        # `{"path": ["avatar"], "message": "Invalid input: expected object,
+        # received undefined"}`. Matches the working shape used by the
+        # runway-hackathon broker.
+        body: dict = {
+            "model": _REALTIME_MODEL,
+            "avatar": {"type": "custom", "avatarId": avatar_id},
+        }
         if personality:
             body["personality"] = personality
         if start_script:
@@ -95,14 +120,37 @@ class RunwayRealtimeProvider:
         if document_ids:
             body["documentIds"] = list(document_ids)
         if tools:
-            body["tools"] = [
-                {
-                    "name": t.name,
-                    "description": t.description,
-                    "parameters": t.parameters,
-                }
-                for t in tools
-            ]
+            # Each tool entry needs the `client_event` discriminator;
+            # `parameters` is held client-side by the SDK and is not
+            # accepted in the create-session payload. Description is
+            # capped at Runway's 1024-char limit to avoid a Too big
+            # rejection silently dropping the entire tool catalog.
+            wire_tools: list[dict] = []
+            for t in tools:
+                name = (t.name or "").strip()
+                description = (t.description or "").strip()
+                if not name or not description:
+                    continue
+                if len(description) > _DESCRIPTION_MAX:
+                    logger.warning(
+                        "tool %s description over Runway's %d-char cap "
+                        "(%d chars); truncating to %d",
+                        name, _DESCRIPTION_MAX, len(description),
+                        _DESCRIPTION_SAFE,
+                    )
+                    cutoff = description[:_DESCRIPTION_SAFE]
+                    last_period = cutoff.rfind(". ")
+                    if last_period > _DESCRIPTION_SAFE // 2:
+                        description = cutoff[: last_period + 1].rstrip()
+                    else:
+                        description = cutoff.rstrip()
+                wire_tools.append({
+                    "type": "client_event",
+                    "name": name,
+                    "description": description,
+                })
+            if wire_tools:
+                body["tools"] = wire_tools
 
         url = f"{self.settings.runway_api_base}/v1/realtime_sessions"
         try:
@@ -127,16 +175,61 @@ class RunwayRealtimeProvider:
 
         payload = resp.json()
         session_id = payload.get("id") or payload.get("sessionId") or ""
+        if not session_id:
+            raise RealtimeProviderError(
+                "runway realtime create returned malformed payload "
+                "(missing id)"
+            )
+
+        # Poll until READY. sessionKey lands in the GET payload only
+        # once the upstream session is live; without the poll loop we
+        # return an empty key and the broker can't pass it to the SPA.
+        detail_url = f"{url}/{session_id}"
+        deadline = time.time() + _READY_POLL_TIMEOUT_S
+        last_status = "(unknown)"
+        poll_count = 0
+        try:
+            with httpx.Client(timeout=15.0) as client:
+                while time.time() < deadline:
+                    poll_resp = client.get(detail_url, headers=_headers(self.settings))
+                    if poll_resp.status_code >= 400:
+                        raise RealtimeProviderError(
+                            f"runway poll returned {poll_resp.status_code} "
+                            f"after session create: {_redact(poll_resp.text)}"
+                        )
+                    payload = poll_resp.json()
+                    last_status = (payload.get("status") or "").upper()
+                    poll_count += 1
+                    if last_status == "READY":
+                        break
+                    if last_status in {"FAILED", "CANCELLED"}:
+                        raise RealtimeProviderError(
+                            f"runway realtime create reached terminal "
+                            f"status {last_status.lower()} (id={session_id})"
+                        )
+                    time.sleep(_READY_POLL_INTERVAL_S)
+                else:
+                    raise RealtimeProviderError(
+                        f"runway realtime session {session_id} did not "
+                        f"reach READY within {int(_READY_POLL_TIMEOUT_S)}s "
+                        f"(last status: {last_status}; {poll_count} polls)"
+                    )
+        except httpx.HTTPError as exc:
+            raise RealtimeProviderError(
+                f"runway GET /v1/realtime_sessions/{session_id} failed during "
+                f"create poll: {type(exc).__name__}"
+            ) from exc
+
         session_key = (
             payload.get("sessionKey")
             or payload.get("session_key")
             or payload.get("clientSecret")
             or ""
         )
-        if not session_id or not session_key:
+        if not session_key:
             raise RealtimeProviderError(
-                "runway realtime create returned malformed payload "
-                "(missing id / sessionKey)"
+                "runway realtime create reached READY but no sessionKey in "
+                "payload"
             )
 
         status = _normalize_status(payload.get("status"))

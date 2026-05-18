@@ -298,9 +298,15 @@ def test_create_rejected_at_tier_limit() -> None:
     sub = Subscription.objects.get(workspace=ws)
     sub.tier = Subscription.Tier.STARTER
     sub.save(update_fields=["tier"])
-    # Pre-fill 5 sessions in the current period.
+    # Pre-fill 5 sessions in the current period. Use ENDED so they
+    # count against the tier cap — get_usage now excludes DRAFT /
+    # FAILED rows because they never consumed Runway quota.
     for _ in range(5):
-        RealtimeSession.objects.create(workspace=ws, spokesperson=sp)
+        RealtimeSession.objects.create(
+            workspace=ws,
+            spokesperson=sp,
+            status=RealtimeSession.Status.ENDED,
+        )
     client = APIClient()
     _login(client, user)
     patcher, _ = _patch_create()
@@ -324,9 +330,14 @@ def test_agency_tier_has_unlimited_sessions() -> None:
     sub = Subscription.objects.get(workspace=ws)
     sub.tier = Subscription.Tier.AGENCY
     sub.save(update_fields=["tier"])
-    # Pre-fill far past the starter cap.
+    # Pre-fill far past the starter cap. Use ENDED so the rows count;
+    # get_usage excludes DRAFT / FAILED.
     for _ in range(50):
-        RealtimeSession.objects.create(workspace=ws, spokesperson=sp)
+        RealtimeSession.objects.create(
+            workspace=ws,
+            spokesperson=sp,
+            status=RealtimeSession.Status.ENDED,
+        )
     client = APIClient()
     _login(client, user)
     patcher, _ = _patch_create()
