@@ -395,7 +395,10 @@ def _system_prompt(spokesperson: "Spokesperson") -> str:
         + (
             f"Business facts the speaker can ground in (these ARE "
             f"the product / business — paraphrase as needed; treat "
-            f"as authoritative alongside the knowledge chunks): "
+            f"as authoritative alongside the knowledge chunks. "
+            f"Quoted phrases inside these facts are CONCEPTS the "
+            f"speaker teaches, NOT catchphrases to recite verbatim — "
+            f"reframe them in your own words): "
             f"{brief}\n"
             if brief else ""
         )

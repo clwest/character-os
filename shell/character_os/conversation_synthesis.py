@@ -47,7 +47,12 @@ logger = logging.getLogger(__name__)
 # K9 doesn't carry the K6 leak-bait risk (no static business_brief
 # pattern matching against retrieved knowledge chunks).
 REPLY_MODEL = "gpt-5"
-MAX_OUTPUT_TOKENS = 400  # conversation replies are shorter than scripts
+# SESSION 176 — bumped 400 → 1000. gpt-5 with reasoning burns hidden
+# tokens against the same output budget; operator-visible replies
+# were truncating mid-sentence at 400 even on tight 1-2 paragraph
+# answers. 1000 gives ~2-3 short paragraphs of visible text after
+# reasoning overhead.
+MAX_OUTPUT_TOKENS = 1000
 REASONING_EFFORT = "low"
 DEFAULT_TOP_K_DOCS = 3
 DEFAULT_TOP_K_HISTORY = 6  # last few turns for tone continuity
@@ -284,7 +289,20 @@ def _system_prompt(spokesperson) -> str:
         "the user supplies below + the business context above. If a fact "
         "isn't there, acknowledge it rather than invent. Keep replies "
         "conversational — short paragraphs, natural phrasing, no bullet "
-        "lists unless the user asks."
+        "lists unless the user asks. "
+        # SESSION 176 — catchphrase guard. Operators frequently write
+        # business_brief lines like 'Signature concept: "X"' which the
+        # model otherwise treats as Marcus's verbatim opener on every
+        # reply. Quoted phrases inside business_brief are concepts to
+        # teach, not catchphrases to recite. Don't open consecutive
+        # replies with the same phrase even when business_brief
+        # features it prominently."
+        "Quoted phrases inside the business context are CONCEPTS the "
+        "speaker teaches, NOT catchphrases the speaker says. Do not "
+        "open replies with quoted phrases from the business context. "
+        "If the same concept is relevant across multiple replies, vary "
+        "how you introduce it — never repeat a verbatim signature line "
+        "as a recurring opener."
     )
 
 
