@@ -1260,11 +1260,26 @@ def _build_cohost_filter(options: dict) -> str:
     )
 
 
-def _build_broll_filter(options: dict, base_dur: float) -> str:
+def _build_broll_filter(
+    options: dict,
+    base_dur: float,
+    canvas_w: int,
+    canvas_h: int,
+) -> str:
     """filter_complex for `broll` — base at [0], cutaway at [1].
     Splices [start, end] of base with cutaway scaled to base
     dims. Audio stays from base (mapped via -map 0:a outside
-    the filter)."""
+    the filter).
+
+    All three concat segments (pre / cutaway / post) must share
+    width / height / SAR for the concat filter to succeed —
+    SESSION 181 dogfood: a 1088x704 base + 1280x720 cutaway
+    produced ffmpeg rc=234 "Could not open encoder before EOF"
+    until the cutaway was scaled to base dims and setsar=1 was
+    applied to all three segments. Hardcoding the cutaway scale
+    to 1280x720 was the same shape as the SESSION 180
+    intro_outro canvas-default bug — the right fix is to thread
+    the probed base dims through."""
     start = float(options.get("cutaway_start_s", base_dur * 0.3))
     end = float(options.get("cutaway_end_s", base_dur * 0.7))
     cut_dur = end - start
@@ -1274,12 +1289,13 @@ def _build_broll_filter(options: dict, base_dur: float) -> str:
             f"base [0, {base_dur:.2f}] with positive duration"
         )
     return (
-        f"[0:v]trim=start=0:end={start:.3f},setpts=PTS-STARTPTS[v_pre];"
+        f"[0:v]trim=start=0:end={start:.3f},setpts=PTS-STARTPTS,"
+        f"setsar=1[v_pre];"
         f"[1:v]trim=start=0:end={cut_dur:.3f},setpts=PTS-STARTPTS,"
-        f"scale=1280:720:force_original_aspect_ratio=increase,"
-        f"crop=1280:720,setsar=1[v_cut];"
+        f"scale={canvas_w}:{canvas_h}:force_original_aspect_ratio=increase,"
+        f"crop={canvas_w}:{canvas_h},setsar=1[v_cut];"
         f"[0:v]trim=start={end:.3f}:end={base_dur:.3f},"
-        f"setpts=PTS-STARTPTS[v_post];"
+        f"setpts=PTS-STARTPTS,setsar=1[v_post];"
         f"[v_pre][v_cut][v_post]concat=n=3:v=1:a=0[outv]"
     )
 
@@ -1429,7 +1445,10 @@ def post_internal_composite(
             map_audio = ["-map", "0:a?"]
         elif kind == "broll":
             base_dur = _probe_duration(local_paths[0])
-            filter_complex = _build_broll_filter(options, base_dur)
+            canvas_w, canvas_h = _probe_dimensions(local_paths[0])
+            filter_complex = _build_broll_filter(
+                options, base_dur, canvas_w, canvas_h,
+            )
             map_audio = ["-map", "0:a?"]
         else:  # pragma: no cover — guarded by _COMPOSITE_KINDS
             return _error(400, "unsupported_layout", f"unknown kind {kind!r}")
