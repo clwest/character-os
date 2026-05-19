@@ -25,7 +25,9 @@ state: active
 > **V17 LOCKED (SESSION 182) — extend + keyframes.**
 > V17.0 + V17.1 + V17.2 SHIPPED SESSION 182. V17.2
 > **REAL-MODE VALIDATED** end-to-end at session-close.
-> V17.3-V17.5 pending.
+> **V17.5 SHIPPED SESSION 183** (`use_extend_for_backdrop`
+> opt-in on V8 talking_head_with_backdrop); real-mode
+> dogfood pending. V17.3 + V17.4 pending.
 > See `docs/design/VIDEO_COMPOSITION_V17_PROPOSAL.md`.
 > **Realtime avatar scope lock:** `docs/design/REALTIME_AVATAR_V1.md`
 > (locked SESSION 142 — 10 contract rules, R0-R10 slice
@@ -40,7 +42,73 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_182_PART_2_V17_2_REAL_MODE_DOGFOOD.md`.
+> **Last handoff:** `docs/handoffs/SESSION_183_V17_5_V8_OPT_IN_EXTEND.md`.
+
+---
+
+## SESSION 183 outcome — V17.5 V8 opt-in extend (mock-mode validated)
+
+One feature commit. V17.5 lands the
+`use_extend_for_backdrop` flag on the V8
+`talking_head_with_backdrop` starter, closing the SESSION
+179 multi-backdrop concat seam at the recipe layer.
+
+* **V17.5 starter knob** — `use_extend_for_backdrop: bool =
+  False` on `talking_head_with_backdrop` (default off per
+  V17 rule 12). When True, the backdrop is built as
+  `1 × generate_visual_clip (10s, gen4.5)` + `N ×
+  extend_visual_clip (5s each, gen4_turbo last-frame
+  conditioned)`. N derived from
+  `_compute_extend_backdrop_chain_length(script_chars)`
+  using the existing `_estimate_avatar_speech_seconds`
+  helper. Clamps to `_MAX_BACKDROP_CHAIN_LENGTH - 1`
+  extends so total chain length matches the concat path's
+  safety cap.
+* **Recipe form checkbox** added — V8 is already in
+  `LIVE_RECIPE_KINDS` and the form renderer is
+  metadata-driven, so no SPA-side TypeScript changes
+  needed. Default-aware form submission is covered by the
+  SESSION 182 `01ea94d` fix.
+* **9 new tests** in `test_v8_backdrop.py` covering chain
+  math, step composition (short / 22s / pathological /
+  ratio propagation / backdrop_duration ignored), V16
+  matting interaction, end-to-end mock-mode, and a
+  backwards-compat guard that no `extend_visual_clip` step
+  appears when the flag is off.
+* **Q-v17-5 resolved at slice-open.** Cost estimation
+  routes through each primitive's `estimate_cost()`;
+  generate_visual_clip + N × extend_visual_clip sum
+  correctly via the standard
+  `estimate_composition_cost(composition)` walk. No
+  chain-wide helper needed. Per-step
+  `cost_actual_micros` carries post-render refinement.
+
+### Final state at session close
+
+* V17 slice status: V17.0 + V17.1 + V17.2 (real-mode
+  validated SESSION 182) + V17.5 (mock-mode validated
+  SESSION 183) shipped. V17.3 + V17.4 remain pending.
+* All Q-v17-* resolved at lock or slice-open. No open V17
+  questions remaining.
+
+### Calibration carried forward (no new entries)
+
+Followed the SESSION 182 slice-open checklist exactly —
+the four-touchpoint discipline (string choice values,
+LIVE_RECIPE_KINDS, default-aware submission, fixture
+shape) bore out cleanly because V17.5 is a boolean
+checkbox knob on an already-live recipe. Mock-mode
+backwards-compat guard caught zero regressions.
+Real-mode-vs-mock-mode shape calibration (SESSION 182's
+silent-input concat fix) didn't surface here because the
+V17.5 path doesn't add new ffmpeg work — extends already
+went through V17.0's real-mode path with `_has_audio_stream`
+probing in SESSION 182.
+
+Tests: Django **900** (compositions **469**). Media-engine
+**194** (unchanged). SPA vitest **95** (unchanged). No
+real-mode spend this session — dogfood deferred to SESSION
+184 per the human/AI testing-split discipline.
 
 ---
 
@@ -124,37 +192,39 @@ Tests: Django **891** (compositions **460**). Media-engine
   VALIDATED; Q-v17-2/3/4 RESOLVED at lock; Q-v17-5 open
   (resolves V17.5 slice-open).
 
-### FIRST THING (SESSION 183): V17.5 — V8 talking_head_with_backdrop opt-in extend
+### FIRST THING (SESSION 184): real-mode dogfood V17.5 + open V17.3 (keyframes track)
 
-Operator-recommended direction. V17.5 closes the SESSION
-179 multi-backdrop concat seam workaround — currently
-V8 lays down N separate 10s backdrops + concats them
-(visible seams every 10s); the extend chain grows ONE 10s
-backdrop to N×5+10s with last-frame conditioning at every
-boundary. Concrete operator-visible win.
+V17.5 code + tests landed SESSION 183 (one commit). The
+extend-chain opt-in is mock-mode validated only; the V-arc
+discipline says real-mode validate before claiming the
+slice is shipped. Operator-driven dogfood:
 
-1. **Read** `docs/design/VIDEO_COMPOSITION_V17_PROPOSAL.md`
-   §V17.5 row + V8's existing
-   `talking_head_with_backdrop` starter to understand the
-   current multi-backdrop math.
+1. **Restart Celery worker** (per session-start notes — V17.5
+   adds an `extend_visual_clip` step to V8's chain when the
+   flag is True; worker doesn't auto-reload).
 
-2. **Decide on the opt-in shape.** V17 rule 12: V13/V8 keep
-   current behaviour; new recipes / new optional kwargs only.
-   V8 gets a `use_extend_for_backdrop: bool = False` knob.
-   When True, backdrop chain becomes 1 generate + N extend
-   instead of N generates + concat.
+2. **Real-mode dogfood through the SPA recipe form.** Pick
+   a long-script V8 render (≥22s estimated speech) so the
+   chain produces N≥3 extends. Toggle the new
+   "Use seam-free extend chain for backdrop" checkbox.
+   Compare against the same script rendered on the concat
+   path — the seam every 10s should be gone.
 
-3. **Ship V17.5** — starter branch + tests + real-mode
-   dogfood. Lower-risk than V17.2 because V17.0 + V17.1
-   are now real-mode validated.
+3. **Calibration target:** does the extend chain visibly
+   eliminate the SESSION 179 motion seam? Are the extend
+   prompts holding the backdrop's character / lighting
+   across N segments? Estimated spend: $0.50 base + N×$0.25
+   per render (cheaper than the concat path's $0.50/segment
+   × N).
 
-Alternative: **V17.3 (keyframes track).** Independent of
-V17.5 per the dependency graph. ~1 session. Higher-risk
-since keyframes API isn't real-mode validated yet — likely
-surfaces its own Q-v17-style finding before code lands.
+Alternative parallel: **V17.3 (keyframes track).** Independent
+of the extend track per the dependency graph. ~1 session.
+Higher-risk since keyframes API isn't real-mode validated
+yet — likely surfaces its own Q-v17-style finding before
+code lands.
 
-Alternative: defer V17 + work F8.1 K10 seed corpus, asset
-upload UI, or other queued items.
+Alternative: defer V17 entirely + work F8.1 K10 seed corpus,
+asset upload UI, or other queued items.
 
 ---
 
@@ -178,7 +248,8 @@ pending.
 | K0-K9 | DONE |
 | V0-V15 + V16 | DONE (mock); **16/18 real-mode validated** |
 | **V17.0 + V17.1 + V17.2** | **DONE + V17.2 REAL-MODE VALIDATED (SESSION 182)** |
-| **V17.3 (keyframes) / V17.4 / V17.5** | **pending** |
+| **V17.5 (V8 opt-in extend)** | **DONE (SESSION 183) — real-mode dogfood pending** |
+| **V17.3 (keyframes) / V17.4** | **pending** |
 | F0-F10 | DONE |
 | R0-R10 + R6.1 | DONE + REAL-MODE VALIDATED (SESSION 176) |
 | W11.6.0-W11.6.5 (media gen) | DONE (SESSIONS 172-173) |
@@ -279,12 +350,12 @@ For any new recipe that wraps a third-party API:
 5. **Unit fixtures shaped after a sample of provider
    output**, not the easiest-to-construct shape.
 
-**Smoke checks** (counts as of SESSION 182 part 2 close):
+**Smoke checks** (counts as of SESSION 183 close):
 
 ```bash
 # Backend (from shell/)
 python manage.py inventory
-python -m pytest                              # 891 tests (compositions: 460)
+python -m pytest                              # 900 tests (compositions: 469)
 
 # Media-engine (from media-engine/)
 python -m pytest                              # 194 tests
@@ -304,11 +375,38 @@ pnpm test                                     # 95 vitest tests
 * `_has_audio_stream` helper in media-engine internal.py
   (probes audio before concat).
 
+**New surfaces from SESSION 183:**
+
+* `talking_head_with_backdrop(..., use_extend_for_backdrop=False)`
+  — V17.5 starter knob. Default off; backwards-compat
+  holds.
+* `_compute_extend_backdrop_chain_length(script_chars) → int`
+  helper in `starters.py`. Returns the number of
+  extend_visual_clip steps to chain after the base 10s
+  generate.
+* `_EXTEND_BASE_DURATION_SECONDS = 10` +
+  `_EXTEND_SEGMENT_DURATION_SECONDS = 5` constants.
+* Recipe field: `use_extend_for_backdrop` checkbox on the
+  `talking_head_with_backdrop` recipe form (renders
+  automatically — V8 is already in `LIVE_RECIPE_KINDS`).
+
 ---
 
 ## AI / assistant context
 
-- **Last session: SESSION 182 — V17 scope-lock + V17.0 +
+- **Last session: SESSION 183 — V17.5 V8 opt-in extend
+  shipped (mock-mode validated).** One feature commit.
+  V17.5 lands `use_extend_for_backdrop` flag on V8's
+  starter; backdrop becomes `1 generate + N extend`
+  instead of `N generates + concat` when the flag is on,
+  killing the SESSION 179 visible 10s motion seam at the
+  recipe layer. Q-v17-5 resolved at slice-open (chain
+  sized from `_estimate_avatar_speech_seconds`; per-
+  primitive cost estimators auto-sum). Real-mode dogfood
+  deferred to SESSION 184. No new TRUST_CALIBRATION
+  entries — slice-open checklist held cleanly.
+
+- **Prior session: SESSION 182 — V17 scope-lock + V17.0 +
   V17.1 + V17.2 + real-mode validation.** Eight commits
   across two parts. V17 went `proposed → locked`; rules
   10-13 merged into V1. V17.0 (endpoint) + V17.1 (Django

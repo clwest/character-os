@@ -88,6 +88,47 @@ def _compute_backdrop_chain_length(
     return max(1, min(n, _MAX_BACKDROP_CHAIN_LENGTH))
 
 
+# V17.5 — extend-chain backdrop math. When the V8 starter is invoked
+# with use_extend_for_backdrop=True, the backdrop is laid down as
+# 1 base generate_visual_clip (10s, gen4.5) + N extend_visual_clip
+# steps (5s each, gen4_turbo last-frame-conditioned). N is sized so
+# the chain's total duration covers the estimated avatar speech
+# length. The composite primitive trims the long edge so a slightly
+# over-provisioned chain is free.
+#
+# Compared to the SESSION 179 multi-backdrop concat (the False
+# path), this:
+#   * removes visible motion seams every 10s (extends condition on
+#     the prior segment's last frame),
+#   * pays only for the new seconds rather than re-rendering a full
+#     fresh 10s clip per chunk ($0.50 base + $0.25 per extend vs
+#     $0.50 per backdrop in the concat chain),
+#   * locks per-segment durations (10s base + 5s each extend) — the
+#     ``backdrop_duration`` kwarg becomes redundant when this flag
+#     is True.
+#
+# Q-v17-5 resolution: cost estimation routes through each
+# primitive's estimate_cost(), which sums correctly across the
+# generate base + N extends without a chain-wide helper.
+
+_EXTEND_BASE_DURATION_SECONDS = 10
+_EXTEND_SEGMENT_DURATION_SECONDS = 5
+
+
+def _compute_extend_backdrop_chain_length(script_chars: int) -> int:
+    """Number of extend_visual_clip steps to chain after the 10s
+    base so the total backdrop covers estimated speech duration.
+
+    Returns 0 when speech ≤ 10s (single generate is enough). Clamps
+    to ``_MAX_BACKDROP_CHAIN_LENGTH - 1`` so total chain length
+    (base + extends) stays bounded by the same safety cap as the
+    concat path."""
+    speech_seconds = _estimate_avatar_speech_seconds(script_chars)
+    remaining = max(0, speech_seconds - _EXTEND_BASE_DURATION_SECONDS)
+    n = -(-remaining // _EXTEND_SEGMENT_DURATION_SECONDS)  # ceil
+    return max(0, min(n, _MAX_BACKDROP_CHAIN_LENGTH - 1))
+
+
 # SESSION 180 — caption auto-timing for talking_head_polished's
 # ``burn_captions`` shorthand. The avatar's actual cadence
 # drifts from the chars-per-second estimate (vincent / felix /
@@ -916,6 +957,16 @@ def talking_head_with_backdrop(
     # pipeline is slow (~2.4 min for a 22s clip on CPU) and the
     # operator may not always want to pay that latency.
     remove_avatar_bg: bool = False,
+    # SESSION 183 / V17.5. When True, swap the N×generate +
+    # concat backdrop chain for a 1×generate + N×extend chain
+    # (last-frame-conditioned via Runway gen4_turbo). Removes
+    # the visible 10s motion seams of the concat path. Default
+    # off — V17 contract rule 12 (V13/V8 keep current
+    # behaviour; new optional kwargs only). When this flag is
+    # True, ``backdrop_duration`` is ignored (chain segments
+    # are fixed at 10s base + 5s per extend per the Runway
+    # gen4_turbo per-render limit).
+    use_extend_for_backdrop: bool = False,
     mock_mode: bool = False,
     name: str = "",
     created_by: "AbstractBaseUser | None" = None,
@@ -1003,42 +1054,123 @@ def talking_head_with_backdrop(
         created_by=created_by,
     )
 
-    # SESSION 179 — multi-backdrop chain. gen4.5 caps at 10s per
-    # clip; if we generate a single 10s backdrop and the avatar
-    # speech is 22s, composite_video used to loop the backdrop
-    # 2.2x (visible as a 3-second motion seam repeating). Instead,
-    # we estimate the speech duration from script length and lay
-    # down N backdrops sized so concat(N) ≥ speech duration. The
-    # composite primitive trims the long edge automatically. N is
-    # clamped to `_MAX_BACKDROP_CHAIN_LENGTH` so a pathological
-    # script can't spin up runaway Runway calls.
-    backdrop_seconds = backdrop_duration or _DEFAULT_BACKDROP_DURATION_SECONDS
+    # SESSION 179 — multi-backdrop chain (concat path). gen4.5
+    # caps at 10s per clip; if we generate a single 10s backdrop
+    # and the avatar speech is 22s, composite_video used to loop
+    # the backdrop 2.2x (visible as a 3-second motion seam
+    # repeating). Instead, we estimate the speech duration from
+    # script length and lay down N backdrops sized so concat(N) ≥
+    # speech duration. The composite primitive trims the long
+    # edge automatically. N is clamped to
+    # ``_MAX_BACKDROP_CHAIN_LENGTH`` so a pathological script
+    # can't spin up runaway Runway calls.
+    #
+    # SESSION 183 / V17.5 — extend-chain path. When
+    # ``use_extend_for_backdrop=True``, the visible 10s motion
+    # seams of the concat path are eliminated by replacing the
+    # N×generate chain with a 1×generate + N×extend chain where
+    # each extend conditions on the prior segment's last frame.
+    # Default off; V17 contract rule 12 keeps existing recipes
+    # unchanged.
     script_clean = script.strip()
-    n_backdrops = _compute_backdrop_chain_length(
-        len(script_clean), backdrop_seconds,
-    )
 
-    # Steps 0..N-1 — N cinematic backdrops. Each carries the same
-    # prompt + duration so they read as continuous motion when
-    # concat'd. (Future tuning: vary the prompts per chunk to give
-    # the operator narrative B-roll variety.)
-    base_backdrop_params: dict[str, object] = {
-        "prompt": backdrop_prompt.strip(),
-        "duration": backdrop_seconds,
-    }
-    if backdrop_ratio is not None:
-        base_backdrop_params["ratio"] = backdrop_ratio
-    for i in range(n_backdrops):
-        CompositionStep.objects.create(
-            composition=composition,
-            position=i,
-            primitive="generate_visual_clip",
-            inputs=[],
-            params=dict(base_backdrop_params),
+    if use_extend_for_backdrop:
+        # V17.5 path. Fixed segment durations (10s base + 5s per
+        # extend) — backdrop_duration is ignored. Build a base
+        # generate_visual_clip + N extend_visual_clip chain.
+        n_extends = _compute_extend_backdrop_chain_length(
+            len(script_clean),
         )
 
-    # Step N — avatar speech. Mirrors the talking_head starter.
-    speech_position = n_backdrops
+        # Step 0 — base 10s generate_visual_clip. Same params
+        # shape as the concat path's first backdrop step, but
+        # duration is locked to 10 (gen4.5 text-to-video
+        # ceiling).
+        base_params: dict[str, object] = {
+            "prompt": backdrop_prompt.strip(),
+            "duration": _EXTEND_BASE_DURATION_SECONDS,
+        }
+        if backdrop_ratio is not None:
+            base_params["ratio"] = backdrop_ratio
+        CompositionStep.objects.create(
+            composition=composition,
+            position=0,
+            primitive="generate_visual_clip",
+            inputs=[],
+            params=dict(base_params),
+        )
+
+        # Steps 1..N — extend_visual_clip, each consuming the
+        # prior step's output (V1 rule 5 — linear chain; V17
+        # rule 10 — one primitive per step).
+        for i in range(n_extends):
+            step_position = i + 1
+            prior_position = step_position - 1
+            extend_params: dict[str, object] = {
+                "prompt": backdrop_prompt.strip(),
+                "duration": _EXTEND_SEGMENT_DURATION_SECONDS,
+            }
+            if backdrop_ratio is not None:
+                extend_params["ratio"] = backdrop_ratio
+            CompositionStep.objects.create(
+                composition=composition,
+                position=step_position,
+                primitive="extend_visual_clip",
+                inputs=[
+                    {"slot": "source", "from_step_position": prior_position},
+                ],
+                params=extend_params,
+            )
+
+        # The last extend's output is the final backdrop —
+        # composite_video uses it directly, no concat step.
+        background_source = n_extends  # position of last clip
+        speech_position = n_extends + 1
+        next_position_after_speech = speech_position + 1
+        # ``backdrop_seconds`` is unused on this path, but
+        # logged below for parity with the concat path's log
+        # line.
+        backdrop_seconds = _EXTEND_BASE_DURATION_SECONDS
+        n_backdrops_for_log = 1 + n_extends
+    else:
+        # SESSION 179 — multi-backdrop concat path. Unchanged.
+        backdrop_seconds = (
+            backdrop_duration or _DEFAULT_BACKDROP_DURATION_SECONDS
+        )
+        n_backdrops = _compute_backdrop_chain_length(
+            len(script_clean), backdrop_seconds,
+        )
+
+        # Steps 0..N-1 — N cinematic backdrops. Each carries the
+        # same prompt + duration so they read as continuous
+        # motion when concat'd. (Future tuning: vary the prompts
+        # per chunk to give the operator narrative B-roll
+        # variety.)
+        base_backdrop_params: dict[str, object] = {
+            "prompt": backdrop_prompt.strip(),
+            "duration": backdrop_seconds,
+        }
+        if backdrop_ratio is not None:
+            base_backdrop_params["ratio"] = backdrop_ratio
+        for i in range(n_backdrops):
+            CompositionStep.objects.create(
+                composition=composition,
+                position=i,
+                primitive="generate_visual_clip",
+                inputs=[],
+                params=dict(base_backdrop_params),
+            )
+
+        speech_position = n_backdrops
+        next_position_after_speech = speech_position + 1
+        n_backdrops_for_log = n_backdrops
+
+        # Set background_source after the (optional) concat
+        # step below so the existing N>1 / N==1 branching is
+        # preserved on this path.
+        background_source = None  # filled in below
+
+    # Step N — avatar speech. Same on both paths.
     speech_params: dict = {
         "script": script_clean,
         "use_knowledge": bool(use_knowledge),
@@ -1055,27 +1187,28 @@ def talking_head_with_backdrop(
         params=speech_params,
     )
 
-    # Step N+1 (optional) — concat the N backdrops into one long
-    # backdrop. Skipped when N==1 so the single-backdrop path
-    # stays a 3-step composition (backwards-compatible with prior
-    # tests + small scripts).
-    next_position = speech_position + 1
-    if n_backdrops > 1:
-        concat_position = next_position
-        CompositionStep.objects.create(
-            composition=composition,
-            position=concat_position,
-            primitive="concat_clips",
-            inputs=[
-                {"slot": "clip", "from_step_position": i}
-                for i in range(n_backdrops)
-            ],
-            params={},
-        )
-        background_source = concat_position
-        next_position += 1
-    else:
-        background_source = 0
+    next_position = next_position_after_speech
+
+    if not use_extend_for_backdrop:
+        # Concat-path: optional concat step + background_source
+        # resolution. Skipped on the extend path because each
+        # extend already chains to the prior segment.
+        if n_backdrops > 1:
+            concat_position = next_position
+            CompositionStep.objects.create(
+                composition=composition,
+                position=concat_position,
+                primitive="concat_clips",
+                inputs=[
+                    {"slot": "clip", "from_step_position": i}
+                    for i in range(n_backdrops)
+                ],
+                params={},
+            )
+            background_source = concat_position
+            next_position += 1
+        else:
+            background_source = 0
 
     # Step N+? (optional, V16) — strip the avatar's baked white
     # background so the composite below lays the avatar over the
@@ -1128,9 +1261,11 @@ def talking_head_with_backdrop(
     logger.info(
         "starter talking_head_with_backdrop created composition=%s "
         "spokesperson=%s mock=%s use_knowledge=%s fg_width=%d "
-        "n_backdrops=%d backdrop_seconds=%d remove_avatar_bg=%s",
+        "n_backdrops=%d backdrop_seconds=%d remove_avatar_bg=%s "
+        "use_extend_for_backdrop=%s",
         composition.id, spokesperson.id, mock_mode, use_knowledge,
-        fg_width, n_backdrops, backdrop_seconds, remove_avatar_bg,
+        fg_width, n_backdrops_for_log, backdrop_seconds, remove_avatar_bg,
+        use_extend_for_backdrop,
     )
     return composition
 

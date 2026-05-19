@@ -240,7 +240,7 @@ real-mode validation per slice.
 | **V17.2** | New `cinematic_visual_extended` recipe (V4 + extend chain) — operator picks target duration > 10s; starter lays down 1 generate_visual_clip + N extend_visual_clip steps. Recipe form + tests + real-mode dogfood. | 1 session | **✓ SHIPPED + REAL-MODE VALIDATED SESSION 182.** 15s clip completed end-to-end; $0.75 spend; 4 dogfood-surfaced bugs fixed inline (see SESSION 182 part-2 handoff). |
 | **V17.3** | Extend `/internal/clips/visual/` to accept `keyframes: [str]` + multi-keyframe support on `generate_visual_clip`. Plus a new `keyframe_shot` recipe (start + end image, single 5-10s shot). Uses existing IMAGE assets until asset-upload UI lands. | 1 session | pending |
 | **V17.4** | V13 `storyboard_ad` opt-in flag (`use_keyframes: bool = False`) — when on, swaps the 3-shot chain for a single keyframed shot. Default off; V13 backward-compat holds. | ½ session | pending |
-| **V17.5** | V8 `talking_head_with_backdrop` opt-in flag (`use_extend_for_backdrop: bool = False`) — when on, uses extend chain instead of multi-backdrop concat. Resolves the SESSION 179 motion-seam workaround. | ½ session | pending |
+| **V17.5** | V8 `talking_head_with_backdrop` opt-in flag (`use_extend_for_backdrop: bool = False`) — when on, uses extend chain instead of multi-backdrop concat. Resolves the SESSION 179 motion-seam workaround. | ½ session | **✓ SHIPPED SESSION 183** — knob added; new helper `_compute_extend_backdrop_chain_length`; recipe form checkbox; 9 new tests (469 compositions, 900 backend total). Q-v17-5 resolved: chain sized from `_estimate_avatar_speech_seconds(len(script))`; per-primitive `estimate_cost()` auto-sums. Real-mode dogfood pending. |
 
 Roughly **4 sessions** of work end-to-end. Could compress
 to 2-3 if V17.4 / V17.5 ship together as one operator-
@@ -318,13 +318,20 @@ verification against live Runway APIs.
   correctness, not preference — re-extending a
   freshly-modified source with a stale cache would
   silently return wrong output.
-* **Q-v17-5 (open — resolve at V17.1 / V17.5
-  slice-open):** Cost-estimator behaviour when the
-  source clip's duration isn't known at recipe-time
-  (V8 opt-in case — operator sets target duration;
-  avatar speech duration unknown until chain length
-  math runs). Likely resolution: estimate from target
-  duration, refine post-render.
+* **Q-v17-5 (RESOLVED at V17.5 slice-open, SESSION
+  183):** Cost-estimator behaviour when the source
+  clip's duration isn't known at recipe-time. **Resolution:**
+  the V8 opt-in path sizes its chain from the existing
+  `_estimate_avatar_speech_seconds(len(script))` helper
+  (11 chars/sec + 2s buffer); each primitive's
+  `estimate_cost()` carries its own per-second rate
+  (generate_visual_clip $0.05/s for 10s base = $0.50;
+  extend_visual_clip $0.05/s for 5s segment = $0.25
+  each), so the standard `estimate_composition_cost`
+  walk sums correctly across the base + N extends
+  without a chain-wide helper. Refinement post-render
+  falls out of the existing `cost_actual_micros`
+  recording on each step.
 
 ---
 

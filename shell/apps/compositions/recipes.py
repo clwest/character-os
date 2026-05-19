@@ -342,6 +342,24 @@ RECIPES: dict[str, Recipe] = {
                     "Adds ~2-3 minutes per render."
                 ),
             ),
+            # SESSION 183 / V17.5 — opt-in extend chain. When set,
+            # the backdrop is built as 1 generate (10s) + N extend
+            # (5s each, last-frame conditioned) instead of N
+            # separate 10s backdrops + concat. Removes the visible
+            # motion seams every 10s of the concat path.
+            RecipeField(
+                name="use_extend_for_backdrop", type="checkbox",
+                label="Use seam-free extend chain for backdrop",
+                required=False, default=False,
+                help_text=(
+                    "Use Runway's extend feature so the backdrop "
+                    "flows as one continuous motion instead of N "
+                    "separately-generated 10s clips stitched "
+                    "together. Recommended for longer scripts (>10s "
+                    "of speech). Ignores the backdrop duration knob "
+                    "above — extends are fixed at 5s per segment."
+                ),
+            ),
             _VERIFIER_MODE_FIELD,
             _OPENER_FIELD,
             _NAME_FIELD,

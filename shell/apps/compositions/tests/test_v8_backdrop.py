@@ -33,8 +33,11 @@ from apps.compositions.models import (
     CompositionStatus,
 )
 from apps.compositions.starters import (
+    _EXTEND_BASE_DURATION_SECONDS,
+    _EXTEND_SEGMENT_DURATION_SECONDS,
     _MAX_BACKDROP_CHAIN_LENGTH,
     _compute_backdrop_chain_length,
+    _compute_extend_backdrop_chain_length,
     _estimate_avatar_speech_seconds,
     talking_head_with_backdrop,
 )
@@ -534,3 +537,250 @@ def test_remove_avatar_bg_flag_inserts_matting_after_concat() -> None:
     bg, fg = steps[8].inputs
     assert bg["from_step_position"] == 6
     assert fg["from_step_position"] == 7
+
+
+# ---- V17.5 extend-chain opt-in (SESSION 183) ----------------------
+
+
+def test_compute_extend_backdrop_chain_length_helper() -> None:
+    """Extend chain: ceil((speech - 10) / 5), floored at 0, capped
+    at ``_MAX_BACKDROP_CHAIN_LENGTH - 1`` so total chain length
+    (base + extends) stays bounded by the same safety cap as the
+    concat path."""
+    # Speech ≤ 10s → 0 extends (just the base 10s generate).
+    assert _compute_extend_backdrop_chain_length(0) == 0
+    assert _compute_extend_backdrop_chain_length(20) == 0  # 5s floor
+    assert _compute_extend_backdrop_chain_length(88) == 0  # 8s + 2 buffer = 10s
+    # Speech > 10s → ceil((speech - 10) / 5).
+    # 110 chars = 10s + 2 buffer = 12s → (12-10)/5 → ceil → 1 extend.
+    assert _compute_extend_backdrop_chain_length(110) == 1
+    # 220 chars = 20s + 2 buffer = 22s → (22-10)/5 → ceil → 3 extends.
+    assert _compute_extend_backdrop_chain_length(220) == 3
+    # 500 chars = 45s + 2 buffer = 47s → (47-10)/5 = 7.4 → ceil → 8;
+    # clamped to _MAX_BACKDROP_CHAIN_LENGTH - 1 = 5.
+    assert (
+        _compute_extend_backdrop_chain_length(500)
+        == _MAX_BACKDROP_CHAIN_LENGTH - 1
+    )
+
+
+def test_extend_short_script_lays_down_single_generate_no_extends() -> None:
+    """Short script (≤10s of speech) — single generate_visual_clip
+    + speech + composite. No extend steps because the base 10s
+    already covers the speech length."""
+    ws = _make_workspace("v17_5_short@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="Hi there.",
+        backdrop_prompt="A quiet park bench.",
+        use_extend_for_backdrop=True,
+        mock_mode=True,
+    )
+    steps = list(c.steps.all().order_by("position"))
+    primitives = [s.primitive for s in steps]
+    assert primitives == [
+        "generate_visual_clip",
+        "generate_avatar_speech",
+        "composite_video",
+    ]
+    # Base generate is locked to the 10s gen4.5 ceiling.
+    assert steps[0].params["duration"] == _EXTEND_BASE_DURATION_SECONDS
+    # Composite background = base generate (step 0); foreground =
+    # speech (step 1).
+    bg, fg = steps[2].inputs
+    assert bg["from_step_position"] == 0
+    assert fg["from_step_position"] == 1
+
+
+def test_extend_22s_script_lays_down_one_generate_three_extends() -> None:
+    """The motivating SESSION 179 case: 22s of speech. Concat path
+    needs 3 backdrops + concat (visible 10s seams). Extend path:
+    1 generate (10s) + 3 extends (5s each = 15s) = 25s total
+    backdrop, no seam, composite trims to speech."""
+    ws = _make_workspace("v17_5_22s@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 220,  # ~22s speech estimate
+        backdrop_prompt="A neon-lit alley.",
+        use_extend_for_backdrop=True,
+        mock_mode=True,
+    )
+    steps = list(c.steps.all().order_by("position"))
+    # 1 generate + 3 extends + speech + composite = 6 steps; no
+    # concat step on the extend path.
+    primitives = [s.primitive for s in steps]
+    assert primitives == [
+        "generate_visual_clip",   # 0 — base 10s
+        "extend_visual_clip",     # 1 — +5s
+        "extend_visual_clip",     # 2 — +5s
+        "extend_visual_clip",     # 3 — +5s
+        "generate_avatar_speech", # 4
+        "composite_video",        # 5
+    ]
+    # Each extend chains to the prior segment's output (last-frame
+    # conditioning is the whole point — V17 contract rule 10).
+    for i in range(1, 4):
+        step = steps[i]
+        assert step.params["duration"] == _EXTEND_SEGMENT_DURATION_SECONDS
+        assert step.params["prompt"] == "A neon-lit alley."
+        assert step.inputs == [
+            {"slot": "source", "from_step_position": i - 1},
+        ]
+    # Composite background = last extend (step 3); foreground =
+    # speech (step 4). No concat step in between.
+    bg, fg = steps[5].inputs
+    assert bg["slot"] == "background"
+    assert bg["from_step_position"] == 3
+    assert fg["slot"] == "foreground"
+    assert fg["from_step_position"] == 4
+
+
+def test_extend_chain_clamps_to_max_for_pathological_scripts() -> None:
+    """Long scripts can't spin up runaway Runway calls — extends
+    clamp to ``_MAX_BACKDROP_CHAIN_LENGTH - 1`` (one slot reserved
+    for the base generate). The total chain length matches the
+    concat path's safety cap."""
+    ws = _make_workspace("v17_5_clamp@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="word " * 5_000,  # ~25_000 chars
+        backdrop_prompt="An endless library.",
+        use_extend_for_backdrop=True,
+        mock_mode=True,
+    )
+    primitives = [
+        s.primitive for s in c.steps.all().order_by("position")
+    ]
+    n_generate = sum(1 for p in primitives if p == "generate_visual_clip")
+    n_extend = sum(1 for p in primitives if p == "extend_visual_clip")
+    assert n_generate == 1
+    assert n_extend == _MAX_BACKDROP_CHAIN_LENGTH - 1
+
+
+def test_extend_ratio_propagates_to_base_and_all_extends() -> None:
+    """``backdrop_ratio`` must land on every clip in the chain so
+    the final concat doesn't get dim-mismatched halfway through.
+    Same shape contract as the concat path's per-clip params."""
+    ws = _make_workspace("v17_5_ratio@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 220,
+        backdrop_prompt="A skyline at dawn.",
+        backdrop_ratio="720:1280",
+        use_extend_for_backdrop=True,
+        mock_mode=True,
+    )
+    for step in c.steps.all().order_by("position"):
+        if step.primitive in ("generate_visual_clip", "extend_visual_clip"):
+            assert step.params["ratio"] == "720:1280"
+
+
+def test_extend_path_ignores_backdrop_duration_kwarg() -> None:
+    """``backdrop_duration`` is meaningless on the extend path —
+    gen4_turbo extends are fixed at 5s per call and the base is
+    fixed at 10s (gen4.5 ceiling). The kwarg is accepted (so
+    operators flipping the flag don't get a TypeError) but the
+    chain math ignores it."""
+    ws = _make_workspace("v17_5_duration@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 220,
+        backdrop_prompt="A cinematic backdrop.",
+        backdrop_duration=5,  # would force 5-backdrop concat on False path
+        use_extend_for_backdrop=True,
+        mock_mode=True,
+    )
+    steps = list(c.steps.all().order_by("position"))
+    assert steps[0].primitive == "generate_visual_clip"
+    assert steps[0].params["duration"] == _EXTEND_BASE_DURATION_SECONDS
+    for step in steps[1:]:
+        if step.primitive == "extend_visual_clip":
+            assert step.params["duration"] == _EXTEND_SEGMENT_DURATION_SECONDS
+
+
+def test_extend_path_remove_avatar_bg_matting_lands_before_composite() -> None:
+    """V16 matting still wires up correctly when both flags are
+    set. Matte source = avatar speech (position N+1 where N is the
+    last extend); composite foreground = matte; composite
+    background = last extend output. No concat step on this path."""
+    ws = _make_workspace("v17_5_matte@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 220,  # 3-extend chain
+        backdrop_prompt="A busy night market.",
+        use_extend_for_backdrop=True,
+        remove_avatar_bg=True,
+        mock_mode=True,
+    )
+    steps = list(c.steps.all().order_by("position"))
+    # 1 generate + 3 extends + speech + matte + composite = 7
+    assert [s.primitive for s in steps] == [
+        "generate_visual_clip",       # 0 — base
+        "extend_visual_clip",         # 1
+        "extend_visual_clip",         # 2
+        "extend_visual_clip",         # 3 — final backdrop segment
+        "generate_avatar_speech",     # 4
+        "remove_avatar_background",   # 5 — mattes the speech
+        "composite_video",            # 6
+    ]
+    # Matte consumes the speech clip (position 4).
+    assert steps[5].inputs == [
+        {"slot": "clip", "from_step_position": 4},
+    ]
+    # Composite: bg = last extend (3); fg = matte (5).
+    bg, fg = steps[6].inputs
+    assert bg["from_step_position"] == 3
+    assert fg["from_step_position"] == 5
+
+
+def test_extend_path_executes_end_to_end_in_mock_mode() -> None:
+    """V2 runtime carries the extend chain through to COMPLETED.
+    Mock-mode extends short-circuit to deterministic stub assets;
+    the composite final asset is recognisable downstream."""
+    ws = _make_workspace("v17_5_e2e@test")
+    sp = _make_spokesperson(ws, name="Riggs")
+
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="The founder's substantive take on coffee, " * 4,
+        backdrop_prompt="A warm cafe terrace at golden hour.",
+        use_extend_for_backdrop=True,
+        mock_mode=True,
+    )
+
+    result = execute_composition.apply(args=[str(c.pk)]).get()
+    assert result["status"] == "completed"
+
+    c.refresh_from_db()
+    assert c.status == CompositionStatus.COMPLETED
+    assert c.final_asset is not None
+    assert c.final_asset.asset_type == AssetType.CLIP
+    spec = c.final_asset.source_spec
+    assert spec["primitive_kind"] == "composite_video"
+    assert spec["layout_kind"] == "backdrop"
+
+
+def test_extend_default_is_false_concat_path_unchanged() -> None:
+    """V17 contract rule 12 (V8 keeps current behaviour). Without
+    ``use_extend_for_backdrop``, no extend_visual_clip step
+    appears anywhere in the composition — even on long scripts.
+    Load-bearing for backwards-compat across every existing V8
+    test above."""
+    ws = _make_workspace("v17_5_default@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 500,
+        backdrop_prompt="A bustling market.",
+        mock_mode=True,
+    )
+    primitives = [
+        s.primitive for s in c.steps.all().order_by("position")
+    ]
+    assert "extend_visual_clip" not in primitives
