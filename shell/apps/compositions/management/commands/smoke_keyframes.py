@@ -52,6 +52,8 @@ to confirm.
 """
 from __future__ import annotations
 
+import base64
+import mimetypes
 import os
 import sys
 import time
@@ -116,6 +118,85 @@ def _load_dotenv_into_environ() -> None:
         value = value.strip().strip('"').strip("'")
         if key and key not in os.environ:
             os.environ[key] = value
+
+
+# Stored Asset.file_path values use a logical prefix (``/data/...``)
+# rooted in the media-engine. The real filesystem location adds
+# ``<repo-root>/media-engine`` in front. CLAUDE.md confirms
+# ``media-engine/data/`` is gitignored but lives on the dev box.
+_MEDIA_ENGINE_DATA_ROOT = (
+    Path(__file__).resolve().parents[5] / "media-engine"
+)
+
+
+def _resolve_asset_to_image_uri(asset_id_prefix: str) -> str:
+    """Look up a workspace Asset by id (full UUID or unique prefix)
+    and return a value Runway can consume as ``promptImage.uri``.
+
+    Three branches:
+
+    * Local cached file (``file_path`` starts with ``/data/``) — read
+      bytes from ``<repo-root>/media-engine/<file_path>``, base64-
+      encode, build ``data:image/<mime>;base64,...``. Same shape
+      the media-engine's ``maybe_to_data_uri`` produces for the
+      ``gen4_turbo`` image-to-video path (SESSION 181 ``5cc0954``).
+    * Already a ``data:`` URI in ``file_path`` — pass through.
+    * Already an HTTPS URL in ``file_path`` — pass through.
+
+    Raises ``CommandError`` on missing asset, missing local file,
+    or non-IMAGE asset_type.
+    """
+    # Avoid importing Django models at module-import time so the
+    # ``--help`` invocation doesn't pay the ORM startup cost.
+    from apps.compositions.models import Asset, AssetType
+
+    asset_id_prefix = asset_id_prefix.strip()
+    if not asset_id_prefix:
+        raise CommandError("asset id is empty")
+
+    matches = list(
+        Asset.objects.filter(id__startswith=asset_id_prefix)[:2]
+    )
+    if not matches:
+        raise CommandError(f"no asset matches id prefix {asset_id_prefix!r}")
+    if len(matches) > 1:
+        raise CommandError(
+            f"asset id prefix {asset_id_prefix!r} matches multiple rows; "
+            f"pass more characters of the UUID"
+        )
+    asset = matches[0]
+    if asset.asset_type != AssetType.IMAGE:
+        raise CommandError(
+            f"asset {asset.id} is asset_type={asset.asset_type}; "
+            f"smoke needs an IMAGE asset for keyframe conditioning"
+        )
+
+    path = (asset.file_path or "").strip()
+    if not path:
+        raise CommandError(f"asset {asset.id} has an empty file_path")
+
+    if path.startswith(("data:", "https://", "http://")):
+        return path
+
+    # Local cached file path. The Asset stores ``/data/_internal/...``;
+    # the real filesystem is ``<repo>/media-engine/data/_internal/...``.
+    if path.startswith("/data/"):
+        real_path = _MEDIA_ENGINE_DATA_ROOT / path.lstrip("/")
+    else:
+        # Defensive — unknown shape. Treat as literal filesystem path.
+        real_path = Path(path)
+
+    if not real_path.exists():
+        raise CommandError(
+            f"asset {asset.id} file_path={path!r} → "
+            f"{real_path} doesn't exist on disk; "
+            f"media-engine cache may have been cleared"
+        )
+
+    mime, _ = mimetypes.guess_type(real_path.name)
+    mime = mime or "image/png"
+    payload = base64.b64encode(real_path.read_bytes()).decode("ascii")
+    return f"data:{mime};base64,{payload}"
 
 
 def _runway_headers(api_key: str) -> dict[str, str]:
@@ -210,12 +291,35 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser) -> None:
         parser.add_argument(
-            "--hook-image-url", required=True,
-            help="HTTPS URL of the first-frame keyframe image.",
+            "--hook-image-url",
+            help=(
+                "HTTPS URL (or data: URI) of the first-frame keyframe. "
+                "Mutually exclusive with --hook-asset-id."
+            ),
         )
         parser.add_argument(
-            "--payoff-image-url", required=True,
-            help="HTTPS URL of the last-frame keyframe image.",
+            "--payoff-image-url",
+            help=(
+                "HTTPS URL (or data: URI) of the last-frame keyframe. "
+                "Mutually exclusive with --payoff-asset-id."
+            ),
+        )
+        parser.add_argument(
+            "--hook-asset-id",
+            help=(
+                "Workspace Asset UUID (or unique prefix) for the first-"
+                "frame keyframe. Local cached PNG files are read from "
+                "media-engine/data/ and base64-encoded into a data: URI "
+                "inline — same shape the media-engine's gen4_turbo path "
+                "uses today."
+            ),
+        )
+        parser.add_argument(
+            "--payoff-asset-id",
+            help=(
+                "Workspace Asset UUID (or unique prefix) for the last-"
+                "frame keyframe. See --hook-asset-id for resolution rules."
+            ),
         )
         parser.add_argument(
             "--prompt", default=(
@@ -257,12 +361,47 @@ class Command(BaseCommand):
                 "Unset RUNWAY_FORCE_MOCK and rerun."
             )
 
-        hook_url = opts["hook_image_url"].strip()
-        payoff_url = opts["payoff_image_url"].strip()
-        if not hook_url.startswith(("https://", "http://")):
-            raise CommandError("--hook-image-url must be a fully-qualified URL")
-        if not payoff_url.startswith(("https://", "http://")):
-            raise CommandError("--payoff-image-url must be a fully-qualified URL")
+        # XOR per slot — each keyframe must come from either a URL or
+        # an asset-id, not both. At least one path must be set per slot.
+        hook_url_raw = (opts.get("hook_image_url") or "").strip()
+        hook_asset_id = (opts.get("hook_asset_id") or "").strip()
+        payoff_url_raw = (opts.get("payoff_image_url") or "").strip()
+        payoff_asset_id = (opts.get("payoff_asset_id") or "").strip()
+
+        if bool(hook_url_raw) == bool(hook_asset_id):
+            raise CommandError(
+                "exactly one of --hook-image-url or --hook-asset-id is "
+                "required"
+            )
+        if bool(payoff_url_raw) == bool(payoff_asset_id):
+            raise CommandError(
+                "exactly one of --payoff-image-url or --payoff-asset-id "
+                "is required"
+            )
+
+        # Resolve each slot to a Runway-acceptable URI (HTTPS, or
+        # ``data:`` inline). Asset lookup also validates the asset is
+        # IMAGE-typed before any Runway credit gets spent.
+        if hook_asset_id:
+            hook_url = _resolve_asset_to_image_uri(hook_asset_id)
+            hook_source = f"asset {hook_asset_id} → "
+        else:
+            hook_url = hook_url_raw
+            hook_source = ""
+
+        if payoff_asset_id:
+            payoff_url = _resolve_asset_to_image_uri(payoff_asset_id)
+            payoff_source = f"asset {payoff_asset_id} → "
+        else:
+            payoff_url = payoff_url_raw
+            payoff_source = ""
+
+        for label, value in (("hook", hook_url), ("payoff", payoff_url)):
+            if not value.startswith(("https://", "http://", "data:")):
+                raise CommandError(
+                    f"{label} URI must be HTTPS or data: scheme; "
+                    f"got {value[:30]!r}"
+                )
 
         prompt = opts["prompt"].strip()
         models = [m.strip() for m in opts["models"].split(",") if m.strip()]
@@ -273,11 +412,20 @@ class Command(BaseCommand):
                 f"{sorted(_MODEL_DEFAULTS.keys())}"
             )
 
+        def _preview(uri: str) -> str:
+            """Truncate data: URIs (which can be multi-MB base64) so
+            stdout stays readable. HTTPS URLs print verbatim."""
+            if uri.startswith("data:"):
+                head, _, _ = uri.partition(",")
+                size_kb = len(uri) // 1024
+                return f"{head}, <{size_kb}KB base64>"
+            return uri
+
         self.stdout.write("=" * 72)
         self.stdout.write("smoke_keyframes — Q-v17-3 V17.3 anchor-model comparison")
         self.stdout.write("=" * 72)
-        self.stdout.write(f"Hook   : {hook_url}")
-        self.stdout.write(f"Payoff : {payoff_url}")
+        self.stdout.write(f"Hook   : {hook_source}{_preview(hook_url)}")
+        self.stdout.write(f"Payoff : {payoff_source}{_preview(payoff_url)}")
         self.stdout.write(f"Prompt : {prompt}")
         self.stdout.write("")
         self.stdout.write("Plan:")
