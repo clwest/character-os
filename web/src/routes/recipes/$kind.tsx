@@ -159,9 +159,19 @@ export function RecipeFormRoute() {
 
     const params: Record<string, unknown> = {};
     for (const field of r.fields) {
-      const v = form[field.name];
+      const touched = form[field.name];
+      // When the operator never touched the field, fall back to the
+      // schema's default for submission. This matches the render-side
+      // `defaultedValue = value ?? field.default` pattern — without
+      // this fallback, a required field with a non-null default
+      // (e.g. V17.2's `target_duration`) silently drops on submit
+      // and the backend starter explodes with a missing-kwarg 500.
+      const v =
+        touched === undefined || touched === "" || touched === null
+          ? field.default
+          : touched;
       if (v === undefined || v === "" || v === null) {
-        if (field.required && field.default === undefined) {
+        if (field.required) {
           setSubmitError(`Missing required field: ${field.label}`);
           return;
         }
