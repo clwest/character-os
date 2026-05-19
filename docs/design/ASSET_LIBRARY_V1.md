@@ -295,7 +295,7 @@ applicable.
 | **A0** | `Asset.role` enum field + migration. Default `RAW_UPLOAD` for new rows. Existing rows get `RAW_UPLOAD` until A1 backfill. | ½ session | **✓ SHIPPED (SESSION 185)** |
 | **A1** | Backfill management command (`python manage.py backfill_asset_roles`, with `--commit` to apply, `--workspace NAME` to scope). Heuristic-driven from `source_spec.primitive_kind` + known-smoke-UUID special case. Operator reviews dry-run report before committing. | ½ session | **✓ SHIPPED (SESSION 185)** |
 | **A2** | Every primitive in `apps.compositions.primitives` stamps role on its output. Migration test enforces no primitive emits without a role. | 1 session | **✓ SHIPPED (SESSION 186)** |
-| **A3** | Storage-health helper + cached property. JWT exp parser. Filesystem existence check. | ½ session | pending |
+| **A3** | Storage-health helper + cached property. JWT exp parser. Filesystem existence check. | ½ session | **✓ SHIPPED (SESSION 187)** |
 | **A4** | `GET /api/workspace/assets/` + `GET /api/workspace/assets/<id>/` read-only endpoints with filters. | ½ session | pending |
 | **A5** | SPA route `/workspace/assets` — list view with filter chips (role / asset_type / storage). Pagination. | 1 session | pending |
 | **A6** | SPA per-asset detail view at `/workspace/assets/<id>` — lineage graph, prompts, downstream compositions, storage badge, copy-URL action. | 1 session | pending |
@@ -457,3 +457,25 @@ A5 surface only minimally.
   coverage test seeds its own Composition/RealtimeSession
   rows). Compositions suite: 497 → 505 (+8); full shell suite
   928 → 936 (+8 = A2 coverage tests).
+* **2026-05-19 (SESSION 187)** — **A3 SHIPPED.** New module
+  `apps/compositions/assets.py` hosts `StorageHealth` (7
+  string constants) + `parse_jwt_exp(url)` + `compute_storage_health(asset)`.
+  Live per request per Q-a-3 (no model field, no caching).
+  Classifier branches: empty `file_path` → `UPLOAD_PENDING`;
+  `data:` URI → `DATA_URI`; HTTPS/HTTP → JWT-aware classifier
+  (`HTTPS_LIVE` / `HTTPS_EXPIRING_SOON` within 24h /
+  `HTTPS_EXPIRED`); leading-slash path → filesystem existence
+  check against `settings.MEDIA_ENGINE_DATA_ROOT` (default
+  `<repo>/media-engine/`) → `LOCAL_PRESENT` / `LOCAL_MISSING`;
+  unknown scheme → `UPLOAD_PENDING`. JWT parser handles
+  Runway's Cloudfront-signed URL shape (`?_jwt=<header>.<payload>.<sig>`,
+  base64url-decoded payload's `exp` claim in unix-seconds);
+  malformed JWTs (bad encoding, missing exp, non-numeric exp,
+  wrong segment count) fall through to `HTTPS_LIVE` rather
+  than crash. New `test_storage_health.py` — 20 tests covering
+  all 7 states + JWT parser edge cases + filesystem
+  override-via-settings pattern (`MEDIA_ENGINE_DATA_ROOT`).
+  ALLOWED_FILES entry added to `test_isolation.py` (sanctioned
+  reader; only constructs its own Asset rows for the
+  classifier). Compositions suite: 505 → 525 (+20); full shell
+  suite 936 → 956 (+20 = A3 tests).

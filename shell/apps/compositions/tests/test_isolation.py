@@ -140,6 +140,12 @@ ALLOWED_FILES = {
     # body; cross-workspace isolation guarantee is unaffected
     # (every row anchors to the same _make_workspace ws).
     "apps/compositions/tests/test_primitive_role_coverage.py",
+    # Asset Library A3 (SESSION 187) — storage-health helper tests
+    # construct Asset rows directly to exercise the
+    # compute_storage_health classifier across all seven states.
+    # Workspace anchor is set explicitly at every create; the
+    # pre_save signal still fires.
+    "apps/compositions/tests/test_storage_health.py",
 }
 
 
