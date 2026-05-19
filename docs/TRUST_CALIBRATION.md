@@ -3534,3 +3534,195 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
      consequence — every worker death will re-deliver the
      in-flight task to the next worker, and if it's a
      long-tail render, you'll pay twice.
+
+---
+
+## SESSION 184 — six entries
+
+### Live-doc-check discipline is now 2-for-2 on V17 surface
+- **Date:** 2026-05-19
+- **Session:** 184
+- **Context:** Opening V17.3 (keyframes) per the SESSION
+  183 close-out plan. Before writing code, ran a live-doc
+  check against Runway's auto-generated Python SDK
+  (`runwayml/types/image_to_video_create_params.py`).
+- **Surface / artefact:** V17 proposal's claim that
+  `gen4_turbo` supports a `keyframes: [str]` array.
+- **AI expectation (before):** Code straight against the
+  proposal's described shape.
+- **Reality / outcome:** **No `keyframes` array exists;
+  conditioning is `promptImage: str | Iterable[{position,
+  uri}]`; `gen4_turbo` only accepts `position: "first"`.**
+  Only `gen3a_turbo` (ratio cliff) and `veo3.1_fast`
+  (Google Veo brokered through Runway) support both
+  first+last. The slice's motivating use case (Hook +
+  Payoff on `gen4_turbo`) is not implementable as
+  written.
+- **Found by:** AI's slice-open live-doc check per the
+  discipline codified at SESSION 182's Q-v17-1 resolution.
+- **Lesson:** Two-for-two now — Q-v17-1 (SESSION 182,
+  `/v1/video_to_video` model constraint) AND Q-v17-6
+  (SESSION 184, keyframes shape) both surfaced
+  before-code by the live-doc check. **The rule
+  hardens:** third-party-wrapping slices MUST live-doc-
+  check the API surface against the provider's
+  source-of-truth (auto-generated SDK, OpenAPI spec, or
+  official docs — NOT the design doc) before code is
+  written. Two saves of multi-session rewrites; pattern
+  is established.
+
+### V18 + duration mismatch needs starter-time guard
+- **Date:** 2026-05-19
+- **Session:** 184
+- **Context:** V18 real-mode dogfood. Operator picked a 5s
+  backdrop_clip (gen3a_turbo smoke output) on a script
+  that estimated to ~9s of speech.
+- **Surface / artefact:** Composition `b2188dcf` output.
+- **AI expectation (before):** Composite would trim to
+  speech length (matching the SESSION 183 Sunset 2
+  symmetry — speech short, backdrop long → trim long edge).
+- **Reality / outcome:** **Composite trimmed to the
+  SHORTER input (backdrop, 5s), cutting Riggs's 9s speech
+  mid-sentence.** The composite primitive's "trim to
+  shorter input" rule is symmetric; v1 has no asymmetry
+  for "speech is the load-bearing track."
+- **Found by:** Operator-visible "audio ends in middle of
+  sentence" on the composite output.
+- **Lesson:** When a recipe consumes a duration-bearing
+  input as a backdrop (V18's case), the starter MUST
+  validate the input's duration covers the estimated
+  speech duration. Add to slice-open checklist for any
+  starter that wires asset inputs at known-duration
+  positions: validate `backdrop.duration_ms >=
+  _estimate_avatar_speech_seconds(len(script)) * 1000`
+  BEFORE Composition rows are created. Patterns extends
+  beyond V18 — anywhere a CLIP input must outlive another
+  CLIP input, validate at starter-time.
+
+### Asset taxonomy gap is structural
+- **Date:** 2026-05-19
+- **Session:** 184
+- **Context:** V18 dogfood. Operator picked a backdrop_clip
+  from the recipe-form asset_picker that turned out to
+  be the gen3a_turbo smoke output — a 5s person
+  interpolation, not a scene. "Two random people" appeared
+  in the backdrop track because gen3a_turbo's keyframe
+  drift produced two visibly different humans across the
+  5s clip.
+- **Surface / artefact:** Recipe form asset_picker
+  dropdown listing 119 CLIPs of mixed primitive-kinds.
+- **AI expectation (before):** Operator picks a backdrop
+  by inferring from composition name + creation date.
+- **Reality / outcome:** **Inference fails at 119 assets.**
+  The asset_picker filters by `asset_type` (the medium)
+  but not by *intended use* (backdrop vs talking-head vs
+  composite-output vs intro/outro card vs reference image).
+  A talking-head MP4 and a cinematic backdrop MP4 are both
+  `asset_type=CLIP`; the picker can't tell them apart.
+- **Found by:** Operator-driven scope discussion after the
+  V18 dogfood's "two random people" finding.
+- **Lesson:** When metadata categorizes assets by
+  production method but the operator filters by intended
+  use, the categorization is the wrong shape. Triggered
+  the Asset Library scope proposal
+  (`docs/design/ASSET_LIBRARY_V1.md`) with a 9-role closed
+  enum stamped at primitive-emit time. Pattern: anytime a
+  picker UI exists, audit whether its filter axes match the
+  user's mental model of "what does this asset DO" not
+  "how was this asset MADE."
+
+### Smoke commands without --save-assets produce orphans
+- **Date:** 2026-05-19
+- **Session:** 184
+- **Context:** Wrote `smoke_keyframes` management command
+  as "no DB writes" for minimum-footprint design. Fired
+  both models, got back two HTTPS Cloudfront URLs in
+  stdout.
+- **Surface / artefact:** Smoke output URLs.
+- **AI expectation (before):** Operator opens the URLs in
+  a browser, picks the winner, design decision happens.
+- **Reality / outcome:** **Operator wanted to see the
+  smoke outputs in the workspace UI.** "I don't see any
+  new videos on the UI, are they hidden somewhere I can't
+  see them?" The URLs work but they're not browsable
+  through normal product surfaces — operators expect
+  workspace outputs to land in the workspace.
+- **Found by:** Operator surfaced the UI gap immediately
+  after the smoke completed.
+- **Lesson:** Smoke / dogfood / scratch commands should
+  default to creating workspace Asset rows with audit
+  metadata (model, task_id, prompt, session). Opt-out via
+  `--no-save-assets` flag if a smoke wants to skip the
+  side-effect. The "minimal footprint" framing is wrong
+  shape — minimal in CODE doesn't mean minimal in
+  OPERATOR EXPERIENCE. Future smokes default to
+  backfilling.
+
+### Celery worker stop-state is silent
+- **Date:** 2026-05-19
+- **Session:** 184
+- **Context:** Operator fired the V18 dogfood via the SPA
+  recipe form. Composition row was created with status
+  `draft`; step 0 status `pending`. After 8.5 minutes
+  the operator noticed "seems like it's been running for
+  longer than normal."
+- **Surface / artefact:** Composition `b2188dcf` stuck
+  in `draft` for 8.5 minutes.
+- **AI expectation (before):** Composition would
+  transition `draft → running → completed` within 1-3
+  minutes of fire.
+- **Reality / outcome:** **No Celery worker was running.**
+  The recipe view queued `execute_composition.delay()`
+  to Redis but there was no consumer. The runtime gave
+  no signal — no SPA error, no admin alert, no log line
+  saying "queued but no worker available."
+- **Found by:** Operator-driven "this is taking too long"
+  intuition; AI investigation found the missing worker
+  process.
+- **Lesson:** A queued-but-not-consumed task is currently
+  invisible at every operator-facing surface. The SPA
+  shows the composition card as if it's running; admin
+  shows status=draft indistinguishable from
+  legitimately-draft. Either the health monitor should
+  treat zero workers as a critical alert OR the
+  composition runtime should detect "queued >30s with no
+  worker pickup" and surface it. Today's behaviour: silent.
+  Until that's fixed, session-start should include `ps
+  aux | grep celery` as part of the stack-up sanity
+  check.
+
+### Re-using smoke outputs as backdrops is a testing-shape mismatch
+- **Date:** 2026-05-19
+- **Session:** 184
+- **Context:** V18 dogfood after the smoke_keyframes
+  comparison. Operator picked the gen3a_turbo smoke
+  output (`89a1ce5f`) as the V18 `backdrop_clip` to
+  validate the picked-clip path.
+- **Surface / artefact:** V18 composition output showing
+  "two random people" instead of a clean backdrop.
+- **AI expectation (before):** Any workspace CLIP is fine
+  as a V18 backdrop — composite just overlays the
+  avatar.
+- **Reality / outcome:** **The gen3a_turbo smoke was a
+  person-interpolation, not a scene.** Its source was a
+  V13 storyboard Hook (founder at 3am) + Payoff (founder
+  at sunrise); the keyframe interpolation produced two
+  visibly different "founder" humans across 5 seconds.
+  Wiring that into V18's backdrop slot dragged the
+  Q-v17-3-shape drift INTO V18's output. The V18 bug
+  signal wasn't a V18 bug; it was a picker-wrong-content
+  bug.
+- **Found by:** Operator-visible "two random people" in
+  the V18 dogfood output; AI initially mis-diagnosed as
+  Riggs's avatar identity issue before the operator
+  reframed it.
+- **Lesson:** When testing a feature that consumes a
+  generic input slot (asset_picker, file upload, URL),
+  the test materials must match the slot's intended
+  shape. The gen3a_turbo smoke was a "subject animation"
+  test artifact; it doesn't belong in a "backdrop scene"
+  slot. Asset Library A7 (role-filter on picker) is the
+  structural fix; meanwhile the discipline is "pick
+  testing materials with intent." Triple-check the test
+  fixture before claiming the system-under-test is the
+  bug source.

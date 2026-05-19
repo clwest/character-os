@@ -23,13 +23,21 @@ state: active
 > 4 merged as rules 10-13; V0-V15 + V16 slice breakdown).
 > **V16 POST-CLOSE SHIPPED (SESSION 179) — remove_avatar_background.**
 > **V17 LOCKED (SESSION 182) — extend + keyframes.**
-> V17.0 + V17.1 + V17.2 SHIPPED SESSION 182. V17.2
-> **REAL-MODE VALIDATED** end-to-end at session-close.
-> **V17.5 SHIPPED + REAL-MODE VALIDATED SESSION 183**
-> (4 renders, $6.25 spend; ambient motion holds, discrete-
-> subject identity drifts at gen4.5 → gen4_turbo handoff).
-> V17.3 + V17.4 pending.
-> See `docs/design/VIDEO_COMPOSITION_V17_PROPOSAL.md`.
+> V17.0 + V17.1 + V17.2 + V17.5 SHIPPED + REAL-MODE VALIDATED.
+> **V17.3 DEFERRED (SESSION 184)** — Q-v17-6 documented
+> live-doc-check finding: `gen4_turbo` doesn't support
+> first+last keyframes (SDK only `position: "first"`).
+> Re-open criteria: Runway adds keyframes to gen-4 family
+> OR operator adopts `veo3.1_fast` as primary model in a
+> separate arc. V17.4 also pending V17.3.
+> See `docs/design/VIDEO_COMPOSITION_V17_PROPOSAL.md`
+> §Q-v17-6.
+> **V18 SHIPPED + REAL-MODE VALIDATED (SESSION 184)** —
+> `backdrop_clip` on `talking_head_with_backdrop`; picked-
+> clip path skips both V8 concat AND V17.5 extend chains.
+> Mirror's V16/V17.5 opt-in pattern. UX gap surfaced:
+> composite trims short input → when speech > backdrop,
+> speech gets cut off mid-sentence. Queued for V18 polish.
 > **Realtime avatar scope lock:** `docs/design/REALTIME_AVATAR_V1.md`
 > (locked SESSION 142 — 10 contract rules, R0-R10 slice
 > breakdown). **R-ARC COMPLETE + REAL-MODE HARDENED
@@ -40,258 +48,207 @@ state: active
 > **Media generation scope lock:** `docs/design/MEDIA_GENERATION_V1.md`
 > (locked SESSION 172 — 10 contract rules, W11.6.0-W11.6.5
 > slice breakdown). **W11.6.0-W11.6.5 + W11.6.5.1-3 COMPLETE.**
+> **NEW: Asset Library scope proposal (SESSION 184)** —
+> `docs/design/ASSET_LIBRARY_V1.md` (`status: proposed`).
+> 9 roles, 9 contract rules, 8 slices A0-A8 (~5-6 sessions).
+> Pending operator review SESSION 185.
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_183_V17_5_V8_OPT_IN_EXTEND.md`.
+> **Last handoff:** `docs/handoffs/SESSION_184_POLISH_V18_Q_V17_3_ASSET_LIBRARY_LOCK.md`.
 
 ---
 
-## SESSION 183 outcome — V17.5 V8 opt-in extend (real-mode validated)
+## SESSION 184 outcome — polish + V18 + Q-v17-3 + Asset Library proposal
 
-One feature commit plus a real-mode dogfood pass.
-V17.5 lands the `use_extend_for_backdrop` flag on the
-V8 `talking_head_with_backdrop` starter, closing the
-SESSION 179 multi-backdrop concat seam at the recipe
-layer. Four real-mode renders validated end-to-end
-(**$6.25 total spend**).
+Six feature commits + design doc + handoff. Three
+planned slices: #1 (polish) + #2 (V18 backdrop library)
+shipped + real-mode validated. #3 (V17.3 keyframes)
+deferred at slice-open after live-doc check against
+Runway's SDK surfaced an API-shape mismatch
+(Q-v17-6). The deferral triggered an operator-driven
+scope proposal for a new arc — **Asset Library** —
+addressing the structural categorization gap that
+became visible during the V18 dogfood.
 
-* **V17.5 starter knob** — `use_extend_for_backdrop: bool =
-  False` on `talking_head_with_backdrop` (default off per
-  V17 rule 12). When True, the backdrop is built as
-  `1 × generate_visual_clip (10s, gen4.5)` + `N ×
-  extend_visual_clip (5s each, gen4_turbo last-frame
-  conditioned)`. N derived from
-  `_compute_extend_backdrop_chain_length(script_chars)`
-  using the existing `_estimate_avatar_speech_seconds`
-  helper. Clamps to `_MAX_BACKDROP_CHAIN_LENGTH - 1`
-  extends so total chain length matches the concat path's
-  safety cap.
-* **Recipe form checkbox** added — V8 is already in
-  `LIVE_RECIPE_KINDS` and the form renderer is
-  metadata-driven, so no SPA-side TypeScript changes
-  needed. Default-aware form submission is covered by the
-  SESSION 182 `01ea94d` fix.
-* **9 new tests** in `test_v8_backdrop.py` covering chain
-  math, step composition (short / 22s / pathological /
-  ratio propagation / backdrop_duration ignored), V16
-  matting interaction, end-to-end mock-mode, and a
-  backwards-compat guard that no `extend_visual_clip` step
-  appears when the flag is off.
-* **Q-v17-5 resolved at slice-open.** Cost estimation
-  routes through each primitive's `estimate_cost()`;
-  generate_visual_clip + N × extend_visual_clip sum
-  correctly via the standard
-  `estimate_composition_cost(composition)` walk. No
-  chain-wide helper needed. Per-step
-  `cost_actual_micros` carries post-render refinement.
+### Slice 1 — polish (`7045270`)
 
-### Real-mode dogfood — four renders
+* `generate_avatar_speech` falls back to a chars/sec
+  estimate when Runway's poll returns `duration_seconds=None`.
+  Stamps `duration_estimated=True` on extra_source_spec.
+* `composite_video` refuses inputs with `duration_ms=None`
+  before media-engine dispatch.
+* +4 tests; **real-mode validated** in the V18 dogfood
+  (step 0 output Asset showed `duration_estimated: True`,
+  8818ms estimate).
 
-| Render | Extends | V16 matte | Cost | Operator verdict |
-|---|---|---|---|---|
-| Sunset coastline 2 | 3 | — | $1.50 | clean V17.5 win; seam-free |
-| Underwater school of fish 2 | 3 | yes | $1.50 | fish drift to "blob of white" at 11s boundary |
-| Poker #1 (Sundown variety) | **4** | yes | $1.75 | first N=4 chain; flyover atmosphere held |
-| Poker #2 (Sundown atmosphere) | 3 | yes | $1.50 | density-prompt gap surfaced; "smoking people" |
+### Slice 2 — V18 backdrop library (`b935acd`)
 
-**Key V17.5 finding** (TRUST_CALIBRATION entry): ambient
-motion + atmospheric elements (waves, light, smoke, fog)
-chain cleanly; discrete-subject scenes (named animals,
-distinct people) drift at every gen4.5 → gen4_turbo
-boundary. Net win vs concat (no 10s seam) but operator-
-visible blur for subject-rich scenes. **V17.3 multi-
-keyframe is the architectural fix.**
+* `talking_head_with_backdrop` gains optional
+  `backdrop_clip: Asset | None = None` kwarg. When set,
+  short-circuits the concat / extend chains; uses picked
+  Asset as composite background directly.
+* Recipe field `backdrop_clip_id` (asset_picker, CLIP,
+  optional). `backdrop_prompt` flipped to optional. XOR
+  enforced in starter (clip wins when both supplied).
+* No schema migration (CompositionStep.inputs already
+  accepts asset_id shape).
+* +11 tests; **real-mode validated** end-to-end via
+  composition `b2188dcf` "Riggs-pre-background".
 
-**Two latent gaps surfaced, queued for SESSION 184:**
-1. `generate_avatar_speech` doesn't write `duration_ms`
-   on its output Asset; `composite_video` consequently
-   falls back to backdrop length instead of trimming to
-   speech. Operator-visible as trailing silent backdrop.
-2. `composite_video` should error loudly when an input's
-   duration is null, not silently fallback.
+### Slice 3 — V17.3 deferred (`c10e311`, `2daef87`)
 
-### Final state at session close
+Live-doc check against
+`runwayml/types/image_to_video_create_params.py`
+(auto-generated from Runway's OpenAPI spec) revealed:
 
-* V17 slice status: V17.0 + V17.1 + V17.2 (real-mode
-  validated SESSION 182) + V17.5 (real-mode validated
-  SESSION 183) shipped. V17.3 + V17.4 remain pending.
-* All Q-v17-* resolved at lock or slice-open. No open V17
-  questions remaining.
+* No `keyframes: [str]` parameter exists. Conditioning
+  is via `promptImage: str | Iterable[{position, uri}]`.
+* `gen4_turbo` only accepts `position: "first"`.
+* Only `gen3a_turbo` (ratio cliff to 768:1280 /
+  1280:768) and `veo3.1_fast` (Google Veo brokered
+  through Runway; 1280:720 supported) accept both first
+  + last.
 
-### Calibration carried forward (four NEW entries)
+Operator picked dogfood-both. `smoke_keyframes`
+management command shipped (with `--hook-asset-id` /
+`--payoff-asset-id` flags + inline data: URI
+conversion mirroring `gen4_turbo`'s SESSION 181 path).
+Real-mode smoke fired both models on a V13 storyboard
+Hook (founder at 3am) / Payoff (founder at sunrise)
+pair. Findings:
 
-Four new entries in `docs/TRUST_CALIBRATION.md` from
-the real-mode dogfood:
+* `veo3.1_fast` — ~40-50s render, accepted 1.75MB
+  inline data: URI, 1280:720 / 6s output.
+* `gen3a_turbo` — ~6-9s render (5-7× faster), same
+  data: URI accepted, 1280:768 / 5s output.
+* **Both models accept data: URIs** (removes that
+  design risk).
+* **gen3a_turbo identity drift on human keyframes
+  was severe** — operator observed "two different AI
+  generated people" across the 5s clip. Same Q-v17-3-
+  shape drift the keyframes were supposed to fix.
 
-1. **V17.5 extend chain holds ambient motion, drifts on
-   complex subjects** at the gen4.5 → gen4_turbo
-   handoff. V17.3 multi-keyframe is the architectural
-   fix.
-2. **Avatar speech asset doesn't record `duration_ms`**
-   (composite trim direction wrong). One-line fix +
-   regression test for SESSION 184.
-3. **Backdrop prompts need density adjectives;
-   "cigarette haze" reads as people smoking.** Recipe-
-   form help-text should carry one example.
-4. **Default Celery `acks_late=False` means worker
-   SIGKILL drops in-flight task without redelivery.**
-   `--pool=solo` makes revoke --terminate a no-op; only
-   SIGKILL on the worker PID actually stops a long-tail
-   render. Acks-early is the right default.
+**V17.3 deferred** with Q-v17-6 documented. Re-open
+criteria in `VIDEO_COMPOSITION_V17_PROPOSAL.md`.
 
-Tests: Django **900** (compositions **469**). Media-engine
-**194** (unchanged). SPA vitest **95** (unchanged).
-Real-mode spend this session: **$6.25** across 4 V8
-renders (the 5th, Poker #1, was a $1.75 N=4 chain; the
-others were $1.50 / 3-extend chains).
+### V18 dogfood (composition `b2188dcf`)
+
+Operator picked the gen3a_turbo smoke output as
+`backdrop_clip`. Composition completed; Riggs
+correctly rendered top-right. Three findings:
+
+1. **Slice 1's avatar_speech fallback fired** —
+   real-mode validated.
+2. **V18 picked-clip path works** — 2-step plan,
+   correct asset_id wiring, composite produced final.
+3. **New V18 UX finding:** composite trimmed to the
+   SHORTER input (5s backdrop), cutting Riggs's 9s
+   speech off mid-sentence. Opposite shape of the
+   SESSION 183 Sunset 2 finding. V18 needs a
+   starter-time validation warning when
+   `backdrop_clip.duration_ms < estimated_speech_duration`.
+
+### Asset Library proposal (`docs/design/ASSET_LIBRARY_V1.md`)
+
+Triggered by V18 dogfood's "two random people"
+moment, which surfaced an operator-visible
+categorization gap: the workspace has 119 CLIPs +
+9 IMAGE + others with no role-level filtering, so
+the asset_picker becomes a guessing game.
+
+* 9-role closed enum stamped at primitive-emit time.
+* 9 contract rules (carry V1's 9 unchanged).
+* 8 slices A0-A8 (~5-6 sessions): role migration →
+  backfill → primitive stamping → storage-health →
+  browse REST → SPA list → SPA detail → asset_picker
+  role filter → F-arc lineage cross-link.
+* `status: proposed` — pending operator review.
+
+### Calibration carried forward (six NEW entries)
+
+1. **Live-doc-check discipline 2-for-2 on V17.**
+   Both Q-v17-1 (SESSION 182) and Q-v17-6 (SESSION
+   184) caught at slice-open. Discipline confirmed:
+   third-party-wrapping slices MUST live-doc-check
+   the API surface before writing code.
+2. **V18 + duration mismatch needs starter-time
+   guard.** When backdrop_clip is shorter than
+   estimated speech, the composite trims speech and
+   the operator sees cut-off mid-sentence. Queue for
+   V18 polish slice.
+3. **Asset taxonomy gap is structural.** 119 CLIPs
+   in one workspace with no role-level filtering
+   triggered the Asset Library scope proposal.
+   Pattern: when metadata categorizes by production
+   method but operator filters by intended use, the
+   categorization is wrong shape.
+4. **Smoke commands without `--save-assets` produce
+   orphans.** `smoke_keyframes` was designed "no DB
+   writes"; in practice the operator wanted to see
+   outputs in UI. Future smokes should default to
+   backfilling CLIP rows.
+5. **Celery worker stop-state is silent.** A
+   composition sat in `draft` for 8.5 minutes while
+   no worker consumed. SPA / admin should surface
+   "queued but no worker" as visible state.
+6. **Re-using smoke outputs as backdrops is a
+   testing-shape mismatch.** The gen3a_turbo smoke
+   was a person-interpolation, not a scene. Wiring it
+   into V18's backdrop slot dragged drift into V18's
+   output. Asset Library A7 (role-filter on picker)
+   is the structural fix.
+
+### Tests at session close
+
+| Suite | Count | Delta |
+|---|---|---|
+| Django | **915** | +15 (904 → 915) |
+| - compositions | **484** | +15 (469 → 484) |
+| Media-engine | 194 | unchanged |
+| SPA vitest | 95 | unchanged |
+
+Real-mode spend this session: **~$2.50** (smoke ~$1.50-$3
++ V18 dogfood ~$0.50 avatar speech).
 
 ---
 
-## SESSION 182 outcome — V17 scope-lock + V17.0/1/2 shipped + real-mode validated
+## FIRST THING (SESSION 185): operator review of Asset Library v1 scope
 
-Eight feature/fix commits across two parts.
+**Path A — lock the arc** (recommended):
 
-**Part 1 (closes at `0a82bbb`):** V17 went from
-`status: proposed` (SESSION 181) to `status: locked` with
-four contract rules merged into V1 as rules 10-13. V17.0
-(media-engine `/internal/clips/extend/` endpoint) +
-V17.1 (Django `extend_visual_clip` primitive) shipped.
-Q-v17-1 surfaced + resolved mid-slice: Runway's
-`/v1/video_to_video` only accepts `gen4_aleph`; pivot to
-last-frame extraction + `/v1/image_to_video` (gen4_turbo)
-+ ffmpeg concat. Endpoint became synchronous (mirrors V11
-style_remix).
+1. Read `docs/design/ASSET_LIBRARY_V1.md` end-to-end.
+2. Resolve or defer Q-a-1 through Q-a-6 (taxonomy
+   choice, backfill strategy, storage-health caching,
+   detail-view shape, picker filter mechanism,
+   Avatar/Voice/Portrait modeling).
+3. Lock — flip `status: proposed` → `status: locked`,
+   merge contract rules into V1 as rules 14-22.
+4. Open slice A0 (Asset.role migration).
 
-**Part 2 (this close):** V17.2 shipped + **real-mode
-validated end-to-end**. Four dogfood-surfaced bugs fixed
-inline:
+**Path B — pivot:**
 
-* **`02f9f70` feat(V17.2):** `cinematic_visual_extended`
-  recipe + 18 tests. Chain: 1 generate (10s gen4.5) + N
-  extend (5s gen4_turbo each). target ∈ {15, 20, 25, 30,
-  40, 50}.
-* **`bfbbe55` fix(V17.2):** target_duration choice values
-  must be strings per SPA Zod schema.
-* **`1ce6788` fix(V17.2):** opt
-  `cinematic_visual_extended` into `LIVE_RECIPE_KINDS`.
-* **`01ea94d` fix(recipes):** form-renderer renders
-  defaults but the submission path drops them. Latent
-  bug across all recipes; V17.2 was first to trigger.
-* **`9fac2b3` fix(V17.0):** ffmpeg concat exit 234 on
-  silent-input case. Runway outputs have no audio;
-  unit-test fixtures used audio-padded lavfi clips so
-  this never surfaced before real-mode.
+* Different taxonomy approach (free-form tags? hybrid?).
+* Asset upload UI first (queued SESSION 181 gap that
+  intersects).
+* Cast rebuild first (fresh Riggs/Sasha/Donny avatars
+  via `gen4_image`) — narrower dogfood task, doesn't
+  require the new arc.
 
-### End-to-end real-mode pass
+**Path C — small-win sidebars first** then return:
 
-```
-comp 4d3670dd → completed
-  step 0 generate_visual_clip → SUCCEEDED (10s base, gen4.5)
-  step 1 extend_visual_clip   → SUCCEEDED (15.08s total)
-    output: /data/_internal/extends/ac5d402a34935b5e.mp4
-cost_actual: $0.75 ($0.50 base + $0.25 extend)
-```
+* V18 polish slice — add starter-time
+  duration-mismatch warning (~½ session, addresses
+  today's surfaced UX gap).
+* F8.1 K10 seed corpus (queued).
+* `storyboard_voiced` + `dialogue_scene` real-mode
+  validation (last two unvalidated V-arc recipes,
+  deferrable since V17 is now deferred).
 
-Prompt: *"steam rising slowly from a ceramic coffee cup on
-a sunlit windowsill, soft morning light, locked-off camera"*.
-
-**Q-v17-1 pivot validated end-to-end.** First operator-
-visible V17 capability is live in the product.
-
-Tests: Django **891** (compositions **460**). Media-engine
-**194**. SPA vitest **95**. Real-mode spend this session:
-**$0.75**.
-
-### Four new TRUST_CALIBRATION entries
-
-1. **Recipe choice values must be strings** per SPA Zod
-   schema. Add to slice-open checklist for recipes with
-   non-text choices.
-2. **New recipes need three SPA touchpoints, not one** —
-   string choices + `LIVE_RECIPE_KINDS` opt-in + default-
-   aware submission.
-3. **Form-renderer renders defaults but drops them on
-   submission** — latent across all recipes. Default in
-   render = default in submit, no exceptions.
-4. **Unit test fixtures must mirror provider output
-   shape** — Runway outputs are silent; lavfi fixtures
-   with audio padding don't catch this. Shape fixtures
-   after a sample of the API's actual output.
-
-### Final state at session close
-
-* V17 **scope-locked with 13 contract rules**. V17.0 +
-  V17.1 + V17.2 shipped + real-mode validated; V17.3-V17.5
-  pending.
-* Q-v17 resolution: Q-v17-1 RESOLVED + REAL-MODE
-  VALIDATED; Q-v17-2/3/4 RESOLVED at lock; Q-v17-5 open
-  (resolves V17.5 slice-open).
-
-### FIRST THING (SESSION 184): operator's pick — three viable directions
-
-V17.5 is fully shipped + real-mode validated as of
-SESSION 183. Three concrete directions for SESSION 184,
-operator's call:
-
-**1. Quick polish slice — speech-duration + composite trim**
-   (½ session, low-risk).
-   * Surfaced this session by the operator's Sunset 2
-     observation ("Riggs stopped talking before the video
-     ended").
-   * Fix #1: `generate_avatar_speech` writes
-     `duration_ms` on its output Asset from the Runway
-     response (one line in the primitive + regression
-     test).
-   * Fix #2: `composite_video` errors loudly when an
-     input's duration is null instead of silently
-     falling back to backdrop length.
-   * Net effect: composite trims to speech length on
-     overprovisioned backdrops, the
-     trailing-silent-backdrop artifact goes away.
-
-**2. Pre-recorded backdrop library** — operator-suggested
-   direction (~1 session, opens a queue item).
-   * "Record the videos first then add the spokesperson
-     over them" (SESSION 183 operator closing).
-   * Concrete scope: workspace Asset library accepts CLIP
-     assets; V8's recipe gains an optional
-     `backdrop_clip` asset_picker alongside
-     `backdrop_prompt`. Starter branches:
-     `backdrop_clip` present → skip generate/extend
-     chain, use the picked clip as the composite
-     background; absent → existing generate path.
-   * Cheaper iteration on scripts (backdrop costs
-     $1.25–$1.75; reusing saves that across script
-     attempts). Natural home for operator-uploaded
-     footage when the asset-upload UI lands. Curated
-     cinematic stock library for non-technical
-     operators.
-   * Likely a new V18 or V19 slice depending on whether
-     it lands inside the V-arc or as a separate "asset
-     library" arc.
-
-**3. V17.3 keyframes track** — architectural fix for the
-   subject-identity drift finding from SESSION 183
-   dogfood (~1 session, higher-risk).
-   * Independent of V17.0/1/2/5 per the V17 dependency
-     graph; can land any time.
-   * Multi-keyframe conditioning at every extend boundary
-     pins the subject's reference image instead of
-     relying on single-last-frame inference. The
-     Underwater fish drift case is the canonical
-     example.
-   * Higher risk because the keyframes API isn't real-
-     mode validated yet — likely surfaces a Q-v17-style
-     finding at slice-open before code lands.
-
-**Recommended sequence:** #1 (polish, low-risk, fixes a
-visible bug from today) → #2 (backdrop library, opens
-new capability surface) → #3 (V17.3 keyframes, deeper
-architectural fix). But operator's pick wins.
-
-Alternative: defer V17 entirely + work F8.1 K10 seed
-corpus, asset upload UI, or other queued items.
+Recommended sequence: **Path A** — the Asset Library
+gap is the most-recent operator-visible friction, and
+the design doc is already drafted. A0 + A1 ship cleanly
+inside one session.
 
 ---
 
@@ -301,48 +258,59 @@ corpus, asset upload UI, or other queued items.
 **Phase 3:** Wizard arc complete.
 **Phase 4:** All four arcs (K / V / F / R) complete +
 R-arc real-mode validated (SESSION 176); V-arc real-mode
-validation **near-complete** (16 of 18 recipes, SESSIONS
-158 + 179 + 180 + 181). V16 post-close shipped (SESSION
-179); **V17 scope-locked SESSION 182, V17.0/1/2 shipped
-+ V17.2 real-mode validated end-to-end**. V17.3-V17.5
-pending.
+validation **near-complete** (16 of 18 recipes). V16
+post-close shipped (SESSION 179); **V17 scope-locked
+SESSION 182, V17.0/1/2/5 shipped + real-mode validated**;
+**V17.3 + V17.4 deferred (SESSION 184)**.
+**V18 shipped + real-mode validated SESSION 184.**
 **Phase 5:** Brand ecosystem under 24/7 GLOBAL AI parent
 (SESSION 178 B-arc).
+**NEW arc proposed (SESSION 184):** Asset Library v1
+(`status: proposed`).
 
 | Surface | Status |
 |---|---|
 | W1-W11 | DONE |
 | K0-K9 | DONE |
-| V0-V15 + V16 | DONE (mock); **16/18 real-mode validated** |
-| **V17.0 + V17.1 + V17.2** | **DONE + V17.2 REAL-MODE VALIDATED (SESSION 182)** |
-| **V17.5 (V8 opt-in extend)** | **DONE + REAL-MODE VALIDATED (SESSION 183)** |
-| **V17.3 (keyframes) / V17.4** | **pending** |
+| V0-V15 + V16 | DONE (mock); 16/18 real-mode validated |
+| V17.0 + V17.1 + V17.2 + V17.5 | DONE + REAL-MODE VALIDATED |
+| **V18 (backdrop_clip on V8)** | **DONE + REAL-MODE VALIDATED (SESSION 184)** |
+| V17.3 (keyframes) + V17.4 | **DEFERRED (SESSION 184) — Q-v17-6** |
 | F0-F10 | DONE |
-| R0-R10 + R6.1 | DONE + REAL-MODE VALIDATED (SESSION 176) |
-| W11.6.0-W11.6.5 (media gen) | DONE (SESSIONS 172-173) |
+| R0-R10 + R6.1 | DONE + REAL-MODE VALIDATED |
+| W11.6.0-W11.6.5 (media gen) | DONE |
 | W11.x voice telemetry + W11.y personality split | DONE |
-| K7.1 cost telemetry | DONE (SESSION 174) |
-| K7.x v2 YouTube extractor | DONE (SESSION 175); real-mode unverified |
-| Multi-step composition title disambig | DONE (SESSION 177) |
-| Sasha + Donny voice re-persist | DONE (SESSION 177, data-only) |
-| B0-B5 brand ecosystem pivot | DONE (SESSION 178) |
-| V16 remove_avatar_background | DONE (SESSION 179) |
-| V9 polish form shorthands + intro_outro fixes | DONE (SESSION 180) |
-| V7/V11/V13 dogfood fixes + 11 recipes validated | DONE (SESSION 181) |
-| **V17.2 cinematic_visual_extended + 4 dogfood fixes** | **DONE + REAL-MODE VALIDATED (SESSION 182)** |
-| B6-B10 brand arc | Deferred (product #2 reality) |
+| K7.1 cost telemetry | DONE |
+| K7.x v2 YouTube extractor | DONE |
+| Multi-step composition title disambig | DONE |
+| Sasha + Donny voice re-persist | DONE |
+| B0-B5 brand ecosystem pivot | DONE |
+| V16 remove_avatar_background | DONE |
+| V9 polish form shorthands + intro_outro fixes | DONE |
+| V7/V11/V13 dogfood fixes + 11 recipes validated | DONE |
+| V17.2 cinematic_visual_extended + 4 dogfood fixes | DONE + REAL-MODE VALIDATED |
+| V17.5 V8 opt-in extend | DONE + REAL-MODE VALIDATED |
+| **Polish slice 1 (duration fallback + null guard)** | **DONE + REAL-MODE VALIDATED (SESSION 184)** |
+| **smoke_keyframes management command** | **DONE + REAL-MODE VALIDATED (SESSION 184)** |
+| **Asset Library v1 proposal** | **DRAFTED — pending review (SESSION 184)** |
+| B6-B10 brand arc | Deferred |
 | F8.1 (K10 seed corpus) | Queued |
 | K7.x v3 YouTube oEmbed | Queued |
 | K6.4 v3 architectural fix | Queued |
 | Thruman stale spokesperson cleanup | Queued |
 | W12 legacy form retirement | Queued |
-| Asset upload UI (AUDIO / IMAGE) | Queued (SESSION 181) |
-| 2 of 18 V-arc recipes unvalidated | storyboard_voiced + dialogue_scene; deferred until V17 closes |
+| Asset upload UI (AUDIO / IMAGE) | Queued (SESSION 181); intersects Asset Library arc |
+| V18 duration-mismatch starter warning | Queued (SESSION 184) |
+| Cast rebuild via fresh gen4_image portraits | Queued (SESSION 184) |
+| Smoke `--save-assets` default opt-in | Queued (SESSION 184) |
+| 2 of 18 V-arc recipes unvalidated | `storyboard_voiced` + `dialogue_scene`; deferrable now that V17 is deferred |
 
 **Cast roster in workspace `admins-workspace`**:
 
   - Riggs the Donkey — id `06bf999f-...` — voice `vincent`
-    (SESSION 179-181 hero — most-validated avatar)
+    (SESSION 179-181 hero — most-validated avatar; portrait
+    URL confirmed as donkey SESSION 184 after operator
+    concern surfaced)
   - Sasha the Raccoon — id `79d48883-...` — voice `felix`
   - Donny the Sloth — id `f30b2980-...` — voice `vincent`
   - Maya the Panda — id `9410f23f-...` — voice `victoria`
@@ -351,16 +319,18 @@ pending.
     `david` (most-dogfooded — 4 ENDED realtime sessions + 1
     rendered MP4 SESSION 176)
 
-**SESSION 182 workspace artifacts (part 2):**
+**SESSION 184 workspace artifacts:**
 
-* 2 `Composition` rows of kind `cinematic_visual_extended`:
-  - `cd72ebd5...` — first attempt, `partial` (forensic
-    record of silent-input bug)
-  - `4d3670dd...` — retry, `completed` (first end-to-end
-    V17 success)
-* 2 CLIP Assets: Runway CDN URL for the 10s base + local
-  merged 15s clip at
-  `/data/_internal/extends/ac5d402a34935b5e.mp4`
+* 2 new CLIP Assets backfilled from smoke (manual,
+  via Django shell):
+  - `c21fdeec...` — `veo3.1_fast` smoke output, 6s,
+    1280:720, HTTPS Cloudfront
+  - `89a1ce5f...` — `gen3a_turbo` smoke output, 5s,
+    1280:768, HTTPS Cloudfront
+* 1 `Composition` row of kind `talking_head_with_backdrop`:
+  - `b2188dcf...` — V18 picked-clip dogfood
+    "Riggs-pre-background", completed end-to-end with
+    `89a1ce5f` as backdrop
 
 ---
 
@@ -387,42 +357,43 @@ cd web && pnpm dev                          # :5174 — V2 dark navy + gold
 python3 /Users/donkeyking/development/context-kit/context_kit.py doctor
 ```
 
-**SESSION 183 stack-up notes:**
+**SESSION 184 stack-up notes:**
 
-* **Celery worker** was restarted by AI mid-SESSION 182
-  part 2 to pick up V17.1 + V17.2 primitive + recipe
-  registrations. If SESSION 183 touches
-  `apps/compositions/primitives/` OR `apps/*/tasks.py`,
-  restart again.
-* The `cd72ebd5...` partial composition is harmless but
-  visible in admin / lineage queries. Operator's call to
-  keep as forensic record or delete.
+* **Celery worker** was stopped at session start; AI
+  restarted mid-session to pick up the V18 dogfood. If
+  SESSION 185 touches `apps/compositions/primitives/`,
+  `apps/compositions/starters.py`, or `apps/*/tasks.py`,
+  restart again. The "worker stop-state is silent"
+  calibration (SESSION 184 #5) means no automatic
+  signal will tell you the worker is down.
 * Uvicorn `--reload` window — wait for "Application
   startup complete" between rapid edits per SESSION 180
   TRUST_CALIBRATION.
 
-**Slice-open checklist (codified SESSION 182):**
+**Slice-open checklist (codified SESSION 182, hardened SESSION 184):**
 
-For any new recipe that wraps a third-party API:
+For any new recipe or primitive that wraps a third-party API:
 
-1. **Live-doc check** the API surface the slice depends
-   on. (Q-v17-1 was a 3rd-recurrence of the API-docs-from-
-   skim trap.)
-2. **String choice values** in recipe `select` fields per
-   the SPA Zod schema.
+1. **Live-doc check** the API surface the slice
+   depends on. Now 2-for-2 hit rate on V17 surface
+   area (Q-v17-1, Q-v17-6) — non-optional.
+2. **String choice values** in recipe `select` fields
+   per the SPA Zod schema.
 3. **`LIVE_RECIPE_KINDS` opt-in** in
-   `web/src/lib/api/recipes.ts`.
-4. **Default-aware form submission** verified (the
-   `01ea94d` fix is the single source of truth now).
+   `web/src/lib/api/recipes.ts` for new recipes.
+4. **Default-aware form submission** verified.
 5. **Unit fixtures shaped after a sample of provider
    output**, not the easiest-to-construct shape.
+6. **For starter changes consuming workspace Assets:**
+   validate workspace, type, AND `duration_ms` non-null
+   BEFORE Composition rows are created (V18 pattern).
 
-**Smoke checks** (counts as of SESSION 183 close):
+**Smoke checks** (counts as of SESSION 184 close):
 
 ```bash
 # Backend (from shell/)
 python manage.py inventory
-python -m pytest                              # 900 tests (compositions: 469)
+python -m pytest                              # 915 tests (compositions: 484)
 
 # Media-engine (from media-engine/)
 python -m pytest                              # 194 tests
@@ -432,135 +403,96 @@ pnpm build                                    # type-check + bundle
 pnpm test                                     # 95 vitest tests
 ```
 
-**New surfaces from SESSION 182:**
+**New surfaces from SESSION 184:**
 
-* `POST /internal/clips/extend/` — media-engine. V17.0.
-* `extend_visual_clip` Django primitive — V17.1.
-* `cinematic_visual_extended` recipe — V17.2. Live in V15
-  gallery; produces 15-50s clips.
-* `MediaEngineClient.extend_clip()` — Python client.
-* `_has_audio_stream` helper in media-engine internal.py
-  (probes audio before concat).
-
-**New surfaces from SESSION 183:**
-
-* `talking_head_with_backdrop(..., use_extend_for_backdrop=False)`
-  — V17.5 starter knob. Default off; backwards-compat
-  holds.
-* `_compute_extend_backdrop_chain_length(script_chars) → int`
-  helper in `starters.py`. Returns the number of
-  extend_visual_clip steps to chain after the base 10s
-  generate.
-* `_EXTEND_BASE_DURATION_SECONDS = 10` +
-  `_EXTEND_SEGMENT_DURATION_SECONDS = 5` constants.
-* Recipe field: `use_extend_for_backdrop` checkbox on the
-  `talking_head_with_backdrop` recipe form (renders
-  automatically — V8 is already in `LIVE_RECIPE_KINDS`).
+* `talking_head_with_backdrop(..., backdrop_clip=None)`
+  — V18 starter kwarg. When set, picked Asset wires
+  directly into composite background; both V8 concat
+  and V17.5 extend chains are skipped.
+* `backdrop_clip_id` RecipeField on
+  `talking_head_with_backdrop` (asset_picker, CLIP,
+  optional). `param_map={backdrop_clip_id: backdrop_clip}`.
+* `_estimate_duration_ms_from_script(chars: int) → int`
+  helper in `avatar_speech.py`. Fallback when Runway
+  poll lacks `duration_seconds`.
+* `composite_video` null-duration guard — raises
+  `PrimitiveError` before media-engine dispatch.
+* `shell/apps/compositions/management/commands/smoke_keyframes.py`
+  — one-off comparison utility for keyframe-capable
+  Runway models (`veo3.1_fast`, `gen3a_turbo`).
+  Supports `--hook-asset-id` / `--payoff-asset-id` with
+  inline data: URI conversion.
 
 ---
 
 ## AI / assistant context
 
-- **Last session: SESSION 183 — V17.5 V8 opt-in extend
-  shipped (mock-mode validated).** One feature commit.
-  V17.5 lands `use_extend_for_backdrop` flag on V8's
-  starter; backdrop becomes `1 generate + N extend`
-  instead of `N generates + concat` when the flag is on,
-  killing the SESSION 179 visible 10s motion seam at the
-  recipe layer. Q-v17-5 resolved at slice-open (chain
-  sized from `_estimate_avatar_speech_seconds`; per-
-  primitive cost estimators auto-sum). Real-mode dogfood
-  deferred to SESSION 184. No new TRUST_CALIBRATION
-  entries — slice-open checklist held cleanly.
+- **Last session: SESSION 184 — polish + V18 + Q-v17-3 +
+  Asset Library proposal.** Six feature commits + design
+  doc + handoff. Two slices shipped + real-mode validated
+  (polish + V18); slice 3 (V17.3) deferred at slice-open
+  after live-doc check surfaced API-shape mismatch
+  (Q-v17-6). Operator-driven scope proposal triggered for
+  a new arc — Asset Library — addressing the asset
+  categorization gap visible during V18 dogfood. Six new
+  TRUST_CALIBRATION entries.
 
-- **Prior session: SESSION 182 — V17 scope-lock + V17.0 +
-  V17.1 + V17.2 + real-mode validation.** Eight commits
-  across two parts. V17 went `proposed → locked`; rules
-  10-13 merged into V1. V17.0 (endpoint) + V17.1 (Django
-  primitive) + V17.2 (recipe) shipped. Q-v17-1 surfaced +
-  resolved at slice-open with a clean pivot. Four dogfood-
-  surfaced bugs (3 SPA, 1 silent-input concat) fixed
-  inline. End-to-end real-mode pass: `cinematic_visual_extended`
-  produced a 15.08s clip at $0.75 spend.
+- **Prior session: SESSION 183 — V17.5 V8 opt-in extend
+  shipped + real-mode validated.** One feature commit + 4
+  real-mode renders ($6.25 spend). Ambient motion holds
+  cleanly through extend chain; discrete-subject identity
+  drifts at gen4.5 → gen4_turbo handoff. Two latent gaps
+  surfaced (speech duration_ms, composite null guard) →
+  shipped as SESSION 184 slice 1.
 
-- **Calibration carried forward (NEW SESSION 182 — 7 total)**:
-  - API claim in design doc = hypothesis until live-doc
-    verified (3rd recurrence).
-  - Pre-implementation pause when a finding shifts scope.
-  - Sync vs async endpoint contract is a design-time
-    decision.
-  - Recipe choice values must be strings (SPA Zod).
-  - New recipes need three SPA touchpoints, not one.
-  - Form-renderer renders defaults but drops them on
-    submission (latent across all recipes).
-  - Unit test fixtures must mirror provider output shape.
+- **Calibration carried forward (NEW SESSION 184 — 13 total)**:
+  - Live-doc-check discipline 2-for-2 on V17.
+  - V18 + duration mismatch needs starter-time guard.
+  - Asset taxonomy gap is structural.
+  - Smoke commands without `--save-assets` produce orphans.
+  - Celery worker stop-state is silent.
+  - Re-using smoke outputs as backdrops is a testing-shape mismatch.
+  - (from SESSION 182-183 — 7 entries unchanged)
 
 - **Calibration carried forward (from earlier sessions)**:
-  - Operator "are we using X?" framing surfaces capability
-    gaps (SESSION 181).
-  - Asset upload UI is a recurring gap (SESSION 181).
+  - Operator "are we using X?" framing surfaces capability gaps.
+  - Asset upload UI is a recurring gap.
   - External API validation tightens over time —
-    re-dogfood periodically (SESSION 181).
-  - "200 OK + plausible byte count" doesn't mean correct
-    output (SESSION 180).
-  - Uvicorn `--reload` has stale-during-restart window
-    (SESSION 180).
-  - drawtext `text=` footgun once `fontfile=` joins
-    (SESSION 180).
-  - Celery worker doesn't auto-reload (SESSION 179).
-  - ffmpeg can't infer muxer from double-extension
-    tempfile names (SESSION 179).
-  - Real-mode dogfood finds bugs in every recipe
-    (SESSIONS 179-182 — now 19+ bugs across 17 recipes).
-  - PostCSS `@import` order (SESSION 178).
-  - Operator catches premature extraction (SESSION 178).
-  - DevTools computed-style snippet for visual bugs
-    (SESSION 178).
-  - Lossy paraphrase of scope locks (SESSION 177).
-  - Handoff "swapped/edited" claims need verification
-    (SESSION 177).
-  - Runway DELETE poisons conversation (SESSION 176).
-  - Mock-only test coverage hides upstream drift
-    (SESSION 176).
-  - Operator framing unlocks AI blockers (SESSION 176).
-  - gpt-5 reasoning eats output budget silently
-    (SESSION 176).
-  - Tool descriptions need narration scaffolding
-    (SESSION 176).
-  - Real-mode dogfood after operator-facing slices.
+    re-dogfood periodically.
+  - "200 OK + plausible byte count" doesn't mean correct output.
+  - Uvicorn `--reload` has stale-during-restart window.
+  - drawtext `text=` footgun once `fontfile=` joins.
+  - Celery worker doesn't auto-reload.
+  - ffmpeg can't infer muxer from double-extension tempfile names.
+  - Real-mode dogfood finds bugs in every recipe.
+  - PostCSS `@import` order.
+  - Operator catches premature extraction.
+  - DevTools computed-style snippet for visual bugs.
+  - Lossy paraphrase of scope locks.
+  - Runway DELETE poisons conversation.
+  - Mock-only test coverage hides upstream drift.
+  - Operator framing unlocks AI blockers.
+  - gpt-5 reasoning eats output budget silently.
+  - Tool descriptions need narration scaffolding.
   - SPA gates need both `pnpm test` AND `pnpm build`.
-  - Distinct request boundaries for distinct side-effects.
-  - Hook order across early returns (SESSION 169).
-  - AI's "shipped" framing belongs to operator after
-    review.
-  - Doctor is the drift tool + handoff write at
-    session-end.
+  - Doctor is the drift tool + handoff write at session-end.
   - OpenAI gpt-5 family uses Responses API.
-  - lru_cached `get_settings()` bypasses FastAPI
-    dependency_overrides.
-  - Radix UI primitives need `userEvent` under jsdom.
-  - Scope-lock reviews should distinguish operator
-    input from LLM input.
-  - Don't rationalise "somewhat readable" — look at
-    operator-facing surface.
-  - Vitest atomic assertions can mask real UX bugs.
-  - Stale browser before stale code.
-  - K6.4 stoplist curation trickle.
 
-- **V-arc growth template (SESSION 179-182)**: V16 + V17
-  follow the same shape. Narrow scope, opt-in defaults,
-  one primitive + one knob + one endpoint per slice, real-
-  mode validated before handoff. **V17.2 is the first
-  multi-slice extension that real-mode validated**
-  end-to-end at session-close, not in a follow-up session.
+- **V-arc growth template (SESSION 179-184)**: V16 + V17
+  + V18 follow the same shape. Narrow scope, opt-in
+  defaults, one primitive + one knob + one endpoint per
+  slice, real-mode validated before handoff. **V18 is the
+  first post-close addition that requires NO new endpoint
+  or primitive** — pure starter + recipe wiring against
+  existing infrastructure. Cheapest-shape post-close.
 
 - **Brand layer is load-bearing.** Every component must
   import company/product strings from `@/lib/brand` per
   BRAND_ECOSYSTEM_V1 contract rule 3.
 
 - **2 of 18 V-arc recipes unvalidated** — `storyboard_voiced`
-  + `dialogue_scene`. Both deferred until V17 closes per
-  operator-locked direction.
+  + `dialogue_scene`. Now deferrable since V17 is
+  deferred — pick up if a clean dogfood session opens up.
 
 - Collaboration conventions: AI drafts, human edits.
   Handoff `## Calibration moments worth carrying` +

@@ -238,7 +238,7 @@ real-mode validation per slice.
 | **V17.0** | Media-engine `/internal/clips/extend/` endpoint + tests. No Django changes. | ½ session | **✓ SHIPPED SESSION 182** (`933d4e7`) |
 | **V17.1** | Django `extend_visual_clip` primitive + cost estimator + tests. No recipe yet. | ½ session | **✓ SHIPPED SESSION 182** |
 | **V17.2** | New `cinematic_visual_extended` recipe (V4 + extend chain) — operator picks target duration > 10s; starter lays down 1 generate_visual_clip + N extend_visual_clip steps. Recipe form + tests + real-mode dogfood. | 1 session | **✓ SHIPPED + REAL-MODE VALIDATED SESSION 182.** 15s clip completed end-to-end; $0.75 spend; 4 dogfood-surfaced bugs fixed inline (see SESSION 182 part-2 handoff). |
-| **V17.3** | Extend `/internal/clips/visual/` to accept `keyframes: [str]` + multi-keyframe support on `generate_visual_clip`. Plus a new `keyframe_shot` recipe (start + end image, single 5-10s shot). Uses existing IMAGE assets until asset-upload UI lands. | 1 session | pending |
+| **V17.3** | Extend `/internal/clips/visual/` to accept `keyframes: [str]` + multi-keyframe support on `generate_visual_clip`. Plus a new `keyframe_shot` recipe (start + end image, single 5-10s shot). Uses existing IMAGE assets until asset-upload UI lands. | 1 session | **DEFERRED (SESSION 184) — Q-v17-3 surfaced; see below.** |
 | **V17.4** | V13 `storyboard_ad` opt-in flag (`use_keyframes: bool = False`) — when on, swaps the 3-shot chain for a single keyframed shot. Default off; V13 backward-compat holds. | ½ session | pending |
 | **V17.5** | V8 `talking_head_with_backdrop` opt-in flag (`use_extend_for_backdrop: bool = False`) — when on, uses extend chain instead of multi-backdrop concat. Resolves the SESSION 179 motion-seam workaround. | ½ session | **✓ SHIPPED SESSION 183** — knob added; new helper `_compute_extend_backdrop_chain_length`; recipe form checkbox; 9 new tests (469 compositions, 900 backend total). Q-v17-5 resolved: chain sized from `_estimate_avatar_speech_seconds(len(script))`; per-primitive `estimate_cost()` auto-sums. Real-mode dogfood pending. |
 
@@ -332,6 +332,74 @@ verification against live Runway APIs.
   without a chain-wide helper. Refinement post-render
   falls out of the existing `cost_actual_micros`
   recording on each step.
+
+* **Q-v17-6 (SURFACED + DEFERRED SESSION 184 V17.3 slice-
+  open live-doc check):** This proposal's claim that
+  `/v1/image_to_video` accepts a `keyframes: [str]` array
+  on `gen4_turbo` is wrong. Direct inspection of Runway's
+  official Python SDK
+  (`runwayml/types/image_to_video_create_params.py`,
+  auto-generated from their OpenAPI spec) reveals:
+
+  - **No `keyframes` array parameter exists.**
+    Conditioning is via `promptImage: str |
+    Iterable[{position, uri}]`. The naming is wrong;
+    the underlying mechanism exists but in a different
+    shape.
+  - **Only `"first"` and `"last"` positions exist.** The
+    proposal's mention of three-keyframe Hook / Action /
+    Payoff is wrong — Gen-3 Turbo's *web UI* supports
+    three keyframes; the *API* exposes only first/last.
+    The "Action moment" middle key is not addressable
+    via the API.
+  - **`gen4_turbo` only accepts `position: "first"`.**
+    The proposal's core motivating use case ("render
+    ONE shot with Hook image as start keyframe + Payoff
+    image as end keyframe on `gen4_turbo`") is **not
+    implementable** as written.
+  - **Models that DO support both first+last in the
+    Runway API**:
+      - `gen3a_turbo` — older Gen-3 Turbo; ratio cliff
+        to `768:1280` or `1280:768` only (no 16:9
+        720p).
+      - `veo3.1_fast` / `veo3.1` — Google Veo brokered
+        through Runway; supports 1280:720; 4/6/8s
+        clips; per-call cost ~unknown.
+
+  Real-mode smoke (`smoke_keyframes` management command,
+  commits `c10e311` + `2daef87`, SESSION 184) compared
+  the two Runway-accessible models on a SESSION 183 V13
+  storyboard pair (Hook = founder at 3am desk, Payoff =
+  founder at sunrise, same seed=42). Both models
+  accepted inline `data:image/png;base64,...` URIs
+  (~1.75MB request body), both produced output. Findings:
+  - veo3.1_fast: ~40-50s render time, 1280:720 (true
+    16:9), 6s output.
+  - gen3a_turbo: ~6-9s render time (5-7× faster),
+    1280:768 (~5:3, ratio cliff), 5s output.
+  - **Identity drift was BAD on the human-portrait
+    keyframes for gen3a_turbo** — operator observed
+    "two different randomly AI generated people" across
+    the 5-second clip — the same Q-v17-3-style drift the
+    keyframes were supposed to fix.
+
+  **Resolution: DEFER V17.3.** The subject-identity
+  drift fix the slice was meant to deliver doesn't
+  exist in the Runway gen-4 family's API today, and
+  the available alternatives (gen3a_turbo, veo3.1_fast)
+  each introduce trade-offs that warrant operator-
+  facing arc-level reframing rather than a single-slice
+  pivot. **Re-open criteria:**
+  - Runway adds first+last keyframe support to
+    `gen4_turbo` or `gen4.5` (monitor SDK regen), OR
+  - Operator decides to adopt veo3.1_fast as a primary
+    model for a new "cinematic shorts" arc separate
+    from V-arc (would need its own scope-lock).
+
+  Live-doc-check discipline (codified SESSION 182 after
+  Q-v17-1) re-validated: today's live-doc check saved
+  a multi-session rewrite. Slice-open live-doc check is
+  now a 2-for-2 hit rate on V17 surface area.
 
 ---
 
