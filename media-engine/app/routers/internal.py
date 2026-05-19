@@ -3220,13 +3220,23 @@ def _aleph_remix_one(
     return task_id
 
 
+_ALEPH_MIN_CHUNK_SECONDS = 1.0  # Aleph rejects sub-1s sources
+
+
 def _aleph_split_into_chunks(
     source: Path, chunk_seconds: int, scratch_dir: Path,
 ) -> list[Path]:
     """ffmpeg-split source into N-second chunks with FORCED
     keyframes so cuts land at exact chunk_seconds boundaries.
     Aleph truncates to ~5s regardless of source length, so
-    keyframe-aligned 8s chunks would still get truncated."""
+    keyframe-aligned 8s chunks would still get truncated.
+
+    Any tail residual chunk shorter than ``_ALEPH_MIN_CHUNK_SECONDS``
+    is merged into the penultimate chunk before return — Aleph's
+    ``/v1/video_to_video`` rejects sub-1s clips with
+    ``"Asset duration must be at least 1 seconds"``. SESSION 181
+    dogfood: a 10.04s source split into 5s + 5s + 0.04s, with the
+    tiny residual blowing up the entire batch."""
     import subprocess as _subprocess
 
     chunk_glob = scratch_dir / "chunk-%03d.mp4"
@@ -3251,7 +3261,51 @@ def _aleph_split_into_chunks(
     chunks = sorted(scratch_dir.glob("chunk-*.mp4"))
     if not chunks:
         raise RuntimeError(f"ffmpeg segment produced no chunks for {source}")
-    return chunks
+    return _merge_sub_min_tail_chunk(chunks, scratch_dir)
+
+
+def _merge_sub_min_tail_chunk(
+    chunks: list[Path], scratch_dir: Path,
+) -> list[Path]:
+    """Aleph minimum-duration guard. If the tail chunk is shorter
+    than ``_ALEPH_MIN_CHUNK_SECONDS``, merge it into the
+    penultimate chunk via the concat demuxer. Single-chunk lists
+    skip the guard (an under-min source is a caller bug, not
+    something this helper can recover from). SESSION 181 dogfood:
+    a 10.04s source split into 5s + 5s + 0.04s; the 0.04s tail
+    blew up the whole Aleph batch with
+    ``Asset duration must be at least 1 seconds``."""
+    import subprocess as _subprocess
+
+    if len(chunks) < 2:
+        return chunks
+    tail_dur = _probe_duration(chunks[-1])
+    if tail_dur >= _ALEPH_MIN_CHUNK_SECONDS:
+        return chunks
+    tail = chunks[-1]
+    penult = chunks[-2]
+    merged = scratch_dir / "chunk-merged.mp4"
+    list_file = scratch_dir / "merge-list.txt"
+    list_file.write_text(
+        f"file '{penult.resolve()}'\n"
+        f"file '{tail.resolve()}'\n"
+    )
+    try:
+        _subprocess.run(
+            [
+                "ffmpeg", "-y", "-loglevel", "error",
+                "-f", "concat", "-safe", "0",
+                "-i", str(list_file),
+                "-c", "copy",
+                str(merged),
+            ],
+            check=True, capture_output=True, text=True, timeout=60,
+        )
+    finally:
+        list_file.unlink(missing_ok=True)
+    merged.replace(penult)
+    tail.unlink()
+    return chunks[:-1]
 
 
 def _aleph_concat_chunks(chunk_paths: list[Path], target: Path) -> None:
