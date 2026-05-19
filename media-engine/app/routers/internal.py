@@ -3492,6 +3492,344 @@ def post_internal_style_remix(
         return _error(500, "internal_error", f"unexpected: {exc!s}"[:300])
 
 
+# ---- POST /internal/clips/extend/ (V17.0) ------------------------
+#
+# SESSION 182 / V17.0. Operator-visible capability: extend a
+# rendered clip beyond Runway's per-render 10s ceiling.
+#
+# Q-v17-1 resolution (SESSION 182): Runway's `/v1/video_to_video`
+# only accepts `gen4_aleph` (style remix). There is no gen4_turbo
+# or gen4.5 extend mode at that endpoint. The V17 proposal's
+# original framing — "Runway extend produces a single coherent
+# clip via `/v1/video_to_video`" — is not the API shape.
+#
+# Pivot: last-frame-conditioned continuation via the existing
+# `/v1/image_to_video` (gen4_turbo) endpoint we already integrate
+# for V4. Steps:
+#
+#   1. Resolve source_clip_url to a local path (HTTPS download
+#      or local-path resolution via `_download_concat_input`).
+#   2. ffmpeg-extract the last frame to a PNG (`-sseof -0.1
+#      -vframes 1` reads from the end and grabs one frame —
+#      cheaper than re-decoding the whole clip).
+#   3. POST `/v1/image_to_video` with model=gen4_turbo,
+#      promptImage=<last frame data URI>, promptText=<operator's
+#      continuation prompt>. Same primitive `runway_create_task`
+#      that powers V4's `/clips/visual/`.
+#   4. Poll until SUCCEEDED, download the new 5-10s clip.
+#   5. ffmpeg-concat source + new into one MP4 (re-encode for
+#      safety — Runway output may not match local source codec
+#      params byte-for-byte, and `-c copy` only works when
+#      every input shares stream params).
+#
+# Synchronous (mirrors V11 style_remix), not async (the original
+# V17 proposal mirrored V4's `/clips/visual/`). The chain of
+# ffmpeg + Runway round-trip + ffmpeg-concat is too long for
+# fire-and-return; sync gives the operator one terminal state
+# per call. Cached by hash(source_clip_url + prompt + duration
+# + ratio + seed) so re-runs are idempotent.
+
+
+_EXTEND_MODEL = "gen4_turbo"
+_EXTEND_POLL_DEADLINE_S = 600.0
+_EXTEND_LAST_FRAME_TAIL_OFFSET = -0.1  # ffmpeg `-sseof` value
+
+
+class InternalExtendClipCreate(BaseModel):
+    """Request body for ``POST /internal/clips/extend/``."""
+
+    source_clip_url: str = Field(..., min_length=1, max_length=2048)
+    prompt: str = Field(..., min_length=1, max_length=2000)
+    duration: int = Field(default=5, ge=5, le=10)
+    ratio: str = Field(default="1280:720")
+    seed: Optional[int] = Field(default=None, ge=0, le=2**32 - 1)
+
+
+class InternalExtendClipResponse(BaseModel):
+    output_url: str
+    duration_seconds: float
+    source_duration_seconds: float
+    new_segment_duration_seconds: float
+    size_bytes: int
+    task_id: str
+    mock_mode: bool
+
+
+def _extend_dir(settings: Settings) -> Path:
+    target = settings.data_path / "_internal" / "extends"
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def _extract_last_frame(source: Path, target_png: Path) -> None:
+    """Extract the source clip's last frame to PNG via ffmpeg.
+
+    Uses `-sseof <small negative>` to seek from the END of the
+    file — much cheaper than `-ss <positive>` which would
+    re-decode the whole clip. The -0.1s tail offset gives ffmpeg
+    enough room to land on a real frame on most encodings
+    without grabbing a partial-decode artifact at exactly t=end.
+    """
+    import subprocess as _subprocess
+
+    _subprocess.run(
+        [
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-sseof", str(_EXTEND_LAST_FRAME_TAIL_OFFSET),
+            "-i", str(source),
+            "-frames:v", "1",
+            "-update", "1",
+            str(target_png),
+        ],
+        check=True, capture_output=True, text=True, timeout=30,
+    )
+    if not target_png.exists() or target_png.stat().st_size == 0:
+        raise RuntimeError(
+            f"ffmpeg last-frame extraction produced no output for {source.name}"
+        )
+
+
+def _extend_poll_task(task_id: str, settings: Settings) -> str:
+    """Poll /v1/tasks/{id} until terminal. Returns output URL on
+    SUCCEEDED; raises on FAILED / CANCELED / timeout.
+
+    Mirrors `_aleph_poll_task` but uses the V4 `runway_get_task`
+    helper so transient PENDING/RUNNING status normalisation
+    matches the rest of the image_to_video path."""
+    import time as _time
+
+    deadline = _time.time() + _EXTEND_POLL_DEADLINE_S
+    while _time.time() < deadline:
+        resp = runway_get_task(task_id, settings)
+        if resp.status == "SUCCEEDED":
+            for url in resp.output:
+                if isinstance(url, str) and url:
+                    return url
+            raise RuntimeError(
+                f"extend task {task_id} succeeded with no output url"
+            )
+        if resp.status in {"FAILED", "CANCELED"}:
+            raise RuntimeError(
+                f"extend task {task_id} {resp.status}: "
+                f"{resp.failure_reason or 'no reason given'}"
+            )
+        _time.sleep(5)
+    raise RuntimeError(
+        f"extend task {task_id} timed out after {_EXTEND_POLL_DEADLINE_S:.0f}s"
+    )
+
+
+def _extend_download(url: str, target: Path) -> int:
+    """Stream Runway output to ``target``. Returns bytes written."""
+    tmp = target.with_suffix(target.suffix + ".tmp")
+    try:
+        with httpx.Client(timeout=120.0) as client:
+            with client.stream("GET", url) as r:
+                r.raise_for_status()
+                size = 0
+                with tmp.open("wb") as fh:
+                    for chunk in r.iter_bytes(64 * 1024):
+                        fh.write(chunk)
+                        size += len(chunk)
+        tmp.replace(target)
+        return size
+    except Exception:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
+def _extend_concat(source: Path, new_clip: Path, target: Path) -> None:
+    """ffmpeg-concat source + new into one MP4. Re-encodes to
+    guarantee stream-param alignment — Runway's gen4_turbo output
+    can drift from local source codec params, and the concat
+    demuxer with ``-c copy`` only works when every input shares
+    container + codec + timebase. The concat *filter* (used here)
+    sidesteps that constraint at the cost of one extra encode.
+    """
+    import subprocess as _subprocess
+
+    _subprocess.run(
+        [
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-i", str(source),
+            "-i", str(new_clip),
+            "-filter_complex",
+            "[0:v]setsar=1[v0];[1:v]setsar=1[v1];"
+            "[v0][0:a?][v1][1:a?]concat=n=2:v=1:a=1[outv][outa]",
+            "-map", "[outv]", "-map", "[outa]",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "-c:a", "aac",
+            "-movflags", "+faststart",
+            str(target),
+        ],
+        check=True, capture_output=True, text=True, timeout=300,
+    )
+
+
+@router.post(
+    "/clips/extend/", response_model=InternalExtendClipResponse,
+)
+def post_internal_extend_clip(
+    body: InternalExtendClipCreate,
+    settings: Settings = Depends(get_settings),
+):
+    """Extend a rendered video clip beyond Runway's per-render
+    ceiling via last-frame-conditioned continuation.
+
+    Cached by hash(source_clip_url + prompt + duration + ratio +
+    seed). Operators rerunning the same extend don't pay Runway
+    twice."""
+    try:
+        validate_generation_settings(
+            model=_EXTEND_MODEL,
+            ratio=body.ratio,
+            duration=body.duration,
+            has_image=True,  # last frame is always the prompt image
+            enforce_image_required=not settings.runway_mock,
+        )
+    except GenerationSettingsError as exc:
+        return _error(400, "invalid_settings", str(exc))
+
+    cache_seed = (
+        f"{body.source_clip_url}|extend|{body.prompt}|"
+        f"{body.duration}|{body.ratio}|{body.seed}"
+    ).encode("utf-8")
+    cache_key = hashlib.sha256(cache_seed).hexdigest()[:16]
+
+    if settings.runway_mock:
+        output_url = f"/data/_internal/extends/mock-{cache_key}.mp4"
+        # Mock: pretend the source was the proposal's canonical 10s
+        # and the new segment matches the requested duration. The
+        # SPA-facing duration math (source + new) drives operator
+        # forecasting; mock-mode keeps it consistent.
+        mock_source_dur = 10.0
+        return InternalExtendClipResponse(
+            output_url=output_url,
+            duration_seconds=mock_source_dur + float(body.duration),
+            source_duration_seconds=mock_source_dur,
+            new_segment_duration_seconds=float(body.duration),
+            size_bytes=1024 * 1024,
+            task_id=f"mock_extend_{cache_key}",
+            mock_mode=True,
+        )
+
+    import shutil as _shutil
+
+    if not _shutil.which("ffmpeg") or not _shutil.which("ffprobe"):
+        return _error(
+            500, "internal_error",
+            "ffmpeg/ffprobe not found on PATH",
+        )
+
+    target_dir = _extend_dir(settings)
+    output_path = target_dir / f"{cache_key}.mp4"
+    if output_path.exists():
+        # Cache hit — return existing output. Duration / new-
+        # segment math reconstructed from probe so the response
+        # shape stays consistent across cold vs cached calls.
+        total_dur = _probe_duration(output_path)
+        return InternalExtendClipResponse(
+            output_url=f"/data/_internal/extends/{output_path.name}",
+            duration_seconds=total_dur,
+            source_duration_seconds=max(total_dur - float(body.duration), 0.0),
+            new_segment_duration_seconds=float(body.duration),
+            size_bytes=output_path.stat().st_size,
+            task_id=f"cache_{cache_key}",
+            mock_mode=False,
+        )
+
+    try:
+        source_path = _download_concat_input(
+            body.source_clip_url, target_dir / "sources", settings,
+        )
+    except FileNotFoundError as exc:
+        return _error(400, "validation_error", str(exc))
+    except httpx.HTTPError as exc:
+        return _error(502, "upstream_runway_error", f"download error: {exc!s}"[:300])
+
+    source_duration = _probe_duration(source_path)
+
+    import tempfile as _tempfile
+
+    with _tempfile.TemporaryDirectory(prefix="extend-") as tmpd:
+        scratch = Path(tmpd)
+        last_frame_png = scratch / "last-frame.png"
+        new_clip_path = scratch / "new-segment.mp4"
+
+        try:
+            _extract_last_frame(source_path, last_frame_png)
+        except Exception as exc:
+            logger.warning("extend last-frame extraction failed: %s", exc)
+            return _error(
+                502, "internal_error",
+                f"last-frame extraction failed: {exc!s}"[:300],
+            )
+
+        # Embed the extracted PNG as a data URI so Runway can ingest
+        # it without a public callback URL. Same data-URI pattern
+        # `/clips/visual/` uses (`maybe_to_data_uri` route exists
+        # for SPA-served paths; here we have a tmpfile we control,
+        # so inline the encode).
+        png_bytes = last_frame_png.read_bytes()
+        prompt_image = (
+            "data:image/png;base64,"
+            + base64.b64encode(png_bytes).decode("ascii")
+        )
+
+        req = RunwayGenerateRequest(
+            prompt_text=body.prompt,
+            prompt_image=prompt_image,
+            ratio=body.ratio,
+            duration=body.duration,
+            model=_EXTEND_MODEL,
+        )
+
+        try:
+            runway_resp = runway_create_task(req, settings)
+        except httpx.HTTPStatusError as exc:
+            logger.warning(
+                "extend runway create %s: %s",
+                exc.response.status_code, exc.response.text[:300],
+            )
+            return _error(
+                502, "upstream_runway_error",
+                f"runway returned {exc.response.status_code}",
+            )
+        except httpx.HTTPError as exc:
+            logger.warning("extend runway http error: %s", exc)
+            return _error(502, "upstream_runway_error", f"http error: {exc!s}"[:300])
+
+        try:
+            out_url = _extend_poll_task(runway_resp.task_id, settings)
+            _extend_download(out_url, new_clip_path)
+            _extend_concat(source_path, new_clip_path, output_path)
+        except RuntimeError as exc:
+            return _error(502, "upstream_runway_error", str(exc)[:300])
+        except httpx.HTTPError as exc:
+            return _error(
+                502, "upstream_runway_error", f"http error: {exc!s}"[:300],
+            )
+        except Exception as exc:  # pragma: no cover — defensive
+            logger.exception("extend unexpected")
+            return _error(500, "internal_error", f"unexpected: {exc!s}"[:300])
+
+    final_duration = _probe_duration(output_path)
+    logger.info(
+        "internal extend done source_dur=%.2f new_dur=%d total=%.2f task=%s output=%s",
+        source_duration, body.duration, final_duration,
+        runway_resp.task_id, output_path.name,
+    )
+    return InternalExtendClipResponse(
+        output_url=f"/data/_internal/extends/{output_path.name}",
+        duration_seconds=final_duration,
+        source_duration_seconds=source_duration,
+        new_segment_duration_seconds=float(body.duration),
+        size_bytes=output_path.stat().st_size,
+        task_id=runway_resp.task_id,
+        mock_mode=False,
+    )
+
+
 # ---- V12 transcribe (Whisper) ------------------------------------
 #
 # SESSION 143 / V12. First net-new capability beyond what the

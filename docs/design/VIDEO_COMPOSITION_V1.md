@@ -159,6 +159,48 @@ These bind every composition slice the same way
    background, which is operator-confusing). Force-mock
    environment flag controls the whole composition.
 
+10. **The `extend_visual_clip` primitive emits one Asset
+    per call.** Step receives one CLIP input + a
+    continuation prompt; emits one CLIP output; the
+    source asset stays unchanged. Composition runtime
+    sees a normal single-step transform. Recipes MAY
+    chain N extend calls (V17.5 does); each chained
+    call remains one linear step. See
+    `VIDEO_COMPOSITION_V17_PROPOSAL.md` rule 1.
+
+11. **Keyframes are inputs to one step, not a DAG.** A
+    multi-keyframe image-to-video render is ONE step
+    that consumes multiple IMAGE assets in parallel via
+    named slots (`start_keyframe`, `end_keyframe`). The
+    composition step graph remains linear; rule 5
+    above carries through unchanged. See
+    `VIDEO_COMPOSITION_V17_PROPOSAL.md` rule 2.
+
+12. **Backwards-compat for V4 / V8 / V13 under V17.**
+    Existing recipes keep their current behaviour. V17
+    adds new recipes (`cinematic_visual_extended`,
+    `keyframe_shot`) and new optional kwargs on V13 /
+    V8 (`use_keyframes`, `use_extend_for_backdrop`);
+    no existing recipe changes shape. The V16 template
+    (opt-in default for any behaviour change) carries
+    through. See `VIDEO_COMPOSITION_V17_PROPOSAL.md`
+    rule 3.
+
+13. **Cost surfaces before render fires (extend +
+    keyframes).** Both V17 capabilities have per-second
+    + per-keyframe cost models; the estimators expose
+    them so operators see total cost on the recipe
+    form before clicking render. Same shape as rule 7
+    above. See `VIDEO_COMPOSITION_V17_PROPOSAL.md`
+    rule 4.
+
+> **Rules 10-13 added 2026-05-18 (SESSION 182)** at V17
+> scope-lock. See `VIDEO_COMPOSITION_V17_PROPOSAL.md` for
+> the full rationale, the six-slice breakdown (V17.0-V17.5),
+> and the in-scope clarifications. The four rules layer on
+> top of V1's nine — none of rules 1-9 changes shape under
+> V17.
+
 ---
 
 ## Framing corrections (carried from SESSION 142 conversation)
@@ -1390,3 +1432,17 @@ contracts. The pattern — narrow scope, one primitive
 + one starter knob + one media-engine endpoint,
 opt-in by default so backwards-compat holds — is
 the template for any future V17+.
+
+**V17 (SESSION 182) is the second post-close addition.**
+Six slices (V17.0-V17.5) integrating Runway's extend
+video + keyframes capabilities; addresses three
+operator-visible gaps surfaced in SESSION 181 dogfood
+(V4's 10s ceiling, V8's multi-backdrop seam, V13's
+character drift across image-to-video chains). Same
+template as V16 — opt-in defaults, backwards-compat
+holds, real-mode dogfood per slice. Scope-locked
+2026-05-18 (SESSION 182); rules 10-13 above layer on
+V1's nine. See `VIDEO_COMPOSITION_V17_PROPOSAL.md`
+for the slice breakdown, contract rules, in-scope
+clarifications, and the two open questions (Q-v17-1,
+Q-v17-5) reserved for slice-open verification.

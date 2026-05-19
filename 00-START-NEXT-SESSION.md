@@ -21,7 +21,9 @@ state: active
 > **Video composition scope lock:** `docs/design/VIDEO_COMPOSITION_V1.md`
 > (locked SESSION 142 — 9 contract rules, V0-V15 slice breakdown).
 > **V16 POST-CLOSE SHIPPED (SESSION 179) — remove_avatar_background.**
-> **V17 PROPOSED (SESSION 181, not yet scope-locked) — extend + keyframes.**
+> **V17 LOCKED (SESSION 182) — extend + keyframes.**
+> 13 contract rules total (V1's 9 + V17's 4 merged as rules
+> 10-13). V17.0 IN FLIGHT this session.
 > See `docs/design/VIDEO_COMPOSITION_V17_PROPOSAL.md`.
 > **Realtime avatar scope lock:** `docs/design/REALTIME_AVATAR_V1.md`
 > (locked SESSION 142 — 10 contract rules, R0-R10 slice
@@ -171,7 +173,8 @@ to close out the V-arc validation at 18/18.
 R-arc real-mode validated (SESSION 176); V-arc real-mode
 validation **near-complete** (16 of 18 recipes, SESSIONS
 158 + 179 + 180 + 181). V16 post-close shipped (SESSION
-179); V17 proposed (SESSION 181).
+179); V17 proposed (SESSION 181), **scope-locked SESSION
+182** with rules 10-13 merged into V1.
 **Phase 5:** Brand ecosystem under 24/7 GLOBAL AI parent
 (SESSION 178 B-arc).
 
@@ -180,7 +183,7 @@ validation **near-complete** (16 of 18 recipes, SESSIONS
 | W1-W11 | DONE |
 | K0-K9 | DONE |
 | V0-V15 + V16 | DONE (mock); **16/18 real-mode validated** |
-| **V17 (extend + keyframes)** | **PROPOSED (SESSION 181), not locked** |
+| **V17 (extend + keyframes)** | **LOCKED (SESSION 182); V17.0 in flight** |
 | F0-F10 | DONE |
 | R0-R10 + R6.1 | DONE + REAL-MODE VALIDATED (SESSION 176) |
 | W11.6.0-W11.6.5 (media gen) | DONE (SESSIONS 172-173) |

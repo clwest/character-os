@@ -1,7 +1,8 @@
 ---
-title: "V17 Proposal — Runway Extend Video + Keyframes integration"
-status: proposed (not yet scope-locked)
+title: "V17 — Runway Extend Video + Keyframes integration"
+status: locked
 generated: 2026-05-18 (SESSION 181)
+locked: 2026-05-18 (SESSION 182)
 parent_doc: "VIDEO_COMPOSITION_V1.md"
 phase: 4
 ---
@@ -45,11 +46,33 @@ brings them in.
 
 ### Extend Video
 
-Runway's `/v1/video_to_video` extend mode (gen4_turbo /
-gen4.5). Takes an existing rendered clip + a continuation
-prompt; generates new content that flows from the source's
-tail frame as one coherent motion. Result: a longer single
-clip with no concat seam.
+**Implementation strategy (post Q-v17-1 resolution
+SESSION 182):** last-frame-conditioned continuation via
+`/v1/image_to_video` (`gen4_turbo`) + ffmpeg concat.
+
+Runway's `/v1/video_to_video` only accepts `gen4_aleph`
+(the model V11 style_remix uses); there is no
+`gen4_turbo` / `gen4.5` extend mode at that endpoint
+today. Q-v17-1 surfaced this against live Runway docs.
+
+The functional outcome — a longer single clip that
+visibly continues from where the source left off — is
+delivered via:
+
+1. Extract the source clip's last frame via ffmpeg
+   (`-sseof -0.1 -vframes 1`).
+2. POST `/v1/image_to_video` with `model=gen4_turbo`,
+   `promptImage=<last frame data URI>`, and the
+   operator-supplied continuation prompt.
+3. Poll until SUCCEEDED, download the new 5-10s clip.
+4. ffmpeg concat the source + new clip into one output.
+
+The seam is near-pixel-perfect at the boundary (new
+clip's frame 0 == source's last frame), and motion
+continuity is reasonable because the model conditions
+on the same frame the source ended with. Camera-
+direction continuity is best-effort — not guaranteed
+by the API, but the prompt can steer it.
 
 **Concrete use:**
 
@@ -66,9 +89,11 @@ clip with no concat seam.
 * Any future recipe needing "background plate longer than
   one Runway call's max" — extend is the right primitive.
 
-**Pricing:** Same per-second rate as a fresh gen call.
-Extending a 10s clip by 5s = ~$0.50 (gen4_turbo). No worse
-than the current chain.
+**Pricing (estimate, pending Q-v17-1):** Same per-second
+rate as a fresh gen call appears to apply per Runway's
+public pricing. Extending a 10s clip by 5s would be
+~$0.50 (gen4_turbo) — same order as the current concat
+chain. Confirm against live API docs at V17.0 slice-open.
 
 ### Keyframes (multi-image conditioning)
 
@@ -95,28 +120,35 @@ The model interpolates motion between the pinned moments.
   pins the start and Spokesperson B's portrait pins the end,
   with the model rendering a natural cut between them.
 
-**Pricing:** Same per-second rate as standard image-to-video
-(slight surcharge per additional keyframe per Runway's
-public pricing — needs verification at implementation time).
+**Pricing (estimate, pending V17.3 slice-open):** Same
+per-second rate as standard image-to-video appears to
+apply, with a slight per-keyframe surcharge per Runway's
+public pricing. Confirm against live API docs at V17.3
+slice-open.
 
 ---
 
 ## Contract rules (load-bearing)
 
 These extend V1's nine contract rules. V17 must hold all
-nine V1 rules unchanged.
+nine V1 rules unchanged. **At scope-lock the four V17 rules
+below become V1 rules 10-13** (same merge pattern V16 used
+for its post-close rules).
 
-1. **Extend Video produces a single Asset, not a chain.**
-   The extend output IS the new asset; the source asset
-   stays unchanged. Step receives one CLIP input + a
-   continuation prompt; emits one CLIP output. Composition
-   runtime sees a normal single-step transform, not a chain.
+1. **The `extend_visual_clip` primitive emits one Asset
+   per call.** Step receives one CLIP input + a
+   continuation prompt; emits one CLIP output; the source
+   asset stays unchanged. Composition runtime sees a
+   normal single-step transform. Recipes MAY chain N
+   extend calls (V17.5 does); each chained call remains
+   one linear step.
 
-2. **Keyframes are inputs, not steps.** A multi-keyframe
-   image-to-video render is ONE step that consumes multiple
-   IMAGE assets via named slots (`start_keyframe`,
-   `end_keyframe`, optional `mid_keyframe_N`). Not a
-   composition of N steps.
+2. **Keyframes are inputs to one step, not a DAG.** A
+   multi-keyframe image-to-video render is ONE step that
+   consumes multiple IMAGE assets in parallel via named
+   slots (`start_keyframe`, `end_keyframe`). The
+   composition step graph remains linear; V1 rule 5 (no
+   DAG) carries through unchanged.
 
 3. **Backwards-compat for V4 / V8 / V13.** Existing
    recipes keep their current behaviour. V17 adds new
@@ -130,28 +162,55 @@ nine V1 rules unchanged.
    see total cost on the recipe form before clicking
    render. Same as V1 contract rule 7.
 
-5. **No DAG.** V1 rule 5 stands — V17's keyframes
-   primitive consumes multiple inputs in parallel but the
-   composition step graph remains linear.
+---
+
+## In-scope clarifications
+
+* **V11 style_remix interaction.** `extend_visual_clip`
+  operates on any CLIP-typed asset, including style-
+  remixed clips from V11. The cache key still includes
+  source clip content hash (Q-v17-4 resolution below),
+  so re-extending a freshly remixed source invalidates
+  correctly.
+* **V17.3 image sources.** Until the asset-upload UI
+  arc lands, V17.3's `keyframe_shot` recipe operates on
+  IMAGE assets already in the workspace (generated via
+  V13 `generate_image` or seeded shell-side). Operator-
+  uploaded keyframes are explicitly out-of-scope below.
 
 ---
 
-## New media-engine endpoints
+## New / extended media-engine endpoints
 
-* `POST /internal/clips/extend/` — takes
-  `{source_clip_url, prompt, duration_s, seed?}`, fires
-  Runway extend, polls task, returns standard
-  `InternalVisualClipCreateResponse` shape. Mirrors the
-  existing `/internal/clips/visual/` contract.
-* (Possibly) extend the existing `/internal/clips/visual/`
-  to accept a `keyframes: [str]` parameter instead of
-  (or in addition to) the single `prompt_image`. Cleaner
-  than a separate endpoint — keyframes are an extension
-  of the image-to-video flow, not a new shape.
+* **`POST /internal/clips/extend/`** (new, **synchronous**)
+  — takes `{source_clip_url, prompt, duration, ratio, seed?}`.
+  Downloads source if remote; extracts last frame via
+  ffmpeg; fires `/v1/image_to_video` (gen4_turbo) with the
+  last frame + continuation prompt; polls; downloads new
+  clip; ffmpeg-concats source + new into final output.
+  Returns `{output_url, duration_seconds,
+  source_duration_seconds, new_segment_duration_seconds,
+  size_bytes, task_id, mock_mode}`. **Mirrors V11's
+  `/clips/style_remix/` synchronous contract**, not V4's
+  async `/clips/visual/` shape — the long-running ffmpeg +
+  Runway round-trip + ffmpeg-concat doesn't fit the
+  fire-and-return pattern, and a single sync response
+  gives the operator one terminal state per call (same
+  reasoning that drove style_remix sync). Q-v17-1
+  resolution drove this contract change from the original
+  async proposal.
+* **`POST /internal/clips/visual/`** (extended) — accepts
+  an optional `keyframes: [str]` parameter alongside the
+  existing `prompt_image`. When `keyframes` has 2+ entries,
+  fire the multi-keyframe code path; otherwise fall back
+  to the existing single-image-to-video path. **One
+  endpoint, one contract shape.** Backwards-compat by
+  construction: a single-element `keyframes` array is
+  equivalent to the current `prompt_image` behaviour.
 
-Both endpoints route their `prompt_image` / `keyframes`
-URLs through `maybe_to_data_uri` (the SESSION 181 V13 path
-fix that landed in commit `5cc0954`) so V13 `generate_image`
+Both endpoints route `prompt_image` / `keyframes` URLs
+through `maybe_to_data_uri` (the SESSION 181 V13 path fix
+that landed in commit `5cc0954`) so V13 `generate_image`
 outputs feed cleanly through.
 
 ---
@@ -179,13 +238,32 @@ real-mode validation per slice.
 | **V17.0** | Media-engine `/internal/clips/extend/` endpoint + tests. No Django changes. | ½ session |
 | **V17.1** | Django `extend_visual_clip` primitive + cost estimator + tests. No recipe yet. | ½ session |
 | **V17.2** | New `cinematic_visual_extended` recipe (V4 + extend chain) — operator picks target duration > 10s; starter lays down 1 generate_visual_clip + N extend_visual_clip steps. Recipe form + tests + real-mode dogfood. | 1 session |
-| **V17.3** | Multi-keyframe support on `generate_visual_clip` + media-engine `/internal/clips/visual/`. Plus a new `keyframe_shot` recipe (start + end image, single 5-10s shot). | 1 session |
+| **V17.3** | Extend `/internal/clips/visual/` to accept `keyframes: [str]` + multi-keyframe support on `generate_visual_clip`. Plus a new `keyframe_shot` recipe (start + end image, single 5-10s shot). Uses existing IMAGE assets until asset-upload UI lands. | 1 session |
 | **V17.4** | V13 `storyboard_ad` opt-in flag (`use_keyframes: bool = False`) — when on, swaps the 3-shot chain for a single keyframed shot. Default off; V13 backward-compat holds. | ½ session |
 | **V17.5** | V8 `talking_head_with_backdrop` opt-in flag (`use_extend_for_backdrop: bool = False`) — when on, uses extend chain instead of multi-backdrop concat. Resolves the SESSION 179 motion-seam workaround. | ½ session |
 
 Roughly **4 sessions** of work end-to-end. Could compress
 to 2-3 if V17.4 / V17.5 ship together as one operator-
 facing slice.
+
+**Dependency tree:**
+
+```
+V17.0 (extend endpoint)
+  └─ V17.1 (extend primitive + cost)
+       ├─ V17.2 (cinematic_visual_extended recipe)
+       └─ V17.5 (V8 opt-in extend chain)
+
+V17.3 (keyframes on existing endpoint + primitive)
+  └─ V17.4 (V13 opt-in keyframes)
+```
+
+The keyframes track (V17.3 + V17.4) is independent of
+the extend track (V17.0-V17.2 + V17.5) and **MAY
+parallelize** if a session has spare capacity (e.g.
+extend awaiting Runway API confirmation under Q-v17-1).
+Default is linear — validate extend before opening the
+second front.
 
 ---
 
@@ -209,34 +287,44 @@ facing slice.
 
 ---
 
-## Open questions (resolve in implementation slices)
+## Open questions
 
-* **Q-v17-1:** Does Runway's extend endpoint accept the
-  same `prompt` semantics as gen4_turbo, or does it require
-  a continuation-specific prompt schema? Confirm against
-  the live API docs at slice-open time.
-* **Q-v17-2:** How many keyframes does gen4_turbo accept in
-  one call? Two (start + end) is documented; intermediate
-  keyframes may or may not be supported. v1 ships start +
-  end only and defers mid-keyframes until Runway documents
-  the support.
-* **Q-v17-3:** Should the existing `generate_visual_clip`
-  multi-reference path produce a different `template_kind`
-  or stay the same? Argument for staying: composition runtime
-  sees one primitive either way. Argument for splitting: the
-  recipe form needs to differentiate (single ref = simple
-  pose anchor; multi-ref = keyframe interpolation). Resolve
-  in V17.3.
-* **Q-v17-4:** Caching strategy for extend chains. Should
-  the cache key include the SOURCE clip's hash (so re-extending
-  the same source with the same prompt hits cache) or treat
-  every extend as a fresh fire? Probably former; confirm.
-* **Q-v17-5:** Cost-estimator behaviour when the source clip's
-  duration isn't known at recipe-time (V8 opt-in case —
-  operator sets target duration, but the avatar speech
-  duration isn't known until V8 runs the chain length math).
-  Likely resolution: cost estimate based on target duration,
-  refined post-render.
+Five questions surfaced at proposal time. Three are
+resolved inline below; two remain open for slice-open
+verification against live Runway APIs.
+
+* **Q-v17-1 (RESOLVED SESSION 182 at V17.0 slice-open):**
+  Runway's `/v1/video_to_video` only accepts `gen4_aleph`
+  (no `gen4_turbo` or `gen4.5` extend mode at that
+  endpoint today). Pivot: V17.0 implements extend as
+  last-frame extraction + `/v1/image_to_video` (gen4_turbo)
+  + ffmpeg concat. The endpoint becomes **synchronous**
+  (mirrors V11 style_remix), not the originally proposed
+  async shape. See §"Extend Video" and §"New / extended
+  media-engine endpoints" for the updated contracts.
+* **Q-v17-2 (RESOLVED at lock):** v1 ships start + end
+  keyframes only. Intermediate keyframes deferred until
+  Runway documents the support; named slots in the
+  primitive are `start_keyframe` + `end_keyframe`, no
+  `mid_keyframe_N` surface in v1.
+* **Q-v17-3 (RESOLVED at lock):** No `template_kind`
+  split. Per rule 2, keyframes are inputs to the
+  existing image-to-video step, not a new shape. The
+  recipe form differentiates single-ref (simple pose
+  anchor) from multi-ref (keyframe interpolation) at
+  the recipe layer, not the primitive.
+* **Q-v17-4 (RESOLVED at lock):** Cache key MUST
+  include the source clip's content hash. This is
+  correctness, not preference — re-extending a
+  freshly-modified source with a stale cache would
+  silently return wrong output.
+* **Q-v17-5 (open — resolve at V17.1 / V17.5
+  slice-open):** Cost-estimator behaviour when the
+  source clip's duration isn't known at recipe-time
+  (V8 opt-in case — operator sets target duration;
+  avatar speech duration unknown until chain length
+  math runs). Likely resolution: estimate from target
+  duration, refine post-render.
 
 ---
 
