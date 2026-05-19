@@ -3638,6 +3638,32 @@ def _extend_download(url: str, target: Path) -> int:
         raise
 
 
+def _has_audio_stream(path: Path) -> bool:
+    """ffprobe — does this file carry an audio stream? Runway's
+    gen4_turbo + gen4.5 outputs are silent, so the V17.2 extend
+    chain typically has audio on NEITHER side. The concat filter's
+    optional-audio syntax (``[N:a?]``) doesn't work cleanly when
+    the requested output (``a=1``) has no input streams to feed
+    it — ffmpeg exits 234. SESSION 182 V17.2 first-dogfood
+    surface."""
+    import subprocess as _subprocess
+
+    try:
+        out = _subprocess.run(
+            [
+                "ffprobe", "-v", "error",
+                "-select_streams", "a",
+                "-show_entries", "stream=codec_type",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                str(path),
+            ],
+            capture_output=True, text=True, timeout=15,
+        )
+        return out.returncode == 0 and "audio" in out.stdout
+    except (_subprocess.TimeoutExpired, OSError):
+        return False
+
+
 def _extend_concat(source: Path, new_clip: Path, target: Path) -> None:
     """ffmpeg-concat source + new into one MP4. Re-encodes to
     guarantee stream-param alignment — Runway's gen4_turbo output
@@ -3645,20 +3671,46 @@ def _extend_concat(source: Path, new_clip: Path, target: Path) -> None:
     demuxer with ``-c copy`` only works when every input shares
     container + codec + timebase. The concat *filter* (used here)
     sidesteps that constraint at the cost of one extra encode.
-    """
+
+    Audio handling: probe both inputs; if EITHER lacks an audio
+    stream, run video-only concat. Runway-generated visual clips
+    are silent today, so the V17.2 chain hits the video-only
+    branch end-to-end. Mixed-audio inputs (e.g. a future V17.5
+    talking_head_with_backdrop extending an avatar clip with
+    audio) would drop audio to keep the concat shape uniform —
+    that's an acceptable v1 simplification; richer audio
+    handling lives in V17.5's scope, not here."""
     import subprocess as _subprocess
+
+    has_audio = _has_audio_stream(source) and _has_audio_stream(new_clip)
+
+    if has_audio:
+        filter_complex = (
+            "[0:v]setsar=1[v0];[1:v]setsar=1[v1];"
+            "[v0][0:a][v1][1:a]concat=n=2:v=1:a=1[outv][outa]"
+        )
+        map_args = ["-map", "[outv]", "-map", "[outa]"]
+        codec_args = [
+            "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "-c:a", "aac",
+        ]
+    else:
+        # Video-only branch — both inputs silent, no audio output.
+        filter_complex = (
+            "[0:v]setsar=1[v0];[1:v]setsar=1[v1];"
+            "[v0][v1]concat=n=2:v=1:a=0[outv]"
+        )
+        map_args = ["-map", "[outv]"]
+        codec_args = ["-c:v", "libx264", "-pix_fmt", "yuv420p"]
 
     _subprocess.run(
         [
             "ffmpeg", "-y", "-loglevel", "error",
             "-i", str(source),
             "-i", str(new_clip),
-            "-filter_complex",
-            "[0:v]setsar=1[v0];[1:v]setsar=1[v1];"
-            "[v0][0:a?][v1][1:a?]concat=n=2:v=1:a=1[outv][outa]",
-            "-map", "[outv]", "-map", "[outa]",
-            "-c:v", "libx264", "-pix_fmt", "yuv420p",
-            "-c:a", "aac",
+            "-filter_complex", filter_complex,
+            *map_args,
+            *codec_args,
             "-movflags", "+faststart",
             str(target),
         ],

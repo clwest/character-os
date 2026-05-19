@@ -44,6 +44,7 @@ from app.routers.internal import (
     _EXTEND_MODEL,
     _extend_concat,
     _extract_last_frame,
+    _has_audio_stream,
 )
 
 
@@ -53,26 +54,40 @@ from app.routers.internal import (
 def _make_lavfi_clip(
     target: Path, *, duration_s: int = 3, color: str = "red",
     width: int = 1280, height: int = 720,
+    with_audio: bool = True,
 ) -> Path:
-    """Generate a tiny lavfi color clip with embedded audio so
-    extend_concat has both video + audio streams to align on.
-    Different colors at different durations let tests verify
-    the last frame really came from the END of the clip."""
+    """Generate a tiny lavfi color clip.
+
+    ``with_audio`` defaults True (anullsrc padded) so tests that
+    don't care about the audio path don't have to think about
+    it. **Pass ``with_audio=False`` to mirror Runway's actual
+    output shape** — gen4_turbo and gen4.5 outputs are silent
+    MP4s, so V17.2's concat chain hits two-silent-input
+    territory in production. SESSION 182 V17.2 first-dogfood
+    failed at ffmpeg exit 234 because the original silent-
+    output case wasn't covered by any unit test."""
     if not shutil.which("ffmpeg"):
         pytest.skip("ffmpeg not on PATH")
-    subprocess.run(
-        [
-            "ffmpeg", "-y", "-loglevel", "error",
+    args = [
+        "ffmpeg", "-y", "-loglevel", "error",
+        "-f", "lavfi",
+        "-i", f"color=c={color}:s={width}x{height}:r=30:d={duration_s}",
+    ]
+    if with_audio:
+        args.extend([
             "-f", "lavfi",
-            "-i", f"color=c={color}:s={width}x{height}:r=30:d={duration_s}",
-            "-f", "lavfi",
-            "-i", f"anullsrc=channel_layout=stereo:sample_rate=48000:d={duration_s}",
-            "-c:v", "libx264", "-pix_fmt", "yuv420p",
-            "-c:a", "aac", "-shortest",
-            "-f", "mp4", str(target),
-        ],
-        check=True, capture_output=True, timeout=30,
-    )
+            "-i", (
+                f"anullsrc=channel_layout=stereo:sample_rate=48000:"
+                f"d={duration_s}"
+            ),
+        ])
+    args.extend([
+        "-c:v", "libx264", "-pix_fmt", "yuv420p",
+    ])
+    if with_audio:
+        args.extend(["-c:a", "aac", "-shortest"])
+    args.extend(["-f", "mp4", str(target)])
+    subprocess.run(args, check=True, capture_output=True, timeout=30)
     return target
 
 
@@ -433,6 +448,104 @@ def test_extend_concat_handles_mismatched_source_dims(
     )
     total = float(probe.stdout.strip())
     assert 3.8 <= total <= 4.2
+
+
+# ---- audio probe + silent-input concat (V17.2 dogfood regression)
+
+
+def test_has_audio_stream_detects_audio_clip(tmp_path: Path) -> None:
+    """Sanity — the helper finds audio when it's there."""
+    if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
+        pytest.skip("ffmpeg/ffprobe not on PATH")
+    clip = _make_lavfi_clip(
+        tmp_path / "with-audio.mp4", duration_s=1, with_audio=True,
+    )
+    assert _has_audio_stream(clip) is True
+
+
+def test_has_audio_stream_detects_silent_clip(tmp_path: Path) -> None:
+    """The Runway production case — gen4_turbo + gen4.5 outputs
+    are silent MP4s. The probe must return False so the
+    concat path takes the video-only branch.
+
+    Regression guard: SESSION 182 V17.2 first-dogfood failed
+    here. Both inputs were silent (Runway-generated), the
+    pre-fix concat filter requested ``a=1`` on the output, and
+    ffmpeg exited 234 because no input stream could feed the
+    audio output."""
+    if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
+        pytest.skip("ffmpeg/ffprobe not on PATH")
+    clip = _make_lavfi_clip(
+        tmp_path / "silent.mp4", duration_s=1, with_audio=False,
+    )
+    assert _has_audio_stream(clip) is False
+
+
+def test_extend_concat_handles_two_silent_inputs(tmp_path: Path) -> None:
+    """**The dogfood-surfaced case.** V17.2 in production hits
+    this every time: source and new clip both come from Runway
+    (silent). Concat must succeed and produce a playable MP4
+    of the summed duration. The pre-SESSION-182-fix concat
+    filter requested ``a=1`` from two silent inputs and
+    blew up with ffmpeg exit 234. The fix probes audio and
+    takes the video-only branch when neither input has it."""
+    if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
+        pytest.skip("ffmpeg/ffprobe not on PATH")
+
+    source = _make_lavfi_clip(
+        tmp_path / "src-silent.mp4", duration_s=2, with_audio=False,
+    )
+    new = _make_lavfi_clip(
+        tmp_path / "new-silent.mp4", duration_s=3, with_audio=False,
+    )
+    out = tmp_path / "combined.mp4"
+    _extend_concat(source, new, out)
+
+    assert out.exists()
+    assert out.stat().st_size > 0
+    # Output must be playable video; ffprobe should report ~5s.
+    probe = subprocess.run(
+        [
+            "ffprobe", "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            str(out),
+        ],
+        capture_output=True, text=True, timeout=15,
+    )
+    total = float(probe.stdout.strip())
+    assert 4.8 <= total <= 5.2, (
+        f"silent-input concat produced {total:.2f}s output; expected ~5s"
+    )
+    # And there should be NO audio stream on the output (we asked
+    # for video-only).
+    assert _has_audio_stream(out) is False
+
+
+def test_extend_concat_drops_audio_on_mismatched_inputs(
+    tmp_path: Path,
+) -> None:
+    """Defensive: if the source has audio but the new clip
+    doesn't (or vice versa), the concat falls into video-only
+    mode rather than failing. This is the V17.5 forward path —
+    extending a talking-head clip (audio) with a Runway visual
+    extend (silent). v1 drops audio rather than padding with
+    anullsrc; richer audio handling can come later."""
+    if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
+        pytest.skip("ffmpeg/ffprobe not on PATH")
+
+    source_with_audio = _make_lavfi_clip(
+        tmp_path / "src-audio.mp4", duration_s=2, with_audio=True,
+    )
+    new_silent = _make_lavfi_clip(
+        tmp_path / "new-silent.mp4", duration_s=2, with_audio=False,
+    )
+    out = tmp_path / "combined.mp4"
+    _extend_concat(source_with_audio, new_silent, out)
+
+    assert out.exists()
+    # No audio on the output — v1 simplification.
+    assert _has_audio_stream(out) is False
 
 
 # ---- contract pin ------------------------------------------------
