@@ -472,6 +472,71 @@ RECIPES: dict[str, Recipe] = {
         param_map={"prompt_image_asset_id": "prompt_image"},
         starter=starters.cinematic_visual,
     ),
+    # V17.2 (SESSION 182) — extend chain off V4 generate_visual_clip.
+    # Produces cinematic clips longer than Runway's 10s per-render
+    # ceiling by chaining V17.1's extend_visual_clip primitive off
+    # the base generate. Q-v17-1 pivot baked in — extends use
+    # gen4_turbo image-to-video conditioned on the prior step's
+    # last frame; base uses gen4.5 text-to-video for the 10s
+    # opening shot. Operators wanting an image-conditioned base
+    # should use V17.3's keyframe_shot recipe (when it ships).
+    "cinematic_visual_extended": Recipe(
+        kind="cinematic_visual_extended",
+        display_name="Cinematic visual (extended)",
+        family=FAMILY_CINEMATIC,
+        description=(
+            "Cinematic clip longer than Runway's 10s per-render ceiling. "
+            "Base 10s shot + N 5s extensions; visual continuity preserved "
+            "by conditioning each extension on the prior step's last frame."
+        ),
+        fields=(
+            RecipeField(
+                name="spokesperson_id", type="spokesperson_picker",
+                label="Brand owner (spokesperson)",
+            ),
+            RecipeField(
+                name="prompt", type="textarea", label="Visual prompt",
+                min_chars=4, max_chars=1000,
+                help_text=(
+                    "Shared across the base 10s shot and every 5s "
+                    "extension. v1 uses one prompt for the whole chain."
+                ),
+            ),
+            RecipeField(
+                name="target_duration", type="select",
+                label="Target duration",
+                default=15,
+                choices=(
+                    {"value": 15, "label": "15 seconds (1 extension)"},
+                    {"value": 20, "label": "20 seconds (2 extensions)"},
+                    {"value": 25, "label": "25 seconds (3 extensions)"},
+                    {"value": 30, "label": "30 seconds (4 extensions)"},
+                    {"value": 40, "label": "40 seconds (6 extensions)"},
+                    {"value": 50, "label": "50 seconds (8 extensions)"},
+                ),
+                help_text=(
+                    "Longer targets fire more Runway extend calls "
+                    "(each ~$0.25). The cost forecast updates with "
+                    "the selection."
+                ),
+            ),
+            RecipeField(
+                name="ratio", type="select", label="Aspect ratio",
+                required=False, default="1280:720", choices=_RATIO_CHOICES,
+            ),
+            RecipeField(
+                name="seed", type="number", label="Seed (optional)",
+                required=False,
+                help_text=(
+                    "Optional integer seed passed to every extension "
+                    "for visual coherence across the chain."
+                ),
+            ),
+            _NAME_FIELD,
+            _MOCK_MODE_FIELD,
+        ),
+        starter=starters.cinematic_visual_extended,
+    ),
     "storyboard_voiced": Recipe(
         kind="storyboard_voiced",
         display_name="Storyboard with avatar narration",

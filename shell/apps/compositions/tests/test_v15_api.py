@@ -106,11 +106,14 @@ def _login(client: APIClient, user) -> None:
 # ---- registry shape ----------------------------------------------
 
 
-def test_recipe_registry_has_eighteen_entries() -> None:
+def test_recipe_registry_has_nineteen_entries() -> None:
     """V15.4 added ``storyboard_voiced`` (was deferred from V13
     until V14 shipped ``audio_extract``), bringing the gallery
-    to 18 starter compositions."""
-    assert len(RECIPES) == 18
+    to 18 starter compositions. V17.2 (SESSION 182) added
+    ``cinematic_visual_extended`` as the second post-close
+    recipe (extends V4's cinematic_visual via V17.1's
+    extend_visual_clip primitive), bringing the count to 19."""
+    assert len(RECIPES) == 19
 
 
 def test_every_recipe_has_required_metadata() -> None:
@@ -165,14 +168,16 @@ def test_recipe_asset_picker_fields_have_asset_type() -> None:
 # ---- GET /api/recipes/ -------------------------------------------
 
 
-def test_get_recipes_returns_all_eighteen() -> None:
+def test_get_recipes_returns_all_nineteen() -> None:
+    """V17.2 (SESSION 182) added ``cinematic_visual_extended``,
+    bringing the gallery from 18 to 19."""
     ws, user = _make_workspace_with_user("v15list@test")
     client = APIClient()
     _login(client, user)
     response = client.get("/api/recipes/")
     assert response.status_code == http.HTTP_200_OK
     data = response.json()
-    assert len(data) == 18
+    assert len(data) == 19
 
 
 def test_get_recipes_requires_auth() -> None:

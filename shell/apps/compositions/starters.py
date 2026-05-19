@@ -318,6 +318,174 @@ def cinematic_visual(
     return composition
 
 
+# ---- V17.2: cinematic_visual_extended ----------------------------
+#
+# SESSION 182 / V17.2. Chain V17.1's extend_visual_clip primitive
+# off V4's generate_visual_clip to produce a cinematic clip
+# longer than Runway's 10s per-render ceiling.
+#
+# Chain shape:
+#
+#   Step 0:        generate_visual_clip (duration=10, gen4.5 text-to-video)
+#   Step 1..N:     extend_visual_clip (duration=5, gen4_turbo
+#                  image-to-video conditioned on prior step's last frame)
+#
+# where N = (target_duration - 10) / 5. Q-v17-1 resolution shapes
+# this — the extend primitive uses gen4_turbo image-to-video
+# (always 5s per call), so all extend segments are exactly 5s.
+# Base step uses gen4.5 (no prompt_image) so we get a clean 10s
+# base. Operators wanting an image-conditioned base should use
+# the V17.3 keyframe_shot recipe instead.
+#
+# Supported target_duration values: 15, 20, 25, 30, 40, 50 seconds
+# (multiples of 5 ≥ 15). Larger values are deliberately restricted
+# — beyond ~50s the operator should compose with long_form_ad or
+# concat instead of relying on a single visual continuation chain.
+
+_EXTENDED_BASE_DURATION_SECONDS = 10
+_EXTENDED_SEGMENT_DURATION_SECONDS = 5
+_EXTENDED_VALID_TARGETS = (15, 20, 25, 30, 40, 50)
+
+
+@transaction.atomic
+def cinematic_visual_extended(
+    *,
+    workspace: "Workspace",
+    spokesperson: "Spokesperson",
+    prompt: str,
+    target_duration: int,
+    ratio: str | None = None,
+    seed: int | None = None,
+    mock_mode: bool = False,
+    name: str = "",
+    created_by: "AbstractBaseUser | None" = None,
+) -> Composition:
+    """Create a multi-step cinematic clip longer than Runway's
+    per-render 10s ceiling.
+
+    Chain:
+      Step 0: generate_visual_clip (10s, text-to-video via gen4.5)
+      Steps 1..N: extend_visual_clip (5s each, conditioned on
+                  the prior step's last frame via Runway gen4_turbo)
+
+    where N = (target_duration - 10) / 5.
+
+    Per V17 contract rules 10 + 12: each extend step is one
+    primitive call emitting one CLIP Asset; the V4 generate
+    base + N extends compose linearly (rule 5 — no DAG). All
+    steps share one prompt for v1 simplicity; future v2 could
+    accept per-step continuation prompts via separate fields.
+
+    Args:
+        workspace: Composition workspace anchor.
+        spokesperson: Brand owner (same shape as cinematic_visual —
+            required even though the avatar isn't on screen).
+        prompt: Shared visual prompt across base + all extend
+            steps. Required.
+        target_duration: Final clip duration in seconds. Must
+            be one of {15, 20, 25, 30, 40, 50}.
+        ratio: ``1280:720`` | ``720:1280`` | ``960:960``. Default
+            ``1280:720``. All steps use the same ratio.
+        seed: Optional Runway seed for visual coherence across
+            the chain. Passed to every extend step (the base
+            generate doesn't currently accept seed, but recording
+            it here keeps audit clean).
+        mock_mode: Run in mock-mode (V0 contract rule 9).
+        name: Operator-visible name. Defaults to
+            "Cinematic visual {target}s — {prompt[:40]}".
+        created_by: Optional User for audit attribution.
+
+    Returns:
+        Fresh ``Composition`` with 1 + N steps laid down.
+
+    Raises:
+        ``ValueError`` for empty prompt, cross-workspace
+        spokesperson, or unsupported target_duration.
+    """
+    if not prompt.strip():
+        raise ValueError(
+            "cinematic_visual_extended starter requires a non-empty prompt"
+        )
+    if spokesperson.workspace_id != workspace.pk:
+        raise ValueError(
+            f"spokesperson {spokesperson.name!r} (workspace "
+            f"{spokesperson.workspace_id}) is not in workspace "
+            f"{workspace.pk}"
+        )
+    if target_duration not in _EXTENDED_VALID_TARGETS:
+        raise ValueError(
+            f"target_duration must be one of "
+            f"{list(_EXTENDED_VALID_TARGETS)}; got {target_duration}"
+        )
+
+    # N = number of extend steps after the base 10s.
+    extend_count = (
+        target_duration - _EXTENDED_BASE_DURATION_SECONDS
+    ) // _EXTENDED_SEGMENT_DURATION_SECONDS
+
+    composition_name = (
+        name.strip()
+        or f"Cinematic visual {target_duration}s — {prompt[:40]}"
+    )
+    composition = Composition.objects.create(
+        workspace=workspace,
+        spokesperson=spokesperson,
+        name=composition_name,
+        template_kind="cinematic_visual_extended",
+        mock_mode=mock_mode,
+        created_by=created_by,
+    )
+
+    # Step 0: base generate_visual_clip. text-to-video (no
+    # prompt_image) so we get the gen4.5 10s output, not the
+    # gen4_turbo 5s. Same kwargs shape as cinematic_visual but
+    # duration locked to 10.
+    base_params: dict[str, object] = {
+        "prompt": prompt.strip(),
+        "duration": _EXTENDED_BASE_DURATION_SECONDS,
+    }
+    if ratio is not None:
+        base_params["ratio"] = ratio
+    CompositionStep.objects.create(
+        composition=composition,
+        position=0,
+        primitive="generate_visual_clip",
+        inputs=[],
+        params=base_params,
+    )
+
+    # Steps 1..N: extend_visual_clip, each consuming the prior
+    # step's output. Linear chain — V1 rule 5 + V17 rule 10.
+    for i in range(extend_count):
+        step_position = i + 1
+        prior_position = step_position - 1
+        extend_params: dict[str, object] = {
+            "prompt": prompt.strip(),
+            "duration": _EXTENDED_SEGMENT_DURATION_SECONDS,
+        }
+        if ratio is not None:
+            extend_params["ratio"] = ratio
+        if seed is not None:
+            extend_params["seed"] = seed
+        CompositionStep.objects.create(
+            composition=composition,
+            position=step_position,
+            primitive="extend_visual_clip",
+            inputs=[
+                {"slot": "source", "from_step_position": prior_position},
+            ],
+            params=extend_params,
+        )
+
+    logger.info(
+        "starter cinematic_visual_extended created composition=%s "
+        "spokesperson=%s mock=%s target=%ds extends=%d ratio=%s seed=%s",
+        composition.id, spokesperson.id, mock_mode,
+        target_duration, extend_count, ratio, seed,
+    )
+    return composition
+
+
 @transaction.atomic
 def long_form_ad(
     *,
