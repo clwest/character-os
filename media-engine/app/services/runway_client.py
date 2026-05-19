@@ -97,6 +97,16 @@ _LOCAL_IMAGE_PREFIX = "/api/runway/image/"
 # localhost.
 _CHARACTER_PORTRAIT_PREFIX = "/api/characters/"
 _CHARACTER_PORTRAIT_SUFFIX = "/portrait"
+# V13 `generate_image` output prefix — paths like
+# `/data/_internal/images/<hash>.png`. The V-arc storyboard
+# chain feeds these IMAGE assets into V4's `generate_visual_clip`
+# (gen4_turbo image-to-video) via the reference_image slot, so
+# they need the same URL→data-URI rewrite as the legacy
+# `_LOCAL_IMAGE_PREFIX` route. SESSION 181 dogfood: a Runway
+# 400 ("Invalid string: must start with `https://`") surfaced
+# because the unrewritten local path went straight to the
+# image_to_video endpoint.
+_DATA_INTERNAL_IMAGE_PREFIX = "/data/_internal/images/"
 # Mapping of file extensions to the appropriate data-URI media types — used
 # by the multi-extension image cache lookup PR R adds for uploads.
 _DATA_URI_MEDIA = {
@@ -218,6 +228,27 @@ def maybe_to_data_uri(prompt_image: str, settings: Settings) -> str:
         data = portrait.read_bytes()
         b64 = base64.b64encode(data).decode("ascii")
         return f"data:image/png;base64,{b64}"
+
+    # V13 `generate_image` output route. Maps the SPA-facing
+    # `/data/_internal/images/<name>` URL to the on-disk file
+    # under `<data_path>/_internal/images/<name>` and embeds as
+    # a data URI. The file extension already carries the media
+    # type — no multi-extension fallback needed (V13 always
+    # writes PNG).
+    if pi.startswith(_DATA_INTERNAL_IMAGE_PREFIX):
+        rel = pi[len(_DATA_INTERNAL_IMAGE_PREFIX):]
+        if "/" in rel or ".." in rel or not rel:
+            return pi
+        candidate: Path = settings.data_path / "_internal" / "images" / rel
+        if not candidate.exists():
+            return pi
+        ext = candidate.suffix.lstrip(".").lower()
+        media = _DATA_URI_MEDIA.get(ext)
+        if media is None:
+            return pi
+        data = candidate.read_bytes()
+        b64 = base64.b64encode(data).decode("ascii")
+        return f"data:{media};base64,{b64}"
 
     if not pi.startswith(_LOCAL_IMAGE_PREFIX):
         return pi
