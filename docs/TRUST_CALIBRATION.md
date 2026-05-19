@@ -3881,3 +3881,52 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   as a pointer to ground truth, not a substitute for it. When
   the brief and source disagree, source wins — and the agent
   is the right place to enforce that.
+
+### A-arc growth template — 7 narrow slices, half-session cadence, backend → SPA progression
+- **Date:** 2026-05-19
+- **Session:** 192
+- **Context:** Asset Library v1 closed in 7 sessions (185-192,
+  one arc-close ceremony commit aggregated with A8). All 9 slices
+  shipped without scope creep, deferrals beyond the pre-lock
+  Q-a-6 v2 punt, or session overruns.
+- **Surface / artefact:** Slice breakdown in
+  `docs/design/ASSET_LIBRARY_V1.md`; commit history
+  `78ddd5d..` through `<A8 commit>`; 14 feat+docs commit pairs.
+- **AI expectation (before):** A 9-slice arc would feel
+  similar to V (16 slices) or R (10 slices) — multiple
+  multi-session features, real-mode validation between
+  slices, occasional re-scoping.
+- **Reality / outcome:** **A-arc was the cleanest arc to date.**
+  The template that worked:
+  * **Backend before SPA**: A0 (model) → A1 (data migration) →
+    A2 (production emit) → A3 (helper) → A4 (read endpoints)
+    formed the entire backend in 4 sessions. SPA started at A5
+    with a live, stable endpoint to consume.
+  * **One-runner-emit, many-callers** (the SESSION 186 A2
+    calibration) — adding a cross-cutting field to PrimitiveResult
+    + threading through the single Asset.objects.create site
+    covered 28+ primitive emit paths.
+  * **Subagent delegation for SPA slices** — A5 + A6 both
+    landed via `react-web-delivery` with high precision once
+    briefs pointed at source-of-truth files rather than
+    restating values (SESSION 189 calibration).
+  * **Operator-visible payoff prioritized mid-arc** — A7
+    (role-filtered picker) was the structural fix the arc
+    existed to ship. Operator picked A7 over A6 at SESSION 190
+    slice-open; arc continuity resumed after.
+  * **Arc-close ceremony pattern** — regen INVENTORY, mark
+    status: complete in design lock, TRUST_CALIBRATION entry,
+    handoff names the arc closed. Same shape as V-arc and
+    R-arc closures.
+- **Found by:** Retrospective at arc close (SESSION 192).
+- **Lesson:** **The 9-slice / ½-session-each shape works.** For
+  the next arc with a clear backend-then-SPA shape, default to:
+  * Lock 9 slices.
+  * Ship backend in 4 sessions (model → backfill → emit →
+    endpoint).
+  * Ship SPA in 2 sessions via the react-web-delivery agent.
+  * Reserve 1 session for the operator-visible structural fix
+    (the slice the arc exists to enable) — operator picks the
+    timing.
+  * Close with 1 session for cross-link / lineage / arc-close
+    ceremony.
