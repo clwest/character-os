@@ -3274,3 +3274,120 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   third-party call, search for existing endpoints with
   similar wrap-around shape — that's the contract twin,
   even if it lives in a different conceptual family.
+
+## 2026-05-18 — Recipe choice values must be strings per SPA Zod schema (V17.2)
+
+- **Context / claim:** V17.2's `target_duration` field shipped
+  with integer choice values (`{"value": 15, "label": "..."}`).
+  Backend tests passed; SPA Zod schema check at recipe-add
+  time was not performed.
+- **Reality / outcome:** First dogfood load of `/recipes`
+  returned "Couldn't load recipes" with a Zod parse error
+  listing all six int-valued choices as
+  `expected string, received number`. **Zod parse failure
+  short-circuits the ENTIRE recipe list**, not just the bad
+  recipe — every operator in every workspace would have lost
+  the gallery until a fix shipped. This is a session-end-
+  quality bug class, not just a V17.2 bug.
+- **Found by:** Operator-driven SPA navigation, first load
+  of `/recipes` after V17.2 ship.
+- **Lesson:** **Recipe `choice` values MUST be strings** per
+  `web/src/lib/api/recipes.ts` (`recipeFieldChoice.value:
+  z.string()`). The backend can carry int choices, but the
+  contract crossing the API requires string. Coerce in the
+  starter, not the schema. **Add to slice-open checklist for
+  any new recipe with non-text choices:** verify the choice
+  values are strings before opening the slice. The SPA Zod
+  schema is the contract source of truth.
+
+## 2026-05-18 — New recipes need three SPA touchpoints, not one (V17.2)
+
+- **Context / claim:** V17.2 shipped the backend recipe
+  (`cinematic_visual_extended` in `recipes.py` + starter).
+  Assumption: the V15 form renderer is generic; opening the
+  SPA `/recipes` would surface the new card as live, same as
+  every other recipe.
+- **Reality / outcome:** **Three SPA touchpoints are required**
+  for a new recipe to fully ship, not one:
+  1. Choice values must be strings (above entry).
+  2. The kind must be added to `LIVE_RECIPE_KINDS` in
+     `web/src/lib/api/recipes.ts` — otherwise the card
+     renders "coming soon" and isn't clickable.
+  3. The form-renderer's submission path needs default
+     values to be applied (separate entry below).
+- **Found by:** Operator-driven SPA navigation. Card rendered
+  but showed "coming soon" overlay; operator surfaced.
+- **Lesson:** **New-recipe checklist has three SPA items in
+  addition to the backend starter + recipe entry:**
+  (a) string choice values, (b) opt into `LIVE_RECIPE_KINDS`,
+  (c) verify any required-with-default fields submit cleanly.
+  None of these are visible from backend unit tests; all three
+  surface only at SPA load/use time. Worth a runtime drift
+  check at session-start: any recipe in `RECIPES` not in
+  `LIVE_RECIPE_KINDS` is either an operator-visible
+  "coming soon" or an oversight.
+
+## 2026-05-18 — Form-renderer renders defaults but DROPS them on submission (V17.2)
+
+- **Context / claim:** V17.2's `target_duration` field is
+  required + has a default value of "15". The recipe form
+  renders the default via `defaultedValue = value ?? field.default`.
+  Operator left the select at its default ("15"), clicked
+  submit.
+- **Reality / outcome:** **POST /api/compositions/ returned
+  500** with `TypeError: cinematic_visual_extended() missing
+  1 required keyword-only argument: 'target_duration'`. Root
+  cause: the form-submission loop checks `form[field.name]`
+  (the operator-touched value, undefined if untouched) and
+  skips the field entirely if it's undefined — regardless of
+  whether `field.default` is defined. The default is shown
+  for display but never makes it into the POST body. This
+  is a **latent bug across the entire form-renderer** that
+  never surfaced before V17.2 because no prior recipe had a
+  required-AND-default field (every required field had no
+  default; every defaulted field was optional).
+- **Found by:** Operator-driven SPA submission with default
+  select value.
+- **Lesson:** **Form render and form submission must apply
+  defaults symmetrically.** Render-side `defaultedValue = value
+  ?? field.default` has a submission-side twin: when the form
+  state for a field is undefined/empty/null, fall back to
+  `field.default` BEFORE submitting. Fixed in commit
+  `01ea94d`. The render/submit asymmetry is a class of bug
+  worth flagging at SPA reviews — any UI that shows a "default"
+  to the operator must also submit it. Pattern to carry:
+  **default in render = default in submit, no exceptions.**
+
+## 2026-05-18 — Unit test fixtures must mirror provider output shape (V17.0 silent-clip bug)
+
+- **Context / claim:** V17.0 shipped with 13 unit tests
+  covering the extend endpoint. The `_extend_concat` helper
+  test used lavfi-generated clips with `anullsrc` audio
+  padding (because that's the easy way to make a tiny
+  test MP4). Tests passed; helper was considered validated.
+- **Reality / outcome:** **First real-mode V17.2 dogfood
+  failed at the final concat step with ffmpeg exit 234**
+  because Runway's `gen4_turbo` and `gen4.5` outputs are
+  SILENT MP4s — neither input has an audio stream. My concat
+  filter requested `a=1` on the output; ffmpeg couldn't
+  satisfy that from two silent inputs and exited. The unit
+  tests never exercised this case because the fixture was
+  the easy-to-construct shape (with-audio), not the
+  production shape (silent). Classic "fixtures don't match
+  production data" trap.
+- **Found by:** Operator-driven real-mode dogfood — the first
+  time the helper saw real Runway outputs as input.
+- **Lesson:** **Unit test fixtures for any helper that
+  processes provider outputs MUST mirror the provider's
+  actual output shape**, not the easiest-to-construct test
+  shape. For Runway visual clips: silent MP4 with no audio
+  stream is the canonical shape; `with_audio=True` lavfi
+  fixtures are a fiction. Fixed in commit `9fac2b3`:
+  `_extend_concat` now probes audio + builds the filter
+  conditionally, with 4 new regression tests covering the
+  silent-input + mixed-audio cases. Pattern to carry: when
+  writing unit tests for code that wraps an external API,
+  shape the fixtures after a SAMPLE of the API's actual
+  output, not the easiest-to-construct shape. Spending five
+  minutes downloading a real Runway output and stripping
+  audio would have caught this before ship.
