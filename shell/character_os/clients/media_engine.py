@@ -901,6 +901,15 @@ class MediaEngineClient:
         clip_url: str,
         style_preset: str,
         seed: int | None = None,
+        # Aleph is slow — chunked + parallel for clips >5.5s,
+        # each chunk a separate Runway gen4_aleph call running
+        # ~30-60s. A 10s clip = 2 chunks ~ 2-3 min wall-clock;
+        # longer clips can easily hit 8+ min. The default 60s
+        # client timeout fired the SESSION 181 dogfood failure
+        # before Aleph could even respond. Same shape as V16's
+        # remove_avatar_background timeout override (SESSION
+        # 179) — long-running endpoints need their own ceiling.
+        timeout: float = 900.0,
     ) -> "StyleRemixResult":
         """Hit ``POST /internal/clips/style_remix/`` — Runway
         Aleph (gen4_aleph) via /v1/video_to_video. Synchronous;
@@ -913,7 +922,10 @@ class MediaEngineClient:
         }
         if seed is not None:
             body["seed"] = seed
-        data = self.request("POST", "/internal/clips/style_remix/", json=body)
+        data = self.request(
+            "POST", "/internal/clips/style_remix/",
+            json=body, timeout=timeout,
+        )
         try:
             return StyleRemixResult(
                 output_url=str(data["output_url"]),

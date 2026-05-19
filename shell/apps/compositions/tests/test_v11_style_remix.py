@@ -240,6 +240,51 @@ def test_style_remix_real_mode_call_shape() -> None:
     assert r.extra_source_spec["chunked"] is False
 
 
+def test_style_remix_client_passes_generous_timeout_to_request() -> None:
+    """Aleph is the slowest media-engine call: chunked + parallel
+    for clips >5.5s, each chunk a separate ~30-60s Runway gen4_aleph
+    invocation. The default 60s ``MediaEngineClient.request()``
+    timeout fired the SESSION 181 dogfood failure (10s source ->
+    2 chunks -> ~3 min wall-clock) before Aleph could respond.
+    Regression guard: ``style_remix`` MUST pass a per-call timeout
+    override (same pattern as V16 remove_avatar_background).
+    """
+    from character_os.clients.media_engine import (
+        MediaEngineClient,
+        StyleRemixResult,
+    )
+
+    client = MediaEngineClient()
+    captured: dict = {}
+
+    def fake_request(method, path, *, params=None, json=None, timeout=None):
+        captured["method"] = method
+        captured["path"] = path
+        captured["timeout"] = timeout
+        return {
+            "output_url": "/data/_internal/style_remixes/x.mp4",
+            "duration_seconds": 5.0,
+            "size_bytes": 1024,
+            "style_preset": "noir",
+            "chunked": False,
+            "task_ids": [],
+            "mock_mode": False,
+        }
+
+    with patch.object(client, "request", side_effect=fake_request):
+        client.style_remix(clip_url="/data/source.mp4", style_preset="noir")
+
+    assert captured["method"] == "POST"
+    assert captured["path"] == "/internal/clips/style_remix/"
+    assert captured["timeout"] is not None, (
+        "style_remix MUST override the default 60s client timeout — "
+        "Aleph chunked rendering routinely exceeds it"
+    )
+    # 5+ minute ceiling required to cover real Aleph chunked
+    # renders on multi-segment sources.
+    assert captured["timeout"] >= 300
+
+
 def test_style_remix_propagates_chunked_flag_in_source_spec() -> None:
     """The chunked-path metadata reaches the output Asset's
     source_spec so audits can identify multi-fire remixes."""
