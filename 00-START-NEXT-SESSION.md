@@ -48,10 +48,12 @@ state: active
 > **Media generation scope lock:** `docs/design/MEDIA_GENERATION_V1.md`
 > (locked SESSION 172 — 10 contract rules, W11.6.0-W11.6.5
 > slice breakdown). **W11.6.0-W11.6.5 + W11.6.5 sub-slices 1/2/3 COMPLETE.**
-> **NEW: Asset Library scope proposal (SESSION 184)** —
-> `docs/design/ASSET_LIBRARY_V1.md` (`status: proposed`).
-> 9 roles, 9 contract rules, 8 slices A0-A8 (~5-6 sessions).
-> Pending operator review SESSION 185.
+> **Asset Library scope lock:** `docs/design/ASSET_LIBRARY_V1.md`
+> (locked SESSION 185). **10 roles** (`EXPERIMENT` added for
+> smoke / sandbox outputs), 9 contract rules merged into V1
+> as rules 14-22, **9 slices A0-A8** (~5-6 sessions).
+> Q-a-1 through Q-a-5 resolved at lock; Q-a-6 deferred to v2.
+> **A0 OPEN (SESSION 185).**
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
@@ -213,42 +215,32 @@ Real-mode spend this session: **~$2.50** (smoke ~$1.50-$3
 
 ---
 
-## FIRST THING (SESSION 185): operator review of Asset Library v1 scope
+## FIRST THING (SESSION 185 — IN PROGRESS): slice A0
 
-**Path A — lock the arc** (recommended):
+Asset Library v1 scope LOCKED at SESSION 185 boot. Doc
+edits + rule merge complete. **A0 is the active slice.**
 
-1. Read `docs/design/ASSET_LIBRARY_V1.md` end-to-end.
-2. Resolve or defer Q-a-1 through Q-a-6 (taxonomy
-   choice, backfill strategy, storage-health caching,
-   detail-view shape, picker filter mechanism,
-   Avatar/Voice/Portrait modeling).
-3. Lock — flip `status: proposed` → `status: locked`,
-   merge contract rules into V1 as rules 14-22.
-4. Open slice A0 (Asset.role migration).
+**A0 deliverable: `Asset.role` enum field + migration.**
 
-**Path B — pivot:**
+1. Add `Asset.role` as a `CharField(max_length=24,
+   choices=ROLE_CHOICES, default='RAW_UPLOAD')` with a
+   db_index. Use a `TextChoices` enum class on the model.
+2. Generate the migration; verify
+   `python manage.py migrate --check` passes.
+3. Existing Asset rows take the `RAW_UPLOAD` default at
+   migration time — A1 backfill replaces them with
+   primitive_kind-derived roles.
+4. Add unit tests covering: enum values match the spec
+   (10 entries), default applies to new rows, indexed
+   lookup works.
+5. Re-gen `python manage.py inventory` so the Asset
+   table picks up the new field.
+6. Per-slice doc updates (Asset Library row marked
+   `✓ SHIPPED A0` with commit ref) per the doc-with-commit
+   discipline (CLAUDE.md §"Doc-with-commit discipline").
 
-* Different taxonomy approach (free-form tags? hybrid?).
-* Asset upload UI first (queued SESSION 181 gap that
-  intersects).
-* Cast rebuild first (fresh Riggs/Sasha/Donny avatars
-  via `gen4_image`) — narrower dogfood task, doesn't
-  require the new arc.
-
-**Path C — small-win sidebars first** then return:
-
-* V18 polish slice — add starter-time
-  duration-mismatch warning (~½ session, addresses
-  today's surfaced UX gap).
-* F8.1 K10 seed corpus (queued).
-* `storyboard_voiced` + `dialogue_scene` real-mode
-  validation (last two unvalidated V-arc recipes,
-  deferrable since V17 is now deferred).
-
-Recommended sequence: **Path A** — the Asset Library
-gap is the most-recent operator-visible friction, and
-the design doc is already drafted. A0 + A1 ship cleanly
-inside one session.
+A0 estimated effort: ½ session. A1 (backfill command)
+should follow in the same session if time allows.
 
 ---
 
@@ -292,7 +284,7 @@ SESSION 182, V17.0/1/2/5 shipped + real-mode validated**;
 | V17.5 V8 opt-in extend | DONE + REAL-MODE VALIDATED |
 | **Polish slice 1 (duration fallback + null guard)** | **DONE + REAL-MODE VALIDATED (SESSION 184)** |
 | **smoke_keyframes management command** | **DONE + REAL-MODE VALIDATED (SESSION 184)** |
-| **Asset Library v1 proposal** | **DRAFTED — pending review (SESSION 184)** |
+| **Asset Library v1 scope-lock** | **LOCKED (SESSION 185); A0 in flight** |
 | B6-B10 brand arc | Deferred |
 | F8.1 (K10 seed corpus) | Queued |
 | K7.x v3 YouTube oEmbed | Queued |

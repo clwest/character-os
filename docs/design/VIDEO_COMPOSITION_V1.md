@@ -194,12 +194,84 @@ These bind every composition slice the same way
     above. See `VIDEO_COMPOSITION_V17_PROPOSAL.md`
     rule 4.
 
+14. **Asset role is a closed enum, not free-form tags.**
+    v1 ships **ten** roles (TALKING_HEAD / BACKDROP /
+    COMPOSITE_OUTPUT / POLISH_OUTPUT / REFERENCE_IMAGE /
+    B_ROLL / TRANSCRIPT / AUDIO_TRACK / RAW_UPLOAD /
+    EXPERIMENT). Operator-defined free-form tags are out
+    of scope — adding tag plumbing on top of an unsettled
+    role enum is harder than adding tags later. New roles
+    require a migration + scope discussion.
+
+15. **Role is stamped at primitive-emit time, not derived.**
+    Every primitive that produces an Asset sets the role
+    on the output. Role is queryable directly
+    (`Asset.objects.filter(role=...)`); never reconstructed
+    from `source_spec.primitive_kind` at query time. Same
+    discipline as `asset_type` today.
+
+16. **Role is workspace-scoped.** No global taxonomy, no
+    cross-workspace role sharing. Each workspace's role
+    enum is the same closed set, but role assignments live
+    on Asset rows which honor rule 1 (workspace isolation).
+
+17. **Asset backfill is heuristic-driven but verifiable.**
+    A one-time management command maps existing
+    `primitive_kind` values to roles. Ambiguous rows get a
+    review flag. Operator approves the dry-run report
+    before re-running with `--commit`. No silent
+    backfills.
+
+18. **Asset browse surface is read-only in v1.** `GET
+    /api/workspace/assets/` only; no write endpoints, no
+    delete, no archive. Mutation surface deferred to a
+    later arc. Same pattern F-arc used (read-only browse
+    first, mutation deferred).
+
+19. **Storage-health is computed, not stored.** A reusable
+    helper inspects `Asset.file_path` and returns one of
+    `{HTTPS_LIVE, HTTPS_EXPIRING_SOON, HTTPS_EXPIRED,
+    LOCAL_PRESENT, LOCAL_MISSING, DATA_URI,
+    UPLOAD_PENDING}`. Live computation against the JWT
+    `exp` claim + filesystem stat. Caching deferred until
+    A5 perf demands it.
+
+20. **No new primitive emits assets without a role.** Same
+    shape as rule 5's no-DAG enforcement. Any new
+    primitive added post-Asset-Library scope-lock MUST
+    stamp role. A migration test enforces every
+    primitive_kind in `apps.compositions.primitives` has a
+    registered default role.
+
+21. **Asset Library does not replace Composition lineage
+    (F-arc).** F-arc ships per-Composition lineage; this
+    arc ships per-Asset. The two surfaces co-exist —
+    "what did this composition produce?" vs "what's in my
+    workspace?" Cross-linked in A8: each asset detail
+    shows producing composition; each composition lineage
+    shows produced assets.
+
+22. **Asset Library is a read foundation, not a
+    replacement for the asset_picker.** The existing
+    asset_picker in recipe forms (V15.2-V15.3) keeps its
+    current contract — filter by `asset_type` + optional
+    workspace scope. A7 adds an opt-in
+    `RecipeField.role_filter` field; recipes that don't
+    set it keep current behavior. Backdrop-vs-talking-head
+    pickers in V18 / V8 / V13 stay unchanged until A7
+    flips them in.
+
 > **Rules 10-13 added 2026-05-18 (SESSION 182)** at V17
 > scope-lock. See `VIDEO_COMPOSITION_V17_PROPOSAL.md` for
 > the full rationale, the six-slice breakdown (V17.0-V17.5),
-> and the in-scope clarifications. The four rules layer on
-> top of V1's nine — none of rules 1-9 changes shape under
-> V17.
+> and the in-scope clarifications.
+>
+> **Rules 14-22 added 2026-05-19 (SESSION 185)** at Asset
+> Library scope-lock. See `ASSET_LIBRARY_V1.md` for the
+> full rationale, the 9-slice breakdown (A0-A8), the
+> 10-role taxonomy, and Q-a-1..6 resolutions. The nine
+> rules layer on top of V1's nine + V17's four — none of
+> rules 1-13 changes shape under Asset Library.
 
 ---
 

@@ -1,7 +1,8 @@
 ---
 title: "Asset Library — Workspace Inventory + Taxonomy"
-status: proposed
+status: locked
 proposed: 2026-05-19 (SESSION 184)
+locked: 2026-05-19 (SESSION 185)
 companion_docs:
   - VIDEO_COMPOSITION_V1.md
   - WORKSPACE_FABRIC_V1.md
@@ -10,9 +11,8 @@ companion_docs:
 
 # Asset Library — Workspace Inventory + Taxonomy
 
-> **Status: PROPOSED.** Scope-lock pending operator review.
-> If approved, scope-lock becomes 9 contract rules merged
-> into V1 as the "Asset Library" sub-arc, and slices A0-A7
+> **Status: LOCKED (SESSION 185).** 9 contract rules merged
+> into `VIDEO_COMPOSITION_V1.md` as rules 14-22. Slices A0-A8
 > sequence the implementation. Mirrors the V17 proposal
 > pattern (`VIDEO_COMPOSITION_V17_PROPOSAL.md`).
 
@@ -36,10 +36,11 @@ local cache files persist).
 This arc ships:
 
 1. **A `role` taxonomy** on Asset (BACKDROP / TALKING_HEAD
-   / COMPOSITE_OUTPUT / INTRO_OUTRO_CARD / REFERENCE_IMAGE
-   / B_ROLL / TRANSCRIPT / AUDIO_TRACK / RAW_UPLOAD).
-   Stamped at primitive-emit time. Backfilled for existing
-   rows via primitive_kind heuristics.
+   / COMPOSITE_OUTPUT / POLISH_OUTPUT / REFERENCE_IMAGE
+   / B_ROLL / TRANSCRIPT / AUDIO_TRACK / RAW_UPLOAD /
+   EXPERIMENT — **10 roles**). Stamped at primitive-emit
+   time. Backfilled for existing rows via primitive_kind
+   heuristics.
 2. **A read-only browse REST surface** with role / kind /
    date / storage-health filters.
 3. **A workspace SPA route** (`/workspace/assets`) that
@@ -100,7 +101,7 @@ rules below become V1 rules 14-22 (same merge pattern V16
 and V17 used).
 
 1. **Role is a closed enum, not free-form tags.** v1 ships
-   nine roles (see §Taxonomy). Operator-defined free-form
+   **ten** roles (see §Taxonomy). Operator-defined free-form
    tags are out of scope for v1 — adding tag plumbing on
    top of an unsettled role enum is harder than adding
    tags later. New roles require a migration + scope
@@ -175,8 +176,10 @@ and V17 used).
 
 ## Taxonomy (v1 roles)
 
-Nine roles. Picked to cover every existing primitive
-output without forcing ambiguity:
+**Ten roles.** Picked to cover every existing primitive
+output and distinguish *intent* (production deliverable vs
+experiment) from *medium* (asset_type) and *production
+method* (primitive_kind):
 
 | Role | Meaning | Producing primitives (v1) |
 |---|---|---|
@@ -189,6 +192,7 @@ output without forcing ambiguity:
 | `TRANSCRIPT` | Text artifact from realtime session or `transcribe` | `transcribe`, `RealtimeSession.transcript_asset` |
 | `AUDIO_TRACK` | Standalone audio (music bed, voice-over, dubbed) | `design_voice`, `dub_audio`, `audio_extract` |
 | `RAW_UPLOAD` | Operator-uploaded file with role-unspecified intent | (future asset upload UI) |
+| `EXPERIMENT` | Sandbox / smoke / model-comparison output; not for production picking | `smoke_keyframes`, future `smoke_*` commands |
 
 Notes:
 * `TALKING_HEAD` covers both the raw `generate_avatar_speech`
@@ -200,12 +204,27 @@ Notes:
   combiner; polish primitives are downstream refinements
   (subtitles, intros, etc.). A composite that's then
   trimmed for vertical-format reels is POLISH_OUTPUT, not
-  COMPOSITE_OUTPUT.
-* The smoke_keyframes outputs (`c21fdeec` veo3.1_fast,
-  `89a1ce5f` gen3a_turbo) backfill as `BACKDROP` — they
-  were produced as scene/motion experiments, fit the
-  backdrop role even though produced via a smoke command
-  rather than the standard `generate_visual_clip` path.
+  COMPOSITE_OUTPUT. Note that role is stamped per-asset by
+  the *producing primitive* — the underlying composite
+  keeps its `COMPOSITE_OUTPUT` role; the polish primitive
+  emits a new asset tagged `POLISH_OUTPUT`.
+* `mix_audio` resolved (Q-a-1, SESSION 185) → primary role
+  `COMPOSITE_OUTPUT`. It's an audio-track-onto-composite
+  operation; the output is a composite with mixed audio,
+  not a standalone audio track. `AUDIO_TRACK` is reserved
+  for primitives whose output is *only* audio.
+* **`EXPERIMENT` is intent, not medium.** Smoke /
+  comparison / sandbox outputs go here regardless of
+  whether they're CLIP / IMAGE / AUDIO. Keeps `BACKDROP`
+  semantically pure: a `BACKDROP`-tagged asset is meant for
+  composite background use. The smoke_keyframes outputs
+  (`c21fdeec` veo3.1_fast, `89a1ce5f` gen3a_turbo) backfill
+  as `EXPERIMENT` even though they're technically scene
+  clips by content — the operator's V18 finding
+  (SESSION 184 calibration #6) was that re-using them as
+  backdrops dragged identity-drift into production output.
+  `EXPERIMENT` keeps them browseable but hides them from
+  the future A7 role-filtered asset_picker.
 
 ---
 
@@ -231,8 +250,10 @@ JWT exp parsed from the `_jwt=eyJ...` query parameter
 ## New / extended models
 
 * **`Asset.role`** — new `CharField(max_length=24, choices=...,
-  null=False, default='RAW_UPLOAD')`. Indexed for filter
-  queries.
+  null=False, default='RAW_UPLOAD')`. Ten-value TextChoices
+  enum. Indexed for filter queries. Existing rows default to
+  `RAW_UPLOAD` at A0 migration time; A1 backfill replaces
+  with primitive_kind-derived role.
 * **No new table.** Tags / extended metadata deferred.
 
 ---
@@ -262,7 +283,7 @@ pattern as `/api/workspace/overview/` shipped in F-arc.
 
 ---
 
-## Slice breakdown (proposed)
+## Slice breakdown (9 slices, A0-A8)
 
 Same shape as V15 / V16 / V17 — narrow scope, opt-in
 defaults, no SPA changes per slice unless explicitly
@@ -281,11 +302,13 @@ applicable.
 | **A7** | asset_picker gains optional `role` filter on the field metadata. V18's `backdrop_clip_id` picker filters to `role=BACKDROP`. Same shape for V8 broll_splice / pip_layout / cohost_layout. | ½ session | pending |
 | **A8** | Composition-lineage cross-link (per F-arc): each composition's overview shows produced assets with role badges. | ½ session | pending |
 
-Roughly **5-6 sessions** end-to-end. A0-A2 are
-foundational; A3-A4 unblock A5-A6 frontend; A7 is the
-operator-visible payoff (V18's backdrop_clip dropdown
-finally shows ONLY backdrops, not 119 mixed CLIPs); A8
-ties Asset Library back to the F-arc lineage surface.
+Roughly **5-6 sessions** end-to-end across **9 slices
+(A0-A8 inclusive)**. A0-A2 are foundational; A3-A4 unblock
+A5-A6 frontend; A7 is the operator-visible payoff (V18's
+backdrop_clip dropdown finally shows ONLY backdrops, not
+119 mixed CLIPs, and `EXPERIMENT`-tagged smoke outputs are
+hidden); A8 ties Asset Library back to the F-arc lineage
+surface.
 
 **Dependency tree:**
 
@@ -320,11 +343,17 @@ A5 surface only minimally.
 * **The 9 IMAGE assets backfill as `REFERENCE_IMAGE`.**
   All current V13 `generate_image` outputs fit (operator
   uploads will too once that UI lands).
-* **`smoke_keyframes` outputs** backfill as `BACKDROP`.
-  Even though produced outside the primitive system, they
-  occupy the backdrop role. The backfill command
-  recognizes `source_spec.primitive_kind ==
-  'smoke_keyframes'` as a BACKDROP heuristic.
+* **`smoke_keyframes` outputs backfill as `EXPERIMENT`**
+  (resolved SESSION 185 — see §Taxonomy notes). Backfill
+  command recognizes `source_spec.primitive_kind ==
+  'smoke_keyframes'` AND the two known smoke-emitted
+  Asset IDs (`c21fdeec`, `89a1ce5f`) as `EXPERIMENT`.
+  Future `smoke_*` commands default to `EXPERIMENT` at
+  emit time.
+* **`mix_audio` outputs backfill as `COMPOSITE_OUTPUT`**
+  (resolved Q-a-1, SESSION 185). The output is a composite
+  with mixed audio; `AUDIO_TRACK` is reserved for
+  audio-only outputs.
 
 ---
 
@@ -357,14 +386,14 @@ A5 surface only minimally.
 
 ## Open questions
 
-| ID | Question | Resolution path | Status |
+| ID | Question | Resolution | Status |
 |---|---|---|---|
-| **Q-a-1** | Does the role enum land as 9 values or do we accept that some primitives have ambiguous roles (e.g., `mix_audio` could be COMPOSITE or AUDIO)? | Slice A2 mapping table review — defer to operator at A2 slice-open. | open |
-| **Q-a-2** | Backfill: auto-commit on `--commit`, or always show dry-run + require explicit operator OK? | A1 slice-open. Lean toward dry-run-required. | open |
-| **Q-a-3** | Storage health: do we cache the computed value (with 60s TTL) or compute live per request? | A3 slice-open; cache is the obvious answer if browse list is paginated 50+. | open |
-| **Q-a-4** | Asset detail view: do we re-use F-arc's composition lineage component (per-composition) or build a new per-asset variant? | A6 slice-open; lean toward extending F-arc since the graph shape is similar. | open |
-| **Q-a-5** | `asset_picker` role-filter (A7): does the recipe form metadata add a `role_filter` field on `RecipeField`, or is it a per-recipe override? | A7 slice-open. | open |
-| **Q-a-6** | Avatar / Voice / Portrait modeling — should V2 of this arc fold these into Assets, or keep them on Spokesperson? | Defer to V2 scope discussion. | deferred |
+| **Q-a-1** | Does the role enum land as 9 values or do we accept that some primitives have ambiguous roles (e.g., `mix_audio` could be COMPOSITE or AUDIO)? | **Resolved SESSION 185.** Enum lands at **10 values** (`EXPERIMENT` added for smoke / sandbox outputs). `mix_audio` → primary role `COMPOSITE_OUTPUT`. All ambiguity resolved at scope-lock, not deferred to A2. | resolved |
+| **Q-a-2** | Backfill: auto-commit on `--commit`, or always show dry-run + require explicit operator OK? | **Resolved SESSION 185.** Always dry-run by default. Operator reviews the report, then re-runs with `--commit` to apply. No silent backfills. | resolved |
+| **Q-a-3** | Storage health: do we cache the computed value (with 60s TTL) or compute live per request? | **Resolved SESSION 185.** Live per request for v1. JWT exp parse + filesystem stat is microseconds; correctness wins. Add cache only if A5 perf demands it. | resolved |
+| **Q-a-4** | Asset detail view: do we re-use F-arc's composition lineage component (per-composition) or build a new per-asset variant? | **Resolved SESSION 185.** Extend the F-arc lineage component to accept both entry points. One component, two callers. | resolved |
+| **Q-a-5** | `asset_picker` role-filter (A7): does the recipe form metadata add a `role_filter` field on `RecipeField`, or is it a per-recipe override? | **Resolved SESSION 185.** First-class `RecipeField.role_filter` field. Same shape as `asset_type` already is. Per-recipe override is whack-a-mole. | resolved |
+| **Q-a-6** | Avatar / Voice / Portrait modeling — should V2 of this arc fold these into Assets, or keep them on Spokesperson? | **Deferred to v2 (as proposed).** v1 read-only inventory ships against the existing Asset table only. A4 endpoint MUST explicitly NOT return Spokesperson-attached media, and the SPA list view (A5) carries an honest gap note ("Avatars, voices, and portraits live on Spokesperson — not shown here in v1"). | deferred |
 
 ---
 
@@ -376,3 +405,10 @@ A5 surface only minimally.
   backdrop because the picker had no way to distinguish
   scene clips from person-interpolation clips). Status:
   proposed. Scope-lock pending operator review.
+* **2026-05-19 (SESSION 185)** — **LOCKED.** Operator
+  review resolved Q-a-1 through Q-a-5; Q-a-6 deferred to
+  v2 as proposed. Taxonomy expanded from 9 → 10 roles
+  (`EXPERIMENT` added) to capture intent-vs-medium
+  distinction surfaced by the V18 smoke-output dogfood.
+  9 contract rules merged into `VIDEO_COMPOSITION_V1.md`
+  as rules 14-22. Slice A0 opens immediately.
