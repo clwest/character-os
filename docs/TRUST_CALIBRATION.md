@@ -3845,3 +3845,39 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   the two halves.** This shape generalizes: any future
   cross-cutting metadata (tier annotation, region, retention
   policy) can follow the same pattern.
+
+### Subagent went to source-of-truth and caught an upstream brief error
+- **Date:** 2026-05-19
+- **Session:** 189
+- **Context:** A5 delegated to the `react-web-delivery` subagent
+  with a detailed brief covering the A4 endpoint shape, Zod
+  schemas, and AssetType / AssetRole enum values to mirror. The
+  brief was assembled from memory + a quick read of
+  `_serialize_list_asset`; AssetType values were rendered in the
+  brief as uppercase (``"CLIP" | "IMAGE" | ...``).
+- **Surface / artefact:**
+  `web/src/lib/api/workspace-assets.ts` Zod enum definitions.
+  AssetType in `shell/apps/compositions/models.py` is in fact
+  ``CLIP = "clip", "Video Clip"`` (TextChoices — the second
+  value is the human label; the first is what the API returns).
+- **AI expectation (before):** The subagent would honor the
+  brief verbatim, including the uppercase enum values, and
+  produce Zod schemas that wouldn't parse real API responses.
+  This would have been caught at the first vitest fixture or
+  the first dev-server fetch, but later than at slice-open.
+- **Reality / outcome:** **The subagent went to
+  `apps/compositions/models.py` itself, read the actual
+  TextChoices values, and wrote the Zod enums in lowercase.**
+  All 25 new vitest tests pass; build clean. The brief error
+  was silently corrected without escalation.
+- **Found by:** AI spot-check during the verify-trust pass
+  after the subagent reported done.
+- **Lesson:** **Subagents with read-tool access can and should
+  cross-check brief claims against source-of-truth. Write
+  briefs that POINT at source-of-truth (file paths) rather
+  than RESTATING it (the values themselves), so the agent
+  doesn't get a worse signal than reading the code directly.**
+  Generalizes: any subagent delegation should treat the brief
+  as a pointer to ground truth, not a substitute for it. When
+  the brief and source disagree, source wins — and the agent
+  is the right place to enforce that.
