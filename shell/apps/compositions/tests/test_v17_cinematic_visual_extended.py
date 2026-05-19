@@ -335,15 +335,65 @@ def test_recipe_registered_in_v15_gallery() -> None:
 def test_recipe_exposes_target_duration_as_select_field() -> None:
     """The form must surface target_duration as a `select`
     (not a free-form number) so operators can't typo into an
-    invalid value. Reinforces the starter-side validation."""
+    invalid value. Reinforces the starter-side validation.
+
+    Choice values are STRINGS — the SPA's Zod schema
+    (`web/src/lib/api/recipes.ts` `recipeFieldChoice`)
+    requires `value: z.string()`. The starter coerces back
+    to int. SESSION 182 dogfood surfaced this constraint
+    when the original int-valued choices failed Zod
+    validation in the gallery."""
     recipe = RECIPES["cinematic_visual_extended"]
     target_field = recipe.field_by_name("target_duration")
     assert target_field is not None
     assert target_field.type == "select"
-    # All six accepted values surfaced as choices.
+    # All six accepted values surfaced as choices, as STRINGS
+    # per the SPA contract.
     assert target_field.choices is not None
     choice_values = {c["value"] for c in target_field.choices}
-    assert choice_values == {15, 20, 25, 30, 40, 50}
+    assert choice_values == {"15", "20", "25", "30", "40", "50"}
+    # Every value must be a string (defensive against future
+    # contributor accidentally re-introducing int values).
+    for choice in target_field.choices:
+        assert isinstance(choice["value"], str), (
+            f"choice {choice!r} must use a string value per "
+            "the SPA Zod schema"
+        )
+
+
+def test_starter_accepts_string_target_duration_from_spa() -> None:
+    """The SPA submits target_duration as the string value
+    from its select choices ("15", "20", ...). The starter
+    must coerce to int. Tests with direct int args also
+    work — both shapes supported."""
+    ws = _make_workspace("v17_2_str_target@test")
+    sp = _make_spokesperson(ws)
+    comp = cinematic_visual_extended(
+        workspace=ws, spokesperson=sp,
+        prompt="anything", target_duration="15",  # type: ignore[arg-type]
+        mock_mode=True,
+    )
+    steps = list(
+        CompositionStep.objects.filter(composition=comp).order_by("position")
+    )
+    # Same shape as int=15: 1 base + 1 extend = 2 steps.
+    assert len(steps) == 2
+    assert steps[0].primitive == "generate_visual_clip"
+    assert steps[1].primitive == "extend_visual_clip"
+
+
+def test_starter_rejects_non_numeric_string_target_duration() -> None:
+    """A garbage string from a tampered SPA submission surfaces
+    a clean error before any rows write."""
+    ws = _make_workspace("v17_2_garbage_target@test")
+    sp = _make_spokesperson(ws)
+    with pytest.raises(ValueError) as exc:
+        cinematic_visual_extended(
+            workspace=ws, spokesperson=sp,
+            prompt="anything", target_duration="fifteen",  # type: ignore[arg-type]
+            mock_mode=True,
+        )
+    assert "target_duration" in str(exc.value)
 
 
 def test_recipe_to_json_round_trips_for_spa() -> None:

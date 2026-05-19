@@ -503,16 +503,20 @@ RECIPES: dict[str, Recipe] = {
                 ),
             ),
             RecipeField(
+                # SPA's Zod schema enforces choice values as
+                # strings (see web/src/lib/api/recipes.ts
+                # `recipeFieldChoice`). Numeric defaults submit
+                # back as strings; the starter coerces.
                 name="target_duration", type="select",
                 label="Target duration",
-                default=15,
+                default="15",
                 choices=(
-                    {"value": 15, "label": "15 seconds (1 extension)"},
-                    {"value": 20, "label": "20 seconds (2 extensions)"},
-                    {"value": 25, "label": "25 seconds (3 extensions)"},
-                    {"value": 30, "label": "30 seconds (4 extensions)"},
-                    {"value": 40, "label": "40 seconds (6 extensions)"},
-                    {"value": 50, "label": "50 seconds (8 extensions)"},
+                    {"value": "15", "label": "15 seconds (1 extension)"},
+                    {"value": "20", "label": "20 seconds (2 extensions)"},
+                    {"value": "25", "label": "25 seconds (3 extensions)"},
+                    {"value": "30", "label": "30 seconds (4 extensions)"},
+                    {"value": "40", "label": "40 seconds (6 extensions)"},
+                    {"value": "50", "label": "50 seconds (8 extensions)"},
                 ),
                 help_text=(
                     "Longer targets fire more Runway extend calls "

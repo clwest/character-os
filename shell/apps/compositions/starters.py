@@ -353,7 +353,7 @@ def cinematic_visual_extended(
     workspace: "Workspace",
     spokesperson: "Spokesperson",
     prompt: str,
-    target_duration: int,
+    target_duration: int | str,
     ratio: str | None = None,
     seed: int | None = None,
     mock_mode: bool = False,
@@ -412,15 +412,27 @@ def cinematic_visual_extended(
             f"{spokesperson.workspace_id}) is not in workspace "
             f"{workspace.pk}"
         )
-    if target_duration not in _EXTENDED_VALID_TARGETS:
+    # Coerce the SPA-submitted string ("15") to int. The recipe's
+    # ``select`` field carries string choice values per the SPA
+    # Zod schema (see web/src/lib/api/recipes.ts); the starter
+    # accepts either str or int so direct Python callers (tests,
+    # CLI scripts) don't have to wrap their ints in strings.
+    try:
+        target_duration_int = int(target_duration)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"target_duration must be an integer or numeric string; "
+            f"got {target_duration!r}"
+        )
+    if target_duration_int not in _EXTENDED_VALID_TARGETS:
         raise ValueError(
             f"target_duration must be one of "
-            f"{list(_EXTENDED_VALID_TARGETS)}; got {target_duration}"
+            f"{list(_EXTENDED_VALID_TARGETS)}; got {target_duration_int}"
         )
 
     # N = number of extend steps after the base 10s.
     extend_count = (
-        target_duration - _EXTENDED_BASE_DURATION_SECONDS
+        target_duration_int - _EXTENDED_BASE_DURATION_SECONDS
     ) // _EXTENDED_SEGMENT_DURATION_SECONDS
 
     composition_name = (
