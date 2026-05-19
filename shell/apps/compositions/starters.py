@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from apps.accounts.models import Workspace
     from apps.spokespeople.models import Spokesperson
     from django.contrib.auth.models import AbstractBaseUser
+    from .models import Asset
 
 logger = logging.getLogger(__name__)
 
@@ -943,7 +944,7 @@ def talking_head_with_backdrop(
     workspace: "Workspace",
     spokesperson: "Spokesperson",
     script: str,
-    backdrop_prompt: str,
+    backdrop_prompt: str = "",
     backdrop_ratio: str | None = None,
     backdrop_duration: int | None = None,
     fg_width: int = 320,
@@ -967,6 +968,16 @@ def talking_head_with_backdrop(
     # are fixed at 10s base + 5s per extend per the Runway
     # gen4_turbo per-render limit).
     use_extend_for_backdrop: bool = False,
+    # SESSION 184 / V18 — pre-recorded backdrop library. When
+    # supplied, the picked CLIP is wired directly as the
+    # composite background — no generate / extend / concat
+    # chain fires. Saves the $1.25-$1.75 Runway backdrop cost
+    # per render and turns iterative script tuning into a free
+    # operation. ``backdrop_prompt`` / ``backdrop_ratio`` /
+    # ``backdrop_duration`` / ``use_extend_for_backdrop`` are
+    # all ignored on this path (the picked clip is the source
+    # of truth for the backdrop's pixels + duration).
+    backdrop_clip: "Asset | None" = None,
     mock_mode: bool = False,
     name: str = "",
     created_by: "AbstractBaseUser | None" = None,
@@ -1033,8 +1044,45 @@ def talking_head_with_backdrop(
     """
     if not script.strip():
         raise ValueError("talking_head_with_backdrop requires a non-empty script")
-    if not backdrop_prompt.strip():
-        raise ValueError("talking_head_with_backdrop requires a non-empty backdrop_prompt")
+    # SESSION 184 / V18 — XOR validation. Exactly one of
+    # (backdrop_prompt, backdrop_clip) must produce a backdrop. When
+    # both are supplied, backdrop_clip wins (the operator's explicit
+    # intent — they picked a clip; the prompt is ignored). When
+    # neither is supplied, fail loud so the operator gets an
+    # actionable error instead of a render with a blank backdrop.
+    if backdrop_clip is None and not backdrop_prompt.strip():
+        raise ValueError(
+            "talking_head_with_backdrop requires either a non-empty "
+            "backdrop_prompt or a picked backdrop_clip"
+        )
+    if backdrop_clip is not None:
+        # Defense-in-depth — the recipe resolver already filters to
+        # the workspace + CLIP type, but the starter is callable
+        # programmatically too (admin / tests / future API).
+        _validate_workspace_assets(workspace, [backdrop_clip])
+        # Import inside the function to avoid the runtime/TYPE_CHECKING
+        # circular import; AssetType is a TextChoices class.
+        from .models import AssetType as _AssetType
+
+        if backdrop_clip.asset_type != _AssetType.CLIP:
+            raise ValueError(
+                f"backdrop_clip must be a CLIP asset; got "
+                f"{backdrop_clip.asset_type}"
+            )
+        # SESSION 184 — depend on slice 1's composite_video null-
+        # duration guard. A picked clip without duration_ms would
+        # let the composite trim use the speech duration but the
+        # speech is the SHORT input on a saved-backdrop render, so
+        # the composite would pick the backdrop's null and fall back
+        # to the base clip's frame count. Refuse early with a
+        # better error than the composite primitive's downstream one.
+        if backdrop_clip.duration_ms is None:
+            raise ValueError(
+                f"backdrop_clip {backdrop_clip.id} has duration_ms=None; "
+                f"the upstream primitive that produced it didn't persist "
+                f"a duration. Fix that primitive first or use a clip "
+                f"whose duration was recorded at create time."
+            )
     if spokesperson.workspace_id != workspace.pk:
         raise ValueError(
             f"spokesperson {spokesperson.name!r} (workspace "
@@ -1072,7 +1120,86 @@ def talking_head_with_backdrop(
     # each extend conditions on the prior segment's last frame.
     # Default off; V17 contract rule 12 keeps existing recipes
     # unchanged.
+    #
+    # SESSION 184 / V18 — picked-clip path. When ``backdrop_clip``
+    # is supplied, both backdrop-generation paths are skipped; the
+    # picked CLIP is wired straight into the composite as the
+    # background. Operator-visible win: $1.25-$1.75 saved per
+    # render and zero Runway latency on backdrop iteration.
     script_clean = script.strip()
+
+    if backdrop_clip is not None:
+        # V18 path — short-circuit. Three steps:
+        #   0: generate_avatar_speech
+        #   1 (optional, V16): remove_avatar_background
+        #   N: composite_video, background = picked Asset
+        speech_params: dict = {
+            "script": script_clean,
+            "use_knowledge": bool(use_knowledge),
+        }
+        if verifier_mode:
+            speech_params["verifier_mode"] = verifier_mode
+        if opener and opener.strip():
+            speech_params["opener"] = opener.strip()
+        CompositionStep.objects.create(
+            composition=composition,
+            position=0,
+            primitive="generate_avatar_speech",
+            inputs=[],
+            params=speech_params,
+        )
+
+        if remove_avatar_bg:
+            CompositionStep.objects.create(
+                composition=composition,
+                position=1,
+                primitive="remove_avatar_background",
+                inputs=[{"slot": "clip", "from_step_position": 0}],
+                params={},
+            )
+            foreground_source_position = 1
+            composite_position = 2
+        else:
+            foreground_source_position = 0
+            composite_position = 1
+
+        # Composite — background is the picked Asset (referenced
+        # by asset_id, the same shape pip_layout / cohost_layout /
+        # broll_splice use). Foreground is the speech step (or its
+        # matted derivative).
+        CompositionStep.objects.create(
+            composition=composition,
+            position=composite_position,
+            primitive="composite_video",
+            inputs=[
+                {"slot": "background", "asset_id": str(backdrop_clip.id)},
+                {
+                    "slot": "foreground",
+                    "from_step_position": foreground_source_position,
+                },
+            ],
+            params={
+                "layout_spec": {
+                    "kind": "backdrop",
+                    "options": {
+                        "fg_width": fg_width,
+                        "margin_x": margin_x,
+                        "margin_y": margin_y,
+                    },
+                },
+            },
+        )
+
+        logger.info(
+            "starter talking_head_with_backdrop (V18 picked-clip) "
+            "created composition=%s spokesperson=%s mock=%s "
+            "use_knowledge=%s fg_width=%d backdrop_clip=%s "
+            "backdrop_clip_duration_ms=%s remove_avatar_bg=%s",
+            composition.id, spokesperson.id, mock_mode, use_knowledge,
+            fg_width, backdrop_clip.id, backdrop_clip.duration_ms,
+            remove_avatar_bg,
+        )
+        return composition
 
     if use_extend_for_backdrop:
         # V17.5 path. Fixed segment durations (10s base + 5s per

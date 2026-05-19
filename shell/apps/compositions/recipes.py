@@ -318,14 +318,45 @@ RECIPES: dict[str, Recipe] = {
         fields=(
             RecipeField(name="spokesperson_id", type="spokesperson_picker", label="Spokesperson"),
             RecipeField(name="script", type="textarea", label="Script", min_chars=8, max_chars=4000),
+            # SESSION 184 / V18 — backdrop_prompt is now optional;
+            # the operator can pick an existing workspace CLIP as
+            # the backdrop instead of paying $1.25-$1.75 to bake a
+            # fresh one. XOR validation lives in the starter
+            # (exactly one of backdrop_prompt / backdrop_clip_id
+            # required). When both are set, backdrop_clip_id wins
+            # (the operator's intent is to reuse the saved clip).
             RecipeField(
                 name="backdrop_prompt", type="textarea",
-                label="Backdrop prompt", min_chars=4, max_chars=600,
-                help_text="Visual scene generated as the background (e.g. 'sunset on a city skyline').",
+                label="Backdrop prompt", required=False,
+                min_chars=4, max_chars=600,
+                help_text=(
+                    "Visual scene generated as the background "
+                    "(e.g. 'sunset on a city skyline'). Leave blank "
+                    "if you pick an existing backdrop clip below."
+                ),
+            ),
+            # SESSION 184 / V18 — pre-recorded backdrop library.
+            # When set, skips both the generate-and-concat path and
+            # the V17.5 generate-and-extend path; uses the picked
+            # CLIP directly as the composite background. Saves the
+            # $1.25-$1.75 Runway backdrop cost across script
+            # iterations and unlocks operator-uploaded footage
+            # reuse when the asset-upload UI lands.
+            RecipeField(
+                name="backdrop_clip_id", type="asset_picker",
+                label="Pre-recorded backdrop clip (optional)",
+                required=False, asset_type=AssetType.CLIP,
+                help_text=(
+                    "Pick a saved workspace clip to reuse as the "
+                    "backdrop. When set, the backdrop prompt is "
+                    "ignored and no Runway calls fire for the "
+                    "backdrop — saves ~$1.25-$1.75 per render."
+                ),
             ),
             RecipeField(
                 name="backdrop_ratio", type="select", label="Backdrop aspect ratio",
                 required=False, default="1280:720", choices=_RATIO_CHOICES,
+                help_text="Ignored when a pre-recorded backdrop clip is picked.",
             ),
             RecipeField(
                 name="backdrop_duration", type="number", label="Backdrop duration (seconds)",
@@ -366,6 +397,11 @@ RECIPES: dict[str, Recipe] = {
             _MOCK_MODE_FIELD,
         ),
         starter=starters.talking_head_with_backdrop,
+        # V18 — resolver renames backdrop_clip_id → backdrop_clip
+        # (passes the resolved Asset row to the starter, mirrors
+        # the source_clip_id → source_clip pattern used by
+        # style_remix_pass / recut_teaser).
+        param_map={"backdrop_clip_id": "backdrop_clip"},
     ),
     "talking_head_polished": Recipe(
         kind="talking_head_polished",

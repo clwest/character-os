@@ -784,3 +784,271 @@ def test_extend_default_is_false_concat_path_unchanged() -> None:
         s.primitive for s in c.steps.all().order_by("position")
     ]
     assert "extend_visual_clip" not in primitives
+
+
+# ---- V18 picked-clip backdrop tests ---------------------------------
+
+
+def _make_backdrop_clip(ws, *, duration_ms=15_000, file_path="/data/_assets/backdrop.mp4"):
+    """Helper — build a workspace-owned CLIP asset suitable as a
+    picked backdrop. The V8 picked-clip path uses these to skip
+    Runway backdrop generation entirely."""
+    from apps.compositions.models import Asset
+    return Asset.objects.create(
+        workspace=ws, asset_type=AssetType.CLIP,
+        file_path=file_path, duration_ms=duration_ms,
+        mime_type="video/mp4",
+    )
+
+
+def test_v18_picked_clip_builds_speech_plus_composite_only() -> None:
+    """V18 happy path — when ``backdrop_clip`` is supplied, the
+    starter skips both generate/extend chains entirely. Two steps:
+    generate_avatar_speech (step 0) + composite_video (step 1)
+    with the picked Asset's id as the background slot."""
+    ws = _make_workspace("v18picked@test")
+    sp = _make_spokesperson(ws)
+    backdrop = _make_backdrop_clip(ws, duration_ms=15_000)
+
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="Avatar over a saved backdrop.",
+        backdrop_clip=backdrop,
+        mock_mode=True,
+    )
+
+    steps = list(c.steps.all().order_by("position"))
+    primitives = [s.primitive for s in steps]
+    # Two steps only — no generate_visual_clip / extend / concat.
+    assert primitives == ["generate_avatar_speech", "composite_video"]
+    # The composite's background slot references the picked asset by id.
+    composite = steps[1]
+    bg, fg = composite.inputs
+    assert bg["slot"] == "background"
+    assert bg["asset_id"] == str(backdrop.id)
+    # No from_step_position on the background — it's a saved clip.
+    assert "from_step_position" not in bg
+    # Foreground still chains from the speech step.
+    assert fg["slot"] == "foreground"
+    assert fg["from_step_position"] == 0
+
+
+def test_v18_picked_clip_with_v16_matte_inserts_three_steps() -> None:
+    """V18 + V16 — when ``remove_avatar_bg=True`` AND
+    ``backdrop_clip`` is set, the matte step sits between speech
+    and composite. Three steps total, still no Runway backdrop call."""
+    ws = _make_workspace("v18matte@test")
+    sp = _make_spokesperson(ws)
+    backdrop = _make_backdrop_clip(ws)
+
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="Picked backdrop plus matted avatar.",
+        backdrop_clip=backdrop,
+        remove_avatar_bg=True,
+        mock_mode=True,
+    )
+
+    steps = list(c.steps.all().order_by("position"))
+    primitives = [s.primitive for s in steps]
+    assert primitives == [
+        "generate_avatar_speech",
+        "remove_avatar_background",
+        "composite_video",
+    ]
+    # Composite chains background from picked asset id +
+    # foreground from the matte (position 1), not the speech.
+    composite = steps[2]
+    bg, fg = composite.inputs
+    assert bg["asset_id"] == str(backdrop.id)
+    assert fg["from_step_position"] == 1
+
+
+def test_v18_picked_clip_wins_over_prompt_when_both_supplied() -> None:
+    """When both ``backdrop_prompt`` and ``backdrop_clip`` are
+    supplied, the operator's explicit pick (the clip) wins. The
+    prompt is ignored — no Runway backdrop generation fires."""
+    ws = _make_workspace("v18winner@test")
+    sp = _make_spokesperson(ws)
+    backdrop = _make_backdrop_clip(ws)
+
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="Should ignore the prompt.",
+        backdrop_prompt="Should be ignored.",
+        backdrop_clip=backdrop,
+        mock_mode=True,
+    )
+
+    primitives = [
+        s.primitive for s in c.steps.all().order_by("position")
+    ]
+    assert "generate_visual_clip" not in primitives
+    assert "extend_visual_clip" not in primitives
+
+
+def test_v18_picked_clip_skips_use_extend_for_backdrop_flag() -> None:
+    """The picked-clip branch precedes use_extend_for_backdrop in
+    the dispatch order. Setting both should still skip the extend
+    chain — the picked clip is the backdrop."""
+    ws = _make_workspace("v18skip_extend@test")
+    sp = _make_spokesperson(ws)
+    backdrop = _make_backdrop_clip(ws)
+
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 200,
+        backdrop_prompt="Ignored.",
+        backdrop_clip=backdrop,
+        use_extend_for_backdrop=True,
+        mock_mode=True,
+    )
+
+    primitives = [
+        s.primitive for s in c.steps.all().order_by("position")
+    ]
+    assert "extend_visual_clip" not in primitives
+    assert "generate_visual_clip" not in primitives
+
+
+def test_v18_starter_executes_end_to_end_in_mock_mode() -> None:
+    """V2 runtime carries the picked-clip plan through to
+    COMPLETED. Final asset is the composite output; the picked
+    Asset is referenced by id (not regenerated)."""
+    ws = _make_workspace("v18e2e@test")
+    sp = _make_spokesperson(ws, name="Riggs")
+    backdrop = _make_backdrop_clip(ws, duration_ms=12_000)
+
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="The founder over a saved cafe backdrop.",
+        backdrop_clip=backdrop,
+        mock_mode=True,
+    )
+
+    result = execute_composition.apply(args=[str(c.pk)]).get()
+    assert result["status"] == "completed"
+
+    c.refresh_from_db()
+    assert c.status == CompositionStatus.COMPLETED
+    assert c.final_asset is not None
+    assert c.final_asset.asset_type == AssetType.CLIP
+    spec = c.final_asset.source_spec
+    assert spec["primitive_kind"] == "composite_video"
+    assert spec["layout_kind"] == "backdrop"
+    # The picked clip is referenced via input_asset_ids in the
+    # composite's source_spec audit trail.
+    assert str(backdrop.id) in spec["input_asset_ids"]
+
+
+def test_v18_rejects_neither_prompt_nor_clip() -> None:
+    """XOR enforcement — when neither backdrop_prompt nor
+    backdrop_clip is supplied, the starter raises a clear
+    ValueError instead of producing a render with no backdrop."""
+    ws = _make_workspace("v18none@test")
+    sp = _make_spokesperson(ws)
+    with pytest.raises(ValueError) as exc:
+        talking_head_with_backdrop(
+            workspace=ws, spokesperson=sp,
+            script="Needs something.",
+            mock_mode=True,
+        )
+    msg = str(exc.value).lower()
+    assert "backdrop_prompt" in msg or "backdrop_clip" in msg
+
+
+def test_v18_rejects_non_clip_picked_asset() -> None:
+    """Type guard — picking an AUDIO/IMAGE asset must fail before
+    Composition rows are created."""
+    from apps.compositions.models import Asset
+    ws = _make_workspace("v18audio@test")
+    sp = _make_spokesperson(ws)
+    audio = Asset.objects.create(
+        workspace=ws, asset_type=AssetType.AUDIO,
+        file_path="/data/_assets/track.mp3",
+        duration_ms=30_000, mime_type="audio/mpeg",
+    )
+    with pytest.raises(ValueError) as exc:
+        talking_head_with_backdrop(
+            workspace=ws, spokesperson=sp,
+            script="hi.",
+            backdrop_clip=audio,
+            mock_mode=True,
+        )
+    assert "CLIP" in str(exc.value)
+
+
+def test_v18_rejects_null_duration_picked_asset() -> None:
+    """Slice-1 polish + V18 — refuse picked clips whose
+    duration_ms is None. The composite primitive's null-duration
+    guard would catch it downstream too, but the starter gives a
+    better error before any Composition row is created."""
+    ws = _make_workspace("v18nodur@test")
+    sp = _make_spokesperson(ws)
+    backdrop = _make_backdrop_clip(ws, duration_ms=None)
+    with pytest.raises(ValueError) as exc:
+        talking_head_with_backdrop(
+            workspace=ws, spokesperson=sp,
+            script="hi.",
+            backdrop_clip=backdrop,
+            mock_mode=True,
+        )
+    assert "duration_ms" in str(exc.value)
+
+
+def test_v18_rejects_cross_workspace_picked_asset() -> None:
+    """Workspace isolation — picking a clip from another
+    workspace raises before the Composition is created."""
+    ws_a = _make_workspace("v18ws_a@test", "A")
+    ws_b = _make_workspace("v18ws_b@test", "B")
+    sp_a = _make_spokesperson(ws_a)
+    foreign_backdrop = _make_backdrop_clip(ws_b)
+    with pytest.raises(ValueError) as exc:
+        talking_head_with_backdrop(
+            workspace=ws_a, spokesperson=sp_a,
+            script="hi.",
+            backdrop_clip=foreign_backdrop,
+            mock_mode=True,
+        )
+    assert "workspace" in str(exc.value).lower()
+
+
+def test_v18_default_off_concat_path_unchanged() -> None:
+    """Backwards-compat — without ``backdrop_clip``, the existing
+    concat path runs unchanged. Load-bearing for every V8 test
+    above that doesn't reference the V18 path."""
+    ws = _make_workspace("v18default@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 100,
+        backdrop_prompt="A neon city.",
+        mock_mode=True,
+    )
+    primitives = [
+        s.primitive for s in c.steps.all().order_by("position")
+    ]
+    # Concat path produces ≥1 generate_visual_clip step.
+    assert "generate_visual_clip" in primitives
+
+
+def test_v18_recipe_field_present_and_optional() -> None:
+    """Recipe-form metadata: backdrop_clip_id is an optional
+    asset_picker filtered to CLIP. Backdrop_prompt is no longer
+    required (XOR with backdrop_clip_id enforced in the starter,
+    not the schema)."""
+    from apps.compositions.recipes import get_recipe
+    recipe = get_recipe("talking_head_with_backdrop")
+    fields_by_name = {f.name: f for f in recipe.fields}
+    assert "backdrop_clip_id" in fields_by_name
+    backdrop_clip_field = fields_by_name["backdrop_clip_id"]
+    assert backdrop_clip_field.type == "asset_picker"
+    assert backdrop_clip_field.asset_type == AssetType.CLIP
+    assert backdrop_clip_field.required is False
+    # backdrop_prompt is now optional too (XOR validation lives
+    # in the starter, not the recipe schema).
+    backdrop_prompt_field = fields_by_name["backdrop_prompt"]
+    assert backdrop_prompt_field.required is False
+    # Param-map renames backdrop_clip_id → backdrop_clip for the
+    # starter call.
+    assert recipe.param_map.get("backdrop_clip_id") == "backdrop_clip"
