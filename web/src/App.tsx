@@ -10,6 +10,7 @@ import { VideoStatusRoute } from "@/routes/videos/$id";
 import { WorkspaceKnowledgeRoute } from "@/routes/workspace/knowledge";
 import { KnowledgeDocumentDetailRoute } from "@/routes/workspace/knowledge.$id";
 import { WorkspaceAssetsRoute } from "@/routes/workspace/assets";
+import { WorkspaceAssetDetailRoute } from "@/routes/workspace/assets.$id";
 import { RecipeGalleryRoute } from "@/routes/recipes";
 import { RecipeFormRoute } from "@/routes/recipes/$kind";
 import { ImagesRoute } from "@/routes/images";
@@ -90,6 +91,16 @@ export function App() {
             element={
               <RequireAuth>
                 <WorkspaceAssetsRoute />
+              </RequireAuth>
+            }
+          />
+          {/* A6 — per-asset detail; registers before the list so
+              React Router never interprets the id as a list param. */}
+          <Route
+            path="/workspace/assets/:id"
+            element={
+              <RequireAuth>
+                <WorkspaceAssetDetailRoute />
               </RequireAuth>
             }
           />

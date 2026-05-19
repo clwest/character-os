@@ -545,20 +545,22 @@ function AssetRow({ asset }: { asset: WorkspaceAsset }) {
   return (
     <li
       data-testid={`asset-row-${asset.id}`}
-      className="flex items-start gap-4 px-5 py-4"
+      className="flex items-start gap-4 px-5 py-4 hover:bg-muted/30 transition-colors"
     >
       {/* Thumbnail / icon */}
       <AssetThumbnail asset={asset} />
 
-      {/* Content */}
+      {/* Content — title links to detail */}
       <div className="flex-1 min-w-0">
         {/* Primary line */}
-        <p
-          className="truncate text-sm font-medium"
+        <Link
+          to={`/workspace/assets/${asset.id}`}
+          data-testid={`asset-title-link-${asset.id}`}
+          className="truncate text-sm font-medium hover:underline underline-offset-4 block"
           title={displayTitle}
         >
           {displayTitle}
-        </p>
+        </Link>
 
         {/* Secondary line: badges */}
         <div className="mt-1 flex flex-wrap items-center gap-1.5">

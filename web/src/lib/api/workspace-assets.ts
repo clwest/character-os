@@ -8,7 +8,8 @@
  * via request.user.default_workspace or ?workspace=<uuid>.
  * Membership checks happen server-side.
  *
- * A6 (per-asset detail) adds getWorkspaceAsset — NOT in scope here.
+ * A6 (SESSION 191) adds getWorkspaceAsset + useWorkspaceAsset
+ * for the per-asset detail page at /workspace/assets/:id.
  */
 import { z } from "zod";
 import { useQuery } from "@tanstack/react-query";
@@ -85,6 +86,49 @@ const workspaceAssetSchema = z.object({
 });
 
 export type WorkspaceAsset = z.infer<typeof workspaceAssetSchema>;
+
+// ---- Detail-only schemas (A6) ----------------------------------------
+
+/**
+ * The CompositionStep that produced this asset.
+ * Mirrors _serialize_detail_asset's producing_step shape.
+ */
+export const producingStepSchema = z.object({
+  id: z.string(),
+  position: z.number(),
+  primitive: z.string(),
+  params: z.record(z.string(), z.unknown()),
+  inputs: z.array(z.unknown()),
+  source_spec: z.record(z.string(), z.unknown()).nullable(),
+});
+
+export type ProducingStep = z.infer<typeof producingStepSchema>;
+
+/**
+ * A downstream composition that consumed this asset as input.
+ * Mirrors the `downstream_compositions` array in _serialize_detail_asset.
+ */
+export const downstreamCompositionSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  status: z.string(),
+  template_kind: z.string(),
+});
+
+export type DownstreamComposition = z.infer<typeof downstreamCompositionSchema>;
+
+/**
+ * Full detail shape: list fields + producing_step + downstream_compositions
+ * + inline_content (for TRANSCRIPT assets — added to the detail serializer
+ * in A6 because transcript bodies are the primary operator value).
+ */
+export const workspaceAssetDetailSchema = workspaceAssetSchema.extend({
+  producing_step: producingStepSchema.nullable(),
+  downstream_compositions: z.array(downstreamCompositionSchema),
+  inline_content: z.string(),
+});
+
+export type WorkspaceAssetDetail = z.infer<typeof workspaceAssetDetailSchema>;
 
 const workspaceAssetListResponseSchema = z.object({
   count: z.number(),
@@ -169,6 +213,37 @@ export function useWorkspaceAssets(params: WorkspaceAssetsParams) {
     staleTime: 20_000,
     // Keep the previous page data in cache for smooth pagination.
     placeholderData: (prev) => prev,
+  });
+}
+
+// ---- Detail fetch + hook (A6) --------------------------------
+
+/**
+ * Fetch a single asset by id.
+ * Workspace is optional — defaults to the user's default on the server.
+ * Cross-workspace ids → 404; unauthenticated → 401/403.
+ */
+export async function getWorkspaceAsset(
+  id: string,
+  workspace?: string,
+): Promise<WorkspaceAssetDetail> {
+  const p = new URLSearchParams();
+  if (workspace) p.set("workspace", workspace);
+  const qs = p.toString() ? `?${p.toString()}` : "";
+  return apiJson(
+    `/api/workspace/assets/${id}/${qs}`,
+    {},
+    (json) => workspaceAssetDetailSchema.parse(json),
+  );
+}
+
+/** React Query hook for a single asset detail. */
+export function useWorkspaceAsset(id: string | undefined, workspace?: string) {
+  return useQuery({
+    queryKey: ["workspace-asset", id ?? null, workspace ?? null],
+    queryFn: () => getWorkspaceAsset(id!, workspace),
+    enabled: Boolean(id),
+    staleTime: 20_000,
   });
 }
 

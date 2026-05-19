@@ -1,5 +1,5 @@
 /**
- * workspace-assets.ts unit tests — SESSION 189 / A5.
+ * workspace-assets.ts unit tests — SESSION 189 / A5, SESSION 191 / A6.
  *
  * Covers:
  *   - Zod schema parsing (well-formed payload round-trips cleanly)
@@ -8,14 +8,18 @@
  *   - relativeTime helper edge cases
  *   - storageHealthTone helper (spot-checks each tone bucket)
  *   - assetRoleLabel / assetTypeLabel for all enum values
+ *   - A6: workspaceAssetDetailSchema parsing (full + null step + empty downstream)
+ *   - A6: getWorkspaceAsset URL construction
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import {
   buildAssetsQueryString,
   relativeTime,
   storageHealthTone,
   assetRoleLabel,
   assetTypeLabel,
+  workspaceAssetDetailSchema,
+  getWorkspaceAsset,
 } from "./workspace-assets";
 
 // ---- buildAssetsQueryString ----------------------------------
@@ -187,5 +191,129 @@ describe("assetTypeLabel", () => {
     expect(assetTypeLabel("image")).toBe("Image");
     expect(assetTypeLabel("transcript")).toBe("Transcript");
     expect(assetTypeLabel("voice")).toBe("Voice");
+  });
+});
+
+// ---- A6: workspaceAssetDetailSchema -------------------------
+
+/** Minimal list-row fields shared by all detail payloads. */
+function baseAssetPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "11111111-0000-0000-0000-000000000001",
+    asset_type: "clip",
+    role: "talking_head",
+    file_path: "https://cdn.example.com/clip.mp4",
+    title: "Test clip",
+    subject: "Test",
+    duration_ms: 5000,
+    width: 1920,
+    height: 1080,
+    mime_type: "video/mp4",
+    size_bytes: 1048576,
+    cost_micros: 80000,
+    created_at: "2026-05-19T10:00:00Z",
+    storage_health: "https_live",
+    primitive_kind: "generate_avatar_speech",
+    producing_prompt: "Say hello",
+    composition: {
+      id: "comp-1",
+      name: "Hero ad",
+      status: "done",
+      template_kind: "talking_head",
+    },
+    producing_step: {
+      id: "step-1",
+      position: 1,
+      primitive: "generate_avatar_speech",
+      params: { script: "Hello!" },
+      inputs: [{ asset_id: "00000000-0000-0000-0000-000000000099" }],
+      source_spec: { primitive_kind: "generate_avatar_speech" },
+    },
+    downstream_compositions: [
+      {
+        id: "comp-downstream-1",
+        name: "Polished output",
+        status: "done",
+        template_kind: "talking_head_polished",
+      },
+    ],
+    inline_content: "",
+    ...overrides,
+  };
+}
+
+describe("workspaceAssetDetailSchema", () => {
+  it("parses a well-formed detail payload", () => {
+    const payload = baseAssetPayload();
+    const result = workspaceAssetDetailSchema.parse(payload);
+    expect(result.id).toBe("11111111-0000-0000-0000-000000000001");
+    expect(result.producing_step).not.toBeNull();
+    expect(result.producing_step?.primitive).toBe("generate_avatar_speech");
+    expect(result.downstream_compositions).toHaveLength(1);
+    expect(result.downstream_compositions[0]?.name).toBe("Polished output");
+    expect(result.inline_content).toBe("");
+  });
+
+  it("parses a payload with null producing_step", () => {
+    const payload = baseAssetPayload({ producing_step: null });
+    const result = workspaceAssetDetailSchema.parse(payload);
+    expect(result.producing_step).toBeNull();
+  });
+
+  it("parses a payload with empty downstream_compositions", () => {
+    const payload = baseAssetPayload({ downstream_compositions: [] });
+    const result = workspaceAssetDetailSchema.parse(payload);
+    expect(result.downstream_compositions).toHaveLength(0);
+  });
+
+  it("parses a transcript asset with inline_content body", () => {
+    const payload = baseAssetPayload({
+      asset_type: "transcript",
+      role: "transcript",
+      inline_content: "Hello from the transcript body.",
+      producing_step: null,
+    });
+    const result = workspaceAssetDetailSchema.parse(payload);
+    expect(result.inline_content).toBe("Hello from the transcript body.");
+  });
+});
+
+// ---- A6: getWorkspaceAsset URL construction ------------------
+
+describe("getWorkspaceAsset", () => {
+  const fetchedPaths: string[] = [];
+
+  beforeEach(() => {
+    fetchedPaths.length = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        fetchedPaths.push(url);
+        return {
+          ok: true,
+          status: 200,
+          json: async () => baseAssetPayload(),
+        };
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("hits /api/workspace/assets/<id>/ without workspace param", async () => {
+    await getWorkspaceAsset("asset-uuid-1");
+    const path = fetchedPaths[0];
+    expect(path).toBeDefined();
+    expect(path!).toBe("/api/workspace/assets/asset-uuid-1/");
+  });
+
+  it("appends ?workspace= when provided", async () => {
+    await getWorkspaceAsset("asset-uuid-2", "ws-abc-123");
+    const path = fetchedPaths[0];
+    expect(path).toBeDefined();
+    expect(path!).toContain("/api/workspace/assets/asset-uuid-2/");
+    expect(path!).toContain("workspace=ws-abc-123");
   });
 });

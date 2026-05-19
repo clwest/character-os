@@ -489,3 +489,37 @@ def test_retrieve_unknown_id_returns_404(client_user) -> None:
         reverse("workspace-asset-detail", kwargs={"pk": uuid.uuid4()}),
     )
     assert resp.status_code == http.HTTP_404_NOT_FOUND
+
+
+# ---- A6: inline_content on retrieve ----------------------------------
+
+
+def test_retrieve_transcript_includes_inline_content(client_user) -> None:
+    """Detail endpoint returns inline_content for TRANSCRIPT assets (A6)."""
+    api, ws, _ = client_user
+    sp = _make_spokesperson(ws)
+    comp = _make_composition(ws, sp)
+    asset = _make_asset(
+        ws,
+        asset_type=AssetType.TRANSCRIPT,
+        role=AssetRole.TRANSCRIPT.value,
+        file_path="",
+        composition=comp,
+    )
+    asset.inline_content = "Hello from the transcript body."
+    asset.save()
+    resp = api.get(reverse("workspace-asset-detail", kwargs={"pk": asset.id}))
+    assert resp.status_code == http.HTTP_200_OK
+    assert resp.data["inline_content"] == "Hello from the transcript body."
+
+
+def test_retrieve_non_transcript_inline_content_empty(client_user) -> None:
+    """inline_content is always present on the detail response;
+    non-TRANSCRIPT assets return an empty string."""
+    api, ws, _ = client_user
+    sp = _make_spokesperson(ws)
+    comp = _make_composition(ws, sp)
+    asset = _make_asset(ws, composition=comp)
+    resp = api.get(reverse("workspace-asset-detail", kwargs={"pk": asset.id}))
+    assert resp.status_code == http.HTTP_200_OK
+    assert resp.data["inline_content"] == ""

@@ -928,6 +928,9 @@ def _serialize_detail_asset(asset: Asset) -> dict:
 
     base["producing_step"] = producing_step_payload
     base["downstream_compositions"] = downstream
+    # A6: expose TRANSCRIPT body for the detail view. inline_content is
+    # always present (defaults to ""); non-transcript assets return "".
+    base["inline_content"] = asset.inline_content
     return base
 
 

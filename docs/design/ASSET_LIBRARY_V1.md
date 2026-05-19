@@ -298,7 +298,7 @@ applicable.
 | **A3** | Storage-health helper + cached property. JWT exp parser. Filesystem existence check. | ½ session | **✓ SHIPPED (SESSION 187)** |
 | **A4** | `GET /api/workspace/assets/` + `GET /api/workspace/assets/<id>/` read-only endpoints with filters. | ½ session | **✓ SHIPPED (SESSION 188)** |
 | **A5** | SPA route `/workspace/assets` — list view with filter chips (role / asset_type / storage). Pagination. | 1 session | **✓ SHIPPED (SESSION 189)** |
-| **A6** | SPA per-asset detail view at `/workspace/assets/<id>` — lineage graph, prompts, downstream compositions, storage badge, copy-URL action. | 1 session | pending |
+| **A6** | SPA per-asset detail view at `/workspace/assets/<id>` — lineage graph, prompts, downstream compositions, storage badge, copy-URL action. | 1 session | **✓ SHIPPED (SESSION 191)** |
 | **A7** | asset_picker gains optional `role` filter on the field metadata. V18's `backdrop_clip_id` picker filters to `role=BACKDROP`. Same shape for V8 broll_splice / pip_layout / cohost_layout. | ½ session | **✓ SHIPPED (SESSION 190)** |
 | **A8** | Composition-lineage cross-link (per F-arc): each composition's overview shows produced assets with role badges. | ½ session | pending |
 
@@ -457,6 +457,33 @@ A5 surface only minimally.
   coverage test seeds its own Composition/RealtimeSession
   rows). Compositions suite: 497 → 505 (+8); full shell suite
   928 → 936 (+8 = A2 coverage tests).
+* **2026-05-19 (SESSION 191)** — **A6 SHIPPED.** SPA per-asset
+  detail at `/workspace/assets/:id`. Delegated to the
+  `react-web-delivery` agent. Files: extended
+  `web/src/lib/api/workspace-assets.ts` with `producingStepSchema`
+  + `downstreamCompositionSchema` + `workspaceAssetDetailSchema`
+  + `getWorkspaceAsset(id, workspace?)` + `useWorkspaceAsset(id, workspace?)`
+  hook. New `web/src/routes/workspace/assets.$id.tsx` page —
+  media preview by asset_type (img / video / audio /
+  voice-id panel / TRANSCRIPT body), full metadata table
+  with copy buttons (id, file_path), formatted duration /
+  size / cost / dates, lineage section (producing composition
+  card + producing step JSON-pre + downstream consumer
+  list with links to `/compositions/<id>`), loading +
+  error + 404 states. `App.tsx` registers
+  `WorkspaceAssetDetailRoute` at `/workspace/assets/:id`
+  after the list route. `assets.tsx` row title now wraps in
+  a `<Link>` to the detail page. **Backend tweak**: agent
+  added `base["inline_content"] = asset.inline_content` to
+  `_serialize_detail_asset` in `views.py` — TRANSCRIPT
+  assets are useless to operators without their text body,
+  and the list serializer intentionally omits it for
+  performance. 2 backend tests for the new field + 6 SPA
+  vitest tests for the detail schema / URL construction.
+  Back-link to list is plain `Link to="/workspace/assets"`
+  matching `knowledge.$id.tsx` — browser Back restores
+  filter params; no new state mechanism introduced.
+  Backend: 990 → 992 (+2). SPA vitest: 125 → 131 (+6).
 * **2026-05-19 (SESSION 190)** — **A7 SHIPPED.** The structural
   fix that motivated the whole arc. `RecipeField` gains
   `role_filter: str | None` field; `to_json()` emits it only
