@@ -2897,3 +2897,142 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   territory. SESSION 180 priority: keep walking through
   the recipes. Don't claim a recipe is "shipped" until a
   real-mode render succeeds end-to-end.
+
+## 2026-05-18 — AI confidently wrong: "200 OK + plausible byte count" doesn't mean correct output
+
+- **Context / claim:** SESSION 180's `talking_head_polished`
+  dogfood ran intro_outro through four "fix and re-fire"
+  iterations. Each time I told the operator "endpoint
+  returns 200, mp4 is the expected size, the fix is in."
+  My basis: HTTP 200 status, response body with
+  duration_seconds and size_bytes, file at expected path
+  on disk. The previous SESSION 180 tests I'd just written
+  (`test_dual_card_with_apostrophes_on_non_default_size`
+  etc.) all passed.
+- **Reality / outcome:** Every one of those "shipped" mp4s
+  rendered the intro card as pure-black with no visible
+  text. The operator extracted a frame in their player
+  and saw blank cards. My status-code-checking tests had
+  zero overlap with "is the output visually correct."
+  Only after I extracted a frame myself + counted bright
+  pixels did the failure mode surface. Three separate
+  underlying bugs (missing fontfile=, drawtext text=
+  apostrophe collision with fontfile=, and a stale uvicorn
+  worker — see next entry) all rolled up to identical
+  output md5 hashes that passed every byte-level check.
+- **Found by:** Operator playback of the rendered video
+  in their browser. The diagnostic that nailed it for me
+  was `ffmpeg -ss 1 -i <output> -frames:v 1 frame.png`
+  + PIL pixel-count + visual inspection of the PNG —
+  the kind of probe I should have run from the very
+  first "fix" iteration.
+- **Lesson:** **For any endpoint that produces visual
+  output, the regression test MUST probe the actual
+  rendered output — not just the request/response
+  surface.** Status code + byte count + duration is
+  necessary but vastly insufficient. The `bright_pixels
+  > N` assertion in
+  `test_intro_frame_has_visible_text_not_pure_black`
+  is the right shape — extract a frame, count
+  non-background pixels, fail loud when below threshold.
+  Pattern: every drawtext / filter_complex / composite
+  endpoint should have at least one test that probes
+  rendered pixels, not just response shape. Generalizes
+  beyond ffmpeg to anything where "the server happily
+  returns success after silently producing the wrong
+  output" is even possible — image generators, audio
+  mixers, document renderers, anywhere output quality
+  isn't a 1-to-1 function of input validity.
+
+## 2026-05-18 — Near-miss: uvicorn --reload has a stale-during-restart window
+
+- **Context / claim:** SESSION 180 mid-session I made
+  several rapid edits to `media-engine/app/routers/
+  internal.py` (drawtext escape variants, fontfile=
+  addition, textfile= pivot). Each edit, I ran
+  `retry_step` on the failing composition immediately
+  and the operator's logs showed the endpoint returning
+  200. I assumed the freshly-edited code was serving
+  each re-fire.
+- **Reality / outcome:** The regenerated mp4 had
+  byte-IDENTICAL md5 hashes to the prior broken
+  version across multiple "fix" iterations. That's
+  almost impossible if the new code was actually
+  running. Eventually I noticed the WatchFiles reload
+  log entries clustered around my edit timestamps —
+  uvicorn was mid-swap when my retry_step landed and
+  the in-flight POST got served by the previous
+  module's code. After I killed uvicorn cleanly and
+  restarted without --reload, the next regeneration
+  produced different bytes + visible text on the very
+  first try.
+- **Found by:** md5 comparison of "regenerated"
+  outputs across iterations, followed by ps inspection
+  of the uvicorn pid timestamp vs the edit timestamp.
+- **Lesson:** **When iterating on a media-engine
+  endpoint with `--reload` active, wait for the
+  "Application startup complete" log line between edits
+  and re-fires.** Or, more reliably, kill + restart
+  uvicorn cleanly between iterations once a single
+  test-fix-test cycle is more than a couple seconds.
+  The signal that you're in the stale-reload window:
+  regenerated output with byte-identical content to
+  the prior failed version. Same code path → same
+  output. Pattern: when an mp4 / image / artifact has
+  the SAME md5 after a code change you expected to
+  alter it, suspect process / module staleness before
+  suspecting the new code is wrong.
+
+## 2026-05-18 — AI confidently wrong: drawtext text= becomes unusable once fontfile= joins the filter
+
+- **Context / claim:** SESSION 180's first intro_outro
+  500 was the drawtext apostrophe escape bug.
+  I implemented the POSIX close-escape-reopen pattern
+  (`'It'\''s'` parses as `It's`) and verified it
+  against ffmpeg directly — the standalone command
+  rendered "Riggs's Rules." cleanly. I shipped the
+  fix. Then the missing-fontfile= bug surfaced; I
+  added `fontfile=` to the same filter. At that point
+  every drawtext rendered blank. I cycled through four
+  text-escape strategies — POSIX, octal `\047`,
+  backslash-only, plain — each of which I confirmed
+  "should work" by reading drawtext docs + testing
+  variants in isolation. None rendered text once
+  fontfile= was in the same filter.
+- **Reality / outcome:** The combination of two
+  quoted arguments in the same drawtext filter
+  confuses ffmpeg's in-filter argument tokenizer in
+  ways the docs don't describe and tests-in-isolation
+  don't reveal. The escape that works for the
+  standalone `text='...'` case silently fails when
+  `fontfile='...'` is also present in the filter. The
+  fix that actually works: drawtext's `textfile=`
+  option reads the literal bytes from a disk file —
+  no in-filter escape rules apply. The endpoint now
+  writes intro/outro card text to per-cache-key text
+  files alongside the cached output mp4.
+- **Found by:** Side-by-side comparison: my
+  `_build_card_filter` output worked when invoked
+  via direct shell ffmpeg, but produced blank when
+  invoked via uvicorn / Celery. Eventually traced to
+  the fontfile + text combination by manually
+  removing fontfile= from the filter (text rendered)
+  vs removing the apostrophe from the text (text
+  rendered with fontfile=).
+- **Lesson:** **Any drawtext invocation that's been
+  touched once should use `textfile=` for the text
+  argument, not `text=`.** drawtext's in-filter text
+  escape rules are a footgun the moment ANY other
+  quoted argument joins the filter — even ones
+  documented as independent. `textfile=` sidesteps
+  the whole problem at the cost of a one-file write
+  per call. For media-engine endpoints with caching,
+  the textfile naturally piggybacks on the cache_key
+  so it's idempotent across reruns. Pattern: never
+  trust drawtext text= escape correctness in
+  isolation — only test it in the full filter
+  context the endpoint actually emits. Generalizes:
+  any time a complex filter argument "should work
+  per the docs," verify by extracting an actual frame
+  from the rendered output, not by parsing the
+  command line.

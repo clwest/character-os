@@ -9,8 +9,7 @@ state: active
 > **SPA scope lock:** `docs/design/SPA_ARCHITECTURE.md`.
 > **Brand ecosystem lock:** `docs/design/BRAND_ECOSYSTEM_V1.md`
 > (locked SESSION 178 — 10 contract rules, B0-B10 slice
-> breakdown). **B0-B5 SHIPPED; B6-B10 deferred to product #2
-> reality.**
+> breakdown). **B0-B5 SHIPPED; B6-B10 deferred.**
 > **Brand identity lock:** `docs/design/BRAND_IDENTITY_V2.md`
 > (locked SESSION 178 — supersedes V1). Premium enterprise
 > dark + gold; Geist + JetBrains Mono.
@@ -35,152 +34,133 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_179_V_ARC_REAL_MODE_DOGFOOD_V16.md`.
+> **Last handoff:** `docs/handoffs/SESSION_180_V_ARC_REAL_MODE_DOGFOOD_POLISH.md`.
 
 ---
 
-## SESSION 179 outcome — V-arc real-mode dogfood + V16
+## SESSION 180 outcome — V-arc real-mode dogfood: talking_head_polished
 
-Six commits. Mixed real-mode dogfood + bug-fix + first-post-
-close V-slice. SESSION 178 flagged "17 of 18 V-arc recipes
-never real-mode validated" as the SESSION 179 focus.
-SESSION 179 validated **three** of them end-to-end with real
-Runway credits, surfaced four production bugs that mock-mode
-tests couldn't catch, fixed every one, and shipped V16
-(`remove_avatar_background`) as the V-arc's first post-close
-addition to solve the cinematic-backdrop white-frame problem.
+Three commits. Single-recipe dogfood. SESSION 179 closed
+flagging 14 V-arc recipes still real-mode unvalidated;
+SESSION 180 took `talking_head_polished` end-to-end and
+surfaced **six** production bugs along the way — extending
+the SESSION 179 "real-mode dogfood finds bugs in every
+recipe it touches" pattern from four-for-four to
+**ten-for-five**.
 
-* **`f9f000e`** — SPA playback for media-engine concat /
-  composite / mix assets (FastAPI StaticFiles `/data` mount +
-  Vite `/data` proxy).
-* **`9db31c3`** — `cinematic_visual` text-only path routes to
-  gen4.5 (was failing 400 on gen4_turbo's image requirement).
-* **`077c349`** — V8 multi-backdrop chain for
-  `talking_head_with_backdrop` (eliminates 3s motion seam on
-  long avatar speech over 10s-capped backdrops).
-* **`04fcdb0`** — `_download_concat_input` resolver honors
-  `/data/` SPA-mount prefix (intermediate composition assets
-  can flow as inputs to downstream steps).
-* **`57c2530`** — V16 `remove_avatar_background` primitive +
-  opt-in `talking_head_with_backdrop` wiring (mat the white
-  square out of Runway avatars; recipe gallery exposes the
-  checkbox).
-* **`88b341e`** — V16 muxer fix + broken-pipe stderr capture
-  (ffmpeg can't infer format from `.webm.tmp` suffix; pin
-  with `-f webm`; surface real ffmpeg errors instead of
-  generic 500).
-* **`9a05865`** — V16 design doc + CLAUDE.md updates
-  (doc-with-commit discipline).
+* **`65fb165`** — V9 polish form shorthands
+  (`intro_text` / `outro_text` / `burn_captions`). Closed
+  the gap where the SPA form didn't expose the polish
+  steps' inputs, so the recipe was functionally identical
+  to plain `talking_head` from the form.
+* **`41fbbe4`** — intro_outro endpoint triple fix
+  (drawtext apostrophe escape / input indexing math /
+  hardcoded canvas dims). All three latent-since-V9
+  bugs that would have bitten any real-mode polish
+  render with apostrophe text on a non-1280x720 source.
+* **`bcc9178`** — drawtext textfile + fontfile resolver.
+  Pivoted from `text=` to `textfile=` after four
+  iterations of text-escape variants all rendered
+  blank cards (silent failure even when status-code-
+  checking tests passed).
 
-Tests: Django **843** (816 → 843, +27 — V8 multi-backdrop +
-V16 primitive + V16 starter wiring + isolation allowlist).
-Media-engine **143** (133 → 143, +10 — concat resolver +
-remove_background endpoint). SPA vitest **95** unchanged.
+Tests: Django **428** (420 → 428, +8). Media-engine **156**
+(143 → 156, +13). SPA vitest **95** unchanged.
 
-Real-mode spend this session: **~$3.50** across four
-compositions.
+Real-mode spend this session: **~$0.25** (one polished
+composition + five intro_outro-only re-fires via
+`retry_step` — backdrop/speech assets reused from cache).
 
 ### Calibration moments worth carrying
 
 Three new TRUST_CALIBRATION entries appended:
 
-1. **Celery worker doesn't auto-reload on new primitive
-   registrations.** V16 first dogfood failed
-   `UnknownPrimitiveError` because the worker was running
-   since before the registry edit. Pattern: any commit
-   touching `apps/compositions/primitives/` OR `apps/*/tasks.py`
-   OR `apps/*/signals.py` needs a Celery restart on the
-   operator's box.
-2. **ffmpeg can't infer output muxer from `.webm.tmp`
-   tempfile suffix.** V16 first ffmpeg invocation died on
-   muxer inference; pin with explicit `-f <muxer>` whenever
-   shelling out with double-extension tempfile names.
-3. **Real-mode dogfood found a bug in every recipe it
-   touched.** Three real-mode runs yielded four production
-   bugs. Mock-mode test coverage is necessary but
-   insufficient. Budget the ~$0.50-$2.00 of Runway spend per
-   validation as the cost of not shipping broken recipes.
+1. **"200 OK + plausible byte count" doesn't mean
+   correct output.** Four iterations of "the endpoint
+   returns 200, mp4 is the right size, ship it" all
+   produced pure-black rendered intro frames. Only the
+   visible-pixel regression test caught the truth.
+2. **Uvicorn `--reload` has a stale-during-restart
+   window.** Mid-session edits + immediate re-fires
+   land during the reloader's swap → in-flight POST
+   served by old module. Signal: regenerated output
+   with byte-identical md5 to the broken version.
+3. **drawtext `text=` is a footgun once `fontfile=`
+   joins the filter.** Multiple escape variants all
+   silently render blank. `textfile=` is the only
+   escape-immune option for any drawtext invocation
+   that's been touched once.
 
 ### Final state at session close
 
-* **V8 backdrop recipe** real-mode validated end-to-end at
-  three depths: single-backdrop, multi-backdrop chain, AND
-  with V16 matting enabled.
-* **`remove_avatar_background` matting confirmed clean** on
-  the underwater-backdrop dogfood — clean silhouette, no
-  white frame.
-* **Recipe gallery exposes the matting checkbox** below "Use
-  workspace knowledge" on the `talking_head_with_backdrop`
-  form. Default off.
-* **V-arc validation count: 4 of 18 recipes.** SESSION 158
-  (`talking_head`) + SESSION 179 (`long_form_ad` +
-  `cinematic_visual` + `talking_head_with_backdrop`).
-* **14 recipes remain unvalidated** — high probability of
-  hidden bugs in each per the SESSION 179 four-for-four
-  hit rate.
+* **5 V-arc recipes real-mode validated** (talking_head
+  + long_form_ad + cinematic_visual +
+  talking_head_with_backdrop + talking_head_polished).
+* **13 recipes remain unvalidated.** SESSION 181
+  priority.
+* **Polish family is fully done** — `talking_head_polished`
+  renders captions + intro card + outro card end-to-end
+  with apostrophe-safe text on non-default body clip
+  dimensions.
 
-### FIRST THING (SESSION 180): pick a recipe and dogfood it
+### FIRST THING (SESSION 181): pick a recipe and dogfood it
 
-Operator-locked direction (SESSION 178 → 179): walk through
-recipes you actually need rather than mechanically dogfood
-all 18. Continuing the same pattern.
+Operator-locked direction (continued from SESSION 178 →
+179 → 180): walk through recipes you actually need
+rather than mechanically dogfood all 18. The polish
+family is done; layout family is the next-lowest-friction
++ highest-debugging-yield (exercises `composite_video`
+in shapes V8 doesn't, validates `reformat_clip` and
+`mix_audio` real-mode for the first time):
 
-Polish family is the lowest-friction next-pick (single-step
-or two-step compositions, fast feedback loop). Layout family
-is the highest-value-for-debugging (exercises composite_video
-in shapes V8 doesn't):
-
-1. **`talking_head_polished`** — talking-head + captions +
-   intro/outro. 4-step composition. ~$0.40 + ~2-3 min.
-   Exercises V9 polish primitives end-to-end for the first
-   time in real mode.
-2. **`reels_format`** — talking-head reformatted to 720:1280
-   vertical. 2-step. ~$0.35 + ~2 min. Validates
-   `reformat_clip` real-mode.
-3. **`pip_layout`** — picture-in-picture composite of two
-   existing CLIPs. Needs two pre-existing CLIP Assets in the
-   workspace (no Runway spend; pure media-engine ffmpeg).
-4. **`cohost_layout`** — same shape as pip_layout, different
-   ffmpeg overlay. Validates the cohost layout kind.
-5. **`broll_splice`** — base avatar + cinematic cutaway
-   spliced into a time window. 3-step. Validates the broll
-   layout kind.
-6. **`music_bed_pass`** — base clip + audio mix-down.
-   Exercises `mix_audio` primitive real-mode for the first
-   time.
-7. **`voice_design`** — one-shot custom voice generation. No
-   composition steps; pure media-engine call. ~$0 (Runway
-   voice design is free-tier).
-8. **`multi_lang_dub`** — voice-clone across 29 languages.
-   Heaviest real-mode call.
-9. **`style_remix_pass`** — Aleph gen4_aleph style transfer
-   on an existing CLIP. ~$1.50.
-10. **`storyboard_ad`** — 7-step Hook/Action/Payoff
-    composition. Heavy spend (~$2.00).
-11. **`recut_teaser`** — transcribe + trim existing CLIP into
-    a teaser. Validates V12 transcribe.
-12. **`storyboard_voiced`** — V15.4 bonus 10-step recipe.
+1. **`reels_format`** — 2-step (avatar speech →
+   reformat_clip to 720:1280 vertical). ~$0.35 + ~2 min.
+   First real-mode validation of `reformat_clip`.
+2. **`pip_layout`** — picture-in-picture composite of
+   two existing CLIPs. Needs 2 CLIP Assets in workspace.
+   No Runway spend.
+3. **`cohost_layout`** — same shape, different overlay.
+4. **`broll_splice`** — base avatar + cinematic cutaway
+   spliced in. 3-step.
+5. **`music_bed_pass`** — base clip + audio mix-down.
+   First real-mode `mix_audio`.
+6. **`voice_design`** — one-shot custom voice. Pure
+   media-engine call. ~$0.
+7. **`multi_lang_dub`** — voice-clone across 29
+   languages. Heaviest call.
+8. **`style_remix_pass`** — Aleph gen4_aleph. ~$1.50.
+9. **`storyboard_ad`** — 7-step. ~$2.00.
+10. **`recut_teaser`** — first real-mode `transcribe`.
+11. **`storyboard_voiced`** — V15.4 bonus 10-step.
     Heaviest spend.
-13. **`dialogue_scene`** — multi-spokesperson scripted scene.
-    Needs ≥2 cast members.
+12. **`dialogue_scene`** — multi-spokesperson.
+13. **`backdrop_layout`** — standalone (distinct from
+    V8's full flow).
 
-Skip / defer: `talking_head` (validated SESSION 158),
-`talking_head_with_backdrop` + `backdrop_layout` (validated
-SESSION 179), `long_form_ad` + `cinematic_visual` (validated
-SESSION 179).
+Expected class of bugs (priors from SESSION 179+180
+ten-for-five hit rate):
+* Form gaps where recipe form doesn't expose starter's
+  capability surface (SESSION 180 V9 shorthands pattern)
+* Silent visual-output failures that pass status-code
+  checks but produce wrong frames
+* ffmpeg filter / muxer edge cases triggered by
+  operator-realistic inputs (non-default sizes,
+  apostrophes, special characters)
+* Hardcoded defaults matching one common shape and
+  silently breaking others
 
 ---
 
 ## Where we are
 
 **Phase 0-2:** Done.
-**Phase 3:** Wizard arc complete. Operator-facing edit surfaces
-include voice swap, rebake, voice telemetry, voice preview,
-personality split.
-**Phase 4:** All four arcs (K / V / F / R) complete + R-arc
-real-mode validated end-to-end (SESSION 176); V-arc
-real-mode validation **in progress** (4 of 18 recipes,
-SESSIONS 158 + 179).
+**Phase 3:** Wizard arc complete. Operator-facing edit
+surfaces include voice swap, rebake, voice telemetry,
+voice preview, personality split.
+**Phase 4:** All four arcs (K / V / F / R) complete +
+R-arc real-mode validated end-to-end (SESSION 176);
+V-arc real-mode validation **in progress** (5 of 18
+recipes, SESSIONS 158 + 179 + 180).
 **Phase 5 (new):** Brand ecosystem repositioning under
 24/7 GLOBAL AI parent (SESSION 178 B-arc).
 
@@ -188,7 +168,7 @@ SESSIONS 158 + 179).
 |---|---|
 | W1-W11 | DONE |
 | K0-K9 | DONE |
-| V0-V15 + V16 | DONE (mock); **4/18 real-mode validated** |
+| V0-V15 + V16 | DONE (mock); **5/18 real-mode validated** |
 | F0-F10 | DONE |
 | R0-R10 + R6.1 | DONE + REAL-MODE VALIDATED (SESSION 176) |
 | W11.6.0-W11.6.5 (media gen) | DONE (SESSIONS 172-173) |
@@ -198,37 +178,38 @@ SESSIONS 158 + 179).
 | Multi-step composition title disambig | DONE (SESSION 177) |
 | Sasha + Donny voice re-persist | DONE (SESSION 177, data-only) |
 | B0-B5 brand ecosystem pivot | DONE (SESSION 178) |
-| **V16 remove_avatar_background** | **DONE (SESSION 179) — post-close polish** |
+| V16 remove_avatar_background | DONE (SESSION 179) |
+| **V9 polish form shorthands + intro_outro triple fix + textfile pivot** | **DONE (SESSION 180)** |
 | B6-B10 brand arc | Deferred (product #2 reality / dogfood polish) |
 | F8.1 (K10 seed corpus) | Queued (platform-authored markdown) |
 | K7.x v3 YouTube oEmbed | Queued |
 | K6.4 v3 architectural fix | Queued |
 | Thruman stale spokesperson cleanup | Queued (from SESSION 177) |
 | W12 legacy form retirement | Queued |
-| **14 of 18 V-arc recipes real-mode unverified** | **SESSION 180 priority** |
+| **13 of 18 V-arc recipes real-mode unverified** | **SESSION 181 priority** |
 
 **Cast roster in workspace `admins-workspace`**:
 
   - Riggs the Donkey — id `06bf999f-...` — voice `vincent`
-    (SESSION 179 V16 hero — validated against underwater
-    backdrop, clean silhouette)
+    (SESSION 179 V16 hero + SESSION 180 polish hero)
   - Sasha the Raccoon — id `79d48883-...` — voice `felix`
   - Donny the Sloth — id `f30b2980-...` — voice `vincent`
   - Maya the Panda — id `9410f23f-...` — voice `victoria`
-    (note: stale "Thruman" record at same prefix queued for
-    cleanup)
-  - **Marcus the Battle Unicorn** — id `b6a00dd8-...` — voice
-    `david` (most dogfooded — 4 ENDED realtime sessions + 1
-    rendered MP4 SESSION 176)
+    (stale "Thruman" record at same prefix queued for cleanup)
+  - **Marcus the Battle Unicorn** — id `b6a00dd8-...` —
+    voice `david` (most-dogfooded — 4 ENDED realtime
+    sessions + 1 rendered MP4 SESSION 176)
 
-**Workspace artifacts from SESSION 179**:
+**Workspace artifacts from SESSION 180**:
 
-  - 1 `Composition` (`a8a110da-...`, `talking_head_with_backdrop`,
-    completed) with V16 matting applied — Riggs over an
-    underwater scene; final asset
-    `/data/_internal/composites/backdrop-c873d7757844b6af.mp4`
-  - Multiple intermediate `Asset(CLIP)` rows from the
-    backdrop chain + matting tests
+  - 1 `Composition` (`c241a39a-...`,
+    `talking_head_polished`, completed) — Riggs delivering
+    "Three rules. Don't blink. Don't fold. Don't apologize."
+    with "Riggs's Rules." intro + "Don't blink." outro
+  - Final asset:
+    `/data/_internal/intro_outros/019cf3803c177062.mp4`
+    (~503KB, 11s)
+  - Two card text files at `019cf3803c177062-{intro,outro}.txt`
 
 ---
 
@@ -255,69 +236,84 @@ cd web && pnpm dev                          # :5174 — V2 dark navy + gold
 python3 /Users/donkeyking/development/context-kit/context_kit.py doctor
 ```
 
-**SESSION 180 stack-up note**: Celery worker was last
+**SESSION 181 stack-up note**: Celery worker was last
 restarted SESSION 179 (pid 18279, picked up the V16
-`remove_avatar_background` primitive registry entry). Restart
+`remove_avatar_background` primitive registry entry).
+SESSION 180 added no new primitives or tasks. Restart
 only if you touch `apps/compositions/primitives/` OR
 `apps/*/tasks.py` OR `apps/*/signals.py` (per SESSION 179
 TRUST_CALIBRATION entry — Celery does NOT auto-reload).
 
+**Media-engine note**: If iterating on `media-engine/app/`
+files with `--reload` active, wait for the "Application
+startup complete" log line between edits and re-fires.
+Mid-reload window can serve requests with stale module
+code — signal is regenerated output with byte-identical
+md5 to the prior broken version (per SESSION 180
+TRUST_CALIBRATION entry).
+
 **First-call deps cached on the operator's box**: the
 ~176MB `u2net_human_seg.onnx` rembg model lives at
-`~/.u2net/u2net_human_seg.onnx`. First V16 invocation after a
-fresh checkout will re-download it (~5s).
+`~/.u2net/u2net_human_seg.onnx`. First V16 invocation
+after a fresh checkout re-downloads (~5s).
 
-**Smoke checks** (counts as of SESSION 179 close):
+**Smoke checks** (counts as of SESSION 180 close):
 
 ```bash
 # Backend (from shell/)
 python manage.py inventory
-python -m pytest                              # 843 tests
+python -m pytest                              # 843+ tests
+# (SESSION 180 added 8 V9 polish tests; full count
+#  TBD on next regen — running compositions/ shows 428)
 
 # Media-engine (from media-engine/)
-python -m pytest                              # 143 tests
+python -m pytest                              # 156 tests
 
 # SPA (from web/)
 pnpm build                                    # type-check + bundle
 pnpm test                                     # 95 vitest tests
 ```
 
-**New SPA / endpoint surfaces from SESSION 179**:
-* `http://localhost:5174/data/_internal/*` — media-engine
-  filesystem proxy (FastAPI StaticFiles mount + Vite proxy).
-  SPA `<video>` tags can play intermediate Composition assets
-  by their canonical SPA URL.
-* `POST /internal/clips/remove_background/` — media-engine
-  endpoint for V16 matting. WebM/VP9 alpha output.
-* `remove_avatar_bg` checkbox on the
-  `talking_head_with_backdrop` recipe form. Default off; adds
-  ~2-3 min wall-clock per render.
+**New SPA / endpoint surfaces from SESSION 180**:
+* `talking_head_polished` recipe form now exposes three
+  shorthand fields below "Use workspace knowledge":
+  - Intro card text (optional)
+  - Outro card text (optional)
+  - Burn captions from script (checkbox)
 
 ---
 
 ## AI / assistant context
 
-- **Last session: SESSION 179 — V-arc real-mode dogfood + V16.**
-  Six commits. Mixed real-mode dogfood + bug-fix + first-post-
-  close V-slice. Three recipes validated end-to-end (4/18
-  total now). V16 `remove_avatar_background` shipped to fix
-  the cinematic-backdrop white-frame problem dogfood exposed.
-  Tests: Django **843** (+27); media-engine **143** (+10);
-  SPA **95** unchanged.
+- **Last session: SESSION 180 — V-arc real-mode dogfood:
+  talking_head_polished.** Three commits, single-recipe
+  dogfood. Six bugs surfaced + fixed inline: V9 form gap,
+  drawtext apostrophe escape, input indexing math,
+  hardcoded canvas dims, missing fontfile=, drawtext text=
+  vs textfile= incompatibility. 5 V-arc recipes now
+  real-mode validated (4 → 5). Tests: Django **428**
+  compositions (420 → 428, +8); media-engine **156**
+  (143 → 156, +13).
 
-- **Calibration carried forward (NEW SESSION 179)**:
-  - **Celery worker does NOT auto-reload.** Restart after
-    any primitive / task / signal change. Django runserver
-    auto-reloads but Celery doesn't.
-  - **ffmpeg can't infer muxer from double-extension
-    tempfile names.** Pin with `-f <muxer>` whenever
-    shelling out with `.foo.tmp` patterns.
-  - **Real-mode dogfood found four bugs across three
-    recipes.** Mock-only tests hide upstream drift at scale.
-    Budget ~$0.50-$2.00 per validation as the cost of not
-    shipping broken recipes.
+- **Calibration carried forward (NEW SESSION 180)**:
+  - **"200 OK + plausible byte count" doesn't mean
+    correct output.** For rendering pipelines, the
+    regression test MUST probe the actual rendered
+    output, not just the request/response surface.
+  - **Uvicorn `--reload` has a stale-during-restart
+    window.** Wait for "Application startup complete"
+    between edits, or kill + restart cleanly.
+  - **drawtext `text=` is a footgun once `fontfile=`
+    joins the filter.** Use `textfile=` for any
+    drawtext invocation that's been touched once.
 
 - **Calibration carried forward (from earlier sessions)**:
+  - Celery worker does NOT auto-reload (SESSION 179).
+  - ffmpeg can't infer muxer from double-extension
+    tempfile names (SESSION 179).
+  - Real-mode dogfood found a bug in every recipe it
+    touched (SESSION 179 — now reinforced ten-for-five
+    after SESSION 180).
   - PostCSS `@import` order is load-bearing (SESSION 178).
   - Operator catches premature extraction (SESSION 178).
   - DevTools computed-style snippet is the fastest
@@ -347,22 +343,22 @@ pnpm test                                     # 95 vitest tests
   - Stale browser before stale code.
   - K6.4 stoplist curation trickle.
 
-- **V-arc growth template (NEW SESSION 179)**: V16 set the
+- **V-arc growth template (SESSION 179)**: V16 set the
   precedent for post-close V-slices. Narrow scope (one
   primitive + one knob + one endpoint), opt-in default to
   preserve backwards-compat, real-mode validated before
-  handoff. Codified in `VIDEO_COMPOSITION_V1.md`
-  §"Post-close additions."
+  handoff. SESSION 180's V9 form shorthand extension
+  fits the same template.
 
 - **Brand layer is load-bearing.** Every component must
   import company/product strings from `@/lib/brand` per
   BRAND_ECOSYSTEM_V1 contract rule 3. Never inline
   "CharacterOS" or "24/7 GLOBAL AI" in component code.
 
-- **14 of 18 V-arc recipes never real-mode validated** —
-  same pattern as the R-arc pre-SESSION-176. SESSION 180
-  continues the dogfood walk.
+- **13 of 18 V-arc recipes never real-mode validated** —
+  hit rate so far is ten bugs across five recipes.
+  Continue the dogfood walk; layout family is next.
 
-- Collaboration conventions: AI drafts, human edits. Handoff
-  `## Calibration moments worth carrying` + per-slice doc
-  updates required at session end.
+- Collaboration conventions: AI drafts, human edits.
+  Handoff `## Calibration moments worth carrying` +
+  per-slice doc updates required at session end.

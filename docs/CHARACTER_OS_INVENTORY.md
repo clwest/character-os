@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-18T23:51:07.386255+00:00
-git_sha: 9a05865
+generated_at: 2026-05-19T00:49:49.566910+00:00
+git_sha: bcc9178
 git_branch: main
 ---
 
@@ -15,7 +15,7 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-18T23:51:07.386255+00:00** against commit **9a05865**
+Generated **2026-05-19T00:49:49.566910+00:00** against commit **bcc9178**
 on branch **main**.
 
 Python 3.11.6 · Django 5.2.14 ·
@@ -33,8 +33,8 @@ Celery 5.6.3 · httpx 0.28.1.
 | FastAPI routes | **120** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **9** | `celery_app.tasks` filter |
 | Migrations (applied / total) | **62 / 62** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **48,169** in 226 files | `pathlib.Path.rglob("*.py")` |
-| Media-engine LOC (`*.py`, no venv/migrations) | **33,398** in 60 files | same |
+| Shell LOC (`*.py`, no venv/migrations) | **48,445** in 226 files | `pathlib.Path.rglob("*.py")` |
+| Media-engine LOC (`*.py`, no venv/migrations) | **33,918** in 61 files | same |
 
 ---
 
@@ -275,12 +275,12 @@ Total: **9** registered tasks (excluding `celery.*` built-ins).
 
 | Service | Files | Lines |
 |---|---|---|
-| `media-engine/` | 60 | 33,398 |
-| `shell/` | 226 | 48,169 |
-| **total** | **286** | **81,567** |
+| `media-engine/` | 61 | 33,918 |
+| `shell/` | 226 | 48,445 |
+| **total** | **287** | **82,363** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-05-18T23:51:07.386255+00:00 from commit 9a05865. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-19T00:49:49.566910+00:00 from commit bcc9178. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
