@@ -27,6 +27,7 @@ from django.db import IntegrityError
 from apps.accounts.models import Workspace
 from apps.compositions.models import (
     Asset,
+    AssetRole,
     AssetType,
     Composition,
     CompositionStep,
@@ -322,3 +323,96 @@ def test_step_referenced_asset_ids_extracts_valid_uuids() -> None:
     )
     ids = step.referenced_asset_ids()
     assert set(ids) == {a.pk, b.pk}
+
+
+# ---- Asset Library v1 (SESSION 185, A0): role enum ------------------
+
+
+def test_asset_role_enum_has_ten_values() -> None:
+    """Contract rule 14 — role enum lands at exactly ten values.
+    Adding or removing a role requires a migration + scope-lock
+    discussion. The test guards the closed-enum invariant."""
+    expected = {
+        "talking_head",
+        "backdrop",
+        "composite_output",
+        "polish_output",
+        "reference_image",
+        "b_roll",
+        "transcript",
+        "audio_track",
+        "raw_upload",
+        "experiment",
+    }
+    actual = {value for value, _ in AssetRole.choices}
+    assert actual == expected
+    assert len(AssetRole.choices) == 10
+
+
+@pytest.mark.django_db
+def test_asset_role_defaults_to_raw_upload() -> None:
+    """New Asset rows take ``RAW_UPLOAD`` by default. This is
+    the A0 migration default; A1 backfill replaces values for
+    existing rows by mapping primitive_kind → role."""
+    ws = _make_workspace("rolefault@test.local", "Role Default WS")
+    asset = Asset.objects.create(
+        workspace=ws,
+        asset_type=AssetType.CLIP,
+        file_path="/fake/clip.mp4",
+    )
+    assert asset.role == AssetRole.RAW_UPLOAD
+    asset.refresh_from_db()
+    assert asset.role == AssetRole.RAW_UPLOAD
+
+
+@pytest.mark.django_db
+def test_asset_role_filter_query_uses_index() -> None:
+    """``Asset.objects.filter(workspace=..., role=...)`` is the
+    primary query path for the future ``GET /api/workspace/assets/``
+    endpoint (A4). The workspace+role index added in A0 supports it.
+    This test exercises the filter shape and asserts the index
+    exists on the model's Meta."""
+    ws = _make_workspace("rolefilter@test.local", "Role Filter WS")
+    a = Asset.objects.create(
+        workspace=ws,
+        asset_type=AssetType.CLIP,
+        role=AssetRole.BACKDROP,
+        file_path="/fake/backdrop.mp4",
+    )
+    b = Asset.objects.create(
+        workspace=ws,
+        asset_type=AssetType.CLIP,
+        role=AssetRole.TALKING_HEAD,
+        file_path="/fake/head.mp4",
+    )
+    _ = Asset.objects.create(
+        workspace=ws,
+        asset_type=AssetType.CLIP,
+        role=AssetRole.EXPERIMENT,
+        file_path="/fake/smoke.mp4",
+    )
+
+    backdrops = Asset.objects.filter(workspace=ws, role=AssetRole.BACKDROP)
+    assert list(backdrops) == [a]
+
+    heads = Asset.objects.filter(workspace=ws, role=AssetRole.TALKING_HEAD)
+    assert list(heads) == [b]
+
+    index_fields = {tuple(idx.fields) for idx in Asset._meta.indexes}
+    assert ("workspace", "role") in index_fields
+
+
+@pytest.mark.django_db
+def test_asset_role_accepts_all_ten_values() -> None:
+    """Round-trip every enum value through create + reload to
+    confirm the migration's choices match the model class."""
+    ws = _make_workspace("roleall@test.local", "Role All WS")
+    for value, _ in AssetRole.choices:
+        a = Asset.objects.create(
+            workspace=ws,
+            asset_type=AssetType.CLIP,
+            role=value,
+            file_path=f"/fake/{value}.bin",
+        )
+        a.refresh_from_db()
+        assert a.role == value

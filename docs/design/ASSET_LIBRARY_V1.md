@@ -292,7 +292,7 @@ applicable.
 
 | Slice | What ships | Estimated effort | Status |
 |---|---|---|---|
-| **A0** | `Asset.role` enum field + migration. Default `RAW_UPLOAD` for new rows. Existing rows get `RAW_UPLOAD` until A1 backfill. | ½ session | pending |
+| **A0** | `Asset.role` enum field + migration. Default `RAW_UPLOAD` for new rows. Existing rows get `RAW_UPLOAD` until A1 backfill. | ½ session | **✓ SHIPPED (SESSION 185)** |
 | **A1** | Backfill management command (`python manage.py backfill_asset_roles --dry-run / --commit`) — heuristic-driven from `source_spec.primitive_kind`. Operator reviews dry-run report before committing. | ½ session | pending |
 | **A2** | Every primitive in `apps.compositions.primitives` stamps role on its output. Migration test enforces no primitive emits without a role. | 1 session | pending |
 | **A3** | Storage-health helper + cached property. JWT exp parser. Filesystem existence check. | ½ session | pending |
@@ -412,3 +412,11 @@ A5 surface only minimally.
   distinction surfaced by the V18 smoke-output dogfood.
   9 contract rules merged into `VIDEO_COMPOSITION_V1.md`
   as rules 14-22. Slice A0 opens immediately.
+* **2026-05-19 (SESSION 185)** — **A0 SHIPPED.** `AssetRole`
+  TextChoices enum (10 values) + `Asset.role` field
+  (max_length=24, default=`RAW_UPLOAD`, indexed via new
+  `workspace+role` Meta.Index). Migration
+  `0009_a0_asset_role`. 4 new tests in
+  `apps/compositions/tests/test_models.py` covering enum
+  count, default, filter query, and round-trip for every
+  enum value. Compositions suite: 484 → 488 (+4).

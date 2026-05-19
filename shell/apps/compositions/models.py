@@ -45,6 +45,31 @@ class AssetType(models.TextChoices):
     VOICE = "voice", "Runway Voice Resource"
 
 
+class AssetRole(models.TextChoices):
+    """Asset Library v1 (SESSION 185) — intent-level taxonomy.
+
+    Distinct from ``AssetType`` (medium) and
+    ``source_spec.primitive_kind`` (production method).
+    Role captures *what the asset is meant for* — talking-head
+    foreground vs scene backdrop vs experimental sandbox output.
+    Scope: ``docs/design/ASSET_LIBRARY_V1.md`` §Taxonomy.
+
+    Ten values. New roles require a migration + scope discussion
+    (V1 contract rule 14).
+    """
+
+    TALKING_HEAD = "talking_head", "Talking Head"
+    BACKDROP = "backdrop", "Backdrop"
+    COMPOSITE_OUTPUT = "composite_output", "Composite Output"
+    POLISH_OUTPUT = "polish_output", "Polish Output"
+    REFERENCE_IMAGE = "reference_image", "Reference Image"
+    B_ROLL = "b_roll", "B-Roll"
+    TRANSCRIPT = "transcript", "Transcript"
+    AUDIO_TRACK = "audio_track", "Audio Track"
+    RAW_UPLOAD = "raw_upload", "Raw Upload"
+    EXPERIMENT = "experiment", "Experiment / Sandbox"
+
+
 class CompositionStatus(models.TextChoices):
     DRAFT = "draft", "Draft"
     PLANNING = "planning", "Planning"
@@ -124,6 +149,24 @@ class Asset(models.Model):
     )
 
     asset_type = models.CharField(max_length=20, choices=AssetType.choices)
+
+    # Asset Library v1 (SESSION 185, A0) — intent taxonomy.
+    # Stamped at primitive-emit time by A2 (rule 15). Existing
+    # rows default to ``RAW_UPLOAD`` until the A1 backfill
+    # management command maps them by ``source_spec.primitive_kind``.
+    # Indexed via the Meta.indexes entry below for the workspace+role
+    # filter on ``GET /api/workspace/assets/`` (A4).
+    role = models.CharField(
+        max_length=24,
+        choices=AssetRole.choices,
+        default=AssetRole.RAW_UPLOAD,
+        help_text=(
+            "Intent-level role (talking head, backdrop, composite output, "
+            "polish output, reference image, b-roll, transcript, audio "
+            "track, raw upload, experiment). Distinct from asset_type "
+            "(medium) and source_spec.primitive_kind (production method)."
+        ),
+    )
 
     # W11.6.5.1 (SESSION 174) — operator-facing label. Pickers
     # (asset_picker dropdowns on recipe forms, image library
@@ -293,6 +336,9 @@ class Asset(models.Model):
             models.Index(fields=["composition"]),
             # W11.6.1 — filterable on purpose for the library view.
             models.Index(fields=["workspace", "purpose"]),
+            # Asset Library v1 (SESSION 185, A0) — workspace+role
+            # is the primary filter for GET /api/workspace/assets/.
+            models.Index(fields=["workspace", "role"]),
         ]
         ordering = ["-created_at"]
 
