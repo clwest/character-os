@@ -88,6 +88,48 @@ def _compute_backdrop_chain_length(
     return max(1, min(n, _MAX_BACKDROP_CHAIN_LENGTH))
 
 
+# SESSION 180 — caption auto-timing for talking_head_polished's
+# ``burn_captions`` shorthand. The avatar's actual cadence
+# drifts from the chars-per-second estimate (vincent / felix /
+# david etc all read at slightly different rates) so the
+# timing is approximate. For tight sync, operators should pass
+# captions= as an explicit list of {start_s, end_s, text}.
+_CAPTION_MIN_SECONDS = 1.0
+_CAPTION_MAX_SECONDS = 8.0
+
+
+def _auto_caption_from_script(script: str) -> list[dict]:
+    """Split a script on sentence boundaries and distribute time
+    at the avatar's estimated speech rate. Each chunk gets a
+    duration proportional to its character count, floored at
+    1.0s (so short interjections still display long enough to
+    read) and capped at 8.0s (so a long unpunctuated sentence
+    doesn't sit on-screen forever)."""
+    import re
+    raw_chunks = re.split(r"(?<=[.!?])\s+", script.strip())
+    chunks = [c.strip() for c in raw_chunks if c.strip()]
+    if not chunks:
+        return []
+
+    captions: list[dict] = []
+    t = 0.0
+    for chunk in chunks:
+        dur = max(
+            _CAPTION_MIN_SECONDS,
+            min(
+                _CAPTION_MAX_SECONDS,
+                len(chunk) / _AVATAR_SPEECH_CHARS_PER_SECOND,
+            ),
+        )
+        captions.append({
+            "start_s": round(t, 2),
+            "end_s": round(t + dur, 2),
+            "text": chunk,
+        })
+        t += dur
+    return captions
+
+
 @transaction.atomic
 def talking_head(
     *,
@@ -922,6 +964,14 @@ def talking_head_polished(
     captions: list[dict] | None = None,
     intro: dict | None = None,
     outro: dict | None = None,
+    # SESSION 180 — operator-friendly shorthands so the SPA
+    # recipe form can drive the polish steps without exposing
+    # the full JSON shape. The dict-form kwargs above still win
+    # when supplied by a programmatic caller (no surprise
+    # override).
+    intro_text: str | None = None,
+    outro_text: str | None = None,
+    burn_captions: bool = False,
     use_knowledge: bool = False,
     mock_mode: bool = False,
     name: str = "",
@@ -937,14 +987,25 @@ def talking_head_polished(
     Args:
         captions: Operator-supplied caption timing as
             ``[{start_s, end_s, text}, ...]``. When None, the
-            captions step is skipped — useful for operators who
-            want the polish format without subtitles (or when
-            V12 lands and auto-captioning is the default).
+            captions step is skipped unless ``burn_captions`` is
+            on (in which case the starter auto-times captions
+            from the script using a chars-per-second estimate).
         intro / outro: Title-card specs as
             ``{text, duration_s, bg_color, text_color, font_size}``.
             At least one must be supplied for the intro_outro
             step to fire; otherwise both can be None and the
             step is skipped.
+        intro_text / outro_text: Plain-string convenience — the
+            SPA recipe form passes these. Each builds a default-
+            styled title card (black bg / white text / 3s
+            duration / 48pt font) when the matching dict kwarg
+            isn't supplied.
+        burn_captions: When True and ``captions`` isn't supplied,
+            auto-time captions from the script by splitting on
+            sentence boundaries and distributing time at
+            ~11 chars/sec. Timing is approximate (the avatar's
+            actual cadence drifts vs. the estimate) — fall back
+            to operator-supplied ``captions`` for tight sync.
     """
     if not script.strip():
         raise ValueError("talking_head_polished requires a non-empty script")
@@ -952,6 +1013,17 @@ def talking_head_polished(
         raise ValueError(
             f"spokesperson {spokesperson.name!r} not in workspace {workspace.pk}"
         )
+
+    # SESSION 180 — resolve the operator-friendly shorthands into
+    # the dict-shaped kwargs the downstream step builders already
+    # know how to handle. Explicit dict-form kwargs (intro / outro
+    # / captions) win to preserve the programmatic API.
+    if intro is None and intro_text and intro_text.strip():
+        intro = {"text": intro_text.strip(), "duration_s": 3.0}
+    if outro is None and outro_text and outro_text.strip():
+        outro = {"text": outro_text.strip(), "duration_s": 3.0}
+    if captions is None and burn_captions:
+        captions = _auto_caption_from_script(script.strip())
 
     composition_name = (
         name.strip() or f"Polished talking-head — {script.strip()[:40]}"

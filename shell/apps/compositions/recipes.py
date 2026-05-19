@@ -358,11 +358,43 @@ RECIPES: dict[str, Recipe] = {
             RecipeField(name="spokesperson_id", type="spokesperson_picker", label="Spokesperson"),
             RecipeField(name="script", type="textarea", label="Script", min_chars=8, max_chars=4000),
             RecipeField(name="use_knowledge", type="checkbox", label="Use workspace knowledge", required=False, default=False),
+            # SESSION 180 — plain-string shorthands so the polish
+            # steps can actually fire from the SPA form. Each
+            # builds a default-styled title card / auto-timed
+            # caption list inside the starter; programmatic
+            # callers can still pass full intro / outro / captions
+            # dicts for tight control.
+            RecipeField(
+                name="intro_text", type="text",
+                label="Intro card text (optional)",
+                required=False, max_chars=80,
+                help_text=(
+                    "Title card prepended to the clip. 3 seconds, "
+                    "white text on black. Leave blank to skip."
+                ),
+            ),
+            RecipeField(
+                name="outro_text", type="text",
+                label="Outro card text (optional)",
+                required=False, max_chars=80,
+                help_text=(
+                    "Title card appended to the clip. 3 seconds, "
+                    "white text on black. Leave blank to skip."
+                ),
+            ),
+            RecipeField(
+                name="burn_captions", type="checkbox",
+                label="Burn captions from script",
+                required=False, default=False,
+                help_text=(
+                    "Auto-time subtitles from the script "
+                    "(~11 chars/sec). Timing is approximate — "
+                    "fine for social cuts, drift may be visible "
+                    "on long scripts."
+                ),
+            ),
             _VERIFIER_MODE_FIELD,
             _OPENER_FIELD,
-            # captions + intro + outro are JSON-shaped; v1 leaves them
-            # null and ships the simple flavor. V15.3 may add a captions
-            # builder UI.
             _NAME_FIELD,
             _MOCK_MODE_FIELD,
         ),

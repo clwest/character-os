@@ -523,6 +523,178 @@ def test_polished_starter_rejects_empty_script() -> None:
         )
 
 
+# ---- SESSION 180 — operator-friendly shorthand kwargs -------------
+
+
+def test_polished_intro_text_kwarg_builds_default_intro_dict() -> None:
+    """``intro_text="Brand"`` lands as the intro card without the
+    operator having to know the dict shape — the load-bearing
+    seam between the SPA form (passes plain strings) and the
+    starter (composes the JSON-shaped dict)."""
+    ws = _make_workspace("v9sp_introtext@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_polished(
+        workspace=ws, spokesperson=sp,
+        script="Hi there.",
+        intro_text="Welcome to the show.",
+        mock_mode=True,
+    )
+    steps = list(c.steps.all().order_by("position"))
+    assert [s.primitive for s in steps] == [
+        "generate_avatar_speech",
+        "add_intro_outro",
+    ]
+    intro_params = steps[1].params["intro"]
+    assert intro_params["text"] == "Welcome to the show."
+    assert intro_params["duration_s"] == 3.0
+    # outro stays absent — the operator only set intro_text.
+    assert "outro" not in steps[1].params
+
+
+def test_polished_outro_text_kwarg_builds_default_outro_dict() -> None:
+    ws = _make_workspace("v9sp_outrotext@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_polished(
+        workspace=ws, spokesperson=sp,
+        script="Hi there.",
+        outro_text="Thanks for watching.",
+        mock_mode=True,
+    )
+    steps = list(c.steps.all().order_by("position"))
+    assert [s.primitive for s in steps] == [
+        "generate_avatar_speech",
+        "add_intro_outro",
+    ]
+    outro_params = steps[1].params["outro"]
+    assert outro_params["text"] == "Thanks for watching."
+    assert outro_params["duration_s"] == 3.0
+    assert "intro" not in steps[1].params
+
+
+def test_polished_both_text_kwargs_build_both_cards() -> None:
+    ws = _make_workspace("v9sp_bothtext@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_polished(
+        workspace=ws, spokesperson=sp,
+        script="Hi there.",
+        intro_text="Open.", outro_text="Close.",
+        mock_mode=True,
+    )
+    step = c.steps.get(position=1)
+    assert step.primitive == "add_intro_outro"
+    assert step.params["intro"]["text"] == "Open."
+    assert step.params["outro"]["text"] == "Close."
+
+
+def test_polished_intro_dict_wins_over_intro_text() -> None:
+    """Programmatic dict-form kwarg suppresses the shorthand —
+    no surprise override."""
+    ws = _make_workspace("v9sp_wins@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_polished(
+        workspace=ws, spokesperson=sp,
+        script="Hi.",
+        intro={"text": "Programmatic", "duration_s": 5.0,
+               "font_size": 72},
+        intro_text="Form-Driven",  # ignored
+        mock_mode=True,
+    )
+    intro = c.steps.get(position=1).params["intro"]
+    assert intro["text"] == "Programmatic"
+    assert intro["duration_s"] == 5.0
+    assert intro["font_size"] == 72
+
+
+def test_polished_burn_captions_chunks_script_into_segments() -> None:
+    """Auto-timed captions split on sentence boundaries; per-
+    chunk duration tracks character count at the avatar's
+    estimated speech rate."""
+    ws = _make_workspace("v9sp_burn@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_polished(
+        workspace=ws, spokesperson=sp,
+        script=(
+            "Markets reward conviction. "
+            "Everyone I know who built something durable started "
+            "by being convinced of one specific thing nobody else "
+            "believed yet. "
+            "That's the discipline."
+        ),
+        burn_captions=True,
+        mock_mode=True,
+    )
+    captions_step = c.steps.get(position=1)
+    assert captions_step.primitive == "add_captions"
+    captions = captions_step.params["captions"]
+    # 3 sentences → 3 segments
+    assert len(captions) == 3
+    # All segments are non-overlapping and monotonic
+    for prev, curr in zip(captions, captions[1:]):
+        assert prev["end_s"] == curr["start_s"]
+    # Each segment has a non-empty text + a positive duration
+    for seg in captions:
+        assert seg["text"].strip()
+        assert seg["end_s"] > seg["start_s"]
+
+
+def test_polished_explicit_captions_win_over_burn_captions() -> None:
+    ws = _make_workspace("v9sp_burnwins@test")
+    sp = _make_spokesperson(ws)
+    explicit = [
+        {"start_s": 0, "end_s": 2, "text": "operator-supplied"},
+    ]
+    c = talking_head_polished(
+        workspace=ws, spokesperson=sp,
+        script="Some script.",
+        captions=explicit,
+        burn_captions=True,  # ignored — explicit list wins
+        mock_mode=True,
+    )
+    captions = c.steps.get(position=1).params["captions"]
+    assert captions == explicit
+
+
+def test_polished_full_polish_via_shorthand_kwargs() -> None:
+    """End-to-end shape: intro_text + outro_text + burn_captions
+    all on at once lays down speech → captions → intro_outro
+    (the 3-step polish chain the recipe name promises)."""
+    ws = _make_workspace("v9sp_fullshort@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_polished(
+        workspace=ws, spokesperson=sp,
+        script="Hi. There.",
+        intro_text="Open",
+        outro_text="Close",
+        burn_captions=True,
+        mock_mode=True,
+    )
+    steps = list(c.steps.all().order_by("position"))
+    assert [s.primitive for s in steps] == [
+        "generate_avatar_speech",
+        "add_captions",
+        "add_intro_outro",
+    ]
+    # captions chains off speech, intro_outro chains off captions
+    assert steps[1].inputs[0]["from_step_position"] == 0
+    assert steps[2].inputs[0]["from_step_position"] == 1
+
+
+def test_polished_empty_intro_text_kwarg_skips_step() -> None:
+    """Whitespace-only intro_text is treated as not-set so the
+    intro_outro step still skips. Mirrors how the SPA form
+    submits an empty text input."""
+    ws = _make_workspace("v9sp_blank@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_polished(
+        workspace=ws, spokesperson=sp,
+        script="Hi.",
+        intro_text="   ",
+        mock_mode=True,
+    )
+    primitives = [s.primitive for s in c.steps.all().order_by("position")]
+    assert primitives == ["generate_avatar_speech"]
+
+
 # ---- starter: reels_format ----------------------------------------
 
 
