@@ -44,53 +44,77 @@ from app.config import Settings, get_settings
 from app.main import app
 from app.routers.internal import (
     TitleCardSpec,
+    _DRAWTEXT_FONT_CANDIDATES,
     _build_card_filter,
     _probe_dimensions,
+    _resolve_drawtext_font,
 )
 
 
-# ---- pure-function: drawtext text escaping ------------------------
+# ---- pure-function: filter graph references textfile -------------
 
 
-def _filter_for(text: str) -> str:
+def _filter_for(text: str, textfile: Path) -> str:
+    """Helper — write text to file, build the filter that
+    references it. Card text never enters the filter string
+    directly any more (the textfile= pattern sidesteps the
+    apostrophe / colon / backslash escape footguns drawtext's
+    in-filter parser introduces)."""
+    textfile.write_text(text, encoding="utf-8")
     spec = TitleCardSpec(text=text)
-    return _build_card_filter(spec, 1280, 720, "[1:v]", "[intro_v]")
+    return _build_card_filter(
+        spec, 1280, 720, "[1:v]", "[intro_v]", textfile,
+    )
 
 
-def test_apostrophe_uses_posix_close_escape_reopen() -> None:
-    """``Don't`` must escape as ``Don'\\''t`` so the single-
-    quoted ffmpeg filter argument parser concatenates the
-    adjacent runs back into ``Don't``. The prior backslash-
-    only escape closed the quoted run prematurely."""
-    out = _filter_for("Don't blink.")
-    # Embedded inside the filter, the apostrophe-escape sequence
-    # should be the POSIX `'\''` form (close-quote, escape-
-    # apostrophe, reopen-quote).
-    assert r"Don'\''t" in out
-    # And the broken `\\'` form (prior bug) must not be present.
-    assert r"Don\\'t" not in out
+def test_filter_uses_textfile_not_text_argument(
+    tmp_path: Path,
+) -> None:
+    """The filter references the on-disk text path via
+    ``textfile=`` — drawtext reads literal bytes and doesn't
+    apply its in-filter text-escape rules. Card text with
+    apostrophes / colons / quotes flows through unscathed.
+
+    Regression guard: SESSION 180 dogfood produced four
+    successive escape attempts (POSIX close-escape-reopen,
+    octal, backslash, plain) — all of which silently rendered
+    blank cards once fontfile= was added to the same filter.
+    ``textfile=`` is the only escape-immune option."""
+    out = _filter_for(
+        "Riggs's Rules.", tmp_path / "intro.txt",
+    )
+    assert "textfile=" in out
+    # The raw card text MUST NOT appear in the filter string —
+    # if it did, we'd be back in the escape-game that SESSION
+    # 180 spent four attempts trying to win.
+    assert "Riggs" not in out
 
 
-def test_colons_are_backslash_escaped() -> None:
-    """Colons are the ffmpeg filter argument delimiter; raw
-    colons in card text would split the drawtext options.
-    The escape leaves a backslash-colon in the filter."""
-    out = _filter_for("Episode: 1")
-    assert r"Episode\: 1" in out
+def test_filter_textfile_path_escapes_colons(
+    tmp_path: Path,
+) -> None:
+    """Filter-argument-level escaping still applies to the
+    textfile PATH (colons split filter options); the path
+    must be backslash-escaped even though the text inside the
+    file is left alone."""
+    fixture_dir = tmp_path / "weird:dir"
+    fixture_dir.mkdir()
+    fixture = fixture_dir / "intro.txt"
+    out = _filter_for("Whatever", fixture)
+    # Backslash-escaped colon survives in the produced filter.
+    assert r"weird\:dir" in out
 
 
-def test_backslashes_are_doubled() -> None:
-    """Backslashes in the text must double so a single
-    backslash survives the filter parser's own
-    backslash-handling."""
-    out = _filter_for("path\\to\\file")
-    assert r"path\\to\\file" in out
-
-
-def test_multiple_apostrophes_all_get_escaped() -> None:
-    out = _filter_for("It's Riggs's show.")
-    # Both apostrophes appear in the close-escape-reopen form.
-    assert out.count(r"'\''") == 2
+def test_textfile_can_hold_apostrophes_and_colons_unchanged(
+    tmp_path: Path,
+) -> None:
+    """The literal text written to disk is exactly what the
+    operator supplied — drawtext's ``textfile=`` reads it
+    verbatim. This is the *whole point* of the textfile path:
+    no escape rules apply to the content."""
+    fixture = tmp_path / "intro.txt"
+    _filter_for("Don't: \"break\" me\\now", fixture)
+    assert fixture.read_text() == "Don't: \"break\" me\\now"
 
 
 # ---- dimension probe ---------------------------------------------
@@ -238,3 +262,139 @@ def test_outro_only_succeeds_without_intro(
     )
     assert resp.status_code == 200, resp.text
     assert resp.json()["mock_mode"] is False
+
+
+# ---- drawtext font resolver --------------------------------------
+
+
+def test_font_resolver_returns_existing_path(monkeypatch) -> None:
+    """At least one candidate exists on the dev box; the
+    resolver returns it. Tests that ship in CI environments
+    without any candidate font would need to install one or
+    set the env override."""
+    monkeypatch.delenv("MEDIA_ENGINE_DRAWTEXT_FONT", raising=False)
+    path = _resolve_drawtext_font()
+    assert Path(path).exists()
+    assert path in _DRAWTEXT_FONT_CANDIDATES
+
+
+def test_font_resolver_honors_env_override(
+    monkeypatch, tmp_path: Path,
+) -> None:
+    """Operators in containers / non-standard environments
+    point ``MEDIA_ENGINE_DRAWTEXT_FONT`` at their own font."""
+    custom = tmp_path / "custom-font.ttf"
+    custom.write_bytes(b"\x00")
+    monkeypatch.setenv("MEDIA_ENGINE_DRAWTEXT_FONT", str(custom))
+    assert _resolve_drawtext_font() == str(custom)
+
+
+def test_font_resolver_ignores_nonexistent_env_override(
+    monkeypatch, tmp_path: Path,
+) -> None:
+    """A misconfigured env var (pointing at nothing) shouldn't
+    poison the resolver — fall through to the candidate list."""
+    monkeypatch.setenv(
+        "MEDIA_ENGINE_DRAWTEXT_FONT",
+        str(tmp_path / "does-not-exist.ttf"),
+    )
+    path = _resolve_drawtext_font()
+    assert Path(path).exists()  # falls through to candidates
+
+
+def test_font_resolver_raises_when_nothing_found(monkeypatch) -> None:
+    """Fail loud rather than silently render blank cards.
+    SESSION 180 trigger: pre-fix, drawtext-without-fontfile
+    produced pure-black output and the endpoint returned 200
+    — the operator only discovered the issue on playback."""
+    monkeypatch.delenv("MEDIA_ENGINE_DRAWTEXT_FONT", raising=False)
+    monkeypatch.setattr(
+        "app.routers.internal._DRAWTEXT_FONT_CANDIDATES",
+        (),
+    )
+    with pytest.raises(RuntimeError, match="no usable font found"):
+        _resolve_drawtext_font()
+
+
+def test_card_filter_embeds_resolved_fontfile(
+    tmp_path: Path,
+) -> None:
+    """``fontfile=`` is non-optional in the produced filter
+    string. Without it, drawtext silently renders nothing on
+    most builds even when libfreetype + libfontconfig are
+    linked."""
+    spec = TitleCardSpec(text="Hi")
+    textfile = tmp_path / "intro.txt"
+    textfile.write_text("Hi")
+    out = _build_card_filter(
+        spec, 1280, 720, "[1:v]", "[intro_v]", textfile,
+    )
+    assert "fontfile=" in out
+
+
+# ---- end-to-end: rendered text is actually visible ---------------
+
+
+def test_intro_frame_has_visible_text_not_pure_black(
+    real_mode_client: TestClient, tmp_path: Path,
+) -> None:
+    """Regression guard against the SESSION 180 blank-card bug.
+    Uses the OPERATOR-REPORTED payload shape: apostrophe-bearing
+    text on a non-default-sized body clip. The dual-card path
+    returned 200 + reasonable byte counts at multiple iterations
+    of escape attempts (POSIX close-escape-reopen / octal /
+    backslash) — but in every case the actual rendered intro
+    frame was pure black until the implementation switched to
+    drawtext ``textfile=``. Probe a real frame and require
+    visible bright pixels."""
+    if not shutil.which("ffmpeg"):
+        pytest.skip("ffmpeg not on PATH")
+    if not shutil.which("ffprobe"):
+        pytest.skip("ffprobe not on PATH")
+
+    body = _make_body_clip(tmp_path)
+    resp = real_mode_client.post(
+        "/internal/clips/intro_outro/",
+        json={
+            "clip_url": str(body),
+            # Apostrophe-bearing text — the exact failure mode
+            # SESSION 180's operator dogfood surfaced.
+            "intro": {"text": "Riggs's Rules.", "duration_s": 1.0},
+            "outro": {"text": "Don't blink.", "duration_s": 1.0},
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    output_url = resp.json()["output_url"]
+    output_rel = output_url[len("/data/"):]
+    output_path = tmp_path / output_rel
+    assert output_path.exists()
+
+    # Extract a frame from the intro segment (0.5s — middle of
+    # the 1-second intro card so we miss any encoder boundary
+    # artifact at t=0).
+    intro_frame = tmp_path / "intro-probe.png"
+    subprocess.run(
+        [
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-ss", "0.5", "-i", str(output_path),
+            "-frames:v", "1", "-update", "1", str(intro_frame),
+        ],
+        check=True, capture_output=True, timeout=30,
+    )
+
+    from PIL import Image
+    img = Image.open(intro_frame).convert("RGB")
+    pixels = img.getdata()
+    # White-text-on-black: count pixels brighter than mid-grey
+    # in any channel. A pure-black frame has zero; any rendered
+    # text contributes thousands.
+    bright = sum(
+        1 for r, g, b in pixels
+        if max(r, g, b) > 128
+    )
+    assert bright > 500, (
+        f"intro frame appears blank ({bright} bright pixels); "
+        "drawtext likely failed to render text. Most common "
+        "cause: text= reverted from textfile= (apostrophe + "
+        "fontfile in the same filter is a known dead end)."
+    )

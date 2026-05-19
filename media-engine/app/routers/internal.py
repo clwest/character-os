@@ -1856,36 +1856,91 @@ def _intro_outro_dir(settings: Settings) -> Path:
     return target
 
 
+# drawtext requires an explicit fontfile= on most builds — even
+# when libfreetype + libfontconfig are linked, the fontconfig
+# fallback silently renders nothing if it can't pick a default.
+# SESSION 180 dogfood: the final composite rendered intro/outro
+# cards as pure-black frames (drawtext fired but produced no
+# pixels) until fontfile= was added. The resolver tries the
+# operator's env override first, then a small list of paths
+# that exist on macOS dev boxes and common Linux containers.
+# When none resolves, raise loudly so the failure mode is
+# "endpoint returns 500 with a clear message" rather than
+# "endpoint returns 200 and operator gets blank cards."
+_DRAWTEXT_FONT_CANDIDATES: tuple[str, ...] = (
+    # macOS — dev boxes
+    "/System/Library/Fonts/Helvetica.ttc",
+    "/System/Library/Fonts/HelveticaNeue.ttc",
+    "/Library/Fonts/Arial.ttf",
+    "/System/Library/Fonts/Supplemental/Arial.ttf",
+    # Linux — Debian/Ubuntu container defaults
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    # Linux — RHEL/Fedora/Alpine
+    "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/TTF/DejaVuSans.ttf",
+)
+
+
+def _resolve_drawtext_font() -> str:
+    """Find a usable font file path for ffmpeg drawtext. Raises
+    ``RuntimeError`` when none is found so the endpoint can
+    return a clear 500 instead of silently producing blank
+    title cards. Operators in custom environments can override
+    via ``MEDIA_ENGINE_DRAWTEXT_FONT`` env var."""
+    import os
+    override = (os.environ.get("MEDIA_ENGINE_DRAWTEXT_FONT") or "").strip()
+    if override and Path(override).exists():
+        return override
+    for candidate in _DRAWTEXT_FONT_CANDIDATES:
+        if Path(candidate).exists():
+            return candidate
+    raise RuntimeError(
+        "drawtext: no usable font found. Set "
+        "MEDIA_ENGINE_DRAWTEXT_FONT to a .ttf/.ttc/.otf path."
+    )
+
+
 def _build_card_filter(
     spec: TitleCardSpec,
     canvas_w: int,
     canvas_h: int,
     input_label: str,
     output_label: str,
+    textfile_path: Path,
 ) -> str:
     """drawtext filter for a single title card. ``input_label``
     is the ffmpeg input label (e.g. ``[1:v]``) referencing a
     lavfi color source; ``output_label`` is the named output
-    (e.g. ``[intro_v]``)."""
-    # Escape text for drawtext inside a single-quoted ffmpeg
-    # filter argument. Apostrophes use the POSIX-style close-
-    # escape-reopen pattern: `'It'\''s'` parses as `It's` because
-    # ffmpeg's filter argument tokenizer concatenates adjacent
-    # single-quoted runs. Backslash-escaping the apostrophe alone
-    # (the prior behaviour) ends the quoted run prematurely and
-    # breaks the whole filter graph — surfaced SESSION 180 when
-    # an operator-supplied intro card ("Riggs's Rules.")
-    # triggered an ffmpeg rc=234 from
-    # POST /internal/clips/intro_outro/.
-    escaped = (
-        spec.text
+    (e.g. ``[intro_v]``). ``textfile_path`` points at a file
+    containing the literal card text — caller writes it before
+    invoking ffmpeg.
+
+    Uses ``textfile=`` instead of ``text=`` because drawtext's
+    in-filter text escape rules collapse the moment ``text=``
+    contains apostrophes, colons, or any of several other
+    characters that collide with the filter argument
+    tokenizer — SESSION 180 dogfood produced a series of
+    fixes (POSIX close-escape-reopen, then octal escape, then
+    \\047 — all failed) before discovering that ``textfile=``
+    sidesteps the whole problem by reading the literal bytes.
+    The caller's responsibility is just to drop the text into
+    a file the endpoint can read."""
+    # Path values still go through filter-argument escaping
+    # (backslash + colon), but the text itself lives in a file
+    # and needs no escaping at all.
+    fontfile = (
+        _resolve_drawtext_font()
         .replace("\\", "\\\\")
         .replace(":", r"\:")
-        .replace("'", r"'\''")
+    )
+    text_arg = (
+        str(textfile_path).replace("\\", "\\\\").replace(":", r"\:")
     )
     return (
         f"{input_label}drawtext="
-        f"text='{escaped}':"
+        f"fontfile='{fontfile}':"
+        f"textfile='{text_arg}':"
         f"fontsize={spec.font_size}:"
         f"fontcolor={spec.text_color}:"
         "x=(w-text_w)/2:y=(h-text_h)/2"
@@ -1975,7 +2030,16 @@ def post_internal_intro_outro(
     filter_parts: list[str] = []
     concat_chain: list[str] = []
 
+    # Card text lives in per-cache-key text files so drawtext's
+    # ``textfile=`` can read the literal bytes without any of
+    # the in-filter text-escape footguns (apostrophes / colons /
+    # backslashes). Files share the output's cache_key in their
+    # name so they're idempotent across reruns.
+    intro_text_path = target_dir / f"{cache_key}-intro.txt"
+    outro_text_path = target_dir / f"{cache_key}-outro.txt"
+
     if body.intro:
+        intro_text_path.write_text(body.intro.text, encoding="utf-8")
         intro_v_idx = input_count
         ffmpeg_inputs += [
             "-f", "lavfi",
@@ -1991,6 +2055,7 @@ def post_internal_intro_outro(
         filter_parts.append(_build_card_filter(
             body.intro, canvas_w, canvas_h,
             f"[{intro_v_idx}:v]", "[intro_v]",
+            intro_text_path,
         ))
         concat_chain.append(f"[intro_v][{intro_a_idx}:a]")
 
@@ -1998,6 +2063,7 @@ def post_internal_intro_outro(
     concat_chain.append("[0:v][0:a]")
 
     if body.outro:
+        outro_text_path.write_text(body.outro.text, encoding="utf-8")
         outro_v_idx = input_count
         ffmpeg_inputs += [
             "-f", "lavfi",
@@ -2013,6 +2079,7 @@ def post_internal_intro_outro(
         filter_parts.append(_build_card_filter(
             body.outro, canvas_w, canvas_h,
             f"[{outro_v_idx}:v]", "[outro_v]",
+            outro_text_path,
         ))
         concat_chain.append(f"[outro_v][{outro_a_idx}:a]")
 
