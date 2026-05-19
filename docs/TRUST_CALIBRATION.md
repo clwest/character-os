@@ -3799,3 +3799,49 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   the disguise was the right call. Upstream fix sits with
   context-kit (skip IP-shaped + alpha-prefix-shaped
   strings); pragmatic fix sits with the project.
+
+### One-runner-emit, many-callers is the cleanest shape for cross-cutting Asset metadata
+- **Date:** 2026-05-19
+- **Session:** 186
+- **Context:** A2 — every primitive in
+  `apps.compositions.primitives` must stamp `role` on its
+  output Asset. At slice-open, three architectural options:
+  centralize in the runner (look up role from primitive_kind
+  at persist time); have each primitive import the mapping
+  table; or have each primitive stamp an explicit
+  `AssetRole.X.value` at the emit site.
+- **Surface / artefact:**
+  `apps/compositions/asset_roles.py` (new shared mapping
+  module), `apps/compositions/primitives/mock.py`
+  (`PrimitiveResult.role` field), all 14 primitive modules
+  (explicit `role=AssetRole.X.value` at every
+  `PrimitiveResult(...)` call), `apps/compositions/tasks.py`
+  (`_persist_output_asset` raise-on-missing backstop).
+- **AI expectation (before):** Centralizing in the runner
+  seemed minimal — one lookup site, no per-primitive
+  changes. Each primitive importing the mapping seemed
+  cleanest from a "single source of truth" angle.
+- **Reality / outcome:** **Stamping explicit role
+  literals at each emit site was the right shape.** The
+  emit site reads cleanly in isolation (no chasing an
+  import); the runner enforces (defense-in-depth raise);
+  the coverage test guarantees the explicit literal
+  matches what PRIMITIVE_TO_ROLE says (so the two stay
+  aligned by test rather than by indirection). A2
+  covered 28+ emit paths with two architectural-layer
+  edits (PrimitiveResult.role field + runner pass-through
+  + raise) + per-primitive literal additions. The realtime
+  arc has its own single Asset.objects.create site
+  (`capture_transcript`) — same pattern applied there.
+- **Found by:** AI architecture pass at slice-open;
+  operator implicitly confirmed via the design lock's
+  "single source of truth" framing.
+- **Lesson:** **When a new cross-cutting Asset field
+  lands, find the funnel point first (single
+  Asset.objects.create site), add the field there, then
+  push to the source-of-truth producers (PrimitiveResult).
+  The producers stamp explicitly (readable); the funnel
+  enforces (defense-in-depth); the coverage test binds
+  the two halves.** This shape generalizes: any future
+  cross-cutting metadata (tier annotation, region, retention
+  policy) can follow the same pattern.
