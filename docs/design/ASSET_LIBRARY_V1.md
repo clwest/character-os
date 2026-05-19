@@ -296,7 +296,7 @@ applicable.
 | **A1** | Backfill management command (`python manage.py backfill_asset_roles`, with `--commit` to apply, `--workspace NAME` to scope). Heuristic-driven from `source_spec.primitive_kind` + known-smoke-UUID special case. Operator reviews dry-run report before committing. | ½ session | **✓ SHIPPED (SESSION 185)** |
 | **A2** | Every primitive in `apps.compositions.primitives` stamps role on its output. Migration test enforces no primitive emits without a role. | 1 session | **✓ SHIPPED (SESSION 186)** |
 | **A3** | Storage-health helper + cached property. JWT exp parser. Filesystem existence check. | ½ session | **✓ SHIPPED (SESSION 187)** |
-| **A4** | `GET /api/workspace/assets/` + `GET /api/workspace/assets/<id>/` read-only endpoints with filters. | ½ session | pending |
+| **A4** | `GET /api/workspace/assets/` + `GET /api/workspace/assets/<id>/` read-only endpoints with filters. | ½ session | **✓ SHIPPED (SESSION 188)** |
 | **A5** | SPA route `/workspace/assets` — list view with filter chips (role / asset_type / storage). Pagination. | 1 session | pending |
 | **A6** | SPA per-asset detail view at `/workspace/assets/<id>` — lineage graph, prompts, downstream compositions, storage badge, copy-URL action. | 1 session | pending |
 | **A7** | asset_picker gains optional `role` filter on the field metadata. V18's `backdrop_clip_id` picker filters to `role=BACKDROP`. Same shape for V8 broll_splice / pip_layout / cohost_layout. | ½ session | pending |
@@ -457,6 +457,38 @@ A5 surface only minimally.
   coverage test seeds its own Composition/RealtimeSession
   rows). Compositions suite: 497 → 505 (+8); full shell suite
   928 → 936 (+8 = A2 coverage tests).
+* **2026-05-19 (SESSION 188)** — **A4 SHIPPED.** New endpoints
+  `GET /api/workspace/assets/` (paginated browse) +
+  `GET /api/workspace/assets/<id>/` (per-asset detail with
+  full lineage). `WorkspaceAssetViewSet` lives in
+  `apps/compositions/views.py`; URLs mounted in
+  `apps/compositions/urls.py` (path-based, not router,
+  because A4 has only list+retrieve). Filters: `role` /
+  `asset_type` / `primitive_kind` / `storage` / `q` /
+  `created_after` / `created_before` (all comma-list where
+  applicable). `storage_health` attached to every row via
+  A3's `compute_storage_health`. Producing composition
+  surfaces inline; producing step + downstream consumers
+  surface on retrieve (inverted F5 lineage shape — F5
+  walks composition→composition; A4 walks
+  asset→compositions on both sides). Pagination
+  via `WorkspaceAssetPagination` (page_size 25, max 100).
+  Storage filter is post-query (storage_health is computed,
+  not a DB column) with a 1000-row cap on the candidate
+  set — acceptable for v1's paginated reads; A5 perf
+  testing may motivate an annotated column later.
+  Workspace resolution mirrors F-arc's `workspace_overview`
+  (explicit `?workspace=` if provided + member, else
+  `default_workspace_for(user)`). Distinct from existing
+  `/api/assets/` (V15.2 picker) — A7 extends THAT endpoint
+  with role-filter; A5/A6 build against THIS one.
+  `test_workspace_assets_api.py` — 24 tests across auth +
+  scoping + cross-workspace leakage + all filters + storage
+  post-filter + pagination + retrieve lineage + 404
+  paths. ALLOWED_FILES entry added to `test_isolation.py`
+  (sanctioned writer; constructs its own Composition +
+  Step + Asset rows for endpoint exercise). Compositions
+  suite: 525 → 549 (+24); full shell suite 956 → 980 (+24).
 * **2026-05-19 (SESSION 187)** — **A3 SHIPPED.** New module
   `apps/compositions/assets.py` hosts `StorageHealth` (7
   string constants) + `parse_jwt_exp(url)` + `compute_storage_health(asset)`.

@@ -38,13 +38,16 @@ import logging
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
+from django.db.models import Q
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.accounts.models import Membership, Workspace
+from apps.accounts.models import Membership, Workspace, default_workspace_for
+from apps.compositions.assets import StorageHealth, compute_storage_health
 from apps.compositions.models import Asset, AssetType, Composition, CompositionStep
 from apps.spokespeople.models import Spokesperson
 from character_os.clients.media_engine import (
@@ -714,3 +717,313 @@ class StyleLibraryViewSet(viewsets.ViewSet):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
         return Response(data)
+
+
+# ===================================================================
+# Asset Library v1 — A4 read endpoints (SESSION 188)
+# ===================================================================
+#
+# `/api/workspace/assets/` (list, paginated) +
+# `/api/workspace/assets/<id>/` (retrieve, full lineage).
+#
+# Distinct from the existing `/api/assets/` (AssetViewSet) which
+# serves the V15.2 asset_picker dropdown — that endpoint stays as-is.
+# A7 will extend AssetViewSet with the role filter; A5/A6 build the
+# SPA against THIS endpoint.
+#
+# Workspace resolution mirrors F-arc's `/api/workspace/overview/`:
+# `?workspace=<id>` if provided + member, else
+# `default_workspace_for(user)`.
+#
+# `storage_health` is computed at serialize time via
+# `apps.compositions.assets.compute_storage_health(asset)` (A3 — live
+# per request, no caching for v1).
+#
+# Avatar / Voice / Portrait media live on Spokesperson (not the
+# Asset table); per Q-a-6 they're deferred to v2 and this endpoint
+# returns only Asset rows. A5 carries the honest gap note.
+
+
+class WorkspaceAssetPagination(PageNumberPagination):
+    """Pagination for the Asset Library browse view. Default 25 rows
+    per page; max 100 — A5's SPA list with role+storage chips reads
+    25 nicely, and the cap keeps a malicious / mis-configured
+    `?page_size=10000` request from materializing the whole asset
+    table."""
+
+    page_size = 25
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
+def _resolve_workspace(request) -> Workspace:
+    """Resolve the workspace for the request — explicit `?workspace=`
+    if provided + member, else the user's default. Same pattern as
+    F-arc's `workspace_overview`; raises the same exceptions so the
+    SPA error handling lines up."""
+    user = request.user
+    workspace_id = request.query_params.get("workspace")
+    if workspace_id:
+        try:
+            workspace = Workspace.objects.get(pk=workspace_id)
+        except Workspace.DoesNotExist:
+            raise NotFound("workspace not found")
+        if not Membership.objects.filter(
+            user=user, workspace=workspace,
+        ).exists():
+            raise PermissionDenied("not a member of this workspace")
+        return workspace
+    workspace = default_workspace_for(user)
+    if workspace is None:
+        raise ValidationError({"workspace": "user has no default workspace"})
+    return workspace
+
+
+def _csv_param(request, name: str) -> list[str] | None:
+    """Parse a comma-list query param — `?role=BACKDROP,TALKING_HEAD`
+    → ``["BACKDROP", "TALKING_HEAD"]``. Returns ``None`` when the
+    param is absent so the caller can skip the filter."""
+    raw = request.query_params.get(name)
+    if not raw:
+        return None
+    values = [v.strip() for v in raw.split(",") if v.strip()]
+    return values or None
+
+
+def _producing_prompt(asset: Asset) -> str:
+    """Best-effort extraction of the prompt-like text that produced
+    this asset. Different primitives stash it under different keys
+    in ``source_spec``; we read the standard ones the SPA list view
+    will care about."""
+    spec = asset.source_spec or {}
+    for key in ("prompt", "script", "description"):
+        val = spec.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+    # ``params.prompt`` is where the recipe form payload lives for
+    # most primitives — fall through there before giving up.
+    params = spec.get("params") or {}
+    if isinstance(params, dict):
+        for key in ("prompt", "script", "subject", "description"):
+            val = params.get(key)
+            if isinstance(val, str) and val.strip():
+                return val.strip()
+    return ""
+
+
+def _serialize_list_asset(asset: Asset) -> dict:
+    """List-view shape — light. Lineage details land in retrieve.
+
+    `composition` is pre-fetched via select_related, so accessing
+    `asset.composition.name` doesn't fire an N+1 query."""
+    comp = asset.composition
+    return {
+        "id": str(asset.id),
+        "asset_type": asset.asset_type,
+        "role": asset.role,
+        "file_path": asset.file_path,
+        "title": asset.title,
+        "subject": asset.subject,
+        "duration_ms": asset.duration_ms,
+        "width": asset.width,
+        "height": asset.height,
+        "mime_type": asset.mime_type,
+        "size_bytes": asset.size_bytes,
+        "cost_micros": asset.cost_micros,
+        "created_at": asset.created_at.isoformat(),
+        "storage_health": compute_storage_health(asset),
+        "primitive_kind": (asset.source_spec or {}).get("primitive_kind", ""),
+        "producing_prompt": _producing_prompt(asset),
+        "composition": (
+            {
+                "id": str(comp.id),
+                "name": comp.name,
+                "status": comp.status,
+                "template_kind": comp.template_kind,
+            }
+            if comp is not None
+            else None
+        ),
+    }
+
+
+def _serialize_detail_asset(asset: Asset) -> dict:
+    """Detail view — list shape plus producing step + downstream
+    consumers. Same lineage shape as F5's
+    `/api/compositions/<id>/lineage/` but inverted: F5 walks
+    composition→composition; this walks asset→compositions on both
+    sides.
+    """
+    base = _serialize_list_asset(asset)
+
+    # Producing step (the step whose primitive emitted this asset).
+    producing_step_payload: dict | None = None
+    comp = asset.composition
+    if comp is not None:
+        step = (
+            CompositionStep.objects.filter(
+                composition=comp, output_asset=asset,
+            )
+            .first()
+        )
+        if step is not None:
+            producing_step_payload = {
+                "id": str(step.id),
+                "position": step.position,
+                "primitive": step.primitive,
+                "params": step.params,
+                "inputs": step.inputs,
+                "source_spec": asset.source_spec,
+            }
+
+    # Downstream — compositions whose steps consumed this asset as
+    # an input. Same `asset_id in step.inputs` scan as F5; one entry
+    # per consuming composition (deduped).
+    downstream: list[dict] = []
+    seen_consumer_ids: set[str] = set()
+    asset_id_str = str(asset.id)
+    consuming_steps = (
+        CompositionStep.objects.filter(
+            composition__workspace=asset.workspace,
+            inputs__contains=[{"asset_id": asset_id_str}],
+        )
+        .select_related("composition", "composition__spokesperson")
+    )
+    for step in consuming_steps:
+        c = step.composition
+        if c is None or str(c.id) in seen_consumer_ids:
+            continue
+        # Defensive: skip self-references in case a composition step
+        # ever consumes one of its own outputs.
+        if comp is not None and str(c.id) == str(comp.id):
+            continue
+        seen_consumer_ids.add(str(c.id))
+        downstream.append({
+            "id": str(c.id),
+            "name": c.name,
+            "status": c.status,
+            "template_kind": c.template_kind,
+        })
+
+    base["producing_step"] = producing_step_payload
+    base["downstream_compositions"] = downstream
+    return base
+
+
+class WorkspaceAssetViewSet(viewsets.GenericViewSet):
+    """Asset Library v1 read endpoints (A4).
+
+    Serves browse + detail for the SPA's `/workspace/assets` view
+    (A5/A6). Workspace-scoped, paginated, multi-filter. Per Q-a-6
+    the v1 endpoint returns Asset rows only — Avatar / Voice /
+    Portrait media live on Spokesperson and are deferred to v2.
+
+    Filters (all optional, all comma-separated):
+      * ``role`` — TextChoices values from ``AssetRole``.
+      * ``asset_type`` — TextChoices values from ``AssetType``.
+      * ``primitive_kind`` — production-method filter.
+      * ``storage`` — computed health states (``HTTPS_LIVE``,
+        ``LOCAL_PRESENT``, ...). Applied post-query since storage
+        health isn't a DB column; OK for v1's paginated reads.
+      * ``q`` — case-insensitive contains over composition name +
+        asset title + subject.
+      * ``created_after`` / ``created_before`` — ISO-8601 dates.
+    """
+
+    permission_classes = [IsAuthenticated]
+    pagination_class = WorkspaceAssetPagination
+
+    def get_queryset(self):
+        # Required by GenericViewSet; the actual filtering happens in
+        # `list` after workspace resolution.
+        return Asset.objects.none()
+
+    def _base_queryset(self, workspace: Workspace):
+        return (
+            Asset.objects.filter(workspace=workspace)
+            .select_related("workspace", "composition")
+            .order_by("-created_at")
+        )
+
+    def list(self, request):
+        workspace = _resolve_workspace(request)
+        qs = self._base_queryset(workspace)
+
+        # ---- role / asset_type / primitive_kind filters ----------
+        roles = _csv_param(request, "role")
+        if roles:
+            qs = qs.filter(role__in=roles)
+
+        asset_types = _csv_param(request, "asset_type")
+        if asset_types:
+            qs = qs.filter(asset_type__in=asset_types)
+
+        primitive_kinds = _csv_param(request, "primitive_kind")
+        if primitive_kinds:
+            qs = qs.filter(source_spec__primitive_kind__in=primitive_kinds)
+
+        # ---- full-text q ----------------------------------------
+        q = (request.query_params.get("q") or "").strip()
+        if q:
+            qs = qs.filter(
+                Q(title__icontains=q)
+                | Q(subject__icontains=q)
+                | Q(composition__name__icontains=q)
+            )
+
+        # ---- date range ----------------------------------------
+        created_after = (request.query_params.get("created_after") or "").strip()
+        if created_after:
+            qs = qs.filter(created_at__gte=created_after)
+        created_before = (request.query_params.get("created_before") or "").strip()
+        if created_before:
+            qs = qs.filter(created_at__lt=created_before)
+
+        # ---- storage_health post-filter ------------------------
+        # storage_health is computed, not a DB column. Apply after
+        # query-time filters narrow the candidate set. For v1's
+        # paginated reads this is acceptable; A5 perf testing may
+        # require an annotated column later.
+        storage_filter = _csv_param(request, "storage")
+        valid_storage = set(StorageHealth.all())
+
+        paginator = self.pagination_class()
+        if storage_filter:
+            # Need to materialize before pagination so storage
+            # filtering applies across the whole filtered set, not
+            # just one page. Cap at 1000 to stay sane on huge
+            # workspaces — v1 SPA workflow never needs more than
+            # ``max_page_size`` × few-pages.
+            wanted = {s for s in storage_filter if s in valid_storage}
+            if not wanted:
+                # All requested storage values invalid → no matches.
+                rows: list[Asset] = []
+            else:
+                rows = [
+                    a for a in qs[:1000]
+                    if compute_storage_health(a) in wanted
+                ]
+            page = paginator.paginate_queryset(rows, request, view=self)
+        else:
+            page = paginator.paginate_queryset(qs, request, view=self)
+
+        if page is None:  # pragma: no cover — paginator always paginates
+            data = [_serialize_list_asset(a) for a in qs[:25]]
+            return Response(data)
+        data = [_serialize_list_asset(a) for a in page]
+        return paginator.get_paginated_response(data)
+
+    def retrieve(self, request, pk: str | None = None):
+        workspace = _resolve_workspace(request)
+        try:
+            asset = (
+                self._base_queryset(workspace)
+                .select_related(
+                    "composition__spokesperson",
+                    "spokesperson",
+                )
+                .get(pk=pk)
+            )
+        except Asset.DoesNotExist:
+            raise NotFound("Asset not found")
+        return Response(_serialize_detail_asset(asset))

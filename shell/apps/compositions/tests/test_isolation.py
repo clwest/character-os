@@ -146,6 +146,12 @@ ALLOWED_FILES = {
     # Workspace anchor is set explicitly at every create; the
     # pre_save signal still fires.
     "apps/compositions/tests/test_storage_health.py",
+    # Asset Library A4 (SESSION 188) — workspace assets API tests
+    # construct Composition + CompositionStep + Asset rows directly
+    # to exercise the read endpoints (list filters, pagination,
+    # retrieve lineage). Workspace anchor is set explicitly at
+    # every create; the pre_save signal still fires.
+    "apps/compositions/tests/test_workspace_assets_api.py",
 }
 
 
