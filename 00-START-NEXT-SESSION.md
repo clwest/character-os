@@ -57,23 +57,76 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_184_POLISH_V18_Q_V17_3_ASSET_LIBRARY_LOCK.md`.
+> **Last handoff:** `docs/handoffs/SESSION_185_DRIFT_SWEEP_ASSET_LIBRARY_LOCK_A0_A1.md`.
 
 ---
 
-## SESSION 184 outcome — polish + V18 + Q-v17-3 + Asset Library proposal
+## SESSION 185 outcome — drift sweep + Asset Library lock + A0 + A1
 
-Six feature commits + design doc + handoff. Three
-planned slices: #1 (polish) + #2 (V18 backdrop library)
-shipped + real-mode validated. #3 (V17.3 keyframes)
-deferred at slice-open after live-doc check against
-Runway's SDK surfaced an API-shape mismatch
-(Q-v17-6). The deferral triggered an operator-driven
-scope proposal for a new arc — **Asset Library** —
-addressing the structural categorization gap that
-became visible during the V18 dogfood.
+Clean session — no deferrals, no surprises. Five commits
+land: boot drift-sweep + Asset Library scope-lock + A0
+(model + migration) + A1 (backfill command) + close.
+**Asset Library v1 opens for real.** 128 of 136 dev-DB
+assets backfilled to role-tagged state via live
+`--commit` run. Test totals **915 → 928 (+13)**.
 
-### Slice 1 — polish (`7045270`)
+### Slice 0 — drift sweep (`082ff8f`)
+
+Doctor exited with 3 warnings at session start; all
+three resolved before opening A0. Created
+`docs/CONTEXT_KIT_INVENTORY.md` (context-kit-managed
+inventory); scrubbed two regex false-positive literals
+from start-here (uvicorn host IP literal → `localhost`,
+W-arc sub-slice naming → expanded prose); backfilled
+two missing handoffs (session 053 numbering gap +
+session 172 reconstituted from commit `2eb3a8c`).
+Doctor exits **0/0**.
+
+### Slice 1 — Asset Library scope-lock (`0306b8b`)
+
+Operator review resolved all 6 open questions in one
+batch. **Taxonomy lands at 10 roles, not 9** —
+`EXPERIMENT` added to capture intent-vs-medium for
+smoke / sandbox outputs. Pre-lock review caught that
+backfilling smoke outputs AS `BACKDROP` would re-trigger
+the exact bug A7 was supposed to fix. `mix_audio` →
+`COMPOSITE_OUTPUT`. Backfill: always dry-run; `--commit`
+to apply. Storage-health: live per request (cache later
+if A5 demands). Detail view: extend F-arc lineage.
+Picker filter: first-class `RecipeField.role_filter`.
+Avatar/Voice/Portrait: deferred to v2.
+
+**9 contract rules merged into VIDEO_COMPOSITION_V1.md
+as rules 14-22.** Slice count corrected to 9 (A0-A8).
+
+### Slice 2 — A0 Asset.role enum + migration (`235e21f`)
+
+`AssetRole` 10-value TextChoices + `Asset.role`
+CharField + `(workspace, role)` index. Migration
+`0009_a0_asset_role`. 4 new tests; compositions 484 →
+488.
+
+### Slice 3 — A1 backfill_asset_roles command (`a9b21b3`)
+
+Heuristic-driven backfill from
+`source_spec.primitive_kind` → `Asset.role`. 20 known
+primitive_kind values mapped; 2 known smoke UUIDs
+(`c21fdeec`, `89a1ce5f`) hard-coded as `EXPERIMENT`.
+Dry-run by default; `--commit` to apply; `--workspace
+NAME` to scope. ALLOWED_FILES entry added to
+test_isolation.py (sanctioned writer: role-only update).
+9 new tests; compositions 488 → 497.
+
+**Real-mode --commit run on dev DB: 128 rows updated**
+across 8 roles. 8 needs-review legacy rows (2 audio + 6
+image pre-dating primitive_kind discipline) deferred to
+post-v1 upload-UI / mutation surface. Idempotency
+confirmed live (re-running dry-run shows 8 candidates,
+0 mappable).
+
+### Carried-forward content (SESSION 184 context, unchanged below)
+
+#### Slice 1 (S184) — polish (`7045270`)
 
 * `generate_avatar_speech` falls back to a chars/sec
   estimate when Runway's poll returns `duration_seconds=None`.
@@ -84,7 +137,7 @@ became visible during the V18 dogfood.
   (step 0 output Asset showed `duration_estimated: True`,
   8818ms estimate).
 
-### Slice 2 — V18 backdrop library (`b935acd`)
+#### Slice 2 (S184) — V18 backdrop library (`b935acd`)
 
 * `talking_head_with_backdrop` gains optional
   `backdrop_clip: Asset | None = None` kwarg. When set,
@@ -98,7 +151,7 @@ became visible during the V18 dogfood.
 * +11 tests; **real-mode validated** end-to-end via
   composition `b2188dcf` "Riggs-pre-background".
 
-### Slice 3 — V17.3 deferred (`c10e311`, `2daef87`)
+#### Slice 3 (S184) — V17.3 deferred (`c10e311`, `2daef87`)
 
 Live-doc check against
 `runwayml/types/image_to_video_create_params.py`
@@ -167,7 +220,7 @@ the asset_picker becomes a guessing game.
   role filter → F-arc lineage cross-link.
 * `status: proposed` — pending operator review.
 
-### Calibration carried forward (six NEW entries)
+### Calibration carried forward from SESSION 184 (six entries)
 
 1. **Live-doc-check discipline 2-for-2 on V17.**
    Both Q-v17-1 (SESSION 182) and Q-v17-6 (SESSION
@@ -201,46 +254,98 @@ the asset_picker becomes a guessing game.
    output. Asset Library A7 (role-filter on picker)
    is the structural fix.
 
-### Tests at session close
+### Tests at SESSION 185 close
 
 | Suite | Count | Delta |
 |---|---|---|
-| Django | **915** | +15 (904 → 915) |
-| - compositions | **484** | +15 (469 → 484) |
+| Django | **928** | +13 (915 → 928) |
+| - compositions | **497** | +13 (484 → 497) |
 | Media-engine | 194 | unchanged |
 | SPA vitest | 95 | unchanged |
 
-Real-mode spend this session: **~$2.50** (smoke ~$1.50-$3
-+ V18 dogfood ~$0.50 avatar speech).
+Real-mode spend SESSION 185: **$0** (pure backend / DB
+work; no Runway / Stability API calls).
 
 ---
 
-## FIRST THING (SESSION 185 — IN PROGRESS): slice A0
+## FIRST THING (SESSION 186): slice A2
 
-Asset Library v1 scope LOCKED at SESSION 185 boot. Doc
-edits + rule merge complete. **A0 is the active slice.**
+A0 + A1 shipped in SESSION 185 + dev-DB backfill
+committed. **A2 is the next slice in the Asset Library
+arc.**
 
-**A0 deliverable: `Asset.role` enum field + migration.**
+**A2 deliverable: every primitive in
+`apps.compositions.primitives` stamps `role` on its
+output Asset at emit time. Migration test enforces
+contract rule 20** (no primitive emits assets without a
+role).
 
-1. Add `Asset.role` as a `CharField(max_length=24,
-   choices=ROLE_CHOICES, default='RAW_UPLOAD')` with a
-   db_index. Use a `TextChoices` enum class on the model.
-2. Generate the migration; verify
-   `python manage.py migrate --check` passes.
-3. Existing Asset rows take the `RAW_UPLOAD` default at
-   migration time — A1 backfill replaces them with
-   primitive_kind-derived roles.
-4. Add unit tests covering: enum values match the spec
-   (10 entries), default applies to new rows, indexed
-   lookup works.
-5. Re-gen `python manage.py inventory` so the Asset
-   table picks up the new field.
-6. Per-slice doc updates (Asset Library row marked
-   `✓ SHIPPED A0` with commit ref) per the doc-with-commit
-   discipline (CLAUDE.md §"Doc-with-commit discipline").
+1. Walk every primitive module in
+   `shell/apps/compositions/primitives/` (avatar_speech,
+   visual_clip, extend_visual_clip, concat_clips,
+   composite_video, mix_audio, polish.py (5 sub-primitives),
+   voice.py (2 sub-primitives), style_remix,
+   transcribe, generate_image, audio_extract,
+   remove_avatar_background, split_script). Each
+   primitive's `Asset.objects.create(...)` (or
+   `PrimitiveResult` construction) must include
+   `role=AssetRole.X` per the heuristic table that A1
+   established.
+2. The realtime transcript task (`apps/realtime/tasks.py`
+   `capture_transcript`) creates `Asset(TRANSCRIPT)`
+   directly — must also stamp `role=AssetRole.TRANSCRIPT`.
+3. Same source of truth for both production code +
+   backfill heuristic: factor the
+   `primitive_kind → role` mapping in
+   `apps.compositions.management.commands.backfill_asset_roles.PRIMITIVE_TO_ROLE`
+   to be importable as the single mapping table.
+   Production code uses it at emit time; backfill uses
+   it for legacy rows. Pre-existing test
+   `test_heuristic_table_covers_every_primitive_kind_in_codebase`
+   becomes the duplicate-prevention guard.
+4. **New migration test for contract rule 20**: walk the
+   set of registered primitives (from a primitive
+   registry — likely needs creation, or AST-scan
+   `*.py` files in `apps/compositions/primitives/` for
+   `"primitive_kind": "..."` literals like the SESSION
+   184 enumeration). For each, assert the mapping table
+   has an entry. Test lives in
+   `apps/compositions/tests/test_primitive_role_coverage.py`
+   (new file).
+5. Tests: per-primitive emit-time-role tests. Could go
+   in the existing per-primitive test files (the V*-* +
+   test_primitive_* files), or in a new dedicated
+   `test_primitive_role_stamping.py`. Lean toward
+   per-primitive tests since they read closer to the
+   production code they cover.
+6. Stack-up note: **restart Celery worker before any
+   composition fires** so the worker picks up the new
+   primitive code. The worker stop-state is silent
+   (SESSION 184 calibration #5).
 
-A0 estimated effort: ½ session. A1 (backfill command)
-should follow in the same session if time allows.
+A2 estimated effort: 1 session (largest A-slice — 14+
+primitives to touch). May naturally include the
+primitive registry if one doesn't already exist (rule
+20 needs an enumerable set of primitives at test time).
+
+**After A2, the operator-visible payoff lies in A4
+(read endpoint) + A5 (SPA list) + A7 (role-filtered
+asset_picker). A3 (storage-health helper) is the
+remaining foundational slice before frontend work.**
+
+### Alternative paths for SESSION 186
+
+If A2 feels too large for one session:
+
+* **Path B — A3 first.** Storage-health helper +
+  filesystem stat + JWT exp parser. Smaller (½
+  session). A4 doesn't need A2 to ship; A3 is a clean
+  parallel branch.
+* **Path C — small-win sidebars.** V18 polish
+  (duration-mismatch starter warning, ~½ session), F8.1
+  K10 seed corpus, or `storyboard_voiced` +
+  `dialogue_scene` real-mode validation. Asset Library
+  parks while a smaller win lands.
 
 ---
 
@@ -257,8 +362,10 @@ SESSION 182, V17.0/1/2/5 shipped + real-mode validated**;
 **V18 shipped + real-mode validated SESSION 184.**
 **Phase 5:** Brand ecosystem under 24/7 GLOBAL AI parent
 (SESSION 178 B-arc).
-**NEW arc proposed (SESSION 184):** Asset Library v1
-(`status: proposed`).
+**Asset Library v1 arc OPEN (SESSION 185):**
+scope-locked + 9 contract rules merged into V1 as rules
+14-22 + **A0 + A1 shipped + dev-DB backfill committed**
+(128 of 136 rows). A2 opens next.
 
 | Surface | Status |
 |---|---|
@@ -284,7 +391,10 @@ SESSION 182, V17.0/1/2/5 shipped + real-mode validated**;
 | V17.5 V8 opt-in extend | DONE + REAL-MODE VALIDATED |
 | **Polish slice 1 (duration fallback + null guard)** | **DONE + REAL-MODE VALIDATED (SESSION 184)** |
 | **smoke_keyframes management command** | **DONE + REAL-MODE VALIDATED (SESSION 184)** |
-| **Asset Library v1 scope-lock** | **LOCKED (SESSION 185); A0 in flight** |
+| **Asset Library v1 — A0 enum + migration** | **DONE (SESSION 185)** |
+| **Asset Library v1 — A1 backfill command + dev-DB --commit** | **DONE (SESSION 185)** |
+| Asset Library v1 — A2 primitives stamp role at emit | **NEXT (SESSION 186)** |
+| Asset Library v1 — A3 / A4 / A5 / A6 / A7 / A8 | Queued |
 | B6-B10 brand arc | Deferred |
 | F8.1 (K10 seed corpus) | Queued |
 | K7.x v3 YouTube oEmbed | Queued |
@@ -324,6 +434,24 @@ SESSION 182, V17.0/1/2/5 shipped + real-mode validated**;
     "Riggs-pre-background", completed end-to-end with
     `89a1ce5f` as backdrop
 
+**SESSION 185 dev-DB backfill (--commit applied):**
+
+* 128 of 136 RAW_UPLOAD candidates updated across 8
+  roles:
+  - 49 talking_head
+  - 42 backdrop
+  - 15 composite_output
+  - 11 polish_output
+  - 4 transcript
+  - 3 reference_image
+  - 2 audio_track
+  - 2 experiment (`c21fdeec` + `89a1ce5f`)
+* 8 needs-review legacy rows remain at RAW_UPLOAD
+  (2 audio + 6 image, all in `Admin's workspace`,
+  pre-dating primitive_kind discipline). Per-asset
+  tagging deferred to post-v1 upload-UI / mutation
+  surface.
+
 ---
 
 ## How to bring the stack up locally
@@ -349,15 +477,15 @@ cd web && pnpm dev                          # :5174 — V2 dark navy + gold
 python3 /Users/donkeyking/development/context-kit/context_kit.py doctor
 ```
 
-**SESSION 184 stack-up notes:**
+**SESSION 186 stack-up notes:**
 
-* **Celery worker** was stopped at session start; AI
-  restarted mid-session to pick up the V18 dogfood. If
-  SESSION 185 touches `apps/compositions/primitives/`,
-  `apps/compositions/starters.py`, or `apps/*/tasks.py`,
-  restart again. The "worker stop-state is silent"
-  calibration (SESSION 184 #5) means no automatic
-  signal will tell you the worker is down.
+* **Celery worker** must be restarted before SESSION
+  186's A2 work fires any composition. A2 changes
+  primitive emit shape (every primitive stamps role) —
+  worker holds stale module imports if not bounced.
+  "Worker stop-state is silent" calibration (SESSION 184
+  #5) means no automatic signal will tell you the worker
+  is down.
 * Uvicorn `--reload` window — wait for "Application
   startup complete" between rapid edits per SESSION 180
   TRUST_CALIBRATION.
@@ -380,12 +508,12 @@ For any new recipe or primitive that wraps a third-party API:
    validate workspace, type, AND `duration_ms` non-null
    BEFORE Composition rows are created (V18 pattern).
 
-**Smoke checks** (counts as of SESSION 184 close):
+**Smoke checks** (counts as of SESSION 185 close):
 
 ```bash
 # Backend (from shell/)
 python manage.py inventory
-python -m pytest                              # 915 tests (compositions: 484)
+python -m pytest                              # 928 tests (compositions: 497)
 
 # Media-engine (from media-engine/)
 python -m pytest                              # 194 tests
@@ -394,6 +522,21 @@ python -m pytest                              # 194 tests
 pnpm build                                    # type-check + bundle
 pnpm test                                     # 95 vitest tests
 ```
+
+**New surfaces from SESSION 185:**
+
+* `AssetRole` TextChoices enum (10 values) in
+  `apps.compositions.models`. Imported as
+  `from apps.compositions.models import AssetRole`.
+* `Asset.role` CharField — default `RAW_UPLOAD`, indexed
+  via `(workspace, role)`.
+* `python manage.py backfill_asset_roles` management
+  command — dry-run by default; `--commit` to apply;
+  `--workspace NAME` to scope. Heuristic table at
+  `apps.compositions.management.commands.backfill_asset_roles.PRIMITIVE_TO_ROLE`.
+* `docs/CONTEXT_KIT_INVENTORY.md` — context-kit-managed
+  inventory companion to `CHARACTER_OS_INVENTORY.md`.
+  Distinct purposes; both maintained.
 
 **New surfaces from SESSION 184:**
 
@@ -419,8 +562,19 @@ pnpm test                                     # 95 vitest tests
 
 ## AI / assistant context
 
-- **Last session: SESSION 184 — polish + V18 + Q-v17-3 +
-  Asset Library proposal.** Six feature commits + design
+- **Last session: SESSION 185 — drift sweep + Asset
+  Library scope-lock + A0 + A1.** Five commits + handoff.
+  Clean session, no deferrals. Doctor went 3 warnings →
+  0 at boot. Asset Library v1 locked with 10 roles
+  (`EXPERIMENT` added at lock review) + 9 contract rules
+  merged into V1 as rules 14-22. A0 (model + migration)
+  + A1 (backfill command + dev-DB --commit applied to
+  128 of 136 candidates) shipped. Tests 915 → 928. Two
+  new TRUST_CALIBRATION entries (walk-proposal-mechanism
+  + doctor-heuristic-false-positives).
+
+- **Prior session: SESSION 184 — polish + V18 + Q-v17-3
+  + Asset Library proposal.** Six feature commits + design
   doc + handoff. Two slices shipped + real-mode validated
   (polish + V18); slice 3 (V17.3) deferred at slice-open
   after live-doc check surfaced API-shape mismatch
@@ -429,15 +583,12 @@ pnpm test                                     # 95 vitest tests
   categorization gap visible during V18 dogfood. Six new
   TRUST_CALIBRATION entries.
 
-- **Prior session: SESSION 183 — V17.5 V8 opt-in extend
-  shipped + real-mode validated.** One feature commit + 4
-  real-mode renders ($6.25 spend). Ambient motion holds
-  cleanly through extend chain; discrete-subject identity
-  drifts at gen4.5 → gen4_turbo handoff. Two latent gaps
-  surfaced (speech duration_ms, composite null guard) →
-  shipped as SESSION 184 slice 1.
-
-- **Calibration carried forward (NEW SESSION 184 — 13 total)**:
+- **Calibration carried forward (NEW SESSION 185 — 15 total)**:
+  - Walk a proposal's mechanism through its motivating
+    calibration event before locking.
+  - Doctor heuristics over-match on project-shape naming
+    conventions.
+  - (from SESSION 184 — 6 entries unchanged below)
   - Live-doc-check discipline 2-for-2 on V17.
   - V18 + duration mismatch needs starter-time guard.
   - Asset taxonomy gap is structural.

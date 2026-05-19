@@ -3726,3 +3726,76 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   testing materials with intent." Triple-check the test
   fixture before claiming the system-under-test is the
   bug source.
+
+### Walk a proposal's mechanism through its motivating calibration before locking
+- **Date:** 2026-05-19
+- **Session:** 185
+- **Context:** Asset Library v1 scope-lock review. The arc
+  was proposed in SESSION 184 because of the V18
+  smoke-output-as-backdrop bug (SESSION 184 calibration #6
+  — "Re-using smoke outputs as backdrops is a
+  testing-shape mismatch"). The design doc explicitly cited
+  A7 (role-filter on asset_picker) as the structural fix.
+- **Surface / artefact:** Pre-lock review of
+  `docs/design/ASSET_LIBRARY_V1.md` §In-scope
+  clarifications. The doc said smoke_keyframes outputs
+  backfill as `BACKDROP` ("they were produced as
+  scene/motion experiments, fit the backdrop role even
+  though produced via a smoke command").
+- **AI expectation (before):** The 9-role taxonomy was the
+  contract foundation; defer ambiguity to A2 slice-open.
+- **Reality / outcome:** **Backfilling smoke outputs as
+  BACKDROP would have re-triggered the exact bug A7 was
+  supposed to fix.** If smoke outputs carry `role=BACKDROP`,
+  A7's "role-filter on picker" change still surfaces them
+  in the backdrop dropdown. The operator's "two random
+  people" finding from V18 would re-run unchanged. The
+  scope-lock review caught this; operator agreed to add a
+  10th role (`EXPERIMENT`) and switch the backfill
+  heuristic. Resolved at lock, not deferred to a later
+  slice.
+- **Found by:** AI pre-lock-review pass against the design
+  doc + the originating calibration event.
+- **Lesson:** When locking a scope motivated by a specific
+  prior calibration, **walk the proposed mechanism through
+  the original failing scenario.** If the mechanism doesn't
+  fix the failure end-to-end, the proposal needs revision
+  before lock — not at the first implementation slice.
+  Same shape as the SESSION 182 / 184 "live-doc-check the
+  API surface" discipline, but applied to design proposals
+  against their motivating evidence rather than to
+  third-party API shapes.
+
+### Doctor heuristics over-match on project-shape naming conventions
+- **Date:** 2026-05-19
+- **Session:** 185
+- **Context:** SESSION 185 boot drift-sweep. context-kit
+  `doctor` reported 3 warnings: missing inventory file,
+  version drift, missing handoffs SESSION_053/SESSION_172.
+- **Surface / artefact:** `context-kit doctor` output.
+  Two of the three "version drift" hits were doctor's
+  `_VERSION_RE` regex (`\b\d+\.\d+\.\d+(?:[a-zA-Z0-9.+-]*)?\b`)
+  matching `127.0.0.1` (uvicorn `--host` literal in
+  stack-up bash) AND `W11.6.5.1-3` (W-arc sub-slice naming).
+- **AI expectation (before):** Doctor warnings reflect
+  real drift between code and docs.
+- **Reality / outcome:** **Two of three "drifts" were
+  doctor heuristic false positives** driven by the
+  regex over-matching project-shape strings (IP literals
+  + multi-component slice IDs). pyproject was correctly
+  `0.0.0` (intentional monorepo placeholder); no real
+  version drift existed. The fix was to scrub the
+  matching literals from start-here (uvicorn → localhost;
+  `W11.6.5.1-3` → `W11.6.5 sub-slices 1/2/3`).
+- **Found by:** AI investigation of doctor source code
+  in `cli/state.py` + `cli/doctor.py`.
+- **Lesson:** **Doctor heuristics are guidance, not ground
+  truth, when project naming conventions overlap the
+  regex shape.** Treat doctor warnings as a starting point
+  — investigate the actual heuristic before scrubbing
+  state. Cleanup that disguises a literal to defeat a
+  regex is a smell that the heuristic, not the project,
+  is wrong — but for SESSION 185's purpose (clean exit)
+  the disguise was the right call. Upstream fix sits with
+  context-kit (skip IP-shaped + alpha-prefix-shaped
+  strings); pragmatic fix sits with the project.
