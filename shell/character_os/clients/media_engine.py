@@ -342,6 +342,26 @@ class StyleRemixResult:
 
 
 @dataclass
+class ExtendClipResult:
+    """Decoded response from ``POST /internal/clips/extend/``.
+
+    V17.0 — last-frame conditioned continuation. Carries the
+    component durations so the cost estimator + UI can split
+    "source" from "new segment" cleanly in the operator-facing
+    forecast. Q-v17-1 (SESSION 182) drove the synchronous shape
+    (mirrors style_remix), not the async shape originally
+    proposed."""
+
+    output_url: str
+    duration_seconds: float
+    source_duration_seconds: float
+    new_segment_duration_seconds: float
+    size_bytes: int
+    task_id: str
+    mock_mode: bool
+
+
+@dataclass
 class VideoPollResult:
     """Decoded response from ``GET /internal/videos/{task_id}/``."""
 
@@ -942,6 +962,68 @@ class MediaEngineClient:
         except (KeyError, TypeError, ValueError) as exc:
             raise MediaEngineError(
                 f"style_remix response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
+    def extend_clip(
+        self,
+        *,
+        source_clip_url: str,
+        prompt: str,
+        duration: int = 5,
+        ratio: str = "1280:720",
+        seed: int | None = None,
+        # The media-engine pipeline is: download source +
+        # ffmpeg last-frame extract + Runway image_to_video
+        # (gen4_turbo, ~30-90s for 5s) + Runway download +
+        # ffmpeg concat re-encode. Conservative 6-min ceiling
+        # covers typical 5s extends with comfortable headroom.
+        # Long-form recipes that chain N extends will exceed
+        # this — V17.2 will tune per-call.
+        timeout: float = 360.0,
+    ) -> "ExtendClipResult":
+        """Hit ``POST /internal/clips/extend/`` — extend a
+        rendered clip via last-frame extraction + Runway
+        gen4_turbo image_to_video + ffmpeg concat. Synchronous;
+        media-engine wraps the round-trip.
+
+        Q-v17-1 (SESSION 182) surfaced that Runway's
+        ``/v1/video_to_video`` only accepts ``gen4_aleph``
+        (V11's style remix), so the V17 proposal's original
+        ``video_to_video`` extend mode is not the API shape.
+        The implementation pivot — last-frame ➜
+        ``/v1/image_to_video`` ➜ concat — lives entirely on
+        the media-engine side; this client is just the contract
+        layer."""
+        body: dict[str, Any] = {
+            "source_clip_url": source_clip_url,
+            "prompt": prompt,
+            "duration": duration,
+            "ratio": ratio,
+        }
+        if seed is not None:
+            body["seed"] = seed
+        data = self.request(
+            "POST", "/internal/clips/extend/",
+            json=body, timeout=timeout,
+        )
+        try:
+            return ExtendClipResult(
+                output_url=str(data["output_url"]),
+                duration_seconds=float(data["duration_seconds"]),
+                source_duration_seconds=float(
+                    data["source_duration_seconds"]
+                ),
+                new_segment_duration_seconds=float(
+                    data["new_segment_duration_seconds"]
+                ),
+                size_bytes=int(data["size_bytes"]),
+                task_id=str(data["task_id"]),
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"extend_clip response not in expected shape: {data!r}",
                 response_text=str(data),
             ) from exc
 

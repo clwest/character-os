@@ -233,14 +233,14 @@ outputs feed cleanly through.
 Same pattern as V15 / V16 — narrow scope, opt-in defaults,
 real-mode validation per slice.
 
-| Slice | What ships | Estimated effort |
-|---|---|---|
-| **V17.0** | Media-engine `/internal/clips/extend/` endpoint + tests. No Django changes. | ½ session |
-| **V17.1** | Django `extend_visual_clip` primitive + cost estimator + tests. No recipe yet. | ½ session |
-| **V17.2** | New `cinematic_visual_extended` recipe (V4 + extend chain) — operator picks target duration > 10s; starter lays down 1 generate_visual_clip + N extend_visual_clip steps. Recipe form + tests + real-mode dogfood. | 1 session |
-| **V17.3** | Extend `/internal/clips/visual/` to accept `keyframes: [str]` + multi-keyframe support on `generate_visual_clip`. Plus a new `keyframe_shot` recipe (start + end image, single 5-10s shot). Uses existing IMAGE assets until asset-upload UI lands. | 1 session |
-| **V17.4** | V13 `storyboard_ad` opt-in flag (`use_keyframes: bool = False`) — when on, swaps the 3-shot chain for a single keyframed shot. Default off; V13 backward-compat holds. | ½ session |
-| **V17.5** | V8 `talking_head_with_backdrop` opt-in flag (`use_extend_for_backdrop: bool = False`) — when on, uses extend chain instead of multi-backdrop concat. Resolves the SESSION 179 motion-seam workaround. | ½ session |
+| Slice | What ships | Estimated effort | Status |
+|---|---|---|---|
+| **V17.0** | Media-engine `/internal/clips/extend/` endpoint + tests. No Django changes. | ½ session | **✓ SHIPPED SESSION 182** (`933d4e7`) |
+| **V17.1** | Django `extend_visual_clip` primitive + cost estimator + tests. No recipe yet. | ½ session | **✓ SHIPPED SESSION 182** |
+| **V17.2** | New `cinematic_visual_extended` recipe (V4 + extend chain) — operator picks target duration > 10s; starter lays down 1 generate_visual_clip + N extend_visual_clip steps. Recipe form + tests + real-mode dogfood. | 1 session | pending |
+| **V17.3** | Extend `/internal/clips/visual/` to accept `keyframes: [str]` + multi-keyframe support on `generate_visual_clip`. Plus a new `keyframe_shot` recipe (start + end image, single 5-10s shot). Uses existing IMAGE assets until asset-upload UI lands. | 1 session | pending |
+| **V17.4** | V13 `storyboard_ad` opt-in flag (`use_keyframes: bool = False`) — when on, swaps the 3-shot chain for a single keyframed shot. Default off; V13 backward-compat holds. | ½ session | pending |
+| **V17.5** | V8 `talking_head_with_backdrop` opt-in flag (`use_extend_for_backdrop: bool = False`) — when on, uses extend chain instead of multi-backdrop concat. Resolves the SESSION 179 motion-seam workaround. | ½ session | pending |
 
 Roughly **4 sessions** of work end-to-end. Could compress
 to 2-3 if V17.4 / V17.5 ship together as one operator-

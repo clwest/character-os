@@ -75,6 +75,7 @@ ALLOWED_FILES = {
     "apps/compositions/tests/test_v14_dialogue.py",
     "apps/compositions/tests/test_v15_api.py",
     "apps/compositions/tests/test_v16_remove_avatar_background.py",
+    "apps/compositions/tests/test_v17_extend_visual_clip.py",
     # F3 overview endpoint tests construct Composition rows
     # directly to exercise the dashboard cross-cut query path.
     "apps/accounts/tests/test_workspace_overview.py",

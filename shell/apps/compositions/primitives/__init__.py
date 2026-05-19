@@ -32,6 +32,7 @@ from .audio_extract import AudioExtractPrimitive
 from .avatar_speech import GenerateAvatarSpeechPrimitive
 from .composite_video import CompositeVideoPrimitive
 from .concat_clips import ConcatClipsPrimitive
+from .extend_visual_clip import ExtendVisualClipPrimitive
 from .generate_image import GenerateImagePrimitive
 from .mix_audio import MixAudioPrimitive
 from .mock import (
@@ -104,6 +105,7 @@ _REGISTRY: dict[str, Type[Primitive]] = {
     "audio_extract": AudioExtractPrimitive,  # V14
     # V15: SPA recipe gallery (no new primitives)
     "remove_avatar_background": RemoveAvatarBackgroundPrimitive,  # V16
+    "extend_visual_clip": ExtendVisualClipPrimitive,  # V17.1
 }
 
 
