@@ -1307,6 +1307,38 @@ def _probe_duration(path: Path) -> float:
         return 5.0
 
 
+def _probe_dimensions(path: Path) -> tuple[int, int]:
+    """ffprobe video width / height. Falls back to 1280x720
+    (the Runway gen4.5 default) if probing fails — but the
+    fallback is a foot-gun for callers that concat against the
+    real clip (ffmpeg requires matched dimensions), so callers
+    in concat-flavored paths should treat a fallback-shaped
+    response as a probe failure worth surfacing."""
+    import shutil
+    import subprocess
+
+    if not shutil.which("ffprobe"):
+        return (1280, 720)
+    try:
+        out = subprocess.run(
+            [
+                "ffprobe", "-v", "error",
+                "-select_streams", "v:0",
+                "-show_entries", "stream=width,height",
+                "-of", "csv=s=x:p=0",
+                str(path),
+            ],
+            capture_output=True, text=True, timeout=30,
+        )
+        if out.returncode != 0:
+            return (1280, 720)
+        raw = out.stdout.strip()  # "1088x704"
+        w, h = raw.split("x", 1)
+        return (int(w), int(h))
+    except (ValueError, subprocess.TimeoutExpired, OSError):
+        return (1280, 720)
+
+
 @router.post(
     "/clips/composite/", response_model=InternalCompositeResponse,
 )
@@ -1835,12 +1867,21 @@ def _build_card_filter(
     is the ffmpeg input label (e.g. ``[1:v]``) referencing a
     lavfi color source; ``output_label`` is the named output
     (e.g. ``[intro_v]``)."""
-    # Escape text for drawtext — backslashes, colons, single quotes.
+    # Escape text for drawtext inside a single-quoted ffmpeg
+    # filter argument. Apostrophes use the POSIX-style close-
+    # escape-reopen pattern: `'It'\''s'` parses as `It's` because
+    # ffmpeg's filter argument tokenizer concatenates adjacent
+    # single-quoted runs. Backslash-escaping the apostrophe alone
+    # (the prior behaviour) ends the quoted run prematurely and
+    # breaks the whole filter graph — surfaced SESSION 180 when
+    # an operator-supplied intro card ("Riggs's Rules.")
+    # triggered an ffmpeg rc=234 from
+    # POST /internal/clips/intro_outro/.
     escaped = (
         spec.text
         .replace("\\", "\\\\")
         .replace(":", r"\:")
-        .replace("'", r"\\'")
+        .replace("'", r"'\''")
     )
     return (
         f"{input_label}drawtext="
@@ -1913,30 +1954,40 @@ def post_internal_intro_outro(
     except httpx.HTTPError as exc:
         return _error(502, "upstream_runway_error", f"download error: {exc!s}"[:300])
 
-    # Probe the body clip's dims so the cards match.
+    # Probe the body clip's dims so the cards match. Hard-coding
+    # 1280x720 here breaks concat when the body clip is any other
+    # size (Runway gwm1_avatars at 1088x704 is the canonical
+    # failure mode — surfaced SESSION 180 with ffmpeg returning
+    # "task finished with error code: -22 (Invalid argument)").
     base_dur = _probe_duration(clip_path)
-    canvas_w, canvas_h = 1280, 720  # safe default; real probe would refine
+    canvas_w, canvas_h = _probe_dimensions(clip_path)
 
-    # Build filter_complex + ffmpeg input list. Indexing: body
-    # video is [0]; intro card (if present) is [1:v]+[2:a]; body
-    # audio is [0:a]; outro card (if present) is [3:v]+[4:a] (or
-    # [1:v]+[2:a] when no intro). Use a builder that tracks
-    # input indices.
+    # Build filter_complex + ffmpeg input list. Input indices
+    # count `-i` occurrences, NOT argument pairs — `-f lavfi -i X`
+    # is 4 args but a single input. The prior `len(args) // 2`
+    # math conflated the two and produced bogus indices like
+    # [3:a]/[5:v] for what should have been [2:a]/[3:v];
+    # ffmpeg responded with "Invalid file index N in filtergraph"
+    # any time both intro and outro were supplied. Track the
+    # count explicitly.
     ffmpeg_inputs: list[str] = ["-i", str(clip_path)]
+    input_count = 1  # body clip occupies [0]
     filter_parts: list[str] = []
     concat_chain: list[str] = []
 
     if body.intro:
-        intro_v_idx = len(ffmpeg_inputs) // 2
+        intro_v_idx = input_count
         ffmpeg_inputs += [
             "-f", "lavfi",
             "-i", f"color=c={body.intro.bg_color}:s={canvas_w}x{canvas_h}:r=30:d={body.intro.duration_s}",
         ]
-        intro_a_idx = len(ffmpeg_inputs) // 2
+        input_count += 1
+        intro_a_idx = input_count
         ffmpeg_inputs += [
             "-f", "lavfi",
             "-i", f"anullsrc=channel_layout=stereo:sample_rate=48000:d={body.intro.duration_s}",
         ]
+        input_count += 1
         filter_parts.append(_build_card_filter(
             body.intro, canvas_w, canvas_h,
             f"[{intro_v_idx}:v]", "[intro_v]",
@@ -1947,16 +1998,18 @@ def post_internal_intro_outro(
     concat_chain.append("[0:v][0:a]")
 
     if body.outro:
-        outro_v_idx = len(ffmpeg_inputs) // 2
+        outro_v_idx = input_count
         ffmpeg_inputs += [
             "-f", "lavfi",
             "-i", f"color=c={body.outro.bg_color}:s={canvas_w}x{canvas_h}:r=30:d={body.outro.duration_s}",
         ]
-        outro_a_idx = len(ffmpeg_inputs) // 2
+        input_count += 1
+        outro_a_idx = input_count
         ffmpeg_inputs += [
             "-f", "lavfi",
             "-i", f"anullsrc=channel_layout=stereo:sample_rate=48000:d={body.outro.duration_s}",
         ]
+        input_count += 1
         filter_parts.append(_build_card_filter(
             body.outro, canvas_w, canvas_h,
             f"[{outro_v_idx}:v]", "[outro_v]",
