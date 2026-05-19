@@ -486,6 +486,129 @@ def test_retrieve_composition_includes_steps_and_final_asset() -> None:
     assert len(data["steps"]) == 1
 
 
+# ---- A8 (SESSION 192) — produced_assets cross-link --------------
+
+
+def test_retrieve_composition_includes_produced_assets() -> None:
+    """A8: every Asset emitted by the composition's pipeline surfaces
+    in the produced_assets field with role + storage_health attached.
+    The list is ordered by Asset.created_at (oldest first) so the SPA
+    panel reads top-to-bottom as the pipeline executed.
+    """
+    ws, user = _make_workspace_with_user("a8produced@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    create_response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": "A8 produced_assets cross-link test.",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert create_response.status_code == http.HTTP_201_CREATED
+    comp_id = create_response.json()["id"]
+
+    response = client.get(f"/api/compositions/{comp_id}/")
+    assert response.status_code == http.HTTP_200_OK
+    data = response.json()
+
+    # talking_head's mock_mode produces exactly one Asset
+    # (the generate_avatar_speech output) that doubles as the
+    # final_asset.
+    produced = data["produced_assets"]
+    assert len(produced) >= 1
+    entry = produced[0]
+    assert entry["id"] == data["final_asset"]["id"]
+    assert entry["is_final"] is True
+    assert entry["role"] == "talking_head"
+    assert entry["asset_type"] == "clip"
+    # mock_mode emits a `mock://` URL → unknown scheme falls
+    # through to UPLOAD_PENDING per A3 classifier.
+    assert entry["storage_health"] in {
+        "upload_pending", "https_live", "local_present",
+    }
+    # Field shape check — the SPA's Zod schema requires these.
+    for key in ("id", "asset_type", "role", "title", "file_path",
+                "storage_health", "is_final"):
+        assert key in entry
+
+
+def test_produced_assets_marks_only_final_with_is_final() -> None:
+    """A8: when a composition produces multiple assets (e.g. a
+    backdrop + a composite + the final talking_head), only the
+    one wired to ``final_asset`` carries is_final=True."""
+    ws, user = _make_workspace_with_user("a8final@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    create_response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": "A8 is_final marker test.",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    comp_id = create_response.json()["id"]
+
+    # Seed a second Asset on the same composition that is NOT the
+    # final asset. Same workspace anchor so the signal is happy.
+    from apps.compositions.models import Composition as CompModel
+    comp = CompModel.objects.get(pk=comp_id)
+    Asset.objects.create(
+        workspace=ws,
+        composition=comp,
+        asset_type=AssetType.IMAGE,
+        role="reference_image",
+        file_path="/data/reference.png",
+        source_spec={"primitive_kind": "generate_image"},
+    )
+
+    response = client.get(f"/api/compositions/{comp_id}/")
+    data = response.json()
+    produced = data["produced_assets"]
+    finals = [a for a in produced if a["is_final"]]
+    assert len(finals) == 1
+    assert finals[0]["id"] == data["final_asset"]["id"]
+
+
+def test_produced_assets_empty_for_draft_composition() -> None:
+    """A8: a composition with no emitted Assets yet returns
+    produced_assets=[] (Zod default([]) handles this on the SPA
+    side too)."""
+    ws, user = _make_workspace_with_user("a8empty@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    # Build a Composition row directly so no pipeline fires.
+    from apps.compositions.models import Composition as CompModel
+    comp = CompModel.objects.create(
+        workspace=ws,
+        spokesperson=sp,
+        name="A8 empty",
+        template_kind="talking_head",
+    )
+
+    response = client.get(f"/api/compositions/{comp.pk}/")
+    assert response.status_code == http.HTTP_200_OK
+    assert response.json()["produced_assets"] == []
+
+
 def test_retrieve_cross_workspace_rejected() -> None:
     ws_a, user_a = _make_workspace_with_user("v15xret_a@test", "A")
     _ws_b, user_b = _make_workspace_with_user("v15xret_b@test", "B")

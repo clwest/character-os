@@ -13,6 +13,7 @@ import {
   type KnowledgeDocCitation,
   type LineageRef,
   type LineageDerivedFromEntry,
+  type ProducedAsset,
   isTerminalStatus,
   useComposition,
   useCompositionLineage,
@@ -50,6 +51,9 @@ export function CompositionStatusRoute() {
       )}
       <StepList steps={c.steps} />
       {terminal && c.final_asset && <FinalAsset composition={c} />}
+      {c.produced_assets.length > 0 && (
+        <ProducedAssetsPanel assets={c.produced_assets} />
+      )}
       {terminal && !c.final_asset && c.status === "failed" && (
         <FailedCallout composition={c} />
       )}
@@ -388,6 +392,73 @@ function UsedByPanel({ entries }: { entries: LineageRef[] }) {
       </ul>
     </section>
   );
+}
+
+// A8 (SESSION 192) — Asset Library v1 cross-link. Lists every Asset
+// the composition's pipeline produced, with role badge + storage-health
+// tone + link to the A6 detail view at /workspace/assets/<id>. is_final
+// gets a "Final" pill so the operator can scan the pipeline output and
+// spot the deliverable at a glance.
+function ProducedAssetsPanel({ assets }: { assets: ProducedAsset[] }) {
+  return (
+    <section
+      className="flex flex-col gap-3 rounded-md border bg-muted/30 p-4"
+      data-testid="produced-assets-panel"
+    >
+      <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+        <Library className="h-3.5 w-3.5" />
+        Produced {assets.length} asset{assets.length === 1 ? "" : "s"}
+      </div>
+      <ul className="flex flex-col gap-2">
+        {assets.map((a) => (
+          <li key={a.id}>
+            <Link
+              to={`/workspace/assets/${a.id}`}
+              className="flex items-baseline justify-between gap-3 rounded-sm border bg-card px-3 py-2 transition-colors hover:border-foreground"
+              data-testid={`produced-asset-${a.id}`}
+            >
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="truncate text-sm">
+                  {a.title || a.file_path || "Untitled asset"}
+                </span>
+                <span className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                  <span>{a.asset_type}</span>
+                  {a.role && (
+                    <span className="rounded-sm border px-1.5 py-0.5">
+                      {a.role.replace(/_/g, " ")}
+                    </span>
+                  )}
+                  <span className={producedStorageTone(a.storage_health)}>
+                    {a.storage_health.replace(/_/g, " ")}
+                  </span>
+                </span>
+              </div>
+              {a.is_final && (
+                <span className="rounded-sm border border-foreground/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.22em] text-foreground">
+                  Final
+                </span>
+              )}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function producedStorageTone(storage: string): string {
+  // Match A5's storageHealthTone palette without importing the
+  // workspace-assets module (avoids a cross-route coupling).
+  if (storage === "https_live" || storage === "local_present") {
+    return "text-emerald-500";
+  }
+  if (storage === "https_expiring_soon") {
+    return "text-amber-500";
+  }
+  if (storage === "https_expired" || storage === "local_missing") {
+    return "text-destructive";
+  }
+  return "text-muted-foreground";
 }
 
 function FinalAsset({ composition }: { composition: Composition }) {

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
+from .assets import compute_storage_health
 from .models import Asset, Composition, CompositionStep
 from .recipes import list_recipes
 
@@ -135,6 +136,12 @@ class CompositionSerializer(serializers.ModelSerializer):
     steps = CompositionStepSerializer(many=True, read_only=True)
     final_asset = AssetSerializer(read_only=True)
     knowledge_docs_used = serializers.SerializerMethodField()
+    # A8 (SESSION 192) — every Asset emitted by this composition's
+    # steps. Light shape; the SPA links each entry to the A6
+    # detail view (`/workspace/assets/<id>`). Closes the
+    # Asset Library v1 cross-link between the Composition surface
+    # and the Asset surface (F-arc-style lineage).
+    produced_assets = serializers.SerializerMethodField()
 
     class Meta:
         model = Composition
@@ -155,6 +162,7 @@ class CompositionSerializer(serializers.ModelSerializer):
             "updated_at",
             "steps",
             "final_asset",
+            "produced_assets",
             # K6.4 v1.1 — verifier surface for the SPA
             "verification_warnings",
             "rejected_synthesis",
@@ -164,6 +172,31 @@ class CompositionSerializer(serializers.ModelSerializer):
             "synthesized_brief",
         )
         read_only_fields = fields
+
+    def get_produced_assets(self, obj) -> list[dict]:
+        """A8 — light list of every Asset emitted by this
+        composition's pipeline. Includes the final_asset; the
+        SPA panel labels which one is final. Ordered by
+        Asset.created_at (oldest first) so step-by-step pipeline
+        outputs read top-to-bottom on the page."""
+        assets = list(
+            obj.produced_assets.all().order_by("created_at")
+        )
+        final_asset_id = (
+            str(obj.final_asset.id) if obj.final_asset_id else None
+        )
+        return [
+            {
+                "id": str(a.id),
+                "asset_type": a.asset_type,
+                "role": a.role,
+                "title": a.title,
+                "file_path": a.file_path,
+                "storage_health": compute_storage_health(a),
+                "is_final": str(a.id) == final_asset_id,
+            }
+            for a in assets
+        ]
 
     def get_knowledge_docs_used(self, obj):
         """F6 (workspace fabric) — resolve the K6-populated

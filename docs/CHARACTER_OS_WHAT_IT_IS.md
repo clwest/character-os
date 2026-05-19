@@ -2,9 +2,9 @@
 title: "Character OS — What It Actually Is"
 status: populated
 generated: 2026-05-13
-last_revised: 2026-05-19 (SESSION 184, rubber-stamp — no substantive content change)
+last_revised: 2026-05-19 (SESSION 192 — Asset Library v1 arc-close)
 companion_doc: CHARACTER_OS_INVENTORY.md
-covers_sessions: "106-184"
+covers_sessions: "106-192"
 ---
 
 # Character OS — What It Actually Is
@@ -335,7 +335,7 @@ verifier that could keep all three in sync automatically.
 
 ---
 
-## Phase 4 — four parallel arcs (three complete, R-arc complete, first marketing video shipped)
+## Phase 4 — four parallel arcs (all complete) + Asset Library v1 (complete)
 
 After Phase 3 closed the wizard arc (W1-W11) and brought the
 cast live in real-mode (SESSION 136), Phase 4 opened with
@@ -344,8 +344,10 @@ mid-flight. Each is scope-locked under its own design doc,
 each has a slice plan, each adds capability without forcing
 the others to advance in lockstep.
 
-**State as of SESSION 158**: all four arcs complete +
-first end-to-end real-Runway marketing video shipped.
+**State as of SESSION 192**: all four Phase 4 arcs complete +
+first end-to-end real-Runway marketing video shipped +
+**Asset Library v1 arc complete** (9 slices across SESSIONS
+185-192, layered atop the four Phase 4 arcs).
 
 | Arc | Status | Scope lock |
 |---|---|---|
@@ -353,6 +355,7 @@ first end-to-end real-Runway marketing video shipped.
 | Video composition (V0-V15) | **COMPLETE** (SESSIONS 142-144) | `docs/design/VIDEO_COMPOSITION_V1.md` |
 | Workspace fabric (F0-F10) | **COMPLETE** (SESSION 144) | `docs/design/WORKSPACE_FABRIC_V1.md` |
 | Realtime avatar (R0-R10) | **COMPLETE** (SESSIONS 146-157); first marketing video shipped against real Runway SESSION 158 | `docs/design/REALTIME_AVATAR_V1.md` |
+| **Asset Library v1 (A0-A8)** | **COMPLETE** (SESSIONS 185-192) — 10-role taxonomy + emit-time stamping + storage-health classifier + paginated browse endpoint + SPA list / detail / role-filtered picker / composition cross-link | `docs/design/ASSET_LIBRARY_V1.md` |
 
 All four arcs share one architectural shape — workspace-
 anchored data, structural cross-workspace rejection, mock-mode

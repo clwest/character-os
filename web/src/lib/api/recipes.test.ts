@@ -146,3 +146,107 @@ describe("Recipe field schema role_filter", () => {
     expect(field!.role_filter).toBeUndefined();
   });
 });
+
+
+// ---- A8 (SESSION 192) — composition produced_assets cross-link ---
+
+
+describe("Composition produced_assets schema (A8)", () => {
+  function fakeComposition(produced_assets: unknown[]) {
+    return {
+      id: "comp-1",
+      workspace: "ws-1",
+      spokesperson: "sp-1",
+      name: "Test",
+      template_kind: "talking_head",
+      status: "completed",
+      mock_mode: true,
+      cost_estimate_micros: 0,
+      cost_actual_micros: 0,
+      knowledge_chunk_ids: [],
+      knowledge_docs_used: [],
+      error_message: "",
+      created_at: "2026-05-19T00:00:00Z",
+      updated_at: "2026-05-19T00:00:00Z",
+      steps: [],
+      final_asset: null,
+      produced_assets,
+      verification_warnings: [],
+      rejected_synthesis: "",
+      verification_status: "",
+      synthesized_brief: "",
+    };
+  }
+
+  it("parses produced_assets array with all required fields", async () => {
+    apiJsonMock.mockImplementationOnce(
+      async (_path, _init, parser?: (json: unknown) => unknown) => {
+        const fake = fakeComposition([
+          {
+            id: "asset-1",
+            asset_type: "clip",
+            role: "talking_head",
+            title: "Hero clip",
+            file_path: "https://cdn/x.mp4",
+            storage_health: "https_live",
+            is_final: true,
+          },
+        ]);
+        return parser ? parser(fake) : fake;
+      },
+    );
+    const comp = await recipesModule.getComposition("comp-1");
+    expect(comp.produced_assets).toHaveLength(1);
+    const a = comp.produced_assets[0];
+    expect(a).toBeDefined();
+    expect(a!.role).toBe("talking_head");
+    expect(a!.is_final).toBe(true);
+    expect(a!.storage_health).toBe("https_live");
+  });
+
+  it("defaults to empty array when produced_assets is missing", async () => {
+    apiJsonMock.mockImplementationOnce(
+      async (_path, _init, parser?: (json: unknown) => unknown) => {
+        const fake = fakeComposition([]);
+        // simulate older row by omitting produced_assets entirely
+        delete (fake as Record<string, unknown>).produced_assets;
+        return parser ? parser(fake) : fake;
+      },
+    );
+    const comp = await recipesModule.getComposition("comp-1");
+    expect(comp.produced_assets).toEqual([]);
+  });
+
+  it("parses multiple produced assets with mixed is_final", async () => {
+    apiJsonMock.mockImplementationOnce(
+      async (_path, _init, parser?: (json: unknown) => unknown) => {
+        const fake = fakeComposition([
+          {
+            id: "asset-1",
+            asset_type: "image",
+            role: "reference_image",
+            title: "Ref",
+            file_path: "/data/ref.png",
+            storage_health: "local_present",
+            is_final: false,
+          },
+          {
+            id: "asset-2",
+            asset_type: "clip",
+            role: "talking_head",
+            title: "Final",
+            file_path: "https://cdn/final.mp4",
+            storage_health: "https_live",
+            is_final: true,
+          },
+        ]);
+        return parser ? parser(fake) : fake;
+      },
+    );
+    const comp = await recipesModule.getComposition("comp-1");
+    expect(comp.produced_assets).toHaveLength(2);
+    const finals = comp.produced_assets.filter((a) => a.is_final);
+    expect(finals).toHaveLength(1);
+    expect(finals[0]!.id).toBe("asset-2");
+  });
+});

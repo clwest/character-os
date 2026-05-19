@@ -279,6 +279,21 @@ const unsupportedClaimSchema = z.object({
 
 export type UnsupportedClaim = z.infer<typeof unsupportedClaimSchema>;
 
+// A8 (SESSION 192) — light shape for every Asset emitted by the
+// composition's pipeline. SPA panel links each entry to the A6
+// detail view at /workspace/assets/<id>.
+const producedAssetSchema = z.object({
+  id: z.string(),
+  asset_type: z.enum(["clip", "audio", "image", "transcript", "voice"]),
+  role: z.string(),
+  title: z.string(),
+  file_path: z.string(),
+  storage_health: z.string(),
+  is_final: z.boolean(),
+});
+
+export type ProducedAsset = z.infer<typeof producedAssetSchema>;
+
 const compositionSchema = z.object({
   id: z.string(),
   workspace: z.string(),
@@ -300,6 +315,10 @@ const compositionSchema = z.object({
   updated_at: z.string(),
   steps: z.array(compositionStepSchema),
   final_asset: assetSchema.nullable(),
+  // A8 (SESSION 192) — every Asset emitted by this composition's
+  // pipeline. The SPA panel labels which one is the final via
+  // is_final. Defaults to [] for older composition rows.
+  produced_assets: z.array(producedAssetSchema).default([]),
   // K6.4 v1.1 — verifier surface. Empty array on clean
   // renders, populated on Warn-mode flags and Strict-mode
   // rejections. ``rejected_synthesis`` carries the text the

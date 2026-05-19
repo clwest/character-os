@@ -1,8 +1,9 @@
 ---
 title: "Asset Library — Workspace Inventory + Taxonomy"
-status: locked
+status: complete
 proposed: 2026-05-19 (SESSION 184)
 locked: 2026-05-19 (SESSION 185)
+closed: 2026-05-19 (SESSION 192)
 companion_docs:
   - VIDEO_COMPOSITION_V1.md
   - WORKSPACE_FABRIC_V1.md
@@ -11,8 +12,10 @@ companion_docs:
 
 # Asset Library — Workspace Inventory + Taxonomy
 
-> **Status: LOCKED (SESSION 185).** 9 contract rules merged
-> into `VIDEO_COMPOSITION_V1.md` as rules 14-22. Slices A0-A8
+> **Status: COMPLETE (SESSION 192).** All 9 slices A0-A8
+> shipped across SESSIONS 185-192 (7 sessions, ~1 slice per
+> session). 9 contract rules merged into
+> `VIDEO_COMPOSITION_V1.md` as rules 14-22. Slices A0-A8
 > sequence the implementation. Mirrors the V17 proposal
 > pattern (`VIDEO_COMPOSITION_V17_PROPOSAL.md`).
 
@@ -300,7 +303,7 @@ applicable.
 | **A5** | SPA route `/workspace/assets` — list view with filter chips (role / asset_type / storage). Pagination. | 1 session | **✓ SHIPPED (SESSION 189)** |
 | **A6** | SPA per-asset detail view at `/workspace/assets/<id>` — lineage graph, prompts, downstream compositions, storage badge, copy-URL action. | 1 session | **✓ SHIPPED (SESSION 191)** |
 | **A7** | asset_picker gains optional `role` filter on the field metadata. V18's `backdrop_clip_id` picker filters to `role=BACKDROP`. Same shape for V8 broll_splice / pip_layout / cohost_layout. | ½ session | **✓ SHIPPED (SESSION 190)** |
-| **A8** | Composition-lineage cross-link (per F-arc): each composition's overview shows produced assets with role badges. | ½ session | pending |
+| **A8** | Composition-lineage cross-link (per F-arc): each composition's overview shows produced assets with role badges. | ½ session | **✓ SHIPPED (SESSION 192) — ARC CLOSED** |
 
 Roughly **5-6 sessions** end-to-end across **9 slices
 (A0-A8 inclusive)**. A0-A2 are foundational; A3-A4 unblock
@@ -457,6 +460,46 @@ A5 surface only minimally.
   coverage test seeds its own Composition/RealtimeSession
   rows). Compositions suite: 497 → 505 (+8); full shell suite
   928 → 936 (+8 = A2 coverage tests).
+* **2026-05-19 (SESSION 192)** — **A8 SHIPPED. ARC CLOSED.**
+  Composition overview pages get a `ProducedAssetsPanel`
+  section listing every Asset emitted by the pipeline with
+  role badge + storage-health tone + `Final` pill on the
+  one wired to `composition.final_asset`. Each row links to
+  the A6 detail view at `/workspace/assets/<id>`. Closes
+  the F-arc-style cross-link between Composition surface
+  and Asset surface. Backend:
+  `CompositionSerializer.produced_assets`
+  `SerializerMethodField` returns light shape (id +
+  asset_type + role + title + file_path + storage_health
+  + is_final), ordered by Asset.created_at so the SPA
+  panel reads top-to-bottom as the pipeline executed.
+  Uses A3's `compute_storage_health` inline. SPA:
+  `producedAssetSchema` Zod + `produced_assets`
+  on `compositionSchema` (default([]) for older rows);
+  `ProducedAssetsPanel` component renders between
+  `<FinalAsset>` and the F5 lineage panels in
+  `routes/compositions/$id.tsx`. Local
+  `producedStorageTone()` helper mirrors A5's tone palette
+  without cross-route import coupling. 3 backend tests +
+  3 SPA vitest tests. Backend 992 → 995 (+3); SPA vitest
+  131 → 134 (+3).
+* **2026-05-19 (SESSION 192)** — **ARC CLOSE CEREMONY.**
+  All 9 slices shipped (A0-A8) across 7 sessions
+  (185-192). Test deltas: Django **915 → 995 (+80)**;
+  SPA vitest **95 → 134 (+39)**. Six features delivered:
+  role taxonomy (A0) + retroactive backfill (A1) + emit-time
+  stamping (A2 — contract rule 20 statically enforced) +
+  storage-health classifier (A3) + paginated browse
+  endpoint (A4) + paginated browse SPA (A5) + per-asset
+  detail SPA (A6) + role-filtered picker (A7 — the
+  structural fix that motivated the arc) + composition
+  cross-link (A8). Zero deferrals to v2 beyond the
+  Q-a-6 Avatar/Voice/Portrait gap that was already
+  scoped out at lock. Real-mode dogfood: 128 dev-DB
+  assets backfilled SESSION 185 are browseable +
+  detail-viewable; V18 backdrop picker narrows to the 42
+  BACKDROP rows. **Asset Library v1 marked complete in
+  status frontmatter + start-here phase status.**
 * **2026-05-19 (SESSION 191)** — **A6 SHIPPED.** SPA per-asset
   detail at `/workspace/assets/:id`. Delegated to the
   `react-web-delivery` agent. Files: extended
