@@ -40,7 +40,7 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_182B_V17_2_PLUS_REAL_MODE_DOGFOOD.md`.
+> **Last handoff:** `docs/handoffs/SESSION_182_PART_2_V17_2_REAL_MODE_DOGFOOD.md`.
 
 ---
 
