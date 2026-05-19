@@ -297,7 +297,7 @@ applicable.
 | **A2** | Every primitive in `apps.compositions.primitives` stamps role on its output. Migration test enforces no primitive emits without a role. | 1 session | **✓ SHIPPED (SESSION 186)** |
 | **A3** | Storage-health helper + cached property. JWT exp parser. Filesystem existence check. | ½ session | **✓ SHIPPED (SESSION 187)** |
 | **A4** | `GET /api/workspace/assets/` + `GET /api/workspace/assets/<id>/` read-only endpoints with filters. | ½ session | **✓ SHIPPED (SESSION 188)** |
-| **A5** | SPA route `/workspace/assets` — list view with filter chips (role / asset_type / storage). Pagination. | 1 session | pending |
+| **A5** | SPA route `/workspace/assets` — list view with filter chips (role / asset_type / storage). Pagination. | 1 session | **✓ SHIPPED (SESSION 189)** |
 | **A6** | SPA per-asset detail view at `/workspace/assets/<id>` — lineage graph, prompts, downstream compositions, storage badge, copy-URL action. | 1 session | pending |
 | **A7** | asset_picker gains optional `role` filter on the field metadata. V18's `backdrop_clip_id` picker filters to `role=BACKDROP`. Same shape for V8 broll_splice / pip_layout / cohost_layout. | ½ session | pending |
 | **A8** | Composition-lineage cross-link (per F-arc): each composition's overview shows produced assets with role badges. | ½ session | pending |
@@ -457,6 +457,31 @@ A5 surface only minimally.
   coverage test seeds its own Composition/RealtimeSession
   rows). Compositions suite: 497 → 505 (+8); full shell suite
   928 → 936 (+8 = A2 coverage tests).
+* **2026-05-19 (SESSION 189)** — **A5 SHIPPED.** SPA list view
+  at `/workspace/assets`. Three new files:
+  `web/src/lib/api/workspace-assets.ts` (264 lines — Zod schemas
+  mirroring backend TextChoices, `useWorkspaceAssets` React Query
+  hook with `placeholderData` for smooth pagination,
+  `buildAssetsQueryString` URL builder, display helpers for
+  role/asset_type/storage labels + storage tone classes +
+  relative time), `web/src/routes/workspace/assets.tsx` (729
+  lines — full page: filter chips for role/asset_type/storage
+  visible by default; "More filters" disclosure for q + date
+  range + primitive_kind; active-filter pill strip with per-pill
+  remove; per-row card with thumbnail/icon by asset_type, role
+  badge, storage-health colored badge, primitive_kind chip,
+  composition link, producing_prompt truncation, relative time;
+  pagination prev/next + page-size 25/50/100; loading skeleton
+  + error retry + empty state with conditional clear-filters
+  CTA; Q-a-6 deferral notice in header), and
+  `web/src/lib/api/workspace-assets.test.ts` (191 lines, 25 vitest
+  tests). `App.tsx` registers `WorkspaceAssetsRoute` at
+  `/workspace/assets` immediately after the `/workspace/knowledge/:id`
+  registrations. **Delegated to the `react-web-delivery` agent** —
+  agent went to source-of-truth at `apps/compositions/models.py`
+  for the actual lowercase AssetType / AssetRole values rather
+  than trusting the slice brief (which had them uppercased). SPA
+  vitest: 95 → 120 (+25). `pnpm build` clean.
 * **2026-05-19 (SESSION 188)** — **A4 SHIPPED.** New endpoints
   `GET /api/workspace/assets/` (paginated browse) +
   `GET /api/workspace/assets/<id>/` (per-asset detail with

@@ -9,6 +9,7 @@ import { TalkRoute } from "@/routes/spokespeople/talk";
 import { VideoStatusRoute } from "@/routes/videos/$id";
 import { WorkspaceKnowledgeRoute } from "@/routes/workspace/knowledge";
 import { KnowledgeDocumentDetailRoute } from "@/routes/workspace/knowledge.$id";
+import { WorkspaceAssetsRoute } from "@/routes/workspace/assets";
 import { RecipeGalleryRoute } from "@/routes/recipes";
 import { RecipeFormRoute } from "@/routes/recipes/$kind";
 import { ImagesRoute } from "@/routes/images";
@@ -81,6 +82,14 @@ export function App() {
             element={
               <RequireAuth>
                 <KnowledgeDocumentDetailRoute />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/workspace/assets"
+            element={
+              <RequireAuth>
+                <WorkspaceAssetsRoute />
               </RequireAuth>
             }
           />
