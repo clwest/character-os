@@ -293,7 +293,7 @@ applicable.
 | Slice | What ships | Estimated effort | Status |
 |---|---|---|---|
 | **A0** | `Asset.role` enum field + migration. Default `RAW_UPLOAD` for new rows. Existing rows get `RAW_UPLOAD` until A1 backfill. | ½ session | **✓ SHIPPED (SESSION 185)** |
-| **A1** | Backfill management command (`python manage.py backfill_asset_roles --dry-run / --commit`) — heuristic-driven from `source_spec.primitive_kind`. Operator reviews dry-run report before committing. | ½ session | pending |
+| **A1** | Backfill management command (`python manage.py backfill_asset_roles`, with `--commit` to apply, `--workspace NAME` to scope). Heuristic-driven from `source_spec.primitive_kind` + known-smoke-UUID special case. Operator reviews dry-run report before committing. | ½ session | **✓ SHIPPED (SESSION 185)** |
 | **A2** | Every primitive in `apps.compositions.primitives` stamps role on its output. Migration test enforces no primitive emits without a role. | 1 session | pending |
 | **A3** | Storage-health helper + cached property. JWT exp parser. Filesystem existence check. | ½ session | pending |
 | **A4** | `GET /api/workspace/assets/` + `GET /api/workspace/assets/<id>/` read-only endpoints with filters. | ½ session | pending |
@@ -420,3 +420,16 @@ A5 surface only minimally.
   `apps/compositions/tests/test_models.py` covering enum
   count, default, filter query, and round-trip for every
   enum value. Compositions suite: 484 → 488 (+4).
+* **2026-05-19 (SESSION 185)** — **A1 SHIPPED.**
+  `backfill_asset_roles` management command. Dry-run by
+  default; `--commit` to apply; `--workspace NAME` to scope.
+  Heuristic table covers all 20 known primitive_kind values
+  (rule 20). Special-case for the 2 known smoke-emitted UUID
+  prefixes (`c21fdeec`, `89a1ce5f`). 9 new tests in
+  `test_backfill_asset_roles.py`. ALLOWED_FILES entry added
+  to `test_isolation.py` (sanctioned writer note: role-only
+  update, workspace anchor untouched). Dev-DB dry-run:
+  **136 candidates / 128 mappable / 8 needs-review** (2
+  audio + 6 image legacy rows pre-dating primitive_kind
+  discipline). Compositions suite: 488 → 497 (+9); full
+  shell suite 915 → 928 (+13 = A0+A1).

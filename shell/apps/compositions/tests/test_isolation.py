@@ -124,6 +124,13 @@ ALLOWED_FILES = {
     # path goes through ImageViewSet.create → MediaEngineClient
     # → Asset.objects.create in views.py (already sanctioned).
     "apps/compositions/tests/test_images_api.py",
+    # Asset Library A1 (SESSION 185) — backfill management
+    # command updates Asset.role on existing rows. Doesn't
+    # touch workspace anchor; cross-workspace isolation
+    # guarantee is unaffected by definition (the field being
+    # written is role only).
+    "apps/compositions/management/commands/backfill_asset_roles.py",
+    "apps/compositions/tests/test_backfill_asset_roles.py",
 }
 
 
