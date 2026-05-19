@@ -46,6 +46,11 @@ const recipeFieldSchema = z.object({
   max_value: z.number().optional(),
   choices: z.array(recipeFieldChoice).optional(),
   asset_type: z.string().optional(),
+  // A7 (SESSION 190) — narrows the asset_picker dropdown to
+  // a single AssetRole. Server-side `RecipeField.role_filter`.
+  // Omitted (not null) when the field doesn't narrow; matches
+  // backend `to_json` shape.
+  role_filter: z.string().optional(),
 });
 
 export type RecipeField = z.infer<typeof recipeFieldSchema>;
@@ -154,6 +159,11 @@ const assetListSchema = z.array(assetListItemSchema);
 export interface ListAssetsOptions {
   workspace: string;
   assetType?: AssetListItem["asset_type"];
+  // A7 (SESSION 190) — optional AssetRole filter. Forwards as
+  // ``?role=<value>`` on the picker fetch so V18's
+  // ``backdrop_clip_id`` dropdown narrows to BACKDROP-tagged
+  // clips (no more smoke / talking-head / composite pollution).
+  role?: string;
 }
 
 export async function listAssets(
@@ -161,6 +171,7 @@ export async function listAssets(
 ): Promise<AssetListItem[]> {
   const params = new URLSearchParams({ workspace: options.workspace });
   if (options.assetType) params.set("asset_type", options.assetType);
+  if (options.role) params.set("role", options.role);
   return apiJson(
     `/api/assets/?${params.toString()}`,
     {},

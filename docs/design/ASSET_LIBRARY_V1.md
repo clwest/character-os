@@ -299,7 +299,7 @@ applicable.
 | **A4** | `GET /api/workspace/assets/` + `GET /api/workspace/assets/<id>/` read-only endpoints with filters. | ½ session | **✓ SHIPPED (SESSION 188)** |
 | **A5** | SPA route `/workspace/assets` — list view with filter chips (role / asset_type / storage). Pagination. | 1 session | **✓ SHIPPED (SESSION 189)** |
 | **A6** | SPA per-asset detail view at `/workspace/assets/<id>` — lineage graph, prompts, downstream compositions, storage badge, copy-URL action. | 1 session | pending |
-| **A7** | asset_picker gains optional `role` filter on the field metadata. V18's `backdrop_clip_id` picker filters to `role=BACKDROP`. Same shape for V8 broll_splice / pip_layout / cohost_layout. | ½ session | pending |
+| **A7** | asset_picker gains optional `role` filter on the field metadata. V18's `backdrop_clip_id` picker filters to `role=BACKDROP`. Same shape for V8 broll_splice / pip_layout / cohost_layout. | ½ session | **✓ SHIPPED (SESSION 190)** |
 | **A8** | Composition-lineage cross-link (per F-arc): each composition's overview shows produced assets with role badges. | ½ session | pending |
 
 Roughly **5-6 sessions** end-to-end across **9 slices
@@ -457,6 +457,37 @@ A5 surface only minimally.
   coverage test seeds its own Composition/RealtimeSession
   rows). Compositions suite: 497 → 505 (+8); full shell suite
   928 → 936 (+8 = A2 coverage tests).
+* **2026-05-19 (SESSION 190)** — **A7 SHIPPED.** The structural
+  fix that motivated the whole arc. `RecipeField` gains
+  `role_filter: str | None` field; `to_json()` emits it only
+  when set (omits the key for fuzzy pickers — keeps the
+  backwards-compat shape). Four recipe fields tagged:
+  V18 `talking_head_with_backdrop.backdrop_clip_id` → `BACKDROP`;
+  V8 `backdrop_layout.background_clip_id` → `BACKDROP`;
+  V8 `broll_splice.broll_clip_id` → `B_ROLL`;
+  V8 `music_bed_pass.music_asset_id` → `AUDIO_TRACK`.
+  Fuzzy pickers (`pip_clip_id` / `cohost_clip_id` / `foreground_clip_id`
+  / `base_clip_id` across layouts) intentionally **not**
+  tagged — the role distinction is genuine v2 design work
+  ("does pip want a talking head or a composite?"), not an
+  oversight. `AssetViewSet.list()` (the V15.2 picker
+  endpoint at `/api/assets/`) accepts optional `?role=`
+  comma-list query param matching A4's shape. SPA:
+  `recipes.ts` Zod `recipeFieldSchema` adds optional
+  `role_filter` (omitted when absent matches backend
+  contract); `ListAssetsOptions.role` flows through to
+  `?role=`; `AssetPicker` component in `recipes/$kind.tsx`
+  reads `field.role_filter` and forwards. **15 new tests:
+  10 backend** in `test_v15_api.py` (role single + comma-list
+  + unknown-value + no-param + combine-with-asset_type +
+  4 recipe metadata exposure tests + 1 unfiltered-omits-key
+  test), **5 SPA vitest** in new
+  `web/src/lib/api/recipes.test.ts` (URL building with /
+  without / standalone role + Zod parse of role_filter
+  present + absent). Backend suite: 980 → 990 (+10); SPA
+  vitest: 120 → 125 (+5). Backend changes net 0 new
+  surfaces in INVENTORY (existing `/api/assets/` gained a
+  query param, not a new route).
 * **2026-05-19 (SESSION 189)** — **A5 SHIPPED.** SPA list view
   at `/workspace/assets`. Three new files:
   `web/src/lib/api/workspace-assets.ts` (264 lines — Zod schemas

@@ -40,7 +40,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from . import starters
-from .models import AssetType, Composition
+from .models import AssetRole, AssetType, Composition
 
 
 @dataclass(frozen=True)
@@ -61,6 +61,17 @@ class RecipeField:
     max_value: float | None = None
     choices: tuple[dict, ...] | None = None  # for select
     asset_type: str | None = None  # for asset_picker
+    # Asset Library v1 (SESSION 190, A7) — narrows the
+    # asset_picker dropdown to a single AssetRole. Q-a-5
+    # resolved this as a first-class RecipeField field (not a
+    # per-recipe override). Apply conservatively — only set
+    # when the field semantically demands one role
+    # (V18 backdrop_clip_id wants BACKDROP, broll_clip_id
+    # wants B_ROLL, music_asset_id wants AUDIO_TRACK). Leave
+    # fuzzy picker fields (base_clip_id, pip_clip_id, etc.)
+    # unfiltered so the operator can still pick whichever
+    # CLIP makes sense.
+    role_filter: str | None = None  # for asset_picker; AssetRole value
 
     def to_json(self) -> dict[str, Any]:
         out: dict[str, Any] = {
@@ -85,6 +96,8 @@ class RecipeField:
             out["choices"] = list(self.choices)
         if self.asset_type is not None:
             out["asset_type"] = self.asset_type
+        if self.role_filter is not None:
+            out["role_filter"] = self.role_filter
         return out
 
 
@@ -346,6 +359,7 @@ RECIPES: dict[str, Recipe] = {
                 name="backdrop_clip_id", type="asset_picker",
                 label="Pre-recorded backdrop clip (optional)",
                 required=False, asset_type=AssetType.CLIP,
+                role_filter=AssetRole.BACKDROP.value,
                 help_text=(
                     "Pick a saved workspace clip to reuse as the "
                     "backdrop. When set, the backdrop prompt is "
@@ -672,7 +686,11 @@ RECIPES: dict[str, Recipe] = {
         description="Foreground clip over a background clip (audio = foreground).",
         fields=(
             RecipeField(name="spokesperson_id", type="spokesperson_picker", label="Brand owner (spokesperson)"),
-            RecipeField(name="background_clip_id", type="asset_picker", label="Background clip", asset_type=AssetType.CLIP),
+            RecipeField(
+                name="background_clip_id", type="asset_picker",
+                label="Background clip", asset_type=AssetType.CLIP,
+                role_filter=AssetRole.BACKDROP.value,
+            ),
             RecipeField(name="foreground_clip_id", type="asset_picker", label="Foreground clip", asset_type=AssetType.CLIP),
             RecipeField(name="fg_width", type="number", label="Foreground width (px)", required=False, default=320, min_value=80, max_value=1920),
             RecipeField(name="margin_x", type="number", label="Margin X (px)", required=False, default=40, min_value=0, max_value=500),
@@ -712,7 +730,11 @@ RECIPES: dict[str, Recipe] = {
         fields=(
             RecipeField(name="spokesperson_id", type="spokesperson_picker", label="Brand owner (spokesperson)"),
             RecipeField(name="base_clip_id", type="asset_picker", label="Base clip (avatar)", asset_type=AssetType.CLIP),
-            RecipeField(name="broll_clip_id", type="asset_picker", label="B-roll clip", asset_type=AssetType.CLIP),
+            RecipeField(
+                name="broll_clip_id", type="asset_picker",
+                label="B-roll clip", asset_type=AssetType.CLIP,
+                role_filter=AssetRole.B_ROLL.value,
+            ),
             RecipeField(name="cutaway_start_s", type="number", label="Cutaway start (seconds)", min_value=0, max_value=600),
             RecipeField(name="cutaway_end_s", type="number", label="Cutaway end (seconds)", min_value=0, max_value=600),
             _NAME_FIELD,
@@ -729,7 +751,11 @@ RECIPES: dict[str, Recipe] = {
         fields=(
             RecipeField(name="spokesperson_id", type="spokesperson_picker", label="Brand owner (spokesperson)"),
             RecipeField(name="base_clip_id", type="asset_picker", label="Base clip (voice)", asset_type=AssetType.CLIP),
-            RecipeField(name="music_asset_id", type="asset_picker", label="Music track", asset_type=AssetType.AUDIO),
+            RecipeField(
+                name="music_asset_id", type="asset_picker",
+                label="Music track", asset_type=AssetType.AUDIO,
+                role_filter=AssetRole.AUDIO_TRACK.value,
+            ),
             RecipeField(
                 name="music_gain_db", type="number", label="Music gain (dB)",
                 required=False, default=-18.0, min_value=-40.0, max_value=0.0,

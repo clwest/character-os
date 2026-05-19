@@ -460,6 +460,7 @@ function FieldInput({
           id={id}
           assetType={field.asset_type as AssetListItem["asset_type"]}
           workspaceId={workspaceId}
+          roleFilter={field.role_filter}
           value={defaultedValue as string | undefined}
           onChange={(v) => onChange(v || undefined)}
           required={field.required}
@@ -482,6 +483,7 @@ function AssetPicker({
   id,
   assetType,
   workspaceId,
+  roleFilter,
   value,
   onChange,
   required,
@@ -489,11 +491,19 @@ function AssetPicker({
   id: string;
   assetType: AssetListItem["asset_type"];
   workspaceId: string;
+  // A7 (SESSION 190) — optional AssetRole that narrows the
+  // picker dropdown. Forwarded as ``?role=<value>`` to the
+  // backend AssetViewSet.
+  roleFilter?: string;
   value: string | undefined;
   onChange: (value: string) => void;
   required: boolean;
 }) {
-  const assets = useAssets({ workspace: workspaceId, assetType });
+  const assets = useAssets({
+    workspace: workspaceId,
+    assetType,
+    role: roleFilter,
+  });
 
   if (assets.isLoading) {
     return (

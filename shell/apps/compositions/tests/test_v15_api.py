@@ -574,6 +574,207 @@ def test_list_assets_requires_auth() -> None:
     }
 
 
+# ---- A7 (SESSION 190) — role filter on asset_picker endpoint ------
+
+
+def _make_clip_with_role(ws: Workspace, role: str) -> Asset:
+    return Asset.objects.create(
+        workspace=ws, asset_type=AssetType.CLIP, role=role,
+        file_path=f"/data/{role}.mp4", duration_ms=5000,
+        mime_type="video/mp4",
+    )
+
+
+def test_list_assets_role_filter_single() -> None:
+    """A7: /api/assets/?role=backdrop narrows the picker to backdrops."""
+    from apps.compositions.models import AssetRole
+
+    ws, user = _make_workspace_with_user("a7role@test")
+    _make_clip_with_role(ws, AssetRole.TALKING_HEAD.value)
+    backdrop = _make_clip_with_role(ws, AssetRole.BACKDROP.value)
+    _make_clip_with_role(ws, AssetRole.COMPOSITE_OUTPUT.value)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.get(
+        f"/api/assets/?workspace={ws.pk}&role=backdrop"
+    )
+    assert response.status_code == http.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["id"] == str(backdrop.id)
+
+
+def test_list_assets_role_filter_comma_list() -> None:
+    """A7: comma-list passes through as a Django __in filter."""
+    from apps.compositions.models import AssetRole
+
+    ws, user = _make_workspace_with_user("a7multi@test")
+    _make_clip_with_role(ws, AssetRole.TALKING_HEAD.value)
+    _make_clip_with_role(ws, AssetRole.BACKDROP.value)
+    _make_clip_with_role(ws, AssetRole.B_ROLL.value)
+    _make_clip_with_role(ws, AssetRole.COMPOSITE_OUTPUT.value)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.get(
+        f"/api/assets/?workspace={ws.pk}&role=backdrop,b_roll"
+    )
+    assert response.status_code == http.HTTP_200_OK
+    roles = {a["role"] if "role" in a else "" for a in response.json()}
+    # /api/assets/ doesn't surface role in its inline serializer
+    # shape (that's A4's). Verify count instead.
+    assert len(response.json()) == 2
+
+
+def test_list_assets_role_filter_unknown_returns_empty() -> None:
+    """A7: unknown role value matches zero rows (typo'd value
+    in the picker should produce an empty dropdown, not crash)."""
+    from apps.compositions.models import AssetRole
+
+    ws, user = _make_workspace_with_user("a7unknown@test")
+    _make_clip_with_role(ws, AssetRole.BACKDROP.value)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.get(
+        f"/api/assets/?workspace={ws.pk}&role=totally_invented"
+    )
+    assert response.status_code == http.HTTP_200_OK
+    assert response.json() == []
+
+
+def test_list_assets_no_role_param_returns_everything() -> None:
+    """A7: backwards-compat — existing callers that don't pass
+    ?role= keep getting the full workspace asset list."""
+    from apps.compositions.models import AssetRole
+
+    ws, user = _make_workspace_with_user("a7noparam@test")
+    _make_clip_with_role(ws, AssetRole.TALKING_HEAD.value)
+    _make_clip_with_role(ws, AssetRole.BACKDROP.value)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.get(f"/api/assets/?workspace={ws.pk}")
+    assert response.status_code == http.HTTP_200_OK
+    assert len(response.json()) == 2
+
+
+def test_list_assets_role_combines_with_asset_type() -> None:
+    """A7: ?role= AND ?asset_type= apply together (Django filters
+    chain by intersection)."""
+    from apps.compositions.models import AssetRole
+
+    ws, user = _make_workspace_with_user("a7combo@test")
+    # CLIP with role=backdrop — should match.
+    _make_clip_with_role(ws, AssetRole.BACKDROP.value)
+    # AUDIO with role=audio_track — same role but wrong asset_type.
+    Asset.objects.create(
+        workspace=ws, asset_type=AssetType.AUDIO,
+        role=AssetRole.AUDIO_TRACK.value,
+        file_path="/data/x.mp3", duration_ms=3000,
+        mime_type="audio/mpeg",
+    )
+    client = APIClient()
+    _login(client, user)
+
+    response = client.get(
+        f"/api/assets/?workspace={ws.pk}&asset_type=clip&role=backdrop"
+    )
+    assert response.status_code == http.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["asset_type"] == "clip"
+
+
+# ---- A7 — RecipeField.role_filter serialization ------------------
+
+
+def test_recipe_backdrop_clip_id_exposes_role_filter() -> None:
+    """A7: V18's talking_head_with_backdrop recipe ships
+    ``role_filter=backdrop`` on the backdrop_clip_id field so the
+    SPA picker can narrow to BACKDROP-tagged clips."""
+    ws, user = _make_workspace_with_user("a7thwb@test")
+    client = APIClient()
+    _login(client, user)
+
+    response = client.get("/api/recipes/talking_head_with_backdrop/")
+    assert response.status_code == http.HTTP_200_OK
+    fields = response.json()["fields"]
+    backdrop_field = next(
+        f for f in fields if f["name"] == "backdrop_clip_id"
+    )
+    assert backdrop_field["type"] == "asset_picker"
+    assert backdrop_field["role_filter"] == "backdrop"
+
+
+def test_recipe_broll_splice_exposes_role_filter() -> None:
+    """A7: V8 broll_splice ships role_filter=b_roll on broll_clip_id."""
+    ws, user = _make_workspace_with_user("a7broll@test")
+    client = APIClient()
+    _login(client, user)
+
+    response = client.get("/api/recipes/broll_splice/")
+    assert response.status_code == http.HTTP_200_OK
+    fields = response.json()["fields"]
+    broll_field = next(f for f in fields if f["name"] == "broll_clip_id")
+    assert broll_field["role_filter"] == "b_roll"
+    # The other picker (base_clip_id) stays unfiltered — fuzzy
+    # role; operator picks whichever CLIP makes sense.
+    base_field = next(f for f in fields if f["name"] == "base_clip_id")
+    assert "role_filter" not in base_field
+
+
+def test_recipe_backdrop_layout_exposes_role_filter_on_background_only() -> None:
+    """A7: V8 backdrop_layout — background_clip_id gets
+    role_filter=backdrop; foreground_clip_id stays unfiltered
+    (the foreground is whatever talking-head / composite the
+    operator wants on top)."""
+    ws, user = _make_workspace_with_user("a7bdrop@test")
+    client = APIClient()
+    _login(client, user)
+
+    response = client.get("/api/recipes/backdrop_layout/")
+    assert response.status_code == http.HTTP_200_OK
+    fields = response.json()["fields"]
+    bg = next(f for f in fields if f["name"] == "background_clip_id")
+    fg = next(f for f in fields if f["name"] == "foreground_clip_id")
+    assert bg["role_filter"] == "backdrop"
+    assert "role_filter" not in fg
+
+
+def test_recipe_music_bed_pass_exposes_audio_role_filter() -> None:
+    """A7: V8 music_bed_pass ships role_filter=audio_track on the
+    music_asset_id picker. base_clip_id (the voice clip) stays
+    unfiltered."""
+    ws, user = _make_workspace_with_user("a7music@test")
+    client = APIClient()
+    _login(client, user)
+
+    response = client.get("/api/recipes/music_bed_pass/")
+    assert response.status_code == http.HTTP_200_OK
+    fields = response.json()["fields"]
+    music = next(f for f in fields if f["name"] == "music_asset_id")
+    assert music["role_filter"] == "audio_track"
+
+
+def test_unfiltered_pickers_omit_role_filter_key() -> None:
+    """A7 — to_json omits role_filter when None. Existing recipes
+    without explicit role_filter should not start carrying an
+    extra ``role_filter: null`` key (would force the SPA Zod
+    schema to handle nulls + the schema currently uses .optional()
+    which means 'not present', not 'null')."""
+    from apps.compositions.recipes import get_recipe
+
+    pip = get_recipe("pip_layout")
+    base_field = pip.field_by_name("base_clip_id")
+    pip_field = pip.field_by_name("pip_clip_id")
+    assert base_field is not None
+    assert pip_field is not None
+    assert "role_filter" not in base_field.to_json()
+    assert "role_filter" not in pip_field.to_json()
+
+
 def test_create_storyboard_voiced_ten_steps() -> None:
     """V15.4 — storyboard_voiced creates 10 steps:
     3 images + 3 clips + concat + speech + audio_extract + mix_audio.

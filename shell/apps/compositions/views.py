@@ -133,12 +133,22 @@ def _derive_title_from_subject(subject: str) -> str:
 
 class AssetViewSet(viewsets.GenericViewSet):
     """Read-only list of workspace assets — powers the V15.2
-    `asset_picker` form field. Filters by ``workspace`` (required)
-    and optional ``asset_type``.
+    `asset_picker` form field. Filters by ``workspace`` (required),
+    optional ``asset_type``, and (A7 / SESSION 190) optional
+    ``role`` (comma-list of :class:`AssetRole` values).
 
     In v1 assets are produced by composition runs; there is no
     upload UI yet. Operators pick from previously-rendered output
     assets when wiring a layout/composite recipe.
+
+    The ``role`` filter is the structural fix from
+    ``docs/design/ASSET_LIBRARY_V1.md`` §A7 — V18's
+    ``backdrop_clip_id`` dropdown narrows to ``role=backdrop``
+    so smoke / talking-head / composite clips don't pollute the
+    picker. Same pattern as the A4 endpoint's ``?role=`` (the
+    two endpoints share zero code — A4 is paginated browse;
+    this stays hard-capped at 200 since pickers are short
+    lists).
     """
 
     permission_classes = [IsWorkspaceMember]
@@ -161,6 +171,17 @@ class AssetViewSet(viewsets.GenericViewSet):
         asset_type = request.query_params.get("asset_type")
         if asset_type:
             qs = qs.filter(asset_type=asset_type)
+        # A7 (SESSION 190) — optional role filter. Comma-list
+        # like A4's ``?role=...``; empty / whitespace-only
+        # entries are skipped. An unknown role value lands in
+        # the IN clause and matches zero rows — that's the
+        # correct behavior (operator typo'd a role; picker
+        # shows empty).
+        role_raw = request.query_params.get("role")
+        if role_raw:
+            roles = [r.strip() for r in role_raw.split(",") if r.strip()]
+            if roles:
+                qs = qs.filter(role__in=roles)
         # Newest first; cap to 200 — gallery picker isn't paginated yet.
         qs = qs.order_by("-created_at")[:200]
         # Inline shape (no separate serializer module dep) — same
