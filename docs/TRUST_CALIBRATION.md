@@ -3160,3 +3160,117 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   newly-available capabilities (extend / keyframes /
   whatever) the same way we check for newly-tightened
   validation. Both are upstream changes that affect us.
+
+## 2026-05-18 — AI confidently wrong: API claim in design doc was hypothesis, not fact
+
+- **Context / claim:** The V17 proposal (SESSION 181)
+  was written with the line "Runway's /v1/video_to_video
+  extend mode (gen4_turbo / gen4.5). Takes an existing
+  rendered clip + a continuation prompt; generates new
+  content that flows from the source's tail frame as
+  one coherent motion." This was load-bearing for the
+  V17.0 endpoint design — the proposal's whole architecture
+  assumed Runway shipped an extend API at video_to_video
+  with gen4_turbo or gen4.5 as the model. The wording was
+  confident enough to scope-lock against.
+- **Reality / outcome:** At V17.0 slice-open SESSION 182,
+  live WebFetch against `docs.dev.runwayml.com/guides/models/`
+  surfaced that `/v1/video_to_video` only accepts
+  `gen4_aleph` (V11's style remix model). There is no
+  `gen4_turbo` or `gen4.5` mode at that endpoint. The
+  capability the proposal described (Runway extends a
+  clip API-side) doesn't exist as written. Runway's own
+  product UI ships "extend video" via client-side last-
+  frame extraction + image_to_video — the external
+  observation matches, but the API mechanism is different.
+- **Found by:** Live-doc verification at slice-open.
+  This is the moment the proposal's hypothesis became
+  testable.
+- **Lesson:** **A confident API claim in a design doc
+  is a hypothesis, not a fact, until live-doc verified.**
+  The V17 proposal had been reviewed + edited + scope-
+  locked + had rules merged into V1 with the wrong API
+  shape baked in. Three of those four steps would have
+  been cheap to defer until after live-doc check. The
+  fix going forward: **before scope-lock of any slice
+  that references a third-party API capability, fetch
+  the live doc page and verify the specific
+  endpoint+model+param combination exists.** Cheap
+  check, prevents an entire scope-lock that has to be
+  pivoted mid-implementation. This is the third recent
+  entry in this pattern (SESSION 175 KW, SESSION 181
+  gen4_image min-dim, SESSION 182 V17 extend). The
+  pattern is recurring enough to deserve a slice-open
+  checklist item: "1. Live-doc check the API surface
+  this slice depends on."
+
+## 2026-05-18 — Pre-implementation pause when a finding shifts scope
+
+- **Context / claim:** During SESSION 182 V17.0 slice-
+  open, Q-v17-1 live-doc check found that the V17
+  proposal's API premise was wrong (above entry). At
+  that moment I had two paths: (a) keep implementing
+  with the broken premise, fix the doc later; (b) stop,
+  surface the finding to the operator with options,
+  wait for direction.
+- **Reality / outcome:** I picked (b). Wrote up three
+  options (A — pivot to last-frame extraction, B — try
+  aleph as extend, C — defer V17) with tradeoffs. The
+  operator confirmed A explicitly. Implementation
+  proceeded against the correct architecture.
+- **Found by:** Self-check at the moment the finding
+  came in.
+- **Lesson:** When a finding shifts the scope of an
+  in-flight slice, **stop and surface to the operator
+  before continuing — even if a fork looks "obviously"
+  right.** The cost of ~5 minutes of operator review is
+  much smaller than committing wrong-shape code, having
+  to rip it out, and re-litigating the design after the
+  fact. The pause forced me to articulate the three
+  options cleanly (instead of barging ahead with my
+  preferred one), which surfaced the tradeoffs the
+  operator needed. Pattern to carry: **"finding shifts
+  scope" + "still implementing" is the failure mode**;
+  the right response is always pause + surface +
+  operator confirms direction.
+
+## 2026-05-18 — Sync vs async endpoint contract is a design-time decision
+
+- **Context / claim:** The V17 proposal originally
+  framed `/internal/clips/extend/` as mirroring V4's
+  `/internal/clips/visual/` contract — fire-and-poll,
+  return task_id, caller polls
+  `/internal/tasks/{task_id}/`. This was written by
+  conceptual analogy: both endpoints "create a video
+  clip", so they should share contract shape.
+- **Reality / outcome:** When Q-v17-1's pivot came in,
+  the actual implementation flow surfaced: download
+  source clip + ffmpeg-extract last frame + Runway
+  image_to_video round-trip (90s) + Runway download +
+  ffmpeg concat re-encode. That chain doesn't fit
+  fire-and-poll because there's no Runway task to poll
+  during the ffmpeg + download stages — the caller would
+  have to manage state across multiple disjoint phases.
+  Pivoted to V11 style_remix's synchronous shape: one
+  HTTP request, the endpoint blocks for the full chain,
+  returns one terminal result. The operator gets one
+  state per call instead of orchestrating polling against
+  a phantom task id.
+- **Found by:** Realising that mapping the implementation
+  flow onto the proposed async shape produced an awkward
+  contract (poll endpoint that has to know about ffmpeg
+  state).
+- **Lesson:** **Mirror the nearest existing endpoint with
+  the same architectural shape**, not the nearest endpoint
+  in the same conceptual family. V4 visual_clip is
+  conceptually closest to extend (both produce a CLIP
+  asset), but architecturally it's fire-and-poll-the-
+  provider. V11 style_remix is conceptually farther
+  (style transform, not extend) but architecturally
+  identical (download + ffmpeg + provider call + concat,
+  synchronously wrapped). Synchronous was the right
+  choice. Pattern to carry: when designing a new endpoint
+  whose flow includes pre/post-processing around the
+  third-party call, search for existing endpoints with
+  similar wrap-around shape — that's the contract twin,
+  even if it lives in a different conceptual family.

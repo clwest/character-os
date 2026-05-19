@@ -19,11 +19,12 @@ state: active
 > **Knowledge layer scope lock:** `docs/design/KNOWLEDGE_LAYER.md`
 > (locked SESSION 137 — 7 contract rules, K1-K10 slice breakdown).
 > **Video composition scope lock:** `docs/design/VIDEO_COMPOSITION_V1.md`
-> (locked SESSION 142 — 9 contract rules, V0-V15 slice breakdown).
+> (locked SESSION 142 — **13 contract rules** total: V1's 9 + V17's
+> 4 merged as rules 10-13; V0-V15 + V16 slice breakdown).
 > **V16 POST-CLOSE SHIPPED (SESSION 179) — remove_avatar_background.**
 > **V17 LOCKED (SESSION 182) — extend + keyframes.**
-> 13 contract rules total (V1's 9 + V17's 4 merged as rules
-> 10-13). V17.0 IN FLIGHT this session.
+> V17.0 + V17.1 SHIPPED SESSION 182. V17.2 (cinematic_visual_extended
+> recipe) is next.
 > See `docs/design/VIDEO_COMPOSITION_V17_PROPOSAL.md`.
 > **Realtime avatar scope lock:** `docs/design/REALTIME_AVATAR_V1.md`
 > (locked SESSION 142 — 10 contract rules, R0-R10 slice
@@ -38,130 +39,138 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_181_V_ARC_LAYOUT_VOICE_STORYBOARD_DOGFOOD.md`.
+> **Last handoff:** `docs/handoffs/SESSION_182_V17_SCOPE_LOCK_PLUS_V17_0_AND_V17_1.md`.
 
 ---
 
-## SESSION 181 outcome — V-arc layout / voice / storyboard dogfood + V17 proposal
+## SESSION 182 outcome — V17 scope-lock + V17.0 + V17.1
 
-Eight commits. Biggest single-session validation run of the
-V-arc — **11 recipes** dogfooded end-to-end, bringing V-arc
-validation from 5 to **16 of 18**. Five production bugs
-surfaced and fixed inline; one architectural gap surfaced as
-the V17 proposal.
+Two feature commits. V17 went from `status: proposed` to
+`status: locked`; four contract rules merged into V1 as rules
+10-13; first two slices shipped.
 
-* **Recipes validated:** `reels_format`, `pip_layout`,
-  `cohost_layout`, `broll_splice`, `music_bed_pass`,
-  `voice_design`, `recut_teaser`, `backdrop_layout`,
-  `style_remix_pass`, `multi_lang_dub`, `storyboard_ad`. All
-  4 composite layout kinds (pip / cohost / backdrop / broll)
-  now green.
+* **V17 scope-lock.** SESSION 181's V17 proposal reviewed in
+  full, 8 edits applied (pricing-as-estimate, rules
+  numbering, rule 1 rewrite, rule 5 folded into rule 2,
+  endpoint design committed to single endpoint, slice
+  breakdown + parallelization note, in-scope clarifications,
+  open-questions resolution). Status flipped to `locked`.
+  Rules 10-13 appended to V1; §"Post-close additions" updated
+  to name V17 as the second post-close addition (after V16).
+* **`933d4e7` — feat(V17.0):** media-engine
+  `POST /internal/clips/extend/` endpoint + 13 tests. New
+  primitive helpers: `_extract_last_frame` (ffmpeg `-sseof`
+  tail-seek), `_extend_poll_task`, `_extend_download`,
+  `_extend_concat` (re-encoding filter graph). Reuses
+  existing infra (`runway_create_task`, `runway_get_task`,
+  `_download_concat_input`, `_probe_duration`). Cached by
+  hash(source_clip_url + prompt + duration + ratio + seed).
+* **`cfc2854` — feat(V17.1):** Django `extend_visual_clip`
+  primitive + cost estimator + 19 tests. New
+  `ExtendClipResult` dataclass + `MediaEngineClient.extend_clip()`
+  method. Cost = new-segment seconds × $0.05/sec (floor 5s) —
+  charges only the new segment, source isn't re-rendered.
 
-* **`adfa22a`** — V7 broll layout probes base dims + setsar
-  on all concat segments (same shape as SESSION 180
-  intro_outro canvas-default bug).
-* **`583e3a3`** — V11 style_remix client passes 900s timeout
-  for Aleph (same pattern as V16 remove_avatar_background
-  timeout override).
-* **`9e569de`** — V11 Aleph chunked-path merges sub-1s tail
-  residual (10.04s source split into 5+5+0.04s; Aleph
-  rejected the tail).
-* **`6e62dba`** — V13 gen4_image seed PNG bumped 1×1 → 8×8
-  (Runway tightened referenceImages validation in the
-  interim).
-* **`5cc0954`** — V13 prompt_image rewrite extended to
-  `/data/_internal/images/` paths (storyboard image-to-video
-  was sending local URLs straight to Runway).
+**Q-v17-1 surfaced + resolved mid-slice.** Live Runway API
+check during V17.0 slice-open found that `/v1/video_to_video`
+only accepts `gen4_aleph` (the V11 style-remix model). The
+V17 proposal's original framing (`gen4_turbo` / `gen4.5`
+extend mode at that endpoint) was wrong. Pivoted to
+**last-frame extraction + `/v1/image_to_video` (gen4_turbo) +
+ffmpeg concat**, all on the media-engine side. Operator-facing
+capability unchanged; endpoint became synchronous (mirrors V11
+style_remix) instead of async (the original proposal mirrored
+V4 visual_clip).
 
-* **`docs/design/VIDEO_COMPOSITION_V17_PROPOSAL.md`** —
-  drafted. Operator-surfaced gap: Runway's `extend` video
-  + `keyframes` features never integrated. Cures V8
-  multi-backdrop seam workaround, V13 character drift, V4
-  10s ceiling. 6 slices, ~4 sessions of work. `status:
-  proposed`, awaiting scope-lock review.
+Tests: Django **871** (+19 from V17.1 in compositions, +9
+unrelated growth between SESSIONS 181-182); compositions **440**
+(421 → 440). Media-engine **190** (177 → 190, +13 from V17.0).
+SPA vitest **95** unchanged.
 
-Tests: Django **428** compositions (unchanged). Media-engine
-**177** (162 → 177, +15 across 5 fix slices). SPA vitest
-**95** unchanged.
-
-Real-mode spend this session: **~$3.50**.
+Real-mode spend this session: **$0**. Q-v17-1 surfaced before
+any Runway calls fired; remaining work was mock-mode + unit
+tests.
 
 ### Calibration moments worth carrying
 
 Three new TRUST_CALIBRATION entries appended:
 
-1. **Operator "are we using X?" framing surfaces capability
-   gaps the dogfood loop wouldn't.** All 11 SESSION 181
-   recipes ran end-to-end with operator-acceptable output;
-   the character-drift gap in storyboard_ad only got named
-   when the operator asked about extend + keyframes from
-   prior-session recall. Dogfood catches bugs; operator
-   framing catches missing capabilities.
+1. **A confident API claim in a design doc is a hypothesis,
+   not a fact, until live-doc verified.** The V17 proposal
+   had been reviewed, edited, scope-locked, and had rules
+   merged into V1 with the wrong API shape baked in.
+   Slice-open verification surfaced the gap — but by then,
+   four upstream artifacts had to be amended. **Before
+   scope-lock of any slice that references a third-party
+   API capability, live-doc check the specific
+   endpoint+model+param combination.** Third recurrence
+   of this pattern (SESSIONS 175, 181, 182); deserves a
+   slice-open checklist item.
 
-2. **Asset upload UI is a recurring gap.** music_bed_pass
-   needed AUDIO; multi_lang_dub needed AUDIO — neither had
-   an SPA upload path. Shell-side asset-row creation was
-   the pragmatic dogfood workaround twice this session.
-   Scope target: generic asset upload flow as a workspace
-   fabric extension.
+2. **Pre-implementation pause when a finding shifts scope.**
+   When Q-v17-1 surfaced, I stopped before writing endpoint
+   code, surfaced three options (A — pivot / B — try aleph
+   / C — defer V17) to the operator, waited for direction.
+   Operator confirmed A explicitly. The pause was ~5
+   minutes; the alternative (commit wrong-shape code, rip
+   it out, re-litigate) would have been far costlier.
+   Pattern: **"finding shifts scope" + "still implementing"
+   is the failure mode**; pause + surface + operator
+   confirms is the right shape.
 
-3. **External API validation tightens over time — re-dogfood
-   periodically.** V13's gen4_image seed PNG was 1×1 when
-   shipped SESSION 143; Runway tightened to 2×2+ minimum in
-   the interim. Pattern: APIs that "worked when shipped"
-   need re-validation against current upstream contracts
-   during dogfood passes, not just when code touches the
-   path.
+3. **Sync vs async endpoint contract is a design-time
+   decision.** V17.0 originally proposed mirroring V4
+   visual_clip's async fire-and-poll. The pivot to V11
+   style_remix's synchronous shape was forced by the
+   actual implementation flow: ffmpeg + Runway + ffmpeg
+   doesn't fit async semantics. **Mirror the nearest
+   existing endpoint with the same architectural shape**,
+   not the nearest endpoint in the same conceptual family.
+   V11 style_remix (download + ffmpeg + provider + concat
+   wrapped sync) was the contract twin, even though
+   conceptually V4 visual_clip is closer to extend.
 
 ### Final state at session close
 
-* **16 V-arc recipes real-mode validated** (talking_head +
-  long_form_ad + cinematic_visual + talking_head_with_backdrop
-  + talking_head_polished + reels_format + pip_layout +
-  cohost_layout + broll_splice + music_bed_pass + voice_design
-  + recut_teaser + backdrop_layout + style_remix_pass +
-  multi_lang_dub + storyboard_ad).
-* **2 recipes remain unvalidated:** `storyboard_voiced` (10-step,
-  heaviest) + `dialogue_scene` (multi-spokesperson). Both
-  deferred to SESSION 182+ — operator called the session on
-  "no sense doing storyboard_voiced before V17 extend
-  lands."
-* **V17 proposed, not locked.** Design doc ready for review.
+* V17 **scope-locked with 13 contract rules total** (V1's
+  9 + V17's 4 = 13). V17.0 + V17.1 shipped; V17.2-V17.5
+  pending.
+* Q-v17-x resolution: Q-v17-1 RESOLVED SESSION 182;
+  Q-v17-2/3/4 RESOLVED at lock; Q-v17-5 open (cost
+  estimator with unknown source duration, resolves at
+  V17.5 slice-open).
+* No workspace artifacts (compositions / assets) created
+  this session — all work was scope + mock-mode + unit
+  tests.
 
-### FIRST THING (SESSION 182): V17 review + V17.0 implementation
+### FIRST THING (SESSION 183): V17.2 — cinematic_visual_extended recipe
 
-Operator-locked direction at SESSION 181 close: V17 is the
-priority over the last 2 V-arc validations.
+Operator-recommended direction from V17.1 close: V17.2 is the
+natural next slice. Most operator-facing of the remaining
+five.
 
-1. **Read** `docs/design/VIDEO_COMPOSITION_V17_PROPOSAL.md`.
-   Confirm scope (extend + keyframes), 6-slice breakdown
-   (V17.0-V17.5), 5 contract rules layered on V1's
-   existing 9, out-of-scope list, and 5 open questions
-   (Q-v17-1 through Q-v17-5).
+1. **Read** `docs/design/VIDEO_COMPOSITION_V17_PROPOSAL.md`
+   §"Slice breakdown" V17.2 row + the dependency tree.
+   V17.2 chains V17.1's `extend_visual_clip` primitive
+   off V4's `generate_visual_clip` output.
 
-2. **Operator edit + scope-lock.** Same pattern as V0/V1
-   went through SESSION 142 — proposal becomes binding
-   contract after operator review.
+2. **Read** the existing V4 `cinematic_visual` starter +
+   recipe form to understand the V4 shape we're chaining
+   from. The new `cinematic_visual_extended` recipe takes
+   a target duration > 10s and lays down 1
+   `generate_visual_clip` + N `extend_visual_clip` steps
+   where N = ceil((target - 10) / 5).
 
-3. **Ship V17.0** — media-engine `/internal/clips/extend/`
-   endpoint + tests. ~½ session. No Django changes;
-   contract is clean.
+3. **Ship V17.2** — recipe starter + recipe form + tests +
+   real-mode dogfood. ~1 session. Real-mode dogfood at
+   this slice is the **first time V17.0's actual
+   `/v1/image_to_video` flow fires in anger** — Q-v17-1's
+   pivot lives or dies here.
 
-4. **Ship V17.1** in the same session if time —
-   `extend_visual_clip` Django primitive + cost estimator
-   + tests. ~½ session.
-
-V17.2-V17.5 spread across SESSIONS 183-184:
-* V17.2 — `cinematic_visual_extended` recipe (V4 + extend
-  chain)
-* V17.3 — multi-keyframe support on `generate_visual_clip`
-  + `keyframe_shot` recipe
-* V17.4 — V13 `storyboard_ad` opt-in `use_keyframes` flag
-* V17.5 — V8 `talking_head_with_backdrop` opt-in
-  `use_extend_for_backdrop` flag
-
-After V17 lands: revisit `storyboard_voiced` + `dialogue_scene`
-to close out the V-arc validation at 18/18.
+After V17.2 closes, V17.3 (keyframes track) is independent
+of V17.0-V17.2 + V17.5. Could parallelize if the operator
+wants two fronts open simultaneously; default per the locked
+doc is linear.
 
 ---
 
@@ -173,8 +182,8 @@ to close out the V-arc validation at 18/18.
 R-arc real-mode validated (SESSION 176); V-arc real-mode
 validation **near-complete** (16 of 18 recipes, SESSIONS
 158 + 179 + 180 + 181). V16 post-close shipped (SESSION
-179); V17 proposed (SESSION 181), **scope-locked SESSION
-182** with rules 10-13 merged into V1.
+179); **V17 scope-locked SESSION 182 with V17.0 + V17.1
+shipped**. V17.2-V17.5 pending.
 **Phase 5:** Brand ecosystem under 24/7 GLOBAL AI parent
 (SESSION 178 B-arc).
 
@@ -183,7 +192,7 @@ validation **near-complete** (16 of 18 recipes, SESSIONS
 | W1-W11 | DONE |
 | K0-K9 | DONE |
 | V0-V15 + V16 | DONE (mock); **16/18 real-mode validated** |
-| **V17 (extend + keyframes)** | **LOCKED (SESSION 182); V17.0 in flight** |
+| **V17 (extend + keyframes)** | **LOCKED (SESSION 182); V17.0 + V17.1 SHIPPED; V17.2-V17.5 pending** |
 | F0-F10 | DONE |
 | R0-R10 + R6.1 | DONE + REAL-MODE VALIDATED (SESSION 176) |
 | W11.6.0-W11.6.5 (media gen) | DONE (SESSIONS 172-173) |
@@ -195,14 +204,15 @@ validation **near-complete** (16 of 18 recipes, SESSIONS
 | B0-B5 brand ecosystem pivot | DONE (SESSION 178) |
 | V16 remove_avatar_background | DONE (SESSION 179) |
 | V9 polish form shorthands + intro_outro fixes | DONE (SESSION 180) |
-| **V7/V11/V13 dogfood fixes + 11 recipes validated** | **DONE (SESSION 181)** |
+| V7/V11/V13 dogfood fixes + 11 recipes validated | DONE (SESSION 181) |
+| **V17.0 (extend endpoint) + V17.1 (extend primitive)** | **DONE (SESSION 182)** |
 | B6-B10 brand arc | Deferred (product #2 reality) |
 | F8.1 (K10 seed corpus) | Queued |
 | K7.x v3 YouTube oEmbed | Queued |
 | K6.4 v3 architectural fix | Queued |
 | Thruman stale spokesperson cleanup | Queued |
 | W12 legacy form retirement | Queued |
-| **Asset upload UI (AUDIO / IMAGE)** | **NEW QUEUED (SESSION 181) — operator-facing gap** |
+| Asset upload UI (AUDIO / IMAGE) | NEW QUEUED (SESSION 181) — operator-facing gap |
 | 2 of 18 V-arc recipes unvalidated | storyboard_voiced + dialogue_scene; deferred until V17 lands |
 
 **Cast roster in workspace `admins-workspace`**:
@@ -217,20 +227,9 @@ validation **near-complete** (16 of 18 recipes, SESSIONS
     `david` (most-dogfooded — 4 ENDED realtime sessions + 1
     rendered MP4 SESSION 176)
 
-**SESSION 181 workspace artifacts:**
-
-  - 11 new `Composition` rows (one per dogfooded recipe;
-    several with multiple retries during inline fixes)
-  - 1 new VOICE asset: Riggs Founder New Voice (voice_id
-    `1bc3b784-6985-4d00-9e6b-e1f7fcecb2d5`)
-  - 2 placeholder AUDIO assets in
-    `/data/_internal/uploads/` (synth pad music bed +
-    Riggs voice extract for dub)
-  - 1 dubbed AUDIO asset (Spanish translation of Riggs's
-    3-rules script)
-  - 1 anime-styled CLIP (Aleph remix of underwater backdrop)
-  - 1 15s storyboard CLIP (Hook/Action/Payoff founder
-    narrative)
+**SESSION 182 workspace artifacts:** none. All work was
+scope-lock + mock-mode + unit tests; no compositions /
+assets / VOICE / AUDIO rows persisted.
 
 ---
 
@@ -257,13 +256,13 @@ cd web && pnpm dev                          # :5174 — V2 dark navy + gold
 python3 /Users/donkeyking/development/context-kit/context_kit.py doctor
 ```
 
-**SESSION 182 stack-up notes:**
+**SESSION 183 stack-up notes:**
 
-* Celery worker was restarted SESSION 181 (pid 24687) to
-  pick up the V11 style_remix client timeout change. No
-  new primitives this session. Restart only if you touch
-  `apps/compositions/primitives/` OR `apps/*/tasks.py` OR
-  `apps/*/signals.py`.
+* **Celery worker restart required** if working V17.2 — the
+  V17.1 primitive registration in
+  `apps/compositions/primitives/__init__.py` is new since
+  SESSION 181's worker pid 24687. Restart so the worker
+  picks up `extend_visual_clip`.
 * Uvicorn `--reload` window can serve requests with stale
   module code mid-swap — when iterating on
   `media-engine/app/` files with rapid edits + immediate
@@ -273,53 +272,61 @@ python3 /Users/donkeyking/development/context-kit/context_kit.py doctor
 * First-call deps cached: ~176MB `u2net_human_seg.onnx`
   for V16 matting at `~/.u2net/`.
 
-**Smoke checks** (counts as of SESSION 181 close):
+**Smoke checks** (counts as of SESSION 182 close):
 
 ```bash
 # Backend (from shell/)
 python manage.py inventory
-python -m pytest                              # 843+ tests (compositions: 428)
+python -m pytest                              # 871 tests (compositions: 440)
 
 # Media-engine (from media-engine/)
-python -m pytest                              # 177 tests
+python -m pytest                              # 190 tests
 
 # SPA (from web/)
 pnpm build                                    # type-check + bundle
 pnpm test                                     # 95 vitest tests
 ```
 
-**New surfaces from SESSION 181**:
-* No new SPA surfaces — all SESSION 181 changes were
-  server-side fix-ups; existing recipe forms unchanged.
-* New media-engine behaviour: `maybe_to_data_uri` now
-  rewrites `/data/_internal/images/` paths to data URIs
-  before Runway calls.
+**New surfaces from SESSION 182**:
+
+* `POST /internal/clips/extend/` — media-engine. Last-frame
+  + image_to_video + concat. Mirrors V11 style_remix's
+  sync shape.
+* `extend_visual_clip` Django primitive — registered as
+  the 15th primitive (12th real + 3 mock).
+* `MediaEngineClient.extend_clip()` — Python client.
+  Returns `ExtendClipResult` with source + new-segment
+  + total durations split out.
 
 ---
 
 ## AI / assistant context
 
-- **Last session: SESSION 181 — V-arc layout / voice /
-  storyboard dogfood + V17 proposal.** Eight commits. 11
-  recipes validated (5 → 16 of 18). 5 production bugs
-  fixed inline. V17 proposed for extend + keyframes
-  integration. Tests: Django **428** unchanged; media-engine
-  **177** (162 → 177, +15); SPA **95** unchanged.
+- **Last session: SESSION 182 — V17 scope-lock + V17.0 +
+  V17.1.** Two feature commits. V17 went `proposed → locked`
+  with rules 10-13 merged into V1. V17.0 (media-engine
+  endpoint) + V17.1 (Django primitive) shipped. Q-v17-1
+  surfaced + resolved at slice-open with a clean pivot. No
+  Runway spend.
 
-- **Calibration carried forward (NEW SESSION 181)**:
-  - **Operator "are we using X?" framing surfaces capability
-    gaps.** All-green dogfood doesn't mean no gaps; operator
-    framing catches missing capabilities that bugs-only
-    testing misses.
-  - **Asset upload UI is a recurring gap.** Recipes need
-    AUDIO / IMAGE inputs the operator doesn't have; shell-
-    side asset creation is the current workaround. Worth
-    scoping a proper upload flow.
-  - **External API validation tightens over time.** APIs
-    that "worked when shipped" can fail later as upstream
-    contracts tighten — periodic re-dogfood catches this.
+- **Calibration carried forward (NEW SESSION 182)**:
+  - **API claim in design doc = hypothesis until live-doc
+    verified.** Third recurrence of this pattern (SESSIONS
+    175 / 181 / 182). Worth a slice-open checklist item:
+    live-doc check before any code.
+  - **Pre-implementation pause when a finding shifts
+    scope.** Stop + surface + operator confirms is the
+    right shape; "still implementing" is the failure mode.
+  - **Sync vs async endpoint contract is a design-time
+    decision.** Mirror the nearest endpoint with the same
+    architectural shape, not the same conceptual family.
 
 - **Calibration carried forward (from earlier sessions)**:
+  - Operator "are we using X?" framing surfaces capability
+    gaps (SESSION 181).
+  - Asset upload UI is a recurring gap (SESSION 181).
+  - External API validation tightens over time —
+    re-dogfood periodically (SESSION 181).
   - "200 OK + plausible byte count" doesn't mean correct
     output (SESSION 180).
   - Uvicorn `--reload` has stale-during-restart window
@@ -330,7 +337,7 @@ pnpm test                                     # 95 vitest tests
   - ffmpeg can't infer muxer from double-extension
     tempfile names (SESSION 179).
   - Real-mode dogfood finds bugs in every recipe
-    (SESSIONS 179-181 — now 15+ bugs across 16 recipes).
+    (SESSIONS 179-181 — 15+ bugs across 16 recipes).
   - PostCSS `@import` order (SESSION 178).
   - Operator catches premature extraction (SESSION 178).
   - DevTools computed-style snippet for visual bugs
@@ -366,20 +373,19 @@ pnpm test                                     # 95 vitest tests
   - Stale browser before stale code.
   - K6.4 stoplist curation trickle.
 
-- **V-arc growth template (SESSION 179-181)**: V16 +
-  V17-proposal follow the same shape. Narrow scope, opt-in
+- **V-arc growth template (SESSION 179-182)**: V16 +
+  V17 follow the same shape. Narrow scope, opt-in
   defaults, one primitive + one knob + one endpoint per
-  slice, real-mode validated before handoff. SESSION 181's
-  in-slice fixes (broll dim-probe / Aleph timeouts /
-  tail-merge / seed PNG / V13 path rewrite) fit the same
-  pattern.
+  slice, real-mode validated before handoff. SESSION
+  182's V17.0+V17.1 fit the template; V17.2's recipe
+  layer is the first real-mode validation point for V17.
 
 - **Brand layer is load-bearing.** Every component must
   import company/product strings from `@/lib/brand` per
   BRAND_ECOSYSTEM_V1 contract rule 3.
 
 - **2 of 18 V-arc recipes unvalidated** — `storyboard_voiced`
-  + `dialogue_scene`. Both deferred until V17 lands per
+  + `dialogue_scene`. Both deferred until V17 closes per
   operator-locked direction.
 
 - Collaboration conventions: AI drafts, human edits.
