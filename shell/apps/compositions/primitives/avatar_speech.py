@@ -77,6 +77,36 @@ _AVATAR_SPEECH_MICROS_PER_CHAR = 333
 _AVATAR_SPEECH_MIN_MICROS = 250_000
 
 
+# Duration fallback constants. Runway's ``/v1/avatar_videos`` polls
+# don't surface ``duration_seconds`` (the media-engine's
+# ``GET /internal/tasks/{id}/`` route therefore hard-codes it to
+# ``None``). When that happens we estimate from the synthesized
+# script length using the same chars-per-second baseline that
+# ``starters._estimate_avatar_speech_seconds`` uses for backdrop-
+# chain sizing — kept here as a peer copy so the primitive doesn't
+# import from starters. Tight estimate (no buffer): the composite
+# trims the long edge to the short edge, so the speech duration
+# wants to be a near-accurate floor of the actual render length.
+# Without this, ``composite_video`` falls back to backdrop length
+# and the V8 output carries a trailing silent backdrop tail
+# (SESSION 183 dogfood — Sunset 2: "Riggs stopped talking before
+# the video ended").
+_AVATAR_SPEECH_CHARS_PER_SECOND = 11
+_AVATAR_SPEECH_MIN_DURATION_MS = 5_000
+
+
+def _estimate_duration_ms_from_script(chars: int) -> int:
+    """Conservative estimate of speech duration in milliseconds
+    from synthesized-brief character count. Used only as a
+    fallback when the media-engine poll response lacks
+    ``duration_seconds``."""
+    chars = max(0, chars)
+    if chars == 0:
+        return _AVATAR_SPEECH_MIN_DURATION_MS
+    seconds = chars / _AVATAR_SPEECH_CHARS_PER_SECOND
+    return max(_AVATAR_SPEECH_MIN_DURATION_MS, int(seconds * 1000))
+
+
 def _resolve_avatar_id(step, composition) -> str:
     """Pick the avatar id from params (explicit) or fall back to
     the composition's spokesperson. Raises ``PrimitiveError`` if
@@ -311,14 +341,24 @@ class GenerateAvatarSpeechPrimitive:
         else:
             extra["used_knowledge"] = False
 
+        # Duration resolution: Runway's avatar_videos poll doesn't
+        # surface ``duration_seconds`` today (the media-engine
+        # forwards ``None``). When that happens, fall back to a
+        # script-length estimate so downstream composite steps can
+        # trim their backdrop to the speech length instead of
+        # padding with silence. Stamp ``duration_estimated`` on the
+        # source_spec so the audit trail records the fallback.
+        if terminal.duration_seconds is not None:
+            duration_ms = int(terminal.duration_seconds * 1000)
+            extra["duration_estimated"] = False
+        else:
+            duration_ms = _estimate_duration_ms_from_script(len(brief))
+            extra["duration_estimated"] = True
+
         return PrimitiveResult(
             asset_type=AssetType.CLIP,
             file_path=terminal.output_url,
-            duration_ms=(
-                int(terminal.duration_seconds * 1000)
-                if terminal.duration_seconds is not None
-                else None
-            ),
+            duration_ms=duration_ms,
             mime_type="video/mp4",
             cost_micros=GenerateAvatarSpeechPrimitive.estimate_cost(step.params or {}),
             extra_source_spec=extra,

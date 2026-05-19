@@ -93,6 +93,27 @@ class CompositeVideoPrimitive:
                 f"(base + overlay); got {len(clips)}"
             )
 
+        # SESSION 184 polish — null-duration inputs would silently
+        # let the media-engine pick the base clip's length as the
+        # composite trim target. For V8 ``backdrop`` that means
+        # speech-shaped inputs produce backdrop-length output with
+        # a trailing silent tail (SESSION 183 Sunset 2 finding).
+        # Refuse the dispatch and surface the upstream primitive
+        # that didn't persist duration. Mock and real paths both
+        # gate on the same check so unit tests catch the contract
+        # break.
+        missing_duration = [c for c in clips if c.duration_ms is None]
+        if missing_duration:
+            ids = ", ".join(str(c.id) for c in missing_duration)
+            raise PrimitiveError(
+                f"composite_video inputs must have duration_ms set; "
+                f"{len(missing_duration)} of {len(clips)} input asset(s) "
+                f"have duration_ms=None ({ids}). Fix the upstream "
+                f"primitive that produced them — duration is required "
+                f"so the composite can trim to the shortest input "
+                f"instead of silently using the base clip's length."
+            )
+
         if mock_mode:
             total_duration_ms = sum(
                 (c.duration_ms or 0) for c in clips

@@ -248,6 +248,92 @@ def test_real_mode_primitive_fires_create_and_polls_until_ready() -> None:
     spec = result.extra_source_spec
     assert spec["task_id"] == "runway_task_real_v3"
     assert spec["used_knowledge"] is False
+    assert spec["duration_estimated"] is False
+
+
+def test_real_mode_falls_back_to_script_length_estimate_when_poll_lacks_duration() -> None:
+    """SESSION 184 polish — Runway's ``/v1/avatar_videos`` poll
+    doesn't carry duration_seconds (media-engine forwards None).
+    When that happens the primitive must still write a
+    duration_ms on the Asset so downstream ``composite_video``
+    steps can trim their backdrop to the speech length. Regression
+    guard against the SESSION 183 Sunset 2 finding (trailing-
+    silent-backdrop tail). The fallback is recorded explicitly on
+    ``extra_source_spec`` so the audit trail can distinguish
+    Runway-sourced durations from script-length estimates."""
+    ws = _make_workspace("v3estfb@test.local")
+    sp = _make_spokesperson(ws)
+    comp = Composition.objects.create(
+        workspace=ws, spokesperson=sp, name="estfb",
+    )
+    # 110-char script → estimate of 110 / 11 = 10 seconds = 10000 ms
+    # (above the 5000 ms minimum floor).
+    script = "x" * 110
+    step = CompositionStep.objects.create(
+        composition=comp, position=0,
+        primitive="generate_avatar_speech",
+        params={"script": script},
+    )
+
+    create_result = _mock_create_result("runway_task_estfb")
+    # Poll returns ready with duration_seconds=None (the production
+    # shape until Runway surfaces duration or the media-engine
+    # learns to ffprobe).
+    polls = [_mock_poll_ready("runway_task_estfb", duration=None)]
+    cm, _fake = _patched_client(create_result, polls)
+
+    with patch(
+        "apps.compositions.primitives.avatar_speech.MediaEngineClient",
+        return_value=cm,
+    ), patch(
+        "apps.compositions.primitives.avatar_speech.time.sleep",
+    ):
+        result = GenerateAvatarSpeechPrimitive.execute(
+            step=step, resolved_inputs=[], mock_mode=False,
+        )
+
+    # Critical assertion — duration_ms is *not* None.
+    assert result.duration_ms is not None
+    # 110 chars at 11 chars/sec → 10s → 10_000 ms.
+    assert result.duration_ms == 10_000
+    spec = result.extra_source_spec
+    assert spec["duration_estimated"] is True
+    assert spec["script_chars"] == 110
+
+
+def test_real_mode_estimate_floors_at_minimum_for_tiny_scripts() -> None:
+    """The estimate floors at ``_AVATAR_SPEECH_MIN_DURATION_MS``
+    (5000 ms) so even a 1-char script produces a sane duration on
+    the Asset. Avoids null/zero durations leaking through when an
+    operator runs a smoke test with a near-empty script."""
+    ws = _make_workspace("v3estfloor@test.local")
+    sp = _make_spokesperson(ws)
+    comp = Composition.objects.create(
+        workspace=ws, spokesperson=sp, name="estfloor",
+    )
+    step = CompositionStep.objects.create(
+        composition=comp, position=0,
+        primitive="generate_avatar_speech",
+        params={"script": "hi"},
+    )
+
+    create_result = _mock_create_result("runway_task_estfloor")
+    polls = [_mock_poll_ready("runway_task_estfloor", duration=None)]
+    cm, _fake = _patched_client(create_result, polls)
+
+    with patch(
+        "apps.compositions.primitives.avatar_speech.MediaEngineClient",
+        return_value=cm,
+    ), patch(
+        "apps.compositions.primitives.avatar_speech.time.sleep",
+    ):
+        result = GenerateAvatarSpeechPrimitive.execute(
+            step=step, resolved_inputs=[], mock_mode=False,
+        )
+
+    # 2-char script → would estimate to 181 ms, floors at 5000.
+    assert result.duration_ms == 5_000
+    assert result.extra_source_spec["duration_estimated"] is True
 
 
 # ---- knowledge integration ----------------------------------------

@@ -199,6 +199,71 @@ def test_composite_requires_two_clip_inputs() -> None:
     assert "two CLIP inputs" in str(exc.value)
 
 
+def test_composite_rejects_null_duration_input() -> None:
+    """SESSION 184 polish — composite_video errors loudly when any
+    CLIP input has duration_ms=None instead of silently letting the
+    media-engine pick the base clip's length as the trim target.
+    Regression guard against the SESSION 183 Sunset 2 finding: when
+    generate_avatar_speech produced a null-duration speech asset
+    over an over-provisioned backdrop, the composite picked the
+    backdrop length and left a trailing silent tail on the output.
+    The right shape is to refuse the dispatch and surface the
+    upstream primitive that didn't persist duration."""
+    ws = _make_workspace("v7c_nodur@test")
+    sp = _make_spokesperson(ws)
+    comp = _comp(ws, sp)
+    # Backdrop has duration, speech doesn't (the bug shape).
+    backdrop = _make_clip(ws, "/data/backdrop.mp4", duration_ms=15_000)
+    speech = _make_clip(ws, "/data/speech.mp4", duration_ms=None)
+    step = CompositionStep.objects.create(
+        composition=comp, position=0, primitive="composite_video",
+        params={
+            "layout_spec": {
+                "kind": "backdrop",
+                "options": {},
+            },
+        },
+    )
+    with pytest.raises(PrimitiveError) as exc:
+        CompositeVideoPrimitive.execute(
+            step=step,
+            resolved_inputs=[
+                {"slot": "base", "asset": backdrop},
+                {"slot": "overlay", "asset": speech},
+            ],
+            mock_mode=False,
+        )
+    message = str(exc.value).lower()
+    assert "duration_ms" in message
+    assert str(speech.id) in str(exc.value)
+    # Verbatim phrasing of the actionable hint.
+    assert "upstream primitive" in message
+
+
+def test_composite_rejects_null_duration_input_in_mock_mode_too() -> None:
+    """The null-duration check fires in mock mode as well — the
+    contract is symmetric across mock + real paths so unit tests
+    catch the break before real-mode dogfood."""
+    ws = _make_workspace("v7c_nodur_mock@test")
+    sp = _make_spokesperson(ws)
+    comp = _comp(ws, sp, mock_mode=True)
+    backdrop = _make_clip(ws, "/data/backdrop.mp4", duration_ms=15_000)
+    speech = _make_clip(ws, "/data/speech.mp4", duration_ms=None)
+    step = CompositionStep.objects.create(
+        composition=comp, position=0, primitive="composite_video",
+        params={"layout_spec": {"kind": "backdrop", "options": {}}},
+    )
+    with pytest.raises(PrimitiveError):
+        CompositeVideoPrimitive.execute(
+            step=step,
+            resolved_inputs=[
+                {"slot": "base", "asset": backdrop},
+                {"slot": "overlay", "asset": speech},
+            ],
+            mock_mode=True,
+        )
+
+
 def test_composite_rejects_non_clip_input() -> None:
     ws = _make_workspace("v7c_nontype@test")
     sp = _make_spokesperson(ws)
