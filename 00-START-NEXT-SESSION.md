@@ -25,9 +25,10 @@ state: active
 > **V17 LOCKED (SESSION 182) — extend + keyframes.**
 > V17.0 + V17.1 + V17.2 SHIPPED SESSION 182. V17.2
 > **REAL-MODE VALIDATED** end-to-end at session-close.
-> **V17.5 SHIPPED SESSION 183** (`use_extend_for_backdrop`
-> opt-in on V8 talking_head_with_backdrop); real-mode
-> dogfood pending. V17.3 + V17.4 pending.
+> **V17.5 SHIPPED + REAL-MODE VALIDATED SESSION 183**
+> (4 renders, $6.25 spend; ambient motion holds, discrete-
+> subject identity drifts at gen4.5 → gen4_turbo handoff).
+> V17.3 + V17.4 pending.
 > See `docs/design/VIDEO_COMPOSITION_V17_PROPOSAL.md`.
 > **Realtime avatar scope lock:** `docs/design/REALTIME_AVATAR_V1.md`
 > (locked SESSION 142 — 10 contract rules, R0-R10 slice
@@ -46,12 +47,14 @@ state: active
 
 ---
 
-## SESSION 183 outcome — V17.5 V8 opt-in extend (mock-mode validated)
+## SESSION 183 outcome — V17.5 V8 opt-in extend (real-mode validated)
 
-One feature commit. V17.5 lands the
-`use_extend_for_backdrop` flag on the V8
-`talking_head_with_backdrop` starter, closing the SESSION
-179 multi-backdrop concat seam at the recipe layer.
+One feature commit plus a real-mode dogfood pass.
+V17.5 lands the `use_extend_for_backdrop` flag on the
+V8 `talking_head_with_backdrop` starter, closing the
+SESSION 179 multi-backdrop concat seam at the recipe
+layer. Four real-mode renders validated end-to-end
+(**$6.25 total spend**).
 
 * **V17.5 starter knob** — `use_extend_for_backdrop: bool =
   False` on `talking_head_with_backdrop` (default off per
@@ -83,32 +86,65 @@ One feature commit. V17.5 lands the
   chain-wide helper needed. Per-step
   `cost_actual_micros` carries post-render refinement.
 
+### Real-mode dogfood — four renders
+
+| Render | Extends | V16 matte | Cost | Operator verdict |
+|---|---|---|---|---|
+| Sunset coastline 2 | 3 | — | $1.50 | clean V17.5 win; seam-free |
+| Underwater school of fish 2 | 3 | yes | $1.50 | fish drift to "blob of white" at 11s boundary |
+| Poker #1 (Sundown variety) | **4** | yes | $1.75 | first N=4 chain; flyover atmosphere held |
+| Poker #2 (Sundown atmosphere) | 3 | yes | $1.50 | density-prompt gap surfaced; "smoking people" |
+
+**Key V17.5 finding** (TRUST_CALIBRATION entry): ambient
+motion + atmospheric elements (waves, light, smoke, fog)
+chain cleanly; discrete-subject scenes (named animals,
+distinct people) drift at every gen4.5 → gen4_turbo
+boundary. Net win vs concat (no 10s seam) but operator-
+visible blur for subject-rich scenes. **V17.3 multi-
+keyframe is the architectural fix.**
+
+**Two latent gaps surfaced, queued for SESSION 184:**
+1. `generate_avatar_speech` doesn't write `duration_ms`
+   on its output Asset; `composite_video` consequently
+   falls back to backdrop length instead of trimming to
+   speech. Operator-visible as trailing silent backdrop.
+2. `composite_video` should error loudly when an input's
+   duration is null, not silently fallback.
+
 ### Final state at session close
 
 * V17 slice status: V17.0 + V17.1 + V17.2 (real-mode
-  validated SESSION 182) + V17.5 (mock-mode validated
+  validated SESSION 182) + V17.5 (real-mode validated
   SESSION 183) shipped. V17.3 + V17.4 remain pending.
 * All Q-v17-* resolved at lock or slice-open. No open V17
   questions remaining.
 
-### Calibration carried forward (no new entries)
+### Calibration carried forward (four NEW entries)
 
-Followed the SESSION 182 slice-open checklist exactly —
-the four-touchpoint discipline (string choice values,
-LIVE_RECIPE_KINDS, default-aware submission, fixture
-shape) bore out cleanly because V17.5 is a boolean
-checkbox knob on an already-live recipe. Mock-mode
-backwards-compat guard caught zero regressions.
-Real-mode-vs-mock-mode shape calibration (SESSION 182's
-silent-input concat fix) didn't surface here because the
-V17.5 path doesn't add new ffmpeg work — extends already
-went through V17.0's real-mode path with `_has_audio_stream`
-probing in SESSION 182.
+Four new entries in `docs/TRUST_CALIBRATION.md` from
+the real-mode dogfood:
+
+1. **V17.5 extend chain holds ambient motion, drifts on
+   complex subjects** at the gen4.5 → gen4_turbo
+   handoff. V17.3 multi-keyframe is the architectural
+   fix.
+2. **Avatar speech asset doesn't record `duration_ms`**
+   (composite trim direction wrong). One-line fix +
+   regression test for SESSION 184.
+3. **Backdrop prompts need density adjectives;
+   "cigarette haze" reads as people smoking.** Recipe-
+   form help-text should carry one example.
+4. **Default Celery `acks_late=False` means worker
+   SIGKILL drops in-flight task without redelivery.**
+   `--pool=solo` makes revoke --terminate a no-op; only
+   SIGKILL on the worker PID actually stops a long-tail
+   render. Acks-early is the right default.
 
 Tests: Django **900** (compositions **469**). Media-engine
-**194** (unchanged). SPA vitest **95** (unchanged). No
-real-mode spend this session — dogfood deferred to SESSION
-184 per the human/AI testing-split discipline.
+**194** (unchanged). SPA vitest **95** (unchanged).
+Real-mode spend this session: **$6.25** across 4 V8
+renders (the 5th, Poker #1, was a $1.75 N=4 chain; the
+others were $1.50 / 3-extend chains).
 
 ---
 
@@ -192,39 +228,70 @@ Tests: Django **891** (compositions **460**). Media-engine
   VALIDATED; Q-v17-2/3/4 RESOLVED at lock; Q-v17-5 open
   (resolves V17.5 slice-open).
 
-### FIRST THING (SESSION 184): real-mode dogfood V17.5 + open V17.3 (keyframes track)
+### FIRST THING (SESSION 184): operator's pick — three viable directions
 
-V17.5 code + tests landed SESSION 183 (one commit). The
-extend-chain opt-in is mock-mode validated only; the V-arc
-discipline says real-mode validate before claiming the
-slice is shipped. Operator-driven dogfood:
+V17.5 is fully shipped + real-mode validated as of
+SESSION 183. Three concrete directions for SESSION 184,
+operator's call:
 
-1. **Restart Celery worker** (per session-start notes — V17.5
-   adds an `extend_visual_clip` step to V8's chain when the
-   flag is True; worker doesn't auto-reload).
+**1. Quick polish slice — speech-duration + composite trim**
+   (½ session, low-risk).
+   * Surfaced this session by the operator's Sunset 2
+     observation ("Riggs stopped talking before the video
+     ended").
+   * Fix #1: `generate_avatar_speech` writes
+     `duration_ms` on its output Asset from the Runway
+     response (one line in the primitive + regression
+     test).
+   * Fix #2: `composite_video` errors loudly when an
+     input's duration is null instead of silently
+     falling back to backdrop length.
+   * Net effect: composite trims to speech length on
+     overprovisioned backdrops, the
+     trailing-silent-backdrop artifact goes away.
 
-2. **Real-mode dogfood through the SPA recipe form.** Pick
-   a long-script V8 render (≥22s estimated speech) so the
-   chain produces N≥3 extends. Toggle the new
-   "Use seam-free extend chain for backdrop" checkbox.
-   Compare against the same script rendered on the concat
-   path — the seam every 10s should be gone.
+**2. Pre-recorded backdrop library** — operator-suggested
+   direction (~1 session, opens a queue item).
+   * "Record the videos first then add the spokesperson
+     over them" (SESSION 183 operator closing).
+   * Concrete scope: workspace Asset library accepts CLIP
+     assets; V8's recipe gains an optional
+     `backdrop_clip` asset_picker alongside
+     `backdrop_prompt`. Starter branches:
+     `backdrop_clip` present → skip generate/extend
+     chain, use the picked clip as the composite
+     background; absent → existing generate path.
+   * Cheaper iteration on scripts (backdrop costs
+     $1.25–$1.75; reusing saves that across script
+     attempts). Natural home for operator-uploaded
+     footage when the asset-upload UI lands. Curated
+     cinematic stock library for non-technical
+     operators.
+   * Likely a new V18 or V19 slice depending on whether
+     it lands inside the V-arc or as a separate "asset
+     library" arc.
 
-3. **Calibration target:** does the extend chain visibly
-   eliminate the SESSION 179 motion seam? Are the extend
-   prompts holding the backdrop's character / lighting
-   across N segments? Estimated spend: $0.50 base + N×$0.25
-   per render (cheaper than the concat path's $0.50/segment
-   × N).
+**3. V17.3 keyframes track** — architectural fix for the
+   subject-identity drift finding from SESSION 183
+   dogfood (~1 session, higher-risk).
+   * Independent of V17.0/1/2/5 per the V17 dependency
+     graph; can land any time.
+   * Multi-keyframe conditioning at every extend boundary
+     pins the subject's reference image instead of
+     relying on single-last-frame inference. The
+     Underwater fish drift case is the canonical
+     example.
+   * Higher risk because the keyframes API isn't real-
+     mode validated yet — likely surfaces a Q-v17-style
+     finding at slice-open before code lands.
 
-Alternative parallel: **V17.3 (keyframes track).** Independent
-of the extend track per the dependency graph. ~1 session.
-Higher-risk since keyframes API isn't real-mode validated
-yet — likely surfaces its own Q-v17-style finding before
-code lands.
+**Recommended sequence:** #1 (polish, low-risk, fixes a
+visible bug from today) → #2 (backdrop library, opens
+new capability surface) → #3 (V17.3 keyframes, deeper
+architectural fix). But operator's pick wins.
 
-Alternative: defer V17 entirely + work F8.1 K10 seed corpus,
-asset upload UI, or other queued items.
+Alternative: defer V17 entirely + work F8.1 K10 seed
+corpus, asset upload UI, or other queued items.
 
 ---
 
@@ -248,7 +315,7 @@ pending.
 | K0-K9 | DONE |
 | V0-V15 + V16 | DONE (mock); **16/18 real-mode validated** |
 | **V17.0 + V17.1 + V17.2** | **DONE + V17.2 REAL-MODE VALIDATED (SESSION 182)** |
-| **V17.5 (V8 opt-in extend)** | **DONE (SESSION 183) — real-mode dogfood pending** |
+| **V17.5 (V8 opt-in extend)** | **DONE + REAL-MODE VALIDATED (SESSION 183)** |
 | **V17.3 (keyframes) / V17.4** | **pending** |
 | F0-F10 | DONE |
 | R0-R10 + R6.1 | DONE + REAL-MODE VALIDATED (SESSION 176) |

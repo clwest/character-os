@@ -3391,3 +3391,146 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   output, not the easiest-to-construct shape. Spending five
   minutes downloading a real Runway output and stripping
   audio would have caught this before ship.
+
+## 2026-05-19 — V17.5 extend chain holds ambient motion, drifts on complex subjects (gen4.5 → gen4_turbo handoff)
+
+- **Context / claim:** V17.5 shipped the
+  `use_extend_for_backdrop` opt-in. The design lock anticipated
+  motion-continuity would hold at the gen4.5 → gen4_turbo
+  extend boundary (last-frame conditioning carries the pose);
+  subject-identity continuity was scoped as "best-effort, not
+  guaranteed by the API." V17.5 mock-mode tests covered the
+  chain shape; real-mode quality was deferred to dogfood.
+- **Reality / outcome:** Four real-mode renders SESSION 183
+  (Sunset 2 / Underwater 2 / Poker #1 + #2) produced a clear
+  split:
+  * **Ambient motion holds clean across extends** — Sunset
+    coastline (waves + golden light) chained seamlessly; no
+    visible quality drop at 10s / 15s / 20s boundaries. Same
+    for soft cigarette haze / amber casino light in the poker
+    renders.
+  * **Discrete-subject identity drifts** — Underwater school
+    of fish became "kind of a blob of white" at the first
+    extend boundary (~11s) per operator dogfood. Individual
+    fish identity that gen4.5 maintained internally was lost
+    the moment gen4_turbo took over with only a single last
+    frame to condition on. Still visibly better than the
+    concat path (no 10s seam), but the failure mode is real
+    and operator-visible.
+- **Found by:** Operator-driven real-mode dogfood; my
+  hypothesis that camera-direction + ambient elements would
+  outperform subject-identity was confirmed.
+- **Lesson:** V17.5 is a net win for any backdrop dominated
+  by **ambient motion or atmospheric elements** (waves, mist,
+  fog, smoke, light shafts, fabric, foliage, slow camera
+  pans). It loses identity at the boundary for **discrete-
+  subject scenes** (named animals, distinct people, vehicles).
+  Recipe-form help-text should steer operators toward the
+  former; future V17.3 (multi-keyframe conditioning) is the
+  architectural fix for the subject-identity case — pin the
+  same subject reference image at every extend boundary
+  instead of relying on last-frame inference alone. Pattern
+  to carry: when a primitive's continuity guarantee is
+  scoped to motion-only, operator-facing help text MUST name
+  the failure mode by example, not abstraction.
+
+## 2026-05-19 — Avatar speech asset doesn't record duration_ms (composite trim direction wrong)
+
+- **Context / claim:** `composite_video` (kind=backdrop) was
+  documented as "trims to the shorter input" — the design
+  intent being: render a backdrop chain slightly
+  over-provisioned, let composite trim to the speech length.
+- **Reality / outcome:** Sunset 2's final clip ran 25.2s
+  (the backdrop length); Riggs stopped talking at ~20s.
+  The composite trimmed to the LONGER edge, not shorter,
+  because the speech step's output asset has
+  `duration_ms=None` — `composite_video` couldn't compare
+  edges so it defaulted to backdrop length. Operator-visible
+  as "Riggs stopped talking before the video ended."
+- **Found by:** Operator real-mode dogfood after first
+  V17.5 success; surfaced by post-render asset inspection.
+- **Lesson:** Two latent gaps, neither V17.5-specific:
+  1. **`generate_avatar_speech` primitive doesn't write
+     `duration_ms` on its output `Asset`.** The Runway
+     response carries the duration; the primitive drops it.
+     One-line fix: capture `result.duration_seconds * 1000`
+     into the `PrimitiveResult.duration_ms` field, same
+     pattern V4's `generate_visual_clip` already follows.
+  2. **`composite_video` trim direction silently falls
+     back to backdrop when one input's duration is null.**
+     Either error loudly (preferred — both inputs should
+     have known durations) or document the fallback in the
+     primitive header. Pattern to carry: primitives that
+     mediate other primitives' outputs should treat
+     null-duration as a bug condition, not silently absorb
+     it. Both queued for SESSION 184.
+
+## 2026-05-19 — Backdrop prompts need density adjectives; "cigarette haze" reads as people smoking
+
+- **Context / claim:** I drafted three poker-room backdrop
+  prompts for V17.5 real-mode dogfood. Option #2's prompt
+  was "cinematic slow tracking shot moving past poker tables
+  at midnight, warm amber light, soft cigarette haze, motion
+  blur on chips and cards, anonymous silhouettes, continuous
+  forward camera, locked path" — intended to elicit a busy
+  poker room atmosphere.
+- **Reality / outcome:** gen4.5 rendered "individuals
+  sitting one and twos at tables and smoking" — operator
+  feedback. The prompt's "poker tables" + "anonymous
+  silhouettes" was insufficient density signal; gen4.5
+  defaulted to a sparse scene. Worse: "soft cigarette haze"
+  was interpreted literally as **people smoking
+  cigarettes**, not as ambient atmospheric haze. Option
+  #1's prompt ("busy upscale poker room") did better
+  because the density adjective was explicit.
+- **Found by:** Operator dogfood comparing Option #1 vs #2
+  side-by-side; finding generalizes beyond poker rooms.
+- **Lesson:** Backdrop prompts need **explicit density
+  adjectives** for populated scenes — "busy," "crowded,"
+  "full house," "hundreds of," "every table full" — not
+  just the location noun. **Ambient atmospheric elements
+  must be named as atmosphere**, not as their physical
+  source — "amber light haze" or "warm ambient mist," not
+  "cigarette haze" or "smoke from cigarettes." Pattern to
+  carry: when writing backdrop prompts for cinematic-fill
+  recipes, density words sit alongside subject words; the
+  model treats nouns that name humans differently from
+  nouns that name atmosphere. Recipe-form help-text should
+  carry one example of each shape.
+
+## 2026-05-19 — Default Celery acks-early means worker SIGKILL drops in-flight task without redelivery
+
+- **Context / claim:** When marking compositions FAILED
+  mid-flight didn't abort the runtime (execute_composition
+  checks composition status at task-start only, not between
+  steps), I expected `celery control revoke --terminate`
+  with `--pool=solo` to terminate the in-flight task.
+- **Reality / outcome:** **`--pool=solo` runs the task in
+  the main worker process; SIGTERM via revoke is a no-op
+  because terminating it would kill the worker itself.**
+  Worker kept polling Runway. Fallback: SIGKILL the worker
+  PID. Surprise upside: **Celery defaults to `acks_late=False`**
+  (acks-early), so the in-flight task was NOT re-delivered
+  to the restarted worker — only queued-but-unstarted tasks
+  came back. This saved the remaining backdrop spend on
+  the cancelled composition.
+- **Found by:** Operator-driven cancel during V17.5 dogfood
+  retry sequence (concat-path renders kicked off pre-hard-
+  refresh); needed to clear queue cleanly before V17.5
+  could fire.
+- **Lesson:** Two operational facts worth carrying:
+  1. **`--pool=solo` + revoke --terminate is a no-op.** The
+     only way to stop an in-flight solo-pool task is
+     SIGKILL the worker PID. Cost: ~5s downtime + need to
+     pre-stage state (mark queued compositions FAILED with
+     no-pending-steps so their re-delivery is a no-op
+     bail). Pattern to carry: if a long-running composition
+     needs cancellation, plan the worker restart, don't
+     trust revoke.
+  2. **acks-early is the default and is the right default
+     here.** Means worker death loses only the in-flight
+     task, not the queue. Pattern to carry: if you ever
+     flip `acks_late=True` for safety, plan the
+     consequence — every worker death will re-deliver the
+     in-flight task to the next worker, and if it's a
+     long-tail render, you'll pay twice.
