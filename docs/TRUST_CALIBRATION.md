@@ -3036,3 +3036,127 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   per the docs," verify by extracting an actual frame
   from the rendered output, not by parsing the
   command line.
+
+## 2026-05-18 — AI right despite pushback (delayed): operator "are we using X?" framing surfaces capability gaps the dogfood loop wouldn't
+
+- **Context / claim:** SESSION 181 dogfooded 11 V-arc
+  recipes end-to-end. All ran through; storyboard_ad
+  produced a 3-shot narrative the operator reviewed and
+  approved. The character-drift across the 3 shots was
+  visible but I framed it as "expected Runway gen4_turbo
+  limitation, not a bug." V-arc validation count moved
+  from 5 to 16 of 18.
+- **Reality / outcome:** Operator paused the dogfood with
+  "Are we using Extend Video and Keyframes? I was just
+  looking over some other things we have done in the past
+  with another Claude Code and it mentioned that one.
+  That's a big thing if we aren't using it because that's
+  why our scenes aren't flowing longer!" — a recall from a
+  different Claude session in a different project. Grep
+  confirmed: zero references to Runway's extend endpoint
+  or multi-image keyframes anywhere in the codebase. These
+  are exactly the features that would cure the V8
+  multi-backdrop seam workaround, V13 character drift, and
+  V4 10s ceiling — three concrete user-visible gaps the
+  V-arc has been working around with chains + concats.
+  The "all 11 recipes green" framing missed the
+  capability gap completely.
+- **Found by:** Operator framing + grep verification +
+  Runway API docs review.
+- **Lesson:** **The dogfood loop catches bugs (status
+  codes, broken outputs, escape footguns); operator
+  framing catches missing capabilities the loop literally
+  can't see.** All-green dogfood doesn't mean no gaps —
+  it means no bugs in the as-shipped surface. Capabilities
+  that were never integrated produce no errors and pass
+  every assertion. Pattern to carry: when an operator
+  questions "are we using X?" with citation from prior
+  context (other sessions, other projects, other operators),
+  treat it as a capability-audit signal, not a bug report.
+  Grep the codebase to confirm before answering; if X
+  truly isn't there, that's worth scoping as a slice
+  (V17 in this case) rather than hand-waving as "expected
+  limitation." Generalizes: the bug-finding loop and the
+  capability-completion loop are different. Both are
+  necessary; neither substitutes for the other.
+
+## 2026-05-18 — AI confidently wrong: asset upload UI is a recurring gap, not a one-off workaround
+
+- **Context / claim:** SESSION 181's music_bed_pass
+  dogfood needed an AUDIO music bed; the workspace had
+  zero AUDIO assets. I framed the shell-side
+  `Asset.objects.create` + ffmpeg-generated synth pad as
+  a "pragmatic dogfood workaround" — implying it was a
+  one-off. The next recipe (multi_lang_dub) also needed
+  AUDIO; same workaround (extract Riggs voice via ffmpeg
+  + shell asset row). Two recipes in one session, same
+  gap, same hand-rolled fix.
+- **Reality / outcome:** The asset upload gap is a
+  **structural product hole**, not a one-off. Any recipe
+  that takes an AUDIO or IMAGE input the operator hasn't
+  already produced via another recipe runs into it. The
+  current workarounds (shell-side rows + manual file
+  drops into `data/_internal/uploads/`) work for me but
+  are completely unavailable to a real operator using
+  the SPA. The dogfood is succeeding because I have
+  shell access; the production user would be stuck on
+  music_bed_pass and multi_lang_dub indefinitely.
+- **Found by:** Recurrence in one session. The first
+  workaround should have triggered "this is a missing
+  surface, not a missing asset"; the second confirmed it.
+- **Lesson:** **When a workaround fires twice in one
+  session for different reasons, it's not a workaround —
+  it's a missing surface.** Pattern to watch: any shell-
+  side ad-hoc `objects.create` to satisfy a recipe form
+  signals an SPA-side hole that real operators will hit
+  first time. Scope the surface (an asset upload flow
+  per the workspace-fabric arc) rather than continuing
+  to ad-hoc the workaround. Queued as a follow-up task
+  for the workspace-fabric extension arc, not part of
+  the V-arc validation push.
+
+## 2026-05-18 — AI confidently wrong: external API validation tightens over time — re-dogfood periodically
+
+- **Context / claim:** V13's gen4_image endpoint shipped
+  in SESSION 143 with a 1×1 neutral-grey PNG as the
+  no-op reference seed for prompts without an operator-
+  supplied reference. The code had unit tests, was
+  validated against Runway's API at ship-time, and was
+  marked DONE in the V-arc closure. I treated V13 as
+  validated when ramping up SESSION 181's storyboard_ad
+  dogfood ("storyboard family is the next-lowest-friction
+  next-pick — heaviest is storyboard_voiced; the rest
+  should be clean since V13 was validated"). storyboard_ad
+  failed step 0 immediately: Runway returned 400 "Invalid
+  asset dimensions. Height and width must be at least 2px.
+  Got 1×1."
+- **Reality / outcome:** The 1×1 seed had been accepted
+  by Runway when V13 shipped. Runway tightened the API
+  validation in the interim (some time between SESSION
+  143 and SESSION 181, ~38 sessions or roughly 5 weeks
+  of operator-clock time). The code didn't change; the
+  upstream contract did. Same shape for the SESSION 181
+  V17 framing — Runway's extend + keyframes features
+  exist now and might have existed when the V-arc was
+  scope-locked but weren't integrated. The shipped-and-
+  tested boundary doesn't insulate against upstream
+  evolution.
+- **Found by:** Operator-driven real-mode dogfood. No
+  unit test would have caught it (the seed PNG hasn't
+  changed; Runway has).
+- **Lesson:** **APIs that "worked when shipped" need
+  periodic re-validation against current upstream
+  contracts — not just when local code changes touch
+  the path.** Pattern to carry: any code path that
+  hits a third-party API should be considered
+  potentially-stale if it hasn't been real-mode
+  validated in the last ~4-6 weeks of operator-clock
+  time. Dogfood passes (like SESSION 181's V-arc
+  validation sweep) are the cheapest path to surface
+  this drift; CI integration tests against live APIs
+  are the more expensive but more durable alternative.
+  Concrete next-step from this: when re-validating
+  recipes against Runway's current API, check for
+  newly-available capabilities (extend / keyframes /
+  whatever) the same way we check for newly-tightened
+  validation. Both are upstream changes that affect us.
