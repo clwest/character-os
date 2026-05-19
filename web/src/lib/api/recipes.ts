@@ -114,6 +114,10 @@ export const LIVE_RECIPE_KINDS = new Set<string>([
   // audio_extract unblocked it)
   "dialogue_scene",
   "storyboard_voiced",
+  // V17.2 — extend chain off V4 cinematic_visual. Same
+  // form-renderer surface as the other live recipes; no
+  // SPA-specific code needed beyond opting in here.
+  "cinematic_visual_extended",
 ]);
 
 // ---- List recipes -----------------------------------------------
