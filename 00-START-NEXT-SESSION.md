@@ -41,124 +41,124 @@ state: active
 > **Asset Library scope lock:** `docs/design/ASSET_LIBRARY_V1.md`
 > (locked SESSION 185). **10 roles**, 9 contract rules merged
 > into V1 as rules 14-22, **9 slices A0-A8** (~5-6 sessions).
-> **A0 + A1 + A2 SHIPPED. A3 next.**
+> **A0 + A1 + A2 + A3 SHIPPED — backend foundational layer
+> complete. A4 next.**
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_186_A2_PRIMITIVES_STAMP_ROLE.md`.
+> **Last handoff:** `docs/handoffs/SESSION_187_A3_STORAGE_HEALTH.md`.
 
 ---
 
-## SESSION 186 outcome — A2 primitives stamp role
+## SESSION 187 outcome — A3 storage-health helper
 
-Clean session. Single slice, no deferrals, no surprises.
-One feature commit + handoff close. **A2 ships:** every
-primitive in `apps.compositions.primitives` stamps `role`
-on its output Asset at emit time; the runner asserts the
-contract; new coverage test file enforces rule 20 across
-three layers (AST primitive_kind scan + AST emit-site scan
-+ runtime backstop including the realtime direct-emit
-path). Test totals **928 → 936 (+8)** — all 8 new tests
-in `test_primitive_role_coverage.py`. Compositions suite
-**497 → 505**. No real-mode spend.
+Clean single-slice session. One feature commit + handoff
+close. **A3 ships:** new `apps/compositions/assets.py` module
+exports `StorageHealth` (7 string constants) + `parse_jwt_exp(url)`
++ `compute_storage_health(asset)`. Live per request per
+SESSION 185 Q-a-3 (no model field, no caching). **Asset
+Library v1 backend foundational layer is now complete** —
+A0+A1+A2+A3 give A4 everything it needs.
 
-### A2 — primitives stamp role at emit
+Test totals **936 → 956 (+20)** — all 20 new tests in
+`test_storage_health.py`. Compositions suite **505 → 525**.
+No real-mode spend.
 
-* **New module `apps/compositions/asset_roles.py`** — single
-  source of truth for `PRIMITIVE_TO_ROLE` (20 entries) +
-  `KNOWN_EXPERIMENT_UUID_PREFIXES` + `derive_role(asset)`.
-  Backfill command re-exports for backwards-compat with
-  existing test imports.
-* **`PrimitiveResult.role: str = ""`** field on the
-  dataclass. Defaults to empty so the runner can catch
-  any missing-stamp at runtime.
-* **14 primitive modules + 3 mocks + 1 realtime emit
-  site stamp role explicitly.** Mocks → `EXPERIMENT`;
-  realtime `capture_transcript` → `TRANSCRIPT`.
-* **Runner backstop:** `_persist_output_asset` raises
-  `PrimitiveError("Contract rule 20")` if
-  `result.role` is empty; otherwise passes through to
-  `Asset.objects.create(role=result.role)`.
-* **`test_primitive_role_coverage.py`** — 8 tests, 3
-  layers (AST primitive_kind, AST emit-site, runtime
-  backstop). Future primitives that forget to stamp role
-  fail statically.
-* **2 isolation-test ALLOWED_FILES entries** —
-  compositions + realtime test_isolation.py both gained
-  the coverage test as a sanctioned writer.
+### A3 — storage-health helper
 
-### Calibration (1 new entry — 16 total)
+* **New module `apps/compositions/assets.py`** —
+  * `StorageHealth` class with 7 string constants
+    (`HTTPS_LIVE` / `HTTPS_EXPIRING_SOON` / `HTTPS_EXPIRED` /
+    `LOCAL_PRESENT` / `LOCAL_MISSING` / `DATA_URI` /
+    `UPLOAD_PENDING`).
+  * `parse_jwt_exp(url) -> int | None` — public JWT exp
+    parser. Handles Runway's `?_jwt=<header>.<payload>.<sig>`
+    shape with base64url-padded decoding; returns `None` on
+    every malformed-input case (no crash).
+  * `compute_storage_health(asset) -> str` — classifier with
+    five branches (empty → UPLOAD_PENDING; `data:` →
+    DATA_URI; HTTPS → JWT-aware classifier with 24h
+    EXPIRING_SOON window; leading-slash → filesystem check
+    against `settings.MEDIA_ENGINE_DATA_ROOT`; unknown →
+    UPLOAD_PENDING).
+* **`test_storage_health.py`** — 20 tests covering all 7
+  states + JWT parser edge cases + filesystem
+  override-via-settings.
+* **`test_isolation.py` ALLOWED_FILES** gained the test
+  file (sanctioned reader; constructs Asset rows for
+  classifier exercise only).
+* **`settings.MEDIA_ENGINE_DATA_ROOT`** override knob now
+  recognized — tests use it via `override_settings(...)`
+  with a tmpdir; production / staging can use it to point
+  at non-default mount points.
 
-**One-runner-emit, many-callers** — when a new
-cross-cutting Asset field lands, find the funnel point
-first (single `Asset.objects.create` site), add the field
-there, then push to the producers (PrimitiveResult). The
-producers stamp explicitly (readable in isolation); the
-funnel enforces (defense-in-depth). A2 covered 28+ emit
-paths with two architectural-layer edits + per-primitive
-literal additions.
-
-### Tests at SESSION 186 close
+### Tests at SESSION 187 close
 
 | Suite | Count | Delta |
 |---|---|---|
-| Django | **936** | +8 (928 → 936) |
-| - compositions | **505** | +8 (497 → 505) |
+| Django | **956** | +20 (936 → 956) |
+| - compositions | **525** | +20 (505 → 525) |
 | Media-engine | 194 | unchanged |
 | SPA vitest | 95 | unchanged |
 
-Real-mode spend SESSION 186: **$0** (pure backend / DB
-work; no Runway / Stability / OpenAI API calls).
+Real-mode spend SESSION 187: **$0** (helper + tests only).
 
 ---
 
-## FIRST THING (SESSION 187): slice A3
+## FIRST THING (SESSION 188): slice A4
 
-A2 closed the foundational layer (every new Asset row
-carries a real role by construction; rule 20 enforced by
-test). **A3 is the next slice in the Asset Library arc.**
+A3 closed the storage-health helper. **A4 is the next slice
+in the Asset Library arc — the read endpoint that surfaces
+A0-A3's work to the SPA.**
 
-**A3 deliverable: storage-health helper + cached property
-on `Asset`.** Per scope lock §A3:
+**A4 deliverable: read-only `/api/workspace/assets/` +
+`/api/workspace/assets/<id>/` endpoints.** Per scope lock
+§"New / extended endpoints":
 
-1. **JWT exp parser** for Runway-hosted Cloudfront URLs.
-   Runway signs CDN URLs with a JWT in the path; the
-   `exp` claim tells you when the URL stops working.
-   Parse it; expose as `Asset.cdn_expires_at` (cached
-   property or computed field, operator decision at
-   slice-open).
-2. **Filesystem existence check** for local-path
-   Assets (`/media-engine/data/...`). Optional —
-   operator may decide to defer if cost is too high in
-   per-request mode; the SESSION 185 Q-a-3 resolution
-   says "live per request for v1; cache only if A5 perf
-   demands".
-3. **Three-state result**: `ok` / `expired` / `missing` /
-   `unknown` (for the unknown-host case where neither
-   JWT-bearing nor local-path apply).
-4. **Used by A4** (read endpoint) + **A5** (SPA list
-   view chip) + **A6** (per-asset detail).
+1. **List endpoint** (`GET /api/workspace/assets/`) —
+   paginated. Query params:
+   * `role=BACKDROP,TALKING_HEAD,...` (comma-list)
+   * `asset_type=CLIP,IMAGE,...` (existing categorization)
+   * `primitive_kind=...` (production-method filter)
+   * `storage=HTTPS_LIVE,LOCAL_PRESENT,...` (computed)
+   * `q=...` (full-text against prompt / composition name)
+   * `created_after`, `created_before` (ISO date)
+   * Standard `page` / `page_size` pagination
+   Returns each asset with computed `storage_health` field,
+   producing step's prompt (when available), producing
+   composition's name + id.
+2. **Retrieve endpoint**
+   (`GET /api/workspace/assets/<id>/`) — per-asset detail
+   with full lineage (producing composition + step + inputs
+   to that step + downstream compositions that consumed
+   this asset).
+3. **Workspace-scoped reads** — same pattern as F-arc's
+   `/api/workspace/overview/`. Authenticated; workspace
+   membership required.
+4. **Avatar / Voice / Portrait excluded** per Q-a-6
+   (deferred to v2); A5 will carry an honest gap note.
+5. **`storage_health` computed at serialize time** —
+   `apps.compositions.assets.compute_storage_health(asset)`
+   from A3 attached by the serializer's
+   `SerializerMethodField`.
 
-A3 estimated effort: ½ session. Smallest of the A-arc
-foundational slices.
+A4 estimated effort: ½ session.
 
-After A3, **A4 + A5 + A6** open the operator-visible
-surface; **A7** delivers the role-filtered asset_picker
-payoff that triggered the arc.
+After A4, **A5 + A6** are the operator-visible SPA work;
+**A7** is the role-filtered asset_picker payoff that
+triggered the arc.
 
-### Alternative paths for SESSION 187
+### Alternative paths for SESSION 188
 
-If A3 feels too small to fill a session:
+If A4 feels too small to fill a session:
 
-* **Path B — A3 + A4 together.** A4 is also ½ session;
-  combined they fit one full session. A4 is the read
-  endpoint that surfaces both `role` (A0-A2) and storage
-  health (A3) to the SPA.
+* **Path B — A4 + A5 start.** A5 is 1 full session; the
+  first half lays Zod schemas + query hooks + page
+  scaffold against A4's freshly-shipped endpoint.
 * **Path C — small-win sidebars.** V18 polish (duration-
   mismatch starter warning, ½ session); F8.1 K10 seed
   corpus; `storyboard_voiced` + `dialogue_scene` real-
-  mode validation. Asset Library parks while a smaller
-  win lands.
+  mode validation.
 
 ---
 
@@ -175,9 +175,11 @@ SESSION 182, V17.0/1/2/5 shipped + real-mode validated**;
 **V18 shipped + real-mode validated SESSION 184.**
 **Phase 5:** Brand ecosystem under 24/7 GLOBAL AI parent
 (SESSION 178 B-arc).
-**Asset Library v1 arc IN FLIGHT (SESSION 185-186):**
-A0 + A1 + A2 SHIPPED. Every new Asset carries a role by
-construction; rule 20 enforced by test. **A3 opens next.**
+**Asset Library v1 arc IN FLIGHT (SESSION 185-187):**
+A0 + A1 + A2 + A3 SHIPPED — backend foundational layer
+complete. Every new Asset carries a role by construction;
+rule 20 enforced by test; storage-health classifier ready
+for A4 serializer to attach. **A4 opens next.**
 
 | Surface | Status |
 |---|---|
@@ -206,8 +208,9 @@ construction; rule 20 enforced by test. **A3 opens next.**
 | Asset Library v1 — A0 enum + migration | DONE (SESSION 185) |
 | Asset Library v1 — A1 backfill command + dev-DB --commit | DONE (SESSION 185) |
 | **Asset Library v1 — A2 primitives stamp role at emit** | **DONE (SESSION 186)** |
-| Asset Library v1 — A3 storage-health helper | **NEXT (SESSION 187)** |
-| Asset Library v1 — A4 / A5 / A6 / A7 / A8 | Queued |
+| **Asset Library v1 — A3 storage-health helper** | **DONE (SESSION 187)** |
+| Asset Library v1 — A4 read endpoints | **NEXT (SESSION 188)** |
+| Asset Library v1 — A5 / A6 / A7 / A8 | Queued |
 | B6-B10 brand arc | Deferred |
 | F8.1 (K10 seed corpus) | Queued |
 | K7.x v3 YouTube oEmbed | Queued |
@@ -267,14 +270,17 @@ cd web && pnpm dev                          # :5174 — V2 dark navy + gold
 python3 /Users/donkeyking/development/context-kit/context_kit.py doctor
 ```
 
-**SESSION 187 stack-up notes:**
+**SESSION 188 stack-up notes:**
 
-* **Celery worker** must be restarted if any composition
-  fires next session — SESSION 186 changed the
-  `_persist_output_asset` shape (passes `role=...` now).
-  The worker holds stale module imports until bounced.
-  "Worker stop-state is silent" calibration (SESSION 184
-  #5) still applies.
+* **No Celery worker concern this session unless a
+  composition is fired.** A4 adds a read endpoint only;
+  it doesn't touch primitive emit shape or any
+  consumed-by-worker module.
+* **`settings.MEDIA_ENGINE_DATA_ROOT`** is the recognized
+  override for the storage-health filesystem check
+  (SESSION 187). Default `<repo>/media-engine/`. Production
+  / staging deploys with non-default mounts can override
+  via env.
 * Uvicorn `--reload` window — wait for "Application
   startup complete" between rapid edits per SESSION 180
   TRUST_CALIBRATION.
@@ -312,12 +318,12 @@ For any new step primitive added after A2:
 4. **Register the primitive** in
    `apps/compositions/primitives/__init__.py::_REGISTRY`.
 
-**Smoke checks** (counts as of SESSION 186 close):
+**Smoke checks** (counts as of SESSION 187 close):
 
 ```bash
 # Backend (from shell/)
 python manage.py inventory
-python -m pytest                              # 936 tests (compositions: 505)
+python -m pytest                              # 956 tests (compositions: 525)
 
 # Media-engine (from media-engine/)
 python -m pytest                              # 194 tests
@@ -326,6 +332,15 @@ python -m pytest                              # 194 tests
 pnpm build                                    # type-check + bundle
 pnpm test                                     # 95 vitest tests
 ```
+
+**New surfaces from SESSION 187:**
+
+* `apps/compositions/assets.py` — `StorageHealth` constants
+  (7 values) + `parse_jwt_exp(url)` + `compute_storage_health(asset)`.
+  Pure stateless functions; live per request. The A4 serializer
+  attaches `storage_health` to each row via `SerializerMethodField`.
+* `settings.MEDIA_ENGINE_DATA_ROOT` — optional override for the
+  filesystem-existence-check root. Default `<repo>/media-engine/`.
 
 **New surfaces from SESSION 186:**
 
@@ -361,21 +376,20 @@ pnpm test                                     # 95 vitest tests
 
 ## AI / assistant context
 
-- **Last session: SESSION 186 — A2 primitives stamp role.**
+- **Last session: SESSION 187 — A3 storage-health helper.**
   One feature commit + handoff. Clean session, no deferrals.
-  Contract rule 20 now enforced statically (AST scans) AND
-  at runtime (runner backstop + coverage tests). Tests
-  928 → 936. One new TRUST_CALIBRATION entry
-  (one-runner-emit-many-callers).
+  Asset Library v1 backend foundational layer complete
+  (A0+A1+A2+A3). Tests 936 → 956. No new TRUST_CALIBRATION
+  entries (A3 was a small, well-scoped helper using
+  existing architectural patterns).
 
-- **Prior session: SESSION 185 — drift sweep + Asset Library
-  scope-lock + A0 + A1.** Five commits + handoff. Doctor
-  3 warnings → 0 at boot. Asset Library v1 locked with 10
-  roles. A0 (model + migration) + A1 (backfill + dev-DB
-  --commit applied to 128 of 136 candidates) shipped.
-  Two new TRUST_CALIBRATION entries.
+- **Prior session: SESSION 186 — A2 primitives stamp role.**
+  One feature commit + handoff. Contract rule 20 now enforced
+  statically (AST scans) AND at runtime (runner backstop +
+  coverage tests). Tests 928 → 936. One new TRUST_CALIBRATION
+  entry (one-runner-emit-many-callers).
 
-- **Calibration carried forward (NEW SESSION 186 — 16 total)**:
+- **Calibration carried forward (16 total — unchanged SESSION 187)**:
   - One-runner-emit, many-callers is the cleanest shape for
     cross-cutting Asset metadata.
   - (from SESSION 185 — 2 entries)
@@ -421,12 +435,12 @@ pnpm test                                     # 95 vitest tests
   defaults, one primitive + one knob + one endpoint per
   slice, real-mode validated before handoff.
 
-- **A-arc growth template (SESSION 185-186)**: Asset
+- **A-arc growth template (SESSION 185-187)**: Asset
   Library v1 ships in 9 narrow slices. A0 (enum) + A1
-  (backfill) + A2 (primitives stamp role) form the
-  foundational layer. A3 (storage health) + A4 (read
-  endpoint) close out the backend. A5/A6/A7/A8 open
-  the SPA surface.
+  (backfill) + A2 (primitives stamp role) + A3 (storage
+  health) form the **backend foundational layer — now
+  complete**. A4 (read endpoint) is the bridge slice.
+  A5/A6/A7/A8 open the SPA surface.
 
 - **Brand layer is load-bearing.** Every component must
   import company/product strings from `@/lib/brand` per
