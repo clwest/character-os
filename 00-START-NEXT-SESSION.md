@@ -47,7 +47,7 @@ state: active
 > breakdown). **F0-F10 complete; F8.1 queued.**
 > **Media generation scope lock:** `docs/design/MEDIA_GENERATION_V1.md`
 > (locked SESSION 172 — 10 contract rules, W11.6.0-W11.6.5
-> slice breakdown). **W11.6.0-W11.6.5 + W11.6.5.1-3 COMPLETE.**
+> slice breakdown). **W11.6.0-W11.6.5 + W11.6.5 sub-slices 1/2/3 COMPLETE.**
 > **NEW: Asset Library scope proposal (SESSION 184)** —
 > `docs/design/ASSET_LIBRARY_V1.md` (`status: proposed`).
 > 9 roles, 9 contract rules, 8 slices A0-A8 (~5-6 sessions).
@@ -340,7 +340,7 @@ SESSION 182, V17.0/1/2/5 shipped + real-mode validated**;
 cd infra && docker compose up -d           # Redis on :6381, Postgres on :5433
 
 cd media-engine && source .venv/bin/activate
-uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload
+uvicorn app.main:app --host localhost --port 8001 --reload
 
 cd shell && source .venv/bin/activate
 python manage.py runserver                 # :8000
