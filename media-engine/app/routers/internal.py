@@ -3921,11 +3921,18 @@ def post_internal_image(
 
 
 def _seed_neutral_data_uri() -> str:
-    """1x1 neutral-grey PNG as a base64 data URI. Used as the
+    """8x8 neutral-grey PNG as a base64 data URI. Used as the
     referenceImages seed when the operator didn't supply one
     (gen4_image rejects requests without at least one reference
-    image)."""
-    png = _solid_png(1, 1, (200, 200, 200))
+    image).
+
+    Was 1x1 until SESSION 181 dogfood — Runway tightened the
+    referenceImages validation to require at least 2x2 pixels
+    ("Invalid asset dimensions. Height and width must be at
+    least 2px. Got 1x1."). Bumped to 8x8 for headroom against
+    any future minimum bumps; still a single solid color, so
+    effectively a no-op as a visual reference."""
+    png = _solid_png(8, 8, (200, 200, 200))
     return "data:image/png;base64," + base64.b64encode(png).decode("ascii")
 
 
