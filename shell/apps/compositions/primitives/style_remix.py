@@ -43,7 +43,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from apps.compositions.models import AssetType
+from apps.compositions.models import AssetRole, AssetType
 from character_os.clients.media_engine import (
     MediaEngineClient,
     MediaEngineError,
@@ -116,6 +116,7 @@ class StyleRemixPrimitive:
                     "seed": seed,
                     "chunked": False,
                 },
+                role=AssetRole.POLISH_OUTPUT.value,
             )
 
         if not base.file_path:
@@ -165,6 +166,7 @@ class StyleRemixPrimitive:
             size_bytes=result.size_bytes,
             cost_micros=_STYLE_REMIX_MICROS,
             extra_source_spec=extra,
+            role=AssetRole.POLISH_OUTPUT.value,
         )
 
     @staticmethod

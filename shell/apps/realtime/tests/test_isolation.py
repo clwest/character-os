@@ -95,6 +95,13 @@ ALLOWED_FILES = {
     # + workspace isolation. workspace anchor is set explicitly
     # at row create; the pre_save signal still fires.
     "apps/accounts/tests/test_workspace_overview.py",
+    # Asset Library A2 (SESSION 186) — contract-rule-20 coverage
+    # test seeds a single READY RealtimeSession + patches the
+    # media-engine client to verify ``capture_transcript``
+    # stamps ``role=TRANSCRIPT`` on the Asset it creates.
+    # Workspace anchor is set explicitly at create; the
+    # pre_save signal still fires.
+    "apps/compositions/tests/test_primitive_role_coverage.py",
 }
 
 

@@ -48,7 +48,7 @@ from __future__ import annotations
 import json
 import logging
 
-from apps.compositions.models import AssetType
+from apps.compositions.models import AssetRole, AssetType
 from apps.compositions.script_splitter import (
     DEFAULT_CHUNK_MAX_CHARS,
     chunk_script,
@@ -131,6 +131,7 @@ class SplitScriptPrimitive:
                 "split_path": split_path,
                 "input_chars": len(script),
             },
+            role=AssetRole.TRANSCRIPT.value,
         )
 
     @staticmethod

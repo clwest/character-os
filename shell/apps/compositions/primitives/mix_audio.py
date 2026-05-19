@@ -37,7 +37,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from apps.compositions.models import Asset, AssetType
+from apps.compositions.models import Asset, AssetRole, AssetType
 from character_os.clients.media_engine import (
     MediaEngineClient,
     MediaEngineError,
@@ -106,6 +106,7 @@ class MixAudioPrimitive:
                     "audio_asset_ids": [str(a.id) for a in audio_tracks],
                     "mix_spec": mix_spec,
                 },
+                role=AssetRole.COMPOSITE_OUTPUT.value,
             )
 
         # ---- real-mode path -----------------------------------
@@ -164,6 +165,7 @@ class MixAudioPrimitive:
             size_bytes=result.size_bytes,
             cost_micros=_MIX_AUDIO_MICROS,
             extra_source_spec=extra,
+            role=AssetRole.COMPOSITE_OUTPUT.value,
         )
 
     @staticmethod

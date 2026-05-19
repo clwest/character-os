@@ -36,7 +36,7 @@ from __future__ import annotations
 import json
 import logging
 
-from apps.compositions.models import Asset, AssetType
+from apps.compositions.models import Asset, AssetRole, AssetType
 from character_os.clients.media_engine import (
     MediaEngineClient,
     MediaEngineError,
@@ -88,6 +88,7 @@ class TranscribePrimitive:
                     "source_asset_type": source.asset_type,
                     "segment_count": len(stub_segments),
                 },
+                role=AssetRole.TRANSCRIPT.value,
             )
 
         if not source.file_path:
@@ -136,6 +137,7 @@ class TranscribePrimitive:
                 "language": result.language,
                 "media_engine_mock_mode": result.mock_mode,
             },
+            role=AssetRole.TRANSCRIPT.value,
         )
 
     @staticmethod

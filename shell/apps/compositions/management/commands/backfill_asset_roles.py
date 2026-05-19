@@ -17,22 +17,12 @@ Behavior:
   Re-running after a partial commit picks up only the still-default
   rows.
 
-Heuristic table (primitive_kind → AssetRole):
-
-* generate_avatar_speech / remove_avatar_background → TALKING_HEAD
-* generate_visual_clip / extend_visual_clip / concat_clips → BACKDROP
-* composite_video / mix_audio → COMPOSITE_OUTPUT
-* add_captions / add_intro_outro / trim_clip / reformat_clip /
-  style_remix → POLISH_OUTPUT
-* generate_image → REFERENCE_IMAGE
-* transcribe / split_script / realtime_transcript → TRANSCRIPT
-* design_voice / dub_audio / audio_extract → AUDIO_TRACK
-* smoke_keyframes → EXPERIMENT
-
-Plus the two known smoke-emitted asset UUIDs from SESSION 184
-(``c21fdeec...`` veo3.1_fast, ``89a1ce5f...`` gen3a_turbo) which
-were backfilled manually via Django shell with no primitive_kind
-— they're hard-coded as EXPERIMENT.
+The heuristic table itself lives in
+:mod:`apps.compositions.asset_roles` (SESSION 186 / A2) so the same
+mapping serves both production primitive emit sites and this
+backfill. ``PRIMITIVE_TO_ROLE``, ``KNOWN_EXPERIMENT_UUID_PREFIXES``,
+and ``derive_role`` are re-exported here for tests + imports that
+pre-date the move.
 
 Assets that match no heuristic are listed as **needs review** in
 the report and left at ``RAW_UPLOAD``.
@@ -45,67 +35,12 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from apps.accounts.models import Workspace
-from apps.compositions.models import Asset, AssetRole
-
-
-# Heuristic table: source_spec.primitive_kind → target role.
-# Add a row here when a new primitive lands (contract rule 20 —
-# no new primitive emits without a role).
-PRIMITIVE_TO_ROLE: dict[str, str] = {
-    # Avatar foreground
-    "generate_avatar_speech": AssetRole.TALKING_HEAD.value,
-    "remove_avatar_background": AssetRole.TALKING_HEAD.value,
-    # Scene / backdrop
-    "generate_visual_clip": AssetRole.BACKDROP.value,
-    "extend_visual_clip": AssetRole.BACKDROP.value,
-    "concat_clips": AssetRole.BACKDROP.value,
-    # Composite combiners
-    "composite_video": AssetRole.COMPOSITE_OUTPUT.value,
-    "mix_audio": AssetRole.COMPOSITE_OUTPUT.value,
-    # Polish / post-composite refinement
-    "add_captions": AssetRole.POLISH_OUTPUT.value,
-    "add_intro_outro": AssetRole.POLISH_OUTPUT.value,
-    "trim_clip": AssetRole.POLISH_OUTPUT.value,
-    "reformat_clip": AssetRole.POLISH_OUTPUT.value,
-    "style_remix": AssetRole.POLISH_OUTPUT.value,
-    # Image (for keyframes / reference)
-    "generate_image": AssetRole.REFERENCE_IMAGE.value,
-    # Text / transcript
-    "transcribe": AssetRole.TRANSCRIPT.value,
-    "split_script": AssetRole.TRANSCRIPT.value,
-    "realtime_transcript": AssetRole.TRANSCRIPT.value,
-    # Standalone audio
-    "design_voice": AssetRole.AUDIO_TRACK.value,
-    "dub_audio": AssetRole.AUDIO_TRACK.value,
-    "audio_extract": AssetRole.AUDIO_TRACK.value,
-    # Sandbox / experimental
-    "smoke_keyframes": AssetRole.EXPERIMENT.value,
-}
-
-
-# SESSION 184 manually-inserted smoke outputs that lack
-# primitive_kind. Hard-coded per ASSET_LIBRARY_V1.md
-# §In-scope clarifications.
-KNOWN_EXPERIMENT_UUID_PREFIXES: tuple[str, ...] = (
-    "c21fdeec",  # veo3.1_fast smoke output
-    "89a1ce5f",  # gen3a_turbo smoke output
+from apps.compositions.asset_roles import (
+    KNOWN_EXPERIMENT_UUID_PREFIXES,
+    PRIMITIVE_TO_ROLE,
+    derive_role,
 )
-
-
-def derive_role(asset: Asset) -> str | None:
-    """Return the target role for ``asset``, or ``None`` if no
-    heuristic matches (operator review required)."""
-    asset_uuid = str(asset.id)
-    for prefix in KNOWN_EXPERIMENT_UUID_PREFIXES:
-        if asset_uuid.startswith(prefix):
-            return AssetRole.EXPERIMENT.value
-
-    source_spec = asset.source_spec or {}
-    primitive_kind = source_spec.get("primitive_kind")
-    if primitive_kind and primitive_kind in PRIMITIVE_TO_ROLE:
-        return PRIMITIVE_TO_ROLE[primitive_kind]
-
-    return None
+from apps.compositions.models import Asset, AssetRole
 
 
 class Command(BaseCommand):
@@ -237,7 +172,8 @@ class Command(BaseCommand):
         self.stdout.write("done.")
 
 
-# Re-exported for tests
+# Re-exported for tests (and existing imports that pre-date the SESSION
+# 186 / A2 move to apps.compositions.asset_roles).
 __all__ = [
     "Command",
     "PRIMITIVE_TO_ROLE",

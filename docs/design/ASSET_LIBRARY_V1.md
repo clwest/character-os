@@ -294,7 +294,7 @@ applicable.
 |---|---|---|---|
 | **A0** | `Asset.role` enum field + migration. Default `RAW_UPLOAD` for new rows. Existing rows get `RAW_UPLOAD` until A1 backfill. | ½ session | **✓ SHIPPED (SESSION 185)** |
 | **A1** | Backfill management command (`python manage.py backfill_asset_roles`, with `--commit` to apply, `--workspace NAME` to scope). Heuristic-driven from `source_spec.primitive_kind` + known-smoke-UUID special case. Operator reviews dry-run report before committing. | ½ session | **✓ SHIPPED (SESSION 185)** |
-| **A2** | Every primitive in `apps.compositions.primitives` stamps role on its output. Migration test enforces no primitive emits without a role. | 1 session | pending |
+| **A2** | Every primitive in `apps.compositions.primitives` stamps role on its output. Migration test enforces no primitive emits without a role. | 1 session | **✓ SHIPPED (SESSION 186)** |
 | **A3** | Storage-health helper + cached property. JWT exp parser. Filesystem existence check. | ½ session | pending |
 | **A4** | `GET /api/workspace/assets/` + `GET /api/workspace/assets/<id>/` read-only endpoints with filters. | ½ session | pending |
 | **A5** | SPA route `/workspace/assets` — list view with filter chips (role / asset_type / storage). Pagination. | 1 session | pending |
@@ -433,3 +433,27 @@ A5 surface only minimally.
   audio + 6 image legacy rows pre-dating primitive_kind
   discipline). Compositions suite: 488 → 497 (+9); full
   shell suite 915 → 928 (+13 = A0+A1).
+* **2026-05-19 (SESSION 186)** — **A2 SHIPPED.** Every
+  primitive in `apps.compositions.primitives` now stamps
+  `role` on its `PrimitiveResult` at emit time. New module
+  `apps/compositions/asset_roles.py` hosts the canonical
+  `PRIMITIVE_TO_ROLE` mapping + `KNOWN_EXPERIMENT_UUID_PREFIXES`
+  + `derive_role` helper (moved from the A1 management command;
+  command re-exports for backwards-compat). `PrimitiveResult`
+  dataclass gained a `role: str = ""` field; the runner's
+  `_persist_output_asset` passes it through to
+  `Asset.objects.create(..., role=result.role)` AND raises
+  `PrimitiveError("Contract rule 20")` if the role is empty
+  (defense-in-depth runtime backstop). Realtime
+  `capture_transcript` stamps `role=AssetRole.TRANSCRIPT.value`
+  on its direct emit. New `test_primitive_role_coverage.py` —
+  8 tests across 3 layers: AST scan of every primitive_kind
+  literal vs `PRIMITIVE_TO_ROLE`; AST scan that every
+  `PrimitiveResult(...)` constructor passes `role=`; runtime
+  proofs for mock primitives + the runner's round-trip + the
+  raise-on-missing backstop + the realtime transcript path.
+  Two new sanctioned-writer entries in
+  `test_isolation.py` files (compositions + realtime —
+  coverage test seeds its own Composition/RealtimeSession
+  rows). Compositions suite: 497 → 505 (+8); full shell suite
+  928 → 936 (+8 = A2 coverage tests).

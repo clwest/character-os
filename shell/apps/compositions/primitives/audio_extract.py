@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import logging
 
-from apps.compositions.models import Asset, AssetType
+from apps.compositions.models import Asset, AssetRole, AssetType
 from character_os.clients.media_engine import (
     MediaEngineClient,
     MediaEngineError,
@@ -82,6 +82,7 @@ class AudioExtractPrimitive:
                     "source_asset_id": str(base.id),
                     "format": fmt,
                 },
+                role=AssetRole.AUDIO_TRACK.value,
             )
 
         if not base.file_path:
@@ -118,6 +119,7 @@ class AudioExtractPrimitive:
                 "format": fmt,
                 "media_engine_mock_mode": result.mock_mode,
             },
+            role=AssetRole.AUDIO_TRACK.value,
         )
 
     @staticmethod

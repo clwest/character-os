@@ -32,7 +32,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from apps.compositions.models import Asset, AssetType
+from apps.compositions.models import Asset, AssetRole, AssetType
 from character_os.clients.media_engine import (
     MediaEngineClient,
     MediaEngineError,
@@ -103,6 +103,7 @@ class GenerateImagePrimitive:
                     "seed": seed,
                     "used_reference_image": bool(ref_url),
                 },
+                role=AssetRole.REFERENCE_IMAGE.value,
             )
 
         try:
@@ -138,6 +139,7 @@ class GenerateImagePrimitive:
                 "used_reference_image": bool(ref_url),
                 "media_engine_mock_mode": result.mock_mode,
             },
+            role=AssetRole.REFERENCE_IMAGE.value,
         )
 
     @staticmethod

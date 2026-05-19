@@ -131,6 +131,15 @@ ALLOWED_FILES = {
     # written is role only).
     "apps/compositions/management/commands/backfill_asset_roles.py",
     "apps/compositions/tests/test_backfill_asset_roles.py",
+    # Asset Library A2 (SESSION 186) — contract-rule-20 coverage
+    # tests construct Composition + CompositionStep rows + drive
+    # ``_persist_output_asset`` directly to verify the
+    # PrimitiveResult.role → Asset.role round-trip + the runner's
+    # raise-on-missing-role backstop. Uses _make_workspace +
+    # Spokesperson + Composition.objects.create within the test
+    # body; cross-workspace isolation guarantee is unaffected
+    # (every row anchors to the same _make_workspace ws).
+    "apps/compositions/tests/test_primitive_role_coverage.py",
 }
 
 

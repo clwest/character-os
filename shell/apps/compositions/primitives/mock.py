@@ -29,7 +29,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from apps.compositions.models import AssetType
+from apps.compositions.models import AssetRole, AssetType
 
 
 class PrimitiveError(Exception):
@@ -47,6 +47,13 @@ class PrimitiveResult:
     specific. Clips fill ``file_path`` + ``duration_ms`` +
     dimensions; transcripts fill ``inline_content``; voices
     fill ``file_path`` (Runway voice_id, not a local path).
+
+    ``role`` is one of :class:`apps.compositions.models.AssetRole`
+    values. Asset Library v1 contract rule 20 (SESSION 186 / A2):
+    every primitive emits a role on its output. The runner asserts
+    a non-empty value before persisting; the contract-rule-20
+    coverage test enforces that every registered primitive stamps
+    a role matching :data:`apps.compositions.asset_roles.PRIMITIVE_TO_ROLE`.
     """
 
     asset_type: str  # one of AssetType.choices values
@@ -59,6 +66,7 @@ class PrimitiveResult:
     size_bytes: int | None = None
     cost_micros: int = 0
     extra_source_spec: dict[str, Any] = field(default_factory=dict)
+    role: str = ""  # AssetRole value; contract rule 20 (A2)
 
 
 def _deterministic_path(step_id: str, suffix: str) -> str:
@@ -95,6 +103,7 @@ class MockPassthroughPrimitive:
                 "mock": True,
                 "resolved_input_slots": slot_names,
             },
+            role=AssetRole.EXPERIMENT.value,
         )
 
     @staticmethod
@@ -142,6 +151,7 @@ class MockSlowPrimitive:
             duration_ms=5000,
             cost_micros=50,
             extra_source_spec={"mock": True, "slow": True},
+            role=AssetRole.EXPERIMENT.value,
         )
 
     @staticmethod

@@ -26,7 +26,7 @@ import logging
 from celery import shared_task
 from django.utils import timezone
 
-from apps.compositions.models import Asset, AssetType
+from apps.compositions.models import Asset, AssetRole, AssetType
 from character_os.clients.media_engine import (
     MediaEngineClient,
     MediaEngineError,
@@ -185,6 +185,7 @@ def capture_transcript(session: RealtimeSession) -> dict:
         source_spec=source_spec,
         mime_type="text/plain",
         size_bytes=len(inline_content.encode("utf-8")),
+        role=AssetRole.TRANSCRIPT.value,
     )
     session.transcript_asset = asset
     session.save(update_fields=["transcript_asset", "updated_at"])

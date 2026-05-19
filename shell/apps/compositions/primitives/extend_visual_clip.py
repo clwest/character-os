@@ -57,7 +57,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from apps.compositions.models import Asset, AssetType
+from apps.compositions.models import Asset, AssetRole, AssetType
 from character_os.clients.media_engine import (
     MediaEngineClient,
     MediaEngineError,
@@ -141,6 +141,7 @@ class ExtendVisualClipPrimitive:
                     "ratio": ratio,
                     "seed": seed,
                 },
+                role=AssetRole.BACKDROP.value,
             )
 
         # ---- real-mode path -----------------------------------
@@ -197,6 +198,7 @@ class ExtendVisualClipPrimitive:
             size_bytes=result.size_bytes,
             cost_micros=ExtendVisualClipPrimitive.estimate_cost(params),
             extra_source_spec=extra,
+            role=AssetRole.BACKDROP.value,
         )
 
     @staticmethod

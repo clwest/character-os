@@ -33,7 +33,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from apps.compositions.models import Asset, AssetType
+from apps.compositions.models import Asset, AssetRole, AssetType
 from character_os.clients.media_engine import (
     MediaEngineClient,
     MediaEngineError,
@@ -107,6 +107,7 @@ class RemoveAvatarBackgroundPrimitive:
                     "model": model,
                     "source_asset_id": str(source.id),
                 },
+                role=AssetRole.TALKING_HEAD.value,
             )
 
         # ---- real-mode path -----------------------------------
@@ -157,6 +158,7 @@ class RemoveAvatarBackgroundPrimitive:
             size_bytes=result.size_bytes,
             cost_micros=_REMOVE_BG_MICROS,
             extra_source_spec=extra,
+            role=AssetRole.TALKING_HEAD.value,
         )
 
     @staticmethod

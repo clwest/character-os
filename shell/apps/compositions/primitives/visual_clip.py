@@ -47,7 +47,7 @@ import logging
 import time
 from typing import Any
 
-from apps.compositions.models import AssetType
+from apps.compositions.models import AssetRole, AssetType
 from character_os.clients.media_engine import (
     MediaEngineClient,
     MediaEngineError,
@@ -130,6 +130,7 @@ class GenerateVisualClipPrimitive:
                     "mock": True,
                     "prompt_chars": len(prompt),
                 },
+                role=AssetRole.BACKDROP.value,
             )
 
         # ---- real-mode path -----------------------------------
@@ -212,6 +213,7 @@ class GenerateVisualClipPrimitive:
             mime_type="video/mp4",
             cost_micros=GenerateVisualClipPrimitive.estimate_cost(step.params or {}),
             extra_source_spec=extra,
+            role=AssetRole.BACKDROP.value,
         )
 
     @staticmethod

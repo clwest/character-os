@@ -49,7 +49,7 @@ import logging
 import time
 from typing import Any
 
-from apps.compositions.models import AssetType
+from apps.compositions.models import AssetRole, AssetType
 from character_os.clients.media_engine import (
     MediaEngineClient,
     MediaEngineError,
@@ -233,6 +233,7 @@ class GenerateAvatarSpeechPrimitive:
                     "mock": True,
                     "script_chars": len(script),
                 },
+                role=AssetRole.TALKING_HEAD.value,
             )
 
         # ---- real-mode path -----------------------------------
@@ -362,6 +363,7 @@ class GenerateAvatarSpeechPrimitive:
             mime_type="video/mp4",
             cost_micros=GenerateAvatarSpeechPrimitive.estimate_cost(step.params or {}),
             extra_source_spec=extra,
+            role=AssetRole.TALKING_HEAD.value,
         )
 
     @staticmethod

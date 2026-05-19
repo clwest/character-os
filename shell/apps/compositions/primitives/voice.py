@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from apps.compositions.models import Asset, AssetType
+from apps.compositions.models import Asset, AssetRole, AssetType
 from character_os.clients.media_engine import (
     MediaEngineClient,
     MediaEngineError,
@@ -83,6 +83,7 @@ class DesignVoicePrimitive:
                     "description_chars": len(description),
                     "name": name,
                 },
+                role=AssetRole.AUDIO_TRACK.value,
             )
 
         try:
@@ -113,6 +114,7 @@ class DesignVoicePrimitive:
                 "name": name,
                 "media_engine_mock_mode": result.mock_mode,
             },
+            role=AssetRole.AUDIO_TRACK.value,
         )
 
     @staticmethod
@@ -164,6 +166,7 @@ class DubAudioPrimitive:
                     "source_asset_id": str(source.id),
                     "target_language": target_language,
                 },
+                role=AssetRole.AUDIO_TRACK.value,
             )
 
         if not source.file_path:
@@ -205,6 +208,7 @@ class DubAudioPrimitive:
                 "target_language": target_language,
                 "media_engine_mock_mode": result.mock_mode,
             },
+            role=AssetRole.AUDIO_TRACK.value,
         )
 
     @staticmethod

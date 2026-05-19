@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from apps.compositions.models import Asset, AssetType
+from apps.compositions.models import Asset, AssetRole, AssetType
 from character_os.clients.media_engine import (
     MediaEngineClient,
     MediaEngineError,
@@ -97,6 +97,7 @@ class AddCaptionsPrimitive:
                     "base_asset_id": str(base.id),
                     "caption_count": len(captions),
                 },
+                role=AssetRole.POLISH_OUTPUT.value,
             )
 
         if not base.file_path:
@@ -126,6 +127,7 @@ class AddCaptionsPrimitive:
                 "caption_count": len(captions),
                 "media_engine_mock_mode": result.mock_mode,
             },
+            role=AssetRole.POLISH_OUTPUT.value,
         )
 
     @staticmethod
@@ -185,6 +187,7 @@ class AddIntroOutroPrimitive:
                     "has_intro": intro is not None,
                     "has_outro": outro is not None,
                 },
+                role=AssetRole.POLISH_OUTPUT.value,
             )
 
         if not base.file_path:
@@ -222,6 +225,7 @@ class AddIntroOutroPrimitive:
                 "has_outro": outro is not None,
                 "media_engine_mock_mode": result.mock_mode,
             },
+            role=AssetRole.POLISH_OUTPUT.value,
         )
 
     @staticmethod
@@ -276,6 +280,7 @@ class TrimClipPrimitive:
                     "start_ms": start_ms,
                     "end_ms": end_ms,
                 },
+                role=AssetRole.POLISH_OUTPUT.value,
             )
 
         if not base.file_path:
@@ -313,6 +318,7 @@ class TrimClipPrimitive:
                 "end_ms": end_ms,
                 "media_engine_mock_mode": result.mock_mode,
             },
+            role=AssetRole.POLISH_OUTPUT.value,
         )
 
     @staticmethod
@@ -362,6 +368,7 @@ class ReformatClipPrimitive:
                     "base_asset_id": str(base.id),
                     "target_ratio": target_ratio,
                 },
+                role=AssetRole.POLISH_OUTPUT.value,
             )
 
         if not base.file_path:
@@ -391,6 +398,7 @@ class ReformatClipPrimitive:
                 "target_ratio": target_ratio,
                 "media_engine_mock_mode": result.mock_mode,
             },
+            role=AssetRole.POLISH_OUTPUT.value,
         )
 
     @staticmethod

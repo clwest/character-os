@@ -374,7 +374,24 @@ def _persist_output_asset(
     """Create an Asset row capturing the primitive's output.
     Records provenance in ``source_spec`` so re-runs +
     audits can reconstruct what fed the asset.
+
+    Asset Library v1 contract rule 20 (SESSION 186 / A2): the
+    primitive must have stamped ``result.role``. Defense-in-depth
+    raise here catches any future primitive that forgets, since
+    a role-less row would defeat A4's role-filtered list and A7's
+    asset_picker. The coverage test in
+    ``tests/test_primitive_role_coverage.py`` is the static
+    enforcement; this raise is the runtime backstop.
     """
+    if not result.role:
+        raise PrimitiveError(
+            f"primitive {step.primitive!r} (step {step.id}) returned a "
+            "PrimitiveResult with no role stamped. Contract rule 20: every "
+            "primitive must set role=AssetRole.X.value on its output. See "
+            "apps.compositions.asset_roles.PRIMITIVE_TO_ROLE for the "
+            "registered mapping."
+        )
+
     source_spec: dict[str, Any] = {
         "primitive": step.primitive,
         "step_position": step.position,
@@ -399,6 +416,7 @@ def _persist_output_asset(
         size_bytes=result.size_bytes,
         cost_micros=result.cost_micros,
         composition=composition,
+        role=result.role,
         # W11.6.5.3 (SESSION 174) — auto-title from the parent
         # composition's name so the SPA asset_picker dropdowns
         # render readable labels instead of CDN URL tails. SESSION

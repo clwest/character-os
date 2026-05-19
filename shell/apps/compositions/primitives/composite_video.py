@@ -39,7 +39,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from apps.compositions.models import Asset, AssetType
+from apps.compositions.models import Asset, AssetRole, AssetType
 from character_os.clients.media_engine import (
     MediaEngineClient,
     MediaEngineError,
@@ -134,6 +134,7 @@ class CompositeVideoPrimitive:
                     "input_count": len(clips),
                     "input_asset_ids": [str(c.id) for c in clips],
                 },
+                role=AssetRole.COMPOSITE_OUTPUT.value,
             )
 
         # ---- real-mode path -----------------------------------
@@ -185,6 +186,7 @@ class CompositeVideoPrimitive:
             size_bytes=result.size_bytes,
             cost_micros=_COMPOSITE_VIDEO_MICROS,
             extra_source_spec=extra,
+            role=AssetRole.COMPOSITE_OUTPUT.value,
         )
 
     @staticmethod
