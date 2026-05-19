@@ -41,138 +41,135 @@ state: active
 > **Asset Library scope lock:** `docs/design/ASSET_LIBRARY_V1.md`
 > (locked SESSION 185). **10 roles**, 9 contract rules merged
 > into V1 as rules 14-22, **9 slices A0-A8** (~5-6 sessions).
-> **A0+A1+A2+A3+A4+A5+A7 SHIPPED — operator-visible payoff
-> (role-filtered picker) closed. A6 + A8 remain.**
+> **8 of 9 slices SHIPPED — A8 (composition-lineage cross-link)
+> is the arc-closer.**
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_190_A7_PICKER_ROLE_FILTER.md`.
+> **Last handoff:** `docs/handoffs/SESSION_191_A6_ASSET_DETAIL_VIEW.md`.
 
 ---
 
-## SESSION 190 outcome — A7 asset_picker role-filter
+## SESSION 191 outcome — A6 SPA per-asset detail view
 
 Clean single-slice session. One feature commit + handoff
-close. **A7 ships — the structural fix that motivated the
-whole arc.** V18's `backdrop_clip_id` dropdown (plus three
-sibling V8 pickers) now narrows to their semantically-
-correct role; smoke / talking-head / composite clips no
-longer pollute the backdrop picker. SESSION 184 V18 dogfood
-"two random people" finding is now structurally prevented.
+close. **A6 ships**: `/workspace/assets/:id` detail page
+with media preview by asset_type (img / video / audio /
+voice-id panel / TRANSCRIPT body), full metadata table
+with copy buttons, lineage section (producing composition
+card + producing step JSON + downstream consumer list),
+loading + error + 404 states. Delegated to
+`react-web-delivery` agent.
 
-Backend tests **980 → 990 (+10)**; SPA vitest **120 → 125
-(+5)**. Backend + SPA + recipe registry all touched in a
-½-session-sized slice. No real-mode spend.
+Backend tests **990 → 992 (+2)**; SPA vitest **125 → 131
+(+6)**. Agent added one load-bearing backend tweak:
+`_serialize_detail_asset` now includes `inline_content`
+(TRANSCRIPT bodies are useless without it). No real-mode
+spend.
 
-### A7 — role-filtered asset_picker
+### A6 — per-asset detail view
 
-* **`RecipeField.role_filter: str | None = None`** on the
-  dataclass; `to_json()` emits the key only when set
-  (omits for fuzzy pickers — backwards-compat with
-  existing SPA Zod `optional()`).
-* **Four picker fields tagged**:
-  * V18 `talking_head_with_backdrop.backdrop_clip_id` →
-    `BACKDROP` (prime motivating case).
-  * V8 `backdrop_layout.background_clip_id` → `BACKDROP`.
-  * V8 `broll_splice.broll_clip_id` → `B_ROLL`.
-  * V8 `music_bed_pass.music_asset_id` → `AUDIO_TRACK`.
-* **Fuzzy pickers stay unfiltered** (`pip_clip_id`,
-  `cohost_clip_id`, `foreground_clip_id`, layout
-  `base_clip_id`s). Genuine v2 design question, not
-  oversight.
-* **`AssetViewSet.list()`** accepts `?role=` comma-list
-  matching A4's shape. Unknown values match zero rows
-  (correct behavior — typo'd recipe registry produces
-  empty picker, not crash).
-* **SPA**: `recipes.ts` Zod `recipeFieldSchema` adds
-  `role_filter: z.string().optional()`;
-  `ListAssetsOptions.role?: string` flows through;
-  `AssetPicker` component reads `field.role_filter` and
-  forwards to `useAssets`.
-* **Bug caught during build**: TS strict-mode flagged
-  `apiJsonMock.mock.calls[0][0]` and `recipe.fields[0].role_filter`
-  as "Object is possibly undefined". Fixed with helper +
-  non-null assertion after `expect(field).toBeDefined()`
-  guards. **Recurring across A4+A5+A7 sessions** — TS
-  strict bites at `pnpm build`, not at `pnpm test`. The
-  existing "SPA gates need both pnpm test AND pnpm build"
-  calibration covers this; no new entry needed.
+* **`web/src/lib/api/workspace-assets.ts` extended** with
+  `producingStepSchema` + `downstreamCompositionSchema` +
+  `workspaceAssetDetailSchema` (list schema + producing_step
+  nullable + downstream_compositions array + inline_content).
+  New `getWorkspaceAsset` + `useWorkspaceAsset` hooks.
+* **New `web/src/routes/workspace/assets.$id.tsx`** — media
+  preview switches on asset_type (img / video / audio /
+  voice-id / TRANSCRIPT pre); metadata table with formatted
+  duration / size / cost / dates and copy-buttons for id +
+  file_path; lineage section with producing composition +
+  step JSON + downstream consumer list; loading + error +
+  404 states.
+* **`web/src/App.tsx`** — `WorkspaceAssetDetailRoute`
+  registered at `/workspace/assets/:id`.
+* **`web/src/routes/workspace/assets.tsx` (A5 page) tweaked**
+  — row title now wraps in a `Link` to the detail page;
+  row gains hover state.
+* **Backend tweak**:
+  `apps/compositions/views.py::_serialize_detail_asset`
+  now includes `inline_content` for the detail path.
+  TRANSCRIPT assets need their text body in detail view;
+  the list serializer intentionally omits it.
+* **Back-link** is plain `Link to="/workspace/assets"`
+  matching `knowledge.$id.tsx` — browser Back restores
+  filter URL state, no new state mechanism introduced.
 
-### Tests at SESSION 190 close
+### Tests at SESSION 191 close
 
 | Suite | Count | Delta |
 |---|---|---|
-| Django | **990** | +10 (980 → 990) |
-| - compositions | **559** | +10 (549 → 559) |
+| Django | **992** | +2 (990 → 992) |
+| - compositions | **561** | +2 (559 → 561) |
 | Media-engine | 194 | unchanged |
-| **SPA vitest** | **125** | **+5 (120 → 125)** |
+| **SPA vitest** | **131** | **+6 (125 → 131)** |
 
-Real-mode spend SESSION 190: **$0** (registry + endpoint
-change + tests; no API calls).
+Real-mode spend SESSION 191: **$0**.
 
 
 ---
 
-## FIRST THING (SESSION 191): A6 (detail view) or A8 (lineage cross-link)
+## FIRST THING (SESSION 192): A8 — arc-closer (½ session)
 
-A7 closed the operator-visible payoff. **Two slices remain
-in the arc; operator picks at slice-open.**
-
-### Option A — A6 SPA per-asset detail view (1 session)
-
-Mirror `web/src/routes/workspace/knowledge.$id.tsx`. The
-A4 retrieve endpoint already returns the full lineage shape
-(producing step + downstream consumers).
-
-* **Route**: `web/src/routes/workspace/assets.$id.tsx`.
-* **API client extension**: add `getWorkspaceAsset(id)` +
-  `useWorkspaceAsset(id)` to
-  `web/src/lib/api/workspace-assets.ts`. Zod schema for
-  detail shape (list schema + `producing_step` +
-  `downstream_compositions`).
-* **Detail panel**: thumbnail preview (image or video
-  player for IMAGE/CLIP; audio player for AUDIO/VOICE; text
-  for TRANSCRIPT), full metadata table (every field from
-  the list shape), copy-URL action, download-file action.
-* **Lineage section**: producing composition link +
-  producing step expand (primitive name, params, inputs),
-  downstream consumer compositions list.
-* **Back-to-list affordance**: preserves the list's filter
-  state via URL search params.
-* Use the `react-web-delivery` agent.
-
-### Option B — A8 F-arc composition-lineage cross-link (½ session)
-
+**A8 is the last slice in the Asset Library arc.**
 Composition overview pages get a "Produced assets" section
 showing each output Asset with its role badge + a link to
-the A6 detail view. Backend already has the data
-(`composition.produced_assets` reverse relation); the slice
-is mostly SPA + a small backend serializer addition.
+the A6 detail view. Closes the F-arc-style cross-link
+between Composition and Asset surfaces.
 
-* **Backend**: extend
-  `apps/compositions/serializers.py::CompositionSerializer`
-  to include a `produced_assets` field with id + role +
-  asset_type + title (light shape — full detail lives in
-  A4's retrieve).
-* **SPA**: extend `web/src/routes/compositions/$id.tsx` (or
-  wherever the composition overview lives) to render the
-  new section. Role badges follow the A5 storage-health
-  badge tone pattern.
-* **Tests**: backend serializer test + SPA render test.
+### Deliverable
 
-### Recommendation
+1. **Backend**: extend
+   `apps/compositions/serializers.py::CompositionSerializer`
+   with a `produced_assets` field. Light shape (id +
+   asset_type + role + title + storage_health) — the SPA
+   row links to A6's detail page for the full picture.
+   `composition.produced_assets` reverse relation already
+   exists.
+2. **SPA**: extend `web/src/routes/compositions/$id.tsx`
+   to render the new section. Role badges follow the A5
+   storage-health badge tone pattern. Each row is a link
+   to `/workspace/assets/<asset.id>`.
+3. **Tests**: backend serializer test (verify
+   produced_assets surface with roles + storage_health);
+   SPA render test (the section renders with assets).
 
-**Default to A6** for arc continuity — it's the natural
-next step from A5's list view, and the detail page is where
-operators will spend the most time browsing. A8 is a
-cross-link polish slice; it lands cleaner after A6 is in.
+A8 estimated effort: **½ session**.
 
-After A6 + A8, the arc closes. **Arc-close ceremony**:
-- Regen INVENTORY one more time.
-- TRUST_CALIBRATION entry summarizing the A-arc growth
-  template (similar to V-arc and R-arc closures).
-- Mark Asset Library v1 complete in
-  `docs/CHARACTER_OS_WHAT_IT_IS.md` + start-here.
+### Arc-close ceremony (after A8 lands)
+
+When A8 ships, the Asset Library v1 arc closes. The
+session-end housekeeping:
+
+1. **Regen INVENTORY** one final time.
+2. **TRUST_CALIBRATION entry** summarizing the A-arc growth
+   template (parallel to V-arc and R-arc closure entries).
+   Themes worth capturing:
+   * Narrow per-slice scope (½ session for most slices,
+     1 session for A2 + A5 + A6 where multiple files
+     spanned).
+   * Backend → SPA progression (A0→A4 backend, A5→A6 SPA,
+     A7 mechanical fix, A8 cross-link).
+   * Successful subagent delegation pattern (A5 + A6 both
+     via `react-web-delivery`).
+   * One operator-visible payoff slice (A7) explicitly
+     prioritized over arc continuity.
+3. **Mark Asset Library v1 complete** in
+   `docs/CHARACTER_OS_WHAT_IT_IS.md` + the table in
+   start-here.
+4. **Optional real-mode dogfood pass**: operator browses
+   the 128 dev-DB assets in `/workspace/assets`, drills into
+   detail views, fires a V18 composition with a
+   role-filtered backdrop picker (A7), and confirms the
+   produced assets land on the composition's overview page
+   (A8). End-to-end Asset Library v1 verification.
+
+### Alternative for SESSION 192
+
+If operator wants a bigger session, **bundle A8 + the
+arc-close ceremony in one session** — ship A8 then do all
+four ceremony steps in the same handoff. The handoff
+becomes the arc-close document.
 
 ---
 
@@ -189,12 +186,11 @@ SESSION 182, V17.0/1/2/5 shipped + real-mode validated**;
 **V18 shipped + real-mode validated SESSION 184.**
 **Phase 5:** Brand ecosystem under 24/7 GLOBAL AI parent
 (SESSION 178 B-arc).
-**Asset Library v1 arc IN FLIGHT (SESSION 185-190):**
-A0 + A1 + A2 + A3 + A4 + A5 + A7 SHIPPED. Backend +
-browse SPA + role-filtered picker (the structural fix that
-motivated the arc) complete. **A6 (detail view) or A8
-(lineage cross-link) opens next — operator picks; A6
-recommended for arc continuity.**
+**Asset Library v1 arc IN FLIGHT (SESSION 185-191):**
+A0 + A1 + A2 + A3 + A4 + A5 + A6 + A7 SHIPPED. Backend +
+browse SPA + detail SPA + role-filtered picker all done.
+**A8 (composition-lineage cross-link) is the arc-closer
+next session (½ session).**
 
 | Surface | Status |
 |---|---|
@@ -227,8 +223,8 @@ recommended for arc continuity.**
 | **Asset Library v1 — A4 workspace assets API** | **DONE (SESSION 188)** |
 | **Asset Library v1 — A5 SPA list view** | **DONE (SESSION 189)** |
 | **Asset Library v1 — A7 picker role-filter** | **DONE (SESSION 190)** |
-| Asset Library v1 — A6 SPA detail view | **NEXT (SESSION 191, option A)** |
-| Asset Library v1 — A8 lineage cross-link | **NEXT (SESSION 191, option B)** |
+| **Asset Library v1 — A6 SPA detail view** | **DONE (SESSION 191)** |
+| Asset Library v1 — A8 lineage cross-link | **NEXT (SESSION 192, arc-closer ½ session)** |
 | B6-B10 brand arc | Deferred |
 | F8.1 (K10 seed corpus) | Queued |
 | K7.x v3 YouTube oEmbed | Queued |
@@ -288,24 +284,27 @@ cd web && pnpm dev                          # :5174 — V2 dark navy + gold
 python3 /Users/donkeyking/development/context-kit/context_kit.py doctor
 ```
 
-**SESSION 191 stack-up notes:**
+**SESSION 192 stack-up notes:**
 
-* **A6 (Option A)** — SPA-only work. `pnpm dev` at :5174;
-  Django shell at :8000 for the live retrieve endpoint
-  `/api/workspace/assets/<id>/`. No backend changes
-  expected. Use the `react-web-delivery` agent — mirror
-  `web/src/routes/workspace/knowledge.$id.tsx` shape.
-* **A8 (Option B)** — Backend serializer + SPA.
-  CompositionSerializer gains a `produced_assets` field;
-  composition overview page renders the new section.
-* **Real-mode dogfood newly possible from A7.** Open
-  `http://localhost:5174` and start a V18
-  `talking_head_with_backdrop` composition — the
-  `backdrop_clip_id` dropdown should now only show
-  BACKDROP-tagged clips (42 in dev DB per SESSION 185
-  backfill). Worth a quick visual spot-check before
-  opening A6/A8 to confirm the wiring is correct
-  end-to-end.
+* **A8 spans backend + SPA.** Backend:
+  `apps/compositions/serializers.py::CompositionSerializer`
+  gains `produced_assets`. SPA:
+  `web/src/routes/compositions/$id.tsx` renders the new
+  section.
+* **Use `react-web-delivery`** for the SPA half of A8,
+  same pattern as A5 + A6. Backend half is small enough
+  to do solo.
+* **Real-mode dogfood opportunity at arc close.** Bring
+  up the full stack and walk an operator through:
+  1. Browse `/workspace/assets` (A5 — see 128 dev-DB
+     assets across 8 roles).
+  2. Click any row → detail page (A6).
+  3. Open the V18 `talking_head_with_backdrop` recipe →
+     backdrop_clip_id picker shows only BACKDROP clips
+     (A7).
+  4. Fire a composition → its overview page lists
+     produced assets with role badges (A8).
+  Full Asset Library v1 verification in one session.
 * Uvicorn `--reload` window — wait for "Application
   startup complete" between rapid edits per SESSION 180
   TRUST_CALIBRATION.
@@ -343,20 +342,35 @@ For any new step primitive added after A2:
 4. **Register the primitive** in
    `apps/compositions/primitives/__init__.py::_REGISTRY`.
 
-**Smoke checks** (counts as of SESSION 190 close):
+**Smoke checks** (counts as of SESSION 191 close):
 
 ```bash
 # Backend (from shell/)
 python manage.py inventory
-python -m pytest                              # 990 tests (compositions: 559)
+python -m pytest                              # 992 tests (compositions: 561)
 
 # Media-engine (from media-engine/)
 python -m pytest                              # 194 tests
 
 # SPA (from web/)
 pnpm build                                    # type-check + bundle
-pnpm test                                     # 125 vitest tests
+pnpm test                                     # 131 vitest tests
 ```
+
+**New surfaces from SESSION 191:**
+
+* `GET /api/workspace/assets/<id>/` now includes
+  `inline_content` for TRANSCRIPT bodies (list endpoint
+  unchanged — performance).
+* `/workspace/assets/:id` SPA route — per-asset detail
+  with media preview, full metadata, lineage section
+  (producing composition + step JSON + downstream
+  consumers), copy buttons.
+* `web/src/lib/api/workspace-assets.ts` — extended with
+  detail Zod schemas + `getWorkspaceAsset` +
+  `useWorkspaceAsset`.
+* `web/src/routes/workspace/assets.tsx` (A5) — list rows
+  now `Link` to detail page.
 
 **New surfaces from SESSION 190:**
 
@@ -449,21 +463,18 @@ pnpm test                                     # 125 vitest tests
 
 ## AI / assistant context
 
-- **Last session: SESSION 190 — A7 asset_picker role-filter.**
-  The structural fix that motivated the whole arc. One
-  feature commit + handoff. Clean session, no deferrals.
+- **Last session: SESSION 191 — A6 SPA per-asset detail view.**
+  Delegated to `react-web-delivery` agent. Backend tests
+  990 → 992 (+2); SPA vitest 125 → 131 (+6). Agent added one
+  load-bearing backend tweak (`inline_content` on
+  `_serialize_detail_asset` for TRANSCRIPT preview) and
+  shipped tests for it. No new TRUST_CALIBRATION entries.
+
+- **Prior session: SESSION 190 — A7 asset_picker role-filter.**
+  The structural fix that motivated the whole arc.
   Backend tests 980 → 990 (+10); SPA vitest 120 → 125 (+5).
-  No new TRUST_CALIBRATION entries — A7 used established
-  patterns; the recurring "TS strict bites at build, not at
-  test" finding is already covered by the existing "SPA
-  gates need both pnpm test AND pnpm build" entry.
 
-- **Prior session: SESSION 189 — A5 SPA list view.**
-  Delegated to `react-web-delivery` subagent. SPA vitest
-  95 → 120. One new TRUST_CALIBRATION entry
-  (subagent-source-of-truth).
-
-- **Calibration carried forward (17 total — unchanged SESSION 190)**:
+- **Calibration carried forward (17 total — unchanged SESSION 191)**:
   - Subagent went to source-of-truth and caught an upstream
     brief error. Lesson: write subagent briefs as pointers
     to source-of-truth, not restatements of it. (NEW
@@ -514,13 +525,13 @@ pnpm test                                     # 125 vitest tests
   defaults, one primitive + one knob + one endpoint per
   slice, real-mode validated before handoff.
 
-- **A-arc growth template (SESSION 185-190)**: Asset
-  Library v1 ships in 9 narrow slices. **7 of 9 shipped**:
+- **A-arc growth template (SESSION 185-191)**: Asset
+  Library v1 ships in 9 narrow slices. **8 of 9 shipped**:
   A0 (enum) + A1 (backfill) + A2 (primitives stamp role) +
   A3 (storage health) + A4 (read endpoints) + A5 (SPA
-  list) + A7 (role-filtered picker — the structural fix
-  that motivated the arc). A6 (detail view) + A8 (lineage
-  cross-link) remain — arc closes in 1-2 sessions.
+  list) + A6 (SPA detail) + A7 (role-filtered picker —
+  the structural fix that motivated the arc). **A8
+  (lineage cross-link) is the arc-closer.**
 
 - **Brand layer is load-bearing.** Every component must
   import company/product strings from `@/lib/brand` per

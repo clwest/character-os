@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-19T23:12:19.909945+00:00
-git_sha: ed4c0ab (working tree dirty)
+generated_at: 2026-05-19T23:27:36.523575+00:00
+git_sha: f95462e (working tree dirty)
 git_branch: main
 ---
 
@@ -15,7 +15,7 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-19T23:12:19.909945+00:00** against commit **ed4c0ab**
+Generated **2026-05-19T23:27:36.523575+00:00** against commit **f95462e**
 on branch **main** (working tree dirty).
 
 Python 3.11.6 · Django 5.2.14 ·
@@ -33,7 +33,7 @@ Celery 5.6.3 · httpx 0.28.1.
 | FastAPI routes | **121** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **9** | `celery_app.tasks` filter |
 | Migrations (applied / total) | **63 / 63** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **54,276** in 237 files | `pathlib.Path.rglob("*.py")` |
+| Shell LOC (`*.py`, no venv/migrations) | **54,313** in 237 files | `pathlib.Path.rglob("*.py")` |
 | Media-engine LOC (`*.py`, no venv/migrations) | **35,490** in 66 files | same |
 
 ---
@@ -279,11 +279,11 @@ Total: **9** registered tasks (excluding `celery.*` built-ins).
 | Service | Files | Lines |
 |---|---|---|
 | `media-engine/` | 66 | 35,490 |
-| `shell/` | 237 | 54,276 |
-| **total** | **303** | **89,766** |
+| `shell/` | 237 | 54,313 |
+| **total** | **303** | **89,803** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-05-19T23:12:19.909945+00:00 from commit ed4c0ab. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-19T23:27:36.523575+00:00 from commit f95462e. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
