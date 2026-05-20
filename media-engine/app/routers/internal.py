@@ -1594,14 +1594,60 @@ def post_internal_audio_mix(
 
     fade_in_s = fade_in_ms / 1000.0
     fade_out_s = fade_out_ms / 1000.0
-    # Filter graph: scale music to gain + fade in/out, then amix
-    # with normalize=0 so the base voice keeps full volume.
-    filter_complex = (
-        f"[1:a]volume={music_gain_db}dB,"
-        f"afade=t=in:st=0:d={fade_in_s:.2f},"
-        f"afade=t=out:st=999999:d={fade_out_s:.2f}[bed];"
-        f"[0:a][bed]amix=inputs=2:duration=first:normalize=0[outa]"
-    )
+    # SESSION 196 slice 1 — branch on base audio presence.
+    #
+    # The original amix filtergraph (``[0:a][bed]amix=...``) references
+    # input 0's audio stream. When the base is silent (e.g.
+    # storyboard_voiced's concat of N silent visual clips, or any
+    # gen4_turbo/gen4.5 Runway output), ``[0:a]`` matches no streams
+    # and ffmpeg exits rc=234. SESSION 195 dogfood found this
+    # against ``storyboard_voiced`` after $1.92 of upstream
+    # Runway+Stability spend.
+    #
+    # Two modes:
+    # * base HAS audio (music_bed_pass / avatar_speech base) →
+    #   ``amix`` the music bed under the existing audio. Same shape
+    #   as the V14 design.
+    # * base is SILENT (storyboard_voiced / new audio-replacement
+    #   recipes) → use the music track as the only audio output;
+    #   no mixing.
+    #
+    # Backwards-compat: cache key is unchanged (inputs+spec only).
+    # The prior bug always 500'd before writing a cached output, so
+    # cache hits on the silent-base path are by definition fresh.
+    base_has_audio = _has_audio_stream(base_path)
+    if not _has_audio_stream(audio_path):
+        # Pathological — overlay should always have audio (it's the
+        # whole reason this endpoint exists). Refuse fast instead
+        # of producing a silent output.
+        return _error(
+            422, "validation_error",
+            f"audio_url[0] {audio_urls[0]!r} has no audio stream — "
+            "overlay must carry audio for mix to be meaningful",
+        )
+    if base_has_audio:
+        # Filter graph: scale music to gain + fade in/out, then amix
+        # with normalize=0 so the base voice keeps full volume.
+        filter_complex = (
+            f"[1:a]volume={music_gain_db}dB,"
+            f"afade=t=in:st=0:d={fade_in_s:.2f},"
+            f"afade=t=out:st=999999:d={fade_out_s:.2f}[bed];"
+            f"[0:a][bed]amix=inputs=2:duration=first:normalize=0[outa]"
+        )
+    else:
+        # Silent base — apply the volume + fade processing to the
+        # overlay, then expose it as the only audio output. Equivalent
+        # to ``-map 1:a`` but using filter_complex so the rest of the
+        # ffmpeg cmd stays unchanged (still maps ``[outa]``).
+        filter_complex = (
+            f"[1:a]volume={music_gain_db}dB,"
+            f"afade=t=in:st=0:d={fade_in_s:.2f},"
+            f"afade=t=out:st=999999:d={fade_out_s:.2f}[outa]"
+        )
+        logger.info(
+            "internal audio_mix silent-base path: base=%s overlay=%s",
+            base_path.name, audio_path.name,
+        )
 
     tmp = output_path.with_suffix(".mp4.tmp")
     cmd = [
