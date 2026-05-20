@@ -13,6 +13,9 @@ import { WorkspaceAssetsRoute } from "@/routes/workspace/assets";
 import { WorkspaceAssetDetailRoute } from "@/routes/workspace/assets.$id";
 import { WorkspaceTranscriptsRoute } from "@/routes/workspace/transcripts";
 import { WorkspaceTranscriptDetailRoute } from "@/routes/workspace/transcripts.$id";
+import { WorkspaceCampaignsRoute } from "@/routes/workspace/campaigns";
+import { CampaignNewRoute } from "@/routes/workspace/campaigns.new";
+import { CampaignDetailRoute } from "@/routes/workspace/campaigns.$id";
 import { RecipeGalleryRoute } from "@/routes/recipes";
 import { RecipeFormRoute } from "@/routes/recipes/$kind";
 import { ImagesRoute } from "@/routes/images";
@@ -121,6 +124,32 @@ export function App() {
             element={
               <RequireAuth>
                 <WorkspaceTranscriptDetailRoute />
+              </RequireAuth>
+            }
+          />
+          {/* B3.7 — Personalized-video campaigns. /new registers before
+              the dynamic :id catch-all per the /spokespeople pattern. */}
+          <Route
+            path="/workspace/campaigns"
+            element={
+              <RequireAuth>
+                <WorkspaceCampaignsRoute />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/workspace/campaigns/new"
+            element={
+              <RequireAuth>
+                <CampaignNewRoute />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/workspace/campaigns/:id"
+            element={
+              <RequireAuth>
+                <CampaignDetailRoute />
               </RequireAuth>
             }
           />
