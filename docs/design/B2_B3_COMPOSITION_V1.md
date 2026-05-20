@@ -242,7 +242,7 @@ has no Campaigns FK).
 | **BC0** | This scope-lock doc | ½ session (current) |
 | **BC1** ✓ SHIPPED | Schema: `source_script` FK on PersonalizedCampaign (FK to Script, null=True, blank=True, on_delete=PROTECT, related_name='derived_campaigns') + migration `0002_bc1_source_script` + cross-workspace guard extended in both `clean()` + pre_save signal (added `source_script` to validated_fields). 5 model tests pin nullable default, FK + reverse_name round-trip, cross-workspace clean rejection, cross-workspace signal rejection, ProtectedError on Script delete when referenced. Django 1320 → 1325 (+5). Zero regressions. | ½ session |
 | **BC2** ✓ SHIPPED | Extend `talking_head_polished` starter: 4 optional kwargs (`knowledge_chunk_ids` / `synthesized_brief` / `verification_status` / `verification_warnings`) propagate to the Composition row when supplied. Defaults None = current behavior; existing C-arc + recipe-gallery callers unchanged. **Q-bc-7 resolved as-proposed** (warnings JSON is COPIED onto every per-recipient Composition, not joined-through-FK). Defensive `list(...)` copies prevent aliasing. 7 new starter tests pin: back-compat no-kwargs, each kwarg individually, all four together (load-bearing BC3 shape), defensive-copy semantic. Django 1325 → 1332 (+7). Zero regressions across the 1325 baseline (existing 14 polished-starter tests + 75 C-arc tests + 100+ V-arc tests still green). | ½ session |
-| **BC3** | REST: `POST /api/campaigns/` accepts `source_script_id` (workspace-filtered Script fetch + draft_text copy + FK persist). Launch path propagates Script lineage per recipient (rule 4 + 5 + 8). New `GET /api/scripts/<id>/derived_campaigns/` action on `ScriptViewSet`. 8-10 REST tests. | ½-1 session |
+| **BC3** ✓ SHIPPED | REST: `POST /api/campaigns/` accepts optional `source_script_id` (workspace-filtered Script fetch, status must be READY or RENDERED, defensive draft_text copy with re-parse for template-syntax errors, persists FK). `GET /api/campaigns/<id>/` returns `source_script` block (`{id, name, status, verification_status, chunk_count}`) when set; null otherwise. Launch path calls `_build_source_script_lineage(campaign)` once then `_per_recipient_lineage(...)` per recipient — propagates `knowledge_chunk_ids` + `verification_status` + `verification_warnings` from the Script (rules 4 + 8) and sets `synthesized_brief` to the per-recipient `render_template(...)` output (rule 5). Retry action mirrors launch's lineage shape so retried renders match the original. New `GET /api/scripts/<id>/derived_campaigns/` action returns workspace-filtered paginated list (Q-bc-9 resolved as-proposed). **Q-bc-2 resolved** (CREATE requires READY or RENDERED; LAUNCH reads at-launch state regardless). **Q-bc-9 resolved** (100-row cap + optional ?status= filter, mirrors campaigns list shape). 11 REST tests: backfill, operator-override, cross-workspace 404, non-READY 400, back-compat, retrieve with/without source_script, missing-template-and-source 400, launch lineage propagation, launch back-compat (no source_script), derived_campaigns happy + empty. Django 1332 → 1343 (+11). Zero regressions across the 1332 baseline. | ½-1 session |
 | **BC4** | SPA: "Use approved Script as starting template" picker on `/workspace/campaigns/new`. Workspace + spokesperson filter. Script preview pane (draft_text + chunk count). "Use as template" pre-fills the textarea + sets `source_script_id` in the create payload. Script detail page gains "Used by N campaigns" badge (links to derived_campaigns list). 10-12 vitest tests. | 1 session (subagent candidate). |
 | **BC5** | Real-mode dogfood + arc close. 2-recipient batch derived from SESSION 207's "Five Good Emperors" Script. Validate: per-recipient Composition.knowledge_chunk_ids matches Script's; per-recipient Asset F-arc brief-mode panel shows citations; verification warnings carry over. Close the arc. | ½ session |
 
@@ -460,3 +460,66 @@ this is pure integration over pre-validated layers.
   `POST /api/campaigns/` accepts `source_script_id` + launch-
   path lineage propagation + new
   `GET /api/scripts/<id>/derived_campaigns/`) opens next.
+
+* **2026-05-20 (SESSION 208, BC3 SHIPPED)** — REST surface
+  lands. The biggest slice in the arc — extends one ViewSet
+  (`CampaignViewSet`), adds one action to another
+  (`ScriptViewSet.derived_campaigns`), and propagates lineage
+  through both `launch` and `retry_recipient` paths.
+
+  `POST /api/campaigns/` accepts an optional `source_script_id`
+  alongside the existing fields. When supplied, the viewset
+  workspace-filters the Script lookup (404 on cross-workspace
+  or unknown) and enforces status ∈ {READY, RENDERED} (400
+  with code `source_script_not_ready` for DRAFT/ARCHIVED).
+  Template resolution: operator-supplied template wins (rule
+  2 — FK is audit trail); empty template back-fills from
+  `script.draft_text` with a defensive `parse_placeholders`
+  re-check. Cross-field validator on the serializer requires
+  at least one of `template` or `source_script_id`.
+
+  `PersonalizedCampaignSerializer.source_script` (new
+  `SerializerMethodField`) returns
+  `{id, name, status, verification_status, chunk_count}` when
+  the FK is set; `None` otherwise. No draft_text spill, no
+  revision history leak.
+
+  Launch path: new `_build_source_script_lineage(campaign)`
+  helper assembles the 3 Script-derived kwargs
+  (`knowledge_chunk_ids` + `verification_status` +
+  `verification_warnings`) once per launch — `{}` when no FK.
+  New `_per_recipient_lineage(lineage_kwargs, rendered_script)`
+  adds the per-recipient `synthesized_brief` (rule 5) and
+  returns the full kwargs dict for `talking_head_polished()`.
+  Both `launch` and `retry_recipient` actions use the same
+  pair, so retried renders carry the same lineage as the
+  original. **Q-bc-2 resolved** (read at-launch state
+  regardless of Script status — Script may have been archived
+  post-create; lineage persists).
+
+  `GET /api/scripts/<id>/derived_campaigns/` returns the
+  workspace-filtered, paginated reverse query through
+  `related_name='derived_campaigns'`. **Q-bc-9 resolved**
+  as-proposed (100-row cap + optional `?status=` filter,
+  mirroring `/api/campaigns/` shape).
+
+  11 REST tests: 7 in `apps/campaigns/tests/test_api.py`
+  (backfill, operator-template override, cross-workspace 404,
+  DRAFT 400, back-compat null, retrieve with block,
+  missing-template-and-source 400), 2 in
+  `apps/campaigns/tests/test_launch.py` (lineage propagation
+  per recipient, no-source-script back-compat), 2 in
+  `apps/scripts/tests/test_api.py` (derived_campaigns happy
+  + empty).
+
+  Django 1332 → 1343 (+11). Zero regressions across the 1332
+  baseline (existing 75 C-arc tests + 100+ V-arc tests + 33
+  B-2 REST tests all green). **Q-bc-3 not yet annotated** —
+  the create endpoint doesn't expose a way to mutate
+  `source_script_id` post-create (no PATCH/PUT), so the
+  immutability is enforced by absence. Worth a formal
+  annotation in BC4 or a v2 polish.
+
+  BC4 (SPA: Script picker on `/workspace/campaigns/new` +
+  preview + "Used by N campaigns" badge on Script detail)
+  opens next.

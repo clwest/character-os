@@ -462,3 +462,112 @@ def test_launch_cross_workspace_returns_404(_no_celery_dispatch) -> None:
     response = client.post(f"/api/campaigns/{campaign.pk}/launch/")
     assert response.status_code == http.HTTP_404_NOT_FOUND
     _no_celery_dispatch.assert_not_called()
+
+
+# ---- BC3 — source_script lineage propagation -------------------
+
+
+def test_launch_with_source_script_propagates_lineage_per_recipient(
+    _no_celery_dispatch,
+) -> None:
+    """BC3 / BC0 rules 4 + 5 + 8 — when source_script is set,
+    every per-recipient Composition inherits the Script's
+    knowledge_chunk_ids + verification fields, and the
+    synthesized_brief = the per-recipient rendered template.
+
+    This is the load-bearing composition-arc test. F-arc brief-
+    mode panel on each per-recipient Asset detail page depends
+    on Composition.knowledge_chunk_ids being populated."""
+    from apps.scripts.models import Script
+
+    user, ws = _make_user_workspace("bc3launch@test")
+    sp = _make_spokesperson(ws)
+
+    # Create a READY Script with knowledge + warnings.
+    script = Script.objects.create(
+        workspace=ws, spokesperson=sp,
+        name="Five Good Emperors",
+        prompt="explain the five good emperors",
+        draft_text="Today we're tackling the Five Good Emperors.",
+        knowledge_chunk_ids=[
+            "chunk-a", "chunk-b", "chunk-c", "chunk-d", "chunk-e",
+        ],
+        verification_status="verified",
+        verification_warnings=[
+            {"kind": "multi_word", "claim": "Machiavelli and Gibbon",
+             "position": 436},
+        ],
+        status="ready",
+    )
+
+    # Build a campaign with the source_script + 2 recipients.
+    campaign = PersonalizedCampaign.objects.create(
+        workspace=ws,
+        spokesperson=sp,
+        name="Outreach",
+        template="Hi {first_name}, today we tackle the Five Good Emperors.",
+        placeholders=["first_name"],
+        source_script=script,
+        created_by=user,
+    )
+    for idx, name in enumerate(["Bob", "Carol"], start=1):
+        PersonalizedRecipient.objects.create(
+            campaign=campaign,
+            variables={"first_name": name},
+            label=name,
+            position=idx,
+        )
+
+    client = APIClient()
+    _login(client, user)
+    response = client.post(f"/api/campaigns/{campaign.pk}/launch/")
+    assert response.status_code == http.HTTP_200_OK, response.content
+    assert response.json()["queued_count"] == 2
+
+    # Every per-recipient Composition inherits the Script's
+    # lineage (rule 4) + verification flags (rule 8).
+    recipients = list(campaign.recipients.order_by("position"))
+    for r in recipients:
+        comp = r.produced_composition
+        assert comp is not None
+        # Rule 4 — chunk_ids match.
+        assert comp.knowledge_chunk_ids == [
+            "chunk-a", "chunk-b", "chunk-c", "chunk-d", "chunk-e",
+        ]
+        # Rule 8 — verification flags carry unchanged.
+        assert comp.verification_status == "verified"
+        assert len(comp.verification_warnings) == 1
+        assert comp.verification_warnings[0]["claim"] == (
+            "Machiavelli and Gibbon"
+        )
+        # Rule 5 — synthesized_brief is the per-recipient
+        # rendered template, NOT the Script's draft_text.
+        assert r.variables["first_name"] in comp.synthesized_brief
+        assert comp.synthesized_brief == r.rendered_script
+
+
+def test_launch_without_source_script_leaves_lineage_empty(
+    _no_celery_dispatch,
+) -> None:
+    """BC3 back-compat — Campaign without source_script
+    produces vanilla per-recipient Compositions (lineage fields
+    empty). Existing C-arc behavior preserved."""
+    user, ws = _make_user_workspace("bc3lbc@test")
+    sp = _make_spokesperson(ws)
+    campaign = _make_draft_with_recipients(user, ws, sp, recipient_count=2)
+    # source_script is None by default.
+    assert campaign.source_script is None
+
+    client = APIClient()
+    _login(client, user)
+    response = client.post(f"/api/campaigns/{campaign.pk}/launch/")
+    assert response.status_code == http.HTTP_200_OK
+
+    for r in campaign.recipients.all():
+        comp = r.produced_composition
+        assert comp is not None
+        # No lineage carried.
+        assert comp.knowledge_chunk_ids == []
+        assert comp.synthesized_brief == ""
+        assert comp.verification_status == ""
+        assert comp.verification_warnings == []

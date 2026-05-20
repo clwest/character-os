@@ -399,6 +399,66 @@ class ScriptViewSet(GenericViewSet):
             status=http.HTTP_201_CREATED,
         )
 
+    # ---- derived_campaigns (BC3) --------------------------------
+
+    @action(detail=True, methods=["get"], url_path="derived_campaigns")
+    def derived_campaigns(self, request, pk=None):
+        """BC3 / BC0 rule 1 — Script→Campaign back-reference
+        flows via query, not schema. Returns the workspace-
+        filtered, paginated list of Campaigns that derive from
+        this Script.
+
+        Q-bc-9 resolved as-proposed: standard cap at 100 +
+        optional ``?status=`` filter mirroring the campaigns
+        list endpoint shape.
+
+        Empty list when no Campaigns derive from this Script
+        (the common shape for any pre-BC Script).
+        """
+        # Lazy import — apps.scripts doesn't depend on
+        # apps.campaigns at module load time.
+        from apps.campaigns.models import PersonalizedCampaign
+
+        script = self._get_or_404(pk)
+        qs = (
+            PersonalizedCampaign.objects
+            .filter(source_script=script)
+            # Defense-in-depth — only return Campaigns the user
+            # has membership in. The Script being workspace-
+            # filtered already covers this transitively
+            # (Script.workspace == Campaign.workspace per rule 3),
+            # but explicit filter keeps the contract obvious.
+            .filter(workspace__memberships__user=request.user)
+            .select_related("workspace", "spokesperson")
+            .distinct()
+        )
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        # v1 page cap — mirrors campaigns list. SPA can paginate
+        # via repeat queries with status filters when a Script
+        # spawns more than 100 Campaigns (extreme outlier).
+        rows = list(qs.order_by("-created_at")[:100])
+
+        payload = [
+            {
+                "id": str(c.pk),
+                "name": c.name,
+                "status": c.status,
+                "recipient_count": c.recipients.count(),
+                "spokesperson_name": (
+                    c.spokesperson.name if c.spokesperson_id else None
+                ),
+                "created_at": c.created_at.isoformat(),
+                "launched_at": (
+                    c.launched_at.isoformat() if c.launched_at else None
+                ),
+            }
+            for c in rows
+        ]
+        return Response(payload)
+
     # ---- helpers ------------------------------------------------
 
     def _get_or_404(self, pk) -> Script:

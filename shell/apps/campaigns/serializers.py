@@ -73,6 +73,10 @@ class PersonalizedCampaignSerializer(serializers.ModelSerializer):
         source="get_status_display", read_only=True,
     )
     recipient_counts = serializers.SerializerMethodField()
+    # BC3 — surfaces the optional Script derivation pointer for
+    # the SPA detail page. Null when source_script is unset (the
+    # vast majority of pre-BC Campaigns + any non-derived Campaign).
+    source_script = serializers.SerializerMethodField()
 
     class Meta:
         model = PersonalizedCampaign
@@ -87,6 +91,7 @@ class PersonalizedCampaignSerializer(serializers.ModelSerializer):
             "status",
             "status_label",
             "recipient_counts",
+            "source_script",
             "launched_at",
             "completed_at",
             "created_at",
@@ -114,6 +119,27 @@ class PersonalizedCampaignSerializer(serializers.ModelSerializer):
             counts["total"] += 1
         return counts
 
+    def get_source_script(
+        self, obj: PersonalizedCampaign,
+    ) -> dict | None:
+        """BC3 — light source_script block for the SPA detail
+        page. Returns ``None`` when the Campaign isn't derived
+        from a Script (the current shape for any pre-BC Campaign
+        and any new free-form Campaign). When set, exposes only
+        the fields the SPA needs for the "Derived from Script X
+        (verified, 5 chunks)" hint — no draft_text spill, no
+        revision history leak."""
+        if obj.source_script_id is None:
+            return None
+        script = obj.source_script
+        return {
+            "id": str(script.pk),
+            "name": script.name,
+            "status": script.status,
+            "verification_status": script.verification_status or "",
+            "chunk_count": len(script.knowledge_chunk_ids or []),
+        }
+
 
 class CreateCampaignSerializer(serializers.Serializer):
     """Body shape for ``POST /api/campaigns/``.
@@ -126,16 +152,39 @@ class CreateCampaignSerializer(serializers.Serializer):
     Template syntax is validated via ``parse_placeholders``;
     placeholders field on the created row is populated from
     the parse result.
+
+    BC3 — when ``source_script_id`` is supplied:
+
+    * The viewset fetches the Script (workspace-filtered).
+    * If ``template`` is also supplied (non-empty), it wins —
+      operator may have edited the draft before submit. The FK
+      is persisted as audit trail (rule 2).
+    * If ``template`` is empty / omitted, the viewset fills it
+      from ``script.draft_text``.
+
+    Either pattern persists ``source_script`` for the BC3 lineage
+    propagation at launch time.
     """
 
     workspace_id = serializers.UUIDField(required=True)
     spokesperson_id = serializers.UUIDField(required=True)
     name = serializers.CharField(max_length=120)
-    template = serializers.CharField(max_length=4000)
+    # BC3 — template becomes optional when source_script_id is
+    # supplied (viewset back-fills from script.draft_text).
+    template = serializers.CharField(
+        max_length=4000, required=False, allow_blank=True, default="",
+    )
+    source_script_id = serializers.UUIDField(
+        required=False, allow_null=True, default=None,
+    )
 
     def validate_template(self, value: str) -> str:
         """Surface template syntax errors as 400 instead of
-        letting them blow up at render time."""
+        letting them blow up at render time. Empty templates
+        are allowed at this layer — the viewset enforces "must
+        have a template OR source_script_id" cross-field."""
+        if not value:
+            return value
         try:
             # parse_placeholders is the syntax validator;
             # we throw away the result here and re-parse at
@@ -149,6 +198,21 @@ class CreateCampaignSerializer(serializers.Serializer):
             # (it's a render-time error); rethrow defensively.
             raise serializers.ValidationError(str(exc))
         return value
+
+    def validate(self, attrs: dict) -> dict:
+        """BC3 cross-field — must have either ``template`` or
+        ``source_script_id``. The viewset will fill ``template``
+        from ``script.draft_text`` when only the FK is supplied."""
+        template = (attrs.get("template") or "").strip()
+        source_script_id = attrs.get("source_script_id")
+        if not template and not source_script_id:
+            raise serializers.ValidationError({
+                "template": (
+                    "template is required when source_script_id "
+                    "is not supplied"
+                ),
+            })
+        return attrs
 
 
 class ParseCsvSerializer(serializers.Serializer):

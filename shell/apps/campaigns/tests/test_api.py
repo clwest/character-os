@@ -484,3 +484,200 @@ def test_recipients_sub_list_returns_position_ordered() -> None:
     rows = response.json()
     assert [r["position"] for r in rows] == [1, 2, 3]
     assert [r["label"] for r in rows] == ["Bob", "Carol", "Dave"]
+
+
+# ---- BC3 — source_script create + serializer block -------------
+
+
+def _make_script(ws, sp, *, name="Five Good Emperors", status="ready"):
+    """BC3 fixture — Script row in the same workspace as the
+    supplied spokesperson. Default status=READY so create()
+    accepts it (Q-bc-2)."""
+    from apps.scripts.models import Script
+
+    return Script.objects.create(
+        workspace=ws, spokesperson=sp,
+        name=name,
+        prompt="explain the five good emperors",
+        draft_text=(
+            "Today we're tackling the Five Good Emperors and "
+            "the Antonine peace. Hi {first_name}, today we "
+            "tackle {topic}."
+        ),
+        knowledge_chunk_ids=["chunk-a", "chunk-b", "chunk-c"],
+        verification_status="verified",
+        verification_warnings=[
+            {"kind": "multi_word", "claim": "x", "position": 0},
+        ],
+        status=status,
+    )
+
+
+def test_create_with_source_script_id_backfills_template() -> None:
+    """BC3 — when source_script_id is supplied and template is
+    omitted, server fills template from script.draft_text."""
+    user, ws = _make_user_workspace("bc3backfill@test")
+    sp = _make_spokesperson(ws)
+    script = _make_script(ws, sp)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/campaigns/",
+        {
+            "workspace_id": str(ws.pk),
+            "spokesperson_id": str(sp.pk),
+            "name": "Derived from script",
+            "source_script_id": str(script.pk),
+            # template omitted on purpose
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    assert data["template"] == script.draft_text
+    # Placeholders parsed from the back-filled template.
+    assert set(data["placeholders"]) == {"first_name", "topic"}
+    # source_script block surfaces in the response.
+    assert data["source_script"] is not None
+    assert data["source_script"]["id"] == str(script.pk)
+    assert data["source_script"]["chunk_count"] == 3
+    assert data["source_script"]["verification_status"] == "verified"
+
+
+def test_create_with_source_script_id_and_template_keeps_operator_template() -> None:
+    """BC3 / BC0 rule 2 — operator-supplied template wins; FK
+    is audit trail. Lets operator paste + edit before submit."""
+    user, ws = _make_user_workspace("bc3override@test")
+    sp = _make_spokesperson(ws)
+    script = _make_script(ws, sp)
+    client = APIClient()
+    _login(client, user)
+
+    edited = "Edited template for {first_name} only."
+    response = client.post(
+        "/api/campaigns/",
+        {
+            "workspace_id": str(ws.pk),
+            "spokesperson_id": str(sp.pk),
+            "name": "Edited template",
+            "source_script_id": str(script.pk),
+            "template": edited,
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    assert data["template"] == edited  # operator's text wins
+    assert data["placeholders"] == ["first_name"]
+    # But the audit FK is still persisted.
+    assert data["source_script"]["id"] == str(script.pk)
+
+
+def test_create_cross_workspace_source_script_returns_404() -> None:
+    """BC3 / BC0 rule 3 — Script in different workspace
+    surfaces as 404 (matches the spokesperson cross-workspace
+    pattern)."""
+    user_a, ws_a = _make_user_workspace("bc3xws_a@test")
+    _, ws_b = _make_user_workspace("bc3xws_b@test")
+    sp_a = _make_spokesperson(ws_a, name="MarcusA")
+    sp_b = _make_spokesperson(ws_b, name="MarcusB")
+    script_b = _make_script(ws_b, sp_b)
+    client = APIClient()
+    _login(client, user_a)
+
+    response = client.post(
+        "/api/campaigns/",
+        {
+            "workspace_id": str(ws_a.pk),
+            "spokesperson_id": str(sp_a.pk),
+            "name": "x", "source_script_id": str(script_b.pk),
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_404_NOT_FOUND
+
+
+def test_create_draft_source_script_returns_400() -> None:
+    """BC3 / Q-bc-2 — only READY or RENDERED Scripts can ground
+    a Campaign; DRAFT means operator hasn't approved + verified
+    the draft yet."""
+    user, ws = _make_user_workspace("bc3draft@test")
+    sp = _make_spokesperson(ws)
+    draft_script = _make_script(ws, sp, status="draft")
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/campaigns/",
+        {
+            "workspace_id": str(ws.pk),
+            "spokesperson_id": str(sp.pk),
+            "name": "from-draft", "source_script_id": str(draft_script.pk),
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_400_BAD_REQUEST
+    body = response.json()
+    assert body["code"] == "source_script_not_ready"
+
+
+def test_create_without_source_script_is_backcompat() -> None:
+    """BC3 back-compat — pre-BC create flow (template only, no
+    source_script_id) still works. source_script in the
+    response is None."""
+    user, ws = _make_user_workspace("bc3bc@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+    data = _create_draft(client, ws, sp)
+    assert data["source_script"] is None
+
+
+def test_retrieve_returns_source_script_block_when_set() -> None:
+    """BC3 — GET /api/campaigns/<id>/ exposes the source_script
+    block for SPA detail display."""
+    user, ws = _make_user_workspace("bc3retr@test")
+    sp = _make_spokesperson(ws)
+    script = _make_script(ws, sp)
+    client = APIClient()
+    _login(client, user)
+
+    create_resp = client.post(
+        "/api/campaigns/",
+        {
+            "workspace_id": str(ws.pk),
+            "spokesperson_id": str(sp.pk),
+            "name": "x", "source_script_id": str(script.pk),
+        },
+        format="json",
+    )
+    campaign_id = create_resp.json()["id"]
+    detail = client.get(f"/api/campaigns/{campaign_id}/")
+    assert detail.status_code == http.HTTP_200_OK
+    block = detail.json()["source_script"]
+    assert block["id"] == str(script.pk)
+    assert block["name"] == script.name
+    assert block["chunk_count"] == 3
+
+
+def test_create_neither_template_nor_source_script_returns_400() -> None:
+    """BC3 cross-field validation — at least one of
+    `template` / `source_script_id` is required."""
+    user, ws = _make_user_workspace("bc3empty@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/campaigns/",
+        {
+            "workspace_id": str(ws.pk),
+            "spokesperson_id": str(sp.pk),
+            "name": "no-template",
+            # both template and source_script_id omitted
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_400_BAD_REQUEST
+    assert "template" in response.json()

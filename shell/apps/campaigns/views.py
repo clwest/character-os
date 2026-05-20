@@ -42,6 +42,7 @@ from apps.billing.services import (
     TierLimitExceeded,
     get_usage,
 )
+from apps.scripts.models import Script
 from apps.spokespeople.models import Spokesperson
 from character_os.csv_recipients import derive_label, parse_csv
 from character_os.permissions import IsWorkspaceMember
@@ -124,6 +125,11 @@ class CampaignViewSet(GenericViewSet):
           workspace (404 otherwise).
         * template parses cleanly (400 on syntax error via
           the serializer-level validate_template hook).
+        * BC3 — when source_script_id is supplied: Script
+          exists in this workspace + status is READY or
+          RENDERED (Q-bc-2 partial). Empty template back-fills
+          from script.draft_text; non-empty template wins
+          (rule 2 — operator can edit before submit).
         """
         body = CreateCampaignSerializer(data=request.data or {})
         body.is_valid(raise_exception=True)
@@ -136,24 +142,82 @@ class CampaignViewSet(GenericViewSet):
             workspace, params["spokesperson_id"],
         )
 
-        # Recompute placeholders here — the validator already
-        # checked syntax; this is the canonical persistence.
-        placeholders = parse_placeholders(params["template"])
+        # BC3 — resolve source_script if supplied. Workspace-
+        # filter + must be approved (READY or RENDERED;
+        # DRAFT/ARCHIVED rejected per the in-scope
+        # clarification "source_script_id accepts any READY
+        # Script in the workspace").
+        source_script: Script | None = None
+        source_script_id = params.get("source_script_id")
+        if source_script_id is not None:
+            try:
+                source_script = Script.objects.get(
+                    pk=source_script_id, workspace=workspace,
+                )
+            except Script.DoesNotExist:
+                raise NotFound(
+                    "source_script not found in this workspace",
+                )
+            if source_script.status not in {
+                Script.Status.READY,
+                Script.Status.RENDERED,
+            }:
+                return Response(
+                    {
+                        "detail": (
+                            f"source_script must be in status READY "
+                            f"or RENDERED; got "
+                            f"{source_script.status!r}."
+                        ),
+                        "code": "source_script_not_ready",
+                    },
+                    status=http.HTTP_400_BAD_REQUEST,
+                )
+
+        # BC3 — template resolution. Operator-supplied template
+        # wins (audit-only FK semantic per rule 2). When the
+        # template is empty and source_script is set, back-fill
+        # from the persisted draft_text.
+        template = (params.get("template") or "").strip()
+        if not template and source_script is not None:
+            template = source_script.draft_text or ""
+            # Re-validate the back-filled template — the Script's
+            # draft_text was synthesized from a prompt, not
+            # operator-typed, so it shouldn't contain template
+            # syntax errors. Defensive parse anyway.
+            try:
+                parse_placeholders(template)
+            except TemplateError as exc:
+                return Response(
+                    {
+                        "detail": (
+                            f"source_script.draft_text contains "
+                            f"template syntax errors: {exc}"
+                        ),
+                        "code": "source_script_template_invalid",
+                    },
+                    status=http.HTTP_400_BAD_REQUEST,
+                )
+
+        # Recompute placeholders — canonical persistence.
+        placeholders = parse_placeholders(template)
 
         campaign = PersonalizedCampaign(
             workspace=workspace,
             spokesperson=spokesperson,
             name=params["name"].strip() or "Untitled campaign",
-            template=params["template"],
+            template=template,
             placeholders=placeholders,
+            source_script=source_script,
             created_by=request.user,
         )
         campaign.full_clean()  # cross-workspace guard
         campaign.save()
         logger.info(
             "campaign.create workspace=%s spokesperson=%s "
-            "placeholders=%d",
+            "placeholders=%d source_script=%s",
             workspace.pk, spokesperson.pk, len(placeholders),
+            source_script.pk if source_script else None,
         )
         return Response(
             PersonalizedCampaignSerializer(campaign).data,
@@ -420,6 +484,14 @@ class CampaignViewSet(GenericViewSet):
                 status=http.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+        # BC3 — when source_script is set, every per-recipient
+        # Composition inherits the Script's knowledge lineage +
+        # verification flags (rules 4, 5, 8). Q-bc-2 — read at
+        # launch time regardless of Script status (operator may
+        # have archived the Script post-create; we still ground
+        # the renders).
+        lineage_kwargs = self._build_source_script_lineage(campaign)
+
         queued_composition_ids: list[str] = []
         with transaction.atomic():
             campaign.status = PersonalizedCampaign.Status.LAUNCHING
@@ -450,6 +522,13 @@ class CampaignViewSet(GenericViewSet):
                         script=script,
                         name=f"{campaign.name} — {recipient.label}"[:200],
                         created_by=request.user,
+                        # BC3 — per-recipient lineage propagation.
+                        # ``synthesized_brief`` is the substituted
+                        # text (rule 5); the other three carry
+                        # unchanged from the Script (rules 4, 8).
+                        **self._per_recipient_lineage(
+                            lineage_kwargs, script,
+                        ),
                     )
                 except Exception as exc:  # pragma: no cover — defensive
                     recipient.status = PersonalizedRecipient.Status.FAILED
@@ -576,6 +655,12 @@ class CampaignViewSet(GenericViewSet):
                 status=http.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+        # BC3 — retry honors the same source_script lineage as
+        # the original launch. Mirrors the launch path so the
+        # retried Composition's Asset shows the same F-arc
+        # brief-mode citation panel.
+        lineage_kwargs = self._build_source_script_lineage(campaign)
+
         with transaction.atomic():
             composition = recipe.starter(
                 workspace=campaign.workspace,
@@ -585,6 +670,7 @@ class CampaignViewSet(GenericViewSet):
                     f"{campaign.name} — {recipient.label} (retry)"
                 )[:200],
                 created_by=request.user,
+                **self._per_recipient_lineage(lineage_kwargs, script),
             )
 
             # Failed composition stays for audit per Q-c-6 —
@@ -651,6 +737,64 @@ class CampaignViewSet(GenericViewSet):
         if not is_member:
             raise NotFound("Workspace not found")
         return workspace
+
+    def _build_source_script_lineage(
+        self, campaign: PersonalizedCampaign,
+    ) -> dict:
+        """BC3 — assemble the four lineage kwargs from the
+        Campaign's source_script for the BC2 starter extension.
+
+        Returns an empty dict when no source_script is set —
+        the BC2 extension's defaults kick in and the per-
+        recipient Compositions get vanilla
+        ``talking_head_polished`` behavior (back-compat).
+
+        Returns three of the four kwargs when source_script is
+        set:
+        * ``knowledge_chunk_ids``: rule 4 — F-arc brief-mode
+          lineage on every per-recipient Asset.
+        * ``verification_status``: rule 8 — K6.4 status carries
+          unchanged.
+        * ``verification_warnings``: rule 8 + Q-bc-7 — per-
+          Composition copy.
+
+        The fourth kwarg (``synthesized_brief``) is the per-
+        recipient ``render_template(...)`` output, NOT the
+        Script's draft_text. That kwarg is added by
+        ``_per_recipient_lineage`` for each recipient.
+        """
+        if campaign.source_script_id is None:
+            return {}
+        script = campaign.source_script
+        return {
+            "knowledge_chunk_ids": list(
+                script.knowledge_chunk_ids or [],
+            ),
+            "verification_status": script.verification_status or "",
+            "verification_warnings": list(
+                script.verification_warnings or [],
+            ),
+        }
+
+    def _per_recipient_lineage(
+        self, lineage_kwargs: dict, rendered_script: str,
+    ) -> dict:
+        """BC3 — finalize the lineage kwargs for one recipient.
+
+        When ``lineage_kwargs`` is empty (no source_script),
+        returns empty too. Otherwise adds ``synthesized_brief``
+        = the rendered template (rule 5) and returns the full
+        four-kwarg dict.
+
+        Kept separate from ``_build_source_script_lineage`` so
+        the common script-shape work isn't redone per recipient.
+        """
+        if not lineage_kwargs:
+            return {}
+        return {
+            **lineage_kwargs,
+            "synthesized_brief": rendered_script,
+        }
 
     def _resolve_workspace_spokesperson(
         self, workspace: Workspace, spokesperson_id,

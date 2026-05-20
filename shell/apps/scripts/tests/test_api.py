@@ -488,3 +488,65 @@ def test_regenerate_counts_against_tier_gate() -> None:
     )
     assert res.status_code == http.HTTP_402_PAYMENT_REQUIRED
     assert res.json()["code"] == "draft_limit_reached"
+
+
+# ---- BC3 — derived_campaigns endpoint ----------------------------
+
+
+def test_derived_campaigns_returns_workspace_filtered_list() -> None:
+    """BC3 / BC0 rule 1 — Script→Campaign reverse query works
+    via the related_name='derived_campaigns' on the FK. No back-
+    reference field on Script needed."""
+    from apps.campaigns.models import PersonalizedCampaign
+
+    user, ws = _make_user_workspace("bc3der@test")
+    sp = _make_spokesperson(ws)
+    s = Script.objects.create(
+        workspace=ws, spokesperson=sp,
+        name="src", prompt="x",
+        draft_text="Hi {n}",
+        knowledge_chunk_ids=["c1"],
+        status="ready",
+    )
+    # Two campaigns derive from this Script.
+    c1 = PersonalizedCampaign.objects.create(
+        workspace=ws, spokesperson=sp,
+        name="C1", template="Hi {n}", placeholders=["n"],
+        source_script=s, created_by=user,
+    )
+    c2 = PersonalizedCampaign.objects.create(
+        workspace=ws, spokesperson=sp,
+        name="C2", template="Hi {n}", placeholders=["n"],
+        source_script=s, created_by=user,
+    )
+    # One unrelated campaign (no source_script).
+    PersonalizedCampaign.objects.create(
+        workspace=ws, spokesperson=sp,
+        name="unrelated", template="Hi", placeholders=[],
+        created_by=user,
+    )
+
+    client = APIClient()
+    _login(client, user)
+    res = client.get(f"/api/scripts/{s.pk}/derived_campaigns/")
+    assert res.status_code == http.HTTP_200_OK
+    rows = res.json()
+    assert len(rows) == 2
+    ids = {r["id"] for r in rows}
+    assert ids == {str(c1.pk), str(c2.pk)}
+
+
+def test_derived_campaigns_empty_when_no_derivations() -> None:
+    """BC3 — Script with zero derived Campaigns returns []."""
+    user, ws = _make_user_workspace("bc3derempty@test")
+    sp = _make_spokesperson(ws)
+    s = Script.objects.create(
+        workspace=ws, spokesperson=sp,
+        name="lonely", prompt="x",
+        draft_text="Hi", status="ready",
+    )
+    client = APIClient()
+    _login(client, user)
+    res = client.get(f"/api/scripts/{s.pk}/derived_campaigns/")
+    assert res.status_code == http.HTTP_200_OK
+    assert res.json() == []
