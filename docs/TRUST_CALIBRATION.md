@@ -3930,3 +3930,72 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
     timing.
   * Close with 1 session for cross-link / lineage / arc-close
     ceremony.
+
+### Celery worker is NOT optional for mock_mode — promote to hard stack-up rule
+- **Date:** 2026-05-19
+- **Session:** 193
+- **Context:** SESSION 193 Asset Library v1 arc-close dogfood. The
+  SESSION 192 start-here stack-up notes claimed
+  *"mock-mode covers both — no media-engine / Celery required"*.
+  Operator opened the dogfood, browsed assets (A5), exercised the
+  role-filtered picker (A7), and fired a `talking_head_with_backdrop`
+  composition with `mock_mode=true`. **Composition sat at DRAFT for
+  104s with both steps `pending`, no error_message, no Celery worker
+  in `ps`, 65 messages backed up in the Redis `celery` queue.**
+- **Surface / artefact:** `00-START-NEXT-SESSION.md` stack-up notes;
+  `docs/handoffs/SESSION_192_*.md` stack-up section. The wrong claim
+  was written at SESSION 192 close and survived into SESSION 193
+  start-here.
+- **AI expectation (before):** Mock_mode would short-circuit the
+  primitive pipeline somewhere upstream of Celery, so a worker
+  wouldn't be needed.
+- **Reality / outcome:** **Mock_mode skips Runway / Stability API
+  calls (it controls primitive behavior); it does NOT bypass the
+  Celery task wrapper.** The composition runtime still enqueues
+  `execute_composition.delay(...)`. Without a worker consuming the
+  queue, the task envelope sits in Redis forever and the composition
+  hangs silent at DRAFT. **This is the SESSION 184 calibration #5
+  "Celery worker stop-state is silent" trap, hit for the second
+  time** — and the dogfood pass caught the start-here error within
+  2 minutes of opening the session.
+- **Found by:** Operator firing the composition during the
+  arc-close dogfood pass; AI tail of the DB / Celery queue
+  identified the stuck-DRAFT shape immediately.
+- **Lesson:** **PROMOTE to hard stack-up rule.** Any session that
+  will fire compositions — mock_mode OR real-mode — requires a
+  running Celery worker. The `celery -A character_os worker
+  --loglevel=info --pool=solo` line moves from "optional helper" to
+  "required step" in the stack-up checklist. The wording in
+  start-here stack-up sections that calls mock-mode "Celery-free"
+  is **wrong** and must be scrubbed at the SESSION 193 close.
+
+### Arc-close dogfood is high-yield even after every slice was test-validated
+- **Date:** 2026-05-19
+- **Session:** 193
+- **Context:** Asset Library v1 closed SESSION 192 with 134 SPA
+  vitest + 995 Django pytest tests passing — full automated
+  coverage of every slice. Real-mode dogfood was framed as
+  "optional verification" in the SESSION 192 close-out.
+- **Surface / artefact:** SESSION 192 start-here recommended the
+  dogfood pass; SESSION 193 ran it.
+- **AI expectation (before):** With every slice automated-test
+  covered, the dogfood pass would be a green-rubber-stamp
+  formality.
+- **Reality / outcome:** **Dogfood caught a real start-up rule error
+  in the stack-up notes within 2 minutes.** The unit + integration
+  tests use `CELERY_TASK_ALWAYS_EAGER=True` (via fixture / settings
+  override) so they bypass the broker entirely. **The "is the dev
+  stack actually usable for the operator" question is structurally
+  outside the test surface** — tests verify the code; dogfood
+  verifies the dev experience.
+- **Found by:** Operator hitting submit on the V18 form during the
+  arc-close pass.
+- **Lesson:** **Arc-close dogfood is non-negotiable, not optional.**
+  Even with full automated coverage, the dogfood pass catches a
+  category of failure tests cannot: stack-up notes, environment
+  assumptions, default-on/off settings, the gap between "tests pass
+  with EAGER=True" and "real runserver needs a worker." Same shape
+  as SESSION 173's "real-mode dogfood after operator-facing
+  slices" calibration — that one was about Runway-side drift;
+  this one is about local-dev drift. Generalizes:
+  **test passing ≠ dev stack usable**.

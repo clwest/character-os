@@ -39,13 +39,60 @@ state: active
 > (locked SESSION 172 — 10 contract rules, W11.6.0-W11.6.5
 > slice breakdown). **W11.6.0-W11.6.5 + W11.6.5 sub-slices 1/2/3 COMPLETE.**
 > **Asset Library scope lock:** `docs/design/ASSET_LIBRARY_V1.md`
-> (locked SESSION 185). **COMPLETE (SESSION 192)** — all 9
-> slices A0-A8 shipped across SESSIONS 185-192.
+> (locked SESSION 185). **COMPLETE (SESSION 192) + REAL-MODE
+> DOGFOOD VALIDATED (SESSION 193)** — all 9 slices A0-A8
+> shipped across SESSIONS 185-192; end-to-end dogfood pass
+> SESSION 193.
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`
 > (revised SESSION 192 — Asset Library v1 marked complete).
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_192_A8_ARC_CLOSE.md`.
+> **Last handoff:** `docs/handoffs/SESSION_193_DOGFOOD_PASS_CELERY_HARD_RULE.md`.
+
+---
+
+## SESSION 193 outcome — A-arc dogfood passed + Celery hard rule
+
+No code changes. Real-mode dogfood pass against the dev DB
+validated Asset Library v1 end-to-end. Operator browsed
+(A5), exercised the role-filtered picker (A7 narrowed 119
+CLIPs → 42 BACKDROP), and fired a
+`talking_head_with_backdrop` composition that completed
+with the A8 produced_assets panel rendering exactly as
+designed (2 rows, role badges, Final pill on the composite
+output).
+
+**One real catch — promoted to hard stack-up rule:** the
+SESSION 192 start-here claimed mock-mode doesn't need
+Celery. Wrong. The composition hung silent at DRAFT for
+104s with 65 backed-up envelopes in Redis until I started
+a worker. SESSION 184 calibration #5 hit for the second
+time. Starting SESSION 194: **Celery worker is required
+for ANY composition fire, mock_mode or real-mode.**
+
+Two new TRUST_CALIBRATION entries:
+1. Celery worker is NOT optional for mock_mode — promote
+   to hard stack-up rule.
+2. Arc-close dogfood is high-yield even after every slice
+   was test-validated. Generalizes: test passing ≠ dev
+   stack usable.
+
+Live state: Django + SPA + Celery worker still running.
+Workspace asset count grew 136 → 138 from the dogfood
+composition. No real-mode spend.
+
+### Tests at SESSION 193 close
+
+No code changes; suites unchanged from SESSION 192:
+
+| Suite | Count |
+|---|---|
+| Django | 995 |
+| - compositions | 564 |
+| Media-engine | 194 |
+| SPA vitest | 134 |
+
+Real-mode spend SESSION 193: **$0**.
 
 ---
 
@@ -114,30 +161,10 @@ Real-mode spend SESSION 192: **$0**.
 
 ---
 
-## FIRST THING (SESSION 193): operator picks next direction
+## FIRST THING (SESSION 194): operator picks next direction
 
-**No arc in flight.** Asset Library v1 closes SESSION 192;
-Phase 4 + the A-arc layered on top are all complete. The
-operator picks the next direction at slice-open.
-
-### Recommended real-mode dogfood (½ session)
-
-Before opening a new arc, validate Asset Library v1
-end-to-end against the dev DB. Per the SESSION 191
-recommendation:
-
-1. Open `http://localhost:5174/workspace/assets` — see all
-   128 backfilled assets across 8 roles.
-2. Click any row → detail page (A6) with media preview +
-   metadata + lineage.
-3. Open `/recipes/talking_head_with_backdrop` — the
-   `backdrop_clip_id` picker shows only the 42
-   BACKDROP-tagged clips (A7).
-4. Fire a composition with mock_mode=true. Its overview
-   page lists produced assets with role badges + Final
-   pill (A8).
-
-End-to-end verification in one short session, $0 spend.
+**No arc in flight.** Asset Library v1 closed SESSION 192 +
+dogfood-validated SESSION 193. Operator picks at slice-open.
 
 ### Queued backlog (operator picks)
 
@@ -193,12 +220,13 @@ SESSION 182, V17.0/1/2/5 shipped + real-mode validated**;
 **V18 shipped + real-mode validated SESSION 184.**
 **Phase 5:** Brand ecosystem under 24/7 GLOBAL AI parent
 (SESSION 178 B-arc).
-**Asset Library v1 arc COMPLETE (SESSIONS 185-192):**
-All 9 slices A0-A8 shipped. 10-role taxonomy + emit-time
-stamping + storage classifier + browse / detail SPA +
-role-filtered picker + composition cross-link. Real-mode
-dogfood available end-to-end against the dev DB's 128
-backfilled assets.
+**Asset Library v1 arc COMPLETE (SESSIONS 185-192) +
+DOGFOOD VALIDATED (SESSION 193):**
+All 9 slices A0-A8 shipped. End-to-end real-mode pass
+against dev DB confirmed browse / picker / composition
+cross-link all work; one stack-up bug caught + promoted
+to hard rule (Celery is required for ALL composition
+fires).
 
 | Surface | Status |
 |---|---|
@@ -233,6 +261,7 @@ backfilled assets.
 | **Asset Library v1 — A7 picker role-filter** | **DONE (SESSION 190)** |
 | **Asset Library v1 — A6 SPA detail view** | **DONE (SESSION 191)** |
 | **Asset Library v1 — A8 lineage cross-link** | **DONE (SESSION 192) — ARC CLOSED** |
+| **Asset Library v1 — real-mode dogfood pass** | **DONE (SESSION 193) — END-TO-END VERIFIED** |
 | B6-B10 brand arc | Deferred |
 | F8.1 (K10 seed corpus) | Queued |
 | K7.x v3 YouTube oEmbed | Queued |
@@ -292,21 +321,42 @@ cd web && pnpm dev                          # :5174 — V2 dark navy + gold
 python3 /Users/donkeyking/development/context-kit/context_kit.py doctor
 ```
 
-**SESSION 193 stack-up notes:**
+**SESSION 194 stack-up — HARD REQUIREMENTS** (promoted SESSION 193):
 
-* **No arc in flight.** Bring up whichever services the
-  picked next-item needs. For the recommended Asset
-  Library v1 dogfood pass, all of: Django :8000 + SPA
-  :5174 (mock-mode covers both — no media-engine /
-  Celery required).
-* **For new-arc candidates** — V-arc / R-arc / Asset
-  Library closures established the slice template
-  (9-10 narrow slices, backend → SPA, ½-session cadence).
-  Default to the `react-web-delivery` agent for SPA work,
-  solo work for backend.
+1. **Django dev server** — `python manage.py runserver` from `shell/`.
+2. **SPA dev server** — `pnpm dev` from `web/`. :5174.
+3. **Redis** — `cd infra && docker compose up -d` (port 6381).
+4. **Celery worker** — **REQUIRED for any composition fire,
+   including mock-mode.** SESSION 193 caught this trap for the
+   second time:
+   ```bash
+   cd shell && source .venv/bin/activate
+   celery -A character_os worker --loglevel=info --pool=solo
+   ```
+   Without a worker, compositions hang silent at DRAFT
+   (`error_message=""`, both steps `pending`) and queue
+   envelopes stack in Redis. If a composition doesn't
+   advance within 5 seconds in mock-mode, check
+   `ps aux | grep celery` first.
+
+**Optional** (depending on which next-item is picked):
+
+* **Media-engine** — only for real-mode renders.
+  `uvicorn app.main:app --host localhost --port 8001 --reload`
+  from `media-engine/`. Mock-mode skips this entirely.
+
+**Other operational notes:**
+
 * Uvicorn `--reload` window — wait for "Application
   startup complete" between rapid edits per SESSION 180
   TRUST_CALIBRATION.
+* For new-arc candidates: the A-arc growth template is now
+  the proven shape (9 narrow slices, ½-session cadence,
+  backend → SPA, `react-web-delivery` agent for SPA work).
+* **Mock-mode storage_health quirk** (SESSION 193 dogfood
+  finding): `mock://` URLs fall through the A3 classifier
+  to `UPLOAD_PENDING`. That's correct, not a bug. Real-mode
+  renders surface as `HTTPS_LIVE`.
 
 **Slice-open checklist (codified SESSION 182, hardened SESSION 184):**
 
@@ -341,7 +391,7 @@ For any new step primitive added after A2:
 4. **Register the primitive** in
    `apps/compositions/primitives/__init__.py::_REGISTRY`.
 
-**Smoke checks** (counts as of SESSION 192 close):
+**Smoke checks** (counts as of SESSION 193 close — no code change):
 
 ```bash
 # Backend (from shell/)
@@ -473,23 +523,30 @@ pnpm test                                     # 134 vitest tests
 
 ## AI / assistant context
 
-- **Last session: SESSION 192 — A8 + ARC CLOSE.** Asset
+- **Last session: SESSION 193 — A-arc dogfood pass +
+  Celery hard rule.** No code changes; end-to-end real-mode
+  validation of Asset Library v1 against the dev DB caught
+  the SESSION 192 stack-up notes claiming mock-mode is
+  Celery-free as **wrong** — composition hung at DRAFT
+  104s, fixed by starting a worker, drained queue 65 → 0,
+  A8 rendered exactly as designed. Two new
+  TRUST_CALIBRATION entries (Celery hard rule + dogfood-
+  catches-stack-up-bug).
+
+- **Prior session: SESSION 192 — A8 + ARC CLOSE.** Asset
   Library v1 complete. Backend 992 → 995 (+3); SPA
-  vitest 131 → 134 (+3). One new TRUST_CALIBRATION entry
-  documenting the A-arc growth template (9 slices,
-  ½-session cadence, backend → SPA progression, subagent
-  for SPA work).
+  vitest 131 → 134 (+3).
 
-- **Prior session: SESSION 191 — A6 SPA detail view.**
-  Delegated to `react-web-delivery`. Backend 990 → 992
-  (+2); SPA vitest 125 → 131 (+6).
-
-- **Calibration carried forward (18 total — NEW SESSION 192)**:
-  - **A-arc growth template** — 9 narrow slices,
-    ½-session cadence, backend → SPA progression.
-    Generalizes to future arcs of similar shape.
-    (NEW SESSION 192.)
-  - (from SESSION 189 — 1 entry: subagent-source-of-truth)
+- **Calibration carried forward (20 total — NEW SESSION 193)**:
+  - **Celery worker is NOT optional for mock_mode** —
+    mock_mode controls primitive behavior, not the task
+    wrapper. Required for ANY composition fire. (NEW
+    SESSION 193.)
+  - **Arc-close dogfood is high-yield even after full
+    test coverage** — test passing ≠ dev stack usable.
+    (NEW SESSION 193.)
+  - A-arc growth template (SESSION 192).
+  - Subagent-source-of-truth (SESSION 189).
   - Subagent went to source-of-truth and caught an upstream
     brief error. Lesson: write subagent briefs as pointers
     to source-of-truth, not restatements of it. (NEW
