@@ -2190,12 +2190,21 @@ def dialogue_scene(
             {"slot": "clip", "from_step_position": i}
             for i in range(len(validated_lines))
         ]
+        # SESSION 196 slice 2 — override concat_clips' default
+        # BACKDROP role. A dialogue_scene's concat output is the
+        # final deliverable (N talking-head turns stitched together),
+        # not a backdrop. Tagging it COMPOSITE_OUTPUT keeps it out
+        # of the A7 role-filtered backdrop_clip_id picker (the
+        # SESSION 195 finding — avatars-over-avatars on V18 was
+        # nonsense). The "composite" framing also matches the
+        # operator's mental model: "dialogue scene = the
+        # composed deliverable."
         CompositionStep.objects.create(
             composition=composition,
             position=len(validated_lines),
             primitive="concat_clips",
             inputs=concat_inputs,
-            params={},
+            params={"result_role": "composite_output"},
         )
 
     logger.info(

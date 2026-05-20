@@ -82,6 +82,29 @@ class ConcatClipsPrimitive:
 
         params = step.params or {}
         reencode = bool(params.get("reencode"))
+        # SESSION 196 slice 2 — combinator-primitive role override.
+        # SESSION 195 dogfood found that A2's unconditional
+        # ``role=BACKDROP`` is wrong for dialogue_scene (concat of N
+        # talking_heads → final deliverable, not a backdrop). The
+        # A7 role-filtered backdrop_clip_id picker would offer the
+        # dialogue final as a "backdrop" — nonsensical avatars-over-
+        # avatars.
+        #
+        # Static ``primitive_kind → role`` (SESSION 186 A2) holds for
+        # emitter primitives but breaks for combinators whose role
+        # depends on what's being combined. Recipe starter passes
+        # ``result_role`` in step params; primitive reads + stamps.
+        # Backwards-compat default keeps the V18 / storyboard_voiced
+        # BACKDROP behavior.
+        result_role = (
+            params.get("result_role") or AssetRole.BACKDROP.value
+        )
+        valid_roles = {v for v, _ in AssetRole.choices}
+        if result_role not in valid_roles:
+            raise PrimitiveError(
+                f"concat_clips result_role={result_role!r} is not a "
+                f"valid AssetRole. Allowed: {sorted(valid_roles)}"
+            )
 
         if mock_mode:
             total_duration_ms = sum(
@@ -102,8 +125,9 @@ class ConcatClipsPrimitive:
                     "input_count": len(clips),
                     "input_asset_ids": [str(c.id) for c in clips],
                     "reencode": reencode,
+                    "result_role": result_role,
                 },
-                role=AssetRole.BACKDROP.value,
+                role=result_role,
             )
 
         # ---- real-mode path -----------------------------------
@@ -143,6 +167,7 @@ class ConcatClipsPrimitive:
             "input_count": len(clips),
             "input_asset_ids": [str(c.id) for c in clips],
             "reencode": reencode,
+            "result_role": result_role,
             "media_engine_mock_mode": result.mock_mode,
         }
 
@@ -154,7 +179,7 @@ class ConcatClipsPrimitive:
             size_bytes=result.size_bytes,
             cost_micros=_CONCAT_CLIPS_MICROS,
             extra_source_spec=extra,
-            role=AssetRole.BACKDROP.value,
+            role=result_role,
         )
 
     @staticmethod

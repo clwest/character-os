@@ -441,3 +441,151 @@ def test_audio_extract_cost_is_cheap() -> None:
     cost = AudioExtractPrimitive.estimate_cost({})
     assert cost > 0
     assert cost < 5_000  # cheaper than any provider-billed primitive
+
+
+# ---- SESSION 196 slice 2 — concat_clips result_role override ----
+
+
+def test_concat_clips_default_role_is_backdrop_unchanged() -> None:
+    """Backwards-compat: when no ``result_role`` param is set, the
+    primitive emits with ``role=BACKDROP`` — the SESSION 186 A2
+    default. V18 backdrop chain + storyboard_voiced step 6 + every
+    pre-SESSION-196 caller relies on this."""
+    from apps.compositions.primitives.concat_clips import ConcatClipsPrimitive
+
+    ws = _make_workspace("v196concat_default@test")
+    sp = _make_spokesperson(ws)
+    clip = Asset.objects.create(
+        workspace=ws, asset_type=AssetType.CLIP,
+        file_path="/data/_assets/a.mp4", duration_ms=5000,
+        mime_type="video/mp4",
+    )
+
+    from apps.compositions.models import Composition, CompositionStep
+    comp = Composition.objects.create(
+        workspace=ws, spokesperson=sp,
+        name="t", template_kind="talking_head_with_backdrop",
+        mock_mode=True,
+    )
+    step = CompositionStep.objects.create(
+        composition=comp, position=0,
+        primitive="concat_clips", inputs=[], params={},
+    )
+    result = ConcatClipsPrimitive.execute(
+        step, [{"slot": "clip", "asset": clip}], mock_mode=True,
+    )
+    assert result.role == "backdrop"
+
+
+def test_concat_clips_honors_result_role_override() -> None:
+    """When ``result_role`` is set in step.params, the primitive
+    stamps that value instead of BACKDROP. Slice 2's mechanism."""
+    from apps.compositions.primitives.concat_clips import ConcatClipsPrimitive
+
+    ws = _make_workspace("v196concat_override@test")
+    sp = _make_spokesperson(ws)
+    clip = Asset.objects.create(
+        workspace=ws, asset_type=AssetType.CLIP,
+        file_path="/data/_assets/a.mp4", duration_ms=5000,
+        mime_type="video/mp4",
+    )
+
+    from apps.compositions.models import Composition, CompositionStep
+    comp = Composition.objects.create(
+        workspace=ws, spokesperson=sp,
+        name="t", template_kind="dialogue_scene",
+        mock_mode=True,
+    )
+    step = CompositionStep.objects.create(
+        composition=comp, position=0,
+        primitive="concat_clips", inputs=[],
+        params={"result_role": "composite_output"},
+    )
+    result = ConcatClipsPrimitive.execute(
+        step, [{"slot": "clip", "asset": clip}], mock_mode=True,
+    )
+    assert result.role == "composite_output"
+    # extra_source_spec records the override so the Asset's audit
+    # trail captures which role was stamped + why.
+    assert result.extra_source_spec["result_role"] == "composite_output"
+
+
+def test_concat_clips_rejects_invalid_result_role() -> None:
+    """Defense-in-depth: only AssetRole values are accepted. A
+    typo in the starter (e.g. result_role="composite") would be
+    caught at concat-step execute, not silently stamped."""
+    from apps.compositions.primitives.concat_clips import ConcatClipsPrimitive
+    from apps.compositions.primitives.mock import PrimitiveError
+
+    ws = _make_workspace("v196concat_bad@test")
+    sp = _make_spokesperson(ws)
+    clip = Asset.objects.create(
+        workspace=ws, asset_type=AssetType.CLIP,
+        file_path="/data/_assets/a.mp4", duration_ms=5000,
+        mime_type="video/mp4",
+    )
+
+    from apps.compositions.models import Composition, CompositionStep
+    comp = Composition.objects.create(
+        workspace=ws, spokesperson=sp,
+        name="t", template_kind="dialogue_scene",
+        mock_mode=True,
+    )
+    step = CompositionStep.objects.create(
+        composition=comp, position=0,
+        primitive="concat_clips", inputs=[],
+        params={"result_role": "composite_typo"},
+    )
+    with pytest.raises(PrimitiveError, match="not a valid AssetRole"):
+        ConcatClipsPrimitive.execute(
+            step, [{"slot": "clip", "asset": clip}], mock_mode=True,
+        )
+
+
+def test_dialogue_scene_starter_passes_composite_output_to_concat() -> None:
+    """Slice 2 wiring: the dialogue_scene starter sets
+    ``result_role=composite_output`` on its concat step's params
+    so the SESSION 195 bug (dialogue final stamped BACKDROP →
+    polluting the A7 backdrop_clip_id picker) doesn't recur."""
+    ws = _make_workspace("v196ds_role@test")
+    sp_a = _make_spokesperson(ws, name="Riggs", avatar_id="avatar_riggs")
+    sp_b = _make_spokesperson(ws, name="Sasha", avatar_id="avatar_sasha")
+    c = dialogue_scene(
+        workspace=ws, primary_spokesperson=sp_a,
+        lines=[
+            {"spokesperson": sp_a, "text": "L1"},
+            {"spokesperson": sp_b, "text": "L2"},
+        ],
+        mock_mode=True,
+    )
+    concat = c.steps.get(primitive="concat_clips")
+    assert concat.params.get("result_role") == "composite_output"
+
+
+def test_dialogue_scene_e2e_final_asset_is_composite_output() -> None:
+    """End-to-end: a dialogue_scene composition runs to completion
+    in mock mode + the final Asset row carries ``role=composite_output``.
+    Inverse: the A7 role-filtered backdrop_clip_id picker
+    (``role=backdrop``) would not surface this asset."""
+    ws = _make_workspace("v196ds_e2e@test")
+    sp_a = _make_spokesperson(ws, name="Riggs", avatar_id="avatar_riggs")
+    sp_b = _make_spokesperson(ws, name="Sasha", avatar_id="avatar_sasha")
+    c = dialogue_scene(
+        workspace=ws, primary_spokesperson=sp_a,
+        lines=[
+            {"spokesperson": sp_a, "text": "L1"},
+            {"spokesperson": sp_b, "text": "L2"},
+        ],
+        mock_mode=True,
+    )
+    from apps.compositions.tasks import execute_composition
+    result = execute_composition.apply(args=[str(c.pk)]).get()
+    assert result["status"] == "completed"
+    c.refresh_from_db()
+    assert c.final_asset is not None
+    assert c.final_asset.role == "composite_output"
+    # And confirm the negative case: the dialogue final does NOT
+    # surface in a role=backdrop filter (which is what the A7
+    # picker uses).
+    backdrop_only = Asset.objects.filter(workspace=ws, role="backdrop")
+    assert c.final_asset not in backdrop_only
