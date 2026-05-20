@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-20T20:27:12.893915+00:00
-git_sha: 4f0aaf7 (working tree dirty)
+generated_at: 2026-05-20T21:20:29.229565+00:00
+git_sha: e76e173 (working tree dirty)
 git_branch: main
 ---
 
@@ -15,7 +15,7 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-20T20:27:12.893915+00:00** against commit **4f0aaf7**
+Generated **2026-05-20T21:20:29.229565+00:00** against commit **e76e173**
 on branch **main** (working tree dirty).
 
 Python 3.11.6 · Django 5.2.14 ·
@@ -28,12 +28,12 @@ Celery 5.6.3 · httpx 0.28.1.
 | Metric | Value | Source |
 |---|---|---|
 | Django models (project-owned) | **22** | `apps.get_models()` filtered to first-party apps |
-| URL routes (total) | **389** | `get_resolver().url_patterns` walk |
-| URL routes (`/api/*`) | **165** | same |
+| URL routes (total) | **391** | `get_resolver().url_patterns` walk |
+| URL routes (`/api/*`) | **167** | same |
 | FastAPI routes | **122** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **9** | `celery_app.tasks` filter |
-| Migrations (applied / total) | **67 / 67** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **69,260** in 301 files | `pathlib.Path.rglob("*.py")` |
+| Migrations (applied / total) | **68 / 68** | `MigrationRecorder` ∩ `MigrationLoader` |
+| Shell LOC (`*.py`, no venv/migrations) | **70,263** in 301 files | `pathlib.Path.rglob("*.py")` |
 | Media-engine LOC (`*.py`, no venv/migrations) | **37,012** in 70 files | same |
 
 ---
@@ -48,7 +48,7 @@ Total: **22** models across **12** apps.
 | `accounts` | `User` | `accounts_user` | 8 | 0 |
 | `accounts` | `Workspace` | `accounts_workspace` | 6 | 1 |
 | `billing` | `Subscription` | `billing_subscription` | 9 | 0 |
-| `campaigns` | `PersonalizedCampaign` | `campaigns_personalizedcampaign` | 12 | 3 |
+| `campaigns` | `PersonalizedCampaign` | `campaigns_personalizedcampaign` | 13 | 4 |
 | `campaigns` | `PersonalizedRecipient` | `campaigns_personalizedrecipient` | 11 | 2 |
 | `compositions` | `Asset` | `compositions_asset` | 25 | 4 |
 | `compositions` | `Composition` | `compositions_composition` | 19 | 4 |
@@ -71,14 +71,14 @@ Total: **22** models across **12** apps.
 
 ## URL Routes
 
-Total: **389** resolved patterns.
+Total: **391** resolved patterns.
 
 | Prefix | Count |
 |---|---|
 | `_allauth/` | 19 |
 | `accounts/` | 26 |
 | `admin/` | 179 |
-| `api/` | 165 |
+| `api/` | 167 |
 
 ### Named API + auth routes
 
@@ -164,6 +164,7 @@ Total: **389** resolved patterns.
 - `reset_password`
 - `script-approve`
 - `script-clone`
+- `script-derived-campaigns`
 - `script-detail`
 - `script-list`
 - `script-regenerate`
@@ -270,7 +271,7 @@ Total: **9** registered tasks (excluding `celery.*` built-ins).
 
 ## Migrations
 
-**67 of 67** migrations applied.
+**68 of 68** migrations applied.
 
 | App | Applied | Total | Pending |
 |---|---|---|---|
@@ -279,7 +280,7 @@ Total: **9** registered tasks (excluding `celery.*` built-ins).
 | `admin` | 3 | 3 | 0 |
 | `auth` | 12 | 12 | 0 |
 | `billing` | 1 | 1 | 0 |
-| `campaigns` | 1 | 1 | 0 |
+| `campaigns` | 2 | 2 | 0 |
 | `compositions` | 9 | 9 | 0 |
 | `contenttypes` | 2 | 2 | 0 |
 | `conversations` | 4 | 4 | 0 |
@@ -314,11 +315,11 @@ Total: **9** registered tasks (excluding `celery.*` built-ins).
 | Service | Files | Lines |
 |---|---|---|
 | `media-engine/` | 70 | 37,012 |
-| `shell/` | 301 | 69,260 |
-| **total** | **371** | **106,272** |
+| `shell/` | 301 | 70,263 |
+| **total** | **371** | **107,275** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-05-20T20:27:12.893915+00:00 from commit 4f0aaf7. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-20T21:20:29.229565+00:00 from commit e76e173. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
