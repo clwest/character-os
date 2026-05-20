@@ -131,7 +131,7 @@ to this stack.
 
 ---
 
-#### B-2. Knowledge-driven auto-scripting (zero-typing)
+#### B-2. Knowledge-driven auto-scripting (zero-typing) — **LOCKED → AUTO_SCRIPTING_V1.md (SESSION 206)**
 
 **Genre:** removes the blank-page problem.
 

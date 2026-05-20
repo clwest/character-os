@@ -36,6 +36,8 @@ state: active
 > B3.0-B3.9 COMPLETE + REAL-MODE VALIDATED (SESSION 203).
 > **Publish Bundle (B-14):** `docs/design/PUBLISH_BUNDLE_V1.md`.
 > **B14.0-B14.5 COMPLETE + REAL-MODE VALIDATED (SESSION 205).**
+> **Auto-Scripting (B-2):** `docs/design/AUTO_SCRIPTING_V1.md`.
+> **B2.0 LOCKED (SESSION 206); B2.1 opens next.**
 > **Last handoff:** `docs/handoffs/SESSION_205_D_ARC_LANDS.md`.
 
 ---
@@ -329,8 +331,7 @@ Alternatives:
 | `videos_per_month` count migration | **DONE (SESSION 204)** |
 | **Publish Bundle v1 (B14.0-B14.5)** | **DONE (SESSION 205) + REAL-MODE VALIDATED** |
 | B-14 v2 offset_x knob | Queued (½ session; SESSION 205 dogfood finding) |
-| B-14 Multi-Platform Variants | New-arc candidate (recommended) |
-| B-2 Auto-scripting | New-arc candidate |
+| **Auto-Scripting v1 (B2.0-B2.6)** | **B2.0 LOCKED (SESSION 206); B2.1-B2.6 queued** |
 
 ---
 
