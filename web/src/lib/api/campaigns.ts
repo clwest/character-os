@@ -1,16 +1,16 @@
 /**
- * /api/campaigns/ wrapper — B3.7.
+ * /api/campaigns/ wrapper — B3.7 + B3.8.
  *
  * Backend surface: CampaignViewSet
- * (shell/apps/campaigns/views.py). SESSION B3.7.
+ * (shell/apps/campaigns/views.py). SESSION B3.7 / B3.8.
  *
  * Covers:
  *   - PersonalizedCampaign list + detail + create + delete
  *   - ParseCsv action (POST /api/campaigns/<id>/parse_csv/)
  *   - Recipients sub-list (GET /api/campaigns/<id>/recipients/)
- *
- * B3.8 will add forecast / launch / retry mutations; they live
- * here when shipped.
+ *   - Forecast (GET /api/campaigns/<id>/forecast/)         [B3.8]
+ *   - Launch  (POST /api/campaigns/<id>/launch/)           [B3.8]
+ *   - Retry   (POST /api/campaigns/<id>/retry_recipient/)  [B3.8]
  */
 import { z } from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -191,13 +191,24 @@ export function useCampaigns(
   });
 }
 
-/** Single campaign detail. Enabled only when id is non-empty. */
+/** Single campaign detail. Enabled only when id is non-empty.
+ *  Polls every 5 s while the campaign is LAUNCHING or IN_FLIGHT
+ *  (the Celery worker updates status asynchronously). Stops on
+ *  any terminal state per the videos.ts refetchInterval pattern.
+ */
 export function useCampaign(id: string | undefined) {
   return useQuery({
     queryKey: ["campaign", id ?? null],
     queryFn: () => getCampaign(id!),
     enabled: Boolean(id),
-    staleTime: 15_000,
+    staleTime: 0,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data) return false;
+      const active: CampaignStatus[] = ["launching", "in_flight"];
+      return active.includes(data.status) ? 5_000 : false;
+    },
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -302,6 +313,144 @@ export function recipientStatusTone(
       return "success";
     case "failed":
       return "danger";
+  }
+}
+
+// ---- B3.8: Forecast / Launch / Retry schemas ----------------
+
+/** Structured blocking_reason from the forecast endpoint. */
+export const blockingReasonSchema = z.object({
+  code: z.enum([
+    "no_recipients",
+    "campaign_not_draft",
+    "personalized_batch_too_large",
+    "video_limit_reached",
+  ]),
+  message: z.string(),
+});
+export type BlockingReason = z.infer<typeof blockingReasonSchema>;
+
+/** GET /api/campaigns/<id>/forecast/ response. */
+export const forecastSchema = z.object({
+  recipient_count: z.number().int().nonnegative(),
+  batch_cap: z.number().int().nonnegative().nullable(),
+  videos_per_month_limit: z.number().int().nonnegative().nullable(),
+  videos_used_this_month: z.number().int().nonnegative(),
+  videos_remaining: z.number().int().nonnegative().nullable(),
+  projected_cost_micros: z.number().int().nonnegative(),
+  per_recipient_cost_micros: z.number().int().nonnegative(),
+  ready_to_launch: z.boolean(),
+  blocking_reason: blockingReasonSchema.nullable(),
+});
+export type CampaignForecast = z.infer<typeof forecastSchema>;
+
+/** POST /api/campaigns/<id>/launch/ success response. */
+export const launchResponseSchema = z.object({
+  campaign: z.lazy(() => personalizedCampaignSchema),
+  queued_count: z.number().int().nonnegative(),
+  failed_at_render_count: z.number().int().nonnegative(),
+});
+export type LaunchResponse = z.infer<typeof launchResponseSchema>;
+
+/** POST /api/campaigns/<id>/retry_recipient/ success response. */
+export const retryResponseSchema = z.object({
+  recipient: z.lazy(() => personalizedRecipientSchema),
+  campaign_status: z.enum(CAMPAIGN_STATUSES),
+});
+export type RetryResponse = z.infer<typeof retryResponseSchema>;
+
+// ---- B3.8 fetch helpers --------------------------------------
+
+/** GET /api/campaigns/<id>/forecast/ */
+export async function getCampaignForecast(
+  campaignId: string,
+): Promise<CampaignForecast> {
+  return apiJson(
+    `/api/campaigns/${encodeURIComponent(campaignId)}/forecast/`,
+    {},
+    (json) => forecastSchema.parse(json),
+  );
+}
+
+/** POST /api/campaigns/<id>/launch/ */
+export async function launchCampaign(
+  campaignId: string,
+): Promise<LaunchResponse> {
+  return apiJson(
+    `/api/campaigns/${encodeURIComponent(campaignId)}/launch/`,
+    { method: "POST" },
+    (json) => launchResponseSchema.parse(json),
+  );
+}
+
+/** POST /api/campaigns/<id>/retry_recipient/ */
+export async function retryRecipient(
+  campaignId: string,
+  recipientId: string,
+): Promise<RetryResponse> {
+  return apiJson(
+    `/api/campaigns/${encodeURIComponent(campaignId)}/retry_recipient/`,
+    { method: "POST", body: { recipient_id: recipientId } },
+    (json) => retryResponseSchema.parse(json),
+  );
+}
+
+// ---- B3.8 React Query hooks ----------------------------------
+
+/** Cost forecast for the launch modal. Re-fetches on mount. */
+export function useCampaignForecast(campaignId: string | undefined) {
+  return useQuery({
+    queryKey: ["campaign-forecast", campaignId ?? null],
+    queryFn: () => getCampaignForecast(campaignId!),
+    enabled: Boolean(campaignId),
+    staleTime: 10_000,
+  });
+}
+
+/**
+ * Launch a campaign. Invalidates detail + recipients queries on
+ * success so the SPA immediately renders the IN_FLIGHT view.
+ */
+export function useLaunchCampaign(campaignId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => launchCampaign(campaignId!),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["campaign", campaignId] });
+      void qc.invalidateQueries({ queryKey: ["campaign-recipients", campaignId] });
+      void qc.invalidateQueries({ queryKey: ["campaign-forecast", campaignId] });
+    },
+  });
+}
+
+/**
+ * Retry a single FAILED recipient. Invalidates the campaign +
+ * recipients cache on success so the row flips to QUEUED.
+ */
+export function useRetryRecipient(campaignId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (recipientId: string) => retryRecipient(campaignId!, recipientId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["campaign", campaignId] });
+      void qc.invalidateQueries({ queryKey: ["campaign-recipients", campaignId] });
+    },
+  });
+}
+
+// ---- B3.8 display helpers -----------------------------------
+
+/** Human-readable explanation for a blocking_reason code. */
+export function blockingReasonMessage(code: BlockingReason["code"]): string {
+  switch (code) {
+    case "no_recipients":
+      return "Add recipients by pasting a CSV before launching.";
+    case "campaign_not_draft":
+      return "Only DRAFT campaigns can be launched.";
+    case "personalized_batch_too_large":
+      return "Batch exceeds your tier's per-launch limit. Remove recipients or upgrade.";
+    case "video_limit_reached":
+      return "You have reached your monthly video limit. Upgrade to launch more.";
   }
 }
 

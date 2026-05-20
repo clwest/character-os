@@ -37,6 +37,9 @@ vi.mock("@/lib/api/campaigns", async (importActual) => {
     useDeleteCampaign: vi.fn(),
     useParseCsv: vi.fn(),
     useRecipients: vi.fn(),
+    useCampaignForecast: vi.fn(),
+    useLaunchCampaign: vi.fn(),
+    useRetryRecipient: vi.fn(),
   };
 });
 
@@ -48,7 +51,15 @@ import {
   useCreateCampaign,
   useDeleteCampaign,
   useParseCsv,
+  useRecipients,
+  useCampaignForecast,
+  useLaunchCampaign,
+  useRetryRecipient,
 } from "@/lib/api/campaigns";
+
+// ---- Shared default stubs for B3.8 hooks --------------------
+// These are set in beforeEach blocks inside the B3.8 describe;
+// listed here for documentation.
 
 // ---- Fixtures ------------------------------------------------
 
@@ -461,6 +472,25 @@ describe("CampaignDetailRoute — metadata + CSV panel", () => {
       }),
       isPending: false,
     } as unknown as ReturnType<typeof useParseCsv>);
+    // B3.8 hooks — stub to safe defaults for B3.7 tests.
+    vi.mocked(useCampaignForecast).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useCampaignForecast>);
+    vi.mocked(useLaunchCampaign).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useLaunchCampaign>);
+    vi.mocked(useRecipients).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useRecipients>);
+    vi.mocked(useRetryRecipient).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useRetryRecipient>);
   });
 
   it("renders campaign name, spokesperson, and status badge", () => {
@@ -468,6 +498,7 @@ describe("CampaignDetailRoute — metadata + CSV panel", () => {
       data: makeCampaign(),
       isLoading: false,
       isError: false,
+      refetch: vi.fn(),
     } as unknown as ReturnType<typeof useCampaign>);
 
     renderDetail();
@@ -483,6 +514,7 @@ describe("CampaignDetailRoute — metadata + CSV panel", () => {
       data: makeCampaign(),
       isLoading: false,
       isError: false,
+      refetch: vi.fn(),
     } as unknown as ReturnType<typeof useCampaign>);
 
     renderDetail();
@@ -496,6 +528,7 @@ describe("CampaignDetailRoute — metadata + CSV panel", () => {
       data: makeCampaign(),
       isLoading: false,
       isError: false,
+      refetch: vi.fn(),
     } as unknown as ReturnType<typeof useCampaign>);
 
     renderDetail();
@@ -510,6 +543,7 @@ describe("CampaignDetailRoute — metadata + CSV panel", () => {
       data: makeCampaign({ status: "draft" }),
       isLoading: false,
       isError: false,
+      refetch: vi.fn(),
     } as unknown as ReturnType<typeof useCampaign>);
 
     renderDetail();
@@ -537,6 +571,7 @@ describe("CampaignDetailRoute — metadata + CSV panel", () => {
       data: makeCampaign({ status: "draft" }),
       isLoading: false,
       isError: false,
+      refetch: vi.fn(),
     } as unknown as ReturnType<typeof useCampaign>);
 
     renderDetail();
@@ -574,6 +609,7 @@ describe("CampaignDetailRoute — metadata + CSV panel", () => {
       data: makeCampaign({ status: "draft" }),
       isLoading: false,
       isError: false,
+      refetch: vi.fn(),
     } as unknown as ReturnType<typeof useCampaign>);
 
     renderDetail();
@@ -613,6 +649,7 @@ describe("CampaignDetailRoute — metadata + CSV panel", () => {
       data: makeCampaign({ status: "draft" }),
       isLoading: false,
       isError: false,
+      refetch: vi.fn(),
     } as unknown as ReturnType<typeof useCampaign>);
 
     renderDetail();
@@ -641,6 +678,7 @@ describe("CampaignDetailRoute — metadata + CSV panel", () => {
       data: makeCampaign({ status: "draft" }),
       isLoading: false,
       isError: false,
+      refetch: vi.fn(),
     } as unknown as ReturnType<typeof useCampaign>);
 
     renderDetail();
@@ -653,6 +691,7 @@ describe("CampaignDetailRoute — metadata + CSV panel", () => {
       data: makeCampaign({ status: "completed" }),
       isLoading: false,
       isError: false,
+      refetch: vi.fn(),
     } as unknown as ReturnType<typeof useCampaign>);
 
     renderDetail();
@@ -666,6 +705,7 @@ describe("CampaignDetailRoute — metadata + CSV panel", () => {
       data: makeCampaign({ status: "draft" }),
       isLoading: false,
       isError: false,
+      refetch: vi.fn(),
     } as unknown as ReturnType<typeof useCampaign>);
 
     renderDetail();
@@ -690,6 +730,7 @@ describe("CampaignDetailRoute — metadata + CSV panel", () => {
       data: makeCampaign({ status: "draft" }),
       isLoading: false,
       isError: false,
+      refetch: vi.fn(),
     } as unknown as ReturnType<typeof useCampaign>);
 
     renderDetail();
@@ -708,5 +749,847 @@ describe("CampaignDetailRoute — metadata + CSV panel", () => {
     await waitFor(() => {
       expect(screen.getByTestId("list-page")).toBeInTheDocument();
     });
+  });
+});
+
+// ---- B3.8 helpers -------------------------------------------
+
+function makeForecast(overrides: Record<string, unknown> = {}) {
+  return {
+    recipient_count: 3,
+    batch_cap: 5,
+    videos_per_month_limit: 30,
+    videos_used_this_month: 5,
+    videos_remaining: 25,
+    projected_cost_micros: 750_000,
+    per_recipient_cost_micros: 250_000,
+    ready_to_launch: true,
+    blocking_reason: null,
+    ...overrides,
+  };
+}
+
+function makeRecipientRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "r-00000000-0000-0000-0000-000000000001",
+    campaign_id: "c-00000000-0000-0000-0000-000000000001",
+    variables: { first_name: "Alice", company: "Acme" },
+    label: "Alice",
+    rendered_script: "",
+    position: 1,
+    status: "pending" as const,
+    status_label: "Pending",
+    produced_composition_id: null,
+    error_message: "",
+    created_at: "2026-05-19T10:00:00Z",
+    updated_at: "2026-05-19T10:00:00Z",
+    ...overrides,
+  };
+}
+
+// ---- CampaignDetailRoute B3.8 — ForecastPanel + launch ------
+
+describe("CampaignDetailRoute B3.8 — ForecastPanel + launch", () => {
+  beforeEach(() => {
+    vi.mocked(useDeleteCampaign).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useDeleteCampaign>);
+    vi.mocked(useParseCsv).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useParseCsv>);
+    vi.mocked(useRecipients).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useRecipients>);
+    vi.mocked(useRetryRecipient).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useRetryRecipient>);
+  });
+
+  it("renders forecast panel for DRAFT campaign with recipients", () => {
+    vi.mocked(useCampaign).mockReturnValue({
+      data: makeCampaign({
+        status: "draft",
+        recipient_counts: {
+          pending: 3,
+          queued: 0,
+          running: 0,
+          completed: 0,
+          failed: 0,
+          total: 3,
+        },
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useCampaign>);
+    vi.mocked(useCampaignForecast).mockReturnValue({
+      data: makeForecast(),
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useCampaignForecast>);
+    vi.mocked(useLaunchCampaign).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useLaunchCampaign>);
+
+    renderDetail();
+
+    expect(screen.getByTestId("forecast-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("forecast-summary")).toBeInTheDocument();
+    // $0.75 total from 3 × $0.25
+    expect(screen.getByTestId("forecast-summary")).toHaveTextContent("$0.75");
+  });
+
+  it("does not render forecast panel when DRAFT campaign has no recipients", () => {
+    vi.mocked(useCampaign).mockReturnValue({
+      data: makeCampaign({ status: "draft" }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useCampaign>);
+    vi.mocked(useCampaignForecast).mockReturnValue({
+      data: makeForecast({ recipient_count: 0 }),
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useCampaignForecast>);
+    vi.mocked(useLaunchCampaign).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useLaunchCampaign>);
+
+    renderDetail();
+
+    expect(screen.queryByTestId("forecast-panel")).not.toBeInTheDocument();
+  });
+
+  it("Launch button is disabled when ready_to_launch=false", () => {
+    vi.mocked(useCampaign).mockReturnValue({
+      data: makeCampaign({
+        status: "draft",
+        recipient_counts: {
+          pending: 3,
+          queued: 0,
+          running: 0,
+          completed: 0,
+          failed: 0,
+          total: 3,
+        },
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useCampaign>);
+    vi.mocked(useCampaignForecast).mockReturnValue({
+      data: makeForecast({
+        ready_to_launch: false,
+        blocking_reason: {
+          code: "personalized_batch_too_large",
+          message: "Batch exceeds the limit.",
+        },
+      }),
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useCampaignForecast>);
+    vi.mocked(useLaunchCampaign).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useLaunchCampaign>);
+
+    renderDetail();
+
+    expect(screen.getByTestId("launch-btn")).toBeDisabled();
+    expect(screen.getByTestId("blocking-reason")).toBeInTheDocument();
+    expect(screen.getByTestId("blocking-reason")).toHaveTextContent(
+      "Batch exceeds your tier",
+    );
+  });
+
+  it("clicking Launch button opens the confirmation modal", async () => {
+    const user = userEvent.setup();
+    vi.mocked(useCampaign).mockReturnValue({
+      data: makeCampaign({
+        status: "draft",
+        recipient_counts: {
+          pending: 3,
+          queued: 0,
+          running: 0,
+          completed: 0,
+          failed: 0,
+          total: 3,
+        },
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useCampaign>);
+    vi.mocked(useCampaignForecast).mockReturnValue({
+      data: makeForecast(),
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useCampaignForecast>);
+    vi.mocked(useLaunchCampaign).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useLaunchCampaign>);
+
+    renderDetail();
+
+    await user.click(screen.getByTestId("launch-btn"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("launch-modal")).toBeInTheDocument();
+      expect(screen.getByTestId("launch-modal-heading")).toHaveTextContent(
+        "Launch 3 personalized videos?",
+      );
+    });
+  });
+
+  it("modal Cancel closes without firing launch", async () => {
+    const user = userEvent.setup();
+    const mutateAsync = vi.fn();
+    vi.mocked(useCampaign).mockReturnValue({
+      data: makeCampaign({
+        status: "draft",
+        recipient_counts: {
+          pending: 3,
+          queued: 0,
+          running: 0,
+          completed: 0,
+          failed: 0,
+          total: 3,
+        },
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useCampaign>);
+    vi.mocked(useCampaignForecast).mockReturnValue({
+      data: makeForecast(),
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useCampaignForecast>);
+    vi.mocked(useLaunchCampaign).mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    } as unknown as ReturnType<typeof useLaunchCampaign>);
+
+    renderDetail();
+
+    await user.click(screen.getByTestId("launch-btn"));
+    await waitFor(() => {
+      expect(screen.getByTestId("launch-modal")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId("launch-modal-cancel"));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("launch-modal")).not.toBeInTheDocument();
+    });
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("modal Yes, launch fires mutateAsync and shows success banner", async () => {
+    const user = userEvent.setup();
+    const mutateAsync = vi.fn().mockResolvedValue({
+      campaign: makeCampaign({ status: "in_flight" }),
+      queued_count: 3,
+      failed_at_render_count: 0,
+    });
+    vi.mocked(useCampaign).mockReturnValue({
+      data: makeCampaign({
+        status: "draft",
+        recipient_counts: {
+          pending: 3,
+          queued: 0,
+          running: 0,
+          completed: 0,
+          failed: 0,
+          total: 3,
+        },
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useCampaign>);
+    vi.mocked(useCampaignForecast).mockReturnValue({
+      data: makeForecast(),
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useCampaignForecast>);
+    vi.mocked(useLaunchCampaign).mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    } as unknown as ReturnType<typeof useLaunchCampaign>);
+
+    renderDetail();
+
+    await user.click(screen.getByTestId("launch-btn"));
+    await waitFor(() => {
+      expect(screen.getByTestId("launch-modal")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId("launch-modal-confirm"));
+
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalled();
+      expect(screen.queryByTestId("launch-modal")).not.toBeInTheDocument();
+      expect(screen.getByTestId("launch-success-banner")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("launch-success-banner")).toHaveTextContent(
+      "3 renders queued",
+    );
+  });
+
+  it("launch 402 personalized_batch_too_large surfaces inline error", async () => {
+    const user = userEvent.setup();
+    const { ApiError } = await import("@/lib/api/client");
+    const mutateAsync = vi.fn().mockRejectedValue(
+      new ApiError("402", 402, {
+        code: "personalized_batch_too_large",
+        message: "Batch of 40 exceeds your Pro tier cap of 30.",
+      }),
+    );
+    vi.mocked(useCampaign).mockReturnValue({
+      data: makeCampaign({
+        status: "draft",
+        recipient_counts: {
+          pending: 40,
+          queued: 0,
+          running: 0,
+          completed: 0,
+          failed: 0,
+          total: 40,
+        },
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useCampaign>);
+    vi.mocked(useCampaignForecast).mockReturnValue({
+      data: makeForecast({ recipient_count: 40, ready_to_launch: true }),
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useCampaignForecast>);
+    vi.mocked(useLaunchCampaign).mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    } as unknown as ReturnType<typeof useLaunchCampaign>);
+
+    renderDetail();
+
+    await user.click(screen.getByTestId("launch-btn"));
+    await waitFor(() => {
+      expect(screen.getByTestId("launch-modal")).toBeInTheDocument();
+    });
+    await user.click(screen.getByTestId("launch-modal-confirm"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("launch-error")).toBeInTheDocument();
+      expect(screen.getByTestId("launch-error")).toHaveTextContent(
+        "Batch of 40 exceeds your Pro tier cap of 30.",
+      );
+    });
+  });
+
+  it("launch 402 video_limit_reached surfaces inline error", async () => {
+    const user = userEvent.setup();
+    const { ApiError } = await import("@/lib/api/client");
+    const mutateAsync = vi.fn().mockRejectedValue(
+      new ApiError("402", 402, {
+        code: "video_limit_reached",
+        message: "Monthly video limit reached — 30 of 30 used.",
+      }),
+    );
+    vi.mocked(useCampaign).mockReturnValue({
+      data: makeCampaign({
+        status: "draft",
+        recipient_counts: {
+          pending: 3,
+          queued: 0,
+          running: 0,
+          completed: 0,
+          failed: 0,
+          total: 3,
+        },
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useCampaign>);
+    vi.mocked(useCampaignForecast).mockReturnValue({
+      data: makeForecast({ videos_remaining: 0, ready_to_launch: true }),
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useCampaignForecast>);
+    vi.mocked(useLaunchCampaign).mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    } as unknown as ReturnType<typeof useLaunchCampaign>);
+
+    renderDetail();
+
+    await user.click(screen.getByTestId("launch-btn"));
+    await waitFor(() => {
+      expect(screen.getByTestId("launch-modal")).toBeInTheDocument();
+    });
+    await user.click(screen.getByTestId("launch-modal-confirm"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("launch-error")).toBeInTheDocument();
+      expect(screen.getByTestId("launch-error")).toHaveTextContent(
+        "Monthly video limit reached",
+      );
+    });
+  });
+});
+
+// ---- CampaignDetailRoute B3.8 — IN_FLIGHT recipient grid ----
+
+describe("CampaignDetailRoute B3.8 — IN_FLIGHT grid", () => {
+  beforeEach(() => {
+    vi.mocked(useDeleteCampaign).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useDeleteCampaign>);
+    vi.mocked(useParseCsv).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useParseCsv>);
+    vi.mocked(useCampaignForecast).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useCampaignForecast>);
+    vi.mocked(useLaunchCampaign).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useLaunchCampaign>);
+    vi.mocked(useRetryRecipient).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useRetryRecipient>);
+  });
+
+  it("renders recipient grid for IN_FLIGHT campaign", () => {
+    vi.mocked(useCampaign).mockReturnValue({
+      data: makeCampaign({
+        status: "in_flight",
+        recipient_counts: {
+          pending: 0,
+          queued: 2,
+          running: 1,
+          completed: 0,
+          failed: 0,
+          total: 3,
+        },
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useCampaign>);
+    vi.mocked(useRecipients).mockReturnValue({
+      data: [
+        makeRecipientRow({ status: "queued", label: "Alice" }),
+        makeRecipientRow({
+          id: "r-2",
+          status: "running",
+          label: "Bob",
+          variables: { first_name: "Bob", company: "Globex" },
+        }),
+        makeRecipientRow({
+          id: "r-3",
+          status: "queued",
+          label: "Carol",
+          variables: { first_name: "Carol", company: "Initech" },
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useRecipients>);
+
+    renderDetail();
+
+    expect(screen.getByTestId("recipient-grid")).toBeInTheDocument();
+    expect(screen.getByTestId("progress-summary")).toBeInTheDocument();
+    expect(screen.getByTestId("progress-bar")).toBeInTheDocument();
+    // Recipient rows present.
+    expect(
+      screen.getByTestId("recipient-row-r-00000000-0000-0000-0000-000000000001"),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("recipient-row-r-2")).toBeInTheDocument();
+  });
+
+  it("status badges use correct palette: queued=amber, completed=emerald, failed=destructive", () => {
+    vi.mocked(useCampaign).mockReturnValue({
+      data: makeCampaign({
+        status: "in_flight",
+        recipient_counts: {
+          pending: 0,
+          queued: 1,
+          running: 0,
+          completed: 1,
+          failed: 1,
+          total: 3,
+        },
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useCampaign>);
+    vi.mocked(useRecipients).mockReturnValue({
+      data: [
+        makeRecipientRow({ id: "r-1", status: "queued" }),
+        makeRecipientRow({ id: "r-2", status: "completed" }),
+        makeRecipientRow({ id: "r-3", status: "failed" }),
+      ],
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useRecipients>);
+
+    renderDetail();
+
+    const queuedBadge = screen.getByTestId("recipient-status-badge-queued");
+    expect(queuedBadge.className).toContain("amber");
+
+    const completedBadge = screen.getByTestId("recipient-status-badge-completed");
+    expect(completedBadge.className).toContain("emerald");
+
+    const failedBadge = screen.getByTestId("recipient-status-badge-failed");
+    expect(failedBadge.className).toContain("destructive");
+  });
+
+  it("progress summary shows active count and progress bar", () => {
+    vi.mocked(useCampaign).mockReturnValue({
+      data: makeCampaign({
+        status: "in_flight",
+        recipient_counts: {
+          pending: 0,
+          queued: 2,
+          running: 0,
+          completed: 1,
+          failed: 0,
+          total: 3,
+        },
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useCampaign>);
+    vi.mocked(useRecipients).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useRecipients>);
+
+    renderDetail();
+
+    const summary = screen.getByTestId("progress-summary");
+    expect(summary).toHaveTextContent("1 of 3");
+  });
+
+  it("hides CSV panel for IN_FLIGHT campaign", () => {
+    vi.mocked(useCampaign).mockReturnValue({
+      data: makeCampaign({
+        status: "in_flight",
+        recipient_counts: {
+          pending: 0,
+          queued: 3,
+          running: 0,
+          completed: 0,
+          failed: 0,
+          total: 3,
+        },
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useCampaign>);
+    vi.mocked(useRecipients).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useRecipients>);
+
+    renderDetail();
+
+    expect(screen.queryByTestId("csv-panel")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("forecast-panel")).not.toBeInTheDocument();
+  });
+});
+
+// ---- CampaignDetailRoute B3.8 — terminal states + retry -----
+
+describe("CampaignDetailRoute B3.8 — terminal states + retry", () => {
+  beforeEach(() => {
+    vi.mocked(useDeleteCampaign).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useDeleteCampaign>);
+    vi.mocked(useParseCsv).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useParseCsv>);
+    vi.mocked(useCampaignForecast).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useCampaignForecast>);
+    vi.mocked(useLaunchCampaign).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useLaunchCampaign>);
+  });
+
+  function setupTerminal(status: "completed" | "partial" | "failed") {
+    const counts =
+      status === "completed"
+        ? { pending: 0, queued: 0, running: 0, completed: 3, failed: 0, total: 3 }
+        : status === "partial"
+          ? { pending: 0, queued: 0, running: 0, completed: 2, failed: 1, total: 3 }
+          : { pending: 0, queued: 0, running: 0, completed: 0, failed: 3, total: 3 };
+
+    vi.mocked(useCampaign).mockReturnValue({
+      data: makeCampaign({ status, recipient_counts: counts }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useCampaign>);
+    vi.mocked(useRecipients).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useRecipients>);
+    vi.mocked(useRetryRecipient).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useRetryRecipient>);
+  }
+
+  it("renders terminal banner for COMPLETED with correct text", () => {
+    setupTerminal("completed");
+    renderDetail();
+    expect(screen.getByTestId("terminal-banner")).toBeInTheDocument();
+    expect(screen.getByTestId("terminal-banner-text")).toHaveTextContent(
+      "Completed — 3 of 3 rendered",
+    );
+  });
+
+  it("renders terminal banner for PARTIAL with failed count", () => {
+    setupTerminal("partial");
+    renderDetail();
+    expect(screen.getByTestId("terminal-banner-text")).toHaveTextContent(
+      "Partial — 2 succeeded, 1 failed",
+    );
+  });
+
+  it("renders terminal banner for FAILED", () => {
+    setupTerminal("failed");
+    renderDetail();
+    expect(screen.getByTestId("terminal-banner-text")).toHaveTextContent(
+      "Failed — all 3 recipients failed",
+    );
+  });
+
+  it("Browse produced assets link is present for COMPLETED", () => {
+    setupTerminal("completed");
+    renderDetail();
+    expect(screen.getByTestId("browse-assets-link")).toBeInTheDocument();
+    expect(screen.getByTestId("browse-assets-link")).toHaveAttribute(
+      "href",
+      "/workspace/assets",
+    );
+  });
+
+  it("Browse produced assets link is present for PARTIAL", () => {
+    setupTerminal("partial");
+    renderDetail();
+    expect(screen.getByTestId("browse-assets-link")).toBeInTheDocument();
+  });
+
+  it("Browse produced assets link is absent for FAILED", () => {
+    setupTerminal("failed");
+    renderDetail();
+    expect(screen.queryByTestId("browse-assets-link")).not.toBeInTheDocument();
+  });
+
+  it("Retry button is visible on FAILED recipient in FAILED campaign", () => {
+    vi.mocked(useCampaign).mockReturnValue({
+      data: makeCampaign({
+        status: "failed",
+        recipient_counts: {
+          pending: 0,
+          queued: 0,
+          running: 0,
+          completed: 0,
+          failed: 1,
+          total: 1,
+        },
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useCampaign>);
+    vi.mocked(useRecipients).mockReturnValue({
+      data: [
+        makeRecipientRow({
+          status: "failed",
+          error_message: "Missing variable: milestone",
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useRecipients>);
+    vi.mocked(useRetryRecipient).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useRetryRecipient>);
+
+    renderDetail();
+
+    const retryBtn = screen.getByTestId(
+      "retry-btn-r-00000000-0000-0000-0000-000000000001",
+    );
+    expect(retryBtn).toBeInTheDocument();
+    // Error message also renders.
+    expect(
+      screen.getByTestId(
+        "recipient-error-r-00000000-0000-0000-0000-000000000001",
+      ),
+    ).toHaveTextContent("Missing variable: milestone");
+  });
+
+  it("clicking Retry once shows confirm text; second click fires mutateAsync", async () => {
+    const user = userEvent.setup();
+    const mutateAsync = vi.fn().mockResolvedValue({
+      recipient: makeRecipientRow({ status: "queued" }),
+      campaign_status: "in_flight",
+    });
+    vi.mocked(useCampaign).mockReturnValue({
+      data: makeCampaign({
+        status: "failed",
+        recipient_counts: {
+          pending: 0,
+          queued: 0,
+          running: 0,
+          completed: 0,
+          failed: 1,
+          total: 1,
+        },
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useCampaign>);
+    vi.mocked(useRecipients).mockReturnValue({
+      data: [makeRecipientRow({ status: "failed" })],
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useRecipients>);
+    vi.mocked(useRetryRecipient).mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    } as unknown as ReturnType<typeof useRetryRecipient>);
+
+    renderDetail();
+
+    const retryBtn = screen.getByTestId(
+      "retry-btn-r-00000000-0000-0000-0000-000000000001",
+    );
+
+    // First click — shows confirm prompt.
+    await user.click(retryBtn);
+    await waitFor(() => {
+      expect(retryBtn).toHaveTextContent("Confirm retry");
+    });
+
+    // Second click — fires mutateAsync.
+    await user.click(retryBtn);
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledWith(
+        "r-00000000-0000-0000-0000-000000000001",
+      );
+    });
+  });
+
+  it("Retry button is not visible for COMPLETED recipients in terminal campaign", () => {
+    vi.mocked(useCampaign).mockReturnValue({
+      data: makeCampaign({
+        status: "completed",
+        recipient_counts: {
+          pending: 0,
+          queued: 0,
+          running: 0,
+          completed: 1,
+          failed: 0,
+          total: 1,
+        },
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useCampaign>);
+    vi.mocked(useRecipients).mockReturnValue({
+      data: [makeRecipientRow({ status: "completed" })],
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useRecipients>);
+    vi.mocked(useRetryRecipient).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useRetryRecipient>);
+
+    renderDetail();
+
+    expect(
+      screen.queryByTestId(
+        "retry-btn-r-00000000-0000-0000-0000-000000000001",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("composition link renders on completed recipient rows", () => {
+    vi.mocked(useCampaign).mockReturnValue({
+      data: makeCampaign({
+        status: "completed",
+        recipient_counts: {
+          pending: 0,
+          queued: 0,
+          running: 0,
+          completed: 1,
+          failed: 0,
+          total: 1,
+        },
+      }),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useCampaign>);
+    vi.mocked(useRecipients).mockReturnValue({
+      data: [
+        makeRecipientRow({
+          status: "completed",
+          produced_composition_id: "comp-uuid-42",
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useRecipients>);
+    vi.mocked(useRetryRecipient).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useRetryRecipient>);
+
+    renderDetail();
+
+    const link = screen.getByTestId(
+      "recipient-composition-link-r-00000000-0000-0000-0000-000000000001",
+    );
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute("href", "/compositions/comp-uuid-42");
   });
 });

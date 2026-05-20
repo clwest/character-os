@@ -433,3 +433,270 @@ describe("deleteCampaign", () => {
     expect(capturedUrl).toContain("/api/campaigns/campaign-uuid-delete/");
   });
 });
+
+// ---- B3.8: forecastSchema -----------------------------------
+
+import {
+  forecastSchema,
+  launchResponseSchema,
+  retryResponseSchema,
+  getCampaignForecast,
+  launchCampaign,
+  retryRecipient,
+  blockingReasonMessage,
+  type BlockingReason,
+} from "./campaigns";
+
+function makeForecast(overrides: Record<string, unknown> = {}) {
+  return {
+    recipient_count: 3,
+    batch_cap: 5,
+    videos_per_month_limit: 30,
+    videos_used_this_month: 5,
+    videos_remaining: 25,
+    projected_cost_micros: 750_000,
+    per_recipient_cost_micros: 250_000,
+    ready_to_launch: true,
+    blocking_reason: null,
+    ...overrides,
+  };
+}
+
+describe("forecastSchema", () => {
+  it("parses a ready-to-launch forecast", () => {
+    const result = forecastSchema.parse(makeForecast());
+    expect(result.ready_to_launch).toBe(true);
+    expect(result.blocking_reason).toBeNull();
+    expect(result.projected_cost_micros).toBe(750_000);
+    expect(result.batch_cap).toBe(5);
+  });
+
+  it("parses a blocked forecast with no_recipients code", () => {
+    const result = forecastSchema.parse(
+      makeForecast({
+        ready_to_launch: false,
+        blocking_reason: {
+          code: "no_recipients",
+          message: "Campaign has no recipients.",
+        },
+      }),
+    );
+    expect(result.ready_to_launch).toBe(false);
+    expect(result.blocking_reason?.code).toBe("no_recipients");
+  });
+
+  it("parses a blocked forecast with personalized_batch_too_large code", () => {
+    const result = forecastSchema.parse(
+      makeForecast({
+        ready_to_launch: false,
+        blocking_reason: {
+          code: "personalized_batch_too_large",
+          message: "Batch too large.",
+        },
+      }),
+    );
+    expect(result.blocking_reason?.code).toBe("personalized_batch_too_large");
+  });
+
+  it("parses a blocked forecast with video_limit_reached code", () => {
+    const result = forecastSchema.parse(
+      makeForecast({
+        ready_to_launch: false,
+        blocking_reason: {
+          code: "video_limit_reached",
+          message: "Limit reached.",
+        },
+      }),
+    );
+    expect(result.blocking_reason?.code).toBe("video_limit_reached");
+  });
+
+  it("parses null batch_cap (Agency tier — unlimited)", () => {
+    const result = forecastSchema.parse(
+      makeForecast({ batch_cap: null, videos_per_month_limit: null, videos_remaining: null }),
+    );
+    expect(result.batch_cap).toBeNull();
+    expect(result.videos_remaining).toBeNull();
+  });
+});
+
+// ---- B3.8: launchResponseSchema -----------------------------
+
+describe("launchResponseSchema", () => {
+  it("parses a successful launch response", () => {
+    const result = launchResponseSchema.parse({
+      campaign: makeCampaign({ status: "in_flight" }),
+      queued_count: 3,
+      failed_at_render_count: 0,
+    });
+    expect(result.queued_count).toBe(3);
+    expect(result.campaign.status).toBe("in_flight");
+  });
+
+  it("parses launch response with some render failures", () => {
+    const result = launchResponseSchema.parse({
+      campaign: makeCampaign({ status: "in_flight" }),
+      queued_count: 2,
+      failed_at_render_count: 1,
+    });
+    expect(result.failed_at_render_count).toBe(1);
+  });
+});
+
+// ---- B3.8: retryResponseSchema ------------------------------
+
+describe("retryResponseSchema", () => {
+  it("parses a retry response with queued recipient", () => {
+    const result = retryResponseSchema.parse({
+      recipient: makeRecipient({ status: "queued" }),
+      campaign_status: "in_flight",
+    });
+    expect(result.recipient.status).toBe("queued");
+    expect(result.campaign_status).toBe("in_flight");
+  });
+});
+
+// ---- B3.8: getCampaignForecast ------------------------------
+
+describe("getCampaignForecast", () => {
+  let capturedUrl: string | undefined;
+
+  beforeEach(() => {
+    capturedUrl = undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        capturedUrl = url;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => makeForecast(),
+        };
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("hits GET /api/campaigns/<id>/forecast/", async () => {
+    await getCampaignForecast("campaign-uuid-1");
+    expect(capturedUrl).toContain("/api/campaigns/campaign-uuid-1/forecast/");
+  });
+
+  it("returns parsed forecast", async () => {
+    const result = await getCampaignForecast("campaign-uuid-1");
+    expect(result.ready_to_launch).toBe(true);
+    expect(result.recipient_count).toBe(3);
+  });
+});
+
+// ---- B3.8: launchCampaign -----------------------------------
+
+describe("launchCampaign", () => {
+  let capturedUrl: string | undefined;
+  let capturedMethod: string | undefined;
+
+  beforeEach(() => {
+    capturedUrl = undefined;
+    capturedMethod = undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        capturedUrl = url;
+        capturedMethod = init?.method;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            campaign: makeCampaign({ status: "in_flight" }),
+            queued_count: 3,
+            failed_at_render_count: 0,
+          }),
+        };
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("sends POST to /api/campaigns/<id>/launch/", async () => {
+    await launchCampaign("campaign-uuid-1");
+    expect(capturedMethod).toBe("POST");
+    expect(capturedUrl).toContain("/api/campaigns/campaign-uuid-1/launch/");
+  });
+
+  it("returns parsed launch response", async () => {
+    const result = await launchCampaign("campaign-uuid-1");
+    expect(result.queued_count).toBe(3);
+    expect(result.campaign.status).toBe("in_flight");
+  });
+});
+
+// ---- B3.8: retryRecipient -----------------------------------
+
+describe("retryRecipient", () => {
+  let capturedUrl: string | undefined;
+  let capturedBody: unknown;
+
+  beforeEach(() => {
+    capturedUrl = undefined;
+    capturedBody = undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        capturedUrl = url;
+        capturedBody =
+          typeof init?.body === "string" ? JSON.parse(init.body) : init?.body;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            recipient: makeRecipient({ status: "queued" }),
+            campaign_status: "in_flight",
+          }),
+        };
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("sends POST to /api/campaigns/<id>/retry_recipient/", async () => {
+    await retryRecipient("campaign-uuid-1", "recipient-uuid-1");
+    expect(capturedUrl).toContain(
+      "/api/campaigns/campaign-uuid-1/retry_recipient/",
+    );
+  });
+
+  it("includes recipient_id in the body", async () => {
+    await retryRecipient("campaign-uuid-1", "recipient-uuid-1");
+    expect(
+      (capturedBody as Record<string, unknown>).recipient_id,
+    ).toBe("recipient-uuid-1");
+  });
+});
+
+// ---- B3.8: blockingReasonMessage ----------------------------
+
+describe("blockingReasonMessage", () => {
+  const CODES: Array<[BlockingReason["code"], string]> = [
+    ["no_recipients", "Add recipients"],
+    ["campaign_not_draft", "Only DRAFT"],
+    ["personalized_batch_too_large", "tier's per-launch limit"],
+    ["video_limit_reached", "monthly video limit"],
+  ];
+
+  for (const [code, expectedSubstring] of CODES) {
+    it(`returns a human-readable message for ${code}`, () => {
+      const msg = blockingReasonMessage(code);
+      expect(msg.toLowerCase()).toContain(expectedSubstring.toLowerCase());
+    });
+  }
+});
+
