@@ -40,6 +40,7 @@ from .transcription import (
 
 if TYPE_CHECKING:
     from apps.accounts.models import Workspace
+    from apps.scripts.models import Script
     from apps.spokespeople.models import Spokesperson
     from django.contrib.auth.models import AbstractBaseUser
     from .models import Asset
@@ -170,6 +171,114 @@ def _auto_caption_from_script(script: str) -> list[dict]:
         })
         t += dur
     return captions
+
+
+@transaction.atomic
+def auto_script(
+    *,
+    workspace: "Workspace",
+    script: "Script",
+    mock_mode: bool = False,
+    name: str = "",
+    created_by: "AbstractBaseUser | None" = None,
+) -> Composition:
+    """Create a single-step ``auto_script`` composition from a
+    persistent ``Script`` row.
+
+    B-2 / B2.3 (SESSION 206). The Script's persisted
+    ``draft_text`` flows verbatim to step 0's
+    ``generate_avatar_speech`` primitive as the ``script``
+    param. **`use_knowledge` is NOT set** — per AUTO_SCRIPTING_V1
+    rule 7, the in-primitive K6 synthesis is skipped because the
+    draft is already synthesized + verified at draft-time.
+
+    The Composition's ``knowledge_chunk_ids`` field is populated
+    from the Script's persisted chunks for the lineage audit
+    surface (so F-arc brief-mode + F6's
+    ``resolve_chunk_ids_to_docs`` still light up on the rendered
+    Composition detail page).
+
+    Args:
+        workspace: composition's workspace anchor. Must match
+            ``script.workspace`` (rule 6 cross-workspace guard).
+        script: a B-2 Script row with ``status=READY`` and a
+            non-empty ``draft_text``. Caller (ScriptViewSet's
+            render action) is responsible for the status check.
+        mock_mode: V0 contract rule 9 — deterministic stub
+            output, no Runway call.
+        name: operator-visible Composition name. Defaults to
+            ``"Auto-script — {script.name}"``.
+        created_by: optional User for audit attribution.
+
+    Returns:
+        The fresh ``Composition`` row. Caller enqueues
+        ``execute_composition.delay(str(comp.id))``.
+
+    Raises:
+        ValueError: script.workspace != workspace; script has
+            empty draft_text; script.spokesperson missing /
+            cross-workspace.
+    """
+    if script.workspace_id != workspace.pk:
+        raise ValueError(
+            f"script {script.id} (workspace {script.workspace_id}) is "
+            f"not in workspace {workspace.pk}"
+        )
+    if not (script.draft_text or "").strip():
+        raise ValueError(
+            f"script {script.id} has empty draft_text; cannot "
+            "fire auto_script without a draft"
+        )
+    spokesperson = script.spokesperson
+    if spokesperson is None or spokesperson.workspace_id != workspace.pk:
+        raise ValueError(
+            f"script {script.id} spokesperson is missing or in a "
+            f"different workspace than {workspace.pk}"
+        )
+
+    composition_name = name.strip() or f"Auto-script — {script.name}"
+    composition = Composition.objects.create(
+        workspace=workspace,
+        spokesperson=spokesperson,
+        name=composition_name,
+        template_kind="auto_script",
+        mock_mode=mock_mode,
+        created_by=created_by,
+        # Rule 7 — populate the lineage field from the Script.
+        # The primitive will see ``use_knowledge=False`` and
+        # not overwrite this (it only writes
+        # source_spec.knowledge_chunk_ids on the asset; the
+        # composition row's field stays as we set it here).
+        knowledge_chunk_ids=list(script.knowledge_chunk_ids or []),
+        # The draft was already verified at draft-time by K6.4;
+        # preserve the verdict on the Composition so F-arc
+        # brief-mode shows the same status as the Script row.
+        verification_status=script.verification_status or "",
+        verification_warnings=list(script.verification_warnings or []),
+        synthesized_brief=script.draft_text,
+    )
+    CompositionStep.objects.create(
+        composition=composition,
+        position=0,
+        primitive="generate_avatar_speech",
+        inputs=[],
+        params={
+            "script": script.draft_text,
+            # Rule 7 — explicit False. The primitive's
+            # ``_maybe_synthesize_script`` short-circuits on
+            # ``use_knowledge=False`` and returns the script
+            # verbatim, no K6 call, no double synthesis.
+            "use_knowledge": False,
+        },
+    )
+
+    logger.info(
+        "starter auto_script created composition=%s script=%s "
+        "spokesperson=%s mock=%s chunks=%d",
+        composition.id, script.id, spokesperson.id, mock_mode,
+        len(script.knowledge_chunk_ids or []),
+    )
+    return composition
 
 
 @transaction.atomic

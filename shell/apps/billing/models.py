@@ -51,6 +51,11 @@ TIER_LIMITS: dict[str, dict[str, int | None]] = {
         # `videos_per_month` gate still applies as the
         # rolling cap.
         "personalized_batch_max": 5,
+        # B-2 / Q-e-9 (SESSION 206) — per-month auto-script
+        # drafts gate. Each LLM-fired draft (initial + regenerate)
+        # counts toward the cap. Cheap ($0.001 each) but unlimited
+        # drafting invites abuse + degrades the verifier signal.
+        "drafts_per_month": 10,
         "price_usd": 29,
     },
     "pro": {
@@ -60,6 +65,7 @@ TIER_LIMITS: dict[str, dict[str, int | None]] = {
         "realtime_sessions_per_month": 20,
         "realtime_minutes_per_month": 120,
         "personalized_batch_max": 30,
+        "drafts_per_month": 100,
         "price_usd": 79,
     },
     "agency": {
@@ -69,6 +75,7 @@ TIER_LIMITS: dict[str, dict[str, int | None]] = {
         "realtime_sessions_per_month": None,
         "realtime_minutes_per_month": None,
         "personalized_batch_max": 200,
+        "drafts_per_month": None,
         "price_usd": 199,
     },
 }
@@ -148,3 +155,7 @@ class Subscription(models.Model):
     @property
     def seats_limit(self) -> int | None:
         return tier_limit(self.tier, "seats")
+
+    @property
+    def drafts_per_month(self) -> int | None:
+        return tier_limit(self.tier, "drafts_per_month")

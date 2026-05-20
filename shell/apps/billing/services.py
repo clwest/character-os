@@ -58,6 +58,11 @@ class Usage:
     # still fires as the cheaper coarse check.
     realtime_minutes_used: int
     realtime_minutes_limit: int | None
+    # B-2 / Q-e-9 (SESSION 206) — per-month draft count.
+    # Counts both initial-create and regenerate fires.
+    # Each consumes a gpt-5 Responses-API call.
+    drafts_used: int
+    drafts_limit: int | None
     period_start: str
     period_end: str
 
@@ -73,6 +78,8 @@ class Usage:
             "realtime_sessions_limit": self.realtime_sessions_limit,
             "realtime_minutes_used": self.realtime_minutes_used,
             "realtime_minutes_limit": self.realtime_minutes_limit,
+            "drafts_used": self.drafts_used,
+            "drafts_limit": self.drafts_limit,
             "period_start": self.period_start,
             "period_end": self.period_end,
         }
@@ -155,6 +162,22 @@ def get_usage(workspace: "Workspace") -> Usage:
         ],
     )
     realtime_sessions_used = period_sessions.count()
+    # B-2 / Q-e-9 (SESSION 206) — drafts/month accounting.
+    # Counts Scripts created in period (each = 1 draft fire)
+    # + revision_history entries with ts in period (each
+    # regenerate snapshots the prior draft before re-firing,
+    # so |revision_history| equals the regenerate count for
+    # that Script).
+    #
+    # The Python sum is fine in v1 — drafts_per_month maxes
+    # at 100 in Pro, so workspaces have O(100) Script rows
+    # at most. If this becomes hot, denormalize via a
+    # DraftEvent table in v2.
+    drafts_used = _count_drafts_in_period(
+        workspace,
+        sub.current_period_start,
+        sub.current_period_end,
+    )
     # R9 — sum duration_seconds across the period; round
     # up to whole minutes for the operator-facing meter.
     # In-flight sessions (status<>ENDED) have
@@ -178,9 +201,48 @@ def get_usage(workspace: "Workspace") -> Usage:
         realtime_sessions_limit=tier_table.get("realtime_sessions_per_month"),
         realtime_minutes_used=realtime_minutes_used,
         realtime_minutes_limit=tier_table.get("realtime_minutes_per_month"),
+        drafts_used=drafts_used,
+        drafts_limit=tier_table.get("drafts_per_month"),
         period_start=sub.current_period_start.isoformat(),
         period_end=sub.current_period_end.isoformat(),
     )
+
+
+def _count_drafts_in_period(workspace, period_start, period_end) -> int:
+    """Count draft-fire events in the period for the workspace.
+
+    A draft fire is either:
+    * The initial creation of a Script row (counts when
+      ``Script.created_at`` falls in the period).
+    * A regenerate (counts when the snapshot entry's ``ts``
+      in ``revision_history`` falls in the period — the
+      snapshot lands when the regenerate fires).
+
+    Pre-create check before the LLM call hits the wire so
+    over-cap workspaces fail fast.
+    """
+    # Lazy import — apps.scripts loads after apps.billing in
+    # the AppConfig graph (settings.py order).
+    from apps.scripts.models import Script
+
+    in_period_creates = Script.objects.filter(
+        workspace=workspace,
+        created_at__gte=period_start,
+        created_at__lt=period_end,
+    ).count()
+
+    regenerate_count = 0
+    period_start_iso = period_start.isoformat()
+    period_end_iso = period_end.isoformat()
+    for revision_history in (
+        Script.objects.filter(workspace=workspace)
+        .values_list("revision_history", flat=True)
+    ):
+        for entry in (revision_history or []):
+            ts = entry.get("ts") or ""
+            if period_start_iso <= ts < period_end_iso:
+                regenerate_count += 1
+    return in_period_creates + regenerate_count
 
 
 def check_video_limit(workspace: "Workspace") -> None:
@@ -200,6 +262,35 @@ def check_video_limit(workspace: "Workspace") -> None:
                 "current_tier": usage.tier,
                 "videos_used": usage.videos_used,
                 "videos_limit": usage.videos_limit,
+                "suggested_tier": _suggest_upgrade(usage.tier),
+            }
+        )
+
+
+def check_drafts_per_month(workspace: "Workspace") -> None:
+    """Raise TierLimitExceeded if firing a draft now would push
+    the workspace past its monthly drafts allowance.
+
+    B-2 / Q-e-9 (SESSION 206). Called at POST /api/scripts/
+    (create) and POST /api/scripts/<id>/regenerate/. Each draft
+    fires a gpt-5 Responses-API call (~$0.001 / draft); the cap
+    prevents unbounded LLM spend on retry storms.
+    """
+    usage = get_usage(workspace)
+    if usage.drafts_limit is None:
+        return  # unlimited tier
+    if usage.drafts_used >= usage.drafts_limit:
+        raise TierLimitExceeded(
+            {
+                "code": "draft_limit_reached",
+                "message": (
+                    f"You've used all {usage.drafts_limit} script "
+                    f"drafts in your {usage.tier.capitalize()} plan "
+                    "this month."
+                ),
+                "current_tier": usage.tier,
+                "drafts_used": usage.drafts_used,
+                "drafts_limit": usage.drafts_limit,
                 "suggested_tier": _suggest_upgrade(usage.tier),
             }
         )
@@ -339,6 +430,7 @@ __all__ = [
     "TIER_LIMITS",
     "TierLimitExceeded",
     "Usage",
+    "check_drafts_per_month",
     "check_realtime_minutes_budget",
     "check_realtime_session_limit",
     "check_spokesperson_limit",

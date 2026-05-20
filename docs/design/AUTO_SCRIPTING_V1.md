@@ -323,7 +323,7 @@ v2.
 | **B2.0** | This scope-lock doc | ½ session (current) |
 | **B2.1** ✓ SHIPPED | `apps.scripts` Django app + Script model + migration + cross-workspace signal + admin registration. 9 tests; Django 1269 → 1278. | ½ session |
 | **B2.2** ✓ SHIPPED | `apps.scripts.synthesis.draft_script` adapter over K6's `build_render_brief` + `ScriptDraftResult` dataclass + `snapshot_to_revision_history` + `apply_draft_to_script` helpers. K6 in-primitive callers unchanged. Strict-mode `ClaimVerifierError` caught + persisted as `blocked` (rule 4). 12 tests; Django 1278 → 1290. | ½ session |
-| **B2.3** | `ScriptViewSet` REST: create / list / retrieve / regenerate / approve / render / clone / delete actions + `check_drafts_per_month` tier gate + `auto_script` Composition wiring. Largest backend slice. | 1 session |
+| **B2.3** ✓ SHIPPED | `ScriptViewSet` REST (8 actions) + `check_drafts_per_month` tier gate (Starter=10, Pro=100, Agency=∞) + `auto_script` Composition starter wiring. State machine enforced at viewset (DRAFT→READY→RENDERED + regenerate snaps READY→DRAFT). 21 REST tests; Django 1290 → 1311. | 1 session |
 | **B2.4** | `auto_script` recipe + starter + recipe-gallery registration + variant recipe (`auto_script_polished` if scope permits) + tests | ½ session |
 | **B2.5** | SPA `/workspace/scripts` list + create + detail + regenerate + approve + render-now flow (subagent). Recipe gallery picker that opens a Script picker for `auto_script` (different from other recipes). | 1 session |
 | **B2.6** | Real-mode dogfood + arc close. Fire `draft_script` against Marcus (existing dogfood spokesperson with knowledge attached); approve; render; validate the rendered Asset uses the persisted chunk_ids for lineage. | ½ session |
@@ -506,6 +506,35 @@ UI orchestration on top.
   Inventory regenerated. B2.2 (refactor K6's
   `build_render_brief` → `apps.scripts.synthesis.draft_script`)
   opens next.
+
+* **2026-05-20 (SESSION 206, B2.3 SHIPPED)** —
+  `ScriptViewSet` REST surface ships all 8 actions:
+  `create` (tier-gated draft fire) / `list` (workspace-
+  scoped, filterable by `?status=` / `?spokesperson=` /
+  `?verification_status=`) / `retrieve` (resolves chunk_ids
+  → docs via F6's helper) / `regenerate` (snapshots +
+  re-fires + READY→DRAFT step-back) / `approve` (DRAFT→
+  READY, refuses on blocked verification per rule 4) /
+  `render` (fires `auto_script` Composition via the new
+  starter, flips Script→RENDERED, enqueues Celery) /
+  `clone` (rule-10 escape valve from RENDERED
+  immutability) / `destroy` (refuses RENDERED). New
+  `check_drafts_per_month` billing gate (Starter=10,
+  Pro=100, Agency=∞); counts both initial-create AND
+  regenerate events (regenerates surface via revision_history
+  ts filtering). New `apps.compositions.starters.auto_script`
+  builds a one-step `generate_avatar_speech` Composition
+  with `use_knowledge=False` (rule 7 — Script's draft is
+  already synthesized; in-primitive K6 skipped via
+  explicit False) + `Composition.knowledge_chunk_ids` +
+  `synthesized_brief` populated from the Script row for
+  F-arc brief-mode lineage. Defense-in-depth UUID filter
+  in `ScriptDetailSerializer.cited_documents` so legacy
+  seed / mock fixtures don't 500 the detail endpoint. 21
+  REST tests pin every action + tier gate + cross-workspace
+  isolation. Django 1290 → 1311. B2.4 (`auto_script`
+  recipe gallery registration + variant recipes) opens
+  next.
 
 * **2026-05-20 (SESSION 206, B2.2 SHIPPED)** —
   `apps.scripts.synthesis` module ships rule-2's one
