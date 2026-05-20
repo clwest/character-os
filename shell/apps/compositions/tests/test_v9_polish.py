@@ -757,3 +757,146 @@ def test_trim_is_cheapest_polish_primitive() -> None:
     trim_cost = TrimClipPrimitive.estimate_cost({})
     captions_cost = AddCaptionsPrimitive.estimate_cost({})
     assert trim_cost < captions_cost
+
+
+# ---- BC2 — optional lineage kwargs --------------------------------
+
+
+def test_polished_no_lineage_kwargs_leaves_composition_fields_empty() -> None:
+    """BC2 back-compat — existing C-arc + recipe-gallery callers
+    omit the lineage kwargs and the Composition row's lineage
+    fields stay at their defaults (empty list / empty string).
+    No behavior change for non-BC callers."""
+    ws = _make_workspace("bc2bc@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_polished(
+        workspace=ws, spokesperson=sp,
+        script="Hi.",
+        mock_mode=True,
+    )
+    assert c.knowledge_chunk_ids == []
+    assert c.synthesized_brief == ""
+    assert c.verification_status == ""
+    assert c.verification_warnings == []
+
+
+def test_polished_knowledge_chunk_ids_propagate_to_composition() -> None:
+    """BC2 / BC0 rule 4 — knowledge_chunk_ids kwarg stamps on
+    Composition row so F-arc brief-mode panel + F6's
+    resolve_chunk_ids_to_docs surface citations on per-recipient
+    Asset detail pages."""
+    ws = _make_workspace("bc2chunks@test")
+    sp = _make_spokesperson(ws)
+    chunk_ids = [
+        "c66aeb1e-80f6-45c1-b17b-5d504285046a",
+        "fe469630-0014-4154-9ed4-31c2a87be9eb",
+    ]
+    c = talking_head_polished(
+        workspace=ws, spokesperson=sp,
+        script="Hi {n}", mock_mode=True,
+        knowledge_chunk_ids=chunk_ids,
+    )
+    assert c.knowledge_chunk_ids == chunk_ids
+
+
+def test_polished_synthesized_brief_propagates_to_composition() -> None:
+    """BC2 / BC0 rule 5 — synthesized_brief kwarg records the
+    per-recipient render_template(...) output for audit. Mirrors
+    auto_script's rule-7 semantic: the script param IS the
+    synthesized brief, no K6 re-synthesis at render time."""
+    ws = _make_workspace("bc2brief@test")
+    sp = _make_spokesperson(ws)
+    brief = "Hi Bob, today we're tackling the Five Good Emperors..."
+    c = talking_head_polished(
+        workspace=ws, spokesperson=sp,
+        script=brief, mock_mode=True,
+        synthesized_brief=brief,
+    )
+    assert c.synthesized_brief == brief
+
+
+def test_polished_verification_status_propagates_to_composition() -> None:
+    """BC2 / BC0 rule 8 — K6.4 verification_status carries over
+    from the source Script unchanged. No re-verification per
+    recipient."""
+    ws = _make_workspace("bc2vstatus@test")
+    sp = _make_spokesperson(ws)
+    c = talking_head_polished(
+        workspace=ws, spokesperson=sp,
+        script="Hi.", mock_mode=True,
+        verification_status="verified",
+    )
+    assert c.verification_status == "verified"
+
+
+def test_polished_verification_warnings_propagate_to_composition() -> None:
+    """BC2 / BC0 rule 8 + Q-bc-7 — warnings JSON is COPIED onto
+    every per-recipient Composition (not joined-through-FK).
+    Storage cost is trivial; render-time query is simpler."""
+    ws = _make_workspace("bc2vwarn@test")
+    sp = _make_spokesperson(ws)
+    warnings = [
+        {"kind": "multi_word", "claim": "Machiavelli and Gibbon",
+         "position": 436},
+        {"kind": "proper_noun", "claim": "Curious", "position": 499},
+    ]
+    c = talking_head_polished(
+        workspace=ws, spokesperson=sp,
+        script="Hi.", mock_mode=True,
+        verification_warnings=warnings,
+    )
+    assert c.verification_warnings == warnings
+
+
+def test_polished_all_lineage_kwargs_together() -> None:
+    """BC2 — full lineage carry. Mirrors the shape the BC3
+    launch path will use when PersonalizedCampaign.source_script
+    is set: every per-recipient Composition inherits all four
+    fields from the Script. Combined with the BC1 FK, this is
+    the load-bearing composition value."""
+    ws = _make_workspace("bc2all@test")
+    sp = _make_spokesperson(ws)
+    chunk_ids = ["abc-1", "abc-2", "abc-3"]
+    warnings = [{"kind": "multi_word", "claim": "x", "position": 0}]
+    c = talking_head_polished(
+        workspace=ws, spokesperson=sp,
+        script="Hi Carol.",
+        mock_mode=True,
+        knowledge_chunk_ids=chunk_ids,
+        synthesized_brief="Hi Carol, today...",
+        verification_status="warned",
+        verification_warnings=warnings,
+    )
+    assert c.knowledge_chunk_ids == chunk_ids
+    assert c.synthesized_brief == "Hi Carol, today..."
+    assert c.verification_status == "warned"
+    assert c.verification_warnings == warnings
+    # Sanity: template_kind still talking_head_polished (no new
+    # Composition kind per BC0 rule 7).
+    assert c.template_kind == "talking_head_polished"
+
+
+def test_polished_lineage_kwargs_are_defensive_copies() -> None:
+    """BC2 — caller's lists are copied, not aliased. Mutating
+    the input list post-call must not affect the stored
+    Composition.knowledge_chunk_ids / verification_warnings."""
+    ws = _make_workspace("bc2copy@test")
+    sp = _make_spokesperson(ws)
+    chunk_ids = ["x", "y"]
+    warnings: list[dict] = [{"kind": "k", "claim": "c", "position": 0}]
+    c = talking_head_polished(
+        workspace=ws, spokesperson=sp,
+        script="Hi.", mock_mode=True,
+        knowledge_chunk_ids=chunk_ids,
+        verification_warnings=warnings,
+    )
+    # Mutate the caller's lists.
+    chunk_ids.append("LEAK")
+    warnings.append({"kind": "leak"})
+    # Re-fetch from DB to be sure we're reading the persisted
+    # value, not an in-memory alias.
+    refetched = Composition.objects.get(pk=c.pk)
+    assert refetched.knowledge_chunk_ids == ["x", "y"]
+    assert refetched.verification_warnings == [
+        {"kind": "k", "claim": "c", "position": 0},
+    ]

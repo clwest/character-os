@@ -1641,6 +1641,17 @@ def talking_head_polished(
     created_by: "AbstractBaseUser | None" = None,
     verifier_mode: str | None = None,
     opener: str | None = None,
+    # BC2 — optional lineage kwargs per B2_B3_COMPOSITION_V1
+    # rule 4 + rule 7. When the C-arc launch path derives a
+    # per-recipient render from a B-2 Script, it propagates the
+    # Script's lineage onto every per-recipient Composition so
+    # F-arc brief-mode + verification flags render on each Asset
+    # detail page. All four default to None — current callers
+    # are unaffected.
+    knowledge_chunk_ids: list[str] | None = None,
+    synthesized_brief: str | None = None,
+    verification_status: str | None = None,
+    verification_warnings: list[dict] | None = None,
 ) -> Composition:
     """Polished talking-head ad — speech → captions → intro/outro.
 
@@ -1669,6 +1680,31 @@ def talking_head_polished(
             ~11 chars/sec. Timing is approximate (the avatar's
             actual cadence drifts vs. the estimate) — fall back
             to operator-supplied ``captions`` for tight sync.
+        knowledge_chunk_ids: BC2 — optional list of chunk UUIDs
+            (as strings) to stamp on the Composition row for
+            F-arc brief-mode lineage. Used by the C-arc launch
+            path when ``PersonalizedCampaign.source_script`` is
+            set — every per-recipient Composition inherits the
+            Script's chunks so each rendered Asset's detail page
+            shows the same citation panel as the source Script.
+            Defaults to None (current behavior — empty list on
+            Composition).
+        synthesized_brief: BC2 — optional pre-substituted brief
+            text. Used by the C-arc launch path to record the
+            per-recipient ``render_template(...)`` output for
+            audit. Mirrors ``auto_script``'s rule-7 semantic:
+            the script param IS the synthesized brief, no K6
+            re-synthesis at render time. Defaults to None.
+        verification_status: BC2 — optional K6.4 verification
+            status carried over from the source Script. Per
+            BC0 rule 8, propagated unchanged at launch; not
+            re-verified per recipient. Defaults to None.
+        verification_warnings: BC2 — optional list of K6.4
+            warning dicts carried over from the source Script.
+            Each per-recipient Composition gets its own copy
+            (Q-bc-7 resolved as-proposed — storage cost is
+            trivial; render path is simpler than join-through-FK).
+            Defaults to None.
     """
     if not script.strip():
         raise ValueError("talking_head_polished requires a non-empty script")
@@ -1691,14 +1727,29 @@ def talking_head_polished(
     composition_name = (
         name.strip() or f"Polished talking-head — {script.strip()[:40]}"
     )
-    composition = Composition.objects.create(
-        workspace=workspace,
-        spokesperson=spokesperson,
-        name=composition_name,
-        template_kind="talking_head_polished",
-        mock_mode=mock_mode,
-        created_by=created_by,
-    )
+    # BC2 — assemble Composition create kwargs. The four lineage
+    # fields are only set when the caller supplies them, so the
+    # existing C-arc + recipe-gallery callers (which omit them)
+    # see no behavior change.
+    composition_kwargs: dict = {
+        "workspace": workspace,
+        "spokesperson": spokesperson,
+        "name": composition_name,
+        "template_kind": "talking_head_polished",
+        "mock_mode": mock_mode,
+        "created_by": created_by,
+    }
+    if knowledge_chunk_ids is not None:
+        composition_kwargs["knowledge_chunk_ids"] = list(knowledge_chunk_ids)
+    if synthesized_brief is not None:
+        composition_kwargs["synthesized_brief"] = synthesized_brief
+    if verification_status is not None:
+        composition_kwargs["verification_status"] = verification_status
+    if verification_warnings is not None:
+        composition_kwargs["verification_warnings"] = list(
+            verification_warnings
+        )
+    composition = Composition.objects.create(**composition_kwargs)
 
     # Step 0 — speech
     polished_speech_params: dict = {

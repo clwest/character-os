@@ -241,7 +241,7 @@ has no Campaigns FK).
 |---|---|---|
 | **BC0** | This scope-lock doc | ½ session (current) |
 | **BC1** ✓ SHIPPED | Schema: `source_script` FK on PersonalizedCampaign (FK to Script, null=True, blank=True, on_delete=PROTECT, related_name='derived_campaigns') + migration `0002_bc1_source_script` + cross-workspace guard extended in both `clean()` + pre_save signal (added `source_script` to validated_fields). 5 model tests pin nullable default, FK + reverse_name round-trip, cross-workspace clean rejection, cross-workspace signal rejection, ProtectedError on Script delete when referenced. Django 1320 → 1325 (+5). Zero regressions. | ½ session |
-| **BC2** | Extend `talking_head_polished` starter: optional `knowledge_chunk_ids` / `synthesized_brief` / `verification_status` / `verification_warnings` kwargs propagate to Composition row + step params for lineage on each Asset. Defaults None = current behavior. 6-8 starter tests; back-compat check against existing C-arc tests. | ½ session |
+| **BC2** ✓ SHIPPED | Extend `talking_head_polished` starter: 4 optional kwargs (`knowledge_chunk_ids` / `synthesized_brief` / `verification_status` / `verification_warnings`) propagate to the Composition row when supplied. Defaults None = current behavior; existing C-arc + recipe-gallery callers unchanged. **Q-bc-7 resolved as-proposed** (warnings JSON is COPIED onto every per-recipient Composition, not joined-through-FK). Defensive `list(...)` copies prevent aliasing. 7 new starter tests pin: back-compat no-kwargs, each kwarg individually, all four together (load-bearing BC3 shape), defensive-copy semantic. Django 1325 → 1332 (+7). Zero regressions across the 1325 baseline (existing 14 polished-starter tests + 75 C-arc tests + 100+ V-arc tests still green). | ½ session |
 | **BC3** | REST: `POST /api/campaigns/` accepts `source_script_id` (workspace-filtered Script fetch + draft_text copy + FK persist). Launch path propagates Script lineage per recipient (rule 4 + 5 + 8). New `GET /api/scripts/<id>/derived_campaigns/` action on `ScriptViewSet`. 8-10 REST tests. | ½-1 session |
 | **BC4** | SPA: "Use approved Script as starting template" picker on `/workspace/campaigns/new`. Workspace + spokesperson filter. Script preview pane (draft_text + chunk count). "Use as template" pre-fills the textarea + sets `source_script_id` in the create payload. Script detail page gains "Used by N campaigns" badge (links to derived_campaigns list). 10-12 vitest tests. | 1 session (subagent candidate). |
 | **BC5** | Real-mode dogfood + arc close. 2-recipient batch derived from SESSION 207's "Five Good Emperors" Script. Validate: per-recipient Composition.knowledge_chunk_ids matches Script's; per-recipient Asset F-arc brief-mode panel shows citations; verification warnings carry over. Close the arc. | ½ session |
@@ -440,3 +440,23 @@ this is pure integration over pre-validated layers.
   `knowledge_chunk_ids` / `synthesized_brief` /
   `verification_status` / `verification_warnings` kwargs)
   opens next.
+
+* **2026-05-20 (SESSION 208, BC2 SHIPPED)** — Starter
+  extension slice lands. `talking_head_polished()` gains four
+  optional kwargs (all default None). When supplied, they
+  propagate to the freshly-created `Composition` row via a
+  conditional kwarg-assembly pattern — existing callers that
+  omit them see no behavior change (Composition's
+  `knowledge_chunk_ids` stays `[]`, `synthesized_brief` stays
+  `""`, etc.). Defensive `list(...)` copies on the
+  `knowledge_chunk_ids` + `verification_warnings` inputs
+  prevent post-call mutation by the caller from leaking into
+  the persisted row. **Q-bc-7 resolved as-proposed** (per-
+  Composition warnings copy, not join-through-FK). 7 starter
+  tests cover: back-compat (no kwargs → empty fields); each
+  of the 4 kwargs individually; all 4 together (the load-
+  bearing BC3 launch-path shape); defensive-copy semantic.
+  Django 1325 → 1332 (+7); zero regressions. BC3 (REST:
+  `POST /api/campaigns/` accepts `source_script_id` + launch-
+  path lineage propagation + new
+  `GET /api/scripts/<id>/derived_campaigns/`) opens next.
