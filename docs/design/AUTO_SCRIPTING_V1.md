@@ -322,7 +322,7 @@ v2.
 |---|---|---|
 | **B2.0** | This scope-lock doc | ½ session (current) |
 | **B2.1** ✓ SHIPPED | `apps.scripts` Django app + Script model + migration + cross-workspace signal + admin registration. 9 tests; Django 1269 → 1278. | ½ session |
-| **B2.2** | Refactor K6's `build_render_brief` → `apps.scripts.synthesis.draft_script`. Keep K6's in-primitive call working (B-2 doesn't break existing renders). Extract revision-snapshot helper. Tests + force-mock parity. | ½ session |
+| **B2.2** ✓ SHIPPED | `apps.scripts.synthesis.draft_script` adapter over K6's `build_render_brief` + `ScriptDraftResult` dataclass + `snapshot_to_revision_history` + `apply_draft_to_script` helpers. K6 in-primitive callers unchanged. Strict-mode `ClaimVerifierError` caught + persisted as `blocked` (rule 4). 12 tests; Django 1278 → 1290. | ½ session |
 | **B2.3** | `ScriptViewSet` REST: create / list / retrieve / regenerate / approve / render / clone / delete actions + `check_drafts_per_month` tier gate + `auto_script` Composition wiring. Largest backend slice. | 1 session |
 | **B2.4** | `auto_script` recipe + starter + recipe-gallery registration + variant recipe (`auto_script_polished` if scope permits) + tests | ½ session |
 | **B2.5** | SPA `/workspace/scripts` list + create + detail + regenerate + approve + render-now flow (subagent). Recipe gallery picker that opens a Script picker for `auto_script` (different from other recipes). | 1 session |
@@ -506,3 +506,27 @@ UI orchestration on top.
   Inventory regenerated. B2.2 (refactor K6's
   `build_render_brief` → `apps.scripts.synthesis.draft_script`)
   opens next.
+
+* **2026-05-20 (SESSION 206, B2.2 SHIPPED)** —
+  `apps.scripts.synthesis` module ships rule-2's one
+  named function: `draft_script(spokesperson, prompt, *,
+  opener, verifier_mode) -> ScriptDraftResult`. Thin
+  Script-row-shaped adapter over K6's
+  `build_render_brief` — same K2 retrieve → gpt-5 →
+  K6.4 pipeline, remapped field names (brief →
+  draft_text, chunk_ids → knowledge_chunk_ids). Strict-
+  mode `ClaimVerifierError` caught + persisted as
+  `verification_status='blocked'` instead of raising
+  (rule 4 — "cheaper rejection at $0.001 than at
+  $0.25"). Plus `snapshot_to_revision_history(script)`
+  for B2.3's regenerate flow (append-only audit; skips
+  no-op on never-drafted rows) + `apply_draft_to_script
+  (script, result)` convenience copier that explicitly
+  does NOT touch `status` / `approved_at` (state machine
+  owned by viewset). 12 synthesis tests pin force-mock /
+  empty-knowledge / strict-rejection / field-mapping /
+  opener-propagation / verifier-mode-propagation /
+  snapshot semantics / apply semantics. Django 1278 →
+  1290. Zero K6 regressions. B2.3 (`ScriptViewSet`
+  REST: create / list / retrieve / regenerate / approve
+  / render / clone / delete + tier gate) opens next.
