@@ -28,20 +28,33 @@ from __future__ import annotations
 import logging
 
 from django.db import transaction
-from django.utils import timezone  # noqa: F401 — used by B3.5
+from django.utils import timezone
 from rest_framework import status as http
 from rest_framework.decorators import action
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
 from apps.accounts.models import Membership, Workspace
+from apps.billing.models import tier_limit
+from apps.billing.services import (
+    TierLimitExceeded,
+    get_usage,
+)
 from apps.spokespeople.models import Spokesperson
 from character_os.csv_recipients import derive_label, parse_csv
 from character_os.permissions import IsWorkspaceMember
-from character_os.template_renderer import parse_placeholders
+from character_os.template_renderer import (
+    TemplateError,
+    parse_placeholders,
+    render_template,
+)
 
+from .cost import (
+    PER_RECIPIENT_COST_MICROS,
+    estimate_campaign_cost_micros,
+)
 from .models import PersonalizedCampaign, PersonalizedRecipient
 from .serializers import (
     CreateCampaignSerializer,
@@ -49,6 +62,7 @@ from .serializers import (
     PersonalizedCampaignSerializer,
     PersonalizedRecipientSerializer,
 )
+from .services import check_personalized_batch
 
 logger = logging.getLogger(__name__)
 
@@ -264,6 +278,231 @@ class CampaignViewSet(GenericViewSet):
         return Response(
             PersonalizedRecipientSerializer(qs, many=True).data,
         )
+
+    # ---- forecast (B3.5) ---------------------------------------
+
+    @action(detail=True, methods=["get"])
+    def forecast(self, request, pk=None):
+        """Cost preview + tier-gate status for the launch
+        modal. Never mutates; doesn't raise on gate failure
+        (returns ``ready_to_launch=False`` with a structured
+        ``blocking_reason``).
+        """
+        campaign = self._get_or_404(pk)
+        recipient_count = campaign.recipients.count()
+        usage = get_usage(campaign.workspace)
+        batch_cap = tier_limit(usage.tier, "personalized_batch_max")
+        videos_remaining = (
+            None
+            if usage.videos_limit is None
+            else max(0, usage.videos_limit - usage.videos_used)
+        )
+
+        # Determine blocker (if any) without raising.
+        blocking_reason: dict | None = None
+        ready_to_launch = True
+
+        if campaign.status != PersonalizedCampaign.Status.DRAFT:
+            ready_to_launch = False
+            blocking_reason = {
+                "code": "campaign_not_draft",
+                "message": (
+                    f"Campaign is in status {campaign.status!r}; "
+                    "only DRAFT campaigns can launch."
+                ),
+            }
+        elif recipient_count == 0:
+            ready_to_launch = False
+            blocking_reason = {
+                "code": "no_recipients",
+                "message": (
+                    "Campaign has no recipients. Paste a CSV "
+                    "before launching."
+                ),
+            }
+        else:
+            try:
+                check_personalized_batch(
+                    campaign.workspace, recipient_count,
+                )
+            except TierLimitExceeded as exc:
+                ready_to_launch = False
+                blocking_reason = exc.payload
+
+        return Response({
+            "recipient_count": recipient_count,
+            "batch_cap": batch_cap,
+            "videos_per_month_limit": usage.videos_limit,
+            "videos_used_this_month": usage.videos_used,
+            "videos_remaining": videos_remaining,
+            "projected_cost_micros": estimate_campaign_cost_micros(
+                recipient_count,
+            ),
+            "per_recipient_cost_micros": PER_RECIPIENT_COST_MICROS,
+            "ready_to_launch": ready_to_launch,
+            "blocking_reason": blocking_reason,
+        })
+
+    # ---- launch (B3.5) -----------------------------------------
+
+    @action(detail=True, methods=["post"])
+    def launch(self, request, pk=None):
+        """Tier-gate + atomic fan-out of N talking_head_polished
+        compositions.
+
+        Rule 4 — runs BOTH tier gates (per-batch cap +
+        per-month videos cap). Rule 6 — operator-explicit.
+        Rule 8 — per-recipient render failures (missing
+        template variables) flip that recipient to FAILED
+        with the TemplateError message but DO NOT block the
+        rest of the batch.
+
+        Atomicity: the entire fan-out (recipient row mutations
+        + composition creation + recipient.produced_composition
+        linkage) lives in one transaction. The Celery enqueue
+        happens AFTER commit so the worker can't race the
+        rows.
+
+        Returns the updated campaign serialized shape +
+        per-recipient launch outcomes.
+        """
+        campaign = self._get_or_404(pk)
+
+        if campaign.status != PersonalizedCampaign.Status.DRAFT:
+            return Response(
+                {
+                    "detail": (
+                        f"Cannot launch a campaign in status "
+                        f"{campaign.status!r}; only DRAFT "
+                        "campaigns can launch."
+                    ),
+                },
+                status=http.HTTP_409_CONFLICT,
+            )
+
+        recipients = list(
+            campaign.recipients
+            .filter(status=PersonalizedRecipient.Status.PENDING)
+            .order_by("position")
+        )
+        if not recipients:
+            return Response(
+                {
+                    "detail": (
+                        "Campaign has no PENDING recipients to "
+                        "launch. Paste a CSV first (Q-c-8)."
+                    ),
+                },
+                status=http.HTTP_400_BAD_REQUEST,
+            )
+
+        # Tier gates (rule 4).
+        try:
+            check_personalized_batch(campaign.workspace, len(recipients))
+        except TierLimitExceeded as exc:
+            return Response(exc.payload, status=402)
+
+        # Atomic fan-out. Recipient render failures flip THAT
+        # recipient to FAILED but don't bail the whole launch
+        # (rule 8).
+        from apps.compositions.recipes import RECIPES
+
+        recipe = RECIPES.get("talking_head_polished")
+        if recipe is None:
+            return Response(
+                {
+                    "detail": (
+                        "talking_head_polished recipe is not "
+                        "registered — B-arc dependency broken. "
+                        "Run inventory check."
+                    ),
+                },
+                status=http.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        queued_composition_ids: list[str] = []
+        with transaction.atomic():
+            campaign.status = PersonalizedCampaign.Status.LAUNCHING
+            campaign.launched_at = timezone.now()
+            campaign.save(update_fields=[
+                "status", "launched_at", "updated_at",
+            ])
+
+            for recipient in recipients:
+                # Render the script for this recipient.
+                try:
+                    script = render_template(
+                        campaign.template, recipient.variables,
+                    )
+                except TemplateError as exc:
+                    recipient.status = PersonalizedRecipient.Status.FAILED
+                    recipient.error_message = str(exc)
+                    recipient.save(update_fields=[
+                        "status", "error_message", "updated_at",
+                    ])
+                    continue
+
+                # Fire the recipe.
+                try:
+                    composition = recipe.starter(
+                        workspace=campaign.workspace,
+                        spokesperson=campaign.spokesperson,
+                        script=script,
+                        name=f"{campaign.name} — {recipient.label}"[:200],
+                        created_by=request.user,
+                    )
+                except Exception as exc:  # pragma: no cover — defensive
+                    recipient.status = PersonalizedRecipient.Status.FAILED
+                    recipient.error_message = (
+                        f"starter failed: {exc!s}"[:500]
+                    )
+                    recipient.save(update_fields=[
+                        "status", "error_message", "updated_at",
+                    ])
+                    continue
+
+                recipient.status = PersonalizedRecipient.Status.QUEUED
+                recipient.produced_composition = composition
+                recipient.rendered_script = script
+                recipient.error_message = ""
+                recipient.save(update_fields=[
+                    "status", "produced_composition",
+                    "rendered_script", "error_message", "updated_at",
+                ])
+                queued_composition_ids.append(str(composition.id))
+
+            # Roll up campaign status. If every recipient
+            # failed at render time we never reached IN_FLIGHT
+            # — short-circuit to FAILED so the SPA shows the
+            # right terminal state.
+            if queued_composition_ids:
+                campaign.status = PersonalizedCampaign.Status.IN_FLIGHT
+            else:
+                campaign.status = PersonalizedCampaign.Status.FAILED
+                campaign.completed_at = timezone.now()
+            campaign.save(update_fields=[
+                "status", "completed_at", "updated_at",
+            ])
+
+        # Enqueue after commit so the worker can't race the rows.
+        from apps.compositions.tasks import execute_composition
+        for composition_id in queued_composition_ids:
+            execute_composition.delay(composition_id)
+
+        logger.info(
+            "campaign.launch id=%s queued=%d failed_at_render=%d",
+            campaign.pk, len(queued_composition_ids),
+            len(recipients) - len(queued_composition_ids),
+        )
+
+        campaign.refresh_from_db()
+        return Response({
+            "campaign": PersonalizedCampaignSerializer(campaign).data,
+            "queued_count": len(queued_composition_ids),
+            "failed_at_render_count": (
+                len(recipients) - len(queued_composition_ids)
+            ),
+        })
 
     # ---- helpers ------------------------------------------------
 
