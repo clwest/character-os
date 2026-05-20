@@ -47,7 +47,72 @@ state: active
 > (revised SESSION 192 — Asset Library v1 marked complete).
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_194_V18_POLISH_DOUBLE.md`.
+> **Last handoff:** `docs/handoffs/SESSION_195_V_ARC_CLOSURE_2_BUGS_FOUND.md`.
+
+---
+
+## SESSION 195 outcome — V-arc closure attempt found 2 production bugs
+
+Tried to close the V-arc to 100% by validating the last 2
+unvalidated recipes real-mode. **One recipe completed
+end-to-end (`dialogue_scene`); the other partial
+(`storyboard_voiced`). Two distinct production bugs surfaced
+in 2 recipes attempted — SESSION 158 calibration confirmed
+2-for-2.**
+
+### Bug 1 — `mix_audio` silent-base ffmpeg filtergraph bug
+
+`storyboard_voiced` step 9 fails with 500 from
+`/internal/audio/mix/`. ffmpeg filtergraph references `[0:a]`
+(base audio) but the base is the silent visual concat —
+`generate_visual_clip` outputs are video-only. V14 design
+assumed base had audio (music_bed_pass shape); V15.4 added
+audio_extract+mix_audio chain assuming same semantics.
+Storyboard wants audio REPLACEMENT (`-map 1:a` from
+overlay), not audio MIXING.
+
+8/10 storyboard_voiced steps succeeded; upstream outputs
+browseable in the Asset Library. $1.92 wasted on the partial.
+
+### Bug 2 — `concat_clips` role semantics mismatch
+
+`dialogue_scene` completes end-to-end ($1.25, 145s, 6
+produced assets) **but the final concat output is stamped
+`role=BACKDROP`** by A2's emit-time logic. Should be
+`COMPOSITE_OUTPUT` (or similar). A2's static `primitive_kind
+→ role` mapping breaks down because `concat_clips` serves
+multiple recipes with different deliverable semantics. The
+A7 role-filtered picker would now offer dialogue scene
+finals as "backdrops" — nonsensical.
+
+### Calibration
+
+Three new TRUST_CALIBRATION entries — mix_audio silent-base,
+concat_clips role mismatch, and **promoting SESSION 158's
+"real-mode finds bugs in every recipe" from "high-yield" to
+"expected behavior."** The A-arc growth template now needs a
+9th step: arc-close ceremony must include a real-mode
+validation pass for every recipe affected by the arc.
+
+### Tests at SESSION 195 close
+
+No code changes; suites unchanged.
+
+| Suite | Count |
+|---|---|
+| Django | 1006 |
+| - compositions | 575 |
+| Media-engine | 194 |
+| SPA vitest | 134 |
+
+Real-mode spend SESSION 195: **~$3.17** ($1.92 storyboard
+partial + $1.25 dialogue complete).
+
+Workspace asset count: **138 → 153 (+15)** from the two
+real-mode fires.
+
+V-arc status: **17 of 18 recipes validated**. `dialogue_scene`
+closed; `storyboard_voiced` pending mix_audio fix.
 
 ---
 
@@ -203,12 +268,43 @@ Real-mode spend SESSION 192: **$0**.
 
 ---
 
-## FIRST THING (SESSION 195): operator picks next direction
+## FIRST THING (SESSION 196): two fix slices to close V-arc 100%
 
-**No arc in flight.** SESSION 184 calibration backlog cleared
-(both #2 V18-warn + #4 smoke-save shipped SESSION 194).
-Asset Library v1 closed SESSION 192 + dogfood-validated
-SESSION 193. Operator picks at slice-open.
+Both bugs found SESSION 195. Both ½-session-sized. Both
+operator-picked at SESSION 195 close.
+
+### Slice 1 — mix_audio silent-base handling (media-engine, ½ session)
+
+Detect missing base audio stream in `/internal/audio/mix/`
++ fall through to `-map 1:a` filtergraph. Backwards-compat
+with existing music_bed_pass behavior (base has audio → amix
+as today). New test fixture for silent-base shape.
+
+When this lands, re-fire `storyboard_voiced` real-mode →
+V-arc 100% closure (the SESSION 195 goal). Probably ~$0
+additional spend if we re-use the existing partial
+composition's upstream outputs, or ~$1.92 if we fire from
+scratch.
+
+### Slice 2 — combinator-primitive role override (½ session)
+
+Add `result_role` param to `concat_clips` (and likely
+`composite_video` + `mix_audio` too). Recipe starter passes
+`result_role` per step; primitive reads + stamps. Backwards-
+compat default keeps current BACKDROP stamp. Apply
+override to `dialogue_scene.concat_clips` → COMPOSITE_OUTPUT
+(plus review other combinator step calls per recipe).
+
+### Recommended ordering
+
+**Slice 1 first** — clears the V-arc 100% closure path.
+Slice 2 is the cleanup that hardens the A-arc taxonomy
++ doesn't block anything.
+
+If operator wants quick-win double (per the successful
+SESSION 194 pattern): both slices in one SESSION 196.
+Combined ~1 full session, $0 code-spend + maybe ~$0 if we
+re-fire storyboard_voiced from the partial.
 
 ### Queued backlog (operator picks)
 
@@ -435,7 +531,7 @@ For any new step primitive added after A2:
 4. **Register the primitive** in
    `apps/compositions/primitives/__init__.py::_REGISTRY`.
 
-**Smoke checks** (counts as of SESSION 194 close):
+**Smoke checks** (counts as of SESSION 195 close — no code change):
 
 ```bash
 # Backend (from shell/)
@@ -567,17 +663,26 @@ pnpm test                                     # 134 vitest tests
 
 ## AI / assistant context
 
-- **Last session: SESSION 194 — V18 polish double.** Two
-  SESSION 184 calibrations shipped (#2 V18 duration-mismatch
-  warning + #4 smoke save-assets default). Backend 995 → 1006
-  (+11); SPA 134 unchanged. No new TRUST_CALIBRATION
-  entries — both slices were straightforward applications of
-  existing patterns.
+- **Last session: SESSION 195 — V-arc closure attempt.**
+  No code changes. Real-mode validation of last 2 unvalidated
+  recipes found 2 production bugs (mix_audio silent-base
+  ffmpeg failure + concat_clips role semantics mismatch).
+  3 new TRUST_CALIBRATION entries; 2 fix slices queued.
+  Spend: $3.17. V-arc now 17/18 validated.
 
-- **Prior session: SESSION 193 — A-arc dogfood + Celery
-  hard rule.** No code changes; one stack-up bug caught.
+- **Prior session: SESSION 194 — V18 polish double.** Two
+  SESSION 184 calibrations shipped; tests 995 → 1006.
 
-- **Calibration carried forward (20 total — unchanged SESSION 194)**:
+- **Calibration carried forward (23 total — NEW SESSION 195)**:
+  - **mix_audio assumes base has audio** — V14/V15.4 design
+    oversight surfaced by storyboard_voiced real-mode.
+  - **concat_clips role semantics are recipe-dependent** —
+    A2's static mapping breaks for combinator primitives.
+  - **Real-mode dogfood finds bugs in EVERY recipe** —
+    SESSION 158 promoted from "high-yield" to "expected
+    behavior." Mock test coverage is necessary but not
+    sufficient. Arc-close ceremonies need real-mode validation
+    pass across every affected recipe.
   - **Celery worker is NOT optional for mock_mode** —
     mock_mode controls primitive behavior, not the task
     wrapper. Required for ANY composition fire. (NEW

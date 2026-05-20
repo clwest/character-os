@@ -3999,3 +3999,164 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   slices" calibration — that one was about Runway-side drift;
   this one is about local-dev drift. Generalizes:
   **test passing ≠ dev stack usable**.
+
+### mix_audio assumes base clip has audio — silent-base recipes 500 at ffmpeg
+- **Date:** 2026-05-19
+- **Session:** 195
+- **Context:** SESSION 195 V-arc closure dogfood. Operator fired
+  `storyboard_voiced` (V15.4 bonus, 10 steps) in real-mode against
+  the dev Runway+Stability stack. Steps 0-8 succeeded (3 images +
+  3 visual clips + concat + avatar speech + audio extract).
+  **Step 9 (`mix_audio`) failed with 500** from
+  `POST /internal/audio/mix/` in 60ms (server-side rejection, not
+  a real ffmpeg run).
+- **Surface / artefact:** ffmpeg filtergraph in media-engine's
+  `/internal/audio/mix/`:
+  `[1:a]volume=...,afade=t=in:st=0:d=0,afade=t=out:st=999999:d=0[bed];[0:a][bed]amix=inputs=2:duration=first:normalize=0[outa]`
+  ffmpeg error: *"Stream specifier ':a' in filtergraph description
+  matches no streams. Error binding filtergraph inputs/outputs:
+  Invalid argument."*
+- **AI expectation (before):** `mix_audio` would handle any
+  base+overlay audio combination since both upstream outputs
+  exist with valid file paths.
+- **Reality / outcome:** **`mix_audio`'s filtergraph references
+  `[0:a]` (the base's audio stream), but in `storyboard_voiced`
+  the base is the silent visual concat (3× `generate_visual_clip`
+  outputs stitched together — video-only, no audio track).**
+  `generate_visual_clip` produces silent clips; concat of silent
+  clips is still silent. ffmpeg fails fast because `[0:a]`
+  doesn't exist.
+
+  The V14 `mix_audio` primitive was designed for the
+  **music_bed_pass** use case (base = avatar speech WITH audio +
+  overlay = music track → `amix` combines them). V15.4's
+  `storyboard_voiced` bonus added an `audio_extract` + `mix_audio`
+  chain assuming the same mix semantics would work for "narration
+  over silent storyboard" — they don't. The needed semantics
+  are audio REPLACEMENT (`-map 1:a` from overlay), not audio
+  MIXING.
+- **Found by:** Real-mode dogfood pass at SESSION 195. Caught at
+  step 9 of 10 after $1.92 of upstream Runway+Stability spend
+  was already committed.
+- **Lesson:** **Two-layer finding.**
+
+  (1) **Primitive boundaries need to be tested across all
+  consumer recipes, not just the recipe that motivated the
+  primitive.** `mix_audio` was test-covered for music_bed_pass +
+  unit tests with mock-mode primitives; storyboard_voiced
+  exercises a different audio shape that mock tests didn't see
+  because mock primitives don't actually decode media streams.
+
+  (2) **`generate_visual_clip` produces silent output** is an
+  invariant the downstream pipeline must accommodate. Either
+  `mix_audio` detects missing base audio + falls through to
+  `-map 1:a` (best — same endpoint, smarter behavior); OR the
+  starter pre-encodes a silent track; OR a new `replace_audio`
+  primitive lands. Half-session fix slice. Operator picked the
+  media-engine-side fix path at SESSION 195 close.
+
+### concat_clips role semantics are recipe-dependent — A2's unconditional BACKDROP stamp is wrong for dialogue_scene
+- **Date:** 2026-05-19
+- **Session:** 195
+- **Context:** SESSION 195 V-arc closure dogfood. Operator fired
+  `dialogue_scene` (V14, 5 lines + concat) in real-mode. End-to-end
+  success — 145s wall-time, $1.25, 6 produced assets. **But the
+  concat output (final deliverable) was stamped `role=backdrop`
+  by the A2 emit-time logic.**
+- **Surface / artefact:** `apps.compositions.primitives.concat_clips`
+  unconditionally sets `role=AssetRole.BACKDROP.value` on its
+  PrimitiveResult (introduced in SESSION 186 A2). Recipe consumers:
+  * `talking_head_with_backdrop` V18 chain — concat of N backdrops
+    → BACKDROP ✓ semantically right
+  * `storyboard_voiced` V15.4 — concat of 3 silent visual clips
+    → BACKDROP ✓ same shape
+  * `dialogue_scene` V14 — concat of N talking_head clips → final
+    deliverable → **BACKDROP ✗** should be COMPOSITE_OUTPUT or
+    similar
+- **AI expectation (before):** A2 stamped role per primitive_kind
+  with a 1:1 mapping. The mapping was operator-validated against
+  the SESSION 184 V18 dogfood evidence + the SESSION 185 backfill
+  heuristics — both motivated by the backdrop use case.
+- **Reality / outcome:** **The same primitive serves multiple
+  recipes with different semantic intents.** Static `primitive_kind
+  → role` mapping breaks down for combinator primitives (`concat_clips`,
+  `composite_video`, `mix_audio`) whose role depends on what's
+  being combined.
+
+  Operator-visible consequence: A7 role-filtered backdrop_clip_id
+  picker would now offer the dialogue_scene's 25-second final as
+  a valid backdrop. Picking it would produce a nonsensical V18
+  render (avatars-over-avatars).
+- **Found by:** AI tail of the post-completion Asset Library
+  state at SESSION 195 dogfood close.
+- **Lesson:** **A2's contract rule 20 ("every primitive stamps a
+  role") is structurally correct but the implementation needs a
+  per-recipe override for combinator primitives.** The cleanest
+  fix path (operator-picked at SESSION 195 close): add a
+  `result_role` param to combinator primitives (`concat_clips`
+  first; `composite_video` + `mix_audio` likely too). Recipe
+  starter passes `result_role` in the step's params; primitive
+  reads + stamps. Backwards-compat default keeps the V18 /
+  storyboard_voiced behavior.
+
+  **Generalizes:** when a primitive serves multiple recipes with
+  different deliverable semantics, role assignment needs to live
+  at the recipe layer, not the primitive layer. The runner-funnel
+  + per-primitive stamp pattern (SESSION 186 A2 calibration) holds
+  for emitters; combinators need the override seam.
+
+### Real-mode dogfood finds bugs in EVERY recipe — confirmed 2-for-2 on V-arc closure attempt
+- **Date:** 2026-05-19
+- **Session:** 195
+- **Context:** SESSION 195 set out to validate the last 2
+  unvalidated V-arc recipes (`storyboard_voiced` + `dialogue_scene`)
+  in real-mode to close the V-arc to 100%. Both recipes pass mock-mode
+  tests cleanly; mock-mode test coverage at SESSION 195 was 1006
+  Django pytest + 134 SPA vitest. Operator was prepared to "validate
+  + close" the V-arc.
+- **Surface / artefact:** Two real-mode fires, two production bugs
+  caught:
+  * `storyboard_voiced` — mix_audio silent-base ffmpeg filtergraph
+    bug (V14 design oversight, never seen because music_bed_pass
+    always has audio base).
+  * `dialogue_scene` — concat_clips role semantics mismatch (A2
+    implementation gap, never seen because mock primitives don't
+    drive the role-filter SPA picker).
+
+  Combined spend: ~$3.17 ($1.92 wasted on storyboard_voiced
+  partial; $1.25 productive on dialogue_scene).
+- **AI expectation (before):** Both recipes had clean mock-mode
+  test coverage shipped at V15.4 + V14. Operator framed the
+  session as "validate + close the V-arc" with mild risk of a
+  finding.
+- **Reality / outcome:** **2-for-2 real-mode bugs in 2 recipes
+  attempted.** Stronger evidence than SESSION 158's calibration
+  warranted — "real-mode dogfood finds bugs in every recipe"
+  is now empirically near-certain, not just "high yield."
+  Both bugs were latent for many sessions (V14 shipped
+  SESSION 143 era; A2 shipped SESSION 186) without any test
+  surface catching them, because:
+  * mock primitives don't decode media streams (so mix_audio's
+    filtergraph never sees a real silent-input)
+  * unit tests don't exercise the A7 picker semantics with
+    real recipe finals
+- **Found by:** Operator firing both recipes in real-mode against
+  the dev Runway+Stability stack. AI tail diagnosed both bugs
+  within 1-2 minutes of the symptom appearing.
+- **Lesson:** **Promote the SESSION 158 calibration from "high
+  yield" to "expected behavior."** Every untested-in-real-mode
+  recipe carries a near-certain latent bug. Two corollaries:
+  * Real-mode dogfood is non-negotiable before any recipe
+    claims "shipped." Mock test coverage is necessary but
+    not sufficient.
+  * Recipes that landed before the current test discipline
+    (V14, V15.4 — both pre-SESSION-186-A2) are highest-risk;
+    each one validated will likely surface ≥1 bug.
+
+  The SESSION 192 A-arc growth template now needs a
+  9th step: **arc-close ceremony must include a real-mode
+  validation pass for every recipe affected by the arc**. The
+  Asset Library v1 arc-close ceremony at SESSION 193 ran ONE
+  composition (talking_head_with_backdrop, mock_mode); A7's role-
+  filter behavior across other recipes wasn't validated, and we
+  paid for it at SESSION 195 with the concat_clips finding.

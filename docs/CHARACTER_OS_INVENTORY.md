@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-20T00:25:26.909636+00:00
-git_sha: e773d2b (working tree dirty)
+generated_at: 2026-05-20T00:59:08.548605+00:00
+git_sha: 745fabc (working tree dirty)
 git_branch: main
 ---
 
@@ -15,7 +15,7 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-20T00:25:26.909636+00:00** against commit **e773d2b**
+Generated **2026-05-20T00:59:08.548605+00:00** against commit **745fabc**
 on branch **main** (working tree dirty).
 
 Python 3.11.6 · Django 5.2.14 ·
@@ -286,4 +286,4 @@ _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-w
 
 ---
 
-*Regenerated 2026-05-20T00:25:26.909636+00:00 from commit e773d2b. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-20T00:59:08.548605+00:00 from commit 745fabc. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
