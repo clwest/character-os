@@ -321,7 +321,7 @@ v2.
 | # | Slice | Effort |
 |---|---|---|
 | **B2.0** | This scope-lock doc | ½ session (current) |
-| **B2.1** | `apps.scripts` Django app + Script model + migration + cross-workspace signal + admin registration | ½ session |
+| **B2.1** ✓ SHIPPED | `apps.scripts` Django app + Script model + migration + cross-workspace signal + admin registration. 9 tests; Django 1269 → 1278. | ½ session |
 | **B2.2** | Refactor K6's `build_render_brief` → `apps.scripts.synthesis.draft_script`. Keep K6's in-primitive call working (B-2 doesn't break existing renders). Extract revision-snapshot helper. Tests + force-mock parity. | ½ session |
 | **B2.3** | `ScriptViewSet` REST: create / list / retrieve / regenerate / approve / render / clone / delete actions + `check_drafts_per_month` tier gate + `auto_script` Composition wiring. Largest backend slice. | 1 session |
 | **B2.4** | `auto_script` recipe + starter + recipe-gallery registration + variant recipe (`auto_script_polished` if scope permits) + tests | ½ session |
@@ -492,3 +492,17 @@ UI orchestration on top.
   resolutions. Status flips proposed → locked. B2.1
   (`apps.scripts` app + Script model + migration + signal)
   opens immediately.
+
+* **2026-05-20 (SESSION 206, B2.1 SHIPPED)** —
+  `apps.scripts` Django app + Script model
+  (DRAFT/READY/RENDERED/ARCHIVED state machine; rule-1
+  cross-workspace clean() + pre_save signal; full
+  provenance + revision_history JSONField; K6.4
+  verification_status surface) + migration
+  `0001_initial` + admin registration. 9 model tests pin
+  cross-workspace rejection (clean + signal), enum
+  coverage, JSON-default independence, revision_history
+  round-trip. Django 1269 → 1278. INSTALLED_APPS extended.
+  Inventory regenerated. B2.2 (refactor K6's
+  `build_render_brief` → `apps.scripts.synthesis.draft_script`)
+  opens next.
