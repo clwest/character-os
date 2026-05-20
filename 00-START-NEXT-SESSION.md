@@ -53,37 +53,56 @@ state: active
 
 ---
 
-## SESSION 200 outcome — storyboard extend-chain (V-arc UX gap closed)
+## SESSION 200 outcome — storyboard extend-chain SHIPPED + REAL-MODE VALIDATED
 
-The last known V-arc UX gap shipped. `storyboard_ad` +
-`storyboard_voiced` now expose two opt-in operator knobs that
-close the hard-shot-transition complaint from SESSION 195 + 197
-dogfood. Operator picked Option C — combine both mitigations
-under one feature so a single render produces a fully-smoothed
-storyboard.
+The last known V-arc UX gap shipped + validated. `storyboard_ad`
++ `storyboard_voiced` expose two opt-in operator knobs that
+close the hard-shot-transition complaint from SESSIONS 195+197.
 
-* **`use_extend_for_shots` (checkbox, default False)** — each
-  shot becomes generate (5s, image-to-video) → extend (5s,
-  last-frame-conditioned). Doubles each shot from 5s → 10s.
-  Removes the intra-shot motion seams. Costs ~3× more (3 extra
-  Runway renders per fire).
-* **`crossfade_ms` (number, default 0, max 5000)** — optional
-  ffmpeg `xfade` + `acrossfade` duration between consecutive
-  shots at concat time. 0 = hard cuts (default), 250–500ms is
-  a tasteful soft blend. Implemented end-to-end: primitive +
-  client + media-engine endpoint.
+* **`use_extend_for_shots`** — each shot becomes generate (5s)
+  + extend (5s last-frame-conditioned). Doubles each shot from
+  5s → 10s. ~3× cost.
+* **`crossfade_ms`** — ffmpeg `xfade` + `acrossfade` between
+  consecutive shots. 0 = hard cuts (default); 250–500ms blend.
 
-Both default off — the 7-step `storyboard_ad` and 10-step
-`storyboard_voiced` shapes are preserved when the operator
-doesn't toggle anything.
+Both default off; mirrors V17.5's `use_extend_for_backdrop`.
 
-Mirrors the V17.5 `use_extend_for_backdrop` shape so the
-operator surface stays coherent across the codebase.
+### Real-mode dogfood — 2 bugs found + fixed same session
 
-Backend tests **1027 → 1039 (+12)**, media-engine **197 → 202
-(+5)**. SPA + vitest unchanged. No real-mode spend. No new
-TRUST_CALIBRATION entries (clean application of the V-arc
-growth template).
+Operator dogfooded `storyboard_ad(extend=True, crossfade=500,
+outro_text="...")` immediately after the feature commit.
+**Two bugs surfaced**:
+
+1. **`intro_outro` silent-base** (fixed `8f6ff6c`). storyboard_ad
+   has no narration, so the SESSION 200 silent extend+concat
+   pipeline fed a silent body into intro_outro, which referenced
+   `[0:a]` and ffmpeg exited rc=234. Latent since SESSION 198
+   added outro_text to storyboard_ad with mock-only tests.
+   **Same shape as SESSION 196 mix_audio silent-base**. Fix
+   mirrors that one: ffprobe + synthesize silent audio when
+   absent. 2 regression tests.
+
+2. **Celery worker stale** (operational; recurring 3rd hit).
+   Worker started 19:03; feature commit 21:38; fire 21:48.
+   Worker ran the OLD primitive that didn't read `crossfade_ms`.
+   Django auto-reloaded the starter (step.params written
+   correctly), but the OLD Celery primitive silently dropped
+   the param → demuxer fast path. **Silent semantic regression**:
+   11/11 steps `succeeded`; only ffprobe revealed missing
+   crossfade. After Celery restart, re-fire produced 29.27s
+   @ 30fps (xfade verified).
+
+### Final validation: composition `c592dd51`
+
+- **status**: completed ✓
+- 235s wall-time, **$1.62 spend**
+- 11/11 steps green
+- concat at 29.27s @ 30fps (xfade applied + framerate normalized)
+- final at 32.27s @ 30fps (outro "24/7 Global AI" rendered cleanly)
+
+All three SESSION 200 features validated end-to-end real-mode.
+Total dogfood spend: **~$2.50** ($0.88 wasted on Celery-stale
+first fire + $1.62 successful re-fire).
 
 ### Tests at SESSION 200 close
 
@@ -91,10 +110,30 @@ growth template).
 |---|---|
 | Django | 1039 |
 | - compositions | 608 |
-| Media-engine | 202 |
+| Media-engine | 204 (+7 vs SESSION 199: +5 features +2 silent-base) |
 | SPA vitest | 134 |
 
-Real-mode spend SESSION 200: **$0**.
+Real-mode dogfood spend SESSION 200: **~$2.50**.
+
+### Calibration (3 new — 28 total)
+
+1. **Celery worker doesn't auto-reload — third hit; promote
+   to pre-fire checklist.** Silent stale-code shape (worker
+   running, all steps succeed, output semantically wrong).
+   New pre-fire check: compare last commit against
+   `shell/apps/compositions/primitives/` mtime vs Celery
+   worker start time. If commit is newer, restart Celery.
+
+2. **Mock-mode hides upstream stream-shape drift — fourth
+   hit.** Same V14/V15.4 mix_audio shape (assume base has
+   audio, break on silent input). Forward defense: audit
+   add_captions, composite_video, trim_clip, reformat_clip,
+   style_remix for `[N:a]` references on downloaded clips.
+
+3. **SESSION 200 dogfood — two bugs, one fix, one operational
+   lesson.** Pattern is 4-for-4 across SESSIONS 195/197/200
+   dogfoods. Post-feature real-mode dogfood is load-bearing
+   for any feature touching ffmpeg endpoints.
 
 ---
 
@@ -171,13 +210,30 @@ Composition `1ce4d201`:
 
 ---
 
-## FIRST THING (SESSION 201): operator picks — small-slice backlog further thinned
+## FIRST THING (SESSION 201): operator picks
 
 **No arc in flight.** All four Phase 4 arcs + Asset Library v1
 closed; V-arc 100% real-mode validated; outro_text parity rollout
-complete (SESSIONS 197+198+199); **V-arc UX polish complete
-(SESSION 200 — storyboard extend chain)**. Every known V-arc UX
-gap is closed.
+complete (SESSIONS 197+198+199); **V-arc UX polish COMPLETE +
+REAL-MODE VALIDATED (SESSION 200 — storyboard extend chain +
+crossfade)**. Every known V-arc UX gap is closed AND validated
+against real Runway.
+
+**Pre-fire checklist enforcement (NEW SESSION 200):** Before any
+real-mode composition fire, verify Celery worker is newer than
+the last commit against `shell/apps/compositions/primitives/`:
+
+```bash
+CELERY_PID=$(pgrep -f "celery -A character_os" | head -1)
+CELERY_START_EPOCH=$(ps -o lstart= -p $CELERY_PID | xargs -I{} date -j -f "%a %b %e %T %Y" "{}" "+%s")
+LAST_PRIMITIVE_COMMIT_EPOCH=$(git log -1 --format=%at -- shell/apps/compositions/primitives/)
+if [ "$LAST_PRIMITIVE_COMMIT_EPOCH" -gt "$CELERY_START_EPOCH" ]; then
+  echo "STALE: restart Celery worker before firing"
+fi
+```
+
+Same rule applies to `runner.py`, `tasks.py`,
+`character_os/clients/media_engine.py`.
 
 ### Remaining polish / parity follow-ups
 
@@ -205,12 +261,13 @@ gap is closed.
 
 ### Optional real-mode validation
 
-The SESSIONS 198+199 outro flows and the SESSION 200 storyboard
-extend chain still haven't been real-mode-fired. Operator could
-fire either storyboard recipe with `use_extend_for_shots=True`
-to validate the new chain — but real-mode cost roughly triples
-per shot (3 extra Runway renders), so the prior $1.12 closure
-fire becomes ~$3.50 with the full chain on. Optional.
+**`storyboard_ad` extend+crossfade+outro real-mode validated
+SESSION 200.** The SESSIONS 198/199 outro flows on the OTHER
+recipes (long_form_ad, cinematic_visual, cinematic_visual_extended,
+dialogue_scene) still haven't been real-mode-fired with outros.
+Operator could bundle one of those into the next composition
+fire to validate the SESSIONS 198/199 outro parity surfaces
+end-to-end. Estimated spend: $0.50–$1.50 depending on recipe.
 
 ### New-arc candidates from CONTENT_FORMAT_BACKLOG.md
 
@@ -220,9 +277,10 @@ fire becomes ~$3.50 with the full chain on. Optional.
 
 ### Recommended next direction
 
-Four sessions of small-slice work in a row (194 polish double,
+Five sessions of small-slice work in a row (194 polish double,
 196 fix double, 198 polish triple, 199 outro parity, 200
-extend chain) — the small-slice backlog is genuinely thin now.
+extend chain + dogfood). Small-slice backlog is genuinely thin.
+
 Natural next moves (operator picks):
 
 1. **Open a new arc** — B-1 Transcript Miner is closest to
@@ -230,9 +288,10 @@ Natural next moves (operator picks):
    A-arc Asset Library provides the surface).
 2. **Asset upload UI** — operator-content bottleneck;
    unblocks new arcs that need operator-authored footage.
-3. **Real-mode validation pass** — bundle the SESSIONS
-   198/199/200 new surfaces into one validation fire if the
-   operator wants confidence before opening a new arc.
+3. **Forward-defense audit** — apply the SESSION 200 calibration
+   lesson by auditing add_captions, composite_video, trim_clip,
+   reformat_clip, style_remix for unchecked `[N:a]` references.
+   Roughly ½ session.
 
 ### Queued backlog (operator picks)
 
@@ -417,20 +476,20 @@ handoffs for the full backlog.**
 
 ## AI / assistant context
 
-- **Last session: SESSION 200 — storyboard extend-chain.**
-  Four slices: crossfade_ms on concat_clips (primitive +
-  media-engine endpoint) → use_extend_for_shots in storyboard
-  starters → recipe field exposure → tests. Backend 1027 →
-  1039 (+12). Media-engine 197 → 202 (+5). No new
-  TRUST_CALIBRATION entries (clean V-arc growth template
-  application).
+- **Last session: SESSION 200 — storyboard extend-chain SHIPPED
+  + REAL-MODE VALIDATED + 2 production bugs caught.**
+  Four feature slices + 1 post-close fix slice. Backend 1027
+  → 1039 (+12). Media-engine 197 → 204 (+7: +5 features +2
+  silent-base regression). 3 new TRUST_CALIBRATION entries
+  (Celery stale, mock-mode stream-shape, dogfood pattern
+  confirmation). $2.50 real-mode spend; 4-for-4 on "real-mode
+  finds bugs in every recipe".
 
 - **Prior session: SESSION 199 — outro_text parity finished.**
-  Backend 1020 → 1027 (+7). 6 recipes total carry outro_text
-  after SESSIONS 197-199.
+  Backend 1020 → 1027 (+7).
 
-- **Calibration carried forward (25 total — unchanged
-  SESSION 200)**: V-arc 100% real-mode closure milestone;
+- **Calibration carried forward (28 total — +3 SESSION 200)**:
+  V-arc 100% real-mode closure milestone;
   operator-noticed-during-dogfood → next-session ship loop;
   mix_audio silent-base; concat_clips role semantics
   recipe-dependent; real-mode dogfood finds bugs in EVERY
@@ -443,8 +502,15 @@ handoffs for the full backlog.**
   mismatch; (+ earlier carry-forward).
 
 - **V-arc UX polish exhausted (SESSION 200).** Every known
-  V-arc UX gap closed. Next polish would be operator-driven
-  from real-mode dogfood findings, not from queued backlog.
+  V-arc UX gap closed AND real-mode validated. Next polish
+  would be operator-driven from real-mode dogfood findings,
+  not from queued backlog.
+
+- **NEW pre-fire hard check (SESSION 200):** Compare last
+  commit against `shell/apps/compositions/primitives/` mtime
+  vs Celery worker start time. If commit is newer, restart
+  Celery before firing. Silent stale-code regression is the
+  failure mode — operator paid $0.88 to catch it this time.
 
 - **Brand layer is load-bearing.** Every component must
   import company/product strings from `@/lib/brand` per

@@ -34,9 +34,11 @@ Both are opt-in. The default 7-step `storyboard_ad` and 10-step
 doesn't toggle anything — backwards-compat with SESSIONS
 197–199.
 
-Tests: **Django 1027 → 1039 (+12)**, **media-engine 197 → 202
-(+5)**. SPA + vitest unchanged (recipe metadata is the only
-SPA-facing surface and it's data-driven). No real-mode spend.
+Tests: **Django 1027 → 1039 (+12)**, **media-engine 197 → 204
+(+7)** (+2 from the post-close intro_outro silent-base fix).
+SPA + vitest unchanged. **Real-mode dogfood spend: ~$2.50**
+(two fires; the first surfaced 2 bugs, second validated all
+SESSION 200 features end-to-end).
 
 ## What landed
 
@@ -177,18 +179,125 @@ Media-engine (`tests/test_concat_crossfade.py`, new file):
 |---|---|---|
 | Django | **1039** | +12 (1027 → 1039) |
 | - compositions | **608** | +12 (596 → 608) |
-| Media-engine | **202** | +5 (197 → 202) |
+| Media-engine | **204** | +7 (197 → 204; +5 SESSION 200 features + 2 intro_outro silent-base regression) |
 | SPA vitest | 134 | unchanged |
 
-`pnpm build` clean. Real-mode spend: **$0**.
+`pnpm build` clean. Real-mode dogfood spend: **~$2.50**.
+
+## Post-close dogfood — bugs found + fixed same session
+
+After SESSION 200's feature commit landed, operator fired
+`storyboard_ad(use_extend_for_shots=True, crossfade_ms=500,
+outro_text=...)` real-mode. Two bugs surfaced; both fixed
+in the same session.
+
+### Bug 1 — `intro_outro` silent-base (fixed, commit `8f6ff6c`)
+
+`/internal/clips/intro_outro/` failed at step 10 with
+`Error binding filtergraph inputs/outputs: Invalid argument`.
+The filter graph references `[0:a]` (body clip's audio) but
+the SESSION 200 silent-base path produces a silent concat
+output (storyboard_ad has no narration; extends + generates
+are all silent). **Same shape as SESSION 196's mix_audio
+silent-base bug.**
+
+**Latency root cause:** SESSION 198 added `outro_text` to
+`storyboard_ad` with 3 mock-only tests. The real-mode path
+was never exercised because `storyboard_voiced` (similar
+shape) had `mix_audio` sitting between concat + intro_outro,
+which the SESSION 196 fix gave an audio stream by the time
+intro_outro consumed it. `storyboard_ad` has no mix step —
+concat → intro_outro directly — so the silent-base invariant
+that holds for `storyboard_voiced` never held for
+`storyboard_ad` with outro.
+
+**Fix mirrors SESSION 196 slice 1**: ffprobe the body for an
+audio stream; when absent, synthesize a silent `anullsrc`
+track at the body's duration so the `concat=a=1` contract
+holds. Two regression tests (outro-only + dual-card paths
+on silent bodies). Media-engine 202 → 204.
+
+### Bug 2 — Celery worker stale (operational; recurring)
+
+The first fire's concat output was 30.25s @ 24fps — the
+naive 3 × 10.083s with **no crossfade overlap subtracted**,
+despite `step.params` carrying `crossfade_ms: 500`. Root
+cause: Celery worker started at 19:03; SESSION 200 feature
+commit landed at 21:38; fire at 21:48. Worker was running
+SESSION 199 primitive code that didn't know about
+`crossfade_ms`. Django runserver auto-reloaded the new
+starter (so step.params was written correctly); the OLD
+Celery primitive consumed step.params, ignored the unknown
+key, called the client with default 0 → demuxer fast path.
+
+**Symptom was silent**: 11/11 steps `succeeded`; only
+ffprobe of the output revealed the missing crossfade
+(24fps Runway source instead of the 30fps xfade
+normalization).
+
+After Celery restart, re-fire produced concat output
+**29.27s @ 30fps** — naive 30.249 − 2×0.5s overlap =
+29.249s. xfade verified.
+
+**Third hit of "Celery doesn't auto-reload"** (SESSION 18B,
+193, 200). Promoted from advisory calibration to pre-fire
+check: when last commit against `shell/apps/compositions/primitives/`
+is newer than Celery start time, restart Celery first.
+
+## Dogfood validation outcome
+
+Composition `c592dd51` (re-fire after both fixes + Celery
+restart):
+
+- **status**: completed ✓
+- 235s wall-time, **$1.62 spend** (3 images + 3 generates +
+  3 extends + concat + outro)
+- 11/11 steps succeeded
+- final asset 32.27s @ 30fps; concat at 29.27s @ 30fps
+  (xfade applied + normalized)
+- outro text "24/7 Global AI" rendered cleanly on silent base
+
+**All three SESSION 200 features validated end-to-end**:
+
+- ✓ `use_extend_for_shots=True` — extends produced 10.083s
+  each (5s generate + 5s last-frame extend); 30.249s naive
+  pre-crossfade.
+- ✓ `crossfade_ms=500` — concat duration 29.27s = naive
+  sum − 2×0.5s overlap; framerate normalized 24→30fps.
+- ✓ `outro_text` on silent base — survived the silent-base
+  fix end-to-end.
+
+Total SESSION 200 real-mode spend: **~$2.50** ($0.88
+partial first fire + $1.62 successful re-fire). Wasted
+spend attributable to the Celery-stale calibration miss:
+~$0.88.
 
 ## Calibration moments worth carrying
 
-**No new TRUST_CALIBRATION entries.** This session is a clean
-application of the V-arc growth template: narrow scope, opt-in
-defaults, one primitive knob + one starter knob + one endpoint
-update per slice. Pattern proven on V16/V17/V18 and now
-storyboard polish.
+**Three new TRUST_CALIBRATION entries (28 total)**:
+
+1. **Celery worker doesn't auto-reload — third hit; promote
+   to pre-fire checklist.** Previous calibrations caught
+   the "worker not running" and "new primitive registration"
+   shapes. SESSION 200 caught the **silent stale-code**
+   shape: worker running, composition fires, all steps
+   succeed, output is semantically wrong. Pre-fire check
+   added: compare `shell/apps/compositions/primitives/`
+   git mtime vs Celery worker start time.
+
+2. **Mock-mode test coverage hides upstream stream-shape
+   drift — fourth hit.** Same shape as V14/V15.4 mix_audio:
+   "we assume base has audio" baked into the filtergraph,
+   breaks when fed silent input. Forward defense: any ffmpeg
+   endpoint referencing `[N:a]` from a downloaded clip
+   should ffprobe-detect first. Audit candidates: add_captions,
+   composite_video, trim_clip, reformat_clip, style_remix.
+
+3. **SESSION 200 dogfood — two bugs, one fix, one operational
+   lesson.** Pattern is now 4-for-4 across SESSIONS 195/197/200
+   dogfoods: real-mode finds bugs in every recipe. Post-feature
+   real-mode dogfood is load-bearing for any feature touching
+   ffmpeg endpoints.
 
 Worth noting (but not new calibration): the per-shot extend
 pattern reuses V17.5's `use_extend_for_backdrop` shape almost
