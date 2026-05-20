@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "apps.embeddings",
     "apps.compositions",
     "apps.realtime",
+    "apps.transcripts",
 ]
 
 SITE_ID = 1

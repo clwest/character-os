@@ -165,6 +165,16 @@ ALLOWED_FILES = {
     # retrieve lineage). Workspace anchor is set explicitly at
     # every create; the pre_save signal still fires.
     "apps/compositions/tests/test_workspace_assets_api.py",
+    # B-arc B1.2 (SESSION 202) — TranscriptHighlight tests seed
+    # Asset(TRANSCRIPT) + (occasionally) Composition rows directly
+    # to exercise the cross-workspace isolation paths on the new
+    # model. Workspace anchor is set explicitly at every create;
+    # the pre_save signal still fires. apps.transcripts itself
+    # never writes to composition tables (highlights are a
+    # separate table); B1.4 will route through
+    # apps.compositions.starters via the recipe registry, which
+    # is already sanctioned.
+    "apps/transcripts/tests/test_models.py",
 }
 
 
