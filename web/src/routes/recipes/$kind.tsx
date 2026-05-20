@@ -26,6 +26,8 @@ import { useMe } from "@/lib/api/workspaces";
 import { useSpokespeople, type Spokesperson } from "@/lib/api/spokespeople";
 import { useKnowledgePreview } from "@/lib/api/knowledge-preview";
 import { ApiError } from "@/lib/api/client";
+// B2.5 — script_picker field type
+import { useScripts } from "@/lib/api/scripts";
 
 type FormState = Record<string, unknown>;
 
@@ -474,6 +476,16 @@ function FieldInput({
           spokespeople={spokespeople}
         />
       );
+    case "script_picker":
+      return (
+        <ScriptPicker
+          id={id}
+          workspaceId={workspaceId}
+          value={defaultedValue as string | undefined}
+          onChange={(v) => onChange(v || undefined)}
+          required={field.required}
+        />
+      );
     default:
       return <UnsupportedField message={`Unknown field type`} />;
   }
@@ -565,6 +577,95 @@ function AssetPicker({
       {list.map((a) => (
         <option key={a.id} value={a.id}>
           {assetLabel(a)}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+// ---- ScriptPicker (B2.5 — script_picker field type) ---------------
+
+/**
+ * Renders a dropdown of READY (approved) scripts for the auto_script recipe.
+ * Called by FieldInput when field.type === "script_picker".
+ *
+ * When no approved scripts exist, renders an empty-state hint that links
+ * the operator to /workspace/scripts so they can draft + approve one.
+ * Mirrors the AssetPicker empty-state UX pattern.
+ */
+function ScriptPicker({
+  id,
+  workspaceId,
+  value,
+  onChange,
+  required,
+}: {
+  id: string;
+  workspaceId: string;
+  value: string | undefined;
+  onChange: (value: string) => void;
+  required: boolean;
+}) {
+  const scripts = useScripts(workspaceId, { status: "ready" });
+
+  if (scripts.isLoading) {
+    return (
+      <div className="h-10 animate-pulse rounded-md border bg-muted/30" />
+    );
+  }
+
+  if (scripts.isError) {
+    return (
+      <UnsupportedField
+        message={`Couldn't load approved scripts: ${
+          scripts.error instanceof Error ? scripts.error.message : "unknown error"
+        }`}
+      />
+    );
+  }
+
+  const list = scripts.data ?? [];
+
+  if (list.length === 0) {
+    return (
+      <div
+        data-testid="script-picker-empty"
+        className="flex flex-col gap-1 rounded-md border border-dashed bg-muted/20 p-4 text-xs text-muted-foreground"
+      >
+        <p className="font-mono uppercase tracking-[0.22em]">
+          No approved scripts yet
+        </p>
+        <p className="normal-case tracking-normal">
+          Draft a script at{" "}
+          <Link
+            to="/workspace/scripts/new"
+            className="underline text-primary"
+          >
+            /workspace/scripts
+          </Link>
+          , then approve it before running this recipe.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <select
+      id={id}
+      data-testid="script-picker-select"
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value)}
+      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+    >
+      {!required && <option value="">— none —</option>}
+      {required && !value && (
+        <option value="" disabled>
+          — select an approved script —
+        </option>
+      )}
+      {list.map((s) => (
+        <option key={s.id} value={s.id}>
+          {s.name || "Untitled script"} · {s.spokesperson_name}
         </option>
       ))}
     </select>

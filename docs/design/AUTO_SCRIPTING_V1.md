@@ -325,7 +325,7 @@ v2.
 | **B2.2** ✓ SHIPPED | `apps.scripts.synthesis.draft_script` adapter over K6's `build_render_brief` + `ScriptDraftResult` dataclass + `snapshot_to_revision_history` + `apply_draft_to_script` helpers. K6 in-primitive callers unchanged. Strict-mode `ClaimVerifierError` caught + persisted as `blocked` (rule 4). 12 tests; Django 1278 → 1290. | ½ session |
 | **B2.3** ✓ SHIPPED | `ScriptViewSet` REST (8 actions) + `check_drafts_per_month` tier gate (Starter=10, Pro=100, Agency=∞) + `auto_script` Composition starter wiring. State machine enforced at viewset (DRAFT→READY→RENDERED + regenerate snaps READY→DRAFT). 21 REST tests; Django 1290 → 1311. | 1 session |
 | **B2.4** ✓ SHIPPED | `auto_script` registered in `RECIPES` registry + new `script_picker` field type + `resolve_kwargs` extension. Surfaces in `/api/recipes/` gallery (count 19 → 20). `auto_script_polished` variant deferred to v2 per "if scope permits" hedge. 9 recipe tests; Django 1311 → 1320. | ½ session |
-| **B2.5** | SPA `/workspace/scripts` list + create + detail + regenerate + approve + render-now flow (subagent). Recipe gallery picker that opens a Script picker for `auto_script` (different from other recipes). | 1 session |
+| **B2.5** ✓ SHIPPED | SPA `/workspace/scripts` list + create + detail (regenerate / approve / render / clone / delete) + recipe-gallery `script_picker` field type extension. Delivered via `react-web-delivery` subagent. SPA vitest 371 → 405. | 1 session |
 | **B2.6** | Real-mode dogfood + arc close. Fire `draft_script` against Marcus (existing dogfood spokesperson with knowledge attached); approve; render; validate the rendered Asset uses the persisted chunk_ids for lineage. | ½ session |
 
 **Total: ~4-5 sessions** matching the backlog estimate.
@@ -506,6 +506,40 @@ UI orchestration on top.
   Inventory regenerated. B2.2 (refactor K6's
   `build_render_brief` → `apps.scripts.synthesis.draft_script`)
   opens next.
+
+* **2026-05-20 (SESSION 206, B2.5 SHIPPED)** —
+  SPA surface for the E-arc lands. Delivered via the
+  `react-web-delivery` subagent against a tight backend-
+  contract brief (8 REST actions + the new `script_picker`
+  form-field type + the auto_script recipe gallery
+  extension). Three new routes (`/workspace/scripts` +
+  `/workspace/scripts/new` + `/workspace/scripts/:id` — `/new`
+  registers BEFORE the `:id` catch-all per the campaigns +
+  bundles precedent). New `web/src/lib/api/scripts.ts` with
+  Zod schemas + 8 React Query hooks (`useScripts`,
+  `useScript`, `useCreateScript`, `useRegenerateScript`,
+  `useApproveScript`, `useRenderScript`, `useCloneScript`,
+  `useDeleteScript`) all honoring the SESSION 203 calibration
+  ("every dependent query must invalidate on mutation
+  onSuccess"). Detail page renders the brief panel + cited
+  documents (linked to `/workspace/knowledge/:doc_id`) +
+  verifier flags + status-dependent action toolbar +
+  collapsible revision_history. Regenerate modal lets
+  operator update prompt / opener / verifier_mode before
+  re-firing. Recipe gallery picks up the new `auto_script`
+  recipe via `LIVE_RECIPE_KINDS` extension + new
+  `script_picker` form-field type with empty-state hint
+  ("Draft one at /workspace/scripts" when no READY scripts
+  exist). 402 tier-exhaustion handling shows the suggested-
+  tier upgrade copy inline (mirror of bundles.new tier-
+  exhaustion pattern). 34 new vitest tests; SPA total
+  371 → 405. `pnpm build` exit 0; bundle warning is pre-
+  existing chunk-size advisory. **Five backend slices
+  (B2.0-B2.4) + SPA slice (B2.5) shipped this session.**
+  B2.6 (real-mode dogfood + arc close) opens next — fire
+  draft_script against Marcus (existing dogfood spokesperson
+  with knowledge attached), approve, render, validate the
+  rendered Asset uses the persisted chunk_ids for lineage.
 
 * **2026-05-20 (SESSION 206, B2.4 SHIPPED)** —
   `auto_script` registered in `apps.compositions.recipes.RECIPES`

@@ -24,6 +24,10 @@ export const RECIPE_FIELD_TYPES = [
   "spokesperson_picker",
   "asset_picker",
   "dialogue_lines",
+  // B2.5 — auto_script recipe: lets the operator pick an approved Script
+  // before firing the composition. The ScriptPicker component in
+  // $kind.tsx handles this type (calls useScripts({status:'ready'})).
+  "script_picker",
 ] as const;
 
 export type RecipeFieldType = (typeof RECIPE_FIELD_TYPES)[number];
@@ -123,6 +127,10 @@ export const LIVE_RECIPE_KINDS = new Set<string>([
   // form-renderer surface as the other live recipes; no
   // SPA-specific code needed beyond opting in here.
   "cinematic_visual_extended",
+  // B2.5 — auto_script recipe: operator selects an approved Script and
+  // fires a talking_head render with it. Requires the script_picker
+  // field type wired in FieldInput.
+  "auto_script",
 ]);
 
 // ---- List recipes -----------------------------------------------
