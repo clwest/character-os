@@ -1043,6 +1043,293 @@ def test_storyboard_voiced_recipe_exposes_outro_text_field() -> None:
     assert outro_field["max_chars"] == 80
 
 
+def test_storyboard_voiced_use_extend_for_shots_adds_extend_chain() -> None:
+    """SESSION 200 — when use_extend_for_shots=True, three
+    extend_visual_clip steps land between the generates and the
+    concat. Each extend conditions on the prior generate's last
+    frame. The concat then consumes positions 6-8 instead of 3-5.
+    Composition shape: 3 image + 3 generate + 3 extend + concat +
+    speech + extract + mix = 13 steps."""
+    ws, user = _make_workspace_with_user("v200sbv_extend@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "storyboard_voiced",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "hook_prompt": "neon city skyline at dusk",
+                "action_prompt": "founder walking confidently down a hallway",
+                "payoff_prompt": "team celebrating around a table",
+                "narration_script": (
+                    "Welcome to our company. We build things that matter."
+                ),
+                "use_extend_for_shots": True,
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    assert len(data["steps"]) == 13
+    steps_by_pos = sorted(data["steps"], key=lambda s: s["position"])
+    primitives = [s["primitive"] for s in steps_by_pos]
+    assert primitives == [
+        "generate_image", "generate_image", "generate_image",
+        "generate_visual_clip", "generate_visual_clip", "generate_visual_clip",
+        "extend_visual_clip", "extend_visual_clip", "extend_visual_clip",
+        "concat_clips",
+        "generate_avatar_speech",
+        "audio_extract",
+        "mix_audio",
+    ]
+    # Each extend conditions on the matching generate output via
+    # the ``source`` slot. Position 6 → from 3, 7 → from 4, 8 → from 5.
+    for idx in range(3):
+        extend_step = steps_by_pos[6 + idx]
+        assert extend_step["primitive"] == "extend_visual_clip"
+        assert extend_step["inputs"] == [
+            {"slot": "source", "from_step_position": 3 + idx},
+        ]
+    # The concat at position 9 now points at the extend outputs.
+    concat_step = steps_by_pos[9]
+    assert concat_step["primitive"] == "concat_clips"
+    assert concat_step["inputs"] == [
+        {"slot": "clip", "from_step_position": 6},
+        {"slot": "clip", "from_step_position": 7},
+        {"slot": "clip", "from_step_position": 8},
+    ]
+    # mix_audio still wires base=concat, music=audio_extract.
+    mix_step = steps_by_pos[12]
+    assert mix_step["primitive"] == "mix_audio"
+    assert {i["slot"]: i["from_step_position"] for i in mix_step["inputs"]} == {
+        "base": 9,
+        "music": 11,
+    }
+
+
+def test_storyboard_voiced_extend_plus_outro_appends_fourteenth_step() -> None:
+    """SESSION 200 — extend + outro combine cleanly. Outro lands
+    after the mix at position 13."""
+    ws, user = _make_workspace_with_user("v200sbv_extend_outro@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "storyboard_voiced",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "hook_prompt": "espresso steam rising",
+                "action_prompt": "barista pulling shot",
+                "payoff_prompt": "happy customer leaving",
+                "narration_script": "Coffee that wakes up the neighborhood.",
+                "use_extend_for_shots": True,
+                "outro_text": "Dog Food Coffee House",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    assert len(data["steps"]) == 14
+    steps_by_pos = sorted(data["steps"], key=lambda s: s["position"])
+    outro_step = steps_by_pos[13]
+    assert outro_step["primitive"] == "add_intro_outro"
+    assert outro_step["inputs"] == [
+        {"slot": "base", "from_step_position": 12},
+    ]
+
+
+def test_storyboard_voiced_crossfade_ms_forwarded_to_concat() -> None:
+    """SESSION 200 — when crossfade_ms is set, the starter stamps
+    it into the concat step's params so the runner forwards it to
+    the primitive at execute time."""
+    ws, user = _make_workspace_with_user("v200sbv_xfade@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "storyboard_voiced",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "hook_prompt": "a",
+                "action_prompt": "b",
+                "payoff_prompt": "c",
+                "narration_script": "Narration that lines up with the cuts.",
+                "crossfade_ms": 500,
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    steps_by_pos = sorted(data["steps"], key=lambda s: s["position"])
+    concat_step = next(s for s in steps_by_pos if s["primitive"] == "concat_clips")
+    assert concat_step["params"]["crossfade_ms"] == 500
+
+
+def test_storyboard_voiced_recipe_exposes_extend_and_crossfade_fields() -> None:
+    """SESSION 200 — recipe metadata surfaces the two new fields
+    so the SPA form renders them."""
+    _, user = _make_workspace_with_user("v200sbv_meta@test")
+    client = APIClient()
+    _login(client, user)
+
+    response = client.get("/api/recipes/storyboard_voiced/")
+    assert response.status_code == http.HTTP_200_OK
+    fields = {f["name"]: f for f in response.json()["fields"]}
+    assert "use_extend_for_shots" in fields
+    assert fields["use_extend_for_shots"]["type"] == "checkbox"
+    assert fields["use_extend_for_shots"]["default"] is False
+    assert "crossfade_ms" in fields
+    assert fields["crossfade_ms"]["type"] == "number"
+    assert fields["crossfade_ms"]["default"] == 0
+    assert fields["crossfade_ms"]["max_value"] == 5000
+
+
+def test_storyboard_ad_use_extend_for_shots_adds_extend_chain() -> None:
+    """SESSION 200 — storyboard_ad mirrors storyboard_voiced.
+    Three extends between generates and concat. 10 steps total
+    when extend is on (was 7 without)."""
+    ws, user = _make_workspace_with_user("v200sba_extend@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "storyboard_ad",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "hook_prompt": "a hook image",
+                "action_prompt": "an action image",
+                "payoff_prompt": "a payoff image",
+                "use_extend_for_shots": True,
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    assert len(data["steps"]) == 10
+    steps_by_pos = sorted(data["steps"], key=lambda s: s["position"])
+    primitives = [s["primitive"] for s in steps_by_pos]
+    assert primitives == [
+        "generate_image", "generate_image", "generate_image",
+        "generate_visual_clip", "generate_visual_clip", "generate_visual_clip",
+        "extend_visual_clip", "extend_visual_clip", "extend_visual_clip",
+        "concat_clips",
+    ]
+    # Concat consumes the extends.
+    concat_step = steps_by_pos[9]
+    assert concat_step["inputs"] == [
+        {"slot": "clip", "from_step_position": 6},
+        {"slot": "clip", "from_step_position": 7},
+        {"slot": "clip", "from_step_position": 8},
+    ]
+
+
+def test_storyboard_ad_extend_plus_outro_appends_eleventh_step() -> None:
+    """SESSION 200 — outro still works when extend is on; position
+    shifts up to 10."""
+    ws, user = _make_workspace_with_user("v200sba_extend_outro@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "storyboard_ad",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "hook_prompt": "scene 1",
+                "action_prompt": "scene 2",
+                "payoff_prompt": "scene 3",
+                "use_extend_for_shots": True,
+                "outro_text": "Brand",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    assert len(data["steps"]) == 11
+    steps_by_pos = sorted(data["steps"], key=lambda s: s["position"])
+    outro_step = steps_by_pos[10]
+    assert outro_step["primitive"] == "add_intro_outro"
+    assert outro_step["inputs"] == [
+        {"slot": "base", "from_step_position": 9},
+    ]
+
+
+def test_storyboard_ad_crossfade_ms_forwarded_to_concat() -> None:
+    """SESSION 200 — crossfade_ms stamped into the concat step."""
+    ws, user = _make_workspace_with_user("v200sba_xfade@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "storyboard_ad",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "hook_prompt": "a",
+                "action_prompt": "b",
+                "payoff_prompt": "c",
+                "crossfade_ms": 300,
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    concat_step = next(
+        s for s in data["steps"] if s["primitive"] == "concat_clips"
+    )
+    assert concat_step["params"]["crossfade_ms"] == 300
+
+
+def test_storyboard_ad_recipe_exposes_extend_and_crossfade_fields() -> None:
+    """SESSION 200 — both fields exposed in storyboard_ad
+    metadata, matching storyboard_voiced."""
+    _, user = _make_workspace_with_user("v200sba_meta@test")
+    client = APIClient()
+    _login(client, user)
+
+    response = client.get("/api/recipes/storyboard_ad/")
+    assert response.status_code == http.HTTP_200_OK
+    fields = {f["name"]: f for f in response.json()["fields"]}
+    assert fields["use_extend_for_shots"]["type"] == "checkbox"
+    assert fields["use_extend_for_shots"]["default"] is False
+    assert fields["crossfade_ms"]["type"] == "number"
+    assert fields["crossfade_ms"]["max_value"] == 5000
+
+
 def test_create_dialogue_scene_via_recipe_registry() -> None:
     """V15.4 confirms the dialogue_scene custom resolver still
     works post-V15 changes (covers regression risk from the

@@ -913,6 +913,19 @@ class InternalConcatClipsCreate(BaseModel):
     # codec/dims/fps. V5's long-form path is uniform (all gwm1_avatars
     # output), so the default is safe.
     reencode: bool = Field(default=False)
+    # SESSION 200 — optional crossfade between consecutive clips.
+    # When > 0, switches to a filter_complex path using ffmpeg
+    # xfade (video) + acrossfade (audio). Default 0 keeps the
+    # existing demuxer / reencode behavior.
+    #
+    # Used by storyboard_ad + storyboard_voiced to soften the
+    # hard cuts between Hook / Action / Payoff shots — the
+    # SESSION 195 / 197 operator-noticed UX gap. Other concat
+    # callers (long_form_ad, V18 backdrop chain) can opt in too
+    # but their use cases are different (long_form_ad: hard cuts
+    # are fine between speech chunks; V18 extend chain: already
+    # seamless via last-frame conditioning).
+    crossfade_ms: int = Field(default=0, ge=0, le=5000)
 
 
 class InternalConcatClipsResponse(BaseModel):
@@ -991,8 +1004,13 @@ def post_internal_concat_clips(
     if not clip_urls:
         return _error(422, "validation_error", "clip_urls must contain at least one URL")
 
-    # Deterministic cache key from input URLs + reencode flag.
-    cache_seed = ("|".join(clip_urls) + f"|reencode={body.reencode}").encode("utf-8")
+    # Deterministic cache key from input URLs + reencode flag +
+    # crossfade duration (a different crossfade produces a
+    # different output; SESSION 200).
+    cache_seed = (
+        "|".join(clip_urls)
+        + f"|reencode={body.reencode}|xfade={body.crossfade_ms}"
+    ).encode("utf-8")
     cache_key = hashlib.sha256(cache_seed).hexdigest()[:16]
 
     if settings.runway_mock:
@@ -1042,7 +1060,31 @@ def post_internal_concat_clips(
 
     tmp = output_path.with_suffix(".mp4.tmp")
     try:
-        if body.reencode:
+        if body.crossfade_ms > 0:
+            # SESSION 200 — xfade between consecutive clips. Forces
+            # a filter_complex path (re-encode); incompatible with
+            # the demuxer fast path. Single-input degenerate case
+            # (one clip) skips the filter entirely + falls through
+            # to the demuxer.
+            if len(local_paths) > 1:
+                cmd = _build_xfade_concat_cmd(
+                    local_paths, tmp, body.crossfade_ms,
+                )
+            else:
+                # 1-input crossfade is a no-op; use demuxer.
+                filelist_path = target_dir / f"{cache_key}.txt"
+                with filelist_path.open("w") as fh:
+                    fh.write(f"file '{local_paths[0].as_posix()}'\n")
+                cmd = [
+                    "ffmpeg", "-y", "-loglevel", "error",
+                    "-f", "concat", "-safe", "0",
+                    "-i", str(filelist_path),
+                    "-c", "copy",
+                    "-movflags", "+faststart",
+                    "-f", "mp4",
+                    str(tmp),
+                ]
+        elif body.reencode:
             cmd = _build_reencode_cmd(local_paths, tmp)
         else:
             # concat demuxer with -c copy. Fast, requires uniform inputs.
@@ -1096,6 +1138,117 @@ def post_internal_concat_clips(
         size_bytes=output_path.stat().st_size,
         mock_mode=False,
     )
+
+
+def _build_xfade_concat_cmd(
+    local_paths: list[Path], tmp: Path, crossfade_ms: int,
+) -> list[str]:
+    """SESSION 200 — concat N clips with crossfade transitions between
+    consecutive pairs via ffmpeg's xfade (video) + acrossfade (audio)
+    filters.
+
+    ffmpeg xfade overlaps two inputs starting at ``offset`` for
+    ``duration`` seconds. For N inputs we chain N-1 xfade ops:
+
+      [0:v][1:v]xfade=transition=fade:duration=D:offset=O01[v01];
+      [v01][2:v]xfade=transition=fade:duration=D:offset=O02[v02];
+      ...
+
+    Where O_NK is the running total duration of the prior chain
+    minus the crossfade duration (so the next clip starts overlapping
+    that much earlier).
+
+    Per-clip durations are probed via ffprobe so the offsets land at
+    the right wall-clock time regardless of how each input was
+    generated. Falls back to a conservative 5s if probe fails — the
+    storyboard pipeline's per-shot length is fixed at 5s today, so
+    the fallback is correct for the prime use case.
+
+    All inputs are normalized to a shared canvas + framerate (mirrors
+    ``_build_reencode_cmd``'s approach) so xfade's frame-by-frame
+    blending has consistent input dims. Audio uses ``acrossfade``
+    with the same duration; silent inputs (no audio stream) skip the
+    audio chain — for v1 we require all-audio or all-silent inputs.
+    """
+    target_w, target_h, fps = 1280, 720, 30
+    crossfade_s = crossfade_ms / 1000.0
+    n = len(local_paths)
+
+    # Probe each clip's duration so xfade offsets are accurate.
+    durations: list[float] = []
+    for p in local_paths:
+        dur = _probe_duration(p) or 5.0
+        durations.append(dur)
+
+    # Normalize every input to the same canvas + fps. Mirrors the
+    # reencode helper's filter shape so xfade's frame blending has
+    # consistent inputs.
+    video_norm: list[str] = []
+    for idx in range(n):
+        video_norm.append(
+            f"[{idx}:v]scale={target_w}:{target_h}:"
+            f"force_original_aspect_ratio=increase,"
+            f"crop={target_w}:{target_h},setsar=1,fps={fps}[vn{idx}]"
+        )
+
+    # Audio normalization — skip if any input lacks audio (v1 caller
+    # contract is uniform).
+    has_audio = all(_has_audio_stream(p) for p in local_paths)
+    audio_norm: list[str] = []
+    if has_audio:
+        for idx in range(n):
+            audio_norm.append(f"[{idx}:a]aresample=async=1[an{idx}]")
+
+    # Build the xfade chain. xfade's `offset` is in the prior chain's
+    # timeline: cumulative duration so far minus the crossfade window
+    # (so the next clip starts overlapping that much earlier).
+    video_chain: list[str] = []
+    audio_chain: list[str] = []
+    running_total = durations[0]
+    prev_v_label = "vn0"
+    prev_a_label = "an0" if has_audio else None
+    for idx in range(1, n):
+        offset = max(0.0, running_total - crossfade_s)
+        cur_v_label = f"vx{idx}" if idx < n - 1 else "outv"
+        video_chain.append(
+            f"[{prev_v_label}][vn{idx}]"
+            f"xfade=transition=fade:duration={crossfade_s:.3f}:"
+            f"offset={offset:.3f}[{cur_v_label}]"
+        )
+        if has_audio:
+            cur_a_label = f"ax{idx}" if idx < n - 1 else "outa"
+            audio_chain.append(
+                f"[{prev_a_label}][an{idx}]"
+                f"acrossfade=d={crossfade_s:.3f}[{cur_a_label}]"
+            )
+            prev_a_label = cur_a_label
+        prev_v_label = cur_v_label
+        # Running total: prev total + new clip - one crossfade overlap.
+        running_total = running_total + durations[idx] - crossfade_s
+
+    filter_complex = ";".join(video_norm + video_chain + audio_norm + audio_chain)
+
+    cmd = ["ffmpeg", "-y", "-loglevel", "error"]
+    for p in local_paths:
+        cmd += ["-i", str(p)]
+    cmd += [
+        "-filter_complex", filter_complex,
+        "-map", "[outv]",
+    ]
+    if has_audio:
+        cmd += ["-map", "[outa]"]
+    cmd += [
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+        "-pix_fmt", "yuv420p",
+    ]
+    if has_audio:
+        cmd += ["-c:a", "aac", "-b:a", "192k"]
+    cmd += [
+        "-movflags", "+faststart",
+        "-f", "mp4",
+        str(tmp),
+    ]
+    return cmd
 
 
 def _build_reencode_cmd(local_paths: list[Path], tmp: Path) -> list[str]:

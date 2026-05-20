@@ -245,6 +245,118 @@ def test_concat_clips_real_mode_calls_media_engine() -> None:
     assert result.size_bytes == 2048
 
 
+def test_concat_clips_mock_mode_crossfade_shortens_duration() -> None:
+    """SESSION 200 — crossfade_ms > 0 shortens the mock duration
+    by (n-1) * crossfade_ms because each xfade overlaps adjacent
+    clips. Three 4s clips with 500ms crossfade = 12000 - 1000 =
+    11000ms."""
+    ws = _make_workspace("v200xfade1@test.local")
+    sp = _make_spokesperson(ws)
+    comp = _make_composition(ws, sp, mock_mode=True)
+    a = _make_clip_asset(ws, "/data/_assets/a.mp4", 4000)
+    b = _make_clip_asset(ws, "/data/_assets/b.mp4", 4000)
+    c = _make_clip_asset(ws, "/data/_assets/c.mp4", 4000)
+    step = CompositionStep.objects.create(
+        composition=comp, position=2, primitive="concat_clips",
+        params={"crossfade_ms": 500},
+    )
+
+    result = ConcatClipsPrimitive.execute(
+        step=step,
+        resolved_inputs=[
+            {"slot": "clip", "asset": a},
+            {"slot": "clip", "asset": b},
+            {"slot": "clip", "asset": c},
+        ],
+        mock_mode=True,
+    )
+    assert result.duration_ms == 11000
+    assert result.extra_source_spec["crossfade_ms"] == 500
+
+
+def test_concat_clips_real_mode_forwards_crossfade_ms() -> None:
+    """SESSION 200 — the primitive passes crossfade_ms through to
+    the media-engine client call so the ffmpeg xfade filter chain
+    fires server-side."""
+    ws = _make_workspace("v200xfade2@test.local")
+    sp = _make_spokesperson(ws)
+    comp = _make_composition(ws, sp)
+    a = _make_clip_asset(ws, "/data/_assets/a.mp4", 5000)
+    b = _make_clip_asset(ws, "/data/_assets/b.mp4", 5000)
+    step = CompositionStep.objects.create(
+        composition=comp, position=2, primitive="concat_clips",
+        params={"crossfade_ms": 750},
+    )
+
+    fake = MagicMock()
+    fake.concat_clips.return_value = ConcatClipsResult(
+        output_url="/data/_internal/concats/xfade.mp4",
+        duration_seconds=9.25,
+        size_bytes=4096,
+        mock_mode=False,
+    )
+    cm = MagicMock()
+    cm.__enter__.return_value = fake
+    cm.__exit__.return_value = False
+
+    with patch(
+        "apps.compositions.primitives.concat_clips.MediaEngineClient",
+        return_value=cm,
+    ):
+        result = ConcatClipsPrimitive.execute(
+            step=step,
+            resolved_inputs=[
+                {"slot": "clip", "asset": a},
+                {"slot": "clip", "asset": b},
+            ],
+            mock_mode=False,
+        )
+
+    call_kwargs = fake.concat_clips.call_args.kwargs
+    assert call_kwargs["crossfade_ms"] == 750
+    assert result.extra_source_spec["crossfade_ms"] == 750
+
+
+def test_concat_clips_rejects_negative_crossfade_ms() -> None:
+    """SESSION 200 — primitive validates crossfade_ms >= 0 before
+    calling the media-engine (the endpoint also caps at 5000ms)."""
+    ws = _make_workspace("v200xfade3@test.local")
+    sp = _make_spokesperson(ws)
+    comp = _make_composition(ws, sp, mock_mode=True)
+    a = _make_clip_asset(ws)
+    step = CompositionStep.objects.create(
+        composition=comp, position=0, primitive="concat_clips",
+        params={"crossfade_ms": -100},
+    )
+    with pytest.raises(PrimitiveError) as exc:
+        ConcatClipsPrimitive.execute(
+            step=step,
+            resolved_inputs=[{"slot": "clip", "asset": a}],
+            mock_mode=True,
+        )
+    assert ">= 0" in str(exc.value)
+
+
+def test_concat_clips_rejects_non_integer_crossfade_ms() -> None:
+    """SESSION 200 — non-numeric crossfade_ms is a config error,
+    not a silent default."""
+    ws = _make_workspace("v200xfade4@test.local")
+    sp = _make_spokesperson(ws)
+    comp = _make_composition(ws, sp, mock_mode=True)
+    a = _make_clip_asset(ws)
+    step = CompositionStep.objects.create(
+        composition=comp, position=0, primitive="concat_clips",
+        params={"crossfade_ms": "soft"},
+    )
+    with pytest.raises(PrimitiveError) as exc:
+        ConcatClipsPrimitive.execute(
+            step=step,
+            resolved_inputs=[{"slot": "clip", "asset": a}],
+            mock_mode=True,
+        )
+    assert "integer" in str(exc.value).lower()
+
+
 def test_concat_clips_rejects_non_clip_asset() -> None:
     ws = _make_workspace("v5c3@test.local")
     sp = _make_spokesperson(ws)

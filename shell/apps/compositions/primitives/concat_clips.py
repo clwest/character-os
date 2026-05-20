@@ -82,6 +82,21 @@ class ConcatClipsPrimitive:
 
         params = step.params or {}
         reencode = bool(params.get("reencode"))
+        # SESSION 200 — optional crossfade between consecutive clips
+        # (storyboard polish for the Hook/Action/Payoff hard cuts).
+        # Validated >= 0 here; the media-engine endpoint enforces the
+        # 0-5000ms ceiling.
+        try:
+            crossfade_ms = int(params.get("crossfade_ms", 0) or 0)
+        except (TypeError, ValueError):
+            raise PrimitiveError(
+                f"concat_clips crossfade_ms must be an integer; "
+                f"got {params.get('crossfade_ms')!r}"
+            )
+        if crossfade_ms < 0:
+            raise PrimitiveError(
+                f"concat_clips crossfade_ms must be >= 0; got {crossfade_ms}"
+            )
         # SESSION 196 slice 2 — combinator-primitive role override.
         # SESSION 195 dogfood found that A2's unconditional
         # ``role=BACKDROP`` is wrong for dialogue_scene (concat of N
@@ -107,9 +122,15 @@ class ConcatClipsPrimitive:
             )
 
         if mock_mode:
-            total_duration_ms = sum(
+            # SESSION 200 — when crossfade_ms > 0, each transition
+            # overlap shortens the total by crossfade_ms. Reflect
+            # that in the mock duration so downstream steps (e.g.
+            # mix_audio) see realistic numbers.
+            raw_total = sum(
                 (c.duration_ms or 0) for c in clips
             ) or len(clips) * 5000
+            overlap_loss = max(0, len(clips) - 1) * crossfade_ms
+            total_duration_ms = max(1, raw_total - overlap_loss)
             return PrimitiveResult(
                 asset_type=AssetType.CLIP,
                 file_path=_deterministic_path(str(step.id), "-concat.mp4"),
@@ -125,6 +146,7 @@ class ConcatClipsPrimitive:
                     "input_count": len(clips),
                     "input_asset_ids": [str(c.id) for c in clips],
                     "reencode": reencode,
+                    "crossfade_ms": crossfade_ms,
                     "result_role": result_role,
                 },
                 role=result_role,
@@ -144,6 +166,7 @@ class ConcatClipsPrimitive:
                 result = client.concat_clips(
                     clip_urls=clip_urls,
                     reencode=reencode,
+                    crossfade_ms=crossfade_ms,
                 )
         except MediaEngineError as exc:
             raise PrimitiveError(
@@ -167,6 +190,7 @@ class ConcatClipsPrimitive:
             "input_count": len(clips),
             "input_asset_ids": [str(c.id) for c in clips],
             "reencode": reencode,
+            "crossfade_ms": crossfade_ms,
             "result_role": result_role,
             "media_engine_mock_mode": result.mock_mode,
         }

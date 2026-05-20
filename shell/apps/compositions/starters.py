@@ -2036,6 +2036,19 @@ def storyboard_ad(
     # the concat. Blank / whitespace-only = skip (existing
     # 7-step composition shape preserved).
     outro_text: str | None = None,
+    # SESSION 200 — per-shot extend chain to close the V-arc UX
+    # gap of hard motion seams between shots. When True, each shot
+    # is generate_visual_clip (5s, image-to-video) THEN
+    # extend_visual_clip (5s, last-frame conditioned) — doubling
+    # per-shot length to 10s and softening intra-shot motion. The
+    # inter-shot seam is addressed via ``crossfade_ms`` on concat.
+    # Default False preserves the SESSION 198 7/8-step shape.
+    use_extend_for_shots: bool = False,
+    # SESSION 200 — optional ffmpeg xfade duration between
+    # consecutive shots at concat time. Forwarded to the concat
+    # step's params; concat_clips primitive validates >= 0 and
+    # the media-engine endpoint caps at 5000ms.
+    crossfade_ms: int = 0,
     mock_mode: bool = False,
     name: str = "",
     created_by: "AbstractBaseUser | None" = None,
@@ -2135,30 +2148,62 @@ def storyboard_ad(
             params={"prompt": prompt, "duration": clip_duration},
         )
 
-    # Step 6 — concat the three clips in order.
+    # SESSION 200 — when use_extend_for_shots=True, each shot's
+    # generate output (5s) is followed by an extend_visual_clip
+    # (5s, last-frame conditioned). The concat then consumes the
+    # extend outputs (6,7,8) instead of the generate outputs.
+    if use_extend_for_shots:
+        for idx, (_label, prompt) in enumerate(shot_prompts):
+            extend_params: dict[str, object] = {
+                "prompt": prompt,
+                "duration": clip_duration,
+            }
+            if image_seed is not None:
+                extend_params["seed"] = int(image_seed)
+            CompositionStep.objects.create(
+                composition=composition,
+                position=6 + idx,
+                primitive="extend_visual_clip",
+                inputs=[
+                    {"slot": "source", "from_step_position": 3 + idx},
+                ],
+                params=extend_params,
+            )
+        concat_position = 9
+        concat_source_offset = 6
+    else:
+        concat_position = 6
+        concat_source_offset = 3
+
+    # Concat the three shots in order. When the extend chain is
+    # enabled, the inputs point at the extend outputs (6,7,8);
+    # otherwise they point at the generate outputs (3,4,5).
     concat_inputs = [
-        {"slot": "clip", "from_step_position": 3 + idx}
+        {"slot": "clip", "from_step_position": concat_source_offset + idx}
         for idx in range(3)
     ]
+    concat_params: dict[str, object] = {}
+    if crossfade_ms:
+        concat_params["crossfade_ms"] = int(crossfade_ms)
     CompositionStep.objects.create(
         composition=composition,
-        position=6,
+        position=concat_position,
         primitive="concat_clips",
         inputs=concat_inputs,
-        params={},
+        params=concat_params,
     )
 
     # SESSION 198 — optional brand outro card. Mirrors
     # storyboard_voiced exactly. When ``outro_text`` is non-empty,
-    # append an add_intro_outro step at position 7 consuming the
-    # concat output as base. Blank = skip (existing 7-step shape).
+    # append an add_intro_outro step after the concat consuming
+    # its output as base. Blank = skip (concat-only shape).
     cleaned_outro = (outro_text or "").strip()
     if cleaned_outro:
         CompositionStep.objects.create(
             composition=composition,
-            position=7,
+            position=concat_position + 1,
             primitive="add_intro_outro",
-            inputs=[{"slot": "base", "from_step_position": 6}],
+            inputs=[{"slot": "base", "from_step_position": concat_position}],
             params={
                 "outro": {
                     "text": cleaned_outro,
@@ -2169,9 +2214,10 @@ def storyboard_ad(
 
     logger.info(
         "starter storyboard_ad created composition=%s spokesperson=%s "
-        "mock=%s seed=%s duration_per_shot=%d outro=%s",
+        "mock=%s seed=%s duration_per_shot=%d outro=%s extend_shots=%s "
+        "crossfade_ms=%d",
         composition.id, spokesperson.id, mock_mode, image_seed, clip_duration,
-        bool(cleaned_outro),
+        bool(cleaned_outro), use_extend_for_shots, int(crossfade_ms or 0),
     )
     return composition
 
@@ -2363,6 +2409,15 @@ def storyboard_voiced(
     # Empty / None / whitespace-only = skip the step (the
     # 10-step composition shape).
     outro_text: str | None = None,
+    # SESSION 200 — per-shot extend chain (same pattern as
+    # ``storyboard_ad``). When True, each shot is generate (5s) +
+    # extend (5s last-frame conditioned) = 10s per shot, 30s
+    # storyboard total. Default False preserves the original
+    # 10/11-step shape.
+    use_extend_for_shots: bool = False,
+    # SESSION 200 — optional ffmpeg xfade between consecutive
+    # shots at concat time. Forwarded to the concat step's params.
+    crossfade_ms: int = 0,
     mock_mode: bool = False,
     name: str = "",
     created_by: "AbstractBaseUser | None" = None,
@@ -2474,26 +2529,58 @@ def storyboard_voiced(
             params={"prompt": prompt, "duration": clip_duration},
         )
 
-    # Step 6 — concat the three clips into the silent storyboard.
+    # SESSION 200 — when use_extend_for_shots=True, interleave a
+    # per-shot extend_visual_clip chain (positions 6-8) between
+    # the generates and the concat. Downstream step positions
+    # shift up by 3.
+    if use_extend_for_shots:
+        for idx, (_label, prompt) in enumerate(shot_prompts):
+            extend_params: dict[str, object] = {
+                "prompt": prompt,
+                "duration": clip_duration,
+            }
+            if image_seed is not None:
+                extend_params["seed"] = int(image_seed)
+            CompositionStep.objects.create(
+                composition=composition,
+                position=6 + idx,
+                primitive="extend_visual_clip",
+                inputs=[
+                    {"slot": "source", "from_step_position": 3 + idx},
+                ],
+                params=extend_params,
+            )
+        concat_position = 9
+        concat_source_offset = 6
+    else:
+        concat_position = 6
+        concat_source_offset = 3
+
+    # Concat the three shots into the silent storyboard. Inputs
+    # point at the extend outputs (6,7,8) when the chain is on,
+    # otherwise at the generate outputs (3,4,5).
+    concat_params: dict[str, object] = {}
+    if crossfade_ms:
+        concat_params["crossfade_ms"] = int(crossfade_ms)
     CompositionStep.objects.create(
         composition=composition,
-        position=6,
+        position=concat_position,
         primitive="concat_clips",
         inputs=[
-            {"slot": "clip", "from_step_position": 3 + idx}
+            {"slot": "clip", "from_step_position": concat_source_offset + idx}
             for idx in range(3)
         ],
-        params={},
+        params=concat_params,
     )
 
-    # Step 7 — narration as a talking-head clip. We render the
-    # avatar (not just audio) because the existing
-    # generate_avatar_speech primitive is the cleanest way to
-    # use the spokesperson's bound voice + the avatar_videos
+    # Narration as a talking-head clip — render the avatar (not
+    # just audio) so the existing generate_avatar_speech primitive
+    # uses the spokesperson's bound voice + the avatar_videos
     # endpoint; audio_extract pulls the audio in the next step.
+    speech_position = concat_position + 1
     CompositionStep.objects.create(
         composition=composition,
-        position=7,
+        position=speech_position,
         primitive="generate_avatar_speech",
         inputs=[],
         params={
@@ -2502,26 +2589,27 @@ def storyboard_voiced(
         },
     )
 
-    # Step 8 — extract the narration audio.
+    # Extract the narration audio.
+    extract_position = speech_position + 1
     CompositionStep.objects.create(
         composition=composition,
-        position=8,
+        position=extract_position,
         primitive="audio_extract",
-        inputs=[{"slot": "base", "from_step_position": 7}],
+        inputs=[{"slot": "base", "from_step_position": speech_position}],
         params={"format": "mp3"},
     )
 
-    # Step 9 — mix the narration AUDIO under the silent
-    # storyboard CLIP. music_gain_db=0 so the narration sits
-    # at full level (the music_bed default of -18 dB would
-    # bury it).
+    # Mix the narration AUDIO under the silent storyboard CLIP.
+    # music_gain_db=0 so the narration sits at full level (the
+    # music_bed default of -18 dB would bury it).
+    mix_position = extract_position + 1
     CompositionStep.objects.create(
         composition=composition,
-        position=9,
+        position=mix_position,
         primitive="mix_audio",
         inputs=[
-            {"slot": "base", "from_step_position": 6},
-            {"slot": "music", "from_step_position": 8},
+            {"slot": "base", "from_step_position": concat_position},
+            {"slot": "music", "from_step_position": extract_position},
         ],
         params={
             "mix_spec": {
@@ -2533,17 +2621,16 @@ def storyboard_voiced(
     )
 
     # SESSION 197 — optional brand outro card. When ``outro_text``
-    # is non-empty, append an add_intro_outro step at position 10
-    # consuming the mix_audio output as base. 3-second white-on-
-    # black card matches talking_head_polished's default styling.
-    # When blank the composition stays at 10 steps (existing shape).
+    # is non-empty, append an add_intro_outro step after the mix.
+    # 3-second white-on-black card matches talking_head_polished's
+    # default styling. Blank = skip.
     cleaned_outro = (outro_text or "").strip()
     if cleaned_outro:
         CompositionStep.objects.create(
             composition=composition,
-            position=10,
+            position=mix_position + 1,
             primitive="add_intro_outro",
-            inputs=[{"slot": "base", "from_step_position": 9}],
+            inputs=[{"slot": "base", "from_step_position": mix_position}],
             params={
                 "outro": {
                     "text": cleaned_outro,
@@ -2554,9 +2641,10 @@ def storyboard_voiced(
 
     logger.info(
         "starter storyboard_voiced created composition=%s "
-        "spokesperson=%s mock=%s seed=%s outro=%s",
+        "spokesperson=%s mock=%s seed=%s outro=%s extend_shots=%s "
+        "crossfade_ms=%d",
         composition.id, spokesperson.id, mock_mode, image_seed,
-        bool(cleaned_outro),
+        bool(cleaned_outro), use_extend_for_shots, int(crossfade_ms or 0),
     )
     return composition
 

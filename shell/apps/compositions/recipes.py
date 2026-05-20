@@ -687,6 +687,31 @@ RECIPES: dict[str, Recipe] = {
                 name="clip_duration", type="number", label="Per-shot duration (seconds)",
                 required=False, default=5, min_value=5, max_value=5,
             ),
+            # SESSION 200 — closes the V-arc UX gap. Per-shot extend
+            # doubles each shot from 5s → 10s (last-frame conditioned)
+            # to soften intra-shot motion; crossfade softens the cuts
+            # between shots at concat time.
+            RecipeField(
+                name="use_extend_for_shots", type="checkbox",
+                label="Smooth per-shot motion (extend chain)",
+                required=False, default=False,
+                help_text=(
+                    "Doubles each shot from 5s to 10s by chaining a "
+                    "last-frame-conditioned extend. Costs ~3× more "
+                    "(3 extra Runway renders) but removes the abrupt "
+                    "motion within each shot."
+                ),
+            ),
+            RecipeField(
+                name="crossfade_ms", type="number",
+                label="Crossfade between shots (ms)",
+                required=False, default=0, min_value=0, max_value=5000,
+                help_text=(
+                    "ffmpeg xfade duration between consecutive shots. "
+                    "0 = hard cuts (default). 250-500ms is a tasteful "
+                    "soft blend."
+                ),
+            ),
             _NAME_FIELD,
             _MOCK_MODE_FIELD,
         ),
@@ -721,6 +746,30 @@ RECIPES: dict[str, Recipe] = {
             RecipeField(
                 name="clip_duration", type="number", label="Per-shot duration (seconds)",
                 required=False, default=5, min_value=5, max_value=5,
+            ),
+            # SESSION 200 — mirrors storyboard_voiced. Per-shot extend
+            # for intra-shot smoothness + crossfade for inter-shot
+            # softness.
+            RecipeField(
+                name="use_extend_for_shots", type="checkbox",
+                label="Smooth per-shot motion (extend chain)",
+                required=False, default=False,
+                help_text=(
+                    "Doubles each shot from 5s to 10s by chaining a "
+                    "last-frame-conditioned extend. Costs ~3× more "
+                    "(3 extra Runway renders) but removes the abrupt "
+                    "motion within each shot."
+                ),
+            ),
+            RecipeField(
+                name="crossfade_ms", type="number",
+                label="Crossfade between shots (ms)",
+                required=False, default=0, min_value=0, max_value=5000,
+                help_text=(
+                    "ffmpeg xfade duration between consecutive shots. "
+                    "0 = hard cuts (default). 250-500ms is a tasteful "
+                    "soft blend."
+                ),
             ),
             _NAME_FIELD,
             _MOCK_MODE_FIELD,

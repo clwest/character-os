@@ -682,6 +682,7 @@ class MediaEngineClient:
         *,
         clip_urls: list[str],
         reencode: bool = False,
+        crossfade_ms: int = 0,
     ) -> "ConcatClipsResult":
         """Hit ``POST /internal/clips/concat/`` — synchronous
         ffmpeg stitch. Returns the cached output URL + size.
@@ -692,10 +693,16 @@ class MediaEngineClient:
         ``ffmpeg -f concat -c copy`` by default. ``reencode=True``
         forces filter_complex normalization for heterogeneous
         inputs.
+
+        SESSION 200 — ``crossfade_ms > 0`` switches to an xfade
+        filter_complex path with the requested crossfade duration
+        between consecutive clips. Default 0 keeps the demuxer /
+        reencode behavior.
         """
         body: dict[str, Any] = {
             "clip_urls": clip_urls,
             "reencode": reencode,
+            "crossfade_ms": int(crossfade_ms),
         }
         data = self.request("POST", "/internal/clips/concat/", json=body)
         try:
