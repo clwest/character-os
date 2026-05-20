@@ -237,6 +237,13 @@ ALLOWED_FILES = {
     # exclusion behavior. Workspace anchor is set at every
     # create; pre_save signal still fires.
     "apps/compositions/tests/test_publish_variant.py",
+    # D-arc B14.2 (SESSION 205) — PublishBundle +
+    # PublishVariant tests seed Asset(CLIP) + Composition
+    # rows directly to exercise the cross-workspace +
+    # source-type guards. apps.publish itself never writes
+    # to composition tables; B14.3 will route through the
+    # sanctioned publish_variant starter.
+    "apps/publish/tests/test_models.py",
 }
 
 
