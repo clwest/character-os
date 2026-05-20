@@ -137,6 +137,71 @@ export function useMineTranscript() {
   });
 }
 
+// ---- Approve / Reject mutations (B1.6) -----------------------
+
+/** POST /api/transcript_highlights/<id>/approve/ */
+export async function approveHighlight(id: string): Promise<TranscriptHighlight> {
+  return apiJson(
+    `/api/transcript_highlights/${encodeURIComponent(id)}/approve/`,
+    { method: "POST" },
+    (json) => transcriptHighlightSchema.parse(json),
+  );
+}
+
+/** POST /api/transcript_highlights/<id>/reject/ */
+export async function rejectHighlight(
+  id: string,
+  body: { rejection_reason?: string } = {},
+): Promise<TranscriptHighlight> {
+  return apiJson(
+    `/api/transcript_highlights/${encodeURIComponent(id)}/reject/`,
+    { method: "POST", body },
+    (json) => transcriptHighlightSchema.parse(json),
+  );
+}
+
+/** Mutation for POST .../approve/.
+ *  Invalidates useHighlightsForTranscript for the source transcript on success.
+ *  Backend semantics:
+ *   - Already APPROVED/RENDERED → 200 idempotent (no error shown to user).
+ *   - REJECTED → 400 (surface as inline error on the row).
+ */
+export function useApproveHighlight() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => approveHighlight(id),
+    onSuccess: (data) => {
+      void qc.invalidateQueries({
+        queryKey: ["transcript-highlights", data.source_transcript_id],
+      });
+    },
+  });
+}
+
+/** Mutation for POST .../reject/.
+ *  Same invalidation as approve.
+ *  Backend semantics:
+ *   - Already REJECTED → 200 idempotent.
+ *   - APPROVED/RENDERED → 400 (surface as inline error).
+ */
+export function useRejectHighlight() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      rejection_reason,
+    }: {
+      id: string;
+      rejection_reason?: string;
+    }) => rejectHighlight(id, { rejection_reason }),
+    onSuccess: (data) => {
+      void qc.invalidateQueries({
+        queryKey: ["transcript-highlights", data.source_transcript_id],
+      });
+    },
+  });
+}
+
 // ---- Display helpers ------------------------------------------
 
 /** Human-readable label for a HighlightStatus value. */

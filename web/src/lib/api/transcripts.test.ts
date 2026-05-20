@@ -1,5 +1,5 @@
 /**
- * transcripts.ts unit tests — SESSION 202 / B1.5.
+ * transcripts.ts unit tests — SESSION 202 / B1.5 + B1.6.
  *
  * Covers:
  *   - transcriptHighlightSchema Zod parsing (well-formed payload)
@@ -8,6 +8,7 @@
  *   - highlightStatusTone for all status values
  *   - listHighlightsForTranscript URL construction
  *   - mineTranscript POST body construction
+ *   - approveHighlight / rejectHighlight URL + method (B1.6)
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import {
@@ -17,6 +18,8 @@ import {
   highlightStatusTone,
   listHighlightsForTranscript,
   mineTranscript,
+  approveHighlight,
+  rejectHighlight,
 } from "./transcripts";
 
 // ---- Fixtures ------------------------------------------------
@@ -246,5 +249,107 @@ describe("mineTranscript", () => {
     const body = capturedBody as Record<string, unknown>;
     expect(body.target_count).toBe(3);
     expect(body.max_chars).toBe(200);
+  });
+});
+
+// ---- approveHighlight (B1.6) ---------------------------------
+
+describe("approveHighlight", () => {
+  let capturedUrl: string | undefined;
+  let capturedMethod: string | undefined;
+
+  beforeEach(() => {
+    capturedUrl = undefined;
+    capturedMethod = undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        capturedUrl = url;
+        capturedMethod = init?.method;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => makeHighlight({ status: "approved" }),
+        };
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("POSTs to /api/transcript_highlights/<id>/approve/", async () => {
+    await approveHighlight("highlight-uuid-1");
+    expect(capturedMethod).toBe("POST");
+    expect(capturedUrl).toContain("/api/transcript_highlights/highlight-uuid-1/approve/");
+  });
+
+  it("returns a parsed TranscriptHighlight with approved status", async () => {
+    const result = await approveHighlight("highlight-uuid-1");
+    expect(result.status).toBe("approved");
+  });
+});
+
+// ---- rejectHighlight (B1.6) ----------------------------------
+
+describe("rejectHighlight", () => {
+  let capturedUrl: string | undefined;
+  let capturedMethod: string | undefined;
+  let capturedBody: unknown;
+
+  beforeEach(() => {
+    capturedUrl = undefined;
+    capturedMethod = undefined;
+    capturedBody = undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        capturedUrl = url;
+        capturedMethod = init?.method;
+        capturedBody =
+          typeof init?.body === "string" ? JSON.parse(init.body) : init?.body;
+        return {
+          ok: true,
+          status: 200,
+          json: async () =>
+            makeHighlight({
+              status: "rejected",
+              rejection_reason: "Too short",
+            }),
+        };
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("POSTs to /api/transcript_highlights/<id>/reject/", async () => {
+    await rejectHighlight("highlight-uuid-2", {});
+    expect(capturedMethod).toBe("POST");
+    expect(capturedUrl).toContain("/api/transcript_highlights/highlight-uuid-2/reject/");
+  });
+
+  it("sends rejection_reason in the body when provided", async () => {
+    await rejectHighlight("highlight-uuid-2", { rejection_reason: "Too short" });
+    expect((capturedBody as Record<string, unknown>).rejection_reason).toBe(
+      "Too short",
+    );
+  });
+
+  it("returns a parsed TranscriptHighlight with rejected status", async () => {
+    const result = await rejectHighlight("highlight-uuid-2", {
+      rejection_reason: "Too short",
+    });
+    expect(result.status).toBe("rejected");
+    expect(result.rejection_reason).toBe("Too short");
+  });
+
+  it("sends empty body when no reason is provided", async () => {
+    await rejectHighlight("highlight-uuid-2");
+    // Empty object is still a valid body shape.
+    expect(capturedBody).toBeDefined();
   });
 });

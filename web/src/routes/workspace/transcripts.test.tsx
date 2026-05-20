@@ -31,6 +31,8 @@ vi.mock("@/lib/api/transcripts", async (importActual) => {
     useTranscript: vi.fn(),
     useHighlightsForTranscript: vi.fn(),
     useMineTranscript: vi.fn(),
+    useApproveHighlight: vi.fn(),
+    useRejectHighlight: vi.fn(),
   };
 });
 
@@ -40,6 +42,8 @@ import {
   useTranscript,
   useHighlightsForTranscript,
   useMineTranscript,
+  useApproveHighlight,
+  useRejectHighlight,
 } from "@/lib/api/transcripts";
 
 // ---- Fixtures ------------------------------------------------
@@ -235,6 +239,15 @@ describe("WorkspaceTranscriptDetailRoute", () => {
     vi.mocked(useMe).mockReturnValue({
       data: { default_workspace: { id: WORKSPACE_ID } },
     } as unknown as ReturnType<typeof useMe>);
+    // Default stubs for B1.6 approval hooks — overridden in specific tests.
+    vi.mocked(useApproveHighlight).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useApproveHighlight>);
+    vi.mocked(useRejectHighlight).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useRejectHighlight>);
   });
 
   function renderDetail(id = "t-00000000-0000-0000-0000-000000000001") {
@@ -449,7 +462,8 @@ describe("WorkspaceTranscriptDetailRoute", () => {
     });
   });
 
-  it("renders no approve/reject buttons (B1.6 scope)", () => {
+  it("renders approve/reject buttons for pending highlight (B1.6)", () => {
+    const mutateAsync = vi.fn().mockResolvedValue(makeHighlight({ status: "approved" }));
     vi.mocked(useTranscript).mockReturnValue({
       data: makeDetailAsset(),
       isLoading: false,
@@ -466,11 +480,355 @@ describe("WorkspaceTranscriptDetailRoute", () => {
       isSuccess: false,
       data: undefined,
     } as unknown as ReturnType<typeof useMineTranscript>);
+    vi.mocked(useApproveHighlight).mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    } as unknown as ReturnType<typeof useApproveHighlight>);
+    vi.mocked(useRejectHighlight).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useRejectHighlight>);
 
     renderDetail();
 
-    // B1.6 scope guard: no approve or reject buttons should exist.
-    expect(screen.queryByText(/^approve$/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/^reject$/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId("approve-btn-h-00000000-0000-0000-0000-000000000001"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId("reject-btn-h-00000000-0000-0000-0000-000000000001"),
+    ).toBeInTheDocument();
+  });
+});
+
+// ---- B1.6 approval UX tests ----------------------------------
+
+describe("WorkspaceTranscriptDetailRoute — B1.6 approval UX", () => {
+  const TRANSCRIPT_ID = "t-00000000-0000-0000-0000-000000000001";
+  const HIGHLIGHT_ID = "h-00000000-0000-0000-0000-000000000001";
+
+  function setupDetailMocks({
+    highlights = [makeHighlight()],
+    approveAsync = vi.fn().mockResolvedValue(makeHighlight({ status: "approved" })),
+    rejectAsync = vi.fn().mockResolvedValue(makeHighlight({ status: "rejected" })),
+    approvePending = false,
+    rejectPending = false,
+  }: {
+    highlights?: ReturnType<typeof makeHighlight>[];
+    approveAsync?: ReturnType<typeof vi.fn>;
+    rejectAsync?: ReturnType<typeof vi.fn>;
+    approvePending?: boolean;
+    rejectPending?: boolean;
+  } = {}) {
+    vi.mocked(useMe).mockReturnValue({
+      data: { default_workspace: { id: WORKSPACE_ID } },
+    } as unknown as ReturnType<typeof useMe>);
+    vi.mocked(useTranscript).mockReturnValue({
+      data: makeDetailAsset(),
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useTranscript>);
+    vi.mocked(useHighlightsForTranscript).mockReturnValue({
+      data: highlights,
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useHighlightsForTranscript>);
+    vi.mocked(useMineTranscript).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+      isSuccess: false,
+      data: undefined,
+    } as unknown as ReturnType<typeof useMineTranscript>);
+    vi.mocked(useApproveHighlight).mockReturnValue({
+      mutateAsync: approveAsync,
+      isPending: approvePending,
+    } as unknown as ReturnType<typeof useApproveHighlight>);
+    vi.mocked(useRejectHighlight).mockReturnValue({
+      mutateAsync: rejectAsync,
+      isPending: rejectPending,
+    } as unknown as ReturnType<typeof useRejectHighlight>);
+  }
+
+  function renderDetail(id = TRANSCRIPT_ID) {
+    return render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter initialEntries={[`/workspace/transcripts/${id}`]}>
+          <Routes>
+            <Route
+              path="/workspace/transcripts/:id"
+              element={<WorkspaceTranscriptDetailRoute />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  }
+
+  // ---- Approve button state ------------------------------------
+
+  it("Approve button is enabled only when highlight is pending", () => {
+    setupDetailMocks({ highlights: [makeHighlight({ status: "pending" })] });
+    renderDetail();
+    const btn = screen.getByTestId(`approve-btn-${HIGHLIGHT_ID}`);
+    expect(btn).not.toBeDisabled();
+  });
+
+  it("does not render Approve button for non-pending highlight", () => {
+    setupDetailMocks({ highlights: [makeHighlight({ status: "approved" })] });
+    renderDetail();
+    expect(screen.queryByTestId(`approve-btn-${HIGHLIGHT_ID}`)).not.toBeInTheDocument();
+  });
+
+  it("Approve button disabled while mutation is in-flight", () => {
+    setupDetailMocks({ approvePending: true });
+    renderDetail();
+    expect(screen.getByTestId(`approve-btn-${HIGHLIGHT_ID}`)).toBeDisabled();
+    expect(screen.getByTestId(`approve-spinner-${HIGHLIGHT_ID}`)).toBeInTheDocument();
+  });
+
+  it("Approve button calls mutateAsync with highlight id", async () => {
+    const user = userEvent.setup();
+    const approveAsync = vi.fn().mockResolvedValue(
+      makeHighlight({ status: "approved" }),
+    );
+    setupDetailMocks({ approveAsync });
+    renderDetail();
+
+    await user.click(screen.getByTestId(`approve-btn-${HIGHLIGHT_ID}`));
+
+    await waitFor(() => {
+      expect(approveAsync).toHaveBeenCalledWith(HIGHLIGHT_ID);
+    });
+  });
+
+  // ---- Reject button state ------------------------------------
+
+  it("Reject button is enabled only when highlight is pending", () => {
+    setupDetailMocks({ highlights: [makeHighlight({ status: "pending" })] });
+    renderDetail();
+    expect(screen.getByTestId(`reject-btn-${HIGHLIGHT_ID}`)).not.toBeDisabled();
+  });
+
+  it("does not render Reject button for non-pending highlight", () => {
+    setupDetailMocks({ highlights: [makeHighlight({ status: "rejected" })] });
+    renderDetail();
+    expect(screen.queryByTestId(`reject-btn-${HIGHLIGHT_ID}`)).not.toBeInTheDocument();
+  });
+
+  // ---- Reject inline textarea flow ----------------------------
+
+  it("clicking Reject reveals the textarea + confirm/cancel buttons", async () => {
+    const user = userEvent.setup();
+    setupDetailMocks();
+    renderDetail();
+
+    // Reject form not visible initially.
+    expect(screen.queryByTestId(`reject-form-${HIGHLIGHT_ID}`)).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId(`reject-btn-${HIGHLIGHT_ID}`));
+
+    expect(screen.getByTestId(`reject-form-${HIGHLIGHT_ID}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`reject-reason-${HIGHLIGHT_ID}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`reject-confirm-btn-${HIGHLIGHT_ID}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`reject-cancel-btn-${HIGHLIGHT_ID}`)).toBeInTheDocument();
+  });
+
+  it("Cancel button collapses the reject form without firing", async () => {
+    const user = userEvent.setup();
+    const rejectAsync = vi.fn();
+    setupDetailMocks({ rejectAsync });
+    renderDetail();
+
+    await user.click(screen.getByTestId(`reject-btn-${HIGHLIGHT_ID}`));
+    expect(screen.getByTestId(`reject-form-${HIGHLIGHT_ID}`)).toBeInTheDocument();
+
+    await user.click(screen.getByTestId(`reject-cancel-btn-${HIGHLIGHT_ID}`));
+
+    expect(screen.queryByTestId(`reject-form-${HIGHLIGHT_ID}`)).not.toBeInTheDocument();
+    expect(rejectAsync).not.toHaveBeenCalled();
+  });
+
+  it("Confirm Reject fires mutateAsync with id and rejection_reason", async () => {
+    const user = userEvent.setup();
+    const rejectAsync = vi.fn().mockResolvedValue(
+      makeHighlight({ status: "rejected", rejection_reason: "Off topic" }),
+    );
+    setupDetailMocks({ rejectAsync });
+    renderDetail();
+
+    await user.click(screen.getByTestId(`reject-btn-${HIGHLIGHT_ID}`));
+    await user.type(screen.getByTestId(`reject-reason-${HIGHLIGHT_ID}`), "Off topic");
+    await user.click(screen.getByTestId(`reject-confirm-btn-${HIGHLIGHT_ID}`));
+
+    await waitFor(() => {
+      expect(rejectAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: HIGHLIGHT_ID,
+          rejection_reason: "Off topic",
+        }),
+      );
+    });
+  });
+
+  it("reject form collapses after successful rejection", async () => {
+    const user = userEvent.setup();
+    const rejectAsync = vi.fn().mockResolvedValue(
+      makeHighlight({ status: "rejected" }),
+    );
+    setupDetailMocks({ rejectAsync });
+    renderDetail();
+
+    await user.click(screen.getByTestId(`reject-btn-${HIGHLIGHT_ID}`));
+    await user.click(screen.getByTestId(`reject-confirm-btn-${HIGHLIGHT_ID}`));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId(`reject-form-${HIGHLIGHT_ID}`)).not.toBeInTheDocument();
+    });
+  });
+
+  // ---- Approve success → composition link ---------------------
+
+  it("shows View composition link when produced_composition_id is set", () => {
+    setupDetailMocks({
+      highlights: [
+        makeHighlight({
+          status: "approved",
+          produced_composition_id: "comp-uuid-abc",
+        }),
+      ],
+    });
+    renderDetail();
+
+    const link = screen.getByTestId(`highlight-composition-link-${HIGHLIGHT_ID}`);
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute("href", "/compositions/comp-uuid-abc");
+  });
+
+  it("does not show composition link when produced_composition_id is null", () => {
+    setupDetailMocks({ highlights: [makeHighlight({ produced_composition_id: null })] });
+    renderDetail();
+    expect(
+      screen.queryByTestId(`highlight-composition-link-${HIGHLIGHT_ID}`),
+    ).not.toBeInTheDocument();
+  });
+
+  // ---- 400 error surfaced inline ------------------------------
+
+  it("surfaces inline error when approve returns 400", async () => {
+    const user = userEvent.setup();
+    const { ApiError } = await import("@/lib/api/client");
+    const approveAsync = vi.fn().mockRejectedValue(
+      new ApiError("400", 400, { detail: "cannot approve rejected highlight" }),
+    );
+    setupDetailMocks({ approveAsync });
+    renderDetail();
+
+    await user.click(screen.getByTestId(`approve-btn-${HIGHLIGHT_ID}`));
+
+    await waitFor(() => {
+      expect(screen.getByTestId(`approve-error-${HIGHLIGHT_ID}`)).toBeInTheDocument();
+      expect(screen.getByTestId(`approve-error-${HIGHLIGHT_ID}`)).toHaveTextContent(
+        "cannot approve rejected highlight",
+      );
+    });
+  });
+
+  it("surfaces inline error when reject returns 400", async () => {
+    const user = userEvent.setup();
+    const { ApiError } = await import("@/lib/api/client");
+    const rejectAsync = vi.fn().mockRejectedValue(
+      new ApiError("400", 400, { detail: "cannot reject approved highlight" }),
+    );
+    setupDetailMocks({ rejectAsync });
+    renderDetail();
+
+    await user.click(screen.getByTestId(`reject-btn-${HIGHLIGHT_ID}`));
+    await user.click(screen.getByTestId(`reject-confirm-btn-${HIGHLIGHT_ID}`));
+
+    await waitFor(() => {
+      expect(screen.getByTestId(`reject-error-${HIGHLIGHT_ID}`)).toBeInTheDocument();
+      expect(screen.getByTestId(`reject-error-${HIGHLIGHT_ID}`)).toHaveTextContent(
+        "cannot reject approved highlight",
+      );
+    });
+  });
+
+  // ---- LLM reasoning visible -----------------------------------
+
+  it("renders LLM reasoning for audit (scope-lock rule 3)", () => {
+    setupDetailMocks();
+    renderDetail();
+    expect(
+      screen.getByTestId(`highlight-reasoning-${HIGHLIGHT_ID}`),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Clear CTA with high energy.")).toBeInTheDocument();
+  });
+
+  // ---- Rejection reason display --------------------------------
+
+  it("shows rejection reason when status is rejected and reason is set", () => {
+    setupDetailMocks({
+      highlights: [
+        makeHighlight({
+          status: "rejected",
+          rejection_reason: "Too long for Reels.",
+        }),
+      ],
+    });
+    renderDetail();
+    expect(
+      screen.getByTestId(`highlight-rejection-reason-${HIGHLIGHT_ID}`),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Too long for Reels/)).toBeInTheDocument();
+  });
+
+  // ---- Char-range hover-highlight ------------------------------
+
+  it("marks the correct char range in the transcript body on row hover", async () => {
+    const user = userEvent.setup();
+    setupDetailMocks({
+      highlights: [
+        makeHighlight({
+          char_start: 25,
+          char_end: 68,
+        }),
+      ],
+    });
+    renderDetail();
+
+    // No mark before hovering.
+    expect(screen.queryByTestId("transcript-highlight-mark")).not.toBeInTheDocument();
+
+    // Hover the highlight row.
+    await user.hover(screen.getByTestId(`highlight-row-${HIGHLIGHT_ID}`));
+
+    await waitFor(() => {
+      const mark = screen.getByTestId("transcript-highlight-mark");
+      expect(mark).toBeInTheDocument();
+      // The inline_content is:
+      // "Sasha: Welcome everyone. Let's discuss the Q3 pipeline goals today."
+      // char 25-68 is "Let's discuss the Q3 pipeline goals today."
+      expect(mark).toHaveTextContent("Let's discuss the Q3 pipeline goals today.");
+    });
+  });
+
+  it("removes the mark when mouse leaves the row", async () => {
+    const user = userEvent.setup();
+    setupDetailMocks({
+      highlights: [makeHighlight({ char_start: 25, char_end: 68 })],
+    });
+    renderDetail();
+
+    const row = screen.getByTestId(`highlight-row-${HIGHLIGHT_ID}`);
+    await user.hover(row);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("transcript-highlight-mark")).toBeInTheDocument();
+    });
+
+    await user.unhover(row);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("transcript-highlight-mark")).not.toBeInTheDocument();
+    });
   });
 });

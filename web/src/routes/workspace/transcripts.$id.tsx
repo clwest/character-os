@@ -1,12 +1,14 @@
 /**
- * /workspace/transcripts/:id — Transcript detail + mining trigger.
+ * /workspace/transcripts/:id — Transcript detail + mining trigger + approval UX.
  *
- * SESSION 202 / B1.5. Shows the full transcript body, "Mine highlights"
- * button with knobs, and the existing highlights for this transcript.
+ * SESSION 202 / B1.6. Extends B1.5 with:
+ *   - Per-highlight Approve / Reject buttons (PENDING only).
+ *   - Inline rejection-reason textarea with Cancel / Confirm.
+ *   - Char-range hover-highlight on the transcript body.
+ *   - LLM reasoning visible per scope-lock rule 3.
+ *   - Composition link when produced_composition_id is set.
  *
- * B1.6 will add approve/reject buttons per highlight — NOT in this slice.
- *
- * Scope: docs/design/TRANSCRIPT_MINER_V1.md §B1.5.
+ * Scope: docs/design/TRANSCRIPT_MINER_V1.md §B1.6.
  */
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -15,6 +17,8 @@ import {
   Loader2,
   Sparkles,
   AlertCircle,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -23,10 +27,13 @@ import { useTranscript } from "@/lib/api/transcripts";
 import {
   useHighlightsForTranscript,
   useMineTranscript,
+  useApproveHighlight,
+  useRejectHighlight,
   highlightStatusLabel,
   highlightStatusTone,
   type TranscriptHighlight,
 } from "@/lib/api/transcripts";
+import { ApiError } from "@/lib/api/client";
 import { relativeTime } from "@/lib/api/workspace-assets";
 import { cn } from "@/lib/utils";
 
@@ -110,29 +117,7 @@ export function WorkspaceTranscriptDetailRoute() {
         </div>
       </header>
 
-      {/* ---- Transcript body ------------------------------------ */}
-      <section
-        data-testid="transcript-body-section"
-        className="rounded-md border border-border bg-card p-5"
-      >
-        <h2 className="mb-3 font-display text-lg tracking-tight text-muted-foreground">
-          Transcript
-        </h2>
-        {data.inline_content ? (
-          <pre
-            data-testid="transcript-body"
-            className="whitespace-pre-wrap text-sm leading-relaxed font-mono max-h-[480px] overflow-y-auto"
-          >
-            {data.inline_content}
-          </pre>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            No transcript body available.
-          </p>
-        )}
-      </section>
-
-      {/* ---- Mining panel --------------------------------------- */}
+      {/* ---- Mining panel (owns transcript body + approval UX) -- */}
       {id && <MiningPanel transcriptId={id} inlineContent={data.inline_content} />}
     </div>
   );
@@ -150,6 +135,9 @@ function MiningPanel({
   const [targetCount, setTargetCount] = useState(DEFAULT_TARGET_COUNT);
   const [maxChars, setMaxChars] = useState(DEFAULT_MAX_CHARS);
   const [mineError, setMineError] = useState<string | null>(null);
+  /** Hover state for char-range highlighting. */
+  const [hoveredHighlight, setHoveredHighlight] =
+    useState<TranscriptHighlight | null>(null);
 
   const highlights = useHighlightsForTranscript(transcriptId);
   const mine = useMineTranscript();
@@ -176,6 +164,28 @@ function MiningPanel({
       data-testid="mining-panel"
       className="flex flex-col gap-6 rounded-md border border-border bg-card p-5"
     >
+      {/* ---- Transcript body (with optional hover-highlight) ---- */}
+      <div>
+        <h2 className="mb-3 font-display text-lg tracking-tight text-muted-foreground">
+          Transcript
+        </h2>
+        {inlineContent ? (
+          <pre
+            data-testid="transcript-body"
+            className="whitespace-pre-wrap text-sm leading-relaxed font-mono max-h-[480px] overflow-y-auto"
+          >
+            <TranscriptBodyWithHighlight
+              content={inlineContent}
+              hovered={hoveredHighlight}
+            />
+          </pre>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No transcript body available.
+          </p>
+        )}
+      </div>
+
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex flex-col gap-1">
           <h2 className="font-display text-xl tracking-tight">
@@ -283,15 +293,55 @@ function MiningPanel({
         </div>
       )}
 
-      {/* Highlights list */}
+      {/* Highlights list with approval UX */}
       <HighlightsList
         transcriptId={transcriptId}
         highlights={highlights.data ?? []}
         isLoading={highlights.isLoading}
         isError={highlights.isError}
         onRetry={() => highlights.refetch()}
+        hoveredHighlight={hoveredHighlight}
+        onHoverHighlight={setHoveredHighlight}
       />
     </section>
+  );
+}
+
+// ---- TranscriptBodyWithHighlight -----------------------------
+// Slices inline_content into pre + matched + post when a highlight is hovered.
+// This avoids DOM range manipulation entirely and keeps the pre whitespace intact.
+
+function TranscriptBodyWithHighlight({
+  content,
+  hovered,
+}: {
+  content: string;
+  hovered: TranscriptHighlight | null;
+}) {
+  if (!hovered) {
+    return <>{content}</>;
+  }
+
+  const { char_start: start, char_end: end } = hovered;
+  // Clamp to string bounds defensively.
+  const safeStart = Math.max(0, Math.min(start, content.length));
+  const safeEnd = Math.max(safeStart, Math.min(end, content.length));
+
+  const pre = content.slice(0, safeStart);
+  const matched = content.slice(safeStart, safeEnd);
+  const post = content.slice(safeEnd);
+
+  return (
+    <>
+      {pre}
+      <mark
+        data-testid="transcript-highlight-mark"
+        className="bg-amber-400/30 text-inherit rounded-sm"
+      >
+        {matched}
+      </mark>
+      {post}
+    </>
   );
 }
 
@@ -303,12 +353,16 @@ function HighlightsList({
   isLoading,
   isError,
   onRetry,
+  hoveredHighlight,
+  onHoverHighlight,
 }: {
   transcriptId: string;
   highlights: TranscriptHighlight[];
   isLoading: boolean;
   isError: boolean;
   onRetry: () => void;
+  hoveredHighlight: TranscriptHighlight | null;
+  onHoverHighlight: (h: TranscriptHighlight | null) => void;
 }) {
   if (isLoading) {
     return (
@@ -365,7 +419,13 @@ function HighlightsList({
         className="divide-y divide-border rounded-md border border-border bg-card/50"
       >
         {highlights.map((h) => (
-          <HighlightRow key={h.id} highlight={h} />
+          <HighlightRow
+            key={h.id}
+            highlight={h}
+            isHovered={hoveredHighlight?.id === h.id}
+            onMouseEnter={() => onHoverHighlight(h)}
+            onMouseLeave={() => onHoverHighlight(null)}
+          />
         ))}
       </ul>
     </div>
@@ -374,18 +434,97 @@ function HighlightsList({
 
 // ---- HighlightRow --------------------------------------------
 
-function HighlightRow({ highlight: h }: { highlight: TranscriptHighlight }) {
+function HighlightRow({
+  highlight: h,
+  isHovered,
+  onMouseEnter,
+  onMouseLeave,
+}: {
+  highlight: TranscriptHighlight;
+  isHovered: boolean;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+}) {
   const tone = highlightStatusTone(h.status);
   const label = highlightStatusLabel(h.status);
+
+  // "rendering..." variant: APPROVED with a composition linked means render is
+  // in flight. The composition's own status page shows progress.
+  const effectiveTone =
+    h.status === "approved" && h.produced_composition_id ? "success" : tone;
+  const effectiveLabel =
+    h.status === "approved" && h.produced_composition_id
+      ? "Rendering…"
+      : label;
+
+  const approve = useApproveHighlight();
+  const reject = useRejectHighlight();
+
+  const [showRejectInput, setShowRejectInput] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [approveError, setApproveError] = useState<string | null>(null);
+  const [rejectError, setRejectError] = useState<string | null>(null);
+
+  const isPending = h.status === "pending";
+
+  async function handleApprove() {
+    setApproveError(null);
+    try {
+      await approve.mutateAsync(h.id);
+    } catch (err) {
+      // Idempotent (200) paths don't reach here. Only 400 surfaces.
+      const msg =
+        err instanceof ApiError
+          ? String(
+              (err.body as Record<string, unknown> | null)?.detail ??
+                err.message,
+            )
+          : err instanceof Error
+            ? err.message
+            : "Approval failed.";
+      setApproveError(msg);
+    }
+  }
+
+  async function handleRejectConfirm() {
+    setRejectError(null);
+    try {
+      await reject.mutateAsync({ id: h.id, rejection_reason: rejectReason });
+      setShowRejectInput(false);
+      setRejectReason("");
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? String(
+              (err.body as Record<string, unknown> | null)?.detail ??
+                err.message,
+            )
+          : err instanceof Error
+            ? err.message
+            : "Rejection failed.";
+      setRejectError(msg);
+    }
+  }
+
+  function handleRejectCancel() {
+    setShowRejectInput(false);
+    setRejectReason("");
+    setRejectError(null);
+  }
 
   return (
     <li
       data-testid={`highlight-row-${h.id}`}
-      className="flex flex-col gap-2 px-4 py-3"
+      className={cn(
+        "flex flex-col gap-2 px-4 py-3 transition-colors",
+        isHovered && "bg-amber-500/5",
+      )}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     >
       {/* Top row: status badge + char range + mined-at */}
       <div className="flex flex-wrap items-center gap-2">
-        <StatusBadge tone={tone} label={label} />
+        <StatusBadge tone={effectiveTone} label={effectiveLabel} />
         <span className="font-mono text-[10px] text-muted-foreground">
           [{h.char_start}, {h.char_end}]
         </span>
@@ -402,20 +541,147 @@ function HighlightRow({ highlight: h }: { highlight: TranscriptHighlight }) {
         {h.text.length > 200 ? `${h.text.slice(0, 200)}…` : h.text}
       </p>
 
-      {/* Composition link (rendered only when produced_composition_id is set) */}
+      {/* LLM reasoning (scope-lock rule 3 — always visible for audit) */}
+      {h.llm_reasoning && (
+        <p
+          data-testid={`highlight-reasoning-${h.id}`}
+          className="text-xs text-muted-foreground italic"
+        >
+          {h.llm_reasoning}
+        </p>
+      )}
+
+      {/* Approve / Reject buttons — only shown for pending highlights */}
+      {isPending && (
+        <div className="flex flex-wrap items-center gap-2 mt-1">
+          {/* Approve button */}
+          <Button
+            type="button"
+            size="sm"
+            data-testid={`approve-btn-${h.id}`}
+            disabled={approve.isPending}
+            onClick={() => void handleApprove()}
+            className="h-7 px-3 text-xs"
+          >
+            {approve.isPending ? (
+              <>
+                <Loader2
+                  data-testid={`approve-spinner-${h.id}`}
+                  className="mr-1.5 h-3 w-3 animate-spin"
+                />
+                Approving…
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="mr-1.5 h-3 w-3" />
+                Approve
+              </>
+            )}
+          </Button>
+
+          {/* Reject button — reveals inline textarea */}
+          {!showRejectInput && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              data-testid={`reject-btn-${h.id}`}
+              disabled={reject.isPending}
+              onClick={() => setShowRejectInput(true)}
+              className="h-7 px-3 text-xs"
+            >
+              <XCircle className="mr-1.5 h-3 w-3" />
+              Reject
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Inline reject textarea (revealed when Reject is clicked) */}
+      {isPending && showRejectInput && (
+        <div
+          data-testid={`reject-form-${h.id}`}
+          className="flex flex-col gap-2 mt-1"
+        >
+          <textarea
+            data-testid={`reject-reason-${h.id}`}
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="Optional: reason for rejection"
+            rows={2}
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+          />
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              data-testid={`reject-confirm-btn-${h.id}`}
+              disabled={reject.isPending}
+              onClick={() => void handleRejectConfirm()}
+              className="h-7 px-3 text-xs"
+            >
+              {reject.isPending ? (
+                <>
+                  <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                  Rejecting…
+                </>
+              ) : (
+                "Confirm Reject"
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              data-testid={`reject-cancel-btn-${h.id}`}
+              disabled={reject.isPending}
+              onClick={handleRejectCancel}
+              className="h-7 px-3 text-xs"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Inline approve error */}
+      {approveError && (
+        <p
+          data-testid={`approve-error-${h.id}`}
+          className="text-xs text-destructive"
+        >
+          {approveError}
+        </p>
+      )}
+
+      {/* Inline reject error */}
+      {rejectError && (
+        <p
+          data-testid={`reject-error-${h.id}`}
+          className="text-xs text-destructive"
+        >
+          {rejectError}
+        </p>
+      )}
+
+      {/* Composition link (rendered when produced_composition_id is set) */}
       {h.produced_composition_id && (
         <Link
           to={`/compositions/${h.produced_composition_id}`}
           data-testid={`highlight-composition-link-${h.id}`}
           className="text-xs text-primary underline-offset-4 hover:underline"
         >
-          View composition
+          View composition →
         </Link>
       )}
 
-      {/* Rejection reason (rendered only when rejected + reason is set) */}
+      {/* Rejection reason display (status=rejected + reason present) */}
       {h.status === "rejected" && h.rejection_reason && (
-        <p className="text-xs text-muted-foreground italic">
+        <p
+          data-testid={`highlight-rejection-reason-${h.id}`}
+          className="text-xs text-muted-foreground italic"
+        >
           Reason: {h.rejection_reason}
         </p>
       )}
