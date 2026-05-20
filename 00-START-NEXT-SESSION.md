@@ -47,7 +47,49 @@ state: active
 > (revised SESSION 192 — Asset Library v1 marked complete).
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_193_DOGFOOD_PASS_CELERY_HARD_RULE.md`.
+> **Last handoff:** `docs/handoffs/SESSION_194_V18_POLISH_DOUBLE.md`.
+
+---
+
+## SESSION 194 outcome — V18 polish double
+
+Quick-wins session — two SESSION 184 dogfood calibrations
+queued for 10 sessions shipped in one pass.
+
+**Slice 1 — V18 duration-mismatch starter warning** (#2
+from SESSION 184). `talking_head_with_backdrop` refuses at
+creation time when the picked `backdrop_clip` is shorter
+than the estimated speech duration. Uses the existing
+`_estimate_avatar_speech_seconds` (2s buffered estimator),
+so the check effectively requires `backdrop ≥ speech + 2s`.
+Operator-actionable error names both durations, script
+length, and the two remediation options (longer backdrop OR
+target character count for a shorter script).
+
+**Slice 2 — smoke_keyframes `--save-assets` default opt-in**
+(#4 from SESSION 184). Smoke outputs now persist as
+`Asset(role=EXPERIMENT)` rows by default so they land in
+the Asset Library v1 UI. Operators who want throwaway smokes
+pass `--no-save-assets`. New `--workspace NAME` flag
+required when saving is on; fails fast with `CommandError`
+before any Runway credit gets spent if the operator forgot.
+New `persist_smoke_asset` helper extracted for testability
+(the command itself makes real Runway calls + refuses
+`RUNWAY_FORCE_MOCK`).
+
+Backend tests **995 → 1006 (+11)**: 5 V18 polish + 6 smoke
+helper. SPA **134** unchanged. No real-mode spend.
+
+### Tests at SESSION 194 close
+
+| Suite | Count | Delta |
+|---|---|---|
+| Django | **1006** | +11 (995 → 1006) |
+| - compositions | **575** | +11 (564 → 575) |
+| Media-engine | 194 | unchanged |
+| SPA vitest | 134 | unchanged |
+
+Real-mode spend SESSION 194: **$0**.
 
 ---
 
@@ -161,16 +203,18 @@ Real-mode spend SESSION 192: **$0**.
 
 ---
 
-## FIRST THING (SESSION 194): operator picks next direction
+## FIRST THING (SESSION 195): operator picks next direction
 
-**No arc in flight.** Asset Library v1 closed SESSION 192 +
-dogfood-validated SESSION 193. Operator picks at slice-open.
+**No arc in flight.** SESSION 184 calibration backlog cleared
+(both #2 V18-warn + #4 smoke-save shipped SESSION 194).
+Asset Library v1 closed SESSION 192 + dogfood-validated
+SESSION 193. Operator picks at slice-open.
 
 ### Queued backlog (operator picks)
 
 | Item | Effort | Notes |
 |---|---|---|
-| **V18 polish — duration-mismatch starter warning** | ½ session | SESSION 184 calibration #2 — when `backdrop_clip.duration_ms < estimated_speech_duration`, composite cuts speech mid-sentence. Add starter-time guard. |
+| ~~V18 polish — duration-mismatch starter warning~~ | **DONE SESSION 194** | SESSION 184 #2 — shipped. |
 | **F8.1 — K10 seed corpus** | Operator-blocked | Markdown seed for new workspaces. Operator-authored content; AI can scaffold the loader. |
 | **Real-mode validation: `storyboard_voiced` + `dialogue_scene`** | 1 session | 2 of 18 V-arc recipes still unvalidated against real Runway. |
 | **V17.3 keyframes (deferred SESSION 184)** | Blocked | Re-open criteria in `VIDEO_COMPOSITION_V17_PROPOSAL.md` §Q-v17-6: Runway adds keyframes to gen-4 family OR operator adopts `veo3.1_fast` as primary model. |
@@ -178,7 +222,7 @@ dogfood-validated SESSION 193. Operator picks at slice-open.
 | **K7.x v3 YouTube oEmbed** | ½ session | YouTube extractor v2 ships heuristic-based; v3 adds oEmbed for richer metadata. |
 | **K6.4 v3 architectural fix** | 1 session | Verifier surface design lock — see K-arc scope doc. |
 | **Asset upload UI (AUDIO / IMAGE)** | 1-2 sessions | The 8 needs-review legacy rows from SESSION 185 backfill stay at RAW_UPLOAD until this surface ships. Was queued SESSION 181. |
-| **Smoke `--save-assets` default opt-in** | ½ session | SESSION 184 calibration #4 — smoke commands produce orphans unless explicitly told to persist. |
+| ~~Smoke `--save-assets` default opt-in~~ | **DONE SESSION 194** | SESSION 184 #4 — shipped. |
 | **W12 legacy form retirement** | 1 session | Old single-form recipe path still rides on the V6 shim. Retire after operator confidence in V15 form renderer. |
 | **Thruman stale spokesperson cleanup** | ½ session | Dev DB tidy. |
 | **CONTENT_FORMAT_BACKLOG.md picks** | Multi-session | 20 video formats/pipelines the V-arc's 18 recipes don't cover but primitives could ship. Strategic top-3 per the backlog doc: B-1 (realtime transcript → highlight clip miner), B-3 (personalized variable-substitution videos), B-14 (one render → many platform variants). |
@@ -391,12 +435,12 @@ For any new step primitive added after A2:
 4. **Register the primitive** in
    `apps/compositions/primitives/__init__.py::_REGISTRY`.
 
-**Smoke checks** (counts as of SESSION 193 close — no code change):
+**Smoke checks** (counts as of SESSION 194 close):
 
 ```bash
 # Backend (from shell/)
 python manage.py inventory
-python -m pytest                              # 995 tests (compositions: 564)
+python -m pytest                              # 1006 tests (compositions: 575)
 
 # Media-engine (from media-engine/)
 python -m pytest                              # 194 tests
@@ -523,21 +567,17 @@ pnpm test                                     # 134 vitest tests
 
 ## AI / assistant context
 
-- **Last session: SESSION 193 — A-arc dogfood pass +
-  Celery hard rule.** No code changes; end-to-end real-mode
-  validation of Asset Library v1 against the dev DB caught
-  the SESSION 192 stack-up notes claiming mock-mode is
-  Celery-free as **wrong** — composition hung at DRAFT
-  104s, fixed by starting a worker, drained queue 65 → 0,
-  A8 rendered exactly as designed. Two new
-  TRUST_CALIBRATION entries (Celery hard rule + dogfood-
-  catches-stack-up-bug).
+- **Last session: SESSION 194 — V18 polish double.** Two
+  SESSION 184 calibrations shipped (#2 V18 duration-mismatch
+  warning + #4 smoke save-assets default). Backend 995 → 1006
+  (+11); SPA 134 unchanged. No new TRUST_CALIBRATION
+  entries — both slices were straightforward applications of
+  existing patterns.
 
-- **Prior session: SESSION 192 — A8 + ARC CLOSE.** Asset
-  Library v1 complete. Backend 992 → 995 (+3); SPA
-  vitest 131 → 134 (+3).
+- **Prior session: SESSION 193 — A-arc dogfood + Celery
+  hard rule.** No code changes; one stack-up bug caught.
 
-- **Calibration carried forward (20 total — NEW SESSION 193)**:
+- **Calibration carried forward (20 total — unchanged SESSION 194)**:
   - **Celery worker is NOT optional for mock_mode** —
     mock_mode controls primitive behavior, not the task
     wrapper. Required for ANY composition fire. (NEW
