@@ -264,6 +264,111 @@ def test_outro_only_succeeds_without_intro(
     assert resp.json()["mock_mode"] is False
 
 
+# ---- SESSION 200 post-close — silent-base intro_outro -----------
+
+
+def _make_silent_body_clip(
+    tmp_path: Path, w: int = 1280, h: int = 720, duration_s: int = 5,
+) -> Path:
+    """Body clip with NO audio stream — mirrors the
+    storyboard_ad + storyboard_voiced extend-chain concat output.
+    Pre-fix, this would 500 the endpoint with
+    ``filtergraph inputs/outputs: Invalid argument`` because
+    ``[0:a]`` referenced no stream."""
+    out = tmp_path / f"silent-body-{w}x{h}.mp4"
+    subprocess.run(
+        [
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-f", "lavfi",
+            "-i", f"color=c=green:s={w}x{h}:r=30:d={duration_s}",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "-an",
+            "-f", "mp4", str(out),
+        ],
+        check=True, capture_output=True, timeout=30,
+    )
+    return out
+
+
+def test_intro_outro_handles_silent_body_clip(
+    real_mode_client: TestClient, tmp_path: Path,
+) -> None:
+    """SESSION 200 post-close — the storyboard_ad real-mode fire
+    failed at step 10 because the SESSION 200 xfade-concat output
+    has no audio stream (silent generates + silent extends mean
+    no input to concat carries audio, so the xfade chain drops
+    the acrossfade chain entirely). Without the silent-base
+    branch, ``[0:a]`` referenced no streams and ffmpeg exited
+    rc=234 with "Error binding filtergraph inputs/outputs:
+    Invalid argument".
+
+    Fix mirrors SESSION 196 slice 1 (mix_audio silent-base):
+    ffprobe the body for an audio stream; when absent, synthesize
+    a silent ``anullsrc`` track for the body's duration so the
+    concat=a=1 contract holds.
+    """
+    if not shutil.which("ffmpeg"):
+        pytest.skip("ffmpeg not on PATH")
+    if not shutil.which("ffprobe"):
+        pytest.skip("ffprobe not on PATH")
+
+    silent_body = _make_silent_body_clip(tmp_path, duration_s=5)
+    resp = real_mode_client.post(
+        "/internal/clips/intro_outro/",
+        json={
+            "clip_url": str(silent_body),
+            "outro": {
+                "text": "Dog Food Coffee House",
+                "duration_s": 3.0,
+            },
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    body_json = resp.json()
+    assert body_json["mock_mode"] is False
+    # Output carries video + a (synthesized-silent) audio stream
+    # so downstream consumers see a uniform shape.
+    output_path = tmp_path / body_json["output_url"][len("/data/"):]
+    probe = subprocess.run(
+        [
+            "ffprobe", "-v", "error",
+            "-show_entries", "stream=codec_type",
+            "-of", "csv=p=0",
+            str(output_path),
+        ],
+        check=True, capture_output=True, text=True, timeout=10,
+    )
+    codecs = [
+        line.strip() for line in probe.stdout.splitlines() if line.strip()
+    ]
+    assert "video" in codecs
+    assert "audio" in codecs
+
+
+def test_intro_outro_silent_body_with_both_cards(
+    real_mode_client: TestClient, tmp_path: Path,
+) -> None:
+    """Dual-card path on a silent body. Ensures the silent-base
+    branch composes cleanly with the SESSION 180 input-indexing
+    fix (the synthesized body-audio input shifts every subsequent
+    intro/outro index by 1)."""
+    if not shutil.which("ffmpeg"):
+        pytest.skip("ffmpeg not on PATH")
+    if not shutil.which("ffprobe"):
+        pytest.skip("ffprobe not on PATH")
+
+    silent_body = _make_silent_body_clip(tmp_path, duration_s=4)
+    resp = real_mode_client.post(
+        "/internal/clips/intro_outro/",
+        json={
+            "clip_url": str(silent_body),
+            "intro": {"text": "Hook", "duration_s": 1.0},
+            "outro": {"text": "Payoff", "duration_s": 1.0},
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+
 # ---- drawtext font resolver --------------------------------------
 
 

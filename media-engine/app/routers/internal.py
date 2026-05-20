@@ -2234,6 +2234,16 @@ def post_internal_intro_outro(
     # "task finished with error code: -22 (Invalid argument)").
     base_dur = _probe_duration(clip_path)
     canvas_w, canvas_h = _probe_dimensions(clip_path)
+    # SESSION 200 post-close — silent-base detection. The
+    # storyboard_ad + storyboard_voiced extend-chain path emits
+    # silent concat outputs (no avatar_speech in the pipeline,
+    # or speech path lands later as a sibling). When the body
+    # clip has no audio stream, ``[0:a]`` matches nothing and
+    # ffmpeg exits rc=234 with "filtergraph inputs/outputs:
+    # Invalid argument" — same shape as the SESSION 196
+    # mix_audio silent-base bug. Synthesize a silent audio
+    # track for the body so the concat=a=1 contract holds.
+    base_has_audio = _has_audio_stream(clip_path)
 
     # Build filter_complex + ffmpeg input list. Input indices
     # count `-i` occurrences, NOT argument pairs — `-f lavfi -i X`
@@ -2245,6 +2255,19 @@ def post_internal_intro_outro(
     # count explicitly.
     ffmpeg_inputs: list[str] = ["-i", str(clip_path)]
     input_count = 1  # body clip occupies [0]
+    if base_has_audio:
+        body_a_ref = "[0:a]"
+    else:
+        body_a_idx = input_count
+        ffmpeg_inputs += [
+            "-f", "lavfi",
+            "-i", (
+                "anullsrc=channel_layout=stereo:sample_rate=48000"
+                f":d={base_dur}"
+            ),
+        ]
+        input_count += 1
+        body_a_ref = f"[{body_a_idx}:a]"
     filter_parts: list[str] = []
     concat_chain: list[str] = []
 
@@ -2277,8 +2300,10 @@ def post_internal_intro_outro(
         ))
         concat_chain.append(f"[intro_v][{intro_a_idx}:a]")
 
-    # Body — already at [0:v]/[0:a]
-    concat_chain.append("[0:v][0:a]")
+    # Body — video is always [0:v]; audio is [0:a] when the body
+    # has an audio stream, or a synthesized silent track when it
+    # doesn't (SESSION 200 post-close).
+    concat_chain.append(f"[0:v]{body_a_ref}")
 
     if body.outro:
         outro_text_path.write_text(body.outro.text, encoding="utf-8")
