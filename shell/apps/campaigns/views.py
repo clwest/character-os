@@ -504,6 +504,132 @@ class CampaignViewSet(GenericViewSet):
             ),
         })
 
+    # ---- retry (B3.6) ------------------------------------------
+
+    @action(detail=True, methods=["post"], url_path="retry_recipient")
+    def retry_recipient_action(self, request, pk=None):
+        """Per Q-c-6 — re-render a FAILED recipient.
+
+        Body: ``{"recipient_id": "<uuid>"}``.
+
+        Creates a NEW ``talking_head_polished`` composition;
+        the failed composition (if any) stays in the workspace
+        as audit. Resets recipient to QUEUED + sets the new
+        produced_composition FK. Enqueues Celery after commit.
+
+        If the campaign was in a terminal state (COMPLETED /
+        PARTIAL / FAILED), flips it back to IN_FLIGHT — a
+        recipient is running again.
+
+        Refuses retry on non-FAILED recipients (PENDING never
+        launched; QUEUED / RUNNING already in flight; COMPLETED
+        already succeeded). 400 in those cases.
+        """
+        campaign = self._get_or_404(pk)
+
+        recipient_id = (request.data or {}).get("recipient_id")
+        if not recipient_id:
+            return Response(
+                {"detail": "recipient_id is required"},
+                status=http.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            recipient = campaign.recipients.get(pk=recipient_id)
+        except PersonalizedRecipient.DoesNotExist:
+            raise NotFound("Recipient not found in this campaign")
+
+        if recipient.status != PersonalizedRecipient.Status.FAILED:
+            return Response(
+                {
+                    "detail": (
+                        f"Cannot retry recipient in status "
+                        f"{recipient.status!r}; only FAILED rows "
+                        "are retryable."
+                    ),
+                },
+                status=http.HTTP_400_BAD_REQUEST,
+            )
+
+        # Re-render the script. If template still references a
+        # missing variable, surface that as the new error
+        # without spinning up a composition.
+        try:
+            script = render_template(
+                campaign.template, recipient.variables,
+            )
+        except TemplateError as exc:
+            recipient.error_message = str(exc)
+            recipient.save(update_fields=[
+                "error_message", "updated_at",
+            ])
+            return Response(
+                {"detail": str(exc)},
+                status=http.HTTP_400_BAD_REQUEST,
+            )
+
+        from apps.compositions.recipes import RECIPES
+        recipe = RECIPES.get("talking_head_polished")
+        if recipe is None:  # pragma: no cover — same dep B3.5 has
+            return Response(
+                {"detail": "talking_head_polished recipe missing"},
+                status=http.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        with transaction.atomic():
+            composition = recipe.starter(
+                workspace=campaign.workspace,
+                spokesperson=campaign.spokesperson,
+                script=script,
+                name=(
+                    f"{campaign.name} — {recipient.label} (retry)"
+                )[:200],
+                created_by=request.user,
+            )
+
+            # Failed composition stays for audit per Q-c-6 —
+            # we point the recipient at the NEW one. The old
+            # FK is overwritten; the old composition becomes
+            # a dangling-but-browsable workspace asset.
+            recipient.produced_composition = composition
+            recipient.rendered_script = script
+            recipient.status = PersonalizedRecipient.Status.QUEUED
+            recipient.error_message = ""
+            recipient.save(update_fields=[
+                "produced_composition", "rendered_script",
+                "status", "error_message", "updated_at",
+            ])
+
+            # If the campaign was terminal, flip it back to
+            # IN_FLIGHT — a recipient is running again.
+            terminal = {
+                PersonalizedCampaign.Status.COMPLETED,
+                PersonalizedCampaign.Status.PARTIAL,
+                PersonalizedCampaign.Status.FAILED,
+            }
+            if campaign.status in terminal:
+                campaign.status = PersonalizedCampaign.Status.IN_FLIGHT
+                campaign.completed_at = None
+                campaign.save(update_fields=[
+                    "status", "completed_at", "updated_at",
+                ])
+
+        from apps.compositions.tasks import execute_composition
+        execute_composition.delay(str(composition.id))
+
+        logger.info(
+            "campaign.retry_recipient campaign=%s recipient=%s "
+            "new_composition=%s",
+            campaign.pk, recipient.pk, composition.pk,
+        )
+
+        recipient.refresh_from_db()
+        campaign.refresh_from_db()
+        return Response({
+            "recipient": PersonalizedRecipientSerializer(recipient).data,
+            "campaign_status": campaign.status,
+        })
+
     # ---- helpers ------------------------------------------------
 
     def _get_or_404(self, pk) -> PersonalizedCampaign:

@@ -202,6 +202,20 @@ ALLOWED_FILES = {
     # through apps.compositions.starters.talking_head_polished
     # via the recipe registry, which is already sanctioned.
     "apps/campaigns/tests/test_models.py",
+    # C-arc B3.5 (SESSION 203) — launch endpoint tests seed
+    # Composition + Video rows to exercise the tier-gate
+    # paths. The launch endpoint itself routes through the
+    # sanctioned talking_head_polished starter; the direct
+    # seeds are for the gate-precondition checks (Video
+    # shim for videos_used count).
+    "apps/campaigns/tests/test_launch.py",
+    # C-arc B3.6 (SESSION 203) — completion-signal + retry
+    # tests seed Composition rows directly to simulate the
+    # V-arc runner's terminal-state save (the cross-app
+    # post_save receiver is what we're testing). The
+    # retry endpoint itself routes through the sanctioned
+    # starter.
+    "apps/campaigns/tests/test_completion_retry.py",
 }
 
 
