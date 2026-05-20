@@ -28,6 +28,7 @@ urlpatterns = [
     path("api/", include("apps.embeddings.urls")),
     path("api/", include("apps.compositions.urls")),
     path("api/", include("apps.realtime.urls")),
+    path("api/", include("apps.transcripts.urls")),
     # Thin wrappers around character_os.prompts helpers (SESSION 129).
     path("api/prompts/suggest-tone/", suggest_tone, name="suggest-tone"),
 ]

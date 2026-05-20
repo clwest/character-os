@@ -175,6 +175,13 @@ ALLOWED_FILES = {
     # apps.compositions.starters via the recipe registry, which
     # is already sanctioned.
     "apps/transcripts/tests/test_models.py",
+    # B-arc B1.3 (SESSION 202) — REST API tests seed
+    # Asset(TRANSCRIPT) + Asset(CLIP) rows directly to exercise
+    # the mine endpoint's auth + cross-workspace + type
+    # validation paths. Same shape as the B1.2 entry above —
+    # workspace anchor is explicit, signal still fires, no
+    # writes to composition tables.
+    "apps/transcripts/tests/test_api.py",
 }
 
 
