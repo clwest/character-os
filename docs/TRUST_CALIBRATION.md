@@ -4160,3 +4160,97 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   composition (talking_head_with_backdrop, mock_mode); A7's role-
   filter behavior across other recipes wasn't validated, and we
   paid for it at SESSION 195 with the concat_clips finding.
+
+### V-arc 100% real-mode closure — first time the full arc is end-to-end-validated against real providers
+- **Date:** 2026-05-19
+- **Session:** 197
+- **Context:** V-arc shipped 16 mock-mode recipes (SESSIONS 142-144)
+  + 2 V17/V18 post-close additions; real-mode validation rolled out
+  incrementally (SESSION 158 first real-Runway marketing video;
+  16/18 by SESSION 184). SESSION 195 attempted to close to 100%
+  via real-mode `storyboard_voiced` + `dialogue_scene` — bagged
+  2 production bugs (mix_audio silent-base, concat_clips role
+  mismatch). SESSION 196 shipped both fixes. SESSION 197 fired
+  `storyboard_voiced` real-mode + the new `outro_text` brand
+  card to close the arc.
+- **Surface / artefact:** Composition `1ce4d201-6640-415e-8bba-796e117dad67`
+  — 11 steps end-to-end, 245s wall-time, $1.12 spend (under the
+  $1.92 forecast). All 11 steps `succeeded`. Final asset
+  `8abd8a1f` carries the "Dog Food Coffee House" brand outro
+  card. **First end-to-end real-mode run of any V-arc recipe
+  exercising the full storyboard pipeline including the SESSION
+  196 mix_audio silent-base fix + the new SESSION 197 outro
+  feature.**
+- **AI expectation (before):** Storyboard_voiced was the last
+  unvalidated V-arc recipe. SESSION 196 fixes addressed both
+  SESSION 195 findings; the SESSION 197 fire would either close
+  the V-arc or surface a third real-mode bug (per SESSION 195's
+  "bugs in every recipe" calibration).
+- **Reality / outcome:** **No new bugs.** Both SESSION 196
+  fixes (mix_audio silent-base branched filtergraph + concat
+  result_role override) held under real-mode load. The outro
+  add_intro_outro step worked first-fire. Spend came in under
+  forecast. **V-arc is now 18/18 real-mode-validated** — the
+  first time the entire V-arc has been end-to-end-validated
+  against real Runway + Stability.
+- **Found by:** Pre-fire planning identified the SESSION 196 mix
+  step as the critical path; real-mode fire confirmed.
+- **Lesson:** **The V-arc real-mode validation journey took 5
+  sessions of layered work** (SESSION 195 found 2 bugs;
+  SESSION 196 fixed both; SESSION 197 added an operator-noticed
+  polish + closed). The pattern that worked:
+  * Real-mode dogfood surfaces bugs invisible to mock tests.
+  * Bugs become next-session fix slices.
+  * Operator-noticed UX gaps queue up as same-session polish
+    work alongside re-firing.
+  * V-arc closure is **not** declared based on mock-mode test
+    coverage alone. Real-mode validation is the load-bearing
+    gate.
+
+  Same shape generalizes to future arcs (R-arc closed SESSION
+  176, A-arc SESSION 193, V-arc SESSION 197).
+
+### Operator-noticed-during-dogfood → next-session ship + re-fire is a high-yield loop
+- **Date:** 2026-05-19
+- **Session:** 197
+- **Context:** During SESSION 195 dogfood, operator noticed the
+  storyboard ended cold without any brand mark — flagged it
+  in passing as a UX gap. SESSION 197 opened with the operator
+  explicitly requesting "Dog Food Coffee House" branding for
+  the closure fire. Option A (extend `storyboard_voiced` with
+  optional `outro_text` field, mirror `talking_head_polished`
+  shape) shipped in ~15 minutes + the closure fire validated
+  the new feature first-fire ($1.12, 11/11 steps green).
+- **Surface / artefact:** SESSION 197 commits (feat:
+  storyboard_voiced outro_text + add_intro_outro append) +
+  the closure composition's step 10 succeeded in 760ms.
+- **AI expectation (before):** Brand outro asks would typically
+  queue as a separate polish slice for "next session." The
+  operator's framing ("can you have Dog Food Coffee House
+  show up at the end") prompted a check whether this was a
+  small enough change to bundle into the closure session.
+- **Reality / outcome:** **Bundling the UX polish with the
+  closure fire was the right call.** The ~15-min implementation
+  + ~5-min real-mode fire (covered by the $1.12 storyboard
+  spend that was happening anyway) delivered:
+  * V-arc 100% closure (the planned session goal).
+  * Branded video deliverable (the operator's same-session ask).
+  * Real-mode validation of the new outro feature on first
+    fire — no separate validation session needed.
+- **Found by:** Operator noticing the UX gap in SESSION 195;
+  AI recognizing the bundle opportunity at SESSION 197 open.
+- **Lesson:** **When operator-noticed UX gaps surface mid-arc,
+  evaluate whether they can ride along with the next
+  composition fire.** Criteria for bundling:
+  * The feature is small (~30 min implementation) AND
+  * It mirrors an existing pattern (here: `talking_head_polished`'s
+    outro_text was a 1:1 template) AND
+  * The composition fire is already happening for a different
+    reason (here: V-arc closure validation).
+
+  When all three are true, bundling avoids a separate
+  validation session and delivers operator-visible value in
+  the same beat. Same shape as SESSION 194's V18 polish double
+  (multiple fixes one session) but operator-noticed instead
+  of pre-planned. **Pattern name:** "operator-noticed-during-
+  dogfood → next-session ship + re-fire."

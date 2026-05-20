@@ -47,7 +47,71 @@ state: active
 > (revised SESSION 192 — Asset Library v1 marked complete).
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_196_BOTH_FIX_SLICES.md`.
+> **Last handoff:** `docs/handoffs/SESSION_197_VARC_100_PERCENT_CLOSED.md`.
+
+---
+
+## SESSION 197 outcome — V-arc 100% REAL-MODE CLOSED
+
+**Milestone session.** First time the full V-arc is end-to-end
+real-mode-validated against real Runway + Stability. Closed
+via `storyboard_voiced` fire — the last unvalidated recipe.
+**18/18 V-arc recipes now real-mode validated.**
+
+Bundled with the closure: operator-noticed UX gap from
+SESSION 195 dogfood (storyboard ended cold without branding)
+shipped as a same-session polish — new optional `outro_text`
+field on `storyboard_voiced` mirrors `talking_head_polished`'s
+shape. The closure composition's final has "Dog Food Coffee
+House" appended as a 3-second outro card.
+
+### The closure fire
+
+Composition `1ce4d201`:
+- **status: completed** ✓
+- 245s wall-time, **$1.12 spend** (under the $1.92 forecast)
+- 11 steps, 11/11 succeeded
+- final_asset `8abd8a1f` carries the brand outro
+
+The two critical validations both held:
+- **Step 9 mix_audio (279ms)** — SESSION 196 silent-base fix
+  validated real-mode against production-shape inputs. The
+  SESSION 195 500 is structurally dead.
+- **Step 10 add_intro_outro (760ms)** — first real-mode test
+  of the new outro feature. Brand card appended correctly.
+
+### V-arc real-mode validation arc spend (SESSIONS 195→196→197)
+
+| Session | Outcome | Spend |
+|---|---|---|
+| 195 | 2 bugs found; 1/2 recipes completed | $3.17 |
+| 196 | Both fixes shipped; no fires | $0 |
+| 197 | V-arc closed via storyboard_voiced + outro bundle | $1.12 |
+| **Total** | **V-arc 18/18 + 2 production bugs fixed + 1 UX feature** | **$4.29** |
+
+### Calibration (2 new — 25 total)
+
+1. **V-arc 100% closure milestone.** Pattern across 3 sessions
+   of layered work — mock-mode tests never sufficient;
+   real-mode dogfood is the load-bearing gate. Same shape as
+   prior arc closures (R-arc SESSION 176, A-arc SESSION 193).
+
+2. **Operator-noticed-during-dogfood → next-session ship +
+   re-fire is a high-yield loop.** Criteria for bundling:
+   ~30-min implementation, mirrors an existing pattern,
+   composition fire is already happening for another reason.
+
+### Tests at SESSION 197 close
+
+| Suite | Count | Delta |
+|---|---|---|
+| Django | **1014** | +3 (1011 → 1014) |
+| - compositions | **583** | +3 (580 → 583) |
+| Media-engine | 197 | unchanged |
+| SPA vitest | 134 | unchanged |
+
+Real-mode spend SESSION 197: **$1.12**. Workspace assets
+153 → 164 (+11) from the closure composition.
 
 ---
 
@@ -309,53 +373,71 @@ Real-mode spend SESSION 192: **$0**.
 
 ---
 
-## FIRST THING (SESSION 197): close V-arc 100% + operator picks
+## FIRST THING (SESSION 198): genuinely greenfield — operator picks
 
-**Both SESSION 195 bugs fixed in SESSION 196.** `storyboard_voiced`
-is now unblocked. One real-mode fire would close the V-arc to
-100% — the SESSION 195 goal that was scuttled by the mix_audio
-bug.
+**No arc in flight.** V-arc closed + 100% real-mode validated;
+A-arc closed + dogfood-validated; R-arc closed + real-mode
+hardened; F-arc closed. Phase 4 + Asset Library v1 all done.
 
-### Recommended — Real-mode `storyboard_voiced` (~$1.92, ~5min)
+Operator picks at slice-open. Categories:
 
-Fire `storyboard_voiced` via the SPA recipe form with similar
-content to SESSION 195 (3 storyboard frames + ~15s narration).
-Cost ~$1.92 (3 Stability + 3 Runway visuals + 1 avatar speech).
-Full pipeline now exercises end-to-end including the just-fixed
-silent-base mix_audio. **Closes V-arc 100%.** First end-to-end
-real-mode run of the deepest V-arc recipe.
+### Polish / parity follow-ups (½-1 session each)
 
-After it lands, the produced_assets panel on the composition
-overview should show 9 step outputs (3 images + 3 visual clips
-+ concat + avatar speech + audio extract + mix) — that's a
-useful Asset Library dogfood too.
+* **`outro_text` parity for other V-arc recipes.** SESSION 197
+  surfaced the bundle pattern; the same shape can extend
+  `long_form_ad`, `storyboard_ad`, `dialogue_scene`,
+  `cinematic_visual`, etc. Each is ~½ slice + a real-mode
+  fire to validate. Bundle as quick-wins doubles.
+* **SESSION 196 taxonomy follow-ups.** `long_form_ad` +
+  `storyboard_ad` concat_clips outputs have similar BACKDROP-
+  vs-COMPOSITE_OUTPUT considerations. Surgical 1-line
+  starter changes + tests.
+* **Storyboard extend-chain.** SESSION 195/197's storyboard
+  videos show motion seams at the 5s + 10s shot transitions.
+  Mirror V17.5's `use_extend_for_backdrop` pattern for
+  storyboard_voiced + storyboard_ad. ½-1 slice; would close
+  the last known V-arc UX gap.
 
-### Alternative paths
+### Bigger backlog items
 
-If operator doesn't want to spend the ~$1.92 right now:
-
-* **Follow-up taxonomy questions queued from SESSION 196**:
-  `long_form_ad` and `storyboard_ad` concat_clips outputs have
-  similar BACKDROP-vs-COMPOSITE_OUTPUT semantic considerations.
-  Each is a 1-line starter change + a test. Bundle as a
-  quick-wins double (½ session each).
-* **Real-mode validation for the other unvalidated V-arc
-  recipe**: any V-arc recipe not yet real-mode-fired carries
-  near-certain latent bugs per the SESSION 195 calibration.
-  `storyboard_voiced` is the only known one. (All 17 others
-  validated SESSION 158 onwards.)
 * **Asset upload UI** (1-2 sessions): unblocks the 8 legacy
-  needs-review rows + operator-uploaded content.
-* **W12 legacy form retirement** (1 session): tech debt cleanup.
-* **K7.x v3 YouTube oEmbed** (½ session): niche K-arc polish.
+  RAW_UPLOAD rows + operator-uploaded content. Most impactful
+  for opening new content arcs.
+* **W12 legacy form retirement** (1 session): tech debt
+  cleanup.
 * **K6.4 v3 architectural fix** (1 session): verifier surface
   design lock.
-* **F8.1 K10 seed corpus** — still blocked on operator
-  markdown.
-* **B6-B10 brand arc** — still deferred.
-* **New-arc candidates** from `CONTENT_FORMAT_BACKLOG.md`: B-1
-  (transcript miner), B-3 (personalized video), B-14 (multi-
-  platform variants).
+* **K7.x v3 YouTube oEmbed** (½ session).
+
+### Blocked
+
+* **F8.1 K10 seed corpus** — blocked on operator markdown.
+* **B6-B10 brand arc** — deferred SESSION 178.
+
+### New-arc candidates (multi-session)
+
+From `CONTENT_FORMAT_BACKLOG.md`:
+
+* **B-1 Transcript Miner** — top strategic per memory. R-arc
+  transcripts captured but never mined. 6-8 slices.
+* **B-3 Personalized Video** — biggest revenue unlock. 10+
+  slices.
+* **B-14 Multi-Platform Variants** — distribution stickiness.
+  5-6 slices.
+
+### Recommended
+
+A clean session-start with multiple closed arcs is rare. Two
+reasonable directions:
+
+1. **Quick polish double** — outro_text parity for 2 recipes
+   + the SESSION 196 taxonomy follow-ups. Continues the
+   quick-wins cadence; clears 4-5 small backlog items in one
+   session.
+2. **Open a new arc** — B-1 Transcript Miner is the closest
+   to shipped infrastructure (R-arc transcripts already
+   captured; A-arc Asset Library provides the surface). Best
+   starting point for a multi-session commitment.
 
 ### Queued backlog (operator picks)
 
@@ -582,12 +664,12 @@ For any new step primitive added after A2:
 4. **Register the primitive** in
    `apps/compositions/primitives/__init__.py::_REGISTRY`.
 
-**Smoke checks** (counts as of SESSION 196 close):
+**Smoke checks** (counts as of SESSION 197 close):
 
 ```bash
 # Backend (from shell/)
 python manage.py inventory
-python -m pytest                              # 1011 tests (compositions: 580)
+python -m pytest                              # 1014 tests (compositions: 583)
 
 # Media-engine (from media-engine/)
 python -m pytest                              # 197 tests
@@ -714,19 +796,22 @@ pnpm test                                     # 134 vitest tests
 
 ## AI / assistant context
 
-- **Last session: SESSION 196 — both SESSION 195 fix slices
-  shipped.** Quick-wins double (SESSION 194 shape). Slice 1:
-  mix_audio silent-base ffprobe detection + branched
-  filtergraph (media-engine). Slice 2: concat_clips
-  result_role param + dialogue_scene override. Django
-  1006 → 1011 (+5); media-engine 194 → 197 (+3). No new
-  TRUST_CALIBRATION entries — SESSION 195 already documented
-  the underlying findings.
+- **Last session: SESSION 197 — V-arc 100% REAL-MODE CLOSED.**
+  Milestone. First time the full V-arc is end-to-end-validated.
+  Bundled an operator-noticed UX polish (outro_text field on
+  storyboard_voiced) with the closure fire. Backend 1011 → 1014
+  (+3). Spend $1.12. Two new TRUST_CALIBRATION entries (V-arc
+  100% milestone + operator-noticed-during-dogfood loop).
 
-- **Prior session: SESSION 195 — V-arc closure attempt found
-  2 production bugs.** Both fixed SESSION 196.
+- **Prior session: SESSION 196 — both SESSION 195 fix slices
+  shipped.** Mix_audio silent-base + concat_clips result_role.
 
-- **Calibration carried forward (23 total — unchanged SESSION 196)**:
+- **Calibration carried forward (25 total — NEW SESSION 197)**:
+  - **V-arc 100% real-mode closure milestone** — 5-session
+    layered journey; mock-mode tests never sufficient.
+  - **Operator-noticed-during-dogfood → next-session ship +
+    re-fire is a high-yield loop** — criteria for bundling
+    UX polish with arc closure fires.
   - **mix_audio assumes base has audio** — V14/V15.4 design
     oversight surfaced by storyboard_voiced real-mode.
   - **concat_clips role semantics are recipe-dependent** —

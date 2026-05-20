@@ -2,9 +2,9 @@
 title: "Character OS — What It Actually Is"
 status: populated
 generated: 2026-05-13
-last_revised: 2026-05-19 (SESSION 192 — Asset Library v1 arc-close)
+last_revised: 2026-05-19 (SESSION 197 — V-arc 100% real-mode closure)
 companion_doc: CHARACTER_OS_INVENTORY.md
-covers_sessions: "106-192"
+covers_sessions: "106-197"
 ---
 
 # Character OS — What It Actually Is
@@ -352,7 +352,7 @@ first end-to-end real-Runway marketing video shipped +
 | Arc | Status | Scope lock |
 |---|---|---|
 | Knowledge layer (K0-K10) | K1-K9 done; K10 → F8.1 queued | `docs/design/KNOWLEDGE_LAYER.md` |
-| Video composition (V0-V15) | **COMPLETE** (SESSIONS 142-144) | `docs/design/VIDEO_COMPOSITION_V1.md` |
+| Video composition (V0-V15 + V16/V17/V18 post-closes) | **COMPLETE** (SESSIONS 142-144) + **18/18 recipes REAL-MODE VALIDATED (SESSION 197)** | `docs/design/VIDEO_COMPOSITION_V1.md` |
 | Workspace fabric (F0-F10) | **COMPLETE** (SESSION 144) | `docs/design/WORKSPACE_FABRIC_V1.md` |
 | Realtime avatar (R0-R10) | **COMPLETE** (SESSIONS 146-157); first marketing video shipped against real Runway SESSION 158 | `docs/design/REALTIME_AVATAR_V1.md` |
 | **Asset Library v1 (A0-A8)** | **COMPLETE** (SESSIONS 185-192) — 10-role taxonomy + emit-time stamping + storage-health classifier + paginated browse endpoint + SPA list / detail / role-filtered picker / composition cross-link | `docs/design/ASSET_LIBRARY_V1.md` |
