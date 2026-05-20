@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-20T16:31:53.754357+00:00
-git_sha: 250fa0f
+generated_at: 2026-05-20T16:50:26.319018+00:00
+git_sha: d1c3e2b
 git_branch: main
 ---
 
@@ -15,11 +15,11 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-20T16:31:53.754357+00:00** against commit **250fa0f**
+Generated **2026-05-20T16:50:26.319018+00:00** against commit **d1c3e2b**
 on branch **main**.
 
-Python 3.11.6 · Django 5.0.6 ·
-Celery 5.5.3 · httpx 0.28.1.
+Python 3.11.6 · Django 5.2.14 ·
+Celery 5.6.3 · httpx 0.28.1.
 
 ---
 
@@ -28,7 +28,7 @@ Celery 5.5.3 · httpx 0.28.1.
 | Metric | Value | Source |
 |---|---|---|
 | Django models (project-owned) | **21** | `apps.get_models()` filtered to first-party apps |
-| URL routes (total) | **380** | `get_resolver().url_patterns` walk |
+| URL routes (total) | **369** | `get_resolver().url_patterns` walk |
 | URL routes (`/api/*`) | **151** | same |
 | FastAPI routes | **122** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **9** | `celery_app.tasks` filter |
@@ -70,11 +70,11 @@ Total: **21** models across **11** apps.
 
 ## URL Routes
 
-Total: **380** resolved patterns.
+Total: **369** resolved patterns.
 
 | Prefix | Count |
 |---|---|
-| `_allauth/` | 30 |
+| `_allauth/` | 19 |
 | `accounts/` | 26 |
 | `admin/` | 173 |
 | `api/` | 151 |
@@ -131,6 +131,7 @@ Total: **380** resolved patterns.
 - `knowledge-search`
 - `login`
 - `manage_email`
+- `manage_phone`
 - `manage_providers`
 - `me`
 - `membership-detail`
@@ -157,6 +158,8 @@ Total: **380** resolved patterns.
 - `recipe-list`
 - `redirect_to_provider`
 - `request_password_reset`
+- `resend_email_verification_code`
+- `resend_phone_verification_code`
 - `reset_password`
 - `signup`
 - `socialaccount_connections`
@@ -180,6 +183,7 @@ Total: **380** resolved patterns.
 - `transcript-highlight-mine`
 - `transcript-highlight-reject`
 - `verify_email`
+- `verify_phone`
 - `video-detail`
 - `video-list`
 - `workspace-asset-detail`
@@ -309,4 +313,4 @@ _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-w
 
 ---
 
-*Regenerated 2026-05-20T16:31:53.754357+00:00 from commit 250fa0f. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-20T16:50:26.319018+00:00 from commit d1c3e2b. Re-run `python manage.py inventory` (from `shell/`) to refresh.*

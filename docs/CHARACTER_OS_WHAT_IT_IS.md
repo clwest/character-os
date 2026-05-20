@@ -2,9 +2,9 @@
 title: "Character OS — What It Actually Is"
 status: populated
 generated: 2026-05-13
-last_revised: 2026-05-19 (SESSION 197 — V-arc 100% real-mode closure)
+last_revised: 2026-05-20 (SESSION 205 — D-arc Publish Bundle closes the strategic-axis trifecta)
 companion_doc: CHARACTER_OS_INVENTORY.md
-covers_sessions: "106-197"
+covers_sessions: "106-205"
 ---
 
 # Character OS — What It Actually Is
@@ -598,6 +598,60 @@ artifacts on Donny's avatar bake; `clara` voice on
 Sasha's bake rendered clean. R9's hardcoded
 $0.08/min placeholder confirmed accurate within
 ~5x of real spend.
+
+---
+
+## Phase 5 — strategic-axis arcs (SESSIONS 185-205)
+
+After Phase 4 closed all four parallel arcs, the
+codebase had primitives + recipes but not yet the
+operator-visible **workflows** that turn primitives
+into compounding value. Phase 5 added strategic axes
+on top:
+
+* **Asset Library (A-arc, SESSIONS 185-192).**
+  `Asset.role` taxonomy + role-filtered SPA browse
+  surface + cross-link between Compositions and Assets.
+  Operators can now find every clip / image / audio /
+  transcript / portrait their workspace has produced
+  and filter by intended use (backdrop, talking_head,
+  composite_output, etc.).
+* **Transcript Miner (B-1, SESSION 202).** R-arc
+  transcripts → gpt-5-mini segment selection → operator
+  approval gate → re-baked `talking_head_polished`
+  per highlight. The realtime sessions that operators
+  already paid for now produce 3-5 shareable clips at
+  ~$0.001 LLM + standard talking-head cost per clip.
+* **Personalized Video (B-3, SESSION 203).** Template
+  + CSV → N personalized renders. The B2B sales /
+  lifecycle email category at scale; per-workspace
+  avatars make this structurally necessary in a way
+  generic-LLM-video tools can't deliver.
+* **`videos_per_month` cap migration (SESSION 204).**
+  Cleanup between strategic arcs — `get_usage()` had
+  been reading the legacy V6 Video shim while the
+  V/B/C arcs all created Compositions directly. Cap
+  was effectively disabled for modern callers (dev
+  workspace probe: 2 vs actual 72). Single-function
+  fix + 8 pinning tests + the new
+  `template_kind="publish_variant"` exclusion seam
+  (SESSION 205 D-arc dependency).
+* **Publish Bundle (B-14, SESSION 205).** One source
+  CLIP → N platform-ready variants
+  (Reels/Shorts/TikTok/X/LinkedIn) via the existing
+  `reformat_clip` + `trim_clip` primitives. Pure
+  ffmpeg, **$0 incremental cost** per variant. The
+  distribution-stickiness axis: every B2B customer
+  ships to ≥3 platforms.
+
+The four strategic-axis arcs **proved the scope-lock
+cadence** (4-for-4: A/B/C/D all shipped in one
+extended session each, including real-mode dogfood
+validation). The trifecta of B-1 (mine) + B-3
+(personalize) + B-14 (distribute) is now operator-
+ready; **B-2 Knowledge-driven auto-scripting** (the
+"generate" axis) is the missing piece queued for
+SESSION 206+.
 
 ---
 
