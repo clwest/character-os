@@ -83,6 +83,8 @@ export type RevisionHistoryEntry = z.infer<typeof revisionHistoryEntrySchema>;
  * Lite shape returned by the list endpoint.
  * Excludes revision_history, verification_warnings, full
  * knowledge_chunk_ids — those live on the detail shape only.
+ * Mirror of ``ScriptListSerializer.Meta.fields`` in
+ * ``shell/apps/scripts/serializers.py``.
  */
 export const scriptListItemSchema = z.object({
   id: z.string(),
@@ -93,7 +95,6 @@ export const scriptListItemSchema = z.object({
   prompt: z.string(),
   opener: z.string(),
   draft_text: z.string(),
-  knowledge_chunk_ids: z.array(z.string()),
   model: z.string(),
   tokens_input: z.number().int(),
   tokens_output: z.number().int(),
@@ -101,6 +102,7 @@ export const scriptListItemSchema = z.object({
   verification_status_label: z.string(),
   verifier_mode: z.enum(VERIFIER_MODES),
   revision_count: z.number().int().nonnegative(),
+  knowledge_chunk_count: z.number().int().nonnegative(),
   status: z.enum(SCRIPT_STATUSES),
   status_label: z.string(),
   approved_at: z.string().nullable(),
@@ -112,10 +114,12 @@ export type ScriptListItem = z.infer<typeof scriptListItemSchema>;
 
 /**
  * Full shape returned by the detail endpoint.
- * Extends the list item with cited_documents, verification_warnings,
- * and revision_history (large fields excluded from the list for perf).
+ * Extends the list item with knowledge_chunk_ids, cited_documents,
+ * verification_warnings, and revision_history (large fields excluded
+ * from the list for perf).
  */
 export const scriptDetailSchema = scriptListItemSchema.extend({
+  knowledge_chunk_ids: z.array(z.string()),
   cited_documents: z.array(citedDocumentSchema),
   verification_warnings: z.array(verificationWarningSchema),
   revision_history: z.array(revisionHistoryEntrySchema),

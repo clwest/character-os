@@ -226,8 +226,8 @@ function ScriptPreviewCard({
               <VerificationBadge tone={vTone} label={vLabel} />
             )}
             <span className="text-[10px] text-muted-foreground">
-              {script.knowledge_chunk_ids.length} chunk
-              {script.knowledge_chunk_ids.length !== 1 ? "s" : ""}
+              {script.knowledge_chunk_count} chunk
+              {script.knowledge_chunk_count !== 1 ? "s" : ""}
             </span>
           </div>
         </div>

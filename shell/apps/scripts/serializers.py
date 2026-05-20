@@ -42,9 +42,13 @@ class _BaseScriptSerializer(serializers.ModelSerializer):
         default="",
     )
     revision_count = serializers.SerializerMethodField()
+    knowledge_chunk_count = serializers.SerializerMethodField()
 
     def get_revision_count(self, obj: Script) -> int:
         return len(obj.revision_history or [])
+
+    def get_knowledge_chunk_count(self, obj: Script) -> int:
+        return len(obj.knowledge_chunk_ids or [])
 
 
 class ScriptListSerializer(_BaseScriptSerializer):
@@ -72,6 +76,7 @@ class ScriptListSerializer(_BaseScriptSerializer):
             "tokens_input",
             "tokens_output",
             "revision_count",
+            "knowledge_chunk_count",
             "approved_at",
             "created_at",
             "updated_at",
@@ -113,6 +118,7 @@ class ScriptDetailSerializer(_BaseScriptSerializer):
             "verifier_mode",
             "revision_history",
             "revision_count",
+            "knowledge_chunk_count",
             "status",
             "status_label",
             "approved_at",

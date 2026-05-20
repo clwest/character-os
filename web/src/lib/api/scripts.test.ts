@@ -51,7 +51,6 @@ function makeListItem(
     prompt: "Talk about our spring collection",
     opener: "",
     draft_text: "Hello, welcome to our spring launch…",
-    knowledge_chunk_ids: ["chunk-1", "chunk-2"],
     model: "gpt-5",
     tokens_input: 320,
     tokens_output: 180,
@@ -59,6 +58,7 @@ function makeListItem(
     verification_status_label: "Verified",
     verifier_mode: "warn" as const,
     revision_count: 0,
+    knowledge_chunk_count: 2,
     status: "draft" as const,
     status_label: "Draft",
     approved_at: null,
@@ -73,6 +73,7 @@ function makeDetail(
 ): Record<string, unknown> {
   return {
     ...makeListItem(),
+    knowledge_chunk_ids: ["chunk-1", "chunk-2"],
     cited_documents: [
       { id: "doc-1", title: "Product guide", chunk_count: 3 },
     ],
