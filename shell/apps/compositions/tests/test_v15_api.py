@@ -106,14 +106,18 @@ def _login(client: APIClient, user) -> None:
 # ---- registry shape ----------------------------------------------
 
 
-def test_recipe_registry_has_nineteen_entries() -> None:
+def test_recipe_registry_has_twenty_entries() -> None:
     """V15.4 added ``storyboard_voiced`` (was deferred from V13
     until V14 shipped ``audio_extract``), bringing the gallery
     to 18 starter compositions. V17.2 (SESSION 182) added
-    ``cinematic_visual_extended`` as the second post-close
-    recipe (extends V4's cinematic_visual via V17.1's
-    extend_visual_clip primitive), bringing the count to 19."""
-    assert len(RECIPES) == 19
+    ``cinematic_visual_extended`` (the second post-close
+    recipe, extends V4's cinematic_visual via V17.1's
+    extend_visual_clip primitive), bringing the count to 19.
+    B-2 / B2.4 (SESSION 206) added ``auto_script`` (the
+    operator-facing surface for rendering a pre-drafted,
+    knowledge-grounded Script row), bringing the count to 20.
+    """
+    assert len(RECIPES) == 20
 
 
 def test_every_recipe_has_required_metadata() -> None:
@@ -139,7 +143,8 @@ def test_every_recipe_kind_matches_starter_name() -> None:
 def test_recipe_field_types_use_allowed_vocab() -> None:
     allowed = {
         "text", "textarea", "checkbox", "select", "number",
-        "spokesperson_picker", "asset_picker", "dialogue_lines",
+        "spokesperson_picker", "asset_picker", "script_picker",
+        "dialogue_lines",
     }
     for recipe in RECIPES.values():
         for f in recipe.fields:
@@ -168,16 +173,18 @@ def test_recipe_asset_picker_fields_have_asset_type() -> None:
 # ---- GET /api/recipes/ -------------------------------------------
 
 
-def test_get_recipes_returns_all_nineteen() -> None:
+def test_get_recipes_returns_all_twenty() -> None:
     """V17.2 (SESSION 182) added ``cinematic_visual_extended``,
-    bringing the gallery from 18 to 19."""
+    bringing the gallery from 18 to 19. B-2 / B2.4 (SESSION
+    206) added ``auto_script``, bringing the count to 20.
+    """
     ws, user = _make_workspace_with_user("v15list@test")
     client = APIClient()
     _login(client, user)
     response = client.get("/api/recipes/")
     assert response.status_code == http.HTTP_200_OK
     data = response.json()
-    assert len(data) == 19
+    assert len(data) == 20
 
 
 def test_get_recipes_requires_auth() -> None:

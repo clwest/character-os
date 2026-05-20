@@ -324,7 +324,7 @@ v2.
 | **B2.1** ✓ SHIPPED | `apps.scripts` Django app + Script model + migration + cross-workspace signal + admin registration. 9 tests; Django 1269 → 1278. | ½ session |
 | **B2.2** ✓ SHIPPED | `apps.scripts.synthesis.draft_script` adapter over K6's `build_render_brief` + `ScriptDraftResult` dataclass + `snapshot_to_revision_history` + `apply_draft_to_script` helpers. K6 in-primitive callers unchanged. Strict-mode `ClaimVerifierError` caught + persisted as `blocked` (rule 4). 12 tests; Django 1278 → 1290. | ½ session |
 | **B2.3** ✓ SHIPPED | `ScriptViewSet` REST (8 actions) + `check_drafts_per_month` tier gate (Starter=10, Pro=100, Agency=∞) + `auto_script` Composition starter wiring. State machine enforced at viewset (DRAFT→READY→RENDERED + regenerate snaps READY→DRAFT). 21 REST tests; Django 1290 → 1311. | 1 session |
-| **B2.4** | `auto_script` recipe + starter + recipe-gallery registration + variant recipe (`auto_script_polished` if scope permits) + tests | ½ session |
+| **B2.4** ✓ SHIPPED | `auto_script` registered in `RECIPES` registry + new `script_picker` field type + `resolve_kwargs` extension. Surfaces in `/api/recipes/` gallery (count 19 → 20). `auto_script_polished` variant deferred to v2 per "if scope permits" hedge. 9 recipe tests; Django 1311 → 1320. | ½ session |
 | **B2.5** | SPA `/workspace/scripts` list + create + detail + regenerate + approve + render-now flow (subagent). Recipe gallery picker that opens a Script picker for `auto_script` (different from other recipes). | 1 session |
 | **B2.6** | Real-mode dogfood + arc close. Fire `draft_script` against Marcus (existing dogfood spokesperson with knowledge attached); approve; render; validate the rendered Asset uses the persisted chunk_ids for lineage. | ½ session |
 
@@ -506,6 +506,29 @@ UI orchestration on top.
   Inventory regenerated. B2.2 (refactor K6's
   `build_render_brief` → `apps.scripts.synthesis.draft_script`)
   opens next.
+
+* **2026-05-20 (SESSION 206, B2.4 SHIPPED)** —
+  `auto_script` registered in `apps.compositions.recipes.RECIPES`
+  with the `script_picker` form field type (new, B-2 specific)
+  + Q-e-11 resolved as-proposed. Recipe gallery count
+  19 → 20. `resolve_kwargs` extended to handle the new field
+  type — workspace + status=READY filtered lookup raises
+  `Script.DoesNotExist` on non-READY / cross-workspace /
+  unknown ids (view layer turns into 400). Form metadata
+  intentionally OMITS the free-form `script` textarea, the
+  `spokesperson_id` picker, and the `use_knowledge` checkbox —
+  all three would dilute the load-bearing UX bet that
+  auto_script is just "pick an approved Script, fire it" (per
+  rule 7). The `auto_script_polished` variant deferred to v2
+  per scope-lock "if scope permits, otherwise queue as v2";
+  shipped scope is the base `auto_script` only. Updated 3
+  V15 registry tests (19 → 20 + script_picker added to
+  allowed-types vocab). 9 new recipe tests pin registry
+  shape, form-field constraints, /api/recipes/ surface,
+  script_picker resolution + cross-workspace + non-READY +
+  unknown-id rejections. Django 1311 → 1320. B2.5 (SPA
+  `/workspace/scripts` list + create + detail + regenerate +
+  approve + render-now flow) opens next.
 
 * **2026-05-20 (SESSION 206, B2.3 SHIPPED)** —
   `ScriptViewSet` REST surface ships all 8 actions:

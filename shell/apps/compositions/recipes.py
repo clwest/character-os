@@ -22,6 +22,8 @@ Field types used by the SPA form renderer:
   spokesperson_picker — pick a workspace Spokesperson by id
   asset_picker        — pick an existing workspace Asset by id,
                         filtered by ``asset_type``
+  script_picker       — pick an approved (status=READY) workspace
+                        Script by id; B-2 / B2.4 (SESSION 206)
   dialogue_lines      — special composite for ``dialogue_scene``;
                         the SPA renders an add/remove list of
                         ``{spokesperson_id, text}`` rows
@@ -299,6 +301,44 @@ def _dialogue_resolver(
 
 
 RECIPES: dict[str, Recipe] = {
+    # ---- B-2 / E-arc auto-scripting --------------------------
+    #
+    # ``auto_script`` is the operator-facing surface for
+    # rendering a pre-drafted Script — the K6 synthesis ran at
+    # draft time, the K6.4 verifier already flagged any
+    # hallucinations, the operator already approved the draft.
+    # Picking it in the gallery just fires the render.
+    #
+    # Q-e-11 (SESSION 206) — surfaced in the gallery with a
+    # special Script picker form (instead of the free-form
+    # textarea). The picker filters to status=READY scripts so
+    # operators can't accidentally fire a draft that hasn't
+    # been approved.
+    "auto_script": Recipe(
+        kind="auto_script",
+        display_name="Auto-script (grounded in your knowledge)",
+        family=FAMILY_TALKING_HEAD,
+        description=(
+            "Render a pre-drafted, knowledge-grounded script as a "
+            "talking-head video. Drafts are reviewed for citation + "
+            "hallucinations before approval, so no Runway spend on "
+            "bad scripts."
+        ),
+        fields=(
+            RecipeField(
+                name="script_id", type="script_picker",
+                label="Approved script",
+                help_text=(
+                    "Only scripts in READY status (operator-approved) "
+                    "appear here. Draft new scripts at "
+                    "/workspace/scripts."
+                ),
+            ),
+            _NAME_FIELD,
+            _MOCK_MODE_FIELD,
+        ),
+        starter=starters.auto_script,
+    ),
     # ---- Talking-head family ---------------------------------
     "talking_head": Recipe(
         kind="talking_head",
@@ -1081,6 +1121,21 @@ def resolve_kwargs(
             sp = Spokesperson.objects.get(pk=value, workspace=workspace)
             # form-field is "spokesperson_id", starter kwarg is "spokesperson"
             kwargs[starter_kwarg.removesuffix("_id")] = sp
+        elif f.type == "script_picker":
+            # B-2 / B2.4 (SESSION 206) — pick an approved Script
+            # by id; cross-workspace lookups raise DoesNotExist
+            # (turned into 400 by the view layer). Status filter
+            # enforces "only READY scripts surface in the picker"
+            # per Q-e-11 + the auto_script starter contract.
+            from apps.scripts.models import Script
+
+            script_row = Script.objects.get(
+                pk=value,
+                workspace=workspace,
+                status=Script.Status.READY,
+            )
+            # form-field is "script_id", starter kwarg is "script"
+            kwargs[starter_kwarg.removesuffix("_id")] = script_row
         elif f.type == "asset_picker":
             asset = Asset.objects.get(pk=value, workspace=workspace)
             # W11.6.5 (SESSION 174) — image assets get unwrapped
