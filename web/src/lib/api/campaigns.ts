@@ -247,10 +247,14 @@ export function useParseCsv(campaignId: string | undefined) {
   return useMutation({
     mutationFn: (csvText: string) => parseCsv(campaignId!, csvText),
     onSuccess: () => {
-      // Refresh the detail + recipients after a new parse so the
-      // preview table renders the updated recipient list.
+      // Refresh the detail + recipients + forecast after a new
+      // parse. The forecast is the load-bearing one for the
+      // operator's "is this launchable?" decision — without
+      // this invalidation the panel shows 0 recipients +
+      // $0.00 total after a successful paste.
       void qc.invalidateQueries({ queryKey: ["campaign-recipients", campaignId] });
       void qc.invalidateQueries({ queryKey: ["campaign", campaignId] });
+      void qc.invalidateQueries({ queryKey: ["campaign-forecast", campaignId] });
     },
   });
 }
