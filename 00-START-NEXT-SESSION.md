@@ -47,7 +47,48 @@ state: active
 > (revised SESSION 192 — Asset Library v1 marked complete).
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_195_V_ARC_CLOSURE_2_BUGS_FOUND.md`.
+> **Last handoff:** `docs/handoffs/SESSION_196_BOTH_FIX_SLICES.md`.
+
+---
+
+## SESSION 196 outcome — both SESSION 195 fix slices shipped
+
+Quick-wins double again (same shape as SESSION 194). Both bugs
+SESSION 195 surfaced fixed in one session.
+
+**Slice 1 — mix_audio silent-base handling.** Media-engine
+`/internal/audio/mix/` ffprobe-detects whether the base has an
+audio stream; branches the filter_complex. Silent-base
+(storyboard_voiced shape) → overlay becomes the only audio
+output. Audio-base (music_bed_pass shape) → existing amix path
+unchanged. Pathological silent overlay → 422.
+
+**Slice 2 — combinator-primitive `result_role` param.**
+`concat_clips` reads `result_role` from step params with
+`BACKDROP` as backwards-compat default. `dialogue_scene` starter
+passes `result_role=composite_output`. Defense-in-depth: invalid
+role values raise `PrimitiveError`.
+
+**Spot-checked slice 1** against SESSION 195's actual silent
+storyboard + audio extract inputs — output
+`caeb55bcc6338cb8.mp4` plays with both streams, fix verified.
+
+Tests: **Django 1006 → 1011 (+5)**, **media-engine 194 → 197
+(+3)**. SPA unchanged. `pnpm build` clean. No real-mode spend.
+
+**V-arc status: 17/18 validated** — `storyboard_voiced` is now
+unblocked; one real-mode fire would close it 100%.
+
+### Tests at SESSION 196 close
+
+| Suite | Count |
+|---|---|
+| Django | 1011 |
+| - compositions | 580 |
+| Media-engine | 197 |
+| SPA vitest | 134 |
+
+Real-mode spend SESSION 196: **$0**.
 
 ---
 
@@ -268,43 +309,53 @@ Real-mode spend SESSION 192: **$0**.
 
 ---
 
-## FIRST THING (SESSION 196): two fix slices to close V-arc 100%
+## FIRST THING (SESSION 197): close V-arc 100% + operator picks
 
-Both bugs found SESSION 195. Both ½-session-sized. Both
-operator-picked at SESSION 195 close.
+**Both SESSION 195 bugs fixed in SESSION 196.** `storyboard_voiced`
+is now unblocked. One real-mode fire would close the V-arc to
+100% — the SESSION 195 goal that was scuttled by the mix_audio
+bug.
 
-### Slice 1 — mix_audio silent-base handling (media-engine, ½ session)
+### Recommended — Real-mode `storyboard_voiced` (~$1.92, ~5min)
 
-Detect missing base audio stream in `/internal/audio/mix/`
-+ fall through to `-map 1:a` filtergraph. Backwards-compat
-with existing music_bed_pass behavior (base has audio → amix
-as today). New test fixture for silent-base shape.
+Fire `storyboard_voiced` via the SPA recipe form with similar
+content to SESSION 195 (3 storyboard frames + ~15s narration).
+Cost ~$1.92 (3 Stability + 3 Runway visuals + 1 avatar speech).
+Full pipeline now exercises end-to-end including the just-fixed
+silent-base mix_audio. **Closes V-arc 100%.** First end-to-end
+real-mode run of the deepest V-arc recipe.
 
-When this lands, re-fire `storyboard_voiced` real-mode →
-V-arc 100% closure (the SESSION 195 goal). Probably ~$0
-additional spend if we re-use the existing partial
-composition's upstream outputs, or ~$1.92 if we fire from
-scratch.
+After it lands, the produced_assets panel on the composition
+overview should show 9 step outputs (3 images + 3 visual clips
++ concat + avatar speech + audio extract + mix) — that's a
+useful Asset Library dogfood too.
 
-### Slice 2 — combinator-primitive role override (½ session)
+### Alternative paths
 
-Add `result_role` param to `concat_clips` (and likely
-`composite_video` + `mix_audio` too). Recipe starter passes
-`result_role` per step; primitive reads + stamps. Backwards-
-compat default keeps current BACKDROP stamp. Apply
-override to `dialogue_scene.concat_clips` → COMPOSITE_OUTPUT
-(plus review other combinator step calls per recipe).
+If operator doesn't want to spend the ~$1.92 right now:
 
-### Recommended ordering
-
-**Slice 1 first** — clears the V-arc 100% closure path.
-Slice 2 is the cleanup that hardens the A-arc taxonomy
-+ doesn't block anything.
-
-If operator wants quick-win double (per the successful
-SESSION 194 pattern): both slices in one SESSION 196.
-Combined ~1 full session, $0 code-spend + maybe ~$0 if we
-re-fire storyboard_voiced from the partial.
+* **Follow-up taxonomy questions queued from SESSION 196**:
+  `long_form_ad` and `storyboard_ad` concat_clips outputs have
+  similar BACKDROP-vs-COMPOSITE_OUTPUT semantic considerations.
+  Each is a 1-line starter change + a test. Bundle as a
+  quick-wins double (½ session each).
+* **Real-mode validation for the other unvalidated V-arc
+  recipe**: any V-arc recipe not yet real-mode-fired carries
+  near-certain latent bugs per the SESSION 195 calibration.
+  `storyboard_voiced` is the only known one. (All 17 others
+  validated SESSION 158 onwards.)
+* **Asset upload UI** (1-2 sessions): unblocks the 8 legacy
+  needs-review rows + operator-uploaded content.
+* **W12 legacy form retirement** (1 session): tech debt cleanup.
+* **K7.x v3 YouTube oEmbed** (½ session): niche K-arc polish.
+* **K6.4 v3 architectural fix** (1 session): verifier surface
+  design lock.
+* **F8.1 K10 seed corpus** — still blocked on operator
+  markdown.
+* **B6-B10 brand arc** — still deferred.
+* **New-arc candidates** from `CONTENT_FORMAT_BACKLOG.md`: B-1
+  (transcript miner), B-3 (personalized video), B-14 (multi-
+  platform variants).
 
 ### Queued backlog (operator picks)
 
@@ -531,15 +582,15 @@ For any new step primitive added after A2:
 4. **Register the primitive** in
    `apps/compositions/primitives/__init__.py::_REGISTRY`.
 
-**Smoke checks** (counts as of SESSION 195 close — no code change):
+**Smoke checks** (counts as of SESSION 196 close):
 
 ```bash
 # Backend (from shell/)
 python manage.py inventory
-python -m pytest                              # 1006 tests (compositions: 575)
+python -m pytest                              # 1011 tests (compositions: 580)
 
 # Media-engine (from media-engine/)
-python -m pytest                              # 194 tests
+python -m pytest                              # 197 tests
 
 # SPA (from web/)
 pnpm build                                    # type-check + bundle
@@ -663,17 +714,19 @@ pnpm test                                     # 134 vitest tests
 
 ## AI / assistant context
 
-- **Last session: SESSION 195 — V-arc closure attempt.**
-  No code changes. Real-mode validation of last 2 unvalidated
-  recipes found 2 production bugs (mix_audio silent-base
-  ffmpeg failure + concat_clips role semantics mismatch).
-  3 new TRUST_CALIBRATION entries; 2 fix slices queued.
-  Spend: $3.17. V-arc now 17/18 validated.
+- **Last session: SESSION 196 — both SESSION 195 fix slices
+  shipped.** Quick-wins double (SESSION 194 shape). Slice 1:
+  mix_audio silent-base ffprobe detection + branched
+  filtergraph (media-engine). Slice 2: concat_clips
+  result_role param + dialogue_scene override. Django
+  1006 → 1011 (+5); media-engine 194 → 197 (+3). No new
+  TRUST_CALIBRATION entries — SESSION 195 already documented
+  the underlying findings.
 
-- **Prior session: SESSION 194 — V18 polish double.** Two
-  SESSION 184 calibrations shipped; tests 995 → 1006.
+- **Prior session: SESSION 195 — V-arc closure attempt found
+  2 production bugs.** Both fixed SESSION 196.
 
-- **Calibration carried forward (23 total — NEW SESSION 195)**:
+- **Calibration carried forward (23 total — unchanged SESSION 196)**:
   - **mix_audio assumes base has audio** — V14/V15.4 design
     oversight surfaced by storyboard_voiced real-mode.
   - **concat_clips role semantics are recipe-dependent** —
