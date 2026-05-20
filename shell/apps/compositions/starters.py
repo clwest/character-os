@@ -550,6 +550,11 @@ def long_form_ad(
     use_llm_split: bool = False,
     use_knowledge: bool = False,
     reencode_concat: bool = False,
+    # SESSION 198 — outro_text parity with the cinematic recipes.
+    # Optional 3-second white-on-black outro card appended after
+    # the concat (or after the lone speech step on the degenerate
+    # single-chunk path). Blank / whitespace-only = skip.
+    outro_text: str | None = None,
     mock_mode: bool = False,
     name: str = "",
     created_by: "AbstractBaseUser | None" = None,
@@ -673,24 +678,54 @@ def long_form_ad(
     # chunk — the composition is functionally identical to
     # ``talking_head``. Keeps the data clean (no degenerate
     # 1-input concat).
+    last_output_position = len(chunks) - 1  # the final speech step
     if len(chunks) > 1:
         concat_inputs = [
             {"slot": "clip", "from_step_position": i}
             for i in range(len(chunks))
         ]
+        # SESSION 198 slice C — long_form_ad's concat output is
+        # extended talking-head content (N chunked avatar
+        # speeches stitched together), not a backdrop. Pass
+        # ``result_role=talking_head`` to the concat primitive
+        # (introduced SESSION 196) so the final lands with the
+        # right role + stays out of the A7 backdrop_clip_id
+        # picker.
         CompositionStep.objects.create(
             composition=composition,
             position=len(chunks),
             primitive="concat_clips",
             inputs=concat_inputs,
-            params={"reencode": bool(reencode_concat)},
+            params={
+                "reencode": bool(reencode_concat),
+                "result_role": "talking_head",
+            },
+        )
+        last_output_position = len(chunks)
+
+    # SESSION 198 — optional brand outro card. Appended after the
+    # last step (concat or lone speech). Blank = skip.
+    cleaned_outro = (outro_text or "").strip()
+    if cleaned_outro:
+        CompositionStep.objects.create(
+            composition=composition,
+            position=last_output_position + 1,
+            primitive="add_intro_outro",
+            inputs=[{"slot": "base", "from_step_position": last_output_position}],
+            params={
+                "outro": {
+                    "text": cleaned_outro,
+                    "duration_s": 3.0,
+                },
+            },
         )
 
     logger.info(
         "starter long_form_ad created composition=%s spokesperson=%s "
-        "mock=%s chunks=%d use_llm_split=%s use_knowledge=%s",
+        "mock=%s chunks=%d use_llm_split=%s use_knowledge=%s outro=%s",
         composition.id, spokesperson.id, mock_mode,
         len(chunks), use_llm_split, use_knowledge,
+        bool(cleaned_outro),
     )
     return composition
 
@@ -1954,6 +1989,11 @@ def storyboard_ad(
     payoff_prompt: str,
     image_seed: int | None = None,
     clip_duration: int = 5,
+    # SESSION 198 — outro_text parity with storyboard_voiced.
+    # Optional 3-second white-on-black outro card appended after
+    # the concat. Blank / whitespace-only = skip (existing
+    # 7-step composition shape preserved).
+    outro_text: str | None = None,
     mock_mode: bool = False,
     name: str = "",
     created_by: "AbstractBaseUser | None" = None,
@@ -2066,10 +2106,30 @@ def storyboard_ad(
         params={},
     )
 
+    # SESSION 198 — optional brand outro card. Mirrors
+    # storyboard_voiced exactly. When ``outro_text`` is non-empty,
+    # append an add_intro_outro step at position 7 consuming the
+    # concat output as base. Blank = skip (existing 7-step shape).
+    cleaned_outro = (outro_text or "").strip()
+    if cleaned_outro:
+        CompositionStep.objects.create(
+            composition=composition,
+            position=7,
+            primitive="add_intro_outro",
+            inputs=[{"slot": "base", "from_step_position": 6}],
+            params={
+                "outro": {
+                    "text": cleaned_outro,
+                    "duration_s": 3.0,
+                },
+            },
+        )
+
     logger.info(
         "starter storyboard_ad created composition=%s spokesperson=%s "
-        "mock=%s seed=%s duration_per_shot=%d",
+        "mock=%s seed=%s duration_per_shot=%d outro=%s",
         composition.id, spokesperson.id, mock_mode, image_seed, clip_duration,
+        bool(cleaned_outro),
     )
     return composition
 

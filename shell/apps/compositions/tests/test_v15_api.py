@@ -1172,6 +1172,238 @@ def test_create_long_form_ad_chunks_script() -> None:
     assert len(data["steps"]) >= 3
 
 
+def test_storyboard_ad_outro_text_appends_eighth_step() -> None:
+    """SESSION 198 — outro_text parity for storyboard_ad. When set,
+    the starter appends an add_intro_outro step at position 7 after
+    the concat. Backwards-compat default (blank) keeps the 7-step
+    shape."""
+    ws, user = _make_workspace_with_user("v198sba_outro@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "storyboard_ad",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "hook_prompt": "neon skyline at dusk",
+                "action_prompt": "founder walks the floor",
+                "payoff_prompt": "team raises a glass",
+                "outro_text": "Dog Food Coffee House",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    assert data["template_kind"] == "storyboard_ad"
+    assert len(data["steps"]) == 8
+    steps_by_pos = sorted(data["steps"], key=lambda s: s["position"])
+    assert steps_by_pos[7]["primitive"] == "add_intro_outro"
+    assert steps_by_pos[7]["params"]["outro"]["text"] == "Dog Food Coffee House"
+    assert steps_by_pos[7]["params"]["outro"]["duration_s"] == 3.0
+    assert steps_by_pos[7]["inputs"] == [
+        {"slot": "base", "from_step_position": 6},
+    ]
+
+
+def test_storyboard_ad_blank_outro_keeps_seven_steps() -> None:
+    """SESSION 198 — backwards-compat for storyboard_ad."""
+    ws, user = _make_workspace_with_user("v198sba_blank@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "storyboard_ad",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "hook_prompt": "scene 1",
+                "action_prompt": "scene 2",
+                "payoff_prompt": "scene 3",
+                "outro_text": "   ",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED
+    assert len(response.json()["steps"]) == 7
+
+
+def test_long_form_ad_outro_text_appends_step_after_concat() -> None:
+    """SESSION 198 — outro_text parity for long_form_ad multi-chunk
+    path. Outro lives at position len(chunks)+1 (after the concat
+    at position len(chunks))."""
+    ws, user = _make_workspace_with_user("v198lf_outro@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    script = (
+        "Welcome to our spring launch event. "
+        "We've been working all year on something special. "
+        "Today we're proud to introduce three new products. "
+        "First, our flagship pen. "
+        "Second, our notebook line. "
+        "Third, our gift box. "
+        "Order today and get free shipping on every order. "
+        "Visit our website to learn more about each piece."
+    )
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "long_form_ad",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": script,
+                "outro_text": "Brand Co.",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    steps_by_pos = sorted(data["steps"], key=lambda s: s["position"])
+    # Last step is the outro card.
+    last_step = steps_by_pos[-1]
+    assert last_step["primitive"] == "add_intro_outro"
+    assert last_step["params"]["outro"]["text"] == "Brand Co."
+    # Penultimate is the concat (which chains the speech outputs).
+    second_last = steps_by_pos[-2]
+    assert second_last["primitive"] == "concat_clips"
+    # Outro chains to the concat.
+    assert last_step["inputs"] == [
+        {"slot": "base", "from_step_position": second_last["position"]},
+    ]
+
+
+def test_long_form_ad_single_chunk_outro_chains_to_speech() -> None:
+    """SESSION 198 — degenerate single-chunk path: no concat;
+    outro consumes the lone generate_avatar_speech step directly."""
+    ws, user = _make_workspace_with_user("v198lf_single@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    # ~280-char script (right at DEFAULT_CHUNK_MAX_CHARS) produces a
+    # single chunk → 1 speech step + 1 outro = 2 steps total.
+    script = (
+        "Welcome to our spring launch event. We've been working all "
+        "year on something special. Order today and get free "
+        "shipping on every order. Visit our website to learn more."
+    )
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "long_form_ad",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": script,
+                "outro_text": "Closer",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    steps_by_pos = sorted(data["steps"], key=lambda s: s["position"])
+    # Expect 2 steps: speech + outro (no concat, single chunk).
+    assert len(steps_by_pos) == 2
+    assert steps_by_pos[0]["primitive"] == "generate_avatar_speech"
+    assert steps_by_pos[1]["primitive"] == "add_intro_outro"
+    # Outro chains to the speech (position 0), not a concat.
+    assert steps_by_pos[1]["inputs"] == [
+        {"slot": "base", "from_step_position": 0},
+    ]
+
+
+def test_long_form_ad_concat_uses_talking_head_result_role() -> None:
+    """SESSION 198 slice C — long_form_ad's concat output is N
+    chunked talking-head speeches stitched into long-form content;
+    role should be TALKING_HEAD (extended TH), not BACKDROP. Keeps
+    the long-form deliverable out of the A7 backdrop_clip_id
+    picker."""
+    ws, user = _make_workspace_with_user("v198lf_role@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    script = (
+        "Welcome to our spring launch event. "
+        "We've been working all year on something special. "
+        "Today we're proud to introduce three new products. "
+        "First, our flagship pen. Second, our notebook line. "
+        "Third, our gift box. Order today and get free shipping. "
+        "Visit our website to learn more about each piece."
+    )
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "long_form_ad",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": script,
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    steps_by_pos = sorted(data["steps"], key=lambda s: s["position"])
+    concat = next(s for s in steps_by_pos if s["primitive"] == "concat_clips")
+    assert concat["params"]["result_role"] == "talking_head"
+
+
+def test_storyboard_ad_concat_keeps_default_backdrop_role() -> None:
+    """SESSION 198 — explicit non-decision for storyboard_ad. Per
+    SESSION 196 handoff: a 3-shot cinematic IS picker-eligible as
+    a backdrop for V18 avatar speech (defensible). Leaving the
+    default BACKDROP stamp. Test guards against accidental
+    regression if the operator changes their mind."""
+    ws, user = _make_workspace_with_user("v198sba_role@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "storyboard_ad",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "hook_prompt": "scene 1",
+                "action_prompt": "scene 2",
+                "payoff_prompt": "scene 3",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED
+    data = response.json()
+    steps_by_pos = sorted(data["steps"], key=lambda s: s["position"])
+    concat = next(s for s in steps_by_pos if s["primitive"] == "concat_clips")
+    # No result_role override = default BACKDROP at primitive runtime.
+    # The starter doesn't set it explicitly; primitive picks up the
+    # default. Test asserts the starter doesn't pass an override.
+    assert "result_role" not in concat["params"]
+
+
 def test_create_style_remix_pass_with_clip() -> None:
     """V15.3 — style_remix_pass takes a CLIP + preset."""
     ws, user = _make_workspace_with_user("v15style@test")

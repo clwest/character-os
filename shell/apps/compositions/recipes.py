@@ -486,6 +486,19 @@ RECIPES: dict[str, Recipe] = {
                 help_text="Consults gpt-5-mini for semantically-clean splits (small cost; otherwise naive at sentence boundaries).",
             ),
             RecipeField(name="use_knowledge", type="checkbox", label="Use workspace knowledge per chunk", required=False, default=False),
+            # SESSION 198 — outro_text parity with the cinematic
+            # recipes. Brand outro for the long-form deliverable;
+            # appended after the concat step (or after the lone
+            # speech step for degenerate single-chunk renders).
+            RecipeField(
+                name="outro_text", type="text",
+                label="Brand outro card (optional)",
+                required=False, max_chars=80,
+                help_text=(
+                    "Title card appended after the ad. 3 seconds, "
+                    "white text on black. Leave blank to skip."
+                ),
+            ),
             _VERIFIER_MODE_FIELD,
             _OPENER_FIELD,
             _NAME_FIELD,
@@ -662,6 +675,18 @@ RECIPES: dict[str, Recipe] = {
             RecipeField(name="hook_prompt", type="textarea", label="Hook prompt", min_chars=4, max_chars=600),
             RecipeField(name="action_prompt", type="textarea", label="Action prompt", min_chars=4, max_chars=600),
             RecipeField(name="payoff_prompt", type="textarea", label="Payoff prompt", min_chars=4, max_chars=600),
+            # SESSION 198 — outro_text parity with storyboard_voiced.
+            # Same shape (text, optional, 80 char max) so the operator
+            # gets the same UX across the cinematic family.
+            RecipeField(
+                name="outro_text", type="text",
+                label="Brand outro card (optional)",
+                required=False, max_chars=80,
+                help_text=(
+                    "Title card appended after the ad. 3 seconds, "
+                    "white text on black. Leave blank to skip."
+                ),
+            ),
             RecipeField(
                 name="image_seed", type="number", label="Image seed (optional)",
                 required=False, help_text="Same seed across shots = same visual style.",
