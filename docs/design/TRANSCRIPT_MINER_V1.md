@@ -1,9 +1,9 @@
 ---
 title: "Transcript Miner — realtime conversations → shareable highlight clips"
-status: locked
+status: complete
 proposed: 2026-05-19 (SESSION 202, slice B1.0)
 locked: 2026-05-19 (SESSION 202, slice B1.0)
-closed: null
+closed: 2026-05-20 (SESSION 202, slice B1.7)
 companion_docs:
   - REALTIME_AVATAR_V1.md
   - VIDEO_COMPOSITION_V1.md
@@ -373,3 +373,29 @@ The backlog estimate said 6-8.
   Q-b-7: reverse-FK from RealtimeSession; Q-b-8: no
   auto-dedupe on re-mining). Status flips proposed →
   locked. B1.1 (LLM helper) opens immediately.
+
+* **2026-05-20 (SESSION 202, B1.7 — ARC CLOSED).** Eight slices
+  (B1.0–B1.7) shipped in one extended session. Real-mode
+  dogfood validated end-to-end against a 913-char Marcus
+  transcript (Caesar assassination conversation):
+  3 highlights mined ($0.001 LLM), 1 approved + rendered
+  ($0.25 Runway), composition completed in 19.3s, completion
+  signal flipped APPROVED → RENDERED automatically.
+
+  **Mid-arc contract reshape**: B1.7 dogfood surfaced the
+  recurring "gpt-5 reasoning eats output budget" pattern when
+  asked to compute char offsets alongside content selection.
+  Rule 3 (auditable LLM selection) is preserved but the
+  mechanism shifted: the LLM returns text + reasoning only;
+  the parser locates offsets via ``body.find(text)``. Functional
+  contract unchanged; the LLM's job is now pure pattern-matching.
+
+  Tests at close: Django **1098 → 1097 (net -1 from B1.7
+  refactor)**; SPA vitest **134 → 188 (+54)**; media-engine
+  unchanged at 209. Real-mode spend: **$0.25** (one full
+  approve-to-render cycle).
+
+  Status: **complete**. Outstanding v2 candidates (not in v1
+  scope): external transcript ingestion, original-session-audio
+  extraction, auto-fire without approval, batch mining,
+  highlight chaining/montage.

@@ -4481,3 +4481,114 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   dogfood. SESSION 201 was the first explicit application;
   worth keeping the pattern as a follow-up step on the
   "real-mode finds bugs in every recipe" loop.
+
+### gpt-5 reasoning eats output budget — char-offset math is a recurring trigger
+- **Date:** 2026-05-20
+- **Session:** 202 (B1.7 dogfood)
+- **Context:** B1.1 originally asked gpt-5-mini to return each
+  highlight with ``text`` + ``char_start`` + ``char_end`` +
+  ``reasoning``. The prompt enforced the offset-math contract
+  ("transcript[char_start:char_end] must equal text"). Mock-mode
+  tests passed (the mock never exercises the LLM); real-mode
+  first fire returned ``output_text=""`` despite consuming 1984
+  of 2000 max_output_tokens — the entire output budget burned on
+  reasoning about how to count characters, with nothing left for
+  the actual JSON.
+- **Surface / artefact:** SPA showed "The model ran but found no
+  shareable highlights" (the ``used_synthesis=True, picks=[]``
+  branch). Direct ``_call_responses_api`` probe confirmed
+  ``tokens_out=1984`` + empty ``output_text``. **Same shape as
+  the SESSION 171 K6 calibration** — promoting that entry from
+  "specific to K6's script synthesis" to "any gpt-5 task asking
+  for substring-math-y output."
+- **AI expectation (before):** gpt-5-mini at
+  ``reasoning_effort="low"`` was assumed cheap enough for a
+  5-highlight structured-JSON pick. The mock-mode test coverage
+  felt sufficient because the mock was deterministic.
+- **Reality / outcome:** **The mock didn't cover the failure
+  mode.** Asking the model to do char-counting alongside content
+  selection is enough to blow the budget at "low" effort — and
+  the failure is silent (empty output, no exception, the
+  helper's "degraded to empty result" path looks identical to a
+  legitimately uninteresting transcript).
+- **Found by:** B1.7 real-mode dogfood + a direct
+  ``_call_responses_api`` probe with DEBUG logging.
+- **Lesson:** **Architectural fix beats budget bumps for
+  substring-math-y LLM tasks.** Two options when the model needs
+  to "locate" a substring in a larger body:
+
+  * **Bad option**: ask the LLM for offsets directly. Even at
+    "low" effort, gpt-5 burns reasoning tokens computing them
+    and silently blows the output budget.
+  * **Good option**: ask the LLM for the verbatim text only.
+    Locate offsets server-side via ``body.find(text)``. The LLM
+    job becomes pure pattern-matching; the parser does the math.
+
+  B1.7 shipped option 2. Token usage dropped from 0/1984 to
+  459/658 on the same task. Verified real-mode on a 913-char
+  transcript: 3 picks, all valid offsets, $0.001 spend.
+
+  **Forward defense**: any future Responses-API caller that
+  needs to identify a substring of a longer body should follow
+  the "ask for text, locate via find() in the parser" pattern.
+  Audit candidates: K6.4 verification (if it ever computes
+  citation spans), F6 lineage extractors, any future
+  segment-selection pipeline.
+
+  Also: **add a real-mode smoke test for any new gpt-5 caller**.
+  Mock-mode tests verify the parser; only real-mode catches the
+  reasoning-budget burn. The B1.1 unit tests were comprehensive
+  (21 of them) and missed this entirely.
+
+### B-arc landed in a single session — scope-lock pattern is paying off
+- **Date:** 2026-05-20
+- **Session:** 202
+- **Context:** B-1 Transcript Miner — first strategic-axis arc
+  after the V-arc UX polish + Asset Library + forward-defense
+  audit close-out. Scope-locked at B1.0 (8 contract rules, 7
+  slices) and shipped B1.0 through B1.7 in one extended session
+  including real-mode dogfood validation.
+- **Surface / artefact:** Composition
+  ``b4ab9ea6-60b5-4478-85c8-df75595b9ed8`` — Marcus saying
+  "They saw it as a necessary act to save the Republic." (the
+  52-char highlight the operator approved). $0.25 spend, 19.3s
+  wall-time, 1/1 step succeeded. The completion signal
+  (load-bearing test of B1.4) flipped highlight status
+  APPROVED → RENDERED automatically.
+- **AI expectation (before):** Per the SESSION 195 calibration
+  ("real-mode finds bugs in EVERY recipe"), at least one bug
+  expected during B1.7 dogfood. The B1.7 fix DID surface the
+  gpt-5 offset-math bug — but it surfaced cleanly via the
+  "empty result" path, not via crash or data corruption.
+- **Reality / outcome:** **Single-bug arc.** The
+  reasoning-budget burn was the only real-mode finding. Once
+  the helper was refactored (B1.7 fix), the entire pipeline ran
+  first-try end-to-end: spokesperson reverse-FK lookup worked,
+  starter created the right composition shape, execute_composition
+  ran, post_save signal fired correctly. The most architecturally
+  brittle piece — the completion signal flipping APPROVED →
+  RENDERED via a cross-app post_save hook — worked without
+  incident.
+- **Found by:** Operator UI-driven dogfood of the longest Marcus
+  transcript (913 chars, Caesar assassination conversation).
+- **Lesson:** **The scope-lock pattern paid for itself again.**
+  Eight contract rules + seven sequenced slices + per-slice
+  test coverage produced a one-session arc with one surface bug.
+  Same shape as the A-arc (Asset Library, SESSIONS 185-192) and
+  the R-arc closing fires — careful upfront scoping compresses
+  the build phase.
+
+  Also confirmed: **real-mode dogfood is still load-bearing**.
+  B-1 had 67 tests across the backend (B1.1 + B1.2 + B1.3 + B1.4)
+  + 54 SPA tests (B1.5 + B1.6). Every test passed. Real-mode
+  still found a bug the test surface couldn't see (the
+  reasoning-budget burn). Mock tests verify the contract; only
+  real-mode verifies the provider's interpretation of the
+  contract.
+
+  The strategic moat thesis from CONTENT_FORMAT_BACKLOG.md §B-1
+  is now demonstrable: per-workspace realtime avatar →
+  per-workspace transcripts → per-workspace highlight clips.
+  No LLM-video competitor has the same data to mine. Marcus
+  saying the Republic quote is structurally unique to this
+  stack.
