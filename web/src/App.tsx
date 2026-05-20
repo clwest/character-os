@@ -16,6 +16,9 @@ import { WorkspaceTranscriptDetailRoute } from "@/routes/workspace/transcripts.$
 import { WorkspaceCampaignsRoute } from "@/routes/workspace/campaigns";
 import { CampaignNewRoute } from "@/routes/workspace/campaigns.new";
 import { CampaignDetailRoute } from "@/routes/workspace/campaigns.$id";
+import { WorkspaceBundlesRoute } from "@/routes/workspace/bundles";
+import { BundleNewRoute } from "@/routes/workspace/bundles.new";
+import { BundleDetailRoute } from "@/routes/workspace/bundles.$id";
 import { RecipeGalleryRoute } from "@/routes/recipes";
 import { RecipeFormRoute } from "@/routes/recipes/$kind";
 import { ImagesRoute } from "@/routes/images";
@@ -150,6 +153,32 @@ export function App() {
             element={
               <RequireAuth>
                 <CampaignDetailRoute />
+              </RequireAuth>
+            }
+          />
+          {/* B14.4 — Publish Bundles. /new registers before
+              the dynamic :id catch-all per the /campaigns pattern. */}
+          <Route
+            path="/workspace/bundles"
+            element={
+              <RequireAuth>
+                <WorkspaceBundlesRoute />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/workspace/bundles/new"
+            element={
+              <RequireAuth>
+                <BundleNewRoute />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/workspace/bundles/:id"
+            element={
+              <RequireAuth>
+                <BundleDetailRoute />
               </RequireAuth>
             }
           />

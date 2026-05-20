@@ -121,6 +121,30 @@ export function WorkspaceAssetDetailRoute() {
 
       {/* ---- Lineage -------------------------------------------- */}
       <LineageSection asset={data} />
+
+      {/* ---- Publish bundle CTA (CLIP assets only — Q-d-8) ------- */}
+      {data.asset_type === "clip" && (
+        <section
+          data-testid="publish-bundle-section"
+          className="rounded-md border border-border bg-card p-5 flex flex-col gap-3"
+        >
+          <h2 className="font-display text-lg tracking-tight">
+            Publish to social platforms
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Fan this clip out to Instagram Reels, YouTube Shorts, TikTok, X,
+            and LinkedIn — each at the right aspect ratio and duration cap.
+            All ffmpeg, $0 incremental cost.
+          </p>
+          <a
+            data-testid="publish-bundle-cta"
+            href={`/workspace/bundles/new?source_clip_id=${data.id}`}
+            className="inline-flex w-fit items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 transition-colors"
+          >
+            Publish bundle
+          </a>
+        </section>
+      )}
     </div>
   );
 }
