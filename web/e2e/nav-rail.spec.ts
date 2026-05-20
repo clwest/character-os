@@ -3,13 +3,13 @@ import { test, expect } from "@playwright/test";
 // SESSION 144 / F2 — persistent nav rail.
 //
 // The rail mounts only on authenticated, non-auth routes.
-// It exposes four sections (Dashboard, Spokespeople,
-// Knowledge, Recipes) and highlights the active one by
-// pathname prefix.
-//
-// F0 contract rule 7 — adding a fifth top-level section
-// requires its own scope-lock event. The hard count below
-// is a regression net.
+// Expanded SESSION 209 to 11 sections to surface the post-F-arc
+// workspace additions (Transcripts, Scripts, Campaigns, Bundles,
+// Videos, Assets). Each new entry is authorized by its own
+// scope-lock doc (TRANSCRIPT_MINER_V1, AUTO_SCRIPTING_V1,
+// PERSONALIZED_VIDEO_V1, PUBLISH_BUNDLE_V1, ASSET_LIBRARY_V1) —
+// F0 contract rule 7 satisfied. Videos is the paginated
+// composition library shipped SESSION 209 Path A.
 
 test.describe("nav rail (F2)", () => {
   test("hidden on auth routes", async ({ page }) => {
@@ -19,7 +19,7 @@ test.describe("nav rail (F2)", () => {
     await expect(page.getByTestId("nav-rail")).not.toBeVisible();
   });
 
-  test("renders four sections on the dashboard", async ({ page }) => {
+  test("renders eleven sections on the dashboard", async ({ page }) => {
     const email = `e2e-rail-${Date.now()}-${Math.floor(Math.random() * 1e6)}@character-os.test`;
     const password = "playwright-test-pw-x4q9z!";
 
@@ -36,12 +36,19 @@ test.describe("nav rail (F2)", () => {
     await expect(page.getByTestId("nav-dashboard")).toBeVisible();
     await expect(page.getByTestId("nav-spokespeople")).toBeVisible();
     await expect(page.getByTestId("nav-knowledge")).toBeVisible();
+    await expect(page.getByTestId("nav-transcripts")).toBeVisible();
+    await expect(page.getByTestId("nav-scripts")).toBeVisible();
     await expect(page.getByTestId("nav-recipes")).toBeVisible();
+    await expect(page.getByTestId("nav-campaigns")).toBeVisible();
+    await expect(page.getByTestId("nav-bundles")).toBeVisible();
+    await expect(page.getByTestId("nav-videos")).toBeVisible();
+    await expect(page.getByTestId("nav-assets")).toBeVisible();
+    await expect(page.getByTestId("nav-images")).toBeVisible();
 
-    // Hard count — F0 contract rule 7 protects against an
-    // accidental fifth section sneaking in.
+    // Hard count — guards against accidental drift between rail
+    // entries and the scope-locked surfaces they expose.
     const items = rail.locator("[data-testid^='nav-']");
-    await expect(items).toHaveCount(4);
+    await expect(items).toHaveCount(11);
 
     // Active section is dashboard.
     await expect(page.getByTestId("nav-dashboard")).toHaveAttribute(

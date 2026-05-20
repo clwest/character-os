@@ -16,6 +16,7 @@ import { WorkspaceTranscriptDetailRoute } from "@/routes/workspace/transcripts.$
 import { WorkspaceCampaignsRoute } from "@/routes/workspace/campaigns";
 import { CampaignNewRoute } from "@/routes/workspace/campaigns.new";
 import { CampaignDetailRoute } from "@/routes/workspace/campaigns.$id";
+import { WorkspaceVideosRoute } from "@/routes/workspace/videos";
 import { WorkspaceBundlesRoute } from "@/routes/workspace/bundles";
 import { BundleNewRoute } from "@/routes/workspace/bundles.new";
 import { BundleDetailRoute } from "@/routes/workspace/bundles.$id";
@@ -156,6 +157,16 @@ export function App() {
             element={
               <RequireAuth>
                 <CampaignDetailRoute />
+              </RequireAuth>
+            }
+          />
+          {/* SESSION 209 — Videos library (paginated composition
+              list). Detail still lives at /compositions/:id. */}
+          <Route
+            path="/workspace/videos"
+            element={
+              <RequireAuth>
+                <WorkspaceVideosRoute />
               </RequireAuth>
             }
           />

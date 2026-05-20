@@ -58,6 +58,7 @@ from character_os.permissions import IsWorkspaceMember
 
 from .recipes import RECIPES, get_recipe, resolve_kwargs
 from .serializers import (
+    CompositionListSerializer,
     CompositionSerializer,
     ImageAssetSerializer,
     RecipeSerializer,
@@ -232,6 +233,20 @@ class RecipeViewSet(viewsets.ViewSet):
         return Response(recipe.to_json())
 
 
+class CompositionPagination(PageNumberPagination):
+    """Page-number pagination for the Composition list.
+
+    Default 25/page, operator-overridable via ``?page_size=``
+    up to 100. Response shape is
+    ``{count, next, previous, results}`` — the SPA's Videos
+    library reads these directly.
+    """
+
+    page_size = 25
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
 class CompositionViewSet(viewsets.GenericViewSet):
     """Composition create + retrieve + list.
 
@@ -239,10 +254,15 @@ class CompositionViewSet(viewsets.GenericViewSet):
     are immutable once they start running; deleting a row
     breaks audit. Operators can mark a stuck composition
     failed via admin, not REST.
+
+    List endpoint is paginated (page=1, page_size=25 default).
+    Detail endpoints keep the full ``CompositionSerializer`` shape;
+    only ``list()`` uses the light ``CompositionListSerializer``.
     """
 
     serializer_class = CompositionSerializer
     permission_classes = [IsWorkspaceMember]
+    pagination_class = CompositionPagination
 
     def get_queryset(self):
         user = self.request.user
@@ -256,16 +276,19 @@ class CompositionViewSet(viewsets.GenericViewSet):
         )
 
     def list(self, request):
-        qs = self.get_queryset()
+        qs = self.get_queryset().order_by("-created_at")
         workspace_id = request.query_params.get("workspace")
         if workspace_id:
             qs = qs.filter(workspace_id=workspace_id)
         spokesperson_id = request.query_params.get("spokesperson")
         if spokesperson_id:
             qs = qs.filter(spokesperson_id=spokesperson_id)
-        # Reasonable default — V15.0 doesn't paginate yet.
-        qs = qs[:100]
-        return Response(CompositionSerializer(qs, many=True).data)
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        page = self.paginate_queryset(qs)
+        serializer = CompositionListSerializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
 
     def retrieve(self, request, pk: str | None = None):
         try:

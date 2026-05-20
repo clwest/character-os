@@ -93,6 +93,7 @@ export function SpokespersonDetailRoute() {
             videos={videos.data}
             loading={videos.isLoading}
             error={videos.error}
+            spokespersonId={s.id}
           />
         </section>
       ) : (
@@ -104,6 +105,7 @@ export function SpokespersonDetailRoute() {
             videos={videos.data}
             loading={videos.isLoading}
             error={videos.error}
+            spokespersonId={s.id}
           />
           <SetupPanel spokesperson={s} pendingItems={pendingItems} />
         </section>
@@ -616,14 +618,35 @@ function VideosPanel({
   videos,
   loading,
   error,
+  spokespersonId,
 }: {
   videos: Video[] | undefined;
   loading: boolean;
   error: unknown;
+  spokespersonId: string;
 }) {
+  const hasVideos = !!videos && videos.length > 0;
   return (
     <section className="flex flex-col gap-5">
-      <PanelHeader title="Renders" count={videos?.length} />
+      <div className="flex items-baseline justify-between border-b border-border/60 pb-3">
+        <div className="flex items-baseline gap-3">
+          <h2 className="font-display text-xl tracking-tight">Renders</h2>
+          {typeof videos?.length === "number" && (
+            <span className="font-mono text-xs text-muted-foreground">
+              {videos.length}
+            </span>
+          )}
+        </div>
+        {hasVideos && (
+          <Link
+            to={`/workspace/videos?spokesperson=${spokespersonId}`}
+            data-testid="videos-library-link"
+            className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+          >
+            View all in library →
+          </Link>
+        )}
+      </div>
       {loading ? <VideosSkeleton /> : null}
       {error ? <ErrorRow message={extractMessage(error)} /> : null}
       {videos && videos.length === 0 && (

@@ -108,6 +108,46 @@ class ImageAssetSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class CompositionListSerializer(serializers.ModelSerializer):
+    """Light row shape for ``GET /api/compositions/``.
+
+    Mirrors ``OverviewComposition`` in ``apps/workspace/serializers.py``
+    so the SPA can reuse the same row component for the Videos library
+    and the dashboard activity feed. Skips the heavy ``steps`` /
+    ``produced_assets`` / ``knowledge_docs_used`` payload — the
+    detail endpoint serves those.
+    """
+
+    spokesperson_id = serializers.UUIDField(
+        source="spokesperson.id", read_only=True,
+    )
+    spokesperson_name = serializers.CharField(
+        source="spokesperson.name", read_only=True,
+    )
+    final_asset_id = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Composition
+        fields = (
+            "id",
+            "name",
+            "template_kind",
+            "status",
+            "mock_mode",
+            "cost_actual_micros",
+            "verification_status",
+            "spokesperson_id",
+            "spokesperson_name",
+            "final_asset_id",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = fields
+
+    def get_final_asset_id(self, obj) -> str | None:
+        return str(obj.final_asset_id) if obj.final_asset_id else None
+
+
 class CompositionStepSerializer(serializers.ModelSerializer):
     """One step in a composition's plan."""
 

@@ -18,7 +18,19 @@
  * in workspace fabric nav").
  */
 import { Link, useLocation } from "react-router-dom";
-import { Home, Image as ImageIcon, Users, Library, Sparkles } from "lucide-react";
+import {
+  FileText,
+  Film,
+  FolderOpen,
+  Home,
+  Image as ImageIcon,
+  Library,
+  Megaphone,
+  Package,
+  PenLine,
+  Sparkles,
+  Users,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 interface NavItem {
@@ -31,6 +43,12 @@ interface NavItem {
   testId: string;
 }
 
+// Ordered to match the producer journey: identity → corpus → mine →
+// script → template → personalize → publish → library → raw images.
+// Each surface here is authorized by its own scope-lock doc
+// (ASSET_LIBRARY_V1, TRANSCRIPT_MINER_V1, AUTO_SCRIPTING_V1,
+// PERSONALIZED_VIDEO_V1, PUBLISH_BUNDLE_V1, MEDIA_GENERATION_V1),
+// satisfying F0 contract rule 7 — no new sections invented here.
 const NAV_ITEMS: NavItem[] = [
   {
     to: "/dashboard",
@@ -58,11 +76,53 @@ const NAV_ITEMS: NavItem[] = [
     testId: "nav-knowledge",
   },
   {
+    to: "/workspace/transcripts",
+    matches: ["/workspace/transcripts"],
+    label: "Transcripts",
+    icon: FileText,
+    testId: "nav-transcripts",
+  },
+  {
+    to: "/workspace/scripts",
+    matches: ["/workspace/scripts"],
+    label: "Scripts",
+    icon: PenLine,
+    testId: "nav-scripts",
+  },
+  {
     to: "/recipes",
-    matches: ["/recipes", "/compositions"],
+    matches: ["/recipes"],
     label: "Recipes",
     icon: Sparkles,
     testId: "nav-recipes",
+  },
+  {
+    to: "/workspace/campaigns",
+    matches: ["/workspace/campaigns"],
+    label: "Campaigns",
+    icon: Megaphone,
+    testId: "nav-campaigns",
+  },
+  {
+    to: "/workspace/bundles",
+    matches: ["/workspace/bundles"],
+    label: "Bundles",
+    icon: Package,
+    testId: "nav-bundles",
+  },
+  {
+    to: "/workspace/videos",
+    matches: ["/workspace/videos", "/compositions"],
+    label: "Videos",
+    icon: Film,
+    testId: "nav-videos",
+  },
+  {
+    to: "/workspace/assets",
+    matches: ["/workspace/assets"],
+    label: "Assets",
+    icon: FolderOpen,
+    testId: "nav-assets",
   },
   {
     to: "/images",

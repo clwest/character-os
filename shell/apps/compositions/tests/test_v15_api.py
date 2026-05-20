@@ -1785,13 +1785,70 @@ def test_list_compositions_scoped_to_caller() -> None:
     response_a = client_a.get("/api/compositions/")
     assert response_a.status_code == http.HTTP_200_OK
     data_a = response_a.json()
-    assert len(data_a) == 1
-    assert data_a[0]["workspace"] == str(ws_a.pk)
+    assert data_a["count"] == 1
+    assert data_a["results"][0]["spokesperson_id"] == str(sp_a.pk)
 
     response_b = client_b.get("/api/compositions/")
     data_b = response_b.json()
-    assert len(data_b) == 1
-    assert data_b[0]["workspace"] == str(ws_b.pk)
+    assert data_b["count"] == 1
+    assert data_b["results"][0]["spokesperson_id"] == str(sp_b.pk)
+
+
+def test_list_compositions_paginates() -> None:
+    """SESSION 209 — Path A Videos library.
+
+    ``CompositionPagination`` exposes a page=N + page_size=N
+    contract over the list endpoint. Default page size is 25;
+    operator-overridable up to 100. Default order is most-
+    recent-first.
+    """
+    ws, user = _make_workspace_with_user("v15paginate@test", "P")
+    sp = _make_spokesperson(ws)
+    # 30 fast mock-mode compositions — exceeds the 25/page default.
+    for i in range(30):
+        Composition.objects.create(
+            workspace=ws,
+            spokesperson=sp,
+            name=f"comp-{i:02d}",
+            template_kind="talking_head",
+            status=CompositionStatus.COMPLETED,
+            mock_mode=True,
+        )
+    client = APIClient()
+    _login(client, user)
+
+    # Page 1 — 25 rows, next link present.
+    r1 = client.get("/api/compositions/")
+    assert r1.status_code == http.HTTP_200_OK
+    d1 = r1.json()
+    assert d1["count"] == 30
+    assert len(d1["results"]) == 25
+    assert d1["next"] is not None
+    assert d1["previous"] is None
+
+    # Page 2 — 5 rows, previous link present.
+    r2 = client.get("/api/compositions/?page=2")
+    d2 = r2.json()
+    assert len(d2["results"]) == 5
+    assert d2["previous"] is not None
+    assert d2["next"] is None
+
+    # page_size override.
+    r3 = client.get("/api/compositions/?page_size=10")
+    d3 = r3.json()
+    assert len(d3["results"]) == 10
+    assert d3["count"] == 30
+
+    # status filter narrows the set.
+    Composition.objects.create(
+        workspace=ws, spokesperson=sp, name="drafty",
+        template_kind="talking_head", status=CompositionStatus.DRAFT,
+        mock_mode=True,
+    )
+    r4 = client.get("/api/compositions/?status=draft")
+    d4 = r4.json()
+    assert d4["count"] == 1
+    assert d4["results"][0]["status"] == "draft"
 
 
 # ---- W11.6.5 (SESSION 174) — recipe image-picker ----------------
