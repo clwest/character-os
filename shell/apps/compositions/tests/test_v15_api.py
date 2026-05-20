@@ -1657,3 +1657,234 @@ def test_resolver_passes_asset_row_for_clip_picker_unchanged() -> None:
     assert isinstance(kwargs["base_clip"], Asset)
     assert isinstance(kwargs["pip_clip"], Asset)
     assert kwargs["base_clip"].file_path == "/data/base.mp4"
+
+
+# ---- SESSION 199: outro_text parity (cinematic_visual + extended + dialogue) ----
+
+
+def test_cinematic_visual_outro_text_appends_second_step() -> None:
+    """SESSION 199 slice A — cinematic_visual gets a 2nd step
+    when outro_text is set."""
+    ws, user = _make_workspace_with_user("v199cv_outro@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "cinematic_visual",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "prompt": "neon city skyline at dusk",
+                "outro_text": "Brand Co.",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    assert len(data["steps"]) == 2
+    steps_by_pos = sorted(data["steps"], key=lambda s: s["position"])
+    assert steps_by_pos[0]["primitive"] == "generate_visual_clip"
+    assert steps_by_pos[1]["primitive"] == "add_intro_outro"
+    assert steps_by_pos[1]["params"]["outro"]["text"] == "Brand Co."
+    assert steps_by_pos[1]["inputs"] == [
+        {"slot": "base", "from_step_position": 0},
+    ]
+
+
+def test_cinematic_visual_blank_outro_keeps_one_step() -> None:
+    """SESSION 199 — backwards-compat for cinematic_visual."""
+    ws, user = _make_workspace_with_user("v199cv_blank@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "cinematic_visual",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "prompt": "neon skyline",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED
+    assert len(response.json()["steps"]) == 1
+
+
+def test_cinematic_visual_extended_outro_text_appends_after_chain() -> None:
+    """SESSION 199 slice B — cinematic_visual_extended outro lands
+    at position last_extend+1. target_duration=20 → 1 base + 2
+    extends + 1 outro = 4 steps total."""
+    ws, user = _make_workspace_with_user("v199cve_outro@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "cinematic_visual_extended",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "prompt": "founder walking through the office",
+                "target_duration": "20",
+                "outro_text": "Brand Co.",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    steps_by_pos = sorted(data["steps"], key=lambda s: s["position"])
+    # 1 base + 2 extends + 1 outro = 4 steps
+    assert len(steps_by_pos) == 4
+    primitives = [s["primitive"] for s in steps_by_pos]
+    assert primitives == [
+        "generate_visual_clip",
+        "extend_visual_clip",
+        "extend_visual_clip",
+        "add_intro_outro",
+    ]
+    # Outro chains to the last extend (position 2)
+    outro_step = steps_by_pos[3]
+    assert outro_step["inputs"] == [
+        {"slot": "base", "from_step_position": 2},
+    ]
+    assert outro_step["params"]["outro"]["text"] == "Brand Co."
+
+
+def test_cinematic_visual_extended_blank_outro_keeps_chain() -> None:
+    """SESSION 199 — backwards-compat for cinematic_visual_extended.
+    target_duration=15 → 1 base + 1 extend = 2 steps (no outro)."""
+    ws, user = _make_workspace_with_user("v199cve_blank@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "cinematic_visual_extended",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "prompt": "skyline",
+                "target_duration": "15",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED
+    assert len(response.json()["steps"]) == 2
+
+
+def test_dialogue_scene_outro_text_multi_line_appends_after_concat() -> None:
+    """SESSION 199 slice C — dialogue_scene multi-line outro lands
+    after the concat. 3 lines → 3 speech + 1 concat + 1 outro = 5 steps."""
+    ws, user = _make_workspace_with_user("v199ds_outro@test")
+    sp_a = _make_spokesperson(ws, name="A", avatar_id="av_a")
+    sp_b = _make_spokesperson(ws, name="B", avatar_id="av_b")
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "dialogue_scene",
+            "workspace": str(ws.pk),
+            "params": {
+                "primary_spokesperson_id": str(sp_a.pk),
+                "lines": [
+                    {"spokesperson_id": str(sp_a.pk), "text": "Line one."},
+                    {"spokesperson_id": str(sp_b.pk), "text": "Line two."},
+                    {"spokesperson_id": str(sp_a.pk), "text": "Line three."},
+                ],
+                "outro_text": "Brand Co.",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    steps_by_pos = sorted(data["steps"], key=lambda s: s["position"])
+    primitives = [s["primitive"] for s in steps_by_pos]
+    assert primitives == [
+        "generate_avatar_speech",
+        "generate_avatar_speech",
+        "generate_avatar_speech",
+        "concat_clips",
+        "add_intro_outro",
+    ]
+    # Outro chains to concat at position 3.
+    outro = steps_by_pos[4]
+    assert outro["inputs"] == [
+        {"slot": "base", "from_step_position": 3},
+    ]
+    assert outro["params"]["outro"]["text"] == "Brand Co."
+
+
+def test_dialogue_scene_outro_text_single_line_chains_to_speech() -> None:
+    """SESSION 199 — dialogue_scene single-line degenerate path:
+    no concat; outro chains directly to the lone speech step at
+    position 0."""
+    ws, user = _make_workspace_with_user("v199ds_single@test")
+    sp = _make_spokesperson(ws, name="A", avatar_id="av_a")
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "dialogue_scene",
+            "workspace": str(ws.pk),
+            "params": {
+                "primary_spokesperson_id": str(sp.pk),
+                "lines": [
+                    {"spokesperson_id": str(sp.pk), "text": "Solo line."},
+                ],
+                "outro_text": "Closer",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    steps_by_pos = sorted(data["steps"], key=lambda s: s["position"])
+    assert len(steps_by_pos) == 2
+    assert steps_by_pos[0]["primitive"] == "generate_avatar_speech"
+    assert steps_by_pos[1]["primitive"] == "add_intro_outro"
+    assert steps_by_pos[1]["inputs"] == [
+        {"slot": "base", "from_step_position": 0},
+    ]
+
+
+def test_dialogue_scene_outro_text_field_exposed_in_recipe_metadata() -> None:
+    """SESSION 199 — the recipe metadata endpoint surfaces
+    outro_text so the SPA form renders the field. Sanity check
+    that the field landed alongside the existing dialogue fields."""
+    ws, user = _make_workspace_with_user("v199ds_meta@test")
+    client = APIClient()
+    _login(client, user)
+
+    response = client.get("/api/recipes/dialogue_scene/")
+    assert response.status_code == http.HTTP_200_OK
+    fields = {f["name"]: f for f in response.json()["fields"]}
+    assert "outro_text" in fields
+    outro_field = fields["outro_text"]
+    assert outro_field["type"] == "text"
+    assert outro_field["required"] is False
+    assert outro_field["max_chars"] == 80

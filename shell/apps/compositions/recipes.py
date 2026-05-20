@@ -288,6 +288,10 @@ def _dialogue_resolver(
         "workspace": workspace,
         "primary_spokesperson": primary,
         "lines": resolved_lines,
+        # SESSION 199 — outro_text parity. Pass-through to the
+        # starter; the starter handles the multi-line (after
+        # concat) vs single-line (after speech) wiring.
+        "outro_text": params.get("outro_text") or None,
         "mock_mode": bool(params.get("mock_mode", False)),
         "name": params.get("name", "") or "",
         "created_by": created_by,
@@ -545,6 +549,18 @@ RECIPES: dict[str, Recipe] = {
                 name="duration", type="number", label="Duration (seconds)",
                 required=False, default=5, min_value=5, max_value=10,
             ),
+            # SESSION 199 — outro_text parity. Mirrors the
+            # storyboard recipes (SESSION 197/198 pattern).
+            RecipeField(
+                name="outro_text", type="text",
+                label="Brand outro card (optional)",
+                required=False, max_chars=80,
+                help_text=(
+                    "Title card appended after the clip. "
+                    "3 seconds, white text on black. Leave "
+                    "blank to skip."
+                ),
+            ),
             _NAME_FIELD,
             _MOCK_MODE_FIELD,
         ),
@@ -615,6 +631,17 @@ RECIPES: dict[str, Recipe] = {
                 help_text=(
                     "Optional integer seed passed to every extension "
                     "for visual coherence across the chain."
+                ),
+            ),
+            # SESSION 199 — outro_text parity.
+            RecipeField(
+                name="outro_text", type="text",
+                label="Brand outro card (optional)",
+                required=False, max_chars=80,
+                help_text=(
+                    "Title card appended after the chain. "
+                    "3 seconds, white text on black. Leave "
+                    "blank to skip."
                 ),
             ),
             _NAME_FIELD,
@@ -930,6 +957,17 @@ RECIPES: dict[str, Recipe] = {
                 name="lines", type="dialogue_lines",
                 label="Dialogue lines",
                 help_text="Ordered list of turns. Each turn: pick a spokesperson + write what they say.",
+            ),
+            # SESSION 199 — outro_text parity.
+            RecipeField(
+                name="outro_text", type="text",
+                label="Brand outro card (optional)",
+                required=False, max_chars=80,
+                help_text=(
+                    "Title card appended after the dialogue. "
+                    "3 seconds, white text on black. Leave "
+                    "blank to skip."
+                ),
             ),
             _NAME_FIELD,
             _MOCK_MODE_FIELD,

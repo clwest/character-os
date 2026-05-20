@@ -275,6 +275,10 @@ def cinematic_visual(
     prompt_image: str | None = None,
     ratio: str | None = None,
     duration: int | None = None,
+    # SESSION 199 — outro_text parity. Optional 3s white-on-black
+    # outro appended after the generate_visual_clip step. Blank =
+    # skip (existing 1-step shape preserved).
+    outro_text: str | None = None,
     mock_mode: bool = False,
     name: str = "",
     created_by: "AbstractBaseUser | None" = None,
@@ -351,11 +355,27 @@ def cinematic_visual(
         params=params,
     )
 
+    # SESSION 199 — optional brand outro card.
+    cleaned_outro = (outro_text or "").strip()
+    if cleaned_outro:
+        CompositionStep.objects.create(
+            composition=composition,
+            position=1,
+            primitive="add_intro_outro",
+            inputs=[{"slot": "base", "from_step_position": 0}],
+            params={
+                "outro": {
+                    "text": cleaned_outro,
+                    "duration_s": 3.0,
+                },
+            },
+        )
+
     logger.info(
         "starter cinematic_visual created composition=%s spokesperson=%s "
-        "mock=%s has_image=%s ratio=%s duration=%s",
+        "mock=%s has_image=%s ratio=%s duration=%s outro=%s",
         composition.id, spokesperson.id, mock_mode,
-        bool(prompt_image), ratio, duration,
+        bool(prompt_image), ratio, duration, bool(cleaned_outro),
     )
     return composition
 
@@ -398,6 +418,9 @@ def cinematic_visual_extended(
     target_duration: int | str,
     ratio: str | None = None,
     seed: int | None = None,
+    # SESSION 199 — outro_text parity. Optional 3s white-on-black
+    # outro appended after the extend chain. Blank = skip.
+    outro_text: str | None = None,
     mock_mode: bool = False,
     name: str = "",
     created_by: "AbstractBaseUser | None" = None,
@@ -531,11 +554,30 @@ def cinematic_visual_extended(
             params=extend_params,
         )
 
+    # SESSION 199 — optional brand outro card. Position is after
+    # the last extend step (or the base if extend_count=0, though
+    # the valid_targets all require ≥1 extend).
+    last_chain_position = extend_count  # base=0, then N extends → last is at position N
+    cleaned_outro = (outro_text or "").strip()
+    if cleaned_outro:
+        CompositionStep.objects.create(
+            composition=composition,
+            position=last_chain_position + 1,
+            primitive="add_intro_outro",
+            inputs=[{"slot": "base", "from_step_position": last_chain_position}],
+            params={
+                "outro": {
+                    "text": cleaned_outro,
+                    "duration_s": 3.0,
+                },
+            },
+        )
+
     logger.info(
         "starter cinematic_visual_extended created composition=%s "
-        "spokesperson=%s mock=%s target=%ds extends=%d ratio=%s seed=%s",
+        "spokesperson=%s mock=%s target=%ds extends=%d ratio=%s seed=%s outro=%s",
         composition.id, spokesperson.id, mock_mode,
-        target_duration, extend_count, ratio, seed,
+        target_duration, extend_count, ratio, seed, bool(cleaned_outro),
     )
     return composition
 
@@ -2140,6 +2182,10 @@ def dialogue_scene(
     workspace: "Workspace",
     primary_spokesperson: "Spokesperson",
     lines: list[dict],
+    # SESSION 199 — outro_text parity. Optional 3s white-on-black
+    # outro appended after the dialogue. Handles multi-line (after
+    # concat) and single-line (after lone speech) degenerate paths.
+    outro_text: str | None = None,
     mock_mode: bool = False,
     name: str = "",
     created_by: "AbstractBaseUser | None" = None,
@@ -2245,6 +2291,7 @@ def dialogue_scene(
     # Step N: concat all prior steps. Skip when there's only
     # one line — same degenerate-case optimization as
     # long_form_ad.
+    last_output_position = len(validated_lines) - 1  # the final speech step
     if len(validated_lines) > 1:
         concat_inputs = [
             {"slot": "clip", "from_step_position": i}
@@ -2266,13 +2313,33 @@ def dialogue_scene(
             inputs=concat_inputs,
             params={"result_role": "composite_output"},
         )
+        last_output_position = len(validated_lines)
+
+    # SESSION 199 — optional brand outro card. Appended after the
+    # last step (concat or lone speech). Blank = skip. Same
+    # variable-position logic as long_form_ad.
+    cleaned_outro = (outro_text or "").strip()
+    if cleaned_outro:
+        CompositionStep.objects.create(
+            composition=composition,
+            position=last_output_position + 1,
+            primitive="add_intro_outro",
+            inputs=[{"slot": "base", "from_step_position": last_output_position}],
+            params={
+                "outro": {
+                    "text": cleaned_outro,
+                    "duration_s": 3.0,
+                },
+            },
+        )
 
     logger.info(
         "starter dialogue_scene created composition=%s primary=%s "
-        "mock=%s lines=%d distinct_avatars=%d",
+        "mock=%s lines=%d distinct_avatars=%d outro=%s",
         composition.id, primary_spokesperson.id, mock_mode,
         len(validated_lines),
         len({sp.runway_avatar_id for sp, _ in validated_lines}),
+        bool(cleaned_outro),
     )
     return composition
 
