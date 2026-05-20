@@ -115,11 +115,27 @@ def get_usage(workspace: "Workspace") -> Usage:
     # provider rejected pre-resource-allocation, but for V-arc
     # compositions a FAILED row typically had upstream calls
     # mid-pipeline).
+    # D-arc / B14.1 (SESSION 205) — publish-variant
+    # compositions are ffmpeg-only derivatives of an already-
+    # rendered source. The source already counted at its own
+    # render time; counting the variants would punish operators
+    # for fanning out to multiple platforms. Exclude by
+    # template_kind (the constant lives in
+    # apps.compositions.platform_catalog so the recipe + this
+    # filter can't drift). Per PUBLISH_BUNDLE_V1.md rule 5 +
+    # Q-d-4.
+    from apps.compositions.platform_catalog import (
+        PUBLISH_VARIANT_TEMPLATE_KIND,
+    )
     videos_used = Composition.objects.filter(
         workspace=workspace,
         created_at__gte=sub.current_period_start,
         created_at__lt=sub.current_period_end,
-    ).exclude(status=CompositionStatus.DRAFT).count()
+    ).exclude(
+        status=CompositionStatus.DRAFT,
+    ).exclude(
+        template_kind=PUBLISH_VARIANT_TEMPLATE_KIND,
+    ).count()
     spokespeople_used = Spokesperson.objects.filter(workspace=workspace).count()
     # Exclude DRAFT (never reached the upstream provider) and
     # FAILED (upstream rejected before any Runway resource was

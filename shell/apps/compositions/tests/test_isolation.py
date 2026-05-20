@@ -231,6 +231,12 @@ ALLOWED_FILES = {
     # rest of the file's writes are already covered by the
     # apps/realtime/tests/test_isolation allowlist.
     "apps/realtime/tests/test_r7_2_async_tools.py",
+    # D-arc B14.1 (SESSION 205) — publish_variant starter
+    # tests seed Asset(CLIP) + Composition rows directly
+    # to exercise the trim+reformat starter and the cap-
+    # exclusion behavior. Workspace anchor is set at every
+    # create; pre_save signal still fires.
+    "apps/compositions/tests/test_publish_variant.py",
 }
 
 

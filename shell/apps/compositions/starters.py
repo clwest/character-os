@@ -1689,6 +1689,133 @@ def reels_format(
     return composition
 
 
+# D-arc / B14.1 (SESSION 205). Platform-variant publish starter.
+# Fans out a source CLIP to one platform-ready packaging
+# (target aspect ratio + duration cap). Internal recipe —
+# invoked by the D-arc bundle launch handler, NOT surfaced in
+# the operator-facing /recipes gallery per Q-d-11.
+#
+# template_kind="publish_variant" is the load-bearing tag —
+# apps.billing.services.get_usage() excludes these from the
+# videos_per_month count per rule 5 + Q-d-4. The constant
+# lives in apps.compositions.platform_catalog so the recipe
+# and the cap exclusion can't drift.
+@transaction.atomic
+def publish_variant(
+    *,
+    workspace: "Workspace",
+    spokesperson: "Spokesperson",
+    source_clip,
+    target_ratio: str,
+    max_duration_ms: int,
+    mock_mode: bool = False,
+    name: str = "",
+    created_by: "AbstractBaseUser | None" = None,
+) -> Composition:
+    """Two-step publish-variant composition: trim → reformat.
+
+    Args:
+        workspace: Composition workspace anchor.
+        spokesperson: The source clip's spokesperson — passed
+            through for V-arc rule consistency (every
+            Composition has a spokesperson FK). The variant
+            doesn't re-render the avatar; it just packages
+            existing avatar footage for a target platform.
+        source_clip: The Asset(asset_type=CLIP) being
+            packaged. Workspace + type validated by
+            ``_validate_workspace_assets`` plus the bundle's
+            clean() guard. Must carry a non-null
+            ``duration_ms`` so the trim step's end_ms can be
+            computed without a probe.
+        target_ratio: One of ``{"1280:720", "720:1280",
+            "960:960"}`` — the existing ``reformat_clip``
+            supported ratios.
+        max_duration_ms: Platform's hard duration cap (e.g.
+            60_000 for Reels). The trim step emits
+            ``min(source_duration_ms, max_duration_ms)`` so
+            short source clips become a near-noop trim and
+            long sources hard-cap from the start (Q-d v1:
+            first N seconds; selectable trim window deferred).
+        mock_mode: Mock-mode stub.
+
+    Step layout (always 2 steps for state-machine simplicity):
+        Step 0: ``trim_clip`` from 0..min(source, max).
+        Step 1: ``reformat_clip`` consuming step 0 output.
+
+    Returns the Composition. Caller enqueues
+    ``execute_composition.delay``.
+    """
+    from .models import AssetType as _AssetType
+    from .platform_catalog import PUBLISH_VARIANT_TEMPLATE_KIND
+
+    _validate_workspace_assets(workspace, [source_clip])
+    if spokesperson.workspace_id != workspace.pk:
+        raise ValueError(
+            f"spokesperson {spokesperson.name!r} not in workspace "
+            f"{workspace.pk}"
+        )
+    if source_clip.asset_type != _AssetType.CLIP:
+        raise ValueError(
+            f"publish_variant source must be asset_type=CLIP; got "
+            f"{source_clip.asset_type!r}"
+        )
+    if source_clip.duration_ms is None or source_clip.duration_ms <= 0:
+        raise ValueError(
+            f"publish_variant source clip {source_clip.id} has no "
+            f"duration_ms; can't compute the trim window"
+        )
+    if max_duration_ms <= 0:
+        raise ValueError(
+            f"max_duration_ms must be positive; got {max_duration_ms}"
+        )
+
+    # Trim window: cap at the source's actual duration so a
+    # 5s source on a 30s LinkedIn cap doesn't try to extend
+    # past EOF. ffmpeg's ``-to`` would silently stop at EOF,
+    # but storing accurate offsets in the step row keeps the
+    # audit trail honest.
+    end_ms = min(int(source_clip.duration_ms), int(max_duration_ms))
+
+    composition_name = name.strip() or (
+        f"Publish variant ({target_ratio}, ≤{max_duration_ms // 1000}s)"
+    )
+    composition = Composition.objects.create(
+        workspace=workspace,
+        spokesperson=spokesperson,
+        name=composition_name,
+        template_kind=PUBLISH_VARIANT_TEMPLATE_KIND,
+        mock_mode=mock_mode,
+        created_by=created_by,
+    )
+
+    # Step 0 — trim to the platform window from the source's
+    # start.
+    CompositionStep.objects.create(
+        composition=composition,
+        position=0,
+        primitive="trim_clip",
+        inputs=[{"slot": "base", "asset_id": str(source_clip.id)}],
+        params={"start_ms": 0, "end_ms": end_ms},
+    )
+
+    # Step 1 — reformat the trimmed clip to the platform's
+    # target aspect ratio.
+    CompositionStep.objects.create(
+        composition=composition,
+        position=1,
+        primitive="reformat_clip",
+        inputs=[{"slot": "base", "from_step_position": 0}],
+        params={"target_ratio": target_ratio},
+    )
+
+    logger.info(
+        "starter publish_variant created composition=%s source=%s "
+        "target_ratio=%s end_ms=%d mock=%s",
+        composition.id, source_clip.id, target_ratio, end_ms, mock_mode,
+    )
+    return composition
+
+
 @transaction.atomic
 def voice_design(
     *,
