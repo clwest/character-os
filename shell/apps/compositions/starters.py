@@ -2228,6 +2228,14 @@ def storyboard_voiced(
     narration_script: str,
     image_seed: int | None = None,
     clip_duration: int = 5,
+    # SESSION 197 — operator-noticed during SESSION 195 dogfood
+    # that the storyboard ended cold without any brand mark.
+    # Optional 3-second white-on-black outro card appended via
+    # add_intro_outro after the mix step. Mirrors
+    # talking_head_polished's outro_text shorthand exactly.
+    # Empty / None / whitespace-only = skip the step (the
+    # 10-step composition shape).
+    outro_text: str | None = None,
     mock_mode: bool = False,
     name: str = "",
     created_by: "AbstractBaseUser | None" = None,
@@ -2397,10 +2405,31 @@ def storyboard_voiced(
         },
     )
 
+    # SESSION 197 — optional brand outro card. When ``outro_text``
+    # is non-empty, append an add_intro_outro step at position 10
+    # consuming the mix_audio output as base. 3-second white-on-
+    # black card matches talking_head_polished's default styling.
+    # When blank the composition stays at 10 steps (existing shape).
+    cleaned_outro = (outro_text or "").strip()
+    if cleaned_outro:
+        CompositionStep.objects.create(
+            composition=composition,
+            position=10,
+            primitive="add_intro_outro",
+            inputs=[{"slot": "base", "from_step_position": 9}],
+            params={
+                "outro": {
+                    "text": cleaned_outro,
+                    "duration_s": 3.0,
+                },
+            },
+        )
+
     logger.info(
         "starter storyboard_voiced created composition=%s "
-        "spokesperson=%s mock=%s seed=%s",
+        "spokesperson=%s mock=%s seed=%s outro=%s",
         composition.id, spokesperson.id, mock_mode, image_seed,
+        bool(cleaned_outro),
     )
     return composition
 

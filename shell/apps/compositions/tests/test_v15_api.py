@@ -941,6 +941,108 @@ def test_create_storyboard_voiced_ten_steps() -> None:
     ]
 
 
+def test_storyboard_voiced_outro_text_adds_eleventh_step() -> None:
+    """SESSION 197 — when outro_text is set, the starter appends
+    an add_intro_outro step at position 10 consuming the mix_audio
+    output. Backwards-compat default (blank outro) keeps the
+    10-step shape; with-outro is 11 steps."""
+    ws, user = _make_workspace_with_user("v197sbv_outro@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "storyboard_voiced",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "hook_prompt": "founder lifting espresso machine handle",
+                "action_prompt": "pouring latte art",
+                "payoff_prompt": "busy storefront at golden hour",
+                "narration_script": "Coffee for the community.",
+                "outro_text": "Dog Food Coffee House",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    assert data["template_kind"] == "storyboard_voiced"
+    assert len(data["steps"]) == 11
+    steps_by_pos = sorted(data["steps"], key=lambda s: s["position"])
+    primitives = [s["primitive"] for s in steps_by_pos]
+    assert primitives == [
+        "generate_image", "generate_image", "generate_image",
+        "generate_visual_clip", "generate_visual_clip", "generate_visual_clip",
+        "concat_clips",
+        "generate_avatar_speech",
+        "audio_extract",
+        "mix_audio",
+        "add_intro_outro",
+    ]
+    # The outro step's params carry the operator's text + the
+    # default 3-second duration matching talking_head_polished.
+    outro_step = steps_by_pos[10]
+    assert outro_step["params"]["outro"]["text"] == "Dog Food Coffee House"
+    assert outro_step["params"]["outro"]["duration_s"] == 3.0
+    # Inputs chain to the mix_audio step (position 9).
+    assert outro_step["inputs"] == [
+        {"slot": "base", "from_step_position": 9},
+    ]
+
+
+def test_storyboard_voiced_blank_outro_text_keeps_ten_steps() -> None:
+    """Backwards-compat: empty / whitespace-only outro_text is a
+    no-op. Existing storyboard_voiced renders without outro_text
+    set keep the same 10-step shape they had pre-SESSION-197."""
+    ws, user = _make_workspace_with_user("v197sbv_blank@test")
+    sp = _make_spokesperson(ws)
+    client = APIClient()
+    _login(client, user)
+
+    # Whitespace-only — should still skip the outro step.
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "storyboard_voiced",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "hook_prompt": "scene 1",
+                "action_prompt": "scene 2",
+                "payoff_prompt": "scene 3",
+                "narration_script": "Narration that fits ~15 seconds of video.",
+                "outro_text": "   ",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    assert len(response.json()["steps"]) == 10
+
+
+def test_storyboard_voiced_recipe_exposes_outro_text_field() -> None:
+    """SESSION 197 — the recipe metadata endpoint surfaces
+    outro_text so the SPA form renders the field. Mirrors the
+    talking_head_polished shape (text, 80 char max, optional)."""
+    ws, user = _make_workspace_with_user("v197sbv_metadata@test")
+    client = APIClient()
+    _login(client, user)
+
+    response = client.get("/api/recipes/storyboard_voiced/")
+    assert response.status_code == http.HTTP_200_OK
+    fields = {f["name"]: f for f in response.json()["fields"]}
+    assert "outro_text" in fields
+    outro_field = fields["outro_text"]
+    assert outro_field["type"] == "text"
+    assert outro_field["required"] is False
+    assert outro_field["max_chars"] == 80
+
+
 def test_create_dialogue_scene_via_recipe_registry() -> None:
     """V15.4 confirms the dialogue_scene custom resolver still
     works post-V15 changes (covers regression risk from the

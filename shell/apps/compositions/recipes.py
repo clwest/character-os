@@ -624,6 +624,21 @@ RECIPES: dict[str, Recipe] = {
                 min_chars=8, max_chars=4000,
                 help_text="What the avatar says over the storyboard. ~15s of speech fits the default 3-shot 15s storyboard.",
             ),
+            # SESSION 197 — operator-noticed during SESSION 195
+            # dogfood that the storyboard ended cold without any
+            # brand mark. Mirrors talking_head_polished's
+            # outro_text shape; starter conditionally appends an
+            # add_intro_outro step at the end of the pipeline.
+            RecipeField(
+                name="outro_text", type="text",
+                label="Brand outro card (optional)",
+                required=False, max_chars=80,
+                help_text=(
+                    "Title card appended after the storyboard. "
+                    "3 seconds, white text on black. Leave blank "
+                    "to skip."
+                ),
+            ),
             RecipeField(
                 name="image_seed", type="number", label="Image seed (optional)",
                 required=False, help_text="Same seed across shots = same visual style.",
