@@ -890,10 +890,17 @@ def test_v18_picked_clip_wins_over_prompt_when_both_supplied() -> None:
 def test_v18_picked_clip_skips_use_extend_for_backdrop_flag() -> None:
     """The picked-clip branch precedes use_extend_for_backdrop in
     the dispatch order. Setting both should still skip the extend
-    chain — the picked clip is the backdrop."""
+    chain — the picked clip is the backdrop.
+
+    SESSION 194 V18 polish — bumped backdrop duration to 25s so the
+    200-char script (estimated speech 20s) clears the new
+    duration-mismatch starter check. The assertion shape is still
+    "extend-flag is ignored when backdrop_clip is set"; the
+    duration values are incidental to that.
+    """
     ws = _make_workspace("v18skip_extend@test")
     sp = _make_spokesperson(ws)
-    backdrop = _make_backdrop_clip(ws)
+    backdrop = _make_backdrop_clip(ws, duration_ms=25_000)
 
     c = talking_head_with_backdrop(
         workspace=ws, spokesperson=sp,
@@ -1052,3 +1059,134 @@ def test_v18_recipe_field_present_and_optional() -> None:
     # Param-map renames backdrop_clip_id → backdrop_clip for the
     # starter call.
     assert recipe.param_map.get("backdrop_clip_id") == "backdrop_clip"
+
+
+# ---- SESSION 194 V18 polish — duration-mismatch starter warning ----
+
+
+def test_v18_rejects_backdrop_shorter_than_estimated_speech() -> None:
+    """SESSION 184 dogfood #2 reproduction — when the picked
+    backdrop is shorter than the estimated speech, the composite
+    primitive trims the speech mid-sentence (it always trims the
+    longer input to the shorter one). Starter refuses at creation
+    time with an operator-actionable error naming both durations,
+    the script length, and the two ways to fix it.
+    """
+    ws = _make_workspace("v194short@test")
+    sp = _make_spokesperson(ws)
+    # 5s backdrop, ~200-char script (≈ 20s estimated speech).
+    short_backdrop = _make_backdrop_clip(ws, duration_ms=5_000)
+    long_script = "x" * 200
+
+    with pytest.raises(ValueError) as exc:
+        talking_head_with_backdrop(
+            workspace=ws, spokesperson=sp,
+            script=long_script,
+            backdrop_clip=short_backdrop,
+            mock_mode=True,
+        )
+
+    msg = str(exc.value)
+    # Mentions both durations so the operator knows the gap.
+    assert "5s" in msg
+    assert "estimated speech" in msg.lower()
+    # Names the script length so the operator can re-target.
+    assert "200" in msg
+    # Names the two remediation options.
+    assert (
+        "pick a backdrop_clip" in msg
+        or "shorten the script" in msg
+    )
+
+
+def test_v18_accepts_backdrop_exactly_at_estimated_speech() -> None:
+    """Boundary — when ``backdrop_seconds == estimated_speech_seconds``
+    the starter accepts the render. The check is a strict ``<``
+    (the buffered estimator already adds a 2s safety margin)."""
+    ws = _make_workspace("v194exact@test")
+    sp = _make_spokesperson(ws)
+    # 110 chars → estimated = max(5, 110/11 + 2) = max(5, 12) = 12s.
+    script = "x" * 110
+    backdrop = _make_backdrop_clip(ws, duration_ms=12_000)
+    estimated_seconds = _estimate_avatar_speech_seconds(len(script))
+    assert estimated_seconds == 12  # sanity check on the test's premise
+
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script=script,
+        backdrop_clip=backdrop,
+        mock_mode=True,
+    )
+    # Composition created successfully — the strict-less-than means
+    # boundary case (backdrop == estimate) is accepted.
+    assert c.template_kind == "talking_head_with_backdrop"
+
+
+def test_v18_accepts_backdrop_clearly_longer_than_speech() -> None:
+    """Happy path — long backdrop + short script. The composite
+    will trim the backdrop down to the speech length; that's the
+    intended V8 / V18 behavior."""
+    ws = _make_workspace("v194long@test")
+    sp = _make_spokesperson(ws)
+    # 50-char script ≈ max(5, 50/11 + 2) = max(5, 6) = 6s estimated.
+    backdrop = _make_backdrop_clip(ws, duration_ms=30_000)
+
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="Riggs walking through the sunset coastline scene.",
+        backdrop_clip=backdrop,
+        mock_mode=True,
+    )
+    # Composition created; the composite primitive will trim
+    # the long backdrop edge down to speech length at runtime.
+    assert c.template_kind == "talking_head_with_backdrop"
+
+
+def test_v18_duration_check_does_not_fire_on_backdrop_prompt_path() -> None:
+    """Backdrop-prompt path is unaffected — the duration-mismatch
+    check is specifically for picked-clip V18 renders. The
+    concat / extend path sizes its backdrop chain dynamically based
+    on script length, so the SESSION 184 #2 trim bug doesn't apply
+    there.
+    """
+    ws = _make_workspace("v194prompt_path@test")
+    sp = _make_spokesperson(ws)
+
+    # A long script that would trigger the new check if it were
+    # paired with a too-short backdrop_clip — but here we're on
+    # the prompt path, so the check shouldn't apply.
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 200,
+        backdrop_prompt="A neon cityscape with rain.",
+        mock_mode=True,
+    )
+    primitives = [
+        s.primitive for s in c.steps.all().order_by("position")
+    ]
+    # Prompt path still fires generate_visual_clip (≥1 step) —
+    # the duration-mismatch check would have raised before this
+    # composition could be created on the V18 path.
+    assert "generate_visual_clip" in primitives
+
+
+def test_v18_duration_error_message_includes_character_target() -> None:
+    """The remediation message names the rough character count the
+    operator could shorten to, so they can act without re-counting
+    by hand. ``backdrop_seconds * _AVATAR_SPEECH_CHARS_PER_SECOND``
+    is the inverse of the estimator's chars/sec rate."""
+    from apps.compositions.starters import _AVATAR_SPEECH_CHARS_PER_SECOND
+
+    ws = _make_workspace("v194charhint@test")
+    sp = _make_spokesperson(ws)
+    short_backdrop = _make_backdrop_clip(ws, duration_ms=4_000)
+    target_chars = 4 * _AVATAR_SPEECH_CHARS_PER_SECOND  # 44
+
+    with pytest.raises(ValueError) as exc:
+        talking_head_with_backdrop(
+            workspace=ws, spokesperson=sp,
+            script="x" * 500,
+            backdrop_clip=short_backdrop,
+            mock_mode=True,
+        )
+    assert str(target_chars) in str(exc.value)

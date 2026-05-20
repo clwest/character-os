@@ -1083,6 +1083,41 @@ def talking_head_with_backdrop(
                 f"a duration. Fix that primitive first or use a clip "
                 f"whose duration was recorded at create time."
             )
+        # SESSION 194 V18 polish — duration-mismatch starter warning.
+        # SESSION 184 dogfood #2 finding: when the picked backdrop is
+        # shorter than the estimated speech, composite_video trims
+        # the speech mid-sentence (it always trims the longer input
+        # down to the shorter one). The bug surfaced live in the
+        # SESSION 184 V18 dogfood — Riggs cut off at 5s because the
+        # operator picked a 5s gen3a_turbo smoke as backdrop for a
+        # ~9s speech.
+        #
+        # Refuse the render at starter time with an operator-
+        # actionable message naming both durations + the script
+        # length + the two ways to fix it (longer backdrop or shorter
+        # script). Uses ``_estimate_avatar_speech_seconds`` which
+        # adds a 2s safety buffer — the check effectively requires
+        # backdrop ≥ estimated_speech + 2s, which protects against
+        # Runway returning a clip slightly longer than the tight
+        # estimate.
+        estimated_speech_seconds = _estimate_avatar_speech_seconds(
+            len(script.strip()),
+        )
+        backdrop_seconds = backdrop_clip.duration_ms // 1000
+        if backdrop_seconds < estimated_speech_seconds:
+            raise ValueError(
+                f"backdrop_clip {backdrop_clip.id} is "
+                f"{backdrop_seconds}s long but the estimated speech "
+                f"duration is {estimated_speech_seconds}s "
+                f"(script: {len(script.strip())} chars). The composite "
+                f"primitive trims the longer input to the shorter one — "
+                f"with this combination, the avatar speech would be cut "
+                f"off mid-sentence. Either pick a backdrop_clip that's "
+                f"at least {estimated_speech_seconds}s long or shorten "
+                f"the script to roughly "
+                f"{backdrop_seconds * _AVATAR_SPEECH_CHARS_PER_SECOND} "
+                f"characters or fewer."
+            )
     if spokesperson.workspace_id != workspace.pk:
         raise ValueError(
             f"spokesperson {spokesperson.name!r} (workspace "
