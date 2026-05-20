@@ -146,6 +146,19 @@ ALLOWED_FILES = {
     # Workspace anchor is set explicitly at every create; the
     # pre_save signal still fires.
     "apps/compositions/tests/test_storage_health.py",
+    # SESSION 194 V18 polish slice 2 — smoke_keyframes management
+    # command persists successful Runway outputs as Asset rows
+    # (role=EXPERIMENT) so they land in the Asset Library v1 UI
+    # instead of becoming orphan URLs. The persist_smoke_asset
+    # helper sets workspace explicitly; the pre_save signal still
+    # fires.
+    "apps/compositions/management/commands/smoke_keyframes.py",
+    # SESSION 194 V18 polish slice 2 — smoke_keyframes helper tests
+    # construct Asset rows directly to exercise persist_smoke_asset
+    # in isolation (the command itself makes real Runway calls and
+    # refuses RUNWAY_FORCE_MOCK; testing the helper avoids needing
+    # to mock httpx).
+    "apps/compositions/tests/test_smoke_keyframes.py",
     # Asset Library A4 (SESSION 188) — workspace assets API tests
     # construct Composition + CompositionStep + Asset rows directly
     # to exercise the read endpoints (list filters, pagination,

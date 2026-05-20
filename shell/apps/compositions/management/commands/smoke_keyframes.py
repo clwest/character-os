@@ -96,6 +96,61 @@ _POLL_INTERVAL_S = 3.0
 _POLL_DEADLINE_S = 6 * 60  # 6 minutes, mirrors avatar_speech primitive
 
 
+def persist_smoke_asset(
+    *,
+    workspace,
+    model: str,
+    output_url: str,
+    task_id: str,
+    prompt: str,
+    duration_seconds: int,
+    width: int | None,
+    height: int | None,
+):
+    """SESSION 194 V18 polish slice 2 — save a smoke_keyframes
+    output as a workspace Asset row so it lands in the Asset
+    Library (A5 list / A6 detail) instead of becoming an orphan
+    URL the operator has to backfill via Django shell.
+
+    SESSION 184 calibration #4: "Smoke commands without
+    --save-assets produce orphans. Future smokes should default
+    to backfilling CLIP rows." Slice 2 ships that fix.
+
+    Role is hard-coded to ``EXPERIMENT`` — matches the SESSION 185
+    A1 backfill heuristic for smoke outputs (the original
+    SESSION 184 ``c21fdeec`` + ``89a1ce5f`` smoke UUIDs were
+    backfilled as EXPERIMENT for exactly this reason: smoke
+    outputs are sandbox content, not production deliverables,
+    and shouldn't pollute the A7 backdrop_clip picker.
+
+    Returns the freshly-created ``Asset``.
+    """
+    # Import inside the function to keep the command's module-load
+    # path light (the helper only fires after a successful Runway
+    # call, which is the slow path).
+    from apps.compositions.models import Asset, AssetRole, AssetType
+
+    duration_ms = int(duration_seconds * 1000)
+    return Asset.objects.create(
+        workspace=workspace,
+        asset_type=AssetType.CLIP,
+        role=AssetRole.EXPERIMENT.value,
+        file_path=output_url,
+        duration_ms=duration_ms,
+        width=width,
+        height=height,
+        mime_type="video/mp4",
+        title=f"smoke_keyframes {model}",
+        source_spec={
+            "primitive_kind": "smoke_keyframes",
+            "model": model,
+            "task_id": task_id,
+            "prompt": prompt,
+            "duration_seconds": duration_seconds,
+        },
+    )
+
+
 def _load_dotenv_into_environ() -> None:
     """Tiny inline .env parser — no python-dotenv dep. Reads
     KEY=VALUE lines from <repo-root>/.env (relative to this file)
@@ -342,6 +397,35 @@ class Command(BaseCommand):
             "--dry-run", action="store_true",
             help="Print the plan + cost estimate, skip Runway calls.",
         )
+        # SESSION 194 V18 polish slice 2 — save-by-default for
+        # smoke outputs. Operators who genuinely want orphan
+        # URLs (e.g. a quick eyeball comparison they'll throw
+        # away) pass --no-save-assets to opt out.
+        parser.add_argument(
+            "--save-assets", action="store_true", default=True,
+            help=(
+                "Persist successful smoke outputs as Asset rows in "
+                "--workspace with role=EXPERIMENT. ON by default "
+                "(SESSION 184 calibration #4 — orphan smoke URLs "
+                "are an operator footgun)."
+            ),
+        )
+        parser.add_argument(
+            "--no-save-assets", action="store_false", dest="save_assets",
+            help=(
+                "Explicit opt-out for --save-assets. Use when the "
+                "smoke is genuinely throwaway and you don't want "
+                "the outputs in the workspace's Asset Library."
+            ),
+        )
+        parser.add_argument(
+            "--workspace", metavar="NAME",
+            help=(
+                "Workspace name for Asset persistence. REQUIRED when "
+                "--save-assets is on (the default). Use --no-save-assets "
+                "to skip workspace resolution entirely."
+            ),
+        )
 
     def handle(self, *args, **opts) -> None:
         _load_dotenv_into_environ()
@@ -360,6 +444,27 @@ class Command(BaseCommand):
                 "the whole point of this smoke is real-mode A/B. "
                 "Unset RUNWAY_FORCE_MOCK and rerun."
             )
+
+        # SESSION 194 V18 polish slice 2 — resolve workspace upfront
+        # if --save-assets is on (the default). This fails fast before
+        # any Runway credit gets spent if the operator forgot the flag.
+        save_assets: bool = opts["save_assets"]
+        workspace = None
+        if save_assets and not opts["dry_run"]:
+            workspace_name = (opts.get("workspace") or "").strip()
+            if not workspace_name:
+                raise CommandError(
+                    "--workspace NAME is required when --save-assets is "
+                    "on (the default). Either pass --workspace, or "
+                    "pass --no-save-assets to skip Asset persistence."
+                )
+            from apps.accounts.models import Workspace
+            try:
+                workspace = Workspace.objects.get(name=workspace_name)
+            except Workspace.DoesNotExist as exc:
+                raise CommandError(
+                    f"workspace not found: {workspace_name!r}"
+                ) from exc
 
         # XOR per slot — each keyframe must come from either a URL or
         # an asset-id, not both. At least one path must be set per slot.
@@ -511,6 +616,38 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS(
                     f"   {model}: SUCCEEDED → {output_url}"
                 ))
+                # SESSION 194 V18 polish slice 2 — persist as Asset
+                # if --save-assets is on (default). EXPERIMENT role
+                # so the output appears in the Asset Library v1 UI
+                # but stays out of the A7 role-filtered backdrop
+                # picker (the SESSION 184 dogfood #6 lesson:
+                # re-using smoke outputs as backdrops drags drift
+                # into production renders).
+                if save_assets and workspace is not None:
+                    defaults = _MODEL_DEFAULTS[model]
+                    try:
+                        asset = persist_smoke_asset(
+                            workspace=workspace,
+                            model=model,
+                            output_url=output_url,
+                            task_id=task_id,
+                            prompt=prompt,
+                            duration_seconds=defaults["duration"],
+                            width=None,
+                            height=None,
+                        )
+                        results[model]["asset_id"] = str(asset.id)
+                        self.stdout.write(
+                            f"   {model}: persisted Asset {asset.id} "
+                            f"(role=experiment, workspace={workspace.name!r})"
+                        )
+                    except Exception as exc:  # pragma: no cover
+                        # Don't let a DB write error kill the smoke
+                        # output the operator already paid for —
+                        # surface but continue.
+                        self.stderr.write(
+                            f"   {model}: Asset persistence failed: {exc}"
+                        )
             else:
                 self.stderr.write(
                     f"   {model}: {terminal_status} "
