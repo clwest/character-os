@@ -22,6 +22,7 @@ import {
   Trash2,
   X,
   RefreshCw,
+  BookOpen,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -41,9 +42,72 @@ import {
   type PersonalizedRecipient,
   type ParseCsvResponse,
   type CampaignStatus,
+  type SourceScriptBlock,
 } from "@/lib/api/campaigns";
+import {
+  verificationStatusTone,
+  verificationStatusLabel,
+} from "@/lib/api/scripts";
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
+
+// ---- SourceScriptPanel (BC4) --------------------------------
+
+/**
+ * Renders a compact "Derived from script" header block when
+ * campaign.source_script is non-null. Positioned between the
+ * page header (CampaignMetadataPanel) and the template/CSV panels.
+ *
+ * Contract rule 2 honored: the tooltip notes the FK is audit trail,
+ * not a constraint on the template.
+ */
+function SourceScriptPanel({ sourceScript }: { sourceScript: SourceScriptBlock }) {
+  const vTone = verificationStatusTone(sourceScript.verification_status as Parameters<typeof verificationStatusTone>[0]);
+  const vLabel = verificationStatusLabel(sourceScript.verification_status as Parameters<typeof verificationStatusLabel>[0]);
+
+  return (
+    <section
+      data-testid="source-script-panel"
+      className="rounded-md border border-border bg-muted/20 p-4 flex items-center gap-3 flex-wrap text-sm"
+    >
+      <BookOpen className="h-4 w-4 text-muted-foreground shrink-0" />
+      <span className="text-muted-foreground">Derived from script</span>
+      <Link
+        to={`/workspace/scripts/${sourceScript.id}`}
+        data-testid="source-script-link"
+        className="font-medium text-primary hover:underline underline-offset-2"
+      >
+        {sourceScript.name}
+      </Link>
+      {sourceScript.verification_status !== "" && (
+        <span
+          className={cn(
+            "inline-flex shrink-0 items-center rounded-sm border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider",
+            vTone === "amber" && "border-amber-500/40 bg-amber-500/10 text-amber-400",
+            vTone === "success" && "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
+            vTone === "muted" && "border-border bg-muted text-muted-foreground",
+            vTone === "danger" && "border-destructive/40 bg-destructive/10 text-destructive",
+          )}
+        >
+          {vLabel}
+        </span>
+      )}
+      <span
+        data-testid="source-script-chunk-count"
+        className="text-xs text-muted-foreground"
+      >
+        {sourceScript.chunk_count} chunk{sourceScript.chunk_count !== 1 ? "s" : ""}
+      </span>
+      {/* Rule 2 tooltip — audit trail annotation */}
+      <span
+        title="Audit trail only — template is editable after derivation (rule 2)"
+        className="ml-auto text-[10px] text-muted-foreground cursor-help border-b border-dashed border-muted-foreground/40"
+      >
+        audit trail only
+      </span>
+    </section>
+  );
+}
 
 // ---- Page component -----------------------------------------
 
@@ -104,6 +168,11 @@ export function CampaignDetailRoute() {
     >
       <BackLink />
       <CampaignMetadataPanel campaign={c} />
+
+      {/* BC4: source_script header block — shown when campaign derives from a Script */}
+      {c.source_script != null && (
+        <SourceScriptPanel sourceScript={c.source_script} />
+      )}
 
       {/* Terminal status banner */}
       {isTerminal && <TerminalBanner campaign={c} />}

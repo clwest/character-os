@@ -243,7 +243,7 @@ has no Campaigns FK).
 | **BC1** ✓ SHIPPED | Schema: `source_script` FK on PersonalizedCampaign (FK to Script, null=True, blank=True, on_delete=PROTECT, related_name='derived_campaigns') + migration `0002_bc1_source_script` + cross-workspace guard extended in both `clean()` + pre_save signal (added `source_script` to validated_fields). 5 model tests pin nullable default, FK + reverse_name round-trip, cross-workspace clean rejection, cross-workspace signal rejection, ProtectedError on Script delete when referenced. Django 1320 → 1325 (+5). Zero regressions. | ½ session |
 | **BC2** ✓ SHIPPED | Extend `talking_head_polished` starter: 4 optional kwargs (`knowledge_chunk_ids` / `synthesized_brief` / `verification_status` / `verification_warnings`) propagate to the Composition row when supplied. Defaults None = current behavior; existing C-arc + recipe-gallery callers unchanged. **Q-bc-7 resolved as-proposed** (warnings JSON is COPIED onto every per-recipient Composition, not joined-through-FK). Defensive `list(...)` copies prevent aliasing. 7 new starter tests pin: back-compat no-kwargs, each kwarg individually, all four together (load-bearing BC3 shape), defensive-copy semantic. Django 1325 → 1332 (+7). Zero regressions across the 1325 baseline (existing 14 polished-starter tests + 75 C-arc tests + 100+ V-arc tests still green). | ½ session |
 | **BC3** ✓ SHIPPED | REST: `POST /api/campaigns/` accepts optional `source_script_id` (workspace-filtered Script fetch, status must be READY or RENDERED, defensive draft_text copy with re-parse for template-syntax errors, persists FK). `GET /api/campaigns/<id>/` returns `source_script` block (`{id, name, status, verification_status, chunk_count}`) when set; null otherwise. Launch path calls `_build_source_script_lineage(campaign)` once then `_per_recipient_lineage(...)` per recipient — propagates `knowledge_chunk_ids` + `verification_status` + `verification_warnings` from the Script (rules 4 + 8) and sets `synthesized_brief` to the per-recipient `render_template(...)` output (rule 5). Retry action mirrors launch's lineage shape so retried renders match the original. New `GET /api/scripts/<id>/derived_campaigns/` action returns workspace-filtered paginated list (Q-bc-9 resolved as-proposed). **Q-bc-2 resolved** (CREATE requires READY or RENDERED; LAUNCH reads at-launch state regardless). **Q-bc-9 resolved** (100-row cap + optional ?status= filter, mirrors campaigns list shape). 11 REST tests: backfill, operator-override, cross-workspace 404, non-READY 400, back-compat, retrieve with/without source_script, missing-template-and-source 400, launch lineage propagation, launch back-compat (no source_script), derived_campaigns happy + empty. Django 1332 → 1343 (+11). Zero regressions across the 1332 baseline. | ½-1 session |
-| **BC4** | SPA: "Use approved Script as starting template" picker on `/workspace/campaigns/new`. Workspace + spokesperson filter. Script preview pane (draft_text + chunk count). "Use as template" pre-fills the textarea + sets `source_script_id` in the create payload. Script detail page gains "Used by N campaigns" badge (links to derived_campaigns list). 10-12 vitest tests. | 1 session (subagent candidate). |
+| **BC4** ✓ SHIPPED | SPA: "Use approved Script as starting template" picker on `/workspace/campaigns/new`. Workspace + spokesperson filter. Script preview pane (draft_text + chunk count). "Use as template" pre-fills the textarea + sets `source_script_id` in the create payload. Script detail page gains "Derived campaigns (N)" collapsible panel linking to each Campaign. Campaign detail page gains `source_script` header block (Script name link + verification badge + chunk count + audit-trail tooltip). Q-bc-3, Q-bc-4, Q-bc-5, Q-bc-8 all resolved as-proposed. 21 new vitest tests (405 → 426). | 1 session. |
 | **BC5** | Real-mode dogfood + arc close. 2-recipient batch derived from SESSION 207's "Five Good Emperors" Script. Validate: per-recipient Composition.knowledge_chunk_ids matches Script's; per-recipient Asset F-arc brief-mode panel shows citations; verification warnings carry over. Close the arc. | ½ session |
 
 Total: ~2 sessions (BC0+BC1+BC2 in session A; BC3+BC4 in session
@@ -520,6 +520,35 @@ this is pure integration over pre-validated layers.
   immutability is enforced by absence. Worth a formal
   annotation in BC4 or a v2 polish.
 
-  BC4 (SPA: Script picker on `/workspace/campaigns/new` +
-  preview + "Used by N campaigns" badge on Script detail)
+  BC4 opens next.
+
+* **2026-05-20 (SESSION 208, BC4 SHIPPED)** — SPA composition
+  arc surface lands. Five files changed:
+  `web/src/lib/api/campaigns.ts` — adds `sourceScriptBlockSchema`,
+  extends `personalizedCampaignSchema` with `source_script:
+  sourceScriptBlockSchema.nullable().optional()`, makes `template`
+  optional on `CreateCampaignInput`, adds `source_script_id` field,
+  sends only defined fields to avoid empty-string false positives.
+  `web/src/lib/api/scripts.ts` — adds `derivedCampaignRowSchema`,
+  `getDerivedCampaigns` fetcher, `useDerivedCampaigns` React Query
+  hook (staleTime: 15_000, enabled: Boolean(scriptId)).
+  `web/src/routes/workspace/campaigns.new.tsx` — adds
+  `ScriptPickerSection` component with spokesperson-filter toggle
+  (Q-bc-4), `ScriptPreviewCard` with verbatim template copy (Q-bc-8),
+  `DerivedFromBanner` when FK is set (Q-bc-5: no re-prompt on edit),
+  Q-bc-3 immutability hint text inline.
+  `web/src/routes/workspace/campaigns.$id.tsx` — adds
+  `SourceScriptPanel` between metadata and CSV panels; shown only
+  when `campaign.source_script != null`; rule-2 audit-trail tooltip.
+  `web/src/routes/workspace/scripts.$id.tsx` — adds
+  `DerivedCampaignsPanel` (collapsed when N=0, expanded when N>0,
+  100-row cap hint) + `DerivedCampaignRow` with campaign link,
+  status badge, recipient count, relative timestamp.
+  **Q-bc-3 resolved** (immutability by absence + inline hint).
+  **Q-bc-4 resolved** (spokesperson filter default + show-all
+  toggle). **Q-bc-5 resolved** (no warning on template edit; FK
+  is audit trail per rule 2). **Q-bc-8 resolved** (verbatim copy,
+  no placeholder injection). 21 new vitest tests across 3 new test
+  files; SPA vitest 405 → 426 (+21). Zero regressions. `pnpm build`
+  exits 0. Django suite unchanged at 1343. BC5 (real-mode dogfood)
   opens next.

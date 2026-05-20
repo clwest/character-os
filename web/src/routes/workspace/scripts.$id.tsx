@@ -36,6 +36,7 @@ import {
   useRenderScript,
   useCloneScript,
   useDeleteScript,
+  useDerivedCampaigns,
   scriptStatusTone,
   scriptStatusLabel,
   verificationStatusTone,
@@ -43,7 +44,12 @@ import {
   type ScriptDetail,
   type RegenerateScriptInput,
   type VerifierMode,
+  type DerivedCampaignRow,
 } from "@/lib/api/scripts";
+import {
+  campaignStatusTone,
+  campaignStatusLabel,
+} from "@/lib/api/campaigns";
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import { StatusBadge, VerificationBadge } from "./scripts";
@@ -192,6 +198,9 @@ function ScriptDetailView({
           error={renderError}
         />
       )}
+
+      {/* ---- Derived campaigns (BC4) -------------------------- */}
+      <DerivedCampaignsPanel scriptId={script.id} />
 
       {/* ---- Revision history --------------------------------- */}
       {script.revision_history.length > 0 && (
@@ -973,6 +982,151 @@ function RenderResultPanel({
         </Link>
       </div>
     </div>
+  );
+}
+
+// ---- DerivedCampaignsPanel (BC4) --------------------------------
+
+/**
+ * Collapsible panel showing all Campaigns derived from this Script via
+ * the source_script FK. Fetches GET /api/scripts/<id>/derived_campaigns/.
+ *
+ * BC4 / Contract rule 1 — Script doesn't have a back-reference on its
+ * model; this panel queries Campaign's FK in reverse via the new endpoint.
+ * N=0 → collapsed by default with a muted hint.
+ * N>0 → expanded by default.
+ * Backend caps at 100 rows (Q-bc-9). Hint shown when at cap.
+ */
+function DerivedCampaignsPanel({ scriptId }: { scriptId: string }) {
+  const derived = useDerivedCampaigns(scriptId);
+  const rows = derived.data ?? [];
+  const n = rows.length;
+  const atCap = n >= 100;
+
+  // N=0 → default collapsed; N>0 → default expanded.
+  const [expanded, setExpanded] = useState(n > 0);
+
+  // Re-initialize expanded state when data loads (only on first load).
+  const [initialized, setInitialized] = useState(false);
+  if (!initialized && derived.data !== undefined) {
+    setExpanded(n > 0);
+    setInitialized(true);
+  }
+
+  return (
+    <section
+      data-testid="derived-campaigns-panel"
+      className="rounded-md border border-border bg-card p-6 flex flex-col gap-3"
+    >
+      <button
+        type="button"
+        data-testid="derived-campaigns-toggle"
+        className="flex items-center justify-between w-full"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        <h2 className="font-display text-xl tracking-tight">
+          Derived campaigns ({derived.isLoading ? "…" : n})
+        </h2>
+        {expanded ? (
+          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        )}
+      </button>
+
+      {expanded && (
+        <div data-testid="derived-campaigns-content" className="flex flex-col gap-3">
+          {derived.isLoading && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Loading derived campaigns…
+            </div>
+          )}
+
+          {!derived.isLoading && n === 0 && (
+            <p
+              data-testid="derived-campaigns-empty"
+              className="text-sm text-muted-foreground italic"
+            >
+              Not yet used in any campaign.
+            </p>
+          )}
+
+          {n > 0 && (
+            <ul
+              data-testid="derived-campaigns-list"
+              className="flex flex-col divide-y divide-border"
+            >
+              {rows.map((row) => (
+                <DerivedCampaignRow key={row.id} row={row} />
+              ))}
+            </ul>
+          )}
+
+          {atCap && (
+            <p className="text-[11px] text-muted-foreground">
+              Showing first 100 — refine via campaign status filter if needed.
+            </p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function DerivedCampaignRow({ row }: { row: DerivedCampaignRow }) {
+  const tone = campaignStatusTone(row.status);
+  const label = campaignStatusLabel(row.status);
+
+  // Simple relative time helper — avoids a date-fns dep.
+  function relativeTime(isoString: string): string {
+    const diffMs = Date.now() - new Date(isoString).getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return "today";
+    if (diffDays === 1) return "1 day ago";
+    if (diffDays < 30) return `${diffDays} days ago`;
+    const diffMonths = Math.floor(diffDays / 30);
+    if (diffMonths === 1) return "1 month ago";
+    return `${diffMonths} months ago`;
+  }
+
+  return (
+    <li
+      data-testid={`derived-campaign-row-${row.id}`}
+      className="py-3 flex items-center gap-3 flex-wrap text-sm"
+    >
+      {/* Status badge */}
+      <span
+        className={cn(
+          "inline-flex shrink-0 items-center rounded-sm border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider",
+          tone === "amber" && "border-amber-500/40 bg-amber-500/10 text-amber-400",
+          tone === "success" && "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
+          tone === "muted" && "border-border bg-muted text-muted-foreground",
+          tone === "danger" && "border-destructive/40 bg-destructive/10 text-destructive",
+        )}
+      >
+        {label}
+      </span>
+
+      {/* Name link */}
+      <Link
+        to={`/workspace/campaigns/${row.id}`}
+        data-testid={`derived-campaign-link-${row.id}`}
+        className="font-medium text-foreground hover:text-primary hover:underline underline-offset-2 flex-1 min-w-0 truncate"
+      >
+        {row.name}
+      </Link>
+
+      {/* Recipient count */}
+      <span className="text-xs text-muted-foreground shrink-0">
+        {row.recipient_count} recipient{row.recipient_count !== 1 ? "s" : ""}
+      </span>
+
+      {/* Relative timestamp */}
+      <span className="text-xs text-muted-foreground shrink-0">
+        {relativeTime(row.created_at)}
+      </span>
+    </li>
   );
 }
 

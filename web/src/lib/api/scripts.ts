@@ -21,6 +21,7 @@
 import { z } from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiJson } from "./client";
+import type { CampaignStatus } from "./campaigns";
 
 // ---- Status enums -----------------------------------------------
 
@@ -409,6 +410,67 @@ export function verificationStatusTone(
     case "":
       return "muted";
   }
+}
+
+// ---- BC4: derived campaigns hook --------------------------------
+
+/**
+ * Shape of each row returned by
+ * GET /api/scripts/<id>/derived_campaigns/.
+ * Mirrors PersonalizedCampaign list shape (subset).
+ */
+export const derivedCampaignRowSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  status: z.enum([
+    "draft",
+    "launching",
+    "in_flight",
+    "completed",
+    "partial",
+    "failed",
+  ] as const),
+  recipient_count: z.number().int().nonnegative(),
+  spokesperson_name: z.string().nullable(),
+  created_at: z.string(),
+  launched_at: z.string().nullable(),
+});
+
+export type DerivedCampaignRow = z.infer<typeof derivedCampaignRowSchema>;
+
+/**
+ * GET /api/scripts/<id>/derived_campaigns/
+ * Optional ?status= filter mirrors the /api/campaigns/ shape.
+ * Backend caps at 100 rows.
+ */
+export async function getDerivedCampaigns(
+  scriptId: string,
+  params: { status?: CampaignStatus } = {},
+): Promise<DerivedCampaignRow[]> {
+  const qs = params.status
+    ? `?status=${encodeURIComponent(params.status)}`
+    : "";
+  return apiJson(
+    `/api/scripts/${encodeURIComponent(scriptId)}/derived_campaigns/${qs}`,
+    {},
+    (json) => z.array(derivedCampaignRowSchema).parse(json),
+  );
+}
+
+/**
+ * React Query hook for a Script's derived Campaign list.
+ * Enabled only when scriptId is non-empty.
+ */
+export function useDerivedCampaigns(
+  scriptId: string | undefined,
+  params: { status?: CampaignStatus } = {},
+) {
+  return useQuery({
+    queryKey: ["script-derived-campaigns", scriptId ?? null, params.status ?? null],
+    queryFn: () => getDerivedCampaigns(scriptId!, params),
+    enabled: Boolean(scriptId),
+    staleTime: 15_000,
+  });
 }
 
 /** Human-readable label for a VerificationStatus value. */

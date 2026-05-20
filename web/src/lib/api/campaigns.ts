@@ -37,6 +37,24 @@ export const RECIPIENT_STATUSES = [
 ] as const;
 export type RecipientStatus = (typeof RECIPIENT_STATUSES)[number];
 
+// ---- BC4: source_script block schema -------------------------
+
+/**
+ * Nullable block returned by GET /api/campaigns/<id>/ when the
+ * campaign was derived from an approved Script. Mirrors the
+ * SerializerMethodField on PersonalizedCampaignSerializer.
+ * BC3 ships the backend; BC4 wires the SPA.
+ */
+export const sourceScriptBlockSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  status: z.enum(["draft", "ready", "rendered", "archived"] as const),
+  verification_status: z.string(), // loose — mirrors VerificationStatus
+  chunk_count: z.number().int().nonnegative(),
+});
+
+export type SourceScriptBlock = z.infer<typeof sourceScriptBlockSchema>;
+
 // ---- Zod schemas ---------------------------------------------
 
 export const personalizedRecipientSchema = z.object({
@@ -82,6 +100,9 @@ export const personalizedCampaignSchema = z.object({
   completed_at: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
+  // BC4 — nullable FK block. Present on detail; may be absent on list items
+  // that predate the BC3 migration. z.undefined() fallback covers that.
+  source_script: sourceScriptBlockSchema.nullable().optional(),
 });
 
 export type PersonalizedCampaign = z.infer<typeof personalizedCampaignSchema>;
@@ -133,15 +154,41 @@ export interface CreateCampaignInput {
   workspace_id: string;
   spokesperson_id: string;
   name: string;
-  template: string;
+  /**
+   * Now optional — BC4. If omitted and source_script_id is provided,
+   * the server back-fills template from script.draft_text. At least one
+   * of template / source_script_id must be present (server validates).
+   */
+  template?: string;
+  /**
+   * BC4 — optional. If set, the Campaign derives from this approved Script
+   * (must be READY or RENDERED and in the same workspace). The source_script
+   * FK is set at create time and immutable thereafter (Q-bc-3 resolved by
+   * absence — no SPA control for post-create mutation).
+   */
+  source_script_id?: string;
 }
 
 export async function createCampaign(
   input: CreateCampaignInput,
 ): Promise<PersonalizedCampaign> {
+  // Only send defined fields. Don't send template: "" when omitted — the
+  // backend serializer treats an empty string as "missing template" for the
+  // cross-field validation (at least one of template / source_script_id).
+  const body: Record<string, unknown> = {
+    workspace_id: input.workspace_id,
+    spokesperson_id: input.spokesperson_id,
+    name: input.name,
+  };
+  if (input.template !== undefined && input.template !== "") {
+    body.template = input.template;
+  }
+  if (input.source_script_id) {
+    body.source_script_id = input.source_script_id;
+  }
   return apiJson(
     "/api/campaigns/",
-    { method: "POST", body: input },
+    { method: "POST", body },
     (json) => personalizedCampaignSchema.parse(json),
   );
 }

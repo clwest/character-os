@@ -5,19 +5,271 @@
  * template). On success → navigate to the campaign detail page
  * where the operator pastes their CSV.
  *
+ * SESSION BC4. Added "Start from an approved script (optional)"
+ * Script picker section above the template textarea. Resolves
+ * Q-bc-4, Q-bc-5, Q-bc-8 as-proposed.
+ *
  * Scope: docs/design/PERSONALIZED_VIDEO_V1.md §B3.7.
+ *       docs/design/B2_B3_COMPOSITION_V1.md §BC4.
  */
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ChevronLeft, Loader2, AlertCircle } from "lucide-react";
+import { ChevronLeft, Loader2, AlertCircle, X, Link2Off } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useMe } from "@/lib/api/workspaces";
 import { useSpokespeople } from "@/lib/api/spokespeople";
 import { useCreateCampaign, parsePlaceholders } from "@/lib/api/campaigns";
+import { useScripts, verificationStatusTone, verificationStatusLabel, type ScriptListItem } from "@/lib/api/scripts";
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
+
+// ---- VerificationBadge (inline — mirrors scripts.tsx) --------
+
+function VerificationBadge({
+  tone,
+  label,
+}: {
+  tone: "muted" | "amber" | "success" | "danger";
+  label: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center rounded-sm border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider",
+        tone === "amber" && "border-amber-500/40 bg-amber-500/10 text-amber-400",
+        tone === "success" &&
+          "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
+        tone === "muted" && "border-border bg-muted text-muted-foreground",
+        tone === "danger" &&
+          "border-destructive/40 bg-destructive/10 text-destructive",
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+// ---- ScriptPickerSection ------------------------------------
+
+/**
+ * Optional Script picker shown above the template textarea.
+ *
+ * Q-bc-4: filters by spokesperson by default; "Show all workspace
+ * scripts" toggle drops the spokesperson filter.
+ * Q-bc-5: no warning when operator edits the copied template.
+ * Q-bc-8: "Use this draft as starting template" copies draft_text
+ *         verbatim into the textarea (no placeholder injection).
+ * Q-bc-3: annotated inline — source_script link is fixed post-create.
+ */
+function ScriptPickerSection({
+  workspaceId,
+  spokespersonId,
+  pickedScript,
+  onPick,
+  onUnlink,
+  onUseAsTemplate,
+  disabled,
+}: {
+  workspaceId: string;
+  spokespersonId: string;
+  pickedScript: ScriptListItem | null;
+  onPick: (script: ScriptListItem) => void;
+  onUnlink: () => void;
+  onUseAsTemplate: (draftText: string) => void;
+  disabled: boolean;
+}) {
+  const [showAll, setShowAll] = useState(false);
+
+  // Filter: spokesperson + ready by default; all-workspace toggle drops the sp filter.
+  const filters = {
+    status: "ready" as const,
+    ...(showAll ? {} : { spokesperson: spokespersonId }),
+  };
+
+  const scripts = useScripts(workspaceId || undefined, filters);
+  const scriptList = scripts.data ?? [];
+
+  return (
+    <div
+      data-testid="script-picker-section"
+      className="flex flex-col gap-3 rounded-md border border-border bg-muted/20 p-4"
+    >
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex flex-col gap-0.5">
+          <p className="text-sm font-medium">
+            Start from an approved script{" "}
+            <span className="text-muted-foreground font-normal">(optional)</span>
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            Picks an approved Script as the starting template + links knowledge
+            lineage to every per-recipient render.
+          </p>
+        </div>
+      </div>
+
+      {/* Spokesperson-filter toggle */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          data-testid="script-picker-show-all-toggle"
+          onClick={() => setShowAll((v) => !v)}
+          disabled={disabled}
+          className={cn(
+            "text-[11px] underline underline-offset-2 text-muted-foreground hover:text-foreground",
+            showAll && "text-primary",
+          )}
+        >
+          {showAll
+            ? "Show only this spokesperson's scripts"
+            : "Show all workspace scripts"}
+        </button>
+      </div>
+
+      {/* Script select */}
+      {scripts.isLoading ? (
+        <div className="h-9 rounded-md bg-muted animate-pulse" data-testid="script-picker-loading" />
+      ) : scriptList.length === 0 ? (
+        <div
+          data-testid="script-picker-empty"
+          className="rounded-md border border-dashed border-border p-3 text-center"
+        >
+          <p className="text-xs text-muted-foreground">
+            No approved scripts yet —{" "}
+            <Link
+              to="/workspace/scripts/new"
+              className="text-primary underline-offset-2 hover:underline"
+            >
+              draft one at /workspace/scripts/new
+            </Link>
+          </p>
+        </div>
+      ) : (
+        <select
+          data-testid="script-picker-select"
+          value={pickedScript?.id ?? ""}
+          onChange={(e) => {
+            const found = scriptList.find((s) => s.id === e.target.value);
+            if (found) onPick(found);
+          }}
+          disabled={disabled}
+          className={cn(
+            "flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors",
+            "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            "disabled:cursor-not-allowed disabled:opacity-50",
+          )}
+        >
+          <option value="">— Pick a script —</option>
+          {scriptList.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name || "Untitled script"} ({s.spokesperson_name})
+            </option>
+          ))}
+        </select>
+      )}
+
+      {/* Picked script preview card */}
+      {pickedScript && (
+        <ScriptPreviewCard
+          script={pickedScript}
+          onUnlink={onUnlink}
+          onUseAsTemplate={onUseAsTemplate}
+          disabled={disabled}
+        />
+      )}
+
+      {/* Q-bc-3 immutability hint */}
+      <p className="text-[11px] text-muted-foreground">
+        Once you create the campaign, the Script link is fixed. To change it,
+        create a new campaign.
+      </p>
+    </div>
+  );
+}
+
+// ---- ScriptPreviewCard --------------------------------------
+
+function ScriptPreviewCard({
+  script,
+  onUnlink,
+  onUseAsTemplate,
+  disabled,
+}: {
+  script: ScriptListItem;
+  onUnlink: () => void;
+  onUseAsTemplate: (draftText: string) => void;
+  disabled: boolean;
+}) {
+  const vTone = verificationStatusTone(script.verification_status);
+  const vLabel = verificationStatusLabel(script.verification_status);
+  const preview = script.draft_text
+    ? script.draft_text.slice(0, 200) + (script.draft_text.length > 200 ? "…" : "")
+    : "";
+
+  return (
+    <div
+      data-testid={`script-preview-card-${script.id}`}
+      className="rounded-md border border-border bg-card p-4 flex flex-col gap-3"
+    >
+      {/* Header row: name + badges + unlink */}
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex flex-col gap-1 min-w-0">
+          <p
+            data-testid="script-preview-name"
+            className="text-sm font-medium truncate"
+          >
+            {script.name || "Untitled script"}
+          </p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {script.verification_status !== "" && (
+              <VerificationBadge tone={vTone} label={vLabel} />
+            )}
+            <span className="text-[10px] text-muted-foreground">
+              {script.knowledge_chunk_ids.length} chunk
+              {script.knowledge_chunk_ids.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+        </div>
+        <button
+          type="button"
+          data-testid="script-picker-unlink"
+          onClick={onUnlink}
+          disabled={disabled}
+          title="Unlink script — author template free-form instead"
+          className="text-muted-foreground hover:text-foreground shrink-0"
+        >
+          <Link2Off className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {/* Draft preview */}
+      {preview && (
+        <pre
+          data-testid="script-preview-draft"
+          className="whitespace-pre-wrap font-mono text-[11px] text-muted-foreground bg-muted/30 rounded-md p-2 max-h-28 overflow-y-auto border border-border"
+        >
+          {preview}
+        </pre>
+      )}
+
+      {/* "Use this draft as starting template" — Q-bc-8: copies verbatim */}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        data-testid="script-use-as-template-btn"
+        disabled={disabled || !script.draft_text}
+        onClick={() => onUseAsTemplate(script.draft_text)}
+        className="w-fit text-xs gap-1.5"
+      >
+        Use this draft as starting template
+      </Button>
+
+      {/* Derived-from annotation — shown after "Use" was clicked (handled by parent) */}
+    </div>
+  );
+}
 
 // ---- Page component -----------------------------------------
 
@@ -36,6 +288,10 @@ export function CampaignNewRoute() {
   const [spokespersonId, setSpokespersonId] = useState("");
   const [template, setTemplate] = useState("");
 
+  // BC4: Script picker state
+  const [pickedScript, setPickedScript] = useState<ScriptListItem | null>(null);
+  const [sourceScriptId, setSourceScriptId] = useState<string | undefined>(undefined);
+
   // Pick the first spokesperson by default when the list loads.
   useEffect(() => {
     if (!spokespersonId && spList.length > 0) {
@@ -43,16 +299,45 @@ export function CampaignNewRoute() {
     }
   }, [spList, spokespersonId]);
 
+  // When spokesperson changes, clear the picked script to avoid cross-sp confusion
+  // (the picker will re-filter by default; operator can toggle "show all" again).
+  function handleSpokespersonChange(newId: string) {
+    setSpokespersonId(newId);
+    setPickedScript(null);
+    setSourceScriptId(undefined);
+  }
+
+  // BC4: "Use this draft as starting template" — Q-bc-8: verbatim copy
+  function handleUseAsTemplate(draftText: string) {
+    setTemplate(draftText);
+    // sourceScriptId stays set — this is the FK kept in the create payload
+  }
+
+  // BC4: unlink clears the source script state; operator can author free-form
+  function handleUnlinkScript() {
+    setPickedScript(null);
+    setSourceScriptId(undefined);
+  }
+
+  // BC4: picking a script sets the preview card + FK; does NOT auto-copy template
+  function handlePickScript(script: ScriptListItem) {
+    setPickedScript(script);
+    setSourceScriptId(script.id);
+  }
+
   // Client-side placeholder preview — purely advisory.
   const detectedVars = parsePlaceholders(template);
 
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   // ---- Validation
+  // BC4: template is now optional when source_script_id is set. If neither
+  // is set, the backend will 400 — surface that inline via submitError.
   const nameError = name.trim().length === 0 ? "Name is required." : null;
   const spError = spokespersonId.trim() === "" ? "Spokesperson is required." : null;
-  const templateError =
-    template.trim().length === 0 ? "Template is required." : null;
+  // Only require template in the UI if no script is linked.
+  const templateRequired = !sourceScriptId && template.trim().length === 0;
+  const templateError = templateRequired ? "Template is required (or pick an approved script above)." : null;
 
   const [showErrors, setShowErrors] = useState(false);
 
@@ -67,11 +352,12 @@ export function CampaignNewRoute() {
         workspace_id: workspaceId,
         spokesperson_id: spokespersonId,
         name: name.trim(),
-        template,
+        template: template || undefined,
+        source_script_id: sourceScriptId,
       });
       navigate(`/workspace/campaigns/${campaign.id}`);
     } catch (err) {
-      // Surface backend 400 (e.g. template syntax error) inline.
+      // Surface backend 400 inline.
       if (err instanceof ApiError && err.status === 400) {
         const body = err.body as Record<string, unknown> | null;
         const templateMsg =
@@ -79,7 +365,23 @@ export function CampaignNewRoute() {
             ? String(Array.isArray(body.template) ? body.template[0] : body.template)
             : null;
         const detailMsg = body?.detail != null ? String(body.detail) : null;
-        setSubmitError(templateMsg ?? detailMsg ?? "Submission failed — check your inputs.");
+
+        // BC4: source_script_not_ready — defensive (picker only shows READY scripts,
+        // but server could reject if the Script was just archived in another tab).
+        const code = typeof body?.code === "string" ? body.code : null;
+        if (code === "source_script_not_ready") {
+          setSubmitError(
+            "This script isn't approved — only READY or RENDERED scripts can ground a campaign.",
+          );
+        } else if (detailMsg?.includes("not found")) {
+          setSubmitError("Script not available in this workspace.");
+        } else {
+          setSubmitError(
+            templateMsg ?? detailMsg ?? "Submission failed — check your inputs.",
+          );
+        }
+      } else if (err instanceof ApiError && err.status === 404) {
+        setSubmitError("Script not available in this workspace.");
       } else {
         setSubmitError(
           err instanceof Error ? err.message : "An unexpected error occurred.",
@@ -174,7 +476,7 @@ export function CampaignNewRoute() {
               id="campaign-spokesperson"
               data-testid="campaign-spokesperson-select"
               value={spokespersonId}
-              onChange={(e) => setSpokespersonId(e.target.value)}
+              onChange={(e) => handleSpokespersonChange(e.target.value)}
               disabled={create.isPending || spList.length === 0}
               className={cn(
                 "flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors",
@@ -216,13 +518,51 @@ export function CampaignNewRoute() {
           )}
         </div>
 
+        {/* BC4: Script picker section — above the template textarea */}
+        {workspaceId && (
+          <ScriptPickerSection
+            workspaceId={workspaceId}
+            spokespersonId={spokespersonId}
+            pickedScript={pickedScript}
+            onPick={handlePickScript}
+            onUnlink={handleUnlinkScript}
+            onUseAsTemplate={handleUseAsTemplate}
+            disabled={create.isPending}
+          />
+        )}
+
+        {/* Derived-from banner when script is linked */}
+        {sourceScriptId && pickedScript && (
+          <div
+            data-testid="derived-from-banner"
+            className="flex items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-400"
+          >
+            <X
+              className="h-3 w-3 cursor-pointer shrink-0"
+              onClick={handleUnlinkScript}
+              aria-label="Unlink script"
+            />
+            <span>
+              Derived from:{" "}
+              <strong>{pickedScript.name || "Untitled script"}</strong>
+              {" "}— template editable, FK is audit trail
+            </span>
+          </div>
+        )}
+
         {/* Template */}
         <div className="flex flex-col gap-1.5">
           <label
             htmlFor="campaign-template"
             className="text-sm font-medium"
           >
-            Script template <span className="text-destructive">*</span>
+            Script template{" "}
+            {!sourceScriptId && <span className="text-destructive">*</span>}
+            {sourceScriptId && (
+              <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+                (pre-filled from script — edit freely)
+              </span>
+            )}
           </label>
           <textarea
             id="campaign-template"
