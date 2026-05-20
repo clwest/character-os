@@ -244,6 +244,15 @@ ALLOWED_FILES = {
     # to composition tables; B14.3 will route through the
     # sanctioned publish_variant starter.
     "apps/publish/tests/test_models.py",
+    # D-arc B14.3 (SESSION 205) — REST + completion signal
+    # tests seed Asset(CLIP) + Composition + CompositionStep
+    # rows to exercise the launch + completion-signal +
+    # retry flows. Launch routes through the sanctioned
+    # publish_variant starter; the direct seeds are for
+    # source-clip lineage + simulating composition terminal
+    # state saves (mirrors C-arc test_completion_retry.py
+    # allowance).
+    "apps/publish/tests/test_api.py",
 }
 
 
