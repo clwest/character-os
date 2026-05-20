@@ -102,6 +102,13 @@ ALLOWED_FILES = {
     # Workspace anchor is set explicitly at create; the
     # pre_save signal still fires.
     "apps/compositions/tests/test_primitive_role_coverage.py",
+    # B-arc B1.4 (SESSION 202) — approve/reject tests seed a
+    # single ENDED RealtimeSession with an attached transcript
+    # asset to exercise the spokesperson reverse-FK lookup
+    # (Q-b-7). Workspace anchor is set explicitly at create
+    # via _make_user_workspace + _make_spokesperson; the
+    # pre_save signal still fires.
+    "apps/transcripts/tests/test_approve_reject.py",
 }
 
 

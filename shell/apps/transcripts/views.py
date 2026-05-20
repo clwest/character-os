@@ -1,4 +1,4 @@
-"""B1.3 — REST surface for the transcript miner.
+"""B1.3 + B1.4 — REST surface for the transcript miner.
 
 One ViewSet: ``TranscriptHighlightViewSet``. Actions:
 
@@ -11,9 +11,15 @@ One ViewSet: ``TranscriptHighlightViewSet``. Actions:
 * ``mine`` (POST ``/api/transcript_highlights/mine/``) —
   invoke the LLM helper against the transcript asset id;
   persist N PENDING rows; return them.
-
-Approve / reject actions land in B1.4 and bolt onto this same
-ViewSet via additional ``@action(detail=True)`` decorators.
+* ``approve`` (POST ``/api/transcript_highlights/<id>/approve/``)
+  (B1.4) — flip status PENDING → APPROVED, fire a
+  ``talking_head_polished`` composition via the recipe
+  registry, link ``produced_composition`` FK, enqueue
+  ``execute_composition``, return the updated highlight +
+  composition shape.
+* ``reject`` (POST ``/api/transcript_highlights/<id>/reject/``)
+  (B1.4) — flip status PENDING → REJECTED, capture optional
+  ``rejection_reason``.
 
 Workspace isolation flows through the standard pattern:
 * ``get_queryset()`` filters by ``workspace__memberships__user``.
@@ -26,9 +32,10 @@ from __future__ import annotations
 import logging
 
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import status as http
 from rest_framework.decorators import action
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
@@ -182,6 +189,96 @@ class TranscriptHighlightViewSet(GenericViewSet):
             status=http.HTTP_201_CREATED if persisted else http.HTTP_200_OK,
         )
 
+    # ---- approve / reject (B1.4) -------------------------------
+
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        """Operator approved a PENDING highlight — flip status,
+        fire a ``talking_head_polished`` composition, link the
+        FK, enqueue ``execute_composition``, return the row.
+
+        Idempotent on already-decided rows: approving an
+        APPROVED row returns its current state without
+        re-firing. Approving a REJECTED or RENDERED row is a
+        400 — the operator should mine again or create a
+        fresh highlight.
+        """
+        highlight = self._get_or_404(pk)
+
+        # Idempotent: already APPROVED returns current state.
+        if highlight.status == TranscriptHighlight.Status.APPROVED:
+            return Response(TranscriptHighlightSerializer(highlight).data)
+
+        # Already RENDERED → also idempotent; the render
+        # already completed.
+        if highlight.status == TranscriptHighlight.Status.RENDERED:
+            return Response(TranscriptHighlightSerializer(highlight).data)
+
+        if highlight.status != TranscriptHighlight.Status.PENDING:
+            raise ValidationError(
+                f"cannot approve highlight in status {highlight.status!r}; "
+                "only PENDING highlights are approvable."
+            )
+
+        spokesperson = self._resolve_spokesperson(highlight)
+        composition = self._fire_render(highlight, spokesperson)
+
+        with transaction.atomic():
+            highlight.status = TranscriptHighlight.Status.APPROVED
+            highlight.produced_composition = composition
+            highlight.decided_at = timezone.now()
+            highlight.save(
+                update_fields=[
+                    "status", "produced_composition", "decided_at",
+                ],
+            )
+
+        # Enqueue after the transaction commits so the worker
+        # can't race the row.
+        from apps.compositions.tasks import execute_composition
+        execute_composition.delay(str(composition.id))
+
+        logger.info(
+            "transcript_highlights.approve highlight=%s composition=%s",
+            highlight.pk, composition.pk,
+        )
+        return Response(TranscriptHighlightSerializer(highlight).data)
+
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        """Operator rejected a PENDING highlight. Optional
+        ``rejection_reason`` body lands on the row for audit.
+
+        Idempotent on already-REJECTED rows. Rejecting an
+        APPROVED or RENDERED row is a 400 — the operator
+        should delete the produced composition separately if
+        needed (Q-b-4 deferred to v2)."""
+        highlight = self._get_or_404(pk)
+
+        if highlight.status == TranscriptHighlight.Status.REJECTED:
+            return Response(TranscriptHighlightSerializer(highlight).data)
+
+        if highlight.status != TranscriptHighlight.Status.PENDING:
+            raise ValidationError(
+                f"cannot reject highlight in status {highlight.status!r}; "
+                "only PENDING highlights are rejectable."
+            )
+
+        reason = ((request.data or {}).get("rejection_reason") or "").strip()
+        highlight.status = TranscriptHighlight.Status.REJECTED
+        highlight.rejection_reason = reason
+        highlight.decided_at = timezone.now()
+        highlight.save(
+            update_fields=[
+                "status", "rejection_reason", "decided_at",
+            ],
+        )
+        logger.info(
+            "transcript_highlights.reject highlight=%s reason_chars=%d",
+            highlight.pk, len(reason),
+        )
+        return Response(TranscriptHighlightSerializer(highlight).data)
+
     # ---- helpers ------------------------------------------------
 
     def _get_or_404(self, pk) -> TranscriptHighlight:
@@ -191,6 +288,57 @@ class TranscriptHighlightViewSet(GenericViewSet):
             raise NotFound("Transcript highlight not found")
         self.check_object_permissions(self.request, highlight)
         return highlight
+
+    def _resolve_spokesperson(self, highlight: TranscriptHighlight):
+        """Q-b-7 — find the spokesperson who originally spoke
+        the transcript via the reverse FK from RealtimeSession.
+        Fails loudly if the transcript has no realtime session
+        attached (e.g. operator-uploaded transcript in v2; not
+        in scope for B1.4)."""
+        from apps.realtime.models import RealtimeSession
+
+        session = (
+            RealtimeSession.objects
+            .filter(transcript_asset=highlight.source_transcript)
+            .select_related("spokesperson")
+            .first()
+        )
+        if session is None:
+            raise ValidationError(
+                "highlight's source transcript has no realtime session "
+                "attached — cannot determine which spokesperson to "
+                "re-bake. Mining from operator-uploaded transcripts "
+                "lands in B-1 v2."
+            )
+        if session.spokesperson is None:
+            raise ValidationError(
+                "highlight's source session has no spokesperson — "
+                "data corruption; contact support."
+            )
+        return session.spokesperson
+
+    def _fire_render(self, highlight: TranscriptHighlight, spokesperson):
+        """Create a ``talking_head_polished`` composition for
+        the highlight. Returns the Composition row; caller
+        enqueues ``execute_composition`` after the highlight
+        row is updated."""
+        from apps.compositions.recipes import RECIPES
+
+        recipe = RECIPES.get("talking_head_polished")
+        if recipe is None:
+            raise ValidationError(
+                "talking_head_polished recipe is not registered — "
+                "B-arc depends on V9. Run inventory check."
+            )
+
+        composition = recipe.starter(
+            workspace=highlight.workspace,
+            spokesperson=spokesperson,
+            script=highlight.text,
+            name=f"Highlight: {highlight.text[:30]!r}",
+            created_by=self.request.user,
+        )
+        return composition
 
     def _resolve_workspace_asset(self, user, asset_id) -> Asset:
         """Resolve a TRANSCRIPT Asset belonging to one of the

@@ -182,6 +182,16 @@ ALLOWED_FILES = {
     # workspace anchor is explicit, signal still fires, no
     # writes to composition tables.
     "apps/transcripts/tests/test_api.py",
+    # B-arc B1.4 (SESSION 202) — approve/reject tests seed
+    # Asset(TRANSCRIPT) + Composition rows directly to exercise
+    # the render-dispatch path + completion signal. The fired
+    # composition goes through the sanctioned starter
+    # (apps.compositions.starters.talking_head_polished) at
+    # approve time; the test-only Asset + Composition seeds
+    # are for the cross-workspace + no-session-attached
+    # branches. Workspace anchor is explicit at every create;
+    # pre_save signal still fires.
+    "apps/transcripts/tests/test_approve_reject.py",
 }
 
 
