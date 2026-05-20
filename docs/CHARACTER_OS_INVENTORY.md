@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-20T15:18:25.833800+00:00
-git_sha: 5180da1 (working tree dirty)
+generated_at: 2026-05-20T16:31:53.754357+00:00
+git_sha: 250fa0f
 git_branch: main
 ---
 
@@ -15,8 +15,8 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-20T15:18:25.833800+00:00** against commit **5180da1**
-on branch **main** (working tree dirty).
+Generated **2026-05-20T16:31:53.754357+00:00** against commit **250fa0f**
+on branch **main**.
 
 Python 3.11.6 · Django 5.0.6 ·
 Celery 5.5.3 · httpx 0.28.1.
@@ -27,20 +27,20 @@ Celery 5.5.3 · httpx 0.28.1.
 
 | Metric | Value | Source |
 |---|---|---|
-| Django models (project-owned) | **19** | `apps.get_models()` filtered to first-party apps |
-| URL routes (total) | **354** | `get_resolver().url_patterns` walk |
-| URL routes (`/api/*`) | **137** | same |
+| Django models (project-owned) | **21** | `apps.get_models()` filtered to first-party apps |
+| URL routes (total) | **380** | `get_resolver().url_patterns` walk |
+| URL routes (`/api/*`) | **151** | same |
 | FastAPI routes | **122** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **9** | `celery_app.tasks` filter |
-| Migrations (applied / total) | **65 / 65** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **63,788** in 273 files | `pathlib.Path.rglob("*.py")` |
+| Migrations (applied / total) | **66 / 66** | `MigrationRecorder` ∩ `MigrationLoader` |
+| Shell LOC (`*.py`, no venv/migrations) | **66,537** in 287 files | `pathlib.Path.rglob("*.py")` |
 | Media-engine LOC (`*.py`, no venv/migrations) | **37,012** in 70 files | same |
 
 ---
 
 ## Django Models (project-owned)
 
-Total: **19** models across **10** apps.
+Total: **21** models across **11** apps.
 
 | App | Model | DB Table | Fields | FKs |
 |---|---|---|---|---|
@@ -58,6 +58,8 @@ Total: **19** models across **10** apps.
 | `conversations` | `ConversationThread` | `conversations_conversationthread` | 5 | 1 |
 | `embeddings` | `KnowledgeChunk` | `embeddings_knowledgechunk` | 12 | 1 |
 | `embeddings` | `KnowledgeDocument` | `embeddings_knowledgedocument` | 16 | 2 |
+| `publish` | `PublishBundle` | `publish_publishbundle` | 11 | 3 |
+| `publish` | `PublishVariant` | `publish_publishvariant` | 10 | 2 |
 | `realtime` | `RealtimeSession` | `realtime_realtimesession` | 23 | 5 |
 | `realtime` | `RealtimeToolInvocation` | `realtime_realtimetoolinvocation` | 10 | 3 |
 | `spokespeople` | `Spokesperson` | `spokespeople_spokesperson` | 15 | 1 |
@@ -68,14 +70,14 @@ Total: **19** models across **10** apps.
 
 ## URL Routes
 
-Total: **354** resolved patterns.
+Total: **380** resolved patterns.
 
 | Prefix | Count |
 |---|---|
 | `_allauth/` | 30 |
 | `accounts/` | 26 |
-| `admin/` | 161 |
-| `api/` | 137 |
+| `admin/` | 173 |
+| `api/` | 151 |
 
 ### Named API + auth routes
 
@@ -135,6 +137,12 @@ Total: **354** resolved patterns.
 - `membership-list`
 - `provider_signup`
 - `provider_token`
+- `publish-bundle-detail`
+- `publish-bundle-forecast`
+- `publish-bundle-launch`
+- `publish-bundle-list`
+- `publish-bundle-retry-variant-action`
+- `publish-bundle-variants-action`
 - `realtime-session-cost-estimate`
 - `realtime-session-detail`
 - `realtime-session-end`
@@ -251,7 +259,7 @@ Total: **9** registered tasks (excluding `celery.*` built-ins).
 
 ## Migrations
 
-**65 of 65** migrations applied.
+**66 of 66** migrations applied.
 
 | App | Applied | Total | Pending |
 |---|---|---|---|
@@ -265,6 +273,7 @@ Total: **9** registered tasks (excluding `celery.*` built-ins).
 | `contenttypes` | 2 | 2 | 0 |
 | `conversations` | 4 | 4 | 0 |
 | `embeddings` | 2 | 2 | 0 |
+| `publish` | 1 | 1 | 0 |
 | `realtime` | 3 | 3 | 0 |
 | `sessions` | 1 | 1 | 0 |
 | `sites` | 2 | 2 | 0 |
@@ -293,11 +302,11 @@ Total: **9** registered tasks (excluding `celery.*` built-ins).
 | Service | Files | Lines |
 |---|---|---|
 | `media-engine/` | 70 | 37,012 |
-| `shell/` | 273 | 63,788 |
-| **total** | **343** | **100,800** |
+| `shell/` | 287 | 66,537 |
+| **total** | **357** | **103,549** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-05-20T15:18:25.833800+00:00 from commit 5180da1. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-20T16:31:53.754357+00:00 from commit 250fa0f. Re-run `python manage.py inventory` (from `shell/`) to refresh.*

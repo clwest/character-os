@@ -1,9 +1,9 @@
 ---
 title: "Publish Bundle (B-14) — one render → many platform variants"
-status: locked
+status: complete
 proposed: 2026-05-20 (SESSION 205, slice B14.0)
 locked: 2026-05-20 (SESSION 205, slice B14.0)
-closed: null
+closed: 2026-05-20 (SESSION 205, slice B14.5)
 companion_docs:
   - CONTENT_FORMAT_BACKLOG.md
   - VIDEO_COMPOSITION_V1.md
@@ -413,11 +413,41 @@ of existing primitives.
 * **2026-05-20 (SESSION 205, B14.0 LOCKED)** — Operator
   signed off as-proposed. All 8 contract rules accepted
   without revision. All 11 open questions accepted with
-  proposed resolutions (5-platform catalog; LinkedIn
-  1280:720; no captions v1; variants excluded from cap
-  via template_kind tag; B-3↔B-14 composition deferred;
-  $0 forecast + wall-time; hard cap 10 platforms; both
-  entry points; immutable bundles; new apps.publish app;
-  recipe not in operator gallery). Status flips proposed
-  → locked. B14.1 (platform catalog + publish_variant
-  recipe + cap exclusion) opens immediately.
+  proposed resolutions. Status flips proposed → locked.
+  B14.1 (platform catalog + publish_variant recipe + cap
+  exclusion) opens immediately.
+
+* **2026-05-20 (SESSION 205, B14.5 — ARC CLOSED).** Seven
+  slices (B14.0–B14.5) shipped in one extended session.
+  Real-mode dogfood validated two bundles end-to-end:
+  - Bundle #1 (TikTok 720:1280 from a 16:9 storyboard
+    source) — pipeline correct; output dimensions
+    correct; **operator-noticed quality finding**: center-
+    crop chopped off-center subjects from the 16:9
+    source. Documented as v1 UX limitation, not a bug.
+  - Bundle #2 (LinkedIn 1280:720 from same 16:9 source) —
+    same-aspect target = trim-only = perfect output.
+
+  **Contract held in both cases.** Tests at close:
+  Django **1245 → 1269 (+24)**; SPA vitest **284 → 371
+  (+87)**; media-engine unchanged at 214. Real-mode
+  spend: **$0** (both bundles ffmpeg-only per rule 5).
+  Wall-time per variant: 1.5s actual vs ~5s forecast
+  (forecast is conservative; v2 could tune).
+
+  **v1 UX limitation captured (v2 axis)**: aspect-changing
+  variants (e.g. 16:9 → 9:16 portrait) center-crop the
+  source. For avatar talking-head sources this is fine
+  (Runway centers subjects). For cinematic / storyboard
+  sources with off-center composition, the subject can
+  disappear. **v2 fix**: per-variant `offset_x` knob
+  (-100..+100) on PublishVariant + the SPA picker.
+  Estimated ½ session.
+
+  Status: **complete**. Operator can now publish a single
+  source CLIP to N platforms in one click; ffmpeg-only;
+  $0 cost; per-variant retry on failure; bundle status
+  auto-rolls up via the cross-app post_save signal. The
+  asset-detail entry point ("Publish bundle" CTA on
+  CLIP assets) gives the natural "I made this — push it
+  out everywhere" flow.

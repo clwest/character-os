@@ -4794,3 +4794,83 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   with the next planned arc, doing the cleanup first beats
   pushing forward. The "tidy the house" beat between
   strategic arcs pays compound interest.
+
+### Scope-lock cadence is now 4-for-4 — proven across A/B/C/D arcs
+- **Date:** 2026-05-20
+- **Session:** 205
+- **Context:** B-14 Publish Bundle (D-arc) — fourth
+  strategic-axis arc opened after Asset Library (A,
+  SESSIONS 185-192), Transcript Miner (B-1, SESSION 202),
+  and Personalized Video (B-3, SESSION 203). Scope-locked
+  at B14.0 (8 contract rules, 7 slices) and shipped B14.0
+  through B14.5 in one extended session.
+- **Surface / artefact:** Two bundles shipped end-to-end:
+  TikTok variant 1.5s ffmpeg wall-time, $0 cost;
+  LinkedIn variant same. Both cross-app post_save signal
+  flipped variants + rolled up bundles automatically.
+- **AI expectation (before):** Per the SESSION 203
+  "cadence 3-for-3" calibration, expected one extended
+  session. D-arc was smaller scope than C-arc (7 vs 10
+  slices; no LLM, no CSV, no template engine).
+- **Reality / outcome:** **One extended session; one
+  operator-noticed UX limitation (not a bug); zero
+  real-mode spend; zero backend regressions.** Pattern
+  now 4-for-4. Scope-lock-first discipline compresses
+  arc cycles reliably; mid-arc surprises are exceptions.
+- **Found by:** D-arc shipping in one day after operator's
+  "Lock and open B14.1" decision.
+- **Lesson:** Cadence is now load-bearing assumption, not
+  aspirational. Strategic arcs ship in 4-10 hours of
+  focused work + one dogfood pass. Future arcs (B-2,
+  B-1 v2, etc.) should plan around the same shape.
+
+### Aspect-changing crop is a recurring shape — flag pattern + v2 fix
+- **Date:** 2026-05-20
+- **Session:** 205 (B14.5 dogfood)
+- **Context:** Operator fired a B-14 TikTok variant against
+  a 16:9 storyboard source. The pipeline ran correctly —
+  ``reformat_clip`` scaled + center-cropped to 720×1280 as
+  designed. **Output visibly off-center**: source had
+  coffee maker on the left of frame + off-center person;
+  center-cropping to 9:16 chopped 56% of the horizontal
+  frame and lost both subjects.
+- **Surface / artefact:** Bundle 89a98aa8 / final asset
+  f7586e66. Operator-visible quality issue but
+  contract-correct render.
+- **AI expectation (before):** B-14 v1 assumed centered
+  subjects (Runway avatar talking-head outputs centered by
+  default). Cinematic / storyboard sources with
+  intentional off-center composition weren't in the v1
+  mental model.
+- **Reality / outcome:** **The contract held but v1 UX
+  hits a quality wall on aspect-changing variants against
+  off-center sources.** Avatar bundles work perfectly.
+  Cinematic storyboard / scene-composition bundles need
+  a way to nudge the crop window.
+- **Found by:** Operator real-mode dogfood. Bundle #2
+  (LinkedIn at 1280:720, same source) was confirmed
+  perfect — only aspect-changing variants
+  (Reels/Shorts/TikTok at 9:16) have this problem.
+- **Lesson:** **Aspect-changing crop is a recurring shape
+  worth a separate v2 axis.** B-14 v1 documents the
+  limitation; the v2 fix is well-scoped:
+
+  * Per-variant ``offset_x`` knob on PublishVariant
+    (-100 to +100; 0=center, -100=left, +100=right).
+  * SPA picker exposes the knob with a crop-window preview.
+  * ffmpeg pipeline: parameterize crop position with a
+    formula like ``(in_w-out_w)*(50+offset_x)/100``.
+
+  Estimated ½ session. **Pattern**: when a primitive's
+  v1 default (center-crop) hits operator UX walls on a
+  specific source shape (off-center cinematic), the right
+  axis is *parameterize the default*, not *replace the
+  primitive*. Same shape as V18's duration-mismatch
+  starter warning (parameterize the V8 check, not rewrite
+  composite_video).
+
+  Audit candidates for the same pattern when cinematic
+  sources arrive: composite_video's pip position,
+  intro_outro card placement, music_bed_pass gain math.
+  Avatar-only workflows have masked these assumptions
+  to date.

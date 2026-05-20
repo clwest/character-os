@@ -32,7 +32,67 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_204_VIDEOS_CAP_MIGRATION.md`.
+> **Personalized Video (B-3):** `docs/design/PERSONALIZED_VIDEO_V1.md`.
+> B3.0-B3.9 COMPLETE + REAL-MODE VALIDATED (SESSION 203).
+> **Publish Bundle (B-14):** `docs/design/PUBLISH_BUNDLE_V1.md`.
+> **B14.0-B14.5 COMPLETE + REAL-MODE VALIDATED (SESSION 205).**
+> **Last handoff:** `docs/handoffs/SESSION_205_D_ARC_LANDS.md`.
+
+---
+
+## SESSION 205 outcome — D-arc Publish Bundle shipped + real-mode validated
+
+Fourth strategic-axis arc. Scope-lock cadence now **proven
+4-for-4** (A/B/C/D arcs all landed in one extended session
+including dogfood). Seven slices B14.0–B14.5; 8 contract
+rules; 11 open questions all resolved as-proposed; one
+operator-noticed UX limitation surfaced + documented as v2
+axis (not a bug).
+
+### Real-mode validation — two bundles, $0 spend
+
+* Bundle 89a98aa8 (TikTok 720:1280): 1.5s ffmpeg wall-time;
+  output dimensions correct; **operator-noticed off-center
+  crop on a 16:9 cinematic source** (center-crop chopped
+  off-center subjects).
+* Bundle 9e0bb0df (LinkedIn 1280:720, same source): same
+  wall-time; same-aspect target = trim-only = perfect output.
+
+Both bundles auto-rolled to COMPLETED via the B14.3
+cross-app `post_save` Composition signal. The cap-exclusion
+mechanic (template_kind="publish_variant" filter in
+get_usage) validated end-to-end — neither variant counted
+against the monthly cap.
+
+### Tests at SESSION 205 close
+
+| Suite | Count |
+|---|---|
+| Django | 1269 (+24 vs SESSION 204) |
+| - publish (new app) | 36 |
+| - test_publish_variant | 18 |
+| Media-engine | 214 (unchanged) |
+| SPA vitest | 371 (+87) |
+
+Real-mode spend SESSION 205: **$0** (both bundles
+ffmpeg-only per rule 5).
+
+### Calibration (2 new — 37 total)
+
+1. **Scope-lock cadence now 4-for-4.** Cadence is
+   load-bearing assumption, not aspirational. Strategic
+   arcs ship in 4-10 hours of focused work + one dogfood
+   pass.
+
+2. **Aspect-changing crop is a recurring shape.** v1
+   center-crops fine for avatar talking-head sources
+   (subject pre-centered by Runway); cinematic /
+   storyboard sources lose off-center subjects on
+   aspect-changing variants. **v2 axis** (½ session):
+   per-variant `offset_x` knob (-100..+100) to nudge the
+   crop window. Pattern generalizes — primitives with
+   "centered default" assumptions are audit candidates
+   when cinematic sources arrive.
 
 ---
 
@@ -172,7 +232,7 @@ Real-mode spend SESSION 203: **$0.50**.
 
 ---
 
-## FIRST THING (SESSION 205): operator picks
+## FIRST THING (SESSION 206): operator picks
 
 Three consecutive strategic-axis arcs landed (A: SESSIONS
 185-192; B: SESSION 202; C: SESSION 203). The pattern is
@@ -216,17 +276,25 @@ proven cheap and reliable. Three natural next directions:
 
 ### Recommended next direction
 
-**B-14 Multi-Platform Variants** is the cleanest next
-strategic-axis pick. Composes naturally with the C-arc
-(personalized batch → N recipients × 4 platform variants);
-the SESSION 204 cap migration made that composition safe
-(per-month accounting now counts every fan-out correctly).
-~5-6 slices = one extended session per the proven cadence.
+The strategic-axis trifecta is nearly complete:
+* **B-1 (mine)** — done
+* **B-3 (personalize)** — done
+* **B-14 (distribute)** — done
+* **B-2 (auto-script)** — the missing piece. Removes the
+  "blank page" friction. Composes with B-1 (mine input
+  context) + B-3 (auto-script the campaign template) +
+  B-14 (distribute the result).
 
-Alternative: **Asset upload UI** if the operator wants a
-quick operator-visible win before another strategic arc
-(1-2 sessions; unblocks B-1 v2 external transcript
-ingestion).
+**B-2 Knowledge-driven auto-scripting** is the cleanest
+next strategic-axis pick. ~6-8 slices per the proven
+cadence.
+
+Alternatives:
+* **B-14 v2 `offset_x`** — ½ session; addresses the
+  SESSION 205 dogfood finding while it's fresh.
+* **Asset upload UI** — operator-content bottleneck;
+  unblocks B-1 v2 external transcript ingestion.
+* **B-1 v2** — incremental on already-shipped B-1.
 
 ---
 
@@ -259,6 +327,8 @@ ingestion).
 | W12 legacy form retirement | Queued |
 | Asset upload UI | Queued |
 | `videos_per_month` count migration | **DONE (SESSION 204)** |
+| **Publish Bundle v1 (B14.0-B14.5)** | **DONE (SESSION 205) + REAL-MODE VALIDATED** |
+| B-14 v2 offset_x knob | Queued (½ session; SESSION 205 dogfood finding) |
 | B-14 Multi-Platform Variants | New-arc candidate (recommended) |
 | B-2 Auto-scripting | New-arc candidate |
 
@@ -316,14 +386,14 @@ silently doesn't fire them.
 ```bash
 # Backend (from shell/)
 python manage.py inventory
-python -m pytest                              # 1215 tests
+python -m pytest                              # 1269 tests
 
 # Media-engine (from media-engine/)
 python -m pytest                              # 214 tests
 
 # SPA (from web/)
 pnpm build                                    # type-check + bundle
-pnpm test                                     # 284 vitest tests
+pnpm test                                     # 371 vitest tests
 ```
 
 **New surfaces from SESSION 203 (C-arc):**
@@ -358,11 +428,13 @@ pnpm test                                     # 284 vitest tests
 
 ## AI / assistant context
 
-- **Last session: SESSION 204 — videos_per_month migration.**
-  Cleanup between arcs. Single-function change in
-  apps.billing.services.get_usage() — from legacy V6 Video
-  shim to Composition rows. 9 test updates + 8 new
-  pinning tests. Django 1207 → 1215 (+8). $0 spend.
+- **Last session: SESSION 205 — D-arc shipped in one session.**
+  Seven slices B14.0–B14.5. Django 1215 → 1269 (+54).
+  SPA 284 → 371 (+87). 2 new TRUST_CALIBRATION entries.
+  $0 real-mode spend. Scope-lock cadence now 4-for-4.
+
+- **Prior session: SESSION 204 — videos_per_month migration.**
+  Cleanup between arcs. Django 1207 → 1215 (+8).
 
 - **Prior session: SESSION 203 — C-arc shipped in one session.**
   Ten slices B3.0 through B3.9 + B3.8 post-close hotfix.
@@ -374,9 +446,9 @@ pnpm test                                     # 284 vitest tests
   slice tests + real-mode dogfood closing. Each arc lands in
   one extended session.
 
-- **Calibration carried forward (35 total — +1 SESSION 204:
-  videos_per_month migration / tidy-house-between-arcs
-  pattern)**:
+- **Calibration carried forward (37 total — +2 SESSION 205:
+  scope-lock cadence 4-for-4 + aspect-changing crop is a
+  recurring shape)**:
   V-arc 100% real-mode closure; operator-noticed-during-
   dogfood loop; mix_audio + intro_outro silent-base shapes;
   real-mode finds bugs in EVERY recipe (5-for-5 now —
