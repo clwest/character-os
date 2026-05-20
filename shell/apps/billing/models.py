@@ -45,6 +45,12 @@ TIER_LIMITS: dict[str, dict[str, int | None]] = {
         # session-create alongside the session-count
         # gate.
         "realtime_minutes_per_month": 30,
+        # B-3 / Q-c-1 (SESSION 203) — per-batch personalized
+        # video cap. Prevents one accidental click from
+        # blowing through the per-month videos quota; the
+        # `videos_per_month` gate still applies as the
+        # rolling cap.
+        "personalized_batch_max": 5,
         "price_usd": 29,
     },
     "pro": {
@@ -53,6 +59,7 @@ TIER_LIMITS: dict[str, dict[str, int | None]] = {
         "seats": 1,
         "realtime_sessions_per_month": 20,
         "realtime_minutes_per_month": 120,
+        "personalized_batch_max": 30,
         "price_usd": 79,
     },
     "agency": {
@@ -61,6 +68,7 @@ TIER_LIMITS: dict[str, dict[str, int | None]] = {
         "seats": 5,
         "realtime_sessions_per_month": None,
         "realtime_minutes_per_month": None,
+        "personalized_batch_max": 200,
         "price_usd": 199,
     },
 }

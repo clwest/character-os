@@ -192,6 +192,16 @@ ALLOWED_FILES = {
     # branches. Workspace anchor is explicit at every create;
     # pre_save signal still fires.
     "apps/transcripts/tests/test_approve_reject.py",
+    # C-arc B3.2 (SESSION 203) — PersonalizedCampaign +
+    # PersonalizedRecipient tests seed Composition rows
+    # directly to exercise the cross-workspace
+    # produced_composition guard on the new recipient model.
+    # Workspace anchor is set explicitly at every create;
+    # pre_save signal still fires. apps.campaigns itself
+    # never writes to composition tables; B3.5 will route
+    # through apps.compositions.starters.talking_head_polished
+    # via the recipe registry, which is already sanctioned.
+    "apps/campaigns/tests/test_models.py",
 }
 
 
