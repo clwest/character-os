@@ -339,6 +339,143 @@ def post_internal_avatar_refresh(
     )
 
 
+class InternalAvatarPersistPortraitResponse(BaseModel):
+    """SESSION 202 follow-up — ``POST /internal/avatars/<id>/persist_portrait/``
+    refreshes the Runway-signed JWT thumbnail URL, downloads the
+    image bytes, persists them to ``data/_internal/avatar_portraits/<avatar_id>.<ext>``,
+    and returns the LOCAL URL the SPA can render forever
+    without JWT expiry concerns.
+
+    ``persisted_url`` is the local path (``/data/_internal/...``)
+    Django persists onto ``Spokesperson.portrait_path``.
+    ``refreshed_jwt_url`` is the source URL we downloaded from
+    (audit trail; expires in ~30 days like any signed URL).
+    """
+
+    avatar_id: str
+    persisted_url: Optional[str] = None
+    refreshed_jwt_url: Optional[str] = None
+    mock_mode: bool
+
+
+def _avatar_portraits_dir(settings: Settings) -> Path:
+    target = settings.data_path / "_internal" / "avatar_portraits"
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+@router.post(
+    "/avatars/{avatar_id}/persist_portrait/",
+    response_model=InternalAvatarPersistPortraitResponse,
+)
+def post_internal_avatar_persist_portrait(
+    avatar_id: str,
+    settings: Settings = Depends(get_settings),
+):
+    """SESSION 202 follow-up to A3 storage_health.
+
+    Stale JWT-signed CloudFront URLs in Spokesperson.portrait_path
+    cause 401s in the SPA every ~30 days. SESSION 169 shipped a
+    refresh command that just buys 30 more days; this endpoint is
+    the canonical fix — download the portrait bytes once + persist
+    locally + return the local URL Django stores forever.
+
+    Mock-safe: returns ``persisted_url=None, mock_mode=True`` on
+    mock avatars (no Runway round-trip; the data URI in
+    portrait_path is already stable).
+
+    Failure modes:
+    * Runway refresh fails → returns ``persisted_url=None`` (caller
+      keeps the prior portrait_path).
+    * Image download fails → returns ``persisted_url=None`` plus
+      the refreshed_jwt_url so caller can fall back to that.
+
+    Never raises 4xx/5xx — degradation is signaled via
+    ``persisted_url=None`` so the caller decides how to react.
+    """
+    if settings.runway_mock or avatar_id.startswith("mock_"):
+        return InternalAvatarPersistPortraitResponse(
+            avatar_id=avatar_id,
+            persisted_url=None,
+            refreshed_jwt_url=None,
+            mock_mode=True,
+        )
+
+    # 1. Refresh the JWT to get a working URL.
+    try:
+        fresh_url = fetch_avatar_thumbnail(avatar_id, settings)
+    except Exception as exc:
+        logger.warning(
+            "persist_portrait: refresh failed avatar=%s err=%s",
+            avatar_id, exc,
+        )
+        return InternalAvatarPersistPortraitResponse(
+            avatar_id=avatar_id,
+            persisted_url=None,
+            refreshed_jwt_url=None,
+            mock_mode=False,
+        )
+    if not fresh_url:
+        return InternalAvatarPersistPortraitResponse(
+            avatar_id=avatar_id,
+            persisted_url=None,
+            refreshed_jwt_url=None,
+            mock_mode=False,
+        )
+
+    # 2. Download the bytes.
+    try:
+        with httpx.Client(timeout=30.0) as http:
+            resp = http.get(fresh_url, follow_redirects=True)
+        if resp.status_code != 200:
+            logger.warning(
+                "persist_portrait: download non-200 avatar=%s status=%d",
+                avatar_id, resp.status_code,
+            )
+            return InternalAvatarPersistPortraitResponse(
+                avatar_id=avatar_id,
+                persisted_url=None,
+                refreshed_jwt_url=fresh_url,
+                mock_mode=False,
+            )
+        raw = resp.content
+    except httpx.HTTPError as exc:
+        logger.warning(
+            "persist_portrait: download failed avatar=%s err=%s",
+            avatar_id, exc,
+        )
+        return InternalAvatarPersistPortraitResponse(
+            avatar_id=avatar_id,
+            persisted_url=None,
+            refreshed_jwt_url=fresh_url,
+            mock_mode=False,
+        )
+
+    # 3. Save to the stable local path. Filename keyed on
+    # avatar_id so re-runs for the same avatar overwrite in
+    # place (no orphan files; predictable URL).
+    content_type = resp.headers.get("content-type", "image/png").split(";")[0].strip()
+    ext = _MIME_EXT.get(content_type, "png")
+    target_dir = _avatar_portraits_dir(settings)
+    out_path = target_dir / f"{avatar_id}.{ext}"
+    tmp = out_path.with_suffix(out_path.suffix + ".tmp")
+    tmp.write_bytes(raw)
+    tmp.replace(out_path)
+
+    persisted_url = f"/data/_internal/avatar_portraits/{out_path.name}"
+    logger.info(
+        "persist_portrait: persisted avatar=%s bytes=%d url=%s",
+        avatar_id, len(raw), persisted_url,
+    )
+
+    return InternalAvatarPersistPortraitResponse(
+        avatar_id=avatar_id,
+        persisted_url=persisted_url,
+        refreshed_jwt_url=fresh_url,
+        mock_mode=False,
+    )
+
+
 class InternalAvatarChangeVoice(BaseModel):
     """W11.2 (SESSION 170) — change the voice bound to an existing
     Runway avatar without re-baking. Supports preset (``presetId``)

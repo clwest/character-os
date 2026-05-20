@@ -496,6 +496,34 @@ class MediaEngineClient:
         )
         return data.get("thumbnail_url") or None
 
+    def persist_avatar_portrait(
+        self,
+        *,
+        avatar_id: str,
+    ) -> str | None:
+        """SESSION 202 follow-up — hit
+        ``POST /internal/avatars/<id>/persist_portrait/`` to
+        download the portrait bytes once + return a stable local
+        URL the SPA can render forever (no JWT expiry).
+
+        Returns the persisted local URL (e.g.
+        ``/data/_internal/avatar_portraits/<avatar_id>.png``)
+        or ``None`` when:
+
+        * mock mode (data URI in portrait_path is already stable)
+        * Runway refresh failed (transient; caller keeps existing
+          portrait_path)
+        * download failed (transient; caller keeps existing
+          portrait_path)
+
+        Never raises; degradation signaled via ``None``.
+        """
+        data = self.request(
+            "POST", f"/internal/avatars/{avatar_id}/persist_portrait/",
+            json={},
+        )
+        return data.get("persisted_url") or None
+
     def change_avatar_voice(
         self,
         *,

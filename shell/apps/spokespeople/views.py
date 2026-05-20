@@ -117,7 +117,29 @@ class SpokespersonViewSet(viewsets.ModelViewSet):
         # data URI) so the detail page's <Portrait> can actually
         # render the image. Without this, every avatar-bound
         # spokesperson rendered the initials-fallback box.
-        instance.portrait_path = result.thumbnail_url or ""
+        #
+        # SESSION 202: prefer a LOCAL persisted copy of the
+        # portrait so the JWT-signed CloudFront URL doesn't
+        # expire out from under the SPA every ~30 days. Best
+        # effort — if the persist call fails (mock mode, network
+        # hiccup), fall back to the JWT-signed URL.
+        portrait_url = result.thumbnail_url or ""
+        if result.avatar_id and not result.mock_mode:
+            try:
+                with MediaEngineClient() as client:
+                    local_url = client.persist_avatar_portrait(
+                        avatar_id=result.avatar_id,
+                    )
+                if local_url:
+                    portrait_url = local_url
+            except MediaEngineError as exc:
+                logger.warning(
+                    "persist_portrait failed during create "
+                    "spokesperson=%s avatar=%s err=%s — falling "
+                    "back to JWT-signed URL",
+                    instance.pk, result.avatar_id, exc,
+                )
+        instance.portrait_path = portrait_url
         if voice_preset:
             instance.voice_id = voice_preset
         # Once the avatar is ready (or its mock equivalent), the
@@ -450,7 +472,26 @@ class SpokespersonViewSet(viewsets.ModelViewSet):
 
         spokesperson.runway_avatar_id = avatar.avatar_id
         spokesperson.runway_avatar_status = avatar.status
-        spokesperson.portrait_path = avatar.thumbnail_url or ""
+        # SESSION 202 — same persist-locally hook as the create
+        # flow above. Best effort; falls back to the JWT-signed
+        # URL when the persist call doesn't return one.
+        portrait_url = avatar.thumbnail_url or ""
+        if avatar.avatar_id and not avatar.mock_mode:
+            try:
+                with MediaEngineClient() as client:
+                    local_url = client.persist_avatar_portrait(
+                        avatar_id=avatar.avatar_id,
+                    )
+                if local_url:
+                    portrait_url = local_url
+            except MediaEngineError as exc:
+                logger.warning(
+                    "persist_portrait failed during rebake "
+                    "spokesperson=%s avatar=%s err=%s — falling "
+                    "back to JWT-signed URL",
+                    spokesperson.pk, avatar.avatar_id, exc,
+                )
+        spokesperson.portrait_path = portrait_url
         # Ensure status is READY now that the avatar is fresh.
         if avatar.ok:
             spokesperson.status = Spokesperson.Status.READY
