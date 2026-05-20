@@ -32,271 +32,146 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Personalized Video (B-3):** `docs/design/PERSONALIZED_VIDEO_V1.md`.
-> B3.0-B3.9 COMPLETE + REAL-MODE VALIDATED (SESSION 203).
 > **Publish Bundle (B-14):** `docs/design/PUBLISH_BUNDLE_V1.md`.
 > **B14.0-B14.5 COMPLETE + REAL-MODE VALIDATED (SESSION 205).**
 > **Auto-Scripting (B-2):** `docs/design/AUTO_SCRIPTING_V1.md`.
-> **B2.0 LOCKED + B2.1-B2.5 SHIPPED (SESSION 206); B2.6 (dogfood) opens next.**
-> **Last handoff:** `docs/handoffs/SESSION_205_D_ARC_LANDS.md`.
+> **B2.0 LOCKED + B2.1-B2.5 SHIPPED (SESSION 206); B2.6 (dogfood) queued.**
+> **Last handoff:** `docs/handoffs/SESSION_206_E_ARC_LANDS.md`.
 
 ---
 
-## SESSION 205 outcome — D-arc Publish Bundle shipped + real-mode validated
+## SESSION 206 outcome — E-arc Auto-Scripting shipped (lock + 5 of 7 slices)
 
-Fourth strategic-axis arc. Scope-lock cadence now **proven
-4-for-4** (A/B/C/D arcs all landed in one extended session
-including dogfood). Seven slices B14.0–B14.5; 8 contract
-rules; 11 open questions all resolved as-proposed; one
-operator-noticed UX limitation surfaced + documented as v2
-axis (not a bug).
+Fifth strategic-axis arc. Scope-lock cadence **now proven
+5-for-5** (A SESSIONS 185-192 → B SESSION 202 → C SESSION
+203 → D SESSION 205 → E SESSION 206). Six commits this
+session; one dogfood slice pulled at operator request to
+preserve real-mode validation quality.
 
-### Real-mode validation — two bundles, $0 spend
+### Slices shipped (6 of 7)
 
-* Bundle 89a98aa8 (TikTok 720:1280): 1.5s ffmpeg wall-time;
-  output dimensions correct; **operator-noticed off-center
-  crop on a 16:9 cinematic source** (center-crop chopped
-  off-center subjects).
-* Bundle 9e0bb0df (LinkedIn 1280:720, same source): same
-  wall-time; same-aspect target = trim-only = perfect output.
-
-Both bundles auto-rolled to COMPLETED via the B14.3
-cross-app `post_save` Composition signal. The cap-exclusion
-mechanic (template_kind="publish_variant" filter in
-get_usage) validated end-to-end — neither variant counted
-against the monthly cap.
-
-### Tests at SESSION 205 close
-
-| Suite | Count |
-|---|---|
-| Django | 1269 (+24 vs SESSION 204) |
-| - publish (new app) | 36 |
-| - test_publish_variant | 18 |
-| Media-engine | 214 (unchanged) |
-| SPA vitest | 371 (+87) |
-
-Real-mode spend SESSION 205: **$0** (both bundles
-ffmpeg-only per rule 5).
-
-### Calibration (2 new — 37 total)
-
-1. **Scope-lock cadence now 4-for-4.** Cadence is
-   load-bearing assumption, not aspirational. Strategic
-   arcs ship in 4-10 hours of focused work + one dogfood
-   pass.
-
-2. **Aspect-changing crop is a recurring shape.** v1
-   center-crops fine for avatar talking-head sources
-   (subject pre-centered by Runway); cinematic /
-   storyboard sources lose off-center subjects on
-   aspect-changing variants. **v2 axis** (½ session):
-   per-variant `offset_x` knob (-100..+100) to nudge the
-   crop window. Pattern generalizes — primitives with
-   "centered default" assumptions are audit candidates
-   when cinematic sources arrive.
-
----
-
-## SESSION 204 outcome — videos_per_month accounting migration
-
-Cleanup session between strategic-axis arcs. SESSION 203's
-B3.5 surfaced a latent seam: `videos_used` read the legacy
-V6 Video shim, missing every Composition from V-arc / B-arc
-/ C-arc. The per-month cap was effectively disabled for
-modern callers.
-
-**Single-function change** in `apps.billing.services.get_usage()`:
-swap `Video.objects.filter(...)` for
-`Composition.objects.filter(...).exclude(status=DRAFT)`.
-Period + workspace filters unchanged. The V6 backwards-compat
-shim itself stays — only the usage-counting read was migrated.
-
-Updated 3 test sites that seeded Video rows to exercise the
-cap (B3.5's 2 tests + R7.2's tier-limit test) and added 8 new
-billing tests pinning the include/exclude semantics.
-
-### Real-mode probe — concrete impact
-
-Dev workspace before fix: `videos_used=2` (only 2 Video shim
-rows in period). After fix: `videos_used=72` (correct count
-of in-period non-DRAFT Compositions). The Starter cap of 10
-was 62 under-counting reality. Any new launch from this
-workspace will now correctly trip `video_limit_reached` until
-period rolls over or tier upgrades.
-
-### Tests at SESSION 204 close
-
-| Suite | Count |
-|---|---|
-| Django | 1215 (+8 vs SESSION 203) |
-| - billing (new file) | 8 |
-| Media-engine | 214 (unchanged) |
-| SPA vitest | 284 (unchanged) |
-
-Real-mode spend SESSION 204: **$0**.
-
-### Calibration (1 new — 35 total)
-
-**`videos_per_month` was reading the wrong table.** Cleanup
-between strategic arcs paid off — migration was ~1 hour of
-focused work + 9 test updates + 8 new pinning tests. General
-pattern: when a slice surfaces architectural debt that's
-fixable in ~1 session AND would compound with the next
-planned arc, doing the cleanup first beats pushing forward.
-
----
-
-## SESSION 203 outcome — B-3 Personalized Video shipped + real-mode validated
-
-Third strategic-axis arc in three consecutive sessions. The
-scope-lock cadence (A-arc SESSIONS 185-192 → B-arc SESSION 202
-→ C-arc SESSION 203) is now **proven 3-for-3**: 8-10 contract
-rules + 7-10 slices + real-mode dogfood closing all land in
-one extended session.
-
-### Slices shipped
-
-| # | Slice | Effort |
+| # | Slice | Commit |
 |---|---|---|
-| B3.0 | Scope lock — 9 contract rules, 10 slices, 9 open Qs resolved | ½ session |
-| B3.1 | `template_renderer` LLM-free helper + 24 tests | ½ session |
-| B3.2 | `PersonalizedCampaign` + `PersonalizedRecipient` models + 11 tests | ½ session |
-| B3.3 | CSV parser helper + 20 tests | ½ session |
-| B3.4 | `CampaignViewSet` read + draft-edit surface + 20 tests | 1 session |
-| B3.5 | `forecast` + `launch` endpoints (load-bearing) + 19 tests | 1 session |
-| B3.6 | completion signal + per-recipient retry + 16 tests | ½ session |
-| B3.7 | SPA `/workspace/campaigns` list + create + paste-CSV (subagent) | 1 session |
-| B3.8 | SPA launch + forecast + recipient grid + retry + polling (subagent) | 1 session |
-| B3.9 | Real-mode dogfood + arc close | ½ session |
+| B2.0 | Scope lock — 10 contract rules, 7 slices, 11 open Qs resolved | `47d73b1` |
+| B2.1 | `apps.scripts` Django app + Script model + migration + signal | `66068e8` |
+| B2.2 | `apps.scripts.synthesis.draft_script` adapter + revision helpers | `b9e095a` |
+| B2.3 | `ScriptViewSet` REST + `check_drafts_per_month` + `auto_script` starter | `e0f5139` |
+| B2.4 | Recipe-gallery `auto_script` registration + `script_picker` field type | `67f309d` |
+| B2.5 | SPA `/workspace/scripts` list + create + detail + recipe-gallery extension (subagent) | `a4bc3c9` |
+| **B2.6** | **Real-mode dogfood + arc close** | **← FIRST THING SESSION 207** |
 
-Plus one post-close hotfix (`ffabde1`) for the B3.8
-forecast cache-invalidation miss.
+### Real-mode validation — pulled to SESSION 207
 
-### Real-mode validation
+Pulled at operator request to avoid same-day fatigue.
+Pattern: prior arcs (B-1, B-3, B-14) all rode the dogfood
+to its own focused block. The cadence is **"open the arc
++ ship the slices same day; dogfood gets its own session
+when needed."**
 
-Campaign `158dbe3f-...` ("B-3 smoke test") — 2 recipients
-(Bob @ Acme, Carol @ Initech) against Marcus:
-
-- **status: completed** ✓
-- 36.2s wall-time, **$0.50 spend** (2 × $0.25)
-- Both compositions completed in parallel
-- B3.6 completion signal flipped both recipients +
-  auto-rolled up the campaign to COMPLETED
-
-All nine contract rules held end-to-end. The structural
-moat is now demonstrable: per-workspace avatars rendering
-"Hi {firstName}, saw {company} just hit {milestone}!" with
-on-brand spokesperson identity — competitors with generic
-LLM video can't deliver this.
-
-### B3.8 post-close hotfix
-
-Dogfood surfaced one bug at the SPA layer:
-`useParseCsv` invalidated `campaign-recipients` + `campaign`
-but missed `campaign-forecast`. Operator pasted CSV;
-recipients persisted server-side; forecast panel kept
-showing "0 recipients $0.00 total". One-line fix in
-`useParseCsv.onSuccess` (`ffabde1`). Backend contract was
-correct end-to-end.
-
-### Tests at SESSION 203 close
+### Tests at SESSION 206 close
 
 | Suite | Count |
 |---|---|
-| Django | 1207 |
-| - campaigns (new) | 66 |
-| - character_os.test_template_renderer | 24 |
-| - character_os.test_csv_recipients | 20 |
-| Media-engine | 214 |
-| SPA vitest | 284 |
+| Django | 1320 (+51 vs SESSION 205) |
+| - apps.scripts.tests.test_models | 9 (new) |
+| - apps.scripts.tests.test_synthesis | 12 (new) |
+| - apps.scripts.tests.test_api | 21 (new) |
+| - apps.scripts.tests.test_recipe | 9 (new) |
+| Media-engine | 214 (unchanged) |
+| SPA vitest | 405 (+34) |
 
-Real-mode spend SESSION 203: **$0.50**.
+Real-mode spend SESSION 206: **$0** (B2.6 dogfood deferred).
 
-### Calibration (3 new — 34 total)
+### Calibration (2 new — 39 total)
 
-1. **Scope-lock cadence proven 3-for-3.** Same shape across
-   A/B/C arcs. Future strategic axes should plan around the
-   same shape: ½-1 session per slice, 6-10 sessions total,
-   scope-lock-first.
+1. **Scope-lock cadence is now 5-for-5.** Five
+   consecutive strategic-axis arcs landed in single-
+   session blocks. Pattern is no longer aspirational —
+   it's the design default for any new strategic axis.
+   Dogfood can ride into the next session when same-day
+   fatigue would degrade validation quality.
 
-2. **React Query mutation onSuccess must invalidate EVERY
-   dependent query.** Surfaced by B3.8 forecast bug. When a
-   new query depends on a mutation's output, audit every
-   existing mutation that affects the same underlying data.
-   Forward-defense template added.
-
-3. **Tier-gated batch caps work as designed — operator
-   validation pre-launch.** Two-dimension gating (per-batch +
-   per-month) pays off in the forecast modal. Generalizes:
-   any new gate should land with a forecast / preview surface
-   showing current usage + limit + projected outcome.
+2. **K6 refactor via adapter pattern preserved zero
+   regressions across an existing 600-test surface.**
+   The adapter-wraps-callable shape (new module calls
+   existing function, remaps result) is strictly safer
+   than move-and-shim when the original function has
+   mock-patch test fixtures pinned to its import path.
+   Generalizes: when motivation is "new feature on top
+   of existing function," not "consolidate two
+   equivalent paths," reach for the adapter first.
 
 ---
 
-## FIRST THING (SESSION 206): operator picks
+## FIRST THING (SESSION 207): B2.6 — E-arc dogfood + close
 
-Three consecutive strategic-axis arcs landed (A: SESSIONS
-185-192; B: SESSION 202; C: SESSION 203). The pattern is
-proven cheap and reliable. Three natural next directions:
+Close out the auto-scripting arc with real-mode validation.
+Plan:
 
-### New-arc candidates
+1. **Drift sweep**: `context-kit doctor` (mandatory per
+   CLAUDE.md §"Session-start drift sweep").
+2. **Pre-fire check**: SESSION 206 committed
+   `apps.compositions.starters.auto_script` + a new
+   billing function (`check_drafts_per_month`) +
+   `apps.compositions.recipes` registry change. **Restart
+   Celery** before any real-mode fire (per SESSION 200
+   codified rule + SESSION 202/203 extensions). New
+   stale-worker-blast-zone path to watch:
+   `shell/apps/compositions/recipes.py` (registry-import
+   path — recipe-gallery additions don't show up in a
+   stale worker's RECIPES dict).
+3. **Bring up the HARD REQUIREMENTS stack** with .env
+   sourced (Django + SPA + Redis + Celery + media-engine).
+4. **Operator drives the SPA** at
+   `/workspace/scripts/new` — pick Marcus (Roman tutor
+   spokesperson with knowledge attached), type a topic
+   ("teach the difference between BC and BCE dates"),
+   submit. AI tails Django + Celery + media-engine logs
+   in parallel.
+5. **Review the draft** in the detail page. Check:
+   * `draft_text` populated with synthesized brief
+   * `cited_documents` shows the right doc titles
+   * `verification_status` = `verified` or `warned`
+     (operator decides whether to regenerate or approve)
+6. **Approve.** Confirm DRAFT → READY transition;
+   `approved_at` set.
+7. **Render.** Composition fires; Script flips to
+   RENDERED.
+8. **Validate the lineage**:
+   * Rendered Asset's `source_spec.knowledge_chunk_ids`
+     matches the Script's persisted chunks
+   * `Composition.synthesized_brief` matches Script's
+     `draft_text`
+   * F-arc brief-mode panel on the Asset detail
+     surfaces the right citations
+9. **Operator-noticed quality findings** get captured as
+   v2 axes (mirror the SESSION 205 dogfood pattern).
+10. **Close the arc**: handoff + TRUST_CALIBRATION
+    entries + start-here update for SESSION 208.
 
-1. **B-14 Multi-Platform Variants** — distribution
-   stickiness. One render → reformatted variants for IG /
-   TikTok / YT Shorts / LinkedIn. Builds on V9's
-   `reformat_clip`. Composes naturally with B-3 (one
-   personalized batch → 4 platform variants per recipient).
-   5-6 slices estimated. **Recommended** as the natural
-   composition with the just-shipped C-arc.
-2. **B-1 v2 slices** — external transcript ingestion (.srt
-   upload), batch mining, highlight chaining. Each is ~½ to
-   1 session.
-3. **A new B-* axis** from `CONTENT_FORMAT_BACKLOG.md` —
-   B-2 (knowledge-driven auto-scripting), B-4 (audiogram /
-   podcast clip), B-5 (kinetic typography). Each is its own
-   arc.
+Real-mode cost target: **~$0.25** for one auto_script
+render against Marcus + Clara. Plus ~$0.001 LLM cost for
+the draft itself.
 
-### Asset upload UI (B-1 v2 enabler)
+---
 
-* **Asset upload UI for AUDIO / IMAGE / TRANSCRIPT** (1-2
-  sessions). Unblocks B-1 v2 (external transcript
-  ingestion) + the 8 legacy RAW_UPLOAD rows from SESSION
-  185 backfill.
+## After B2.6 closes — operator picks
 
-### Architectural debt cleared SESSION 204
+Three candidates for the next strategic-axis session:
 
-* ~~`videos_per_month` count migration~~ — **DONE SESSION 204.**
-  Migration shipped + 8 pinning tests. The per-month cap
-  now reads Composition rows correctly.
-
-### Deferred parity slices (unchanged)
-
-* **W12 legacy form retirement** (1 session).
-* **K6.4 v3 architectural fix** (1 session).
-* **K7.x v3 YouTube oEmbed** (½ session).
-
-### Recommended next direction
-
-The strategic-axis trifecta is nearly complete:
-* **B-1 (mine)** — done
-* **B-3 (personalize)** — done
-* **B-14 (distribute)** — done
-* **B-2 (auto-script)** — the missing piece. Removes the
-  "blank page" friction. Composes with B-1 (mine input
-  context) + B-3 (auto-script the campaign template) +
-  B-14 (distribute the result).
-
-**B-2 Knowledge-driven auto-scripting** is the cleanest
-next strategic-axis pick. ~6-8 slices per the proven
-cadence.
-
-Alternatives:
-* **B-14 v2 `offset_x`** — ½ session; addresses the
-  SESSION 205 dogfood finding while it's fresh.
-* **Asset upload UI** — operator-content bottleneck;
-  unblocks B-1 v2 external transcript ingestion.
-* **B-1 v2** — incremental on already-shipped B-1.
+1. **B-14 v2 `offset_x` knob** (½ session) — addresses
+   SESSION 205 dogfood finding while it's fresh.
+2. **Asset upload UI** (1-2 sessions) — operator-content
+   bottleneck; unblocks B-1 v2.
+3. **B-2 ↔ B-3 composition** — Script becomes
+   `PersonalizedCampaign.template`. Composes E-arc with
+   C-arc; "composition is the moat" framing makes this
+   high-leverage.
+4. **B-1 v2 slices** — external transcript ingestion,
+   batch mining, highlight chaining.
+5. **`auto_script_polished` + `auto_script_cinematic`
+   variants** — deferred from B2.4 scope. Each is ~½
+   session.
 
 ---
 
@@ -309,6 +184,8 @@ Alternatives:
 **Asset Library v1 COMPLETE + DOGFOOD VALIDATED**.
 **Transcript Miner (B-1) v1 COMPLETE + REAL-MODE VALIDATED**.
 **Personalized Video (B-3) v1 COMPLETE + REAL-MODE VALIDATED.**
+**Publish Bundle (B-14) v1 COMPLETE + REAL-MODE VALIDATED.**
+**Auto-Scripting (B-2) v1 — backend + SPA COMPLETE; dogfood queued.**
 **Phase 5:** Brand ecosystem under 24/7 GLOBAL AI parent.
 
 | Surface | Status |
@@ -321,17 +198,17 @@ Alternatives:
 | W11.6.0-W11.6.5 | DONE |
 | Asset Library v1 (A0-A8) | DONE + DOGFOOD VALIDATED |
 | Transcript Miner v1 (B1.0-B1.7) | DONE + REAL-MODE VALIDATED |
-| **Personalized Video v1 (B3.0-B3.9)** | **DONE + REAL-MODE VALIDATED** |
+| Personalized Video v1 (B3.0-B3.9) | DONE + REAL-MODE VALIDATED |
+| Publish Bundle v1 (B14.0-B14.5) | DONE + REAL-MODE VALIDATED |
+| **Auto-Scripting v1 (B2.0-B2.6)** | **B2.0 LOCKED + B2.1-B2.5 SHIPPED; B2.6 dogfood = FIRST THING SESSION 207** |
 | B6-B10 brand arc | Deferred |
 | F8.1 (K10 seed corpus) | Queued |
 | K7.x v3 YouTube oEmbed | Queued |
 | K6.4 v3 architectural fix | Queued |
 | W12 legacy form retirement | Queued |
 | Asset upload UI | Queued |
-| `videos_per_month` count migration | **DONE (SESSION 204)** |
-| **Publish Bundle v1 (B14.0-B14.5)** | **DONE (SESSION 205) + REAL-MODE VALIDATED** |
 | B-14 v2 offset_x knob | Queued (½ session; SESSION 205 dogfood finding) |
-| **Auto-Scripting v1 (B2.0-B2.6)** | **B2.0 LOCKED + B2.1-B2.5 SHIPPED (SESSION 206); B2.6 (dogfood) queued** |
+| B-2 v2 auto_script_polished + auto_script_cinematic | Queued (each ~½ session) |
 
 ---
 
@@ -370,105 +247,127 @@ python3 /Users/donkeyking/development/context-kit/context_kit.py doctor
    **with .env sourced**.
 5. **Media-engine** — required for real-mode renders.
 
-**Pre-fire check (codified SESSION 200, extended SESSION 202+203)**:
+**Pre-fire check (codified SESSION 200, extended SESSION 202+203+206)**:
 restart Celery before any real-mode fire when the last commit
 against ANY of these is newer than worker start:
 * `shell/apps/compositions/primitives/`
-* `shell/apps/*/signals.py` (now includes
+* `shell/apps/compositions/starters.py`
+* `shell/apps/compositions/recipes.py` (registry; SESSION 206 added)
+* `shell/apps/*/signals.py` (includes
   `apps/transcripts/signals.py`,
-  `apps/campaigns/signals.py`)
+  `apps/campaigns/signals.py`,
+  `apps/scripts/signals.py`)
 * `shell/character_os/clients/media_engine.py`
 
-Signals register only at `apps.py::ready()`; a stale worker
-silently doesn't fire them.
+Signals + registry imports register only at
+`apps.py::ready()`; a stale worker silently doesn't fire
+them.
 
-**Smoke checks** (counts as of SESSION 203 close):
+**Smoke checks** (counts as of SESSION 206 close):
 
 ```bash
 # Backend (from shell/)
 python manage.py inventory
-python -m pytest                              # 1269 tests
+python -m pytest                              # 1320 tests
 
 # Media-engine (from media-engine/)
 python -m pytest                              # 214 tests
 
 # SPA (from web/)
 pnpm build                                    # type-check + bundle
-pnpm test                                     # 371 vitest tests
+pnpm test                                     # 405 vitest tests
 ```
 
-**New surfaces from SESSION 203 (C-arc):**
+**New surfaces from SESSION 206 (E-arc / B-2):**
 
-* `apps.campaigns` Django app — `PersonalizedCampaign` +
-  `PersonalizedRecipient` models, cross-workspace signal +
-  Composition completion receiver. Migration `0001_initial`.
-* `character_os/template_renderer.py` — `parse_placeholders`
-  + `render_template` + `TemplateError`.
-* `character_os/csv_recipients.py` — `parse_csv` +
-  `derive_label`.
-* `apps.campaigns.cost` — `PER_RECIPIENT_COST_MICROS=$0.25`
-  + `estimate_campaign_cost_micros`.
-* `apps.campaigns.services` — `check_personalized_batch`
-  (two-dim tier gate) + `rollup_campaign_status` (campaign
-  terminal-state rollup helper).
-* `/api/campaigns/` — `CampaignViewSet` with create / list /
-  retrieve / destroy / parse_csv / recipients / forecast /
-  launch / retry_recipient actions.
-* `/workspace/campaigns` + `/workspace/campaigns/new` +
-  `/workspace/campaigns/:id` SPA routes with full launch
-  flow + 5s polling + per-recipient retry.
-* `web/src/lib/api/campaigns.ts` — Zod schemas + 9 React
-  Query hooks (`useCampaigns`, `useCampaign`,
-  `useCreateCampaign`, `useDeleteCampaign`, `useParseCsv`,
-  `useRecipients`, `useCampaignForecast`,
-  `useLaunchCampaign`, `useRetryRecipient`).
-* `TIER_LIMITS["*"]["personalized_batch_max"]` extended:
-  Starter=5, Pro=30, Agency=200.
+* `apps.scripts` Django app — `Script` model (UUID PK, FK
+  Workspace + Spokesperson, prompt + opener + draft_text +
+  knowledge_chunk_ids + verification_status +
+  verification_warnings + verifier_mode + revision_history
+  JSONField + 4-state machine DRAFT/READY/RENDERED/ARCHIVED).
+  Migration `0001_initial`. Cross-workspace pre_save signal.
+* `apps.scripts.synthesis` — `draft_script` adapter over
+  K6 + `snapshot_to_revision_history` + `apply_draft_to_script`
+  helpers. Strict-mode `ClaimVerifierError` caught + persisted
+  as `verification_status='blocked'` (rule 4).
+* `apps.compositions.starters.auto_script` — single-step
+  Composition starter that reads a Script's persisted
+  `draft_text` + sets `use_knowledge=False` (rule 7 — K6
+  in-primitive synthesis skipped because draft already
+  synthesized at draft-time).
+* `/api/scripts/` — `ScriptViewSet` with 8 actions
+  (create / list / retrieve / regenerate / approve /
+  render / clone / destroy).
+* `TIER_LIMITS["*"]["drafts_per_month"]`: Starter=10,
+  Pro=100, Agency=None. `check_drafts_per_month` billing
+  gate. `Usage.drafts_used` counts initial-create + each
+  regenerate (via JSON revision_history ts filtering).
+* `auto_script` recipe registered in
+  `apps.compositions.recipes.RECIPES` (gallery count
+  19 → 20) with new `script_picker` form field type.
+* `/workspace/scripts` + `/workspace/scripts/new` +
+  `/workspace/scripts/:id` SPA routes.
+* `web/src/lib/api/scripts.ts` — Zod schemas + 8 React
+  Query hooks (`useScripts`, `useScript`,
+  `useCreateScript`, `useRegenerateScript`,
+  `useApproveScript`, `useRenderScript`, `useCloneScript`,
+  `useDeleteScript`). All mutations invalidate every
+  dependent query.
+* Recipe-gallery `script_picker` field type + ScriptPicker
+  component (filters to status=READY scripts).
 
 ---
 
 ## AI / assistant context
 
-- **Last session: SESSION 205 — D-arc shipped in one session.**
-  Seven slices B14.0–B14.5. Django 1215 → 1269 (+54).
-  SPA 284 → 371 (+87). 2 new TRUST_CALIBRATION entries.
-  $0 real-mode spend. Scope-lock cadence now 4-for-4.
+- **Last session: SESSION 206 — E-arc lock + 5 of 7 slices
+  shipped.** Six commits B2.0-B2.5. Django 1269 → 1320
+  (+51). SPA 371 → 405 (+34). 2 new TRUST_CALIBRATION
+  entries (39 total). $0 real-mode spend.
+
+- **Prior session: SESSION 205 — D-arc shipped in one
+  session.** Seven slices B14.0-B14.5 including dogfood.
+  Django 1245 → 1269 (+24). SPA 284 → 371 (+87).
 
 - **Prior session: SESSION 204 — videos_per_month migration.**
   Cleanup between arcs. Django 1207 → 1215 (+8).
 
-- **Prior session: SESSION 203 — C-arc shipped in one session.**
-  Ten slices B3.0 through B3.9 + B3.8 post-close hotfix.
-  Django 1097 → 1207 (+110). SPA 188 → 284 (+96). 3 new
-  TRUST_CALIBRATION entries. $0.50 real-mode spend.
+- **Scope-lock cadence is now 5-for-5** (A/B/C/D/E arcs).
+  Pattern: 8-10 contract rules + 7-10 slices + per-slice
+  tests + real-mode dogfood closing. Each arc lands in one
+  extended session; dogfood can ride into the next session
+  when same-day fatigue would degrade validation quality
+  (SESSION 206 made this call).
 
-- **Scope-lock cadence is now 3-for-3** (A-arc, B-arc,
-  C-arc). Pattern: 8-10 contract rules + 7-10 slices + per-
-  slice tests + real-mode dogfood closing. Each arc lands in
-  one extended session.
-
-- **Calibration carried forward (37 total — +2 SESSION 205:
-  scope-lock cadence 4-for-4 + aspect-changing crop is a
-  recurring shape)**:
+- **Calibration carried forward (39 total — +2 SESSION 206:
+  scope-lock cadence 5-for-5 + K6 refactor adapter pattern)**:
   V-arc 100% real-mode closure; operator-noticed-during-
   dogfood loop; mix_audio + intro_outro silent-base shapes;
-  real-mode finds bugs in EVERY recipe (5-for-5 now —
-  SESSIONS 195/197/200/202/203 all surfaced at least one);
-  Celery worker doesn't auto-reload (3rd hit); mock-mode
-  hides stream-shape drift (4th hit); forward-defense audits
+  real-mode finds bugs in EVERY recipe (6-for-6 with
+  SESSION 205's UX limitation finding); Celery worker
+  doesn't auto-reload (3rd hit); mock-mode hides
+  stream-shape drift (4th hit); forward-defense audits
   surface latent bugs cheaply; gpt-5 reasoning eats output
-  budget (5th hit); scope-lock pattern compresses build
-  phase (3-for-3 now); **React Query mutation onSuccess must
-  invalidate every dependent query (NEW SESSION 203);**
-  **tier-gated batch caps work as designed via the forecast
-  preview surface (NEW SESSION 203).**
+  budget; scope-lock pattern compresses build phase
+  (5-for-5 now); React Query mutation onSuccess must
+  invalidate every dependent query; tier-gated batch caps
+  work as designed via forecast preview surface;
+  aspect-changing crop is a recurring shape (NEW SESSION 205);
+  **K6 refactor via adapter pattern preserved zero
+  regressions (NEW SESSION 206); scope-lock cadence 5-for-5
+  (NEW SESSION 206).**
 
 - **The "real-mode finds bugs in every recipe" pattern is
-  now 5-for-5.** C-arc's bug was at the SPA cache layer
-  (B3.8 forecast invalidation miss), not the backend.
-  Generalizes: even when the backend pipeline is clean,
-  expect at least one SPA-layer issue at dogfood time —
-  often around cache invalidation, polling, or modal state.
+  6-for-6.** Every dogfood across SESSIONS 195/197/200/202/
+  203/205 surfaced at least one finding (bug or UX
+  limitation). SESSION 207's B2.6 dogfood is the next test.
+
+- **Operator pushback on AI's premature "sign-off" framing
+  surfaced SESSION 206 early.** The 4-for-4 cadence biased
+  the AI toward closure pressure; operator recalibrated to
+  "we're just getting started for the day." Calibration:
+  cadence is *opportunity*, not *obligation*; let the
+  operator set the lock cue.
 
 - **Brand layer is load-bearing.** Every component must
   import company/product strings from `@/lib/brand` per

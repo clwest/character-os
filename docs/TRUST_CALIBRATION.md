@@ -4874,3 +4874,88 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   intro_outro card placement, music_bed_pass gain math.
   Avatar-only workflows have masked these assumptions
   to date.
+
+### Scope-lock cadence is now 5-for-5
+- **Date:** 2026-05-20
+- **Session:** 206 (B-2 / E-arc, lock + 5 of 7 slices)
+- **Context:** Five consecutive strategic-axis arcs
+  (A SESSIONS 185-192, B SESSION 202, C SESSION 203,
+  D SESSION 205, E SESSION 206) have opened + landed
+  their implementation slices in single-session blocks.
+- **AI expectation (before):** SESSION 205 close-out
+  noted the cadence as "proven 4-for-4" with a load-
+  bearing assumption that future strategic axes would
+  hold the same shape. SESSION 206 was the cleanest
+  test: a five-slice arc that lifts an existing
+  operational pipeline (K6 synthesis) into a new
+  persistence layer with its own REST + SPA surfaces.
+- **Reality / outcome:** **Cadence held.** Scope lock
+  (B2.0) → model (B2.1) → synthesis adapter (B2.2) →
+  REST + tier gate + starter (B2.3) → recipe gallery
+  (B2.4) → SPA via subagent (B2.5). Six commits;
+  Django 1269 → 1320 (+51); SPA vitest 371 → 405
+  (+34); zero K6 regressions; $0 real-mode spend.
+  Operator pulled B2.6 (dogfood) to a fresh session
+  to avoid same-day fatigue on real-mode validation —
+  prior arcs all left the dogfood to its own block too,
+  so this is the established sub-pattern.
+- **Found by:** Six committed slices; full Django suite
+  passing after each.
+- **Lesson:** **The cadence is no longer aspirational —
+  it's the design default for any new strategic axis.**
+  Plan around: 8-10 contract rules + 7-10 slices
+  (¼ to 1 session each) + real-mode dogfood closing.
+  The dogfood is fine to ride into the next session
+  when same-day fatigue would degrade real-mode
+  validation quality (operator's judgment call). What
+  this enables: when an operator says "let's start
+  with B-X" on a Tuesday, the AI can confidently
+  scope an arc that closes the same Tuesday — modulo
+  the dogfood ride-over.
+
+### K6 refactor via adapter pattern preserved zero regressions
+- **Date:** 2026-05-20
+- **Session:** 206 (B-2 / E-arc, B2.2)
+- **Context:** B-2's central technical question was
+  "how do we add pre-render Script-row persistence
+  without breaking K6's in-primitive synthesis?" K6's
+  ``character_os.script_synthesis.build_render_brief``
+  has many callers — the legacy V6 shim in
+  ``apps.videos.views``, the ``generate_avatar_speech``
+  primitive, two large existing test files
+  (``test_script_synthesis.py``,
+  ``test_claim_verifier.py``), and a mock-patch site in
+  ``test_primitive_avatar_speech.py`` that pins the
+  exact import path.
+- **AI expectation (before):** The two viable shapes
+  were *move-and-shim* (move the implementation to the
+  new module, leave a thin back-compat re-export at the
+  old path) and *adapter-wraps-callable* (add a new
+  module that calls the existing function and remaps
+  the result shape).
+- **Reality / outcome:** **Chose adapter-wraps-callable.
+  Result: 1320 Django tests pass with zero K6
+  regression.** The new ``apps.scripts.synthesis.draft_script``
+  invokes ``build_render_brief`` and remaps the
+  ScriptResult fields onto a ScriptDraftResult shape.
+  Strict-mode ``ClaimVerifierError`` is caught at the
+  adapter layer and persisted as
+  ``verification_status='blocked'`` instead of raising
+  into the caller. Both paths share the underlying
+  machinery via call, not via shared mutable state.
+- **Found by:** Full Django suite after B2.2 commit
+  (1290 passed, no failures); the K6 mock-patch site
+  at ``test_primitive_avatar_speech.py:378`` was the
+  load-bearing test that confirmed the legacy import
+  path was preserved.
+- **Lesson:** **When adding a new persistence layer
+  over an existing operational function with many
+  callers + a mock-patch test fixture, the
+  adapter-wraps-callable shape is strictly safer than
+  move-and-shim.** Move-and-shim invites import-path
+  drift across the test surface; adapter-wraps-callable
+  preserves the original call graph by construction.
+  Generalizes to similar future refactors: when the
+  motivation is "new feature on top of existing
+  function," not "consolidate two equivalent paths
+  into one," reach for the adapter pattern first.
