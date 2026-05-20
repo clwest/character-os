@@ -54,7 +54,10 @@ def reject_cross_workspace_campaign_refs(
 
     update_fields = kwargs.get("update_fields")
     if update_fields is not None:
-        validated_fields = {"workspace", "spokesperson"}
+        # BC1 — include source_script in validated_fields so a
+        # source_script update on an existing campaign triggers
+        # the workspace check.
+        validated_fields = {"workspace", "spokesperson", "source_script"}
         if not (set(update_fields) & validated_fields):
             return
 

@@ -228,3 +228,134 @@ def test_tier_limit_helper_returns_per_batch_cap() -> None:
     assert tier_limit("starter", "personalized_batch_max") == 5
     assert tier_limit("pro", "personalized_batch_max") == 30
     assert tier_limit("agency", "personalized_batch_max") == 200
+
+
+# ---- BC1 — source_script FK -------------------------------------
+
+
+def _make_script(
+    ws: Workspace, sp: Spokesperson, name: str = "Five Good Emperors",
+):
+    """BC1 fixture — a READY Script with non-empty draft_text
+    in the same workspace as the supplied spokesperson."""
+    from apps.scripts.models import Script
+
+    return Script.objects.create(
+        workspace=ws,
+        spokesperson=sp,
+        name=name,
+        prompt="explain the five good emperors and the antonine peace",
+        draft_text=(
+            "Today we're tackling the Five Good Emperors and the "
+            "Antonine peace..."
+        ),
+        knowledge_chunk_ids=["chunk-a", "chunk-b"],
+        status="ready",
+    )
+
+
+def test_source_script_defaults_to_none() -> None:
+    """BC1 — back-compat: existing C-arc create flow that
+    doesn't pass source_script keeps working. The new field
+    must default to None / nullable."""
+    ws = _make_workspace("bc1null@test")
+    sp = _make_spokesperson(ws)
+    c = PersonalizedCampaign.objects.create(
+        workspace=ws, spokesperson=sp,
+        name="no-source", template="Hi {n}", placeholders=["n"],
+    )
+    assert c.source_script is None
+    assert c.source_script_id is None
+
+
+def test_source_script_persists_and_reverse_name_resolves() -> None:
+    """BC1 — happy path: source_script FK round-trips +
+    Script.derived_campaigns reverse manager surfaces the
+    Campaign for the BC0 rule-1 query path."""
+    ws = _make_workspace("bc1happy@test")
+    sp = _make_spokesperson(ws)
+    script = _make_script(ws, sp)
+    c = PersonalizedCampaign.objects.create(
+        workspace=ws, spokesperson=sp,
+        name="from-script", template=script.draft_text,
+        placeholders=[],
+        source_script=script,
+    )
+    # FK persisted on the Campaign side.
+    assert c.source_script_id == script.pk
+    refetched = PersonalizedCampaign.objects.get(pk=c.pk)
+    assert refetched.source_script_id == script.pk
+    # Rule 1 — reverse query through related_name resolves
+    # without back-reference on Script (Script schema unchanged).
+    derived = list(script.derived_campaigns.all())
+    assert derived == [refetched]
+
+
+def test_cross_workspace_source_script_rejected_at_clean() -> None:
+    """BC0 rule 3 — source_script.workspace MUST equal
+    campaign.workspace. clean() catches the form path."""
+    ws_a = _make_workspace("bc1xclean_a@test")
+    ws_b = _make_workspace("bc1xclean_b@test")
+    sp_a = _make_spokesperson(ws_a, name="MarcusA")
+    sp_b = _make_spokesperson(ws_b, name="MarcusB")
+    script_b = _make_script(ws_b, sp_b)
+
+    c = PersonalizedCampaign(
+        workspace=ws_a,
+        spokesperson=sp_a,
+        name="x", template="Hi {n}", placeholders=["n"],
+        source_script=script_b,  # belongs to ws_b
+    )
+    with pytest.raises(ValidationError) as exc:
+        c.full_clean()
+    assert "source_script" in exc.value.message_dict
+    assert "different workspace" in str(exc.value)
+
+
+def test_cross_workspace_source_script_rejected_at_signal() -> None:
+    """BC0 rule 3 — signal catches the raw .save() path that
+    bypasses clean()."""
+    ws_a = _make_workspace("bc1xsig_a@test")
+    ws_b = _make_workspace("bc1xsig_b@test")
+    sp_a = _make_spokesperson(ws_a, name="MarcusA")
+    sp_b = _make_spokesperson(ws_b, name="MarcusB")
+    script_b = _make_script(ws_b, sp_b)
+
+    c = PersonalizedCampaign(
+        workspace=ws_a,
+        spokesperson=sp_a,
+        name="x", template="Hi {n}", placeholders=["n"],
+        source_script=script_b,
+    )
+    with pytest.raises(ValidationError):
+        c.save()
+
+
+def test_protect_on_delete_prevents_script_deletion_when_referenced() -> None:
+    """BC0 rule 9 — on_delete=PROTECT prevents silent lineage
+    orphaning. A Script referenced by any Campaign cannot be
+    deleted until the referencing Campaign is removed first."""
+    from django.db.models.deletion import ProtectedError
+
+    ws = _make_workspace("bc1protect@test")
+    sp = _make_spokesperson(ws)
+    script = _make_script(ws, sp)
+    campaign = PersonalizedCampaign.objects.create(
+        workspace=ws, spokesperson=sp,
+        name="protect-me", template=script.draft_text,
+        placeholders=[],
+        source_script=script,
+    )
+
+    # Direct Script.delete() must be blocked.
+    with pytest.raises(ProtectedError):
+        script.delete()
+
+    # Script still exists.
+    assert script.__class__.objects.filter(pk=script.pk).exists()
+
+    # Cascade through Campaign removes the FK, then Script
+    # delete succeeds.
+    campaign.delete()
+    script.delete()
+    assert not script.__class__.objects.filter(pk=script.pk).exists()

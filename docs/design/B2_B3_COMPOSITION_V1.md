@@ -240,7 +240,7 @@ has no Campaigns FK).
 | # | Slice | Effort |
 |---|---|---|
 | **BC0** | This scope-lock doc | ½ session (current) |
-| **BC1** | Schema: `source_script` FK on PersonalizedCampaign + migration + cross-workspace guard (clean + pre_save extension) + 5 model tests. | ½ session |
+| **BC1** ✓ SHIPPED | Schema: `source_script` FK on PersonalizedCampaign (FK to Script, null=True, blank=True, on_delete=PROTECT, related_name='derived_campaigns') + migration `0002_bc1_source_script` + cross-workspace guard extended in both `clean()` + pre_save signal (added `source_script` to validated_fields). 5 model tests pin nullable default, FK + reverse_name round-trip, cross-workspace clean rejection, cross-workspace signal rejection, ProtectedError on Script delete when referenced. Django 1320 → 1325 (+5). Zero regressions. | ½ session |
 | **BC2** | Extend `talking_head_polished` starter: optional `knowledge_chunk_ids` / `synthesized_brief` / `verification_status` / `verification_warnings` kwargs propagate to Composition row + step params for lineage on each Asset. Defaults None = current behavior. 6-8 starter tests; back-compat check against existing C-arc tests. | ½ session |
 | **BC3** | REST: `POST /api/campaigns/` accepts `source_script_id` (workspace-filtered Script fetch + draft_text copy + FK persist). Launch path propagates Script lineage per recipient (rule 4 + 5 + 8). New `GET /api/scripts/<id>/derived_campaigns/` action on `ScriptViewSet`. 8-10 REST tests. | ½-1 session |
 | **BC4** | SPA: "Use approved Script as starting template" picker on `/workspace/campaigns/new`. Workspace + spokesperson filter. Script preview pane (draft_text + chunk count). "Use as template" pre-fills the textarea + sets `source_script_id` in the create payload. Script detail page gains "Used by N campaigns" badge (links to derived_campaigns list). 10-12 vitest tests. | 1 session (subagent candidate). |
@@ -417,3 +417,26 @@ this is pure integration over pre-validated layers.
   resolutions. Status flips proposed → locked. BC1
   (`source_script` FK + migration + workspace guard + 5 model
   tests) opens immediately.
+
+* **2026-05-20 (SESSION 208, BC1 SHIPPED)** — Schema slice
+  lands. `PersonalizedCampaign.source_script: FK(Script,
+  null=True, blank=True, on_delete=PROTECT,
+  related_name='derived_campaigns')`. Migration
+  `0002_bc1_source_script` (single AddField). Workspace guard
+  extended at two layers: `PersonalizedCampaign.clean()` now
+  checks `source_script.workspace_id == workspace_id` when
+  source_script is set, mirroring the existing spokesperson
+  check shape; pre_save signal's `validated_fields` set picks
+  up `source_script` so partial-update saves still trigger
+  the workspace check when the FK changes. **Q-bc-1
+  resolved as-proposed** (PROTECT, not SET_NULL). 5 BC1 model
+  tests pin: nullable default; FK + reverse-name
+  (`script.derived_campaigns.all()`) round-trip per rule 1;
+  cross-workspace rejection at clean(); cross-workspace
+  rejection at signal; ProtectedError raises when a referenced
+  Script is deleted. Full Django suite 1320 → 1325 (+5); zero
+  regressions across the 1320 baseline. BC2 (extend
+  `talking_head_polished` starter with optional
+  `knowledge_chunk_ids` / `synthesized_brief` /
+  `verification_status` / `verification_warnings` kwargs)
+  opens next.

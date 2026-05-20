@@ -31,6 +31,7 @@ from django.db import models
 
 from apps.accounts.models import Workspace
 from apps.compositions.models import Composition
+from apps.scripts.models import Script
 from apps.spokespeople.models import Spokesperson
 
 
@@ -130,6 +131,26 @@ class PersonalizedCampaign(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # BC1 — optional derivation pointer per B2_B3_COMPOSITION_V1
+    # rule 1 (Script → Campaign is one-direction; back-reference
+    # lives on this side only) + rule 9 (on_delete=PROTECT
+    # prevents silent lineage orphaning). Workspace isolation
+    # (rule 3) enforced via clean() + pre_save signal.
+    source_script = models.ForeignKey(
+        Script,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="derived_campaigns",
+        help_text=(
+            "Optional source Script row this Campaign derives "
+            "from. When set, the launch path propagates the "
+            "Script's knowledge_chunk_ids + synthesized_brief "
+            "(substituted per recipient) + verification flags "
+            "onto every per-recipient Composition (BC0 rule 4)."
+        ),
+    )
+
     class Meta:
         indexes = [
             models.Index(fields=["workspace", "status"]),
@@ -141,8 +162,9 @@ class PersonalizedCampaign(models.Model):
         return f"campaign {str(self.id)[:8]} [{self.status}] {self.name!r}"
 
     def clean(self) -> None:
-        """Rule 3 — workspace isolation. spokesperson must be
-        in the same workspace as the campaign."""
+        """Rule 3 — workspace isolation. spokesperson AND
+        source_script (when set) must be in the same workspace
+        as the campaign."""
         super().clean()
         if self.workspace_id and self.spokesperson_id:
             sp_ws_id = (
@@ -154,6 +176,23 @@ class PersonalizedCampaign(models.Model):
                 raise ValidationError({
                     "spokesperson": (
                         "spokesperson belongs to a different "
+                        "workspace than this campaign."
+                    ),
+                })
+        # BC1 / BC0 rule 3 — source_script workspace check.
+        if self.workspace_id and self.source_script_id:
+            script_ws_id = (
+                Script.objects.filter(pk=self.source_script_id)
+                .values_list("workspace_id", flat=True)
+                .first()
+            )
+            if (
+                script_ws_id is not None
+                and script_ws_id != self.workspace_id
+            ):
+                raise ValidationError({
+                    "source_script": (
+                        "source_script belongs to a different "
                         "workspace than this campaign."
                     ),
                 })
