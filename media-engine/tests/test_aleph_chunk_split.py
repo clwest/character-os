@@ -23,6 +23,7 @@ import pytest
 
 from app.routers.internal import (
     _ALEPH_MIN_CHUNK_SECONDS,
+    _aleph_split_into_chunks,
     _merge_sub_min_tail_chunk,
     _probe_duration,
 )
@@ -125,3 +126,82 @@ def test_tail_at_exact_minimum_is_left_alone(scratch: Path) -> None:
     result = _merge_sub_min_tail_chunk([c0, c1], scratch)
     assert len(result) == 2
     assert result == [c0, c1]
+
+
+# ---- SESSION 201 forward-defense — silent-source segmenter -------
+
+
+def _make_silent_clip(scratch: Path, name: str, duration_s: float) -> Path:
+    """Generate a silent mp4 — no audio stream. Mirrors what
+    ``concat_clips`` produces when every input came from
+    ``generate_visual_clip`` / ``extend_visual_clip`` (Runway
+    gen4_turbo / gen4.5 outputs)."""
+    out = scratch / name
+    subprocess.run(
+        [
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-f", "lavfi", "-i",
+            f"color=c=blue:s=160x120:r=30:d={duration_s}",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "-an",
+            "-f", "mp4", str(out),
+        ],
+        check=True, capture_output=True, timeout=30,
+    )
+    return out
+
+
+def _probe_codecs(path: Path) -> list[str]:
+    probe = subprocess.run(
+        [
+            "ffprobe", "-v", "error",
+            "-show_entries", "stream=codec_type",
+            "-of", "csv=p=0",
+            str(path),
+        ],
+        check=True, capture_output=True, text=True, timeout=10,
+    )
+    return [
+        line.strip() for line in probe.stdout.splitlines() if line.strip()
+    ]
+
+
+def test_split_silent_source_emits_video_only_chunks(scratch: Path) -> None:
+    """SESSION 201 forward-defense — when the source has no audio
+    stream, the segmenter must drop the ``-c:a aac`` encoder args
+    + map only video. Pre-fix, ``-map 0`` + ``-c:a aac`` against
+    a silent source either errors or produces empty audio streams
+    depending on ffmpeg version. Post-fix, chunks are video-only
+    and ready for Aleph's video-to-video endpoint."""
+    source = _make_silent_clip(scratch, "silent_source.mp4", 12.0)
+
+    chunks_dir = scratch / "chunks"
+    chunks_dir.mkdir()
+    chunks = _aleph_split_into_chunks(source, 5, chunks_dir)
+
+    assert len(chunks) >= 2, f"expected ≥2 chunks for 12s source, got {len(chunks)}"
+    for chunk in chunks:
+        codecs = _probe_codecs(chunk)
+        assert "video" in codecs
+        assert "audio" not in codecs, (
+            f"silent source produced a chunk with audio: {chunk.name} "
+            f"({codecs}) — the silent-base branch wasn't applied"
+        )
+
+
+def test_split_audio_source_preserves_audio_in_chunks(scratch: Path) -> None:
+    """Regression guard for the existing happy path. Audio sources
+    (talking_head_polished, the canonical Aleph caller) continue
+    to emit chunks with audio streams. Validates the silent-base
+    branch didn't break the audio path."""
+    source = _make_clip(scratch, "voiced_source.mp4", 12.0)
+
+    chunks_dir = scratch / "chunks"
+    chunks_dir.mkdir()
+    chunks = _aleph_split_into_chunks(source, 5, chunks_dir)
+
+    assert len(chunks) >= 2
+    for chunk in chunks:
+        codecs = _probe_codecs(chunk)
+        assert "video" in codecs
+        assert "audio" in codecs

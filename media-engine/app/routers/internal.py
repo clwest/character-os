@@ -1254,8 +1254,26 @@ def _build_xfade_concat_cmd(
 def _build_reencode_cmd(local_paths: list[Path], tmp: Path) -> list[str]:
     """Build the filter_complex normalization cmd for
     heterogeneous inputs. Mirrors finisher_service's storyboard
-    concat but preserves audio (concat=n=N:v=1:a=1)."""
+    concat but preserves audio when every input carries an audio
+    stream.
+
+    SESSION 201 forward-defense (post-SESSION 200 audit) — if ANY
+    input lacks an audio stream, drop the audio chain entirely and
+    emit a video-only concat. Mirrors ``_extend_concat``'s
+    "uniform-shape or video-only" simplification. Without this
+    branch, a silent input feeds ``[N:a]`` references that match
+    no streams and ffmpeg exits rc=234 — same shape as the SESSION
+    196 mix_audio + SESSION 200 intro_outro silent-base bugs.
+
+    The "any silent → all video-only" choice intentionally drops
+    audio from audio-carrying inputs in mixed-shape requests rather
+    than synthesizing silence per silent input. This matches
+    ``_extend_concat``'s v1 simplification + keeps the concat
+    semantics predictable. Callers that need audio preserved must
+    ensure uniform-audio inputs upstream."""
     target_w, target_h, fps = 1280, 720, 30
+    has_audio = all(_has_audio_stream(p) for p in local_paths)
+
     norm_filters = []
     concat_in = ""
     for idx in range(len(local_paths)):
@@ -1263,23 +1281,42 @@ def _build_reencode_cmd(local_paths: list[Path], tmp: Path) -> list[str]:
             f"[{idx}:v]scale={target_w}:{target_h}:force_original_aspect_ratio=increase,"
             f"crop={target_w}:{target_h},setsar=1,fps={fps}[v{idx}]"
         )
-        norm_filters.append(
-            f"[{idx}:a]aresample=async=1[a{idx}]"
+        if has_audio:
+            norm_filters.append(
+                f"[{idx}:a]aresample=async=1[a{idx}]"
+            )
+            concat_in += f"[v{idx}][a{idx}]"
+        else:
+            concat_in += f"[v{idx}]"
+
+    n = len(local_paths)
+    if has_audio:
+        filter_complex = (
+            ";".join(norm_filters)
+            + f";{concat_in}concat=n={n}:v=1:a=1[outv][outa]"
         )
-        concat_in += f"[v{idx}][a{idx}]"
-    filter_complex = (
-        ";".join(norm_filters)
-        + f";{concat_in}concat=n={len(local_paths)}:v=1:a=1[outv][outa]"
-    )
+    else:
+        filter_complex = (
+            ";".join(norm_filters)
+            + f";{concat_in}concat=n={n}:v=1:a=0[outv]"
+        )
+
     cmd = ["ffmpeg", "-y", "-loglevel", "error"]
     for p in local_paths:
         cmd += ["-i", str(p)]
     cmd += [
         "-filter_complex", filter_complex,
-        "-map", "[outv]", "-map", "[outa]",
+        "-map", "[outv]",
+    ]
+    if has_audio:
+        cmd += ["-map", "[outa]"]
+    cmd += [
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
         "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-b:a", "192k",
+    ]
+    if has_audio:
+        cmd += ["-c:a", "aac", "-b:a", "192k"]
+    cmd += [
         "-movflags", "+faststart",
         "-f", "mp4",
         str(tmp),
@@ -3460,27 +3497,38 @@ def _aleph_split_into_chunks(
     ``/v1/video_to_video`` rejects sub-1s clips with
     ``"Asset duration must be at least 1 seconds"``. SESSION 181
     dogfood: a 10.04s source split into 5s + 5s + 0.04s, with the
-    tiny residual blowing up the entire batch."""
+    tiny residual blowing up the entire batch.
+
+    SESSION 201 forward-defense (post-SESSION 200 audit) — ffprobe
+    the source for an audio stream; when absent, drop the
+    ``-c:a aac`` encoder args + use ``-map 0:v`` explicitly so
+    the segmenter doesn't reject the audio request. Today's
+    callers (talking_head_polished) always have audio, but routing
+    a silent source through style_remix would have surfaced this.
+    Same shape as the SESSION 196 / 200 silent-base fixes."""
     import subprocess as _subprocess
 
+    has_audio = _has_audio_stream(source)
     chunk_glob = scratch_dir / "chunk-%03d.mp4"
+    cmd = [
+        "ffmpeg", "-y", "-loglevel", "error",
+        "-i", str(source),
+        "-c:v", "libx264",
+        "-preset", "fast",
+        "-crf", "18",
+    ]
+    if has_audio:
+        cmd += ["-c:a", "aac", "-b:a", "128k"]
+    cmd += [
+        "-force_key_frames", f"expr:gte(t,n_forced*{chunk_seconds})",
+        "-map", "0" if has_audio else "0:v",
+        "-f", "segment",
+        "-segment_time", str(chunk_seconds),
+        "-reset_timestamps", "1",
+        str(chunk_glob),
+    ]
     _subprocess.run(
-        [
-            "ffmpeg", "-y", "-loglevel", "error",
-            "-i", str(source),
-            "-c:v", "libx264",
-            "-preset", "fast",
-            "-crf", "18",
-            "-c:a", "aac",
-            "-b:a", "128k",
-            "-force_key_frames", f"expr:gte(t,n_forced*{chunk_seconds})",
-            "-map", "0",
-            "-f", "segment",
-            "-segment_time", str(chunk_seconds),
-            "-reset_timestamps", "1",
-            str(chunk_glob),
-        ],
-        check=True, capture_output=True, text=True, timeout=180,
+        cmd, check=True, capture_output=True, text=True, timeout=180,
     )
     chunks = sorted(scratch_dir.glob("chunk-*.mp4"))
     if not chunks:
