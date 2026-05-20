@@ -1,9 +1,9 @@
 ---
 title: "Personalized Video (B-3) — one template + N recipients = N videos"
-status: locked
+status: complete
 proposed: 2026-05-20 (SESSION 203, slice B3.0)
 locked: 2026-05-20 (SESSION 203, slice B3.0)
-closed: null
+closed: 2026-05-20 (SESSION 203, slice B3.9)
 companion_docs:
   - CONTENT_FORMAT_BACKLOG.md
   - VIDEO_COMPOSITION_V1.md
@@ -380,3 +380,31 @@ Total: ~7 sessions.
   revision. All 9 open questions accepted with proposed
   resolutions. Status flips proposed → locked. B3.1
   (template helper) opens immediately.
+
+* **2026-05-20 (SESSION 203, B3.9 — ARC CLOSED).** Ten slices
+  (B3.0–B3.9) shipped in one extended session. Real-mode
+  dogfood validated end-to-end: campaign "B-3 smoke test"
+  fanned out 2 recipients (Bob @ Acme + Carol @ Initech)
+  against Marcus, $0.50 total spend (2 × $0.25 — exactly the
+  B-arc baseline), 36.2s wall-time, completion signal
+  auto-rolled the campaign to COMPLETED.
+
+  **One mid-arc bug surfaced + fixed same-session**: B3.8's
+  `useParseCsv` mutation didn't invalidate the
+  `campaign-forecast` query on success. Operator pasted a
+  CSV, recipients persisted correctly server-side, but the
+  forecast panel kept showing 0 recipients + $0 — Launch
+  button stuck disabled. One-line fix (commit `ffabde1`)
+  added the missing invalidation. New calibration entry
+  documents the "every dependent query must be invalidated"
+  pattern.
+
+  Tests at close: Django **1132 → 1207 (+75 across the arc)**;
+  SPA vitest **188 → 284 (+96)**; media-engine unchanged at
+  214. Real-mode spend: **$0.50** (the dogfood fire).
+
+  Status: **complete**. Operator can mine recipients from a
+  CSV, draft + edit a campaign in DRAFT, launch with tier-
+  gated cost forecast, watch progress live via 5s polling,
+  retry FAILED recipients individually, and audit composition
+  provenance via the Asset Library cross-link.

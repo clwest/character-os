@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-20T13:00:57.674692+00:00
-git_sha: d69d291
+generated_at: 2026-05-20T14:56:59.060896+00:00
+git_sha: ffabde1
 git_branch: main
 ---
 
@@ -15,11 +15,11 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-20T13:00:57.674692+00:00** against commit **d69d291**
+Generated **2026-05-20T14:56:59.060896+00:00** against commit **ffabde1**
 on branch **main**.
 
-Python 3.11.6 · Django 5.2.14 ·
-Celery 5.6.3 · httpx 0.28.1.
+Python 3.11.6 · Django 5.0.6 ·
+Celery 5.5.3 · httpx 0.28.1.
 
 ---
 
@@ -27,20 +27,20 @@ Celery 5.6.3 · httpx 0.28.1.
 
 | Metric | Value | Source |
 |---|---|---|
-| Django models (project-owned) | **17** | `apps.get_models()` filtered to first-party apps |
-| URL routes (total) | **315** | `get_resolver().url_patterns` walk |
-| URL routes (`/api/*`) | **121** | same |
-| FastAPI routes | **121** | media-engine `/openapi.json` (reachable) |
+| Django models (project-owned) | **19** | `apps.get_models()` filtered to first-party apps |
+| URL routes (total) | **354** | `get_resolver().url_patterns` walk |
+| URL routes (`/api/*`) | **137** | same |
+| FastAPI routes | **122** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **9** | `celery_app.tasks` filter |
-| Migrations (applied / total) | **64 / 64** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **59,303** in 252 files | `pathlib.Path.rglob("*.py")` |
-| Media-engine LOC (`*.py`, no venv/migrations) | **36,682** in 69 files | same |
+| Migrations (applied / total) | **65 / 65** | `MigrationRecorder` ∩ `MigrationLoader` |
+| Shell LOC (`*.py`, no venv/migrations) | **63,555** in 272 files | `pathlib.Path.rglob("*.py")` |
+| Media-engine LOC (`*.py`, no venv/migrations) | **37,012** in 70 files | same |
 
 ---
 
 ## Django Models (project-owned)
 
-Total: **17** models across **9** apps.
+Total: **19** models across **10** apps.
 
 | App | Model | DB Table | Fields | FKs |
 |---|---|---|---|---|
@@ -48,6 +48,8 @@ Total: **17** models across **9** apps.
 | `accounts` | `User` | `accounts_user` | 8 | 0 |
 | `accounts` | `Workspace` | `accounts_workspace` | 6 | 1 |
 | `billing` | `Subscription` | `billing_subscription` | 9 | 0 |
+| `campaigns` | `PersonalizedCampaign` | `campaigns_personalizedcampaign` | 12 | 3 |
+| `campaigns` | `PersonalizedRecipient` | `campaigns_personalizedrecipient` | 11 | 2 |
 | `compositions` | `Asset` | `compositions_asset` | 25 | 4 |
 | `compositions` | `Composition` | `compositions_composition` | 19 | 4 |
 | `compositions` | `CompositionStep` | `compositions_compositionstep` | 15 | 2 |
@@ -66,14 +68,14 @@ Total: **17** models across **9** apps.
 
 ## URL Routes
 
-Total: **315** resolved patterns.
+Total: **354** resolved patterns.
 
 | Prefix | Count |
 |---|---|
-| `_allauth/` | 19 |
+| `_allauth/` | 30 |
 | `accounts/` | 26 |
-| `admin/` | 149 |
-| `api/` | 121 |
+| `admin/` | 161 |
+| `api/` | 137 |
 
 ### Named API + auth routes
 
@@ -96,6 +98,13 @@ Total: **315** resolved patterns.
 - `asset-list`
 - `billing-subscription`
 - `billing-tiers`
+- `campaign-detail`
+- `campaign-forecast`
+- `campaign-launch`
+- `campaign-list`
+- `campaign-parse-csv-action`
+- `campaign-recipients-action`
+- `campaign-retry-recipient-action`
 - `change_password`
 - `composition-detail`
 - `composition-lineage`
@@ -120,7 +129,6 @@ Total: **315** resolved patterns.
 - `knowledge-search`
 - `login`
 - `manage_email`
-- `manage_phone`
 - `manage_providers`
 - `me`
 - `membership-detail`
@@ -141,8 +149,6 @@ Total: **315** resolved patterns.
 - `recipe-list`
 - `redirect_to_provider`
 - `request_password_reset`
-- `resend_email_verification_code`
-- `resend_phone_verification_code`
 - `reset_password`
 - `signup`
 - `socialaccount_connections`
@@ -166,7 +172,6 @@ Total: **315** resolved patterns.
 - `transcript-highlight-mine`
 - `transcript-highlight-reject`
 - `verify_email`
-- `verify_phone`
 - `video-detail`
 - `video-list`
 - `workspace-asset-detail`
@@ -182,12 +187,12 @@ Total: **315** resolved patterns.
 
 Probed `http://localhost:8001/openapi.json` — `Character OS API` v0.1.0.
 
-Total: **121** routes.
+Total: **122** routes.
 
 | Prefix | Count |
 |---|---|
 | `/api/` | 88 |
-| `/internal/` | 32 |
+| `/internal/` | 33 |
 | `other` | 1 |
 
 ### `/internal/*` surface (Phase 2 contract)
@@ -198,6 +203,7 @@ Total: **121** routes.
 - `/internal/avatars/`
 - `/internal/avatars/{avatar_id}/change-personality/`
 - `/internal/avatars/{avatar_id}/change-voice/`
+- `/internal/avatars/{avatar_id}/persist_portrait/`
 - `/internal/avatars/{avatar_id}/refresh/`
 - `/internal/clips/avatar_speech/`
 - `/internal/clips/captions/`
@@ -245,7 +251,7 @@ Total: **9** registered tasks (excluding `celery.*` built-ins).
 
 ## Migrations
 
-**64 of 64** migrations applied.
+**65 of 65** migrations applied.
 
 | App | Applied | Total | Pending |
 |---|---|---|---|
@@ -254,6 +260,7 @@ Total: **9** registered tasks (excluding `celery.*` built-ins).
 | `admin` | 3 | 3 | 0 |
 | `auth` | 12 | 12 | 0 |
 | `billing` | 1 | 1 | 0 |
+| `campaigns` | 1 | 1 | 0 |
 | `compositions` | 9 | 9 | 0 |
 | `contenttypes` | 2 | 2 | 0 |
 | `conversations` | 4 | 4 | 0 |
@@ -285,12 +292,12 @@ Total: **9** registered tasks (excluding `celery.*` built-ins).
 
 | Service | Files | Lines |
 |---|---|---|
-| `media-engine/` | 69 | 36,682 |
-| `shell/` | 252 | 59,303 |
-| **total** | **321** | **95,985** |
+| `media-engine/` | 70 | 37,012 |
+| `shell/` | 272 | 63,555 |
+| **total** | **342** | **100,567** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-05-20T13:00:57.674692+00:00 from commit d69d291. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-20T14:56:59.060896+00:00 from commit ffabde1. Re-run `python manage.py inventory` (from `shell/`) to refresh.*

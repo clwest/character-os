@@ -4592,3 +4592,153 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   No LLM-video competitor has the same data to mine. Marcus
   saying the Republic quote is structurally unique to this
   stack.
+
+### C-arc landed in one session — scope-lock cadence is now 3-for-3
+- **Date:** 2026-05-20
+- **Session:** 203
+- **Context:** B-3 Personalized Video — second strategic-axis
+  arc after the B-1 close. Scope-locked at B3.0 (9 contract
+  rules, 10 slices) and shipped B3.0 through B3.9 in one
+  extended session including real-mode dogfood validation.
+  Same shape as the B-arc (SESSION 202) and the A-arc
+  (SESSIONS 185-192).
+- **Surface / artefact:** Campaign "B-3 smoke test"
+  (workspace admin/spokesperson Marcus). Fan-out of 2
+  recipients in one transaction; both compositions completed
+  in parallel; campaign auto-rolled up via B3.6's post_save
+  signal. $0.50 total spend, 36.2s wall-time. Final assets
+  ``463374ed`` + ``ed9e2bd6`` — Marcus saying "Hi Bob, hope
+  your day at Acme is going well!" + the Carol/Initech
+  variant.
+- **AI expectation (before):** Per the SESSION 202 calibration
+  ("real-mode finds bugs in EVERY recipe"), at least one bug
+  expected during B3.9 dogfood. B-arc shipped clean
+  end-to-end; C-arc had more surface (10 slices vs 7), more
+  cross-app coupling (campaigns → compositions signal +
+  retry path), and a new tier-gate dimension.
+- **Reality / outcome:** **One bug surfaced — and only at the
+  SPA layer.** The backend (B3.0–B3.6) ran cleanly first
+  fire. B3.8's `useParseCsv` mutation didn't invalidate the
+  `campaign-forecast` query, leaving the operator with a
+  stuck "0 recipients $0.00 total" forecast despite
+  recipients persisting server-side. The fix was one line in
+  the React Query cache-invalidation set; the backend
+  contract was correct end-to-end.
+- **Found by:** Operator UI-driven dogfood — pasted CSV,
+  forecast panel didn't update. Backend DB query confirmed
+  recipients were there; SPA debugging found the missing
+  cache key.
+- **Lesson:** **Scope-lock cadence is now proven 3-for-3**
+  across the A-arc (Asset Library), B-arc (Transcript Miner),
+  and C-arc (Personalized Video). Each landed in one extended
+  session with a clean real-mode dogfood. The pattern that
+  works:
+  * 8-10 contract rules locked before code lands.
+  * 7-10 sequenced slices, each with per-slice tests.
+  * SPA slices delegated to react-web-delivery subagents
+    when the backend is already feature-complete.
+  * Real-mode dogfood as the closing slice.
+
+  This compounds: subsequent arcs get cheaper because the
+  pattern is internalized. Future strategic axes
+  (B-14 multi-platform variants, B-1 v2 external transcripts,
+  etc.) should plan around the same shape: ½-1 session per
+  slice, 6-10 sessions total, scope-lock-first.
+
+### React Query mutation onSuccess must invalidate EVERY dependent query
+- **Date:** 2026-05-20
+- **Session:** 203
+- **Context:** B3.8's `useParseCsv` mutation invalidated
+  `["campaign-recipients", id]` and `["campaign", id]` on
+  success. The forecast endpoint (separate query key
+  `["campaign-forecast", id]`) reads ``campaign.recipients.count()``
+  server-side, so its result depends on the recipient list.
+  But the mutation didn't invalidate the forecast key —
+  React Query kept serving the stale "0 recipients" result.
+- **Surface / artefact:** B3.9 dogfood — operator pasted 2
+  recipients, forecast panel showed "0 recipients $0.00
+  total" and Launch button stayed disabled. DB had the
+  recipients; backend GET /forecast/ would have returned
+  the correct payload; SPA never re-fetched.
+- **AI expectation (before):** The subagent was briefed to
+  "invalidate appropriate query keys on mutation success."
+  The B-arc subagents got this right because the data shapes
+  were simpler (B1.4's approve mutation only had one
+  dependent query). C-arc has more inter-query dependencies
+  — the forecast depends on the recipient list.
+- **Reality / outcome:** Subagent invalidated 2 of the 3
+  dependent queries. The miss was structural: the
+  ``forecast`` query key wasn't introduced until B3.8 (after
+  ``useParseCsv`` was already written in B3.7), so when the
+  forecast hook landed nobody backfilled the parse mutation's
+  invalidation list. Tests didn't catch it because they
+  mocked the API responses directly — no actual cache
+  behavior under test.
+- **Found by:** Operator dogfood. The DB-level probe was the
+  one that pointed at "data exists; SPA isn't seeing it" as
+  the diagnosis path.
+- **Lesson:** **When a new query depends on a mutation's
+  output, audit every existing mutation that affects the
+  same underlying data and add the new key to its
+  invalidation set.** This is the React Query equivalent of
+  the SESSION 200 "forward-defense audit" pattern: when a
+  data dependency surfaces, sweep the codebase for callers
+  that already write to that data and might need to bust the
+  new cache.
+
+  **Forward defense template** for this shape:
+  1. New query introduced (e.g. ``useCampaignForecast``).
+  2. Grep ``invalidateQueries`` for mutations that affect
+     the data the new query reads.
+  3. Add the new query key to each one's onSuccess
+     invalidation list.
+  4. Add at least one test that asserts the mutation
+     invalidates the new key (mock both queries; fire
+     mutation; assert the second query refetches).
+
+  Step 4 wasn't done for B3.8's forecast hook; that's why
+  the bug shipped to dogfood. Worth adding to the
+  subagent briefing template for future SPA slices that
+  introduce new dependent queries.
+
+### Tier-gated batch caps work as designed — operator validation pre-launch
+- **Date:** 2026-05-20
+- **Session:** 203
+- **Context:** B-3 rule 4 (TWO tier dimensions — per-batch
+  cap + per-month videos cap) was a design choice during the
+  scope lock. The reasoning was operator-protective: one
+  accidental click on a 50-row CSV at Starter tier could
+  blow through ⅔ of the monthly quota in one fire.
+- **Surface / artefact:** B3.9 dogfood with 2 recipients;
+  forecast showed "batch cap: 5 • 8 videos left this month"
+  — both gates passed cleanly, Launch enabled. Tests cover
+  the over-cap branches (test_launch_over_batch_cap_returns_402
+  + test_launch_over_month_cap_returns_402); the dogfood
+  exercised the under-cap path.
+- **AI expectation (before):** Two-dimension gating felt like
+  scope creep at lock time. The simpler design was
+  "videos_per_month is the only gate." Operator-protective
+  framing prevailed because runaway-batch risk is real for
+  B2B sales flows (~$50 batch easy to fat-finger as $500).
+- **Reality / outcome:** The two-gate design pays off in the
+  forecast modal: operator sees both numbers before
+  committing. "batch cap: 5" makes the upper limit visible
+  per-batch; "8 videos left this month" makes the cumulative
+  remaining visible. Together the operator gets the
+  what-can-I-do-RIGHT-now and the what-can-I-do-THIS-MONTH
+  signals.
+- **Found by:** N/A — design choice that paid off as planned.
+- **Lesson:** **Operator-protective gates show their value in
+  the surface that displays them, not in the code that
+  enforces them.** The cost-forecast modal is the
+  load-bearing piece: an operator pasting a 50-row CSV sees
+  "batch cap: 5 — would exceed by 45" inline with
+  "personalized_batch_too_large" before they click Launch.
+  This is the moment the gate's design choice matters.
+
+  Generalizes: any new gate or limit should land with a
+  forecast / preview surface that shows the operator the
+  current usage AND the limit AND the projected outcome
+  before they commit. The R9 cost-ticker pattern, the V18
+  duration-mismatch starter warning, and now B-3's forecast
+  modal all follow this shape.
