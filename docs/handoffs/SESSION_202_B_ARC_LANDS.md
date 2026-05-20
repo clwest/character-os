@@ -188,3 +188,42 @@ Natural next moves:
   end-to-end via the F-arc lineage surfaces.
 * No outstanding bugs; no open calibration backlog from the
   B-arc.
+
+## Post-close addition — portrait persistence parity (commit `e4aec74`)
+
+Same-session dogfood follow-up. SESSION 202's "look at the
+SPA" moment surfaced 401s on the 5 real spokespeople's
+portraits: Runway-signed CloudFront URLs in
+`Spokesperson.portrait_path` had JWTs that expired
+0.4-0.7 days ago. SESSION 169's `refresh_portraits` command
+re-fetches fresh JWT URLs (buys 30 more days);
+SESSION 202's bundled fix is the canonical solution —
+download the bytes once + persist locally + update
+`portrait_path` to the stable local URL.
+
+New surfaces:
+* Media-engine endpoint
+  `POST /internal/avatars/<id>/persist_portrait/` — refresh
+  + download + save + return local URL.
+  `data/_internal/avatar_portraits/<avatar_id>.<ext>`.
+* `MediaEngineClient.persist_avatar_portrait()` wrapper.
+* `python manage.py persist_spokesperson_portraits` —
+  idempotent backfill. Already-local rows skip the network.
+* Wizard hook in `apps.spokespeople.views` — both
+  `create_avatar` + `rebake_avatar` flows attempt persist
+  after the Runway URL is assigned. Best effort with logged
+  fallback to the JWT-signed URL on persist failure.
+
+Backfill outcome: 5 spokespeople persisted (Marcus, Sasha,
+Riggs, Donny, Thruman); 138 mock avatars correctly skipped.
+Files verified served end-to-end via the SPA `/data` proxy.
+
+Media-engine tests: 209 → **214 (+5)**. Django suite
+unchanged.
+
+**SESSION 169's `refresh_portraits` command stays in the
+codebase as a recovery tool** — useful for any spokesperson
+whose `portrait_path` somehow regressed to a JWT-signed URL
+(e.g. ingested from a backup). For day-to-day operation,
+new spokespeople get the local-persist treatment at creation
+time; the JWT-churn watch is effectively over.
