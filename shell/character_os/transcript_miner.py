@@ -227,17 +227,13 @@ def _call_responses_api(
 
     user = (
         f"Transcript:\n```\n{transcript_body}\n```\n\n"
-        f"Return EXACTLY {target_count} highlights as JSON in "
+        f"Return UP TO {target_count} highlights as JSON in "
         "this shape:\n"
         "{\n"
         "  \"highlights\": [\n"
         "    {\n"
-        "      \"text\": \"the exact substring from the "
-        "transcript\",\n"
-        "      \"char_start\": <int — offset into the "
-        "transcript where text begins>,\n"
-        "      \"char_end\": <int — offset where text ends "
-        "(exclusive)>,\n"
+        "      \"text\": \"the exact substring copied verbatim "
+        "from the transcript\",\n"
         "      \"reasoning\": \"1-2 sentences on why this is "
         "shareable\"\n"
         "    }\n"
@@ -245,12 +241,15 @@ def _call_responses_api(
         "}\n\n"
         f"Rules:\n"
         f"* Each text MUST be ≤ {max_chars} characters.\n"
-        "* Each text MUST be a verbatim contiguous substring "
-        "of the transcript — your char_start/char_end must "
-        "satisfy transcript[char_start:char_end] == text.\n"
+        "* Each text MUST be copied VERBATIM from the "
+        "transcript — same words, same punctuation, same "
+        "casing. The parser will reject any text that isn't "
+        "found as a substring of the transcript.\n"
         "* Pick from the assistant's lines (lines beginning "
         "with \"Assistant:\") — those are the spokesperson's "
-        "words, which is what the re-bake renders.\n"
+        "words, which is what the re-bake renders. Do NOT "
+        "include the \"Assistant: \" prefix in the text "
+        "field — just the words after it.\n"
         f"* If the transcript doesn't have {target_count} "
         "distinct shareable moments, return fewer — don't "
         "pad with weak picks.\n"
@@ -278,19 +277,35 @@ def _call_responses_api(
 def _parse_and_validate(
     raw_json: str, source_body: str, max_chars: int,
 ) -> list[HighlightCandidate]:
-    """Parse LLM JSON; drop picks whose declared offsets don't
-    match the declared text against ``source_body``.
+    """Parse LLM JSON; locate each pick's offsets via
+    ``source_body.find(text)``; drop picks whose text isn't a
+    verbatim substring of the source.
 
-    Rule 3 in action: a pick that says ``text="X"`` with
-    offsets ``[100, 105]`` only persists if
-    ``source_body[100:105] == "X"``. Anything else is
-    LLM-fabricated and gets dropped silently (logged at
-    DEBUG so dev can investigate without spamming prod logs).
+    **SESSION 202 B1.7 post-close fix**: the LLM no longer
+    returns offsets. Asking gpt-5-mini to compute character
+    offsets in addition to picking quotes burned the entire
+    output token budget on reasoning (1984 of 2000 tokens
+    consumed before any visible output — the recurring
+    "gpt-5 reasoning eats output budget silently" calibration
+    pattern). Pure-text picks + parser-side ``find()`` is
+    much cheaper for the model and structurally equivalent
+    for rule 3 audit purposes — the operator can verify the
+    pick by char-range highlight either way.
+
+    Rule 3 still in action: a pick whose text isn't found
+    verbatim in ``source_body`` is LLM-hallucinated and gets
+    dropped (logged at DEBUG).
 
     Rule 8 in action: picks exceeding ``max_chars`` are
     truncated to a sentence boundary ≤ ``max_chars``; if no
-    sentence boundary fits, hard-truncated. The truncation
-    re-locates the char_end so audit math still holds.
+    sentence boundary fits, hard-truncated. The trimmed text
+    is re-located in the body so offsets stay accurate.
+
+    Multiple-occurrence handling: if the LLM returns a quote
+    that appears more than once in ``source_body`` (e.g. a
+    short stock phrase), the parser takes the FIRST
+    occurrence. v1 simplification; the operator can verify
+    via hover-highlight which range was picked.
     """
     if not raw_json or not raw_json.strip():
         return []
@@ -313,26 +328,23 @@ def _parse_and_validate(
         if not isinstance(entry, dict):
             continue
         text = entry.get("text")
-        cs = entry.get("char_start")
-        ce = entry.get("char_end")
         reasoning = entry.get("reasoning") or ""
 
-        if not isinstance(text, str) or not isinstance(cs, int) or not isinstance(ce, int):
-            continue
-        if cs < 0 or ce <= cs or ce > len(source_body):
-            logger.debug(
-                "transcript_miner: dropped pick with bad offsets "
-                "cs=%s ce=%s len=%d", cs, ce, len(source_body),
-            )
+        if not isinstance(text, str) or not text.strip():
             continue
 
-        actual = source_body[cs:ce]
-        if actual != text:
+        # Locate the verbatim quote in the source body. If the
+        # LLM returned a paraphrase / hallucination instead of
+        # a verbatim copy, ``find()`` returns -1 and we drop.
+        text = text.strip()
+        cs = source_body.find(text)
+        if cs < 0:
             logger.debug(
-                "transcript_miner: dropped pick — text mismatch "
-                "declared=%r actual=%r", text[:60], actual[:60],
+                "transcript_miner: dropped pick — text not found "
+                "in source: declared=%r", text[:80],
             )
             continue
+        ce = cs + len(text)
 
         if len(text) > max_chars:
             text, ce = _trim_to_max(text, cs, max_chars)

@@ -135,21 +135,22 @@ def test_mock_caps_pick_at_280_chars() -> None:
 # ---- _parse_and_validate ---------------------------------------
 
 
-def test_parser_drops_offset_mismatch() -> None:
-    """Contract rule 3 enforcement — if the LLM claims
-    ``text="X"`` at offsets ``[5, 10]`` but the source at that
-    range is something else, the pick is dropped."""
+def test_parser_drops_hallucinated_text() -> None:
+    """Contract rule 3 enforcement — if the LLM returns text
+    that isn't a verbatim substring of the source body, the
+    pick is dropped. SESSION 202 B1.7 reshape: the LLM no
+    longer returns offsets; the parser locates the quote via
+    ``find()``. Hallucinated text → ``find()`` returns -1 →
+    drop."""
     source = "The quick brown fox jumps over the lazy dog."
     raw = json.dumps({
         "highlights": [
             {
                 "text": "GHOST TEXT NOT IN SOURCE",
-                "char_start": 5, "char_end": 10,
                 "reasoning": "fabricated by the LLM",
             },
             {
-                "text": "quick brown",  # source[4:15] = "quick brown"
-                "char_start": 4, "char_end": 15,
+                "text": "quick brown",
                 "reasoning": "valid pick",
             },
         ]
@@ -157,37 +158,35 @@ def test_parser_drops_offset_mismatch() -> None:
     picks = _parse_and_validate(raw, source, MAX_HIGHLIGHT_CHARS)
     assert len(picks) == 1
     assert picks[0].text == "quick brown"
+    # Offsets located by find() — source[4:15] == "quick brown".
+    assert picks[0].char_start == 4
+    assert picks[0].char_end == 15
 
 
-def test_parser_drops_picks_with_negative_offsets() -> None:
+def test_parser_drops_picks_with_blank_text() -> None:
     source = "abc def ghi"
     raw = json.dumps({
         "highlights": [
-            {"text": "a", "char_start": -1, "char_end": 2, "reasoning": ""},
+            {"text": "", "reasoning": ""},
+            {"text": "   ", "reasoning": ""},
+            {"text": None, "reasoning": ""},
         ]
     })
     assert _parse_and_validate(raw, source, MAX_HIGHLIGHT_CHARS) == []
 
 
-def test_parser_drops_picks_with_end_le_start() -> None:
-    source = "abc def ghi"
+def test_parser_takes_first_occurrence_when_text_repeats() -> None:
+    """v1 simplification: if a quote appears multiple times,
+    take the first occurrence. Operator can verify which
+    range via the SPA's hover-highlight."""
+    source = "Hello world. Hello world again."
     raw = json.dumps({
-        "highlights": [
-            {"text": "", "char_start": 5, "char_end": 5, "reasoning": ""},
-            {"text": "x", "char_start": 5, "char_end": 3, "reasoning": ""},
-        ]
+        "highlights": [{"text": "Hello world", "reasoning": "x"}]
     })
-    assert _parse_and_validate(raw, source, MAX_HIGHLIGHT_CHARS) == []
-
-
-def test_parser_drops_picks_past_source_end() -> None:
-    source = "abc"
-    raw = json.dumps({
-        "highlights": [
-            {"text": "abc", "char_start": 0, "char_end": 100, "reasoning": ""},
-        ]
-    })
-    assert _parse_and_validate(raw, source, MAX_HIGHLIGHT_CHARS) == []
+    picks = _parse_and_validate(raw, source, MAX_HIGHLIGHT_CHARS)
+    assert len(picks) == 1
+    assert picks[0].char_start == 0
+    assert picks[0].char_end == 11
 
 
 def test_parser_drops_non_dict_entries() -> None:
@@ -220,14 +219,9 @@ def test_parser_trims_oversize_pick_at_sentence_boundary() -> None:
         "and considerably longer sentence that crosses the cap "
         "somewhere near the middle of its body. "
     ) + ("x " * 150)
-    # Pick the whole long region
     raw = json.dumps({
         "highlights": [
-            {
-                "text": source.strip(),
-                "char_start": 0, "char_end": len(source.strip()),
-                "reasoning": "long",
-            }
+            {"text": source.strip(), "reasoning": "long"}
         ]
     })
     picks = _parse_and_validate(raw, source.strip(), MAX_HIGHLIGHT_CHARS)
