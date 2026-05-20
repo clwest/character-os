@@ -4421,3 +4421,63 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   Total SESSION 200 spend (this dogfood): ~$2.50. **Pattern
   confirmation:** post-feature real-mode dogfood is
   load-bearing for any feature touching ffmpeg endpoints.
+
+### Forward-defense audits surface latent bugs cheaply
+- **Date:** 2026-05-19
+- **Session:** 201
+- **Context:** SESSION 200 calibration #2 ("mock-mode hides
+  upstream stream-shape drift") named 5 ffmpeg endpoints worth
+  auditing: add_captions, composite_video, trim_clip,
+  reformat_clip, style_remix. SESSION 201 ran the audit + fixed
+  what was at risk in advance of any real-mode fire surfacing
+  the same shape again.
+- **Surface / artefact:** Three endpoints were already safe:
+  composite_video (`-map N:a?` optional mapping), add_captions +
+  reformat_clip (`-c:a copy` silently no-ops missing audio),
+  trim_clip (`-c copy`). `_extend_concat` was already guarded
+  by `_has_audio_stream` from V17. Two paths were at risk:
+  `_build_reencode_cmd` (concat with reencode=True →
+  unconditional `[N:a]aresample`) and `_aleph_split_into_chunks`
+  (style_remix segmenter → unconditional `-c:a aac` + `-map 0`).
+  Both fixed with the same `_has_audio_stream` helper pattern.
+  Five callers of that helper now (mix_audio SESSION 196,
+  extend_concat V17, intro_outro SESSION 200, reencode_concat
+  SESSION 201, aleph_split SESSION 201).
+- **AI expectation (before):** Per SESSION 200 calibration,
+  expected at least 1-2 latent bugs in the 5 candidates given
+  the shape's recurrence rate (3 confirmed hits across SESSIONS
+  196/200/200-post-close).
+- **Reality / outcome:** **2 latent bugs in 5 endpoints
+  reviewed = 40% hit rate** at zero real-mode spend. Total
+  effort ~30 minutes including tests. Mock tests sufficient
+  because the failure mode is deterministic (ffmpeg rc=234 on
+  the silent-input shape) — no real-provider drift to worry
+  about. Media-engine tests 204 → 209 (+5).
+- **Found by:** Mechanical grep + read of every `[N:a]` /
+  `:a]aresample` / `-c:a` reference in
+  `media-engine/app/routers/internal.py`.
+- **Lesson:** **When a bug shape repeats, audit every endpoint
+  with that shape immediately — don't wait for real-mode to
+  hit each one.** The SESSION 200 dogfood pattern ("real-mode
+  finds bugs in EVERY recipe") doesn't mean each bug has to
+  be found by real-mode. Once the SHAPE is known, a mechanical
+  source-code audit is cheaper than the next dogfood fire that
+  would surface the same shape.
+
+  **Forward-defense audit template** (codified for future
+  recurrence):
+  1. Identify the shape (e.g. "unconditional `[N:a]` reference
+     on a downloaded clip").
+  2. Mechanical grep across the relevant module for the shape.
+  3. For each match, classify: already-guarded / safe-by-arg
+     (e.g. `-c:a copy`, `-map N:a?`) / at-risk.
+  4. Patch at-risk paths with the same helper + branching used
+     in the prior fix. Tests cover both the silent path + an
+     audio-path regression guard.
+  5. Total: ~30 min per shape; cheaper than one wasted
+     real-mode fire.
+
+  Run a forward-defense audit after every shape-discovery
+  dogfood. SESSION 201 was the first explicit application;
+  worth keeping the pattern as a follow-up step on the
+  "real-mode finds bugs in every recipe" loop.

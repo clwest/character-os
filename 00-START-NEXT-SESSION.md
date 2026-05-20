@@ -30,6 +30,9 @@ state: active
 > **V18 SHIPPED + REAL-MODE VALIDATED (SESSION 184).**
 > **V-arc UX polish COMPLETE (SESSION 200) — storyboard extend
 > chain + crossfade closes the last known UX gap.**
+> **Forward-defense audit COMPLETE (SESSION 201)** — all five
+> remaining ffmpeg endpoints audited; two latent silent-base
+> bugs fixed at zero real-mode spend.
 > **Realtime avatar scope lock:** `docs/design/REALTIME_AVATAR_V1.md`
 > (locked SESSION 142 — 10 contract rules, R0-R10 slice
 > breakdown). **R-ARC COMPLETE + REAL-MODE HARDENED
@@ -49,7 +52,64 @@ state: active
 > (revised SESSION 192 — Asset Library v1 marked complete).
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_200_STORYBOARD_EXTEND_CHAIN.md`.
+> **Last handoff:** `docs/handoffs/SESSION_201_FORWARD_DEFENSE_AUDIT.md`.
+
+---
+
+## SESSION 201 outcome — forward-defense audit (2 latent bugs fixed pre-fire)
+
+SESSION 200 left a calibration recommendation: audit the
+remaining ffmpeg endpoints for unchecked `[N:a]` references
+before another real-mode dogfood surfaced the same shape. This
+session executed that audit.
+
+### Audit findings
+
+Five endpoints reviewed. Three already safe:
+* `composite_video` — `-map N:a?` (optional mapping)
+* `add_captions` + `reformat_clip` — `-c:a copy` silently
+  no-ops on missing audio
+* `trim_clip` — `-c copy` no filtergraph
+* `_extend_concat` — already had `_has_audio_stream` guard
+  from V17
+
+**Two at-risk paths fixed** (40% hit rate):
+
+* **Slice 1 — `_build_reencode_cmd`.** `concat_clips(reencode=True)`
+  path. Long-form ad's `reencode_concat=True` knob never hit
+  silent-base because speech is always present, but the
+  contract was fragile.
+* **Slice 2 — `_aleph_split_into_chunks`.** `style_remix`
+  segmenter. `talking_head_polished` always has audio, but
+  routing a silent source through style_remix would have
+  blown up.
+
+Both fixes use the same `_has_audio_stream` helper pattern as
+SESSION 196 mix_audio + SESSION 200 intro_outro. Five callers
+now — the pattern is robust.
+
+Tests: **media-engine 204 → 209 (+5)**. Django + SPA unchanged.
+**No real-mode spend.**
+
+### Tests at SESSION 201 close
+
+| Suite | Count |
+|---|---|
+| Django | 1039 |
+| - compositions | 608 |
+| Media-engine | 209 |
+| SPA vitest | 134 |
+
+### Calibration (1 new — 29 total)
+
+**Forward-defense audits surface latent bugs cheaply.** When a
+bug shape repeats, audit every endpoint with that shape
+immediately — don't wait for real-mode to hit each one.
+SESSION 201 found 2 latent bugs in 5 endpoints at zero
+real-mode spend in ~30 minutes. **Forward-defense audit
+template** added to the calibration entry: identify shape →
+mechanical grep → classify each match → patch at-risk + tests
+covering silent path + audio regression guard.
 
 ---
 
@@ -210,14 +270,18 @@ Composition `1ce4d201`:
 
 ---
 
-## FIRST THING (SESSION 201): operator picks
+## FIRST THING (SESSION 202): operator picks — strategic axes
 
 **No arc in flight.** All four Phase 4 arcs + Asset Library v1
 closed; V-arc 100% real-mode validated; outro_text parity rollout
-complete (SESSIONS 197+198+199); **V-arc UX polish COMPLETE +
-REAL-MODE VALIDATED (SESSION 200 — storyboard extend chain +
-crossfade)**. Every known V-arc UX gap is closed AND validated
-against real Runway.
+complete (SESSIONS 197+198+199); V-arc UX polish complete +
+real-mode validated (SESSION 200); **forward-defense audit
+complete (SESSION 201)** — 5 ffmpeg endpoints audited, 2 latent
+silent-base bugs fixed pre-real-mode.
+
+**Small-slice backlog is genuinely depleted.** The next move is
+arc-shaped: new arc, asset upload UI bottleneck, or deferred
+K6.4 / W12 / K7.x slices.
 
 **Pre-fire checklist enforcement (NEW SESSION 200):** Before any
 real-mode composition fire, verify Celery worker is newer than
@@ -277,21 +341,22 @@ end-to-end. Estimated spend: $0.50–$1.50 depending on recipe.
 
 ### Recommended next direction
 
-Five sessions of small-slice work in a row (194 polish double,
-196 fix double, 198 polish triple, 199 outro parity, 200
-extend chain + dogfood). Small-slice backlog is genuinely thin.
+Six sessions of small-slice / audit work in a row (194 polish
+double, 196 fix double, 198 polish triple, 199 outro parity, 200
+extend chain + dogfood, 201 forward-defense audit). All known
+small-slice candidates are now exhausted.
 
-Natural next moves (operator picks):
+Natural next moves (operator picks an axis):
 
 1. **Open a new arc** — B-1 Transcript Miner is closest to
    shipped infra (R-arc transcripts already captured;
-   A-arc Asset Library provides the surface).
+   A-arc Asset Library provides the surface). 6-8 slices.
 2. **Asset upload UI** — operator-content bottleneck;
-   unblocks new arcs that need operator-authored footage.
-3. **Forward-defense audit** — apply the SESSION 200 calibration
-   lesson by auditing add_captions, composite_video, trim_clip,
-   reformat_clip, style_remix for unchecked `[N:a]` references.
-   Roughly ½ session.
+   unblocks new arcs that need operator-authored footage. 1-2
+   sessions.
+3. **Deferred parity slices** — K6.4 v3 architectural fix,
+   W12 legacy form retirement, K7.x v3 YouTube oEmbed.
+   ½-1 session each.
 
 ### Queued backlog (operator picks)
 
@@ -436,7 +501,7 @@ For any new step primitive added after A2:
 3. **Run `test_primitive_role_coverage.py`** — three layers of static + runtime assertions.
 4. **Register the primitive** in `apps/compositions/primitives/__init__.py::_REGISTRY`.
 
-**Smoke checks** (counts as of SESSION 200 close):
+**Smoke checks** (counts as of SESSION 201 close):
 
 ```bash
 # Backend (from shell/)
@@ -444,7 +509,7 @@ python manage.py inventory
 python -m pytest                              # 1039 tests (compositions: 608)
 
 # Media-engine (from media-engine/)
-python -m pytest                              # 202 tests
+python -m pytest                              # 209 tests
 
 # SPA (from web/)
 pnpm build                                    # type-check + bundle
@@ -476,19 +541,18 @@ handoffs for the full backlog.**
 
 ## AI / assistant context
 
-- **Last session: SESSION 200 — storyboard extend-chain SHIPPED
-  + REAL-MODE VALIDATED + 2 production bugs caught.**
-  Four feature slices + 1 post-close fix slice. Backend 1027
-  → 1039 (+12). Media-engine 197 → 204 (+7: +5 features +2
-  silent-base regression). 3 new TRUST_CALIBRATION entries
-  (Celery stale, mock-mode stream-shape, dogfood pattern
-  confirmation). $2.50 real-mode spend; 4-for-4 on "real-mode
-  finds bugs in every recipe".
+- **Last session: SESSION 201 — forward-defense audit.**
+  Five ffmpeg endpoints audited for unchecked `[N:a]`
+  references. Two latent silent-base bugs fixed pre-real-mode:
+  `_build_reencode_cmd` + `_aleph_split_into_chunks`.
+  Media-engine 204 → 209 (+5). 1 new TRUST_CALIBRATION entry
+  (forward-defense audit template). No real-mode spend.
 
-- **Prior session: SESSION 199 — outro_text parity finished.**
-  Backend 1020 → 1027 (+7).
+- **Prior session: SESSION 200 — storyboard extend-chain
+  SHIPPED + REAL-MODE VALIDATED + 2 production bugs caught.**
+  Backend 1027 → 1039 (+12). $2.50 real-mode spend.
 
-- **Calibration carried forward (28 total — +3 SESSION 200)**:
+- **Calibration carried forward (29 total — +1 SESSION 201)**:
   V-arc 100% real-mode closure milestone;
   operator-noticed-during-dogfood → next-session ship loop;
   mix_audio silent-base; concat_clips role semantics
