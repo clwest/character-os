@@ -2,9 +2,9 @@
 title: "Character OS — What It Actually Is"
 status: populated
 generated: 2026-05-13
-last_revised: 2026-05-20 (SESSION 205 — D-arc Publish Bundle closes the strategic-axis trifecta)
+last_revised: 2026-05-20 (SESSION 206 — E-arc Auto-Scripting backend + SPA ships, B2.6 dogfood queued)
 companion_doc: CHARACTER_OS_INVENTORY.md
-covers_sessions: "106-205"
+covers_sessions: "106-206"
 ---
 
 # Character OS — What It Actually Is
@@ -643,15 +643,39 @@ on top:
   ffmpeg, **$0 incremental cost** per variant. The
   distribution-stickiness axis: every B2B customer
   ships to ≥3 platforms.
+* **Auto-Scripting (B-2, SESSION 206).** Lifts K6's
+  in-primitive script synthesis into a first-class
+  persistent artifact — operator types a topic → K2
+  retrieves → gpt-5 drafts → K6.4 verifier runs →
+  operator reviews citations + flags → operator
+  approves → operator fires the render. **Renders
+  cannot fire without an approved Script.** Backend
+  + SPA shipped one extended session (B2.0-B2.5, six
+  commits); the B2.6 dogfood was pulled to its own
+  session to preserve real-mode validation quality.
+  New `apps.scripts` Django app + `Script` model with
+  4-state machine (DRAFT/READY/RENDERED/ARCHIVED) +
+  `apps.scripts.synthesis.draft_script` adapter over
+  the existing K6 pipeline (zero K6 regressions per
+  the adapter-wraps-callable pattern) +
+  `auto_script` Composition starter (`use_knowledge=False`;
+  the draft is already synthesized at draft-time) +
+  20th recipe in the gallery with a new `script_picker`
+  field type + `/workspace/scripts` SPA surface. New
+  `drafts_per_month` tier gate (Starter=10, Pro=100,
+  Agency=∞). The "blank page" friction is now removable.
 
-The four strategic-axis arcs **proved the scope-lock
-cadence** (4-for-4: A/B/C/D all shipped in one
-extended session each, including real-mode dogfood
-validation). The trifecta of B-1 (mine) + B-3
-(personalize) + B-14 (distribute) is now operator-
-ready; **B-2 Knowledge-driven auto-scripting** (the
-"generate" axis) is the missing piece queued for
-SESSION 206+.
+The five strategic-axis arcs **proved the scope-lock
+cadence at 5-for-5** (A/B/C/D/E all opened + landed
+their implementation slices in single-session blocks;
+B2.6 will close the E-arc dogfood). The full strategic-
+axis quartet — B-1 (mine) + B-2 (auto-script) + B-3
+(personalize) + B-14 (distribute) — is now operator-
+visible and SPA-driven. Composition between arcs (B-2
+Script becomes B-3 PersonalizedCampaign template; B-3
+launch auto-fires B-14 bundles per recipient) is the
+next leverage frontier; the v2 hooks are documented in
+each arc's scope-lock doc.
 
 ---
 
