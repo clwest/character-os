@@ -11,6 +11,8 @@ import { WorkspaceKnowledgeRoute } from "@/routes/workspace/knowledge";
 import { KnowledgeDocumentDetailRoute } from "@/routes/workspace/knowledge.$id";
 import { WorkspaceAssetsRoute } from "@/routes/workspace/assets";
 import { WorkspaceAssetDetailRoute } from "@/routes/workspace/assets.$id";
+import { WorkspaceTranscriptsRoute } from "@/routes/workspace/transcripts";
+import { WorkspaceTranscriptDetailRoute } from "@/routes/workspace/transcripts.$id";
 import { RecipeGalleryRoute } from "@/routes/recipes";
 import { RecipeFormRoute } from "@/routes/recipes/$kind";
 import { ImagesRoute } from "@/routes/images";
@@ -101,6 +103,24 @@ export function App() {
             element={
               <RequireAuth>
                 <WorkspaceAssetDetailRoute />
+              </RequireAuth>
+            }
+          />
+          {/* B1.5 — Transcript Miner list + detail; detail registers
+              before the list route per the /assets pattern above. */}
+          <Route
+            path="/workspace/transcripts"
+            element={
+              <RequireAuth>
+                <WorkspaceTranscriptsRoute />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/workspace/transcripts/:id"
+            element={
+              <RequireAuth>
+                <WorkspaceTranscriptDetailRoute />
               </RequireAuth>
             }
           />
