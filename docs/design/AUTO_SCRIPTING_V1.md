@@ -326,7 +326,7 @@ v2.
 | **B2.3** ✓ SHIPPED | `ScriptViewSet` REST (8 actions) + `check_drafts_per_month` tier gate (Starter=10, Pro=100, Agency=∞) + `auto_script` Composition starter wiring. State machine enforced at viewset (DRAFT→READY→RENDERED + regenerate snaps READY→DRAFT). 21 REST tests; Django 1290 → 1311. | 1 session |
 | **B2.4** ✓ SHIPPED | `auto_script` registered in `RECIPES` registry + new `script_picker` field type + `resolve_kwargs` extension. Surfaces in `/api/recipes/` gallery (count 19 → 20). `auto_script_polished` variant deferred to v2 per "if scope permits" hedge. 9 recipe tests; Django 1311 → 1320. | ½ session |
 | **B2.5** ✓ SHIPPED | SPA `/workspace/scripts` list + create + detail (regenerate / approve / render / clone / delete) + recipe-gallery `script_picker` field type extension. Delivered via `react-web-delivery` subagent. SPA vitest 371 → 405. | 1 session |
-| **B2.6** | Real-mode dogfood + arc close. Fire `draft_script` against Marcus (existing dogfood spokesperson with knowledge attached); approve; render; validate the rendered Asset uses the persisted chunk_ids for lineage. | ½ session |
+| **B2.6** ✓ SHIPPED | Real-mode dogfood + arc close. Marcus + "Five Good Emperors" topic → Script `0f837a40-…` → Composition `fbfb8cf6-…` → Asset `62d8397c-…` (54.2s mp4, $0.25 actual = exactly the predicted cost). Lineage validated end-to-end: Script.draft_text ≡ Composition.synthesized_brief byte-identical; 5 chunk_ids match exactly; Composition status `trusted_passthrough` confirms rule 7 (no double K6 synthesis). One in-session bug-fix patch shipped (Script-detail verifier panel was gated on `status ∈ {warned, blocked}` and hid the 2 informational warnings K6 produces on `verified` status — now triggers on `warnings.length > 0` with three tone variants). Six v2 findings filed (cross-surface inconsistency on Composition detail page, `Curious?` false positive, Asset.spokesperson missing, Asset dimensions missing, cost_estimate_micros=0, source_spec chunk_ids indirection). Real-mode-finds-bugs streak: **7-for-7**. | ½ session |
 
 **Total: ~4-5 sessions** matching the backlog estimate.
 Smaller than C-arc (10 slices) because K6 already does the
@@ -616,3 +616,103 @@ UI orchestration on top.
   1290. Zero K6 regressions. B2.3 (`ScriptViewSet`
   REST: create / list / retrieve / regenerate / approve
   / render / clone / delete + tier gate) opens next.
+
+* **2026-05-20 (SESSION 207, B2.6 SHIPPED — E-ARC
+  CLOSES)** — Real-mode dogfood end-to-end against
+  Marcus (Roman tutor spokesperson with 1 active
+  knowledge doc — "Nerva–Antonine dynasty - Wikipedia",
+  9 chunks). Topic: "explain the Five Good Emperors and
+  why their reign is called the Antonine peace" — a
+  knowledge-aligned happy-path test. Pipeline:
+  `POST /api/scripts/` → Script `0f837a40-9226-4244-
+  a743-067361cc2b93` (DRAFT, `verification_status=
+  verified`, 5 chunks cited [0/3/4/5/6], 596 chars,
+  gpt-5 1720+518 tokens). Operator Approve → READY
+  (`approved_at` set). Operator Render → Composition
+  `fbfb8cf6-5913-4cfe-9c30-abb56a7c0044` fires async
+  via Celery. 76-second wall time for the
+  `generate_avatar_speech` step polling Runway. Final
+  Asset `62d8397c-cfbf-4477-84bb-d03f76df7ff8` — 54.2s
+  mp4 at the predicted $0.25 actual cost (zero estimate
+  deviation). **Lineage validated end-to-end**:
+  Script.draft_text ≡ Composition.synthesized_brief
+  byte-identical; chunk_ids match exactly (5/5);
+  Composition.verification_status =
+  `trusted_passthrough` confirms rule 7 holds (Script
+  pre-synthesized → in-primitive K6 skipped). F-arc
+  brief-mode panel on Composition detail surfaces
+  citations correctly.
+
+  **In-session bug-fix patch** (committed separately):
+  Script-detail SPA verifier panel was gated on
+  `verification_status ∈ {warned, blocked}` and hid
+  the 2 informational warnings K6 produces on
+  `verified` status. Patch relaxes the gate to
+  `warnings.length > 0` and adds a third neutral
+  `info` tone alongside existing `warned` (amber) +
+  `blocked` (destructive). Heading text:
+  "Verifier noted N informational flag(s)" instead
+  of the alarm framing. ~15 LOC change to
+  `web/src/routes/workspace/scripts.$id.tsx`.
+
+  **Six v2 findings filed**:
+  1. Cross-surface inconsistency — Composition detail
+     page renders the same verifier_warnings JSON as
+     "Warn — 2 flags" even though
+     Composition.verification_status =
+     `trusted_passthrough`. Same bug-class as the
+     patched Script-detail page, opposite direction.
+     Polish slice — ~10 LOC in
+     `web/src/routes/compositions/$id.tsx`.
+  2. K6.4 verifier false-positive: flagged `Curious?`
+     as a `proper_noun`. Rhetorical English word, not
+     a name. Upstream K6 issue, not B-2 surface.
+  3. `Asset.spokesperson = None` — Marcus is not
+     back-linked from the rendered Asset row. Lookups
+     by spokesperson would miss this. Either
+     `auto_script` starter should set it, or the
+     downstream Asset-build path should propagate.
+  4. `Asset.width / height / size_bytes = None` —
+     Runway response fields not captured. Cosmetic;
+     Asset Library may show "?×?" dimensions.
+  5. `Composition.cost_estimate_micros = 0` —
+     estimation didn't run for the `auto_script`
+     starter. Actual was $0.25 so this didn't matter
+     here, but other starters populate the estimate.
+  6. `Asset.source_spec` doesn't carry
+     `knowledge_chunk_ids` directly — lineage flows
+     through `Asset → composition_id →
+     Composition.knowledge_chunk_ids`. B2.6 plan in
+     start-here said the chunk_ids would be on
+     `source_spec` directly; actual architecture is
+     cleaner (single source of truth on Composition)
+     but the doc text needs aligning.
+
+  **Two calibration findings** (separate TRUST_CALIBRATION
+  entries):
+  * Marcus avatar rig has a baked-in mouth/portrait
+    quality issue ("noted as a bad image" — operator).
+    Re-bake candidate. Matches the SESSION 158 pattern
+    (avatar rig quality varies; some clips have
+    artifacts at the portrait level vs. SESSION 158's
+    voice-level mismatch).
+  * **Real-mode-finds-bugs streak: 7-for-7.** Every
+    dogfood across SESSIONS 195/197/200/202/203/205/
+    **207** has surfaced at least one finding. Pattern
+    is now the design default.
+
+  **One verifier win**: K6.4 correctly flagged
+  `Machiavelli and Gibbon` as `multi_word` — Gibbon is
+  in chunk [7], but "Machiavelli" only appears in the
+  Wikipedia source's bibliography (Strauss's *Thoughts
+  on Machiavelli* — citation metadata, not substantive
+  claim). The draft asserting Machiavelli "praised" the
+  era is weakly grounded. Strict-mode verifier would
+  have blocked at $0.001 cost; warn-mode let it ride
+  and surfaced the flag for operator review. This is
+  exactly the rule-4 promise working as designed.
+
+  **E-ARC COMPLETE. Five strategic-axis arcs landed in
+  consecutive scope-lock blocks** (A/B/C/D/E). Scope-
+  lock cadence is now 5-for-5 + each closed with real-
+  mode validation.

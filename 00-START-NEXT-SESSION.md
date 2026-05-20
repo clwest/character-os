@@ -35,143 +35,99 @@ state: active
 > **Publish Bundle (B-14):** `docs/design/PUBLISH_BUNDLE_V1.md`.
 > **B14.0-B14.5 COMPLETE + REAL-MODE VALIDATED (SESSION 205).**
 > **Auto-Scripting (B-2):** `docs/design/AUTO_SCRIPTING_V1.md`.
-> **B2.0 LOCKED + B2.1-B2.5 SHIPPED (SESSION 206); B2.6 (dogfood) queued.**
-> **Last handoff:** `docs/handoffs/SESSION_206_E_ARC_LANDS.md`.
+> **B2.0-B2.6 COMPLETE + REAL-MODE VALIDATED (SESSION 207).**
+> **Last handoff:** `docs/handoffs/SESSION_207_E_ARC_DOGFOOD.md`.
 
 ---
 
-## SESSION 206 outcome — E-arc Auto-Scripting shipped (lock + 5 of 7 slices)
+## SESSION 207 outcome — E-arc closes
 
-Fifth strategic-axis arc. Scope-lock cadence **now proven
-5-for-5** (A SESSIONS 185-192 → B SESSION 202 → C SESSION
-203 → D SESSION 205 → E SESSION 206). Six commits this
-session; one dogfood slice pulled at operator request to
-preserve real-mode validation quality.
+B2.6 dogfood ran end-to-end against Marcus + the "Five
+Good Emperors / Antonine peace" topic. Real Runway
+render: $0.25 actual = exact prediction. 54.2s mp4.
+**Lineage validated end-to-end** (Script.draft_text ≡
+Composition.synthesized_brief byte-identical; chunk_ids
+5/5 match; rule-7 `trusted_passthrough` honored).
 
-### Slices shipped (6 of 7)
+**Real-mode-finds-bugs streak now 7-for-7.** Seven
+findings in one fire:
 
-| # | Slice | Commit |
-|---|---|---|
-| B2.0 | Scope lock — 10 contract rules, 7 slices, 11 open Qs resolved | `47d73b1` |
-| B2.1 | `apps.scripts` Django app + Script model + migration + signal | `66068e8` |
-| B2.2 | `apps.scripts.synthesis.draft_script` adapter + revision helpers | `b9e095a` |
-| B2.3 | `ScriptViewSet` REST + `check_drafts_per_month` + `auto_script` starter | `e0f5139` |
-| B2.4 | Recipe-gallery `auto_script` registration + `script_picker` field type | `67f309d` |
-| B2.5 | SPA `/workspace/scripts` list + create + detail + recipe-gallery extension (subagent) | `a4bc3c9` |
-| **B2.6** | **Real-mode dogfood + arc close** | **← FIRST THING SESSION 207** |
+* **1 in-session patch** — Script-detail verifier panel
+  was gated on `verification_status ∈ {warned, blocked}`
+  and hid K6's informational warnings on `verified`.
+  Patch relaxes gate to `warnings.length > 0` + adds
+  neutral `info` tone. ~15 LOC in
+  `web/src/routes/workspace/scripts.$id.tsx`.
+* **6 v2 findings filed** — see
+  `docs/handoffs/SESSION_207_E_ARC_DOGFOOD.md`.
+* **1 calibration entry** — Marcus rig portrait
+  quality (third quality axis alongside SESSION 158's
+  voice × lip-sync axis).
+* **1 verifier win** — K6.4 correctly flagged a
+  weakly-grounded "Machiavelli" reference.
 
-### Real-mode validation — pulled to SESSION 207
-
-Pulled at operator request to avoid same-day fatigue.
-Pattern: prior arcs (B-1, B-3, B-14) all rode the dogfood
-to its own focused block. The cadence is **"open the arc
-+ ship the slices same day; dogfood gets its own session
-when needed."**
-
-### Tests at SESSION 206 close
-
-| Suite | Count |
-|---|---|
-| Django | 1320 (+51 vs SESSION 205) |
-| - apps.scripts.tests.test_models | 9 (new) |
-| - apps.scripts.tests.test_synthesis | 12 (new) |
-| - apps.scripts.tests.test_api | 21 (new) |
-| - apps.scripts.tests.test_recipe | 9 (new) |
-| Media-engine | 214 (unchanged) |
-| SPA vitest | 405 (+34) |
-
-Real-mode spend SESSION 206: **$0** (B2.6 dogfood deferred).
-
-### Calibration (2 new — 39 total)
-
-1. **Scope-lock cadence is now 5-for-5.** Five
-   consecutive strategic-axis arcs landed in single-
-   session blocks. Pattern is no longer aspirational —
-   it's the design default for any new strategic axis.
-   Dogfood can ride into the next session when same-day
-   fatigue would degrade validation quality.
-
-2. **K6 refactor via adapter pattern preserved zero
-   regressions across an existing 600-test surface.**
-   The adapter-wraps-callable shape (new module calls
-   existing function, remaps result) is strictly safer
-   than move-and-shim when the original function has
-   mock-patch test fixtures pinned to its import path.
-   Generalizes: when motivation is "new feature on top
-   of existing function," not "consolidate two
-   equivalent paths," reach for the adapter first.
+Tests unchanged: Django 1320 / SPA 405 / media-engine
+214. Real-mode spend SESSION 207: **$0.25**.
 
 ---
 
-## FIRST THING (SESSION 207): B2.6 — E-arc dogfood + close
+## FIRST THING (SESSION 208): operator picks
 
-Close out the auto-scripting arc with real-mode validation.
-Plan:
+The E-arc is done. The strategic-axis quartet
+(B-1 / B-2 / B-3 / B-14) is shipped + real-mode
+validated end-to-end. **No "FIRST THING" lock — this
+is an operator-pick session.** Candidate priorities,
+ranked by leverage:
 
-1. **Drift sweep**: `context-kit doctor` (mandatory per
-   CLAUDE.md §"Session-start drift sweep").
-2. **Pre-fire check**: SESSION 206 committed
-   `apps.compositions.starters.auto_script` + a new
-   billing function (`check_drafts_per_month`) +
-   `apps.compositions.recipes` registry change. **Restart
-   Celery** before any real-mode fire (per SESSION 200
-   codified rule + SESSION 202/203 extensions). New
-   stale-worker-blast-zone path to watch:
-   `shell/apps/compositions/recipes.py` (registry-import
-   path — recipe-gallery additions don't show up in a
-   stale worker's RECIPES dict).
-3. **Bring up the HARD REQUIREMENTS stack** with .env
-   sourced (Django + SPA + Redis + Celery + media-engine).
-4. **Operator drives the SPA** at
-   `/workspace/scripts/new` — pick Marcus (Roman tutor
-   spokesperson with knowledge attached), type a topic
-   ("teach the difference between BC and BCE dates"),
-   submit. AI tails Django + Celery + media-engine logs
-   in parallel.
-5. **Review the draft** in the detail page. Check:
-   * `draft_text` populated with synthesized brief
-   * `cited_documents` shows the right doc titles
-   * `verification_status` = `verified` or `warned`
-     (operator decides whether to regenerate or approve)
-6. **Approve.** Confirm DRAFT → READY transition;
-   `approved_at` set.
-7. **Render.** Composition fires; Script flips to
-   RENDERED.
-8. **Validate the lineage**:
-   * Rendered Asset's `source_spec.knowledge_chunk_ids`
-     matches the Script's persisted chunks
-   * `Composition.synthesized_brief` matches Script's
-     `draft_text`
-   * F-arc brief-mode panel on the Asset detail
-     surfaces the right citations
-9. **Operator-noticed quality findings** get captured as
-   v2 axes (mirror the SESSION 205 dogfood pattern).
-10. **Close the arc**: handoff + TRUST_CALIBRATION
-    entries + start-here update for SESSION 208.
+### 1. B-2 ↔ B-3 composition (1-2 sessions) — highest leverage
 
-Real-mode cost target: **~$0.25** for one auto_script
-render against Marcus + Clara. Plus ~$0.001 LLM cost for
-the draft itself.
+Wire Scripts into PersonalizedCampaign as the
+template source. The E-arc's `Script.draft_text` +
+the C-arc's per-recipient personalization compose
+into "draft once, personalize per recipient."
+"Composition is the moat" framing applies — the
+combinatorial product of strategic axes is the
+defensible feature.
 
----
+### 2. B-2 v2 polish slice (~½ session) — closes SESSION 207 findings
 
-## After B2.6 closes — operator picks
+Three things in one slice:
+* Fix Composition-detail verifier panel inconsistency
+  (~10 LOC in `web/src/routes/compositions/$id.tsx`).
+* Add Script-detail vitest for the in-session patch
+  (~30 LOC; build from `transcripts.test.tsx`
+  pattern).
+* Optionally: `Asset.spokesperson` back-link in
+  `auto_script` starter (~3 LOC + 1 test).
 
-Three candidates for the next strategic-axis session:
+### 3. Asset upload UI (1-2 sessions)
 
-1. **B-14 v2 `offset_x` knob** (½ session) — addresses
-   SESSION 205 dogfood finding while it's fresh.
-2. **Asset upload UI** (1-2 sessions) — operator-content
-   bottleneck; unblocks B-1 v2.
-3. **B-2 ↔ B-3 composition** — Script becomes
-   `PersonalizedCampaign.template`. Composes E-arc with
-   C-arc; "composition is the moat" framing makes this
-   high-leverage.
-4. **B-1 v2 slices** — external transcript ingestion,
-   batch mining, highlight chaining.
-5. **`auto_script_polished` + `auto_script_cinematic`
-   variants** — deferred from B2.4 scope. Each is ~½
-   session.
+Operator-content bottleneck blocks B-1 v2 + the
+"production-ready Marcus" workflow. Surfaces a way
+for operators to upload their own
+images/videos/audio as Asset rows. Could pair with
+the Marcus rig re-bake as one workflow.
+
+### 4. B-14 v2 `offset_x` knob (½ session)
+
+SESSION 205 dogfood finding while still relatively
+fresh. Cosmetic UX for the publish bundle layout.
+
+### 5. B-1 v2 slices (multiple sessions)
+
+External transcript ingestion, batch mining, highlight
+chaining. Builds on SESSION 202's miner foundation.
+
+### 6. `auto_script_polished` + `auto_script_cinematic` variants (~½ session each)
+
+Deferred from B2.4 per scope-lock "if scope permits."
+Drop-in recipe variants over `auto_script`.
+
+### 7. Marcus rig re-bake (cosmetic, ~½ session)
+
+Operator noted as "bad image" — re-portrait + re-bake
+through the Runway flow. Lower leverage but unblocks
+quality demos featuring Marcus.
 
 ---
 
@@ -185,7 +141,7 @@ Three candidates for the next strategic-axis session:
 **Transcript Miner (B-1) v1 COMPLETE + REAL-MODE VALIDATED**.
 **Personalized Video (B-3) v1 COMPLETE + REAL-MODE VALIDATED.**
 **Publish Bundle (B-14) v1 COMPLETE + REAL-MODE VALIDATED.**
-**Auto-Scripting (B-2) v1 — backend + SPA COMPLETE; dogfood queued.**
+**Auto-Scripting (B-2) v1 COMPLETE + REAL-MODE VALIDATED.**
 **Phase 5:** Brand ecosystem under 24/7 GLOBAL AI parent.
 
 | Surface | Status |
@@ -200,7 +156,7 @@ Three candidates for the next strategic-axis session:
 | Transcript Miner v1 (B1.0-B1.7) | DONE + REAL-MODE VALIDATED |
 | Personalized Video v1 (B3.0-B3.9) | DONE + REAL-MODE VALIDATED |
 | Publish Bundle v1 (B14.0-B14.5) | DONE + REAL-MODE VALIDATED |
-| **Auto-Scripting v1 (B2.0-B2.6)** | **B2.0 LOCKED + B2.1-B2.5 SHIPPED; B2.6 dogfood = FIRST THING SESSION 207** |
+| **Auto-Scripting v1 (B2.0-B2.6)** | **DONE + REAL-MODE VALIDATED** |
 | B6-B10 brand arc | Deferred |
 | F8.1 (K10 seed corpus) | Queued |
 | K7.x v3 YouTube oEmbed | Queued |
@@ -208,7 +164,10 @@ Three candidates for the next strategic-axis session:
 | W12 legacy form retirement | Queued |
 | Asset upload UI | Queued |
 | B-14 v2 offset_x knob | Queued (½ session; SESSION 205 dogfood finding) |
+| B-2 v2 polish slice | Queued (~½ session; SESSION 207 findings) |
 | B-2 v2 auto_script_polished + auto_script_cinematic | Queued (each ~½ session) |
+| B-2 ↔ B-3 composition | Queued (1-2 sessions; highest leverage) |
+| Marcus rig re-bake | Queued (cosmetic; SESSION 207 finding) |
 
 ---
 
@@ -263,7 +222,7 @@ Signals + registry imports register only at
 `apps.py::ready()`; a stale worker silently doesn't fire
 them.
 
-**Smoke checks** (counts as of SESSION 206 close):
+**Smoke checks** (counts as of SESSION 207 close):
 
 ```bash
 # Backend (from shell/)
@@ -278,100 +237,75 @@ pnpm build                                    # type-check + bundle
 pnpm test                                     # 405 vitest tests
 ```
 
-**New surfaces from SESSION 206 (E-arc / B-2):**
-
-* `apps.scripts` Django app — `Script` model (UUID PK, FK
-  Workspace + Spokesperson, prompt + opener + draft_text +
-  knowledge_chunk_ids + verification_status +
-  verification_warnings + verifier_mode + revision_history
-  JSONField + 4-state machine DRAFT/READY/RENDERED/ARCHIVED).
-  Migration `0001_initial`. Cross-workspace pre_save signal.
-* `apps.scripts.synthesis` — `draft_script` adapter over
-  K6 + `snapshot_to_revision_history` + `apply_draft_to_script`
-  helpers. Strict-mode `ClaimVerifierError` caught + persisted
-  as `verification_status='blocked'` (rule 4).
-* `apps.compositions.starters.auto_script` — single-step
-  Composition starter that reads a Script's persisted
-  `draft_text` + sets `use_knowledge=False` (rule 7 — K6
-  in-primitive synthesis skipped because draft already
-  synthesized at draft-time).
-* `/api/scripts/` — `ScriptViewSet` with 8 actions
-  (create / list / retrieve / regenerate / approve /
-  render / clone / destroy).
-* `TIER_LIMITS["*"]["drafts_per_month"]`: Starter=10,
-  Pro=100, Agency=None. `check_drafts_per_month` billing
-  gate. `Usage.drafts_used` counts initial-create + each
-  regenerate (via JSON revision_history ts filtering).
-* `auto_script` recipe registered in
-  `apps.compositions.recipes.RECIPES` (gallery count
-  19 → 20) with new `script_picker` form field type.
-* `/workspace/scripts` + `/workspace/scripts/new` +
-  `/workspace/scripts/:id` SPA routes.
-* `web/src/lib/api/scripts.ts` — Zod schemas + 8 React
-  Query hooks (`useScripts`, `useScript`,
-  `useCreateScript`, `useRegenerateScript`,
-  `useApproveScript`, `useRenderScript`, `useCloneScript`,
-  `useDeleteScript`). All mutations invalidate every
-  dependent query.
-* Recipe-gallery `script_picker` field type + ScriptPicker
-  component (filters to status=READY scripts).
-
 ---
 
 ## AI / assistant context
 
-- **Last session: SESSION 206 — E-arc lock + 5 of 7 slices
-  shipped.** Six commits B2.0-B2.5. Django 1269 → 1320
-  (+51). SPA 371 → 405 (+34). 2 new TRUST_CALIBRATION
-  entries (39 total). $0 real-mode spend.
+- **Last session: SESSION 207 — E-arc B2.6 dogfood + arc
+  close.** Two commits: one in-session SPA bug-fix patch
+  (`scripts.$id.tsx` verifier panel gate relaxed for
+  informational warnings); one docs/handoff bundle.
+  Real-mode spend: $0.25 ($0.25 talking-head against
+  Marcus + the "Five Good Emperors" topic). Lineage
+  validated end-to-end. 7 findings (1 patched, 6 v2,
+  1 calibration, 1 win).
+
+- **Prior session: SESSION 206 — E-arc lock + 5 of 7
+  slices shipped.** Six commits B2.0-B2.5. Django 1269
+  → 1320 (+51). SPA 371 → 405 (+34). 2 new
+  TRUST_CALIBRATION entries (39 total). $0 real-mode
+  spend.
 
 - **Prior session: SESSION 205 — D-arc shipped in one
-  session.** Seven slices B14.0-B14.5 including dogfood.
-  Django 1245 → 1269 (+24). SPA 284 → 371 (+87).
+  session.** Seven slices B14.0-B14.5 including
+  dogfood. Django 1245 → 1269 (+24). SPA 284 → 371
+  (+87).
 
-- **Prior session: SESSION 204 — videos_per_month migration.**
-  Cleanup between arcs. Django 1207 → 1215 (+8).
+- **Scope-lock cadence is 5-for-5** (A/B/C/D/E arcs).
+  Pattern: 8-10 contract rules + 7-10 slices + per-
+  slice tests + real-mode dogfood closing. Each arc
+  lands in one extended session; dogfood can ride into
+  the next session when same-day fatigue would degrade
+  validation quality (SESSION 206 made this call;
+  SESSION 207 confirmed the ride-over delivered).
 
-- **Scope-lock cadence is now 5-for-5** (A/B/C/D/E arcs).
-  Pattern: 8-10 contract rules + 7-10 slices + per-slice
-  tests + real-mode dogfood closing. Each arc lands in one
-  extended session; dogfood can ride into the next session
-  when same-day fatigue would degrade validation quality
-  (SESSION 206 made this call).
-
-- **Calibration carried forward (39 total — +2 SESSION 206:
-  scope-lock cadence 5-for-5 + K6 refactor adapter pattern)**:
-  V-arc 100% real-mode closure; operator-noticed-during-
-  dogfood loop; mix_audio + intro_outro silent-base shapes;
-  real-mode finds bugs in EVERY recipe (6-for-6 with
-  SESSION 205's UX limitation finding); Celery worker
-  doesn't auto-reload (3rd hit); mock-mode hides
-  stream-shape drift (4th hit); forward-defense audits
-  surface latent bugs cheaply; gpt-5 reasoning eats output
+- **Calibration carried forward (41 total — +2 SESSION
+  207: real-mode-finds-bugs 7-for-7 + Marcus rig
+  portrait quality)**: V-arc 100% real-mode closure;
+  operator-noticed-during-dogfood loop; mix_audio +
+  intro_outro silent-base shapes; real-mode finds bugs
+  in EVERY arc (7-for-7 now); Celery worker doesn't
+  auto-reload (3rd hit); mock-mode hides stream-shape
+  drift (4th hit); forward-defense audits surface
+  latent bugs cheaply; gpt-5 reasoning eats output
   budget; scope-lock pattern compresses build phase
-  (5-for-5 now); React Query mutation onSuccess must
-  invalidate every dependent query; tier-gated batch caps
-  work as designed via forecast preview surface;
-  aspect-changing crop is a recurring shape (NEW SESSION 205);
-  **K6 refactor via adapter pattern preserved zero
-  regressions (NEW SESSION 206); scope-lock cadence 5-for-5
-  (NEW SESSION 206).**
+  (5-for-5); React Query mutation onSuccess must
+  invalidate every dependent query; tier-gated batch
+  caps work as designed via forecast preview surface;
+  aspect-changing crop is a recurring shape; K6 refactor
+  via adapter pattern preserved zero regressions; scope-
+  lock cadence 5-for-5; **real-mode-finds-bugs streak
+  7-for-7 (NEW SESSION 207)**; **avatar rig quality
+  has three axes — portrait, voice × lip-sync, script-
+  persona fit (NEW SESSION 207)**.
 
-- **The "real-mode finds bugs in every recipe" pattern is
-  6-for-6.** Every dogfood across SESSIONS 195/197/200/202/
-  203/205 surfaced at least one finding (bug or UX
-  limitation). SESSION 207's B2.6 dogfood is the next test.
+- **The "real-mode finds bugs in every recipe / arc"
+  pattern is now 7-for-7.** Every dogfood across
+  SESSIONS 195/197/200/202/203/205/207 surfaced at
+  least one finding. Treat "clean" runs as a
+  calibration prior of "something was missed."
 
-- **Operator pushback on AI's premature "sign-off" framing
-  surfaced SESSION 206 early.** The 4-for-4 cadence biased
-  the AI toward closure pressure; operator recalibrated to
-  "we're just getting started for the day." Calibration:
-  cadence is *opportunity*, not *obligation*; let the
-  operator set the lock cue.
+- **Cross-surface UI consistency is a recurring gap**
+  (SESSION 207 finding). Script-detail and
+  Composition-detail render the same
+  `verification_warnings` JSON differently. Future
+  work that adds a "verifier panel" to a new surface
+  should template against a shared component.
 
-- **Brand layer is load-bearing.** Every component must
-  import company/product strings from `@/lib/brand` per
-  BRAND_ECOSYSTEM_V1 contract rule 3.
+- **Brand layer is load-bearing.** Every component
+  must import company/product strings from
+  `@/lib/brand` per BRAND_ECOSYSTEM_V1 contract
+  rule 3.
 
 - Collaboration conventions: AI drafts, human edits.
   Handoff `## Calibration moments worth carrying` +

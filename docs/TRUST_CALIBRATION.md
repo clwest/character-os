@@ -4959,3 +4959,88 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   motivation is "new feature on top of existing
   function," not "consolidate two equivalent paths
   into one," reach for the adapter pattern first.
+
+### Real-mode dogfood finds bugs in EVERY arc — streak is now 7-for-7
+- **Date:** 2026-05-20
+- **Session:** 207 (B-2 / E-arc, B2.6 dogfood)
+- **Context:** Pattern first noticed SESSION 195 (V-arc
+  v1 dogfood found mix_audio shape bug). Every
+  subsequent real-mode dogfood across SESSIONS 197 /
+  200 / 202 / 203 / 205 / **207** has surfaced at least
+  one finding — bug, UX limitation, or schema gap.
+  Pre-SESSION-207 the pattern was reported as 6-for-6;
+  the open question was whether a knowledge-aligned
+  happy-path test on a previously-validated stack
+  (V-arc 18 recipes + R10 drift verifier) would
+  finally break the streak.
+- **AI expectation (before):** B2.6 was framed as
+  "validate the lineage end-to-end" — the kind of
+  test where everything works because it's all been
+  tested in mock mode and unit-tested separately.
+  The AI's prior was a clean run with maybe one
+  cosmetic finding.
+- **Reality / outcome:** **B2.6 surfaced 7 findings
+  in one fire.** One operator-visible SPA bug patched
+  in-session (Script-detail verifier panel hid
+  informational warnings because gate was status-only,
+  not warnings-length); six v2 findings filed (the
+  same bug class on Composition detail page going
+  the opposite direction; `Curious?` false positive;
+  `Asset.spokesperson=None`; Asset dimensions missing;
+  cost_estimate_micros=0; source_spec chunk_ids
+  indirection vs doc text); plus the Marcus rig
+  portrait quality finding. The streak holds 7-for-7.
+- **Found by:** Operator playing the rendered video +
+  comparing UI state against DB state; AI tailing
+  Celery + media-engine logs in parallel.
+- **Lesson:** **Mock-mode tests pass for a different
+  reason than real-mode tests pass.** Mock-mode
+  exercises the code paths; real-mode exercises the
+  *integration shapes* — what the verifier emits when
+  the corpus is small, what the SPA's status-based
+  gating logic does when status doesn't escalate, how
+  Asset fields get populated from a third-party
+  response, what citation rendering looks like across
+  surfaces. The 7-for-7 streak says: **real-mode
+  dogfood is not optional. Schedule one at the close
+  of every arc, no exceptions.** If the dogfood
+  finishes "clean," the calibration prior is now
+  *something was missed*, not *nothing was wrong*.
+
+### Marcus avatar rig has baked-in portrait quality issue
+- **Date:** 2026-05-20
+- **Session:** 207 (B-2 / E-arc, B2.6 dogfood)
+- **Context:** First real-mode render against Marcus
+  (Roman tutor spokesperson). Operator's quality
+  assessment of the 54s talking-head: "there's some
+  issues with the mouth but I believe that we have
+  noted it as a bad image, the rest seems just fine."
+  Audio + script + pacing landed fine; the mouth
+  artifact is at the portrait/rig level, not the
+  voice or composition level.
+- **AI expectation (before):** Calibration prior from
+  SESSION 158 was that avatar rig quality varies per
+  combination (drew/donny had dental artifacts;
+  clara/sasha was clean). The AI flagged the voice ×
+  lip-sync axis going in. Did not anticipate the
+  *portrait-bake* axis as separately broken.
+- **Reality / outcome:** **The quality-variance axis
+  is broader than voice × lip-sync.** Marcus's
+  portrait image itself appears to be the issue
+  (operator: "noted it as a bad image"). The voice
+  + script + 54s render are fine. The mouth artifacts
+  trace to the rig's source portrait, not to the
+  Runway lip-sync model or the script content.
+  Re-baking Marcus with a cleaner Runway portrait is
+  the fix.
+- **Found by:** Operator visual assessment on the
+  dashboard videos surface during B2.6 dogfood.
+- **Lesson:** **Avatar rig quality has at least three
+  axes, not two**: (1) source portrait quality
+  (Marcus); (2) voice × lip-sync compatibility
+  (drew/donny per SESSION 158); (3) script-persona
+  fit. Each axis can be the cause of an "off"
+  rendered clip; debugging requires checking all
+  three. Generalizes to future spokesperson onboarding:
+  validate the portrait before locking the rig, not
+  just the first render.
