@@ -42,7 +42,6 @@ from apps.campaigns.models import (
 from apps.campaigns.services import check_personalized_batch
 from apps.compositions.models import Composition, CompositionStatus
 from apps.spokespeople.models import Spokesperson
-from apps.videos.models import Video
 
 User = get_user_model()
 
@@ -142,22 +141,16 @@ def test_check_personalized_batch_under_batch_but_over_month_raises() -> None:
     """Batch=5 fits the per-batch cap but pushes
     videos_used + 5 past the per-month cap → 402.
 
-    Note: ``get_usage`` reads from the legacy ``Video`` shim
-    (videos_per_month was scoped against that model
-    pre-V-arc). The B-arc + V-arc compositions don't yet
-    flow into Video rows, so this test seeds Video rows
-    directly to exercise the per-month gate logic. The
-    structural follow-up — making ``get_usage`` count
-    Composition rows too — is a separate slice (out of
-    B3.5 scope)."""
+    SESSION 204 migration: get_usage() now counts Composition
+    rows (excluding DRAFT). Seed completed Compositions to
+    exercise the per-month gate."""
     _, ws = _make_user_workspace("b35chkmonth@test")
     sp = _make_spokesperson(ws)
     for _ in range(8):
-        Video.objects.create(
-            spokesperson=sp,
-            kind=Video.Kind.SPOKESPERSON_AD,
-            status=Video.Status.READY,
-            title="seed",
+        Composition.objects.create(
+            workspace=ws, spokesperson=sp, name="x",
+            template_kind="talking_head_polished",
+            status=CompositionStatus.COMPLETED,
         )
     with pytest.raises(TierLimitExceeded) as exc:
         check_personalized_batch(ws, 5)
@@ -409,15 +402,15 @@ def test_launch_over_batch_cap_returns_402(_no_celery_dispatch) -> None:
 def test_launch_over_month_cap_returns_402(_no_celery_dispatch) -> None:
     user, ws = _make_user_workspace("b35lhmonth@test")
     sp = _make_spokesperson(ws)
-    # Burn 8 of 10 Starter videos via the legacy Video shim
-    # (get_usage reads this surface — see the same note on
-    # test_check_personalized_batch_under_batch_but_over_month_raises).
+    # SESSION 204 — get_usage() now counts Compositions
+    # (excluding DRAFT). Seed 8 completed Compositions to
+    # leave 2 of 10 Starter videos remaining; launching 5
+    # would exceed.
     for _ in range(8):
-        Video.objects.create(
-            spokesperson=sp,
-            kind=Video.Kind.SPOKESPERSON_AD,
-            status=Video.Status.READY,
-            title="seed",
+        Composition.objects.create(
+            workspace=ws, spokesperson=sp, name="x",
+            template_kind="talking_head_polished",
+            status=CompositionStatus.COMPLETED,
         )
     campaign = _make_draft_with_recipients(user, ws, sp, recipient_count=5)
     client = APIClient()

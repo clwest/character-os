@@ -352,20 +352,24 @@ def test_render_video_unknown_recipe_failed():
 
 def test_render_video_tier_limit_exceeded_failed():
     """Starter workspace at its monthly video cap: tool
-    invocation lands FAILED with the tier-limit message."""
-    from apps.videos.models import Video
+    invocation lands FAILED with the tier-limit message.
+
+    SESSION 204 — get_usage() now counts Composition rows
+    (excluding DRAFT). Seed 10 completed Compositions to
+    fill the Starter cap."""
+    from apps.compositions.models import Composition, CompositionStatus
 
     ws, user = _make_workspace("r72rv4@test")
     _set_tier(ws, "starter")  # 10 videos/month cap
     sp = _make_spokesperson(ws)
     session = _make_session(ws, sp)
 
-    # Seed 10 videos to fill the starter cap.
+    # Seed 10 compositions to fill the starter cap.
     for i in range(10):
-        Video.objects.create(
-            spokesperson=sp,
-            brief=f"video {i}",
-            status=Video.Status.READY,
+        Composition.objects.create(
+            workspace=ws, spokesperson=sp,
+            name=f"comp {i}", template_kind="talking_head",
+            status=CompositionStatus.COMPLETED,
         )
 
     result = dispatch_tool(

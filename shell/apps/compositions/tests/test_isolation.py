@@ -216,6 +216,21 @@ ALLOWED_FILES = {
     # retry endpoint itself routes through the sanctioned
     # starter.
     "apps/campaigns/tests/test_completion_retry.py",
+    # SESSION 204 — billing/test_services pins the
+    # get_usage() migration from the legacy V6 Video shim
+    # to Composition-based accounting. Seeds Composition
+    # rows directly across multiple statuses to exercise
+    # the include/exclude branches. Workspace anchor is
+    # set explicitly at every create; pre_save signal
+    # still fires.
+    "apps/billing/test_services.py",
+    # SESSION 204 — R7.2 tier-limit test was updated to
+    # seed Composition rows (instead of legacy Video) to
+    # match the new get_usage() accounting. Composition
+    # create is sanctioned via this allowlist entry; the
+    # rest of the file's writes are already covered by the
+    # apps/realtime/tests/test_isolation allowlist.
+    "apps/realtime/tests/test_r7_2_async_tools.py",
 }
 
 

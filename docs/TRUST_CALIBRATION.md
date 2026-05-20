@@ -4742,3 +4742,55 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   before they commit. The R9 cost-ticker pattern, the V18
   duration-mismatch starter warning, and now B-3's forecast
   modal all follow this shape.
+
+### videos_per_month was reading the wrong table
+- **Date:** 2026-05-20
+- **Session:** 204
+- **Context:** B3.5 dogfood (SESSION 203) surfaced a latent
+  architectural seam: ``apps.billing.services.get_usage()``
+  counted Video shim rows for ``videos_used``, but the V-arc
+  (V1-V18), B-arc (transcripts), and C-arc (campaigns) all
+  create Compositions directly — bypassing the V6
+  backwards-compat shim entirely. The per-month cap was
+  effectively disabled for everything except the few
+  remaining legacy single-form callers.
+- **Surface / artefact:** Dev workspace probe before fix:
+  ``videos_used=2`` (counting the 2 legacy Video rows in
+  period). Actual work done in period: 72 Compositions.
+  Operator at Starter (cap=10) thought they had 8 left;
+  reality was 62 OVER.
+- **AI expectation (before):** B3.5 punted the migration to
+  a follow-up slice and seeded the test against the Video
+  shim to validate gate logic without fixing the seam.
+  Documented as "architectural debt surfaced" in the
+  SESSION 203 close.
+- **Reality / outcome:** **Migration was a single-function
+  change + test sweep.** Replaced the ``Video.objects.filter
+  (...)`` query in ``get_usage`` with
+  ``Composition.objects.filter(...).exclude(status=DRAFT)``.
+  Updated three test sites that seeded Video rows to
+  exercise the cap: ``apps.campaigns.tests.test_launch``
+  (2 tests) and ``apps.realtime.tests.test_r7_2_async_tools``
+  (1 test). Added ``apps.billing.test_services`` (8 tests)
+  pinning the new include/exclude semantics. Real-mode probe
+  confirmed: ``videos_used`` jumped from 2 to 72 on the
+  dev DB.
+- **Found by:** B3.5 dogfood explicitly. The test author
+  (me, at B3.5) seeded Video shim rows but noted it was a
+  workaround — see the ``test_check_personalized_batch_under_batch_but_over_month_raises``
+  docstring at SESSION 203 close.
+- **Lesson:** **Note architectural debt when you see it AND
+  fix it before the next arc compounds.** SESSION 203
+  close-out explicitly suggested SESSION 204 take the
+  cleanup before opening B-14. Operator agreed. Total cost:
+  one function edit + 9 affected tests + 8 new tests. The
+  alternative — pushing through to B-14 — would have made
+  the per-month cap math denser (one CSV row → 4 platform
+  variants), which would have made the bug harder to
+  unwind cleanly later.
+
+  **General pattern**: when a slice surfaces architectural
+  debt that's both fixable in ~1 session AND would compound
+  with the next planned arc, doing the cleanup first beats
+  pushing forward. The "tidy the house" beat between
+  strategic arcs pays compound interest.

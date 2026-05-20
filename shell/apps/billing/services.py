@@ -18,7 +18,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from apps.spokespeople.models import Spokesperson
-from apps.videos.models import Video
 
 from .models import TIER_LIMITS, Subscription
 
@@ -92,16 +91,35 @@ def get_usage(workspace: "Workspace") -> Usage:
     # Lazy import (see top-of-file note) — apps.realtime
     # depends on apps.compositions whose AppConfig graph
     # finishes loading after billing starts being read.
+    from apps.compositions.models import Composition, CompositionStatus
     from apps.realtime.models import RealtimeSession
 
     from django.db.models import Sum
 
     sub = _subscription_for(workspace)
-    videos_used = Video.objects.filter(
-        spokesperson__workspace=workspace,
+    # SESSION 204 — migrated from the legacy V6 Video shim to
+    # Composition. The V6 backwards-compat surface (apps.videos)
+    # only counted operator-facing one-off renders via the
+    # legacy single-form path; the V-arc (V1-V18), B-arc
+    # (transcripts), and C-arc (campaigns) all create
+    # Compositions directly and never touch Video. Pre-migration
+    # the per-month cap was effectively disabled for everything
+    # except the few remaining legacy callers.
+    #
+    # Composition rows in DRAFT haven't fired yet — exclude
+    # them. Everything else (PLANNING / RUNNING / COMPLETED /
+    # PARTIAL / FAILED) represents an operator render attempt
+    # that held Runway/upstream resources, so it counts against
+    # the monthly cap. Same shape as the realtime exclusion
+    # (DRAFT only; FAILED was excluded there because the
+    # provider rejected pre-resource-allocation, but for V-arc
+    # compositions a FAILED row typically had upstream calls
+    # mid-pipeline).
+    videos_used = Composition.objects.filter(
+        workspace=workspace,
         created_at__gte=sub.current_period_start,
         created_at__lt=sub.current_period_end,
-    ).count()
+    ).exclude(status=CompositionStatus.DRAFT).count()
     spokespeople_used = Spokesperson.objects.filter(workspace=workspace).count()
     # Exclude DRAFT (never reached the upstream provider) and
     # FAILED (upstream rejected before any Runway resource was

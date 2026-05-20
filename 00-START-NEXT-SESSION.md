@@ -32,7 +32,56 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_203_C_ARC_LANDS.md`.
+> **Last handoff:** `docs/handoffs/SESSION_204_VIDEOS_CAP_MIGRATION.md`.
+
+---
+
+## SESSION 204 outcome — videos_per_month accounting migration
+
+Cleanup session between strategic-axis arcs. SESSION 203's
+B3.5 surfaced a latent seam: `videos_used` read the legacy
+V6 Video shim, missing every Composition from V-arc / B-arc
+/ C-arc. The per-month cap was effectively disabled for
+modern callers.
+
+**Single-function change** in `apps.billing.services.get_usage()`:
+swap `Video.objects.filter(...)` for
+`Composition.objects.filter(...).exclude(status=DRAFT)`.
+Period + workspace filters unchanged. The V6 backwards-compat
+shim itself stays — only the usage-counting read was migrated.
+
+Updated 3 test sites that seeded Video rows to exercise the
+cap (B3.5's 2 tests + R7.2's tier-limit test) and added 8 new
+billing tests pinning the include/exclude semantics.
+
+### Real-mode probe — concrete impact
+
+Dev workspace before fix: `videos_used=2` (only 2 Video shim
+rows in period). After fix: `videos_used=72` (correct count
+of in-period non-DRAFT Compositions). The Starter cap of 10
+was 62 under-counting reality. Any new launch from this
+workspace will now correctly trip `video_limit_reached` until
+period rolls over or tier upgrades.
+
+### Tests at SESSION 204 close
+
+| Suite | Count |
+|---|---|
+| Django | 1215 (+8 vs SESSION 203) |
+| - billing (new file) | 8 |
+| Media-engine | 214 (unchanged) |
+| SPA vitest | 284 (unchanged) |
+
+Real-mode spend SESSION 204: **$0**.
+
+### Calibration (1 new — 35 total)
+
+**`videos_per_month` was reading the wrong table.** Cleanup
+between strategic arcs paid off — migration was ~1 hour of
+focused work + 9 test updates + 8 new pinning tests. General
+pattern: when a slice surfaces architectural debt that's
+fixable in ~1 session AND would compound with the next
+planned arc, doing the cleanup first beats pushing forward.
 
 ---
 
@@ -123,7 +172,7 @@ Real-mode spend SESSION 203: **$0.50**.
 
 ---
 
-## FIRST THING (SESSION 204): operator picks
+## FIRST THING (SESSION 205): operator picks
 
 Three consecutive strategic-axis arcs landed (A: SESSIONS
 185-192; B: SESSION 202; C: SESSION 203). The pattern is
@@ -153,15 +202,11 @@ proven cheap and reliable. Three natural next directions:
   ingestion) + the 8 legacy RAW_UPLOAD rows from SESSION
   185 backfill.
 
-### Architectural debt surfaced this session
+### Architectural debt cleared SESSION 204
 
-* **`videos_per_month` cap reads the legacy V6 Video shim,
-  not Composition rows.** B3.5 worked around it by seeding
-  Video objects in tests; the structural fix — making
-  `get_usage()` count Composition rows too — needs ~1
-  session of careful work + migration testing.
-  Worth doing before the per-month cap becomes
-  operator-visible enough to matter.
+* ~~`videos_per_month` count migration~~ — **DONE SESSION 204.**
+  Migration shipped + 8 pinning tests. The per-month cap
+  now reads Composition rows correctly.
 
 ### Deferred parity slices (unchanged)
 
@@ -172,16 +217,16 @@ proven cheap and reliable. Three natural next directions:
 ### Recommended next direction
 
 **B-14 Multi-Platform Variants** is the cleanest next
-strategic-axis pick. It composes naturally with the C-arc
-that just shipped (a personalized batch could automatically
-fan out to multiple platform variants per recipient), and
-its primitive dependency (`reformat_clip`) is V-arc-shipped
-+ real-mode validated. ~5-6 slices = one extended session
-per the proven cadence.
+strategic-axis pick. Composes naturally with the C-arc
+(personalized batch → N recipients × 4 platform variants);
+the SESSION 204 cap migration made that composition safe
+(per-month accounting now counts every fan-out correctly).
+~5-6 slices = one extended session per the proven cadence.
 
-Alternatively, the `videos_per_month` architectural debt is
-worth picking up if the operator wants tidy-the-house work
-before opening another arc.
+Alternative: **Asset upload UI** if the operator wants a
+quick operator-visible win before another strategic arc
+(1-2 sessions; unblocks B-1 v2 external transcript
+ingestion).
 
 ---
 
@@ -213,7 +258,7 @@ before opening another arc.
 | K6.4 v3 architectural fix | Queued |
 | W12 legacy form retirement | Queued |
 | Asset upload UI | Queued |
-| `videos_per_month` count migration | Queued (new — surfaced B3.5) |
+| `videos_per_month` count migration | **DONE (SESSION 204)** |
 | B-14 Multi-Platform Variants | New-arc candidate (recommended) |
 | B-2 Auto-scripting | New-arc candidate |
 
@@ -271,7 +316,7 @@ silently doesn't fire them.
 ```bash
 # Backend (from shell/)
 python manage.py inventory
-python -m pytest                              # 1207 tests
+python -m pytest                              # 1215 tests
 
 # Media-engine (from media-engine/)
 python -m pytest                              # 214 tests
@@ -313,20 +358,25 @@ pnpm test                                     # 284 vitest tests
 
 ## AI / assistant context
 
-- **Last session: SESSION 203 — C-arc shipped in one session.**
+- **Last session: SESSION 204 — videos_per_month migration.**
+  Cleanup between arcs. Single-function change in
+  apps.billing.services.get_usage() — from legacy V6 Video
+  shim to Composition rows. 9 test updates + 8 new
+  pinning tests. Django 1207 → 1215 (+8). $0 spend.
+
+- **Prior session: SESSION 203 — C-arc shipped in one session.**
   Ten slices B3.0 through B3.9 + B3.8 post-close hotfix.
   Django 1097 → 1207 (+110). SPA 188 → 284 (+96). 3 new
   TRUST_CALIBRATION entries. $0.50 real-mode spend.
-
-- **Prior session: SESSION 202 — B-arc shipped in one
-  session.** Django +59. SPA +54. $0.25 real-mode spend.
 
 - **Scope-lock cadence is now 3-for-3** (A-arc, B-arc,
   C-arc). Pattern: 8-10 contract rules + 7-10 slices + per-
   slice tests + real-mode dogfood closing. Each arc lands in
   one extended session.
 
-- **Calibration carried forward (34 total — +3 SESSION 203)**:
+- **Calibration carried forward (35 total — +1 SESSION 204:
+  videos_per_month migration / tidy-house-between-arcs
+  pattern)**:
   V-arc 100% real-mode closure; operator-noticed-during-
   dogfood loop; mix_audio + intro_outro silent-base shapes;
   real-mode finds bugs in EVERY recipe (5-for-5 now —
