@@ -176,7 +176,11 @@ function ScriptDetailView({
       <CitationsPanel script={script} />
 
       {/* ---- Verifier panel ----------------------------------- */}
-      {(script.verification_status === "warned" ||
+      {/* Render whenever the verifier produced flags. K6 produces
+          informational warnings on `verified` (below the `warned`
+          threshold) — the V-arc has rendered against this shape
+          for months. Gating on status alone hid them.            */}
+      {(script.verification_warnings.length > 0 ||
         script.verification_status === "blocked") && (
         <VerifierPanel script={script} />
       )}
@@ -300,34 +304,51 @@ function CitationsPanel({ script }: { script: ScriptDetail }) {
 
 function VerifierPanel({ script }: { script: ScriptDetail }) {
   const isBlocked = script.verification_status === "blocked";
+  const isWarned = script.verification_status === "warned";
+  // Anything else carrying flags (verified / skipped / trusted_passthrough)
+  // is informational — show the panel without amber/destructive framing
+  // so the operator can still approve cleanly.
+  const isInfo = !isBlocked && !isWarned;
+
+  const n = script.verification_warnings.length;
+  const plural = n !== 1 ? "s" : "";
+
+  const heading = isBlocked
+    ? "K6.4 verification blocked"
+    : isWarned
+      ? `K6.4 flagged ${n} unsupported claim${plural}`
+      : `Verifier noted ${n} informational flag${plural}`;
 
   return (
     <section
       data-testid="verifier-panel"
+      data-tone={isBlocked ? "blocked" : isWarned ? "warned" : "info"}
       className={cn(
         "rounded-md border p-6 flex flex-col gap-4",
-        isBlocked
-          ? "border-destructive/40 bg-destructive/5"
-          : "border-amber-500/40 bg-amber-500/5",
+        isBlocked && "border-destructive/40 bg-destructive/5",
+        isWarned && "border-amber-500/40 bg-amber-500/5",
+        isInfo && "border-border bg-muted/20",
       )}
     >
       <div className="flex items-start gap-2">
         <AlertCircle
           className={cn(
             "h-5 w-5 shrink-0 mt-0.5",
-            isBlocked ? "text-destructive" : "text-amber-400",
+            isBlocked && "text-destructive",
+            isWarned && "text-amber-400",
+            isInfo && "text-muted-foreground",
           )}
         />
         <div className="flex flex-col gap-1">
           <h2
             className={cn(
               "font-display text-xl tracking-tight",
-              isBlocked ? "text-destructive" : "text-amber-400",
+              isBlocked && "text-destructive",
+              isWarned && "text-amber-400",
+              isInfo && "text-foreground",
             )}
           >
-            {isBlocked
-              ? "K6.4 verification blocked"
-              : `K6.4 flagged ${script.verification_warnings.length} unsupported claim${script.verification_warnings.length !== 1 ? "s" : ""}`}
+            {heading}
           </h2>
           {isBlocked && (
             <p
@@ -336,6 +357,16 @@ function VerifierPanel({ script }: { script: ScriptDetail }) {
             >
               This script cannot be approved until you regenerate and resolve
               the flagged claims. Click Regenerate to draft a new version.
+            </p>
+          )}
+          {isInfo && (
+            <p
+              data-testid="info-hint"
+              className="text-sm text-muted-foreground"
+            >
+              These are advisory — the draft is approved-ready. Review the
+              flagged spans below if you want to tighten grounding before
+              rendering.
             </p>
           )}
         </div>
