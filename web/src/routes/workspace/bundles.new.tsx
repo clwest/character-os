@@ -133,7 +133,7 @@ export function BundleNewRoute() {
       <Link
         to="/workspace/bundles"
         data-testid="back-to-bundles"
-        className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        className="inline-flex w-fit items-center gap-1.5 text-sm text-fog hover:text-gold transition-colors"
       >
         <ChevronLeft className="h-4 w-4" />
         Back to Bundles
@@ -143,11 +143,11 @@ export function BundleNewRoute() {
       <header className="flex flex-col gap-2">
         <h1
           data-testid="bundle-new-title"
-          className="font-display text-4xl leading-tight tracking-tight md:text-5xl"
+          className="font-display text-4xl leading-tight tracking-tight text-cream md:text-5xl"
         >
           New bundle
         </h1>
-        <p className="text-base text-muted-foreground">
+        <p className="text-base text-mist">
           Pick a source clip, give the bundle a name, and select which
           platforms to reformat it for. Each platform generates one
           variant at the right aspect ratio and duration cap — all ffmpeg,
@@ -159,7 +159,7 @@ export function BundleNewRoute() {
       <form
         data-testid="bundle-create-form"
         onSubmit={(e) => void handleSubmit(e)}
-        className="flex flex-col gap-6 rounded-md border border-border bg-card p-6"
+        className="flex flex-col gap-6 rounded-md border border-luxe bg-card p-6"
         noValidate
       >
         {/* Source clip picker */}
@@ -167,7 +167,7 @@ export function BundleNewRoute() {
           <label className="text-sm font-medium">
             Source clip <span className="text-destructive">*</span>
           </label>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-fog">
             The CLIP asset to reformat for each platform.
           </p>
 
@@ -177,7 +177,7 @@ export function BundleNewRoute() {
               className="h-9 rounded-md bg-muted animate-pulse"
             />
           ) : clipList.length === 0 ? (
-            <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
+            <div className="rounded-md border border-dashed border-luxe p-4 text-sm text-fog">
               No CLIP assets in this workspace. Render a video first, then
               publish it here.
             </div>
@@ -185,7 +185,7 @@ export function BundleNewRoute() {
             <>
               {/* Search */}
               <div className="relative">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-fog" />
                 <Input
                   data-testid="clip-search-input"
                   type="text"
@@ -206,7 +206,7 @@ export function BundleNewRoute() {
                 )}
               >
                 {filteredClips.length === 0 ? (
-                  <p className="px-3 py-2 text-xs text-muted-foreground">
+                  <p className="px-3 py-2 text-xs text-fog">
                     No clips match your search.
                   </p>
                 ) : (
@@ -228,11 +228,11 @@ export function BundleNewRoute() {
                           "w-full px-3 py-2 text-left text-sm flex flex-col gap-0.5 transition-colors",
                           isSelected
                             ? "bg-primary/10 text-primary"
-                            : "hover:bg-muted/40 text-foreground",
+                            : "hover:bg-gold/10 text-cream",
                         )}
                       >
                         <span className="font-medium truncate">{title}</span>
-                        <span className="text-[11px] text-muted-foreground font-mono">
+                        <span className="text-[11px] text-fog font-mono">
                           {clip.id.slice(0, 8)}…{durationLabel}
                         </span>
                       </button>
@@ -256,7 +256,7 @@ export function BundleNewRoute() {
           {selectedClipId && (
             <p
               data-testid="selected-clip-display"
-              className="text-xs text-muted-foreground"
+              className="text-xs text-fog"
             >
               Selected:{" "}
               <span className="font-mono">
@@ -300,7 +300,7 @@ export function BundleNewRoute() {
               {nameError}
             </p>
           )}
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-[11px] text-fog">
             {name.length} / 120 — variants will be named "{name || "…"} —{" "}
             Platform"
           </p>
@@ -312,7 +312,7 @@ export function BundleNewRoute() {
             <legend className="text-sm font-medium mb-2">
               Platforms <span className="text-destructive">*</span>
             </legend>
-            <p className="text-xs text-muted-foreground mb-3">
+            <p className="text-xs text-fog mb-3">
               Each selected platform creates one variant at the right ratio
               and duration cap.
             </p>
@@ -327,7 +327,7 @@ export function BundleNewRoute() {
                       "flex items-center gap-3 rounded-md border p-3 cursor-pointer transition-colors",
                       checked
                         ? "border-primary/40 bg-primary/5"
-                        : "border-border hover:bg-muted/30",
+                        : "border-luxe hover:bg-muted/30",
                       create.isPending && "cursor-not-allowed opacity-50",
                     )}
                   >
@@ -343,7 +343,7 @@ export function BundleNewRoute() {
                       <span className="text-sm font-medium">
                         {platform.display}
                       </span>
-                      <span className="text-[11px] text-muted-foreground font-mono">
+                      <span className="text-[11px] text-fog font-mono">
                         {platform.target_ratio} ·{" "}
                         {formatDurationS(platform.max_duration_ms)} max
                       </span>
@@ -362,7 +362,7 @@ export function BundleNewRoute() {
             </p>
           )}
           {selectedPlatforms.size > 0 && (
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-[11px] text-fog">
               {selectedPlatforms.size} platform
               {selectedPlatforms.size !== 1 ? "s" : ""} selected ·{" "}
               {selectedPlatforms.size} variant

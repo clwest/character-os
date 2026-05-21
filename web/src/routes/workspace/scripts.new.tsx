@@ -131,7 +131,7 @@ export function ScriptNewRoute() {
       <Link
         to="/workspace/scripts"
         data-testid="back-to-scripts"
-        className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        className="inline-flex w-fit items-center gap-1.5 text-sm text-fog hover:text-gold transition-colors"
       >
         <ChevronLeft className="h-4 w-4" />
         Back to Scripts
@@ -140,15 +140,15 @@ export function ScriptNewRoute() {
       {/* ---- Page header --------------------------------------- */}
       <header className="flex flex-col gap-2">
         <div className="flex items-center gap-3">
-          <FileText className="h-6 w-6 text-muted-foreground" />
+          <FileText className="h-6 w-6 text-fog" />
           <h1
             data-testid="script-new-title"
-            className="font-display text-4xl leading-tight tracking-tight md:text-5xl"
+            className="font-display text-4xl leading-tight tracking-tight text-cream md:text-5xl"
           >
             New script
           </h1>
         </div>
-        <p className="text-base text-muted-foreground">
+        <p className="text-base text-mist">
           Describe what your spokesperson should say. K2 retrieves relevant
           knowledge, gpt-5 drafts the script, and K6.4 verifies every claim
           before you approve.
@@ -159,7 +159,7 @@ export function ScriptNewRoute() {
       <form
         data-testid="script-create-form"
         onSubmit={(e) => void handleSubmit(e)}
-        className="flex flex-col gap-6 rounded-md border border-border bg-card p-6"
+        className="flex flex-col gap-6 rounded-md border border-luxe bg-card p-6"
         noValidate
       >
         {/* Spokesperson picker */}
@@ -167,7 +167,7 @@ export function ScriptNewRoute() {
           <label htmlFor="script-spokesperson" className="text-sm font-medium">
             Spokesperson <span className="text-destructive">*</span>
           </label>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-fog">
             Who will deliver this script? K2 retrieves knowledge scoped to
             this spokesperson's workspace.
           </p>
@@ -177,7 +177,7 @@ export function ScriptNewRoute() {
               className="h-10 rounded-md bg-muted animate-pulse"
             />
           ) : workspaceSpokespeople.length === 0 ? (
-            <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
+            <div className="rounded-md border border-dashed border-luxe p-4 text-sm text-fog">
               No spokespeople in this workspace.{" "}
               <Link
                 to="/spokespeople/new"
@@ -222,7 +222,7 @@ export function ScriptNewRoute() {
         <div className="flex flex-col gap-1.5">
           <label htmlFor="script-name" className="text-sm font-medium">
             Script name{" "}
-            <span className="text-muted-foreground font-normal">(optional)</span>
+            <span className="text-fog font-normal">(optional)</span>
           </label>
           <Input
             id="script-name"
@@ -234,7 +234,7 @@ export function ScriptNewRoute() {
             placeholder="Spring launch — product benefits"
             disabled={create.isPending}
           />
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-[11px] text-fog">
             Leave blank for "Untitled script". {name.length} / 200
           </p>
         </div>
@@ -245,7 +245,7 @@ export function ScriptNewRoute() {
             What should the avatar talk about?{" "}
             <span className="text-destructive">*</span>
           </label>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-fog">
             This is your brief to the LLM. K2 retrieves matching knowledge
             chunks; gpt-5 synthesizes them into a full script. 1–4000 chars.
           </p>
@@ -259,7 +259,7 @@ export function ScriptNewRoute() {
             placeholder="60-second product demo covering the three core features, focused on ease of use for small teams…"
             disabled={create.isPending}
             className={cn(
-              "flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50",
+              "flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-fog focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50",
               showErrors && promptError && "border-destructive",
             )}
           />
@@ -271,7 +271,7 @@ export function ScriptNewRoute() {
               {promptError}
             </p>
           )}
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-[11px] text-fog">
             {prompt.length} / 4000
           </p>
         </div>
@@ -280,9 +280,9 @@ export function ScriptNewRoute() {
         <div className="flex flex-col gap-1.5">
           <label htmlFor="script-opener" className="text-sm font-medium">
             Pin the opening line{" "}
-            <span className="text-muted-foreground font-normal">(optional)</span>
+            <span className="text-fog font-normal">(optional)</span>
           </label>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-fog">
             K6.6: verbatim first line for the avatar to say. Leave blank and
             gpt-5 will open naturally from the brief.
           </p>
@@ -307,7 +307,7 @@ export function ScriptNewRoute() {
               {openerError}
             </p>
           )}
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-[11px] text-fog">
             {opener.length} / 280
           </p>
         </div>
@@ -319,9 +319,9 @@ export function ScriptNewRoute() {
             className="text-sm font-medium"
           >
             K6.4 verifier mode{" "}
-            <span className="text-muted-foreground font-normal">(optional)</span>
+            <span className="text-fog font-normal">(optional)</span>
           </label>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-fog">
             Controls how the K6.4 fact-verifier handles unsupported claims in
             the draft.
           </p>
@@ -341,7 +341,7 @@ export function ScriptNewRoute() {
           </select>
           {/* Mode hint */}
           {verifierMode !== undefined && (
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-[11px] text-fog">
               {
                 VERIFIER_MODE_OPTIONS.find((o) => o.value === verifierMode)
                   ?.hint
@@ -398,7 +398,7 @@ export function ScriptNewRoute() {
         {create.isPending && (
           <p
             data-testid="script-drafting-hint"
-            className="text-xs text-muted-foreground"
+            className="text-xs text-fog"
           >
             K2 is retrieving knowledge and gpt-5 is synthesizing your script.
             This usually takes 5–15 seconds.

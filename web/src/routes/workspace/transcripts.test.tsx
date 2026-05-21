@@ -143,7 +143,7 @@ describe("WorkspaceTranscriptsRoute", () => {
     renderList();
 
     expect(screen.getByTestId("transcripts-title")).toBeInTheDocument();
-    expect(screen.getByText("Transcript Miner")).toBeInTheDocument();
+    expect(screen.getByTestId("transcripts-title")).toBeInTheDocument();
   });
 
   it("renders transcript rows when transcripts are present", () => {

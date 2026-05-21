@@ -28,6 +28,7 @@ import {
 } from "@/lib/api/compositions";
 import { useSpokespeople } from "@/lib/api/spokespeople";
 import { useMe } from "@/lib/api/workspaces";
+import { SectionHeader } from "@/components/editorial";
 
 const PAGE_SIZES = [25, 50, 100] as const;
 
@@ -82,37 +83,42 @@ export function WorkspaceVideosRoute() {
   return (
     <div className="flex flex-col gap-8">
       {/* ---- Header --------------------------------------------- */}
-      <header className="flex flex-col gap-3">
+      <header className="relative flex flex-col gap-4 pb-10">
         <button
           type="button"
-          className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          className="inline-flex w-fit items-center gap-1.5 text-sm text-fog hover:text-gold transition-colors"
           onClick={() => navigate("/dashboard")}
         >
           <ChevronLeft className="h-4 w-4" />
           Back to dashboard
         </button>
+        <SectionHeader number={6} title="Videos" />
         <h1
           data-testid="videos-title"
-          className="font-display text-4xl leading-tight tracking-tight md:text-5xl"
+          className="font-display text-4xl leading-tight tracking-tight text-cream md:text-5xl"
         >
-          Videos
+          Video <span className="italic gold-text">library.</span>
         </h1>
-        <p className="max-w-2xl text-base text-muted-foreground">
+        <p className="max-w-2xl text-base text-mist">
           Every composition rendered in this workspace — talking heads,
           backdrops, polished outputs, layouts. Click any row for the
           full pipeline view.
         </p>
+        <div
+          className="hairline-gold absolute inset-x-0 bottom-0 h-px"
+          aria-hidden="true"
+        />
       </header>
 
       {/* ---- Filter bar ----------------------------------------- */}
       <section
         data-testid="videos-filters"
-        className="rounded-md border border-border bg-card p-5 flex flex-wrap items-end gap-6"
+        className="rounded-md border border-luxe bg-card/60 p-5 flex flex-wrap items-end gap-6"
       >
         <div className="flex flex-col gap-1.5 min-w-[200px]">
           <label
             htmlFor="filter-spokesperson"
-            className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground"
+            className="text-xs font-mono uppercase tracking-[0.22em] text-fog"
           >
             Spokesperson
           </label>
@@ -135,7 +141,7 @@ export function WorkspaceVideosRoute() {
         <div className="flex flex-col gap-1.5 min-w-[180px]">
           <label
             htmlFor="filter-status"
-            className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground"
+            className="text-xs font-mono uppercase tracking-[0.22em] text-fog"
           >
             Status
           </label>
@@ -158,7 +164,7 @@ export function WorkspaceVideosRoute() {
         <div className="flex flex-col gap-1.5 min-w-[160px]">
           <label
             htmlFor="filter-page-size"
-            className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground"
+            className="text-xs font-mono uppercase tracking-[0.22em] text-fog"
           >
             Per page
           </label>
@@ -193,12 +199,12 @@ export function WorkspaceVideosRoute() {
 
       {/* ---- Results body --------------------------------------- */}
       <section className="flex flex-col gap-4">
-        <div className="flex items-baseline justify-between border-b border-border/60 pb-2">
-          <h2 className="font-display text-xl tracking-tight">
+        <div className="flex items-baseline justify-between border-b border-luxe pb-2">
+          <h2 className="font-display text-xl tracking-tight text-cream">
             Results{" "}
             <span
               data-testid="results-count"
-              className="font-mono text-xs text-muted-foreground"
+              className="font-mono text-xs text-fog"
             >
               {compositions.isLoading ? "…" : totalCount}
             </span>
@@ -224,12 +230,12 @@ export function WorkspaceVideosRoute() {
         {!compositions.isLoading && !compositions.error && totalCount === 0 && (
           <div
             data-testid="videos-empty"
-            className="flex flex-col items-center gap-3 rounded-md border border-dashed border-border bg-card/50 p-12 text-center"
+            className="flex flex-col items-center gap-3 rounded-md border border-dashed border-luxe bg-card/40 p-12 text-center"
           >
             <p className="font-display text-xl tracking-tight">
               {hasAnyFilter ? "No videos match these filters" : "No videos yet"}
             </p>
-            <p className="max-w-md text-sm text-muted-foreground">
+            <p className="max-w-md text-sm text-mist">
               {hasAnyFilter
                 ? "Clear the filters above to see all workspace videos."
                 : "Fire a composition from any recipe and it'll appear here with status and cost."}
@@ -296,7 +302,7 @@ function VideoRow({ row }: { row: CompositionListItem }) {
   return (
     <Link
       to={`/compositions/${row.id}`}
-      className="flex items-center gap-4 border-b border-border/60 py-3 transition-colors last:border-b-0 hover:bg-muted/40"
+      className="flex items-center gap-4 border-b border-luxe py-3 transition-colors last:border-b-0 hover:bg-gold/5"
       data-testid="video-row"
     >
       <StatusIcon status={row.status} />
@@ -309,13 +315,13 @@ function VideoRow({ row }: { row: CompositionListItem }) {
             </span>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-3 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-3 font-mono text-[11px] uppercase tracking-[0.22em] text-fog">
           <span data-testid="row-template">{row.template_kind}</span>
           <span data-testid="row-spokesperson">{row.spokesperson_name}</span>
           <span>{new Date(row.created_at).toLocaleDateString()}</span>
         </div>
       </div>
-      <div className="flex flex-col items-end gap-1 text-xs text-muted-foreground">
+      <div className="flex flex-col items-end gap-1 text-xs text-fog">
         <span data-testid="row-status" className="font-mono">
           {row.status}
         </span>
@@ -343,7 +349,7 @@ function StatusIcon({ status }: { status: CompositionListItem["status"] }) {
       return <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-warning" />;
     default:
       return (
-        <MinusCircle className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+        <MinusCircle className="h-4 w-4 flex-shrink-0 text-fog" />
       );
   }
 }
@@ -354,7 +360,7 @@ function ResultsSkeleton() {
       {Array.from({ length: 5 }).map((_, i) => (
         <div
           key={i}
-          className="grid grid-cols-[2.5rem,1fr,auto] items-baseline gap-4 border-b border-border/60 py-4"
+          className="grid grid-cols-[2.5rem,1fr,auto] items-baseline gap-4 border-b border-luxe py-4"
         >
           <div className="h-7 w-8 rounded bg-muted" />
           <div className="flex flex-col gap-2">

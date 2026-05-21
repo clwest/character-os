@@ -150,7 +150,7 @@ function ScriptDetailView({
             >
               {script.name || "Untitled script"}
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-fog">
               {script.spokesperson_name} ·{" "}
               <span className="font-mono text-xs">
                 {script.id.slice(0, 8)}…
@@ -216,11 +216,11 @@ function DraftPanel({ script }: { script: ScriptDetail }) {
   return (
     <section
       data-testid="draft-panel"
-      className="rounded-md border border-border bg-card p-6 flex flex-col gap-4"
+      className="rounded-md border border-luxe bg-card p-6 flex flex-col gap-4"
     >
       <div className="flex items-center justify-between">
         <h2 className="font-display text-xl tracking-tight">Draft</h2>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="flex items-center gap-3 text-xs text-fog">
           {script.model && (
             <span className="font-mono">{script.model}</span>
           )}
@@ -236,24 +236,24 @@ function DraftPanel({ script }: { script: ScriptDetail }) {
       {script.draft_text ? (
         <pre
           data-testid="draft-text"
-          className="whitespace-pre-wrap rounded-md bg-muted/40 border border-border p-4 font-mono text-sm leading-relaxed overflow-x-auto"
+          className="whitespace-pre-wrap rounded-md bg-muted/40 border border-luxe p-4 font-mono text-sm leading-relaxed overflow-x-auto"
         >
           {script.draft_text}
         </pre>
       ) : (
-        <p className="text-sm text-muted-foreground italic">
+        <p className="text-sm text-fog italic">
           No draft text yet.
         </p>
       )}
 
       {script.opener && (
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
+          <span className="text-[11px] uppercase tracking-wider text-fog font-medium">
             Pinned opener
           </span>
           <p
             data-testid="draft-opener"
-            className="text-sm italic text-muted-foreground border-l-2 border-border pl-3"
+            className="text-sm italic text-fog border-l-2 border-luxe pl-3"
           >
             "{script.opener}"
           </p>
@@ -269,13 +269,13 @@ function CitationsPanel({ script }: { script: ScriptDetail }) {
   return (
     <section
       data-testid="citations-panel"
-      className="rounded-md border border-border bg-card p-6 flex flex-col gap-3"
+      className="rounded-md border border-luxe bg-card p-6 flex flex-col gap-3"
     >
       <h2 className="font-display text-xl tracking-tight">Knowledge citations</h2>
       {script.cited_documents.length === 0 ? (
         <p
           data-testid="citations-empty"
-          className="text-sm text-muted-foreground"
+          className="text-sm text-fog"
         >
           No knowledge attached — draft was synthesized from the prompt and
           spokesperson brief alone.
@@ -283,7 +283,7 @@ function CitationsPanel({ script }: { script: ScriptDetail }) {
       ) : (
         <ul
           data-testid="citations-list"
-          className="flex flex-col divide-y divide-border"
+          className="flex flex-col divide-y divide-luxe"
         >
           {script.cited_documents.map((doc) => (
             <li
@@ -297,7 +297,7 @@ function CitationsPanel({ script }: { script: ScriptDetail }) {
               >
                 {doc.title}
               </Link>
-              <span className="shrink-0 text-xs text-muted-foreground">
+              <span className="shrink-0 text-xs text-fog">
                 {doc.chunk_count}{" "}
                 {doc.chunk_count === 1 ? "chunk" : "chunks"}
               </span>
@@ -336,7 +336,7 @@ function VerifierPanel({ script }: { script: ScriptDetail }) {
         "rounded-md border p-6 flex flex-col gap-4",
         isBlocked && "border-destructive/40 bg-destructive/5",
         isWarned && "border-amber-500/40 bg-amber-500/5",
-        isInfo && "border-border bg-muted/20",
+        isInfo && "border-luxe bg-muted/20",
       )}
     >
       <div className="flex items-start gap-2">
@@ -345,7 +345,7 @@ function VerifierPanel({ script }: { script: ScriptDetail }) {
             "h-5 w-5 shrink-0 mt-0.5",
             isBlocked && "text-destructive",
             isWarned && "text-amber-400",
-            isInfo && "text-muted-foreground",
+            isInfo && "text-fog",
           )}
         />
         <div className="flex flex-col gap-1">
@@ -371,7 +371,7 @@ function VerifierPanel({ script }: { script: ScriptDetail }) {
           {isInfo && (
             <p
               data-testid="info-hint"
-              className="text-sm text-muted-foreground"
+              className="text-sm text-fog"
             >
               These are advisory — the draft is approved-ready. Review the
               flagged spans below if you want to tighten grounding before
@@ -390,14 +390,14 @@ function VerifierPanel({ script }: { script: ScriptDetail }) {
             <li
               key={i}
               data-testid={`warning-${i}`}
-              className="flex flex-col gap-0.5 rounded-md border border-border bg-card p-3"
+              className="flex flex-col gap-0.5 rounded-md border border-luxe bg-card p-3"
             >
               <p className="text-sm text-foreground">{w.claim}</p>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-fog">
                   {w.kind}
                 </span>
-                <span className="text-[10px] text-muted-foreground">
+                <span className="text-[10px] text-fog">
                   pos. {w.position}
                 </span>
               </div>
@@ -650,7 +650,7 @@ function ActionToolbar({
         {!isRendered ? (
           <div className="flex items-center gap-1.5 ml-auto">
             {confirmDelete && !deleteMutation.isPending && (
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-fog">
                 This permanently deletes the script.
               </span>
             )}
@@ -799,7 +799,7 @@ function RegenerateModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="regenerate-modal-heading"
-        className="relative w-full max-w-lg rounded-lg border border-border bg-card shadow-xl p-6 flex flex-col gap-5"
+        className="relative w-full max-w-lg rounded-lg border border-luxe bg-card shadow-xl p-6 flex flex-col gap-5"
         onClick={(e) => e.stopPropagation()}
       >
         {!regenerate.isPending && (
@@ -808,7 +808,7 @@ function RegenerateModal({
             aria-label="Close"
             data-testid="regenerate-modal-close"
             onClick={onClose}
-            className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
+            className="absolute top-4 right-4 text-fog hover:text-gold"
           >
             <X className="h-4 w-4" />
           </button>
@@ -822,7 +822,7 @@ function RegenerateModal({
           Regenerate script
         </h2>
 
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-fog">
           Each regenerate snapshots the current draft to revision history and
           counts against your monthly quota.
         </p>
@@ -852,7 +852,7 @@ function RegenerateModal({
           <div className="flex flex-col gap-1.5">
             <label htmlFor="regen-opener" className="text-sm font-medium">
               Opening line{" "}
-              <span className="text-muted-foreground font-normal">
+              <span className="text-fog font-normal">
                 (optional)
               </span>
             </label>
@@ -1016,7 +1016,7 @@ function DerivedCampaignsPanel({ scriptId }: { scriptId: string }) {
   return (
     <section
       data-testid="derived-campaigns-panel"
-      className="rounded-md border border-border bg-card p-6 flex flex-col gap-3"
+      className="rounded-md border border-luxe bg-card p-6 flex flex-col gap-3"
     >
       <button
         type="button"
@@ -1028,16 +1028,16 @@ function DerivedCampaignsPanel({ scriptId }: { scriptId: string }) {
           Derived campaigns ({derived.isLoading ? "…" : n})
         </h2>
         {expanded ? (
-          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          <ChevronUp className="h-4 w-4 text-fog" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          <ChevronDown className="h-4 w-4 text-fog" />
         )}
       </button>
 
       {expanded && (
         <div data-testid="derived-campaigns-content" className="flex flex-col gap-3">
           {derived.isLoading && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 text-sm text-fog">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
               Loading derived campaigns…
             </div>
@@ -1046,7 +1046,7 @@ function DerivedCampaignsPanel({ scriptId }: { scriptId: string }) {
           {!derived.isLoading && n === 0 && (
             <p
               data-testid="derived-campaigns-empty"
-              className="text-sm text-muted-foreground italic"
+              className="text-sm text-fog italic"
             >
               Not yet used in any campaign.
             </p>
@@ -1055,7 +1055,7 @@ function DerivedCampaignsPanel({ scriptId }: { scriptId: string }) {
           {n > 0 && (
             <ul
               data-testid="derived-campaigns-list"
-              className="flex flex-col divide-y divide-border"
+              className="flex flex-col divide-y divide-luxe"
             >
               {rows.map((row) => (
                 <DerivedCampaignRow key={row.id} row={row} />
@@ -1064,7 +1064,7 @@ function DerivedCampaignsPanel({ scriptId }: { scriptId: string }) {
           )}
 
           {atCap && (
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-[11px] text-fog">
               Showing first 100 — refine via campaign status filter if needed.
             </p>
           )}
@@ -1101,7 +1101,7 @@ function DerivedCampaignRow({ row }: { row: DerivedCampaignRow }) {
           "inline-flex shrink-0 items-center rounded-sm border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider",
           tone === "amber" && "border-amber-500/40 bg-amber-500/10 text-amber-400",
           tone === "success" && "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
-          tone === "muted" && "border-border bg-muted text-muted-foreground",
+          tone === "muted" && "border-luxe bg-muted text-fog",
           tone === "danger" && "border-destructive/40 bg-destructive/10 text-destructive",
         )}
       >
@@ -1118,12 +1118,12 @@ function DerivedCampaignRow({ row }: { row: DerivedCampaignRow }) {
       </Link>
 
       {/* Recipient count */}
-      <span className="text-xs text-muted-foreground shrink-0">
+      <span className="text-xs text-fog shrink-0">
         {row.recipient_count} recipient{row.recipient_count !== 1 ? "s" : ""}
       </span>
 
       {/* Relative timestamp */}
-      <span className="text-xs text-muted-foreground shrink-0">
+      <span className="text-xs text-fog shrink-0">
         {relativeTime(row.created_at)}
       </span>
     </li>
@@ -1138,7 +1138,7 @@ function RevisionHistoryPanel({ script }: { script: ScriptDetail }) {
   return (
     <section
       data-testid="revision-history-panel"
-      className="rounded-md border border-border bg-card p-6 flex flex-col gap-3"
+      className="rounded-md border border-luxe bg-card p-6 flex flex-col gap-3"
     >
       <button
         type="button"
@@ -1150,9 +1150,9 @@ function RevisionHistoryPanel({ script }: { script: ScriptDetail }) {
           Revision history ({script.revision_history.length})
         </h2>
         {expanded ? (
-          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          <ChevronUp className="h-4 w-4 text-fog" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          <ChevronDown className="h-4 w-4 text-fog" />
         )}
       </button>
 
@@ -1165,9 +1165,9 @@ function RevisionHistoryPanel({ script }: { script: ScriptDetail }) {
             <div
               key={i}
               data-testid={`revision-${i}`}
-              className="rounded-md border border-border p-4 flex flex-col gap-2"
+              className="rounded-md border border-luxe p-4 flex flex-col gap-2"
             >
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <div className="flex items-center justify-between text-xs text-fog">
                 <span>{new Date(rev.ts).toLocaleString()}</span>
                 <div className="flex items-center gap-2">
                   {rev.model && (
@@ -1183,10 +1183,10 @@ function RevisionHistoryPanel({ script }: { script: ScriptDetail }) {
               </div>
               {rev.prompt !== script.prompt && (
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <span className="text-[10px] uppercase tracking-wider text-fog">
                     Prompt then
                   </span>
-                  <p className="text-xs text-muted-foreground italic truncate">
+                  <p className="text-xs text-fog italic truncate">
                     {rev.prompt}
                   </p>
                 </div>
@@ -1209,7 +1209,7 @@ function BackLink() {
     <Link
       to="/workspace/scripts"
       data-testid="back-to-scripts"
-      className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      className="inline-flex w-fit items-center gap-1.5 text-sm text-fog hover:text-gold transition-colors"
     >
       <ChevronLeft className="h-4 w-4" />
       Back to Scripts
@@ -1234,10 +1234,10 @@ function NotFound() {
   return (
     <div
       data-testid="script-not-found"
-      className="rounded-md border border-dashed border-border p-12 text-center"
+      className="rounded-md border border-dashed border-luxe p-12 text-center"
     >
       <p className="text-base font-medium">Script not found</p>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <p className="mt-1 text-sm text-fog">
         This script may have been deleted or belongs to a different workspace.
       </p>
       <Button

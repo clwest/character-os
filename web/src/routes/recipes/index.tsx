@@ -21,6 +21,7 @@ import {
   useRecipes,
 } from "@/lib/api/recipes";
 import { useSpokespeople } from "@/lib/api/spokespeople";
+import { SectionHeader } from "@/components/editorial";
 
 export function RecipeGalleryRoute() {
   const recipes = useRecipes();
@@ -50,22 +51,22 @@ export function RecipeGalleryRoute() {
 
 function Header({ hintedSpokespersonName }: { hintedSpokespersonName?: string }) {
   return (
-    <header className="flex flex-col gap-3">
+    <header className="relative flex flex-col gap-4 pb-10">
       <Link
         to="/dashboard"
-        className="inline-flex w-fit items-center gap-1 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex w-fit items-center gap-1 font-mono text-[11px] uppercase tracking-[0.22em] text-fog transition-colors hover:text-gold"
       >
         <ArrowLeft className="h-3 w-3" />
         Back to dashboard
       </Link>
-      <div className="flex flex-col gap-2">
-        <span className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-          Recipe gallery
-        </span>
-        <h1 className="text-4xl font-semibold leading-tight tracking-tight">
-          {hintedSpokespersonName ? `What can ${hintedSpokespersonName} produce?` : "Pick a composition recipe."}
+      <div className="flex flex-col gap-3">
+        <SectionHeader number={3} title="Recipe Gallery" />
+        <h1 className="font-display text-4xl leading-tight tracking-tight text-cream md:text-5xl">
+          {hintedSpokespersonName
+            ? `What can ${hintedSpokespersonName} produce?`
+            : <>Pick a <span className="italic gold-text">composition</span> recipe.</>}
         </h1>
-        <p className="max-w-2xl text-muted-foreground">
+        <p className="max-w-2xl text-base text-mist">
           Each card is a starter composition — a prebuilt step sequence the
           render pipeline executes against the media engine. Pick one, fill
           in the parameters, and the composition runs against your workspace
@@ -73,16 +74,16 @@ function Header({ hintedSpokespersonName }: { hintedSpokespersonName?: string })
         </p>
         {hintedSpokespersonName && (
           <div
-            className="mt-2 inline-flex w-fit items-center gap-2 rounded-full border border-foreground/20 bg-foreground/5 px-3 py-1 text-xs"
+            className="mt-1 inline-flex w-fit items-center gap-2 rounded-full border border-luxe bg-card/60 px-3 py-1 text-xs"
             data-testid="spokesperson-hint-chip"
           >
-            <User className="h-3 w-3" />
-            <span>
-              Pre-bound to <strong>{hintedSpokespersonName}</strong>
+            <User className="h-3 w-3 text-fog" />
+            <span className="text-mist">
+              Pre-bound to <strong className="text-cream">{hintedSpokespersonName}</strong>
             </span>
             <Link
               to="/recipes"
-              className="ml-1 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+              className="ml-1 font-mono text-[10px] uppercase tracking-[0.22em] text-fog transition-colors hover:text-gold"
               data-testid="spokesperson-hint-clear"
             >
               clear
@@ -90,6 +91,10 @@ function Header({ hintedSpokespersonName }: { hintedSpokespersonName?: string })
           </div>
         )}
       </div>
+      <div
+        className="hairline-gold absolute inset-x-0 bottom-0 h-px"
+        aria-hidden="true"
+      />
     </header>
   );
 }
@@ -135,11 +140,11 @@ function FamilyHeading({
   count: number;
 }) {
   return (
-    <div className="flex items-baseline justify-between border-b pb-2">
-      <h2 className="font-display text-xl tracking-tight">
+    <div className="flex items-baseline justify-between border-b border-luxe pb-2">
+      <h2 className="font-display text-xl tracking-tight text-cream">
         {RECIPE_FAMILY_LABELS[family]}
       </h2>
-      <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+      <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-fog">
         {count} {count === 1 ? "recipe" : "recipes"}
       </span>
     </div>
@@ -164,35 +169,35 @@ function RecipeCard({
       data-testid={`recipe-card-${recipe.kind}`}
       data-live={isLive ? "true" : "false"}
       className={
-        "group flex flex-col gap-3 rounded-md border bg-card p-5 shadow-paper transition " +
+        "group flex flex-col gap-3 rounded-md border border-luxe bg-card p-5 luxe-shadow transition " +
         (isLive
-          ? "hover:border-foreground hover:shadow-paper-hover"
+          ? "hover:border-gold/40"
           : "opacity-75 hover:opacity-100")
       }
     >
       <div className="flex items-start justify-between gap-3">
-        <h3 className="font-display text-lg leading-tight tracking-tight">
+        <h3 className="font-display text-lg leading-tight tracking-tight text-cream">
           {recipe.display_name}
         </h3>
         {isLive ? (
           <Sparkles
-            className="h-4 w-4 text-foreground/60 transition group-hover:text-foreground"
+            className="h-4 w-4 text-fog transition group-hover:text-gold"
             aria-label="Available now"
           />
         ) : (
           <Lock
-            className="h-4 w-4 text-muted-foreground"
+            className="h-4 w-4 text-fog"
             aria-label="Coming soon"
           />
         )}
       </div>
-      <p className="text-sm text-muted-foreground">{recipe.description}</p>
-      <div className="mt-auto flex items-center justify-between border-t pt-3">
-        <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+      <p className="text-sm text-mist">{recipe.description}</p>
+      <div className="mt-auto flex items-center justify-between border-t border-luxe pt-3">
+        <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-fog">
           {recipe.fields.length} {recipe.fields.length === 1 ? "field" : "fields"}
         </span>
-        <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-          {isLive ? "Available" : "Coming soon"}
+        <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-fog">
+          {isLive ? "Available →" : "Coming soon"}
         </span>
       </div>
     </Link>

@@ -68,10 +68,10 @@ function SourceScriptPanel({ sourceScript }: { sourceScript: SourceScriptBlock }
   return (
     <section
       data-testid="source-script-panel"
-      className="rounded-md border border-border bg-muted/20 p-4 flex items-center gap-3 flex-wrap text-sm"
+      className="rounded-md border border-luxe bg-muted/20 p-4 flex items-center gap-3 flex-wrap text-sm"
     >
-      <BookOpen className="h-4 w-4 text-muted-foreground shrink-0" />
-      <span className="text-muted-foreground">Derived from script</span>
+      <BookOpen className="h-4 w-4 text-fog shrink-0" />
+      <span className="text-fog">Derived from script</span>
       <Link
         to={`/workspace/scripts/${sourceScript.id}`}
         data-testid="source-script-link"
@@ -85,7 +85,7 @@ function SourceScriptPanel({ sourceScript }: { sourceScript: SourceScriptBlock }
             "inline-flex shrink-0 items-center rounded-sm border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider",
             vTone === "amber" && "border-amber-500/40 bg-amber-500/10 text-amber-400",
             vTone === "success" && "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
-            vTone === "muted" && "border-border bg-muted text-muted-foreground",
+            vTone === "muted" && "border-luxe bg-muted text-fog",
             vTone === "danger" && "border-destructive/40 bg-destructive/10 text-destructive",
           )}
         >
@@ -94,14 +94,14 @@ function SourceScriptPanel({ sourceScript }: { sourceScript: SourceScriptBlock }
       )}
       <span
         data-testid="source-script-chunk-count"
-        className="text-xs text-muted-foreground"
+        className="text-xs text-fog"
       >
         {sourceScript.chunk_count} chunk{sourceScript.chunk_count !== 1 ? "s" : ""}
       </span>
       {/* Rule 2 tooltip — audit trail annotation */}
       <span
         title="Audit trail only — template is editable after derivation (rule 2)"
-        className="ml-auto text-[10px] text-muted-foreground cursor-help border-b border-dashed border-muted-foreground/40"
+        className="ml-auto text-[10px] text-fog cursor-help border-b border-dashed border-muted-foreground/40"
       >
         audit trail only
       </span>
@@ -236,7 +236,7 @@ function CampaignMetadataPanel({ campaign }: { campaign: PersonalizedCampaign })
   return (
     <section
       data-testid="campaign-metadata"
-      className="rounded-md border border-border bg-card p-6 flex flex-col gap-5"
+      className="rounded-md border border-luxe bg-card p-6 flex flex-col gap-5"
     >
       {/* Header row */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -247,7 +247,7 @@ function CampaignMetadataPanel({ campaign }: { campaign: PersonalizedCampaign })
           >
             {campaign.name}
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-fog">
             Spokesperson: <strong>{campaign.spokesperson_name}</strong>
           </p>
         </div>
@@ -255,9 +255,9 @@ function CampaignMetadataPanel({ campaign }: { campaign: PersonalizedCampaign })
       </div>
 
       {/* Recipient count summary */}
-      <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+      <div className="flex flex-wrap gap-3 text-sm text-fog">
         <span>
-          <strong className="text-foreground">{campaign.recipient_counts.total}</strong> recipients
+          <strong className="text-cream">{campaign.recipient_counts.total}</strong> recipients
         </span>
         {campaign.recipient_counts.pending > 0 && (
           <span>{campaign.recipient_counts.pending} pending</span>
@@ -277,7 +277,7 @@ function CampaignMetadataPanel({ campaign }: { campaign: PersonalizedCampaign })
       {/* Placeholders */}
       {campaign.placeholders.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          <p className="text-xs font-medium text-fog uppercase tracking-wider">
             Template variables
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -285,7 +285,7 @@ function CampaignMetadataPanel({ campaign }: { campaign: PersonalizedCampaign })
               <span
                 key={p}
                 data-testid={`placeholder-chip-${p}`}
-                className="inline-flex items-center rounded-sm border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
+                className="inline-flex items-center rounded-sm border border-luxe bg-muted px-1.5 py-0.5 font-mono text-[10px] text-fog"
               >
                 {"{"}
                 {p}
@@ -298,12 +298,12 @@ function CampaignMetadataPanel({ campaign }: { campaign: PersonalizedCampaign })
 
       {/* Template preview */}
       <div className="flex flex-col gap-1.5">
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        <p className="text-xs font-medium text-fog uppercase tracking-wider">
           Script template
         </p>
         <pre
           data-testid="campaign-template-preview"
-          className="whitespace-pre-wrap font-mono text-xs leading-relaxed border border-border rounded-md bg-muted/30 p-3 max-h-40 overflow-y-auto"
+          className="whitespace-pre-wrap font-mono text-xs leading-relaxed border border-luxe rounded-md bg-muted/30 p-3 max-h-40 overflow-y-auto"
         >
           {campaign.template}
         </pre>
@@ -311,7 +311,7 @@ function CampaignMetadataPanel({ campaign }: { campaign: PersonalizedCampaign })
 
       {/* Delete campaign — DRAFT-only */}
       {isDraft && (
-        <div className="flex flex-col gap-2 pt-2 border-t border-border">
+        <div className="flex flex-col gap-2 pt-2 border-t border-luxe">
           {deleteError && (
             <p
               data-testid="delete-campaign-error"
@@ -354,7 +354,7 @@ function CampaignMetadataPanel({ campaign }: { campaign: PersonalizedCampaign })
               </Button>
             )}
             {confirmDelete && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-fog">
                 This will permanently delete the campaign and all recipients.
               </p>
             )}
@@ -418,15 +418,15 @@ function CsvPanel({
     return (
       <section
         data-testid="csv-panel-locked"
-        className="rounded-md border border-border bg-card p-6 flex flex-col gap-3"
+        className="rounded-md border border-luxe bg-card p-6 flex flex-col gap-3"
       >
         <h2 className="font-display text-xl tracking-tight">Recipients</h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-fog">
           This campaign is{" "}
           <strong>{campaignStatusLabel(campaign.status)}</strong> — recipients
           are locked after launch.
         </p>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-fog">
           {campaign.recipient_counts.total} recipient
           {campaign.recipient_counts.total !== 1 ? "s" : ""} in this campaign.
         </p>
@@ -437,13 +437,13 @@ function CsvPanel({
   return (
     <section
       data-testid="csv-panel"
-      className="rounded-md border border-border bg-card p-6 flex flex-col gap-5"
+      className="rounded-md border border-luxe bg-card p-6 flex flex-col gap-5"
     >
       <div className="flex flex-col gap-1">
         <h2 className="font-display text-xl tracking-tight">
           {hasRecipients ? "Re-paste CSV" : "Paste recipients CSV"}
         </h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-fog">
           Header row must include:{" "}
           {campaign.placeholders.length > 0 ? (
             campaign.placeholders.map((p, i) => (
@@ -475,7 +475,7 @@ function CsvPanel({
           disabled={parseCsv.isPending}
           className={cn(
             "w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs",
-            "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            "placeholder:text-fog focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             "resize-y disabled:cursor-not-allowed disabled:opacity-50",
           )}
         />
@@ -596,7 +596,7 @@ function ParseResultPanel({ result }: { result: ParseCsvResponse }) {
                 </span>
                 <span className="text-xs text-amber-300/80">{row.error}</span>
                 {row.raw && (
-                  <code className="text-[10px] font-mono text-muted-foreground">
+                  <code className="text-[10px] font-mono text-fog">
                     {row.raw.slice(0, 120)}
                     {row.raw.length > 120 ? "…" : ""}
                   </code>
@@ -613,29 +613,29 @@ function ParseResultPanel({ result }: { result: ParseCsvResponse }) {
           data-testid="recipients-preview"
           className="flex flex-col gap-2"
         >
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          <p className="text-xs font-medium text-fog uppercase tracking-wider">
             Recipients ({recipients.length})
           </p>
-          <div className="overflow-x-auto rounded-md border border-border">
+          <div className="overflow-x-auto rounded-md border border-luxe">
             <table className="w-full text-xs">
-              <thead className="border-b border-border bg-muted/40">
+              <thead className="border-b border-luxe bg-muted/40">
                 <tr>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">
+                  <th className="px-3 py-2 text-left font-medium text-fog">
                     Label
                   </th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">
+                  <th className="px-3 py-2 text-left font-medium text-fog">
                     Variables
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-luxe">
                 {recipients.slice(0, 20).map((r) => (
                   <RecipientPreviewRow key={r.id} recipient={r} />
                 ))}
               </tbody>
             </table>
             {recipients.length > 20 && (
-              <p className="px-3 py-2 text-xs text-muted-foreground border-t border-border">
+              <p className="px-3 py-2 text-xs text-fog border-t border-luxe">
                 … and {recipients.length - 20} more
               </p>
             )}
@@ -646,7 +646,7 @@ function ParseResultPanel({ result }: { result: ParseCsvResponse }) {
       {result.valid_count === 0 && result.rejected_count === 0 && (
         <p
           data-testid="parse-no-rows"
-          className="text-sm text-muted-foreground"
+          className="text-sm text-fog"
         >
           No rows found. Make sure your CSV includes a header row and at
           least one data row.
@@ -669,7 +669,7 @@ function RecipientPreviewRow({
       className="hover:bg-muted/20 transition-colors"
     >
       <td className="px-3 py-2 font-medium">{recipient.label}</td>
-      <td className="px-3 py-2 font-mono text-muted-foreground">
+      <td className="px-3 py-2 font-mono text-fog">
         {Object.entries(recipient.variables)
           .slice(0, 4)
           .map(([k, v]) => `${k}=${String(v).slice(0, 20)}`)
@@ -745,13 +745,13 @@ function ForecastPanel({
   return (
     <section
       data-testid="forecast-panel"
-      className="rounded-md border border-border bg-card p-6 flex flex-col gap-4"
+      className="rounded-md border border-luxe bg-card p-6 flex flex-col gap-4"
     >
       <h2 className="font-display text-xl tracking-tight">Launch</h2>
 
       {/* Cost preview */}
       {forecast.isLoading && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2 text-sm text-fog">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           Calculating cost…
         </div>
@@ -761,13 +761,13 @@ function ForecastPanel({
           data-testid="forecast-summary"
           className="flex flex-col gap-2 text-sm"
         >
-          <div className="flex flex-wrap gap-x-6 gap-y-1 text-muted-foreground">
+          <div className="flex flex-wrap gap-x-6 gap-y-1 text-fog">
             <span>
-              <strong className="text-foreground">{f.recipient_count}</strong> recipient
+              <strong className="text-cream">{f.recipient_count}</strong> recipient
               {f.recipient_count !== 1 ? "s" : ""}
             </span>
             <span>
-              $0.25 each → <strong className="text-foreground">${costDollars}</strong> total
+              $0.25 each → <strong className="text-cream">${costDollars}</strong> total
             </span>
             {f.batch_cap !== null && (
               <span
@@ -776,7 +776,7 @@ function ForecastPanel({
                   "inline-flex items-center rounded-sm border px-1.5 py-0.5 text-[10px] font-medium",
                   f.recipient_count > f.batch_cap
                     ? "border-destructive/40 bg-destructive/10 text-destructive"
-                    : "border-border bg-muted text-muted-foreground",
+                    : "border-luxe bg-muted text-fog",
                 )}
               >
                 batch cap: {f.batch_cap}
@@ -789,7 +789,7 @@ function ForecastPanel({
                   "text-xs",
                   f.videos_remaining < f.recipient_count
                     ? "text-destructive"
-                    : "text-muted-foreground",
+                    : "text-fog",
                 )}
               >
                 {f.videos_remaining} video
@@ -912,7 +912,7 @@ function LaunchModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="launch-modal-heading"
-        className="relative w-full max-w-md rounded-lg border border-border bg-card shadow-xl p-6 flex flex-col gap-5"
+        className="relative w-full max-w-md rounded-lg border border-luxe bg-card shadow-xl p-6 flex flex-col gap-5"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close button */}
@@ -922,7 +922,7 @@ function LaunchModal({
             aria-label="Close"
             data-testid="launch-modal-close"
             onClick={onCancel}
-            className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
+            className="absolute top-4 right-4 text-fog hover:text-gold"
           >
             <X className="h-4 w-4" />
           </button>
@@ -937,21 +937,21 @@ function LaunchModal({
           {forecast.recipient_count !== 1 ? "s" : ""}?
         </h2>
 
-        <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+        <div className="flex flex-col gap-2 text-sm text-fog">
           <p>
             Spokesperson:{" "}
-            <strong className="text-foreground">{campaign.spokesperson_name}</strong>
+            <strong className="text-cream">{campaign.spokesperson_name}</strong>
           </p>
           <p>
             Recipients:{" "}
-            <strong className="text-foreground">{forecast.recipient_count}</strong>
+            <strong className="text-cream">{forecast.recipient_count}</strong>
           </p>
           <p>
             Estimated cost:{" "}
-            <strong className="text-foreground">${costDollars}</strong> ($0.25 per
+            <strong className="text-cream">${costDollars}</strong> ($0.25 per
             render)
           </p>
-          <p className="text-xs text-muted-foreground/80 mt-1">
+          <p className="text-xs text-fog/80 mt-1">
             This will start rendering immediately and count against your monthly
             video allowance. Once launched, recipients cannot be edited — only
             retried if they fail.
@@ -1059,7 +1059,7 @@ function RecipientGrid({
   return (
     <section
       data-testid="recipient-grid"
-      className="rounded-md border border-border bg-card p-6 flex flex-col gap-5"
+      className="rounded-md border border-luxe bg-card p-6 flex flex-col gap-5"
     >
       <div className="flex flex-col gap-1">
         <h2 className="font-display text-xl tracking-tight">Recipients</h2>
@@ -1070,8 +1070,8 @@ function RecipientGrid({
             data-testid="progress-summary"
             className="flex flex-col gap-2"
           >
-            <p className="text-sm text-muted-foreground">
-              <span className="text-foreground font-medium">
+            <p className="text-sm text-fog">
+              <span className="text-cream font-medium">
                 {counts.completed} of {counts.total}
               </span>{" "}
               rendered
@@ -1095,14 +1095,14 @@ function RecipientGrid({
       </div>
 
       {recipients.isLoading && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2 text-sm text-fog">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           Loading recipients…
         </div>
       )}
 
       {rows.length > 0 && (
-        <div className="flex flex-col divide-y divide-border">
+        <div className="flex flex-col divide-y divide-luxe">
           {rows.map((r) => (
             <RecipientRow
               key={r.id}
@@ -1116,7 +1116,7 @@ function RecipientGrid({
       )}
 
       {!recipients.isLoading && rows.length === 0 && (
-        <p className="text-sm text-muted-foreground">No recipients found.</p>
+        <p className="text-sm text-fog">No recipients found.</p>
       )}
     </section>
   );
@@ -1191,7 +1191,7 @@ function RecipientRow({
         {/* Variables preview */}
         <span
           data-testid={`recipient-vars-${recipient.id}`}
-          className="text-xs text-muted-foreground font-mono"
+          className="text-xs text-fog font-mono"
         >
           {varPreview}
           {hasMoreVars ? "…" : ""}
@@ -1253,7 +1253,7 @@ function RecipientRow({
           </Button>
           {confirmRetry && !retry.isPending && (
             <>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-fog">
                 A new render will fire for this recipient.
               </p>
               <Button
@@ -1290,7 +1290,7 @@ function RecipientStatusBadge({
         tone === "amber" && "border-amber-500/40 bg-amber-500/10 text-amber-400",
         tone === "success" &&
           "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
-        tone === "muted" && "border-border bg-muted text-muted-foreground",
+        tone === "muted" && "border-luxe bg-muted text-fog",
         tone === "danger" &&
           "border-destructive/40 bg-destructive/10 text-destructive",
       )}
@@ -1318,7 +1318,7 @@ function StatusBadge({
           "border-amber-500/40 bg-amber-500/10 text-amber-400",
         tone === "success" &&
           "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
-        tone === "muted" && "border-border bg-muted text-muted-foreground",
+        tone === "muted" && "border-luxe bg-muted text-fog",
         tone === "danger" &&
           "border-destructive/40 bg-destructive/10 text-destructive",
       )}
@@ -1335,7 +1335,7 @@ function BackLink() {
     <Link
       to="/workspace/campaigns"
       data-testid="back-to-campaigns"
-      className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      className="inline-flex w-fit items-center gap-1.5 text-sm text-fog hover:text-gold transition-colors"
     >
       <ChevronLeft className="h-4 w-4" />
       Back to Campaigns
@@ -1360,10 +1360,10 @@ function NotFound() {
   return (
     <div
       data-testid="campaign-not-found"
-      className="rounded-md border border-dashed border-border p-12 text-center"
+      className="rounded-md border border-dashed border-luxe p-12 text-center"
     >
       <p className="text-base font-medium">Campaign not found</p>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <p className="mt-1 text-sm text-fog">
         This campaign may have been deleted or belongs to a different workspace.
       </p>
       <Button

@@ -29,6 +29,7 @@ import {
   VERIFICATION_STATUSES,
 } from "@/lib/api/scripts";
 import { cn } from "@/lib/utils";
+import { SectionHeader } from "@/components/editorial";
 
 // ---- Filter option shapes ---------------------------------------
 
@@ -75,43 +76,48 @@ export function WorkspaceScriptsRoute() {
   return (
     <div className="flex flex-col gap-8">
       {/* ---- Page header --------------------------------------- */}
-      <header className="flex flex-col gap-3">
+      <header className="relative flex flex-col gap-4 pb-10">
         <button
           type="button"
-          className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          className="inline-flex w-fit items-center gap-1.5 text-sm text-fog hover:text-gold transition-colors"
           onClick={() => navigate("/dashboard")}
         >
           <ChevronLeft className="h-4 w-4" />
           Back to dashboard
         </button>
+        <SectionHeader number={2} title="Scripts" />
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
-            <FileText className="h-7 w-7 text-muted-foreground" />
+            <FileText className="h-7 w-7 text-fog" />
             <h1
               data-testid="scripts-title"
-              className="font-display text-4xl leading-tight tracking-tight md:text-5xl"
+              className="font-display text-4xl leading-tight tracking-tight text-cream md:text-5xl"
             >
-              Auto Scripts
+              Auto <span className="italic gold-text">scripts.</span>
             </h1>
           </div>
           <Button asChild data-testid="new-script-btn">
             <Link to="/workspace/scripts/new">
               <Plus className="mr-2 h-4 w-4" />
-              New script
+              New script →
             </Link>
           </Button>
         </div>
-        <p className="max-w-2xl text-base text-muted-foreground">
+        <p className="max-w-2xl text-base text-mist">
           Draft a script with K2 knowledge retrieval and K6 verifier, approve
           it, then fire a render — all without leaving your workspace.
         </p>
+        <div
+          className="hairline-gold absolute inset-x-0 bottom-0 h-px"
+          aria-hidden="true"
+        />
       </header>
 
       {/* ---- Filters ------------------------------------------ */}
       <div className="flex flex-wrap items-center gap-4">
         {/* Status filter */}
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          <span className="text-[11px] font-mono uppercase tracking-[0.22em] text-fog">
             Status
           </span>
           <div
@@ -136,7 +142,7 @@ export function WorkspaceScriptsRoute() {
                     "inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                     isActive
                       ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground",
+                      : "border-luxe bg-muted/40 text-fog hover:bg-gold/10 hover:text-cream",
                   )}
                 >
                   {opt.label}
@@ -148,7 +154,7 @@ export function WorkspaceScriptsRoute() {
 
         {/* Verification filter */}
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          <span className="text-[11px] font-mono uppercase tracking-[0.22em] text-fog">
             Verifier
           </span>
           <div
@@ -173,7 +179,7 @@ export function WorkspaceScriptsRoute() {
                     "inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                     isActive
                       ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground",
+                      : "border-luxe bg-muted/40 text-fog hover:bg-gold/10 hover:text-cream",
                   )}
                 >
                   {opt.label}
@@ -186,10 +192,10 @@ export function WorkspaceScriptsRoute() {
 
       {/* ---- List --------------------------------------------- */}
       <section className="flex flex-col gap-4">
-        <h2 className="font-display text-2xl tracking-tight">
+        <h2 className="font-display text-2xl tracking-tight text-cream">
           {activeStatus ? scriptStatusLabel(activeStatus) : "All"} scripts
           {results.length > 0 && (
-            <span className="ml-2 text-xl text-muted-foreground font-sans font-normal">
+            <span className="ml-2 text-xl text-fog/70 font-sans font-normal">
               ({results.length})
             </span>
           )}
@@ -199,7 +205,7 @@ export function WorkspaceScriptsRoute() {
         {scripts.isLoading && (
           <ul
             data-testid="scripts-skeleton"
-            className="divide-y divide-border rounded-md border border-border bg-card"
+            className="divide-y divide-luxe rounded-md border border-luxe bg-card"
           >
             {Array.from({ length: 4 }).map((_, i) => (
               <li
@@ -241,11 +247,11 @@ export function WorkspaceScriptsRoute() {
         {!scripts.isLoading && !scripts.isError && results.length === 0 && (
           <div
             data-testid="scripts-empty"
-            className="rounded-md border border-dashed border-border p-12 text-center"
+            className="rounded-md border border-dashed border-luxe bg-card/40 p-12 text-center"
           >
-            <FileText className="mx-auto h-10 w-10 text-muted-foreground" />
-            <p className="mt-4 text-base font-medium">No scripts yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <FileText className="mx-auto h-10 w-10 text-fog" />
+            <p className="mt-4 font-display text-xl tracking-tight text-cream">No scripts yet</p>
+            <p className="mt-1 text-sm text-mist max-w-md mx-auto">
               Draft a script from your workspace knowledge, review + approve it,
               then fire a render — all with full K6 verification.
             </p>
@@ -266,7 +272,7 @@ export function WorkspaceScriptsRoute() {
         {results.length > 0 && (
           <ul
             data-testid="scripts-list"
-            className="divide-y divide-border rounded-md border border-border bg-card"
+            className="divide-y divide-luxe rounded-md border border-luxe bg-card"
           >
             {results.map((script) => (
               <ScriptRow key={script.id} script={script} />
@@ -305,7 +311,7 @@ function ScriptRow({ script }: { script: ScriptListItem }) {
   return (
     <li
       data-testid={`script-row-${script.id}`}
-      className="hover:bg-muted/30 transition-colors"
+      className="hover:bg-gold/5 transition-colors"
     >
       <Link
         to={`/workspace/scripts/${script.id}`}
@@ -324,7 +330,7 @@ function ScriptRow({ script }: { script: ScriptListItem }) {
               {script.name || "Untitled script"}
             </p>
           </div>
-          <p className="text-xs text-muted-foreground truncate">
+          <p className="text-xs text-fog truncate">
             <span className="font-medium">{script.spokesperson_name}</span>
             {" · "}
             <span className="opacity-80">{truncate(script.prompt, 80)}</span>
@@ -336,17 +342,17 @@ function ScriptRow({ script }: { script: ScriptListItem }) {
               <VerificationBadge tone={vTone} label={vLabel} />
             )}
             {script.model && (
-              <span className="text-[10px] text-muted-foreground font-mono">
+              <span className="text-[10px] text-fog font-mono">
                 {script.model}
               </span>
             )}
             {(script.tokens_input > 0 || script.tokens_output > 0) && (
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-[10px] text-fog">
                 {script.tokens_input + script.tokens_output} tok
               </span>
             )}
             {script.revision_count > 0 && (
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-[10px] text-fog">
                 {script.revision_count} rev{script.revision_count !== 1 ? "s" : ""}
               </span>
             )}
@@ -358,20 +364,20 @@ function ScriptRow({ script }: { script: ScriptListItem }) {
           className="flex shrink-0 flex-col items-end gap-2"
           onClick={(e) => e.preventDefault()}
         >
-          <span className="text-xs text-muted-foreground/60">
+          <span className="text-xs text-fog/60">
             {relativeTime(script.created_at)}
           </span>
           {canDelete && (
             <div className="flex items-center gap-1.5">
               {confirmDelete && (
                 <>
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-[10px] text-fog">
                     Confirm?
                   </span>
                   <button
                     type="button"
                     data-testid={`script-cancel-delete-${script.id}`}
-                    className="text-[10px] text-muted-foreground hover:text-foreground"
+                    className="text-[10px] text-fog hover:text-foreground"
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -387,7 +393,7 @@ function ScriptRow({ script }: { script: ScriptListItem }) {
                 data-testid={`script-delete-btn-${script.id}`}
                 disabled={deleteMutation.isPending}
                 onClick={(e) => void handleDelete(e)}
-                className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-fog hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
                 title={confirmDelete ? "Click to confirm delete" : "Delete script"}
               >
                 {deleteMutation.isPending ? (
@@ -402,7 +408,7 @@ function ScriptRow({ script }: { script: ScriptListItem }) {
           {!canDelete && (
             <span
               data-testid={`script-rendered-tag-${script.id}`}
-              className="text-[10px] text-muted-foreground/60"
+              className="text-[10px] text-fog/60"
               title="Rendered scripts cannot be deleted. Clone first."
             >
               rendered
@@ -431,7 +437,7 @@ export function StatusBadge({
           "border-amber-500/40 bg-amber-500/10 text-amber-400",
         tone === "success" &&
           "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
-        tone === "muted" && "border-border bg-muted text-muted-foreground",
+        tone === "muted" && "border-border bg-muted text-fog",
         tone === "danger" &&
           "border-destructive/40 bg-destructive/10 text-destructive",
       )}
@@ -458,7 +464,7 @@ export function VerificationBadge({
           "border-amber-500/30 bg-amber-500/10 text-amber-400",
         tone === "success" &&
           "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
-        tone === "muted" && "border-border bg-muted text-muted-foreground",
+        tone === "muted" && "border-border bg-muted text-fog",
         tone === "danger" &&
           "border-destructive/30 bg-destructive/10 text-destructive",
       )}

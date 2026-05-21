@@ -21,6 +21,7 @@ import {
   BUNDLE_STATUSES,
 } from "@/lib/api/bundles";
 import { cn } from "@/lib/utils";
+import { SectionHeader } from "@/components/editorial";
 
 // ---- Status filter chips labels ------------------------------
 
@@ -61,23 +62,24 @@ export function WorkspaceBundlesRoute() {
   return (
     <div className="flex flex-col gap-8">
       {/* ---- Page header --------------------------------------- */}
-      <header className="flex flex-col gap-3">
+      <header className="relative flex flex-col gap-4 pb-10">
         <button
           type="button"
-          className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          className="inline-flex w-fit items-center gap-1.5 text-sm text-fog hover:text-gold transition-colors"
           onClick={() => navigate("/dashboard")}
         >
           <ChevronLeft className="h-4 w-4" />
           Back to dashboard
         </button>
+        <SectionHeader number={5} title="Bundles" />
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
-            <Share2 className="h-7 w-7 text-muted-foreground" />
+            <Share2 className="h-7 w-7 text-fog" />
             <h1
               data-testid="bundles-title"
-              className="font-display text-4xl leading-tight tracking-tight md:text-5xl"
+              className="font-display text-4xl leading-tight tracking-tight text-cream md:text-5xl"
             >
-              Publish Bundles
+              Publish <span className="italic gold-text">bundles.</span>
             </h1>
           </div>
           <Button
@@ -86,14 +88,18 @@ export function WorkspaceBundlesRoute() {
           >
             <Link to="/workspace/bundles/new">
               <Plus className="mr-2 h-4 w-4" />
-              New bundle
+              New bundle →
             </Link>
           </Button>
         </div>
-        <p className="max-w-2xl text-base text-muted-foreground">
+        <p className="max-w-2xl text-base text-mist">
           Publish bundles fan a source clip out to 5+ social platforms in one
           click. All ffmpeg — $0 incremental cost.
         </p>
+        <div
+          className="hairline-gold absolute inset-x-0 bottom-0 h-px"
+          aria-hidden="true"
+        />
       </header>
 
       {/* ---- Status filter chips ------------------------------- */}
@@ -113,7 +119,7 @@ export function WorkspaceBundlesRoute() {
                 "inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                 isActive
                   ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground",
+                  : "border-luxe bg-muted/40 text-fog hover:bg-gold/10 hover:text-cream",
               )}
             >
               {opt.label}
@@ -124,10 +130,10 @@ export function WorkspaceBundlesRoute() {
 
       {/* ---- List ---------------------------------------------- */}
       <section className="flex flex-col gap-4">
-        <h2 className="font-display text-2xl tracking-tight">
+        <h2 className="font-display text-2xl tracking-tight text-cream">
           {activeStatus ? bundleStatusLabel(activeStatus) : "All"} bundles
           {results.length > 0 && (
-            <span className="ml-2 text-xl text-muted-foreground font-sans font-normal">
+            <span className="ml-2 text-xl text-fog/70 font-sans font-normal">
               ({results.length})
             </span>
           )}
@@ -137,7 +143,7 @@ export function WorkspaceBundlesRoute() {
         {bundles.isLoading && (
           <ul
             data-testid="bundles-skeleton"
-            className="divide-y divide-border rounded-md border border-border bg-card"
+            className="divide-y divide-luxe rounded-md border border-luxe bg-card"
           >
             {Array.from({ length: 4 }).map((_, i) => (
               <li
@@ -180,11 +186,11 @@ export function WorkspaceBundlesRoute() {
         {!bundles.isLoading && !bundles.isError && results.length === 0 && (
           <div
             data-testid="bundles-empty"
-            className="rounded-md border border-dashed border-border p-12 text-center"
+            className="rounded-md border border-dashed border-luxe bg-card/40 p-12 text-center"
           >
-            <Share2 className="mx-auto h-10 w-10 text-muted-foreground" />
-            <p className="mt-4 text-base font-medium">No publish bundles yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <Share2 className="mx-auto h-10 w-10 text-fog" />
+            <p className="mt-4 font-display text-xl tracking-tight text-cream">No publish bundles yet</p>
+            <p className="mt-1 text-sm text-mist max-w-md mx-auto">
               Publish bundles fan a source clip out to 5+ social platforms in
               one click. All ffmpeg — $0 incremental cost.
             </p>
@@ -203,7 +209,7 @@ export function WorkspaceBundlesRoute() {
         {results.length > 0 && (
           <ul
             data-testid="bundles-list"
-            className="divide-y divide-border rounded-md border border-border bg-card"
+            className="divide-y divide-luxe rounded-md border border-luxe bg-card"
           >
             {results.map((bundle) => (
               <BundleRow key={bundle.id} bundle={bundle} />
@@ -225,7 +231,7 @@ function BundleRow({ bundle }: { bundle: PublishBundle }) {
   return (
     <li
       data-testid={`bundle-row-${bundle.id}`}
-      className="hover:bg-muted/30 transition-colors"
+      className="hover:bg-gold/5 transition-colors"
     >
       <Link
         to={`/workspace/bundles/${bundle.id}`}
@@ -241,7 +247,7 @@ function BundleRow({ bundle }: { bundle: PublishBundle }) {
           >
             {bundle.name}
           </p>
-          <p className="mt-0.5 text-xs text-muted-foreground font-mono">
+          <p className="mt-0.5 text-xs text-fog font-mono">
             clip: {bundle.source_clip_id.slice(0, 8)}…
           </p>
         </div>
@@ -249,10 +255,10 @@ function BundleRow({ bundle }: { bundle: PublishBundle }) {
         {/* Meta row: status badge + variant count + date */}
         <div className="flex shrink-0 items-center gap-3">
           <StatusBadge tone={tone} label={label} />
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-fog">
             {total === 1 ? "1 variant" : `${total} variants`}
           </span>
-          <span className="text-xs text-muted-foreground/60">
+          <span className="text-xs text-fog/60">
             {relativeTime(bundle.created_at)}
           </span>
         </div>
@@ -279,7 +285,7 @@ export function StatusBadge({
         tone === "success" &&
           "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
         tone === "muted" &&
-          "border-border bg-muted text-muted-foreground",
+          "border-luxe bg-muted text-fog",
         tone === "danger" &&
           "border-destructive/40 bg-destructive/10 text-destructive",
       )}

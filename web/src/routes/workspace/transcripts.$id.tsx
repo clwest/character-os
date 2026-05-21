@@ -36,6 +36,7 @@ import {
 import { ApiError } from "@/lib/api/client";
 import { relativeTime } from "@/lib/api/workspace-assets";
 import { cn } from "@/lib/utils";
+import { SectionHeader } from "@/components/editorial";
 
 // ---- Constants -----------------------------------------------
 
@@ -90,31 +91,36 @@ export function WorkspaceTranscriptDetailRoute() {
       <BackLink />
 
       {/* ---- Page header ----------------------------------------- */}
-      <header className="flex flex-col gap-3">
+      <header className="relative flex flex-col gap-4 pb-10">
+        <SectionHeader number={8} title="Transcripts" />
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <h1
             data-testid="transcript-detail-title"
-            className="font-display text-4xl leading-tight tracking-tight md:text-5xl"
+            className="font-display text-4xl leading-tight tracking-tight text-cream md:text-5xl"
           >
             {displayTitle}
           </h1>
-          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-sm border border-border bg-muted/50 px-2.5 py-1 text-[11px] text-muted-foreground">
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-sm border border-luxe bg-muted/50 px-2.5 py-1 text-[11px] text-fog">
             Transcript
           </span>
         </div>
 
         {/* Metadata row */}
-        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-3 text-xs text-fog">
           <span>Created {new Date(data.created_at).toLocaleString()}</span>
           {data.size_bytes != null && data.size_bytes > 0 && (
             <span className="font-mono">{data.size_bytes.toLocaleString()} chars</span>
           )}
           {data.primitive_kind && (
-            <code className="rounded-sm border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+            <code className="rounded-sm border border-luxe bg-muted px-1.5 py-0.5 font-mono text-[10px]">
               {data.primitive_kind}
             </code>
           )}
         </div>
+        <div
+          className="hairline-gold absolute inset-x-0 bottom-0 h-px"
+          aria-hidden="true"
+        />
       </header>
 
       {/* ---- Mining panel (owns transcript body + approval UX) -- */}
@@ -162,11 +168,11 @@ function MiningPanel({
   return (
     <section
       data-testid="mining-panel"
-      className="flex flex-col gap-6 rounded-md border border-border bg-card p-5"
+      className="flex flex-col gap-6 rounded-md border border-luxe bg-card p-5"
     >
       {/* ---- Transcript body (with optional hover-highlight) ---- */}
       <div>
-        <h2 className="mb-3 font-display text-lg tracking-tight text-muted-foreground">
+        <h2 className="mb-3 font-display text-lg tracking-tight text-fog">
           Transcript
         </h2>
         {inlineContent ? (
@@ -180,7 +186,7 @@ function MiningPanel({
             />
           </pre>
         ) : (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-fog">
             No transcript body available.
           </p>
         )}
@@ -191,7 +197,7 @@ function MiningPanel({
           <h2 className="font-display text-xl tracking-tight">
             Mine highlights
           </h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-fog">
             The LLM will find the most shareable moments and save them as
             highlights for your review.
           </p>
@@ -203,7 +209,7 @@ function MiningPanel({
         <div className="flex flex-col gap-1.5">
           <label
             htmlFor="target-count"
-            className="text-xs font-medium text-muted-foreground"
+            className="text-xs font-medium text-fog"
           >
             Number of highlights
           </label>
@@ -222,7 +228,7 @@ function MiningPanel({
         <div className="flex flex-col gap-1.5">
           <label
             htmlFor="max-chars"
-            className="text-xs font-medium text-muted-foreground"
+            className="text-xs font-medium text-fog"
           >
             Max chars per highlight
           </label>
@@ -264,7 +270,7 @@ function MiningPanel({
           )}
         </Button>
         {!hasContent && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-fog">
             No transcript body to mine.
           </p>
         )}
@@ -402,7 +408,7 @@ function HighlightsList({
     return (
       <p
         data-testid="highlights-empty"
-        className="text-sm text-muted-foreground"
+        className="text-sm text-fog"
       >
         Click &quot;Mine highlights&quot; to find shareable moments.
       </p>
@@ -411,12 +417,12 @@ function HighlightsList({
 
   return (
     <div className="flex flex-col gap-3">
-      <h3 className="font-display text-base text-muted-foreground tracking-tight">
+      <h3 className="font-display text-base text-fog tracking-tight">
         Highlights ({highlights.length})
       </h3>
       <ul
         data-testid="highlights-list"
-        className="divide-y divide-border rounded-md border border-border bg-card/50"
+        className="divide-y divide-luxe rounded-md border border-luxe bg-card/50"
       >
         {highlights.map((h) => (
           <HighlightRow
@@ -525,10 +531,10 @@ function HighlightRow({
       {/* Top row: status badge + char range + mined-at */}
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge tone={effectiveTone} label={effectiveLabel} />
-        <span className="font-mono text-[10px] text-muted-foreground">
+        <span className="font-mono text-[10px] text-fog">
           [{h.char_start}, {h.char_end}]
         </span>
-        <span className="ml-auto shrink-0 text-[10px] text-muted-foreground/60">
+        <span className="ml-auto shrink-0 text-[10px] text-fog/60">
           {relativeTime(h.mined_at)}
         </span>
       </div>
@@ -545,7 +551,7 @@ function HighlightRow({
       {h.llm_reasoning && (
         <p
           data-testid={`highlight-reasoning-${h.id}`}
-          className="text-xs text-muted-foreground italic"
+          className="text-xs text-fog italic"
         >
           {h.llm_reasoning}
         </p>
@@ -609,7 +615,7 @@ function HighlightRow({
             onChange={(e) => setRejectReason(e.target.value)}
             placeholder="Optional: reason for rejection"
             rows={2}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+            className="w-full rounded-md border border-luxe bg-background px-3 py-2 text-xs placeholder:text-fog focus:outline-none focus:ring-1 focus:ring-ring resize-none"
           />
           <div className="flex gap-2">
             <Button
@@ -680,7 +686,7 @@ function HighlightRow({
       {h.status === "rejected" && h.rejection_reason && (
         <p
           data-testid={`highlight-rejection-reason-${h.id}`}
-          className="text-xs text-muted-foreground italic"
+          className="text-xs text-fog italic"
         >
           Reason: {h.rejection_reason}
         </p>
@@ -707,7 +713,7 @@ function StatusBadge({
         tone === "success" &&
           "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
         tone === "muted" &&
-          "border-border bg-muted text-muted-foreground",
+          "border-luxe bg-muted text-fog",
         tone === "danger" &&
           "border-destructive/40 bg-destructive/10 text-destructive",
       )}
@@ -724,7 +730,7 @@ function BackLink() {
     <Link
       to="/workspace/transcripts"
       data-testid="back-to-transcripts"
-      className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      className="inline-flex w-fit items-center gap-1.5 text-sm text-fog hover:text-gold transition-colors"
     >
       <ChevronLeft className="h-4 w-4" />
       Back to Transcript Miner
@@ -752,10 +758,10 @@ function NotFound() {
   return (
     <div
       data-testid="transcript-not-found"
-      className="rounded-md border border-dashed border-border p-12 text-center"
+      className="rounded-md border border-dashed border-luxe bg-card/40 p-12 text-center"
     >
-      <p className="text-base font-medium">Transcript not found</p>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <p className="font-display text-xl tracking-tight text-cream">Transcript not found</p>
+      <p className="mt-1 text-sm text-mist max-w-md mx-auto">
         This transcript may have been deleted or belongs to a different
         workspace.
       </p>

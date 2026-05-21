@@ -17,6 +17,7 @@ import { useMe } from "@/lib/api/workspaces";
 import { useTranscripts, useHighlightsForTranscript } from "@/lib/api/transcripts";
 import { relativeTime, type WorkspaceAsset } from "@/lib/api/workspace-assets";
 import { cn } from "@/lib/utils";
+import { SectionHeader } from "@/components/editorial";
 
 // ---- Page component ------------------------------------------
 
@@ -32,28 +33,33 @@ export function WorkspaceTranscriptsRoute() {
   return (
     <div className="flex flex-col gap-8">
       {/* ---- Page header ---------------------------------------- */}
-      <header className="flex flex-col gap-3">
+      <header className="relative flex flex-col gap-4 pb-10">
         <button
           type="button"
-          className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          className="inline-flex w-fit items-center gap-1.5 text-sm text-fog hover:text-gold transition-colors"
           onClick={() => navigate("/dashboard")}
         >
           <ChevronLeft className="h-4 w-4" />
           Back to dashboard
         </button>
+        <SectionHeader number={8} title="Transcripts" />
         <div className="flex items-center gap-3">
-          <Sparkles className="h-7 w-7 text-muted-foreground" />
+          <Sparkles className="h-7 w-7 text-gold/60" />
           <h1
             data-testid="transcripts-title"
-            className="font-display text-4xl leading-tight tracking-tight md:text-5xl"
+            className="font-display text-4xl leading-tight tracking-tight text-cream md:text-5xl"
           >
-            Transcript Miner
+            Transcript <span className="italic gold-text">miner.</span>
           </h1>
         </div>
-        <p className="max-w-2xl text-base text-muted-foreground">
+        <p className="max-w-2xl text-base text-mist">
           Every live session produces a transcript. Pick one, mine it for
           shareable highlights, then approve the clips you want rendered.
         </p>
+        <div
+          className="hairline-gold absolute inset-x-0 bottom-0 h-px"
+          aria-hidden="true"
+        />
       </header>
 
       {/* ---- List ---------------------------------------------- */}
@@ -61,7 +67,7 @@ export function WorkspaceTranscriptsRoute() {
         <h2 className="font-display text-2xl tracking-tight">
           Transcripts
           {results.length > 0 ? (
-            <span className="ml-2 text-xl text-muted-foreground font-sans font-normal">
+            <span className="ml-2 text-xl text-fog/70 font-sans font-normal">
               ({results.length})
             </span>
           ) : null}
@@ -71,7 +77,7 @@ export function WorkspaceTranscriptsRoute() {
         {transcripts.isLoading && (
           <ul
             data-testid="transcripts-skeleton"
-            className="divide-y divide-border rounded-md border border-border bg-card"
+            className="divide-y divide-luxe rounded-md border border-luxe bg-card"
           >
             {Array.from({ length: 4 }).map((_, i) => (
               <li
@@ -115,11 +121,11 @@ export function WorkspaceTranscriptsRoute() {
         {!transcripts.isLoading && !transcripts.isError && results.length === 0 && (
           <div
             data-testid="transcripts-empty"
-            className="rounded-md border border-dashed border-border p-12 text-center"
+            className="rounded-md border border-dashed border-luxe bg-card/40 p-12 text-center"
           >
-            <FileText className="mx-auto h-10 w-10 text-muted-foreground" />
-            <p className="mt-4 text-base font-medium">No transcripts yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <FileText className="mx-auto h-10 w-10 text-fog" />
+            <p className="mt-4 font-display text-xl tracking-tight text-cream">No transcripts yet</p>
+            <p className="mt-1 text-sm text-mist max-w-md mx-auto">
               Transcripts are created automatically at the end of a live
               realtime session.{" "}
               <Link
@@ -137,7 +143,7 @@ export function WorkspaceTranscriptsRoute() {
         {results.length > 0 && (
           <ul
             data-testid="transcripts-list"
-            className="divide-y divide-border rounded-md border border-border bg-card"
+            className="divide-y divide-luxe rounded-md border border-luxe bg-card"
           >
             {results.map((transcript) => (
               <TranscriptRow key={transcript.id} transcript={transcript} />
@@ -171,7 +177,7 @@ function TranscriptRow({ transcript }: { transcript: WorkspaceAsset }) {
   return (
     <li
       data-testid={`transcript-row-${transcript.id}`}
-      className="hover:bg-muted/30 transition-colors"
+      className="hover:bg-gold/5 transition-colors"
     >
       <Link
         to={`/workspace/transcripts/${transcript.id}`}
@@ -179,8 +185,8 @@ function TranscriptRow({ transcript }: { transcript: WorkspaceAsset }) {
         className="flex items-start gap-4 px-5 py-4"
       >
         {/* Icon */}
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded border border-border bg-muted">
-          <FileText className="h-5 w-5 text-muted-foreground" />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded border border-luxe bg-muted">
+          <FileText className="h-5 w-5 text-fog" />
         </div>
 
         {/* Content */}
@@ -196,7 +202,7 @@ function TranscriptRow({ transcript }: { transcript: WorkspaceAsset }) {
 
           {/* Preview */}
           {preview && (
-            <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground max-w-xl">
+            <p className="mt-0.5 line-clamp-2 text-xs text-fog max-w-xl">
               {preview.length > 120 ? `${preview.slice(0, 120)}…` : preview}
             </p>
           )}
@@ -204,7 +210,7 @@ function TranscriptRow({ transcript }: { transcript: WorkspaceAsset }) {
           {/* Meta row: char count + highlight badge + time */}
           <div className="mt-1 flex flex-wrap items-center gap-2">
             {charCount != null && charCount > 0 && (
-              <span className="inline-flex items-center rounded-sm border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              <span className="inline-flex items-center rounded-sm border border-luxe bg-muted px-1.5 py-0.5 font-mono text-[10px] text-fog">
                 {charCount.toLocaleString()} chars
               </span>
             )}
@@ -212,7 +218,7 @@ function TranscriptRow({ transcript }: { transcript: WorkspaceAsset }) {
             {/* Highlight count badge — eager from the pre-fetched list */}
             <HighlightCountBadge count={highlightCount} isLoading={highlights.isLoading} />
 
-            <span className="ml-auto shrink-0 text-xs text-muted-foreground/60">
+            <span className="ml-auto shrink-0 text-xs text-fog/60">
               {relativeTime(transcript.created_at)}
             </span>
           </div>
@@ -242,7 +248,7 @@ function HighlightCountBadge({
       <span
         className={cn(
           "inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px] font-medium",
-          "border-border bg-muted/50 text-muted-foreground",
+          "border-luxe bg-muted/50 text-fog",
         )}
       >
         <Sparkles className="h-2.5 w-2.5" />

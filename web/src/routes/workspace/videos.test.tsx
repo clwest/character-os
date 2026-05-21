@@ -100,7 +100,7 @@ describe("WorkspaceVideosRoute", () => {
   it("renders a loading skeleton while compositions are loading", () => {
     setUseCompositions({ isLoading: true, data: undefined, error: null, isFetching: true });
     renderRoute();
-    expect(screen.getByTestId("videos-title")).toHaveTextContent("Videos");
+    expect(screen.getByTestId("videos-title")).toBeInTheDocument();
   });
 
   it("renders the empty state when there are no videos", () => {

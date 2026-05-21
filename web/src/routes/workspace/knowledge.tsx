@@ -32,14 +32,13 @@ import {
 } from "@/lib/api/knowledge";
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
+import { SectionHeader } from "@/components/editorial";
 
 
 export function WorkspaceKnowledgeRoute() {
   const navigate = useNavigate();
   const me = useMe();
   const workspaceId = me.data?.default_workspace?.id;
-  const workspaceName = me.data?.default_workspace?.name;
-
   const list = useKnowledgeList(workspaceId, {
     refetchInterval: (query) => {
       // Poll while any doc is mid-pipeline. Stop polling once
@@ -56,37 +55,47 @@ export function WorkspaceKnowledgeRoute() {
 
   return (
     <div className="flex flex-col gap-10">
-      <header className="flex flex-col gap-3">
+      <header className="relative flex flex-col gap-4 pb-10">
         <button
           type="button"
-          className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          className="inline-flex w-fit items-center gap-1.5 text-sm text-fog hover:text-gold transition-colors"
           onClick={() => navigate("/dashboard")}
         >
           <ChevronLeft className="h-4 w-4" />
           Back to dashboard
         </button>
+        <SectionHeader number={1} title="Knowledge" />
         <h1
           data-testid="knowledge-title"
-          className="font-display text-4xl leading-tight tracking-tight md:text-5xl"
+          className="font-display text-4xl leading-tight tracking-tight text-cream md:text-5xl"
         >
-          Knowledge
+          What your{" "}
+          <span className="italic gold-text">spokespeople</span> know.
         </h1>
-        <p className="max-w-2xl text-base text-muted-foreground">
-          What {workspaceName ?? "your workspace"}'s spokespeople know about your
-          business. Paste markdown, upload PDFs — every render and conversation
+        <p className="max-w-2xl text-base text-mist">
+          Paste markdown, upload PDFs, ingest URLs — every render and conversation
           draws from this corpus.
         </p>
+        <div
+          className="hairline-gold absolute inset-x-0 bottom-0 h-px"
+          aria-hidden="true"
+        />
       </header>
 
       <UploadPanel workspaceId={workspaceId} />
 
       <section className="flex flex-col gap-4">
-        <h2 className="font-display text-2xl tracking-tight">
-          Documents{docs.length > 0 ? ` (${docs.length})` : ""}
-        </h2>
+        <div className="flex items-baseline justify-between border-b border-luxe pb-3">
+          <h2 className="font-display text-2xl tracking-tight text-cream">
+            Documents
+          </h2>
+          {docs.length > 0 && (
+            <span className="font-mono text-xs text-fog">{docs.length}</span>
+          )}
+        </div>
 
         {list.isLoading && (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <p className="text-sm text-fog">Loading…</p>
         )}
         {list.error && (
           <p className="text-sm text-destructive">
@@ -99,7 +108,7 @@ export function WorkspaceKnowledgeRoute() {
         {docs.length > 0 && (
           <ul
             data-testid="knowledge-list"
-            className="divide-y divide-border rounded-md border border-border bg-card"
+            className="divide-y divide-luxe rounded-md border border-luxe bg-card"
           >
             {docs.map((doc) => (
               <KnowledgeRow
@@ -118,10 +127,10 @@ export function WorkspaceKnowledgeRoute() {
 
 function EmptyState() {
   return (
-    <div className="rounded-md border border-dashed border-border p-12 text-center">
-      <FileText className="mx-auto h-10 w-10 text-muted-foreground" />
-      <p className="mt-4 text-base font-medium">No documents yet</p>
-      <p className="mt-1 text-sm text-muted-foreground">
+    <div className="rounded-md border border-dashed border-luxe bg-card/40 p-12 text-center">
+      <FileText className="mx-auto h-10 w-10 text-fog" />
+      <p className="mt-4 font-display text-xl tracking-tight text-cream">No documents yet</p>
+      <p className="mt-1 text-sm text-mist max-w-md mx-auto">
         Paste content or upload a PDF above. Every spokesperson in the
         workspace will be able to draw from it.
       </p>
@@ -134,10 +143,10 @@ function UploadPanel({ workspaceId }: { workspaceId: string | undefined }) {
   return (
     <section
       data-testid="knowledge-upload"
-      className="rounded-md border border-border bg-card p-6"
+      className="rounded-md border border-luxe bg-card/60 p-6"
     >
-      <h2 className="font-display text-2xl tracking-tight">Add knowledge</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <h2 className="font-display text-2xl tracking-tight text-cream">Add knowledge</h2>
+      <p className="mt-1 text-sm text-mist">
         Pick paste for typed content, upload for PDFs, URL to ingest a
         web page snapshot, or Search to find content via the web.
       </p>
@@ -499,7 +508,7 @@ function SearchForm({ workspaceId }: { workspaceId: string | undefined }) {
       {results.length > 0 && (
         <ul
           data-testid="search-results"
-          className="divide-y divide-border rounded-md border border-border bg-card"
+          className="divide-y divide-luxe rounded-md border border-luxe bg-card"
         >
           {results.map((r) => (
             <li
@@ -508,14 +517,14 @@ function SearchForm({ workspaceId }: { workspaceId: string | undefined }) {
               className="flex items-start gap-3 px-4 py-3"
             >
               <div className="flex-1 min-w-0">
-                <p className="truncate text-sm font-medium" title={r.title}>
+                <p className="truncate text-sm font-medium text-cream" title={r.title}>
                   {r.title}
                 </p>
-                <p className="truncate text-xs text-muted-foreground" title={r.url}>
+                <p className="truncate text-xs text-fog" title={r.url}>
                   {r.url}
                 </p>
                 {r.snippet && (
-                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                  <p className="mt-1 line-clamp-2 text-xs text-mist">
                     {r.snippet}
                   </p>
                 )}
@@ -572,7 +581,7 @@ function KnowledgeRow({
             {doc.title}
           </Link>
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="mt-1 text-xs text-fog">
           {labelForType(doc.document_type)} · {doc.chunk_count} chunk
           {doc.chunk_count === 1 ? "" : "s"} · {labelForIngestedVia(doc.ingested_via)}
         </p>
@@ -609,7 +618,7 @@ function StatusPill({ status }: { status: DocumentStatus }) {
       data-status={status}
       className={cn(
         "inline-flex shrink-0 items-center rounded-sm border px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider",
-        tone === "neutral" && "border-border bg-muted text-muted-foreground",
+        tone === "neutral" && "border-luxe bg-muted text-fog",
         tone === "info" && "border-primary/40 bg-primary/10 text-primary",
         tone === "success" && "border-success/40 bg-success/10 text-success",
         tone === "danger" && "border-destructive/40 bg-destructive/10 text-destructive",

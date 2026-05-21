@@ -164,18 +164,18 @@ function BundleMetadataPanel({ bundle }: { bundle: PublishBundle }) {
   return (
     <section
       data-testid="bundle-metadata"
-      className="rounded-md border border-border bg-card p-6 flex flex-col gap-5"
+      className="rounded-md border border-luxe bg-card p-6 flex flex-col gap-5"
     >
       {/* Header row */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex flex-col gap-1">
           <h1
             data-testid="bundle-detail-name"
-            className="font-display text-3xl leading-tight tracking-tight"
+            className="font-display text-3xl leading-tight tracking-tight text-cream"
           >
             {bundle.name}
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-fog">
             Source clip:{" "}
             <Link
               to={`/workspace/assets/${bundle.source_clip_id}`}
@@ -189,9 +189,9 @@ function BundleMetadataPanel({ bundle }: { bundle: PublishBundle }) {
       </div>
 
       {/* Variant count summary */}
-      <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
+      <div className="flex flex-wrap gap-3 text-sm text-fog">
         <span>
-          <strong className="text-foreground">
+          <strong className="text-cream">
             {bundle.variant_counts.total}
           </strong>{" "}
           variant{bundle.variant_counts.total !== 1 ? "s" : ""}
@@ -214,7 +214,7 @@ function BundleMetadataPanel({ bundle }: { bundle: PublishBundle }) {
       {/* Selected platforms chips */}
       {bundle.selected_platforms.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          <p className="text-xs font-medium text-fog uppercase tracking-wider">
             Platforms
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -222,7 +222,7 @@ function BundleMetadataPanel({ bundle }: { bundle: PublishBundle }) {
               <span
                 key={key}
                 data-testid={`platform-chip-${key}`}
-                className="inline-flex items-center rounded-sm border border-border bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground"
+                className="inline-flex items-center rounded-sm border border-luxe bg-muted px-1.5 py-0.5 text-[11px] text-fog"
               >
                 {platformDisplay(key)}
               </span>
@@ -233,7 +233,7 @@ function BundleMetadataPanel({ bundle }: { bundle: PublishBundle }) {
 
       {/* Delete bundle — DRAFT or terminal only */}
       {canDelete && (
-        <div className="flex flex-col gap-2 pt-2 border-t border-border">
+        <div className="flex flex-col gap-2 pt-2 border-t border-luxe">
           {deleteError && (
             <p
               data-testid="delete-bundle-error"
@@ -276,7 +276,7 @@ function BundleMetadataPanel({ bundle }: { bundle: PublishBundle }) {
               </Button>
             )}
             {confirmDelete && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-fog">
                 This will permanently delete the bundle and all variants.
               </p>
             )}
@@ -341,13 +341,13 @@ function ForecastPanel({
   return (
     <section
       data-testid="forecast-panel"
-      className="rounded-md border border-border bg-card p-6 flex flex-col gap-4"
+      className="rounded-md border border-luxe bg-card p-6 flex flex-col gap-4"
     >
       <h2 className="font-display text-xl tracking-tight">Launch</h2>
 
       {/* Cost + time preview */}
       {forecast.isLoading && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2 text-sm text-fog">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           Calculating…
         </div>
@@ -357,9 +357,9 @@ function ForecastPanel({
           data-testid="forecast-summary"
           className="flex flex-col gap-2 text-sm"
         >
-          <div className="flex flex-wrap gap-x-6 gap-y-1 text-muted-foreground">
+          <div className="flex flex-wrap gap-x-6 gap-y-1 text-fog">
             <span>
-              <strong className="text-foreground">{f.variant_count}</strong>{" "}
+              <strong className="text-cream">{f.variant_count}</strong>{" "}
               variant{f.variant_count !== 1 ? "s" : ""}
             </span>
             <span>
@@ -368,13 +368,13 @@ function ForecastPanel({
             </span>
             <span>
               Est. time:{" "}
-              <strong className="text-foreground">
+              <strong className="text-cream">
                 ~{f.estimated_wall_time_s}s
               </strong>
             </span>
             <span
               data-testid="batch-cap-badge"
-              className="inline-flex items-center rounded-sm border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+              className="inline-flex items-center rounded-sm border border-luxe bg-muted px-1.5 py-0.5 text-[10px] font-medium text-fog"
             >
               batch cap: 10
             </span>
@@ -398,10 +398,10 @@ function ForecastPanel({
       {/* Variant preview list (DRAFT: shows what will fire) */}
       {bundle.selected_platforms.length > 0 && (
         <div className="flex flex-col gap-2">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          <p className="text-xs font-medium text-fog uppercase tracking-wider">
             Variant preview
           </p>
-          <div className="rounded-md border border-border bg-muted/20 divide-y divide-border">
+          <div className="rounded-md border border-luxe bg-muted/20 divide-y divide-luxe">
             {bundle.selected_platforms.map((key) => {
               const cat = [
                 { key: "reels", target_ratio: "720:1280", max_duration_ms: 60000 },
@@ -418,7 +418,7 @@ function ForecastPanel({
                 >
                   <span className="font-medium">{platformDisplay(key)}</span>
                   {cat && (
-                    <span className="text-xs text-muted-foreground font-mono">
+                    <span className="text-xs text-fog font-mono">
                       {cat.target_ratio} · {formatDurationS(cat.max_duration_ms)} max
                     </span>
                   )}
@@ -523,7 +523,7 @@ function LaunchModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="launch-modal-heading"
-        className="relative w-full max-w-md rounded-lg border border-border bg-card shadow-xl p-6 flex flex-col gap-5"
+        className="relative w-full max-w-md rounded-lg border border-luxe bg-card shadow-xl p-6 flex flex-col gap-5"
         onClick={(e) => e.stopPropagation()}
       >
         {!isPending && (
@@ -532,7 +532,7 @@ function LaunchModal({
             aria-label="Close"
             data-testid="launch-modal-close"
             onClick={onCancel}
-            className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
+            className="absolute top-4 right-4 text-fog hover:text-gold"
           >
             <X className="h-4 w-4" />
           </button>
@@ -547,14 +547,14 @@ function LaunchModal({
           {forecast.variant_count !== 1 ? "s" : ""}?
         </h2>
 
-        <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+        <div className="flex flex-col gap-2 text-sm text-fog">
           <p>
             Bundle:{" "}
-            <strong className="text-foreground">{bundle.name}</strong>
+            <strong className="text-cream">{bundle.name}</strong>
           </p>
           <p>
             Platforms:{" "}
-            <strong className="text-foreground">
+            <strong className="text-cream">
               {bundle.selected_platforms.map((k) => platformDisplay(k)).join(", ")}
             </strong>
           </p>
@@ -564,11 +564,11 @@ function LaunchModal({
           </p>
           <p>
             Estimated wall-time:{" "}
-            <strong className="text-foreground">
+            <strong className="text-cream">
               ~{forecast.estimated_wall_time_s}s
             </strong>
           </p>
-          <p className="text-xs text-muted-foreground/80 mt-1">
+          <p className="text-xs text-fog/80 mt-1">
             Each variant reformats the source clip to the platform&apos;s
             aspect ratio and trims to its maximum duration. Platform clips
             are not counted against your monthly video allowance.
@@ -675,7 +675,7 @@ function VariantGrid({
   return (
     <section
       data-testid="variant-grid"
-      className="rounded-md border border-border bg-card p-6 flex flex-col gap-5"
+      className="rounded-md border border-luxe bg-card p-6 flex flex-col gap-5"
     >
       <div className="flex flex-col gap-1">
         <h2 className="font-display text-xl tracking-tight">Variants</h2>
@@ -686,7 +686,7 @@ function VariantGrid({
             data-testid="progress-summary"
             className="flex flex-col gap-2"
           >
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-fog">
               <span className="text-foreground font-medium">
                 {completedPlusFailed} of {counts.total}
               </span>{" "}
@@ -711,14 +711,14 @@ function VariantGrid({
       </div>
 
       {variants.isLoading && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2 text-sm text-fog">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           Loading variants…
         </div>
       )}
 
       {rows.length > 0 && (
-        <div className="flex flex-col divide-y divide-border">
+        <div className="flex flex-col divide-y divide-luxe">
           {rows.map((v) => (
             <VariantRow
               key={v.id}
@@ -732,7 +732,7 @@ function VariantGrid({
       )}
 
       {!variants.isLoading && rows.length === 0 && (
-        <p className="text-sm text-muted-foreground">No variants found.</p>
+        <p className="text-sm text-fog">No variants found.</p>
       )}
     </section>
   );
@@ -800,7 +800,7 @@ function VariantRow({
         {/* Ratio + duration */}
         <span
           data-testid={`variant-specs-${variant.id}`}
-          className="text-xs text-muted-foreground font-mono"
+          className="text-xs text-fog font-mono"
         >
           {variant.target_ratio} · {formatDurationS(variant.max_duration_ms)} max
         </span>
@@ -861,7 +861,7 @@ function VariantRow({
           </Button>
           {confirmRetry && !retry.isPending && (
             <>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-fog">
                 A new variant render will fire for this platform.
               </p>
               <Button
@@ -898,7 +898,7 @@ function VariantStatusBadge({
         tone === "amber" && "border-amber-500/40 bg-amber-500/10 text-amber-400",
         tone === "success" &&
           "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
-        tone === "muted" && "border-border bg-muted text-muted-foreground",
+        tone === "muted" && "border-luxe bg-muted text-fog",
         tone === "danger" &&
           "border-destructive/40 bg-destructive/10 text-destructive",
       )}
@@ -926,7 +926,7 @@ function StatusBadge({
           "border-amber-500/40 bg-amber-500/10 text-amber-400",
         tone === "success" &&
           "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
-        tone === "muted" && "border-border bg-muted text-muted-foreground",
+        tone === "muted" && "border-luxe bg-muted text-fog",
         tone === "danger" &&
           "border-destructive/40 bg-destructive/10 text-destructive",
       )}
@@ -943,7 +943,7 @@ function BackLink() {
     <Link
       to="/workspace/bundles"
       data-testid="back-to-bundles"
-      className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      className="inline-flex w-fit items-center gap-1.5 text-sm text-fog hover:text-gold transition-colors"
     >
       <ChevronLeft className="h-4 w-4" />
       Back to Bundles
@@ -968,10 +968,10 @@ function NotFound() {
   return (
     <div
       data-testid="bundle-not-found"
-      className="rounded-md border border-dashed border-border p-12 text-center"
+      className="rounded-md border border-dashed border-luxe bg-card/40 p-12 text-center"
     >
       <p className="text-base font-medium">Bundle not found</p>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <p className="mt-1 text-sm text-fog">
         This bundle may have been deleted or belongs to a different workspace.
       </p>
       <Button

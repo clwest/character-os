@@ -47,6 +47,7 @@ import {
   type StorageHealth,
 } from "@/lib/api/workspace-assets";
 import { cn } from "@/lib/utils";
+import { SectionHeader } from "@/components/editorial";
 
 // ---- Constants ------------------------------------------------
 
@@ -145,36 +146,41 @@ export function WorkspaceAssetsRoute() {
   return (
     <div className="flex flex-col gap-8">
       {/* ---- Page header ---------------------------------------- */}
-      <header className="flex flex-col gap-3">
+      <header className="relative flex flex-col gap-4 pb-10">
         <button
           type="button"
-          className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          className="inline-flex w-fit items-center gap-1.5 text-sm text-fog hover:text-gold transition-colors"
           onClick={() => navigate("/dashboard")}
         >
           <ChevronLeft className="h-4 w-4" />
           Back to dashboard
         </button>
+        <SectionHeader number={7} title="Asset Library" />
         <h1
           data-testid="assets-title"
-          className="font-display text-4xl leading-tight tracking-tight md:text-5xl"
+          className="font-display text-4xl leading-tight tracking-tight text-cream md:text-5xl"
         >
-          Asset Library
+          Asset <span className="italic gold-text">library.</span>
         </h1>
-        <p className="max-w-2xl text-base text-muted-foreground">
+        <p className="max-w-2xl text-base text-mist">
           Every clip, image, audio track, and transcript produced by your
           workspace. Filter by role or type to find what you need.
         </p>
         {/* Q-a-6 deferral notice */}
-        <p className="max-w-2xl text-sm text-muted-foreground/70">
+        <p className="max-w-2xl text-sm text-fog">
           Avatars, voices, and portraits live on the Spokesperson page — not
           shown here in v1.
         </p>
+        <div
+          className="hairline-gold absolute inset-x-0 bottom-0 h-px"
+          aria-hidden="true"
+        />
       </header>
 
       {/* ---- Filter bar ----------------------------------------- */}
       <section
         data-testid="assets-filters"
-        className="rounded-md border border-border bg-card p-5 flex flex-col gap-4"
+        className="rounded-md border border-luxe bg-card/60 p-5 flex flex-col gap-4"
       >
         {/* Primary filter row: role + asset_type + storage */}
         <div className="flex flex-wrap gap-6">
@@ -214,7 +220,7 @@ export function WorkspaceAssetsRoute() {
         <button
           type="button"
           data-testid="more-filters-toggle"
-          className="inline-flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          className="inline-flex w-fit items-center gap-1 text-xs text-fog hover:text-gold transition-colors"
           onClick={() => setMoreFiltersOpen((o) => !o)}
           aria-expanded={moreFiltersOpen}
         >
@@ -233,7 +239,7 @@ export function WorkspaceAssetsRoute() {
             className="flex flex-wrap gap-4"
           >
             <div className="flex flex-col gap-1.5 min-w-[220px]">
-              <label className="text-xs font-medium text-muted-foreground">
+              <label className="text-xs font-mono uppercase tracking-[0.22em] text-fog">
                 Search
               </label>
               <Input
@@ -245,7 +251,7 @@ export function WorkspaceAssetsRoute() {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-muted-foreground">
+              <label className="text-xs font-mono uppercase tracking-[0.22em] text-fog">
                 Created after
               </label>
               <Input
@@ -257,7 +263,7 @@ export function WorkspaceAssetsRoute() {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-muted-foreground">
+              <label className="text-xs font-mono uppercase tracking-[0.22em] text-fog">
                 Created before
               </label>
               <Input
@@ -269,7 +275,7 @@ export function WorkspaceAssetsRoute() {
               />
             </div>
             <div className="flex flex-col gap-1.5 min-w-[220px]">
-              <label className="text-xs font-medium text-muted-foreground">
+              <label className="text-xs font-mono uppercase tracking-[0.22em] text-fog">
                 Primitive kind
               </label>
               <Input
@@ -339,7 +345,7 @@ export function WorkspaceAssetsRoute() {
             ].map(({ key, label, onRemove }) => (
               <span
                 key={key}
-                className="inline-flex items-center gap-1 rounded-sm border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                className="inline-flex items-center gap-1 rounded-sm border border-luxe bg-muted px-2 py-0.5 text-xs text-fog"
               >
                 {label}
                 <button
@@ -372,13 +378,13 @@ export function WorkspaceAssetsRoute() {
           <h2 className="font-display text-2xl tracking-tight">
             Assets
             {totalCount > 0 ? (
-              <span className="ml-2 text-xl text-muted-foreground font-sans font-normal">
+              <span className="ml-2 text-xl text-fog font-sans font-normal">
                 ({totalCount.toLocaleString()})
               </span>
             ) : null}
           </h2>
           {/* Page size selector */}
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 text-sm text-fog">
             <span>Show</span>
             {PAGE_SIZES.map((ps) => (
               <button
@@ -410,7 +416,7 @@ export function WorkspaceAssetsRoute() {
         {assets.isLoading && (
           <ul
             data-testid="assets-skeleton"
-            className="divide-y divide-border rounded-md border border-border bg-card"
+            className="divide-y divide-luxe rounded-md border border-luxe bg-card"
           >
             {Array.from({ length: 5 }).map((_, i) => (
               <li
@@ -454,13 +460,13 @@ export function WorkspaceAssetsRoute() {
         {!assets.isLoading && !assets.isError && results.length === 0 && (
           <div
             data-testid="assets-empty"
-            className="rounded-md border border-dashed border-border p-12 text-center"
+            className="rounded-md border border-dashed border-luxe bg-card/40 p-12 text-center"
           >
-            <Film className="mx-auto h-10 w-10 text-muted-foreground" />
+            <Film className="mx-auto h-10 w-10 text-fog" />
             <p className="mt-4 text-base font-medium">No assets found</p>
             {hasAnyFilter ? (
               <>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 text-sm text-mist">
                   No assets match these filters. Clear filters to see
                   everything.
                 </p>
@@ -488,7 +494,7 @@ export function WorkspaceAssetsRoute() {
         {results.length > 0 && (
           <ul
             data-testid="assets-list"
-            className="divide-y divide-border rounded-md border border-border bg-card"
+            className="divide-y divide-luxe rounded-md border border-luxe bg-card"
           >
             {results.map((asset) => (
               <AssetRow key={asset.id} asset={asset} />
@@ -513,7 +519,7 @@ export function WorkspaceAssetsRoute() {
               <PrevIcon className="mr-1.5 h-4 w-4" />
               Previous
             </Button>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm text-fog">
               Page {page}
             </span>
             <Button
@@ -545,7 +551,7 @@ function AssetRow({ asset }: { asset: WorkspaceAsset }) {
   return (
     <li
       data-testid={`asset-row-${asset.id}`}
-      className="flex items-start gap-4 px-5 py-4 hover:bg-muted/30 transition-colors"
+      className="flex items-start gap-4 px-5 py-4 hover:bg-gold/5 transition-colors"
     >
       {/* Thumbnail / icon */}
       <AssetThumbnail asset={asset} />
@@ -567,7 +573,7 @@ function AssetRow({ asset }: { asset: WorkspaceAsset }) {
           {/* Role badge */}
           <span
             data-testid={`asset-role-badge-${asset.id}`}
-            className="inline-flex items-center rounded-sm border border-border bg-muted px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+            className="inline-flex items-center rounded-sm border border-luxe bg-muted px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider text-fog"
           >
             {assetRoleLabel(asset.role)}
           </span>
@@ -584,7 +590,7 @@ function AssetRow({ asset }: { asset: WorkspaceAsset }) {
               healthTone === "danger" &&
                 "border-destructive/40 bg-destructive/10 text-destructive",
               healthTone === "neutral" &&
-                "border-border bg-muted text-muted-foreground",
+                "border-luxe bg-muted text-fog",
             )}
           >
             {storageHealthLabel(asset.storage_health)}
@@ -594,7 +600,7 @@ function AssetRow({ asset }: { asset: WorkspaceAsset }) {
           {asset.primitive_kind && (
             <span
               data-testid={`asset-primitive-badge-${asset.id}`}
-              className="inline-flex items-center rounded-sm border border-border bg-muted/50 px-2 py-0.5 font-mono text-[10px] text-muted-foreground"
+              className="inline-flex items-center rounded-sm border border-luxe bg-muted/50 px-2 py-0.5 font-mono text-[10px] text-fog"
             >
               {asset.primitive_kind}
             </span>
@@ -616,7 +622,7 @@ function AssetRow({ asset }: { asset: WorkspaceAsset }) {
         <div className="mt-1 flex items-start gap-3">
           {asset.producing_prompt && (
             <p
-              className="line-clamp-1 max-w-md text-xs text-muted-foreground"
+              className="line-clamp-1 max-w-md text-xs text-mist"
               title={asset.producing_prompt}
             >
               {asset.producing_prompt.length > 120
@@ -624,7 +630,7 @@ function AssetRow({ asset }: { asset: WorkspaceAsset }) {
                 : asset.producing_prompt}
             </p>
           )}
-          <span className="ml-auto shrink-0 text-xs text-muted-foreground/60">
+          <span className="ml-auto shrink-0 text-xs text-fog/60">
             {relativeTime(asset.created_at)}
           </span>
         </div>
@@ -652,7 +658,7 @@ function AssetThumbnail({ asset }: { asset: WorkspaceAsset }) {
     );
   }
 
-  const iconClass = "h-6 w-6 text-muted-foreground";
+  const iconClass = "h-6 w-6 text-fog";
   let Icon: React.FC<{ className?: string }>;
   switch (asset.asset_type as AssetType) {
     case "clip":
@@ -674,7 +680,7 @@ function AssetThumbnail({ asset }: { asset: WorkspaceAsset }) {
   return (
     <div
       data-testid={`asset-icon-${asset.id}`}
-      className="flex h-14 w-14 shrink-0 items-center justify-center rounded border border-border bg-muted"
+      className="flex h-14 w-14 shrink-0 items-center justify-center rounded border border-luxe bg-muted"
     >
       <Icon className={iconClass} />
     </div>
@@ -703,7 +709,7 @@ function FilterGroup({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <span className="text-xs font-mono uppercase tracking-[0.22em] text-fog">{label}</span>
       <div className="flex flex-wrap gap-1.5">
         {options.map((opt) => {
           const active = selected.includes(opt.value);
@@ -718,7 +724,7 @@ function FilterGroup({
                 "rounded-sm border px-2.5 py-1 text-xs transition-colors",
                 active
                   ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground",
+                  : "border-luxe bg-muted/50 text-fog hover:bg-gold/10 hover:text-cream",
               )}
             >
               {opt.label}

@@ -242,10 +242,10 @@ export function RecipeFormRoute() {
           </div>
         )}
 
-        <div className="flex items-center justify-between border-t pt-6">
+        <div className="flex items-center justify-between border-t border-luxe pt-6">
           <Link
             to={galleryHref}
-            className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+            className="font-mono text-xs uppercase tracking-[0.22em] text-fog transition-colors hover:text-gold"
           >
             Cancel
           </Link>
@@ -271,18 +271,18 @@ function Header({
   galleryHref: string;
 }) {
   return (
-    <header className="flex flex-col gap-3 border-b pb-6">
+    <header className="relative flex flex-col gap-3 border-b border-luxe pb-6">
       <Link
         to={galleryHref}
-        className="inline-flex w-fit items-center gap-1 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex w-fit items-center gap-1 font-mono text-[11px] uppercase tracking-[0.22em] text-fog transition-colors hover:text-gold"
       >
         <ArrowLeft className="h-3 w-3" />
         All recipes
       </Link>
-      <h1 className="font-display text-3xl leading-tight tracking-tight md:text-4xl">
+      <h1 className="font-display text-3xl leading-tight tracking-tight text-cream md:text-4xl">
         {recipe.display_name}
       </h1>
-      <p className="max-w-2xl text-muted-foreground">{recipe.description}</p>
+      <p className="max-w-2xl text-mist">{recipe.description}</p>
     </header>
   );
 }
@@ -313,13 +313,13 @@ function FieldRenderer({
       <div className="flex flex-col gap-1">
         <Label
           htmlFor={id}
-          className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground"
+          className="text-[11px] uppercase tracking-[0.22em] text-fog"
         >
           {field.label}
-          {!field.required && <span className="ml-2 normal-case tracking-normal text-muted-foreground/60">(optional)</span>}
+          {!field.required && <span className="ml-2 normal-case tracking-normal text-fog/60">(optional)</span>}
         </Label>
         {field.help_text && (
-          <p className="text-xs text-muted-foreground">{field.help_text}</p>
+          <p className="text-xs text-fog">{field.help_text}</p>
         )}
         {briefModeHelper && (
           <p
@@ -380,7 +380,7 @@ function FieldInput({
           id={id}
           rows={6}
           maxLength={field.max_chars}
-          className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-fog focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           value={(defaultedValue as string) ?? ""}
           onChange={(e) => onChange(e.target.value)}
         />
@@ -396,7 +396,7 @@ function FieldInput({
             onChange={(e) => onChange(e.target.checked)}
             className="h-4 w-4 rounded border-input"
           />
-          <span className="text-muted-foreground">Enable</span>
+          <span className="text-fog">Enable</span>
         </label>
       );
     }
@@ -535,7 +535,7 @@ function AssetPicker({
   const list = assets.data ?? [];
   if (list.length === 0) {
     return (
-      <div className="flex flex-col gap-1 rounded-md border border-dashed bg-muted/20 p-4 text-xs text-muted-foreground">
+      <div className="flex flex-col gap-1 rounded-md border border-dashed bg-muted/20 p-4 text-xs text-fog">
         <p className="font-mono uppercase tracking-[0.22em]">
           No {assetType} assets yet
         </p>
@@ -630,7 +630,7 @@ function ScriptPicker({
     return (
       <div
         data-testid="script-picker-empty"
-        className="flex flex-col gap-1 rounded-md border border-dashed bg-muted/20 p-4 text-xs text-muted-foreground"
+        className="flex flex-col gap-1 rounded-md border border-dashed bg-muted/20 p-4 text-xs text-fog"
       >
         <p className="font-mono uppercase tracking-[0.22em]">
           No approved scripts yet
@@ -789,13 +789,13 @@ function DialogueLinesEditor({
           data-testid={`dialogue-line-${idx}`}
         >
           <div className="flex items-center justify-between">
-            <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+            <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-fog">
               Line {idx + 1}
             </span>
             <button
               type="button"
               onClick={() => removeLine(idx)}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-destructive"
+              className="inline-flex items-center gap-1 text-xs text-fog transition-colors hover:text-destructive"
               data-testid={`dialogue-line-remove-${idx}`}
               aria-label={`Remove line ${idx + 1}`}
             >
@@ -822,7 +822,7 @@ function DialogueLinesEditor({
             value={line.text}
             onChange={(e) => updateLine(idx, { text: e.target.value })}
             placeholder="What this character says…"
-            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-fog focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             data-testid={`dialogue-line-text-${idx}`}
           />
         </div>
@@ -830,7 +830,7 @@ function DialogueLinesEditor({
       <button
         type="button"
         onClick={addLine}
-        className="inline-flex w-fit items-center gap-1.5 rounded-md border border-dashed px-3 py-2 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
+        className="inline-flex w-fit items-center gap-1.5 rounded-md border border-dashed px-3 py-2 font-mono text-[11px] uppercase tracking-[0.22em] text-fog transition-colors hover:border-gold/40 hover:text-gold"
         data-testid="dialogue-line-add"
       >
         <Plus className="h-3 w-3" />
@@ -867,33 +867,33 @@ function KnowledgePreviewPanel({
   let body: React.ReactNode;
   if (!spokespersonPicked) {
     body = (
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs text-fog">
         Pick a spokesperson above to preview what knowledge would inform this
         render.
       </p>
     );
   } else if (!queryReady) {
     body = (
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs text-fog">
         Type a brief above (at least 8 characters) to preview the knowledge
         that would feed the LLM-synthesized script.
       </p>
     );
   } else if (isLoading && !data) {
     body = (
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs text-fog">
         Checking what knowledge applies…
       </p>
     );
   } else if (error || data?.preview_failed) {
     body = (
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs text-fog">
         Preview unavailable. The render will still pull knowledge at submit time.
       </p>
     );
   } else if (data && data.total_chunks === 0) {
     body = (
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs text-fog">
         No matching knowledge for this brief. The render will use just your
         prompt + the spokesperson's business brief.
       </p>
@@ -901,7 +901,7 @@ function KnowledgePreviewPanel({
   } else if (data) {
     body = (
       <>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-fog">
           The LLM would draw from{" "}
           <strong>
             {data.docs_used.length} doc{data.docs_used.length === 1 ? "" : "s"}
@@ -915,7 +915,7 @@ function KnowledgePreviewPanel({
               className="flex items-baseline justify-between"
             >
               <span className="line-clamp-1">{d.title}</span>
-              <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+              <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-fog">
                 {d.chunk_count} chunk{d.chunk_count === 1 ? "" : "s"}
               </span>
             </li>
@@ -933,7 +933,7 @@ function KnowledgePreviewPanel({
       data-testid="knowledge-preview-panel"
       aria-busy={isLoading || undefined}
     >
-      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-fog">
         Knowledge preview
       </p>
       {body}
@@ -941,7 +941,7 @@ function KnowledgePreviewPanel({
         // Defensive — should not normally render; covers a
         // theoretical state where enabled is false despite
         // the prerequisites being met (e.g. mid-debounce).
-        <p className="text-xs text-muted-foreground">Updating preview…</p>
+        <p className="text-xs text-fog">Updating preview…</p>
       )}
     </div>
   );
@@ -949,7 +949,7 @@ function KnowledgePreviewPanel({
 
 function UnsupportedField({ message }: { message: string }) {
   return (
-    <div className="rounded-md border border-dashed bg-muted/30 p-4 text-xs text-muted-foreground">
+    <div className="rounded-md border border-dashed bg-muted/30 p-4 text-xs text-fog">
       {message}
     </div>
   );
@@ -960,20 +960,20 @@ function ComingSoon({ recipe }: { recipe: Recipe }) {
     <div className="flex flex-col gap-6 py-10">
       <Link
         to="/recipes"
-        className="inline-flex w-fit items-center gap-1 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex w-fit items-center gap-1 font-mono text-[11px] uppercase tracking-[0.22em] text-fog transition-colors hover:text-gold"
       >
         <ArrowLeft className="h-3 w-3" />
         All recipes
       </Link>
       <div className="flex flex-col gap-3 rounded-md border bg-card p-8 shadow-paper">
-        <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+        <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-fog">
           Coming soon
         </span>
         <h1 className="font-display text-3xl leading-tight tracking-tight">
           {recipe.display_name}
         </h1>
-        <p className="text-muted-foreground">{recipe.description}</p>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-fog">{recipe.description}</p>
+        <p className="text-sm text-fog">
           The backend supports this recipe (you can drive it via REST or the
           admin) — the SPA form lands in a later V15.x slice.
         </p>
@@ -986,7 +986,7 @@ function NotFound({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-start gap-3 py-10">
       <p className="font-display text-2xl">Recipe not found</p>
-      <p className="text-sm text-muted-foreground">{message}</p>
+      <p className="text-sm text-fog">{message}</p>
       <Button asChild variant="outline" size="sm">
         <Link to="/recipes">Back to gallery</Link>
       </Button>
@@ -998,7 +998,7 @@ function NoWorkspace() {
   return (
     <div className="flex flex-col items-start gap-3 py-10">
       <p className="font-display text-2xl">No workspace yet</p>
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-fog">
         Finish account setup before creating compositions.
       </p>
     </div>

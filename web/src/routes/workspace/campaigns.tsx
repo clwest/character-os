@@ -21,6 +21,7 @@ import {
   CAMPAIGN_STATUSES,
 } from "@/lib/api/campaigns";
 import { cn } from "@/lib/utils";
+import { SectionHeader } from "@/components/editorial";
 
 // ---- Status filter chips labels ------------------------------
 
@@ -65,23 +66,24 @@ export function WorkspaceCampaignsRoute() {
   return (
     <div className="flex flex-col gap-8">
       {/* ---- Page header --------------------------------------- */}
-      <header className="flex flex-col gap-3">
+      <header className="relative flex flex-col gap-4 pb-10">
         <button
           type="button"
-          className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          className="inline-flex w-fit items-center gap-1.5 text-sm text-fog hover:text-gold transition-colors"
           onClick={() => navigate("/dashboard")}
         >
           <ChevronLeft className="h-4 w-4" />
           Back to dashboard
         </button>
+        <SectionHeader number={4} title="Campaigns" />
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
-            <Video className="h-7 w-7 text-muted-foreground" />
+            <Video className="h-7 w-7 text-fog" />
             <h1
               data-testid="campaigns-title"
-              className="font-display text-4xl leading-tight tracking-tight md:text-5xl"
+              className="font-display text-4xl leading-tight tracking-tight text-cream md:text-5xl"
             >
-              Campaigns
+              Campaigns.
             </h1>
           </div>
           <Button
@@ -90,14 +92,18 @@ export function WorkspaceCampaignsRoute() {
           >
             <Link to="/workspace/campaigns/new">
               <Plus className="mr-2 h-4 w-4" />
-              New campaign
+              New campaign →
             </Link>
           </Button>
         </div>
-        <p className="max-w-2xl text-base text-muted-foreground">
+        <p className="max-w-2xl text-base text-mist">
           Write one script template, paste a CSV of recipients, and launch —
           the system renders a personalized talking-head video for each row.
         </p>
+        <div
+          className="hairline-gold absolute inset-x-0 bottom-0 h-px"
+          aria-hidden="true"
+        />
       </header>
 
       {/* ---- Status filter chips ------------------------------- */}
@@ -117,7 +123,7 @@ export function WorkspaceCampaignsRoute() {
                 "inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                 isActive
                   ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground",
+                  : "border-luxe bg-muted/40 text-fog hover:bg-gold/10 hover:text-cream",
               )}
             >
               {opt.label}
@@ -128,10 +134,10 @@ export function WorkspaceCampaignsRoute() {
 
       {/* ---- List ---------------------------------------------- */}
       <section className="flex flex-col gap-4">
-        <h2 className="font-display text-2xl tracking-tight">
+        <h2 className="font-display text-2xl tracking-tight text-cream">
           {activeStatus ? campaignStatusLabel(activeStatus) : "All"} campaigns
           {results.length > 0 && (
-            <span className="ml-2 text-xl text-muted-foreground font-sans font-normal">
+            <span className="ml-2 text-xl text-fog/70 font-sans font-normal">
               ({results.length})
             </span>
           )}
@@ -141,7 +147,7 @@ export function WorkspaceCampaignsRoute() {
         {campaigns.isLoading && (
           <ul
             data-testid="campaigns-skeleton"
-            className="divide-y divide-border rounded-md border border-border bg-card"
+            className="divide-y divide-luxe rounded-md border border-luxe bg-card"
           >
             {Array.from({ length: 4 }).map((_, i) => (
               <li
@@ -184,11 +190,11 @@ export function WorkspaceCampaignsRoute() {
         {!campaigns.isLoading && !campaigns.isError && results.length === 0 && (
           <div
             data-testid="campaigns-empty"
-            className="rounded-md border border-dashed border-border p-12 text-center"
+            className="rounded-md border border-dashed border-luxe bg-card/40 p-12 text-center"
           >
-            <Video className="mx-auto h-10 w-10 text-muted-foreground" />
-            <p className="mt-4 text-base font-medium">No campaigns yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <Video className="mx-auto h-10 w-10 text-fog" />
+            <p className="mt-4 font-display text-xl tracking-tight text-cream">No campaigns yet</p>
+            <p className="mt-1 text-sm text-mist max-w-md mx-auto">
               Campaigns let you send personalized talking-head videos to a
               whole list of recipients at once.
             </p>
@@ -207,7 +213,7 @@ export function WorkspaceCampaignsRoute() {
         {results.length > 0 && (
           <ul
             data-testid="campaigns-list"
-            className="divide-y divide-border rounded-md border border-border bg-card"
+            className="divide-y divide-luxe rounded-md border border-luxe bg-card"
           >
             {results.map((campaign) => (
               <CampaignRow key={campaign.id} campaign={campaign} />
@@ -229,7 +235,7 @@ function CampaignRow({ campaign }: { campaign: PersonalizedCampaign }) {
   return (
     <li
       data-testid={`campaign-row-${campaign.id}`}
-      className="hover:bg-muted/30 transition-colors"
+      className="hover:bg-gold/5 transition-colors"
     >
       <Link
         to={`/workspace/campaigns/${campaign.id}`}
@@ -245,7 +251,7 @@ function CampaignRow({ campaign }: { campaign: PersonalizedCampaign }) {
           >
             {campaign.name}
           </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
+          <p className="mt-0.5 text-xs text-fog">
             {campaign.spokesperson_name}
           </p>
         </div>
@@ -253,10 +259,10 @@ function CampaignRow({ campaign }: { campaign: PersonalizedCampaign }) {
         {/* Meta row: status badge + recipient count + date */}
         <div className="flex shrink-0 items-center gap-3">
           <StatusBadge tone={tone} label={label} />
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-fog">
             {total === 1 ? "1 recipient" : `${total} recipients`}
           </span>
-          <span className="text-xs text-muted-foreground/60">
+          <span className="text-xs text-fog/60">
             {relativeTime(campaign.created_at)}
           </span>
         </div>
@@ -283,7 +289,7 @@ export function StatusBadge({
         tone === "success" &&
           "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
         tone === "muted" &&
-          "border-border bg-muted text-muted-foreground",
+          "border-luxe bg-muted text-fog",
         tone === "danger" &&
           "border-destructive/40 bg-destructive/10 text-destructive",
       )}

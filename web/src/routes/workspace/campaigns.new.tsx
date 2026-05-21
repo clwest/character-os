@@ -41,7 +41,7 @@ function VerificationBadge({
         tone === "amber" && "border-amber-500/40 bg-amber-500/10 text-amber-400",
         tone === "success" &&
           "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
-        tone === "muted" && "border-border bg-muted text-muted-foreground",
+        tone === "muted" && "border-luxe bg-muted text-fog",
         tone === "danger" &&
           "border-destructive/40 bg-destructive/10 text-destructive",
       )}
@@ -94,15 +94,15 @@ function ScriptPickerSection({
   return (
     <div
       data-testid="script-picker-section"
-      className="flex flex-col gap-3 rounded-md border border-border bg-muted/20 p-4"
+      className="flex flex-col gap-3 rounded-md border border-luxe bg-muted/20 p-4"
     >
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex flex-col gap-0.5">
           <p className="text-sm font-medium">
             Start from an approved script{" "}
-            <span className="text-muted-foreground font-normal">(optional)</span>
+            <span className="text-fog font-normal">(optional)</span>
           </p>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-[11px] text-fog">
             Picks an approved Script as the starting template + links knowledge
             lineage to every per-recipient render.
           </p>
@@ -117,7 +117,7 @@ function ScriptPickerSection({
           onClick={() => setShowAll((v) => !v)}
           disabled={disabled}
           className={cn(
-            "text-[11px] underline underline-offset-2 text-muted-foreground hover:text-foreground",
+            "text-[11px] underline underline-offset-2 text-fog hover:text-gold",
             showAll && "text-primary",
           )}
         >
@@ -133,9 +133,9 @@ function ScriptPickerSection({
       ) : scriptList.length === 0 ? (
         <div
           data-testid="script-picker-empty"
-          className="rounded-md border border-dashed border-border p-3 text-center"
+          className="rounded-md border border-dashed border-luxe p-3 text-center"
         >
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-fog">
             No approved scripts yet —{" "}
             <Link
               to="/workspace/scripts/new"
@@ -156,7 +156,7 @@ function ScriptPickerSection({
           disabled={disabled}
           className={cn(
             "flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors",
-            "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            "placeholder:text-fog focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             "disabled:cursor-not-allowed disabled:opacity-50",
           )}
         >
@@ -180,7 +180,7 @@ function ScriptPickerSection({
       )}
 
       {/* Q-bc-3 immutability hint */}
-      <p className="text-[11px] text-muted-foreground">
+      <p className="text-[11px] text-fog">
         Once you create the campaign, the Script link is fixed. To change it,
         create a new campaign.
       </p>
@@ -210,7 +210,7 @@ function ScriptPreviewCard({
   return (
     <div
       data-testid={`script-preview-card-${script.id}`}
-      className="rounded-md border border-border bg-card p-4 flex flex-col gap-3"
+      className="rounded-md border border-luxe bg-card p-4 flex flex-col gap-3"
     >
       {/* Header row: name + badges + unlink */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -225,7 +225,7 @@ function ScriptPreviewCard({
             {script.verification_status !== "" && (
               <VerificationBadge tone={vTone} label={vLabel} />
             )}
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-[10px] text-fog">
               {script.knowledge_chunk_count} chunk
               {script.knowledge_chunk_count !== 1 ? "s" : ""}
             </span>
@@ -237,7 +237,7 @@ function ScriptPreviewCard({
           onClick={onUnlink}
           disabled={disabled}
           title="Unlink script — author template free-form instead"
-          className="text-muted-foreground hover:text-foreground shrink-0"
+          className="text-fog hover:text-gold shrink-0"
         >
           <Link2Off className="h-3.5 w-3.5" />
         </button>
@@ -247,7 +247,7 @@ function ScriptPreviewCard({
       {preview && (
         <pre
           data-testid="script-preview-draft"
-          className="whitespace-pre-wrap font-mono text-[11px] text-muted-foreground bg-muted/30 rounded-md p-2 max-h-28 overflow-y-auto border border-border"
+          className="whitespace-pre-wrap font-mono text-[11px] text-fog bg-muted/30 rounded-md p-2 max-h-28 overflow-y-auto border border-luxe"
         >
           {preview}
         </pre>
@@ -396,7 +396,7 @@ export function CampaignNewRoute() {
       <Link
         to="/workspace/campaigns"
         data-testid="back-to-campaigns"
-        className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        className="inline-flex w-fit items-center gap-1.5 text-sm text-fog hover:text-gold transition-colors"
       >
         <ChevronLeft className="h-4 w-4" />
         Back to Campaigns
@@ -406,13 +406,13 @@ export function CampaignNewRoute() {
       <header className="flex flex-col gap-2">
         <h1
           data-testid="campaign-new-title"
-          className="font-display text-4xl leading-tight tracking-tight md:text-5xl"
+          className="font-display text-4xl leading-tight tracking-tight text-cream md:text-5xl"
         >
           New campaign
         </h1>
-        <p className="text-base text-muted-foreground">
+        <p className="text-base text-mist">
           Define the campaign name, pick a spokesperson, and write your script
-          template. Use <code className="rounded-sm border border-border bg-muted px-1 py-0.5 font-mono text-[11px]">{"{first_name}"}</code>-style
+          template. Use <code className="rounded-sm border border-luxe bg-muted px-1 py-0.5 font-mono text-[11px]">{"{first_name}"}</code>-style
           placeholders — you&apos;ll paste your CSV next.
         </p>
       </header>
@@ -421,7 +421,7 @@ export function CampaignNewRoute() {
       <form
         data-testid="campaign-create-form"
         onSubmit={(e) => void handleSubmit(e)}
-        className="flex flex-col gap-6 rounded-md border border-border bg-card p-6"
+        className="flex flex-col gap-6 rounded-md border border-luxe bg-card p-6"
         noValidate
       >
         {/* Name */}
@@ -453,7 +453,7 @@ export function CampaignNewRoute() {
               {nameError}
             </p>
           )}
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-[11px] text-fog">
             {name.length} / 120
           </p>
         </div>
@@ -480,7 +480,7 @@ export function CampaignNewRoute() {
               disabled={create.isPending || spList.length === 0}
               className={cn(
                 "flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors",
-                "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                "placeholder:text-fog focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                 "disabled:cursor-not-allowed disabled:opacity-50",
                 showErrors && spError && "border-destructive ring-destructive",
               )}
@@ -497,7 +497,7 @@ export function CampaignNewRoute() {
             </select>
           )}
           {spList.length === 0 && !spokespeople.isLoading && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-fog">
               You need at least one spokesperson.{" "}
               <Link
                 to="/spokespeople/new"
@@ -559,7 +559,7 @@ export function CampaignNewRoute() {
             Script template{" "}
             {!sourceScriptId && <span className="text-destructive">*</span>}
             {sourceScriptId && (
-              <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+              <span className="ml-1 text-[10px] font-normal text-fog">
                 (pre-filled from script — edit freely)
               </span>
             )}
@@ -575,7 +575,7 @@ export function CampaignNewRoute() {
             disabled={create.isPending}
             className={cn(
               "w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-sm",
-              "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+              "placeholder:text-fog focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               "resize-y disabled:cursor-not-allowed disabled:opacity-50",
               showErrors && templateError && "border-destructive ring-destructive",
             )}
@@ -588,7 +588,7 @@ export function CampaignNewRoute() {
               {templateError}
             </p>
           )}
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-[11px] text-fog">
             {template.length} / 4000
           </p>
 
@@ -598,14 +598,14 @@ export function CampaignNewRoute() {
               data-testid="detected-vars"
               className="flex flex-wrap gap-1.5 mt-1"
             >
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-[11px] text-fog">
                 Detected variables:
               </span>
               {detectedVars.map((v) => (
                 <span
                   key={v}
                   data-testid={`detected-var-${v}`}
-                  className="inline-flex items-center rounded-sm border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
+                  className="inline-flex items-center rounded-sm border border-luxe bg-muted px-1.5 py-0.5 font-mono text-[10px] text-fog"
                 >
                   {"{"}
                   {v}

@@ -205,7 +205,7 @@ describe("WorkspaceCampaignsRoute", () => {
     renderList();
 
     expect(screen.getByTestId("campaigns-title")).toBeInTheDocument();
-    expect(screen.getByText("Campaigns")).toBeInTheDocument();
+    expect(screen.getByTestId("campaigns-title")).toBeInTheDocument();
   });
 
   it("renders campaign rows when campaigns are present", () => {

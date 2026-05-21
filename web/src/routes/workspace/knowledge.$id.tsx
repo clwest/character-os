@@ -30,6 +30,7 @@ import {
   type KnowledgeUsedByItem,
 } from "@/lib/api/knowledge";
 import { cn } from "@/lib/utils";
+import { SectionHeader } from "@/components/editorial";
 
 
 export function KnowledgeDocumentDetailRoute() {
@@ -83,16 +84,21 @@ export function KnowledgeDocumentDetailRoute() {
     <div className="flex flex-col gap-10" data-testid="knowledge-detail">
       <BackLink />
 
-      <header className="flex flex-col gap-4">
+      <header className="relative flex flex-col gap-4 pb-10">
+        <SectionHeader number={1} title="Knowledge" />
         <div className="flex items-start justify-between gap-4">
           <h1
             data-testid="knowledge-detail-title"
-            className="font-display text-4xl leading-tight tracking-tight md:text-5xl"
+            className="font-display text-4xl leading-tight tracking-tight text-cream md:text-5xl"
           >
             {data.title}
           </h1>
           <StatusPill status={data.status} />
         </div>
+        <div
+          className="hairline-gold absolute inset-x-0 bottom-0 h-px"
+          aria-hidden="true"
+        />
 
         <Metadata doc={data} />
 
@@ -129,7 +135,7 @@ export function KnowledgeDocumentDetailRoute() {
 function UsedByCompositionsPanel({ items }: { items: KnowledgeUsedByItem[] }) {
   return (
     <section
-      className="flex flex-col gap-3 rounded-md border bg-card p-5 shadow-paper"
+      className="flex flex-col gap-3 rounded-md border border-luxe bg-card p-5 luxe-shadow"
       data-testid="knowledge-used-by-compositions"
     >
       <div className="flex items-center justify-between border-b pb-2">
@@ -146,15 +152,15 @@ function UsedByCompositionsPanel({ items }: { items: KnowledgeUsedByItem[] }) {
             <Link
               to={`/compositions/${item.composition_id}`}
               data-testid={`knowledge-used-by-${item.composition_id}`}
-              className="flex items-baseline justify-between gap-3 rounded-sm border bg-muted/30 px-3 py-2 transition-colors hover:border-foreground"
+              className="flex items-baseline justify-between gap-3 rounded-sm border border-luxe bg-muted/20 px-3 py-2 transition-colors hover:border-gold/40"
             >
               <div className="flex min-w-0 flex-col gap-0.5">
                 <span className="truncate text-sm">{item.composition_name}</span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-fog">
                   {item.template_kind} · {item.spokesperson_name}
                 </span>
               </div>
-              <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+              <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-fog">
                 {item.chunk_count} chunk{item.chunk_count === 1 ? "" : "s"}
               </span>
             </Link>
@@ -171,7 +177,7 @@ function BackLink() {
     <Link
       to="/workspace/knowledge"
       data-testid="back-to-knowledge"
-      className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      className="inline-flex w-fit items-center gap-1.5 text-sm text-fog hover:text-gold transition-colors"
     >
       <ChevronLeft className="h-4 w-4" />
       Back to knowledge
@@ -236,11 +242,11 @@ function Metadata({ doc }: { doc: KnowledgeDocument }) {
   return (
     <dl
       data-testid="knowledge-detail-metadata"
-      className="grid grid-cols-1 gap-x-8 gap-y-2 rounded-md border border-border bg-card p-5 text-sm md:grid-cols-[10rem_1fr]"
+      className="grid grid-cols-1 gap-x-8 gap-y-2 rounded-md border border-luxe bg-card p-5 text-sm md:grid-cols-[10rem_1fr]"
     >
       {rows.map((row) => (
         <div key={row.label} className="contents">
-          <dt className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          <dt className="font-mono text-[11px] uppercase tracking-[0.18em] text-fog">
             {row.label}
           </dt>
           <dd className="break-words">{row.value}</dd>
@@ -284,7 +290,7 @@ function ChunksSection({
     <section className="flex flex-col gap-4">
       <h2 className="font-display text-2xl tracking-tight">
         Chunks
-        <span className="ml-2 font-mono text-sm text-muted-foreground">
+        <span className="ml-2 font-mono text-sm text-fog">
           {chunks.length}
         </span>
       </h2>
@@ -296,9 +302,9 @@ function ChunksSection({
           <li
             key={chunk.id}
             data-testid={`knowledge-chunk-${chunk.chunk_index}`}
-            className="rounded-md border border-border bg-card p-5"
+            className="rounded-md border border-luxe bg-card p-5"
           >
-            <div className="mb-2 flex items-center gap-3 text-xs text-muted-foreground">
+            <div className="mb-2 flex items-center gap-3 text-xs text-fog">
               <span className="font-mono font-medium text-foreground">
                 #{chunk.chunk_index}
               </span>
@@ -327,7 +333,7 @@ function StatusPill({ status }: { status: DocumentStatus }) {
       data-status={status}
       className={cn(
         "inline-flex shrink-0 items-center rounded-sm border px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider",
-        tone === "neutral" && "border-border bg-muted text-muted-foreground",
+        tone === "neutral" && "border-luxe bg-muted text-fog",
         tone === "info" && "border-primary/40 bg-primary/10 text-primary",
         tone === "success" && "border-success/40 bg-success/10 text-success",
         tone === "danger" && "border-destructive/40 bg-destructive/10 text-destructive",

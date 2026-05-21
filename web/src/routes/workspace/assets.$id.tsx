@@ -42,6 +42,7 @@ import {
   type DownstreamComposition,
 } from "@/lib/api/workspace-assets";
 import { cn } from "@/lib/utils";
+import { SectionHeader } from "@/components/editorial";
 
 // ---- Page -------------------------------------------------------
 
@@ -89,11 +90,12 @@ export function WorkspaceAssetDetailRoute() {
       <BackLink />
 
       {/* ---- Page header ----------------------------------------- */}
-      <header className="flex flex-col gap-3">
+      <header className="relative flex flex-col gap-4 pb-10">
+        <SectionHeader number={7} title="Asset Library" />
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <h1
             data-testid="asset-detail-title"
-            className="font-display text-4xl leading-tight tracking-tight md:text-5xl"
+            className="font-display text-4xl leading-tight tracking-tight text-cream md:text-5xl"
           >
             {displayTitle}
           </h1>
@@ -106,11 +108,15 @@ export function WorkspaceAssetDetailRoute() {
         {data.producing_prompt && (
           <p
             data-testid="asset-detail-prompt"
-            className="max-w-2xl text-sm text-muted-foreground"
+            className="max-w-2xl text-sm text-mist"
           >
             {data.producing_prompt}
           </p>
         )}
+        <div
+          className="hairline-gold absolute inset-x-0 bottom-0 h-px"
+          aria-hidden="true"
+        />
       </header>
 
       {/* ---- Media preview --------------------------------------- */}
@@ -126,12 +132,12 @@ export function WorkspaceAssetDetailRoute() {
       {data.asset_type === "clip" && (
         <section
           data-testid="publish-bundle-section"
-          className="rounded-md border border-border bg-card p-5 flex flex-col gap-3"
+          className="rounded-md border border-luxe bg-card p-5 flex flex-col gap-3"
         >
-          <h2 className="font-display text-lg tracking-tight">
+          <h2 className="font-display text-lg tracking-tight text-cream">
             Publish to social platforms
           </h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-fog">
             Fan this clip out to Instagram Reels, YouTube Shorts, TikTok, X,
             and LinkedIn — each at the right aspect ratio and duration cap.
             All ffmpeg, $0 incremental cost.
@@ -156,7 +162,7 @@ function BackLink() {
     <Link
       to="/workspace/assets"
       data-testid="back-to-assets"
-      className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      className="inline-flex w-fit items-center gap-1.5 text-sm text-fog hover:text-gold transition-colors"
     >
       <ChevronLeft className="h-4 w-4" />
       Back to Asset Library
@@ -175,9 +181,9 @@ function MediaPreviewPanel({ asset }: { asset: WorkspaceAssetDetail }) {
     return (
       <section
         data-testid="asset-preview-transcript"
-        className="rounded-md border border-border bg-card p-5"
+        className="rounded-md border border-luxe bg-card p-5"
       >
-        <h2 className="mb-3 font-display text-lg tracking-tight text-muted-foreground">
+        <h2 className="mb-3 font-display text-lg tracking-tight text-fog">
           Transcript content
         </h2>
         {asset.inline_content ? (
@@ -185,7 +191,7 @@ function MediaPreviewPanel({ asset }: { asset: WorkspaceAssetDetail }) {
             {asset.inline_content}
           </pre>
         ) : (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-fog">
             No transcript body available.
           </p>
         )}
@@ -200,16 +206,16 @@ function MediaPreviewPanel({ asset }: { asset: WorkspaceAssetDetail }) {
         data-testid="asset-preview-voice"
         className="rounded-md border border-border bg-card p-5 flex flex-col gap-2"
       >
-        <h2 className="font-display text-lg tracking-tight text-muted-foreground">
+        <h2 className="font-display text-lg tracking-tight text-fog">
           Voice asset
         </h2>
         <p className="text-sm">
-          <span className="font-mono text-muted-foreground mr-2">
+          <span className="font-mono text-fog mr-2">
             Voice id:
           </span>
           <code className="text-foreground">{asset.file_path || "—"}</code>
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-fog">
           Voice previews live on the spokesperson edit modal — not available
           here in v1.
         </p>
@@ -226,7 +232,7 @@ function MediaPreviewPanel({ asset }: { asset: WorkspaceAssetDetail }) {
       return (
         <section
           data-testid="asset-preview-image"
-          className="rounded-md border border-border bg-card overflow-hidden"
+          className="rounded-md border border-luxe bg-card overflow-hidden"
         >
           <img
             src={asset.file_path}
@@ -250,7 +256,7 @@ function MediaPreviewPanel({ asset }: { asset: WorkspaceAssetDetail }) {
       return (
         <section
           data-testid="asset-preview-clip"
-          className="rounded-md border border-border bg-card overflow-hidden"
+          className="rounded-md border border-luxe bg-card overflow-hidden"
         >
           {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
           <video
@@ -272,9 +278,9 @@ function MediaPreviewPanel({ asset }: { asset: WorkspaceAssetDetail }) {
       return (
         <section
           data-testid="asset-preview-audio"
-          className="rounded-md border border-border bg-card p-5"
+          className="rounded-md border border-luxe bg-card p-5"
         >
-          <h2 className="mb-3 font-display text-lg tracking-tight text-muted-foreground">
+          <h2 className="mb-3 font-display text-lg tracking-tight text-fog">
             Audio
           </h2>
           {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
@@ -288,10 +294,10 @@ function MediaPreviewPanel({ asset }: { asset: WorkspaceAssetDetail }) {
   return (
     <section
       data-testid="asset-preview-none"
-      className="flex flex-col items-center justify-center gap-3 rounded-md border border-dashed border-border bg-muted/30 p-12"
+      className="flex flex-col items-center justify-center gap-3 rounded-md border border-dashed border-luxe bg-card/40 p-12"
     >
-      <AssetTypeIcon type={asset.asset_type} className="h-10 w-10 text-muted-foreground" />
-      <p className="text-sm text-muted-foreground">No preview available.</p>
+      <AssetTypeIcon type={asset.asset_type} className="h-10 w-10 text-fog" />
+      <p className="text-sm text-fog">No preview available.</p>
     </section>
   );
 }
@@ -305,7 +311,7 @@ function ExpiredMediaPanel() {
       <p className="text-sm text-amber-400 font-medium">
         URL expired — this asset is no longer accessible via its stored link.
       </p>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs text-fog">
         Re-run the composition step to regenerate this asset.
       </p>
     </section>
@@ -351,7 +357,7 @@ function MetadataTable({ asset }: { asset: WorkspaceAssetDetail }) {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Open file in new tab"
-              className="shrink-0 text-muted-foreground hover:text-foreground"
+              className="shrink-0 text-fog hover:text-gold transition-colors"
             >
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
@@ -421,13 +427,13 @@ function MetadataTable({ asset }: { asset: WorkspaceAssetDetail }) {
       <h2 className="mb-3 font-display text-2xl tracking-tight">Metadata</h2>
       <dl
         data-testid="asset-metadata"
-        className="grid grid-cols-1 gap-x-8 gap-y-2 rounded-md border border-border bg-card p-5 text-sm md:grid-cols-[10rem_1fr]"
+        className="grid grid-cols-1 gap-x-8 gap-y-2 rounded-md border border-luxe bg-card p-5 text-sm md:grid-cols-[10rem_1fr]"
       >
         {rows.map((row) => (
           <div key={row.label} className="contents">
             <dt
               data-testid={row.testId}
-              className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground"
+              className="font-mono text-[11px] uppercase tracking-[0.18em] text-fog"
             >
               {row.label}
             </dt>
@@ -448,7 +454,7 @@ function LineageSection({ asset }: { asset: WorkspaceAssetDetail }) {
 
       {/* Produced by */}
       <div className="flex flex-col gap-3">
-        <h3 className="font-display text-base text-muted-foreground tracking-tight">
+        <h3 className="font-display text-base text-fog tracking-tight">
           Produced by
         </h3>
         {asset.composition ? (
@@ -459,7 +465,7 @@ function LineageSection({ asset }: { asset: WorkspaceAssetDetail }) {
         ) : (
           <p
             data-testid="produced-by-none"
-            className="text-sm text-muted-foreground"
+            className="text-sm text-fog"
           >
             No producing composition linked.
           </p>
@@ -468,7 +474,7 @@ function LineageSection({ asset }: { asset: WorkspaceAssetDetail }) {
 
       {/* Used downstream by */}
       <div className="flex flex-col gap-3">
-        <h3 className="font-display text-base text-muted-foreground tracking-tight">
+        <h3 className="font-display text-base text-fog tracking-tight">
           Used downstream by
         </h3>
         {asset.downstream_compositions.length > 0 ? (
@@ -478,7 +484,7 @@ function LineageSection({ asset }: { asset: WorkspaceAssetDetail }) {
         ) : (
           <p
             data-testid="downstream-empty"
-            className="text-sm text-muted-foreground"
+            className="text-sm text-fog"
           >
             Not yet used in another composition.
           </p>
@@ -505,41 +511,41 @@ function ProducedByPanel({
       <Link
         to={`/compositions/${composition.id}`}
         data-testid="producing-composition-link"
-        className="flex items-center justify-between gap-3 rounded-md border border-border bg-card px-4 py-3 transition-colors hover:border-foreground"
+        className="flex items-center justify-between gap-3 rounded-md border border-border bg-card px-4 py-3 transition-colors hover:border-gold/40"
       >
         <div className="flex flex-col gap-0.5">
           <span className="text-sm font-medium">{composition.name}</span>
-          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-fog">
             {composition.template_kind} · {composition.status}
           </span>
         </div>
-        <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <ArrowRight className="h-4 w-4 shrink-0 text-fog" />
       </Link>
 
       {/* Step card */}
       {producingStep && (
         <div
           data-testid="producing-step-panel"
-          className="rounded-md border border-border bg-card p-5 flex flex-col gap-3"
+          className="rounded-md border border-luxe bg-card p-5 flex flex-col gap-3"
         >
           <div className="flex items-center gap-3">
-            <Layers className="h-4 w-4 text-muted-foreground" />
+            <Layers className="h-4 w-4 text-fog" />
             <span className="font-display text-base tracking-tight">
               Step {producingStep.position}
             </span>
-            <code className="rounded-sm border border-border bg-muted px-1.5 py-0.5 font-mono text-xs">
+            <code className="rounded-sm border border-luxe bg-muted px-1.5 py-0.5 font-mono text-xs">
               {producingStep.primitive}
             </code>
           </div>
 
           {Object.keys(producingStep.params).length > 0 && (
             <div className="flex flex-col gap-1.5">
-              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-fog">
                 Params
               </span>
               <pre
                 data-testid="producing-step-params"
-                className="max-h-48 overflow-auto rounded-sm border border-border bg-muted/50 p-3 font-mono text-xs leading-relaxed"
+                className="max-h-48 overflow-auto rounded-sm border border-luxe bg-muted/50 p-3 font-mono text-xs leading-relaxed"
               >
                 {JSON.stringify(producingStep.params, null, 2)}
               </pre>
@@ -548,12 +554,12 @@ function ProducedByPanel({
 
           {producingStep.inputs.length > 0 && (
             <div className="flex flex-col gap-1.5">
-              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-fog">
                 Inputs
               </span>
               <pre
                 data-testid="producing-step-inputs"
-                className="max-h-48 overflow-auto rounded-sm border border-border bg-muted/50 p-3 font-mono text-xs leading-relaxed"
+                className="max-h-48 overflow-auto rounded-sm border border-luxe bg-muted/50 p-3 font-mono text-xs leading-relaxed"
               >
                 {JSON.stringify(producingStep.inputs, null, 2)}
               </pre>
@@ -580,15 +586,15 @@ function DownstreamCompositionsPanel({
           <Link
             to={`/compositions/${item.id}`}
             data-testid={`downstream-comp-${item.id}`}
-            className="flex items-center justify-between gap-3 rounded-sm border border-border bg-card px-3 py-2.5 transition-colors hover:border-foreground"
+            className="flex items-center justify-between gap-3 rounded-sm border border-luxe bg-card px-3 py-2.5 transition-colors hover:border-gold/40"
           >
             <div className="flex flex-col gap-0.5 min-w-0">
               <span className="truncate text-sm">{item.name}</span>
-              <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+              <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-fog">
                 {item.template_kind} · {item.status}
               </span>
             </div>
-            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <ArrowRight className="h-4 w-4 shrink-0 text-fog" />
           </Link>
         </li>
       ))}
@@ -602,7 +608,7 @@ function RolePill({ role }: { role: WorkspaceAssetDetail["role"] }) {
   return (
     <span
       data-testid="asset-detail-role"
-      className="inline-flex shrink-0 items-center rounded-sm border border-border bg-muted px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+      className="inline-flex shrink-0 items-center rounded-sm border border-luxe bg-muted px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider text-fog"
     >
       {assetRoleLabel(role)}
     </span>
@@ -627,7 +633,7 @@ function StorageHealthPill({
         tone === "danger" &&
           "border-destructive/40 bg-destructive/10 text-destructive",
         tone === "neutral" &&
-          "border-border bg-muted text-muted-foreground",
+          "border-luxe bg-muted text-fog",
       )}
     >
       {storageHealthLabel(health)}
@@ -639,7 +645,7 @@ function TypeChip({ type }: { type: AssetType }) {
   return (
     <span
       data-testid="asset-detail-type"
-      className="inline-flex shrink-0 items-center gap-1.5 rounded-sm border border-border bg-muted/50 px-2.5 py-1 text-[11px] text-muted-foreground"
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-sm border border-luxe bg-muted/50 px-2.5 py-1 text-[11px] text-fog"
     >
       <AssetTypeIcon type={type} className="h-3 w-3" />
       {assetTypeLabel(type)}
@@ -694,10 +700,10 @@ function NotFound() {
   return (
     <div
       data-testid="asset-not-found"
-      className="rounded-md border border-dashed border-border p-12 text-center"
+      className="rounded-md border border-dashed border-luxe bg-card/40 p-12 text-center"
     >
       <p className="text-base font-medium">Asset not found</p>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <p className="mt-1 text-sm text-fog">
         This asset may have been deleted or belongs to a different workspace.
       </p>
       <Button
@@ -763,7 +769,7 @@ function CopyButton({
       type="button"
       aria-label={ariaLabel}
       onClick={handleCopy}
-      className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+      className="shrink-0 text-fog hover:text-gold transition-colors"
     >
       {copied ? (
         <Check className="h-3.5 w-3.5 text-emerald-400" />
