@@ -145,8 +145,10 @@ export function NavRail() {
       aria-label="Workspace sections"
       data-testid="nav-rail"
     >
-      {/* sm: horizontal scroll tabs. md+: vertical list. */}
-      <ul className="flex gap-1 overflow-x-auto border-b md:flex-col md:gap-0 md:border-b-0 md:border-r md:pr-3">
+      {/* V3.3 — gold active state, fog inactive, gold-tinted
+       * hairline edge. sm: horizontal scroll tabs with bottom
+       * border. md+: vertical list with right hairline. */}
+      <ul className="flex gap-1 overflow-x-auto border-b border-gold/10 md:flex-col md:gap-0 md:border-b-0 md:border-r md:pr-3">
         {NAV_ITEMS.map((item, idx) => {
           const Icon = item.icon;
           const active = idx === activeIndex;
@@ -159,11 +161,17 @@ export function NavRail() {
                 className={
                   "flex items-center gap-2 whitespace-nowrap px-3 py-2 font-mono text-[11px] uppercase tracking-[0.22em] transition-colors md:rounded-sm " +
                   (active
-                    ? "border-b-2 border-foreground text-foreground md:border-b-0 md:border-l-2 md:border-foreground md:bg-foreground/5"
-                    : "border-b-2 border-transparent text-muted-foreground hover:text-foreground md:border-b-0 md:border-l-2 md:border-transparent md:hover:border-foreground/20")
+                    ? "border-b-2 border-gold text-cream md:border-b-0 md:border-l-2 md:border-gold md:bg-gold/5"
+                    : "border-b-2 border-transparent text-fog hover:text-cream md:border-b-0 md:border-l-2 md:border-transparent md:hover:border-gold/30")
                 }
               >
-                <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                <Icon
+                  className={
+                    "h-3.5 w-3.5 transition-colors " +
+                    (active ? "text-gold" : "text-fog")
+                  }
+                  aria-hidden="true"
+                />
                 {item.label}
               </Link>
             </li>

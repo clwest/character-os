@@ -54,70 +54,97 @@ export function Layout() {
   );
 }
 
+/**
+ * SiteHeader — V3.3 (SESSION 209) dark-luxe variant.
+ *
+ * Editorial register: italic-gold accent on the product mark,
+ * tighter microtype subtitle, hairline-gold divider replacing
+ * the generic border. ParentBrandChip restyled with the
+ * italic-gold mark on the parent name (`24/7 ` + italic-gold
+ * `Global AI`). `compact` retained for auth-route minimalism
+ * but both modes now use the V3 register.
+ */
 function SiteHeader({ compact }: { compact: boolean }) {
   return (
     <header
       className={
         compact
-          ? "border-b border-border/60 bg-background/80 backdrop-blur"
-          : "bg-background"
+          ? "relative bg-ink/80 backdrop-blur"
+          : "relative bg-ink"
       }
     >
       <div className="container mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-5">
         <Link
           to="/"
-          className="flex items-baseline gap-2 tracking-tight"
+          className="group flex items-baseline gap-3 tracking-tight"
           aria-label={`${BRAND.product.name} — ${BRAND.product.subtitle}`}
         >
-          <span className="text-xl font-semibold leading-none text-foreground">
-            {BRAND.product.name}
+          <span className="font-display text-2xl leading-none text-cream">
+            Character
+            <span className="ml-1 italic text-gold transition-colors group-hover:text-gold-bright">
+              OS
+            </span>
           </span>
-          <span className="hidden font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground sm:inline">
+          <span className="hidden font-mono text-[10px] uppercase tracking-[0.28em] text-fog sm:inline">
             {BRAND.product.subtitle}
           </span>
         </Link>
         <ParentBrandChip />
       </div>
+      {/* Hairline-gold divider — replaces the generic border-b
+       * with the editorial fade-in/out gradient. */}
+      <div className="hairline-gold absolute inset-x-0 bottom-0 h-px" aria-hidden="true" />
     </header>
   );
 }
 
 /**
- * Subtle "24/7 GLOBAL AI" chip top-right of the header.
- * Establishes the parent-company identity on every page without
- * crowding the product name. Gold accent on the company name
- * keeps it discoverable; muted prefix avoids over-signalling.
+ * Parent-company chip — V3.3 dark-luxe variant.
  *
- * B5 (SESSION 178) — now a link to the dedicated `/about`
- * parent-company route with the product family + contact +
- * positioning. Hover state subtly brightens the gold to signal
- * interactivity without visual noise.
+ * Editorial register: "a product of" in fog microtype, the parent
+ * name in italic-gold display. Hover brightens to gold-bright.
  */
 function ParentBrandChip() {
   return (
     <Link
       to="/about"
-      className="hidden items-center gap-2 rounded-sm font-mono text-[10px] uppercase tracking-[0.22em] transition-colors hover:bg-muted/40 sm:flex sm:px-2 sm:py-1"
+      className="hidden items-center gap-2 rounded-sm font-mono text-[10px] uppercase tracking-[0.28em] transition-colors sm:flex sm:px-2 sm:py-1 hover:bg-gold/5"
       data-testid="parent-brand-chip"
       title={BRAND.parent.tagline}
     >
-      <span className="h-2 w-2 rounded-sm bg-accent" aria-hidden="true" />
-      <span className="text-muted-foreground">a product of</span>
-      <span className="font-semibold text-accent transition-colors group-hover:text-accent-bright">
+      <span
+        className="h-1.5 w-1.5 rounded-full bg-gold shadow-[0_0_8px_2px_rgba(201,169,97,0.4)]"
+        aria-hidden="true"
+      />
+      <span className="text-fog">a product of</span>
+      <span className="font-display italic text-gold transition-colors group-hover:text-gold-bright">
         {BRAND.parent.name}
       </span>
     </Link>
   );
 }
 
+/**
+ * SiteFooter — V3.3 dark-luxe variant.
+ *
+ * Editorial register: hairline-gold above the band (replaces
+ * the generic border-t), microtype keys in fog with mid-dot
+ * separators, parent-brand poweredBy in italic-gold display.
+ */
 function SiteFooter() {
   return (
-    <footer className="border-t border-border/60 bg-background">
-      <div className="container mx-auto flex max-w-6xl flex-col items-baseline justify-between gap-2 px-6 py-6 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground sm:flex-row">
+    <footer className="relative bg-ink/95">
+      <div className="hairline-gold absolute inset-x-0 top-0 h-px" aria-hidden="true" />
+      <div className="container mx-auto flex max-w-6xl flex-col items-baseline justify-between gap-2 px-6 py-6 font-mono text-[10px] uppercase tracking-[0.28em] text-fog sm:flex-row">
         <span>
-          {BRAND.product.name} · {BRAND.product.subtitle}
+          {BRAND.product.name}
+          <span className="mx-2 text-gold/40">·</span>
+          {BRAND.product.subtitle}
         </span>
-        <span data-testid="powered-by-footer">
+        <span
+          data-testid="powered-by-footer"
+          className="font-display italic text-gold/80 normal-case tracking-normal text-sm"
+        >
           {BRAND.parent.poweredByLabel}
         </span>
       </div>
