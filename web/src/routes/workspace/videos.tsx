@@ -232,17 +232,17 @@ export function WorkspaceVideosRoute() {
             data-testid="videos-empty"
             className="flex flex-col items-center gap-3 rounded-md border border-dashed border-luxe bg-card/40 p-12 text-center"
           >
-            <p className="font-display text-xl tracking-tight">
-              {hasAnyFilter ? "No videos match these filters" : "No videos yet"}
+            <p className="font-display text-xl italic tracking-tight text-cream">
+              {hasAnyFilter ? "No videos match these filters." : "No videos rendered yet."}
             </p>
             <p className="max-w-md text-sm text-mist">
               {hasAnyFilter
-                ? "Clear the filters above to see all workspace videos."
-                : "Fire a composition from any recipe and it'll appear here with status and cost."}
+                ? "Clear the filters above to see every workspace render."
+                : "Fire a composition from any recipe. Status, cost, and produced assets land here."}
             </p>
             {!hasAnyFilter && (
               <Link to="/recipes">
-                <Button size="sm">Open recipe gallery</Button>
+                <Button size="sm">Open recipe gallery →</Button>
               </Link>
             )}
           </div>

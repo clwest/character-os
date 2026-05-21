@@ -238,12 +238,12 @@ function SpokespeoplePanel({
       {error ? <ErrorRow message={extractMessage(error)} /> : null}
       {data && data.length === 0 && (
         <EmptyState
-          headline="No spokespeople provisioned"
-          body="A spokesperson is a persistent AI representative — portrait, voice, and grounding brief — that operates across this workspace's renders and conversations."
+          headline="No spokespeople yet."
+          body="A spokesperson is the on-camera identity your workspace renders against — portrait, voice, and grounding brief. Commission one to begin."
           testId="spokespeople-empty"
           action={
             <Link to="/spokespeople/new" data-testid="empty-create-cta">
-              <Button size="lg">Provision spokesperson</Button>
+              <Button size="lg">Commission a spokesperson →</Button>
             </Link>
           }
         />
@@ -337,12 +337,12 @@ function ActivityFeedPanel({
       {error ? <ErrorRow message={extractMessage(error)} /> : null}
       {data && recent.length === 0 && (
         <EmptyState
-          headline="No renders yet"
-          body="Compositions fired from any recipe surface in this workspace appear here with status, cost, and produced assets."
+          headline="No renders yet."
+          body="Compositions fired from any recipe surface in this workspace land here — status, cost, produced assets. Open the gallery to begin."
           testId="activity-empty"
           action={
             <Link to="/recipes">
-              <Button size="lg">Open recipe gallery</Button>
+              <Button size="lg">Open recipe gallery →</Button>
             </Link>
           }
         />
@@ -541,11 +541,11 @@ function EmptyState({
 }) {
   return (
     <div
-      className="reveal flex flex-col items-center gap-4 rounded-md border border-dashed border-border bg-card/50 p-10 text-center"
+      className="reveal flex flex-col items-center gap-4 rounded-md border border-dashed border-luxe bg-card/40 p-10 text-center"
       data-testid={testId}
     >
-      <p className="font-display text-xl tracking-tight">{headline}</p>
-      <p className="mx-auto max-w-md text-sm text-muted-foreground">{body}</p>
+      <p className="font-display text-xl italic tracking-tight text-cream">{headline}</p>
+      <p className="mx-auto max-w-md text-sm text-mist">{body}</p>
       {action}
     </div>
   );
