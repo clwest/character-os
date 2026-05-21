@@ -1851,6 +1851,73 @@ def test_list_compositions_paginates() -> None:
     assert d4["results"][0]["status"] == "draft"
 
 
+def test_list_composition_row_includes_final_asset_storage_health() -> None:
+    """SESSION 210 — Videos library row surfaces storage health.
+
+    Closes the SESSION 209 calibration finding about expired-asset
+    accumulation. The composition list row now carries
+    ``final_asset_storage_health`` so the SPA can render a badge
+    flagging renders whose Runway CDN URLs have expired.
+
+    Three shapes exercised:
+    * Final asset is a local path that doesn't exist on disk
+      → ``local_missing`` (the expected health when an Asset
+      row's file_path points at a vanished file).
+    * Final asset has a malformed/empty path → ``upload_pending``.
+    * Composition without a final_asset → field is None.
+    """
+    ws, user = _make_workspace_with_user("v15storagehealth@test", "S")
+    sp = _make_spokesperson(ws)
+
+    # Composition A — final asset's local path doesn't exist on
+    # disk → local_missing. (Tests run against ephemeral DB so we
+    # don't create the file; the storage-health classifier reports
+    # missing-on-disk as a distinct state from upload_pending.)
+    asset_local = Asset.objects.create(
+        workspace=ws, asset_type=AssetType.CLIP,
+        file_path="/data/_internal/concats/test.mp4",
+        mime_type="video/mp4",
+    )
+    comp_local = Composition.objects.create(
+        workspace=ws, spokesperson=sp, name="local",
+        template_kind="talking_head",
+        status=CompositionStatus.COMPLETED,
+        mock_mode=True, final_asset=asset_local,
+    )
+
+    # Composition B — no final asset
+    Composition.objects.create(
+        workspace=ws, spokesperson=sp, name="no-final",
+        template_kind="talking_head",
+        status=CompositionStatus.COMPLETED,
+        mock_mode=True,
+    )
+
+    # Composition C — final asset with empty file_path → upload_pending
+    asset_empty = Asset.objects.create(
+        workspace=ws, asset_type=AssetType.CLIP,
+        file_path="", mime_type="video/mp4",
+    )
+    comp_empty = Composition.objects.create(
+        workspace=ws, spokesperson=sp, name="empty-path",
+        template_kind="talking_head",
+        status=CompositionStatus.COMPLETED,
+        mock_mode=True, final_asset=asset_empty,
+    )
+
+    client = APIClient()
+    _login(client, user)
+    res = client.get("/api/compositions/")
+    assert res.status_code == http.HTTP_200_OK
+    data = res.json()
+    assert data["count"] == 3
+
+    rows = {row["name"]: row for row in data["results"]}
+    assert rows["local"]["final_asset_storage_health"] == "local_missing"
+    assert rows["no-final"]["final_asset_storage_health"] is None
+    assert rows["empty-path"]["final_asset_storage_health"] == "upload_pending"
+
+
 # ---- W11.6.5 (SESSION 174) — recipe image-picker ----------------
 
 

@@ -314,6 +314,7 @@ function VideoRow({ row }: { row: CompositionListItem }) {
               mock
             </span>
           )}
+          <StorageHealthBadge health={row.final_asset_storage_health} />
         </div>
         <div className="flex flex-wrap items-center gap-3 font-mono text-[11px] uppercase tracking-[0.22em] text-fog">
           <span data-testid="row-template">{row.template_kind}</span>
@@ -330,6 +331,65 @@ function VideoRow({ row }: { row: CompositionListItem }) {
         )}
       </div>
     </Link>
+  );
+}
+
+/**
+ * StorageHealthBadge — SESSION 210.
+ *
+ * Surfaces the final_asset's storage_health on each Videos row.
+ * Closes the SESSION 209 expired-asset accumulation finding's
+ * #2 follow-up: "let operators see which compositions have lost
+ * their media before drilling in."
+ *
+ * Renders nothing for healthy states (https_live, local_present,
+ * data_uri) — only flags the surfaces operators need to act on.
+ * Null health (composition has no final_asset) also renders
+ * nothing.
+ */
+function StorageHealthBadge({
+  health,
+}: {
+  health: CompositionListItem["final_asset_storage_health"];
+}) {
+  if (!health) return null;
+  // Healthy states are silent — no visual noise on every row.
+  if (health === "https_live" || health === "local_present" || health === "data_uri") {
+    return null;
+  }
+  const variants: Record<string, { label: string; cls: string; title: string }> = {
+    https_expiring_soon: {
+      label: "expiring soon",
+      cls: "text-warning border-warning/40 bg-warning/10",
+      title: "Runway CDN URL expires within 7 days. Bake to local or re-render before then.",
+    },
+    https_expired: {
+      label: "expired",
+      cls: "text-destructive border-destructive/40 bg-destructive/10",
+      title: "Runway CDN URL has expired. Media is no longer playable.",
+    },
+    local_missing: {
+      label: "missing",
+      cls: "text-destructive border-destructive/40 bg-destructive/10",
+      title: "Local file referenced by this render is missing on disk.",
+    },
+    upload_pending: {
+      label: "no media",
+      cls: "text-fog border-luxe bg-card",
+      title: "No file path attached. Either an upload-pending state or the final asset's file_path is empty.",
+    },
+  };
+  const v = variants[health];
+  if (!v) return null;
+  return (
+    <span
+      data-testid="storage-health-badge"
+      data-health={health}
+      title={v.title}
+      className={`inline-flex items-center rounded-sm border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.22em] ${v.cls}`}
+    >
+      {v.label}
+    </span>
   );
 }
 

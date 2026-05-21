@@ -125,6 +125,7 @@ class CompositionListSerializer(serializers.ModelSerializer):
         source="spokesperson.name", read_only=True,
     )
     final_asset_id = serializers.SerializerMethodField()
+    final_asset_storage_health = serializers.SerializerMethodField()
 
     class Meta:
         model = Composition
@@ -139,6 +140,7 @@ class CompositionListSerializer(serializers.ModelSerializer):
             "spokesperson_id",
             "spokesperson_name",
             "final_asset_id",
+            "final_asset_storage_health",
             "created_at",
             "updated_at",
         )
@@ -146,6 +148,24 @@ class CompositionListSerializer(serializers.ModelSerializer):
 
     def get_final_asset_id(self, obj) -> str | None:
         return str(obj.final_asset_id) if obj.final_asset_id else None
+
+    def get_final_asset_storage_health(self, obj) -> str | None:
+        """SESSION 210 — surface the final asset's storage health on
+        the Videos library row so operators see which renders have
+        lost their media (Runway CDN expiry) before drilling in.
+
+        Returns None when the composition has no final_asset (e.g.
+        post-expired-sweep where the asset row was deleted and the
+        FK SET_NULL'd) or when health can't be computed. The SPA
+        renders a subtle badge per the BRAND_IDENTITY_V3 status
+        palette.
+        """
+        if not obj.final_asset_id:
+            return None
+        asset = obj.final_asset
+        if asset is None:
+            return None
+        return compute_storage_health(asset)
 
 
 class CompositionStepSerializer(serializers.ModelSerializer):

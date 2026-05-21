@@ -45,6 +45,7 @@ function makeRow(overrides: Record<string, unknown> = {}) {
     spokesperson_id: "sp-1",
     spokesperson_name: "Sasha",
     final_asset_id: "a-1",
+    final_asset_storage_health: "https_live" as const,
     created_at: "2026-05-20T10:00:00Z",
     updated_at: "2026-05-20T10:05:00Z",
     ...overrides,
@@ -113,6 +114,52 @@ describe("WorkspaceVideosRoute", () => {
     renderRoute();
     expect(screen.getByTestId("videos-empty")).toBeInTheDocument();
     expect(screen.getByTestId("results-count")).toHaveTextContent("0");
+  });
+
+  it("flags unhealthy storage_health on the row (expired / expiring_soon / missing)", () => {
+    setUseCompositions({
+      isLoading: false,
+      isFetching: false,
+      error: null,
+      data: makePage([
+        makeRow({
+          id: "c-healthy",
+          name: "Healthy CDN render",
+          final_asset_storage_health: "https_live",
+        }),
+        makeRow({
+          id: "c-expired",
+          name: "Expired Runway URL",
+          final_asset_storage_health: "https_expired",
+        }),
+        makeRow({
+          id: "c-soon",
+          name: "Expiring soon",
+          final_asset_storage_health: "https_expiring_soon",
+        }),
+        makeRow({
+          id: "c-missing",
+          name: "Missing local file",
+          final_asset_storage_health: "local_missing",
+        }),
+        makeRow({
+          id: "c-no-asset",
+          name: "No final asset",
+          final_asset_storage_health: null,
+        }),
+      ]),
+    });
+    renderRoute();
+    // Healthy rows + null-health rows don't get a badge — operators
+    // shouldn't see noise on every row.
+    const badges = screen.getAllByTestId("storage-health-badge");
+    expect(badges).toHaveLength(3);
+    const healths = badges.map((b) => b.dataset.health).sort();
+    expect(healths).toEqual([
+      "https_expired",
+      "https_expiring_soon",
+      "local_missing",
+    ]);
   });
 
   it("renders one row per result with template + spokesperson + status", () => {

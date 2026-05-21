@@ -28,6 +28,22 @@ export const VERIFICATION_STATUSES = [
 ] as const;
 export type VerificationStatus = (typeof VERIFICATION_STATUSES)[number];
 
+// SESSION 210 — surfaces the final_asset's storage health so the
+// Videos library can flag renders whose Runway CDN URLs have
+// expired. Mirrors `StorageHealth` values from
+// `shell/apps/compositions/assets.py`. Null when the composition
+// has no final_asset (e.g. after expired-sweep SET_NULL).
+export const STORAGE_HEALTH_VALUES = [
+  "https_live",
+  "https_expiring_soon",
+  "https_expired",
+  "local_present",
+  "local_missing",
+  "data_uri",
+  "upload_pending",
+] as const;
+export type StorageHealth = (typeof STORAGE_HEALTH_VALUES)[number];
+
 export const compositionListItemSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -39,6 +55,7 @@ export const compositionListItemSchema = z.object({
   spokesperson_id: z.string().nullable(),
   spokesperson_name: z.string(),
   final_asset_id: z.string().nullable(),
+  final_asset_storage_health: z.enum(STORAGE_HEALTH_VALUES).nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 });
