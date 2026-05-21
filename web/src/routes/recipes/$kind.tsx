@@ -308,6 +308,15 @@ function FieldRenderer({
 }) {
   const id = `field-${field.name}`;
 
+  // SESSION 210 — when `briefModeHelper` is on (the primary
+  // textarea of a use_knowledge=true recipe), the field is a
+  // TOPIC, not a literal script. Per the SESSION 209 calibration
+  // finding: K6's build_render_brief replaces the operator's
+  // script with a brand-voiced expansion from workspace
+  // knowledge. The displayed label reflects this so operators
+  // don't write 120-char lines expecting them to be spoken.
+  const displayLabel = briefModeHelper ? "Topic" : field.label;
+
   return (
     <div className="flex flex-col gap-2" data-testid={`recipe-field-${field.name}`}>
       <div className="flex flex-col gap-1">
@@ -315,22 +324,30 @@ function FieldRenderer({
           htmlFor={id}
           className="text-[11px] uppercase tracking-[0.22em] text-fog"
         >
-          {field.label}
+          {displayLabel}
+          {briefModeHelper && (
+            <span className="ml-2 normal-case tracking-normal italic text-gold/80">
+              — knowledge mode
+            </span>
+          )}
           {!field.required && <span className="ml-2 normal-case tracking-normal text-fog/60">(optional)</span>}
         </Label>
-        {field.help_text && (
+        {field.help_text && !briefModeHelper && (
           <p className="text-xs text-fog">{field.help_text}</p>
         )}
         {briefModeHelper && (
           <p
-            className="text-xs text-foreground/80"
+            className="text-xs text-mist"
             data-testid="brief-mode-helper"
           >
-            <strong>Knowledge mode:</strong> what you type here becomes a
-            brief — gpt-5-mini expands it into a polished script using your
-            workspace docs at render time. One or two sentences is plenty
-            (e.g. "60-second spot about our spring launch, focused on the
-            early-bird discount").
+            <strong className="text-cream">This is a topic, not a
+            script.</strong> When knowledge mode is on, gpt-5-mini
+            reads the workspace docs and writes the spoken lines for
+            you — one or two sentences here is plenty (e.g. <em
+            className="italic">"60-second spot about our spring launch,
+            focused on the early-bird discount"</em>). Final render
+            length depends on the synthesized brief, not on this
+            input's character count.
           </p>
         )}
       </div>
