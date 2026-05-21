@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-21T20:37:45.780226+00:00
-git_sha: 9c10b57 (working tree dirty)
+generated_at: 2026-05-21T23:06:45.927810+00:00
+git_sha: 0dd9c14 (working tree dirty)
 git_branch: main
 ---
 
@@ -15,7 +15,7 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-21T20:37:45.780226+00:00** against commit **9c10b57**
+Generated **2026-05-21T23:06:45.927810+00:00** against commit **0dd9c14**
 on branch **main** (working tree dirty).
 
 Python 3.11.6 · Django 5.2.14 ·
@@ -32,8 +32,8 @@ Celery 5.6.3 · httpx 0.28.1.
 | URL routes (`/api/*`) | **167** | same |
 | FastAPI routes | **124** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **10** | `celery_app.tasks` filter |
-| Migrations (applied / total) | **0 / 69** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **73,849** in 309 files | `pathlib.Path.rglob("*.py")` |
+| Migrations (applied / total) | **69 / 69** | `MigrationRecorder` ∩ `MigrationLoader` |
+| Shell LOC (`*.py`, no venv/migrations) | **74,681** in 313 files | `pathlib.Path.rglob("*.py")` |
 | Media-engine LOC (`*.py`, no venv/migrations) | **39,047** in 76 files | same |
 
 ---
@@ -274,29 +274,29 @@ Total: **10** registered tasks (excluding `celery.*` built-ins).
 
 ## Migrations
 
-**0 of 69** migrations applied.
+**69 of 69** migrations applied.
 
 | App | Applied | Total | Pending |
 |---|---|---|---|
-| `account` | 0 | 9 | **9 ⚠** |
-| `accounts` | 0 | 1 | **1 ⚠** |
-| `admin` | 0 | 3 | **3 ⚠** |
-| `auth` | 0 | 12 | **12 ⚠** |
-| `billing` | 0 | 1 | **1 ⚠** |
-| `campaigns` | 0 | 2 | **2 ⚠** |
-| `compositions` | 0 | 10 | **10 ⚠** |
-| `contenttypes` | 0 | 2 | **2 ⚠** |
-| `conversations` | 0 | 4 | **4 ⚠** |
-| `embeddings` | 0 | 2 | **2 ⚠** |
-| `publish` | 0 | 1 | **1 ⚠** |
-| `realtime` | 0 | 3 | **3 ⚠** |
-| `scripts` | 0 | 1 | **1 ⚠** |
-| `sessions` | 0 | 1 | **1 ⚠** |
-| `sites` | 0 | 2 | **2 ⚠** |
-| `socialaccount` | 0 | 6 | **6 ⚠** |
-| `spokespeople` | 0 | 5 | **5 ⚠** |
-| `transcripts` | 0 | 1 | **1 ⚠** |
-| `videos` | 0 | 3 | **3 ⚠** |
+| `account` | 9 | 9 | 0 |
+| `accounts` | 1 | 1 | 0 |
+| `admin` | 3 | 3 | 0 |
+| `auth` | 12 | 12 | 0 |
+| `billing` | 1 | 1 | 0 |
+| `campaigns` | 2 | 2 | 0 |
+| `compositions` | 10 | 10 | 0 |
+| `contenttypes` | 2 | 2 | 0 |
+| `conversations` | 4 | 4 | 0 |
+| `embeddings` | 2 | 2 | 0 |
+| `publish` | 1 | 1 | 0 |
+| `realtime` | 3 | 3 | 0 |
+| `scripts` | 1 | 1 | 0 |
+| `sessions` | 1 | 1 | 0 |
+| `sites` | 2 | 2 | 0 |
+| `socialaccount` | 6 | 6 | 0 |
+| `spokespeople` | 5 | 5 | 0 |
+| `transcripts` | 1 | 1 | 0 |
+| `videos` | 3 | 3 | 0 |
 
 ---
 
@@ -318,11 +318,11 @@ Total: **10** registered tasks (excluding `celery.*` built-ins).
 | Service | Files | Lines |
 |---|---|---|
 | `media-engine/` | 76 | 39,047 |
-| `shell/` | 309 | 73,849 |
-| **total** | **385** | **112,896** |
+| `shell/` | 313 | 74,681 |
+| **total** | **389** | **113,728** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-05-21T20:37:45.780226+00:00 from commit 9c10b57. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-21T23:06:45.927810+00:00 from commit 0dd9c14. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
