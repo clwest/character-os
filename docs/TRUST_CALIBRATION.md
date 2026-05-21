@@ -5358,3 +5358,56 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   on every real run is ~12 keystrokes; the cost of
   accidentally nuking a workspace's compositions is
   recovery work + trust calibration.
+
+---
+
+## SESSION 212 — Real-mode realtime calibration (Rigby keeper)
+
+- **Context / claim:** Mock-mode tests covered the
+  realtime arc's state machine + document composition
+  + tool dispatch shape. Tests pass; arc looked
+  ship-ready.
+- **Reality / outcome:** Real-mode dogfood with the
+  operator-named keeper (Rigby) surfaced **five
+  structural findings in 90 minutes** that mock-mode
+  testing could not have caught:
+  1. Identity leak — Rigby self-identified as
+     "Character OS, powered by Runway" on turn 0
+     because K2 retrieval anchored on the
+     business_brief retrieved Character OS content
+     (deepest corpus at 580 chunks) and the avatar's
+     LLM read it as identity rather than topic.
+  2. Runway's avatar content filter rejects imperative
+     personality patterns (`"You are..."`, `"Never X"`,
+     `"When asked X, do Y"`) with 400 — undocumented
+     constraint.
+  3. Tool descriptions, not personality or document,
+     are the load-bearing surface for tool selection.
+     Three rounds of personality patches + doc-content
+     tweaks failed to gate `render_video` misfires;
+     tightening the tool's `description` arg fixed it
+     in one round.
+  4. Q-r-2 silent gap is conditional, not universal.
+     When the answer is in the loaded document, the
+     avatar narrates from cached state and the gap
+     hides. When the answer requires thin retrieval
+     (`DealFlowTracker` stub, 1 chunk), the avatar
+     loops the tool 4x because it has nothing to fall
+     back on.
+  5. Runway's avatar enforces "Hello. I'm [Name]"
+     first-turn greeting shape — 9 explicit operator
+     name mentions in the document body could not
+     override it. v1 limitation.
+- **Found by:** Operator dogfood, AI tailing logs +
+  transcripts in parallel.
+- **Lesson:** **Real-mode dogfood for the realtime
+  arc is non-negotiable.** The streak across arcs
+  (V, R, K, F, BC, V3, VO) now reads 11-for-11 —
+  every arc that's gone through real-mode dogfood
+  surfaces bugs mock-mode missed. The realtime arc
+  is the most resistant to mock-mode validation
+  because the avatar's LLM has its own behavioral
+  layer (greeting shape, tool selection bias, content
+  filter) that no test fixture can simulate. Schedule
+  ½-slice real-mode dogfood after every operator-
+  facing realtime change going forward.

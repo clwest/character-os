@@ -41,7 +41,7 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory --write` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_211_VO_SCOPE_LOCK.md`.
+> **Last handoff:** `docs/handoffs/SESSION_212_VO2_PLUS_REALTIME_CALIBRATION.md`.
 
 ---
 
@@ -123,7 +123,106 @@ Full session detail in
 
 ---
 
-## FIRST THING (SESSION 212): VO.2 — overlay_audio_at_offset (½ session)
+## FIRST THING (SESSION 213): Realtime Fix 2 (A+C) + Fix 3 (B) — recall_knowledge loop kill + retrieval boost (½ session)
+
+SESSION 212 shipped VO.2 + realtime Conversation Style
+calibration. Real-mode dogfood with Rigby (the keeper)
+surfaced a clean fix-shaped finding: when `recall_knowledge`
+fires on a thin-knowledge query (DealFlowTracker stub, 1
+chunk), Rigby loops the tool 4x because Q-r-2 prevents
+result narration AND the document has nothing to fall back
+on. Worst-case Q-r-2 manifestation.
+
+The fix is three layered changes:
+
+1. **Fix 2A — Server-side retry suppression.** In
+   `apps/realtime/dispatch.py`, when the same
+   `(tool_name, args)` pair fires within 10s on the same
+   session, return the cached result with an added hint
+   key (`already_returned: true`) so the avatar can see
+   it's stuck. Cheapest path; doesn't solve Q-r-2 but
+   kills the loop. Acceptance: identical fires within
+   the dedup window count as 1 invocation in
+   `RealtimeToolInvocation.objects.filter(session=s)`.
+
+2. **Fix 2C — Tighten `recall_knowledge` description.**
+   Mirror what we did with `render_video` /
+   `recall_recent_conversations`. Add explicit
+   non-trigger: "Do NOT invoke when the operator's
+   question is answerable from the loaded document
+   memory — the document already includes 30+ chunks
+   of K2 retrieval." Tool description registration in
+   `shell/apps/realtime/tools/recall_knowledge.py`.
+   500-char cap.
+
+3. **Fix 3B — Boost `DEFAULT_TOP_K` from 30 → 50.**
+   In `shell/character_os/realtime_document.py`. More
+   answers baked into the document at session-create
+   = fewer Q-r-2 strikes. Cost trade-off: ~+10k chars
+   per session document but well within the 40k cap.
+   Document max_chars budget tests already updated for
+   the Conversation Style section landing in SESSION
+   212, so this is additive.
+
+Acceptance: replay the SESSION 212 "tell me about
+DealFlowTracker" scenario. With A+C+B, Rigby should
+either (a) answer from boosted document context
+without firing the tool, or (b) fire once + get
+"already_returned" hint + bridge verbally.
+
+After fixes land: real-mode dogfood with Rigby on a
+mix of well-grounded products (Character OS) and
+thin-grounded products (DealFlowTracker) to confirm
+the loop is dead.
+
+## SESSION 212 outcome — VO.2 + realtime calibration
+
+Two parallel arcs in one session.
+
+**VO.2 shipped** (commit `c788966`) — overlay_audio
+primitive + ffmpeg-only splice route + +39 tests
+(Django 1387 → 1414; media-engine 246 → 258).
+Byte-identity for `-c:v copy` validated via real-mode
+ffmpeg.
+
+**Realtime calibration shipped** (commit `2b861e6`)
+— platform `## Conversation Style` block in every
+realtime document, `render_video` /
+`recall_recent_conversations` descriptions tightened,
+operator handle resolution from workspace.owner.email,
+Conversation Style section in test budget math.
+
+**Real-mode dogfood with Rigby (8 sessions, ~$0.65
+spend)** surfaced:
+* Identity leak resolved (session 1 → 8: "I'm
+  Character OS" → "I'm Rigby with 24/7 Global AI")
+* Workflow-explanation pattern landed (session 6:
+  Rigby walked through "create an ad for MentorForge"
+  verbally without firing render_video)
+* `render_video` no longer misfires on "how do I"
+  questions
+* Q-r-2 silent gap manifests as a LOOP on
+  thin-knowledge retrieval (session 8: 4x
+  recall_knowledge fires for `DealFlowTracker` 1-chunk
+  stub)
+* Operator-name in greeting does NOT land —
+  Runway's avatar enforces "Hello. I'm [Name]"
+  shape; 9 explicit Admin mentions in document
+  ignored. v1 limitation documented in
+  `feedback_runway_avatar_greeting_bias.md`.
+
+**5 new memory entries** capturing the operational
+findings:
+* `feedback_tool_descriptions_drive_selection.md`
+* `feedback_runway_tool_description_500_char_limit.md`
+* `feedback_runway_content_filter_rejects_imperative.md`
+* `feedback_qr2_mitigated_by_document_context.md`
+* `feedback_runway_avatar_greeting_bias.md`
+
+Full session detail in
+`docs/handoffs/SESSION_212_VO2_PLUS_REALTIME_CALIBRATION.md`.
+
+## (Originally queued) FIRST THING was VO.2 — overlay_audio_at_offset
 
 VO.1 shipped the TTS side; VO.2 ships the splice side.
 Pure ffmpeg, no upstream calls.

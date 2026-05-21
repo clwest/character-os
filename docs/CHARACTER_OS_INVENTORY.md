@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-21T17:11:27.606669+00:00
-git_sha: 27f3e6b (working tree dirty)
+generated_at: 2026-05-21T19:14:23.974099+00:00
+git_sha: 2b861e6 (working tree dirty)
 git_branch: main
 ---
 
@@ -15,7 +15,7 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-21T17:11:27.606669+00:00** against commit **27f3e6b**
+Generated **2026-05-21T19:14:23.974099+00:00** against commit **2b861e6**
 on branch **main** (working tree dirty).
 
 Python 3.11.6 · Django 5.2.14 ·
@@ -33,7 +33,7 @@ Celery 5.6.3 · httpx 0.28.1.
 | FastAPI routes | **124** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **10** | `celery_app.tasks` filter |
 | Migrations (applied / total) | **69 / 69** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **73,245** in 308 files | `pathlib.Path.rglob("*.py")` |
+| Shell LOC (`*.py`, no venv/migrations) | **73,342** in 308 files | `pathlib.Path.rglob("*.py")` |
 | Media-engine LOC (`*.py`, no venv/migrations) | **39,047** in 76 files | same |
 
 ---
@@ -318,11 +318,11 @@ Total: **10** registered tasks (excluding `celery.*` built-ins).
 | Service | Files | Lines |
 |---|---|---|
 | `media-engine/` | 76 | 39,047 |
-| `shell/` | 308 | 73,245 |
-| **total** | **384** | **112,292** |
+| `shell/` | 308 | 73,342 |
+| **total** | **384** | **112,389** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-05-21T17:11:27.606669+00:00 from commit 27f3e6b. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-21T19:14:23.974099+00:00 from commit 2b861e6. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
