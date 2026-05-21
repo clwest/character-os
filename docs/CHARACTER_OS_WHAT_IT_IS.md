@@ -2,9 +2,9 @@
 title: "Character OS — What It Actually Is"
 status: populated
 generated: 2026-05-13
-last_revised: 2026-05-20 (SESSION 206 — E-arc Auto-Scripting backend + SPA ships, B2.6 dogfood queued)
+last_revised: 2026-05-20 (SESSION 209 — strategic pivot, 24/7 Global AI keeper, Tier 1/2 knowledge corpus, BRAND_IDENTITY_V3 arc shipped)
 companion_doc: CHARACTER_OS_INVENTORY.md
-covers_sessions: "106-206"
+covers_sessions: "106-209"
 ---
 
 # Character OS — What It Actually Is
