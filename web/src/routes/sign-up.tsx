@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { EngagementBrief, HairlineDivider } from "@/components/editorial";
 import { useSignup } from "@/lib/auth/use-session";
 import { ApiError } from "@/lib/api/client";
 
@@ -44,18 +45,23 @@ export function SignUpRoute() {
 
   return (
     <div className="reveal flex flex-col gap-10">
-      <header className="flex flex-col gap-3 border-b border-border pb-6">
-        <span className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-          New account
+      <header className="relative flex flex-col gap-4 pb-8">
+        <span className="font-mono text-[10.5px] uppercase tracking-[0.34em] text-gold">
+          § — New account
         </span>
-        <h1 className="font-display text-5xl leading-[0.95] tracking-tight">
-          Start your
+        <h1 className="font-display text-5xl leading-[0.95] tracking-tight text-cream">
+          Commission your
           <br />
-          workspace.
+          <span className="italic gold-text">operating partner.</span>
         </h1>
-        <p className="text-sm text-muted-foreground">
-          One workspace per account. You can rename it later.
+        <p className="max-w-md text-sm text-mist">
+          One workspace per account. You can rename it later. The hour
+          is irrelevant.
         </p>
+        <div
+          className="hairline-gold absolute inset-x-0 bottom-0 h-px"
+          aria-hidden="true"
+        />
       </header>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-6">
@@ -80,16 +86,33 @@ export function SignUpRoute() {
         )}
 
         <Button type="submit" disabled={signup.isPending} className="mt-2">
-          {signup.isPending ? "Creating account…" : "Create account"}
+          {signup.isPending ? "Creating account…" : "Create account →"}
         </Button>
       </form>
 
-      <p className="border-t border-border pt-6 font-mono text-xs uppercase tracking-wider text-muted-foreground">
-        Already have an account?{" "}
-        <Link to="/sign-in" className="font-medium text-foreground underline-offset-4 hover:underline">
-          Sign in
-        </Link>
-      </p>
+      {/* Editorial brief — what you're signing up for. The
+       * EngagementBrief primitive from V3.2. */}
+      <EngagementBrief
+        entries={[
+          { label: "Cadence", value: "Around the clock" },
+          { label: "Format", value: "Self-serve workspace" },
+          { label: "Discretion", value: "Implicit" },
+          { label: "Reply", value: "Immediate", emphasis: true },
+        ]}
+      />
+
+      <div className="flex flex-col gap-4 pt-2">
+        <HairlineDivider width="lg" tone="muted" />
+        <p className="font-mono text-xs uppercase tracking-[0.22em] text-fog">
+          Already have an account?{" "}
+          <Link
+            to="/sign-in"
+            className="font-display italic text-gold transition-colors hover:text-gold-bright"
+          >
+            Sign in →
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }
@@ -115,7 +138,7 @@ function Field({
     <div className="flex flex-col gap-2">
       <Label
         htmlFor={id}
-        className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground"
+        className="font-mono text-[10.5px] uppercase tracking-[0.28em] text-fog"
       >
         {label}
       </Label>

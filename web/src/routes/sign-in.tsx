@@ -5,6 +5,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { HairlineDivider } from "@/components/editorial";
 import { useSignin } from "@/lib/auth/use-session";
 import { ApiError } from "@/lib/api/client";
 
@@ -54,18 +55,27 @@ export function SignInRoute() {
 
   return (
     <div className="reveal flex flex-col gap-10">
-      <header className="flex flex-col gap-3 border-b border-border pb-6">
-        <span className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-          Welcome back
+      <header className="relative flex flex-col gap-4 pb-8">
+        <span className="font-mono text-[10.5px] uppercase tracking-[0.34em] text-gold">
+          § — Welcome back
         </span>
-        <h1 className="font-display text-5xl leading-[0.95] tracking-tight">Sign in.</h1>
+        <h1 className="font-display text-5xl leading-[0.95] tracking-tight text-cream">
+          Sign <span className="italic gold-text">in.</span>
+        </h1>
+        <p className="max-w-md text-sm text-mist">
+          The operating layer is waiting. The hour is irrelevant.
+        </p>
+        <div
+          className="hairline-gold absolute inset-x-0 bottom-0 h-px"
+          aria-hidden="true"
+        />
       </header>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-6">
         <div className="flex flex-col gap-2">
           <Label
             htmlFor="email"
-            className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground"
+            className="font-mono text-[10.5px] uppercase tracking-[0.28em] text-fog"
           >
             Email
           </Label>
@@ -79,7 +89,7 @@ export function SignInRoute() {
         <div className="flex flex-col gap-2">
           <Label
             htmlFor="password"
-            className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground"
+            className="font-mono text-[10.5px] uppercase tracking-[0.28em] text-fog"
           >
             Password
           </Label>
@@ -100,16 +110,22 @@ export function SignInRoute() {
         )}
 
         <Button type="submit" disabled={signin.isPending} className="mt-2">
-          {signin.isPending ? "Signing in…" : "Sign in"}
+          {signin.isPending ? "Signing in…" : "Sign in →"}
         </Button>
       </form>
 
-      <p className="border-t border-border pt-6 font-mono text-xs uppercase tracking-wider text-muted-foreground">
-        New here?{" "}
-        <Link to="/sign-up" className="font-medium text-foreground underline-offset-4 hover:underline">
-          Create an account
-        </Link>
-      </p>
+      <div className="flex flex-col gap-4 pt-6">
+        <HairlineDivider width="lg" tone="muted" />
+        <p className="font-mono text-xs uppercase tracking-[0.22em] text-fog">
+          New here?{" "}
+          <Link
+            to="/sign-up"
+            className="font-display italic text-gold transition-colors hover:text-gold-bright"
+          >
+            Create an account →
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }
