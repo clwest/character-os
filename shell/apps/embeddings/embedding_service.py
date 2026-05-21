@@ -135,9 +135,19 @@ def _real_embed(text: str) -> list[float]:
 
 
 def embed(text: str) -> EmbedResult:
-    """Embed one piece of text. Cached by ``sha256(text)`` for
-    30 days. ``EMBEDDING_FORCE_MOCK=1`` short-circuits to a
-    deterministic pseudo-vector.
+    """Embed one piece of text. Real-mode results cached by
+    ``sha256(text)`` for 30 days. ``EMBEDDING_FORCE_MOCK=1``
+    short-circuits to a deterministic pseudo-vector and
+    **bypasses the cache entirely** — both read and write.
+
+    The cache-bypass is load-bearing: pre-SESSION-214, mock
+    and real shared the cache key, so a mock-mode run would
+    poison subsequent real-mode reads (vectors looked cached,
+    cost reported $0, but the floats were the deterministic
+    hash garbage). Since the mock path is already deterministic
+    from ``sha256(text)``, caching it buys nothing — recompute
+    is microseconds. Skipping the cache eliminates the
+    cross-mode collision by construction.
 
     Raises ``ValueError`` if ``text`` is empty or whitespace-
     only — embedding empty strings is always a bug.
@@ -148,8 +158,21 @@ def embed(text: str) -> EmbedResult:
         raise ValueError("Cannot embed empty text")
 
     started = time.perf_counter()
-    key = _cache_key(text)
 
+    # Mock mode: skip cache entirely so we cannot poison real
+    # reads. Vector is already deterministic from sha256(text).
+    if _is_force_mock():
+        vec = _deterministic_mock_vector(text)
+        return EmbedResult(
+            vector=vec,
+            model=f"{EMBEDDING_MODEL} (mock)",
+            dimension=EMBEDDING_DIMENSION,
+            cost_micros=0,
+            cached=False,
+            elapsed_ms=int((time.perf_counter() - started) * 1000),
+        )
+
+    key = _cache_key(text)
     cached = cache.get(key)
     if cached is not None:
         return EmbedResult(
@@ -158,18 +181,6 @@ def embed(text: str) -> EmbedResult:
             dimension=EMBEDDING_DIMENSION,
             cost_micros=0,
             cached=True,
-            elapsed_ms=int((time.perf_counter() - started) * 1000),
-        )
-
-    if _is_force_mock():
-        vec = _deterministic_mock_vector(text)
-        cache.set(key, vec)
-        return EmbedResult(
-            vector=vec,
-            model=f"{EMBEDDING_MODEL} (mock)",
-            dimension=EMBEDDING_DIMENSION,
-            cost_micros=0,
-            cached=False,
             elapsed_ms=int((time.perf_counter() - started) * 1000),
         )
 

@@ -37,10 +37,58 @@ def test_mock_vector_shape_and_determinism() -> None:
     assert len(r1.vector) == EMBEDDING_DIMENSION
     assert r1.cost_micros == 0  # mock-mode is free
     assert "mock" in r1.model
-    # Same text → same vector (deterministic mock + cache).
+    # Same text → same vector via deterministic hash, not cache.
     assert r1.vector == r2.vector
-    # Second call should be a cache hit
-    assert r2.cached is True
+    # Mock-mode bypasses the cache entirely (SESSION 214 fix for
+    # cross-mode key collision) — every call recomputes.
+    assert r1.cached is False
+    assert r2.cached is False
+
+
+@pytest.mark.django_db
+def test_mock_does_not_poison_real_mode_cache() -> None:
+    """Regression test for the SESSION 214 cache-collision bug.
+
+    Pre-fix: mock-mode wrote vectors under ``{model}:{sha256}``;
+    a subsequent real-mode call for the same text would return
+    the mock vector from cache silently (``cached=True``,
+    ``cost_micros=0``, but the floats are hash garbage).
+
+    Post-fix: mock-mode bypasses the cache. After a mock embed
+    of text X, real-mode for the same X must not see a cached
+    value — it must take the real path (and here, raise because
+    no OPENAI_API_KEY is set)."""
+    from django.core.cache import cache
+
+    text = "collision-canary text — SESSION 214 regression"
+
+    # Step 1: embed in mock mode.
+    with override_settings(EMBEDDING_FORCE_MOCK=True):
+        cache.clear()
+        mock_result = embed(text)
+        assert "mock" in mock_result.model
+        assert mock_result.cached is False
+
+    # Step 2: cache must contain nothing for this text.
+    from apps.embeddings.embedding_service import _cache_key
+    assert cache.get(_cache_key(text)) is None, (
+        "Mock-mode leaked a vector into the cache — "
+        "this would poison real-mode reads."
+    )
+
+    # Step 3: real-mode (no API key) must refuse rather than
+    # silently return the mock vector.
+    with override_settings(EMBEDDING_FORCE_MOCK=False):
+        old_key = os.environ.pop("OPENAI_API_KEY", None)
+        old_env_mock = os.environ.pop("EMBEDDING_FORCE_MOCK", None)
+        try:
+            with pytest.raises(RuntimeError):
+                embed(text)
+        finally:
+            if old_key is not None:
+                os.environ["OPENAI_API_KEY"] = old_key
+            if old_env_mock is not None:
+                os.environ["EMBEDDING_FORCE_MOCK"] = old_env_mock
 
 
 @pytest.mark.django_db
