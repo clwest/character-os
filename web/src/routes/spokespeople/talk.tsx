@@ -752,6 +752,24 @@ function ToolResultPanel({ result }: { result: DispatchResult }) {
     result.tool_name === "recall_knowledge" &&
     resultObj !== null &&
     Array.isArray(resultObj.matches);
+  // Bridge tools (consult_engine / query_spider_data /
+  // agent_consult) carry a full prose `answer` field from u-d-b's
+  // PA. The Runway SDK is one-way (avatar → SPA), so the avatar
+  // never narrates the answer — this panel is where the operator
+  // reads it. Mirrors the v1 narration story documented at
+  // avatar-session-inner.tsx:14-29.
+  const isBridgeAnswer =
+    ok &&
+    resultObj !== null &&
+    typeof resultObj.event === "string" &&
+    (resultObj.event === "engine_consulted" ||
+      resultObj.event === "spider_queried" ||
+      resultObj.event === "agent_consulted");
+  const bridgeError =
+    ok &&
+    resultObj !== null &&
+    typeof resultObj.error === "string" &&
+    isBridgeAnswer;
   return (
     <div
       className={
@@ -788,10 +806,73 @@ function ToolResultPanel({ result }: { result: DispatchResult }) {
           matches={resultObj.matches as KnowledgeMatch[]}
         />
       )}
-      {ok && resultObj !== null && !isRecallSessions && !isRecallKnowledge && (
-        <p className="font-mono text-foreground/80">
-          {summariseResultObject(resultObj)}
+      {isBridgeAnswer && (
+        <BridgeAnswerPanel result={resultObj} hasError={bridgeError} />
+      )}
+      {ok &&
+        resultObj !== null &&
+        !isRecallSessions &&
+        !isRecallKnowledge &&
+        !isBridgeAnswer && (
+          <p className="font-mono text-foreground/80">
+            {summariseResultObject(resultObj)}
+          </p>
+        )}
+    </div>
+  );
+}
+
+// SESSION 215 — soft-deprecated alongside the three backend bridge
+// tools (consult_engine / query_spider_data / agent_consult). This
+// panel renders engine answers as a v1 dogfood seam for the operator;
+// the real "talk to Rigby face-to-face" product lives on u-d-b. See
+// docs/handoffs/SESSION_215_RIGBY_FACE_TO_FACE_PIVOT.md. Do not
+// extend.
+function BridgeAnswerPanel({
+  result,
+  hasError,
+}: {
+  result: Record<string, unknown>;
+  hasError: boolean;
+}) {
+  const event = typeof result.event === "string" ? result.event : "";
+  const answer = typeof result.answer === "string" ? result.answer : "";
+  const errorText = typeof result.error === "string" ? result.error : "";
+  const question = typeof result.question === "string" ? result.question : "";
+  const topic = typeof result.topic === "string" ? result.topic : "";
+  const agentName =
+    typeof result.agent_name === "string" ? result.agent_name : "";
+  const latencyMs =
+    typeof result.latency_ms === "number" ? result.latency_ms : null;
+  const engineUrl =
+    typeof result.engine_url === "string" ? result.engine_url : "";
+  const eventLabel: Record<string, string> = {
+    engine_consulted: "Engine",
+    spider_queried: "Spiders",
+    agent_consulted: agentName || "Agent",
+  };
+  const heading = eventLabel[event] ?? "Bridge";
+  const subject = topic || question;
+  return (
+    <div className="flex flex-col gap-2" data-testid="bridge-answer-panel">
+      <div className="flex items-baseline justify-between gap-2 text-[11px] uppercase tracking-wide text-foreground/60">
+        <span>{heading}</span>
+        {latencyMs !== null && (
+          <span className="font-mono">{Math.round(latencyMs / 100) / 10}s</span>
+        )}
+      </div>
+      {subject && (
+        <p className="text-[11px] italic text-foreground/70">{subject}</p>
+      )}
+      {hasError ? (
+        <p className="whitespace-pre-wrap text-destructive">{errorText}</p>
+      ) : (
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+          {answer || "(empty answer)"}
         </p>
+      )}
+      {engineUrl && (
+        <p className="text-[10px] font-mono text-foreground/40">{engineUrl}</p>
       )}
     </div>
   );

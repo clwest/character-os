@@ -322,6 +322,91 @@ describe("TalkRoute (R8.0)", () => {
     expect(screen.getByTestId("talk-retry")).toBeInTheDocument();
   });
 
+  it("renders bridge-tool answer panel for consult_engine result", async () => {
+    // The Runway SDK is one-way (avatar → SPA) so the avatar
+    // never narrates the engine's answer; this panel is where
+    // the operator reads it. Driven by the result's `event`
+    // field, not the tool name, so any bridge tool routes
+    // through the same panel.
+    const mockSession = {
+      ...makeSession({ mock_mode: true }),
+      provider_session_key: "mock_key",
+    };
+    useCreateMock.mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue(mockSession),
+      isPending: false,
+    });
+    const bridgeResult = {
+      state: "succeeded" as const,
+      invocation_id: "inv_99",
+      tool_name: "consult_engine",
+      cost_micros: 5_000,
+      result: {
+        event: "engine_consulted",
+        question: "What's on the roadmap this week?",
+        answer:
+          "Three things landing this week: VO.3 cta_swap, the embedding-cache flush, and the bridge-panel UX.",
+        latency_ms: 4200,
+        engine_url: "http://localhost:8020",
+        conversation_id: "conv_1",
+      },
+    };
+    useInvokeMock.mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue(bridgeResult),
+      isPending: false,
+    });
+    renderRoute();
+    await userEvent.click(screen.getByTestId("talk-start"));
+    await userEvent.click(screen.getByTestId("mock-fire-show-videos-tab"));
+    await waitFor(() =>
+      expect(screen.getByTestId("bridge-answer-panel")).toBeInTheDocument(),
+    );
+    const panel = screen.getByTestId("bridge-answer-panel");
+    expect(panel).toHaveTextContent(/Engine/);
+    expect(panel).toHaveTextContent("What's on the roadmap this week?");
+    expect(panel).toHaveTextContent(/Three things landing this week/);
+    // Generic summariseResultObject fallback ("event: ...") must
+    // NOT also render for bridge events.
+    expect(panel.textContent).not.toMatch(/event: engine_consulted/);
+  });
+
+  it("renders bridge-tool error inline when engine call fails", async () => {
+    const mockSession = {
+      ...makeSession({ mock_mode: true }),
+      provider_session_key: "mock_key",
+    };
+    useCreateMock.mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue(mockSession),
+      isPending: false,
+    });
+    const errResult = {
+      state: "succeeded" as const,
+      invocation_id: "inv_100",
+      tool_name: "consult_engine",
+      cost_micros: 5_000,
+      result: {
+        event: "engine_consulted",
+        question: "What's on the roadmap?",
+        error: "engine timed out after 25s",
+        latency_ms: 25000,
+        engine_url: "http://localhost:8020",
+      },
+    };
+    useInvokeMock.mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue(errResult),
+      isPending: false,
+    });
+    renderRoute();
+    await userEvent.click(screen.getByTestId("talk-start"));
+    await userEvent.click(screen.getByTestId("mock-fire-show-videos-tab"));
+    await waitFor(() =>
+      expect(screen.getByTestId("bridge-answer-panel")).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("bridge-answer-panel")).toHaveTextContent(
+      /engine timed out/,
+    );
+  });
+
   it("firing an under-threshold tool surfaces success in tool-result panel (R8.1)", async () => {
     const mockSession = {
       ...makeSession({ mock_mode: true }),

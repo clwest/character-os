@@ -1,5 +1,10 @@
 """`agent_consult` — invoke a specific u-d-b agent by name.
 
+**SESSION 215 — soft-deprecated alongside ``consult_engine``** as
+operator-only dogfood. The real product lives on u-d-b. See
+``docs/handoffs/SESSION_215_RIGBY_FACE_TO_FACE_PIVOT.md``. Do not
+extend.
+
 Third engine-bridge realtime tool (companion to ``consult_engine``
 and ``query_spider_data``). Where ``consult_engine`` is the general
 "ask the engine's PA anything" tool, this one names a specific
@@ -78,16 +83,20 @@ def _http_request(url: str, method: str, body: dict | None, token: str):
 
 @register_tool(
     name="agent_consult",
-    # Under 500-char cap. Current: ~440 chars.
+    # Under 500-char cap. Pre-narration cue dropped — Runway's LLM
+    # ignored it in real-mode dogfood. Narration of the answer
+    # belongs to the SPA (BridgeAnswerPanel) + the operator in v1;
+    # VO-arc TTS playback is the v2 path. Same constraint as
+    # consult_engine.
     description=(
-        "Invoke a specific u-d-b expert agent by name. Use when "
-        "the question wants a specific lens: CTOAgent for "
-        "architecture, COOAgent for roadmap, "
-        "MarketIntelligenceAgent for market signals, "
-        "CreativeDirectorAgent for content strategy. Pass agent "
-        "name as `agent_name` and the question as `question`. "
-        "For general questions, prefer consult_engine. Summarise "
-        "the agent's response briefly in the spokesperson's voice."
+        "Invokes a specific u-d-b expert agent by name when a "
+        "question wants a specific lens: CTOAgent for architecture, "
+        "COOAgent for roadmap, MarketIntelligenceAgent for market "
+        "signals, CreativeDirectorAgent for content strategy. Pass "
+        "`agent_name` and `question`. For general questions, prefer "
+        "consult_engine. The agent's response renders on screen "
+        "for the operator to read; the avatar's role is to invoke, "
+        "not recite."
     ),
     cost_micros=7_500,
     workspace_scoped=True,

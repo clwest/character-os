@@ -1,5 +1,10 @@
 """`query_spider_data` — engine-bridge tool for live spider intelligence.
 
+**SESSION 215 — soft-deprecated alongside ``consult_engine``** as
+operator-only dogfood. The real product lives on u-d-b. See
+``docs/handoffs/SESSION_215_RIGBY_FACE_TO_FACE_PIVOT.md``. Do not
+extend.
+
 Second engine-bridge realtime tool (companion to ``consult_engine``).
 Where ``consult_engine`` asks u-d-b's PA an open-ended question,
 this tool tells the PA to specifically pull from the spider network
@@ -76,16 +81,19 @@ def _http_request(url: str, method: str, body: dict | None, token: str):
 
 @register_tool(
     name="query_spider_data",
-    # Under 500-char cap. Current: ~430 chars.
+    # Under 500-char cap. Pre-narration cue dropped — Runway's LLM
+    # ignored it in real-mode dogfood. Narration of the answer
+    # belongs to the SPA (BridgeAnswerPanel) + the operator in v1;
+    # VO-arc TTS playback is the v2 path. Same constraint as
+    # consult_engine.
     description=(
-        "Ask the engine's spider network for live data on a topic. "
-        "Use when the operator wants recent intelligence (news, "
-        "market signals, sentiment, trending content) — not static "
-        "facts. Pass the topic as `topic`. Engine returns a summary "
-        "of recent spider catches plus signal patterns. Do NOT use "
-        "for general portfolio questions (use consult_engine) or "
-        "for facts the workspace corpus covers. Summarise briefly "
-        "in the spokesperson's voice."
+        "Asks the engine's spider network for live data on a topic "
+        "— recent news, market signals, sentiment, trending content. "
+        "Pass the topic as `topic`. Do NOT use for general portfolio "
+        "questions (consult_engine handles those) or for facts the "
+        "workspace corpus covers. The summary renders on screen for "
+        "the operator to read; the avatar's role is to invoke, not "
+        "recite."
     ),
     cost_micros=5_000,
     workspace_scoped=True,

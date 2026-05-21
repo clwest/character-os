@@ -1,5 +1,20 @@
 """`consult_engine` — bridge tool to unified-donkey-betz Rigby (PA).
 
+**SESSION 215 — soft-deprecated as a v1 dogfood seam.** The bridge
+shape (Character OS spokesperson → HTTP → u-d-b PA → answer in SPA
+panel) only solves a use case where the operator is using a
+spokesperson as a face for their own engine. End customers of
+Character OS don't have a u-d-b. The real product — "talk to Rigby
+face-to-face" — belongs on u-d-b with a push-to-speak avatar (HeyGen
+/ D-ID) where Rigby IS the LLM and the avatar lip-syncs Rigby's
+existing PA responses. See
+``docs/handoffs/SESSION_215_RIGBY_FACE_TO_FACE_PIVOT.md``.
+
+This tool remains functional for operator-only dogfood. Do not
+extend it (no new params, no new narration tricks). When end-customer
+gating lands, gate via ``tier_required='agency'`` or a dedicated
+operator-only flag.
+
 The spokesperson invokes this when the operator asks a question that
 the workspace knowledge corpus + recent conversations don't answer —
 and the question is plausibly about the operator's broader portfolio,
@@ -93,18 +108,26 @@ def _http_request(url: str, method: str, body: dict | None, token: str):
 @register_tool(
     name="consult_engine",
     # Kept under the 500-char media-engine Pydantic cap (see
-    # recall_knowledge.py for the same constraint). Current length:
-    # ~440 chars including spaces.
+    # recall_knowledge.py for the same constraint). The earlier
+    # iteration tried a pre-narration cue ("Before invoking, voice
+    # ...") but Runway's LLM ignored it in real-mode dogfood — same
+    # class of bias documented at
+    # ``feedback_runway_avatar_greeting_bias``. Descriptions reliably
+    # gate WHEN tools fire, not WHAT the avatar says around them.
+    # Narration of the answer is the SPA's job (BridgeAnswerPanel)
+    # and, in v1, the operator's job (read panel + verbally hand
+    # back to avatar). A v2 slice will pipe the answer through VO-arc
+    # TTS for true mid-conversation narration.
     description=(
-        "Ask the engine — operator's deeper Rigby on u-d-b — when "
-        "the question is about the operator's broader portfolio, "
-        "current priorities, recent deliverables, live system "
-        "state, or anything the workspace corpus is silent on. "
-        "Pass the full question as `question`. Do NOT invoke for "
-        "questions the loaded document answers, greetings, or "
-        "anything purely about Character OS. After invoking, "
-        "summarise the engine's answer briefly; do not recite "
-        "verbatim."
+        "Asks the operator's deeper engine — Rigby on u-d-b — when "
+        "a question concerns the operator's portfolio, current "
+        "priorities, recent deliverables, live system state, or "
+        "anything the workspace corpus is silent on. Pass the "
+        "question as `question`. Do NOT invoke when the loaded "
+        "document already answers, for greetings, or for Character-"
+        "OS-only topics. The full answer renders on screen for the "
+        "operator to read; the avatar's role is to invoke, not "
+        "recite."
     ),
     cost_micros=5_000,
     workspace_scoped=True,
