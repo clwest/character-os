@@ -1,10 +1,18 @@
 ---
 title: "Brand Identity v2 — Premium enterprise dark + gold"
-status: active (v2; locked SESSION 178)
+status: superseded by BRAND_IDENTITY_V3.md (SESSION 209)
 generated: 2026-05-18 (SESSION 178)
 companion_doc: BRAND_ECOSYSTEM_V1.md
 supersedes: BRAND_IDENTITY_V1.md
+superseded_by: BRAND_IDENTITY_V3.md
 ---
+
+> **SUPERSEDED — SESSION 209.** V3 pivots from "premium
+> enterprise dark + gold" to "editorial dark-luxe" with Bodoni
+> Moda display, DM Sans body, section-dossier numbering, and
+> the 24/7 Global AI parent voice patterns. See
+> `BRAND_IDENTITY_V3.md` for the active contract. V2 preserved
+> for archaeology and the V2 → V3 pivot rationale.
 
 # Brand Identity v2
 

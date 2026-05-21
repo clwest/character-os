@@ -9,7 +9,7 @@ state: active
 > **SPA scope lock:** `docs/design/SPA_ARCHITECTURE.md`.
 > **Brand ecosystem lock:** `docs/design/BRAND_ECOSYSTEM_V1.md`.
 > **B0-B5 SHIPPED; B6-B10 deferred.**
-> **Brand identity lock (current):** `docs/design/BRAND_IDENTITY_V2.md`.
+> **Brand identity lock (current):** `docs/design/BRAND_IDENTITY_V3.md` (V2 superseded SESSION 209).
 > **Parent-company anchor:** `docs/247_GLOBAL_AI_OVERVIEW.md`.
 > **Wizard scope lock:** `docs/design/CREATE_SPOKESPERSON_WIZARD.md`.
 > **Knowledge layer:** `docs/design/KNOWLEDGE_LAYER.md`.
@@ -60,6 +60,8 @@ spokesperson. **Seven distinct workstreams shipped**:
 | 5 | Tier 1 knowledge corpus — 7 KDs seeded from `/24-7-ai-global/products.ts`, 13 chunks embedded | data-only |
 | 6 | Tier 1 validation — RAG probes + real-mode render confirm corpus works end-to-end | calibration findings filed |
 | 7 | **Tier 2 ingest — 29 anchor + design-lock KDs across 4 projects (charos / context-kit / mentorforge / contract-concierge), 871 new chunks** | data-only |
+| 8 | **5 brand-on Character OS pitch videos via the keeper (CTA variants)** | data-only, $1.50 |
+| 9 | **BRAND_IDENTITY_V3.md scope lock — editorial dark-luxe pivot to match 24/7 Global AI parent** | doc — V3 active, V2 superseded |
 
 Plus 3 TRUST_CALIBRATION entries appended:
 expired-asset purge gap, `talking_head` chunk_ids
@@ -163,19 +165,42 @@ pre-synthesis.
 all grounded recipes; add post-synthesis duration
 preview in the SPA.
 
-### Candidate C — Brand Identity v3 scope-lock (½ session)
+### Candidate C — Brand Identity V3 implementation (4-5 sessions across V3.1–V3.9)
 
-Write `docs/design/BRAND_IDENTITY_V3.md` capturing the
-editorial-dark-luxe direction discovered in
-`/24-7-ai-global/`. Ink/gold palette, Bodoni Moda
-display, section dossier numbering, "Plate 01" /
-"Proprietor" / "Reply by morning" voice patterns.
+**V3 scope-lock SHIPPED SESSION 209**
+(`docs/design/BRAND_IDENTITY_V3.md`). V2 marked
+superseded. 10 load-bearing contract rules, full
+slice plan V3.0–V3.9, color / font / motion tokens
+mirrored from `/24-7-ai-global/`.
 
-Sequencing for actual re-skin (1-2 sessions) follows
-in SESSION 211+.
+Implementation slices queued:
 
-**Why third:** Significant work but doesn't block any
-keeper functionality. Pure UX layer.
+- **V3.1 — Token swap + fonts** (~1 session).
+  Visual base. After this every page reads broadly
+  on-brand.
+- **V3.2 — Editorial component primitives** (½-1
+  session). `SectionHeader`, `HairlineDivider`,
+  `EditorialCaption`, `DoctrineQuote`,
+  `EngagementBrief`, `.gold-text` / `.gold-stroke`.
+- **V3.3 — Header / Footer / NavRail dark-luxe**
+  (½ session).
+- **V3.4 — Dashboard masthead + activity panels**
+  (½ session).
+- **V3.5 — Knowledge / Scripts / Campaigns /
+  Bundles / Assets / Videos / Recipes** (1 session,
+  subagent-deliverable).
+- **V3.6 — Spokesperson detail + recipe forms**
+  (½ session).
+- **V3.7 — Engagement / sign-in / sign-up** (½ session).
+- **V3.8 — Voice copy pass** (½ session).
+- **V3.9 — Real-mode dogfood + close** (½ session).
+
+**Why first as SESSION 210 FIRST THING:** V3.1 alone
+is a meaningful, demoable win. After 1 session the
+SPA reads on-brand with the parent site, unblocks
+the "everything is one studio" perception that the
+keeper-validation work primed for. Subsequent V3
+slices ship incrementally.
 
 ### Parallel work (operator-driven, ongoing)
 
@@ -260,7 +285,9 @@ parent-company keeper spokesperson.
 | Tier 2 ingest for PD + DF | Blocked on source docs (only Vite boilerplate today) |
 | `talking_head` chunk_ids propagation patch | Queued (½ slice) |
 | Brief-replaces-script SPA copy pass | Queued (½ slice) |
-| Brand Identity v3 | Queued |
+| Outro/intro card auto-wrap patch | Queued (½ slice — SESSION 209 finding) |
+| **Brand Identity V3 scope-lock (`BRAND_IDENTITY_V3.md`)** | **DONE SESSION 209** |
+| Brand Identity V3 implementation (V3.1–V3.9) | Queued — 4-5 sessions; V3.1 = SESSION 210 recommended FIRST THING |
 
 ---
 
@@ -357,22 +384,26 @@ these is newer than worker start:
   dossier numbering, "Plate 01 / Proprietor" voice).
   Character OS will eventually re-skin to match.
 
-- **Calibration carried forward (41 + 3 new from
-  SESSION 209):** "expired-asset accumulation has no
-  purge mechanism," "`talking_head` doesn't propagate
-  knowledge_chunk_ids to the Composition row," "K6
+- **Calibration carried forward (41 + 4 new from
+  SESSION 209):** expired-asset accumulation has no
+  purge mechanism · `use_knowledge=True` doesn't
+  propagate `knowledge_chunk_ids` to the Composition
+  row (any recipe, not just `talking_head`) · K6
   brief expansion replaces the operator script as
-  the spoken text." All prior calibration still
-  applies; the cast-is-example-data memory needs a
-  light refresh since named cast (Riggs/Sasha/Donny/
-  Marcus) is gone, but the *concept* still holds for
-  the new keeper.
+  the spoken text · outro/intro card text has no
+  auto-wrap (wide strings clip). All prior
+  calibration still applies; the
+  cast-is-example-data memory needs a light refresh
+  since named cast (Riggs/Sasha/Donny/Marcus) is
+  gone, but the *concept* still holds for the new
+  keeper.
 
 - **"Real-mode finds bugs in every arc" pattern is
-  now 8-for-8.** SESSION 209's Tier 1 validation
+  now 9-for-9.** SESSION 209's Tier 1 validation
   surfaced two findings on first fire (chunk_ids
-  propagation bug + brief-replaces-script surprise).
-  The pattern stands: every real-mode dogfood
+  propagation bug + brief-replaces-script surprise);
+  the brand-on dogfood surfaced a third (outro card
+  wrap). The pattern stands: every real-mode dogfood
   surfaces something. Schedule one at the close of
   every arc, no exceptions.
 

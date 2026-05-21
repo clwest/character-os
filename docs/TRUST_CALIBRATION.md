@@ -5045,9 +5045,57 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   validate the portrait before locking the rig, not
   just the first render.
 
-### `talking_head` doesn't propagate knowledge_chunk_ids to the Composition row
+### Outro/intro card text has no auto-wrap — wide strings clip on both sides
 - **Date:** 2026-05-20
-- **Session:** 209 (Tier 1 keeper validation)
+- **Session:** 209 (Character OS dogfood — CTA outro variants)
+- **Context:** Fourth Character OS render fired with a
+  94-char outro CTA:
+  *"Now onboarding · email jessica@247globalai.com ·
+  spaces limited · first come, first served"*. Render
+  completed cleanly per the pipeline; subjective check
+  by the operator surfaced the rendering issue.
+- **AI expectation (before):** Long outro text would
+  either wrap to multiple lines automatically or
+  shrink the font to fit canvas width. Both are
+  standard behaviors for centered ffmpeg `drawtext`
+  cards in production tools.
+- **Reality / outcome:** **`_build_card_filter` in
+  `media-engine/app/routers/internal.py:2296` centers
+  the text with
+  `x=(w-text_w)/2:y=(h-text_h)/2` and does no
+  wrapping.** Text wider than the canvas just clips
+  on both sides. Operator saw the rendered card
+  start with *"mail jessica"* (the "e" of "email"
+  cut off the left edge) and end with *"cam"* (the
+  "...e, first served" trailing portion cut off the
+  right edge). The `_wrap_caption_text` helper at
+  line 68 of `finisher_service.py` exists for the
+  V9 captions primitive (wraps at 28 chars / 720w
+  vertical at fontsize 36) but is NOT reused by the
+  intro/outro card primitive.
+- **Found by:** Operator visual inspection after the
+  fourth Character OS dogfood render.
+- **Lesson:** **The intro/outro card primitive
+  treats text as opaque bytes and trusts the
+  caller's pre-formatting.** Workaround today —
+  caller pre-wraps with explicit `\n` line breaks;
+  ffmpeg `textfile=` respects newlines and renders
+  multi-line correctly. Long-term fix queued for
+  SESSION 210: add `textwrap.wrap` in
+  `_build_card_filter` (mirror the captions helper)
+  with a `max_chars` threshold tuned to the canvas
+  width + font size. ~10 LOC. Until shipped, the
+  SPA recipe form should advise operators to keep
+  outro_text under ~30 chars/line or pre-format
+  with newlines. **Bumps the "real-mode-finds-bugs"
+  streak to 9-for-9 — the CTA outro variant
+  surfaced the wrap gap that the brand-only outro
+  text ("Character OS · A 24/7 Global AI work")
+  was just short enough to avoid.**
+
+### `use_knowledge=True` doesn't propagate knowledge_chunk_ids to the Composition row (any recipe)
+- **Date:** 2026-05-20
+- **Session:** 209 (Tier 1 keeper validation + post-Tier-2 verification)
 - **Context:** First real-mode render with the new
   24/7 Global AI keeper, `use_knowledge=True`,
   brand-thesis script. Both prerequisites worked end-
@@ -5062,23 +5110,32 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   produce a composition row with `knowledge_chunk_ids`
   populated, so the SPA's verifier panel, F-arc
   brief-mode panel, and BC4 lineage surfaces could
-  render citations. This is how `talking_head_polished`
-  works.
+  render citations. I also thought
+  `talking_head_polished` propagated correctly because
+  of the BC2 lineage path.
 - **Reality / outcome:** **The chunks are saved to
   the final Asset's `source_spec.knowledge_chunk_ids`,
   but NOT propagated up to `Composition.knowledge_chunk_ids`**.
   The composition row showed `0 chunks` despite the
-  brief being clearly synthesized from the Charter
-  doc. Trace: `apps/compositions/primitives/avatar_speech.py:339-340`
+  brief being clearly synthesized from the corpus.
+  Trace: `apps/compositions/primitives/avatar_speech.py:339-340`
   writes chunks to `extra` (per-asset metadata),
   never aggregates to the parent Composition.
-  `talking_head_polished` carries chunks via
-  `apps/compositions/starters.py:252` — asymmetric
-  with plain `talking_head`. Every SPA citation
-  surface fails for single-step renders.
-- **Found by:** Real-mode validation probe immediately
-  after Tier 1 corpus shipped (the
-  "validate-before-building" call).
+  **The bug is broader than I initially scoped.**
+  Post-Tier-2 verification fired `talking_head_polished`
+  with `use_knowledge=True` and a topic script (no
+  pre-existing Script row), expecting BC2's
+  `starters.py:252` carry-up to propagate. It didn't —
+  because that carry-up only fires when the operator
+  passes a Script-row lineage source via the BC2 path,
+  not when firing the starter directly with a string
+  `script` + `use_knowledge=True`. **Every recipe with
+  `use_knowledge=True` that isn't anchored to a
+  pre-existing Script has the same bug.**
+- **Found by:** Two consecutive real-mode validation
+  probes — Tier 1 (the
+  "validate-before-building" call) and Tier 2 (the
+  "make a video for Character OS" check).
 - **Lesson:** **Knowledge audit trails are a
   composition-level contract, not an asset-level one.**
   Asset-scoped metadata works for "what did this
@@ -5086,13 +5143,21 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   composition cite as a whole." For multi-step
   compositions (concat / mix / layout) the chunk_ids
   from each speech step need aggregation at the
-  composition level. **Fix queued for SESSION 210:**
-  add a post-completion aggregator that walks
-  produced assets' `source_spec.knowledge_chunk_ids`
-  and dedupes into `Composition.knowledge_chunk_ids`.
-  ~10-20 LOC. Mirror `talking_head_polished`'s
-  carry-up path. Also bumps the
-  "real-mode-finds-bugs" streak to **8-for-8**.
+  composition level. **Fix queued for SESSION 210
+  (broadened scope):** add a post-completion
+  aggregator that walks ALL produced assets'
+  `source_spec.knowledge_chunk_ids` for any recipe,
+  dedupes, and writes to
+  `Composition.knowledge_chunk_ids`. Generic —
+  applies to talking_head, talking_head_polished,
+  long_form_ad, storyboard_voiced, and any future
+  knowledge-grounded recipe. The BC2 path's explicit
+  Script→Composition carry-up remains as the
+  upstream-lineage path; the new aggregator is the
+  asset-level fallback. ~20-30 LOC + tests.
+  Also bumps the "real-mode-finds-bugs" streak to
+  **8-for-8** (Tier 1 found it; Tier 2 confirmed
+  scope is broader).
 
 ### K6 brief expansion replaces the operator script as the spoken text
 - **Date:** 2026-05-20
