@@ -43,6 +43,20 @@ class Settings(BaseSettings):
     stability_api_key: str = ""
     stability_base_url: str = "https://api.stability.ai/v2beta"
 
+    # SESSION 211 — Voiceover (VO.1) text-to-speech provider chain.
+    # Q-vo-2 resolution: try Runway first; fall through to
+    # ElevenLabs direct if Runway's ``/v1/text_to_speech`` is still
+    # gated per ``audio_client.py:19``. Mock-mode bypass mirrors
+    # ``runway_force_mock`` — set ``VOICEOVER_TTS_FORCE_MOCK=1`` to
+    # force the deterministic mock provider for tests / local dev.
+    # Same ``ELEVENLABS_API_KEY`` env shape as the rest of the
+    # ecosystem expects; empty means no ElevenLabs fallback
+    # available (Runway-only chain).
+    elevenlabs_api_key: str = ""
+    elevenlabs_api_base: str = "https://api.elevenlabs.io"
+    voiceover_tts_force_mock: bool = False
+    voiceover_tts_default_provider: str = "auto"  # auto | runway | elevenlabs | mock
+
     @property
     def stability_mock(self) -> bool:
         return not self.stability_api_key.strip()

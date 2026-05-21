@@ -224,6 +224,25 @@ class AudioDubResult:
 
 
 @dataclass
+class TtsResult:
+    """Decoded response from ``POST /internal/audio/tts/``.
+
+    SESSION 211 / VO.1. The voiceover synthesis route — TTS
+    only, no avatar pipeline. Provider chain handles Runway-
+    gated fall-through to ElevenLabs per Q-vo-2 (locked in
+    ``docs/design/VOICEOVER_V1.md`` change log)."""
+
+    audio_url: str
+    voice_id: str
+    duration_seconds: float
+    size_bytes: int
+    model: str
+    provider: str  # 'runway' | 'elevenlabs' | 'mock'
+    cost_micros: int
+    mock_mode: bool
+
+
+@dataclass
 class RealtimeSessionResult:
     """Result of `realtime_session_create`. session_key is the
     JWT-shaped SDK token — passed to the SPA ONCE in the
@@ -918,6 +937,43 @@ class MediaEngineClient:
         except (KeyError, TypeError, ValueError) as exc:
             raise MediaEngineError(
                 f"design_voice response not in expected shape: {data!r}",
+                response_text=str(data),
+            ) from exc
+
+    def tts(
+        self,
+        *,
+        text: str,
+        voice_id: str,
+        model: str = "eleven_multilingual_v2",
+        provider: str = "auto",
+    ) -> "TtsResult":
+        """Hit ``POST /internal/audio/tts/`` — VO.1 text-to-
+        speech route. ``provider`` is one of
+        ``auto`` / ``runway`` / ``elevenlabs`` / ``mock``;
+        the auto chain tries Runway first then falls through
+        to ElevenLabs per Q-vo-2 resolution."""
+        body = {
+            "text": text,
+            "voice_id": voice_id,
+            "model": model,
+            "provider": provider,
+        }
+        data = self.request("POST", "/internal/audio/tts/", json=body)
+        try:
+            return TtsResult(
+                audio_url=str(data["audio_url"]),
+                voice_id=str(data["voice_id"]),
+                duration_seconds=float(data["duration_seconds"]),
+                size_bytes=int(data["size_bytes"]),
+                model=str(data.get("model") or model),
+                provider=str(data["provider"]),
+                cost_micros=int(data["cost_micros"]),
+                mock_mode=bool(data.get("mock_mode", False)),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise MediaEngineError(
+                f"tts response not in expected shape: {data!r}",
                 response_text=str(data),
             ) from exc
 

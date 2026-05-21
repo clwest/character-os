@@ -77,6 +77,12 @@ ALLOWED_FILES = {
     "apps/compositions/tests/test_v16_remove_avatar_background.py",
     "apps/compositions/tests/test_v17_extend_visual_clip.py",
     "apps/compositions/tests/test_v17_cinematic_visual_extended.py",
+    # VO.1 — synthesize_voiceover_audio primitive tests construct
+    # Composition + Step rows directly to exercise the voice_spec
+    # discriminator + workspace-scoped resolution + mock/real
+    # branches. Sanctioned writer — workspace anchor flows through
+    # the standard pre_save signal.
+    "apps/compositions/tests/test_vo1_voiceover.py",
     # SESSION 210 — `_aggregate_knowledge_chunk_ids` unit tests
     # construct Composition + Step + Asset rows directly to
     # exercise the aggregator on every shape (single-step,

@@ -54,6 +54,7 @@ from .style_remix import StyleRemixPrimitive
 from .transcribe import TranscribePrimitive
 from .visual_clip import GenerateVisualClipPrimitive
 from .voice import DesignVoicePrimitive, DubAudioPrimitive
+from .voiceover import SynthesizeVoiceoverAudioPrimitive
 
 
 class Primitive(Protocol):
@@ -106,6 +107,7 @@ _REGISTRY: dict[str, Type[Primitive]] = {
     # V15: SPA recipe gallery (no new primitives)
     "remove_avatar_background": RemoveAvatarBackgroundPrimitive,  # V16
     "extend_visual_clip": ExtendVisualClipPrimitive,  # V17.1
+    "synthesize_voiceover_audio": SynthesizeVoiceoverAudioPrimitive,  # VO.1
 }
 
 

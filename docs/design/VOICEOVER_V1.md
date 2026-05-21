@@ -346,8 +346,8 @@ operator's actual spokesperson speaks.
 
 | # | Slice | Effort |
 |---|---|---|
-| **VO.0** | This scope-lock doc | ½ session (current) |
-| **VO.1** | `AssetRole.VOICEOVER_AUDIO` enum + `/internal/audio/tts/` endpoint + `TextToSpeechProvider` Protocol + `RunwayTtsProvider` (or `ElevenLabsTtsProvider` if Runway path remains gated — Q-vo-2) + `MockTtsProvider` + `synthesize_voiceover_audio` shell primitive + force-mock flag. Mirrors R2 provider pattern + V3 primitive shape. | ½ session |
+| **VO.0** ✓ SHIPPED | This scope-lock doc (SESSION 211, commit `d19b1da`) | ½ session |
+| **VO.1** ✓ SHIPPED | `AssetRole.VOICEOVER_AUDIO` enum + migration `0010_vo_1_voiceover_audio_role` + `/internal/audio/tts/` endpoint + `TextToSpeechProvider` Protocol + `RunwayTtsProvider` (auto-falls-through on gated 4xx) + `ElevenLabsTtsProvider` + `MockTtsProvider` + `synthesize_voiceover_audio` shell primitive + `VOICEOVER_TTS_FORCE_MOCK` env flag + role mapping in `asset_roles.PRIMITIVE_TO_ROLE`. Tests: 23 shell + 25 media-engine = +48. Primitive count 21 → 22. Mirrors R2 provider pattern + V3 primitive shape + R10 drift verifier shape. | ½ session |
 | **VO.2** | `/internal/clips/overlay_audio/` endpoint (ffmpeg-only) + `overlay_audio_at_offset` shell primitive + rule-6 validation + rule-4 no-video-re-encode test. Mirrors V14 `audio_extract` + V7 `mix_audio` shape. | ½ session |
 | **VO.3** | `cta_swap` starter + recipe registry entry + form metadata (new `voice_picker` field type — accepts spokesperson/voice_id/free-form). Tests cover the 3 voice_spec resolution paths from rule 8. | ½ session |
 | **VO.4** | `narrated_intro` starter + recipe registry entry. Reuses VO.3's `voice_picker`. Adds a `voiceover_duration_seconds` estimator helper (chars × ~11 cps from `_estimate_avatar_speech_seconds` precedent) so `cta_offset_seconds` default can pre-compute on the SPA side without firing TTS. | ½ session |
@@ -582,3 +582,60 @@ new model, no REST surface — just two primitives + two recipes
   + `ElevenLabsTtsProvider` fallback + `MockTtsProvider`
   + `synthesize_voiceover_audio` shell primitive +
   `VOICEOVER_TTS_FORCE_MOCK` flag) opens next session.
+
+* **2026-05-21 (SESSION 211, VO.1 SHIPPED)** —
+  Foundation slice lands. Everything VO.2/VO.3 need is
+  now on the table:
+
+  * **`AssetRole.VOICEOVER_AUDIO` enum + migration
+    `compositions/0010_vo_1_voiceover_audio_role`** — 11th
+    role value; `Asset.role` field choices + help_text
+    updated; backfill mapping in
+    `asset_roles.PRIMITIVE_TO_ROLE` so the existing
+    coverage test honors rule 1.
+  * **Media-engine `tts_provider` package**
+    (`media-engine/app/services/tts_provider/`) — Protocol +
+    `TtsSpec` / `TtsResult` dataclasses + `TtsProviderError`
+    / `TtsUnavailableError`. Three concrete providers:
+    `RunwayTtsProvider` (tries `/v1/text_to_speech`; raises
+    `TtsUnavailableError` on 404 / gated 4xx markers like
+    "voice.type" / "not enabled" so the dispatcher falls
+    through to ElevenLabs), `ElevenLabsTtsProvider`
+    (hits `https://api.elevenlabs.io/v1/text-to-speech/{voice_id}`
+    with `ELEVENLABS_API_KEY`; caches MP3 to
+    `data/_internal/voiceovers/<hash>.mp3`; idempotent),
+    `MockTtsProvider` (silent MP3 via the existing
+    `_ffmpeg_silent_mp3` helper; deterministic cache key).
+  * **Config**: `elevenlabs_api_key`,
+    `elevenlabs_api_base`, `voiceover_tts_force_mock`,
+    `voiceover_tts_default_provider` added to
+    `media-engine/app/config.Settings`.
+  * **`POST /internal/audio/tts/`** route ships the auto
+    chain (Q-vo-2): mock-first if force-mock or
+    no-providers; explicit `runway` / `elevenlabs` / `mock`
+    bypasses chain; default `auto` tries Runway then
+    ElevenLabs. Media-engine route count 137 → 138.
+  * **`MediaEngineClient.tts(...)`** + `TtsResult` shell-
+    side wrapper.
+  * **`synthesize_voiceover_audio` shell primitive**
+    (`apps/compositions/primitives/voiceover.py`) +
+    registry entry — primitive count 21 → 22. Handles
+    all three voice_spec discriminators (rule 8); enforces
+    rule 2 (workspace-scoped) at the spokesperson-id
+    lookup; enforces rule 3 (no avatar pipeline) by
+    construction (only calls `/internal/audio/tts/`, never
+    `/internal/clips/avatar_speech/`); persists rule 1
+    provenance (script, voice_id, model, provider,
+    discriminator-specific metadata) in
+    `Asset.source_spec`.
+  * **Tests**: 23 shell + 25 media-engine. Drift
+    verifier mirrors R10's pattern — Protocol-method
+    coverage + no-NotImplementedError-stub guard + new-
+    provider-detection sentinel via package directory
+    scan. **Django 1364 → 1387 (+23); media-engine
+    221 → 246 (+25).**
+  * **Inventory regenerated** against the working tree.
+
+  VO.2 (`/internal/clips/overlay_audio/` route +
+  `overlay_audio_at_offset` ffmpeg-only primitive) opens
+  next session.

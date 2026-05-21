@@ -5719,3 +5719,154 @@ def delete_internal_realtime_session(
         ended=True,
         mock_mode=settings.runway_mock,
     )
+
+
+# ---- VO.1 POST /internal/audio/tts/ -------------------------------
+#
+# SESSION 211 / VO.1. Text-to-speech without firing the avatar
+# video pipeline — the primitive backing the ``synthesize_voiceover_audio``
+# shell step. Dispatch logic (Q-vo-2 resolution):
+#
+#   * provider="mock" OR force-mock env → MockTtsProvider
+#   * provider="runway" → RunwayTtsProvider (gated → 503)
+#   * provider="elevenlabs" → ElevenLabsTtsProvider
+#   * provider="auto" (default) → Runway first; on
+#     TtsUnavailableError fall through to ElevenLabs
+#
+# Stateless; the shell persists the returned audio path as
+# ``Asset(AUDIO, VOICEOVER_AUDIO)`` with the full provenance
+# payload (voice_id, model, provider, duration, cost) in
+# ``source_spec``.
+
+
+_TTS_PROVIDER_CHOICES = {"auto", "runway", "elevenlabs", "mock"}
+
+
+class InternalTtsCreate(BaseModel):
+    """Request body for ``POST /internal/audio/tts/``."""
+
+    text: str = Field(..., min_length=1, max_length=5000)
+    voice_id: str = Field(..., min_length=1, max_length=120)
+    model: str = Field(default="eleven_multilingual_v2", max_length=80)
+    provider: str = Field(default="auto", max_length=20)
+
+
+class InternalTtsResponse(BaseModel):
+    audio_url: str
+    voice_id: str
+    duration_seconds: float
+    size_bytes: int
+    model: str
+    provider: str  # 'runway' | 'elevenlabs' | 'mock'
+    cost_micros: int
+    mock_mode: bool
+
+
+@router.post(
+    "/audio/tts/", response_model=InternalTtsResponse,
+)
+def post_internal_audio_tts(
+    body: InternalTtsCreate,
+    settings: Settings = Depends(get_settings),
+):
+    """Synthesize speech from text. Provider chain handles
+    Runway-gated fall-through to ElevenLabs per Q-vo-2."""
+    from ..services.tts_provider import (
+        TtsProviderError,
+        TtsSpec,
+        TtsUnavailableError,
+        get_provider,
+    )
+    from ..services.tts_provider.mock import MockTtsProvider
+
+    provider_name = (body.provider or "auto").strip().lower()
+    if provider_name not in _TTS_PROVIDER_CHOICES:
+        return _error(
+            400, "validation_error",
+            f"provider must be one of {sorted(_TTS_PROVIDER_CHOICES)}; "
+            f"got {body.provider!r}",
+        )
+
+    spec = TtsSpec(
+        text=body.text,
+        voice_id=body.voice_id,
+        model=(body.model or "eleven_multilingual_v2"),
+    )
+
+    # Build the dispatch chain.
+    if (
+        provider_name == "mock"
+        or settings.voiceover_tts_force_mock
+        or (provider_name == "auto" and settings.runway_mock and not settings.elevenlabs_api_key.strip())
+    ):
+        # Force-mock OR auto with no real provider configured.
+        mock = MockTtsProvider()
+        mock.configure(settings.data_path)
+        try:
+            result = mock.synthesize(spec)
+        except TtsProviderError as exc:
+            return _error(502, "tts_provider_error", str(exc)[:300])
+        return _result_to_response(result)
+
+    chain: list[str]
+    if provider_name == "auto":
+        chain = ["runway", "elevenlabs"]
+    else:
+        chain = [provider_name]
+
+    last_unavailable: TtsUnavailableError | None = None
+    last_error: TtsProviderError | None = None
+    for impl_name in chain:
+        try:
+            impl = get_provider(impl_name, settings)
+        except TtsUnavailableError as exc:
+            last_unavailable = exc
+            logger.info(
+                "tts provider %s unavailable: %s",
+                impl_name, str(exc)[:200],
+            )
+            continue
+        except TtsProviderError as exc:
+            last_error = exc
+            continue
+        if hasattr(impl, "configure"):
+            impl.configure(settings.data_path)
+        try:
+            result = impl.synthesize(spec)
+        except TtsUnavailableError as exc:
+            last_unavailable = exc
+            logger.info(
+                "tts provider %s unavailable mid-call: %s",
+                impl_name, str(exc)[:200],
+            )
+            continue
+        except TtsProviderError as exc:
+            return _error(502, "tts_provider_error", str(exc)[:300])
+        logger.info(
+            "tts dispatched provider=%s voice=%s chars=%d "
+            "duration=%.2fs cost=%d",
+            result.provider, result.voice_id, len(body.text),
+            result.duration_seconds, result.cost_micros,
+        )
+        return _result_to_response(result)
+
+    # All providers in the chain raised TtsUnavailableError.
+    msg = "no tts provider available"
+    if last_unavailable:
+        msg = f"{msg}: {last_unavailable!s}"[:300]
+    elif last_error:
+        msg = f"{msg}: {last_error!s}"[:300]
+    return _error(503, "tts_unavailable", msg)
+
+
+def _result_to_response(result) -> InternalTtsResponse:
+    return InternalTtsResponse(
+        audio_url=result.audio_url,
+        voice_id=result.voice_id,
+        duration_seconds=result.duration_seconds,
+        size_bytes=result.size_bytes,
+        model=result.model,
+        provider=result.provider,
+        cost_micros=result.cost_micros,
+        mock_mode=result.mock_mode,
+    )

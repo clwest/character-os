@@ -50,6 +50,10 @@ PRIMITIVE_TO_ROLE: dict[str, str] = {
     "design_voice": AssetRole.AUDIO_TRACK.value,
     "dub_audio": AssetRole.AUDIO_TRACK.value,
     "audio_extract": AssetRole.AUDIO_TRACK.value,
+    # VO.1 — voiceover synthesis (TTS-only, no avatar pipeline).
+    # Distinct role from AUDIO_TRACK so Asset Library filters can
+    # surface VO clips separately (rule 1 + Q-vo-7).
+    "synthesize_voiceover_audio": AssetRole.VOICEOVER_AUDIO.value,
     # Sandbox / experimental
     "smoke_keyframes": AssetRole.EXPERIMENT.value,
 }

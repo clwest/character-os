@@ -36,7 +36,7 @@ state: active
 > **BRAND IDENTITY V3:** `docs/design/BRAND_IDENTITY_V3.md`.
 > **V3.0-V3.9 COMPLETE + REAL-MODE DOGFOOD VALIDATED (SESSION 209).**
 > **Voiceover (VO-arc):** `docs/design/VOICEOVER_V1.md`.
-> **VO.0 LOCKED SESSION 211**; VO.1-VO.6 queued.
+> **VO.0 + VO.1 SHIPPED SESSION 211**; VO.2-VO.6 queued.
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory --write` (from `shell/`).
@@ -44,21 +44,17 @@ state: active
 
 ---
 
-## SESSION 211 outcome — VO-arc scope-locked
+## SESSION 211 outcome — VO arc opens (VO.0 + VO.1)
 
-SESSION 210 left the findings queue empty. SESSION 211 took
-Candidate A (VO-arc scope lock) per the start-here doc
-recommendation. **Doc-only ½-slice, no code, no real-mode
-spend.**
+Two slices stacked in one session. VO.0 (scope lock,
+½-slice doc) shipped first; VO.1 (TTS provider package +
+`/internal/audio/tts/` route + shell primitive) shipped on
+top. **+48 tests, zero real-mode spend.**
 
-`docs/design/VOICEOVER_V1.md` shipped at ~390 lines following
-the AUTO_SCRIPTING_V1 template. All 9 contract rules + 9 open
-questions accepted as-proposed at lock. VO.1
-(`AssetRole.VOICEOVER_AUDIO` enum + `/internal/audio/tts/`
-endpoint + `TextToSpeechProvider` Protocol + Runway-first
-provider with ElevenLabs direct fallback +
-`synthesize_voiceover_audio` shell primitive) opens next
-session.
+| Commit | Slice |
+|---|---|
+| `d19b1da` | VO.0 — `docs/design/VOICEOVER_V1.md` scope lock |
+| (next) | VO.1 — TTS provider chain + shell primitive |
 
 Full session detail in
 `docs/handoffs/SESSION_211_VO_SCOPE_LOCK.md`.
@@ -108,6 +104,14 @@ Full session detail in
   earlier in SESSION 209; subsequent sweeps will catch new
   expirations as they happen).
 
+### Test counts at SESSION 211 close
+
+| Suite | Count |
+|---|---|
+| Django | **1387** (+23 vs SESSION 210) |
+| Media-engine | **246** (+25) |
+| SPA vitest | **456** (unchanged) |
+
 ### Test counts at SESSION 210 close
 
 | Suite | Count |
@@ -118,54 +122,43 @@ Full session detail in
 
 ---
 
-## FIRST THING (SESSION 212): VO.1 — first VO primitive (½ session)
+## FIRST THING (SESSION 212): VO.2 — overlay_audio_at_offset (½ session)
 
-VO-arc scope-locked SESSION 211. VO.1 is the next slice per
-the scope-lock breakdown. Sub-deliverables (all in
-`shell/apps/compositions/` + `media-engine/app/`):
+VO.1 shipped the TTS side; VO.2 ships the splice side.
+Pure ffmpeg, no upstream calls.
 
-1. **`AssetRole.VOICEOVER_AUDIO` enum entry** —
-   `apps/compositions/models.py`. TextChoices metadata bump
-   (no DDL).
-2. **`TextToSpeechProvider` Protocol** —
-   `media-engine/app/services/tts_provider/__init__.py`.
-   Mirrors R2's `RealtimeProvider` shape.
-3. **`RunwayTtsProvider` impl** — try Runway's
-   `/v1/text_to_speech` against the existing voice ids;
-   if gated per `audio_client.py:19` (which is likely), it
-   returns `not_available` and the route falls through.
-4. **`ElevenLabsTtsProvider` impl** — uses
-   `ELEVENLABS_API_KEY` env (new) + `voice_id` (same id
-   set on `Spokesperson.voice_id` today since Runway voices
-   are ElevenLabs-backed).
-5. **`MockTtsProvider`** — silent MP3 via the existing
-   `_ffmpeg_silent_mp3` helper from `audio_client.py:172`.
-6. **`POST /internal/audio/tts/`** route — accepts
-   `{text, voice_spec, provider?}`, returns
-   `{status, audio_url, duration_seconds, voice_id, cost_micros}`.
-7. **`synthesize_voiceover_audio` shell primitive** —
-   `shell/apps/compositions/primitives/voiceover.py`.
-   Persists the AUDIO asset with `role=VOICEOVER_AUDIO`.
-   Implements rule-1 (Asset Library browsable) + rule-2
-   (workspace-scoped voice_spec resolution) + rule-3 (no
-   avatar pipeline).
-8. **`VOICEOVER_TTS_FORCE_MOCK` env flag** — sixth in the
-   project's `*_FORCE_MOCK` family (per R-arc precedent).
-9. **Cost row in `apps/compositions/cost.py`** —
-   10 000 micros placeholder; refine after VO.6 dogfood.
+1. **`POST /internal/clips/overlay_audio/`** route in
+   `media-engine/app/routers/internal.py`. Body:
+   `{base_url, vo_url, offset_seconds, duck_db?}`. ffmpeg
+   filter:
+   * `[0:a]volume=enable='between(t,offset,offset+vo_dur)':volume='{duck_db}dB'[base_ducked]`
+   * `[1:a]adelay={offset_ms}|{offset_ms},afade=t=in:st=0:d=0.3,afade=t=out:st={vo_dur-0.3}:d=0.3[vo_delayed]`
+   * `[base_ducked][vo_delayed]amix=inputs=2:duration=first[out]`
+   * `-map 0:v -c:v copy -map "[out]" -c:a aac` (rule 4 —
+     video stream byte-identical).
+2. **`overlay_audio_at_offset` shell primitive** —
+   `shell/apps/compositions/primitives/overlay_audio.py`.
+   Slots: `base` (CLIP, required) + `voiceover` (AUDIO,
+   required). Params: `offset_seconds` (float, ≥0,
+   required) + `duck_db` (float, default -18, range
+   [-60, 0]). Rule 6: `offset + vo_duration > base_duration`
+   raises `PrimitiveError` with the suggested-fix message.
+3. **Registry entry + role mapping** — output preserves
+   base's role (talking_head stays talking_head).
+4. **Tests** — offset math, validation errors, base-video-
+   byte-identity assertion (using `ffprobe stream=codec_type`
+   from the V14 audio_extract pattern), mock-mode determinism.
 
-Acceptance: shell-side primitive can be invoked with all
-three `voice_spec` resolutions ({spokesperson_id} /
-{voice_id} / {voice_design}); mock-mode returns a
-deterministic silent-MP3 AUDIO asset; real-mode round-trips
-to media-engine `/internal/audio/tts/` and persists the
-returned MP3 as `Asset(AUDIO, VOICEOVER_AUDIO)`. ~15-20
-new tests across shell + media-engine.
+Acceptance: real-mode ffmpeg produces an MP4 where the
+video stream's MD5 matches the base CLIP byte-for-byte; the
+audio track contains both the VO (audible during the
+window) and the ducked base; the output duration equals
+the base CLIP duration.
 
-After VO.1, queue: VO.2 (`overlay_audio_at_offset`
-primitive) → VO.3 (`cta_swap` starter) → VO.4
-(`narrated_intro` starter) → VO.5 (SPA recipe gallery
-wiring) → VO.6 (real-mode dogfood + arc close).
+After VO.2: VO.3 (`cta_swap` starter + recipe registry +
+new `voice_picker` field type) → VO.4 (`narrated_intro`)
+→ VO.5 (SPA recipe gallery wiring) → VO.6 (real-mode
+dogfood + arc close).
 
 ### Parallel work (operator-driven, ongoing)
 
@@ -179,16 +172,15 @@ wiring) → VO.6 (real-mode dogfood + arc close).
 
 ## Slice queue (after FIRST THING)
 
-### VO-arc remaining slices (post-VO.0 lock)
+### VO-arc remaining slices (post-VO.1)
 
 | | Slice | Effort |
 |---|---|---|
-| 1 | VO.1 — `synthesize_voiceover_audio` primitive + TTS provider | ½ session (this session's FIRST THING) |
-| 2 | VO.2 — `overlay_audio_at_offset` primitive (ffmpeg-only) | ½ session |
-| 3 | VO.3 — `cta_swap` starter + recipe registry + `voice_picker` field type | ½ session |
-| 4 | VO.4 — `narrated_intro` starter + duration estimator helper | ½ session |
-| 5 | VO.5 — SPA recipe gallery `voice_picker` (3-tab) wiring | 1 session |
-| 6 | VO.6 — real-mode dogfood (keeper + Sasha CTA) + arc close | ½ session |
+| 1 | VO.2 — `overlay_audio_at_offset` primitive (ffmpeg-only) | ½ session (this session's FIRST THING) |
+| 2 | VO.3 — `cta_swap` starter + recipe registry + `voice_picker` field type | ½ session |
+| 3 | VO.4 — `narrated_intro` starter + duration estimator helper | ½ session |
+| 4 | VO.5 — SPA recipe gallery `voice_picker` (3-tab) wiring | 1 session |
+| 5 | VO.6 — real-mode dogfood (keeper + Sasha CTA) + arc close | ½ session |
 
 ### Queued from SESSION 210 closeout
 
@@ -260,7 +252,8 @@ partially (BC0-BC4 shipped, BC5 cancelled).
 | Storage-health badge on Videos library | **DONE SESSION 210** |
 | Expired-asset hourly Beat sweep + manual command | **DONE SESSION 210** |
 | **VO-arc scope lock (VO.0)** | **DONE SESSION 211** |
-| VO.1-VO.6 (TTS + overlay + 2 recipes + SPA + dogfood) | Queued (3-4 sessions) |
+| **VO.1 — TTS provider + primitive + role enum** | **DONE SESSION 211** |
+| VO.2-VO.6 (overlay + 2 recipes + SPA + dogfood) | Queued (~2.5 sessions) |
 
 ---
 
@@ -338,12 +331,18 @@ pnpm test                                     # 456 vitest tests
 
 ## AI / assistant context
 
-- **Last session: SESSION 211 — VO-arc scope lock.** Doc-only
-  ½-slice; `docs/design/VOICEOVER_V1.md` shipped at ~390 lines
-  following the AUTO_SCRIPTING_V1 template. All 9 contract
-  rules + 9 open questions accepted as-proposed at lock.
-  Sixth strategic-axis arc; first post-quartet axis. No code,
-  no real-mode spend, no test deltas.
+- **Last session: SESSION 211 — VO.0 + VO.1 shipped.** Two
+  slices stacked in one session. VO.0 scope-locked
+  `docs/design/VOICEOVER_V1.md` (9 contract rules + 9 open
+  questions accepted as-proposed). VO.1 shipped the
+  `TextToSpeechProvider` Protocol + Runway/ElevenLabs/Mock
+  providers + `/internal/audio/tts/` route +
+  `synthesize_voiceover_audio` shell primitive. **+48 tests
+  (+23 Django / +25 media-engine), zero real-mode spend.**
+  Primitive registry 21 → 22; media-engine routes 137 → 138;
+  AssetRole enum 10 → 11. Provider-abstraction shape mirrors
+  R2 + R10. Q-vo-2 hedge (Runway-first + ElevenLabs fallback)
+  resolves at VO.6 dogfood.
 
 - **SESSION 210 — calibration closeout.** Six
   ½-slices closing all 4 SESSION 209 calibration findings

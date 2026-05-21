@@ -66,6 +66,7 @@ class AssetRole(models.TextChoices):
     B_ROLL = "b_roll", "B-Roll"
     TRANSCRIPT = "transcript", "Transcript"
     AUDIO_TRACK = "audio_track", "Audio Track"
+    VOICEOVER_AUDIO = "voiceover_audio", "Voiceover Audio"
     RAW_UPLOAD = "raw_upload", "Raw Upload"
     EXPERIMENT = "experiment", "Experiment / Sandbox"
 
@@ -163,8 +164,9 @@ class Asset(models.Model):
         help_text=(
             "Intent-level role (talking head, backdrop, composite output, "
             "polish output, reference image, b-roll, transcript, audio "
-            "track, raw upload, experiment). Distinct from asset_type "
-            "(medium) and source_spec.primitive_kind (production method)."
+            "track, voiceover audio, raw upload, experiment). Distinct "
+            "from asset_type (medium) and source_spec.primitive_kind "
+            "(production method)."
         ),
     )
 

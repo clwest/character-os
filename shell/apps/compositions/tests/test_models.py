@@ -328,10 +328,13 @@ def test_step_referenced_asset_ids_extracts_valid_uuids() -> None:
 # ---- Asset Library v1 (SESSION 185, A0): role enum ------------------
 
 
-def test_asset_role_enum_has_ten_values() -> None:
-    """Contract rule 14 — role enum lands at exactly ten values.
-    Adding or removing a role requires a migration + scope-lock
-    discussion. The test guards the closed-enum invariant."""
+def test_asset_role_enum_has_eleven_values() -> None:
+    """Contract rule 14 — role enum is closed; additions require a
+    migration + scope-lock discussion. VO.1 (SESSION 211) added the
+    eleventh value ``voiceover_audio`` per
+    ``docs/design/VOICEOVER_V1.md`` rule 1 (TTS-only AUDIO outputs
+    are role-distinct from ``audio_track`` so the Asset Library
+    role filter surfaces them as their own category)."""
     expected = {
         "talking_head",
         "backdrop",
@@ -341,12 +344,13 @@ def test_asset_role_enum_has_ten_values() -> None:
         "b_roll",
         "transcript",
         "audio_track",
+        "voiceover_audio",
         "raw_upload",
         "experiment",
     }
     actual = {value for value, _ in AssetRole.choices}
     assert actual == expected
-    assert len(AssetRole.choices) == 10
+    assert len(AssetRole.choices) == 11
 
 
 @pytest.mark.django_db
