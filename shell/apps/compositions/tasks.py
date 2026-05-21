@@ -607,6 +607,59 @@ def _mark_step_failed(
 # headroom without thrashing the table.
 
 
+def run_expired_asset_sweep(*, commit: bool = True) -> dict[str, Any]:
+    """Core sweep logic — shared by the Celery task + the
+    operator-facing ``sweep_expired_assets`` management command.
+
+    Walks every HTTPS Asset, classifies via
+    ``compute_storage_health``, and on ``HTTPS_EXPIRED`` detaches
+    the Composition's ``final_asset`` FK. With ``commit=False`` it
+    performs the scan but skips the write — useful for the
+    management command's default dry-run.
+
+    Returns:
+        {
+            "scanned": int,          # HTTPS assets considered
+            "expired": int,          # rows with HTTPS_EXPIRED
+            "detached": int,         # Composition.final_asset SET_NULL'd
+            "expired_asset_ids": list[str],  # for the command's report
+            "committed": bool,
+        }
+    """
+    scanned = 0
+    expired_asset_ids: list[str] = []
+
+    # Only HTTPS assets can carry a JWT exp; everything else
+    # (local files, data URIs, transcripts) can't expire by
+    # this mechanism. Filter at the DB level so we don't fetch
+    # the whole Asset table.
+    qs = Asset.objects.filter(
+        file_path__startswith="https://",
+    ).only("id", "file_path")
+
+    for asset in qs.iterator(chunk_size=200):
+        scanned += 1
+        if compute_storage_health(asset) == StorageHealth.HTTPS_EXPIRED:
+            expired_asset_ids.append(str(asset.id))
+
+    detached = 0
+    if commit and expired_asset_ids:
+        # SET_NULL each Composition.final_asset that points at an
+        # expired row. Done in a single update for atomicity +
+        # to avoid loading the Composition objects into memory.
+        detached = Composition.objects.filter(
+            final_asset_id__in=expired_asset_ids,
+        ).update(final_asset=None, updated_at=timezone.now())
+
+    return {
+        "scanned": scanned,
+        "expired": len(expired_asset_ids),
+        "detached": detached,
+        "expired_asset_ids": expired_asset_ids,
+        "committed": commit,
+    }
+
+
 @shared_task(
     name="apps.compositions.tasks.sweep_expired_assets",
     ignore_result=False,
@@ -628,44 +681,24 @@ def sweep_expired_assets() -> dict[str, Any]:
     Idempotent — a second run on the same set is a no-op
     because the FKs already point at NULL.
     """
-    scanned = 0
-    expired_asset_ids: list[str] = []
+    result = run_expired_asset_sweep(commit=True)
 
-    # Only HTTPS assets can carry a JWT exp; everything else
-    # (local files, data URIs, transcripts) can't expire by
-    # this mechanism. Filter at the DB level so we don't fetch
-    # the whole Asset table.
-    qs = Asset.objects.filter(
-        file_path__startswith="https://",
-    ).only("id", "file_path")
-
-    for asset in qs.iterator(chunk_size=200):
-        scanned += 1
-        if compute_storage_health(asset) == StorageHealth.HTTPS_EXPIRED:
-            expired_asset_ids.append(str(asset.id))
-
-    detached = 0
-    if expired_asset_ids:
-        # SET_NULL each Composition.final_asset that points at an
-        # expired row. Done in a single update for atomicity +
-        # to avoid loading the Composition objects into memory.
-        detached = Composition.objects.filter(
-            final_asset_id__in=expired_asset_ids,
-        ).update(final_asset=None, updated_at=timezone.now())
-
-    if expired_asset_ids:
+    if result["expired"]:
         logger.info(
             "sweep_expired_assets: scanned=%d expired=%d detached=%d",
-            scanned, len(expired_asset_ids), detached,
+            result["scanned"], result["expired"], result["detached"],
         )
     else:
         logger.debug(
             "sweep_expired_assets: scanned=%d expired=0 detached=0",
-            scanned,
+            result["scanned"],
         )
 
+    # Trim the asset-id list from the Celery result (Beat log line
+    # is cleaner without it; the command surface keeps the full
+    # dict for the operator report).
     return {
-        "scanned": scanned,
-        "expired": len(expired_asset_ids),
-        "detached": detached,
+        "scanned": result["scanned"],
+        "expired": result["expired"],
+        "detached": result["detached"],
     }

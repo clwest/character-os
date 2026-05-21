@@ -21,15 +21,19 @@ Covers:
 * Multi-composition mix: live + expired + expiring rows
   in one pass produce the right detach count.
 * Asset row itself is preserved (provenance kept).
+* ``commit=False`` (operator dry-run) scans but doesn't detach.
+* Management command surfaces dry-run + commit modes.
 """
 from __future__ import annotations
 
 import base64
 import json
 import time
+from io import StringIO
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 
 from apps.accounts.models import Workspace
 from apps.compositions.models import (
@@ -37,7 +41,7 @@ from apps.compositions.models import (
     AssetType,
     Composition,
 )
-from apps.compositions.tasks import sweep_expired_assets
+from apps.compositions.tasks import run_expired_asset_sweep, sweep_expired_assets
 from apps.spokespeople.models import Spokesperson
 
 User = get_user_model()
@@ -270,3 +274,63 @@ def test_asset_row_preserved_after_detach() -> None:
     assert Asset.objects.filter(pk=asset.pk).exists()
     asset.refresh_from_db()
     assert asset.file_path.startswith("https://")
+
+
+# ---- dry-run + management command -----------------------------------
+
+
+def test_run_expired_asset_sweep_dry_run_does_not_detach() -> None:
+    """commit=False scans but doesn't SET_NULL the FK. The
+    management command's default mode rides on this branch."""
+    ws = _make_workspace("sweep-dryrun@test.local")
+    sp = _make_spokesperson(ws)
+    past = int(time.time()) - 3600
+    comp, asset = _make_composition_with_asset(ws, sp, _cdn_url(past))
+
+    result = run_expired_asset_sweep(commit=False)
+
+    comp.refresh_from_db()
+    # Composition still has its final_asset — dry-run is read-only.
+    assert comp.final_asset_id == asset.id
+    # But the scan still surfaces what *would* be detached.
+    assert result["expired"] == 1
+    assert result["detached"] == 0
+    assert result["committed"] is False
+    assert str(asset.id) in result["expired_asset_ids"]
+
+
+def test_management_command_dry_run_default() -> None:
+    """`python manage.py sweep_expired_assets` without --commit
+    prints the report but doesn't touch the DB."""
+    ws = _make_workspace("sweep-cmd-dry@test.local")
+    sp = _make_spokesperson(ws)
+    past = int(time.time()) - 3600
+    comp, asset = _make_composition_with_asset(ws, sp, _cdn_url(past))
+
+    out = StringIO()
+    call_command("sweep_expired_assets", stdout=out)
+    output = out.getvalue()
+
+    comp.refresh_from_db()
+    assert comp.final_asset_id == asset.id  # not detached
+    assert "DRY-RUN" in output
+    assert "expired (HTTPS_EXPIRED): 1" in output
+    assert "rerun with --commit" in output
+
+
+def test_management_command_commit_applies_sweep() -> None:
+    """`python manage.py sweep_expired_assets --commit` does the
+    same thing the Beat task does."""
+    ws = _make_workspace("sweep-cmd-commit@test.local")
+    sp = _make_spokesperson(ws)
+    past = int(time.time()) - 3600
+    comp, _asset = _make_composition_with_asset(ws, sp, _cdn_url(past))
+
+    out = StringIO()
+    call_command("sweep_expired_assets", "--commit", stdout=out)
+    output = out.getvalue()
+
+    comp.refresh_from_db()
+    assert comp.final_asset_id is None  # detached
+    assert "COMMIT" in output
+    assert "compositions detached: 1" in output
