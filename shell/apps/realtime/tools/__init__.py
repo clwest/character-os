@@ -246,3 +246,5 @@ from . import handoff_to_spokesperson  # noqa: F401,E402
 from . import render_video  # noqa: F401,E402
 from . import attach_memory  # noqa: F401,E402
 from . import consult_engine  # noqa: F401,E402
+from . import query_spider_data  # noqa: F401,E402
+from . import agent_consult  # noqa: F401,E402
