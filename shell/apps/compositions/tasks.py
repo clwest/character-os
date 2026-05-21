@@ -215,9 +215,24 @@ def execute_composition(self, composition_id: str) -> dict[str, Any]:
     )
     composition.final_asset = final_asset
     composition.status = CompositionStatus.COMPLETED
-    composition.save(
-        update_fields=["final_asset", "status", "updated_at"],
-    )
+
+    # SESSION 210 — aggregate knowledge_chunk_ids from produced
+    # assets' source_spec into Composition.knowledge_chunk_ids.
+    # Closes the SESSION 209 calibration finding: every
+    # use_knowledge=True render not anchored in a Script-row
+    # lineage was writing chunks to the final Asset's
+    # source_spec.knowledge_chunk_ids but never aggregating to
+    # the Composition level — breaking SPA citation surfaces
+    # (F-arc brief-mode panel, BC4 lineage, verifier panel) for
+    # single-step renders. Generic — applies to talking_head,
+    # talking_head_polished, long_form_ad, storyboard_voiced,
+    # and any future knowledge-grounded recipe.
+    chunks_changed = _aggregate_knowledge_chunk_ids(composition)
+
+    update_fields = ["final_asset", "status", "updated_at"]
+    if chunks_changed:
+        update_fields.append("knowledge_chunk_ids")
+    composition.save(update_fields=update_fields)
     refresh_composition_cost_actual(composition)
 
     logger.info(
@@ -452,6 +467,57 @@ def _step_asset_title(composition: Composition, step: CompositionStep) -> str:
         # Implausibly long primitive names — fall back to base only.
         return base[:120]
     return (base[:base_budget] + suffix)[:120]
+
+
+def _aggregate_knowledge_chunk_ids(composition: Composition) -> bool:
+    """Aggregate knowledge_chunk_ids from produced assets' source_spec
+    into ``Composition.knowledge_chunk_ids``.
+
+    Walks every Asset produced by this composition's steps and pulls
+    ``source_spec["knowledge_chunk_ids"]`` (set by primitives like
+    ``generate_avatar_speech`` when ``use_knowledge=True``). The
+    union is written to ``Composition.knowledge_chunk_ids``,
+    preserving any entries already present (e.g. the BC2 Script-row
+    lineage carry-up in ``starters.py``).
+
+    Generic — applies to talking_head, talking_head_polished,
+    long_form_ad, storyboard_voiced, and any future
+    knowledge-grounded recipe.
+
+    Returns ``True`` if the field changed (caller should include it
+    in the next ``save(update_fields=...)`` call), ``False`` if
+    nothing to aggregate or no change.
+
+    Mutates ``composition.knowledge_chunk_ids`` in place; the caller
+    is responsible for persisting.
+    """
+    # Preserve any existing chunks (e.g. BC2 Script lineage path
+    # at ``starters.py:252`` writes them at composition-create time).
+    existing: list[str] = [str(cid) for cid in (composition.knowledge_chunk_ids or [])]
+    seen: set[str] = set(existing)
+    aggregated: set[str] = set(existing)
+
+    # Walk every Asset this composition produced.
+    for asset in composition.produced_assets.all():
+        source_spec = asset.source_spec or {}
+        for cid in (source_spec.get("knowledge_chunk_ids") or []):
+            aggregated.add(str(cid))
+
+    if not aggregated:
+        return False
+
+    # Stable output: preserve original ordering of any existing
+    # entries, append newly-discovered chunk_ids sorted for
+    # determinism. Keeps BC2 ordering intact for the lineage
+    # case while still aggregating asset-level chunks.
+    final = list(existing)
+    for cid in sorted(aggregated - seen):
+        final.append(cid)
+
+    if final != existing:
+        composition.knowledge_chunk_ids = final
+        return True
+    return False
 
 
 def _mark_step_failed(

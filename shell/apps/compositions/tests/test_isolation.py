@@ -77,6 +77,12 @@ ALLOWED_FILES = {
     "apps/compositions/tests/test_v16_remove_avatar_background.py",
     "apps/compositions/tests/test_v17_extend_visual_clip.py",
     "apps/compositions/tests/test_v17_cinematic_visual_extended.py",
+    # SESSION 210 — `_aggregate_knowledge_chunk_ids` unit tests
+    # construct Composition + Step + Asset rows directly to
+    # exercise the aggregator on every shape (single-step,
+    # multi-step, BC2 lineage carry-up, dedup, no-knowledge,
+    # empty-assets edge case).
+    "apps/compositions/tests/test_chunk_id_aggregator.py",
     # F3 overview endpoint tests construct Composition rows
     # directly to exercise the dashboard cross-cut query path.
     "apps/accounts/tests/test_workspace_overview.py",
