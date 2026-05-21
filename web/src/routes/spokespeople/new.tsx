@@ -131,7 +131,7 @@ function LegacyCreateForm() {
           <textarea
             id="business_brief"
             rows={5}
-            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-fog focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             placeholder="Sells artisan bicycle bells to small bike shops. Tone: warm, opinionated, just-the-facts. Audience: shop owners under 45 who care about hand-built parts."
             {...form.register("business_brief")}
           />
@@ -152,10 +152,10 @@ function LegacyCreateForm() {
           </div>
         )}
 
-        <div className="flex items-center justify-between border-t border-border pt-6">
+        <div className="flex items-center justify-between border-t border-luxe pt-6">
           <Link
             to="/dashboard"
-            className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+            className="font-mono text-xs uppercase tracking-[0.22em] text-fog transition-colors hover:text-foreground"
           >
             Cancel
           </Link>
@@ -177,20 +177,20 @@ function LegacyCreateForm() {
 
 function Masthead() {
   return (
-    <header className="flex flex-col gap-3 border-b border-border pb-8">
+    <header className="relative flex flex-col gap-4 pb-10">
       <Link
         to="/dashboard"
-        className="inline-flex w-fit items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex w-fit items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.22em] text-fog transition-colors hover:text-gold"
         data-testid="back-to-dashboard"
       >
         <ArrowLeft className="h-3 w-3" />
         Workspace
       </Link>
-      <span className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-        New spokesperson
+      <span className="font-mono text-[10.5px] uppercase tracking-[0.34em] text-gold">
+        § — New spokesperson
       </span>
       <h1
-        className="font-display text-5xl leading-[0.95] tracking-tight md:text-6xl"
+        className="font-display text-5xl leading-[0.95] tracking-tight text-cream md:text-6xl"
         style={
           {
             fontVariationSettings: '"opsz" 96, "SOFT" 30, "WONK" 1',
@@ -199,13 +199,17 @@ function Masthead() {
       >
         Define
         <br />
-        the spokesperson.
+        the <span className="italic gold-text">spokesperson.</span>
       </h1>
-      <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+      <p className="max-w-2xl text-sm leading-relaxed text-mist">
         A spokesperson is the on-camera identity the workspace renders
         videos against. Set the name + brief now; you can refine the
         portrait, voice, and other details after the row lands.
       </p>
+      <div
+        className="hairline-gold absolute inset-x-0 bottom-0 h-px"
+        aria-hidden="true"
+      />
     </header>
   );
 }
@@ -230,11 +234,11 @@ function FieldGroup({
       <div className="flex flex-col gap-1">
         <Label
           htmlFor={id}
-          className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground"
+          className="text-[11px] uppercase tracking-[0.22em] text-fog"
         >
           {label}
         </Label>
-        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+        {hint && <p className="text-xs text-fog">{hint}</p>}
       </div>
       {children}
       {error && <p className="text-sm text-destructive">{error}</p>}
@@ -257,7 +261,7 @@ function TierLimitCallout({ payload }: { payload: TierLimitPayload }) {
         </p>
       </div>
       {payload.suggested_tier && (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-fog">
           Upgrade to <strong className="capitalize">{payload.suggested_tier}</strong> to
           add more. (Stripe wiring lands when credentials arrive.)
         </p>

@@ -274,7 +274,7 @@ export function TalkRoute() {
         <h1 className="text-3xl font-semibold tracking-tight">
           Talk to {spokesperson.name}
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-fog">
           Live two-way conversation grounded in your workspace knowledge.
           {spokesperson.business_brief && (
             <>
@@ -402,7 +402,7 @@ function IdlePanel({
           conversations you've had with them, then open a
           live audio session.
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-fog">
           Sessions last up to {maxSessionMinutes} minutes
           (Runway's per-session cap). You can end early or
           reconnect afterward.
@@ -440,7 +440,7 @@ function IdlePanel({
             )}
           </Button>
           <span
-            className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground"
+            className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-fog"
             data-testid="cost-forecast"
             title="Estimated session cost at the provider's per-minute rate."
           >
@@ -451,7 +451,7 @@ function IdlePanel({
           </span>
           {showMinutesHint && (
             <span
-              className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground"
+              className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-fog"
               data-testid="minutes-remaining"
               title="Your remaining realtime minutes this month."
             >
@@ -463,7 +463,7 @@ function IdlePanel({
           )}
           {voiceId && (
             <span
-              className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground"
+              className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-fog"
               data-testid="talk-voice-pill"
               title={
                 `${spokespersonName} will speak with the '${voiceId}' voice. ` +
@@ -489,8 +489,8 @@ function CreatingPanel() {
       data-testid="talk-creating"
     >
       <div className="flex items-center gap-3">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin text-fog" />
+        <p className="text-sm text-fog">
           Composing the document + connecting to Runway…
         </p>
       </div>
@@ -505,8 +505,8 @@ function EndingPanel() {
       data-testid="talk-ending"
     >
       <div className="flex items-center gap-3">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin text-fog" />
+        <p className="text-sm text-fog">
           Closing the session and capturing the transcript…
         </p>
       </div>
@@ -609,7 +609,7 @@ function LivePanel({
           video={false}
           onEnd={onSdkEnd}
           onError={onSdkError}
-          className="w-full max-w-3xl self-center overflow-hidden rounded-xl border border-border bg-card shadow-md"
+          className="w-full max-w-3xl self-center overflow-hidden rounded-xl border border-luxe bg-card shadow-md"
           data-testid="avatar-call"
         >
           {/* `video` is the LOCAL-media flag (operator's
@@ -649,7 +649,7 @@ function LiveIndicator({ mock }: { mock: boolean }) {
       className={
         "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium" +
         (mock
-          ? " bg-muted text-muted-foreground"
+          ? " bg-muted text-fog"
           : " bg-success/15 text-success")
       }
       data-testid={mock ? "live-pill-mock" : "live-pill-real"}
@@ -681,7 +681,7 @@ function MockSessionPanel({
     >
       <div className="text-center">
         <p className="text-sm font-medium">Demo mode</p>
-        <p className="mt-2 text-xs text-muted-foreground">
+        <p className="mt-2 text-xs text-fog">
           Mock-mode session — no real WebRTC handshake. The
           backend composed the document + memory loop
           end-to-end; click End to fire the transcript
@@ -689,9 +689,9 @@ function MockSessionPanel({
         </p>
       </div>
       <dl className="grid grid-cols-2 gap-2 text-xs">
-        <dt className="text-muted-foreground">Provider session</dt>
+        <dt className="text-fog">Provider session</dt>
         <dd className="font-mono">{session.provider_session_id || "—"}</dd>
-        <dt className="text-muted-foreground">Document</dt>
+        <dt className="text-fog">Document</dt>
         <dd className="font-mono">{session.provider_document_id || "—"}</dd>
       </dl>
 
@@ -704,7 +704,7 @@ function MockSessionPanel({
         className="flex flex-col gap-2 border-t pt-4"
         data-testid="mock-tool-buttons"
       >
-        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        <p className="text-xs font-medium uppercase tracking-wider text-fog">
           Test tool dispatch
         </p>
         <div className="flex flex-wrap gap-2">
@@ -820,7 +820,7 @@ function RecallSessionsList({ sessions }: { sessions: RecallSession[] }) {
       {sessions.map((s) => (
         <li
           key={s.session_id}
-          className="rounded border border-border bg-card/80 px-3 py-2"
+          className="rounded border border-luxe bg-card/80 px-3 py-2"
         >
           <div className="flex items-baseline justify-between gap-2 text-[11px] uppercase tracking-wide text-foreground/60">
             <span>{formatRecallTimestamp(s.ended_at)}</span>
@@ -868,7 +868,7 @@ function RecallKnowledgeList({
         {matches.map((m) => (
           <li
             key={m.chunk_id}
-            className="rounded border border-border bg-card/80 px-3 py-2"
+            className="rounded border border-luxe bg-card/80 px-3 py-2"
           >
             {m.document_title && (
               <p className="text-[11px] font-medium uppercase tracking-wide text-foreground/60">
@@ -919,7 +919,7 @@ function summariseResultObject(obj: Record<string, unknown>): string {
 function SessionMeta({ session }: { session: RealtimeSession }) {
   return (
     <dl
-      className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-4"
+      className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-fog sm:grid-cols-4"
       data-testid="talk-session-meta"
     >
       <dt>Knowledge chunks</dt>
@@ -947,7 +947,7 @@ function EndedPanel({
       data-testid="talk-ended"
     >
       <h2 className="text-base font-semibold">Session ended</h2>
-      <p className="mt-2 text-sm text-muted-foreground">
+      <p className="mt-2 text-sm text-fog">
         Duration:{" "}
         <span className="font-mono text-foreground">
           {session.duration_seconds}s
@@ -989,7 +989,7 @@ function ErrorPanel({
           Couldn't keep the live session going
         </h2>
         <p className="mt-2 text-sm">{message}</p>
-        <p className="mt-3 text-xs text-muted-foreground">
+        <p className="mt-3 text-xs text-fog">
           Real-time sessions can fail to connect under
           restrictive network conditions (firewalls, VPNs)
           or when the device's microphone isn't accessible.
@@ -1016,7 +1016,7 @@ function BackLink({ href }: { href: string }) {
   return (
     <Link
       to={href}
-      className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      className="inline-flex items-center gap-1 text-sm text-fog hover:text-foreground"
     >
       <ArrowLeft className="h-4 w-4" />
       Back to spokesperson
@@ -1045,7 +1045,7 @@ function TalkError({
     <div className="flex flex-col gap-4 py-10" data-testid="talk-fatal-error">
       <Link
         to={backHref}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground"
+        className="inline-flex items-center gap-1 text-sm text-fog"
       >
         <ArrowLeft className="h-4 w-4" />
         Back

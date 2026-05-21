@@ -167,15 +167,15 @@ function ConversationsPanel({
 
   return (
     <div
-      className="flex flex-col gap-4 rounded-md border bg-card p-5 shadow-paper"
+      className="flex flex-col gap-4 rounded-md border bg-card p-5 luxe-shadow"
       data-testid="spokesperson-conversations-panel"
     >
       <div className="flex items-baseline justify-between border-b pb-2">
         <div className="flex items-center gap-2">
-          <MessageCircle className="h-4 w-4 text-muted-foreground" />
+          <MessageCircle className="h-4 w-4 text-fog" />
           <h2 className="font-display text-base tracking-tight">Conversations</h2>
           {threads.data && (
-            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-fog">
               {threads.data.length}
             </span>
           )}
@@ -200,7 +200,7 @@ function ConversationsPanel({
       )}
 
       {threads.data && threads.data.length === 0 && (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-fog">
           No chats yet. Start one to talk to {spokespersonName} — they'll draw
           on the workspace knowledge attached above.
         </p>
@@ -230,9 +230,9 @@ function ConversationRow({ thread }: { thread: ConversationThread }) {
           <span className="truncate text-sm">
             {thread.title || `Chat ${thread.id.slice(0, 8)}`}
           </span>
-          <span className="line-clamp-1 text-xs text-muted-foreground">{preview}</span>
+          <span className="line-clamp-1 text-xs text-fog">{preview}</span>
         </div>
-        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-fog">
           {thread.message_count} msg{thread.message_count === 1 ? "" : "s"}
         </span>
       </Link>
@@ -253,12 +253,12 @@ function Masthead({
 }) {
   return (
     <header
-      className="reveal flex flex-col gap-3 border-b border-border pb-8"
+      className="reveal relative flex flex-col gap-4 pb-10"
       data-testid="spokesperson-masthead"
     >
       <Link
         to="/dashboard"
-        className="inline-flex w-fit items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex w-fit items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.22em] text-fog transition-colors hover:text-gold"
         data-testid="back-to-dashboard"
       >
         <ArrowLeft className="h-3 w-3" />
@@ -267,12 +267,12 @@ function Masthead({
       <div className="flex flex-wrap items-end justify-between gap-6">
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-              Spokesperson
+            <span className="font-mono text-[10.5px] uppercase tracking-[0.34em] text-gold">
+              § — Spokesperson
             </span>
             {ready && (
               <span
-                className="inline-flex items-center gap-1.5 rounded-sm border border-primary/40 bg-primary/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-primary"
+                className="inline-flex items-center gap-1.5 rounded-sm border border-gold/40 bg-gold/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-gold"
                 data-testid="ready-badge"
               >
                 Ready to render
@@ -280,7 +280,7 @@ function Masthead({
             )}
           </div>
           <h1
-            className="font-display text-5xl leading-[0.95] tracking-tight md:text-6xl"
+            className="font-display text-5xl leading-[0.95] tracking-tight text-cream md:text-6xl"
             style={
               {
                 fontVariationSettings: '"opsz" 96, "SOFT" 30, "WONK" 1',
@@ -342,6 +342,12 @@ function Masthead({
           </div>
         </div>
       </div>
+      {/* V3.6 — hairline-gold gradient under masthead per
+       * BRAND_IDENTITY_V3 §editorial patterns. */}
+      <div
+        className="hairline-gold absolute inset-x-0 bottom-0 h-px"
+        aria-hidden="true"
+      />
     </header>
   );
 }
@@ -355,7 +361,7 @@ function IdentityPanel({
 }) {
   return (
     <section
-      className="reveal grid grid-cols-1 gap-6 rounded-md border bg-card p-8 shadow-paper md:grid-cols-[14rem,1fr]"
+      className="reveal luxe-shadow grid grid-cols-1 gap-6 rounded-md border border-luxe bg-card p-8 md:grid-cols-[14rem,1fr]"
       style={{ "--reveal-delay": "0.02s" } as React.CSSProperties}
       data-testid="identity-panel"
     >
@@ -367,15 +373,15 @@ function IdentityPanel({
       <div className="flex flex-col gap-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-1 flex-col gap-2">
-            <span className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+            <span className="font-mono text-[10.5px] uppercase tracking-[0.34em] text-gold">
               Business brief
             </span>
             {spokesperson.business_brief.trim() ? (
-              <p className="font-display text-xl leading-snug tracking-tight">
+              <p className="font-display text-xl leading-snug tracking-tight text-cream">
                 {spokesperson.business_brief}
               </p>
             ) : (
-              <p className="font-display text-xl leading-snug tracking-tight text-muted-foreground">
+              <p className="font-display text-xl leading-snug tracking-tight text-mist italic">
                 No brief yet. The brief is what the spokesperson speaks
                 about across every render — usually one paragraph
                 describing what the business does and who it's for.
@@ -440,29 +446,64 @@ function Portrait({
     }
   }
 
+  // V3.6 — orbital portrait treatment per BRAND_IDENTITY_V3
+  // §editorial patterns. Three concentric gold rings + an
+  // orbiting dot at outer + a counter-orbiting dot at inner.
+  // Mirrors the parent site's hero portrait
+  // (`/24-7-ai-global/src/app/page.tsx` lines 77-107).
   if (src) {
     return (
-      <div className="aspect-square w-full overflow-hidden rounded border border-border bg-muted">
-        <img
-          src={src}
-          alt=""
-          className="h-full w-full object-cover"
-          onError={handleError}
-          data-testid="spokesperson-portrait-img"
-        />
+      <div className="relative aspect-square w-full">
+        {/* Decorative rings */}
+        <div className="absolute inset-0 rounded-full border border-gold/15" aria-hidden="true" />
+        <div className="absolute inset-3 rounded-full border border-gold/10" aria-hidden="true" />
+        <div className="absolute inset-6 rounded-full border border-gold/[0.06]" aria-hidden="true" />
+        {/* Outer orbiting dot — clockwise, 28s */}
+        <div className="animate-orbit-slow absolute inset-0" aria-hidden="true">
+          <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2">
+            <div className="h-2 w-2 rounded-full bg-gold shadow-[0_0_24px_4px_rgba(201,169,97,0.6)]" />
+          </div>
+        </div>
+        {/* Inner orbit — slower (just slower; the parent site
+         * reverses direction but we don't have a reverse helper) */}
+        <div className="animate-orbit absolute inset-4" aria-hidden="true">
+          <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2">
+            <div className="h-1.5 w-1.5 rounded-full bg-gold/80" />
+          </div>
+        </div>
+        {/* Portrait */}
+        <div className="luxe-shadow absolute inset-3 overflow-hidden rounded-full ring-1 ring-gold/40">
+          <img
+            src={src}
+            alt=""
+            className="h-full w-full object-cover"
+            onError={handleError}
+            data-testid="spokesperson-portrait-img"
+          />
+          <div
+            className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-ink/40 via-transparent to-gold/5"
+            aria-hidden="true"
+          />
+        </div>
       </div>
     );
   }
+  // Initials fallback — same orbital frame, no portrait inside.
   const initials = deriveInitials(name);
   return (
-    <div className="flex aspect-square w-full items-center justify-center rounded border border-border bg-gradient-to-br from-muted via-card to-muted/70">
-      <span
-        className="font-display text-7xl font-light text-foreground/70"
-        style={{ fontVariationSettings: '"opsz" 144, "SOFT" 50' } as React.CSSProperties}
-        aria-hidden
-      >
-        {initials}
-      </span>
+    <div className="relative aspect-square w-full">
+      <div className="absolute inset-0 rounded-full border border-gold/15" aria-hidden="true" />
+      <div className="absolute inset-3 rounded-full border border-gold/10" aria-hidden="true" />
+      <div className="absolute inset-6 rounded-full border border-gold/[0.06]" aria-hidden="true" />
+      <div className="luxe-shadow absolute inset-3 flex items-center justify-center rounded-full ring-1 ring-gold/40 bg-gradient-to-br from-midnight via-ink to-midnight/70">
+        <span
+          className="font-display text-7xl font-light text-cream/70"
+          style={{ fontVariationSettings: '"opsz" 144, "SOFT" 50' } as React.CSSProperties}
+          aria-hidden
+        >
+          {initials}
+        </span>
+      </div>
     </div>
   );
 }
@@ -477,10 +518,10 @@ function MetadataGrid({ spokesperson }: { spokesperson: Spokesperson }) {
     ["Updated", formatDate(spokesperson.updated_at)],
   ];
   return (
-    <dl className="grid grid-cols-1 gap-x-8 gap-y-2 border-t border-border/60 pt-4 sm:grid-cols-2">
+    <dl className="grid grid-cols-1 gap-x-8 gap-y-2 border-t border-luxe pt-4 sm:grid-cols-2">
       {rows.map(([label, value]) => (
         <div key={label} className="flex items-baseline justify-between gap-4">
-          <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">
+          <dt className="text-[11px] uppercase tracking-wider text-fog">
             {label}
           </dt>
           <dd className="truncate font-mono text-xs text-foreground/80">
@@ -512,7 +553,7 @@ function SetupPanel({
       data-testid="setup-panel"
     >
       <PanelHeader title="Set up" count={pendingItems.length} />
-      <div className="rounded-md border bg-card p-6 shadow-paper">
+      <div className="rounded-md border bg-card p-6 luxe-shadow">
         <ol className="flex flex-col gap-6">
           {pendingItems.map((it, i) => (
             <li
@@ -520,14 +561,14 @@ function SetupPanel({
               className="grid grid-cols-[2rem,1fr] items-baseline gap-4"
               data-testid={`setup-item-${it.kind}`}
             >
-              <span className="font-display text-2xl leading-none tabular-nums text-muted-foreground">
+              <span className="font-display text-2xl leading-none tabular-nums text-fog">
                 {String(i + 1).padStart(2, "0")}
               </span>
               <div className="flex flex-col gap-2">
                 <span className="font-display text-lg leading-snug tracking-tight">
                   {it.label}
                 </span>
-                <span className="text-xs text-muted-foreground">{it.body}</span>
+                <span className="text-xs text-fog">{it.body}</span>
                 {it.kind === "voice" && (
                   <VoiceSetupAffordance spokespersonId={spokesperson.id} />
                 )}
@@ -628,11 +669,11 @@ function VideosPanel({
   const hasVideos = !!videos && videos.length > 0;
   return (
     <section className="flex flex-col gap-5">
-      <div className="flex items-baseline justify-between border-b border-border/60 pb-3">
+      <div className="flex items-baseline justify-between border-b border-luxe pb-3">
         <div className="flex items-baseline gap-3">
           <h2 className="font-display text-xl tracking-tight">Renders</h2>
           {typeof videos?.length === "number" && (
-            <span className="font-mono text-xs text-muted-foreground">
+            <span className="font-mono text-xs text-fog">
               {videos.length}
             </span>
           )}
@@ -641,7 +682,7 @@ function VideosPanel({
           <Link
             to={`/workspace/videos?spokesperson=${spokespersonId}`}
             data-testid="videos-library-link"
-            className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+            className="font-mono text-[11px] uppercase tracking-[0.22em] text-fog transition-colors hover:text-foreground"
           >
             View all in library →
           </Link>
@@ -651,13 +692,13 @@ function VideosPanel({
       {error ? <ErrorRow message={extractMessage(error)} /> : null}
       {videos && videos.length === 0 && (
         <div
-          className="reveal flex flex-col gap-2 rounded-md border border-dashed border-border bg-card/50 p-8 text-center"
+          className="reveal flex flex-col gap-2 rounded-md border border-dashed border-luxe bg-card/50 p-8 text-center"
           data-testid="videos-empty"
         >
           <p className="font-display text-xl tracking-tight">
             No renders yet
           </p>
-          <p className="mx-auto max-w-md text-sm text-muted-foreground">
+          <p className="mx-auto max-w-md text-sm text-fog">
             Once this spokesperson is set up, every video you make with
             them lands here, newest first.
           </p>
@@ -683,10 +724,10 @@ function VideosPanel({
 
 function PanelHeader({ title, count }: { title: string; count?: number }) {
   return (
-    <div className="flex items-baseline justify-between border-b border-border/60 pb-3">
+    <div className="flex items-baseline justify-between border-b border-luxe pb-3">
       <h2 className="font-display text-xl tracking-tight">{title}</h2>
       {typeof count === "number" && (
-        <span className="font-mono text-xs text-muted-foreground">{count}</span>
+        <span className="font-mono text-xs text-fog">{count}</span>
       )}
     </div>
   );
@@ -707,7 +748,7 @@ function StatusPill({
     ready: "border-primary/40 bg-primary/10 text-primary",
     rendering: "border-primary/30 bg-primary/5 text-primary",
     failed: "border-destructive/40 bg-destructive/10 text-destructive",
-    muted: "border-border bg-muted text-muted-foreground",
+    muted: "border-border bg-muted text-fog",
   }[tone];
   return (
     <span
@@ -717,7 +758,7 @@ function StatusPill({
       )}
       data-testid={`status-pill-${label.toLowerCase()}`}
     >
-      <span className="text-muted-foreground/70">{label}</span>
+      <span className="text-fog/70">{label}</span>
       <span className="text-current">{value}</span>
     </span>
   );
@@ -734,11 +775,11 @@ function ErrorRow({ message }: { message: string }) {
 function DetailSkeleton() {
   return (
     <div className="flex flex-col gap-12">
-      <div className="flex flex-col gap-3 border-b border-border pb-8">
+      <div className="flex flex-col gap-3 border-b border-luxe pb-8">
         <div className="h-3 w-24 rounded bg-muted" />
         <div className="h-14 w-2/3 rounded bg-muted" />
       </div>
-      <div className="grid grid-cols-1 gap-6 rounded-md border bg-card p-8 shadow-paper md:grid-cols-[14rem,1fr]">
+      <div className="grid grid-cols-1 gap-6 rounded-md border bg-card p-8 luxe-shadow md:grid-cols-[14rem,1fr]">
         <div className="aspect-square w-full rounded bg-muted" />
         <div className="flex flex-col gap-3">
           <div className="h-3 w-24 rounded bg-muted" />
@@ -756,7 +797,7 @@ function VideosSkeleton() {
       {Array.from({ length: 2 }).map((_, i) => (
         <div
           key={i}
-          className="grid grid-cols-[2.5rem,1fr,auto] items-baseline gap-4 border-b border-border/60 py-4"
+          className="grid grid-cols-[2.5rem,1fr,auto] items-baseline gap-4 border-b border-luxe py-4"
         >
           <div className="h-7 w-8 rounded bg-muted" />
           <div className="flex flex-col gap-2">
@@ -774,7 +815,7 @@ function DetailError({ message }: { message: string }) {
   return (
     <div className="flex flex-col gap-6 py-12 text-center">
       <p className="font-display text-3xl tracking-tight">{message}</p>
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-fog">
         The spokesperson may have been archived, or this link is stale.
       </p>
       <div className="mx-auto">
@@ -884,7 +925,7 @@ function TalkCta({ spokesperson }: { spokesperson: Spokesperson }) {
         <h2 className="text-base font-semibold tracking-tight">
           Talk live with {spokesperson.name}
         </h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-fog">
           Start a real-time audio session grounded in your
           workspace knowledge.
         </p>

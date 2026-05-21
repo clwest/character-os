@@ -965,7 +965,7 @@ function ComingSoon({ recipe }: { recipe: Recipe }) {
         <ArrowLeft className="h-3 w-3" />
         All recipes
       </Link>
-      <div className="flex flex-col gap-3 rounded-md border bg-card p-8 shadow-paper">
+      <div className="luxe-shadow flex flex-col gap-3 rounded-md border border-luxe bg-card p-8">
         <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-fog">
           Coming soon
         </span>
