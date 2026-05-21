@@ -161,18 +161,26 @@ def test_compose_includes_chunks_and_returns_ids() -> None:
 
 def test_compose_respects_max_chars() -> None:
     """Tail chunks drop when the budget would be exceeded.
-    The body still ends cleanly + truncated=True."""
+    The body still ends cleanly + truncated=True.
+
+    The mandatory header (name + Conversation Style + Voice +
+    About) is non-droppable platform infrastructure, so the
+    budget test uses a max_chars sized to fit the header plus
+    a handful of chunks, then verifies chunks at the tail drop.
+    """
     ws, _u = _make_workspace("r4cap@test")
     sp = _make_spokesperson(ws)
-    # Each chunk ~ 200 chars; with max_chars=400 we fit
-    # roughly one chunk + the header.
+    # Each chunk ~ 200 chars; with max_chars=2000 we fit the
+    # mandatory header (~900 chars including the platform-wide
+    # Conversation Style block) plus a few chunks, with the
+    # tail forced to drop.
     big_chunks = ["A" * 200 for _ in range(10)]
     _make_doc_with_chunks(
         ws, title="Big", chunks=big_chunks, seed=0.95,
     )
-    result = compose_realtime_document(sp, top_k=30, max_chars=400)
+    result = compose_realtime_document(sp, top_k=30, max_chars=2000)
     assert result.truncated is True
-    assert result.chars <= 400 + 50  # small over-shoot allowed
+    assert result.chars <= 2000 + 50  # small over-shoot allowed
     assert len(result.chunk_ids) < 10
 
 

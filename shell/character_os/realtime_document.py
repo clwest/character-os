@@ -108,6 +108,7 @@ def compose_realtime_document(
     """
     name = (spokesperson.name or "").strip() or "Spokesperson"
     brief = (spokesperson.business_brief or "").strip()
+    operator_handle = _resolve_operator_handle(spokesperson)
     # W11.y (SESSION 175) — personality / business_brief split.
     # Personality describes HOW the avatar speaks (voice,
     # mannerisms); business_brief describes WHAT the business is
@@ -141,6 +142,19 @@ def compose_realtime_document(
     # order under budget (per scope-lock §R4): memory first,
     # then knowledge tail chunks. About + header never drop.
     header_lines = [f"# {name}", ""]
+    # Platform-wide session-open behavior — applies to every
+    # Character. Placed before Voice/About so the avatar's LLM
+    # anchors on the conversational pattern before it conditions
+    # on persona facts. Descriptive third-person form so
+    # Runway's content filter accepts it (imperative "you must"
+    # patterns get rejected; cf. SESSION 212 personality
+    # calibration).
+    header_lines += [
+        "## Conversation Style",
+        "",
+        _conversation_style_block(name=name, operator=operator_handle),
+        "",
+    ]
     # W11.y — Voice section drives HOW the avatar speaks; About
     # section drives WHAT they speak about. Voice comes first so
     # Runway anchors tone before facts.
@@ -238,4 +252,79 @@ def compose_realtime_document(
         truncated=truncated,
         chars=len(body),
         memory_session_ids=memory_session_ids,
+    )
+
+
+def _resolve_operator_handle(spokesperson: "Spokesperson") -> str:
+    """Return a friendly operator-facing name for the workspace
+    owner. Falls back through display fields → email handle →
+    a generic "the operator" so the document never carries an
+    empty placeholder.
+
+    Email handle is the v1 truth — User model is email-only.
+    Future shape: add a `display_name` field on User; this helper
+    automatically prefers it without re-touching the document
+    composer."""
+    try:
+        owner = spokesperson.workspace.owner
+    except AttributeError:
+        return "the operator"
+    for attr in ("display_name", "first_name", "name"):
+        value = (getattr(owner, attr, "") or "").strip()
+        if value:
+            return value
+    email = (getattr(owner, "email", "") or "").strip()
+    if email and "@" in email:
+        handle = email.split("@", 1)[0].strip()
+        if handle:
+            return handle[:1].upper() + handle[1:]
+    return "the operator"
+
+
+def _conversation_style_block(*, name: str, operator: str) -> str:
+    """Platform-wide session-open behavior baked into every
+    Character's realtime document. Descriptive third-person form
+    so the Runway content filter accepts it (cf. SESSION 212 —
+    imperative "you must" / "never X" phrasings get rejected).
+
+    Encodes four patterns the R-arc dogfood surfaced as missing
+    defaults:
+
+    1. **Greet by name immediately.** No silent gap waiting on
+       a session-open tool fire.
+    2. **No automatic lookups.** Tools only fire after the
+       operator has named a topic the lookup would serve.
+    3. **Acknowledge lookup latency.** When a lookup IS needed,
+       the Character narrates the wait conversationally rather
+       than going silent (Q-r-2 mitigation — the avatar can't
+       receive tool-result events back from the SDK, so it has
+       to keep speaking from its cached context).
+    4. **New topics get direct answers.** Recent-conversation
+       lookups only happen when the operator references the past.
+    """
+    return (
+        f"The operator in this session is named {operator}. "
+        f"{name} is speaking with {operator} right now.\n\n"
+        f"{name}'s opening turn always begins with the literal "
+        f"phrase \"Hi {operator}\" or \"Hello {operator}\" — "
+        f"never a generic \"Hello\" or \"Hi there\". The "
+        f"opener uses {operator}'s name out loud and is "
+        f"followed by an open invitation question such as "
+        f"\"what can we work on today?\" or \"what would you "
+        f"like to discuss?\". No tools are invoked, no lookups "
+        f"are performed, and no prior conversations are "
+        f"recalled until {operator} has stated a topic.\n\n"
+        f"When {operator} names a new topic, {name} responds "
+        f"directly from loaded knowledge and document memory "
+        f"rather than running a fresh lookup. When {operator} "
+        f"explicitly references a prior conversation, {name} "
+        f"briefly acknowledges that pulling up the history takes "
+        f"a moment, then performs the lookup — describing the "
+        f"wait conversationally so {operator} never hears "
+        f"silence.\n\n"
+        f"Tool invocations always wait for {operator} to "
+        f"confirm both intent and topic. {name} prefers "
+        f"explaining a workflow verbally over invoking a render "
+        f"tool, and treats tool calls as last resorts after "
+        f"{operator} has explicitly asked."
     )

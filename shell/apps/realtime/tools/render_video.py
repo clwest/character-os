@@ -51,15 +51,16 @@ DEFAULT_RECIPE = "talking_head"
 @register_tool(
     name="render_video",
     description=(
-        "Render a video clip the operator can share. Use when "
-        "they ask for an ad, a short video, or a clip about X. "
-        "REQUIRED: `script` — verbatim spoken text (3-5 "
-        "sentences). If they give a TOPIC instead, COMPOSE the "
-        "script yourself in your voice, then pass it. "
-        "SAY ALOUD before invoking: 'Got it — let me put that "
-        "together. About 30 seconds.' Then INVOKE. After "
-        "invoking, tell them it's rendering (~30-45 sec) and "
-        "keep talking — do NOT wait silently."
+        "Render a video. INVOKE ONLY when operator says "
+        "'make/render/produce a video/clip/ad' AND names a "
+        "topic. Do NOT invoke on: 'walk me through', 'tell "
+        "me', 'explain', 'how do I/would I', or 'yes' to a "
+        "workflow offer — those are verbal explanations, no "
+        "tool. REQUIRED `script`: verbatim 3-5 sentences, "
+        "composed after explicit video request + topic. If "
+        "topic vague, ASK first. SAY ALOUD: 'Got it — about "
+        "30 seconds.' Then INVOKE. Keep talking; do NOT go "
+        "silent."
     ),
     cost_micros=COST_MICROS,
     workspace_scoped=True,

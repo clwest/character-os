@@ -31,17 +31,16 @@ PREVIEW_CHAR_BUDGET = 500
 @register_tool(
     name="recall_recent_conversations",
     description=(
-        "Recall the operator's prior conversations with this "
-        "spokesperson. Use when they ask 'what did we talk "
-        "about', 'do you remember', 'what do you know about "
-        "me'. "
-        "SAY ALOUD before invoking: 'Let me pull up what we "
-        "covered last time.' Then INVOKE. The SPA renders a "
-        "panel listing the prior sessions for the operator. "
-        "AFTER invoking, briefly reference the topics you "
-        "already remember from your loaded document memory "
-        "(e.g. 'I see our Caesar discussion came up') and ask "
-        "which thread they want to pick up."
+        "Recall operator's prior conversations. INVOKE ONLY "
+        "when operator explicitly references past sessions — "
+        "'what did we talk about', 'do you remember', 'pick "
+        "up where we left off'. Do NOT invoke at session open "
+        "or on greetings ('hi', 'are you there'). Do NOT "
+        "invoke speculatively — loaded document memory "
+        "already has recent context. SAY ALOUD before "
+        "invoking: 'Let me pull up what we covered last "
+        "time.' Then INVOKE. AFTER, summarize prior topics "
+        "and ask which thread to pick up."
     ),
     cost_micros=0,
     workspace_scoped=True,
