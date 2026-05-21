@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-21T16:07:41.932152+00:00
-git_sha: d19b1da (working tree dirty)
+generated_at: 2026-05-21T16:28:38.179430+00:00
+git_sha: 1acbc82
 git_branch: main
 ---
 
@@ -15,8 +15,8 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-21T16:07:41.932152+00:00** against commit **d19b1da**
-on branch **main** (working tree dirty).
+Generated **2026-05-21T16:28:38.179430+00:00** against commit **1acbc82**
+on branch **main**.
 
 Python 3.11.6 · Django 5.2.14 ·
 Celery 5.6.3 · httpx 0.28.1.
@@ -32,7 +32,7 @@ Celery 5.6.3 · httpx 0.28.1.
 | URL routes (`/api/*`) | **167** | same |
 | FastAPI routes | **123** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **10** | `celery_app.tasks` filter |
-| Migrations (applied / total) | **68 / 69** | `MigrationRecorder` ∩ `MigrationLoader` |
+| Migrations (applied / total) | **69 / 69** | `MigrationRecorder` ∩ `MigrationLoader` |
 | Shell LOC (`*.py`, no venv/migrations) | **72,358** in 306 files | `pathlib.Path.rglob("*.py")` |
 | Media-engine LOC (`*.py`, no venv/migrations) | **38,443** in 75 files | same |
 
@@ -273,7 +273,7 @@ Total: **10** registered tasks (excluding `celery.*` built-ins).
 
 ## Migrations
 
-**68 of 69** migrations applied.
+**69 of 69** migrations applied.
 
 | App | Applied | Total | Pending |
 |---|---|---|---|
@@ -283,7 +283,7 @@ Total: **10** registered tasks (excluding `celery.*` built-ins).
 | `auth` | 12 | 12 | 0 |
 | `billing` | 1 | 1 | 0 |
 | `campaigns` | 2 | 2 | 0 |
-| `compositions` | 9 | 10 | **1 ⚠** |
+| `compositions` | 10 | 10 | 0 |
 | `contenttypes` | 2 | 2 | 0 |
 | `conversations` | 4 | 4 | 0 |
 | `embeddings` | 2 | 2 | 0 |
@@ -324,4 +324,4 @@ _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-w
 
 ---
 
-*Regenerated 2026-05-21T16:07:41.932152+00:00 from commit d19b1da. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-21T16:28:38.179430+00:00 from commit 1acbc82. Re-run `python manage.py inventory` (from `shell/`) to refresh.*

@@ -26,6 +26,11 @@ db.sqlite3-journal
 shell/media/
 shell/staticfiles/
 
+# Celery Beat — runtime schedule state (SESSION 210)
+shell/celerybeat-schedule
+shell/celerybeat-schedule.db
+shell/celerybeat-schedule.*
+
 # Node
 node_modules/
 npm-debug.log*
