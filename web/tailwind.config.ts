@@ -58,6 +58,26 @@ const config = {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
+        // V3 (SESSION 209) — raw brand colors for the editorial
+        // dark-luxe palette. These map to the `--color-*` vars
+        // in tokens.css under `[data-brand="v3"]` so `text-gold`,
+        // `bg-ink`, `border-luxe`, etc. work as expected. The V2
+        // semantic tokens above continue to drive shadcn primitives.
+        ink: "var(--color-ink)",
+        night: "var(--color-night)",
+        midnight: "var(--color-midnight)",
+        deep: "var(--color-deep)",
+        steel: "var(--color-steel)",
+        fog: "var(--color-fog)",
+        mist: "var(--color-mist)",
+        bone: "var(--color-bone)",
+        cream: "var(--color-cream)",
+        gold: {
+          DEFAULT: "var(--color-gold)",
+          bright: "var(--color-gold-bright)",
+          deep: "var(--color-gold-deep)",
+        },
+        ember: "var(--color-ember)",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -65,26 +85,55 @@ const config = {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        // V2 (SESSION 178) — consolidated to Geist for display +
-        // body. Fraunces (V1 editorial serif) retired with the
-        // brand pivot. JetBrains Mono unchanged.
-        sans: ['"Geist"', "ui-sans-serif", "system-ui", "sans-serif"],
-        // `font-serif` kept as an alias for Geist so existing
-        // class names don't break; V2 has no serif primitive.
-        serif: ['"Geist"', "ui-sans-serif", "system-ui", "sans-serif"],
-        mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
-        display: ['"Geist"', "ui-sans-serif", "system-ui", "sans-serif"],
+        // V3 (SESSION 209) — Bodoni Moda display + DM Sans body +
+        // JetBrains Mono mono. The CSS-var indirection lets
+        // `data-brand="v2"` roll back to Geist by overriding
+        // `--font-*` in the V2 token block.
+        sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        serif: ["var(--font-display)", "Georgia", "serif"],
+        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+        display: ["var(--font-display)", "Georgia", "serif"],
       },
       boxShadow: {
-        // V2 dark-tuned multi-layer shadows. The `paper-*` names
-        // are preserved (existing components reference them) but
-        // re-pointed at the V2 token CSS vars. New code should
-        // prefer `shadow`, `shadow-md`, etc. — the Tailwind
-        // defaults — which now resolve to V2 values via the
-        // `--shadow*` custom properties in tokens.css.
         paper: "var(--shadow-sm)",
         "paper-hover": "var(--shadow)",
         gold: "var(--shadow-gold)",
+        luxe: "var(--shadow-luxe)",
+      },
+      // V3 keyframes registered with semantic animation names.
+      // Keyframe definitions live in globals.css as @keyframes
+      // blocks (Tailwind reads from the global stylesheet at
+      // animation-run time; this block names the utility classes).
+      keyframes: {
+        rise: {
+          from: { opacity: "0", transform: "translateY(28px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        orbit: {
+          from: { transform: "rotate(0deg)" },
+          to: { transform: "rotate(360deg)" },
+        },
+        shimmer: {
+          "0%, 100%": { opacity: "0.55" },
+          "50%": { opacity: "1" },
+        },
+        ticker: {
+          from: { transform: "translateX(0)" },
+          to: { transform: "translateX(-50%)" },
+        },
+        "pulse-soft": {
+          "0%, 100%": { opacity: "0.4" },
+          "50%": { opacity: "0.9" },
+        },
+      },
+      animation: {
+        rise: "rise 1.2s cubic-bezier(0.2, 0.65, 0.2, 1) both",
+        orbit: "orbit 24s linear infinite",
+        "orbit-slow": "orbit 42s linear infinite",
+        "orbit-fast": "orbit 14s linear infinite",
+        shimmer: "shimmer 4s ease-in-out infinite",
+        ticker: "ticker 60s linear infinite",
+        "pulse-soft": "pulse-soft 3s ease-in-out infinite",
       },
     },
   },

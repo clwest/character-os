@@ -185,3 +185,103 @@ export const tokens = {
 } as const;
 
 export type Tokens = typeof tokens;
+
+// =====================================================================
+// V3 (SESSION 209) — Editorial dark-luxe / 24/7 Global AI parent
+// alignment. Active by default in the SPA (`<html data-brand="v3">`).
+// Source: `/Users/donkeyking/development/24-7-ai-global/src/app/globals.css`
+// mirrored into `web/src/styles/tokens.css` as the canonical CSS
+// custom property block under `[data-brand="v3"]`.
+//
+// V3 supersedes V2 ("Premium enterprise dark + gold"). Both V2 and V3
+// objects are exported so consumers can reference either via
+// data-brand attribute swap without code changes.
+// =====================================================================
+
+/**
+ * V3 raw brand colors (hex). Map to `--color-*` CSS vars under
+ * `[data-brand="v3"]`. Consumed by Tailwind `text-gold` / `bg-ink`
+ * via the tailwind.config color mapping.
+ */
+export const v3Colors = {
+  // Neutrals
+  ink: "#050a14",
+  night: "#0a1426",
+  midnight: "#0d1a30",
+  deep: "#142544",
+  steel: "#1f3a64",
+  fog: "#6b7d99",
+  mist: "#b8c4d6",
+  bone: "#ece4cf",
+  cream: "#f6ecd3",
+
+  // Gold scale
+  gold: "#c9a961",
+  goldBright: "#e8c87a",
+  goldDeep: "#8a6f33",
+  ember: "#d4af37",
+} as const;
+
+/**
+ * V3 typography stack. Bodoni Moda (display, italic-load-bearing),
+ * DM Sans (body), JetBrains Mono (microtype).
+ */
+export const v3Typography = {
+  fontFamily: {
+    display: ['"Bodoni Moda"', '"Didot"', "Georgia", "serif"],
+    sans: ['"DM Sans"', "ui-sans-serif", "system-ui", "sans-serif"],
+    mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
+  },
+  // Tracking — load-bearing for the editorial register.
+  letterSpacing: {
+    microtype: "0.22em",   // small labels
+    section: "0.34em",     // "§ NN — Section Name" pattern
+    tightest: "-0.04em",
+    tighter: "-0.03em",
+    tight: "-0.02em",
+    normal: "0",
+  },
+} as const;
+
+/**
+ * V3 motion. Six keyframes ported from the parent site
+ * (`rise`, `orbit`, `shimmer`, `ticker`, `flip`, `pulse-soft`).
+ * Easings include `editorial` for the signature 1.2s rise.
+ */
+export const v3Motion = {
+  duration: {
+    fast: "120ms",
+    DEFAULT: "180ms",
+    slow: "240ms",
+    emphasis: "400ms",
+    editorial: "1200ms",   // hero rise
+    orbit: "24000ms",      // hero portrait orbit
+    ticker: "60000ms",     // world-clock scroll
+  },
+  ease: {
+    out: "cubic-bezier(0.16, 1, 0.3, 1)",
+    inOut: "cubic-bezier(0.65, 0, 0.35, 1)",
+    editorial: "cubic-bezier(0.2, 0.65, 0.2, 1)",
+  },
+} as const;
+
+/**
+ * V3 shadow scale — adds `luxe` (gold-tinted inset + ambient glow +
+ * deep direct) for hero cards, CTA blocks, and elevated surfaces.
+ */
+export const v3Shadow = {
+  ...shadow,
+  luxe:
+    "inset 0 1px 0 rgba(201, 169, 97, 0.18), " +
+    "0 0 60px rgba(201, 169, 97, 0.08), " +
+    "0 30px 80px -30px rgba(0, 0, 0, 0.7)",
+} as const;
+
+export const v3 = {
+  colors: v3Colors,
+  typography: v3Typography,
+  motion: v3Motion,
+  shadow: v3Shadow,
+} as const;
+
+export type V3Tokens = typeof v3;
