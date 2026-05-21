@@ -230,6 +230,36 @@ CELERY_TASK_SOFT_TIME_LIMIT = 14 * 60
 # via celery-inspect is useful.
 CELERY_RESULT_EXPIRES = 24 * 60 * 60
 
+# ---- Celery Beat schedule -------------------------------------------
+#
+# SESSION 210 — first scheduled task. Runway-signed Cloudfront URLs
+# carry a 24-hour JWT ``exp`` claim; once it's past, the SPA still
+# shows the Composition row as having a deliverable but clicking it
+# 404s. ``sweep_expired_assets`` walks Asset rows hourly, classifies
+# each HTTPS URL via ``compute_storage_health``, and detaches the
+# Composition's ``final_asset`` FK on any row that classifies as
+# HTTPS_EXPIRED. The Asset row itself is preserved so the Asset
+# Library v1 UI can still surface the "expired" history.
+#
+# Beat needs its own process — local dev:
+#
+#     celery -A character_os beat --loglevel=INFO
+#
+# Production deploys run beat alongside the worker. The schedule is
+# pulled from this dict via the standard Celery config bridge
+# (``app.config_from_object("django.conf:settings", namespace="CELERY")``
+# in ``character_os/celery.py``).
+from celery.schedules import crontab  # noqa: E402
+
+CELERY_BEAT_SCHEDULE = {
+    "sweep-expired-assets": {
+        "task": "apps.compositions.tasks.sweep_expired_assets",
+        # Hourly at :07 so the sweep doesn't pile onto a top-of-the-hour
+        # cron storm if other periodic tasks join later.
+        "schedule": crontab(minute="7"),
+    },
+}
+
 
 # ---- Authentication --------------------------------------------------
 

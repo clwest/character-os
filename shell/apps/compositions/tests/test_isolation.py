@@ -83,6 +83,11 @@ ALLOWED_FILES = {
     # multi-step, BC2 lineage carry-up, dedup, no-knowledge,
     # empty-assets edge case).
     "apps/compositions/tests/test_chunk_id_aggregator.py",
+    # SESSION 210 — `sweep_expired_assets` Celery task tests
+    # seed Composition + Asset rows with crafted JWT URLs to
+    # exercise the hourly Beat sweep. Asset.composition FK is
+    # set explicitly; the pre_save signal still fires.
+    "apps/compositions/tests/test_expired_asset_sweep.py",
     # F3 overview endpoint tests construct Composition rows
     # directly to exercise the dashboard cross-cut query path.
     "apps/accounts/tests/test_workspace_overview.py",

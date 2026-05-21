@@ -51,6 +51,7 @@ from celery import shared_task
 from django.db import transaction
 from django.utils import timezone
 
+from .assets import StorageHealth, compute_storage_health
 from .cost import refresh_composition_cost_actual
 from .models import (
     Asset,
@@ -583,4 +584,88 @@ def _mark_step_failed(
         "failed_step_id": str(step.id),
         "failed_step_position": step.position,
         "error_kind": error_kind,
+    }
+
+
+# ---- expired-asset sweep ----------------------------------
+#
+# SESSION 210 — closes the last queued SESSION 209 calibration
+# finding (expired-asset accumulation). Runway's Cloudfront URLs
+# carry a JWT ``exp`` claim in their query string; once it's
+# past the SPA still shows the Composition row as having a
+# deliverable, but clicking it 404s. This periodic sweep walks
+# the Asset table, classifies each row via
+# ``compute_storage_health``, and on ``HTTPS_EXPIRED`` it
+# detaches the Composition's ``final_asset`` link. The Asset row
+# itself is left intact — its cost_micros + asset_type are
+# still useful provenance, and the Asset Library v1 UI surfaces
+# the expired badge so the operator sees the history.
+#
+# Cadence is configured in ``character_os/settings.py`` via
+# ``CELERY_BEAT_SCHEDULE``. Hourly is the default — the JWT
+# window is 24h so checking once per hour is plenty of
+# headroom without thrashing the table.
+
+
+@shared_task(
+    name="apps.compositions.tasks.sweep_expired_assets",
+    ignore_result=False,
+)
+def sweep_expired_assets() -> dict[str, Any]:
+    """Detach ``Composition.final_asset`` for every Composition
+    whose final asset's storage health classifies as
+    ``HTTPS_EXPIRED``.
+
+    Returns a small status dict (Celery result + handy for the
+    Beat log line):
+
+        {
+            "scanned": int,     # HTTPS assets considered
+            "expired": int,     # rows with HTTPS_EXPIRED
+            "detached": int,    # Composition.final_asset SET_NULL'd
+        }
+
+    Idempotent — a second run on the same set is a no-op
+    because the FKs already point at NULL.
+    """
+    scanned = 0
+    expired_asset_ids: list[str] = []
+
+    # Only HTTPS assets can carry a JWT exp; everything else
+    # (local files, data URIs, transcripts) can't expire by
+    # this mechanism. Filter at the DB level so we don't fetch
+    # the whole Asset table.
+    qs = Asset.objects.filter(
+        file_path__startswith="https://",
+    ).only("id", "file_path")
+
+    for asset in qs.iterator(chunk_size=200):
+        scanned += 1
+        if compute_storage_health(asset) == StorageHealth.HTTPS_EXPIRED:
+            expired_asset_ids.append(str(asset.id))
+
+    detached = 0
+    if expired_asset_ids:
+        # SET_NULL each Composition.final_asset that points at an
+        # expired row. Done in a single update for atomicity +
+        # to avoid loading the Composition objects into memory.
+        detached = Composition.objects.filter(
+            final_asset_id__in=expired_asset_ids,
+        ).update(final_asset=None, updated_at=timezone.now())
+
+    if expired_asset_ids:
+        logger.info(
+            "sweep_expired_assets: scanned=%d expired=%d detached=%d",
+            scanned, len(expired_asset_ids), detached,
+        )
+    else:
+        logger.debug(
+            "sweep_expired_assets: scanned=%d expired=0 detached=0",
+            scanned,
+        )
+
+    return {
+        "scanned": scanned,
+        "expired": len(expired_asset_ids),
+        "detached": detached,
     }
