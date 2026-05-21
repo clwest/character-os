@@ -100,6 +100,14 @@ class ToolSpec:
             and the dispatcher (defense in depth) both
             consult this. Default ``'starter'`` keeps
             tools open to all tiers.
+        dedup_enabled: whether the dispatcher's SESSION 213
+            Fix 2A retry-suppression window applies. Default
+            True covers the Q-r-2 spam case (avatar can't see
+            tool-result events, re-fires the same lookup
+            3-4 times). Mutating tools that legitimately fire
+            repeatedly with identical args (``attach_memory``'s
+            last-write-wins semantics per Q-r-8) opt out by
+            setting False.
     """
 
     name: str
@@ -109,6 +117,7 @@ class ToolSpec:
     executor: ToolExecutor
     is_async: bool = False
     tier_required: str = "starter"
+    dedup_enabled: bool = True
 
 
 # In-memory registry. Populated at module import via the
@@ -127,6 +136,7 @@ def register_tool(
     workspace_scoped: bool = True,
     is_async: bool = False,
     tier_required: str = "starter",
+    dedup_enabled: bool = True,
 ) -> Callable[[ToolExecutor], ToolExecutor]:
     """Decorator that registers a tool with the realtime
     catalog.
@@ -151,6 +161,9 @@ def register_tool(
         tier_required: minimum tier ('starter' / 'pro' /
             'agency') that exposes this tool. Used by
             `get_workspace_tools` + the dispatcher.
+        dedup_enabled: whether SESSION 213 Fix 2A retry
+            suppression applies. Default True. Set False for
+            mutating tools that fire repeatedly by design.
     """
 
     def _wrap(fn: ToolExecutor) -> ToolExecutor:
@@ -162,6 +175,7 @@ def register_tool(
             executor=fn,
             is_async=is_async,
             tier_required=tier_required,
+            dedup_enabled=dedup_enabled,
         )
         return fn
 

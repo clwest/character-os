@@ -56,11 +56,14 @@ logger = logging.getLogger(__name__)
 # bytes Runway might count differently than us.
 DEFAULT_MAX_CHARS = 40_000
 
-# How many chunks to consider at session-create. 30 is the
-# scope-lock default — enough breadth for the avatar to
-# answer a wide range of questions without blowing the
-# context budget.
-DEFAULT_TOP_K = 30
+# How many chunks to consider at session-create. SESSION 213
+# Fix 3B raised the default 30 → 50 to bake more answers into
+# the document. Pairs with `recall_knowledge`'s tightened
+# non-trigger guidance: more chunks in memory = fewer cases
+# where the avatar has to fire the tool = fewer Q-r-2 strikes.
+# 50 fits well inside the 40k-char cap (~10k char headroom
+# observed in real-mode dogfood).
+DEFAULT_TOP_K = 50
 
 
 @dataclass(slots=True)

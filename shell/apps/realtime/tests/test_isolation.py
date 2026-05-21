@@ -109,6 +109,12 @@ ALLOWED_FILES = {
     # via _make_user_workspace + _make_spokesperson; the
     # pre_save signal still fires.
     "apps/transcripts/tests/test_approve_reject.py",
+    # SESSION 213 Fix 2A — dispatch dedup tests seed
+    # RealtimeSession rows + craft one REJECTED
+    # RealtimeToolInvocation row directly to exercise the
+    # dedup window's terminal-failure exclusion path.
+    # Workspace anchor flows through the helper; signals fire.
+    "apps/realtime/tests/test_session_213_dedup.py",
 }
 
 

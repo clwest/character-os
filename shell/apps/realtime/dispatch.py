@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Literal
 
 from django.conf import settings
@@ -50,6 +51,7 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_APPROVAL_THRESHOLD_MICROS = 50_000  # $0.05
+DEFAULT_DEDUP_WINDOW_SECONDS = 10
 
 
 def _approval_threshold_micros() -> int:
@@ -63,6 +65,57 @@ def _approval_threshold_micros() -> int:
             "REALTIME_TOOL_APPROVAL_THRESHOLD_MICROS",
             DEFAULT_APPROVAL_THRESHOLD_MICROS,
         )
+    )
+
+
+def _dedup_window_seconds() -> int:
+    """How long to suppress identical (tool_name, args) refires
+    on the same session.
+
+    Q-r-2 mitigation (SESSION 213 Fix 2A): the avatar can't
+    receive tool-result events back from the SDK, so it sometimes
+    spams the same lookup 3-4 times within a few seconds. The
+    dedup window short-circuits the second-and-onward fires —
+    no new audit row, no new embedding call — and returns an
+    `already_returned: True` hint so the SPA can render a
+    "we already looked this up" affordance.
+
+    Terminal-failure rows (FAILED / REJECTED) don't qualify; a
+    second attempt after a real failure is legitimate retry.
+    """
+    return int(
+        getattr(
+            settings,
+            "REALTIME_TOOL_DEDUP_WINDOW_SECONDS",
+            DEFAULT_DEDUP_WINDOW_SECONDS,
+        )
+    )
+
+
+def _find_recent_duplicate(
+    session: RealtimeSession,
+    tool_name: str,
+    args: dict,
+) -> RealtimeToolInvocation | None:
+    """Most-recent non-terminally-failed invocation matching
+    (session, tool_name, args) within the dedup window, or
+    None."""
+    window = timezone.now() - timedelta(seconds=_dedup_window_seconds())
+    return (
+        RealtimeToolInvocation.objects.filter(
+            session=session,
+            tool_name=tool_name,
+            args=args,
+            invoked_at__gte=window,
+        )
+        .exclude(
+            status__in=[
+                RealtimeToolInvocation.Status.FAILED,
+                RealtimeToolInvocation.Status.REJECTED,
+            ]
+        )
+        .order_by("-invoked_at")
+        .first()
     )
 
 
@@ -167,6 +220,29 @@ def dispatch_tool(
             ),
             http_status=403,
         )
+
+    # SESSION 213 Fix 2A — Q-r-2 retry suppression. Identical
+    # (tool_name, args) on the same session within the dedup
+    # window short-circuits without re-executing. Returns the
+    # matched invocation's id + state plus an `already_returned`
+    # hint so the SPA can suppress duplicate UI side-effects
+    # (modals, citation panels, render-confirmation toasts).
+    # Mutating tools that fire repeatedly by design opt out
+    # via `dedup_enabled=False` (currently `attach_memory`
+    # per Q-r-8 last-write-wins semantics).
+    if spec.dedup_enabled:
+        existing = _find_recent_duplicate(session, spec.name, args)
+        if existing is not None:
+            cached = _maybe_result(existing) or {}
+            cached["already_returned"] = True
+            cached["matched_invocation_id"] = str(existing.id)
+            return DispatchResult(
+                state=_status_to_state(existing.status),
+                invocation_id=str(existing.id),
+                tool_name=spec.name,
+                cost_micros=spec.cost_micros,
+                result=cached,
+            )
 
     threshold = _approval_threshold_micros()
     needs_approval = spec.cost_micros > threshold

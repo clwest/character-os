@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-21T19:14:23.974099+00:00
-git_sha: 2b861e6 (working tree dirty)
+generated_at: 2026-05-21T19:49:53.696482+00:00
+git_sha: 9b90f92 (working tree dirty)
 git_branch: main
 ---
 
@@ -15,7 +15,7 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-21T19:14:23.974099+00:00** against commit **2b861e6**
+Generated **2026-05-21T19:49:53.696482+00:00** against commit **9b90f92**
 on branch **main** (working tree dirty).
 
 Python 3.11.6 · Django 5.2.14 ·
@@ -30,10 +30,10 @@ Celery 5.6.3 · httpx 0.28.1.
 | Django models (project-owned) | **22** | `apps.get_models()` filtered to first-party apps |
 | URL routes (total) | **391** | `get_resolver().url_patterns` walk |
 | URL routes (`/api/*`) | **167** | same |
-| FastAPI routes | **124** | media-engine `/openapi.json` (reachable) |
+| FastAPI routes | **—** | media-engine `/openapi.json` (**UNREACHABLE — see FastAPI section**) |
 | Celery tasks (registered) | **10** | `celery_app.tasks` filter |
 | Migrations (applied / total) | **69 / 69** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **73,342** in 308 files | `pathlib.Path.rglob("*.py")` |
+| Shell LOC (`*.py`, no venv/migrations) | **73,790** in 309 files | `pathlib.Path.rglob("*.py")` |
 | Media-engine LOC (`*.py`, no venv/migrations) | **39,047** in 76 files | same |
 
 ---
@@ -205,54 +205,7 @@ Total: **391** resolved patterns.
 
 ## FastAPI Media-Engine Routes
 
-Probed `http://localhost:8001/openapi.json` — `Character OS API` v0.1.0.
-
-Total: **124** routes.
-
-| Prefix | Count |
-|---|---|
-| `/api/` | 88 |
-| `/internal/` | 35 |
-| `other` | 1 |
-
-### `/internal/*` surface (Phase 2 contract)
-
-- `/internal/audio/dub/`
-- `/internal/audio/extract/`
-- `/internal/audio/mix/`
-- `/internal/audio/tts/`
-- `/internal/avatars/`
-- `/internal/avatars/{avatar_id}/change-personality/`
-- `/internal/avatars/{avatar_id}/change-voice/`
-- `/internal/avatars/{avatar_id}/persist_portrait/`
-- `/internal/avatars/{avatar_id}/refresh/`
-- `/internal/clips/avatar_speech/`
-- `/internal/clips/captions/`
-- `/internal/clips/composite/`
-- `/internal/clips/concat/`
-- `/internal/clips/extend/`
-- `/internal/clips/intro_outro/`
-- `/internal/clips/overlay_audio/`
-- `/internal/clips/reformat/`
-- `/internal/clips/remove_background/`
-- `/internal/clips/style_remix/`
-- `/internal/clips/trim/`
-- `/internal/clips/visual/`
-- `/internal/image_stability/`
-- `/internal/images/`
-- `/internal/portrait/`
-- `/internal/realtime_documents/`
-- `/internal/realtime_sessions/`
-- `/internal/realtime_sessions/{session_id}/`
-- `/internal/realtime_sessions/{session_id}/transcript/`
-- `/internal/styles/`
-- `/internal/tasks/{task_id}/`
-- `/internal/transcribe/`
-- `/internal/videos/`
-- `/internal/videos/{task_id}/`
-- `/internal/voices/`
-- `/internal/voices/design/`
-
+> **⚠ media-engine unreachable at `http://localhost:8001`.** Error: `[Errno 61] Connection refused`. Start it with `cd media-engine && uvicorn app.main:app --port 8001` and re-run `python manage.py inventory` to refresh.
 ---
 
 ## Celery Tasks
@@ -305,7 +258,7 @@ Total: **10** registered tasks (excluding `celery.*` built-ins).
 | Component | State | Source |
 |---|---|---|
 | Django runserver | `:8000` (when running) | `python manage.py runserver` |
-| FastAPI media-engine | `http://localhost:8001` (reachable) | live probe |
+| FastAPI media-engine | `http://localhost:8001` (unreachable) | live probe |
 | Redis | `redis://localhost:6381` (Docker) | `infra/docker-compose.yml` |
 | Celery broker | `redis://localhost:6381/0` | `settings.CELERY_BROKER_URL` |
 | Celery result backend | `redis://localhost:6381/1` | `settings.CELERY_RESULT_BACKEND` |
@@ -318,11 +271,11 @@ Total: **10** registered tasks (excluding `celery.*` built-ins).
 | Service | Files | Lines |
 |---|---|---|
 | `media-engine/` | 76 | 39,047 |
-| `shell/` | 308 | 73,342 |
-| **total** | **384** | **112,389** |
+| `shell/` | 309 | 73,790 |
+| **total** | **385** | **112,837** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-05-21T19:14:23.974099+00:00 from commit 2b861e6. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-21T19:49:53.696482+00:00 from commit 9b90f92. Re-run `python manage.py inventory` (from `shell/`) to refresh.*

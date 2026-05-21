@@ -34,17 +34,24 @@ MAX_TOP_K = 5
 
 @register_tool(
     name="recall_knowledge",
+    # SESSION 213 Fix 2C — non-trigger lock-in. Thin-knowledge
+    # queries used to LOOP the tool (Q-r-2: avatar can't see
+    # result events, retries until it gets one it can narrate).
+    # Pairs with Fix 3B (DEFAULT_TOP_K 30 → 50) so the
+    # document already carries most factual answers; the
+    # description gates the remaining cases. 476 chars
+    # (500-char Pydantic cap on the media-engine schema).
     description=(
-        "Search the spokesperson's workspace knowledge for a "
-        "specific fact. Use when the operator asks a question "
-        "whose answer might be in an attached doc. Pass the "
-        "topic as `query`. "
-        "SAY ALOUD before invoking: 'Let me check what I have "
-        "on that.' Then INVOKE. The SPA renders a citation "
-        "panel listing matched chunks. AFTER invoking, briefly "
-        "summarise the key point in your own words ('From what "
-        "I'm seeing, …') and keep going — don't recite chunks "
-        "verbatim; the operator already sees them."
+        "Search the workspace knowledge corpus for a fact the "
+        "loaded document does not already cover. The document "
+        "carries 50+ retrieval chunks, so most factual "
+        "questions are answerable directly from memory. Do NOT "
+        "invoke when the operator's question is answerable "
+        "from the loaded document. Invoke only when the "
+        "operator asks for a specific fact the document is "
+        "silent on. Pass the topic as `query`. After invoking, "
+        "summarise the key point briefly and continue without "
+        "reciting chunks."
     ),
     cost_micros=1_000,  # ~$0.001 per call
     workspace_scoped=True,

@@ -17,6 +17,7 @@ state: active
 > V0-V18 COMPLETE.
 > **Realtime avatar:** `docs/design/REALTIME_AVATAR_V1.md`.
 > R0-R10 + R6.1 COMPLETE.
+> SESSION 213 post-arc Q-r-2 loop kill shipped (Fix 2A/2C/3B).
 > **Workspace fabric:** `docs/design/WORKSPACE_FABRIC_V1.md`.
 > F0-F10 COMPLETE.
 > **Media generation:** `docs/design/MEDIA_GENERATION_V1.md`.
@@ -40,140 +41,110 @@ state: active
 > VO.3-VO.6 queued.
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
-> regen via `python manage.py inventory --write` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_212_VO2_PLUS_REALTIME_CALIBRATION.md`.
+> regen via `python manage.py inventory` (from `shell/`).
+> **Last handoff:** `docs/handoffs/SESSION_213_QR2_LOOP_KILL.md`.
 
 ---
 
-## SESSION 211 outcome — VO arc opens (VO.0 + VO.1)
+## SESSION 213 outcome — Q-r-2 loop kill (Fix 2A + 2C + 3B)
 
-Two slices stacked in one session. VO.0 (scope lock,
-½-slice doc) shipped first; VO.1 (TTS provider package +
-`/internal/audio/tts/` route + shell primitive) shipped on
-top. **+48 tests, zero real-mode spend.**
+Three layered fixes in one slice + one drift-sweep companion.
+**+9 tests, 0 real-mode spend.**
 
 | Commit | Slice |
 |---|---|
-| `d19b1da` | VO.0 — `docs/design/VOICEOVER_V1.md` scope lock |
-| (next) | VO.1 — TTS provider chain + shell primitive |
-
-Full session detail in
-`docs/handoffs/SESSION_211_VO_SCOPE_LOCK.md`.
-
-## SESSION 210 outcome — all 4 SESSION 209 calibration findings closed
-
-Stacked-½-slice session. The SESSION 209 handoff left four
-operational findings as fix-shaped candidates; SESSION 210
-closed all four plus the operator-facing companion to the
-last one.
-
-**6 commits, 0 real-mode spend, 0 subagent runs, +29 tests.**
+| (pending) | feat(realtime): dispatch dedup + recall_knowledge tightened + top-K 30→50 |
 
 ### What landed
 
-| Commit | Slice |
-|---|---|
-| `e2af47f` | aggregate `knowledge_chunk_ids` at completion |
-| `e48d07f` | media-engine intro/outro card auto-wrap |
-| `d0adf76` | recipe form "Topic" relabel + tighter helper |
-| `7e20e31` | storage-health badge on Videos library |
-| `562e16d` | hourly expired-asset Beat sweep |
-| `000dd94` | operator-facing `sweep_expired_assets` command |
+- **Fix 2A — `apps/realtime/dispatch.py`** dedup window
+  (`DEFAULT_DEDUP_WINDOW_SECONDS=10`,
+  `REALTIME_TOOL_DEDUP_WINDOW_SECONDS` override). Identical
+  `(session, tool_name, args)` refires return
+  `already_returned: True` + `matched_invocation_id`. Terminal-
+  failure states (FAILED / REJECTED) don't dedup; legitimate
+  retries flow through. New `ToolSpec.dedup_enabled: bool`
+  field lets mutating tools opt out — `attach_memory` sets
+  False per Q-r-8 last-write-wins.
+- **Fix 2C — `recall_knowledge` description tightened** to
+  476 chars with explicit non-trigger: "Do NOT invoke when
+  the operator's question is answerable from the loaded
+  document. Invoke only when the operator asks for a
+  specific fact the document is silent on."
+- **Fix 3B — `DEFAULT_TOP_K` 30 → 50** in
+  `character_os/realtime_document.py`. More chunks baked
+  into the session document = fewer Q-r-2 strikes.
+- **Drift-sweep companion** — bumped R6
+  `test_composer_drops_memory_first_under_budget`
+  `max_chars` 250 → 1300 to fit the SESSION 212
+  Conversation Style block in the header.
 
-Full session detail in
-`docs/handoffs/SESSION_210_CALIBRATION_CLOSEOUT.md`.
-
-### Notable structural changes
-
-- **First entry in `CELERY_BEAT_SCHEDULE`.** Beat is now part
-  of the local-dev surface — `celery -A character_os beat
-  --loglevel=info` runs as a third Celery process alongside
-  the worker.
-- **`run_expired_asset_sweep(commit=bool)` core** shared by
-  the Beat task and the management command. Behavior parity
-  is structural, not procedural.
-- **Pattern reinforced**: visibility surface (badge) +
-  recurring fix (Beat) + manual override (command) is the
-  right shape for any background reconciliation feature.
-
-### Workspace state (unchanged from SESSION 209)
-
-- **1 spokesperson:** 24/7 Global AI (`d3d0fb14-…`).
-- **37 KnowledgeDocuments / 884 chunks** (Tier 1 + Tier 2).
-- **6 compositions** from SESSION 209 dogfood.
-- 0 expired final_assets (operator did the manual cleanup
-  earlier in SESSION 209; subsequent sweeps will catch new
-  expirations as they happen).
-
-### Test counts at SESSION 211 close
+### Test counts at SESSION 213 close
 
 | Suite | Count |
 |---|---|
-| Django | **1387** (+23 vs SESSION 210) |
-| Media-engine | **246** (+25) |
+| Django | **1423** (+9 vs SESSION 212) |
+| Media-engine | **258** (unchanged) |
 | SPA vitest | **456** (unchanged) |
 
-### Test counts at SESSION 210 close
-
-| Suite | Count |
-|---|---|
-| Django | **1364** (+21) |
-| Media-engine | **221** (+7) |
-| SPA vitest | **456** (+1) |
+Full session detail in
+`docs/handoffs/SESSION_213_QR2_LOOP_KILL.md`.
 
 ---
 
-## FIRST THING (SESSION 213): Realtime Fix 2 (A+C) + Fix 3 (B) — recall_knowledge loop kill + retrieval boost (½ session)
+## FIRST THING (SESSION 214): Real-mode dogfood — verify Q-r-2 loop is dead
 
-SESSION 212 shipped VO.2 + realtime Conversation Style
-calibration. Real-mode dogfood with Rigby (the keeper)
-surfaced a clean fix-shaped finding: when `recall_knowledge`
-fires on a thin-knowledge query (DealFlowTracker stub, 1
-chunk), Rigby loops the tool 4x because Q-r-2 prevents
-result narration AND the document has nothing to fall back
-on. Worst-case Q-r-2 manifestation.
+Replay the SESSION 212 Rigby + DealFlowTracker scenario
+against the fixes. **Targets:**
 
-The fix is three layered changes:
+1. **`recall_knowledge` fires 0-1× per identical query**
+   (vs. 4× in SESSION 212). 0 if boosted retrieval covers
+   the answer; 1 + dedup hint if Rigby still chooses to
+   look up.
+2. **Audit-row count stays low** —
+   `RealtimeToolInvocation.objects.filter(session=s,
+   tool_name='recall_knowledge').count()` ≤ 1 for any
+   identical-args query.
+3. **No perceptible latency change** — dedup short-circuits
+   are sub-ms; the user-visible flow stays identical.
 
-1. **Fix 2A — Server-side retry suppression.** In
-   `apps/realtime/dispatch.py`, when the same
-   `(tool_name, args)` pair fires within 10s on the same
-   session, return the cached result with an added hint
-   key (`already_returned: true`) so the avatar can see
-   it's stuck. Cheapest path; doesn't solve Q-r-2 but
-   kills the loop. Acceptance: identical fires within
-   the dedup window count as 1 invocation in
-   `RealtimeToolInvocation.objects.filter(session=s)`.
+**Setup**:
+1. Bring the stack up (commands below).
+2. Hit "Talk to Rigby" from `/spokespeople/<keeper-id>/talk`.
+3. Two scripted prompts:
+   * "Tell me about DealFlowTracker." — thin-knowledge product
+     (1-chunk stub).
+   * "How does Character OS work?" — well-grounded product
+     (29-chunk corpus).
+4. Capture the `RealtimeToolInvocation` rows for the session
+   via `/api/realtime_tool_invocations/?session=<id>` after
+   ending the call.
+5. Operator-driven SPA flow; AI tails DB/logs in parallel
+   per the human/AI testing split rule.
 
-2. **Fix 2C — Tighten `recall_knowledge` description.**
-   Mirror what we did with `render_video` /
-   `recall_recent_conversations`. Add explicit
-   non-trigger: "Do NOT invoke when the operator's
-   question is answerable from the loaded document
-   memory — the document already includes 30+ chunks
-   of K2 retrieval." Tool description registration in
-   `shell/apps/realtime/tools/recall_knowledge.py`.
-   500-char cap.
+**Expected loop kill:**
+* Pre-SESSION-213: 4× `recall_knowledge` rows for thin
+  query, all SUCCEEDED with identical args.
+* Post-SESSION-213: 1 row for thin query (or 0 if avatar
+  speaks from document). Any second avatar fire returns
+  the cached id + `already_returned: True`.
 
-3. **Fix 3B — Boost `DEFAULT_TOP_K` from 30 → 50.**
-   In `shell/character_os/realtime_document.py`. More
-   answers baked into the document at session-create
-   = fewer Q-r-2 strikes. Cost trade-off: ~+10k chars
-   per session document but well within the 40k cap.
-   Document max_chars budget tests already updated for
-   the Conversation Style section landing in SESSION
-   212, so this is additive.
+**If a new loop emerges on a different tool**
+(`recall_recent_conversations` or `attach_memory`-via-spam),
+the dedup applies by default — but `attach_memory` opts
+out. Flag the finding as a SESSION 215 candidate; don't
+silently flip the opt-out.
 
-Acceptance: replay the SESSION 212 "tell me about
-DealFlowTracker" scenario. With A+C+B, Rigby should
-either (a) answer from boosted document context
-without firing the tool, or (b) fire once + get
-"already_returned" hint + bridge verbally.
+**Cost cap**: ≤ $1.00 spend. Two sessions, 5 min each
+at $0.08/min = $0.80 max. Beat is now part of the local
+runner — make sure it's up for the expired-asset sweep
+visibility surface.
 
-After fixes land: real-mode dogfood with Rigby on a
-mix of well-grounded products (Character OS) and
-thin-grounded products (DealFlowTracker) to confirm
-the loop is dead.
+After SESSION 214 dogfood → **VO.3** (`cta_swap` starter
++ recipe registry + `voice_picker` field type) is the
+next queued FIRST THING from the VO-arc.
+
+---
 
 ## SESSION 212 outcome — VO.2 + realtime calibration
 
@@ -193,94 +164,23 @@ operator handle resolution from workspace.owner.email,
 Conversation Style section in test budget math.
 
 **Real-mode dogfood with Rigby (8 sessions, ~$0.65
-spend)** surfaced:
-* Identity leak resolved (session 1 → 8: "I'm
-  Character OS" → "I'm Rigby with 24/7 Global AI")
-* Workflow-explanation pattern landed (session 6:
-  Rigby walked through "create an ad for MentorForge"
-  verbally without firing render_video)
-* `render_video` no longer misfires on "how do I"
-  questions
-* Q-r-2 silent gap manifests as a LOOP on
-  thin-knowledge retrieval (session 8: 4x
-  recall_knowledge fires for `DealFlowTracker` 1-chunk
-  stub)
-* Operator-name in greeting does NOT land —
-  Runway's avatar enforces "Hello. I'm [Name]"
-  shape; 9 explicit Admin mentions in document
-  ignored. v1 limitation documented in
-  `feedback_runway_avatar_greeting_bias.md`.
-
-**5 new memory entries** capturing the operational
-findings:
-* `feedback_tool_descriptions_drive_selection.md`
-* `feedback_runway_tool_description_500_char_limit.md`
-* `feedback_runway_content_filter_rejects_imperative.md`
-* `feedback_qr2_mitigated_by_document_context.md`
-* `feedback_runway_avatar_greeting_bias.md`
+spend)** surfaced findings now closed by SESSION 213.
 
 Full session detail in
 `docs/handoffs/SESSION_212_VO2_PLUS_REALTIME_CALIBRATION.md`.
-
-## (Originally queued) FIRST THING was VO.2 — overlay_audio_at_offset
-
-VO.1 shipped the TTS side; VO.2 ships the splice side.
-Pure ffmpeg, no upstream calls.
-
-1. **`POST /internal/clips/overlay_audio/`** route in
-   `media-engine/app/routers/internal.py`. Body:
-   `{base_url, vo_url, offset_seconds, duck_db?}`. ffmpeg
-   filter:
-   * `[0:a]volume=enable='between(t,offset,offset+vo_dur)':volume='{duck_db}dB'[base_ducked]`
-   * `[1:a]adelay={offset_ms}|{offset_ms},afade=t=in:st=0:d=0.3,afade=t=out:st={vo_dur-0.3}:d=0.3[vo_delayed]`
-   * `[base_ducked][vo_delayed]amix=inputs=2:duration=first[out]`
-   * `-map 0:v -c:v copy -map "[out]" -c:a aac` (rule 4 —
-     video stream byte-identical).
-2. **`overlay_audio_at_offset` shell primitive** —
-   `shell/apps/compositions/primitives/overlay_audio.py`.
-   Slots: `base` (CLIP, required) + `voiceover` (AUDIO,
-   required). Params: `offset_seconds` (float, ≥0,
-   required) + `duck_db` (float, default -18, range
-   [-60, 0]). Rule 6: `offset + vo_duration > base_duration`
-   raises `PrimitiveError` with the suggested-fix message.
-3. **Registry entry + role mapping** — output preserves
-   base's role (talking_head stays talking_head).
-4. **Tests** — offset math, validation errors, base-video-
-   byte-identity assertion (using `ffprobe stream=codec_type`
-   from the V14 audio_extract pattern), mock-mode determinism.
-
-Acceptance: real-mode ffmpeg produces an MP4 where the
-video stream's MD5 matches the base CLIP byte-for-byte; the
-audio track contains both the VO (audible during the
-window) and the ducked base; the output duration equals
-the base CLIP duration.
-
-After VO.2: VO.3 (`cta_swap` starter + recipe registry +
-new `voice_picker` field type) → VO.4 (`narrated_intro`)
-→ VO.5 (SPA recipe gallery wiring) → VO.6 (real-mode
-dogfood + arc close).
-
-### Parallel work (operator-driven, ongoing)
-
-- **Keeper rename** — placeholder "24/7 Global AI" still
-  active; operator considering alternatives.
-- **Keeper profile** — set `personality`,
-  `tone_archetype`, bio fields from the SPA at
-  `/spokespeople/d3d0fb14-193e-4c4c-88d1-acae9af25bb5`.
 
 ---
 
 ## Slice queue (after FIRST THING)
 
-### VO-arc remaining slices (post-VO.1)
+### VO-arc remaining slices
 
 | | Slice | Effort |
 |---|---|---|
-| 1 | VO.2 — `overlay_audio_at_offset` primitive (ffmpeg-only) | ½ session (this session's FIRST THING) |
-| 2 | VO.3 — `cta_swap` starter + recipe registry + `voice_picker` field type | ½ session |
-| 3 | VO.4 — `narrated_intro` starter + duration estimator helper | ½ session |
-| 4 | VO.5 — SPA recipe gallery `voice_picker` (3-tab) wiring | 1 session |
-| 5 | VO.6 — real-mode dogfood (keeper + Sasha CTA) + arc close | ½ session |
+| 1 | VO.3 — `cta_swap` starter + recipe registry + `voice_picker` field type | ½ session |
+| 2 | VO.4 — `narrated_intro` starter + duration estimator helper | ½ session |
+| 3 | VO.5 — SPA recipe gallery `voice_picker` (3-tab) wiring | 1 session |
+| 4 | VO.6 — real-mode dogfood (keeper + Sasha CTA) + arc close | ½ session |
 
 ### Queued from SESSION 210 closeout
 
@@ -333,7 +233,7 @@ partially (BC0-BC4 shipped, BC5 cancelled).
 | K0-K9 | DONE |
 | V0-V18 | DONE + REAL-MODE VALIDATED |
 | F0-F10 | DONE |
-| R0-R10 + R6.1 | DONE + REAL-MODE VALIDATED |
+| R0-R10 + R6.1 | DONE + REAL-MODE VALIDATED; **SESSION 213 Q-r-2 fix shipped** |
 | W11.6.0-W11.6.5 | DONE |
 | A0-A8 | DONE + DOGFOOD VALIDATED |
 | B1.0-B1.7 | DONE + REAL-MODE VALIDATED |
@@ -346,14 +246,10 @@ partially (BC0-BC4 shipped, BC5 cancelled).
 | Tier 2 for PD + DF | Blocked on source docs |
 | 24/7 Global AI keeper spokesperson | DONE SESSION 209 |
 | **BRAND_IDENTITY_V3 arc (V3.0-V3.9)** | **DONE + REAL-MODE VALIDATED SESSION 209** |
-| `knowledge_chunk_ids` propagation patch | **DONE SESSION 210** |
-| Brief-replaces-script SPA copy pass | **DONE SESSION 210** |
-| Outro/intro card auto-wrap | **DONE SESSION 210** |
-| Storage-health badge on Videos library | **DONE SESSION 210** |
-| Expired-asset hourly Beat sweep + manual command | **DONE SESSION 210** |
-| **VO-arc scope lock (VO.0)** | **DONE SESSION 211** |
-| **VO.1 — TTS provider + primitive + role enum** | **DONE SESSION 211** |
-| **VO.2 — `/internal/clips/overlay_audio/` + primitive + rule-4 byte-identity** | **DONE SESSION 212** |
+| **VO-arc scope lock (VO.0)** | DONE SESSION 211 |
+| **VO.1 — TTS provider + primitive + role enum** | DONE SESSION 211 |
+| **VO.2 — `/internal/clips/overlay_audio/` + primitive** | DONE SESSION 212 |
+| **Realtime Q-r-2 loop kill (Fix 2A/2C/3B)** | **DONE SESSION 213** |
 | VO.3-VO.6 (2 recipes + SPA + dogfood) | Queued (~2 sessions) |
 
 ---
@@ -385,10 +281,17 @@ cd web && pnpm dev                          # :5174
 python3 /Users/donkeyking/development/context-kit/context_kit.py doctor
 ```
 
+> **SESSION 213 finding:** doctor doesn't run pytest. The R6
+> `test_composer_drops_memory_first_under_budget` test was
+> broken on `main` between SESSION 212 close and 213 open and
+> doctor reported clean. Pair the doctor check with
+> `pytest apps/<arc>` against any arc the previous session
+> touched.
+
 **Inventory regen** (after any backend model / route / Celery task change):
 
 ```bash
-cd shell && python manage.py inventory --write
+cd shell && python manage.py inventory
 ```
 
 **Operator-facing expired-asset cleanup** (new SESSION 210):
@@ -407,14 +310,14 @@ cd shell && python manage.py sweep_expired_assets --commit    # apply
 5. Celery Beat (NEW — for hourly expired-asset sweep)
 6. Media-engine for real-mode renders
 
-**Smoke checks** (counts as of SESSION 210 close):
+**Smoke checks** (counts as of SESSION 213 close):
 
 ```bash
 # Backend (from shell/)
-set -a && source ../.env && set +a && EMBEDDING_FORCE_MOCK=1 pytest    # 1364 tests
+set -a && source ../.env && set +a && EMBEDDING_FORCE_MOCK=1 pytest    # 1423 tests
 
 # Media-engine (from media-engine/)
-python -m pytest                              # 221 tests
+python -m pytest                              # 258 tests
 
 # SPA (from web/)
 pnpm build                                    # type-check + bundle
@@ -425,79 +328,53 @@ pnpm test                                     # 456 vitest tests
 > `apps/scripts/tests/test_api.py` fail without
 > `EMBEDDING_FORCE_MOCK=1` set in the env (they exercise the
 > embedding service path and require `OPENAI_API_KEY`). Set
-> `EMBEDDING_FORCE_MOCK=1` for clean 1364/1364 results.
-> Pre-existing env-shape issue, not from SESSION 210.
+> `EMBEDDING_FORCE_MOCK=1` for clean 1423/1423 results.
 
 ---
 
 ## AI / assistant context
 
-- **Last session: SESSION 211 — VO.0 + VO.1 shipped.** Two
-  slices stacked in one session. VO.0 scope-locked
-  `docs/design/VOICEOVER_V1.md` (9 contract rules + 9 open
-  questions accepted as-proposed). VO.1 shipped the
-  `TextToSpeechProvider` Protocol + Runway/ElevenLabs/Mock
-  providers + `/internal/audio/tts/` route +
-  `synthesize_voiceover_audio` shell primitive. **+48 tests
-  (+23 Django / +25 media-engine), zero real-mode spend.**
-  Primitive registry 21 → 22; media-engine routes 137 → 138;
-  AssetRole enum 10 → 11. Provider-abstraction shape mirrors
-  R2 + R10. Q-vo-2 hedge (Runway-first + ElevenLabs fallback)
-  resolves at VO.6 dogfood.
+- **Last session: SESSION 213 — Q-r-2 loop kill.** Three
+  layered fixes (dispatch dedup window + tighter
+  `recall_knowledge` description + DEFAULT_TOP_K 30→50)
+  plus one drift-sweep companion (R6 budget test
+  `max_chars` 250 → 1300). +9 Django tests; media-engine
+  + SPA unchanged. No real-mode spend. New `ToolSpec.dedup_enabled`
+  field formalizes the read-only-vs-mutating tool
+  distinction; `attach_memory` opts out per Q-r-8.
 
-- **SESSION 210 — calibration closeout.** Six
-  ½-slices closing all 4 SESSION 209 calibration findings
-  plus the operator-facing companion to the last one. The
-  pattern: a well-scoped handoff lets the next session
-  stack ½-slices without re-orienting between them.
+- **SESSION 212 — VO.2 + realtime calibration.** VO.2
+  overlay_audio primitive + Rigby real-mode dogfood
+  surfacing Q-r-2 / Conversation Style / tool-description
+  / avatar-greeting findings. SESSION 213 closed the
+  first one structurally.
 
-- **Calibration carried forward (41 + 4 closed SESSION
-  210):** all four SESSION 209 findings closed
-  structurally. No new findings emerged this session (no
-  real-mode renders fired; pure code/test slices).
+- **SESSION 211 — VO arc opens (VO.0 + VO.1).** TTS
+  provider chain + shell primitive + 48 tests.
 
-- **"Real-mode finds bugs in every arc" streak: 10-for-10.**
-  SESSION 209's V3 dogfood surfaced 4 findings; SESSION 210
-  closed all 4. The streak generalizes: the *next* session
-  after a calibration-rich session can be a stacked-½-slice
-  closeout if the findings were written as fix-shaped
-  candidates rather than as bug reports.
+- **"Real-mode finds bugs in every arc" streak: 11-for-11.**
+  SESSION 212's Rigby dogfood surfaced 5 findings;
+  SESSION 213 closed the first (Q-r-2 loop). Remaining 4
+  findings tracked in `feedback_*` memory files.
 
-- **First Celery Beat schedule entry in the project.** Beat
-  is now part of the local-dev surface. Future periodic
-  tasks (asset purge, retention sweeps, scheduled reports)
-  ride this precedent.
+- **Fix-shaped findings continue to compound.** The
+  SESSION 212 handoff wrote Q-r-2 mitigation as three
+  fix-shaped candidates with paths + acceptance + effort
+  sizing. SESSION 213 executed them in ½ a session with
+  no re-orientation. Pattern continues from SESSION 210.
 
-- **The visibility / Beat / command triad is canonical for
-  background reconciliation.** SESSION 210's expired-asset
-  story shows the pattern: badge surfaces the state, Beat
-  fixes it on a clock, command lets the operator fix it
-  now. Apply when a future feature needs both automated
-  and manual cleanup paths.
+- **Doctor catches narrative drift; pytest catches code
+  drift.** SESSION 213 surfaced one budget test failure
+  on `main` that doctor missed. Pair the two at session
+  start when the previous session changed code in a
+  cross-cutting way (e.g. the SESSION 212 Conversation
+  Style block touched all R-arc compose paths).
 
-- **Management command dry-run-by-default discipline.**
-  `backfill_asset_roles` (SESSION 185) and now
-  `sweep_expired_assets` (SESSION 210) both default to
-  dry-run + require `--commit`. Canonical pattern for any
-  destructive / mass-update command.
-
-- **A single-render finding usually has broader scope.**
-  The chunk_ids fix was scoped to `talking_head` in the
-  SESSION 209 handoff; inspection broadened it to every
-  `use_knowledge=True` recipe. Audit every code path that
-  writes to the same target before fixing.
-
-- **Doc-discipline pays off mid-session.** Per-slice handoff
-  updates in the start-here doc kept SESSION 210 from
-  spiraling — every "keep going" had a clearly-defined
-  next item. The handoff was the work plan.
-
-- **Subagent delivery on tight contract briefs is 3-for-3**
-  (B2.5 + BC4 + V3.5). Pattern that works: exhaustive
-  contract upfront, file list, per-file checklist,
-  verification steps. SESSION 210 ran inline — no subagent
-  dispatched — because the slices were small enough to not
-  benefit from delegation.
+- **`dedup_enabled` flag as architectural forcing
+  function.** Adding a new realtime tool now requires
+  the decorator answer "is this re-fire-friendly?". The
+  flag makes the read-vs-mutate semantics explicit at
+  registration, not at runtime.
 
 - Collaboration: AI drafts, human edits. Per-slice doc
   updates required at session end (codified SESSION 143).

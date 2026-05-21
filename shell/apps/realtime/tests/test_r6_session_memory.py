@@ -430,12 +430,17 @@ def test_composer_drops_memory_first_under_budget():
     _make_doc_with_chunks(
         ws, title="Tight", chunks=["Short chunk."], seed=0.99,
     )
-    # Synthetic small budget. Header + About + Knowledge
+    # Synthetic small budget. Header (now ~1160 chars after
+    # SESSION 212's Conversation Style block lands) + Knowledge
     # heading + chunk should fit; memory pushes over. Mock
-    # memory body alone is ~260 chars, so 250 forces the
-    # drop while still leaving room for header + knowledge.
+    # memory body wrapped in its `## Recent Conversations`
+    # section is ~250 chars, so 1300 forces the drop while
+    # still leaving room for header + knowledge + one chunk.
+    # (Pre-SESSION-212 this was 250; post-Conversation-Style
+    # block the header alone exceeds that — bumped SESSION 213
+    # drift-sweep alongside the dedup slice.)
     with override_settings(REALTIME_MEMORY_FORCE_MOCK=True):
-        result = compose_realtime_document(sp, top_k=10, max_chars=250)
+        result = compose_realtime_document(sp, top_k=10, max_chars=1300)
     assert "## Recent Conversations" not in result.body
     assert "## Knowledge" in result.body
     assert "Short chunk." in result.body

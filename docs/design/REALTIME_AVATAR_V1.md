@@ -798,6 +798,55 @@ tests cannot fail.
 
 ## Change log
 
+- 2026-05-21 (SESSION 213) — **Q-r-2 retry-suppression slice
+  (post-arc fix).** Closes the `recall_knowledge` loop
+  surfaced by SESSION 212's real-mode dogfood (Rigby + the
+  DealFlowTracker thin-knowledge stub fired the tool 4x).
+  Three layered changes, one commit:
+
+  1. **Fix 2A — `apps/realtime/dispatch.py` dedup window.**
+     Identical `(session, tool_name, args)` refires within
+     `REALTIME_TOOL_DEDUP_WINDOW_SECONDS` (default 10) return
+     the matched invocation's id + state plus
+     `already_returned: True` / `matched_invocation_id` hint
+     keys. Terminal-failure states (FAILED / REJECTED) do
+     NOT dedup — real retries flow through. New
+     `dedup_enabled: bool` field on `ToolSpec` lets mutating
+     tools opt out; `attach_memory` (Q-r-8 last-write-wins)
+     sets False.
+  2. **Fix 2C — `recall_knowledge` description tightened.**
+     476 chars (under the 500-char Pydantic cap). New non-
+     trigger: "Do NOT invoke when the operator's question is
+     answerable from the loaded document." Mirrors the
+     SESSION 212 pattern that worked for `render_video` /
+     `recall_recent_conversations`.
+  3. **Fix 3B — `character_os.realtime_document.DEFAULT_TOP_K`
+     30 → 50.** More chunks baked into the session document
+     at create time = fewer cases where the avatar has to
+     fire the tool = fewer Q-r-2 strikes. Cost: ~+10k chars
+     per document, well within the 40k cap (real-mode
+     dogfood had ~25k headroom).
+
+  **Drift-sweep companion:** SESSION 212's Conversation
+  Style block grew the realtime document header from ~50
+  chars to ~1160. The R6 `test_composer_drops_memory_first_under_budget`
+  test's hardcoded `max_chars=250` no longer fits the
+  header; bumped to 1300 alongside the dedup slice. Caught
+  by running the full realtime suite — no fix in main
+  before SESSION 213.
+
+  **Test counts after SESSION 213**: Django **1423**
+  (1414 → 1423, +9 — 8 dedup happy/sad paths + 1
+  `dedup_enabled` opt-out). Media-engine **258**
+  (unchanged). SPA vitest **456** (unchanged).
+
+  **Pending real-mode validation**: replay the SESSION 212
+  Rigby/DealFlowTracker scenario. Expected:
+  recall_knowledge fires once (boosted retrieval delivers
+  more answers) or zero (the avatar speaks from memory
+  per the new non-trigger guidance). The 4x loop must be
+  dead.
+
 - 2026-05-14 (SESSION 142) — Initial scope lock. Triggered
   by SESSION 142 mid-session reframe: operator pulled
   real-time WebRTC from VIDEO_COMPOSITION_V1.md's "out of

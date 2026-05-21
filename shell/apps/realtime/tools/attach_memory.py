@@ -64,6 +64,12 @@ COST_MICROS = 1_000  # ~$0.001 — one media-engine call
     workspace_scoped=True,
     is_async=True,
     tier_required="pro",
+    # SESSION 213 Fix 2A: opt out of the dispatch dedup
+    # window. Q-r-8 semantics are last-write-wins; firing
+    # `attach_memory` twice with identical args is a
+    # legitimate "save again" by design and must produce a
+    # fresh Asset that replaces the prior one.
+    dedup_enabled=False,
 )
 def executor(session, args: dict[str, Any]) -> dict[str, Any]:
     """Capture the current session's transcript snapshot
