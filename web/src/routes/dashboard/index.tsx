@@ -14,6 +14,7 @@ import {
   type WorkspaceOverview,
 } from "@/lib/api/overview";
 import { OnboardingTour } from "@/components/onboarding-tour";
+import { SectionHeader } from "@/components/editorial";
 import { cn } from "@/lib/utils";
 
 /**
@@ -137,15 +138,15 @@ function Masthead({
 }) {
   return (
     <header
-      className="reveal flex flex-col gap-3 border-b border-border pb-8"
+      className="reveal relative flex flex-col gap-4 pb-10"
       data-testid="dashboard-masthead"
     >
-      <span className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-        Workspace
-      </span>
+      {/* V3.4 — `§ 01 — Workspace` editorial label per BRAND
+       * IDENTITY V3 contract rule 4. */}
+      <SectionHeader number={1} title="Workspace" />
       <div className="flex flex-wrap items-end justify-between gap-6">
         <h1
-          className="font-display text-5xl leading-[0.95] tracking-tight md:text-6xl"
+          className="font-display text-5xl leading-[0.95] tracking-tight md:text-6xl text-cream"
           style={{ fontVariationSettings: '"opsz" 96, "SOFT" 30, "WONK" 1' } as React.CSSProperties}
           data-testid="workspace-name"
         >
@@ -155,7 +156,7 @@ function Masthead({
           {/* The "Knowledge" link previously here retired into
               the NavRail (F2). Keeping the masthead lean. */}
           {userEmail && (
-            <span className="hidden font-mono text-xs text-muted-foreground sm:inline">
+            <span className="hidden font-mono text-xs text-fog sm:inline">
               {userEmail}
             </span>
           )}
@@ -170,6 +171,12 @@ function Masthead({
           </Button>
         </div>
       </div>
+      {/* V3.4 — hairline-gold gradient replaces the generic
+       * masthead border. Fades in/out at both ends. */}
+      <div
+        className="hairline-gold absolute inset-x-0 bottom-0 h-px"
+        aria-hidden="true"
+      />
     </header>
   );
 }
@@ -177,23 +184,23 @@ function Masthead({
 function PrimaryAction() {
   return (
     <section
-      className="reveal flex flex-col gap-4 rounded-md border bg-card p-8 shadow-paper md:flex-row md:items-center md:justify-between"
+      className="reveal luxe-shadow flex flex-col gap-4 rounded-md border border-luxe bg-card p-8 md:flex-row md:items-center md:justify-between"
       style={{ "--reveal-delay": "0.02s" } as React.CSSProperties}
       data-testid="primary-action"
     >
       <div className="flex flex-col gap-2">
-        <span className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-          Render queue
+        <span className="font-mono text-[10.5px] uppercase tracking-[0.34em] text-gold">
+          § 02 — Render queue
         </span>
-        <p className="text-3xl font-semibold leading-tight tracking-tight">
+        <p className="font-display text-3xl leading-tight tracking-tight text-cream md:text-4xl">
           Compose a render.
-          <span className="text-muted-foreground"> Ground in workspace knowledge. </span>
-          Ship to your channels.
+          <span className="italic text-mist"> Ground in workspace knowledge. </span>
+          <span className="italic gold-text">Ship.</span>
         </p>
       </div>
       <Button asChild size="lg" className="self-start md:self-auto">
         <Link to="/recipes" data-testid="make-video-cta">
-          Open recipe gallery
+          Open recipe gallery →
         </Link>
       </Button>
     </section>
@@ -507,11 +514,13 @@ function PanelHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-baseline justify-between border-b border-border/60 pb-3">
+    <div className="flex items-baseline justify-between border-b border-luxe pb-3">
       <div className="flex items-baseline gap-3">
-        <h2 className="font-display text-xl tracking-tight">{title}</h2>
+        <h2 className="font-display text-xl tracking-tight text-cream">
+          {title}
+        </h2>
         {typeof count === "number" && (
-          <span className="font-mono text-xs text-muted-foreground">{count}</span>
+          <span className="font-mono text-xs text-gold/70">{count}</span>
         )}
       </div>
       {action}
