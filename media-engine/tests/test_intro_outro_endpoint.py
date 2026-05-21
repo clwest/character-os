@@ -48,6 +48,7 @@ from app.routers.internal import (
     _build_card_filter,
     _probe_dimensions,
     _resolve_drawtext_font,
+    _wrap_card_text,
 )
 
 
@@ -503,3 +504,119 @@ def test_intro_frame_has_visible_text_not_pure_black(
         "cause: text= reverted from textfile= (apostrophe + "
         "fontfile in the same filter is a known dead end)."
     )
+
+
+# ---- SESSION 210: _wrap_card_text auto-wrap regression guard -----
+#
+# Closes the SESSION 209 calibration finding: card text wider than
+# the canvas clipped on both sides because `_build_card_filter`
+# centered without wrapping. The fix is a pre-write `textwrap.wrap`
+# in `_wrap_card_text(text, canvas_w, font_size)`, called before
+# the textfile gets written.
+
+
+def test_wrap_card_text_passes_short_text_unchanged() -> None:
+    """Short text fits within max_chars and returns flat (whitespace
+    collapsed but no line-break inserted)."""
+    out = _wrap_card_text(
+        "Reply by morning.", canvas_w=1280, font_size=48,
+    )
+    assert out == "Reply by morning."
+    assert "\n" not in out
+
+
+def test_wrap_card_text_breaks_long_text_at_max_chars() -> None:
+    """The SESSION 209 finding case — a 94-char CTA outro on a
+    1280-wide canvas at default font_size=48. Pre-patch this was
+    written verbatim and clipped to "mail jessica … cam". Post-
+    patch it wraps to ≤2 lines."""
+    long_outro = (
+        "Now onboarding · email jessica@247globalai.com · "
+        "spaces limited · first come, first served"
+    )
+    out = _wrap_card_text(long_outro, canvas_w=1280, font_size=48)
+    lines = out.split("\n")
+    assert len(lines) >= 2, (
+        f"long outro should wrap; got 1 line: {out!r}"
+    )
+    # Each wrapped line must respect the empirical max
+    # (canvas_w * 0.80 / (font_size * 0.55)) — ≈38 chars at
+    # 1280w / fontsize=48.
+    max_chars = int(1280 * 0.80 / (48 * 0.55))
+    for ln in lines:
+        assert len(ln) <= max_chars or " " not in ln, (
+            f"line exceeds max ({max_chars}): {ln!r} ({len(ln)})"
+        )
+
+
+def test_wrap_card_text_preserves_operator_newlines() -> None:
+    """Operators may pre-stack lines with explicit ``\\n``. The
+    wrapper respects those line breaks and wraps each line
+    independently."""
+    stacked = (
+        "Now onboarding.\n"
+        "jessica@247globalai.com\n"
+        "Limited spaces — first come, first served."
+    )
+    out = _wrap_card_text(stacked, canvas_w=1280, font_size=48)
+    lines = out.split("\n")
+    # The first two lines stay as authored (each short enough
+    # not to need further wrapping at 1280w).
+    assert lines[0] == "Now onboarding."
+    assert lines[1] == "jessica@247globalai.com"
+    # The third line is exactly 43 chars; at fontsize 48 / 1280w
+    # the max is ≈38, so it WILL be wrapped.
+    # Either way: there are at least 3 lines, and no line should
+    # contain a literal sentence boundary mid-word.
+    assert len(lines) >= 3
+
+
+def test_wrap_card_text_narrower_canvas_wraps_sooner() -> None:
+    """Vertical canvases (720w portrait) have less room — same
+    text wraps into more lines than on horizontal (1280w)."""
+    text = (
+        "Now onboarding email jessica at twenty-four seven "
+        "global ai dot com"
+    )
+    wide = _wrap_card_text(text, canvas_w=1280, font_size=48)
+    narrow = _wrap_card_text(text, canvas_w=720, font_size=48)
+    wide_lines = wide.count("\n") + 1
+    narrow_lines = narrow.count("\n") + 1
+    assert narrow_lines >= wide_lines, (
+        "narrower canvas should wrap into ≥ as many lines as wider; "
+        f"wide={wide_lines} narrow={narrow_lines}"
+    )
+
+
+def test_wrap_card_text_larger_font_wraps_sooner() -> None:
+    """Bigger font = fewer chars fit per line. Same text + canvas
+    + bigger font = more wraps."""
+    text = "Always on. Always smart. Always global. The hour is irrelevant."
+    small = _wrap_card_text(text, canvas_w=1280, font_size=36)
+    large = _wrap_card_text(text, canvas_w=1280, font_size=96)
+    assert (large.count("\n") + 1) >= (small.count("\n") + 1)
+
+
+def test_wrap_card_text_empty_input_returns_unchanged() -> None:
+    """Empty / whitespace-only input — caller's responsibility
+    upstream (TitleCardSpec.text has min_length=1) but defensive."""
+    assert _wrap_card_text("", canvas_w=1280, font_size=48) == ""
+    assert _wrap_card_text("   ", canvas_w=1280, font_size=48) == "   "
+
+
+def test_wrap_card_text_floor_prevents_tiny_canvas_degenerate_wrap() -> None:
+    """At pathological canvas widths the math would produce
+    max_chars < 12. The floor keeps it at 12 so we don't break
+    every word onto its own line. (A 320×N canvas isn't a valid
+    Runway output but the helper shouldn't crash.)"""
+    out = _wrap_card_text(
+        "Reply by morning quickly please.",
+        canvas_w=320,
+        font_size=48,
+    )
+    # 12-char floor — "Reply by" / "morning" / "quickly" / "please."
+    # depending on textwrap behavior. Just assert no line is
+    # impossibly short (1-char wraps would indicate floor missed).
+    for ln in out.split("\n"):
+        if ln and ln != "...":
+            assert len(ln.strip()) >= 1

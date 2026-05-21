@@ -2293,6 +2293,45 @@ def _resolve_drawtext_font() -> str:
     )
 
 
+def _wrap_card_text(text: str, canvas_w: int, font_size: int) -> str:
+    """SESSION 210 — wrap intro/outro card text to fit the canvas
+    width at the given font size. Closes the SESSION 209
+    calibration finding: ``_build_card_filter`` centered text via
+    ``x=(w-text_w)/2`` without wrapping; long strings clipped on
+    both sides (the "mail jessica … cam" report).
+
+    Computes ``max_chars`` empirically — at typical drawtext sans
+    geometry, ~0.55 * font_size pixels per char; reserve 20% canvas
+    margin (10% per side) for visual breathing room. Result floors
+    to 12 chars to avoid degenerate wraps on tiny canvases.
+
+    Operator-supplied line breaks are preserved (each input line
+    wraps independently). Falls back to a single un-wrapped line
+    on empty / whitespace input so callers don't write nothing
+    to the textfile.
+    """
+    import textwrap as _tw
+
+    if not text or not text.strip():
+        return text
+    px_per_char = max(1.0, 0.55 * font_size)
+    usable_px = max(1, int(canvas_w * 0.80))
+    max_chars = max(12, int(usable_px / px_per_char))
+    # Preserve explicit newlines from the caller (operators may
+    # already pre-wrap via ``\n``). Wrap each line independently.
+    wrapped_lines: list[str] = []
+    for line in text.split("\n"):
+        flat = " ".join(line.split())
+        if not flat:
+            wrapped_lines.append("")
+            continue
+        if len(flat) <= max_chars:
+            wrapped_lines.append(flat)
+        else:
+            wrapped_lines.extend(_tw.wrap(flat, width=max_chars) or [flat])
+    return "\n".join(wrapped_lines)
+
+
 def _build_card_filter(
     spec: TitleCardSpec,
     canvas_w: int,
@@ -2454,7 +2493,12 @@ def post_internal_intro_outro(
     outro_text_path = target_dir / f"{cache_key}-outro.txt"
 
     if body.intro:
-        intro_text_path.write_text(body.intro.text, encoding="utf-8")
+        # SESSION 210 — pre-wrap to canvas width so long titles
+        # don't clip horizontally per the SESSION 209 finding.
+        wrapped_intro = _wrap_card_text(
+            body.intro.text, canvas_w, body.intro.font_size,
+        )
+        intro_text_path.write_text(wrapped_intro, encoding="utf-8")
         intro_v_idx = input_count
         ffmpeg_inputs += [
             "-f", "lavfi",
@@ -2480,7 +2524,11 @@ def post_internal_intro_outro(
     concat_chain.append(f"[0:v]{body_a_ref}")
 
     if body.outro:
-        outro_text_path.write_text(body.outro.text, encoding="utf-8")
+        # SESSION 210 — pre-wrap, same reason as intro above.
+        wrapped_outro = _wrap_card_text(
+            body.outro.text, canvas_w, body.outro.font_size,
+        )
+        outro_text_path.write_text(wrapped_outro, encoding="utf-8")
         outro_v_idx = input_count
         ffmpeg_inputs += [
             "-f", "lavfi",
