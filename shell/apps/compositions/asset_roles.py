@@ -54,6 +54,11 @@ PRIMITIVE_TO_ROLE: dict[str, str] = {
     # Distinct role from AUDIO_TRACK so Asset Library filters can
     # surface VO clips separately (rule 1 + Q-vo-7).
     "synthesize_voiceover_audio": AssetRole.VOICEOVER_AUDIO.value,
+    # VO.2 — voiceover splice. Static fallback is COMPOSITE_OUTPUT
+    # (same shape as mix_audio); the primitive overrides at runtime
+    # to propagate the base CLIP's role per the VO.0 spec
+    # (talking_head stays talking_head).
+    "overlay_audio_at_offset": AssetRole.COMPOSITE_OUTPUT.value,
     # Sandbox / experimental
     "smoke_keyframes": AssetRole.EXPERIMENT.value,
 }

@@ -348,7 +348,7 @@ operator's actual spokesperson speaks.
 |---|---|---|
 | **VO.0** ✓ SHIPPED | This scope-lock doc (SESSION 211, commit `d19b1da`) | ½ session |
 | **VO.1** ✓ SHIPPED | `AssetRole.VOICEOVER_AUDIO` enum + migration `0010_vo_1_voiceover_audio_role` + `/internal/audio/tts/` endpoint + `TextToSpeechProvider` Protocol + `RunwayTtsProvider` (auto-falls-through on gated 4xx) + `ElevenLabsTtsProvider` + `MockTtsProvider` + `synthesize_voiceover_audio` shell primitive + `VOICEOVER_TTS_FORCE_MOCK` env flag + role mapping in `asset_roles.PRIMITIVE_TO_ROLE`. Tests: 23 shell + 25 media-engine = +48. Primitive count 21 → 22. Mirrors R2 provider pattern + V3 primitive shape + R10 drift verifier shape. | ½ session |
-| **VO.2** | `/internal/clips/overlay_audio/` endpoint (ffmpeg-only) + `overlay_audio_at_offset` shell primitive + rule-6 validation + rule-4 no-video-re-encode test. Mirrors V14 `audio_extract` + V7 `mix_audio` shape. | ½ session |
+| **VO.2** ✓ SHIPPED | `/internal/clips/overlay_audio/` endpoint (ffmpeg-only) + `overlay_audio_at_offset` shell primitive + `MediaEngineClient.overlay_audio` wrapper + rule-6 validation (shell + ffprobe defense-in-depth) + rule-4 byte-identity test + role propagation (TALKING_HEAD stays TALKING_HEAD). Tests: 27 shell + 12 media-engine = +39. Primitive count 22 → 23. Media-engine routes 138 → 139. Mirrors V14 `audio_extract` + V7 `mix_audio` shape. | ½ session |
 | **VO.3** | `cta_swap` starter + recipe registry entry + form metadata (new `voice_picker` field type — accepts spokesperson/voice_id/free-form). Tests cover the 3 voice_spec resolution paths from rule 8. | ½ session |
 | **VO.4** | `narrated_intro` starter + recipe registry entry. Reuses VO.3's `voice_picker`. Adds a `voiceover_duration_seconds` estimator helper (chars × ~11 cps from `_estimate_avatar_speech_seconds` precedent) so `cta_offset_seconds` default can pre-compute on the SPA side without firing TTS. | ½ session |
 | **VO.5** | SPA recipe gallery wiring — `voice_picker` field renders as a 3-tab control (workspace spokesperson / voice id / design prompt). `cta_offset_seconds` shows a "computed" hint with the estimator output. Recipe gallery count goes 20 → 22. | 1 session |
@@ -639,3 +639,47 @@ new model, no REST surface — just two primitives + two recipes
   VO.2 (`/internal/clips/overlay_audio/` route +
   `overlay_audio_at_offset` ffmpeg-only primitive) opens
   next session.
+
+* **2026-05-21 (SESSION 212, VO.2 SHIPPED)** — Splice slice
+  lands. Pairs with VO.1's TTS to unlock `cta_swap` (VO.3)
+  and `narrated_intro` (VO.4):
+
+  * **`POST /internal/clips/overlay_audio/`** in
+    `media-engine/app/routers/internal.py`. Body shape
+    `{base_url, vo_url, offset_seconds, duck_db?}` with
+    Pydantic gates on offset (≥ 0) and duck_db ([-60, 0]).
+    Cache key hashed off `(base, vo, offset, duck)` →
+    `data/_internal/overlays/<key>.mp4`. ffmpeg invocation
+    is pure `-c:v copy` (rule 4) + `volume=enable='between(...)'`
+    window-duck + `adelay`/`afade` on the VO + `amix`. Silent
+    bases reject 422 pointing operators at `/audio/mix/`;
+    rule-6 overflow rejects 422 with the actionable message
+    after ffprobe-derived duration check (50 ms tolerance for
+    rounding). Media-engine routes 138 → 139.
+  * **`overlay_audio_at_offset` shell primitive**
+    (`apps/compositions/primitives/overlay_audio.py`) — slot
+    resolver accepts either named slots (`base` / `voiceover`)
+    or unnamed-by-type. Pre-flight rule-6 check uses persisted
+    `Asset.duration_ms` so the operator-facing error fires
+    before the HTTP roundtrip. Output role propagates the
+    base CLIP's role (TALKING_HEAD stays TALKING_HEAD per
+    the VO.0 spec) with a static fallback to
+    COMPOSITE_OUTPUT in `PRIMITIVE_TO_ROLE`. Cost 100 micros
+    (~$0.0001).
+  * **`MediaEngineClient.overlay_audio(...)`** shell wrapper
+    on top of `_parse_processed_clip`.
+  * **Registry**: primitive count 22 → 23 (the v1 catalog
+    of two voiceover primitives is now complete; recipes
+    open next).
+  * **`PRIMITIVE_TO_ROLE`** gains the
+    `overlay_audio_at_offset` row (contract rule 20).
+    `test_isolation` sanctions the new test file.
+  * **Tests**: 27 shell + 12 media-engine = +39. Byte-
+    identity assertion via `ffmpeg -c:v copy -f md5 -` on
+    base vs output; passes against real ffmpeg. Mock-mode
+    cache idempotency + per-offset cache distinctness
+    asserted. **Django 1387 → 1414 (+27); media-engine
+    246 → 258 (+12).**
+
+  VO.3 (`cta_swap` starter + `voice_picker` field type)
+  opens next session.

@@ -5870,3 +5870,202 @@ def _result_to_response(result) -> InternalTtsResponse:
         cost_micros=result.cost_micros,
         mock_mode=result.mock_mode,
     )
+
+
+# ---- VO.2 POST /internal/clips/overlay_audio/ ---------------------
+#
+# SESSION 212 / VO.2. Splice a voiceover AUDIO clip into a base CLIP's
+# audio track at ``offset_seconds``, ducking the base by ``duck_db``
+# during the VO window. ffmpeg-only, no upstream calls. Output's
+# video stream is byte-identical to the base (``-c:v copy``, rule 4).
+# Mirrors the V14 ``audio_extract`` shape (cached, synchronous,
+# deterministic).
+#
+# Rule 6 (offset + vo_duration > base_duration → error) is enforced
+# at both the shell primitive (using persisted asset duration, no I/O)
+# and here (defense-in-depth, using ffprobe). The route returns 422
+# with an actionable message.
+
+
+class InternalOverlayAudioCreate(BaseModel):
+    """Request body for ``POST /internal/clips/overlay_audio/``."""
+
+    base_url: str = Field(..., min_length=1, max_length=2048)
+    vo_url: str = Field(..., min_length=1, max_length=2048)
+    offset_seconds: float = Field(..., ge=0.0, le=86_400.0)
+    duck_db: float = Field(default=-18.0, ge=-60.0, le=0.0)
+
+
+def _overlay_audio_dir(settings: Settings) -> Path:
+    target = settings.data_path / "_internal" / "overlays"
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+@router.post(
+    "/clips/overlay_audio/", response_model=InternalProcessedClipResponse,
+)
+def post_internal_overlay_audio(
+    body: InternalOverlayAudioCreate,
+    settings: Settings = Depends(get_settings),
+):
+    """Splice ``vo_url`` into ``base_url``'s audio at
+    ``offset_seconds``, ducking base by ``duck_db`` during the VO
+    window. Video stream is preserved byte-for-byte (rule 4).
+    Synchronous; output cached by hash(base + vo + offset + duck)."""
+    offset = float(body.offset_seconds)
+    duck_db = float(body.duck_db)
+
+    # Cache key — same shape as concat/mix. Round floats to 3
+    # decimals so trivially-different inputs (1.0 vs 1.000001) hit
+    # the same cache slot.
+    cache_seed = (
+        f"{body.base_url}|{body.vo_url}"
+        f"|offset={offset:.3f}|duck={duck_db:.3f}"
+    ).encode("utf-8")
+    cache_key = hashlib.sha256(cache_seed).hexdigest()[:16]
+    target_dir = _overlay_audio_dir(settings)
+    output_path = target_dir / f"{cache_key}.mp4"
+
+    if settings.runway_mock:
+        output_url = f"/data/_internal/overlays/mock-{cache_key}.mp4"
+        logger.info(
+            "internal overlay_audio mock output=%s offset=%.2f duck=%.1fdB",
+            output_url, offset, duck_db,
+        )
+        return InternalProcessedClipResponse(
+            output_url=output_url,
+            duration_seconds=5.0,
+            size_bytes=1024 * 1024,
+            mock_mode=True,
+        )
+
+    if output_path.exists():
+        return InternalProcessedClipResponse(
+            output_url=f"/data/_internal/overlays/{output_path.name}",
+            duration_seconds=None,
+            size_bytes=output_path.stat().st_size,
+            mock_mode=False,
+        )
+
+    import shutil as _shutil
+    import subprocess as _subprocess
+
+    if not _shutil.which("ffmpeg") or not _shutil.which("ffprobe"):
+        return _error(
+            500, "internal_error",
+            "ffmpeg/ffprobe not found on PATH",
+        )
+
+    try:
+        base_path = _download_concat_input(
+            body.base_url, target_dir / "sources", settings,
+        )
+        vo_path = _download_concat_input(
+            body.vo_url, target_dir / "sources", settings,
+        )
+    except FileNotFoundError as exc:
+        return _error(400, "validation_error", str(exc))
+    except httpx.HTTPError as exc:
+        logger.warning("overlay_audio download failed: %s", exc)
+        return _error(
+            502, "upstream_runway_error",
+            f"download error: {exc!s}"[:300],
+        )
+
+    # Rule 4 lean: base must carry an audio track. A silent base is
+    # the music_bed_pass shape — that's what /audio/mix/ is for. Refuse
+    # fast so operators don't get a "duck applied to nothing" output.
+    if not _has_audio_stream(base_path):
+        return _error(
+            422, "validation_error",
+            f"base_url {body.base_url!r} has no audio stream — "
+            "voiceover overlay requires a base CLIP with audio "
+            "(use /internal/audio/mix/ for silent-base music beds)",
+        )
+    if not _has_audio_stream(vo_path):
+        return _error(
+            422, "validation_error",
+            f"vo_url {body.vo_url!r} has no audio stream",
+        )
+
+    vo_duration = _probe_duration(vo_path)
+    base_duration = _probe_duration(base_path)
+
+    # Rule 6 — server-side defense-in-depth. The shell primitive
+    # validates first using the persisted Asset.duration_seconds.
+    if offset + vo_duration > base_duration + 0.05:
+        # 50ms tolerance for ffprobe rounding.
+        return _error(
+            422, "validation_error",
+            f"VO would extend {(offset + vo_duration - base_duration):.2f}s "
+            f"past base clip end "
+            f"(offset={offset:.2f}s + vo_duration={vo_duration:.2f}s > "
+            f"base_duration={base_duration:.2f}s); "
+            "shorten the VO text or extend the base render",
+        )
+
+    # Rule 5 — window-only duck with crossfade. Fixed 300ms in/out
+    # per the contract; clamp for short VOs so afade-out start ≥ 0.
+    fade_dur = min(0.3, max(0.05, vo_duration / 4.0))
+    fade_out_start = max(0.0, vo_duration - fade_dur)
+    offset_ms = int(round(offset * 1000.0))
+    window_end = offset + vo_duration
+
+    filter_complex = (
+        f"[0:a]volume=enable='between(t,{offset:.3f},{window_end:.3f})':"
+        f"volume={duck_db:.3f}dB[base_ducked];"
+        f"[1:a]adelay={offset_ms}|{offset_ms},"
+        f"afade=t=in:st=0:d={fade_dur:.3f},"
+        f"afade=t=out:st={fade_out_start:.3f}:d={fade_dur:.3f}[vo_delayed];"
+        f"[base_ducked][vo_delayed]amix=inputs=2:duration=first:"
+        f"normalize=0[outa]"
+    )
+
+    tmp = output_path.with_suffix(".mp4.tmp")
+    cmd = [
+        "ffmpeg", "-y", "-loglevel", "error",
+        "-i", str(base_path), "-i", str(vo_path),
+        "-filter_complex", filter_complex,
+        "-map", "0:v",
+        "-map", "[outa]",
+        "-c:v", "copy",
+        "-c:a", "aac", "-b:a", "192k",
+        "-movflags", "+faststart",
+        "-f", "mp4",
+        str(tmp),
+    ]
+
+    try:
+        result = _subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()[-400:]
+            tmp.unlink(missing_ok=True)
+            return _error(
+                500, "internal_error",
+                f"ffmpeg rc={result.returncode}: {stderr}",
+            )
+        if not tmp.exists():
+            return _error(500, "internal_error", "ffmpeg produced no output")
+        tmp.replace(output_path)
+    except _subprocess.TimeoutExpired:
+        tmp.unlink(missing_ok=True)
+        return _error(500, "internal_error", "ffmpeg overlay_audio timed out")
+    except Exception as exc:  # pragma: no cover — defensive
+        tmp.unlink(missing_ok=True)
+        logger.exception("overlay_audio unexpected")
+        return _error(500, "internal_error", f"unexpected: {exc!s}"[:300])
+
+    out_duration = _probe_duration(output_path)
+    logger.info(
+        "internal overlay_audio done output=%s offset=%.2f duck=%.1fdB "
+        "vo_dur=%.2f base_dur=%.2f size=%d",
+        output_path.name, offset, duck_db, vo_duration, base_duration,
+        output_path.stat().st_size,
+    )
+    return InternalProcessedClipResponse(
+        output_url=f"/data/_internal/overlays/{output_path.name}",
+        duration_seconds=out_duration,
+        size_bytes=output_path.stat().st_size,
+        mock_mode=False,
+    )

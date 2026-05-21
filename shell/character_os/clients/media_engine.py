@@ -1229,6 +1229,30 @@ class MediaEngineClient:
         )
         return _parse_processed_clip(data, "audio_extract")
 
+    def overlay_audio(
+        self,
+        *,
+        base_url: str,
+        vo_url: str,
+        offset_seconds: float,
+        duck_db: float = -18.0,
+    ) -> "ProcessedClipResult":
+        """Hit ``POST /internal/clips/overlay_audio/`` — VO.2
+        ffmpeg-only audio splice. Ducks the base audio under the
+        VO window by ``duck_db`` (default -18 dB) and mixes the
+        VO in at ``offset_seconds``. Video stream byte-identical
+        to the base per contract rule 4."""
+        body = {
+            "base_url": base_url,
+            "vo_url": vo_url,
+            "offset_seconds": float(offset_seconds),
+            "duck_db": float(duck_db),
+        }
+        data = self.request(
+            "POST", "/internal/clips/overlay_audio/", json=body,
+        )
+        return _parse_processed_clip(data, "overlay_audio")
+
     def transcribe(
         self,
         *,

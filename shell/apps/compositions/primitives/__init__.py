@@ -35,6 +35,7 @@ from .concat_clips import ConcatClipsPrimitive
 from .extend_visual_clip import ExtendVisualClipPrimitive
 from .generate_image import GenerateImagePrimitive
 from .mix_audio import MixAudioPrimitive
+from .overlay_audio import OverlayAudioAtOffsetPrimitive
 from .mock import (
     MockFailurePrimitive,
     MockPassthroughPrimitive,
@@ -108,6 +109,7 @@ _REGISTRY: dict[str, Type[Primitive]] = {
     "remove_avatar_background": RemoveAvatarBackgroundPrimitive,  # V16
     "extend_visual_clip": ExtendVisualClipPrimitive,  # V17.1
     "synthesize_voiceover_audio": SynthesizeVoiceoverAudioPrimitive,  # VO.1
+    "overlay_audio_at_offset": OverlayAudioAtOffsetPrimitive,  # VO.2
 }
 
 

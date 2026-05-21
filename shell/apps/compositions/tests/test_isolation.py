@@ -83,6 +83,11 @@ ALLOWED_FILES = {
     # branches. Sanctioned writer — workspace anchor flows through
     # the standard pre_save signal.
     "apps/compositions/tests/test_vo1_voiceover.py",
+    # VO.2 — overlay_audio_at_offset primitive tests seed
+    # Composition + base CLIP + voiceover AUDIO + Step rows to
+    # exercise slot resolution, rule-6 overflow validation, role
+    # propagation, and the mock/real branches. Sanctioned writer.
+    "apps/compositions/tests/test_vo2_overlay_audio.py",
     # SESSION 210 — `_aggregate_knowledge_chunk_ids` unit tests
     # construct Composition + Step + Asset rows directly to
     # exercise the aggregator on every shape (single-step,

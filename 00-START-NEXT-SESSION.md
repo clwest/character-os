@@ -36,7 +36,8 @@ state: active
 > **BRAND IDENTITY V3:** `docs/design/BRAND_IDENTITY_V3.md`.
 > **V3.0-V3.9 COMPLETE + REAL-MODE DOGFOOD VALIDATED (SESSION 209).**
 > **Voiceover (VO-arc):** `docs/design/VOICEOVER_V1.md`.
-> **VO.0 + VO.1 SHIPPED SESSION 211**; VO.2-VO.6 queued.
+> **VO.0 + VO.1 SHIPPED SESSION 211; VO.2 SHIPPED SESSION 212**;
+> VO.3-VO.6 queued.
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory --write` (from `shell/`).
@@ -253,7 +254,8 @@ partially (BC0-BC4 shipped, BC5 cancelled).
 | Expired-asset hourly Beat sweep + manual command | **DONE SESSION 210** |
 | **VO-arc scope lock (VO.0)** | **DONE SESSION 211** |
 | **VO.1 — TTS provider + primitive + role enum** | **DONE SESSION 211** |
-| VO.2-VO.6 (overlay + 2 recipes + SPA + dogfood) | Queued (~2.5 sessions) |
+| **VO.2 — `/internal/clips/overlay_audio/` + primitive + rule-4 byte-identity** | **DONE SESSION 212** |
+| VO.3-VO.6 (2 recipes + SPA + dogfood) | Queued (~2 sessions) |
 
 ---
 
