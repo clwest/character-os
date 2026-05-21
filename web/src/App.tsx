@@ -30,6 +30,7 @@ import { CompositionStatusRoute } from "@/routes/compositions/$id";
 import { ConversationChatRoute } from "@/routes/conversations/$id";
 import { SignatureRoute } from "@/routes/signature";
 import { AboutRoute } from "@/routes/about";
+import { BrandV3PreviewRoute } from "@/routes/_dev/brand-v3-preview";
 import { Layout } from "@/routes/_layout";
 
 export function App() {
@@ -275,6 +276,9 @@ export function App() {
               in the header on every authenticated page AND from
               sign-in / sign-up. */}
           <Route path="/about" element={<AboutRoute />} />
+          {/* V3.2 (SESSION 209) — editorial primitives showcase.
+              Dev-only reference page; no auth gate; no real data. */}
+          <Route path="/dev/brand-v3" element={<BrandV3PreviewRoute />} />
         </Route>
       </Routes>
     </BrowserRouter>
