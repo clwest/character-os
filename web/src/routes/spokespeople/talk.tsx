@@ -822,12 +822,14 @@ function ToolResultPanel({ result }: { result: DispatchResult }) {
   );
 }
 
-// SESSION 215 — soft-deprecated alongside the three backend bridge
-// tools (consult_engine / query_spider_data / agent_consult). This
-// panel renders engine answers as a v1 dogfood seam for the operator;
-// the real "talk to Rigby face-to-face" product lives on u-d-b. See
-// docs/handoffs/SESSION_215_RIGBY_FACE_TO_FACE_PIVOT.md. Do not
-// extend.
+// SESSION 216 — engine-bridge product surface. The customer-facing
+// rich-data view paired with consult_engine / query_spider_data /
+// agent_consult. Runway's LLM can't see tool results, so this panel
+// is intentionally the primary narration channel for engine answers
+// — not a fallback. The avatar is the human anchor; the panel is
+// the data surface. SESSION 215 briefly soft-deprecated this under
+// the wrong product framing; SESSION 216 reversed. See
+// docs/handoffs/SESSION_216_BRIDGE_TOOLS_REFRAME.md.
 function BridgeAnswerPanel({
   result,
   hasError,

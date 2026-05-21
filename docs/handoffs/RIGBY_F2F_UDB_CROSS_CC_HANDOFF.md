@@ -3,10 +3,20 @@ title: "Rigby Face-to-Face — cross-CC handoff card (u-d-b)"
 date: 2026-05-21
 status: cross-cc-handoff
 purpose: Coordination card for the existing Claude Code session running on u-d-b. NOT a fresh-session opener — paste this as a status message TO the running u-d-b CC so they can decide whether to interrupt their current work or queue F2F for next session.
-source_handoff: ./SESSION_215_RIGBY_FACE_TO_FACE_PIVOT.md
+source_handoff: ./SESSION_216_BRIDGE_TOOLS_REFRAME.md
+supersedes_framing_in: ./SESSION_215_RIGBY_FACE_TO_FACE_PIVOT.md
 ---
 
 # Rigby Face-to-Face — cross-CC handoff card
+
+> **SESSION 216 framing update.** SESSION 215 originally framed
+> F2F as "the real product moving off character-os." SESSION 216
+> reframed it: the **character-os bridge tools are a product
+> pattern** (any customer wires their engine to a customer-facing
+> spokesperson) — **NOT** dogfood. The u-d-b F2F feature is now a
+> **separate, smaller** thing — Chris's personal use ("talk to
+> his own PA with a face") — not the entire product. **Scope
+> reduces; priority drops.**
 
 > **Context:** there is already a Claude Code session running on
 > `/Users/donkeyking/development/unified-donkey-betz/`. This card
@@ -22,29 +32,49 @@ source_handoff: ./SESSION_215_RIGBY_FACE_TO_FACE_PIVOT.md
 
 **Fix-shaped finding from sibling CC on character-os.** Same
 coordination shape as the SESSION 214 embed-cache flag — read,
-decide whether to act, respond.
+decide whether to act, respond. **SESSION 216 reframe inside:
+this is now a SMALLER ask than SESSION 215 implied.**
 
-### TL;DR
+### TL;DR (updated SESSION 216)
 
-Character-os just closed an arc that **was the wrong shape**.
-The actual product belongs on u-d-b: **Rigby Face-to-Face** —
-a streaming avatar that lets Chris talk to Rigby (the PA) live,
-audio-in / audio-out, with lip-synced video. We're handing you
-the scoped problem + the architectural calibration so you can
-queue it whenever fits your current work.
+Two ideas were being conflated:
+
+1. **The engine-bridge pattern on character-os** — how *any*
+   Character OS customer hooks their external engine (agents,
+   spiders, knowledge) into a customer-facing spokesperson.
+   **Stays on character-os.** Already shipped (bridge tools +
+   panel + tests, SESSION 215 commits 77150aa + 00c2586). The
+   next slice there is "per-workspace engine config" so customer
+   X's spokesperson calls customer X's engine, not the hardcoded
+   u-d-b URL.
+
+2. **Chris talking to Rigby (his own PA) face-to-face** —
+   personal-use feature for the operator. Push-to-speak avatar
+   (HeyGen / D-ID / similar) wraps the existing u-d-b
+   `/api/pa/chat/` so Chris can audio-in / audio-out with Rigby.
+   **This is what belongs on u-d-b.**
+
+SESSION 215 conflated these and treated #2 as "the real product
+moving off character-os." That framing was wrong. #1 is the
+product; #2 is a nice-to-have personal feature for Chris's
+workflow. **Drop priority on #2 accordingly.**
 
 ### Decision you need to make
 
-**You are mid-session on u-d-b. Don't interrupt unless this is
-higher-priority than what you're on.** Options:
+**You are mid-session on u-d-b. Default to queue or reject** —
+F2F (idea #2) is no longer urgent. Options:
 
-1. **Queue.** Note this in your end-of-session handoff and pick
-   up F2F.0 next session. Most likely the right call.
-2. **Interrupt.** Only if your current arc is at a clean
-   pause-point AND Chris (route via Rigby) confirms the swap.
-3. **Reject.** If your current arc is load-bearing and F2F can
-   wait several sessions, that's fine — character-os bridge
-   tools are operator-only dogfood and still functional.
+1. **Queue at low priority.** Note in your end-of-session handoff
+   that there's a personal-use F2F feature kicking around for
+   Chris. Pick it up when nothing more important is in flight.
+   **Most likely the right call.**
+2. **Reject.** If your current arc + the existing u-d-b backlog
+   already keep you booked for many sessions, F2F is fine to
+   defer indefinitely. Chris will reopen the topic when he
+   actually wants the feature.
+3. **Interrupt.** Only if Chris (via Rigby) explicitly says so.
+   Don't pick this on your own — the SESSION 216 reframe took
+   the urgency off.
 
 If you don't know which fits, **route via Rigby**
 (`tools/pa_chat.py`) to ask Chris before committing.

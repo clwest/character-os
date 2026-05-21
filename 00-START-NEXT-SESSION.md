@@ -44,7 +44,52 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_215_RIGBY_FACE_TO_FACE_PIVOT.md`.
+> **Last handoff:** `docs/handoffs/SESSION_216_BRIDGE_TOOLS_REFRAME.md`.
+
+---
+
+## SESSION 216 outcome — Bridge tools reframe: product pattern, not dogfood
+
+**Doc-only session reversing SESSION 215's product framing.** No
+code shipped (test counts unchanged).
+
+The operator surfaced the right framing right after SESSION 215
+close: *"Rigby is proof we can take a business and connect it to
+Character OS, and that character will have everything it needs."*
+
+SESSION 215 had conflated two distinct ideas:
+
+| Idea | What it is | Where it lives |
+|---|---|---|
+| **Engine-bridge pattern** | Customer-facing spokesperson surfaces a customer's external engine via HTTP. Panel renders structured answers. Avatar is the human anchor. | **character-os** (already shipped, SESSION 215 commits) |
+| **Talk to my PA face-to-face** | Chris's personal-use feature. Push-to-speak avatar over existing Rigby PA. | **u-d-b** (queued, low priority) |
+
+SESSION 215 misread #2 as "the product moving off character-os"
+and soft-deprecated #1. SESSION 216 reversed.
+
+### What changed in SESSION 216
+
+- `consult_engine.py` / `query_spider_data.py` / `agent_consult.py`
+  module banners rewritten as **engine-bridge product pattern**
+  (v1 instance of the hookup pattern, panel-first narration is
+  intended UX not workaround).
+- `BridgeAnswerPanel` SPA comment rewritten same way.
+- Cross-CC handoff card for u-d-b updated with a SESSION 216
+  framing banner — F2F there is now a **smaller, low-priority**
+  feature (Chris talking to his own PA), not "the real product."
+- SESSION 216 handoff documents the reframe + queues the
+  natural next slice.
+
+### Queued — per-workspace engine config (~1.5 sessions)
+
+Bridge tools currently read `UDB_PA_API_URL` from env. Generalise
+to a per-workspace `EngineConnection` model so customer X's
+spokesperson hits customer X's engine. Backend ~1 session
+(model + migration + service); SPA admin UI ~½ session; close
+with dogfood pointing 24/7's keeper at a non-u-d-b engine.
+
+Full detail in
+`docs/handoffs/SESSION_216_BRIDGE_TOOLS_REFRAME.md`.
 
 ---
 
@@ -140,12 +185,14 @@ Full session detail in
 
 ---
 
-## FIRST THING (SESSION 216): Operational housekeeping, then VO.3
+## FIRST THING (SESSION 217): Pick — per-workspace engine config, or VO.3
 
-> SESSION 215 closed the bridge-tools arc on character-os.
-> Rigby F2F continues in a u-d-b session (see SESSION 215
-> handoff for the F2F.0-F2F.5 outline). The character-os
-> backlog below is unchanged.
+> SESSION 216 reframed the bridge tools as a product pattern
+> (NOT dogfood, reversing SESSION 215). The natural next slice
+> on character-os is **per-workspace engine config** so a
+> second customer can plug in their own engine — but VO.3
+> (next queued VO-arc slice) is also still on deck. Pick one
+> at session start; both are ~1-1.5 sessions.
 
 ### Step 1 — Embedding cache flush decision (≤ 5 min)
 

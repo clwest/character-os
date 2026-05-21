@@ -1,9 +1,11 @@
 """`agent_consult` — invoke a specific u-d-b agent by name.
 
-**SESSION 215 — soft-deprecated alongside ``consult_engine``** as
-operator-only dogfood. The real product lives on u-d-b. See
-``docs/handoffs/SESSION_215_RIGBY_FACE_TO_FACE_PIVOT.md``. Do not
-extend.
+**SESSION 216 — engine-bridge product pattern.** Companion to
+``consult_engine``; same product framing. v1 instance of the hookup
+that lets a Character OS spokesperson route to a specific named
+agent inside the customer's engine. Per-workspace engine config is
+the queued generalisation. See
+``docs/handoffs/SESSION_216_BRIDGE_TOOLS_REFRAME.md``.
 
 Third engine-bridge realtime tool (companion to ``consult_engine``
 and ``query_spider_data``). Where ``consult_engine`` is the general

@@ -1,9 +1,11 @@
 """`query_spider_data` — engine-bridge tool for live spider intelligence.
 
-**SESSION 215 — soft-deprecated alongside ``consult_engine``** as
-operator-only dogfood. The real product lives on u-d-b. See
-``docs/handoffs/SESSION_215_RIGBY_FACE_TO_FACE_PIVOT.md``. Do not
-extend.
+**SESSION 216 — engine-bridge product pattern.** Companion to
+``consult_engine``; same product framing. v1 instance of the
+hookup that lets a Character OS spokesperson surface a customer's
+live spider intelligence. Per-workspace engine config is the queued
+generalisation. See
+``docs/handoffs/SESSION_216_BRIDGE_TOOLS_REFRAME.md``.
 
 Second engine-bridge realtime tool (companion to ``consult_engine``).
 Where ``consult_engine`` asks u-d-b's PA an open-ended question,

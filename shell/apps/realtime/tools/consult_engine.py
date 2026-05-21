@@ -1,19 +1,26 @@
-"""`consult_engine` — bridge tool to unified-donkey-betz Rigby (PA).
+"""`consult_engine` — engine-bridge tool (v1 instance of the hookup pattern).
 
-**SESSION 215 — soft-deprecated as a v1 dogfood seam.** The bridge
-shape (Character OS spokesperson → HTTP → u-d-b PA → answer in SPA
-panel) only solves a use case where the operator is using a
-spokesperson as a face for their own engine. End customers of
-Character OS don't have a u-d-b. The real product — "talk to Rigby
-face-to-face" — belongs on u-d-b with a push-to-speak avatar (HeyGen
-/ D-ID) where Rigby IS the LLM and the avatar lip-syncs Rigby's
-existing PA responses. See
-``docs/handoffs/SESSION_215_RIGBY_FACE_TO_FACE_PIVOT.md``.
+**SESSION 216 — engine-bridge product pattern.** This is the v1
+instance of how *any* Character OS customer connects their external
+engine (agents, spiders, live knowledge, decision systems) to a
+customer-facing spokesperson. The hookup is intentionally an HTTP
+boundary — Character OS doesn't absorb the customer's stack, it
+just calls into it. v1 target is u-d-b's PA via
+``UDB_PA_API_URL``; **queued slice "per-workspace engine config"**
+generalises this so customer X's spokesperson calls customer X's
+engine.
 
-This tool remains functional for operator-only dogfood. Do not
-extend it (no new params, no new narration tricks). When end-customer
-gating lands, gate via ``tier_required='agency'`` or a dedicated
-operator-only flag.
+Narration is **panel-first, not avatar-first**. Runway's LLM can't
+see tool results (Q-r-2), so engine answers render in the SPA's
+``BridgeAnswerPanel`` for the customer to read during the
+conversation. The avatar is the human anchor + conversational
+front-end; the panel is the structured-data surface. This is the
+intended UX, not a workaround.
+
+A briefer soft-deprecate framing (SESSION 215) treated this as
+operator-only dogfood — that framing was wrong; reversed in
+SESSION 216. See
+``docs/handoffs/SESSION_216_BRIDGE_TOOLS_REFRAME.md``.
 
 The spokesperson invokes this when the operator asks a question that
 the workspace knowledge corpus + recent conversations don't answer —
