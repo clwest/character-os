@@ -49,7 +49,7 @@ state: active
 
 Started as BC5 dogfood. Pivoted mid-session to a
 clean-slate rebuild around a single parent-company
-spokesperson. **Six distinct workstreams shipped**:
+spokesperson. **Seven distinct workstreams shipped**:
 
 | # | Workstream | Commit / artifact |
 |---|---|---|
@@ -58,7 +58,8 @@ spokesperson. **Six distinct workstreams shipped**:
 | 3 | Runtime cleanup — 76 compositions / 195 assets / 13 RT sessions / 324 spokespeople / ~328 MiB disk freed | data-only, uncommitted |
 | 4 | New "24/7 Global AI" keeper spokesperson created (real-mode Runway avatar, Marcus voice) | data-only |
 | 5 | Tier 1 knowledge corpus — 7 KDs seeded from `/24-7-ai-global/products.ts`, 13 chunks embedded | data-only |
-| 6 | **Tier 1 validation — RAG probes + real-mode render confirm corpus works end-to-end** | **calibration findings filed** |
+| 6 | Tier 1 validation — RAG probes + real-mode render confirm corpus works end-to-end | calibration findings filed |
+| 7 | **Tier 2 ingest — 29 anchor + design-lock KDs across 4 projects (charos / context-kit / mentorforge / contract-concierge), 871 new chunks** | data-only |
 
 Plus 3 TRUST_CALIBRATION entries appended:
 expired-asset purge gap, `talking_head` chunk_ids
@@ -75,9 +76,15 @@ surprise. Full session detail in
 - **0 compositions, 0 RT sessions, 0 raw_uploads,
   0 transcripts, 0 campaigns, 0 bundles, 0 videos
   (legacy), 0 scripts.**
-- **7 KnowledgeDocuments** seeded with editorial
-  product summaries (Charter + 6 catalogued products).
-- **13 embedded knowledge chunks** total.
+- **37 KnowledgeDocuments** — 7 Tier 1 editorial
+  summaries + 1 trafilatura research doc kept from
+  pre-wipe + 29 Tier 2 anchor/design-lock docs
+  across charos/context-kit/mentorforge/contract-
+  concierge.
+- **884 embedded knowledge chunks** total.
+  PitchDeckForge + DealFlowTracker have Tier 1 only
+  (their repos have no source docs beyond Vite
+  boilerplate).
 
 ### Real-mode spend SESSION 209
 
@@ -87,6 +94,7 @@ surprise. Full session detail in
 | First test render (`talking_head`, deleted in wipe) | $0.25 |
 | Tier 1 embedding (`text-embedding-3-small`) | $0.00005 |
 | Tier 1 validation render (`talking_head` with `use_knowledge=True`) | $0.25 |
+| Tier 2 ingest embedding (29 KDs across 4 projects) | $0.0037 |
 | **Total** | **~$0.50** |
 
 ---
@@ -120,21 +128,23 @@ starters.
 **Why first:** Small, surgical, unblocks the
 audit-trail surfaces. Cheap to ship before bigger arcs.
 
-### Candidate B — Tier 2 knowledge ingest (1-2 sessions)
+### Candidate B — Tier 2 ingest already shipped for 4 projects (SESSION 209)
 
-Walk each of the 6 project repos' `docs/` directories
-and bulk-ingest. Per-project KnowledgeDocument with
-chunk-level file metadata. Idempotent re-runs via
-content hash. New management command:
-`python manage.py ingest_project_docs <root>
-[--reembed] [--dry-run]`.
+29 Tier 2 KDs seeded across charos / context-kit /
+mentorforge / contract-concierge — 871 chunks total.
+Cross-project linkage probes confirmed retrieval
+works across project boundaries.
 
-**Pre-req:** scope-lock doc
-`docs/design/KNOWLEDGE_INGEST_V1.md` (½ session).
+**Remaining Tier 2 work:**
 
-**Why second:** Deeper corpus = more useful keeper. But
-without Tier 1 validation we don't know which
-direction the chunking strategy should lean.
+- **PitchDeckForge** — repo has only `frontend/README.md`
+  Vite boilerplate. Need real docs (CLAUDE.md +
+  PROJECT_WHAT_IT_IS + BUILD_PLAN) before Tier 2 can run.
+- **DealFlowTracker** — same shape.
+- **Generalize** — promote the one-off seed script to a
+  proper `manage.py ingest_project_docs <root>` command
+  with content-hash dedup, per-file metadata, and
+  optional `--reembed`. ½-1 session.
 
 ### Candidate B2 — Brief-replaces-script SPA copy pass (½ slice)
 
@@ -246,9 +256,10 @@ parent-company keeper spokesperson.
 | **Knowledge Ingest Tier 1 (7 KDs seeded)** | **DONE SESSION 209** |
 | **24/7 Global AI keeper spokesperson** | **DONE SESSION 209** |
 | **Tier 1 validation (RAG + render end-to-end)** | **DONE SESSION 209 — 2 findings filed** |
+| **Tier 2 ingest (charos/CK/MF/CC — 29 KDs / 871 chunks)** | **DONE SESSION 209 + cross-project probes verified** |
+| Tier 2 ingest for PD + DF | Blocked on source docs (only Vite boilerplate today) |
 | `talking_head` chunk_ids propagation patch | Queued (½ slice) |
 | Brief-replaces-script SPA copy pass | Queued (½ slice) |
-| Knowledge Ingest Tier 2 | Queued |
 | Brand Identity v3 | Queued |
 
 ---

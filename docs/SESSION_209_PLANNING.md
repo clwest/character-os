@@ -390,6 +390,74 @@ content rendered well.
 now 8-for-8.** Tier 1 validation surfaced two
 findings on first fire.
 
+### 10. Tier 2 ingest — 4 sibling projects
+
+After Tier 1 validation closed, the operator framed
+the next pull: *"embed and inject Character OS, it's
+a part of the 24/7 Global AI brand."* The keeper had
+the elevator pitch for each product but no deep
+knowledge to answer arc-level or feature-level
+questions. Tier 2 walked the curated anchor + design
+lock docs of each project (handoffs intentionally
+excluded — episodic noise dilutes retrieval).
+
+**character-os** — 13 files, 673 chunks, $0.0027:
+CLAUDE.md, the four anchor docs (WHAT_IT_IS,
+PIPELINE, BEHAVIOR_LAYER, TRANSLATION_LAYER), the
+parent-company overview, UI_REDESIGN_V2, and the
+five arc scope-locks (K, V, R, F, BRAND_ECOSYSTEM
++ BRAND_IDENTITY_V2).
+
+**context-kit** — 7 files, 125 chunks:
+CLAUDE.md, README.md, CONTEXT_KIT_WHAT_IT_IS,
+TRANSLATION_LAYER, INVENTORY, WORKFLOWS_REAL_WORLD,
+DISTRIBUTION_NOTES.
+
+**mentorforge** — 5 files, 32 chunks:
+CLAUDE.md, README.md, PROJECT_WHAT_IT_IS,
+BUILD_PLAN, INVENTORY.
+
+**contract-concierge** — 4 files, 19 chunks:
+CLAUDE.md, README.md, PROJECT_WHAT_IT_IS,
+BUILD_PLAN.
+
+**PitchDeckForge + DealFlowTracker — skipped.**
+Both repos contain only Vite boilerplate READMEs at
+this point. Tier 1 editorial summary remains sole
+keeper knowledge for those two. When those projects
+acquire real documentation, Tier 2 can run for them
+the same way.
+
+### Tier 2 validation probes
+
+Cross-project probes proved retrieval works across
+the corpus boundary:
+
+| Probe | Top dist | Note |
+|---|---|---|
+| Cross-product suite flow | **0.29** | Best probe — pulled MentorForge's "Exports to PitchDeck · DealFlow · Contract Concierge" line |
+| CK adopt | **0.36** | Cross-project linkage — character-os CLAUDE.md noting *"scaffolded with context-kit"* |
+| MF mentors | 0.34 | Direct hit |
+| CC templates | 0.35 | Direct hit |
+| CK doctor | 0.42 | Distribution Notes |
+| CharOS arcs | 0.42 | WHAT_IT_IS |
+
+The cross-project linkage finding is load-bearing:
+**editorial summaries that explicitly reference other
+products retrieve BETTER than deep design docs** for
+cross-product questions. Implication for future
+Tier 1 work — keep cross-references explicit in
+elevator-pitch copy.
+
+### Final corpus state (SESSION 209 close)
+
+| | Count |
+|---|---|
+| Total KnowledgeDocuments | 37 |
+| Total embedded chunks | 884 |
+| Source bytes ingested | ~555 KB markdown |
+| Lifetime embedding spend | ~$0.0037 |
+
 ## The corrected understanding of `/24-7-ai-global/`
 
 **Not a doc consolidator** — it's the marketing
