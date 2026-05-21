@@ -44,7 +44,49 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_214_QR2_DOGFOOD_PLUS_EMBED_FIX.md`.
+> **Last handoff:** `docs/handoffs/SESSION_215_RIGBY_FACE_TO_FACE_PIVOT.md`.
+
+---
+
+## SESSION 215 outcome — Bridge tools pivot: Rigby F2F → u-d-b
+
+Three slices + one architectural pivot. **+12 backend tests, +2
+SPA tests.**
+
+- **Slice A+B (shipped + reverted in C).** Bridge tool descriptions
+  got a pre-narration cue + the SPA `BridgeAnswerPanel` for rendering
+  engine answers. **Real-mode dogfood proved Runway's LLM ignores
+  "Before invoking, voice X" instructions in tool descriptions** —
+  same class of bias as
+  `feedback_runway_avatar_greeting_bias`. Bridge tools fired,
+  panel rendered, avatar stayed silent.
+- **Slice C.** Pre-narration cue dropped from all three bridge
+  descriptions. Contract test inverted (now asserts cue is
+  ABSENT). Descriptions are now honest about what they can/can't
+  steer.
+- **Architectural pivot.** "Talk to Rigby face-to-face" is a
+  **u-d-b** feature, not a character-os one. Bridge tools were
+  trying to make a Character OS spokesperson narrate answers
+  from u-d-b's PA — only useful as operator dogfood, not as a
+  customer feature. Bridge tools + `BridgeAnswerPanel`
+  soft-deprecated. Full F2F implementation plan written for
+  next u-d-b session in
+  `docs/handoffs/SESSION_215_RIGBY_FACE_TO_FACE_PIVOT.md`.
+
+Bridge tools remain functional for operator dogfood. End-customer
+gating (`tier_required='agency'` or `dogfood_only=True` flag)
+deferred until first end customer onboards.
+
+### Test counts at SESSION 215 close
+
+| Suite | Count |
+|---|---|
+| Django | **1436** (+12 vs SESSION 214) |
+| Media-engine | **258** (unchanged) |
+| SPA vitest | **458** (+2 vs SESSION 214) |
+
+Full session detail in
+`docs/handoffs/SESSION_215_RIGBY_FACE_TO_FACE_PIVOT.md`.
 
 ---
 
@@ -98,7 +140,12 @@ Full session detail in
 
 ---
 
-## FIRST THING (SESSION 215): Operational housekeeping, then VO.3
+## FIRST THING (SESSION 216): Operational housekeeping, then VO.3
+
+> SESSION 215 closed the bridge-tools arc on character-os.
+> Rigby F2F continues in a u-d-b session (see SESSION 215
+> handoff for the F2F.0-F2F.5 outline). The character-os
+> backlog below is unchanged.
 
 ### Step 1 — Embedding cache flush decision (≤ 5 min)
 
