@@ -2,9 +2,9 @@
 title: "Character OS — What It Actually Is"
 status: populated
 generated: 2026-05-13
-last_revised: 2026-05-20 (SESSION 209 — strategic pivot, 24/7 Global AI keeper, Tier 1/2 knowledge corpus, BRAND_IDENTITY_V3 arc shipped)
+last_revised: 2026-05-21 (SESSION 210 — closed all 4 SESSION 209 calibration findings + first Celery Beat schedule entry)
 companion_doc: CHARACTER_OS_INVENTORY.md
-covers_sessions: "106-209"
+covers_sessions: "106-210"
 ---
 
 # Character OS — What It Actually Is
@@ -92,7 +92,7 @@ billing, and the public REST API.
 | REST endpoints | inventory | Workspace / Membership / Spokesperson / Video / ConversationThread CRUD + `/spokespeople/{id}/clone-voice/` action + `/me/` + `/billing/*` |
 | Auth backends | 2 | django-allauth (email/password + Google OAuth scaffold) + Django default |
 | Tier gating | 3 tiers | Starter / Pro / Agency, enforced via `apps.billing.services` returning HTTP 402 |
-| Async task queue | Celery | Redis broker on :6381; `apps.videos.tasks.poll_video_until_terminal` is the first consumer |
+| Async task queue | Celery | Redis broker on :6381; `apps.videos.tasks.poll_video_until_terminal` is the first consumer; **Celery Beat** runs `apps.compositions.tasks.sweep_expired_assets` hourly at :07 (SESSION 210) |
 
 Cross-app imports always work through model FK chains, never
 direct module imports. The `IsWorkspaceMember` permission class

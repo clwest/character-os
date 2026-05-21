@@ -5262,3 +5262,99 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   enough to reconstruct what happened." A NULL
   `final_asset` after expiry preserves that. A
   60-row backlog of dead URLs does not.
+
+## 2026-05-21 — Reinforcement: a well-scoped handoff makes the next session a stacked-½-slice closeout
+
+- **Context / claim:** SESSION 209's handoff left four
+  operational calibration findings on the queue
+  (chunk_ids propagation, K6 brief-replaces-script
+  surprise, outro card no-wrap clipping, expired-asset
+  accumulation). The AI's prior pattern would have been
+  to treat each as its own session — call it scope-locking,
+  call it "be careful," call it whatever. SESSION 210
+  opened with no working plan beyond "address the queue."
+- **AI expectation (before):** Each finding would be its
+  own session-ish unit of work. Maybe 2-3 would close in
+  SESSION 210; the others would slip to 211+.
+- **Reality / outcome:** All 4 closed in SESSION 210
+  plus one operator-facing companion (the manual sweep
+  command for the expired-asset Beat task). **6 commits,
+  +29 tests, 0 subagent dispatched, 0 real-mode spend.**
+  The reason this worked: the SESSION 209 handoff didn't
+  just list the findings — it wrote each one as a
+  *fix-shaped candidate* with concrete LOC estimates,
+  acceptance criteria, and where in the codebase the work
+  would land. Each "keep going" had a clearly-defined next
+  item to grab.
+- **Found by:** SESSION 210 itself; the operator just
+  said "keep going" repeatedly and the AI stacked
+  ½-slices without re-orienting between them.
+- **Lesson:** **A handoff with fix-shaped candidates is
+  half the next session's work, done in advance.** When
+  closing out a session with calibration findings,
+  spend the extra 5 minutes per finding to write it as
+  "fix: <one-line>, target file: <path>, acceptance:
+  <test>, effort: ½ slice" rather than "we noticed
+  <thing>." The next session compounds the discount.
+  Generalizes the "real-mode finds bugs in every arc"
+  pattern (now 10-for-10) by making the *fix half*
+  reliably cheap too.
+
+## 2026-05-21 — Pattern: visibility / Beat / command is canonical for background reconciliation
+
+- **Context / claim:** The expired-asset finding from
+  SESSION 209 had three possible fix shapes (sweep,
+  badge, bake-to-local). SESSION 210 didn't have to
+  pick one — it shipped the first two (badge + Beat
+  sweep) plus a manual override (management command).
+  Initial framing in SESSION 209's TRUST_CALIBRATION
+  entry treated these as alternatives.
+- **Reality / outcome:** All three are independently
+  shippable ½-slices that compose into one coherent
+  feature. The badge gives operators *visibility* —
+  they see "expired" on the Videos library row before
+  drilling in. The Beat task gives *recurring fix* — a
+  scheduled job catches new expirations on a clock.
+  The management command gives *manual override* —
+  operator can clean up now without waiting for Beat.
+  Each piece works alone; together they cover every
+  operator scenario (do they see it? does it
+  auto-resolve? can they force-resolve?).
+- **Found by:** SESSION 210 mid-session reflection;
+  after slice 4 (badge) and slice 5 (Beat) shipped, AI
+  recognized the manual command was the missing third
+  piece rather than a duplicate of either.
+- **Lesson:** **For any background reconciliation
+  feature, ask: do operators see it, does it
+  auto-resolve, can they force-resolve?** If any
+  answer is "no," there's a missing ½-slice. Apply to
+  future: storage backfills, orphan cleanup, expired
+  document chunks, stale embeddings — all the same
+  shape. Surface + sweep + override.
+
+## 2026-05-21 — Pattern: dry-run-by-default for any destructive management command
+
+- **Context / claim:** SESSION 210's new
+  `sweep_expired_assets` management command needed
+  destructive behavior (Composition.final_asset =
+  None). Initial instinct was to write it as
+  `--dry-run` opt-in (default: write).
+- **Reality / outcome:** The `backfill_asset_roles`
+  command from SESSION 185 already established the
+  opposite default: dry-run is the default, `--commit`
+  applies. SESSION 210's command matches that
+  discipline. Operator review of the dry-run output
+  becomes the structural gate. Q-a-2 (asset library
+  contract rule 17) generalizes to *any* mass-update
+  management command, not just the asset-role
+  backfill.
+- **Found by:** AI reviewing the backfill command's
+  pattern before writing the new command.
+- **Lesson:** **Default to dry-run; require `--commit`
+  for any management command that mutates >1 row.**
+  Canonical pattern for character-os. Applies to all
+  future destructive commands — purge, rebackfill,
+  cascade-delete, repair, etc. The cost of `--commit`
+  on every real run is ~12 keystrokes; the cost of
+  accidentally nuking a workspace's compositions is
+  recovery work + trust calibration.
