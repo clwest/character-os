@@ -5044,3 +5044,156 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   three. Generalizes to future spokesperson onboarding:
   validate the portrait before locking the rig, not
   just the first render.
+
+### `talking_head` doesn't propagate knowledge_chunk_ids to the Composition row
+- **Date:** 2026-05-20
+- **Session:** 209 (Tier 1 keeper validation)
+- **Context:** First real-mode render with the new
+  24/7 Global AI keeper, `use_knowledge=True`,
+  brand-thesis script. Both prerequisites worked end-
+  to-end: RAG retrieval (probes 1-7 returned relevant
+  chunks from the 7 seeded KDs) and K6 brief
+  synthesis (the 557-char rendered brief was lifted
+  verbatim from the Charter doc — "agentic operating
+  partner," "compounds your decisions across every
+  timezone," "agents inherit the shift").
+- **AI expectation (before):** Operator's
+  `use_knowledge=True` on `talking_head` would
+  produce a composition row with `knowledge_chunk_ids`
+  populated, so the SPA's verifier panel, F-arc
+  brief-mode panel, and BC4 lineage surfaces could
+  render citations. This is how `talking_head_polished`
+  works.
+- **Reality / outcome:** **The chunks are saved to
+  the final Asset's `source_spec.knowledge_chunk_ids`,
+  but NOT propagated up to `Composition.knowledge_chunk_ids`**.
+  The composition row showed `0 chunks` despite the
+  brief being clearly synthesized from the Charter
+  doc. Trace: `apps/compositions/primitives/avatar_speech.py:339-340`
+  writes chunks to `extra` (per-asset metadata),
+  never aggregates to the parent Composition.
+  `talking_head_polished` carries chunks via
+  `apps/compositions/starters.py:252` — asymmetric
+  with plain `talking_head`. Every SPA citation
+  surface fails for single-step renders.
+- **Found by:** Real-mode validation probe immediately
+  after Tier 1 corpus shipped (the
+  "validate-before-building" call).
+- **Lesson:** **Knowledge audit trails are a
+  composition-level contract, not an asset-level one.**
+  Asset-scoped metadata works for "what did this
+  specific clip use" but breaks "what does this
+  composition cite as a whole." For multi-step
+  compositions (concat / mix / layout) the chunk_ids
+  from each speech step need aggregation at the
+  composition level. **Fix queued for SESSION 210:**
+  add a post-completion aggregator that walks
+  produced assets' `source_spec.knowledge_chunk_ids`
+  and dedupes into `Composition.knowledge_chunk_ids`.
+  ~10-20 LOC. Mirror `talking_head_polished`'s
+  carry-up path. Also bumps the
+  "real-mode-finds-bugs" streak to **8-for-8**.
+
+### K6 brief expansion replaces the operator script as the spoken text
+- **Date:** 2026-05-20
+- **Session:** 209 (Tier 1 keeper validation)
+- **Context:** Same render as the entry above.
+  Operator wrote a tight 120-character brand-thesis
+  one-liner: *"Decisions on autopilot. Judgment
+  reserved for what only a human can do. That is
+  the twenty-four seven operating thesis."*
+- **AI expectation (before):** `use_knowledge=True`
+  on `talking_head` would *condition* the rendered
+  avatar speech — knowledge chunks would inform tone
+  / vocabulary / specifics, but the operator's
+  script would remain the spoken text. Estimated
+  duration ~8s.
+- **Reality / outcome:** **K6's `build_render_brief`
+  replaces the operator script entirely with a
+  brand-voiced expansion.** The 120-char input
+  became a 557-char synthesized brief, and Runway
+  spoke the expansion. Actual duration 50.6s — over
+  6× the original-script estimate. The expansion was
+  on-brand and editorially good ("This is about
+  putting decisions on autopilot and reserving
+  judgment for what only a human can do. 24/7 Global
+  AI is an agentic AI operating partner..."), but
+  it's not what the operator wrote.
+- **Found by:** Duration check after completion.
+- **Lesson:** **The `script` parameter on
+  knowledge-grounded recipes is a *topic*, not a
+  *line to speak*.** When `use_knowledge=True`, K6
+  treats the script as a prompt and produces the
+  spoken text from retrieved chunks + brand voice.
+  Two implications:
+  1. **Operator-facing copy** — recipe form labels
+     should clarify this on grounded variants.
+     "Topic" or "What should the spokesperson talk
+     about?" reads better than "Script."
+  2. **Length budgeting** — operators can't predict
+     duration from script length alone when
+     knowledge is on. A 120-char prompt can produce
+     a 50s render. Surface estimated duration after
+     synthesis (pre-render), not from script length
+     pre-synthesis.
+
+  Generalizes to: **when AI synthesis sits between
+  operator input and final media, the input form
+  needs to communicate that the synthesis is the
+  load-bearing step.** Otherwise operators write to
+  the wrong shape.
+
+### Expired-asset accumulation has no purge mechanism
+- **Date:** 2026-05-20
+- **Session:** 209 (UI cleanup, pre-BC5 dogfood)
+- **Context:** Operator asked to "delete everything
+  that failed" mid-session as a housekeeping pass.
+  Survey turned up not just the expected
+  failed/partial/draft compositions (13 rows + 45
+  steps), but **56 Assets with `https_expired`
+  storage_health** — Runway CDN URLs that lapsed 24h
+  after the original render. Plus 20 orphan Assets
+  whose producing compositions had been previously
+  deleted. None of this was visible from the Videos
+  library, the Asset library showed mixed health
+  badges, but no programmatic cleanup ran.
+- **AI expectation (before):** Cleanup was scoped as
+  "delete failed compositions" — a one-shot pass.
+  The AI didn't anticipate the magnitude of the
+  expired-asset trail or that all reverse-FKs to
+  Asset were already SET_NULL (so wholesale deletion
+  was structurally safe).
+- **Reality / outcome:** Single-session cleanup
+  deleted **76 Asset rows total** (20 orphan + 56
+  expired) plus 13 Compositions + 45 Steps + 14 MiB
+  of local media files. The 19 `expiring_soon`
+  Assets still present will graduate to expired in
+  ≤24h — the trail will rebuild immediately. **There
+  is no Celery Beat sweep or admin command that
+  purges expired Runway URLs.**
+- **Found by:** Operator-initiated mid-session
+  cleanup pass; AI's nested-objects dry-run before
+  each deletion.
+- **Lesson:** **The V1 audit-preserving design ("no
+  destroy") implicitly assumed someone would clean up
+  expired media manually.** That hasn't happened
+  because the SPA doesn't surface the rot. Three
+  follow-up candidates:
+  1. **Celery Beat sweep** — daily job that finds
+     `https_expired` Assets, sets the producing
+     Composition's `final_asset = NULL`, and either
+     hard-deletes or marks the Asset row.
+  2. **Storage-health filter in the Videos library**
+     — let operators see which compositions have
+     lost their media before drilling in.
+  3. **Optionally a "Bake to local" action** that
+     pulls the Runway URL into `media-engine/data/`
+     before it expires, for renders worth keeping.
+     Different shape of fix — preserves the media
+     instead of accepting its loss.
+  Generalizes to: **runtime hygiene is part of the
+  audit contract.** "Preserve audit" doesn't mean
+  "let dead refs accumulate"; it means "preserve
+  enough to reconstruct what happened." A NULL
+  `final_asset` after expiry preserves that. A
+  60-row backlog of dead URLs does not.
