@@ -8,261 +8,198 @@ state: active
 > **Contract lock:** `docs/design/MEDIA_ENGINE_INTERNAL_API.md`.
 > **SPA scope lock:** `docs/design/SPA_ARCHITECTURE.md`.
 > **Brand ecosystem lock:** `docs/design/BRAND_ECOSYSTEM_V1.md`.
-> **B0-B5 SHIPPED; B6-B10 deferred.**
-> **Brand identity lock (current):** `docs/design/BRAND_IDENTITY_V3.md` (V2 superseded SESSION 209).
+> **Brand identity lock (current):** `docs/design/BRAND_IDENTITY_V3.md` —
+> editorial dark-luxe; V2 superseded SESSION 209.
 > **Parent-company anchor:** `docs/247_GLOBAL_AI_OVERVIEW.md`.
 > **Wizard scope lock:** `docs/design/CREATE_SPOKESPERSON_WIZARD.md`.
 > **Knowledge layer:** `docs/design/KNOWLEDGE_LAYER.md`.
 > **Video composition:** `docs/design/VIDEO_COMPOSITION_V1.md`.
-> V0-V18 COMPLETE + 18/18 RECIPES REAL-MODE VALIDATED.
-> **V-arc UX polish COMPLETE (SESSION 200).**
+> V0-V18 COMPLETE.
 > **Realtime avatar:** `docs/design/REALTIME_AVATAR_V1.md`.
-> R0-R10 + R6.1 COMPLETE + REAL-MODE HARDENED.
+> R0-R10 + R6.1 COMPLETE.
 > **Workspace fabric:** `docs/design/WORKSPACE_FABRIC_V1.md`.
-> F0-F10 COMPLETE; F8.1 queued.
+> F0-F10 COMPLETE.
 > **Media generation:** `docs/design/MEDIA_GENERATION_V1.md`.
-> W11.6.0-W11.6.5 + sub-slices 1/2/3 COMPLETE.
+> W11.6.0-W11.6.5 COMPLETE.
 > **Asset Library:** `docs/design/ASSET_LIBRARY_V1.md`.
-> A0-A8 COMPLETE + DOGFOOD VALIDATED.
+> A0-A8 COMPLETE.
 > **Transcript Miner (B-1):** `docs/design/TRANSCRIPT_MINER_V1.md`.
-> B1.0-B1.7 COMPLETE + REAL-MODE VALIDATED.
+> B1.0-B1.7 COMPLETE.
 > **Personalized Video (B-3):** `docs/design/PERSONALIZED_VIDEO_V1.md`.
-> B3.0-B3.9 COMPLETE + REAL-MODE VALIDATED.
+> B3.0-B3.9 COMPLETE.
 > **Publish Bundle (B-14):** `docs/design/PUBLISH_BUNDLE_V1.md`.
-> B14.0-B14.5 COMPLETE + REAL-MODE VALIDATED.
+> B14.0-B14.5 COMPLETE.
 > **Auto-Scripting (B-2):** `docs/design/AUTO_SCRIPTING_V1.md`.
-> B2.0-B2.6 COMPLETE + REAL-MODE VALIDATED.
+> B2.0-B2.6 COMPLETE.
 > **B-2 ↔ B-3 Composition:** `docs/design/B2_B3_COMPOSITION_V1.md`.
-> BC0-BC4 SHIPPED (SESSION 208).
-> **BC5 dogfood CANCELLED (SESSION 209 pivot — data wiped).**
+> BC0-BC4 SHIPPED; **BC5 CANCELLED SESSION 209** (pivot wiped data).
+> **BRAND IDENTITY V3:** `docs/design/BRAND_IDENTITY_V3.md`.
+> **V3.0-V3.9 COMPLETE + REAL-MODE DOGFOOD VALIDATED (SESSION 209).**
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
-> regen via `python manage.py inventory` (from `shell/`).
-> **Working scratch:** `docs/SESSION_209_PLANNING.md` —
-> full pivot record, scheduled for distillation + delete.
-> **Last handoff:** `docs/handoffs/SESSION_208_BC_ARC_LANDS.md`
-> (SESSION 209 handoff pending at session close).
+> regen via `python manage.py inventory --write` (from `shell/`).
+> **Last handoff:** `docs/handoffs/SESSION_209_PIVOT_AND_BRAND_V3.md`.
 
 ---
 
-## SESSION 209 outcome — strategic pivot
+## SESSION 209 outcome — strategic pivot + V3 brand arc shipped
 
-Started as BC5 dogfood. Pivoted mid-session to a
-clean-slate rebuild around a single parent-company
-spokesperson. **Seven distinct workstreams shipped**:
+Largest session since Phase 4. Started as BC5 dogfood;
+pivoted to clean-slate keeper + Tier 1/2 knowledge + entire
+V3 brand arc in one push.
 
-| # | Workstream | Commit / artifact |
-|---|---|---|
-| 1 | Scripts list Zod contract drift fix | `86f002f` |
-| 2 | Nav rail expansion (5 → 11) + Videos library (paginated `/workspace/videos`) | `bab6b93` |
-| 3 | Runtime cleanup — 76 compositions / 195 assets / 13 RT sessions / 324 spokespeople / ~328 MiB disk freed | data-only, uncommitted |
-| 4 | New "24/7 Global AI" keeper spokesperson created (real-mode Runway avatar, Marcus voice) | data-only |
-| 5 | Tier 1 knowledge corpus — 7 KDs seeded from `/24-7-ai-global/products.ts`, 13 chunks embedded | data-only |
-| 6 | Tier 1 validation — RAG probes + real-mode render confirm corpus works end-to-end | calibration findings filed |
-| 7 | **Tier 2 ingest — 29 anchor + design-lock KDs across 4 projects (charos / context-kit / mentorforge / contract-concierge), 871 new chunks** | data-only |
-| 8 | **5 brand-on Character OS pitch videos via the keeper (CTA variants)** | data-only, $1.50 |
-| 9 | **BRAND_IDENTITY_V3.md scope lock — editorial dark-luxe pivot to match 24/7 Global AI parent** | doc — V3 active, V2 superseded |
+**15 code/doc commits + ~$2.00 real-mode spend + 6 renders +
+1 sub-arc subagent-delivered.**
 
-Plus 3 TRUST_CALIBRATION entries appended:
-expired-asset purge gap, `talking_head` chunk_ids
-propagation bug, K6 brief-replaces-script design
-surprise. Full session detail in
-`docs/SESSION_209_PLANNING.md`.
+### What landed
 
-### Current state of the workspace
-
-- **1 spokesperson:** 24/7 Global AI (`d3d0fb14-...`),
-  runway_avatar_id `f1e5cec2-...`, voice `david`,
-  status `ready`, portrait at
-  `_internal/avatar_portraits/f1e5cec2-...jpg`.
-- **0 compositions, 0 RT sessions, 0 raw_uploads,
-  0 transcripts, 0 campaigns, 0 bundles, 0 videos
-  (legacy), 0 scripts.**
-- **37 KnowledgeDocuments** — 7 Tier 1 editorial
-  summaries + 1 trafilatura research doc kept from
-  pre-wipe + 29 Tier 2 anchor/design-lock docs
-  across charos/context-kit/mentorforge/contract-
-  concierge.
-- **884 embedded knowledge chunks** total.
-  PitchDeckForge + DealFlowTracker have Tier 1 only
-  (their repos have no source docs beyond Vite
-  boilerplate).
-
-### Real-mode spend SESSION 209
-
-| | Cost |
+| Workstream | Commits |
 |---|---|
-| New avatar creation (Runway) | $0 (counted in monthly cap, no per-call charge) |
-| First test render (`talking_head`, deleted in wipe) | $0.25 |
-| Tier 1 embedding (`text-embedding-3-small`) | $0.00005 |
-| Tier 1 validation render (`talking_head` with `use_knowledge=True`) | $0.25 |
-| Tier 2 ingest embedding (29 KDs across 4 projects) | $0.0037 |
-| **Total** | **~$0.50** |
+| Scripts list Zod fix · Nav rail 5→11 · Videos library | `86f002f` `bab6b93` |
+| Strategic pivot, keeper, Tier 1 corpus, validation | `06dc794` `1dc603f` |
+| **BRAND_IDENTITY_V3 arc (10 slices V3.0–V3.9)** | `f2b32be` → V3.9 (this commit) |
+
+Plus 4 TRUST_CALIBRATION entries (expired-asset purge gap;
+chunk_ids propagation bug, broadened to all knowledge-grounded
+recipes; K6 brief-replaces-script surprise; outro card text
+no-wrap clipping).
+
+Full session detail in
+`docs/handoffs/SESSION_209_PIVOT_AND_BRAND_V3.md`.
+
+### Workspace state
+
+- **1 spokesperson:** 24/7 Global AI (`d3d0fb14-...`).
+- **37 KnowledgeDocuments / 884 chunks** (7 Tier 1
+  editorial summaries + 29 Tier 2 deep corpus across
+  4 sibling projects + 1 trafilatura research carryover).
+- **6 compositions** (5 brand-on pitch variants + 1 V3.9
+  dogfood; ~$1.50 visible in Videos library).
+- 0 RT sessions / scripts / campaigns / bundles /
+  transcripts / raw uploads.
+
+### Test counts at SESSION 209 close
+
+| Suite | Count |
+|---|---|
+| Django | 1343 (unchanged — no backend changes this session) |
+| Media-engine | 214 (unchanged) |
+| SPA vitest | 455 (+29: V3.2 primitives + V3.4-V3.8 fixture adjustments) |
 
 ---
 
 ## FIRST THING (SESSION 210): TBD — operator picks
 
-Tier 1 validation closed SESSION 209 (Candidate A
-from the original list). Three new candidates for
-SESSION 210. AI recommends Candidate A1 — the small
-patch that emerged from validation findings.
+Three flavors of work queue up for SESSION 210. AI
+recommends Candidate A (the chunk_ids patch) since it's
+small, surgical, and unblocks every SPA citation surface.
 
-### Candidate A1 — `talking_head` chunk_ids propagation patch (½ slice) — RECOMMENDED
+### Candidate A — `knowledge_chunk_ids` propagation patch (½ slice) — RECOMMENDED
 
-The Tier 1 validation surfaced a real bug:
-`talking_head` with `use_knowledge=True` writes the
-retrieved chunk_ids to the final Asset's
-`source_spec.knowledge_chunk_ids` but never aggregates
-them up to `Composition.knowledge_chunk_ids`. Asymmetric
-with `talking_head_polished` which DOES propagate.
-SPA citation surfaces (F-arc brief-mode, BC4 lineage,
-verifier panel) all fail for single-step renders.
+The SESSION 209 calibration finding (Tier 1 + Tier 2
+dogfood) surfaced: every `use_knowledge=True` render not
+anchored in a Script-row lineage writes chunks to the
+final Asset's `source_spec.knowledge_chunk_ids` but never
+aggregates to `Composition.knowledge_chunk_ids`. SPA
+citation surfaces (F-arc brief-mode panel, BC4 lineage,
+verifier panel) fail for single-step renders.
 
-**Fix:** post-completion aggregator that walks produced
-assets' `source_spec.knowledge_chunk_ids` and dedupes
-into `Composition.knowledge_chunk_ids`. ~10-20 LOC,
-mirrors `talking_head_polished`'s carry-up at
-`apps/compositions/starters.py:252`. Plus tests
-asserting chunks land on the composition for both
-starters.
+Fix: post-completion aggregator that walks produced
+assets' `source_spec.knowledge_chunk_ids` for ALL
+recipes, dedupes, writes to
+`Composition.knowledge_chunk_ids`. Generic — applies to
+talking_head, talking_head_polished, long_form_ad,
+storyboard_voiced, and any future knowledge-grounded
+recipe. ~20-30 LOC + tests.
 
-**Why first:** Small, surgical, unblocks the
-audit-trail surfaces. Cheap to ship before bigger arcs.
+**Why first:** Small + surgical. Unblocks SPA surfaces
+that have been broken since SESSION 209. Cheap to ship
+before bigger arcs.
 
-### Candidate B — Tier 2 ingest already shipped for 4 projects (SESSION 209)
+### Candidate B — V3.x polish slices (½-1 session)
 
-29 Tier 2 KDs seeded across charos / context-kit /
-mentorforge / contract-concierge — 871 chunks total.
-Cross-project linkage probes confirmed retrieval
-works across project boundaries.
+V3 shipped end-to-end but a few polish items deferred:
 
-**Remaining Tier 2 work:**
+1. **Brief-replaces-script SPA copy pass** (½ slice) —
+   recipe form labels: "Script" → "Topic" on grounded
+   variants. Surface estimated duration after synthesis.
+2. **Outro/intro card auto-wrap** (½ slice) —
+   `media-engine/app/routers/internal.py:_build_card_filter`
+   gains `textwrap.wrap`. ~10 LOC.
+3. **Storage-health filter on Videos library** (½ slice).
+4. **Expired-asset Celery Beat sweep** (½ slice).
 
-- **PitchDeckForge** — repo has only `frontend/README.md`
-  Vite boilerplate. Need real docs (CLAUDE.md +
-  PROJECT_WHAT_IT_IS + BUILD_PLAN) before Tier 2 can run.
-- **DealFlowTracker** — same shape.
-- **Generalize** — promote the one-off seed script to a
-  proper `manage.py ingest_project_docs <root>` command
-  with content-hash dedup, per-file metadata, and
-  optional `--reembed`. ½-1 session.
+Each is independent and could be subagent-delivered if
+batched.
 
-### Candidate B2 — Brief-replaces-script SPA copy pass (½ slice)
+### Candidate C — VO-arc scope lock (½ session)
 
-Companion calibration finding from Tier 1 validation:
-when `use_knowledge=True`, K6's `build_render_brief`
-**replaces** the operator's script with a brand-voiced
-expansion (120-char input → 557-char rendered text,
-50.6s render). The current recipe form labels it
-"Script" — implying "lines to speak." It should read
-"Topic" or "What should the spokesperson talk about?"
-on grounded variants. Plus surface an estimated
-duration *after* synthesis, not from script length
-pre-synthesis.
-
-**Effort:** ½ slice. Audit recipe form copy across
-all grounded recipes; add post-synthesis duration
-preview in the SPA.
-
-### Candidate C — Brand Identity V3 implementation (4-5 sessions across V3.1–V3.9)
-
-**V3 scope-lock SHIPPED SESSION 209**
-(`docs/design/BRAND_IDENTITY_V3.md`). V2 marked
-superseded. 10 load-bearing contract rules, full
-slice plan V3.0–V3.9, color / font / motion tokens
-mirrored from `/24-7-ai-global/`.
-
-Implementation slices queued:
-
-- **V3.1 — Token swap + fonts** (~1 session).
-  Visual base. After this every page reads broadly
-  on-brand.
-- **V3.2 — Editorial component primitives** (½-1
-  session). `SectionHeader`, `HairlineDivider`,
-  `EditorialCaption`, `DoctrineQuote`,
-  `EngagementBrief`, `.gold-text` / `.gold-stroke`.
-- **V3.3 — Header / Footer / NavRail dark-luxe**
-  (½ session).
-- **V3.4 — Dashboard masthead + activity panels**
-  (½ session).
-- **V3.5 — Knowledge / Scripts / Campaigns /
-  Bundles / Assets / Videos / Recipes** (1 session,
-  subagent-deliverable).
-- **V3.6 — Spokesperson detail + recipe forms**
-  (½ session).
-- **V3.7 — Engagement / sign-in / sign-up** (½ session).
-- **V3.8 — Voice copy pass** (½ session).
-- **V3.9 — Real-mode dogfood + close** (½ session).
-
-**Why first as SESSION 210 FIRST THING:** V3.1 alone
-is a meaningful, demoable win. After 1 session the
-SPA reads on-brand with the parent site, unblocks
-the "everything is one studio" perception that the
-keeper-validation work primed for. Subsequent V3
-slices ship incrementally.
+Post-hoc voiceover insertion at specific time offsets.
+The SESSION 209 finding noted this as a queued arc;
+scope-lock first per the V-arc / R-arc cadence.
 
 ### Parallel work (operator-driven, ongoing)
 
-- **Keeper profile** — set personality, tone_archetype,
-  any free-form bio fields from the SPA at
+- **Keeper rename** — placeholder "24/7 Global AI"
+  still active; operator considering alternatives.
+- **Keeper profile** — set `personality`,
+  `tone_archetype`, bio fields from the SPA at
   `/spokespeople/d3d0fb14-193e-4c4c-88d1-acae9af25bb5`.
-- **Keeper rename** — pick the final name. "24/7 Donkey"
-  was a placeholder.
 
 ---
 
 ## Slice queue (after FIRST THING)
 
-### Dead (data was wiped — slice is now meaningless)
-
-- ~~BC5 — composition arc dogfood + close~~
-- ~~B-2 v2 polish slice~~ (no scripts to polish)
-- ~~Composition-detail verifier panel polish~~ (no
-  compositions to verify against)
-- ~~Marcus rig re-bake~~ (Marcus gone)
-
-### Still queued (unchanged by pivot)
+### Newly queued (from SESSION 209)
 
 | | Slice | Effort |
 |---|---|---|
-| 1 | Asset upload UI | 1-2 sessions |
-| 2 | F8.1 — K10 seed corpus | blocked |
-| 3 | K7.x v3 YouTube oEmbed | queued |
-| 4 | K6.4 v3 architectural fix | queued |
-| 5 | W12 legacy form retirement | queued |
-| 6 | Storage-health filter on Videos library | ½ session |
-| 7 | Expired-asset Celery Beat sweep | ½ session |
-| 8 | B-2 v2 `auto_script_polished` + `auto_script_cinematic` | queued |
-| 9 | Path B — soft-delete via `archived_at` | 1 session |
-| 10 | VO-arc — post-hoc voiceover insertion | 2 sessions (scope + impl) |
-| 11 | Recipe gallery copy + grouping pass | ½ session |
+| 1 | `knowledge_chunk_ids` propagation patch (broadened scope) | ½ slice |
+| 2 | Brief-replaces-script SPA copy pass | ½ slice |
+| 3 | Outro/intro card auto-wrap | ½ slice |
+| 4 | Storage-health filter on Videos library | ½ slice |
+| 5 | Expired-asset Celery Beat sweep | ½ slice |
+| 6 | VO-arc — post-hoc voiceover insertion | 2 sessions (scope + impl) |
 
-### New (added SESSION 209)
+### V3 deferrals (post-arc, non-blocking)
+
+| | Item | Effort |
+|---|---|---|
+| 7 | Light mode (Q-v3-2) | 1 session |
+| 8 | Tailwind 4 migration | ½ session |
+| 9 | Animation perf measurement on dashboard | small |
+| 10 | Per-workspace branding via `data-brand` swap | 1 session |
+
+### Still queued (unchanged by SESSION 209)
 
 | | Slice | Effort |
 |---|---|---|
-| 12 | **Knowledge Ingest Tier 2 — deep per-project corpus** | 1-2 sessions (after scope-lock) |
-| 13 | **Brand Identity v3 — editorial-dark-luxe re-skin** | 1-2 sessions (after scope-lock) |
+| 11 | Asset upload UI | 1-2 sessions |
+| 12 | F8.1 — K10 seed corpus | blocked |
+| 13 | K7.x v3 YouTube oEmbed | queued |
+| 14 | K6.4 v3 architectural fix | queued |
+| 15 | W12 legacy form retirement | queued |
+| 16 | B-2 v2 `auto_script_polished` + `auto_script_cinematic` | queued |
+| 17 | Path B — composition soft-delete via `archived_at` | 1 session |
+| 18 | Tier 2 ingest for PD + DF | blocked on source docs |
+| 19 | Recipe gallery copy + grouping pass | ½ session |
 
-### Composition arc candidates (deferred — need data)
+### Composition arc candidates
 
-| | Arc |
-|---|---|
-| 14 | B-2 ↔ B-14 (Script-grounded publish bundles) |
-| 15 | B-1 ↔ B-3 (Transcript-mined recipients → personalized batch) |
-| 16 | B-3 ↔ B-14 (Per-recipient platform fan-out) |
+| | Arc | Effort |
+|---|---|---|
+| 20 | B-2 ↔ B-14 (Script-grounded publish bundles) | ~½ regular arc |
+| 21 | B-1 ↔ B-3 (Transcript-mined → personalized batch) | ~½ regular arc |
+| 22 | B-3 ↔ B-14 (Per-recipient platform fan-out) | ~½ regular arc |
 
 ---
 
 ## Where we are
 
 **Phases 0-3:** Done.
-**Phase 4:** All four arcs complete; BC arc complete
-(BC5 dogfood cancelled — data was the wrong shape for
-the new direction).
-**Workspace wiped to fresh slate** with a single
-parent-company keeper spokesperson.
+**Phase 4:** All four arcs (K / V / F / R) complete; BC
+arc partially (BC0-BC4 shipped, BC5 cancelled).
+**Phase 5 (brand):** **BRAND_IDENTITY_V3 COMPLETE.**
 
 | Surface | Status |
 |---|---|
@@ -277,24 +214,24 @@ parent-company keeper spokesperson.
 | B3.0-B3.9 | DONE + REAL-MODE VALIDATED |
 | B14.0-B14.5 | DONE + REAL-MODE VALIDATED |
 | B2.0-B2.6 | DONE + REAL-MODE VALIDATED |
-| BC0-BC5 | BC0-BC4 SHIPPED; BC5 CANCELLED |
-| **Knowledge Ingest Tier 1 (7 KDs seeded)** | **DONE SESSION 209** |
-| **24/7 Global AI keeper spokesperson** | **DONE SESSION 209** |
-| **Tier 1 validation (RAG + render end-to-end)** | **DONE SESSION 209 — 2 findings filed** |
-| **Tier 2 ingest (charos/CK/MF/CC — 29 KDs / 871 chunks)** | **DONE SESSION 209 + cross-project probes verified** |
-| Tier 2 ingest for PD + DF | Blocked on source docs (only Vite boilerplate today) |
-| `talking_head` chunk_ids propagation patch | Queued (½ slice) |
+| BC0-BC5 | BC0-BC4 SHIPPED; BC5 CANCELLED SESSION 209 |
+| Knowledge Ingest Tier 1 (7 KDs) | DONE SESSION 209 |
+| Tier 2 (charos/CK/MF/CC — 29 KDs / 871 chunks) | DONE SESSION 209 |
+| Tier 2 for PD + DF | Blocked on source docs |
+| 24/7 Global AI keeper spokesperson | DONE SESSION 209 |
+| **BRAND_IDENTITY_V3 arc (V3.0-V3.9)** | **DONE + REAL-MODE VALIDATED SESSION 209** |
+| `knowledge_chunk_ids` propagation patch | Queued (½ slice) |
 | Brief-replaces-script SPA copy pass | Queued (½ slice) |
-| Outro/intro card auto-wrap patch | Queued (½ slice — SESSION 209 finding) |
-| **Brand Identity V3 scope-lock (`BRAND_IDENTITY_V3.md`)** | **DONE SESSION 209** |
-| Brand Identity V3 implementation (V3.1–V3.9) | Queued — 4-5 sessions; V3.1 = SESSION 210 recommended FIRST THING |
+| Outro/intro card auto-wrap | Queued (½ slice) |
+| Storage-health filter / expired Celery Beat sweep | Queued |
+| VO-arc | Queued (2 sessions) |
 
 ---
 
 ## How to bring the stack up locally
 
 ```bash
-cd infra && docker compose up -d           # Redis on :6381 + Postgres :5433
+cd infra && docker compose up -d           # Redis :6381 + Postgres :5433
 
 cd shell && source .venv/bin/activate && set -a && source ../.env && set +a
 python manage.py runserver                 # :8000
@@ -314,109 +251,84 @@ cd web && pnpm dev                          # :5174
 python3 /Users/donkeyking/development/context-kit/context_kit.py doctor
 ```
 
-**Inventory regenerate (after the wipe — INVENTORY is
-heavily stale):**
+**Inventory regen** (after any backend model / route / Celery task change):
 
 ```bash
-cd shell && source .venv/bin/activate && python manage.py inventory --write
+cd shell && python manage.py inventory --write
 ```
 
-**HARD REQUIREMENTS** (promoted SESSIONS 193 + 200):
+**HARD REQUIREMENTS:**
 
-1. **Django dev server** — `runserver` from `shell/`
-   with `.env` sourced.
-2. **SPA dev server** — `pnpm dev` from `web/`. :5174.
-3. **Redis** — `docker compose up -d` from `infra/`.
-4. **Celery worker** — required for embeddings + any
-   real-mode renders, **with `.env` sourced**.
-5. **Media-engine** — required for real-mode renders
-   (also for avatar creation, voice design, etc).
+1. Django runserver (`.env` sourced)
+2. SPA `pnpm dev` :5174
+3. Redis (docker)
+4. Celery worker (`.env` sourced)
+5. Media-engine for real-mode renders
 
 **Smoke checks** (counts as of SESSION 209 close):
 
 ```bash
 # Backend (from shell/)
-python manage.py inventory --write            # regenerate counts
-python -m pytest                              # 1343+ tests (pagination + chunk_count added)
+python -m pytest                              # 1343 tests
 
 # Media-engine (from media-engine/)
 python -m pytest                              # 214 tests
 
 # SPA (from web/)
 pnpm build                                    # type-check + bundle
-pnpm test                                     # 434 vitest tests
+pnpm test                                     # 455 vitest tests
 ```
-
-**Pre-fire check** (codified SESSION 200, extended
-through SESSION 209): restart Celery before any
-real-mode fire when the last commit against ANY of
-these is newer than worker start:
-
-* `shell/apps/compositions/primitives/`
-* `shell/apps/compositions/starters.py`
-* `shell/apps/compositions/recipes.py`
-* `shell/apps/compositions/views.py` (SESSION 209 — pagination + status filter)
-* `shell/apps/compositions/serializers.py` (SESSION 209 — `CompositionListSerializer`)
-* `shell/apps/scripts/serializers.py` (SESSION 209 — `knowledge_chunk_count` field)
-* `shell/apps/*/signals.py`
-* `shell/apps/*/models.py`
-* `shell/character_os/clients/media_engine.py`
 
 ---
 
 ## AI / assistant context
 
-- **Last session: SESSION 209 — strategic pivot.**
-  Started as BC5 dogfood. Mid-session operator
-  decided to wipe everything and rebuild around a
-  parent-company keeper spokesperson. Shipped: 2
-  feature commits (`86f002f` scripts fix +
-  `bab6b93` Videos library + nav expansion). Plus
-  data-only: full wipe (~700 rows), new 24/7 Global
-  AI keeper, Tier 1 knowledge corpus (7 KDs). $0.25
-  real-mode spend (test render, deleted).
-
-- **Strategic context — parent-company marketing
-  site discovered at `/Users/donkeyking/development/24-7-ai-global/`.**
-  Six-product catalogue (4 shipped Suite +
-  context-kit + Character OS). Editorial-dark-luxe
-  brand language (ink/gold, Bodoni Moda, section
-  dossier numbering, "Plate 01 / Proprietor" voice).
-  Character OS will eventually re-skin to match.
+- **Last session: SESSION 209 — strategic pivot + V3
+  brand arc.** Started as BC5 dogfood. Pivoted to
+  clean-slate keeper rebuild + Tier 1/2 knowledge
+  corpus + the entire 10-slice BRAND_IDENTITY_V3 arc.
+  15 commits, ~$2.00 real-mode spend. V2 superseded;
+  V3 active.
 
 - **Calibration carried forward (41 + 4 new from
   SESSION 209):** expired-asset accumulation has no
   purge mechanism · `use_knowledge=True` doesn't
-  propagate `knowledge_chunk_ids` to the Composition
-  row (any recipe, not just `talking_head`) · K6
-  brief expansion replaces the operator script as
-  the spoken text · outro/intro card text has no
-  auto-wrap (wide strings clip). All prior
-  calibration still applies; the
-  cast-is-example-data memory needs a light refresh
-  since named cast (Riggs/Sasha/Donny/Marcus) is
-  gone, but the *concept* still holds for the new
-  keeper.
+  propagate chunk_ids to Composition (any recipe) ·
+  K6 brief replaces operator script as spoken text ·
+  outro/intro card text no-wrap clipping.
 
 - **"Real-mode finds bugs in every arc" pattern is
-  now 9-for-9.** SESSION 209's Tier 1 validation
-  surfaced two findings on first fire (chunk_ids
-  propagation bug + brief-replaces-script surprise);
-  the brand-on dogfood surfaced a third (outro card
-  wrap). The pattern stands: every real-mode dogfood
-  surfaces something. Schedule one at the close of
-  every arc, no exceptions.
+  now 9-for-9.** SESSION 209's V3 dogfood validated
+  that the editorial register doesn't regress the
+  composition pipeline (V3 is purely visual).
 
 - **Subagent delivery on tight contract briefs is
-  reliable.** Two-for-two going in (B2.5 + BC4).
+  3-for-3** (B2.5 + BC4 + V3.5). The V3.5 18-route
+  brief was the largest yet and shipped clean.
 
-- **Brand layer is load-bearing.** Every component
-  must import company/product strings from
-  `@/lib/brand`. When BRAND_IDENTITY_V3 lands,
-  expect the brand layer to grow palette/typography
-  tokens to match `/24-7-ai-global/`.
+- **A canonical external source compresses arc cycle
+  time.** V3 was estimated 4-5 sessions; shipped in
+  1 thanks to `/24-7-ai-global/` as the canonical
+  port source.
 
-- **Collaboration conventions:** AI drafts, human
-  edits. Handoff `## Calibration moments worth
-  carrying` + per-slice doc updates required at
-  session end.
+- **The CSS-var indirection for fonts + colors lets
+  `data-brand` swap brand identities atomically.**
+  V1 / V2 / V3 all preserved; flipping `data-brand`
+  swaps the entire visual identity with no redeploy.
+
+- **Cross-product references in editorial-summary
+  copy retrieve better than deep design docs.**
+  Future Tier 1 seed copy should keep product
+  summaries explicitly cross-referenced.
+
+- **Editorial dark-luxe register exceeded
+  expectations** during the V3 dogfood — multiple
+  operator confirmations during the slice run ("it
+  looks amazing"). Brand decisions should lean
+  editorial not generic-SaaS where the parent
+  narrative supports it.
+
+- Collaboration: AI drafts, human edits. Per-slice
+  doc updates required at session end (codified
+  SESSION 143). Handoff `## Calibration moments
+  worth carrying` required at session end.

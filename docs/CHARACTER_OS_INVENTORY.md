@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-05-20T21:20:29.229565+00:00
-git_sha: e76e173 (working tree dirty)
+generated_at: 2026-05-21T03:05:54.538286+00:00
+git_sha: 087fa4b (working tree dirty)
 git_branch: main
 ---
 
@@ -15,7 +15,7 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-05-20T21:20:29.229565+00:00** against commit **e76e173**
+Generated **2026-05-21T03:05:54.538286+00:00** against commit **087fa4b**
 on branch **main** (working tree dirty).
 
 Python 3.11.6 · Django 5.2.14 ·
@@ -33,7 +33,7 @@ Celery 5.6.3 · httpx 0.28.1.
 | FastAPI routes | **122** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **9** | `celery_app.tasks` filter |
 | Migrations (applied / total) | **68 / 68** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **70,263** in 301 files | `pathlib.Path.rglob("*.py")` |
+| Shell LOC (`*.py`, no venv/migrations) | **70,389** in 301 files | `pathlib.Path.rglob("*.py")` |
 | Media-engine LOC (`*.py`, no venv/migrations) | **37,012** in 70 files | same |
 
 ---
@@ -315,11 +315,11 @@ Total: **9** registered tasks (excluding `celery.*` built-ins).
 | Service | Files | Lines |
 |---|---|---|
 | `media-engine/` | 70 | 37,012 |
-| `shell/` | 301 | 70,263 |
-| **total** | **371** | **107,275** |
+| `shell/` | 301 | 70,389 |
+| **total** | **371** | **107,401** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-05-20T21:20:29.229565+00:00 from commit e76e173. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-05-21T03:05:54.538286+00:00 from commit 087fa4b. Re-run `python manage.py inventory` (from `shell/`) to refresh.*

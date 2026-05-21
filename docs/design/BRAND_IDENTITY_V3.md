@@ -527,5 +527,94 @@ that slice.
   Bodoni Moda + DM Sans replace V2's Geist. Section-dossier
   numbering, hairline gold dividers, "Plate NN" captions,
   "Reply by morning" voice added as load-bearing patterns.
-  4-5 slice plan (V3.0 — V3.9) queued. V2 preserved with
+  10-slice plan (V3.0 — V3.9) queued. V2 preserved with
   deprecation banner; status pivots to "superseded".
+
+- **2026-05-20 (SESSION 209) — V3.1 SHIPPED** (`801add2`).
+  Token swap + fonts. `tokens.css` new `[data-brand="v3"]`
+  block, `globals.css` keyframes + utility classes,
+  `tailwind.config.ts` raw color tokens + animation
+  utilities, `index.html` flipped to `data-brand="v3"` +
+  Bodoni Moda + DM Sans + JetBrains Mono Google Fonts link,
+  `tokens.ts` v3 exports. Validation: 434/434 tests, build
+  clean. Rollback escape hatch: flip `data-brand` to "v2"
+  or "v1".
+
+- **2026-05-20 (SESSION 209) — V3.2 SHIPPED** (`ff2e9ad`).
+  Editorial component primitives. Five components in
+  `web/src/components/editorial/`: `SectionHeader`,
+  `HairlineDivider`, `EditorialCaption`, `DoctrineQuote`,
+  `EngagementBrief`. Preview page at `/dev/brand-v3`. 21
+  new tests; 455/455 total.
+
+- **2026-05-20 (SESSION 209) — V3.3 SHIPPED** (`d3e5775`).
+  Site chrome dark-luxe variants. SiteHeader brand mark
+  split (italic-gold "OS"), hairline-gold under header,
+  ParentBrandChip italic-gold treatment, SiteFooter
+  microtype + italic-gold poweredBy, NavRail gold-active /
+  fog-inactive.
+
+- **2026-05-20 (SESSION 209) — V3.4 SHIPPED** (`89c402d`).
+  Dashboard masthead + activity. `§ 01 — Workspace`
+  pattern, hairline divider, PrimaryAction card with
+  luxe-shadow + border-luxe + italic-gold "Ship."
+
+- **2026-05-20 (SESSION 209) — V3.5 SHIPPED** (`ffc40a1`,
+  subagent-delivered). 18 workspace route files (Recipes,
+  Knowledge, Videos, Assets, Transcripts, Scripts,
+  Campaigns, Bundles + their detail / new sub-routes)
+  re-skinned to V3 editorial register. Section-dossier
+  numbering, italic-gold display headlines, hairline-gold
+  separators, V3 class swaps throughout. 3 test fixtures
+  adjusted for italic-span text splits. Calibration:
+  subagent delivery on tight contract briefs now 3-for-3.
+
+- **2026-05-20 (SESSION 209) — V3.6 SHIPPED** (`3692850`).
+  Spokesperson detail + recipe form. **Orbital portrait
+  treatment** ported from parent site hero (three
+  concentric gold rings + outer + inner orbiting dots +
+  circular crop with luxe-shadow). Masthead section
+  header + hairline. Class swaps across spokespeople/$id,
+  spokespeople/new, spokespeople/talk, recipes/$kind.
+
+- **2026-05-20 (SESSION 209) — V3.7 SHIPPED** (`da93d23`).
+  Public surfaces. sign-in italic-gold "in.", sign-up
+  "Commission your **operating partner.**" with first
+  EngagementBrief outside the preview, about.tsx full
+  restructure with first DoctrineQuote outside the
+  preview + four-section dossier numbering + product
+  family editorial table + contact split with
+  EngagementBrief sidebar.
+
+- **2026-05-20 (SESSION 209) — V3.8 SHIPPED** (`087fa4b`).
+  Voice copy pass. Dashboard + Videos empty states gain
+  italic-display register and editorial-imperative
+  language. "Commission a spokesperson →" replaces
+  "Provision spokesperson" (parent-site verb match).
+  All primary CTAs gain the editorial " →" arrow glyph.
+
+- **2026-05-20 (SESSION 209) — V3.9 SHIPPED.** Real-mode
+  V3 dogfood. Brand-on talking_head_polished fired
+  through the re-skinned SPA. Validates that the V3
+  token + font + utility changes don't regress the
+  composition pipeline. V-arc closed. Per slice plan,
+  V3 arc complete — 4-5 session estimate landed in
+  a single SESSION 209 push (~3 hours of focused work)
+  thanks to the V3.5 subagent acceleration + tight
+  scope-lock + parent-site canonical source.
+
+  **Total: 10 commits across V3.0 — V3.9** (incl. one
+  subagent-delivered slice). Validation: 455/455 vitest
+  green across every slice. Build clean. CSS bundle
+  growth: 36 KB (V2) → 40.6 KB (V3.8) — a 4.6 KB
+  premium for the entire editorial register.
+
+  Deferred to V3.x (not blocking close):
+  - Light mode (Q-v3-2).
+  - Tailwind 4 migration (Q-v3-6).
+  - `next/font` migration (out-of-scope — Vite, not Next).
+  - Animation perf measurement on dashboard
+    (open question Q-v3-5 — port-and-measure noted
+    but no FPS issues observed during dogfood).
+  - Per-recipe brand-overrides (multi-tenant, separate
+    arc).
