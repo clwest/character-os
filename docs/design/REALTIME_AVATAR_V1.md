@@ -798,6 +798,21 @@ tests cannot fail.
 
 ## Change log
 
+- 2026-05-21 (SESSION 214) — **Q-r-2 loop kill verified
+  via real-mode dogfood.** One 2-min Rigby session against
+  the same avatar / corpus / Runway endpoint that surfaced
+  the bug in SESSION 212. Result:
+  **0× `recall_knowledge` invocations** across 4 product-info
+  questions (vs. 4× per thin-knowledge query pre-213). The
+  DEFAULT_TOP_K bump (Fix 3B) was load-bearing — Rigby
+  answered every question from the loaded document. The
+  dispatch dedup (Fix 2A) was defense-in-depth and never
+  needed to fire. Best-case outcome. Cost: $0.16
+  (2 min × $0.08/min); transcript captured to
+  `Asset(transcript) 03941e09-60de-4eb5-849d-540900bbca80`
+  on session end. Full detail in
+  `docs/handoffs/SESSION_214_QR2_DOGFOOD_PLUS_EMBED_FIX.md`.
+
 - 2026-05-21 (SESSION 213) — **Q-r-2 retry-suppression slice
   (post-arc fix).** Closes the `recall_knowledge` loop
   surfaced by SESSION 212's real-mode dogfood (Rigby + the
@@ -840,12 +855,9 @@ tests cannot fail.
   `dedup_enabled` opt-out). Media-engine **258**
   (unchanged). SPA vitest **456** (unchanged).
 
-  **Pending real-mode validation**: replay the SESSION 212
-  Rigby/DealFlowTracker scenario. Expected:
-  recall_knowledge fires once (boosted retrieval delivers
-  more answers) or zero (the avatar speaks from memory
-  per the new non-trigger guidance). The 4x loop must be
-  dead.
+  **Real-mode validation**: completed SESSION 214 — see
+  the entry above. **0× firings** (best-case); the 4x loop
+  is dead.
 
 - 2026-05-14 (SESSION 142) — Initial scope lock. Triggered
   by SESSION 142 mid-session reframe: operator pulled

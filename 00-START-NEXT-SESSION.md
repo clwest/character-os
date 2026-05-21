@@ -17,7 +17,9 @@ state: active
 > V0-V18 COMPLETE.
 > **Realtime avatar:** `docs/design/REALTIME_AVATAR_V1.md`.
 > R0-R10 + R6.1 COMPLETE.
-> SESSION 213 post-arc Q-r-2 loop kill shipped (Fix 2A/2C/3B).
+> SESSION 213 post-arc Q-r-2 fix shipped + SESSION 214 verified
+> via real-mode dogfood (0× `recall_knowledge` in 2-min Rigby
+> conversation across 4 product-info questions).
 > **Workspace fabric:** `docs/design/WORKSPACE_FABRIC_V1.md`.
 > F0-F10 COMPLETE.
 > **Media generation:** `docs/design/MEDIA_GENERATION_V1.md`.
@@ -42,132 +44,101 @@ state: active
 > **Narrative anchor:** `docs/CHARACTER_OS_WHAT_IT_IS.md`.
 > **Runtime anchor:** `docs/CHARACTER_OS_INVENTORY.md` —
 > regen via `python manage.py inventory` (from `shell/`).
-> **Last handoff:** `docs/handoffs/SESSION_213_QR2_LOOP_KILL.md`.
+> **Last handoff:** `docs/handoffs/SESSION_214_QR2_DOGFOOD_PLUS_EMBED_FIX.md`.
 
 ---
 
-## SESSION 213 outcome — Q-r-2 loop kill (Fix 2A + 2C + 3B)
+## SESSION 214 outcome — Q-r-2 dogfood verified + embed-cache fix
 
-Three layered fixes in one slice + one drift-sweep companion.
-**+9 tests, 0 real-mode spend.**
+Two slices in one session. **+1 test, $0.16 real-mode spend.**
 
 | Commit | Slice |
 |---|---|
-| (pending) | feat(realtime): dispatch dedup + recall_knowledge tightened + top-K 30→50 |
+| (pending) | fix(embeddings): mock-mode bypasses cache to prevent real-mode poisoning |
+| (pending) | docs: SESSION 214 close — Q-r-2 dogfood verified + embed-cache fix + inventory |
 
 ### What landed
 
-- **Fix 2A — `apps/realtime/dispatch.py`** dedup window
-  (`DEFAULT_DEDUP_WINDOW_SECONDS=10`,
-  `REALTIME_TOOL_DEDUP_WINDOW_SECONDS` override). Identical
-  `(session, tool_name, args)` refires return
-  `already_returned: True` + `matched_invocation_id`. Terminal-
-  failure states (FAILED / REJECTED) don't dedup; legitimate
-  retries flow through. New `ToolSpec.dedup_enabled: bool`
-  field lets mutating tools opt out — `attach_memory` sets
-  False per Q-r-8 last-write-wins.
-- **Fix 2C — `recall_knowledge` description tightened** to
-  476 chars with explicit non-trigger: "Do NOT invoke when
-  the operator's question is answerable from the loaded
-  document. Invoke only when the operator asks for a
-  specific fact the document is silent on."
-- **Fix 3B — `DEFAULT_TOP_K` 30 → 50** in
-  `character_os/realtime_document.py`. More chunks baked
-  into the session document = fewer Q-r-2 strikes.
-- **Drift-sweep companion** — bumped R6
-  `test_composer_drops_memory_first_under_budget`
-  `max_chars` 250 → 1300 to fit the SESSION 212
-  Conversation Style block in the header.
+- **Q-r-2 loop verified dead.** One 2-min Rigby session
+  (`61c25661-87b3-459d-b2d8-3fd5bfc7b129`), 4 product-info
+  questions, **0× `recall_knowledge` invocations** (pre-213
+  baseline: 4× per thin-knowledge query). Rigby answered
+  every question from the loaded document — top-K 30→50
+  bump in Fix 3B was load-bearing; dispatch dedup (Fix 2A)
+  was defense-in-depth and never needed to fire.
+- **Embedding cache mock/real collision fixed.** Parallel CC
+  flagged `shell/apps/embeddings/embedding_service.py` sharing
+  cache keys between mock and real paths — mock-mode `cache.set`
+  was silently poisoning real-mode `cache.get`. Mock mode now
+  bypasses the cache entirely (Option B: eliminate by
+  construction, since mock vectors are already deterministic
+  from `sha256(text)`).
+- **+1 regression test** —
+  `test_mock_does_not_poison_real_mode_cache` — asserts mock
+  doesn't leak vectors AND real-mode without `OPENAI_API_KEY`
+  raises rather than silently returning the mock.
+- **Other dogfood findings (non-blocking)**: greeting bias
+  holds (memory `feedback_runway_avatar_greeting_bias`);
+  cost ticker matches R9 rate exactly ($0.16 / 2 min);
+  `render_video` modal flow works end-to-end (operator
+  rejected Rigby's unprompted video offer cleanly);
+  multilingual tolerance OK ("Conta, vem" Portuguese
+  handled gracefully).
 
-### Test counts at SESSION 213 close
+### Test counts at SESSION 214 close
 
 | Suite | Count |
 |---|---|
-| Django | **1423** (+9 vs SESSION 212) |
+| Django | **1424** (+1 vs SESSION 213) |
 | Media-engine | **258** (unchanged) |
 | SPA vitest | **456** (unchanged) |
 
 Full session detail in
-`docs/handoffs/SESSION_213_QR2_LOOP_KILL.md`.
+`docs/handoffs/SESSION_214_QR2_DOGFOOD_PLUS_EMBED_FIX.md`.
 
 ---
 
-## FIRST THING (SESSION 214): Real-mode dogfood — verify Q-r-2 loop is dead
+## FIRST THING (SESSION 215): Operational housekeeping, then VO.3
 
-Replay the SESSION 212 Rigby + DealFlowTracker scenario
-against the fixes. **Targets:**
+### Step 1 — Embedding cache flush decision (≤ 5 min)
 
-1. **`recall_knowledge` fires 0-1× per identical query**
-   (vs. 4× in SESSION 212). 0 if boosted retrieval covers
-   the answer; 1 + dedup hint if Rigby still chooses to
-   look up.
-2. **Audit-row count stays low** —
-   `RealtimeToolInvocation.objects.filter(session=s,
-   tool_name='recall_knowledge').count()` ≤ 1 for any
-   identical-args query.
-3. **No perceptible latency change** — dedup short-circuits
-   are sub-ms; the user-visible flow stays identical.
+The SESSION 214 fix prevents new poisoning. Existing mock
+vectors may still sit in Redis from prior mixed-mode runs
+(30-day TTL). Three options for the operator:
 
-**Setup**:
-1. Bring the stack up (commands below).
-2. Hit "Talk to Rigby" from `/spokespeople/<keeper-id>/talk`.
-3. Two scripted prompts:
-   * "Tell me about DealFlowTracker." — thin-knowledge product
-     (1-chunk stub).
-   * "How does Character OS work?" — well-grounded product
-     (29-chunk corpus).
-4. Capture the `RealtimeToolInvocation` rows for the session
-   via `/api/realtime_tool_invocations/?session=<id>` after
-   ending the call.
-5. Operator-driven SPA flow; AI tails DB/logs in parallel
-   per the human/AI testing split rule.
+1. **Full flush** of `text-embedding-3-small`-prefixed keys:
+   ```bash
+   docker exec character_os_redis redis-cli -n 0 \
+       --scan --pattern 'text-embedding-3-small*' \
+     | xargs -r docker exec -i character_os_redis redis-cli -n 0 del
+   ```
+   Next ingest pays re-embed cost on valid real-mode entries
+   too. Clean state immediately. **Recommended.**
+2. **Let it TTL** — 30 days of stale-mock-poisoned reads.
+3. **Targeted flush** — no machine-readable way to identify
+   which entries are which today.
 
-**Expected loop kill:**
-* Pre-SESSION-213: 4× `recall_knowledge` rows for thin
-  query, all SUCCEEDED with identical args.
-* Post-SESSION-213: 1 row for thin query (or 0 if avatar
-  speaks from document). Any second avatar fire returns
-  the cached id + `already_returned: True`.
+### Step 2 — Decide on `scripts/ingest-udb-spokesperson-corpus.py`
 
-**If a new loop emerges on a different tool**
-(`recall_recent_conversations` or `attach_memory`-via-spam),
-the dedup applies by default — but `attach_memory` opts
-out. Flag the finding as a SESSION 215 candidate; don't
-silently flip the opt-out.
+Currently untracked. Two paths:
 
-**Cost cap**: ≤ $1.00 spend. Two sessions, 5 min each
-at $0.08/min = $0.80 max. Beat is now part of the local
-runner — make sure it's up for the expired-asset sweep
-visibility surface.
+* Commit as the v1 reference (the script is functional and
+  was used to populate the 939 chunks now in the DB).
+* Defer until the parallel CC's docker bridge lands and may
+  supersede this script's role entirely.
 
-After SESSION 214 dogfood → **VO.3** (`cta_swap` starter
-+ recipe registry + `voice_picker` field type) is the
-next queued FIRST THING from the VO-arc.
+### Step 3 — DealFlowTracker confirmation run (optional)
 
----
+SESSION 214 dogfood already proved the loop is dead in the
+general case. The verbatim SESSION 213 plan called for an
+explicit "Tell me about DealFlowTracker." run — the
+thin-knowledge worst case from SESSION 212. Optional
+belt-and-suspenders. Cost cap: $0.16 (one 2-min session).
 
-## SESSION 212 outcome — VO.2 + realtime calibration
+### Step 4 — VO.3 (next queued FIRST THING from VO-arc)
 
-Two parallel arcs in one session.
-
-**VO.2 shipped** (commit `c788966`) — overlay_audio
-primitive + ffmpeg-only splice route + +39 tests
-(Django 1387 → 1414; media-engine 246 → 258).
-Byte-identity for `-c:v copy` validated via real-mode
-ffmpeg.
-
-**Realtime calibration shipped** (commit `2b861e6`)
-— platform `## Conversation Style` block in every
-realtime document, `render_video` /
-`recall_recent_conversations` descriptions tightened,
-operator handle resolution from workspace.owner.email,
-Conversation Style section in test budget math.
-
-**Real-mode dogfood with Rigby (8 sessions, ~$0.65
-spend)** surfaced findings now closed by SESSION 213.
-
-Full session detail in
-`docs/handoffs/SESSION_212_VO2_PLUS_REALTIME_CALIBRATION.md`.
+`cta_swap` starter + recipe registry + `voice_picker` field
+type. Effort: ½ session.
 
 ---
 
@@ -218,6 +189,12 @@ Full session detail in
 | 17 | B-1 ↔ B-3 (Transcript-mined → personalized batch) | ~½ regular arc |
 | 18 | B-3 ↔ B-14 (Per-recipient platform fan-out) | ~½ regular arc |
 
+### Parallel-CC slices (out of this session's scope)
+
+| | Slice | Owner |
+|---|---|---|
+| P1 | u-d-b ↔ character-os docker bridge | parallel CC |
+
 ---
 
 ## Where we are
@@ -233,7 +210,7 @@ partially (BC0-BC4 shipped, BC5 cancelled).
 | K0-K9 | DONE |
 | V0-V18 | DONE + REAL-MODE VALIDATED |
 | F0-F10 | DONE |
-| R0-R10 + R6.1 | DONE + REAL-MODE VALIDATED; **SESSION 213 Q-r-2 fix shipped** |
+| R0-R10 + R6.1 | DONE + REAL-MODE VALIDATED; **SESSION 214 Q-r-2 loop verified dead** |
 | W11.6.0-W11.6.5 | DONE |
 | A0-A8 | DONE + DOGFOOD VALIDATED |
 | B1.0-B1.7 | DONE + REAL-MODE VALIDATED |
@@ -249,7 +226,8 @@ partially (BC0-BC4 shipped, BC5 cancelled).
 | **VO-arc scope lock (VO.0)** | DONE SESSION 211 |
 | **VO.1 — TTS provider + primitive + role enum** | DONE SESSION 211 |
 | **VO.2 — `/internal/clips/overlay_audio/` + primitive** | DONE SESSION 212 |
-| **Realtime Q-r-2 loop kill (Fix 2A/2C/3B)** | **DONE SESSION 213** |
+| **Realtime Q-r-2 loop kill (Fix 2A/2C/3B)** | **DONE SESSION 213 + VERIFIED SESSION 214** |
+| **Embedding cache mock/real collision fix** | **DONE SESSION 214** |
 | VO.3-VO.6 (2 recipes + SPA + dogfood) | Queued (~2 sessions) |
 
 ---
@@ -265,7 +243,7 @@ python manage.py runserver                 # :8000
 cd shell && source .venv/bin/activate && set -a && source ../.env && set +a
 celery -A character_os worker --loglevel=info --pool=solo
 
-# NEW SESSION 210: Beat for the hourly expired-asset sweep
+# Beat for the hourly expired-asset sweep
 cd shell && source .venv/bin/activate && set -a && source ../.env && set +a
 celery -A character_os beat --loglevel=info
 
@@ -281,12 +259,9 @@ cd web && pnpm dev                          # :5174
 python3 /Users/donkeyking/development/context-kit/context_kit.py doctor
 ```
 
-> **SESSION 213 finding:** doctor doesn't run pytest. The R6
-> `test_composer_drops_memory_first_under_budget` test was
-> broken on `main` between SESSION 212 close and 213 open and
-> doctor reported clean. Pair the doctor check with
-> `pytest apps/<arc>` against any arc the previous session
-> touched.
+> **SESSION 213 finding (still applies):** doctor doesn't run
+> pytest. Pair the doctor check with `pytest apps/<arc>` against
+> any arc the previous session touched.
 
 **Inventory regen** (after any backend model / route / Celery task change):
 
@@ -294,7 +269,7 @@ python3 /Users/donkeyking/development/context-kit/context_kit.py doctor
 cd shell && python manage.py inventory
 ```
 
-**Operator-facing expired-asset cleanup** (new SESSION 210):
+**Operator-facing expired-asset cleanup**:
 
 ```bash
 cd shell && python manage.py sweep_expired_assets             # dry-run
@@ -307,14 +282,14 @@ cd shell && python manage.py sweep_expired_assets --commit    # apply
 2. SPA `pnpm dev` :5174
 3. Redis (docker)
 4. Celery worker (`.env` sourced)
-5. Celery Beat (NEW — for hourly expired-asset sweep)
+5. Celery Beat (for hourly expired-asset sweep)
 6. Media-engine for real-mode renders
 
-**Smoke checks** (counts as of SESSION 213 close):
+**Smoke checks** (counts as of SESSION 214 close):
 
 ```bash
 # Backend (from shell/)
-set -a && source ../.env && set +a && EMBEDDING_FORCE_MOCK=1 pytest    # 1423 tests
+set -a && source ../.env && set +a && EMBEDDING_FORCE_MOCK=1 pytest    # 1424 tests
 
 # Media-engine (from media-engine/)
 python -m pytest                              # 258 tests
@@ -328,53 +303,53 @@ pnpm test                                     # 456 vitest tests
 > `apps/scripts/tests/test_api.py` fail without
 > `EMBEDDING_FORCE_MOCK=1` set in the env (they exercise the
 > embedding service path and require `OPENAI_API_KEY`). Set
-> `EMBEDDING_FORCE_MOCK=1` for clean 1423/1423 results.
+> `EMBEDDING_FORCE_MOCK=1` for clean 1424/1424 results.
 
 ---
 
 ## AI / assistant context
 
-- **Last session: SESSION 213 — Q-r-2 loop kill.** Three
-  layered fixes (dispatch dedup window + tighter
-  `recall_knowledge` description + DEFAULT_TOP_K 30→50)
-  plus one drift-sweep companion (R6 budget test
-  `max_chars` 250 → 1300). +9 Django tests; media-engine
-  + SPA unchanged. No real-mode spend. New `ToolSpec.dedup_enabled`
-  field formalizes the read-only-vs-mutating tool
-  distinction; `attach_memory` opts out per Q-r-8.
+- **Last session: SESSION 214 — Q-r-2 dogfood verified + embed-cache fix.**
+  Two slices: real-mode Rigby dogfood proved the SESSION 213
+  Q-r-2 fix dead (0× firings across 4 product-info questions,
+  best-case outcome); parallel CC flagged + AI fixed the
+  embedding-service mock/real cache collision. +1 regression
+  test (1424 Django total).
 
-- **SESSION 212 — VO.2 + realtime calibration.** VO.2
-  overlay_audio primitive + Rigby real-mode dogfood
-  surfacing Q-r-2 / Conversation Style / tool-description
-  / avatar-greeting findings. SESSION 213 closed the
-  first one structurally.
+- **Parallel-CC workflow continues.** A second CC is building
+  out the u-d-b ↔ character-os docker bridge. Their work
+  surfaced the embedding-cache bug during their ingest workflow.
+  Coordination protocol: flag findings as fix-shaped candidates
+  (file + bug + workaround + fix options); the recipient CC
+  acts immediately.
 
-- **SESSION 211 — VO arc opens (VO.0 + VO.1).** TTS
-  provider chain + shell primitive + 48 tests.
+- **Mock/real boundary as a recurring bug class** (codified
+  SESSION 214). Any cache or storage crossing the mock/real
+  boundary must namespace by mode OR opt mock out of
+  persistence entirely. Second occurrence (first was R3's
+  Runway `provider_session_key` shape divergence).
 
-- **"Real-mode finds bugs in every arc" streak: 11-for-11.**
-  SESSION 212's Rigby dogfood surfaced 5 findings;
-  SESSION 213 closed the first (Q-r-2 loop). Remaining 4
-  findings tracked in `feedback_*` memory files.
+- **Top-K 30→50 was the load-bearing Q-r-2 fix**, not the
+  dispatch dedup. When the avatar can't see tool results,
+  bake knowledge into the document body, not into retrieval.
+  Defense-in-depth dedup remains valuable but didn't fire in
+  the dogfood.
 
-- **Fix-shaped findings continue to compound.** The
-  SESSION 212 handoff wrote Q-r-2 mitigation as three
-  fix-shaped candidates with paths + acceptance + effort
-  sizing. SESSION 213 executed them in ½ a session with
-  no re-orientation. Pattern continues from SESSION 210.
+- **"Real-mode finds bugs in every arc" streak: 12-for-12.**
+  SESSION 214 added the embedding-cache finding (caught via
+  parallel-CC operation, not solo dogfood). Pattern continues
+  from SESSION 173.
 
 - **Doctor catches narrative drift; pytest catches code
-  drift.** SESSION 213 surfaced one budget test failure
-  on `main` that doctor missed. Pair the two at session
-  start when the previous session changed code in a
-  cross-cutting way (e.g. the SESSION 212 Conversation
-  Style block touched all R-arc compose paths).
+  drift.** Pair the two at session start when the previous
+  session changed code in a cross-cutting way.
 
-- **`dedup_enabled` flag as architectural forcing
-  function.** Adding a new realtime tool now requires
-  the decorator answer "is this re-fire-friendly?". The
-  flag makes the read-vs-mutate semantics explicit at
-  registration, not at runtime.
+- **Data-location note (SESSION 214):** source markdown for
+  Rigby's corpus lives in `unified-donkey-betz/docs/spokesperson/`;
+  ingested chunks live in character-os Postgres :5433; the
+  ingest script `scripts/ingest-udb-spokesperson-corpus.py`
+  is currently untracked. The parallel CC's docker bridge is
+  building an automated version of this same pipeline.
 
 - Collaboration: AI drafts, human edits. Per-slice doc
   updates required at session end (codified SESSION 143).

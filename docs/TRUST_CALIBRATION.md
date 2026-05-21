@@ -5411,3 +5411,56 @@ Keep both sides of the ledger. One-sided logs recalibrate trust in the wrong dir
   filter) that no test fixture can simulate. Schedule
   ½-slice real-mode dogfood after every operator-
   facing realtime change going forward.
+
+---
+
+## SESSION 214 — Embedding cache mock/real collision (parallel-CC find)
+
+- **Type:** AI confidently wrong (the embedding service author —
+  SESSION 138 / K3 — and every reviewer since)
+- **Date:** 2026-05-21
+- **Context:** A parallel CC working on the u-d-b ↔ character-os
+  docker bridge was running ingest cycles that flipped between
+  `EMBEDDING_FORCE_MOCK=1` (deterministic dev runs) and real-mode
+  ($0.0002 calls to OpenAI). Real-mode runs reported
+  **`$0.00 spent with full "cache hits"`** — looked like the cache
+  was doing exactly what it was supposed to. The vectors were
+  silently mock floats.
+- **What was wrong:** `shell/apps/embeddings/embedding_service.py`
+  computed the cache key as `{EMBEDDING_MODEL}:{sha256(text)}` —
+  no mode prefix. Both branches called `cache.set(key, vec)` on
+  the same key. The mock-mode branch was added at K3 ship time
+  with explicit determinism guarantees ("Same text → same vector")
+  but the author + every reviewer treated the cache as a transparent
+  optimization without considering that the mock path was now
+  WRITING to the shared key. Two-and-a-half months of mixed-mode
+  runs accumulated silently-poisoned cache entries.
+- **What the parallel CC did:** Manually `cache.delete_many()`'d
+  the affected keys to force a real-mode call to land. Then
+  flagged the bug in the format we've calibrated to:
+  `file:line` + bug shape + workaround + two fix options.
+- **Fix:** Mock mode now bypasses the cache entirely
+  (`cache.get` + `cache.set` both skipped). Mock vectors are
+  already deterministic from `sha256(text)`, so caching them
+  buys nothing. Eliminates the bug by construction; existing
+  real-mode cache stays valid. +1 regression test
+  (`test_mock_does_not_poison_real_mode_cache`).
+- **Found by:** Parallel CC during u-d-b ingest workflow,
+  outside the realtime arc's normal test coverage.
+- **Lesson:** **The mock/real boundary is a recurring bug class.**
+  This is the second time a cross-mode persistence collision has
+  hit the platform — the first was R3's Runway mock dropping
+  `provider_session_key` differently from real (closed in the
+  same session). New discipline: **any cache or storage that
+  crosses the mock/real boundary must namespace by mode OR opt
+  mock out of persistence entirely.** Add a drift verifier in
+  a future slice — same pattern as R10 for the provider
+  abstraction.
+- **Bonus lesson:** The parallel-CC workflow surfaces bugs
+  neither CC would have hit running solo. The embedding cache
+  isn't on either of our slice paths individually — it's a
+  shared-state seam that only fails when traffic crosses
+  mock/real mid-session. Continue running parallel CCs against
+  the same repo when slices touch shared infra (cache, queue,
+  DB pool).
+
