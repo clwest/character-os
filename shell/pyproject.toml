@@ -82,3 +82,6 @@ target-version = "py311"
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "character_os.settings"
 python_files = ["test_*.py", "*_test.py"]
+
+[tool.setuptools.packages.find]
+include = ["apps*", "character_os*"]
