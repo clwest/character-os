@@ -46,4 +46,11 @@ jobs:
 
       - name: Provider drift verifier
         working-directory: media-engine
+        # The drift verifier constructs Settings() with explicit
+        # constructor args and asserts clean parity behavior. The
+        # job-level RUNWAY_FORCE_MOCK=1 (needed by the general test
+        # suite) poisons pydantic-settings for this specific test's
+        # expectations, so unset it just for this step.
+        env:
+          RUNWAY_FORCE_MOCK: ""
         run: python -m pytest tests/test_r10_provider_drift.py -v
