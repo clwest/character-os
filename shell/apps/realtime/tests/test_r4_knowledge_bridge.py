@@ -258,9 +258,13 @@ def test_broker_create_persists_provider_document_id() -> None:
     _login(client, user)
     patcher, fake = _patch_broker_clients(doc_id="doc_pricing")
     with patcher:
+        # `real_mode=True` — SESSION 227 P1 2.8-b flipped the
+        # server default to draft-only, which skips the doc-push +
+        # session-create round trip. Provider-document tests only
+        # exercise the paid path.
         response = client.post(
             "/api/realtime_sessions/",
-            {"spokesperson": str(sp.id)},
+            {"spokesperson": str(sp.id), "real_mode": True},
             format="json",
         )
     assert response.status_code == http.HTTP_201_CREATED, response.content
@@ -280,9 +284,11 @@ def test_broker_passes_document_ids_to_session_create() -> None:
     _login(client, user)
     patcher, fake = _patch_broker_clients(doc_id="doc_one")
     with patcher:
+        # Paid-path assertion — draft mode never calls the
+        # media-engine, so `real_mode=True` is load-bearing.
         client.post(
             "/api/realtime_sessions/",
-            {"spokesperson": str(sp.id)},
+            {"spokesperson": str(sp.id), "real_mode": True},
             format="json",
         )
     fake.realtime_document_create.assert_called_once()
@@ -303,9 +309,12 @@ def test_broker_create_works_without_knowledge() -> None:
     _login(client, user)
     patcher, fake = _patch_broker_clients(doc_id="doc_empty")
     with patcher:
+        # Paid-path — the empty-knowledge composer still
+        # produces a header + brief, so the doc-push happens
+        # only when `real_mode=True`.
         response = client.post(
             "/api/realtime_sessions/",
-            {"spokesperson": str(sp.id)},
+            {"spokesperson": str(sp.id), "real_mode": True},
             format="json",
         )
     assert response.status_code == http.HTTP_201_CREATED
@@ -339,9 +348,10 @@ def test_broker_chunk_ids_match_composer_output() -> None:
     _login(client, user)
     patcher, _ = _patch_broker_clients(doc_id="doc_audit")
     with patcher:
+        # Provenance persistence lives on the paid path.
         response = client.post(
             "/api/realtime_sessions/",
-            {"spokesperson": str(sp.id)},
+            {"spokesperson": str(sp.id), "real_mode": True},
             format="json",
         )
     assert response.status_code == http.HTTP_201_CREATED
@@ -360,9 +370,10 @@ def test_broker_create_passes_document_name_with_spokesperson() -> None:
     _login(client, user)
     patcher, fake = _patch_broker_clients()
     with patcher:
+        # Doc-name propagation is a paid-path concern.
         client.post(
             "/api/realtime_sessions/",
-            {"spokesperson": str(sp.id)},
+            {"spokesperson": str(sp.id), "real_mode": True},
             format="json",
         )
     doc_kwargs = fake.realtime_document_create.call_args.kwargs

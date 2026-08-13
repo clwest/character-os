@@ -249,9 +249,12 @@ def test_broker_create_stamps_cost_estimate():
     client.force_authenticate(user=user)
     patcher, _ = _patch_broker_clients()
     with patcher:
+        # `real_mode=True` — SESSION 227 P1 2.8-b flipped the
+        # server default to draft-only. Only the real-mode path
+        # contacts the provider and stamps `cost_estimate_micros`.
         response = client.post(
             "/api/realtime_sessions/",
-            {"spokesperson": str(sp.id)},
+            {"spokesperson": str(sp.id), "real_mode": True},
             format="json",
         )
     assert response.status_code == http.HTTP_201_CREATED, response.content
@@ -309,15 +312,119 @@ def test_broker_create_blocks_at_minutes_cap():
     client.force_authenticate(user=user)
     patcher, _ = _patch_broker_clients()
     with patcher:
+        # `real_mode=True` — only the paid path is subject to the
+        # minutes-budget gate. Draft-only requests intentionally
+        # bypass Runway-cost gates (see
+        # test_create_draft_only_bypasses_tier_gates + P1 2.8-b
+        # comment in views.py).
         response = client.post(
             "/api/realtime_sessions/",
-            {"spokesperson": str(sp.id)},
+            {"spokesperson": str(sp.id), "real_mode": True},
             format="json",
         )
     # 402 Payment Required from the minutes-budget gate.
     assert response.status_code == 402
     payload = response.json()
     assert payload["code"] == "realtime_minutes_limit_reached"
+
+
+# ---- paid-path boundary coverage ---------------------------------
+#
+# The minutes-budget gate uses projection semantics: it blocks when
+# `used + max(1, requested_minutes) > limit`. With the broker's
+# default `requested_minutes=5` and a Starter cap of 30, that means:
+#   used=25 → projected=30 → allowed (exact fit)
+#   used=26 → projected=31 → blocked (projected exceeds)
+#   used=30 → projected=35 → blocked (already at cap)
+#   used=40 → projected=45 → blocked (already above cap)
+# These cases exercise the paid path only (`real_mode: True`);
+# the draft path is covered separately by
+# `test_default_no_flag_at_cap_still_returns_draft_201`.
+
+
+def _seed_used_minutes(ws, sp, minutes: int) -> None:
+    """Seed an ENDED session so ``get_usage`` reports the given
+    minutes as consumed in the current period."""
+    if minutes <= 0:
+        return
+    RealtimeSession.objects.create(
+        workspace=ws, spokesperson=sp,
+        status=RealtimeSession.Status.ENDED,
+        duration_seconds=minutes * 60,
+    )
+
+
+@pytest.mark.parametrize(
+    "used_minutes,expected_status,expected_code",
+    [
+        # Below cap with room to spare.
+        (10, http.HTTP_201_CREATED, None),
+        # Exact-fit projection (25 + 5 = 30 == cap).
+        (25, http.HTTP_201_CREATED, None),
+        # Projection would exceed cap by one minute.
+        (26, 402, "realtime_minutes_limit_reached"),
+        # Exactly at cap — projection = 35 > 30.
+        (30, 402, "realtime_minutes_limit_reached"),
+        # Already above cap.
+        (40, 402, "realtime_minutes_limit_reached"),
+    ],
+)
+def test_paid_path_boundary_matrix(
+    used_minutes, expected_status, expected_code,
+):
+    """Boundary matrix for the paid (real_mode=True) create path
+    against the same projection formula
+    `check_realtime_minutes_budget` implements.
+    """
+    ws, user = _make_workspace(f"r9bnd{used_minutes}@test")
+    _set_tier(ws, "starter")  # 30 min cap
+    sp = _make_teammate(ws)
+    _seed_used_minutes(ws, sp, used_minutes)
+    client = APIClient()
+    client.force_authenticate(user=user)
+    patcher, _ = _patch_broker_clients()
+    with patcher:
+        response = client.post(
+            "/api/realtime_sessions/",
+            {"spokesperson": str(sp.id), "real_mode": True},
+            format="json",
+        )
+    assert response.status_code == expected_status, response.content
+    if expected_code is not None:
+        assert response.json()["code"] == expected_code
+
+
+def test_default_no_flag_at_cap_still_returns_draft_201():
+    """Draft-only default (SESSION 227 P1 2.8-b) — a no-flag POST
+    at cap must still return 201 with a DRAFT row. Draft
+    containers never contact the provider and burn $0, so they
+    intentionally bypass the Runway-cost gates. Regressing this
+    would either (a) block legitimate SPA scaffolding at
+    /workspace/tools when the workspace has burned its month
+    on live sessions, or (b) revert the F-12 recurrence
+    hardening that made draft the safe default.
+    """
+    ws, user = _make_workspace("r9bnd_default_cap@test")
+    _set_tier(ws, "starter")
+    sp = _make_teammate(ws)
+    _seed_used_minutes(ws, sp, 30)
+    client = APIClient()
+    client.force_authenticate(user=user)
+    patcher, fake = _patch_broker_clients()
+    with patcher:
+        response = client.post(
+            "/api/realtime_sessions/",
+            {"spokesperson": str(sp.id)},  # no `real_mode` flag
+            format="json",
+        )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    assert data["status"] == "draft"
+    assert data["provider_session_id"] == ""
+    assert data["provider_session_key"] == ""
+    # Draft containers never call the media-engine.
+    fake.realtime_document_create.assert_not_called()
+    fake.realtime_session_create.assert_not_called()
 
 
 # ---- cost_estimate REST endpoint ---------------------------------
