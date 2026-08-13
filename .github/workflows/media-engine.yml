@@ -11,7 +11,13 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      RUNWAY_FORCE_MOCK: "1"
+      # Adapter selection is key-driven: with all provider keys
+      # blank the runtime picks Mock providers automatically.
+      # RUNWAY_FORCE_MOCK is set to "0" so pydantic-settings does
+      # not silently flip Settings.runway_mock=True for tests that
+      # construct real-mode adapters with an explicit fake key
+      # (config, realtime provider, tts, R10 drift verifier).
+      RUNWAY_FORCE_MOCK: "0"
       OPENAI_API_KEY: ""
       RUNWAY_API_KEY: ""
       STABILITY_API_KEY: ""
@@ -25,6 +31,13 @@ jobs:
           python-version: "3.11"
           cache: pip
           cache-dependency-path: media-engine/requirements.txt
+
+      - name: Install ffmpeg
+        # Video/audio composition, intro/outro, concat, and
+        # audio-mix tests shell out to ffmpeg/ffprobe. Tests
+        # ``pytest.skip`` when the binaries are missing, so
+        # omitting this install silently hides ~30 tests.
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
       - name: Install media-engine deps
         working-directory: media-engine
@@ -40,18 +53,6 @@ jobs:
         working-directory: media-engine
         run: python -c "from app.main import app; print(f'{len(app.routes)} routes')"
 
-      - name: Media-engine test collection
+      - name: Media-engine tests
         working-directory: media-engine
-        run: python -m pytest --collect-only -q
-
-      - name: Provider drift verifier
-        working-directory: media-engine
-        # The drift verifier constructs Settings() with explicit
-        # constructor args and asserts clean parity behavior. The
-        # job-level RUNWAY_FORCE_MOCK=1 (needed by the general test
-        # suite) poisons pydantic-settings for this specific test's
-        # expectations, so set it to "0" here — parseable as bool
-        # False by pydantic-settings.
-        env:
-          RUNWAY_FORCE_MOCK: "0"
-        run: python -m pytest tests/test_r10_provider_drift.py -v
+        run: python -m pytest -q

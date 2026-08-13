@@ -75,6 +75,6 @@ jobs:
         working-directory: shell
         run: python manage.py makemigrations --check --dry-run
 
-      - name: Django test collection
+      - name: Django tests
         working-directory: shell
-        run: python -m pytest --collect-only -q
+        run: python -m pytest -q

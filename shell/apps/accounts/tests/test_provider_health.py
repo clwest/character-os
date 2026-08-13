@@ -162,6 +162,10 @@ def test_media_engine_reachable_all_mock(monkeypatch):
 def test_media_engine_real_mode_semantics(monkeypatch):
     _clear_env(monkeypatch)
     monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
+    # RUNWAY_API_KEY is required for provider_status to report
+    # runway.configured=true and status="ok"; _clear_env unsets
+    # any inherited value, so the test must supply it explicitly.
+    monkeypatch.setenv("RUNWAY_API_KEY", "fake-key")
     monkeypatch.setenv("STABILITY_API_KEY", "fake-key")
     monkeypatch.setenv("ELEVENLABS_API_KEY", "fake-key")
     monkeypatch.setenv("SERPER_API_KEY", "fake-key")
@@ -170,6 +174,16 @@ def test_media_engine_real_mode_semantics(monkeypatch):
     _install_fake_client(monkeypatch, health=_mock_health(
         runway_mock=False, openai_mock=False, image_gen_mock=False,
     ))
+    # F-07 (SESSION 224) added a live celery.control.ping probe to
+    # the report. Without a running worker the row degrades and
+    # top-level status flips to "degraded". This test only asserts
+    # the media-engine + shell-provider surface, so stub the ping
+    # to a healthy response; the celery-specific behavior is
+    # covered by the tests below.
+    _patch_celery_ping(
+        monkeypatch,
+        response=[{"celery@testhost": {"ok": "pong"}}],
+    )
     user = _make_user()
     client = APIClient(); client.force_authenticate(user=user)
 

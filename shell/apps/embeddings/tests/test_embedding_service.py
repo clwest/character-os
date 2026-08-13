@@ -3,8 +3,6 @@ mock path and the cache, since real-mode is OpenAI and tested
 manually via ``--real`` on the smoke command."""
 from __future__ import annotations
 
-import os
-
 import pytest
 from django.test import override_settings
 
@@ -46,7 +44,7 @@ def test_mock_vector_shape_and_determinism() -> None:
 
 
 @pytest.mark.django_db
-def test_mock_does_not_poison_real_mode_cache() -> None:
+def test_mock_does_not_poison_real_mode_cache(monkeypatch) -> None:
     """Regression test for the SESSION 214 cache-collision bug.
 
     Pre-fix: mock-mode wrote vectors under ``{model}:{sha256}``;
@@ -77,18 +75,14 @@ def test_mock_does_not_poison_real_mode_cache() -> None:
     )
 
     # Step 3: real-mode (no API key) must refuse rather than
-    # silently return the mock vector.
+    # silently return the mock vector. monkeypatch auto-restores
+    # both env vars at teardown; using raw os.environ would leak
+    # into later tests that rely on CI's EMBEDDING_FORCE_MOCK=1.
     with override_settings(EMBEDDING_FORCE_MOCK=False):
-        old_key = os.environ.pop("OPENAI_API_KEY", None)
-        old_env_mock = os.environ.pop("EMBEDDING_FORCE_MOCK", None)
-        try:
-            with pytest.raises(RuntimeError):
-                embed(text)
-        finally:
-            if old_key is not None:
-                os.environ["OPENAI_API_KEY"] = old_key
-            if old_env_mock is not None:
-                os.environ["EMBEDDING_FORCE_MOCK"] = old_env_mock
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("EMBEDDING_FORCE_MOCK", raising=False)
+        with pytest.raises(RuntimeError):
+            embed(text)
 
 
 @pytest.mark.django_db
@@ -104,44 +98,45 @@ def test_mock_different_text_yields_different_vectors() -> None:
 
 
 @pytest.mark.django_db
-def test_real_mode_without_key_raises() -> None:
+def test_real_mode_without_key_raises(monkeypatch) -> None:
     """When force-mock is off and no OPENAI_API_KEY is set,
     the service must refuse rather than fall back silently —
     silent fallback would mask production misconfig."""
-    # Ensure force-mock is off in settings AND env
+    # Ensure force-mock is off in settings AND env. monkeypatch
+    # scopes the env mutation to this test so CI's global
+    # EMBEDDING_FORCE_MOCK=1 is restored for the next test.
     with override_settings(EMBEDDING_FORCE_MOCK=False):
-        old_key = os.environ.pop("OPENAI_API_KEY", None)
-        old_env_mock = os.environ.pop("EMBEDDING_FORCE_MOCK", None)
-        try:
-            from django.core.cache import cache
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("EMBEDDING_FORCE_MOCK", raising=False)
+        from django.core.cache import cache
 
-            cache.clear()
-            with pytest.raises(RuntimeError):
-                embed("would burn tokens if it worked")
-        finally:
-            if old_key is not None:
-                os.environ["OPENAI_API_KEY"] = old_key
-            if old_env_mock is not None:
-                os.environ["EMBEDDING_FORCE_MOCK"] = old_env_mock
+        cache.clear()
+        with pytest.raises(RuntimeError):
+            embed("would burn tokens if it worked")
 
 
 @pytest.mark.django_db
-def test_settings_force_mock_beats_env() -> None:
+def test_settings_force_mock_beats_env(monkeypatch) -> None:
     """``settings.EMBEDDING_FORCE_MOCK`` should beat
     ``EMBEDDING_FORCE_MOCK=0`` env var. Lets tests
     override-settings into mock mode regardless of the
-    shell environment they were launched in."""
-    os.environ["EMBEDDING_FORCE_MOCK"] = "0"
-    try:
-        with override_settings(EMBEDDING_FORCE_MOCK=True):
-            from django.core.cache import cache
+    shell environment they were launched in.
 
-            cache.clear()
-            result = embed("test")
-            assert "mock" in result.model
-            assert result.cost_micros == 0
-    finally:
-        os.environ.pop("EMBEDDING_FORCE_MOCK", None)
+    Uses ``monkeypatch.setenv`` so the shell-level value
+    (CI ships ``EMBEDDING_FORCE_MOCK=1``) is restored after
+    the test. Previously used raw ``os.environ`` write +
+    ``pop`` in a finally, which permanently deleted the
+    shell-level value and caused downstream tests that
+    relied on the environment fallback (e.g. spokesperson
+    Ask + scripts render) to fail in the full-suite order."""
+    monkeypatch.setenv("EMBEDDING_FORCE_MOCK", "0")
+    with override_settings(EMBEDDING_FORCE_MOCK=True):
+        from django.core.cache import cache
+
+        cache.clear()
+        result = embed("test")
+        assert "mock" in result.model
+        assert result.cost_micros == 0
 
 
 @pytest.mark.django_db
