@@ -1,0 +1,185 @@
+/**
+ * Brand Identity V2 — design tokens as CSS custom properties.
+ *
+ * Mirrors `web/src/lib/brand/tokens.ts` (the TS source of truth).
+ * Locked SESSION 178 against `docs/design/BRAND_IDENTITY_V2.md`.
+ *
+ * **B1 (this slice) ships the V2 tokens inert.** The selector
+ * is `[data-brand="v2"]`, which nothing in the SPA sets yet.
+ * `globals.css`'s existing `:root` declarations continue to win,
+ * so the SPA renders identically to pre-B1. B2 will switch the
+ * `<html>` element to `data-brand="v2"` and remove the V1 `:root`
+ * block in `globals.css` to flip the SPA to V2.
+ *
+ * Comments include hex equivalents for designer review.
+ */
+
+[data-brand="v2"] {
+  /* ---- Color (HSL components — wrapped with hsl(var(--token)) at use site) */
+
+  /* Primary palette */
+  --background: 222 18% 7%;          /* #0F1116 — page bg */
+  --foreground: 0 0% 92%;            /* #EAEAEA — default text */
+  --card: 222 18% 10%;               /* #15181E — card surface */
+  --card-foreground: 0 0% 92%;
+  --popover: 222 18% 12%;            /* #1A1D24 — floating */
+  --popover-foreground: 0 0% 92%;
+  --muted: 222 14% 16%;              /* #23262E — input bg, hover */
+  --muted-foreground: 222 9% 64%;    /* #A0A7B4 — secondary text */
+  --border: 222 12% 20%;             /* #2A2E37 — hairlines */
+  --input: 222 14% 16%;              /* #23262E */
+  --ring: 38 47% 58%;                /* #C8A35F — focus = accent */
+
+  /* Accent palette (the gold — sparingly) */
+  --accent: 38 47% 58%;              /* #C8A35F — primary accent */
+  --accent-foreground: 222 18% 7%;   /* #0F1116 — dark text on gold */
+  --accent-muted: 38 35% 45%;        /* #9E824D — hover / disabled */
+  --accent-bright: 38 60% 70%;       /* #DFC18A — decorative bright */
+
+  /* Status palette (muted on dark) */
+  --success: 142 50% 45%;            /* #3CB371 */
+  --success-foreground: 0 0% 92%;
+  --warning: 38 80% 60%;             /* #E5A647 — distinct from accent */
+  --warning-foreground: 222 18% 7%;
+  --destructive: 0 65% 55%;          /* #D14F4F */
+  --destructive-foreground: 0 0% 92%;
+
+  /* Compat aliases for shadcn `primary` / `secondary` naming. In
+   * V2 the conceptual "primary" action is the gold accent. */
+  --primary: 38 47% 58%;             /* = accent */
+  --primary-foreground: 222 18% 7%;  /* = accent-foreground */
+  --secondary: 222 14% 16%;          /* = muted */
+  --secondary-foreground: 0 0% 92%;
+
+  /* ---- Radius */
+  --radius: 0.5rem;                  /* 8px default */
+  --radius-sm: 0.25rem;              /* 4px */
+  --radius-lg: 0.75rem;              /* 12px */
+  --radius-xl: 1rem;                 /* 16px */
+
+  /* ---- Shadow (literal box-shadow values — multi-layer, dark-tuned) */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow-sm: 0 2px 4px -1px rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.3);
+  --shadow: 0 4px 8px -2px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 8px 16px -4px rgb(0 0 0 / 0.6), 0 4px 8px -4px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 16px 32px -8px rgb(0 0 0 / 0.6), 0 8px 16px -8px rgb(0 0 0 / 0.5);
+  --shadow-xl: 0 24px 48px -12px rgb(0 0 0 / 0.7), 0 12px 24px -12px rgb(0 0 0 / 0.5);
+  --shadow-gold:
+    0 0 0 1px rgb(200 163 95 / 0.3),
+    0 4px 12px -2px rgb(200 163 95 / 0.2);
+
+  /* ---- Motion */
+  --duration-fast: 120ms;
+  --duration: 180ms;
+  --duration-slow: 240ms;
+  --duration-emphasis: 400ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* V2 fonts — Geist + JetBrains Mono. Globals.css reads
+   * these via var(--font-*). The V3 block below overrides
+   * with Bodoni Moda + DM Sans + JetBrains Mono. */
+  --font-display: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+/**
+ * V3 (SESSION 209) — Editorial dark-luxe.
+ *
+ * Locked SESSION 209 against `docs/design/BRAND_IDENTITY_V3.md`.
+ * Active by default — `<html data-brand="v3">` set in index.html.
+ *
+ * Ink + gold palette. Bodoni Moda display. DM Sans body.
+ * JetBrains Mono microtype. Keyframes (rise/orbit/shimmer/
+ * ticker/flip/pulse-soft) live in globals.css as @keyframes
+ * blocks (Tailwind keyframes registered in tailwind.config).
+ */
+[data-brand="v3"] {
+  /* ---- Raw brand colors (hex, for `text-gold` / `bg-ink` / etc.
+   * via Tailwind config color mapping). */
+  --color-ink: #050a14;
+  --color-night: #0a1426;
+  --color-midnight: #0d1a30;
+  --color-deep: #142544;
+  --color-steel: #1f3a64;
+  --color-fog: #6b7d99;
+  --color-mist: #b8c4d6;
+  --color-bone: #ece4cf;
+  --color-cream: #f6ecd3;
+  --color-gold: #c9a961;
+  --color-gold-bright: #e8c87a;
+  --color-gold-deep: #8a6f33;
+  --color-ember: #d4af37;
+
+  /* ---- shadcn semantic tokens (HSL components — for the
+   * `hsl(var(--token))` Tailwind pattern). */
+
+  /* Primary */
+  --background: 218 60% 5%;          /* ink #050a14 */
+  --foreground: 42 70% 89%;          /* cream #f6ecd3 */
+  --card: 219 58% 12%;               /* midnight #0d1a30 */
+  --card-foreground: 42 70% 89%;
+  --popover: 221 55% 17%;            /* deep #142544 */
+  --popover-foreground: 42 70% 89%;
+  --muted: 217 53% 26%;              /* steel #1f3a64 */
+  --muted-foreground: 215 25% 78%;   /* mist #b8c4d6 */
+  --border: 38 30% 22%;              /* warm dark — gold-tinted edge */
+  --input: 217 53% 26%;              /* steel */
+  --ring: 41 49% 58%;                /* gold #c9a961 */
+
+  /* Accent (gold) */
+  --accent: 41 49% 58%;              /* gold */
+  --accent-foreground: 218 60% 5%;   /* ink (dark on gold) */
+  --accent-muted: 38 47% 37%;        /* gold-deep */
+  --accent-bright: 40 70% 70%;       /* gold-bright */
+
+  /* Status (carried/adjusted from V2 to coexist with gold on ink) */
+  --success: 142 50% 45%;
+  --success-foreground: 42 70% 89%;
+  --warning: 46 65% 52%;             /* ember */
+  --warning-foreground: 218 60% 5%;
+  --destructive: 0 65% 55%;
+  --destructive-foreground: 42 70% 89%;
+
+  /* Compat aliases */
+  --primary: 41 49% 58%;             /* = accent */
+  --primary-foreground: 218 60% 5%;
+  --secondary: 217 53% 26%;          /* = muted */
+  --secondary-foreground: 42 70% 89%;
+
+  /* ---- Radius (slightly tighter — editorial register) */
+  --radius: 0.375rem;                /* 6px */
+  --radius-sm: 0.125rem;             /* 2px */
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+
+  /* ---- Shadow (luxe — gold-tinted ambient + deep direct) */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.5);
+  --shadow-sm: 0 2px 4px -1px rgb(0 0 0 / 0.6), 0 1px 2px -1px rgb(0 0 0 / 0.4);
+  --shadow: 0 4px 8px -2px rgb(0 0 0 / 0.6), 0 2px 4px -2px rgb(0 0 0 / 0.5);
+  --shadow-md: 0 8px 16px -4px rgb(0 0 0 / 0.7), 0 4px 8px -4px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 16px 32px -8px rgb(0 0 0 / 0.7), 0 8px 16px -8px rgb(0 0 0 / 0.6);
+  --shadow-xl: 0 24px 48px -12px rgb(0 0 0 / 0.8), 0 12px 24px -12px rgb(0 0 0 / 0.6);
+  --shadow-gold:
+    0 0 0 1px rgb(201 169 97 / 0.3),
+    0 4px 12px -2px rgb(201 169 97 / 0.2);
+  --shadow-luxe:
+    inset 0 1px 0 rgb(201 169 97 / 0.18),
+    0 0 60px rgb(201 169 97 / 0.08),
+    0 30px 80px -30px rgb(0 0 0 / 0.7);
+
+  /* ---- Motion (carried from V2) */
+  --duration-fast: 120ms;
+  --duration: 180ms;
+  --duration-slow: 240ms;
+  --duration-emphasis: 400ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-editorial: cubic-bezier(0.2, 0.65, 0.2, 1);
+
+  /* ---- Fonts (V3 — Bodoni Moda + DM Sans + JetBrains Mono) */
+  --font-display: "Bodoni Moda", "Didot", Georgia, serif;
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}

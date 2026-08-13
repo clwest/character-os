@@ -1,0 +1,76 @@
+name: Backend (Django)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: character_os
+          POSTGRES_PASSWORD: character_os
+          POSTGRES_DB: character_os
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6381:6379
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: 5433
+      DB_USER: character_os
+      DB_PASSWORD: character_os
+      DB_NAME: character_os
+      REDIS_URL: redis://localhost:6381/0
+      # Mock-mode gates — no live provider keys required in CI.
+      RUNWAY_FORCE_MOCK: "1"
+      EMBEDDING_FORCE_MOCK: "1"
+      RENDER_SCRIPT_FORCE_MOCK: "1"
+      REALTIME_MEMORY_FORCE_MOCK: "1"
+      OPENAI_API_KEY: ""
+      RUNWAY_API_KEY: ""
+      STABILITY_API_KEY: ""
+      ELEVENLABS_API_KEY: ""
+      SERPER_API_KEY: ""
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: shell/pyproject.toml
+
+      - name: Install shell deps
+        working-directory: shell
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Django system check
+        working-directory: shell
+        run: python manage.py check
+
+      - name: Migration drift check
+        working-directory: shell
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Django test collection
+        working-directory: shell
+        run: python -m pytest --collect-only -q

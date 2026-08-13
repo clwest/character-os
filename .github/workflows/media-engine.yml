@@ -1,0 +1,45 @@
+name: Media Engine (FastAPI)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  media-engine:
+    runs-on: ubuntu-latest
+
+    env:
+      RUNWAY_FORCE_MOCK: "1"
+      OPENAI_API_KEY: ""
+      RUNWAY_API_KEY: ""
+      STABILITY_API_KEY: ""
+      ELEVENLABS_API_KEY: ""
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: media-engine/requirements.txt
+
+      - name: Install media-engine deps
+        working-directory: media-engine
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Route smoke — app imports and mounts routes
+        working-directory: media-engine
+        run: python -c "from app.main import app; print(f'{len(app.routes)} routes')"
+
+      - name: Media-engine test collection
+        working-directory: media-engine
+        run: python -m pytest --collect-only -q
+
+      - name: Provider drift verifier
+        working-directory: media-engine
+        run: python -m pytest tests/test_r10_provider_drift.py -v

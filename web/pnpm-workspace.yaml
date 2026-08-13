@@ -1,0 +1,8 @@
+# pnpm workspace config. We don't use pnpm workspaces (web/ is a
+# single project), but pnpm 11 reads this file's `allowBuilds` to
+# decide which packages can run post-install scripts. esbuild ships
+# a working pre-built binary in @esbuild/<platform>; its own
+# post-install just symlinks the binary into the project's
+# node_modules/.bin.
+allowBuilds:
+  esbuild: true

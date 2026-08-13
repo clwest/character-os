@@ -1,0 +1,88 @@
+# Surface Profile — Compact
+#
+# Framing family: Compact identity portrait (Portrait Language §4)
+# Consumed by: Piece Detail byline; small identity markers
+#
+# The compact identity portrait shows face and upper shoulders.
+# Used in space-constrained identity contexts where recognition
+# matters more than presence.
+
+profile_id: compact
+version: 1
+framing_family: compact_identity_portrait
+
+# ---------------------------------------------------------------
+# Crop
+# ---------------------------------------------------------------
+
+crop:
+  # Aspect ratio of the normalized output.
+  aspect_ratio: "1:1"
+
+  # How the crop is derived from the raw portrait's detected
+  # subject region. `subject_relative` = crop is expressed as
+  # a scale factor relative to the subject bounding box.
+  strategy: subject_relative
+
+  # Scale factor. 1.0 = tight crop against subject bounds.
+  # 1.2 = 20% padding around subject bounds.
+  subject_scale: 1.2
+
+# ---------------------------------------------------------------
+# Eye-line normalization
+# ---------------------------------------------------------------
+
+eye_line:
+  # Vertical position of the eye line in the normalized output,
+  # expressed as a fraction of output height from the top.
+  # 0.38 places eyes slightly above center — standard portrait
+  # convention within the compact framing family.
+  position_from_top: 0.38
+
+  # Horizontal position of the eye midpoint, expressed as a
+  # fraction of output width from the left.
+  position_from_left: 0.50
+
+# ---------------------------------------------------------------
+# Margins
+# ---------------------------------------------------------------
+
+margins:
+  # Minimum padding between the subject's silhouette and the
+  # edge of the normalized frame, expressed as a fraction of
+  # output dimension. Prevents subject from touching the edge
+  # even after crop.
+  min_edge_padding: 0.06
+
+# ---------------------------------------------------------------
+# Output resolution
+# ---------------------------------------------------------------
+
+output:
+  # Round-one output. Provider raw output may be higher; the
+  # normalized asset is downsampled to this resolution.
+  width_px: 512
+  height_px: 512
+  format: png
+  color_space: sRGB
+
+# ---------------------------------------------------------------
+# Framing behavior
+# ---------------------------------------------------------------
+
+framing_behavior:
+  # What the profile guarantees about what appears in the
+  # normalized frame. Framing families are locked by Portrait
+  # Language §4.
+  includes:
+    - face
+    - upper_shoulders
+  excludes:
+    - full_torso
+    - hands
+    - environment_props
+
+  # Portrait Language §4 rejections apply universally:
+  # no floating head, no profile / three-quarter turn,
+  # no round chat-avatar chips, no text-initials fallback.
+  # These are enforced at the pipeline level, not per-profile.

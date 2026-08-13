@@ -1,0 +1,40 @@
+name: Frontend (React SPA)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install SPA deps
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript check
+        working-directory: web
+        run: pnpm exec tsc --noEmit
+
+      - name: Vitest
+        working-directory: web
+        run: pnpm exec vitest run --reporter=default
+
+      - name: Production build
+        working-directory: web
+        run: pnpm build

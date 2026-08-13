@@ -1,0 +1,342 @@
+/**
+ * SpokespersonEditModal — W11.1 unit tests.
+ *
+ * Cheap render + interaction coverage. Full integration with
+ * the PATCH endpoint is exercised manually via the dogfood
+ * loop; these tests anchor the UI contract: form initializes
+ * with the spokesperson's current values, only changed fields
+ * make it into the payload, Save is disabled until something
+ * changes, Esc dismisses (when not pending), unsupported
+ * fields don't show up.
+ */
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+import { SpokespersonEditModal } from "./spokesperson-edit-modal";
+import type { Spokesperson } from "@/lib/api/spokespeople";
+
+const MOCK_SP: Spokesperson = {
+  id: "sp-1",
+  workspace: "ws-1",
+  workspace_name: "Workspace",
+  name: "Marcus",
+  business_brief: "AP history teacher.",
+  personality: "AP history teacher.",
+  visual_subject: "battle unicorn in roman gear",
+  visual_template: "mascot",
+  tone_archetype: "tutor",
+  status: "ready",
+  runway_avatar_id: "av-1",
+  runway_avatar_status: "ready",
+  portrait_path: "https://fake.example/p.png",
+  voice_id: "marcus",
+  // SESSION 232 — Identity surface fields default empty on fixtures
+  // for legacy tests. Identity form + masthead CTA are exercised in
+  // src/routes/spokespeople/identity.test.tsx.
+  who_you_help: "",
+  what_you_sell: "",
+  always_emphasize: "",
+  never_say: "",
+  desired_feeling: "",
+  identity_fields_filled: 1,
+  video_count: 0,
+  created_at: "2026-05-15T00:00:00Z",
+  updated_at: "2026-05-15T00:00:00Z",
+};
+
+function renderModal(props: { onClose?: () => void } = {}) {
+  const onClose = vi.fn(props.onClose);
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return {
+    onClose,
+    ...render(
+      <QueryClientProvider client={qc}>
+        <SpokespersonEditModal spokesperson={MOCK_SP} onClose={onClose} />
+      </QueryClientProvider>,
+    ),
+  };
+}
+
+/** SESSION 174 — install a fetch spy whose change-voice response
+ *  carries the supplied voice_patch envelope. */
+function installFetchSpy(voicePatch: {
+  status: string;
+  error: string | null;
+}) {
+  vi.spyOn(global, "fetch").mockImplementation((url) => {
+    const u = String(url);
+    if (u.includes("/voice-presets/")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            presets: [
+              { name: "vincent", sample_url: "/voice-samples/vincent.mp3" },
+              { name: "marcus", sample_url: "/voice-samples/marcus.mp3" },
+              { name: "clara", sample_url: "/voice-samples/clara.mp3" },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    }
+    if (u.includes("/change-voice/")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            spokesperson: { ...MOCK_SP, voice_id: "clara" },
+            voice_patch: voicePatch,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+    }
+    return Promise.resolve(
+      new Response(JSON.stringify(MOCK_SP), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+  });
+}
+
+async function pickClaraAndSave() {
+  await waitFor(() => {
+    expect(
+      (screen.getByTestId("edit-voice") as HTMLSelectElement).value,
+    ).toBe("marcus");
+  });
+  fireEvent.change(screen.getByTestId("edit-voice"), {
+    target: { value: "clara" },
+  });
+  await act(async () => {
+    fireEvent.submit(screen.getByTestId("edit-save").closest("form")!);
+  });
+}
+
+describe("W11.1 — SpokespersonEditModal", () => {
+  beforeEach(() => {
+    // useVoicePresets fires a GET on mount; the change-voice action
+    // returns the {spokesperson, voice_patch} envelope; everything
+    // else (PATCH on the spokesperson) returns a bare row.
+    vi.spyOn(global, "fetch").mockImplementation((url, _init) => {
+      const u = String(url);
+      if (u.includes("/voice-presets/")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              presets: [
+                { name: "vincent", sample_url: "/voice-samples/vincent.mp3" },
+                { name: "marcus", sample_url: "/voice-samples/marcus.mp3" },
+                { name: "clara", sample_url: "/voice-samples/clara.mp3" },
+              ],
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      }
+      if (u.includes("/change-voice/")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              spokesperson: { ...MOCK_SP, voice_id: "clara" },
+              voice_patch: { status: "ok", error: null },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      }
+      // Default: spokesperson PATCH / GET.
+      return Promise.resolve(
+        new Response(JSON.stringify({ ...MOCK_SP, name: "Marcus Aurelius" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    });
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("initializes with the spokesperson's current values", () => {
+    renderModal();
+    expect(
+      (screen.getByTestId("edit-name") as HTMLInputElement).value,
+    ).toBe("Marcus");
+    expect(
+      (screen.getByTestId("edit-brief") as HTMLTextAreaElement).value,
+    ).toBe("AP history teacher.");
+    expect(
+      (screen.getByTestId("edit-visual") as HTMLInputElement).value,
+    ).toBe("battle unicorn in roman gear");
+    expect((screen.getByTestId("edit-tone") as HTMLSelectElement).value).toBe(
+      "tutor",
+    );
+  });
+
+  it("Save is disabled until something changes", () => {
+    renderModal();
+    expect(
+      (screen.getByTestId("edit-save") as HTMLButtonElement).disabled,
+    ).toBe(true);
+    fireEvent.change(screen.getByTestId("edit-name"), {
+      target: { value: "Marcus Aurelius" },
+    });
+    expect(
+      (screen.getByTestId("edit-save") as HTMLButtonElement).disabled,
+    ).toBe(false);
+  });
+
+  it("Save fires a PATCH with only the changed fields", async () => {
+    const fetchSpy = global.fetch as ReturnType<typeof vi.fn>;
+    const { onClose } = renderModal();
+    fireEvent.change(screen.getByTestId("edit-name"), {
+      target: { value: "Marcus Aurelius" },
+    });
+    await act(async () => {
+      fireEvent.submit(screen.getByTestId("edit-save").closest("form")!);
+    });
+    // Find the PATCH call among the fetches (useVoicePresets also
+    // fires a GET on mount).
+    const patchCall = fetchSpy.mock.calls.find(
+      ([, init]) => (init as RequestInit | undefined)?.method === "PATCH",
+    );
+    expect(patchCall).toBeDefined();
+    const [url, init] = patchCall!;
+    expect(url).toBe("/api/spokespeople/sp-1/");
+    const body = JSON.parse((init as RequestInit).body as string);
+    expect(body).toEqual({ name: "Marcus Aurelius" });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("W11.2 — voice change fires a separate change-voice action", async () => {
+    const fetchSpy = global.fetch as ReturnType<typeof vi.fn>;
+    const { onClose } = renderModal();
+    // Wait for useVoicePresets to load AND the select to settle on
+    // the spokesperson's current voice_id. Without this wait the
+    // select may transiently show the first option (vincent) while
+    // the controlled value prop catches up.
+    await waitFor(() => {
+      expect(
+        (screen.getByTestId("edit-voice") as HTMLSelectElement).value,
+      ).toBe("marcus");
+    });
+    fireEvent.change(screen.getByTestId("edit-voice"), {
+      target: { value: "clara" },
+    });
+    expect(
+      (screen.getByTestId("edit-voice") as HTMLSelectElement).value,
+    ).toBe("clara");
+    await act(async () => {
+      fireEvent.submit(screen.getByTestId("edit-save").closest("form")!);
+    });
+    const changeVoiceCall = fetchSpy.mock.calls.find(([url]) =>
+      String(url).includes("/change-voice/"),
+    );
+    expect(changeVoiceCall).toBeDefined();
+    const [, init] = changeVoiceCall!;
+    const body = JSON.parse((init as RequestInit).body as string);
+    expect(body).toEqual({ preset: "clara" });
+    // W11.x.1 (SESSION 175) — voice changes no longer auto-close.
+    // Operator clicks Close themselves after seeing the
+    // voice_patch banner.
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("Esc dismisses without saving", () => {
+    const { onClose } = renderModal();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("Cancel button dismisses without saving", () => {
+    const { onClose } = renderModal();
+    fireEvent.click(screen.getByTestId("edit-cancel"));
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("blank name shows an inline error", async () => {
+    renderModal();
+    fireEvent.change(screen.getByTestId("edit-name"), {
+      target: { value: "" },
+    });
+    fireEvent.change(screen.getByTestId("edit-brief"), {
+      target: { value: "new brief" },
+    });
+    await act(async () => {
+      fireEvent.submit(screen.getByTestId("edit-save").closest("form")!);
+    });
+    // Save button stays disabled when name is blank.
+    expect(
+      (screen.getByTestId("edit-save") as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
+
+  // ---- SESSION 174 — voice_patch surface ----------------------------
+
+  it("voice_patch ok renders a success banner and keeps the modal open (W11.x.1)", async () => {
+    // W11.x.1 (SESSION 175) — dogfood found the original
+    // auto-close-on-ok behavior unmounted the banner before
+    // operators could see it. Modal now stays open after any
+    // voice change so the success banner is actually visible.
+    installFetchSpy({ status: "ok", error: null });
+    const { onClose } = renderModal();
+    await pickClaraAndSave();
+    const banner = await screen.findByTestId("voice-patch-banner");
+    expect(banner).toHaveAttribute("data-status", "ok");
+    expect(banner).toHaveTextContent("Voice updated on the live avatar");
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByTestId("edit-cancel")).toHaveTextContent("Close");
+  });
+
+  it("voice_patch skipped renders a muted info banner and keeps the modal open (W11.x.1)", async () => {
+    installFetchSpy({ status: "skipped", error: null });
+    const { onClose } = renderModal();
+    await pickClaraAndSave();
+    const banner = await screen.findByTestId("voice-patch-banner");
+    expect(banner).toHaveAttribute("data-status", "skipped");
+    expect(banner).toHaveTextContent("No live avatar exists yet");
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByTestId("edit-cancel")).toHaveTextContent("Close");
+  });
+
+  it("voice_patch failed renders an error banner and keeps the modal open", async () => {
+    installFetchSpy({
+      status: "failed",
+      error: "Runway 503 service unavailable",
+    });
+    const { onClose } = renderModal();
+    await pickClaraAndSave();
+    // Banner surfaces with the failed status + error verbatim.
+    const banner = await screen.findByTestId("voice-patch-banner");
+    expect(banner).toHaveAttribute("data-status", "failed");
+    expect(banner).toHaveTextContent("Runway rejected the voice change");
+    expect(banner).toHaveTextContent("Runway 503 service unavailable");
+    // Modal stays open — operator needs to see the message.
+    expect(onClose).not.toHaveBeenCalled();
+    // Footer button relabels to "Close" (no-action dismiss).
+    expect(screen.getByTestId("edit-cancel")).toHaveTextContent("Close");
+  });
+
+  it("persona-only edits fire no change-voice action", async () => {
+    installFetchSpy({ status: "ok", error: null });
+    const fetchSpy = global.fetch as ReturnType<typeof vi.fn>;
+    const { onClose } = renderModal();
+    fireEvent.change(screen.getByTestId("edit-name"), {
+      target: { value: "Marcus Aurelius" },
+    });
+    await act(async () => {
+      fireEvent.submit(screen.getByTestId("edit-save").closest("form")!);
+    });
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalled();
+    });
+    const voiceCall = fetchSpy.mock.calls.find(([url]) =>
+      String(url).includes("/change-voice/"),
+    );
+    expect(voiceCall).toBeUndefined();
+    // No banner shown for persona-only saves.
+    expect(screen.queryByTestId("voice-patch-banner")).toBeNull();
+  });
+});

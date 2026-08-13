@@ -1,0 +1,227 @@
+# Character OS — Controlled Background Family
+#
+# Ratified reference: CANONICAL_IDENTITY_CONTRACT_V1.md
+#   §17.6.a (round-one normalization includes background
+#            replacement from the controlled family)
+#   §18 of Portrait Language V1 (controlled family, not one
+#            generic warm blur)
+#
+# This file defines the round-one **functional benchmark
+# backgrounds** — the smallest controlled family needed for
+# the normalization pipeline to enforce Portrait Language §18
+# without prematurely locking Color and Light V1.
+#
+# WHAT THIS FILE IS:
+#   - A stable set of background identifiers.
+#   - Metadata sufficient for normalization manifests to be
+#     reproducible (§10.6 determinism constraint).
+#   - Tonal-environment-class → background mappings so the
+#     normalization background-replacement stage can select
+#     deterministically per surface profile.
+#
+# WHAT THIS FILE IS NOT:
+#   - The final product visual language for backgrounds.
+#   - A Color and Light V1 lock (that document is downstream
+#     of Portrait Territory Study V2, blocked by §19.4).
+#   - A collection of pixel-perfect asset paths — the actual
+#     background asset files are authored under
+#     `backgrounds/<background_id>/` alongside this file when
+#     the pipeline needs them. This file defines the
+#     identifiers and intent; the assets themselves are
+#     authored as a follow-up artifact.
+#
+# PROCEDURAL_V1 BLOCK (added SESSION 246 / 7.c.a):
+#   Each background carries a `procedural_v1` block containing
+#   the concrete RGB fill Step 7's BackgroundReplacementStage
+#   uses to render this background when no PNG asset exists.
+#   These values are **implementation_provisional** — chosen
+#   to make round-one benchmark normalization runnable, NOT
+#   a Color and Light V1 palette selection. Every rendered
+#   pixel from the round-one pipeline is traceable to a
+#   value in this file (no RGB constants live in Python).
+#
+#   The final Character OS background palette is a Color and
+#   Light V1 decision downstream of Portrait Territory Study
+#   V2 (§19.4 blocker list). Nothing here preempts that.
+
+schema_id: character_os.backgrounds.controlled_family.v1
+schema_version: 1
+generated: 2026-08-06
+
+# ---------------------------------------------------------------
+# Round-one background set.
+#
+# Every background has a stable identifier so Normalization
+# Manifests remain reproducible even after later revisions
+# expand or refine the family.
+#
+# Backgrounds are functional at round one: they exist so the
+# same-room discipline (Portrait Language §8) can be enforced
+# during benchmark without conflating provider default
+# backdrops (which vary wildly) into the reviewer's perception
+# of identity. They are NOT the final aesthetic backgrounds
+# the product will ship with — those decisions belong to
+# Color and Light V1, downstream of territory selection.
+# ---------------------------------------------------------------
+
+backgrounds:
+
+  - background_id: neutral_warm_studio
+    description: >
+      Soft, warm-toned neutral studio surround. The workhorse
+      background — used by every product surface that isn't
+      explicitly conversational. Portrait Language §18 "soft
+      neutral studio."
+    tonal_direction: warm_neutral
+    luminance_class: mid
+    grain: subtle_soft
+    round_one_role: default_for_active_presence
+    procedural_v1:
+      fill_rgb: [214, 205, 194]
+      status: implementation_provisional
+      purpose: round_one_normalization_only
+
+  - background_id: neutral_cool_studio
+    description: >
+      Cooler-toned neutral studio surround. Present in the
+      round-one family as a functional contrast reference so
+      reviewers can distinguish provider skin-tone shifts
+      from background color influence. Not intended as a
+      product default; scoped to benchmark evidence.
+    tonal_direction: cool_neutral
+    luminance_class: mid
+    grain: subtle_soft
+    round_one_role: contrast_reference
+    procedural_v1:
+      fill_rgb: [198, 205, 214]
+      status: implementation_provisional
+      purpose: round_one_normalization_only
+
+  - background_id: warm_material_surround
+    description: >
+      Lightly material warm surround — a subtle texture read
+      rather than a smooth gradient. Portrait Language §18
+      "lightly material warm surround." No identifiable props
+      or environmental cues.
+    tonal_direction: warm_neutral
+    luminance_class: mid
+    grain: soft_material
+    round_one_role: material_reference
+    procedural_v1:
+      fill_rgb: [204, 190, 172]
+      status: implementation_provisional
+      purpose: round_one_normalization_only
+
+  - background_id: soft_environmental_depth
+    description: >
+      Subtle environmental depth without identifiable props,
+      furniture, or decor. Portrait Language §18 "subtle
+      environmental depth without identifiable props." A
+      softly-diffuse gradient with faint depth cues rather
+      than a hard flat backdrop.
+    tonal_direction: warm_neutral
+    luminance_class: mid
+    grain: soft_gradient
+    round_one_role: depth_reference
+    procedural_v1:
+      fill_rgb: [210, 200, 186]
+      status: implementation_provisional
+      purpose: round_one_normalization_only
+
+  - background_id: conversational_darker_surround
+    description: >
+      Darker surround used exclusively by the `conversation`
+      surface profile. Portrait Language §8 explicitly permits
+      Live Conversation to run darker; §18 lists "darker
+      conversational surround" as a first-class family member.
+    tonal_direction: warm_neutral
+    luminance_class: low
+    grain: subtle_soft
+    round_one_role: conversation_default
+    procedural_v1:
+      fill_rgb: [62, 56, 50]
+      status: implementation_provisional
+      purpose: round_one_normalization_only
+
+# ---------------------------------------------------------------
+# Tonal environment class → background mapping.
+#
+# Surface profiles declare a `tonal_environment_class` value.
+# The normalization background-replacement stage consumes this
+# mapping to select a background deterministically per profile.
+#
+# The mapping is many-to-one during round one (a class points
+# at a single background). Future revisions may make it
+# one-to-many with reviewer-selected variation — that's an
+# evolution rule below, not a round-one authoring choice.
+# ---------------------------------------------------------------
+
+tonal_environment_class_default_background:
+
+  workshop_neutral: neutral_warm_studio
+  conversational_darker: conversational_darker_surround
+
+# Round-one product-surface fallback if a surface profile
+# doesn't declare a tonal environment class explicitly.
+default_background_for_unspecified_profile: neutral_warm_studio
+
+# ---------------------------------------------------------------
+# Reviewer selection scope.
+#
+# Some benchmark runs may want to test the same fixture on
+# multiple backgrounds to expose provider sensitivity to
+# background tonal shift. Reviewers may explicitly request a
+# non-default background for a specific run; that override is
+# recorded on the Normalization Manifest per §10.6.
+# ---------------------------------------------------------------
+
+reviewer_override:
+  allowed: true
+  scope: >
+    A benchmark run may request any background_id from
+    `backgrounds` above. Requesting a background_id not in
+    this file is rejected at the pipeline boundary.
+  manifest_field: background_id_override
+
+# ---------------------------------------------------------------
+# Rules
+# ---------------------------------------------------------------
+
+rules:
+
+  - rule: stable_identifiers
+    detail: >
+      background_id values are immutable. Renaming a
+      background_id would invalidate every Normalization
+      Manifest that references it (§10.6 reproducibility).
+      Never rename — deprecate + add new instead.
+
+  - rule: additive_evolution
+    detail: >
+      Adding a new background is safe. Removing a background
+      requires evidence that no active manifests reference it,
+      and even then the removal is deprecation-first — the
+      identifier is retained with a `deprecated: true` marker
+      before eventual deletion.
+
+  - rule: no_aesthetic_final_promotion
+    detail: >
+      Round-one backgrounds are functional. Promoting any of
+      them to a product-shipping default is a Color and Light
+      V1 decision (blocked by §19.4). This file does not
+      encode aesthetic finality.
+
+  - rule: no_identifiable_props
+    detail: >
+      Portrait Language §18 forbids specific objects,
+      furniture, decor, or props in the background family.
+      Books = intellectual, kitchen = domestic, office =
+      corporate — all forbidden. This rule constrains
+      background asset authoring, not this metadata file.
+
+  - rule: assets_authored_separately
+    detail: >
+      The actual background asset files are authored under
+      `backgrounds/<background_id>/` as a follow-up artifact
+      when the pipeline implementation lands. This file
+      defines identifiers, intent, and mapping — not pixels.

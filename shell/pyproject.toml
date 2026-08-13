@@ -1,0 +1,84 @@
+[project]
+name = "character-os-shell"
+version = "0.0.1"
+description = "Django DRF shell — customer-facing service for character-os"
+requires-python = ">=3.11"
+dependencies = [
+    # Core framework
+    "django>=5.0,<6.0",
+    "djangorestframework>=3.15",
+    "django-cors-headers>=4.3",
+
+    # Database
+    "psycopg[binary]>=3.2",
+    # SESSION 138 — K1 wired pgvector when Postgres landed
+    "pgvector>=0.3",
+
+    # Auth (Phase 1)
+    "django-allauth[socialaccount]>=64.0",
+    "djangorestframework-simplejwt>=5.3",
+
+    # Billing (Phase 1)
+    "dj-stripe>=2.9",
+
+    # Async task queue — Redis broker, in-band result backend.
+    # Landed early (Phase 2 / SESSION 109) because the media-engine
+    # video pipeline needs fire-then-poll for 60-120 s Runway tasks.
+    "celery>=5.4",
+    "redis>=5.0",
+
+    # HTTP client for talking to media-engine
+    "httpx>=0.28",
+
+    # SESSION 138 / K3 — knowledge ingestion pipeline.
+    # SESSION 234 / F-14 — bumped from >=1.0 to >=2.0. The Responses
+    # API (client.responses.create) landed in openai-python v1.55.
+    # K6 script_synthesis.py + Chapter 6 spokesperson_ask.py both
+    # call it; pin < 1.55 silently degrades every real-mode LLM
+    # call to the exception-branch fallback. See
+    # docs/production-readiness/finding-f14-openai-sdk-responses-api-silent-degradation/.
+    "openai>=2.0",           # text-embedding-3-small + Responses API
+    "pdfminer.six>=20231228", # PDF text extraction
+    "django-redis>=5.4",     # embedding cache backend
+
+    # SESSION 140 / K7 — URL ingestion + serper discovery.
+    "trafilatura>=1.10",     # HTML main-content extraction
+    "lxml_html_clean>=0.4",  # trafilatura → justext → lxml shim
+    # SESSION 175 / K7.x v2 — YouTube transcript extractor.
+    # Replaces the v1 up-front rejection: YouTube URLs now
+    # route to YouTubeTranscriptApi instead of trafilatura
+    # (which only returns nav-bar boilerplate on YouTube).
+    "youtube-transcript-api>=1.2",
+
+    # Settings
+    "django-environ>=0.11",
+
+    # SESSION 241 / Step 2 — Canonical Identity substrate. The
+    # identity-version write path loads the ratified per-branch
+    # identity schemas from
+    # docs/design/visual/portrait_qualification/schemas/ and
+    # validates the JSONB `spec` payload on
+    # CharacterIdentityVersion against them (contract §17.3.a).
+    # Both PyYAML and jsonschema were previously available
+    # transitively; pinned here so the substrate has an explicit
+    # dependency contract rather than an implicit one.
+    "PyYAML>=6.0",
+    "jsonschema>=4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.7",
+    "pytest>=8.0",
+    "pytest-django>=4.9",
+    "django-debug-toolbar>=4.4",
+    "ipython>=8.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "character_os.settings"
+python_files = ["test_*.py", "*_test.py"]

@@ -1,0 +1,191 @@
+# Character OS — Non-Human Test Schema (NON-CANONICAL)
+#
+# ═══════════════════════════════════════════════════════════════
+# THIS SCHEMA IS NON-CANONICAL.
+#
+# It exists SOLELY to exercise substrate branch-neutrality in
+# round-one benchmark. It IS NOT the future Character Presence
+# Language. It IS NOT authoritative for any non-human aesthetic,
+# identity, or design rule.
+#
+# When Character Presence Language is authored, its schema
+# replaces this file entirely — this file is deleted, not
+# amended, at that time.
+# ═══════════════════════════════════════════════════════════════
+#
+# Ratified references: CANONICAL_IDENTITY_CONTRACT_V1.md
+#   §3.4    (non-human authorship deferred to Character Presence Language)
+#   §17.2.a (permanent ownership deferral, not immutability of this contract)
+#   §17.2.b (round-one non-human fixture: substrate exercise only,
+#            aesthetic dimensions marked not_applicable_unscored)
+#   §17.5.a (branch-neutral kind + purpose structure)
+#
+# What this file DOES:
+#   - Provides a minimal spec_payload validator so fixture_nh1
+#     can be schema-valid.
+#   - Provides a required_for_identity floor so the transition
+#     service can approve fixture_nh1 for substrate exercise.
+#   - Provides surface_requirements sufficient for round-one
+#     substrate flow.
+#
+# What this file DOES NOT DO:
+#   - Enumerate non-human aesthetic principles.
+#   - Author non-human motion, expression, gaze, or lighting
+#     rules.
+#   - Define non-human reference-view purposes beyond the bare
+#     minimum needed for substrate exercise.
+#   - Attempt to be a Portrait Language V1 equivalent for non-
+#     humans.
+
+schema_id: character_os.identity.non_human.test.v1
+schema_version: 1
+branch: non_human
+canonical: false
+generated: 2026-08-06
+purpose_of_existence: substrate_exercise_only
+
+# ---------------------------------------------------------------
+# Spec payload validator (minimal).
+# ---------------------------------------------------------------
+
+spec_payload_schema:
+  $schema: "http://json-schema.org/draft-07/schema#"
+  title: "Non-human CharacterIdentity spec payload (TEST, NON-CANONICAL)"
+  type: object
+  additionalProperties: false
+  required:
+    - spec_schema_version
+    - descriptor_text
+    - character_type
+  properties:
+
+    spec_schema_version:
+      type: integer
+      const: 1
+
+    descriptor_text:
+      description: >
+        Free-text description of the non-human character. NOT a
+        provider prompt; NOT an aesthetic specification. Just
+        enough for reviewers to distinguish this fixture from
+        other fixtures.
+      type: string
+      minLength: 1
+      maxLength: 2000
+
+    character_type:
+      description: >
+        Very coarse type discriminator to exercise the branch
+        substrate. NOT a taxonomy commitment. Character Presence
+        Language will replace this with a considered
+        classification.
+      type: string
+      enum:
+        - animal
+        - fictional_creature
+        - stylized_object
+        - other
+
+    substrate_exercise_notes:
+      description: >
+        Round-one reviewer notes about what this fixture is
+        exercising in the substrate — not aesthetic notes.
+      type: string
+      maxLength: 1000
+
+# ---------------------------------------------------------------
+# required_for_identity — minimal substrate floor.
+#
+# Round-one fixture_nh1 must be promotable from draft to
+# approved so the substrate lifecycle can be exercised.
+# The single minimal floor is one canonical reference.
+# ---------------------------------------------------------------
+
+required_for_identity:
+  - canonical_reference/front
+
+# ---------------------------------------------------------------
+# surface_requirements — minimal.
+#
+# Round-one non-human fixture is not rendered on real product
+# surfaces. The surface_requirements below exist only so the
+# bundle evaluator has something to compute against during
+# substrate exercise.
+# ---------------------------------------------------------------
+
+surface_requirements:
+  Substrate_Exercise_Only:
+    - canonical_reference/front
+
+# ---------------------------------------------------------------
+# Purposes — deliberately minimal per §17.2.b.
+#
+# Per §17.2.b: "Do not create placeholder non-human reference
+# kinds merely to make the fixture pass unless a genuinely
+# branch-neutral kind is already justified."
+#
+# `canonical_reference` is the branch-neutral kind explicitly
+# suggested by the §17.2.b operator ratification for this
+# round-one purpose. It is scoped to non-human substrate
+# exercise only. If Character Presence Language later
+# concludes non-human identity uses a different kind
+# vocabulary, this test schema is deleted, not amended.
+# ---------------------------------------------------------------
+
+kinds:
+
+  canonical_reference:
+    description: >
+      Substrate-exercise reference. Round-one only. Not a
+      Character Presence Language concept.
+    purposes:
+      - value: front
+        description: >
+          Minimal front-facing reference sufficient for
+          substrate promotion of fixture_nh1.
+        category: substrate_exercise
+
+# ---------------------------------------------------------------
+# Round-one constraints (repeated here from §17.2.b for reader
+# convenience; the contract remains the source of truth).
+# ---------------------------------------------------------------
+
+round_one_constraints:
+
+  - constraint: aesthetic_dimensions_unscored
+    detail: >
+      Every aesthetic scoring dimension for fixture_nh1 must
+      be marked `not_applicable_unscored`. Do not leave blank,
+      assign zeroes, or include in aggregate calculations.
+
+  - constraint: no_territory_conclusions
+    detail: >
+      No conclusions about the correct non-human rendering
+      territory may be drawn from round-one evidence.
+
+  - constraint: provider_failures_are_capability_evidence
+    detail: >
+      Provider failures caused by unsupported non-human inputs
+      must be recorded as capability evidence, not treated
+      automatically as identity-substrate failures.
+
+  - constraint: substrate_only_validation_scope
+    detail: >
+      The fixture validates branch discrimination, workspace
+      isolation, identity-version lifecycle, generation-record
+      compatibility, approved-reference relationships,
+      provider-boundary handling, normalization-boundary
+      handling where applicable, representation-bundle
+      compatibility, graceful handling of human-only fields,
+      and absence of hidden human assumptions.
+
+# ---------------------------------------------------------------
+# Deletion notice.
+# ---------------------------------------------------------------
+
+deletion_notice: >
+  When Character Presence Language is authored and its
+  authoritative non-human schema lands, this file is DELETED
+  in the same commit that lands the authoritative schema.
+  Do not amend this file to accommodate Character Presence
+  Language rules — replace it.

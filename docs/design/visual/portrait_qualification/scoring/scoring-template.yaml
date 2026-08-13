@@ -1,0 +1,140 @@
+# Character OS — Scoring Record Template
+#
+# Ratified reference: CANONICAL_IDENTITY_CONTRACT_V1.md §17.7.a
+#
+# Every new scoring record starts from this template.
+# Validates against `scoring.schema.json`.
+# Human-readable explanation lives in `SCORING_SCHEMA_V1.md`.
+#
+# Fill in every REQUIRED field. Leave commented sections
+# commented if they don't apply to the record_type you're
+# creating. Remove commented sections that don't apply
+# before submitting.
+
+# ---------------------------------------------------------------
+# Record identity
+# ---------------------------------------------------------------
+
+record_id: "REPLACE-WITH-UUID"        # e.g. 3f9d1c78-4a2e-45b6-9e01-8b3d5f2a1c04
+
+record_type: "REPLACE"                # score | observation | operator_differed_from_observation
+
+# amends: null                        # or a prior record_id if this amends one
+# amendment_reason: "..."             # required when amends is non-null
+
+# ---------------------------------------------------------------
+# Immutable metadata (required on every record type)
+# ---------------------------------------------------------------
+
+metadata:
+  benchmark_round: "round_one"
+  scoring_schema_version: 1
+  pipeline_version: "REPLACE"
+  normalization_version: "REPLACE"
+  fixture_id: "REPLACE"               # e.g. fixture_h1
+  fixture_version: 1
+  provider: "REPLACE"                 # e.g. stability_still | runway_still | runway_realtime
+  direction_hypothesis: "REPLACE"     # softened_photographic | cinematic_naturalistic | painterly_naturalistic | contemporary_portrait_illustration | lightly_stylized_realism | identity_only
+  execution_mode: "REPLACE"           # forced_mock | auto | real_required | unavailable
+  execution_mode_actual: "REPLACE"    # real | mock | mock_fallback
+  reviewer: "REPLACE"                 # e.g. chris
+  timestamp: "REPLACE"                # ISO 8601 UTC, e.g. 2026-08-06T18:30:00Z
+  generation_record_id: "REPLACE"
+  manifest_id: "REPLACE"
+  tier: "REPLACE"                     # raw | normalized
+
+# ═══════════════════════════════════════════════════════════════
+# BODY — one of the three sections below, matching record_type.
+# Remove the two sections you are not using.
+# ═══════════════════════════════════════════════════════════════
+
+# ---------------------------------------------------------------
+# score — use when record_type == "score"
+# ---------------------------------------------------------------
+
+score:
+
+  critical:
+    identity_continuity:
+      value: "REPLACE"                # pass | concern | fail | not_applicable_unscored
+      # explanation: "..."            # required when value is concern or fail
+    speech_stability:
+      value: "REPLACE"
+      # explanation: "..."
+    trust_review:
+      value: "REPLACE"
+      # explanation: "..."
+    provider_reliability:
+      value: "REPLACE"
+      # explanation: "..."
+
+  important:
+    warmth:
+      value: "REPLACE"                # strong | neutral | weak | not_applicable_unscored
+      # explanation: "..."
+    distinctness_as_character_os:
+      value: "REPLACE"
+      # explanation: "..."
+    aesthetic_character_consistent_with_brief:
+      value: "REPLACE"
+      # explanation: "..."
+    long_term_familiarity:
+      value: "REPLACE"
+      # explanation: "..."
+    demographic_robustness:
+      value: "REPLACE"
+      # explanation: "..."
+    cross_modal_continuity:
+      value: "REPLACE"
+      # explanation: "..."
+
+  nice_to_have:
+    artistic_uniqueness:
+      value: "REPLACE"                # notable | not_notable | not_applicable_unscored
+      # explanation: "..."
+    cinematic_grading_quality:
+      value: "REPLACE"
+      # explanation: "..."
+    visual_novelty:
+      value: "REPLACE"
+      # explanation: "..."
+    peer_product_comparability:
+      value: "REPLACE"
+      # explanation: "..."
+
+  # overall_notes: |
+  #   Free-form summary from the reviewer. Optional.
+
+# ---------------------------------------------------------------
+# observation — use when record_type == "observation"
+# ---------------------------------------------------------------
+
+# observation:
+#   observed_artifact:
+#     generation_record_id: "REPLACE"
+#     # asset_id: "REPLACE"
+#     # manifest_id: "REPLACE"
+#   observed_behavior: |
+#     Factual description of what was noticed. Not a score.
+#   potential_concern: |
+#     Which benchmark discipline this potentially violates or
+#     supports (referenced by scoring category name).
+#   supporting_evidence:
+#     - kind: "REPLACE"                # timestamp | region | transcript_span | manifest_field | other
+#       reference: "REPLACE"
+#       note: "REPLACE"
+#   confidence: "REPLACE"              # low | medium | high
+#   affected_benchmark_dimensions:
+#     - "REPLACE"                      # e.g. identity_continuity
+
+# ---------------------------------------------------------------
+# operator_differed_from_observation — use when record_type ==
+# "operator_differed_from_observation"
+# ---------------------------------------------------------------
+
+# disagreement:
+#   observation_id: "REPLACE-WITH-UUID"
+#   score_id: "REPLACE-WITH-UUID"
+#   operator_rationale: |
+#     The reviewer's reasoning for scoring differently from what
+#     the observation flagged.

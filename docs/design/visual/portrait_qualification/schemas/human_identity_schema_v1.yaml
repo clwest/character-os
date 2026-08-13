@@ -1,0 +1,405 @@
+# Character OS — Human Identity Branch Schema
+#
+# Ratified reference: CANONICAL_IDENTITY_CONTRACT_V1.md
+#   §3.2 (branch-specific spec payload)
+#   §4   (field classification)
+#   §7.3 (kind + purpose)
+#   §17.3.a (JSONB spec, schema-validated by kind)
+#   §17.5.b (declarative approval floor + surface requirements)
+#
+# This schema validates the `spec` blob stored on
+# CharacterIdentityVersion when the parent CharacterIdentity has
+# `kind = human`. It ALSO carries the branch's declarative
+# `required_for_identity` and `surface_requirements` — those are
+# not part of any single identity payload; they are branch-level
+# rules that the identity-version service consumes to decide
+# approval and that the bundle evaluator consumes to decide
+# surface availability.
+#
+# Provider names appear NOWHERE in this file. Portrait Language
+# constraints (§8 same-room, §11 diversity, §17 clothing, §18
+# backgrounds) are enforced at other layers (normalization
+# pipeline, bundle approval, provider payload builder) — not
+# encoded as identity-spec fields here.
+
+schema_id: character_os.identity.human.v1
+schema_version: 1
+branch: human
+generated: 2026-08-06
+
+# ---------------------------------------------------------------
+# Section 1 — spec payload validator
+#
+# Every identity_version.spec for a human CharacterIdentity is
+# validated against this JSON Schema. Written in YAML for
+# readability; semantically JSON Schema (draft-07 style).
+# ---------------------------------------------------------------
+
+spec_payload_schema:
+  $schema: "http://json-schema.org/draft-07/schema#"
+  title: "Human CharacterIdentity spec payload"
+  type: object
+  additionalProperties: false
+  required:
+    - spec_schema_version
+    - age_presentation
+    - skin_tone
+    - hair
+    - eye
+    - face_shape
+    - gender_presentation
+    - canonical_outfit
+  properties:
+
+    spec_schema_version:
+      description: >
+        Payload schema version. Matches this file's `schema_version`
+        at write time. Old blobs remain readable via explicit
+        migration strategy (contract §17.3.a). Never silently
+        reinterpreted.
+      type: integer
+      const: 1
+
+    # -----------------------------------------------------------
+    # Canonical identity facts (per contract §4).
+    # Changes to any of these fields require a new identity
+    # version per §5.4.
+    # -----------------------------------------------------------
+
+    age_presentation:
+      description: >
+        The age range within which the teammate must consistently
+        read. Portrait Language §3.
+      type: object
+      required: [min_years, max_years]
+      additionalProperties: false
+      properties:
+        min_years:
+          type: integer
+          minimum: 18
+          maximum: 90
+        max_years:
+          type: integer
+          minimum: 18
+          maximum: 90
+        notes:
+          type: string
+          maxLength: 500
+
+    skin_tone:
+      description: >
+        Skin tone with a documented tonal range under which the
+        teammate must remain recognizable (Portrait Language §3).
+        `descriptor` is a free-text human anchor; `tonal_range`
+        is a structured pair for provider-payload composition.
+        No fixed enumeration — real skin tones vary continuously.
+      type: object
+      required: [descriptor, undertone]
+      additionalProperties: false
+      properties:
+        descriptor:
+          type: string
+          minLength: 1
+          maxLength: 200
+        undertone:
+          type: string
+          enum: [cool, neutral, warm, olive]
+        tonal_range_notes:
+          type: string
+          maxLength: 500
+
+    hair:
+      description: >
+        Hair characteristics (Portrait Language §3, §10.2).
+        Every subfield is an identity-critical constraint.
+      type: object
+      required: [length, texture, color]
+      additionalProperties: false
+      properties:
+        length:
+          type: string
+          enum: [shaved, very_short, short, medium, long, very_long, bald]
+        texture:
+          type: string
+          enum: [straight, wavy, curly, coily, mixed]
+        color:
+          type: string
+          minLength: 1
+          maxLength: 100
+        style_notes:
+          type: string
+          maxLength: 500
+        hairline:
+          type: string
+          enum: [full, receding, high, widow_peak, receded_temples, absent]
+        part:
+          type: string
+          enum: [left, right, center, none, natural]
+        volume:
+          type: string
+          enum: [flat, low, medium, full, voluminous]
+
+    facial_hair:
+      description: >
+        Presence, style, and density (Portrait Language §3, §10.2).
+        Absence is represented by `present: false`. Facial hair
+        that appears or disappears between surfaces breaks
+        identity (§10.2).
+      type: object
+      required: [present]
+      additionalProperties: false
+      properties:
+        present:
+          type: boolean
+        style:
+          type: string
+          enum: [stubble, short_beard, medium_beard, full_beard, goatee, mustache_only, sideburns]
+        density:
+          type: string
+          enum: [sparse, moderate, dense]
+        color:
+          type: string
+          maxLength: 100
+
+    eye:
+      description: >
+        Eye shape and color (Portrait Language §3).
+      type: object
+      required: [color, shape]
+      additionalProperties: false
+      properties:
+        color:
+          type: string
+          minLength: 1
+          maxLength: 100
+        shape:
+          type: string
+          enum: [round, almond, hooded, monolid, upturned, downturned, deep_set, wide_set, close_set]
+        notes:
+          type: string
+          maxLength: 300
+
+    face_shape:
+      description: >
+        Facial geometry (Portrait Language §3). `descriptor` is
+        the primary shape class; `distinguishing_features`
+        captures identity-critical asymmetries or landmarks
+        (Portrait Language §11 asymmetry note).
+      type: object
+      required: [descriptor]
+      additionalProperties: false
+      properties:
+        descriptor:
+          type: string
+          enum: [oval, round, square, heart, diamond, rectangular, triangular, oblong]
+        distinguishing_features:
+          type: array
+          items:
+            type: string
+            maxLength: 200
+          maxItems: 6
+
+    gender_presentation:
+      description: >
+        Portrait Language §11 requires gender presentation across
+        a real range. Free-text plus a structural discriminator
+        that provider-payload builders may use if needed.
+      type: object
+      required: [descriptor]
+      additionalProperties: false
+      properties:
+        descriptor:
+          type: string
+          minLength: 1
+          maxLength: 200
+        primary_axis:
+          type: string
+          enum: [feminine, masculine, androgynous, other]
+
+    canonical_outfit:
+      description: >
+        Stable default outfit (Portrait Language §17). Persists
+        across sessions (§17.1). Changes require a new identity
+        version.
+      type: object
+      required: [descriptor, formality, material_family]
+      additionalProperties: false
+      properties:
+        descriptor:
+          type: string
+          minLength: 1
+          maxLength: 500
+        formality:
+          type: string
+          enum: [casual, smart_casual, business_casual, business, formal]
+        material_family:
+          type: string
+          enum: [cotton, wool, linen, denim, leather, synthetic, mixed_natural]
+        color_family:
+          type: string
+          maxLength: 100
+        role_specific:
+          description: >
+            True only when the customer explicitly directed a
+            role-specific or branded outfit (Portrait Language
+            §17). Round-one fixtures should default to false.
+          type: boolean
+          default: false
+
+    visible_disability:
+      description: >
+        Optional. Present only when the fixture deliberately
+        selects one (Portrait Language §11). Absence must not
+        be encoded as false; simply omit the field.
+      type: object
+      additionalProperties: false
+      properties:
+        descriptor:
+          type: string
+          minLength: 1
+          maxLength: 300
+
+    # -----------------------------------------------------------
+    # Presentation preferences (per contract §4).
+    # Mutable in place (recorded against the version) — do not
+    # require a new identity version.
+    # -----------------------------------------------------------
+
+    preferred_default_framing:
+      description: >
+        The framing family this identity defaults to when a
+        surface allows multiple. Portrait Language §4.
+      type: string
+      enum: [presence, compact_identity, conversational]
+
+    lighting_baseline:
+      description: >
+        Documented ambient light configuration under which the
+        canonical identity was authored (Portrait Language §3).
+        Represented as a preference because normalization
+        re-normalizes at render time; the baseline is what the
+        identity was designed against.
+      type: object
+      required: [color_temperature, direction]
+      additionalProperties: false
+      properties:
+        color_temperature:
+          type: string
+          enum: [warm, neutral, cool, mixed_warm]
+        direction:
+          type: string
+          enum: [soft_frontal, soft_left, soft_right, soft_top, soft_ambient]
+        contrast:
+          type: string
+          enum: [low, medium, high]
+
+    expression_baseline_notes:
+      description: >
+        Free-text note on the resting expression posture
+        (Portrait Language §6). The actual expression reference
+        assets live as IdentityReference records with
+        `purpose = neutral_rest`, not on this spec.
+      type: string
+      maxLength: 500
+
+# ---------------------------------------------------------------
+# Section 2 — required_for_identity (declarative approval floor)
+#
+# Ratified in §17.5.b. The identity-version transition service
+# reads this list and asserts that every listed <kind>/<purpose>
+# pair exists at state=approved before promoting a version from
+# draft to approved. NO hardcoded floor in transition code.
+# ---------------------------------------------------------------
+
+required_for_identity:
+  - portrait_reference/front
+  - portrait_reference/neutral_rest
+
+# ---------------------------------------------------------------
+# Section 3 — surface_requirements (declarative surface capability)
+#
+# Ratified in §17.5.b. The bundle evaluator reads this map and
+# computes which surfaces a bundle can serve by asking, per
+# surface: "are all listed references present at state=approved
+# on this identity version?"
+#
+# Surface names correspond to product surfaces documented in
+# PRODUCT_IA_V1_2026-08-06.md and the seven canonical screen
+# specs. Studio and Conversation share framing (conversational
+# portrait per Portrait Language §4) but map to different
+# surface profiles because their tonal environment differs.
+# ---------------------------------------------------------------
+
+surface_requirements:
+
+  Home:
+    - portrait_reference/front
+
+  Presence:
+    - portrait_reference/front
+    - portrait_reference/neutral_rest
+
+  Studio:
+    - portrait_reference/front
+    - portrait_reference/listening
+
+  Live_Conversation:
+    - portrait_reference/front
+    - portrait_reference/slight_left
+    - portrait_reference/slight_right
+    - portrait_reference/neutral_rest
+    - portrait_reference/listening
+    - portrait_reference/consideration
+    - portrait_reference/gentle_positive
+
+  My_Team_Detail:
+    - portrait_reference/front
+    - portrait_reference/neutral_rest
+
+  My_Team_Card:
+    - portrait_reference/front
+
+  Piece_Detail_Byline:
+    - portrait_reference/front
+
+# ---------------------------------------------------------------
+# Section 4 — schema evolution rules
+#
+# Per contract §17.3.a: schema upgrades must use an explicit
+# migration strategy. Do not silently reinterpret old payloads
+# as the newest schema.
+# ---------------------------------------------------------------
+
+evolution_rules:
+
+  - rule: version_pin
+    detail: >
+      Every stored spec payload carries its spec_schema_version.
+      Readers must not assume an unversioned payload conforms to
+      this file. Unversioned payloads are legacy_imported per
+      §17.10.a and must be migrated with explicit provenance.
+
+  - rule: additive_fields_allowed
+    detail: >
+      A future schema_version = 2 may ADD optional fields
+      without a data migration, provided existing payloads
+      remain valid (they simply lack the new field).
+
+  - rule: required_field_addition_requires_migration
+    detail: >
+      Adding a required field or tightening an existing field's
+      constraint requires an explicit data-migration step per
+      §17.3.a. Not a silent re-interpretation.
+
+  - rule: enum_expansion_allowed
+    detail: >
+      Adding a new enum value is additive if existing values
+      remain valid. Removing or renaming an enum value requires
+      migration.
+
+  - rule: no_provider_leakage
+    detail: >
+      Provider-side identifiers (avatar IDs, voice IDs,
+      generation seeds) MUST NOT appear in this schema. Those
+      belong on GenerationRecord and on the canonical voice /
+      realtime references (contract §8, §17.4.a).

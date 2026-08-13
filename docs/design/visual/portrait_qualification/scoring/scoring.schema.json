@@ -1,0 +1,349 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "character_os.scoring.v1",
+  "title": "Character OS — Portrait Qualification Scoring Record",
+  "description": "Ratified per CANONICAL_IDENTITY_CONTRACT_V1.md §17.7.a. Every scoring evidence record validates against this schema. Immutable once written.",
+  "type": "object",
+  "required": ["record_id", "record_type", "metadata"],
+  "properties": {
+    "record_id": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+      "description": "UUID. Immutable."
+    },
+    "record_type": {
+      "type": "string",
+      "enum": ["score", "observation", "operator_differed_from_observation"]
+    },
+    "amends": {
+      "type": ["string", "null"],
+      "description": "record_id of a prior record this one amends. Append-only discipline — amendments do not overwrite. Null when the record stands alone."
+    },
+    "amendment_reason": {
+      "type": ["string", "null"],
+      "description": "Required when `amends` is non-null. The reason the amendment was created."
+    },
+    "metadata": {
+      "$ref": "#/definitions/immutable_metadata"
+    },
+    "score": {
+      "$ref": "#/definitions/score_body",
+      "description": "Present only when record_type == 'score'."
+    },
+    "observation": {
+      "$ref": "#/definitions/observation_body",
+      "description": "Present only when record_type == 'observation'."
+    },
+    "disagreement": {
+      "$ref": "#/definitions/disagreement_body",
+      "description": "Present only when record_type == 'operator_differed_from_observation'."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "record_type": { "const": "score" } } },
+      "then": { "required": ["score"] }
+    },
+    {
+      "if": { "properties": { "record_type": { "const": "observation" } } },
+      "then": { "required": ["observation"] }
+    },
+    {
+      "if": { "properties": { "record_type": { "const": "operator_differed_from_observation" } } },
+      "then": { "required": ["disagreement"] }
+    },
+    {
+      "if": { "properties": { "amends": { "type": "string" } } },
+      "then": { "required": ["amendment_reason"] }
+    }
+  ],
+  "definitions": {
+    "immutable_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "benchmark_round",
+        "scoring_schema_version",
+        "pipeline_version",
+        "normalization_version",
+        "fixture_id",
+        "fixture_version",
+        "provider",
+        "direction_hypothesis",
+        "execution_mode",
+        "execution_mode_actual",
+        "reviewer",
+        "timestamp",
+        "generation_record_id",
+        "manifest_id",
+        "tier"
+      ],
+      "properties": {
+        "benchmark_round": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scoring_schema_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "pipeline_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "normalization_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fixture_id": {
+          "type": "string",
+          "pattern": "^fixture_(h[1-9][0-9]*|nh[1-9][0-9]*)$"
+        },
+        "fixture_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1
+        },
+        "direction_hypothesis": {
+          "type": "string",
+          "enum": [
+            "softened_photographic",
+            "cinematic_naturalistic",
+            "painterly_naturalistic",
+            "contemporary_portrait_illustration",
+            "lightly_stylized_realism",
+            "identity_only"
+          ]
+        },
+        "execution_mode": {
+          "type": "string",
+          "enum": ["forced_mock", "auto", "real_required", "unavailable"]
+        },
+        "execution_mode_actual": {
+          "type": "string",
+          "enum": ["real", "mock", "mock_fallback"]
+        },
+        "reviewer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "generation_record_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "manifest_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tier": {
+          "type": "string",
+          "enum": ["raw", "normalized"]
+        }
+      }
+    },
+    "score_body": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["critical", "important", "nice_to_have"],
+      "properties": {
+        "critical": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "identity_continuity",
+            "speech_stability",
+            "trust_review",
+            "provider_reliability"
+          ],
+          "properties": {
+            "identity_continuity": { "$ref": "#/definitions/critical_dimension" },
+            "speech_stability": { "$ref": "#/definitions/critical_dimension" },
+            "trust_review": { "$ref": "#/definitions/critical_dimension" },
+            "provider_reliability": { "$ref": "#/definitions/critical_dimension" }
+          }
+        },
+        "important": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "warmth",
+            "distinctness_as_character_os",
+            "aesthetic_character_consistent_with_brief",
+            "long_term_familiarity",
+            "demographic_robustness",
+            "cross_modal_continuity"
+          ],
+          "properties": {
+            "warmth": { "$ref": "#/definitions/important_dimension" },
+            "distinctness_as_character_os": { "$ref": "#/definitions/important_dimension" },
+            "aesthetic_character_consistent_with_brief": { "$ref": "#/definitions/important_dimension" },
+            "long_term_familiarity": { "$ref": "#/definitions/important_dimension" },
+            "demographic_robustness": { "$ref": "#/definitions/important_dimension" },
+            "cross_modal_continuity": { "$ref": "#/definitions/important_dimension" }
+          }
+        },
+        "nice_to_have": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "artistic_uniqueness",
+            "cinematic_grading_quality",
+            "visual_novelty",
+            "peer_product_comparability"
+          ],
+          "properties": {
+            "artistic_uniqueness": { "$ref": "#/definitions/nice_to_have_dimension" },
+            "cinematic_grading_quality": { "$ref": "#/definitions/nice_to_have_dimension" },
+            "visual_novelty": { "$ref": "#/definitions/nice_to_have_dimension" },
+            "peer_product_comparability": { "$ref": "#/definitions/nice_to_have_dimension" }
+          }
+        },
+        "overall_notes": {
+          "type": "string",
+          "maxLength": 4000
+        }
+      }
+    },
+    "critical_dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value"],
+      "properties": {
+        "value": {
+          "type": "string",
+          "enum": ["pass", "concern", "fail", "not_applicable_unscored"]
+        },
+        "explanation": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "value": { "enum": ["concern", "fail"] } } },
+          "then": { "required": ["explanation"] }
+        }
+      ]
+    },
+    "important_dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value"],
+      "properties": {
+        "value": {
+          "type": "string",
+          "enum": ["strong", "neutral", "weak", "not_applicable_unscored"]
+        },
+        "explanation": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      }
+    },
+    "nice_to_have_dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value"],
+      "properties": {
+        "value": {
+          "type": "string",
+          "enum": ["notable", "not_notable", "not_applicable_unscored"]
+        },
+        "explanation": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      }
+    },
+    "observation_body": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observed_artifact",
+        "observed_behavior",
+        "potential_concern",
+        "supporting_evidence",
+        "confidence",
+        "affected_benchmark_dimensions"
+      ],
+      "properties": {
+        "observed_artifact": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "generation_record_id": { "type": "string" },
+            "asset_id": { "type": "string" },
+            "manifest_id": { "type": "string" }
+          }
+        },
+        "observed_behavior": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "potential_concern": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "supporting_evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["timestamp", "region", "transcript_span", "manifest_field", "other"]
+              },
+              "reference": { "type": "string" },
+              "note": { "type": "string" }
+            }
+          }
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        },
+        "affected_benchmark_dimensions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "disagreement_body": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_id",
+        "score_id",
+        "operator_rationale"
+      ],
+      "properties": {
+        "observation_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "score_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "operator_rationale": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,42 @@
+# Surface Profile — Team Card
+#
+# Framing family: Compact identity portrait (Portrait Language §4)
+# Consumed by: My Team list cards
+#
+# Shares framing family with `compact.yaml` but is scoped to
+# the My Team list-card surface. Currently identical to
+# `compact` at round one; kept as a separate profile so per-
+# surface adjustments (e.g., different resolution for a
+# denser My Team grid) can happen without changing compact's
+# other consumers.
+
+profile_id: team_card
+version: 1
+framing_family: compact_identity_portrait
+
+crop:
+  aspect_ratio: "1:1"
+  strategy: subject_relative
+  subject_scale: 1.2
+
+eye_line:
+  position_from_top: 0.38
+  position_from_left: 0.50
+
+margins:
+  min_edge_padding: 0.06
+
+output:
+  width_px: 384
+  height_px: 384
+  format: png
+  color_space: sRGB
+
+framing_behavior:
+  includes:
+    - face
+    - upper_shoulders
+  excludes:
+    - full_torso
+    - hands
+    - environment_props

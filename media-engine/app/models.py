@@ -1,0 +1,721 @@
+from datetime import datetime
+from typing import Literal, Optional
+
+from pydantic import BaseModel, Field
+
+
+class ConceptRequest(BaseModel):
+    business: str = Field(..., min_length=2, max_length=200)
+    product: str = Field("", max_length=200)
+    tone: str = Field("cinematic", max_length=80)
+    audience: str = Field("", max_length=200)
+
+
+class AdConcept(BaseModel):
+    title: str
+    hook: str
+    visual: str
+    caption: str
+    cta: str
+
+
+class ConceptResponse(BaseModel):
+    concepts: list[AdConcept]
+    recommended_index: int = 0
+    runway_prompt: str
+    mock_mode: bool
+
+
+SUPPORTED_VIDEO_MODELS = ("gen4_turbo", "gen4.5")
+
+
+class RunwayGenerateRequest(BaseModel):
+    prompt_text: str = Field(..., min_length=4, max_length=1000)
+    prompt_image: Optional[str] = None
+    duration: int = Field(5, ge=5, le=10)
+    ratio: str = Field("1280:720")
+    model: Optional[str] = None
+
+
+class RunwayGenerateResponse(BaseModel):
+    task_id: str
+    status: str
+    mock_mode: bool
+    model: Optional[str] = None
+    endpoint: Optional[str] = None  # "image_to_video" | "text_to_video"
+
+
+class ImageGenerateRequest(BaseModel):
+    prompt_text: str = Field(..., min_length=4, max_length=1000)
+    ratio: str = Field("1280:720")
+
+
+class ImageGenerateResponse(BaseModel):
+    image_id: str
+    image_url: str
+    mock_mode: bool
+    model: str
+
+
+TaskStatus = Literal["PENDING", "RUNNING", "SUCCEEDED", "FAILED", "CANCELED"]
+
+
+class RunwayTaskResponse(BaseModel):
+    task_id: str
+    status: TaskStatus
+    progress: float = 0.0
+    output: list[str] = []
+    failure_reason: Optional[str] = None
+    mock_mode: bool
+
+
+class CampaignSocialPost(BaseModel):
+    caption: str
+    cta: str
+    hashtags: list[str] = []
+
+
+class CampaignCreate(BaseModel):
+    business: str
+    product: str = ""
+    tone: str = ""
+    audience: str = ""
+    selected_concept: AdConcept
+    runway_prompt: str
+    runway_task_id: Optional[str] = None
+    runway_model: Optional[str] = None
+    reference_image_url: Optional[str] = None
+    video_url: Optional[str] = None
+    social_post: CampaignSocialPost
+    # PR AC — script-first save. The frontend can persist the
+    # author-edited Commercial Script in the same atomic CampaignCreate
+    # write so the script lives on the record from the very first save
+    # (instead of requiring a follow-up POST /script call).
+    commercial_script: Optional[str] = None
+    # PR AK — Brand color. Optional ``#RRGGBB`` hex; the reels pipeline
+    # passes this to ffmpeg's ``pad=…:color=…`` so vertical exports
+    # adopt brand-themed letterbox bars instead of the default dark
+    # slate. Validation lives in ``services.color_utils.normalize_brand_color``;
+    # invalid values fall back to the default colour rather than 422-ing
+    # the save (mirrors PR AA's "empty script clears" semantics).
+    brand_color: Optional[str] = None
+
+
+CacheStatus = Literal["ok", "failed", "skipped"]
+FinishStatus = Literal["ok", "failed", "unavailable"]
+HostStatus = Literal["ok", "failed", "unavailable"]
+
+
+# ---- PR Z — Storyboard Commercial Builder --------------------------
+
+StoryboardShotStatus = Literal["idle", "pending", "running", "ok", "failed"]
+
+
+# ---- PR CY — Append-only output history ---------------------------
+#
+# Every successful render (Spokesperson Ad, Captioned Reels, etc.)
+# appends one OutputRecord to ``Campaign.outputs`` so older renders
+# survive the next click instead of being overwritten by the
+# single-value `host_video_url` / `spokesperson_reels_url` URL
+# fields. Cache filenames are now per-output so historical files
+# stay on disk; the legacy single-field URLs continue to point at
+# the canonical "latest" path for backward compat.
+
+OutputKind = Literal[
+    "spokesperson_ad",
+    "spokesperson_reels",
+    "cinematic_video",
+    "voiced_commercial",
+    "storyboard",
+    "storyboard_voiced",
+    "dialogue_scene",
+    "dialogue_scene_reels",
+    # PR DO — long-form spokesperson ad. Internally a stitched
+    # concat of multiple avatar_videos chunks (each ≤300 chars
+    # per Runway's `speech.text` cap), surfaced as ONE OutputRecord
+    # so the Videos gallery shows one card per long-form ad.
+    "long_spokesperson_ad",
+    # PR EF — DaVinci Resolve template-driven render. Avatar MP4
+    # is fed into a pre-built Resolve project template (color
+    # grade + transitions + Fusion titles + music bed), output is
+    # the polished final cut. Local-only feature; requires Resolve
+    # Studio running on the same machine.
+    "spokesperson_ad_resolve",
+    # PR EY — voice_dubbing applied to an existing Spokesperson Ad's
+    # audio track. Original video stream stays; audio is replaced
+    # with Runway's dubbed-into-{target_lang} version. Lip-sync will
+    # NOT match the new language (avatar's mouth still moves to the
+    # original English phonemes) — for proper lip-synced localization,
+    # the path is LLM-translate the script + re-render via
+    # avatar_videos. This kind is the "what does voice_dubbing produce
+    # on an existing ad" probe surface.
+    "spokesperson_ad_dubbed",
+    # PR FA — Aleph `video_to_video` style remix. Runway's gen4_aleph
+    # model transforms the entire visual stream (color, texture,
+    # lighting) toward a style prompt while preserving timing +
+    # composition. Source is any prior rendered MP4; output is a new
+    # MP4 with the requested aesthetic. The `remix_style` field on
+    # OutputRecord carries the preset id (noir / anime / chrome /
+    # watercolor / cyberpunk) so the Videos gallery can sub-bucket
+    # remixes by style.
+    "spokesperson_ad_remix",
+    # PR FB — Polish pass. ffmpeg-burns captions (estimated timing
+    # from the OutputRecord's script field) + a lower-third
+    # ("character · business") + a 1.5s intro card with the business
+    # name + a 1.5s outro CTA card. Pure ffmpeg, no Runway. Lands
+    # in finished/ next to the other ffmpeg-built finals. Output
+    # duration ≈ source + 3s (intro + outro).
+    "spokesperson_ad_polished",
+    # PR FC — Picture-in-Picture overlay. Source spokesperson ad with
+    # the campaign's reference image (or character portrait fallback)
+    # overlaid in the bottom-right corner. Pure ffmpeg, no Runway.
+    # Lands in finished/ next to the other ffmpeg-built finals.
+    "spokesperson_ad_with_pip",
+    # PR FD — Reverse-PiP / cinematic-backdrop composite. The
+    # spokesperson ad becomes a top-right corner tile; a chosen
+    # `cinematic_video` output fills the background (cover-cropped,
+    # looped to the avatar ad's duration). Pure ffmpeg, no Runway —
+    # repurposes two existing campaign outputs. Audio = avatar's
+    # voice (cinematic clips are silent).
+    "spokesperson_ad_with_backdrop",
+    # PR FE — Multi-avatar PiP / co-host composite. Main spokesperson
+    # ad fills the frame (audio source); co-host avatar clip (from
+    # ANY campaign / character) shrinks into a top-LEFT corner tile
+    # with white border, looped if shorter than main, audio muted.
+    # Pure ffmpeg, no Runway. Visual co-presence of two avatars;
+    # scripted audio alternation deferred to a later slice.
+    "spokesperson_ad_with_cohost",
+    # PR FF — Music bed mixed under the avatar's voice. Bed file
+    # comes from `backend/data/audio_beds/`; mix level defaults to
+    # -18 dB (broadcast-standard music-under-dialogue). Pure ffmpeg,
+    # no Runway.
+    "spokesperson_ad_with_music",
+    # PR FG — B-roll cutaway. A cinematic_video clip splices INTO
+    # the middle of the avatar ad's video timeline (default 30%→70%
+    # of the duration); the avatar's audio plays continuously
+    # across the entire output. Pure ffmpeg, no Runway.
+    "spokesperson_ad_with_broll",
+    # PR FH — Animated PiP. Dynamic upgrade to PR FC's static-image
+    # PiP overlay. Backend fires `image_to_video` on the campaign
+    # reference image (or character portrait fallback) with a motion
+    # preset prompt, then ffmpeg-loops the result as the corner tile.
+    # One Runway credit per fire (image_to_video, 5s); subsequent
+    # ffmpeg composite is free. `motion_id` carries the preset
+    # (push-in / pan-left / pan-right / parallax / zoom-out).
+    "spokesperson_ad_with_animated_pip",
+]
+
+
+class OutputRecord(BaseModel):
+    """One persisted render belonging to a Campaign. Append-only."""
+
+    id: str  # 12-char hex generated server-side
+    kind: OutputKind
+    # Operator-facing URL (e.g. /api/campaigns/{id}/output/{output_id}).
+    video_url: str
+    # On-disk filename relative to the per-kind cache dir. The
+    # /output/{id} route resolves this back to a FileResponse.
+    cache_filename: str
+    # Optional contextual fields for distinguishing outputs in the
+    # gallery without re-fetching the campaign.
+    script: Optional[str] = None
+    task_id: Optional[str] = None
+    mock_mode: Optional[bool] = None
+    parent_output_id: Optional[str] = None  # for derived outputs (e.g. reels)
+    # PR DC — ad variant linkage. When the operator renders a
+    # specific Ad Variant (instead of the legacy `commercial_script`
+    # field), the variant id + title are captured on the OutputRecord
+    # so the Outputs gallery can group renders under their producing
+    # variant. Optional — pre-PR-DC outputs and legacy script renders
+    # leave it null.
+    variant_id: Optional[str] = None
+    variant_title: Optional[str] = None
+    # PR DJ — dialogue-scene linkage. When a Dialogue Scene stitch or
+    # reels render lands as an output, the cast (line speakers) and
+    # line count are captured here so the Videos gallery can surface
+    # "cast: Donny, Riggs, Miles · 3 lines" without re-walking the
+    # campaign's dialogue_lines (which can be re-planned later).
+    # Optional — pre-PR-DJ outputs and non-dialogue kinds leave both
+    # null.
+    cast_names: Optional[list[str]] = None
+    line_count: Optional[int] = None
+    # PR DO — long-form spokesperson ad metadata. `chunk_count` is the
+    # number of avatar_videos calls that were stitched together;
+    # `duration_estimate` is computed from chars-per-second so the
+    # Videos gallery can show "~42s estimated" before the operator
+    # plays the MP4. `stitched_from_output_ids` is reserved for a
+    # future per-chunk persistence story — chunks today live as
+    # ephemeral disk files only, so the list stays empty.
+    chunk_count: Optional[int] = None
+    duration_estimate: Optional[float] = None
+    stitched_from_output_ids: Optional[list[str]] = None
+    # PR EY — voice_dubbing target language for `spokesperson_ad_dubbed`
+    # outputs. Two-letter code from SUPPORTED_DUB_LANGS (e.g. "es",
+    # "ja", "fr"). The Videos gallery uses this to render a 🌐 lang
+    # badge so the operator can tell their dubbed versions apart.
+    dub_lang: Optional[str] = None
+    # PR FA — Aleph style preset id for `spokesperson_ad_remix`
+    # outputs. One of the keys in
+    # `services.aleph_client.STYLE_PRESETS` (noir, anime, chrome,
+    # watercolor, cyberpunk). Frontend uses this to sub-bucket
+    # remixes under the 🎨 Style Remixes group.
+    remix_style: Optional[str] = None
+    # PR FH — Animated PiP motion preset id for
+    # `spokesperson_ad_with_animated_pip` outputs. One of
+    # MOTION_PRESETS keys (push-in / pan-left / pan-right /
+    # parallax / zoom-out). Frontend uses this to badge tiles by
+    # motion style.
+    motion_id: Optional[str] = None
+    created_at: datetime
+
+
+class AdVariant(BaseModel):
+    """PR DC — One Ad Variant attached to a Spokesperson Ad campaign.
+
+    Campaign context (business / product / audience / tone) stays
+    stable across variants; each variant carries its own script +
+    render history. Lets the operator try multiple takes against the
+    same campaign brief without overwriting prior scripts/renders.
+    """
+
+    id: str  # 12-char hex generated server-side
+    title: str = Field(..., min_length=1, max_length=80)
+    script: str = Field(default="", max_length=2000)
+    # PR DO — optional long-form script for the multi-chunk Long
+    # Spokesperson Ad pipeline. Up to ~1500 chars (roughly 30-100s of
+    # speech) which the long-ad service chunks at sentence
+    # boundaries into ≤280-char pieces, renders each via
+    # avatar_videos, and stitches with ffmpeg into one MP4. Empty by
+    # default so the standard 300-char `script` field stays the
+    # source of truth for single-call renders.
+    long_script: Optional[str] = Field(default=None, max_length=1500)
+    created_at: datetime
+    updated_at: datetime
+
+
+class AdVariantCreate(BaseModel):
+    """Request body for `POST /api/campaigns/{id}/ad-variant`.
+
+    Upsert shape: passing `id` updates that variant; omitting it
+    creates a new one. Title is required; script defaults to empty
+    so the operator can create a placeholder variant and fill it in
+    later.
+    """
+
+    id: Optional[str] = None
+    title: str = Field(..., min_length=1, max_length=80)
+    script: str = Field(default="", max_length=2000)
+    # PR DO — optional long-form script. None preserves the existing
+    # variant's long_script unchanged (sticky semantics); pass an
+    # empty string to explicitly clear it.
+    long_script: Optional[str] = Field(default=None, max_length=1500)
+
+
+# ---- PR AF — Multi-Character Dialogue Scene Builder ---------------
+
+DialogueLineStatus = Literal["idle", "pending", "running", "ok", "failed"]
+
+
+class DialogueLine(BaseModel):
+    id: str  # "line-1" / "line-2" / "line-3"
+    character_id: Optional[str] = None
+    character_name: Optional[str] = None
+    avatar_id: Optional[str] = None
+    text: str = ""
+    status: DialogueLineStatus = "idle"
+    task_id: Optional[str] = None
+    video_url: Optional[str] = None  # /api/campaigns/{id}/dialogue/line/{line_id}
+    cache_filename: Optional[str] = None
+    error: Optional[str] = None
+    mock_mode: Optional[bool] = None
+
+
+class TranscriptTurn(BaseModel):
+    """PR AJ — one turn of a recorded realtime conversation. Mirrors
+    Runway's documented ``transcript[]`` shape from
+    ``GET /v1/avatar_conversations/{id}`` while staying tolerant of
+    the field-name variance the deep review notes
+    (``role``/``speaker``, ``text``/``content``, ``timestamp``/``at``).
+    """
+
+    role: Literal["avatar", "user", "system"] = "system"
+    speaker: Optional[str] = None
+    text: str
+    timestamp: Optional[str] = None
+
+
+# ---- PR BC — Per-campaign transcript history audit trail ----------
+
+TranscriptHistoryStatus = Literal[
+    "ok", "failed", "mock", "empty", "no_session"
+]
+
+
+class TranscriptHistoryEntry(BaseModel):
+    """PR BC — one entry in a campaign's transcript audit trail. The
+    realtime transcript route (``POST /realtime-transcript``)
+    persists the most recent fetch in the campaign's
+    ``realtime_transcript_*`` fields and ALSO appends one of these
+    entries to ``realtime_transcript_history`` so operators can
+    review prior fetches over time.
+
+    The store caps each campaign's history at the most recent 20
+    entries (``TRANSCRIPT_HISTORY_MAX`` in ``storage.py``) so the
+    JSON record never bloats over a long demo session.
+    """
+
+    fetched_at: datetime
+    conversation_id: Optional[str] = None
+    status: Optional[TranscriptHistoryStatus] = None
+    turn_count: int = 0
+    turns: list[TranscriptTurn] = []
+    mock_mode: Optional[bool] = None
+    error: Optional[str] = None
+
+
+class StoryboardShot(BaseModel):
+    id: str  # "shot-1" / "shot-2" / "shot-3"
+    label: str  # human-readable beat label ("Hook" / "Action" / "Payoff")
+    prompt: str
+    source_image_url: Optional[str] = None
+    task_id: Optional[str] = None
+    status: StoryboardShotStatus = "idle"
+    video_url: Optional[str] = None  # /api/campaigns/{id}/storyboard/shot/<shot_id>
+    cache_filename: Optional[str] = None  # filename only; full path resolved server-side
+    duration: int = 5
+    error: Optional[str] = None
+    mock_mode: Optional[bool] = None
+
+
+class Campaign(CampaignCreate):
+    id: str
+    created_at: datetime
+    cached_video_url: Optional[str] = None
+    cache_status: Optional[CacheStatus] = None
+    cache_error: Optional[str] = None
+    finished_video_url: Optional[str] = None  # legacy: mirrors finished_videos["landscape"]
+    finished_videos: dict[str, str] = {}  # PR B: per-format URLs
+    finish_status: Optional[FinishStatus] = None  # status of the most recent finish op
+    finish_error: Optional[str] = None  # error from the most recent finish op
+    # PR F — Brand Spokesperson Avatar (per-campaign Runway Avatar) +
+    # Avatar Host Clip (avatar_videos task output).
+    host_avatar_id: Optional[str] = None
+    host_avatar_status: Optional[Literal["pending", "ready", "failed", "mock"]] = None
+    host_avatar_image_url: Optional[str] = None  # processed thumbnail from Runway
+    host_avatar_image_source: Optional[Literal["campaign", "stock", "override"]] = None
+    host_avatar_error: Optional[str] = None
+    host_video_url: Optional[str] = None
+    host_status: Optional[HostStatus] = None
+    host_error: Optional[str] = None
+    host_task_id: Optional[str] = None
+    host_mock_mode: Optional[bool] = None
+    # PR I+ — Avatar Picker. When set, takes precedence over
+    # host_avatar_id for both the Avatar Host Clip and the realtime
+    # Spokesperson session. Falls back to host_avatar_id when null.
+    selected_avatar_id: Optional[str] = None
+    selected_avatar_name: Optional[str] = None
+    selected_avatar_source: Optional[Literal["preset", "custom", "stock", "campaign", "unknown"]] = None
+    selected_avatar_thumbnail_url: Optional[str] = None
+    # PR K — Character Studio. When set, takes precedence over
+    # selected_avatar_id and host_avatar_id. Resolution order:
+    # character.runway_avatar_id > selected_avatar_id > host_avatar_id.
+    character_id: Optional[str] = None
+    generated_character_prompt: Optional[str] = None
+    # PR H — Brand Voice Studio + Multilingual Dub Pack
+    brand_voice_id: Optional[str] = None
+    brand_voice_status: Optional[Literal["pending", "ready", "failed", "mock"]] = None
+    brand_voice_preview_url: Optional[str] = None  # local /api/campaigns/{id}/audio/voice-preview
+    brand_voice_error: Optional[str] = None
+    brand_voice_mock_mode: Optional[bool] = None
+    dubbed_audio_urls: dict[str, str] = {}  # lang_code -> /api/campaigns/{id}/audio/dub-{lang}
+    dub_statuses: dict[str, str] = {}       # lang_code -> "ok" | "failed"
+    dub_errors: dict[str, str] = {}         # lang_code -> error message
+    # PR S — Commercial with Voice. Combines the silent visual cut with the
+    # Avatar Host Clip's audio track via local ffmpeg. All optional;
+    # backward-compatible with old campaign records that predate the field.
+    voiced_commercial_url: Optional[str] = None
+    voiced_commercial_status: Optional[Literal["ok", "failed", "no_video", "no_host", "no_audio", "unavailable"]] = None
+    voiced_commercial_error: Optional[str] = None
+    # PR Z — Storyboard Commercial Builder. Three image-to-video shots
+    # stitched into a longer commercial via ffmpeg. Shots are
+    # individually retryable; stitch refuses until all are `ok`.
+    storyboard_shots: list["StoryboardShot"] = []
+    storyboard_status: Optional[Literal[
+        "idle", "planning", "ready", "stitching", "ok", "failed"
+    ]] = None
+    storyboard_video_url: Optional[str] = None
+    storyboard_error: Optional[str] = None
+    storyboard_voiced_url: Optional[str] = None
+    storyboard_voiced_status: Optional[Literal[
+        "ok", "failed", "no_video", "no_host", "no_audio", "unavailable"
+    ]] = None
+    storyboard_voiced_error: Optional[str] = None
+    # PR AA — Script-first voiced commercial flow. The user (or the
+    # deterministic builder) writes a Commercial Script before the
+    # spokesperson clip is generated; downstream host-video + voiced-
+    # commercial passes use this when present, falling back to
+    # `character_host_client.build_script` otherwise.
+    commercial_script: Optional[str] = None
+    commercial_script_updated_at: Optional[datetime] = None
+    # PR AF — Multi-Character Dialogue Scene Builder. Sequential
+    # talking-avatar lines stitched into one MP4 — like an Office-style
+    # branded skit. Each line targets a specific character's
+    # runway_avatar_id; ffmpeg concat preserves audio across lines.
+    dialogue_lines: list["DialogueLine"] = []
+    dialogue_scene_status: Optional[Literal[
+        "idle", "planning", "ready", "stitching", "ok", "failed"
+    ]] = None
+    dialogue_scene_video_url: Optional[str] = None
+    dialogue_scene_error: Optional[str] = None
+    # PR AG — Vertical / Reels export. Letterbox the existing
+    # Spokesperson Ad and Dialogue Scene MP4s into 720x1280 with a
+    # brand-coloured backdrop so the same renders are immediately
+    # postable to TikTok / Reels / Shorts. No new Runway calls.
+    spokesperson_reels_url: Optional[str] = None
+    spokesperson_reels_status: Optional[Literal[
+        "ok", "failed", "no_source", "unavailable"
+    ]] = None
+    spokesperson_reels_error: Optional[str] = None
+    dialogue_scene_reels_url: Optional[str] = None
+    dialogue_scene_reels_status: Optional[Literal[
+        "ok", "failed", "no_source", "unavailable"
+    ]] = None
+    dialogue_scene_reels_error: Optional[str] = None
+    # PR AI — Avatar documentIds for grounded realtime. ``runway_document_id``
+    # holds the id returned by ``POST /v1/documents`` for the campaign's
+    # generated brand brief; the realtime broker passes it as ``documentIds``
+    # on session create so the live avatar grounds answers in the brief
+    # text instead of relying solely on the inline ``personality`` string.
+    runway_document_id: Optional[str] = None
+    runway_document_status: Optional[Literal[
+        "ready", "failed", "mock"
+    ]] = None
+    runway_document_error: Optional[str] = None
+    runway_document_mock_mode: Optional[bool] = None
+    # PR AJ — Conversation Transcript Retrieval. The realtime
+    # session's id doubles as the conversation id (Runway docs
+    # ``characters/conversations/``); we capture it after a
+    # successful session create so a follow-up fetch can pull the
+    # transcript + recording. Mock mode uses a deterministic
+    # ``mock_conv_<sha>`` so the replay UX still demos without keys.
+    runway_conversation_id: Optional[str] = None
+    realtime_transcript_status: Optional[Literal[
+        "ok", "failed", "mock", "empty", "no_session"
+    ]] = None
+    realtime_transcript_error: Optional[str] = None
+    realtime_transcript_fetched_at: Optional[datetime] = None
+    realtime_transcript_turns: list["TranscriptTurn"] = []
+    realtime_transcript_mock_mode: Optional[bool] = None
+    # PR BC — transcript audit trail. Each successful (or resolved
+    # failure) fetch appends a compact ``TranscriptHistoryEntry`` to
+    # this list (newest first). Capped at the most recent 20 entries
+    # by the store so the JSON record never grows unbounded across
+    # long demo sessions. Latest fetch state remains in the
+    # ``realtime_transcript_*`` fields above so existing UI / export
+    # surfaces continue operating against the latest fetch.
+    realtime_transcript_history: list["TranscriptHistoryEntry"] = []
+    # PR CY — Append-only render history. Every successful render
+    # appends one OutputRecord here; the canonical
+    # `host_video_url` / `spokesperson_reels_url` fields above
+    # continue to point at the **latest** render for backward compat,
+    # while this list preserves prior renders so the Outputs gallery
+    # surfaces full history.
+    outputs: list[OutputRecord] = []
+    # PR DC — Ad Variants. Each variant carries a title + script and
+    # tracks its own render history (via the per-OutputRecord
+    # variant_id linkage above). Multiple variants per campaign lets
+    # the operator iterate on scripts without overwriting prior
+    # takes. Legacy campaigns without variants keep using the
+    # `commercial_script` field above. Capped at 20 variants by the
+    # store helper.
+    ad_variants: list[AdVariant] = []
+
+
+class CampaignList(BaseModel):
+    campaigns: list[Campaign]
+
+
+# ---- PR K — Character Studio --------------------------------------
+
+CharacterTemplate = Literal["mascot", "founder", "coach", "local_guide"]
+CharacterAvatarStatus = Literal["pending", "ready", "failed", "mock"]
+PortraitSource = Literal["generated", "uploaded", "stock", "mock"]
+
+
+# ---- PR BB — Voice repair / apply audit trail ---------------------
+
+VoiceHistoryAction = Literal["clone", "apply", "repair", "refresh", "verify"]
+
+
+class VoiceRepairHistoryEntry(BaseModel):
+    """PR BB — single audit-trail entry for a voice clone/apply/repair/
+    refresh event. Compact by design — one row per operator action.
+
+    The store caps each character's history at the most recent 20
+    entries (``VOICE_HISTORY_MAX`` in ``character_store.py``) so the
+    JSON record never bloats over a long demo session.
+    """
+
+    timestamp: datetime
+    action: VoiceHistoryAction
+    before_voice_id: Optional[str] = None
+    after_voice_id: Optional[str] = None
+    resolved_voice_id: Optional[str] = None
+    drift_status: Optional[Literal["match", "drift", "unknown"]] = None
+    # ``status`` mirrors the action's primary outcome string —
+    # PR AN clone status (ready/mock/failed), PR AQ apply_result
+    # status (applied/mock_patched/pending_avatar/failed), or PR AS
+    # verify state (verified/mock_verified/unverified/failed).
+    status: Optional[str] = None
+    error: Optional[str] = None
+    mock_mode: Optional[bool] = None
+
+
+# PR CX — Knowledge Source. A small, single-character-scoped record
+# the operator pastes into the Knowledge tab — brand notes, product
+# descriptions, FAQs, audience facts. The lane uses the saved text
+# as a reference panel next to the script editor (not RAG, not
+# embeddings — manual paste with reliable persistence).
+KnowledgeSourceType = Literal[
+    "brand_note", "product", "audience", "offer", "campaign_fact", "other"
+]
+
+
+class KnowledgeSource(BaseModel):
+    """One persisted knowledge entry attached to a Character."""
+
+    id: str  # short hex (uuid4().hex[:12]) generated server-side
+    title: str = Field(..., min_length=1, max_length=120)
+    source_type: KnowledgeSourceType = "brand_note"
+    content: str = Field(..., min_length=1, max_length=8000)
+    created_at: datetime
+    updated_at: datetime
+
+
+class KnowledgeSourceCreate(BaseModel):
+    """Request body for ``POST /api/characters/{id}/knowledge``."""
+
+    title: str = Field(..., min_length=1, max_length=120)
+    source_type: KnowledgeSourceType = "brand_note"
+    content: str = Field(..., min_length=1, max_length=8000)
+
+
+class Character(BaseModel):
+    id: str
+    slug: str
+    name: str
+    template: CharacterTemplate = "mascot"
+    subject: Optional[str] = None
+    style: Optional[str] = None
+
+    personality: Optional[str] = None
+    catchphrases: list[str] = []
+    voice_preset: str = "vincent"
+    # PR AN — Custom voice cloning foundation. ``custom_voice_id`` is
+    # the Runway voice id returned by ``POST /v1/voices`` with
+    # ``from.type=audio`` (or a deterministic ``mock_voice_<sha>`` in
+    # mock mode). When set, downstream avatar creation prefers
+    # ``voice: {type: "custom", voiceId: <id>}`` over the runway-live-
+    # preset binding.
+    custom_voice_id: Optional[str] = None
+    custom_voice_name: Optional[str] = None
+    custom_voice_status: Optional[Literal["ready", "failed", "mock"]] = None
+    custom_voice_error: Optional[str] = None
+    custom_voice_mock_mode: Optional[bool] = None
+    # PR AR — Runway voice ``previewUrl`` from the READY poll
+    # response. ``None`` in mock mode (no playable URL) and when the
+    # poll didn't surface one before timeout. UI surfaces an inline
+    # `<audio controls>` when set, or "Preview unavailable" copy
+    # when the voice exists but the URL doesn't.
+    custom_voice_preview_url: Optional[str] = None
+    # PR AQ — Avatar PATCH for custom voice swap. After a successful
+    # clone, Character OS auto-PATCHes the existing Runway avatar (when
+    # one is bound) so the cloned voice applies without an avatar
+    # recreate. ``pending_avatar`` is the safe baseline when no
+    # avatar exists yet — the next Create Runway Avatar will bind
+    # the voice via the PR AN create-avatar payload.
+    custom_voice_avatar_patch_status: Optional[Literal[
+        "applied", "mock_patched", "failed", "pending_avatar"
+    ]] = None
+    custom_voice_avatar_patch_error: Optional[str] = None
+    custom_voice_avatar_patched_at: Optional[datetime] = None
+    # PR AS — Avatar resource introspection. After a successful
+    # PATCH (PR AQ), `GET /v1/avatars/{id}` confirms the avatar's
+    # voice binding actually landed. ``avatar_voice_resolved_*`` are
+    # the values pulled from the avatar's voice block (defensive
+    # extraction tolerates Runway shape changes); ``status`` /
+    # ``verified_at`` / ``verify_error`` mirror the introspection
+    # outcome (verified / mock_verified / unverified / failed).
+    avatar_voice_resolved_type: Optional[str] = None
+    avatar_voice_resolved_id: Optional[str] = None
+    avatar_voice_resolved_label: Optional[str] = None
+    avatar_voice_verify_status: Optional[Literal[
+        "verified", "mock_verified", "unverified", "failed"
+    ]] = None
+    avatar_voice_verified_at: Optional[datetime] = None
+    avatar_voice_verify_error: Optional[str] = None
+    # PR AT — drift detection. Compares ``custom_voice_id`` to
+    # ``avatar_voice_resolved_id`` after every PR AQ PATCH + PR AS
+    # verify. The UI surfaces a single drift-aware pill instead of
+    # inferring from the underlying ids.
+    avatar_voice_drift_status: Optional[Literal[
+        "match", "drift", "unknown"
+    ]] = None
+    # PR BB — Voice repair/apply audit trail. Each clone / apply /
+    # repair / refresh appends a compact entry to this list (newest
+    # first). Capped at the most recent 20 entries by the store so
+    # the JSON record never grows unbounded over a long demo session.
+    voice_repair_history: list[VoiceRepairHistoryEntry] = []
+    # PR CX — Knowledge sources. Operator-pasted brand notes /
+    # product descriptions / FAQs / audience facts that the
+    # spokesperson workspace surfaces next to the script editor.
+    # Capped at 20 entries by the store. Manual paste only — no
+    # embeddings, no RAG.
+    knowledge_sources: list[KnowledgeSource] = []
+
+    # Portrait — local cache lives at backend/data/characters/<id>-portrait.png
+    portrait_url: Optional[str] = None  # /api/characters/{id}/portrait
+    portrait_source: Optional[PortraitSource] = None
+    portrait_prompt: Optional[str] = None
+    # PR CS — capture the most recent portrait failure so the operator
+    # can diagnose `INTERNAL.BAD_OUTPUT.CODE01` etc. without spelunking
+    # logs. Cleared on success. Format mirrors the
+    # `_portrait_task_attempt` raised string:
+    # `portrait task FAILED: <reason> [code=<failureCode>] (task=<id>)`.
+    portrait_last_error: Optional[str] = None
+
+    # Runway avatar binding
+    runway_avatar_id: Optional[str] = None
+    runway_avatar_status: Optional[CharacterAvatarStatus] = None
+    runway_avatar_thumbnail_url: Optional[str] = None
+    runway_avatar_error: Optional[str] = None
+
+    # PR EP — set to True when a portrait is regenerated AFTER the
+    # avatar was already built (so the cached avatar still binds the
+    # OLD portrait and new ad renders will show the old face).
+    # Cleared back to False when the operator rebuilds the avatar.
+    # Drives the stale-avatar banner in IdentityPanelV2.
+    portrait_drift_from_avatar: bool = False
+
+    # Provenance
+    source_campaign_id: Optional[str] = None
+    mock_mode: Optional[bool] = None
+    metadata: dict = {}
+
+    created_at: datetime
+    updated_at: datetime
+
+
+class CharacterCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=80)
+    template: CharacterTemplate = "mascot"
+    subject: Optional[str] = Field(default=None, max_length=300)
+    style: Optional[str] = Field(default=None, max_length=300)
+    personality: Optional[str] = Field(default=None, max_length=600)
+    catchphrases: list[str] = []
+    voice_preset: Optional[str] = None
+    source_campaign_id: Optional[str] = None
+
+
+class CharacterList(BaseModel):
+    characters: list[Character]

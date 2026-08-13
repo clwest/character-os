@@ -1,0 +1,35 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+pydantic-settings==2.5.2
+httpx==0.27.2
+python-dotenv==1.0.1
+openai==1.51.0
+# PR R — multipart parsing for POST /api/runway/upload-image. FastAPI
+# `UploadFile` / `File` depends on this; otherwise import-time crash.
+python-multipart==0.0.20
+# SESSION 179 / V16 — avatar background removal for
+# composite_video. rembg ships an ONNX-runtime portrait model
+# (u2net_human_seg); opencv is the frame decoder feeding it. Both
+# CPU-only — first call downloads the ~176MB model to ~/.u2net/.
+rembg==2.0.75
+onnxruntime==1.26.0
+opencv-python-headless==4.13.0.92
+# SESSION 246 / §19 Step 7 — normalization pipeline consumes
+# ratified YAML surface profiles + background-family schemas
+# (docs/design/visual/portrait_qualification/schemas/) and
+# performs deterministic Pillow-backed image transforms. Pillow
+# is already a transitive dep of rembg; pin explicitly so the
+# pipeline's PNG-encode determinism does not silently drift on
+# a future rembg-driven upgrade. PyYAML is not otherwise
+# imported by media-engine today — pin so the Step 7 loaders
+# have a stable parser.
+Pillow==12.3.0
+PyYAML==6.0.3
+# SESSION 247 / §19 Step 8.a — benchmark harness fixture loader
+# validates identity payloads against the ratified branch
+# schemas (JSON Schema draft-07 written in YAML). Same
+# jsonschema library the Django-side ``shell/apps/identity/
+# schema_loader.py`` already relies on; pinned here so the
+# media-engine's Step 8 harness is a self-contained runtime.
+jsonschema>=4.0

@@ -1,0 +1,48 @@
+# Surface Profile — Studio
+#
+# Framing family: Conversational portrait (Portrait Language §4)
+# Consumed by: Studio teammate presence pane
+#
+# The conversational portrait shows head, shoulders, and enough
+# upper torso to support natural gesture. Studio uses this
+# framing during narration and other active-presence contexts.
+#
+# Shares framing with `conversation.yaml`; differs in tonal
+# environment class (Studio uses the neutral workshop surround;
+# Conversation runs darker per Portrait Language §8).
+
+profile_id: studio
+version: 1
+framing_family: conversational_portrait
+
+crop:
+  aspect_ratio: "3:4"
+  strategy: subject_relative
+  subject_scale: 1.6
+
+eye_line:
+  position_from_top: 0.34
+  position_from_left: 0.50
+
+margins:
+  min_edge_padding: 0.08
+
+output:
+  width_px: 900
+  height_px: 1200
+  format: png
+  color_space: sRGB
+
+framing_behavior:
+  includes:
+    - face
+    - shoulders
+    - upper_torso
+  excludes:
+    - hands_below_frame
+    - environment_props
+
+# Tonal environment class — signals to the normalization
+# background-replacement stage which category of background
+# to draw from within the controlled family.
+tonal_environment_class: workshop_neutral

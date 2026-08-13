@@ -1,0 +1,195 @@
+# Character OS — Human Purpose Schema
+#
+# Ratified reference: CANONICAL_IDENTITY_CONTRACT_V1.md
+#   §7.3   (reference kinds and purposes)
+#   §17.5.a (structured kind + purpose, per-branch validation)
+#   §17.2.a (non-human purposes deferred to Character Presence Language)
+#
+# This schema enumerates valid `purpose` values per `kind` for
+# the human branch. It is the validator consulted by the
+# authoritative write path when an IdentityReference is created
+# for an identity_version whose parent CharacterIdentity.kind is
+# `human`.
+#
+# Adding a purpose value to this file does NOT require a Django
+# migration (per §17.3.a discipline).
+#
+# Kind describes what the artifact fundamentally is.
+# Purpose describes how the artifact participates in identity.
+# The two are kept separate deliberately — collapsing them would
+# push all future evolution into a flat enum and lose the
+# meaning of kind (§17.5.a rationale).
+
+schema_id: character_os.purpose.human.v1
+schema_version: 1
+branch: human
+generated: 2026-08-06
+
+# ---------------------------------------------------------------
+# Kind × purpose enumeration.
+#
+# Each top-level entry is a kind. Under each kind, `purposes`
+# lists valid purpose values.
+#
+# Round-one authoring includes only `portrait_reference` because
+# only still portraits are exercised in round-one benchmark.
+# Other kinds are declared with an empty purposes list so the
+# substrate accepts them as valid kinds without accepting any
+# purpose value yet — future authoring populates their purposes
+# without migration.
+# ---------------------------------------------------------------
+
+kinds:
+
+  portrait_reference:
+    description: >
+      Still portrait imagery. The only kind exercised in
+      round-one benchmark.
+    purposes:
+
+      - value: front
+        description: >
+          Approved front-facing canonical portrait. Every
+          framing family (Portrait Language §4) uses this
+          purpose as its identity anchor.
+        category: view
+
+      - value: slight_left
+        description: >
+          Approved off-axis view, subject rotated slightly to
+          camera-left of front. Used for identity comparison
+          across the framing families and by cross-modal
+          continuity testing (Portrait Territory Study §3.1).
+        category: view
+
+      - value: slight_right
+        description: >
+          The mirror of slight_left, subject rotated slightly
+          to camera-right of front.
+        category: view
+
+      - value: neutral_rest
+        description: >
+          Resting expression baseline. Portrait Language §6:
+          softly-relaxed mouth, engaged eyes, slight lift at
+          outer corners. Every framing family renders this
+          expression when the surface is not conversational.
+        category: expression
+
+      - value: listening
+        description: >
+          Listening expression state. Portrait Language §6:
+          slight forward attention; mouth at rest; eyes
+          engaged. Consumed by Studio and Live Conversation
+          surfaces.
+        category: expression
+
+      - value: consideration
+        description: >
+          Consideration expression state. Portrait Language §6:
+          softly narrowed focus; brow softened; mouth at rest.
+          Consumed by Live Conversation.
+        category: expression
+
+      - value: gentle_positive
+        description: >
+          Gentle-positive-response expression. Portrait Language
+          §6: reserved for genuine positive moments in the
+          interaction. A warm closed-mouth or slightly-open
+          expression that reads as sincere. NOT stock-photo
+          grinning (Portrait Language §6, §24).
+        category: expression
+
+  motion_reference:
+    description: >
+      Short identity motion clips. Future artifact class; not
+      exercised in round-one benchmark. Declared here so the
+      substrate accepts the kind without accepting any purpose
+      value until authored.
+    purposes: []
+
+  speech_reference:
+    description: >
+      Lip-sync calibration clips. Future artifact class; not
+      exercised in round-one benchmark.
+    purposes: []
+
+  body_reference:
+    description: >
+      Full-body or gesture references. Future artifact class.
+    purposes: []
+
+  environment_reference:
+    description: >
+      Lighting-calibration references. Future artifact class.
+    purposes: []
+
+  expression_reference:
+    description: >
+      Reserved for the case where an expression genuinely
+      becomes its own artifact class rather than a purpose
+      value under portrait_reference. Not authored in
+      round one.
+    purposes: []
+
+# ---------------------------------------------------------------
+# Category meaning (documentation, not validation).
+#
+# `category` on each purpose is a documentation aid, not a
+# semantic axis the substrate branches on. It exists to help
+# reviewers group related purposes (all views together, all
+# expressions together) in scoring reports and fixture
+# rationale. The substrate treats purpose as flat within a
+# kind; the category label is not part of the validated write
+# path.
+# ---------------------------------------------------------------
+
+categories:
+  - name: view
+    description: >
+      Purpose values that vary the camera axis for identity
+      geometry comparison.
+  - name: expression
+    description: >
+      Purpose values that vary the facial state per the
+      Portrait Language §6 expression vocabulary.
+
+# ---------------------------------------------------------------
+# Evolution rules
+# ---------------------------------------------------------------
+
+evolution_rules:
+
+  - rule: purposes_are_additive
+    detail: >
+      A new purpose value MAY be added to any kind without
+      migration, provided existing purpose values are not
+      renamed or removed and existing IdentityReference rows
+      remain valid.
+
+  - rule: kinds_are_additive
+    detail: >
+      New kinds may be added; kind removals require migration.
+      Renaming a kind requires migration.
+
+  - rule: no_purpose_may_collapse_kinds
+    detail: >
+      Never introduce a purpose value that logically belongs
+      to a different kind. Example: a "motion" purpose
+      belongs on `motion_reference`, not on
+      `portrait_reference`. This preserves the §17.5.a
+      separation between artifact class and participation.
+
+  - rule: non_human_purposes_authored_elsewhere
+    detail: >
+      Non-human purposes are authored in the future Character
+      Presence Language contract (§17.2.a). Do not add
+      non-human purpose values to this human schema.
+
+  - rule: round_one_test_schema_is_non_canonical
+    detail: >
+      A separate non-canonical test purpose schema exists for
+      fixture_nh1 substrate exercise (§17.2.b, this
+      directory). That file is labeled non-canonical and
+      must not become the future Character Presence Language
+      by accident.

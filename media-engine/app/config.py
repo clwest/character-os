@@ -1,0 +1,119 @@
+from functools import lru_cache
+from pathlib import Path
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Single source of local secrets: <repo-root>/.env
+# config.py lives at backend/app/config.py → parents[2] is the repo root.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+ROOT_ENV_FILE = PROJECT_ROOT / ".env"
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=str(ROOT_ENV_FILE),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    runway_api_key: str = ""
+    # SESSION 138 — force-mock override. When ``RUNWAY_FORCE_MOCK=1`` is
+    # set, the media engine treats the runway path as mock-mode regardless
+    # of whether ``RUNWAY_API_KEY`` is present. Lets the e2e suite run
+    # against a populated real-mode .env without stashing it to .env.real.
+    runway_force_mock: bool = False
+    runway_api_base: str = "https://api.dev.runwayml.com"
+    runway_api_version: str = "2024-11-06"
+    runway_model: str = "gen4_turbo"
+    # PR F — Character Host
+    runway_host_voice_preset: str = "vincent"
+    # Default Unsplash portrait for the curated stock host. Overridable via
+    # env so a brand-specific portrait can replace it without code changes.
+    runway_host_portrait_url: str = (
+        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=512&q=80"
+    )
+
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
+
+    # SESSION 171 — Stability AI provider for portrait generation.
+    # An alternative to Runway gen4_image; the rebake flow gains a
+    # ``provider`` selector that routes between the two. See
+    # ``app/services/stability_ai_service.py`` + ``stability_portrait.py``.
+    stability_api_key: str = ""
+    stability_base_url: str = "https://api.stability.ai/v2beta"
+    # SESSION 244 (§19 Step 5.b) — force-mock override matching the
+    # ``runway_force_mock`` discipline. When ``STABILITY_FORCE_MOCK=1``
+    # is set, adapters treat Stability as mock-mode regardless of
+    # whether ``STABILITY_API_KEY`` is present. Symmetric semantics
+    # with Runway so PortraitProvider adapters do not develop
+    # divergent execution-mode behavior over time
+    # (SESSION 244 ratification constraint 3).
+    stability_force_mock: bool = False
+
+    # SESSION 211 — Voiceover (VO.1) text-to-speech provider chain.
+    # Q-vo-2 resolution: try Runway first; fall through to
+    # ElevenLabs direct if Runway's ``/v1/text_to_speech`` is still
+    # gated per ``audio_client.py:19``. Mock-mode bypass mirrors
+    # ``runway_force_mock`` — set ``VOICEOVER_TTS_FORCE_MOCK=1`` to
+    # force the deterministic mock provider for tests / local dev.
+    # Same ``ELEVENLABS_API_KEY`` env shape as the rest of the
+    # ecosystem expects; empty means no ElevenLabs fallback
+    # available (Runway-only chain).
+    elevenlabs_api_key: str = ""
+    elevenlabs_api_base: str = "https://api.elevenlabs.io"
+    voiceover_tts_force_mock: bool = False
+    voiceover_tts_default_provider: str = "auto"  # auto | runway | elevenlabs | mock
+
+    @property
+    def stability_mock(self) -> bool:
+        # SESSION 244 §19 Step 5.b — force-mock overrides key presence
+        # so ``REAL_REQUIRED`` + force-mock deterministically raises
+        # ``ProviderUnavailableError`` in the PortraitProvider Stability
+        # adapter (never silently mocks). Matches ``runway_mock``
+        # semantics.
+        if self.stability_force_mock:
+            return True
+        return not self.stability_api_key.strip()
+
+    # PR EH — local LLM via Ollama. When `llm_provider="ollama"`, the
+    # concept service points the OpenAI-API-compatible client at the
+    # local Ollama server (`/v1/chat/completions` shape, same body).
+    # No API key needed; the client's api_key field is any non-empty
+    # string. Pulling a model first is the operator's responsibility
+    # (`ollama pull llama3.1:8b`).
+    llm_provider: str = "openai"   # "openai" | "ollama"
+    ollama_base_url: str = "http://localhost:11434/v1"
+    ollama_model: str = "llama3.1:8b"
+
+    allowed_origins: str = "http://localhost:5173"
+    data_dir: str = "./data"
+
+    @property
+    def openai_mock(self) -> bool:
+        # PR EH — Ollama path bypasses the OpenAI mock gate entirely;
+        # we have a real (local) LLM whether or not OPENAI_API_KEY is
+        # set. The mock fallback still fires if Ollama is unreachable,
+        # but that's handled inside concept_service.
+        if self.llm_provider.strip().lower() == "ollama":
+            return False
+        return not self.openai_api_key.strip()
+
+    @property
+    def runway_mock(self) -> bool:
+        if self.runway_force_mock:
+            return True
+        return not self.runway_api_key.strip()
+
+    @property
+    def origins_list(self) -> list[str]:
+        return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
+
+    @property
+    def data_path(self) -> Path:
+        return Path(self.data_dir).resolve()
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

@@ -1,0 +1,1192 @@
+"""V8 tests — talking_head_with_backdrop starter.
+
+First multi-step starter composition. Combines V3
+(generate_avatar_speech), V4 (generate_visual_clip), and V7
+(composite_video kind=backdrop). No new primitives; the slice
+ships entirely as a starter factory + tests.
+
+Covers:
+
+* Starter builds 3 steps with the right primitives, params,
+  and from_step_position chaining.
+* Validation: empty script / backdrop_prompt rejected;
+  cross-workspace spokesperson rejected.
+* end-to-end in mock-mode → COMPLETED composition whose
+  final asset is the composite output (not any intermediate).
+* use_knowledge propagates to the speech step.
+* Cost estimation sums all three primitives.
+* Backdrop sizing options propagate into the composite
+  layout_spec.
+"""
+from __future__ import annotations
+
+import pytest
+from django.contrib.auth import get_user_model
+from django.test import override_settings
+
+from apps.accounts.models import Workspace
+from apps.compositions.cost import (
+    estimate_composition_cost,
+)
+from apps.compositions.models import (
+    AssetType,
+    CompositionStatus,
+)
+from apps.compositions.starters import (
+    _EXTEND_BASE_DURATION_SECONDS,
+    _EXTEND_SEGMENT_DURATION_SECONDS,
+    _MAX_BACKDROP_CHAIN_LENGTH,
+    _compute_backdrop_chain_length,
+    _compute_extend_backdrop_chain_length,
+    _estimate_avatar_speech_seconds,
+    talking_head_with_backdrop,
+)
+from apps.compositions.tasks import execute_composition
+from apps.spokespeople.models import Teammate
+
+User = get_user_model()
+
+pytestmark = [
+    pytest.mark.django_db,
+    pytest.mark.usefixtures("_celery_eager"),
+]
+
+
+@pytest.fixture
+def _celery_eager():
+    with override_settings(
+        CELERY_TASK_ALWAYS_EAGER=True,
+        CELERY_TASK_EAGER_PROPAGATES=True,
+    ):
+        yield
+
+
+# ---- helpers --------------------------------------------------------
+
+
+def _make_workspace(email: str, name: str = "WS") -> Workspace:
+    user = User.objects.create_user(email=email, password="x")
+    ws = Workspace.objects.filter(owner=user).first()
+    assert ws is not None
+    ws.name = name
+    ws.save()
+    return ws
+
+
+def _make_teammate(
+    ws: Workspace,
+    name: str = "Sp",
+    avatar_id: str = "fake-avatar-for-v8",
+) -> Teammate:
+    return Teammate.objects.create(
+        workspace=ws, name=name,
+        runway_avatar_id=avatar_id,
+        portrait_path="https://fake.test/portrait.png",
+        business_brief="A brand.",
+    )
+
+
+# ---- starter shape ------------------------------------------------
+
+
+def test_starter_creates_three_steps_with_correct_primitives() -> None:
+    ws = _make_workspace("v8shape@test")
+    sp = _make_teammate(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="Hello from the backdrop.",
+        backdrop_prompt="A neon-lit alley at night.",
+        mock_mode=True,
+    )
+    assert c.template_kind == "talking_head_with_backdrop"
+    steps = list(c.steps.all().order_by("position"))
+    assert len(steps) == 3
+    assert steps[0].primitive == "generate_visual_clip"
+    assert steps[1].primitive == "generate_avatar_speech"
+    assert steps[2].primitive == "composite_video"
+
+
+def test_starter_step_params_carry_through() -> None:
+    ws = _make_workspace("v8params@test")
+    sp = _make_teammate(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="Tell viewers about coffee.",
+        backdrop_prompt="A misty morning cafe terrace.",
+        backdrop_ratio="1280:720",
+        backdrop_duration=10,
+        fg_width=280,
+        margin_x=30, margin_y=50,
+        use_knowledge=True,
+        mock_mode=True,
+    )
+    steps = list(c.steps.all().order_by("position"))
+
+    # Backdrop step
+    assert steps[0].params["prompt"] == "A misty morning cafe terrace."
+    assert steps[0].params["ratio"] == "1280:720"
+    assert steps[0].params["duration"] == 10
+
+    # Speech step
+    assert steps[1].params["script"] == "Tell viewers about coffee."
+    assert steps[1].params["use_knowledge"] is True
+
+    # Composite step
+    spec = steps[2].params["layout_spec"]
+    assert spec["kind"] == "backdrop"
+    assert spec["options"]["fg_width"] == 280
+    assert spec["options"]["margin_x"] == 30
+    assert spec["options"]["margin_y"] == 50
+
+
+def test_starter_composite_step_chains_to_earlier_outputs() -> None:
+    """Step 2's inputs use from_step_position so the runtime
+    resolves them at execute time. Background = step 0
+    output; foreground = step 1 output."""
+    ws = _make_workspace("v8chain@test")
+    sp = _make_teammate(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="hi.", backdrop_prompt="alley.",
+        mock_mode=True,
+    )
+    composite = c.steps.get(position=2)
+    bg = composite.inputs[0]
+    fg = composite.inputs[1]
+    assert bg["slot"] == "background"
+    assert bg["from_step_position"] == 0
+    assert fg["slot"] == "foreground"
+    assert fg["from_step_position"] == 1
+
+
+def test_use_knowledge_default_is_false() -> None:
+    ws = _make_workspace("v8know_default@test")
+    sp = _make_teammate(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="hi.", backdrop_prompt="alley.",
+        mock_mode=True,
+    )
+    speech = c.steps.get(position=1)
+    assert speech.params["use_knowledge"] is False
+
+
+def test_starter_omits_optional_backdrop_ratio_when_unset() -> None:
+    """``ratio`` only lands in params when the operator passed
+    it — media-engine's server-side default takes over otherwise.
+    ``duration`` is always set explicitly (SESSION 179) so the
+    backdrop chain length math has a known per-clip ceiling."""
+    ws = _make_workspace("v8optional@test")
+    sp = _make_teammate(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="hi.", backdrop_prompt="alley.",
+        mock_mode=True,
+    )
+    backdrop_step = c.steps.get(position=0)
+    assert "ratio" not in backdrop_step.params
+    # SESSION 179 — duration is always present + defaults to 10
+    # (gen4.5 max) so single-backdrop renders get the longest
+    # possible per-clip motion before any chain math runs.
+    assert backdrop_step.params["duration"] == 10
+
+
+# ---- validation paths --------------------------------------------
+
+
+def test_starter_rejects_empty_script() -> None:
+    ws = _make_workspace("v8s_empty@test")
+    sp = _make_teammate(ws)
+    with pytest.raises(ValueError):
+        talking_head_with_backdrop(
+            workspace=ws, spokesperson=sp,
+            script="   ", backdrop_prompt="alley.",
+            mock_mode=True,
+        )
+
+
+def test_starter_rejects_empty_backdrop_prompt() -> None:
+    ws = _make_workspace("v8b_empty@test")
+    sp = _make_teammate(ws)
+    with pytest.raises(ValueError):
+        talking_head_with_backdrop(
+            workspace=ws, spokesperson=sp,
+            script="hi.", backdrop_prompt="   ",
+            mock_mode=True,
+        )
+
+
+def test_starter_rejects_cross_workspace_spokesperson() -> None:
+    ws_a = _make_workspace("v8xA@test", "A")
+    ws_b = _make_workspace("v8xB@test", "B")
+    foreign = _make_teammate(ws_b)
+    with pytest.raises(ValueError):
+        talking_head_with_backdrop(
+            workspace=ws_a, spokesperson=foreign,
+            script="hi.", backdrop_prompt="alley.",
+            mock_mode=True,
+        )
+
+
+# ---- end-to-end mock-mode -----------------------------------------
+
+
+def test_starter_executes_end_to_end_in_mock_mode() -> None:
+    """The full three-step path runs through V2's runtime in
+    mock-mode. Final asset is the composite output (not the
+    intermediate clips)."""
+    ws = _make_workspace("v8e2e@test")
+    sp = _make_teammate(ws, name="Riggs")
+
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="The founder's substantive take on coffee.",
+        backdrop_prompt="A warm morning cafe with sunlight streaming through windows.",
+        mock_mode=True,
+    )
+
+    result = execute_composition.apply(args=[str(c.pk)]).get()
+    assert result["status"] == "completed"
+
+    c.refresh_from_db()
+    assert c.status == CompositionStatus.COMPLETED
+    assert c.final_asset is not None
+    assert c.final_asset.asset_type == AssetType.CLIP
+
+    # Final asset's source_spec identifies the composite primitive
+    spec = c.final_asset.source_spec
+    assert spec["primitive_kind"] == "composite_video"
+    assert spec["layout_kind"] == "backdrop"
+    # Composite consumed both upstream step outputs
+    assert spec["input_count"] == 2
+
+
+def test_starter_intermediate_assets_persist_with_composition_link() -> None:
+    """All 3 step outputs survive on the Asset table linked to
+    the composition — the V0 audit trail (intermediate assets
+    are reusable + inspectable)."""
+    ws = _make_workspace("v8intermediate@test")
+    sp = _make_teammate(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="hi.", backdrop_prompt="alley.",
+        mock_mode=True,
+    )
+    execute_composition.apply(args=[str(c.pk)]).get()
+    c.refresh_from_db()
+
+    # 3 produced assets total
+    assert c.produced_assets.count() == 3
+    # All are CLIP type
+    for asset in c.produced_assets.all():
+        assert asset.asset_type == AssetType.CLIP
+        assert asset.workspace_id == ws.pk
+
+
+# ---- cost estimation ----------------------------------------------
+
+
+def test_cost_estimate_sums_all_three_primitives() -> None:
+    """Composition cost = sum of (visual_clip + avatar_speech
+    + composite_video) cost estimates."""
+    ws = _make_workspace("v8cost@test")
+    sp = _make_teammate(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 200,
+        backdrop_prompt="A cinematic backdrop.",
+        backdrop_duration=5,
+        mock_mode=True,
+    )
+    total = estimate_composition_cost(c)
+    # Each primitive contributes a positive cost (see V3/V4/V7
+    # estimators); the sum should exceed any individual primitive.
+    assert total > 0
+    # Sanity bound: the three estimates are all bounded constants
+    # or scaled costs — confirm total exceeds the most expensive
+    # individual primitive (generate_avatar_speech at >250k micros).
+    assert total >= 250_000
+
+
+# ---- multi-backdrop chain (SESSION 179) ---------------------------
+
+
+def test_estimate_avatar_speech_seconds_helper() -> None:
+    """Speech estimator: 11 chars/sec + 2s buffer, floor at 5s.
+
+    Empty / tiny scripts clamp to the 5s floor so the chain math
+    never produces a zero-backdrop composition. Long scripts grow
+    linearly with character count."""
+    # Floor: empty + tiny scripts both land at 5s.
+    assert _estimate_avatar_speech_seconds(0) == 5
+    assert _estimate_avatar_speech_seconds(20) == 5
+    # 110 chars = 10s of speech + 2s buffer = 12s.
+    assert _estimate_avatar_speech_seconds(110) == 12
+    # 500 chars = ~45.4s of speech, int() = 45 + 2 buffer = 47s.
+    assert _estimate_avatar_speech_seconds(500) == 47
+
+
+def test_compute_backdrop_chain_length_helper() -> None:
+    """Chain length: ceil(speech / backdrop) clamped to
+    ``_MAX_BACKDROP_CHAIN_LENGTH``."""
+    # Short script + default 10s backdrop = single backdrop.
+    assert _compute_backdrop_chain_length(20, 10) == 1
+    # 500-char script needs 47s of speech / 10s per backdrop = 5.
+    assert _compute_backdrop_chain_length(500, 10) == 5
+    # Pathological script: 11_000 chars = 1002s of speech;
+    # divided by 10s = 101 backdrops; clamped to MAX.
+    assert (
+        _compute_backdrop_chain_length(11_000, 10)
+        == _MAX_BACKDROP_CHAIN_LENGTH
+    )
+
+
+def test_short_script_stays_single_backdrop_three_steps() -> None:
+    """Short scripts get the legacy 3-step shape (backdrop +
+    speech + composite); no concat step is laid down so existing
+    consumers of the 3-step layout keep working."""
+    ws = _make_workspace("v8short_chain@test")
+    sp = _make_teammate(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="Hi there.", backdrop_prompt="A quiet park bench.",
+        mock_mode=True,
+    )
+    steps = list(c.steps.all().order_by("position"))
+    assert len(steps) == 3
+    assert [s.primitive for s in steps] == [
+        "generate_visual_clip",
+        "generate_avatar_speech",
+        "composite_video",
+    ]
+    # Composite background points at the single backdrop (step 0).
+    composite = steps[2]
+    bg = composite.inputs[0]
+    assert bg["slot"] == "background"
+    assert bg["from_step_position"] == 0
+
+
+def test_long_script_generates_n_backdrops_with_concat() -> None:
+    """500-char script triggers a 5-backdrop chain. Step layout:
+    5 backdrops + 1 speech + 1 concat + 1 composite = 8 steps."""
+    ws = _make_workspace("v8long_chain@test")
+    sp = _make_teammate(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 500,
+        backdrop_prompt="A bustling night market.",
+        mock_mode=True,
+    )
+    steps = list(c.steps.all().order_by("position"))
+    assert len(steps) == 8
+    # First five = backdrops.
+    for i in range(5):
+        assert steps[i].primitive == "generate_visual_clip"
+        assert steps[i].params["prompt"] == "A bustling night market."
+        assert steps[i].params["duration"] == 10
+    # Step 5 = speech.
+    assert steps[5].primitive == "generate_avatar_speech"
+    # Step 6 = concat with one input per backdrop in order.
+    assert steps[6].primitive == "concat_clips"
+    concat_inputs = steps[6].inputs
+    assert len(concat_inputs) == 5
+    for i, inp in enumerate(concat_inputs):
+        assert inp["slot"] == "clip"
+        assert inp["from_step_position"] == i
+    # Step 7 = composite with background = concat step (6),
+    # foreground = speech step (5).
+    composite = steps[7]
+    assert composite.primitive == "composite_video"
+    bg, fg = composite.inputs
+    assert bg["slot"] == "background"
+    assert bg["from_step_position"] == 6
+    assert fg["slot"] == "foreground"
+    assert fg["from_step_position"] == 5
+
+
+def test_chain_length_clamps_to_max_for_pathological_scripts() -> None:
+    """A wildly oversized script can't spin up runaway Runway
+    calls — the chain length caps at ``_MAX_BACKDROP_CHAIN_LENGTH``
+    backdrops + concat + composite + speech."""
+    ws = _make_workspace("v8clamp_chain@test")
+    sp = _make_teammate(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="word " * 5_000,  # ~25_000 chars
+        backdrop_prompt="An endless library.",
+        mock_mode=True,
+    )
+    steps = list(c.steps.all().order_by("position"))
+    n = _MAX_BACKDROP_CHAIN_LENGTH
+    # n backdrops + 1 speech + 1 concat + 1 composite
+    assert len(steps) == n + 3
+    backdrop_count = sum(
+        1 for s in steps if s.primitive == "generate_visual_clip"
+    )
+    assert backdrop_count == n
+
+
+def test_custom_backdrop_duration_changes_chain_length() -> None:
+    """A shorter per-clip backdrop forces more clips for the same
+    speech. Demonstrates the operator-tunable knob."""
+    ws = _make_workspace("v8duration_chain@test")
+    sp = _make_teammate(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 220,  # ~22s of speech
+        backdrop_prompt="A glowing aquarium.",
+        backdrop_duration=5,  # 5s per backdrop → ceil(22/5) = 5
+        mock_mode=True,
+    )
+    backdrop_steps = [
+        s for s in c.steps.all() if s.primitive == "generate_visual_clip"
+    ]
+    assert len(backdrop_steps) == 5
+    for s in backdrop_steps:
+        assert s.params["duration"] == 5
+
+
+# ---- V16 matting opt-in (SESSION 179) -----------------------------
+
+
+def test_remove_avatar_bg_default_omits_matting_step() -> None:
+    """Default behaviour: no remove_avatar_background step. The
+    3-step shape (single-backdrop) survives — load-bearing for
+    every existing V8 test above."""
+    ws = _make_workspace("v16_default@test")
+    sp = _make_teammate(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="Hi there.", backdrop_prompt="A quiet bench.",
+        mock_mode=True,
+    )
+    primitives = [s.primitive for s in c.steps.all().order_by("position")]
+    assert "remove_avatar_background" not in primitives
+    assert primitives == [
+        "generate_visual_clip",
+        "generate_avatar_speech",
+        "composite_video",
+    ]
+
+
+def test_remove_avatar_bg_flag_inserts_matting_before_composite() -> None:
+    """With the flag on, matting lands between speech and
+    composite. The composite's foreground slot is rewired to
+    consume the matted clip instead of the raw avatar speech —
+    that's the whole point of the matting pass."""
+    ws = _make_workspace("v16_single@test")
+    sp = _make_teammate(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="Hi.", backdrop_prompt="alley.",
+        remove_avatar_bg=True,
+        mock_mode=True,
+    )
+    steps = list(c.steps.all().order_by("position"))
+    # Single-backdrop + matting = 4 steps total
+    assert [s.primitive for s in steps] == [
+        "generate_visual_clip",
+        "generate_avatar_speech",
+        "remove_avatar_background",
+        "composite_video",
+    ]
+    matte = steps[2]
+    assert matte.inputs == [
+        {"slot": "clip", "from_step_position": 1},
+    ]
+    composite = steps[3]
+    bg, fg = composite.inputs
+    assert bg["slot"] == "background"
+    assert bg["from_step_position"] == 0  # backdrop
+    assert fg["slot"] == "foreground"
+    assert fg["from_step_position"] == 2  # matted, not raw speech
+
+
+def test_remove_avatar_bg_flag_inserts_matting_after_concat() -> None:
+    """Multi-backdrop chain + matting. Step layout:
+    N backdrops + speech + concat + matte + composite. The
+    composite's background = concat, foreground = matte."""
+    ws = _make_workspace("v16_chain@test")
+    sp = _make_teammate(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 500,  # 5-backdrop chain
+        backdrop_prompt="A busy market.",
+        remove_avatar_bg=True,
+        mock_mode=True,
+    )
+    steps = list(c.steps.all().order_by("position"))
+    # 5 backdrops + speech + concat + matte + composite = 9
+    assert len(steps) == 9
+    assert [s.primitive for s in steps] == [
+        "generate_visual_clip",  # 0
+        "generate_visual_clip",  # 1
+        "generate_visual_clip",  # 2
+        "generate_visual_clip",  # 3
+        "generate_visual_clip",  # 4
+        "generate_avatar_speech",  # 5
+        "concat_clips",  # 6
+        "remove_avatar_background",  # 7
+        "composite_video",  # 8
+    ]
+    # Matte feeds from speech (position 5).
+    assert steps[7].inputs == [
+        {"slot": "clip", "from_step_position": 5},
+    ]
+    # Composite: bg=concat(6), fg=matte(7).
+    bg, fg = steps[8].inputs
+    assert bg["from_step_position"] == 6
+    assert fg["from_step_position"] == 7
+
+
+# ---- V17.5 extend-chain opt-in (SESSION 183) ----------------------
+
+
+def test_compute_extend_backdrop_chain_length_helper() -> None:
+    """Extend chain: ceil((speech - 10) / 5), floored at 0, capped
+    at ``_MAX_BACKDROP_CHAIN_LENGTH - 1`` so total chain length
+    (base + extends) stays bounded by the same safety cap as the
+    concat path."""
+    # Speech ≤ 10s → 0 extends (just the base 10s generate).
+    assert _compute_extend_backdrop_chain_length(0) == 0
+    assert _compute_extend_backdrop_chain_length(20) == 0  # 5s floor
+    assert _compute_extend_backdrop_chain_length(88) == 0  # 8s + 2 buffer = 10s
+    # Speech > 10s → ceil((speech - 10) / 5).
+    # 110 chars = 10s + 2 buffer = 12s → (12-10)/5 → ceil → 1 extend.
+    assert _compute_extend_backdrop_chain_length(110) == 1
+    # 220 chars = 20s + 2 buffer = 22s → (22-10)/5 → ceil → 3 extends.
+    assert _compute_extend_backdrop_chain_length(220) == 3
+    # 500 chars = 45s + 2 buffer = 47s → (47-10)/5 = 7.4 → ceil → 8;
+    # clamped to _MAX_BACKDROP_CHAIN_LENGTH - 1 = 5.
+    assert (
+        _compute_extend_backdrop_chain_length(500)
+        == _MAX_BACKDROP_CHAIN_LENGTH - 1
+    )
+
+
+def test_extend_short_script_lays_down_single_generate_no_extends() -> None:
+    """Short script (≤10s of speech) — single generate_visual_clip
+    + speech + composite. No extend steps because the base 10s
+    already covers the speech length."""
+    ws = _make_workspace("v17_5_short@test")
+    sp = _make_teammate(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="Hi there.",
+        backdrop_prompt="A quiet park bench.",
+        use_extend_for_backdrop=True,
+        mock_mode=True,
+    )
+    steps = list(c.steps.all().order_by("position"))
+    primitives = [s.primitive for s in steps]
+    assert primitives == [
+        "generate_visual_clip",
+        "generate_avatar_speech",
+        "composite_video",
+    ]
+    # Base generate is locked to the 10s gen4.5 ceiling.
+    assert steps[0].params["duration"] == _EXTEND_BASE_DURATION_SECONDS
+    # Composite background = base generate (step 0); foreground =
+    # speech (step 1).
+    bg, fg = steps[2].inputs
+    assert bg["from_step_position"] == 0
+    assert fg["from_step_position"] == 1
+
+
+def test_extend_22s_script_lays_down_one_generate_three_extends() -> None:
+    """The motivating SESSION 179 case: 22s of speech. Concat path
+    needs 3 backdrops + concat (visible 10s seams). Extend path:
+    1 generate (10s) + 3 extends (5s each = 15s) = 25s total
+    backdrop, no seam, composite trims to speech."""
+    ws = _make_workspace("v17_5_22s@test")
+    sp = _make_teammate(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 220,  # ~22s speech estimate
+        backdrop_prompt="A neon-lit alley.",
+        use_extend_for_backdrop=True,
+        mock_mode=True,
+    )
+    steps = list(c.steps.all().order_by("position"))
+    # 1 generate + 3 extends + speech + composite = 6 steps; no
+    # concat step on the extend path.
+    primitives = [s.primitive for s in steps]
+    assert primitives == [
+        "generate_visual_clip",   # 0 — base 10s
+        "extend_visual_clip",     # 1 — +5s
+        "extend_visual_clip",     # 2 — +5s
+        "extend_visual_clip",     # 3 — +5s
+        "generate_avatar_speech", # 4
+        "composite_video",        # 5
+    ]
+    # Each extend chains to the prior segment's output (last-frame
+    # conditioning is the whole point — V17 contract rule 10).
+    for i in range(1, 4):
+        step = steps[i]
+        assert step.params["duration"] == _EXTEND_SEGMENT_DURATION_SECONDS
+        assert step.params["prompt"] == "A neon-lit alley."
+        assert step.inputs == [
+            {"slot": "source", "from_step_position": i - 1},
+        ]
+    # Composite background = last extend (step 3); foreground =
+    # speech (step 4). No concat step in between.
+    bg, fg = steps[5].inputs
+    assert bg["slot"] == "background"
+    assert bg["from_step_position"] == 3
+    assert fg["slot"] == "foreground"
+    assert fg["from_step_position"] == 4
+
+
+def test_extend_chain_clamps_to_max_for_pathological_scripts() -> None:
+    """Long scripts can't spin up runaway Runway calls — extends
+    clamp to ``_MAX_BACKDROP_CHAIN_LENGTH - 1`` (one slot reserved
+    for the base generate). The total chain length matches the
+    concat path's safety cap."""
+    ws = _make_workspace("v17_5_clamp@test")
+    sp = _make_teammate(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="word " * 5_000,  # ~25_000 chars
+        backdrop_prompt="An endless library.",
+        use_extend_for_backdrop=True,
+        mock_mode=True,
+    )
+    primitives = [
+        s.primitive for s in c.steps.all().order_by("position")
+    ]
+    n_generate = sum(1 for p in primitives if p == "generate_visual_clip")
+    n_extend = sum(1 for p in primitives if p == "extend_visual_clip")
+    assert n_generate == 1
+    assert n_extend == _MAX_BACKDROP_CHAIN_LENGTH - 1
+
+
+def test_extend_ratio_propagates_to_base_and_all_extends() -> None:
+    """``backdrop_ratio`` must land on every clip in the chain so
+    the final concat doesn't get dim-mismatched halfway through.
+    Same shape contract as the concat path's per-clip params."""
+    ws = _make_workspace("v17_5_ratio@test")
+    sp = _make_teammate(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 220,
+        backdrop_prompt="A skyline at dawn.",
+        backdrop_ratio="720:1280",
+        use_extend_for_backdrop=True,
+        mock_mode=True,
+    )
+    for step in c.steps.all().order_by("position"):
+        if step.primitive in ("generate_visual_clip", "extend_visual_clip"):
+            assert step.params["ratio"] == "720:1280"
+
+
+def test_extend_path_ignores_backdrop_duration_kwarg() -> None:
+    """``backdrop_duration`` is meaningless on the extend path —
+    gen4_turbo extends are fixed at 5s per call and the base is
+    fixed at 10s (gen4.5 ceiling). The kwarg is accepted (so
+    operators flipping the flag don't get a TypeError) but the
+    chain math ignores it."""
+    ws = _make_workspace("v17_5_duration@test")
+    sp = _make_teammate(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 220,
+        backdrop_prompt="A cinematic backdrop.",
+        backdrop_duration=5,  # would force 5-backdrop concat on False path
+        use_extend_for_backdrop=True,
+        mock_mode=True,
+    )
+    steps = list(c.steps.all().order_by("position"))
+    assert steps[0].primitive == "generate_visual_clip"
+    assert steps[0].params["duration"] == _EXTEND_BASE_DURATION_SECONDS
+    for step in steps[1:]:
+        if step.primitive == "extend_visual_clip":
+            assert step.params["duration"] == _EXTEND_SEGMENT_DURATION_SECONDS
+
+
+def test_extend_path_remove_avatar_bg_matting_lands_before_composite() -> None:
+    """V16 matting still wires up correctly when both flags are
+    set. Matte source = avatar speech (position N+1 where N is the
+    last extend); composite foreground = matte; composite
+    background = last extend output. No concat step on this path."""
+    ws = _make_workspace("v17_5_matte@test")
+    sp = _make_teammate(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 220,  # 3-extend chain
+        backdrop_prompt="A busy night market.",
+        use_extend_for_backdrop=True,
+        remove_avatar_bg=True,
+        mock_mode=True,
+    )
+    steps = list(c.steps.all().order_by("position"))
+    # 1 generate + 3 extends + speech + matte + composite = 7
+    assert [s.primitive for s in steps] == [
+        "generate_visual_clip",       # 0 — base
+        "extend_visual_clip",         # 1
+        "extend_visual_clip",         # 2
+        "extend_visual_clip",         # 3 — final backdrop segment
+        "generate_avatar_speech",     # 4
+        "remove_avatar_background",   # 5 — mattes the speech
+        "composite_video",            # 6
+    ]
+    # Matte consumes the speech clip (position 4).
+    assert steps[5].inputs == [
+        {"slot": "clip", "from_step_position": 4},
+    ]
+    # Composite: bg = last extend (3); fg = matte (5).
+    bg, fg = steps[6].inputs
+    assert bg["from_step_position"] == 3
+    assert fg["from_step_position"] == 5
+
+
+def test_extend_path_executes_end_to_end_in_mock_mode() -> None:
+    """V2 runtime carries the extend chain through to COMPLETED.
+    Mock-mode extends short-circuit to deterministic stub assets;
+    the composite final asset is recognisable downstream."""
+    ws = _make_workspace("v17_5_e2e@test")
+    sp = _make_teammate(ws, name="Riggs")
+
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="The founder's substantive take on coffee, " * 4,
+        backdrop_prompt="A warm cafe terrace at golden hour.",
+        use_extend_for_backdrop=True,
+        mock_mode=True,
+    )
+
+    result = execute_composition.apply(args=[str(c.pk)]).get()
+    assert result["status"] == "completed"
+
+    c.refresh_from_db()
+    assert c.status == CompositionStatus.COMPLETED
+    assert c.final_asset is not None
+    assert c.final_asset.asset_type == AssetType.CLIP
+    spec = c.final_asset.source_spec
+    assert spec["primitive_kind"] == "composite_video"
+    assert spec["layout_kind"] == "backdrop"
+
+
+def test_extend_default_is_false_concat_path_unchanged() -> None:
+    """V17 contract rule 12 (V8 keeps current behaviour). Without
+    ``use_extend_for_backdrop``, no extend_visual_clip step
+    appears anywhere in the composition — even on long scripts.
+    Load-bearing for backwards-compat across every existing V8
+    test above."""
+    ws = _make_workspace("v17_5_default@test")
+    sp = _make_teammate(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 500,
+        backdrop_prompt="A bustling market.",
+        mock_mode=True,
+    )
+    primitives = [
+        s.primitive for s in c.steps.all().order_by("position")
+    ]
+    assert "extend_visual_clip" not in primitives
+
+
+# ---- V18 picked-clip backdrop tests ---------------------------------
+
+
+def _make_backdrop_clip(ws, *, duration_ms=15_000, file_path="/data/_assets/backdrop.mp4"):
+    """Helper — build a workspace-owned CLIP asset suitable as a
+    picked backdrop. The V8 picked-clip path uses these to skip
+    Runway backdrop generation entirely."""
+    from apps.compositions.models import Asset
+    return Asset.objects.create(
+        workspace=ws, asset_type=AssetType.CLIP,
+        file_path=file_path, duration_ms=duration_ms,
+        mime_type="video/mp4",
+    )
+
+
+def test_v18_picked_clip_builds_speech_plus_composite_only() -> None:
+    """V18 happy path — when ``backdrop_clip`` is supplied, the
+    starter skips both generate/extend chains entirely. Two steps:
+    generate_avatar_speech (step 0) + composite_video (step 1)
+    with the picked Asset's id as the background slot."""
+    ws = _make_workspace("v18picked@test")
+    sp = _make_teammate(ws)
+    backdrop = _make_backdrop_clip(ws, duration_ms=15_000)
+
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="Avatar over a saved backdrop.",
+        backdrop_clip=backdrop,
+        mock_mode=True,
+    )
+
+    steps = list(c.steps.all().order_by("position"))
+    primitives = [s.primitive for s in steps]
+    # Two steps only — no generate_visual_clip / extend / concat.
+    assert primitives == ["generate_avatar_speech", "composite_video"]
+    # The composite's background slot references the picked asset by id.
+    composite = steps[1]
+    bg, fg = composite.inputs
+    assert bg["slot"] == "background"
+    assert bg["asset_id"] == str(backdrop.id)
+    # No from_step_position on the background — it's a saved clip.
+    assert "from_step_position" not in bg
+    # Foreground still chains from the speech step.
+    assert fg["slot"] == "foreground"
+    assert fg["from_step_position"] == 0
+
+
+def test_v18_picked_clip_with_v16_matte_inserts_three_steps() -> None:
+    """V18 + V16 — when ``remove_avatar_bg=True`` AND
+    ``backdrop_clip`` is set, the matte step sits between speech
+    and composite. Three steps total, still no Runway backdrop call."""
+    ws = _make_workspace("v18matte@test")
+    sp = _make_teammate(ws)
+    backdrop = _make_backdrop_clip(ws)
+
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="Picked backdrop plus matted avatar.",
+        backdrop_clip=backdrop,
+        remove_avatar_bg=True,
+        mock_mode=True,
+    )
+
+    steps = list(c.steps.all().order_by("position"))
+    primitives = [s.primitive for s in steps]
+    assert primitives == [
+        "generate_avatar_speech",
+        "remove_avatar_background",
+        "composite_video",
+    ]
+    # Composite chains background from picked asset id +
+    # foreground from the matte (position 1), not the speech.
+    composite = steps[2]
+    bg, fg = composite.inputs
+    assert bg["asset_id"] == str(backdrop.id)
+    assert fg["from_step_position"] == 1
+
+
+def test_v18_picked_clip_wins_over_prompt_when_both_supplied() -> None:
+    """When both ``backdrop_prompt`` and ``backdrop_clip`` are
+    supplied, the operator's explicit pick (the clip) wins. The
+    prompt is ignored — no Runway backdrop generation fires."""
+    ws = _make_workspace("v18winner@test")
+    sp = _make_teammate(ws)
+    backdrop = _make_backdrop_clip(ws)
+
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="Should ignore the prompt.",
+        backdrop_prompt="Should be ignored.",
+        backdrop_clip=backdrop,
+        mock_mode=True,
+    )
+
+    primitives = [
+        s.primitive for s in c.steps.all().order_by("position")
+    ]
+    assert "generate_visual_clip" not in primitives
+    assert "extend_visual_clip" not in primitives
+
+
+def test_v18_picked_clip_skips_use_extend_for_backdrop_flag() -> None:
+    """The picked-clip branch precedes use_extend_for_backdrop in
+    the dispatch order. Setting both should still skip the extend
+    chain — the picked clip is the backdrop.
+
+    SESSION 194 V18 polish — bumped backdrop duration to 25s so the
+    200-char script (estimated speech 20s) clears the new
+    duration-mismatch starter check. The assertion shape is still
+    "extend-flag is ignored when backdrop_clip is set"; the
+    duration values are incidental to that.
+    """
+    ws = _make_workspace("v18skip_extend@test")
+    sp = _make_teammate(ws)
+    backdrop = _make_backdrop_clip(ws, duration_ms=25_000)
+
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 200,
+        backdrop_prompt="Ignored.",
+        backdrop_clip=backdrop,
+        use_extend_for_backdrop=True,
+        mock_mode=True,
+    )
+
+    primitives = [
+        s.primitive for s in c.steps.all().order_by("position")
+    ]
+    assert "extend_visual_clip" not in primitives
+    assert "generate_visual_clip" not in primitives
+
+
+def test_v18_starter_executes_end_to_end_in_mock_mode() -> None:
+    """V2 runtime carries the picked-clip plan through to
+    COMPLETED. Final asset is the composite output; the picked
+    Asset is referenced by id (not regenerated)."""
+    ws = _make_workspace("v18e2e@test")
+    sp = _make_teammate(ws, name="Riggs")
+    backdrop = _make_backdrop_clip(ws, duration_ms=12_000)
+
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="The founder over a saved cafe backdrop.",
+        backdrop_clip=backdrop,
+        mock_mode=True,
+    )
+
+    result = execute_composition.apply(args=[str(c.pk)]).get()
+    assert result["status"] == "completed"
+
+    c.refresh_from_db()
+    assert c.status == CompositionStatus.COMPLETED
+    assert c.final_asset is not None
+    assert c.final_asset.asset_type == AssetType.CLIP
+    spec = c.final_asset.source_spec
+    assert spec["primitive_kind"] == "composite_video"
+    assert spec["layout_kind"] == "backdrop"
+    # The picked clip is referenced via input_asset_ids in the
+    # composite's source_spec audit trail.
+    assert str(backdrop.id) in spec["input_asset_ids"]
+
+
+def test_v18_rejects_neither_prompt_nor_clip() -> None:
+    """XOR enforcement — when neither backdrop_prompt nor
+    backdrop_clip is supplied, the starter raises a clear
+    ValueError instead of producing a render with no backdrop."""
+    ws = _make_workspace("v18none@test")
+    sp = _make_teammate(ws)
+    with pytest.raises(ValueError) as exc:
+        talking_head_with_backdrop(
+            workspace=ws, spokesperson=sp,
+            script="Needs something.",
+            mock_mode=True,
+        )
+    msg = str(exc.value).lower()
+    assert "backdrop_prompt" in msg or "backdrop_clip" in msg
+
+
+def test_v18_rejects_non_clip_picked_asset() -> None:
+    """Type guard — picking an AUDIO/IMAGE asset must fail before
+    Composition rows are created."""
+    from apps.compositions.models import Asset
+    ws = _make_workspace("v18audio@test")
+    sp = _make_teammate(ws)
+    audio = Asset.objects.create(
+        workspace=ws, asset_type=AssetType.AUDIO,
+        file_path="/data/_assets/track.mp3",
+        duration_ms=30_000, mime_type="audio/mpeg",
+    )
+    with pytest.raises(ValueError) as exc:
+        talking_head_with_backdrop(
+            workspace=ws, spokesperson=sp,
+            script="hi.",
+            backdrop_clip=audio,
+            mock_mode=True,
+        )
+    assert "CLIP" in str(exc.value)
+
+
+def test_v18_rejects_null_duration_picked_asset() -> None:
+    """Slice-1 polish + V18 — refuse picked clips whose
+    duration_ms is None. The composite primitive's null-duration
+    guard would catch it downstream too, but the starter gives a
+    better error before any Composition row is created."""
+    ws = _make_workspace("v18nodur@test")
+    sp = _make_teammate(ws)
+    backdrop = _make_backdrop_clip(ws, duration_ms=None)
+    with pytest.raises(ValueError) as exc:
+        talking_head_with_backdrop(
+            workspace=ws, spokesperson=sp,
+            script="hi.",
+            backdrop_clip=backdrop,
+            mock_mode=True,
+        )
+    assert "duration_ms" in str(exc.value)
+
+
+def test_v18_rejects_cross_workspace_picked_asset() -> None:
+    """Workspace isolation — picking a clip from another
+    workspace raises before the Composition is created."""
+    ws_a = _make_workspace("v18ws_a@test", "A")
+    ws_b = _make_workspace("v18ws_b@test", "B")
+    sp_a = _make_teammate(ws_a)
+    foreign_backdrop = _make_backdrop_clip(ws_b)
+    with pytest.raises(ValueError) as exc:
+        talking_head_with_backdrop(
+            workspace=ws_a, spokesperson=sp_a,
+            script="hi.",
+            backdrop_clip=foreign_backdrop,
+            mock_mode=True,
+        )
+    assert "workspace" in str(exc.value).lower()
+
+
+def test_v18_default_off_concat_path_unchanged() -> None:
+    """Backwards-compat — without ``backdrop_clip``, the existing
+    concat path runs unchanged. Load-bearing for every V8 test
+    above that doesn't reference the V18 path."""
+    ws = _make_workspace("v18default@test")
+    sp = _make_teammate(ws)
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 100,
+        backdrop_prompt="A neon city.",
+        mock_mode=True,
+    )
+    primitives = [
+        s.primitive for s in c.steps.all().order_by("position")
+    ]
+    # Concat path produces ≥1 generate_visual_clip step.
+    assert "generate_visual_clip" in primitives
+
+
+def test_v18_recipe_field_present_and_optional() -> None:
+    """Recipe-form metadata: backdrop_clip_id is an optional
+    asset_picker filtered to CLIP. Backdrop_prompt is no longer
+    required (XOR with backdrop_clip_id enforced in the starter,
+    not the schema)."""
+    from apps.compositions.recipes import get_recipe
+    recipe = get_recipe("talking_head_with_backdrop")
+    fields_by_name = {f.name: f for f in recipe.fields}
+    assert "backdrop_clip_id" in fields_by_name
+    backdrop_clip_field = fields_by_name["backdrop_clip_id"]
+    assert backdrop_clip_field.type == "asset_picker"
+    assert backdrop_clip_field.asset_type == AssetType.CLIP
+    assert backdrop_clip_field.required is False
+    # backdrop_prompt is now optional too (XOR validation lives
+    # in the starter, not the recipe schema).
+    backdrop_prompt_field = fields_by_name["backdrop_prompt"]
+    assert backdrop_prompt_field.required is False
+    # Param-map renames backdrop_clip_id → backdrop_clip for the
+    # starter call.
+    assert recipe.param_map.get("backdrop_clip_id") == "backdrop_clip"
+
+
+# ---- SESSION 194 V18 polish — duration-mismatch starter warning ----
+
+
+def test_v18_rejects_backdrop_shorter_than_estimated_speech() -> None:
+    """SESSION 184 dogfood #2 reproduction — when the picked
+    backdrop is shorter than the estimated speech, the composite
+    primitive trims the speech mid-sentence (it always trims the
+    longer input to the shorter one). Starter refuses at creation
+    time with an operator-actionable error naming both durations,
+    the script length, and the two ways to fix it.
+    """
+    ws = _make_workspace("v194short@test")
+    sp = _make_teammate(ws)
+    # 5s backdrop, ~200-char script (≈ 20s estimated speech).
+    short_backdrop = _make_backdrop_clip(ws, duration_ms=5_000)
+    long_script = "x" * 200
+
+    with pytest.raises(ValueError) as exc:
+        talking_head_with_backdrop(
+            workspace=ws, spokesperson=sp,
+            script=long_script,
+            backdrop_clip=short_backdrop,
+            mock_mode=True,
+        )
+
+    msg = str(exc.value)
+    # Mentions both durations so the operator knows the gap.
+    assert "5s" in msg
+    assert "estimated speech" in msg.lower()
+    # Names the script length so the operator can re-target.
+    assert "200" in msg
+    # Names the two remediation options.
+    assert (
+        "pick a backdrop_clip" in msg
+        or "shorten the script" in msg
+    )
+
+
+def test_v18_accepts_backdrop_exactly_at_estimated_speech() -> None:
+    """Boundary — when ``backdrop_seconds == estimated_speech_seconds``
+    the starter accepts the render. The check is a strict ``<``
+    (the buffered estimator already adds a 2s safety margin)."""
+    ws = _make_workspace("v194exact@test")
+    sp = _make_teammate(ws)
+    # 110 chars → estimated = max(5, 110/11 + 2) = max(5, 12) = 12s.
+    script = "x" * 110
+    backdrop = _make_backdrop_clip(ws, duration_ms=12_000)
+    estimated_seconds = _estimate_avatar_speech_seconds(len(script))
+    assert estimated_seconds == 12  # sanity check on the test's premise
+
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script=script,
+        backdrop_clip=backdrop,
+        mock_mode=True,
+    )
+    # Composition created successfully — the strict-less-than means
+    # boundary case (backdrop == estimate) is accepted.
+    assert c.template_kind == "talking_head_with_backdrop"
+
+
+def test_v18_accepts_backdrop_clearly_longer_than_speech() -> None:
+    """Happy path — long backdrop + short script. The composite
+    will trim the backdrop down to the speech length; that's the
+    intended V8 / V18 behavior."""
+    ws = _make_workspace("v194long@test")
+    sp = _make_teammate(ws)
+    # 50-char script ≈ max(5, 50/11 + 2) = max(5, 6) = 6s estimated.
+    backdrop = _make_backdrop_clip(ws, duration_ms=30_000)
+
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="Riggs walking through the sunset coastline scene.",
+        backdrop_clip=backdrop,
+        mock_mode=True,
+    )
+    # Composition created; the composite primitive will trim
+    # the long backdrop edge down to speech length at runtime.
+    assert c.template_kind == "talking_head_with_backdrop"
+
+
+def test_v18_duration_check_does_not_fire_on_backdrop_prompt_path() -> None:
+    """Backdrop-prompt path is unaffected — the duration-mismatch
+    check is specifically for picked-clip V18 renders. The
+    concat / extend path sizes its backdrop chain dynamically based
+    on script length, so the SESSION 184 #2 trim bug doesn't apply
+    there.
+    """
+    ws = _make_workspace("v194prompt_path@test")
+    sp = _make_teammate(ws)
+
+    # A long script that would trigger the new check if it were
+    # paired with a too-short backdrop_clip — but here we're on
+    # the prompt path, so the check shouldn't apply.
+    c = talking_head_with_backdrop(
+        workspace=ws, spokesperson=sp,
+        script="x" * 200,
+        backdrop_prompt="A neon cityscape with rain.",
+        mock_mode=True,
+    )
+    primitives = [
+        s.primitive for s in c.steps.all().order_by("position")
+    ]
+    # Prompt path still fires generate_visual_clip (≥1 step) —
+    # the duration-mismatch check would have raised before this
+    # composition could be created on the V18 path.
+    assert "generate_visual_clip" in primitives
+
+
+def test_v18_duration_error_message_includes_character_target() -> None:
+    """The remediation message names the rough character count the
+    operator could shorten to, so they can act without re-counting
+    by hand. ``backdrop_seconds * _AVATAR_SPEECH_CHARS_PER_SECOND``
+    is the inverse of the estimator's chars/sec rate."""
+    from apps.compositions.starters import _AVATAR_SPEECH_CHARS_PER_SECOND
+
+    ws = _make_workspace("v194charhint@test")
+    sp = _make_teammate(ws)
+    short_backdrop = _make_backdrop_clip(ws, duration_ms=4_000)
+    target_chars = 4 * _AVATAR_SPEECH_CHARS_PER_SECOND  # 44
+
+    with pytest.raises(ValueError) as exc:
+        talking_head_with_backdrop(
+            workspace=ws, spokesperson=sp,
+            script="x" * 500,
+            backdrop_clip=short_backdrop,
+            mock_mode=True,
+        )
+    assert str(target_chars) in str(exc.value)

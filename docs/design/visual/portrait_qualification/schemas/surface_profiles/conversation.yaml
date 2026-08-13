@@ -1,0 +1,41 @@
+# Surface Profile — Conversation
+#
+# Framing family: Conversational portrait (Portrait Language §4)
+# Consumed by: Live Conversation
+#
+# Shares framing with `studio.yaml`. Differs in tonal
+# environment class — Live Conversation runs darker per
+# Portrait Language §8.
+
+profile_id: conversation
+version: 1
+framing_family: conversational_portrait
+
+crop:
+  aspect_ratio: "3:4"
+  strategy: subject_relative
+  subject_scale: 1.6
+
+eye_line:
+  position_from_top: 0.34
+  position_from_left: 0.50
+
+margins:
+  min_edge_padding: 0.08
+
+output:
+  width_px: 900
+  height_px: 1200
+  format: png
+  color_space: sRGB
+
+framing_behavior:
+  includes:
+    - face
+    - shoulders
+    - upper_torso
+  excludes:
+    - hands_below_frame
+    - environment_props
+
+tonal_environment_class: conversational_darker

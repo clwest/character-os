@@ -1,0 +1,150 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+shell/media/
+shell/staticfiles/
+
+# Celery Beat — runtime schedule state (SESSION 210)
+shell/celerybeat-schedule
+shell/celerybeat-schedule.db
+shell/celerybeat-schedule.*
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
+# Vite / React build
+web/dist/
+web/build/
+.vite/
+
+# Environment + secrets
+.env
+.env.*
+*.pem
+*.key
+
+# Media artefacts — never commit
+media-engine/data/
+media-engine/backend/data/
+shell/data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+
+# Logs
+logs/
+*.log
+
+# --- Private / internal-only content (preserved locally, excluded from
+# public distribution). These paths are intentionally untracked so the
+# public repo stays a coherent portfolio surface while the operator's
+# full internal history remains on disk for private reference. ---
+docs/handoffs/
+docs/production-readiness/
+docs/audit-2026-07-21/
+docs/topics/
+docs/research/
+docs/design/visual/portrait_qualification/fixtures/
+docs/design/audits/
+docs/design/UI_REDESIGN_V2.md
+docs/docs-pattern/
+docs/CHARACTER_OS_SESSION_START.md
+docs/INVENTORY_LEGACY.md
+docs/WHAT_IT_IS_LEGACY.md
+docs/SESSION_249_STEP_9B_ARCHITECTURE_PLAN.md
+docs/CONTEXT_KIT_INVENTORY.md
+docs/CUSTOMER_ZERO_DOGFOOD.md
+docs/POSTGRES_MIGRATION.md
+docs/247_GLOBAL_AI_OVERVIEW.md
+docs/TRUST_CALIBRATION.md
+00-START-NEXT-SESSION.md
+CLAUDE.md
+
+# Internal AI pair-programming scaffolding (Claude Code skills) —
+# excluded from public distribution because these instruct agents to
+# read files that are themselves internal-only.
+.claude/
+
+# Historical/hackathon-era + internal-only scripts (preserved
+# locally, excluded from public distribution).
+scripts/probe-video-to-video.py
+scripts/probe-character-performance.py
+scripts/ingest-udb-spokesperson-corpus.py
+scripts/seed-demo-campaigns.py
+scripts/relink-orphan-demo-campaigns.py
+scripts/seed-demo-spokespeople.py
+scripts/burn-broll-for-submission-video.py
+scripts/burn-submission-video-beats.py
+scripts/draft-submission-video-beats.py
+scripts/reroll-submission-fixes.py
+scripts/seed-submission-demo-content.py
+scripts/finish-dialogue-beats.py
+scripts/upload-context-kit-demo-grounding.py
+scripts/check-context-kit-drift.sh
+
+# Context-kit caches (generated artifacts, regeneratable)
+context-coverage.json
+context-doctor.json
+context-hotpath.txt
+context-inspect*.json
+coverage-*.json
+behavior-*.json
+
+# Claude Code session state (transient lockfiles)
+.claude/scheduled_tasks.lock
+
+# §19 Step 9.b.2 (SESSION 249) reviewer journal — CORRECTED SESSION 249
+# 9.b.3a, Revision Pass 3:
+#
+# The .gitignore rule that lived here was an implementation mistake, not
+# a ratified architectural decision. The append-only JSONL review journal
+# under bootstrap/review/ IS authoritative human-review evidence per plan
+# §14.2 + Q7 and MUST be tracked in git so no_candidate_approved decisions
+# remain durably auditable even though they never produce canonical rows.
+#
+# See SESSION_249_STEP_9B_ARCHITECTURE_PLAN.md "Revision Pass 3" for the
+# full note.

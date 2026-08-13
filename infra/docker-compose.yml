@@ -1,0 +1,65 @@
+# Local dev infrastructure for character-os.
+#
+# Brings up Redis (Celery broker + result backend) on host :6381
+# and Postgres (with pgvector preinstalled) on host :5433.
+#
+# Usage:
+#   cd infra && docker compose up -d        # start in background
+#   docker compose ps                       # check status
+#   docker compose logs -f redis            # tail Redis logs
+#   docker compose logs -f postgres         # tail Postgres logs
+#   docker compose down                     # stop, keep volumes
+#   docker compose down -v                  # stop and wipe data
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: character_os_redis
+    # Host port is 6381 to avoid collisions with other local Redis
+    # instances that may already claim :6379/:6380. Internal port
+    # stays 6379; only the host-side mapping moves.
+    ports:
+      - "6381:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+
+  postgres:
+    # SESSION 138 — K1 — Postgres + pgvector.
+    # Image bundles Postgres 16 + the pgvector extension; the
+    # CREATE EXTENSION vector migration in apps.embeddings makes it
+    # available at the DB level. Host port :5434 dedicates a lane
+    # for character-os and avoids collisions with other local
+    # Postgres instances that may bind :5433.
+    image: pgvector/pgvector:pg16
+    container_name: character_os_postgres
+    environment:
+      POSTGRES_DB: character_os
+      POSTGRES_USER: character_os
+      POSTGRES_PASSWORD: character_os_dev
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U character_os -d character_os"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  redis_data:
+    name: character_os_redis_data
+  postgres_data:
+    name: character_os_postgres_data

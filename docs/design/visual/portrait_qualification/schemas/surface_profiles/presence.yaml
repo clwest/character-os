@@ -1,0 +1,39 @@
+# Surface Profile — Presence
+#
+# Framing family: Presence portrait (Portrait Language §4)
+# Consumed by: Home; My Team detail; Presence surface
+#
+# The presence portrait shows head and shoulders. Used on
+# surfaces where the teammate is present but not the primary
+# work happening. This is the workhorse framing for identity
+# recognition without the intensity of conversational framing.
+
+profile_id: presence
+version: 1
+framing_family: presence_portrait
+
+crop:
+  aspect_ratio: "4:5"
+  strategy: subject_relative
+  subject_scale: 1.4
+
+eye_line:
+  position_from_top: 0.36
+  position_from_left: 0.50
+
+margins:
+  min_edge_padding: 0.08
+
+output:
+  width_px: 720
+  height_px: 900
+  format: png
+  color_space: sRGB
+
+framing_behavior:
+  includes:
+    - face
+    - shoulders
+  excludes:
+    - hands
+    - environment_props
