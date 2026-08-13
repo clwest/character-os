@@ -50,7 +50,8 @@ jobs:
         # constructor args and asserts clean parity behavior. The
         # job-level RUNWAY_FORCE_MOCK=1 (needed by the general test
         # suite) poisons pydantic-settings for this specific test's
-        # expectations, so unset it just for this step.
+        # expectations, so set it to "0" here — parseable as bool
+        # False by pydantic-settings.
         env:
-          RUNWAY_FORCE_MOCK: ""
+          RUNWAY_FORCE_MOCK: "0"
         run: python -m pytest tests/test_r10_provider_drift.py -v
