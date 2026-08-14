@@ -625,6 +625,26 @@ RECIPES: dict[str, Recipe] = {
                     "white text on black. Leave blank to skip."
                 ),
             ),
+            # SESSION 251-late — expose the ffmpeg concat mode.
+            # Default OFF uses the demuxer (``-c copy``): fastest,
+            # but the boundary between chunks is a hard cut and can
+            # show a visible jump when the avatar's pose / lighting
+            # shifts between renders. ON re-encodes through
+            # ``filter_complex``, which normalizes timebase / pixel
+            # format / audio sample rate across chunks and usually
+            # smooths the seam. Trade-off: slower (still local
+            # ffmpeg, no Runway spend).
+            RecipeField(
+                name="reencode_concat", type="checkbox",
+                label="Smooth chunk transitions (re-encode)",
+                required=False, default=False,
+                help_text=(
+                    "Softens the visible jump between avatar chunks "
+                    "at the cost of a slower concat step. Recommended "
+                    "when the raw stitch feels choppy. Local ffmpeg — "
+                    "no extra provider cost."
+                ),
+            ),
             _VERIFIER_MODE_FIELD,
             _OPENER_FIELD,
             _NAME_FIELD,
