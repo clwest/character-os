@@ -35,6 +35,10 @@ class RecipeSerializer(serializers.Serializer):
     family = serializers.CharField()
     description = serializers.CharField()
     fields = serializers.ListField(child=serializers.DictField())
+    # SESSION 251 — canonical speaking-rate constant so the SPA can
+    # compute knowledge-off duration hints from the same source of
+    # truth the starter uses for word-budget math.
+    speaking_rate_chars_per_second = serializers.IntegerField()
 
     @classmethod
     def all(cls) -> list[dict]:

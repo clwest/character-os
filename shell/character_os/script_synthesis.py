@@ -82,6 +82,13 @@ SCRIPT_MODEL = "gpt-5"
 # 60-100 word script + headroom. Unused tokens cost nothing.
 MAX_OUTPUT_TOKENS = 2000
 
+# SESSION 251 — long-form shape has a bigger output budget because a
+# 5-minute script (~660 words ≈ ~880 output tokens) plus medium-
+# reasoning overhead can exceed the standalone 2000-token cap.
+# Actual per-call budget scales with the requested duration; this is
+# the floor. See ``_max_output_tokens_for_shape``.
+MAX_OUTPUT_TOKENS_LONG_FORM_FLOOR = 4000
+
 # SESSION 171 — kept at 'low' after a brief experiment with 'medium'.
 # On gpt-5, ``reasoning_effort="medium"`` expanded to consume the
 # full ``max_output_tokens`` budget on reasoning alone (1984 of
@@ -95,6 +102,79 @@ REASONING_EFFORT = "low"
 # How many chunks to retrieve. Top-5 fits comfortably inside the
 # input context budget even for verbose chunks.
 DEFAULT_TOP_K = 5
+
+# SESSION 251 — canonical speaking-rate assumption for word-budget
+# derivation, ~11 chars/sec × ~5 chars/word ≈ 132 words/minute.
+# Mirrors ``apps.compositions.starters._AVATAR_SPEECH_CHARS_PER_SECOND``
+# — both must move together (they're the same real-world quantity
+# expressed two ways). Long-form callers pass ``target_duration_seconds``
+# and we derive ``target_words = duration * WORDS_PER_SECOND``.
+WORDS_PER_SECOND = 132 / 60  # ≈ 2.2 words/sec
+
+# Long-form validation tolerance. Callers accept anything inside
+# [target * (1 - LONG_FORM_TOLERANCE), target * (1 + LONG_FORM_TOLERANCE)].
+# 0.20 = ±20%; wider than TTS pace variation but tight enough that a
+# 5-minute request can't silently ship a 2-minute script.
+LONG_FORM_TOLERANCE = 0.20
+
+
+def word_budget_for_duration(target_duration_seconds: int) -> tuple[int, int, int]:
+    """Return ``(target_words, min_words, max_words)`` for a
+    long-form duration request. Uses ``WORDS_PER_SECOND`` and
+    ``LONG_FORM_TOLERANCE``. Single source of truth so caller,
+    prompt builder, and validator all agree on the math.
+
+    Word guidance is secondary to character guidance (below).
+    Words is a lossy proxy — 300 words at 5 chars/word and 300
+    words at 7 chars/word estimate very different durations
+    under the canonical char/sec rate. Prompts include BOTH
+    budgets; the final accept/reject gate uses the character
+    estimator only.
+    """
+    target = max(1, round(target_duration_seconds * WORDS_PER_SECOND))
+    low = max(1, round(target * (1 - LONG_FORM_TOLERANCE)))
+    high = max(low + 1, round(target * (1 + LONG_FORM_TOLERANCE)))
+    return target, low, high
+
+
+def char_budget_for_duration(
+    target_duration_seconds: int,
+    chars_per_second: int | None = None,
+) -> tuple[int, int, int]:
+    """Return ``(ideal_chars, min_chars, max_chars)`` for a
+    long-form duration request. Uses the canonical
+    ``_AVATAR_SPEECH_CHARS_PER_SECOND`` from
+    ``apps.compositions.starters`` (default 11) — same source of
+    truth as the acceptance gate ``_estimate_avatar_speech_seconds``.
+
+    LOAD-BEARING for the "compression correction" contract: the
+    writer needs a concrete character ceiling to rewrite below,
+    not just prose asking it to "compress." A hint that reads
+    "rewrite below 1584 characters" produces materially different
+    output than "please compress."
+    """
+    if chars_per_second is None:
+        # Local import to avoid a top-level circular reference
+        # (starters imports script_synthesis).
+        from apps.compositions.starters import _AVATAR_SPEECH_CHARS_PER_SECOND
+        chars_per_second = _AVATAR_SPEECH_CHARS_PER_SECOND
+    ideal = max(1, target_duration_seconds * chars_per_second)
+    low = max(1, round(ideal * (1 - LONG_FORM_TOLERANCE)))
+    high = max(low + 1, round(ideal * (1 + LONG_FORM_TOLERANCE)))
+    return ideal, low, high
+
+
+def _max_output_tokens_for_shape(
+    shape: str,
+    target_duration_seconds: int | None,
+) -> int:
+    """Long-form calls need a larger token budget than standalone.
+    ~1.3 tokens/word + reasoning overhead + headroom."""
+    if shape == "long_form" and target_duration_seconds:
+        target_words, _, _ = word_budget_for_duration(target_duration_seconds)
+        needed = int(target_words * 1.5) + 1500  # reasoning + headroom
+        return max(MAX_OUTPUT_TOKENS_LONG_FORM_FLOOR, needed)
+    return MAX_OUTPUT_TOKENS
 
 
 @dataclass(slots=True)
@@ -150,6 +230,9 @@ def build_render_brief(
     top_k: int = DEFAULT_TOP_K,
     verifier_mode: str | None = None,
     opener: str | None = None,
+    target_shape: str = "standalone",
+    target_duration_seconds: int | None = None,
+    corrective_hint: str | None = None,
 ) -> ScriptResult:
     """Build the brief that gets sent to media-engine.
 
@@ -165,12 +248,43 @@ def build_render_brief(
             to ``settings.K6_CLAIM_VERIFIER_MODE`` and then
             ``"warn"``. Lets operators flip per-render from
             the SPA without restarting Django.
+        target_shape: SESSION 251. ``"standalone"`` (default,
+            unchanged) → 60-100 word single-claim script for
+            short talking heads. ``"long_form"`` → multi-beat
+            narrative script sized to ``target_duration_seconds``.
+            Every existing caller stays on the default; long-form
+            callers (``long_form_ad`` starter) opt in.
+        target_duration_seconds: SESSION 251. Required when
+            ``target_shape="long_form"``. Drives the word budget
+            interpolated into the system prompt. Raises
+            ``ValueError`` if omitted with a long_form shape —
+            no silent fallback to short-form length.
+        corrective_hint: SESSION 251. Optional feedback string
+            appended to the user prompt. Long-form callers use
+            this to request one bounded expansion or compression
+            retry when the first synthesis is materially outside
+            tolerance. Standalone shape ignores it.
 
     Returns:
         ``ScriptResult`` — always has a usable ``brief`` field
         (never raises). ``used_knowledge`` reports whether
         synthesis actually ran or fell through to degradation.
+
+    Raises:
+        ``ValueError`` — ``target_shape="long_form"`` without
+        a ``target_duration_seconds``.
     """
+    if target_shape not in ("standalone", "long_form"):
+        raise ValueError(
+            f"target_shape must be 'standalone' or 'long_form', got {target_shape!r}"
+        )
+    if target_shape == "long_form" and not target_duration_seconds:
+        raise ValueError(
+            "target_shape='long_form' requires target_duration_seconds "
+            "(long-form callers must specify their duration; there is "
+            "no silent short-form fallback)"
+        )
+
     operator_prompt = (operator_prompt or "").strip()
     fallback_brief = operator_prompt or (spokesperson.business_brief or "").strip()
 
@@ -231,7 +345,11 @@ def build_render_brief(
 
     try:
         synthesised, tokens_in, tokens_out = _call_responses_api(
-            spokesperson, operator_prompt, chunks, opener=opener,
+            spokesperson, operator_prompt, chunks,
+            opener=opener,
+            target_shape=target_shape,
+            target_duration_seconds=target_duration_seconds,
+            corrective_hint=corrective_hint,
         )
     except Exception:
         logger.exception(
@@ -296,15 +414,23 @@ def _call_responses_api(
     chunks: list,
     *,
     opener: str | None = None,
+    target_shape: str = "standalone",
+    target_duration_seconds: int | None = None,
+    corrective_hint: str | None = None,
 ) -> tuple[str, int, int]:
     """Single Responses-API call. Returns ``(text, tokens_in,
     tokens_out)``. Raises on API error — caller handles
     degradation.
 
     K6.6 (SESSION 168) — optional ``opener`` lets the operator
-    pin the script's first line verbatim. When ``None``, the
-    system prompt's structural guidance steers the model to
-    pick its own standalone opener.
+    pin the script's first line verbatim.
+
+    SESSION 251 — shape-aware system + user prompts. Long-form
+    shape passes the duration + word budget into both prompts so
+    the model targets the requested length instead of the hidden
+    short-form default. ``corrective_hint``, when set, appends
+    concrete feedback about the previous attempt's word count vs
+    the target — one bounded expand-or-compress pass.
     """
     from openai import OpenAI
 
@@ -315,7 +441,11 @@ def _call_responses_api(
         for i, c in enumerate(chunks)
     )
 
-    system = _system_prompt(spokesperson)
+    system = _system_prompt(
+        spokesperson,
+        target_shape=target_shape,
+        target_duration_seconds=target_duration_seconds,
+    )
     opener_clause = (
         f"Operator-supplied opening line (use verbatim as the first "
         f"sentence; the rest of the script must follow naturally from "
@@ -323,19 +453,53 @@ def _call_responses_api(
         if opener and opener.strip()
         else ""
     )
+
+    # Shape-aware closing instruction. Standalone repeats the
+    # short-form target for reinforcement; long_form repeats the
+    # duration-driven word budget for the same reason. Both close
+    # with the anti-invention + spoken-voiceover reminders.
+    if target_shape == "long_form":
+        assert target_duration_seconds is not None  # guarded upstream
+        target_words, min_words, max_words = word_budget_for_duration(
+            target_duration_seconds,
+        )
+        ideal_chars, min_chars, max_chars = char_budget_for_duration(
+            target_duration_seconds,
+        )
+        length_reminder = (
+            f"Target: ~{ideal_chars} characters ({min_chars}-{max_chars} "
+            f"acceptable range). Secondary word guidance: "
+            f"~{target_words} words ({min_words}-{max_words} range). "
+            f"The character range is the accept/reject gate for the "
+            f"{target_duration_seconds}-second delivery — do not exceed "
+            f"the maximum and do not fall below the minimum."
+        )
+    else:
+        length_reminder = "Keep it to 60-100 words."
+
+    correction_clause = (
+        f"IMPORTANT — previous attempt feedback:\n{corrective_hint.strip()}\n\n"
+        if corrective_hint and corrective_hint.strip()
+        else ""
+    )
+
     user = (
         f"Operator's brief for this video:\n{operator_prompt or '(no prompt — use the brief above)'}\n\n"
         + opener_clause
+        + correction_clause
         + f"Knowledge chunks available:\n{chunks_block}\n\n"
         "Write the spokesperson's spoken script for this video. "
-        "Use facts only from the chunks above. Keep it to 60-100 "
-        "words. Plain spoken English — this becomes voiceover."
+        "Use facts only from the chunks above. "
+        + length_reminder
+        + " Plain spoken English — this becomes voiceover."
     )
 
     response = client.responses.create(
         model=SCRIPT_MODEL,
         input=f"{system}\n\nUser: {user}",
-        max_output_tokens=MAX_OUTPUT_TOKENS,
+        max_output_tokens=_max_output_tokens_for_shape(
+            target_shape, target_duration_seconds,
+        ),
         reasoning={"effort": REASONING_EFFORT},
     )
 
@@ -346,7 +510,12 @@ def _call_responses_api(
     return text, tokens_in, tokens_out
 
 
-def _system_prompt(spokesperson: "Teammate") -> str:
+def _system_prompt(
+    spokesperson: "Teammate",
+    *,
+    target_shape: str = "standalone",
+    target_duration_seconds: int | None = None,
+) -> str:
     """Anchor the model to the spokesperson's tone + business
     context. Kept minimal — the chunks carry the facts; this
     just steers voice.
@@ -358,31 +527,91 @@ def _system_prompt(spokesperson: "Teammate") -> str:
     business_brief as tone-only + added anti-recitation rule.
 
     W11.y (SESSION 175) — personality / business_brief split.
-    Pre-split the single business_brief field did double duty:
-    voice-on-the-page (HOW) AND business facts (WHAT). K6.6.1
-    fenced the whole blob as tone-only, but that meant the
-    model couldn't ground in real business facts; chunks were
-    the only fact source. Post-split:
 
-    * ``personality`` (operator-supplied voice / character) goes
-      in the TONE fence with the recitation guard. This is the
-      previous ``business_brief`` tone-only role.
-    * ``business_brief`` (operator-supplied business facts)
-      moves to the FACT fence alongside chunks. The model MAY
-      paraphrase + ground in it; the recitation guard no
-      longer applies because it's facts the operator wants
-      voiced, not character description.
-
-    Backfill (migration 0005, Option B) populated personality
-    from the old business_brief for every existing row, so
-    pre-W11.y rows produce the same K6 output (both fences
-    see the same content) until the operator splits them.
+    SESSION 251 — dual shape. ``standalone`` keeps the pre-251
+    short-form contract for talking_head / auto_script / Scripts.
+    ``long_form`` swaps the length + structure block for a
+    duration-driven narrative-arc contract with explicit
+    prohibitions on hook/CTA repetition, per-chunk restarts, and
+    third-person self-reference. Callers set the shape; there is
+    no silent default that produces short-form output for a
+    multi-minute request.
     """
     tone = spokesperson.tone_archetype or "expert"
     personality = (
         getattr(spokesperson, "personality", "") or ""
     ).strip()
     brief = (spokesperson.business_brief or "").strip()
+
+    if target_shape == "long_form":
+        assert target_duration_seconds is not None  # guarded upstream in build_render_brief
+        target_words, min_words, max_words = word_budget_for_duration(
+            target_duration_seconds,
+        )
+        ideal_chars, min_chars, max_chars = char_budget_for_duration(
+            target_duration_seconds,
+        )
+        length_and_shape = (
+            f"This is ONE CONTINUOUS LONG-FORM VIDEO. Target duration: "
+            f"about {target_duration_seconds} seconds.\n"
+            f"CHARACTER BUDGET (load-bearing — the acceptance gate is "
+            f"character-based, not word-based): aim for approximately "
+            f"{ideal_chars} characters. Must stay between {min_chars} "
+            f"and {max_chars} characters. Under {min_chars} will be "
+            f"rejected as too short; over {max_chars} will be rejected "
+            f"as too long.\n"
+            f"Approximate word guidance (secondary): {target_words} "
+            f"words (range {min_words}-{max_words}). Character count "
+            f"is what actually matters.\n"
+            f"Write ONE flowing piece of narration with a multi-beat "
+            f"arc:\n"
+            f"  1. Open the subject — one grounded setup sentence.\n"
+            f"  2. Develop the idea, story, or value proposition.\n"
+            f"  3. Move through the supporting beats or details in order.\n"
+            f"  4. Build toward the payoff — the emotional or logical peak.\n"
+            f"  5. Close ONCE with the invitation or call to action.\n"
+            "The script will later be split into shorter render chunks "
+            "at sentence boundaries for provider limits, but you must "
+            "write it as though no chunks exist — the audience will "
+            "see one continuous video.\n"
+            "Explicitly prohibited (each of these would break the "
+            "single-continuous-piece contract):\n"
+            "  - Do NOT restart with a new introduction anywhere after "
+            "the opening.\n"
+            "  - Do NOT re-introduce the brand or the speaker after "
+            "the opening.\n"
+            "  - Do NOT open with a hook, close with a CTA, then open "
+            "with a fresh hook again — one arc, not a montage of "
+            "short ads.\n"
+            "  - Do NOT include more than one call to action or "
+            "invitation.\n"
+            "  - Do NOT treat any section as if it stands alone.\n"
+            "  - Do NOT switch narrator perspective mid-script.\n"
+            "  - Do NOT refer to the speaker in the third person "
+            "unless the context genuinely requires it (e.g., quoting "
+            "another character).\n"
+            "The very first sentence must stand alone (no picking up "
+            "mid-thought), and the closing must feel like a resolution "
+            "of the arc — not a fresh sales pitch.\n"
+        )
+    else:
+        length_and_shape = (
+            "This is a SHORT STANDALONE VIDEO (60-100 words, "
+            "about 30-60 seconds). The viewer has not seen "
+            "anything else from you — there is no prior context. "
+            "Open with a brief setup that grounds the viewer in "
+            "what this video is about (one or two short sentences). "
+            "Then make your one clear claim or insight from the "
+            "knowledge chunks or business facts. Then one call to "
+            "action. "
+            "Do NOT begin mid-thought as if continuing a "
+            "conversation. The first sentence must stand alone. "
+            "Do NOT introduce yourself, name your role, describe "
+            "your audience, or recite the speaker voice + character "
+            "block — the viewer cares about the topic, not your "
+            "resume.\n"
+        )
+
     return (
         f"You are writing the spoken script for {spokesperson.name}, "
         f"an on-camera spokesperson. Their tone archetype is {tone!r}. "
@@ -402,22 +631,7 @@ def _system_prompt(spokesperson: "Teammate") -> str:
             f"{brief}\n"
             if brief else ""
         )
-        + (
-            "This is a SHORT STANDALONE VIDEO (60-100 words, "
-            "about 30-60 seconds). The viewer has not seen "
-            "anything else from you — there is no prior context. "
-            "Open with a brief setup that grounds the viewer in "
-            "what this video is about (one or two short sentences). "
-            "Then make your one clear claim or insight from the "
-            "knowledge chunks or business facts. Then one call to "
-            "action. "
-            "Do NOT begin mid-thought as if continuing a "
-            "conversation. The first sentence must stand alone. "
-            "Do NOT introduce yourself, name your role, describe "
-            "your audience, or recite the speaker voice + character "
-            "block — the viewer cares about the topic, not your "
-            "resume.\n"
-        )
+        + length_and_shape
         + "Use facts only from the knowledge chunks + business facts "
         "the user supplies. Do not invent product details, prices, "
         "or features. If a fact isn't in either source, leave it out. "

@@ -217,6 +217,15 @@ export function RecipeFormRoute() {
             briefModeHelper={
               field.name === primaryTextareaField?.name && useKnowledgeChecked
             }
+            // SESSION 251 — knowledge-off long-form: show a live
+            // "~Ns estimated" hint beside the primary script textarea
+            // derived from the current input length. Hidden when
+            // knowledge is on (duration then comes from the select).
+            speakingRateCharsPerSecond={
+              field.name === primaryTextareaField?.name && !useKnowledgeChecked
+                ? r.speaking_rate_chars_per_second
+                : undefined
+            }
           />
         ))}
         {assetTypesNeeded.length > 0 && (
@@ -294,6 +303,7 @@ function FieldRenderer({
   spokespeople,
   workspaceId,
   briefModeHelper = false,
+  speakingRateCharsPerSecond,
 }: {
   field: RecipeField;
   value: unknown;
@@ -305,6 +315,12 @@ function FieldRenderer({
    *  primary textarea of a use_knowledge-enabled recipe sets
    *  this. */
   briefModeHelper?: boolean;
+  /** SESSION 251 — when set, render a live "estimated duration"
+   *  chip beside the field. Caller sets this only on the primary
+   *  textarea of a knowledge-OFF long-form recipe, using the
+   *  canonical constant from the recipe metadata (no client
+   *  hardcoding). */
+  speakingRateCharsPerSecond?: number;
 }) {
   const id = `field-${field.name}`;
 
@@ -341,12 +357,12 @@ function FieldRenderer({
             data-testid="brief-mode-helper"
           >
             <strong className="text-cream">This is a topic, not a
-            script.</strong> When knowledge mode is on, gpt-5-mini
-            reads the workspace docs and writes the spoken lines for
-            you — one or two sentences here is plenty (e.g. <em
+            script.</strong> When knowledge mode is on, the writer
+            reads your workspace docs and drafts the spoken lines
+            for you — one or two sentences here is plenty (e.g. <em
             className="italic">"60-second spot about our spring launch,
             focused on the early-bird discount"</em>). Final render
-            length depends on the synthesized brief, not on this
+            length depends on the drafted script, not on this
             input's character count.
           </p>
         )}
@@ -359,7 +375,45 @@ function FieldRenderer({
         spokespeople={spokespeople}
         workspaceId={workspaceId}
       />
+      {speakingRateCharsPerSecond && (
+        <ScriptDurationHint
+          text={typeof value === "string" ? value : ""}
+          charsPerSecond={speakingRateCharsPerSecond}
+        />
+      )}
     </div>
+  );
+}
+
+// SESSION 251 — live estimated-duration chip under the primary
+// long-form textarea when knowledge mode is OFF. Uses the
+// speaking-rate constant surfaced by the recipe metadata (single
+// source of truth with the server-side word-budget math). Kept
+// tiny + monospace so it doesn't compete with the field label
+// for attention.
+function ScriptDurationHint({
+  text,
+  charsPerSecond,
+}: {
+  text: string;
+  charsPerSecond: number;
+}) {
+  const seconds = Math.max(
+    0,
+    Math.round(text.trim().length / charsPerSecond),
+  );
+  const label =
+    seconds < 60
+      ? `~${seconds}s`
+      : `~${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  return (
+    <p
+      className="text-[11px] font-mono uppercase tracking-[0.18em] text-fog"
+      data-testid="script-duration-hint"
+    >
+      Estimated spoken duration: {label}
+      {text.trim().length === 0 && " (type your script to see the estimate)"}
+    </p>
   );
 }
 

@@ -126,12 +126,21 @@ class Recipe:
     custom_resolver: Callable[..., dict] | None = None
 
     def to_json(self) -> dict[str, Any]:
+        # SESSION 251 — surface the canonical speaking-rate constant
+        # so the SPA can compute the knowledge-off duration hint
+        # ("your script is ~Ns") without hardcoding the value on the
+        # client. Same source of truth as the starter's word-budget
+        # math. Kept as a top-level recipe property because it's
+        # workspace-wide, not per-field.
+        from apps.compositions.starters import _AVATAR_SPEECH_CHARS_PER_SECOND
+
         return {
             "kind": self.kind,
             "display_name": self.display_name,
             "family": self.family,
             "description": self.description,
             "fields": [f.to_json() for f in self.fields],
+            "speaking_rate_chars_per_second": _AVATAR_SPEECH_CHARS_PER_SECOND,
         }
 
     def field_by_name(self, name: str) -> RecipeField | None:
@@ -189,11 +198,9 @@ _OPENER_FIELD = RecipeField(
     required=False,
     max_chars=240,
     help_text=(
-        "Pin the script's first sentence verbatim. K6 uses it as the "
-        "opening line and writes the rest of the script to follow. "
-        "Leave blank to let the model pick the opener under the v2 "
-        "standalone-video framing — recommended unless you want a "
-        "specific hook."
+        "Pin the script's first sentence verbatim. The rest of the "
+        "script follows from it. Leave blank to let the writer pick "
+        "the opener — recommended unless you want a specific hook."
     ),
 )
 
@@ -201,18 +208,19 @@ _OPENER_FIELD = RecipeField(
 _VERIFIER_MODE_FIELD = RecipeField(
     name="verifier_mode",
     type="select",
-    label="K6.4 claim verifier",
+    label="Fact-check mode",
     required=False,
     default="warn",
     choices=(
-        {"value": "warn", "label": "Warn (flag inventions; let render proceed)"},
-        {"value": "strict", "label": "Strict (reject inventions before Runway fires)"},
-        {"value": "off", "label": "Off (no post-synthesis verification)"},
+        {"value": "warn", "label": "Warn (flag invented details; keep rendering)"},
+        {"value": "strict", "label": "Strict (reject invented details before rendering)"},
+        {"value": "off", "label": "Off (skip fact-checking)"},
     ),
     help_text=(
-        "Only applies when 'Use workspace knowledge' is on. Strict blocks "
-        "renders with unsupported claims (saves Runway cost); Warn logs "
-        "warnings but ships; Off skips verification entirely."
+        "Only applies when 'Use workspace knowledge' is on. Strict "
+        "blocks the render if the writer invents details not supported "
+        "by your workspace knowledge (saves render cost). Warn flags "
+        "them but ships the video. Off skips the check entirely."
     ),
 )
 
@@ -362,13 +370,12 @@ RECIPES: dict[str, Recipe] = {
                 min_chars=8, max_chars=4000,
                 help_text=(
                     "What the avatar will say. Provide a finished "
-                    "script and it renders verbatim; or provide a "
-                    "short topic / brief (a few words to a couple of "
+                    "script and it will be spoken verbatim; or provide "
+                    "a short topic / brief (a few words to a couple of "
                     "sentences) and tick \"Use workspace knowledge\" "
-                    "below to have K6 synthesize a full grounded "
-                    "script from your workspace docs before rendering. "
-                    "Every render is a fresh synthesis — no cached "
-                    "output is reused."
+                    "below to have the writer draft a grounded script "
+                    "from your workspace docs before rendering. Every "
+                    "render drafts fresh — no cached output is reused."
                 ),
             ),
             RecipeField(
@@ -376,10 +383,9 @@ RECIPES: dict[str, Recipe] = {
                 label="Use workspace knowledge", required=False, default=False,
                 help_text=(
                     "When ticked, the field above is treated as a "
-                    "topic / brief rather than a finished script. "
-                    "K6 retrieves the top matching workspace knowledge "
-                    "chunks and synthesizes a grounded speech-ready "
-                    "script (verified for unsupported claims), then "
+                    "topic / brief rather than a finished script. The "
+                    "writer pulls the most relevant workspace knowledge "
+                    "and drafts a grounded speech-ready script, then "
                     "renders it. Leave unticked to render the field "
                     "above verbatim."
                 ),
@@ -544,16 +550,68 @@ RECIPES: dict[str, Recipe] = {
         fields=(
             RecipeField(name="spokesperson_id", type="spokesperson_picker", label="Spokesperson"),
             RecipeField(
-                name="script", type="textarea", label="Long-form script",
+                name="script", type="textarea", label="Script or topic",
                 min_chars=200, max_chars=20000,
-                help_text="Auto-split into ~280-character chunks at sentence boundaries.",
+                help_text=(
+                    "When \"Use workspace knowledge\" is off, this is "
+                    "your finished script — split into chunks at "
+                    "sentence boundaries and rendered verbatim. When "
+                    "\"Use workspace knowledge\" is on, this is a "
+                    "topic / brief; the writer drafts one complete "
+                    "long-form script from your workspace docs targeted "
+                    "at the chosen duration, then chunks the finished "
+                    "script for rendering."
+                ),
+            ),
+            # SESSION 251 — duration-driven synthesis. Values are
+            # strings because DRF ``choices`` serialize to strings;
+            # the starter coerces to int. Format-consistent with
+            # ``cinematic_visual_extended.target_duration``.
+            RecipeField(
+                name="target_duration_seconds", type="select",
+                label="Target duration",
+                default="90",
+                choices=(
+                    {"value": "60", "label": "60 seconds"},
+                    {"value": "90", "label": "90 seconds"},
+                    {"value": "120", "label": "2 minutes"},
+                    {"value": "180", "label": "3 minutes"},
+                    {"value": "300", "label": "5 minutes"},
+                ),
+                help_text=(
+                    "Approximate target length for the finished ad. "
+                    "When \"Use workspace knowledge\" is on, the writer "
+                    "drafts to this length (±20% tolerance; one "
+                    "corrective pass if outside). When off, this is "
+                    "informational — your script's duration comes from "
+                    "its length. Actual duration also varies with the "
+                    "voice's speaking pace."
+                ),
             ),
             RecipeField(
                 name="use_llm_split", type="checkbox",
                 label="Use AI for chunk boundaries", required=False, default=False,
-                help_text="Consults gpt-5-mini for semantically-clean splits (small cost; otherwise naive at sentence boundaries).",
+                help_text=(
+                    "Finds semantically clean split points (small "
+                    "extra cost). Otherwise splits naively at "
+                    "sentence boundaries."
+                ),
             ),
-            RecipeField(name="use_knowledge", type="checkbox", label="Use workspace knowledge per chunk", required=False, default=False),
+            RecipeField(
+                name="use_knowledge", type="checkbox",
+                label="Use workspace knowledge", required=False, default=False,
+                help_text=(
+                    "When ticked, the field above is treated as a "
+                    "topic / brief. The writer drafts ONE continuous "
+                    "long-form script from your workspace knowledge "
+                    "(single opener, flowing body, single closing "
+                    "invitation) targeted at the duration above, then "
+                    "splits it into render chunks. Each chunk is "
+                    "spoken verbatim so the narrative flows as one "
+                    "piece. Leave unticked to provide and render "
+                    "your own finished script."
+                ),
+            ),
             # SESSION 198 — outro_text parity with the cinematic
             # recipes. Brand outro for the long-form deliverable;
             # appended after the concat step (or after the lone

@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING
 
 from django.db import transaction
 
-from .models import Composition, CompositionStep
+from .models import Composition, CompositionStatus, CompositionStep
 from .script_splitter import (
     DEFAULT_CHUNK_MAX_CHARS,
     chunk_script,
@@ -66,6 +66,58 @@ _AVATAR_SPEECH_CHARS_PER_SECOND = 11
 _AVATAR_SPEECH_DURATION_BUFFER_SECONDS = 2
 _DEFAULT_BACKDROP_DURATION_SECONDS = 10
 _MAX_BACKDROP_CHAIN_LENGTH = 6  # 60s of backdrop motion; safety stop
+
+
+class LongFormDurationError(Exception):
+    """SESSION 251 — long_form_ad synthesis materially outside the
+    ±20% duration tolerance after one bounded corrective pass.
+    Raised by the starter BEFORE any Runway chunk render fires,
+    so no video credits are burned on an out-of-tolerance draft.
+
+    The gate is character-based via
+    ``_estimate_avatar_speech_seconds`` — Character OS's canonical
+    speaking-rate estimator. Word count is used as LLM prompt
+    guidance only; the accept/reject decision uses the same
+    estimator the rest of the codebase uses to reason about
+    speech duration. Word count can pass while duration fails
+    (the operator caught this: 306 words fit the word budget for
+    120s but estimated at ~170s under the canonical chars/sec
+    rate).
+
+    The starter creates the failed Composition row (status=FAILED,
+    with the actual/target seconds on ``error_message``) and
+    attaches its ``composition_id`` to this exception so the
+    caller (view layer) can find the audit record on the
+    dashboard.
+    """
+
+    def __init__(
+        self,
+        *,
+        actual_seconds: int,
+        actual_chars: int,
+        actual_words: int,
+        target_duration_seconds: int,
+        min_seconds: int,
+        max_seconds: int,
+        composition_id,
+    ) -> None:
+        self.actual_seconds = actual_seconds
+        self.actual_chars = actual_chars
+        self.actual_words = actual_words
+        self.target_duration_seconds = target_duration_seconds
+        self.min_seconds = min_seconds
+        self.max_seconds = max_seconds
+        self.composition_id = composition_id
+        direction = "shorter than" if actual_seconds < min_seconds else "longer than"
+        super().__init__(
+            f"Synthesized script estimated at ~{actual_seconds}s "
+            f"({actual_chars} chars / {actual_words} words), {direction} "
+            f"the acceptable {min_seconds}-{max_seconds}s range for a "
+            f"{target_duration_seconds}-second video. Composition "
+            f"{composition_id} created in failed state; no Runway calls "
+            f"were dispatched."
+        )
 
 
 def _estimate_avatar_speech_seconds(script_chars: int) -> int:
@@ -711,6 +763,12 @@ def long_form_ad(
     created_by: "AbstractBaseUser | None" = None,
     verifier_mode: str | None = None,
     opener: str | None = None,
+    # SESSION 251 — duration-driven synthesis. Required when
+    # ``use_knowledge=True``; the synthesizer targets this length
+    # instead of the hidden short-form default. Ignored on the
+    # no-knowledge path (operator input is verbatim; duration is
+    # informational and derived from the script's length).
+    target_duration_seconds: int | None = None,
 ) -> Composition:
     """Create a long-form ad composition: split → N× speak → concat.
 
@@ -724,37 +782,73 @@ def long_form_ad(
 
       Step 0..N-1: generate_avatar_speech (one per chunk)
       Step N: concat_clips (consumes all prior step outputs)
+      Step N+1 (optional): add_intro_outro (outro card)
 
     The split happens **at starter time**, not at runtime —
     contract rule 5 (linear ordering only) means the
     composition needs a deterministic step count when it
     runs. The runtime then just walks the plan.
 
+    SESSION 251 recalibration — knowledge-mode ordering fix.
+    Before SESSION 251, ``use_knowledge=True`` set the same
+    flag on every per-chunk ``generate_avatar_speech`` step,
+    which caused K6's ``build_render_brief`` to fire
+    independently for each chunk. K6 has no cross-chunk
+    awareness — it treats each chunk as a fresh topic and
+    synthesizes a full standalone script with its own hook,
+    body, and CTA. The 9-chunk operator dogfood produced
+    "9 mini-ads back to back" instead of one continuous
+    narrative.
+
+    New ordering:
+
+    * ``use_knowledge=True`` — the operator's input is treated
+      as a **topic / brief**. Call ``build_render_brief`` ONCE
+      up front with the operator's input as the brief. K6
+      retrieves workspace knowledge, synthesizes ONE complete
+      long-form script (hook once, body, close once), and runs
+      the K6.4 verifier. That synthesized text is what gets
+      split into chunks. Each per-chunk speech step is created
+      with ``use_knowledge=False`` (forced) so the primitive
+      passes the chunk text verbatim to media-engine and does
+      NOT independently call K6 again.
+    * ``use_knowledge=False`` — the operator provided a
+      finished script. Split verbatim (existing behavior); each
+      per-chunk speech step is created with
+      ``use_knowledge=False``.
+
+    Synthesis metadata (chunk_ids used, verification warnings,
+    verification_status, synthesized_brief) persists on the
+    composition once — the same shape the single-clip primitive
+    persists today. K6.4 strict-mode rejection creates the
+    composition in a failed state with ``verification_status=
+    "rejected"`` so the operator can see the rejection detail
+    on the composition detail page.
+
     Args:
         workspace: Composition workspace anchor.
         spokesperson: Who's on camera. Must have a runway
             avatar (the speech primitive validates).
-        script: Long-form script. The whole thing is what
-            the spokesperson will say across the chunks.
+        script: The operator's input. When
+            ``use_knowledge=True`` this is treated as a
+            topic / brief; when False, as a finished script.
         max_chars: Per-chunk character cap. Defaults to
             ``DEFAULT_CHUNK_MAX_CHARS`` (280).
         use_llm_split: When True, the splitter consults
             gpt-5-mini for semantically clean boundaries
             (graceful fallback to naive on any failure).
             Default False — naive is deterministic and free.
-        use_knowledge: When True, each speech step pipes its
-            chunk through K6's ``build_render_brief`` before
-            firing media-engine. The same chunk text becomes
-            knowledge-informed per-step. Costs N synthesis
-            calls instead of 1; tradeoff worth measuring.
+        use_knowledge: When True, K6 synthesizes ONCE up
+            front (see docstring above). Default False.
         reencode_concat: Forces filter_complex normalization
             during concat. Default False uses the demuxer
             (-c copy) — fast, requires uniform inputs.
             Long-form ads are uniform (all gwm1_avatars),
             so False is safe.
         mock_mode: Run in mock-mode (V0 contract rule 9).
-            All chunks render deterministic stubs; concat
-            returns a stub output. End-to-end test-runnable.
+            When True with ``use_knowledge`` the synthesis is
+            deterministic-mocked (no LLM call). Chunks render
+            deterministic stubs; concat returns a stub output.
         name: Operator-visible name. Defaults to
             "Long-form — {first 40 chars of script}".
         created_by: Optional User for audit attribution.
@@ -768,6 +862,13 @@ def long_form_ad(
         ``ValueError`` for empty script, cross-workspace
         spokesperson, or a splitter that produces zero
         chunks (impossible in practice, but defensive).
+        ``ClaimVerifierError`` propagated when
+        ``use_knowledge=True`` + strict verifier mode + K6.4
+        finds unsupported claims. The composition IS created
+        in that path with ``verification_status="rejected"``
+        so the operator sees the rejection on the detail
+        page; caller may inspect ``exc.composition_id`` to
+        find it (attached to the exception below).
     """
     if not script.strip():
         raise ValueError("long_form_ad starter requires a non-empty script")
@@ -776,6 +877,274 @@ def long_form_ad(
             f"spokesperson {spokesperson.name!r} (workspace "
             f"{spokesperson.workspace_id}) is not in workspace "
             f"{workspace.pk}"
+        )
+
+    # SESSION 251 — coerce string-typed select values (e.g. "120")
+    # to int for downstream arithmetic. The recipe field is a
+    # ``select`` with string choices per DRF convention; the
+    # ``cinematic_visual_extended.target_duration`` pattern
+    # comment (recipes.py:690-692) notes starters do the coercion.
+    if target_duration_seconds is not None:
+        try:
+            target_duration_seconds = int(target_duration_seconds)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"target_duration_seconds must be an integer, got "
+                f"{target_duration_seconds!r}"
+            ) from exc
+
+    # SESSION 251 knowledge ordering fix + duration-driven synthesis.
+    # Synthesize ONCE up front when knowledge mode is on. Reuses
+    # ``build_render_brief`` with ``target_shape="long_form"`` so
+    # the K6 system prompt targets the requested duration instead
+    # of the hidden 60-100-word short-form default.
+    #
+    # Acceptance gate: character-based via
+    # ``_estimate_avatar_speech_seconds`` — the same canonical
+    # estimator the rest of the codebase uses for speech-duration
+    # math. Word count is passed to the LLM as prompt guidance
+    # only (via build_render_brief's word-budget interpolation).
+    # Rationale: word count is a lossy proxy — 306 words at ~6.1
+    # chars/word estimates ~170s at 11 chars/sec, over-shooting a
+    # 120s target even though the word count fits the budget range.
+    # Duration-first accept/reject keeps prompt guidance and gate
+    # in the same units the estimator + composite trim logic use.
+    #
+    # If under, request ONE bounded expansion pass; if over, request
+    # ONE bounded compression pass. If still outside tolerance after
+    # the corrective pass, fail the composition BEFORE laying down
+    # any chunk steps (zero Runway spend on out-of-tolerance drafts).
+    synthesis_metadata: dict = {}
+    if use_knowledge:
+        from character_os.claim_verifier import ClaimVerifierError
+        from character_os.script_synthesis import build_render_brief
+
+        if not target_duration_seconds:
+            raise ValueError(
+                "long_form_ad with use_knowledge=True requires "
+                "target_duration_seconds — long-form synthesis is "
+                "duration-driven; there is no silent short-form fallback"
+            )
+
+        # Duration tolerance: ±20% of the target (same tolerance the
+        # LLM word budget uses; kept in seconds because that's the
+        # unit the gate speaks). Corrective hints ALSO include the
+        # character-budget numbers (single source of truth via
+        # ``char_budget_for_duration``) because the writer needs a
+        # concrete character ceiling / floor to rewrite against —
+        # "compress" alone barely trimmed 49 chars on the operator's
+        # Penny brief.
+        from character_os.script_synthesis import char_budget_for_duration
+
+        min_seconds = max(1, int(round(target_duration_seconds * 0.8)))
+        max_seconds = max(min_seconds + 1, int(round(target_duration_seconds * 1.2)))
+        # NOTE: named ``synth_*`` deliberately — do NOT shadow the
+        # function-level ``max_chars`` parameter (which is the naive
+        # chunker's per-chunk cap, default 280). Bug caught SESSION
+        # 251-late: shadowing caused chunker to run with the synth
+        # budget as its per-chunk cap, producing a single mega-chunk
+        # per composition and defeating the whole chunking pipeline.
+        synth_ideal_chars, synth_min_chars, synth_max_chars = (
+            char_budget_for_duration(target_duration_seconds)
+        )
+
+        def _synthesize(hint: str | None = None):
+            return build_render_brief(
+                spokesperson, script,
+                verifier_mode=verifier_mode,
+                opener=opener,
+                target_shape="long_form",
+                target_duration_seconds=target_duration_seconds,
+                corrective_hint=hint,
+            )
+
+        def _measure(text: str) -> tuple[int, int, int]:
+            """(chars, words, estimated_seconds) for a synthesized
+            script — all four numbers surface in logs, in the
+            corrective hint, and on the failure error_message."""
+            chars = len(text)
+            words = len(text.split())
+            seconds = _estimate_avatar_speech_seconds(chars)
+            return chars, words, seconds
+
+        try:
+            synth = _synthesize()
+            actual_chars, actual_words, actual_seconds = _measure(synth.brief)
+            logger.info(
+                "starter long_form_ad first-pass sp=%s target=%ds "
+                "(range %d-%ds) actual=%ds (%d chars / %d words)",
+                spokesperson.id, target_duration_seconds,
+                min_seconds, max_seconds,
+                actual_seconds, actual_chars, actual_words,
+            )
+
+            # One bounded correction pass in whichever direction is
+            # needed. Skip the retry when mocked (deterministic mock
+            # brief won't converge on a specific duration anyway).
+            if not mock_mode and actual_seconds < min_seconds:
+                # Character shortfall is the load-bearing number the
+                # writer can act on. Duration + word numbers land in
+                # the hint too, but the character floor is what the
+                # writer targets.
+                shortfall_chars = synth_min_chars - actual_chars
+                hint = (
+                    f"Your previous draft was {actual_chars} characters "
+                    f"({actual_words} words, estimated ~{actual_seconds}s "
+                    f"of speech). Target is {target_duration_seconds}s.\n"
+                    f"REWRITE THE SAME NARRATIVE ABOVE {synth_min_chars} "
+                    f"CHARACTERS (aim for ~{synth_ideal_chars}, do not "
+                    f"exceed {synth_max_chars}). You currently need at "
+                    f"least {shortfall_chars} more characters to meet "
+                    f"the minimum.\n"
+                    f"Preserve the central arc (opening → development → "
+                    f"payoff → single closing invitation), the narrator "
+                    f"perspective, and the factual grounding from the "
+                    f"knowledge chunks. Expand secondary detail from the "
+                    f"knowledge chunks — describe more of the sensory / "
+                    f"emotional beats already implied. Do NOT restart "
+                    f"with a new opening. Do NOT add a second call to "
+                    f"action. Do NOT invent facts not present in the "
+                    f"knowledge chunks."
+                )
+                logger.info("starter long_form_ad expansion retry")
+                synth = _synthesize(hint)
+                actual_chars, actual_words, actual_seconds = _measure(synth.brief)
+            elif not mock_mode and actual_seconds > max_seconds:
+                excess_chars = actual_chars - synth_max_chars
+                hint = (
+                    f"Your previous draft was {actual_chars} characters "
+                    f"({actual_words} words, estimated ~{actual_seconds}s "
+                    f"of speech). Target is {target_duration_seconds}s.\n"
+                    f"REWRITE THE SAME NARRATIVE BELOW {synth_max_chars} "
+                    f"CHARACTERS (aim for ~{synth_ideal_chars}, do not "
+                    f"fall below {synth_min_chars}). You currently have "
+                    f"{excess_chars} characters more than the maximum "
+                    f"and must remove at least that much.\n"
+                    f"Preserve the central arc (opening → development → "
+                    f"payoff → single closing invitation), the narrator "
+                    f"perspective, the factual grounding, and the single "
+                    f"closing CTA. Preferentially remove secondary "
+                    f"detail — decorative adjectives, redundant beats, "
+                    f"repeated framing — while keeping the emotional "
+                    f"progression intact. Do NOT drop the closing call "
+                    f"to action. Do NOT invent facts not present in the "
+                    f"knowledge chunks."
+                )
+                logger.info("starter long_form_ad compression retry")
+                synth = _synthesize(hint)
+                actual_chars, actual_words, actual_seconds = _measure(synth.brief)
+
+            # Still out of tolerance after the corrective pass? Fail
+            # the composition with a clear message — do NOT dispatch
+            # Runway for an under/over-sized draft.
+            if not mock_mode and not (min_seconds <= actual_seconds <= max_seconds):
+                from django.db import transaction as _tx
+
+                composition_name = name.strip() or f"Long-form — {script.strip()[:40]}"
+                out_reason = (
+                    "shorter than" if actual_seconds < min_seconds else "longer than"
+                )
+                with _tx.atomic():
+                    composition = Composition.objects.create(
+                        workspace=workspace,
+                        spokesperson=spokesperson,
+                        name=composition_name,
+                        template_kind="long_form_ad",
+                        mock_mode=mock_mode,
+                        created_by=created_by,
+                        status=CompositionStatus.FAILED,
+                        error_message=(
+                            f"Synthesized script estimated at ~{actual_seconds}s "
+                            f"of speech ({actual_chars} chars / {actual_words} "
+                            f"words), {out_reason} the acceptable range "
+                            f"{min_seconds}-{max_seconds}s for a "
+                            f"{target_duration_seconds}-second video. "
+                            "One corrective attempt did not converge. "
+                            "Try shortening or lengthening the input "
+                            "brief, or picking a different target duration."
+                        ),
+                        synthesized_brief=synth.brief,
+                        knowledge_chunk_ids=list(synth.chunk_ids or []),
+                        verification_warnings=list(synth.verification_warnings or []),
+                        verification_status=synth.verification_status or "",
+                    )
+                logger.warning(
+                    "starter long_form_ad OUT-OF-TOLERANCE composition=%s "
+                    "actual=%ds target=%ds range=%d-%ds "
+                    "chars=%d words=%d",
+                    composition.id,
+                    actual_seconds, target_duration_seconds,
+                    min_seconds, max_seconds,
+                    actual_chars, actual_words,
+                )
+                raise LongFormDurationError(
+                    actual_seconds=actual_seconds,
+                    actual_chars=actual_chars,
+                    actual_words=actual_words,
+                    target_duration_seconds=target_duration_seconds,
+                    min_seconds=min_seconds,
+                    max_seconds=max_seconds,
+                    composition_id=composition.id,
+                )
+
+        except ClaimVerifierError as exc:
+            # K6.4 strict rejection — create the composition anyway
+            # in a failed state so the operator sees the rejection
+            # on the composition detail page (mirrors the primitive-
+            # level rejection persistence pattern).
+            #
+            # The composition create is wrapped in its own atomic
+            # savepoint so the row commits before we ``raise`` the
+            # ClaimVerifierError back to the caller. Without the
+            # savepoint, any outer atomic context (Django's default
+            # per-request wrap, DRF's transaction middleware, or a
+            # test's ``@pytest.mark.django_db``) would roll back
+            # the row on the way out through this ``raise`` — and
+            # the operator would see neither the composition nor
+            # any rejection detail on the dashboard.
+            from django.db import transaction as _tx
+
+            composition_name = name.strip() or f"Long-form — {script.strip()[:40]}"
+            with _tx.atomic():
+                composition = Composition.objects.create(
+                    workspace=workspace,
+                    spokesperson=spokesperson,
+                    name=composition_name,
+                    template_kind="long_form_ad",
+                    mock_mode=mock_mode,
+                    created_by=created_by,
+                    status=CompositionStatus.FAILED,
+                    error_message=(
+                        f"K6.4 claim verifier rejected the synthesized long-form script "
+                        f"({len(exc.unsupported)} unsupported claim(s))."
+                    ),
+                    verification_warnings=[u.to_dict() for u in exc.unsupported],
+                    rejected_synthesis=exc.synthesized_text or "",
+                    verification_status="rejected",
+                )
+            logger.warning(
+                "starter long_form_ad synthesis REJECTED composition=%s "
+                "unsupported_claims=%d",
+                composition.id, len(exc.unsupported),
+            )
+            exc.composition_id = composition.id  # type: ignore[attr-defined]
+            raise
+
+        # Everything the synthesis produced becomes the actual
+        # script text we chunk. K6 already ran the opener pin +
+        # verifier — the raw chunks won't need to.
+        script = synth.brief
+        synthesis_metadata = {
+            "synthesized_brief": synth.brief,
+            "knowledge_chunk_ids": list(synth.chunk_ids or []),
+            "verification_warnings": list(synth.verification_warnings or []),
+            "verification_status": synth.verification_status or "",
+        }
+        logger.info(
+            "starter long_form_ad synthesized brief upfront sp=%s "
+            "chunks_retrieved=%d verification_status=%s brief_chars=%d",
+            spokesperson.id, len(synth.chunk_ids or []),
+            synth.verification_status or "", len(synth.brief),
         )
 
     # Pre-split at starter time. Choose path based on use_llm_split
@@ -800,23 +1169,37 @@ def long_form_ad(
         template_kind="long_form_ad",
         mock_mode=mock_mode,
         created_by=created_by,
+        # SESSION 251 — persist upfront-synthesis metadata (empty on
+        # the no-knowledge path). Same field shape the single-clip
+        # primitive persists on its own step; hoisting to the
+        # composition here because the synthesis is composition-level
+        # (one pass), not per-step.
+        synthesized_brief=synthesis_metadata.get("synthesized_brief", ""),
+        knowledge_chunk_ids=synthesis_metadata.get("knowledge_chunk_ids", []),
+        verification_warnings=synthesis_metadata.get("verification_warnings", []),
+        verification_status=synthesis_metadata.get("verification_status", ""),
     )
 
     # Lay down one generate_avatar_speech step per chunk.
-    # K6.6 — opener applies only to the FIRST chunk; later
-    # chunks continue the same script, so re-opening them with
-    # the same line would be redundant.
+    #
+    # SESSION 251 — every chunk step is created with
+    # ``use_knowledge=False`` regardless of the recipe's toggle.
+    # When ``use_knowledge=True`` on the recipe form, K6 already
+    # synthesized the whole script upfront and the chunk text
+    # above is a slice of that synthesized brief. Passing True
+    # here would cause K6 to fire AGAIN per chunk, which is the
+    # exact "N mini-ads" pathology this recalibration fixes.
+    #
+    # K6.4 verifier_mode + opener are similarly moved upstream:
+    # both were consumed by build_render_brief above (opener
+    # applied to the whole synthesis; verifier ran once). The
+    # primitive doesn't need them and will short-circuit K6
+    # because use_knowledge=False.
     for i, chunk in enumerate(chunks):
         step_params: dict = {
             "script": chunk,
-            "use_knowledge": bool(use_knowledge),
+            "use_knowledge": False,
         }
-        # K6.4 v1.1 — per-render verifier mode applies to every
-        # synthesis step in the composition (one per chunk).
-        if verifier_mode:
-            step_params["verifier_mode"] = verifier_mode
-        if i == 0 and opener and opener.strip():
-            step_params["opener"] = opener.strip()
         CompositionStep.objects.create(
             composition=composition,
             position=i,

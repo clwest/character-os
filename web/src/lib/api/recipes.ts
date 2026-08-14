@@ -91,6 +91,12 @@ const recipeSchema = z.object({
   family: z.enum(RECIPE_FAMILIES),
   description: z.string(),
   fields: z.array(recipeFieldSchema),
+  // SESSION 251 — canonical speaking-rate constant surfaced by the
+  // backend so the SPA can compute knowledge-off duration hints
+  // ("your script is ~Ns") without hardcoding the value on the
+  // client. Same source of truth as the starter's word-budget math.
+  // Optional / defaulted so a pre-251 backend response still parses.
+  speaking_rate_chars_per_second: z.number().int().positive().default(11),
 });
 
 export type Recipe = z.infer<typeof recipeSchema>;
