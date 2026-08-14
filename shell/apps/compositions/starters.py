@@ -791,6 +791,13 @@ def long_form_ad(
     use_llm_split: bool = False,
     use_knowledge: bool = False,
     reencode_concat: bool = False,
+    # SESSION 251-late — soften the visible seam between adjacent
+    # avatar chunks. The `concat_clips` primitive already supports
+    # crossfade (shipped SESSION 200 for storyboard polish); default
+    # 0ms preserves the historical hard-cut concat. 200-400ms works
+    # well at sentence boundaries where the avatar has a natural
+    # pause. Media-engine enforces the 0-5000ms ceiling.
+    crossfade_ms: int = 0,
     # SESSION 198 — outro_text parity with the cinematic recipes.
     # Optional 3-second white-on-black outro card appended after
     # the concat (or after the lone speech step on the degenerate
@@ -1245,6 +1252,16 @@ def long_form_ad(
         # (introduced SESSION 196) so the final lands with the
         # right role + stays out of the A7 backdrop_clip_id
         # picker.
+        # SESSION 251-late — coerce crossfade_ms (arrives as string
+        # from DRF select) + clamp negative to 0. Primitive validates
+        # >= 0 too; media-engine caps at 5000ms.
+        try:
+            crossfade_val = max(0, int(crossfade_ms or 0))
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"long_form_ad crossfade_ms must be an integer; "
+                f"got {crossfade_ms!r}"
+            )
         CompositionStep.objects.create(
             composition=composition,
             position=len(chunks),
@@ -1252,6 +1269,7 @@ def long_form_ad(
             inputs=concat_inputs,
             params={
                 "reencode": bool(reencode_concat),
+                "crossfade_ms": crossfade_val,
                 "result_role": "talking_head",
             },
         )

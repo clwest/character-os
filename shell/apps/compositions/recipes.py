@@ -645,6 +645,32 @@ RECIPES: dict[str, Recipe] = {
                     "no extra provider cost."
                 ),
             ),
+            # SESSION 251-late — crossfade between adjacent avatar
+            # chunks. Reencode alone helps codec-level mismatch but
+            # a hard cut is still perceptible even when the encode is
+            # normalized. Crossfade at the sentence-boundary pause
+            # (~200-400ms) blends the visual jump. Options avoid
+            # exposing millisecond-level precision to the operator.
+            RecipeField(
+                name="crossfade_ms", type="select",
+                label="Crossfade between chunks",
+                default="0",
+                choices=(
+                    {"value": "0", "label": "None (hard cut)"},
+                    {"value": "200", "label": "Subtle (0.2s)"},
+                    {"value": "400", "label": "Smooth (0.4s)"},
+                    {"value": "600", "label": "Cinematic (0.6s)"},
+                ),
+                help_text=(
+                    "Overlaps adjacent avatar chunks with a short "
+                    "crossfade so the transition between renders "
+                    "feels continuous rather than pieced together. "
+                    "Chunks are split at sentence boundaries where "
+                    "the avatar has a natural pause, so 0.2-0.4s "
+                    "usually blends cleanly. Local ffmpeg — no "
+                    "extra provider cost."
+                ),
+            ),
             _VERIFIER_MODE_FIELD,
             _OPENER_FIELD,
             _NAME_FIELD,
