@@ -67,6 +67,47 @@ EMBEDDING_MODEL_DEFAULT = "text-embedding-3-small"
 EMBEDDING_DIMENSION = 1536
 
 
+class KnowledgeDocumentSpokesperson(models.Model):
+    """Explicit through model for the ``KnowledgeDocument`` ↔
+    ``Teammate`` M2M.
+
+    SESSION 240 renamed the ``Spokesperson`` class to ``Teammate``
+    but per CLAUDE.md §"Naming note" every persistence identifier
+    (DB table, DB constraint, DB column) stays ``spokesperson_*``.
+    Django's implicit M2M through recomputes the join-table
+    column name from ``Teammate._meta.model_name`` at query time
+    and emits SQL against ``teammate_id`` — a column that does
+    not exist. Every knowledge/teammate M2M traversal 500s with
+    ``UndefinedColumn``.
+
+    Pinning ``db_column="spokesperson_id"`` on ``teammate`` here
+    restores the ORM ↔ physical-schema contract without touching
+    the table. Do not remove this class; do not rename either
+    ``db_column``. The column contract is asserted by
+    ``tests/test_m2m_through_column_contract.py``.
+    """
+
+    knowledgedocument = models.ForeignKey(
+        "embeddings.KnowledgeDocument",
+        on_delete=models.CASCADE,
+        db_column="knowledgedocument_id",
+    )
+    teammate = models.ForeignKey(
+        "spokespeople.Teammate",
+        on_delete=models.CASCADE,
+        db_column="spokesperson_id",
+    )
+
+    class Meta:
+        db_table = "embeddings_knowledgedocument_spokespeople"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["knowledgedocument", "teammate"],
+                name="embeddings_knowledgedocu_knowledgedocument_id_spo_e80c5133_uniq",
+            ),
+        ]
+
+
 class KnowledgeDocument(models.Model):
     """A piece of workspace-scoped knowledge a spokesperson can
     draw on at render time or in conversation. One physical
@@ -89,11 +130,13 @@ class KnowledgeDocument(models.Model):
     # Visibility filter — empty M2M = visible to all
     # spokespeople in the workspace. Cross-workspace attaches
     # are blocked by `clean()` + the m2m_changed signal in
-    # `signals.py`.
+    # `signals.py`. `through=KnowledgeDocumentSpokesperson` is
+    # load-bearing: see that class's docstring.
     spokespeople = models.ManyToManyField(
         Teammate,
         related_name="knowledge_documents",
         blank=True,
+        through="embeddings.KnowledgeDocumentSpokesperson",
     )
 
     # Identity

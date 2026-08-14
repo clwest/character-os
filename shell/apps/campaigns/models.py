@@ -84,12 +84,16 @@ class PersonalizedCampaign(models.Model):
     # Length caps line up with Composition.name's TextField.
     spokesperson = models.ForeignKey(
         Teammate,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="personalized_campaigns",
         help_text=(
             "The on-camera identity used for every recipient's "
             "talking_head_polished re-bake. Cross-workspace "
-            "references rejected at clean()."
+            "references rejected at clean(). SET_NULL (SESSION 251) "
+            "so historical campaigns survive teammate deletion; "
+            "workspace attribution preserved via the workspace FK."
         ),
     )
 

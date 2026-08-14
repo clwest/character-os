@@ -32,7 +32,11 @@ class KnowledgeDocumentAdmin(admin.ModelAdmin):
     list_filter = ("status", "document_type", "ingested_via", "is_active")
     search_fields = ("title", "content_hash", "workspace__name")
     readonly_fields = ("id", "content_hash", "created_at", "updated_at")
-    filter_horizontal = ("spokespeople",)
+    # ``filter_horizontal`` is incompatible with an explicit M2M
+    # ``through=`` (admin.E013). The explicit through
+    # (``KnowledgeDocumentSpokesperson``) is load-bearing per
+    # SESSION 251; attach/detach still happens via the K5 API +
+    # signal-guarded ``doc.spokespeople.add(sp)``.
     raw_id_fields = ("workspace", "created_by")
 
 

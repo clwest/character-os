@@ -90,14 +90,18 @@ class Script(models.Model):
     # spokesperson.workspace == script.workspace.
     spokesperson = models.ForeignKey(
         Teammate,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="scripts",
         help_text=(
             "Whose voice this script is drafted for. K6's system "
             "prompt is heavily spokesperson-anchored (tone_archetype "
             "+ personality + business_brief); cross-spokesperson "
             "reuse is structurally rejected — clone-to-edit for a "
-            "different voice."
+            "different voice. SET_NULL (SESSION 251) so historical "
+            "scripts survive when a customer deletes the teammate; "
+            "workspace attribution is preserved via the workspace FK."
         ),
     )
 

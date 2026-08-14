@@ -359,11 +359,12 @@ class Composition(models.Model):
     Assets into a final deliverable Asset.
 
     Compositions carry **both** workspace and spokesperson
-    anchors (contract rule 2). The spokesperson FK is
-    ``PROTECT`` because deleting a spokesperson while their
-    compositions exist would orphan the render history;
-    operators delete compositions first, then the
-    spokesperson.
+    anchors (contract rule 2). ``workspace`` is the load-
+    bearing anchor and stays required + CASCADE. ``spokesperson``
+    is nullable + SET_NULL as of SESSION 251 to preserve historical
+    render history when a customer deletes a teammate; before that
+    it was PROTECT and would 500 any teammate delete. Workspace
+    isolation is preserved via the workspace FK on the row itself.
 
     ``final_asset`` is null until the composition's last
     step completes. ``knowledge_chunk_ids`` carries forward
@@ -383,7 +384,9 @@ class Composition(models.Model):
     )
     spokesperson = models.ForeignKey(
         Teammate,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="compositions",
     )
 
@@ -510,11 +513,14 @@ class Composition(models.Model):
 
     def clean(self) -> None:
         """Validate that spokesperson belongs to the same
-        workspace as the composition. The PROTECT on
-        spokesperson + the required workspace FK don't
-        prevent an operator from constructing a composition
-        whose spokesperson is in a different workspace —
-        ``clean()`` does."""
+        workspace as the composition. The required workspace
+        FK does not prevent an operator from constructing a
+        composition whose spokesperson is in a different
+        workspace — ``clean()`` does. Post-SESSION 251
+        ``spokesperson`` is nullable (SET_NULL on teammate
+        delete); the ``spokesperson_id`` gate keeps this check
+        safe against historical rows whose teammate has since
+        been deleted."""
         super().clean()
         if self.spokesperson_id and self.workspace_id:
             if self.spokesperson.workspace_id != self.workspace_id:

@@ -70,7 +70,9 @@ class RealtimeSession(models.Model):
     )
     spokesperson = models.ForeignKey(
         Teammate,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="realtime_sessions",
     )
     thread = models.ForeignKey(
@@ -151,7 +153,8 @@ class RealtimeSession(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self) -> str:
-        return f"realtime:{self.id} ({self.spokesperson.name})"
+        who = self.spokesperson.name if self.spokesperson_id else "deleted teammate"
+        return f"realtime:{self.id} ({who})"
 
     def clean(self) -> None:
         """Cross-workspace validation. Teammate + thread

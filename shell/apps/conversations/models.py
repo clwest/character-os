@@ -39,7 +39,9 @@ class ConversationThread(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     spokesperson = models.ForeignKey(
         Teammate,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="conversation_threads",
     )
     title = models.CharField(max_length=200, blank=True, default="")
@@ -54,7 +56,8 @@ class ConversationThread(models.Model):
 
     def __str__(self) -> str:
         label = self.title or f"Thread {str(self.id)[:8]}"
-        return f"{label} ({self.spokesperson.name})"
+        who = self.spokesperson.name if self.spokesperson_id else "deleted teammate"
+        return f"{label} ({who})"
 
 
 class ConversationMessage(models.Model):

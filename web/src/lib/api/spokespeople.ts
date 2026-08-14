@@ -425,6 +425,37 @@ export function useUpdateSpokesperson() {
   });
 }
 
+// ---- Delete (SESSION 251) -----------------------------------------
+//
+// Customer-facing delete. Backend contract:
+// ``DELETE /api/spokespeople/<id>/`` returns 204 on success and
+// 404 for cross-workspace (queryset filter hides the row).
+// Historical outputs (compositions, assets, transcripts, scripts,
+// campaigns, threads) survive via SET_NULL migrations; the M2M
+// knowledge attach rows CASCADE (doc + chunks preserved).
+
+async function deleteSpokesperson(id: string): Promise<void> {
+  await apiJson<void>(`/api/spokespeople/${id}/`, { method: "DELETE" });
+}
+
+export function useDeleteSpokesperson() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: deleteSpokesperson,
+    onSuccess: (_void, id) => {
+      // Drop the single-resource cache so any lingering routes
+      // that read it get a fresh 404 instead of stale data.
+      qc.removeQueries({ queryKey: ["spokesperson", id] });
+      // Invalidate every surface that lists or aggregates teammates
+      // so the dashboard, spokesperson grid, workspace overview
+      // (spokespeople panel counts + activity feed), and videos
+      // library reflect the removal after redirect.
+      qc.invalidateQueries({ queryKey: ["spokespeople"] });
+      qc.invalidateQueries({ queryKey: ["workspace-overview"] });
+    },
+  });
+}
+
 // ---- Chapter 6 slice-1 — Ask + receipt (SESSION 234) --------------
 //
 // One-turn Q&A against the spokesperson's visible knowledge. Backend

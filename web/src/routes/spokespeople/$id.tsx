@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Flame, IdCard, Mic, MessageCircle, Pencil, Plus, Wand2 } from "lucide-react";
+import { ArrowLeft, Flame, IdCard, Mic, MessageCircle, Pencil, Plus, Trash2, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   IDENTITY_FILLED_THRESHOLD,
@@ -13,6 +13,7 @@ import { VideoRow } from "@/components/video-row";
 import { VoiceCapture, type VoiceCaptureValue } from "@/components/voice-capture";
 import { KnowledgePanel } from "@/components/knowledge-panel";
 import { SpokespersonAskPanel } from "@/components/spokesperson-ask-panel";
+import { SpokespersonDeleteModal } from "@/components/spokesperson-delete-modal";
 import { SpokespersonEditModal } from "@/components/spokesperson-edit-modal";
 import { SpokespersonRebakeModal } from "@/components/spokesperson-rebake-modal";
 import {
@@ -44,6 +45,14 @@ export function SpokespersonDetailRoute() {
   // W11.2 — re-bake avatar confirm modal. Real Runway spend so
   // gets a dedicated affordance instead of inline-on-edit.
   const [rebaking, setRebaking] = useState(false);
+  // SESSION 251 — customer-facing delete. Historical outputs
+  // (compositions, assets, transcripts, scripts, campaigns,
+  // threads) survive via SET_NULL migrations; the modal's copy
+  // states this explicitly. On success we redirect to /dashboard
+  // and the mutation invalidates spokespeople + workspace-overview
+  // caches.
+  const [deleting, setDeleting] = useState(false);
+  const navigate = useNavigate();
 
   if (sp.isLoading) return <DetailSkeleton />;
   if (sp.isError) return <DetailError message={extractMessage(sp.error)} />;
@@ -68,6 +77,7 @@ export function SpokespersonDetailRoute() {
         spokesperson={s}
         ready={allDone}
         onRebake={() => setRebaking(true)}
+        onDelete={() => setDeleting(true)}
       />
       {/* SESSION 234 / Chapter 6 slice-1 — Ask + receipt.
           Coaching surface lives at the top of the ready-state
@@ -89,6 +99,17 @@ export function SpokespersonDetailRoute() {
         <SpokespersonRebakeModal
           spokesperson={s}
           onClose={() => setRebaking(false)}
+        />
+      )}
+      {deleting && (
+        <SpokespersonDeleteModal
+          spokespersonId={s.id}
+          spokespersonName={s.name}
+          onDismiss={() => setDeleting(false)}
+          onDeleted={() => {
+            setDeleting(false);
+            navigate("/dashboard", { replace: true });
+          }}
         />
       )}
       {allDone && <TalkCta spokesperson={s} />}
@@ -256,10 +277,12 @@ function Masthead({
   spokesperson,
   ready,
   onRebake,
+  onDelete,
 }: {
   spokesperson: Spokesperson;
   ready: boolean;
   onRebake?: () => void;
+  onDelete?: () => void;
 }) {
   return (
     <header
@@ -314,6 +337,19 @@ function Masthead({
               >
                 <Flame className="mr-1 h-3.5 w-3.5" />
                 Re-bake
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={onDelete}
+                data-testid="delete-trigger"
+                title={`Delete ${spokesperson.name} (existing videos and assets stay in your library)`}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 className="mr-1 h-3.5 w-3.5" />
+                Delete
               </Button>
             )}
             <Link

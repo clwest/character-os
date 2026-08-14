@@ -263,7 +263,9 @@ class KnowledgeDocumentViewSet(viewsets.ModelViewSet):
                 "template_kind": comp.template_kind,
                 "status": comp.status,
                 "created_at": comp.created_at.isoformat(),
-                "spokesperson_name": comp.spokesperson.name,
+                "spokesperson_name": (
+                    comp.spokesperson.name if comp.spokesperson_id else None
+                ),
                 "chunk_count": len(used_ids),
             })
             if len(matches) >= 100:

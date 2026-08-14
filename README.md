@@ -140,30 +140,58 @@ check + migration drift + backend/media-engine test collection
 
 ## How to run
 
-You need Postgres (with `pgvector`) and Redis. `infra/docker-compose.yml`
-brings both up at :5433 / :6381 respectively.
+**Canonical local stack — one script, four processes.**
+
+Prerequisites (first-time setup only):
 
 ```bash
-# Bring up infra
-docker compose -f infra/docker-compose.yml up -d
+# Root venv covers both Django (shell/) and FastAPI (media-engine/).
+python -m venv .venv && source .venv/bin/activate
+pip install -e shell && pip install -r media-engine/requirements.txt
 
-# Django shell (port 8010)
-cd shell && python -m venv .venv && source .venv/bin/activate
-pip install -e . && python manage.py migrate
-python manage.py runserver 0.0.0.0:8010
+# SPA deps.
+cd web && pnpm install && cd ..
 
-# FastAPI media-engine (port 8001)
-cd media-engine && python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8001
-
-# React SPA (port 5174)
-cd web && pnpm install && pnpm dev
+# Populate .env at repo root with provider keys (real mode).
 ```
 
-No API keys are required for default mock-mode dev. Copy
-`media-engine/.env.example` to `media-engine/.env` and fill in
-provider keys to exercise real providers.
+Then, from repo root:
+
+```bash
+bash scripts/start-local-real.sh    # real providers — Runway / OpenAI / etc.
+```
+
+That script brings up Postgres + Redis via `infra/docker-compose.yml`
+(if not already running), then starts **all four processes required
+for composition generation to complete end-to-end**:
+
+| Process | Port | Purpose |
+|---|---|---|
+| Django shell | 8010 | auth, REST API, orchestration |
+| FastAPI media-engine | 8001 | Runway / Stability / ElevenLabs |
+| **Celery worker** | — | consumes composition renders, transcript captures, tool dispatch |
+| Vite SPA | 5174 | operator UI |
+
+The script health-probes each service and runs `celery inspect ping`
+so the worker's broker connection is proven before returning.
+**Omitting the Celery worker is what caused the SESSION 251 "stuck
+DRAFT" incident** — every `POST /api/compositions/` enqueued a task
+that nothing consumed. Do not run any subset of these processes by
+hand for functional testing; use the script.
+
+Mock mode (no real-provider spend, safe for CI / smoke):
+
+```bash
+bash scripts/start-local-mock.sh
+```
+
+Stop everything (docker infra stays up so restarts are fast):
+
+```bash
+bash scripts/stop-local.sh
+```
+
+Logs live at `/tmp/character-os-{django,media,celery,web}.log`.
 
 ## Known limitations
 
