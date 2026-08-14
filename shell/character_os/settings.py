@@ -231,11 +231,15 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
-# Hard cap each task wall-clock at 15 min so a hung Runway poll can't
-# pin a worker. Video generation should finish in <3 min in practice
-# (mock mode is sub-second).
-CELERY_TASK_TIME_LIMIT = 15 * 60
-CELERY_TASK_SOFT_TIME_LIMIT = 14 * 60
+# Hard cap each task wall-clock so a hung Runway poll can't pin a
+# worker. SESSION 251 recalibration: the original 14/15 min ceilings
+# were calibrated for the extend path (image-to-video, ~30s per
+# step). The concat path uses gen4.5 text-to-video which takes
+# ~3-4 min per 10s clip; a 6-clip backdrop chain blew past 14 min
+# in operator dogfood. Bumped to 30/35 min so the concat path has
+# room; still bounded so genuinely stuck tasks still surface.
+CELERY_TASK_TIME_LIMIT = 35 * 60
+CELERY_TASK_SOFT_TIME_LIMIT = 30 * 60
 # Keep results around 24h for debugging; we don't read them in the
 # happy path (state lives on the Video row), but eyeballing failures
 # via celery-inspect is useful.
