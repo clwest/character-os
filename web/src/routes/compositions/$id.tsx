@@ -3,6 +3,7 @@
  * /videos/:id. Renders the step-by-step plan + final asset URL
  * when the composition reaches a terminal status.
  */
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Circle, CornerDownRight, CornerUpRight, Library, Loader2, MinusCircle, ShieldAlert, XCircle } from "lucide-react";
 import { VerificationStatusBadge } from "@/components/verification-status-badge";
@@ -45,7 +46,7 @@ export function CompositionStatusRoute() {
   return (
     <div className="flex flex-col gap-8 py-10">
       <Header composition={c} />
-      <StatusBadge composition={c} />
+      <ProgressSummary composition={c} />
       {lineage.data && lineage.data.derived_from.length > 0 && (
         <DerivedFromPanel entries={lineage.data.derived_from} />
       )}
@@ -107,7 +108,15 @@ function Header({ composition }: { composition: Composition }) {
   );
 }
 
-function StatusBadge({ composition }: { composition: Composition }) {
+// SESSION 251 redesign — replaces the old full-width StatusBadge +
+// card-per-step list. Operator feedback while dogfooding
+// talking_head_with_backdrop (9 steps): the previous layout meant
+// scrolling through 9 large cards to see "how far along am I."
+// This condenses the header into one row of status + segmented
+// tick bar + counts, and the step list into one line per step.
+// Detail (error message, output asset tag) still surfaces inline
+// on the matching row.
+function ProgressSummary({ composition }: { composition: Composition }) {
   const statusStyle: Record<Composition["status"], string> = {
     draft: "border-muted-foreground/30 text-muted-foreground",
     planning: "border-muted-foreground/30 text-muted-foreground",
@@ -116,32 +125,153 @@ function StatusBadge({ composition }: { composition: Composition }) {
     completed: "border-success/40 bg-success/10 text-success",
     failed: "border-destructive/40 bg-destructive/5 text-destructive",
   };
+
+  const steps = composition.steps
+    .slice()
+    .sort((a, b) => a.position - b.position);
+  const total = steps.length;
+  const done = steps.filter(
+    (s) => s.status === "succeeded" || s.status === "skipped",
+  ).length;
+  const runningStep = steps.find((s) => s.status === "running");
+  const failedStep = steps.find((s) => s.status === "failed");
+
+  const dollars = (composition.cost_actual_micros / 1_000_000).toFixed(2);
+  const elapsedLabel = useElapsedLabel(
+    composition.created_at,
+    composition.updated_at,
+    isTerminalStatus(composition.status),
+  );
+
+  // One-line status summary — mirrors the shape the operator asked
+  // for: "3/9 · step 4 running · elapsed · $ spent" without needing
+  // to scroll.
+  const progressText = total > 0 ? `${done} / ${total}` : composition.status;
+  const detailBits: string[] = [];
+  if (runningStep) {
+    detailBits.push(`step ${runningStep.position + 1} running`);
+  } else if (failedStep) {
+    detailBits.push(`step ${failedStep.position + 1} failed`);
+  }
+  if (elapsedLabel) detailBits.push(elapsedLabel);
+  if (composition.cost_actual_micros > 0) detailBits.push(`$${dollars}`);
+
   return (
-    <div
+    <section
       className={
-        "flex items-center gap-3 rounded-md border p-4 " + statusStyle[composition.status]
+        "flex flex-col gap-3 rounded-md border p-4 " +
+        statusStyle[composition.status]
       }
       data-testid="composition-status"
     >
-      <StatusIcon status={composition.status} />
-      <div className="flex flex-col">
+      <div className="flex flex-wrap items-center gap-3">
+        <StatusIcon status={composition.status} />
         <span className="font-mono text-[11px] uppercase tracking-[0.22em]">
           Status: {composition.status}
         </span>
-        {composition.error_message && (
-          <span className="text-sm">{composition.error_message}</span>
+        <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-current/70">
+          {progressText}
+        </span>
+        {detailBits.length > 0 && (
+          <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-current/70">
+            · {detailBits.join(" · ")}
+          </span>
         )}
       </div>
+      {total > 0 && <TickBar steps={steps} />}
+      {composition.error_message && (
+        <p className="text-sm">{composition.error_message}</p>
+      )}
+    </section>
+  );
+}
+
+// Segmented tick bar — one tick per step, colored by state. Reads
+// left-to-right in step order. Kept intentionally simple (no
+// animations beyond the running-tick pulse) so a wide composition
+// still reads at a glance.
+function TickBar({ steps }: { steps: CompositionStep[] }) {
+  return (
+    <div
+      className="flex flex-wrap gap-1"
+      data-testid="composition-tick-bar"
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={steps.length}
+      aria-valuenow={
+        steps.filter((s) => s.status === "succeeded" || s.status === "skipped").length
+      }
+    >
+      {steps.map((step) => (
+        <span
+          key={step.id}
+          data-testid={`composition-tick-${step.position}`}
+          data-status={step.status}
+          title={`#${step.position + 1} ${step.primitive} — ${step.status}`}
+          className={
+            "h-1.5 min-w-6 flex-1 rounded-sm " + tickTone(step.status)
+          }
+        />
+      ))}
     </div>
   );
+}
+
+function tickTone(status: CompositionStep["status"]): string {
+  switch (status) {
+    case "succeeded":
+      return "bg-success/80";
+    case "running":
+      return "bg-accent animate-pulse";
+    case "failed":
+      return "bg-destructive/80";
+    case "skipped":
+      return "bg-muted-foreground/30";
+    default:
+      return "bg-muted-foreground/15";
+  }
+}
+
+// Composition-level elapsed. Uses ``created_at`` → ``updated_at``
+// for terminal compositions; live-ticks (1 Hz) against ``now`` for
+// running ones so operators see a moving clock instead of stale
+// "0 min" until the next poll. Poll cadence itself is separate
+// (recipes.ts refetchInterval).
+function useElapsedLabel(
+  createdAt: string,
+  updatedAt: string,
+  isTerminal: boolean,
+): string | null {
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (isTerminal) return;
+    const t = setInterval(() => setNowMs(Date.now()), 1_000);
+    return () => clearInterval(t);
+  }, [isTerminal]);
+
+  const startMs = Date.parse(createdAt);
+  const endMs = isTerminal ? Date.parse(updatedAt) : nowMs;
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null;
+  const seconds = Math.max(0, Math.round((endMs - startMs) / 1_000));
+  return formatElapsed(seconds);
+}
+
+function formatElapsed(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  if (m < 60) return s === 0 ? `${m}m` : `${m}m ${s}s`;
+  const h = Math.floor(m / 60);
+  const mm = m % 60;
+  return mm === 0 ? `${h}h` : `${h}h ${mm}m`;
 }
 
 function StepList({ steps }: { steps: CompositionStep[] }) {
   if (steps.length === 0) return null;
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex flex-col gap-2">
       <h2 className="font-display text-xl tracking-tight">Steps</h2>
-      <ol className="flex flex-col gap-2">
+      <ol className="flex flex-col divide-y overflow-hidden rounded-md border bg-card">
         {steps
           .slice()
           .sort((a, b) => a.position - b.position)
@@ -153,55 +283,77 @@ function StepList({ steps }: { steps: CompositionStep[] }) {
   );
 }
 
+// Collapsed one-liner. Row itself is a single line; error text and
+// output-asset tag land on secondary lines inside the same row so
+// the row still gives up its info without expanding into a card.
 function StepRow({ step }: { step: CompositionStep }) {
   return (
     <li
-      className="flex items-start gap-3 rounded-md border bg-card p-4"
+      className="flex flex-col gap-1 px-3 py-2 text-sm"
       data-testid={`composition-step-${step.position}`}
     >
-      <StatusIcon status={step.status} />
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="flex items-baseline gap-2">
-          <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-            #{step.position + 1}
-          </span>
-          <span className="font-medium">{step.primitive}</span>
-        </div>
-        {step.error_message && (
-          <p className="text-sm text-destructive">{step.error_message}</p>
-        )}
-        {step.output_asset && (
-          <p className="text-xs text-muted-foreground">
-            <span className="font-mono">{step.output_asset.asset_type}</span>
-            {step.output_asset.duration_ms != null && (
-              <> · {(step.output_asset.duration_ms / 1000).toFixed(1)}s</>
-            )}
-          </p>
-        )}
+      <div className="flex items-center gap-3">
+        <span className="shrink-0" aria-hidden>
+          <StatusIcon status={step.status} small />
+        </span>
+        <span className="w-8 shrink-0 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          #{step.position + 1}
+        </span>
+        <span className="min-w-0 flex-1 truncate font-medium">
+          {step.primitive}
+        </span>
+        <StepTrailingTag step={step} />
       </div>
+      {step.error_message && (
+        <p className="pl-14 text-xs text-destructive">{step.error_message}</p>
+      )}
     </li>
+  );
+}
+
+function StepTrailingTag({ step }: { step: CompositionStep }) {
+  // Right-side tag: output_asset shape for succeeded steps, plain
+  // status word otherwise. Kept small + monospace so it doesn't
+  // fight the primitive name for attention.
+  if (step.output_asset) {
+    const durationMs = step.output_asset.duration_ms;
+    return (
+      <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+        {step.output_asset.asset_type}
+        {durationMs != null && ` · ${(durationMs / 1000).toFixed(1)}s`}
+      </span>
+    );
+  }
+  if (step.status === "pending") return null;
+  return (
+    <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+      {step.status}
+    </span>
   );
 }
 
 function StatusIcon({
   status,
+  small = false,
 }: {
   status: Composition["status"] | CompositionStep["status"];
+  small?: boolean;
 }) {
+  const size = small ? "h-3.5 w-3.5" : "h-5 w-5";
   switch (status) {
     case "completed":
     case "succeeded":
-      return <CheckCircle2 className="h-5 w-5 text-success" />;
+      return <CheckCircle2 className={`${size} text-success`} />;
     case "running":
-      return <Loader2 className="h-5 w-5 animate-spin text-accent" />;
+      return <Loader2 className={`${size} animate-spin text-accent`} />;
     case "failed":
-      return <XCircle className="h-5 w-5 text-destructive" />;
+      return <XCircle className={`${size} text-destructive`} />;
     case "skipped":
-      return <MinusCircle className="h-5 w-5 text-muted-foreground" />;
+      return <MinusCircle className={`${size} text-muted-foreground`} />;
     case "partial":
-      return <CheckCircle2 className="h-5 w-5 text-warning" />;
+      return <CheckCircle2 className={`${size} text-warning`} />;
     default:
-      return <Circle className="h-5 w-5 text-muted-foreground" />;
+      return <Circle className={`${size} text-muted-foreground`} />;
   }
 }
 
