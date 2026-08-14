@@ -623,7 +623,14 @@ function ScriptPicker({
   onChange: (value: string) => void;
   required: boolean;
 }) {
-  const scripts = useScripts(workspaceId, { status: "ready" });
+  // SESSION 251 — widened to include RENDERED scripts. The prior
+  // ``status: "ready"`` filter hid every script the operator had
+  // ever actually fired a composition from, forcing a clone-then-
+  // re-approve loop just to reuse a known-good script. RENDERED
+  // scripts are approved AND proven to run to completion; they're
+  // exactly the ones an operator wants to reuse. See finding-f-*
+  // notes / SESSION 251 handoff.
+  const scripts = useScripts(workspaceId, {});
 
   if (scripts.isLoading) {
     return (
@@ -641,7 +648,11 @@ function ScriptPicker({
     );
   }
 
-  const list = scripts.data ?? [];
+  // Client-side filter to the two "approved" states. DRAFT is not
+  // yet approved; ARCHIVED is intentionally hidden.
+  const list = (scripts.data ?? []).filter(
+    (s) => s.status === "ready" || s.status === "rendered",
+  );
 
   if (list.length === 0) {
     return (
@@ -683,6 +694,7 @@ function ScriptPicker({
       {list.map((s) => (
         <option key={s.id} value={s.id}>
           {s.name || "Untitled script"} · {s.spokesperson_name}
+          {s.status === "rendered" && " · previously rendered"}
         </option>
       ))}
     </select>

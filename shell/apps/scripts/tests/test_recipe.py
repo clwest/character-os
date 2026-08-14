@@ -9,8 +9,10 @@ Five concerns:
 2. ``GET /api/recipes/auto_script/`` returns proper metadata.
 3. ``script_picker`` field type resolves to a Script row via
    ``resolve_kwargs``.
-4. ``script_picker`` rejects non-READY scripts (Q-e-11 — the
-   gallery picker filters to READY scripts).
+4. ``script_picker`` accepts READY + RENDERED scripts and
+   rejects DRAFT (Q-e-11 — the gallery picker gates unapproved
+   scripts; SESSION 251 widened to include RENDERED so previously-
+   fired scripts stay reusable per rule 8).
 5. ``script_picker`` rejects cross-workspace script_ids.
 
 Note: the full ``POST /api/compositions/`` integration end-to-
@@ -180,17 +182,41 @@ def test_script_picker_rejects_draft_script() -> None:
         )
 
 
-def test_script_picker_rejects_rendered_script() -> None:
-    """RENDERED is past-READY in the state machine. Already-
-    rendered scripts can be picked into a NEW render too —
-    rule 8 says scripts are reusable. But the picker's status
-    filter is READY-only; rendered scripts surface through
-    different UX (re-render from the Script detail page, not
-    the gallery picker).
+def test_script_picker_resolves_rendered_script_to_row() -> None:
+    """SESSION 251 — RENDERED scripts are ``approved AND proven to
+    run to completion`` and are the ones an operator most wants to
+    reuse. Prior contract rejected them (forcing a clone-then-
+    re-approve loop); widened here to accept them alongside READY.
+
+    Operator dogfood surfaced this: with 4 RENDERED + 1 READY
+    script, the picker showed only 1 option; the rendered ones
+    (the tested, proven scripts) were hidden.
     """
     _, ws = _make_user_workspace("b24rendered@test")
     sp = _make_teammate(ws)
     script = _make_script(ws, sp, status="rendered")
+
+    recipe = get_recipe("auto_script")
+    kwargs = resolve_kwargs(
+        recipe,
+        workspace=ws,
+        params={"script_id": str(script.pk)},
+        created_by=None,
+    )
+    assert kwargs["script"] == script
+    assert kwargs["workspace"] == ws
+
+
+def test_script_picker_rejects_archived_script() -> None:
+    """ARCHIVED is the explicit "retired" state — operators shouldn't
+    be able to pick an archived script into a new render even after
+    the SESSION 251 widen. Complement to ``rejects_draft_script`` +
+    ``resolves_rendered_script`` — pins the DRAFT and ARCHIVED
+    exclusion so a future widen doesn't slip an unapproved or
+    retired script through."""
+    _, ws = _make_user_workspace("b24archived@test")
+    sp = _make_teammate(ws)
+    script = _make_script(ws, sp, status="archived")
 
     recipe = get_recipe("auto_script")
     with pytest.raises(Script.DoesNotExist):

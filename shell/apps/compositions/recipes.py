@@ -22,8 +22,10 @@ Field types used by the SPA form renderer:
   spokesperson_picker — pick a workspace Teammate by id
   asset_picker        — pick an existing workspace Asset by id,
                         filtered by ``asset_type``
-  script_picker       — pick an approved (status=READY) workspace
-                        Script by id; B-2 / B2.4 (SESSION 206)
+  script_picker       — pick an approved (status in {READY, RENDERED})
+                        workspace Script by id; B-2 / B2.4 (SESSION 206),
+                        widened to include RENDERED in SESSION 251
+                        so previously-fired scripts stay reusable
   dialogue_lines      — special composite for ``dialogue_scene``;
                         the SPA renders an add/remove list of
                         ``{spokesperson_id, text}`` rows
@@ -311,27 +313,32 @@ RECIPES: dict[str, Recipe] = {
     #
     # Q-e-11 (SESSION 206) — surfaced in the gallery with a
     # special Script picker form (instead of the free-form
-    # textarea). The picker filters to status=READY scripts so
-    # operators can't accidentally fire a draft that hasn't
-    # been approved.
+    # textarea). SESSION 251 widened the picker to include
+    # RENDERED scripts in addition to READY, so scripts stay
+    # reusable after their first render. DRAFT is still
+    # excluded — operators can't accidentally fire an
+    # unapproved script.
     "auto_script": Recipe(
         kind="auto_script",
-        display_name="Auto-script (grounded in your knowledge)",
+        display_name="Render approved script",
         family=FAMILY_TALKING_HEAD,
         description=(
-            "Render a pre-drafted, knowledge-grounded script as a "
-            "talking-head video. Drafts are reviewed for citation + "
-            "hallucinations before approval, so no Runway spend on "
-            "bad scripts."
+            "Pick an existing approved Script from /workspace/scripts "
+            "and render it as a talking-head video. This recipe does "
+            "not generate a new script — it only renders one you've "
+            "already drafted, reviewed, and approved. To draft a fresh "
+            "script from a topic + workspace knowledge, use \"Talking "
+            "head\" with \"Use workspace knowledge\" ticked."
         ),
         fields=(
             RecipeField(
                 name="script_id", type="script_picker",
                 label="Approved script",
                 help_text=(
-                    "Only scripts in READY status (operator-approved) "
-                    "appear here. Draft new scripts at "
-                    "/workspace/scripts."
+                    "Approved scripts — ready-to-use or previously "
+                    "rendered. Rendered scripts are tagged so you can "
+                    "tell them apart; both are reusable. Draft new "
+                    "scripts at /workspace/scripts."
                 ),
             ),
             _NAME_FIELD,
@@ -351,14 +358,31 @@ RECIPES: dict[str, Recipe] = {
                 label="Spokesperson",
             ),
             RecipeField(
-                name="script", type="textarea", label="Script",
+                name="script", type="textarea", label="Script or topic",
                 min_chars=8, max_chars=4000,
-                help_text="What the avatar will say. 1-3 paragraphs work best.",
+                help_text=(
+                    "What the avatar will say. Provide a finished "
+                    "script and it renders verbatim; or provide a "
+                    "short topic / brief (a few words to a couple of "
+                    "sentences) and tick \"Use workspace knowledge\" "
+                    "below to have K6 synthesize a full grounded "
+                    "script from your workspace docs before rendering. "
+                    "Every render is a fresh synthesis — no cached "
+                    "output is reused."
+                ),
             ),
             RecipeField(
                 name="use_knowledge", type="checkbox",
                 label="Use workspace knowledge", required=False, default=False,
-                help_text="Pipe the script through RAG synthesis using attached docs.",
+                help_text=(
+                    "When ticked, the field above is treated as a "
+                    "topic / brief rather than a finished script. "
+                    "K6 retrieves the top matching workspace knowledge "
+                    "chunks and synthesizes a grounded speech-ready "
+                    "script (verified for unsupported claims), then "
+                    "renders it. Leave unticked to render the field "
+                    "above verbatim."
+                ),
             ),
             _VERIFIER_MODE_FIELD,
             _OPENER_FIELD,
@@ -1124,15 +1148,22 @@ def resolve_kwargs(
         elif f.type == "script_picker":
             # B-2 / B2.4 (SESSION 206) — pick an approved Script
             # by id; cross-workspace lookups raise DoesNotExist
-            # (turned into 400 by the view layer). Status filter
-            # enforces "only READY scripts surface in the picker"
-            # per Q-e-11 + the auto_script starter contract.
+            # (turned into 400 by the view layer). SESSION 251
+            # widened the accepted set from ``status=READY`` to
+            # ``status in {READY, RENDERED}`` so operators can
+            # reuse a script they've already rendered without
+            # cloning + re-approving. The auto_script starter
+            # only requires a non-empty draft_text + matching
+            # workspace + a spokesperson — both READY and
+            # RENDERED satisfy that. DRAFT is still excluded
+            # (unverified) and ARCHIVED is still excluded
+            # (explicitly retired).
             from apps.scripts.models import Script
 
             script_row = Script.objects.get(
                 pk=value,
                 workspace=workspace,
-                status=Script.Status.READY,
+                status__in=(Script.Status.READY, Script.Status.RENDERED),
             )
             # form-field is "script_id", starter kwarg is "script"
             kwargs[starter_kwarg.removesuffix("_id")] = script_row
