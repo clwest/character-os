@@ -331,20 +331,24 @@ def test_undersized_synthesis_retries_once_then_fails():
             )
     # Exactly two calls — one initial + one bounded retry.
     assert mock_brb.call_count == 2
-    # Composition was created in failed state so the operator sees
-    # it on the dashboard.
-    assert exc_info.value.composition_id is not None
     # Gate is duration-based; confirm the seconds estimate matches
     # what the char-based estimator produces on the last attempt.
     assert exc_info.value.actual_seconds == _estimate_avatar_speech_seconds(
         len(_make_words(110)),
     )
     assert exc_info.value.actual_seconds < exc_info.value.min_seconds
+    # SESSION 251-late: the exception now carries the composition-create
+    # payload so the view can persist the FAILED row OUTSIDE its own
+    # ``transaction.atomic()`` (starter-level tests here don't invoke
+    # the view, so ``composition_id`` stays ``None``). The payload
+    # itself is the operator-facing audit trail — the view uses it to
+    # create the row that the operator sees on the dashboard.
+    assert exc_info.value.composition_id is None
+    assert exc_info.value.synthesized_brief == _make_words(110)
+    assert exc_info.value.workspace == ws
+    assert exc_info.value.spokesperson == tm
+    assert "Long-form" in exc_info.value.composition_name
     # No chunk steps laid down → zero Runway spend.
-    # (Verify by attribute access on the exception — the failed
-    # composition itself may not be queryable inside pytest-django's
-    # transaction envelope; see the SESSION 251 knowledge-ordering
-    # tests for the same caveat.)
 
 
 def test_oversized_synthesis_retries_once_then_fails():

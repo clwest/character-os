@@ -100,7 +100,27 @@ class LongFormDurationError(Exception):
         target_duration_seconds: int,
         min_seconds: int,
         max_seconds: int,
-        composition_id,
+        # Payload the view uses to persist the FAILED composition row
+        # OUTSIDE the view's own ``transaction.atomic()`` wrapper —
+        # a savepoint-committed row inside that outer atomic would be
+        # rolled back when this exception propagates. See SESSION 251
+        # bug: the starter previously created the row inline before
+        # raising, but Django's nested savepoints do not survive an
+        # outer atomic's rollback, so the operator lost the audit
+        # trail and got a 500.
+        workspace,
+        spokesperson,
+        composition_name: str,
+        synthesized_brief: str,
+        knowledge_chunk_ids: list,
+        verification_warnings: list,
+        verification_status: str,
+        mock_mode: bool,
+        created_by=None,
+        # Populated by the view after it creates the failed row so
+        # callers can navigate to the composition detail page. Stays
+        # ``None`` when the starter is invoked directly (unit tests).
+        composition_id=None,
     ) -> None:
         self.actual_seconds = actual_seconds
         self.actual_chars = actual_chars
@@ -108,15 +128,33 @@ class LongFormDurationError(Exception):
         self.target_duration_seconds = target_duration_seconds
         self.min_seconds = min_seconds
         self.max_seconds = max_seconds
+        self.workspace = workspace
+        self.spokesperson = spokesperson
+        self.composition_name = composition_name
+        self.synthesized_brief = synthesized_brief
+        self.knowledge_chunk_ids = knowledge_chunk_ids
+        self.verification_warnings = verification_warnings
+        self.verification_status = verification_status
+        self.mock_mode = mock_mode
+        self.created_by = created_by
         self.composition_id = composition_id
         direction = "shorter than" if actual_seconds < min_seconds else "longer than"
+        self.error_message_text = (
+            f"Synthesized script estimated at ~{actual_seconds}s "
+            f"of speech ({actual_chars} chars / {actual_words} "
+            f"words), {direction} the acceptable range "
+            f"{min_seconds}-{max_seconds}s for a "
+            f"{target_duration_seconds}-second video. "
+            "One corrective attempt did not converge. "
+            "Try shortening or lengthening the input "
+            "brief, or picking a different target duration."
+        )
         super().__init__(
             f"Synthesized script estimated at ~{actual_seconds}s "
             f"({actual_chars} chars / {actual_words} words), {direction} "
             f"the acceptable {min_seconds}-{max_seconds}s range for a "
-            f"{target_duration_seconds}-second video. Composition "
-            f"{composition_id} created in failed state; no Runway calls "
-            f"were dispatched."
+            f"{target_duration_seconds}-second video. No Runway "
+            "calls dispatched; caller must persist the failed row."
         )
 
 
@@ -1034,45 +1072,19 @@ def long_form_ad(
                 synth = _synthesize(hint)
                 actual_chars, actual_words, actual_seconds = _measure(synth.brief)
 
-            # Still out of tolerance after the corrective pass? Fail
-            # the composition with a clear message — do NOT dispatch
-            # Runway for an under/over-sized draft.
+            # Still out of tolerance after the corrective pass? Raise
+            # WITHOUT persisting — the failed composition is created by
+            # the caller (the view) OUTSIDE its own ``transaction.atomic()``
+            # wrapper. A nested savepoint inside that outer atomic gets
+            # rolled back on exception propagation, which would lose the
+            # operator's audit row. The exception carries every field
+            # needed to reconstruct the row.
             if not mock_mode and not (min_seconds <= actual_seconds <= max_seconds):
-                from django.db import transaction as _tx
-
                 composition_name = name.strip() or f"Long-form — {script.strip()[:40]}"
-                out_reason = (
-                    "shorter than" if actual_seconds < min_seconds else "longer than"
-                )
-                with _tx.atomic():
-                    composition = Composition.objects.create(
-                        workspace=workspace,
-                        spokesperson=spokesperson,
-                        name=composition_name,
-                        template_kind="long_form_ad",
-                        mock_mode=mock_mode,
-                        created_by=created_by,
-                        status=CompositionStatus.FAILED,
-                        error_message=(
-                            f"Synthesized script estimated at ~{actual_seconds}s "
-                            f"of speech ({actual_chars} chars / {actual_words} "
-                            f"words), {out_reason} the acceptable range "
-                            f"{min_seconds}-{max_seconds}s for a "
-                            f"{target_duration_seconds}-second video. "
-                            "One corrective attempt did not converge. "
-                            "Try shortening or lengthening the input "
-                            "brief, or picking a different target duration."
-                        ),
-                        synthesized_brief=synth.brief,
-                        knowledge_chunk_ids=list(synth.chunk_ids or []),
-                        verification_warnings=list(synth.verification_warnings or []),
-                        verification_status=synth.verification_status or "",
-                    )
                 logger.warning(
-                    "starter long_form_ad OUT-OF-TOLERANCE composition=%s "
+                    "starter long_form_ad OUT-OF-TOLERANCE "
                     "actual=%ds target=%ds range=%d-%ds "
-                    "chars=%d words=%d",
-                    composition.id,
+                    "chars=%d words=%d — caller will persist failed row",
                     actual_seconds, target_duration_seconds,
                     min_seconds, max_seconds,
                     actual_chars, actual_words,
@@ -1084,7 +1096,15 @@ def long_form_ad(
                     target_duration_seconds=target_duration_seconds,
                     min_seconds=min_seconds,
                     max_seconds=max_seconds,
-                    composition_id=composition.id,
+                    workspace=workspace,
+                    spokesperson=spokesperson,
+                    composition_name=composition_name,
+                    synthesized_brief=synth.brief,
+                    knowledge_chunk_ids=list(synth.chunk_ids or []),
+                    verification_warnings=list(synth.verification_warnings or []),
+                    verification_status=synth.verification_status or "",
+                    mock_mode=mock_mode,
+                    created_by=created_by,
                 )
 
         except ClaimVerifierError as exc:

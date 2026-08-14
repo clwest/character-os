@@ -48,7 +48,14 @@ from rest_framework.response import Response
 
 from apps.accounts.models import Membership, Workspace, default_workspace_for
 from apps.compositions.assets import StorageHealth, compute_storage_health
-from apps.compositions.models import Asset, AssetType, Composition, CompositionStep
+from apps.compositions.models import (
+    Asset,
+    AssetType,
+    Composition,
+    CompositionStatus,
+    CompositionStep,
+)
+from apps.compositions.starters import LongFormDurationError
 from apps.spokespeople.models import Teammate
 from character_os.clients.media_engine import (
     MediaEngineClient,
@@ -477,6 +484,44 @@ class CompositionViewSet(viewsets.GenericViewSet):
         try:
             with transaction.atomic():
                 composition = recipe.starter(**kwargs)
+        except LongFormDurationError as exc:
+            # SESSION 251 — long-form synthesis fell outside the ±20%
+            # duration tolerance after one corrective pass. The starter
+            # raises BEFORE touching Runway and BEFORE persisting the
+            # failed row (see LongFormDurationError docstring: a nested
+            # savepoint would be rolled back by this outer atomic).
+            # Persist the FAILED row here, outside the atomic, so the
+            # operator lands on the composition detail page and can see
+            # exactly why the draft was rejected. Return 201 because
+            # the composition IS created and the SPA's post-submit flow
+            # (navigate to detail page) is correct — the FAILED status
+            # itself is the operator-facing signal.
+            composition = Composition.objects.create(
+                workspace=exc.workspace,
+                spokesperson=exc.spokesperson,
+                name=exc.composition_name,
+                template_kind="long_form_ad",
+                mock_mode=exc.mock_mode,
+                created_by=exc.created_by,
+                status=CompositionStatus.FAILED,
+                error_message=exc.error_message_text,
+                synthesized_brief=exc.synthesized_brief,
+                knowledge_chunk_ids=exc.knowledge_chunk_ids,
+                verification_warnings=exc.verification_warnings,
+                verification_status=exc.verification_status,
+            )
+            exc.composition_id = composition.id
+            logger.warning(
+                "composition long_form_ad OUT-OF-TOLERANCE composition=%s "
+                "workspace=%s actual=%ds target=%ds range=%d-%ds",
+                composition.id, workspace.id,
+                exc.actual_seconds, exc.target_duration_seconds,
+                exc.min_seconds, exc.max_seconds,
+            )
+            return Response(
+                CompositionSerializer(composition).data,
+                status=status.HTTP_201_CREATED,
+            )
         except (ValueError, DjangoValidationError) as exc:
             raise ValidationError({"params": str(exc)})
 

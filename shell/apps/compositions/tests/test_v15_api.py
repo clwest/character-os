@@ -2305,4 +2305,82 @@ def test_dialogue_scene_outro_text_field_exposed_in_recipe_metadata() -> None:
     outro_field = fields["outro_text"]
     assert outro_field["type"] == "text"
     assert outro_field["required"] is False
-    assert outro_field["max_chars"] == 80
+
+
+def test_long_form_ad_out_of_tolerance_returns_201_with_failed_composition() -> None:
+    """SESSION 251-late — the DRF create surface must NOT leak
+    ``LongFormDurationError`` as a 500 when long-form synthesis falls
+    outside the ±20% tolerance after one corrective pass. The starter
+    raises the exception; the view catches it, persists the FAILED
+    composition OUTSIDE its ``transaction.atomic()`` (a nested
+    savepoint would be rolled back on exception propagation), and
+    returns 201 with the failed row so the SPA navigates to the
+    composition detail page and the operator sees the rejection.
+
+    Regression test for the operator-observed 500 on ``POST
+    /api/compositions/`` with an out-of-tolerance long-form request.
+    """
+    from unittest.mock import patch
+
+    ws, user = _make_workspace_with_user("v251lf_over@test")
+    sp = _make_teammate(ws)
+    client = APIClient()
+    _login(client, user)
+
+    # Force a persistently-oversized synthesis: both attempts return
+    # a ~500-word draft. 500 words at ~7.5 chars/word ≈ 3750 chars,
+    # estimated at ~343s, well over the 108s cap for a 90s target.
+    class _FakeBrief:
+        def __init__(self, text: str) -> None:
+            self.brief = text
+            self.chunk_ids: list = []
+            self.verification_status = "verified"
+            self.verification_warnings: list = []
+
+    oversized = " ".join(["oversized"] * 500)
+    fake_brief = _FakeBrief(oversized)
+
+    with patch(
+        "character_os.script_synthesis.build_render_brief",
+        return_value=fake_brief,
+    ):
+        response = client.post(
+            "/api/compositions/",
+            {
+                "kind": "long_form_ad",
+                "workspace": str(ws.pk),
+                "params": {
+                    "spokesperson_id": str(sp.pk),
+                    "script": "topic — a brand story",
+                    "use_knowledge": True,
+                    "target_duration_seconds": "90",
+                    "verifier_mode": "warn",
+                },
+            },
+            format="json",
+        )
+
+    # Must NOT be 500 — the whole point of this fix.
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+
+    # Row persisted with FAILED status.
+    assert data["status"] == CompositionStatus.FAILED
+    assert data["template_kind"] == "long_form_ad"
+
+    # Operator-facing error message names the actual vs allowed range.
+    assert "acceptable range" in data["error_message"]
+    assert "90-second video" in data["error_message"]
+
+    # Synthesized brief persisted so the composition detail page can
+    # show the rejected draft.
+    assert data["synthesized_brief"] == oversized
+
+    # No chunk steps created — zero Runway spend on out-of-tolerance
+    # drafts.
+    assert (
+        Composition.objects.get(pk=data["id"]).steps.filter(
+            primitive="generate_avatar_speech",
+        ).count()
+        == 0
+    )

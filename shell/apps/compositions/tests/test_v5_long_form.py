@@ -491,7 +491,15 @@ def test_long_form_ad_long_script_creates_n_plus_1_steps() -> None:
     assert input_positions == list(range(len(speech_steps)))
 
 
-def test_long_form_ad_use_knowledge_propagates_to_steps() -> None:
+def test_long_form_ad_use_knowledge_synthesizes_once_not_per_chunk() -> None:
+    """SESSION 251 knowledge-ordering fix. Pre-SESSION 251 this test
+    asserted the opposite direction — that ``use_knowledge=True``
+    propagated onto every per-chunk speech step. That produced "9
+    mini-ads back to back" because K6 has no cross-chunk awareness
+    and re-synthesized a full standalone script per chunk. The fix
+    lifts K6 to fire ONCE up front over the whole brief, then forces
+    ``use_knowledge=False`` on every downstream speech step so the
+    chunks render the already-synthesized text verbatim."""
     ws = _make_workspace("v5lf3@test.local")
     sp = _make_teammate(ws)
     comp = long_form_ad(
@@ -500,11 +508,20 @@ def test_long_form_ad_use_knowledge_propagates_to_steps() -> None:
         max_chars=60,
         use_knowledge=True,
         mock_mode=True,
+        # SESSION 251 — long-form knowledge mode is duration-driven;
+        # mock_mode short-circuits the tolerance check so the value
+        # is informational here (K10 canned mock brief is ~55s).
+        target_duration_seconds=60,
     )
     speech_steps = [s for s in comp.steps.all() if s.primitive == "generate_avatar_speech"]
     assert speech_steps
     for s in speech_steps:
-        assert s.params["use_knowledge"] is True
+        # Per-chunk steps must NOT re-invoke K6 — the composition-
+        # level upfront synthesis is the single source of truth.
+        assert s.params["use_knowledge"] is False
+    # And the upfront synthesis metadata is persisted on the
+    # composition (not per-step) so the operator can trace it.
+    assert comp.synthesized_brief
 
 
 def test_long_form_ad_rejects_empty_script() -> None:
