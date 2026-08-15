@@ -208,7 +208,14 @@ def split_script_with_llm(
         )
         return chunk_script(cleaned, max_chars=max_chars)
 
-    return chunks
+    # SESSION 251-late — deterministic post-processing repack.
+    # Even with a tightened prompt, gpt-5-mini has been observed
+    # emitting one-sentence-per-chunk output where several would
+    # comfortably fit together. That inflates Runway spend
+    # (per-call minimum floor) with no perceptual benefit. Greedy-
+    # merge adjacent chunks whenever they fit under the cap;
+    # order and wording are preserved by construction.
+    return _repack_chunks(chunks, max_chars=max_chars)
 
 
 def _gpt5_split(text: str, max_chars: int) -> list[str]:
@@ -219,16 +226,39 @@ def _gpt5_split(text: str, max_chars: int) -> list[str]:
 
     client = OpenAI()
     system_prompt = (
-        "You split long scripts into shorter chunks for video "
-        "rendering. Every chunk must be at most "
-        f"{max_chars} characters. Split at sentence or clause "
-        "boundaries — never mid-word. Preserve the operator's "
-        "exact wording (don't summarize, paraphrase, or add). "
+        "You split long video scripts into contiguous chunks for "
+        "TTS rendering. Every chunk feeds a separate paid "
+        "provider call, so the goal is to MINIMIZE the number "
+        "of chunks while respecting the constraints below.\n\n"
+        "Constraints (all must hold):\n"
+        f"- Never exceed {max_chars} characters in any chunk.\n"
+        "- Split only at sentence-ending punctuation (. ! ?) "
+        "or, if a single sentence is too long on its own, at "
+        "clause boundaries (comma, semicolon, dash).\n"
+        "- Never split mid-word.\n"
+        "- Preserve the source wording EXACTLY — no "
+        "summarization, paraphrasing, additions, deletions, or "
+        "reordering. Concatenating your chunks in order must "
+        "reproduce the input verbatim except for whitespace at "
+        "chunk boundaries.\n\n"
+        "Packing goal (this is the main objective):\n"
+        "- Pack as many consecutive sentences into each chunk "
+        f"as fit within {max_chars} characters.\n"
+        "- Do NOT emit one sentence per chunk when several "
+        "consecutive sentences would fit together under the cap.\n"
+        "- Do NOT emit standalone short chunks (a single short "
+        "sentence, a lone fragment) when they would fit inside "
+        "the previous or next chunk without exceeding the cap.\n"
+        "- Start a new chunk only when the next sentence would "
+        f"push the current chunk over {max_chars} characters.\n\n"
         "Respond with ONLY a JSON array of strings."
     )
     user_prompt = (
-        f"Split this script into chunks of at most {max_chars} "
-        f"characters each:\n\n{text}"
+        f"Split this script into the FEWEST chunks possible, each "
+        f"at most {max_chars} characters. Pack consecutive "
+        f"sentences together up to the cap; only break when the "
+        f"next sentence would push the current chunk over the "
+        f"limit.\n\n{text}"
     )
 
     response = client.responses.create(
@@ -256,6 +286,42 @@ def _gpt5_split(text: str, max_chars: int) -> list[str]:
     return [str(item).strip() for item in parsed if str(item).strip()]
 
 
+def _repack_chunks(chunks: list[str], max_chars: int) -> list[str]:
+    """Greedy left-to-right adjacent merge — never reorders, never
+    rewrites. Merges consecutive chunks whenever
+    ``len(left) + 1 + len(right) <= max_chars`` (the +1 accounts
+    for the joining space).
+
+    Applied after ``_gpt5_split`` returns to correct for the LLM's
+    observed tendency (SESSION 251-late dogfood) to emit one-
+    sentence-per-chunk output even under a tightened prompt. The
+    naive ``chunk_script`` doesn't need this — it already packs
+    greedily at split time.
+
+    Left-to-right single-pass is provably optimal for the
+    contiguous-merge-only problem: once ``chunk[i] + chunk[i+1]``
+    won't fit, ``chunk[i+1]`` becomes the head of a new merge
+    window and considers ``chunk[i+2]`` fresh. Multi-pass would
+    only matter if we allowed non-adjacent merges, which would
+    reorder text.
+
+    Returns ``[]`` on empty input. Never returns chunks over
+    ``max_chars`` — assumes callers already validated input
+    chunks respect the cap (the merge condition can only reduce
+    chunk count, never grow individual chunks past the cap).
+    """
+    if not chunks:
+        return []
+    result = [chunks[0]]
+    for chunk in chunks[1:]:
+        last = result[-1]
+        if len(last) + 1 + len(chunk) <= max_chars:
+            result[-1] = last + " " + chunk
+        else:
+            result.append(chunk)
+    return result
+
+
 def estimate_chunks(script: str, max_chars: int = DEFAULT_CHUNK_MAX_CHARS) -> int:
     """How many chunks the naive splitter will produce. Used by
     cost estimators that need a count without actually
@@ -268,4 +334,5 @@ __all__ = [
     "chunk_script",
     "split_script_with_llm",
     "estimate_chunks",
+    "_repack_chunks",
 ]
