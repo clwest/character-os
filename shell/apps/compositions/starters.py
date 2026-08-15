@@ -64,13 +64,24 @@ logger = logging.getLogger(__name__)
 # sized to cover the estimated speech duration + concat them so the
 # composite shows continuous motion.
 #
-# Constants tuned against SESSION 179's real-mode dogfood:
-#   - 280-char Riggs script rendered as a 22-second clip → ~12.7 chars/sec
-#   - We use 11 chars/sec (slight over-estimate of duration) plus a
-#     2-second safety buffer so N covers actual speech length even on
-#     slower-paced voices. Composite trims long-edge to short-edge so
-#     over-provisioning by a second or two is free.
-_AVATAR_SPEECH_CHARS_PER_SECOND = 11
+# SESSION 253 Stage 1 CALIBRATION — value moved 11 → 15.
+# This is the PEER COPY of
+# ``primitives/avatar_speech._AVATAR_SPEECH_CHARS_PER_SECOND`` and
+# MUST move with it (both represent the same real-world quantity:
+# how quickly a K6-generated Runway avatar render speaks its
+# script). See the extended calibration comment in
+# ``primitives/avatar_speech.py`` for the empirical basis (five
+# controlled real-Runway renders, mean 15.40 cps, CV 2.9 %). We
+# also read this constant from
+# ``script_synthesis.char_budget_for_duration`` and
+# ``recipes.py`` (surfacing to the SPA), which is why the peer
+# copies exist as import targets rather than one authoritative
+# module.
+#
+# The 2-second backdrop safety buffer still absorbs per-avatar
+# pace variance. Composite trims long-edge to short-edge so
+# slight over-provisioning is free.
+_AVATAR_SPEECH_CHARS_PER_SECOND = 15
 _AVATAR_SPEECH_DURATION_BUFFER_SECONDS = 2
 _DEFAULT_BACKDROP_DURATION_SECONDS = 10
 _MAX_BACKDROP_CHAIN_LENGTH = 6  # 60s of backdrop motion; safety stop

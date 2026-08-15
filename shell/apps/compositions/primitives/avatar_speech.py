@@ -85,21 +85,61 @@ _AVATAR_SPEECH_MICROS_PER_CHAR = 333
 _AVATAR_SPEECH_MIN_MICROS = 250_000
 
 
-# Duration fallback constants. Runway's ``/v1/avatar_videos`` polls
-# don't surface ``duration_seconds`` (the media-engine's
-# ``GET /internal/tasks/{id}/`` route therefore hard-codes it to
-# ``None``). When that happens we estimate from the synthesized
-# script length using the same chars-per-second baseline that
-# ``starters._estimate_avatar_speech_seconds`` uses for backdrop-
-# chain sizing — kept here as a peer copy so the primitive doesn't
-# import from starters. Tight estimate (no buffer): the composite
-# trims the long edge to the short edge, so the speech duration
-# wants to be a near-accurate floor of the actual render length.
-# Without this, ``composite_video`` falls back to backdrop length
-# and the V8 output carries a trailing silent backdrop tail
-# (SESSION 183 dogfood — Sunset 2: "Riggs stopped talking before
-# the video ended").
-_AVATAR_SPEECH_CHARS_PER_SECOND = 11
+# Pre-render delivery-rate estimator for K6-generated Runway
+# avatar renders. Used ONLY:
+#
+#   * pre-render: to translate the operator's target duration
+#     into a character budget (via
+#     ``script_synthesis.char_budget_for_duration`` — reads this
+#     constant from ``starters._AVATAR_SPEECH_CHARS_PER_SECOND``,
+#     which is the peer copy that MUST move together with this
+#     one), and
+#   * post-render fallback: to fabricate ``duration_ms`` when the
+#     media-engine ffprobe on the returned MP4 URL fails (missing
+#     binary, non-zero rc, network timeout). The successful
+#     ffprobe path (``duration_source="media_probe"``, SESSION 253
+#     Stage 2) is authoritative and does NOT touch this constant.
+#
+# SESSION 253 Stage 1 CALIBRATION — value moved 11 → 15.
+# Empirically measured against five controlled real-Runway
+# ``/v1/avatar_videos`` renders driven by the production
+# ``synthesize_with_duration_gate`` path (K6 + Character Voice
+# contract, target=90 s, Penny + variants):
+#
+#   1002 chars / 63.69 s = 15.732 cps
+#    964 chars / 65.69 s = 14.675 cps
+#   1016 chars / 64.29 s = 15.803 cps
+#    880 chars / 56.97 s = 15.446 cps
+#    965 chars / 62.89 s = 15.344 cps
+#
+#   mean 15.40  median 15.446  stddev 0.448  CV 2.9 %
+#
+# Rounded down to 15 (conservative + integer — the ±20 % duration
+# tolerance already absorbs the 0.4 rounding error, and using
+# 15 avoids false precision).
+#
+# The two SESSION 253 calibration constants solve DIFFERENT
+# problems and must not be confused:
+#
+#   * ``_AVATAR_SPEECH_CHARS_PER_SECOND`` = 15 (this file):
+#     how quickly the Runway avatar SPEAKS a finished script.
+#     Governs the pre-render acceptance/gating budget and the
+#     post-render fallback estimate. Recalibrate from fresh
+#     dogfood if Runway avatar behavior materially changes
+#     (new avatar family, new gwm* version, per-avatar
+#     personas that vary in delivery pace).
+#
+#   * ``duration_contract.K6_DURATION_SYNTHESIS_TARGET_MULTIPLIER``
+#     = 0.78: how much GPT overshoots a requested character
+#     target. Applied only to what K6 is told to aim at
+#     internally; does NOT change the operator-facing
+#     acceptance band. Independent from the delivery rate —
+#     they were measured in the same dogfood pass but recalibrate
+#     separately.
+#
+# See docs/handoffs SESSION 253 for the calibration methodology
+# and the full 30/60/90/120/180-second duration-budget table.
+_AVATAR_SPEECH_CHARS_PER_SECOND = 15
 _AVATAR_SPEECH_MIN_DURATION_MS = 5_000
 
 

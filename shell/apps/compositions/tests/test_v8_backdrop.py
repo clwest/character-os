@@ -312,29 +312,33 @@ def test_cost_estimate_sums_all_three_primitives() -> None:
 
 
 def test_estimate_avatar_speech_seconds_helper() -> None:
-    """Speech estimator: 11 chars/sec + 2s buffer, floor at 5s.
+    """Speech estimator: 15 chars/sec + 2 s buffer, floor at 5 s.
+    SESSION 253 Stage 1 recalibration moved the constant from 11
+    to 15 cps.
 
-    Empty / tiny scripts clamp to the 5s floor so the chain math
+    Empty / tiny scripts clamp to the 5 s floor so the chain math
     never produces a zero-backdrop composition. Long scripts grow
     linearly with character count."""
-    # Floor: empty + tiny scripts both land at 5s.
+    # Floor: empty + tiny scripts both land at 5 s.
     assert _estimate_avatar_speech_seconds(0) == 5
     assert _estimate_avatar_speech_seconds(20) == 5
-    # 110 chars = 10s of speech + 2s buffer = 12s.
-    assert _estimate_avatar_speech_seconds(110) == 12
-    # 500 chars = ~45.4s of speech, int() = 45 + 2 buffer = 47s.
-    assert _estimate_avatar_speech_seconds(500) == 47
+    # 110 chars @ 15 cps = 7.33 s → int = 7 + 2 buffer = 9 s.
+    assert _estimate_avatar_speech_seconds(110) == 9
+    # 500 chars @ 15 cps = 33.33 s → int = 33 + 2 buffer = 35 s.
+    assert _estimate_avatar_speech_seconds(500) == 35
 
 
 def test_compute_backdrop_chain_length_helper() -> None:
     """Chain length: ceil(speech / backdrop) clamped to
-    ``_MAX_BACKDROP_CHAIN_LENGTH``."""
-    # Short script + default 10s backdrop = single backdrop.
+    ``_MAX_BACKDROP_CHAIN_LENGTH``. SESSION 253 Stage 1 —
+    numbers reflect 15 cps."""
+    # Short script + default 10 s backdrop = single backdrop.
     assert _compute_backdrop_chain_length(20, 10) == 1
-    # 500-char script needs 47s of speech / 10s per backdrop = 5.
-    assert _compute_backdrop_chain_length(500, 10) == 5
-    # Pathological script: 11_000 chars = 1002s of speech;
-    # divided by 10s = 101 backdrops; clamped to MAX.
+    # 500-char script @ 15 cps = 35 s speech / 10 s per backdrop
+    # → ceil = 4 backdrops (was 5 at the old 11 cps rate).
+    assert _compute_backdrop_chain_length(500, 10) == 4
+    # Pathological script: 11_000 chars @ 15 cps = 735 s;
+    # divided by 10 s = 74 backdrops; clamped to MAX.
     assert (
         _compute_backdrop_chain_length(11_000, 10)
         == _MAX_BACKDROP_CHAIN_LENGTH
@@ -368,7 +372,9 @@ def test_short_script_stays_single_backdrop_three_steps() -> None:
 
 def test_long_script_generates_n_backdrops_with_concat() -> None:
     """500-char script triggers a 5-backdrop chain. Step layout:
-    5 backdrops + 1 speech + 1 concat + 1 composite = 8 steps."""
+    SESSION 253 Stage 1 — at 15 cps, 500 chars = 35 s speech;
+    ceil(35/10) = 4 backdrops (was 5 at the old 11 cps rate). So
+    4 backdrops + 1 speech + 1 concat + 1 composite = 7 steps."""
     ws = _make_workspace("v8long_chain@test")
     sp = _make_teammate(ws)
     c = talking_head_with_backdrop(
@@ -378,30 +384,30 @@ def test_long_script_generates_n_backdrops_with_concat() -> None:
         mock_mode=True,
     )
     steps = list(c.steps.all().order_by("position"))
-    assert len(steps) == 8
-    # First five = backdrops.
-    for i in range(5):
+    assert len(steps) == 7
+    # First four = backdrops.
+    for i in range(4):
         assert steps[i].primitive == "generate_visual_clip"
         assert steps[i].params["prompt"] == "A bustling night market."
         assert steps[i].params["duration"] == 10
-    # Step 5 = speech.
-    assert steps[5].primitive == "generate_avatar_speech"
-    # Step 6 = concat with one input per backdrop in order.
-    assert steps[6].primitive == "concat_clips"
-    concat_inputs = steps[6].inputs
-    assert len(concat_inputs) == 5
+    # Step 4 = speech.
+    assert steps[4].primitive == "generate_avatar_speech"
+    # Step 5 = concat with one input per backdrop in order.
+    assert steps[5].primitive == "concat_clips"
+    concat_inputs = steps[5].inputs
+    assert len(concat_inputs) == 4
     for i, inp in enumerate(concat_inputs):
         assert inp["slot"] == "clip"
         assert inp["from_step_position"] == i
-    # Step 7 = composite with background = concat step (6),
-    # foreground = speech step (5).
-    composite = steps[7]
+    # Step 6 = composite with background = concat step (5),
+    # foreground = speech step (4).
+    composite = steps[6]
     assert composite.primitive == "composite_video"
     bg, fg = composite.inputs
     assert bg["slot"] == "background"
-    assert bg["from_step_position"] == 6
+    assert bg["from_step_position"] == 5
     assert fg["slot"] == "foreground"
-    assert fg["from_step_position"] == 5
+    assert fg["from_step_position"] == 4
 
 
 def test_chain_length_clamps_to_max_for_pathological_scripts() -> None:
@@ -428,14 +434,20 @@ def test_chain_length_clamps_to_max_for_pathological_scripts() -> None:
 
 def test_custom_backdrop_duration_changes_chain_length() -> None:
     """A shorter per-clip backdrop forces more clips for the same
-    speech. Demonstrates the operator-tunable knob."""
+    speech. Demonstrates the operator-tunable knob.
+
+    SESSION 253 Stage 1 — at 15 cps, 300 chars → 22 s speech;
+    ceil(22/5) = 5 backdrops. (Old test used 220 chars which at
+    11 cps also produced 22 s → 5 backdrops; at 15 cps 220 chars
+    would produce only 16 s → 4 backdrops. Bumping the script to
+    300 chars preserves the "5 backdrops" premise.)"""
     ws = _make_workspace("v8duration_chain@test")
     sp = _make_teammate(ws)
     c = talking_head_with_backdrop(
         workspace=ws, spokesperson=sp,
-        script="x" * 220,  # ~22s of speech
+        script="x" * 300,  # ~22 s of speech at 15 cps
         backdrop_prompt="A glowing aquarium.",
-        backdrop_duration=5,  # 5s per backdrop → ceil(22/5) = 5
+        backdrop_duration=5,  # 5 s per backdrop → ceil(22/5) = 5
         mock_mode=True,
     )
     backdrop_steps = [
@@ -505,38 +517,41 @@ def test_remove_avatar_bg_flag_inserts_matting_before_composite() -> None:
 def test_remove_avatar_bg_flag_inserts_matting_after_concat() -> None:
     """Multi-backdrop chain + matting. Step layout:
     N backdrops + speech + concat + matte + composite. The
-    composite's background = concat, foreground = matte."""
+    composite's background = concat, foreground = matte.
+
+    SESSION 253 Stage 1 — at 15 cps, 500 chars → 35 s speech →
+    4 backdrops (was 5 at 11 cps). 4 backdrops + speech + concat
+    + matte + composite = 8 steps."""
     ws = _make_workspace("v16_chain@test")
     sp = _make_teammate(ws)
     c = talking_head_with_backdrop(
         workspace=ws, spokesperson=sp,
-        script="x" * 500,  # 5-backdrop chain
+        script="x" * 500,  # 4-backdrop chain at 15 cps
         backdrop_prompt="A busy market.",
         remove_avatar_bg=True,
         mock_mode=True,
     )
     steps = list(c.steps.all().order_by("position"))
-    # 5 backdrops + speech + concat + matte + composite = 9
-    assert len(steps) == 9
+    # 4 backdrops + speech + concat + matte + composite = 8
+    assert len(steps) == 8
     assert [s.primitive for s in steps] == [
         "generate_visual_clip",  # 0
         "generate_visual_clip",  # 1
         "generate_visual_clip",  # 2
         "generate_visual_clip",  # 3
-        "generate_visual_clip",  # 4
-        "generate_avatar_speech",  # 5
-        "concat_clips",  # 6
-        "remove_avatar_background",  # 7
-        "composite_video",  # 8
+        "generate_avatar_speech",  # 4
+        "concat_clips",  # 5
+        "remove_avatar_background",  # 6
+        "composite_video",  # 7
     ]
-    # Matte feeds from speech (position 5).
-    assert steps[7].inputs == [
-        {"slot": "clip", "from_step_position": 5},
+    # Matte feeds from speech (position 4).
+    assert steps[6].inputs == [
+        {"slot": "clip", "from_step_position": 4},
     ]
-    # Composite: bg=concat(6), fg=matte(7).
-    bg, fg = steps[8].inputs
-    assert bg["from_step_position"] == 6
-    assert fg["from_step_position"] == 7
+    # Composite: bg=concat(5), fg=matte(6).
+    bg, fg = steps[7].inputs
+    assert bg["from_step_position"] == 5
+    assert fg["from_step_position"] == 6
 
 
 # ---- V17.5 extend-chain opt-in (SESSION 183) ----------------------
@@ -546,17 +561,17 @@ def test_compute_extend_backdrop_chain_length_helper() -> None:
     """Extend chain: ceil((speech - 10) / 5), floored at 0, capped
     at ``_MAX_BACKDROP_CHAIN_LENGTH - 1`` so total chain length
     (base + extends) stays bounded by the same safety cap as the
-    concat path."""
-    # Speech ≤ 10s → 0 extends (just the base 10s generate).
+    concat path. SESSION 253 Stage 1 — numbers reflect 15 cps."""
+    # Speech ≤ 10 s → 0 extends (just the base 10 s generate).
     assert _compute_extend_backdrop_chain_length(0) == 0
-    assert _compute_extend_backdrop_chain_length(20) == 0  # 5s floor
-    assert _compute_extend_backdrop_chain_length(88) == 0  # 8s + 2 buffer = 10s
-    # Speech > 10s → ceil((speech - 10) / 5).
-    # 110 chars = 10s + 2 buffer = 12s → (12-10)/5 → ceil → 1 extend.
-    assert _compute_extend_backdrop_chain_length(110) == 1
-    # 220 chars = 20s + 2 buffer = 22s → (22-10)/5 → ceil → 3 extends.
-    assert _compute_extend_backdrop_chain_length(220) == 3
-    # 500 chars = 45s + 2 buffer = 47s → (47-10)/5 = 7.4 → ceil → 8;
+    assert _compute_extend_backdrop_chain_length(20) == 0    # 5 s floor
+    # 120 chars @ 15 cps = 8 s + 2 buffer = 10 s → 0 extends.
+    assert _compute_extend_backdrop_chain_length(120) == 0
+    # 200 chars @ 15 cps = 13 s + 2 buffer = 15 s → (15-10)/5 = 1.
+    assert _compute_extend_backdrop_chain_length(200) == 1
+    # 400 chars @ 15 cps = 26 s + 2 = 28 s → (28-10)/5 → ceil → 4.
+    assert _compute_extend_backdrop_chain_length(400) == 4
+    # 500 chars @ 15 cps = 33 s + 2 = 35 s → (35-10)/5 = 5;
     # clamped to _MAX_BACKDROP_CHAIN_LENGTH - 1 = 5.
     assert (
         _compute_extend_backdrop_chain_length(500)
@@ -594,15 +609,17 @@ def test_extend_short_script_lays_down_single_generate_no_extends() -> None:
 
 
 def test_extend_22s_script_lays_down_one_generate_three_extends() -> None:
-    """The motivating SESSION 179 case: 22s of speech. Concat path
-    needs 3 backdrops + concat (visible 10s seams). Extend path:
-    1 generate (10s) + 3 extends (5s each = 15s) = 25s total
+    """The motivating SESSION 179 case: 22 s of speech.
+
+    SESSION 253 Stage 1 — script bumped 220 → 300 chars so the
+    per-15 cps estimator still lands at ~22 s. Extend path:
+    1 generate (10 s) + 3 extends (5 s each = 15 s) = 25 s total
     backdrop, no seam, composite trims to speech."""
     ws = _make_workspace("v17_5_22s@test")
     sp = _make_teammate(ws)
     c = talking_head_with_backdrop(
         workspace=ws, spokesperson=sp,
-        script="x" * 220,  # ~22s speech estimate
+        script="x" * 300,  # ~22 s speech at 15 cps
         backdrop_prompt="A neon-lit alley.",
         use_extend_for_backdrop=True,
         mock_mode=True,
@@ -712,7 +729,9 @@ def test_extend_path_remove_avatar_bg_matting_lands_before_composite() -> None:
     sp = _make_teammate(ws)
     c = talking_head_with_backdrop(
         workspace=ws, spokesperson=sp,
-        script="x" * 220,  # 3-extend chain
+        # SESSION 253 Stage 1 — 220 → 300 chars so estimator at
+        # 15 cps still lands on the 3-extend chain length.
+        script="x" * 300,
         backdrop_prompt="A busy night market.",
         use_extend_for_backdrop=True,
         remove_avatar_bg=True,
@@ -1102,14 +1121,17 @@ def test_v18_rejects_backdrop_shorter_than_estimated_speech() -> None:
 def test_v18_accepts_backdrop_exactly_at_estimated_speech() -> None:
     """Boundary — when ``backdrop_seconds == estimated_speech_seconds``
     the starter accepts the render. The check is a strict ``<``
-    (the buffered estimator already adds a 2s safety margin)."""
+    (the buffered estimator already adds a 2 s safety margin).
+
+    SESSION 253 Stage 1 — 110 chars at 15 cps + 2 s buffer =
+    max(5, int(7.33)+2) = 9 s. Backdrop bumped 12 000 → 9 000 ms
+    to match the new estimator floor."""
     ws = _make_workspace("v194exact@test")
     sp = _make_teammate(ws)
-    # 110 chars → estimated = max(5, 110/11 + 2) = max(5, 12) = 12s.
     script = "x" * 110
-    backdrop = _make_backdrop_clip(ws, duration_ms=12_000)
+    backdrop = _make_backdrop_clip(ws, duration_ms=9_000)
     estimated_seconds = _estimate_avatar_speech_seconds(len(script))
-    assert estimated_seconds == 12  # sanity check on the test's premise
+    assert estimated_seconds == 9  # sanity check on the test's premise
 
     c = talking_head_with_backdrop(
         workspace=ws, spokesperson=sp,

@@ -286,6 +286,10 @@ class SynthesizeVoiceoverAudioPrimitive:
                     "model": model,
                     "provider": "mock",
                     "provider_pref": provider_pref,
+                    # Mock-mode duration is estimated from script
+                    # length; no bytes exist to measure.
+                    "duration_estimated": True,
+                    "duration_source": "estimated",
                     **voice_provenance,
                 },
                 role=AssetRole.VOICEOVER_AUDIO.value,
@@ -312,10 +316,31 @@ class SynthesizeVoiceoverAudioPrimitive:
         # Duration in ms — provider returns seconds. Floor at the
         # mock estimator value so VO.2's offset math has a
         # non-zero anchor even on a provider that returned 0.
+        #
+        # SESSION 253 Stage 3 — duration provenance. TTS providers
+        # (ElevenLabs) can and should return a real
+        # ``duration_seconds`` on the response. When they do, mark
+        # ``duration_source="provider_reported"``. When they don't
+        # (0 or missing), fall back to the char-length estimator
+        # and mark ``duration_source="estimated"`` + emit a warning
+        # — same drift-prevention discipline as
+        # ``avatar_speech`` / ``visual_clip`` post Stage 2/3.
         if result.duration_seconds > 0:
             duration_ms = int(result.duration_seconds * 1000)
+            duration_estimated = False
+            duration_source = "provider_reported"
         else:
             duration_ms = _estimate_duration_ms(len(script))
+            duration_estimated = True
+            duration_source = "estimated"
+            logger.warning(
+                "synthesize_voiceover_audio step=%s voice=%s "
+                "provider=%s: provider returned no duration; "
+                "persisting estimator fallback (%d ms from %d "
+                "chars @ %d cps)",
+                step.id, echoed_voice_id, result.provider,
+                duration_ms, len(script), _TTS_CHARS_PER_SECOND,
+            )
 
         logger.info(
             "synthesize_voiceover_audio step=%s voice=%s provider=%s "
@@ -337,6 +362,8 @@ class SynthesizeVoiceoverAudioPrimitive:
                 "script": script,
                 "script_chars": len(script),
                 "voice_id": echoed_voice_id,
+                "duration_estimated": duration_estimated,
+                "duration_source": duration_source,
                 "model": result.model,
                 "provider": result.provider,
                 "provider_pref": provider_pref,

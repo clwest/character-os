@@ -255,18 +255,23 @@ def test_build_render_brief_refuses_long_form_without_duration():
 def test_knowledge_mode_synthesis_runs_exactly_once():
     """Re-assertion of the SESSION 251 one-pass ordering, now with
     the duration parameter in the mix. Ensures the duration-driven
-    changes did not introduce a per-chunk fallback."""
+    changes did not introduce a per-chunk fallback.
+
+    SESSION 253 Stage 3 — at 15 cps, 45 s acceptance band is
+    540-810 chars. ``_make_words(140)`` = 5*140-1 = 699 chars,
+    sitting comfortably inside the band so the first pass
+    accepts and no retry fires."""
     ws, tm = _teammate("dc-once@t")
     with patch(
         "character_os.duration_contract.build_render_brief",
-        return_value=_canned(_make_words(100)),
+        return_value=_canned(_make_words(140)),
     ) as mock_brb:
         long_form_ad(
             workspace=ws,
             spokesperson=tm,
             script="short topic",
             use_knowledge=True,
-            target_duration_seconds=45,  # 45s → ~99 words; 100 fits
+            target_duration_seconds=45,
         )
     assert mock_brb.call_count == 1
 
@@ -277,9 +282,12 @@ def test_knowledge_mode_synthesis_runs_exactly_once():
 def test_chunks_use_synthesized_text_verbatim():
     """Chunks must contain slices of the synthesized brief, not
     fresh per-chunk syntheses. Re-assertion for the duration
-    codepath."""
+    codepath.
+
+    SESSION 253 Stage 3 — 140 words to land inside 15 cps
+    acceptance for 45 s (see sibling test)."""
     ws, tm = _teammate("dc-verbatim@t")
-    brief = _make_words(100)
+    brief = _make_words(140)
     with patch(
         "character_os.duration_contract.build_render_brief",
         return_value=_canned(brief),
@@ -297,7 +305,7 @@ def test_chunks_use_synthesized_text_verbatim():
         .order_by("position")
     )
     # Every "word" in the canned brief must land in some chunk.
-    assert joined.count("word") == 100
+    assert joined.count("word") == 140
 
 
 # ---- 7. bidirectional out-of-tolerance catches before render -----
@@ -407,13 +415,16 @@ def test_retry_converges_into_tolerance_and_ships():
     """When the corrective pass DOES land inside tolerance, the
     starter proceeds to chunking + composition creation. This is
     the happy retry path — proves the retry is a real correction,
-    not just a rejection knob."""
+    not just a rejection knob.
+
+    SESSION 253 Stage 3 — at 15 cps, 90 s acceptance is
+    1080-1620 chars. ``_make_words(N)`` = 5N-1, so:
+      N=100 → 499 chars (below 1080 → retry fires)
+      N=280 → 1399 chars (inside 1080-1620 → accept)."""
     ws, tm = _teammate("dc-retry-ok@t")
-    # 90s target → range ~185-278 words. First attempt too short;
-    # retry lands inside.
     stub = _stub_returns_progressively(
         _make_words(100),  # under
-        _make_words(210),  # inside range
+        _make_words(280),  # inside range at 15 cps
     )
     with patch(
         "character_os.duration_contract.build_render_brief",
@@ -444,14 +455,23 @@ def test_word_in_budget_but_duration_over_still_rejected():
     was word-count-based the render would have shipped a
     ~170s video for a 90-120s ask.
 
-    Fixture uses 250 words × 7-char words (~1999 chars) → estimated
-    at ~183s. Word count is well inside the 211-317 budget for
-    120s; character-based estimate is well past the 144s cap. This
-    test proves the gate rejects even when the word budget would
-    have accepted.
+    Fixture uses 300 words × 7-char words (~2399 chars) → estimated
+    at ~161 s at 15 cps. Word count is well inside the 211-317
+    budget for 120 s; character-based estimate is well past the
+    144 s cap. This test proves the gate rejects even when the
+    word budget would have accepted.
+
+    SESSION 253 Stage 3 — fixture bumped 250 → 300 words. At the
+    old 11 cps, 250 words × 7 = 1999 chars estimated at ~183 s
+    (well over 144 max). At 15 cps the same 1999 chars estimates
+    at ~135 s — INSIDE the acceptance band, so the fixture no
+    longer exposed the "word gate accepts, duration gate
+    rejects" regression. 300 words × 7 = 2399 chars → ~161 s at
+    15 cps, back to over 144 max while staying inside the 211-317
+    word budget.
     """
     ws, tm = _teammate("dc-op-regression@t")
-    dense_but_wordy = _make_text_words_chars(250, 7)
+    dense_but_wordy = _make_text_words_chars(300, 7)
     word_count = len(dense_but_wordy.split())
     char_count = len(dense_but_wordy)
     est_seconds = _estimate_avatar_speech_seconds(char_count)
@@ -509,12 +529,16 @@ def test_compression_retry_converges_from_over_duration():
     the 96-144s tolerance and the composition ships. Proves the
     compression hint drives real correction (not just retry-then-
     fail), and mirrors the shape the operator asked for: same
-    over-shooting input can converge when the LLM cooperates."""
+    over-shooting input can converge when the LLM cooperates.
+
+    SESSION 253 Stage 3 — at 15 cps:
+      First over:  300 words × 7 chars = 2399 chars → ~161 s
+      Retry inside: 240 words × 7 chars = 1919 chars → ~129 s
+    Old 11 cps fixtures (260/160 words) both landed inside the
+    band at the recalibrated rate."""
     ws, tm = _teammate("dc-compress-converge@t")
-    # First attempt over: 260 words × 7 chars → 1819 chars → ~167s
-    # Retry inside: 160 words × 7 chars → 1119 chars → ~103s
-    over_draft = _make_text_words_chars(260, 7)
-    inside_draft = _make_text_words_chars(160, 7)
+    over_draft = _make_text_words_chars(300, 7)
+    inside_draft = _make_text_words_chars(240, 7)
 
     # Pre-conditions on the fixtures.
     assert _estimate_avatar_speech_seconds(len(over_draft)) > 144
@@ -555,14 +579,18 @@ def test_no_chunk_steps_created_when_duration_out_of_tolerance():
     for direction, first, second, target in (
         (
             "over",
-            _make_text_words_chars(250, 7),  # ~183s
-            _make_text_words_chars(240, 7),  # ~176s (still over)
+            # SESSION 253 Stage 3 — bumped from 250/240 to 320/300
+            # words at 15 cps. Old values estimated at ~135/129 s
+            # (inside 96-144). New: 320*8-1 = 2559 → ~172 s;
+            # 300*8-1 = 2399 → ~161 s. Both still over 144.
+            _make_text_words_chars(320, 7),  # ~172 s at 15 cps
+            _make_text_words_chars(300, 7),  # ~161 s (still over)
             120,
         ),
         (
             "under",
-            _make_text_words_chars(30, 5),  # ~18s
-            _make_text_words_chars(35, 5),  # ~21s (still under)
+            _make_text_words_chars(30, 5),  # ~13 s at 15 cps
+            _make_text_words_chars(35, 5),  # ~15 s (still under 96)
             120,
         ),
     ):

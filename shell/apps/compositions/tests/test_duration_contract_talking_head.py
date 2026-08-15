@@ -87,13 +87,58 @@ def test_avatar_speech_safe_max_chars_locked_at_1900():
     assert AVATAR_SPEECH_SAFE_MAX_CHARS == 1900
 
 
+def test_avatar_speech_delivery_rate_locked_at_15_cps():
+    """SESSION 253 Stage 1 CALIBRATION LOCK — the delivery-rate
+    estimator is 15 cps, empirically calibrated from five
+    controlled real-Runway avatar_video renders (mean 15.40 cps,
+    median 15.446, StdDev 0.448, CV 2.9%). Moving this value
+    changes every duration/char translation in the codebase.
+
+    Recalibrate ONLY from fresh dogfood evidence, and update this
+    test alongside so the check remains a deliberate lock rather
+    than accidental drift catch.
+
+    Both peer copies MUST move together — they represent the same
+    real-world quantity (Runway avatar delivery rate)."""
+    from apps.compositions.primitives.avatar_speech import (
+        _AVATAR_SPEECH_CHARS_PER_SECOND as PRIMITIVE_CPS,
+    )
+    from apps.compositions.starters import (
+        _AVATAR_SPEECH_CHARS_PER_SECOND as STARTERS_CPS,
+    )
+    assert PRIMITIVE_CPS == 15
+    assert STARTERS_CPS == 15
+    assert PRIMITIVE_CPS == STARTERS_CPS
+
+
+def test_90s_duration_math_reflects_15_cps():
+    """SESSION 253 Stage 3 — the ideal/min/max char budget for a
+    90-second request MUST derive from 15 cps.
+
+    90 * 15 = 1350 ideal.
+    90 * 15 * 0.8 = 1080 min.
+    90 * 15 * 1.2 = 1620 max.
+
+    Regression guard against the pre-Stage-1 11 cps that produced
+    (990, 792, 1188) and silently underestimated the character
+    budget by ~35 %, causing the operator's SESSION 253 dogfood
+    to ship 62.7 s videos for 90 s requests."""
+    ideal, low, high = char_budget_for_duration(90)
+    assert ideal == 1350
+    assert low == 1080
+    assert high == 1620
+
+
 # ---- 2. effective budget across durations -----------------------
 
 
 def test_effective_budget_short_targets_unaffected_by_cap():
     """30s/60s/90s targets are well below the 1900-char cap; the
-    cap should not alter their budgets."""
-    for target in (30, 60, 90, 120):
+    cap should not alter their budgets. SESSION 253 Stage 3 —
+    120 s dropped from this iteration because at 15 cps its
+    raw_max = 2160 does clip against the 1900 cap (asserted
+    separately in the 120-s clamp test)."""
+    for target in (30, 60, 90):
         raw_ideal, raw_low, raw_high = char_budget_for_duration(target)
         eff_ideal, eff_low, eff_high = compute_effective_budget(
             target, AVATAR_SPEECH_SAFE_MAX_CHARS,
@@ -103,21 +148,39 @@ def test_effective_budget_short_targets_unaffected_by_cap():
         assert eff_ideal == raw_ideal
 
 
-def test_effective_budget_180s_clamps_at_cap():
-    """180s raw budget is (1980, 1584, 2376). With the 1900 cap,
-    high clamps to 1900 and ideal drops to leave a 50-char
-    safety buffer below the ceiling."""
-    ideal, low, high = compute_effective_budget(180, AVATAR_SPEECH_SAFE_MAX_CHARS)
+def test_effective_budget_120s_clamps_at_cap():
+    """SESSION 253 Stage 3 — 120 s raw budget at 15 cps is
+    (1800, 1440, 2160). Provider cap 1900 clips the high edge;
+    duration min is well under the cap so the target is still
+    FEASIBLE, unlike 180 s which raises INCOMPATIBLE.
+
+    eff_ideal follows the 50-char safety-buffer rule from
+    ``duration_contract._IDEAL_SAFETY_BUFFER_CHARS``: min(ideal,
+    max(low, high - 50)) = min(1800, max(1440, 1850)) = 1800."""
+    ideal, low, high = compute_effective_budget(120, AVATAR_SPEECH_SAFE_MAX_CHARS)
     assert high == 1900
-    assert low == 1584  # duration-min unchanged; still inside cap
-    assert ideal == 1850  # 1900 - 50-char safety buffer
-    # Predicted duration for effective ideal.
-    assert 1850 / 11 > 165  # ~168s, inside the 144-216s tolerance for 180s
+    assert low == 1440
+    assert ideal == 1800
+
+
+def test_effective_budget_180s_incompatible_under_15cps():
+    """SESSION 253 Stage 3 — at the recalibrated 15 cps rate, a
+    180-second request needs raw_min = 180 * 15 * 0.8 = 2160
+    chars, which exceeds the 1900-char provider cap. The gate
+    must raise INCOMPATIBLE up front rather than clamping
+    silently — the talking_head recipe removed 180 s from its
+    choices for exactly this reason (long_form_ad still offers
+    180 s because it chunks)."""
+    with pytest.raises(DurationContractError) as exc_info:
+        compute_effective_budget(180, AVATAR_SPEECH_SAFE_MAX_CHARS)
+    assert exc_info.value.reason == (
+        DurationContractError.REASON_INCOMPATIBLE_WITH_PROVIDER
+    )
 
 
 def test_effective_budget_300s_incompatible_raises_before_llm():
-    """300s target requires min 2640 chars (300 * 11 * 0.8), which
-    exceeds the 1900-char cap. Reject up front — no LLM call
+    """300s target requires min 3600 chars (300 * 15 * 0.8), which
+    far exceeds the 1900-char cap. Reject up front — no LLM call
     could satisfy both constraints."""
     with pytest.raises(DurationContractError) as exc_info:
         compute_effective_budget(300, AVATAR_SPEECH_SAFE_MAX_CHARS)
@@ -129,8 +192,10 @@ def test_effective_budget_300s_incompatible_raises_before_llm():
 def test_char_budget_for_duration_with_cap_matches_effective_budget():
     """SESSION 253 amendment — char_budget_for_duration itself
     accepts max_script_chars and produces the same clamped
-    triple as compute_effective_budget for the same inputs."""
-    for target in (30, 60, 90, 120, 180):
+    triple as compute_effective_budget for the same inputs.
+    SESSION 253 Stage 3 — 180 s excluded because it now raises
+    INCOMPATIBLE at the recalibrated 15 cps rate."""
+    for target in (30, 60, 90, 120):
         via_helper = compute_effective_budget(target, AVATAR_SPEECH_SAFE_MAX_CHARS)
         via_budget = char_budget_for_duration(
             target, max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS,
@@ -153,11 +218,12 @@ def _fake_script_result(text: str) -> ScriptResult:
 
 def test_gate_accepts_first_pass_in_tolerance():
     """When K6 returns a script inside the tolerance band on the
-    first pass, no retry fires and the result flows through."""
+    first pass, no retry fires and the result flows through.
+    SESSION 253 Stage 3 — 90 s at 15 cps: raw budget (1350,
+    1080, 1620). 1350 sits exactly at the ideal."""
     ws = _workspace("dc-first-pass@t")
     tm = _teammate(ws)
-    # 90s target → effective budget (990, 792, 1188). Return 990.
-    perfect = "x" * 990
+    perfect = "x" * 1350
 
     with patch(
         "character_os.duration_contract.build_render_brief",
@@ -171,13 +237,13 @@ def test_gate_accepts_first_pass_in_tolerance():
 
 
 def test_gate_retries_when_short_then_accepts():
-    """First pass too short → one expansion retry → accept."""
+    """First pass too short → one expansion retry → accept.
+    SESSION 253 Stage 3 — 90 s at 15 cps: acceptance [1080, 1620].
+    First = 400 (way below 1080); retry = 1350 (accept)."""
     ws = _workspace("dc-retry-short@t")
     tm = _teammate(ws)
-    # 90s target → tolerance [792, 1188]. First = 300 chars (too
-    # short); retry = 990 chars (accept).
-    short = "x" * 300
-    corrected = "x" * 990
+    short = "x" * 400
+    corrected = "x" * 1350
 
     with patch(
         "character_os.duration_contract.build_render_brief",
@@ -191,21 +257,23 @@ def test_gate_retries_when_short_then_accepts():
         )
     assert result.brief == corrected
     assert fake_brb.call_count == 2
-    # Second call carries a corrective_hint that references the
+    # Second call carries a corrective_hint referencing the
     # SYNTH-target budget (SESSION 253 amendment B) so K6 keeps
     # aiming low on the retry. For a 90 s request the synth
-    # target is 70 s → synth_min = round(70 * 11 * 0.8) = 616.
+    # target is 70 s → synth_min = round(70 * 15 * 0.8) = 840.
     retry_kwargs = fake_brb.call_args_list[1].kwargs
     assert "corrective_hint" in retry_kwargs
-    assert "616" in retry_kwargs["corrective_hint"]
+    assert "840" in retry_kwargs["corrective_hint"]
 
 
 def test_gate_retries_when_long_then_accepts():
-    """First pass too long → one compression retry → accept."""
+    """First pass too long → one compression retry → accept.
+    SESSION 253 Stage 3 — 90 s at 15 cps: acceptance high is
+    1620 chars; 1800 chars overshoots; retry 1350 accepts."""
     ws = _workspace("dc-retry-long@t")
     tm = _teammate(ws)
-    long_ = "x" * 1500  # 90s + tolerance high is 1188; 1500 is over
-    corrected = "x" * 990
+    long_ = "x" * 1800  # over 1620 acceptance max, under 1900 cap
+    corrected = "x" * 1350
 
     with patch(
         "character_os.duration_contract.build_render_brief",
@@ -280,7 +348,7 @@ def test_synth_target_never_leaks_into_prompt_target_arg():
 
     def _capture(sp, prompt, **kwargs):
         captured["kwargs"] = kwargs
-        return _fake_script_result("x" * 990)
+        return _fake_script_result("x" * 1350)
 
     with patch(
         "character_os.duration_contract.build_render_brief",
@@ -303,7 +371,9 @@ def test_synth_target_leak_test_120s_covers_the_general_case():
 
     def _capture(sp, prompt, **kwargs):
         captured["kwargs"] = kwargs
-        return _fake_script_result("x" * 1300)
+        # 120 s at 15 cps: acceptance (1440, 1900-clamped). 1800
+        # sits inside; no retry required for this capture test.
+        return _fake_script_result("x" * 1800)
 
     with patch(
         "character_os.duration_contract.build_render_brief",
@@ -318,18 +388,19 @@ def test_synth_target_leak_test_120s_covers_the_general_case():
 
 
 def test_acceptance_band_derives_from_requested_not_synth_target():
-    """SESSION 253 amendment B — 90 s request accepts 792-1188
-    chars (=72-108 s). NOT the synth-target band (770 ideal /
-    616-924 chars for 70 s)."""
-    # A 900-char script for 90 s request is:
-    #   below acceptance-max 1188 → accept
-    #   above synth-max 924 → would REJECT under the wrong contract
-    # Assert we accept it (correct acceptance band).
+    """SESSION 253 amendment B — 90 s request accepts 1080-1620
+    chars (=72-108 s at 15 cps). NOT the synth-target band
+    (1050 ideal / 840-1260 chars for 70 s).
+
+    A 1400-char script for 90 s request is:
+      below acceptance-max 1620 → accept
+      above synth-max 1260 → would REJECT under the wrong contract
+    Assert we accept it (correct acceptance band)."""
     ws = _workspace("dc-accept-band@t")
     tm = _teammate(ws)
     with patch(
         "character_os.duration_contract.build_render_brief",
-        return_value=_fake_script_result("x" * 900),
+        return_value=_fake_script_result("x" * 1400),
     ) as fake_brb:
         result = synthesize_with_duration_gate(
             tm, "topic",
@@ -338,51 +409,46 @@ def test_acceptance_band_derives_from_requested_not_synth_target():
         )
     # No retry, accepted on first pass.
     fake_brb.assert_called_once()
-    assert result.brief == "x" * 900
+    assert result.brief == "x" * 1400
 
 
-def test_180s_synth_budget_still_respects_provider_cap():
-    """SESSION 253 amendment B — for 180 s the synth target is
-    140 s → budget (ideal 1540, min 1232, max 1848). All under
-    the 1900 cap. The K6 prompt must not tell the LLM to aim
-    above the cap even after the calibration bias."""
-    ws = _workspace("dc-180-cap-under-synth@t")
+def test_180s_target_raises_incompatible_before_llm():
+    """SESSION 253 Stage 3 — at 15 cps + 1900-char cap, 180 s is
+    INCOMPATIBLE (raw_min = 2160 > 1900). The gate must raise
+    before any LLM call fires."""
+    ws = _workspace("dc-180-incompat@t")
     tm = _teammate(ws)
-    captured = {}
-
-    def _capture(sp, prompt, **kwargs):
-        captured["kwargs"] = kwargs
-        return _fake_script_result("x" * 1800)
-
     with patch(
         "character_os.duration_contract.build_render_brief",
-        side_effect=_capture,
-    ):
-        synthesize_with_duration_gate(
-            tm, "topic",
-            target_duration_seconds=180,
-            max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS,
-        )
-    assert captured["kwargs"]["target_duration_seconds"] == 140
-    # Provider cap flows through untouched — still enforced.
-    assert captured["kwargs"]["max_script_chars"] == AVATAR_SPEECH_SAFE_MAX_CHARS
+    ) as fake_brb:
+        with pytest.raises(DurationContractError) as exc_info:
+            synthesize_with_duration_gate(
+                tm, "topic",
+                target_duration_seconds=180,
+                max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS,
+            )
+    assert exc_info.value.reason == (
+        DurationContractError.REASON_INCOMPATIBLE_WITH_PROVIDER
+    )
+    fake_brb.assert_not_called()
 
 
 def test_error_message_never_names_synth_target():
     """SESSION 253 amendment B — error messages must NEVER refer
     to the calibrated synth target. The operator asked for 90 s;
     error messages say 90 s (even though K6 was internally
-    aiming at 70 s)."""
+    aiming at 70 s).
+
+    SESSION 253 Stage 3 — 90 s at 15 cps: acceptance chars
+    (1080, 1620). First 1850 (over 1620); retry 1800 (still over).
+    Both TOO_LONG, both below 1900 cap."""
     ws = _workspace("dc-err-msg-req-only@t")
     tm = _teammate(ws)
-    # 90 s request. K6 delivers 1400 (over acceptance-max 1188)
-    # → compression retry. Retry delivers 1250 (still over
-    # 1188). Rejected as TOO_LONG.
     with patch(
         "character_os.duration_contract.build_render_brief",
         side_effect=[
-            _fake_script_result("x" * 1400),
-            _fake_script_result("x" * 1250),
+            _fake_script_result("x" * 1850),
+            _fake_script_result("x" * 1800),
         ],
     ):
         with pytest.raises(DurationContractError) as exc_info:
@@ -403,25 +469,25 @@ def test_error_message_never_names_synth_target():
     assert "70-second" not in msg
     assert "70s" not in msg
     # Acceptance band uses requested-target bounds: 72-108 s /
-    # 792-1188 chars.
+    # 1080-1620 chars at 15 cps.
     assert "108-second" in msg
-    assert "792" in msg
-    assert "1188" in msg
+    assert "1080" in msg
+    assert "1620" in msg
 
 
 def test_retry_still_fires_when_first_pass_below_acceptance_min():
     """Expansion retry fires when the first pass lands below
     the REQUESTED-target acceptance minimum. Even though K6 was
-    told to aim at synth (70 s / min 616 chars), the retry
-    decision uses acceptance min (792 chars) — so a 600-char
-    first pass triggers retry."""
+    told to aim at synth (70 s / min 840 chars at 15 cps), the
+    retry decision uses acceptance min (1080 chars) — so an
+    800-char first pass triggers retry."""
     ws = _workspace("dc-expand-retry@t")
     tm = _teammate(ws)
     with patch(
         "character_os.duration_contract.build_render_brief",
         side_effect=[
-            _fake_script_result("x" * 600),   # below 792 acceptance min
-            _fake_script_result("x" * 990),   # inside acceptance
+            _fake_script_result("x" * 800),   # below 1080 acceptance min
+            _fake_script_result("x" * 1350),  # inside acceptance
         ],
     ) as fake_brb:
         result = synthesize_with_duration_gate(
@@ -430,19 +496,20 @@ def test_retry_still_fires_when_first_pass_below_acceptance_min():
             max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS,
         )
     assert fake_brb.call_count == 2
-    assert result.brief == "x" * 990
+    assert result.brief == "x" * 1350
 
 
 def test_retry_still_fires_when_first_pass_above_acceptance_max():
     """Compression retry fires when the first pass overshoots
-    the REQUESTED-target acceptance max."""
+    the REQUESTED-target acceptance max. 90 s at 15 cps →
+    acceptance max 1620."""
     ws = _workspace("dc-compress-retry@t")
     tm = _teammate(ws)
     with patch(
         "character_os.duration_contract.build_render_brief",
         side_effect=[
-            _fake_script_result("x" * 1400),  # over 1188 acceptance max
-            _fake_script_result("x" * 1000),  # inside acceptance
+            _fake_script_result("x" * 1800),  # over 1620 acceptance max
+            _fake_script_result("x" * 1350),  # inside acceptance
         ],
     ) as fake_brb:
         result = synthesize_with_duration_gate(
@@ -451,28 +518,28 @@ def test_retry_still_fires_when_first_pass_above_acceptance_max():
             max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS,
         )
     assert fake_brb.call_count == 2
-    assert result.brief == "x" * 1000
+    assert result.brief == "x" * 1350
 
 
 def test_gate_duration_overshoot_below_provider_cap_raises_too_long():
     """SESSION 253 amendment A — classification correctness.
 
     90s target with the 1900-char provider cap:
-      * duration tolerance high = 1188 chars (11 cps × 108 s)
+      * duration tolerance high = 1620 chars (15 cps × 108 s)
       * provider cap high = 1900 chars
-    A 1266-char script (~117 s) is over the duration tolerance
-    but under the provider cap. Must raise REASON_TOO_LONG (NOT
+    An 1800-char script is over the duration tolerance but
+    under the provider cap. Must raise REASON_TOO_LONG (NOT
     REASON_OVER_PROVIDER_CAP — the provider cap wasn't the
     binding constraint)."""
     ws = _workspace("dc-too-long-not-cap@t")
     tm = _teammate(ws)
-    # First: 1303 (over duration max 1188, under cap 1900).
-    # Retry:  1266 (still over duration max, under cap).
+    # First: 1850 (over duration max 1620, under cap 1900).
+    # Retry:  1800 (still over duration max, under cap).
     with patch(
         "character_os.duration_contract.build_render_brief",
         side_effect=[
-            _fake_script_result("x" * 1303),
-            _fake_script_result("x" * 1266),
+            _fake_script_result("x" * 1850),
+            _fake_script_result("x" * 1800),
         ],
     ):
         with pytest.raises(DurationContractError) as exc_info:
@@ -491,7 +558,7 @@ def test_gate_duration_overshoot_below_provider_cap_raises_too_long():
     assert "108-second maximum" in msg or "108-second" in msg
     # Attributes carry both bounds distinctly so future consumers
     # can render richer UIs without misclassifying.
-    assert err.duration_max_chars == 1188
+    assert err.duration_max_chars == 1620
     assert err.provider_cap_chars == AVATAR_SPEECH_SAFE_MAX_CHARS
 
 
@@ -499,15 +566,18 @@ def test_gate_true_provider_cap_violation_still_classifies_as_over_cap():
     """SESSION 253 amendment A — the OTHER classification.
 
     A synthesis result that actually exceeds the 1900-char provider
-    cap must still raise REASON_OVER_PROVIDER_CAP. Only fireable
-    for targets long enough that the cap is the binding constraint
-    (~172s+ at 11 cps + default cap)."""
+    cap must still raise REASON_OVER_PROVIDER_CAP. At 15 cps + the
+    default cap, the cap becomes binding at ~106 s target and
+    above (raw_max = target * 15 * 1.2 exceeds 1900).
+
+    SESSION 253 Stage 3 — target moved from 180 s → 120 s. 180 s
+    is now INCOMPATIBLE at 15 cps (raw_min 2160 > cap 1900), so
+    the cap-violation-after-retry path cannot be exercised there
+    any more. 120 s: raw budget (1800, 1440, 2160), effective
+    (1800, 1440, 1900). First pass 2100 (over cap 1900), retry
+    1950 (still over cap 1900)."""
     ws = _workspace("dc-true-cap-violation@t")
     tm = _teammate(ws)
-    # 180s target → duration tolerance (1584, 2376), effective
-    # (1584, 1900) under cap. First pass 2100 (over cap), retry
-    # 1950 (still over cap). Must raise OVER_PROVIDER_CAP with
-    # 1900 in the message.
     with patch(
         "character_os.duration_contract.build_render_brief",
         side_effect=[
@@ -518,7 +588,7 @@ def test_gate_true_provider_cap_violation_still_classifies_as_over_cap():
         with pytest.raises(DurationContractError) as exc_info:
             synthesize_with_duration_gate(
                 tm, "topic",
-                target_duration_seconds=180,
+                target_duration_seconds=120,
                 max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS,
             )
     err = exc_info.value
@@ -529,14 +599,16 @@ def test_gate_true_provider_cap_violation_still_classifies_as_over_cap():
 
 
 def test_gate_over_provider_cap_after_retry_raises_over_cap_reason():
-    """180s target WITH the 1900 cap: if retry still exceeds
+    """120 s target WITH the 1900 cap: if retry still exceeds
     1900 chars, raise REASON_OVER_PROVIDER_CAP (not TOO_LONG).
     Caller MUST pass ``max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS``
     to activate the cap (defaults to no-cap for the long_form_ad
-    chunked path)."""
+    chunked path).
+
+    SESSION 253 Stage 3 — target moved 180 → 120 for the same
+    reason as the sibling test above."""
     ws = _workspace("dc-over-cap@t")
     tm = _teammate(ws)
-    # First: 2100 (over cap). Retry: 1950 (still over cap 1900).
     with patch(
         "character_os.duration_contract.build_render_brief",
         side_effect=[
@@ -547,7 +619,7 @@ def test_gate_over_provider_cap_after_retry_raises_over_cap_reason():
         with pytest.raises(DurationContractError) as exc_info:
             synthesize_with_duration_gate(
                 tm, "topic",
-                target_duration_seconds=180,
+                target_duration_seconds=120,
                 max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS,
             )
     assert exc_info.value.reason == (
@@ -556,65 +628,16 @@ def test_gate_over_provider_cap_after_retry_raises_over_cap_reason():
     assert exc_info.value.effective_max_chars == 1900
 
 
-def test_gate_180s_1900_char_result_accepts():
-    """A 1900-char result for 180s target is at the top of the
-    provider-safe budget. Predicts ~172s speech; inside the
-    ±20% tolerance band (144-216s) AND under the 1900 cap.
-    Must accept."""
-    ws = _workspace("dc-180s-happy@t")
-    tm = _teammate(ws)
-    with patch(
-        "character_os.duration_contract.build_render_brief",
-        return_value=_fake_script_result("x" * 1850),
-    ) as fake_brb:
-        result = synthesize_with_duration_gate(
-            tm, "topic", target_duration_seconds=180,
-        )
-    assert result.brief == "x" * 1850
-    fake_brb.assert_called_once()
-
-
-def test_gate_180s_never_asks_llm_above_provider_cap():
-    """SESSION 253 amendment — the LENGTH block K6 sees for a 180 s
-    request under the 1900-char cap must not tell the LLM to aim
-    above 1900 or accept above 1900.
-
-    Post-amendment-B: K6 sees the SYNTH target (140 s for 180 s
-    requested); the provider cap flow-through is what this test
-    actually guards, plus the shape."""
-    ws = _workspace("dc-180s-prompt@t")
-    tm = _teammate(ws)
-    captured = {}
-
-    def _capture(sp, prompt, **kwargs):
-        captured["kwargs"] = kwargs
-        return _fake_script_result("x" * 1800)
-
-    with patch(
-        "character_os.duration_contract.build_render_brief",
-        side_effect=_capture,
-    ):
-        synthesize_with_duration_gate(
-            tm, "topic",
-            target_duration_seconds=180,
-            max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS,
-        )
-    assert captured["kwargs"]["target_shape"] == "long_form"
-    # K6 sees the SYNTH target (140), not the operator-requested
-    # 180. Acceptance still uses 180 (asserted elsewhere).
-    assert captured["kwargs"]["target_duration_seconds"] == 140
-    # Provider cap flows through to K6.
-    assert captured["kwargs"]["max_script_chars"] == AVATAR_SPEECH_SAFE_MAX_CHARS
-
-
 def test_gate_max_script_chars_none_disables_provider_cap():
     """long_form_ad calls with max_script_chars=None because it
     chunks output. In that path the cap doesn't apply — a 2200-
     char result for 180s should PASS the char check (still inside
-    duration tolerance) rather than reject as over-cap."""
+    duration tolerance) rather than reject as over-cap.
+
+    At 15 cps, 180 s tolerance = (2160, 3240) chars. 2200 sits
+    inside."""
     ws = _workspace("dc-no-cap@t")
     tm = _teammate(ws)
-    # 180s tolerance: (1584, 2376) chars. 2200 sits inside.
     with patch(
         "character_os.duration_contract.build_render_brief",
         return_value=_fake_script_result("x" * 2200),
@@ -661,9 +684,15 @@ def test_talking_head_recipe_exposes_target_duration_seconds():
     )
     assert dur_field.type == "select"
     assert dur_field.default == ""  # no default duration
-    # 30 / 60 / 90 / 120 / 180 + empty option.
+    # SESSION 253 Stage 3 — 180 s removed from talking_head choices
+    # after the 15 cps recalibration made it INCOMPATIBLE with the
+    # 1900-char single-call provider ceiling. long_form_ad still
+    # offers 180 s because it chunks.
+    # 30 / 60 / 90 / 120 + empty option.
     values = {c["value"] for c in dur_field.choices}
-    assert values == {"", "30", "60", "90", "120", "180"}
+    assert values == {"", "30", "60", "90", "120"}
+    # 180 s must NOT appear.
+    assert "180" not in values
 
 
 # ---- 5. starter accepts + persists / gates on use_knowledge ----

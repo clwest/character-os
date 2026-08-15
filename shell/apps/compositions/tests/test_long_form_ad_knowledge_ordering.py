@@ -126,16 +126,15 @@ def test_use_knowledge_true_synthesizes_exactly_once():
             # vacuous; passing 280 restores the original test
             # fixture without changing the behavior under test.
             max_chars=280,
-            # 60 s target → duration tolerance 48-72 s. The canned
-            # synthesized brief is 589 chars ≈ 55 s under the
-            # canonical char-based estimator (11 chars/sec + 2 s
-            # buffer), which sits inside the tolerance so validation
-            # does not fire in these tests. Duration-contract
-            # coverage (retry/fail semantics, word-vs-duration gate)
-            # lives in the dedicated duration-contract test file so
-            # this file stays focused on the ordering contract
-            # (one synthesis pass, chunks verbatim).
-            target_duration_seconds=60,
+            # SESSION 253 Stage 3 — the canned synthesized brief is
+            # 589 chars ≈ 41 s at 15 cps + 2 s buffer. To keep this
+            # ordering-contract file focused (one-synthesis pass +
+            # verbatim chunks) without duplicating duration-gate
+            # coverage, we pick a target whose ±20 % acceptance band
+            # contains 589 chars: 45 s → chars 540-810 at 15 cps.
+            # Duration-contract coverage (retry/fail semantics,
+            # word-vs-duration gate) lives in the dedicated file.
+            target_duration_seconds=45,
         )
 
     # The synthesized brief is >280 chars so the pinned short-chunk
@@ -178,16 +177,15 @@ def test_use_knowledge_true_chunks_get_use_knowledge_false():
             spokesperson=tm,
             script=_OPERATOR_BRIEF,
             use_knowledge=True,
-            # 60 s target → duration tolerance 48-72 s. The canned
-            # synthesized brief is 589 chars ≈ 55 s under the
-            # canonical char-based estimator (11 chars/sec + 2 s
-            # buffer), which sits inside the tolerance so validation
-            # does not fire in these tests. Duration-contract
-            # coverage (retry/fail semantics, word-vs-duration gate)
-            # lives in the dedicated duration-contract test file so
-            # this file stays focused on the ordering contract
-            # (one synthesis pass, chunks verbatim).
-            target_duration_seconds=60,
+            # SESSION 253 Stage 3 — the canned synthesized brief is
+            # 589 chars ≈ 41 s at 15 cps + 2 s buffer. To keep this
+            # ordering-contract file focused (one-synthesis pass +
+            # verbatim chunks) without duplicating duration-gate
+            # coverage, we pick a target whose ±20 % acceptance band
+            # contains 589 chars: 45 s → chars 540-810 at 15 cps.
+            # Duration-contract coverage (retry/fail semantics,
+            # word-vs-duration gate) lives in the dedicated file.
+            target_duration_seconds=45,
         )
 
     for step in comp.steps.filter(primitive="generate_avatar_speech"):
@@ -217,16 +215,15 @@ def test_use_knowledge_true_chunks_split_from_synthesized_brief():
             spokesperson=tm,
             script=_OPERATOR_BRIEF,
             use_knowledge=True,
-            # 60 s target → duration tolerance 48-72 s. The canned
-            # synthesized brief is 589 chars ≈ 55 s under the
-            # canonical char-based estimator (11 chars/sec + 2 s
-            # buffer), which sits inside the tolerance so validation
-            # does not fire in these tests. Duration-contract
-            # coverage (retry/fail semantics, word-vs-duration gate)
-            # lives in the dedicated duration-contract test file so
-            # this file stays focused on the ordering contract
-            # (one synthesis pass, chunks verbatim).
-            target_duration_seconds=60,
+            # SESSION 253 Stage 3 — the canned synthesized brief is
+            # 589 chars ≈ 41 s at 15 cps + 2 s buffer. To keep this
+            # ordering-contract file focused (one-synthesis pass +
+            # verbatim chunks) without duplicating duration-gate
+            # coverage, we pick a target whose ±20 % acceptance band
+            # contains 589 chars: 45 s → chars 540-810 at 15 cps.
+            # Duration-contract coverage (retry/fail semantics,
+            # word-vs-duration gate) lives in the dedicated file.
+            target_duration_seconds=45,
         )
 
     chunk_scripts = [
@@ -319,16 +316,15 @@ def test_use_knowledge_true_persists_synthesis_metadata_on_composition():
             spokesperson=tm,
             script=_OPERATOR_BRIEF,
             use_knowledge=True,
-            # 60 s target → duration tolerance 48-72 s. The canned
-            # synthesized brief is 589 chars ≈ 55 s under the
-            # canonical char-based estimator (11 chars/sec + 2 s
-            # buffer), which sits inside the tolerance so validation
-            # does not fire in these tests. Duration-contract
-            # coverage (retry/fail semantics, word-vs-duration gate)
-            # lives in the dedicated duration-contract test file so
-            # this file stays focused on the ordering contract
-            # (one synthesis pass, chunks verbatim).
-            target_duration_seconds=60,
+            # SESSION 253 Stage 3 — the canned synthesized brief is
+            # 589 chars ≈ 41 s at 15 cps + 2 s buffer. To keep this
+            # ordering-contract file focused (one-synthesis pass +
+            # verbatim chunks) without duplicating duration-gate
+            # coverage, we pick a target whose ±20 % acceptance band
+            # contains 589 chars: 45 s → chars 540-810 at 15 cps.
+            # Duration-contract coverage (retry/fail semantics,
+            # word-vs-duration gate) lives in the dedicated file.
+            target_duration_seconds=45,
         )
 
     comp.refresh_from_db()

@@ -121,6 +121,12 @@ ALLOWED_FILES = {
     # set explicitly via _make_session; the pre_save signal
     # still fires.
     "apps/realtime/tests/test_engine_bridge.py",
+    # SESSION 209 — customer teammate delete flow test seeds
+    # RealtimeSession rows to verify the historical-output
+    # preservation contract (deleting the last spokesperson keeps
+    # prior realtime sessions intact). Workspace anchor is set
+    # explicitly via the fixture; the pre_save signal still fires.
+    "apps/spokespeople/tests/test_delete.py",
 }
 
 

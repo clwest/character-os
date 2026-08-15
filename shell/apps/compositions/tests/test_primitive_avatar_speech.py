@@ -333,8 +333,8 @@ def test_real_mode_marks_estimated_provenance_on_fallback() -> None:
             step=step, resolved_inputs=[], mock_mode=False,
         )
 
-    # 110 chars @ 11 cps → 10 000 ms.
-    assert result.duration_ms == 10_000
+    # 110 chars @ 15 cps → int(110 / 15 * 1000) = 7333 ms.
+    assert result.duration_ms == 7_333
     spec = result.extra_source_spec
     assert spec["duration_estimated"] is True
     assert spec["duration_source"] == "estimated"
@@ -355,7 +355,7 @@ def test_real_mode_falls_back_to_script_length_estimate_when_poll_lacks_duration
     comp = Composition.objects.create(
         workspace=ws, spokesperson=sp, name="estfb",
     )
-    # 110-char script → estimate of 110 / 11 = 10 seconds = 10000 ms
+    # 110-char script → estimate of 110 / 15 = 7.33 s = 7333 ms
     # (above the 5000 ms minimum floor).
     script = "x" * 110
     step = CompositionStep.objects.create(
@@ -383,8 +383,8 @@ def test_real_mode_falls_back_to_script_length_estimate_when_poll_lacks_duration
 
     # Critical assertion — duration_ms is *not* None.
     assert result.duration_ms is not None
-    # 110 chars at 11 chars/sec → 10s → 10_000 ms.
-    assert result.duration_ms == 10_000
+    # 110 chars at 15 chars/sec → 7.33 s → 7_333 ms.
+    assert result.duration_ms == 7_333
     spec = result.extra_source_spec
     assert spec["duration_estimated"] is True
     assert spec["script_chars"] == 110
@@ -420,7 +420,7 @@ def test_real_mode_estimate_floors_at_minimum_for_tiny_scripts() -> None:
             step=step, resolved_inputs=[], mock_mode=False,
         )
 
-    # 2-char script → would estimate to 181 ms, floors at 5000.
+    # 2-char script → would estimate to 133 ms, floors at 5000.
     assert result.duration_ms == 5_000
     assert result.extra_source_spec["duration_estimated"] is True
 

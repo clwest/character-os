@@ -535,3 +535,113 @@ def test_execute_real_mode_duration_falls_back_when_provider_returns_zero() -> N
     # 110 chars / 11 cps = 10s = 10_000 ms (within heuristic).
     assert result.duration_ms is not None
     assert 9_000 <= result.duration_ms <= 12_000
+
+
+# ---- SESSION 253 Stage 3 duration provenance ----------------------
+
+
+def test_real_mode_marks_provider_reported_provenance_on_success() -> None:
+    """When ElevenLabs returns a non-zero duration_seconds, the
+    primitive stamps duration_estimated=False +
+    duration_source="provider_reported" on the Asset spec."""
+    ws = _make_workspace("vo1-provreal@test")
+    sp = _make_teammate(ws)
+    comp = _comp(ws, sp)
+    step = CompositionStep.objects.create(
+        composition=comp, position=0,
+        primitive="synthesize_voiceover_audio",
+        params={
+            "script": "Sample voiceover script.",
+            "voice_spec": {"voice_id": "voice_xyz"},
+        },
+    )
+    cm, _fake = _patched_client(
+        tts=TtsResult(
+            audio_url="/data/_internal/voiceovers/xyz.mp3",
+            voice_id="voice_xyz",
+            duration_seconds=3.75,
+            size_bytes=1024,
+            model="eleven_multilingual_v2",
+            provider="elevenlabs",
+            cost_micros=10_000,
+            mock_mode=False,
+        ),
+    )
+    with patch(
+        "apps.compositions.primitives.voiceover.MediaEngineClient",
+        return_value=cm,
+    ):
+        result = SynthesizeVoiceoverAudioPrimitive.execute(
+            step=step, resolved_inputs=[], mock_mode=False,
+        )
+
+    assert result.duration_ms == 3750
+    spec = result.extra_source_spec
+    assert spec["duration_estimated"] is False
+    assert spec["duration_source"] == "provider_reported"
+
+
+def test_real_mode_marks_estimated_provenance_on_provider_zero_duration() -> None:
+    """When the provider returns duration_seconds=0, the primitive
+    falls back to the char-length estimator AND explicitly marks
+    duration_estimated=True + duration_source="estimated" so the
+    audit trail can distinguish measured vs fabricated durations.
+    Same drift-prevention discipline as avatar_speech / visual_clip
+    after SESSION 253 Stage 2 / 3."""
+    ws = _make_workspace("vo1-provfallback@test")
+    sp = _make_teammate(ws)
+    comp = _comp(ws, sp)
+    step = CompositionStep.objects.create(
+        composition=comp, position=0,
+        primitive="synthesize_voiceover_audio",
+        params={
+            "script": "x" * 110,
+            "voice_spec": {"voice_id": "voice_abc"},
+        },
+    )
+    cm, _fake = _patched_client(
+        tts=TtsResult(
+            audio_url="/data/_internal/voiceovers/no-duration.mp3",
+            voice_id="voice_abc",
+            duration_seconds=0.0,
+            size_bytes=0,
+            model="eleven_multilingual_v2",
+            provider="runway",
+            cost_micros=10_000,
+            mock_mode=False,
+        ),
+    )
+    with patch(
+        "apps.compositions.primitives.voiceover.MediaEngineClient",
+        return_value=cm,
+    ):
+        result = SynthesizeVoiceoverAudioPrimitive.execute(
+            step=step, resolved_inputs=[], mock_mode=False,
+        )
+
+    spec = result.extra_source_spec
+    assert spec["duration_estimated"] is True
+    assert spec["duration_source"] == "estimated"
+
+
+def test_mock_mode_marks_estimated_provenance() -> None:
+    """Mock mode has no bytes to measure; duration is estimated
+    from script length. Marking it explicitly keeps the audit-
+    trail contract consistent across all three primitives."""
+    ws = _make_workspace("vo1-mockprov@test")
+    sp = _make_teammate(ws)
+    comp = _comp(ws, sp)
+    step = CompositionStep.objects.create(
+        composition=comp, position=0,
+        primitive="synthesize_voiceover_audio",
+        params={
+            "script": "mock script",
+            "voice_spec": {"voice_id": "voice_mock"},
+        },
+    )
+    result = SynthesizeVoiceoverAudioPrimitive.execute(
+        step=step, resolved_inputs=[], mock_mode=True,
+    )
+    spec = result.extra_source_spec
+    assert spec["duration_estimated"] is True
+    assert spec["duration_source"] == "estimated"

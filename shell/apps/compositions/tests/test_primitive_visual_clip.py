@@ -609,3 +609,90 @@ def test_composition_cost_estimate_picks_up_visual_clip() -> None:
     comp_cost = estimate_composition_cost(comp)
     assert step_cost > 0
     assert comp_cost == step_cost
+
+
+# ---- SESSION 253 Stage 3 duration provenance ----------------------
+
+
+def _ready_with_source(
+    duration: float | None,
+    duration_source: str | None,
+) -> VideoPollResult:
+    """Variant that lets tests dial the media-engine's provenance
+    marker independently of the raw duration_seconds value."""
+    return VideoPollResult(
+        task_id="runway_visual_task", status="ready", progress=1.0,
+        output_url="/data/_assets/visual-fake.mp4",
+        duration_seconds=duration,
+        duration_source=duration_source,
+        error=None, failure_code=None, mock_mode=False,
+    )
+
+
+def test_real_mode_persists_media_probe_provenance() -> None:
+    """SESSION 253 Stage 3 — when the poll response carries a
+    measured duration_seconds + duration_source="media_probe",
+    the primitive persists them verbatim on the Asset spec."""
+    ws = _make_workspace("v4provmeasured@test.local")
+    sp = _make_teammate(ws)
+    comp = _make_composition(ws, sp)
+    step = CompositionStep.objects.create(
+        composition=comp, position=0,
+        primitive="generate_visual_clip",
+        params={"prompt": "A sunset sea.", "duration": 5},
+    )
+
+    cm, _fake = _patched_client(
+        _create_result(),
+        [_ready_with_source(duration=4.87, duration_source="media_probe")],
+    )
+    with patch(
+        "apps.compositions.primitives.visual_clip.MediaEngineClient",
+        return_value=cm,
+    ), patch(
+        "apps.compositions.primitives.visual_clip.time.sleep",
+    ):
+        result = GenerateVisualClipPrimitive.execute(
+            step=step, resolved_inputs=[], mock_mode=False,
+        )
+
+    assert result.duration_ms == 4870
+    spec = result.extra_source_spec
+    assert spec["duration_estimated"] is False
+    assert spec["duration_source"] == "media_probe"
+
+
+def test_real_mode_marks_requested_duration_as_estimated_on_probe_failure() -> None:
+    """When the media-engine ffprobe fails and returns
+    duration_seconds=None, the primitive falls back to the
+    OPERATOR-requested duration and explicitly marks the
+    provenance so the audit trail can distinguish measured vs
+    fabricated durations."""
+    ws = _make_workspace("v4provfallback@test.local")
+    sp = _make_teammate(ws)
+    comp = _make_composition(ws, sp)
+    step = CompositionStep.objects.create(
+        composition=comp, position=0,
+        primitive="generate_visual_clip",
+        params={"prompt": "A city street.", "duration": 8},
+    )
+
+    cm, _fake = _patched_client(
+        _create_result(),
+        [_ready_with_source(duration=None, duration_source=None)],
+    )
+    with patch(
+        "apps.compositions.primitives.visual_clip.MediaEngineClient",
+        return_value=cm,
+    ), patch(
+        "apps.compositions.primitives.visual_clip.time.sleep",
+    ):
+        result = GenerateVisualClipPrimitive.execute(
+            step=step, resolved_inputs=[], mock_mode=False,
+        )
+
+    # Requested-duration fallback: 8 s * 1000 = 8000 ms.
+    assert result.duration_ms == 8000
+    spec = result.extra_source_spec
+    assert spec["duration_estimated"] is True
+    assert spec["duration_source"] == "requested"

@@ -405,13 +405,30 @@ RECIPES: dict[str, Recipe] = {
                 name="target_duration_seconds", type="select",
                 label="Target duration (AI-synthesized topic only)",
                 required=False, default="",
+                # SESSION 253 Stage 3 — presets removed once the
+                # Stage-1 recalibration lifted the delivery-rate
+                # estimator to 15 cps:
+                #
+                #   180 s at 15 cps requires ~2160 chars minimum
+                #   inside the ±20 % acceptance band. That exceeds
+                #   the ``AVATAR_SPEECH_SAFE_MAX_CHARS = 1900``
+                #   single-call provider ceiling, so
+                #   ``synthesize_with_duration_gate`` would raise
+                #   ``REASON_INCOMPATIBLE_WITH_PROVIDER`` before any
+                #   LLM call fires. Offering the preset would guarantee
+                #   an operator error on submit, so it's removed until
+                #   ``talking_head`` gains a multi-segment concat path
+                #   (``long_form_ad`` already has this, which is why
+                #   ``long_form_ad`` still offers 180 s / 300 s).
+                #
+                #   120 s stays: 15 cps × 96 s (raw_min) = 1440 chars,
+                #   which fits under the 1900-char cap with margin.
                 choices=(
                     {"value": "", "label": "Default (~30-60s standalone)"},
                     {"value": "30", "label": "30 seconds"},
                     {"value": "60", "label": "60 seconds"},
                     {"value": "90", "label": "90 seconds"},
                     {"value": "120", "label": "2 minutes"},
-                    {"value": "180", "label": "3 minutes"},
                 ),
                 help_text=(
                     "Applies only when \"Use workspace knowledge\" is "
@@ -421,7 +438,9 @@ RECIPES: dict[str, Recipe] = {
                     "fails BEFORE any Runway credit is spent. When you "
                     "supply your own script (checkbox off), this field "
                     "is ignored — your script is spoken exactly as "
-                    "written."
+                    "written. For longer than ~2 minutes, use the "
+                    "Long-form ad recipe, which splits into multiple "
+                    "Runway calls."
                 ),
             ),
             _VERIFIER_MODE_FIELD,

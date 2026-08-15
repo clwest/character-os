@@ -241,14 +241,46 @@ class GenerateVisualClipPrimitive:
         if duration:
             extra["duration"] = duration
 
+        # SESSION 253 Stage 3 — duration provenance. Same 3-way
+        # branch as ``generate_avatar_speech``:
+        #
+        #   1. media-engine ffprobe on the returned MP4 URL
+        #      succeeded (populates ``terminal.duration_seconds``);
+        #      persist the measured value + mark
+        #      ``duration_source`` from the poll response
+        #      (``media_probe`` when the probe fired).
+        #   2. probe returned None (missing binary, non-zero rc,
+        #      timeout) OR mock-mode terminal — fall back to the
+        #      REQUESTED ``duration`` seconds the operator asked
+        #      for. Mark ``duration_source="requested"`` to make
+        #      clear this is a caller-supplied value, not measured.
+        #   3. no requested duration either — persist None.
+        if terminal.duration_seconds is not None:
+            duration_ms = int(terminal.duration_seconds * 1000)
+            extra["duration_estimated"] = False
+            extra["duration_source"] = (
+                terminal.duration_source or "provider_reported"
+            )
+        elif duration:
+            duration_ms = int(duration) * 1000
+            extra["duration_estimated"] = True
+            extra["duration_source"] = "requested"
+            logger.warning(
+                "generate_visual_clip step=%s task=%s: media-engine "
+                "did not return a measured duration; persisting "
+                "requested-duration fallback (%d ms from %ss "
+                "requested)",
+                step.id, task_id, duration_ms, duration,
+            )
+        else:
+            duration_ms = None
+            extra["duration_estimated"] = True
+            extra["duration_source"] = "unknown"
+
         return PrimitiveResult(
             asset_type=AssetType.CLIP,
             file_path=terminal.output_url,
-            duration_ms=(
-                int(terminal.duration_seconds * 1000)
-                if terminal.duration_seconds is not None
-                else (int(duration) * 1000 if duration else None)
-            ),
+            duration_ms=duration_ms,
             mime_type="video/mp4",
             cost_micros=GenerateVisualClipPrimitive.estimate_cost(
                     step.params or {}, inputs=resolved_inputs,
