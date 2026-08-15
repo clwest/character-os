@@ -119,6 +119,13 @@ class DurationContractError(Exception):
         effective_max_chars: int,
         synthesized_text: str,
         reason: str,
+        # SESSION 253 amendment A — for correct classification of
+        # duration-tolerance violations vs provider-ceiling
+        # violations. ``effective_max_chars`` is ``min(duration_max,
+        # provider_cap)``; when only ``duration_max`` is binding we
+        # want to say "too long," not "over provider ceiling."
+        duration_max_chars: int | None = None,
+        provider_cap_chars: int | None = None,
     ) -> None:
         self.actual_chars = actual_chars
         self.actual_words = actual_words
@@ -128,24 +135,20 @@ class DurationContractError(Exception):
         self.max_seconds = max_seconds
         self.effective_min_chars = effective_min_chars
         self.effective_max_chars = effective_max_chars
+        # Fall back to effective_max_chars when a caller doesn't
+        # supply the more precise values (keeps existing tests +
+        # LongFormDurationError wrapping working without touching
+        # every call site).
+        self.duration_max_chars = (
+            duration_max_chars if duration_max_chars is not None
+            else effective_max_chars
+        )
+        self.provider_cap_chars = provider_cap_chars
         self.synthesized_text = synthesized_text
         self.reason = reason
         super().__init__(self._build_message())
 
     def _build_message(self) -> str:
-        direction = {
-            self.REASON_TOO_SHORT: "too short",
-            self.REASON_TOO_LONG: "too long",
-            self.REASON_OVER_PROVIDER_CAP: (
-                f"over provider ceiling of {self.effective_max_chars} chars"
-            ),
-            self.REASON_INCOMPATIBLE_WITH_PROVIDER: (
-                f"incompatible with provider ceiling of "
-                f"{self.effective_max_chars} chars (min for this "
-                f"duration is {self.effective_min_chars})"
-            ),
-        }.get(self.reason, "outside tolerance")
-
         if self.reason == self.REASON_INCOMPATIBLE_WITH_PROVIDER:
             return (
                 f"Duration contract failed ({self.reason}): "
@@ -155,13 +158,51 @@ class DurationContractError(Exception):
                 f"Reduce the target duration or split into multiple calls. "
                 f"No Runway call fired."
             )
+        if self.reason == self.REASON_OVER_PROVIDER_CAP:
+            # True provider-ceiling violation: actual exceeds the
+            # 1900-char (or caller-supplied) per-call cap. Message
+            # names the provider cap explicitly and mentions the
+            # media-engine boundary so the operator sees WHY.
+            cap = self.provider_cap_chars or self.effective_max_chars
+            return (
+                f"Duration contract failed ({self.reason}): synthesized "
+                f"{self.actual_chars} chars / {self.actual_words} words "
+                f"(~{self.actual_seconds}s of speech), which exceeds the "
+                f"{cap}-char per-call provider ceiling for a "
+                f"{self.target_duration_seconds}-second target. "
+                f"No Runway call fired."
+            )
+        if self.reason == self.REASON_TOO_LONG:
+            # Duration-tolerance overshoot below the provider cap:
+            # message names seconds first (operator-facing unit),
+            # chars in parentheses.
+            return (
+                f"Duration contract failed ({self.reason}): generated "
+                f"script is approximately {self.actual_seconds}s "
+                f"({self.actual_chars} chars / {self.actual_words} words), "
+                f"above the allowed {self.max_seconds}-second maximum for "
+                f"a {self.target_duration_seconds}-second target "
+                f"(accept band {self.min_seconds}-{self.max_seconds}s, "
+                f"{self.effective_min_chars}-{self.duration_max_chars} chars). "
+                f"No Runway call fired."
+            )
+        if self.reason == self.REASON_TOO_SHORT:
+            return (
+                f"Duration contract failed ({self.reason}): generated "
+                f"script is approximately {self.actual_seconds}s "
+                f"({self.actual_chars} chars / {self.actual_words} words), "
+                f"below the allowed {self.min_seconds}-second minimum for "
+                f"a {self.target_duration_seconds}-second target "
+                f"(accept band {self.min_seconds}-{self.max_seconds}s, "
+                f"{self.effective_min_chars}-{self.duration_max_chars} chars). "
+                f"No Runway call fired."
+            )
+        # Fallback for any future reason code — generic shape.
         return (
             f"Duration contract failed ({self.reason}): synthesized "
             f"{self.actual_chars} chars / {self.actual_words} words "
-            f"(~{self.actual_seconds}s of speech), which is {direction} "
-            f"for a {self.target_duration_seconds}-second video "
-            f"(accept band {self.min_seconds}-{self.max_seconds}s, "
-            f"{self.effective_min_chars}-{self.effective_max_chars} chars). "
+            f"(~{self.actual_seconds}s of speech) for a "
+            f"{self.target_duration_seconds}-second target. "
             f"No Runway call fired."
         )
 
@@ -397,16 +438,26 @@ def synthesize_with_duration_gate(
         synth = _synthesize(hint)
         actual_chars, actual_words, actual_seconds = _measure(synth.brief)
 
-    # Acceptance gate. Two-part check:
-    #   (a) char band  [effective_min, effective_max]  — the raw
-    #       provider-safe constraint.
-    #   (b) seconds band [min_seconds, max_seconds]    — the
-    #       operator-visible duration tolerance.
-    # Both must hold. Order matters for the error `reason`:
-    # over-cap is more actionable than merely-over-tolerance,
-    # so we surface REASON_OVER_PROVIDER_CAP first when both
-    # would fire.
-    if actual_chars > effective_max:
+    # Acceptance gate — SESSION 253 amendment A. Classification:
+    #
+    # 1. Provider ceiling check first (highest severity, most
+    #    actionable). Only fires when the caller supplied a cap
+    #    AND the actual script exceeds it.
+    # 2. Duration tolerance checks against the RAW duration budget
+    #    (unclamped by provider cap) so a duration-overshoot below
+    #    the provider cap is classified as TOO_LONG rather than
+    #    OVER_PROVIDER_CAP.
+    #
+    # ``compute_effective_budget`` doesn't expose the raw duration
+    # bounds separately, but for the acceptance gate we can recover
+    # them from ``char_budget_for_duration`` without the cap kwarg.
+    raw_duration_ideal, raw_duration_min, raw_duration_max = (
+        char_budget_for_duration(target_duration_seconds)
+    )
+    if (
+        max_script_chars is not None
+        and actual_chars > max_script_chars
+    ):
         raise DurationContractError(
             actual_chars=actual_chars,
             actual_words=actual_words,
@@ -416,10 +467,12 @@ def synthesize_with_duration_gate(
             max_seconds=max_seconds,
             effective_min_chars=effective_min,
             effective_max_chars=effective_max,
+            duration_max_chars=raw_duration_max,
+            provider_cap_chars=max_script_chars,
             synthesized_text=synth.brief,
             reason=DurationContractError.REASON_OVER_PROVIDER_CAP,
         )
-    if not (min_seconds <= actual_seconds <= max_seconds):
+    if actual_chars > raw_duration_max:
         raise DurationContractError(
             actual_chars=actual_chars,
             actual_words=actual_words,
@@ -429,14 +482,12 @@ def synthesize_with_duration_gate(
             max_seconds=max_seconds,
             effective_min_chars=effective_min,
             effective_max_chars=effective_max,
+            duration_max_chars=raw_duration_max,
+            provider_cap_chars=max_script_chars,
             synthesized_text=synth.brief,
-            reason=(
-                DurationContractError.REASON_TOO_SHORT
-                if actual_seconds < min_seconds
-                else DurationContractError.REASON_TOO_LONG
-            ),
+            reason=DurationContractError.REASON_TOO_LONG,
         )
-    if actual_chars < effective_min:
+    if actual_chars < raw_duration_min:
         raise DurationContractError(
             actual_chars=actual_chars,
             actual_words=actual_words,
@@ -446,6 +497,8 @@ def synthesize_with_duration_gate(
             max_seconds=max_seconds,
             effective_min_chars=effective_min,
             effective_max_chars=effective_max,
+            duration_max_chars=raw_duration_max,
+            provider_cap_chars=max_script_chars,
             synthesized_text=synth.brief,
             reason=DurationContractError.REASON_TOO_SHORT,
         )

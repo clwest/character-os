@@ -238,6 +238,80 @@ def test_gate_still_short_after_retry_raises():
     assert exc_info.value.actual_chars == 300
 
 
+def test_gate_duration_overshoot_below_provider_cap_raises_too_long():
+    """SESSION 253 amendment A — classification correctness.
+
+    90s target with the 1900-char provider cap:
+      * duration tolerance high = 1188 chars (11 cps × 108 s)
+      * provider cap high = 1900 chars
+    A 1266-char script (~117 s) is over the duration tolerance
+    but under the provider cap. Must raise REASON_TOO_LONG (NOT
+    REASON_OVER_PROVIDER_CAP — the provider cap wasn't the
+    binding constraint)."""
+    ws = _workspace("dc-too-long-not-cap@t")
+    tm = _teammate(ws)
+    # First: 1303 (over duration max 1188, under cap 1900).
+    # Retry:  1266 (still over duration max, under cap).
+    with patch(
+        "character_os.duration_contract.build_render_brief",
+        side_effect=[
+            _fake_script_result("x" * 1303),
+            _fake_script_result("x" * 1266),
+        ],
+    ):
+        with pytest.raises(DurationContractError) as exc_info:
+            synthesize_with_duration_gate(
+                tm, "topic",
+                target_duration_seconds=90,
+                max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS,
+            )
+    err = exc_info.value
+    assert err.reason == DurationContractError.REASON_TOO_LONG
+    # Message names seconds first (operator unit) and does NOT
+    # mention "provider ceiling" for a duration-only violation.
+    msg = str(err)
+    assert "provider" not in msg.lower()
+    assert "provider ceiling" not in msg.lower()
+    assert "108-second maximum" in msg or "108-second" in msg
+    # Attributes carry both bounds distinctly so future consumers
+    # can render richer UIs without misclassifying.
+    assert err.duration_max_chars == 1188
+    assert err.provider_cap_chars == AVATAR_SPEECH_SAFE_MAX_CHARS
+
+
+def test_gate_true_provider_cap_violation_still_classifies_as_over_cap():
+    """SESSION 253 amendment A — the OTHER classification.
+
+    A synthesis result that actually exceeds the 1900-char provider
+    cap must still raise REASON_OVER_PROVIDER_CAP. Only fireable
+    for targets long enough that the cap is the binding constraint
+    (~172s+ at 11 cps + default cap)."""
+    ws = _workspace("dc-true-cap-violation@t")
+    tm = _teammate(ws)
+    # 180s target → duration tolerance (1584, 2376), effective
+    # (1584, 1900) under cap. First pass 2100 (over cap), retry
+    # 1950 (still over cap). Must raise OVER_PROVIDER_CAP with
+    # 1900 in the message.
+    with patch(
+        "character_os.duration_contract.build_render_brief",
+        side_effect=[
+            _fake_script_result("x" * 2100),
+            _fake_script_result("x" * 1950),
+        ],
+    ):
+        with pytest.raises(DurationContractError) as exc_info:
+            synthesize_with_duration_gate(
+                tm, "topic",
+                target_duration_seconds=180,
+                max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS,
+            )
+    err = exc_info.value
+    assert err.reason == DurationContractError.REASON_OVER_PROVIDER_CAP
+    msg = str(err)
+    assert "1900-char per-call provider ceiling" in msg
+    assert err.provider_cap_chars == 1900
+
+
 def test_gate_over_provider_cap_after_retry_raises_over_cap_reason():
     """180s target WITH the 1900 cap: if retry still exceeds
     1900 chars, raise REASON_OVER_PROVIDER_CAP (not TOO_LONG).
