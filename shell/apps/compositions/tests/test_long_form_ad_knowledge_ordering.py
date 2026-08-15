@@ -118,6 +118,14 @@ def test_use_knowledge_true_synthesizes_exactly_once():
             spokesperson=tm,
             script=_OPERATOR_BRIEF,
             use_knowledge=True,
+            # Pin the short-form chunk cap so the 589-char canned
+            # synthesized brief splits into multiple speech steps —
+            # the one-vs-many contract needs > 1 chunk to be
+            # materially exercised. Post-SESSION 253 the default cap
+            # is 1900 (single chunk) which would render this test
+            # vacuous; passing 280 restores the original test
+            # fixture without changing the behavior under test.
+            max_chars=280,
             # 60 s target → duration tolerance 48-72 s. The canned
             # synthesized brief is 589 chars ≈ 55 s under the
             # canonical char-based estimator (11 chars/sec + 2 s
@@ -130,8 +138,8 @@ def test_use_knowledge_true_synthesizes_exactly_once():
             target_duration_seconds=60,
         )
 
-    # The synthesized brief is >280 chars so the default chunker
-    # produces multiple chunks. We assert the synthesis was called
+    # The synthesized brief is >280 chars so the pinned short-chunk
+    # cap produces multiple chunks. We assert the synthesis was called
     # ONCE regardless.
     speech_steps = comp.steps.filter(primitive="generate_avatar_speech")
     assert speech_steps.count() >= 2, (

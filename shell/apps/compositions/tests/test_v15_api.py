@@ -1433,10 +1433,11 @@ def test_create_long_form_ad_chunks_script() -> None:
     client = APIClient()
     _login(client, user)
 
-    # ~500 char script splits into 2 chunks at default
-    # DEFAULT_CHUNK_MAX_CHARS=280; that gives 2 speech steps +
-    # 1 concat = 3 steps.
-    script = (
+    # ~2500-char script splits into ≥2 chunks at the SESSION 253
+    # LONG_FORM_CHUNK_MAX_CHARS=1900 default; that gives ≥2 speech
+    # steps + 1 concat = 3+ steps. The recipe form does not expose
+    # ``max_chars`` so we control chunk count via script length.
+    base = (
         "Welcome to our spring launch event. "
         "We've been working all year on something special. "
         "Today we're proud to introduce three new products. "
@@ -1444,8 +1445,10 @@ def test_create_long_form_ad_chunks_script() -> None:
         "Second, our notebook line — premium recycled paper. "
         "Third, our gift box — perfect for any occasion. "
         "Order today and get free shipping on every order. "
-        "Visit our website to learn more about each piece."
+        "Visit our website to learn more about each piece. "
     )
+    script = base * 8  # comfortably above the 1900 cap
+    assert len(script) > 1900
     response = client.post(
         "/api/compositions/",
         {
@@ -1541,16 +1544,19 @@ def test_long_form_ad_outro_text_appends_step_after_concat() -> None:
     client = APIClient()
     _login(client, user)
 
-    script = (
+    # Long enough to force multi-chunk at LONG_FORM_CHUNK_MAX_CHARS
+    # (1900); the test needs a concat step to exist between speech
+    # steps and the outro.
+    base = (
         "Welcome to our spring launch event. "
         "We've been working all year on something special. "
         "Today we're proud to introduce three new products. "
-        "First, our flagship pen. "
-        "Second, our notebook line. "
-        "Third, our gift box. "
-        "Order today and get free shipping on every order. "
-        "Visit our website to learn more about each piece."
+        "First, our flagship pen. Second, our notebook line. "
+        "Third, our gift box. Order today and get free shipping. "
+        "Visit our website to learn more about each piece. "
     )
+    script = base * 8
+    assert len(script) > 1900
     response = client.post(
         "/api/compositions/",
         {
@@ -1634,14 +1640,19 @@ def test_long_form_ad_concat_uses_talking_head_result_role() -> None:
     client = APIClient()
     _login(client, user)
 
-    script = (
+    # Long enough to force a concat step at LONG_FORM_CHUNK_MAX_CHARS
+    # (1900); the test asserts a property of the concat step so we
+    # need multi-chunk output.
+    base = (
         "Welcome to our spring launch event. "
         "We've been working all year on something special. "
         "Today we're proud to introduce three new products. "
         "First, our flagship pen. Second, our notebook line. "
         "Third, our gift box. Order today and get free shipping. "
-        "Visit our website to learn more about each piece."
+        "Visit our website to learn more about each piece. "
     )
+    script = base * 8
+    assert len(script) > 1900
     response = client.post(
         "/api/compositions/",
         {

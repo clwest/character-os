@@ -625,3 +625,228 @@ def test_long_form_ad_uses_naive_split_in_mock_mode_even_with_use_llm() -> None:
         )
     fake_llm.assert_not_called()
     fake_naive.assert_called_once()
+
+
+# ---- SESSION 253 long-form recap calibration -----------------------
+#
+# Character OS previously split long-form scripts at ~280 chars per
+# chunk because Runway's per-call ceiling was assumed to be around
+# 300. SESSION 253 dogfooded seven controlled Runway
+# ``/v1/avatar_videos`` calls from ~25s to ~180s and found each one
+# billed at exactly 2 credits regardless of duration — making the
+# per-call fixed cost the dominant term. Long-form's operating cap
+# was raised to LONG_FORM_CHUNK_MAX_CHARS = 1900 (≈ 172s at the
+# platform's 11 chars/sec estimator), leaving a 100-char safety
+# margin below media-engine's 2000-char Pydantic ceiling. The
+# short-form DEFAULT_CHUNK_MAX_CHARS (280) is preserved for other
+# recipes (SplitScriptPrimitive, recut_teaser).
+
+
+def _make_script_of_length(target_chars: int) -> str:
+    """Build a script close to ``target_chars`` from repeated
+    fixed-length sentences, snapping down to the nearest complete
+    sentence. The resulting length lands within one sentence's
+    worth of the target — good enough for structural chunker
+    tests where the meaningful bound is the LONG_FORM cap, not
+    the exact input size."""
+    sentence = "This is a well-formed sentence built for reliable packing. "
+    n = max(1, target_chars // len(sentence))
+    return (sentence * n).rstrip()
+
+
+def test_long_form_ad_uses_1900_char_default_cap() -> None:
+    """Default per-chunk cap on long_form_ad is now
+    ``LONG_FORM_CHUNK_MAX_CHARS = 1900`` (was 280). Pin the
+    value so future accidental changes light up as an explicit
+    test failure."""
+    from apps.compositions.script_splitter import LONG_FORM_CHUNK_MAX_CHARS
+    assert LONG_FORM_CHUNK_MAX_CHARS == 1900
+
+
+def test_default_chunk_max_chars_unchanged_at_280() -> None:
+    """``DEFAULT_CHUNK_MAX_CHARS`` remains 280 for SplitScriptPrimitive
+    and other recipes that depend on the historical short-chunk
+    shape. SESSION 253 only raised the long-form recipe's default,
+    not the platform-wide constant."""
+    from apps.compositions.script_splitter import DEFAULT_CHUNK_MAX_CHARS
+    assert DEFAULT_CHUNK_MAX_CHARS == 280
+
+
+def test_split_script_primitive_default_still_uses_280() -> None:
+    """SplitScriptPrimitive's docstring-declared default is 280.
+    Callers who don't pass ``max_chars`` must still get the
+    short-form cap, unaffected by long_form_ad's calibration."""
+    from apps.compositions.primitives.split_script import (
+        SplitScriptPrimitive as _SP,
+    )
+    import inspect
+    src = inspect.getsource(_SP.execute)
+    # The primitive delegates to the splitter helpers using the
+    # module-level default; confirm the default resolves to 280.
+    from apps.compositions.script_splitter import DEFAULT_CHUNK_MAX_CHARS
+    assert DEFAULT_CHUNK_MAX_CHARS == 280
+    assert "DEFAULT_CHUNK_MAX_CHARS" in src
+
+
+def test_long_form_ad_90s_script_produces_one_avatar_call() -> None:
+    """~90s script (~990 chars at 11 cps) fits under the 1900-char
+    long-form cap → single ``generate_avatar_speech`` step, no
+    concat. Was ~4 chunks under the old 280-char cap."""
+    ws = _make_workspace("v5lf_s253_90s@test.local")
+    sp = _make_teammate(ws)
+    script = _make_script_of_length(990)
+
+    comp = long_form_ad(
+        workspace=ws, spokesperson=sp,
+        script=script, mock_mode=True,
+    )
+    steps = list(comp.steps.all())
+    speech = [s for s in steps if s.primitive == "generate_avatar_speech"]
+    concat = [s for s in steps if s.primitive == "concat_clips"]
+    assert len(speech) == 1
+    assert len(concat) == 0
+    assert speech[0].params["script"] == script
+
+
+def test_long_form_ad_120s_script_produces_one_avatar_call() -> None:
+    """~120s script (~1320 chars) still fits under the 1900-char
+    cap. Was ~5 chunks under 280-char."""
+    ws = _make_workspace("v5lf_s253_120s@test.local")
+    sp = _make_teammate(ws)
+    script = _make_script_of_length(1320)
+
+    comp = long_form_ad(
+        workspace=ws, spokesperson=sp,
+        script=script, mock_mode=True,
+    )
+    speech = [s for s in comp.steps.all() if s.primitive == "generate_avatar_speech"]
+    concat = [s for s in comp.steps.all() if s.primitive == "concat_clips"]
+    assert len(speech) == 1
+    assert len(concat) == 0
+
+
+def test_long_form_ad_180s_script_at_safe_budget_produces_one_call() -> None:
+    """~180s script sized right at the safe 1900-char budget →
+    single call. Historically 7-8 chunks at 280."""
+    ws = _make_workspace("v5lf_s253_180s@test.local")
+    sp = _make_teammate(ws)
+    script = _make_script_of_length(1860)  # comfortably < 1900
+    assert len(script) <= 1900
+
+    comp = long_form_ad(
+        workspace=ws, spokesperson=sp,
+        script=script, mock_mode=True,
+    )
+    speech = [s for s in comp.steps.all() if s.primitive == "generate_avatar_speech"]
+    concat = [s for s in comp.steps.all() if s.primitive == "concat_clips"]
+    assert len(speech) == 1
+    assert len(concat) == 0
+    # And no chunk exceeds the safe budget.
+    for s in speech:
+        assert len(s.params["script"]) <= 1900
+
+
+def test_long_form_ad_5min_script_produces_approximately_two_calls() -> None:
+    """~5-min script (~3300 chars) exceeds one segment → 2 calls
+    plus one concat step. Historical: ~12 chunks at 280 chars."""
+    from apps.compositions.script_splitter import LONG_FORM_CHUNK_MAX_CHARS
+
+    ws = _make_workspace("v5lf_s253_5min@test.local")
+    sp = _make_teammate(ws)
+    script = _make_script_of_length(3300)
+
+    comp = long_form_ad(
+        workspace=ws, spokesperson=sp,
+        script=script, mock_mode=True,
+    )
+    speech = [s for s in comp.steps.all() if s.primitive == "generate_avatar_speech"]
+    concat = [s for s in comp.steps.all() if s.primitive == "concat_clips"]
+    # Subject to sentence-boundary alignment: 3300 / 1900 = 1.7 →
+    # the greedy packer always emits exactly 2 chunks for scripts
+    # in the (max_chars, 2 * max_chars] range when every sentence
+    # fits inside a chunk. Assert that specific value.
+    assert len(speech) == 2, f"expected 2 speech steps, got {len(speech)}"
+    assert len(concat) == 1
+    for s in speech:
+        assert len(s.params["script"]) <= LONG_FORM_CHUNK_MAX_CHARS
+
+
+def test_long_form_ad_preserves_wording_across_chunks() -> None:
+    """Concatenating every chunk's script (whitespace-normalized)
+    reproduces the input verbatim. The chunker splits at sentence
+    boundaries but must not rewrite, reorder, or drop content."""
+    ws = _make_workspace("v5lf_s253_wording@test.local")
+    sp = _make_teammate(ws)
+    script = _make_script_of_length(3300)  # forces 2 chunks
+
+    comp = long_form_ad(
+        workspace=ws, spokesperson=sp,
+        script=script, mock_mode=True,
+    )
+    speech = [s for s in comp.steps.all() if s.primitive == "generate_avatar_speech"]
+    reassembled = " ".join(s.params["script"] for s in speech)
+    # Whitespace at chunk boundaries can collapse — normalize both
+    # sides before comparison so we're asserting content parity, not
+    # exact byte equality.
+    normalize = lambda t: " ".join(t.split())
+    assert normalize(reassembled) == normalize(script)
+
+
+def test_long_form_ad_no_chunk_exceeds_safe_budget() -> None:
+    """Structural invariant: for any script the chunker sends to
+    generate_avatar_speech, every step's script length is bounded
+    by the effective ``max_chars``. Guards against a future
+    regression that lets an oversize chunk through and gets 422'd
+    at the media-engine."""
+    from apps.compositions.script_splitter import LONG_FORM_CHUNK_MAX_CHARS
+
+    ws = _make_workspace("v5lf_s253_bounded@test.local")
+    sp = _make_teammate(ws)
+    # Try a range of sizes: safely-under-cap, right-at-cap, and
+    # multi-chunk. The bound holds in every case.
+    for target in (990, 1860, 3300, 4900):
+        script = _make_script_of_length(target)
+        comp = long_form_ad(
+            workspace=ws, spokesperson=sp,
+            script=script, mock_mode=True,
+            name=f"bounded-{target}",
+        )
+        for s in comp.steps.all():
+            if s.primitive != "generate_avatar_speech":
+                continue
+            assert len(s.params["script"]) <= LONG_FORM_CHUNK_MAX_CHARS, (
+                f"chunk exceeded {LONG_FORM_CHUNK_MAX_CHARS} for "
+                f"target={target}: {len(s.params['script'])} chars"
+            )
+
+
+def test_long_form_ad_rejects_max_chars_above_hard_ceiling() -> None:
+    """Explicit override above 2000 (media-engine's Pydantic cap)
+    is rejected at starter time — any chunk that size would 422
+    at the media-engine, so refusing to lay down guaranteed-to-fail
+    speech steps is the safer default."""
+    ws = _make_workspace("v5lf_s253_ceiling@test.local")
+    sp = _make_teammate(ws)
+    with pytest.raises(ValueError, match="exceeds Runway"):
+        long_form_ad(
+            workspace=ws, spokesperson=sp,
+            script="A short script.", max_chars=2500,
+            mock_mode=True,
+        )
+
+
+def test_long_form_ad_accepts_explicit_smaller_max_chars() -> None:
+    """Callers who explicitly want the old short-chunk shape (e.g.
+    to reproduce a pre-SESSION 253 render) can still pass
+    ``max_chars=280`` and get the historical multi-chunk plan."""
+    ws = _make_workspace("v5lf_s253_smaller@test.local")
+    sp = _make_teammate(ws)
+    script = _make_script_of_length(990)  # would be 1 chunk at 1900
+    comp = long_form_ad(
+        workspace=ws, spokesperson=sp,
+        script=script, max_chars=280,
+        mock_mode=True,
+    )
+    speech = [s for s in comp.steps.all() if s.primitive == "generate_avatar_speech"]
+    # 990 chars at 280-char cap must produce multiple chunks.
+    assert len(speech) >= 3

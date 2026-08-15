@@ -29,6 +29,8 @@ from django.db import transaction
 from .models import Composition, CompositionStatus, CompositionStep
 from .script_splitter import (
     DEFAULT_CHUNK_MAX_CHARS,
+    LONG_FORM_CHUNK_MAX_CHARS,
+    LONG_FORM_HARD_CEILING_CHARS,
     chunk_script,
     split_script_with_llm,
 )
@@ -787,7 +789,7 @@ def long_form_ad(
     workspace: "Workspace",
     spokesperson: "Spokesperson",
     script: str,
-    max_chars: int = DEFAULT_CHUNK_MAX_CHARS,
+    max_chars: int = LONG_FORM_CHUNK_MAX_CHARS,
     use_llm_split: bool = False,
     use_knowledge: bool = False,
     reencode_concat: bool = False,
@@ -878,7 +880,16 @@ def long_form_ad(
             ``use_knowledge=True`` this is treated as a
             topic / brief; when False, as a finished script.
         max_chars: Per-chunk character cap. Defaults to
-            ``DEFAULT_CHUNK_MAX_CHARS`` (280).
+            ``LONG_FORM_CHUNK_MAX_CHARS`` (1900) — SESSION 253
+            calibrated the Runway ``/v1/avatar_videos`` billing as
+            flat 2 credits regardless of duration up to ~180s
+            (see script_splitter module docstring). Long-form
+            economics therefore favor the fewest / largest chunks
+            that fit safely under Runway's 2000-char hard limit.
+            Callers may pass a smaller value (e.g. 280 to
+            reproduce the pre-SESSION 253 short-chunk shape);
+            values above ``LONG_FORM_HARD_CEILING_CHARS`` (2000)
+            are rejected — the media-engine would 422 anyway.
         use_llm_split: When True, the splitter consults
             gpt-5-mini for semantically clean boundaries
             (graceful fallback to naive on any failure).
@@ -922,6 +933,19 @@ def long_form_ad(
             f"spokesperson {spokesperson.name!r} (workspace "
             f"{spokesperson.workspace_id}) is not in workspace "
             f"{workspace.pk}"
+        )
+    if max_chars <= 0:
+        raise ValueError(
+            f"long_form_ad max_chars must be positive, got {max_chars}"
+        )
+    if max_chars > LONG_FORM_HARD_CEILING_CHARS:
+        raise ValueError(
+            f"long_form_ad max_chars={max_chars} exceeds Runway's "
+            f"per-call ceiling of {LONG_FORM_HARD_CEILING_CHARS} chars "
+            f"(media-engine ``_AVATAR_SPEECH_MAX_SCRIPT_CHARS``). "
+            f"Any chunk above that bounces at media-engine's Pydantic "
+            f"layer with a 422; refusing to lay down guaranteed-to-fail "
+            f"speech steps."
         )
 
     # SESSION 251 — coerce string-typed select values (e.g. "120")

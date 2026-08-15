@@ -24,10 +24,24 @@ Two split paths:
   any reason. The naive splitter is the structural guarantee;
   the LLM is an optional quality bump.
 
-The Runway ``/v1/avatar_videos`` per-call script ceiling is
-documented at ~300 chars (the hackathon's ``_MAX_SCRIPT_CHARS``).
-We default to 280 to leave headroom for the system prompt
-overhead Runway prepends.
+Two per-chunk char caps:
+
+* ``DEFAULT_CHUNK_MAX_CHARS = 280`` — the historical short-form
+  cap. Backs ``SplitScriptPrimitive`` and any recipe that
+  wants small chunks (V12's ``recut_teaser``, ad-hoc callers).
+  Kept unchanged for backward compatibility.
+* ``LONG_FORM_CHUNK_MAX_CHARS = 1900`` — the SESSION 253 dogfood-
+  calibrated long-form cap. Seven controlled Runway
+  ``/v1/avatar_videos`` measurements from ~25s through ~180s all
+  billed exactly 2 credits regardless of duration; each call is
+  therefore a fixed-cost unit and the cheapest architecture is
+  the fewest, longest calls that fit under Runway's technical
+  limit. Media-engine caps `script` at
+  ``_AVATAR_SPEECH_MAX_SCRIPT_CHARS = 2000``
+  (``media-engine/app/routers/internal.py``); 1900 leaves a
+  100-char safety margin below that hard ceiling, absorbing
+  small K6 overshoots at the ±20% duration tolerance band.
+  Only ``long_form_ad`` uses this cap today.
 """
 from __future__ import annotations
 
@@ -41,9 +55,28 @@ from django.conf import settings as django_settings
 logger = logging.getLogger(__name__)
 
 
-# Per-chunk character cap. Runway's avatar_videos accepts up to
-# ~300 chars per call; 280 leaves a 20-char safety margin.
+# Per-chunk character caps. See module docstring for the full
+# rationale on why there are two.
+#
+# DEFAULT_CHUNK_MAX_CHARS — short-form / SplitScriptPrimitive
+# default. Unchanged since V5. Do not raise without auditing
+# every consumer (V12 recut_teaser expects sentence-scale chunks).
 DEFAULT_CHUNK_MAX_CHARS = 280
+
+# LONG_FORM_CHUNK_MAX_CHARS — long_form_ad's operating target.
+# 1900 chars ≈ 172s at Character OS's 11 chars/sec estimator.
+# SESSION 253 measurements: seven controlled Runway avatar_video
+# calls from ~25s to ~180s all billed exactly 2 credits, making
+# each call a fixed-cost unit. Long-form economics now favor the
+# fewest / largest calls that fit safely under Runway's ceiling.
+LONG_FORM_CHUNK_MAX_CHARS = 1900
+
+# LONG_FORM_HARD_CEILING_CHARS — mirrors the media-engine's
+# `_AVATAR_SPEECH_MAX_SCRIPT_CHARS = 2000` Pydantic cap. Any
+# chunk exceeding this bounces at the media-engine layer with a
+# 422. Callers overriding ``max_chars`` on ``long_form_ad`` are
+# rejected above this ceiling.
+LONG_FORM_HARD_CEILING_CHARS = 2000
 
 
 # gpt-5-mini constants — match what K6 / script_synthesis.py uses
@@ -331,6 +364,8 @@ def estimate_chunks(script: str, max_chars: int = DEFAULT_CHUNK_MAX_CHARS) -> in
 
 __all__ = [
     "DEFAULT_CHUNK_MAX_CHARS",
+    "LONG_FORM_CHUNK_MAX_CHARS",
+    "LONG_FORM_HARD_CEILING_CHARS",
     "chunk_script",
     "split_script_with_llm",
     "estimate_chunks",
