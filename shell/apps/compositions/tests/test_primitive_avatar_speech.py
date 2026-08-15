@@ -368,6 +368,11 @@ def test_real_mode_with_knowledge_runs_brief_synthesis() -> None:
     # primitive's tuple unpack doesn't pick up MagicMock attrs.
     fake_script_result.verification_warnings = []
     fake_script_result.verification_status = "verified"
+    # SESSION 253 — writing_contract_version stamped by synthesis
+    # gets persisted onto composition; setting an int here so the
+    # primitive doesn't try to save a MagicMock into an integer
+    # field.
+    fake_script_result.writing_contract_version = 1
 
     with patch(
         "apps.compositions.primitives.avatar_speech.MediaEngineClient",

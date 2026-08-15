@@ -27,6 +27,7 @@ import {
   interpolateSpokespersonName,
   useSpokesperson,
   useUpdateSpokesperson,
+  type IdentityFieldMeta,
   type IdentityFieldName,
   type Spokesperson,
   type UpdateSpokespersonInput,
@@ -64,10 +65,26 @@ function IdentityForm({ spokesperson, onDone }: IdentityFormProps) {
     always_emphasize: spokesperson.always_emphasize ?? "",
     never_say: spokesperson.never_say ?? "",
     desired_feeling: spokesperson.desired_feeling ?? "",
+    // SESSION 253 — Character Voice fields.
+    character_point_of_view: spokesperson.character_point_of_view ?? "",
+    voice_energy: spokesperson.voice_energy ?? "medium",
+    voice_humor: spokesperson.voice_humor ?? "warm",
+    voice_directness: spokesperson.voice_directness ?? "balanced",
+    voice_signature_phrases: spokesperson.voice_signature_phrases ?? "",
+    voice_avoid_phrases: spokesperson.voice_avoid_phrases ?? "",
   });
   const [error, setError] = useState<string | null>(null);
 
-  const filledCount = IDENTITY_FIELDS.reduce(
+  // SESSION 232 progress signal — only counts the original six
+  // identity slots. Voice fields are additional and don't feed the
+  // "N of 6 filled" masthead threshold.
+  const identityGroupFields = IDENTITY_FIELDS.filter(
+    (f) => (f.group ?? "identity") === "identity",
+  );
+  const voiceGroupFields = IDENTITY_FIELDS.filter(
+    (f) => f.group === "character_voice",
+  );
+  const filledCount = identityGroupFields.reduce(
     (n, f) => (values[f.name].trim().length > 0 ? n + 1 : n),
     0,
   );
@@ -82,7 +99,12 @@ function IdentityForm({ spokesperson, onDone }: IdentityFormProps) {
       const current = values[f.name];
       const original = (spokesperson[f.name] ?? "") as string;
       if (current !== original) {
-        payload[f.name] = current;
+        // Cast: SESSION 253 added enum-typed fields (voice_energy /
+        // humor / directness) whose UpdateSpokespersonInput types
+        // are string unions, not bare strings. The form values are
+        // sourced from `<select>` controls populated with the exact
+        // enum options, so runtime shape is safe.
+        (payload as unknown as Record<string, string>)[f.name] = current;
         changed = true;
       }
     }
@@ -138,7 +160,7 @@ function IdentityForm({ spokesperson, onDone }: IdentityFormProps) {
           >
             <span className="text-fog/70">Filled</span>
             <span className="text-foreground">
-              {filledCount} of {IDENTITY_FIELDS.length}
+              {filledCount} of {identityGroupFields.length}
             </span>
           </span>
         </div>
@@ -149,35 +171,31 @@ function IdentityForm({ spokesperson, onDone }: IdentityFormProps) {
       </header>
 
       <form onSubmit={handleSave} className="flex flex-col gap-8">
-        {IDENTITY_FIELDS.map((f) => {
-          const label = interpolateSpokespersonName(f.label, name);
-          const help = interpolateSpokespersonName(f.help, name);
-          return (
-            <div
-              key={f.name}
-              className="flex flex-col gap-2"
-              data-testid={`identity-field-${f.name}`}
-            >
-              <Label htmlFor={`identity-${f.name}`} className="text-base">
-                {label}
-              </Label>
-              <p className="text-xs text-fog">{help}</p>
-              <textarea
-                id={`identity-${f.name}`}
-                value={values[f.name]}
-                onChange={(e) =>
-                  setValues((v) => ({ ...v, [f.name]: e.target.value }))
-                }
-                rows={4}
-                disabled={isPending}
-                placeholder={f.placeholder}
-                maxLength={2000}
-                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                data-testid={`identity-input-${f.name}`}
-              />
-            </div>
-          );
-        })}
+        <FieldGroup
+          heading="Identity"
+          description={`Who ${name} is and what they represent.`}
+          fields={identityGroupFields}
+          values={values}
+          onChange={(fieldName, value) =>
+            setValues((v) => ({ ...v, [fieldName]: value }))
+          }
+          isPending={isPending}
+          name={name}
+        />
+
+        {voiceGroupFields.length > 0 && (
+          <FieldGroup
+            heading="Character Voice"
+            description={`How ${name} thinks and writes. Shapes register, opinions, and what ${name} notices — separate from the business facts above.`}
+            fields={voiceGroupFields}
+            values={values}
+            onChange={(fieldName, value) =>
+              setValues((v) => ({ ...v, [fieldName]: value }))
+            }
+            isPending={isPending}
+            name={name}
+          />
+        )}
 
         {error && (
           <div
@@ -220,6 +238,84 @@ function IdentityForm({ spokesperson, onDone }: IdentityFormProps) {
         </div>
       </form>
     </div>
+  );
+}
+
+interface FieldGroupProps {
+  heading: string;
+  description: string;
+  fields: readonly IdentityFieldMeta[];
+  values: Record<IdentityFieldName, string>;
+  onChange: (name: IdentityFieldName, value: string) => void;
+  isPending: boolean;
+  name: string;
+}
+
+function FieldGroup({
+  heading,
+  description,
+  fields,
+  values,
+  onChange,
+  isPending,
+  name,
+}: FieldGroupProps) {
+  return (
+    <section
+      className="flex flex-col gap-6 border-t border-luxe pt-6 first-of-type:border-t-0 first-of-type:pt-0"
+      data-testid={`identity-group-${heading.toLowerCase().replace(/\s+/g, "-")}`}
+    >
+      <div className="flex flex-col gap-2">
+        <h2 className="font-display text-2xl leading-tight tracking-tight text-cream">
+          {heading}
+        </h2>
+        <p className="max-w-2xl text-sm text-fog">{description}</p>
+      </div>
+      {fields.map((f) => {
+        const label = interpolateSpokespersonName(f.label, name);
+        const help = interpolateSpokespersonName(f.help, name);
+        return (
+          <div
+            key={f.name}
+            className="flex flex-col gap-2"
+            data-testid={`identity-field-${f.name}`}
+          >
+            <Label htmlFor={`identity-${f.name}`} className="text-base">
+              {label}
+            </Label>
+            <p className="text-xs text-fog">{help}</p>
+            {f.choices && f.choices.length > 0 ? (
+              <select
+                id={`identity-${f.name}`}
+                value={values[f.name]}
+                onChange={(e) => onChange(f.name, e.target.value)}
+                disabled={isPending}
+                className="flex w-full max-w-md rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                data-testid={`identity-input-${f.name}`}
+              >
+                {f.choices.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <textarea
+                id={`identity-${f.name}`}
+                value={values[f.name]}
+                onChange={(e) => onChange(f.name, e.target.value)}
+                rows={4}
+                disabled={isPending}
+                placeholder={f.placeholder}
+                maxLength={2000}
+                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                data-testid={`identity-input-${f.name}`}
+              />
+            )}
+          </div>
+        );
+      })}
+    </section>
   );
 }
 

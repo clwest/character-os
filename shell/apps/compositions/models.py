@@ -477,6 +477,15 @@ class Composition(models.Model):
     # successful renders.
     synthesized_brief = models.TextField(blank=True, default="")
 
+    # SESSION 253 — which version of ``character_os.writing_contract``
+    # shaped this composition's synthesized script. 0 = pre-contract
+    # (rows from before SESSION 253 or any code path that never
+    # went through K6 synthesis). Positive integers correspond to
+    # ``WRITING_CONTRACT_VERSION`` at the time of synthesis so
+    # future audits can trace which rule set produced a given
+    # script.
+    writing_contract_version = models.PositiveSmallIntegerField(default=0)
+
     # Cost transparency (contract rule 7). Estimate is computed
     # before render fires; actual is summed from per-step
     # ``cost_actual_micros`` after execution.

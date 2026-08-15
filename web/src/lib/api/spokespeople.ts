@@ -82,6 +82,16 @@ const spokespersonSchema = z.object({
   // plain "Identity" when >= 4) + the "N of 6 filled" progress
   // signal on the identity page.
   identity_fields_filled: z.number().int().min(0).max(6).default(0),
+  // SESSION 253 — Character Voice / Writing Identity fields.
+  // Six new fields on top of the existing identity surface. All
+  // ``.default("...")`` so the schema parses pre-SESSION-253 server
+  // responses cleanly.
+  character_point_of_view: z.string().default(""),
+  voice_energy: z.enum(["low", "medium", "high"]).default("medium"),
+  voice_humor: z.enum(["none", "dry", "warm", "playful"]).default("warm"),
+  voice_directness: z.enum(["soft", "balanced", "direct"]).default("balanced"),
+  voice_signature_phrases: z.string().default(""),
+  voice_avoid_phrases: z.string().default(""),
   video_count: z.number().int().nonnegative().optional(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -318,6 +328,14 @@ export interface UpdateSpokespersonInput {
   always_emphasize?: string;
   never_say?: string;
   desired_feeling?: string;
+  /** SESSION 253 — Character Voice / Writing Identity. All
+   * optional; backend defaults handle new-row shape. */
+  character_point_of_view?: string;
+  voice_energy?: "low" | "medium" | "high";
+  voice_humor?: "none" | "dry" | "warm" | "playful";
+  voice_directness?: "soft" | "balanced" | "direct";
+  voice_signature_phrases?: string;
+  voice_avoid_phrases?: string;
 }
 
 // ---- SESSION 232 — Identity surface metadata ---------------------
@@ -337,7 +355,27 @@ export type IdentityFieldName =
   | "what_you_sell"
   | "always_emphasize"
   | "never_say"
-  | "desired_feeling";
+  | "desired_feeling"
+  // SESSION 253 — Character Voice fields.
+  | "character_point_of_view"
+  | "voice_energy"
+  | "voice_humor"
+  | "voice_directness"
+  | "voice_signature_phrases"
+  | "voice_avoid_phrases";
+
+/** SESSION 253 — visual grouping for the identity page. The
+ * Identity group is the existing six SESSION 232 slots; the
+ * Character Voice group is the SESSION 253 additions. */
+export type IdentityFieldGroup = "identity" | "character_voice";
+
+/** SESSION 253 — the identity page renders textareas for
+ * free-text fields (existing behavior) and select dropdowns for
+ * the three voice axes. Empty ``choices`` implies ``textarea``. */
+export interface IdentityFieldChoice {
+  value: string;
+  label: string;
+}
 
 export interface IdentityFieldMeta {
   name: IdentityFieldName;
@@ -346,6 +384,12 @@ export interface IdentityFieldMeta {
   help: string;
   /** Grayed placeholder example shown inside the empty field. */
   placeholder: string;
+  /** SESSION 253 — visual grouping on the identity page.
+   * Missing = "identity" (the six SESSION 232 slots). */
+  group?: IdentityFieldGroup;
+  /** SESSION 253 — rendered as a `<select>` when ``choices`` is
+   * non-empty; otherwise as the existing textarea. */
+  choices?: readonly IdentityFieldChoice[];
 }
 
 export const IDENTITY_FIELDS: readonly IdentityFieldMeta[] = [
@@ -384,6 +428,66 @@ export const IDENTITY_FIELDS: readonly IdentityFieldMeta[] = [
     label: "How should people feel after talking to {name}?",
     help: "The emotional outcome — not personality, how they walk away.",
     placeholder: "e.g. Trusted, unhurried, and a little more curious about what makes a great cup of coffee.",
+  },
+  // SESSION 253 — Character Voice group. Shapes HOW {name}
+  // writes; orthogonal to WHAT the business is / does.
+  {
+    name: "character_point_of_view",
+    label: "{name}'s point of view",
+    help: "What does {name} notice, believe, enjoy, dislike, or have opinions about? Give them a point of view rather than describing their personality.",
+    placeholder: "e.g. {name} notices nervous beginners first. Finds performative outdoors culture a little silly. Believes anyone can belong outside without expensive gear.",
+    group: "character_voice",
+  },
+  {
+    name: "voice_energy",
+    label: "Energy level",
+    help: "How energetic {name}'s writing feels.",
+    placeholder: "",
+    group: "character_voice",
+    choices: [
+      { value: "low", label: "Low — calm, deliberate" },
+      { value: "medium", label: "Medium — natural pace" },
+      { value: "high", label: "High — brisk, animated" },
+    ],
+  },
+  {
+    name: "voice_humor",
+    label: "Humor style",
+    help: "The single biggest generic-AI tell is uniformly humorless writing.",
+    placeholder: "",
+    group: "character_voice",
+    choices: [
+      { value: "none", label: "None — straight, sincere" },
+      { value: "dry", label: "Dry — occasional understatement" },
+      { value: "warm", label: "Warm — friendly, light" },
+      { value: "playful", label: "Playful — quick, mischievous" },
+    ],
+  },
+  {
+    name: "voice_directness",
+    label: "How directly {name} sells or makes asks",
+    help: "Shapes CTA phrasing and opinion strength.",
+    placeholder: "",
+    group: "character_voice",
+    choices: [
+      { value: "soft", label: "Soft — invitational" },
+      { value: "balanced", label: "Balanced — matter-of-fact" },
+      { value: "direct", label: "Direct — asks plainly" },
+    ],
+  },
+  {
+    name: "voice_signature_phrases",
+    label: "Phrases {name} might use",
+    help: "Possibilities, one per line — not required catchphrases. Used occasionally when they fit, never forced.",
+    placeholder: "e.g.\ncome curious\nsee you on the water",
+    group: "character_voice",
+  },
+  {
+    name: "voice_avoid_phrases",
+    label: "Phrases {name} would never use",
+    help: "One per line. Merged with our default anti-AI-copy list at write time.",
+    placeholder: "e.g.\nunforgettable memories\nembrace the journey",
+    group: "character_voice",
   },
 ] as const;
 

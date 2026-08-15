@@ -58,10 +58,24 @@ from apps.spokespeople.models import Teammate
 from character_os.script_synthesis import (
     ScriptResult,
     WORDS_PER_SECOND,
-    _system_prompt,
+    _assemble_system_prompt,
     build_render_brief,
     word_budget_for_duration,
 )
+
+
+# SESSION 253 — the pre-refactor _system_prompt(sp, ...) is now
+# _assemble_system_prompt(sp, chunks=[], ...). Tests here don't
+# care about chunks (they're asserting the shape / duration
+# contract), so a small helper preserves the original test
+# ergonomics.
+def _system_prompt(sp, *, target_shape="standalone",
+                   target_duration_seconds=None):
+    return _assemble_system_prompt(
+        sp, chunks=[],
+        target_shape=target_shape,
+        target_duration_seconds=target_duration_seconds,
+    )
 
 User = get_user_model()
 
@@ -110,48 +124,56 @@ def _make_text_words_chars(word_count: int, chars_per_word: int) -> str:
 
 
 def test_standalone_default_receives_short_form_contract():
-    """No target_shape param → default is 'standalone'. System
-    prompt must contain the SHORT STANDALONE VIDEO paragraph and
-    the 60-100 word target so talking_head + auto_script keep
-    their pre-251 behavior."""
+    """No target_shape param → default is 'standalone'. Assembled
+    system prompt must contain the short-standalone shape marker
+    and the 60-100 word target (SESSION 253 keeps this cap for
+    the standalone shape via the Writing Contract)."""
     ws, tm = _teammate("dc-standalone@t")
     prompt = _system_prompt(tm)
-    assert "SHORT STANDALONE VIDEO" in prompt
-    assert "60-100 words" in prompt
+    prompt_lower = prompt.lower()
+    assert "short standalone" in prompt_lower
+    assert "60-100 word" in prompt_lower
     # Explicitly no long-form language leaking in.
-    assert "LONG-FORM" not in prompt
-    assert "multi-beat" not in prompt.lower()
+    assert "long-form" not in prompt_lower
+    assert "character budget" not in prompt_lower
 
 
 # ---- 2. long_form receives the long-form narrative contract -------
 
 
 def test_long_form_receives_narrative_contract():
-    """target_shape='long_form' swaps in the multi-beat narrative
-    prompt with explicit prohibitions on the mini-ad pathology."""
+    """SESSION 253 — target_shape='long_form' swaps in the
+    invariants + narrative-shape menu + anti-self-description
+    contract via character_os.writing_contract."""
     ws, tm = _teammate("dc-longform-shape@t")
     prompt = _system_prompt(
         tm, target_shape="long_form", target_duration_seconds=120,
     )
-    assert "LONG-FORM VIDEO" in prompt
-    # Multi-beat arc language
-    assert "multi-beat" in prompt.lower() or "arc" in prompt.lower()
-    # Explicit prohibitions per the operator's contract
-    for prohibition in [
-        "not restart with a new introduction",
-        "not re-introduce the brand",
-        "not open with a hook",
-        "not include more than one call to action",
-        "not treat any section as if it stands alone",
-        "not switch narrator perspective",
-        "not refer to the speaker in the third person",
+    prompt_lower = prompt.lower()
+    # Long-form marker + invariants block (SESSION 253 replaces
+    # the pre-251 mandatory-skeleton with invariants + shape menu).
+    assert "long-form" in prompt_lower
+    assert "invariants" in prompt_lower
+    # Load-bearing invariants must be in the contract.
+    for keyword in [
+        "earn attention early",
+        "forward motion",
+        "develop, don't restate",
+        "meaningful change",
+        "earns its runtime",
+        "finish deliberately",
     ]:
-        assert prohibition.lower() in prompt.lower(), (
-            f"long-form prompt missing prohibition: {prohibition!r}"
+        assert keyword.lower() in prompt_lower, (
+            f"long-form prompt missing invariant keyword: {keyword!r}"
         )
+    # Anti-self-description rule (applies to every shape).
+    assert "demonstrate" in prompt_lower
+    assert "don't describe" in prompt_lower
+    # CTA policy is opt-in (SESSION 253 amendment #3), not mandatory.
+    assert "cta policy" in prompt_lower
+    assert "not required by default" in prompt_lower
     # And no short-form contract leaking in.
-    assert "SHORT STANDALONE VIDEO" not in prompt
-    assert "60-100 words" not in prompt
+    assert "short standalone" not in prompt_lower or "60-100 word" not in prompt_lower
 
 
 # ---- 3. long_form receives duration + derived word budget ---------
@@ -166,16 +188,15 @@ def test_long_form_prompt_interpolates_target_duration_and_word_budget():
         tm, target_shape="long_form", target_duration_seconds=180,
     )
     target, low, high = word_budget_for_duration(180)
-    assert f"about 180 seconds" in prompt
+    assert "180 seconds" in prompt
     assert f"{target} words" in prompt
     assert f"{low}" in prompt and f"{high}" in prompt
 
 
 def test_long_form_prompt_interpolates_character_budget():
     """SESSION 251-late — the writer must receive concrete character
-    ceilings, not just prose asking it to compress/expand. This is
-    the "compression correction actually compresses" contract. If
-    the character budget disappears from the prompt, K6 falls back
+    ceilings, not just prose asking it to compress/expand. If the
+    character budget disappears from the prompt, K6 falls back
     to word-guidance-only, which the operator caught only trimming
     49 chars on a draft that needed to shed 232.
     """
@@ -186,9 +207,10 @@ def test_long_form_prompt_interpolates_character_budget():
         tm, target_shape="long_form", target_duration_seconds=120,
     )
     ideal, low_c, high_c = char_budget_for_duration(120)
-    # Load-bearing keyword — grep target for "did we drop the char
-    # budget from the prompt?" audits.
-    assert "CHARACTER BUDGET" in prompt
+    # SESSION 253 — case-insensitive because the marker moved
+    # into the writing_contract module which uses "CHARACTER
+    # BUDGET" (upper) in the contract text.
+    assert "character budget" in prompt.lower()
     assert f"{ideal} characters" in prompt
     assert f"{low_c}" in prompt and f"{high_c}" in prompt
     # And it must state which gate is authoritative — words are
@@ -201,21 +223,21 @@ def test_long_form_prompt_interpolates_character_budget():
 
 def test_multi_minute_long_form_never_uses_short_form_paragraph():
     """Load-bearing invariant. A 5-minute long-form request must
-    NOT contain the 'SHORT STANDALONE VIDEO (60-100 words, 30-60
-    seconds)' block anywhere in the system prompt, because that
-    block is what caused the operator's 44s render on a 90-120s
-    ask."""
+    NOT contain the short-standalone 60-100-word paragraph
+    anywhere in the system prompt, because that block is what
+    caused the operator's 44s render on a 90-120s ask."""
     ws, tm = _teammate("dc-multiminute@t")
     for seconds in (60, 90, 120, 180, 300):
         prompt = _system_prompt(
             tm, target_shape="long_form", target_duration_seconds=seconds,
         )
-        assert "SHORT STANDALONE VIDEO" not in prompt, (
+        prompt_lower = prompt.lower()
+        assert "short standalone" not in prompt_lower, (
             f"long-form prompt at {seconds}s contains the short-form "
-            "paragraph — this is the pre-251 pathology"
+            "shape marker — this is the pre-251 pathology"
         )
-        assert "60-100 words" not in prompt, (
-            f"long-form prompt at {seconds}s contains '60-100 words' — "
+        assert "60-100 word" not in prompt_lower, (
+            f"long-form prompt at {seconds}s contains '60-100 word' — "
             "the short-form ceiling leaked into long-form"
         )
 

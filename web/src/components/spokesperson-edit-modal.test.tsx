@@ -39,6 +39,14 @@ const MOCK_SP: Spokesperson = {
   always_emphasize: "",
   never_say: "",
   desired_feeling: "",
+  // SESSION 253 — Character Voice fields default to the safe
+  // neutral (medium/warm/balanced) so existing fixtures stay valid.
+  character_point_of_view: "",
+  voice_energy: "medium",
+  voice_humor: "warm",
+  voice_directness: "balanced",
+  voice_signature_phrases: "",
+  voice_avoid_phrases: "",
   identity_fields_filled: 1,
   video_count: 0,
   created_at: "2026-05-15T00:00:00Z",

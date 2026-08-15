@@ -1172,6 +1172,15 @@ def long_form_ad(
                     verification_warnings=[u.to_dict() for u in exc.unsupported],
                     rejected_synthesis=exc.synthesized_text or "",
                     verification_status="rejected",
+                    # Contract WAS applied; K6 ran under it and got
+                    # rejected. Stamping the version keeps the audit
+                    # trail honest.
+                    writing_contract_version=(
+                        __import__(
+                            "character_os.writing_contract",
+                            fromlist=["WRITING_CONTRACT_VERSION"],
+                        ).WRITING_CONTRACT_VERSION
+                    ),
                 )
             logger.warning(
                 "starter long_form_ad synthesis REJECTED composition=%s "
@@ -1190,6 +1199,9 @@ def long_form_ad(
             "knowledge_chunk_ids": list(synth.chunk_ids or []),
             "verification_warnings": list(synth.verification_warnings or []),
             "verification_status": synth.verification_status or "",
+            "writing_contract_version": getattr(
+                synth, "writing_contract_version", 0,
+            ),
         }
         logger.info(
             "starter long_form_ad synthesized brief upfront sp=%s "
@@ -1229,6 +1241,9 @@ def long_form_ad(
         knowledge_chunk_ids=synthesis_metadata.get("knowledge_chunk_ids", []),
         verification_warnings=synthesis_metadata.get("verification_warnings", []),
         verification_status=synthesis_metadata.get("verification_status", ""),
+        writing_contract_version=synthesis_metadata.get(
+            "writing_contract_version", 0,
+        ),
     )
 
     # Lay down one generate_avatar_speech step per chunk.

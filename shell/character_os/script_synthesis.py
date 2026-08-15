@@ -42,6 +42,11 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 
 from apps.embeddings.retrieval import retrieve_for_teammate
+from character_os.writing_contract import (
+    WRITING_CONTRACT_VERSION,
+    WritingContract,
+    merged_avoid_phrases,
+)
 
 if TYPE_CHECKING:
     from apps.spokespeople.models import Teammate
@@ -179,21 +184,20 @@ def _max_output_tokens_for_shape(
 
 @dataclass(slots=True)
 class ScriptResult:
-    """What ``build_render_brief`` returns. ``used_knowledge``
-    distinguishes the 'real synthesis ran' case from the
-    'degraded to operator prompt' case; the caller persists
-    ``chunk_ids`` onto ``Video.knowledge_chunk_ids`` regardless
-    (empty list on degraded path).
+    """What ``build_render_brief`` returns.
 
-    ``verification_warnings`` (K6.4, SESSION 159) is the list
-    of named entities in the synthesized brief that don't
-    appear in the retrieved chunks (or the allow-list extras —
-    spokesperson name, business brief, operator prompt,
-    ``KNOWN_PLATFORM_TERMS``). Empty when synthesis didn't
-    actually run (degraded path) OR
-    ``settings.K6_CLAIM_VERIFIER_MODE == "off"``. In Strict
-    mode the verifier raises before this list is populated,
-    so callers see the exception, not the field.
+    * ``used_knowledge`` — real synthesis ran vs degraded path.
+    * ``chunk_ids`` — retrieved K2 chunk ids for provenance.
+    * ``verification_warnings`` — K6.4 unsupported claims.
+    * ``verification_status`` — ``rejected|verified|skipped|
+      trusted_passthrough`` (see
+      ``apps.compositions.models.VerificationStatus``).
+    * ``writing_contract_version`` (SESSION 253) — which version
+      of ``character_os.writing_contract`` shaped this
+      synthesis's system prompt. 0 on the degraded / passthrough
+      paths (no contract was applied); ``WRITING_CONTRACT_VERSION``
+      when synthesis actually ran. Callers persist onto
+      ``Composition.writing_contract_version``.
     """
     brief: str
     chunk_ids: list[str] = field(default_factory=list)
@@ -202,11 +206,8 @@ class ScriptResult:
     tokens_input: int = 0
     tokens_output: int = 0
     verification_warnings: list[dict] = field(default_factory=list)
-    # K6.4 v1.2 — see ``apps.compositions.models.VerificationStatus``.
-    # Empty string when the code path doesn't set it (defensive
-    # default; every return path in build_render_brief sets one
-    # of the four explicit values).
     verification_status: str = ""
+    writing_contract_version: int = 0
 
 
 def _is_force_mock() -> bool:
@@ -364,25 +365,30 @@ def build_render_brief(
 
     final_brief = synthesised.strip() or fallback_brief
 
-    # K6.4 — post-synthesis claim verifier. Runs only when the
-    # LLM actually produced something (the fallback path is
-    # operator-typed and trusted by definition). The verifier
-    # raises in Strict mode; we let that propagate to the
-    # primitive caller, who will fail the composition.
-    from character_os.claim_verifier import build_corpus, run_verifier
-
-    corpus = build_corpus(
-        chunks,
-        spokesperson=spokesperson,
-        operator_prompt=operator_prompt,
+    # K6.4 — post-synthesis claim verifier. SESSION 253 split:
+    # factual_corpus (evidence capable of supporting a claim) is
+    # distinct from allowed_vocabulary (entities allowed to appear
+    # without triggering a warning but which do NOT license the
+    # surrounding claim as factual). Operator prompt is NOT in
+    # factual_corpus — the creative brief may itself contain
+    # unsupported assertions.
+    from character_os.claim_verifier import (
+        _get_default_mode,
+        build_allowed_vocabulary,
+        build_factual_corpus,
+        run_verifier,
     )
-    # K6.4 v1.2 — resolve the mode the verifier *actually* runs
-    # under so we can stamp the right verification_status. Strict
-    # rejection raises; Warn/clean → verified; Off → skipped.
-    from character_os.claim_verifier import _get_default_mode
+
+    factual_corpus = build_factual_corpus(chunks, spokesperson=spokesperson)
+    allowed_vocabulary = build_allowed_vocabulary(spokesperson=spokesperson)
 
     resolved_mode = (verifier_mode or _get_default_mode()).lower()
-    unsupported = run_verifier(final_brief, corpus=corpus, mode=verifier_mode)
+    unsupported = run_verifier(
+        final_brief,
+        factual_corpus=factual_corpus,
+        allowed_vocabulary=allowed_vocabulary,
+        mode=verifier_mode,
+    )
     if unsupported:
         logger.warning(
             "K6.4 verifier flagged %d unsupported claim(s) on sp=%s: %s",
@@ -402,6 +408,7 @@ def build_render_brief(
         tokens_output=tokens_out,
         verification_warnings=[u.to_dict() for u in unsupported],
         verification_status=status,
+        writing_contract_version=WRITING_CONTRACT_VERSION,
     )
 
 
@@ -422,76 +429,29 @@ def _call_responses_api(
     tokens_out)``. Raises on API error — caller handles
     degradation.
 
-    K6.6 (SESSION 168) — optional ``opener`` lets the operator
-    pin the script's first line verbatim.
+    SESSION 253 — assembled prompt structure:
 
-    SESSION 251 — shape-aware system + user prompts. Long-form
-    shape passes the duration + word budget into both prompts so
-    the model targets the requested length instead of the hidden
-    short-form default. ``corrective_hint``, when set, appends
-    concrete feedback about the previous attempt's word count vs
-    the target — one bounded expand-or-compress pass.
+        System = §1 Factual Basis (chunks + factual fields)
+                 §2 Character Voice
+                 §3 Brand Voice
+                 §4 Writing Contract (shape-specific)
+                 Precedence rules
+        User   = §5 Task (topic + hard constraints)
     """
     from openai import OpenAI
 
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
-    chunks_block = "\n\n".join(
-        f"[CHUNK {i + 1} — from doc {c.document_id}]\n{c.chunk_text}"
-        for i, c in enumerate(chunks)
-    )
-
-    system = _system_prompt(
+    system = _assemble_system_prompt(
         spokesperson,
+        chunks=chunks,
         target_shape=target_shape,
         target_duration_seconds=target_duration_seconds,
     )
-    opener_clause = (
-        f"Operator-supplied opening line (use verbatim as the first "
-        f"sentence; the rest of the script must follow naturally from "
-        f"it):\n{opener.strip()}\n\n"
-        if opener and opener.strip()
-        else ""
-    )
-
-    # Shape-aware closing instruction. Standalone repeats the
-    # short-form target for reinforcement; long_form repeats the
-    # duration-driven word budget for the same reason. Both close
-    # with the anti-invention + spoken-voiceover reminders.
-    if target_shape == "long_form":
-        assert target_duration_seconds is not None  # guarded upstream
-        target_words, min_words, max_words = word_budget_for_duration(
-            target_duration_seconds,
-        )
-        ideal_chars, min_chars, max_chars = char_budget_for_duration(
-            target_duration_seconds,
-        )
-        length_reminder = (
-            f"Target: ~{ideal_chars} characters ({min_chars}-{max_chars} "
-            f"acceptable range). Secondary word guidance: "
-            f"~{target_words} words ({min_words}-{max_words} range). "
-            f"The character range is the accept/reject gate for the "
-            f"{target_duration_seconds}-second delivery — do not exceed "
-            f"the maximum and do not fall below the minimum."
-        )
-    else:
-        length_reminder = "Keep it to 60-100 words."
-
-    correction_clause = (
-        f"IMPORTANT — previous attempt feedback:\n{corrective_hint.strip()}\n\n"
-        if corrective_hint and corrective_hint.strip()
-        else ""
-    )
-
-    user = (
-        f"Operator's brief for this video:\n{operator_prompt or '(no prompt — use the brief above)'}\n\n"
-        + opener_clause
-        + correction_clause
-        + f"Knowledge chunks available:\n{chunks_block}\n\n"
-        "Write the spokesperson's spoken script for this video. "
-        "Use facts only from the chunks above. "
-        + length_reminder
-        + " Plain spoken English — this becomes voiceover."
+    user = _assemble_task_message(
+        operator_prompt=operator_prompt,
+        opener=opener,
+        corrective_hint=corrective_hint,
     )
 
     response = client.responses.create(
@@ -510,133 +470,236 @@ def _call_responses_api(
     return text, tokens_in, tokens_out
 
 
-def _system_prompt(
+def _assemble_system_prompt(
     spokesperson: "Teammate",
     *,
+    chunks: list,
     target_shape: str = "standalone",
     target_duration_seconds: int | None = None,
 ) -> str:
-    """Anchor the model to the spokesperson's tone + business
-    context. Kept minimal — the chunks carry the facts; this
-    just steers voice.
+    """SESSION 253 — assemble the 5-section system prompt.
 
-    K6.6 (SESSION 168) — structural guidance added after operator
-    feedback that scripts "feel like picking up mid conversation."
-
-    K6.6.1 (SESSION 171) — business-brief leak fix. Fenced
-    business_brief as tone-only + added anti-recitation rule.
-
-    W11.y (SESSION 175) — personality / business_brief split.
-
-    SESSION 251 — dual shape. ``standalone`` keeps the pre-251
-    short-form contract for talking_head / auto_script / Scripts.
-    ``long_form`` swaps the length + structure block for a
-    duration-driven narrative-arc contract with explicit
-    prohibitions on hook/CTA repetition, per-chunk restarts, and
-    third-person self-reference. Callers set the shape; there is
-    no silent default that produces short-form output for a
-    multi-minute request.
+    Sections are labeled and separated. Each section has one
+    role and one rule. The precedence rules at the bottom tell
+    the model how to resolve conflicts.
     """
-    tone = spokesperson.tone_archetype or "expert"
-    personality = (
-        getattr(spokesperson, "personality", "") or ""
-    ).strip()
-    brief = (spokesperson.business_brief or "").strip()
+    sections: list[str] = [
+        _build_factual_basis_section(spokesperson, chunks=chunks),
+        _build_character_voice_section(spokesperson),
+        _build_brand_voice_section(spokesperson),
+        _build_writing_contract_section(
+            target_shape=target_shape,
+            target_duration_seconds=target_duration_seconds,
+        ),
+        _PRECEDENCE_RULES,
+    ]
+    return "\n\n".join(s for s in sections if s)
 
-    if target_shape == "long_form":
-        assert target_duration_seconds is not None  # guarded upstream in build_render_brief
-        target_words, min_words, max_words = word_budget_for_duration(
-            target_duration_seconds,
+
+def _assemble_task_message(
+    *,
+    operator_prompt: str,
+    opener: str | None = None,
+    corrective_hint: str | None = None,
+) -> str:
+    """SESSION 253 — assemble §5 Task (user message).
+
+    Splits into topic vs. hard constraints so the model can
+    honor pinned openers / corrective hints as overrides on
+    Character-Voice and Writing-Contract preferences without
+    breaking Factual Basis or Brand Voice.
+    """
+    parts: list[str] = ["=== SECTION 5 — TASK ==="]
+    topic = operator_prompt.strip() or "(no explicit topic — use the Factual Basis)"
+    parts.append(f"TOPIC:\n{topic}")
+
+    hard_constraints: list[str] = []
+    if opener and opener.strip():
+        hard_constraints.append(
+            f"PINNED OPENER (use verbatim as the first sentence; "
+            f"the rest of the script must follow naturally from it):\n"
+            f"{opener.strip()}"
         )
-        ideal_chars, min_chars, max_chars = char_budget_for_duration(
-            target_duration_seconds,
+    if corrective_hint and corrective_hint.strip():
+        hard_constraints.append(
+            f"CORRECTIVE HINT (previous attempt feedback — apply this):\n"
+            f"{corrective_hint.strip()}"
         )
-        length_and_shape = (
-            f"This is ONE CONTINUOUS LONG-FORM VIDEO. Target duration: "
-            f"about {target_duration_seconds} seconds.\n"
-            f"CHARACTER BUDGET (load-bearing — the acceptance gate is "
-            f"character-based, not word-based): aim for approximately "
-            f"{ideal_chars} characters. Must stay between {min_chars} "
-            f"and {max_chars} characters. Under {min_chars} will be "
-            f"rejected as too short; over {max_chars} will be rejected "
-            f"as too long.\n"
-            f"Approximate word guidance (secondary): {target_words} "
-            f"words (range {min_words}-{max_words}). Character count "
-            f"is what actually matters.\n"
-            f"Write ONE flowing piece of narration with a multi-beat "
-            f"arc:\n"
-            f"  1. Open the subject — one grounded setup sentence.\n"
-            f"  2. Develop the idea, story, or value proposition.\n"
-            f"  3. Move through the supporting beats or details in order.\n"
-            f"  4. Build toward the payoff — the emotional or logical peak.\n"
-            f"  5. Close ONCE with the invitation or call to action.\n"
-            "The script will later be split into shorter render chunks "
-            "at sentence boundaries for provider limits, but you must "
-            "write it as though no chunks exist — the audience will "
-            "see one continuous video.\n"
-            "Explicitly prohibited (each of these would break the "
-            "single-continuous-piece contract):\n"
-            "  - Do NOT restart with a new introduction anywhere after "
-            "the opening.\n"
-            "  - Do NOT re-introduce the brand or the speaker after "
-            "the opening.\n"
-            "  - Do NOT open with a hook, close with a CTA, then open "
-            "with a fresh hook again — one arc, not a montage of "
-            "short ads.\n"
-            "  - Do NOT include more than one call to action or "
-            "invitation.\n"
-            "  - Do NOT treat any section as if it stands alone.\n"
-            "  - Do NOT switch narrator perspective mid-script.\n"
-            "  - Do NOT refer to the speaker in the third person "
-            "unless the context genuinely requires it (e.g., quoting "
-            "another character).\n"
-            "The very first sentence must stand alone (no picking up "
-            "mid-thought), and the closing must feel like a resolution "
-            "of the arc — not a fresh sales pitch.\n"
-        )
-    else:
-        length_and_shape = (
-            "This is a SHORT STANDALONE VIDEO (60-100 words, "
-            "about 30-60 seconds). The viewer has not seen "
-            "anything else from you — there is no prior context. "
-            "Open with a brief setup that grounds the viewer in "
-            "what this video is about (one or two short sentences). "
-            "Then make your one clear claim or insight from the "
-            "knowledge chunks or business facts. Then one call to "
-            "action. "
-            "Do NOT begin mid-thought as if continuing a "
-            "conversation. The first sentence must stand alone. "
-            "Do NOT introduce yourself, name your role, describe "
-            "your audience, or recite the speaker voice + character "
-            "block — the viewer cares about the topic, not your "
-            "resume.\n"
+    if hard_constraints:
+        parts.append(
+            "HARD CONSTRAINTS (override Character Voice and Writing "
+            "Contract preferences; do NOT override Factual Basis or "
+            "Brand Voice prohibitions):\n\n"
+            + "\n\n".join(hard_constraints)
         )
 
-    return (
-        f"You are writing the spoken script for {spokesperson.name}, "
-        f"an on-camera spokesperson. Their tone archetype is {tone!r}. "
-        + (
-            f"Speaker voice + character (use this ONLY to shape tone "
-            f"and perspective — do NOT recite, paraphrase, or describe "
-            f"this in the script): {personality}\n"
-            if personality else ""
-        )
-        + (
-            f"Business facts the speaker can ground in (these ARE "
-            f"the product / business — paraphrase as needed; treat "
-            f"as authoritative alongside the knowledge chunks. "
-            f"Quoted phrases inside these facts are CONCEPTS the "
-            f"speaker teaches, NOT catchphrases to recite verbatim — "
-            f"reframe them in your own words): "
-            f"{brief}\n"
-            if brief else ""
-        )
-        + length_and_shape
-        + "Use facts only from the knowledge chunks + business facts "
-        "the user supplies. Do not invent product details, prices, "
-        "or features. If a fact isn't in either source, leave it out. "
-        "Speak naturally — first person where appropriate."
+    parts.append(
+        "Write the spokesperson's spoken script for this task. Plain "
+        "spoken English — this becomes voiceover."
     )
+    return "\n\n".join(parts)
+
+
+# ---- Section builders --------------------------------------------
+
+
+def _build_factual_basis_section(
+    spokesperson: "Teammate",
+    *,
+    chunks: list,
+) -> str:
+    """§1 Factual Basis — the ONLY sources capable of supporting
+    factual claims. Retrieved K2 chunks + business_brief +
+    who_you_help + what_you_sell. Operator prompt is NOT here."""
+    lines = [
+        "=== SECTION 1 — FACTUAL BASIS ===",
+        "The ONLY sources capable of supporting factual claims. "
+        "Every factual claim in the script must trace back to "
+        "content in this section. Do not invent product details, "
+        "prices, features, statistics, or named entities not "
+        "present here. If a fact isn't in this section, leave "
+        "it out.",
+    ]
+    brief = (getattr(spokesperson, "business_brief", "") or "").strip()
+    who = (getattr(spokesperson, "who_you_help", "") or "").strip()
+    what = (getattr(spokesperson, "what_you_sell", "") or "").strip()
+    if brief:
+        lines.append(f"BUSINESS SHAPE:\n{brief}")
+    if who:
+        lines.append(f"AUDIENCE:\n{who}")
+    if what:
+        lines.append(f"OFFERING:\n{what}")
+    if chunks:
+        chunks_text = "\n\n".join(
+            f"[CHUNK {i + 1} — doc {c.document_id}]\n{c.chunk_text}"
+            for i, c in enumerate(chunks)
+        )
+        lines.append(f"KNOWLEDGE CHUNKS:\n{chunks_text}")
+    else:
+        lines.append("KNOWLEDGE CHUNKS: (none retrieved for this task)")
+    return "\n\n".join(lines)
+
+
+def _build_character_voice_section(spokesperson: "Teammate") -> str:
+    """§2 Character Voice — how this character thinks and writes.
+    NOT facts. Never verified against K6.4."""
+    name = getattr(spokesperson, "name", "") or "the speaker"
+    tone = getattr(spokesperson, "tone_archetype", "") or "expert"
+    personality = (getattr(spokesperson, "personality", "") or "").strip()
+    pov = (getattr(spokesperson, "character_point_of_view", "") or "").strip()
+    energy = getattr(spokesperson, "voice_energy", "") or "medium"
+    humor = getattr(spokesperson, "voice_humor", "") or "warm"
+    directness = getattr(spokesperson, "voice_directness", "") or "balanced"
+    signature = (getattr(spokesperson, "voice_signature_phrases", "") or "").strip()
+
+    lines = [
+        "=== SECTION 2 — CHARACTER VOICE ===",
+        f"How {name} thinks and writes. This section shapes register, "
+        f"opinions, what the character notices, and sentence rhythm. "
+        f"It introduces zero factual claims. It is NOT verified by "
+        f"K6.4.",
+        f"TONE ARCHETYPE: {tone}",
+        f"VOICE AXES: energy={energy}; humor={humor}; directness={directness}",
+    ]
+    if personality:
+        lines.append(f"WRITING STYLE (how {name} sounds):\n{personality}")
+    if pov:
+        lines.append(
+            f"POINT OF VIEW (what {name} notices, believes, enjoys, "
+            f"dislikes, opines about — shapes interpretation of the "
+            f"topic; does NOT force an opinion into informational "
+            f"topics):\n{pov}"
+        )
+    if signature:
+        lines.append(
+            f"SIGNATURE PHRASES (possibilities {name} might reach for "
+            f"occasionally — NOT required catchphrases; use zero, one, "
+            f"or at most two per script if genuinely natural; NEVER "
+            f"force one that doesn't fit the moment):\n{signature}"
+        )
+    return "\n\n".join(lines)
+
+
+def _build_brand_voice_section(spokesperson: "Teammate") -> str:
+    """§3 Brand Voice — positioning the character must respect.
+    NOT character opinion. Explicit rule: does not license facts."""
+    emphasize = (getattr(spokesperson, "always_emphasize", "") or "").strip()
+    never = (getattr(spokesperson, "never_say", "") or "").strip()
+    feeling = (getattr(spokesperson, "desired_feeling", "") or "").strip()
+    if not (emphasize or never or feeling):
+        return ""
+
+    lines = [
+        "=== SECTION 3 — BRAND VOICE ===",
+        "Positioning the character must respect. These are BRAND "
+        "constraints, not character opinions. Honor them as brand "
+        "direction, not as things to recite verbatim. Never narrate "
+        "that these rules exist.",
+        "IMPORTANT — Brand Voice tells you what to EMPHASIZE, but it "
+        "does NOT independently establish factual truth. Any factual "
+        "proposition contained in this section may appear in the "
+        "script ONLY when independently supported by the Factual "
+        "Basis (Section 1).",
+    ]
+    if emphasize:
+        lines.append(f"ALWAYS EMPHASIZE (brand-set messaging):\n{emphasize}")
+    if never:
+        lines.append(
+            f"NEVER SAY (brand-set prohibitions — no factual grounding "
+            f"required; these are absolute):\n{never}"
+        )
+    if feeling:
+        lines.append(f"DESIRED AUDIENCE FEELING:\n{feeling}")
+    return "\n\n".join(lines)
+
+
+def _build_writing_contract_section(
+    *,
+    target_shape: str,
+    target_duration_seconds: int | None,
+) -> str:
+    """§4 Writing Contract — format-specific, character-agnostic.
+    Delegates to ``character_os.writing_contract.WritingContract``."""
+    char_budget = None
+    word_budget = None
+    if target_shape == "long_form" and target_duration_seconds:
+        char_budget = char_budget_for_duration(target_duration_seconds)
+        word_budget = word_budget_for_duration(target_duration_seconds)
+
+    contract_body = WritingContract.for_shape(
+        target_shape,
+        target_duration_seconds=target_duration_seconds,
+        char_budget=char_budget,
+        word_budget=word_budget,
+    )
+    return (
+        f"=== SECTION 4 — WRITING CONTRACT (version {WRITING_CONTRACT_VERSION}) ===\n"
+        f"Format-specific rules. Same for every character; the "
+        f"character's voice from Section 2 shapes HOW these rules "
+        f"get executed.\n\n"
+        f"{contract_body}"
+    )
+
+
+_PRECEDENCE_RULES = (
+    "=== PRECEDENCE RULES ===\n"
+    "When sections conflict, resolve in this order:\n"
+    "  1. Factual Basis (§1) beats everything on TRUTH. No claim "
+    "survives that isn't grounded in §1.\n"
+    "  2. Brand Voice (§3) beats Character Voice (§2) on "
+    "PROHIBITIONS. ``never_say`` overrides any character preference.\n"
+    "  3. Writing Contract (§4) beats Character Voice on STRUCTURE. "
+    "One-CTA-when-included applies even to characters who prefer "
+    "multiple asks.\n"
+    "  4. Character Voice (§2) beats Writing Contract on REGISTER. "
+    "The contract's anti-generic list is a floor; character voice "
+    "adds distinctive register on top.\n"
+    "  5. Task (§5) Hard Constraints beat Character Voice preferences "
+    "and Writing Contract defaults, but NEVER override Factual Basis "
+    "or Brand Voice prohibitions.\n"
+    "  6. Task Topic beats Character Voice on TOPIC SCOPE. POV shapes "
+    "interpretation of the topic, not choice of topic."
+)
 
 
 # ---- mock path -----------------------------------------------

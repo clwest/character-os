@@ -410,18 +410,40 @@ class ClaimVerifierError(Exception):
 def run_verifier(
     text: str,
     *,
-    corpus: str,
+    factual_corpus: str,
+    allowed_vocabulary: Iterable[str] = (),
     mode: str | None = None,
 ) -> list[UnsupportedClaim]:
-    """Verify ``text``'s claims against ``corpus``.
+    """Verify ``text``'s claims against factual evidence.
+
+    SESSION 253 split — the corpus is now two distinct
+    structures:
+
+    * ``factual_corpus`` — evidence capable of supporting a
+      factual claim. Retrieved K2 chunks + business_brief +
+      who_you_help + what_you_sell. Built by
+      :func:`build_factual_corpus`. Operator prompt is
+      **NOT** in factual_corpus (creative briefs may contain
+      unsupported assertions).
+    * ``allowed_vocabulary`` — entity strings that should not
+      independently trigger an ``UnsupportedClaim`` warning
+      but which do **NOT** constitute factual evidence. Built
+      by :func:`build_allowed_vocabulary`. Includes the
+      spokesperson name, platform terms, and proper nouns
+      the operator wrote into voice metadata fields.
+
+    An entity present in ``allowed_vocabulary`` alone does
+    NOT license a factual claim containing that entity. It
+    only prevents a "hallucinated entity" false positive.
 
     Args:
         text: the synthesized script to check.
-        corpus: the concatenation of retrieved chunks +
-            spokesperson allow-list inputs. Built by
-            :func:`build_corpus`.
+        factual_corpus: concatenated evidence text.
+        allowed_vocabulary: entity strings allowed to appear
+            without triggering the verifier (see above).
         mode: ``"strict" | "warn" | "off"``. ``None`` reads
-            ``settings.K6_CLAIM_VERIFIER_MODE`` (default ``"warn"``).
+            ``settings.K6_CLAIM_VERIFIER_MODE`` (default
+            ``"warn"``).
 
     Returns:
         List of ``UnsupportedClaim``s (empty in ``"off"`` mode
@@ -429,8 +451,7 @@ def run_verifier(
 
     Raises:
         ClaimVerifierError: in Strict mode when any claim is
-            unsupported. Caller decides how to surface that
-            (composition status = FAILED, PrimitiveError, etc).
+            unsupported.
     """
     resolved_mode = (mode or _get_default_mode()).lower()
     if resolved_mode == "off":
@@ -440,26 +461,56 @@ def run_verifier(
         # never silently disables itself.
         resolved_mode = "warn"
 
-    unsupported = verify_claims(text, corpus=corpus)
+    unsupported = verify_claims(
+        text,
+        factual_corpus=factual_corpus,
+        allowed_vocabulary=allowed_vocabulary,
+    )
     if resolved_mode == "strict" and unsupported:
         raise ClaimVerifierError(unsupported, synthesized_text=text)
     return unsupported
 
 
-def verify_claims(text: str, *, corpus: str) -> list[UnsupportedClaim]:
+def verify_claims(
+    text: str,
+    *,
+    factual_corpus: str,
+    allowed_vocabulary: Iterable[str] = (),
+) -> list[UnsupportedClaim]:
     """Extract candidate entities from ``text`` and return any
-    that don't appear in ``corpus``.
+    that neither appear in the factual corpus nor in the
+    allowed vocabulary.
 
     Pure function — no mode handling, no exceptions. The
     caller picks the policy.
+
+    Semantic distinction:
+
+    * ``factual_corpus`` presence  → supported (surrounding claim
+      is grounded, entity itself is fine).
+    * ``allowed_vocabulary`` presence → NOT flagged (entity is
+      allowed to appear) but the entity's presence does not
+      license the surrounding claim as factually supported.
+    * Neither → ``UnsupportedClaim``.
     """
     candidates = extract_named_entities(text)
     if not candidates:
         return []
-    corpus_lower = corpus.lower()
+    corpus_lower = factual_corpus.lower()
+    allowed_lower = {
+        v.strip().lower() for v in (allowed_vocabulary or ()) if v and v.strip()
+    }
     unsupported: list[UnsupportedClaim] = []
     for candidate in candidates:
-        if candidate.claim.lower() in corpus_lower:
+        needle = candidate.claim.lower()
+        if needle in corpus_lower:
+            continue
+        # Allowed-vocabulary hit: substring match either way so
+        # single-token allow-list entries match multi-word entities
+        # containing them, and multi-word allow-list entries match
+        # single-token substrings. Behaves like the flat-corpus
+        # check did in K6.4 v1, just against a separate structure.
+        if any(a in needle or needle in a for a in allowed_lower):
             continue
         unsupported.append(candidate)
     return unsupported
@@ -618,34 +669,44 @@ def extract_named_entities(text: str) -> list[UnsupportedClaim]:
     return sorted(found.values(), key=lambda c: c.position)
 
 
-def build_corpus(
+def build_factual_corpus(
     chunks: Iterable,
     *,
     spokesperson: "Teammate | None" = None,
-    operator_prompt: str = "",
-    extras: Iterable[str] = (),
 ) -> str:
-    """Concatenate the allow-list sources into one big lowercase
-    haystack the verifier substring-matches against.
+    """SESSION 253 — build the FACTUAL evidence corpus. Only
+    sources capable of supporting a factual claim belong here.
 
-    The allow-list is intentionally generous: everything that
-    *could* legitimately introduce a named entity into the
-    synthesized script is in the corpus. False negatives are
-    the safe failure mode (an unsupported claim slips through);
-    false positives are the unsafe one (a legitimate claim
-    gets flagged).
+    Included:
 
-    Sources, in order:
+    * Retrieved K2 chunks (``chunk_text`` on each).
+    * Teammate ``business_brief`` (business shape / facts).
+    * Teammate ``who_you_help`` (audience shape — factual).
+    * Teammate ``what_you_sell`` (offering shape — factual).
 
-    * Retrieved chunks (`chunk_text` on each).
-    * Teammate name + business_brief + personality (W11.y
-      split, SESSION 175 — both fields now allow-listed; pre-
-      W11.y rows have personality backfilled from business_brief
-      so this is additive only).
-    * Operator prompt (what the operator typed for *this*
-      render — they're allowed to introduce terms).
-    * KNOWN_PLATFORM_TERMS.
-    * Caller-provided extras (e.g. workspace name).
+    Deliberately EXCLUDED:
+
+    * Operator prompt — the creative brief may itself contain
+      unsupported assertions (e.g. "make a video about how we
+      are the highest-rated company in Colorado"). Treating
+      the brief as evidence would silently ground its own
+      assertions.
+    * Teammate ``name`` — allowed vocabulary, not evidence.
+      (Names appear via :func:`build_allowed_vocabulary`.)
+    * ``personality`` / ``character_point_of_view`` — voice
+      metadata, not evidence.
+    * ``always_emphasize`` / ``never_say`` / ``desired_feeling``
+      — brand positioning / prohibitions, not evidence. Any
+      factual proposition in Brand Voice must be independently
+      supported by this corpus.
+    * ``voice_signature_phrases`` / ``voice_avoid_phrases`` —
+      allowed vocabulary, not evidence.
+    * ``KNOWN_PLATFORM_TERMS`` — allowed vocabulary, not
+      evidence.
+
+    Every excluded field is intentional. See the SESSION 253
+    design doc for the full evidence / allowed-vocabulary
+    boundary reasoning.
     """
     parts: list[str] = []
     for chunk in chunks:
@@ -653,24 +714,76 @@ def build_corpus(
         if text:
             parts.append(text)
     if spokesperson is not None:
-        name = getattr(spokesperson, "name", "") or ""
-        if name:
-            parts.append(name)
-        brief = getattr(spokesperson, "business_brief", "") or ""
-        if brief:
-            parts.append(brief)
-        # W11.y (SESSION 175) — personality is a separate field
-        # post-split. Operators may put named entities here too
-        # (e.g. "speaks like Marcus Aurelius would"). Allow-list
-        # both fields.
-        personality = getattr(spokesperson, "personality", "") or ""
-        if personality:
-            parts.append(personality)
-    if operator_prompt:
-        parts.append(operator_prompt)
-    parts.extend(KNOWN_PLATFORM_TERMS)
-    parts.extend(extras)
+        for field_name in ("business_brief", "who_you_help", "what_you_sell"):
+            value = (getattr(spokesperson, field_name, "") or "").strip()
+            if value:
+                parts.append(value)
     return "\n\n".join(parts)
+
+
+def build_allowed_vocabulary(
+    *,
+    spokesperson: "Teammate | None" = None,
+    extras: Iterable[str] = (),
+) -> list[str]:
+    """SESSION 253 — build the ALLOWED VOCABULARY list. Entity
+    strings that should not independently trigger an
+    ``UnsupportedClaim`` warning but which do NOT constitute
+    factual evidence for surrounding claims.
+
+    Included:
+
+    * Teammate ``name``.
+    * ``KNOWN_PLATFORM_TERMS`` (Character OS, etc).
+    * Caller-provided ``extras`` (typically the workspace name).
+    * Proper nouns extracted from voice metadata fields as a
+      false-negative safety valve (``personality``,
+      ``character_point_of_view``, ``voice_signature_phrases``).
+      Operators legitimately write named entities into these
+      fields (role models, signature vocabulary); the verifier
+      should not false-positive on them. Their presence does
+      NOT license the surrounding factual claim.
+
+    Deliberately EXCLUDED:
+
+    * ``always_emphasize`` / ``never_say`` / ``desired_feeling``
+      — brand positioning / prohibitions. If the operator wants
+      a specific fact conveyed, it must appear in the factual
+      corpus (via business_brief or knowledge).
+
+    Returns a list (order preserved for deterministic prompt
+    assembly). Callers substring-match case-insensitively.
+    """
+    tokens: list[str] = []
+    seen: set[str] = set()
+
+    def _push(token: str) -> None:
+        clean = (token or "").strip()
+        key = clean.lower()
+        if clean and key not in seen:
+            tokens.append(clean)
+            seen.add(key)
+
+    if spokesperson is not None:
+        _push(getattr(spokesperson, "name", "") or "")
+        # Voice-metadata proper-noun extraction — false-negative
+        # safety valve only. Full free-text goes in, and the
+        # extractor pulls capitalized tokens. Callers may match
+        # substring so single tokens still hit.
+        for source_field in (
+            "personality",
+            "character_point_of_view",
+            "voice_signature_phrases",
+        ):
+            text = (getattr(spokesperson, source_field, "") or "").strip()
+            if text:
+                for entity in extract_named_entities(text):
+                    _push(entity.claim)
+    for term in KNOWN_PLATFORM_TERMS:
+        _push(term)
+    for extra in extras:
+        _push(extra)
+    return tokens
 
 
 # ---------------------------------------------------------------------------

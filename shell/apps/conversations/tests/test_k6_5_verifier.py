@@ -171,10 +171,17 @@ def test_off_mode_bypasses_verifier() -> None:
     assert result.verification_warnings == []
 
 
-def test_user_message_terms_allow_listed() -> None:
-    """User-introduced terms in their message should flow into
-    the corpus so the reply can echo them. Mirrors K6.4's
-    operator-prompt corpus contract."""
+def test_user_message_terms_do_not_license_reply_claims() -> None:
+    """SESSION 253 correction 1 — the user's message may itself
+    contain unsupported assertions. A term appearing in the
+    user prompt does NOT flow into the factual corpus and does
+    NOT license the reply to make claims about it.
+
+    Pre-SESSION-253 behavior (user-message terms allow-listed
+    the reply) was explicitly removed for the same reason the
+    K6 operator prompt was removed from the factual corpus:
+    treating any input as evidence silently grounds its own
+    assertions."""
     ws, _ = _make_workspace("k65d@test")
     sp = _make_teammate(ws)
     _attach_doc(ws, sp)
@@ -196,7 +203,10 @@ def test_user_message_terms_allow_listed() -> None:
                 )
 
     claims = {w["claim"] for w in result.verification_warnings}
-    assert "Wikipedia" not in claims, claims
+    # Wikipedia is neither in the attached RAG doc nor in the
+    # SESSION-253 allowed vocabulary — so it flags, even though
+    # the user mentioned it.
+    assert "Wikipedia" in claims, claims
 
 
 # ---------------------------------------------------------------

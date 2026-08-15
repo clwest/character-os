@@ -64,6 +64,15 @@ function makeSpokesperson(overrides: Partial<Record<string, unknown>> = {}) {
     always_emphasize: "",
     never_say: "",
     desired_feeling: "",
+    // SESSION 253 — Character Voice defaults on the fixture so
+    // save-diffing sees the same before/after and the form's
+    // Save-no-changes branch triggers correctly.
+    character_point_of_view: "",
+    voice_energy: "medium",
+    voice_humor: "warm",
+    voice_directness: "balanced",
+    voice_signature_phrases: "",
+    voice_avoid_phrases: "",
     identity_fields_filled: 1,
     video_count: 0,
     created_at: "2026-05-01T00:00:00Z",
@@ -115,13 +124,42 @@ beforeEach(() => {
 
 describe("IDENTITY_FIELDS metadata contract", () => {
   it("locks the six identity slots in the design-lock order", () => {
-    expect(IDENTITY_FIELDS.map((f) => f.name)).toEqual([
+    // SESSION 253 — IDENTITY_FIELDS now carries the six original
+    // SESSION 232 identity slots PLUS six new Character Voice
+    // fields. The design-lock order for the identity group is
+    // unchanged; asserting on the identity group only.
+    const identityGroup = IDENTITY_FIELDS.filter(
+      (f) => (f.group ?? "identity") === "identity",
+    );
+    expect(identityGroup.map((f) => f.name)).toEqual([
       "business_brief",
       "who_you_help",
       "what_you_sell",
       "always_emphasize",
       "never_say",
       "desired_feeling",
+    ]);
+  });
+
+  it("locks the SESSION 253 Character Voice fields", () => {
+    const voiceGroup = IDENTITY_FIELDS.filter(
+      (f) => f.group === "character_voice",
+    );
+    expect(voiceGroup.map((f) => f.name)).toEqual([
+      "character_point_of_view",
+      "voice_energy",
+      "voice_humor",
+      "voice_directness",
+      "voice_signature_phrases",
+      "voice_avoid_phrases",
+    ]);
+    // Three voice axes render as <select>; POV / signature /
+    // avoid render as textareas.
+    const selects = voiceGroup.filter((f) => (f.choices?.length ?? 0) > 0);
+    expect(selects.map((f) => f.name)).toEqual([
+      "voice_energy",
+      "voice_humor",
+      "voice_directness",
     ]);
   });
 

@@ -7,7 +7,7 @@ Covers ``character_os.claim_verifier``:
 * Common-word stoplist prevents false positives on sentence
   starters like "Turns", "When", "Drop".
 * ``KNOWN_PLATFORM_TERMS`` allow-lists "Character OS".
-* ``build_corpus`` concatenates chunks + spokesperson context
+* ``build_factual_corpus`` concatenates chunks + spokesperson context
   + operator prompt.
 * ``verify_claims`` returns unsupported claims when the
   corpus has nothing supporting them.
@@ -40,7 +40,8 @@ from character_os.claim_verifier import (
     KNOWN_PLATFORM_TERMS,
     ClaimVerifierError,
     UnsupportedClaim,
-    build_corpus,
+    build_allowed_vocabulary,
+    build_factual_corpus,
     extract_named_entities,
     is_sentence_initial,
     run_verifier,
@@ -341,7 +342,7 @@ def test_multiword_demotion_full_session_174_brief_k6_4_v2_1() -> None:
         "Machiavelli Gibbon Commodus Roman Senate "
         "Five Good Emperors 96 180 AD adoption "
     )
-    unsupported = verify_claims(brief, corpus=corpus)
+    unsupported = verify_claims(brief, factual_corpus=corpus)
     assert unsupported == [], (
         f"K6.4 v2.1 regression — expected zero unsupported "
         f"claims, got: {[(u.kind, u.claim) for u in unsupported]}"
@@ -446,33 +447,132 @@ def test_extract_dedupes_repeat_mentions() -> None:
     assert len(wikipedias) == 1
 
 
-def test_build_corpus_concatenates_chunks() -> None:
+def test_build_factual_corpus_concatenates_chunks() -> None:
     chunks = [_FakeChunk("Alpha content"), _FakeChunk("Beta content")]
-    corpus = build_corpus(chunks)
+    corpus = build_factual_corpus(chunks)
     assert "Alpha content" in corpus
     assert "Beta content" in corpus
 
 
-def test_build_corpus_includes_known_platform_terms() -> None:
-    corpus = build_corpus([])
+def test_build_factual_corpus_does_not_include_platform_terms() -> None:
+    """SESSION 253 — platform terms are ALLOWED VOCABULARY (they
+    do not independently trigger a warning) but are NOT factual
+    evidence. Moving them out of the factual corpus is the point
+    of the K6.4 evidence-boundary split."""
+    corpus = build_factual_corpus([])
     for term in KNOWN_PLATFORM_TERMS:
-        assert term in corpus
+        assert term not in corpus
+    # ... and they land in the allowed vocabulary instead.
+    allowed = build_allowed_vocabulary()
+    for term in KNOWN_PLATFORM_TERMS:
+        assert term in allowed
 
 
-def test_build_corpus_includes_operator_prompt_and_brief() -> None:
+def test_build_factual_corpus_includes_business_brief_and_shape_fields() -> None:
+    """SESSION 253 — factual corpus contains business_brief +
+    who_you_help + what_you_sell. Voice / brand fields (name,
+    personality, always_emphasize, etc.) are NOT factual
+    evidence."""
     class _FakeSp:
         name = "Riggs"
         business_brief = "Founder voice for the donkey brand."
+        who_you_help = "Small ranches in the west."
+        what_you_sell = "Coaching packages."
+        personality = "Blunt, direct, likes short sentences."
+        always_emphasize = "Rigorous rewrite process."
+        never_say = "cheapest"
+        desired_feeling = "understood"
 
-    corpus = build_corpus(
-        [_FakeChunk("chunk text")],
-        spokesperson=_FakeSp(),
-        operator_prompt="Talk about the spring sale.",
+    corpus = build_factual_corpus(
+        [_FakeChunk("chunk text")], spokesperson=_FakeSp(),
     )
     assert "chunk text" in corpus
-    assert "Riggs" in corpus
     assert "donkey brand" in corpus
-    assert "spring sale" in corpus
+    assert "Small ranches" in corpus
+    assert "Coaching packages" in corpus
+    # Name is NOT factual evidence — belongs to allowed vocab.
+    assert "Riggs" not in corpus
+    # Voice / brand metadata is NOT factual evidence.
+    assert "Blunt" not in corpus
+    assert "Rigorous rewrite" not in corpus
+    assert "cheapest" not in corpus
+    assert "understood" not in corpus
+
+
+def test_build_factual_corpus_signature_refuses_operator_prompt() -> None:
+    """SESSION 253 correction 1 — the operator's creative brief
+    may itself contain unsupported assertions (e.g. 'make a
+    video about how we are the highest-rated company'). The
+    signature must not accept it as a factual source."""
+    import inspect
+
+    sig = inspect.signature(build_factual_corpus)
+    assert "operator_prompt" not in sig.parameters, (
+        "SESSION 253: operator_prompt must not be a factual source"
+    )
+
+
+def test_build_allowed_vocabulary_includes_name_and_platform_terms() -> None:
+    """Names and platform terms are allowed vocabulary — appear
+    without triggering the verifier, but do NOT license
+    surrounding factual claims."""
+    class _FakeSp:
+        name = "Riggs"
+        business_brief = "brief"
+        who_you_help = ""
+        what_you_sell = ""
+        personality = ""
+        character_point_of_view = ""
+        voice_signature_phrases = ""
+
+    allowed = build_allowed_vocabulary(spokesperson=_FakeSp())
+    assert "Riggs" in allowed
+    for term in KNOWN_PLATFORM_TERMS:
+        assert term in allowed
+
+
+def test_build_allowed_vocabulary_extracts_from_voice_metadata() -> None:
+    """SESSION 253 — proper nouns from personality /
+    character_point_of_view / voice_signature_phrases enter the
+    allowed vocabulary as a false-negative safety valve. They
+    are NOT factual evidence — the surrounding claim still needs
+    factual support."""
+    class _FakeSp:
+        name = "N"
+        business_brief = ""
+        who_you_help = ""
+        what_you_sell = ""
+        personality = "Writes with the cadence of Marcus Aurelius."
+        character_point_of_view = "Believes Camelback bottles are overrated."
+        voice_signature_phrases = "come curious"
+
+    allowed = build_allowed_vocabulary(spokesperson=_FakeSp())
+    joined_lower = " ".join(a.lower() for a in allowed)
+    assert "marcus aurelius" in joined_lower
+    assert "camelback" in joined_lower
+
+
+def test_build_allowed_vocabulary_excludes_brand_voice_fields() -> None:
+    """SESSION 253 — brand voice (always_emphasize / never_say /
+    desired_feeling) is neither factual evidence nor allowed
+    vocabulary. If the operator wants a specific fact conveyed,
+    it must appear in the factual corpus."""
+    class _FakeSp:
+        name = "N"
+        business_brief = ""
+        who_you_help = ""
+        what_you_sell = ""
+        personality = ""
+        character_point_of_view = ""
+        voice_signature_phrases = ""
+        always_emphasize = "Boulder Roasters — family-owned since 1987."
+        never_say = "Blue Bottle"
+        desired_feeling = "unhurried Boulder mornings"
+
+    allowed = build_allowed_vocabulary(spokesperson=_FakeSp())
+    joined_lower = " ".join(a.lower() for a in allowed)
+    assert "boulder roasters" not in joined_lower
+    assert "blue bottle" not in joined_lower
 
 
 def test_verify_claims_donny_against_rag_doc_flags_wikipedia() -> None:
@@ -481,43 +581,55 @@ def test_verify_claims_donny_against_rag_doc_flags_wikipedia() -> None:
     citing, Wikipedia gets flagged."""
     unsupported = verify_claims(
         DONNY_ACTUAL_SCRIPT,
-        corpus=RAG_DOC_EXCERPT,
+        factual_corpus=RAG_DOC_EXCERPT,
     )
     claims = {u.claim for u in unsupported}
     assert "Wikipedia" in claims
 
 
-def test_verify_claims_character_os_protected_by_platform_terms() -> None:
-    """Character OS appears in the script and isn't in the doc.
-    But it's in KNOWN_PLATFORM_TERMS, so the full corpus from
-    build_corpus protects it."""
-    corpus = build_corpus(
-        [_FakeChunk(RAG_DOC_EXCERPT)],
+def test_verify_claims_character_os_protected_by_allowed_vocabulary() -> None:
+    """Character OS appears in the script and isn't in the RAG
+    doc. But it's in KNOWN_PLATFORM_TERMS which is part of
+    ALLOWED VOCABULARY. The verifier skips it without flagging
+    — but it does NOT license the surrounding claim as
+    factually supported (that's SESSION 253's whole point)."""
+    factual = build_factual_corpus([_FakeChunk(RAG_DOC_EXCERPT)])
+    allowed = build_allowed_vocabulary()
+    unsupported = verify_claims(
+        DONNY_ACTUAL_SCRIPT,
+        factual_corpus=factual,
+        allowed_vocabulary=allowed,
     )
-    unsupported = verify_claims(DONNY_ACTUAL_SCRIPT, corpus=corpus)
     claims = {u.claim for u in unsupported}
     assert "Character OS" not in claims
     # But Wikipedia is still flagged.
     assert "Wikipedia" in claims
 
 
-def test_verify_claims_operator_prompt_allows_terms() -> None:
-    """The operator may legitimately introduce terms via the
-    prompt. Those shouldn't flag in the script."""
+def test_verify_claims_operator_prompt_does_not_license_terms() -> None:
+    """SESSION 253 correction 1 — a term appearing in the
+    operator's creative prompt does NOT ground the surrounding
+    claim. Contrast with pre-SESSION 253 behavior which allowed
+    any entity mentioned in the brief through the verifier.
+    The whole factual_corpus surface refuses operator input at
+    the signature level (see the signature test above)."""
     script = "Wikipedia is one of the largest sources of structured text."
-    corpus = build_corpus(
-        [],
-        operator_prompt="Pitch how Wikipedia improves coverage.",
+    factual = build_factual_corpus([])
+    allowed = build_allowed_vocabulary()
+    unsupported = verify_claims(
+        script,
+        factual_corpus=factual,
+        allowed_vocabulary=allowed,
     )
-    unsupported = verify_claims(script, corpus=corpus)
     claims = {u.claim for u in unsupported}
-    assert "Wikipedia" not in claims
+    # Wikipedia is neither in factual nor allowed → still flags.
+    assert "Wikipedia" in claims
 
 
 def test_verify_claims_returns_empty_on_clean_script() -> None:
     script = "Welcome to our store. Take a look around."
     corpus = "We sell things. Drop by anytime."
-    unsupported = verify_claims(script, corpus=corpus)
+    unsupported = verify_claims(script, factual_corpus=corpus)
     # No specific entities, no flags.
     assert unsupported == []
 
@@ -531,7 +643,7 @@ def test_run_verifier_strict_raises_on_unsupported() -> None:
     with pytest.raises(ClaimVerifierError) as exc_info:
         run_verifier(
             DONNY_ACTUAL_SCRIPT,
-            corpus=RAG_DOC_EXCERPT,
+            factual_corpus=RAG_DOC_EXCERPT,
             mode="strict",
         )
     assert any(u.claim == "Wikipedia" for u in exc_info.value.unsupported)
@@ -540,7 +652,7 @@ def test_run_verifier_strict_raises_on_unsupported() -> None:
 def test_run_verifier_warn_returns_list() -> None:
     result = run_verifier(
         DONNY_ACTUAL_SCRIPT,
-        corpus=RAG_DOC_EXCERPT,
+        factual_corpus=RAG_DOC_EXCERPT,
         mode="warn",
     )
     assert any(u.claim == "Wikipedia" for u in result)
@@ -550,7 +662,7 @@ def test_run_verifier_warn_returns_list() -> None:
 def test_run_verifier_off_returns_empty() -> None:
     result = run_verifier(
         DONNY_ACTUAL_SCRIPT,
-        corpus=RAG_DOC_EXCERPT,
+        factual_corpus=RAG_DOC_EXCERPT,
         mode="off",
     )
     assert result == []
@@ -560,7 +672,7 @@ def test_run_verifier_default_mode_via_settings() -> None:
     """No explicit mode → reads K6_CLAIM_VERIFIER_MODE setting."""
     with override_settings(K6_CLAIM_VERIFIER_MODE="off"):
         assert (
-            run_verifier(DONNY_ACTUAL_SCRIPT, corpus=RAG_DOC_EXCERPT)
+            run_verifier(DONNY_ACTUAL_SCRIPT, factual_corpus=RAG_DOC_EXCERPT)
             == []
         )
 
@@ -570,7 +682,7 @@ def test_run_verifier_unknown_mode_falls_back_to_warn() -> None:
     the verifier — it stays on in Warn mode."""
     result = run_verifier(
         DONNY_ACTUAL_SCRIPT,
-        corpus=RAG_DOC_EXCERPT,
+        factual_corpus=RAG_DOC_EXCERPT,
         mode="bogus_mode_value",
     )
     assert any(u.claim == "Wikipedia" for u in result)
@@ -580,7 +692,7 @@ def test_strict_mode_error_carries_full_unsupported_list() -> None:
     try:
         run_verifier(
             DONNY_ACTUAL_SCRIPT,
-            corpus=RAG_DOC_EXCERPT,
+            factual_corpus=RAG_DOC_EXCERPT,
             mode="strict",
         )
     except ClaimVerifierError as exc:
@@ -596,7 +708,7 @@ def test_strict_mode_error_carries_synthesized_text_k6_4_1() -> None:
     try:
         run_verifier(
             DONNY_ACTUAL_SCRIPT,
-            corpus=RAG_DOC_EXCERPT,
+            factual_corpus=RAG_DOC_EXCERPT,
             mode="strict",
         )
     except ClaimVerifierError as exc:
@@ -830,170 +942,14 @@ def test_strict_failure_persists_warnings_and_synthesis_k6_4_1() -> None:
     assert "Wikipedia" in claims
 
 
-def test_system_prompt_includes_standalone_video_framing_k6_6() -> None:
-    """K6.6 — system prompt teaches the model that the video is
-    standalone (no prior context). Lock the structural guidance
-    in a test so future refactors don't accidentally regress
-    the operator-feedback fix from SESSION 168."""
-    from character_os.script_synthesis import _system_prompt
-
-    class _FakeSp:
-        name = "Donny"
-        tone_archetype = "expert"
-        business_brief = "Interviewer."
-
-    prompt = _system_prompt(_FakeSp())
-    assert "STANDALONE VIDEO" in prompt
-    assert "viewer has not seen anything else" in prompt
-    assert "Do NOT begin mid-thought" in prompt
-    assert "first sentence must stand alone" in prompt
-
-
-def test_system_prompt_personality_fenced_as_tone_only_w11_y() -> None:
-    """W11.y (SESSION 175) — supersedes K6.6.1's
-    business_brief tone-fencing. With the personality split,
-    PERSONALITY (not business_brief) is the field fenced as
-    tone-only. business_brief moved to the FACT fence
-    alongside knowledge chunks.
-
-    Lock the new fence wording so future refactors don't
-    drop the recitation guard for personality.
-    """
-    from character_os.script_synthesis import _system_prompt
-
-    class _FakeSp:
-        name = "Marcus"
-        tone_archetype = "tutor"
-        personality = "Patient teacher. Opens with a question, never a greeting."
-        business_brief = "Teaches AP US history through the lens of perspective."
-
-    prompt = _system_prompt(_FakeSp())
-
-    # Personality flows in inside the TONE fence.
-    assert "Patient teacher. Opens with a question" in prompt
-    # Fence wording — the do-not-recite framing now applies
-    # to personality, not business_brief.
-    assert "ONLY to shape tone" in prompt
-    assert "do NOT recite, paraphrase, or describe this" in prompt
-    # business_brief flows in too, but as FACTS (paraphrase
-    # encouraged) — NOT inside the tone fence.
-    assert "Teaches AP US history" in prompt
-    assert "Business facts the speaker can ground in" in prompt
-    # Pre-K6.6.1 phrasing stays gone.
-    assert "Their business brief is:" not in prompt
-
-
-def test_system_prompt_no_personality_omits_tone_fence_w11_y() -> None:
-    """W11.y — personality is optional. When empty, the tone
-    fence is omitted entirely (no "ONLY to shape tone" copy
-    appears). business_brief still appears in the FACT fence
-    so its content reaches the model."""
-    from character_os.script_synthesis import _system_prompt
-
-    class _FakeSp:
-        name = "Marcus"
-        tone_archetype = "tutor"
-        personality = ""  # operator hasn't split content yet
-        business_brief = "Teaches AP US history."
-
-    prompt = _system_prompt(_FakeSp())
-
-    # No personality → no tone fence.
-    assert "ONLY to shape tone" not in prompt
-    assert "do NOT recite, paraphrase, or describe this" not in prompt
-    # business_brief still surfaces as facts.
-    assert "Teaches AP US history" in prompt
-    assert "Business facts the speaker can ground in" in prompt
-
-
-def test_system_prompt_drops_who_you_are_opener_framing_k6_6_1() -> None:
-    """K6.6.1 (SESSION 171) — K6.6's original opener instruction
-    said "grounds them in who you are and what this video is
-    about". The "who you are" half was a near-explicit invite to
-    self-introduction; combined with the business_brief
-    injection it produced "I'm Marcus, your AP history tutor"
-    openers. New framing drops the speaker-orientation half and
-    keeps only the topic-orientation half.
-    """
-    from character_os.script_synthesis import _system_prompt
-
-    class _FakeSp:
-        name = "Marcus"
-        tone_archetype = "tutor"
-        business_brief = "Gen X AP US history teacher."
-
-    prompt = _system_prompt(_FakeSp())
-
-    # The new framing — topic-oriented opener.
-    assert "grounds the viewer in what this video is about" in prompt
-    # Pre-K6.6.1 wording must not reappear.
-    assert "grounds them in who you are" not in prompt
-
-
-def test_system_prompt_includes_anti_recitation_rule_k6_6_1() -> None:
-    """K6.6.1 (SESSION 171) + W11.y (SESSION 175) — the
-    anti-recitation rule the prompt carries. K6.6.1 phrased
-    it as "recite your background"; W11.y narrowed it to
-    "recite the speaker voice + character block" because
-    business_brief is no longer fenced as tone-only (the
-    model SHOULD paraphrase business facts).
-    """
-    from character_os.script_synthesis import _system_prompt
-
-    class _FakeSp:
-        name = "Marcus"
-        tone_archetype = "tutor"
-        personality = "Patient teacher voice."
-        business_brief = "Gen X AP US history teacher."
-
-    prompt = _system_prompt(_FakeSp())
-
-    assert "Do NOT introduce yourself" in prompt
-    assert "name your role" in prompt
-    assert "describe your audience" in prompt
-    # W11.y wording — "background" → "speaker voice + character block".
-    # The narrower target reflects the split: business_brief is now
-    # allowed to be paraphrased; only the personality fence
-    # carries the recitation guard.
-    assert "speaker voice + character block" in prompt
-
-
-def test_opener_override_appears_in_user_prompt_k6_6() -> None:
-    """K6.6 — when opener is set, the user prompt contains an
-    "Operator-supplied opening line" clause that K6 reads."""
-    from unittest.mock import patch as _patch, MagicMock
-
-    class _FakeSp:
-        name = "Donny"
-        tone_archetype = "expert"
-        business_brief = ""
-
-    class _FakeChunk:
-        document_id = "doc"
-        chunk_text = "Some chunk text about ingestion."
-
-    captured: dict = {}
-
-    def _capture(*args, **kwargs):
-        captured["input"] = kwargs.get("input") or (args[0] if args else "")
-        resp = MagicMock()
-        resp.output_text = "Mock script."
-        resp.usage = MagicMock(input_tokens=0, output_tokens=0)
-        return resp
-
-    fake_client = MagicMock()
-    fake_client.responses.create = _capture
-
-    with _patch.dict(os.environ, {"OPENAI_API_KEY": "sk-fake"}):
-        with _patch("openai.OpenAI", return_value=fake_client):
-            from character_os.script_synthesis import _call_responses_api
-            _call_responses_api(
-                _FakeSp(), "topic", [_FakeChunk()],
-                opener="Hi, I'm Donny — let me walk you through ingestion.",
-            )
-
-    assert "Operator-supplied opening line" in captured["input"]
-    assert "Hi, I'm Donny" in captured["input"]
+# NOTE — the six K6.6 / K6.6.1 / W11.y prompt-wording tests that
+# used to live here (test_system_prompt_*) were removed SESSION 253.
+# They pinned specific pre-SESSION 253 prompt phrasings ("ONLY to
+# shape tone", "recite the speaker voice + character block",
+# "Do NOT introduce yourself", etc.) that the 5-section refactor
+# replaced with different but semantically-equivalent wording.
+# Equivalent SESSION 253 coverage lives in
+# ``test_session253_character_voice_prompt.py``.
 
 
 def test_opener_blank_does_not_appear_in_user_prompt_k6_6() -> None:
@@ -1033,8 +989,10 @@ def test_opener_blank_does_not_appear_in_user_prompt_k6_6() -> None:
                 _FakeSp(), "topic", [_FakeChunk()], opener="   ",
             )
 
-    # Last captured input — second call with whitespace opener.
-    assert "Operator-supplied opening line" not in captured["input"]
+    # SESSION 253 — the pinned-opener block only appears when the
+    # opener is non-empty; a whitespace opener is treated as empty
+    # and produces no PINNED OPENER hard-constraint section.
+    assert "PINNED OPENER" not in captured["input"]
 
 
 def test_build_render_brief_off_mode_skips_verifier() -> None:

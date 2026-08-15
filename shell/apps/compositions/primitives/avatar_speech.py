@@ -123,22 +123,21 @@ def _resolve_avatar_id(step, composition) -> str:
     return spokesperson.runway_avatar_id
 
 
-def _maybe_synthesize_script(step, composition) -> tuple[str, list[str], list[dict], str]:
-    """Return ``(brief, chunk_ids, verification_warnings, verification_status)``.
+def _maybe_synthesize_script(
+    step, composition,
+) -> tuple[str, list[str], list[dict], str, int]:
+    """Return ``(brief, chunk_ids, verification_warnings,
+    verification_status, writing_contract_version)``.
 
     When ``use_knowledge`` is truthy, the operator's script
     goes through K6's ``build_render_brief`` and we return the
     synthesized brief + citation ids + K6.4 verifier output +
-    K6.4 v1.2 ``verification_status``. Otherwise the script
+    K6.4 v1.2 ``verification_status`` + the SESSION 253
+    ``writing_contract_version`` stamp. Otherwise the script
     is used verbatim, the citation list is empty, verification
-    is skipped (operator-typed scripts are trusted; the
-    verifier exists to catch LLM invention, not operator
-    typing), and the status is ``trusted_passthrough``.
-
-    In Strict verifier mode, ``build_render_brief`` raises
-    ``ClaimVerifierError`` before this function returns; the
-    caller catches it, persists status=``rejected``, and
-    converts to ``PrimitiveError``.
+    is skipped (operator-typed scripts are trusted), the status
+    is ``trusted_passthrough``, and the contract version is 0
+    (no contract was applied because no K6 pass ran).
     """
     raw_script = (step.params or {}).get("script", "").strip()
     if not raw_script:
@@ -146,7 +145,7 @@ def _maybe_synthesize_script(step, composition) -> tuple[str, list[str], list[di
 
     use_knowledge = bool((step.params or {}).get("use_knowledge"))
     if not use_knowledge:
-        return raw_script, [], [], "trusted_passthrough"
+        return raw_script, [], [], "trusted_passthrough", 0
 
     # Lazy import — keep this primitive importable even if K6's
     # script_synthesis isn't wired yet (it is, but defensive).
@@ -185,11 +184,17 @@ def _maybe_synthesize_script(step, composition) -> tuple[str, list[str], list[di
         composition.verification_warnings = [u.to_dict() for u in exc.unsupported]
         composition.rejected_synthesis = exc.synthesized_text or ""
         composition.verification_status = "rejected"
+        # SESSION 253 — stamp the contract version even on rejection;
+        # the contract WAS applied (K6 ran under it and got rejected).
+        from character_os.writing_contract import WRITING_CONTRACT_VERSION
+
+        composition.writing_contract_version = WRITING_CONTRACT_VERSION
         composition.save(
             update_fields=[
                 "verification_warnings",
                 "rejected_synthesis",
                 "verification_status",
+                "writing_contract_version",
             ],
         )
         raise PrimitiveError(
@@ -202,6 +207,7 @@ def _maybe_synthesize_script(step, composition) -> tuple[str, list[str], list[di
         list(result.chunk_ids or []),
         list(result.verification_warnings or []),
         result.verification_status or "",
+        getattr(result, "writing_contract_version", 0),
     )
 
 
@@ -239,9 +245,13 @@ class GenerateAvatarSpeechPrimitive:
         # ---- real-mode path -----------------------------------
 
         avatar_id = _resolve_avatar_id(step, composition)
-        brief, chunk_ids, verification_warnings, verification_status = (
-            _maybe_synthesize_script(step, composition)
-        )
+        (
+            brief,
+            chunk_ids,
+            verification_warnings,
+            verification_status,
+            writing_contract_version,
+        ) = _maybe_synthesize_script(step, composition)
 
         # K6.4 — persist Warn-mode verifier output onto the
         # composition. Strict mode would have raised in
@@ -272,6 +282,14 @@ class GenerateAvatarSpeechPrimitive:
         if verification_status in ("verified", "skipped") and brief:
             composition.synthesized_brief = brief
             composition_update_fields.append("synthesized_brief")
+        # SESSION 253 — stamp the contract version if this K6 pass
+        # actually applied one. 0 (the passthrough case) leaves
+        # existing value alone.
+        if writing_contract_version and (
+            composition.writing_contract_version != writing_contract_version
+        ):
+            composition.writing_contract_version = writing_contract_version
+            composition_update_fields.append("writing_contract_version")
         if composition_update_fields:
             composition.save(update_fields=composition_update_fields)
 

@@ -13,6 +13,33 @@ class TeammateAdmin(admin.ModelAdmin):
         (None, {"fields": ("id", "workspace", "name", "status")}),
         ("Brief", {"fields": ("business_brief",)}),
         (
+            "Identity",
+            {
+                "fields": (
+                    "who_you_help",
+                    "what_you_sell",
+                    "always_emphasize",
+                    "never_say",
+                    "desired_feeling",
+                ),
+            },
+        ),
+        (
+            "Character Voice",
+            {
+                "fields": (
+                    "personality",
+                    "tone_archetype",
+                    "character_point_of_view",
+                    "voice_energy",
+                    "voice_humor",
+                    "voice_directness",
+                    "voice_signature_phrases",
+                    "voice_avoid_phrases",
+                ),
+            },
+        ),
+        (
             "Media engine",
             {
                 "fields": (
@@ -20,6 +47,8 @@ class TeammateAdmin(admin.ModelAdmin):
                     "runway_avatar_status",
                     "portrait_path",
                     "voice_id",
+                    "visual_subject",
+                    "visual_template",
                 ),
                 "classes": ("collapse",),
             },

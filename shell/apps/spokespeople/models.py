@@ -230,6 +230,95 @@ class Teammate(models.Model):
         ),
     )
 
+    # SESSION 253 — Character Voice / Writing Identity fields. Six
+    # new fields on top of the existing identity + personality
+    # surface. All optional; all backfilled to non-null defaults.
+    # See ``character_os.script_synthesis`` for how these feed the
+    # K6 prompt architecture (§2 Character Voice section) and
+    # ``character_os.claim_verifier`` for the K6.4 evidence /
+    # allowed-vocabulary boundary.
+    #
+    # ``character_point_of_view`` describes WHAT the character
+    # thinks (orthogonal to ``personality``, which describes HOW
+    # they write). The three ``voice_*`` axes pin the writing
+    # register more concretely than ``tone_archetype`` alone.
+    # Signature / avoid phrases are operator-specified vocabulary
+    # possibilities and prohibitions respectively.
+    class VoiceEnergy(models.TextChoices):
+        LOW = "low", "Low"
+        MEDIUM = "medium", "Medium"
+        HIGH = "high", "High"
+
+    class VoiceHumor(models.TextChoices):
+        NONE = "none", "None"
+        DRY = "dry", "Dry"
+        WARM = "warm", "Warm"
+        PLAYFUL = "playful", "Playful"
+
+    class VoiceDirectness(models.TextChoices):
+        SOFT = "soft", "Soft"
+        BALANCED = "balanced", "Balanced"
+        DIRECT = "direct", "Direct"
+
+    character_point_of_view = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "SESSION 253 — Character POV. What this teammate "
+            "notices, believes, enjoys, dislikes, or opines about. "
+            "Orthogonal to ``personality`` (HOW they write). Shapes "
+            "what the character notices when interpreting a topic; "
+            "informational topics don't force an opinion. Never "
+            "enters the K6.4 factual corpus."
+        ),
+    )
+    voice_energy = models.CharField(
+        max_length=8,
+        choices=VoiceEnergy.choices,
+        default=VoiceEnergy.MEDIUM,
+        help_text=(
+            "SESSION 253 — voice energy axis. Backfilled from "
+            "tone_archetype."
+        ),
+    )
+    voice_humor = models.CharField(
+        max_length=8,
+        choices=VoiceHumor.choices,
+        default=VoiceHumor.WARM,
+        help_text=(
+            "SESSION 253 — humor style. Backfilled from "
+            "tone_archetype."
+        ),
+    )
+    voice_directness = models.CharField(
+        max_length=10,
+        choices=VoiceDirectness.choices,
+        default=VoiceDirectness.BALANCED,
+        help_text=(
+            "SESSION 253 — how directly the teammate sells / makes "
+            "asks. Backfilled from tone_archetype."
+        ),
+    )
+    voice_signature_phrases = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "SESSION 253 — phrases this teammate might reach for "
+            "occasionally. Possibilities, not required catchphrases. "
+            "Proper nouns extracted from this field enter the K6.4 "
+            "allowed vocabulary (not the factual corpus)."
+        ),
+    )
+    voice_avoid_phrases = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "SESSION 253 — phrases this teammate never uses. Merged "
+            "with the platform anti-AI-copy default list at K6 "
+            "prompt-assembly time."
+        ),
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

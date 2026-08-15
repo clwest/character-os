@@ -68,6 +68,17 @@ class TeammateSerializer(serializers.ModelSerializer):
             "always_emphasize",
             "never_say",
             "desired_feeling",
+            # SESSION 253 — Character Voice / Writing Identity
+            # fields. All PATCH-able. All accept empty. Three
+            # ``voice_*`` axes have server-side defaults (medium /
+            # warm / balanced — the friend profile); existing rows
+            # backfill from tone_archetype via the data migration.
+            "character_point_of_view",
+            "voice_energy",
+            "voice_humor",
+            "voice_directness",
+            "voice_signature_phrases",
+            "voice_avoid_phrases",
             "identity_fields_filled",
             "video_count",
             "created_at",

@@ -186,20 +186,49 @@ def synthesize_spokesperson_reply(
     # produced something; the degraded path is operator-trusted
     # by design. Strict mode raises ``ClaimVerifierError`` which
     # the API view catches and surfaces as a 422.
-    from character_os.claim_verifier import _get_default_mode, build_corpus, run_verifier
-
-    corpus = build_corpus(
-        docs,
-        spokesperson=spokesperson,
-        operator_prompt=user_content,
-        extras=[h.chunk_text for h in history if getattr(h, "chunk_text", None)],
+    #
+    # SESSION 253 — split corpus: factual evidence vs allowed
+    # vocabulary. History chunks contain PRIOR conversation
+    # content and are legitimate factual context for the reply,
+    # so they enter the factual corpus (mirrors the K2 chunk
+    # role). The user prompt is NOT factual evidence — the user
+    # may reference terms the system should verify against real
+    # sources; treating the user's message as evidence would
+    # silently ground its assertions.
+    from character_os.claim_verifier import (
+        _get_default_mode,
+        build_allowed_vocabulary,
+        build_factual_corpus,
+        run_verifier,
     )
+
+    class _HistoryChunk:
+        """Adapt a history-message row to the factual-corpus
+        chunk shape (``chunk_text`` attr)."""
+        def __init__(self, text: str):
+            self.chunk_text = text
+
+    factual_corpus_chunks = list(docs) + [
+        _HistoryChunk(getattr(h, "chunk_text", ""))
+        for h in history
+        if getattr(h, "chunk_text", None)
+    ]
+    factual_corpus = build_factual_corpus(
+        factual_corpus_chunks, spokesperson=spokesperson,
+    )
+    allowed_vocabulary = build_allowed_vocabulary(spokesperson=spokesperson)
+
     # K6.4 v1.2 — same mode-resolution dance as script_synthesis
     # to stamp the right verification_status. Strict rejection
     # raises; the API view sets status=rejected on the persisted
     # placeholder message.
     resolved_mode = (verifier_mode or _get_default_mode()).lower()
-    unsupported = run_verifier(final_text, corpus=corpus, mode=verifier_mode)
+    unsupported = run_verifier(
+        final_text,
+        factual_corpus=factual_corpus,
+        allowed_vocabulary=allowed_vocabulary,
+        mode=verifier_mode,
+    )
     if unsupported:
         logger.warning(
             "K6.5 verifier flagged %d unsupported claim(s) on thread=%s: %s",
