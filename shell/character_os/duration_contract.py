@@ -87,6 +87,63 @@ _IDEAL_SAFETY_BUFFER_CHARS = 50
 _DURATION_TOLERANCE = 0.20
 
 
+# SESSION 253 amendment B — LLM synthesis target multiplier.
+#
+# gpt-5 with the SESSION 253 Writing Contract systematically
+# overshoots the OPERATOR-requested duration. Measured empirically
+# in the SESSION 253 controlled 90-second dogfood against Penny
+# (three ordinary operator briefs, single-topic each):
+#
+#   T1 beginner/reassurance:    first-pass 138.9 % of target
+#   T2 experiential/observational: first-pass 114.4 %
+#   T3 conservation/POV:         first-pass 131.1 %
+#   mean first-pass:            128.1 %
+#
+# Full artifact at ``/tmp/dogfood_D_90s.json``. Multiplying the
+# LLM-facing target by ``1 / 1.281 ≈ 0.78`` so the average
+# expected LLM output lands at 100 % of the operator-requested
+# duration.
+#
+# **This is a MODEL-CALIBRATION constant, not a provider constraint.**
+# It only affects what K6 aims at internally. The
+# operator-facing target, the acceptance band, error messages,
+# and downstream audit trails all continue to reference the
+# operator-requested duration.
+#
+# Recalibrate only from fresh dogfood evidence. If output
+# systematically undershoots after this bias, do NOT
+# auto-compensate: raise the multiplier from a new measurement.
+K6_DURATION_SYNTHESIS_TARGET_MULTIPLIER: float = 0.78
+
+# Guardrail on the calibration: for requests short enough that
+# ``target * multiplier`` rounds below this floor, the
+# calibration is disabled and the LLM sees the requested target
+# unchanged. The 0.78 multiplier was measured at 90s. Very
+# short synthesis targets (say < 30s) are outside the calibrated
+# range and applying the bias could underflow the acceptance
+# min. Widening the calibration would require its own dogfood.
+_SYNTHESIS_CALIBRATION_MIN_SECONDS: int = 30
+
+
+def calibrated_synthesis_target(requested_target_seconds: int) -> int:
+    """Return the LLM-facing synthesis target in seconds, biased
+    downward per :data:`K6_DURATION_SYNTHESIS_TARGET_MULTIPLIER`.
+
+    Preserves the operator-visible target: the caller retains
+    ``requested_target_seconds`` for acceptance/retry/error
+    surfaces; this helper is only for what K6's prompt says.
+
+    Guardrail: for very short requests (< 30 s) the calibration
+    is skipped and the requested target is returned unchanged.
+    """
+    if requested_target_seconds < _SYNTHESIS_CALIBRATION_MIN_SECONDS:
+        return requested_target_seconds
+    return max(
+        1,
+        round(requested_target_seconds * K6_DURATION_SYNTHESIS_TARGET_MULTIPLIER),
+    )
+
+
 class DurationContractError(Exception):
     """Raised when synthesis is materially outside the requested
     duration tolerance after one corrective pass, or would
@@ -369,24 +426,55 @@ def synthesize_with_duration_gate(
     # cap pass ``AVATAR_SPEECH_SAFE_MAX_CHARS`` explicitly.
     effective_cap = max_script_chars if max_script_chars is not None else 10**9
 
-    # Up-front incompatibility check — raises before any LLM cost.
-    effective_ideal, effective_min, effective_max = compute_effective_budget(
-        target_duration_seconds, effective_cap,
+    # SESSION 253 amendment B — two-target model.
+    #
+    #   requested target   → what the OPERATOR asked for.
+    #                        Drives acceptance, retry decision,
+    #                        rejection reasons, error messages,
+    #                        and all operator-facing surfaces.
+    #
+    #   synthesis target   → what K6 is TOLD to write to. Biased
+    #                        downward by the empirical
+    #                        K6_DURATION_SYNTHESIS_TARGET_MULTIPLIER
+    #                        so K6's average overshoot lands at
+    #                        the operator-requested duration.
+    #                        Only appears in the K6 prompt +
+    #                        corrective hints; NEVER surfaces to
+    #                        the operator.
+    #
+    # Both derive their own char budgets from
+    # ``char_budget_for_duration``.
+    synth_target_seconds = calibrated_synthesis_target(target_duration_seconds)
+
+    # LLM-facing budget derived from the synth target with the
+    # provider cap threaded through. K6's prompt LENGTH block
+    # and the corrective-retry hints use these numbers.
+    synth_ideal, synth_min, synth_max = char_budget_for_duration(
+        synth_target_seconds, max_script_chars=effective_cap,
+    )
+
+    # Acceptance / rejection bounds derive from the REQUESTED
+    # target. Provider cap is threaded through here too so we
+    # still raise ``REASON_INCOMPATIBLE_WITH_PROVIDER`` on
+    # request/cap mismatch before any LLM call.
+    compute_effective_budget(target_duration_seconds, effective_cap)
+    raw_ideal, raw_min, raw_max = char_budget_for_duration(
+        target_duration_seconds,
     )
     min_seconds = max(1, int(round(target_duration_seconds * (1 - _DURATION_TOLERANCE))))
     max_seconds = max(min_seconds + 1, int(round(target_duration_seconds * (1 + _DURATION_TOLERANCE))))
 
     def _synthesize(hint: str | None = None) -> ScriptResult:
+        # K6 sees the SYNTH target — the LENGTH block, char
+        # budget in the prompt, and word budget all derive from
+        # this. Operator-facing target is preserved separately
+        # for the acceptance surface and error messages below.
         return build_render_brief(
             spokesperson, operator_prompt,
             verifier_mode=verifier_mode,
             opener=opener,
             target_shape="long_form",
-            target_duration_seconds=target_duration_seconds,
-            # Pass max_script_chars through so the LLM sees the
-            # clamped ceiling in the prompt's LENGTH block. None
-            # here means the LLM sees the raw duration budget
-            # (long_form_ad chunks its output — no clamp needed).
+            target_duration_seconds=synth_target_seconds,
             max_script_chars=max_script_chars,
             corrective_hint=hint,
         )
@@ -394,12 +482,12 @@ def synthesize_with_duration_gate(
     synth = _synthesize()
     actual_chars, actual_words, actual_seconds = _measure(synth.brief)
     logger.info(
-        "synthesize_with_duration_gate first-pass sp=%s target=%ds "
-        "(range %d-%ds, chars %d-%d) actual=%ds (%d chars / %d words) "
-        "cap=%s",
-        spokesperson.pk, target_duration_seconds,
+        "synthesize_with_duration_gate first-pass sp=%s requested=%ds "
+        "synth=%ds (accept %d-%ds, chars %d-%d) actual=%ds "
+        "(%d chars / %d words) cap=%s",
+        spokesperson.pk, target_duration_seconds, synth_target_seconds,
         min_seconds, max_seconds,
-        effective_min, effective_max,
+        raw_min, raw_max,
         actual_seconds, actual_chars, actual_words,
         max_script_chars if max_script_chars is not None else "none",
     )
@@ -410,29 +498,41 @@ def synthesize_with_duration_gate(
     if mock_mode:
         return synth
 
-    # ONE corrective pass in whichever direction we need.
-    if actual_chars < effective_min:
+    # ONE corrective pass. Retry decision uses the ACCEPTANCE
+    # bounds (raw requested-target budget + provider cap) so we
+    # only spend a second LLM call when the current result would
+    # fail acceptance. Retry hints continue to reference the
+    # SYNTH-target budget so K6 re-aims low (same calibration
+    # bias on the retry).
+    provider_cap_binds = (
+        max_script_chars is not None and actual_chars > max_script_chars
+    )
+    acceptance_max_chars = (
+        min(raw_max, max_script_chars) if max_script_chars is not None
+        else raw_max
+    )
+    if actual_chars < raw_min:
         hint = _expansion_hint(
             actual_chars=actual_chars,
             actual_words=actual_words,
             actual_seconds=actual_seconds,
-            target_duration_seconds=target_duration_seconds,
-            effective_ideal=effective_ideal,
-            effective_min=effective_min,
-            effective_max=effective_max,
+            target_duration_seconds=synth_target_seconds,
+            effective_ideal=synth_ideal,
+            effective_min=synth_min,
+            effective_max=synth_max,
         )
         logger.info("synthesize_with_duration_gate expansion retry")
         synth = _synthesize(hint)
         actual_chars, actual_words, actual_seconds = _measure(synth.brief)
-    elif actual_chars > effective_max:
+    elif actual_chars > acceptance_max_chars or provider_cap_binds:
         hint = _compression_hint(
             actual_chars=actual_chars,
             actual_words=actual_words,
             actual_seconds=actual_seconds,
-            target_duration_seconds=target_duration_seconds,
-            effective_ideal=effective_ideal,
-            effective_min=effective_min,
-            effective_max=effective_max,
+            target_duration_seconds=synth_target_seconds,
+            effective_ideal=synth_ideal,
+            effective_min=synth_min,
+            effective_max=synth_max,
         )
         logger.info("synthesize_with_duration_gate compression retry")
         synth = _synthesize(hint)
@@ -443,17 +543,20 @@ def synthesize_with_duration_gate(
     # 1. Provider ceiling check first (highest severity, most
     #    actionable). Only fires when the caller supplied a cap
     #    AND the actual script exceeds it.
-    # 2. Duration tolerance checks against the RAW duration budget
-    #    (unclamped by provider cap) so a duration-overshoot below
-    #    the provider cap is classified as TOO_LONG rather than
-    #    OVER_PROVIDER_CAP.
+    # 2. Duration tolerance checks against the RAW REQUESTED-target
+    #    budget (unclamped by provider cap) so a duration-overshoot
+    #    below the provider cap is classified as TOO_LONG rather
+    #    than OVER_PROVIDER_CAP.
     #
-    # ``compute_effective_budget`` doesn't expose the raw duration
-    # bounds separately, but for the acceptance gate we can recover
-    # them from ``char_budget_for_duration`` without the cap kwarg.
-    raw_duration_ideal, raw_duration_min, raw_duration_max = (
-        char_budget_for_duration(target_duration_seconds)
-    )
+    # SESSION 253 amendment B — the ``effective_min_chars`` /
+    # ``effective_max_chars`` fields on the exception surface the
+    # OPERATOR-facing acceptance bounds (raw requested-target
+    # budget, clamped to provider cap), NOT the synth-target
+    # budget that K6 was actually told to hit. The synth budget
+    # is an internal calibration detail; error messages must
+    # reference the requested target.
+    op_facing_max_chars = acceptance_max_chars  # clamped to cap
+    op_facing_min_chars = raw_min
     if (
         max_script_chars is not None
         and actual_chars > max_script_chars
@@ -465,14 +568,14 @@ def synthesize_with_duration_gate(
             target_duration_seconds=target_duration_seconds,
             min_seconds=min_seconds,
             max_seconds=max_seconds,
-            effective_min_chars=effective_min,
-            effective_max_chars=effective_max,
-            duration_max_chars=raw_duration_max,
+            effective_min_chars=op_facing_min_chars,
+            effective_max_chars=op_facing_max_chars,
+            duration_max_chars=raw_max,
             provider_cap_chars=max_script_chars,
             synthesized_text=synth.brief,
             reason=DurationContractError.REASON_OVER_PROVIDER_CAP,
         )
-    if actual_chars > raw_duration_max:
+    if actual_chars > raw_max:
         raise DurationContractError(
             actual_chars=actual_chars,
             actual_words=actual_words,
@@ -480,14 +583,14 @@ def synthesize_with_duration_gate(
             target_duration_seconds=target_duration_seconds,
             min_seconds=min_seconds,
             max_seconds=max_seconds,
-            effective_min_chars=effective_min,
-            effective_max_chars=effective_max,
-            duration_max_chars=raw_duration_max,
+            effective_min_chars=op_facing_min_chars,
+            effective_max_chars=op_facing_max_chars,
+            duration_max_chars=raw_max,
             provider_cap_chars=max_script_chars,
             synthesized_text=synth.brief,
             reason=DurationContractError.REASON_TOO_LONG,
         )
-    if actual_chars < raw_duration_min:
+    if actual_chars < raw_min:
         raise DurationContractError(
             actual_chars=actual_chars,
             actual_words=actual_words,
@@ -495,9 +598,9 @@ def synthesize_with_duration_gate(
             target_duration_seconds=target_duration_seconds,
             min_seconds=min_seconds,
             max_seconds=max_seconds,
-            effective_min_chars=effective_min,
-            effective_max_chars=effective_max,
-            duration_max_chars=raw_duration_max,
+            effective_min_chars=op_facing_min_chars,
+            effective_max_chars=op_facing_max_chars,
+            duration_max_chars=raw_max,
             provider_cap_chars=max_script_chars,
             synthesized_text=synth.brief,
             reason=DurationContractError.REASON_TOO_SHORT,
@@ -508,7 +611,9 @@ def synthesize_with_duration_gate(
 
 __all__ = [
     "AVATAR_SPEECH_SAFE_MAX_CHARS",
+    "K6_DURATION_SYNTHESIS_TARGET_MULTIPLIER",
     "DurationContractError",
+    "calibrated_synthesis_target",
     "compute_effective_budget",
     "synthesize_with_duration_gate",
 ]

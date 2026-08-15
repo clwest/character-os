@@ -49,7 +49,9 @@ from apps.compositions.starters import talking_head
 from apps.spokespeople.models import Teammate
 from character_os.duration_contract import (
     AVATAR_SPEECH_SAFE_MAX_CHARS,
+    K6_DURATION_SYNTHESIS_TARGET_MULTIPLIER,
     DurationContractError,
+    calibrated_synthesis_target,
     compute_effective_budget,
     synthesize_with_duration_gate,
 )
@@ -189,11 +191,13 @@ def test_gate_retries_when_short_then_accepts():
         )
     assert result.brief == corrected
     assert fake_brb.call_count == 2
-    # Second call carries a corrective_hint mentioning the
-    # under-budget number.
+    # Second call carries a corrective_hint that references the
+    # SYNTH-target budget (SESSION 253 amendment B) so K6 keeps
+    # aiming low on the retry. For a 90 s request the synth
+    # target is 70 s → synth_min = round(70 * 11 * 0.8) = 616.
     retry_kwargs = fake_brb.call_args_list[1].kwargs
     assert "corrective_hint" in retry_kwargs
-    assert "792" in retry_kwargs["corrective_hint"]  # effective_min
+    assert "616" in retry_kwargs["corrective_hint"]
 
 
 def test_gate_retries_when_long_then_accepts():
@@ -236,6 +240,218 @@ def test_gate_still_short_after_retry_raises():
             )
     assert exc_info.value.reason == DurationContractError.REASON_TOO_SHORT
     assert exc_info.value.actual_chars == 300
+
+
+def test_synthesis_target_multiplier_locked_at_calibrated_value():
+    """SESSION 253 amendment B — the synthesis-target multiplier
+    is empirically calibrated from the D dogfood. Locking the
+    value so accidental drift lights up as an explicit test
+    failure. Recalibrate ONLY from new dogfood evidence."""
+    assert K6_DURATION_SYNTHESIS_TARGET_MULTIPLIER == 0.78
+
+
+def test_calibrated_synthesis_target_90s_is_70s():
+    """The load-bearing case for the SESSION 253 fix: 90 s
+    operator request → K6 sees a 70 s synthesis target."""
+    assert calibrated_synthesis_target(90) == 70
+
+
+def test_calibrated_synthesis_target_120s_is_about_94s():
+    assert calibrated_synthesis_target(120) == 94
+
+
+def test_calibrated_synthesis_target_short_targets_disable_bias():
+    """Below the 30 s calibration floor, the bias is skipped
+    (unvalidated regime; applying 0.78 would push very short
+    scripts under the acceptance floor)."""
+    for short in (5, 10, 20, 29):
+        assert calibrated_synthesis_target(short) == short
+
+
+def test_synth_target_never_leaks_into_prompt_target_arg():
+    """SESSION 253 amendment B — K6's ``build_render_brief`` call
+    must receive the SYNTHESIS target (biased) as its
+    ``target_duration_seconds`` kwarg, NOT the operator-requested
+    target. The prompt LENGTH block and word-budget interpolation
+    derive from whatever this arg is set to."""
+    ws = _workspace("dc-synth-in-prompt@t")
+    tm = _teammate(ws)
+    captured = {}
+
+    def _capture(sp, prompt, **kwargs):
+        captured["kwargs"] = kwargs
+        return _fake_script_result("x" * 990)
+
+    with patch(
+        "character_os.duration_contract.build_render_brief",
+        side_effect=_capture,
+    ):
+        synthesize_with_duration_gate(
+            tm, "topic",
+            target_duration_seconds=90,
+            max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS,
+        )
+    # K6 sees synth target (70), NOT requested target (90).
+    assert captured["kwargs"]["target_duration_seconds"] == 70
+    assert captured["kwargs"]["target_duration_seconds"] != 90
+
+
+def test_synth_target_leak_test_120s_covers_the_general_case():
+    ws = _workspace("dc-synth-120@t")
+    tm = _teammate(ws)
+    captured = {}
+
+    def _capture(sp, prompt, **kwargs):
+        captured["kwargs"] = kwargs
+        return _fake_script_result("x" * 1300)
+
+    with patch(
+        "character_os.duration_contract.build_render_brief",
+        side_effect=_capture,
+    ):
+        synthesize_with_duration_gate(
+            tm, "topic",
+            target_duration_seconds=120,
+            max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS,
+        )
+    assert captured["kwargs"]["target_duration_seconds"] == 94
+
+
+def test_acceptance_band_derives_from_requested_not_synth_target():
+    """SESSION 253 amendment B — 90 s request accepts 792-1188
+    chars (=72-108 s). NOT the synth-target band (770 ideal /
+    616-924 chars for 70 s)."""
+    # A 900-char script for 90 s request is:
+    #   below acceptance-max 1188 → accept
+    #   above synth-max 924 → would REJECT under the wrong contract
+    # Assert we accept it (correct acceptance band).
+    ws = _workspace("dc-accept-band@t")
+    tm = _teammate(ws)
+    with patch(
+        "character_os.duration_contract.build_render_brief",
+        return_value=_fake_script_result("x" * 900),
+    ) as fake_brb:
+        result = synthesize_with_duration_gate(
+            tm, "topic",
+            target_duration_seconds=90,
+            max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS,
+        )
+    # No retry, accepted on first pass.
+    fake_brb.assert_called_once()
+    assert result.brief == "x" * 900
+
+
+def test_180s_synth_budget_still_respects_provider_cap():
+    """SESSION 253 amendment B — for 180 s the synth target is
+    140 s → budget (ideal 1540, min 1232, max 1848). All under
+    the 1900 cap. The K6 prompt must not tell the LLM to aim
+    above the cap even after the calibration bias."""
+    ws = _workspace("dc-180-cap-under-synth@t")
+    tm = _teammate(ws)
+    captured = {}
+
+    def _capture(sp, prompt, **kwargs):
+        captured["kwargs"] = kwargs
+        return _fake_script_result("x" * 1800)
+
+    with patch(
+        "character_os.duration_contract.build_render_brief",
+        side_effect=_capture,
+    ):
+        synthesize_with_duration_gate(
+            tm, "topic",
+            target_duration_seconds=180,
+            max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS,
+        )
+    assert captured["kwargs"]["target_duration_seconds"] == 140
+    # Provider cap flows through untouched — still enforced.
+    assert captured["kwargs"]["max_script_chars"] == AVATAR_SPEECH_SAFE_MAX_CHARS
+
+
+def test_error_message_never_names_synth_target():
+    """SESSION 253 amendment B — error messages must NEVER refer
+    to the calibrated synth target. The operator asked for 90 s;
+    error messages say 90 s (even though K6 was internally
+    aiming at 70 s)."""
+    ws = _workspace("dc-err-msg-req-only@t")
+    tm = _teammate(ws)
+    # 90 s request. K6 delivers 1400 (over acceptance-max 1188)
+    # → compression retry. Retry delivers 1250 (still over
+    # 1188). Rejected as TOO_LONG.
+    with patch(
+        "character_os.duration_contract.build_render_brief",
+        side_effect=[
+            _fake_script_result("x" * 1400),
+            _fake_script_result("x" * 1250),
+        ],
+    ):
+        with pytest.raises(DurationContractError) as exc_info:
+            synthesize_with_duration_gate(
+                tm, "topic",
+                target_duration_seconds=90,
+                max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS,
+            )
+    err = exc_info.value
+    # Reason: too_long (correct classification per amendment A).
+    assert err.reason == DurationContractError.REASON_TOO_LONG
+    # Exception carries REQUESTED target — not synth (70).
+    assert err.target_duration_seconds == 90
+    msg = str(err)
+    # 90-second target must appear (operator asked for 90).
+    assert "90-second target" in msg
+    # 70-second synth target must NOT leak.
+    assert "70-second" not in msg
+    assert "70s" not in msg
+    # Acceptance band uses requested-target bounds: 72-108 s /
+    # 792-1188 chars.
+    assert "108-second" in msg
+    assert "792" in msg
+    assert "1188" in msg
+
+
+def test_retry_still_fires_when_first_pass_below_acceptance_min():
+    """Expansion retry fires when the first pass lands below
+    the REQUESTED-target acceptance minimum. Even though K6 was
+    told to aim at synth (70 s / min 616 chars), the retry
+    decision uses acceptance min (792 chars) — so a 600-char
+    first pass triggers retry."""
+    ws = _workspace("dc-expand-retry@t")
+    tm = _teammate(ws)
+    with patch(
+        "character_os.duration_contract.build_render_brief",
+        side_effect=[
+            _fake_script_result("x" * 600),   # below 792 acceptance min
+            _fake_script_result("x" * 990),   # inside acceptance
+        ],
+    ) as fake_brb:
+        result = synthesize_with_duration_gate(
+            tm, "topic",
+            target_duration_seconds=90,
+            max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS,
+        )
+    assert fake_brb.call_count == 2
+    assert result.brief == "x" * 990
+
+
+def test_retry_still_fires_when_first_pass_above_acceptance_max():
+    """Compression retry fires when the first pass overshoots
+    the REQUESTED-target acceptance max."""
+    ws = _workspace("dc-compress-retry@t")
+    tm = _teammate(ws)
+    with patch(
+        "character_os.duration_contract.build_render_brief",
+        side_effect=[
+            _fake_script_result("x" * 1400),  # over 1188 acceptance max
+            _fake_script_result("x" * 1000),  # inside acceptance
+        ],
+    ) as fake_brb:
+        result = synthesize_with_duration_gate(
+            tm, "topic",
+            target_duration_seconds=90,
+            max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS,
+        )
+    assert fake_brb.call_count == 2
+    assert result.brief == "x" * 1000
 
 
 def test_gate_duration_overshoot_below_provider_cap_raises_too_long():
@@ -359,9 +575,13 @@ def test_gate_180s_1900_char_result_accepts():
 
 
 def test_gate_180s_never_asks_llm_above_provider_cap():
-    """SESSION 253 amendment — the LENGTH block K6 sees for a 180s
+    """SESSION 253 amendment — the LENGTH block K6 sees for a 180 s
     request under the 1900-char cap must not tell the LLM to aim
-    above 1900 or accept above 1900."""
+    above 1900 or accept above 1900.
+
+    Post-amendment-B: K6 sees the SYNTH target (140 s for 180 s
+    requested); the provider cap flow-through is what this test
+    actually guards, plus the shape."""
     ws = _workspace("dc-180s-prompt@t")
     tm = _teammate(ws)
     captured = {}
@@ -380,7 +600,9 @@ def test_gate_180s_never_asks_llm_above_provider_cap():
             max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS,
         )
     assert captured["kwargs"]["target_shape"] == "long_form"
-    assert captured["kwargs"]["target_duration_seconds"] == 180
+    # K6 sees the SYNTH target (140), not the operator-requested
+    # 180. Acceptance still uses 180 (asserted elsewhere).
+    assert captured["kwargs"]["target_duration_seconds"] == 140
     # Provider cap flows through to K6.
     assert captured["kwargs"]["max_script_chars"] == AVATAR_SPEECH_SAFE_MAX_CHARS
 
