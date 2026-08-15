@@ -258,7 +258,7 @@ def test_knowledge_mode_synthesis_runs_exactly_once():
     changes did not introduce a per-chunk fallback."""
     ws, tm = _teammate("dc-once@t")
     with patch(
-        "character_os.script_synthesis.build_render_brief",
+        "character_os.duration_contract.build_render_brief",
         return_value=_canned(_make_words(100)),
     ) as mock_brb:
         long_form_ad(
@@ -281,7 +281,7 @@ def test_chunks_use_synthesized_text_verbatim():
     ws, tm = _teammate("dc-verbatim@t")
     brief = _make_words(100)
     with patch(
-        "character_os.script_synthesis.build_render_brief",
+        "character_os.duration_contract.build_render_brief",
         return_value=_canned(brief),
     ):
         comp = long_form_ad(
@@ -340,7 +340,7 @@ def test_undersized_synthesis_retries_once_then_fails():
         _make_words(110),  # retry, still under
     )
     with patch(
-        "character_os.script_synthesis.build_render_brief",
+        "character_os.duration_contract.build_render_brief",
         side_effect=stub,
     ) as mock_brb:
         with pytest.raises(LongFormDurationError) as exc_info:
@@ -385,7 +385,7 @@ def test_oversized_synthesis_retries_once_then_fails():
         _make_words(450),
     )
     with patch(
-        "character_os.script_synthesis.build_render_brief",
+        "character_os.duration_contract.build_render_brief",
         side_effect=stub,
     ) as mock_brb:
         with pytest.raises(LongFormDurationError) as exc_info:
@@ -416,7 +416,7 @@ def test_retry_converges_into_tolerance_and_ships():
         _make_words(210),  # inside range
     )
     with patch(
-        "character_os.script_synthesis.build_render_brief",
+        "character_os.duration_contract.build_render_brief",
         side_effect=stub,
     ) as mock_brb:
         comp = long_form_ad(
@@ -471,7 +471,7 @@ def test_word_in_budget_but_duration_over_still_rejected():
     # trip the duration cap after the compression retry.
     stub = _stub_returns_progressively(dense_but_wordy, dense_but_wordy)
     with patch(
-        "character_os.script_synthesis.build_render_brief",
+        "character_os.duration_contract.build_render_brief",
         side_effect=stub,
     ):
         with pytest.raises(LongFormDurationError) as exc_info:
@@ -522,7 +522,7 @@ def test_compression_retry_converges_from_over_duration():
 
     stub = _stub_returns_progressively(over_draft, inside_draft)
     with patch(
-        "character_os.script_synthesis.build_render_brief",
+        "character_os.duration_contract.build_render_brief",
         side_effect=stub,
     ) as mock_brb:
         comp = long_form_ad(
@@ -569,7 +569,7 @@ def test_no_chunk_steps_created_when_duration_out_of_tolerance():
         ws, tm = _teammate(f"dc-no-chunks-{direction}@t")
         stub = _stub_returns_progressively(first, second)
         with patch(
-            "character_os.script_synthesis.build_render_brief",
+            "character_os.duration_contract.build_render_brief",
             side_effect=stub,
         ):
             with pytest.raises(LongFormDurationError):
@@ -632,7 +632,7 @@ def test_knowledge_off_long_form_ad_does_not_rewrite_script():
     ws, tm = _teammate("dc-noknow@t")
     finished = _make_words(300)  # 300 words of operator input
     with patch(
-        "character_os.script_synthesis.build_render_brief",
+        "character_os.duration_contract.build_render_brief",
     ) as mock_brb:
         comp = long_form_ad(
             workspace=ws,

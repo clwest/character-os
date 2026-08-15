@@ -110,7 +110,7 @@ def test_use_knowledge_true_synthesizes_exactly_once():
     ws, tm = _workspace_with_teammate("lfk-once@t")
 
     with patch(
-        "character_os.script_synthesis.build_render_brief",
+        "character_os.duration_contract.build_render_brief",
         return_value=_canned_script_result(),
     ) as mock_brb:
         comp = long_form_ad(
@@ -170,7 +170,7 @@ def test_use_knowledge_true_chunks_get_use_knowledge_false():
     ws, tm = _workspace_with_teammate("lfk-chunk-flag@t")
 
     with patch(
-        "character_os.script_synthesis.build_render_brief",
+        "character_os.duration_contract.build_render_brief",
         return_value=_canned_script_result(),
     ):
         comp = long_form_ad(
@@ -209,7 +209,7 @@ def test_use_knowledge_true_chunks_split_from_synthesized_brief():
     ws, tm = _workspace_with_teammate("lfk-chunk-source@t")
 
     with patch(
-        "character_os.script_synthesis.build_render_brief",
+        "character_os.duration_contract.build_render_brief",
         return_value=_canned_script_result(),
     ):
         comp = long_form_ad(
@@ -272,7 +272,7 @@ def test_use_knowledge_false_uses_operator_input_verbatim():
     ) * 2  # long enough to force a multi-chunk plan
 
     with patch(
-        "character_os.script_synthesis.build_render_brief",
+        "character_os.duration_contract.build_render_brief",
     ) as mock_brb:
         comp = long_form_ad(
             workspace=ws,
@@ -311,7 +311,7 @@ def test_use_knowledge_true_persists_synthesis_metadata_on_composition():
     ws, tm = _workspace_with_teammate("lfk-metadata@t")
 
     with patch(
-        "character_os.script_synthesis.build_render_brief",
+        "character_os.duration_contract.build_render_brief",
         return_value=_canned_script_result(),
     ):
         comp = long_form_ad(
@@ -375,7 +375,7 @@ def test_use_knowledge_true_strict_rejection_raises_with_composition_id():
     )
 
     with patch(
-        "character_os.script_synthesis.build_render_brief",
+        "character_os.duration_contract.build_render_brief",
         side_effect=rejection,
     ):
         with pytest.raises(ClaimVerifierError) as exc_info:

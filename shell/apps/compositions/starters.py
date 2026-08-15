@@ -26,6 +26,12 @@ from typing import TYPE_CHECKING
 
 from django.db import transaction
 
+from character_os.claim_verifier import ClaimVerifierError
+from character_os.duration_contract import (
+    DurationContractError,
+    synthesize_with_duration_gate,
+)
+
 from .models import Composition, CompositionStatus, CompositionStep
 from .script_splitter import (
     DEFAULT_CHUNK_MAX_CHARS,
@@ -76,15 +82,21 @@ class LongFormDurationError(Exception):
     Raised by the starter BEFORE any Runway chunk render fires,
     so no video credits are burned on an out-of-tolerance draft.
 
+    SESSION 253 — long_form_ad now delegates to
+    :func:`character_os.duration_contract.synthesize_with_duration_gate`
+    for the retry-then-fail loop. This class is preserved as the
+    long_form_ad-specific specialization that carries the extra
+    Composition-persistence payload the view layer uses. The
+    starter catches the underlying
+    :class:`character_os.duration_contract.DurationContractError`
+    and re-raises as this class with the persistence fields.
+
     The gate is character-based via
     ``_estimate_avatar_speech_seconds`` — Character OS's canonical
     speaking-rate estimator. Word count is used as LLM prompt
     guidance only; the accept/reject decision uses the same
     estimator the rest of the codebase uses to reason about
-    speech duration. Word count can pass while duration fails
-    (the operator caught this: 306 words fit the word budget for
-    120s but estimated at ~170s under the canonical chars/sec
-    rate).
+    speech duration.
 
     The starter creates the failed Composition row (status=FAILED,
     with the actual/target seconds on ``error_message``) and
@@ -385,6 +397,7 @@ def talking_head(
     created_by: "AbstractBaseUser | None" = None,
     verifier_mode: str | None = None,
     opener: str | None = None,
+    target_duration_seconds: int | str | None = None,
 ) -> Composition:
     """Create a single-step ``talking_head`` composition.
 
@@ -426,6 +439,33 @@ def talking_head(
             f"{workspace.pk}"
         )
 
+    # SESSION 253 — coerce target_duration_seconds (DRF select
+    # emits strings). Empty string / None = no duration constraint
+    # (preserves pre-SESSION 253 short-standalone shape).
+    coerced_duration: int | None = None
+    if target_duration_seconds not in (None, "", 0):
+        try:
+            coerced_duration = int(target_duration_seconds)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"talking_head target_duration_seconds must be an integer, "
+                f"got {target_duration_seconds!r}"
+            ) from exc
+    # SESSION 253 amendment 2 — duration is only honored in AI-
+    # synthesized topic mode. When use_knowledge is off the
+    # operator's script is spoken verbatim; silently rewriting
+    # to hit a duration would be user-hostile. Ignore + log so
+    # the invariant is discoverable in the operator's logs
+    # without breaking the request.
+    if coerced_duration is not None and not use_knowledge:
+        logger.info(
+            "starter talking_head ignoring target_duration_seconds=%ds "
+            "because use_knowledge=False — manual scripts are spoken "
+            "verbatim, never rewritten to fit a target duration",
+            coerced_duration,
+        )
+        coerced_duration = None
+
     composition_name = name.strip() or f"Talking-head — {spokesperson.name}"
     composition = Composition.objects.create(
         workspace=workspace,
@@ -448,6 +488,12 @@ def talking_head(
     # the system prompt's standalone-video framing.
     if opener and opener.strip():
         step_params["opener"] = opener.strip()
+    # SESSION 253 — route duration to the avatar_speech primitive
+    # so it can invoke synthesize_with_duration_gate. Only stored
+    # when use_knowledge=True (see guard above); manual-script
+    # requests never carry a duration in step params.
+    if coerced_duration is not None:
+        step_params["target_duration_seconds"] = coerced_duration
 
     CompositionStep.objects.create(
         composition=composition,
@@ -963,31 +1009,20 @@ def long_form_ad(
             ) from exc
 
     # SESSION 251 knowledge ordering fix + duration-driven synthesis.
-    # Synthesize ONCE up front when knowledge mode is on. Reuses
-    # ``build_render_brief`` with ``target_shape="long_form"`` so
-    # the K6 system prompt targets the requested duration instead
-    # of the hidden 60-100-word short-form default.
+    # SESSION 253 — synthesis + retry-then-fail loop lives in
+    # ``character_os.duration_contract`` so long_form_ad and any
+    # future duration-driven recipe share one implementation.
     #
-    # Acceptance gate: character-based via
-    # ``_estimate_avatar_speech_seconds`` — the same canonical
-    # estimator the rest of the codebase uses for speech-duration
-    # math. Word count is passed to the LLM as prompt guidance
-    # only (via build_render_brief's word-budget interpolation).
-    # Rationale: word count is a lossy proxy — 306 words at ~6.1
-    # chars/word estimates ~170s at 11 chars/sec, over-shooting a
-    # 120s target even though the word count fits the budget range.
-    # Duration-first accept/reject keeps prompt guidance and gate
-    # in the same units the estimator + composite trim logic use.
-    #
-    # If under, request ONE bounded expansion pass; if over, request
-    # ONE bounded compression pass. If still outside tolerance after
-    # the corrective pass, fail the composition BEFORE laying down
-    # any chunk steps (zero Runway spend on out-of-tolerance drafts).
+    # ``max_script_chars=None`` here: long_form_ad chunks its
+    # synthesized output at ~1900 chars per chunk (see
+    # ``LONG_FORM_CHUNK_MAX_CHARS`` in ``script_splitter``), so the
+    # helper does NOT need to enforce a provider ceiling at
+    # synthesis time — the chunker handles per-call limits. Compare
+    # to the SESSION 253 topic-driven talking_head path (single
+    # avatar_video call), which passes the default
+    # ``AVATAR_SPEECH_SAFE_MAX_CHARS`` cap.
     synthesis_metadata: dict = {}
     if use_knowledge:
-        from character_os.claim_verifier import ClaimVerifierError
-        from character_os.script_synthesis import build_render_brief
-
         if not target_duration_seconds:
             raise ValueError(
                 "long_form_ad with use_knowledge=True requires "
@@ -995,149 +1030,49 @@ def long_form_ad(
                 "duration-driven; there is no silent short-form fallback"
             )
 
-        # Duration tolerance: ±20% of the target (same tolerance the
-        # LLM word budget uses; kept in seconds because that's the
-        # unit the gate speaks). Corrective hints ALSO include the
-        # character-budget numbers (single source of truth via
-        # ``char_budget_for_duration``) because the writer needs a
-        # concrete character ceiling / floor to rewrite against —
-        # "compress" alone barely trimmed 49 chars on the operator's
-        # Penny brief.
-        from character_os.script_synthesis import char_budget_for_duration
-
-        min_seconds = max(1, int(round(target_duration_seconds * 0.8)))
-        max_seconds = max(min_seconds + 1, int(round(target_duration_seconds * 1.2)))
-        # NOTE: named ``synth_*`` deliberately — do NOT shadow the
-        # function-level ``max_chars`` parameter (which is the naive
-        # chunker's per-chunk cap, default 280). Bug caught SESSION
-        # 251-late: shadowing caused chunker to run with the synth
-        # budget as its per-chunk cap, producing a single mega-chunk
-        # per composition and defeating the whole chunking pipeline.
-        synth_ideal_chars, synth_min_chars, synth_max_chars = (
-            char_budget_for_duration(target_duration_seconds)
-        )
-
-        def _synthesize(hint: str | None = None):
-            return build_render_brief(
+        try:
+            synth = synthesize_with_duration_gate(
                 spokesperson, script,
+                target_duration_seconds=target_duration_seconds,
+                # No provider cap here — long_form_ad chunks output
+                # per LONG_FORM_CHUNK_MAX_CHARS at split time.
+                max_script_chars=None,
                 verifier_mode=verifier_mode,
                 opener=opener,
-                target_shape="long_form",
-                target_duration_seconds=target_duration_seconds,
-                corrective_hint=hint,
+                mock_mode=mock_mode,
             )
-
-        def _measure(text: str) -> tuple[int, int, int]:
-            """(chars, words, estimated_seconds) for a synthesized
-            script — all four numbers surface in logs, in the
-            corrective hint, and on the failure error_message."""
-            chars = len(text)
-            words = len(text.split())
-            seconds = _estimate_avatar_speech_seconds(chars)
-            return chars, words, seconds
-
-        try:
-            synth = _synthesize()
-            actual_chars, actual_words, actual_seconds = _measure(synth.brief)
-            logger.info(
-                "starter long_form_ad first-pass sp=%s target=%ds "
-                "(range %d-%ds) actual=%ds (%d chars / %d words)",
-                spokesperson.id, target_duration_seconds,
-                min_seconds, max_seconds,
-                actual_seconds, actual_chars, actual_words,
+        except DurationContractError as exc:
+            # Wrap the generic contract error into the long_form_ad-
+            # specific ``LongFormDurationError`` that carries the
+            # Composition-persistence payload the view layer needs to
+            # write the FAILED row OUTSIDE its own atomic. No Runway
+            # calls have fired.
+            composition_name = name.strip() or f"Long-form — {script.strip()[:40]}"
+            logger.warning(
+                "starter long_form_ad OUT-OF-TOLERANCE (%s) "
+                "actual=%ds target=%ds range=%d-%ds "
+                "chars=%d words=%d — caller will persist failed row",
+                exc.reason, exc.actual_seconds, exc.target_duration_seconds,
+                exc.min_seconds, exc.max_seconds,
+                exc.actual_chars, exc.actual_words,
             )
-
-            # One bounded correction pass in whichever direction is
-            # needed. Skip the retry when mocked (deterministic mock
-            # brief won't converge on a specific duration anyway).
-            if not mock_mode and actual_seconds < min_seconds:
-                # Character shortfall is the load-bearing number the
-                # writer can act on. Duration + word numbers land in
-                # the hint too, but the character floor is what the
-                # writer targets.
-                shortfall_chars = synth_min_chars - actual_chars
-                hint = (
-                    f"Your previous draft was {actual_chars} characters "
-                    f"({actual_words} words, estimated ~{actual_seconds}s "
-                    f"of speech). Target is {target_duration_seconds}s.\n"
-                    f"REWRITE THE SAME NARRATIVE ABOVE {synth_min_chars} "
-                    f"CHARACTERS (aim for ~{synth_ideal_chars}, do not "
-                    f"exceed {synth_max_chars}). You currently need at "
-                    f"least {shortfall_chars} more characters to meet "
-                    f"the minimum.\n"
-                    f"Preserve the central arc (opening → development → "
-                    f"payoff → single closing invitation), the narrator "
-                    f"perspective, and the factual grounding from the "
-                    f"knowledge chunks. Expand secondary detail from the "
-                    f"knowledge chunks — describe more of the sensory / "
-                    f"emotional beats already implied. Do NOT restart "
-                    f"with a new opening. Do NOT add a second call to "
-                    f"action. Do NOT invent facts not present in the "
-                    f"knowledge chunks."
-                )
-                logger.info("starter long_form_ad expansion retry")
-                synth = _synthesize(hint)
-                actual_chars, actual_words, actual_seconds = _measure(synth.brief)
-            elif not mock_mode and actual_seconds > max_seconds:
-                excess_chars = actual_chars - synth_max_chars
-                hint = (
-                    f"Your previous draft was {actual_chars} characters "
-                    f"({actual_words} words, estimated ~{actual_seconds}s "
-                    f"of speech). Target is {target_duration_seconds}s.\n"
-                    f"REWRITE THE SAME NARRATIVE BELOW {synth_max_chars} "
-                    f"CHARACTERS (aim for ~{synth_ideal_chars}, do not "
-                    f"fall below {synth_min_chars}). You currently have "
-                    f"{excess_chars} characters more than the maximum "
-                    f"and must remove at least that much.\n"
-                    f"Preserve the central arc (opening → development → "
-                    f"payoff → single closing invitation), the narrator "
-                    f"perspective, the factual grounding, and the single "
-                    f"closing CTA. Preferentially remove secondary "
-                    f"detail — decorative adjectives, redundant beats, "
-                    f"repeated framing — while keeping the emotional "
-                    f"progression intact. Do NOT drop the closing call "
-                    f"to action. Do NOT invent facts not present in the "
-                    f"knowledge chunks."
-                )
-                logger.info("starter long_form_ad compression retry")
-                synth = _synthesize(hint)
-                actual_chars, actual_words, actual_seconds = _measure(synth.brief)
-
-            # Still out of tolerance after the corrective pass? Raise
-            # WITHOUT persisting — the failed composition is created by
-            # the caller (the view) OUTSIDE its own ``transaction.atomic()``
-            # wrapper. A nested savepoint inside that outer atomic gets
-            # rolled back on exception propagation, which would lose the
-            # operator's audit row. The exception carries every field
-            # needed to reconstruct the row.
-            if not mock_mode and not (min_seconds <= actual_seconds <= max_seconds):
-                composition_name = name.strip() or f"Long-form — {script.strip()[:40]}"
-                logger.warning(
-                    "starter long_form_ad OUT-OF-TOLERANCE "
-                    "actual=%ds target=%ds range=%d-%ds "
-                    "chars=%d words=%d — caller will persist failed row",
-                    actual_seconds, target_duration_seconds,
-                    min_seconds, max_seconds,
-                    actual_chars, actual_words,
-                )
-                raise LongFormDurationError(
-                    actual_seconds=actual_seconds,
-                    actual_chars=actual_chars,
-                    actual_words=actual_words,
-                    target_duration_seconds=target_duration_seconds,
-                    min_seconds=min_seconds,
-                    max_seconds=max_seconds,
-                    workspace=workspace,
-                    spokesperson=spokesperson,
-                    composition_name=composition_name,
-                    synthesized_brief=synth.brief,
-                    knowledge_chunk_ids=list(synth.chunk_ids or []),
-                    verification_warnings=list(synth.verification_warnings or []),
-                    verification_status=synth.verification_status or "",
-                    mock_mode=mock_mode,
-                    created_by=created_by,
-                )
-
+            raise LongFormDurationError(
+                actual_seconds=exc.actual_seconds,
+                actual_chars=exc.actual_chars,
+                actual_words=exc.actual_words,
+                target_duration_seconds=exc.target_duration_seconds,
+                min_seconds=exc.min_seconds,
+                max_seconds=exc.max_seconds,
+                workspace=workspace,
+                spokesperson=spokesperson,
+                composition_name=composition_name,
+                synthesized_brief=exc.synthesized_text,
+                knowledge_chunk_ids=[],
+                verification_warnings=[],
+                verification_status="",
+                mock_mode=mock_mode,
+                created_by=created_by,
+            ) from exc
         except ClaimVerifierError as exc:
             # K6.4 strict rejection — create the composition anyway
             # in a failed state so the operator sees the rejection

@@ -374,13 +374,17 @@ def test_real_mode_with_knowledge_runs_brief_synthesis() -> None:
     # field.
     fake_script_result.writing_contract_version = 1
 
+    # SESSION 253 — the primitive imports build_render_brief at
+    # module scope now (not lazily), and the no-duration path calls
+    # it directly. Patch at the primitive's namespace so the mock
+    # intercepts the actual call site.
     with patch(
         "apps.compositions.primitives.avatar_speech.MediaEngineClient",
         return_value=cm,
     ), patch(
         "apps.compositions.primitives.avatar_speech.time.sleep",
     ), patch(
-        "character_os.script_synthesis.build_render_brief",
+        "apps.compositions.primitives.avatar_speech.build_render_brief",
         return_value=fake_script_result,
     ) as fake_brief:
         result = GenerateAvatarSpeechPrimitive.execute(

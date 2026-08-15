@@ -1,0 +1,461 @@
+"""SESSION 253 — shared duration-driven synthesis contract.
+
+Any recipe that wants K6 to write to a specific spoken duration
+calls :func:`synthesize_with_duration_gate`. The helper delegates
+to K6's ``build_render_brief`` under ``target_shape="long_form"``,
+runs at most ONE bounded corrective pass, and raises
+``DurationContractError`` if the corrected result is materially
+outside the requested tolerance OR would exceed the provider-safe
+character ceiling. Callers MUST NOT fire the Runway call after a
+``DurationContractError``.
+
+Extracted from ``apps.compositions.starters.long_form_ad``
+(SESSION 251). Both ``long_form_ad`` and the SESSION 253 topic-
+driven ``talking_head`` path now delegate here so there is one
+duration-contract implementation.
+
+Provider-safe ceiling
+---------------------
+No synthesis result passes acceptance if it exceeds the media-
+engine's per-call script cap. :data:`AVATAR_SPEECH_SAFE_MAX_CHARS`
+is 1900 chars = the media-engine 2000-char Pydantic cap
+(``_AVATAR_SPEECH_MAX_SCRIPT_CHARS``) minus a 100-char safety
+margin, matching the SESSION 253 calibration that ships ~172-
+second single-call renders reliably. Anything above 1900 would
+either bounce at media-engine (422) or waste the operator's
+duration budget on a call that then rejects.
+
+Acceptance gate has two conditions (both must hold):
+
+1. ``actual_seconds`` inside ``[target * 0.8, target * 1.2]`` —
+   the existing duration tolerance.
+2. ``actual_chars <= effective_max_chars`` where
+   ``effective_max_chars = min(duration_max_chars, max_script_chars)``.
+
+For a 180-second target with the default 1900-char cap:
+
+* Raw char budget from ``char_budget_for_duration`` = (1980, 1584, 2376).
+* Effective budget after cap = (1850, 1584, 1900).
+* Acceptance band = 1584-1900 chars ≈ 144-172 seconds. A 1900-
+  char result (~172 s) is inside the ±20% seconds tolerance for
+  180 s AND under the provider cap, so it accepts.
+
+Duration incompatibility
+------------------------
+If the requested duration's minimum char budget itself exceeds the
+provider cap (e.g. a 300-second target with the default 1900 cap:
+min chars = 2640 > 1900), synthesis cannot possibly satisfy both.
+Raises ``DurationContractError.REASON_INCOMPATIBLE_WITH_PROVIDER``
+up front, before any LLM call fires.
+"""
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING
+
+from character_os.script_synthesis import (
+    ScriptResult,
+    build_render_brief,
+    char_budget_for_duration,
+    word_budget_for_duration,
+)
+
+if TYPE_CHECKING:
+    from apps.spokespeople.models import Teammate
+
+logger = logging.getLogger(__name__)
+
+
+# SESSION 253 — safe operating ceiling for a single Runway
+# ``/v1/avatar_videos`` call. Media-engine's Pydantic cap is
+# ``_AVATAR_SPEECH_MAX_SCRIPT_CHARS = 2000`` (see
+# ``media-engine/app/routers/internal.py``); 1900 leaves a 100-
+# char safety margin that absorbs K6 overshoot at the ±20 %
+# tolerance band. Reused as the default ``max_script_chars`` in
+# :func:`synthesize_with_duration_gate`.
+AVATAR_SPEECH_SAFE_MAX_CHARS = 1900
+
+# Buffer between the LLM's aim ("aim for ~X chars") and the
+# hard acceptance ceiling. LLMs overshoot targets; aiming exactly
+# at the ceiling pushes the acceptance gate into rejection more
+# often than needed.
+_IDEAL_SAFETY_BUFFER_CHARS = 50
+
+# Same tolerance as the pre-extraction long_form_ad path. Kept
+# here (not re-imported) so the shape of the contract is one
+# read away for future maintainers.
+_DURATION_TOLERANCE = 0.20
+
+
+class DurationContractError(Exception):
+    """Raised when synthesis is materially outside the requested
+    duration tolerance after one corrective pass, or would
+    exceed the provider-safe character ceiling.
+
+    Carries every field a caller needs to persist an audit row
+    and surface an actionable error to the operator without
+    firing the Runway call.
+
+    Backward-compat alias: ``LongFormDurationError`` re-exports
+    this class from :mod:`apps.compositions.starters` so
+    existing catchers continue to work.
+    """
+
+    REASON_TOO_SHORT = "too_short"
+    REASON_TOO_LONG = "too_long"
+    REASON_OVER_PROVIDER_CAP = "over_provider_cap"
+    REASON_INCOMPATIBLE_WITH_PROVIDER = "incompatible_with_provider_cap"
+
+    def __init__(
+        self,
+        *,
+        actual_chars: int,
+        actual_words: int,
+        actual_seconds: int,
+        target_duration_seconds: int,
+        min_seconds: int,
+        max_seconds: int,
+        effective_min_chars: int,
+        effective_max_chars: int,
+        synthesized_text: str,
+        reason: str,
+    ) -> None:
+        self.actual_chars = actual_chars
+        self.actual_words = actual_words
+        self.actual_seconds = actual_seconds
+        self.target_duration_seconds = target_duration_seconds
+        self.min_seconds = min_seconds
+        self.max_seconds = max_seconds
+        self.effective_min_chars = effective_min_chars
+        self.effective_max_chars = effective_max_chars
+        self.synthesized_text = synthesized_text
+        self.reason = reason
+        super().__init__(self._build_message())
+
+    def _build_message(self) -> str:
+        direction = {
+            self.REASON_TOO_SHORT: "too short",
+            self.REASON_TOO_LONG: "too long",
+            self.REASON_OVER_PROVIDER_CAP: (
+                f"over provider ceiling of {self.effective_max_chars} chars"
+            ),
+            self.REASON_INCOMPATIBLE_WITH_PROVIDER: (
+                f"incompatible with provider ceiling of "
+                f"{self.effective_max_chars} chars (min for this "
+                f"duration is {self.effective_min_chars})"
+            ),
+        }.get(self.reason, "outside tolerance")
+
+        if self.reason == self.REASON_INCOMPATIBLE_WITH_PROVIDER:
+            return (
+                f"Duration contract failed ({self.reason}): "
+                f"{self.target_duration_seconds}-second target requires "
+                f"at least {self.effective_min_chars} chars, which exceeds "
+                f"the provider-safe ceiling of {self.effective_max_chars}. "
+                f"Reduce the target duration or split into multiple calls. "
+                f"No Runway call fired."
+            )
+        return (
+            f"Duration contract failed ({self.reason}): synthesized "
+            f"{self.actual_chars} chars / {self.actual_words} words "
+            f"(~{self.actual_seconds}s of speech), which is {direction} "
+            f"for a {self.target_duration_seconds}-second video "
+            f"(accept band {self.min_seconds}-{self.max_seconds}s, "
+            f"{self.effective_min_chars}-{self.effective_max_chars} chars). "
+            f"No Runway call fired."
+        )
+
+
+# ---- helpers ------------------------------------------------------
+
+
+def _measure(text: str) -> tuple[int, int, int]:
+    """(chars, words, estimated_seconds) for a synthesized script.
+    Delegates to the canonical estimator so this file and
+    ``apps.compositions.starters`` stay on the same rate."""
+    from apps.compositions.starters import _estimate_avatar_speech_seconds
+
+    chars = len(text)
+    words = len(text.split())
+    seconds = _estimate_avatar_speech_seconds(chars)
+    return chars, words, seconds
+
+
+def compute_effective_budget(
+    target_duration_seconds: int,
+    max_script_chars: int,
+) -> tuple[int, int, int]:
+    """Return ``(effective_ideal, effective_min, effective_max)``
+    where ``effective_max = min(duration_max, max_script_chars)``.
+
+    Raises ``DurationContractError`` with
+    ``REASON_INCOMPATIBLE_WITH_PROVIDER`` when the requested
+    duration's min char budget itself exceeds the provider cap.
+    """
+    ideal, low, high = char_budget_for_duration(target_duration_seconds)
+    effective_max = min(high, max_script_chars)
+    if low > effective_max:
+        min_s = max(1, int(round(target_duration_seconds * (1 - _DURATION_TOLERANCE))))
+        max_s = max(min_s + 1, int(round(target_duration_seconds * (1 + _DURATION_TOLERANCE))))
+        raise DurationContractError(
+            actual_chars=0, actual_words=0, actual_seconds=0,
+            target_duration_seconds=target_duration_seconds,
+            min_seconds=min_s,
+            max_seconds=max_s,
+            effective_min_chars=low,
+            effective_max_chars=effective_max,
+            synthesized_text="",
+            reason=DurationContractError.REASON_INCOMPATIBLE_WITH_PROVIDER,
+        )
+    effective_ideal = min(ideal, max(low, effective_max - _IDEAL_SAFETY_BUFFER_CHARS))
+    return effective_ideal, low, effective_max
+
+
+def _expansion_hint(
+    *,
+    actual_chars: int,
+    actual_words: int,
+    actual_seconds: int,
+    target_duration_seconds: int,
+    effective_ideal: int,
+    effective_min: int,
+    effective_max: int,
+) -> str:
+    """Concrete character-shortfall hint the LLM can act on.
+    Mirrors the SESSION 251 long_form_ad expansion phrasing."""
+    shortfall_chars = effective_min - actual_chars
+    return (
+        f"Your previous draft was {actual_chars} characters "
+        f"({actual_words} words, estimated ~{actual_seconds}s of "
+        f"speech). Target is {target_duration_seconds}s.\n"
+        f"REWRITE THE SAME NARRATIVE ABOVE {effective_min} CHARACTERS "
+        f"(aim for ~{effective_ideal}, do not exceed {effective_max}). "
+        f"You currently need at least {shortfall_chars} more characters "
+        f"to meet the minimum.\n"
+        f"Preserve the central arc (opening → development → payoff → "
+        f"single closing invitation), the narrator perspective, and "
+        f"the factual grounding from the knowledge chunks. Expand "
+        f"secondary detail from the knowledge chunks — describe more "
+        f"of the sensory / emotional beats already implied. Do NOT "
+        f"restart with a new opening. Do NOT add a second call to "
+        f"action. Do NOT invent facts not present in the knowledge "
+        f"chunks."
+    )
+
+
+def _compression_hint(
+    *,
+    actual_chars: int,
+    actual_words: int,
+    actual_seconds: int,
+    target_duration_seconds: int,
+    effective_ideal: int,
+    effective_min: int,
+    effective_max: int,
+) -> str:
+    """Concrete character-excess hint the LLM can act on. Mirrors
+    the SESSION 251 long_form_ad compression phrasing."""
+    excess_chars = actual_chars - effective_max
+    return (
+        f"Your previous draft was {actual_chars} characters "
+        f"({actual_words} words, estimated ~{actual_seconds}s of "
+        f"speech). Target is {target_duration_seconds}s.\n"
+        f"REWRITE THE SAME NARRATIVE BELOW {effective_max} CHARACTERS "
+        f"(aim for ~{effective_ideal}, do not fall below {effective_min}). "
+        f"You currently have {excess_chars} characters more than the "
+        f"maximum and must remove at least that much.\n"
+        f"Preserve the central arc (opening → development → payoff → "
+        f"single closing invitation), the narrator perspective, the "
+        f"factual grounding, and the single closing CTA. "
+        f"Preferentially remove secondary detail — decorative "
+        f"adjectives, redundant beats, repeated framing — while "
+        f"keeping the emotional progression intact. Do NOT drop the "
+        f"closing call to action. Do NOT invent facts not present in "
+        f"the knowledge chunks."
+    )
+
+
+# ---- public entry point ------------------------------------------
+
+
+def synthesize_with_duration_gate(
+    spokesperson: "Teammate",
+    operator_prompt: str,
+    *,
+    target_duration_seconds: int,
+    max_script_chars: int | None = None,
+    verifier_mode: str | None = None,
+    opener: str | None = None,
+    mock_mode: bool = False,
+) -> ScriptResult:
+    """Duration-driven K6 synthesis with acceptance gate.
+
+    Delegates to :func:`character_os.script_synthesis.build_render_brief`
+    with ``target_shape="long_form"``. Runs at most ONE bounded
+    corrective pass (expand OR compress) when the first synthesis
+    is outside the tolerance band or over the provider ceiling.
+
+    Args:
+        spokesperson: passed through to K6.
+        operator_prompt: the operator's topic / brief.
+        target_duration_seconds: requested spoken duration.
+        max_script_chars: hard provider-safe upper ceiling on the
+            synthesized script. When ``None``, defaults to
+            :data:`AVATAR_SPEECH_SAFE_MAX_CHARS` (1900). Set to
+            ``None`` explicitly if the caller wants no ceiling
+            (e.g. a caller that chunks the output — long_form_ad's
+            legacy behavior).
+        verifier_mode: K6.4 mode override.
+        opener: optional pinned first sentence.
+        mock_mode: skip corrective retry in mock mode
+            (deterministic mock brief won't converge on a
+            specific duration).
+
+    Returns:
+        ``ScriptResult`` on success.
+
+    Raises:
+        DurationContractError: still outside tolerance after one
+            corrective pass, OR over the provider ceiling after
+            one corrective pass, OR the duration is incompatible
+            with the ceiling at all (min chars > ceiling).
+            Caller MUST NOT fire the Runway call.
+    """
+    # ``None`` means "no provider cap — use raw duration tolerance"
+    # (long_form_ad's chunked-output path). Represent that as a
+    # very large integer for the min() math below without adding
+    # branches everywhere. Callers who want the default single-call
+    # cap pass ``AVATAR_SPEECH_SAFE_MAX_CHARS`` explicitly.
+    effective_cap = max_script_chars if max_script_chars is not None else 10**9
+
+    # Up-front incompatibility check — raises before any LLM cost.
+    effective_ideal, effective_min, effective_max = compute_effective_budget(
+        target_duration_seconds, effective_cap,
+    )
+    min_seconds = max(1, int(round(target_duration_seconds * (1 - _DURATION_TOLERANCE))))
+    max_seconds = max(min_seconds + 1, int(round(target_duration_seconds * (1 + _DURATION_TOLERANCE))))
+
+    def _synthesize(hint: str | None = None) -> ScriptResult:
+        return build_render_brief(
+            spokesperson, operator_prompt,
+            verifier_mode=verifier_mode,
+            opener=opener,
+            target_shape="long_form",
+            target_duration_seconds=target_duration_seconds,
+            # Pass max_script_chars through so the LLM sees the
+            # clamped ceiling in the prompt's LENGTH block. None
+            # here means the LLM sees the raw duration budget
+            # (long_form_ad chunks its output — no clamp needed).
+            max_script_chars=max_script_chars,
+            corrective_hint=hint,
+        )
+
+    synth = _synthesize()
+    actual_chars, actual_words, actual_seconds = _measure(synth.brief)
+    logger.info(
+        "synthesize_with_duration_gate first-pass sp=%s target=%ds "
+        "(range %d-%ds, chars %d-%d) actual=%ds (%d chars / %d words) "
+        "cap=%s",
+        spokesperson.pk, target_duration_seconds,
+        min_seconds, max_seconds,
+        effective_min, effective_max,
+        actual_seconds, actual_chars, actual_words,
+        max_script_chars if max_script_chars is not None else "none",
+    )
+
+    # Deterministic-mock path — skip retry (mock brief doesn't
+    # converge on a specific duration) and skip acceptance
+    # (test compositions render stubs, not real Runway).
+    if mock_mode:
+        return synth
+
+    # ONE corrective pass in whichever direction we need.
+    if actual_chars < effective_min:
+        hint = _expansion_hint(
+            actual_chars=actual_chars,
+            actual_words=actual_words,
+            actual_seconds=actual_seconds,
+            target_duration_seconds=target_duration_seconds,
+            effective_ideal=effective_ideal,
+            effective_min=effective_min,
+            effective_max=effective_max,
+        )
+        logger.info("synthesize_with_duration_gate expansion retry")
+        synth = _synthesize(hint)
+        actual_chars, actual_words, actual_seconds = _measure(synth.brief)
+    elif actual_chars > effective_max:
+        hint = _compression_hint(
+            actual_chars=actual_chars,
+            actual_words=actual_words,
+            actual_seconds=actual_seconds,
+            target_duration_seconds=target_duration_seconds,
+            effective_ideal=effective_ideal,
+            effective_min=effective_min,
+            effective_max=effective_max,
+        )
+        logger.info("synthesize_with_duration_gate compression retry")
+        synth = _synthesize(hint)
+        actual_chars, actual_words, actual_seconds = _measure(synth.brief)
+
+    # Acceptance gate. Two-part check:
+    #   (a) char band  [effective_min, effective_max]  — the raw
+    #       provider-safe constraint.
+    #   (b) seconds band [min_seconds, max_seconds]    — the
+    #       operator-visible duration tolerance.
+    # Both must hold. Order matters for the error `reason`:
+    # over-cap is more actionable than merely-over-tolerance,
+    # so we surface REASON_OVER_PROVIDER_CAP first when both
+    # would fire.
+    if actual_chars > effective_max:
+        raise DurationContractError(
+            actual_chars=actual_chars,
+            actual_words=actual_words,
+            actual_seconds=actual_seconds,
+            target_duration_seconds=target_duration_seconds,
+            min_seconds=min_seconds,
+            max_seconds=max_seconds,
+            effective_min_chars=effective_min,
+            effective_max_chars=effective_max,
+            synthesized_text=synth.brief,
+            reason=DurationContractError.REASON_OVER_PROVIDER_CAP,
+        )
+    if not (min_seconds <= actual_seconds <= max_seconds):
+        raise DurationContractError(
+            actual_chars=actual_chars,
+            actual_words=actual_words,
+            actual_seconds=actual_seconds,
+            target_duration_seconds=target_duration_seconds,
+            min_seconds=min_seconds,
+            max_seconds=max_seconds,
+            effective_min_chars=effective_min,
+            effective_max_chars=effective_max,
+            synthesized_text=synth.brief,
+            reason=(
+                DurationContractError.REASON_TOO_SHORT
+                if actual_seconds < min_seconds
+                else DurationContractError.REASON_TOO_LONG
+            ),
+        )
+    if actual_chars < effective_min:
+        raise DurationContractError(
+            actual_chars=actual_chars,
+            actual_words=actual_words,
+            actual_seconds=actual_seconds,
+            target_duration_seconds=target_duration_seconds,
+            min_seconds=min_seconds,
+            max_seconds=max_seconds,
+            effective_min_chars=effective_min,
+            effective_max_chars=effective_max,
+            synthesized_text=synth.brief,
+            reason=DurationContractError.REASON_TOO_SHORT,
+        )
+
+    return synth
+
+
+__all__ = [
+    "AVATAR_SPEECH_SAFE_MAX_CHARS",
+    "DurationContractError",
+    "compute_effective_budget",
+    "synthesize_with_duration_gate",
+]

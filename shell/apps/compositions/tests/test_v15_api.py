@@ -2352,7 +2352,7 @@ def test_long_form_ad_out_of_tolerance_returns_201_with_failed_composition() -> 
     fake_brief = _FakeBrief(oversized)
 
     with patch(
-        "character_os.script_synthesis.build_render_brief",
+        "character_os.duration_contract.build_render_brief",
         return_value=fake_brief,
     ):
         response = client.post(

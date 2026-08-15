@@ -145,6 +145,8 @@ def word_budget_for_duration(target_duration_seconds: int) -> tuple[int, int, in
 def char_budget_for_duration(
     target_duration_seconds: int,
     chars_per_second: int | None = None,
+    *,
+    max_script_chars: int | None = None,
 ) -> tuple[int, int, int]:
     """Return ``(ideal_chars, min_chars, max_chars)`` for a
     long-form duration request. Uses the canonical
@@ -157,6 +159,22 @@ def char_budget_for_duration(
     not just prose asking it to "compress." A hint that reads
     "rewrite below 1584 characters" produces materially different
     output than "please compress."
+
+    SESSION 253 — ``max_script_chars`` (optional) clamps the
+    returned upper bound at a provider-safe ceiling. When set:
+
+    * ``max_chars`` = ``min(raw_max, max_script_chars)``.
+    * ``ideal`` is clipped to sit under ``max_chars`` with a
+      ~50-char safety buffer so the LLM does not aim exactly at
+      the ceiling.
+    * ``min_chars`` is unchanged.
+
+    Callers that chunk their output (``long_form_ad``'s starter)
+    pass ``max_script_chars=None`` and enforce the cap per-chunk
+    at split time. Callers that ship the synthesized text
+    verbatim to a single provider call (topic-driven
+    ``talking_head`` via ``duration_contract``) pass
+    ``AVATAR_SPEECH_SAFE_MAX_CHARS``.
     """
     if chars_per_second is None:
         # Local import to avoid a top-level circular reference
@@ -166,6 +184,13 @@ def char_budget_for_duration(
     ideal = max(1, target_duration_seconds * chars_per_second)
     low = max(1, round(ideal * (1 - LONG_FORM_TOLERANCE)))
     high = max(low + 1, round(ideal * (1 + LONG_FORM_TOLERANCE)))
+
+    if max_script_chars is not None:
+        high = min(high, max_script_chars)
+        # ideal must sit under high; keep it >= low. 50-char
+        # buffer matches ``duration_contract._IDEAL_SAFETY_BUFFER_CHARS``.
+        if ideal > high:
+            ideal = max(low, high - 50)
     return ideal, low, high
 
 
@@ -233,6 +258,7 @@ def build_render_brief(
     opener: str | None = None,
     target_shape: str = "standalone",
     target_duration_seconds: int | None = None,
+    max_script_chars: int | None = None,
     corrective_hint: str | None = None,
 ) -> ScriptResult:
     """Build the brief that gets sent to media-engine.
@@ -350,6 +376,7 @@ def build_render_brief(
             opener=opener,
             target_shape=target_shape,
             target_duration_seconds=target_duration_seconds,
+            max_script_chars=max_script_chars,
             corrective_hint=corrective_hint,
         )
     except Exception:
@@ -423,6 +450,7 @@ def _call_responses_api(
     opener: str | None = None,
     target_shape: str = "standalone",
     target_duration_seconds: int | None = None,
+    max_script_chars: int | None = None,
     corrective_hint: str | None = None,
 ) -> tuple[str, int, int]:
     """Single Responses-API call. Returns ``(text, tokens_in,
@@ -447,6 +475,7 @@ def _call_responses_api(
         chunks=chunks,
         target_shape=target_shape,
         target_duration_seconds=target_duration_seconds,
+        max_script_chars=max_script_chars,
     )
     user = _assemble_task_message(
         operator_prompt=operator_prompt,
@@ -476,12 +505,20 @@ def _assemble_system_prompt(
     chunks: list,
     target_shape: str = "standalone",
     target_duration_seconds: int | None = None,
+    max_script_chars: int | None = None,
 ) -> str:
     """SESSION 253 — assemble the 5-section system prompt.
 
     Sections are labeled and separated. Each section has one
     role and one rule. The precedence rules at the bottom tell
     the model how to resolve conflicts.
+
+    ``max_script_chars`` (optional) clamps the writing-contract's
+    LENGTH block at a provider-safe ceiling — see
+    :func:`char_budget_for_duration`. Duration-driven callers
+    (SESSION 253 ``duration_contract``) pass
+    ``AVATAR_SPEECH_SAFE_MAX_CHARS`` so the LLM aims below the
+    provider cap; callers that chunk their output pass ``None``.
     """
     sections: list[str] = [
         _build_factual_basis_section(spokesperson, chunks=chunks),
@@ -490,6 +527,7 @@ def _assemble_system_prompt(
         _build_writing_contract_section(
             target_shape=target_shape,
             target_duration_seconds=target_duration_seconds,
+            max_script_chars=max_script_chars,
         ),
         _PRECEDENCE_RULES,
     ]
@@ -657,13 +695,23 @@ def _build_writing_contract_section(
     *,
     target_shape: str,
     target_duration_seconds: int | None,
+    max_script_chars: int | None = None,
 ) -> str:
     """§4 Writing Contract — format-specific, character-agnostic.
-    Delegates to ``character_os.writing_contract.WritingContract``."""
+    Delegates to ``character_os.writing_contract.WritingContract``.
+
+    ``max_script_chars`` (SESSION 253) clamps the char budget's
+    upper bound at the provider-safe ceiling when supplied — the
+    LLM sees a smaller acceptance window in the LENGTH block so
+    it aims below the cap on the first pass.
+    """
     char_budget = None
     word_budget = None
     if target_shape == "long_form" and target_duration_seconds:
-        char_budget = char_budget_for_duration(target_duration_seconds)
+        char_budget = char_budget_for_duration(
+            target_duration_seconds,
+            max_script_chars=max_script_chars,
+        )
         word_budget = word_budget_for_duration(target_duration_seconds)
 
     contract_body = WritingContract.for_shape(

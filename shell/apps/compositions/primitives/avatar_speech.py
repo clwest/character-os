@@ -50,10 +50,18 @@ import time
 from typing import Any
 
 from apps.compositions.models import AssetRole, AssetType
+from character_os.claim_verifier import ClaimVerifierError
 from character_os.clients.media_engine import (
     MediaEngineClient,
     MediaEngineError,
 )
+from character_os.duration_contract import (
+    AVATAR_SPEECH_SAFE_MAX_CHARS,
+    DurationContractError,
+    synthesize_with_duration_gate,
+)
+from character_os.script_synthesis import build_render_brief
+from character_os.writing_contract import WRITING_CONTRACT_VERSION
 
 from .mock import PrimitiveError, PrimitiveResult, _deterministic_path
 
@@ -147,11 +155,6 @@ def _maybe_synthesize_script(
     if not use_knowledge:
         return raw_script, [], [], "trusted_passthrough", 0
 
-    # Lazy import — keep this primitive importable even if K6's
-    # script_synthesis isn't wired yet (it is, but defensive).
-    from character_os.claim_verifier import ClaimVerifierError
-    from character_os.script_synthesis import build_render_brief
-
     # K6.4 v1.1 — per-render verifier mode. Picked up from
     # ``step.params['verifier_mode']`` if the caller (starter /
     # API view) set it; otherwise falls back to
@@ -165,12 +168,48 @@ def _maybe_synthesize_script(
     # prompt's standalone-video framing.
     opener = (step.params or {}).get("opener") or None
 
+    # SESSION 253 — duration-driven synthesis. When the step
+    # carries ``target_duration_seconds`` (talking_head with
+    # AI-topic mode and a selected duration), route through
+    # the shared duration-contract helper so a script that
+    # doesn't hit the requested length fails BEFORE the
+    # Runway call. Absence of the field preserves the pre-
+    # SESSION-253 short-standalone behavior (no acceptance
+    # gate, model picks length).
+    target_duration_seconds = (step.params or {}).get(
+        "target_duration_seconds",
+    )
+    if target_duration_seconds:
+        try:
+            target_duration_seconds = int(target_duration_seconds)
+        except (TypeError, ValueError) as exc:
+            raise PrimitiveError(
+                f"generate_avatar_speech target_duration_seconds must be "
+                f"an integer; got {target_duration_seconds!r}"
+            ) from exc
+
     try:
-        result = build_render_brief(
-            composition.spokesperson, raw_script,
-            verifier_mode=verifier_mode,
-            opener=opener,
-        )
+        if target_duration_seconds:
+            # Duration-driven synthesis + acceptance gate. Uses
+            # AVATAR_SPEECH_SAFE_MAX_CHARS as the provider ceiling
+            # because this primitive fires exactly one
+            # ``/v1/avatar_videos`` call — the synthesized script
+            # goes to Runway verbatim, unlike long_form_ad which
+            # chunks first.
+            result = synthesize_with_duration_gate(
+                composition.spokesperson, raw_script,
+                target_duration_seconds=target_duration_seconds,
+                max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS,
+                verifier_mode=verifier_mode,
+                opener=opener,
+                mock_mode=False,
+            )
+        else:
+            result = build_render_brief(
+                composition.spokesperson, raw_script,
+                verifier_mode=verifier_mode,
+                opener=opener,
+            )
     except ClaimVerifierError as exc:
         # Strict mode — surface as a primitive failure so the
         # composition fails before Runway is asked to render
@@ -186,8 +225,6 @@ def _maybe_synthesize_script(
         composition.verification_status = "rejected"
         # SESSION 253 — stamp the contract version even on rejection;
         # the contract WAS applied (K6 ran under it and got rejected).
-        from character_os.writing_contract import WRITING_CONTRACT_VERSION
-
         composition.writing_contract_version = WRITING_CONTRACT_VERSION
         composition.save(
             update_fields=[
@@ -202,6 +239,27 @@ def _maybe_synthesize_script(
             f"({len(exc.unsupported)} unsupported claim(s)): "
             + ", ".join(f"{u.claim!r}" for u in exc.unsupported)
         ) from exc
+    except DurationContractError as exc:
+        # SESSION 253 — duration-driven synthesis failed
+        # acceptance after one bounded corrective pass. Persist
+        # the rejected draft + reason onto the composition
+        # (mirrors K6.4 rejection persistence pattern) and raise
+        # PrimitiveError so the composition transitions to FAILED
+        # BEFORE the media-engine / Runway call. Economic invariant:
+        # zero Runway credits spent on a duration-mismatched script.
+        composition.rejected_synthesis = exc.synthesized_text or ""
+        composition.verification_status = "rejected"
+        composition.writing_contract_version = WRITING_CONTRACT_VERSION
+        composition.error_message = str(exc)
+        composition.save(
+            update_fields=[
+                "rejected_synthesis",
+                "verification_status",
+                "writing_contract_version",
+                "error_message",
+            ],
+        )
+        raise PrimitiveError(str(exc)) from exc
     return (
         result.brief,
         list(result.chunk_ids or []),

@@ -390,6 +390,40 @@ RECIPES: dict[str, Recipe] = {
                     "above verbatim."
                 ),
             ),
+            # SESSION 253 — target duration for AI-synthesized talking
+            # heads. Only applies when \"Use workspace knowledge\" is
+            # ticked. Manual-script mode ignores this field to prevent
+            # silent rewriting of an exact operator script.
+            #
+            # Values coerced to int by the starter (DRF ``choices``
+            # serialize to strings). Format matches
+            # long_form_ad.target_duration_seconds. Empty (\"\") means
+            # \"no duration constraint — use the default short-standalone
+            # shape.\" This preserves the pre-SESSION 253 behavior for
+            # operators who don't touch the field.
+            RecipeField(
+                name="target_duration_seconds", type="select",
+                label="Target duration (AI-synthesized topic only)",
+                required=False, default="",
+                choices=(
+                    {"value": "", "label": "Default (~30-60s standalone)"},
+                    {"value": "30", "label": "30 seconds"},
+                    {"value": "60", "label": "60 seconds"},
+                    {"value": "90", "label": "90 seconds"},
+                    {"value": "120", "label": "2 minutes"},
+                    {"value": "180", "label": "3 minutes"},
+                ),
+                help_text=(
+                    "Applies only when \"Use workspace knowledge\" is "
+                    "ticked. The writer drafts to this length (±20% "
+                    "tolerance, one corrective pass if outside). If the "
+                    "corrected draft still doesn't fit, the composition "
+                    "fails BEFORE any Runway credit is spent. When you "
+                    "supply your own script (checkbox off), this field "
+                    "is ignored — your script is spoken exactly as "
+                    "written."
+                ),
+            ),
             _VERIFIER_MODE_FIELD,
             _OPENER_FIELD,
             _NAME_FIELD,
