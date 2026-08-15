@@ -491,6 +491,65 @@ def test_cost_estimate_defaults_when_duration_missing() -> None:
     assert default_cost > 0
 
 
+def test_gen45_text_to_video_cost_matches_controlled_measurements() -> None:
+    """SESSION 253 empirical calibration lock.
+
+    Two controlled real-Runway renders on the operator's
+    account measured the gen4.5 text_to_video path (no
+    prompt_image) at 12 credits/sec × $0.01/credit = $0.12/sec:
+
+    * 5s consumed 60 credits = $0.60
+    * 10s consumed 120 credits = $1.20
+
+    Third row (20s) proves linear scaling continues past
+    Runway's per-render ceiling — the estimator is
+    duration-generic; recipes that chain/extend are the
+    concern of a different primitive.
+    """
+    assert GenerateVisualClipPrimitive.estimate_cost({"duration": 5}) == 600_000
+    assert GenerateVisualClipPrimitive.estimate_cost({"duration": 10}) == 1_200_000
+    assert GenerateVisualClipPrimitive.estimate_cost({"duration": 20}) == 2_400_000
+
+
+def test_gen45_below_minimum_duration_reports_5s_floor() -> None:
+    """Duration below Runway's 5s minimum still surfaces the
+    real 5s billable floor rather than a misleading smaller
+    number."""
+    below_min = GenerateVisualClipPrimitive.estimate_cost({"duration": 1})
+    floor = GenerateVisualClipPrimitive.estimate_cost({"duration": 5})
+    assert below_min == floor == 600_000
+
+
+def test_gen4_turbo_image_to_video_cost_when_prompt_image_present() -> None:
+    """SESSION 253 calibration.
+
+    A truthy prompt_image param routes the estimator to
+    gen4_turbo (image_to_video) at 5 credits/sec × $0.01 =
+    $0.05/sec. Mirrors media-engine
+    ``/internal/clips/visual/`` routing. Rate confirmed
+    indirectly by the ``cinematic_visual_extended`` real-Runway
+    dogfood (25 credits for 5s of gen4_turbo extend).
+    """
+    assert GenerateVisualClipPrimitive.estimate_cost(
+        {"duration": 5, "prompt_image": "/api/runway/image/abc"},
+    ) == 250_000
+    assert GenerateVisualClipPrimitive.estimate_cost(
+        {"duration": 10, "prompt_image": "/api/runway/image/abc"},
+    ) == 500_000
+
+
+def test_empty_prompt_image_routes_to_gen45_not_gen4turbo() -> None:
+    """An empty or whitespace-only prompt_image isn't a valid
+    image reference; the estimator treats it as text-only and
+    quotes the gen4.5 rate."""
+    assert GenerateVisualClipPrimitive.estimate_cost(
+        {"duration": 5, "prompt_image": ""},
+    ) == 600_000
+    assert GenerateVisualClipPrimitive.estimate_cost(
+        {"duration": 5, "prompt_image": "   "},
+    ) == 600_000
+
+
 def test_composition_cost_estimate_picks_up_visual_clip() -> None:
     ws = _make_workspace("v4estcomp@test.local")
     sp = _make_teammate(ws)

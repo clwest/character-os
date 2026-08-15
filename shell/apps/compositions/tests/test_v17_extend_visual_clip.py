@@ -152,6 +152,24 @@ def test_cost_estimator_floor_for_tiny_durations() -> None:
     assert ExtendVisualClipPrimitive.estimate_cost({"duration": 1}) >= 250_000
 
 
+def test_cost_estimator_matches_session_253_dogfood() -> None:
+    """SESSION 253 empirical confirmation.
+
+    The extend path routes through Runway ``gen4_turbo`` (media-
+    engine ``_EXTEND_MODEL``), which Runway prices at 5
+    credits/sec × $0.01/credit = $0.05/sec. A controlled
+    ``cinematic_visual_extended`` real-Runway render consumed
+    exactly 25 credits for a 5s extend segment, matching that
+    rate.
+
+    Lock the expected estimator values here so any future rate
+    change becomes an explicit code-review event, and so the
+    calibration source of truth is discoverable by grep.
+    """
+    assert ExtendVisualClipPrimitive.estimate_cost({"duration": 5}) == 250_000
+    assert ExtendVisualClipPrimitive.estimate_cost({"duration": 10}) == 500_000
+
+
 def test_cost_estimator_handles_missing_or_bad_duration() -> None:
     """Defensive: param missing or non-numeric → 5s default →
     floor cost."""

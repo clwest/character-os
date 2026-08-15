@@ -68,12 +68,21 @@ from .mock import PrimitiveError, PrimitiveResult, _deterministic_path
 logger = logging.getLogger(__name__)
 
 
-# Cost model. Same per-second rate as V4 generate_visual_clip
-# (Runway gen4_turbo bills at ~$0.05/sec). Only the NEW segment
-# is charged — the source clip is downloaded + ffmpeg-concatted
-# locally, not re-rendered. Q-v17-5 (open) covers cost estimation
-# when source duration is unknown at recipe-time; v1 estimates
-# from the operator-supplied new-segment duration only.
+# Inferred cost model — Runway ``gen4_turbo`` via image_to_video
+# with last-frame extraction (media-engine ``_EXTEND_MODEL``,
+# internal.py:3985). Only the NEW segment is charged — the
+# source clip is downloaded + ffmpeg-concatted locally, not
+# re-rendered. Q-v17-5 (open) covers cost estimation when source
+# duration is unknown at recipe-time; v1 estimates from the
+# operator-supplied new-segment duration only.
+#
+# Rate: **$0.05/sec** = 5 credits/sec × $0.01/credit (Runway
+# public pricing). **Empirically confirmed SESSION 253** via a
+# controlled `cinematic_visual_extended` real-Runway render:
+# 10s gen4.5 base (120 credits) + 5s gen4_turbo extend
+# (25 credits) = 145 credits total, matching operator's account
+# balance delta exactly. The 25-credit / 5s extend figure
+# validates the 5 credits/sec gen4_turbo rate.
 _EXTEND_MICROS_PER_SECOND = 50_000
 _EXTEND_MIN_MICROS = 250_000
 

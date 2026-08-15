@@ -64,11 +64,48 @@ _POLL_INTERVAL_S = 2.0
 _POLL_DEADLINE_S = 6 * 60
 
 
-# Rough cost model — Runway's gen4_turbo / gen4.5 are billed at
-# ~$0.05 / second of output. Use the requested duration as the
-# multiplier with a floor at the 5-second minimum.
-_VISUAL_CLIP_MICROS_PER_SECOND = 50_000
-_VISUAL_CLIP_MIN_MICROS = 250_000
+# Inferred cost model — path-aware. Character OS routes this
+# primitive through two different Runway models depending on
+# whether a prompt/reference image is supplied
+# (media-engine/app/routers/internal.py:966-976, hardcoded switch
+# added in SESSION 179):
+#
+# * **No image → ``gen4.5`` (text_to_video).**
+#   Runway public pricing: 12 credits/sec × $0.01/credit =
+#   **$0.12/sec.** Empirically confirmed SESSION 253 across two
+#   controlled real-Runway renders on the operator's account
+#   (5s consumed 60 credits, 10s consumed 120 credits — direct
+#   Runway API `cost.credits` field on task metadata).
+#
+# * **With image → ``gen4_turbo`` (image_to_video).**
+#   Runway public pricing: 5 credits/sec × $0.01/credit =
+#   **$0.05/sec.** Confirmed SESSION 253 indirectly via the
+#   `cinematic_visual_extended` real-Runway measurement — the
+#   extend segment uses `gen4_turbo` (media-engine
+#   `_EXTEND_MODEL`, internal.py:3985) and consumed exactly 25
+#   credits for 5s (see `extend_visual_clip.py`).
+#
+# The estimator picks the model from `prompt_image` at estimate
+# time. `reference_image` slot inputs (V13 storyboard chain) are
+# resolved at runtime only; recipes that bind the image via slot
+# will OVER-quote by the gen4.5 vs gen4_turbo delta at estimate
+# time, which is operator-safe (over-quoting > under-quoting).
+#
+# Floor: Runway's minimum billable render is 5s on both models.
+# 5s * $0.12 = $0.60 (gen4.5); 5s * $0.05 = $0.25 (gen4_turbo).
+# Explicit floor constants guard duration inputs below 5s so
+# operators still see the true minimum billable quote.
+#
+# **Cost model status:** INFERRED / empirically calibrated —
+# Runway's `/v1/text_to_video` and `/v1/image_to_video` responses
+# do NOT include a cost/credit field, so Character OS cannot
+# store a provider-returned actual. The `cost/credits` field on
+# `GET /v1/tasks/{id}` is the source of truth for reconciliation
+# but is only checkable per-task via a live API round-trip.
+_VISUAL_CLIP_GEN45_MICROS_PER_SECOND = 120_000
+_VISUAL_CLIP_GEN45_MIN_MICROS = 600_000
+_VISUAL_CLIP_GEN4TURBO_MICROS_PER_SECOND = 50_000
+_VISUAL_CLIP_GEN4TURBO_MIN_MICROS = 250_000
 
 
 def _resolve_prompt_image(
@@ -218,15 +255,35 @@ class GenerateVisualClipPrimitive:
 
     @staticmethod
     def estimate_cost(params: dict) -> int:
-        """Estimate cost in micros based on requested duration.
-        Operators see this in the pre-render forecast (V0
-        contract rule 7)."""
-        duration = (params or {}).get("duration") or 5
+        """Estimate cost in micros based on requested duration and
+        the inferred Runway model.
+
+        A truthy ``prompt_image`` param routes to gen4_turbo
+        (image_to_video, $0.05/sec); anything else routes to
+        gen4.5 (text_to_video, $0.12/sec). Path selection mirrors
+        the media-engine's ``/internal/clips/visual/`` handler.
+
+        Operators see this in the pre-render forecast (V0 contract
+        rule 7). Still an INFERRED estimate — Runway's create-task
+        response omits cost/credits, so we can't store a
+        provider-returned actual at run time."""
+        params = params or {}
+        duration = params.get("duration") or 5
         try:
             duration_s = int(duration)
         except (TypeError, ValueError):
             duration_s = 5
+
+        prompt_image = params.get("prompt_image")
+        uses_gen4_turbo = bool(
+            isinstance(prompt_image, str) and prompt_image.strip()
+        )
+        if uses_gen4_turbo:
+            return max(
+                _VISUAL_CLIP_GEN4TURBO_MIN_MICROS,
+                duration_s * _VISUAL_CLIP_GEN4TURBO_MICROS_PER_SECOND,
+            )
         return max(
-            _VISUAL_CLIP_MIN_MICROS,
-            duration_s * _VISUAL_CLIP_MICROS_PER_SECOND,
+            _VISUAL_CLIP_GEN45_MIN_MICROS,
+            duration_s * _VISUAL_CLIP_GEN45_MICROS_PER_SECOND,
         )
