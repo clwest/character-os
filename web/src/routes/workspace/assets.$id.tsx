@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   Copy,
   Check,
+  Download,
   Film,
   FileText,
   Music,
@@ -351,16 +352,29 @@ function MetadataTable({ asset }: { asset: WorkspaceAssetDetail }) {
             {asset.file_path}
           </code>
           <CopyButton value={asset.file_path} ariaLabel="Copy file path" />
-          {asset.file_path.startsWith("http") && (
-            <a
-              href={asset.file_path}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Open file in new tab"
-              className="shrink-0 text-fog hover:text-gold transition-colors"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
+          {(asset.file_path.startsWith("http") || asset.file_path.startsWith("/")) && (
+            <>
+              <a
+                href={asset.file_path}
+                download={assetDownloadName(asset)}
+                aria-label="Download file"
+                className="shrink-0 text-fog hover:text-gold transition-colors"
+                data-testid="asset-download"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </a>
+              {asset.file_path.startsWith("http") && (
+                <a
+                  href={asset.file_path}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Open file in new tab"
+                  className="shrink-0 text-fog hover:text-gold transition-colors"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              )}
+            </>
           )}
         </span>
       ),
@@ -443,6 +457,26 @@ function MetadataTable({ asset }: { asset: WorkspaceAssetDetail }) {
       </dl>
     </section>
   );
+}
+
+// Suggest a friendly download filename. Priority:
+//   1. Asset title (slugified) + inferred extension
+//   2. File-path basename fallback
+// ``download`` respects the value on same-origin URLs (the /data
+// proxy makes media-engine files same-origin); cross-origin URLs
+// gracefully fall back to opening in a new tab where operator can
+// right-click Save As.
+function assetDownloadName(asset: WorkspaceAssetDetail): string {
+  const path = asset.file_path;
+  const extMatch = path.match(/\.(mp4|mov|webm|mp3|wav|png|jpg|jpeg|pdf|txt|md)(?:\?|$)/i);
+  const ext = extMatch?.[1]?.toLowerCase() ?? "";
+  const raw = (asset.title || asset.subject || "asset").trim();
+  const slug = raw
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60) || "asset";
+  return ext ? `${slug}.${ext}` : slug;
 }
 
 // ---- Lineage section --------------------------------------------

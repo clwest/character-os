@@ -5,7 +5,7 @@
  */
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { AlertTriangle, ArrowLeft, CheckCircle2, Circle, CornerDownRight, CornerUpRight, Library, Loader2, MinusCircle, ShieldAlert, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Circle, CornerDownRight, CornerUpRight, Download, Library, Loader2, MinusCircle, ShieldAlert, XCircle } from "lucide-react";
 import { VerificationStatusBadge } from "@/components/verification-status-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -615,14 +615,30 @@ function producedStorageTone(storage: string): string {
 
 function FinalAsset({ composition }: { composition: Composition }) {
   const a = composition.final_asset!;
+  const hasPlayableSrc =
+    !composition.mock_mode &&
+    (a.file_path.startsWith("/") || a.file_path.startsWith("http"));
   return (
     <section
       className="flex flex-col gap-3 rounded-md border bg-card p-5 shadow-paper"
       data-testid="composition-final-asset"
     >
-      <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-        Final output
-      </span>
+      <div className="flex items-start justify-between gap-3">
+        <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+          Final output
+        </span>
+        {hasPlayableSrc && (
+          <Button asChild size="sm" variant="outline" data-testid="composition-download">
+            <a
+              href={a.file_path}
+              download={downloadFilename(composition, a.file_path)}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Download
+            </a>
+          </Button>
+        )}
+      </div>
       <p className="font-mono text-sm break-all">{a.file_path}</p>
       {composition.mock_mode ? (
         <p className="text-xs text-muted-foreground">
@@ -630,7 +646,7 @@ function FinalAsset({ composition }: { composition: Composition }) {
           for real.
         </p>
       ) : (
-        a.file_path.startsWith("/") || a.file_path.startsWith("http") ? (
+        hasPlayableSrc ? (
           <video
             controls
             className="w-full rounded border"
@@ -640,6 +656,25 @@ function FinalAsset({ composition }: { composition: Composition }) {
       )}
     </section>
   );
+}
+
+// Suggest a friendly download name. Priority:
+//   1. Composition name (slugified) + inferred extension
+//   2. The URL's basename (whatever the server serves)
+// Browsers respect ``download`` on same-origin URLs (the /data
+// proxy makes media-engine files same-origin); cross-origin
+// URLs fall back to opening in a new tab, which is still a
+// one-right-click save.
+function downloadFilename(composition: Composition, filePath: string): string {
+  const extMatch = filePath.match(/\.(mp4|mov|webm|mp3|wav|png|jpg|jpeg)(?:\?|$)/i);
+  const ext = extMatch?.[1]?.toLowerCase() ?? "mp4";
+  const raw = (composition.name || "video").trim();
+  const slug = raw
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60) || "video";
+  return `${slug}.${ext}`;
 }
 
 function FailedCallout({ composition }: { composition: Composition }) {
