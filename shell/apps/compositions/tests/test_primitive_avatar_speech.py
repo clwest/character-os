@@ -111,6 +111,7 @@ def _mock_poll_ready(
     task_id: str = "runway_task_v3",
     output_url: str = "/data/_assets/v3-fake.mp4",
     duration: float | None = 7.5,
+    duration_source: str | None = None,
     mock_mode: bool = False,
 ) -> VideoPollResult:
     return VideoPollResult(
@@ -122,6 +123,7 @@ def _mock_poll_ready(
         error=None,
         failure_code=None,
         mock_mode=mock_mode,
+        duration_source=duration_source,
     )
 
 
@@ -249,6 +251,93 @@ def test_real_mode_primitive_fires_create_and_polls_until_ready() -> None:
     assert spec["task_id"] == "runway_task_real_v3"
     assert spec["used_knowledge"] is False
     assert spec["duration_estimated"] is False
+    # SESSION 253 Stage 2 — poll didn't declare a source, so
+    # the primitive marks the duration as provider-reported
+    # (forward-compat with any provider endpoint that returns
+    # duration in its own payload without ffprobing).
+    assert spec["duration_source"] == "provider_reported"
+
+
+def test_real_mode_persists_media_probe_provenance() -> None:
+    """SESSION 253 Stage 2 — when media-engine ffprobed the
+    output URL, it returns ``duration_source="media_probe"`` on
+    the poll response. The primitive must persist that provenance
+    on the asset so downstream analytics never confuse a real
+    ffprobe measurement for a shell-side estimate."""
+    ws = _make_workspace("v3mediaprobe@test.local")
+    sp = _make_teammate(ws)
+    comp = Composition.objects.create(
+        workspace=ws, spokesperson=sp, name="mediaprobe",
+    )
+    step = CompositionStep.objects.create(
+        composition=comp, position=0,
+        primitive="generate_avatar_speech",
+        params={"script": "Tell me about the calm bend."},
+    )
+
+    create_result = _mock_create_result("runway_task_mp")
+    polls = [_mock_poll_ready(
+        "runway_task_mp",
+        duration=62.691,
+        duration_source="media_probe",
+    )]
+    cm, _fake = _patched_client(create_result, polls)
+
+    with patch(
+        "apps.compositions.primitives.avatar_speech.MediaEngineClient",
+        return_value=cm,
+    ), patch(
+        "apps.compositions.primitives.avatar_speech.time.sleep",
+    ):
+        result = GenerateAvatarSpeechPrimitive.execute(
+            step=step, resolved_inputs=[], mock_mode=False,
+        )
+
+    # Real MP4 length flows through to the asset.
+    assert result.duration_ms == 62_691
+    spec = result.extra_source_spec
+    assert spec["duration_estimated"] is False
+    assert spec["duration_source"] == "media_probe"
+
+
+def test_real_mode_marks_estimated_provenance_on_fallback() -> None:
+    """SESSION 253 Stage 2 — when media-engine returns no duration
+    (poll payload has ``duration_seconds=None`` and no source),
+    the primitive falls back to the script-length estimator AND
+    marks ``duration_source="estimated"`` so no downstream
+    consumer treats the fabricated number as a measurement."""
+    ws = _make_workspace("v3estprov@test.local")
+    sp = _make_teammate(ws)
+    comp = Composition.objects.create(
+        workspace=ws, spokesperson=sp, name="estprov",
+    )
+    step = CompositionStep.objects.create(
+        composition=comp, position=0,
+        primitive="generate_avatar_speech",
+        params={"script": "x" * 110},
+    )
+
+    create_result = _mock_create_result("runway_task_estprov")
+    polls = [_mock_poll_ready(
+        "runway_task_estprov", duration=None, duration_source=None,
+    )]
+    cm, _fake = _patched_client(create_result, polls)
+
+    with patch(
+        "apps.compositions.primitives.avatar_speech.MediaEngineClient",
+        return_value=cm,
+    ), patch(
+        "apps.compositions.primitives.avatar_speech.time.sleep",
+    ):
+        result = GenerateAvatarSpeechPrimitive.execute(
+            step=step, resolved_inputs=[], mock_mode=False,
+        )
+
+    # 110 chars @ 11 cps → 10 000 ms.
+    assert result.duration_ms == 10_000
+    spec = result.extra_source_spec
+    assert spec["duration_estimated"] is True
+    assert spec["duration_source"] == "estimated"
 
 
 def test_real_mode_falls_back_to_script_length_estimate_when_poll_lacks_duration() -> None:

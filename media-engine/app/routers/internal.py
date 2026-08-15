@@ -755,13 +755,34 @@ class InternalAvatarSpeechCreateResponse(BaseModel):
 class InternalTaskPollResponse(BaseModel):
     """Generalised poll response. Identical shape to the legacy
     ``InternalVideoPollResponse`` — same Runway task ID space, so
-    both async primitive surfaces share one poll contract."""
+    both async primitive surfaces share one poll contract.
+
+    SESSION 253 Stage 2 — ``duration_source`` provenance marker
+    added so consumers can tell whether ``duration_seconds`` is
+    (a) the real MP4 length measured by ffprobe against the
+    provider's output URL, or (b) never populated by media-engine
+    (Runway avatar_videos doesn't return duration; the shell
+    primitive falls back to a script-length estimator). Value:
+
+    * ``"media_probe"`` — media-engine ffprobed the output URL and
+      returned the real MP4 duration.
+    * ``None`` — media-engine did not populate ``duration_seconds``;
+      the shell primitive should fall back to its estimator and
+      record ``duration_source="estimated"`` on the asset.
+
+    (There is no ``"provider_reported"`` value at this time.
+    Runway's ``/v1/avatar_videos`` and ``/v1/tasks/{id}`` do not
+    surface a duration field; if a future provider endpoint does
+    return duration in its own payload, add ``"provider_reported"``
+    then.)
+    """
 
     task_id: str
     status: str  # "pending" | "rendering" | "ready" | "failed"
     progress: Optional[float] = None
     output_url: Optional[str] = None
     duration_seconds: Optional[float] = None
+    duration_source: Optional[str] = None
     error: Optional[str] = None
     failure_code: Optional[str] = None
     mock_mode: bool
@@ -862,13 +883,89 @@ def _runway_headers(settings: Settings) -> dict[str, str]:
     }
 
 
+def _probe_media_duration_from_url(
+    url: str,
+    *,
+    timeout_s: int = 30,
+) -> Optional[float]:
+    """SESSION 253 Stage 2 — ffprobe a remote MP4 URL and return
+    its duration in seconds. Returns ``None`` on any failure
+    (missing binary, non-zero exit, unparseable output, timeout,
+    OS error). Callers treat ``None`` as "fall back to whatever
+    provenance you had before."
+
+    Ground truth for talking-head duration on the Character OS
+    stack. Runway's ``/v1/avatar_videos`` doesn't return a
+    duration; the pre-Stage-2 media-engine returned ``None`` for
+    that field, which forced the shell primitive to estimate.
+    Estimator error accumulated into fabricated ``duration_ms``
+    on the Asset (SESSION 253 dogfood: composition ``fd6a7e28``
+    persisted 93 s for a real 62 s video). ffprobe against the
+    provider's CloudFront URL closes that gap without an extra
+    provider call.
+    """
+    import shutil
+    import subprocess
+
+    if not shutil.which("ffprobe"):
+        logger.warning(
+            "ffprobe not on PATH; can't measure MP4 duration for %s",
+            url[:120],
+        )
+        return None
+    try:
+        out = subprocess.run(
+            [
+                "ffprobe", "-v", "error",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                url,
+            ],
+            capture_output=True, text=True, timeout=timeout_s,
+        )
+    except subprocess.TimeoutExpired:
+        logger.warning(
+            "ffprobe timeout (%ds) probing %s", timeout_s, url[:120],
+        )
+        return None
+    except OSError as exc:
+        logger.warning(
+            "ffprobe OS error probing %s: %s", url[:120], exc,
+        )
+        return None
+    if out.returncode != 0:
+        logger.warning(
+            "ffprobe non-zero rc=%d for %s: stderr=%s",
+            out.returncode, url[:120], out.stderr.strip()[:200],
+        )
+        return None
+    try:
+        return float(out.stdout.strip())
+    except ValueError:
+        logger.warning(
+            "ffprobe unparseable output for %s: %r",
+            url[:120], out.stdout.strip()[:200],
+        )
+        return None
+
+
 def _poll_runway_task(
     task_id: str,
     settings: Settings,
 ) -> InternalTaskPollResponse | JSONResponse:
     """Shared polling logic for ``GET /internal/tasks/{task_id}/``
     and the legacy ``GET /internal/videos/{task_id}/``. Both routes
-    hit the same Runway task ID space."""
+    hit the same Runway task ID space.
+
+    SESSION 253 Stage 2 — on terminal-ready polls with an
+    ``output_url``, ffprobe the URL and populate
+    ``duration_seconds`` + ``duration_source="media_probe"`` so
+    the shell primitive persists a real measurement rather than a
+    fabricated estimator output. Non-terminal polls skip the
+    probe (no output_url yet). ffprobe failure falls through to
+    ``duration_seconds=None`` — shell primitive already handles
+    that as the fallback-to-estimator path.
+    """
     try:
         runway_resp = runway_get_task(task_id, settings)
     except httpx.HTTPStatusError as exc:
@@ -889,12 +986,36 @@ def _poll_runway_task(
 
     contract_status = _RUNWAY_TO_CONTRACT_STATUS.get(runway_resp.status, "pending")
     output_url = runway_resp.output[0] if runway_resp.output else None
+
+    # SESSION 253 Stage 2 — measure real MP4 duration on terminal
+    # ready polls. Only ffprobe when we have an output URL AND
+    # the task actually succeeded (skip mid-poll cycles + failed
+    # tasks — no output URL to probe). Non-mock only; mock task
+    # ids point at a demo sample-lib URL and probing it would
+    # burn ~1 s per test without adding signal.
+    duration_seconds: Optional[float] = None
+    duration_source: Optional[str] = None
+    if (
+        contract_status == "ready"
+        and output_url
+        and not runway_resp.mock_mode
+    ):
+        probed = _probe_media_duration_from_url(output_url)
+        if probed is not None:
+            duration_seconds = probed
+            duration_source = "media_probe"
+            logger.info(
+                "internal task poll ffprobed task=%s duration=%.3fs",
+                task_id, probed,
+            )
+
     return InternalTaskPollResponse(
         task_id=task_id,
         status=contract_status,
         progress=runway_resp.progress if contract_status != "ready" else 1.0,
         output_url=output_url,
-        duration_seconds=None,
+        duration_seconds=duration_seconds,
+        duration_source=duration_source,
         error=runway_resp.failure_reason if contract_status == "failed" else None,
         failure_code=None,
         mock_mode=runway_resp.mock_mode,

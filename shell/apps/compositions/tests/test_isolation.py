@@ -63,6 +63,13 @@ ALLOWED_FILES = {
     "apps/compositions/tests/test_isolation.py",
     "apps/compositions/tests/test_runtime.py",
     "apps/compositions/tests/test_primitive_avatar_speech.py",
+    "apps/compositions/tests/test_duration_contract_talking_head.py",
+    # SESSION 209 — customer teammate delete flow test seeds
+    # Composition + Asset rows to verify the historical-output
+    # preservation contract (deleting the last spokesperson keeps
+    # prior compositions/transcripts intact). Sanctioned test-side
+    # writer; the pre_save signal still fires on every create.
+    "apps/spokespeople/tests/test_delete.py",
     "apps/compositions/tests/test_primitive_visual_clip.py",
     "apps/compositions/tests/test_v5_long_form.py",
     "apps/compositions/tests/test_v7_composite.py",

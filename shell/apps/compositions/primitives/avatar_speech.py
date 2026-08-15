@@ -418,19 +418,42 @@ class GenerateAvatarSpeechPrimitive:
         else:
             extra["used_knowledge"] = False
 
-        # Duration resolution: Runway's avatar_videos poll doesn't
-        # surface ``duration_seconds`` today (the media-engine
-        # forwards ``None``). When that happens, fall back to a
-        # script-length estimate so downstream composite steps can
-        # trim their backdrop to the speech length instead of
-        # padding with silence. Stamp ``duration_estimated`` on the
-        # source_spec so the audit trail records the fallback.
+        # Duration resolution — SESSION 253 Stage 2 provenance.
+        #
+        # Three cases:
+        #
+        #   * ``duration_seconds`` populated AND ``duration_source``
+        #     supplied → real measurement (media-engine ffprobed
+        #     the output URL, provenance flows through).
+        #   * ``duration_seconds`` populated, no source given →
+        #     provider-reported (kept for forward-compat if a
+        #     future endpoint returns duration from its own
+        #     payload without ffprobing).
+        #   * ``duration_seconds is None`` → media-engine could
+        #     neither ffprobe nor read from the provider. Fall back
+        #     to the shell-side script-length estimator and mark
+        #     ``duration_source="estimated"`` so downstream analytics
+        #     never confuse a fabricated number for a measurement.
+        #
+        # ``duration_estimated`` is kept as a boolean mirror for
+        # backward-compat with any consumer that reads that flag.
         if terminal.duration_seconds is not None:
             duration_ms = int(terminal.duration_seconds * 1000)
             extra["duration_estimated"] = False
+            extra["duration_source"] = (
+                terminal.duration_source or "provider_reported"
+            )
         else:
             duration_ms = _estimate_duration_ms_from_script(len(brief))
             extra["duration_estimated"] = True
+            extra["duration_source"] = "estimated"
+            logger.warning(
+                "generate_avatar_speech step=%s task=%s: media-engine "
+                "did not return a measured duration; persisting "
+                "estimator fallback (%d ms from %d chars @ %d cps)",
+                step.id, task_id, duration_ms, len(brief),
+                _AVATAR_SPEECH_CHARS_PER_SECOND,
+            )
 
         return PrimitiveResult(
             asset_type=AssetType.CLIP,

@@ -382,7 +382,17 @@ class ExtendClipResult:
 
 @dataclass
 class VideoPollResult:
-    """Decoded response from ``GET /internal/videos/{task_id}/``."""
+    """Decoded response from ``GET /internal/videos/{task_id}/``.
+
+    SESSION 253 Stage 2 — ``duration_source`` mirrors the
+    media-engine's provenance marker. When the media-engine
+    ffprobes the output URL, ``duration_seconds`` is a real
+    measurement and ``duration_source == "media_probe"``. When
+    the media-engine can't determine duration,
+    ``duration_seconds`` is ``None`` and ``duration_source`` is
+    ``None`` — shell callers fall back to their local estimator
+    and record ``duration_source="estimated"`` on the asset.
+    """
 
     task_id: str
     status: str  # "pending" | "rendering" | "ready" | "failed"
@@ -392,6 +402,7 @@ class VideoPollResult:
     error: str | None
     failure_code: str | None
     mock_mode: bool
+    duration_source: str | None = None
 
     @property
     def terminal(self) -> bool:
@@ -1384,6 +1395,7 @@ class MediaEngineClient:
                 error=data.get("error"),
                 failure_code=data.get("failure_code"),
                 mock_mode=bool(data.get("mock_mode", False)),
+                duration_source=data.get("duration_source"),
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise MediaEngineError(
