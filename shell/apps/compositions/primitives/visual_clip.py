@@ -161,7 +161,9 @@ class GenerateVisualClipPrimitive:
                 height=720,
                 mime_type="video/mp4",
                 size_bytes=1024 * 1024,
-                cost_micros=GenerateVisualClipPrimitive.estimate_cost(step.params or {}),
+                cost_micros=GenerateVisualClipPrimitive.estimate_cost(
+                    step.params or {}, inputs=resolved_inputs,
+                ),
                 extra_source_spec={
                     "primitive_kind": "generate_visual_clip",
                     "mock": True,
@@ -248,25 +250,42 @@ class GenerateVisualClipPrimitive:
                 else (int(duration) * 1000 if duration else None)
             ),
             mime_type="video/mp4",
-            cost_micros=GenerateVisualClipPrimitive.estimate_cost(step.params or {}),
+            cost_micros=GenerateVisualClipPrimitive.estimate_cost(
+                    step.params or {}, inputs=resolved_inputs,
+                ),
             extra_source_spec=extra,
             role=AssetRole.BACKDROP.value,
         )
 
     @staticmethod
-    def estimate_cost(params: dict) -> int:
+    def estimate_cost(
+        params: dict,
+        *,
+        inputs: list | None = None,
+    ) -> int:
         """Estimate cost in micros based on requested duration and
         the inferred Runway model.
 
-        A truthy ``prompt_image`` param routes to gen4_turbo
-        (image_to_video, $0.05/sec); anything else routes to
-        gen4.5 (text_to_video, $0.12/sec). Path selection mirrors
-        the media-engine's ``/internal/clips/visual/`` handler.
+        Routing (mirrors media-engine ``/internal/clips/visual/``):
+
+        1. Truthy ``params["prompt_image"]`` → **gen4_turbo**
+           (image_to_video, $0.05/sec).
+        2. ``inputs`` contains an entry with ``slot="reference_image"``
+           — either raw wiring from ``CompositionStep.inputs`` (has
+           ``asset_id`` / ``from_step_position``) or runtime-resolved
+           inputs (has an ``asset``) → **gen4_turbo**. Storyboard
+           recipes route their image-to-video via slot wiring, not
+           via a params-side ``prompt_image``, so this branch is
+           the load-bearing one for the storyboard_ad cost
+           estimate (SESSION 253 dogfood calibration).
+        3. Otherwise → **gen4.5** (text_to_video, $0.12/sec).
 
         Operators see this in the pre-render forecast (V0 contract
-        rule 7). Still an INFERRED estimate — Runway's create-task
-        response omits cost/credits, so we can't store a
-        provider-returned actual at run time."""
+        rule 7). Still an INFERRED / empirically calibrated
+        estimate — Runway's create-task response omits
+        cost/credits, so we can't store a provider-returned
+        actual at run time; reconciliation requires a post-hoc
+        ``GET /v1/tasks/{id}`` round trip."""
         params = params or {}
         duration = params.get("duration") or 5
         try:
@@ -278,6 +297,12 @@ class GenerateVisualClipPrimitive:
         uses_gen4_turbo = bool(
             isinstance(prompt_image, str) and prompt_image.strip()
         )
+        if not uses_gen4_turbo:
+            for entry in (inputs or []):
+                if isinstance(entry, dict) and entry.get("slot") == "reference_image":
+                    uses_gen4_turbo = True
+                    break
+
         if uses_gen4_turbo:
             return max(
                 _VISUAL_CLIP_GEN4TURBO_MIN_MICROS,

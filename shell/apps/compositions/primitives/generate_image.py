@@ -43,9 +43,19 @@ from .mock import PrimitiveError, PrimitiveResult, _deterministic_path
 logger = logging.getLogger(__name__)
 
 
-# Cost model: gen4_image is ~$0.04 per image. Most storyboards
-# need 3 images; v1 uses a flat 40k-micro estimate.
-_GENERATE_IMAGE_MICROS = 40_000
+# Inferred cost model — Runway ``gen4_image`` via text_to_image.
+# Runway public pricing: 5 credits per image × $0.01/credit =
+# **$0.05/image.** Empirically confirmed SESSION 253 via the
+# storyboard_ad dogfood: the baseline 3-shot recipe consumed 90
+# credits total, of which 75 attributed to gen4_turbo image_to_video
+# (3 shots × 25 credits each, provider-confirmed via Runway task
+# metadata) and the remaining 15 credits decompose as exactly 5
+# credits × 3 gen4_image calls. Prior estimate ($0.04) was 20% low.
+#
+# Still INFERRED — Runway's text_to_image create-task response
+# does not include a cost/credit field; reconciliation requires a
+# post-hoc GET /v1/tasks/{id} round trip.
+_GENERATE_IMAGE_MICROS = 50_000
 
 
 SUPPORTED_IMAGE_RATIOS: frozenset[str] = frozenset({

@@ -27,12 +27,26 @@ def estimate_step_cost(step) -> int:
     """Estimate one step's cost in micros from its primitive +
     params. Returns 0 if the primitive is unknown (the step
     will fail at execute_composition time with a clearer
-    error than what the cost estimator could produce here)."""
+    error than what the cost estimator could produce here).
+
+    Some primitives (currently ``generate_visual_clip``) also
+    consume the step's raw ``inputs`` wiring to distinguish
+    routing decisions that aren't visible in ``params`` alone
+    — e.g. a slot-wired ``reference_image`` from an upstream
+    ``generate_image`` step changes the Runway model from
+    gen4.5 to gen4_turbo. The dispatch here tries the
+    inputs-aware call first and falls back to the params-only
+    signature so unrelated primitives don't need churn."""
     try:
         primitive = get_primitive(step.primitive)
     except UnknownPrimitiveError:
         return 0
-    return primitive.estimate_cost(step.params or {})
+    params = step.params or {}
+    inputs = step.inputs or []
+    try:
+        return primitive.estimate_cost(params, inputs=inputs)
+    except TypeError:
+        return primitive.estimate_cost(params)
 
 
 def estimate_composition_cost(composition) -> int:

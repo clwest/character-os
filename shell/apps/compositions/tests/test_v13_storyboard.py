@@ -511,6 +511,88 @@ def test_storyboard_ad_intermediate_assets_persist_with_composition() -> None:
 
 
 def test_generate_image_cost_estimate_is_realistic() -> None:
-    """gen4_image is $0.04/image; estimate should sit well
-    above the local-ffmpeg-only primitives' floors."""
+    """gen4_image is $0.05/image (5 credits × $0.01/credit,
+    Runway published rate — confirmed by SESSION 253 storyboard
+    dogfood). Estimate must sit well above the local-ffmpeg-only
+    primitives' floors."""
     assert GenerateImagePrimitive.estimate_cost({}) >= 20_000
+
+
+def test_generate_image_cost_matches_runway_gen4_image_rate() -> None:
+    """SESSION 253 empirical calibration lock.
+
+    Runway `gen4_image` bills 5 credits per image =
+    **$0.05/image**. The baseline storyboard_ad dogfood
+    consumed 90 credits total for 3 images + 3 gen4_turbo
+    clips; the 3 clips accounted for exactly 75 credits
+    (provider-confirmed via Runway task metadata), so the 3
+    images consumed the remaining 15 credits = 5 credits/image
+    exactly."""
+    assert GenerateImagePrimitive.estimate_cost({}) == 50_000
+
+
+def test_storyboard_ad_baseline_forecast_matches_dogfood() -> None:
+    """SESSION 253 baseline storyboard_ad forecast lock.
+
+    Baseline recipe (7 steps, no per-shot extends):
+
+    * 3 × generate_image @ $0.05 = $0.15
+    * 3 × generate_visual_clip (5s, slot-wired reference_image)
+      → gen4_turbo image_to_video @ $0.25/shot = $0.75
+    * 1 × concat_clips (~$0.0001, local ffmpeg)
+    * **Forecast ≈ $0.90** — matches provider spend of 90
+      credits × $0.01 = $0.90 exactly (rounding the tiny
+      concat overhead).
+    """
+    from apps.compositions.cost import estimate_composition_cost
+
+    ws = _make_workspace("storyboard_baseline_forecast@test.local")
+    sp = _make_teammate(ws)
+    comp = storyboard_ad(
+        workspace=ws, spokesperson=sp,
+        hook_prompt="Hook.",
+        action_prompt="Action.",
+        payoff_prompt="Payoff.",
+        clip_duration=5,
+        use_extend_for_shots=False,
+        mock_mode=True,
+    )
+    total = estimate_composition_cost(comp)
+    assert 895_000 <= total <= 905_000, (
+        f"baseline storyboard_ad forecast {total} micros "
+        f"outside expected ~$0.90 band"
+    )
+
+
+def test_storyboard_ad_smooth_forecast_matches_dogfood() -> None:
+    """SESSION 253 smooth (per-shot extend) storyboard_ad
+    forecast lock.
+
+    Smooth variant adds 3 × extend_visual_clip (5s each,
+    gen4_turbo at $0.25) on top of baseline:
+
+    * 3 × generate_image @ $0.05 = $0.15
+    * 3 × generate_visual_clip (slot image) @ $0.25 = $0.75
+    * 3 × extend_visual_clip (5s) @ $0.25 = $0.75
+    * 1 × concat_clips (~$0.0001)
+    * **Forecast ≈ $1.65** — matches provider spend of 165
+      credits × $0.01 = $1.65 exactly.
+    """
+    from apps.compositions.cost import estimate_composition_cost
+
+    ws = _make_workspace("storyboard_smooth_forecast@test.local")
+    sp = _make_teammate(ws)
+    comp = storyboard_ad(
+        workspace=ws, spokesperson=sp,
+        hook_prompt="Hook.",
+        action_prompt="Action.",
+        payoff_prompt="Payoff.",
+        clip_duration=5,
+        use_extend_for_shots=True,
+        mock_mode=True,
+    )
+    total = estimate_composition_cost(comp)
+    assert 1_645_000 <= total <= 1_655_000, (
+        f"smooth storyboard_ad forecast {total} micros "
+        f"outside expected ~$1.65 band"
+    )

@@ -550,6 +550,52 @@ def test_empty_prompt_image_routes_to_gen45_not_gen4turbo() -> None:
     ) == 600_000
 
 
+def test_slot_wired_reference_image_routes_to_gen4_turbo() -> None:
+    """SESSION 253 storyboard_ad calibration lock.
+
+    Storyboard recipes wire the ``reference_image`` via
+    ``CompositionStep.inputs`` (raw JSON with
+    ``from_step_position``), NOT via a params-side
+    ``prompt_image``. The estimator must accept ``inputs`` and
+    treat any ``reference_image`` slot entry as evidence of
+    the gen4_turbo image_to_video route ($0.05/sec).
+
+    Baseline storyboard_ad dogfood: each 5s shot billed
+    exactly 25 credits = $0.25 (gen4_turbo). The prior
+    estimator ignored slot wiring and quoted the gen4.5 rate
+    ($0.60), over-quoting by 2.4×.
+    """
+    inputs = [{"slot": "reference_image", "from_step_position": 0}]
+    assert GenerateVisualClipPrimitive.estimate_cost(
+        {"duration": 5}, inputs=inputs,
+    ) == 250_000
+    assert GenerateVisualClipPrimitive.estimate_cost(
+        {"duration": 10}, inputs=inputs,
+    ) == 500_000
+
+
+def test_resolved_inputs_reference_image_also_routes_to_gen4_turbo() -> None:
+    """At runtime write-back, ``resolved_inputs`` has the shape
+    ``[{"slot": ..., "asset": <Asset>}, ...]``. The estimator
+    should treat that shape identically to raw wiring — both
+    indicate a gen4_turbo image_to_video route."""
+    class _FakeAsset:
+        pass
+    resolved = [{"slot": "reference_image", "asset": _FakeAsset()}]
+    assert GenerateVisualClipPrimitive.estimate_cost(
+        {"duration": 5}, inputs=resolved,
+    ) == 250_000
+
+
+def test_inputs_without_reference_image_slot_stays_gen45() -> None:
+    """Other slot types (backdrop, source, etc.) must not flip
+    routing to gen4_turbo — only reference_image does."""
+    inputs = [{"slot": "backdrop", "from_step_position": 0}]
+    assert GenerateVisualClipPrimitive.estimate_cost(
+        {"duration": 5}, inputs=inputs,
+    ) == 600_000
+
+
 def test_composition_cost_estimate_picks_up_visual_clip() -> None:
     ws = _make_workspace("v4estcomp@test.local")
     sp = _make_teammate(ws)
