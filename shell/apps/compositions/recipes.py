@@ -443,6 +443,18 @@ RECIPES: dict[str, Recipe] = {
                     "Runway calls."
                 ),
             ),
+            # SESSION 255 — brand outro card parity with long_form_ad
+            # + the cinematic recipes (SESSION 197-199 pattern). Reuses
+            # the add_intro_outro primitive; no new provider surface.
+            RecipeField(
+                name="outro_text", type="text",
+                label="Brand outro card (optional)",
+                required=False, max_chars=80,
+                help_text=(
+                    "Title card appended after the video. 3 seconds, "
+                    "white text on black. Leave blank to skip."
+                ),
+            ),
             _VERIFIER_MODE_FIELD,
             _OPENER_FIELD,
             _NAME_FIELD,
@@ -530,6 +542,20 @@ RECIPES: dict[str, Recipe] = {
                     "together. Recommended for longer scripts (>10s "
                     "of speech). Ignores the backdrop duration knob "
                     "above — extends are fixed at 5s per segment."
+                ),
+            ),
+            # SESSION 255 — brand outro card parity with long_form_ad
+            # + the cinematic recipes. Appended after the composite
+            # so the finished talking-head-with-backdrop video plays
+            # end-to-end first, THEN the 3-second card. Reuses the
+            # add_intro_outro primitive; no new provider surface.
+            RecipeField(
+                name="outro_text", type="text",
+                label="Brand outro card (optional)",
+                required=False, max_chars=80,
+                help_text=(
+                    "Title card appended after the video. 3 seconds, "
+                    "white text on black. Leave blank to skip."
                 ),
             ),
             _VERIFIER_MODE_FIELD,

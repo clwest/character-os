@@ -409,6 +409,12 @@ def talking_head(
     verifier_mode: str | None = None,
     opener: str | None = None,
     target_duration_seconds: int | str | None = None,
+    # SESSION 255 — optional brand outro card. Reuses the pattern
+    # long_form_ad shipped in SESSION 198 and the cinematic recipes
+    # in SESSION 199: when non-blank, append a single add_intro_outro
+    # step after the avatar-speech step so the finished clip is
+    # <speech>+<3s white-on-black card>. Blank / None = skip.
+    outro_text: str | None = None,
 ) -> Composition:
     """Create a single-step ``talking_head`` composition.
 
@@ -514,12 +520,32 @@ def talking_head(
         params=step_params,
     )
 
+    # SESSION 255 — optional brand outro card, chained off the
+    # single avatar-speech step. Mirrors long_form_ad + the
+    # cinematic recipes: reuses add_intro_outro with a 3-second
+    # white-on-black default. No new Runway / avatar call.
+    cleaned_outro = (outro_text or "").strip()
+    if cleaned_outro:
+        CompositionStep.objects.create(
+            composition=composition,
+            position=1,
+            primitive="add_intro_outro",
+            inputs=[{"slot": "base", "from_step_position": 0}],
+            params={
+                "outro": {
+                    "text": cleaned_outro,
+                    "duration_s": 3.0,
+                },
+            },
+        )
+
     logger.info(
         "starter talking_head created composition=%s spokesperson=%s "
-        "mock=%s use_knowledge=%s verifier_mode=%s opener=%s",
+        "mock=%s use_knowledge=%s verifier_mode=%s opener=%s outro=%s",
         composition.id, spokesperson.id, mock_mode, use_knowledge,
         verifier_mode or "(default)",
         "set" if (opener and opener.strip()) else "(default)",
+        bool(cleaned_outro),
     )
     return composition
 
@@ -1575,6 +1601,13 @@ def talking_head_with_backdrop(
     created_by: "AbstractBaseUser | None" = None,
     verifier_mode: str | None = None,
     opener: str | None = None,
+    # SESSION 255 — optional brand outro card. Reuses the pattern
+    # long_form_ad shipped in SESSION 198 and the cinematic recipes
+    # in SESSION 199. Appended AFTER composite_video on all three
+    # backdrop-path variants (V18 picked-clip, V17.5 extend chain,
+    # SESSION 179 concat) so the finished talking-head-with-backdrop
+    # video plays end-to-end first, THEN the 3-second card.
+    outro_text: str | None = None,
 ) -> Composition:
     """Avatar talking over a cinematic backdrop. The first
     multi-step starter that combines V3 + V4 + V7's
@@ -1817,14 +1850,36 @@ def talking_head_with_backdrop(
             },
         )
 
+        # SESSION 255 — optional brand outro card. Appended AFTER
+        # the composite so the finished backdrop-composite plays
+        # end-to-end first, THEN the 3-second card. Reuses the
+        # long_form_ad / cinematic recipes pattern — no new Runway
+        # / avatar call fires for the outro.
+        v18_cleaned_outro = (outro_text or "").strip()
+        if v18_cleaned_outro:
+            CompositionStep.objects.create(
+                composition=composition,
+                position=composite_position + 1,
+                primitive="add_intro_outro",
+                inputs=[
+                    {"slot": "base", "from_step_position": composite_position},
+                ],
+                params={
+                    "outro": {
+                        "text": v18_cleaned_outro,
+                        "duration_s": 3.0,
+                    },
+                },
+            )
+
         logger.info(
             "starter talking_head_with_backdrop (V18 picked-clip) "
             "created composition=%s spokesperson=%s mock=%s "
             "use_knowledge=%s fg_width=%d backdrop_clip=%s "
-            "backdrop_clip_duration_ms=%s remove_avatar_bg=%s",
+            "backdrop_clip_duration_ms=%s remove_avatar_bg=%s outro=%s",
             composition.id, spokesperson.id, mock_mode, use_knowledge,
             fg_width, backdrop_clip.id, backdrop_clip.duration_ms,
-            remove_avatar_bg,
+            remove_avatar_bg, bool(v18_cleaned_outro),
         )
         return composition
 
@@ -2012,14 +2067,35 @@ def talking_head_with_backdrop(
         },
     )
 
+    # SESSION 255 — optional brand outro card. Appended AFTER the
+    # composite so the finished backdrop-composite plays end-to-
+    # end first, THEN the 3-second card. Mirrors the V18 branch
+    # above and the long_form_ad / cinematic recipes pattern.
+    cleaned_outro = (outro_text or "").strip()
+    if cleaned_outro:
+        CompositionStep.objects.create(
+            composition=composition,
+            position=composite_position + 1,
+            primitive="add_intro_outro",
+            inputs=[
+                {"slot": "base", "from_step_position": composite_position},
+            ],
+            params={
+                "outro": {
+                    "text": cleaned_outro,
+                    "duration_s": 3.0,
+                },
+            },
+        )
+
     logger.info(
         "starter talking_head_with_backdrop created composition=%s "
         "spokesperson=%s mock=%s use_knowledge=%s fg_width=%d "
         "n_backdrops=%d backdrop_seconds=%d remove_avatar_bg=%s "
-        "use_extend_for_backdrop=%s",
+        "use_extend_for_backdrop=%s outro=%s",
         composition.id, spokesperson.id, mock_mode, use_knowledge,
         fg_width, n_backdrops_for_log, backdrop_seconds, remove_avatar_bg,
-        use_extend_for_backdrop,
+        use_extend_for_backdrop, bool(cleaned_outro),
     )
     return composition
 

@@ -2318,6 +2318,400 @@ def test_dialogue_scene_outro_text_field_exposed_in_recipe_metadata() -> None:
     assert outro_field["required"] is False
 
 
+# ---- SESSION 255: outro_text parity for talking_head + talking_head_with_backdrop ----
+#
+# Reuses the existing add_intro_outro primitive + the long_form_ad /
+# cinematic recipes pattern (SESSION 198/199). Nine cases mirror the
+# operator's SESSION 255 acceptance list:
+#   1. talking_head recipe exposes Brand outro card
+#   2. talking_head_with_backdrop recipe exposes Brand outro card
+#   3. blank outro preserves talking_head's single-step graph
+#   4. populated outro adds add_intro_outro on talking_head
+#   5. outro chains after talking_head_with_backdrop composite_video
+#      (concat backdrop path)
+#   6. outro chains after talking_head_with_backdrop composite_video
+#      (V18 picked-clip backdrop path)
+#   7. blank outro preserves talking_head_with_backdrop step graph
+#   8. mock-mode execution — final asset duration_ms reflects +3s
+#      (talking_head: 5000 speech + 3000 outro = 8000)
+#   9. long_form_ad outro path still ships identical add_intro_outro
+#      shape (regression guard against accidental drift)
+
+
+def test_talking_head_recipe_exposes_outro_text_field() -> None:
+    """SESSION 255 — the recipe metadata endpoint surfaces
+    outro_text on talking_head so the SPA form renders the field.
+    Mirrors the SESSION 199 dialogue_scene test."""
+    ws, user = _make_workspace_with_user("s255th_meta@test")
+    client = APIClient()
+    _login(client, user)
+
+    response = client.get("/api/recipes/talking_head/")
+    assert response.status_code == http.HTTP_200_OK
+    fields = {f["name"]: f for f in response.json()["fields"]}
+    assert "outro_text" in fields
+    outro_field = fields["outro_text"]
+    assert outro_field["type"] == "text"
+    assert outro_field["required"] is False
+    assert outro_field["label"] == "Brand outro card (optional)"
+    assert outro_field["max_chars"] == 80
+
+
+def test_talking_head_with_backdrop_recipe_exposes_outro_text_field() -> None:
+    """SESSION 255 — same metadata check for the backdrop variant."""
+    ws, user = _make_workspace_with_user("s255thb_meta@test")
+    client = APIClient()
+    _login(client, user)
+
+    response = client.get("/api/recipes/talking_head_with_backdrop/")
+    assert response.status_code == http.HTTP_200_OK
+    fields = {f["name"]: f for f in response.json()["fields"]}
+    assert "outro_text" in fields
+    outro_field = fields["outro_text"]
+    assert outro_field["type"] == "text"
+    assert outro_field["required"] is False
+    assert outro_field["label"] == "Brand outro card (optional)"
+    assert outro_field["max_chars"] == 80
+
+
+def test_talking_head_blank_outro_keeps_single_step() -> None:
+    """SESSION 255 — omit / blank outro_text preserves the
+    pre-SESSION-255 single-step graph. This is the backwards-compat
+    guard: every existing talking_head render continues to lay
+    down exactly one generate_avatar_speech step."""
+    ws, user = _make_workspace_with_user("s255th_blank@test")
+    sp = _make_teammate(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": "Hello world from the talking head recipe.",
+                "outro_text": "   ",  # whitespace-only = skip
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    steps = data["steps"]
+    assert len(steps) == 1
+    assert steps[0]["primitive"] == "generate_avatar_speech"
+
+
+def test_talking_head_outro_text_appends_second_step() -> None:
+    """SESSION 255 — populated outro_text adds an add_intro_outro
+    step at position 1 consuming step 0's talking-head output.
+    No additional Runway / avatar call is introduced (see
+    ``test_talking_head_outro_adds_no_avatar_call`` below for
+    the counter-count assertion)."""
+    ws, user = _make_workspace_with_user("s255th_outro@test")
+    sp = _make_teammate(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": "Hello world from the talking head recipe.",
+                "outro_text": "Brand Co.",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    steps_by_pos = sorted(data["steps"], key=lambda s: s["position"])
+    assert len(steps_by_pos) == 2
+    assert steps_by_pos[0]["primitive"] == "generate_avatar_speech"
+    outro_step = steps_by_pos[1]
+    assert outro_step["primitive"] == "add_intro_outro"
+    assert outro_step["params"]["outro"]["text"] == "Brand Co."
+    assert outro_step["params"]["outro"]["duration_s"] == 3.0
+    # Outro chains to the speech step directly.
+    assert outro_step["inputs"] == [
+        {"slot": "base", "from_step_position": 0},
+    ]
+
+
+def test_talking_head_outro_adds_no_avatar_call() -> None:
+    """SESSION 255 acceptance #7 — the outro must NOT introduce an
+    additional avatar / Runway call. The generate_avatar_speech
+    step count must remain exactly one whether the outro is
+    blank or populated."""
+    ws, user = _make_workspace_with_user("s255th_no_extra@test")
+    sp = _make_teammate(ws)
+    client = APIClient()
+    _login(client, user)
+
+    def _speech_step_count(outro: str) -> int:
+        response = client.post(
+            "/api/compositions/",
+            {
+                "kind": "talking_head",
+                "workspace": str(ws.pk),
+                "params": {
+                    "spokesperson_id": str(sp.pk),
+                    "script": "Hello world from the talking head recipe.",
+                    "outro_text": outro,
+                    "mock_mode": True,
+                },
+            },
+            format="json",
+        )
+        assert response.status_code == http.HTTP_201_CREATED, response.content
+        steps = response.json()["steps"]
+        return sum(
+            1 for s in steps if s["primitive"] == "generate_avatar_speech"
+        )
+
+    assert _speech_step_count("") == 1
+    assert _speech_step_count("Brand Co.") == 1
+
+
+def test_talking_head_outro_mock_run_extends_final_duration_by_three_seconds() -> None:
+    """SESSION 255 acceptance #8 — end-to-end mock-mode execution
+    proves the final asset carries the outro's duration.
+    generate_avatar_speech mock stub returns duration_ms=5000;
+    add_intro_outro mock appends 3000ms; final asset must be
+    5000 + 3000 = 8000."""
+    ws, user = _make_workspace_with_user("s255th_dur@test")
+    sp = _make_teammate(ws)
+    client = APIClient()
+    _login(client, user)
+
+    # Baseline (no outro) — final duration equals base speech mock (5000).
+    baseline = client.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": "Hello world from the talking head recipe.",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert baseline.status_code == http.HTTP_201_CREATED, baseline.content
+    baseline_final = baseline.json()["final_asset"]
+    assert baseline_final is not None
+    assert baseline_final["duration_ms"] == 5000
+
+    with_outro = client.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": "Hello world from the talking head recipe.",
+                "outro_text": "Brand Co.",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert with_outro.status_code == http.HTTP_201_CREATED, with_outro.content
+    with_outro_final = with_outro.json()["final_asset"]
+    assert with_outro_final is not None
+    # 5000 (speech mock) + 3000 (outro mock default duration_s=3.0).
+    assert with_outro_final["duration_ms"] == 8000
+
+
+def test_talking_head_with_backdrop_blank_outro_keeps_step_graph() -> None:
+    """SESSION 255 — omit / blank outro_text preserves the
+    pre-SESSION-255 backdrop step graph (concat path). No trailing
+    add_intro_outro step should exist."""
+    ws, user = _make_workspace_with_user("s255thb_blank@test")
+    sp = _make_teammate(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head_with_backdrop",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": "Hello over a backdrop.",
+                "backdrop_prompt": "sunset over mountains, cinematic",
+                "outro_text": "",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    steps = response.json()["steps"]
+    primitives = [s["primitive"] for s in steps]
+    assert "add_intro_outro" not in primitives
+    # composite_video must remain the terminal step (its output IS
+    # the final asset in the blank-outro baseline).
+    last = max(steps, key=lambda s: s["position"])
+    assert last["primitive"] == "composite_video"
+
+
+def test_talking_head_with_backdrop_outro_appends_after_composite_concat_path() -> None:
+    """SESSION 255 acceptance #6 — populated outro_text adds an
+    add_intro_outro step immediately after composite_video on the
+    SESSION 179 concat backdrop path (default, no picked clip, no
+    extend). Outro must consume the composite output — NOT the
+    backdrop or speech step upstream. Backwards-compat with the
+    operator's explicit ordering ask:
+      avatar speech + cinematic backdrop pipeline
+        → completed talking-head-with-backdrop video
+        → 3-second brand outro
+        → final asset
+    """
+    ws, user = _make_workspace_with_user("s255thb_concat@test")
+    sp = _make_teammate(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head_with_backdrop",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": "Hello over a backdrop.",
+                "backdrop_prompt": "sunset over mountains, cinematic",
+                "outro_text": "Brand Co.",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    steps_by_pos = sorted(data["steps"], key=lambda s: s["position"])
+    # Last step is the outro; penultimate is composite_video.
+    last_step = steps_by_pos[-1]
+    second_last = steps_by_pos[-2]
+    assert last_step["primitive"] == "add_intro_outro"
+    assert last_step["params"]["outro"]["text"] == "Brand Co."
+    assert last_step["params"]["outro"]["duration_s"] == 3.0
+    assert second_last["primitive"] == "composite_video"
+    # Outro chains to composite, not to speech / backdrop.
+    assert last_step["inputs"] == [
+        {"slot": "base", "from_step_position": second_last["position"]},
+    ]
+    # No additional avatar / Runway call — speech step count is exactly one.
+    speech_steps = [
+        s for s in steps_by_pos if s["primitive"] == "generate_avatar_speech"
+    ]
+    assert len(speech_steps) == 1
+
+
+def test_talking_head_with_backdrop_outro_appends_after_composite_picked_clip_path() -> None:
+    """SESSION 255 acceptance #6 (V18 branch) — the picked-clip
+    branch has a completely separate return path that also must
+    append the outro after composite. Guards against the two
+    branches diverging in future maintenance."""
+    ws, user = _make_workspace_with_user("s255thb_picked@test")
+    sp = _make_teammate(ws)
+    # V18 requires a backdrop CLIP asset that is at least as long
+    # as the estimated speech; use a 30s stub clip for a short script.
+    backdrop = Asset.objects.create(
+        workspace=ws, asset_type=AssetType.CLIP,
+        file_path="/data/_assets/backdrop.mp4",
+        duration_ms=30_000, mime_type="video/mp4",
+    )
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head_with_backdrop",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": "Hello over a picked backdrop clip.",
+                "backdrop_clip_id": str(backdrop.pk),
+                "outro_text": "Picked Brand",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    steps_by_pos = sorted(data["steps"], key=lambda s: s["position"])
+    last_step = steps_by_pos[-1]
+    second_last = steps_by_pos[-2]
+    assert last_step["primitive"] == "add_intro_outro"
+    assert last_step["params"]["outro"]["text"] == "Picked Brand"
+    assert second_last["primitive"] == "composite_video"
+    assert last_step["inputs"] == [
+        {"slot": "base", "from_step_position": second_last["position"]},
+    ]
+    # V18 branch also uses exactly one generate_avatar_speech.
+    speech_steps = [
+        s for s in steps_by_pos if s["primitive"] == "generate_avatar_speech"
+    ]
+    assert len(speech_steps) == 1
+
+
+def test_long_form_ad_outro_regression_shape_unchanged() -> None:
+    """SESSION 255 acceptance #9 — existing long_form_ad outro
+    behavior is unchanged by the SESSION 255 talking_head +
+    talking_head_with_backdrop additions. Both new starters use
+    the same primitive + params shape long_form_ad has shipped
+    since SESSION 198, so verify the long_form_ad wire remains
+    exact (text + duration_s=3.0, inputs chain to prior step)."""
+    ws, user = _make_workspace_with_user("s255lf_regress@test")
+    sp = _make_teammate(ws)
+    client = APIClient()
+    _login(client, user)
+
+    # Short script → single-chunk path; outro chains directly to
+    # the lone speech step.
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "long_form_ad",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": (
+                    "Welcome to our spring launch. Order today and "
+                    "get free shipping on every order. Visit our "
+                    "website to learn more."
+                ),
+                "outro_text": "Regress",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    steps_by_pos = sorted(response.json()["steps"], key=lambda s: s["position"])
+    outro_step = steps_by_pos[-1]
+    assert outro_step["primitive"] == "add_intro_outro"
+    assert outro_step["params"]["outro"]["text"] == "Regress"
+    assert outro_step["params"]["outro"]["duration_s"] == 3.0
+    # Chains to the (only) speech step at position 0.
+    assert outro_step["inputs"] == [
+        {"slot": "base", "from_step_position": 0},
+    ]
+
+
 def test_long_form_ad_out_of_tolerance_returns_201_with_failed_composition() -> None:
     """SESSION 251-late — the DRF create surface must NOT leak
     ``LongFormDurationError`` as a 500 when long-form synthesis falls
