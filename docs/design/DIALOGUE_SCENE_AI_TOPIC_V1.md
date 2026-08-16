@@ -771,6 +771,21 @@ signature change.
 Suggested slice ordering — each shippable, testable,
 committable independently.
 
+**Status as of SESSION 257 close:**
+
+| Slice | Status | Commit |
+|---|---|---|
+| SESSION 257 cost prerequisite | ✓ SHIPPED | `46f5efd` |
+| AI-D1 — Writing Contract v2 | ✓ SHIPPED | `78c7cee` |
+| AI-D2 — `dialogue_synthesis.py` | ✓ SHIPPED | `c32f27d` |
+| AI-D3 — Recipe/starter/view wiring | ✓ SHIPPED | `7932689` |
+| AI-D4 — SPA mode toggle + visibility | ✓ SHIPPED | `7b04155` |
+| AI-D4.1 — SPA parse hotfix | ✓ SHIPPED | `2bd82fe` |
+| AI-D5 — Real Patch + Rivet dogfood | ✓ COMPLETED | comp `5e74323f-…` ($0.16, 16 credits) |
+| AI-D5.1 — Verification-precedence + concat provenance cleanup | ✓ SHIPPED | `e3d3765` |
+| AI-D5.2 — K2 asymmetry diagnostic (read-only) | ✓ REPORTED | no code change |
+| AI-D6 — INVENTORY regen + handoff + main merge | ✓ SESSION 257 close | — |
+
 ### AI-D1 — Writing Contract v2 + shape addition
 
 Files:
@@ -990,5 +1005,21 @@ Ordered by priority. None block AI-D1.
   escape hatch; deferred draft-into-editor flow explicitly
   named. No architectural change from the pre-amendment
   lock — this is UX clarification and rule elevation.
+- **SESSION 257 build-out (2026-08-16)** — AI-D1 → AI-D5
+  all shipped. First real Patch + Rivet dogfood
+  (composition `5e74323f-…`, 60 s target, 8 turns, 16
+  Runway credits = $0.16 provider-verified) passed all 9
+  acceptance criteria including character identity,
+  genuine interaction, natural use of the built-Rivet
+  relationship, knowledge isolation, and scene-arc
+  gestalt. Two correctness cleanups (`e3d3765`) landed
+  post-dogfood: verification-status no-downgrade
+  precedence + concat asset duration provenance
+  stamping. K2 retrieval-asymmetry audit (Patch vs Rivet
+  vs Mike + Repo Red) traced Patch-heavy factual footprint
+  to workspace-content shape (no SHARED domain-relevant
+  doc for the AI-building workspace) — not a code bug.
+  Non-code follow-up documented; no synthesis / prompt /
+  retrieval / K6.4 changes recommended.
 
 ---
