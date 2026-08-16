@@ -258,12 +258,13 @@ def test_gate_retries_when_short_then_accepts():
     assert result.brief == corrected
     assert fake_brb.call_count == 2
     # Second call carries a corrective_hint referencing the
-    # SYNTH-target budget (SESSION 253 amendment B) so K6 keeps
-    # aiming low on the retry. For a 90 s request the synth
-    # target is 70 s → synth_min = round(70 * 15 * 0.8) = 840.
+    # SYNTH-target budget (SESSION 253 amendment B / SESSION 254
+    # multiplier 0.90) so K6 keeps aiming low on the retry. For a
+    # 90 s request the synth target is 81 s → synth_min =
+    # round(81 * 15 * 0.8) = 972.
     retry_kwargs = fake_brb.call_args_list[1].kwargs
     assert "corrective_hint" in retry_kwargs
-    assert "840" in retry_kwargs["corrective_hint"]
+    assert "972" in retry_kwargs["corrective_hint"]
 
 
 def test_gate_retries_when_long_then_accepts():
@@ -311,26 +312,30 @@ def test_gate_still_short_after_retry_raises():
 
 
 def test_synthesis_target_multiplier_locked_at_calibrated_value():
-    """SESSION 253 amendment B — the synthesis-target multiplier
-    is empirically calibrated from the D dogfood. Locking the
-    value so accidental drift lights up as an explicit test
-    failure. Recalibrate ONLY from new dogfood evidence."""
-    assert K6_DURATION_SYNTHESIS_TARGET_MULTIPLIER == 0.78
+    """SESSION 253 amendment B / SESSION 254 recalibration — the
+    synthesis-target multiplier is empirically calibrated. The
+    original 0.78 was measured against a cps=11 estimator and
+    over-corrected after the cps 11 → 15 recalibration in Stage 3;
+    SESSION 254 raised it to 0.90 based on the post-Stage-3 Penny
+    dogfood. Locking the value so accidental drift lights up as
+    an explicit test failure. Recalibrate ONLY from new dogfood
+    evidence."""
+    assert K6_DURATION_SYNTHESIS_TARGET_MULTIPLIER == 0.90
 
 
-def test_calibrated_synthesis_target_90s_is_70s():
-    """The load-bearing case for the SESSION 253 fix: 90 s
-    operator request → K6 sees a 70 s synthesis target."""
-    assert calibrated_synthesis_target(90) == 70
+def test_calibrated_synthesis_target_90s_is_81s():
+    """SESSION 254 — 90 s operator request → K6 sees an 81 s
+    synthesis target under the 0.90 multiplier."""
+    assert calibrated_synthesis_target(90) == 81
 
 
-def test_calibrated_synthesis_target_120s_is_about_94s():
-    assert calibrated_synthesis_target(120) == 94
+def test_calibrated_synthesis_target_120s_is_108s():
+    assert calibrated_synthesis_target(120) == 108
 
 
 def test_calibrated_synthesis_target_short_targets_disable_bias():
     """Below the 30 s calibration floor, the bias is skipped
-    (unvalidated regime; applying 0.78 would push very short
+    (unvalidated regime; applying the bias could push very short
     scripts under the acceptance floor)."""
     for short in (5, 10, 20, 29):
         assert calibrated_synthesis_target(short) == short
@@ -359,8 +364,8 @@ def test_synth_target_never_leaks_into_prompt_target_arg():
             target_duration_seconds=90,
             max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS,
         )
-    # K6 sees synth target (70), NOT requested target (90).
-    assert captured["kwargs"]["target_duration_seconds"] == 70
+    # K6 sees synth target (81), NOT requested target (90).
+    assert captured["kwargs"]["target_duration_seconds"] == 81
     assert captured["kwargs"]["target_duration_seconds"] != 90
 
 
@@ -384,23 +389,23 @@ def test_synth_target_leak_test_120s_covers_the_general_case():
             target_duration_seconds=120,
             max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS,
         )
-    assert captured["kwargs"]["target_duration_seconds"] == 94
+    assert captured["kwargs"]["target_duration_seconds"] == 108
 
 
 def test_acceptance_band_derives_from_requested_not_synth_target():
-    """SESSION 253 amendment B — 90 s request accepts 1080-1620
-    chars (=72-108 s at 15 cps). NOT the synth-target band
-    (1050 ideal / 840-1260 chars for 70 s).
+    """SESSION 253 amendment B / SESSION 254 — 90 s request
+    accepts 1080-1620 chars (=72-108 s at 15 cps). NOT the
+    synth-target band (1215 ideal / 972-1458 chars for 81 s).
 
-    A 1400-char script for 90 s request is:
+    A 1500-char script for 90 s request is:
       below acceptance-max 1620 → accept
-      above synth-max 1260 → would REJECT under the wrong contract
+      above synth-max 1458 → would REJECT under the wrong contract
     Assert we accept it (correct acceptance band)."""
     ws = _workspace("dc-accept-band@t")
     tm = _teammate(ws)
     with patch(
         "character_os.duration_contract.build_render_brief",
-        return_value=_fake_script_result("x" * 1400),
+        return_value=_fake_script_result("x" * 1500),
     ) as fake_brb:
         result = synthesize_with_duration_gate(
             tm, "topic",
@@ -409,7 +414,7 @@ def test_acceptance_band_derives_from_requested_not_synth_target():
         )
     # No retry, accepted on first pass.
     fake_brb.assert_called_once()
-    assert result.brief == "x" * 1400
+    assert result.brief == "x" * 1500
 
 
 def test_180s_target_raises_incompatible_before_llm():
@@ -434,10 +439,10 @@ def test_180s_target_raises_incompatible_before_llm():
 
 
 def test_error_message_never_names_synth_target():
-    """SESSION 253 amendment B — error messages must NEVER refer
-    to the calibrated synth target. The operator asked for 90 s;
-    error messages say 90 s (even though K6 was internally
-    aiming at 70 s).
+    """SESSION 253 amendment B / SESSION 254 — error messages must
+    NEVER refer to the calibrated synth target. The operator asked
+    for 90 s; error messages say 90 s (even though K6 was
+    internally aiming at 81 s).
 
     SESSION 253 Stage 3 — 90 s at 15 cps: acceptance chars
     (1080, 1620). First 1850 (over 1620); retry 1800 (still over).
@@ -460,14 +465,14 @@ def test_error_message_never_names_synth_target():
     err = exc_info.value
     # Reason: too_long (correct classification per amendment A).
     assert err.reason == DurationContractError.REASON_TOO_LONG
-    # Exception carries REQUESTED target — not synth (70).
+    # Exception carries REQUESTED target — not synth (81).
     assert err.target_duration_seconds == 90
     msg = str(err)
     # 90-second target must appear (operator asked for 90).
     assert "90-second target" in msg
-    # 70-second synth target must NOT leak.
-    assert "70-second" not in msg
-    assert "70s" not in msg
+    # 81-second synth target must NOT leak.
+    assert "81-second" not in msg
+    assert "81s" not in msg
     # Acceptance band uses requested-target bounds: 72-108 s /
     # 1080-1620 chars at 15 cps.
     assert "108-second" in msg
@@ -478,9 +483,10 @@ def test_error_message_never_names_synth_target():
 def test_retry_still_fires_when_first_pass_below_acceptance_min():
     """Expansion retry fires when the first pass lands below
     the REQUESTED-target acceptance minimum. Even though K6 was
-    told to aim at synth (70 s / min 840 chars at 15 cps), the
-    retry decision uses acceptance min (1080 chars) — so an
-    800-char first pass triggers retry."""
+    told to aim at synth (81 s / min 972 chars at 15 cps under
+    the SESSION 254 multiplier 0.90), the retry decision uses
+    acceptance min (1080 chars) — so an 800-char first pass
+    triggers retry."""
     ws = _workspace("dc-expand-retry@t")
     tm = _teammate(ws)
     with patch(

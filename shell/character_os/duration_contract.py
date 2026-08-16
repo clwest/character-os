@@ -87,22 +87,45 @@ _IDEAL_SAFETY_BUFFER_CHARS = 50
 _DURATION_TOLERANCE = 0.20
 
 
-# SESSION 253 amendment B — LLM synthesis target multiplier.
+# SESSION 253 amendment B / SESSION 254 recalibration — LLM
+# synthesis target multiplier.
 #
-# gpt-5 with the SESSION 253 Writing Contract systematically
-# overshoots the OPERATOR-requested duration. Measured empirically
-# in the SESSION 253 controlled 90-second dogfood against Penny
-# (three ordinary operator briefs, single-topic each):
+# gpt-5 with the SESSION 253 Writing Contract overshoots the
+# OPERATOR-requested duration. The initial SESSION 253 dogfood
+# measured a mean 128.1 % first-pass overshoot in a cps=11
+# estimator environment and set the multiplier to
+# ``1 / 1.281 ≈ 0.78`` to compensate:
 #
 #   T1 beginner/reassurance:    first-pass 138.9 % of target
 #   T2 experiential/observational: first-pass 114.4 %
 #   T3 conservation/POV:         first-pass 131.1 %
 #   mean first-pass:            128.1 %
 #
-# Full artifact at ``/tmp/dogfood_D_90s.json``. Multiplying the
-# LLM-facing target by ``1 / 1.281 ≈ 0.78`` so the average
-# expected LLM output lands at 100 % of the operator-requested
-# duration.
+# SESSION 254 recalibration — post-Stage-3 (cps 11 → 15) the 0.78
+# was over-correcting. Real-Runway 90 s Penny dogfood on the exact
+# SESSION 253 kayak-beginner topic produced a first-pass K6 output
+# of 1196 chars (114 % of the biased K6 ideal of 1050 chars),
+# measured MP4 = 72.73 s = 80.8 % of the 90 s request — hugging the
+# −20 % failure floor by 0.73 s. Decomposition attributed −19.8 s
+# of the −17.3 s total deficit to the 0.78 bias itself, with a
+# +9.5 s partial recovery from K6's 14 % overshoot vs its biased
+# aim and a further −7.0 s from Runway delivering at 16.44 cps vs
+# the 15 cps estimator.
+#
+# The 0.78 correction was calibrated in a cps=11 world where K6's
+# char budget for a 70 s synth target was 770 chars (ideal). Under
+# cps=15 the same synth target yields a 1050-char budget — K6 now
+# has more room to write to and its residual overshoot is
+# empirically smaller (+14 % here vs +28 % at the original
+# calibration). Compound bias → predictable undershoot.
+#
+# Recalibrated to 0.90 as the smallest evidence-supported move
+# toward centering first-pass output on the operator-requested
+# duration without immediately reintroducing too_long rejections.
+# Validation: SESSION 254 three-topic 90 s + one 120 s controlled
+# real-Runway dogfood (kayak beginners / Colorado lake shoreline /
+# river-lake stewardship at 90 s; paddling attention at 120 s).
+# See the SESSION 254 handoff for measurements + verdict.
 #
 # **This is a MODEL-CALIBRATION constant, not a provider constraint.**
 # It only affects what K6 aims at internally. The
@@ -113,7 +136,7 @@ _DURATION_TOLERANCE = 0.20
 # Recalibrate only from fresh dogfood evidence. If output
 # systematically undershoots after this bias, do NOT
 # auto-compensate: raise the multiplier from a new measurement.
-K6_DURATION_SYNTHESIS_TARGET_MULTIPLIER: float = 0.78
+K6_DURATION_SYNTHESIS_TARGET_MULTIPLIER: float = 0.90
 
 # Guardrail on the calibration: for requests short enough that
 # ``target * multiplier`` rounds below this floor, the

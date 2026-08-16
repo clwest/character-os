@@ -130,12 +130,13 @@ _AVATAR_SPEECH_MIN_MICROS = 250_000
 #     personas that vary in delivery pace).
 #
 #   * ``duration_contract.K6_DURATION_SYNTHESIS_TARGET_MULTIPLIER``
-#     = 0.78: how much GPT overshoots a requested character
-#     target. Applied only to what K6 is told to aim at
-#     internally; does NOT change the operator-facing
-#     acceptance band. Independent from the delivery rate —
-#     they were measured in the same dogfood pass but recalibrate
-#     separately.
+#     = 0.90 (SESSION 254; was 0.78 in SESSION 253): how much GPT
+#     overshoots a requested character target. Applied only to
+#     what K6 is told to aim at internally; does NOT change the
+#     operator-facing acceptance band. Independent from the
+#     delivery rate — the 0.78 originally rode on top of a
+#     cps=11 estimator and became double-biasing after Stage 3
+#     recalibrated cps to 15. Recalibrate separately from cps.
 #
 # See docs/handoffs SESSION 253 for the calibration methodology
 # and the full 30/60/90/120/180-second duration-budget table.
