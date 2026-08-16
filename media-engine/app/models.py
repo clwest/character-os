@@ -67,6 +67,15 @@ class RunwayTaskResponse(BaseModel):
     output: list[str] = []
     failure_reason: Optional[str] = None
     mock_mode: bool
+    # SESSION 257 — Runway's ``GET /v1/tasks/{task_id}`` returns a
+    # ``cost: {"credits": N}`` object on terminal-SUCCEEDED tasks
+    # (empirically verified across 15 samples spanning
+    # 1.81s-179.64s durations, all avatar_videos, all reported
+    # exactly 2 credits). Extract it and hand it to the shell so
+    # per-step ``cost_actual_micros`` becomes provider truth
+    # instead of an estimator guess. ``None`` when the task hasn't
+    # finished, is mock, or Runway occasionally omits the field.
+    cost_credits: Optional[float] = None
 
 
 class CampaignSocialPost(BaseModel):

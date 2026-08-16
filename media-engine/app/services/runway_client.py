@@ -358,6 +358,18 @@ def get_task(task_id: str, settings: Settings) -> RunwayTaskResponse:
     if not isinstance(progress, (int, float)):
         progress = 1.0 if status == "SUCCEEDED" else 0.0
 
+    # SESSION 257 — extract Runway's per-task cost.credits.
+    # Runway returns ``cost: {"credits": N}`` on SUCCEEDED tasks;
+    # older/non-terminal tasks may omit the field. Silent None when
+    # missing so callers fall back to their estimator without
+    # raising.
+    cost_field = payload.get("cost")
+    cost_credits: Optional[float] = None
+    if isinstance(cost_field, dict):
+        raw_credits = cost_field.get("credits")
+        if isinstance(raw_credits, (int, float)):
+            cost_credits = float(raw_credits)
+
     return RunwayTaskResponse(
         task_id=task_id,
         status=cast(TaskStatus, status),
@@ -365,4 +377,5 @@ def get_task(task_id: str, settings: Settings) -> RunwayTaskResponse:
         output=output_urls,
         failure_reason=payload.get("failure") or payload.get("error"),
         mock_mode=False,
+        cost_credits=cost_credits,
     )

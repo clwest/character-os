@@ -77,12 +77,30 @@ _POLL_DEADLINE_S = 6 * 60  # 6-minute ceiling per hackathon precedent
 # Rough cost model: Runway's avatar_videos is ~$0.05 / second of
 # output. At ~150 chars/second of speech at conversational pace,
 # that's ~$0.000333 / char ≈ 333 micros/char. Floor at the
-# minimum-duration clip (5 seconds = ~$0.25 = 250k micros) so
-# very short scripts still reflect the call-overhead. R&D should
-# replace these constants with real telemetry once V8's
-# cost-surface work lands.
-_AVATAR_SPEECH_MICROS_PER_CHAR = 333
-_AVATAR_SPEECH_MIN_MICROS = 250_000
+# SESSION 257 — flat 2-credits-per-call cost, empirically
+# verified against 15 sampled real-Runway ``/v1/avatar_videos``
+# tasks spanning 1.81 s → 179.64 s durations (mined from real
+# workspace Assets, queried via ``GET /v1/tasks/{id}``, all
+# reported ``cost.credits == 2``, mean 2.00, stdev 0). Runway
+# credit economics: 1000 credits = $10 → 1 credit = $0.01 =
+# 10_000 micros. Flat-billed regardless of script length or
+# render duration in the observed range.
+#
+# Pre-SESSION-257 constants were an inferred ``max($0.25 floor,
+# 333 micros/char)`` estimator that ran 12.5× hot at the floor
+# (implied 25 credits/call vs actual 2). Never grounded in
+# provider telemetry; the SESSION 143 header comment flagged
+# them as R&D placeholders. Now retired.
+#
+# Runtime path: ``execute`` prefers the media-engine's
+# ``cost_credits`` from the task poll (SESSION 257 wired
+# through ``InternalTaskPollResponse``) and uses this constant
+# only as fallback (mock mode, or Runway occasionally omitting
+# the field). The pre-render forecast in ``estimate_cost``
+# always uses the constant — provider truth isn't available
+# until the render completes.
+_AVATAR_SPEECH_MICROS_PER_CALL = 20_000
+_RUNWAY_CREDITS_TO_MICROS = 10_000
 
 
 # Pre-render delivery-rate estimator for K6-generated Runway
@@ -337,6 +355,11 @@ class GenerateAvatarSpeechPrimitive:
                     "primitive_kind": "generate_avatar_speech",
                     "mock": True,
                     "script_chars": len(script),
+                    # SESSION 257 — mock never touches the provider;
+                    # persist the same cost provenance shape as the
+                    # real-mode fallback so downstream analytics
+                    # filters are uniform.
+                    "cost_source": "estimated",
                 },
                 role=AssetRole.TALKING_HEAD.value,
             )
@@ -496,26 +519,53 @@ class GenerateAvatarSpeechPrimitive:
                 _AVATAR_SPEECH_CHARS_PER_SECOND,
             )
 
+        # SESSION 257 — cost resolution. Prefer provider truth
+        # when the media-engine surfaced ``cost.credits`` from
+        # Runway's ``/v1/tasks/{id}`` terminal poll. Fall back to
+        # the pre-render estimator only when unavailable (mock
+        # mode, or occasional Runway omission). Provenance is
+        # stamped on the asset's ``source_spec`` so downstream
+        # analytics can distinguish billed-truth rows from
+        # estimator rows without another API round-trip.
+        if terminal.cost_credits is not None:
+            cost_micros = int(
+                round(terminal.cost_credits * _RUNWAY_CREDITS_TO_MICROS)
+            )
+            extra["cost_source"] = "provider_reported"
+            extra["cost_provider_credits"] = terminal.cost_credits
+        else:
+            cost_micros = GenerateAvatarSpeechPrimitive.estimate_cost(
+                step.params or {}
+            )
+            extra["cost_source"] = "estimated"
+
         return PrimitiveResult(
             asset_type=AssetType.CLIP,
             file_path=terminal.output_url,
             duration_ms=duration_ms,
             mime_type="video/mp4",
-            cost_micros=GenerateAvatarSpeechPrimitive.estimate_cost(step.params or {}),
+            cost_micros=cost_micros,
             extra_source_spec=extra,
             role=AssetRole.TALKING_HEAD.value,
         )
 
     @staticmethod
     def estimate_cost(params: dict) -> int:
-        """Estimate the Runway avatar_videos cost in micros from
-        the script length. Conservative — better real-time
-        estimation lands when V8's cost telemetry surfaces lay
-        down. Used by ``estimate_composition_cost`` for the
-        operator-facing pre-render cost forecast."""
+        """Pre-render cost forecast in micros.
+
+        SESSION 257 — flat per-call estimate matching Runway's
+        empirically-verified billing shape (2 credits = $0.02 per
+        completed ``/v1/avatar_videos`` task, duration-independent
+        across our observed 1.81 s → 179.64 s range).
+
+        Empty script → 0 micros (no call will fire).
+
+        This is the pre-render forecast that operators see before
+        clicking render (via ``estimate_composition_cost``). The
+        run-time actual is provider-reported when Runway surfaces
+        ``cost.credits`` on the terminal poll; see ``execute``.
+        """
         script = (params or {}).get("script", "")
-        chars = len(str(script).strip())
-        if chars == 0:
+        if not str(script).strip():
             return 0
-        # Floor at minimum-clip cost; scale with script length.
-        return max(_AVATAR_SPEECH_MIN_MICROS, chars * _AVATAR_SPEECH_MICROS_PER_CHAR)
+        return _AVATAR_SPEECH_MICROS_PER_CALL

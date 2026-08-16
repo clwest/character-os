@@ -113,6 +113,7 @@ def _mock_poll_ready(
     duration: float | None = 7.5,
     duration_source: str | None = None,
     mock_mode: bool = False,
+    cost_credits: float | None = None,
 ) -> VideoPollResult:
     return VideoPollResult(
         task_id=task_id,
@@ -124,6 +125,7 @@ def _mock_poll_ready(
         failure_code=None,
         mock_mode=mock_mode,
         duration_source=duration_source,
+        cost_credits=cost_credits,
     )
 
 
@@ -298,6 +300,97 @@ def test_real_mode_persists_media_probe_provenance() -> None:
     spec = result.extra_source_spec
     assert spec["duration_estimated"] is False
     assert spec["duration_source"] == "media_probe"
+
+
+def test_real_mode_uses_provider_reported_cost_when_present() -> None:
+    """SESSION 257 — when Runway's ``/v1/tasks/{id}`` returns
+    ``cost.credits`` on the terminal poll, the primitive must
+    persist provider truth on the Asset (converted at Runway's
+    1 credit = 10_000 micros) AND stamp
+    ``cost_source="provider_reported"`` on ``source_spec`` so the
+    number is auditable as billed-truth. The pre-render estimator
+    is bypassed for cost_actual on this path."""
+    ws = _make_workspace("v3providercost@test.local")
+    sp = _make_teammate(ws)
+    comp = Composition.objects.create(
+        workspace=ws, spokesperson=sp, name="providercost",
+    )
+    step = CompositionStep.objects.create(
+        composition=comp, position=0,
+        primitive="generate_avatar_speech",
+        params={"script": "Tell viewers about our coffee."},
+    )
+
+    create_result = _mock_create_result("runway_task_pc")
+    # SESSION 257 empirical verification: Runway avatar_videos
+    # bills flat 2 credits regardless of duration.
+    polls = [_mock_poll_ready(
+        "runway_task_pc",
+        duration=42.5,
+        duration_source="media_probe",
+        cost_credits=2.0,
+    )]
+    cm, _fake = _patched_client(create_result, polls)
+
+    with patch(
+        "apps.compositions.primitives.avatar_speech.MediaEngineClient",
+        return_value=cm,
+    ), patch(
+        "apps.compositions.primitives.avatar_speech.time.sleep",
+    ):
+        result = GenerateAvatarSpeechPrimitive.execute(
+            step=step, resolved_inputs=[], mock_mode=False,
+        )
+
+    # 2 credits × 10_000 micros/credit = 20_000 micros = $0.02.
+    assert result.cost_micros == 20_000
+    spec = result.extra_source_spec
+    assert spec["cost_source"] == "provider_reported"
+    assert spec["cost_provider_credits"] == 2.0
+
+
+def test_real_mode_falls_back_to_estimator_when_provider_omits_cost() -> None:
+    """SESSION 257 — when the poll payload lacks ``cost_credits``
+    (mock mode, or Runway occasionally omitting the field on
+    non-avatar endpoints), the primitive falls back to the
+    pre-render estimator and stamps ``cost_source="estimated"``
+    so downstream analytics can filter estimator-derived rows
+    from billed-truth rows without another provider round-trip."""
+    ws = _make_workspace("v3estcost@test.local")
+    sp = _make_teammate(ws)
+    comp = Composition.objects.create(
+        workspace=ws, spokesperson=sp, name="estcost",
+    )
+    step = CompositionStep.objects.create(
+        composition=comp, position=0,
+        primitive="generate_avatar_speech",
+        params={"script": "It is still on fire."},
+    )
+
+    create_result = _mock_create_result("runway_task_estc")
+    polls = [_mock_poll_ready(
+        "runway_task_estc",
+        duration=3.5,
+        duration_source="media_probe",
+        cost_credits=None,
+    )]
+    cm, _fake = _patched_client(create_result, polls)
+
+    with patch(
+        "apps.compositions.primitives.avatar_speech.MediaEngineClient",
+        return_value=cm,
+    ), patch(
+        "apps.compositions.primitives.avatar_speech.time.sleep",
+    ):
+        result = GenerateAvatarSpeechPrimitive.execute(
+            step=step, resolved_inputs=[], mock_mode=False,
+        )
+
+    # Flat estimator: any non-empty script forecasts 20_000 micros.
+    assert result.cost_micros == 20_000
+    spec = result.extra_source_spec
+    assert spec["cost_source"] == "estimated"
+    assert "cost_provider_credits" not in spec
 
 
 def test_real_mode_marks_estimated_provenance_on_fallback() -> None:
@@ -661,20 +754,24 @@ def test_talking_head_starter_executes_end_to_end_in_mock_mode() -> None:
 # ---- cost estimation ----------------------------------------------
 
 
-def test_estimate_cost_scales_with_script_length() -> None:
-    """Longer scripts cost more. Test asserts ordering, not
-    exact numbers (the coefficient may flex during R&D)."""
+def test_estimate_cost_is_flat_regardless_of_script_length() -> None:
+    """SESSION 257 — Runway ``/v1/avatar_videos`` bills a flat
+    2 credits ($0.02 = 20_000 micros) per completed call, verified
+    empirically across a 1.81 s → 179.64 s duration spread.
+    Non-empty scripts of any length forecast the same cost."""
     short = GenerateAvatarSpeechPrimitive.estimate_cost({"script": "hi"})
     long_ = GenerateAvatarSpeechPrimitive.estimate_cost(
         {"script": "Tell viewers a long story " * 50}
     )
-    assert short > 0
-    assert long_ > short
+    assert short == 20_000
+    assert long_ == 20_000
 
 
 def test_estimate_cost_zero_for_empty_script() -> None:
     assert GenerateAvatarSpeechPrimitive.estimate_cost({"script": ""}) == 0
     assert GenerateAvatarSpeechPrimitive.estimate_cost({}) == 0
+    # Whitespace-only script is treated as empty — no Runway call fires.
+    assert GenerateAvatarSpeechPrimitive.estimate_cost({"script": "   \n\t"}) == 0
 
 
 def test_composition_cost_estimate_picks_up_avatar_speech() -> None:

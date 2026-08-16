@@ -786,6 +786,14 @@ class InternalTaskPollResponse(BaseModel):
     error: Optional[str] = None
     failure_code: Optional[str] = None
     mock_mode: bool
+    # SESSION 257 — provider-billed cost in Runway credits, if the
+    # provider surfaced it. Populated on terminal-ready polls when
+    # Runway's ``/v1/tasks/{id}`` response includes ``cost.credits``.
+    # ``None`` on non-terminal polls, mock tasks, or when Runway
+    # omits the field (older tasks, some non-avatar endpoints).
+    # Shell converts credits to micros via the canonical
+    # 1 credit = $0.01 = 10_000 micros (Runway pricing).
+    cost_credits: Optional[float] = None
 
 
 @router.post(
@@ -1019,6 +1027,7 @@ def _poll_runway_task(
         error=runway_resp.failure_reason if contract_status == "failed" else None,
         failure_code=None,
         mock_mode=runway_resp.mock_mode,
+        cost_credits=runway_resp.cost_credits,
     )
 
 

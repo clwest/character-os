@@ -88,13 +88,18 @@ def test_probe_returns_none_on_os_error():
 class _RunwayResp:
     def __init__(
         self, *, status="SUCCEEDED", output=None, progress=1.0,
-        failure_reason=None, mock_mode=False,
+        failure_reason=None, mock_mode=False, cost_credits=None,
     ):
         self.status = status
         self.output = output
         self.progress = progress
         self.failure_reason = failure_reason
         self.mock_mode = mock_mode
+        # SESSION 257 — provider-billed cost forwarded through the
+        # generalised task poll. Stub defaults to None because
+        # pre-SESSION 257 fixtures assume Runway didn't surface
+        # cost.credits; new tests explicitly opt in when needed.
+        self.cost_credits = cost_credits
 
 
 def _fake_settings():
@@ -193,3 +198,50 @@ def test_poll_skips_ffprobe_on_failed_task():
     assert resp.duration_seconds is None
     assert resp.duration_source is None
     assert resp.error == "upstream error"
+
+
+def test_poll_forwards_provider_cost_credits_to_response():
+    """SESSION 257 — Runway's ``/v1/tasks/{id}`` returns
+    ``cost.credits`` on SUCCEEDED tasks. The generalised task poll
+    must forward it through so the shell primitive can persist
+    provider-billed truth on ``cost_actual_micros`` instead of
+    an estimator guess. Empirical verification: flat 2 credits
+    across a 1.81 s → 179.64 s duration spread on
+    ``/v1/avatar_videos``."""
+    runway = _RunwayResp(
+        status="SUCCEEDED",
+        output=["https://cdn/vid.mp4"],
+        mock_mode=False,
+        cost_credits=2.0,
+    )
+    with patch(
+        "app.routers.internal.runway_get_task", return_value=runway,
+    ), patch(
+        "app.routers.internal._probe_media_duration_from_url",
+        return_value=15.0,
+    ):
+        resp = _poll_runway_task("t6", _fake_settings())
+    assert resp.status == "ready"
+    assert resp.cost_credits == 2.0
+
+
+def test_poll_cost_credits_is_none_when_provider_omits():
+    """When Runway doesn't return ``cost.credits`` on the task
+    (older tasks, some non-avatar endpoints), the poll response
+    must forward ``None`` so shell callers fall back to their
+    per-primitive estimator + stamp ``cost_source="estimated"``."""
+    runway = _RunwayResp(
+        status="SUCCEEDED",
+        output=["https://cdn/vid.mp4"],
+        mock_mode=False,
+        cost_credits=None,
+    )
+    with patch(
+        "app.routers.internal.runway_get_task", return_value=runway,
+    ), patch(
+        "app.routers.internal._probe_media_duration_from_url",
+        return_value=15.0,
+    ):
+        resp = _poll_runway_task("t7", _fake_settings())
+    assert resp.status == "ready"
+    assert resp.cost_credits is None

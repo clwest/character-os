@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-08-16T19:29:35.840917+00:00
-git_sha: b27d33f
+generated_at: 2026-08-16T20:10:58.356155+00:00
+git_sha: d22d8e1 (working tree dirty)
 git_branch: public
 ---
 
@@ -15,8 +15,8 @@ git_branch: public
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-08-16T19:29:35.840917+00:00** against commit **b27d33f**
-on branch **public**.
+Generated **2026-08-16T20:10:58.356155+00:00** against commit **d22d8e1**
+on branch **public** (working tree dirty).
 
 Python 3.11.6 · Django 5.2.16 ·
 Celery 5.6.3 · httpx 0.27.2.
@@ -33,8 +33,8 @@ Celery 5.6.3 · httpx 0.27.2.
 | FastAPI routes | **125** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **10** | `celery_app.tasks` filter |
 | Migrations (applied / total) | **97 / 97** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **113,323** in 401 files | `pathlib.Path.rglob("*.py")` |
-| Media-engine LOC (`*.py`, no venv/migrations) | **63,450** in 156 files | same |
+| Shell LOC (`*.py`, no venv/migrations) | **113,478** in 401 files | `pathlib.Path.rglob("*.py")` |
+| Media-engine LOC (`*.py`, no venv/migrations) | **63,533** in 156 files | same |
 
 ---
 
@@ -352,12 +352,12 @@ Total: **10** registered tasks (excluding `celery.*` built-ins).
 
 | Service | Files | Lines |
 |---|---|---|
-| `media-engine/` | 156 | 63,450 |
-| `shell/` | 401 | 113,323 |
-| **total** | **557** | **176,773** |
+| `media-engine/` | 156 | 63,533 |
+| `shell/` | 401 | 113,478 |
+| **total** | **557** | **177,011** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-08-16T19:29:35.840917+00:00 from commit b27d33f. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-08-16T20:10:58.356155+00:00 from commit d22d8e1. Re-run `python manage.py inventory` (from `shell/`) to refresh.*

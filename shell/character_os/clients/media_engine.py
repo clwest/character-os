@@ -403,6 +403,13 @@ class VideoPollResult:
     failure_code: str | None
     mock_mode: bool
     duration_source: str | None = None
+    # SESSION 257 — provider-billed cost in Runway credits when
+    # available. ``None`` on non-terminal polls, mock tasks, or
+    # any provider endpoint that omits per-task cost metadata
+    # (currently only ``/v1/avatar_videos`` populates this end-to-
+    # end). Callers convert to micros via the canonical
+    # 1 credit = $0.01 = 10_000 micros (Runway pricing).
+    cost_credits: float | None = None
 
     @property
     def terminal(self) -> bool:
@@ -1444,6 +1451,7 @@ class MediaEngineClient:
                 failure_code=data.get("failure_code"),
                 mock_mode=bool(data.get("mock_mode", False)),
                 duration_source=data.get("duration_source"),
+                cost_credits=_as_float_or_none(data.get("cost_credits")),
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise MediaEngineError(
