@@ -1413,6 +1413,175 @@ def pip_layout(
 
 
 @transaction.atomic
+def image_overlay(
+    *,
+    workspace: "Workspace",
+    spokesperson: "Spokesperson",
+    base_clip,
+    overlay_image: str,
+    corner: str = "top_right",
+    overlay_width: int = 320,
+    margin_x: int = 40,
+    margin_y: int = 40,
+    start_time_s: float | int | str | None = None,
+    end_time_s: float | int | str | None = None,
+    border: bool = True,
+    shadow: bool = True,
+    mock_mode: bool = False,
+    name: str = "",
+    created_by: "AbstractBaseUser | None" = None,
+) -> Composition:
+    """SESSION 256 — overlay a still IMAGE on a base CLIP.
+
+    Reusable visual-callout / PiP system. One-step composition;
+    the underlying ``image_overlay`` primitive is a wrapper around
+    the media-engine's ``POST /internal/clips/image_overlay/``
+    endpoint (local ffmpeg only, no provider spend).
+
+    Args:
+        workspace: Composition workspace anchor.
+        spokesperson: Brand owner (recorded on the Composition
+            row; no runtime effect).
+        base_clip: The workspace CLIP to overlay on. Duration is
+            preserved end-to-end.
+        overlay_image: A string reference to a workspace IMAGE
+            asset. Recipe form field ``overlay_image_asset_id``
+            resolves through the asset_picker unwrap
+            (recipes.py:1364) to ``Asset.file_path`` — either a
+            ``data:image/...;base64,...`` payload (Stability
+            flow) or a ``/data/...`` local URL (storyboard
+            ``generate_image`` flow). The SESSION 255 polymorphic
+            resolver on the media-engine handles both.
+        corner: One of top_right / top_left / bottom_right /
+            bottom_left. Default top_right.
+        overlay_width: Overlay width in pixels. Height is
+            auto-computed to preserve the source image's aspect
+            ratio (FIT / CONTAIN — never cropped).
+        margin_x, margin_y: Distance in pixels from the chosen
+            corner edge.
+        start_time_s: Optional; when None, overlay starts at
+            t=0 (SESSION 256 default: full-duration overlay).
+        end_time_s: Optional; when None, overlay stays until
+            the base clip ends.
+        border: default True. Subtle white frame around the
+            overlay. v1 default; no operator-facing color knob.
+        shadow: default True. Subtle drop shadow. v1 default;
+            no operator-facing color / offset knobs.
+        mock_mode: V0 contract rule 9 — deterministic stub.
+        name: Operator-visible Composition name.
+
+    Returns:
+        The fresh Composition. Caller enqueues
+        ``execute_composition.delay(str(comp.id))`` to run it.
+    """
+    _validate_workspace_assets(workspace, [base_clip])
+    if spokesperson.workspace_id != workspace.pk:
+        raise ValueError("spokesperson not in workspace")
+    if not (overlay_image or "").strip():
+        raise ValueError(
+            "image_overlay starter requires a non-empty overlay_image "
+            "(resolver-produced Asset file_path)"
+        )
+
+    corner_clean = str(corner).strip().lower()
+    valid_corners = ("top_right", "top_left", "bottom_right", "bottom_left")
+    if corner_clean not in valid_corners:
+        raise ValueError(
+            f"image_overlay corner must be one of {list(valid_corners)}; "
+            f"got {corner!r}"
+        )
+
+    # Coerce DRF-form numeric values.
+    try:
+        overlay_width_int = int(overlay_width)
+        margin_x_int = int(margin_x)
+        margin_y_int = int(margin_y)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"image_overlay overlay_width / margin_x / margin_y "
+            f"must be integers"
+        ) from exc
+
+    # Timing: preserve None / blank so the primitive + media-engine
+    # cache keys stay stable for the full-duration path. Empty
+    # string from the recipe form arrives here as "" and should
+    # collapse to None.
+    def _coerce_time(v):
+        if v in (None, ""):
+            return None
+        return float(v)
+    try:
+        start_time_val = _coerce_time(start_time_s)
+        end_time_val = _coerce_time(end_time_s)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "image_overlay start_time_s / end_time_s must be numbers "
+            "or blank"
+        ) from exc
+    if (
+        start_time_val is not None
+        and end_time_val is not None
+        and end_time_val <= start_time_val
+    ):
+        raise ValueError(
+            f"image_overlay end_time_s ({end_time_val}) must be strictly "
+            f"greater than start_time_s ({start_time_val})"
+        )
+    if start_time_val is not None and start_time_val < 0:
+        raise ValueError(
+            f"image_overlay start_time_s must be >= 0; got {start_time_val}"
+        )
+
+    composition_name = (
+        name.strip() or f"Image overlay — {base_clip.title or base_clip.id}"
+    )
+    composition = Composition.objects.create(
+        workspace=workspace,
+        spokesperson=spokesperson,
+        name=composition_name,
+        template_kind="image_overlay",
+        mock_mode=mock_mode,
+        created_by=created_by,
+    )
+
+    step_params: dict = {
+        "image_source": overlay_image.strip(),
+        "corner": corner_clean,
+        "overlay_width": overlay_width_int,
+        "margin_x": margin_x_int,
+        "margin_y": margin_y_int,
+        "border": bool(border),
+        "shadow": bool(shadow),
+    }
+    # Only include timing keys when non-blank so the primitive and
+    # media-engine cache key stay identical for full-duration
+    # overlays (bit-for-bit dict-shape stability).
+    if start_time_val is not None:
+        step_params["start_time_s"] = start_time_val
+    if end_time_val is not None:
+        step_params["end_time_s"] = end_time_val
+
+    CompositionStep.objects.create(
+        composition=composition,
+        position=0,
+        primitive="image_overlay",
+        inputs=[{"slot": "base", "asset_id": str(base_clip.id)}],
+        params=step_params,
+    )
+
+    logger.info(
+        "starter image_overlay created composition=%s spokesperson=%s "
+        "base_clip=%s corner=%s width=%d timing=%s->%s "
+        "border=%s shadow=%s mock=%s",
+        composition.id, spokesperson.id, base_clip.id,
+        corner_clean, overlay_width_int,
+        start_time_val, end_time_val,
+        bool(border), bool(shadow), mock_mode,
+    )
+    return composition
+
+
+@transaction.atomic
 def backdrop_layout(
     *,
     workspace: "Workspace",

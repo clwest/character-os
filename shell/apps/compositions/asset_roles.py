@@ -40,6 +40,10 @@ PRIMITIVE_TO_ROLE: dict[str, str] = {
     "trim_clip": AssetRole.POLISH_OUTPUT.value,
     "reformat_clip": AssetRole.POLISH_OUTPUT.value,
     "style_remix": AssetRole.POLISH_OUTPUT.value,
+    # SESSION 256 — image overlay layered on a base clip. Same
+    # role family as the other post-composite polish primitives;
+    # the output IS the base clip with an image decoration.
+    "image_overlay": AssetRole.POLISH_OUTPUT.value,
     # Image (for keyframes / reference)
     "generate_image": AssetRole.REFERENCE_IMAGE.value,
     # Text / transcript

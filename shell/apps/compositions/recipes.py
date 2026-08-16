@@ -1074,6 +1074,100 @@ RECIPES: dict[str, Recipe] = {
         starter=starters.storyboard_ad,
     ),
     # ---- Layout family ---------------------------------------
+    "image_overlay": Recipe(
+        kind="image_overlay",
+        display_name="Image overlay",
+        family=FAMILY_LAYOUT,
+        description=(
+            "Overlay a workspace image on a base video (any corner, "
+            "any subrange). Great for reference callouts — a person's "
+            "photo while they're being discussed, a product image, a "
+            "screenshot, a logo. Local ffmpeg only; no provider spend."
+        ),
+        fields=(
+            RecipeField(name="spokesperson_id", type="spokesperson_picker", label="Brand owner (spokesperson)"),
+            RecipeField(
+                name="base_clip_id", type="asset_picker",
+                label="Base clip",
+                asset_type=AssetType.CLIP,
+                help_text=(
+                    "The underlying video (e.g. a talking-head clip). "
+                    "The output preserves this clip's duration + audio."
+                ),
+            ),
+            RecipeField(
+                name="overlay_image_asset_id", type="asset_picker",
+                label="Overlay image",
+                asset_type=AssetType.IMAGE,
+                help_text=(
+                    "Pick any workspace image (generated portrait, "
+                    "product shot, screenshot, logo). Preserved intact "
+                    "— fit / contain scaling, never cropped."
+                ),
+            ),
+            RecipeField(
+                name="corner", type="select",
+                label="Corner",
+                required=False, default="top_right",
+                choices=(
+                    {"value": "top_right", "label": "Top-right"},
+                    {"value": "top_left", "label": "Top-left"},
+                    {"value": "bottom_right", "label": "Bottom-right"},
+                    {"value": "bottom_left", "label": "Bottom-left"},
+                ),
+            ),
+            RecipeField(
+                name="overlay_width", type="number",
+                label="Overlay width (px)",
+                required=False, default=320,
+                min_value=80, max_value=1920,
+                help_text=(
+                    "Width of the overlay in pixels. Height is "
+                    "auto-computed to preserve the source image's "
+                    "aspect ratio."
+                ),
+            ),
+            RecipeField(
+                name="margin_x", type="number", label="Margin X (px)",
+                required=False, default=40, min_value=0, max_value=500,
+            ),
+            RecipeField(
+                name="margin_y", type="number", label="Margin Y (px)",
+                required=False, default=40, min_value=0, max_value=500,
+            ),
+            RecipeField(
+                name="start_time_s", type="number",
+                label="Start time (seconds, optional)",
+                required=False,
+                min_value=0, max_value=3600,
+                help_text=(
+                    "When the overlay first appears. Leave blank to "
+                    "start at the beginning of the video."
+                ),
+            ),
+            RecipeField(
+                name="end_time_s", type="number",
+                label="End time (seconds, optional)",
+                required=False,
+                min_value=0, max_value=3600,
+                help_text=(
+                    "When the overlay disappears. Leave blank to stay "
+                    "until the video ends. Must be greater than start "
+                    "time when both are supplied."
+                ),
+            ),
+            _NAME_FIELD,
+            _MOCK_MODE_FIELD,
+        ),
+        starter=starters.image_overlay,
+        # asset_picker resolver: CLIP → Asset row, IMAGE → file_path
+        # string. Rename form-field names to match starter kwarg
+        # names.
+        param_map={
+            "base_clip_id": "base_clip",
+            "overlay_image_asset_id": "overlay_image",
+        },
+    ),
     "pip_layout": Recipe(
         kind="pip_layout",
         display_name="Picture-in-picture",

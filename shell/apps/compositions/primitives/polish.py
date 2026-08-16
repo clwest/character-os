@@ -27,13 +27,19 @@ from .mock import PrimitiveError, PrimitiveResult, _deterministic_path
 logger = logging.getLogger(__name__)
 
 
-# Cost model — all four are local ffmpeg work (no provider
-# billing). Small fixed costs so they still register in
-# operator-visible totals.
+# Cost model — all local ffmpeg work (no provider billing).
+# Small fixed costs so they still register in operator-visible
+# totals.
 _CAPTIONS_MICROS = 80
 _INTRO_OUTRO_MICROS = 80
 _TRIM_MICROS = 30
 _REFORMAT_MICROS = 80
+_IMAGE_OVERLAY_MICROS = 80  # SESSION 256
+
+
+_IMAGE_OVERLAY_VALID_CORNERS = (
+    "top_right", "top_left", "bottom_right", "bottom_left",
+)
 
 
 # ---- AddCaptionsPrimitive -----------------------------------------
@@ -231,6 +237,209 @@ class AddIntroOutroPrimitive:
     @staticmethod
     def estimate_cost(params: dict) -> int:
         return _INTRO_OUTRO_MICROS
+
+
+# ---- ImageOverlayPrimitive ---------------------------------------
+
+
+class ImageOverlayPrimitive:
+    """SESSION 256 — overlay a still IMAGE on a base CLIP.
+
+    Reusable visual-callout / PiP primitive. Wraps the
+    media-engine's ``POST /internal/clips/image_overlay/``
+    endpoint. Local ffmpeg only — no provider spend.
+
+    ### Inputs
+
+    * One CLIP asset (the base). Additional assets in
+      ``resolved_inputs`` are ignored.
+
+    ### Params
+
+    * ``image_source`` (str, required) — a data URI OR a
+      ``/data/`` local URL pointing at an IMAGE Asset. Recipe-
+      layer resolvers unwrap workspace IMAGE assets to their
+      ``file_path`` (SESSION 174 / cinematic_visual pattern);
+      the primitive forwards it to the media-engine's polymorphic
+      resolver.
+    * ``corner`` (str, default "top_right") — one of top_right /
+      top_left / bottom_right / bottom_left.
+    * ``overlay_width`` (int, default 320).
+    * ``margin_x`` / ``margin_y`` (int, default 40 each).
+    * ``start_time_s`` / ``end_time_s`` (float, both optional).
+      Both None = overlay covers the full base duration
+      (SESSION 256 default). ``enable=between(t,s,e)`` semantics
+      apply on the media-engine side.
+    * ``border`` (bool, default True), ``shadow`` (bool, default
+      True) — presentation treatment for a floating callout.
+
+    ### Output
+
+    One CLIP Asset whose ``duration_ms`` matches the base clip
+    (overlays never alter base duration; guaranteed both by
+    the media-engine's ``-t <base_dur>`` and by the primitive's
+    fallback to ``base.duration_ms`` when media-engine returns
+    None).
+    """
+
+    @staticmethod
+    def execute(step, resolved_inputs, mock_mode: bool) -> PrimitiveResult:
+        params = step.params or {}
+        image_source = (params.get("image_source") or "").strip()
+        if not image_source:
+            raise PrimitiveError(
+                "image_overlay requires a non-empty 'image_source' param "
+                "(data URI or /data/ URL to a workspace IMAGE asset)"
+            )
+        corner = (params.get("corner") or "top_right").strip().lower()
+        if corner not in _IMAGE_OVERLAY_VALID_CORNERS:
+            raise PrimitiveError(
+                f"image_overlay 'corner' must be one of "
+                f"{list(_IMAGE_OVERLAY_VALID_CORNERS)}; got {corner!r}"
+            )
+        # Numeric params — coerce defensively (DRF may hand strings
+        # off recipe forms).
+        try:
+            overlay_width = int(params.get("overlay_width", 320))
+            margin_x = int(params.get("margin_x", 40))
+            margin_y = int(params.get("margin_y", 40))
+        except (TypeError, ValueError) as exc:
+            raise PrimitiveError(
+                f"image_overlay overlay_width / margin_x / margin_y "
+                f"must be integers; got {params!r}"
+            ) from exc
+
+        start_time_s = params.get("start_time_s")
+        end_time_s = params.get("end_time_s")
+        # Coerce nullable floats (empty string from a DRF form
+        # arrives here as "" and should collapse to None so the
+        # media-engine sees a truly-absent field).
+        if start_time_s in ("", None):
+            start_time_s = None
+        else:
+            try:
+                start_time_s = float(start_time_s)
+            except (TypeError, ValueError) as exc:
+                raise PrimitiveError(
+                    f"image_overlay start_time_s must be a number or blank; "
+                    f"got {start_time_s!r}"
+                ) from exc
+        if end_time_s in ("", None):
+            end_time_s = None
+        else:
+            try:
+                end_time_s = float(end_time_s)
+            except (TypeError, ValueError) as exc:
+                raise PrimitiveError(
+                    f"image_overlay end_time_s must be a number or blank; "
+                    f"got {end_time_s!r}"
+                ) from exc
+        if (
+            start_time_s is not None
+            and end_time_s is not None
+            and end_time_s <= start_time_s
+        ):
+            raise PrimitiveError(
+                f"image_overlay end_time_s ({end_time_s}) must be strictly "
+                f"greater than start_time_s ({start_time_s})"
+            )
+        if start_time_s is not None and start_time_s < 0:
+            raise PrimitiveError(
+                f"image_overlay start_time_s must be >= 0; got {start_time_s}"
+            )
+
+        border = bool(params.get("border", True))
+        shadow = bool(params.get("shadow", True))
+
+        base = _expect_one_clip(resolved_inputs, primitive="image_overlay")
+
+        if mock_mode:
+            # Deterministic mock output. Duration mirrors the base
+            # exactly per the SESSION 256 contract; no ffmpeg runs.
+            return PrimitiveResult(
+                asset_type=AssetType.CLIP,
+                file_path=_deterministic_path(str(step.id), "-image-overlay.mp4"),
+                duration_ms=base.duration_ms,
+                width=base.width,
+                height=base.height,
+                mime_type="video/mp4",
+                size_bytes=base.size_bytes or 1024 * 1024,
+                cost_micros=_IMAGE_OVERLAY_MICROS,
+                extra_source_spec={
+                    "primitive_kind": "image_overlay",
+                    "mock": True,
+                    "base_asset_id": str(base.id),
+                    "corner": corner,
+                    "overlay_width": overlay_width,
+                    "has_start_time": start_time_s is not None,
+                    "has_end_time": end_time_s is not None,
+                    "border": border,
+                    "shadow": shadow,
+                },
+                role=AssetRole.POLISH_OUTPUT.value,
+            )
+
+        if not base.file_path:
+            raise PrimitiveError(
+                "image_overlay: base CLIP has empty file_path"
+            )
+
+        try:
+            with MediaEngineClient() as client:
+                result = client.image_overlay(
+                    clip_url=base.file_path,
+                    image_source=image_source,
+                    corner=corner,
+                    overlay_width=overlay_width,
+                    margin_x=margin_x,
+                    margin_y=margin_y,
+                    start_time_s=start_time_s,
+                    end_time_s=end_time_s,
+                    border=border,
+                    shadow=shadow,
+                )
+        except MediaEngineError as exc:
+            raise PrimitiveError(
+                f"media-engine image_overlay failed: {exc}"
+            ) from exc
+
+        # Duration — media-engine ffprobes the output and returns
+        # the measured value. Fall back to base.duration_ms so the
+        # SESSION 253 duration-provenance discipline holds even if
+        # a future media-engine change stops populating the field.
+        if result.duration_seconds is not None:
+            duration_ms = int(result.duration_seconds * 1000)
+        else:
+            duration_ms = base.duration_ms
+
+        return PrimitiveResult(
+            asset_type=AssetType.CLIP,
+            file_path=result.output_url,
+            duration_ms=duration_ms,
+            width=base.width,
+            height=base.height,
+            mime_type="video/mp4",
+            size_bytes=result.size_bytes,
+            cost_micros=_IMAGE_OVERLAY_MICROS,
+            extra_source_spec={
+                "primitive_kind": "image_overlay",
+                "base_asset_id": str(base.id),
+                "corner": corner,
+                "overlay_width": overlay_width,
+                "margin_x": margin_x,
+                "margin_y": margin_y,
+                "start_time_s": start_time_s,
+                "end_time_s": end_time_s,
+                "border": border,
+                "shadow": shadow,
+                "media_engine_mock_mode": result.mock_mode,
+            },
+            role=AssetRole.POLISH_OUTPUT.value,
+        )
+
+    @staticmethod
+    def estimate_cost(params: dict) -> int:
+        return _IMAGE_OVERLAY_MICROS
 
 
 # ---- TrimClipPrimitive --------------------------------------------

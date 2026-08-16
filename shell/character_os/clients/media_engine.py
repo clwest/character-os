@@ -914,6 +914,54 @@ class MediaEngineClient:
         )
         return _parse_processed_clip(data, "add_intro_outro")
 
+    def image_overlay(
+        self,
+        *,
+        clip_url: str,
+        image_source: str,
+        corner: str = "top_right",
+        overlay_width: int = 320,
+        margin_x: int = 40,
+        margin_y: int = 40,
+        start_time_s: float | None = None,
+        end_time_s: float | None = None,
+        border: bool = True,
+        shadow: bool = True,
+        # PD-1 doctrine: upstream > downstream. Media-engine's
+        # ffmpeg subprocess uses timeout=180
+        # (routers/internal.py post_internal_image_overlay);
+        # 210 s = 180 s + 30 s jitter. Same convention as
+        # add_intro_outro.
+        timeout: float = 210.0,
+    ) -> "ProcessedClipResult":
+        """Hit ``POST /internal/clips/image_overlay/`` — overlay
+        a still IMAGE on a base CLIP. SESSION 256; reuses the
+        SESSION 255 polymorphic image resolver (data URI OR
+        ``/data/`` local URL). Local ffmpeg only — zero provider
+        spend."""
+        body: dict[str, Any] = {
+            "clip_url": clip_url,
+            "image_source": image_source,
+            "corner": corner,
+            "overlay_width": overlay_width,
+            "margin_x": margin_x,
+            "margin_y": margin_y,
+            "border": border,
+            "shadow": shadow,
+        }
+        # SESSION 256 — only include timing keys when non-None
+        # so the media-engine cache key stays stable for
+        # full-duration overlays.
+        if start_time_s is not None:
+            body["start_time_s"] = start_time_s
+        if end_time_s is not None:
+            body["end_time_s"] = end_time_s
+        data = self.request(
+            "POST", "/internal/clips/image_overlay/",
+            json=body, timeout=timeout,
+        )
+        return _parse_processed_clip(data, "image_overlay")
+
     def trim_clip(
         self,
         *,

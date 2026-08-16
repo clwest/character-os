@@ -106,7 +106,7 @@ def _login(client: APIClient, user) -> None:
 # ---- registry shape ----------------------------------------------
 
 
-def test_recipe_registry_has_twenty_entries() -> None:
+def test_recipe_registry_has_twentyone_entries() -> None:
     """V15.4 added ``storyboard_voiced`` (was deferred from V13
     until V14 shipped ``audio_extract``), bringing the gallery
     to 18 starter compositions. V17.2 (SESSION 182) added
@@ -116,8 +116,11 @@ def test_recipe_registry_has_twenty_entries() -> None:
     B-2 / B2.4 (SESSION 206) added ``auto_script`` (the
     operator-facing surface for rendering a pre-drafted,
     knowledge-grounded Script row), bringing the count to 20.
+    SESSION 256 added ``image_overlay`` (reusable visual-callout /
+    PiP — overlay any workspace image on any workspace clip),
+    bringing the count to 21.
     """
-    assert len(RECIPES) == 20
+    assert len(RECIPES) == 21
 
 
 def test_every_recipe_has_required_metadata() -> None:
@@ -173,10 +176,11 @@ def test_recipe_asset_picker_fields_have_asset_type() -> None:
 # ---- GET /api/recipes/ -------------------------------------------
 
 
-def test_get_recipes_returns_all_twenty() -> None:
+def test_get_recipes_returns_all_twentyone() -> None:
     """V17.2 (SESSION 182) added ``cinematic_visual_extended``,
     bringing the gallery from 18 to 19. B-2 / B2.4 (SESSION
     206) added ``auto_script``, bringing the count to 20.
+    SESSION 256 added ``image_overlay``, bringing the count to 21.
     """
     ws, user = _make_workspace_with_user("v15list@test")
     client = APIClient()
@@ -184,7 +188,7 @@ def test_get_recipes_returns_all_twenty() -> None:
     response = client.get("/api/recipes/")
     assert response.status_code == http.HTTP_200_OK
     data = response.json()
-    assert len(data) == 20
+    assert len(data) == 21
 
 
 def test_get_recipes_requires_auth() -> None:
@@ -3067,6 +3071,364 @@ def test_long_form_ad_outro_still_black_when_no_image_selected() -> None:
     outro_params = outro_step["params"]["outro"]
     assert "image_data_uri" not in outro_params
     assert set(outro_params.keys()) == {"text", "duration_s"}
+
+
+# ---- SESSION 256: image_overlay recipe ---------------------------
+#
+# Reusable visual-callout / PiP system. Wraps a new isolated
+# primitive (image_overlay) + a new media-engine endpoint
+# (POST /internal/clips/image_overlay/). Reuses SESSION 255's
+# polymorphic image resolver. Local ffmpeg only; no provider spend.
+
+
+def _make_overlay_image_asset(ws: Workspace, data_uri: str | None = None) -> Asset:
+    if data_uri is None:
+        import base64 as _b64
+        from io import BytesIO
+        from PIL import Image
+        buf = BytesIO()
+        Image.new("RGB", (16, 16), (200, 100, 80)).save(buf, format="PNG")
+        data_uri = "data:image/png;base64," + _b64.b64encode(
+            buf.getvalue(),
+        ).decode("ascii")
+    return Asset.objects.create(
+        workspace=ws, asset_type=AssetType.IMAGE,
+        file_path=data_uri, mime_type="image/png",
+    )
+
+
+def test_image_overlay_recipe_exposes_all_operator_fields() -> None:
+    """SESSION 256 — recipe metadata surfaces spokesperson +
+    base_clip + overlay_image + corner (4 choices) + width +
+    margins + start_time + end_time + name + mock_mode."""
+    ws, user = _make_workspace_with_user("s256io_meta@test")
+    client = APIClient()
+    _login(client, user)
+    response = client.get("/api/recipes/image_overlay/")
+    assert response.status_code == http.HTTP_200_OK
+    data = response.json()
+    fields = {f["name"]: f for f in data["fields"]}
+    assert "spokesperson_id" in fields
+    assert "base_clip_id" in fields
+    assert fields["base_clip_id"]["asset_type"] == AssetType.CLIP
+    assert "overlay_image_asset_id" in fields
+    assert fields["overlay_image_asset_id"]["asset_type"] == AssetType.IMAGE
+    assert "corner" in fields
+    corner_values = [c["value"] for c in fields["corner"]["choices"]]
+    assert sorted(corner_values) == sorted([
+        "top_right", "top_left", "bottom_right", "bottom_left",
+    ])
+    assert fields["corner"]["default"] == "top_right"
+    assert "overlay_width" in fields
+    assert "margin_x" in fields
+    assert "margin_y" in fields
+    # Timing fields are optional (no default → SPA renders empty).
+    assert "start_time_s" in fields
+    assert fields["start_time_s"]["required"] is False
+    assert "end_time_s" in fields
+    assert fields["end_time_s"]["required"] is False
+
+
+def test_image_overlay_creation_full_duration_default() -> None:
+    """SESSION 256 — omit start/end → single-step composition
+    with no timing keys in step params (media-engine cache key
+    stays stable across the transition)."""
+    ws, user = _make_workspace_with_user("s256io_fulldur@test")
+    sp = _make_teammate(ws)
+    base = _make_clip(ws)
+    image = _make_overlay_image_asset(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "image_overlay",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "base_clip_id": str(base.pk),
+                "overlay_image_asset_id": str(image.pk),
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    data = response.json()
+    steps = data["steps"]
+    assert len(steps) == 1
+    step = steps[0]
+    assert step["primitive"] == "image_overlay"
+    params = step["params"]
+    assert params["image_source"] == image.file_path
+    assert params["corner"] == "top_right"
+    assert params["overlay_width"] == 320
+    assert params["margin_x"] == 40
+    assert params["margin_y"] == 40
+    assert params["border"] is True
+    assert params["shadow"] is True
+    assert "start_time_s" not in params
+    assert "end_time_s" not in params
+
+
+def test_image_overlay_creation_subrange_timing_forwarded() -> None:
+    """SESSION 256 — start + end both set → step params carry
+    both as floats. Media-engine picks these up as
+    enable=between(t,s,e)."""
+    ws, user = _make_workspace_with_user("s256io_subrange@test")
+    sp = _make_teammate(ws)
+    base = _make_clip(ws)
+    image = _make_overlay_image_asset(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "image_overlay",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "base_clip_id": str(base.pk),
+                "overlay_image_asset_id": str(image.pk),
+                "corner": "bottom_right",
+                "overlay_width": 240,
+                "start_time_s": 2.0,
+                "end_time_s": 4.5,
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    step = response.json()["steps"][0]
+    params = step["params"]
+    assert params["corner"] == "bottom_right"
+    assert params["overlay_width"] == 240
+    assert params["start_time_s"] == 2.0
+    assert params["end_time_s"] == 4.5
+
+
+def test_image_overlay_creation_start_only_omits_end_key() -> None:
+    """SESSION 256 — start set, end blank → step params carry
+    start_time_s only. end_time_s key omitted so full-duration
+    tail is the media-engine default."""
+    ws, user = _make_workspace_with_user("s256io_start@test")
+    sp = _make_teammate(ws)
+    base = _make_clip(ws)
+    image = _make_overlay_image_asset(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "image_overlay",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "base_clip_id": str(base.pk),
+                "overlay_image_asset_id": str(image.pk),
+                "start_time_s": 1.0,
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    params = response.json()["steps"][0]["params"]
+    assert params["start_time_s"] == 1.0
+    assert "end_time_s" not in params
+
+
+def test_image_overlay_rejects_cross_workspace_base_clip() -> None:
+    """SESSION 256 — asset_picker resolver already enforces
+    workspace scoping via Asset.objects.get(pk=…, workspace=…).
+    A cross-workspace CLIP surfaces as 400/404."""
+    ws_a, user_a = _make_workspace_with_user("s256io_ws_a@test")
+    ws_b, _ = _make_workspace_with_user("s256io_ws_b@test")
+    sp = _make_teammate(ws_a)
+    foreign_clip = _make_clip(ws_b)
+    image = _make_overlay_image_asset(ws_a)
+    client = APIClient()
+    _login(client, user_a)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "image_overlay",
+            "workspace": str(ws_a.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "base_clip_id": str(foreign_clip.pk),
+                "overlay_image_asset_id": str(image.pk),
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code in (
+        http.HTTP_400_BAD_REQUEST,
+        http.HTTP_404_NOT_FOUND,
+    )
+
+
+def test_image_overlay_rejects_cross_workspace_image() -> None:
+    """Same guard for the overlay IMAGE."""
+    ws_a, user_a = _make_workspace_with_user("s256io_img_ws_a@test")
+    ws_b, _ = _make_workspace_with_user("s256io_img_ws_b@test")
+    sp = _make_teammate(ws_a)
+    base = _make_clip(ws_a)
+    foreign_image = _make_overlay_image_asset(ws_b)
+    client = APIClient()
+    _login(client, user_a)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "image_overlay",
+            "workspace": str(ws_a.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "base_clip_id": str(base.pk),
+                "overlay_image_asset_id": str(foreign_image.pk),
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code in (
+        http.HTTP_400_BAD_REQUEST,
+        http.HTTP_404_NOT_FOUND,
+    )
+
+
+def test_image_overlay_adds_no_generate_avatar_speech_step() -> None:
+    """SESSION 256 acceptance — the recipe introduces no provider
+    call. No generate_avatar_speech step in the created
+    composition."""
+    ws, user = _make_workspace_with_user("s256io_noavatar@test")
+    sp = _make_teammate(ws)
+    base = _make_clip(ws)
+    image = _make_overlay_image_asset(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "image_overlay",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "base_clip_id": str(base.pk),
+                "overlay_image_asset_id": str(image.pk),
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    steps = response.json()["steps"]
+    primitives = [s["primitive"] for s in steps]
+    assert "generate_avatar_speech" not in primitives
+    assert "generate_visual_clip" not in primitives
+    assert primitives == ["image_overlay"]
+
+
+def test_image_overlay_mock_run_final_asset_matches_base_duration() -> None:
+    """SESSION 256 acceptance — output duration MUST equal base
+    duration. Mock-mode primitive stub returns base.duration_ms
+    directly; end-to-end via eager Celery so the final asset row
+    is populated on the response."""
+    ws, user = _make_workspace_with_user("s256io_dur@test")
+    sp = _make_teammate(ws)
+    base = _make_clip(ws)  # duration_ms=5000 in the shared helper
+    image = _make_overlay_image_asset(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "image_overlay",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "base_clip_id": str(base.pk),
+                "overlay_image_asset_id": str(image.pk),
+                "start_time_s": 1.0,
+                "end_time_s": 3.0,
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    final = response.json()["final_asset"]
+    assert final is not None
+    assert final["duration_ms"] == base.duration_ms == 5000
+
+
+def test_image_overlay_rejects_end_before_start_at_starter() -> None:
+    """SESSION 256 — bad timing caught at starter time (before
+    Celery / media-engine spin up). Composition is not created
+    at all — the starter raises ValueError which the view surfaces
+    as a 400."""
+    ws, user = _make_workspace_with_user("s256io_badtime@test")
+    sp = _make_teammate(ws)
+    base = _make_clip(ws)
+    image = _make_overlay_image_asset(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "image_overlay",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "base_clip_id": str(base.pk),
+                "overlay_image_asset_id": str(image.pk),
+                "start_time_s": 4.0,
+                "end_time_s": 1.0,
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_400_BAD_REQUEST
+
+
+def test_image_overlay_rejects_invalid_corner_at_starter() -> None:
+    """SESSION 256 — the recipe's ``select`` field constrains to
+    4 values via the SPA, but a direct API caller could still
+    POST an arbitrary string. Starter re-validates and rejects."""
+    ws, user = _make_workspace_with_user("s256io_badcorner@test")
+    sp = _make_teammate(ws)
+    base = _make_clip(ws)
+    image = _make_overlay_image_asset(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "image_overlay",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "base_clip_id": str(base.pk),
+                "overlay_image_asset_id": str(image.pk),
+                "corner": "middle",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_400_BAD_REQUEST
 
 
 def test_long_form_ad_out_of_tolerance_returns_201_with_failed_composition() -> None:

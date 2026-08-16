@@ -2986,6 +2986,405 @@ def post_internal_intro_outro(
     )
 
 
+# ---- POST /internal/clips/image_overlay/ --------------------------
+#
+# SESSION 256 / v1 of the reusable "visual callout / PiP" system.
+# Overlays a single workspace IMAGE onto a base CLIP for the whole
+# duration or a subrange. Local ffmpeg only — no provider call.
+#
+# Reuses the SESSION 255 polymorphic image resolver so both shapes
+# Character OS Assets ship (data:image/...;base64,... AND /data/...
+# local URL) flow through the same code path. Output cached under
+# ``data/_internal/image_overlays/<sha16>.mp4``.
+#
+# Design notes:
+# * FIT / CONTAIN scaling — the source image is preserved intact
+#   (no cover-crop). Aspect ratio locked at the source's; caller
+#   picks the width, height auto-computes.
+# * Border + shadow default ON. Border = subtle white frame; shadow
+#   = subtle semi-transparent dark offset behind the image. Both
+#   are v1 default rendering behavior — no operator-facing color /
+#   thickness knobs, keeping the endpoint contract small.
+# * Corner positioning math accounts for border thickness so the
+#   OUTER edge of the image+border sits at the requested margin
+#   from the frame edge.
+# * Timing via ffmpeg ``enable='between(t,start,end)'`` — no
+#   physical split/concat of the base clip. Full-duration is the
+#   default (both timing fields blank).
+# * Output duration MUST equal base duration. Audio passes through
+#   from the base clip unchanged. Guarded by ``-shortest`` and by
+#   only mapping the base's audio stream.
+
+
+_IMAGE_OVERLAY_VALID_CORNERS = (
+    "top_right", "top_left", "bottom_right", "bottom_left",
+)
+
+# Default presentation treatment for a floating reference image.
+# Values chosen conservatively so the overlay looks intentional
+# without competing with the base video for attention. Not
+# operator-facing v1; if dogfood proves they need tuning, expose
+# as spec fields later.
+_IMAGE_OVERLAY_BORDER_WIDTH_PX = 3
+_IMAGE_OVERLAY_BORDER_COLOR = "white@0.9"
+_IMAGE_OVERLAY_SHADOW_OFFSET_PX = 6
+_IMAGE_OVERLAY_SHADOW_COLOR = "black@0.45"
+
+
+class InternalImageOverlayCreate(BaseModel):
+    """Request body for ``POST /internal/clips/image_overlay/``."""
+
+    clip_url: str = Field(..., min_length=1, max_length=2048)
+    image_source: str = Field(..., min_length=1, max_length=10_000_000)
+    corner: str = Field(default="top_right")
+    overlay_width: int = Field(default=320, ge=80, le=1920)
+    margin_x: int = Field(default=40, ge=0, le=500)
+    margin_y: int = Field(default=40, ge=0, le=500)
+    # Both None = full-duration (the SESSION 256 default).
+    start_time_s: Optional[float] = Field(default=None, ge=0, le=3600)
+    end_time_s: Optional[float] = Field(default=None, ge=0, le=3600)
+    border: bool = Field(default=True)
+    shadow: bool = Field(default=True)
+
+
+def _image_overlay_dir(settings: Settings) -> Path:
+    target = settings.data_path / "_internal" / "image_overlays"
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def _image_overlay_corner_xy(
+    corner: str,
+    main_w: int, main_h: int,
+    overlay_outer_w: int, overlay_outer_h: int,
+    margin_x: int, margin_y: int,
+) -> tuple[int, int]:
+    """Compute the (x, y) pixel offset for the outer bounding
+    box of the overlay (image + border, WITHOUT the shadow drop)
+    so the OUTER edge sits ``margin_x`` / ``margin_y`` from the
+    frame edge in the requested corner. Shadow offset applies
+    separately downstream.
+    """
+    if corner == "top_left":
+        return margin_x, margin_y
+    if corner == "top_right":
+        return main_w - overlay_outer_w - margin_x, margin_y
+    if corner == "bottom_left":
+        return margin_x, main_h - overlay_outer_h - margin_y
+    if corner == "bottom_right":
+        return (
+            main_w - overlay_outer_w - margin_x,
+            main_h - overlay_outer_h - margin_y,
+        )
+    # Unreachable — Pydantic + endpoint validation gate.
+    raise ValueError(f"unknown corner {corner!r}")
+
+
+@router.post(
+    "/clips/image_overlay/", response_model=InternalProcessedClipResponse,
+)
+def post_internal_image_overlay(
+    body: InternalImageOverlayCreate,
+    settings: Settings = Depends(get_settings),
+):
+    """Overlay a still image on a base CLIP.
+
+    Fit/contain scaling (no crop), operator-choosable corner,
+    optional subrange timing via ffmpeg ``enable='between(...)'``.
+    Border + shadow default on for a floating-callout look. Local
+    ffmpeg only; no provider call.
+
+    Output duration equals base clip duration. Audio passes
+    through from the base clip.
+    """
+    corner = body.corner.strip().lower()
+    if corner not in _IMAGE_OVERLAY_VALID_CORNERS:
+        return _error(
+            422, "validation_error",
+            f"corner must be one of {list(_IMAGE_OVERLAY_VALID_CORNERS)}; "
+            f"got {body.corner!r}",
+        )
+
+    # Timing validation — reject impossible ranges before we
+    # spend any ffprobe/ffmpeg cycles on the request.
+    if (
+        body.start_time_s is not None
+        and body.end_time_s is not None
+        and body.end_time_s <= body.start_time_s
+    ):
+        return _error(
+            422, "validation_error",
+            f"end_time_s ({body.end_time_s}) must be strictly greater "
+            f"than start_time_s ({body.start_time_s})",
+        )
+
+    # Cache key — include every field that affects the visual
+    # output so a changed corner / timing / style / image
+    # invalidates the cache automatically.
+    cache_seed = json.dumps(
+        body.model_dump(), sort_keys=True,
+    ).encode("utf-8")
+    cache_key = hashlib.sha256(cache_seed).hexdigest()[:16]
+
+    if settings.runway_mock:
+        output_url = f"/data/_internal/image_overlays/mock-{cache_key}.mp4"
+        logger.info(
+            "internal image_overlay mock output=%s corner=%s width=%d "
+            "start=%s end=%s border=%s shadow=%s",
+            output_url, corner, body.overlay_width,
+            body.start_time_s, body.end_time_s,
+            body.border, body.shadow,
+        )
+        # Mock duration is unknown up front (no ffprobe on mock); the
+        # shell primitive falls back to the base asset's duration_ms.
+        return InternalProcessedClipResponse(
+            output_url=output_url,
+            duration_seconds=None,
+            size_bytes=1024 * 1024,
+            mock_mode=True,
+        )
+
+    import shutil as _shutil
+    import subprocess as _subprocess
+
+    if not _shutil.which("ffmpeg"):
+        return _error(500, "internal_error", "ffmpeg not found on PATH")
+
+    target_dir = _image_overlay_dir(settings)
+    output_path = target_dir / f"{cache_key}.mp4"
+    if output_path.exists():
+        return InternalProcessedClipResponse(
+            output_url=f"/data/_internal/image_overlays/{output_path.name}",
+            duration_seconds=_probe_duration(output_path),
+            size_bytes=output_path.stat().st_size,
+            mock_mode=False,
+        )
+
+    # Resolve the image (data URI or /data/ URL) to a local file
+    # via the SESSION 255 polymorphic resolver.
+    resolved_image = _resolve_title_card_image(body.image_source, settings)
+    if isinstance(resolved_image, JSONResponse):
+        return resolved_image
+    image_path = resolved_image
+
+    # Resolve the base clip.
+    try:
+        clip_path = _download_concat_input(
+            body.clip_url, target_dir / "sources", settings,
+        )
+    except FileNotFoundError as exc:
+        return _error(400, "validation_error", str(exc))
+    except httpx.HTTPError as exc:
+        return _error(
+            502, "upstream_download_error",
+            f"download error: {exc!s}"[:300],
+        )
+
+    base_dur = _probe_duration(clip_path)
+
+    # Guardrail: reject timing values that fall entirely outside
+    # the base clip. A start_time_s past the base duration would
+    # produce an image that never appears — surface it as a 422
+    # rather than silently rendering an unchanged clip.
+    if body.start_time_s is not None and body.start_time_s >= base_dur:
+        return _error(
+            422, "validation_error",
+            f"start_time_s ({body.start_time_s}) is at or beyond the base "
+            f"clip's duration ({base_dur:.2f}s); the overlay would never "
+            "appear",
+        )
+
+    # Timing normalization for ffmpeg enable=... — treat None
+    # as full-range. Clamp end_time_s to base_dur so the enable
+    # expression uses a value the base clip actually reaches.
+    effective_start = body.start_time_s if body.start_time_s is not None else 0.0
+    effective_end = body.end_time_s if body.end_time_s is not None else base_dur
+    if effective_end > base_dur:
+        effective_end = base_dur
+
+    # Border thickness in pixels — 0 when border is off so the
+    # corner math is identical to "no decoration".
+    border_w = _IMAGE_OVERLAY_BORDER_WIDTH_PX if body.border else 0
+    shadow_off = _IMAGE_OVERLAY_SHADOW_OFFSET_PX if body.shadow else 0
+
+    # Build the overlay-side filter graph.
+    #
+    # ``[1:v]`` = the still image (looped for base_dur via
+    # ``-loop 1 -t base_dur -i``). Steps:
+    #   1. scale to overlay_width preserving aspect
+    #      (``scale=W:-1``) — FIT / CONTAIN, no crop.
+    #   2. force even dimensions for libx264 (``:flags=lanczos``
+    #      plus ``pad`` to nearest-even) — libx264 refuses odd
+    #      dims in yuv420p.
+    #   3. optional white border via ``pad``.
+    #   4. optional drop shadow via a semi-transparent black
+    #      duplicate overlaid first at (+shadow_off, +shadow_off).
+    #
+    # Positioning: the corner math sees the OUTER width/height
+    # (image + border) and places the outer edge at the requested
+    # margin from the frame edge. Shadow drops below/right of
+    # that position.
+
+    overlay_inner_w = body.overlay_width
+    # We don't know the image's aspect ratio here (skip ffprobe on
+    # the image to keep the endpoint fast); overlay_outer_w is the
+    # width after border. Height is not known until scale runs,
+    # so use ffmpeg overlay math (``overlay_w`` / ``overlay_h``
+    # variables) in the positioning expressions.
+
+    scale_filter = f"scale={overlay_inner_w}:-2:flags=lanczos"
+    # Even-dim guard: scale=-2 already forces height to be even
+    # since even-dim math needs both dims divisible by 2 for
+    # yuv420p; -2 does the right thing.
+
+    filter_parts: list[str] = []
+    if body.shadow:
+        # Create shadow: scaled + bordered copy tinted dark +
+        # slightly transparent. Reuses the ``[1:v]`` stream via
+        # split so both shadow + real overlay derive from the
+        # same scaled source.
+        filter_parts.append(f"[1:v]{scale_filter}[img_scaled]")
+        if body.border:
+            filter_parts.append(
+                f"[img_scaled]pad="
+                f"iw+{2*border_w}:ih+{2*border_w}:"
+                f"{border_w}:{border_w}:"
+                f"color={_IMAGE_OVERLAY_BORDER_COLOR}"
+                f"[img_bordered]"
+            )
+            filter_parts.append("[img_bordered]split=2[img_main][img_for_shadow]")
+        else:
+            filter_parts.append("[img_scaled]split=2[img_main][img_for_shadow]")
+        # Shadow: fill the shadow copy with solid dark color at
+        # the given opacity. Simple + reliable across ffmpeg
+        # builds. ``drawbox=…:t=fill`` paints the whole rectangle.
+        filter_parts.append(
+            f"[img_for_shadow]"
+            f"drawbox=x=0:y=0:w=iw:h=ih:"
+            f"color={_IMAGE_OVERLAY_SHADOW_COLOR}:t=fill"
+            f"[img_shadow]"
+        )
+    else:
+        filter_parts.append(f"[1:v]{scale_filter}[img_scaled]")
+        if body.border:
+            filter_parts.append(
+                f"[img_scaled]pad="
+                f"iw+{2*border_w}:ih+{2*border_w}:"
+                f"{border_w}:{border_w}:"
+                f"color={_IMAGE_OVERLAY_BORDER_COLOR}"
+                f"[img_main]"
+            )
+        else:
+            filter_parts.append("[img_scaled]null[img_main]")
+
+    # Corner math using ffmpeg overlay variables (overlay_w /
+    # overlay_h refer to the incoming overlay stream dimensions
+    # AT overlay time — so the border/shadow padding is
+    # automatically included).
+    if corner == "top_left":
+        main_x_expr = f"{body.margin_x}"
+        main_y_expr = f"{body.margin_y}"
+    elif corner == "top_right":
+        main_x_expr = f"main_w-overlay_w-{body.margin_x}"
+        main_y_expr = f"{body.margin_y}"
+    elif corner == "bottom_left":
+        main_x_expr = f"{body.margin_x}"
+        main_y_expr = f"main_h-overlay_h-{body.margin_y}"
+    else:  # bottom_right
+        main_x_expr = f"main_w-overlay_w-{body.margin_x}"
+        main_y_expr = f"main_h-overlay_h-{body.margin_y}"
+
+    # Timing gate — ``enable=between(t,start,end)``. Only emit
+    # the expression when either bound is set to non-default;
+    # a full-range overlay skips the gate entirely (marginally
+    # cheaper + simpler filter string).
+    timing_gate = ""
+    if body.start_time_s is not None or body.end_time_s is not None:
+        timing_gate = (
+            f":enable='between(t,{effective_start},{effective_end})'"
+        )
+
+    # Build the two overlay stages when shadow is on (shadow
+    # first, then the real image on top). Shadow is offset by
+    # +shadow_off in both axes from the main image's position.
+    if body.shadow:
+        shadow_x_expr = f"({main_x_expr})+{shadow_off}"
+        shadow_y_expr = f"({main_y_expr})+{shadow_off}"
+        filter_parts.append(
+            f"[0:v][img_shadow]"
+            f"overlay=x={shadow_x_expr}:y={shadow_y_expr}{timing_gate}"
+            f"[with_shadow]"
+        )
+        filter_parts.append(
+            f"[with_shadow][img_main]"
+            f"overlay=x={main_x_expr}:y={main_y_expr}{timing_gate}"
+            f"[outv]"
+        )
+    else:
+        filter_parts.append(
+            f"[0:v][img_main]"
+            f"overlay=x={main_x_expr}:y={main_y_expr}{timing_gate}"
+            f"[outv]"
+        )
+
+    filter_complex = ";".join(filter_parts)
+
+    # Audio pass-through: map [0:a] directly. If the base has no
+    # audio (rare — storyboard chains), skip the audio map so
+    # ffmpeg doesn't error. Silent-base intro/outro synthesizes
+    # a null audio track, but image_overlay's contract is
+    # simpler — if the base is silent, so is the output.
+    base_has_audio = _has_audio_stream(clip_path)
+
+    tmp = output_path.with_suffix(".mp4.tmp")
+    cmd: list[str] = [
+        "ffmpeg", "-y", "-loglevel", "error",
+        "-i", str(clip_path),
+        "-loop", "1", "-t", f"{base_dur}", "-i", str(image_path),
+        "-filter_complex", filter_complex,
+        "-map", "[outv]",
+    ]
+    if base_has_audio:
+        cmd += ["-map", "0:a", "-c:a", "copy"]
+    cmd += [
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+        "-pix_fmt", "yuv420p",
+        "-movflags", "+faststart",
+        # Force the output to match the base clip's duration; the
+        # -loop 1 image input is otherwise infinite.
+        "-t", f"{base_dur}",
+        "-f", "mp4",
+        str(tmp),
+    ]
+
+    try:
+        result = _subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()[-400:]
+            tmp.unlink(missing_ok=True)
+            return _error(
+                500, "internal_error",
+                f"ffmpeg rc={result.returncode}: {stderr}",
+            )
+        if not tmp.exists():
+            return _error(500, "internal_error", "ffmpeg produced no output")
+        tmp.replace(output_path)
+    except _subprocess.TimeoutExpired:
+        tmp.unlink(missing_ok=True)
+        return _error(500, "internal_error", "ffmpeg image_overlay timed out")
+    except Exception as exc:  # pragma: no cover — defensive
+        tmp.unlink(missing_ok=True)
+        logger.exception("image_overlay unexpected")
+        return _error(500, "internal_error", f"unexpected: {exc!s}"[:300])
+
+    return InternalProcessedClipResponse(
+        output_url=f"/data/_internal/image_overlays/{output_path.name}",
+        duration_seconds=_probe_duration(output_path),
+        size_bytes=output_path.stat().st_size,
+        mock_mode=False,
+    )
+
+
 # ---- POST /internal/clips/remove_background/ ----------------------
 #
 # SESSION 179 / V16. Strip the white-square background Runway bakes
