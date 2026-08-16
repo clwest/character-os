@@ -2712,6 +2712,363 @@ def test_long_form_ad_outro_regression_shape_unchanged() -> None:
     ]
 
 
+# ---- SESSION 255 image-backed outro: talking_head + talking_head_with_backdrop ----
+#
+# Additive extension of the SESSION 255 outro parity slice. Reuses the
+# add_intro_outro primitive. When outro_image_asset_id is set, the
+# recipe resolver unwraps to the IMAGE Asset's data-URI file_path and
+# the starter threads it into step.params.outro.image_data_uri. When
+# blank, the outro dict shape stays identical to pre-SESSION-255
+# renders (no image_data_uri key present) so media-engine cache keys
+# remain stable across the transition.
+#
+# Ten test cases cover the operator's SESSION 255 acceptance list.
+
+
+def _make_outro_image_asset(ws: Workspace, data_uri: str | None = None) -> Asset:
+    """Build a workspace IMAGE Asset with a data-URI file_path,
+    mirroring the shape the image-generation flow (views.py:755)
+    already produces."""
+    if data_uri is None:
+        # 8×8 PNG solid color — smallest valid PNG the tests can
+        # forward end-to-end without a fixture file.
+        import base64 as _b64
+        from io import BytesIO
+        from PIL import Image
+        buf = BytesIO()
+        Image.new("RGB", (8, 8), (60, 140, 40)).save(buf, format="PNG")
+        data_uri = "data:image/png;base64," + _b64.b64encode(
+            buf.getvalue(),
+        ).decode("ascii")
+    return Asset.objects.create(
+        workspace=ws,
+        asset_type=AssetType.IMAGE,
+        file_path=data_uri,
+        mime_type="image/png",
+    )
+
+
+def test_talking_head_recipe_exposes_outro_image_asset_id_field() -> None:
+    """SESSION 255 — talking_head's recipe metadata surfaces the
+    optional outro_image_asset_id field so the SPA renders an
+    IMAGE asset picker beside outro_text."""
+    ws, user = _make_workspace_with_user("s255thi_meta@test")
+    client = APIClient()
+    _login(client, user)
+
+    response = client.get("/api/recipes/talking_head/")
+    assert response.status_code == http.HTTP_200_OK
+    fields = {f["name"]: f for f in response.json()["fields"]}
+    assert "outro_image_asset_id" in fields
+    field = fields["outro_image_asset_id"]
+    assert field["type"] == "asset_picker"
+    assert field["asset_type"] == AssetType.IMAGE
+    assert field["required"] is False
+    assert field["label"] == "Outro background image (optional)"
+
+
+def test_talking_head_with_backdrop_recipe_exposes_outro_image_asset_id_field() -> None:
+    """Same metadata check for the backdrop variant."""
+    ws, user = _make_workspace_with_user("s255thbi_meta@test")
+    client = APIClient()
+    _login(client, user)
+
+    response = client.get("/api/recipes/talking_head_with_backdrop/")
+    assert response.status_code == http.HTTP_200_OK
+    fields = {f["name"]: f for f in response.json()["fields"]}
+    assert "outro_image_asset_id" in fields
+    field = fields["outro_image_asset_id"]
+    assert field["type"] == "asset_picker"
+    assert field["asset_type"] == AssetType.IMAGE
+    assert field["required"] is False
+
+
+def test_talking_head_outro_image_data_uri_flows_into_step_params() -> None:
+    """SESSION 255 — a picked workspace IMAGE Asset is resolved to
+    its file_path (data URI) and threaded into the outro step's
+    params.outro.image_data_uri. Downstream, the media-engine
+    consumes this via the new TitleCardSpec.image_data_uri field."""
+    ws, user = _make_workspace_with_user("s255thi_flow@test")
+    sp = _make_teammate(ws)
+    image = _make_outro_image_asset(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": "Hello world from the talking head recipe.",
+                "outro_text": "Riverstone Outdoor Adventures\nVisit us today",
+                "outro_image_asset_id": str(image.pk),
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    steps = sorted(response.json()["steps"], key=lambda s: s["position"])
+    assert len(steps) == 2
+    outro_step = steps[1]
+    assert outro_step["primitive"] == "add_intro_outro"
+    outro_params = outro_step["params"]["outro"]
+    assert outro_params["text"].startswith("Riverstone Outdoor Adventures")
+    assert outro_params["duration_s"] == 3.0
+    assert outro_params["image_data_uri"] == image.file_path
+    assert outro_params["image_data_uri"].startswith("data:image/png;base64,")
+
+
+def test_talking_head_outro_blank_image_omits_image_data_uri_key() -> None:
+    """SESSION 255 backward-compat guard — when outro_image is
+    absent, the outro dict MUST NOT carry an ``image_data_uri``
+    key. The media-engine's sha256 cache key hashes the whole
+    request body, so a stray ``image_data_uri: None`` would
+    invalidate every pre-SESSION-255 outro cache entry."""
+    ws, user = _make_workspace_with_user("s255thi_no_image@test")
+    sp = _make_teammate(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": "Hello world from the talking head recipe.",
+                "outro_text": "Brand Co.",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    steps = sorted(response.json()["steps"], key=lambda s: s["position"])
+    outro_params = steps[1]["params"]["outro"]
+    assert "image_data_uri" not in outro_params
+    # Preserve dict shape exactly (text + duration_s only).
+    assert set(outro_params.keys()) == {"text", "duration_s"}
+
+
+def test_talking_head_outro_blank_text_ignores_image() -> None:
+    """SESSION 255 — blank outro_text means NO outro, regardless
+    of whether an image is selected. Per operator: 'existing rule
+    that outro text is what enables the card'."""
+    ws, user = _make_workspace_with_user("s255thi_blank_text@test")
+    sp = _make_teammate(ws)
+    image = _make_outro_image_asset(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": "Hello world from the talking head recipe.",
+                "outro_text": "   ",
+                "outro_image_asset_id": str(image.pk),
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    steps = response.json()["steps"]
+    # Single speech step — no outro despite image being selected.
+    assert len(steps) == 1
+    assert steps[0]["primitive"] == "generate_avatar_speech"
+
+
+def test_talking_head_outro_image_rejects_cross_workspace_asset() -> None:
+    """SESSION 255 — the asset_picker resolver already enforces
+    workspace scoping via ``Asset.objects.get(pk=…, workspace=…)``.
+    Cross-workspace picks 404 (raised as 400 by the view)."""
+    ws_a, user_a = _make_workspace_with_user("s255thi_ws_a@test")
+    ws_b, _ = _make_workspace_with_user("s255thi_ws_b@test")
+    sp = _make_teammate(ws_a)
+    foreign_image = _make_outro_image_asset(ws_b)
+    client = APIClient()
+    _login(client, user_a)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head",
+            "workspace": str(ws_a.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": "Hello.",
+                "outro_text": "Brand",
+                "outro_image_asset_id": str(foreign_image.pk),
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code in (
+        http.HTTP_400_BAD_REQUEST,
+        http.HTTP_404_NOT_FOUND,
+    )
+
+
+def test_talking_head_outro_image_adds_no_extra_avatar_call() -> None:
+    """SESSION 255 acceptance — the image branch introduces no
+    additional generate_avatar_speech step. Speech count is
+    exactly one whether image is present or absent."""
+    ws, user = _make_workspace_with_user("s255thi_no_extra@test")
+    sp = _make_teammate(ws)
+    image = _make_outro_image_asset(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": "Hello.",
+                "outro_text": "Brand",
+                "outro_image_asset_id": str(image.pk),
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    steps = response.json()["steps"]
+    speech_steps = [
+        s for s in steps if s["primitive"] == "generate_avatar_speech"
+    ]
+    assert len(speech_steps) == 1
+
+
+def test_talking_head_with_backdrop_outro_image_appends_after_composite() -> None:
+    """SESSION 255 — image-backed outro still appends AFTER the
+    composite_video step on the backdrop path (SESSION 179 concat
+    variant). Chain: backdrops → speech → composite → outro."""
+    ws, user = _make_workspace_with_user("s255thbi_concat@test")
+    sp = _make_teammate(ws)
+    image = _make_outro_image_asset(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head_with_backdrop",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": "Hello over a backdrop.",
+                "backdrop_prompt": "sunset over mountains, cinematic",
+                "outro_text": "Brand Co.",
+                "outro_image_asset_id": str(image.pk),
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    steps = sorted(response.json()["steps"], key=lambda s: s["position"])
+    last_step = steps[-1]
+    second_last = steps[-2]
+    assert last_step["primitive"] == "add_intro_outro"
+    assert last_step["params"]["outro"]["image_data_uri"] == image.file_path
+    assert second_last["primitive"] == "composite_video"
+    # Outro still chains from the composite output.
+    assert last_step["inputs"] == [
+        {"slot": "base", "from_step_position": second_last["position"]},
+    ]
+
+
+def test_talking_head_with_backdrop_v18_outro_image_appends_after_composite() -> None:
+    """SESSION 255 — V18 picked-clip branch also carries the
+    image_data_uri through to the outro step. Guards against the
+    two backdrop branches diverging in future maintenance."""
+    ws, user = _make_workspace_with_user("s255thbi_v18@test")
+    sp = _make_teammate(ws)
+    backdrop = Asset.objects.create(
+        workspace=ws, asset_type=AssetType.CLIP,
+        file_path="/data/_assets/backdrop.mp4",
+        duration_ms=30_000, mime_type="video/mp4",
+    )
+    image = _make_outro_image_asset(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "talking_head_with_backdrop",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": "Hello over picked backdrop.",
+                "backdrop_clip_id": str(backdrop.pk),
+                "outro_text": "Picked Brand",
+                "outro_image_asset_id": str(image.pk),
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    steps = sorted(response.json()["steps"], key=lambda s: s["position"])
+    outro_step = steps[-1]
+    assert outro_step["primitive"] == "add_intro_outro"
+    assert outro_step["params"]["outro"]["image_data_uri"] == image.file_path
+    assert steps[-2]["primitive"] == "composite_video"
+
+
+def test_long_form_ad_outro_still_black_when_no_image_selected() -> None:
+    """SESSION 255 cross-recipe regression — long_form_ad,
+    storyboard_voiced, storyboard_ad, cinematic_visual,
+    cinematic_visual_extended, dialogue_scene, recut_teaser all
+    have outro_text but do NOT have outro_image_asset_id. They
+    must continue to lay down the pre-SESSION-255 outro dict
+    (text + duration_s only, no image_data_uri) so their
+    media-engine cache keys stay stable."""
+    ws, user = _make_workspace_with_user("s255lf_no_image@test")
+    sp = _make_teammate(ws)
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/compositions/",
+        {
+            "kind": "long_form_ad",
+            "workspace": str(ws.pk),
+            "params": {
+                "spokesperson_id": str(sp.pk),
+                "script": (
+                    "Welcome to our spring launch. Order today and get "
+                    "free shipping on every order. Visit our website "
+                    "to learn more."
+                ),
+                "outro_text": "Regress",
+                "mock_mode": True,
+            },
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    steps = sorted(response.json()["steps"], key=lambda s: s["position"])
+    outro_step = steps[-1]
+    assert outro_step["primitive"] == "add_intro_outro"
+    outro_params = outro_step["params"]["outro"]
+    assert "image_data_uri" not in outro_params
+    assert set(outro_params.keys()) == {"text", "duration_s"}
+
+
 def test_long_form_ad_out_of_tolerance_returns_201_with_failed_composition() -> None:
     """SESSION 251-late — the DRF create surface must NOT leak
     ``LongFormDurationError`` as a 500 when long-form synthesis falls

@@ -452,7 +452,29 @@ RECIPES: dict[str, Recipe] = {
                 required=False, max_chars=80,
                 help_text=(
                     "Title card appended after the video. 3 seconds, "
-                    "white text on black. Leave blank to skip."
+                    "white text on black by default. Leave blank to "
+                    "skip. Optionally pick a workspace image below "
+                    "to use as the outro background."
+                ),
+            ),
+            # SESSION 255 image-backed outro. Optional; blank preserves
+            # the white-text-on-black default exactly. Mirrors the
+            # ``prompt_image_asset_id`` pattern from cinematic_visual
+            # (W11.6.5 / SESSION 174) — resolver unwraps to the
+            # IMAGE Asset's file_path (data URI) and passes as
+            # ``outro_image`` to the starter.
+            RecipeField(
+                name="outro_image_asset_id",
+                type="asset_picker",
+                label="Outro background image (optional)",
+                required=False,
+                asset_type=AssetType.IMAGE,
+                help_text=(
+                    "Pick a workspace image to use behind the outro "
+                    "text. A semi-transparent scrim keeps the white "
+                    "text readable over any image. Ignored when the "
+                    "outro card text is blank. Local ffmpeg only — "
+                    "no additional provider call."
                 ),
             ),
             _VERIFIER_MODE_FIELD,
@@ -460,6 +482,10 @@ RECIPES: dict[str, Recipe] = {
             _NAME_FIELD,
             _MOCK_MODE_FIELD,
         ),
+        # SESSION 255 — resolver renames outro_image_asset_id → outro_image
+        # (asset_picker resolver unwraps IMAGE assets to their file_path
+        # string, matching cinematic_visual's prompt_image_asset_id path).
+        param_map={"outro_image_asset_id": "outro_image"},
         starter=starters.talking_head,
     ),
     "talking_head_with_backdrop": Recipe(
@@ -555,7 +581,25 @@ RECIPES: dict[str, Recipe] = {
                 required=False, max_chars=80,
                 help_text=(
                     "Title card appended after the video. 3 seconds, "
-                    "white text on black. Leave blank to skip."
+                    "white text on black by default. Leave blank to "
+                    "skip. Optionally pick a workspace image below "
+                    "to use as the outro background."
+                ),
+            ),
+            # SESSION 255 image-backed outro — same pattern as
+            # talking_head. See that recipe for the resolver rationale.
+            RecipeField(
+                name="outro_image_asset_id",
+                type="asset_picker",
+                label="Outro background image (optional)",
+                required=False,
+                asset_type=AssetType.IMAGE,
+                help_text=(
+                    "Pick a workspace image to use behind the outro "
+                    "text. A semi-transparent scrim keeps the white "
+                    "text readable over any image. Ignored when the "
+                    "outro card text is blank. Local ffmpeg only — "
+                    "no additional provider call."
                 ),
             ),
             _VERIFIER_MODE_FIELD,
@@ -568,7 +612,13 @@ RECIPES: dict[str, Recipe] = {
         # (passes the resolved Asset row to the starter, mirrors
         # the source_clip_id → source_clip pattern used by
         # style_remix_pass / recut_teaser).
-        param_map={"backdrop_clip_id": "backdrop_clip"},
+        # SESSION 255 — outro_image_asset_id → outro_image (the
+        # asset_picker resolver unwraps IMAGE assets to their
+        # file_path data URI; starter kwarg is ``outro_image``).
+        param_map={
+            "backdrop_clip_id": "backdrop_clip",
+            "outro_image_asset_id": "outro_image",
+        },
     ),
     "talking_head_polished": Recipe(
         kind="talking_head_polished",

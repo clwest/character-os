@@ -2353,6 +2353,41 @@ class TitleCardSpec(BaseModel):
     bg_color: str = Field(default="black")
     text_color: str = Field(default="white")
     font_size: int = Field(default=48, ge=16, le=200)
+    # SESSION 255 image-backed title cards. When absent, the
+    # endpoint continues to synthesize the background via
+    # ``-f lavfi -i color=c=<bg_color>:s=WxH:r=30:d=<dur>`` and
+    # ``bg_color`` is honored. When present, the endpoint loops
+    # the still image for ``duration_s``, cover-crops to the body
+    # clip's canvas, and draws a semi-transparent scrim behind
+    # drawtext so white text stays readable over arbitrary
+    # imagery.
+    #
+    # Two accepted shapes (Character OS ships both):
+    #
+    #   * ``data:image/{png|jpeg|webp};base64,...`` — decoded +
+    #     cached under ``data/_internal/intro_outros/images/
+    #     <sha16>.<ext>``. Matches the shape the Stability AI
+    #     image-generation flow persists (shell/apps/compositions/
+    #     views.py:755).
+    #
+    #   * ``/data/...`` local URL — resolved via the same
+    #     ``_download_concat_input`` helper the concat endpoint
+    #     uses. Matches the shape the storyboard ``generate_image``
+    #     primitive persists (media-engine writes bytes to disk
+    #     and returns a ``/data/...`` URL).
+    #
+    # Anything else is rejected as ``invalid_image_source``. The
+    # operator-facing field name is retained from the SESSION 255
+    # scope-lock; both shapes flow through the same downstream
+    # pipeline (loop → scale/crop/setsar/fps → drawtext+scrim →
+    # concat).
+    #
+    # Max_length cap mirrors the ``prompt_image`` field convention
+    # (10 MB payload → ~7 MB decoded for data URIs; local URLs
+    # remain far under the cap by construction). The decoded byte
+    # cap on the data-URI branch matches the portrait contract
+    # (``_MAX_DECODED_PORTRAIT_BYTES`` = 5 MB).
+    image_data_uri: Optional[str] = Field(default=None, max_length=10_000_000)
 
 
 class InternalIntroOutroCreate(BaseModel):
@@ -2367,6 +2402,132 @@ def _intro_outro_dir(settings: Settings) -> Path:
     target = settings.data_path / "_internal" / "intro_outros"
     target.mkdir(parents=True, exist_ok=True)
     return target
+
+
+def _intro_outro_image_dir(settings: Settings) -> Path:
+    """SESSION 255 — dedicated cache for image-backed title card
+    backgrounds. Content-addressed so re-posts of the same asset
+    share a file across many outro renders.
+    """
+    target = settings.data_path / "_internal" / "intro_outros" / "images"
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def _decode_title_card_image(data_uri: str) -> tuple[str, bytes] | JSONResponse:
+    """SESSION 255 — validate + decode a ``data:image/...;base64,...``
+    payload for an image-backed title card. Mirrors the
+    ``_decode_portrait`` shape (same regex, same 5 MB decoded cap)
+    with title-card-specific error text so operator debugging
+    doesn't mention portraits.
+
+    Returns ``(mime, raw_bytes)`` on success or a JSONResponse
+    error the caller can return directly.
+    """
+    match = _DATA_URI_RE.match(data_uri.strip())
+    if not match:
+        return _error(
+            400,
+            "invalid_data_uri",
+            "title card image_data_uri must be "
+            "data:image/{png|jpeg|webp};base64,...",
+        )
+    mime = match.group(1).lower().replace("jpg", "jpeg")
+    try:
+        raw = base64.b64decode(match.group(2), validate=True)
+    except (ValueError, binascii.Error):
+        return _error(
+            400, "invalid_data_uri",
+            "title card image_data_uri base64 payload is malformed",
+        )
+    if not raw:
+        return _error(
+            400, "invalid_data_uri",
+            "title card image_data_uri decoded to zero bytes",
+        )
+    if len(raw) > _MAX_DECODED_PORTRAIT_BYTES:
+        return _error(
+            413,
+            "image_too_large",
+            f"title card image decodes to {len(raw):,} bytes; "
+            f"cap is {_MAX_DECODED_PORTRAIT_BYTES:,}",
+        )
+    return mime, raw
+
+
+def _write_title_card_image_temp(
+    settings: Settings, mime: str, raw: bytes,
+) -> Path:
+    """SESSION 255 — cache the decoded title-card image under
+    ``data/_internal/intro_outros/images/`` so repeated posts of
+    the same asset (same operator, many outro renders) hit the
+    same file. Content-addressed via sha256 of the decoded bytes.
+    """
+    target_dir = _intro_outro_image_dir(settings)
+    digest = hashlib.sha256(raw).hexdigest()[:16]
+    ext = _MIME_EXT.get(mime, "png")
+    path = target_dir / f"{digest}.{ext}"
+    if not path.exists():
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_bytes(raw)
+        tmp.replace(path)
+    return path
+
+
+def _resolve_title_card_image(
+    source: str, settings: Settings,
+) -> Path | JSONResponse:
+    """SESSION 255 — polymorphic image source resolver for the
+    title-card image path. Accepts either shape Character OS
+    Assets ship:
+
+      * ``data:image/{png|jpeg|webp};base64,...`` — the Stability
+        AI image flow's ``file_path``. Decoded + content-addressed
+        under ``data/_internal/intro_outros/images/``.
+
+      * ``/data/...`` local URL — the storyboard ``generate_image``
+        primitive's ``file_path``. Resolved to an absolute path
+        under ``settings.data_path`` via the same
+        ``_download_concat_input`` helper the concat endpoint uses.
+
+    Returns the resolved ``Path`` on success or a ``JSONResponse``
+    error on invalid source. Anything that is neither a data URI
+    nor a ``/data/`` (or ``http(s)://``) URL is rejected as
+    ``invalid_image_source`` — surfaces a clear operator error
+    instead of a mysterious ffmpeg-time failure.
+    """
+    trimmed = source.strip()
+    if trimmed.startswith("data:"):
+        decoded = _decode_title_card_image(trimmed)
+        if isinstance(decoded, JSONResponse):
+            return decoded
+        mime, raw = decoded
+        return _write_title_card_image_temp(settings, mime, raw)
+    # SESSION 255 — reuse the concat-input resolver's local + http
+    # path handling. Rejects true absolute paths that don't live
+    # under settings.data_path (consistent with existing concat
+    # behavior) so operator can't sneak in arbitrary filesystem
+    # reads via the image field.
+    if trimmed.startswith(("/data/", "http://", "https://")):
+        try:
+            return _download_concat_input(
+                trimmed,
+                _intro_outro_image_dir(settings),
+                settings,
+            )
+        except FileNotFoundError as exc:
+            return _error(400, "image_source_not_found", str(exc))
+        except httpx.HTTPError as exc:
+            return _error(
+                502, "image_source_download_error",
+                f"download error: {exc!s}"[:300],
+            )
+    return _error(
+        400,
+        "invalid_image_source",
+        "title card image source must be a data:image/...;base64,... "
+        "payload or a /data/... local URL",
+    )
 
 
 # drawtext requires an explicit fontfile= on most builds — even
@@ -2460,13 +2621,17 @@ def _build_card_filter(
     input_label: str,
     output_label: str,
     textfile_path: Path,
+    *,
+    use_scrim: bool = False,
 ) -> str:
     """drawtext filter for a single title card. ``input_label``
-    is the ffmpeg input label (e.g. ``[1:v]``) referencing a
-    lavfi color source; ``output_label`` is the named output
-    (e.g. ``[intro_v]``). ``textfile_path`` points at a file
-    containing the literal card text — caller writes it before
-    invoking ffmpeg.
+    is the ffmpeg input label (e.g. ``[1:v]``) referencing either
+    a lavfi color source (legacy path) or the cover-cropped image
+    intermediate label emitted by ``_build_image_card_prefilter``
+    (SESSION 255 image-backed path). ``output_label`` is the
+    named output (e.g. ``[intro_v]``). ``textfile_path`` points
+    at a file containing the literal card text — caller writes
+    it before invoking ffmpeg.
 
     Uses ``textfile=`` instead of ``text=`` because drawtext's
     in-filter text escape rules collapse the moment ``text=``
@@ -2477,7 +2642,14 @@ def _build_card_filter(
     \\047 — all failed) before discovering that ``textfile=``
     sidesteps the whole problem by reading the literal bytes.
     The caller's responsibility is just to drop the text into
-    a file the endpoint can read."""
+    a file the endpoint can read.
+
+    ``use_scrim`` (SESSION 255) adds a semi-transparent black
+    box behind the text so white text stays readable over
+    arbitrary imagery. Default False preserves the exact
+    solid-color-background rendering shipped through SESSION 254
+    (byte-identical output on the color-source path).
+    """
     # Path values still go through filter-argument escaping
     # (backslash + colon), but the text itself lives in a file
     # and needs no escaping at all.
@@ -2489,13 +2661,42 @@ def _build_card_filter(
     text_arg = (
         str(textfile_path).replace("\\", "\\\\").replace(":", r"\:")
     )
+    # SESSION 255 — scrim only fires on image-backed cards. The
+    # color-source path must produce a filter string that is
+    # byte-identical to the pre-SESSION-255 output so the caller's
+    # sha256 cache key (which hashes the request body, not the
+    # command line — but we preserve the visual invariant anyway)
+    # and any downstream visual regression checks continue to hold.
+    scrim = (
+        ":box=1:boxcolor=black@0.5:boxborderw=20" if use_scrim else ""
+    )
     return (
         f"{input_label}drawtext="
         f"fontfile='{fontfile}':"
         f"textfile='{text_arg}':"
         f"fontsize={spec.font_size}:"
-        f"fontcolor={spec.text_color}:"
+        f"fontcolor={spec.text_color}"
+        f"{scrim}:"
         "x=(w-text_w)/2:y=(h-text_h)/2"
+        f"{output_label}"
+    )
+
+
+def _build_image_card_prefilter(
+    canvas_w: int, canvas_h: int,
+    input_label: str, output_label: str,
+) -> str:
+    """SESSION 255 — normalize a looped still image to the body
+    clip's canvas dimensions using cover-crop, force 30 fps, and
+    reset SAR to 1 so the downstream concat sees uniform video
+    parameters. Consumed by ``_build_card_filter`` via the
+    ``output_label`` produced here."""
+    return (
+        f"{input_label}"
+        f"scale={canvas_w}:{canvas_h}:force_original_aspect_ratio=increase,"
+        f"crop={canvas_w}:{canvas_h},"
+        f"setsar=1,"
+        f"fps=30"
         f"{output_label}"
     )
 
@@ -2613,6 +2814,34 @@ def post_internal_intro_outro(
     intro_text_path = target_dir / f"{cache_key}-intro.txt"
     outro_text_path = target_dir / f"{cache_key}-outro.txt"
 
+    # SESSION 255 — resolve image backgrounds up front (before any
+    # ffmpeg wiring) so a bad source fails loud with 400/404 before
+    # we touch the encoder. Symmetric across intro + outro; either
+    # or both may be image-backed. When absent, the corresponding
+    # *_image_path stays None and the loop below takes the legacy
+    # color-source branch — byte-identical output to the pre-
+    # SESSION-255 path.
+    #
+    # Two accepted shapes per the widened TitleCardSpec contract:
+    # (1) ``data:...`` URI → decode + content-address-cache;
+    # (2) ``/data/...`` local URL → resolve via _download_concat_input.
+    intro_image_path: Path | None = None
+    outro_image_path: Path | None = None
+    if body.intro and body.intro.image_data_uri:
+        resolved = _resolve_title_card_image(
+            body.intro.image_data_uri, settings,
+        )
+        if isinstance(resolved, JSONResponse):
+            return resolved
+        intro_image_path = resolved
+    if body.outro and body.outro.image_data_uri:
+        resolved = _resolve_title_card_image(
+            body.outro.image_data_uri, settings,
+        )
+        if isinstance(resolved, JSONResponse):
+            return resolved
+        outro_image_path = resolved
+
     if body.intro:
         # SESSION 210 — pre-wrap to canvas width so long titles
         # don't clip horizontally per the SESSION 209 finding.
@@ -2621,10 +2850,21 @@ def post_internal_intro_outro(
         )
         intro_text_path.write_text(wrapped_intro, encoding="utf-8")
         intro_v_idx = input_count
-        ffmpeg_inputs += [
-            "-f", "lavfi",
-            "-i", f"color=c={body.intro.bg_color}:s={canvas_w}x{canvas_h}:r=30:d={body.intro.duration_s}",
-        ]
+        if intro_image_path is not None:
+            # SESSION 255 image-backed intro: loop the still image
+            # for duration_s, then cover-crop to canvas via the
+            # pre-filter. Drawtext consumes the normalized label
+            # with a semi-transparent scrim for readability.
+            ffmpeg_inputs += [
+                "-loop", "1",
+                "-t", str(body.intro.duration_s),
+                "-i", str(intro_image_path),
+            ]
+        else:
+            ffmpeg_inputs += [
+                "-f", "lavfi",
+                "-i", f"color=c={body.intro.bg_color}:s={canvas_w}x{canvas_h}:r=30:d={body.intro.duration_s}",
+            ]
         input_count += 1
         intro_a_idx = input_count
         ffmpeg_inputs += [
@@ -2632,11 +2872,23 @@ def post_internal_intro_outro(
             "-i", f"anullsrc=channel_layout=stereo:sample_rate=48000:d={body.intro.duration_s}",
         ]
         input_count += 1
-        filter_parts.append(_build_card_filter(
-            body.intro, canvas_w, canvas_h,
-            f"[{intro_v_idx}:v]", "[intro_v]",
-            intro_text_path,
-        ))
+        if intro_image_path is not None:
+            filter_parts.append(_build_image_card_prefilter(
+                canvas_w, canvas_h,
+                f"[{intro_v_idx}:v]", "[intro_bg]",
+            ))
+            filter_parts.append(_build_card_filter(
+                body.intro, canvas_w, canvas_h,
+                "[intro_bg]", "[intro_v]",
+                intro_text_path,
+                use_scrim=True,
+            ))
+        else:
+            filter_parts.append(_build_card_filter(
+                body.intro, canvas_w, canvas_h,
+                f"[{intro_v_idx}:v]", "[intro_v]",
+                intro_text_path,
+            ))
         concat_chain.append(f"[intro_v][{intro_a_idx}:a]")
 
     # Body — video is always [0:v]; audio is [0:a] when the body
@@ -2651,10 +2903,17 @@ def post_internal_intro_outro(
         )
         outro_text_path.write_text(wrapped_outro, encoding="utf-8")
         outro_v_idx = input_count
-        ffmpeg_inputs += [
-            "-f", "lavfi",
-            "-i", f"color=c={body.outro.bg_color}:s={canvas_w}x{canvas_h}:r=30:d={body.outro.duration_s}",
-        ]
+        if outro_image_path is not None:
+            ffmpeg_inputs += [
+                "-loop", "1",
+                "-t", str(body.outro.duration_s),
+                "-i", str(outro_image_path),
+            ]
+        else:
+            ffmpeg_inputs += [
+                "-f", "lavfi",
+                "-i", f"color=c={body.outro.bg_color}:s={canvas_w}x{canvas_h}:r=30:d={body.outro.duration_s}",
+            ]
         input_count += 1
         outro_a_idx = input_count
         ffmpeg_inputs += [
@@ -2662,11 +2921,23 @@ def post_internal_intro_outro(
             "-i", f"anullsrc=channel_layout=stereo:sample_rate=48000:d={body.outro.duration_s}",
         ]
         input_count += 1
-        filter_parts.append(_build_card_filter(
-            body.outro, canvas_w, canvas_h,
-            f"[{outro_v_idx}:v]", "[outro_v]",
-            outro_text_path,
-        ))
+        if outro_image_path is not None:
+            filter_parts.append(_build_image_card_prefilter(
+                canvas_w, canvas_h,
+                f"[{outro_v_idx}:v]", "[outro_bg]",
+            ))
+            filter_parts.append(_build_card_filter(
+                body.outro, canvas_w, canvas_h,
+                "[outro_bg]", "[outro_v]",
+                outro_text_path,
+                use_scrim=True,
+            ))
+        else:
+            filter_parts.append(_build_card_filter(
+                body.outro, canvas_w, canvas_h,
+                f"[{outro_v_idx}:v]", "[outro_v]",
+                outro_text_path,
+            ))
         concat_chain.append(f"[outro_v][{outro_a_idx}:a]")
 
     n = len(concat_chain)

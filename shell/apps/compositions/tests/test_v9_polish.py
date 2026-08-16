@@ -297,6 +297,46 @@ def test_intro_outro_real_mode_call_shape() -> None:
     assert kwargs["outro"]["duration_s"] == 2
 
 
+def test_intro_outro_forwards_image_data_uri_unmodified() -> None:
+    """SESSION 255 — AddIntroOutroPrimitive.execute must forward
+    the ``image_data_uri`` key inside the outro dict verbatim to
+    the media-engine client. The primitive currently validates
+    only ``text`` presence; this regression guard ensures a
+    future validation change doesn't accidentally strip unknown
+    keys."""
+    ws = _make_workspace("v9io5@test")
+    sp = _make_teammate(ws)
+    comp = _comp(ws, sp)
+    clip = _make_clip(ws, "/data/body.mp4")
+    data_uri = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA"
+    step = CompositionStep.objects.create(
+        composition=comp, position=0, primitive="add_intro_outro",
+        params={
+            "outro": {
+                "text": "Riverstone",
+                "duration_s": 3.0,
+                "image_data_uri": data_uri,
+            },
+        },
+    )
+    cm, fake = _patched_method(
+        "add_intro_outro", _fake_processed("/data/wrapped.mp4"),
+    )
+    with patch(
+        "apps.compositions.primitives.polish.MediaEngineClient",
+        return_value=cm,
+    ):
+        AddIntroOutroPrimitive.execute(
+            step=step,
+            resolved_inputs=[{"slot": "base", "asset": clip}],
+            mock_mode=False,
+        )
+    kwargs = fake.add_intro_outro.call_args.kwargs
+    assert kwargs["outro"]["image_data_uri"] == data_uri
+    assert kwargs["outro"]["text"] == "Riverstone"
+    assert kwargs["outro"]["duration_s"] == 3.0
+
+
 # ---- TrimClipPrimitive --------------------------------------------
 
 

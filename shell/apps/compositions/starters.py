@@ -415,6 +415,16 @@ def talking_head(
     # step after the avatar-speech step so the finished clip is
     # <speech>+<3s white-on-black card>. Blank / None = skip.
     outro_text: str | None = None,
+    # SESSION 255 image-backed outro. Optional data URI (usually
+    # a workspace IMAGE Asset's file_path, resolved by the recipe's
+    # asset_picker + param_map). When non-blank AND outro_text is
+    # non-blank, the outro dict forwards image_data_uri to
+    # add_intro_outro → media-engine → ffmpeg's -loop 1 -i <path>
+    # + cover-crop + scrim + drawtext. When blank or None, the
+    # outro dict omits the key entirely so pre-SESSION-255 cache
+    # keys stay stable. Blank outro_text still means no outro
+    # regardless of this field's value.
+    outro_image: str | None = None,
 ) -> Composition:
     """Create a single-step ``talking_head`` composition.
 
@@ -525,27 +535,36 @@ def talking_head(
     # cinematic recipes: reuses add_intro_outro with a 3-second
     # white-on-black default. No new Runway / avatar call.
     cleaned_outro = (outro_text or "").strip()
+    cleaned_outro_image = (outro_image or "").strip()
     if cleaned_outro:
+        outro_params: dict = {
+            "text": cleaned_outro,
+            "duration_s": 3.0,
+        }
+        # SESSION 255 — only include image_data_uri when non-blank.
+        # Omitting the key preserves the pre-SESSION-255 outro
+        # dict shape byte-for-byte on the black-background path,
+        # which in turn preserves the media-engine's sha256 cache
+        # key so historically-rendered outros remain cache hits.
+        if cleaned_outro_image:
+            outro_params["image_data_uri"] = cleaned_outro_image
         CompositionStep.objects.create(
             composition=composition,
             position=1,
             primitive="add_intro_outro",
             inputs=[{"slot": "base", "from_step_position": 0}],
-            params={
-                "outro": {
-                    "text": cleaned_outro,
-                    "duration_s": 3.0,
-                },
-            },
+            params={"outro": outro_params},
         )
 
     logger.info(
         "starter talking_head created composition=%s spokesperson=%s "
-        "mock=%s use_knowledge=%s verifier_mode=%s opener=%s outro=%s",
+        "mock=%s use_knowledge=%s verifier_mode=%s opener=%s outro=%s "
+        "outro_image=%s",
         composition.id, spokesperson.id, mock_mode, use_knowledge,
         verifier_mode or "(default)",
         "set" if (opener and opener.strip()) else "(default)",
         bool(cleaned_outro),
+        bool(cleaned_outro_image),
     )
     return composition
 
@@ -1608,6 +1627,11 @@ def talking_head_with_backdrop(
     # SESSION 179 concat) so the finished talking-head-with-backdrop
     # video plays end-to-end first, THEN the 3-second card.
     outro_text: str | None = None,
+    # SESSION 255 image-backed outro. Same semantics as
+    # talking_head.outro_image — optional, only forwarded when
+    # both outro_text AND outro_image are non-blank. Blank
+    # preserves the pre-SESSION-255 outro dict shape exactly.
+    outro_image: str | None = None,
 ) -> Composition:
     """Avatar talking over a cinematic backdrop. The first
     multi-step starter that combines V3 + V4 + V7's
@@ -1856,7 +1880,14 @@ def talking_head_with_backdrop(
         # long_form_ad / cinematic recipes pattern — no new Runway
         # / avatar call fires for the outro.
         v18_cleaned_outro = (outro_text or "").strip()
+        v18_cleaned_outro_image = (outro_image or "").strip()
         if v18_cleaned_outro:
+            v18_outro_params: dict = {
+                "text": v18_cleaned_outro,
+                "duration_s": 3.0,
+            }
+            if v18_cleaned_outro_image:
+                v18_outro_params["image_data_uri"] = v18_cleaned_outro_image
             CompositionStep.objects.create(
                 composition=composition,
                 position=composite_position + 1,
@@ -1864,22 +1895,19 @@ def talking_head_with_backdrop(
                 inputs=[
                     {"slot": "base", "from_step_position": composite_position},
                 ],
-                params={
-                    "outro": {
-                        "text": v18_cleaned_outro,
-                        "duration_s": 3.0,
-                    },
-                },
+                params={"outro": v18_outro_params},
             )
 
         logger.info(
             "starter talking_head_with_backdrop (V18 picked-clip) "
             "created composition=%s spokesperson=%s mock=%s "
             "use_knowledge=%s fg_width=%d backdrop_clip=%s "
-            "backdrop_clip_duration_ms=%s remove_avatar_bg=%s outro=%s",
+            "backdrop_clip_duration_ms=%s remove_avatar_bg=%s outro=%s "
+            "outro_image=%s",
             composition.id, spokesperson.id, mock_mode, use_knowledge,
             fg_width, backdrop_clip.id, backdrop_clip.duration_ms,
             remove_avatar_bg, bool(v18_cleaned_outro),
+            bool(v18_cleaned_outro_image),
         )
         return composition
 
@@ -2072,7 +2100,14 @@ def talking_head_with_backdrop(
     # end first, THEN the 3-second card. Mirrors the V18 branch
     # above and the long_form_ad / cinematic recipes pattern.
     cleaned_outro = (outro_text or "").strip()
+    cleaned_outro_image = (outro_image or "").strip()
     if cleaned_outro:
+        outro_params: dict = {
+            "text": cleaned_outro,
+            "duration_s": 3.0,
+        }
+        if cleaned_outro_image:
+            outro_params["image_data_uri"] = cleaned_outro_image
         CompositionStep.objects.create(
             composition=composition,
             position=composite_position + 1,
@@ -2080,22 +2115,18 @@ def talking_head_with_backdrop(
             inputs=[
                 {"slot": "base", "from_step_position": composite_position},
             ],
-            params={
-                "outro": {
-                    "text": cleaned_outro,
-                    "duration_s": 3.0,
-                },
-            },
+            params={"outro": outro_params},
         )
 
     logger.info(
         "starter talking_head_with_backdrop created composition=%s "
         "spokesperson=%s mock=%s use_knowledge=%s fg_width=%d "
         "n_backdrops=%d backdrop_seconds=%d remove_avatar_bg=%s "
-        "use_extend_for_backdrop=%s outro=%s",
+        "use_extend_for_backdrop=%s outro=%s outro_image=%s",
         composition.id, spokesperson.id, mock_mode, use_knowledge,
         fg_width, n_backdrops_for_log, backdrop_seconds, remove_avatar_bg,
         use_extend_for_backdrop, bool(cleaned_outro),
+        bool(cleaned_outro_image),
     )
     return composition
 
