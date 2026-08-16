@@ -791,3 +791,235 @@ def test_composition_cost_estimate_picks_up_avatar_speech() -> None:
     comp_cost = estimate_composition_cost(comp)
     assert step_cost > 0
     assert comp_cost == step_cost
+
+
+# ---- SESSION 257 AI-D5 cleanup — verification_status precedence ---
+#
+# The helper is a pure ranking function; unit-test it in isolation
+# so the precedence rule stays load-bearing regardless of future
+# stamp-site refactors.
+
+
+def test_verification_status_precedence_ranking_pure_helper() -> None:
+    from apps.compositions.primitives.avatar_speech import (
+        _should_stamp_verification_status,
+    )
+    # Elevate: unset → anything
+    assert _should_stamp_verification_status("", "trusted_passthrough") is True
+    assert _should_stamp_verification_status("", "skipped") is True
+    assert _should_stamp_verification_status("", "verified") is True
+    assert _should_stamp_verification_status("", "rejected") is True
+    # Elevate: weaker → stronger
+    assert _should_stamp_verification_status("trusted_passthrough", "skipped") is True
+    assert _should_stamp_verification_status("trusted_passthrough", "verified") is True
+    assert _should_stamp_verification_status("skipped", "verified") is True
+    assert _should_stamp_verification_status("verified", "rejected") is True
+    # NEVER downgrade
+    assert _should_stamp_verification_status("verified", "trusted_passthrough") is False
+    assert _should_stamp_verification_status("verified", "skipped") is False
+    assert _should_stamp_verification_status("rejected", "verified") is False
+    assert _should_stamp_verification_status("rejected", "trusted_passthrough") is False
+    assert _should_stamp_verification_status("skipped", "trusted_passthrough") is False
+    # Same status → no-op (avoids pointless save cycles)
+    assert _should_stamp_verification_status("verified", "verified") is False
+    assert _should_stamp_verification_status("trusted_passthrough", "trusted_passthrough") is False
+    # Empty incoming → no-op
+    assert _should_stamp_verification_status("verified", "") is False
+    assert _should_stamp_verification_status("", "") is False
+
+
+def test_execute_passthrough_does_not_downgrade_ai_topic_verified() -> None:
+    """AI-D5 root cause fix: a generate_avatar_speech step in
+    passthrough mode (use_knowledge=False — which is exactly the
+    AI-D3 hydration path) must NOT overwrite the composition's
+    pre-existing ``verified`` state. This is what left the real
+    5e74323f-... dogfood composition ending with
+    verification_status='trusted_passthrough' despite 8 K6.4-
+    verified generated turns."""
+    ws = _make_workspace("aid5nodwn@test.local")
+    sp = _make_teammate(ws)
+    # Composition starts life with AI-D3-style verified stamp.
+    comp = Composition.objects.create(
+        workspace=ws, spokesperson=sp, name="ai_verified",
+        verification_status="verified",
+        verification_warnings=[
+            {"kind": "proper_noun", "claim": "Deal",
+             "position": 0, "line_index": 0,
+             "speaker_alias": "patch", "speaker_name": "Patch"},
+        ],
+        writing_contract_version=WRITING_CONTRACT_VERSION,
+    )
+    step = CompositionStep.objects.create(
+        composition=comp, position=0,
+        primitive="generate_avatar_speech",
+        params={
+            "script": "Any pre-drafted line.",
+            "use_knowledge": False,  # AI-D3 hydration writes this
+            "spokesperson_avatar_id": sp.runway_avatar_id,
+        },
+    )
+    create_result = _mock_create_result("aid5nodwn_task")
+    polls = [_mock_poll_ready(
+        "aid5nodwn_task", duration=5.0, duration_source="media_probe",
+        cost_credits=2.0,
+    )]
+    cm, _fake = _patched_client(create_result, polls)
+    with patch(
+        "apps.compositions.primitives.avatar_speech.MediaEngineClient",
+        return_value=cm,
+    ), patch(
+        "apps.compositions.primitives.avatar_speech.time.sleep",
+    ):
+        GenerateAvatarSpeechPrimitive.execute(
+            step=step, resolved_inputs=[], mock_mode=False,
+        )
+
+    comp.refresh_from_db()
+    # Load-bearing invariant.
+    assert comp.verification_status == "verified", (
+        "AI Topic verified state MUST NOT be downgraded to "
+        "trusted_passthrough by a subsequent passthrough speech step"
+    )
+    # Pre-existing warnings must ALSO survive.
+    assert len(comp.verification_warnings) == 1
+    assert comp.verification_warnings[0]["claim"] == "Deal"
+
+
+def test_execute_passthrough_stamps_when_composition_status_unset() -> None:
+    """Manual passthrough compositions (starting from empty
+    verification_status) should still receive the
+    ``trusted_passthrough`` stamp so existing single-step manual
+    talking-head + manual dialogue behavior is unchanged. The
+    no-downgrade rule ONLY protects stronger existing states."""
+    ws = _make_workspace("aid5manpass@test.local")
+    sp = _make_teammate(ws)
+    comp = Composition.objects.create(
+        workspace=ws, spokesperson=sp, name="man_pass",
+        # verification_status left at the default ""
+    )
+    step = CompositionStep.objects.create(
+        composition=comp, position=0,
+        primitive="generate_avatar_speech",
+        params={
+            "script": "Manual line.",
+            "use_knowledge": False,
+            "spokesperson_avatar_id": sp.runway_avatar_id,
+        },
+    )
+    create_result = _mock_create_result("aid5manpass_task")
+    polls = [_mock_poll_ready(
+        "aid5manpass_task", duration=5.0, duration_source="media_probe",
+        cost_credits=2.0,
+    )]
+    cm, _fake = _patched_client(create_result, polls)
+    with patch(
+        "apps.compositions.primitives.avatar_speech.MediaEngineClient",
+        return_value=cm,
+    ), patch(
+        "apps.compositions.primitives.avatar_speech.time.sleep",
+    ):
+        GenerateAvatarSpeechPrimitive.execute(
+            step=step, resolved_inputs=[], mock_mode=False,
+        )
+
+    comp.refresh_from_db()
+    assert comp.verification_status == "trusted_passthrough"
+
+
+def test_execute_passthrough_does_not_downgrade_rejected() -> None:
+    """Defense-in-depth: a rejected composition (theoretical —
+    the runner marks it FAILED and stops so a subsequent step
+    shouldn't execute in practice) still can't be silently
+    elevated back to passthrough by any latent stamp path."""
+    ws = _make_workspace("aid5noverride@test.local")
+    sp = _make_teammate(ws)
+    comp = Composition.objects.create(
+        workspace=ws, spokesperson=sp, name="rejected_comp",
+        verification_status="rejected",
+    )
+    step = CompositionStep.objects.create(
+        composition=comp, position=0,
+        primitive="generate_avatar_speech",
+        params={
+            "script": "Passthrough line.",
+            "use_knowledge": False,
+            "spokesperson_avatar_id": sp.runway_avatar_id,
+        },
+    )
+    create_result = _mock_create_result("aid5nover_task")
+    polls = [_mock_poll_ready(
+        "aid5nover_task", duration=5.0, duration_source="media_probe",
+        cost_credits=2.0,
+    )]
+    cm, _fake = _patched_client(create_result, polls)
+    with patch(
+        "apps.compositions.primitives.avatar_speech.MediaEngineClient",
+        return_value=cm,
+    ), patch(
+        "apps.compositions.primitives.avatar_speech.time.sleep",
+    ):
+        GenerateAvatarSpeechPrimitive.execute(
+            step=step, resolved_inputs=[], mock_mode=False,
+        )
+
+    comp.refresh_from_db()
+    assert comp.verification_status == "rejected"
+
+
+def test_ai_topic_dialogue_end_to_end_status_survives_render() -> None:
+    """AI-D5 regression: run the full AI Topic dialogue path in
+    mock mode (dialogue_scene starter → 3-turn synthesis →
+    execute_composition → 3 speech steps + concat). Assert
+    verification_status ends as 'verified' (not
+    'trusted_passthrough') after ALL steps have executed.
+    Regression against the 5e74323f-... real dogfood
+    behavior."""
+    from apps.compositions.starters import dialogue_scene
+    from character_os.dialogue_synthesis import DialogueResult, DialogueTurn
+    ws = _make_workspace("aid5end2end@test.local")
+    patch_tm = _make_teammate(ws, name="Patch", avatar_id="av-patch-aid5")
+    rivet_tm = _make_teammate(ws, name="Rivet", avatar_id="av-rivet-aid5")
+
+    def _fake_result(**_kwargs):
+        turns = [
+            DialogueTurn(line_index=0, speaker_teammate=patch_tm,
+                          speaker_alias="patch",
+                          text="Opening line from patch." + "x" * 100),
+            DialogueTurn(line_index=1, speaker_teammate=rivet_tm,
+                          speaker_alias="rivet",
+                          text="Rivet responds." + "x" * 100),
+            DialogueTurn(line_index=2, speaker_teammate=patch_tm,
+                          speaker_alias="patch",
+                          text="Patch closes." + "x" * 100),
+        ]
+        return DialogueResult(
+            turns=turns, chunk_ids=[], per_character_chunk_ids={},
+            writing_contract_version=WRITING_CONTRACT_VERSION,
+            overall_verification_status="verified",
+            total_chars=sum(len(t.text) for t in turns),
+            predicted_seconds=sum(len(t.text) for t in turns) / 15,
+            target_duration_seconds=30, aliases={"patch": "Patch", "rivet": "Rivet"},
+            mock_mode=False, used_knowledge=False, model="mock",
+        )
+
+    with patch(
+        "character_os.dialogue_synthesis.synthesize_dialogue",
+        side_effect=_fake_result,
+    ):
+        comp = dialogue_scene(
+            workspace=ws, primary_spokesperson=patch_tm,
+            dialogue_mode="ai_topic", secondary_spokesperson=rivet_tm,
+            topic="test", target_duration_seconds=30, mock_mode=True,
+        )
+    # Baseline: AI-D3 stamped verified at create-time.
+    assert comp.verification_status == "verified"
+
+    # Now run the Celery pipeline (mock_mode=True so no provider hits).
+    execute_composition.apply(args=[str(comp.pk)]).get()
+    comp.refresh_from_db()
+    # LOAD-BEARING: verification_status must still be "verified"
+    # after 3 speech steps + concat have run.
+    assert comp.verification_status == "verified", (
+        f"AI Topic verified state was downgraded to "
+        f"{comp.verification_status!r} — the AI-D5 root-cause bug"
+    )

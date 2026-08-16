@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-08-16T21:24:02.040942+00:00
-git_sha: 7932689 (working tree dirty)
+generated_at: 2026-08-16T22:08:05.431900+00:00
+git_sha: 2bd82fe (working tree dirty)
 git_branch: public
 ---
 
@@ -15,7 +15,7 @@ git_branch: public
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-08-16T21:24:02.040942+00:00** against commit **7932689**
+Generated **2026-08-16T22:08:05.431900+00:00** against commit **2bd82fe**
 on branch **public** (working tree dirty).
 
 Python 3.11.6 · Django 5.2.16 ·
@@ -33,7 +33,7 @@ Celery 5.6.3 · httpx 0.27.2.
 | FastAPI routes | **125** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **10** | `celery_app.tasks` filter |
 | Migrations (applied / total) | **97 / 97** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **117,205** in 404 files | `pathlib.Path.rglob("*.py")` |
+| Shell LOC (`*.py`, no venv/migrations) | **117,761** in 404 files | `pathlib.Path.rglob("*.py")` |
 | Media-engine LOC (`*.py`, no venv/migrations) | **63,533** in 156 files | same |
 
 ---
@@ -353,11 +353,11 @@ Total: **10** registered tasks (excluding `celery.*` built-ins).
 | Service | Files | Lines |
 |---|---|---|
 | `media-engine/` | 156 | 63,533 |
-| `shell/` | 404 | 117,205 |
-| **total** | **560** | **180,738** |
+| `shell/` | 404 | 117,761 |
+| **total** | **560** | **181,294** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-08-16T21:24:02.040942+00:00 from commit 7932689. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-08-16T22:08:05.431900+00:00 from commit 2bd82fe. Re-run `python manage.py inventory` (from `shell/`) to refresh.*

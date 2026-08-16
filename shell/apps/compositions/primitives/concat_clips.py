@@ -148,6 +148,14 @@ class ConcatClipsPrimitive:
                     "reencode": reencode,
                     "crossfade_ms": crossfade_ms,
                     "result_role": result_role,
+                    # SESSION 257 AI-D5 cleanup — duration provenance.
+                    # Shell mock never touches media-engine; the number
+                    # above is fabricated from summed inputs (with an
+                    # explicit fallback of len(clips)*5000 for empty
+                    # inputs). Mark it truthfully so downstream
+                    # analytics can filter out mock rows.
+                    "duration_source": "estimated",
+                    "duration_estimated": True,
                 },
                 role=result_role,
             )
@@ -180,10 +188,28 @@ class ConcatClipsPrimitive:
 
         # Prefer the media-engine's reported duration; fall back
         # to summing input durations.
+        #
+        # SESSION 257 AI-D5 cleanup — stamp duration_source /
+        # duration_estimated so the concat asset carries the same
+        # provenance shape talking-head-speech steps do
+        # (SESSION 253 Stage 2 ffprobe plumbing). Prior to this
+        # cleanup, the concat asset had duration_ms populated but
+        # source unstamped — downstream analytics couldn't tell
+        # whether the number was ffprobed from the real output
+        # (media-engine did an authoritative measurement) or
+        # summed from inputs (derived, drifts under crossfade).
         if result.duration_seconds is not None:
             duration_ms = int(result.duration_seconds * 1000)
+            # Real-mode media-engine ffprobes the concat output URL
+            # (measured). A media_engine mock returns a fabricated
+            # number based on summed inputs — that's derived, not
+            # measured, even though the field is populated.
+            duration_source = (
+                "derived_from_inputs" if result.mock_mode else "media_probe"
+            )
         else:
             duration_ms = sum((c.duration_ms or 0) for c in clips) or None
+            duration_source = "derived_from_inputs"
 
         extra: dict[str, Any] = {
             "primitive_kind": "concat_clips",
@@ -193,6 +219,8 @@ class ConcatClipsPrimitive:
             "crossfade_ms": crossfade_ms,
             "result_role": result_role,
             "media_engine_mock_mode": result.mock_mode,
+            "duration_source": duration_source,
+            "duration_estimated": duration_source != "media_probe",
         }
 
         return PrimitiveResult(

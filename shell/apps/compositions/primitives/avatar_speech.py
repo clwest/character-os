@@ -174,6 +174,58 @@ def _estimate_duration_ms_from_script(chars: int) -> int:
     return max(_AVATAR_SPEECH_MIN_DURATION_MS, int(seconds * 1000))
 
 
+# SESSION 257 AI-D5 cleanup — verification_status precedence rule.
+#
+# Ranked strongest → weakest:
+#   rejected           (4) — strict K6.4 blocked the render.
+#   verified           (3) — K6/K6.4/AI Topic synthesis ran + verified.
+#   skipped            (2) — LLM synthesized; verifier was explicitly off.
+#   trusted_passthrough (1) — no LLM ran, no verifier ran.
+#   ""                 (0) — unset.
+#
+# The load-bearing invariant: a step must NEVER downgrade the
+# composition's verification state. Most importantly, a subsequent
+# generate_avatar_speech in passthrough mode (use_knowledge=False)
+# must not overwrite an AI Topic dialogue synthesis's ``verified``
+# state — AI-D3 stamps ``verified`` at composition-create time,
+# then each speech step's per-turn ``trusted_passthrough`` write
+# would have downgraded the composition (observed on the AI-D5
+# real dogfood, `5e74323f...` composition ended with
+# verification_status="trusted_passthrough" despite 8 K6.4-
+# verified generated turns).
+#
+# The rule is generic — not dialogue-specific. It preserves K6-
+# derived states on any multi-step composition. Talking-head +
+# manual dialogue paths are unchanged because their FIRST step's
+# stamp is always weaker or equal to their subsequent steps'.
+_VERIFICATION_STATUS_RANK: dict[str, int] = {
+    "": 0,
+    "trusted_passthrough": 1,
+    "skipped": 2,
+    "verified": 3,
+    "rejected": 4,
+}
+
+
+def _should_stamp_verification_status(current: str, incoming: str) -> bool:
+    """True iff ``incoming`` is strictly stronger than ``current``.
+
+    Same-status → False (no-op, avoids pointless save cycles).
+    Unset incoming → False (empty string carries no signal).
+
+    Used by :func:`GenerateAvatarSpeechPrimitive.execute` at the
+    composition-level status stamp site to prevent downgrades.
+    """
+    if not incoming:
+        return False
+    if current == incoming:
+        return False
+    return (
+        _VERIFICATION_STATUS_RANK.get(incoming, 0)
+        > _VERIFICATION_STATUS_RANK.get(current, 0)
+    )
+
+
 def _resolve_avatar_id(step, composition) -> str:
     """Pick the avatar id from params (explicit) or fall back to
     the composition's spokesperson. Raises ``PrimitiveError`` if
@@ -393,7 +445,14 @@ class GenerateAvatarSpeechPrimitive:
             existing.extend(verification_warnings)
             composition.verification_warnings = existing
             composition_update_fields.append("verification_warnings")
-        if verification_status and composition.verification_status != verification_status:
+        # SESSION 257 AI-D5 cleanup — no-downgrade precedence.
+        # See _VERIFICATION_STATUS_RANK docstring. Prior behavior
+        # unconditionally stamped, which silently downgraded AI Topic
+        # dialogue compositions from "verified" to
+        # "trusted_passthrough" once the per-turn speech steps ran.
+        if _should_stamp_verification_status(
+            composition.verification_status, verification_status,
+        ):
             composition.verification_status = verification_status
             composition_update_fields.append("verification_status")
         # K6.6: synthesized brief persistence. ``brief`` is the

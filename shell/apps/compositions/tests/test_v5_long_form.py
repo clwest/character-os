@@ -357,6 +357,159 @@ def test_concat_clips_rejects_non_integer_crossfade_ms() -> None:
     assert "integer" in str(exc.value).lower()
 
 
+# ---- SESSION 257 AI-D5 cleanup — concat duration provenance -----
+#
+# Concat asset now carries the same duration_source /
+# duration_estimated shape that talking-head speech steps have
+# (SESSION 253 Stage 2 ffprobe plumbing). Prior to this cleanup the
+# concat asset had duration_ms populated but source unstamped;
+# downstream analytics couldn't tell whether the number was
+# ffprobed (measured) or summed (derived).
+
+
+def test_concat_real_mode_measured_stamps_media_probe() -> None:
+    """When media-engine returns a real ffprobe duration (real
+    mode, mock_mode=False on the response), the concat asset's
+    duration_source must be 'media_probe' and duration_estimated
+    must be False."""
+    ws = _make_workspace("aid5cprobe@test.local")
+    sp = _make_teammate(ws)
+    comp = _make_composition(ws, sp)
+    a = _make_clip_asset(ws, "/data/_assets/a.mp4", 3000)
+    b = _make_clip_asset(ws, "/data/_assets/b.mp4", 4000)
+    step = CompositionStep.objects.create(
+        composition=comp, position=2, primitive="concat_clips",
+    )
+    fake = MagicMock()
+    fake.concat_clips.return_value = ConcatClipsResult(
+        output_url="/data/_internal/concats/abc.mp4",
+        duration_seconds=7.02,
+        size_bytes=2048,
+        mock_mode=False,
+    )
+    cm = MagicMock()
+    cm.__enter__.return_value = fake
+    cm.__exit__.return_value = False
+    with patch(
+        "apps.compositions.primitives.concat_clips.MediaEngineClient",
+        return_value=cm,
+    ):
+        result = ConcatClipsPrimitive.execute(
+            step=step,
+            resolved_inputs=[
+                {"slot": "clip", "asset": a},
+                {"slot": "clip", "asset": b},
+            ],
+            mock_mode=False,
+        )
+    assert result.extra_source_spec["duration_source"] == "media_probe"
+    assert result.extra_source_spec["duration_estimated"] is False
+
+
+def test_concat_real_mode_missing_duration_falls_back_to_derived() -> None:
+    """When media-engine returned no duration_seconds (ffprobe
+    failed, network issue, etc), the primitive falls back to
+    summing input durations. That fallback is DERIVED, not
+    measured — stamp truthfully."""
+    ws = _make_workspace("aid5cderiv@test.local")
+    sp = _make_teammate(ws)
+    comp = _make_composition(ws, sp)
+    a = _make_clip_asset(ws, "/data/_assets/a.mp4", 3000)
+    b = _make_clip_asset(ws, "/data/_assets/b.mp4", 4000)
+    step = CompositionStep.objects.create(
+        composition=comp, position=2, primitive="concat_clips",
+    )
+    fake = MagicMock()
+    fake.concat_clips.return_value = ConcatClipsResult(
+        output_url="/data/_internal/concats/no_dur.mp4",
+        duration_seconds=None,  # media-engine couldn't probe
+        size_bytes=2048,
+        mock_mode=False,
+    )
+    cm = MagicMock()
+    cm.__enter__.return_value = fake
+    cm.__exit__.return_value = False
+    with patch(
+        "apps.compositions.primitives.concat_clips.MediaEngineClient",
+        return_value=cm,
+    ):
+        result = ConcatClipsPrimitive.execute(
+            step=step,
+            resolved_inputs=[
+                {"slot": "clip", "asset": a},
+                {"slot": "clip", "asset": b},
+            ],
+            mock_mode=False,
+        )
+    assert result.duration_ms == 7000  # summed from inputs
+    assert result.extra_source_spec["duration_source"] == "derived_from_inputs"
+    assert result.extra_source_spec["duration_estimated"] is True
+
+
+def test_concat_media_engine_mock_stamps_derived_not_measured() -> None:
+    """A media-engine mock response returns a fabricated
+    duration_seconds (based on inputs). Not a real ffprobe —
+    stamp as derived, NOT media_probe. Prevents downstream
+    analytics from treating mock-mode figures as measurements."""
+    ws = _make_workspace("aid5cmemock@test.local")
+    sp = _make_teammate(ws)
+    comp = _make_composition(ws, sp)
+    a = _make_clip_asset(ws, "/data/_assets/a.mp4", 3000)
+    b = _make_clip_asset(ws, "/data/_assets/b.mp4", 4000)
+    step = CompositionStep.objects.create(
+        composition=comp, position=2, primitive="concat_clips",
+    )
+    fake = MagicMock()
+    fake.concat_clips.return_value = ConcatClipsResult(
+        output_url="/data/_internal/concats/me_mock.mp4",
+        duration_seconds=7.0,  # media-engine mock populates this
+        size_bytes=2048,
+        mock_mode=True,  # but flags itself as mock
+    )
+    cm = MagicMock()
+    cm.__enter__.return_value = fake
+    cm.__exit__.return_value = False
+    with patch(
+        "apps.compositions.primitives.concat_clips.MediaEngineClient",
+        return_value=cm,
+    ):
+        result = ConcatClipsPrimitive.execute(
+            step=step,
+            resolved_inputs=[
+                {"slot": "clip", "asset": a},
+                {"slot": "clip", "asset": b},
+            ],
+            mock_mode=False,
+        )
+    assert result.extra_source_spec["duration_source"] == "derived_from_inputs"
+    assert result.extra_source_spec["duration_estimated"] is True
+
+
+def test_concat_shell_mock_stamps_estimated_not_measured() -> None:
+    """Shell mock branch never touches media-engine at all.
+    Duration is fabricated from summed inputs. Mark it explicitly
+    non-measured so mock rows don't contaminate real analytics."""
+    ws = _make_workspace("aid5cshellmock@test.local")
+    sp = _make_teammate(ws)
+    comp = _make_composition(ws, sp, mock_mode=True)
+    a = _make_clip_asset(ws, "/data/_assets/a.mp4", 3000)
+    b = _make_clip_asset(ws, "/data/_assets/b.mp4", 4000)
+    step = CompositionStep.objects.create(
+        composition=comp, position=2, primitive="concat_clips",
+    )
+    result = ConcatClipsPrimitive.execute(
+        step=step,
+        resolved_inputs=[
+            {"slot": "clip", "asset": a},
+            {"slot": "clip", "asset": b},
+        ],
+        mock_mode=True,
+    )
+    assert result.extra_source_spec["mock"] is True
+    assert result.extra_source_spec["duration_source"] == "estimated"
+    assert result.extra_source_spec["duration_estimated"] is True
+
+
 def test_concat_clips_rejects_non_clip_asset() -> None:
     ws = _make_workspace("v5c3@test.local")
     sp = _make_teammate(ws)
