@@ -55,7 +55,10 @@ from apps.compositions.models import (
     CompositionStatus,
     CompositionStep,
 )
-from apps.compositions.starters import LongFormDurationError
+from apps.compositions.starters import (
+    DialogueSynthesisFailedError,
+    LongFormDurationError,
+)
 from apps.spokespeople.models import Teammate
 from character_os.clients.media_engine import (
     MediaEngineClient,
@@ -517,6 +520,42 @@ class CompositionViewSet(viewsets.GenericViewSet):
                 composition.id, workspace.id,
                 exc.actual_seconds, exc.target_duration_seconds,
                 exc.min_seconds, exc.max_seconds,
+            )
+            return Response(
+                CompositionSerializer(composition).data,
+                status=status.HTTP_201_CREATED,
+            )
+        except DialogueSynthesisFailedError as exc:
+            # SESSION 257 / AI-D3 — dialogue AI Topic synthesis
+            # rejected after one bounded corrective pass (or
+            # strict K6.4 caught an unsupported claim in a
+            # generated turn). Mirror the LongFormDurationError
+            # handler: persist the FAILED composition row OUTSIDE
+            # the outer atomic (nested savepoints don't survive
+            # rollback), return 201 with the FAILED status so the
+            # operator lands on the composition detail page with
+            # full context. Zero avatar_video calls were dispatched.
+            composition = Composition.objects.create(
+                workspace=exc.workspace,
+                spokesperson=exc.spokesperson,
+                name=exc.composition_name,
+                template_kind="dialogue_scene",
+                mock_mode=exc.mock_mode,
+                created_by=exc.created_by,
+                status=CompositionStatus.FAILED,
+                error_message=exc.error_message_text,
+                rejected_synthesis=exc.rejected_synthesis,
+                verification_warnings=exc.verification_warnings,
+                verification_status=exc.verification_status,
+                writing_contract_version=exc.writing_contract_version,
+                knowledge_chunk_ids=exc.knowledge_chunk_ids,
+                synthesized_brief=exc.synthesized_brief,
+            )
+            exc.composition_id = composition.id
+            logger.warning(
+                "composition dialogue_scene AI-TOPIC REJECTED composition=%s "
+                "workspace=%s reason=%s",
+                composition.id, workspace.id, exc.reason,
             )
             return Response(
                 CompositionSerializer(composition).data,

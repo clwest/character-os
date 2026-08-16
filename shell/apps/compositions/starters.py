@@ -22,7 +22,7 @@ composition forked from.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
 
@@ -181,6 +181,136 @@ class LongFormDurationError(Exception):
             f"{target_duration_seconds}-second video. No Runway "
             "calls dispatched; caller must persist the failed row."
         )
+
+
+class DialogueSynthesisFailedError(Exception):
+    """SESSION 257 / AI-D3 — dialogue AI Topic synthesis failed
+    validation after one bounded corrective pass, OR strict K6.4
+    rejected one of the generated turns. Raised by the starter
+    BEFORE any avatar_video render fires; no Runway credits
+    burned on an out-of-tolerance draft or a hallucinated claim.
+
+    Same pattern as :class:`LongFormDurationError` — the exception
+    carries the full Composition-persistence payload so the view
+    layer creates the FAILED row OUTSIDE its own atomic wrapper.
+    Nested savepoints don't survive an outer atomic rollback (see
+    LongFormDurationError comment on ``composition_id`` field),
+    so inline creation would leave no audit trail. The view's
+    exception handler mirrors the LongFormDurationError one:
+    persist the row, attach ``composition_id`` back on the
+    exception, return 201 with the FAILED status.
+
+    Zero avatar_video calls, zero speech steps, and zero side
+    effects on Runway are the load-bearing invariants — the AI-D3
+    economic-invariant test asserts them.
+    """
+
+    def __init__(
+        self,
+        *,
+        reason: str,
+        workspace,
+        spokesperson,
+        composition_name: str,
+        rejected_synthesis: str,
+        verification_warnings: list,
+        verification_status: str,
+        writing_contract_version: int,
+        knowledge_chunk_ids: list,
+        synthesized_brief: str,
+        mock_mode: bool,
+        created_by=None,
+        # Populated by the view after the failed row is created.
+        composition_id=None,
+    ) -> None:
+        self.reason = reason
+        self.workspace = workspace
+        self.spokesperson = spokesperson
+        self.composition_name = composition_name
+        self.rejected_synthesis = rejected_synthesis
+        self.verification_warnings = verification_warnings
+        self.verification_status = verification_status
+        self.writing_contract_version = writing_contract_version
+        self.knowledge_chunk_ids = knowledge_chunk_ids
+        self.synthesized_brief = synthesized_brief
+        self.mock_mode = mock_mode
+        self.created_by = created_by
+        self.composition_id = composition_id
+        self.error_message_text = (
+            f"Dialogue AI Topic synthesis rejected: {reason}. No "
+            "avatar_video calls were dispatched."
+        )
+        super().__init__(
+            f"dialogue AI Topic synthesis failed: {reason}. Caller "
+            "must persist the failed row."
+        )
+
+
+def _dialogue_ai_verification_status(overall: str) -> str:
+    """Normalize DialogueResult.overall_verification_status onto
+    the existing ``VerificationStatus`` enum. DialogueResult uses
+    ``"warned"`` when any turn produced K6.4 warnings; the model
+    stores that as ``"verified"`` with populated
+    ``verification_warnings``. Same convention talking-head uses."""
+    if overall == "warned":
+        return "verified"
+    if overall in {"verified", "skipped", "rejected"}:
+        return overall
+    return ""
+
+
+def _dialogue_ai_flattened_warnings(result) -> list[dict]:
+    """Aggregate per-turn K6.4 warnings onto a single list, each
+    entry annotated with the speaker + line context so operators
+    can trace 'which turn produced this warning' without going
+    back to the raw DialogueResult."""
+    flattened: list[dict] = []
+    for turn in result.turns:
+        for warn in (turn.verification_warnings or []):
+            enriched = dict(warn)
+            enriched.setdefault("line_index", turn.line_index)
+            enriched.setdefault("speaker_alias", turn.speaker_alias)
+            enriched.setdefault(
+                "speaker_name",
+                getattr(turn.speaker_teammate, "name", "") or "",
+            )
+            flattened.append(enriched)
+    return flattened
+
+
+def _dialogue_ai_synthesized_brief(result) -> str:
+    """Human-readable reconstruction of the generated dialogue for
+    ``Composition.synthesized_brief`` (matches talking-head's use
+    of that column for the LLM's produced text). Prefixed with a
+    small metadata header carrying per-character chunk id
+    provenance so the audit trail is preserved without needing a
+    new schema column."""
+    lines: list[str] = ["# AI Topic dialogue synthesis"]
+    if result.aliases:
+        alias_line = ", ".join(
+            f"{alias}={name!r}" for alias, name in result.aliases.items()
+        )
+        lines.append(f"# Aliases: {alias_line}")
+    if result.per_character_chunk_ids:
+        chunk_line = "; ".join(
+            f"{alias}=[{','.join(ids) if ids else ''}]"
+            for alias, ids in result.per_character_chunk_ids.items()
+        )
+        lines.append(f"# Per-character knowledge chunks: {chunk_line}")
+    lines.append(
+        f"# Predicted ~{result.predicted_seconds:.0f}s "
+        f"({result.total_chars} chars) targeting "
+        f"{result.target_duration_seconds}s"
+    )
+    lines.append("")
+    for turn in result.turns:
+        name = (
+            getattr(turn.speaker_teammate, "name", "")
+            or turn.speaker_alias
+        )
+        lines.append(f"{name}: {turn.text}")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
 
 
 def _estimate_avatar_speech_seconds(script_chars: int) -> int:
@@ -3196,7 +3326,7 @@ def dialogue_scene(
     *,
     workspace: "Workspace",
     primary_spokesperson: "Spokesperson",
-    lines: list[dict],
+    lines: list[dict] | None = None,
     # SESSION 199 — outro_text parity. Optional 3s white-on-black
     # outro appended after the dialogue. Handles multi-line (after
     # concat) and single-line (after lone speech) degenerate paths.
@@ -3204,6 +3334,19 @@ def dialogue_scene(
     mock_mode: bool = False,
     name: str = "",
     created_by: "AbstractBaseUser | None" = None,
+    # SESSION 257 / AI-D3 — dialogue mode + AI-Topic kwargs.
+    # ``dialogue_mode="manual"`` (default) preserves the pre-AI-D3
+    # signature and behavior: caller supplies pre-authored ``lines``.
+    # ``dialogue_mode="ai_topic"`` calls ``synthesize_dialogue`` here
+    # to produce turns and hydrates ``lines`` before laying down the
+    # existing render graph. Zero new render primitives.
+    dialogue_mode: str = "manual",
+    secondary_spokesperson: "Spokesperson | None" = None,
+    topic: str | None = None,
+    target_duration_seconds: int | None = None,
+    use_knowledge: bool = True,
+    verifier_mode: str = "warn",
+    opener: str | None = None,
 ) -> Composition:
     """Multi-character dialogue scene — N speech turns + 1 concat.
 
@@ -3242,12 +3385,130 @@ def dialogue_scene(
         ``ValueError`` for empty lines, cross-workspace
         spokespeople, missing avatars, empty text.
     """
-    if not lines:
-        raise ValueError("dialogue_scene requires at least one line")
     if primary_spokesperson.workspace_id != workspace.pk:
         raise ValueError(
             f"primary spokesperson {primary_spokesperson.name!r} not in workspace"
         )
+
+    # SESSION 257 / AI-D3 — AI Topic mode runs dialogue synthesis
+    # BEFORE any composition or step rows are created. On failure
+    # we raise DialogueSynthesisFailedError with the persistence
+    # payload; the view creates the FAILED row OUTSIDE its
+    # transaction.atomic wrapper (same pattern as
+    # LongFormDurationError). Zero avatar_video calls fire on
+    # rejection — the economic invariant test asserts this.
+    ai_dialogue_result = None
+    if dialogue_mode == "ai_topic":
+        from character_os.dialogue_synthesis import (
+            DialogueSynthesisError,
+            synthesize_dialogue,
+        )
+        from character_os.writing_contract import WRITING_CONTRACT_VERSION
+
+        if secondary_spokesperson is None:
+            raise ValueError(
+                "dialogue_scene AI Topic mode requires secondary_spokesperson"
+            )
+        if secondary_spokesperson.workspace_id != workspace.pk:
+            raise ValueError(
+                f"secondary spokesperson {secondary_spokesperson.name!r} "
+                f"not in workspace"
+            )
+        if secondary_spokesperson.pk == primary_spokesperson.pk:
+            raise ValueError(
+                "dialogue_scene AI Topic mode: primary and secondary "
+                "spokespeople must be different"
+            )
+        if not (topic or "").strip():
+            raise ValueError(
+                "dialogue_scene AI Topic mode requires a non-empty topic"
+            )
+        if not target_duration_seconds:
+            raise ValueError(
+                "dialogue_scene AI Topic mode requires target_duration_seconds"
+            )
+
+        composition_name_ai = (
+            name.strip() or f"AI dialogue — {topic.strip()[:30]}"
+        )
+
+        try:
+            ai_dialogue_result = synthesize_dialogue(
+                workspace=workspace,
+                cast=[primary_spokesperson, secondary_spokesperson],
+                topic=topic,
+                target_duration_seconds=int(target_duration_seconds),
+                opener=opener,
+                use_knowledge=use_knowledge,
+                verifier_mode=verifier_mode,
+                mock_mode=mock_mode,
+            )
+        except DialogueSynthesisError as exc:
+            # Bounded corrective resynth failed OR precondition
+            # violated. Zero avatar_video calls have fired.
+            logger.warning(
+                "starter dialogue_scene AI Topic synthesis REJECTED "
+                "workspace=%s primary=%s reason=%s",
+                workspace.id, primary_spokesperson.id, exc.reason,
+            )
+            raise DialogueSynthesisFailedError(
+                reason=exc.reason,
+                workspace=workspace,
+                spokesperson=primary_spokesperson,
+                composition_name=composition_name_ai,
+                rejected_synthesis=exc.raw_llm_json or "",
+                verification_warnings=[],
+                verification_status="rejected",
+                writing_contract_version=WRITING_CONTRACT_VERSION,
+                knowledge_chunk_ids=[],
+                synthesized_brief="",
+                mock_mode=mock_mode,
+                created_by=created_by,
+            ) from exc
+        except ClaimVerifierError as exc:
+            # Strict K6.4 mode rejected one of the generated turns.
+            # Persist raw dialogue rendering + warnings for audit.
+            reason = (
+                f"strict K6.4 rejected {len(exc.unsupported)} "
+                f"unsupported claim(s) in a generated turn"
+            )
+            logger.warning(
+                "starter dialogue_scene AI Topic K6.4 STRICT rejection "
+                "workspace=%s primary=%s unsupported=%d",
+                workspace.id, primary_spokesperson.id, len(exc.unsupported),
+            )
+            raise DialogueSynthesisFailedError(
+                reason=reason,
+                workspace=workspace,
+                spokesperson=primary_spokesperson,
+                composition_name=composition_name_ai,
+                rejected_synthesis=exc.synthesized_text or "",
+                verification_warnings=[u.to_dict() for u in exc.unsupported],
+                verification_status="rejected",
+                writing_contract_version=WRITING_CONTRACT_VERSION,
+                knowledge_chunk_ids=[],
+                synthesized_brief="",
+                mock_mode=mock_mode,
+                created_by=created_by,
+            ) from exc
+
+        # Hydrate ``lines`` from the validated DialogueResult turns
+        # — the same shape the manual path produces. Every downstream
+        # step below is unchanged.
+        lines = [
+            {
+                "spokesperson": turn.speaker_teammate,
+                "text": turn.text,
+                # Carry the alias forward so the per-speech-step
+                # params can record which alias produced the turn.
+                # Purely audit; ignored by the manual codepath.
+                "_ai_alias": turn.speaker_alias,
+            }
+            for turn in ai_dialogue_result.turns
+        ]
+
+    if not lines:
+        raise ValueError("dialogue_scene requires at least one line")
 
     # Validate all per-line spokespeople before creating
     # anything (atomic-or-bust).
@@ -3273,34 +3534,63 @@ def dialogue_scene(
                 f"dialogue_scene line {idx}: spokesperson {sp.name!r} has no "
                 "runway_avatar_id; finish the create-spokesperson wizard first"
             )
-        validated_lines.append((sp, text))
+        ai_alias = entry.get("_ai_alias") if isinstance(entry, dict) else None
+        validated_lines.append((sp, text, ai_alias))
 
     composition_name = (
         name.strip()
         or f"Dialogue — {validated_lines[0][1][:30]}"
     )
-    composition = Composition.objects.create(
-        workspace=workspace,
-        spokesperson=primary_spokesperson,
-        name=composition_name,
-        template_kind="dialogue_scene",
-        mock_mode=mock_mode,
-        created_by=created_by,
-    )
+    composition_kwargs: dict[str, Any] = {
+        "workspace": workspace,
+        "spokesperson": primary_spokesperson,
+        "name": composition_name,
+        "template_kind": "dialogue_scene",
+        "mock_mode": mock_mode,
+        "created_by": created_by,
+    }
+    # SESSION 257 / AI-D3 — persist AI-Topic synthesis metadata at
+    # composition-create time so a later inspector never has to
+    # rebuild it from steps. Aggregate verifier state normalizes
+    # "warned" -> "verified" with populated warnings (matches the
+    # existing VerificationStatus enum shape).
+    if ai_dialogue_result is not None:
+        composition_kwargs.update({
+            "writing_contract_version": (
+                ai_dialogue_result.writing_contract_version
+            ),
+            "verification_status": _dialogue_ai_verification_status(
+                ai_dialogue_result.overall_verification_status,
+            ),
+            "verification_warnings": _dialogue_ai_flattened_warnings(
+                ai_dialogue_result,
+            ),
+            "knowledge_chunk_ids": list(ai_dialogue_result.chunk_ids),
+            "synthesized_brief": _dialogue_ai_synthesized_brief(
+                ai_dialogue_result,
+            ),
+        })
+    composition = Composition.objects.create(**composition_kwargs)
 
     # Steps 0..N-1: one generate_avatar_speech per line, each
     # overriding the avatar via params.
-    for idx, (sp, text) in enumerate(validated_lines):
+    for idx, (sp, text, ai_alias) in enumerate(validated_lines):
+        step_params: dict = {
+            "script": text,
+            "use_knowledge": False,
+            "spokesperson_avatar_id": sp.runway_avatar_id,
+        }
+        if ai_alias:
+            # Per-step alias provenance so operators/analytics can
+            # trace which AI-generated turn belongs to which cast
+            # alias. Carried in ``params`` (no schema change).
+            step_params["ai_topic_speaker_alias"] = ai_alias
         CompositionStep.objects.create(
             composition=composition,
             position=idx,
             primitive="generate_avatar_speech",
             inputs=[],
-            params={
-                "script": text,
-                "use_knowledge": False,
-                "spokesperson_avatar_id": sp.runway_avatar_id,
-            },
+            params=step_params,
         )
 
     # Step N: concat all prior steps. Skip when there's only
@@ -3353,7 +3643,7 @@ def dialogue_scene(
         "mock=%s lines=%d distinct_avatars=%d outro=%s",
         composition.id, primary_spokesperson.id, mock_mode,
         len(validated_lines),
-        len({sp.runway_avatar_id for sp, _ in validated_lines}),
+        len({sp.runway_avatar_id for sp, _, _ in validated_lines}),
         bool(cleaned_outro),
     )
     return composition

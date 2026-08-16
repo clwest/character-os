@@ -270,9 +270,23 @@ def _dialogue_resolver(
 ) -> dict[str, Any]:
     """Custom resolver for dialogue_scene.
 
-    The ``lines`` form field is a list of dicts; each entry's
-    ``spokesperson_id`` has to be resolved to a Teammate row.
-    Everything else maps the standard way.
+    SESSION 257 / AI-D3 — branches on ``dialogue_mode``:
+
+    * ``"manual"`` (default; also selected when the field is
+      omitted for backward compat) — resolve the operator-authored
+      ``lines`` list to Teammate rows. Same behavior as pre-AI-D3.
+    * ``"ai_topic"`` — resolve primary + secondary spokespeople,
+      accept the AI-mode kwargs (topic / target_duration_seconds /
+      use_knowledge / verifier_mode / opener), pass them through
+      to the starter. Synthesis itself runs in the starter (see
+      ``starters.dialogue_scene`` — starter-time synthesis mirrors
+      ``long_form_ad``'s ``synthesize_with_duration_gate`` boundary
+      so rejection can persist a FAILED composition row via
+      ``DialogueSynthesisFailedError``).
+
+    The resolver does NOT call ``synthesize_dialogue`` — that lives
+    in the starter where the Composition-creation boundary can
+    guarantee no avatar_video calls fire on synthesis rejection.
     """
     from apps.spokespeople.models import Teammate
 
@@ -281,25 +295,15 @@ def _dialogue_resolver(
         raise ValueError("dialogue_scene requires primary_spokesperson_id")
     primary = Teammate.objects.get(pk=primary_id, workspace=workspace)
 
-    raw_lines = params.get("lines") or []
-    if not isinstance(raw_lines, list) or not raw_lines:
-        raise ValueError("dialogue_scene requires at least one line")
+    dialogue_mode = (params.get("dialogue_mode") or "manual").strip().lower()
+    if dialogue_mode not in {"manual", "ai_topic"}:
+        raise ValueError(
+            f"dialogue_mode must be 'manual' or 'ai_topic'; got {dialogue_mode!r}"
+        )
 
-    resolved_lines: list[dict] = []
-    for idx, entry in enumerate(raw_lines):
-        if not isinstance(entry, dict):
-            raise ValueError(f"dialogue_scene line {idx} must be a dict")
-        sp_id = entry.get("spokesperson_id")
-        text = entry.get("text", "")
-        if not sp_id:
-            raise ValueError(f"dialogue_scene line {idx} missing spokesperson_id")
-        sp = Teammate.objects.get(pk=sp_id, workspace=workspace)
-        resolved_lines.append({"spokesperson": sp, "text": text})
-
-    return {
+    common: dict[str, Any] = {
         "workspace": workspace,
         "primary_spokesperson": primary,
-        "lines": resolved_lines,
         # SESSION 199 — outro_text parity. Pass-through to the
         # starter; the starter handles the multi-line (after
         # concat) vs single-line (after speech) wiring.
@@ -307,7 +311,83 @@ def _dialogue_resolver(
         "mock_mode": bool(params.get("mock_mode", False)),
         "name": params.get("name", "") or "",
         "created_by": created_by,
+        "dialogue_mode": dialogue_mode,
     }
+
+    if dialogue_mode == "manual":
+        raw_lines = params.get("lines") or []
+        if not isinstance(raw_lines, list) or not raw_lines:
+            raise ValueError("dialogue_scene requires at least one line")
+
+        resolved_lines: list[dict] = []
+        for idx, entry in enumerate(raw_lines):
+            if not isinstance(entry, dict):
+                raise ValueError(f"dialogue_scene line {idx} must be a dict")
+            sp_id = entry.get("spokesperson_id")
+            text = entry.get("text", "")
+            if not sp_id:
+                raise ValueError(f"dialogue_scene line {idx} missing spokesperson_id")
+            sp = Teammate.objects.get(pk=sp_id, workspace=workspace)
+            resolved_lines.append({"spokesperson": sp, "text": text})
+
+        common["lines"] = resolved_lines
+        return common
+
+    # ---- AI Topic mode -----------------------------------------
+    secondary_id = params.get("secondary_spokesperson_id")
+    if not secondary_id:
+        raise ValueError(
+            "dialogue_scene AI Topic mode requires secondary_spokesperson_id"
+        )
+    if str(secondary_id) == str(primary_id):
+        raise ValueError(
+            "dialogue_scene AI Topic mode: primary and secondary "
+            "spokespeople must be different"
+        )
+    # Cross-workspace secondary raises Teammate.DoesNotExist which
+    # the view maps to a clean 400.
+    secondary = Teammate.objects.get(pk=secondary_id, workspace=workspace)
+
+    topic = (params.get("topic") or "").strip()
+    if not topic:
+        raise ValueError(
+            "dialogue_scene AI Topic mode requires a non-empty topic"
+        )
+
+    target_raw = params.get("target_duration_seconds", 60)
+    try:
+        target = int(target_raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"target_duration_seconds must be an integer; got {target_raw!r}"
+        ) from exc
+    if target not in {30, 60, 90, 120}:
+        raise ValueError(
+            f"target_duration_seconds must be one of 30, 60, 90, 120; "
+            f"got {target}"
+        )
+
+    use_knowledge = params.get("use_knowledge", True)
+    if use_knowledge is None:
+        use_knowledge = True
+    use_knowledge = bool(use_knowledge)
+
+    verifier_mode = (params.get("verifier_mode") or "warn").strip().lower()
+    if verifier_mode not in {"warn", "strict", "off"}:
+        verifier_mode = "warn"
+
+    opener = params.get("opener")
+    opener = opener.strip() if isinstance(opener, str) and opener.strip() else None
+
+    common.update({
+        "secondary_spokesperson": secondary,
+        "topic": topic,
+        "target_duration_seconds": target,
+        "use_knowledge": use_knowledge,
+        "verifier_mode": verifier_mode,
+        "opener": opener,
+    })
+    return common
 
 
 RECIPES: dict[str, Recipe] = {
@@ -1383,22 +1463,116 @@ RECIPES: dict[str, Recipe] = {
         param_map={"source_clip_id": "source_clip"},
     ),
     # ---- Dialogue family -------------------------------------
+    #
+    # SESSION 257 / AI-D3 — dual-mode recipe. Manual mode
+    # (default) unchanged from pre-AI-D3. AI Topic mode adds
+    # secondary_spokesperson + topic + target_duration + AI
+    # kwargs; synthesis fires in the starter, hydrates the
+    # same normalized ``lines`` shape manual mode produces,
+    # then flows through the SAME render graph
+    # (generate_avatar_speech per turn + concat + optional
+    # outro). Zero new render primitives.
+    #
+    # SPA visibility (which fields render in which mode) lands
+    # in AI-D4; until then the metadata-driven form may show
+    # both mode's fields simultaneously in the dev UI. Backend
+    # validates conditional required-ness in the resolver.
     "dialogue_scene": Recipe(
         kind="dialogue_scene",
         display_name="Dialogue scene (multi-character)",
         family=FAMILY_DIALOGUE,
-        description="N speech turns alternating across cast members. Each line speaks as a different spokesperson.",
+        description=(
+            "Multi-character dialogue. In manual mode, you write "
+            "each turn line-by-line. In AI Topic mode, Character "
+            "OS writes the whole conversation from a topic + a "
+            "two-character cast; the render graph is the same."
+        ),
         fields=(
+            # SESSION 257 / AI-D3 — mode toggle. Default 'manual'
+            # keeps every pre-AI-D3 request valid without change.
+            RecipeField(
+                name="dialogue_mode", type="select",
+                label="How should Character OS build this?",
+                required=False, default="manual",
+                choices=(
+                    {"value": "manual",
+                     "label": "I'll write each line"},
+                    {"value": "ai_topic",
+                     "label": "Character OS writes it from a topic"},
+                ),
+                help_text=(
+                    "Manual mode: pick a speaker and write each "
+                    "turn yourself. AI Topic mode: pick two "
+                    "characters + a topic + a target duration; "
+                    "Character OS writes the whole conversation."
+                ),
+            ),
             RecipeField(
                 name="primary_spokesperson_id", type="spokesperson_picker",
                 label="Primary spokesperson (owner / narrator)",
             ),
+            # ---- Manual-mode field (existing) ----
             RecipeField(
                 name="lines", type="dialogue_lines",
                 label="Dialogue lines",
-                help_text="Ordered list of turns. Each turn: pick a spokesperson + write what they say.",
+                required=False,
+                help_text=(
+                    "Ordered list of turns. Each turn: pick a "
+                    "spokesperson + write what they say. Manual "
+                    "mode only — ignored in AI Topic mode."
+                ),
             ),
-            # SESSION 199 — outro_text parity.
+            # ---- AI-Topic-only fields (new) ----
+            RecipeField(
+                name="secondary_spokesperson_id",
+                type="spokesperson_picker",
+                label="Second character",
+                required=False,
+                help_text=(
+                    "Second character in the conversation. "
+                    "Required for AI Topic mode. Must differ "
+                    "from the primary spokesperson."
+                ),
+            ),
+            RecipeField(
+                name="topic", type="textarea",
+                label="What's the scene about?",
+                required=False, max_chars=800,
+                help_text=(
+                    "One or two sentences describing the scene. "
+                    "Character OS writes both sides of the "
+                    "conversation from this. Required for AI "
+                    "Topic mode; ignored in manual mode."
+                ),
+            ),
+            RecipeField(
+                name="target_duration_seconds", type="select",
+                label="Target duration",
+                required=False, default=60,
+                choices=(
+                    {"value": 30, "label": "~30 seconds"},
+                    {"value": 60, "label": "~60 seconds"},
+                    {"value": 90, "label": "~90 seconds"},
+                    {"value": 120, "label": "~120 seconds"},
+                ),
+                help_text=(
+                    "Approximate total scene runtime across both "
+                    "characters. AI Topic mode only."
+                ),
+            ),
+            RecipeField(
+                name="use_knowledge", type="checkbox",
+                label="Use workspace knowledge",
+                required=False, default=True,
+                help_text=(
+                    "When on, each character can draw on their "
+                    "own scoped workspace knowledge (with the "
+                    "K6.4 fact-check enabled). AI Topic mode only."
+                ),
+            ),
+            _VERIFIER_MODE_FIELD,
+            _OPENER_FIELD,
+            # SESSION 199 — outro_text parity (both modes).
             RecipeField(
                 name="outro_text", type="text",
                 label="Brand outro card (optional)",
