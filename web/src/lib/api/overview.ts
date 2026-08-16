@@ -48,7 +48,12 @@ const overviewCompositionSchema = z.object({
     "completed",
     "failed",
   ]),
-  spokesperson_id: z.string(),
+  // SESSION 257 AI-D5 hotfix — parity with the SESSION 256
+  // null-spokesperson serializer sweep. id is nullable (a fake
+  // UUID would break navigation); name always populated backend-
+  // side with the "(deleted teammate)" sentinel when the FK is
+  // null (OD-3 — historical rows stay attributable).
+  spokesperson_id: z.string().nullable(),
   spokesperson_name: z.string(),
   mock_mode: z.boolean(),
   cost_actual_micros: z.number().int(),

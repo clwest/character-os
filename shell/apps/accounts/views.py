@@ -206,8 +206,20 @@ def workspace_overview(request: Request) -> Response:
                 "name": c.name,
                 "template_kind": c.template_kind,
                 "status": c.status,
+                # SESSION 257 AI-D5 hotfix — parity with the SESSION
+                # 256 null-spokesperson serializer sweep. The SPA
+                # zod schema (web/src/lib/api/overview.ts) requires
+                # ``spokesperson_name`` to be a non-null string;
+                # emit the "(deleted teammate)" sentinel when the FK
+                # was SET_NULL'd by a teammate delete so historical
+                # rows remain visible + attributable (OD-3). ``id``
+                # stays nullable — a fake UUID would break navigation.
                 "spokesperson_id": str(c.spokesperson_id) if c.spokesperson_id else None,
-                "spokesperson_name": c.spokesperson.name if c.spokesperson_id else None,
+                "spokesperson_name": (
+                    c.spokesperson.name
+                    if c.spokesperson_id and c.spokesperson
+                    else "(deleted teammate)"
+                ),
                 "mock_mode": c.mock_mode,
                 "cost_actual_micros": c.cost_actual_micros,
                 "created_at": c.created_at.isoformat(),

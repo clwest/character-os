@@ -1546,14 +1546,21 @@ RECIPES: dict[str, Recipe] = {
                 ),
             ),
             RecipeField(
+                # SESSION 257 AI-D5 hotfix — choice values must be
+                # strings (SPA zod ``recipeFieldChoice.value =
+                # z.string()``). Numeric literals here broke the
+                # ``/api/recipes/`` load (four zod invalid_type
+                # errors on paths dialogue_scene.fields[5].choices
+                # [0..3].value). Resolver already coerces via
+                # ``int(target_raw)``.
                 name="target_duration_seconds", type="select",
                 label="Target duration",
-                required=False, default=60,
+                required=False, default="60",
                 choices=(
-                    {"value": 30, "label": "~30 seconds"},
-                    {"value": 60, "label": "~60 seconds"},
-                    {"value": 90, "label": "~90 seconds"},
-                    {"value": 120, "label": "~120 seconds"},
+                    {"value": "30", "label": "~30 seconds"},
+                    {"value": "60", "label": "~60 seconds"},
+                    {"value": "90", "label": "~90 seconds"},
+                    {"value": "120", "label": "~120 seconds"},
                 ),
                 help_text=(
                     "Approximate total scene runtime across both "

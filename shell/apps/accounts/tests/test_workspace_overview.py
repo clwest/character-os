@@ -267,6 +267,41 @@ def test_overview_compositions_carry_spokesperson_name() -> None:
     assert recent[0]["template_kind"] == "talking_head"
 
 
+def test_overview_recent_row_survives_deleted_teammate_with_sentinel() -> None:
+    """SESSION 257 AI-D5 hotfix — parity with the SESSION 256
+    null-spokesperson serializer sweep. When a Teammate is
+    deleted, Composition.spokesperson is SET_NULL'd (SESSION 209
+    contract). The recent-compositions payload must still emit
+    both spokesperson keys, with:
+
+    * ``spokesperson_id: null`` — nullable in the SPA zod schema
+      (a fake UUID would break navigation);
+    * ``spokesperson_name: "(deleted teammate)"`` — non-null
+      sentinel so the SPA's required-string schema still parses.
+
+    Regression against the operator-reported symptom on
+    /workspace: 'Couldn't load cost data' when recent[9] had a
+    null-spokesperson row.
+    """
+    ws, user = _make_workspace_with_user("f3delspec@test")
+    sp = _make_teammate(ws, name="ToDelete")
+    comp = _make_composition(ws, sp)
+    # SET_NULL cascade from teammate delete (SESSION 209).
+    sp.delete()
+    comp.refresh_from_db()
+    assert comp.spokesperson_id is None
+    client = APIClient()
+    _login(client, user)
+    response = client.get(f"/api/workspace/overview/?workspace={ws.pk}")
+    assert response.status_code == 200
+    recent = response.json()["compositions"]["recent"]
+    assert len(recent) == 1
+    row = recent[0]
+    assert "spokesperson_id" in row
+    assert row["spokesperson_id"] is None
+    assert row["spokesperson_name"] == "(deleted teammate)"
+
+
 def test_overview_isolates_workspaces() -> None:
     ws_a, user_a = _make_workspace_with_user("f3isoa@test", "A")
     ws_b, _user_b = _make_workspace_with_user("f3isob@test", "B")

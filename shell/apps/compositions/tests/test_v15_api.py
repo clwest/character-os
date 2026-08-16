@@ -2390,6 +2390,36 @@ def test_dialogue_scene_outro_text_field_exposed_in_recipe_metadata() -> None:
     assert outro_field["required"] is False
 
 
+def test_dialogue_scene_target_duration_choices_are_strings_not_ints() -> None:
+    """SESSION 257 AI-D5 hotfix — the SPA zod schema
+    ``recipeFieldChoice.value = z.string()`` at
+    web/src/lib/api/recipes.ts:36. Numeric literals in
+    ``target_duration_seconds.choices`` produced four zod
+    invalid_type errors on paths dialogue_scene.fields[N].choices
+    [0..3].value that broke the entire /api/recipes/ load.
+    Regression against re-introducing numeric choice values on
+    any select field of the dialogue_scene recipe."""
+    ws, user = _make_workspace_with_user("aid5_choices@test")
+    client = APIClient()
+    _login(client, user)
+
+    response = client.get("/api/recipes/dialogue_scene/")
+    assert response.status_code == http.HTTP_200_OK
+    fields = {f["name"]: f for f in response.json()["fields"]}
+    tdf = fields["target_duration_seconds"]
+    assert tdf["type"] == "select"
+    for choice in tdf["choices"]:
+        assert isinstance(choice["value"], str), (
+            f"choice value {choice['value']!r} must be a string; SPA "
+            f"zod schema requires it. Numeric literals break "
+            f"/api/recipes/ parse."
+        )
+        assert isinstance(choice["label"], str)
+    # Sanity: the four expected duration bands are present.
+    values = {c["value"] for c in tdf["choices"]}
+    assert values == {"30", "60", "90", "120"}
+
+
 # ---- SESSION 255: outro_text parity for talking_head + talking_head_with_backdrop ----
 #
 # Reuses the existing add_intro_outro primitive + the long_form_ad /
