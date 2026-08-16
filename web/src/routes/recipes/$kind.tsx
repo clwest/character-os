@@ -90,6 +90,19 @@ export function RecipeFormRoute() {
           false,
       )
     : false;
+  // SESSION 257 / AI-D4 — dialogue_scene has a mode field that
+  // flips which OTHER fields render. Kind check keeps this scoped
+  // to dialogue_scene so no other recipe's fields see the filter.
+  const isDialogueScene = r?.kind === "dialogue_scene";
+  const dialogueModeField = r?.fields.find(
+    (f) => f.name === "dialogue_mode" && f.type === "select",
+  );
+  const dialogueMode = isDialogueScene
+    ? ((form.dialogue_mode as string | undefined) ??
+       (dialogueModeField?.default as string | undefined) ??
+       "manual")
+    : null;
+
   const primaryTextareaField = r?.fields.find((f) => f.type === "textarea");
   const queryValue =
     typeof form[primaryTextareaField?.name ?? ""] === "string"
@@ -155,12 +168,41 @@ export function RecipeFormRoute() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  // SESSION 257 / AI-D4 — per-mode field visibility for
+  // dialogue_scene. Manual mode hides AI-only fields; AI Topic
+  // mode hides the manual dialogue_lines editor. Non-dialogue
+  // recipes are unaffected. Kept as a pure function of
+  // (field.name, dialogueMode) so the render loop and submit
+  // filter agree on the same set. Mode-switch preserves local
+  // form state — switching back restores previous inputs.
+  const isFieldVisible = (fieldName: string): boolean => {
+    if (!isDialogueScene) return true;
+    if (dialogueMode === "ai_topic") {
+      return fieldName !== "lines";
+    }
+    // manual mode (default; also selected on omitted dialogue_mode)
+    return ![
+      "secondary_spokesperson_id",
+      "topic",
+      "target_duration_seconds",
+      "use_knowledge",
+      "verifier_mode",
+      "opener",
+    ].includes(fieldName);
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
 
     const params: Record<string, unknown> = {};
     for (const field of r.fields) {
+      // AI-D4 — only submit values for fields visible in the
+      // active mode. Filter keeps stale hidden values from
+      // reaching the backend (e.g. abandoned manual lines
+      // shouldn't drive an AI Topic request).
+      if (!isFieldVisible(field.name)) continue;
+
       const touched = form[field.name];
       // When the operator never touched the field, fall back to the
       // schema's default for submission. This matches the render-side
@@ -206,13 +248,25 @@ export function RecipeFormRoute() {
         className="flex flex-col gap-6"
         data-testid={`recipe-form-${r.kind}`}
       >
-        {r.fields.map((field) => (
+        {r.fields.filter((field) => isFieldVisible(field.name)).map((field) => (
           <FieldRenderer
             key={field.name}
             field={field}
             value={form[field.name]}
             onChange={(value) => handleChange(field.name, value)}
-            spokespeople={workspaceSpokespeople}
+            // AI-D4 — filter primary out of the secondary picker
+            // so operators can't accidentally pick the same person
+            // twice. Backend still validates authoritatively; this
+            // is UX only.
+            spokespeople={
+              isDialogueScene &&
+              field.name === "secondary_spokesperson_id" &&
+              form.primary_spokesperson_id
+                ? workspaceSpokespeople.filter(
+                    (s) => s.id !== form.primary_spokesperson_id,
+                  )
+                : workspaceSpokespeople
+            }
             workspaceId={workspaceId}
             briefModeHelper={
               field.name === primaryTextareaField?.name && useKnowledgeChecked
