@@ -54,6 +54,7 @@ from character_os.clients.media_engine import (
     VideoCreateResult,
     VideoPollResult,
 )
+from character_os.writing_contract import WRITING_CONTRACT_VERSION
 
 User = get_user_model()
 
@@ -553,8 +554,9 @@ def test_real_mode_with_knowledge_runs_brief_synthesis() -> None:
     # SESSION 253 — writing_contract_version stamped by synthesis
     # gets persisted onto composition; setting an int here so the
     # primitive doesn't try to save a MagicMock into an integer
-    # field.
-    fake_script_result.writing_contract_version = 1
+    # field. Sourcing from the module constant keeps this test
+    # robust across version bumps (AI-D1 moved 1 -> 2).
+    fake_script_result.writing_contract_version = WRITING_CONTRACT_VERSION
 
     # SESSION 253 — the primitive imports build_render_brief at
     # module scope now (not lazily), and the no-duration path calls

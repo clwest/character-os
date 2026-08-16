@@ -483,6 +483,14 @@ def test_writing_contract_version_available_and_positive():
     assert WRITING_CONTRACT_VERSION >= 1
 
 
+def test_writing_contract_version_is_2_after_ai_d1():
+    """SESSION 257 / AI-D1 — the addition of ``dialogue_scene``
+    shape bumps the global version stamp 1 -> 2. Existing
+    standalone / long_form contract TEXT is unchanged; only the
+    version stamp on newly-created compositions moves."""
+    assert WRITING_CONTRACT_VERSION == 2
+
+
 def test_writing_contract_for_shape_returns_versioned_content():
     long_form = WritingContract.for_shape(
         "long_form", target_duration_seconds=120,
@@ -502,6 +510,190 @@ def test_writing_contract_unknown_shape_falls_back_to_standalone():
     shape additions."""
     out = WritingContract.for_shape("bogus_shape_value")
     assert "short standalone" in out.lower()
+
+
+# ---- 6b. AI-D1 dialogue_scene shape ------------------------------
+
+
+def test_dialogue_scene_shape_returns_dialogue_contract():
+    """AI-D1 — new ``dialogue_scene`` shape emits the dialogue
+    contract with the interaction invariants block, dialogue
+    anti-patterns, dialogue-specific narrative shapes, plus the
+    shared CTA / anti-self-description / anti-generic-register
+    reused blocks."""
+    out = WritingContract.for_shape("dialogue_scene")
+    lower = out.lower()
+    # Shape opener.
+    assert "multi-character dialogue" in lower
+    # Interaction invariants.
+    assert "dialogue invariants" in lower
+    assert "characters respond to each other" in lower
+    assert "every turn advances the interaction" in lower
+    assert "avoid repetitive agreement" in lower
+    assert "disagreement and correction are allowed" in lower
+    assert "humor emerges from interaction" in lower
+    assert "turn length varies naturally" in lower
+    assert "one coherent arc" in lower
+    assert "deliberate ending" in lower
+    # Dialogue anti-patterns.
+    assert "dialogue anti-patterns" in lower
+    # Reused shared blocks.
+    assert "cta policy" in lower
+    assert "demonstrate" in lower
+    assert "register" in lower
+
+
+def test_dialogue_scene_contract_does_not_prescribe_alternation():
+    """AI-D1 load-bearing invariant — the dialogue contract
+    MUST NOT tell the writer to alternate speakers. Consecutive
+    same-speaker turns are already legal in the backend
+    (starters.py:3195-3359 has no alternation check) and must
+    remain legal in AI mode. Any prescriptive alternation text
+    would silently over-constrain scene shape and break
+    A->B->B->A patterns like question-then-reaction-then-riff."""
+    out = WritingContract.for_shape("dialogue_scene")
+    lower = out.lower()
+    # Explicitly anti-alternation guidance is REQUIRED
+    # (the contract flags forced alternation as an anti-pattern).
+    assert "do not force strict a" in lower
+    assert "consecutive turns by the same speaker are legal" in lower
+    # And the contract must NOT contain prescriptive alternation
+    # directives. The anti-pattern block above legitimately uses
+    # the word "alternation" in the FORBIDDING context; guard
+    # against a prescriptive resurgence by looking for the
+    # positive command forms.
+    forbidden_phrases = (
+        "you must alternate",
+        "always alternate",
+        "characters must alternate",
+        "alternate strictly",
+        "must alternate speakers",
+    )
+    for phrase in forbidden_phrases:
+        assert phrase not in lower, (
+            f"dialogue contract accidentally prescribes alternation: "
+            f"{phrase!r}"
+        )
+
+
+def test_dialogue_scene_contract_does_not_prescribe_fixed_turn_count():
+    """AI-D1 load-bearing invariant — the dialogue contract MUST
+    NOT tell the writer to produce a specific number of turns.
+    Turn count is a duration-driven pacing decision made by the
+    dialogue synthesis wrapper (AI-D2), not by the writing
+    contract. Any numeric prescription would compete with the
+    duration model + force awkward padding or truncation."""
+    out = WritingContract.for_shape("dialogue_scene")
+    lower = out.lower()
+    # Explicitly anti-fixed-count guidance is REQUIRED.
+    assert "do not target a specific number of turns" in lower
+    # And the contract must NOT contain prescriptive count
+    # directives (e.g., "produce 6 turns", "always 8 lines").
+    forbidden_patterns = (
+        "produce exactly",
+        "must have exactly",
+        "always produce",
+        "exactly 5 turns",
+        "exactly 6 turns",
+        "exactly 8 turns",
+        "at least 10 turns",
+    )
+    for phrase in forbidden_patterns:
+        assert phrase not in lower, (
+            f"dialogue contract accidentally prescribes fixed "
+            f"turn count: {phrase!r}"
+        )
+
+
+def test_dialogue_scene_contract_allows_short_reactions():
+    """AI-D1 load-bearing invariant — short conversational
+    reactions (e.g., 'Define \"still.\"') must remain valid.
+    The prior cost-driven minimum-line-length recommendation
+    was retracted after SESSION 257's Runway billing correction
+    (flat 2 credits per call regardless of length). The
+    contract must explicitly signal short turns are welcome."""
+    out = WritingContract.for_shape("dialogue_scene")
+    lower = out.lower()
+    # Short turns are explicitly welcomed.
+    assert "short reactions" in lower or "short turns" in lower
+    assert "short turns are as valuable" in lower or \
+           "short reactions interleave" in lower
+    # And the contract must NOT contain a minimum-line-length
+    # directive.
+    forbidden_patterns = (
+        "minimum turn length",
+        "minimum line length",
+        "at least 45 characters",
+        "at least 50 characters",
+        "must be at least",
+    )
+    for phrase in forbidden_patterns:
+        assert phrase not in lower, (
+            f"dialogue contract accidentally prescribes a minimum "
+            f"line length: {phrase!r}"
+        )
+
+
+# ---- 6c. AI-D1 backwards-compat — existing shapes unchanged ------
+
+
+# Byte-for-byte snapshots of the standalone / long_form contract
+# text as of SESSION 257 pre-AI-D1. Locked here so any future
+# accidental edit to those builders trips the test and forces a
+# deliberate contract change (which would legitimately need a
+# version bump). AI-D1 only added a new shape; the existing
+# shapes' TEXT must not have changed.
+
+_STANDALONE_SNAPSHOT_MARKERS: tuple[str, ...] = (
+    "SHAPE — short standalone (60-100 words, ~30-60 seconds)",
+    "The viewer has no prior context.",
+    "Make one clear claim or insight from the",
+    "Factual Basis.",
+    "DEMONSTRATE, DON'T DESCRIBE.",
+    "REGISTER — grounded and specific, NOT generic AI-marketing.",
+)
+
+_LONG_FORM_SNAPSHOT_MARKERS: tuple[str, ...] = (
+    "LENGTH — approximately 120 seconds of spoken delivery.",
+    "CHARACTER BUDGET (load-bearing",
+    "INVARIANTS (must hold for every long-form script)",
+    "  1. Earn attention early.",
+    "  6. Finish deliberately.",
+    "NARRATIVE SHAPES (pick whichever fits the topic and the",
+    "CTA POLICY — a call to action is NOT required by default.",
+    "DEMONSTRATE, DON'T DESCRIBE.",
+    "REGISTER — grounded and specific, NOT generic AI-marketing.",
+)
+
+
+def test_standalone_contract_text_stable_under_v2_bump():
+    """AI-D1 contract rule 12 — bumping WRITING_CONTRACT_VERSION
+    to 2 must NOT change the standalone contract's TEXT. Only the
+    stamp on new compositions moves. This regression fires if a
+    future edit accidentally alters the standalone builder while
+    working on dialogue_scene."""
+    out = WritingContract.for_shape("standalone")
+    for marker in _STANDALONE_SNAPSHOT_MARKERS:
+        assert marker in out, (
+            f"standalone contract text changed under v2 bump; "
+            f"missing marker: {marker!r}"
+        )
+
+
+def test_long_form_contract_text_stable_under_v2_bump():
+    """AI-D1 contract rule 12 — bumping WRITING_CONTRACT_VERSION
+    to 2 must NOT change the long_form contract's TEXT. Only the
+    stamp on new compositions moves."""
+    out = WritingContract.for_shape(
+        "long_form", target_duration_seconds=120,
+        char_budget=(1320, 1056, 1584),
+        word_budget=(264, 211, 317),
+    )
+    for marker in _LONG_FORM_SNAPSHOT_MARKERS:
+        assert marker in out, (
+            f"long_form contract text changed under v2 bump; "
+            f"missing marker: {marker!r}"
+        )
 
 
 # ---- 7. Anti-AI-copy phrases + operator merge --------------------

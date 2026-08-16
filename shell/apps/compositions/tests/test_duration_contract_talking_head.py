@@ -56,6 +56,7 @@ from character_os.duration_contract import (
     synthesize_with_duration_gate,
 )
 from character_os.script_synthesis import ScriptResult, char_budget_for_duration
+from character_os.writing_contract import WRITING_CONTRACT_VERSION
 
 User = get_user_model()
 
@@ -212,7 +213,7 @@ def _fake_script_result(text: str) -> ScriptResult:
         chunk_ids=["c1"],
         used_knowledge=True,
         verification_status="verified",
-        writing_contract_version=1,
+        writing_contract_version=WRITING_CONTRACT_VERSION,
     )
 
 
@@ -993,7 +994,7 @@ def test_primitive_persists_rejection_metadata_on_composition():
     assert comp.verification_status == "rejected"
     assert comp.rejected_synthesis == "short draft"
     assert "Duration contract failed" in comp.error_message
-    assert comp.writing_contract_version == 1
+    assert comp.writing_contract_version == WRITING_CONTRACT_VERSION
 
 
 # ---- 8. long_form_ad still works via extracted helper ----------
@@ -1016,7 +1017,8 @@ def test_long_form_ad_delegates_to_shared_duration_gate():
         return ScriptResult(
             brief="a synthesized long-form brief that fits the target",
             chunk_ids=[], used_knowledge=True,
-            verification_status="verified", writing_contract_version=1,
+            verification_status="verified",
+            writing_contract_version=WRITING_CONTRACT_VERSION,
         )
 
     with patch(
