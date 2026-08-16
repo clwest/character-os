@@ -196,14 +196,30 @@ def test_state_only_update_does_not_re_validate() -> None:
 # ---- PROTECT semantics ------------------------------------------
 
 
-def test_spokesperson_protected_while_sessions_exist() -> None:
-    """Deleting a spokesperson with active sessions must raise
-    ProtectedError — same shape as Composition.spokesperson."""
-    ws, _u = _make_workspace("r1prot@test")
+def test_spokesperson_delete_sets_null_and_preserves_session() -> None:
+    """SESSION 256 rewrite of the SESSION 209 test drift
+    (SESSION 253 carry-forward item #6). SESSION 209 changed
+    ``RealtimeSession.spokesperson`` from ``on_delete=PROTECT``
+    to ``on_delete=SET_NULL`` as part of the customer-teammate
+    delete + preserve-historical-outputs work. This test now
+    asserts the current SET_NULL semantics:
+
+      * ``sp.delete()`` succeeds
+      * The RealtimeSession row survives
+      * Its ``spokesperson_id`` becomes NULL
+
+    The same shape as ``Composition.spokesperson`` — both are
+    SET_NULL because the historical evidence must persist even
+    when the teammate is retired.
+    """
+    ws, _u = _make_workspace("r1nullify@test")
     sp = _make_teammate(ws)
-    RealtimeSession.objects.create(workspace=ws, spokesperson=sp)
-    with pytest.raises(ProtectedError):
-        sp.delete()
+    session = RealtimeSession.objects.create(workspace=ws, spokesperson=sp)
+    session_id = session.pk
+    sp.delete()
+    session.refresh_from_db()
+    assert session.pk == session_id  # row survives
+    assert session.spokesperson_id is None  # FK was nulled
 
 
 # ---- tool invocation cross-workspace -----------------------------

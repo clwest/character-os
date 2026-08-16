@@ -27,12 +27,24 @@ class _BaseScriptSerializer(serializers.ModelSerializer):
     """Shared bits between list + detail serializers."""
 
     workspace_id = serializers.UUIDField(source="workspace.id", read_only=True)
-    spokesperson_id = serializers.UUIDField(
-        source="spokesperson.id", read_only=True,
-    )
-    spokesperson_name = serializers.CharField(
-        source="spokesperson.name", read_only=True,
-    )
+    # SESSION 256 fix — do NOT use ``source="spokesperson.id"``;
+    # SET_NULL on teammate deletion (Script.spokesperson,
+    # models.py:91-94) leaves rows with null FK. DRF's source-chain
+    # walker raises SkipField when the FK resolves to None, OMITTING
+    # both keys from the response and breaking the SPA's zod parse
+    # (spokesperson_id + spokesperson_name are both required strings
+    # in web/src/lib/api/scripts.ts). SerializerMethodField with
+    # explicit None/fallback keeps the keys always present.
+    spokesperson_id = serializers.SerializerMethodField()
+    spokesperson_name = serializers.SerializerMethodField()
+
+    def get_spokesperson_id(self, obj) -> str | None:
+        return str(obj.spokesperson_id) if obj.spokesperson_id else None
+
+    def get_spokesperson_name(self, obj) -> str:
+        if obj.spokesperson_id and obj.spokesperson:
+            return obj.spokesperson.name
+        return "(deleted teammate)"
     status_label = serializers.CharField(
         source="get_status_display", read_only=True,
     )

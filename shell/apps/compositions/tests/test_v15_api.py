@@ -1866,6 +1866,74 @@ def test_list_compositions_paginates() -> None:
     assert d4["results"][0]["status"] == "draft"
 
 
+def test_list_composition_row_carries_spokesperson_keys_even_when_teammate_deleted() -> None:
+    """SESSION 256 regression — CompositionListSerializer must
+    always emit ``spokesperson_id`` + ``spokesperson_name`` keys,
+    even when the composition's teammate has been deleted
+    (SET_NULL). Pre-fix, ``source="spokesperson.id"`` triggered
+    DRF ``SkipField`` and OMITTED both keys; the SPA's zod parse
+    on /workspace/videos failed with:
+        code=invalid_type expected=string received=undefined
+        path=results[N].spokesperson_id
+    ...for the whole page.
+
+    Contract post-fix:
+      * ``spokesperson_id`` = null when teammate is deleted (SPA
+        schema is z.string().nullable() — key must be present).
+      * ``spokesperson_name`` = "(deleted teammate)" fallback so
+        the required-string schema is satisfied AND the
+        operator's Videos row explains the state.
+    """
+    ws, user = _make_workspace_with_user("s256_null_sp@test", "S")
+    sp = _make_teammate(ws)
+
+    # Create two compositions: one with the teammate present, one
+    # simulating a deleted teammate (spokesperson=None, mirroring
+    # SET_NULL post-delete state).
+    Composition.objects.create(
+        workspace=ws, spokesperson=sp, name="with-teammate",
+        template_kind="talking_head",
+        status=CompositionStatus.COMPLETED, mock_mode=True,
+    )
+    Composition.objects.create(
+        workspace=ws, spokesperson=None, name="teammate-was-deleted",
+        template_kind="talking_head",
+        status=CompositionStatus.COMPLETED, mock_mode=True,
+    )
+
+    client = APIClient()
+    _login(client, user)
+    response = client.get(f"/api/compositions/?workspace={ws.pk}")
+    assert response.status_code == http.HTTP_200_OK
+    data = response.json()
+    rows = data["results"]
+    assert len(rows) == 2
+
+    # Every row must carry both keys — the whole point of the
+    # regression guard is that DRF SkipField NEVER omits them.
+    for row in rows:
+        assert "spokesperson_id" in row, (
+            "spokesperson_id key must be present on every row "
+            "(SPA zod schema requires it)"
+        )
+        assert "spokesperson_name" in row, (
+            "spokesperson_name key must be present on every row "
+            "(SPA zod schema requires it)"
+        )
+
+    with_teammate = next(r for r in rows if r["name"] == "with-teammate")
+    without = next(r for r in rows if r["name"] == "teammate-was-deleted")
+
+    assert with_teammate["spokesperson_id"] == str(sp.pk)
+    assert with_teammate["spokesperson_name"] == sp.name
+
+    # SPA schema: spokesperson_id is nullable; spokesperson_name
+    # must be a non-null string.
+    assert without["spokesperson_id"] is None
+    assert isinstance(without["spokesperson_name"], str)
+    assert without["spokesperson_name"] == "(deleted teammate)"
+
+
 def test_list_composition_row_includes_final_asset_storage_health() -> None:
     """SESSION 210 — Videos library row surfaces storage health.
 

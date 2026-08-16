@@ -63,16 +63,25 @@ class PersonalizedCampaignSerializer(serializers.ModelSerializer):
     via a sub-route or the SPA's lazy load)."""
 
     workspace_id = serializers.UUIDField(source="workspace.id", read_only=True)
-    spokesperson_id = serializers.UUIDField(
-        source="spokesperson.id", read_only=True,
-    )
-    spokesperson_name = serializers.CharField(
-        source="spokesperson.name", read_only=True,
-    )
+    # SESSION 256 fix — SET_NULL on teammate deletion
+    # (Campaign.spokesperson, models.py:85-88) means the FK can be
+    # None; DRF's source-chain walker would SkipField and break
+    # the SPA's zod parse (both fields required strings in
+    # web/src/lib/api/campaigns.ts).
+    spokesperson_id = serializers.SerializerMethodField()
+    spokesperson_name = serializers.SerializerMethodField()
     status_label = serializers.CharField(
         source="get_status_display", read_only=True,
     )
     recipient_counts = serializers.SerializerMethodField()
+
+    def get_spokesperson_id(self, obj) -> str | None:
+        return str(obj.spokesperson_id) if obj.spokesperson_id else None
+
+    def get_spokesperson_name(self, obj) -> str:
+        if obj.spokesperson_id and obj.spokesperson:
+            return obj.spokesperson.name
+        return "(deleted teammate)"
     # BC3 — surfaces the optional Script derivation pointer for
     # the SPA detail page. Null when source_script is unset (the
     # vast majority of pre-BC Campaigns + any non-derived Campaign).

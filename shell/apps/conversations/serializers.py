@@ -35,9 +35,19 @@ class ConversationMessageSerializer(serializers.ModelSerializer):
 
 
 class ConversationThreadSerializer(serializers.ModelSerializer):
-    spokesperson_name = serializers.CharField(source="spokesperson.name", read_only=True)
+    # SESSION 256 fix — SET_NULL on teammate deletion
+    # (ConversationThread.spokesperson, models.py:40-43) means the
+    # FK can be None; DRF's source-chain walker would SkipField
+    # and break the SPA's zod parse (spokesperson_name required
+    # string in web/src/lib/api/conversations.ts).
+    spokesperson_name = serializers.SerializerMethodField()
     message_count = serializers.SerializerMethodField()
     last_message_preview = serializers.SerializerMethodField()
+
+    def get_spokesperson_name(self, obj) -> str:
+        if obj.spokesperson_id and obj.spokesperson:
+            return obj.spokesperson.name
+        return "(deleted teammate)"
 
     class Meta:
         model = ConversationThread

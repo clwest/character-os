@@ -46,11 +46,18 @@ class RealtimeToolInvocationSerializer(serializers.ModelSerializer):
 class RealtimeSessionSerializer(serializers.ModelSerializer):
     """Standard retrieve / list shape. NO session_key."""
 
-    spokesperson_name = serializers.CharField(
-        source="spokesperson.name",
-        read_only=True,
-    )
+    # SESSION 256 fix — SET_NULL on teammate deletion
+    # (RealtimeSession.spokesperson, models.py:71-74) means the
+    # FK can be None; DRF's source-chain walker would SkipField
+    # and break the SPA's zod parse (spokesperson_name required
+    # string in web/src/lib/api/realtime.ts).
+    spokesperson_name = serializers.SerializerMethodField()
     tool_invocations = RealtimeToolInvocationSerializer(many=True, read_only=True)
+
+    def get_spokesperson_name(self, obj) -> str:
+        if obj.spokesperson_id and obj.spokesperson:
+            return obj.spokesperson.name
+        return "(deleted teammate)"
 
     class Meta:
         model = RealtimeSession

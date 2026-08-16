@@ -122,12 +122,18 @@ class CompositionListSerializer(serializers.ModelSerializer):
     detail endpoint serves those.
     """
 
-    spokesperson_id = serializers.UUIDField(
-        source="spokesperson.id", read_only=True,
-    )
-    spokesperson_name = serializers.CharField(
-        source="spokesperson.name", read_only=True,
-    )
+    # SESSION 256 fix — do NOT use ``source="spokesperson.id"`` /
+    # ``source="spokesperson.name"``. Those raise ``SkipField``
+    # when ``composition.spokesperson`` is None (Teammate deleted
+    # under SESSION 209's SET_NULL semantics), causing DRF to OMIT
+    # the keys entirely from the response. The SPA's Zod schema
+    # requires the keys present (``spokesperson_id`` nullable,
+    # ``spokesperson_name`` required string), so any composition
+    # with a null spokesperson breaks the /workspace/videos list
+    # for the entire page. Use SerializerMethodFields with explicit
+    # None / fallback handling instead — key is always present.
+    spokesperson_id = serializers.SerializerMethodField()
+    spokesperson_name = serializers.SerializerMethodField()
     final_asset_id = serializers.SerializerMethodField()
     final_asset_storage_health = serializers.SerializerMethodField()
 
@@ -149,6 +155,21 @@ class CompositionListSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = fields
+
+    def get_spokesperson_id(self, obj) -> str | None:
+        # Composition.spokesperson_id is a UUID or None; stringify
+        # for the SPA's ``z.string().nullable()`` schema.
+        return str(obj.spokesperson_id) if obj.spokesperson_id else None
+
+    def get_spokesperson_name(self, obj) -> str:
+        # SESSION 209 preserves the composition after teammate
+        # deletion (SET_NULL). The SPA requires a non-null string
+        # for spokesperson_name; surface a clear operator-facing
+        # marker rather than empty so the /workspace/videos row
+        # explains the state.
+        if obj.spokesperson_id and obj.spokesperson:
+            return obj.spokesperson.name
+        return "(deleted teammate)"
 
     def get_final_asset_id(self, obj) -> str | None:
         return str(obj.final_asset_id) if obj.final_asset_id else None
