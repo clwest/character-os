@@ -112,6 +112,19 @@ DIALOGUE_DURATION_SYNTHESIS_TARGET_MULTIPLIER: float = 1.00
 # have to move the talking-head constant.
 _DIALOGUE_CPS: int = 15
 
+# SESSION 259 corrective-duration slice — headroom factor for
+# the one bounded corrective retry's compression/expansion
+# target. Chosen at 0.92 (offset 8 pt below the hard ceiling
+# and above the hard floor) because real Patch/Rivet renders
+# have often spoken slower than the 15-cps planning estimator;
+# aiming just under the ceiling on the retry passes synthesis
+# but still produces overlong finished video. Headroom pulls
+# the retry target off the boundary. Applies ONLY to the
+# corrective-hint target string — never to the acceptance
+# band, never to first-pass planning, never to global
+# calibration. Not exported.
+_DIALOGUE_CORRECTIVE_HEADROOM_FRACTION: float = 0.92
+
 # Duration-specific turn-count guidance. Tuple layout:
 # ``(soft_min, soft_max, hard_max)``. Hard min is a module-
 # global 2 (below that it isn't a conversation).
@@ -696,6 +709,138 @@ def _assemble_system_prompt(
     return "\n\n".join(parts)
 
 
+# ---- Corrective duration hints (SESSION 259 slice) ---------------
+#
+# Rewrites the one-liner validation strings the ``_parse_and_validate``
+# path returns on aggregate-duration failure. The prior wording
+# ("Tighten by removing any turn that could be cut without loss to
+# the arc") fought Writing Contract v4's CAUSAL CHAIN invariant —
+# every turn is a load-bearing beat, so the model correctly resisted
+# turn deletion and had no other lever, then under-compressed.
+#
+# The dialogue-shaped hint gives the retry:
+#   * concrete numeric targets (actual, ceiling/floor, headroom, delta);
+#   * "preserve the beats, shorten the beats" framing;
+#   * explicit language-compression tactics (fragments, drop second
+#     clauses, remove decorative language, short reactions);
+#   * a preservation contract (character identity + factual grounding
+#     + causal continuity + arc + payoff).
+#
+# ``_DIALOGUE_CORRECTIVE_HEADROOM_FRACTION`` (0.92, see top of
+# module) sets the retry's target off the hard boundary so a scene
+# that just passes synthesis still speaks safely inside the finished
+# video budget.
+
+
+def _dialogue_over_length_hint(
+    *,
+    total_chars: int,
+    predicted_seconds: float,
+    target_duration_seconds: int,
+    upper_seconds: float,
+) -> str:
+    """Compression retry hint. Called when
+    ``predicted_seconds > upper`` at first-pass validation."""
+    upper_chars = int(round(upper_seconds * _DIALOGUE_CPS))
+    upper_seconds_int = int(round(upper_seconds))
+    excess_chars = max(1, total_chars - upper_chars)
+    headroom_chars = int(round(
+        upper_chars * _DIALOGUE_CORRECTIVE_HEADROOM_FRACTION
+    ))
+    headroom_seconds = int(round(headroom_chars / _DIALOGUE_CPS))
+    return (
+        f"Your dialogue is too long.\n"
+        f"\n"
+        f"Previous attempt: {total_chars} characters "
+        f"(~{predicted_seconds:.0f}s).\n"
+        f"Target: {target_duration_seconds}s.\n"
+        f"Hard acceptance ceiling: {upper_chars} characters "
+        f"(~{upper_seconds_int}s).\n"
+        f"You must remove at least {excess_chars} characters.\n"
+        f"\n"
+        f"Rewrite the SAME scene to approximately "
+        f"{headroom_chars} characters (~{headroom_seconds}s), "
+        f"leaving comfortable headroom below the hard ceiling.\n"
+        f"\n"
+        f"Preserve the conversational beats and causal chain. "
+        f"Do not solve this primarily by deleting turns.\n"
+        f"\n"
+        f"Make the LANGUAGE lighter:\n"
+        f"  * prefer short direct replies when natural;\n"
+        f"  * fragments are allowed;\n"
+        f"  * one idea per turn where possible;\n"
+        f"  * short reactions are valuable;\n"
+        f"  * remove second or third clauses that merely explain "
+        f"the reaction;\n"
+        f"  * remove explanations the previous line already made "
+        f"obvious;\n"
+        f"  * remove duplicated setup;\n"
+        f"  * remove repeated framing;\n"
+        f"  * remove decorative language that does not change the "
+        f"scene;\n"
+        f"  * do not narrate why a response is causally connected "
+        f"— let the response itself make that clear.\n"
+        f"\n"
+        f"Preserve: character identity; factual grounding; "
+        f"conversational causality; the scene's arc; the ending "
+        f"payoff."
+    )
+
+
+def _dialogue_under_length_hint(
+    *,
+    total_chars: int,
+    predicted_seconds: float,
+    target_duration_seconds: int,
+    lower_seconds: float,
+) -> str:
+    """Expansion retry hint. Called when
+    ``predicted_seconds < lower`` at first-pass validation.
+
+    Symmetric-ish counterpart to ``_dialogue_over_length_hint``:
+    concrete numbers, tactics that add conversational substance
+    rather than filler, and a preservation contract."""
+    lower_chars = int(round(lower_seconds * _DIALOGUE_CPS))
+    lower_seconds_int = int(round(lower_seconds))
+    deficit_chars = max(1, lower_chars - total_chars)
+    # Same 8-pt offset as compression uses on the ceiling side,
+    # applied to the floor. 0.92 below the ceiling ↔ 1.08 above
+    # the floor.
+    headroom_chars = int(round(
+        lower_chars * (2.0 - _DIALOGUE_CORRECTIVE_HEADROOM_FRACTION)
+    ))
+    headroom_seconds = int(round(headroom_chars / _DIALOGUE_CPS))
+    return (
+        f"Your dialogue is too short.\n"
+        f"\n"
+        f"Previous attempt: {total_chars} characters "
+        f"(~{predicted_seconds:.0f}s).\n"
+        f"Target: {target_duration_seconds}s.\n"
+        f"Hard acceptance floor: {lower_chars} characters "
+        f"(~{lower_seconds_int}s).\n"
+        f"You must add at least {deficit_chars} characters.\n"
+        f"\n"
+        f"Rewrite the SAME scene to approximately "
+        f"{headroom_chars} characters (~{headroom_seconds}s), "
+        f"leaving comfortable headroom above the hard floor.\n"
+        f"\n"
+        f"Expand conversational substance, not padding. You may "
+        f"add a beat OR give an existing beat more room:\n"
+        f"  * add a challenge, callback, or reveal that a "
+        f"character has been holding back;\n"
+        f"  * let a reaction land with a specific example instead "
+        f"of a general one;\n"
+        f"  * open a new question the next speaker earns the "
+        f"answer to.\n"
+        f"\n"
+        f"Do NOT add filler, repeated framing, or generic "
+        f"methodology explanation.\n"
+        f"\n"
+        f"Preserve: character identity; factual grounding; "
+        f"conversational causality; and each character's voice."
+    )
+
+
 # ---- Parse + validation ------------------------------------------
 
 
@@ -862,22 +1007,18 @@ def _parse_and_validate(
     lower = target * (1.0 - _DURATION_TOLERANCE)
     upper = target * (1.0 + _DURATION_TOLERANCE)
     if predicted_seconds < lower:
-        return None, (
-            f"your scene runs about {predicted_seconds:.0f} "
-            f"seconds (aggregate {total_chars} characters at "
-            f"~{_DIALOGUE_CPS} cps). Target is "
-            f"{target_duration_seconds} s (acceptance band "
-            f"{lower:.0f}–{upper:.0f} s). Expand with more "
-            f"substantive back-and-forth"
+        return None, _dialogue_under_length_hint(
+            total_chars=total_chars,
+            predicted_seconds=predicted_seconds,
+            target_duration_seconds=target_duration_seconds,
+            lower_seconds=lower,
         )
     if predicted_seconds > upper:
-        return None, (
-            f"your scene runs about {predicted_seconds:.0f} "
-            f"seconds (aggregate {total_chars} characters at "
-            f"~{_DIALOGUE_CPS} cps). Target is "
-            f"{target_duration_seconds} s (acceptance band "
-            f"{lower:.0f}–{upper:.0f} s). Tighten by removing "
-            f"any turn that could be cut without loss to the arc"
+        return None, _dialogue_over_length_hint(
+            total_chars=total_chars,
+            predicted_seconds=predicted_seconds,
+            target_duration_seconds=target_duration_seconds,
+            upper_seconds=upper,
         )
 
     # All validators passed — resolve aliases to Teammate rows and
