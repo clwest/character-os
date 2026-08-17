@@ -60,7 +60,16 @@ from __future__ import annotations
 # Existing ``standalone`` and ``long_form`` contract text is
 # unchanged; only the version stamp on newly-created compositions
 # moves. No re-rendering of prior compositions.
-WRITING_CONTRACT_VERSION: int = 2
+#
+# Version 3 (SESSION 258, dialogue watchability audit) — appended
+# a WATCHABILITY block after the dialogue invariants (in-scene
+# stance, meaningful change, action over philosophy, knowledge
+# influences rather than being quoted, end on a moment) plus three
+# new dialogue anti-patterns (framework recitation, role summary,
+# mutual-synthesis ending). Standalone + long_form contract text
+# remain byte-stable; the change is scoped entirely to the
+# ``_dialogue_scene_contract()`` return value.
+WRITING_CONTRACT_VERSION: int = 3
 
 
 # ---- Anti-generic-AI-copy defaults --------------------------------
@@ -354,6 +363,8 @@ def _dialogue_scene_contract() -> str:
         "",
         _DIALOGUE_INVARIANTS_BLOCK,
         "",
+        _DIALOGUE_WATCHABILITY_BLOCK,
+        "",
         _DIALOGUE_ANTI_PATTERNS_BLOCK,
         "",
         _DIALOGUE_NARRATIVE_SHAPES_BLOCK,
@@ -404,6 +415,73 @@ _DIALOGUE_INVARIANTS_BLOCK = (
 )
 
 
+# SESSION 258 / v3. Behavior-oriented guidance layered ON TOP of the
+# v2 invariants — not a replacement. Answers a specific v2 failure
+# mode: characters delivering their K2 methodology chunks verbatim
+# instead of behaving in-scene. Every rule is cast-independent; the
+# module docstring explains why v2 stays byte-stable everywhere else.
+#
+# Rules are titled + short-paragraph rather than compact numbered
+# (matches the operator's spec wording; reads as scene guidance
+# rather than a list of gates). Named block so downstream tooling
+# (contract-audit tests, per-shape prompt inspection) can address
+# it without pattern-matching the invariant string.
+
+_DIALOGUE_WATCHABILITY_BLOCK = (
+    "DIALOGUE WATCHABILITY (behavioral guidance — every scene, "
+    "regardless of narrative shape chosen)\n"
+    "\n"
+    "  1. ENTER WITH AN IN-SCENE STANCE\n"
+    "     Each character arrives with an immediate purpose, "
+    "stance, reaction, or desire for THIS scene. Examples: wants "
+    "approval; wants an answer; wants to prove something worked; "
+    "wants to correct the other character; wants clarification; "
+    "wants permission; wants to avoid blame; wants to persuade; "
+    "wants to understand; wants to reassure; wants to challenge "
+    "an assumption; wants to move the situation forward. This "
+    "does NOT mean every scene requires hostility, argument, or "
+    "comedy — collaboration is a valid stance when the topic "
+    "calls for it. A character with no in-scene stance should "
+    "not speak.\n"
+    "\n"
+    "  2. SOMETHING CHANGES\n"
+    "     The scene must not end in the same conversational "
+    "state in which it began. Somewhere between opening and "
+    "close, at least one meaningful change should occur: new "
+    "information, correction, decision, concession, reveal, "
+    "escalation, misunderstanding resolved, new question, "
+    "changed plan, discovered problem, or earned agreement. If "
+    "no character moves, the scene didn't happen.\n"
+    "\n"
+    "  3. PREFER SPECIFIC ACTION / REACTION OVER PHILOSOPHY\n"
+    "     Characters should talk about what is happening, what "
+    "just happened, what they want to try, what they noticed, "
+    "what broke, what surprised them, or what they want next. "
+    "Prefer 'Run it again.' over 'Our methodology emphasizes "
+    "repeatability.' Prefer 'What did you change?' over 'We "
+    "should separate variables during experimentation.' The "
+    "underlying knowledge may drive the line without being "
+    "recited.\n"
+    "\n"
+    "  4. KNOWLEDGE INFLUENCES — IT DOES NOT NEED TO BE QUOTED\n"
+    "     Retrieved knowledge is factual grounding and context. "
+    "Do NOT feel obligated to reproduce frameworks, headings, "
+    "lists, slogans, or methodology language from the retrieved "
+    "chunks. Translate knowledge into natural character behavior "
+    "whenever possible. A character who knows experimental "
+    "methodology can ask 'Did you try it twice?' — they do not "
+    "need to say 'Our framework requires repeatable validation.'\n"
+    "\n"
+    "  5. END ON A MOMENT, NOT A SUMMARY\n"
+    "     Prefer endings such as a reaction, decision, reveal, "
+    "callback, escalation, challenge, refusal, concession, "
+    "naturally-earned punchline, or unresolved hook. Avoid "
+    "wrapping the scene with both characters summarizing their "
+    "roles, relationship, philosophy, or shared lesson. Let the "
+    "scene finish while something is still happening."
+)
+
+
 _DIALOGUE_ANTI_PATTERNS_BLOCK = (
     "DIALOGUE ANTI-PATTERNS\n"
     "  * Do NOT address each other by name in every turn. "
@@ -421,7 +499,26 @@ _DIALOGUE_ANTI_PATTERNS_BLOCK = (
     "improve rhythm.\n"
     "  * Do NOT target a specific number of turns. Turn count "
     "is a pacing decision, not a target. Write the number of "
-    "turns the conversational rhythm requires."
+    "turns the conversational rhythm requires.\n"
+    "  * (framework recitation) Do NOT turn retrieved lists or "
+    "frameworks into spoken dialogue unless the operator's topic "
+    "EXPLICITLY asks the characters to teach or explain that "
+    "framework. A numbered / bulleted / labelled framework "
+    "belongs in your knowledge, not in your mouth. A character "
+    "who has a six-step process demonstrates step 3 in this "
+    "scene without naming the process.\n"
+    "  * (role summary) Do NOT summarize your own role in the "
+    "team, the relationship, or the workflow. Lines like 'You "
+    "bring momentum. I bring the checklist. Together we get "
+    "answers.' or 'My job is simple: X, Y, Z.' are self-"
+    "description dressed as dialogue. The audience should infer "
+    "the relationship from interaction, not from either "
+    "character's self-summary.\n"
+    "  * (mutual-synthesis ending) Do NOT end on a synthesis "
+    "where character A summarizes what they learned and "
+    "character B agrees and restates the lesson. That is an "
+    "ending stub the model reaches for when no reveal was set "
+    "up. Let the scene finish while something is still happening."
 )
 
 

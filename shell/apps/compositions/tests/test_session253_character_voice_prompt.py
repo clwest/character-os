@@ -483,12 +483,20 @@ def test_writing_contract_version_available_and_positive():
     assert WRITING_CONTRACT_VERSION >= 1
 
 
-def test_writing_contract_version_is_2_after_ai_d1():
-    """SESSION 257 / AI-D1 — the addition of ``dialogue_scene``
-    shape bumps the global version stamp 1 -> 2. Existing
-    standalone / long_form contract TEXT is unchanged; only the
-    version stamp on newly-created compositions moves."""
-    assert WRITING_CONTRACT_VERSION == 2
+def test_writing_contract_version_is_3_after_dialogue_watchability_slice():
+    """SESSION 258 dialogue watchability slice bumped the version
+    stamp 2 -> 3. The v3 change appended a WATCHABILITY block +
+    three anti-patterns to the dialogue_scene shape ONLY. Standalone
+    and long_form contract text remain byte-stable across the bump
+    (see ``test_writing_contract_v3.py`` for the SHA-256 snapshots).
+
+    History:
+      * v1: initial contract (SESSION 253 baseline).
+      * v2: SESSION 257 AI-D1 added ``dialogue_scene`` shape.
+      * v3: SESSION 258 dialogue-watchability slice added
+        behavioral guidance to dialogue_scene only.
+    """
+    assert WRITING_CONTRACT_VERSION == 3
 
 
 def test_writing_contract_for_shape_returns_versioned_content():

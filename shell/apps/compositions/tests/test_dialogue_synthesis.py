@@ -672,16 +672,23 @@ def test_strict_verifier_failure_raises():
 # ---- 5. Duration + calibration ----------------------------------
 
 
-def test_writing_contract_version_is_2():
-    """Mock-mode result carries the current contract stamp."""
-    ws = _workspace("v2stamp@t")
+def test_writing_contract_version_is_3():
+    """Mock-mode result carries the current contract stamp.
+
+    SESSION 258 dialogue watchability slice bumped the version 2 →
+    3 to distinguish dialogue outputs shaped by the new watchability
+    block + framework-recitation / role-summary / mutual-synthesis
+    anti-patterns. Standalone + long_form contract text remain
+    byte-stable across this bump.
+    """
+    ws = _workspace("v3stamp@t")
     patch, rivet = _cast(ws)
     result = synthesize_dialogue(
         workspace=ws, cast=[patch, rivet],
         topic="test topic", target_duration_seconds=60,
         mock_mode=True,
     )
-    assert result.writing_contract_version == 2
+    assert result.writing_contract_version == 3
     assert result.writing_contract_version == WRITING_CONTRACT_VERSION
 
 
