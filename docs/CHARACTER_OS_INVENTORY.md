@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-08-17T05:19:12.697839+00:00
-git_sha: 88a8f4a
+generated_at: 2026-08-17T21:02:32.877742+00:00
+git_sha: dd5bf37 (working tree dirty)
 git_branch: main
 ---
 
@@ -15,11 +15,11 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-08-17T05:19:12.697839+00:00** against commit **88a8f4a**
-on branch **main**.
+Generated **2026-08-17T21:02:32.877742+00:00** against commit **dd5bf37**
+on branch **main** (working tree dirty).
 
-Python 3.11.6 · Django 5.0.6 ·
-Celery 5.5.3 · httpx 0.27.2.
+Python 3.11.6 · Django 5.2.16 ·
+Celery 5.6.3 · httpx 0.27.2.
 
 ---
 
@@ -27,20 +27,20 @@ Celery 5.5.3 · httpx 0.27.2.
 
 | Metric | Value | Source |
 |---|---|---|
-| Django models (project-owned) | **37** | `apps.get_models()` filtered to first-party apps |
-| URL routes (total) | **429** | `get_resolver().url_patterns` walk |
-| URL routes (`/api/*`) | **188** | same |
+| Django models (project-owned) | **38** | `apps.get_models()` filtered to first-party apps |
+| URL routes (total) | **434** | `get_resolver().url_patterns` walk |
+| URL routes (`/api/*`) | **198** | same |
 | FastAPI routes | **125** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **12** | `celery_app.tasks` filter |
-| Migrations (applied / total) | **97 / 97** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **121,921** in 412 files | `pathlib.Path.rglob("*.py")` |
+| Migrations (applied / total) | **100 / 100** | `MigrationRecorder` ∩ `MigrationLoader` |
+| Shell LOC (`*.py`, no venv/migrations) | **124,456** in 426 files | `pathlib.Path.rglob("*.py")` |
 | Media-engine LOC (`*.py`, no venv/migrations) | **63,533** in 156 files | same |
 
 ---
 
 ## Django Models (project-owned)
 
-Total: **37** models across **14** apps.
+Total: **38** models across **15** apps.
 
 | App | Model | DB Table | Fields | FKs |
 |---|---|---|---|---|
@@ -59,7 +59,7 @@ Total: **37** models across **14** apps.
 | `conversations` | `ConversationMessage` | `conversations_conversationmessage` | 8 | 1 |
 | `conversations` | `ConversationThread` | `conversations_conversationthread` | 5 | 1 |
 | `embeddings` | `KnowledgeChunk` | `embeddings_knowledgechunk` | 12 | 1 |
-| `embeddings` | `KnowledgeDocument` | `embeddings_knowledgedocument` | 16 | 2 |
+| `embeddings` | `KnowledgeDocument` | `embeddings_knowledgedocument` | 17 | 3 |
 | `embeddings` | `KnowledgeDocumentSpokesperson` | `embeddings_knowledgedocument_spokespeople` | 3 | 2 |
 | `identity` | `ApprovedRepresentationBundle` | `identity_approvedrepresentationbundle` | 8 | 4 |
 | `identity` | `CanonicalRealtimeReference` | `identity_canonicalrealtimereference` | 6 | 2 |
@@ -78,22 +78,23 @@ Total: **37** models across **14** apps.
 | `realtime` | `RealtimeSession` | `realtime_realtimesession` | 23 | 5 |
 | `realtime` | `RealtimeToolInvocation` | `realtime_realtimetoolinvocation` | 10 | 3 |
 | `scripts` | `Script` | `scripts_script` | 20 | 3 |
-| `spokespeople` | `Teammate` | `spokespeople_spokesperson` | 26 | 1 |
+| `spokespeople` | `Teammate` | `spokespeople_spokesperson` | 27 | 2 |
 | `transcripts` | `TranscriptHighlight` | `transcripts_transcripthighlight` | 16 | 3 |
+| `universe` | `Universe` | `universe_universe` | 9 | 2 |
 | `videos` | `Video` | `videos_video` | 16 | 2 |
 
 ---
 
 ## URL Routes
 
-Total: **429** resolved patterns.
+Total: **434** resolved patterns.
 
 | Prefix | Count |
 |---|---|
-| `_allauth/` | 30 |
+| `_allauth/` | 19 |
 | `accounts/` | 26 |
-| `admin/` | 185 |
-| `api/` | 188 |
+| `admin/` | 191 |
+| `api/` | 198 |
 
 ### Named API + auth routes
 
@@ -162,6 +163,7 @@ Total: **429** resolved patterns.
 - `knowledge-search`
 - `login`
 - `manage_email`
+- `manage_phone`
 - `manage_providers`
 - `me`
 - `membership-detail`
@@ -189,6 +191,8 @@ Total: **429** resolved patterns.
 - `recipe-list`
 - `redirect_to_provider`
 - `request_password_reset`
+- `resend_email_verification_code`
+- `resend_phone_verification_code`
 - `reset_password`
 - `script-approve`
 - `script-clone`
@@ -211,6 +215,7 @@ Total: **429** resolved patterns.
 - `spokesperson-rebake-avatar`
 - `spokesperson-refresh-portrait`
 - `spokesperson-templates`
+- `spokesperson-universe-move-preview`
 - `spokesperson-voice-presets`
 - `style-list`
 - `suggest-tone`
@@ -219,7 +224,11 @@ Total: **429** resolved patterns.
 - `transcript-highlight-list`
 - `transcript-highlight-mine`
 - `transcript-highlight-reject`
+- `universe-detail`
+- `universe-list`
+- `universe-unarchive`
 - `verify_email`
+- `verify_phone`
 - `video-detail`
 - `video-list`
 - `workspace-asset-detail`
@@ -305,7 +314,7 @@ Total: **12** registered tasks (excluding `celery.*` built-ins).
 
 ## Migrations
 
-**97 of 97** migrations applied.
+**100 of 100** migrations applied.
 
 | App | Applied | Total | Pending |
 |---|---|---|---|
@@ -319,7 +328,7 @@ Total: **12** registered tasks (excluding `celery.*` built-ins).
 | `compositions` | 13 | 13 | 0 |
 | `contenttypes` | 2 | 2 | 0 |
 | `conversations` | 5 | 5 | 0 |
-| `embeddings` | 4 | 4 | 0 |
+| `embeddings` | 5 | 5 | 0 |
 | `identity` | 9 | 9 | 0 |
 | `publish` | 1 | 1 | 0 |
 | `realtime` | 5 | 5 | 0 |
@@ -327,8 +336,9 @@ Total: **12** registered tasks (excluding `celery.*` built-ins).
 | `sessions` | 1 | 1 | 0 |
 | `sites` | 2 | 2 | 0 |
 | `socialaccount` | 6 | 6 | 0 |
-| `spokespeople` | 11 | 11 | 0 |
+| `spokespeople` | 12 | 12 | 0 |
 | `transcripts` | 1 | 1 | 0 |
+| `universe` | 1 | 1 | 0 |
 | `videos` | 4 | 4 | 0 |
 
 ---
@@ -351,11 +361,11 @@ Total: **12** registered tasks (excluding `celery.*` built-ins).
 | Service | Files | Lines |
 |---|---|---|
 | `media-engine/` | 156 | 63,533 |
-| `shell/` | 412 | 121,921 |
-| **total** | **568** | **185,454** |
+| `shell/` | 426 | 124,456 |
+| **total** | **582** | **187,989** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-08-17T05:19:12.697839+00:00 from commit 88a8f4a. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-08-17T21:02:32.877742+00:00 from commit dd5bf37. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
