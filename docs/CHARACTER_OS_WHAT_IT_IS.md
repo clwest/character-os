@@ -39,11 +39,14 @@ with tier-based billing, replacing the single-tenant hackathon
 demo it inherited the media engine from.
 
 **Scale:** see [`CHARACTER_OS_INVENTORY.md`](CHARACTER_OS_INVENTORY.md)
-for the canonical numbers (regenerated via
-`python manage.py inventory`). Headline shape at SESSION 217:
+for the canonical current-state numbers (regenerated via
+`python manage.py inventory`). Headline shape captured at SESSION 217:
 14 Django apps + 23 models, 173 `/api/*` routes, 124 routes on
 the media-engine, 70 migrations, 4 services + Redis (Django +
-FastAPI + React SPA + Celery). The 4-step create-spokesperson
+FastAPI + React SPA + Celery). SESSION 261 adds the `universe`
+app + the Universe substrate (17 apps + 38 models + 100 migrations
+per current INVENTORY); other counts have drifted per intervening
+slices and INVENTORY is authoritative. The 4-step create-spokesperson
 wizard ships end-to-end (SESSION 132); the knowledge arc
 (K1-K9) gives spokespeople grounded retrieval; the video
 composition arc (V0-V18) gives them a 20-recipe composition
