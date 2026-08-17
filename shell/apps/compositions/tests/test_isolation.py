@@ -101,6 +101,13 @@ ALLOWED_FILES = {
     # multi-step, BC2 lineage carry-up, dedup, no-knowledge,
     # empty-assets edge case).
     "apps/compositions/tests/test_chunk_id_aggregator.py",
+    # SESSION 258 P1 — Composition-level concurrency-safety
+    # tests seed Composition + CompositionStep rows directly to
+    # exercise the SQL-subquery cost UPDATE and the locked
+    # verification-write helper under real threaded parallel
+    # writes (transaction=True, per-thread DB connections).
+    # Sanctioned test-side writer.
+    "apps/compositions/tests/test_p1_concurrency_safety.py",
     # SESSION 210 — `sweep_expired_assets` Celery task tests
     # seed Composition + Asset rows with crafted JWT URLs to
     # exercise the hourly Beat sweep. Asset.composition FK is

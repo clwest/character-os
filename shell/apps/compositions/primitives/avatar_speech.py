@@ -226,6 +226,112 @@ def _should_stamp_verification_status(current: str, incoming: str) -> bool:
     )
 
 
+def _apply_composition_status_and_warnings(
+    composition,
+    *,
+    incoming_status: str = "",
+    incoming_warnings: list[dict] | None = None,
+    incoming_brief: str = "",
+    incoming_contract_version: int = 0,
+) -> None:
+    """SESSION 258 P1.2 + P1.3 — race-safe Composition
+    verification-state update under Postgres row-level lock.
+
+    Prior write path (four separate reads on the in-memory
+    composition + one save) was subject to two races the
+    parallel-execution audit flagged as blockers:
+
+    * verification_status downgrade race — two workers both
+      reading ``composition.verification_status`` from stale
+      in-memory state, each independently passing the
+      no-downgrade precedence check, but the second writer
+      overwriting the first regardless (last-writer-wins on
+      a bare ``.save()``).
+    * verification_warnings append race — two workers both
+      reading the current warnings list, both appending their
+      own, both writing; JSONField has no atomic-append
+      operation so one worker's warnings are lost.
+
+    Fix: open ``transaction.atomic()``, acquire
+    ``select_for_update()`` on the composition row, read the
+    CURRENT database values under the lock (not the caller's
+    stale in-memory copy), apply the precedence + append
+    semantics against the locked read, save once with all
+    changed fields. Concurrent callers serialize on the
+    composition row's UPDATE lock; each sees the previous
+    worker's committed state before deciding what to write.
+
+    Sequential semantics unchanged — a single caller in the
+    absence of contention behaves exactly like the prior
+    inline block.
+
+    Also syncs the caller's in-memory ``composition`` instance
+    to the persisted state so downstream code that reads any
+    of these fields sees the same values the row holds. This
+    matches the prior contract where the inline block wrote
+    directly to the caller's object.
+
+    Empty inputs → no-op (avoids opening a transaction for
+    nothing).
+    """
+    if not (
+        incoming_status
+        or incoming_warnings
+        or incoming_brief
+        or incoming_contract_version
+    ):
+        return
+
+    from django.db import transaction
+
+    from apps.compositions.models import Composition
+
+    with transaction.atomic():
+        locked = Composition.objects.select_for_update().get(pk=composition.pk)
+        update_fields: list[str] = []
+
+        if incoming_warnings:
+            existing = list(locked.verification_warnings or [])
+            existing.extend(incoming_warnings)
+            locked.verification_warnings = existing
+            update_fields.append("verification_warnings")
+
+        # SESSION 257 AI-D5 no-downgrade rule, now applied
+        # against the FRESH row-locked read (not stale in-memory).
+        if _should_stamp_verification_status(
+            locked.verification_status, incoming_status,
+        ):
+            locked.verification_status = incoming_status
+            update_fields.append("verification_status")
+
+        # K6.6: synthesized brief persistence. Only for K6
+        # actually-synthesized statuses; the trusted_passthrough
+        # path never has a brief worth persisting (operator
+        # prompt verbatim).
+        if incoming_brief and incoming_status in ("verified", "skipped"):
+            locked.synthesized_brief = incoming_brief
+            update_fields.append("synthesized_brief")
+
+        # SESSION 253 — stamp the contract version if this K6
+        # pass applied one. 0 (passthrough) leaves it alone.
+        if incoming_contract_version and (
+            locked.writing_contract_version != incoming_contract_version
+        ):
+            locked.writing_contract_version = incoming_contract_version
+            update_fields.append("writing_contract_version")
+
+        if update_fields:
+            locked.save(update_fields=update_fields)
+
+        # Sync caller's in-memory instance to the persisted
+        # state. Downstream code that reads these fields off
+        # ``composition`` sees the row's authoritative values.
+        composition.verification_warnings = locked.verification_warnings
+        composition.verification_status = locked.verification_status
+        composition.synthesized_brief = locked.synthesized_brief
+        composition.writing_contract_version = locked.writing_contract_version
+
+
 def _resolve_avatar_id(step, composition) -> str:
     """Pick the avatar id from params (explicit) or fall back to
     the composition's spokesperson. Raises ``PrimitiveError`` if
@@ -439,40 +545,22 @@ class GenerateAvatarSpeechPrimitive:
         # K6.6: persist the synthesized brief itself when K6
         # actually ran (verification_status of "verified" or
         # "skipped" both mean the LLM synthesized).
-        composition_update_fields: list[str] = []
-        if verification_warnings:
-            existing = list(composition.verification_warnings or [])
-            existing.extend(verification_warnings)
-            composition.verification_warnings = existing
-            composition_update_fields.append("verification_warnings")
-        # SESSION 257 AI-D5 cleanup — no-downgrade precedence.
-        # See _VERIFICATION_STATUS_RANK docstring. Prior behavior
-        # unconditionally stamped, which silently downgraded AI Topic
-        # dialogue compositions from "verified" to
-        # "trusted_passthrough" once the per-turn speech steps ran.
-        if _should_stamp_verification_status(
-            composition.verification_status, verification_status,
-        ):
-            composition.verification_status = verification_status
-            composition_update_fields.append("verification_status")
-        # K6.6: synthesized brief persistence. ``brief`` is the
-        # text that went to Runway. Persist only when synthesis
-        # actually produced it (verified / skipped statuses).
-        # Skip for trusted_passthrough (degraded path) — that's
-        # the operator's prompt verbatim, not synthesized.
-        if verification_status in ("verified", "skipped") and brief:
-            composition.synthesized_brief = brief
-            composition_update_fields.append("synthesized_brief")
-        # SESSION 253 — stamp the contract version if this K6 pass
-        # actually applied one. 0 (the passthrough case) leaves
-        # existing value alone.
-        if writing_contract_version and (
-            composition.writing_contract_version != writing_contract_version
-        ):
-            composition.writing_contract_version = writing_contract_version
-            composition_update_fields.append("writing_contract_version")
-        if composition_update_fields:
-            composition.save(update_fields=composition_update_fields)
+        # SESSION 258 P1.2 + P1.3 — race-safe composition
+        # verification-state + warnings update. Under a future
+        # fan-out scheduler, multiple avatar_speech steps may
+        # complete concurrently; the helper acquires a row-level
+        # lock on the composition row and reads current values
+        # under lock before applying precedence + append. The
+        # AI-D5 no-downgrade rule (SESSION 257 e3d3765) is
+        # preserved and now operates against the fresh DB read
+        # rather than stale in-memory state.
+        _apply_composition_status_and_warnings(
+            composition,
+            incoming_status=verification_status,
+            incoming_warnings=verification_warnings,
+            incoming_brief=brief,
+            incoming_contract_version=writing_contract_version,
+        )
 
         try:
             with MediaEngineClient() as client:
