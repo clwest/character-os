@@ -21,6 +21,8 @@ urlpatterns = [
     path("_allauth/", include("allauth.headless.urls")),
     # REST API — one path("api/", …) per app router.
     path("api/", include("apps.accounts.urls")),
+    # SESSION 261 — Universe substrate. Mounts /api/universes/.
+    path("api/", include("apps.universe.urls")),
     path("api/", include("apps.spokespeople.urls")),
     path("api/", include("apps.videos.urls")),
     path("api/", include("apps.conversations.urls")),

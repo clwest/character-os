@@ -44,6 +44,13 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.google",
     # Local apps — empty scaffold; models land in their own slices.
     "apps.accounts",
+    # SESSION 261 — Universe substrate (inner wall between
+    # Workspace and per-world semantic scope). Sits next to
+    # apps.accounts because Universe's tenant parent is
+    # Workspace; the FK integrations land on apps.spokespeople
+    # and apps.embeddings below. See
+    # docs/design/UNIVERSE_SCHEMA_V1.md.
+    "apps.universe",
     "apps.spokespeople",
     "apps.videos",
     "apps.conversations",
