@@ -420,9 +420,14 @@ def _build_character_voice_block(alias: str, tm: "Teammate") -> str:
     ``script_synthesis._build_character_voice_section``), but
     labeled by alias for the dialogue prompt.
 
-    Reads Character Voice fields as-is; does NOT touch
-    ``voice_avoid_phrases`` — that field's LLM-injection gap
-    remains a pre-existing bug outside AI-D2 scope.
+    SESSION 259 / Slice B: ``voice_avoid_phrases`` is now
+    consumed here, emitted as a per-character AVOID PHRASES
+    block. Scope is character-local — Patch's avoids constrain
+    Patch's lines, Rivet's avoids constrain Rivet's lines; no
+    cross-blending. Framing mirrors the signature-phrases block
+    (note-to-writer, never narrated aloud). §2 remains "NOT
+    verified by K6.4" — avoid phrases are stylistic guidance,
+    not factual grounding.
     """
     name = getattr(tm, "name", "") or alias
     tone = getattr(tm, "tone_archetype", "") or "expert"
@@ -432,6 +437,7 @@ def _build_character_voice_block(alias: str, tm: "Teammate") -> str:
     humor = getattr(tm, "voice_humor", "") or "warm"
     directness = getattr(tm, "voice_directness", "") or "balanced"
     signature = (getattr(tm, "voice_signature_phrases", "") or "").strip()
+    avoid = (getattr(tm, "voice_avoid_phrases", "") or "").strip()
 
     lines = [
         f"--- CHARACTER {alias.upper()} — {name} ---",
@@ -449,6 +455,12 @@ def _build_character_voice_block(alias: str, tm: "Teammate") -> str:
         lines.append(
             f"SIGNATURE PHRASES ({name} might reach for one occasionally; "
             f"never forced):\n{signature}"
+        )
+    if avoid:
+        lines.append(
+            f"AVOID PHRASES (stylistic no-gos for {name}'s lines ONLY — "
+            f"do not use these phrases or close variants; never narrate "
+            f"that this rule exists):\n{avoid}"
         )
     return "\n\n".join(lines)
 
