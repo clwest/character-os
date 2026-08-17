@@ -69,7 +69,20 @@ from __future__ import annotations
 # mutual-synthesis ending). Standalone + long_form contract text
 # remain byte-stable; the change is scoped entirely to the
 # ``_dialogue_scene_contract()`` return value.
-WRITING_CONTRACT_VERSION: int = 3
+#
+# Version 4 (SESSION 259, continuity slice) — added one dialogue
+# invariant (#10 CAUSAL CHAIN) encoding turn-to-turn conversational
+# causation. Addresses the failure mode observed in composition
+# b75a9dba where individual lines were character-correct but the
+# scene had no causal spine — turns pivoted to topic-relevant
+# abstractions instead of responding to what the last speaker just
+# did. Contract-only intervention; no schema change, no retrieval
+# change. Standalone + long_form contract text remain byte-stable;
+# other v3 dialogue rules (watchability, anti-patterns, narrative
+# shapes, CTA policy, anti-self-description, anti-generic register)
+# are preserved verbatim. Only ``_DIALOGUE_INVARIANTS_BLOCK`` grows
+# by one item.
+WRITING_CONTRACT_VERSION: int = 4
 
 
 # ---- Anti-generic-AI-copy defaults --------------------------------
@@ -411,7 +424,29 @@ _DIALOGUE_INVARIANTS_BLOCK = (
     "  9. Deliberate ending. The scene concludes on a point — "
     "resolution, punchline, unresolved-but-earned tension, "
     "landed insight. Not 'anyway…' and never a fresh setup "
-    "mid-close."
+    "mid-close.\n"
+    "  10. Causal chain. Every turn must arise from the "
+    "conversational state created by the preceding turn. A turn "
+    "may answer a question, challenge a claim, correct something, "
+    "build on what was said, reframe it, escalate it, react to a "
+    "consequence, resolve or deepen an unresolved question, or "
+    "call back to something the scene has already established. "
+    "Being relevant to the overall TOPIC is not enough — that is "
+    "topic adjacency, not conversational response. Writer-side "
+    "test: if a line could be moved after several different "
+    "earlier turns without meaningfully changing it, the line "
+    "probably is not responding to the scene. New concrete "
+    "objects, experiments, examples, scenarios, or subjects must "
+    "either grow naturally from something already established, "
+    "answer an unresolved need or question, follow from an "
+    "action or decision already taken, or explicitly acknowledge "
+    "that the conversation is changing direction. A pivot is "
+    "allowed; an unmarked jump is not. Causal continuity does "
+    "NOT require disagreement, hostility, strict alternation, "
+    "quoting the previous speaker, fixed turn counts, or every "
+    "turn being long — agreement, collaboration, jokes, riffs, "
+    "interruptions, and short reactions remain valid when they "
+    "arise from the scene state."
 )
 
 

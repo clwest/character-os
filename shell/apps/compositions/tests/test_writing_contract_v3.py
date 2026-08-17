@@ -70,8 +70,14 @@ def dialogue_text() -> str:
 # ---- 1. Version stamp ------------------------------------------
 
 
-def test_writing_contract_version_is_three() -> None:
-    assert WRITING_CONTRACT_VERSION == 3
+def test_writing_contract_version_reflects_v4_continuity_slice() -> None:
+    """SESSION 259 continuity slice bumped the version 3 → 4 to add
+    dialogue invariant #10 (CAUSAL CHAIN). The v3 dialogue additions
+    (watchability + anti-patterns) are preserved verbatim; only
+    ``_DIALOGUE_INVARIANTS_BLOCK`` grew by one item. Standalone +
+    long_form contract text remain byte-stable across the bump —
+    the snapshots below prove it."""
+    assert WRITING_CONTRACT_VERSION == 4
     assert isinstance(WRITING_CONTRACT_VERSION, int)
 
 

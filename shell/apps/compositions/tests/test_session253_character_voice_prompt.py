@@ -483,11 +483,11 @@ def test_writing_contract_version_available_and_positive():
     assert WRITING_CONTRACT_VERSION >= 1
 
 
-def test_writing_contract_version_is_3_after_dialogue_watchability_slice():
-    """SESSION 258 dialogue watchability slice bumped the version
-    stamp 2 -> 3. The v3 change appended a WATCHABILITY block +
-    three anti-patterns to the dialogue_scene shape ONLY. Standalone
-    and long_form contract text remain byte-stable across the bump
+def test_writing_contract_version_is_4_after_continuity_slice():
+    """SESSION 259 continuity slice bumped the version stamp 3 → 4.
+    The v4 change added one dialogue invariant (#10 CAUSAL CHAIN)
+    encoding turn-to-turn conversational causation. Standalone and
+    long_form contract text remain byte-stable across the bump
     (see ``test_writing_contract_v3.py`` for the SHA-256 snapshots).
 
     History:
@@ -495,8 +495,10 @@ def test_writing_contract_version_is_3_after_dialogue_watchability_slice():
       * v2: SESSION 257 AI-D1 added ``dialogue_scene`` shape.
       * v3: SESSION 258 dialogue-watchability slice added
         behavioral guidance to dialogue_scene only.
+      * v4: SESSION 259 continuity slice added invariant #10
+        (CAUSAL CHAIN) to dialogue_scene only.
     """
-    assert WRITING_CONTRACT_VERSION == 3
+    assert WRITING_CONTRACT_VERSION == 4
 
 
 def test_writing_contract_for_shape_returns_versioned_content():
