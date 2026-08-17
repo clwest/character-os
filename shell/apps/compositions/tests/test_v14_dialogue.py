@@ -38,8 +38,22 @@ User = get_user_model()
 
 pytestmark = [
     pytest.mark.django_db,
-    pytest.mark.usefixtures("_celery_eager"),
+    pytest.mark.usefixtures("_celery_eager", "_p2_parallel_off"),
 ]
+
+
+@pytest.fixture
+def _p2_parallel_off():
+    """Pre-existing V14 dialogue tests were written against the
+    sequential runner (assert `.apply(...).get() -> "completed"`).
+    Under the SESSION 258 P2 parallel path, dialogue_scene returns
+    `"dispatched"` because the chord callback fires asynchronously
+    even under eager Celery. Pin the flag OFF here so these tests
+    keep exercising the sequential path — the parallel path is
+    exhaustively covered by `test_parallel_execution.py`.
+    """
+    with override_settings(COMPOSITION_PARALLEL_EXECUTION_ENABLED=False):
+        yield
 
 
 @pytest.fixture

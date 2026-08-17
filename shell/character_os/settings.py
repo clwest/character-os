@@ -268,7 +268,7 @@ CELERY_RESULT_EXPIRES = 24 * 60 * 60
 # whichever path started them (coordinators keep firing until fan-in
 # terminates the tree). Only new composition runs pick up the new
 # value.
-COMPOSITION_PARALLEL_EXECUTION_ENABLED = False
+COMPOSITION_PARALLEL_EXECUTION_ENABLED = True  # SESSION 258 P2 dogfood
 COMPOSITION_PARALLEL_EXECUTION_KINDS = {"dialogue_scene"}
 
 

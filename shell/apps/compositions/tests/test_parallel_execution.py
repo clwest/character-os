@@ -321,12 +321,16 @@ def test_resolve_inputs_from_db_workspace_mismatch_raises() -> None:
 # ---- Feature-flag branching ----------------------------------
 
 
-def test_should_use_parallel_execution_defaults_false() -> None:
-    """The master switch defaults False; every composition
-    routes to the sequential path unless overridden."""
+@override_settings(COMPOSITION_PARALLEL_EXECUTION_ENABLED=False)
+def test_should_use_parallel_execution_returns_false_when_flag_off() -> None:
+    """Explicit flag-off short-circuits before the kind check —
+    every composition routes to sequential regardless of
+    template_kind. Uses `override_settings` so this test doesn't
+    depend on the live default (which may be flipped True for
+    real-provider dogfood while `dialogue_scene` is opted in)."""
     ws = _make_workspace("flag_off@test.local", "flag off")
     sp = _make_teammate(ws)
-    comp = _make_composition(ws, sp)
+    comp = _make_composition(ws, sp)  # template_kind="dialogue_scene"
     assert _should_use_parallel_execution(comp) is False
 
 
