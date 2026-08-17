@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import uuid
 
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.accounts.models import Workspace
@@ -66,6 +67,26 @@ class Teammate(models.Model):
         Workspace,
         on_delete=models.CASCADE,
         related_name="teammates",
+    )
+    # SESSION 261 — Universe substrate (opt-in, prospective). NULL
+    # means "legacy teammate; use pre-Universe semantics."
+    # ``on_delete=RESTRICT`` structurally prevents the knowledge-
+    # bleed hazard where hard-delete of a populated Universe would
+    # silently demote members to universe=NULL and leak content
+    # into legacy contexts (design correction commit 75d17f5).
+    # Workspace cascade-delete still succeeds via Django's shared-
+    # CASCADE-parent rule (>= 3.1). See
+    # ``docs/design/UNIVERSE_SCHEMA_V1.md`` §"Deletion policy".
+    universe = models.ForeignKey(
+        "universe.Universe",
+        on_delete=models.RESTRICT,
+        null=True,
+        blank=True,
+        related_name="teammates",
+        help_text=(
+            "World this teammate belongs to. NULL = legacy "
+            "workspace-wide semantics (pre-SESSION 261)."
+        ),
     )
     name = models.CharField(max_length=120)
     business_brief = models.TextField(
@@ -367,3 +388,21 @@ class Teammate(models.Model):
             1 for f in self.IDENTITY_FIELDS
             if (getattr(self, f, "") or "").strip()
         )
+
+    # SESSION 261 — Universe consistency invariant. Rejects an
+    # assignment where the Universe belongs to a different Workspace
+    # than the Teammate. Serializer-level validation also runs first
+    # (`TeammateSerializer.validate_universe`) so the operator sees
+    # a clean 400 in the SPA; this is the model-level backstop for
+    # admin + direct ORM writes.
+    def clean(self) -> None:
+        super().clean()
+        if self.universe_id is not None and self.workspace_id is not None:
+            if self.universe.workspace_id != self.workspace_id:
+                raise ValidationError({
+                    "universe": (
+                        f"Universe {self.universe.name!r} belongs to "
+                        f"workspace {self.universe.workspace_id}, but this "
+                        f"teammate is in workspace {self.workspace_id}."
+                    ),
+                })

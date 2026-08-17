@@ -255,11 +255,24 @@ class TeammateViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if not user.is_authenticated:
             return Teammate.objects.none()
-        return (
+        qs = (
             Teammate.objects.filter(workspace__memberships__user=user)
             .select_related("workspace")
             .distinct()
         )
+        # SESSION 261 — optional Universe filter. Empty query
+        # parameter returns all teammates (legacy + Universe-scoped);
+        # ``?universe=<uuid>`` narrows to that Universe;
+        # ``?universe=none`` explicitly filters to legacy teammates
+        # only (universe IS NULL). Silent scoping to a specific
+        # Universe is forbidden by contract — the operator picks.
+        universe_param = self.request.query_params.get("universe")
+        if universe_param:
+            if universe_param.strip().lower() == "none":
+                qs = qs.filter(universe__isnull=True)
+            else:
+                qs = qs.filter(universe_id=universe_param)
+        return qs
 
     def create(self, request, *args, **kwargs):
         """Gate teammate creation by tier limit. 402 with the
@@ -1065,6 +1078,76 @@ class TeammateViewSet(viewsets.ModelViewSet):
                 teammate, context={"request": request},
             ).data
         )
+
+    # ----------------------------------------------------------------
+    # SESSION 261 — Universe move preview (K2 M2M orphan preflight).
+    # ----------------------------------------------------------------
+
+    @action(detail=True, methods=["get"], url_path="universe-move-preview")
+    def universe_move_preview(self, request, pk=None):
+        """``GET /api/spokespeople/{id}/universe-move-preview/?target=<uuid|null>``.
+
+        Returns the list of KnowledgeDocument M2M rows that would
+        become cross-Universe if this Teammate were reassigned to
+        ``target``. The SPA runs this before submitting a
+        Universe-change PATCH so the operator sees the offending
+        attachments in a confirmation modal instead of hitting a
+        blank ``.clean()`` 400 from the PATCH itself.
+
+        Query params:
+          - ``target``: UUID of the target Universe, or the literal
+            string ``"null"`` / ``"none"`` to preview a move to
+            legacy (``universe=NULL``).
+
+        Response::
+
+            {
+              "current_universe": "<uuid|null>",
+              "target_universe": "<uuid|null>",
+              "offending_documents": [
+                {"id": "<uuid>", "title": "<str>", "current_universe": "<uuid|null>"},
+                ...
+              ]
+            }
+
+        An attach row is "offending" iff, after the move, the
+        Teammate's ``universe_id`` would differ from the
+        document's ``universe_id`` (both NULL is legal; both
+        equal is legal). See UNIVERSE_SCHEMA_V1.md §"Universe
+        M2M invariant".
+        """
+        teammate: Teammate = self.get_object()
+        raw_target = (request.query_params.get("target") or "").strip()
+        target_universe_id = None
+        if raw_target and raw_target.lower() not in {"null", "none", ""}:
+            target_universe_id = raw_target
+
+        # Every doc this teammate is attached to; we filter for the
+        # cross-Universe subset below. Keep the payload small.
+        # ``.only(...)`` deliberately omits ``universe_id`` — the
+        # field lands in Phase 3; ``getattr`` fallback below keeps
+        # this action functional across the Phase 2/3 boundary.
+        attached = teammate.knowledge_documents.only("id", "title")
+
+        offending = []
+        for doc in attached:
+            raw = getattr(doc, "universe_id", None)
+            doc_universe_id = str(raw) if raw else None
+            new_teammate_universe = target_universe_id or None
+            if doc_universe_id != new_teammate_universe:
+                offending.append({
+                    "id": str(doc.id),
+                    "title": doc.title,
+                    "current_universe": doc_universe_id,
+                })
+
+        return Response({
+            "current_universe": (
+                str(teammate.universe_id) if teammate.universe_id else None
+            ),
+            "target_universe": target_universe_id,
+            "offending_documents": offending,
+        })
 
     @action(detail=False, methods=["get"], url_path="templates")
     def templates(self, _request):

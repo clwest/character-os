@@ -4,6 +4,7 @@ from __future__ import annotations
 from rest_framework import serializers
 
 from apps.accounts.models import Membership
+from apps.universe.models import Universe
 
 from .models import Teammate
 
@@ -43,6 +44,13 @@ class TeammateSerializer(serializers.ModelSerializer):
             "id",
             "workspace",
             "workspace_name",
+            # SESSION 261 — Universe substrate FK. Optional; NULL
+            # means "legacy teammate; use pre-Universe semantics."
+            # `PrimaryKeyRelatedField(allow_null=True, required=
+            # False)` distinguishes "absent" (no change on PATCH)
+            # from "explicit null" (detach from Universe). See
+            # UNIVERSE_SCHEMA_V1.md §"Endpoints that MUST change".
+            "universe",
             "name",
             "business_brief",
             # W11.y (SESSION 175) — see Teammate.personality docstring.
@@ -114,3 +122,28 @@ class TeammateSerializer(serializers.ModelSerializer):
         if not Membership.objects.filter(user=request.user, workspace=workspace).exists():
             raise serializers.ValidationError("not a member of this workspace")
         return workspace
+
+    def validate(self, attrs):
+        """SESSION 261 — cross-workspace Universe guard.
+
+        The Universe FK is workspace-consistent by invariant
+        (UNIVERSE_SCHEMA_V1.md §"Universe consistency invariant").
+        This surfaces a clean 400 at the API boundary instead of
+        letting Teammate.clean() raise mid-save.
+        """
+        attrs = super().validate(attrs)
+        universe: Universe | None = attrs.get("universe")
+        # On PATCH, workspace comes from the instance; on POST, from
+        # validated data.
+        workspace = attrs.get("workspace") or (
+            self.instance.workspace if self.instance else None
+        )
+        if universe is not None and workspace is not None:
+            if universe.workspace_id != workspace.pk:
+                raise serializers.ValidationError({
+                    "universe": (
+                        "Universe belongs to a different workspace than "
+                        "this teammate."
+                    ),
+                })
+        return attrs
