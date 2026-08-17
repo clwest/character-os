@@ -567,17 +567,17 @@ exactly the leakage hazard Universe existed to prevent.
    /api/episodes/<id>/unarchive/`. All attached Compositions
    retain their `episode` FK; audit trail preserved.
 
-2. **Hard-delete empty Episode.** `DELETE
+2. **Hard-delete "empty enough" Episode.** `DELETE
    /api/episodes/<id>/?hard=true` succeeds when
-   `episode.compositions.count() == 0` AND
-   `episode.cast.count() == 0` (or cast-only is allowed —
-   position: cast-only Episodes hard-delete OK because M2M rows
-   cascade cleanly).
-   Position: preflight blocks hard-delete when
-   `episode.compositions.exists()`, returns 409 with
-   `blocking.composition_count`.
-   Cast M2M rows are auto-cleaned by Django when the Episode row
-   is deleted.
+   `episode.compositions.exists() == False`. Cast membership
+   alone does NOT block hard-delete — `EpisodeCast` M2M rows
+   cascade away with the deleted Episode row (Django's default
+   M2M cascade behavior). The load-bearing rule is:
+   **attached Compositions block; cast does not.** `PROTECT` on
+   `Composition.episode` remains the DB-level backstop; the
+   API preflights so operators see a helpful 409 with
+   `blocking.composition_count` instead of a raw
+   `ProtectedError`.
 
 3. **Hard-delete populated Episode.** BLOCKED — `PROTECT` on
    `Composition.episode` raises `ProtectedError` at DB level.
