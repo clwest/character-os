@@ -33,10 +33,11 @@ land here:
 * **Rule 8** — character voices stay independent. Dual
   ``--- CHARACTER A ---`` / ``--- CHARACTER B ---`` blocks;
   no blending.
-* **Rule 9** — duration is aggregate. Reuses talking-head's
-  ``15 cps`` estimator BUT with a dialogue-local
-  ``DIALOGUE_DURATION_SYNTHESIS_TARGET_MULTIPLIER = 1.00``
-  (talking-head's 0.90 stays untouched).
+* **Rule 9** — duration is aggregate. Uses a dialogue-local
+  cps planning estimator (``_DIALOGUE_CPS``, recalibrated
+  15 → 13 in SESSION 260 from real-render corpus) with a
+  dialogue-local ``DIALOGUE_DURATION_SYNTHESIS_TARGET_MULTIPLIER
+  = 1.00`` (talking-head's 0.90 stays untouched).
 * **Rule 10** — opener is a hard synthesis constraint in the
   prompt, verified after parse. No post-hoc turn-0 rewriting.
 * **Rule 14** — no forced speaker alternation.
@@ -103,26 +104,59 @@ _REASONING_EFFORT = "low"
 # dogfood if evidence appears.
 DIALOGUE_DURATION_SYNTHESIS_TARGET_MULTIPLIER: float = 1.00
 
-# 15 characters/second — reused as initial planning estimator
-# only. True acceptance is the ±20 % band around the operator
-# target computed on the aggregate ``sum(len(turn.text))``
-# after synthesis. Same integer talking-head uses (see
-# ``avatar_speech.py`` :data:`_AVATAR_SPEECH_CHARS_PER_SECOND`);
-# kept local so a future per-character calibration doesn't
-# have to move the talking-head constant.
-_DIALOGUE_CPS: int = 15
+# Planning estimator — characters/second used to (a) translate the
+# operator's target-duration seconds into a first-pass ideal char
+# count for the LLM prompt, (b) predict rendered seconds from the
+# synthesized aggregate ``sum(len(turn.text))``, and (c) compute
+# the ±20 % acceptance band and the corrective-retry char target.
+# True acceptance is the band; this constant is only how the band
+# is expressed in characters.
+#
+# SESSION 260 empirical recalibration 15 → 13. Source of truth for
+# the value:
+#
+#   * corpus: 10 completed real-mode ``dialogue_scene`` compositions
+#     (all 60s target) exercising Patch, Rivet, Mike, Repo Red;
+#   * 83 authoritative ``duration_source == "media_probe"`` speech
+#     turns (media-engine ffprobed the rendered mp4);
+#   * weighted global observed CPS = 13.05
+#     (8,554 chars / 655.6s);
+#   * per-composition median CPS = 13.15 (min 11.85, max 13.94,
+#     stdev 0.65 — tight);
+#   * per-turn median CPS = 12.83 (min 9.21, max 16.19,
+#     stdev 1.58 — short phrases carry silence overhead);
+#   * Patch weighted = 13.24 (n=40 turns), Rivet weighted = 12.83
+#     (n=37 turns) — 0.4 spread is inside per-comp stdev, does not
+#     justify per-character calibration yet;
+#   * candidate replay at 15 / 13 / 12 / 11.5 against the corpus
+#     showed 13 produced zero false-positive compression decisions
+#     against the actual rendered durations; 12 and 11.5 introduced
+#     one and two false-positive compressions respectively.
+#
+# NOT a permanent provider constant — an empirical Character OS
+# dialogue planning calibration. Re-audit as the corpus grows,
+# especially once real 30 / 90 / 120-second renders exist. See
+# ``docs/handoffs/SESSION_260_DIALOGUE_CPS_CALIBRATION.md``.
+#
+# Kept local to this module so a future per-character calibration
+# does not have to move the talking-head constant
+# ``avatar_speech.py :data:_AVATAR_SPEECH_CHARS_PER_SECOND``.
+_DIALOGUE_CPS: int = 13
 
 # SESSION 259 corrective-duration slice — headroom factor for
 # the one bounded corrective retry's compression/expansion
 # target. Chosen at 0.92 (offset 8 pt below the hard ceiling
-# and above the hard floor) because real Patch/Rivet renders
-# have often spoken slower than the 15-cps planning estimator;
-# aiming just under the ceiling on the retry passes synthesis
-# but still produces overlong finished video. Headroom pulls
-# the retry target off the boundary. Applies ONLY to the
-# corrective-hint target string — never to the acceptance
-# band, never to first-pass planning, never to global
-# calibration. Not exported.
+# and above the hard floor). Originally introduced to protect
+# against the 15-cps planning estimator running hot relative to
+# real Patch/Rivet renders; SESSION 260 recalibrated the
+# estimator to 13 cps, which materially closes that gap, but
+# the retry-headroom stays because it also guards against
+# turn-level cps variance (per-turn stdev = 1.58, p10 = 10.9,
+# p90 = 15.2) — a scene that just clears the ceiling in
+# characters can still render past it in seconds. Applies ONLY
+# to the corrective-hint target string — never to the
+# acceptance band, never to first-pass planning, never to
+# global calibration. Not exported.
 _DIALOGUE_CORRECTIVE_HEADROOM_FRACTION: float = 0.92
 
 # Duration-specific turn-count guidance. Tuple layout:
@@ -1000,7 +1034,7 @@ def _parse_and_validate(
                 f"{opener_stripped!r}"
             )
 
-    # Aggregate duration — ±20 % of target using 15 cps.
+    # Aggregate duration — ±20 % of target using ``_DIALOGUE_CPS``.
     total_chars = sum(len(t["text"]) for t in normalized)
     predicted_seconds = total_chars / _DIALOGUE_CPS if _DIALOGUE_CPS else 0.0
     target = float(target_duration_seconds)

@@ -230,7 +230,7 @@ def test_valid_two_character_response_parses_and_resolves():
     ws = _workspace("parse1@t")
     patch, rivet = _cast(ws)
     raw = _valid_turns_json("patch", "rivet", n_turns=8, per_turn_chars=113)
-    # 8 × 113 = 904 chars ≈ 60.3 s at 15 cps — inside 60 s ±20 %.
+    # 8 × 113 = 904 chars ≈ 69.5 s at 13 cps — inside 60 s ±20 %.
     result, call_count = _synthesize_with_mock(
         ws, [patch, rivet], first_response=raw,
     )
@@ -339,22 +339,23 @@ def test_short_reaction_accepted():
     correction (46f5efd)."""
     ws = _workspace("parse8@t")
     patch, rivet = _cast(ws)
-    # Craft 8 turns hitting ~60s ±20% but with one short reaction.
+    # Craft 6 turns hitting ~60s ±20% but with one short reaction.
+    # SESSION 260 recalibration: 13 cps means 60s band is 624-936 chars.
     turns = [
         {"line_index": 0, "speaker_alias": "patch",
-         "text": "x" * 200},
+         "text": "x" * 165},
         {"line_index": 1, "speaker_alias": "rivet",
          "text": "Define 'still.'"},  # 15 chars — deliberately short
         {"line_index": 2, "speaker_alias": "patch",
-         "text": "x" * 200},
+         "text": "x" * 165},
         {"line_index": 3, "speaker_alias": "rivet",
-         "text": "x" * 200},
+         "text": "x" * 165},
         {"line_index": 4, "speaker_alias": "patch",
-         "text": "x" * 200},
+         "text": "x" * 165},
         {"line_index": 5, "speaker_alias": "rivet",
-         "text": "x" * 145},
+         "text": "x" * 125},
     ]
-    # total = 200+15+200+200+200+145 = 960 chars → 64s (in 60±20)
+    # total = 165+15+165+165+165+125 = 800 chars → ~61.5s at 13 cps (in 60±20)
     raw = json.dumps({"turns": turns})
     result, _ = _synthesize_with_mock(
         ws, [patch, rivet], first_response=raw,

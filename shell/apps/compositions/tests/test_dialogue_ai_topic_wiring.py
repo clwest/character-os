@@ -110,7 +110,7 @@ def _fake_dialogue_result(
         writing_contract_version=WRITING_CONTRACT_VERSION,
         overall_verification_status=verification_status,
         total_chars=total,
-        predicted_seconds=total / 15,
+        predicted_seconds=total / 13,  # SESSION 260 cps calibration
         target_duration_seconds=60,
         aliases={"patch": primary.name, "rivet": secondary.name},
         mock_mode=False,
