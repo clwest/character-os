@@ -30,9 +30,91 @@ import {
   type KnowledgeDocument,
   type SearchResult,
 } from "@/lib/api/knowledge";
+import {
+  UNIVERSE_LEGACY_SENTINEL,
+  useUniverses,
+  type Universe,
+} from "@/lib/api/universes";
 import { ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import { SectionHeader } from "@/components/editorial";
+
+
+// SESSION 261 — SPA-load-bearing "pick a Universe" control.
+// Every knowledge upload form embeds this at the top; submit
+// stays disabled until the operator picks either a Universe or
+// the explicit "None (legacy)" option. Empty string = unpicked;
+// UNIVERSE_LEGACY_SENTINEL = explicit legacy; UUID = Universe.
+export type UniverseScopeValue = "" | typeof UNIVERSE_LEGACY_SENTINEL | string;
+
+interface UniverseScopePickerProps {
+  id?: string;
+  workspaceId: string | undefined;
+  value: UniverseScopeValue;
+  onChange: (next: UniverseScopeValue) => void;
+  disabled?: boolean;
+}
+
+/** Renders the universe scope select. Renders "Loading…" as a
+ * placeholder while /api/universes/ is in flight so submits stay
+ * disabled instead of silently defaulting. */
+export function UniverseScopePicker({
+  id = "universe-scope",
+  workspaceId,
+  value,
+  onChange,
+  disabled,
+}: UniverseScopePickerProps) {
+  const universes = useUniverses(workspaceId);
+  const rows = universes.data ?? [];
+  return (
+    <div className="flex flex-col gap-2">
+      <Label htmlFor={id}>World / Universe</Label>
+      <select
+        id={id}
+        data-testid={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value as UniverseScopeValue)}
+        disabled={disabled || universes.isLoading}
+        className="h-10 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+        required
+      >
+        <option value="" disabled>
+          {universes.isLoading ? "Loading…" : "— Pick a scope —"}
+        </option>
+        <option value={UNIVERSE_LEGACY_SENTINEL}>
+          None (legacy — visible to workspace-wide legacy teammates only)
+        </option>
+        {rows.map((u) => (
+          <option key={u.id} value={u.id}>
+            {u.name}
+          </option>
+        ))}
+      </select>
+      <p className="text-xs text-muted-foreground">
+        Pick a world to scope this doc to that world's characters,
+        or pick "None (legacy)" to make it visible to legacy
+        (pre-Universe) characters.
+      </p>
+    </div>
+  );
+}
+
+/** Translate SPA-select value into a payload value. Sentinel →
+ * null (explicit legacy). UUID stays. "" (unpicked) throws — the
+ * submit button should have been disabled. */
+export function universeScopeToPayload(value: UniverseScopeValue): string | null {
+  if (value === "") {
+    throw new Error("Universe scope must be explicitly picked");
+  }
+  if (value === UNIVERSE_LEGACY_SENTINEL) return null;
+  return value;
+}
+
+/** Is the scope explicitly picked (either a Universe or legacy)? */
+export function universeScopePicked(value: UniverseScopeValue): boolean {
+  return value !== "";
+}
 
 
 export function WorkspaceKnowledgeRoute() {
@@ -191,21 +273,31 @@ function UploadPanel({ workspaceId }: { workspaceId: string | undefined }) {
 function PasteForm({ workspaceId }: { workspaceId: string | undefined }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  // SESSION 261 — explicit-scope requirement. Empty string
+  // (unpicked) disables submit; sentinel or UUID enables.
+  const [scope, setScope] = useState<UniverseScopeValue>("");
   const create = useCreateKnowledge(workspaceId);
 
-  const disabled = !workspaceId || !title.trim() || !content.trim() || create.isPending;
+  const disabled =
+    !workspaceId
+    || !title.trim()
+    || !content.trim()
+    || !universeScopePicked(scope)
+    || create.isPending;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!workspaceId) return;
+    if (!workspaceId || !universeScopePicked(scope)) return;
     try {
       await create.mutateAsync({
         workspace: workspaceId,
+        universe: universeScopeToPayload(scope),
         title: title.trim(),
         text_content: content,
       });
       setTitle("");
       setContent("");
+      setScope("");
     } catch (err) {
       // Error is surfaced inline below.
       console.error("paste ingest failed", err);
@@ -214,6 +306,13 @@ function PasteForm({ workspaceId }: { workspaceId: string | undefined }) {
 
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+      <UniverseScopePicker
+        id="paste-universe-scope"
+        workspaceId={workspaceId}
+        value={scope}
+        onChange={setScope}
+      />
+
       <div className="flex flex-col gap-2">
         <Label htmlFor="paste-title">Title</Label>
         <Input
@@ -265,10 +364,16 @@ function UploadForm({ workspaceId }: { workspaceId: string | undefined }) {
   const [title, setTitle] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [scope, setScope] = useState<UniverseScopeValue>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const create = useCreateKnowledge(workspaceId);
 
-  const disabled = !workspaceId || !title.trim() || !file || create.isPending;
+  const disabled =
+    !workspaceId
+    || !title.trim()
+    || !file
+    || !universeScopePicked(scope)
+    || create.isPending;
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = e.target.files?.[0] ?? null;
@@ -287,16 +392,18 @@ function UploadForm({ workspaceId }: { workspaceId: string | undefined }) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!workspaceId || !file) return;
+    if (!workspaceId || !file || !universeScopePicked(scope)) return;
     try {
       const dataUri = await pdfFileToDataUri(file);
       await create.mutateAsync({
         workspace: workspaceId,
+        universe: universeScopeToPayload(scope),
         title: title.trim(),
         pdf_data_uri: dataUri,
       });
       setTitle("");
       setFile(null);
+      setScope("");
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -307,6 +414,12 @@ function UploadForm({ workspaceId }: { workspaceId: string | undefined }) {
 
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+      <UniverseScopePicker
+        id="upload-universe-scope"
+        workspaceId={workspaceId}
+        value={scope}
+        onChange={setScope}
+      />
       <div className="flex flex-col gap-2">
         <Label htmlFor="upload-title">Title</Label>
         <Input
@@ -365,21 +478,28 @@ function UploadForm({ workspaceId }: { workspaceId: string | undefined }) {
 function UrlForm({ workspaceId }: { workspaceId: string | undefined }) {
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
+  const [scope, setScope] = useState<UniverseScopeValue>("");
   const create = useCreateKnowledge(workspaceId);
 
-  const disabled = !workspaceId || !url.trim() || create.isPending;
+  const disabled =
+    !workspaceId
+    || !url.trim()
+    || !universeScopePicked(scope)
+    || create.isPending;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!workspaceId) return;
+    if (!workspaceId || !universeScopePicked(scope)) return;
     try {
       await create.mutateAsync({
         workspace: workspaceId,
+        universe: universeScopeToPayload(scope),
         title: title.trim() || undefined,
         source_url_input: url.trim(),
       });
       setTitle("");
       setUrl("");
+      setScope("");
     } catch (err) {
       console.error("url ingest failed", err);
     }
@@ -387,6 +507,12 @@ function UrlForm({ workspaceId }: { workspaceId: string | undefined }) {
 
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+      <UniverseScopePicker
+        id="url-universe-scope"
+        workspaceId={workspaceId}
+        value={scope}
+        onChange={setScope}
+      />
       <div className="flex flex-col gap-2">
         <Label htmlFor="url-input">URL</Label>
         <Input
@@ -440,6 +566,7 @@ function UrlForm({ workspaceId }: { workspaceId: string | undefined }) {
 function SearchForm({ workspaceId }: { workspaceId: string | undefined }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [scope, setScope] = useState<UniverseScopeValue>("");
   const searchMut = useKnowledgeSearch();
   const create = useCreateKnowledge(workspaceId);
   const [ingestingUrl, setIngestingUrl] = useState<string | null>(null);
@@ -457,11 +584,12 @@ function SearchForm({ workspaceId }: { workspaceId: string | undefined }) {
   }
 
   async function handleIngest(result: SearchResult) {
-    if (!workspaceId) return;
+    if (!workspaceId || !universeScopePicked(scope)) return;
     setIngestingUrl(result.url);
     try {
       await create.mutateAsync({
         workspace: workspaceId,
+        universe: universeScopeToPayload(scope),
         title: result.title,
         source_url_input: result.url,
         via_serper: true,
@@ -476,8 +604,20 @@ function SearchForm({ workspaceId }: { workspaceId: string | undefined }) {
     }
   }
 
+  const canIngest = universeScopePicked(scope);
+
   return (
     <div className="flex flex-col gap-4">
+      <UniverseScopePicker
+        id="search-universe-scope"
+        workspaceId={workspaceId}
+        value={scope}
+        onChange={setScope}
+      />
+      <p className="text-xs text-muted-foreground">
+        Every search-ingest below scopes to the World above. Pick
+        the scope first, then Search + Ingest.
+      </p>
       <form className="flex flex-col gap-3 sm:flex-row" onSubmit={handleSearch}>
         <Input
           data-testid="search-query"
@@ -534,7 +674,7 @@ function SearchForm({ workspaceId }: { workspaceId: string | undefined }) {
                 variant="outline"
                 size="sm"
                 data-testid={`search-ingest-${r.position}`}
-                disabled={ingestingUrl === r.url}
+                disabled={ingestingUrl === r.url || !canIngest}
                 onClick={() => handleIngest(r)}
               >
                 {ingestingUrl === r.url ? "…" : "Ingest"}

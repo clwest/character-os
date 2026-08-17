@@ -52,6 +52,11 @@ const spokespersonSchema = z.object({
   id: z.string(),
   workspace: z.string(),
   workspace_name: z.string().optional(),
+  // SESSION 261 — Universe substrate FK. NULL = legacy teammate
+  // (pre-SESSION-261 semantics). `.default(null)` keeps the schema
+  // parsing pre-SESSION-261 server responses cleanly (operator
+  // could roll the SPA back before the field existed).
+  universe: z.string().nullable().default(null),
   name: z.string(),
   business_brief: z.string(),
   // W11.y (SESSION 175) — splits HOW (personality) from WHAT
@@ -336,6 +341,11 @@ export interface UpdateSpokespersonInput {
   voice_directness?: "soft" | "balanced" | "direct";
   voice_signature_phrases?: string;
   voice_avoid_phrases?: string;
+  /** SESSION 261 — Universe substrate FK. Explicit `null`
+   * detaches from Universe (back to legacy); a UUID assigns to
+   * that Universe; omitting the key = no change. Cross-workspace
+   * Universes rejected at the serializer layer (400). */
+  universe?: string | null;
 }
 
 // ---- SESSION 232 — Identity surface metadata ---------------------
@@ -526,6 +536,64 @@ export function useUpdateSpokesperson() {
       qc.setQueryData(["spokesperson", spokesperson.id], spokesperson);
       qc.invalidateQueries({ queryKey: ["spokespeople"] });
     },
+  });
+}
+
+// ---- SESSION 261 — Universe move preview -----------------------
+
+/** One offending K2 attach row surfaced by the preview endpoint —
+ * a document whose universe_id would differ from the teammate's
+ * universe_id after the proposed move. */
+export interface UniverseMovePreviewDocument {
+  id: string;
+  title: string;
+  current_universe: string | null;
+}
+
+export interface UniverseMovePreview {
+  current_universe: string | null;
+  target_universe: string | null;
+  offending_documents: UniverseMovePreviewDocument[];
+}
+
+const universeMovePreviewSchema = z.object({
+  current_universe: z.string().nullable(),
+  target_universe: z.string().nullable(),
+  offending_documents: z.array(
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      current_universe: z.string().nullable(),
+    }),
+  ),
+});
+
+/** Fetches the offending K2 attach rows that would be orphaned by
+ * moving this teammate to ``target`` (a Universe UUID or ``null``
+ * for legacy). SPA renders a confirmation modal when the list is
+ * non-empty and only submits the PATCH after operator ack. */
+export async function fetchUniverseMovePreview(
+  spokespersonId: string,
+  target: string | null,
+): Promise<UniverseMovePreview> {
+  const targetParam = target ?? "null";
+  return apiJson(
+    `/api/spokespeople/${spokespersonId}/universe-move-preview/?target=${encodeURIComponent(targetParam)}`,
+    {},
+    (json) => universeMovePreviewSchema.parse(json),
+  );
+}
+
+/** Preview hook — enabled only when both id + target are set. */
+export function useUniverseMovePreview(
+  spokespersonId: string | undefined,
+  target: string | null | undefined,
+) {
+  return useQuery({
+    queryKey: ["universe-move-preview", spokespersonId, target ?? "null"],
+    queryFn: () => fetchUniverseMovePreview(spokespersonId!, target ?? null),
+    enabled: !!spokespersonId && target !== undefined,
+    staleTime: 5 * 1000,
   });
 }
 

@@ -11,6 +11,9 @@ import { SpokespersonIdentityRoute } from "@/routes/spokespeople/identity";
 import { VideoStatusRoute } from "@/routes/videos/$id";
 import { WorkspaceKnowledgeRoute } from "@/routes/workspace/knowledge";
 import { KnowledgeDocumentDetailRoute } from "@/routes/workspace/knowledge.$id";
+// SESSION 261 — Universe substrate SPA slice.
+import { WorkspaceUniversesRoute } from "@/routes/workspace/universes";
+import { UniverseDetailRoute } from "@/routes/workspace/universes.$id";
 import { WorkspaceAssetsRoute } from "@/routes/workspace/assets";
 import { WorkspaceAssetDetailRoute } from "@/routes/workspace/assets.$id";
 import { WorkspaceTranscriptsRoute } from "@/routes/workspace/transcripts";
@@ -121,6 +124,25 @@ export function App() {
             element={
               <RequireAuth>
                 <KnowledgeDocumentDetailRoute />
+              </RequireAuth>
+            }
+          />
+          {/* SESSION 261 — Universe substrate list + detail routes.
+              Detail registers before an implicit :id catch-all pattern
+              per the /assets convention. */}
+          <Route
+            path="/workspace/universes"
+            element={
+              <RequireAuth>
+                <WorkspaceUniversesRoute />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/workspace/universes/:id"
+            element={
+              <RequireAuth>
+                <UniverseDetailRoute />
               </RequireAuth>
             }
           />

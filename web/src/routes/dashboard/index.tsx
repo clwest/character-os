@@ -438,13 +438,24 @@ function KnowledgeCorpusPanel({
           <Library className="h-4 w-4 text-muted-foreground" />
           <h2 className="font-display text-base tracking-tight">Knowledge</h2>
         </div>
-        <Link
-          to="/workspace/knowledge"
-          className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
-          data-testid="knowledge-corpus-link"
-        >
-          View all
-        </Link>
+        <div className="flex items-center gap-3">
+          {/* SESSION 261 — Universes entry point. Sits next to
+              the knowledge tile since Universe scopes knowledge. */}
+          <Link
+            to="/workspace/universes"
+            className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+            data-testid="universes-link"
+          >
+            Worlds
+          </Link>
+          <Link
+            to="/workspace/knowledge"
+            className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+            data-testid="knowledge-corpus-link"
+          >
+            View all
+          </Link>
+        </div>
       </div>
       <div className="flex items-baseline gap-4">
         <div className="flex flex-col">

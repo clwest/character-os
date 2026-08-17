@@ -53,6 +53,10 @@ const knowledgeDocumentSchema = z.object({
   id: z.string(),
   workspace: z.string(),
   workspace_name: z.string().optional(),
+  // SESSION 261 — Universe substrate FK. NULL = legacy
+  // workspace-wide doc. ``.default(null)`` keeps the schema
+  // parsing pre-SESSION-261 server responses cleanly.
+  universe: z.string().nullable().default(null),
   spokespeople: z.array(z.string()),
   title: z.string(),
   document_type: z.enum(DOCUMENT_TYPES),
@@ -224,6 +228,12 @@ export interface CreateKnowledgePayload {
   source_url_input?: string;  // K7 — URL ingest
   via_serper?: boolean;       // K7 — flag set when URL came from search
   spokesperson_ids?: string[];
+  /** SESSION 261 — Universe substrate scope. Explicit `null`
+   * creates a legacy workspace-wide doc; a UUID scopes the doc
+   * to that Universe. Absent = legacy (backend backward-compat),
+   * but the SPA MUST send an explicit value picked by the
+   * operator — no silent workspace-wide default. */
+  universe?: string | null;
 }
 
 export async function createKnowledge(
@@ -261,6 +271,10 @@ export interface UpdateKnowledgePayload {
   title?: string;
   spokesperson_ids?: string[];
   text_content?: string;
+  /** SESSION 261 — Reassign doc between Universes (or to legacy
+   * via explicit `null`). Backend rejects with 400 if the move
+   * would orphan existing M2M attach rows. */
+  universe?: string | null;
 }
 
 export async function updateKnowledge(

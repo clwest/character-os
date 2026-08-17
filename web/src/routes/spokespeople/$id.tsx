@@ -16,6 +16,8 @@ import { SpokespersonAskPanel } from "@/components/spokesperson-ask-panel";
 import { SpokespersonDeleteModal } from "@/components/spokesperson-delete-modal";
 import { SpokespersonEditModal } from "@/components/spokesperson-edit-modal";
 import { SpokespersonRebakeModal } from "@/components/spokesperson-rebake-modal";
+// SESSION 261 — Universe assignment surface on the teammate detail page.
+import { SpokespersonUniversePanel } from "@/components/spokesperson-universe-panel";
 import {
   useThreads,
   useCreateThread,
@@ -89,6 +91,10 @@ export function SpokespersonDetailRoute() {
           §"Chapter 6 — Ongoing training". */}
       {allDone && <SpokespersonAskPanel spokesperson={s} />}
       <IdentityPanel spokesperson={s} onEdit={() => setEditing(true)} />
+      {/* SESSION 261 — Universe assignment panel. Sits between
+          identity and secondary panels so operators see it once
+          they land on the detail page. */}
+      <SpokespersonUniversePanel spokesperson={s} />
       {editing && (
         <SpokespersonEditModal
           spokesperson={s}
