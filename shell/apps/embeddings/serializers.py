@@ -103,6 +103,12 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
             "id",
             "workspace",
             "workspace_name",
+            # SESSION 261 — Universe substrate FK. Optional; NULL
+            # means "legacy workspace-wide doc; visible only to
+            # legacy universe=NULL teammates via the empty-M2M
+            # fallback." Distinguish "absent" (no change on PATCH)
+            # from "explicit null" (detach from Universe).
+            "universe",
             "spokespeople",
             "spokesperson_ids",
             "title",
@@ -185,6 +191,51 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
                     ),
                 })
 
+        # SESSION 261 — Universe consistency + M2M consistency
+        # checks at the serializer level. Same rationale as the
+        # workspace guard: prefer a clean 400 over letting
+        # .clean() or the m2m_changed signal raise mid-save. On
+        # PATCH, the "universe" key may be absent (no change) or
+        # explicit null (detach) — both are handled by attrs.get().
+        universe = attrs.get(
+            "universe",
+            self.instance.universe if self.instance else None,
+        )
+        if workspace and universe is not None:
+            if universe.workspace_id != workspace.pk:
+                raise serializers.ValidationError({
+                    "universe": (
+                        "Universe belongs to a different workspace than "
+                        "this document."
+                    ),
+                })
+
+        if spokespeople and universe is not None:
+            bad_universe = [
+                sp.name
+                for sp in spokespeople
+                if sp.universe_id != universe.pk
+            ]
+            if bad_universe:
+                raise serializers.ValidationError({
+                    "spokesperson_ids": (
+                        f"Spokespeople must belong to this document's "
+                        f"Universe. Bad: {bad_universe}"
+                    ),
+                })
+        elif spokespeople and universe is None:
+            # Doc is legacy; spokespeople must also be legacy.
+            bad_legacy = [
+                sp.name for sp in spokespeople if sp.universe_id is not None
+            ]
+            if bad_legacy:
+                raise serializers.ValidationError({
+                    "spokesperson_ids": (
+                        f"Legacy (universe=null) docs cannot include "
+                        f"Universe-scoped spokespeople. Bad: {bad_legacy}"
+                    ),
+                })
+
         return attrs
 
     def _validate_pdf_data_uri(self, value: str) -> None:
@@ -228,6 +279,10 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
         workspace: Workspace = validated_data["workspace"]
         title: str = validated_data.get("title") or ""
         spokespeople: list[Teammate] = list(validated_data.get("spokespeople") or [])
+        # SESSION 261 — Universe scope from the payload. NULL /
+        # absent means "legacy workspace-wide"; a supplied Universe
+        # scopes the doc to that world.
+        universe = validated_data.get("universe")
 
         text = (validated_data.get("text_content") or "").strip()
         pdf_uri = (validated_data.get("pdf_data_uri") or "").strip()
@@ -246,6 +301,7 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
                     payload=payload,
                     spokespeople=spokespeople,
                     created_by=created_by,
+                    universe=universe,
                 )
             except ingestion.pdf.PdfExtractionError as exc:
                 raise serializers.ValidationError({
@@ -261,6 +317,7 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
                     spokespeople=spokespeople,
                     created_by=created_by,
                     ingested_via=IngestedVia.SERPER if via_serper else IngestedVia.PASTE,
+                    universe=universe,
                 )
             except ingestion.url_fetch.UrlFetchError as exc:
                 raise serializers.ValidationError({
@@ -282,6 +339,7 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
                 document_type=doc_type,
                 spokespeople=spokespeople,
                 created_by=created_by,
+                universe=universe,
             )
 
         # Fire the async embedding pass only on fresh ingests —
@@ -337,6 +395,33 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
         if "title" in validated_data:
             instance.title = validated_data["title"]
             changed_fields.append("title")
+
+        # SESSION 261 — Universe reassignment on PATCH. The
+        # serializer's validate() already ran the Universe-workspace
+        # + Universe-M2M guards; this just persists the FK change.
+        # Explicit ``None`` in the payload detaches from the
+        # Universe (returns to legacy). Absent key = no change.
+        if "universe" in validated_data:
+            new_universe = validated_data["universe"]
+            # Additional M2M orphan preflight for the reassignment
+            # path: if any existing attach row would become cross-
+            # Universe, reject with a 400 pointing at the offending
+            # rows. Mirrors the SPA universe-move-preview contract.
+            if instance.pk:
+                bad = instance.spokespeople.exclude(
+                    universe_id=(new_universe.pk if new_universe else None),
+                )
+                if bad.exists():
+                    names = [sp.name for sp in bad[:5]]
+                    raise serializers.ValidationError({
+                        "universe": (
+                            f"Reassigning would orphan existing spokesperson "
+                            f"attach rows: {names}. Reassign or detach them "
+                            f"first."
+                        ),
+                    })
+            instance.universe = new_universe
+            changed_fields.append("universe")
 
         if text_content is not None:
             from . import ingestion

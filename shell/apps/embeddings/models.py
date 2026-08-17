@@ -127,6 +127,28 @@ class KnowledgeDocument(models.Model):
         related_name="knowledge_documents",
     )
 
+    # SESSION 261 — Universe substrate (opt-in, prospective). NULL
+    # means "legacy workspace-wide doc; visible only to legacy
+    # (universe=NULL) teammates via the empty-M2M fallback." Non-
+    # NULL scopes the doc to a specific Universe within its
+    # Workspace. ``on_delete=RESTRICT`` structurally prevents the
+    # knowledge-bleed hazard where hard-delete of a populated
+    # Universe would silently demote an empty-M2M canon doc to
+    # universe=NULL and expose it to unrelated legacy characters
+    # (correction 75d17f5). See UNIVERSE_SCHEMA_V1.md §"Deletion
+    # policy" for the load-bearing rationale.
+    universe = models.ForeignKey(
+        "universe.Universe",
+        on_delete=models.RESTRICT,
+        null=True,
+        blank=True,
+        related_name="knowledge_documents",
+        help_text=(
+            "World this doc scopes to. NULL = legacy workspace-wide "
+            "(visible only to legacy universe=NULL teammates)."
+        ),
+    )
+
     # Visibility filter — empty M2M = visible to all
     # spokespeople in the workspace. Cross-workspace attaches
     # are blocked by `clean()` + the m2m_changed signal in
@@ -233,6 +255,16 @@ class KnowledgeDocument(models.Model):
         ``apps.embeddings.signals`` handles the post-save
         attachment path; this catches model-form validation in
         the Django admin and any direct ``full_clean()`` call.
+
+        SESSION 261 — extends with two Universe invariants:
+
+        1. Universe-workspace consistency (the outer wall must
+           agree with the inner wall: ``universe.workspace_id
+           == workspace_id``).
+        2. Universe-M2M consistency (every attached spokesperson
+           must belong to the same Universe as this doc — enforced
+           post-save; the m2m_changed signal in ``signals.py``
+           catches the ``doc.spokespeople.add(sp)`` path).
         """
         super().clean()
         if self.pk and self.workspace_id:
@@ -243,6 +275,32 @@ class KnowledgeDocument(models.Model):
                     f"Spokespeople must belong to this document's "
                     f"workspace. Bad: {names}"
                 )
+
+        # SESSION 261 — Universe consistency invariant (#2 in
+        # UNIVERSE_SCHEMA_V1.md §"Invariants").
+        if self.universe_id is not None and self.workspace_id is not None:
+            if self.universe.workspace_id != self.workspace_id:
+                raise ValidationError({
+                    "universe": (
+                        f"Universe belongs to workspace "
+                        f"{self.universe.workspace_id}, but this document "
+                        f"is in workspace {self.workspace_id}."
+                    ),
+                })
+
+        # SESSION 261 — Universe-M2M consistency invariant (#4
+        # in UNIVERSE_SCHEMA_V1.md). Only meaningful post-save
+        # (M2M rows require both sides to exist).
+        if self.pk and self.universe_id is not None:
+            bad = self.spokespeople.exclude(universe_id=self.universe_id)
+            if bad.exists():
+                names = ", ".join(sp.name for sp in bad[:3])
+                raise ValidationError({
+                    "spokespeople": (
+                        f"Spokespeople must belong to this document's "
+                        f"Universe. Bad: {names}"
+                    ),
+                })
 
 
 class KnowledgeChunk(models.Model):

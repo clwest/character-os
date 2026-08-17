@@ -179,13 +179,30 @@ def retrieve_for_teammate(
 
     vector = list(_query_vector) if _query_vector is not None else _embed_query(query)
 
+    qs = KnowledgeChunk.objects.filter(
+        document__workspace=spokesperson.workspace,
+        document__is_active=True,
+        document__status="processed",
+    )
+
+    # SESSION 261 — Universe isolation predicate. Applied BEFORE
+    # the M2M-visibility filter so empty-M2M docs are naturally
+    # scoped to the retrieving teammate's Universe (row 6 of the
+    # truth table in UNIVERSE_SCHEMA_V1.md).
+    #
+    # The branching form is load-bearing: Django's ORM emits
+    # ``document.universe_id = NULL`` for a raw
+    # ``.filter(document__universe=None)`` call, which SQL treats
+    # as NEVER true — silently returning zero rows and breaking
+    # legacy retrieval (row 1). ``__isnull=True`` emits the
+    # correct ``IS NULL`` predicate.
+    if spokesperson.universe_id is None:
+        qs = qs.filter(document__universe__isnull=True)
+    else:
+        qs = qs.filter(document__universe_id=spokesperson.universe_id)
+
     qs = (
-        KnowledgeChunk.objects.filter(
-            document__workspace=spokesperson.workspace,
-            document__is_active=True,
-            document__status="processed",
-        )
-        .filter(
+        qs.filter(
             Q(document__spokespeople__isnull=True)
             | Q(document__spokespeople=spokesperson)
         )

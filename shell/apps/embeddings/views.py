@@ -94,6 +94,17 @@ class KnowledgeDocumentViewSet(viewsets.ModelViewSet):
         if doc_type:
             qs = qs.filter(document_type=doc_type)
 
+        # SESSION 261 — optional Universe filter. ``?universe=<uuid>``
+        # narrows to that Universe's docs; ``?universe=none`` narrows
+        # to legacy (universe=NULL) docs. No silent auto-scoping —
+        # the SPA passes the value the operator picked.
+        universe_param = self.request.query_params.get("universe")
+        if universe_param:
+            if universe_param.strip().lower() == "none":
+                qs = qs.filter(universe__isnull=True)
+            else:
+                qs = qs.filter(universe_id=universe_param)
+
         return qs
 
     def destroy(self, request, *args, **kwargs):

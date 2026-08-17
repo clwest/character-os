@@ -348,6 +348,13 @@ ALLOWED_FILES = {
     # citation isolation + status=pending filter behavior
     # (SESSION 234).
     "apps/spokespeople/tests/test_ask.py",
+    # SESSION 261 Phase 3 — Universe-aware retrieval truth-table
+    # tests. Seeds KnowledgeChunk rows directly to exercise all
+    # nine (T.universe, D.universe, M2M) permutations of
+    # ``retrieve_for_teammate`` per
+    # ``docs/design/UNIVERSE_SCHEMA_V1.md`` §"Retrieval truth
+    # table". Same sanction as ``test_retrieval_privacy.py``.
+    "apps/embeddings/tests/test_retrieval_universe.py",
 }
 
 # The pattern we actually care about: ``<Model>.objects`` —

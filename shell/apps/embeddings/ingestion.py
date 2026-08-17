@@ -84,6 +84,7 @@ def _persist(
     source_metadata: dict | None = None,
     created_by: "AbstractBaseUser | None" = None,
     spokespeople: "list[Teammate] | None" = None,
+    universe=None,
 ) -> IngestResult:
     """Create-or-return the KnowledgeDocument row. Dedup via
     ``(workspace, content_hash)`` unique constraint.
@@ -134,6 +135,10 @@ def _persist(
         with transaction.atomic():
             doc = KnowledgeDocument.objects.create(
                 workspace=workspace,
+                # SESSION 261 — Universe scope passthrough. NULL
+                # preserves the pre-Universe legacy semantics; a
+                # supplied Universe scopes the doc to that world.
+                universe=universe,
                 title=title.strip() or "Untitled",
                 document_type=document_type,
                 raw_content=raw_content,
@@ -175,6 +180,7 @@ def ingest_text(
     created_by: "AbstractBaseUser | None" = None,
     spokespeople: "list[Teammate] | None" = None,
     source_metadata: dict | None = None,
+    universe=None,
 ) -> IngestResult:
     """Ingest pasted / typed text or markdown.
 
@@ -207,6 +213,7 @@ def ingest_text(
         source_metadata=source_metadata,
         created_by=created_by,
         spokespeople=spokespeople,
+        universe=universe,
     )
 
 
@@ -218,6 +225,7 @@ def ingest_pdf(
     created_by: "AbstractBaseUser | None" = None,
     spokespeople: "list[Teammate] | None" = None,
     source_metadata: dict | None = None,
+    universe=None,
 ) -> IngestResult:
     """Ingest an uploaded PDF.
 
@@ -252,6 +260,7 @@ def ingest_pdf(
         source_metadata=metadata,
         created_by=created_by,
         spokespeople=spokespeople,
+        universe=universe,
     )
 
 
@@ -264,6 +273,7 @@ def ingest_url(
     spokespeople: "list[Teammate] | None" = None,
     source_metadata: dict | None = None,
     ingested_via: IngestedVia = IngestedVia.PASTE,
+    universe=None,
 ) -> IngestResult:
     """Ingest a URL.
 
@@ -309,4 +319,5 @@ def ingest_url(
         source_metadata=metadata,
         created_by=created_by,
         spokespeople=spokespeople,
+        universe=universe,
     )
