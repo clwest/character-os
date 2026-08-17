@@ -18,6 +18,22 @@ scope: >
 
 # World Entity Boundary v1 — Persistent Non-Character Things
 
+> **SESSION 261 correction applied in-place (agency-not-voice).** An
+> earlier draft of this document used "speaks vs does not speak" as
+> the Character/WorldEntity discriminator. That framing has been
+> superseded. The correct rule, applied throughout this document:
+>
+> - **Character** = persistent narrative ACTOR with agency (makes
+>   decisions, holds relationships, exhibits behavior). Voice is
+>   common but not required — a silent recurring character with
+>   agency is still a Character.
+> - **WorldEntity** = persistent narrative THING without agency.
+>   Voice is not the boundary and does not determine promotion.
+>
+> The seven corrected passages are identified in
+> `UNIVERSE_ARCHITECTURE_INTEGRATION_V1.md §Corrections required to
+> prior committed docs`. All in-place edits are applied below.
+
 ## Purpose
 
 Four prior SESSION 261 slices established the coordinate system:
@@ -361,11 +377,20 @@ narrative identity. Teammate? WorldEntity? Character subtype?
   addressable, referenced-by-Episode entity without carrying
   Character weight. Continuity guaranteed. Description evolves
   under the WorldEntity row, not spread across characters.
-- **Position**: WorldEntity is the correct home for a non-speaking
-  narrative identity. If the dog is ever promoted to a speaking
-  Character (voice, K2, Runway avatar), that's a separate
-  operator gesture — Teammate creation — not a "promote WorldEntity
-  to Teammate" mechanic (which does not exist and should not).
+- **Position (agency-not-voice)**: WorldEntity is the correct home
+  for a non-speaking narrative identity **ONLY IF THE ENTITY HAS
+  NO AGENCY.** A silent dog with agency (returns week after week,
+  forms relationships, makes choices) is a **Character** (Teammate
+  with `CharacterIdentity.kind=non_human`), gated on Character
+  Presence Language landing. A silent dog without agency (a one-off
+  waiting-room extra with no continuing narrative role) is a
+  WorldEntity `kind=animal`. Voice is neither necessary nor
+  sufficient for the distinction.
+- **Also correct**: the "no auto-promotion from WorldEntity to
+  Teammate" invariant survives. The distinction is agency-authored
+  at creation. If the operator later realizes the dog has agency
+  and should be a Character, that is a NEW Teammate creation,
+  never a "promote WorldEntity to Character" mechanic.
 
 ### T3. Educational subject "Fractions" or "the water cycle."
 Subject of several Episodes but not a "world object" in the
@@ -566,17 +591,19 @@ Answered in Adversarial Test T1 above.
 
 Answered in Adversarial Test T2 above.
 
-- **WorldEntity `kind=animal`** is the correct home for a
-  **non-speaking** narrative identity.
 - **Teammate** with `CharacterIdentity.kind=non_human` is the
-  correct home for a **speaking** character (voice, K2 corpus,
-  Runway avatar). Contingent on Character Presence Language
-  landing (CAPABILITY_INVENTORY_SESSION_261.md §6 special
-  question).
+  correct home for any narrative identity with AGENCY (speaking
+  or silent). Voice is not required — a silent dog that returns
+  week after week, forms relationships, and makes choices is a
+  Character. Contingent on Character Presence Language landing
+  (CAPABILITY_INVENTORY_SESSION_261.md §6 special question).
+- **WorldEntity `kind=animal`** is the correct home for a
+  non-speaking, non-agency narrative identity (a background extra,
+  a one-off waiting-room dog with no continuing narrative role).
 - **No auto-promotion from WorldEntity to Teammate.** If the
-  operator later decides the dog should speak, that's a new
-  Teammate creation — separate operator gesture, separate
-  substrate.
+  operator later decides the dog has agency, that's a new Teammate
+  creation — separate operator gesture, separate substrate. The
+  WorldEntity does not gain agency; a new Character emerges.
 
 ### Q9. Educational subjects ("Fractions", "water cycle"): does WorldEntity absorb semantic topics improperly?
 
@@ -816,12 +843,13 @@ Under **W4** (chosen; see "Recommended boundary"):
 **Strong negative boundary** so LLMs and operators don't turn every
 noun into persistent state:
 
-1. **Characters** — go to Teammate (existing) + CharacterIdentity
-   substrate. Non-speaking-but-recurring becomes WorldEntity
-   `kind=animal` (or similar) only when explicitly non-speaking;
-   a WorldEntity should never gain a voice. Promotion to
-   Character is a new Teammate creation, not a WorldEntity
-   "upgrade."
+1. **Characters** — go to Teammate + CharacterIdentity substrate.
+   Non-speaking-but-recurring becomes WorldEntity `kind=animal`
+   (or similar) only when it has NO AGENCY; if it has agency
+   (returns, holds relationships, makes choices) it is a
+   Character regardless of voice. A WorldEntity should never gain
+   agency (nor voice); promotion path is a new Teammate creation,
+   not a WorldEntity "upgrade."
 2. **Educational subjects / topics / lessons / curricula / learning
    objectives** — deferred EDUCATION slice per §Q9.
 3. **Rendered media artifacts** — go to Asset (existing).
@@ -1098,7 +1126,8 @@ definition.**
 
 | Axis | Character (Teammate) | WorldEntity |
 |---|---|---|
-| Speaks? | YES (voice, K2, personality, POV, Runway avatar) | NO |
+| Has narrative agency (makes decisions, holds relationships, exhibits behavior)? | YES | NO |
+| Speaks? | Usually, but not required (silent Character with agency is legal) | Usually no; voice does not determine the boundary |
 | Has an identity substrate version lifecycle? | YES (CharacterIdentity + version + spec + references + bundle) | NO |
 | Belongs to which container? | Workspace + Universe (nullable, legacy) | Universe (NOT NULL) |
 | Rendered by primitives? | YES (avatar_speech, portrait, etc.) | NO (rendered scenes may DEPICT it via Asset, but WorldEntity doesn't own render) |
@@ -1110,11 +1139,14 @@ definition.**
 | Promotion path from prose? | New Teammate creation | New WorldEntity creation |
 | Promotion path between them? | **NONE. WorldEntity cannot become a Character; Character cannot become a WorldEntity.** Each is a new creation. | Same. |
 
-**Load-bearing distinction**: Character speaks, WorldEntity does
-not. If the operator wants the coffee shop to have a voice
-("welcome to the coffee shop!"), that's a Character (Barista) —
-not a WorldEntity that gained a voice. No path exists (and none
-should) to upgrade a WorldEntity to a Character.
+**Load-bearing distinction**: Character has agency, WorldEntity
+does not. Voice is one common signal of agency but is neither
+sufficient (a jingle-emitting sign speaks but has no agency) nor
+necessary (a silent recurring dog can have agency). If the
+operator wants the coffee shop to have a voice ("welcome to the
+coffee shop!"), that's a Character (Barista) — not a WorldEntity
+that gained a voice. No path exists (and none should) to upgrade
+a WorldEntity to a Character.
 
 ## Relationship vs WorldEntity-edge distinction
 
@@ -1225,8 +1257,11 @@ not load-bearing.
 - **Promotion between primitives is explicit or forbidden:**
   - Character → WorldEntity: **forbidden** (a character does not
     demote to a WorldEntity; the character continues to exist).
-  - WorldEntity → Character: **forbidden** (a coffee shop does not
-    gain a voice; a Barista does — new Teammate).
+  - WorldEntity → Character: **forbidden**. If the operator later
+    realizes a WorldEntity should actually be a Character (has
+    agency), the path is: (a) archive the WorldEntity, (b) create
+    a new Teammate. The WorldEntity does not gain agency; a new
+    Character emerges.
   - WorldEntity → Knowledge: not a promotion; a K2 doc about the
     entity is a separate operator gesture.
   - Prose in Composition/Episode → WorldEntity: explicit operator
@@ -1429,10 +1464,10 @@ New questions this slice creates or leaves open:
    ownership blurs. §Q14 explicitly excluded.
 8. **Cross-Universe entity sharing** without an explicit primitive.
    Same class as RELATIONSHIP §Isolation invariant 10.
-9. **Promoting WorldEntity to Character.** Adds voice / K2 / avatar
-   to what was declared as non-speaking; loses the semantic
-   distinction that WorldEntity establishes. Correct path: new
-   Teammate creation.
+9. **Promoting WorldEntity to Character.** Adds agency (and
+   typically voice / K2 / avatar) to what was declared as
+   non-agency; loses the semantic distinction that WorldEntity
+   establishes. Correct path: new Teammate creation.
 10. **Legacy Teammates gaining WorldEntity access.** Legacy
     Teammates with `universe=NULL` have no Universe to scope
     entities to; silent gap that violates isolation. Mirrors
