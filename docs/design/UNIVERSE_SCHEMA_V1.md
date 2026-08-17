@@ -23,6 +23,23 @@ scope: >
 
 # Universe Schema v1 — Smallest Deployable Universe Substrate
 
+> **SESSION 261 pre-implementation correction (delete contract).** The
+> initial draft of this document specified `on_delete=SET_NULL` on both
+> `Teammate.universe` and `KnowledgeDocument.universe`. Operator review
+> identified a knowledge-bleed hazard: a Workshop canon doc with empty
+> M2M would, under `SET_NULL`, become `universe=NULL` after Universe
+> hard-delete and reappear as legacy workspace-wide knowledge visible
+> to unrelated legacy characters. This document has been corrected in
+> place to specify **`on_delete=RESTRICT`** (Django ≥ 3.1) on both FKs.
+> Django's RESTRICT-with-shared-CASCADE-parent rule preserves Workspace
+> cascade-delete cleanly while blocking direct hard-delete of a
+> populated Universe. Archive remains the primary operator affordance;
+> hard-delete is legal only on an empty Universe (or after explicit
+> operator reassignment of each child). Affected sections: §Teammate.
+> universe FK addition, §KnowledgeDocument.universe FK addition, field
+> tables, §Deletion / cascade policy, `DELETE /api/universes/{id}/`,
+> test spec, and §Blast-radius item 4.
+
 ## Purpose / scope
 
 Deliver a schema contract for the Universe substrate — the *inner
@@ -316,14 +333,21 @@ override — deferred until v2 slug override affordance surfaces).
 
 ### Teammate.universe FK addition
 
-- `universe`: `FK("universe.Universe", on_delete=SET_NULL, null=True,
+- `universe`: `FK("universe.Universe", on_delete=RESTRICT, null=True,
   blank=True, related_name="teammates")`.
 - **Nullable** — critical. NULL means "legacy teammate; use
   pre-Universe semantics."
-- On-delete `SET_NULL` — deleting a Universe demotes its Teammates
-  to legacy behavior rather than cascading a Teammate delete (a
-  Teammate row carries CharacterIdentity substrate, Compositions,
-  Assets, and history — never quietly destroy that).
+- On-delete `RESTRICT` — deleting a Universe with member Teammates
+  is blocked (`django.db.models.RestrictedError`). This closes the
+  hazard where hard-delete of a populated Universe would silently
+  demote its Teammates to legacy state, potentially reintroducing
+  the knowledge-bleed class Universe exists to prevent. Explicit
+  operator reassignment of an individual Teammate to `universe=None`
+  remains legal via `PATCH /api/spokespeople/{id}/` and is subject
+  to §Teammate move policy. Workspace cascade-delete still succeeds
+  because Django's `RESTRICT` is satisfied when the referenced row
+  is also being deleted via a shared `CASCADE` parent in the same
+  operation (Django ≥ 3.1 semantics; the repo is on Django 5.0.6).
 - Related-name `"teammates"` mirrors the existing `Workspace.teammates`
   related-name pattern (see `accounts/models.py:108` reverse via
   `spokespeople/models.py:65–69 related_name="teammates"`).
@@ -333,13 +357,20 @@ override — deferred until v2 slug override affordance surfaces).
 
 ### KnowledgeDocument.universe FK addition
 
-- `universe`: `FK("universe.Universe", on_delete=SET_NULL, null=True,
+- `universe`: `FK("universe.Universe", on_delete=RESTRICT, null=True,
   blank=True, related_name="knowledge_documents")`.
 - **Nullable** — critical. NULL means "legacy workspace-wide doc."
-- On-delete `SET_NULL` — deleting a Universe demotes its docs to
-  legacy visibility rather than cascade-deleting corpus content. This
-  mirrors how Teammate delete relaxed from PROTECT to SET_NULL for
-  Composition in SESSION 251 (`compositions/models.py:385–391`).
+- On-delete `RESTRICT` — deleting a Universe with member
+  KnowledgeDocuments is blocked. This is the load-bearing correction
+  identified pre-implementation: a Workshop canon doc with empty
+  M2M would, under `SET_NULL`, become `universe=NULL` after hard-
+  delete and reappear as legacy workspace-wide knowledge visible to
+  unrelated legacy characters. `RESTRICT` structurally prevents that
+  silent demotion. Explicit operator reassignment of an individual
+  doc to `universe=None` remains legal via `PATCH /api/knowledge/
+  {id}/` and is a different operation. Workspace cascade-delete
+  still succeeds via the Django `RESTRICT`-with-shared-CASCADE-parent
+  rule above.
 - Related-name `"knowledge_documents"` mirrors the existing
   `Workspace.knowledge_documents` related-name (`embeddings/models
   .py:127`).
@@ -371,13 +402,13 @@ not fire.
 
 | Field | Type | Nullable | Meaning | Validation |
 |---|---|---|---|---|
-| `universe` | FK Universe | Yes | World this character belongs to. NULL = legacy. | `on_delete=SET_NULL`; `.clean()` enforces `universe.workspace_id == workspace_id`. |
+| `universe` | FK Universe | Yes | World this character belongs to. NULL = legacy. | `on_delete=RESTRICT`; `.clean()` enforces `universe.workspace_id == workspace_id`. |
 
 ### KnowledgeDocument.universe addition
 
 | Field | Type | Nullable | Meaning | Validation |
 |---|---|---|---|---|
-| `universe` | FK Universe | Yes | World this doc scopes to. NULL = legacy workspace-wide. | `on_delete=SET_NULL`; `.clean()` enforces `universe.workspace_id == workspace_id`; extended M2M check per §clean contract. |
+| `universe` | FK Universe | Yes | World this doc scopes to. NULL = legacy workspace-wide. | `on_delete=RESTRICT`; `.clean()` enforces `universe.workspace_id == workspace_id`; extended M2M check per §clean contract. |
 
 ## Invariants (integrated, numbered)
 
@@ -433,37 +464,57 @@ slices.
   (`Universe.workspace on_delete=CASCADE`). This matches every
   existing workspace-child cascade (Teammate, KnowledgeDocument,
   Composition, Asset, etc.).
-- Universe's own cascade behavior (see below) then unwinds Teammate
-  and KnowledgeDocument Universe FKs to NULL under SET_NULL.
-- Practical effect: deleting a Workspace deletes its Universes but
-  the Teammates/KnowledgeDocuments within that Workspace are already
-  being CASCADE-deleted from Workspace at the same time (they are
-  workspace children). The SET_NULL from Universe deletion is a
-  no-op in this path because the child rows are gone anyway. This is
-  correct and desired — do not "protect" Workspace deletion via
-  Universe.
+- Teammate and KnowledgeDocument are ALSO CASCADE-deleted directly
+  from Workspace in the same transaction (they are independent
+  workspace children). Their `universe` FK's `RESTRICT` policy is
+  satisfied by Django's rule (≥ 3.1): "referenced objects can be
+  deleted if they also reference a different object being deleted
+  in the same operation, but via a CASCADE relationship." Universe,
+  Teammate, and KnowledgeDocument all cascade from Workspace, so
+  Workspace-scoped teardown succeeds cleanly.
+- Practical effect: deleting a Workspace deletes its Universes AND
+  their member Teammates/KnowledgeDocuments in a single transaction.
+  This is correct and desired — do not "protect" Workspace deletion
+  via Universe.
 
 ### Universe deletion (direct)
 
-- `on_delete=SET_NULL` on both `Teammate.universe` and
-  `KnowledgeDocument.universe`. Deleting a Universe demotes its
-  members to legacy behavior; it does not destroy them.
-- Rationale: a Teammate row carries CharacterIdentity substrate,
-  Compositions, historical Assets, threads, sessions. A K2 doc
-  carries chunks, dedup, and downstream composition references
-  (`Composition.knowledge_chunk_ids`). Neither should quietly vanish
-  because the operator archived a world.
-- The Universe row itself hard-deletes on this path (Django default
-  when calling `Universe.delete()`).
+- `on_delete=RESTRICT` on both `Teammate.universe` and
+  `KnowledgeDocument.universe`. Direct hard-deletion of a Universe
+  that has any Teammate members or any KnowledgeDocument members
+  raises `django.db.models.RestrictedError`. This is the load-
+  bearing correction identified pre-implementation: `SET_NULL` on
+  hard-delete would silently demote a Workshop canon doc with empty
+  M2M to `universe=NULL`, causing it to reappear as legacy
+  workspace-wide knowledge visible to unrelated legacy characters —
+  exactly the knowledge-bleed class Universe exists to prevent.
+- Rationale reprise: a Teammate row carries CharacterIdentity
+  substrate, Compositions, historical Assets, threads, sessions.
+  A K2 doc carries chunks, dedup, and downstream composition
+  references (`Composition.knowledge_chunk_ids`). Neither should
+  vanish because the operator archived a world — but neither should
+  silently demote either.
+- Empty-Universe direct hard-delete remains legal: with zero
+  Teammate and zero KnowledgeDocument members, `RESTRICT` fires
+  no error and the Universe row deletes cleanly.
+- Populated-Universe hard-delete requires explicit operator action:
+  first reassign each Teammate to `universe=None` (or to another
+  Universe) via `PATCH /api/spokespeople/{id}/`, and reassign each
+  K2 doc via `PATCH /api/knowledge/{id}/`. Only then does the
+  Universe row become hard-deletable. This is a deliberate operator
+  gesture — never a silent side-effect.
 
 ### Universe soft-delete (archive)
 
 - Preferred v1 posture: **soft-delete via `archived_at`**, not hard
   delete. Rationale: (a) preserves audit trail, (b) allows
-  un-archive, (c) avoids the SET_NULL cascade on production data.
+  un-archive, (c) avoids the `RESTRICT` block from Teammate and
+  KnowledgeDocument members entirely (archive touches only
+  `Universe.archived_at`, not any FK relationships).
 - Hard delete remains available for operator + admin actions but is
   gated by SPA UX ("archive" is the primary affordance; "delete
-  permanently" is a secondary confirm-heavy action).
+  permanently" is a secondary confirm-heavy action that is only
+  enabled when the Universe is empty).
 - Archived Universes: the API `list` endpoint (see §API contract)
   filters `archived_at__isnull=True` by default; an
   `?include_archived=true` query surfaces archived rows.
@@ -707,9 +758,14 @@ action (below), not PATCH — mirrors the K2 soft-delete pattern
 ### `DELETE /api/universes/{id}/`
 
 Soft-delete: sets `archived_at = now()`. Returns `204`. Hard-delete
-via `?hard=true` param requires operator to be workspace `owner`; on
-hard delete, Universe row goes away and children (Teammates,
-KnowledgeDocuments) SET_NULL on `universe_id`.
+via `?hard=true` param requires operator to be workspace `owner`
+AND the Universe must have zero Teammate members and zero
+KnowledgeDocument members (Django `RESTRICT` policy). If the
+Universe is populated, the endpoint returns `409 Conflict` with a
+body enumerating the blocking child counts and instructing the
+operator to reassign or delete the children first. The endpoint MUST
+NOT silently demote children to `universe=NULL` — that regresses the
+knowledge-bleed hazard the RESTRICT policy exists to prevent.
 
 ### `POST /api/universes/{id}/unarchive/`
 
@@ -1048,8 +1104,15 @@ Each migration is additive; no data migration required.
   - `PATCH` — rename Universe.
   - `DELETE` (soft) — sets `archived_at`.
   - `POST /api/universes/{id}/unarchive/` — clears `archived_at`.
-  - `DELETE ?hard=true` — permanent delete; SET_NULL cascades to
-    Teammate.universe and KnowledgeDocument.universe.
+  - `DELETE ?hard=true` on EMPTY Universe — permanent delete
+    succeeds; row removed.
+  - `DELETE ?hard=true` on POPULATED Universe — 409 Conflict;
+    Universe row and all children remain intact; response body
+    enumerates blocking Teammate + KnowledgeDocument counts.
+  - `DELETE ?hard=true` on POPULATED Universe after operator reassigns
+    every child to `universe=None` or another Universe — succeeds.
+  - Workspace CASCADE-delete of a populated Universe — succeeds
+    (Django RESTRICT satisfied by shared-CASCADE-parent rule).
 - `apps/spokespeople/tests/test_teammate_universe_api.py`
   - `PATCH /api/spokespeople/{id}/ {universe: "<uuid>"}` — success.
   - Same PATCH with cross-workspace Universe UUID — 400.
@@ -1176,11 +1239,19 @@ Prioritized by likelihood × impact.
    legal in Django (both fire in registration order). Mitigation:
    distinct receiver names; the test suite asserts BOTH fire on
    BOTH violations.
-4. **Universe deletion cascades destroy Teammate/KnowledgeDocument
-   rows.** Would happen if `on_delete=CASCADE` was chosen instead of
-   `SET_NULL`. Mitigation: this contract mandates `SET_NULL` on both
-   FKs. The test suite explicitly asserts hard-delete preserves
-   child rows.
+4. **Universe hard-delete silently demotes Teammate/KnowledgeDocument
+   to legacy `universe=NULL`.** Would happen if `on_delete=SET_NULL`
+   was chosen (as the original draft proposed). An empty-M2M Workshop
+   canon doc would become `universe=NULL` and reappear as legacy
+   workspace-wide knowledge visible to unrelated legacy characters —
+   exactly the knowledge-bleed class Universe exists to prevent.
+   Mitigation: this contract mandates `on_delete=RESTRICT` on both
+   FKs (Django ≥ 3.1). Populated Universe hard-delete raises
+   `RestrictedError`; the API surfaces 409 Conflict. Workspace
+   CASCADE-delete still succeeds via Django's shared-CASCADE-parent
+   rule. The test suite explicitly asserts (a) populated hard-delete
+   is blocked, (b) empty hard-delete succeeds, (c) reassign-then-
+   delete succeeds, (d) Workspace CASCADE succeeds.
 5. **Teammate move between Universes silently orphans K2 M2M rows.**
    Would happen if PATCH did not pre-validate. Mitigation:
    `universe-move-preview` endpoint + SPA confirmation modal + PATCH
