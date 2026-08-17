@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-08-17T00:24:15.685501+00:00
-git_sha: 77cae5a (working tree dirty)
+generated_at: 2026-08-17T01:00:26.937058+00:00
+git_sha: 332796c (working tree dirty)
 git_branch: main
 ---
 
@@ -15,7 +15,7 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-08-17T00:24:15.685501+00:00** against commit **77cae5a**
+Generated **2026-08-17T01:00:26.937058+00:00** against commit **332796c**
 on branch **main** (working tree dirty).
 
 Python 3.11.6 · Django 5.2.16 ·
@@ -31,9 +31,9 @@ Celery 5.6.3 · httpx 0.27.2.
 | URL routes (total) | **418** | `get_resolver().url_patterns` walk |
 | URL routes (`/api/*`) | **188** | same |
 | FastAPI routes | **125** | media-engine `/openapi.json` (reachable) |
-| Celery tasks (registered) | **10** | `celery_app.tasks` filter |
-| Migrations (applied / total) | **97 / 97** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **118,328** in 405 files | `pathlib.Path.rglob("*.py")` |
+| Celery tasks (registered) | **12** | `celery_app.tasks` filter |
+| Migrations (applied / total) | **0 / 97** | `MigrationRecorder` ∩ `MigrationLoader` |
+| Shell LOC (`*.py`, no venv/migrations) | **120,226** in 408 files | `pathlib.Path.rglob("*.py")` |
 | Media-engine LOC (`*.py`, no venv/migrations) | **63,533** in 156 files | same |
 
 ---
@@ -290,9 +290,11 @@ Total: **125** routes.
 
 ## Celery Tasks
 
-Total: **10** registered tasks (excluding `celery.*` built-ins).
+Total: **12** registered tasks (excluding `celery.*` built-ins).
 
 - `apps.compositions.tasks.execute_composition`
+- `apps.compositions.tasks.execute_composition_layer_coordinator`
+- `apps.compositions.tasks.execute_step`
 - `apps.compositions.tasks.retry_step`
 - `apps.compositions.tasks.sweep_expired_assets`
 - `apps.videos.tasks.poll_video_until_terminal`
@@ -307,31 +309,31 @@ Total: **10** registered tasks (excluding `celery.*` built-ins).
 
 ## Migrations
 
-**97 of 97** migrations applied.
+**0 of 97** migrations applied.
 
 | App | Applied | Total | Pending |
 |---|---|---|---|
-| `account` | 9 | 9 | 0 |
-| `accounts` | 1 | 1 | 0 |
-| `admin` | 3 | 3 | 0 |
-| `auth` | 12 | 12 | 0 |
-| `billing` | 1 | 1 | 0 |
-| `bootstrap_review` | 2 | 2 | 0 |
-| `campaigns` | 3 | 3 | 0 |
-| `compositions` | 13 | 13 | 0 |
-| `contenttypes` | 2 | 2 | 0 |
-| `conversations` | 5 | 5 | 0 |
-| `embeddings` | 4 | 4 | 0 |
-| `identity` | 9 | 9 | 0 |
-| `publish` | 1 | 1 | 0 |
-| `realtime` | 5 | 5 | 0 |
-| `scripts` | 2 | 2 | 0 |
-| `sessions` | 1 | 1 | 0 |
-| `sites` | 2 | 2 | 0 |
-| `socialaccount` | 6 | 6 | 0 |
-| `spokespeople` | 11 | 11 | 0 |
-| `transcripts` | 1 | 1 | 0 |
-| `videos` | 4 | 4 | 0 |
+| `account` | 0 | 9 | **9 ⚠** |
+| `accounts` | 0 | 1 | **1 ⚠** |
+| `admin` | 0 | 3 | **3 ⚠** |
+| `auth` | 0 | 12 | **12 ⚠** |
+| `billing` | 0 | 1 | **1 ⚠** |
+| `bootstrap_review` | 0 | 2 | **2 ⚠** |
+| `campaigns` | 0 | 3 | **3 ⚠** |
+| `compositions` | 0 | 13 | **13 ⚠** |
+| `contenttypes` | 0 | 2 | **2 ⚠** |
+| `conversations` | 0 | 5 | **5 ⚠** |
+| `embeddings` | 0 | 4 | **4 ⚠** |
+| `identity` | 0 | 9 | **9 ⚠** |
+| `publish` | 0 | 1 | **1 ⚠** |
+| `realtime` | 0 | 5 | **5 ⚠** |
+| `scripts` | 0 | 2 | **2 ⚠** |
+| `sessions` | 0 | 1 | **1 ⚠** |
+| `sites` | 0 | 2 | **2 ⚠** |
+| `socialaccount` | 0 | 6 | **6 ⚠** |
+| `spokespeople` | 0 | 11 | **11 ⚠** |
+| `transcripts` | 0 | 1 | **1 ⚠** |
+| `videos` | 0 | 4 | **4 ⚠** |
 
 ---
 
@@ -353,11 +355,11 @@ Total: **10** registered tasks (excluding `celery.*` built-ins).
 | Service | Files | Lines |
 |---|---|---|
 | `media-engine/` | 156 | 63,533 |
-| `shell/` | 405 | 118,328 |
-| **total** | **561** | **181,861** |
+| `shell/` | 408 | 120,226 |
+| **total** | **564** | **183,759** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-08-17T00:24:15.685501+00:00 from commit 77cae5a. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-08-17T01:00:26.937058+00:00 from commit 332796c. Re-run `python manage.py inventory` (from `shell/`) to refresh.*

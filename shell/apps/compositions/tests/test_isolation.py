@@ -108,6 +108,13 @@ ALLOWED_FILES = {
     # writes (transaction=True, per-thread DB connections).
     # Sanctioned test-side writer.
     "apps/compositions/tests/test_p1_concurrency_safety.py",
+    # SESSION 258 P2.H — parallel-execution runtime tests seed
+    # Composition + CompositionStep rows and drive execute_step
+    # / execute_composition_layer_coordinator directly to
+    # exercise the chord-based parallel dispatch path (feature-
+    # flagged; sequential path unchanged). Sanctioned test-side
+    # writer.
+    "apps/compositions/tests/test_parallel_execution.py",
     # SESSION 210 — `sweep_expired_assets` Celery task tests
     # seed Composition + Asset rows with crafted JWT URLs to
     # exercise the hourly Beat sweep. Asset.composition FK is

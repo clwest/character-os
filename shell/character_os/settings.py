@@ -245,6 +245,33 @@ CELERY_TASK_SOFT_TIME_LIMIT = 30 * 60
 # via celery-inspect is useful.
 CELERY_RESULT_EXPIRES = 24 * 60 * 60
 
+# ---- Composition parallel execution (SESSION 258 / P2) --------------
+#
+# The composition runtime ships two dispatch paths:
+#
+# * Sequential — one step at a time in position order. Current default;
+#   preserves the SESSION 142/V2 contract exactly.
+# * Parallel — dispatches every step in a DAG layer as a Celery
+#   ``group`` with a chord-callback coordinator. Independent siblings
+#   (e.g. a dialogue_scene's 8 speech turns) execute simultaneously
+#   across workers.
+#
+# ``COMPOSITION_PARALLEL_EXECUTION_ENABLED`` is the master switch. When
+# False (default), every composition runs sequentially regardless of
+# kind. When True, ``COMPOSITION_PARALLEL_EXECUTION_KINDS`` is an
+# allow-list of ``Composition.template_kind`` values that opt in —
+# recipes not listed here keep the sequential path even when the
+# master switch is on. This lets us dogfood parallelism per-recipe
+# rather than by big-bang cutover.
+#
+# Rollback stance: flip the flag to False; live sessions finish on
+# whichever path started them (coordinators keep firing until fan-in
+# terminates the tree). Only new composition runs pick up the new
+# value.
+COMPOSITION_PARALLEL_EXECUTION_ENABLED = False
+COMPOSITION_PARALLEL_EXECUTION_KINDS = {"dialogue_scene"}
+
+
 # ---- Celery Beat schedule -------------------------------------------
 #
 # SESSION 210 — first scheduled task. Runway-signed Cloudfront URLs
