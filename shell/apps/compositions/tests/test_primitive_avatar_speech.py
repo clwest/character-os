@@ -557,6 +557,19 @@ def test_real_mode_with_knowledge_runs_brief_synthesis() -> None:
     # field. Sourcing from the module constant keeps this test
     # robust across version bumps (AI-D1 moved 1 -> 2).
     fake_script_result.writing_contract_version = WRITING_CONTRACT_VERSION
+    # SESSION 262 — Composition observability provenance. The
+    # ScriptResult dataclass now carries per-attempt fields the
+    # primitive persists onto the composition on the accepted
+    # path. Real ScriptResult defaults these to 0/""/None; MagicMock
+    # would otherwise return MagicMock attributes here and blow up
+    # the composition save (int field assigned a mock, etc.). Match
+    # the defaults exactly so this test stays semantics-equivalent
+    # to a build_render_brief return.
+    fake_script_result.attempt_count = 0
+    fake_script_result.first_pass_brief = ""
+    fake_script_result.corrective_hint_used = ""
+    fake_script_result.corrective_pass_brief = ""
+    fake_script_result.predicted_seconds = None
 
     # SESSION 253 — the primitive imports build_render_brief at
     # module scope now (not lazily), and the no-duration path calls

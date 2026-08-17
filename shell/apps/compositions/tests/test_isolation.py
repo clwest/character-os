@@ -115,6 +115,13 @@ ALLOWED_FILES = {
     # flagged; sequential path unchanged). Sanctioned test-side
     # writer.
     "apps/compositions/tests/test_parallel_execution.py",
+    # SESSION 262 — Composition observability schema v1 tests
+    # construct Composition rows directly to exercise the nine
+    # new observability fields, the from_db() snapshot +
+    # immutable-once-populated save() guard, and the
+    # DialogueSynthesisFailedError view-rescue persistence
+    # pattern. Sanctioned test-side writer.
+    "apps/compositions/tests/test_session262_composition_observability.py",
     # SESSION 210 — `sweep_expired_assets` Celery task tests
     # seed Composition + Asset rows with crafted JWT URLs to
     # exercise the hourly Beat sweep. Asset.composition FK is

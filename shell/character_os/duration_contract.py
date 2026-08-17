@@ -179,6 +179,12 @@ class DurationContractError(Exception):
     Backward-compat alias: ``LongFormDurationError`` re-exports
     this class from :mod:`apps.compositions.starters` so
     existing catchers continue to work.
+
+    SESSION 262 — additional per-attempt provenance fields
+    (``first_pass_synthesis``, ``corrective_hint``,
+    ``corrective_pass_synthesis``, ``attempt_count``,
+    ``predicted_seconds``) are optional; callers that don't plumb
+    them default to the pre-SESSION-262 shape.
     """
 
     REASON_TOO_SHORT = "too_short"
@@ -206,6 +212,13 @@ class DurationContractError(Exception):
         # want to say "too long," not "over provider ceiling."
         duration_max_chars: int | None = None,
         provider_cap_chars: int | None = None,
+        # SESSION 262 — per-attempt provenance for Composition
+        # observability. All optional. See class docstring.
+        first_pass_synthesis: str = "",
+        corrective_hint: str = "",
+        corrective_pass_synthesis: str = "",
+        attempt_count: int = 0,
+        predicted_seconds: float | None = None,
     ) -> None:
         self.actual_chars = actual_chars
         self.actual_words = actual_words
@@ -226,6 +239,12 @@ class DurationContractError(Exception):
         self.provider_cap_chars = provider_cap_chars
         self.synthesized_text = synthesized_text
         self.reason = reason
+        # SESSION 262 — Composition observability per-attempt provenance.
+        self.first_pass_synthesis = first_pass_synthesis
+        self.corrective_hint = corrective_hint
+        self.corrective_pass_synthesis = corrective_pass_synthesis
+        self.attempt_count = attempt_count
+        self.predicted_seconds = predicted_seconds
         super().__init__(self._build_message())
 
     def _build_message(self) -> str:
@@ -504,6 +523,13 @@ def synthesize_with_duration_gate(
 
     synth = _synthesize()
     actual_chars, actual_words, actual_seconds = _measure(synth.brief)
+    # SESSION 262 — freeze first-pass output verbatim for Composition
+    # observability. `synth.brief` may be reassigned by the retry
+    # below; `first_pass_brief` never is.
+    first_pass_brief = synth.brief
+    corrective_hint_used = ""
+    corrective_pass_brief = ""
+    attempt_count = 1
     logger.info(
         "synthesize_with_duration_gate first-pass sp=%s requested=%ds "
         "synth=%ds (accept %d-%ds, chars %d-%d) actual=%ds "
@@ -519,6 +545,12 @@ def synthesize_with_duration_gate(
     # converge on a specific duration) and skip acceptance
     # (test compositions render stubs, not real Runway).
     if mock_mode:
+        # SESSION 262 — carry per-attempt provenance so callers can
+        # persist Composition observability even in mock renders.
+        synth.first_pass_brief = first_pass_brief  # type: ignore[attr-defined]
+        synth.corrective_hint_used = corrective_hint_used  # type: ignore[attr-defined]
+        synth.corrective_pass_brief = corrective_pass_brief  # type: ignore[attr-defined]
+        synth.attempt_count = attempt_count  # type: ignore[attr-defined]
         return synth
 
     # ONE corrective pass. Retry decision uses the ACCEPTANCE
@@ -545,7 +577,10 @@ def synthesize_with_duration_gate(
             effective_max=synth_max,
         )
         logger.info("synthesize_with_duration_gate expansion retry")
+        corrective_hint_used = hint
+        attempt_count = 2
         synth = _synthesize(hint)
+        corrective_pass_brief = synth.brief
         actual_chars, actual_words, actual_seconds = _measure(synth.brief)
     elif actual_chars > acceptance_max_chars or provider_cap_binds:
         hint = _compression_hint(
@@ -558,7 +593,10 @@ def synthesize_with_duration_gate(
             effective_max=synth_max,
         )
         logger.info("synthesize_with_duration_gate compression retry")
+        corrective_hint_used = hint
+        attempt_count = 2
         synth = _synthesize(hint)
+        corrective_pass_brief = synth.brief
         actual_chars, actual_words, actual_seconds = _measure(synth.brief)
 
     # Acceptance gate — SESSION 253 amendment A. Classification:
@@ -580,6 +618,20 @@ def synthesize_with_duration_gate(
     # reference the requested target.
     op_facing_max_chars = acceptance_max_chars  # clamped to cap
     op_facing_min_chars = raw_min
+    # SESSION 262 — Composition observability: bundle per-attempt
+    # provenance into every DurationContractError raise so the view /
+    # primitive layer can persist ``first_pass_synthesis`` /
+    # ``corrective_hint`` / ``corrective_pass_synthesis`` /
+    # ``synthesis_attempt_count`` / ``synthesis_predicted_seconds`` on
+    # the FAILED composition without reconstructing from logs.
+    def _observability_kwargs() -> dict:
+        return {
+            "first_pass_synthesis": first_pass_brief,
+            "corrective_hint": corrective_hint_used,
+            "corrective_pass_synthesis": corrective_pass_brief,
+            "attempt_count": attempt_count,
+            "predicted_seconds": float(actual_seconds),
+        }
     if (
         max_script_chars is not None
         and actual_chars > max_script_chars
@@ -597,6 +649,7 @@ def synthesize_with_duration_gate(
             provider_cap_chars=max_script_chars,
             synthesized_text=synth.brief,
             reason=DurationContractError.REASON_OVER_PROVIDER_CAP,
+            **_observability_kwargs(),
         )
     if actual_chars > raw_max:
         raise DurationContractError(
@@ -612,6 +665,7 @@ def synthesize_with_duration_gate(
             provider_cap_chars=max_script_chars,
             synthesized_text=synth.brief,
             reason=DurationContractError.REASON_TOO_LONG,
+            **_observability_kwargs(),
         )
     if actual_chars < raw_min:
         raise DurationContractError(
@@ -627,8 +681,20 @@ def synthesize_with_duration_gate(
             provider_cap_chars=max_script_chars,
             synthesized_text=synth.brief,
             reason=DurationContractError.REASON_TOO_SHORT,
+            **_observability_kwargs(),
         )
 
+    # SESSION 262 — attach per-attempt provenance to the returned
+    # ScriptResult so callers (long_form_ad starter, avatar_speech
+    # primitive) can persist observability fields on the accepted
+    # Composition. Attribute-style attachment avoids widening
+    # ScriptResult's dataclass signature and touching every existing
+    # caller that constructs one.
+    synth.first_pass_brief = first_pass_brief  # type: ignore[attr-defined]
+    synth.corrective_hint_used = corrective_hint_used  # type: ignore[attr-defined]
+    synth.corrective_pass_brief = corrective_pass_brief  # type: ignore[attr-defined]
+    synth.attempt_count = attempt_count  # type: ignore[attr-defined]
+    synth.predicted_seconds = float(actual_seconds)  # type: ignore[attr-defined]
     return synth
 
 

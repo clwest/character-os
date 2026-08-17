@@ -233,6 +233,23 @@ class ScriptResult:
     verification_warnings: list[dict] = field(default_factory=list)
     verification_status: str = ""
     writing_contract_version: int = 0
+    # SESSION 262 — per-attempt provenance for Composition observability.
+    # Populated by ``duration_contract.synthesize_with_duration_gate``
+    # on both success and failure paths. `build_render_brief` itself
+    # leaves them at defaults (it is a single-pass helper). Values:
+    #   * ``attempt_count`` = 0 (build_render_brief default) or 1/2
+    #     from the duration-contract wrapper.
+    #   * ``first_pass_brief`` = raw first-pass ``brief``.
+    #   * ``corrective_hint_used`` = the exact hint fed to the retry.
+    #   * ``corrective_pass_brief`` = raw corrective-pass ``brief``
+    #     (empty when no retry fired).
+    #   * ``predicted_seconds`` = duration estimator's post-synthesis
+    #     read; ``None`` on the pre-SESSION-262 shape.
+    attempt_count: int = 0
+    first_pass_brief: str = ""
+    corrective_hint_used: str = ""
+    corrective_pass_brief: str = ""
+    predicted_seconds: float | None = None
 
 
 def _is_force_mock() -> bool:

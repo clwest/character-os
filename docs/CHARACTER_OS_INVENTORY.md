@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-08-17T21:02:32.877742+00:00
-git_sha: dd5bf37 (working tree dirty)
+generated_at: 2026-08-17T23:11:44.191933+00:00
+git_sha: abb7b5c (working tree dirty)
 git_branch: main
 ---
 
@@ -15,11 +15,11 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-08-17T21:02:32.877742+00:00** against commit **dd5bf37**
+Generated **2026-08-17T23:11:44.191933+00:00** against commit **abb7b5c**
 on branch **main** (working tree dirty).
 
-Python 3.11.6 · Django 5.2.16 ·
-Celery 5.6.3 · httpx 0.27.2.
+Python 3.11.6 · Django 5.0.6 ·
+Celery 5.5.3 · httpx 0.27.2.
 
 ---
 
@@ -28,12 +28,12 @@ Celery 5.6.3 · httpx 0.27.2.
 | Metric | Value | Source |
 |---|---|---|
 | Django models (project-owned) | **38** | `apps.get_models()` filtered to first-party apps |
-| URL routes (total) | **434** | `get_resolver().url_patterns` walk |
+| URL routes (total) | **445** | `get_resolver().url_patterns` walk |
 | URL routes (`/api/*`) | **198** | same |
 | FastAPI routes | **125** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **12** | `celery_app.tasks` filter |
-| Migrations (applied / total) | **100 / 100** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **124,456** in 426 files | `pathlib.Path.rglob("*.py")` |
+| Migrations (applied / total) | **101 / 101** | `MigrationRecorder` ∩ `MigrationLoader` |
+| Shell LOC (`*.py`, no venv/migrations) | **125,753** in 427 files | `pathlib.Path.rglob("*.py")` |
 | Media-engine LOC (`*.py`, no venv/migrations) | **63,533** in 156 files | same |
 
 ---
@@ -53,7 +53,7 @@ Total: **38** models across **15** apps.
 | `campaigns` | `PersonalizedCampaign` | `campaigns_personalizedcampaign` | 13 | 4 |
 | `campaigns` | `PersonalizedRecipient` | `campaigns_personalizedrecipient` | 11 | 2 |
 | `compositions` | `Asset` | `compositions_asset` | 25 | 4 |
-| `compositions` | `Composition` | `compositions_composition` | 20 | 4 |
+| `compositions` | `Composition` | `compositions_composition` | 29 | 4 |
 | `compositions` | `CompositionStep` | `compositions_compositionstep` | 15 | 2 |
 | `conversations` | `ConversationEmbedding` | `conversations_conversationembedding` | 8 | 1 |
 | `conversations` | `ConversationMessage` | `conversations_conversationmessage` | 8 | 1 |
@@ -87,11 +87,11 @@ Total: **38** models across **15** apps.
 
 ## URL Routes
 
-Total: **434** resolved patterns.
+Total: **445** resolved patterns.
 
 | Prefix | Count |
 |---|---|
-| `_allauth/` | 19 |
+| `_allauth/` | 30 |
 | `accounts/` | 26 |
 | `admin/` | 191 |
 | `api/` | 198 |
@@ -163,7 +163,6 @@ Total: **434** resolved patterns.
 - `knowledge-search`
 - `login`
 - `manage_email`
-- `manage_phone`
 - `manage_providers`
 - `me`
 - `membership-detail`
@@ -191,8 +190,6 @@ Total: **434** resolved patterns.
 - `recipe-list`
 - `redirect_to_provider`
 - `request_password_reset`
-- `resend_email_verification_code`
-- `resend_phone_verification_code`
 - `reset_password`
 - `script-approve`
 - `script-clone`
@@ -228,7 +225,6 @@ Total: **434** resolved patterns.
 - `universe-list`
 - `universe-unarchive`
 - `verify_email`
-- `verify_phone`
 - `video-detail`
 - `video-list`
 - `workspace-asset-detail`
@@ -314,7 +310,7 @@ Total: **12** registered tasks (excluding `celery.*` built-ins).
 
 ## Migrations
 
-**100 of 100** migrations applied.
+**101 of 101** migrations applied.
 
 | App | Applied | Total | Pending |
 |---|---|---|---|
@@ -325,7 +321,7 @@ Total: **12** registered tasks (excluding `celery.*` built-ins).
 | `billing` | 1 | 1 | 0 |
 | `bootstrap_review` | 2 | 2 | 0 |
 | `campaigns` | 3 | 3 | 0 |
-| `compositions` | 13 | 13 | 0 |
+| `compositions` | 14 | 14 | 0 |
 | `contenttypes` | 2 | 2 | 0 |
 | `conversations` | 5 | 5 | 0 |
 | `embeddings` | 5 | 5 | 0 |
@@ -361,11 +357,11 @@ Total: **12** registered tasks (excluding `celery.*` built-ins).
 | Service | Files | Lines |
 |---|---|---|
 | `media-engine/` | 156 | 63,533 |
-| `shell/` | 426 | 124,456 |
-| **total** | **582** | **187,989** |
+| `shell/` | 427 | 125,753 |
+| **total** | **583** | **189,286** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-08-17T21:02:32.877742+00:00 from commit dd5bf37. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-08-17T23:11:44.191933+00:00 from commit abb7b5c. Re-run `python manage.py inventory` (from `shell/`) to refresh.*

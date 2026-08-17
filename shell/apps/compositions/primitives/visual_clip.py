@@ -153,6 +153,9 @@ class GenerateVisualClipPrimitive:
 
         if mock_mode:
             duration_s = int((step.params or {}).get("duration", 5))
+            # SESSION 262 — runtime dispatched a render primitive.
+            # Mock counts (idempotent per-composition).
+            step.composition.mark_render_dispatched()
             return PrimitiveResult(
                 asset_type=AssetType.CLIP,
                 file_path=_deterministic_path(str(step.id), "-visual.mp4"),
@@ -178,6 +181,10 @@ class GenerateVisualClipPrimitive:
         ratio = (step.params or {}).get("ratio")
         duration = (step.params or {}).get("duration")
 
+        # SESSION 262 — about to dispatch to Runway via the
+        # media-engine. Mark now so the composition's audit shows
+        # provider was called.
+        step.composition.mark_render_dispatched()
         try:
             with MediaEngineClient() as client:
                 created = client.create_visual_clip(

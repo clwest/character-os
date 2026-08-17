@@ -146,6 +146,17 @@ class LongFormDurationError(Exception):
         # callers can navigate to the composition detail page. Stays
         # ``None`` when the starter is invoked directly (unit tests).
         composition_id=None,
+        # SESSION 262 — Composition observability per-attempt provenance.
+        # All optional; caller-supplied so the view-layer persistence
+        # rescue can stamp Composition observability fields on the
+        # FAILED row alongside the existing rejection payload.
+        operator_topic: str = "",
+        first_pass_synthesis: str = "",
+        corrective_hint: str = "",
+        corrective_pass_synthesis: str = "",
+        synthesis_attempt_count: int = 0,
+        synthesis_predicted_seconds: float | None = None,
+        validation_failure_reason: str = "",
     ) -> None:
         self.actual_seconds = actual_seconds
         self.actual_chars = actual_chars
@@ -163,6 +174,14 @@ class LongFormDurationError(Exception):
         self.mock_mode = mock_mode
         self.created_by = created_by
         self.composition_id = composition_id
+        # SESSION 262 — observability provenance passthrough.
+        self.operator_topic = operator_topic
+        self.first_pass_synthesis = first_pass_synthesis
+        self.corrective_hint = corrective_hint
+        self.corrective_pass_synthesis = corrective_pass_synthesis
+        self.synthesis_attempt_count = synthesis_attempt_count
+        self.synthesis_predicted_seconds = synthesis_predicted_seconds
+        self.validation_failure_reason = validation_failure_reason
         direction = "shorter than" if actual_seconds < min_seconds else "longer than"
         self.error_message_text = (
             f"Synthesized script estimated at ~{actual_seconds}s "
@@ -222,6 +241,18 @@ class DialogueSynthesisFailedError(Exception):
         created_by=None,
         # Populated by the view after the failed row is created.
         composition_id=None,
+        # SESSION 262 — Composition observability per-attempt provenance.
+        # All optional; caller-supplied so the view-layer rescue can
+        # persist the observability fields alongside the existing
+        # rejection payload.
+        operator_topic: str = "",
+        target_duration_seconds: int | None = None,
+        first_pass_synthesis: str = "",
+        corrective_hint: str = "",
+        corrective_pass_synthesis: str = "",
+        synthesis_attempt_count: int = 0,
+        synthesis_predicted_seconds: float | None = None,
+        validation_failure_reason: str = "",
     ) -> None:
         self.reason = reason
         self.workspace = workspace
@@ -236,6 +267,15 @@ class DialogueSynthesisFailedError(Exception):
         self.mock_mode = mock_mode
         self.created_by = created_by
         self.composition_id = composition_id
+        # SESSION 262 — observability provenance passthrough.
+        self.operator_topic = operator_topic
+        self.target_duration_seconds = target_duration_seconds
+        self.first_pass_synthesis = first_pass_synthesis
+        self.corrective_hint = corrective_hint
+        self.corrective_pass_synthesis = corrective_pass_synthesis
+        self.synthesis_attempt_count = synthesis_attempt_count
+        self.synthesis_predicted_seconds = synthesis_predicted_seconds
+        self.validation_failure_reason = validation_failure_reason
         self.error_message_text = (
             f"Dialogue AI Topic synthesis rejected: {reason}. No "
             "avatar_video calls were dispatched."
@@ -631,6 +671,19 @@ def talking_head(
         template_kind="talking_head",
         mock_mode=mock_mode,
         created_by=created_by,
+        # SESSION 262 — Composition observability. For talking_head,
+        # synthesis fires later inside the ``generate_avatar_speech``
+        # primitive at execute time; here we stamp the operator's
+        # verbatim script + selected target duration so the row's
+        # provenance is complete even before the primitive runs.
+        # `operator_topic` is only meaningful when synthesis will
+        # actually fire (use_knowledge=True); operator-typed manual
+        # scripts (`use_knowledge=False`) leave it empty since the
+        # script IS the operator's exact output, not a topic-driven
+        # brief. `target_duration_seconds` is stamped from the
+        # already-coerced-and-guarded value above.
+        operator_topic=script.strip() if use_knowledge else "",
+        target_duration_seconds=coerced_duration,
     )
     step_params: dict = {
         "script": script.strip(),
@@ -1258,6 +1311,16 @@ def long_form_ad(
                 verification_status="",
                 mock_mode=mock_mode,
                 created_by=created_by,
+                # SESSION 262 — observability passthrough.
+                operator_topic=script,
+                first_pass_synthesis=exc.first_pass_synthesis,
+                corrective_hint=exc.corrective_hint,
+                corrective_pass_synthesis=exc.corrective_pass_synthesis,
+                synthesis_attempt_count=exc.attempt_count,
+                synthesis_predicted_seconds=exc.predicted_seconds,
+                validation_failure_reason=(
+                    f"duration_contract:{exc.reason}"
+                ),
             ) from exc
         except ClaimVerifierError as exc:
             # K6.4 strict rejection — create the composition anyway
@@ -1302,6 +1365,19 @@ def long_form_ad(
                             fromlist=["WRITING_CONTRACT_VERSION"],
                         ).WRITING_CONTRACT_VERSION
                     ),
+                    # SESSION 262 — observability persistence.
+                    # K6.4 rejection happens AFTER duration synthesis
+                    # completed acceptably, so first_pass/corrective
+                    # provenance is not attached to the ClaimVerifierError
+                    # itself. We still stamp operator_topic + target
+                    # duration + the K6.4 failure reason so the
+                    # rejection is reconstructable from the row.
+                    operator_topic=script,
+                    target_duration_seconds=target_duration_seconds,
+                    validation_failure_reason=(
+                        f"k6_4:strict_rejected"
+                        f":{len(exc.unsupported)}_unsupported_claims"
+                    ),
                 )
             logger.warning(
                 "starter long_form_ad synthesis REJECTED composition=%s "
@@ -1323,6 +1399,17 @@ def long_form_ad(
             "writing_contract_version": getattr(
                 synth, "writing_contract_version", 0,
             ),
+            # SESSION 262 — Composition observability. Attribute-style
+            # attachment on ScriptResult (see duration_contract.py).
+            "attempt_count": getattr(synth, "attempt_count", 0),
+            "first_pass_brief": getattr(synth, "first_pass_brief", ""),
+            "corrective_hint_used": getattr(
+                synth, "corrective_hint_used", "",
+            ),
+            "corrective_pass_brief": getattr(
+                synth, "corrective_pass_brief", "",
+            ),
+            "predicted_seconds": getattr(synth, "predicted_seconds", None),
         }
         logger.info(
             "starter long_form_ad synthesized brief upfront sp=%s "
@@ -1364,6 +1451,22 @@ def long_form_ad(
         verification_status=synthesis_metadata.get("verification_status", ""),
         writing_contract_version=synthesis_metadata.get(
             "writing_contract_version", 0,
+        ),
+        # SESSION 262 — Composition observability. `operator_topic` is
+        # the verbatim operator script that fed synthesis; empty when
+        # `use_knowledge=False` (raw script rendered verbatim, no
+        # synthesis fired). Other observability fields populate from
+        # the ScriptResult attached by the duration-contract wrapper.
+        operator_topic=script if use_knowledge else "",
+        target_duration_seconds=target_duration_seconds if use_knowledge else None,
+        synthesis_attempt_count=synthesis_metadata.get("attempt_count", 0),
+        first_pass_synthesis=synthesis_metadata.get("first_pass_brief", ""),
+        corrective_hint=synthesis_metadata.get("corrective_hint_used", ""),
+        corrective_pass_synthesis=synthesis_metadata.get(
+            "corrective_pass_brief", "",
+        ),
+        synthesis_predicted_seconds=synthesis_metadata.get(
+            "predicted_seconds",
         ),
     )
 
@@ -3460,10 +3563,27 @@ def dialogue_scene(
                 verification_warnings=[],
                 verification_status="rejected",
                 writing_contract_version=WRITING_CONTRACT_VERSION,
-                knowledge_chunk_ids=[],
+                # SESSION 262 — carry the retrieval snapshot when it
+                # was captured pre-rejection. `exc.chunk_ids` is
+                # populated by synthesize_dialogue when retrieval
+                # succeeded before validation failed; empty when the
+                # failure was pre-retrieval (missing key, empty topic,
+                # cast validation). SESSION 259 audit blocker #4.
+                knowledge_chunk_ids=list(exc.chunk_ids),
                 synthesized_brief="",
                 mock_mode=mock_mode,
                 created_by=created_by,
+                # SESSION 262 — observability passthrough.
+                operator_topic=topic,
+                target_duration_seconds=int(target_duration_seconds),
+                first_pass_synthesis=exc.first_pass_raw,
+                corrective_hint=exc.corrective_hint,
+                corrective_pass_synthesis=exc.corrective_pass_raw,
+                synthesis_attempt_count=exc.attempt_count,
+                synthesis_predicted_seconds=exc.predicted_seconds,
+                validation_failure_reason=(
+                    f"dialogue_synthesis:{exc.reason}"[:500]
+                ),
             ) from exc
         except ClaimVerifierError as exc:
             # Strict K6.4 mode rejected one of the generated turns.
@@ -3486,10 +3606,20 @@ def dialogue_scene(
                 verification_warnings=[u.to_dict() for u in exc.unsupported],
                 verification_status="rejected",
                 writing_contract_version=WRITING_CONTRACT_VERSION,
+                # SESSION 262 — K6.4 strict runs post-parse; retrieval
+                # snapshot is unavailable to this except handler
+                # (the DialogueResult builder that has it never
+                # returned). Leave empty and stamp reason.
                 knowledge_chunk_ids=[],
                 synthesized_brief="",
                 mock_mode=mock_mode,
                 created_by=created_by,
+                # SESSION 262 — observability passthrough.
+                operator_topic=topic,
+                target_duration_seconds=int(target_duration_seconds),
+                validation_failure_reason=(
+                    f"k6_4_strict:{len(exc.unsupported)}_unsupported_claims"
+                ),
             ) from exc
 
         # Hydrate ``lines`` from the validated DialogueResult turns
@@ -3568,6 +3698,21 @@ def dialogue_scene(
             "knowledge_chunk_ids": list(ai_dialogue_result.chunk_ids),
             "synthesized_brief": _dialogue_ai_synthesized_brief(
                 ai_dialogue_result,
+            ),
+            # SESSION 262 — Composition observability. Per-attempt
+            # provenance is on the DialogueResult; carry each field
+            # into the composition row so audits can reconstruct what
+            # happened without terminal logs.
+            "operator_topic": topic,
+            "target_duration_seconds": int(target_duration_seconds),
+            "synthesis_attempt_count": ai_dialogue_result.attempt_count,
+            "first_pass_synthesis": ai_dialogue_result.first_pass_raw,
+            "corrective_hint": ai_dialogue_result.corrective_hint,
+            "corrective_pass_synthesis": (
+                ai_dialogue_result.corrective_pass_raw
+            ),
+            "synthesis_predicted_seconds": (
+                ai_dialogue_result.predicted_seconds
             ),
         })
     composition = Composition.objects.create(**composition_kwargs)

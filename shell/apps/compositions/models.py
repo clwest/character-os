@@ -486,6 +486,31 @@ class Composition(models.Model):
     # script.
     writing_contract_version = models.PositiveSmallIntegerField(default=0)
 
+    # ------------------------------------------------------------------
+    # SESSION 262 — Composition observability v1.
+    # Scope-lock: ``docs/design/COMPOSITION_OBSERVABILITY_V1.md``.
+    # Nine additive fields that make Composition-level synthesis
+    # provenance reconstructible from DB state alone. Immutability
+    # of these fields once written is enforced in ``save()`` below
+    # via a ``from_db()`` snapshot; the field types themselves are
+    # additive-nullable-or-empty-default so legacy rows behave as
+    # today. ``EPISODE_SCHEMA_V1`` will add a Universe-scoped story
+    # layer that owns ``operator_topic`` at the narrative level;
+    # this per-attempt copy remains authoritative for the render
+    # attempt in every case
+    # (``EPISODE_LIFECYCLE_V1.md §Where-operator_topic-lives``).
+    operator_topic = models.TextField(blank=True, default="")
+    target_duration_seconds = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+    )
+    synthesis_attempt_count = models.PositiveSmallIntegerField(default=0)
+    first_pass_synthesis = models.TextField(blank=True, default="")
+    corrective_hint = models.TextField(blank=True, default="")
+    corrective_pass_synthesis = models.TextField(blank=True, default="")
+    validation_failure_reason = models.TextField(blank=True, default="")
+    synthesis_predicted_seconds = models.FloatField(null=True, blank=True)
+    render_dispatched_at = models.DateTimeField(null=True, blank=True)
+
     # Cost transparency (contract rule 7). Estimate is computed
     # before render fires; actual is summed from per-step
     # ``cost_actual_micros`` after execution.
@@ -516,6 +541,150 @@ class Composition(models.Model):
             models.Index(fields=["spokesperson", "created_at"]),
         ]
         ordering = ["-created_at"]
+
+    # SESSION 262 — observability provenance fields that must not be
+    # silently rewritten after their first non-default persistence.
+    # Enforced by ``save()``/``from_db()`` below against a snapshot of
+    # the DB values at load time; legitimate lifecycle writes
+    # (``status`` / ``error_message`` / ``final_asset`` / ``cost_*`` /
+    # ``verification_*`` / ``synthesized_brief`` / ``rejected_synthesis`` /
+    # ``knowledge_chunk_ids`` / ``writing_contract_version``) are NOT
+    # in this set and remain freely mutable per their existing
+    # lifecycles. See ``docs/design/COMPOSITION_OBSERVABILITY_V1.md``
+    # §Q5.
+    _IMMUTABLE_OBSERVABILITY_FIELDS = (
+        "operator_topic",
+        "target_duration_seconds",
+        "synthesis_attempt_count",
+        "first_pass_synthesis",
+        "corrective_hint",
+        "corrective_pass_synthesis",
+        "validation_failure_reason",
+        "synthesis_predicted_seconds",
+        "render_dispatched_at",
+    )
+
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        """Snapshot the persisted values of the immutable observability
+        fields so ``save()`` can detect silent overwrites. New rows
+        (never loaded from the DB) have no snapshot and may set any
+        value at first write.
+
+        Reads values directly from the ``(field_names, values)`` tuple
+        Django passes in — avoids triggering a deferred-field refresh
+        (which would recurse back through ``from_db``) when a caller
+        loaded the row with ``.only(...)`` / ``.defer(...)`` /
+        ``.values_list(...)`` and one of the observability fields was
+        deferred. Deferred fields simply do not appear in the snapshot;
+        if the caller later touches one, the ORM's normal fetch path
+        loads it fresh and ``save()`` then compares against a snapshot
+        that never had it — no violation possible.
+        """
+        instance = super().from_db(db, field_names, values)
+        loaded_by_name = dict(zip(field_names, values))
+        instance._loaded_observability = {
+            f: loaded_by_name[f]
+            for f in cls._IMMUTABLE_OBSERVABILITY_FIELDS
+            if f in loaded_by_name
+        }
+        return instance
+
+    @staticmethod
+    def _observability_value_is_populated(field_name: str, value) -> bool:
+        """A field counts as "already written" (i.e. immutable from
+        here on) when its persisted value is anything other than the
+        additive-default the schema landed with. Text fields default
+        ``""``; ``synthesis_attempt_count`` defaults ``0``; the other
+        int / float / datetime fields default ``None``. Keeping this
+        check aligned with the migration defaults means the very first
+        real write is always accepted; subsequent divergence is
+        rejected."""
+        if value is None:
+            return False
+        if isinstance(value, str) and value == "":
+            return False
+        if field_name == "synthesis_attempt_count" and value == 0:
+            return False
+        return True
+
+    def save(self, *args, **kwargs):
+        """SESSION 262 — enforce observability-field immutability.
+
+        The check fires only when:
+          * this instance was loaded from the DB (``from_db`` populated
+            ``_loaded_observability``), AND
+          * either ``update_fields`` was NOT passed (full save touches
+            every field) OR the immutable field IS in ``update_fields``,
+            AND
+          * the previously-persisted value was populated (not the
+            schema default), AND
+          * the current in-memory value differs from the persisted one.
+
+        No-op saves (same value) never raise. Legitimate lifecycle
+        writes that use ``save(update_fields=[...])`` and exclude the
+        observability fields never trigger the check. First writes on
+        new (unsaved) rows always succeed.
+        """
+        loaded = getattr(self, "_loaded_observability", None)
+        if loaded:
+            update_fields = kwargs.get("update_fields")
+            for fname in self._IMMUTABLE_OBSERVABILITY_FIELDS:
+                # Only check fields whose value we actually snapshotted
+                # at load time. Deferred fields (loaded via
+                # ``.only()`` / ``.defer()``) intentionally sit outside
+                # the check because we cannot know their persisted value
+                # without an ORM fetch that would compete with the
+                # caller's chosen loading pattern.
+                if fname not in loaded:
+                    continue
+                if update_fields is not None and fname not in update_fields:
+                    continue
+                prev = loaded[fname]
+                current = getattr(self, fname, None)
+                if (
+                    self._observability_value_is_populated(fname, prev)
+                    and prev != current
+                ):
+                    raise ValidationError(
+                        f"Composition.{fname} is immutable once populated "
+                        f"(SESSION 262 observability provenance): "
+                        f"persisted={prev!r} attempted={current!r}"
+                    )
+        super().save(*args, **kwargs)
+        # Refresh the snapshot to the newly-persisted state so a
+        # second save on the same instance sees the just-written
+        # values as the new baseline. Prevents the "same-value save"
+        # after a fresh write from being rejected on a subsequent
+        # change attempt. Uses ``self.__dict__.get`` to avoid
+        # triggering deferred-field refresh on any field the caller
+        # didn't touch.
+        for f in self._IMMUTABLE_OBSERVABILITY_FIELDS:
+            if f in self.__dict__:
+                if loaded is None:
+                    self._loaded_observability = {}
+                    loaded = self._loaded_observability
+                loaded[f] = self.__dict__[f]
+
+    def mark_render_dispatched(self) -> None:
+        """SESSION 262 — record the first-provider-dispatch moment.
+
+        Called by render primitives (``avatar_speech``, ``visual_clip``)
+        right before their media-engine client call. Idempotent: the
+        second and subsequent calls on the same composition are no-ops
+        because ``render_dispatched_at`` is immutable once populated.
+
+        Uses ``save(update_fields=[...])`` so the ``save()`` override's
+        immutability check permits this specific write (the field is
+        currently NULL) and skips checking any other observability
+        fields. Also refreshes the in-memory instance so the caller
+        sees the persisted timestamp.
+        """
+        if self.render_dispatched_at is not None:
+            return
+        from django.utils import timezone as _tz
+        self.render_dispatched_at = _tz.now()
+        self.save(update_fields=["render_dispatched_at", "updated_at"])
 
     def __str__(self) -> str:
         return f"{self.name} ({self.workspace.name})"

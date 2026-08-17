@@ -186,17 +186,39 @@ class DialogueSynthesisError(Exception):
     """Raised when structured synthesis + one corrective resynth
     both fail validation. Callers persist the raw LLM JSON to
     ``Composition.rejected_synthesis`` and surface the error to
-    the operator without firing any Runway calls."""
+    the operator without firing any Runway calls.
+
+    SESSION 262 — additional per-attempt provenance is carried on
+    the exception so the view-layer FAILED-composition rescue path
+    can persist Composition-local observability fields
+    (`first_pass_synthesis`, `corrective_hint`,
+    `corrective_pass_synthesis`, `synthesis_attempt_count`,
+    `synthesis_predicted_seconds`, and the retrieval snapshot as
+    `chunk_ids`). All are optional — callers that don't yet plumb
+    them default to the pre-SESSION-262 shape.
+    """
 
     def __init__(
         self,
         reason: str,
         *,
         raw_llm_json: str = "",
+        first_pass_raw: str = "",
+        corrective_hint: str = "",
+        corrective_pass_raw: str = "",
+        attempt_count: int = 0,
+        predicted_seconds: float | None = None,
+        chunk_ids: list[str] | None = None,
     ) -> None:
         super().__init__(reason)
         self.reason = reason
         self.raw_llm_json = raw_llm_json
+        self.first_pass_raw = first_pass_raw
+        self.corrective_hint = corrective_hint
+        self.corrective_pass_raw = corrective_pass_raw
+        self.attempt_count = attempt_count
+        self.predicted_seconds = predicted_seconds
+        self.chunk_ids = list(chunk_ids or [])
 
 
 # ---- Data model --------------------------------------------------
@@ -269,6 +291,16 @@ class DialogueResult:
     tokens_input: int = 0
     tokens_output: int = 0
     raw_llm_json: str = ""
+    # SESSION 262 — per-attempt provenance for Composition observability.
+    # `attempt_count` is 1 for first-pass-accepted, 2 for corrective-pass-
+    # accepted. Mock branch returns 1 (no retry loop). `first_pass_raw`
+    # is always the RAW first LLM response; `corrective_pass_raw` is the
+    # RAW corrective response (empty when no retry fired); `corrective_hint`
+    # is the exact hint the retry received.
+    attempt_count: int = 0
+    first_pass_raw: str = ""
+    corrective_hint: str = ""
+    corrective_pass_raw: str = ""
 
 
 # ---- Force-mock helpers ------------------------------------------
@@ -1201,6 +1233,24 @@ def _mock_result(
         mock_mode=True,
         used_knowledge=use_knowledge and bool(all_chunk_ids),
         model="mock",
+        # SESSION 262 — mock branch synthesizes deterministically
+        # in one pass; no retry loop, no LLM raw response. Attempt
+        # count is 1 so downstream observability distinguishes
+        # "mock synthesized" (1) from "synthesis never fired" (0).
+        # first_pass_raw carries the JSON-shaped mock output so the
+        # audit trail is consistent with real-mode.
+        attempt_count=1,
+        first_pass_raw=json.dumps({
+            "mock": True,
+            "turns": [
+                {"line_index": t.line_index,
+                 "speaker_alias": t.speaker_alias,
+                 "text": t.text}
+                for t in turns
+            ],
+        }),
+        corrective_hint="",
+        corrective_pass_raw="",
     )
 
 
@@ -1363,6 +1413,13 @@ def synthesize_dialogue(
     tokens_in_total = tokens_in_1
     tokens_out_total = tokens_out_1
     final_raw = raw_json
+    # SESSION 262 — freeze the first-pass response verbatim for
+    # observability. `final_raw` may be overwritten by the retry;
+    # this copy never is.
+    first_pass_raw_persisted = raw_json
+    corrective_hint_persisted = ""
+    corrective_pass_raw_persisted = ""
+    attempt_count = 1
 
     # ---- One bounded corrective resynth -------------------------
     if turns is None:
@@ -1372,6 +1429,8 @@ def synthesize_dialogue(
             "attempting one corrective resynth. hint=%r",
             corrective_hint[:160],
         )
+        # SESSION 262 — freeze the hint the retry actually received.
+        corrective_hint_persisted = corrective_hint
         raw_json_2, tokens_in_2, tokens_out_2 = _call_dialogue_api(
             system_prompt=system_prompt,
             task_message=_build_task_section(
@@ -1384,6 +1443,8 @@ def synthesize_dialogue(
         )
         tokens_in_total += tokens_in_2
         tokens_out_total += tokens_out_2
+        corrective_pass_raw_persisted = raw_json_2
+        attempt_count = 2
         turns_2, hint_2 = _parse_and_validate(
             raw_json_2,
             alias_to_teammate=alias_to_teammate,
@@ -1394,10 +1455,29 @@ def synthesize_dialogue(
             # Both passes failed — reject. Persist the LATER raw
             # response so the operator can inspect the closer-to-
             # correct attempt.
+            # SESSION 262 — also carry per-attempt provenance +
+            # retrieval snapshot for the FAILED-composition rescue.
+            # Predicted seconds is estimated from the LATER raw
+            # response's total char count if parseable, else None.
+            _predicted = _estimate_predicted_seconds_from_raw(raw_json_2)
+            _chunk_ids_snapshot: list[str] = []
+            _seen_ids: set[str] = set()
+            for _alias in alias_to_teammate:
+                for _c in per_character_chunks[_alias]:
+                    _cid = str(getattr(_c, "id", "") or "")
+                    if _cid and _cid not in _seen_ids:
+                        _seen_ids.add(_cid)
+                        _chunk_ids_snapshot.append(_cid)
             raise DialogueSynthesisError(
                 f"dialogue synthesis rejected after one corrective "
                 f"pass: {hint_2}",
                 raw_llm_json=raw_json_2 or raw_json or "",
+                first_pass_raw=first_pass_raw_persisted,
+                corrective_hint=corrective_hint_persisted,
+                corrective_pass_raw=corrective_pass_raw_persisted,
+                attempt_count=attempt_count,
+                predicted_seconds=_predicted,
+                chunk_ids=_chunk_ids_snapshot,
             )
         turns = turns_2
         final_raw = raw_json_2
@@ -1482,7 +1562,43 @@ def synthesize_dialogue(
         tokens_input=tokens_in_total,
         tokens_output=tokens_out_total,
         raw_llm_json=final_raw,
+        # SESSION 262 — per-attempt provenance for Composition
+        # observability. See DialogueResult docstring.
+        attempt_count=attempt_count,
+        first_pass_raw=first_pass_raw_persisted,
+        corrective_hint=corrective_hint_persisted,
+        corrective_pass_raw=corrective_pass_raw_persisted,
     )
+
+
+def _estimate_predicted_seconds_from_raw(raw_json: str) -> float | None:
+    """Best-effort predicted-seconds estimate from a raw LLM response.
+    Called on the DialogueSynthesisError path so
+    ``Composition.synthesis_predicted_seconds`` can be populated even
+    for the rejected case. Returns ``None`` when the raw response is
+    not parseable — the caller then persists ``NULL``, correctly
+    signalling "prediction unavailable" rather than an invented zero.
+    """
+    if not raw_json or not raw_json.strip():
+        return None
+    try:
+        parsed = json.loads(raw_json)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    turns = parsed.get("turns")
+    if not isinstance(turns, list):
+        return None
+    total_chars = 0
+    for t in turns:
+        if isinstance(t, dict):
+            text = t.get("text") or ""
+            if isinstance(text, str):
+                total_chars += len(text.strip())
+    if total_chars == 0 or not _DIALOGUE_CPS:
+        return None
+    return total_chars / _DIALOGUE_CPS
 
 
 def _call_dialogue_api(

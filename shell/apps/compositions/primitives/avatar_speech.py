@@ -443,12 +443,26 @@ def _maybe_synthesize_script(
         # SESSION 253 — stamp the contract version even on rejection;
         # the contract WAS applied (K6 ran under it and got rejected).
         composition.writing_contract_version = WRITING_CONTRACT_VERSION
+        # SESSION 262 — Composition observability. Stamp the
+        # per-attempt provenance for the K6.4-rejected talking-head
+        # path so audits can reconstruct without terminal logs.
+        # operator_topic + target_duration_seconds were already
+        # persisted at composition-create time by the talking_head
+        # starter (immutability guards prevent overwrite here).
+        composition.first_pass_synthesis = exc.synthesized_text or ""
+        composition.synthesis_attempt_count = 1
+        composition.validation_failure_reason = (
+            f"k6_4_strict:{len(exc.unsupported)}_unsupported_claims"
+        )[:500]
         composition.save(
             update_fields=[
                 "verification_warnings",
                 "rejected_synthesis",
                 "verification_status",
                 "writing_contract_version",
+                "first_pass_synthesis",
+                "synthesis_attempt_count",
+                "validation_failure_reason",
             ],
         )
         raise PrimitiveError(
@@ -468,15 +482,65 @@ def _maybe_synthesize_script(
         composition.verification_status = "rejected"
         composition.writing_contract_version = WRITING_CONTRACT_VERSION
         composition.error_message = str(exc)
+        # SESSION 262 — Composition observability. Duration-contract
+        # rejection carries the full per-attempt log; persist it so
+        # the FAILED talking-head row surfaces first-pass/corrective
+        # provenance identical to the long-form/dialogue paths.
+        composition.first_pass_synthesis = exc.first_pass_synthesis
+        composition.corrective_hint = exc.corrective_hint
+        composition.corrective_pass_synthesis = exc.corrective_pass_synthesis
+        composition.synthesis_attempt_count = exc.attempt_count
+        composition.synthesis_predicted_seconds = exc.predicted_seconds
+        composition.validation_failure_reason = (
+            f"duration_contract:{exc.reason}"[:500]
+        )
         composition.save(
             update_fields=[
                 "rejected_synthesis",
                 "verification_status",
                 "writing_contract_version",
                 "error_message",
+                "first_pass_synthesis",
+                "corrective_hint",
+                "corrective_pass_synthesis",
+                "synthesis_attempt_count",
+                "synthesis_predicted_seconds",
+                "validation_failure_reason",
             ],
         )
         raise PrimitiveError(str(exc)) from exc
+    # SESSION 262 — Composition observability on the accepted
+    # talking-head duration-driven path. Attempt provenance flows
+    # through the ScriptResult attributes attached by
+    # duration_contract.synthesize_with_duration_gate.
+    # `operator_topic` + `target_duration_seconds` were already
+    # persisted at composition-create time by the talking_head
+    # starter. Non-duration path (build_render_brief alone) also
+    # writes attempt_count=1 + first_pass_brief=result.brief since
+    # build_render_brief is a single-pass helper.
+    _first_pass = getattr(result, "first_pass_brief", "") or result.brief
+    _attempt = getattr(result, "attempt_count", 0) or 1
+    _corrective_hint = getattr(result, "corrective_hint_used", "")
+    _corrective_pass = getattr(result, "corrective_pass_brief", "")
+    _predicted = getattr(result, "predicted_seconds", None)
+    _obs_fields_dirty: list[str] = []
+    if not composition.first_pass_synthesis and _first_pass:
+        composition.first_pass_synthesis = _first_pass
+        _obs_fields_dirty.append("first_pass_synthesis")
+    if not composition.corrective_hint and _corrective_hint:
+        composition.corrective_hint = _corrective_hint
+        _obs_fields_dirty.append("corrective_hint")
+    if not composition.corrective_pass_synthesis and _corrective_pass:
+        composition.corrective_pass_synthesis = _corrective_pass
+        _obs_fields_dirty.append("corrective_pass_synthesis")
+    if composition.synthesis_attempt_count == 0 and _attempt:
+        composition.synthesis_attempt_count = _attempt
+        _obs_fields_dirty.append("synthesis_attempt_count")
+    if composition.synthesis_predicted_seconds is None and _predicted is not None:
+        composition.synthesis_predicted_seconds = _predicted
+        _obs_fields_dirty.append("synthesis_predicted_seconds")
+    if _obs_fields_dirty:
+        composition.save(update_fields=_obs_fields_dirty + ["updated_at"])
     return (
         result.brief,
         list(result.chunk_ids or []),
@@ -500,6 +564,11 @@ class GenerateAvatarSpeechPrimitive:
         # media-engine setting.
         if mock_mode:
             script = (step.params or {}).get("script", "").strip() or "[no script]"
+            # SESSION 262 — the runtime dispatched a render primitive.
+            # Mock mode counts (it exercises the same dispatch path;
+            # the "not mock" distinction is captured elsewhere by
+            # `composition.mock_mode`). Idempotent per-composition.
+            composition.mark_render_dispatched()
             return PrimitiveResult(
                 asset_type=AssetType.CLIP,
                 file_path=_deterministic_path(str(step.id), "-avatar-speech.mp4"),
@@ -562,6 +631,13 @@ class GenerateAvatarSpeechPrimitive:
             incoming_contract_version=writing_contract_version,
         )
 
+        # SESSION 262 — the runtime is about to dispatch to Runway
+        # via the media-engine. Mark the composition NOW so audits can
+        # distinguish "synthesis-rejected pre-dispatch" (NULL) from
+        # "provider called; failed" (populated). Placed AFTER
+        # `_maybe_synthesize_script` so a K6/duration/verifier
+        # rejection that raised above correctly leaves the mark NULL.
+        composition.mark_render_dispatched()
         try:
             with MediaEngineClient() as client:
                 created = client.create_avatar_speech(

@@ -512,6 +512,18 @@ class CompositionViewSet(viewsets.GenericViewSet):
                 knowledge_chunk_ids=exc.knowledge_chunk_ids,
                 verification_warnings=exc.verification_warnings,
                 verification_status=exc.verification_status,
+                # SESSION 262 — Composition observability. The starter
+                # attached per-attempt provenance on the exception; the
+                # rescue path persists it onto the FAILED row so audits
+                # can reconstruct without terminal logs.
+                operator_topic=exc.operator_topic,
+                target_duration_seconds=exc.target_duration_seconds,
+                synthesis_attempt_count=exc.synthesis_attempt_count,
+                first_pass_synthesis=exc.first_pass_synthesis,
+                corrective_hint=exc.corrective_hint,
+                corrective_pass_synthesis=exc.corrective_pass_synthesis,
+                synthesis_predicted_seconds=exc.synthesis_predicted_seconds,
+                validation_failure_reason=exc.validation_failure_reason,
             )
             exc.composition_id = composition.id
             logger.warning(
@@ -550,6 +562,18 @@ class CompositionViewSet(viewsets.GenericViewSet):
                 writing_contract_version=exc.writing_contract_version,
                 knowledge_chunk_ids=exc.knowledge_chunk_ids,
                 synthesized_brief=exc.synthesized_brief,
+                # SESSION 262 — Composition observability. Same
+                # rescue pattern as the LongFormDurationError branch
+                # above; the starter attaches per-attempt provenance
+                # on the exception and this rescue persists it.
+                operator_topic=exc.operator_topic,
+                target_duration_seconds=exc.target_duration_seconds,
+                synthesis_attempt_count=exc.synthesis_attempt_count,
+                first_pass_synthesis=exc.first_pass_synthesis,
+                corrective_hint=exc.corrective_hint,
+                corrective_pass_synthesis=exc.corrective_pass_synthesis,
+                synthesis_predicted_seconds=exc.synthesis_predicted_seconds,
+                validation_failure_reason=exc.validation_failure_reason,
             )
             exc.composition_id = composition.id
             logger.warning(
