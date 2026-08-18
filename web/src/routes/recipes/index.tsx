@@ -27,6 +27,11 @@ export function RecipeGalleryRoute() {
   const recipes = useRecipes();
   const [searchParams] = useSearchParams();
   const spokespersonHint = searchParams.get("spokesperson") ?? undefined;
+  // SESSION 262 — Episode context propagates through the gallery to
+  // whichever recipe the operator picks. Same pattern as
+  // spokespersonHint above; the recipe form reads `?episode=` and
+  // attaches the resulting Composition to that Episode on submit.
+  const episodeHint = searchParams.get("episode") ?? undefined;
   const spokespeople = useSpokespeople();
   const hintedSpokesperson = spokespersonHint
     ? spokespeople.data?.find((s) => s.id === spokespersonHint)
@@ -43,6 +48,7 @@ export function RecipeGalleryRoute() {
         <RecipeGrid
           recipes={recipes.data}
           spokespersonHint={spokespersonHint}
+          episodeHint={episodeHint}
         />
       )}
     </div>
@@ -102,9 +108,11 @@ function Header({ hintedSpokespersonName }: { hintedSpokespersonName?: string })
 function RecipeGrid({
   recipes,
   spokespersonHint,
+  episodeHint,
 }: {
   recipes: Recipe[];
   spokespersonHint?: string;
+  episodeHint?: string;
 }) {
   const byFamily = groupByFamily(recipes);
 
@@ -122,6 +130,7 @@ function RecipeGrid({
                   key={recipe.kind}
                   recipe={recipe}
                   spokespersonHint={spokespersonHint}
+                  episodeHint={episodeHint}
                 />
               ))}
             </div>
@@ -154,13 +163,19 @@ function FamilyHeading({
 function RecipeCard({
   recipe,
   spokespersonHint,
+  episodeHint,
 }: {
   recipe: Recipe;
   spokespersonHint?: string;
+  episodeHint?: string;
 }) {
   const isLive = LIVE_RECIPE_KINDS.has(recipe.kind);
-  const href = spokespersonHint
-    ? `/recipes/${recipe.kind}?spokesperson=${spokespersonHint}`
+  const params = new URLSearchParams();
+  if (spokespersonHint) params.set("spokesperson", spokespersonHint);
+  if (episodeHint) params.set("episode", episodeHint);
+  const qs = params.toString();
+  const href = qs
+    ? `/recipes/${recipe.kind}?${qs}`
     : `/recipes/${recipe.kind}`;
 
   return (

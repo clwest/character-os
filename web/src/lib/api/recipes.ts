@@ -372,6 +372,11 @@ export interface CreateCompositionInput {
   kind: string;
   workspace: string;
   params: Record<string, unknown>;
+  /** SESSION 262 — optional Episode UUID. When set, the backend
+   *  attaches the resulting Composition to the Episode via the
+   *  `episode` body field on POST /api/compositions/. NULL /
+   *  omitted preserves standalone-Composition semantics. */
+  episode?: string;
 }
 
 export async function createComposition(

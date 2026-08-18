@@ -13,7 +13,7 @@
  */
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, Trash2, ArchiveRestore } from "lucide-react";
+import { ChevronLeft, Trash2, ArchiveRestore, Film } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -260,6 +260,56 @@ export function EpisodeDetailRoute() {
           </div>
         )}
       </section>
+
+      {/* SESSION 262 — primary "render under this Episode" CTA.
+          Suggests dialogue_scene when the cast has ≥2 members
+          (matches the recipe's cast contract), otherwise routes
+          to the recipe gallery so the operator picks. The
+          `?episode=<id>` query param propagates through the
+          recipe form and lands on the Composition's episode FK
+          at create. */}
+      {!isArchived && (
+        <section className="rounded-md border border-luxe bg-card/60 p-6">
+          <h2 className="mb-2 font-display text-2xl tracking-tight text-cream">
+            Render under this Episode
+          </h2>
+          <p className="mb-3 text-sm text-mist">
+            The story intent and cast above pre-scope every render
+            you create from here. The resulting Composition attaches
+            to this Episode automatically.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            {e.cast.length >= 2 ? (
+              <Button asChild data-testid="episode-render-dialogue-cta">
+                <Link to={`/recipes/dialogue_scene?episode=${e.id}`}>
+                  <Film className="mr-2 h-4 w-4" />
+                  New dialogue scene
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild data-testid="episode-render-talking-cta">
+                <Link to={`/recipes/talking_head?episode=${e.id}`}>
+                  <Film className="mr-2 h-4 w-4" />
+                  New talking head
+                </Link>
+              </Button>
+            )}
+            <Button
+              asChild
+              variant="secondary"
+              data-testid="episode-render-any-cta"
+            >
+              <Link to={`/recipes?episode=${e.id}`}>Choose another recipe</Link>
+            </Button>
+          </div>
+          {e.cast.length < 2 && (
+            <p className="mt-2 text-xs text-fog">
+              Add a second cast member above to enable dialogue-scene
+              renders.
+            </p>
+          )}
+        </section>
+      )}
 
       <section className="flex items-center gap-3">
         {!isArchived ? (

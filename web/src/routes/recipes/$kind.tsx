@@ -46,6 +46,13 @@ export function RecipeFormRoute() {
   // change it; the hint just sets the initial value
   // (F0 contract rule 2).
   const spokespersonHint = searchParams.get("spokesperson") ?? undefined;
+  // SESSION 262 / EPISODE_SCHEMA_V1 — when the Episode detail
+  // page's "New render under this Episode" CTA passes
+  // `?episode=<uuid>`, we attach the resulting Composition to
+  // that Episode on submit. There's no user-visible form field
+  // for it — the FK is set silently and the operator sees the
+  // attachment on the Composition detail page.
+  const episodeHint = searchParams.get("episode") ?? undefined;
 
   const [form, setForm] = useState<FormState>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -229,6 +236,10 @@ export function RecipeFormRoute() {
         kind: r.kind,
         workspace: workspaceId,
         params,
+        // SESSION 262 — attach to the Episode context when the
+        // operator entered this form via "New render under this
+        // Episode." Omitted otherwise (standalone Composition).
+        ...(episodeHint ? { episode: episodeHint } : {}),
       });
       navigate(`/compositions/${comp.id}`, { replace: true });
     } catch (err) {
