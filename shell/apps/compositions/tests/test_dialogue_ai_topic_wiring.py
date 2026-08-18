@@ -40,6 +40,7 @@ from apps.compositions.starters import (
 )
 from apps.spokespeople.models import Teammate
 from character_os.dialogue_synthesis import (
+    DIALOGUE_MODEL,
     DialogueResult,
     DialogueSynthesisError,
     DialogueTurn,
@@ -115,7 +116,9 @@ def _fake_dialogue_result(
         aliases={"patch": primary.name, "rivet": secondary.name},
         mock_mode=False,
         used_knowledge=True,
-        model="gpt-5",
+        # Track the constant so future model migrations don't
+        # require a test edit (SESSION 264 model swap lesson).
+        model=DIALOGUE_MODEL,
         tokens_input=100,
         tokens_output=500,
         raw_llm_json='{"turns": []}',

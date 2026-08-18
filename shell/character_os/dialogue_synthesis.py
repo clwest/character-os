@@ -87,7 +87,18 @@ logger = logging.getLogger(__name__)
 
 # ---- Constants ---------------------------------------------------
 
-DIALOGUE_MODEL = "gpt-5"
+# SESSION 264 (post-Slice-2) — migration from ``gpt-5`` to
+# ``gpt-5.6-terra`` (balance-of-intelligence-and-cost tier).
+# Pre-migration baseline: Composition ef11c810 rendered 59 s of
+# accepted dialogue with the "The agent is acting weird again"
+# Episode; NarrativeMemory / static canon / K2 / continuity / K6.4
+# all passed. Migration preserves every calibration constant below,
+# preserves reasoning_effort at "low" (GPT-5.6's ladder is none /
+# low / medium / high / xhigh / max — starting at parity per the
+# operator brief), preserves the Responses API path, preserves the
+# structured JSON output shape, preserves Writing Contract v4.
+# See ``docs/design/MODEL_MIGRATION_GPT_5_6_TERRA_SESSION_264.md``.
+DIALOGUE_MODEL = "gpt-5.6-terra"
 _MAX_OUTPUT_TOKENS = 4000
 _REASONING_EFFORT = "low"
 

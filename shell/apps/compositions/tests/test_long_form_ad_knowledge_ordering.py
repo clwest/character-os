@@ -46,7 +46,7 @@ from apps.compositions.models import Composition, CompositionStatus
 from apps.compositions.starters import long_form_ad
 from apps.spokespeople.models import Teammate
 from character_os.claim_verifier import ClaimVerifierError, UnsupportedClaim
-from character_os.script_synthesis import ScriptResult
+from character_os.script_synthesis import SCRIPT_MODEL, ScriptResult
 
 User = get_user_model()
 
@@ -94,7 +94,10 @@ def _canned_script_result(brief: str = _SYNTHESIZED_BRIEF) -> ScriptResult:
         brief=brief,
         chunk_ids=["ck-1", "ck-2", "ck-3"],
         used_knowledge=True,
-        model="gpt-5 (mock)",
+        # Mock path stamps ``f"{SCRIPT_MODEL} (mock)"``; track the
+        # constant so future model migrations don't require an edit
+        # (SESSION 264 model swap lesson).
+        model=f"{SCRIPT_MODEL} (mock)",
         verification_status="verified",
         verification_warnings=[],
     )

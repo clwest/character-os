@@ -72,7 +72,15 @@ logger = logging.getLogger(__name__)
 # Responses API only (NOT chat-completions — same calibration that
 # pinned us to gpt-5 family; see internal feedback note on the
 # OpenAI GPT-5 Responses API for the calibration record).
-SCRIPT_MODEL = "gpt-5"
+#
+# SESSION 264 (post-Slice-2) — migration from ``gpt-5`` to
+# ``gpt-5.6-terra``. Balance-of-intelligence-and-cost tier;
+# same Responses API path; ``reasoning_effort="low"`` preserved
+# per operator brief ("do not arbitrarily increase reasoning
+# because GPT-5.6 supports it"). Pre-migration baseline for
+# dialogue: Composition ef11c810 (59 s accepted). See
+# ``docs/design/MODEL_MIGRATION_GPT_5_6_TERRA_SESSION_264.md``.
+SCRIPT_MODEL = "gpt-5.6-terra"
 
 # SESSION 171 — raised from 500 to 2000.
 #
