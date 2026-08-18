@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-08-18T16:47:53.567974+00:00
-git_sha: 7d23270
+generated_at: 2026-08-18T18:17:38.793234+00:00
+git_sha: e25db51
 git_branch: main
 ---
 
@@ -15,7 +15,7 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-08-18T16:47:53.567974+00:00** against commit **7d23270**
+Generated **2026-08-18T18:17:38.793234+00:00** against commit **e25db51**
 on branch **main**.
 
 Python 3.11.6 · Django 5.0.6 ·
@@ -33,7 +33,7 @@ Celery 5.5.3 · httpx 0.27.2.
 | FastAPI routes | **125** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **12** | `celery_app.tasks` filter |
 | Migrations (applied / total) | **108 / 108** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **133,124** in 444 files | `pathlib.Path.rglob("*.py")` |
+| Shell LOC (`*.py`, no venv/migrations) | **133,923** in 446 files | `pathlib.Path.rglob("*.py")` |
 | Media-engine LOC (`*.py`, no venv/migrations) | **63,533** in 156 files | same |
 
 ---
@@ -371,11 +371,11 @@ Total: **12** registered tasks (excluding `celery.*` built-ins).
 | Service | Files | Lines |
 |---|---|---|
 | `media-engine/` | 156 | 63,533 |
-| `shell/` | 444 | 133,124 |
-| **total** | **600** | **196,657** |
+| `shell/` | 446 | 133,923 |
+| **total** | **602** | **197,456** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-08-18T16:47:53.567974+00:00 from commit 7d23270. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-08-18T18:17:38.793234+00:00 from commit e25db51. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
