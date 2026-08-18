@@ -253,6 +253,11 @@ class DialogueSynthesisFailedError(Exception):
         synthesis_attempt_count: int = 0,
         synthesis_predicted_seconds: float | None = None,
         validation_failure_reason: str = "",
+        # SESSION 264 Slice 2 — narrative-memory retrieval snapshot.
+        # Optional; defaults to [] for callers that don't yet plumb
+        # it (identical shape to the SESSION 262 observability
+        # passthrough above).
+        memory_ids: list | None = None,
     ) -> None:
         self.reason = reason
         self.workspace = workspace
@@ -263,6 +268,7 @@ class DialogueSynthesisFailedError(Exception):
         self.verification_status = verification_status
         self.writing_contract_version = writing_contract_version
         self.knowledge_chunk_ids = knowledge_chunk_ids
+        self.memory_ids = list(memory_ids or [])
         self.synthesized_brief = synthesized_brief
         self.mock_mode = mock_mode
         self.created_by = created_by
@@ -3570,6 +3576,10 @@ def dialogue_scene(
                 # failure was pre-retrieval (missing key, empty topic,
                 # cast validation). SESSION 259 audit blocker #4.
                 knowledge_chunk_ids=list(exc.chunk_ids),
+                # SESSION 264 Slice 2 — carry narrative-memory
+                # retrieval snapshot on FAILED rows so audits see
+                # which memories fed the render.
+                memory_ids=list(getattr(exc, "memory_ids", []) or []),
                 synthesized_brief="",
                 mock_mode=mock_mode,
                 created_by=created_by,
@@ -3696,6 +3706,13 @@ def dialogue_scene(
                 ai_dialogue_result,
             ),
             "knowledge_chunk_ids": list(ai_dialogue_result.chunk_ids),
+            # SESSION 264 Slice 2 — narrative-memory provenance
+            # lands on a SEPARATE field from knowledge_chunk_ids
+            # because NarrativeMemory UUIDs would silently break
+            # the downstream KnowledgeChunk-only citation resolver
+            # (see docs/design/EPISODIC_CONTINUITY_CANON_PROMOTION_AUDIT_SESSION_264.md
+            # Slice 2 observability decision).
+            "memory_ids": list(ai_dialogue_result.memory_ids),
             "synthesized_brief": _dialogue_ai_synthesized_brief(
                 ai_dialogue_result,
             ),

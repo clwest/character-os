@@ -426,6 +426,21 @@ class Composition(models.Model):
     # composition (empty knowledge, retrieval failure, etc.).
     knowledge_chunk_ids = models.JSONField(default=list, blank=True)
 
+    # SESSION 264 Slice 2 — NarrativeMemory provenance. Separate
+    # from ``knowledge_chunk_ids`` because downstream consumers
+    # (``resolve_chunk_ids_to_docs`` at
+    # ``apps/embeddings/retrieval.py``, the F6 ``composed_in``
+    # view at ``apps/embeddings/views.py``) resolve those IDs
+    # against the KnowledgeChunk model directly. Overloading
+    # ``knowledge_chunk_ids`` with ``NarrativeMemory`` UUIDs would
+    # silently break the citation resolver.
+    #
+    # Flat list of ``NarrativeMemory.id`` strings that fed the
+    # render (from the ``retrieve_universe_memory`` lane in
+    # ``synthesize_dialogue``). ``[]`` when no memories were
+    # retrieved OR when ``use_knowledge=False``.
+    memory_ids = models.JSONField(default=list, blank=True)
+
     # K6.4 — post-synthesis claim verifier output. Each entry
     # is a dict ``{"claim": str, "kind": str, "position": int}``
     # describing a named entity that appeared in the synthesized

@@ -31,6 +31,7 @@ from apps.universe.models import Episode
 
 from .models import NarrativeMemory, NarrativeMemoryStatus
 from .serializers import NarrativeMemorySerializer
+from .services import embed_memory
 
 logger = logging.getLogger(__name__)
 
@@ -271,5 +272,16 @@ def promote_from_composition(
                 ])
 
             created.append(memory)
+
+    # SESSION 264 Slice 2 — embed AFTER the atomic commits so the
+    # promotion lands regardless of provider health. embed_memory
+    # is defensively try/except-wrapped; a failed embed leaves the
+    # row with embedding_vector=NULL, which the retrieval predicate
+    # excludes until a re-embed. Inline (sync) matches the
+    # KnowledgeChunk pattern: no Celery beat sweep, no async task,
+    # simplest possible provider integration for a short operator
+    # loop.
+    for memory in created:
+        embed_memory(memory)
 
     return created

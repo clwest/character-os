@@ -209,6 +209,7 @@ class DialogueSynthesisError(Exception):
         attempt_count: int = 0,
         predicted_seconds: float | None = None,
         chunk_ids: list[str] | None = None,
+        memory_ids: list[str] | None = None,
     ) -> None:
         super().__init__(reason)
         self.reason = reason
@@ -219,6 +220,11 @@ class DialogueSynthesisError(Exception):
         self.attempt_count = attempt_count
         self.predicted_seconds = predicted_seconds
         self.chunk_ids = list(chunk_ids or [])
+        # SESSION 264 Slice 2 — retrieval snapshot for narrative
+        # memory. Populated when retrieval succeeded before
+        # validation failed; empty when the failure was
+        # pre-retrieval.
+        self.memory_ids = list(memory_ids or [])
 
 
 # ---- Data model --------------------------------------------------
@@ -301,6 +307,13 @@ class DialogueResult:
     first_pass_raw: str = ""
     corrective_hint: str = ""
     corrective_pass_raw: str = ""
+    # SESSION 264 Slice 2 — narrative-memory provenance. Flat
+    # list of ``NarrativeMemory.id`` strings that fed the render
+    # (SEPARATE from ``chunk_ids`` because narrative memory rows
+    # are NOT ``KnowledgeChunk`` rows and would silently break
+    # ``resolve_chunk_ids_to_docs`` / the F6 ``composed_in`` view
+    # if commingled). Landed on ``Composition.memory_ids``.
+    memory_ids: list[str] = field(default_factory=list)
 
 
 # ---- Force-mock helpers ------------------------------------------
@@ -427,15 +440,20 @@ def _build_factual_basis_section(
     *,
     use_knowledge: bool,
     shared_chunks: "list[KnowledgeChunk] | None" = None,
+    memory_rows: "list | None" = None,
 ) -> str:
     """§1 Factual Basis, dialogue-shaped.
 
-    Three labeled sub-blocks:
+    Four labeled sub-blocks (in prompt order):
 
     * SHARED — canon chunks legitimately visible to every cast
-      member (from the SESSION 263 Slice B canon-lane pass,
-      supplemented by scope-shared chunks that leak into
-      per-character retrieval on high cosine relevance).
+      member (SESSION 263 Slice B canon-lane pass + C.1
+      scope-shared promotion).
+    * NARRATIVE MEMORY — SESSION 264 Slice 2. Operator-promoted
+      story history rows. Between SHARED and CHARACTER blocks so
+      the LLM reads it as past events subordinate to static
+      canon. Never contains synthesis-generated content; only
+      rows the operator explicitly clicked "Remember this" on.
     * CHARACTER A / B — chunks + factual identity fields
       scoped to each speaker.
 
@@ -445,11 +463,13 @@ def _build_factual_basis_section(
     ``use_knowledge=False`` yields a factual section that
     still names the identity fields on each character (a
     "safe general conversation" fallback) but includes no
-    K2 chunks and skips the canon lane.
+    K2 chunks and skips both canon + memory lanes.
 
     ``shared_chunks`` (SESSION 263 Slice B) is the deterministic
-    output of ``retrieve_universe_canon``. When ``None`` (legacy
-    callers) or empty, only the C.1 scope-aware detector applies.
+    output of ``retrieve_universe_canon``. ``memory_rows``
+    (SESSION 264 Slice 2) is the deterministic output of
+    ``retrieve_universe_memory``. When either is ``None``
+    (legacy callers) or empty, that block is omitted.
     """
     lines = [
         "=== SECTION 1 — FACTUAL BASIS ===",
@@ -511,6 +531,37 @@ def _build_factual_basis_section(
             lines.append("")
             lines.append("--- SHARED WORLD KNOWLEDGE (any character may cite) ---")
             lines.append("\n\n".join(shared_lines))
+
+        # SESSION 264 Slice 2 — narrative-memory block. Sits between
+        # SHARED WORLD KNOWLEDGE and per-character SCOPED KNOWLEDGE.
+        # Same "any character may cite" visibility, but explicitly
+        # framed as *past events* so the LLM treats it as callback
+        # material rather than present factual claims. Static canon
+        # wins on conflict (the wording below is load-bearing —
+        # tests assert on the "canon wins" phrase).
+        if memory_rows:
+            memory_lines: list[str] = []
+            for m in memory_rows:
+                mid = str(getattr(m, "id", "") or "")
+                body = (getattr(m, "body", "") or "").strip()
+                if not (mid and body):
+                    continue
+                memory_lines.append(
+                    f"[MEMORY {mid}]\n{body}"
+                )
+            if memory_lines:
+                lines.append("")
+                lines.append(
+                    "--- EPISODE / NARRATIVE MEMORY (past events in this "
+                    "Universe; static canon wins on conflict) ---"
+                )
+                lines.append(
+                    "These are operator-promoted story memories. Use them "
+                    "as historical context or callback material where "
+                    "natural. Do not recite them verbatim; treat them as "
+                    "background the cast already knows happened."
+                )
+                lines.append("\n\n".join(memory_lines))
 
     for alias, tm, chunks in cast_labels:
         header = f"--- {alias.upper()}'S SCOPED KNOWLEDGE (only {alias!r} may cite these as their own) ---"
@@ -814,11 +865,13 @@ def _assemble_system_prompt(
     alias_to_teammate: dict[str, "Teammate"],
     use_knowledge: bool,
     shared_chunks: "list[KnowledgeChunk] | None" = None,
+    memory_rows: "list | None" = None,
 ) -> str:
     factual = _build_factual_basis_section(
         cast_labels,
         use_knowledge=use_knowledge,
         shared_chunks=shared_chunks,
+        memory_rows=memory_rows,
     )
     voices = _build_character_voices_section(alias_to_teammate)
     brand = _build_brand_voices_section(alias_to_teammate)
@@ -1402,6 +1455,14 @@ def synthesize_dialogue(
     # dialogue is Universe-less, when knowledge is disabled, or
     # when no shared-tier canon exists.
     shared_chunks: list["KnowledgeChunk"] = []
+    # SESSION 264 Slice 2 — narrative-memory lane. Populated
+    # once per synthesis. Never overlaps with shared_chunks
+    # (canon is a KnowledgeChunk; memory is a NarrativeMemory —
+    # different tables, different retrieval functions). Empty
+    # when Universe-less, knowledge disabled, or no active +
+    # embedded operator-promoted memories match the visibility
+    # predicate.
+    memory_rows: list = []  # list[NarrativeMemory]
 
     force_mock = mock_mode or _is_force_mock()
 
@@ -1410,6 +1471,7 @@ def synthesize_dialogue(
         from apps.embeddings.retrieval import (
             retrieve_for_teammate,
             retrieve_universe_canon,
+            retrieve_universe_memory,
         )
         for alias, tm in alias_to_teammate.items():
             try:
@@ -1454,6 +1516,26 @@ def synthesize_dialogue(
                 )
                 shared_chunks = []
 
+            # SESSION 264 Slice 2 — one memory-lane call per synthesis.
+            # top_k=1 fixed for v1 per the Slice 2 brief. Same
+            # non-fatal degradation posture.
+            try:
+                memory_rows = list(
+                    retrieve_universe_memory(
+                        workspace, canon_universe, cast, topic, top_k=1,
+                    )
+                )
+            except Exception as exc:
+                logger.warning(
+                    "dialogue_synthesis: retrieve_universe_memory "
+                    "failed workspace=%s universe=%s (%s); "
+                    "proceeding without narrative memory",
+                    getattr(workspace, "id", None),
+                    getattr(canon_universe, "id", None),
+                    exc,
+                )
+                memory_rows = []
+
     # ---- Mock branch --------------------------------------------
     if force_mock:
         # Canon lane stays empty for mock (no provider hops); the
@@ -1485,6 +1567,7 @@ def synthesize_dialogue(
         alias_to_teammate=alias_to_teammate,
         use_knowledge=use_knowledge,
         shared_chunks=shared_chunks,
+        memory_rows=memory_rows,
     )
 
     # ---- First pass ---------------------------------------------
@@ -1572,6 +1655,16 @@ def synthesize_dialogue(
                     if _cid and _cid not in _seen_ids:
                         _seen_ids.add(_cid)
                         _chunk_ids_snapshot.append(_cid)
+            # SESSION 264 Slice 2 — parallel snapshot for narrative
+            # memory. Kept in its own list because memory IDs are
+            # NarrativeMemory UUIDs, not KnowledgeChunk UUIDs.
+            _memory_ids_snapshot: list[str] = []
+            _seen_memory_ids: set[str] = set()
+            for _m in memory_rows:
+                _mid = str(getattr(_m, "id", "") or "")
+                if _mid and _mid not in _seen_memory_ids:
+                    _seen_memory_ids.add(_mid)
+                    _memory_ids_snapshot.append(_mid)
             raise DialogueSynthesisError(
                 f"dialogue synthesis rejected after one corrective "
                 f"pass: {hint_2}",
@@ -1582,6 +1675,7 @@ def synthesize_dialogue(
                 attempt_count=attempt_count,
                 predicted_seconds=_predicted,
                 chunk_ids=_chunk_ids_snapshot,
+                memory_ids=_memory_ids_snapshot,
             )
         turns = turns_2
         final_raw = raw_json_2
@@ -1598,10 +1692,31 @@ def synthesize_dialogue(
     # participates in each speaker's factual corpus so a canon-
     # cited fact spoken by either character passes K6.4. This
     # does NOT merge per-character K2 across speakers.
+    #
+    # SESSION 264 Slice 2 — narrative memory participates on the
+    # same "visible to every eligible speaker" footing. The
+    # retrieval predicate already filtered by witness overlap;
+    # each row surfaced here is eligible for every speaker in the
+    # current cast that overlaps its witness set. We adapt each
+    # NarrativeMemory to a chunk_text-shaped duck so
+    # ``build_factual_corpus`` (which reads ``chunk_text``) works
+    # unchanged. Weight: canon still wins on conflict — enforced
+    # by the prompt's precedence rules + memory block wording.
+    from types import SimpleNamespace as _NS
+    memory_corpus_chunks = [
+        _NS(chunk_text=(getattr(m, "body", "") or "").strip())
+        for m in memory_rows
+        if (getattr(m, "body", "") or "").strip()
+    ]
+
     corpus_by_alias: dict[str, str] = {}
     vocab_by_alias: dict[str, list[str]] = {}
     for alias, tm in alias_to_teammate.items():
-        combined_chunks = list(shared_chunks) + list(per_character_chunks[alias])
+        combined_chunks = (
+            list(shared_chunks)
+            + list(memory_corpus_chunks)
+            + list(per_character_chunks[alias])
+        )
         corpus_by_alias[alias] = build_factual_corpus(
             combined_chunks, spokesperson=tm,
         )
@@ -1649,6 +1764,13 @@ def synthesize_dialogue(
     # the aggregate ``knowledge_chunk_ids`` list so downstream
     # provenance panels can identify canon by ordering. Deduped
     # against the same seen-set that guards per-character IDs.
+    #
+    # SESSION 264 Slice 2 — narrative-memory IDs do NOT enter
+    # ``knowledge_chunk_ids``. They land on the separate
+    # ``memory_ids`` list because they resolve to
+    # ``NarrativeMemory`` rows, not ``KnowledgeChunk`` rows.
+    # See ``docs/design/EPISODIC_CONTINUITY_CANON_PROMOTION_AUDIT_SESSION_264.md``
+    # Slice 2 addendum — observability decision.
     for c in shared_chunks:
         cid = str(getattr(c, "id", "") or "")
         if cid and cid not in seen_ids:
@@ -1663,6 +1785,15 @@ def synthesize_dialogue(
                 seen_ids.add(i)
                 all_ids.append(i)
 
+    # Memory provenance — separate lane, separate list.
+    memory_ids_out: list[str] = []
+    seen_memory_ids: set[str] = set()
+    for m in memory_rows:
+        mid = str(getattr(m, "id", "") or "")
+        if mid and mid not in seen_memory_ids:
+            seen_memory_ids.add(mid)
+            memory_ids_out.append(mid)
+
     aliases_map = {
         a: getattr(tm, "name", "") or a
         for a, tm in alias_to_teammate.items()
@@ -1672,6 +1803,7 @@ def synthesize_dialogue(
         turns=turns,
         chunk_ids=all_ids,
         per_character_chunk_ids=per_char_chunk_ids,
+        memory_ids=memory_ids_out,
         writing_contract_version=WRITING_CONTRACT_VERSION,
         overall_verification_status=overall_status,
         total_chars=total_chars,
@@ -1679,7 +1811,7 @@ def synthesize_dialogue(
         target_duration_seconds=target_duration_seconds,
         aliases=aliases_map,
         mock_mode=False,
-        used_knowledge=use_knowledge and bool(all_ids),
+        used_knowledge=use_knowledge and (bool(all_ids) or bool(memory_ids_out)),
         model=DIALOGUE_MODEL,
         tokens_input=tokens_in_total,
         tokens_output=tokens_out_total,

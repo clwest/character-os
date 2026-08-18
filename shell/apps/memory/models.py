@@ -1,8 +1,11 @@
 """NarrativeMemory — durable story facts promoted by the operator
 from an accepted Composition.
 
-SESSION 264 / ``docs/design/EPISODIC_CONTINUITY_CANON_PROMOTION_AUDIT_SESSION_264.md``
-Slice 1 (thin operator-visible vertical slice).
+SESSION 264 / ``docs/design/EPISODIC_CONTINUITY_CANON_PROMOTION_AUDIT_SESSION_264.md``.
+
+Slice 1: operator-visible promote UX + read/archive/unarchive
+surface. Slice 2: embedding + Universe-scoped retrieval lane
+consumed by dialogue synthesis.
 
 Load-bearing rules (see audit §8, §9, §13):
 
@@ -11,7 +14,10 @@ Load-bearing rules (see audit §8, §9, §13):
    accepted ``Composition``. There is no auto-promotion path.
 2. **Never mutates KnowledgeDocument.** Narrative memory is a
    separate tier from static Universe canon; the two must not
-   flow into one another.
+   flow into one another. Slice 2 wires a *separate* retrieval
+   lane — memory chunks never enter ``retrieve_universe_canon``,
+   never enter ``retrieve_for_teammate``, never become
+   ``KnowledgeChunk`` rows.
 3. **Universe-scoped.** Every row denormalizes ``workspace`` and
    ``universe`` (for tenant/scope filtering) but the authoritative
    parent is the ``Episode``. ``source_composition`` records the
@@ -19,14 +25,13 @@ Load-bearing rules (see audit §8, §9, §13):
 4. **Operator authority is explicit.** Corrections happen via
    supersede chains (mirror ``bootstrap_review`` journal shape);
    deletion is soft (``archived_at``). No hard-delete affordance
-   is exposed in Slice 1.
-5. **Retrieval integration is Slice 2.** This slice does NOT wire
-   narrative memory into ``retrieve_universe_canon``, ``retrieve_for_teammate``,
-   ``synthesize_dialogue``, ``synthesize_script``, or any other
-   consumer. Rows are queryable via the operator surface only.
-
-Retrieval-lane wiring, embedding vector, K6.4 corpus participation,
-and the ``memory_chunk_ids`` observability field are all Slice 2 work.
+   is exposed in Slice 1 or 2.
+5. **Embedding is operator-triggered.** ``embedding_vector`` is
+   populated inline by ``apps.memory.views.promote_from_composition``
+   using the same ``apps.embeddings.embedding_service.embed``
+   function that ``KnowledgeChunk`` uses. Archived / superseded
+   rows retain their vectors for audit but are excluded from
+   retrieval by the ``retrieve_universe_memory`` predicate.
 """
 from __future__ import annotations
 
@@ -35,8 +40,13 @@ import uuid
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from pgvector.django import HnswIndex, VectorField
 
 from apps.accounts.models import Workspace
+from apps.embeddings.models import (
+    EMBEDDING_DIMENSION,
+    EMBEDDING_MODEL_DEFAULT,
+)
 
 
 class NarrativeMemoryKind(models.TextChoices):
@@ -261,6 +271,58 @@ class NarrativeMemory(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # ---- Slice 2 — embedding ----
+    #
+    # Reuses ``apps.embeddings.embedding_service.embed`` (same
+    # provider ``text-embedding-3-small`` @ 1536 dims that
+    # ``KnowledgeChunk`` uses) so retrieval treats memory bodies
+    # and canon chunks under the same cosine geometry. Populated
+    # inline by ``apps.memory.views.promote_from_composition``
+    # right after ``NarrativeMemory.save()`` — the operator loop
+    # is short (a couple sentences), sync avoids adding a Celery
+    # sweep for a substrate that doesn't have one on the canon
+    # side either.
+    #
+    # ``null=True`` for two reasons:
+    #   * Row f25e53af from the SESSION 264 Slice 1 dogfood was
+    #     created before this field existed; the migration adds
+    #     the column NULL so existing rows survive without an
+    #     immediate backfill.
+    #   * Embedding failures must not roll back the ``Remember
+    #     this`` promotion — the operator's intent lands
+    #     regardless. The row is simply excluded from retrieval
+    #     until re-embedded (a management command / operator
+    #     retry, not modeled in Slice 2).
+    embedding_vector = VectorField(
+        dimensions=EMBEDDING_DIMENSION,
+        null=True,
+        blank=True,
+    )
+    embedding_model = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Provider model that produced ``embedding_vector``.",
+    )
+    embedding_dimension = models.PositiveIntegerField(
+        default=0,
+        help_text=(
+            "Dimension of the persisted vector (0 = never embedded)."
+        ),
+    )
+    embedding_cost_micros = models.PositiveIntegerField(
+        default=0,
+        help_text="Cost in micros (1 USD = 1_000_000 micros).",
+    )
+    embedded_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=(
+            "When ``embedding_vector`` was last populated. NULL = "
+            "never embedded (excluded from retrieval)."
+        ),
+    )
+
     class Meta:
         db_table = "memory_narrative_memory"
         ordering = ["-created_at"]
@@ -280,6 +342,17 @@ class NarrativeMemory(models.Model):
             models.Index(
                 fields=["workspace", "-created_at"],
                 name="narrmem_workspace_ctime_idx",
+            ),
+            # pgvector HNSW index mirroring KnowledgeChunk's
+            # ``knowchunk_vec_hnsw_idx`` (m=16 / ef_construction=64,
+            # cosine ops). Ensures retrieval scales past the first
+            # few operator-promoted rows without a re-index event.
+            HnswIndex(
+                name="narrmem_vec_hnsw_idx",
+                fields=["embedding_vector"],
+                m=16,
+                ef_construction=64,
+                opclasses=["vector_cosine_ops"],
             ),
         ]
 

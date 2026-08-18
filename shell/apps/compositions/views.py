@@ -784,6 +784,9 @@ class CompositionViewSet(viewsets.GenericViewSet):
                 verification_status=exc.verification_status,
                 writing_contract_version=exc.writing_contract_version,
                 knowledge_chunk_ids=exc.knowledge_chunk_ids,
+                # SESSION 264 Slice 2 — carry narrative-memory
+                # retrieval snapshot on FAILED dialogue rows.
+                memory_ids=list(getattr(exc, "memory_ids", []) or []),
                 synthesized_brief=exc.synthesized_brief,
                 # SESSION 262 — Composition observability. Same
                 # rescue pattern as the LongFormDurationError branch

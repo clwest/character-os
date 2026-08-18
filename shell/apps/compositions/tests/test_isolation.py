@@ -140,6 +140,12 @@ ALLOWED_FILES = {
     # RESTRICT on delete, Universe/Workspace consistency, and
     # supersede chains. Sanctioned test-side writer.
     "apps/memory/tests/test_narrative_memory.py",
+    # SESSION 264 Slice 2 — memory retrieval lane tests seed
+    # Composition + Episode + NarrativeMemory rows to exercise
+    # ``retrieve_universe_memory`` under cross-workspace /
+    # cross-universe isolation + witness overlap semantics.
+    # Sanctioned test-side writer.
+    "apps/embeddings/tests/test_retrieval_universe_memory.py",
     # SESSION 210 — `sweep_expired_assets` Celery task tests
     # seed Composition + Asset rows with crafted JWT URLs to
     # exercise the hourly Beat sweep. Asset.composition FK is

@@ -15,12 +15,20 @@ functions:
   retrieval (SESSION 263). Returns chunks whose document is
   visible to *every* teammate in ``cast`` and is scope-shared
   (M2M-null broadcast OR M2M covers every cast member).
+* ``retrieve_universe_memory()`` — Universe-scoped operator-
+  promoted ``NarrativeMemory`` retrieval (SESSION 264 Slice 2).
+  Its own lane; NEVER returns ``KnowledgeChunk`` rows, NEVER
+  mutates canon.
 
 **Discipline:** no code outside this module is allowed to
 import ``KnowledgeChunk`` or ``ConversationEmbedding``.
 That's contract rule 2 of the scope lock and is enforced by
 ``apps.embeddings.tests.test_retrieval_isolation`` —
-edits to bypass it should fail review.
+edits to bypass it should fail review. ``NarrativeMemory``
+(in ``apps.memory.models``) is a separate model and is not
+covered by rule 2; the "narrow retrieval surface" spirit is
+preserved by only exposing it through ``retrieve_universe_memory``
+in this same module.
 
 The cross-workspace / cross-thread isolation tests in the
 same module are the load-bearing privacy guarantee. If the
@@ -399,6 +407,136 @@ def retrieve_universe_canon(
 
     qs = (
         KnowledgeChunk.objects.filter(document_id__in=candidate_doc_ids)
+        .annotate(distance=CosineDistance("embedding_vector", vector))
+        .order_by("distance")
+    )
+    return list(qs[:top_k])
+
+
+# ============================================================
+# SESSION 264 Slice 2 — Universe narrative-memory retrieval lane
+# ============================================================
+#
+# Third retrieval lane. Sits alongside ``retrieve_universe_canon``
+# (static shared canon) and ``retrieve_for_teammate`` (per-character
+# K2). NEVER returns ``KnowledgeChunk`` rows; NEVER mutates any
+# ``KnowledgeDocument``.
+#
+# Predicate mirrors the audit §13.2 recommendation verbatim:
+#   * workspace = <given>                        (tenant wall)
+#   * universe  = <given>                        (Universe scope)
+#   * status    = REMEMBERED                     (excludes archived + superseded)
+#   * archived_at IS NULL                        (defense-in-depth)
+#   * embedding_vector IS NOT NULL               (skip unembedded rows)
+#   * witnessed_by is empty  OR
+#     witnessed_by ∩ current-cast is non-empty   (whole-cast default OR overlap)
+#
+# top_k fixed at 1 for v1 per the SESSION 264 Slice 2 brief. Not
+# configurable yet — matches the audit's conservative default and
+# gives us falsifiable evidence before tuning.
+
+
+def retrieve_universe_memory(
+    workspace,
+    universe,
+    cast: "Sequence[Teammate]",
+    query: str = "",
+    top_k: int = 1,
+    *,
+    _query_vector: "Sequence[float] | None" = None,
+) -> list:
+    """Return the top-k active narrative-memory rows for a dialogue cast.
+
+    SESSION 264 Slice 2. Companion to ``retrieve_universe_canon``
+    and ``retrieve_for_teammate``; does NOT change their semantics
+    or budgets.
+
+    Returns a list of ``apps.memory.models.NarrativeMemory`` rows
+    (never ``KnowledgeChunk``). Empty list when:
+      * ``universe`` is ``None`` (memory is a Universe primitive)
+      * ``cast`` is empty
+      * ``top_k <= 0``
+      * cast spans Universes (defensive; matches canon lane)
+      * no active + embedded rows match the visibility predicate
+
+    Args:
+        workspace: the composition's workspace (tenant anchor).
+        universe: the Universe this dialogue is anchored in.
+        cast: ordered speakers; every cast member must belong to
+            ``universe``.
+        query: natural-language query. Ignored when
+            ``_query_vector`` is passed (test hatch — same shape
+            as ``retrieve_universe_canon``).
+        top_k: bounded number of rows to return (default 1).
+
+    Isolation guarantees mirror canon lane:
+        * Cross-Workspace impossible (workspace filter is
+          unconditional and not overridable).
+        * Cross-Universe impossible (universe filter is
+          unconditional; cross-Universe cast returns []).
+    """
+    # Local import so this module doesn't force ``apps.memory`` to
+    # load at boot time; apps.memory itself imports embeddings for
+    # ``embedding_service`` so a top-level import here would create
+    # a cycle at Django app-registry init.
+    from apps.memory.models import NarrativeMemory, NarrativeMemoryStatus
+
+    if top_k <= 0 or universe is None or not cast:
+        return []
+
+    universe_id = getattr(universe, "id", None) or getattr(universe, "pk", None)
+    if universe_id is None:
+        return []
+    for tm in cast:
+        if getattr(tm, "universe_id", None) != universe_id:
+            return []
+
+    vector = list(_query_vector) if _query_vector is not None else _embed_query(query)
+
+    cast_ids = [getattr(tm, "id", None) or getattr(tm, "pk", None) for tm in cast]
+    cast_ids = [c for c in cast_ids if c is not None]
+
+    # Base predicate — status, archive, embed, workspace, universe.
+    base_qs = NarrativeMemory.objects.filter(
+        workspace=workspace,
+        universe_id=universe_id,
+        status=NarrativeMemoryStatus.REMEMBERED,
+        archived_at__isnull=True,
+        embedding_vector__isnull=False,
+    )
+
+    # Visibility filter — witness-empty (whole cast, matches the
+    # ``KnowledgeDocument.spokespeople`` empty-M2M-is-broadcast
+    # convention) OR at least one witness overlaps the current
+    # cast. We compute the two sets separately then union IDs to
+    # avoid the Django ORM annotation-on-chained-M2M bug that
+    # ``retrieve_universe_canon`` had to work around (line 380+).
+    if cast_ids:
+        # Whole-cast (witnessed_by empty) — annotate + filter is
+        # safe here because the annotation runs on a fresh queryset
+        # with no chained M2M filter.
+        whole_cast_ids = list(
+            base_qs.annotate(_wc=Count("witnessed_by"))
+            .filter(_wc=0)
+            .values_list("id", flat=True)
+        )
+        # At-least-one-overlap — separate queryset over the M2M.
+        overlap_ids = list(
+            base_qs.filter(witnessed_by__id__in=cast_ids)
+            .values_list("id", flat=True)
+            .distinct()
+        )
+        candidate_ids = set(whole_cast_ids) | set(overlap_ids)
+    else:
+        # No cast IDs — only whole-cast rows are visible. Defensive
+        # (already returned [] for empty cast above).
+        candidate_ids = set()
+
+    if not candidate_ids:
+        return []
+
+    qs = (
+        NarrativeMemory.objects.filter(id__in=candidate_ids)
         .annotate(distance=CosineDistance("embedding_vector", vector))
         .order_by("distance")
     )

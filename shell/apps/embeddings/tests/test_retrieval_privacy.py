@@ -362,6 +362,12 @@ ALLOWED_FILES = {
     # top_k for ``retrieve_universe_canon``. Same sanction as
     # the truth-table tests.
     "apps/embeddings/tests/test_retrieval_universe_canon.py",
+    # SESSION 264 Slice 2 — narrative-memory retrieval-lane tests.
+    # The file does NOT query KnowledgeChunk.objects (its type-
+    # isolation assertion is ``isinstance(..., KnowledgeChunk)``),
+    # but pattern-match on the raw import goes through the same
+    # gate; whitelisting keeps the isolation intact.
+    "apps/embeddings/tests/test_retrieval_universe_memory.py",
 }
 
 # The pattern we actually care about: ``<Model>.objects`` —

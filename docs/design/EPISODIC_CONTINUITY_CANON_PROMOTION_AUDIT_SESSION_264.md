@@ -1366,6 +1366,268 @@ Vite build pass. Zero regressions in universe + compositions.
 
 ---
 
-*End of SESSION 264 audit. Slice 1 shipped and dogfood-corrected.
-Awaiting operator's next round of dogfood before authorizing Slice
-2 retrieval integration.*
+*Slice 1 shipped and dogfood-corrected.*
+
+---
+
+## Addendum — Slice 2 implementation report (2026-08-18)
+
+Retrieval lane wired. `retrieve_universe_memory` sits alongside
+`retrieve_universe_canon` (SESSION 263) and `retrieve_for_teammate`
+(SESSION 138 / K2). Dialogue synthesis now consumes all three;
+K6.4 corpus participation extended; observability landed on a
+dedicated `Composition.memory_ids` field.
+
+### What shipped
+
+**Model** (`shell/apps/memory/models.py` + migration
+`memory/0002_narrativememory_embedded_at_and_more.py`):
+
+- `embedding_vector` — pgvector `VectorField(dimensions=1536)`,
+  nullable so existing SESSION 264 Slice 1 rows survive the
+  migration without an immediate backfill.
+- `embedding_model` / `embedding_dimension` /
+  `embedding_cost_micros` / `embedded_at` — provenance +
+  audit + cost.
+- HNSW index `narrmem_vec_hnsw_idx` (`m=16, ef_construction=64`,
+  cosine ops) mirroring `KnowledgeChunk.knowchunk_vec_hnsw_idx`
+  so retrieval scales past the first few operator-promoted rows
+  without a re-index event.
+
+**Embed service** (`shell/apps/memory/services.py`):
+
+- `embed_memory(memory, *, force=False)` — reuses
+  `apps.embeddings.embedding_service.embed`, the same shared
+  entry point `KnowledgeChunk` embedding uses. Cosine geometry
+  matches across canon + memory retrieval.
+- Idempotent — skips rows that already have a vector.
+- Defensively try/except-wrapped — a failed embed leaves the
+  row with `embedding_vector=NULL` (excluded from retrieval);
+  the operator's `Remember this` promotion is never rolled back
+  by a provider hiccup. Audit §9: operator authority is
+  authoritative; provider availability is not.
+- Wired into `promote_from_composition` AFTER the atomic commits
+  so a promotion always lands even if the provider is down.
+
+**Management command**
+(`shell/apps/memory/management/commands/embed_narrative_memories.py`):
+
+- Backfills missing vectors on the active REMEMBERED set. Used
+  to embed the SESSION 264 Slice 1 dogfood row (`f25e53af…`)
+  after Slice 2 landed.
+- Supports `--force`, `--dry-run`, `--memory <id>`,
+  `--include-archived`.
+
+**Retrieval** (`shell/apps/embeddings/retrieval.py`):
+
+- `retrieve_universe_memory(workspace, universe, cast, query,
+  top_k=1, *, _query_vector=None)`.
+- Predicate mirrors audit §13.2 verbatim: workspace + universe +
+  `status=REMEMBERED` + `archived_at IS NULL` +
+  `embedding_vector IS NOT NULL` + (witnessed_by empty OR
+  witnessed_by ∩ current-cast non-empty). `top_k=1` fixed for
+  v1 per the Slice 2 brief.
+- Returns `NarrativeMemory` rows — NEVER `KnowledgeChunk` rows.
+  Isolation proven by
+  `test_retrieval_universe_memory.py::test_returns_narrative_memory_not_knowledge_chunk`.
+- Contract rule 2 unchanged — the rule names `KnowledgeChunk`
+  and `ConversationEmbedding` specifically; `NarrativeMemory` is
+  a separate model in `apps.memory`. Retrieval-surface
+  discipline is preserved because the only public entry point
+  for memory retrieval lives in `apps.embeddings.retrieval`
+  alongside the other two lanes.
+
+**Dialogue synthesis integration**
+(`shell/character_os/dialogue_synthesis.py`):
+
+- One `retrieve_universe_memory` call per synthesis, alongside
+  canon and per-character retrieval. Gated by `use_knowledge=True`
+  (matches SESSION 263 pattern; OFF stays OFF).
+- Non-fatal degradation — memory retrieval failure leaves an
+  empty memory list; synthesis proceeds without memory.
+- New `_build_factual_basis_section` block between
+  SHARED WORLD KNOWLEDGE and per-character SCOPED KNOWLEDGE:
+
+  ```
+  --- EPISODE / NARRATIVE MEMORY (past events in this Universe;
+      static canon wins on conflict) ---
+  These are operator-promoted story memories. Use them as
+  historical context or callback material where natural. Do not
+  recite them verbatim; treat them as background the cast
+  already knows happened.
+
+  [MEMORY <uuid>]
+  <memory body>
+  ```
+
+  Wording is load-bearing — tests assert on "past events",
+  "canon wins on conflict", "operator-promoted", "Do not
+  recite them verbatim".
+- K6.4 factual corpus: memory bodies participate in every
+  eligible speaker's corpus (canon still wins on conflict via
+  the prompt's precedence rules + memory block wording).
+  Adapter is a `types.SimpleNamespace` duck exposing
+  `chunk_text` from `body`; `build_factual_corpus` unchanged.
+- `DialogueResult.memory_ids: list[str]` — flat list of
+  `NarrativeMemory` UUIDs (dedup, insertion order).
+- `used_knowledge` is now `True` if canon+K2 chunks OR memory
+  rows fed the render (previously canon+K2 only).
+
+**Observability** — DECISION POINT overridden by repo evidence:
+
+The audit sketched `knowledge_chunk_ids` tier-ordered as
+`canon → memory → per-character K2`. Repository evidence rules
+that out:
+
+- `apps/embeddings/retrieval.py::resolve_chunk_ids_to_docs` (line
+  81) resolves those IDs against the KnowledgeChunk model
+  directly.
+- `apps/embeddings/views.py::KnowledgeDocumentViewSet.composed_in`
+  (line 266) does the same.
+- Silently loading `NarrativeMemory` UUIDs into that field
+  would break both consumers.
+
+Corrected shape (migration
+`compositions/0017_composition_memory_ids_and_more.py`):
+
+- New `Composition.memory_ids = JSONField(default=list, blank=True)`.
+- `DialogueSynthesisFailedError.memory_ids` carries the
+  retrieval snapshot onto FAILED rows (mirrors
+  `knowledge_chunk_ids` SESSION 262 audit blocker #4 fix).
+- `synthesize_dialogue` populates
+  `DialogueResult.memory_ids` from `retrieve_universe_memory`;
+  starter (`dialogue_scene`) plumbs it to
+  `Composition.memory_ids`.
+- `knowledge_chunk_ids` semantics unchanged
+  (canon-first → per-character K2, KnowledgeChunk UUIDs only).
+
+**Explicit non-goals held** — Slice 2 does NOT change
+NarrativeMemory promotion UX; does not add AI memory
+suggestions; does not auto-promote; does not touch
+KnowledgeDocument; does not change static canon behavior; does
+not change Episode schema; does not wire memory into
+talking-head / realtime / ask / script consumers; does not
+change Writing Contract; does not make provider video calls.
+
+### Tests (all pass; zero regressions)
+
+- `apps/embeddings/tests/test_retrieval_universe_memory.py` — 15
+  tests covering: whole-cast retrieval, archived exclusion,
+  superseded exclusion, unembedded exclusion, cross-Workspace
+  isolation, cross-Universe isolation, cast spanning Universes,
+  narrow witness overlap (both directions), top_k bounds,
+  cosine ordering, type isolation (returns NarrativeMemory,
+  NOT KnowledgeChunk), empty guards.
+- `apps/compositions/tests/test_dialogue_synthesis_memory_lane.py`
+  — 8 tests covering: once-per-synthesis + cast-aware call,
+  `use_knowledge=False` skips all three lanes, Universe-less
+  cast skips memory, dedicated prompt block between SHARED and
+  SCOPED, load-bearing prompt wording, K6.4 per-speaker corpus,
+  observability separation (`memory_ids` distinct from
+  `chunk_ids`), non-fatal degradation on retrieval failure.
+- `apps/memory/tests/test_narrative_memory.py` — 21 Slice 1
+  tests still pass unchanged.
+- `apps/embeddings/tests/test_retrieval_universe_canon.py` — 14
+  SESSION 263 tests still pass unchanged (canon lane semantics
+  intact).
+- Full sweep across `apps/memory + apps/embeddings/tests +
+  apps/compositions/tests + apps/universe/tests`: **1424 passed**,
+  0 failures, 0 regressions.
+
+### Live preflight (read-only, no LLM call)
+
+Ran against the dev DB after backfilling `f25e53af…` via
+`embed_narrative_memories` in `EMBEDDING_FORCE_MOCK=1`.
+
+Query: `"The agent is acting weird again"`
+Workspace: Chris's workspace (`4ce5486d…`)
+Universe: Patch's Workshop (`56d16b63…`)
+Cast: [Patch, Rivet]
+
+| Lane | Result |
+|---|---|
+| STATIC CANON | 1 chunk `da7e6553…` (SESSION 263 doc `f309469c…`), cosine distance **0.9758**. |
+| NARRATIVE MEMORY | rank 0 → `f25e53af…` (active), cosine distance **0.6079**. Archived `3d1ba9bc…` **absent** (DB state confirmed: `status=archived`). |
+| PATCH K2 | 5 chunks from `fd0ba2ca…` (Patch character corpus). |
+| RIVET K2 | 5 chunks from `218eb0d8…` (Rivet character corpus). |
+
+Rendered factual-basis prompt block (dispatched to the mock,
+no provider call) shows the correct four-block order:
+`SHARED WORLD KNOWLEDGE → EPISODE / NARRATIVE MEMORY →
+PATCH'S SCOPED KNOWLEDGE → RIVET'S SCOPED KNOWLEDGE`. Memory
+body appears verbatim inside the MEMORY block. Load-bearing
+wording ("past events", "canon wins on conflict",
+"operator-promoted", "Do not recite them verbatim") all
+present.
+
+**Semantic note:** memory distance (0.6079) is dramatically
+closer to the "agent acting weird" query than canon (0.9758).
+Expected — memory is event-specific, canon is world-shape
+general. When the operator asks about a recurring incident,
+the memory lane will surface the prior event ahead of the
+static world description, which is the desired retrieval
+ordering.
+
+**Canon invariant reaffirmed:** SESSION 263 shared canon doc
+`updated_at = 2026-08-18T03:20:33Z`; zero KnowledgeDocuments
+have been updated since the first memory row landed at
+`2026-08-18T13:37:11Z` (~10 h later). Slice 2 wiring, embedding,
+and retrieval have not touched canon in any way.
+
+### Falsified assumptions from the audit
+
+None. The audit §13.2 predicate landed verbatim. The audit §10
+prompt-ordering recommendation landed verbatim. The audit's
+"NarrativeMemory is not a KnowledgeChunk; do NOT fake a
+KnowledgeChunk ID" instruction was the correct call — repo
+evidence confirmed downstream consumers would break under the
+overload.
+
+### Deferred (Slice 3+ candidates)
+
+Recorded here so the operator's next dogfood loop can surface
+which ones matter:
+
+- **Composition detail SPA panel: "Memories used in this
+  render."** Slice 2 populates `Composition.memory_ids` but
+  does not expose it in the SPA serializer. If the operator
+  wants per-render memory provenance in the UI, add it to
+  `CompositionSerializer` + Composition detail page.
+- **Configurable `top_k`.** Fixed at 1 for v1 per the Slice 2
+  brief. If dogfood shows a second memory would routinely
+  benefit the callback, revisit.
+- **Distance floor / relevance ceiling.** Same U1 as SESSION
+  263 canon lane. Not observed as a problem yet.
+- **Memory-lane wiring in non-dialogue consumers**
+  (talking-head, realtime avatar, ask). SESSION 263 U3 applies
+  — same deferral.
+- **Edit a remembered memory** (Slice 1 addendum): still
+  deferred. Slice 2's supersede-chain remains the correction
+  mechanism.
+- **AI-assisted memory suggestions** (Slice 1 addendum): still
+  deferred. Manual authoring proven end-to-end; suggestions
+  add a second axis to evaluate that should wait for the
+  authority-boundary dogfood.
+- **Celery beat sweep for unembedded memories.** Not needed
+  now — inline embed on promote covers the operator loop.
+  Would be needed if backfill volume grows or embedding
+  provider outages become common.
+
+### Pre-existing drift (unchanged from Slice 1 closeout)
+
+`apps/compositions/models.py` `Alter field ... corrective_hint`
+drift still regenerates on `makemigrations` (fields carry
+help_text that migration state doesn't). Not fixed in Slice 2
+per audit §16 discipline (no opportunistic fixes). Separate
+hygiene commit when the operator authorizes it.
+
+`shell/apps/universe/models.py` stale docstring referring to
+`Composition.episode = PROTECT` (actual is RESTRICT / DEV-2).
+Same status.
+
+---
+
+*Slice 2 shipped. Retrieval lane live and verified against the
+existing operator-created memory. Awaiting operator's dogfood
+of Episode 2 ("The agent is acting weird again") before
+authorizing anything else.*
