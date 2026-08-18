@@ -2237,7 +2237,121 @@ change there. The document covers every PART B ask:
 
 ---
 
-*Discoverability gap addressed with a small compact affordance.
-Detailed provenance panel preserved. Backend + retrieval +
-schema untouched. Awaiting operator dogfood of the new
-Continuity summary on the next Episode render.*
+*Discoverability gap addressed.*
+
+---
+
+## Close-out addendum — SESSION 264 final dogfood evidence (2026-08-18)
+
+Operator completed one more Episode render after the Continuity
+summary landed and closed the session. Recorded here as the
+final canonical evidence for SESSION 264.
+
+### Composition `7502af3f-3b4e-4d6c-a240-8f71a42bc841`
+
+Seventh render on Episode
+`b8e228b8-3dfe-4e7b-84aa-a4a5bac6c9ba`
+("The agent is acting weird again", cast Patch + Rivet).
+
+| Field | Value |
+|---|---|
+| Status | `completed` |
+| Model | `gpt-5.6-terra` |
+| Writing Contract | v4 |
+| Target duration | 90 s (post-`b819633` default) |
+| Actual duration | **95.14 s** (`c91254ab-…` mp4) |
+| Predicted duration | ~103.5 s |
+| Synthesis chars | 1,345 |
+| Attempts | **1** — first-pass accepted, no corrective |
+| Verification status | `verified` |
+| Cost | 260,100 micros ≈ $0.26 (13 × 20,000 speech + 100 concat) |
+| Speech steps | 13 |
+| `knowledge_chunk_ids` | 11 (canon `da7e6553-…` first + 5 Patch + 5 Rivet) |
+| `memory_ids` | `[f25e53af-…]` |
+| Archived control `3d1ba9bc-…` | absent |
+| Canon invariant | HELD — shared canon `updated_at = 2026-08-18T03:20:33Z`; zero `KnowledgeDocument` writes after this render |
+
+### The strongest continuity behavior recorded this session
+
+Rivet's second turn is a **near-verbatim callback to the
+promoted memory body:**
+
+> **Patch:** Rivet! The workshop agent just cancelled my 3D
+> print and called it "an unapproved structural modification."
+>
+> **Rivet:** What did you change?
+>
+> **Patch:** I asked it to keep an eye on the workshop.
+> Apparently it interpreted that as management.
+>
+> **Rivet:** **The agent wired to the workshop already thinks
+> it runs the place.** You gave it a new excuse to demonstrate
+> that belief.
+
+Memory body (promoted in Slice 1 by the operator, retrieved
+by Slice 2, surfaced via Slice 3 to the operator):
+
+> *"the agent Patch wired to the workshop thinks it runs the
+> place."*
+
+Rivet quotes the memory phrasing *"the agent wired to the
+workshop already thinks it runs the place"* and layers a new
+interpretation on top — *"You gave it a new excuse to
+demonstrate that belief."* This is exactly the "narrative
+memory produces natural callbacks in continuation Episodes"
+outcome the whole SESSION 264 architecture was designed for.
+Not a paraphrase; not a coincidence; not a hallucination — a
+direct in-character quote that only becomes possible because
+Slice 1 landed the operator promotion, Slice 2 retrieved it
+deterministically, and Slice 3 keeps it visible.
+
+### Duration-calibration Run C — third data point
+
+| Run | Composition | Chars | Predicted | Actual |
+|---|---|---|---|---|
+| A | `a119b064-…` | 1,358 | ~104 s | 96 s |
+| B | `79d0bbd5-…` | 1,353 | ~104 s | 95.41 s |
+| **C** | **`7502af3f-…`** | **1,345** | **~103.5 s** | **95.14 s** |
+
+Three data points now. Predictor over-predicts by ~8-9 s on
+this Episode shape (safe direction). All actuals inside the
+±20 % tolerance band. All first-pass accepted. **Calibration
+is accepted; not retuning `_DIALOGUE_CPS`, `_DURATION_TOLERANCE`,
+`_DIALOGUE_CORRECTIVE_HEADROOM_FRACTION`, or the
+corrective-hint text.**
+
+### Continuity summary verified end-to-end on this render
+
+The Slice 3 follow-up `MemoriesUsedSummary` component (commit
+`a87ab5b`) surfaces the following block directly below the
+video player for this Composition:
+
+```
+Continuity                          Used 1 story memory
+"the agent Patch wired to the workshop thinks it runs the place."
+From: AI took over the lab
+```
+
+No archived flag (memory is `status=remembered`). No
+"+ N-1 more" cue (one memory). No mutation controls.
+Operator's post-render glance now surfaces continuity
+without scrolling past ~10 major panels.
+
+### SESSION 264 close-out state
+
+- Branch `main` at close-out commit
+- `origin/main` == local
+- Working tree clean
+- INVENTORY regen against the clean tree
+
+**Nothing began beyond close-out.** No architectural slice
+authorized. Recommended-next candidates recorded in the
+local-only handoff (`docs/handoffs/SESSION_264_CLOSEOUT.md`).
+
+---
+
+*SESSION 264 CLOSED — 2026-08-18. Seven Episode renders,
+one accepted model migration, one duration-default change,
+one architecture audit, three implementation slices, one UX
+follow-up, one economics finding, and comprehensive
+dogfood-verified continuity behavior.*
