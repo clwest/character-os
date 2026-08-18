@@ -308,6 +308,39 @@ const producedAssetSchema = z.object({
 
 export type ProducedAsset = z.infer<typeof producedAssetSchema>;
 
+// SESSION 264 Slice 3 — server-resolved memory-provenance shape
+// for the "Memories used in this render" panel. Backend service:
+// apps.memory.services.resolve_memory_ids_to_rows. Rows that
+// have been archived / superseded / cross-workspace-smuggled
+// serialize with resolved=false; the panel surface renders those
+// as a "no longer available" stub without breaking layout.
+const memoryUsedWitnessSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+const memoryUsedRowSchema = z.union([
+  z.object({
+    id: z.string(),
+    resolved: z.literal(false),
+  }),
+  z.object({
+    id: z.string(),
+    resolved: z.literal(true),
+    kind: z.string(),
+    body: z.string(),
+    weight: z.string(),
+    status: z.string(),
+    archived_at: z.string().nullable(),
+    witnessed_by: z.array(memoryUsedWitnessSchema).default([]),
+    episode_id: z.string().nullable(),
+    episode_title: z.string().nullable(),
+    universe_id: z.string().nullable(),
+    universe_name: z.string().nullable(),
+    source_composition_id: z.string().nullable(),
+  }),
+]);
+export type MemoryUsedRow = z.infer<typeof memoryUsedRowSchema>;
+
 const compositionSchema = z.object({
   id: z.string(),
   workspace: z.string(),
@@ -324,6 +357,14 @@ const compositionSchema = z.object({
   // knowledge. Older composition rows that pre-date F6 will
   // surface as empty (until/unless re-rendered).
   knowledge_docs_used: z.array(knowledgeDocCitationSchema).default([]),
+  // SESSION 264 Slice 2 wrote `memory_ids`; Slice 3 exposes
+  // both the raw list AND the enriched `memories_used` payload.
+  // Pre-Slice-2 rows default to []. NarrativeMemory UUIDs are
+  // NOT KnowledgeChunk UUIDs — the two lists are separate on
+  // purpose (see recipes.ts memoryUsedRowSchema comment above +
+  // apps/compositions/models.py:memory_ids docstring).
+  memory_ids: z.array(z.string()).default([]),
+  memories_used: z.array(memoryUsedRowSchema).default([]),
   error_message: z.string(),
   created_at: z.string(),
   updated_at: z.string(),

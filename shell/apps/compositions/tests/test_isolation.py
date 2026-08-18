@@ -146,6 +146,12 @@ ALLOWED_FILES = {
     # cross-universe isolation + witness overlap semantics.
     # Sanctioned test-side writer.
     "apps/embeddings/tests/test_retrieval_universe_memory.py",
+    # SESSION 264 Slice 3 — CompositionSerializer.memories_used
+    # enrichment tests seed Composition + Episode + NarrativeMemory
+    # rows to exercise the memory-provenance panel payload
+    # (whole-cast + narrowed-witness + archived-since-render +
+    # cross-workspace stub cases). Sanctioned test-side writer.
+    "apps/memory/tests/test_memories_used_serializer.py",
     # SESSION 210 — `sweep_expired_assets` Celery task tests
     # seed Composition + Asset rows with crafted JWT URLs to
     # exercise the hourly Beat sweep. Asset.composition FK is

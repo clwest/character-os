@@ -93,3 +93,102 @@ def embed_memories(memories: Iterable[NarrativeMemory], *, force: bool = False) 
         if embed_memory(memory, force=force):
             count += 1
     return count
+
+
+# ============================================================
+# SESSION 264 Slice 3 — Composition memory provenance resolver
+# ============================================================
+#
+# ``CompositionSerializer.memories_used`` enriches the raw
+# ``Composition.memory_ids`` JSONField (a flat list of
+# ``NarrativeMemory.id`` strings written by SESSION 264 Slice 2
+# at synthesis time) into a display-friendly list the SPA panel
+# can render without a second network hop.
+#
+# Read-only. Never mutates any NarrativeMemory. Never touches
+# KnowledgeDocument / KnowledgeChunk. Respects the audit's
+# "Remembered != Canon" rule; this is provenance visibility,
+# not promotion.
+#
+# Rows that have been ARCHIVED or SUPERSEDED SINCE the render
+# still appear — they FED the render at the time, and hiding
+# them would erase provenance. The serialized shape carries the
+# current status so the SPA can render an "archived after this
+# render" indicator.
+
+
+def resolve_memory_ids_to_rows(
+    memory_ids: list[str],
+    *,
+    workspace,
+) -> list[dict]:
+    """Resolve a flat list of ``NarrativeMemory.id`` strings into a
+    display-shaped payload for the SPA composition detail page.
+
+    Workspace-scoped defense-in-depth — the retrieval predicate
+    already filters by workspace at synthesis time, but a
+    cross-workspace ID smuggled into ``Composition.memory_ids``
+    would be silently dropped here (never re-hydrated across the
+    tenant boundary).
+
+    Missing / archived-since-render / superseded-since-render
+    rows all appear (with their current status surfaced) so the
+    operator sees the honest historical provenance instead of a
+    silent gap.
+
+    Returns ``[]`` when ``memory_ids`` is empty or nothing
+    resolves in-workspace.
+    """
+    if not memory_ids:
+        return []
+
+    ordered_ids = [str(mid) for mid in memory_ids if mid]
+    if not ordered_ids:
+        return []
+
+    rows = {
+        str(m.id): m
+        for m in NarrativeMemory.objects
+        .filter(id__in=ordered_ids, workspace=workspace)
+        .select_related("episode", "universe")
+        .prefetch_related("witnessed_by")
+    }
+
+    payload: list[dict] = []
+    for mid in ordered_ids:
+        m = rows.get(mid)
+        if m is None:
+            # Row deleted / never existed / cross-workspace
+            # smuggle attempt — surface as a stub so the SPA
+            # can render a "no longer available" indicator
+            # without breaking layout.
+            payload.append({
+                "id": mid,
+                "resolved": False,
+            })
+            continue
+
+        witnesses = [
+            {"id": str(w.id), "name": w.name}
+            for w in m.witnessed_by.all()
+        ]
+        payload.append({
+            "id": str(m.id),
+            "resolved": True,
+            "kind": m.kind,
+            "body": m.body,
+            "weight": m.weight,
+            "status": m.status,
+            "archived_at": (
+                m.archived_at.isoformat() if m.archived_at else None
+            ),
+            "witnessed_by": witnesses,
+            "episode_id": str(m.episode_id) if m.episode_id else None,
+            "episode_title": m.episode.title if m.episode_id else None,
+            "universe_id": str(m.universe_id) if m.universe_id else None,
+            "universe_name": m.universe.name if m.universe_id else None,
+            "source_composition_id": (
+                str(m.source_composition_id) if m.source_composition_id else None
+            ),
+        })
+    return payload

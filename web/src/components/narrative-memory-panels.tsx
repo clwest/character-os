@@ -2,7 +2,7 @@
  * Narrative memory panels — SESSION 264 Slice 1
  * (dogfood UX correction: creator language over data-model language).
  *
- * Three exports:
+ * Four exports:
  *
  *   * NarrativeMemoryPromotePanel({compositionId, episodeId})
  *       Rendered on the Composition detail page. Creator-facing
@@ -15,6 +15,15 @@
  *       `showSource` renders the source-composition link for the
  *       Universe view which spans Episodes. Uses "Forget" instead
  *       of "archive" as the creator-facing action.
+ *
+ *   * MemoriesUsedPanel({memories}) — SESSION 264 Slice 3
+ *       Rendered on the Composition detail page. Read-only
+ *       provenance surface listing the NarrativeMemory rows the
+ *       synthesizer's Slice 2 retrieval lane surfaced into this
+ *       render. Shows body / kind / witnesses / status.
+ *       Archived-since-render rows still appear (they FED the
+ *       render at the time; hiding them would erase provenance)
+ *       with a visual indicator.
  *
  * Backend invariants preserved by this UX (audit §16):
  *
@@ -508,6 +517,113 @@ function MemoryRow({
           </button>
         )}
       </div>
+    </li>
+  );
+}
+
+
+// ============================================================
+// SESSION 264 Slice 3 — "Memories used in this render"
+// Read-only provenance panel on the Composition detail page.
+// ============================================================
+
+import type { MemoryUsedRow } from "@/lib/api/recipes";
+
+interface MemoriesUsedPanelProps {
+  memories: MemoryUsedRow[];
+}
+
+/** Read-only surface. Renders the rows the synthesizer's Slice 2
+ *  retrieval lane surfaced into this Composition. Never mutates
+ *  anything; never touches canon. Archived-since-render rows
+ *  still appear (they fed the render at the time; hiding them
+ *  would erase provenance) with a visual indicator. */
+export function MemoriesUsedPanel({ memories }: MemoriesUsedPanelProps) {
+  if (memories.length === 0) return null;
+  return (
+    <section
+      className="flex flex-col gap-2 rounded-md border bg-card p-5 text-sm shadow-paper"
+      data-testid="composition-memories-used"
+    >
+      <header className="flex items-baseline justify-between border-b pb-2">
+        <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+          Story history
+        </span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+          {memories.length} memor{memories.length === 1 ? "y" : "ies"} used
+        </span>
+      </header>
+      <h3 className="font-display text-lg text-foreground">
+        Memories used in this render
+      </h3>
+      <p className="text-xs text-muted-foreground">
+        The characters drew on these remembered moments when the
+        writer built this scene.
+      </p>
+      <ul className="mt-2 flex flex-col gap-2">
+        {memories.map((m) => (
+          <MemoryUsedRowView key={m.id} memory={m} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+
+function MemoryUsedRowView({ memory }: { memory: MemoryUsedRow }) {
+  if (!memory.resolved) {
+    return (
+      <li
+        className="rounded border border-fog/20 bg-black/10 px-3 py-2 text-[11px] italic text-muted-foreground"
+        data-testid={`composition-memory-used-stub-${memory.id}`}
+      >
+        A memory ({memory.id.slice(0, 8)}…) fed this render but is no
+        longer available.
+      </li>
+    );
+  }
+  const isArchived = memory.status === "archived" || !!memory.archived_at;
+  const isSuperseded = memory.status === "superseded";
+  const witnessLabel =
+    memory.witnessed_by.length === 0
+      ? "Everyone in the episode"
+      : memory.witnessed_by.map((w) => w.name).join(", ");
+  return (
+    <li
+      className={
+        "flex flex-col gap-1 rounded border border-fog/20 bg-black/10 px-3 py-2 " +
+        (isArchived || isSuperseded ? "opacity-70" : "")
+      }
+      data-testid={`composition-memory-used-${memory.id}`}
+    >
+      <span className="text-sm text-foreground">{memory.body}</span>
+      <span className="text-[10px] italic text-muted-foreground">
+        Remembered by: {witnessLabel}
+      </span>
+      {isArchived && (
+        <span
+          className="text-[10px] italic text-destructive"
+          data-testid={`composition-memory-used-archived-${memory.id}`}
+        >
+          Forgotten after this render — still shown here as provenance.
+        </span>
+      )}
+      {isSuperseded && (
+        <span className="text-[10px] italic text-muted-foreground">
+          Replaced by a later memory — kept here as historical provenance.
+        </span>
+      )}
+      {memory.episode_id && (
+        <span className="text-[10px] italic text-muted-foreground">
+          From episode{" "}
+          <a
+            href={`/workspace/episodes/${memory.episode_id}`}
+            className="text-gold hover:underline"
+          >
+            {memory.episode_title || memory.episode_id.slice(0, 8)}
+          </a>
+        </span>
+      )}
     </li>
   );
 }

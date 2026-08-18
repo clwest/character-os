@@ -250,6 +250,14 @@ class CompositionSerializer(serializers.ModelSerializer):
     # render the header link as "Attached to Episode: <title>"
     # instead of a UUID fragment.
     episode_title = serializers.SerializerMethodField()
+    # SESSION 264 Slice 3 — enrich the raw ``memory_ids`` JSONField
+    # (populated by Slice 2's ``retrieve_universe_memory`` lane
+    # at synthesis time) into a display-shaped payload the SPA
+    # panel can render without a second network hop. Mirrors the
+    # existing ``knowledge_docs_used`` enrichment pattern next to
+    # ``knowledge_chunk_ids``. Read-only; NEVER mutates any
+    # ``NarrativeMemory`` row (audit's "Remembered != Canon" rule).
+    memories_used = serializers.SerializerMethodField()
     # A8 (SESSION 192) — every Asset emitted by this composition's
     # steps. Light shape; the SPA links each entry to the A6
     # detail view (`/workspace/assets/<id>`). Closes the
@@ -271,6 +279,15 @@ class CompositionSerializer(serializers.ModelSerializer):
             "cost_actual_micros",
             "knowledge_chunk_ids",
             "knowledge_docs_used",
+            # SESSION 264 Slice 2 wrote `memory_ids`; Slice 3
+            # surfaces both the raw list (for machine consumers)
+            # AND the enriched `memories_used` payload (for the
+            # SPA panel). Kept separate from `knowledge_chunk_ids`
+            # / `knowledge_docs_used` because NarrativeMemory
+            # UUIDs are not KnowledgeChunk UUIDs; the two fields
+            # resolve against different tables.
+            "memory_ids",
+            "memories_used",
             "error_message",
             "created_at",
             "updated_at",
@@ -320,6 +337,32 @@ class CompositionSerializer(serializers.ModelSerializer):
             }
             for a in assets
         ]
+
+    def get_memories_used(self, obj) -> list[dict]:
+        """SESSION 264 Slice 3 — enrich the raw ``memory_ids``
+        JSONField into a display-shaped list the composition
+        detail page renders as the "Memories used in this render"
+        panel.
+
+        Read-only. NEVER mutates a NarrativeMemory. NEVER touches
+        KnowledgeDocument / KnowledgeChunk. Rows that have been
+        archived or superseded SINCE the render still appear so
+        the operator sees the honest historical provenance
+        (with the current status flag surfaced so the SPA can
+        show an "archived after this render" indicator)."""
+        memory_ids = obj.memory_ids or []
+        if not memory_ids:
+            return []
+        # Lazy import — apps.memory imports apps.compositions for
+        # the Composition FK on NarrativeMemory.source_composition,
+        # so a top-level import here creates a cycle at app-registry
+        # init.
+        from apps.memory.services import resolve_memory_ids_to_rows
+
+        return resolve_memory_ids_to_rows(
+            [str(mid) for mid in memory_ids],
+            workspace=obj.workspace,
+        )
 
     def get_knowledge_docs_used(self, obj):
         """F6 (workspace fabric) — resolve the K6-populated

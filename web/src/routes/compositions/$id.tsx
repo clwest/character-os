@@ -8,7 +8,10 @@ import { Link, useParams } from "react-router-dom";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Circle, CornerDownRight, CornerUpRight, Download, Library, Loader2, MinusCircle, ShieldAlert, XCircle } from "lucide-react";
 import { VerificationStatusBadge } from "@/components/verification-status-badge";
 import { Button } from "@/components/ui/button";
-import { NarrativeMemoryPromotePanel } from "@/components/narrative-memory-panels";
+import {
+  MemoriesUsedPanel,
+  NarrativeMemoryPromotePanel,
+} from "@/components/narrative-memory-panels";
 import {
   type Composition,
   type CompositionStep,
@@ -75,6 +78,12 @@ export function CompositionStatusRoute() {
       {c.knowledge_docs_used.length > 0 && (
         <CitationsPanel docs={c.knowledge_docs_used} />
       )}
+      {/* SESSION 264 Slice 3 — memory-provenance panel. Read-only,
+          shows the NarrativeMemory rows the synthesizer's Slice 2
+          retrieval lane surfaced into this render. Empty state
+          suppressed (panel renders nothing when no memories fed
+          the render). */}
+      <MemoriesUsedPanel memories={c.memories_used} />
       {lineage.data && lineage.data.used_by.length > 0 && (
         <UsedByPanel entries={lineage.data.used_by} />
       )}

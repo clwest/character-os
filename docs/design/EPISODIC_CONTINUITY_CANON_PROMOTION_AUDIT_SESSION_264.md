@@ -1786,6 +1786,178 @@ Character-OS invariant.
 
 ---
 
-*Slice 2 dogfood-confirmed. Retrieval lane live, memory-informed
-callback demonstrated end-to-end, canon untouched, archived
-control excluded. Awaiting operator direction on Slice 3.*
+*Slice 2 dogfood-confirmed.*
+
+---
+
+## Addendum — Slice 3 implementation (2026-08-18)
+
+Slice 3 ships the memory-provenance panel the Slice 2 addendum
+identified as the next surface: **"Memories used in this
+render"** on the Composition detail page. Read-only. Zero
+schema change. Zero retrieval change. Zero canon touch.
+Terra-accepted; 90-second default active.
+
+### 3.1 Ratified contract (recorded pre-implementation)
+
+From this document's own Slice 2 dogfood addendum
+(§ "Slice 3 candidate: expose `Composition.memory_ids` in
+`CompositionSerializer` + SPA composition detail page"):
+
+> The field is populated correctly (Attempt 2 confirms
+> end-to-end); a "Memories used in this render" panel would
+> give the operator visible provenance without another schema
+> change.
+
+That IS the entire contract. No load-bearing decision was left
+unresolved by the tracked docs.
+
+### 3.2 What shipped
+
+**Backend** (three edits, no migration):
+
+1. `apps/memory/services.py` — new `resolve_memory_ids_to_rows(
+   memory_ids, *, workspace)`. Workspace-scoped read of
+   `NarrativeMemory` rows in input order; returns a
+   display-shaped list. Cross-workspace UUIDs and
+   never-existed IDs surface as `{id, resolved: False}` stubs
+   (the SPA renders those as "no longer available" without
+   breaking layout). Includes `body / kind / weight / status /
+   archived_at / witnessed_by / episode / universe /
+   source_composition`.
+2. `apps/compositions/serializers.py` — adds two fields to
+   `CompositionSerializer`: raw `memory_ids` (matches the
+   `knowledge_chunk_ids` shape) and enriched `memories_used`
+   (matches the `knowledge_docs_used` shape). The enrichment
+   is a `SerializerMethodField` that lazy-imports
+   `resolve_memory_ids_to_rows` to avoid the
+   `apps.memory ↔ apps.compositions` cycle at app-registry
+   init.
+3. `apps/compositions/tests/test_isolation.py` — whitelists
+   the new test file (Slice 3 backend tests seed a Composition
+   fixture; sanctioned test-side writer).
+
+**SPA** (three files):
+
+1. `web/src/lib/api/recipes.ts` — adds `memoryUsedRowSchema`
+   (discriminated union on `resolved` boolean) and threads
+   `memory_ids` + `memories_used` into `compositionSchema`.
+2. `web/src/components/narrative-memory-panels.tsx` — new
+   `MemoriesUsedPanel({memories})` export. Read-only surface;
+   renders body + witness label + episode backlink.
+   Archived-since-render rows surface with a "Forgotten after
+   this render — still shown here as provenance" indicator.
+   Superseded-since-render rows surface with an analogous
+   "Replaced by a later memory" indicator. Panel returns
+   `null` on empty input (no empty-state noise on standalone
+   or pre-Slice-2 renders).
+3. `web/src/routes/compositions/$id.tsx` — wires the panel
+   below the CitationsPanel (which handles static canon
+   provenance), completing the visual pair:
+   - `CitationsPanel` = which knowledge docs fed the render
+   - `MemoriesUsedPanel` = which narrative memories fed it
+
+**No schema changes.** Slice 2's migration `0017` still owns
+the `Composition.memory_ids` column. No new migration.
+
+### 3.3 Load-bearing invariants — proven by test
+
+Every invariant from the operator brief is covered by an
+explicit assertion. Zero provider calls.
+
+**Backend** (`apps/memory/tests/test_memories_used_serializer.py`,
+11 tests):
+
+| # | Invariant | Test |
+|---|---|---|
+| 1 | Empty `memory_ids` → empty `memories_used` | `test_empty_memory_ids_serializes_as_empty_list` |
+| 2 | Populated `memory_ids` → enriched rows in input order | `test_populated_memory_ids_enriched_in_input_order` |
+| 3 | Body / kind / weight / status / episode / universe / witnesses surface | `test_enrichment_carries_body_kind_weight_status_episode_universe_witnesses` |
+| 4 | Whole-cast memory has empty `witnessed_by` | `test_whole_cast_memory_has_empty_witnessed_by` |
+| 5 | Archived-since-render memory STILL appears (with status flag) | `test_archived_memory_still_appears_in_memories_used` |
+| 6 | Cross-workspace UUID never re-hydrates | `test_cross_workspace_memory_id_does_not_hydrate` |
+| 7 | Deleted / never-existed ID → resolved=False stub | `test_never_existed_memory_id_serializes_as_unresolved_stub` |
+| 8 | Serializer NEVER mutates any NarrativeMemory (Remembered != Canon) | `test_serializer_does_not_mutate_narrative_memory` |
+| 9 | Serializer NEVER touches KnowledgeDocument tables | `test_serializer_does_not_hit_knowledge_document_tables` |
+| 10 | Resolver empty-input returns `[]` | `test_resolver_empty_input_returns_empty_list` |
+| 11 | Resolver workspace filter isolates tenants | `test_resolver_workspace_filter_isolates_tenants` |
+
+**SPA** (`web/src/components/memories-used-panel.test.tsx`, 8
+tests):
+
+| # | Invariant | Test |
+|---|---|---|
+| 1 | Empty memories renders nothing (no noise) | `renders nothing when the memories array is empty` |
+| 2 | Body + whole-cast witness label | `shows the memory body + whole-cast witness label by default` |
+| 3 | Narrowed witnesses render as comma-joined names | `shows narrowed witness names when witnessed_by is populated` |
+| 4 | Archived-since-render still shown with indicator | `flags an archived-since-render memory but still shows it` |
+| 5 | Superseded-since-render still shown with indicator | `flags a superseded-since-render memory but still shows it` |
+| 6 | Unresolved stub renders "no longer available" | `renders an unresolved stub without breaking layout` |
+| 7 | Episode backlink present when episode_id populated | `renders an episode backlink when episode_id is present` |
+| 8 | Counter pluralization ("1 memory" vs "3 memories") | `shows correct pluralization in the counter` |
+
+### 3.4 Explicit non-goals held
+
+- No NarrativeMemory mutation (that's Slice 1's promote/archive
+  surface).
+- No canon promotion (audit §8 rule).
+- No mutation of KnowledgeDocument / KnowledgeChunk.
+- No cross-Universe leakage.
+- No Composition schema change (memory_ids already existed).
+- No new retrieval work.
+- No configurable top_k (that's a separate deferred item).
+- No AI-assisted memory suggestions.
+- No edit-a-remembered-memory (still deferred).
+- No changes to Writing Contract, retrieval architecture, K6.4
+  behavior, or provider integration.
+
+### 3.5 Regression sweep results
+
+- Backend (memory + embeddings + compositions + universe +
+  script_synthesis): **1462 passed**, 0 failed, 0
+  regressions on the 1440-test SESSION-264-Slice-2 baseline
+  (+22 = 11 Slice 3 backend + 11 duration-default tests from
+  the earlier commit `b819633`).
+- SPA vitest full suite: **613 passed** across 43 files.
+- TypeScript check: clean on all new files
+  (`memory_ids`, `memories_used`, `MemoriesUsedPanel`,
+  `MemoryUsedRow`).
+- Vite build: succeeds.
+
+### 3.6 Fixture regression guarantees
+
+The SESSION 264 Slice 1 dogfood memory
+`f25e53af-f5d5-40cc-b81e-7aa0a2cc62a0` remains
+`status=remembered, universe=Patch's Workshop, episode="AI
+took over the lab", vec=present`. When it appears in any
+future Composition's `memory_ids` — including the SESSION
+264 model-migration renders `bc650dd5-…` and `ef11c810-…` —
+the Slice 3 panel will surface its body, whole-cast witness
+label, and episode backlink.
+
+The archived control `3d1ba9bc-…` is not in any Composition's
+`memory_ids` (it was archived before Slice 2 landed) and never
+retrieves. If it were ever surfaced via a legacy `memory_ids`
+entry, the Slice 3 panel would render it with the "Forgotten
+after this render — still shown here as provenance" indicator
+— by design.
+
+### 3.7 What Slice 3 does NOT solve (deferred)
+
+Unchanged from the Slice 2 addendum's deferred list:
+
+- Configurable memory-lane `top_k` (fixed at 1).
+- Distance floor / relevance ceiling (U1 from SESSION 263).
+- Memory lane in non-dialogue consumers (U3 from SESSION 263).
+- Edit-a-remembered-memory.
+- AI-assisted memory suggestions.
+- Celery beat sweep for unembedded memories.
+
+None of these blocked Slice 3; they're independent design
+questions for later slices.
+
+---
+
+*Slice 3 implemented. Composition detail page now shows the
+memory-provenance panel. Awaiting operator dogfood before
+authorizing the next slice.*
