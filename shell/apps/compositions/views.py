@@ -281,7 +281,13 @@ class CompositionViewSet(viewsets.GenericViewSet):
             return Composition.objects.none()
         return (
             Composition.objects.filter(workspace__memberships__user=user)
-            .select_related("workspace", "spokesperson", "final_asset")
+            # SESSION 262 — select_related "episode" so the
+            # CompositionSerializer's episode_title field can render
+            # without an N+1. Same rationale for "spokesperson" +
+            # "final_asset" already present.
+            .select_related(
+                "workspace", "spokesperson", "final_asset", "episode",
+            )
             .prefetch_related("steps", "steps__output_asset")
             .distinct()
         )
@@ -297,6 +303,16 @@ class CompositionViewSet(viewsets.GenericViewSet):
         status_filter = request.query_params.get("status")
         if status_filter:
             qs = qs.filter(status=status_filter)
+        # SESSION 262 / EPISODE_COMPOSITION_WORKFLOW_V1 — filter by
+        # Episode FK so the Episode-detail SPA surface can render its
+        # attached Composition/version list without a client-side
+        # workspace-wide fetch. Cross-workspace / cross-Universe
+        # isolation is already enforced by the get_queryset()
+        # workspace-membership scoping above; this filter only
+        # narrows the already-authorized set.
+        episode_id = request.query_params.get("episode")
+        if episode_id:
+            qs = qs.filter(episode_id=episode_id)
         page = self.paginate_queryset(qs)
         serializer = CompositionListSerializer(page, many=True)
         return self.get_paginated_response(serializer.data)

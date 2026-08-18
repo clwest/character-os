@@ -130,6 +130,11 @@ ALLOWED_FILES = {
     # writer.
     "apps/universe/tests/test_episode.py",
     "apps/universe/tests/test_episode_vertical_slice.py",
+    # SESSION 262 / EPISODE_COMPOSITION_WORKFLOW_V1 — tests for the
+    # ?episode= filter + episode_title serialization + cast added_at
+    # ordering seed Composition + Episode rows directly. Sanctioned
+    # test-side writer.
+    "apps/compositions/tests/test_episode_composition_workflow.py",
     # SESSION 210 — `sweep_expired_assets` Celery task tests
     # seed Composition + Asset rows with crafted JWT URLs to
     # exercise the hourly Beat sweep. Asset.composition FK is

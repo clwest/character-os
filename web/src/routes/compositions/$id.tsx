@@ -106,15 +106,21 @@ function Header({ composition }: { composition: Composition }) {
       </div>
       {/* SESSION 262 — surface Episode linkage when the Composition
           belongs to a story. Standalone renders (episode=null) show
-          nothing here, preserving the pre-Episode header. */}
+          nothing here, preserving the pre-Episode header.
+          EPISODE_COMPOSITION_WORKFLOW_V1 — prefer the Episode's
+          human-readable title (serialized alongside the FK by the
+          backend) over a UUID fragment. Fall back to the fragment
+          only when title is missing (e.g. serialization gap on an
+          older cached row). */}
       {composition.episode && (
         <div className="text-xs text-muted-foreground">
-          Attached to Episode{" "}
+          Attached to Episode:{" "}
           <Link
             to={`/workspace/episodes/${composition.episode}`}
             className="italic text-gold underline-offset-4 hover:underline"
+            data-testid="composition-episode-backlink"
           >
-            {composition.episode.slice(0, 8)}
+            {composition.episode_title ?? composition.episode.slice(0, 8)}
           </Link>
         </div>
       )}

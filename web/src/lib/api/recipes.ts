@@ -354,6 +354,11 @@ const compositionSchema = z.object({
   // for standalone / legacy compositions. Non-NULL surfaces on
   // the Composition detail header as a link.
   episode: z.string().nullable().default(null),
+  // SESSION 262 / EPISODE_COMPOSITION_WORKFLOW_V1 — Episode
+  // backlink title so the header can render "Attached to
+  // Episode: <title>" instead of a UUID fragment. Same
+  // populated-only-when-attached semantic as the FK above.
+  episode_title: z.string().nullable().default(null),
 });
 
 export type Composition = z.infer<typeof compositionSchema>;
@@ -437,6 +442,68 @@ export function useCompositions() {
   return useQuery({
     queryKey: ["compositions"],
     queryFn: listCompositions,
+  });
+}
+
+// SESSION 262 / EPISODE_COMPOSITION_WORKFLOW_V1 — light row shape
+// for the Episode-detail version list. Matches
+// CompositionListSerializer fields on the backend (see
+// shell/apps/compositions/serializers.py:CompositionListSerializer).
+// Kept intentionally separate from the detail `compositionSchema`
+// so the Episode-detail page never accidentally depends on
+// steps/produced_assets/knowledge_docs_used etc.
+const compositionRowSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  template_kind: z.string(),
+  status: z.enum(COMPOSITION_STATUSES),
+  mock_mode: z.boolean(),
+  cost_actual_micros: z.number().int(),
+  verification_status: z
+    .enum(["", "verified", "trusted_passthrough", "skipped", "rejected"])
+    .default(""),
+  spokesperson_id: z.string().nullable(),
+  spokesperson_name: z.string(),
+  final_asset_id: z.string().nullable(),
+  final_asset_storage_health: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  episode: z.string().nullable().default(null),
+  episode_title: z.string().nullable().default(null),
+  target_duration_seconds: z.number().int().nullable().default(null),
+});
+
+export type CompositionRow = z.infer<typeof compositionRowSchema>;
+
+const compositionRowListEnvelopeSchema = z.union([
+  z.object({
+    count: z.number(),
+    next: z.string().nullable(),
+    previous: z.string().nullable(),
+    results: z.array(compositionRowSchema),
+  }),
+  z.array(compositionRowSchema),
+]);
+
+function unwrapCompositionRows(json: unknown): CompositionRow[] {
+  const parsed = compositionRowListEnvelopeSchema.parse(json);
+  return Array.isArray(parsed) ? parsed : parsed.results;
+}
+
+/** SESSION 262 — list Compositions attached to a specific Episode.
+ *  Uses the ?episode=<uuid> filter added in this slice. Backend
+ *  narrows the workspace-membership-scoped queryset; this hook
+ *  simply consumes that surface. */
+export function useCompositionsForEpisode(episodeId: string | undefined) {
+  return useQuery({
+    queryKey: ["compositions", { episode: episodeId ?? "none" }],
+    queryFn: () =>
+      apiJson(
+        `/api/compositions/?episode=${episodeId}`,
+        {},
+        unwrapCompositionRows,
+      ),
+    enabled: !!episodeId,
   });
 }
 

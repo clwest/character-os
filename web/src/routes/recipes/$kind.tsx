@@ -28,6 +28,9 @@ import { useKnowledgePreview } from "@/lib/api/knowledge-preview";
 import { ApiError } from "@/lib/api/client";
 // B2.5 — script_picker field type
 import { useScripts } from "@/lib/api/scripts";
+// SESSION 262 / EPISODE_COMPOSITION_WORKFLOW_V1 — episode-driven
+// pre-fill + cast-only performer restriction.
+import { useEpisode } from "@/lib/api/episodes";
 
 type FormState = Record<string, unknown>;
 
@@ -53,9 +56,26 @@ export function RecipeFormRoute() {
   // for it — the FK is set silently and the operator sees the
   // attachment on the Composition detail page.
   const episodeHint = searchParams.get("episode") ?? undefined;
+  // SESSION 262 / EPISODE_COMPOSITION_WORKFLOW_V1 — when launched
+  // from Episode context, fetch the Episode so we can:
+  //   1. pre-fill the topic/cast/mode fields from Episode data;
+  //   2. restrict spokesperson-picker options to Episode.cast
+  //      (Episode.cast is authoritative for performers per the
+  //      SESSION 262 operator brief correction #1);
+  //   3. surface the "Episode: <title>" chip in the header;
+  //   4. block submit with a clear insufficient-cast prompt
+  //      rather than silently permitting Universe fallback.
+  // `useEpisode(undefined)` is a no-op (query disabled) so this
+  // is free for standalone/legacy launches.
+  const episodeQuery = useEpisode(episodeHint);
+  const episode = episodeQuery.data;
 
   const [form, setForm] = useState<FormState>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Track whether the operator has explicitly overridden any
+  // Episode-pre-filled field so we don't clobber their edits on
+  // re-render when the Episode query settles.
+  const [prefilledFromEpisode, setPrefilledFromEpisode] = useState(false);
 
   // Pre-bind the spokesperson_picker fields from the URL hint
   // once the recipe metadata lands. The operator can still
@@ -77,6 +97,67 @@ export function RecipeFormRoute() {
       return touched ? next : prev;
     });
   }, [spokespersonHint, recipe.data]);
+
+  // SESSION 262 / EPISODE_COMPOSITION_WORKFLOW_V1 — one-shot
+  // pre-fill from Episode when both the Episode + the recipe
+  // metadata are loaded. Runs once (guarded by
+  // prefilledFromEpisode); subsequent operator edits are never
+  // clobbered. Cast ordering uses Episode.cast[] which the
+  // backend serializes by EpisodeCast.added_at (UI convention
+  // only — NOT a protagonist/lead role designation per
+  // the audit doc §Q10).
+  useEffect(() => {
+    if (prefilledFromEpisode) return;
+    if (!episode || !recipe.data) return;
+    setForm((prev) => {
+      const next = { ...prev };
+      let touched = false;
+      const seedIfEmpty = (name: string, value: unknown) => {
+        if (value === undefined || value === null || value === "") return;
+        if (prev[name] === undefined || prev[name] === "") {
+          next[name] = value;
+          touched = true;
+        }
+      };
+      for (const field of recipe.data!.fields) {
+        // Topic textarea — seed from Episode.operator_topic on any
+        // recipe whose primary textarea is named `topic`
+        // (dialogue_scene, long_form_ad, talking_head AI-topic).
+        if (field.type === "textarea" && field.name === "topic") {
+          seedIfEmpty(field.name, episode.operator_topic);
+        }
+        // Single-primary recipes (talking_head, long_form_ad) —
+        // seed with cast[0].
+        if (
+          field.type === "spokesperson_picker" &&
+          (field.name === "spokesperson_id"
+            || field.name === "primary_spokesperson_id")
+        ) {
+          seedIfEmpty(field.name, episode.cast[0]?.id);
+        }
+        // Dialogue secondary — seed with cast[1] (added_at order).
+        if (
+          field.type === "spokesperson_picker" &&
+          field.name === "secondary_spokesperson_id"
+        ) {
+          seedIfEmpty(field.name, episode.cast[1]?.id);
+        }
+        // Dialogue mode — Episode implies AI-Topic (topic + cast
+        // declared upstream). Operator can flip in the field.
+        if (
+          field.type === "select" &&
+          field.name === "dialogue_mode"
+        ) {
+          seedIfEmpty(field.name, "ai_topic");
+        }
+      }
+      if (touched) {
+        setPrefilledFromEpisode(true);
+        return next;
+      }
+      return prev;
+    });
+  }, [episode, recipe.data, prefilledFromEpisode]);
 
   // Rules of Hooks — every hook call has to fire on every
   // render in the same order. The early returns below for
@@ -157,6 +238,35 @@ export function RecipeFormRoute() {
 
   const workspaceSpokespeople = (spokespeople.data ?? []).filter(
     (s) => s.workspace === workspaceId,
+  );
+
+  // SESSION 262 — Episode.cast is authoritative for performers
+  // when the recipe launched from Episode context (correction #1
+  // in the SESSION 262 operator brief). Filter the picker option
+  // set to Episode.cast members only; do NOT silently fall back
+  // to the Universe/workspace roster. When no Episode context,
+  // preserve the pre-Episode workspace-roster behavior.
+  const castOnlySpokespeople = episode
+    ? workspaceSpokespeople.filter((s) =>
+        episode.cast.some((c) => c.id === s.id),
+      )
+    : workspaceSpokespeople;
+
+  // Compute how many performer slots this recipe needs so we can
+  // detect insufficient-cast Episode launches. The three live
+  // dialogue-family fields we care about:
+  const performerFieldNames = new Set([
+    "spokesperson_id",
+    "primary_spokesperson_id",
+    "secondary_spokesperson_id",
+  ]);
+  const performerSlotCount = r.fields.filter(
+    (f) =>
+      f.type === "spokesperson_picker" &&
+      performerFieldNames.has(f.name),
+  ).length;
+  const insufficientCast = Boolean(
+    episode && performerSlotCount > episode.cast.length,
   );
 
   // Determine which asset types this recipe needs. Each
@@ -254,6 +364,58 @@ export function RecipeFormRoute() {
   return (
     <div className="flex flex-col gap-8 py-10">
       <Header recipe={r} galleryHref={galleryHref} />
+      {/* SESSION 262 — Episode context chip. Renders only when
+          launched from Episode; standalone recipe workflow shows
+          nothing here (byte-for-byte pre-Episode header). */}
+      {episode && (
+        <div
+          data-testid="episode-context-chip"
+          className="flex flex-wrap items-baseline gap-2 rounded-md border border-luxe bg-card/60 px-4 py-2 text-sm"
+        >
+          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-fog">
+            Rendering under episode
+          </span>
+          <Link
+            to={`/workspace/episodes/${episode.id}`}
+            className="font-display italic text-gold hover:underline"
+            data-testid="episode-context-title-link"
+          >
+            {episode.title}
+          </Link>
+          <span className="text-mist">·</span>
+          <span className="text-mist">
+            cast: {episode.cast.map((c) => c.name).join(", ") || "(empty)"}
+          </span>
+        </div>
+      )}
+      {/* SESSION 262 — insufficient-cast block. Recipe needs more
+          performer slots than Episode.cast can supply. Per operator
+          brief correction #1, do NOT silently fall back to the
+          Universe roster; require an explicit cast-add action on
+          the Episode first. */}
+      {episode && insufficientCast && (
+        <div
+          data-testid="episode-insufficient-cast"
+          className="flex flex-col gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm"
+        >
+          <p className="text-cream">
+            This recipe needs {performerSlotCount} performer
+            {performerSlotCount === 1 ? "" : "s"} but
+            {" "}<em>{episode.title}</em> currently has only{" "}
+            {episode.cast.length} in its cast. Add the missing
+            performer{performerSlotCount - episode.cast.length === 1 ? "" : "s"}
+            {" "}to the Episode first — this preserves the story-level
+            statement of "who's in this story."
+          </p>
+          <div>
+            <Button asChild variant="secondary">
+              <Link to={`/workspace/episodes/${episode.id}`}>
+                Add cast to Episode
+              </Link>
+            </Button>
+          </div>
+        </div>
+      )}
       <form
         onSubmit={onSubmit}
         className="flex flex-col gap-6"
@@ -270,13 +432,19 @@ export function RecipeFormRoute() {
             // twice. Backend still validates authoritatively; this
             // is UX only.
             spokespeople={
+              // SESSION 262 — Episode.cast is the authoritative
+              // performer set when launched from Episode context;
+              // pre-Episode behavior (workspace roster) otherwise.
+              // Dialogue secondary picker still filters out the
+              // currently-selected primary to avoid
+              // same-person-both-roles selection.
               isDialogueScene &&
               field.name === "secondary_spokesperson_id" &&
               form.primary_spokesperson_id
-                ? workspaceSpokespeople.filter(
+                ? castOnlySpokespeople.filter(
                     (s) => s.id !== form.primary_spokesperson_id,
                   )
-                : workspaceSpokespeople
+                : castOnlySpokespeople
             }
             workspaceId={workspaceId}
             briefModeHelper={
@@ -326,8 +494,16 @@ export function RecipeFormRoute() {
           <Button
             type="submit"
             size="lg"
-            disabled={create.isPending}
+            // SESSION 262 — block submit when Episode has too few
+            // cast members for the recipe. Operator must add cast
+            // on the Episode first (correction #1 in operator brief).
+            disabled={create.isPending || insufficientCast}
             data-testid="recipe-submit"
+            title={
+              insufficientCast
+                ? "Add cast to the Episode before rendering."
+                : undefined
+            }
           >
             {create.isPending ? "Starting render…" : "Run composition"}
           </Button>

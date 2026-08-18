@@ -136,6 +136,18 @@ class CompositionListSerializer(serializers.ModelSerializer):
     spokesperson_name = serializers.SerializerMethodField()
     final_asset_id = serializers.SerializerMethodField()
     final_asset_storage_health = serializers.SerializerMethodField()
+    # SESSION 262 / EPISODE_COMPOSITION_WORKFLOW_V1 — surface the
+    # Episode's title alongside its FK so the Composition detail
+    # backlink can render "Attached to Episode: <title>" instead of
+    # a UUID fragment. Populated only when the Composition is
+    # attached to an Episode; None otherwise.
+    episode_title = serializers.SerializerMethodField()
+    # SESSION 262 — also expose target_duration_seconds on list
+    # rows so the Episode-detail version list can render the
+    # requested duration inline without a per-row detail fetch.
+    target_duration_seconds = serializers.IntegerField(
+        read_only=True, allow_null=True,
+    )
 
     class Meta:
         model = Composition
@@ -157,8 +169,16 @@ class CompositionListSerializer(serializers.ModelSerializer):
             # list rows so the SPA can render "in Episode: X" badges
             # without a second detail fetch.
             "episode",
+            "episode_title",
+            "target_duration_seconds",
         )
         read_only_fields = fields
+
+    def get_episode_title(self, obj) -> str | None:
+        # Guarded FK dereference — obj.episode may be None; when
+        # non-None, obj.episode_id already resolved the row via
+        # select_related in the parent viewset's get_queryset.
+        return obj.episode.title if obj.episode_id else None
 
     def get_spokesperson_id(self, obj) -> str | None:
         # Composition.spokesperson_id is a UUID or None; stringify
@@ -225,6 +245,11 @@ class CompositionSerializer(serializers.ModelSerializer):
     steps = CompositionStepSerializer(many=True, read_only=True)
     final_asset = AssetSerializer(read_only=True)
     knowledge_docs_used = serializers.SerializerMethodField()
+    # SESSION 262 — Episode backlink title. Same shape as the list
+    # serializer above; the Composition detail page uses this to
+    # render the header link as "Attached to Episode: <title>"
+    # instead of a UUID fragment.
+    episode_title = serializers.SerializerMethodField()
     # A8 (SESSION 192) — every Asset emitted by this composition's
     # steps. Light shape; the SPA links each entry to the A6
     # detail view (`/workspace/assets/<id>`). Closes the
@@ -264,8 +289,12 @@ class CompositionSerializer(serializers.ModelSerializer):
             # Composition detail page so the SPA can link back to
             # the Episode.
             "episode",
+            "episode_title",
         )
         read_only_fields = fields
+
+    def get_episode_title(self, obj) -> str | None:
+        return obj.episode.title if obj.episode_id else None
 
     def get_produced_assets(self, obj) -> list[dict]:
         """A8 — light list of every Asset emitted by this

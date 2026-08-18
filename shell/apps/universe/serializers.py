@@ -107,8 +107,18 @@ class EpisodeSerializer(serializers.ModelSerializer):
     """Full Episode payload.
 
     ``cast`` is a nested read-only list of ``{id, name}`` cast
-    members (Teammate). Cast mutation lives on dedicated
-    endpoints (``POST /api/episodes/<id>/cast/`` +
+    members (Teammate) sorted by ``EpisodeCast.added_at`` so the
+    SPA can seed recipe-form performer slots deterministically
+    (first-added = default primary, second-added = default
+    secondary). **This ordering is a UI convention, NOT a
+    protagonist/lead/narrator/story-role designation** — that is
+    an explicit deferral per
+    ``EPISODE_COMPOSITION_WORKFLOW_DOGFOOD_V1.md``. If a schema-
+    level role field is ever needed it lands in a separate slice
+    with its own migration + tests.
+
+    Cast mutation lives on dedicated endpoints
+    (``POST /api/episodes/<id>/cast/`` +
     ``DELETE /api/episodes/<id>/cast/<teammate_id>/``) so per-add
     Universe-consistency validation surfaces distinct 400s.
 
@@ -119,8 +129,22 @@ class EpisodeSerializer(serializers.ModelSerializer):
     universe_name = serializers.CharField(
         source="universe.name", read_only=True,
     )
-    cast = EpisodeCastTeammateSerializer(many=True, read_only=True)
+    cast = serializers.SerializerMethodField()
     composition_count = serializers.SerializerMethodField()
+
+    def get_cast(self, obj: Episode) -> list[dict]:
+        """Sorted-by-added_at cast payload. See class docstring
+        for why ordering is only a UI default, not a story role.
+        """
+        rows = (
+            obj.cast_rows
+            .order_by("added_at")
+            .select_related("teammate")
+        )
+        return [
+            {"id": str(r.teammate.id), "name": r.teammate.name}
+            for r in rows
+        ]
 
     class Meta:
         model = Episode
