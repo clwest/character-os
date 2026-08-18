@@ -125,8 +125,7 @@ export function useCreateEpisode(universeId: string | undefined) {
         `/api/episodes/`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: payload,
         },
         (json) => episodeSchema.parse(json),
       ),
@@ -151,8 +150,7 @@ export function useUpdateEpisode(universeId: string | undefined) {
         `/api/episodes/${args.id}/`,
         {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(args.payload),
+          body: args.payload,
         },
         (json) => episodeSchema.parse(json),
       ),
@@ -216,8 +214,7 @@ export function useAddCastMember(episodeId: string | undefined) {
         `/api/episodes/${episodeId}/cast/`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ teammate: teammateId }),
+          body: { teammate: teammateId },
         },
         (json) => episodeSchema.parse(json),
       ),
@@ -262,8 +259,7 @@ export function useAttachCompositionToEpisode() {
         `/api/compositions/${args.compositionId}/attach-episode/`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ episode: args.episodeId }),
+          body: { episode: args.episodeId },
         },
         () => null,
       );
