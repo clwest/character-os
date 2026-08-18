@@ -10,6 +10,7 @@ import { VerificationStatusBadge } from "@/components/verification-status-badge"
 import { Button } from "@/components/ui/button";
 import {
   MemoriesUsedPanel,
+  MemoriesUsedSummary,
   NarrativeMemoryPromotePanel,
 } from "@/components/narrative-memory-panels";
 import {
@@ -56,6 +57,12 @@ export function CompositionStatusRoute() {
       )}
       <StepList steps={c.steps} />
       {terminal && c.final_asset && <FinalAsset composition={c} />}
+      {/* SESSION 264 Slice 3 dogfood follow-up — compact
+          continuity summary sits directly below the video player
+          so operators notice memory participation without
+          scrolling to the detailed MemoriesUsedPanel farther
+          down. Renders null when no memories fed the render. */}
+      <MemoriesUsedSummary memories={c.memories_used} />
       {c.produced_assets.length > 0 && (
         <ProducedAssetsPanel assets={c.produced_assets} />
       )}

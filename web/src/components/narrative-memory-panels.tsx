@@ -25,6 +25,23 @@
  *       render at the time; hiding them would erase provenance)
  *       with a visual indicator.
  *
+ *   * MemoriesUsedSummary({memories}) — SESSION 264 Slice 3
+ *       dogfood-follow-up discoverability affordance. Compact
+ *       "Continuity" chip that sits near the primary render
+ *       result (below the video player) so the operator notices
+ *       memory participation without scrolling past ~10 panels
+ *       to the detailed MemoriesUsedPanel. Renders NULL when no
+ *       memory fed the render (no empty-state noise). Read-only;
+ *       no mutation controls. Semantic pair with
+ *       NarrativeMemoryPromotePanel:
+ *         - "Remember this" (promote form)   = what SHOULD this
+ *           story remember?
+ *         - "Continuity" (this summary)      = what DID this
+ *           render remember/use?
+ *       Distinct section header ("Continuity", not "Story
+ *       history") to avoid the visual near-duplicate the
+ *       discoverability finding surfaced.
+ *
  * Backend invariants preserved by this UX (audit §16):
  *
  * - Generated != remembered. Nothing lands until the creator
@@ -625,5 +642,116 @@ function MemoryUsedRowView({ memory }: { memory: MemoryUsedRow }) {
         </span>
       )}
     </li>
+  );
+}
+
+
+// ============================================================
+// SESSION 264 Slice 3 dogfood follow-up — compact "Continuity"
+// summary near the primary render result.
+// ============================================================
+//
+// Discoverability affordance for the memory-provenance surface.
+// The full MemoriesUsedPanel remains further down the page for
+// operators who want per-row detail; this summary sits below
+// the video player so a normal post-render glance surfaces the
+// fact that continuity fired.
+//
+// Read-only. No mutation controls (those live on
+// NarrativeMemoryPromotePanel). Renders null on zero memories
+// to avoid empty-state chrome near the primary result.
+
+interface MemoriesUsedSummaryProps {
+  memories: MemoryUsedRow[];
+}
+
+export function MemoriesUsedSummary({ memories }: MemoriesUsedSummaryProps) {
+  if (memories.length === 0) return null;
+
+  const total = memories.length;
+  // First resolved row for the body preview. Unresolved stubs
+  // still count toward "N story memories used" (they DID feed
+  // the render; we just can't quote a body).
+  const firstResolved = memories.find(
+    (m): m is Extract<MemoryUsedRow, { resolved: true }> => m.resolved,
+  );
+  const additional = total - 1;
+
+  return (
+    <section
+      className="flex flex-col gap-3 rounded-md border border-gold/40 bg-card/70 px-5 py-4 text-sm shadow-paper"
+      data-testid="composition-continuity-summary"
+    >
+      <header className="flex items-baseline justify-between gap-3">
+        <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-gold">
+          Continuity
+        </span>
+        <span
+          className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground"
+          data-testid="composition-continuity-count"
+        >
+          Used {total} story memor{total === 1 ? "y" : "ies"}
+        </span>
+      </header>
+      {firstResolved ? (
+        <>
+          <blockquote
+            className="border-l-2 border-gold/60 pl-3 text-sm italic text-foreground"
+            data-testid="composition-continuity-body"
+          >
+            &ldquo;{firstResolved.body}&rdquo;
+          </blockquote>
+          {firstResolved.episode_id && (
+            <p className="text-[11px] text-muted-foreground">
+              From:{" "}
+              <Link
+                to={`/workspace/episodes/${firstResolved.episode_id}`}
+                className="text-gold hover:underline"
+                data-testid="composition-continuity-episode-link"
+              >
+                {firstResolved.episode_title ||
+                  firstResolved.episode_id.slice(0, 8)}
+              </Link>
+              {firstResolved.status === "archived" && (
+                <span
+                  className="ml-2 italic text-destructive"
+                  data-testid="composition-continuity-archived-flag"
+                >
+                  (forgotten after this render — still shown as
+                  historical provenance)
+                </span>
+              )}
+              {firstResolved.status === "superseded" && (
+                <span
+                  className="ml-2 italic text-muted-foreground"
+                  data-testid="composition-continuity-superseded-flag"
+                >
+                  (replaced by a later memory)
+                </span>
+              )}
+            </p>
+          )}
+        </>
+      ) : (
+        // Every row was an unresolved stub (deleted / cross-
+        // workspace smuggle). Surface the count honestly but
+        // don't fake a body quote.
+        <p
+          className="text-[11px] italic text-muted-foreground"
+          data-testid="composition-continuity-all-unresolved"
+        >
+          Memory rows are no longer available. Full provenance
+          appears below.
+        </p>
+      )}
+      {additional > 0 && (
+        <p
+          className="text-[10px] italic text-muted-foreground"
+          data-testid="composition-continuity-more"
+        >
+          + {additional} more shown below.
+        </p>
+      )}
+    </section>
   );
 }
