@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-08-18T19:44:49.187375+00:00
-git_sha: b889f0a
+generated_at: 2026-08-18T22:11:36.603269+00:00
+git_sha: 6ad3fa2
 git_branch: main
 ---
 
@@ -15,11 +15,11 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-08-18T19:44:49.187375+00:00** against commit **b889f0a**
+Generated **2026-08-18T22:11:36.603269+00:00** against commit **6ad3fa2**
 on branch **main**.
 
-Python 3.11.6 · Django 5.0.6 ·
-Celery 5.5.3 · httpx 0.27.2.
+Python 3.11.6 · Django 5.2.16 ·
+Celery 5.6.3 · httpx 0.27.2.
 
 ---
 
@@ -28,7 +28,7 @@ Celery 5.5.3 · httpx 0.27.2.
 | Metric | Value | Source |
 |---|---|---|
 | Django models (project-owned) | **41** | `apps.get_models()` filtered to first-party apps |
-| URL routes (total) | **485** | `get_resolver().url_patterns` walk |
+| URL routes (total) | **474** | `get_resolver().url_patterns` walk |
 | URL routes (`/api/*`) | **220** | same |
 | FastAPI routes | **125** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **12** | `celery_app.tasks` filter |
@@ -90,11 +90,11 @@ Total: **41** models across **16** apps.
 
 ## URL Routes
 
-Total: **485** resolved patterns.
+Total: **474** resolved patterns.
 
 | Prefix | Count |
 |---|---|
-| `_allauth/` | 30 |
+| `_allauth/` | 19 |
 | `accounts/` | 26 |
 | `admin/` | 209 |
 | `api/` | 220 |
@@ -173,6 +173,7 @@ Total: **485** resolved patterns.
 - `knowledge-search`
 - `login`
 - `manage_email`
+- `manage_phone`
 - `manage_providers`
 - `me`
 - `membership-detail`
@@ -203,6 +204,8 @@ Total: **485** resolved patterns.
 - `recipe-list`
 - `redirect_to_provider`
 - `request_password_reset`
+- `resend_email_verification_code`
+- `resend_phone_verification_code`
 - `reset_password`
 - `script-approve`
 - `script-clone`
@@ -238,6 +241,7 @@ Total: **485** resolved patterns.
 - `universe-list`
 - `universe-unarchive`
 - `verify_email`
+- `verify_phone`
 - `video-detail`
 - `video-list`
 - `workspace-asset-detail`
@@ -378,4 +382,4 @@ _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-w
 
 ---
 
-*Regenerated 2026-08-18T19:44:49.187375+00:00 from commit b889f0a. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-08-18T22:11:36.603269+00:00 from commit 6ad3fa2. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
