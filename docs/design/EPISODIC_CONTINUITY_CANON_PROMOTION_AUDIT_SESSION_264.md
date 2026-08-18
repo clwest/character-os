@@ -2072,4 +2072,172 @@ docs do not currently ratify a Slice 4.
 ---
 
 *Slice 3 dogfooded. Backend + panel wiring correct.
-Discoverability gap recorded. Awaiting operator direction.*
+Discoverability gap recorded.*
+
+---
+
+## Addendum — Slice 3 dogfood follow-up: `MemoriesUsedSummary` (2026-08-18)
+
+Smallest operator-facing affordance for the discoverability
+finding recorded in the previous addendum. NOT a Slice 4 —
+NarrativeMemory retrieval, schema, and canon behavior are all
+unchanged. Read-only UI patch.
+
+### What shipped
+
+**One new SPA export in `web/src/components/narrative-memory-panels.tsx`:**
+
+- `MemoriesUsedSummary({memories})` — compact "Continuity"
+  block. Renders directly below the video player on the
+  Composition detail page (`web/src/routes/compositions/$id.tsx`
+  immediately after `<FinalAsset>`).
+
+**Language + semantic distinctions:**
+
+- Section header is `"Continuity"` — distinct from the Slice 1
+  promote panel's `"Story history"` label. The two panels
+  answer different operator questions:
+  - **"Remember this"** (Slice 1 promote panel, unchanged) —
+    *what should this story remember?*
+  - **"Continuity"** (this summary, new) — *what did this
+    render remember/use?*
+  - **"Memories used in this render"** (Slice 3 detailed
+    panel, unchanged) — same read-only surface, per-row
+    detail, farther down the page for operators who want it.
+- Human-facing copy only: `"Used N story memories"`,
+  `"From: <Episode title>"`, block-quoted body. No
+  implementation vocabulary (`memory_ids`, `vector`,
+  `embedding`, `retrieval lane`, `top_k`, etc.) surfaces —
+  test 8 in the summary vitest asserts on the exact
+  forbidden-vocabulary list.
+
+**Behavioral rules (from the operator brief):**
+
+- Zero memories → renders `null` (no empty-state chrome near
+  the primary result). Guarded by test 1.
+- One memory → count line + body quote + episode link.
+- Multiple memories → same shape + `"+ N-1 more shown
+  below."` cue that points down to the detailed panel.
+- Archived-after-render → still surfaces the body with a
+  `"forgotten after this render — still shown as historical
+  provenance"` flag.
+- Superseded-after-render → analogous `"replaced by a later
+  memory"` flag.
+- All-unresolved-stub (memory deleted since render) →
+  honest count + `"no longer available"` note; no fake body
+  quote.
+- Zero mutation controls in the summary (no buttons,
+  inputs, textareas, forms). Asserted by test 7. Mutation
+  stays on the Slice 1 promote panel and the archive action
+  on the detailed `MemoriesUsedPanel`.
+
+### Position on the page (updated)
+
+New order on the Composition detail page:
+
+1. Header (Episode backlink)
+2. ProgressSummary
+3. StepList
+4. FinalAsset (video player — natural focal point)
+5. **`MemoriesUsedSummary`** ← NEW (only when
+   `memories_used.length > 0`)
+6. ProducedAssetsPanel
+7. VerifierPanel
+8. SynthesizedBriefPanel
+9. `NarrativeMemoryPromotePanel` (Slice 1 — unchanged;
+   still `"Story history / Remember this"`)
+10. CitationsPanel
+11. `MemoriesUsedPanel` (Slice 3 detailed — unchanged;
+    still `"Story history / Memories used in this render"`)
+12. UsedByPanel
+
+The video player + the "Continuity" summary now sit
+adjacent, so a normal post-render glance surfaces memory
+participation without scrolling past the produced-assets
+grid, verifier panel, full accepted dialogue text, promote
+form, and citations panel.
+
+The detailed `MemoriesUsedPanel` remains untouched at its
+prior position for operators who want per-row detail.
+
+### Tests
+
+New: `web/src/components/memories-used-summary.test.tsx` —
+**9 tests** covering:
+
+| # | Invariant | Test |
+|---|---|---|
+| 1 | Zero memories → renders NULL | `renders nothing when zero memories fed the render` |
+| 2 | One memory → count + body + episode link | `shows the count + body quote + episode link for one memory` |
+| 3 | Multiple memories → compact | `compact-renders N memories with first body + '+ N-1 more shown below'` |
+| 4 | Archived-after-render historical flag | `flags an archived-after-render memory but still shows body + link` |
+| 5 | Superseded-after-render flag | `flags a superseded-after-render memory` |
+| 6 | All-unresolved honest handling | `honestly surfaces the count when every row is an unresolved stub` |
+| 7 | Read-only (no buttons/inputs/forms) | `contains NO mutation controls — read-only summary` |
+| 8 | No implementation vocabulary on-screen | `does NOT use implementation vocabulary on-screen` |
+| 9 | No "+ N-1 more" for single memory | `does not render '+ N-1 more' for a single-memory render` |
+
+### Regression sweep
+
+- SPA vitest full suite: **622 passed** across 44 files (0
+  regressions on the 613-test baseline; +9 = summary tests).
+- TypeScript check: clean on all new/changed files.
+- Vite build: succeeds.
+- Backend focused (memory + memory-lane dialogue synthesis
+  + composition isolation): **41 passed, 0 failures.**
+
+### Backend unchanged
+
+Zero backend files touched. `Composition.memory_ids`,
+`CompositionSerializer.memories_used`,
+`retrieve_universe_memory`, `NarrativeMemory` model,
+Slice 1 promote endpoint — all unchanged. The
+`memories_used` JSON payload the summary consumes was
+already ratified in Slice 3.
+
+### Deferred (unchanged)
+
+Non-implementation of any of the following from prior
+addenda is preserved:
+- No `top_k` change to memory retrieval.
+- No AI-assisted memory suggestions.
+- No edit-a-remembered-memory endpoint.
+- No memory lane in non-dialogue consumers.
+- No retry-cost history schema change.
+- No `OpenAI synthesis cost` persisted field.
+
+### Cross-reference — provider-call economics finding is separate
+
+The operator's follow-up brief also asked for the
+provider-call economics finding to be recorded. That was
+already tracked in a dedicated document —
+`docs/design/PROVIDER_CALL_ECONOMICS_SESSION_264.md`
+(commit `42d370c`) — which was verified against current code
+during this session and confirmed still accurate. Nothing to
+change there. The document covers every PART B ask:
+
+- §3.1 dialogue-scene turn→dispatch mapping
+- §3.2 talking-head single-dispatch capability
+- §3.3 long-form-ad chunked dispatches
+- §4.1 where cost is persisted (`CompositionStep.cost_actual_micros`,
+  `Composition.cost_actual_micros`, `Asset.source_spec.cost_source`)
+- §4.2 retry cost behavior (overwrite-to-zero,
+  `tasks.py:287`)
+- §4.3 moderation-failure = $0 in current code
+- §4.4 minimum-per-call pricing floors encoded
+  (`avatar_speech.py:102 _AVATAR_SPEECH_MICROS_PER_CALL =
+  20_000`)
+- §4.5 OpenAI synthesis cost NOT persisted
+- §5 EVIDENCE vs INFERENCE split
+- §6 observability dimensions to keep separate
+- §7 future hypothesis (scene quality per provider call)
+  RECORDED, NOT IMPLEMENTED
+- §7.1 format-specific cost curves table
+- §8 observability gaps enumerated as deferred findings
+
+---
+
+*Discoverability gap addressed with a small compact affordance.
+Detailed provenance panel preserved. Backend + retrieval +
+schema untouched. Awaiting operator dogfood of the new
+Continuity summary on the next Episode render.*
