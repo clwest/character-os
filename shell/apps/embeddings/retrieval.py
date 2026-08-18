@@ -1,8 +1,8 @@
 """The ONE retrieval surface for the knowledge layer.
 
 SESSION 138 / K2 — locked in
-``docs/design/KNOWLEDGE_LAYER.md`` §"Retrieval surface". Two
-public functions, period:
+``docs/design/KNOWLEDGE_LAYER.md`` §"Retrieval surface". Public
+functions:
 
 * ``retrieve_for_teammate()`` — workspace-scoped doc
   retrieval. Used at video render time (K6) and as the
@@ -11,6 +11,10 @@ public functions, period:
   Mixes doc-knowledge (via the first function) with
   this-thread-only conversational history. Used at
   conversation reply time (K9).
+* ``retrieve_universe_canon()`` — Universe-scoped shared-tier
+  retrieval (SESSION 263). Returns chunks whose document is
+  visible to *every* teammate in ``cast`` and is scope-shared
+  (M2M-null broadcast OR M2M covers every cast member).
 
 **Discipline:** no code outside this module is allowed to
 import ``KnowledgeChunk`` or ``ConversationEmbedding``.
@@ -26,13 +30,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from django.db.models import Q
+from django.db.models import Count, Q
 from pgvector.django import CosineDistance
 
 from apps.conversations.models import ConversationEmbedding, ConversationThread
 from apps.spokespeople.models import Teammate
 
-from .models import KnowledgeChunk
+from .models import KnowledgeChunk, KnowledgeDocument
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -265,3 +269,137 @@ def retrieve_for_thread(
     history_chunks = list(history_qs[:top_k_history])
 
     return doc_chunks, history_chunks
+
+
+def retrieve_universe_canon(
+    workspace,
+    universe,
+    cast: "Sequence[Teammate]",
+    query: str = "",
+    top_k: int = 2,
+    *,
+    _query_vector: "Sequence[float] | None" = None,
+) -> list[KnowledgeChunk]:
+    """Return the top-k shared-tier canon chunks for a dialogue cast.
+
+    SESSION 263 / Slice B — the intentional Universe canon lane.
+    Companion to :func:`retrieve_for_teammate`; does NOT change
+    that function's semantics or budget.
+
+    "Shared-tier" per ``UNIVERSE_CANON_RETRIEVAL_LANE_AUDIT_SESSION_263``:
+    a document is canon iff its Universe scope matches and it is
+    legitimately visible to every teammate in ``cast``. Concretely:
+
+    1. ``workspace = <given>`` — tenant wall (matches
+       ``retrieve_for_teammate`` §1).
+    2. ``universe = <given>`` — Universe isolation (matches row 9
+       of the retrieval truth table).
+    3. ``is_active`` + ``status='processed'`` — same lifecycle
+       gates as ``retrieve_for_teammate``.
+    4. Either the M2M is empty (universe-wide broadcast, row 6)
+       OR every cast member is present in the M2M (row 7 for the
+       full cast). A doc scoped to only some cast members is
+       NOT canon for this synthesis — it belongs in per-character
+       retrieval.
+
+    Cosine distance ordering + ``LIMIT top_k`` mirror
+    ``retrieve_for_teammate``. The default ``top_k=2`` matches the
+    audit's ``shared_top_k`` recommendation for the first landing;
+    callers may override for other consumers.
+
+    Args:
+        workspace: the composition's workspace (tenant anchor).
+        universe: the Universe this dialogue is anchored in. Must
+            not be ``None``; a legacy universe-less dialogue has
+            no canon lane (returns empty list).
+        cast: the ordered speakers. Every cast member must belong
+            to ``universe``; mixing legacy + Universe teammates or
+            crossing Universes returns empty list (defensive; the
+            dialogue synth guard already rejects those).
+        query: the natural-language query. Ignored when
+            ``_query_vector`` is supplied.
+        top_k: max canon chunks to return (default 2).
+        _query_vector: pre-computed embedding vector. Test path
+            (see ``test_retrieval_universe.py``).
+
+    Returns:
+        A list of ``KnowledgeChunk`` rows, ordered by cosine
+        distance ascending. Empty list when: no Universe was
+        provided, cast is empty, cast spans Universes, ``top_k``
+        is zero, or no shared-tier doc exists.
+    """
+    if top_k <= 0 or universe is None or not cast:
+        return []
+
+    # Cast-Universe defensive gate. ``synthesize_dialogue`` already
+    # enforces same-workspace membership before it calls this; the
+    # Universe consistency check here is defense in depth for any
+    # future caller that skips that gate.
+    universe_id = getattr(universe, "id", None) or getattr(universe, "pk", None)
+    if universe_id is None:
+        return []
+    for tm in cast:
+        if getattr(tm, "universe_id", None) != universe_id:
+            return []
+
+    vector = list(_query_vector) if _query_vector is not None else _embed_query(query)
+
+    # Shared-tier predicate is resolved at the DOCUMENT level first,
+    # then the chunk-level cosine ranking runs on chunks belonging
+    # to those documents. Splitting doc-scope from chunk-ranking
+    # keeps the M2M "has all cast" expression readable and avoids
+    # annotation-on-chained-M2M-joins subtleties (which silently
+    # dropped rows in an earlier draft).
+    doc_qs = KnowledgeDocument.objects.filter(
+        workspace=workspace,
+        universe_id=universe_id,
+        is_active=True,
+        status="processed",
+    )
+
+    # Branch 1 — M2M-null (universe-wide broadcast; row 6 of the
+    # retrieval truth table).
+    null_doc_ids = list(
+        doc_qs.filter(spokespeople__isnull=True).values_list("id", flat=True)
+    )
+
+    # Branch 2 — M2M explicitly covers every cast member AND
+    # M2M count > 1. The chained ``.filter(spokespeople=tm)`` for
+    # each cast member is Django's canonical "has all of" M2M
+    # expression (each filter adds a fresh join alias); the count
+    # gate rules out the coincidental single-teammate case where
+    # cast == [that teammate].
+    #
+    # Load-bearing subtlety: the count check MUST NOT be an
+    # annotation on the same queryset that carries the "has all
+    # of" chained filters. Django emits the annotation as
+    # ``COUNT(DISTINCT T_n.spokesperson_id)`` where ``T_n`` is
+    # the filter-joined alias — and that alias is already
+    # restricted to the last-filtered spokesperson, so the count
+    # returns 1 by construction and every candidate silently
+    # drops. Resolve the "has all of" candidates to IDs first,
+    # then run a fresh unaggregated Count on those IDs.
+    many_docs = doc_qs
+    for tm in cast:
+        many_docs = many_docs.filter(spokespeople=tm)
+    covers_all_ids = set(many_docs.values_list("id", flat=True).distinct())
+    if covers_all_ids:
+        many_doc_ids = list(
+            KnowledgeDocument.objects.filter(id__in=covers_all_ids)
+            .annotate(_c=Count("spokespeople", distinct=True))
+            .filter(_c__gt=1)
+            .values_list("id", flat=True)
+        )
+    else:
+        many_doc_ids = []
+
+    candidate_doc_ids = set(null_doc_ids) | set(many_doc_ids)
+    if not candidate_doc_ids:
+        return []
+
+    qs = (
+        KnowledgeChunk.objects.filter(document_id__in=candidate_doc_ids)
+        .annotate(distance=CosineDistance("embedding_vector", vector))
+        .order_by("distance")
+    )
+    return list(qs[:top_k])

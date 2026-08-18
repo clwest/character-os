@@ -355,6 +355,13 @@ ALLOWED_FILES = {
     # ``docs/design/UNIVERSE_SCHEMA_V1.md`` §"Retrieval truth
     # table". Same sanction as ``test_retrieval_privacy.py``.
     "apps/embeddings/tests/test_retrieval_universe.py",
+    # SESSION 263 Slice B — Universe canon retrieval-lane tests.
+    # Seeds KnowledgeChunk rows directly to exercise M2M-null
+    # broadcast, M2M-many shared canon, character-only exclusion,
+    # cross-Universe / cross-workspace isolation, and bounded
+    # top_k for ``retrieve_universe_canon``. Same sanction as
+    # the truth-table tests.
+    "apps/embeddings/tests/test_retrieval_universe_canon.py",
 }
 
 # The pattern we actually care about: ``<Model>.objects`` —

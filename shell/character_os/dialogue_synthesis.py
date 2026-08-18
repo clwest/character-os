@@ -388,17 +388,54 @@ def build_alias_map(cast: Sequence["Teammate"]) -> dict[str, "Teammate"]:
 # unchanged.
 
 
+def _is_scope_shared_document(doc) -> bool:
+    """C.1 scope-aware SHARED detector (SESSION 263).
+
+    A KnowledgeDocument is "scope-shared" for a given synthesis
+    iff either:
+
+    * Its M2M ``spokespeople`` is empty (Universe-wide broadcast —
+      row 6 of the retrieval truth table), OR
+    * Its M2M contains more than one teammate (explicit shared
+      canon — row 7 case).
+
+    A doc scoped to exactly one teammate is per-character even if
+    that teammate is one of the cast — it belongs in that
+    character's SCOPED block.
+
+    This is called on chunks that appeared in per-character
+    retrievals so we can promote scope-shared ones to SHARED
+    rather than mislabelling them under a character block.
+    Prior to SESSION 263 the SHARED block was populated purely
+    post-hoc (a chunk was SHARED iff it happened to appear in
+    two characters' independent top-k lists); under B + C.1 the
+    B pass fills SHARED deterministically, and this helper
+    guards the per-character emission from mislabelling stray
+    scope-shared chunks that leak in via cosine ranking.
+    """
+    if doc is None:
+        return False
+    try:
+        count = doc.spokespeople.count()
+    except Exception:
+        return False
+    return count == 0 or count > 1
+
+
 def _build_factual_basis_section(
     cast_labels: list[tuple[str, "Teammate", list["KnowledgeChunk"]]],
     *,
     use_knowledge: bool,
+    shared_chunks: "list[KnowledgeChunk] | None" = None,
 ) -> str:
     """§1 Factual Basis, dialogue-shaped.
 
     Three labeled sub-blocks:
 
-    * SHARED — chunks visible via multiple characters'
-      retrieval (M2M null docs count as shared).
+    * SHARED — canon chunks legitimately visible to every cast
+      member (from the SESSION 263 Slice B canon-lane pass,
+      supplemented by scope-shared chunks that leak into
+      per-character retrieval on high cosine relevance).
     * CHARACTER A / B — chunks + factual identity fields
       scoped to each speaker.
 
@@ -408,7 +445,11 @@ def _build_factual_basis_section(
     ``use_knowledge=False`` yields a factual section that
     still names the identity fields on each character (a
     "safe general conversation" fallback) but includes no
-    K2 chunks.
+    K2 chunks and skips the canon lane.
+
+    ``shared_chunks`` (SESSION 263 Slice B) is the deterministic
+    output of ``retrieve_universe_canon``. When ``None`` (legacy
+    callers) or empty, only the C.1 scope-aware detector applies.
     """
     lines = [
         "=== SECTION 1 — FACTUAL BASIS ===",
@@ -427,36 +468,49 @@ def _build_factual_basis_section(
         "scene.)",
     ]
 
-    # Identify chunks that appear in multiple characters' sets —
-    # those are workspace-visible / shared. We surface them once
-    # under SHARED and omit from per-character blocks to keep the
-    # prompt from bloating.
-    if use_knowledge:
-        chunk_id_appearances: dict[str, int] = {}
-        for _alias, _tm, chunks in cast_labels:
-            for c in chunks:
-                cid = str(getattr(c, "id", "") or "")
-                chunk_id_appearances[cid] = chunk_id_appearances.get(cid, 0) + 1
-        shared_ids = {cid for cid, n in chunk_id_appearances.items() if n > 1}
+    # SESSION 263 Slice B + C.1. Emit SHARED deterministically
+    # from the canon lane's output, and promote any scope-shared
+    # chunks that leak into per-character retrieval so they don't
+    # get mislabelled as character-scoped.
+    shared_ids: set[str] = set()
+    shared_lines: list[str] = []
 
-        seen_shared: set[str] = set()
-        shared_lines: list[str] = []
+    if use_knowledge:
+        # B — canon-lane output (deterministic, cast-visible-by-scope).
+        for c in shared_chunks or ():
+            cid = str(getattr(c, "id", "") or "")
+            if not cid or cid in shared_ids:
+                continue
+            shared_ids.add(cid)
+            text = getattr(c, "chunk_text", "") or ""
+            shared_lines.append(
+                f"[SHARED CHUNK — doc {getattr(c, 'document_id', '')}]\n"
+                f"{text}"
+            )
+
+        # C.1 — scope-aware promotion. A chunk from per-character
+        # retrieval whose document is scope-shared (M2M-null or
+        # M2M-many) is universe-visible; it must not be emitted
+        # under a per-character SCOPED block, which would tell the
+        # LLM the other character can't cite it (SCOPE RULE
+        # violation via mislabelling). Promote to SHARED.
         for _alias, _tm, chunks in cast_labels:
             for c in chunks:
                 cid = str(getattr(c, "id", "") or "")
-                if cid in shared_ids and cid not in seen_shared:
-                    seen_shared.add(cid)
+                if not cid or cid in shared_ids:
+                    continue
+                if _is_scope_shared_document(getattr(c, "document", None)):
+                    shared_ids.add(cid)
                     text = getattr(c, "chunk_text", "") or ""
                     shared_lines.append(
                         f"[SHARED CHUNK — doc {getattr(c, 'document_id', '')}]\n"
                         f"{text}"
                     )
+
         if shared_lines:
             lines.append("")
-            lines.append("--- SHARED WORKSPACE KNOWLEDGE (any character may cite) ---")
+            lines.append("--- SHARED WORLD KNOWLEDGE (any character may cite) ---")
             lines.append("\n\n".join(shared_lines))
-    else:
-        shared_ids = set()
 
     for alias, tm, chunks in cast_labels:
         header = f"--- {alias.upper()}'S SCOPED KNOWLEDGE (only {alias!r} may cite these as their own) ---"
@@ -759,9 +813,12 @@ def _assemble_system_prompt(
     cast_labels: list[tuple[str, "Teammate", list["KnowledgeChunk"]]],
     alias_to_teammate: dict[str, "Teammate"],
     use_knowledge: bool,
+    shared_chunks: "list[KnowledgeChunk] | None" = None,
 ) -> str:
     factual = _build_factual_basis_section(
-        cast_labels, use_knowledge=use_knowledge,
+        cast_labels,
+        use_knowledge=use_knowledge,
+        shared_chunks=shared_chunks,
     )
     voices = _build_character_voices_section(alias_to_teammate)
     brand = _build_brand_voices_section(alias_to_teammate)
@@ -1340,12 +1397,20 @@ def synthesize_dialogue(
     per_character_chunks: dict[str, list["KnowledgeChunk"]] = {
         alias: [] for alias in alias_to_teammate
     }
+    # SESSION 263 Slice B — the Universe canon lane. Populated
+    # once per synthesis (not per character). Empty when the
+    # dialogue is Universe-less, when knowledge is disabled, or
+    # when no shared-tier canon exists.
+    shared_chunks: list["KnowledgeChunk"] = []
 
     force_mock = mock_mode or _is_force_mock()
 
     if not force_mock and use_knowledge:
         # Lazy import — retrieval touches embeddings + Django ORM.
-        from apps.embeddings.retrieval import retrieve_for_teammate
+        from apps.embeddings.retrieval import (
+            retrieve_for_teammate,
+            retrieve_universe_canon,
+        )
         for alias, tm in alias_to_teammate.items():
             try:
                 per_character_chunks[alias] = list(
@@ -1362,8 +1427,37 @@ def synthesize_dialogue(
                 )
                 per_character_chunks[alias] = []
 
+        # SESSION 263 Slice B — one canon-lane call per synthesis.
+        # Universe derived from the cast (all cast members share
+        # a Universe by workspace guard; taking cast[0] is safe).
+        # A legacy universe-less cast yields empty canon (the
+        # retrieval function returns [] on universe=None).
+        canon_universe = getattr(cast[0], "universe", None)
+        if canon_universe is not None:
+            try:
+                shared_chunks = list(
+                    retrieve_universe_canon(
+                        workspace, canon_universe, cast, topic, top_k=2,
+                    )
+                )
+            except Exception as exc:
+                # Canon-lane failure is non-fatal — degrade to
+                # per-character retrieval only. Same posture as
+                # per-character retrieval above.
+                logger.warning(
+                    "dialogue_synthesis: retrieve_universe_canon "
+                    "failed workspace=%s universe=%s (%s); "
+                    "proceeding without shared canon",
+                    getattr(workspace, "id", None),
+                    getattr(canon_universe, "id", None),
+                    exc,
+                )
+                shared_chunks = []
+
     # ---- Mock branch --------------------------------------------
     if force_mock:
+        # Canon lane stays empty for mock (no provider hops); the
+        # mock result path preserves the pre-SESSION-263 shape.
         return _mock_result(
             alias_to_teammate=alias_to_teammate,
             topic=topic,
@@ -1390,6 +1484,7 @@ def synthesize_dialogue(
         cast_labels=cast_labels,
         alias_to_teammate=alias_to_teammate,
         use_knowledge=use_knowledge,
+        shared_chunks=shared_chunks,
     )
 
     # ---- First pass ---------------------------------------------
@@ -1459,9 +1554,18 @@ def synthesize_dialogue(
             # retrieval snapshot for the FAILED-composition rescue.
             # Predicted seconds is estimated from the LATER raw
             # response's total char count if parseable, else None.
+            # SESSION 263 — the retrieval snapshot includes shared
+            # canon chunk IDs alongside per-character chunk IDs
+            # so the FAILED-composition rescue records the same
+            # provenance the accepted path would have persisted.
             _predicted = _estimate_predicted_seconds_from_raw(raw_json_2)
             _chunk_ids_snapshot: list[str] = []
             _seen_ids: set[str] = set()
+            for _c in shared_chunks:
+                _cid = str(getattr(_c, "id", "") or "")
+                if _cid and _cid not in _seen_ids:
+                    _seen_ids.add(_cid)
+                    _chunk_ids_snapshot.append(_cid)
             for _alias in alias_to_teammate:
                 for _c in per_character_chunks[_alias]:
                     _cid = str(getattr(_c, "id", "") or "")
@@ -1485,12 +1589,21 @@ def synthesize_dialogue(
     # ---- Per-turn K6.4 verification -----------------------------
     #
     # Rule 7 — each turn verifies against the SPEAKING
-    # character's corpus + vocabulary only. Do NOT merge corpora.
+    # character's corpus + vocabulary only. Do NOT merge
+    # per-character corpora across speakers.
+    #
+    # SESSION 263 Slice B — shared canon (the SHARED §1 block)
+    # IS legitimately visible to every cast member by scope
+    # (Universe-broadcast OR M2M covers every cast member); it
+    # participates in each speaker's factual corpus so a canon-
+    # cited fact spoken by either character passes K6.4. This
+    # does NOT merge per-character K2 across speakers.
     corpus_by_alias: dict[str, str] = {}
     vocab_by_alias: dict[str, list[str]] = {}
     for alias, tm in alias_to_teammate.items():
+        combined_chunks = list(shared_chunks) + list(per_character_chunks[alias])
         corpus_by_alias[alias] = build_factual_corpus(
-            per_character_chunks[alias], spokesperson=tm,
+            combined_chunks, spokesperson=tm,
         )
         vocab_by_alias[alias] = build_allowed_vocabulary(spokesperson=tm)
 
@@ -1532,6 +1645,15 @@ def synthesize_dialogue(
     per_char_chunk_ids: dict[str, list[str]] = {}
     all_ids: list[str] = []
     seen_ids: set[str] = set()
+    # SESSION 263 Slice B — shared canon chunk IDs land first in
+    # the aggregate ``knowledge_chunk_ids`` list so downstream
+    # provenance panels can identify canon by ordering. Deduped
+    # against the same seen-set that guards per-character IDs.
+    for c in shared_chunks:
+        cid = str(getattr(c, "id", "") or "")
+        if cid and cid not in seen_ids:
+            seen_ids.add(cid)
+            all_ids.append(cid)
     for alias in alias_to_teammate:
         ids = [str(getattr(c, "id", "") or "") for c in per_character_chunks[alias]]
         ids = [i for i in ids if i]
