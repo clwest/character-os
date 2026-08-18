@@ -1214,4 +1214,158 @@ Success = 1–8 all met. Failure = any one broken; audit revisits.
 
 ---
 
-*End of SESSION 264 audit. Nothing implemented. Awaiting review.*
+## Addendum — Slice 1 dogfood correction (2026-08-18)
+
+After Slice 1 landed (commit `c7b9b45`), the operator dogfooded the
+"Promote to durable story history" panel on the Composition detail
+page and reported that the UI exposed persistence-architecture
+vocabulary that the creator does not — and should not — have to
+reason about.
+
+### Dogfood finding
+
+The Slice 1 promote panel surfaced **implementation concepts** in the
+creator flow:
+
+- "Promote to durable story history" (a persistence verb).
+- "0 promoted from this render" (a database counter).
+- "Rows land on this Episode and are retrievable in Slice 2" (a
+  developer-doc sentence bleeding into product copy).
+- "Kind" selector (backend enum).
+- "Weight" selector (retrieval-scoring hint).
+- Cast checkboxes with the caveat "Empty = whole cast" (M2M
+  convention leaking into UX).
+- "Peripheral" wording (data-model default surfacing as an operator
+  choice).
+
+The operator's actual mental model when reviewing an accepted render
+is *"this happened, remember it"*. The v1 UI required the operator to
+translate that intent into three enum picks and a semantically-inverted
+witness list.
+
+### Product rule (adopted)
+
+> Creator-facing UI must not require the operator to think in
+> **promotion**, **durable**, **row**, **retrieval**, **Slice 2**,
+> **kind**, **weight**, **peripheral**, **M2M**, or **synthesis
+> artifact**. Those concepts stay in the backend, in admin/debug
+> surfaces, and in this audit document. The creator action is
+> **"Remember this,"** not "promote a durable narrative-memory row."
+
+### What the corrected UX looks like
+
+Composition detail page (Episode-attached, terminal renders only):
+
+```
+Story history
+Remember this
+Save something that happened in this episode so the characters can
+remember it later.
+
+  What happened?
+  [ textarea ]
+
+  Who remembers this?
+  (•) Everyone in this episode
+  ( ) Choose characters…
+
+  [ Remember this ]
+
+What we remember from this render
+  Nothing remembered from this render yet.
+```
+
+When the operator switches to *Choose characters…*, the Episode's
+cast chips appear (Patch, Rivet, …). Existing remembered rows appear
+below in a "story history" recap with a **Forget** button (soft-
+archive) and, for archived rows, a **restore** action from the
+"forgotten" filter.
+
+### What did NOT change
+
+The load-bearing invariants from the main audit are preserved:
+
+1. **Generated != remembered.** Nothing becomes `NarrativeMemory`
+   merely because synthesis produced it. The operator still has to
+   press *Remember this* explicitly.
+2. **Remembered != canon.** The panel never touches
+   `KnowledgeDocument`. Test #11 in
+   `web/src/components/narrative-memory-panels.test.tsx` proves the
+   promote flow issues zero `/api/knowledge*` requests.
+3. **Provenance intact.** `episode` + `source_composition` FKs on the
+   POST body are still supplied from the panel's props (Composition
+   detail page passes them from the loaded Composition + its
+   Episode).
+4. **Witness semantics intact.** *"Everyone in this episode"* maps to
+   `witnessed_by = []` (whole-cast convention). *"Choose characters…"*
+   sends explicit teammate IDs. Backend `pre_add` signal still
+   rejects non-cast Teammates and cross-Universe witnesses.
+5. **Backend contract intact.** The SPA omits `kind` and `weight`
+   from the POST body; the serializer's existing defaults
+   (`kind='event'`, `weight='peripheral'`) apply. Test
+   `test_promote_defaults_apply_when_spa_omits_kind_and_weight`
+   proves the wire contract.
+6. **No schema change.** `NarrativeMemory` model, migration,
+   retrieval semantics, canon behavior, Episode + Composition
+   semantics all untouched. This was a UI simplification only.
+
+### Deferred backend capability
+
+The corrected UX exposes a **Forget** action (soft-delete) using the
+existing `DELETE /api/narrative-memories/<id>/` endpoint. It does
+**not** expose an **Edit** action because the Slice 1
+`NarrativeMemoryViewSet` is a `ReadOnlyModelViewSet` + DELETE +
+unarchive — there is no `PATCH` write path for `body` / `kind` /
+`weight` / `witnessed_by` on an existing memory. Adding an edit
+capability is a straightforward extension when it's needed, but it
+was not built to satisfy this UX slice.
+
+Recorded as deferred: **"Edit a remembered memory."** Not built yet
+because Slice 1's supersede-via-new-row + soft-delete were expected
+to cover the operator loop; the dogfood should surface whether a
+first-class edit is worth adding to Slice 2 or a subsequent slice.
+
+### Future capability — DOCUMENT, DO NOT IMPLEMENT
+
+**AI-assisted memory suggestions.** Character OS could eventually
+inspect an accepted Composition and propose compact candidate
+memories from its accepted turns. Example:
+
+> **Suggested memory**
+>
+> "Patch accidentally gave cooperating AI agents enough workshop
+> access to start an unqueued 3D-printer job. Rivet shut it down,
+> and they returned to a sandboxed setup."
+
+The operator would then **approve**, **edit**, or **reject** each
+suggestion. This shape preserves the invariant that **AI proposes,
+human decides what becomes history**.
+
+**Explicitly deferred.** The first dogfood loop is deliberately
+manual creator-authored memory. Only once the operator has proven the
+authority boundary on real dogfood should we consider automating the
+suggestion step. Adding LLM inference to the promote flow now would
+conflate two evaluations (does the shape work? do the suggestions
+work?) that need to be measured separately.
+
+### Test coverage
+
+Added:
+
+- `web/src/components/narrative-memory-panels.test.tsx` — 8 tests
+  covering all 11 invariants from the correction brief (no Kind, no
+  Weight, defaults land on the wire, "Everyone" default, cast reveal,
+  narrow selection persists, explicit action required, recap
+  refreshes, no canon requests).
+- `apps/memory/tests/test_narrative_memory.py::test_promote_defaults_apply_when_spa_omits_kind_and_weight`
+  — backend regression proving `kind='event'` + `weight='peripheral'`
+  land when the SPA omits them.
+
+All 21 backend memory tests + 8 SPA tests + full SPA typecheck +
+Vite build pass. Zero regressions in universe + compositions.
+
+---
+
+*End of SESSION 264 audit. Slice 1 shipped and dogfood-corrected.
+Awaiting operator's next round of dogfood before authorizing Slice
+2 retrieval integration.*

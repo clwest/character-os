@@ -1,28 +1,38 @@
 /**
- * Narrative memory panels — SESSION 264 Slice 1.
+ * Narrative memory panels — SESSION 264 Slice 1
+ * (dogfood UX correction: creator language over data-model language).
  *
  * Three exports:
  *
- *   * NarrativeMemoryPromotePanel({composition, episode})
- *       Rendered on the Composition detail page. Lets the operator
- *       promote turns/facts from an accepted Composition into
- *       durable NarrativeMemory rows. Only rendered when the
- *       Composition is Episode-attached (episode !== null).
+ *   * NarrativeMemoryPromotePanel({compositionId, episodeId})
+ *       Rendered on the Composition detail page. Creator-facing
+ *       "Remember this" form + "Story history" recap. Only
+ *       rendered when the Composition is Episode-attached.
  *
  *   * NarrativeMemoryList({filter, showSource})
- *       Rendered as a tab on Episode and Universe detail pages.
- *       Lists memories with per-row archive action. `filter`
- *       accepts either {episodeId} or {universeId}. `showSource`
- *       renders the source-composition link + kind badges (for
- *       Universe view which spans Episodes).
+ *       Rendered as a section on Episode and Universe detail
+ *       pages. `filter` accepts either {episodeId} or {universeId}.
+ *       `showSource` renders the source-composition link for the
+ *       Universe view which spans Episodes. Uses "Forget" instead
+ *       of "archive" as the creator-facing action.
  *
- * Load-bearing rules mirrored from the audit (SESSION 264):
+ * Backend invariants preserved by this UX (audit §16):
  *
- * - Promotion is EXPLICIT. Nothing auto-promotes.
- * - Never mutates canon (KnowledgeDocument). The panel talks only
- *   to /api/narrative-memories/ and the composition promote action.
- * - Retrieval integration is Slice 2; this panel is a write +
- *   inspect surface only.
+ * - Generated != remembered. Nothing lands until the creator
+ *   presses "Remember this".
+ * - Remembered != canon. This panel never touches
+ *   KnowledgeDocument.
+ * - Provenance intact. The composition/episode FKs on the
+ *   POST body come from props.
+ * - Witness semantics intact. "Everyone in this episode" ↔
+ *   empty witnessed_by (whole-cast convention); "Choose
+ *   characters..." ↔ explicit teammate ids.
+ *
+ * Internal-only concepts kept out of the creator UI (per SESSION
+ * 264 dogfood correction): "promotion", "durable", "row",
+ * "retrieval", "Slice 2", "kind", "weight", "peripheral", "M2M",
+ * "synthesis artifact". Those remain in the backend, the audit
+ * doc, and the admin surface — not in the creator flow.
  */
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -30,11 +40,8 @@ import { Loader2, Trash2, ArchiveRestore, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api/client";
-import type { EpisodeCastMember } from "@/lib/api/episodes";
 import { useEpisode } from "@/lib/api/episodes";
 import {
-  NARRATIVE_MEMORY_KINDS,
-  NARRATIVE_MEMORY_WEIGHTS,
   usePromoteMemories,
   useNarrativeMemoriesByComposition,
   useNarrativeMemoriesByEpisode,
@@ -42,19 +49,19 @@ import {
   useArchiveMemory,
   useUnarchiveMemory,
   type NarrativeMemory,
-  type NarrativeMemoryKind,
-  type NarrativeMemoryWeight,
 } from "@/lib/api/narrative-memories";
 
 
 // ============================================================
-// Promote panel — for Composition detail page.
+// "Remember this" — Composition detail promote panel.
 // ============================================================
 
 interface NarrativeMemoryPromotePanelProps {
   compositionId: string;
   episodeId: string;
 }
+
+type WitnessMode = "everyone" | "some";
 
 export function NarrativeMemoryPromotePanel({
   compositionId,
@@ -64,11 +71,12 @@ export function NarrativeMemoryPromotePanel({
   const memoriesQ = useNarrativeMemoriesByComposition(compositionId);
   const cast = episodeQ.data?.cast ?? [];
   const promote = usePromoteMemories(compositionId);
-  const archive = useArchiveMemory();
 
   const [body, setBody] = useState("");
-  const [kind, setKind] = useState<NarrativeMemoryKind>("event");
-  const [weight, setWeight] = useState<NarrativeMemoryWeight>("peripheral");
+  // "everyone" (default) maps to empty witnessed_by → whole-cast
+  // convention on the backend. "some" reveals the cast toggles
+  // and only sends explicit ids.
+  const [witnessMode, setWitnessMode] = useState<WitnessMode>("everyone");
   const [witnesses, setWitnesses] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,7 +90,13 @@ export function NarrativeMemoryPromotePanel({
     setError(null);
     const stripped = body.trim();
     if (!stripped) {
-      setError("Memory body cannot be blank.");
+      setError("Tell us what happened first.");
+      return;
+    }
+    if (witnessMode === "some" && witnesses.length === 0) {
+      setError(
+        "Pick at least one character, or switch to Everyone in this episode.",
+      );
       return;
     }
     try {
@@ -91,15 +105,17 @@ export function NarrativeMemoryPromotePanel({
         memories: [
           {
             body: stripped,
-            kind,
-            weight,
-            witnessed_by: witnesses,
+            // Kind and weight are internal defaults for the
+            // creator flow (see SESSION 264 dogfood correction).
+            // Omitting them here lets the backend serializer
+            // apply kind=event / weight=peripheral defaults,
+            // which is the whole-cast v1 shape.
+            witnessed_by: witnessMode === "everyone" ? [] : witnesses,
           },
         ],
       });
       setBody("");
-      setKind("event");
-      setWeight("peripheral");
+      setWitnessMode("everyone");
       setWitnesses([]);
     } catch (err) {
       if (err instanceof ApiError) {
@@ -110,93 +126,86 @@ export function NarrativeMemoryPromotePanel({
     }
   }
 
+  const remembered = memoriesQ.data ?? [];
+
   return (
     <section
       className="flex flex-col gap-4 rounded-md border bg-card p-5 text-sm shadow-paper"
-      data-testid="composition-promote-narrative-memory"
+      data-testid="composition-remember-this"
     >
-      <header className="flex items-baseline justify-between border-b pb-2">
-        <div className="flex flex-col gap-0.5">
-          <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-            Narrative memory
-          </span>
-          <h3 className="font-display text-lg text-foreground">
-            Promote to durable story history
-          </h3>
-        </div>
-        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-          {memoriesQ.data?.length ?? 0} promoted from this render
+      <header className="flex flex-col gap-1 border-b pb-2">
+        <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+          Story history
         </span>
+        <h3 className="font-display text-lg text-foreground">Remember this</h3>
+        <p className="text-xs text-muted-foreground">
+          Save something that happened in this episode so the characters can
+          remember it later.
+        </p>
       </header>
-      <p className="text-xs text-muted-foreground">
-        Explicit-only. Promotions never mutate Universe canon. Rows land
-        on this Episode and are retrievable in Slice 2. Wide default is{" "}
-        <em>whole cast witnessed</em>; narrow by picking specific witnesses.
-      </p>
 
       <div className="flex flex-col gap-3">
-        <label htmlFor="nm-body" className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-          Body
+        <label
+          htmlFor="nm-body"
+          className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground"
+        >
+          What happened?
         </label>
         <textarea
           id="nm-body"
           className="min-h-[80px] rounded-md border border-fog/30 bg-black/20 px-3 py-2 text-foreground"
           value={body}
           onChange={(ev) => setBody(ev.target.value)}
-          placeholder="e.g. Patch connected an AI agent to workshop tools and the printer started a job he did not queue."
+          placeholder="e.g. Patch connected an AI agent to the workshop tools and the printer started a job he did not queue."
           data-testid="nm-body"
         />
 
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="nm-kind" className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-              Kind
-            </label>
-            <select
-              id="nm-kind"
-              value={kind}
-              onChange={(ev) => setKind(ev.target.value as NarrativeMemoryKind)}
-              className="rounded-md border border-fog/30 bg-black/20 px-2 py-1.5 text-foreground"
-              data-testid="nm-kind"
+        <fieldset className="flex flex-col gap-2">
+          <legend className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+            Who remembers this?
+          </legend>
+          <label
+            className="flex items-center gap-2 text-foreground"
+            data-testid="nm-witness-mode-everyone"
+          >
+            <input
+              type="radio"
+              name="nm-witness-mode"
+              value="everyone"
+              checked={witnessMode === "everyone"}
+              onChange={() => {
+                setWitnessMode("everyone");
+                setWitnesses([]);
+              }}
+            />
+            <span>Everyone in this episode</span>
+          </label>
+          <label
+            className="flex items-center gap-2 text-foreground"
+            data-testid="nm-witness-mode-some"
+          >
+            <input
+              type="radio"
+              name="nm-witness-mode"
+              value="some"
+              checked={witnessMode === "some"}
+              onChange={() => setWitnessMode("some")}
+            />
+            <span>Choose characters&hellip;</span>
+          </label>
+
+          {witnessMode === "some" && (
+            <div
+              className="mt-1 flex flex-wrap gap-1 pl-6"
+              data-testid="nm-witness-picker"
             >
-              {NARRATIVE_MEMORY_KINDS.map((k) => (
-                <option key={k} value={k}>
-                  {k.replace("_", " ")}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="nm-weight" className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-              Weight
-            </label>
-            <select
-              id="nm-weight"
-              value={weight}
-              onChange={(ev) =>
-                setWeight(ev.target.value as NarrativeMemoryWeight)
-              }
-              className="rounded-md border border-fog/30 bg-black/20 px-2 py-1.5 text-foreground"
-              data-testid="nm-weight"
-            >
-              {NARRATIVE_MEMORY_WEIGHTS.map((w) => (
-                <option key={w} value={w}>
-                  {w}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="col-span-2 md:col-span-2 flex flex-col gap-1">
-            <label className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-              Witnessed by
-            </label>
-            <div className="flex flex-wrap gap-1">
               {cast.length === 0 && (
                 <span className="text-xs italic text-muted-foreground">
-                  Episode has no cast yet.
+                  This episode has no cast yet. Add characters to the episode
+                  first.
                 </span>
               )}
-              {cast.map((tm: EpisodeCastMember) => {
+              {cast.map((tm) => {
                 const active = witnesses.includes(tm.id);
                 return (
                   <button
@@ -209,6 +218,7 @@ export function NarrativeMemoryPromotePanel({
                         ? "border-gold bg-gold/10 text-gold"
                         : "border-fog/30 text-muted-foreground hover:border-fog")
                     }
+                    aria-pressed={active}
                     data-testid={`nm-witness-toggle-${tm.id}`}
                   >
                     {tm.name}
@@ -216,11 +226,8 @@ export function NarrativeMemoryPromotePanel({
                 );
               })}
             </div>
-            <p className="text-[10px] text-muted-foreground italic">
-              Empty = whole cast. Only Episode cast members are eligible.
-            </p>
-          </div>
-        </div>
+          )}
+        </fieldset>
 
         {error && (
           <p className="text-xs text-destructive" data-testid="nm-error">
@@ -246,42 +253,24 @@ export function NarrativeMemoryPromotePanel({
 
       <div className="border-t pt-3">
         <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-          Promoted from this render
+          What we remember from this render
         </span>
-        <ul className="mt-2 flex flex-col gap-2">
-          {(memoriesQ.data ?? []).length === 0 && (
-            <li className="text-xs italic text-muted-foreground">
-              Nothing promoted yet.
+        <ul className="mt-2 flex flex-col gap-2" data-testid="nm-recap-list">
+          {remembered.length === 0 && (
+            <li
+              className="text-xs italic text-muted-foreground"
+              data-testid="nm-recap-empty"
+            >
+              Nothing remembered from this render yet.
             </li>
           )}
-          {(memoriesQ.data ?? []).map((m) => (
-            <li
+          {remembered.map((m) => (
+            <MemoryRow
               key={m.id}
-              className="flex items-start justify-between gap-3 rounded border border-fog/20 bg-black/10 px-3 py-2"
-              data-testid={`nm-row-${m.id}`}
-            >
-              <div className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-                  {m.kind.replace("_", " ")} · {m.weight}
-                </span>
-                <span className="text-sm text-foreground">{m.body}</span>
-                {m.witnessed_by.length > 0 && (
-                  <span className="text-[10px] italic text-muted-foreground">
-                    witnessed by:{" "}
-                    {m.witnessed_by.map((w) => w.name).join(", ")}
-                  </span>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => archive.mutateAsync(m.id)}
-                aria-label="archive memory"
-                className="text-fog transition-colors hover:text-destructive"
-                data-testid={`nm-archive-${m.id}`}
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </li>
+              memory={m}
+              showSource={false}
+              variant="compact"
+            />
           ))}
         </ul>
       </div>
@@ -291,7 +280,7 @@ export function NarrativeMemoryPromotePanel({
 
 
 // ============================================================
-// List — for Episode and Universe detail pages.
+// "Story history" list — Episode + Universe detail pages.
 // ============================================================
 
 type MemoryListFilter =
@@ -310,8 +299,8 @@ interface NarrativeMemoryListProps {
 export function NarrativeMemoryList({
   filter,
   showSource = false,
-  title = "Memories",
-  emptyLabel = "No memories promoted yet.",
+  title = "Story history",
+  emptyLabel = "Nothing remembered yet.",
 }: NarrativeMemoryListProps) {
   const [includeArchived, setIncludeArchived] = useState(false);
   const [includeSuperseded, setIncludeSuperseded] = useState(false);
@@ -329,9 +318,6 @@ export function NarrativeMemoryList({
   );
   const q = filter.episodeId ? byEpisode : byUniverse;
 
-  const archive = useArchiveMemory();
-  const unarchive = useUnarchiveMemory();
-
   const rows = q.data ?? [];
 
   return (
@@ -342,7 +328,7 @@ export function NarrativeMemoryList({
       <header className="flex items-baseline justify-between border-b pb-2">
         <div className="flex flex-col gap-0.5">
           <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-            Narrative memory
+            Story history
           </span>
           <h3 className="font-display text-lg text-foreground">{title}</h3>
         </div>
@@ -354,7 +340,7 @@ export function NarrativeMemoryList({
               onChange={(ev) => setIncludeArchived(ev.target.checked)}
               data-testid="nm-toggle-archived"
             />
-            archived
+            forgotten
           </label>
           <label className="inline-flex items-center gap-1">
             <input
@@ -373,7 +359,7 @@ export function NarrativeMemoryList({
       )}
       {q.isError && (
         <p className="text-xs text-destructive">
-          Failed to load memories.
+          Couldn&rsquo;t load story history.
         </p>
       )}
       {!q.isLoading && rows.length === 0 && (
@@ -381,13 +367,7 @@ export function NarrativeMemoryList({
       )}
       <ul className="flex flex-col gap-2">
         {rows.map((m) => (
-          <MemoryRow
-            key={m.id}
-            memory={m}
-            showSource={showSource}
-            onArchive={() => archive.mutateAsync(m.id)}
-            onUnarchive={() => unarchive.mutateAsync(m.id)}
-          />
+          <MemoryRow key={m.id} memory={m} showSource={showSource} />
         ))}
       </ul>
     </section>
@@ -395,19 +375,66 @@ export function NarrativeMemoryList({
 }
 
 
+// ============================================================
+// Shared memory row — used by promote-panel recap AND list views.
+// Handles Forget / Restore actions inline.
+// ============================================================
+
 function MemoryRow({
   memory,
   showSource,
-  onArchive,
-  onUnarchive,
+  variant = "full",
 }: {
   memory: NarrativeMemory;
   showSource: boolean;
-  onArchive: () => Promise<unknown>;
-  onUnarchive: () => Promise<unknown>;
+  variant?: "full" | "compact";
 }) {
+  const archive = useArchiveMemory();
+  const unarchive = useUnarchiveMemory();
+
   const isArchived = memory.status === "archived" || !!memory.archived_at;
   const isSuperseded = memory.status === "superseded";
+  const busy = archive.isPending || unarchive.isPending;
+
+  async function handleForget() {
+    if (busy) return;
+    const confirmed =
+      typeof window === "undefined"
+        ? true
+        : window.confirm(
+            "Forget this memory? Characters will stop remembering it. " +
+              "You can bring it back from the forgotten filter.",
+          );
+    if (!confirmed) return;
+    try {
+      await archive.mutateAsync(memory.id);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        alert(err.message);
+        return;
+      }
+      throw err;
+    }
+  }
+
+  async function handleRestore() {
+    if (busy) return;
+    try {
+      await unarchive.mutateAsync(memory.id);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        alert(err.message);
+        return;
+      }
+      throw err;
+    }
+  }
+
+  const witnessLabel =
+    memory.witnessed_by.length === 0
+      ? "Everyone in the episode"
+      : memory.witnessed_by.map((w) => w.name).join(", ");
+
   return (
     <li
       className={
@@ -417,44 +444,40 @@ function MemoryRow({
       data-testid={`nm-row-${memory.id}`}
     >
       <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-          <span>{memory.kind.replace("_", " ")}</span>
-          <span>·</span>
-          <span>{memory.weight}</span>
-          {isArchived && (
-            <span className="rounded bg-fog/20 px-1.5 py-0.5 text-destructive">
-              archived
-            </span>
-          )}
-          {isSuperseded && (
-            <span className="rounded bg-fog/20 px-1.5 py-0.5">
-              superseded
-            </span>
-          )}
-        </div>
         <span className="text-sm text-foreground">{memory.body}</span>
-        {memory.witnessed_by.length > 0 && (
-          <span className="text-[10px] italic text-muted-foreground">
-            witnessed by: {memory.witnessed_by.map((w) => w.name).join(", ")}
+        <span className="text-[10px] italic text-muted-foreground">
+          Remembered by: {witnessLabel}
+        </span>
+        {isArchived && (
+          <span className="text-[10px] italic text-destructive">
+            Forgotten. Toggle the &ldquo;forgotten&rdquo; filter to bring it back.
           </span>
         )}
-        {showSource && (
+        {isSuperseded && (
           <span className="text-[10px] italic text-muted-foreground">
-            from Episode{" "}
+            Replaced by a later memory.
+          </span>
+        )}
+        {showSource && variant === "full" && (
+          <span className="text-[10px] italic text-muted-foreground">
+            From episode{" "}
             <Link
               to={`/workspace/episodes/${memory.episode}`}
               className="text-gold hover:underline"
             >
               {memory.episode_title || memory.episode.slice(0, 8)}
-            </Link>{" "}
-            · Composition{" "}
-            <Link
-              to={`/compositions/${memory.source_composition}`}
-              className="text-gold hover:underline"
-            >
-              {memory.source_composition_name ||
-                memory.source_composition.slice(0, 8)}
             </Link>
+            {memory.source_composition_name ? (
+              <>
+                {" "}· render{" "}
+                <Link
+                  to={`/compositions/${memory.source_composition}`}
+                  className="text-gold hover:underline"
+                >
+                  {memory.source_composition_name}
+                </Link>
+              </>
+            ) : null}
           </span>
         )}
       </div>
@@ -462,20 +485,24 @@ function MemoryRow({
         {isArchived ? (
           <button
             type="button"
-            onClick={() => onUnarchive()}
-            aria-label="unarchive memory"
-            className="text-fog transition-colors hover:text-gold"
-            data-testid={`nm-unarchive-${memory.id}`}
+            onClick={handleRestore}
+            disabled={busy}
+            aria-label="restore memory"
+            title="Bring back"
+            className="text-fog transition-colors hover:text-gold disabled:opacity-40"
+            data-testid={`nm-restore-${memory.id}`}
           >
             <ArchiveRestore className="h-4 w-4" />
           </button>
         ) : (
           <button
             type="button"
-            onClick={() => onArchive()}
-            aria-label="archive memory"
-            className="text-fog transition-colors hover:text-destructive"
-            data-testid={`nm-archive-${memory.id}`}
+            onClick={handleForget}
+            disabled={busy}
+            aria-label="forget memory"
+            title="Forget"
+            className="text-fog transition-colors hover:text-destructive disabled:opacity-40"
+            data-testid={`nm-forget-${memory.id}`}
           >
             <Trash2 className="h-4 w-4" />
           </button>

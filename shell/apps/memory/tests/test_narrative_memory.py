@@ -315,6 +315,35 @@ def _promote_url(comp_id) -> str:
     return f"/api/compositions/{comp_id}/promote-narrative-memory/"
 
 
+def test_promote_defaults_apply_when_spa_omits_kind_and_weight(api, scene):
+    """SESSION 264 dogfood correction — the creator-facing UI no
+    longer sends ``kind`` or ``weight``. The backend serializer
+    must apply ``kind='event'`` + ``weight='peripheral'`` defaults
+    so the wire contract for the corrected UX stays intact.
+
+    The UI also submits ``witnessed_by=[]`` to mean "Everyone in
+    this episode" (empty M2M = whole cast convention). The row
+    must be created with an empty witness M2M in that case.
+    """
+    r = api.post(
+        _promote_url(scene["composition"].id),
+        {
+            "episode": str(scene["episode"].id),
+            "memories": [
+                {"body": "the printer went rogue", "witnessed_by": []},
+            ],
+        },
+        format="json",
+    )
+    assert r.status_code == 201, r.content
+    payload = r.json()
+    assert len(payload["memories"]) == 1
+    row = NarrativeMemory.objects.get(pk=payload["memories"][0]["id"])
+    assert row.kind == NarrativeMemoryKind.EVENT
+    assert row.weight == "peripheral"
+    assert list(row.witnessed_by.all()) == []
+
+
 def test_promote_creates_rows(api, scene):
     r = api.post(
         _promote_url(scene["composition"].id),
