@@ -411,8 +411,176 @@ than starting a separate doc.
 ## 9. Steps deferred (do not begin without operator direction)
 
 - The multi-memory Episode render itself ("The agent made a priority list").
-- Any re-embed decision on `f25e53af`.
+- ~~Any re-embed decision on `f25e53af`.~~ — **decided §10**.
 - Any change to memory retrieval `top_k`, relevance-floor scoring, or
   the memory/canon boundary.
 - Relationship / WorldEntity work, canon-promotion automation, memory
   suggestions, configurable `top_k`, or any new architectural slice.
+
+---
+
+## 10. Re-embed operation — Memory A `f25e53af` moved to real embedding manifold
+
+**Decision:** Option 1 (§7.6) approved by operator to preserve the
+SESSION 265 falsification test. Executed 2026-08-18 T20:34:59 Z.
+
+Experimental hygiene, **not** an architecture change. Original
+§7 mock-embedding finding is preserved in place; do not read this
+section as "Memory A was always real-embedded."
+
+### 10.1 Why re-embed was necessary
+
+§7.4 established that a real-mode retrieval query would return
+distances that were legitimately semantic against Memory B (real
+embedding) but effectively arbitrary against Memory A (mock
+hash-derived pseudo-vector). Under `top_k=1` with no relevance floor
+this would produce a false-positive "top_k=1 blocked the other memory"
+result. Moving Memory A onto the same manifold as Memory B collapses
+the confound and lets the next render cleanly falsify (or confirm) the
+`top_k=1` architectural limit.
+
+Nothing else about the SESSION 265 hypothesis or the memory row's
+identity is changed.
+
+### 10.2 Preflight — runtime + memory state before re-embed
+
+| Check | Value | Verdict |
+|---|---|---|
+| `settings.EMBEDDING_FORCE_MOCK` | unset | ✓ |
+| env `EMBEDDING_FORCE_MOCK` | empty | ✓ |
+| `_is_force_mock()` | `False` | ✓ real path |
+| `_is_real_mode_possible()` | `True` (after sourcing repo `.env` into subshell) | ✓ |
+| `OPENAI_API_KEY` | set (len=164) | ✓ |
+| `EMBEDDING_MODEL` constant | `text-embedding-3-small` | ✓ |
+| `EMBEDDING_DIMENSION` constant | `1536` | ✓ |
+| Memory A (`f25e53af`) status | `remembered`, `archived_at=NULL`, `embedding_model="text-embedding-3-small (mock)"`, `cost=0` | ✓ still mock |
+| Memory B (`48746f69`) status | `remembered`, `archived_at=NULL`, `embedding_model="text-embedding-3-small"`, `cost=1` | ✓ still real |
+| Archived (`3d1ba9bc`) status | `archived`, embedding absent | ✓ still excluded |
+
+Subshell env note: the initial preflight subshell did not inherit
+`OPENAI_API_KEY`, which forced `_is_real_mode_possible() == False`. The
+running Celery worker (which embedded Memory B in real-mode at
+20:23:07) DOES have the key, sourced by `scripts/start-local-real.sh`
+from repo `.env`. Sourcing `.env` explicitly for the re-embed call
+mirrors the worker's environment.
+
+### 10.3 Operation — `embed_memory(memory, force=True)`
+
+Invoked the sanctioned production service at
+`shell/apps/memory/services.py:41` — the same code path a fresh
+promotion goes through. No manual vector construction, no direct DB
+write, no bypass of the embedding chokepoint. `force=True` because
+`embed_memory`'s idempotency guard (line 54) would otherwise no-op
+against the already-populated `embedding_vector`.
+
+Function returned `True` (vector fields written).
+
+### 10.4 Before / after — Memory A `f25e53af`
+
+| Field | Before | After | Δ |
+|---|---|---|---|
+| `body` | "the agent Patch wired to the workshop thinks it runs the place." | "the agent Patch wired to the workshop thinks it runs the place." | unchanged |
+| `status` | `remembered` | `remembered` | unchanged |
+| `archived_at` | NULL | NULL | unchanged |
+| `workspace_id` | `4ce5486d…` | `4ce5486d…` | unchanged |
+| `universe_id` | `56d16b63…` | `56d16b63…` | unchanged |
+| `episode_id` | `f90ce54f…` ("AI took over the lab") | `f90ce54f…` | unchanged |
+| `source_composition_id` | `3e44b728…` | `3e44b728…` | unchanged |
+| `kind` / `weight` | `event` / `peripheral` | `event` / `peripheral` | unchanged |
+| `witnessed_by` | `[]` (whole cast) | `[]` (whole cast) | unchanged |
+| `promoted_by_id` | 883 | 883 | unchanged |
+| `supersedes_id` | NULL | NULL | unchanged |
+| `embedding_model` | `"text-embedding-3-small (mock)"` | **`"text-embedding-3-small"`** | manifold moved |
+| `embedding_cost_micros` | 0 | **1** | real path proof |
+| `embedding_dimension` | 1536 | 1536 | unchanged |
+| `embedding_vector` | present (mock hash) | present (real OpenAI) | value replaced |
+| `embedded_at` | 2026-08-18 T14:00:18 Z | **2026-08-18 T20:34:59.733 Z** | refreshed |
+| `updated_at` | 2026-08-18 T14:00:18 Z | 2026-08-18 T20:34:59.733 Z | refreshed |
+
+All 15 identity/provenance/status invariants held. The three vector-
+lane fields updated as expected. The `save(update_fields=…)` call at
+`services.py:77-84` restricts writes to the embedding tuple + `updated_at`
+by construction; nothing else could have been touched.
+
+### 10.5 Untouched — Memory B, archived row, canon
+
+| Row | `updated_at` before | `updated_at` after | |
+|---|---|---|---|
+| Memory B `48746f69` | 2026-08-18 T20:23:07 Z | 2026-08-18 T20:23:07 Z | unchanged |
+| Archived `3d1ba9bc` | 2026-08-18 T13:37:33 Z | 2026-08-18 T13:37:33 Z | unchanged |
+| `KnowledgeDocument` (3 rows, max updated_at) | 2026-08-18 T03:20:33 Z | 2026-08-18 T03:20:33 Z | unchanged |
+| `KnowledgeChunk` (37 rows, max created_at) | 2026-08-18 T03:20:33 Z | 2026-08-18 T03:20:33 Z | unchanged |
+
+### 10.6 Cost
+
+Real-path embed of a 63-character body: `max(1, round(63 × 0.005))` = 1
+µ$ (below the pricing floor; the `max(1, …)` clamp @
+`embedding_service.py:201` guarantees a non-zero minimum). Total cost
+of the SESSION 265 hygiene operation: **1 µ$ ≈ $0.000001**.
+
+### 10.7 Retrieval preflight (READ-ONLY)
+
+Executed against the sanctioned `retrieve_universe_memory` predicate.
+`top_k` default remains `1` (verified via `inspect.signature`);
+`top_k=2` was passed as a call-time parameter override to surface both
+candidates for reporting — no code, config, or persisted state was
+altered.
+
+Cast = [Patch, Rivet]. Both memories satisfy the base predicate
+(`status=remembered`, `archived_at=NULL`, `embedding_vector` present,
+workspace+universe match, whole-cast visibility).
+
+**Query 1: short premise** — `"The agent made a priority list"`
+
+| Rank | Memory | `embedding_model` | Cosine distance | Verdict |
+|---|---|---|---|---|
+| 1 | `48746f69` (Memory B) | `text-embedding-3-small` | **0.522741** | wins under `top_k=1` |
+| 2 | `f25e53af` (Memory A) | `text-embedding-3-small` | 0.650524 | Δ = 0.128 |
+
+**Query 2: full topic** — *"Patch discovers that the workshop agent
+has started ranking his projects by what it considers useful or
+necessary. Patch and Rivet investigate what criteria it is using and
+whether giving an agent information about the workshop accidentally
+encouraged it to behave like management."*
+
+| Rank | Memory | `embedding_model` | Cosine distance | Verdict |
+|---|---|---|---|---|
+| 1 | `48746f69` (Memory B) | `text-embedding-3-small` | **0.256012** | wins under `top_k=1` |
+| 2 | `f25e53af` (Memory A) | `text-embedding-3-small` | 0.398687 | Δ = 0.143 |
+
+Both memories are now on the same real manifold (no `(mock)` suffix on
+either). Both are eligible candidates under the visibility predicate.
+Under `top_k=1`, Memory B wins both queries by a meaningful margin
+because it describes the exact story-hook the proposed topic asks
+about; Memory A describes the earlier belief that motivated the
+escalation. The margin is not accidental — it is what a semantic
+ranker *should* prefer for this topic.
+
+### 10.8 Confirmations
+
+- `top_k` default @ `retrieve_universe_memory` remains **1**.
+- Retrieval predicate unchanged.
+- Relevance-scoring policy unchanged.
+- Canon/memory boundary unchanged.
+- Duration calibration unchanged.
+- Synthesis path unchanged.
+- No re-embed of Memory B; no touch on archived row.
+
+### 10.9 Implication for the pending Episode dogfood
+
+The confound identified in §7.4 is now resolved. The next render's
+`Composition.memory_ids` will reflect a **clean** test of the
+`top_k=1` architectural limit:
+
+- If only Memory B appears → the failure mode is architectural
+  (retrieval budget), not embedding-lane. That is the falsifiable
+  SESSION 265 finding the brief called out as high-value.
+- If both memories somehow appear → the retrieval path (or the
+  synthesis path's memory consumption) does more than `top_k=1`
+  implies; the audit's assumption needs revisiting.
+- If neither appears → an unrelated failure (embedding lookup,
+  serializer, provenance persistence). Investigate before rendering
+  again.
+
+The operator now has a clean two-memory experiment. Rendering is
+deferred to the operator per the session brief.
