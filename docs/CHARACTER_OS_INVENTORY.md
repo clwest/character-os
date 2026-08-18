@@ -3,8 +3,8 @@ title: "Character OS Platform Inventory"
 status: regenerated
 generator: shell/apps/accounts/management/commands/inventory.py
 command: python manage.py inventory
-generated_at: 2026-08-18T04:08:50.142995+00:00
-git_sha: 40e795c
+generated_at: 2026-08-18T05:05:41.931325+00:00
+git_sha: c7b9b45
 git_branch: main
 ---
 
@@ -15,7 +15,7 @@ git_branch: main
 > Companion to [`CHARACTER_OS_WHAT_IT_IS.md`](CHARACTER_OS_WHAT_IT_IS.md) —
 > that doc explains *what it is*; this one is *what exists right now*.
 
-Generated **2026-08-18T04:08:50.142995+00:00** against commit **40e795c**
+Generated **2026-08-18T05:05:41.931325+00:00** against commit **c7b9b45**
 on branch **main**.
 
 Python 3.11.6 · Django 5.0.6 ·
@@ -27,20 +27,20 @@ Celery 5.5.3 · httpx 0.27.2.
 
 | Metric | Value | Source |
 |---|---|---|
-| Django models (project-owned) | **40** | `apps.get_models()` filtered to first-party apps |
-| URL routes (total) | **469** | `get_resolver().url_patterns` walk |
-| URL routes (`/api/*`) | **210** | same |
+| Django models (project-owned) | **41** | `apps.get_models()` filtered to first-party apps |
+| URL routes (total) | **485** | `get_resolver().url_patterns` walk |
+| URL routes (`/api/*`) | **220** | same |
 | FastAPI routes | **125** | media-engine `/openapi.json` (reachable) |
 | Celery tasks (registered) | **12** | `celery_app.tasks` filter |
-| Migrations (applied / total) | **105 / 105** | `MigrationRecorder` ∩ `MigrationLoader` |
-| Shell LOC (`*.py`, no venv/migrations) | **129,529** in 433 files | `pathlib.Path.rglob("*.py")` |
+| Migrations (applied / total) | **106 / 106** | `MigrationRecorder` ∩ `MigrationLoader` |
+| Shell LOC (`*.py`, no venv/migrations) | **131,174** in 437 files | `pathlib.Path.rglob("*.py")` |
 | Media-engine LOC (`*.py`, no venv/migrations) | **63,533** in 156 files | same |
 
 ---
 
 ## Django Models (project-owned)
 
-Total: **40** models across **15** apps.
+Total: **41** models across **16** apps.
 
 | App | Model | DB Table | Fields | FKs |
 |---|---|---|---|---|
@@ -72,6 +72,7 @@ Total: **40** models across **15** apps.
 | `identity` | `ImportProvenance` | `identity_importprovenance` | 8 | 0 |
 | `identity` | `NormalizationManifest` | `identity_normalizationmanifest` | 13 | 2 |
 | `identity` | `PrequalificationProvenance` | `identity_prequalificationprovenance` | 6 | 1 |
+| `memory` | `NarrativeMemory` | `memory_narrative_memory` | 16 | 6 |
 | `publish` | `PublishBundle` | `publish_publishbundle` | 11 | 3 |
 | `publish` | `PublishVariant` | `publish_publishvariant` | 10 | 2 |
 | `realtime` | `EngineConnection` | `realtime_engineconnection` | 11 | 1 |
@@ -89,14 +90,14 @@ Total: **40** models across **15** apps.
 
 ## URL Routes
 
-Total: **469** resolved patterns.
+Total: **485** resolved patterns.
 
 | Prefix | Count |
 |---|---|
 | `_allauth/` | 30 |
 | `accounts/` | 26 |
-| `admin/` | 203 |
-| `api/` | 210 |
+| `admin/` | 209 |
+| `api/` | 220 |
 
 ### Named API + auth routes
 
@@ -143,6 +144,7 @@ Total: **469** resolved patterns.
 - `composition-detail`
 - `composition-lineage`
 - `composition-list`
+- `composition-promote-narrative-memory`
 - `config`
 - `confirm_login_code`
 - `conversation-detail`
@@ -175,6 +177,9 @@ Total: **469** resolved patterns.
 - `me`
 - `membership-detail`
 - `membership-list`
+- `narrative-memory-detail`
+- `narrative-memory-list`
+- `narrative-memory-unarchive`
 - `provider-health`
 - `provider_signup`
 - `provider_token`
@@ -318,7 +323,7 @@ Total: **12** registered tasks (excluding `celery.*` built-ins).
 
 ## Migrations
 
-**105 of 105** migrations applied.
+**106 of 106** migrations applied.
 
 | App | Applied | Total | Pending |
 |---|---|---|---|
@@ -334,6 +339,7 @@ Total: **12** registered tasks (excluding `celery.*` built-ins).
 | `conversations` | 5 | 5 | 0 |
 | `embeddings` | 5 | 5 | 0 |
 | `identity` | 9 | 9 | 0 |
+| `memory` | 1 | 1 | 0 |
 | `publish` | 1 | 1 | 0 |
 | `realtime` | 5 | 5 | 0 |
 | `scripts` | 2 | 2 | 0 |
@@ -365,11 +371,11 @@ Total: **12** registered tasks (excluding `celery.*` built-ins).
 | Service | Files | Lines |
 |---|---|---|
 | `media-engine/` | 156 | 63,533 |
-| `shell/` | 433 | 129,529 |
-| **total** | **589** | **193,062** |
+| `shell/` | 437 | 131,174 |
+| **total** | **593** | **194,707** |
 
 _Excludes `.venv/`, `__pycache__/`, and `migrations/`. Only `*.py` files. Hand-written code, not generated migrations._
 
 ---
 
-*Regenerated 2026-08-18T04:08:50.142995+00:00 from commit 40e795c. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
+*Regenerated 2026-08-18T05:05:41.931325+00:00 from commit c7b9b45. Re-run `python manage.py inventory` (from `shell/`) to refresh.*
