@@ -313,3 +313,129 @@ delta is characterized.**
 
 *Migration implemented, tested, and documented. Awaiting the
 operator's re-run of the baseline Episode.*
+
+---
+
+## 11. Post-migration dogfood — ACCEPTED (2026-08-18)
+
+Operator re-ran the same Episode ("The agent is acting weird
+again", cast Patch + Rivet) under `gpt-5.6-terra` at two
+durations. Both runs passed every retrieval invariant vs the
+`ef11c810` baseline; dialogue quality materially improved.
+
+**Verdict: gpt-5.6-terra ACCEPTED as the Character OS
+dialogue/script writer.** Do not revisit unless implementation
+evidence surfaces a concrete regression.
+
+### 11.1 60-second Terra render
+
+| Field | Value | vs `ef11c810` baseline |
+|---|---|---|
+| Target duration | 60 s | same |
+| Actual rendered duration | ~59 s | ~equal (was 59.28 s) |
+| Runway cost | ~$0.18 | (baseline lumped totals: $0.22 all-in; Terra split visible for the first time) |
+| OpenAI cost | ~$0.03 | new visibility |
+| Total | **~$0.21** | ~$0.01 lower than baseline |
+| NarrativeMemory retrieval | PASS (`f25e53af-…` in `memory_ids`) | held |
+| Universe canon retrieval | PASS (`da7e6553-…` in `knowledge_chunk_ids`) | held |
+| K2 retrieval | PASS (5 Patch + 5 Rivet) | held |
+| Continuity | PASS | held |
+| Archived-memory exclusion | PASS (`3d1ba9bc-…` absent) | held |
+| Canon invariant | HELD (zero `KnowledgeDocument` updates) | held |
+
+**Quality observations (operator-supplied):**
+
+- Rivet behaved more like a character and less like a
+  methodology narrator.
+- Patch/Rivet conversational causality improved (turn N picked
+  up from turn N-1's specific verb / noun instead of resetting
+  the topic each turn).
+- Technical methodology appeared as *behavior* — Rivet doing
+  the debugging move — instead of *exposition* — Rivet
+  reciting the debugging move.
+- Comedic callbacks improved.
+
+### 11.2 90-second Terra render
+
+| Field | Value |
+|---|---|
+| Same Episode + story context | (Patch + Rivet, "The agent is acting weird again") |
+| Target duration | 90 s |
+| Predicted duration (synthesizer estimate) | ~104 s |
+| Synthesized brief | 1,358 characters |
+| Actual rendered duration | ~96 s |
+| Runway cost | ~$0.22 |
+| OpenAI cost | ~$0.07 |
+| Total | ~$0.29 |
+| Incremental cost vs 60 s | **~$0.08** |
+| All retrieval lanes | PASS |
+| Continuity | PASS |
+| Canon invariant | HELD |
+
+**Quality observations (operator-supplied):**
+
+- Sustained ONE conversational thread instead of filling
+  runtime with methodology exposition.
+- Rivet remained analytical without becoming a debugging
+  manual.
+- Patch retained character voice.
+- Jokes/payoffs built from prior turns.
+- *"A cable is not a promotion."* — a useful example of
+  concise Rivet voice.
+- Methodology such as *"change one thing"* appeared naturally
+  in context, embedded in a turn, not as a lecture header.
+
+### 11.3 Duration-default findings
+
+The 90-second render's quality delta over the 60-second
+render was material and asymmetric:
+
+- Under a 60-second target the model burns most of the runway
+  on setup + one callback + closer. Room for maybe 12-14 short
+  turns.
+- Under a 90-second target the model can sustain a full
+  cause → response → escalation → resolution → coda arc.
+  Room for 18-22 turns with real callbacks between them.
+- Incremental cost of ~$0.08 to move from 60 s to 90 s is
+  small compared to the storytelling gain. Two-thirds of the
+  extra cost is Runway avatar-speech time; only one-third is
+  OpenAI (reasoning + output tokens).
+
+**Decision: change the Episode Dialogue Scene workflow default
+from 60 s to 90 s.** Scoped strictly to the Episode / Dialogue
+Scene operator flow; NOT applied to talking-head, spokesperson,
+long-form, or generic Composition infrastructure. The operator
+can still explicitly pick 60 s or other supported durations
+per-render. Implemented as its own commit; tests prove default,
+explicit override, and non-regression on unrelated recipes.
+
+### 11.4 Invariants held on both Terra renders
+
+- **Generated != Remembered** — synthesis output did not
+  auto-create NarrativeMemory rows.
+- **Remembered != Canon** — neither render mutated any
+  `KnowledgeDocument`.
+- **Provenance intact** — `memory_ids` and
+  `knowledge_chunk_ids` persisted correctly.
+- **Archived-memory exclusion** — `3d1ba9bc-…` did not
+  participate in either render.
+- **Cross-Universe / cross-Workspace isolation** — retrieval
+  scope enforcement unchanged.
+- **Immutability of Composition observability** — SESSION 262
+  fields not disturbed.
+- **Writing Contract v4 unchanged.**
+- **Reasoning effort stayed at `"low"`.**
+
+### 11.5 Nothing to revert
+
+Both Terra renders produced correct behavior with the exact
+API shape, calibration constants, and retrieval architecture
+committed in `7d23270`. The single-variable-changed discipline
+held. No rollback required.
+
+---
+
+*Migration accepted post-dogfood. Model constant continues at
+`gpt-5.6-terra`. Duration default change to 90 s ships as its
+own commit; Slice 3 (Composition detail memory-provenance
+panel) ships after that.*

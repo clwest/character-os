@@ -354,7 +354,18 @@ def _dialogue_resolver(
             "dialogue_scene AI Topic mode requires a non-empty topic"
         )
 
-    target_raw = params.get("target_duration_seconds", 60)
+    # SESSION 264 (post-Terra dogfood) — Episode / Dialogue Scene
+    # AI Topic default duration raised from 60 s to 90 s. The 60 s
+    # → 90 s comparison on Episode "The agent is acting weird again"
+    # showed sustained conversational arc, better callbacks, and
+    # cost-per-story delta of ~$0.08. Scoped to this resolver only;
+    # talking-head, spokesperson, long-form-ad, and other recipes
+    # retain their prior defaults. Operator may still explicitly
+    # request 30 / 60 / 120 via the form; only the *fallback* when
+    # ``target_duration_seconds`` is absent moves. See
+    # ``docs/design/MODEL_MIGRATION_GPT_5_6_TERRA_SESSION_264.md``
+    # §11.3.
+    target_raw = params.get("target_duration_seconds", 90)
     try:
         target = int(target_raw)
     except (TypeError, ValueError) as exc:
@@ -1555,7 +1566,11 @@ RECIPES: dict[str, Recipe] = {
                 # ``int(target_raw)``.
                 name="target_duration_seconds", type="select",
                 label="Target duration",
-                required=False, default="60",
+                # SESSION 264 (post-Terra dogfood) — default raised
+                # from "60" to "90". See resolver comment above +
+                # ``docs/design/MODEL_MIGRATION_GPT_5_6_TERRA_SESSION_264.md``
+                # §11.3 for the 60/90 quality comparison.
+                required=False, default="90",
                 choices=(
                     {"value": "30", "label": "~30 seconds"},
                     {"value": "60", "label": "~60 seconds"},

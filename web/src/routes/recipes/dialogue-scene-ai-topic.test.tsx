@@ -93,7 +93,10 @@ const DIALOGUE_RECIPE: Recipe = {
       type: "select",
       label: "Target duration",
       required: false,
-      default: 60,
+      // SESSION 264 post-Terra-dogfood — Episode Dialogue Scene
+      // default raised from "60" to "90". Mock schema matches the
+      // real backend registry (see recipes.py:1573 in Python).
+      default: "90",
       choices: [
         { value: "30", label: "~30 seconds" },
         { value: "60", label: "~60 seconds" },
@@ -469,7 +472,9 @@ describe("dialogue_scene SPA (AI-D4)", () => {
       expect(call.params.dialogue_mode).toBe("ai_topic");
       expect(call.params.secondary_spokesperson_id).toBe("sp-rivet");
       expect(call.params.topic).toBe("About the workshop");
-      expect(call.params.target_duration_seconds).toBe(60);
+      // SESSION 264 post-Terra-dogfood — default duration for
+      // Episode Dialogue Scene raised from 60 s to 90 s.
+      expect(call.params.target_duration_seconds).toBe("90");
       // Load-bearing: stale manual lines MUST NOT be in the payload.
       expect(call.params.lines).toBeUndefined();
     },
