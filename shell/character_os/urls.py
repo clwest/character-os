@@ -36,6 +36,10 @@ urlpatterns = [
     path("api/", include("apps.scripts.urls")),
     # §19 Step 9.b bootstrap-review (SESSION 249, 9.b.0). Operator-only.
     path("api/", include("apps.bootstrap_review.urls")),
+    # SESSION 264 Slice 1 — NarrativeMemory (episodic continuity).
+    # Mounts /api/narrative-memories/. Promote-from-composition
+    # action lives on /api/compositions/<id>/promote-narrative-memory/.
+    path("api/", include("apps.memory.urls")),
     # Thin wrappers around character_os.prompts helpers (SESSION 129).
     path("api/prompts/suggest-tone/", suggest_tone, name="suggest-tone"),
 ]

@@ -390,6 +390,92 @@ class CompositionViewSet(viewsets.GenericViewSet):
         comp.refresh_from_db()
         return Response(CompositionSerializer(comp).data)
 
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="promote-narrative-memory",
+    )
+    def promote_narrative_memory(self, request, pk: str | None = None):
+        """SESSION 264 Slice 1 — promote turns to narrative memory.
+
+        ``POST /api/compositions/<id>/promote-narrative-memory/``
+        with body::
+
+            {
+              "episode": "<uuid>",
+              "memories": [
+                {"body": "...", "kind": "event",
+                 "weight": "central",
+                 "witnessed_by": ["<teammate-uuid>", ...]},
+                ...
+              ]
+            }
+
+        Each entry creates one ``NarrativeMemory`` row tied to
+        this Composition + the specified Episode. Batch is
+        atomic — a bad item fails the whole batch (all-or-
+        nothing; operator resubmits cleaned batch).
+
+        Never writes to KnowledgeDocument. Never modifies the
+        Composition (no immutable-observability write). See
+        ``docs/design/EPISODIC_CONTINUITY_CANON_PROMOTION_AUDIT_SESSION_264.md``
+        §8 for the "synthesis never mutates canon" rule this
+        endpoint upholds.
+        """
+        # Import inline to avoid a top-of-file dep from
+        # compositions → memory (memory already imports
+        # compositions). Same style as the existing tasks
+        # import at the top of this file.
+        from apps.memory.serializers import (
+            NarrativeMemoryPromoteRequestSerializer,
+        )
+        from apps.memory.serializers import NarrativeMemorySerializer
+        from apps.memory.views import promote_from_composition
+
+        try:
+            comp = self.get_queryset().get(pk=pk)
+        except Composition.DoesNotExist:
+            raise NotFound("Composition not found")
+        self.check_object_permissions(request, comp)
+
+        body_ser = NarrativeMemoryPromoteRequestSerializer(
+            data=request.data or {},
+            context={"request": request},
+        )
+        body_ser.is_valid(raise_exception=True)
+
+        episode: Episode = body_ser.context["_resolved_episode"]
+
+        # Sanity: the target Episode's workspace must match the
+        # Composition's workspace (belt-and-suspenders — the
+        # serializer already scoped Episode lookup to the
+        # caller's workspace memberships).
+        if episode.universe.workspace_id != comp.workspace_id:
+            raise ValidationError({
+                "episode": (
+                    "Episode belongs to a different Workspace than "
+                    "this Composition."
+                ),
+            })
+
+        memory_items = body_ser.validated_data["memories"]
+
+        try:
+            created = promote_from_composition(
+                composition=comp,
+                episode=episode,
+                memory_items=memory_items,
+                promoted_by=request.user if request.user.is_authenticated else None,
+            )
+        except ValidationError:
+            raise
+
+        out = NarrativeMemorySerializer(created, many=True).data
+        return Response(
+            {"memories": out},
+            status=status.HTTP_201_CREATED,
+        )
+
     @action(detail=True, methods=["get"])
     def lineage(self, request, pk: str | None = None):
         """F5 — asset lineage for a composition.

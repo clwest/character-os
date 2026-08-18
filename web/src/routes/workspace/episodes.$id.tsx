@@ -36,6 +36,7 @@ import {
   type CompositionRow,
 } from "@/lib/api/recipes";
 import { ApiError } from "@/lib/api/client";
+import { NarrativeMemoryList } from "@/components/narrative-memory-panels";
 
 
 export function EpisodeDetailRoute() {
@@ -282,6 +283,15 @@ export function EpisodeDetailRoute() {
         loading={compositions.isLoading}
         error={compositions.error}
         rows={compositions.data ?? []}
+      />
+
+      {/* SESSION 264 Slice 1 — narrative memory list scoped to
+          this Episode. Read-only surface for the operator to
+          audit what has been remembered so far. Promotion happens
+          on the Composition detail page. */}
+      <NarrativeMemoryList
+        filter={{ episodeId: e.id }}
+        title="Remembered from this Episode"
       />
 
       {/* SESSION 262 — primary "render under this Episode" CTA.

@@ -23,6 +23,7 @@ import { useSpokespeople } from "@/lib/api/spokespeople";
 import { useKnowledgeList } from "@/lib/api/knowledge";
 import { ApiError } from "@/lib/api/client";
 import { SectionHeader } from "@/components/editorial";
+import { NarrativeMemoryList } from "@/components/narrative-memory-panels";
 
 
 export function UniverseDetailRoute() {
@@ -267,6 +268,18 @@ export function UniverseDetailRoute() {
           ))}
         </ul>
       </section>
+
+      {/* SESSION 264 Slice 1 — Universe-wide narrative memory
+          list (spans every Episode in the world). Sourced from
+          /api/narrative-memories/?universe=<id>. `showSource`
+          reveals which Episode + Composition each memory came
+          from since this view crosses Episodes. */}
+      <NarrativeMemoryList
+        filter={{ universeId: u.id }}
+        showSource
+        title="World memories"
+        emptyLabel="No memories promoted in this world yet."
+      />
 
       <section>
         <h2 className="mb-3 border-b border-luxe pb-2 font-display text-2xl tracking-tight text-cream">

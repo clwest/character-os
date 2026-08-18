@@ -135,6 +135,11 @@ ALLOWED_FILES = {
     # ordering seed Composition + Episode rows directly. Sanctioned
     # test-side writer.
     "apps/compositions/tests/test_episode_composition_workflow.py",
+    # SESSION 264 Slice 1 — NarrativeMemory tests seed a Composition
+    # fixture to exercise the promote-from-composition endpoint,
+    # RESTRICT on delete, Universe/Workspace consistency, and
+    # supersede chains. Sanctioned test-side writer.
+    "apps/memory/tests/test_narrative_memory.py",
     # SESSION 210 — `sweep_expired_assets` Celery task tests
     # seed Composition + Asset rows with crafted JWT URLs to
     # exercise the hourly Beat sweep. Asset.composition FK is

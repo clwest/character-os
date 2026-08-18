@@ -8,6 +8,7 @@ import { Link, useParams } from "react-router-dom";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Circle, CornerDownRight, CornerUpRight, Download, Library, Loader2, MinusCircle, ShieldAlert, XCircle } from "lucide-react";
 import { VerificationStatusBadge } from "@/components/verification-status-badge";
 import { Button } from "@/components/ui/button";
+import { NarrativeMemoryPromotePanel } from "@/components/narrative-memory-panels";
 import {
   type Composition,
   type CompositionStep,
@@ -62,6 +63,15 @@ export function CompositionStatusRoute() {
         <VerifierPanel composition={c} />
       )}
       {c.synthesized_brief && <SynthesizedBriefPanel composition={c} />}
+      {/* SESSION 264 Slice 1 — only Episode-attached Compositions can
+          promote memories (memory belongs to a story). Standalone
+          renders show no panel. */}
+      {c.episode && terminal && (
+        <NarrativeMemoryPromotePanel
+          compositionId={c.id}
+          episodeId={c.episode}
+        />
+      )}
       {c.knowledge_docs_used.length > 0 && (
         <CitationsPanel docs={c.knowledge_docs_used} />
       )}
