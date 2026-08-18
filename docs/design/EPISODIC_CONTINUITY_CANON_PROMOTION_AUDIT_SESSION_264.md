@@ -1958,6 +1958,118 @@ questions for later slices.
 
 ---
 
-*Slice 3 implemented. Composition detail page now shows the
-memory-provenance panel. Awaiting operator dogfood before
-authorizing the next slice.*
+*Slice 3 implemented.*
+
+---
+
+## Addendum — Slice 3 dogfood discoverability finding (2026-08-18)
+
+Post-implementation dogfood evidence: the operator ran a fresh
+90-second Terra Episode Dialogue render on the same Episode
+("The agent is acting weird again", cast Patch + Rivet) and
+reported that **"the UI still looks essentially unchanged and
+does not currently notice the new Slice 3 provenance surface."**
+
+### Composition inspected
+
+- **`79d0bbd5-e791-4962-8f7b-80988dbaec6c`** — status `completed`
+- Target 90 s → actual 95.41 s
+- `synthesis_attempt_count = 1` (first-pass accepted)
+- `memory_ids = ["f25e53af-…"]` — the Slice 1 dogfood memory
+  participated
+- Serializer `memories_used` payload: 1 resolved row with
+  correct body, whole-cast witness, episode/universe metadata
+
+### Slice 3 is not broken
+
+- Backend contract intact — `CompositionSerializer` returns the
+  enriched `memories_used` payload correctly.
+- SPA wiring intact — `MemoriesUsedPanel` at
+  `web/src/routes/compositions/$id.tsx:86`.
+- Post-render navigation lands on the correct route
+  (`/compositions/<id>`, per `recipes/$kind.tsx:354`).
+- Not a stale build — Vite dev server running, built bundle
+  at `web/dist/…` contains the Slice 3 code.
+
+The panel technically exists, renders correctly, and is on the
+page the operator lands on after a render.
+
+### Discoverability problem — three compounding factors
+
+**A. Position.** On a 95-second dialogue-scene render the
+`MemoriesUsedPanel` is the 10th of ~11 major panels in this
+order (from `routes/compositions/$id.tsx`):
+
+1. Header (Episode backlink)
+2. ProgressSummary
+3. StepList (14 speech + 1 concat = 15 rows — vertically long)
+4. FinalAsset (video player — natural focal point)
+5. ProducedAssetsPanel (15 asset rows)
+6. VerifierPanel (K6.4 warnings)
+7. SynthesizedBriefPanel (full 1,353-char accepted dialogue)
+8. NarrativeMemoryPromotePanel (Slice 1)
+9. CitationsPanel (11 canon citations)
+10. **MemoriesUsedPanel** (Slice 3)
+11. UsedByPanel (usually empty)
+
+By the time the operator has watched the video and read the
+accepted dialogue, they are ~700 vertical pixels above the
+provenance panel.
+
+**B. Duplicate "Story history" section header.** The Slice 1
+promote panel (`NarrativeMemoryPromotePanel`) uses `"Story
+history"` as its section label; the Slice 3 provenance panel
+uses the same label. On the page the operator sees:
+
+- Panel 8: "Story history / Remember this"
+- (canon citations between)
+- Panel 10: "Story history / Memories used in this render"
+
+The two panels are visual near-duplicates. The operator may
+mentally check off "yes, the memory panel is here" on Panel 8
+and not realize there's a second panel below citations that
+answers a different question ("which memories fed THIS render"
+vs Panel 8's "add a new memory from this render").
+
+**C. No header teaser.** The composition Header shows the
+Episode backlink but has no "N memories used" pill. Nothing on
+the fold nudges the operator to scroll for the provenance panel.
+
+### Not a bug — recorded as a deferred UX finding
+
+The operator's brief explicitly said "Do NOT redesign it yet."
+Recording the finding so it does not have to be re-discovered
+next dogfood. Candidate future changes (all DEFERRED, NOT
+implemented in this session):
+
+- **Move the panel higher in the composition detail layout** —
+  e.g. immediately below the video player, above ProducedAssets.
+- **Rename one of the two "Story history" section labels** so
+  the SPA doesn't render two adjacent-ish panels with identical
+  headers. One candidate: "Story history" for the promote
+  surface, "Memory used" (singular, distinct) for the
+  provenance surface.
+- **Add a header teaser** — a small "N memories used" pill in
+  the Composition Header when `memory_ids.length > 0`, linking
+  down to the panel.
+- **Or (bigger question)**: does memory provenance belong on
+  the Composition detail page at all, or is it more naturally
+  surfaced on the Episode detail page next to the story history
+  list?
+
+**Do NOT act on any of these without operator authorization.**
+The current implementation is correct; the discoverability gap
+is a UX question, not a bug fix.
+
+### Slice 4+ readiness posture unchanged
+
+The audit's post-Slice-2 deferred list stands. Slice 3 shipped
+its ratified contract. Whether Slice 4 is a discoverability
+correction, another retrieval/observability change, or a
+different slice entirely is an operator decision — the tracked
+docs do not currently ratify a Slice 4.
+
+---
+
+*Slice 3 dogfooded. Backend + panel wiring correct.
+Discoverability gap recorded. Awaiting operator direction.*

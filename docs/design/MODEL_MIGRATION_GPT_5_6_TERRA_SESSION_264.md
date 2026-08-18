@@ -426,6 +426,46 @@ can still explicitly pick 60 s or other supported durations
 per-render. Implemented as its own commit; tests prove default,
 explicit override, and non-regression on unrelated recipes.
 
+### 11.3.1 Post-default-change Terra runs — duration calibration is adequate
+
+Two additional 90-second Terra runs against the same Episode
+("The agent is acting weird again", cast Patch + Rivet) landed
+after the 60 s → 90 s default-change commit `b819633`. Recorded
+here as evidence that the current dialogue CPS / tolerance /
+corrective-hint calibration is sufficiently accurate for operator
+use on Terra + 90 s targets. **These are runtime observations,
+not a mandate to retune anything.**
+
+| Run | Composition | Synth chars | Predicted | Actual | Attempts |
+|---|---|---|---|---|---|
+| A | `a119b064-b2f5-4c7d-85c0-45d03999845a` | 1,358 | ~104 s | 96 s | (post-Slice-3 dogfood; two attempts) |
+| B | `79d0bbd5-e791-4962-8f7b-80988dbaec6c` | 1,353 | ~104 s | 95.41 s | **1** (first-pass accepted) |
+
+Observations:
+
+- Both actuals fall comfortably inside the ±20 % tolerance band
+  for a 90 s target (72–108 s).
+- Predictor systematically over-predicts by ~9 s on this shape.
+  That's a safe direction — over-prediction protects the
+  ceiling; under-prediction would cause more corrective retries
+  or over-runs.
+- Run B accepted on first pass (`synthesis_attempt_count = 1`),
+  no corrective. Terra's default output length matches the 90 s
+  target well enough on this Episode shape to skip the retry
+  loop entirely.
+
+**Explicitly recorded non-goals from the dogfood brief:**
+
+- Do NOT retune `_DIALOGUE_CPS = 13`.
+- Do NOT retune `_DURATION_TOLERANCE = 0.20`.
+- Do NOT retune `_DIALOGUE_CORRECTIVE_HEADROOM_FRACTION = 0.92`.
+- Do NOT retune `DIALOGUE_DURATION_SYNTHESIS_TARGET_MULTIPLIER = 1.00`.
+- Do NOT rewrite the corrective-hint text.
+
+These runs establish calibration adequacy for one recipe /
+model / target-duration combination. Not evidence for or
+against a general calibration change.
+
 ### 11.4 Invariants held on both Terra renders
 
 - **Generated != Remembered** — synthesis output did not
