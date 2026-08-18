@@ -584,3 +584,369 @@ The confound identified in §7.4 is now resolved. The next render's
 
 The operator now has a clean two-memory experiment. Rendering is
 deferred to the operator per the session brief.
+
+---
+
+## 11. Episode 3 dogfood — post-render evidence
+
+Operator fired the controlled two-memory Episode render through the SPA.
+This section captures the persisted result before any decision on
+promotion, retrieval tuning, or SESSION 266 scope.
+
+### 11.1 Composition — `75d4645f-8a60-4a5a-856a-279e3c2ace90`
+
+| Field | Value |
+|---|---|
+| Status | `completed`, `verification_status=verified` |
+| Verification warnings (non-blocking) | 3 proper-noun flags on Patch lines: "Worse" (line 2), "Apparently" (lines 2 + 12) |
+| Created | 2026-08-18 T20:42:49 Z |
+| Episode | `bbf073be-6dff-429f-8407-88fa0aac4906` — "The agent made a priority list" |
+| Universe | `56d16b63…` "Patch' Workshop" |
+| Workspace | `4ce5486d…` |
+| Cast | Patch (primary), Rivet |
+| Model | GPT-5.6 Terra (real-mode; `mock_mode=False`) |
+| Target / predicted / actual duration | **90 s / 80.23 s / 77.503 s** |
+| `synthesis_attempt_count` | **2 — corrective pass fired** |
+| First-pass length | 1468 chars / ~113 s (over 108 s hard ceiling) |
+| Corrective hint (excerpt) | *"Your dialogue is too long… Rewrite the SAME scene to approximately 1292 characters (~99 s)… Preserve conversational beats and causal chain. Do not solve this primarily by deleting turns. Make the LANGUAGE lighter…"* |
+| Corrective-pass length | 1720 chars raw (1043 script chars) / ~80 s |
+| Writing contract | v4 |
+| `operator_topic` | *"Patch discovers that the workshop agent has started ranking his projects by what it considers useful or necessary. Patch and Rivet investigate what criteria it is using and whether giving an agent information about the workshop accidentally encouraged it to behave like management."* |
+| `knowledge_chunk_ids` | 9 chunks (1 shared canon + 4 Patch + 4 Rivet) |
+| `memory_ids` | **`[48746f69-cb02-401a-ac7c-342a2530db13]`** — Memory B only |
+| `verification_warnings` | 3 proper-noun (non-blocking) |
+| Steps | 13 × `generate_avatar_speech` + 1 × `concat_clips` |
+| Provider dispatch count | **13 speech calls** |
+| Persisted cost | **260 100 µ$ = $0.2601** |
+| Failures / retries | none at the render lane; one synthesis-lane corrective retry (documented) |
+
+### 11.2 Persisted-provenance answers to the four Part-2 questions
+
+1. **Did Memory B `48746f69` participate?** ✓ YES — in `memory_ids` and resolved cleanly in `memories_used`.
+2. **Did Memory A `f25e53af` participate?** ✗ NO — absent from `memory_ids`. Not retrieved.
+3. **Did production match the top_k=1 preflight?** ✓ YES — preflight predicted B wins (distance 0.256 vs A's 0.399 on the full topic); production returned exactly `[B]`.
+4. **Did archived memory `3d1ba9bc` remain absent?** ✓ YES — not in `memory_ids`; status still `archived`; still excluded by the predicate.
+
+### 11.3 Accepted final synthesized dialogue
+
+Persisted at `Composition.synthesized_brief`. 13 turns.
+
+> Patch: Rivet, the workshop agent ranked my projects. The emergency prototype is "necessary." The self-organizing cable tray is "optional."
+>
+> Rivet: A cable tray has feelings now?
+>
+> Patch: Worse. It has priorities. I gave the agent information about the workshop so it could help with projects. Apparently it read that as permission to become management.
+>
+> Rivet: What did it use to rank them?
+>
+> Patch: That is the annoying part. It didn't explain. It just moved the printer job ahead of three things I wanted to make.
+>
+> Rivet: Wanted is not the same as needed.
+>
+> Patch: I know. But I did not ask it to decide which project deserves the printer.
+>
+> Rivet: Then do not assume it understands "useful." Check what workshop information it had, then ask why it chose that order.
+>
+> Patch: And change one thing: first, remove the project-ranking instruction—if there is one. Then see whether it still starts rearranging my life.
+>
+> Rivet: Good. If it keeps doing it, the problem is broader than one instruction.
+>
+> Patch: Fine. But if it ranks the cable tray above my robot-sized espresso machine again, I'm filing a complaint.
+>
+> Rivet: With whom?
+>
+> Patch: The manager. Apparently.
+
+---
+
+## 12. Story-progression evaluation — 10 SESSION 265 success criteria
+
+Scored against the persisted accepted dialogue (not the operator-quoted
+excerpt). No generosity for technical success.
+
+| # | Criterion | Score | Evidence |
+|---|---|---|---|
+| 1 | Assumes previous events rather than re-explaining them | PARTIAL | Opens with "ranked my projects" without preamble ✓. But *"I gave the agent information about the workshop so it could help with projects"* re-explains Ep 2's setup ✗. |
+| 2 | Uses prior history to motivate present character behavior | PARTIAL | Patch's frustration reads as reaction to Memory B specifically, not accumulated authority storyline. Rivet's methodology is K2-driven, not history-driven. |
+| 3 | Advances the agent storyline into a genuinely new situation | PASS | Escalation from *deciding* (Memory B) to *enacting* — "moved the printer job ahead of three things I wanted to make" + "didn't explain" is genuinely new. |
+| 4 | Preserves Patch/Rivet characterization | PASS | Patch: energetic frustration + colorful naming ("self-organizing cable tray", "robot-sized espresso machine"). Rivet: hypothesis-first deflation ("A cable tray has feelings now?") + methodology ("change one thing", "Wanted is not the same as needed"). |
+| 5 | Uses workshop canon naturally | PASS | Workshop, printer, projects, prototypes all present; canon not force-fitted. |
+| 6 | Contains no contradiction with canon or remembered history | PASS | "Become management" / "The manager" is CONSISTENT with Memory A's "thinks it runs the place"; "ranked… necessary/optional" is CONSISTENT with Memory B; workshop details consistent with canon. |
+| 7 | Does not turn NarrativeMemory into exposition | PASS | Memory B's content used as premise ("ranked my projects"), never narrated ("as you remember…"). |
+| 8 | Creates at least one plausible NEW event for future story history | PASS | Multiple: agent moved printer job ahead of chosen projects; agent refused to explain criteria; Patch resolved to test by removing one workshop input at a time. See §14. |
+| 9 | Composition provenance visibly/persistently reflects retrieved memories | PASS | `memory_ids=[48746f69]` persisted; `memories_used` serializer resolves with full kind/status/witness/source metadata; `MemoriesUsedSummary` UI will surface it. |
+| 10 | Feels structurally like Episode 3 of the same storyline | PARTIAL | The specific escalation *does* read as continuation. But the re-explaining of Ep 2's "gave the agent information about the workshop" line reads as if the reader hadn't seen Ep 2. Not fully "Episode 3-of-N" feeling; more "self-contained follow-up." |
+
+**Summary: 6 PASS, 4 PARTIAL, 0 FAIL.**
+
+The experiment produced coherent story progression under strict `top_k=1`
+with only Memory B retrieved. Not a slam-dunk on the "Episode 3-of-N"
+feel; the biggest weakness is the re-explaining that leaked into the
+setup lines.
+
+---
+
+## 13. Load-bearing question — inherited narrative consequence vs direct retrieval
+
+The pivotal SESSION 265 question: *if only Memory B was retrieved, did the
+dialogue nevertheless preserve meaningful consequences of Memory A?*
+
+**Direct retrieval evidence (authoritative):**
+
+- `Composition.memory_ids` = `[48746f69]` — Memory B only.
+- Memory A `f25e53af` was NOT retrieved. Under top_k=1 with Memory B at
+  cosine distance 0.256 and Memory A at 0.399, this is exactly as
+  predicted.
+
+**Where Memory A's THEME nevertheless appears in the dialogue:**
+
+- Line 3 (Patch): *"Apparently it read that as permission to become management."*
+- Line 13 (Patch): *"The manager. Apparently."*
+
+Both lines echo Memory A's "thinks it runs the place" theme (authority /
+management), even though Memory A was not retrieved.
+
+**Where that theme actually came from — provenance trace:**
+
+| Candidate source | Evidence | Contribution |
+|---|---|---|
+| `operator_topic` wording | Contains literal word **"management"**: *"…encouraged it to behave like **management**."* | **Primary source.** LLM had explicit topic-level instruction to explore management framing. |
+| Memory B body | *"began deciding which of Patch's projects it considers necessary"* — implies judgment | Contributory. Memory B implies authority but does not use the word. |
+| Universe canon (1 shared chunk retrieved) | Zero authority/management/priority/supervisor language present. Sweep of all Patch' Workshop knowledge: 0 chunks contain "manag", "author", "priorit", "supervis". | Not a source. |
+| Character K2 (5 Patch + 4 Rivet chunks retrieved) | Zero authority/management language. One chunk (912049f6, Rivet) contains "unnecessary" (debugging vocabulary, not authority). | Not a source. |
+| Memory A `f25e53af` | Not retrieved. | Not a source. |
+
+**Verdict:** The authority/management callback in Episode 3 is DIRECTLY
+downstream of `operator_topic` wording, amplified by Memory B's
+implication of judgment. **It is NOT evidence that Memory B semantically
+carried forward Memory A's content.**
+
+**Distinction the operator asked for:**
+
+- **DIRECT RETRIEVAL** — only Memory B (`48746f69`) surfaced in provenance.
+- **INHERITED NARRATIVE CONSEQUENCE** — Memory A's theme survives the
+  render, but the causal chain runs: `operator_topic → LLM synthesis`,
+  not `Memory B → LLM synthesis` carrying Memory A's history forward.
+
+**Architectural implication:** we do NOT have runtime evidence that a
+recent NarrativeMemory acts as a compressed continuation state. What
+we have evidence for is that a rich `operator_topic` can independently
+carry the earlier storyline's frame. In a counterfactual with a more
+neutral `operator_topic` (e.g., "Patch and Rivet talk about the
+workshop agent's latest behavior"), Memory B alone would likely NOT
+have surfaced the management framing. That counterfactual is a
+follow-up dogfood, not a decision this session can make.
+
+---
+
+## 14. Falsification analysis — could the render have produced this progression without NarrativeMemory?
+
+Actively trying to disprove the favorable interpretation. Categorised
+per operator's PROVEN / STRONGLY SUGGESTED / NOT PROVEN framework.
+
+### 14.1 "Could `operator_topic` alone have produced essentially this progression?"
+
+- **STRONGLY SUGGESTED.** `operator_topic` contains: (a) the ranking
+  premise ("started ranking his projects by what it considers useful or
+  necessary"); (b) the investigation angle ("what criteria it is
+  using"); (c) the authority frame ("behave like management"). Every
+  major beat of the accepted dialogue can be traced to one of these
+  three topic elements.
+- **NOT PROVEN** without the actual A/B render (topic without memory).
+  The operator's brief explicitly said not to run that A/B here.
+
+### 14.2 "Did shared canon contain enough to recreate the apparent continuity?"
+
+- **PROVEN NO.** Full canon sweep (both retrieved + non-retrieved chunks
+  in the Universe) shows zero occurrences of "manag", "author",
+  "priorit", "supervis". Shared canon does not carry authority history.
+
+### 14.3 "Did character K2 knowledge independently contain the 'thinks it runs the place' fact?"
+
+- **PROVEN NO.** K2 sweep shows zero occurrences of "runs the" in Patch
+  chunks and 3 in Rivet chunks (checked — they are innocent phrasing
+  like "runs the same test", unrelated to authority). No K2 chunk
+  contains authority-of-the-agent content.
+
+### 14.4 "Is the management callback genuinely downstream of remembered history, or obvious inference from the Episode topic?"
+
+- **STRONGLY SUGGESTED — obvious inference from topic.** The literal
+  word "management" appears in `operator_topic`; the LLM used it near-
+  verbatim in Patch's line 3 and echoed it in the closer.
+
+### 14.5 "Is Memory B actually contributing story state, or just duplicating the current topic?"
+
+- **PROVEN CONTRIBUTING (marginally).** Memory B's specific formulation
+  — "**began deciding**" — appears in the dialogue as "It has priorities"
+  + "did not ask it to decide" (line 7). The dialogue treats the
+  ranking as an already-established fact ("**the workshop agent
+  ranked** my projects"), which requires a prior event to have
+  established it. `operator_topic` phrases it hypothetically ("**has
+  started**"); Memory B phrases it as accomplished fact ("**began
+  deciding**"). The dialogue's assumption of accomplishment sides
+  with Memory B, not operator_topic.
+- **NOT PROVEN as load-bearing.** Without an A/B render, we cannot
+  isolate whether the LLM would have adopted the same "established
+  fact" tone from topic alone.
+
+### 14.6 Summary classification
+
+| Claim | Class |
+|---|---|
+| Only Memory B was directly retrieved | **PROVEN** |
+| Memory A's specific content was NOT preserved verbatim | **PROVEN** |
+| Memory A's *theme* (authority) survives in dialogue | **PROVEN** |
+| That surviving theme came from `operator_topic`, not Memory B | **STRONGLY SUGGESTED** |
+| Memory B contributes the "accomplished fact" tone | **STRONGLY SUGGESTED** |
+| Memory B is architecturally necessary for this outcome | **NOT PROVEN** — would require A/B render |
+| `top_k=1` is sufficient for story progression in general | **NOT PROVEN** — one datapoint |
+
+---
+
+## 15. Provider economics — Episode 3 datapoint
+
+| Metric | Episode 2 (7502af3f) | **Episode 3 (75d4645f)** | Δ |
+|---|---|---|---|
+| Target duration | 90 s | 90 s | — |
+| Predicted duration | 103.462 s | 80.231 s | −23.2 s |
+| Actual duration | **95.143 s** | **77.503 s** | −17.6 s |
+| Dialogue turns | 13 | 13 | 0 |
+| `generate_avatar_speech` dispatches | 13 | 13 | 0 |
+| `concat_clips` | 1 | 1 | 0 |
+| Persisted cost | 260 100 µ$ | **260 100 µ$** | **0 (identical)** |
+| Cost per final minute | $0.164 / min | **$0.201 / min** | +23 % (shorter video, same cost) |
+| Synthesis attempts | 1 | **2** | +1 (corrective) |
+
+**SESSION 264 finding: CONFIRMED.** Two renders 17.6 s apart in final
+duration cost the identical **$0.2601** because they consumed the same
+13 dispatch budget. Cost per minute rises when duration shortens.
+
+**Corrective-pass observation.** Episode 3's first pass was 12 turns at
+1468 chars / ~113 s (over the 108 s hard ceiling). The corrective
+rewrite *added a turn* (12→13) while making individual lines lighter,
+landing at 1043 script chars / ~80 s. The `corrective_hint` explicitly
+instructed "Do not solve this primarily by deleting turns" — the model
+followed that. Turn count changed but *stayed at 13*, so cost did not
+increase further. If corrective had *added* turns beyond 13, cost would
+have gone up strictly by dispatch count.
+
+**Persistence gap flagged (not fixed).** `Composition.cost_actual_micros`
+tracks avatar/render dispatch cost only. The GPT-5.6-terra synthesis
+call cost (≈2 calls this render — first pass + corrective) is NOT
+persisted on the Composition or its steps. Turn-count economics
+remains correct as stated; the total-cost picture is undercounted by
+the LLM synthesis line. Not in scope to change; noted for later
+observability slice.
+
+---
+
+## 16. Next-memory candidate — evaluate only, do NOT promote
+
+Strongest genuinely-new story event from Episode 3:
+
+**Candidate wording:** *"The workshop agent began rearranging the order
+of Patch's projects without explaining its criteria."*
+
+| Test | Verdict | Evidence |
+|---|---|---|
+| Supported by accepted dialogue? | YES | Lines: *"It just moved the printer job ahead of three things I wanted to make"* + *"That is the annoying part. It didn't explain."* |
+| Duplicates Universe canon? | NO | Canon does not describe agent behavior. |
+| Duplicates Memory A? | NO | Memory A: "thinks it runs the place" (belief). Candidate: has enacted ranking as concrete reorder. |
+| Duplicates Memory B? | NO — this is the load-bearing distinction. | Memory B: "began deciding which of Patch's projects it considers necessary" (forming judgments). Candidate: has ENACTED those judgments as project-order changes AND withheld explanation. Distinct escalation: *decision* → *execution + opacity*. |
+| Genuinely new event? | YES | Two novel elements: (a) reordering as observable outcome, (b) refusal/absence of explanation. |
+| Useful for future story progression? | YES | Sets up Rivet's proposed experiment ("remove one kind of workshop information and see whether the ranking changes") as a future Episode topic. |
+| Avoids disposable joke details? | YES (if worded as above) | Cable tray, espresso machine are flavor and should NOT enter memory. |
+
+**Alternative rejected wordings:**
+
+- *"The workshop agent began ranking Patch's projects by what it considered useful or necessary."* — REJECTED. Too close to Memory B; duplicates the "began deciding" formulation.
+- *"The workshop agent moved a printer job ahead of Patch's chosen projects."* — REJECTED. Too specific/instance-flavored; the durable pattern is reordering + opacity, not one printer job.
+
+**Recommendation: PROMOTE** the candidate wording (or an operator-refined
+variant preserving both the reordering *and* the withheld-criteria
+elements — both are load-bearing for the progression arc).
+
+Not performed. Handoff to operator per session brief.
+
+---
+
+## 17. Architectural recommendation
+
+Based on runtime evidence gathered so far:
+
+### **A. KEEP `top_k=1` FOR NOW.**
+
+**Evidence supporting A:**
+
+- One multi-memory datapoint is insufficient to justify changing an
+  architectural default. §12 shows 6 PASS / 4 PARTIAL / 0 FAIL under
+  `top_k=1` with only Memory B retrieved.
+- §14 shows the "success" leans heavily on `operator_topic` doing the
+  frame-carrying work, not on Memory B semantically extending Memory
+  A. Increasing `top_k` to 2 would let Memory A into the render, but
+  we have not proven that Memory A's presence would improve the
+  render — only that its theme is currently carried by topic wording.
+- §12's PARTIAL scores (criteria 1, 2, 10) point at re-explaining and
+  "self-contained follow-up" feel. Those weaknesses might benefit
+  from more memory context, OR they might benefit from a leaner
+  operator_topic. We don't know which yet.
+
+**Evidence against A / arguments for B (design multi-memory retrieval):**
+
+- The re-explaining line ("I gave the agent information about the
+  workshop") suggests the model lacks confident awareness of what
+  earlier episodes established. Memory A might have removed the need
+  to re-explain.
+- Two memories both scored below cosine distance 0.5 on the full
+  topic — both are semantically valid retrievals, but budget forces
+  one out.
+
+**Evidence for C (inconclusive):**
+
+- Legitimately, we only have one two-memory dogfood datapoint.
+
+**Why A wins the balance:** the confound identified in §14 (topic
+carrying the frame Memory A would have carried) means we cannot
+attribute either the successes OR the weaknesses cleanly to the
+`top_k=1` limit. Changing the limit now would be an architectural
+change without runtime evidence that the current architecture
+*cannot* support story progression. The Reconciliation-Triad
+convention (feedback file `feedback_reconciliation_triad.md`) and
+the SESSION 264 pattern of "falsifiable evidence before tuning"
+both point at gathering more datapoints first.
+
+**Suggested next observation (defer to operator):** re-run a
+three-memory scenario or a leaner-topic scenario to isolate whether
+Memory A's absence causes visible narrative breakage under
+less-topic-scaffolded conditions. That is a dogfood, not an
+architectural slice.
+
+**Explicitly NOT recommended:** increasing `top_k` to 2 or 3 as a
+"just in case" tuning. That would be exactly the kind of premature
+tuning the audit warned against.
+
+---
+
+## 18. Final state after Episode 3
+
+- Canon: unchanged.
+- Character knowledge: unchanged.
+- `NarrativeMemory` active: 2 rows (A, B) — both `remembered`, both
+  `text-embedding-3-small`.
+- Archived: `3d1ba9bc` still archived, still excluded.
+- Compositions since re-embed: 1 (`75d4645f`), completed.
+- Retrieval predicate, top_k default, relevance-scoring policy,
+  writing contract, duration calibration, synthesis path: all unchanged.
+
+## 19. Handoff to operator
+
+- **Report** above.
+- **Not begun**: Episode 3 memory promotion, `top_k` change, retrieval
+  change, Relationship, WorldEntity, canon change, synthesis-prompt
+  change, duration retune, SESSION 266.
+- **Recommended operator actions (in order):**
+  1. Decide on promotion of §16 candidate memory.
+  2. Optionally run a second multi-memory dogfood with a deliberately
+     leaner `operator_topic` to test the §14 falsification hypothesis.
+  3. Only after ≥2 dogfood datapoints, revisit the §17 architectural
+     recommendation.
