@@ -1098,3 +1098,154 @@ Actionable follow-ups (all DEFERRED, no work initiated):
 - Archived `3d1ba9bc`: unchanged.
 - `top_k` default at `retrieve_universe_memory`: **1** (unchanged).
 - Retrieval predicate, relevance policy, writing contract, duration calibration, synthesis path: unchanged.
+
+---
+
+## 21. SESSION 265 closeout — final disposition
+
+Episode 4 is treated as the final experimental datapoint for
+SESSION 265. This section is the tracked ratification of what
+survived the dogfood loop and what remains explicitly deferred.
+
+### 21.1 Final architectural disposition
+
+**KEEP:**
+
+- `NarrativeMemory` retrieval `top_k = 1` at
+  `shell/apps/embeddings/retrieval.py:439` (default), with the
+  supporting comment @ line 434 that predates SESSION 265 and remains
+  accurate.
+
+**DO NOT CHANGE:**
+
+- Retrieval predicate at `retrieve_universe_memory` (workspace,
+  universe, `status=REMEMBERED`, `archived_at IS NULL`,
+  `embedding_vector IS NOT NULL`, witness overlap).
+- Retrieval scoring / relevance-floor policy (no floor; cosine order;
+  `LIMIT top_k`).
+- Canon boundaries (canon = operator-owned `KnowledgeDocument`;
+  memory = "this happened" event; synthesis never writes to
+  `KnowledgeDocument`).
+- Synthesis prompts / writing contract v4.
+- Duration calibration (90-second Terra default; three actual
+  datapoints inside the accepted envelope).
+- Embedding model + dimension (`text-embedding-3-small` @ 1536).
+
+**EXPLICITLY DEFERRED:**
+
+- The `top_k = 2` (or higher) counterfactual. Not run in SESSION 265.
+  Deferred unless future runtime evidence shows progression breakage
+  the current architecture cannot explain.
+- Promotion-UX / operator-affordance investigation (see §21.2).
+- Relationship, WorldEntity, canon-promotion automation, memory
+  suggestions, configurable `top_k`, and any other architectural
+  slice.
+
+### 21.2 Primary new finding — the arc-summary hypothesis
+
+The load-bearing SESSION 265 finding, extracted from the four-Episode
+dogfood loop:
+
+> **Cumulative story continuity can survive `top_k = 1` retrieval
+> when the promoted memory acts as a compact arc-summary rather than
+> merely an atomic event.**
+
+Evidence trace across the four Episodes:
+
+| Ep | Memory retrieved | operator_topic character | Story-progression result |
+|---|---|---|---|
+| 2 (7502af3f) | none (nothing yet promoted) | rich | Establishes agent-authority belief; produces Memory A candidate |
+| 3 (75d4645f) | B only (`top_k=1`) | rich, contains "management" | 6 PASS / 4 PARTIAL — theme carried, but by `operator_topic` not by memory (§14) |
+| 4 (d533b4ec) | C only (`top_k=1`) | lean, title only | Theme survives via Memory C's arc-summary wording alone (§20.6) |
+
+The distinguishing variable between Ep 3 and Ep 4 was not `top_k` (both
+1) and not the retrieved memory count (both 1). It was:
+
+- Ep 3's Memory B (`began deciding which of Patch's projects it
+  considers necessary`) — an event caption. Under a lean
+  operator_topic in Ep 4's counterfactual, this alone would likely
+  have lost the authority theme.
+- Ep 4's Memory C (`began rearranging the order of Patch's projects
+  without explaining its criteria`) — an arc-summary that compresses
+  the authority + judgment + opacity storyline the operator built
+  by promoting after reading both prior installments.
+
+The compression happens at *promotion time*, in the operator's
+judgment, not at *retrieval time* in the architecture.
+
+**Corollary hypothesis for a future session (NOT SESSION 265's to
+prove or execute):**
+
+> Memory-promotion quality/UX is now a load-bearing hypothesis worth
+> investigating separately. Whether the SPA "Remember this" affordance
+> encourages arc-summary framing vs atomic-event framing is a
+> product/UX question that could determine whether `top_k = 1`
+> remains adequate in general operator use.
+
+### 21.3 Preserved limitation
+
+SESSION 265 does **NOT** prove that `top_k = 1` is universally
+sufficient for `NarrativeMemory` retrieval. It proves that
+`top_k = 1` was sufficient for the specific story-progression tested
+here, including the lean-topic Episode 4 case where operator-crafted
+arc-summary memory carried cumulative state.
+
+Not tested, and therefore not disproven or proven:
+
+- Longer storylines (five, ten, twenty Episodes) where one memory
+  cannot plausibly compress the full arc.
+- Cross-thread progression (multiple concurrent story arcs in the
+  same Universe where the wrong single memory wins).
+- Operator promotions that miss the arc-summary framing and instead
+  capture atomic events; the operator has already demonstrated the
+  arc-summary discipline, but that discipline is currently informal.
+- Storylines where multiple memories are simultaneously load-bearing
+  (e.g., an unresolved earlier promise + a fresh event).
+
+Any of the above surfacing in the wild is grounds to revisit the
+`top_k` decision.
+
+### 21.4 Provider-economics ratification
+
+The SESSION 264 turn-count-driven cost finding was tested three times
+inside SESSION 265 (Episodes 2, 3, 4) and confirmed in every case:
+
+| Ep | Turns | Speech dispatches | Final duration | Persisted cost |
+|---|---|---|---|---|
+| 2 | 13 | 13 | 95.14 s | $0.2601 |
+| 3 | 13 | 13 | 77.50 s | $0.2601 |
+| 4 | 13 | 13 | 98.22 s | $0.2601 |
+
+Three consecutive renders differing in final duration by up to 20.7
+seconds cost the *identical* $0.2601. Ratified: cost is
+turn-count-driven, not duration-driven, for the dialogue path.
+
+Persistence gap flagged in §15 remains: OpenAI synthesis cost is not
+tracked on `Composition` or `CompositionStep`. Not fixed in SESSION
+265; deferred to a future observability slice.
+
+### 21.5 Runtime state at SESSION 265 close
+
+- Branch: `main`, clean tree, `main == origin/main`.
+- 3 active `NarrativeMemory` rows in the Patch' Workshop Universe
+  (A, B, C), all real-embedded (`text-embedding-3-small`, dim 1536).
+- 1 archived row (`3d1ba9bc`) — still archived, still excluded.
+- 4 SESSION 265 Compositions in the Universe (renders documented
+  §11.1, §20.1 + Ep 2 in §2.1 + the Memory-A source Ep 1 render
+  `3e44b728` predates SESSION 265).
+- Canon (3 `KnowledgeDocument`s, 37 `KnowledgeChunk`s): unchanged
+  since 2026-08-18 T03:20:33 Z.
+- `retrieve_universe_memory` default `top_k = 1`: unchanged.
+- No mock-mode embeddings remain in the active set (§10 re-embed
+  fixed the last one).
+
+### 21.6 No implementation begun at closeout
+
+- No promotion-UX work started.
+- No `top_k` change.
+- No retrieval / scoring / synthesis / duration / canon change.
+- No Relationship, WorldEntity, canon-promotion automation, memory
+  suggestions, or configurable-`top_k` slice initiated.
+- Episode 4's follow-up memory candidate has not been evaluated
+  or promoted (Episode 4 is the last SESSION 265 render; whether
+  to promote a Memory D is a SESSION 266+ operator decision).
