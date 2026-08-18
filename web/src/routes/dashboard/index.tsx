@@ -1,9 +1,10 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Loader2, CheckCircle2, XCircle, MinusCircle, Library } from "lucide-react";
+import { Plus, Loader2, CheckCircle2, XCircle, MinusCircle, Library, Globe2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSession, useSignout } from "@/lib/auth/use-session";
 import { useMe, useSubscription } from "@/lib/api/workspaces";
 import { useSpokespeople } from "@/lib/api/spokespeople";
+import { useUniverses, type Universe } from "@/lib/api/universes";
 import { SpokespersonCard } from "@/components/spokesperson-card";
 import { UsageMeter } from "@/components/usage-meter";
 import { CostPanel } from "@/components/cost-panel";
@@ -33,6 +34,14 @@ export function DashboardRoute() {
   const spokespeople = useSpokespeople();
   const workspaceId = me.data?.default_workspace?.id;
   const overview = useWorkspaceOverview(workspaceId);
+  // SESSION 262 — discoverability fix for the Universe → Episode
+  // arc. SESSION 261 shipped a 10px "Worlds" chip inside the
+  // Knowledge tile header; SESSION 262 shipped Episode routes on
+  // top. Neither is discoverable without knowing the URL. This
+  // dashboard tile is the smallest correction: primary click
+  // path from post-login → Universes → Episodes → New Episode.
+  // No NavRail change (F0 rule 7 preserved).
+  const universes = useUniverses(workspaceId);
   const overviewByName = new Map<string, OverviewSpokesperson>(
     overview.data?.spokespeople.map((s) => [s.id, s]) ?? [],
   );
@@ -90,6 +99,19 @@ export function DashboardRoute() {
           loading={sub.isLoading}
           error={sub.error}
           data={sub.data}
+        />
+      </section>
+
+      {/* SESSION 262 — Worlds tile (discoverability fix). Primary
+          click path to Universes → Episodes → New Episode. */}
+      <section
+        className="reveal"
+        style={{ "--reveal-delay": "0.05s" } as React.CSSProperties}
+      >
+        <WorldsPanel
+          loading={universes.isLoading}
+          error={universes.error}
+          data={universes.data}
         />
       </section>
 
@@ -306,6 +328,122 @@ function UsagePanel({
       tier={data.tier}
       status={data.status}
     />
+  );
+}
+
+/**
+ * SESSION 262 — Worlds (Universe) discoverability panel.
+ *
+ * SESSION 261 shipped Universe substrate + list/detail routes but
+ * the ONLY entry point was a tiny 10px chip inside the Knowledge
+ * tile's header ("Worlds") and a NavRail with no Universes item
+ * (F0 rule 7 — new NavRail items require their own scope-lock).
+ * That left the primary click path to Episodes undiscoverable.
+ *
+ * This panel is the smallest correction that keeps F0 rule 7
+ * intact: a first-class dashboard tile mirroring the shape of
+ * KnowledgeCorpusPanel + CostPanel. Behavior:
+ *
+ *   * Zero Universes → primary CTA "New world" routing to the
+ *     list page (which owns the create form).
+ *   * ≥1 Universe → list up to 4 by name with row-level links
+ *     into the Universe detail page (which surfaces the
+ *     "Manage episodes →" affordance SESSION 262 added). Header
+ *     CTA "Manage worlds" for the full list.
+ *
+ * Preserves the pre-existing 10px "Worlds" chip inside the
+ * Knowledge tile — harmless, and removing it is a separate slice.
+ */
+function WorldsPanel({
+  loading,
+  error,
+  data,
+}: {
+  loading: boolean;
+  error: unknown;
+  data: Universe[] | undefined;
+}) {
+  const universes = (data ?? []).filter((u) => !u.archived_at);
+  const shown = universes.slice(0, 4);
+  const more = Math.max(0, universes.length - shown.length);
+
+  return (
+    <section
+      className="flex flex-col gap-4 rounded-md border bg-card p-5 shadow-paper"
+      data-testid="worlds-panel"
+    >
+      <div className="flex items-baseline justify-between border-b pb-2">
+        <div className="flex items-center gap-2">
+          <Globe2 className="h-4 w-4 text-muted-foreground" />
+          <h2 className="font-display text-base tracking-tight">Worlds</h2>
+        </div>
+        <Link
+          to="/workspace/universes"
+          className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
+          data-testid="worlds-panel-manage-link"
+        >
+          Manage worlds
+        </Link>
+      </div>
+
+      {loading && (
+        <p className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
+          Loading…
+        </p>
+      )}
+
+      {!loading && error !== null && error !== undefined && (
+        <p className="text-sm text-destructive">
+          Could not load worlds: {String(error)}
+        </p>
+      )}
+
+      {!loading && !error && universes.length === 0 && (
+        <div className="flex flex-col items-start gap-3">
+          <p className="text-sm text-muted-foreground">
+            A world scopes characters, knowledge, and stories.
+            Create one to start authoring episodes.
+          </p>
+          <Button asChild size="sm" data-testid="worlds-panel-create-cta">
+            <Link to="/workspace/universes">
+              <Plus className="mr-2 h-4 w-4" /> New world
+            </Link>
+          </Button>
+        </div>
+      )}
+
+      {!loading && !error && universes.length > 0 && (
+        <ul className="flex flex-col gap-2">
+          {shown.map((u) => (
+            <li key={u.id}>
+              <Link
+                to={`/workspace/universes/${u.id}`}
+                data-testid={`worlds-panel-row-${u.id}`}
+                className="flex items-baseline justify-between rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-muted"
+              >
+                <span className="truncate font-medium">{u.name}</span>
+                <span className="ml-3 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                  {u.teammate_count} teammate
+                  {u.teammate_count === 1 ? "" : "s"} ·{" "}
+                  {u.episode_count} episode
+                  {u.episode_count === 1 ? "" : "s"}
+                </span>
+              </Link>
+            </li>
+          ))}
+          {more > 0 && (
+            <li>
+              <Link
+                to="/workspace/universes"
+                className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground hover:text-foreground"
+              >
+                + {more} more world{more === 1 ? "" : "s"}
+              </Link>
+            </li>
+          )}
+        </ul>
+      )}
+    </section>
   );
 }
 
