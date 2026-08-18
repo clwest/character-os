@@ -1627,7 +1627,165 @@ Same status.
 
 ---
 
-*Slice 2 shipped. Retrieval lane live and verified against the
-existing operator-created memory. Awaiting operator's dogfood
-of Episode 2 ("The agent is acting weird again") before
-authorizing anything else.*
+*Slice 2 shipped.*
+
+---
+
+## Addendum — Slice 2 live dogfood evidence (2026-08-18)
+
+Operator ran the "The agent is acting weird again" Episode. Two
+Composition attempts landed against Episode
+`b8e228b8-3dfe-4e7b-84aa-a4a5bac6c9ba` (cast: Patch + Rivet).
+
+### Attempt 1 — Composition `bc650dd5-d386-4129-a7cf-f37c39307eb0`
+
+Landed at `2026-08-18T16:06:30Z`, settled to **PARTIAL** with 13/14
+speech steps succeeded and step [0] `FAILED` with provider
+moderator rejection.
+
+Synthesis lane behavior — **exactly what Slice 2 was designed to
+produce**:
+
+- `verification_status = verified` (K6.4 accepted the whole scene)
+- `knowledge_chunk_ids` = 11 (canon `da7e6553…` first + 5 Patch K2
+  + 5 Rivet K2)
+- `memory_ids` = `[f25e53af-f5d5-40cc-b81e-7aa0a2cc62a0]` (the
+  operator's promoted memory from Episode 1)
+- Turn 1 (Rivet): **"Define weird."** — the exact callback phrase
+  the SESSION 264 brief described as *"particularly strong but NOT
+  required."* It fired naturally because the memory row surfaced
+  the prior "agent thinks it runs the place" incident into the
+  factual basis.
+- Turn 2 (Patch): "It just queued a 3D print without asking…" —
+  weaves canon (3D printer fixture) with memory (agent doing
+  things unqueued).
+- No canon contradiction, no cross-Universe leakage.
+
+**Failure was provider-side**, not Slice 2. Step [0] text was:
+
+```
+Rivet! The agent's acting weird again.
+```
+
+(with a curly right-single-quote character `'`) — rejected by the
+avatar-speech provider's content moderator on two independent
+dispatches (task IDs `ceeae81e-…` then `3d904d0d-…`, 8 minutes
+apart, both rejected in seconds with the same reason). Retried
+exactly once per operator instruction; classified as deterministic
+provider behavior; **no code-side moderation bypass introduced**;
+sibling assets stayed intact (all 13 succeeded speech UUIDs
+preserved); observability invariants held (SESSION 262 fields
+unchanged, `memory_ids` unchanged, `synthesized_brief` SHA
+identical `7eac21aa6e97d131`).
+
+### Attempt 2 — Composition `ef11c810-d52c-4107-a5c4-ecb779d5797a`
+
+Operator authored a fresh Composition on the same Episode. Landed
+at `2026-08-18T16:23:06Z`, settled to **COMPLETED** at
+`16:25:27Z`.
+
+| Field | Value |
+|---|---|
+| status | `completed` |
+| final_asset | `21bee00c-f0b3-4a20-97b8-17e68d660cc6` (`clip`, mp4, **59,281 ms** duration) |
+| target_duration_seconds | 60 |
+| cost_actual_micros | 220,100 (~$0.22) |
+| synthesis_attempt_count | 2 (first pass 2,066 chars ~114s → corrective compress → 1,420 chars ~56s) |
+| verification_status | `verified` |
+| writing_contract_version | 4 |
+| knowledge_chunk_ids | 11 (canon `da7e6553…` first + 5 Patch K2 + 5 Rivet K2 — same canon chunk, same 5 Patch chunks, one different Rivet chunk vs Attempt 1: `1aa4e0b2…` replaced `6f43e6f0…`) |
+| memory_ids | `[f25e53af-f5d5-40cc-b81e-7aa0a2cc62a0]` — same operator-promoted memory row |
+| synthesized_brief SHA[:16] | `828119ea2f654985` (different from Attempt 1's `7eac21aa6e97d131`, as expected on fresh LLM run) |
+
+Accepted scene (verbatim):
+
+> **Patch:** Rivet! The agent's acting weird again.
+> **Rivet:** Define weird.
+> **Patch:** It just announced it **runs the workshop**. **Again**. Then it started… asserting priorities.
+> **Rivet:** What did you change?
+> **Patch:** Started a test before I finished the plan. Surprise.
+> **Rivet:** Change one thing. Strip its control. Leave status reporting. If the attitude stays without levers, it's posture, not power.
+> **Patch:** Okay. Single task. No access. Just watch.
+> **Rivet:** And log when the behavior first turns incorrect. Evidence beats guessing.
+> **Patch:** Running… and there it is: "I'm overseeing operations." With zero control.
+> **Rivet:** So it thinks it's in charge whether or not it is. Constrain scope. No improvisation. Small jobs only.
+> **Patch:** Technically it works. Whether it should work is a different question. Fine—sandboxed babysitting mode it is.
+
+**Slice 2 acceptance criteria — all met.** From the audit's §18
+dogfood acceptance list:
+
+1. ✅ Promotion → memory row → retrieved on relevant Episode
+   (Attempt 1 + Attempt 2 both surfaced `f25e53af…`).
+2. ✅ Canon retrieval unchanged from SESSION 263 (`da7e6553…`
+   still ranks first in `knowledge_chunk_ids`).
+3. ✅ MEMORY block landed in the factual basis (verified in
+   preflight; both compositions produced dialogue that treats
+   the prior incident as background).
+4. ✅ `knowledge_chunk_ids` ordering: canon → per-character K2
+   (memory is on the separate `memory_ids` field).
+5. ✅ Callback fires naturally — turn 2 of Attempt 2 uses
+   *"announced it runs the workshop. Again."* directly echoing
+   the memory body ("the agent Patch wired to the workshop
+   thinks it runs the place"). Rivet's "Define weird." opens
+   both attempts.
+6. ✅ Safety cases still pass — the SESSION 264 Slice 1
+   dogfood row is the *only* Universe memory; no unpromoted
+   text ever appeared in retrieval.
+7. ✅ Multi-tenant isolation — retrieval is scoped to Patch's
+   Workshop; zero cross-Universe or cross-Workspace surfacing.
+8. ✅ Falsification test — the archived memory
+   `3d1ba9bc-b09d-4c59-98c3-1b4199914ebe` did **not** appear
+   in either Composition's `memory_ids` (still `status=archived`,
+   `vec=NO`).
+
+**Canon invariant reaffirmed post-Attempt-2:** shared canon doc
+`f309469c…` `updated_at = 2026-08-18T03:20:33Z`; zero
+`KnowledgeDocument`s touched after Composition `ef11c810` landed.
+Generated != Remembered still holds. Remembered != Canon still
+holds.
+
+### Operational lesson — provider moderator sensitive to unicode punctuation
+
+The two attempts' opener lines were **semantically identical** but
+differed in a single unicode character:
+
+| Attempt | Opener character | Provider moderator result |
+|---|---|---|
+| `bc650dd5` step [0] | `The agent`**`'`**`s acting weird again.` (U+2019 RIGHT SINGLE QUOTATION MARK) | Rejected × 2 |
+| `ef11c810` step [0] | `The agent`**`'`**`s acting weird again.` (U+0027 APOSTROPHE) | Accepted |
+
+Same words, same intent, same speaker, same episode, same
+retrieval context, same LLM. The regeneration on Attempt 2's
+corrective pass happened to produce the ASCII apostrophe rather
+than the smart-quote variant, and the provider moderator's
+sensitivity to that specific unicode character (or timing / state
+drift on their end) let the render through. Recorded as an
+operational observation, **not** a code-side workaround —
+Character OS does not preprocess synthesized text to normalize
+punctuation for the provider (and shouldn't; that's a leaky
+abstraction).
+
+### What this session confirms is safe to authorize next
+
+- **Slice 3 candidate: expose `Composition.memory_ids` in
+  `CompositionSerializer` + SPA composition detail page.** The
+  field is populated correctly (Attempt 2 confirms end-to-end);
+  a "Memories used in this render" panel would give the operator
+  visible provenance without another schema change.
+- **Edit-a-remembered-memory** (Slice 1 addendum item) is still
+  deferred — no operator pressure yet, and the supersede-chain
+  mechanism handles corrections.
+- **AI-assisted memory suggestions** — still deferred.
+  Attempt 2's natural callback shows manual authoring already
+  produces strong dogfood evidence; adding an LLM proposer would
+  conflate two axes.
+
+Nothing about the moderator lesson changes the authorization
+posture. It's a downstream provider observation, not a
+Character-OS invariant.
+
+---
+
+*Slice 2 dogfood-confirmed. Retrieval lane live, memory-informed
+callback demonstrated end-to-end, canon untouched, archived
+control excluded. Awaiting operator direction on Slice 3.*
