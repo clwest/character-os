@@ -387,6 +387,23 @@ evidence surfaces a concrete regression.
 
 ### 11.3 Duration-default findings
 
+> **REINTERPRETATION NOTE (added post-Slice-3):** The cost
+> deltas quoted in §11.1 / §11.2 were originally framed as
+> "$0.04 Runway increase for the longer video." Subsequent
+> code + runtime analysis (see
+> `docs/design/PROVIDER_CALL_ECONOMICS_SESSION_264.md`)
+> showed that avatar-rendering cost is NOT primarily
+> duration-driven — it is turn-count-driven for
+> dialogue-scene renders because each turn maps to exactly
+> one `generate_avatar_speech` provider dispatch. The
+> $0.04 delta reflects a small increase in the number of
+> avatar-speech dispatches at 90 s, not a per-second rate.
+> The default-change decision below still stands (longer
+> scenes produced better dialogue at acceptable incremental
+> cost) but the underlying cost model is turn-count, not
+> duration. See PROVIDER_CALL_ECONOMICS §2 for the corrected
+> decomposition.
+
 The 90-second render's quality delta over the 60-second
 render was material and asymmetric:
 
