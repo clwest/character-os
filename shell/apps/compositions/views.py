@@ -60,6 +60,7 @@ from apps.compositions.starters import (
     LongFormDurationError,
 )
 from apps.spokespeople.models import Teammate
+from apps.universe.models import Episode
 from character_os.clients.media_engine import (
     MediaEngineClient,
     MediaEngineError,
@@ -308,6 +309,71 @@ class CompositionViewSet(viewsets.GenericViewSet):
         self.check_object_permissions(request, comp)
         return Response(CompositionSerializer(comp).data)
 
+    @action(
+        detail=True,
+        methods=["post", "delete"],
+        url_path="attach-episode",
+    )
+    def attach_episode(self, request, pk: str | None = None):
+        """SESSION 262 — attach / move / detach Composition ↔ Episode.
+
+        ``POST /api/compositions/<id>/attach-episode/`` with body
+        ``{"episode": UUID}`` attaches (or moves) the Composition
+        to the given Episode. Passing ``{"episode": null}`` detaches.
+
+        ``DELETE`` on the same URL is equivalent to POST with
+        ``episode: null``.
+
+        Cross-Workspace / cross-Universe / legacy-spokesperson
+        validation runs via ``Composition.clean()``. On success the
+        save uses ``update_fields=["episode", "updated_at"]`` so
+        SESSION 262 observability immutability is not disturbed
+        (the guard sees the field is NOT in the immutability set
+        and skips the check).
+
+        Composition.episode uses ``on_delete=RESTRICT`` (see
+        model comment for shared-CASCADE-parent rationale), which
+        blocks direct Episode.delete() when Compositions attached
+        AND surfaces the API 409 preflight before Django would
+        raise the raw ``RestrictedError``.
+        """
+        try:
+            comp = self.get_queryset().get(pk=pk)
+        except Composition.DoesNotExist:
+            raise NotFound("Composition not found")
+        self.check_object_permissions(request, comp)
+
+        if request.method == "DELETE":
+            target_episode = None
+        else:
+            body = request.data or {}
+            episode_id = body.get("episode")
+            if episode_id in (None, "", "null"):
+                target_episode = None
+            else:
+                target_episode = (
+                    Episode.objects
+                    .filter(
+                        pk=episode_id,
+                        universe__workspace__memberships__user=request.user,
+                    )
+                    .select_related("universe", "universe__workspace")
+                    .first()
+                )
+                if target_episode is None:
+                    raise ValidationError(
+                        {"episode": "not found or not in an accessible workspace"}
+                    )
+
+        comp.episode = target_episode
+        try:
+            comp.full_clean()
+        except DjangoValidationError as exc:
+            raise ValidationError(exc.message_dict or {"detail": exc.messages})
+        comp.save(update_fields=["episode", "updated_at"])
+        comp.refresh_from_db()
+        return Response(CompositionSerializer(comp).data)
+
     @action(detail=True, methods=["get"])
     def lineage(self, request, pk: str | None = None):
         """F5 — asset lineage for a composition.
@@ -437,6 +503,12 @@ class CompositionViewSet(viewsets.GenericViewSet):
         kind = body.get("kind")
         workspace_id = body.get("workspace")
         params = body.get("params") or {}
+        # SESSION 262 / EPISODE_SCHEMA_V1 — optional Episode
+        # attachment. NULL preserves standalone-Composition flow
+        # (unchanged from pre-Episode behavior). Non-NULL resolves +
+        # validates below; cross-Universe / cross-Workspace / legacy-
+        # spokesperson rejections fire via ``Composition.clean()``.
+        episode_id = body.get("episode")
 
         if not kind:
             raise ValidationError({"kind": "required"})
@@ -465,6 +537,33 @@ class CompositionViewSet(viewsets.GenericViewSet):
                 "Composition creation is restricted to workspace owners in v1"
             )
 
+        # Resolve Episode (optional). Membership-scoped so foreign
+        # Episode IDs don't disclose existence. `Composition.clean()`
+        # enforces Workspace / Universe / legacy-spokesperson
+        # invariants once we assign the FK below.
+        episode = None
+        if episode_id:
+            episode = (
+                Episode.objects
+                .filter(
+                    pk=episode_id,
+                    universe__workspace__memberships__user=request.user,
+                )
+                .select_related("universe", "universe__workspace")
+                .first()
+            )
+            if episode is None:
+                raise ValidationError(
+                    {"episode": "not found or not in an accessible workspace"}
+                )
+            if episode.universe.workspace_id != workspace.pk:
+                raise ValidationError(
+                    {"episode": (
+                        "Episode belongs to a different workspace than the "
+                        "requested composition workspace."
+                    )}
+                )
+
         recipe = get_recipe(kind)
         try:
             kwargs = resolve_kwargs(
@@ -487,6 +586,19 @@ class CompositionViewSet(viewsets.GenericViewSet):
         try:
             with transaction.atomic():
                 composition = recipe.starter(**kwargs)
+                # SESSION 262 — attach optional Episode. The starter
+                # doesn't know about Episode; we attach after it
+                # returns. `Composition.clean()` validates cross-
+                # Universe / cross-Workspace / legacy-spokesperson
+                # invariants; failure raises ValidationError and
+                # rolls back the outer atomic (composition never
+                # persisted with a bad Episode attachment).
+                if episode is not None:
+                    composition.episode = episode
+                    composition.full_clean()
+                    composition.save(
+                        update_fields=["episode", "updated_at"],
+                    )
         except LongFormDurationError as exc:
             # SESSION 251 — long-form synthesis fell outside the ±20%
             # duration tolerance after one corrective pass. The starter
@@ -524,6 +636,15 @@ class CompositionViewSet(viewsets.GenericViewSet):
                 corrective_pass_synthesis=exc.corrective_pass_synthesis,
                 synthesis_predicted_seconds=exc.synthesis_predicted_seconds,
                 validation_failure_reason=exc.validation_failure_reason,
+                # SESSION 262 / EPISODE_SCHEMA_V1 — carry the
+                # optional Episode attachment through to the FAILED
+                # row so retries under the same Episode keep the
+                # narrative context. Composition.clean() has already
+                # validated the pairing during the pre-rescue
+                # `full_clean` call inside the atomic (if `episode`
+                # was set); by this point we've raised past that.
+                # Attach here unconditionally — invariants apply.
+                episode=episode,
             )
             exc.composition_id = composition.id
             logger.warning(
@@ -574,6 +695,10 @@ class CompositionViewSet(viewsets.GenericViewSet):
                 corrective_pass_synthesis=exc.corrective_pass_synthesis,
                 synthesis_predicted_seconds=exc.synthesis_predicted_seconds,
                 validation_failure_reason=exc.validation_failure_reason,
+                # SESSION 262 / EPISODE_SCHEMA_V1 — carry the
+                # optional Episode attachment (see LongForm branch
+                # above for rationale).
+                episode=episode,
             )
             exc.composition_id = composition.id
             logger.warning(

@@ -14,6 +14,9 @@ import { KnowledgeDocumentDetailRoute } from "@/routes/workspace/knowledge.$id";
 // SESSION 261 — Universe substrate SPA slice.
 import { WorkspaceUniversesRoute } from "@/routes/workspace/universes";
 import { UniverseDetailRoute } from "@/routes/workspace/universes.$id";
+// SESSION 262 — Episode SPA slice.
+import { UniverseEpisodesRoute } from "@/routes/workspace/universes.$id.episodes";
+import { EpisodeDetailRoute } from "@/routes/workspace/episodes.$id";
 import { WorkspaceAssetsRoute } from "@/routes/workspace/assets";
 import { WorkspaceAssetDetailRoute } from "@/routes/workspace/assets.$id";
 import { WorkspaceTranscriptsRoute } from "@/routes/workspace/transcripts";
@@ -138,11 +141,30 @@ export function App() {
               </RequireAuth>
             }
           />
+          {/* SESSION 262 — Episode list nested under Universe. Register
+              BEFORE the /:id catch-all so React Router matches this first. */}
+          <Route
+            path="/workspace/universes/:id/episodes"
+            element={
+              <RequireAuth>
+                <UniverseEpisodesRoute />
+              </RequireAuth>
+            }
+          />
           <Route
             path="/workspace/universes/:id"
             element={
               <RequireAuth>
                 <UniverseDetailRoute />
+              </RequireAuth>
+            }
+          />
+          {/* SESSION 262 — Episode detail. */}
+          <Route
+            path="/workspace/episodes/:id"
+            element={
+              <RequireAuth>
+                <EpisodeDetailRoute />
               </RequireAuth>
             }
           />

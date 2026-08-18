@@ -32,6 +32,8 @@ const universeSchema = z.object({
   archived_at: z.string().nullable(),
   teammate_count: z.number().int().nonnegative().default(0),
   knowledge_document_count: z.number().int().nonnegative().default(0),
+  // SESSION 262 / EPISODE_SCHEMA_V1 — Episode child count.
+  episode_count: z.number().int().nonnegative().default(0),
 });
 
 export type Universe = z.infer<typeof universeSchema>;

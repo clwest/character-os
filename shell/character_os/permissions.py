@@ -61,4 +61,10 @@ def _workspace_of(obj):
     spokesperson = getattr(obj, "spokesperson", None)
     if spokesperson is not None:
         return getattr(spokesperson, "workspace", None)
+    # SESSION 262 / EPISODE_SCHEMA_V1 — Episode is Universe-scoped
+    # (no denormalized workspace FK per §Q2). Traverse universe →
+    # workspace so IsWorkspaceMember can gate Episode endpoints.
+    universe = getattr(obj, "universe", None)
+    if universe is not None:
+        return getattr(universe, "workspace", None)
     return None

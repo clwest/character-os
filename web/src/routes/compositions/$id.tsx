@@ -104,6 +104,20 @@ function Header({ composition }: { composition: Composition }) {
           <VerificationStatusBadge status={composition.verification_status} />
         )}
       </div>
+      {/* SESSION 262 — surface Episode linkage when the Composition
+          belongs to a story. Standalone renders (episode=null) show
+          nothing here, preserving the pre-Episode header. */}
+      {composition.episode && (
+        <div className="text-xs text-muted-foreground">
+          Attached to Episode{" "}
+          <Link
+            to={`/workspace/episodes/${composition.episode}`}
+            className="italic text-gold underline-offset-4 hover:underline"
+          >
+            {composition.episode.slice(0, 8)}
+          </Link>
+        </div>
+      )}
     </header>
   );
 }

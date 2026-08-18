@@ -350,6 +350,10 @@ const compositionSchema = z.object({
   // degraded paths, operator-typed scripts, and pre-K6.6
   // rows.
   synthesized_brief: z.string().default(""),
+  // SESSION 262 / EPISODE_SCHEMA_V1 — optional Episode FK. NULL
+  // for standalone / legacy compositions. Non-NULL surfaces on
+  // the Composition detail header as a link.
+  episode: z.string().nullable().default(null),
 });
 
 export type Composition = z.infer<typeof compositionSchema>;

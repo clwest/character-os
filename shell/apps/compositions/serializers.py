@@ -153,6 +153,10 @@ class CompositionListSerializer(serializers.ModelSerializer):
             "final_asset_storage_health",
             "created_at",
             "updated_at",
+            # SESSION 262 — optional narrative anchor. Surfaces on
+            # list rows so the SPA can render "in Episode: X" badges
+            # without a second detail fetch.
+            "episode",
         )
         read_only_fields = fields
 
@@ -255,6 +259,11 @@ class CompositionSerializer(serializers.ModelSerializer):
             "verification_status",
             # K6.6 — synthesized brief on successful renders
             "synthesized_brief",
+            # SESSION 262 / EPISODE_SCHEMA_V1 — optional narrative
+            # anchor. NULL = standalone. Non-NULL surfaces on the
+            # Composition detail page so the SPA can link back to
+            # the Episode.
+            "episode",
         )
         read_only_fields = fields
 

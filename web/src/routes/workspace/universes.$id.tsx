@@ -223,6 +223,26 @@ export function UniverseDetailRoute() {
         </div>
       </section>
 
+      {/* SESSION 262 — Episodes list link. Explicit-only Episode
+          workflow lives at /workspace/universes/:id/episodes. */}
+      <section className="rounded-md border border-luxe bg-card/60 p-6">
+        <h2 className="mb-2 font-display text-2xl tracking-tight text-cream">
+          Episodes{" "}
+          <span className="text-fog text-sm">({u.episode_count ?? 0})</span>
+        </h2>
+        <p className="mb-3 text-sm text-mist">
+          Stories your cast lives through. Renders may attach to an Episode
+          or remain standalone.
+        </p>
+        <Link
+          to={`/workspace/universes/${u.id}/episodes`}
+          className="inline-block text-sm text-gold hover:underline"
+          data-testid="universe-episodes-link"
+        >
+          Manage episodes →
+        </Link>
+      </section>
+
       <section>
         <h2 className="mb-3 border-b border-luxe pb-2 font-display text-2xl tracking-tight text-cream">
           Teammates <span className="text-fog text-sm">({memberTeammates.length})</span>

@@ -511,6 +511,38 @@ class Composition(models.Model):
     synthesis_predicted_seconds = models.FloatField(null=True, blank=True)
     render_dispatched_at = models.DateTimeField(null=True, blank=True)
 
+    # EPISODE_SCHEMA_V1 (SESSION 262) — optional narrative anchor.
+    # NULL = standalone / legacy Composition (default; unchanged from
+    # pre-Episode behavior). Non-NULL = Composition belongs to a
+    # Universe-scoped Episode.
+    #
+    # ``on_delete=RESTRICT`` blocks direct Episode.delete() when any
+    # Composition is attached (same operator-facing safety as
+    # PROTECT), but — unlike PROTECT — RESTRICT participates in
+    # Django's shared-CASCADE-parent rule (Django 3.1+). Workspace
+    # cascade-delete works cleanly because both Composition and
+    # Episode trace back to Workspace via CASCADE, so RESTRICT is
+    # satisfied. SET_NULL was rejected (silently orphans the
+    # narrative-to-render linkage — same hazard as
+    # KnowledgeDocument.universe correction 75d17f5); CASCADE was
+    # rejected (destroys render provenance on Episode delete). Both
+    # rejections stand per ``docs/design/EPISODE_SCHEMA_V1.md §Q7``;
+    # RESTRICT is chosen over PROTECT as the on_delete implementation
+    # of the intended "block direct delete, permit workspace cascade"
+    # behavior. Cross-Universe / cross-Workspace consistency
+    # enforced in ``clean()`` below.
+    episode = models.ForeignKey(
+        "universe.Episode",
+        on_delete=models.RESTRICT,
+        null=True,
+        blank=True,
+        related_name="compositions",
+        help_text=(
+            "Story this render belongs to. NULL = standalone or "
+            "legacy Composition (never wrapped)."
+        ),
+    )
+
     # Cost transparency (contract rule 7). Estimate is computed
     # before render fires; actual is summed from per-step
     # ``cost_actual_micros`` after execution.
@@ -715,6 +747,49 @@ class Composition(models.Model):
                     "Composition final_asset must be in the same "
                     "workspace as the composition."
                 )
+
+        # EPISODE_SCHEMA_V1 (SESSION 262) — Episode consistency
+        # invariants. Reject any Episode attachment that crosses
+        # Workspace / Universe boundaries. See
+        # ``docs/design/EPISODE_SCHEMA_V1.md §Q18``.
+        if self.episode_id:
+            episode_workspace_id = self.episode.universe.workspace_id
+            if self.workspace_id and self.workspace_id != episode_workspace_id:
+                raise ValidationError({
+                    "episode": (
+                        f"Episode belongs to workspace "
+                        f"{episode_workspace_id}, but this Composition is "
+                        f"in workspace {self.workspace_id}. Cross-Workspace "
+                        f"Episode attachment is forbidden."
+                    ),
+                })
+            episode_universe_id = self.episode.universe_id
+            sp_uni_id = (
+                self.spokesperson.universe_id
+                if self.spokesperson_id else None
+            )
+            if self.spokesperson_id and sp_uni_id is None:
+                raise ValidationError({
+                    "episode": (
+                        f"Composition spokesperson has no Universe "
+                        f"(legacy). A Universe-scoped Episode cannot "
+                        f"attach a legacy Composition. Assign the "
+                        f"spokesperson to a Universe first."
+                    ),
+                })
+            if (
+                self.spokesperson_id
+                and sp_uni_id is not None
+                and sp_uni_id != episode_universe_id
+            ):
+                raise ValidationError({
+                    "episode": (
+                        f"Composition spokesperson belongs to Universe "
+                        f"{sp_uni_id}, but Episode belongs to Universe "
+                        f"{episode_universe_id}. Cross-Universe Episode "
+                        f"attachment is forbidden."
+                    ),
+                })
 
 
 class CompositionStep(models.Model):

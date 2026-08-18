@@ -122,6 +122,14 @@ ALLOWED_FILES = {
     # DialogueSynthesisFailedError view-rescue persistence
     # pattern. Sanctioned test-side writer.
     "apps/compositions/tests/test_session262_composition_observability.py",
+    # SESSION 262 / EPISODE_SCHEMA_V1 — Episode model + attach/detach
+    # + observability-non-mutation tests construct Composition rows
+    # directly to exercise Composition.episode FK invariants +
+    # cross-Universe / cross-Workspace rejection + attach/detach
+    # preserving SESSION 262 observability. Sanctioned test-side
+    # writer.
+    "apps/universe/tests/test_episode.py",
+    "apps/universe/tests/test_episode_vertical_slice.py",
     # SESSION 210 — `sweep_expired_assets` Celery task tests
     # seed Composition + Asset rows with crafted JWT URLs to
     # exercise the hourly Beat sweep. Asset.composition FK is

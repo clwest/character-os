@@ -14,3 +14,11 @@ class UniverseConfig(AppConfig):
     name = "apps.universe"
     label = "universe"
     verbose_name = "Universe substrate"
+
+    def ready(self) -> None:
+        """Import signals so ``m2m_changed pre_add`` on
+        ``Episode.cast`` is wired at app startup. Mirrors the
+        embeddings-app pattern for KnowledgeDocument.spokespeople.
+        """
+        # noqa: F401 — signals module registers receivers on import
+        from . import signals  # noqa: F401
