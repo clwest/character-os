@@ -2366,7 +2366,7 @@ validator that gates it. The §15.7 hotfix is the concrete
 example — the fix is 8 lines; the missed check cost one
 failed render.
 
-**Hotfix commit:** (populated below).
+**Hotfix commit:** `251b3b0` — `fix(story-mode): SESSION 269 §15.7 — whitelist solo_scene in build_render_brief`. Push: `7646498..251b3b0 main -> main`. Local main == origin/main == `251b3b0`. Working tree clean.
 
 ---
 
