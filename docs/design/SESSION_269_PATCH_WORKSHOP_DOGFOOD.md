@@ -2900,7 +2900,8 @@ vs Rivet) and topic (research vs action vs introspection).
 
 Doc + evidence sidecar only — no source-code change in §18.
 
-- §18 commit: (populated after commit below).
+- §18 commit: `e099a85` — `docs(session-269): §18 — first Rivet-solo be39452d + symmetric witness test`.
+- Push: `ea7ead4..e099a85 main -> main` (successful). Local main == origin/main == `e099a85`. Working tree clean.
 
 ---
 
