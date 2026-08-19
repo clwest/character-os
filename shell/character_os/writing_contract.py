@@ -82,7 +82,18 @@ from __future__ import annotations
 # shapes, CTA policy, anti-self-description, anti-generic register)
 # are preserved verbatim. Only ``_DIALOGUE_INVARIANTS_BLOCK`` grows
 # by one item.
-WRITING_CONTRACT_VERSION: int = 4
+#
+# Version 5 (SESSION 269 §15) — added ``solo_scene`` shape for
+# Episode-attached talking_head rendering. Encodes SINGLE ACTIVE
+# CHARACTER + SINGLE PRESENT MOMENT + PLANS REMAIN PLANS + MEMORY
+# AS BACKGROUND + END ON A MOMENT — direct fix for §11 findings
+# (active off-screen participants, temporal compression,
+# retrospective framing). Standalone + long_form + dialogue_scene
+# contract text remain byte-stable; the new shape is a separate
+# branch in ``for_shape``. Only Episode-attached talking_head
+# Compositions receive the new shape; every other caller keeps
+# its existing target_shape and behaviour.
+WRITING_CONTRACT_VERSION: int = 5
 
 
 # ---- Anti-generic-AI-copy defaults --------------------------------
@@ -195,6 +206,12 @@ class WritingContract:
             )
         if shape == "dialogue_scene":
             return _dialogue_scene_contract()
+        if shape == "solo_scene":
+            return _solo_scene_contract(
+                target_duration_seconds=target_duration_seconds,
+                char_budget=char_budget,
+                word_budget=word_budget,
+            )
         return _standalone_contract()
 
 
@@ -568,6 +585,146 @@ _DIALOGUE_NARRATIVE_SHAPES_BLOCK = (
     "  * challenge -> attempt -> result\n"
     "  * straight explanation with comedic side-commentary\n"
     "  * story -> skeptical reaction -> punchline"
+)
+
+
+# ---- solo_scene shape (SESSION 269 §15) --------------------------
+#
+# Episode-attached single-character rendering. Differs from
+# ``long_form`` by DELETING the invariants + narrative-shape menu
+# that encourage story→realization / mistake→lesson / experiment→
+# outcome arcs (the direct cause of §11 temporal compression) and
+# ADDING scene-physics invariants: only the named speaker is
+# present in the scene, the scene depicts one bounded moment,
+# plans stay plans, memory is background not commands, ending is
+# a moment not a summary.
+#
+# Discriminated at the primitive layer by
+# ``composition.episode_id is not None and
+# composition.template_kind == "talking_head"`` — the standalone
+# talking_head dual-mode UX is unchanged for callers that don't
+# attach to an Episode.
+
+
+def _solo_scene_contract(
+    *,
+    target_duration_seconds: int | None,
+    char_budget: tuple[int, int, int] | None,
+    word_budget: tuple[int, int, int] | None,
+) -> str:
+    if target_duration_seconds and char_budget and word_budget:
+        ideal_c, min_c, max_c = char_budget
+        target_w, min_w, max_w = word_budget
+        length_block = (
+            f"LENGTH — approximately {target_duration_seconds} "
+            f"seconds of spoken delivery.\n"
+            f"CHARACTER BUDGET (load-bearing — the accept/reject "
+            f"gate is character-based, not word-based): aim for "
+            f"~{ideal_c} characters. Must stay between {min_c} "
+            f"and {max_c}. Under {min_c} will be rejected as too "
+            f"short; over {max_c} will be rejected as too long.\n"
+            f"Word guidance (secondary): ~{target_w} words "
+            f"(range {min_w}-{max_w}). Character count is what "
+            f"actually matters."
+        )
+    else:
+        length_block = (
+            "LENGTH — solo-scene spoken delivery. Follow the "
+            "character / word budget the caller supplies in the "
+            "system prompt above."
+        )
+
+    return "\n".join([
+        "SHAPE — solo scene (one character; one bounded present moment)",
+        "This is a story scene, not a topic essay or process retrospective. "
+        "The character is IN the scene right now, not narrating a past "
+        "event from a distance. The audience is watching one bounded moment "
+        "in this Universe's ongoing story.",
+        "",
+        length_block,
+        "",
+        _SOLO_SCENE_INVARIANTS_BLOCK,
+        "",
+        _SOLO_SCENE_SHAPES_BLOCK,
+        "",
+        _CTA_POLICY_BLOCK,
+        "",
+        _ANTI_SELF_DESCRIPTION_BLOCK,
+        "",
+        _ANTI_GENERIC_REGISTER_BLOCK,
+    ])
+
+
+_SOLO_SCENE_INVARIANTS_BLOCK = (
+    "SOLO-SCENE INVARIANTS (must hold for every solo scene)\n"
+    "  1. SINGLE ACTIVE CHARACTER. Only the named speaker is "
+    "present in this scene. Other characters may be referenced as "
+    "HISTORY (\"last time Rivet said…\"), RELATIONSHIPS (\"Rivet's "
+    "rule is label things\"), or FUTURE INTENTIONS (\"if this "
+    "gets weird, I'll call Rivet\") — but they must NOT become "
+    "active participants in the current moment. Lines like \"I "
+    "call for Rivet\" followed by \"we line up a reprint\" turn "
+    "the scene into an off-screen two-hander with one voice on "
+    "the audio; that is a failure. If the story needs a second "
+    "character to act, that belongs in a different Episode with "
+    "an expanded cast.\n"
+    "  2. SINGLE PRESENT MOMENT. The script depicts one bounded "
+    "scene happening RIGHT NOW. Do not compress a multi-step "
+    "activity — discovery + loading a file + running an "
+    "experiment + observing a mid-experiment result + reaching a "
+    "conclusion — into one monologue. If the scene is about "
+    "discovery, stay in discovery. If it's about a decision, "
+    "stay with the decision. Later outcomes belong in later "
+    "Episodes.\n"
+    "  3. PLANS REMAIN PLANS. Establishing an intent (\"I want "
+    "to try X\", \"we could set up Y\", \"the test would look "
+    "like Z\") is legitimate scene material. Simulating the "
+    "outcome of that plan inside the same script — narrating "
+    "\"halfway through, X fails\" or \"we run it and it works\" "
+    "— is not, unless current-scene evidence has already "
+    "established that the plan completed. Character OS renders "
+    "one moment; sequels are separate renders.\n"
+    "  4. MEMORY AS BACKGROUND, NOT COMMANDS. The narrative-"
+    "memory block in Section 1 supplies past events the character "
+    "already knows happened. Treat those events as context that "
+    "colors the character's current thinking or reactions. Do "
+    "NOT reenact them on-camera and do NOT quote them verbatim. "
+    "The character may recognize a pattern (\"this feels like "
+    "the last time X\"), respond to a lingering state (\"still "
+    "haven't figured out Y\"), or reference a relationship "
+    "shaped by the memory — but the current scene is not a "
+    "recap of the memory.\n"
+    "  5. END ON A MOMENT, NOT A SUMMARY. Prefer endings such "
+    "as a decision, reaction, revealed hook, unresolved "
+    "question, small win, small loss, or naturally-earned "
+    "punchline. Avoid wrapping the scene with a lesson learned, "
+    "a philosophical summary, or a retrospective conclusion. "
+    "Let the scene finish while something is still happening or "
+    "still unresolved.\n"
+    "  6. PRESERVE CREATIVE FREEDOM. Character voice, humor, "
+    "opinions, tangents, and stylistic choices from Section 2 "
+    "all remain. The five invariants above are about SCENE "
+    "PHYSICS (who is present, when the scene happens, whether "
+    "the future has already occurred) — not about tone."
+)
+
+
+_SOLO_SCENE_SHAPES_BLOCK = (
+    "NARRATIVE SHAPES (pick whichever fits topic and character; "
+    "legitimate hybrids are fine; no mandatory skeleton; and "
+    "unlike long-form these shapes stay INSIDE a single bounded "
+    "moment)\n"
+    "  * moment → reaction  (something is happening; here is the "
+    "character's live response)\n"
+    "  * discovery → intent  (I found this; here is what I want "
+    "to do about it — plan only; outcome deferred)\n"
+    "  * observation → resolve-or-defer  (I noticed X; here is "
+    "either what I decide right now or what I'm choosing to sit "
+    "with)\n"
+    "  * internal turn → decision  (I was thinking Y; now I've "
+    "changed my mind or committed to something)\n"
+    "  * present dilemma → next step  (I'm stuck between X and "
+    "Y; here is the smallest step I can take right now)"
 )
 
 

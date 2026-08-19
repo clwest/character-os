@@ -429,6 +429,7 @@ def synthesize_with_duration_gate(
     opener: str | None = None,
     mock_mode: bool = False,
     memory_rows: "Sequence[NarrativeMemory] | None" = None,
+    target_shape: str = "long_form",
 ) -> ScriptResult:
     """Duration-driven K6 synthesis with acceptance gate.
 
@@ -513,11 +514,18 @@ def synthesize_with_duration_gate(
         # budget in the prompt, and word budget all derive from
         # this. Operator-facing target is preserved separately
         # for the acceptance surface and error messages below.
+        #
+        # SESSION 269 §15 — ``target_shape`` is caller-supplied
+        # (defaults to ``"long_form"`` for legacy standalone
+        # talking_head + long_form_ad callers). Episode-attached
+        # talking_head renders pass ``"solo_scene"``; other shape
+        # branches in WritingContract.for_shape are chosen by the
+        # avatar_speech primitive.
         return build_render_brief(
             spokesperson, operator_prompt,
             verifier_mode=verifier_mode,
             opener=opener,
-            target_shape="long_form",
+            target_shape=target_shape,
             target_duration_seconds=synth_target_seconds,
             max_script_chars=max_script_chars,
             corrective_hint=hint,

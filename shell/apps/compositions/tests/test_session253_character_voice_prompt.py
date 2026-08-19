@@ -497,8 +497,12 @@ def test_writing_contract_version_is_4_after_continuity_slice():
         behavioral guidance to dialogue_scene only.
       * v4: SESSION 259 continuity slice added invariant #10
         (CAUSAL CHAIN) to dialogue_scene only.
+      * v5: SESSION 269 §15 added ``solo_scene`` shape for
+        Episode-attached talking_head story mode. Standalone
+        + long_form + dialogue_scene contract text remain
+        byte-stable.
     """
-    assert WRITING_CONTRACT_VERSION == 4
+    assert WRITING_CONTRACT_VERSION == 5
 
 
 def test_writing_contract_for_shape_returns_versioned_content():

@@ -689,7 +689,10 @@ def test_writing_contract_version_is_4():
         topic="test topic", target_duration_seconds=60,
         mock_mode=True,
     )
-    assert result.writing_contract_version == 4
+    # SESSION 269 §15 bumped 4 → 5 (solo_scene shape). The
+    # dialogue_scene contract text is byte-stable; only the
+    # module-level VERSION stamp moved.
+    assert result.writing_contract_version == 5
     assert result.writing_contract_version == WRITING_CONTRACT_VERSION
 
 

@@ -182,6 +182,17 @@ export function RecipeFormRoute() {
   // flips which OTHER fields render. Kind check keeps this scoped
   // to dialogue_scene so no other recipe's fields see the filter.
   const isDialogueScene = r?.kind === "dialogue_scene";
+  // SESSION 269 §15 — Episode-attached talking_head with exactly
+  // one cast member is a STORY MODE (per §14 contract): Episode
+  // owns operator_topic + cast; Character OS always AI-writes the
+  // scene; the standalone-talking_head Script/topic + Use
+  // workspace knowledge controls are hidden and force-defaulted
+  // on submit. Standalone /recipes/talking_head (no ?episode=)
+  // remains the classic dual-mode content workflow — this branch
+  // only fires when BOTH conditions hold.
+  const isEpisodeSoloTalkingHead = Boolean(
+    episode && r?.kind === "talking_head" && episode.cast.length === 1,
+  );
   const dialogueModeField = r?.fields.find(
     (f) => f.name === "dialogue_mode" && f.type === "select",
   );
@@ -292,7 +303,19 @@ export function RecipeFormRoute() {
   // (field.name, dialogueMode) so the render loop and submit
   // filter agree on the same set. Mode-switch preserves local
   // form state — switching back restores previous inputs.
+  //
+  // SESSION 269 §15 — Episode-solo talking_head hides the
+  // standalone dual-mode authoring controls (Script/topic +
+  // Use workspace knowledge). Episode owns the story intent;
+  // Character OS always AI-writes the scene. Both fields are
+  // force-supplied in ``onSubmit`` so the backend contract
+  // remains identical to standalone AI-topic submits.
   const isFieldVisible = (fieldName: string): boolean => {
+    if (isEpisodeSoloTalkingHead) {
+      if (fieldName === "script" || fieldName === "use_knowledge") {
+        return false;
+      }
+    }
     if (!isDialogueScene) return true;
     if (dialogueMode === "ai_topic") {
       return fieldName !== "lines";
@@ -341,6 +364,20 @@ export function RecipeFormRoute() {
       params[field.name] = v;
     }
 
+    // SESSION 269 §15 — Episode-solo talking_head force-supplies
+    // ``script`` + ``use_knowledge`` from Episode context so the
+    // backend receives the same wire shape a standalone AI-topic
+    // submit produces. The visible controls for these two fields
+    // are hidden (see ``isFieldVisible``); Episode owns the
+    // story intent, Character OS owns the writing. The primitive
+    // discriminator on ``composition.episode_id +
+    // template_kind == "talking_head"`` then routes to the
+    // ``solo_scene`` writing contract server-side.
+    if (isEpisodeSoloTalkingHead && episode) {
+      params.script = episode.operator_topic;
+      params.use_knowledge = true;
+    }
+
     try {
       const comp = await create.mutateAsync({
         kind: r.kind,
@@ -367,6 +404,31 @@ export function RecipeFormRoute() {
       {/* SESSION 262 — Episode context chip. Renders only when
           launched from Episode; standalone recipe workflow shows
           nothing here (byte-for-byte pre-Episode header). */}
+      {episode && isEpisodeSoloTalkingHead && (
+        <div
+          data-testid="episode-solo-story-intent"
+          className="flex flex-col gap-2 rounded-md border border-gold/40 bg-gold/5 px-4 py-3 text-sm"
+        >
+          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-gold">
+            Story intent (owned by Episode)
+          </span>
+          <p className="text-cream italic">
+            {episode.operator_topic}
+          </p>
+          <p className="text-xs text-fog">
+            Character OS writes the scene from this intent, the Episode
+            cast, and Universe knowledge — no need to retype or enable a
+            writer toggle. Edit the intent on the{" "}
+            <Link
+              to={`/workspace/episodes/${episode.id}`}
+              className="italic text-gold hover:underline"
+            >
+              Episode page
+            </Link>
+            .
+          </p>
+        </div>
+      )}
       {episode && (
         <div
           data-testid="episode-context-chip"

@@ -549,3 +549,165 @@ def test_build_render_brief_memory_ids_default_empty_when_no_memory():
         result = build_render_brief(patch, "topic")
 
     assert result.memory_ids == []
+
+
+# ============================================================
+# SESSION 269 §15 — target_shape routing for solo talking_head
+# ============================================================
+#
+# Episode-attached talking_head Compositions route the writing
+# contract through the new ``solo_scene`` shape; standalone
+# talking_head + long_form_ad + dialogue_scene keep their
+# existing shapes byte-identically. Discriminator:
+# ``composition.episode_id is not None AND
+# composition.template_kind == "talking_head"``.
+
+
+def _episode_attached_talking_head(
+    ws, universe, spokesperson, *, script: str,
+    target_duration_seconds: int = 90,
+    use_knowledge: bool = True,
+) -> tuple[Composition, CompositionStep]:
+    """Analogue of ``_talking_head_composition`` but Episode-attached.
+    The primitive's shape-routing branch keys off
+    ``composition.episode_id``, so tests need a Composition with
+    the FK populated (not just spokesperson.universe_id)."""
+    episode = Episode.objects.create(
+        universe=universe,
+        title="Episode-solo test",
+        operator_topic=script,
+    )
+    episode.cast.add(spokesperson)
+    comp = Composition.objects.create(
+        workspace=ws,
+        spokesperson=spokesperson,
+        name="episode-solo-talking-head",
+        template_kind="talking_head",
+        mock_mode=False,
+        operator_topic=script,
+        target_duration_seconds=target_duration_seconds,
+        episode=episode,
+    )
+    step_params: dict = {
+        "script": script,
+        "use_knowledge": use_knowledge,
+    }
+    if target_duration_seconds:
+        step_params["target_duration_seconds"] = target_duration_seconds
+    step = CompositionStep.objects.create(
+        composition=comp,
+        position=0,
+        primitive="generate_avatar_speech",
+        inputs=[],
+        params=step_params,
+    )
+    return comp, step
+
+
+def test_episode_solo_talking_head_routes_to_solo_scene_shape():
+    """SESSION 269 §15 — Episode-attached talking_head + duration
+    invokes ``synthesize_with_duration_gate`` with
+    ``target_shape="solo_scene"``. This is the writing-contract
+    branch the §14 slice designed for."""
+    ws = _workspace("shape-solo@t")
+    universe = Universe.objects.create(workspace=ws, name="Workshop")
+    patch, _rivet = _cast(ws, universe)
+    comp, step = _episode_attached_talking_head(
+        ws, universe, patch, script="Patch topic", target_duration_seconds=90,
+    )
+    stub_result = _script_result_stub()
+
+    with mock_patch(
+        "apps.embeddings.retrieval.retrieve_universe_memory",
+        return_value=[],
+    ), mock_patch(
+        "apps.compositions.primitives.avatar_speech.synthesize_with_duration_gate",
+        return_value=stub_result,
+    ) as fake_gate:
+        _maybe_synthesize_script(step, comp)
+
+    assert fake_gate.call_count == 1
+    _, kwargs = fake_gate.call_args
+    assert kwargs.get("target_shape") == "solo_scene"
+
+
+def test_standalone_talking_head_still_routes_to_long_form_shape():
+    """Regression — a talking_head Composition without Episode
+    context stays on ``target_shape="long_form"`` (byte-identical
+    to pre-§15 behaviour). Every legacy standalone talking_head
+    caller depends on this."""
+    ws = _workspace("shape-standalone@t")
+    universe = Universe.objects.create(workspace=ws, name="Workshop")
+    patch, _rivet = _cast(ws, universe)
+    comp, step = _talking_head_composition(
+        ws, patch, script="Standalone topic",
+        use_knowledge=True, target_duration_seconds=90,
+    )
+    stub_result = _script_result_stub()
+
+    with mock_patch(
+        "apps.embeddings.retrieval.retrieve_universe_memory",
+        return_value=[],
+    ), mock_patch(
+        "apps.compositions.primitives.avatar_speech.synthesize_with_duration_gate",
+        return_value=stub_result,
+    ) as fake_gate:
+        _maybe_synthesize_script(step, comp)
+
+    assert fake_gate.call_count == 1
+    _, kwargs = fake_gate.call_args
+    assert kwargs.get("target_shape") == "long_form"
+
+
+def test_episode_solo_talking_head_non_duration_uses_solo_scene():
+    """Non-duration path (rare — talking_head duration-less renders
+    were never Episode-attached before §15) also routes to
+    ``solo_scene`` for consistency. Standalone non-duration renders
+    keep their pre-§15 default (``"standalone"``)."""
+    ws = _workspace("shape-solo-nodur@t")
+    universe = Universe.objects.create(workspace=ws, name="Workshop")
+    patch, _rivet = _cast(ws, universe)
+    comp, step = _episode_attached_talking_head(
+        ws, universe, patch, script="No-duration Patch",
+        target_duration_seconds=None,
+    )
+    stub_result = _script_result_stub()
+
+    with mock_patch(
+        "apps.embeddings.retrieval.retrieve_universe_memory",
+        return_value=[],
+    ), mock_patch(
+        "apps.compositions.primitives.avatar_speech.build_render_brief",
+        return_value=stub_result,
+    ) as fake_build:
+        _maybe_synthesize_script(step, comp)
+
+    assert fake_build.call_count == 1
+    _, kwargs = fake_build.call_args
+    assert kwargs.get("target_shape") == "solo_scene"
+
+
+def test_standalone_talking_head_non_duration_uses_standalone_shape():
+    """Regression — standalone non-duration path uses the pre-§15
+    default ``target_shape="standalone"``."""
+    ws = _workspace("shape-standalone-nodur@t")
+    universe = Universe.objects.create(workspace=ws, name="Workshop")
+    patch, _rivet = _cast(ws, universe)
+    comp, step = _talking_head_composition(
+        ws, patch, script="No-duration standalone",
+        use_knowledge=True, target_duration_seconds=None,
+    )
+    stub_result = _script_result_stub()
+
+    with mock_patch(
+        "apps.embeddings.retrieval.retrieve_universe_memory",
+        return_value=[],
+    ), mock_patch(
+        "apps.compositions.primitives.avatar_speech.build_render_brief",
+        return_value=stub_result,
+    ) as fake_build:
+        _maybe_synthesize_script(step, comp)
+
+    assert fake_build.call_count == 1
+    _, kwargs = fake_build.call_args
+    assert kwargs.get("target_shape") == "standalone"

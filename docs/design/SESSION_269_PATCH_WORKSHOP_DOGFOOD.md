@@ -2165,3 +2165,153 @@ slice. Chris + ChatGPT will review before authorizing §15
 (implementation). Any further Episodes, promotions, or audit
 findings should extend this document (add §15, §16…) rather than
 start a new one.
+
+## §15. Episode-solo STORY MODE — implementation
+
+Implementation of the §14 slice — Chris authorized. One coherent
+slice covering both the backend `solo_scene` writing contract and
+the frontend Episode-solo UX branch. Standalone `talking_head`
+dual-mode UX and every existing writing contract remain
+byte-identical for non-Episode callers.
+
+### §15.1 Files changed
+
+**Backend:**
+
+- `shell/character_os/writing_contract.py`
+  - Bumped `WRITING_CONTRACT_VERSION` 4 → 5.
+  - Added `_solo_scene_contract()` alongside `_long_form_contract` / `_standalone_contract` / `_dialogue_scene_contract`. Encodes the six scene-physics invariants from §14.8: SINGLE ACTIVE CHARACTER, SINGLE PRESENT MOMENT, PLANS REMAIN PLANS, MEMORY AS BACKGROUND (NOT COMMANDS), END ON A MOMENT (NOT A SUMMARY), PRESERVE CREATIVE FREEDOM.
+  - Added scene-oriented `_SOLO_SCENE_SHAPES_BLOCK` menu (moment→reaction / discovery→intent / observation→resolve-or-defer / internal-turn→decision / present-dilemma→next-step). The long-form arc menu (story→realization / mistake→lesson / experiment→outcome) is deliberately absent — it's the direct cause of §11 temporal compression.
+  - Extended `WritingContract.for_shape` with a `"solo_scene"` branch.
+  - Reuses `_ANTI_SELF_DESCRIPTION_BLOCK`, `_ANTI_GENERIC_REGISTER_BLOCK`, `_CTA_POLICY_BLOCK` unchanged.
+
+- `shell/character_os/duration_contract.py`
+  - `synthesize_with_duration_gate(...)` gains `target_shape: str = "long_form"` kwarg (default preserves legacy standalone talking_head + long_form_ad).
+  - Both corrective-pass `_synthesize()` invocations pass the shape through to `build_render_brief`.
+
+- `shell/apps/compositions/primitives/avatar_speech.py`
+  - `_maybe_synthesize_script` decides `target_shape_for_synthesis` once from a single boolean: `is_episode_talking_head = composition.episode_id is not None and composition.template_kind == "talking_head"`. Passes to both the duration-gated and non-duration branches.
+  - Non-duration Episode-attached edge case: routes to `"solo_scene"`; standalone non-duration keeps `"standalone"` (pre-§15 default byte-identical).
+
+**Frontend:**
+
+- `web/src/routes/recipes/$kind.tsx`
+  - New `isEpisodeSoloTalkingHead` boolean gate: `episode && r.kind === "talking_head" && episode.cast.length === 1`.
+  - `isFieldVisible` extended: when Episode-solo, `script` and `use_knowledge` return false (hidden from render list AND from the submit-side field filter).
+  - `onSubmit` extended: when Episode-solo, force-supplies `params.script = episode.operator_topic` and `params.use_knowledge = true` after the field loop. Backend receives the same wire shape a standalone AI-topic submit produces; the primitive discriminator then routes to `solo_scene`.
+  - Added a new visible block above the SESSION 262 chip: `data-testid="episode-solo-story-intent"` — bordered gold card labelled *"Story intent (owned by Episode)"* displaying `Episode.operator_topic` italicized, with an inline hint reading *"Character OS writes the scene from this intent, the Episode cast, and Universe knowledge — no need to retype or enable a writer toggle. Edit the intent on the Episode page."*
+
+**Tests (new):**
+
+- `shell/apps/compositions/tests/test_writing_contract_solo_scene.py` — 12 tests covering the `solo_scene` contract shape assertions, budgeted/unbudgeted length blocks, VERSION==5, forbidden long-form arc shapes absent, and `for_shape` dispatch distinctness.
+- `web/src/routes/recipes/talking-head-episode-solo.test.tsx` — 5 tests covering read-only Story intent display, `script`/`use_knowledge` field hiding, submit-time force-supply, standalone dual-mode regression, and two-cast-Episode defense-in-depth.
+
+**Tests (extended):**
+
+- `shell/apps/compositions/tests/test_talking_head_memory_lane.py` — 4 new tests covering the primitive `target_shape` routing (Episode-solo→`solo_scene`, standalone→`long_form`, non-duration variants).
+
+**Version-stamp updates (5 files):**
+
+- `test_writing_contract_v3.py`, `test_dialogue_synthesis.py`, `test_model_migration_gpt_5_6_terra.py`, `test_session253_character_voice_prompt.py`, `test_session259_writing_contract_v4.py`, `test_session260_dialogue_cps_calibration.py` — each version-pinned assertion updated from `== 4` to `== 5` with a comment noting the §15 bump. Every SHA-byte-stability snapshot in `test_writing_contract_v3.py` remains passing (proves standalone + long_form + dialogue_scene text is byte-identical).
+
+### §15.2 Test results
+
+- **Full backend suite** (`apps/compositions` + `apps/embeddings` + `apps/memory` + `apps/universe` + `apps/spokespeople`): **1564 passed**, 0 failed.
+  - Pre-§15 baseline: 1548 passed.
+  - +12 new `solo_scene` contract tests, +4 new primitive routing tests. Zero regression.
+- **Full SPA suite** (`pnpm exec vitest run`): **640 passed** across 47 files, 0 failed.
+  - Pre-§15 baseline: 635 passed.
+  - +5 new Episode-solo UX tests. Zero regression.
+
+### §15.3 Live-process verification (post-restart)
+
+Stopped + restarted all four services after the §15 slice landed
+so any operator-visible surface reflects the current code. Fresh
+process start times all `2026-08-19 11:04-11:05` local — after
+every §15 file edit landed on disk.
+
+Live Django in-process introspection:
+
+- `WRITING_CONTRACT_VERSION = 5`
+- `WritingContract.for_shape("solo_scene", ...)` returns 5,876-char string containing all six invariant markers: SINGLE ACTIVE CHARACTER ✅ / SINGLE PRESENT MOMENT ✅ / PLANS REMAIN PLANS ✅ / MEMORY AS BACKGROUND (NOT COMMANDS) ✅ / END ON A MOMENT ✅.
+- `_maybe_synthesize_script` source contains the `target_shape_for_synthesis` decision with `"solo_scene"` branch.
+
+Live Vite modules served:
+
+- `curl http://localhost:5174/src/routes/recipes/$kind.tsx` returns markers: `episode-solo-story-intent`, `isEpisodeSoloTalkingHead`, `"Story intent (owned by Episode)"`.
+
+Django `:8010` / media-engine `:8001` / Vite `:5174` all responding
+healthy; Celery worker replied to `inspect ping` — broker + worker
+connected.
+
+### §15.4 What remains unchanged
+
+- Standalone `/recipes/talking_head` dual-mode UX (verbatim script vs AI topic) — byte-identical form + byte-identical writing contract.
+- `long_form_ad` / `dialogue_scene` / every other recipe — no field changes, no writing-contract change (`_long_form_contract`, `_dialogue_scene_contract`, `_standalone_contract` text byte-stable per `test_writing_contract_v3.py` SHA snapshots).
+- Episode model / EpisodeCast M2M / `cast_ids` create semantics — untouched (§12 slice preserved).
+- `retrieve_universe_memory` predicate + `top_k=1` + witness semantics — untouched (§10 slice preserved).
+- `Composition.episode` FK + `Composition.memory_ids` provenance — untouched.
+- Promote path (`apps/memory/views.promote_from_composition` + `NarrativeMemoryPromotePanel` gated on `c.episode && terminal`) — untouched.
+- Chronology — untouched (§9 finding still stands).
+- Canon boundary (`KnowledgeChunk` / `KnowledgeDocument`) — untouched.
+- No new recipe. No new model. No migration. No schema change. No relevance floor. No reranker. No manual memory picker.
+
+### §15.5 Acceptance-test instructions for Chris
+
+Chris runs the real UI acceptance test on the current running
+build. The Vite dev server serves current source; the Django
+autoreloader loaded the primitive change; Celery started fresh
+after the §15 code landed.
+
+1. Hard refresh the SPA (Cmd+Shift+R) to guarantee any browser tab loads current Vite modules.
+2. Open **Patch's Workshop** → **Episodes**.
+3. Click **New Episode**.
+4. Enter a **current-time** topic (avoid pre-Rivet framing — §9 chronology finding is orthogonal to this slice).
+5. Select **Patch** as the ONLY cast member.
+6. Click **Create Episode**.
+7. Land on Episode detail; confirm Patch appears in Cast.
+8. Click **New solo scene**.
+9. Confirm the recipe form shows:
+   - The bordered gold **Story intent (owned by Episode)** card at the top with the Episode operator_topic in italics.
+   - The SESSION 262 *"Rendering under episode …"* card immediately below (existing).
+   - Spokesperson: Patch already selected.
+   - **NO** "Script or topic" textarea.
+   - **NO** "Use workspace knowledge" checkbox.
+   - Target duration, fact-check mode, opening line, outro controls — all still visible.
+10. Optionally set target duration (90s recommended for parity with §11 baseline).
+11. Click **Run recipe**.
+
+Expected on the resulting Composition detail page:
+
+- Composition attaches to the Episode (link/FK visible).
+- Rendered talking-head clip with Patch's voice/avatar.
+- Continuity summary and MemoriesUsedPanel populated with 1 selected NarrativeMemory row (per §10 wiring — verified against live pool of 11 memories; `retrieve_universe_memory` returns `8d4fdfec` deterministically for topically-adjacent queries).
+- `Composition.writing_contract_version = 5` (backend audit trail — proves the solo_scene contract shaped this render, not the pre-§15 long_form contract).
+
+Expected story quality (script inspection):
+
+- Patch is the only active character on-screen and in the scene.
+- References to other characters (Rivet, etc.) appear as history/relationships/future intentions, NOT as active participants (no *"I call for Rivet. We line up a reprint"*).
+- The script depicts ONE bounded moment — discovery + reaction + intent, not a compressed multi-step arc with invented outcomes.
+- Ending lands on a moment (decision, reaction, unresolved hook) — not a lesson summary.
+
+If any of the above regresses, capture as §16 evidence — but do NOT promote memory from the first §15 render regardless of outcome. First render is technical + product verification, not story authorship.
+
+### §15.6 Commit checkpoint
+
+- §15 slice commit: (populated after commit below).
+- Push status: (populated after push below).
+
+---
+
+**SESSION 269 IS NOT CLOSED.** §15 shipped the Episode-solo
+STORY MODE per the §14 design — new `solo_scene` writing
+contract (WRITING_CONTRACT_VERSION 4→5), primitive routing on
+the `composition.episode_id + template_kind` discriminator, and
+Episode-solo UX branch on the recipe form. Standalone
+talking_head + every other writing contract remain byte-stable.
+All 1564 backend + 640 SPA tests green. All services restarted;
+§15 code verified loaded in-process. Chris may proceed with the
+§15 acceptance test per §15.5. Any further Episodes, promotions,
+or audit findings should extend this document (add §16, §17…)
+rather than start a new one.

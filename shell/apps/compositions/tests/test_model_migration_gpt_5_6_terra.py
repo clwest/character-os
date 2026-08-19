@@ -93,8 +93,13 @@ def test_reasoning_effort_preserved_at_low():
 def test_dialogue_calibration_constants_unchanged_by_migration():
     """Migration must NOT touch calibration. If any of these
     drift under a "model swap" commit, the change scope was
-    wrong."""
-    assert WRITING_CONTRACT_VERSION == 4
+    wrong.
+
+    SESSION 269 §15 bumped ``WRITING_CONTRACT_VERSION`` 4 → 5 to
+    add the ``solo_scene`` shape — a contract-content change, not
+    a model-migration change. Calibration constants below remain
+    unchanged."""
+    assert WRITING_CONTRACT_VERSION == 5
     assert _DIALOGUE_CPS == 13
     assert _DIALOGUE_CORRECTIVE_HEADROOM_FRACTION == 0.92
     assert _DURATION_TOLERANCE == 0.20

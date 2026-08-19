@@ -401,8 +401,13 @@ def test_corrective_headroom_fraction_unchanged() -> None:
 
 
 def test_writing_contract_version_unchanged() -> None:
-    """v4 (SESSION 259) stays. SESSION 260 is calibration-only."""
-    assert WRITING_CONTRACT_VERSION == 4
+    """SESSION 260 is calibration-only — bumps to the WRITING
+    CONTRACT version stamp come from separate slices (v4 =
+    SESSION 259 dialogue causal chain; v5 = SESSION 269 §15
+    solo_scene shape). This suite must track whatever the
+    current stamp is; the assertion below is the deliberate
+    version-stamp conversation for §15."""
+    assert WRITING_CONTRACT_VERSION == 5
 
 
 def test_turn_bands_unchanged() -> None:

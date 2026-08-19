@@ -453,6 +453,28 @@ def _maybe_synthesize_script(
                 f"an integer; got {target_duration_seconds!r}"
             ) from exc
 
+    # SESSION 269 §15 — Episode-attached talking_head Compositions
+    # render in "solo scene" story mode: the writing contract
+    # enforces SINGLE ACTIVE CHARACTER + SINGLE PRESENT MOMENT +
+    # PLANS REMAIN PLANS + MEMORY AS BACKGROUND + END ON A MOMENT
+    # (see writing_contract._solo_scene_contract for the full
+    # invariant list; directly addresses the §11 scene-drift
+    # findings). Standalone talking_head + long_form_ad remain on
+    # ``"long_form"`` — every legacy caller keeps its existing
+    # writing contract byte-for-byte. Duration path uses the same
+    # branch; non-duration path stays on the default shape because
+    # the standalone-shape short-form contract has no scene physics
+    # to invoke (talking_head duration-less renders were never
+    # Episode-attached before §15; the ``long_form`` default is
+    # correct for pre-§15 behaviour and for any future non-duration
+    # Episode-attached edge case the operator surfaces).
+    is_episode_talking_head = (
+        composition.episode_id is not None
+        and composition.template_kind == "talking_head"
+    )
+    target_shape_for_synthesis = (
+        "solo_scene" if is_episode_talking_head else "long_form"
+    )
     try:
         if target_duration_seconds:
             # Duration-driven synthesis + acceptance gate. Uses
@@ -469,13 +491,22 @@ def _maybe_synthesize_script(
                 opener=opener,
                 mock_mode=False,
                 memory_rows=memory_rows,
+                target_shape=target_shape_for_synthesis,
             )
         else:
+            # Non-duration path — build_render_brief default
+            # ``target_shape="standalone"`` handles short-form
+            # standalone talking heads. Only Episode-attached
+            # solo renders (very rare without a duration) route
+            # through solo_scene here.
             result = build_render_brief(
                 composition.spokesperson, raw_script,
                 verifier_mode=verifier_mode,
                 opener=opener,
                 memory_rows=memory_rows,
+                target_shape=(
+                    "solo_scene" if is_episode_talking_head else "standalone"
+                ),
             )
     except ClaimVerifierError as exc:
         # Strict mode — surface as a primitive failure so the
