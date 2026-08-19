@@ -1127,3 +1127,304 @@ dialogue-lane behaviour, witness semantics, canon boundary,
 `top_k=1`, promote path — are untouched. Any further Episodes,
 promotions, or audit findings should extend this document (add
 §11, §12…) rather than start a new one.
+
+## §11. Observation §11 — first real solo talking_head dogfood (`44f2279f`)
+
+Read-only audit of the first creator-side solo `talking_head`
+render after the §10 implementation. Two independent findings —
+one operational (§10 code did not execute this render) and one
+architectural (writing-contract mode mismatch). Composition NOT
+promoted per operator instruction.
+
+Evidence sidecar:
+`docs/design/session_269_experiment_data/03_composition_44f2279f_evidence.json`
+
+### §11.1 Persisted Composition state
+
+- Full id: `44f2279f-2ead-4a79-a180-bc207e108abb`
+- Template: `talking_head`, status `completed`, mock_mode `false`
+- Operator topic: *"Patch decides to clean one corner of the workshop and immediately finds something that gives him another idea."*
+- Workspace: `4ce5486d` · Spokesperson: **Patch** (`7fad8172`) · Spokesperson.universe: Patch's Workshop (`56d16b63`)
+- **Episode: `None`** (standalone Composition)
+- Target duration 90s; predicted 101s; contract v4; attempt count 1; verified
+- Knowledge chunk ids: 5 (matches SPA display "2 docs · 5 chunks")
+- **`memory_ids: []`**
+- Steps: 1 × `generate_avatar_speech`; step cost 20000 micros
+- Created `2026-08-19 15:29:20 UTC` · updated `2026-08-19 15:32:29 UTC`
+
+### §11.2 Orphaned Episode
+
+The DB carries an Episode with a matching title/topic but the two
+never connected:
+
+- Episode `91a63409-6a09-4206-8a9c-33e5fa064fb2` — same title, same
+  operator_topic, **cast is EMPTY**, attached_compositions = 0.
+- Composition `44f2279f` — `episode_id = None`.
+
+Interpretation: Chris created an Episode row but (a) did not add
+Patch to `Episode.cast` and (b) submitted the render through a
+path that did not carry `?episode=`, so the resulting Composition
+remained standalone.
+
+### §11.3 §10 technical acceptance test — result: FAILED / INCOMPLETE
+
+Expected (per §10.7): `Composition.memory_ids` = one UUID; SPA
+"Continuity — Used 1 story memory" chip; `MemoriesUsedPanel`
+renders. Observed: `memory_ids = []`; no Continuity chip; no
+panel — consistent with Chris's SPA screenshot.
+
+**Cause classification: C (retrieval did NOT fire for this creator
+path).** Root cause is OPERATIONAL, not architectural.
+
+- Celery worker start time (from `/tmp/character-os-celery.log`): `2026-08-18 00:39:20 -0600`.
+- §10 slice commit time (`765bb73`): `2026-08-19 09:21:50 -0600`.
+- Composition created: `2026-08-19 09:29:20 -0600` (local).
+- `grep -c "retrieve_universe_memory" /tmp/character-os-celery.log` = **0**.
+
+The Celery worker booted the day BEFORE the §10 slice landed.
+Every render since has executed pre-§10 primitive code.
+`_maybe_synthesize_script` in the worker's loaded module never
+called `retrieve_universe_memory`, so `Composition.memory_ids`
+stayed at its default `[]`.
+
+**Counterfactual reproduction (audit-time, in a fresh Python
+process reading current code):**
+
+```python
+retrieve_universe_memory(workspace, universe, [patch],
+                         operator_topic, top_k=1)
+→ [NarrativeMemory 8d4fdfec ("Patch found the old workshop-agent
+   project and notes…")]
+```
+
+The predicate returns exactly one memory. Rivet-only rows
+(`cd73d52f`, `c86d4902`) are correctly excluded (validated by
+§10.5 tests). The candidate is a whole-cast row that would have
+been thematically adjacent (finding-something-and-having-an-idea).
+
+**§10 runtime dogfood is INCOMPLETE despite 15/15 green unit
+tests.** Verification requires (a) restarting Celery worker + Django
+dev server so the §10 code is actually loaded into the running
+processes, and (b) rendering a NEW Composition. That is a Chris-
+side operator action, not something this audit executes.
+
+Also note: even if §10 had fired on this render, the promote panel
+(`NarrativeMemoryPromotePanel`) would still not have appeared
+because `c.episode` is null — that gate is a SESSION 264 Slice 1
+invariant ("memory belongs to a story"), so standalone renders
+never surface promotion regardless.
+
+### §11.4 Creator UI-flow gap — SESSION 262 lesson recurring
+
+Two-character path (SESSION 262 corrected):
+
+- `/workspace/episodes/<id>` renders a "New dialogue scene" CTA when `cast.length >= 2`.
+- CTA links to `/recipes/dialogue_scene?episode=<id>`.
+- Recipe form pre-fills topic + primary/secondary from Episode.
+- Submit propagates `?episode=` onto `Composition.episode` FK.
+
+Solo path (as of §10):
+
+- Same Episode detail page falls through to `/recipes/talking_head?episode=<id>` when `cast.length < 2`.
+- Recipe form pre-fills topic + `spokesperson_id` from `Episode.cast[0]?.id`.
+- Same `?episode=` submit path attaches the FK.
+
+**But `44f2279f` slipped through both gates:**
+
+1. Chris created the Episode row but did NOT populate `Episode.cast` (Patch was not added). Pre-fill on `Episode.cast[0]?.id` becomes `undefined`, so the operator had to pick the spokesperson manually. That is a subtle UX signal — the flow feels different from the two-cast case where a fully-populated Episode auto-arms the recipe form.
+2. `44f2279f.episode_id = None` implies Chris either navigated to `/recipes/talking_head` directly (bypassing the Episode CTA) or the operator forgot which surface he was on. The standalone recipe path accepts submissions without any Episode context.
+
+**This is the same product lesson SESSION 262 corrected for the
+2-character path:** a backend primitive existing does not mean the
+creator workflow is shipped. §10 shipped the memory-retrieval
+backend on the solo path; the Episode-attach ergonomics for solo
+Episodes were not audited in the same slice.
+
+There is no persisted evidence in this repo's DB of any prior
+Rivet-solo `talking_head` created via the current SPA path — the
+Rivet-solo Composition on record (`b0b0e932`, SESSION 267 "Rivet
+finds the PATCH OVERRIDES folder") was authored via a
+backend/starter test path. Chris's observation ("the Rivet-solo
+work done previously does not appear to match the creator-facing
+UI available now") is consistent with that history.
+
+### §11.5 Solo story quality — accepted-script findings
+
+Full accepted script is in the sidecar
+(`section_c_writing_contract_findings`); three specific quality
+issues:
+
+**Cast / presence drift** — the accepted script includes:
+
+> *"I call for Rivet because last time a 'mystery part' turned
+> out to be two experiments welded by optimism."*
+> *"Rivet's rule: label things."*
+> *"We line up a reprint…"*
+
+Rivet is invoked as an active off-screen participant, converting
+what should be a Patch-only scene into a two-character scene with
+one voice on the audio. Chris's stated expectation: Rivet as part
+of Patch's world/history (*"If this gets weird, I'll call
+Rivet"*) without being an active participant in the current
+moment.
+
+**Temporal / action compression** — the script performs an entire
+mini-experiment inside the monologue: finds → loads → lines up
+reprint → observes scale difference → changes plan → records
+settings → runs experiment → "Halfway through" → observes
+adhesion failure → conclusion. Chris's expectation: ONE moment
+(discovery → plan → optional condition) with later outcomes
+deferred to later Episodes.
+
+**Scene vs process-summary** — the output reads as *"a narrated
+experiment / tutorial / retrospective"* interleaving past-tense
+recap (*"I tried…"*, *"I found…"*) with plan-forward statements.
+Chris's expectation: *"a character inhabiting a story scene right
+now."*
+
+### §11.6 Writing-contract root cause
+
+Traced in `shell/character_os/writing_contract.py` +
+`shell/character_os/script_synthesis.py`.
+
+- The talking_head duration-driven path calls `WritingContract.for_shape("long_form", ...)` (`script_synthesis.py:_build_writing_contract_section` + `duration_contract.synthesize_with_duration_gate`).
+- `_long_form_contract` emits `_INVARIANTS_BLOCK` + `_NARRATIVE_SHAPES_BLOCK` + `_CTA_POLICY_BLOCK` + `_ANTI_SELF_DESCRIPTION_BLOCK` + `_ANTI_GENERIC_REGISTER_BLOCK`.
+- Invariant #4 explicitly demands *"At least one meaningful change… a turn in thought, a piece of tension, an unexpected detail, a reversal."*
+- Narrative-shape menu recommends *"story → realization / mistake → lesson / experiment → outcome / observation → explanation / question → exploration → answer."*
+- **Nothing in this contract constrains cast presence** (no "you are the only character in this scene" rule).
+- **Nothing constrains temporal framing** (no "this depicts one present moment; later outcomes belong in later Episodes" rule).
+- **Nothing distinguishes operator_topic-as-scene-premise from operator_topic-as-content-subject** (the topic is treated as material to explore, not a moment to inhabit).
+
+The writer executed the contract faithfully. The output is a
+successful long-form monologue about the topic — which is exactly
+what `_long_form_contract` requests. The failure is not the model;
+the failure is that this contract is the wrong contract for a
+solo Episode scene.
+
+**Dialogue contract contrast** (`_dialogue_scene_contract`):
+
+- Opens with *"The scene is a conversation between the characters introduced in Section 2… The audience is watching a real exchange, not a pair of parallel presentations."*
+- `_DIALOGUE_WATCHABILITY_BLOCK` #1: *"ENTER WITH AN IN-SCENE STANCE — Each character arrives with an immediate purpose, stance, reaction, or desire for THIS scene."*
+- Watchability #3: *"PREFER SPECIFIC ACTION / REACTION OVER PHILOSOPHY."*
+- Watchability #5: *"END ON A MOMENT, NOT A SUMMARY."*
+
+Dialogue explicitly frames output as a **scene** (moment) with
+characters IN it. Long-form talking_head frames output as a
+**topic** (subject) the character speaks about. These are
+architecturally different modes served by the same primitive.
+
+### §11.7 Product-mode classification
+
+**Verdict: B (mostly the same; Episode-attached `talking_head`
+needs a story-mode contract while legacy non-Episode `talking_head`
+preserves current content behavior).**
+
+Two coexisting product modes on one recipe:
+
+| Mode | Discriminator | Contract | Callers |
+|---|---|---|---|
+| Content (existing, load-bearing) | `Composition.episode is None` | `_long_form_contract` / `_standalone_contract` — invariants + narrative-shape menu + CTA policy | Marketing scripts, explainers, product briefs, long-form ad copy, every historical `talking_head` caller |
+| Story (dogfood direction) | `Composition.episode is not None` | (new) scene-mode contract — single character present, one present moment, no invented collaborators, later outcomes deferred | Solo Episode-attached renders (Patch-only, Rivet-only, future Ruby/Mason) |
+
+`Composition.episode` is a natural, already-existing discriminator.
+Non-Episode callers keep byte-identical prompts. Episode-attached
+callers get the scene-mode contract.
+
+**Alternatives rejected:**
+
+- **A (small correction across the board)** — would break every
+  legacy caller. Marketing scripts do NOT want present-moment
+  scene semantics.
+- **C (new recipe)** — would duplicate the entire form field
+  surface for zero substrate change. Violates the operator's
+  DO-NOT list.
+- **D (something else)** — not observed.
+
+### §11.8 Smallest next action (proposed — NOT authorized here)
+
+A focused Episode-attached solo scene-mode contract slice:
+
+1. **Fix cause C first (operator action, no code):** restart the
+   Celery worker + Django dev server so the §10 code actually
+   loads. Chris can then rerun the smallest first technical
+   verification defined in §10.7 (with a Patch-only Episode that
+   actually has Patch in the cast + navigates through the Episode
+   CTA so the FK attaches).
+2. **Then, if evidence still shows scene-drift (§11.5), open a
+   focused slice for the writing-contract discriminator:**
+   - Add a new shape `"solo_scene"` (or an `is_scene: bool` flag)
+     to `WritingContract.for_shape`.
+   - Author a `_solo_scene_contract()` that carries the same
+     scene framing dialogue does (present-moment, single-character
+     presence, "END ON A MOMENT", no invented collaborators, no
+     compressed future outcomes) minus the multi-character
+     interaction invariants.
+   - Route Episode-attached `talking_head` through the new shape
+     via a discriminator check in `_maybe_synthesize_script`
+     (`spokesperson.universe_id is not None and
+     composition.episode_id is not None` → `"solo_scene"`,
+     otherwise `"long_form"` / `"standalone"` — bytes-identical
+     legacy behaviour when episode is null).
+   - Bump `WRITING_CONTRACT_VERSION` to 5.
+3. **Optional adjacent slice (defer):** Episode-attach ergonomics
+   — auto-add spokesperson to `Episode.cast` when a solo render
+   is submitted through `?episode=`, or require the operator to
+   confirm cast on the CTA. Not authorized here; documented so
+   the SESSION 262 lesson lands.
+
+### §11.9 Implementation disposition
+
+**Not implemented in this session per operator instruction.**
+Chris + ChatGPT will review §11.7 classification and §11.8
+proposal before any writing-contract change is authorized.
+
+Explicit DO NOT for this session (re-affirmed):
+
+- Do NOT implement chronology.
+- Do NOT change `top_k`.
+- Do NOT add relevance floor.
+- Do NOT add new models.
+- Do NOT promote memory.
+- Do NOT create a new recipe.
+- Do NOT render another Composition.
+
+**DO NOT PROMOTE from `44f2279f`** — reasons captured in
+sidecar `section_h_promotion_disposition`: first technical
+verification, Continuity behavior unclear (retrieval didn't
+fire), script exhibits cast-presence drift, script compresses
+future outcomes into one scene. Not durable-continuity material.
+
+### §11.10 Known chronology limitation (unchanged)
+
+§9 story-time finding stands. §11 does not touch chronology.
+Any Episode-attached solo rendering under the future scene-mode
+contract would still retrieve any temporally-eligible memory
+(no story-time gate exists).
+
+### §11.11 Explicit remaining gaps
+
+- §10 runtime dogfood not yet verified against real persisted
+  state (cause C — operational; awaits worker restart + rerender).
+- Solo `Episode.cast` auto-population UX gap (§11.4).
+- Writing-contract mode-discriminator (§11.7 B) not built.
+- Chronology / story-time (§9.7) unchanged.
+- Runners-up + distances probe still not built (§4.2, §8 #1, §8 #11).
+- Relevance floor still not compelled (§4.5).
+- Patch-only witness class still has zero rows (§9.9, §10.9).
+
+### §11.12 Commit checkpoint
+
+Docs + evidence sidecar committed as a doc-only slice (see
+report below). No source-code change in this checkpoint.
+
+---
+
+**SESSION 269 IS NOT CLOSED.** This document now captures the
+two organic Episodes (§1-§8), the §9 read-only prequel-substrate
+audit, the §10 solo-cast narrative-memory implementation, and
+the §11 first-real-solo-dogfood observation which surfaced (a) an
+operational §10 non-execution and (b) a genuine product-mode
+distinction between TALKING HEAD AS CONTENT FORMAT and SOLO
+EPISODE AS STORY FORMAT. Any further Episodes, promotions, or
+audit findings should extend this document (add §12, §13…)
+rather than start a new one.

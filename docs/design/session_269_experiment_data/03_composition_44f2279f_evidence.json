@@ -1,0 +1,197 @@
+{
+  "captured_at": "2026-08-19T00:00:00Z",
+  "session": 269,
+  "context": "Dogfood Observation §11 — first real solo talking_head render AFTER the §10 NarrativeMemory implementation. Surfaced two independent findings: (a) §10 code did not execute on this render, (b) the writing contract produced a scene-drifted / temporally-compressed monologue.",
+
+  "composition": {
+    "id": "44f2279f-2ead-4a79-a180-bc207e108abb",
+    "name": "Patch decides to clean one corner of the workshop and immediately finds something that gives him another idea.",
+    "template_kind": "talking_head",
+    "status": "completed",
+    "mock_mode": false,
+    "operator_topic": "Patch decides to clean one corner of the workshop and immediately finds something that gives him another idea.",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "spokesperson_id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+    "spokesperson_name": "Patch",
+    "spokesperson_universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "episode_id": null,
+    "target_duration_seconds": 90,
+    "writing_contract_version": 4,
+    "synthesis_attempt_count": 1,
+    "synthesis_predicted_seconds": 101.0,
+    "verification_status": "verified",
+    "verification_warnings": [
+      {"kind": "proper_noun", "claim": "Same", "position": 745},
+      {"kind": "proper_noun", "claim": "Change", "position": 864},
+      {"kind": "proper_noun", "claim": "Halfway", "position": 1155},
+      {"kind": "proper_noun", "claim": "Cleaning", "position": 1307}
+    ],
+    "knowledge_chunk_ids": [
+      "0b0284a1-e8fc-411b-840d-ce7cc006ca91",
+      "55518c20-a4e6-4a63-b21e-f25f0b4b0688",
+      "c24d1aa7-1dab-499f-83a7-f9554de5e8e7",
+      "c95c05c0-8629-4e10-a524-01385396fff5",
+      "da7e6553-a5ea-463f-994f-354289ab9b5b"
+    ],
+    "memory_ids": [],
+    "cost_actual_micros": 20000,
+    "created_at": "2026-08-19T15:29:20.994168+00:00",
+    "updated_at": "2026-08-19T15:32:29.341031+00:00"
+  },
+
+  "pipeline_shape": {
+    "step_count": 1,
+    "step_breakdown": "1 × generate_avatar_speech",
+    "step_status": "succeeded",
+    "step_cost_actual_micros": 20000,
+    "step_params_keys": ["script", "use_knowledge", "verifier_mode", "target_duration_seconds"],
+    "step_params_use_knowledge": true
+  },
+
+  "orphaned_episode": {
+    "note": "The DB contains an Episode with the exact same title, created the same day, but never attached to this Composition. Cast is EMPTY.",
+    "episode_id": "91a63409-6a09-4206-8a9c-33e5fa064fb2",
+    "episode_title": "Patch decides to clean one corner of the workshop and immediately finds something that gives him another idea.",
+    "cast": [],
+    "operator_topic": "Patch decides to clean one corner of the workshop and immediately finds something that gives him another idea.",
+    "attached_compositions": 0,
+    "interpretation": "Chris created an Episode row but (a) did not add Patch to Episode.cast, and (b) submitted the render through a path that did not carry ?episode= — the resulting Composition remained standalone."
+  },
+
+  "section_a_technical_acceptance_test": {
+    "expected_under_section_10_7": {
+      "composition_memory_ids_len": 1,
+      "spa_continuity_chip": "Continuity — Used 1 story memory",
+      "spa_memories_used_panel": "renders selected memory row"
+    },
+    "observed": {
+      "composition_memory_ids": [],
+      "spa_continuity_chip": "not rendered",
+      "spa_memories_used_panel": "not rendered"
+    },
+    "cause_classification": "C (retrieval did NOT fire for this creator path)",
+    "root_cause": "Two-part failure — both cause and confound must be understood together.",
+    "cause_c_evidence": {
+      "celery_worker_start_time_local": "2026-08-18 00:39:20 -0600",
+      "section_10_slice_commit_time_local": "2026-08-19 09:21:50 -0600",
+      "composition_created_time_local": "2026-08-19 09:29:20 -0600",
+      "log_search_retrieve_universe_memory_hits_in_celery_log": 0,
+      "log_search_command": "grep -c 'retrieve_universe_memory' /tmp/character-os-celery.log",
+      "conclusion": "The Celery worker booted the day BEFORE the §10 slice landed. The running worker process is still executing pre-§10 avatar_speech._maybe_synthesize_script code, which never called retrieve_universe_memory. Neither the log search nor Composition.memory_ids shows any retrieval activity."
+    },
+    "cause_d_would_also_fire_after_worker_restart": {
+      "reason": "Composition.episode_id = null. §10 retrieval is gated on spokesperson.universe_id (which IS set for Patch) — so it WOULD fire after worker restart. However, the Episode-attach path is a separate UX gap: Chris created an Episode but the Composition never attached to it, so the promote-panel (SESSION 264 Slice 1, gated on c.episode) would still be missing.",
+      "post_restart_expected_behavior": {
+        "retrieve_universe_memory": "fires with cast=[Patch] top_k=1",
+        "expected_selected_memory": "8d4fdfec (Patch found the old workshop-agent project and notes…)",
+        "reproduction_query_verified": "yes — invoked retrieve_universe_memory(ws, u, [patch], operator_topic, top_k=1) directly at audit time; returned [8d4fdfec] deterministically."
+      }
+    }
+  },
+
+  "section_b_creator_ui_flow_comparison": {
+    "current_two_char_episode_path": {
+      "route": "/workspace/episodes/<id>",
+      "cta_condition": "e.cast.length >= 2",
+      "cta_target": "/recipes/dialogue_scene?episode=<id>",
+      "prefills": "Episode.operator_topic → topic textarea; Episode.cast[0].id → primary_spokesperson_id; Episode.cast[1].id → secondary_spokesperson_id; dialogue_mode → 'ai_topic'",
+      "attach_on_submit": "?episode=<id> propagates through the recipe form and lands on Composition.episode FK at create."
+    },
+    "current_solo_episode_path": {
+      "route": "/workspace/episodes/<id>",
+      "cta_condition": "e.cast.length < 2 (fall-through branch)",
+      "cta_target": "/recipes/talking_head?episode=<id>",
+      "prefills": "Episode.operator_topic → topic textarea; Episode.cast[0]?.id → spokesperson_id (undefined when cast is empty)",
+      "attach_on_submit": "same ?episode= flow; Composition.episode FK set on create IFF the operator arrived via the CTA",
+      "gaps_observed_on_44f2279f": [
+        "Chris created Episode 91a63409 but did NOT add Patch to Episode.cast — the SPA does not auto-populate cast from a Universe roster.",
+        "Chris's Composition (44f2279f) has episode_id=null — either (a) he did not click the Episode CTA and instead navigated directly to /recipes/talking_head, or (b) the standalone path silently accepted the render without Episode context. The recipe form UI does not require an Episode context to submit."
+      ],
+      "session_262_analogue": "This is the SAME product lesson SESSION 262 corrected for the 2-character path: the recipe backend existed but the creator-workflow surfaces did not shepherd the operator through the intended flow. §10 shipped the memory-retrieval backend on the solo path; the Episode-attach ergonomics for solo Episodes were not audited alongside."
+    },
+    "prior_claude_rivet_solo_reference": {
+      "note": "No prior Composition in the DB matches a Rivet-solo talking_head with Episode attachment. The Rivet-only Composition on record (b0b0e932, 'SESSION 267 setup — Rivet-solo private observation') was authored via a backend/starter test path, not the current SPA creator UX. That is consistent with Chris's observation that the current creator UI feels different from Claude's prior solo work — the earlier work exercised the backend primitive, not the ship UI."
+    }
+  },
+
+  "section_c_writing_contract_findings": {
+    "accepted_script_head": "I tried to clean one corner of the workshop. Bad idea. Two minutes in, I found a half-finished 3D print shaped like… I don't know, a bracket? A handle? A mistake with ambition.",
+    "cast_presence_drift": {
+      "quotes": [
+        "I call for Rivet because last time a \"mystery part\" turned out to be two experiments welded by optimism.",
+        "Rivet's rule: label things.",
+        "We line up a reprint, and immediately the perimeter looks… wrong."
+      ],
+      "interpretation": "Rivet is invoked as an active off-screen participant. Patch is nominally the only speaker but the SCENE contains two characters cooperating. For a Patch-only Episode this violates operator expectation — Chris wanted Rivet as part of Patch's world/history (e.g. 'If this gets weird, I'll call Rivet') without being an active participant in the current moment.",
+      "root_cause_in_contract": "The current long_form writing contract (character_os/writing_contract.py:_INVARIANTS_BLOCK + _NARRATIVE_SHAPES_BLOCK) does NOT restrict cast presence. Nothing in the §4 writing contract tells the model 'this character is the ONLY character in this scene.' The contract treats operator_topic as a subject to explore, not as a scene premise; it explicitly recommends 'story → realization / mistake → lesson / experiment → outcome' shapes that require the character to describe collaborators."
+    },
+    "temporal_action_compression": {
+      "phases_compressed_into_one_monologue": [
+        "finds the part",
+        "loads the file",
+        "lines up a reprint",
+        "observes scale difference",
+        "changes plan",
+        "records printer settings",
+        "runs the experiment",
+        "'Halfway through' — describes an in-progress outcome",
+        "observes layer adhesion failure",
+        "reaches a conclusion"
+      ],
+      "interpretation": "The monologue performs an entire mini-experiment from discovery to conclusion. Chris expected ONE moment — discovery + plan + optional condition for later — with future outcomes deferred to a later Episode.",
+      "root_cause_in_contract": "The long_form contract's _INVARIANTS_BLOCK #4 explicitly demands 'At least one meaningful change… a turn in thought, a piece of tension, an unexpected detail, a reversal.' Combined with _NARRATIVE_SHAPES_BLOCK options ('story → realization', 'observation → explanation', 'mistake → lesson', 'question → exploration → answer'), the contract REWARDS compressing multi-phase arcs into the same script. It does not carry a 'this script depicts one present moment; later outcomes belong in later Episodes' rule."
+    },
+    "scene_vs_process_summary": {
+      "observed": "The output reads like 'a narrated experiment / tutorial / retrospective' — past-tense recap of an event ('I tried…', 'I found…') interleaved with plan-forward statements ('Change of plan: … we treat this like an AI memory test').",
+      "expected_for_solo_episode": "'A character inhabiting a story scene right now' — present-moment framing, no compressed future outcomes, no invented collaborators.",
+      "root_cause_in_contract": "The long_form contract's shape (invariants + narrative-shape menu + CTA policy) is optimized for content-oriented spoken scripts — the historical talking_head use case (short-form talking-head marketing, long-form spoken essays, product explainers). Character OS story-oriented solo dogfood is a genuinely different product mode."
+    },
+    "dialogue_contract_contrast": {
+      "dialogue_frames_output_as_scene": "The dialogue_scene contract opens with 'The scene is a conversation between the characters introduced in Section 2… The audience is watching a real exchange, not a pair of parallel presentations.' Dialogue watchability block requires 'ENTER WITH AN IN-SCENE STANCE' and 'PREFER SPECIFIC ACTION / REACTION OVER PHILOSOPHY.' All of that says 'moment', not 'topic'.",
+      "talking_head_frames_output_as_topic": "The long_form contract opens with 'LENGTH — approximately N seconds of spoken delivery.' Length is the only shape constraint; the rest is about invariants, narrative shape menu, and register. Nothing frames the output as a present-tense scene the character is inhabiting."
+    }
+  },
+
+  "section_e_product_mode_classification": {
+    "verdict": "B (mostly the same; Episode-attached talking_head needs a story-mode contract while legacy non-Episode talking_head preserves current content behavior)",
+    "rationale": [
+      "TALKING HEAD AS CONTENT FORMAT (existing, load-bearing): one spokesperson → generated explanatory/promotional/informational speech. Backed by long-form invariants, CTA policy, narrative-shape menu. Every existing caller (marketing scripts, explainers, long-form ad copy) expects these semantics.",
+      "SOLO EPISODE AS STORY FORMAT (new dogfood direction): one character → one Episode → one present-moment scene → character-aware + memory-aware → no uncast active participants → no compressing later story outcomes into the same scene.",
+      "The two share substrate (spokesperson, K2 retrieval, Universe canon, §10 NarrativeMemory, generate_avatar_speech pipeline) but diverge on writing SEMANTICS.",
+      "composition.episode is a natural discriminator that already exists as a field. When set, the caller intended story-mode framing. When null, keep the current content-mode contract.",
+      "This mirrors the SESSION 262 pattern: Composition and Episode are already separate; SESSION 262 shipped the FK + attach flow; §11 (potential future slice) would ship the writing-contract discriminator that reads from that FK."
+    ],
+    "rejected_alternatives": {
+      "A_small_contract_correction_across_the_board": "Would break every legacy talking_head caller — marketing scripts do not want present-moment scene semantics. Rejected: violates §F 'do not break legacy talking_head' constraint.",
+      "C_new_recipe": "Would duplicate the entire form field surface (spokesperson_picker, script/topic, use_knowledge checkbox, target_duration_seconds, opener, verifier_mode, outro fields). Same infrastructure with different writing contract does not warrant a new recipe when a discriminator field already exists. Also violates the operator's DO-NOT list.",
+      "D_something_else": "Not observed."
+    }
+  },
+
+  "section_g_narrative_memory_result": {
+    "memory_retrieval_actually_occurred_in_this_render": false,
+    "reason": "See section_a_technical_acceptance_test — §10 code was not loaded into the running Celery worker at render time.",
+    "counterfactual_reproduction": {
+      "invoked_directly_at_audit_time": true,
+      "call": "retrieve_universe_memory(workspace, universe, [patch], operator_topic, top_k=1)",
+      "returned_count": 1,
+      "returned_memory_id": "8d4fdfec-add4-4505-8ade-b0f9e6d8aea6",
+      "returned_memory_body_head": "Patch found the old workshop-agent project and notes, revealing that the Agent began as a smaller experiment before Patch gave it more context and it started making decisions about his projects.",
+      "witness_scope": "whole (whole-cast; witnessed_by empty)",
+      "top_k_bounded_to_1": true,
+      "eligibility_evidence": "Rivet-only rows (cd73d52f, c86d4902) would have been excluded by the witness predicate under cast=[Patch] — verified by §10 unit tests test_patch_solo_rivet_only_memory_excluded and test_narrowed_witness_excluded_when_no_overlap."
+    },
+    "operational_finding": "§10 runtime dogfood is INCOMPLETE despite green unit tests. Verification requires (a) restarting Celery worker and Django dev server so my §10 code is actually loaded into the running processes, and (b) rendering a NEW Composition. Only then can the technical acceptance criteria in §10.7 be checked against real persisted state."
+  },
+
+  "section_h_promotion_disposition": {
+    "promote_any_memory_from_this_composition": "NO",
+    "reasons": [
+      "This was the first technical solo-memory verification and §10 didn't actually execute.",
+      "Continuity behavior is currently unclear (retrieval didn't fire; no memory_ids provenance).",
+      "The script exhibits cast-presence drift (Rivet as active off-screen participant).",
+      "The script compresses multiple future actions/results into one scene.",
+      "Even the counterfactual memory (8d4fdfec) would need to be evaluated against a scene-mode script, not this content-mode script."
+    ]
+  }
+}
