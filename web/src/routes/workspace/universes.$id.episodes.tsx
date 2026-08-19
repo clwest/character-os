@@ -4,12 +4,19 @@
  * SESSION 262 / EPISODE_SCHEMA_V1. Backend surface:
  * shell/apps/universe/views.py::EpisodeViewSet (list + create).
  *
+ * SESSION 269 §12 — Create form now offers an inline cast picker
+ * so a solo Episode can be assembled on ONE screen. Backend
+ * accepts ``cast_ids`` in the create payload and attaches
+ * atomically. Zero-cast draft creation remains allowed but the
+ * scene CTAs on the Episode detail page block silent fall-through
+ * (existing insufficientCast guard).
+ *
  * Load-bearing:
  * - Episode creation is explicit-only.
  * - Standalone Composition workflow (no Episode) remains available
  *   from the recipe form elsewhere in the SPA.
  */
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ChevronLeft, Sparkles } from "lucide-react";
 
@@ -19,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { SectionHeader } from "@/components/editorial";
 import { useUniverse } from "@/lib/api/universes";
 import { useEpisodes, useCreateEpisode } from "@/lib/api/episodes";
+import { useSpokespeople } from "@/lib/api/spokespeople";
 import { ApiError } from "@/lib/api/client";
 
 
@@ -28,11 +36,38 @@ export function UniverseEpisodesRoute() {
   const universe = useUniverse(universeId);
   const episodes = useEpisodes(universeId);
   const create = useCreateEpisode(universeId);
+  // SESSION 269 §12 — cast picker options. Filter to teammates
+  // whose ``universe`` matches this Universe (only same-Universe
+  // teammates are legal cast; the same filter the Episode detail
+  // page's cast-add dropdown uses).
+  const spokespeople = useSpokespeople();
+  const eligibleTeammates = useMemo(
+    () => (spokespeople.data ?? []).filter((s) => s.universe === universeId),
+    [spokespeople.data, universeId],
+  );
 
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState("");
   const [operatorTopic, setOperatorTopic] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Selected cast set — Set<UUID>. Empty = zero-cast draft
+  // (allowed but the scene CTAs on the Episode detail page will
+  // block a downstream render until at least one member is added).
+  const [selectedCastIds, setSelectedCastIds] = useState<Set<string>>(
+    new Set(),
+  );
+
+  const toggleCast = (teammateId: string) => {
+    setSelectedCastIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(teammateId)) {
+        next.delete(teammateId);
+      } else {
+        next.add(teammateId);
+      }
+      return next;
+    });
+  };
 
   async function handleCreate(ev: React.FormEvent) {
     ev.preventDefault();
@@ -46,15 +81,24 @@ export function UniverseEpisodesRoute() {
     const cleanedTitle =
       title.trim() ||
       cleanedTopic.slice(0, 60) + (cleanedTopic.length > 60 ? "…" : "");
+    // Preserve insertion order — the SPA's recipe-form pre-fill
+    // uses ``Episode.cast[0]`` as the default primary spokesperson.
+    // Iterating eligibleTeammates keeps the picker order (which
+    // matches the API's spokespeople list order) authoritative.
+    const cast_ids = eligibleTeammates
+      .filter((s) => selectedCastIds.has(s.id))
+      .map((s) => s.id);
     try {
       const ep = await create.mutateAsync({
         universe: universeId,
         title: cleanedTitle,
         operator_topic: cleanedTopic,
+        ...(cast_ids.length > 0 ? { cast_ids } : {}),
       });
       setCreating(false);
       setTitle("");
       setOperatorTopic("");
+      setSelectedCastIds(new Set());
       navigate(`/workspace/episodes/${ep.id}`);
     } catch (err) {
       if (err instanceof ApiError) {
@@ -122,6 +166,89 @@ export function UniverseEpisodesRoute() {
             The topic drives every Composition under this Episode. You can
             edit it later without disturbing per-attempt provenance.
           </p>
+
+          {/*
+            SESSION 269 §12 — inline cast picker. Selecting one
+            character makes this a solo Episode (Episode detail
+            offers a solo-scene action); selecting two or more
+            keeps the existing dialogue-scene action. Zero cast
+            is a valid draft — the scene actions on the Episode
+            detail page block silent fall-through via the existing
+            insufficientCast guard on the recipe form. Cast can
+            still be added or removed on the Episode detail page
+            after creation.
+          */}
+          <div className="flex flex-col gap-2 rounded-md border border-fog/30 bg-black/20 p-4">
+            <Label>Cast (optional; add now or later)</Label>
+            {spokespeople.isLoading && (
+              <p className="text-xs italic text-fog">
+                Loading available characters…
+              </p>
+            )}
+            {!spokespeople.isLoading && eligibleTeammates.length === 0 && (
+              <p className="text-xs italic text-fog">
+                No characters in this Universe yet. Add teammates to this
+                Universe from the Universe detail page, then come back
+                — or create the Episode now and attach cast later.
+              </p>
+            )}
+            {eligibleTeammates.length > 0 && (
+              <div
+                className="flex flex-wrap gap-2"
+                data-testid="episode-create-cast-picker"
+              >
+                {eligibleTeammates.map((tm) => {
+                  const checked = selectedCastIds.has(tm.id);
+                  return (
+                    <button
+                      key={tm.id}
+                      type="button"
+                      aria-pressed={checked}
+                      data-testid={`episode-create-cast-toggle-${tm.id}`}
+                      onClick={() => toggleCast(tm.id)}
+                      className={
+                        "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors " +
+                        (checked
+                          ? "border-gold bg-gold/10 text-gold"
+                          : "border-fog/40 text-cream hover:border-gold/60")
+                      }
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={
+                          "inline-block h-2 w-2 rounded-full " +
+                          (checked ? "bg-gold" : "bg-fog/40")
+                        }
+                      />
+                      {tm.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <p className="text-xs text-fog">
+              {selectedCastIds.size === 0 && (
+                <>
+                  No cast selected — this will save as a draft Episode.
+                  The scene action on the Episode page will remind you
+                  to add at least one character before rendering.
+                </>
+              )}
+              {selectedCastIds.size === 1 && (
+                <>
+                  One character selected — the Episode will offer a
+                  solo-scene action.
+                </>
+              )}
+              {selectedCastIds.size >= 2 && (
+                <>
+                  {selectedCastIds.size} characters selected — the
+                  Episode will offer a dialogue-scene action.
+                </>
+              )}
+            </p>
+          </div>
+
           {submitError && (
             <p className="text-sm text-red-400" role="alert">
               {submitError}
@@ -137,6 +264,7 @@ export function UniverseEpisodesRoute() {
               onClick={() => {
                 setCreating(false);
                 setSubmitError(null);
+                setSelectedCastIds(new Set());
               }}
             >
               Cancel

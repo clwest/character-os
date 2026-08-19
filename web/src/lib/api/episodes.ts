@@ -115,6 +115,14 @@ export interface CreateEpisodePayload {
   universe: string;
   title: string;
   operator_topic: string;
+  /**
+   * SESSION 269 §12 — optional atomic cast seed. Every UUID must
+   * belong to a Teammate in this Episode's Universe. Backend
+   * attaches under a transaction with the same signal validation
+   * the dedicated ``/cast/`` endpoint uses. Absent/empty means
+   * "create an empty-cast draft" (byte-identical to pre-§12).
+   */
+  cast_ids?: string[];
 }
 
 export function useCreateEpisode(universeId: string | undefined) {

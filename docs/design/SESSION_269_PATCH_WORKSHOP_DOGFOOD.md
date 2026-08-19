@@ -1428,3 +1428,203 @@ distinction between TALKING HEAD AS CONTENT FORMAT and SOLO
 EPISODE AS STORY FORMAT. Any further Episodes, promotions, or
 audit findings should extend this document (add §12, §13…)
 rather than start a new one.
+
+## §12. One-character Episodes as a first-class creator workflow
+
+Product decision (operator brief): **do NOT create a separate
+"Solo Episode" model, screen, route, or workflow.** The Episode
+domain object stays the same. "Solo" is not an Episode type;
+it is a cast-cardinality property that changes which scene CTAs
+the Episode detail page offers.
+
+This slice adds inline cast selection to the Create Episode form
+and gates the scene CTAs on cast cardinality so the empty-cast
+footgun that produced Composition `44f2279f` (§11) cannot recur
+silently.
+
+### §12.1 Root cause of empty-cast Episode `91a63409`
+
+Traced end-to-end:
+
+- The Create Episode form (`web/src/routes/workspace/universes.$id.episodes.tsx` at slice open) captured **only** `title` + `operator_topic`. There was NO cast picker.
+- Backend `EpisodeSerializer` accepted **only** `{universe, title, operator_topic}` at create; cast attachment required per-teammate `POST /api/episodes/<id>/cast/` calls.
+- On the Episode detail page, cast could be added via a separate dropdown + "Add to cast" button — a second UI trip after creation.
+- Chris created the Episode row with the intended topic, then went to render without making the second trip. The Episode detail page's scene CTA still fired (fall-through branch `cast.length < 2` → `talking_head` CTA), so the flow visually resembled "ready to render" — but with the spokesperson pre-fill of `Episode.cast[0]?.id === undefined`.
+- Chris also then navigated to a standalone `/recipes/talking_head` (bypassing the Episode CTA), so `?episode=<id>` was never on the URL and `Composition.episode` never attached.
+
+Two independent product surfaces failed the same operator flow:
+
+1. **Create form had no cast picker** → cast attach was a second trip.
+2. **Episode detail scene CTA fired unconditionally on cast < 2** → visually indistinguishable from "cast=1 ready".
+
+### §12.2 Old flow vs new flow
+
+**Old (pre-§12):**
+
+```
+Create Episode form
+  fields: title, operator_topic
+    ↓ POST /api/episodes/
+Episode detail
+  cast: [] (must be added via separate dropdown per-member)
+  scene CTA fires for cast.length < 2 → talking_head
+     (no visible distinction between cast=0 and cast=1)
+```
+
+**New (§12):**
+
+```
+Create Episode form
+  fields: title, operator_topic, CAST (multi-select same-Universe teammates)
+    ↓ POST /api/episodes/  {..., cast_ids: [uuid, ...]}
+    (server attaches cast under one transaction; a bad UUID
+     aborts the whole create; empty cast is legal draft)
+Episode detail
+  cast=0  → NO scene CTA + "add at least one character" hint
+  cast=1  → "New solo scene" CTA → /recipes/talking_head?episode=<id>
+  cast=2+ → "New dialogue scene" CTA → /recipes/dialogue_scene?episode=<id>
+```
+
+Solo scene CTA route was already correct pre-§12 (talking_head
+with `?episode=` propagation + topic + spokesperson pre-fill from
+`Episode.cast[0]`). No routing change was needed; only visible
+gating of the CTA and inline cast capture at creation.
+
+### §12.3 Zero-cast decision — B (allow draft; block silent fall-through)
+
+Existing Episode semantics already allow zero-cast rows (no NOT
+NULL / not_empty constraint on `cast`), and 20 such Episodes
+exist in the DB today. Ripping that out risks silent data loss
+on any legacy zero-cast draft.
+
+**Selected behaviour:**
+
+- Create form: cast picker is OPTIONAL. Zero-selection legal.
+  Inline copy tells the operator: *"No cast selected — this will
+  save as a draft Episode. The scene action on the Episode page
+  will remind you to add at least one character before
+  rendering."*
+- Episode detail: cast=0 renders NO scene CTA (removes the
+  previous unconditional talking_head CTA that fired on the
+  `< 2` fall-through branch). Instead an inline hint reads:
+  *"Add at least one character to this Episode's cast (above) to
+  enable scene creation."*
+- The pre-existing `insufficientCast` guard on the recipe form
+  (SESSION 262) still catches any deep-linked
+  `/recipes/talking_head?episode=<id>` attempt when the Episode
+  has zero cast.
+
+Silent fall-through into standalone recipe creation is now
+impossible from an Episode-attached path.
+
+### §12.4 Files changed
+
+**Backend:**
+
+- `shell/apps/universe/serializers.py`
+  - `EpisodeSerializer` gains `cast_ids: ListField[UUIDField]` (write-only, optional, default `[]`).
+  - `create()` override: resolves + validates teammate UUIDs (Universe consistency + Workspace consistency + unknown-UUID handling) BEFORE the Episode row is written, then attaches under `transaction.atomic()` using the same `pre_add` signal path the dedicated `/cast/` endpoint uses.
+  - `update()` override: silently drops `cast_ids` on PATCH (create-only field). Cast mutation on an existing Episode continues to route through the dedicated per-add endpoint so per-add signal errors surface distinctly.
+  - Duplicates in `cast_ids` collapse to one attachment, preserving first-appearance order.
+
+**Frontend:**
+
+- `web/src/lib/api/episodes.ts`
+  - `CreateEpisodePayload` gains optional `cast_ids?: string[]`.
+- `web/src/routes/workspace/universes.$id.episodes.tsx`
+  - Create form gains a cast picker (multi-toggle chips) seeded from `useSpokespeople()` filtered to `s.universe === universeId`.
+  - Local `selectedCastIds: Set<string>` state; `toggleCast(id)` handler.
+  - On submit, if any cast selected, includes `cast_ids: [...]` in the create payload; otherwise omits the field (byte-identical to pre-§12 wire shape for zero-cast).
+  - Inline copy tailored to `selectedCastIds.size` (0 / 1 / 2+).
+- `web/src/routes/workspace/episodes.$id.tsx`
+  - Scene CTA branching updated: cast=1 → `episode-render-solo-cta` (rewords the button to "New solo scene"), cast=2+ → `episode-render-dialogue-cta`, cast=0 → no CTA + `episode-cast-empty-hint`.
+
+**Tests:**
+
+- `shell/apps/universe/tests/test_episode.py` — 9 new tests (`test_51` — `test_59`) covering solo/multi/zero-cast create, atomic rejection on cross-Universe / unknown-UUID / cross-workspace teammate, duplicate-cast dedup, and PATCH-ignores-cast_ids.
+- `web/src/routes/workspace/episode-cast-picker.test.tsx` — 7 new tests covering picker rendering + wire-shape + Episode-detail CTA branching for cast=0/1/2.
+
+### §12.5 Test coverage
+
+- Full backend suite (`apps/universe/` + `apps/compositions/` + `apps/embeddings/` + `apps/memory/` + `apps/spokespeople/`): **1548 passed**, 0 failed.
+- Full SPA suite (`pnpm exec vitest run`): **635 passed**, 0 failed.
+- No test skips introduced; every existing test remains green.
+
+### §12.6 What remains unchanged
+
+- Episode model + `EpisodeCast` through table + migrations: byte-identical.
+- Dedicated per-add / per-remove cast endpoints (`POST /api/episodes/<id>/cast/`, `DELETE /api/episodes/<id>/cast/<teammate_id>/`): behaviour untouched.
+- Composition creation flow from the Episode CTA: unchanged (§10 memory-retrieval wire still active; `?episode=` propagation still on).
+- `dialogue_scene` >=2 contract: unchanged.
+- `talking_head` writing contract: unchanged (§11 finding about scene-drift remains open — §11.8 slice not authorized here).
+- `retrieve_universe_memory` predicate + `top_k=1` + witness semantics: unchanged.
+- Chronology: unchanged (§9 finding still stands).
+- `Composition.memory_ids` recipe-agnostic provenance: unchanged.
+- Legacy Episodes with `cast=[]` in the DB: not migrated / not touched; still legal drafts.
+
+### §12.7 Acceptance-test instructions for Chris
+
+Chris runs the real UI acceptance test — this session did NOT
+render any Composition per operator instruction.
+
+1. Open the SPA (`http://localhost:5174/`).
+2. Navigate to Patch's Workshop → Episodes.
+3. Click **New Episode**.
+4. Enter a simple current-time topic (avoid pre-Rivet framing —
+   that's a separate finding).
+5. In the new **Cast** picker, click **Patch** ONLY.
+6. Save.
+7. Land on Episode detail.
+8. Confirm Patch appears in the Cast section.
+9. Confirm the **New solo scene** button is visible.
+10. Click **New solo scene**.
+11. Confirm the recipe form opens with:
+    - Patch pre-selected as spokesperson,
+    - the Episode topic already populated in the topic textarea,
+    - the Episode-context chip near the top of the form.
+12. Chris renders.
+
+The resulting Composition should then allow us to test **separately**:
+
+- §10 NarrativeMemory retrieval actually firing (workers were
+  restarted after §11 — the §10 code should now be loaded).
+- Continuity summary + panel rendering with a memory row.
+- `Composition.episode` FK persisted.
+- Solo story-writing quality (still on `_long_form_contract` per
+  §11.6 — expect the same scene-drift pattern until the §11.8
+  slice is authorized).
+
+Do NOT conflate those into this UI implementation verification.
+
+### §12.8 Explicit note: SOLO is not a new Episode type
+
+Reaffirming the operator brief: `Episode` remains one domain
+object. There is no `is_solo` field, no `episode_type` enum, no
+`SoloEpisode` subclass, no `/workspace/solo-episodes/` route.
+Cast cardinality is the only property that changes downstream
+behaviour, and it lives on the existing `EpisodeCast` M2M — same
+storage the two-hander case uses.
+
+### §12.9 Commit checkpoint
+
+(Populated after commit + push in §12.10.)
+
+### §12.10 Commit + push
+
+- Slice commit: (populated below).
+- Push: (populated below).
+
+---
+
+**SESSION 269 IS NOT CLOSED.** This document now also captures
+the §12 one-character-Episode creator-workflow slice — inline
+cast picker on Create Episode form, atomic `cast_ids` backend
+seed, and cast-cardinality-gated scene CTAs on Episode detail.
+Runtime is now DIFFERENT from the §10 slice by exactly one
+additional slice: Create Episode captures cast, and cast=0
+Episodes no longer offer a silent scene CTA. All other invariants
+— chronology, dialogue-lane behaviour, witness semantics, canon
+boundary, `top_k=1`, promote path, `talking_head` writing
+contract — are untouched. Any further Episodes, promotions, or
+audit findings should extend this document (add §13, §14…)
+rather than start a new one.

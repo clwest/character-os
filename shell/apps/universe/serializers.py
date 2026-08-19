@@ -3,9 +3,16 @@
 SESSION 261 / ``docs/design/UNIVERSE_SCHEMA_V1.md`` §"API contract"
 — Universe.
 SESSION 262 / ``docs/design/EPISODE_SCHEMA_V1.md §Q16`` — Episode.
+SESSION 269 §12 — Episode create accepts ``cast_ids`` write-only
+so the SPA Create Episode form can persist the full cast atomically
+in one request (instead of requiring a follow-up per-teammate
+POST /api/episodes/<id>/cast/ for every member). Fixes the
+empty-cast Episode footgun that produced ``91a63409`` — see
+``docs/design/SESSION_269_PATCH_WORKSHOP_DOGFOOD.md §11.4``.
 """
 from __future__ import annotations
 
+from django.db import transaction
 from rest_framework import serializers
 
 from apps.accounts.models import Membership
@@ -132,6 +139,28 @@ class EpisodeSerializer(serializers.ModelSerializer):
     cast = serializers.SerializerMethodField()
     composition_count = serializers.SerializerMethodField()
 
+    # SESSION 269 §12 — write-only cast seed for atomic Create.
+    # ``cast_ids`` is optional on create; every value must be a
+    # Teammate UUID belonging to this Episode's Universe. The
+    # ``create()`` override attaches under the transaction so a
+    # bad UUID aborts the whole create (Episode row is never left
+    # partially populated). Never surfaced on responses — the
+    # read shape stays the SESSION 262 ``cast`` nested list. The
+    # dedicated per-add endpoint remains the source of truth for
+    # post-create mutation; this is create-only convenience so
+    # the SPA can capture cast on the same screen as topic.
+    cast_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        write_only=True,
+        required=False,
+        default=list,
+        help_text=(
+            "SESSION 269 §12 — optional list of Teammate UUIDs to "
+            "attach as cast at create time. Each must belong to "
+            "this Episode's Universe. Duplicates are dropped."
+        ),
+    )
+
     def get_cast(self, obj: Episode) -> list[dict]:
         """Sorted-by-added_at cast payload. See class docstring
         for why ordering is only a UI default, not a story role.
@@ -155,6 +184,7 @@ class EpisodeSerializer(serializers.ModelSerializer):
             "title",
             "operator_topic",
             "cast",
+            "cast_ids",
             "composition_count",
             "archived_at",
             "created_by",
@@ -207,7 +237,14 @@ class EpisodeSerializer(serializers.ModelSerializer):
         """Episode.universe is immutable after create — reject any
         attempt to change it via PATCH. Guards against
         cross-Universe migration outside the deferred crossover
-        primitive."""
+        primitive.
+
+        SESSION 269 §12 — ``cast_ids`` is create-only; strip it
+        silently on update so PATCH callers don't accidentally
+        re-seed cast through the wrong surface. Cast mutation on
+        an existing Episode uses the dedicated ``/cast/`` action.
+        """
+        validated_data.pop("cast_ids", None)
         if "universe" in validated_data:
             new_universe = validated_data.pop("universe")
             if new_universe.pk != instance.universe_id:
@@ -218,4 +255,99 @@ class EpisodeSerializer(serializers.ModelSerializer):
                     ),
                 })
         return super().update(instance, validated_data)
+
+    def create(self, validated_data):
+        """SESSION 269 §12 — create Episode + optionally attach
+        cast in one atomic step.
+
+        ``cast_ids`` is resolved and validated BEFORE the Episode
+        row is written so a bad UUID / cross-Universe teammate /
+        cross-workspace teammate aborts the whole request with a
+        clear 400 rather than leaving a naked Episode row behind.
+        Attachments happen under the same transaction using the
+        same M2M ``pre_add`` signal path as the dedicated per-add
+        endpoint — so Universe-consistency + Workspace-consistency
+        + legacy-Teammate rejection all continue to fire.
+
+        Behaviour when ``cast_ids`` is omitted or empty is
+        byte-identical to pre-§12: the Episode is created with an
+        empty cast (the operator can add later via the dedicated
+        cast endpoint).
+        """
+        cast_ids = validated_data.pop("cast_ids", None) or []
+        # Preserve order of first-appearance while dropping
+        # duplicates. Cast order is a UI convention (added_at)
+        # per class docstring — the SPA seeds recipe-form performer
+        # slots deterministically from this order.
+        seen: set[str] = set()
+        ordered_cast_ids: list[str] = []
+        for cid in cast_ids:
+            key = str(cid)
+            if key in seen:
+                continue
+            seen.add(key)
+            ordered_cast_ids.append(key)
+
+        universe = validated_data.get("universe")
+        request = self.context.get("request")
+        caller = getattr(request, "user", None) if request else None
+
+        resolved_teammates: list[Teammate] = []
+        if ordered_cast_ids:
+            if universe is None:
+                raise serializers.ValidationError({
+                    "cast_ids": (
+                        "cannot attach cast without a Universe on the "
+                        "Episode."
+                    ),
+                })
+            # Resolve one teammate at a time so per-ID error messages
+            # can point at the specific bad UUID. Scope to caller's
+            # workspace-member set to avoid leaking cross-workspace
+            # Teammate identities.
+            teammate_lookup = {
+                str(tm.id): tm
+                for tm in Teammate.objects.filter(
+                    pk__in=ordered_cast_ids,
+                    workspace__memberships__user=caller,
+                )
+            }
+            missing = [
+                cid for cid in ordered_cast_ids
+                if cid not in teammate_lookup
+            ]
+            if missing:
+                raise serializers.ValidationError({
+                    "cast_ids": (
+                        f"teammate(s) not found or not in an accessible "
+                        f"workspace: {missing}"
+                    ),
+                })
+            # Universe consistency check — the M2M pre_add signal
+            # also enforces this, but surfacing it as a serializer
+            # error is a clearer 400 than the signal's ValidationError.
+            wrong_universe = [
+                cid for cid, tm in teammate_lookup.items()
+                if tm.universe_id != universe.id
+            ]
+            if wrong_universe:
+                raise serializers.ValidationError({
+                    "cast_ids": (
+                        f"teammate(s) not in Universe {universe.name!r}: "
+                        f"{wrong_universe}"
+                    ),
+                })
+            resolved_teammates = [
+                teammate_lookup[cid] for cid in ordered_cast_ids
+            ]
+
+        with transaction.atomic():
+            episode = super().create(validated_data)
+            for tm in resolved_teammates:
+                # Same code path as the /cast/ endpoint —
+                # pre_add signal enforces Workspace consistency
+                # + legacy-Teammate rejection defense-in-depth.
+                episode.cast.add(tm)
+
+        return episode
 

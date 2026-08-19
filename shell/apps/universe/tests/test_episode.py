@@ -927,3 +927,221 @@ def test_50_episode_universe_immutable_via_api(
     assert resp.status_code == 400
     ep.refresh_from_db()
     assert ep.universe_id == universe.pk
+
+
+# ============================================================
+# SESSION 269 §12 — atomic cast_ids seed on Create Episode
+# ============================================================
+#
+# Backend contract: EpisodeSerializer accepts an optional
+# ``cast_ids: [UUID]`` write-only field on create. The attach
+# runs under one transaction; a bad UUID / cross-Universe /
+# cross-workspace teammate aborts the whole create with a 400
+# and no orphaned Episode row.
+
+
+@pytest.mark.django_db
+def test_51_api_create_with_solo_cast_ids_persists_one_member(
+    api_client, universe, patch_tm,
+):
+    """Selecting exactly one character on the Create Episode form
+    attaches it in the same request. Fixes the empty-cast footgun
+    that produced Episode 91a63409 in SESSION 269 §11."""
+    resp = api_client.post(
+        "/api/episodes/",
+        {
+            "universe": str(universe.pk),
+            "title": "Solo scene",
+            "operator_topic": "Patch cleans one corner.",
+            "cast_ids": [str(patch_tm.pk)],
+        },
+        format="json",
+    )
+    assert resp.status_code == 201, resp.data
+    assert len(resp.data["cast"]) == 1
+    assert resp.data["cast"][0]["id"] == str(patch_tm.pk)
+    assert resp.data["cast"][0]["name"] == "Patch"
+
+    # DB verification — EpisodeCast row present.
+    ep = Episode.objects.get(pk=resp.data["id"])
+    assert list(ep.cast.values_list("pk", flat=True)) == [patch_tm.pk]
+
+
+@pytest.mark.django_db
+def test_52_api_create_with_two_cast_ids_persists_both(
+    api_client, universe, patch_tm, rivet_tm,
+):
+    """Multi-cast create — pre-§12 dialogue behaviour is preserved
+    and can now be captured atomically in the create request."""
+    resp = api_client.post(
+        "/api/episodes/",
+        {
+            "universe": str(universe.pk),
+            "title": "Two-hander",
+            "operator_topic": "Patch and Rivet argue.",
+            "cast_ids": [str(patch_tm.pk), str(rivet_tm.pk)],
+        },
+        format="json",
+    )
+    assert resp.status_code == 201, resp.data
+    cast_ids = [row["id"] for row in resp.data["cast"]]
+    assert cast_ids == [str(patch_tm.pk), str(rivet_tm.pk)]  # order preserved
+
+
+@pytest.mark.django_db
+def test_53_api_create_with_empty_cast_ids_omitted_is_pre_slice12_behaviour(
+    api_client, universe,
+):
+    """Omitting cast_ids leaves the Episode with an empty cast —
+    byte-identical to pre-§12. Zero-cast draft is legal."""
+    resp = api_client.post(
+        "/api/episodes/",
+        {
+            "universe": str(universe.pk),
+            "title": "Draft",
+            "operator_topic": "Blank slate.",
+        },
+        format="json",
+    )
+    assert resp.status_code == 201, resp.data
+    assert resp.data["cast"] == []
+
+
+@pytest.mark.django_db
+def test_54_api_create_with_explicit_empty_cast_ids_is_legal(
+    api_client, universe,
+):
+    """Explicit ``cast_ids: []`` also produces a zero-cast draft.
+    The frontend passes ``cast_ids`` only when non-empty but the
+    backend accepts either shape."""
+    resp = api_client.post(
+        "/api/episodes/",
+        {
+            "universe": str(universe.pk),
+            "title": "Draft2",
+            "operator_topic": "Also blank.",
+            "cast_ids": [],
+        },
+        format="json",
+    )
+    assert resp.status_code == 201, resp.data
+    assert resp.data["cast"] == []
+
+
+@pytest.mark.django_db
+def test_55_api_create_cross_universe_cast_ids_400_atomic(
+    api_client, universe, baker_tm,
+):
+    """Attaching a teammate from a different Universe rejects the
+    entire create — no orphaned Episode row is written."""
+    before_count = Episode.objects.count()
+    resp = api_client.post(
+        "/api/episodes/",
+        {
+            "universe": str(universe.pk),
+            "title": "Bad cast",
+            "operator_topic": "Should not persist.",
+            "cast_ids": [str(baker_tm.pk)],
+        },
+        format="json",
+    )
+    assert resp.status_code == 400
+    assert "cast_ids" in resp.data
+    assert Episode.objects.count() == before_count  # atomic — no leak
+
+
+@pytest.mark.django_db
+def test_56_api_create_unknown_cast_id_400_atomic(
+    api_client, universe,
+):
+    """Unknown Teammate UUID rejects the whole create."""
+    import uuid as _uuid
+    before_count = Episode.objects.count()
+    fake_id = str(_uuid.uuid4())
+    resp = api_client.post(
+        "/api/episodes/",
+        {
+            "universe": str(universe.pk),
+            "title": "Ghost cast",
+            "operator_topic": "Also should not persist.",
+            "cast_ids": [fake_id],
+        },
+        format="json",
+    )
+    assert resp.status_code == 400
+    assert "cast_ids" in resp.data
+    assert Episode.objects.count() == before_count
+
+
+@pytest.mark.django_db
+def test_57_api_create_cross_workspace_cast_id_rejected_as_unknown(
+    api_client, universe, other_workspace,
+):
+    """A Teammate in another workspace is invisible to this caller;
+    the error surface is the same as an unknown UUID (does not
+    leak cross-workspace teammate identities)."""
+    other_universe = Universe.objects.create(
+        workspace=other_workspace, name="ForeignU",
+    )
+    stranger = Teammate.objects.create(
+        workspace=other_workspace, universe=other_universe,
+        name="Stranger",
+        runway_avatar_id="av-s", portrait_path="https://x",
+        business_brief="Not visible to caller.",
+    )
+    before_count = Episode.objects.count()
+    resp = api_client.post(
+        "/api/episodes/",
+        {
+            "universe": str(universe.pk),
+            "title": "Stranger cast",
+            "operator_topic": "No leak.",
+            "cast_ids": [str(stranger.pk)],
+        },
+        format="json",
+    )
+    assert resp.status_code == 400
+    assert "cast_ids" in resp.data
+    assert Episode.objects.count() == before_count
+
+
+@pytest.mark.django_db
+def test_58_api_create_duplicate_cast_ids_dedup_preserves_first(
+    api_client, universe, patch_tm,
+):
+    """Duplicate teammate IDs collapse to one attachment. The
+    single row still exists; ordering matches first-appearance."""
+    resp = api_client.post(
+        "/api/episodes/",
+        {
+            "universe": str(universe.pk),
+            "title": "Dedup",
+            "operator_topic": "Once is enough.",
+            "cast_ids": [str(patch_tm.pk), str(patch_tm.pk)],
+        },
+        format="json",
+    )
+    assert resp.status_code == 201, resp.data
+    assert len(resp.data["cast"]) == 1
+    ep = Episode.objects.get(pk=resp.data["id"])
+    assert ep.cast.count() == 1
+
+
+@pytest.mark.django_db
+def test_59_api_patch_ignores_cast_ids(
+    api_client, universe, patch_tm, rivet_tm,
+):
+    """cast_ids is create-only. Passing it to PATCH silently drops
+    the field so operators cannot bypass the dedicated cast-add
+    endpoint (which surfaces per-add signal errors distinctly)."""
+    ep = _make_episode(universe)
+    ep.cast.add(patch_tm)
+    resp = api_client.patch(
+        f"/api/episodes/{ep.pk}/",
+        {"cast_ids": [str(rivet_tm.pk)]},
+        format="json",
+    )
+    assert resp.status_code == 200, resp.data
+    ep.refresh_from_db()
+    # Rivet was NOT attached via PATCH; only patch remains.
+    assert set(ep.cast.values_list("pk", flat=True)) == {patch_tm.pk}

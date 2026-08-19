@@ -312,21 +312,32 @@ export function EpisodeDetailRoute() {
             to this Episode automatically.
           </p>
           <div className="flex flex-wrap items-center gap-3">
-            {e.cast.length >= 2 ? (
+            {e.cast.length >= 2 && (
               <Button asChild data-testid="episode-render-dialogue-cta">
                 <Link to={`/recipes/dialogue_scene?episode=${e.id}`}>
                   <Film className="mr-2 h-4 w-4" />
                   New dialogue scene
                 </Link>
               </Button>
-            ) : (
-              <Button asChild data-testid="episode-render-talking-cta">
+            )}
+            {e.cast.length === 1 && (
+              <Button asChild data-testid="episode-render-solo-cta">
                 <Link to={`/recipes/talking_head?episode=${e.id}`}>
                   <Film className="mr-2 h-4 w-4" />
-                  New talking head
+                  New solo scene
                 </Link>
               </Button>
             )}
+            {/*
+              SESSION 269 §12 — zero-cast Episodes previously showed
+              the same "New talking head" CTA that armed cast>=1
+              flows. That let the operator fall through into a
+              standalone-style render (see §11 Composition 44f2279f).
+              Now the CTA is gated: no cast → no scene CTA, only a
+              clear pointer to add cast. The insufficientCast guard
+              on the recipe form still catches any deep-linked
+              attempts to /recipes/talking_head?episode=<id>.
+            */}
             <Button
               asChild
               variant="secondary"
@@ -335,7 +346,16 @@ export function EpisodeDetailRoute() {
               <Link to={`/recipes?episode=${e.id}`}>Choose another recipe</Link>
             </Button>
           </div>
-          {e.cast.length < 2 && (
+          {e.cast.length === 0 && (
+            <p
+              className="mt-2 text-xs text-fog"
+              data-testid="episode-cast-empty-hint"
+            >
+              Add at least one character to this Episode's cast (above)
+              to enable scene creation.
+            </p>
+          )}
+          {e.cast.length === 1 && (
             <p className="mt-2 text-xs text-fog">
               Add a second cast member above to enable dialogue-scene
               renders.
