@@ -50,9 +50,12 @@
  *   KnowledgeDocument.
  * - Provenance intact. The composition/episode FKs on the
  *   POST body come from props.
- * - Witness semantics intact. "Everyone in this episode" ↔
- *   empty witnessed_by (whole-cast convention); "Choose
- *   characters..." ↔ explicit teammate ids.
+ * - Witness semantics intact (see SESSION 267 §15.11 for the
+ *   creator-facing wording rationale). "In any future scene"
+ *   ↔ empty witnessed_by (whole-cast, Universe-wide
+ *   eligibility); "When any of these characters are
+ *   present..." ↔ explicit teammate ids (OR-overlap
+ *   eligibility with the current cast).
  *
  * Internal-only concepts kept out of the creator UI (per SESSION
  * 264 dogfood correction): "promotion", "durable", "row",
@@ -76,6 +79,28 @@ import {
   useUnarchiveMemory,
   type NarrativeMemory,
 } from "@/lib/api/narrative-memories";
+
+
+// SESSION 267 §15.11 — Availability-condition wording helper.
+// Renders a NarrativeMemory's witness scope as a creator-facing
+// availability condition. Matches the retrieval predicate
+// (shell/apps/embeddings/retrieval.py:499-543): empty witness
+// list is Universe-wide eligibility; any populated list is OR-
+// overlap (at-least-one-witness-in-cast). The OR is rendered
+// explicitly here so multi-witness memories don't read as AND.
+// Pure presentation; no runtime behavior depends on this string.
+export function formatWitnessAvailability(
+  witnesses: readonly { name: string }[],
+): string {
+  if (witnesses.length === 0) return "In any future scene";
+  if (witnesses.length === 1) return `When ${witnesses[0].name} is present`;
+  if (witnesses.length === 2) {
+    return `When ${witnesses[0].name} or ${witnesses[1].name} is present`;
+  }
+  const last = witnesses[witnesses.length - 1].name;
+  const rest = witnesses.slice(0, -1).map((w) => w.name).join(", ");
+  return `When ${rest}, or ${last} is present`;
+}
 
 
 // ============================================================
@@ -121,7 +146,7 @@ export function NarrativeMemoryPromotePanel({
     }
     if (witnessMode === "some" && witnesses.length === 0) {
       setError(
-        "Pick at least one character, or switch to Everyone in this episode.",
+        "Pick at least one character, or switch to 'In any future scene'.",
       );
       return;
     }
@@ -165,8 +190,8 @@ export function NarrativeMemoryPromotePanel({
         </span>
         <h3 className="font-display text-lg text-foreground">Remember this</h3>
         <p className="text-xs text-muted-foreground">
-          Save something that happened in this episode so the characters can
-          remember it later.
+          Save something that happened in this episode so the story can bring
+          it back later.
         </p>
       </header>
 
@@ -188,7 +213,7 @@ export function NarrativeMemoryPromotePanel({
 
         <fieldset className="flex flex-col gap-2">
           <legend className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-            Who remembers this?
+            When should this memory be available?
           </legend>
           <label
             className="flex items-center gap-2 text-foreground"
@@ -204,7 +229,7 @@ export function NarrativeMemoryPromotePanel({
                 setWitnesses([]);
               }}
             />
-            <span>Everyone in this episode</span>
+            <span>In any future scene</span>
           </label>
           <label
             className="flex items-center gap-2 text-foreground"
@@ -217,7 +242,7 @@ export function NarrativeMemoryPromotePanel({
               checked={witnessMode === "some"}
               onChange={() => setWitnessMode("some")}
             />
-            <span>Choose characters&hellip;</span>
+            <span>When any of these characters are present&hellip;</span>
           </label>
 
           {witnessMode === "some" && (
@@ -456,10 +481,7 @@ function MemoryRow({
     }
   }
 
-  const witnessLabel =
-    memory.witnessed_by.length === 0
-      ? "Everyone in the episode"
-      : memory.witnessed_by.map((w) => w.name).join(", ");
+  const availabilityLabel = formatWitnessAvailability(memory.witnessed_by);
 
   return (
     <li
@@ -472,7 +494,7 @@ function MemoryRow({
       <div className="flex flex-col gap-1">
         <span className="text-sm text-foreground">{memory.body}</span>
         <span className="text-[10px] italic text-muted-foreground">
-          Remembered by: {witnessLabel}
+          Available: {availabilityLabel}
         </span>
         {isArchived && (
           <span className="text-[10px] italic text-destructive">
@@ -601,10 +623,7 @@ function MemoryUsedRowView({ memory }: { memory: MemoryUsedRow }) {
   }
   const isArchived = memory.status === "archived" || !!memory.archived_at;
   const isSuperseded = memory.status === "superseded";
-  const witnessLabel =
-    memory.witnessed_by.length === 0
-      ? "Everyone in the episode"
-      : memory.witnessed_by.map((w) => w.name).join(", ");
+  const availabilityLabel = formatWitnessAvailability(memory.witnessed_by);
   return (
     <li
       className={
@@ -615,7 +634,7 @@ function MemoryUsedRowView({ memory }: { memory: MemoryUsedRow }) {
     >
       <span className="text-sm text-foreground">{memory.body}</span>
       <span className="text-[10px] italic text-muted-foreground">
-        Remembered by: {witnessLabel}
+        Available: {availabilityLabel}
       </span>
       {isArchived && (
         <span

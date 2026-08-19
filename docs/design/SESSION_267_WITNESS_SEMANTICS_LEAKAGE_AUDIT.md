@@ -2112,3 +2112,263 @@ product principle.
 `web/src/components/` modified. Implementation waits on
 Chris + ChatGPT authorization of §15.11.11 (Candidate F
 adopted variant) with §15.11.6 microcopy.**
+
+---
+
+## 16. Implementation — §15.11.6 shipped
+
+Executed after Chris authorized implementation of the
+Candidate F microcopy per §15.11.6, with test updates and
+dogfood verification, staying within the SESSION 267 scope
+locks (no runtime / backend / schema change). SESSION 267
+NOT closed by this section — evidence review still owned by
+Chris + ChatGPT.
+
+### 16.1 Files touched
+
+Single SPA component + its two vitest siblings + one new
+formatter unit test file:
+
+| File | Kind | Purpose |
+|---|---|---|
+| `web/src/components/narrative-memory-panels.tsx` | source | Added `formatWitnessAvailability` (module-scope, exported); swapped 6 promote-form / display strings; replaced both inline `witnessLabel` computations with the helper; refreshed the top-of-file docstring's witness-semantics bullet. |
+| `web/src/components/narrative-memory-panels.test.tsx` | test | Refreshed docstring items 5 + 7, renamed the two stale test titles, updated inline comments referencing the old radio labels, added a new copy-lock test that asserts every new string is present AND every old Semantic-2 string is absent. |
+| `web/src/components/memories-used-panel.test.tsx` | test | Updated docstring items 3 + 4 to the availability-condition wording. Swapped the two visible-string assertions on the read-only display. |
+| `web/src/components/narrative-memory-format.test.tsx` | test (new) | Locks the formatter's 5 shapes: empty, single, two (explicit OR), three (Oxford-or), and preserved caller ordering. |
+
+Line-count delta:
+- Source: `narrative-memory-panels.tsx` +57 / -34.
+- Test edits: `narrative-memory-panels.test.tsx` +67 / -34;
+  `memories-used-panel.test.tsx` +13 / -7.
+- New test file: `narrative-memory-format.test.tsx` (~60
+  lines).
+
+Total: 4 files, ~103 line diff + ~60 line new test file.
+Well inside the §15.11.8 estimate.
+
+### 16.2 The formatter, as shipped
+
+Module-scope in `narrative-memory-panels.tsx` immediately
+after the imports so both `MemoryRow` and `MemoryUsedRowView`
+can consume it without prop-drilling:
+
+```typescript
+export function formatWitnessAvailability(
+  witnesses: readonly { name: string }[],
+): string {
+  if (witnesses.length === 0) return "In any future scene";
+  if (witnesses.length === 1) return `When ${witnesses[0].name} is present`;
+  if (witnesses.length === 2) {
+    return `When ${witnesses[0].name} or ${witnesses[1].name} is present`;
+  }
+  const last = witnesses[witnesses.length - 1].name;
+  const rest = witnesses.slice(0, -1).map((w) => w.name).join(", ");
+  return `When ${rest}, or ${last} is present`;
+}
+```
+
+Exported so the SESSION 267 unit test (`narrative-memory-
+format.test.tsx`) can call it directly. Type parameter is
+`readonly { name: string }[]` — matches both the
+`NarrativeMemory.witnessed_by` array in
+`@/lib/api/narrative-memories` and the `MemoryUsedRow.
+witnessed_by` array in `@/lib/api/recipes`, so no type
+gymnastics at the call sites.
+
+### 16.3 Exact string swaps landed
+
+| Line (post-edit) | Old | New |
+|---|---|---|
+| ~127 | *"Pick at least one character, or switch to Everyone in this episode."* | *"Pick at least one character, or switch to 'In any future scene'."* |
+| ~171-173 | *"Save something that happened in this episode so the characters can remember it later."* | *"Save something that happened in this episode so the story can bring it back later."* |
+| ~194 | *"Who remembers this?"* | *"When should this memory be available?"* |
+| ~210 | *"Everyone in this episode"* | *"In any future scene"* |
+| ~223 | *"Choose characters…"* | *"When any of these characters are present…"* |
+| ~462 | Inline `witnessLabel` | `formatWitnessAvailability(memory.witnessed_by)` → `availabilityLabel` |
+| ~478 | *"Remembered by: {witnessLabel}"* | *"Available: {availabilityLabel}"* |
+| ~607 | Inline `witnessLabel` (`MemoryUsedRowView`) | Same helper call |
+| ~621 | *"Remembered by: {witnessLabel}"* | *"Available: {availabilityLabel}"* |
+
+Verification: `grep -n` on the source file for every old
+string returns **zero matches**. The only remaining
+references to those strings live in
+`narrative-memory-panels.test.tsx`'s copy-lock test — where
+they are `expect(...).toBeNull()` assertions guarding
+against drift.
+
+### 16.4 Test suite results
+
+Ran vitest against the 3 impacted test files first, then
+the full SPA suite:
+
+- `narrative-memory-format.test.tsx` — **5 / 5 pass**
+- `memories-used-panel.test.tsx` — **8 / 8 pass**
+- `narrative-memory-panels.test.tsx` — **9 / 9 pass**
+- **Full SPA suite: 45 files, 628 tests, all green.**
+- TypeScript check: `pnpm tsc --noEmit` → exit 0 (no type
+  errors).
+
+No adjacent regressions. The `memories-used-summary.test.tsx`
+(a related Slice 3 display) passes without edits because it
+never asserted on the wording strings that changed.
+
+### 16.5 Live SPA dogfood verification
+
+Vite dev server (:5174) was running throughout the edit
+session. HMR picked up the file changes automatically. Fetch
+of the transformed module through Vite's transform pipeline
+returns the new strings, verified via curl to
+`/src/components/narrative-memory-panels.tsx`:
+
+- `formatWitnessAvailability` function is compiled.
+- Error copy: `"Pick at least one character, or switch to
+  'In any future scene'."`
+- Legend: `"When should this memory be available?"`
+- Radio A: `"In any future scene"`
+- Radio B: `"When any of these characters are present…"`
+- Both `MemoryRow` and `MemoryUsedRowView` render
+  `["Available: ", availabilityLabel]`.
+
+None of the old Semantic-2 strings appear in the transformed
+module output.
+
+### 16.6 Real-data rendering cross-check
+
+Ran a read-only Python helper that mirrors the
+`formatWitnessAvailability` logic against the live 7
+Patch' Workshop memories (evidence file:
+`session_267_experiment_data/10_ui_dogfood_verification.py`
+/ `.json`). Every memory renders truthfully:
+
+| Memory | Witness scope | Rendered display |
+|---|---|---|
+| `f25e53af` — *"the agent Patch wired…thinks it runs the place"* | whole-cast | Available: In any future scene |
+| `48746f69` — *"began deciding which of Patch's projects…"* | whole-cast | Available: In any future scene |
+| `eda32b58` — *"began rearranging…without explaining its criteria"* | whole-cast | Available: In any future scene |
+| `cd73d52f` — *"An uninvited opinion. That is scientifically interesting…"* | [Rivet] | **Available: When Rivet is present** |
+| `a34cc005` — *"Rivet has learned to recognize Patch's excitement…"* | whole-cast | Available: In any future scene |
+| `d98962e2` — *"Patch accepted Rivet taking the lead…"* | whole-cast | Available: In any future scene |
+| `c86d4902` — *"Rivet found…'PATCH OVERRIDES' tracking every recommendation Patch had ignored…"* | [Rivet] | **Available: When Rivet is present** |
+
+Whole-cast memories render Universe-wide eligibility;
+Rivet-only memories render OR-overlap eligibility. Both
+match the retrieval predicate exactly. No memory is now
+mis-described.
+
+### 16.7 Truthfulness re-verified against runtime
+
+For each of the three eligibility categories the current
+production surface can persist, the new UI copy is a truthful
+description of what the retrieval predicate
+(`shell/apps/embeddings/retrieval.py:508-529`) actually does:
+
+- **Whole-cast** (empty `witnessed_by`, whole-cast
+  convention): retrieval admits the memory to the candidate
+  pool for ANY non-empty cast in this Universe /
+  Workspace. Display: *"In any future scene."* Matches
+  the runtime (Universe scoping invisible-by-design;
+  operator's mental "future scene" scope IS the current
+  story-world).
+- **Single witness** ([X]): retrieval admits the memory
+  whenever X is in the current cast. Display: *"When X is
+  present."* Direct match.
+- **Multi-witness** ([A, B, C…]): retrieval admits the
+  memory whenever at least one of A/B/C is in the current
+  cast (OR-overlap). Display: *"When A, B, or C is
+  present."* Explicit OR — matches the runtime, forecloses
+  the AND misreading.
+
+### 16.8 Runtime — untouched
+
+Verified NO change to any of the following files or
+behaviors during §16:
+
+- `shell/apps/embeddings/retrieval.py`
+- `shell/character_os/dialogue_synthesis.py`
+- `shell/apps/memory/models.py`
+- `shell/apps/memory/signals.py`
+- `shell/apps/memory/views.py`
+- `shell/apps/memory/services.py`
+- Backend serializers
+- API contracts
+- Database schema
+- Universe, Workspace, or Episode logic
+- The 7 active NarrativeMemory rows (untouched since §14)
+- Any canon (`KnowledgeDocument` / `KnowledgeChunk`)
+
+The `git status --short` at implementation-close time shows
+only the 4 SPA files under `web/src/components/` and the 2
+new evidence files under
+`docs/design/session_267_experiment_data/`. Zero
+backend-file drift.
+
+### 16.9 Backwards-compatibility surfaces
+
+The wire contract stays identical:
+
+- `POST /api/compositions/<id>/promote-narrative-memory/`
+  still accepts `{episode, memories: [{body, witnessed_by,
+  ...}]}` unchanged. The SPA still sends `witnessed_by =
+  []` for the whole-cast radio and the picked ids for
+  the "any of these characters" radio.
+- Read-only endpoints (`/api/narrative-memories/*`) still
+  return `witnessed_by` as an ordered array of
+  `{id, name}` objects. The new formatter consumes the
+  same shape; no field-name change required.
+- SESSION 266 promoted memories (`f25e53af`, `48746f69`,
+  `eda32b58`, `cd73d52f`, `a34cc005`, `d98962e2`) and the
+  SESSION 267 `c86d4902` all render correctly under the
+  new copy. Zero data migration.
+
+### 16.10 What §16 did NOT do
+
+- Did NOT change any runtime behavior (see §16.8 for the
+  untouched list).
+- Did NOT modify any of the 7 active NarrativeMemory rows.
+- Did NOT change any test outside the 3 impacted
+  behavior-test files + the 1 new formatter test file.
+- Did NOT commit or push (Chris will authorize the commit
+  scope after review of this section + the working-tree
+  diff).
+- Did NOT close SESSION 267.
+
+### 16.11 Evidence file inventory (additions since §15.11)
+
+Under `docs/design/session_267_experiment_data/`:
+
+| File | Purpose |
+|---|---|
+| `10_ui_dogfood_verification.py` | Read-only cross-check: renders every live Patch' Workshop memory through a Python mirror of `formatWitnessAvailability`. |
+| `10_ui_dogfood_verification.json` | Persisted rendered output for all 7 active memories. |
+
+Under `web/src/components/`:
+
+| File | Change |
+|---|---|
+| `narrative-memory-panels.tsx` | Source edits per §16.2 + §16.3. |
+| `narrative-memory-panels.test.tsx` | Docstring / title refresh + new copy-lock test. |
+| `memories-used-panel.test.tsx` | Docstring + visible-string assertion refresh. |
+| `narrative-memory-format.test.tsx` (new) | Formatter unit tests. |
+
+### 16.12 STOP — awaiting review before SESSION 267 close
+
+Per Chris's implementation authorization:
+
+> Implement §15.11.6 as documented, update the tests,
+> dogfood/verify it, write the implementation evidence back
+> into this same /docs/design/SESSION_267…md, and STOP
+> before closing Session 267.
+
+**Stopped.** All artifacts described in §16 are on disk;
+none committed or pushed. Chris + ChatGPT will review:
+
+- the source diff + test diff (in the working tree),
+- the §16 record (this section) as the durable audit
+  entry,
+- the real-data rendering cross-check (§16.6 /
+  `10_ui_dogfood_verification.json`).
+
+Once review confirms, the ordinary next step is a single
+docs+code commit for the SESSION 267 wording implementation
++ evidence sidecars, followed by SESSION 267 closeout.
+Neither is authorized by §16.

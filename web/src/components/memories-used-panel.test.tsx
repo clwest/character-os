@@ -7,8 +7,11 @@
  * 1. Empty ``memories`` array renders nothing (no empty-state
  *    noise on standalone / pre-Slice-2 renders).
  * 2. A resolved memory renders body + witness label.
- * 3. Empty ``witnessed_by`` renders as "Everyone in the episode".
- * 4. Narrowed ``witnessed_by`` renders comma-joined names.
+ * 3. Empty ``witnessed_by`` renders as
+ *    "Available: In any future scene" (SESSION 267 §15.11 —
+ *    availability-condition framing).
+ * 4. Narrowed ``witnessed_by`` renders as
+ *    "Available: When {names joined by OR} is present".
  * 5. Archived-since-render memory still appears with a
  *    "Forgotten after this render — still shown here as
  *    provenance." indicator.
@@ -72,7 +75,7 @@ describe("SESSION 264 Slice 3 — MemoriesUsedPanel", () => {
       screen.getByText(/thinks it runs the place/),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Remembered by: Everyone in the episode/),
+      screen.getByText(/Available: In any future scene/),
     ).toBeInTheDocument();
   });
 
@@ -85,8 +88,10 @@ describe("SESSION 264 Slice 3 — MemoriesUsedPanel", () => {
         ],
       }),
     ]);
+    // SESSION 267 §15.11 — multi-witness renders with explicit OR
+    // so the eligibility semantic is not misread as AND.
     expect(
-      screen.getByText(/Remembered by: Patch, Rivet/),
+      screen.getByText(/Available: When Patch or Rivet is present/),
     ).toBeInTheDocument();
   });
 

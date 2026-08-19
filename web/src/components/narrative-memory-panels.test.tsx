@@ -9,9 +9,11 @@
  *   2.  "Weight" is not visible.
  *   3.  Internal submission still produces the default event kind.
  *   4.  Internal submission still produces peripheral/default weight.
- *   5.  "Everyone in this episode" is selected by default.
+ *   5.  Whole-cast availability radio ("In any future scene",
+ *       post-SESSION-267) is selected by default.
  *   6.  Default whole-cast behavior maps to empty witnessed_by[].
- *   7.  Selecting "Choose characters…" reveals eligible cast.
+ *   7.  Selecting the "When any of these characters are
+ *       present…" radio reveals the eligible cast.
  *   8.  Narrow witness selection persists into the POST body.
  *   9.  "Remember this" requires an explicit click by the operator.
  *  10.  Existing remembered rows re-appear after creation.
@@ -222,7 +224,7 @@ describe("SESSION 264 dogfood UX — Remember this panel", () => {
   // ------------------------------------------------------------
   // 3 + 4 + 6 — POST body omits kind/weight (backend supplies
   // event/peripheral defaults) and witnessed_by = [] means
-  // "Everyone in this episode".
+  // whole-cast (post-SESSION-267: "In any future scene").
   // ------------------------------------------------------------
 
   it("default POST body carries body only — kind, weight, witnesses omitted / empty", async () => {
@@ -262,15 +264,16 @@ describe("SESSION 264 dogfood UX — Remember this panel", () => {
     // the load-bearing wire contract for the dogfood UX.
     expect(item).not.toHaveProperty("kind");
     expect(item).not.toHaveProperty("weight");
-    // "Everyone" default → empty witnessed_by array.
+    // Whole-cast default → empty witnessed_by array.
     expect(item.witnessed_by).toEqual([]);
   });
 
   // ------------------------------------------------------------
-  // 5 — "Everyone in this episode" is the default selection.
+  // 5 — "In any future scene" is the default selection
+  // (post-SESSION-267 availability-condition framing).
   // ------------------------------------------------------------
 
-  it('"Everyone in this episode" is checked by default', async () => {
+  it('"In any future scene" is checked by default', async () => {
     renderPanel();
     await screen.findByTestId("composition-remember-this");
     const everyone = screen
@@ -284,10 +287,11 @@ describe("SESSION 264 dogfood UX — Remember this panel", () => {
   });
 
   // ------------------------------------------------------------
-  // 7 — "Choose characters…" reveals eligible Episode cast.
+  // 7 — the "When any of these characters are present…" radio
+  // reveals eligible Episode cast toggles.
   // ------------------------------------------------------------
 
-  it('"Choose characters…" reveals the Episode cast toggles', async () => {
+  it('"When any of these characters are present…" reveals the Episode cast toggles', async () => {
     renderPanel();
     await screen.findByTestId("composition-remember-this");
     // Wait for the cast to arrive via the Episode fetch.
@@ -300,9 +304,9 @@ describe("SESSION 264 dogfood UX — Remember this panel", () => {
         ),
       ).toBe(true);
     });
-    // Cast toggles hidden while Everyone is selected.
+    // Cast toggles hidden while the whole-cast radio is selected.
     expect(screen.queryByTestId("nm-witness-picker")).toBeNull();
-    // Flip to Choose characters…
+    // Flip to the "When any of these characters are present…" radio.
     const someRadio = screen
       .getByTestId("nm-witness-mode-some")
       .querySelector("input[type='radio']") as HTMLInputElement;
@@ -323,7 +327,7 @@ describe("SESSION 264 dogfood UX — Remember this panel", () => {
     fireEvent.change(screen.getByTestId("nm-body"), {
       target: { value: "Rivet paused tokens." },
     });
-    // Choose characters
+    // Flip to the "When any of these characters are present…" radio.
     const someRadio = screen
       .getByTestId("nm-witness-mode-some")
       .querySelector("input[type='radio']") as HTMLInputElement;
@@ -433,5 +437,46 @@ describe("SESSION 264 dogfood UX — Remember this panel", () => {
         r.url.includes("/api/knowledge-documents"),
     );
     expect(canonHits).toEqual([]);
+  });
+
+  // ------------------------------------------------------------
+  // SESSION 267 §15.11 — availability-condition copy lock.
+  //
+  // The promote-form legend + both radio labels + panel
+  // description carry the semantic-truthful wording. If any
+  // of these strings drift back toward the pre-SESSION-267
+  // Semantic-2 language ("Who remembers this?" / "Remembered
+  // by:"), a future audit reader is misled about what the
+  // retrieval predicate actually delivers. Assertion-lock so
+  // drift shows up as a test failure.
+  // ------------------------------------------------------------
+
+  it("carries the SESSION 267 availability-condition copy", async () => {
+    renderPanel();
+    await screen.findByTestId("composition-remember-this");
+    // Panel description — story-side framing, no "characters
+    // can remember" (that was the SESSION-266 Semantic-2 leak).
+    expect(
+      screen.getByText(
+        /Save something that happened in this episode so the story can bring it back later\./,
+      ),
+    ).toBeInTheDocument();
+    // Legend — question form, availability framing.
+    expect(
+      screen.getByText("When should this memory be available?"),
+    ).toBeInTheDocument();
+    // Whole-cast radio — Universe-wide eligibility, not
+    // Episode-cast-scoped (§15.11.3).
+    expect(screen.getByText("In any future scene")).toBeInTheDocument();
+    // Some-witnesses radio — explicit OR quantifier so the
+    // multi-witness case doesn't misread as AND (§15.11.1).
+    expect(
+      screen.getByText("When any of these characters are present…"),
+    ).toBeInTheDocument();
+    // Old Semantic-2 strings must be gone. Fails loudly if drift
+    // reintroduces them.
+    expect(screen.queryByText("Who remembers this?")).toBeNull();
+    expect(screen.queryByText("Everyone in this episode")).toBeNull();
+    expect(screen.queryByText("Choose characters…")).toBeNull();
   });
 });

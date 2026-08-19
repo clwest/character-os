@@ -1,0 +1,61 @@
+{
+  "timestamp": "2026-08-19T04:37:37.492099+00:00",
+  "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+  "universe_name": "Patch' Workshop",
+  "active_memory_count": 7,
+  "rows": [
+    {
+      "id": "f25e53af-f5d5-40cc-b81e-7aa0a2cc62a0",
+      "id_short": "f25e53af",
+      "body_prefix": "the agent Patch wired to the workshop thinks it runs the pla",
+      "witness_names": [],
+      "expected_display": "Available: In any future scene"
+    },
+    {
+      "id": "48746f69-cb02-401a-ac7c-342a2530db13",
+      "id_short": "48746f69",
+      "body_prefix": "The workshop agent began deciding which of Patch\u2019s projects ",
+      "witness_names": [],
+      "expected_display": "Available: In any future scene"
+    },
+    {
+      "id": "eda32b58-a9fa-4048-bc03-c65596a631a7",
+      "id_short": "eda32b58",
+      "body_prefix": "The workshop agent began rearranging the order of Patch\u2019s pr",
+      "witness_names": [],
+      "expected_display": "Available: In any future scene"
+    },
+    {
+      "id": "cd73d52f-6bce-443e-afa5-e24cddd53e78",
+      "id_short": "cd73d52f",
+      "body_prefix": "Because it had an opinion about our work. An uninvited opini",
+      "witness_names": [
+        "Rivet"
+      ],
+      "expected_display": "Available: When Rivet is present"
+    },
+    {
+      "id": "a34cc005-7fcc-4f6b-b087-591f5f9d7e6a",
+      "id_short": "a34cc005",
+      "body_prefix": "Rivet has learned to recognize Patch\u2019s excitement about a pr",
+      "witness_names": [],
+      "expected_display": "Available: In any future scene"
+    },
+    {
+      "id": "d98962e2-e8eb-456c-a502-e1b70172d98f",
+      "id_short": "d98962e2",
+      "body_prefix": "Patch accepted Rivet taking the lead on an experiment and ag",
+      "witness_names": [],
+      "expected_display": "Available: In any future scene"
+    },
+    {
+      "id": "c86d4902-b11d-49a6-bb48-dea2a67afabc",
+      "id_short": "c86d4902",
+      "body_prefix": "While Patch was out, Rivet found that the workshop agent had",
+      "witness_names": [
+        "Rivet"
+      ],
+      "expected_display": "Available: When Rivet is present"
+    }
+  ]
+}
