@@ -1,0 +1,200 @@
+{
+  "captured_at": "2026-08-19T00:00:00Z",
+  "session": 269,
+  "context": "§14 — Episode-attached solo scene is a story-mode, not the standalone talking_head content-mode. §13 parity pass verified UI routing but assumed the standalone authoring controls were the correct destination; Chris clarified the intended product contract. §14 audits the current submission semantics and proposes the smallest coherent slice.",
+
+  "chris_live_checkpoint": {
+    "episode_title": "Patch does research on AI Agents",
+    "episode_operator_topic": "Patch does research on AI Agents",
+    "episode_cast": ["Patch"],
+    "episode_detail_ui_verified": [
+      "Patch persisted in cast",
+      "0 compositions",
+      "New solo scene CTA visible",
+      "no primary dialogue-scene action",
+      "hint: adding another cast member enables dialogue"
+    ],
+    "recipe_form_ui_seen": [
+      "Rendering under episode / Patch does research on AI Agents / cast: Patch",
+      "Spokesperson: Patch",
+      "empty Script or topic field",
+      "Use workspace knowledge toggle",
+      "Target duration",
+      "Fact-check mode",
+      "Opening line",
+      "outro controls"
+    ],
+    "operator_action": "STOPPED before render — the generic authoring controls do not match the Episode-owned story-intent contract."
+  },
+
+  "section_a_current_render_behavior": {
+    "if_chris_clicked_render_now": "The SPA client-side validation would BLOCK submission with the message: 'Missing required field: Script or topic'. Reason: RecipeField(name='script') is required=True by default (shell/apps/compositions/recipes.py:51-57) and has no explicit default. This matches the standalone talking_head contract but is wrong for an Episode-attached solo scene.",
+    "if_chris_manually_typed_the_episode_topic_and_use_knowledge_off": "The talking_head starter would create the Composition with the topic as its script and use_knowledge=False. The generate_avatar_speech primitive's _maybe_synthesize_script returns raw_script verbatim under 'trusted_passthrough' — Character OS would SPEAK the topic verbatim (e.g. Patch would say 'Patch does research on AI Agents' as his line). No NarrativeMemory retrieval fires (§10 gate is use_knowledge=True). No AI synthesis fires.",
+    "if_chris_manually_typed_the_episode_topic_and_use_knowledge_on": "AI synthesis fires (build_render_brief), §10 NarrativeMemory retrieval fires (spokesperson.universe_id is set for Patch), generic long_form contract is used (§11 finding: this produced Rivet-as-active-off-screen-participant + temporal compression). Composition.memory_ids would populate.",
+    "current_automatic_distinctions_between_episode_attached_and_standalone_talking_head": [
+      "SESSION 262 chip 'Rendering under episode …' at top of form (visible)",
+      "spokesperson pre-fill from Episode.cast[0]?.id (empty when cast is empty; populated when cast>=1)",
+      "insufficientCast guard blocks submit when Episode.cast.length < performerSlotCount",
+      "?episode= → Composition.episode FK at create (SESSION 262)"
+    ],
+    "current_automatic_distinctions_that_ARE_NOT_present": [
+      "no auto-use of Episode.operator_topic as the script/topic value",
+      "no auto-enabling of use_knowledge",
+      "no writing-contract branch based on Episode context",
+      "no hiding/adaptation of the standalone Script/Topic + use_knowledge controls"
+    ]
+  },
+
+  "section_b_standalone_talking_head_contract_confirmed": {
+    "dual_mode_by_design": true,
+    "mode_a_verbatim_script": {
+      "condition": "operator supplies finished script, use_knowledge=False",
+      "behavior": "avatar speaks script verbatim — trusted_passthrough; no synthesis, no verifier, no retrieval",
+      "typical_callers": "marketing script the operator wrote by hand, brand copy, precise talking-head lines"
+    },
+    "mode_b_ai_topic": {
+      "condition": "operator supplies topic/brief, use_knowledge=True",
+      "behavior": "K6 build_render_brief runs; K2 retrieval + optional canon + §10 NarrativeMemory (Universe-scoped) → long_form contract → LLM → K6.4 verifier → duration gate → avatar",
+      "typical_callers": "topic-driven marketing scripts, product explainers, spoken essays"
+    },
+    "must_not_regress": "Both modes remain available on standalone /recipes/talking_head. Every existing non-Episode caller expects the same dual-mode UX."
+  },
+
+  "section_c_episode_solo_contract_confirmed": {
+    "authority_split": {
+      "operator_owns": ["Episode.operator_topic = story intent", "Episode cast = who is in the scene", "target duration + optional render tuning (verifier mode / opener / outro)"],
+      "character_os_owns": ["actual script wording", "K2/canon/memory retrieval", "writing-contract framing", "verification + duration gate"]
+    },
+    "invariants_the_slice_must_uphold": [
+      "the operator does NOT re-type the Episode topic on the recipe form",
+      "the operator does NOT toggle a generic Use workspace knowledge checkbox",
+      "the operator does NOT accidentally trigger verbatim-speech mode",
+      "AI synthesis always fires",
+      "§10 NarrativeMemory retrieval always fires under the same Universe/cast predicate + top_k=1",
+      "Composition.episode FK persists",
+      "Composition.memory_ids provenance persists"
+    ],
+    "operator_still_owns": ["target duration", "opener override (if desired)", "fact-check mode", "outro text/image", "Composition name (auto-derived from Episode title if blank)"]
+  },
+
+  "section_d_cleanest_mode_discriminator": {
+    "candidate": "composition.episode_id is not None AND composition.template_kind == 'talking_head'",
+    "rationale": [
+      "already-existing state on the Composition row (SESSION 262 FK)",
+      "no new field, no new enum, no schema change",
+      "matches the operator's mental split: Episode-attached = story mode; unattached = content mode",
+      "same discriminator can drive the SPA UI branch (episodeHint present + kind=='talking_head') and the backend writing-contract branch",
+      "future recipes (dialogue_scene already has its own contract) are unaffected because the branch is scoped to template_kind=='talking_head'"
+    ],
+    "frontend_signal": "episodeHint (URL query param) → episode (fetched via useEpisode) → truthy",
+    "backend_signal": "composition.episode_id is not None (read inside _maybe_synthesize_script, one line)"
+  },
+
+  "section_e_control_classification": {
+    "form_fields": [
+      {"field": "spokesperson_id", "disposition": "KEEP + auto-select from Episode.cast[0]", "note": "already prefilled by SESSION 262 code; unchanged"},
+      {"field": "script (Script or topic)", "disposition": "HIDE in Episode-solo mode", "reason": "Episode.operator_topic is authoritative; the SPA silently sends Episode.operator_topic as the script value on submit"},
+      {"field": "use_knowledge (Use workspace knowledge)", "disposition": "HIDE + FORCE True in Episode-solo mode", "reason": "story mode always uses knowledge; leaving this toggle exposed lets the operator accidentally activate verbatim-speech mode"},
+      {"field": "target_duration_seconds (Target duration)", "disposition": "KEEP", "reason": "duration is a legitimate creator choice per render (60s / 90s / 120s); not owned by Episode"},
+      {"field": "verifier_mode (Fact-check mode)", "disposition": "KEEP", "reason": "render-tuning; not owned by Episode; default 'warn' unchanged"},
+      {"field": "opener (Opening line)", "disposition": "KEEP", "reason": "optional creative override; not owned by Episode; default empty unchanged"},
+      {"field": "outro_text (Brand outro card)", "disposition": "KEEP", "reason": "rendering decoration, not story intent"},
+      {"field": "outro_image_asset_id (Outro image)", "disposition": "KEEP", "reason": "same as above"},
+      {"field": "name (Composition name)", "disposition": "KEEP + auto-derive from Episode.title when blank", "reason": "the SPA/starter already auto-derives from script or spokesperson name; extending to Episode.title in Episode-solo mode is a small polish"}
+    ],
+    "added_visible_element": {
+      "kind": "read-only story-intent display",
+      "placement": "below the Rendering-under-episode chip, above the target-duration control",
+      "content": "Story intent (owned by Episode): '<episode.operator_topic>'  — with a link to edit on the Episode detail page.",
+      "purpose": "make it obvious to the operator that Episode.operator_topic is the authoritative story input Character OS will use — matches the existing Cast display below the same chip"
+    }
+  },
+
+  "section_f_writing_contract_seam": {
+    "new_shape": "solo_scene",
+    "location": "shell/character_os/writing_contract.py — new _solo_scene_contract() function alongside _long_form_contract, _standalone_contract, _dialogue_scene_contract",
+    "invariants_the_new_contract_encodes": [
+      "SINGLE ACTIVE CHARACTER — only the named speaker is present in the current scene. Other characters may be referenced as history, relationships, or future intentions (\"If this gets weird, I'll call Rivet\") but must NOT become active participants (\"I call for Rivet. We line up a reprint...\") — direct fix for §11 finding.",
+      "SINGLE PRESENT MOMENT — the script depicts one bounded scene happening now. Plans stay plans; describing an experiment's outcome inside the same script is forbidden unless current-scene evidence establishes completion.",
+      "PLANS REMAIN PLANS — establishing intent is fine; simulating multi-phase outcomes is not.",
+      "MEMORY AS BACKGROUND — retrieved NarrativeMemory rows are context the character already knows; they are NOT commands to reenact past events on-camera.",
+      "END ON A MOMENT — the scene finishes on a decision, reaction, hook, or landed observation — never a lesson-summary or process-summary.",
+      "PRESERVE CREATIVE FREEDOM — character voice, humor, opinions, tangents all remain; the constraints above are about scene physics, not tone."
+    ],
+    "shared_with_long_form": ["_ANTI_SELF_DESCRIPTION_BLOCK", "_ANTI_GENERIC_REGISTER_BLOCK", "_CTA_POLICY_BLOCK"],
+    "not_shared": "_INVARIANTS_BLOCK + _NARRATIVE_SHAPES_BLOCK (the long-form narrative-shape menu promotes 'story → realization / mistake → lesson / experiment → outcome', which is exactly what causes temporal compression per §11.6). solo_scene emits its own scene-oriented menu with 'moment → reaction', 'discovery → intent', 'observation → resolve-or-defer', 'internal turn → decision'.",
+    "version_bump": "WRITING_CONTRACT_VERSION 4 → 5. Composition.writing_contract_version stamp records which contract shaped each render.",
+    "backward_compatibility": "standalone talking_head + long_form_ad still use target_shape='long_form' (unchanged); dialogue_scene still uses target_shape='dialogue_scene' (unchanged); every existing test remains green because the branch is only taken when the primitive explicitly requests target_shape='solo_scene'."
+  },
+
+  "section_g_smallest_coherent_slice": {
+    "scope_boundary": "One coherent slice covers BOTH (a) SPA Episode-solo mode UX and (b) backend solo_scene writing contract — because splitting them would ship a half-mode: hiding fields without fixing the contract still produces §11-style scene drift; fixing the contract without hiding fields still exposes the wrong UX to the operator.",
+    "steps": [
+      "1. shell/character_os/writing_contract.py — add _solo_scene_contract() + wire WritingContract.for_shape('solo_scene', ...). Bump WRITING_CONTRACT_VERSION to 5.",
+      "2. shell/character_os/duration_contract.py — accept optional target_shape kwarg on synthesize_with_duration_gate (default 'long_form' preserves legacy). Pass through to build_render_brief.",
+      "3. shell/apps/compositions/primitives/avatar_speech.py — inside _maybe_synthesize_script, decide target_shape once: target_shape = 'solo_scene' if composition.episode_id and composition.template_kind == 'talking_head' else default. Pass to synthesize_with_duration_gate + build_render_brief.",
+      "4. web/src/routes/recipes/$kind.tsx — inside the recipe form, add an Episode-solo mode block: when episode is truthy AND recipe.kind === 'talking_head' AND episode.cast.length === 1, (a) render a read-only 'Story intent' display of episode.operator_topic under the Episode chip, (b) suppress the script + use_knowledge fields from the render list AND from the field-visibility filter (isFieldVisible), (c) auto-force script=episode.operator_topic + use_knowledge=true in the submit payload before create.mutateAsync.",
+      "5. Update §12.7 documentation to reflect the story-mode UX (no textarea; read-only story intent display; auto AI synthesis)."
+    ],
+    "not_in_scope": [
+      "standalone talking_head — untouched",
+      "dialogue_scene — untouched",
+      "any new recipe",
+      "any new Episode field / model / migration",
+      "chronology",
+      "top_k / relevance floor / reranker / manual memory picker",
+      "witness semantics",
+      "canon / KnowledgeChunk boundary",
+      "auto-promotion of NarrativeMemory",
+      "long_form_ad, cinematic_visual, or any other recipe"
+    ]
+  },
+
+  "section_h_files_the_slice_modifies": [
+    "shell/character_os/writing_contract.py — add _solo_scene_contract(), extend WritingContract.for_shape, bump version",
+    "shell/character_os/duration_contract.py — target_shape kwarg pass-through on synthesize_with_duration_gate",
+    "shell/apps/compositions/primitives/avatar_speech.py — one branch in _maybe_synthesize_script deciding target_shape from composition.episode_id + template_kind",
+    "web/src/routes/recipes/$kind.tsx — Episode-solo mode UI branch",
+    "shell/apps/universe/tests/test_episode.py OR (preferred) shell/apps/compositions/tests/test_talking_head_memory_lane.py — add solo-mode routing tests",
+    "shell/character_os/tests/ (if a test file for writing_contract exists) — add _solo_scene_contract() shape tests",
+    "web/src/routes/recipes/talking-head-episode-solo.test.tsx — new focused SPA test file for Episode-solo mode UX",
+    "docs/design/SESSION_269_PATCH_WORKSHOP_DOGFOOD.md — new §15 recording the implementation slice"
+  ],
+
+  "section_i_tests_required": [
+    "backend: WritingContract.for_shape('solo_scene', ...) returns a string containing the SINGLE ACTIVE CHARACTER + SINGLE PRESENT MOMENT + PLANS REMAIN PLANS + MEMORY AS BACKGROUND + END ON A MOMENT markers",
+    "backend: WritingContract.for_shape('long_form', ...) is byte-identical to before (regression check on standalone talking_head)",
+    "backend: _maybe_synthesize_script routes to target_shape='solo_scene' when composition.episode_id is not None AND template_kind=='talking_head'; routes to legacy shape otherwise",
+    "backend: solo Episode + use_knowledge=True + target_duration_seconds set → synthesize_with_duration_gate called with target_shape='solo_scene'",
+    "backend: standalone talking_head with use_knowledge=True → synthesize_with_duration_gate called with target_shape='long_form' (regression)",
+    "backend: WRITING_CONTRACT_VERSION stamp on solo Episode Composition == 5",
+    "frontend: talking_head recipe form with episode + cast.length==1 hides the Script/topic textarea AND the Use workspace knowledge checkbox",
+    "frontend: talking_head recipe form with episode + cast.length==1 renders the read-only Story intent display containing Episode.operator_topic",
+    "frontend: talking_head recipe form with episode + cast.length==1 submits with script=episode.operator_topic + use_knowledge=true silently forced",
+    "frontend: standalone /recipes/talking_head (no ?episode=) renders the classic dual-mode form unchanged (regression)",
+    "frontend: Episode with cast.length!=1 does not activate solo mode (belt-and-braces — the Episode-detail CTA already gates on cast.length==1, but the recipe-form guard is defense-in-depth)",
+    "regression: full apps/compositions + apps/embeddings + apps/memory + apps/universe suites remain green",
+    "regression: full SPA vitest suite remains green"
+  ],
+
+  "section_j_section_13_correction": {
+    "what_section_13_correctly_verified": [
+      "Episode context reached the live form (episode-context-chip)",
+      "Patch prefill reached the live form (spokesperson_id auto-selected)",
+      "the current Vite modules were loaded (marker strings present in served source)",
+      "the current Django serializer was loaded (autoreload log + in-process introspection)"
+    ],
+    "what_section_13_wrongly_assumed": [
+      "that Episode.operator_topic should appear inside the standalone talking_head 'Script or topic' textarea. It should not — Episode owns the story intent; Character OS owns the script.",
+      "that the pre-existing standalone talking_head form fields were the correct destination for Episode-attached solo rendering. They are not — the standalone dual-mode UX is a content-creation contract, distinct from the Episode-attached story-creation contract."
+    ],
+    "distinction_to_apply_going_forward": {
+      "TECHNICAL_PREFILL_EXPECTATION": "verifiable from source + tests + module inspection alone",
+      "CORRECT_PRODUCT_CONTRACT": "requires operator clarification; not derivable from code",
+      "rule": "For creator-facing work, verify the PRODUCT CONTRACT with the operator BEFORE verifying prefill mechanics. Prefill working ≠ product mode correct. §13's parity matrix should have included a row for 'authoring-mode contract matches Episode-solo intent' — that row would have been NOT VERIFIED and would have surfaced this mismatch before Chris hit render-time confusion."
+    },
+    "useful_finding_now": "Episode routing is working (levels 1-3 verified); Episode-specific authoring mode is not yet implemented (level 4 blocked by product-contract mismatch)."
+  },
+
+  "section_k_operator_stop_disposition": "Chris SHOULD remain stopped before render. Rendering the current form (with a manually typed script + use_knowledge=True) would either (a) speak the Episode topic verbatim, or (b) apply the generic long_form contract that produced §11's scene-drift pattern. Neither is the Episode-solo semantic. The §14 slice above should ship before the next real solo render."
+}
