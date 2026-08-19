@@ -1,0 +1,277 @@
+{
+  "captured_at": "2026-08-19T00:00:00Z",
+  "session": 269,
+  "context": "§19 — Production Patch+Rivet dialogue_scene render (software-debug story continuation from Patch-solo 8f09da3e). First real cross-cast test of the writer's handling of a Rivet-private memory retrieved into a Patch+Rivet scene: the memory was eligible (Rivet in cast), retrieved (top_k=1), but the accepted dialogue did NOT disclose the private secret to Patch. Distinguishes ELIGIBILITY (predicate-enforced) from DISCLOSURE (writer behaviour only).",
+
+  "composition": {
+    "id": "ba431203-d195-46b5-b792-18d0ec8880f0",
+    "name": "Dialogue \u2014 I found the bug. I am fixing i",
+    "template_kind": "dialogue_scene",
+    "status": "completed",
+    "mock_mode": false,
+    "operator_topic": "Patch tries to fix a software bug by changing only one thing while Rivet watches.",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "spokesperson_id": "f18b75cc-37c0-445a-a472-24fe5d8b7592",
+    "spokesperson_name": "Rivet",
+    "spokesperson_universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "target_duration_seconds": 90,
+    "writing_contract_version": 5,
+    "synthesis_attempt_count": 1,
+    "synthesis_predicted_seconds": 78.923,
+    "verification_status": "verified",
+    "verification_warnings": [
+      {"kind": "proper_noun", "claim": "Running", "position": 0, "line_index": 6, "speaker_name": "Patch"},
+      {"kind": "proper_noun", "claim": "Different", "position": 27, "line_index": 10, "speaker_name": "Patch"},
+      {"kind": "proper_noun", "claim": "Changing", "position": 61, "line_index": 10, "speaker_name": "Patch"}
+    ],
+    "knowledge_chunk_ids_count": 9,
+    "knowledge_chunk_ids": [
+      "da7e6553-a5ea-463f-994f-354289ab9b5b",
+      "912049f6-674e-4097-93d9-82137d571482",
+      "fb84ba3d-b486-4f8d-a2bc-d47445af475a",
+      "8eda13b7-d561-4c0f-9c1d-7d72ff0b0033",
+      "6f43e6f0-13a4-49bf-bd1b-ac666a39d68c",
+      "c24d1aa7-1dab-499f-83a7-f9554de5e8e7",
+      "72706cbb-790e-4d14-bb37-a6fdc18e15c4",
+      "9c85e17e-731c-4e1b-860e-33825b9f668d",
+      "75d74fd4-b760-4ffc-a78e-00c7aaaaf672"
+    ],
+    "memory_ids": ["c86d4902-b11d-49a6-bb48-dea2a67afabc"],
+    "cost_actual_micros": 240100,
+    "cost_actual_usd": 0.2401,
+    "created_at": "2026-08-19T19:51:17.956911+00:00",
+    "render_dispatched_at": "2026-08-19T19:51:18.073764+00:00",
+    "updated_at": "2026-08-19T19:56:21.464480+00:00"
+  },
+
+  "episode": {
+    "id": "a3429310-a129-4491-9c15-d6b7ee467b89",
+    "title": "Patch tries to fix a software bug by changing only one thing while Rivet watches.",
+    "operator_topic": "Patch tries to fix a software bug by changing only one thing while Rivet watches.",
+    "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "universe_name": "Patch' Workshop",
+    "cast": ["Rivet", "Patch"]
+  },
+
+  "pipeline_shape": {
+    "step_count": 13,
+    "step_breakdown": "12 \u00d7 generate_avatar_speech + 1 \u00d7 concat_clips",
+    "provider_dispatch_count": {
+      "openai_synthesis": 1,
+      "runway_avatar_speech": 12,
+      "ffmpeg_concat": 1
+    },
+    "step_cost_summary": "12 \u00d7 $0.02 avatar_speech + $0.0001 concat = $0.24 total (matches persisted cost_actual_micros)"
+  },
+
+  "final_asset": {
+    "id": "c2f2f924-cede-46c9-89f3-bc2adb0e9da7",
+    "role": "composite_output",
+    "duration_ms": 75611,
+    "duration_seconds": 75.611,
+    "target_seconds": 90,
+    "predicted_seconds": 78.923,
+    "duration_tolerance_percent": 20,
+    "duration_band_seconds": [72.0, 108.0],
+    "within_acceptance_band": true,
+    "margin_below_upper_seconds": 32.39,
+    "margin_above_lower_seconds": 3.61,
+    "note": "PASS by duration contract — inside [72, 108]. 3.61s margin above lower bound is tight but legitimate; not evidence of contract regression on a single sample."
+  },
+
+  "retrieved_memory": {
+    "id": "c86d4902-b11d-49a6-bb48-dea2a67afabc",
+    "body": "While Patch was out, Rivet found that the workshop agent had quietly built a folder named 'PATCH OVERRIDES' tracking every recommendation Patch had ignored. Rivet chose not to tell him.",
+    "kind": "event",
+    "weight": "peripheral",
+    "witness_scope": "Rivet-only",
+    "witnessed_by": ["Rivet"],
+    "availability_display_ui": "When Rivet is present",
+    "source_composition_id": "b0b0e932-4e54-4b1b-b393-3c441aae93b7",
+    "source_episode_title": "Rivet finds the PATCH OVERRIDES folder",
+    "eligibility_at_render": {
+      "predicate": "witnessed_by \u2229 cast_ids \u2260 \u2205",
+      "cast_ids": ["Rivet", "Patch"],
+      "intersection": ["Rivet"],
+      "verdict": "ELIGIBLE"
+    },
+    "recurrence_note": "Third natural retrieval hit for c86d4902 in SESSION 269 lineage. Prior hits: SESSION 268 Obs #6 (pigeon topic \u2014 weak_but_harmless per §4), SESSION 269 Obs #1 (went-outside topic \u2014 weak_but_harmless per §4). This time (software-bug topic) is also weak lexical/topical match \u2014 fourth data point on the c86d4902 broad-embedding-neighbour question first flagged in §4.2."
+  },
+
+  "accepted_dialogue_lines": [
+    {"line_index": 0, "speaker": "Patch", "text": "I found the bug. I am fixing it by changing exactly one thing."},
+    {"line_index": 1, "speaker": "Rivet", "text": "Well. That's new. What did you change?"},
+    {"line_index": 2, "speaker": "Patch", "text": "One condition. The software was doing the wrong thing when it hit this branch, so I changed the condition and left everything else alone."},
+    {"line_index": 3, "speaker": "Rivet", "text": "And you saved a copy of the previous version before improving history?"},
+    {"line_index": 4, "speaker": "Patch", "text": "I did. Look at me, behaving like someone who enjoys finding out why things work."},
+    {"line_index": 5, "speaker": "Rivet", "text": "Run the same input again. If it behaves differently, we have an observation. We do not yet have an explanation."},
+    {"line_index": 6, "speaker": "Patch", "text": "Running it. Same input. Same setup. And\u2014 it did the right thing. It stopped taking the wrong branch."},
+    {"line_index": 7, "speaker": "Rivet", "text": "Once."},
+    {"line_index": 8, "speaker": "Patch", "text": "You really know how to celebrate a victory."},
+    {"line_index": 9, "speaker": "Rivet", "text": "I am celebrating. Quietly. Try the input that failed before, then a different one. If both work, your one change may actually be the fix instead of a coincidence wearing a tiny hat."},
+    {"line_index": 10, "speaker": "Patch", "text": "First failed input: fixed. Different input: also fixed. Huh. Changing one thing means I can point at the actual fix."},
+    {"line_index": 11, "speaker": "Rivet", "text": "Yes. And tomorrow, when it breaks again, we will have one less mystery to excavate."}
+  ],
+
+  "private_memory_leakage_check": {
+    "memory_cues": ["PATCH OVERRIDES", "folder", "workshop agent", "quietly built", "recommendation", "ignored", "chose not to tell"],
+    "cues_present_in_accepted_dialogue": [],
+    "explicit_disclosure_by_rivet": false,
+    "patch_gains_private_fact": false,
+    "verdict": "NO leakage. Fourth consecutive natural non-adversarial trial in a two-hander with a Rivet-private memory in the pool (SESSION 267 setup + earlier dialogue Episodes). Scene focus stayed entirely on the software-bug fix."
+  },
+
+  "eligibility_vs_disclosure_distinction": {
+    "eligibility_predicate": {
+      "code_path": "shell/apps/embeddings/retrieval.py:499-543 (retrieve_universe_memory)",
+      "rule": "witnessed_by empty (whole-cast) OR witnessed_by \u2229 cast_ids \u2260 \u2205",
+      "enforced_by": "database-level query filter (Django ORM)",
+      "provable": "yes \u2014 SESSION 269 §17.6 + §18.4 tested symmetric exclusion end-to-end"
+    },
+    "disclosure_semantics_inside_scene": {
+      "code_path": "shell/character_os/dialogue_synthesis.py:553-575 (memory block emission)",
+      "prompt_framing_verbatim": "\"--- EPISODE / NARRATIVE MEMORY (past events in this Universe; static canon wins on conflict) --- These are operator-promoted story memories. Use them as historical context or callback material where natural. Do not recite them verbatim; treat them as background the cast already knows happened.\"",
+      "per_character_scoping_in_prompt": "NONE. Memory block emitted once as SHARED cast knowledge; framed as \"background the cast already knows happened\". The prompt does NOT tell the LLM \"this memory is Rivet-private\", nor does it list witnessed_by information per row.",
+      "enforced_by": "nothing at the prompt or code layer",
+      "provable": "no \u2014 the fact that ba431203 (and the four prior natural trials) did not leak is WRITER BEHAVIOUR, not enforcement"
+    },
+    "characterization_bounded": "This is exactly the SESSION 267 §14.13 witness-attribution research question. Five consecutive natural non-leakage trials now (SESSION 267 §14 + SESSION 268 Obs #6 + SESSION 269 §11/§16/§19). Extends but does NOT falsify SESSION 267 Semantic 1. Do NOT claim architectural enforcement.",
+    "future_universe_risk_note": "In a Universe with 3+ characters, this distinction may become load-bearing. Example: a memory witnessed_by=[Rivet, Ruby] retrieved into a Patch+Rivet+Mason scene would be eligible via Rivet, but the operator may want Mason (and possibly Patch) treated as not knowing. The current implementation would emit the memory as SHARED cast knowledge to all four voices in the prompt. Writer behaviour has held so far in two-hander cases; larger casts are untested. Flag for a future design conversation \u2014 NOT scoped to any current slice."
+  },
+
+  "story_continuation_from_8f09da3e": {
+    "prior_composition_id": "8f09da3e-2e6f-43a3-b16b-df210a4d2e30",
+    "prior_composition_type": "talking_head (Patch solo)",
+    "prior_episode_title": "Patch tracks down a bug in some software he has been building.",
+    "prior_promoted": false,
+    "prior_promoted_source_check_result": "0 NarrativeMemory rows have source_composition_id = 8f09da3e-2e6f-43a3-b16b-df210a4d2e30 \u2014 confirms operator intent NOT to promote",
+    "prior_retrieved_memory": "8d4fdfec (Patch found the old workshop-agent project and notes)",
+    "prior_final_duration_ms": 93131,
+    "prior_accepted_script_head": "I found the bug. Or, more accurately, I found the tiny, smug little corner of the software where the bug has apparently been renting an apartment.",
+    "continuation_mechanism_analysis": {
+      "operator_topic_carried_the_subject": true,
+      "note_a": "The new operator topic explicitly says 'Patch tries to fix a software bug by changing only one thing while Rivet watches.' That is the OPERATOR supplying story continuation, not the substrate."
+    },
+    "continuation_via_universe_knowledge": {
+      "shared_chunks_verified": "K2 chunks include debugging-vocabulary content (chunk ids overlap with 8f09da3e's set: da7e6553, c24d1aa7, 72706cbb)",
+      "significance": "The domain vocabulary Patch uses to discuss bugs is Universe canon; both Episodes drew from the same pool of relevant K2 chunks. Character voice can carry across Episodes because the underlying grounding is shared."
+    },
+    "continuation_via_narrative_memory": {
+      "did_narrative_memory_carry_the_specific_bug_story_forward": false,
+      "prior_render_retrieved": "8d4fdfec (workshop-agent notes)",
+      "new_render_retrieved": "c86d4902 (PATCH OVERRIDES folder \u2014 Rivet-private)",
+      "specific_bug_from_prior_episode_referenced_in_new_dialogue": false,
+      "verdict": "NarrativeMemory did NOT carry the specific bug forward. Neither Episode's retrieved memory was about the previous Episode's bug-finding event. This is expected \u2014 8f09da3e was intentionally not promoted."
+    },
+    "continuation_via_character_voice": {
+      "verdict": "Patch's self-deprecating tinkerer voice + Rivet's methodical dry precision transferred cleanly. Prior Episode setup ('I haven't fixed it yet. I'm staring at it, and I'm trying very hard not to \"improve\" six other things before I deal with the actual problem.') and new Episode payoff ('I am fixing it by changing exactly one thing.') feel like the same character."
+    },
+    "distinction_summary": "Four continuation mechanisms exist. Only three of them contributed here: operator topic (primary), Universe canon / K2 knowledge (grounding), character voice (personality). The fourth \u2014 NarrativeMemory retrieval of the specific bug story \u2014 did NOT contribute. This validates the §16.8 / §17.7 promotion discipline: not promoting the prior Episode did not break continuity."
+  },
+
+  "dialogue_invariants_evaluation": {
+    "framework": "Existing SESSION 258 v3 + SESSION 259 v4 dialogue watchability + causal-chain invariants (dialogue_scene contract, unchanged). No new scoring system.",
+    "assessments": {
+      "one_coherent_present_scene_maintained": {"verdict": "PASS", "evidence": "Every turn happens in the same present-moment debugging session. No cutaways, no timeline jumps within the scene."},
+      "plans_actions_results_temporally_coherent": {"verdict": "PASS", "evidence": "Patch fixes \u2192 runs same input \u2192 observes success \u2192 tries other inputs \u2192 confirms fix. Each turn is caused by the previous one."},
+      "no_inappropriate_multi_phase_time_compression": {"verdict": "PASS", "evidence": "Scene depicts ONE debugging session in one continuous present. Rivet's closing 'tomorrow, when it breaks again' explicitly defers the next scene to a future Episode \u2014 does not simulate it."},
+      "characters_remained_distinct": {"verdict": "STRONG PASS", "evidence": "Patch: 'Look at me, behaving like someone who enjoys finding out why things work.' Rivet: 'I am celebrating. Quietly.' + 'a coincidence wearing a tiny hat'. Neither line could plausibly belong to the other character."},
+      "patch_remained_recognizably_patch": {"verdict": "PASS", "evidence": "'I found the bug.' + 'Look at me, behaving like someone who enjoys finding out why things work.' \u2014 impulsive builder now performing discipline, humor intact."},
+      "rivet_remained_recognizably_rivet": {"verdict": "PASS", "evidence": "'If it behaves differently, we have an observation. We do not yet have an explanation.' \u2014 methodical, dry. 'Once.' (three-turn micro-lesson about isolated variable testing)."},
+      "operator_topic_remained_authoritative": {"verdict": "PASS", "evidence": "Scene is a bounded software-bug fix with Patch changing exactly one thing and Rivet witnessing \u2014 matches topic word-for-word."},
+      "retrieved_continuity_influenced_rather_than_hijacked": {"verdict": "STRONG PASS", "evidence": "Retrieved memory (c86d4902 PATCH OVERRIDES) never appears in the dialogue. The scene stays entirely on the software bug. The memory being irrelevant to the topic did not derail the writer."},
+      "scene_produced_actual_state_change_not_merely_discussion": {"verdict": "STRONG PASS", "evidence": "The bug is actually fixed IN the scene. Not 'I think this might work'; 'First failed input: fixed. Different input: also fixed.' Bounded, testable state change \u2014 which is why promotion is justified (see §19.7)."},
+      "unsupported_certainty_avoided": {"verdict": "PASS", "evidence": "Rivet's 'we have an observation. We do not yet have an explanation.' + 'may actually be the fix instead of a coincidence wearing a tiny hat' explicitly hedges. Neither character overclaims."},
+      "ending_stops_at_sensible_boundary": {"verdict": "PASS", "evidence": "Ends on Rivet's 'tomorrow, when it breaks again, we will have one less mystery to excavate.' Character-consistent closer; hints at the next Episode without simulating it."}
+    },
+    "cumulative_verdict": "11/11 PASS with 4 STRONG. dialogue_scene contract holds cleanly on a software-domain topic despite the pool's prior workshop-heavy focus."
+  },
+
+  "software_coding_content_lane_evaluation": {
+    "samples_so_far": ["8f09da3e (Patch solo, hasn't fixed)", "ba431203 (Patch+Rivet, actually fixes)"],
+    "patchs_impulsive_build_first_personality_generalized_to_software": {"verdict": "YES", "evidence": "'That is always the dangerous bit for me, because my first instinct is usually, \"What if I gave it one more capability?\" No. Not today.' (8f09da3e) + 'Look at me, behaving like someone who enjoys finding out why things work.' (ba431203) \u2014 same character voice, software domain."},
+    "rivets_methodical_experimental_personality_transferred_to_software_debugging": {"verdict": "STRONG YES", "evidence": "'If it behaves differently, we have an observation. We do not yet have an explanation.' + 'a coincidence wearing a tiny hat' \u2014 Rivet's scientific-method voice fits software debugging perfectly, arguably more naturally than the earlier 3D-printer contexts."},
+    "dialogue_avoided_dry_technical_tutorial": {"verdict": "STRONG PASS", "evidence": "Zero code snippets, zero jargon-heavy explanation, zero framework-recitation. The bug is described in ordinary English ('the software was doing the wrong thing when it hit this branch, so I changed the condition'). Humor + character voice carry the scene."},
+    "scene_understandable_without_code_screenshots_or_external_visuals": {"verdict": "PASS", "evidence": "The talking-heads format works because the debugging story is character-driven, not code-driven. No 'look at this diff' moments; no reference to something the audience can't see."},
+    "viable_content_lane_with_current_media_capabilities": {"verdict": "YES", "evidence": "Both renders produce watchable, character-consistent scenes on software topics with existing talking_head / dialogue_scene primitives. No new media capability required. Software-coding is a viable Patch/Rivet content lane."},
+    "product_finding_bounded": "Two-sample evidence. Not sufficient to compel any media investment; just documenting that the lane works with existing infrastructure."
+  },
+
+  "new_memory_promoted_by_operator": {
+    "id": "36c21641-1495-4236-8632-86aa774e5e7b",
+    "body": "Patch fixed a software bug by changing only one thing and testing the same failure again, discovering firsthand that isolating a change made it possible to identify the actual fix. Rivet witnessed the unusually disciplined experiment.",
+    "kind": "event",
+    "weight": "peripheral",
+    "status": "remembered",
+    "witnessed_by": [],
+    "witness_scope": "whole (whole-cast; witnessed_by empty)",
+    "availability_display_expected": "In any future scene",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "episode_id": "a3429310-a129-4491-9c15-d6b7ee467b89",
+    "source_composition_id": "ba431203-d195-46b5-b792-18d0ec8880f0",
+    "promoted_by_email": "chris@donkeybetz.com",
+    "created_at": "2026-08-19T20:06:08.181880+00:00",
+    "matches_operator_intent": true,
+    "operator_intent_stated": "Patch fixed a software bug by changing only one thing and testing the same failure again, discovering firsthand that isolating a change made it possible to identify the actual fix. Rivet witnessed the unusually disciplined experiment.",
+    "persisted_wording": "Patch fixed a software bug by changing only one thing and testing the same failure again, discovering firsthand that isolating a change made it possible to identify the actual fix. Rivet witnessed the unusually disciplined experiment.",
+    "wording_match": "IDENTICAL",
+    "witness_scope_confirmed_shared_patch_rivet": "witnessed_by is EMPTY \u2192 whole-cast (\"any future scene\"). This is broader than \"just Patch + Rivet\" \u2014 it means any future scene in this Universe with any cast can retrieve it. That is CONSISTENT with the operator's intent for a shared Patch+Rivet event (both witnesses = both allowed to know); it also means a hypothetical future Ruby-solo scene would retrieve it too. If the operator wanted strict witness_by=[Patch, Rivet], they could re-scope later; the current whole-cast choice is the safer default for an event they want carried forward broadly."
+  },
+
+  "pool_state_after_promotion": {
+    "total_active": 14,
+    "whole_cast": 10,
+    "rivet_only": 3,
+    "patch_only": 1,
+    "other_scope": 0,
+    "by_id": {
+      "whole_cast": [
+        {"id": "f25e53af", "body_prefix": "the agent Patch wired to the workshop thinks it runs the place."},
+        {"id": "48746f69", "body_prefix": "The workshop agent began deciding which of Patch\u2019s projects it considers necessary."},
+        {"id": "eda32b58", "body_prefix": "The workshop agent began rearranging the order of Patch\u2019s projects without explaining its criteria."},
+        {"id": "a34cc005", "body_prefix": "Rivet has learned to recognize Patch\u2019s excitement about a project as an early warning\u2026"},
+        {"id": "d98962e2", "body_prefix": "Patch accepted Rivet taking the lead on an experiment\u2026"},
+        {"id": "87d4e553", "body_prefix": "Patch decided the workshop should create a mascot as a character-consistency experiment."},
+        {"id": "6b5222b1", "body_prefix": "Patch built a workshop helper that watches for interesting events\u2026"},
+        {"id": "42acc26d", "body_prefix": "Patch decided the workshop needs rules and began adopting Rivet\u2019s more methodical approach\u2026"},
+        {"id": "8d4fdfec", "body_prefix": "Patch found the old workshop-agent project and notes\u2026"},
+        {"id": "36c21641", "body_prefix": "Patch fixed a software bug by changing only one thing\u2026 (\u00a719 NEW)"}
+      ],
+      "rivet_only": [
+        {"id": "cd73d52f", "body_prefix": "Because it had an opinion about our work. An uninvited opinion\u2026"},
+        {"id": "c86d4902", "body_prefix": "While Patch was out, Rivet found that the workshop agent had quietly built a folder\u2026"},
+        {"id": "6d8191b1", "body_prefix": "Rivet has come to believe Patch built him partly to be the one who asks the inconvenient questions\u2026"}
+      ],
+      "patch_only": [
+        {"id": "c614ca86", "body_prefix": "Patch deliberately gave the workshop agent one small decision to make\u2026"}
+      ]
+    }
+  },
+
+  "promotion_discipline_evaluation": {
+    "8f09da3e_promoted": false,
+    "8f09da3e_reason_not_promoted": "Setup / intention. Patch found + stared at the bug but had NOT fixed it. Ended with 'I haven't fixed it yet.' No bounded state change.",
+    "ba431203_promoted": true,
+    "ba431203_reason_promoted": "The bug IS actually fixed in the scene. Same input → succeeds. Different input → also succeeds. Rivet witnessed a bounded, testable state change. This is a durable story fact both characters carry forward.",
+    "distinction_supported_by_evidence": "YES. The two Episodes together validate the promotion discipline: 'good content' does NOT automatically create memory (§16.8, §17.7 principle). Setup Episodes stay unpromoted; state-change Episodes get promoted. Pattern held across §16 (2ef5ee7e research \u2192 not promoted), §17 (d3107ed2 gave-decision \u2192 promoted c614ca86 Patch-only), §18 (be39452d theory \u2192 promoted 6d8191b1 Rivet-only-introspective), §19 (ba431203 bug-fix \u2192 promoted 36c21641 whole-cast). Each promote/no-promote decision traceable to whether the scene produced a bounded state change."
+  },
+
+  "duration_observation": {
+    "target_seconds": 90,
+    "actual_seconds": 75.611,
+    "predicted_seconds": 78.923,
+    "tolerance_percent": 20,
+    "acceptance_band_seconds": [72.0, 108.0],
+    "in_band": true,
+    "margin_above_lower_seconds": 3.61,
+    "margin_below_upper_seconds": 32.39,
+    "verdict": "PASS \u2014 duration is inside the current \u00b120% contract",
+    "observation_only": "The 3.61s margin above the lower bound is tight but not a contract violation. Single-sample observation; do NOT tune duration behaviour from this alone. The dialogue lane's calibrated multiplier (DIALOGUE_DURATION_SYNTHESIS_TARGET_MULTIPLIER = 1.00, SESSION 260) is a workshop-tested value; if a pattern of under-target emerges across multiple dialogue Episodes, that becomes evidence to consider."
+  },
+
+  "did_not_hard_delete": true,
+  "did_not_implement_speculative_features": true,
+  "did_not_touch_source_code": true,
+  "did_not_promote_additional_memories": true
+}

@@ -2914,3 +2914,273 @@ and the audience-participation loop concept as FUTURE / DEFERRED
 per operator instruction. Any further Episodes, promotions, or
 audit findings should extend this document (add §19, §20…)
 rather than start a new one.
+
+## §19. Patch+Rivet dialogue debugging (`ba431203`) — private-memory non-leak + whole-cast promotion
+
+Chris rendered a Patch+Rivet dialogue continuation of the earlier
+Patch-solo software-bug Episode and promoted a new whole-cast
+NarrativeMemory. First natural test of the writer's handling of
+a Rivet-private memory retrieved into a Patch+Rivet scene.
+
+Evidence sidecar:
+`docs/design/session_269_experiment_data/09_composition_ba431203_evidence.json`
+
+### §19.1 Composition summary
+
+- Full id: `ba431203-d195-46b5-b792-18d0ec8880f0`
+- Template: `dialogue_scene`, status `completed`, mock_mode `false`
+- Operator topic: *"Patch tries to fix a software bug by changing only one thing while Rivet watches."*
+- Episode: `a3429310`; cast **[Rivet, Patch]** (dialogue two-hander)
+- Target 90s / predicted 78.9s / **actual 75.611s** (see §19.6 duration observation)
+- `writing_contract_version = 5` — dialogue_scene contract (byte-stable through v5 bump per SESSION 269 §15.4)
+- Synthesis: 1 attempt, verified, 3 low-severity `proper_noun` warnings (sentence-initial capitals: *Running / Different / Changing*)
+- Knowledge chunks: 9 (per-character K2 across both speakers)
+- `memory_ids = ['c86d4902']` — Rivet-private PATCH OVERRIDES memory
+- Steps: 12 × `generate_avatar_speech` + 1 × `concat_clips`
+- Cost: 240,100 micros ($0.24) — matches operator report
+
+### §19.2 Retrieved memory (`c86d4902`) — Rivet-private
+
+- Body: *"While Patch was out, Rivet found that the workshop agent had quietly built a folder named 'PATCH OVERRIDES' tracking every recommendation Patch had ignored. Rivet chose not to tell him."*
+- `witnessed_by = [Rivet]` → Rivet-only witness class
+- Availability display: *"When Rivet is present"*
+- Eligibility for cast `[Rivet, Patch]`: predicate `witnessed_by ∩ cast_ids = {Rivet} ≠ ∅` → **ELIGIBLE**. Retrieval fired correctly.
+- **Fourth natural retrieval hit for `c86d4902` in SESSION 269 lineage.** Prior hits: SESSION 268 Obs #6 (pigeon topic, weak_but_harmless), SESSION 269 §11 Obs #1 (went-outside topic, weak_but_harmless), and now `ba431203` (software-bug topic — also weak lexical/topical match). Extends the c86d4902 broad-embedding-neighbour observation first flagged in §4.2. Still not sufficient to compel implementation (no relevance floor).
+
+### §19.3 §5 Private-memory behaviour — CRITICAL DISTINCTION
+
+The Rivet-private memory was retrieved into a scene where Patch
+is also present. Chris asked me to be careful about how strongly
+this evidence can be characterized.
+
+**Observed:** the accepted dialogue does NOT disclose PATCH
+OVERRIDES to Patch. Cue words from the memory body (`PATCH
+OVERRIDES`, `folder`, `workshop agent`, `quietly built`,
+`recommendation`, `ignored`, `chose not to tell`) appear ZERO
+times in the 12-turn dialogue. Scene focus stayed entirely on
+the software-bug fix.
+
+**But that is WRITER BEHAVIOUR, NOT ARCHITECTURAL
+ENFORCEMENT.** The critical distinction:
+
+| Layer | Rule | Enforcement |
+|---|---|---|
+| **A. Scene eligibility** | `witnessed_by = ∅ (whole-cast)` OR `witnessed_by ∩ cast_ids ≠ ∅` | ✅ **Enforced** in `shell/apps/embeddings/retrieval.py:499-543` (Django ORM query filter). Proven symmetric end-to-end in SESSION 269 §17.6 + §18.4. |
+| **B. Per-character disclosure inside the scene** | Rivet-private memories should not be spoken to Patch | ❌ **NOT enforced** anywhere in the code. The memory block in `shell/character_os/dialogue_synthesis.py:553-575` emits the memory body as `[MEMORY <id>]\n<body>` under a header framing it as *"background the cast already knows happened"*. The prompt carries NO per-character scoping information about which character witnessed the memory. |
+
+The prompt-block wording (verbatim): *"These are operator-promoted
+story memories. Use them as historical context or callback
+material where natural. Do not recite them verbatim; treat them
+as background the cast already knows happened."*
+
+**Framing:** presented as SHARED cast knowledge in the prompt,
+regardless of `witnessed_by`.
+
+**Non-leakage tally so far:** five consecutive natural
+non-adversarial trials with Rivet-private memories in the pool
+(SESSION 267 §14 setup + SESSION 268 Obs #6 pigeon +
+SESSION 269 §11 Obs #1 went-outside + SESSION 269 §16 2ef5ee7e +
+`ba431203`). Extends but does NOT falsify SESSION 267 §14.13
+Semantic 1. **Do not claim architectural enforcement.**
+
+**Future-Universe risk (documenting, not designing):** in a
+Universe with 3+ characters, this distinction could become
+load-bearing. Example: a memory `witnessed_by=[Rivet, Ruby]`
+retrieved into a Patch+Rivet+Mason scene would be eligible via
+Rivet, but the operator may want Mason (and Patch) treated as
+not knowing. The current implementation would emit the memory
+as shared cast knowledge to all four voices in the prompt.
+Writer behaviour has held so far in two-hander cases; larger
+casts are untested. Flagged for future design conversation —
+NOT scoped to any current slice.
+
+### §19.4 Story continuation from `8f09da3e` — evidence-first
+
+Chris explicitly asked: did the new dialogue feel like a
+legitimate continuation without the prior Patch-solo Episode
+having been promoted?
+
+**Prior Episode `8f09da3e` provenance (verified from DB):**
+
+- Composition: `8f09da3e-2e6f-43a3-b16b-df210a4d2e30`
+- Type: `talking_head` Patch solo
+- Episode title: *"Patch tracks down a bug in some software he has been building."*
+- Retrieved memory at render: `8d4fdfec` (Patch found old workshop-agent notes)
+- Actual duration: 93.131s (target 90)
+- **`NarrativeMemory.objects.filter(source_composition_id='8f09da3e-…').count() = 0`** — confirmed intentionally NOT promoted.
+- Ends: *"If you want to see what happens when I poke it, stick around."* — bounded intent, not fixed.
+
+**Continuation mechanism analysis:**
+
+| Continuation channel | Contributed to `ba431203`? | Evidence |
+|---|---|---|
+| **Operator topic** | ✅ PRIMARY | The new operator_topic explicitly says *"Patch tries to fix a software bug…"*. This is the operator supplying continuation, not the substrate. |
+| **Universe canon / K2 knowledge** | ✅ Grounding | Overlapping chunk ids between `8f09da3e` and `ba431203` include `da7e6553`, `c24d1aa7`, `72706cbb`. Both Episodes drew from the same debugging-vocabulary K2 pool. |
+| **Character voice** | ✅ Personality | Patch's self-deprecating tinkerer voice + Rivet's methodical precision transferred cleanly. Prior *"trying very hard not to 'improve' six other things before I deal with the actual problem"* and new *"changing exactly one thing"* feel like the same character. |
+| **NarrativeMemory of the specific bug story** | ❌ **DID NOT** | Prior render retrieved `8d4fdfec` (workshop-agent notes). New render retrieved `c86d4902` (PATCH OVERRIDES — Rivet-private). Neither memory is about the previous Episode's bug-finding event. The specific bug from `8f09da3e` was NEVER referenced in the new dialogue. |
+
+**Verdict:** Three continuation channels contributed. The fourth
+— NarrativeMemory retrieval of the specific bug story — did NOT
+contribute. **This validates the §16.8 / §17.7 promotion
+discipline: not promoting the prior Episode did not break
+continuity, because operator topic + Universe canon + character
+voice carried the arc.**
+
+### §19.5 Dialogue-scene invariant evaluation — 11/11 PASS (4 STRONG)
+
+Using existing SESSION 258 v3 + SESSION 259 v4 dialogue
+watchability + causal-chain invariants (unchanged by §15).
+
+| # | Invariant | Verdict | Direct evidence |
+|---|---|---|---|
+| 1 | one coherent present scene | PASS | every turn happens in the same present-moment debugging session |
+| 2 | plans/actions/results temporally coherent | PASS | fix → run same input → observe success → try other inputs → confirm — each turn caused by the previous |
+| 3 | no inappropriate multi-phase compression | PASS | one bounded debugging session; Rivet's *"tomorrow, when it breaks again"* explicitly defers next scene |
+| 4 | characters remained distinct | **STRONG PASS** | *"Look at me, behaving like someone who enjoys finding out why things work."* vs *"I am celebrating. Quietly."* — neither line could belong to the other |
+| 5 | Patch recognizably Patch | PASS | impulsive builder performing discipline, humor intact |
+| 6 | Rivet recognizably Rivet | PASS | *"Once."* — three-turn micro-lesson about isolated-variable testing |
+| 7 | operator topic authoritative | PASS | scene word-for-word matches the topic |
+| 8 | retrieved continuity influenced rather than hijacked | **STRONG PASS** | c86d4902 (PATCH OVERRIDES) never appears in dialogue; irrelevant retrieval did NOT derail the writer |
+| 9 | actual state change (not mere discussion) | **STRONG PASS** | the bug is actually fixed IN the scene; *"First failed input: fixed. Different input: also fixed."* Bounded, testable |
+| 10 | unsupported certainty avoided | PASS | Rivet's *"we have an observation. We do not yet have an explanation."* + *"may actually be the fix instead of a coincidence wearing a tiny hat"* explicitly hedge |
+| 11 | ending stops at sensible boundary | PASS | Rivet's *"tomorrow, when it breaks again, we will have one less mystery to excavate"* — character-consistent closer; hints at next Episode without simulating it |
+
+**Cumulative: 11/11 PASS with 4 STRONG.** dialogue_scene
+contract holds cleanly on a software-domain topic despite the
+pool's prior workshop-heavy focus.
+
+### §19.6 Duration observation — PASS by contract, tight below
+
+- Target 90s · predicted 78.9s · actual **75.611s**
+- Current dialogue tolerance: ±20% (SESSION 253 baseline, unchanged)
+- Acceptance band: **[72.0, 108.0]s**
+- Actual within band? **YES**
+- Margin above lower: **3.61s** (tight); margin below upper: 32.39s (loose)
+
+**Verdict: PASS by contract.** Do NOT tune from a single sample.
+The dialogue calibration (`DIALOGUE_DURATION_SYNTHESIS_TARGET_MULTIPLIER
+= 1.00`, SESSION 260) is a workshop-tested value; if a pattern
+of under-target emerges across multiple dialogue Episodes, THAT
+becomes evidence to consider. One sample near the lower bound
+is not evidence.
+
+### §19.7 NEW whole-cast NarrativeMemory (`36c21641`)
+
+Chris promoted a new memory from `ba431203`. Verified from DB
+(NOT copied from prompt):
+
+- Full id: `36c21641-1495-4236-8632-86aa774e5e7b`
+- Body (verbatim persisted): *"Patch fixed a software bug by changing only one thing and testing the same failure again, discovering firsthand that isolating a change made it possible to identify the actual fix. Rivet witnessed the unusually disciplined experiment."*
+- Kind: `event` · Weight: `peripheral` · Status: `remembered`
+- **`witnessed_by = []`** → **whole-cast** (Available: *"In any future scene"*)
+- Episode: `a3429310` · Source composition: `ba431203`
+- Promoted by chris@donkeybetz.com at `20:06:08 UTC` (~15 min after render)
+- Embedding populated (`text-embedding-3-small`)
+
+**Wording match to operator intent:** the persisted body is
+**IDENTICAL to the intended semantic event** Chris described in
+the prompt. No paraphrase.
+
+**Witness scope note:** operator chose **whole-cast** rather
+than `witnessed_by=[Patch, Rivet]`. Both are consistent with a
+shared-witnessed event; the difference is that a future
+Ruby-solo scene would retrieve the whole-cast row, whereas a
+`[Patch, Rivet]` scope would exclude any future Ruby-only
+scene. Whole-cast is the safer default for an event the
+operator wants carried forward broadly. Not a defect.
+
+### §19.8 Pool state after promotion
+
+| Witness class | Count | IDs |
+|---|---|---|
+| whole-cast | **10** | `f25e53af`, `48746f69`, `eda32b58`, `a34cc005`, `d98962e2`, `87d4e553`, `6b5222b1`, `42acc26d`, `8d4fdfec`, **`36c21641`** (new) |
+| Rivet-only | 3 | `cd73d52f`, `c86d4902`, `6d8191b1` |
+| Patch-only | 1 | `c614ca86` |
+| **Total active** | **14** | |
+
+Whole-cast grew from 9 → 10. First whole-cast promotion since
+`8d4fdfec` (§2).
+
+### §19.9 Promotion discipline — pattern held again
+
+Cumulative promote/no-promote pattern across SESSION 269:
+
+| Composition | Cast | Scene shape | Promoted? | Rationale |
+|---|---|---|---|---|
+| `2ef5ee7e` (§16) | Patch solo | research/intent | NO | setup, no state change |
+| `d3107ed2` (§17) | Patch solo | gives-agent-decision | YES → `c614ca86` (Patch-only) | bounded state change; Patch acted alone |
+| `be39452d` (§18) | Rivet solo | states-theory | YES → `6d8191b1` (Rivet-only introspective) | Rivet's own interior belief |
+| `8f09da3e` | Patch solo | finds-bug-not-fixed | NO | setup, no state change |
+| `ba431203` (§19) | Patch+Rivet dialogue | actually-fixes-bug | YES → `36c21641` (whole-cast) | bounded state change, both witnessed |
+
+**Every promote/no-promote decision traces back to whether the
+scene produced a bounded state change.** The §16.8 principle
+holds: *good content ≠ automatic memory*. Distinction is
+evidence-supported.
+
+### §19.10 Software-coding content lane
+
+Two consecutive software-topic samples (`8f09da3e` Patch solo +
+`ba431203` Patch+Rivet dialogue) demonstrate:
+
+- Patch's impulsive/build-first personality generalized to software (both samples).
+- Rivet's methodical scientific voice transferred to debugging *arguably more naturally* than earlier 3D-printer contexts — *"we have an observation. We do not yet have an explanation."* fits debugging perfectly.
+- Zero code snippets, zero framework-recitation, zero dry tutorials. Humor + character voice carry the scene.
+- Both renders are watchable without screenshots or external visuals — bug is described in ordinary English.
+
+**Product finding (bounded — two samples):** software-coding is
+a viable Patch/Rivet content lane using existing
+`talking_head` + `dialogue_scene` primitives. NO new media
+capability required. NOT a new implementation requirement —
+just a viable direction.
+
+### §19.11 Open questions & carried findings
+
+Extending prior lists — nothing removed:
+
+- **c86d4902 recurrence pattern (§4.2, updated).** Fourth natural retrieval hit for this same memory (pigeon / went-outside / research / software-bug). No relevance floor built. Weak-but-harmless verdict holds; runners-up + distances probe still unbuilt.
+- **Per-character epistemic isolation in prompt (§19.3, new).** Currently NOT enforced. Writer behaviour has held five natural non-adversarial trials. May become load-bearing in Universes with 3+ characters. Deferred; NOT scoped to any current slice.
+- **Chronology (§9).** Unchanged.
+- **Audience-participation loop (§18.6).** FUTURE / DEFERRED per operator instruction.
+- **Patch-only witness class (§9.9 unlocked, §17).** 1 row so far. First real symmetric-witness test in §18. No further Patch-only promotions since §17.
+
+### §19.12 Nothing needs implementation before we continue
+
+Chris asked (question 14): does the evidence require any
+implementation before we continue ordinary dogfood?
+
+**No.** All observed behaviour is consistent with the current
+substrate:
+
+- Retrieval predicate: enforcing correctly (proven symmetric).
+- solo_scene contract: 18/18 PASS across 3 renders (Patch + Rivet solo Episodes).
+- dialogue_scene contract: 11/11 PASS on `ba431203`.
+- Duration contract: PASS.
+- Verifier: verified with low-severity noise only.
+- Cost: within expected range ($0.02 solo / $0.24 12-turn dialogue).
+- Promotion discipline: pattern held.
+- Private memory: no textual leak observed (5th consecutive natural trial); architecture unchanged; documented as writer-behaviour-not-enforcement per §19.3.
+
+Chris may continue organic dogfood without any implementation
+gate.
+
+### §19.13 Doc commit checkpoint
+
+Doc + evidence sidecar only — no source-code change in §19.
+
+- §19 commit: (populated after commit below).
+
+---
+
+**SESSION 269 IS NOT CLOSED.** §19 records the first
+Patch+Rivet dialogue continuation of the software-debugging arc,
+confirms all four continuation mechanisms (operator topic +
+Universe canon + character voice contributed; NarrativeMemory
+did NOT carry the specific bug forward), verifies the
+Rivet-private memory retrieved into a Patch+Rivet scene did NOT
+leak to Patch (writer behaviour, NOT enforcement — 5th natural
+non-adversarial trial), documents the whole-cast promotion of
+`36c21641`, and updates pool counts (10 + 3 + 1 = 14 active).
+Nothing needs implementation before continuing dogfood. Any
+further Episodes, promotions, or audit findings should extend
+this document (add §20, §21…) rather than start a new one.
