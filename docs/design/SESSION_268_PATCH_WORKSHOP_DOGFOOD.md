@@ -1222,7 +1222,7 @@ Kept explicit so nothing calcifies into architecture prematurely.
 - **SESSION 268 commit 1:** `8f76f0b` — *"docs(session-268): three-Episode dogfood + visual-storytelling audit + chronology correction"*. First three Observations + Continuity UI audit + media capability inventory + helper-promotion chronology correction (§4.25). Parent: `c284285`.
 - **SESSION 268 commit 2:** `51cf73f` — *"docs(session-268): Observation #4 (rules) + crossing ~10-memory threshold"*. Rules Episode + rules-promotion verification (§4.27). Parent: `8f76f0b`.
 - **SESSION 268 commit 3:** `33566a9` — *"docs(session-268): Observation #5 (prediction) — first render at pool=10"*. Prediction Episode + §4.34-§4.43 + retroactive checkpoint list. Parent: `51cf73f`.
-- **SESSION 268 close-out commit:** (this commit — SHA to be recorded here after commit). Includes Obs #6 (pigeon) + §5 final synthesis + §6 decisions/open questions + §7 close checklist + §8 checkpoint history + SESSION 269 handoff. Parent: `33566a9`.
+- **SESSION 268 close-out commit:** `b6b159b` — *"docs(session-268): CLOSEOUT — Observation #6 (pigeon) + full synthesis + SESSION 269 handoff"*. Includes Obs #6 (pigeon) + §5 final synthesis + §6 decisions/open questions + §7 close checklist + §8 checkpoint history + SESSION 269 handoff. Parent: `33566a9`. (SHA recorded here in follow-up commit; the closeout commit itself contained a placeholder.)
 
 Runtime posture at close:
 
