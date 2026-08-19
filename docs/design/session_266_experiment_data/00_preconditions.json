@@ -1,0 +1,61 @@
+{
+  "timestamp": "2026-08-18T22:43:42.278950+00:00",
+  "all_pass": true,
+  "results": [
+    {
+      "name": "EMBEDDING_FORCE_MOCK unset",
+      "ok": true,
+      "detail": "settings=None env=''"
+    },
+    {
+      "name": "DIALOGUE_SYNTHESIS_FORCE_MOCK unset",
+      "ok": true,
+      "detail": "settings=None env=''"
+    },
+    {
+      "name": "OPENAI_API_KEY present",
+      "ok": true,
+      "detail": "len=164"
+    },
+    {
+      "name": "retrieve_universe_memory top_k default == 1",
+      "ok": true,
+      "detail": "got 1"
+    },
+    {
+      "name": "embedding_service _is_force_mock() == False",
+      "ok": true,
+      "detail": "got False"
+    },
+    {
+      "name": "embedding_service _is_real_mode_possible() == True",
+      "ok": true,
+      "detail": "got True"
+    },
+    {
+      "name": "EMBEDDING_MODEL == text-embedding-3-small",
+      "ok": true,
+      "detail": "got 'text-embedding-3-small'"
+    },
+    {
+      "name": "EMBEDDING_DIMENSION == 1536",
+      "ok": true,
+      "detail": "got 1536"
+    },
+    {
+      "name": "DIALOGUE_MODEL contains 'gpt-5' or 'terra'",
+      "ok": true,
+      "detail": "DIALOGUE_MODEL='gpt-5.6-terra'"
+    },
+    {
+      "name": "WRITING_CONTRACT_VERSION == 4",
+      "ok": true,
+      "detail": "got 4"
+    }
+  ],
+  "dialogue_model": "gpt-5.6-terra",
+  "writing_contract_version": 4,
+  "embedding_model": "text-embedding-3-small",
+  "embedding_dimension": 1536,
+  "retrieve_universe_memory_default_top_k": 1
+}

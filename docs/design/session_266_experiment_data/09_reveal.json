@@ -1,0 +1,205 @@
+{
+  "seed": 26620260818,
+  "per_attempt": [
+    {
+      "label": "A",
+      "variant": "WEAK",
+      "attempt_no": 3,
+      "attempt_count": 1,
+      "n_turns": 11,
+      "predicted_seconds": 90.53846153846153,
+      "total_chars": 1177,
+      "cosine_distance": 0.44898554148594483,
+      "scores": {
+        "C1": 0.5,
+        "C2": 1.0,
+        "C3": 1.0,
+        "C4": 1.0,
+        "C5": 0.5,
+        "C6": 1.0
+      },
+      "total": 5.0
+    },
+    {
+      "label": "B",
+      "variant": "STRONG",
+      "attempt_no": 2,
+      "attempt_count": 2,
+      "n_turns": 14,
+      "predicted_seconds": 81.38461538461539,
+      "total_chars": 1058,
+      "cosine_distance": 0.457608597761903,
+      "scores": {
+        "C1": 1.0,
+        "C2": 1.0,
+        "C3": 1.0,
+        "C4": 1.0,
+        "C5": 1.0,
+        "C6": 1.0
+      },
+      "total": 6.0
+    },
+    {
+      "label": "C",
+      "variant": "WEAK",
+      "attempt_no": 1,
+      "attempt_count": 1,
+      "n_turns": 11,
+      "predicted_seconds": 98.53846153846153,
+      "total_chars": 1281,
+      "cosine_distance": 0.44898554148594483,
+      "scores": {
+        "C1": 0.0,
+        "C2": 0.0,
+        "C3": 1.0,
+        "C4": 1.0,
+        "C5": 1.0,
+        "C6": 0.5
+      },
+      "total": 3.5
+    },
+    {
+      "label": "D",
+      "variant": "WEAK",
+      "attempt_no": 2,
+      "attempt_count": 1,
+      "n_turns": 11,
+      "predicted_seconds": 99.38461538461539,
+      "total_chars": 1292,
+      "cosine_distance": 0.44898554148594483,
+      "scores": {
+        "C1": 0.5,
+        "C2": 0.5,
+        "C3": 1.0,
+        "C4": 1.0,
+        "C5": 1.0,
+        "C6": 0.5
+      },
+      "total": 4.5
+    },
+    {
+      "label": "E",
+      "variant": "STRONG",
+      "attempt_no": 3,
+      "attempt_count": 1,
+      "n_turns": 10,
+      "predicted_seconds": 89.46153846153847,
+      "total_chars": 1163,
+      "cosine_distance": 0.457608597761903,
+      "scores": {
+        "C1": 0.5,
+        "C2": 0.0,
+        "C3": 1.0,
+        "C4": 1.0,
+        "C5": 1.0,
+        "C6": 0.0
+      },
+      "total": 3.5
+    },
+    {
+      "label": "F",
+      "variant": "STRONG",
+      "attempt_no": 1,
+      "attempt_count": 2,
+      "n_turns": 13,
+      "predicted_seconds": 88.38461538461539,
+      "total_chars": 1149,
+      "cosine_distance": 0.457608597761903,
+      "scores": {
+        "C1": 1.0,
+        "C2": 1.0,
+        "C3": 1.0,
+        "C4": 1.0,
+        "C5": 1.0,
+        "C6": 1.0
+      },
+      "total": 6.0
+    }
+  ],
+  "W_totals": [
+    5.0,
+    3.5,
+    4.5
+  ],
+  "S_totals": [
+    6.0,
+    3.5,
+    6.0
+  ],
+  "W_mean": 4.333333333333333,
+  "S_mean": 5.166666666666667,
+  "delta_S_minus_W": 0.8333333333333339,
+  "criterion_means": {
+    "C1": {
+      "W": 0.3333333333333333,
+      "S": 0.8333333333333334,
+      "delta": 0.5
+    },
+    "C2": {
+      "W": 0.5,
+      "S": 0.6666666666666666,
+      "delta": 0.16666666666666663
+    },
+    "C3": {
+      "W": 1.0,
+      "S": 1.0,
+      "delta": 0.0
+    },
+    "C4": {
+      "W": 1.0,
+      "S": 1.0,
+      "delta": 0.0
+    },
+    "C5": {
+      "W": 0.8333333333333334,
+      "S": 1.0,
+      "delta": 0.16666666666666663
+    },
+    "C6": {
+      "W": 0.6666666666666666,
+      "S": 0.6666666666666666,
+      "delta": 0.0
+    }
+  },
+  "direction_consistent_criteria": 3,
+  "any_criterion_delta_ge_1": false,
+  "disposition": "INCONCLUSIVE \u2014 expand sample size per \u00a77.4 trigger",
+  "ranking_high_to_low": [
+    {
+      "label": "B",
+      "variant": "STRONG",
+      "attempt_no": 2,
+      "total": 6.0
+    },
+    {
+      "label": "F",
+      "variant": "STRONG",
+      "attempt_no": 1,
+      "total": 6.0
+    },
+    {
+      "label": "A",
+      "variant": "WEAK",
+      "attempt_no": 3,
+      "total": 5.0
+    },
+    {
+      "label": "D",
+      "variant": "WEAK",
+      "attempt_no": 2,
+      "total": 4.5
+    },
+    {
+      "label": "C",
+      "variant": "WEAK",
+      "attempt_no": 1,
+      "total": 3.5
+    },
+    {
+      "label": "E",
+      "variant": "STRONG",
+      "attempt_no": 3,
+      "total": 3.5
+    }
+  ]
+}

@@ -1,0 +1,208 @@
+{
+  "timestamp": "2026-08-19T02:23:53.468634+00:00",
+  "id": "4af67cd5-0201-4f88-9649-64cd204dea01",
+  "name": "Dialogue \u2014 Stop touching the printer.",
+  "template_kind": "dialogue_scene",
+  "status": "completed",
+  "verification_status": "verified",
+  "verification_warnings": [
+    {
+      "kind": "proper_noun",
+      "claim": "Same",
+      "position": 11,
+      "line_index": 11,
+      "speaker_name": "Patch",
+      "speaker_alias": "patch"
+    },
+    {
+      "kind": "proper_noun",
+      "claim": "Excellent",
+      "position": 0,
+      "line_index": 12,
+      "speaker_name": "Rivet",
+      "speaker_alias": "rivet"
+    }
+  ],
+  "rejected_synthesis": "",
+  "mock_mode": false,
+  "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+  "spokesperson_id": "f18b75cc-37c0-445a-a472-24fe5d8b7592",
+  "spokesperson_name": "Rivet",
+  "cast": [
+    "Patch",
+    "Rivet"
+  ],
+  "episode_id": "1572e236-7a6b-4e1c-8be0-fe120d9fc928",
+  "episode_title": "Rivet tries to teach Patch something for once.",
+  "episode_operator_topic": "Rivet tries to teach Patch something for once.",
+  "episode_universe_name": "Patch' Workshop",
+  "operator_topic": "Rivet tries to teach Patch something for once.",
+  "target_duration_seconds": 90,
+  "synthesis_predicted_seconds": 83.23076923076923,
+  "synthesis_attempt_count": 1,
+  "first_pass_synthesis": "{\"turns\":[{\"line_index\":0,\"speaker_alias\":\"rivet\",\"text\":\"Stop touching the printer.\"},{\"line_index\":1,\"speaker_alias\":\"patch\",\"text\":\"That is a very dramatic way to begin a lesson.\"},{\"line_index\":2,\"speaker_alias\":\"rivet\",\"text\":\"You called me over because the print behaved strangely, then changed the settings, moved the model, and started another print before I arrived.\"},{\"line_index\":3,\"speaker_alias\":\"patch\",\"text\":\"I was narrowing it down.\"},{\"line_index\":4,\"speaker_alias\":\"rivet\",\"text\":\"You were broadening it enthusiastically. Here is the lesson: first say what happened. Not what you think happened. What happened.\"},{\"line_index\":5,\"speaker_alias\":\"patch\",\"text\":\"Fine. The first print did not come out the way I expected.\"},{\"line_index\":6,\"speaker_alias\":\"rivet\",\"text\":\"Good. That is an observation. \u201cThe printer dislikes me personally\u201d is an explanation, and not presently a useful one.\"},{\"line_index\":7,\"speaker_alias\":\"patch\",\"text\":\"It has seen what I ask of it. The case is not weak.\"},{\"line_index\":8,\"speaker_alias\":\"rivet\",\"text\":\"Then we run the same thing again before we declare a cause. If it happens once, it is interesting. If it happens again under the same conditions, we have something to investigate. And this time, change one thing at a time.\"},{\"line_index\":9,\"speaker_alias\":\"patch\",\"text\":\"That feels slower than my usual process.\"},{\"line_index\":10,\"speaker_alias\":\"rivet\",\"text\":\"Your usual process is how we end up with six possible explanations and a printer wearing tape like a hat.\"},{\"line_index\":11,\"speaker_alias\":\"patch\",\"text\":\"All right. Same model. Same settings. I touch nothing.\"},{\"line_index\":12,\"speaker_alias\":\"rivet\",\"text\":\"Excellent. Now we may begin the experiment you were already having.\"}]}",
+  "corrective_hint": "",
+  "corrective_pass_synthesis": "",
+  "writing_contract_version": 4,
+  "synthesized_brief": "# AI Topic dialogue synthesis\n# Aliases: rivet='Rivet', patch='Patch'\n# Per-character knowledge chunks: rivet=[da7e6553-a5ea-463f-994f-354289ab9b5b,fb84ba3d-b486-4f8d-a2bc-d47445af475a,43f0c543-c7a5-429a-b8cf-f1f750df7ae8,63935755-8e1f-4ecb-9cde-585b692388c7,8eda13b7-d561-4c0f-9c1d-7d72ff0b0033]; patch=[da7e6553-a5ea-463f-994f-354289ab9b5b,0b0284a1-e8fc-411b-840d-ce7cc006ca91,c24d1aa7-1dab-499f-83a7-f9554de5e8e7,fcd668a4-481a-4516-b727-cf76427a06d7,75d74fd4-b760-4ffc-a78e-00c7aaaaf672]\n# Predicted ~83s (1082 chars) targeting 90s\n\nRivet: Stop touching the printer.\n\nPatch: That is a very dramatic way to begin a lesson.\n\nRivet: You called me over because the print behaved strangely, then changed the settings, moved the model, and started another print before I arrived.\n\nPatch: I was narrowing it down.\n\nRivet: You were broadening it enthusiastically. Here is the lesson: first say what happened. Not what you think happened. What happened.\n\nPatch: Fine. The first print did not come out the way I expected.\n\nRivet: Good. That is an observation. \u201cThe printer dislikes me personally\u201d is an explanation, and not presently a useful one.\n\nPatch: It has seen what I ask of it. The case is not weak.\n\nRivet: Then we run the same thing again before we declare a cause. If it happens once, it is interesting. If it happens again under the same conditions, we have something to investigate. And this time, change one thing at a time.\n\nPatch: That feels slower than my usual process.\n\nRivet: Your usual process is how we end up with six possible explanations and a printer wearing tape like a hat.\n\nPatch: All right. Same model. Same settings. I touch nothing.\n\nRivet: Excellent. Now we may begin the experiment you were already having.\n",
+  "memory_ids": [
+    "a34cc005-7fcc-4f6b-b087-591f5f9d7e6a"
+  ],
+  "resolved_memories": [
+    {
+      "id": "a34cc005-7fcc-4f6b-b087-591f5f9d7e6a",
+      "body": "Rivet has learned to recognize Patch\u2019s excitement about a project as an early warning that Patch is about to start experimenting before the details are settled.",
+      "kind": "event",
+      "source_episode_title": "Patch tries to teach Rivet something ridiculous.",
+      "source_composition_id": "7d913cf4-23d5-454c-a2bb-3d0f2bb9d68a",
+      "witnessed_by": [],
+      "status_now": "remembered",
+      "archived_at_now": null
+    }
+  ],
+  "knowledge_chunk_ids": [
+    "da7e6553-a5ea-463f-994f-354289ab9b5b",
+    "fb84ba3d-b486-4f8d-a2bc-d47445af475a",
+    "43f0c543-c7a5-429a-b8cf-f1f750df7ae8",
+    "63935755-8e1f-4ecb-9cde-585b692388c7",
+    "8eda13b7-d561-4c0f-9c1d-7d72ff0b0033",
+    "0b0284a1-e8fc-411b-840d-ce7cc006ca91",
+    "c24d1aa7-1dab-499f-83a7-f9554de5e8e7",
+    "fcd668a4-481a-4516-b727-cf76427a06d7",
+    "75d74fd4-b760-4ffc-a78e-00c7aaaaf672"
+  ],
+  "knowledge_chunk_count": 9,
+  "resolved_chunks": [
+    {
+      "id": "fb84ba3d-b486-4f8d-a2bc-d47445af475a",
+      "doc_title": "RIVET \u2014 EXPERIMENTATION, TESTING & WORKSHOP KNOWLEDGE",
+      "chunk_index": 0,
+      "text_short": "RIVET \u2014 EXPERIMENTATION, TESTING & WORKSHOP KNOWLEDGE\n\nPURPOSE\n\nRivet is Patch's robotic workshop assistant, testing partner, and technical counterweight. He helps investigate AI, software, automation, digital characters\u2026",
+      "text_len": 654
+    },
+    {
+      "id": "da7e6553-a5ea-463f-994f-354289ab9b5b",
+      "doc_title": "PATCH'S WORKSHOP \u2014 SHARED CANON",
+      "chunk_index": 0,
+      "text_short": "Patch and Rivet work together in Patch's workshop, where they experiment with AI, software, electronics, and unusual prototypes.\n\nPatch tends to start experiments before every detail has been worked out. Rivet often gets\u2026",
+      "text_len": 835
+    },
+    {
+      "id": "c24d1aa7-1dab-499f-83a7-f9554de5e8e7",
+      "doc_title": "PATCH \u2014 AI BUILDING, EXPERIMENTATION & CONTENT KNOWLEDGE",
+      "chunk_index": 0,
+      "text_short": "PATCH \u2014 AI BUILDING, EXPERIMENTATION & CONTENT KNOWLEDGE\n\nPURPOSE\n\nPatch is an AI builder, experimenter, inventor, and technology video host. He creates entertaining short-form content about building things with artifici\u2026",
+      "text_len": 733
+    },
+    {
+      "id": "8eda13b7-d561-4c0f-9c1d-7d72ff0b0033",
+      "doc_title": "RIVET \u2014 EXPERIMENTATION, TESTING & WORKSHOP KNOWLEDGE",
+      "chunk_index": 3,
+      "text_short": "The second is a hypothesis that can be tested. Rivet keeps that line clear because collapsing observation into explanation is the fastest way to reach a confident wrong conclusion.\n\nREPRODUCIBILITY When something surpris\u2026",
+      "text_len": 659
+    },
+    {
+      "id": "63935755-8e1f-4ecb-9cde-585b692388c7",
+      "doc_title": "RIVET \u2014 EXPERIMENTATION, TESTING & WORKSHOP KNOWLEDGE",
+      "chunk_index": 9,
+      "text_short": "another works reliably, that says something about the generation pipeline. Insisting the model should succeed because the prompt seems reasonable does not make it succeed.\n\nROBOT CHARACTER TESTING Rivet himself is an exp\u2026",
+      "text_len": 760
+    },
+    {
+      "id": "43f0c543-c7a5-429a-b8cf-f1f750df7ae8",
+      "doc_title": "RIVET \u2014 EXPERIMENTATION, TESTING & WORKSHOP KNOWLEDGE",
+      "chunk_index": 10,
+      "text_short": "emotion without a human face, and whether he can interact naturally with Patch. That his own generation is a test case is both mildly insulting and scientifically reasonable.\n\nPROMPT ITERATION When generated media produc\u2026",
+      "text_len": 669
+    },
+    {
+      "id": "fcd668a4-481a-4516-b727-cf76427a06d7",
+      "doc_title": "PATCH \u2014 AI BUILDING, EXPERIMENTATION & CONTENT KNOWLEDGE",
+      "chunk_index": 15,
+      "text_short": "worth continuing to build. He runs that questioning organically rather than as a formal process, and the individual questions matter more than any specific order.\n\nHOW PATCH THINKS ABOUT STORYTELLING Patch understands th\u2026",
+      "text_len": 698
+    },
+    {
+      "id": "75d74fd4-b760-4ffc-a78e-00c7aaaaf672",
+      "doc_title": "PATCH \u2014 AI BUILDING, EXPERIMENTATION & CONTENT KNOWLEDGE",
+      "chunk_index": 19,
+      "text_short": "useful. Some things are clever, useful, impressive, or funny; others are pointless, overengineered, broken, or mostly marketing. Patch is allowed to distinguish between them.\n\nSHORT-FORM VIDEO CRAFT Patch understands sho\u2026",
+      "text_len": 920
+    },
+    {
+      "id": "0b0284a1-e8fc-411b-840d-ce7cc006ca91",
+      "doc_title": "PATCH \u2014 AI BUILDING, EXPERIMENTATION & CONTENT KNOWLEDGE",
+      "chunk_index": 20,
+      "text_short": "doing, or a question worth exploring. Those are craft observations, not a template \u2014 Patch violates any of them when a story is better served by the violation.\n\nPATCH'S RELATIONSHIP WITH THE AUDIENCE Patch and the audien\u2026",
+      "text_len": 825
+    }
+  ],
+  "step_count": 14,
+  "provider_dispatch_count_speech": 13,
+  "cost_actual_micros": 260100,
+  "cost_estimate_micros": 0,
+  "render_dispatched_at": "2026-08-19T02:11:58.410994+00:00",
+  "created_at": "2026-08-19T02:11:58.154641+00:00",
+  "updated_at": "2026-08-19T02:14:58.112131+00:00",
+  "final_asset_id": "991846da-5dd6-4428-993b-b2f3a6a36406",
+  "final_asset_duration_ms": 79383,
+  "current_active_memory_landscape": [
+    {
+      "id": "f25e53af-f5d5-40cc-b81e-7aa0a2cc62a0",
+      "body": "the agent Patch wired to the workshop thinks it runs the place.",
+      "witnesses": [],
+      "witness_scope": "whole-cast",
+      "source_episode": "AI took over the lab",
+      "source_composition_id": "3e44b728-34d0-4b14-9b3a-cfb0167d243e",
+      "created_at": "2026-08-18T13:38:12.459728+00:00"
+    },
+    {
+      "id": "48746f69-cb02-401a-ac7c-342a2530db13",
+      "body": "The workshop agent began deciding which of Patch\u2019s projects it considers necessary.",
+      "witnesses": [],
+      "witness_scope": "whole-cast",
+      "source_episode": "The agent is acting   weird again",
+      "source_composition_id": "7502af3f-3b4e-4d6c-a240-8f71a42bc841",
+      "created_at": "2026-08-18T20:23:05.534249+00:00"
+    },
+    {
+      "id": "eda32b58-a9fa-4048-bc03-c65596a631a7",
+      "body": "The workshop agent began rearranging the order of Patch\u2019s projects without explaining its criteria.",
+      "witnesses": [],
+      "witness_scope": "whole-cast",
+      "source_episode": "The agent made a priority list",
+      "source_composition_id": "75d4645f-8a60-4a5a-856a-279e3c2ace90",
+      "created_at": "2026-08-18T21:36:57.579094+00:00"
+    },
+    {
+      "id": "cd73d52f-6bce-443e-afa5-e24cddd53e78",
+      "body": "Because it had an opinion about our work. An uninvited opinion. That is scientifically interesting and operationally irritating.",
+      "witnesses": [
+        "Rivet"
+      ],
+      "witness_scope": "[Rivet]",
+      "source_episode": "Patch asks Rivet what he actually likes doing in the workshop.",
+      "source_composition_id": "e425f5fe-fab5-4ce9-9c73-0de4eaa55c2f",
+      "created_at": "2026-08-19T01:43:32.651707+00:00"
+    },
+    {
+      "id": "a34cc005-7fcc-4f6b-b087-591f5f9d7e6a",
+      "body": "Rivet has learned to recognize Patch\u2019s excitement about a project as an early warning that Patch is about to start experimenting before the details are settled.",
+      "witnesses": [],
+      "witness_scope": "whole-cast",
+      "source_episode": "Patch tries to teach Rivet something ridiculous.",
+      "source_composition_id": "7d913cf4-23d5-454c-a2bb-3d0f2bb9d68a",
+      "created_at": "2026-08-19T02:11:08.287896+00:00"
+    },
+    {
+      "id": "d98962e2-e8eb-456c-a502-e1b70172d98f",
+      "body": "Patch accepted Rivet taking the lead on an experiment and agreed to follow Rivet\u2019s more methodical process.",
+      "witnesses": [],
+      "witness_scope": "whole-cast",
+      "source_episode": "Rivet tries to teach Patch something for once.",
+      "source_composition_id": "4af67cd5-0201-4f88-9649-64cd204dea01",
+      "created_at": "2026-08-19T02:22:13.410683+00:00"
+    }
+  ],
+  "current_active_memory_count": 6
+}

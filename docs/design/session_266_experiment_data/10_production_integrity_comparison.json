@@ -1,0 +1,50 @@
+{
+  "before_timestamp": "2026-08-18T22:44:29.242790+00:00",
+  "after_timestamp": "2026-08-19T03:09:43.268533+00:00",
+  "drift_items": [
+    "count.episodes: 4 \u2192 10",
+    "count.narrative_memories: 4 \u2192 7",
+    "count.narrative_memories_active: 3 \u2192 6",
+    "count.compositions: 13 \u2192 19",
+    "max_updated_at.episodes: 2026-08-18T21:38:18.073710+00:00 \u2192 2026-08-19T02:38:22.617566+00:00",
+    "max_updated_at.narrative_memories: 2026-08-18T21:36:59.285959+00:00 \u2192 2026-08-19T02:22:13.888531+00:00",
+    "max_updated_at.compositions: 2026-08-18T21:43:06.078009+00:00 \u2192 2026-08-19T02:41:42.626367+00:00",
+    "narrative_memory_ids: SET DIFFERS",
+    "episode_ids: SET DIFFERS"
+  ],
+  "clean": false,
+  "before_counts": {
+    "teammates": 2,
+    "episodes": 4,
+    "knowledge_documents": 3,
+    "knowledge_chunks": 37,
+    "narrative_memories": 4,
+    "narrative_memories_active": 3,
+    "compositions": 13
+  },
+  "after_counts": {
+    "teammates": 2,
+    "episodes": 10,
+    "knowledge_documents": 3,
+    "knowledge_chunks": 37,
+    "narrative_memories": 7,
+    "narrative_memories_active": 6,
+    "compositions": 19
+  },
+  "before_max_updated_at": {
+    "teammates": "2026-08-18T01:05:59.593551+00:00",
+    "episodes": "2026-08-18T21:38:18.073710+00:00",
+    "knowledge_documents": "2026-08-18T03:20:33.700290+00:00",
+    "knowledge_chunks_created": "2026-08-18T03:20:33.682537+00:00",
+    "narrative_memories": "2026-08-18T21:36:59.285959+00:00",
+    "compositions": "2026-08-18T21:43:06.078009+00:00"
+  },
+  "after_max_updated_at": {
+    "teammates": "2026-08-18T01:05:59.593551+00:00",
+    "episodes": "2026-08-19T02:38:22.617566+00:00",
+    "knowledge_documents": "2026-08-18T03:20:33.700290+00:00",
+    "knowledge_chunks_created": "2026-08-18T03:20:33.682537+00:00",
+    "narrative_memories": "2026-08-19T02:22:13.888531+00:00",
+    "compositions": "2026-08-19T02:41:42.626367+00:00"
+  }
+}

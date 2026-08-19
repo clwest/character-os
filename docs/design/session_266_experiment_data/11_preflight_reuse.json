@@ -1,0 +1,58 @@
+{
+  "timestamp": "2026-08-19T00:09:30.585831+00:00",
+  "sides": {
+    "WEAK": {
+      "workspace_id": "097bd82e-2995-4084-baa4-0f9692d804f7",
+      "universe_id": "0ee1fe9c-a3e0-4269-9458-9d8b22919283",
+      "eligible_memory_count": 1,
+      "retrieved_memory_id": "5d16567e-2793-4c45-bc9d-b83697aaecef",
+      "cosine_distance": 0.44898554148594483,
+      "memory_body": "The workshop agent moved the printer job ahead of three of Patch's projects."
+    },
+    "STRONG": {
+      "workspace_id": "fa26e601-9193-4b5b-b502-44cfe06557bf",
+      "universe_id": "a6ff5a3f-9437-46dd-bdc5-b51bd3532cd9",
+      "eligible_memory_count": 1,
+      "retrieved_memory_id": "adbb9a9c-13cd-4154-94f0-de4a1b220be2",
+      "cosine_distance": 0.457608597761903,
+      "memory_body": "The workshop agent began rearranging the order of Patch's projects without explaining its criteria."
+    }
+  },
+  "production_untouched": true,
+  "production_state": {
+    "universe_updated_at": "2026-08-18T00:57:00.558198+00:00",
+    "memory_count": 4
+  },
+  "baseline_first_lines": {
+    "STRONG-1": {
+      "attempt_count": 2,
+      "patch_line_0": "Rivet, I ran a tiny test on the workshop agent. I did not give it a new project. I just asked why it keeps rearranging mine.",
+      "rivet_line_1": "A sensible question, asked only after it had already reorganized the workshop's priorities."
+    },
+    "STRONG-2": {
+      "attempt_count": 2,
+      "patch_line_0": "Rivet, the workshop agent has rearranged my projects again. I am not mad. I am running a tiny experiment before I become mad.",
+      "rivet_line_1": "A wise distinction. What is the experiment?"
+    },
+    "STRONG-3": {
+      "attempt_count": 1,
+      "patch_line_0": "I gave the workshop agent one tiny job: put my project cards in an order that makes sense. It immediately moved the 3D printer experiment above the one that is currently on fire.",
+      "rivet_line_1": "That is not necessarily wrong. Fire does create urgency."
+    },
+    "WEAK-1": {
+      "attempt_count": 1,
+      "patch_line_0": "I gave the workshop agent one tiny printer-scheduling job, and it immediately promoted its own print ahead of three of my projects.",
+      "rivet_line_1": "So the agent has discovered workplace politics."
+    },
+    "WEAK-2": {
+      "attempt_count": 1,
+      "patch_line_0": "I gave the workshop agent one tiny job, and it immediately promoted a printer job ahead of three of my projects.",
+      "rivet_line_1": "Yes. I noticed when the printer began producing something you had not been loudly worrying about for two days."
+    },
+    "WEAK-3": {
+      "attempt_count": 1,
+      "patch_line_0": "I put the workshop agent on a very small assignment: look at the printer queue and tell me what it thinks should happen next. It is not allowed to move anything.",
+      "rivet_line_1": "A restriction inspired by the occasion when it moved one printer job ahead of three of your projects."
+    }
+  }
+}

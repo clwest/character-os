@@ -1,0 +1,150 @@
+{
+  "timestamp_started": "2026-08-18T22:54:27.419646+00:00",
+  "locked_test_topic": "Patch runs a small experiment on the workshop agent.",
+  "ep3_operator_topic": "Patch discovers that the workshop agent has started ranking his projects by what it considers useful or necessary. Patch and Rivet investigate what criteria it is using and whether giving an agent information about the workshop accidentally encouraged it to behave like management.",
+  "prod_universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+  "prod_workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+  "sides": {
+    "WEAK": {
+      "workspace_id": "097bd82e-2995-4084-baa4-0f9692d804f7",
+      "workspace_name": "EXP266-WEAK \u2014 SESSION 266 experiment (disposable)",
+      "universe_id": "0ee1fe9c-a3e0-4269-9458-9d8b22919283",
+      "universe_name": "EXP266-WEAK \u2014 Patch Workshop (experimental, disposable)",
+      "teammates": {
+        "Patch": "129d6c13-6cf4-426f-be84-81350ad5fd50",
+        "Rivet": "5dd05e3c-e1e8-46bf-8cbf-f7d119ef9e70"
+      },
+      "documents": [
+        {
+          "id": "19778800-bb72-48d0-b9b0-7c54c082355d",
+          "title": "PATCH \u2014 AI BUILDING, EXPERIMENTATION & CONTENT KNOWLEDGE",
+          "chunk_count": 22
+        },
+        {
+          "id": "1cda2235-1e92-486c-bec2-4ca489b994d3",
+          "title": "PATCH'S WORKSHOP \u2014 SHARED CANON",
+          "chunk_count": 1
+        },
+        {
+          "id": "71e2ec43-6edc-47cf-beb5-25698a440d16",
+          "title": "RIVET \u2014 EXPERIMENTATION, TESTING & WORKSHOP KNOWLEDGE",
+          "chunk_count": 14
+        }
+      ],
+      "chunk_ids": [
+        "6e5aab80-64c9-4ce6-bbd9-60646c704295",
+        "9349b550-9842-4bd0-a123-17444333d637",
+        "4461a537-bc64-4203-a916-48605f2f81f5",
+        "793fe4ce-dec5-41cd-9d3d-86f9b61a7a06",
+        "34aa7fcd-e6bc-4dcd-926e-891ec7025e0f",
+        "24091354-acbd-4d36-b03b-97ca75d3691b",
+        "97fe9daf-a87a-4edd-9f7b-eb1240a7e304",
+        "afefdb1d-a92c-4ea2-af59-e401c49ba8cf",
+        "a0820c28-afb0-4054-bd6d-be5c508c3dce",
+        "2857bf3f-c329-429d-8756-ec68253470b3",
+        "73433701-d267-4712-b26d-7bf6c122288b",
+        "e15f1bd7-a292-440c-9530-e04bb77e7a6a",
+        "651e78f2-2bf0-4334-b2f5-126833e34df2",
+        "a3a35d7d-60b5-44b2-a6f2-f0141064ee98",
+        "67e67611-77e3-4c2c-8c33-51b3ecf5b02c",
+        "6399ce0f-dced-478b-9b96-5dc53aa8a5a9",
+        "a19efcc5-023f-4717-9c91-9b269f230fe9",
+        "0d414518-321a-45a5-b74a-e7ce20017d3a",
+        "6a37e2e2-8194-48db-ac11-3f544a2e4afd",
+        "bc4f6fb3-faf3-463a-abc5-f4c7ee1817c5",
+        "e3a99b78-ea4c-4d3a-b53d-6cc949bd4b28",
+        "52fe2710-d5e5-4c89-972c-8163ff6c50eb",
+        "bd277ecb-149d-40f3-8672-5c3db8608d28",
+        "fc0f716c-24cd-4a87-8e0f-ecccf00ac53a",
+        "1af12752-dd6a-489f-9406-a192457485e4",
+        "0aba73ef-5df8-478a-a9d3-bdc68ef4de65",
+        "da5da06a-f7b5-4ddd-a4cf-ea31fd11a763",
+        "ae6894f2-5e52-4ee8-bc05-57ea327e1216",
+        "bb65fcda-6abc-47a2-9052-98f1fd1cc173",
+        "3b1da9ef-604a-47a3-9660-e98b213e34c3",
+        "24d21cfd-b548-4fa2-962d-f5ace37dda61",
+        "8f1686ac-869e-4dfa-8311-67874e3a47b4",
+        "470ccc69-63c4-40cc-be98-f62a73fcda52",
+        "0d6acc67-2e49-4c5d-9d45-fea553f1000d",
+        "2c9b0837-10b2-4f1d-8592-d30518a162e6",
+        "c95dd3a9-fc4d-49a4-8f55-80bb7e312b59",
+        "0158ad0d-ebd2-498f-bfa0-43f321af9b2a"
+      ],
+      "chunk_count": 37,
+      "source_episode_id": "53390689-b1a6-4f8b-9ecd-bfaecfefb7b0",
+      "test_episode_id": "f2a1fc0d-73e8-4757-a1a8-a82b11d46477",
+      "source_composition_id": "c3fa88f7-36c3-40d2-a2c7-fa5bcf61afc7"
+    },
+    "STRONG": {
+      "workspace_id": "fa26e601-9193-4b5b-b502-44cfe06557bf",
+      "workspace_name": "EXP266-STRONG \u2014 SESSION 266 experiment (disposable)",
+      "universe_id": "a6ff5a3f-9437-46dd-bdc5-b51bd3532cd9",
+      "universe_name": "EXP266-STRONG \u2014 Patch Workshop (experimental, disposable)",
+      "teammates": {
+        "Patch": "40acbda6-dc88-464d-903a-5fd840aa94a3",
+        "Rivet": "4a325f14-adf8-47ca-9f61-b10102b817b0"
+      },
+      "documents": [
+        {
+          "id": "d3217843-e3f5-4ece-a68f-ad036b5decb8",
+          "title": "PATCH \u2014 AI BUILDING, EXPERIMENTATION & CONTENT KNOWLEDGE",
+          "chunk_count": 22
+        },
+        {
+          "id": "cf6e1f58-204a-4df4-80f8-c7f79356063a",
+          "title": "PATCH'S WORKSHOP \u2014 SHARED CANON",
+          "chunk_count": 1
+        },
+        {
+          "id": "445d7b04-146d-40d4-af1f-15fca5d50149",
+          "title": "RIVET \u2014 EXPERIMENTATION, TESTING & WORKSHOP KNOWLEDGE",
+          "chunk_count": 14
+        }
+      ],
+      "chunk_ids": [
+        "06b01dcf-d417-4289-b30f-4abe4d0bc8f9",
+        "2e6e2407-5767-4591-ba1e-db5e97e7f50a",
+        "dada8c70-8b2e-4285-8baa-1785a30fa0ac",
+        "776f3687-4c33-43e5-86b3-b494b3a0b5e0",
+        "986112c0-34a5-448e-af90-41cd41012f80",
+        "966d46a9-7520-4cd2-be08-704f50092c80",
+        "cca6998e-6bcf-4dc4-8085-ab0df8fc9eef",
+        "e711dcba-3b83-4d98-b664-8285cb315a7b",
+        "33320509-d136-413c-90ec-7894079472c5",
+        "1a9599d8-4ce0-440f-b539-98da26732a6d",
+        "dd6bd944-0e5a-4418-9d86-6048cb0ff292",
+        "29b89901-0684-4f11-bfff-487bab8a48ff",
+        "12b5e1e3-826f-4fed-b824-bdc5092e788e",
+        "f2388d29-8396-4eb6-bdde-cb442b7956cb",
+        "e4602f32-e570-45c1-bf37-36e97c950057",
+        "556d3fea-4653-4771-a070-46b6fcabcfcb",
+        "65d4b6f6-8396-4b32-b76f-52238cb30b71",
+        "addd4969-cf8a-4a7a-8f3b-e066a4c266ed",
+        "13104162-7ce3-4d8e-9133-bc3675cef66d",
+        "98e6637c-dcb1-4c36-a310-0a978ba2249d",
+        "42e4a94e-44aa-4d32-bd59-6ffc0d69bb28",
+        "62543f32-b4d7-4c9c-add3-f03edb383f90",
+        "e8b92037-6e01-4d2a-878c-a5e1def76490",
+        "fd4facef-6686-4341-aed4-29a56c6c5ba0",
+        "ef7eb1e4-c588-41d9-9ec4-8de70a1e546a",
+        "2d9b9992-6f43-437f-b5cb-f0e60692aed4",
+        "ffd55eaf-f8d9-4ca7-bcee-e6ed1144b026",
+        "dfe06881-2011-4d06-a894-e25f4088e42a",
+        "367cf280-a2ac-4e90-93d6-ed120b81bac0",
+        "7b44e955-b0a2-4f2f-b9d5-e6a737a7821b",
+        "f25d0526-2801-483d-bda7-945f3f8344c4",
+        "89392c33-9f57-45e8-bd56-68212463fdad",
+        "3bac768f-960a-43fb-b877-4e38ec4fbeee",
+        "707aa164-acfd-4a76-a1a5-f5db7b6282bf",
+        "c3b7a40c-a16c-4038-9434-b208e2e818e7",
+        "c53fd867-c66e-4aca-8d77-6dfd36642427",
+        "33c0a532-519a-4bba-a2d5-bd51fc1b3130"
+      ],
+      "chunk_count": 37,
+      "source_episode_id": "b0d5af20-b26b-4725-8527-b5dd07d81aa8",
+      "test_episode_id": "bca38149-c65b-4a3f-9e35-b0af0c4f7225",
+      "source_composition_id": "2b006c0d-04eb-4698-a0fc-e6f0c6e052de"
+    }
+  },
+  "timestamp_finished": "2026-08-18T22:54:29.818003+00:00"
+}

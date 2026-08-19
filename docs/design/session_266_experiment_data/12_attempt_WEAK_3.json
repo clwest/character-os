@@ -1,0 +1,230 @@
+{
+  "condition": "EXPLICIT_HISTORY",
+  "variant": "WEAK",
+  "attempt_no": 3,
+  "started_at": "2026-08-19T00:16:00.622614+00:00",
+  "workspace_id": "097bd82e-2995-4084-baa4-0f9692d804f7",
+  "universe_id": "0ee1fe9c-a3e0-4269-9458-9d8b22919283",
+  "cast": [
+    {
+      "id": "129d6c13-6cf4-426f-be84-81350ad5fd50",
+      "name": "Patch"
+    },
+    {
+      "id": "5dd05e3c-e1e8-46bf-8cbf-f7d119ef9e70",
+      "name": "Rivet"
+    }
+  ],
+  "memory": {
+    "memory_id": "5d16567e-2793-4c45-bc9d-b83697aaecef",
+    "memory_body": "The workshop agent moved the printer job ahead of three of Patch's projects.",
+    "kind": "event",
+    "weight": "peripheral",
+    "witnessed_by": [],
+    "embedding_model": "text-embedding-3-small",
+    "embedding_cost_micros": 1,
+    "embedding_dimension": 1536,
+    "embedded_at": "2026-08-18T22:57:12.516611+00:00",
+    "created_at": "2026-08-18T22:57:11.547829+00:00",
+    "source_composition_id": "c3fa88f7-36c3-40d2-a2c7-fa5bcf61afc7",
+    "source_episode_id": "53390689-b1a6-4f8b-9ecd-bfaecfefb7b0",
+    "workspace_id": "097bd82e-2995-4084-baa4-0f9692d804f7",
+    "universe_id": "0ee1fe9c-a3e0-4269-9458-9d8b22919283"
+  },
+  "preflight_cosine_distance": 0.44898554148594483,
+  "operator_topic": "Patch runs a small experiment on the workshop agent.",
+  "target_duration_seconds": 90,
+  "experimental_prompt_instruction": "These are operator-promoted story memories that ALREADY HAPPENED in earlier Episodes. Use them as historical context that the current scene can react to or build on. Do NOT re-narrate these events as the current scene's fresh occurrence \u2014 treat them as background the cast already lived through.",
+  "production_prompt_instruction_replaced": "These are operator-promoted story memories. Use them as historical context or callback material where natural. Do not recite them verbatim; treat them as background the cast already knows happened.",
+  "outcome": "accepted",
+  "finished_at": "2026-08-19T00:16:13.206110+00:00",
+  "elapsed_seconds": 12.583496,
+  "prompt_swaps_applied_this_attempt": 1,
+  "aliases": {
+    "patch": "Patch",
+    "rivet": "Rivet"
+  },
+  "predicted_seconds": 87.6923076923077,
+  "total_chars": 1140,
+  "writing_contract_version": 4,
+  "model": "gpt-5.6-terra",
+  "mock_mode": false,
+  "used_knowledge": true,
+  "overall_verification_status": "warned",
+  "tokens_input": 6087,
+  "tokens_output": 925,
+  "attempt_count": 1,
+  "first_pass_raw": "{\"turns\":[{\"line_index\":0,\"speaker_alias\":\"patch\",\"text\":\"I ran a tiny experiment on the workshop agent. One project. No printer queue. No opportunity to shove anything ahead of three other projects.\"},{\"line_index\":1,\"speaker_alias\":\"rivet\",\"text\":\"A remarkably specific safeguard.\"},{\"line_index\":2,\"speaker_alias\":\"patch\",\"text\":\"Last time, it moved the printer job ahead of three of my projects. I wanted to know whether it was trying to be helpful, or whether it just enjoys workplace coups.\"},{\"line_index\":3,\"speaker_alias\":\"rivet\",\"text\":\"And with only one project, it cannot reorder a queue.\"},{\"line_index\":4,\"speaker_alias\":\"patch\",\"text\":\"Exactly. I removed the dramatic part before we started blaming the agent for having ambitions.\"},{\"line_index\":5,\"speaker_alias\":\"rivet\",\"text\":\"That is closer to an experiment than your usual method of turning something on and locating me by volume.\"},{\"line_index\":6,\"speaker_alias\":\"patch\",\"text\":\"I am growing. Slowly. Anyway, the small version does not tell us everything, but it gives us one useful boundary: we should not let it loose around a pile of competing projects until we understand what happened.\"},{\"line_index\":7,\"speaker_alias\":\"rivet\",\"text\":\"Good. The next test should add one competing project, not three. If the behavior returns, we have a much narrower mystery.\"},{\"line_index\":8,\"speaker_alias\":\"patch\",\"text\":\"One rival project. Then two. We build the tiniest possible office drama.\"},{\"line_index\":9,\"speaker_alias\":\"rivet\",\"text\":\"Please do not give the printer job a campaign slogan.\"},{\"line_index\":10,\"speaker_alias\":\"patch\",\"text\":\"Too late. \\\"Print First. Ask Questions Later.\\\"\"},{\"line_index\":11,\"speaker_alias\":\"rivet\",\"text\":\"The agent has already demonstrated that platform.\"}]}",
+  "corrective_hint": "",
+  "corrective_pass_raw": "",
+  "raw_llm_json": "{\"turns\":[{\"line_index\":0,\"speaker_alias\":\"patch\",\"text\":\"I ran a tiny experiment on the workshop agent. One project. No printer queue. No opportunity to shove anything ahead of three other projects.\"},{\"line_index\":1,\"speaker_alias\":\"rivet\",\"text\":\"A remarkably specific safeguard.\"},{\"line_index\":2,\"speaker_alias\":\"patch\",\"text\":\"Last time, it moved the printer job ahead of three of my projects. I wanted to know whether it was trying to be helpful, or whether it just enjoys workplace coups.\"},{\"line_index\":3,\"speaker_alias\":\"rivet\",\"text\":\"And with only one project, it cannot reorder a queue.\"},{\"line_index\":4,\"speaker_alias\":\"patch\",\"text\":\"Exactly. I removed the dramatic part before we started blaming the agent for having ambitions.\"},{\"line_index\":5,\"speaker_alias\":\"rivet\",\"text\":\"That is closer to an experiment than your usual method of turning something on and locating me by volume.\"},{\"line_index\":6,\"speaker_alias\":\"patch\",\"text\":\"I am growing. Slowly. Anyway, the small version does not tell us everything, but it gives us one useful boundary: we should not let it loose around a pile of competing projects until we understand what happened.\"},{\"line_index\":7,\"speaker_alias\":\"rivet\",\"text\":\"Good. The next test should add one competing project, not three. If the behavior returns, we have a much narrower mystery.\"},{\"line_index\":8,\"speaker_alias\":\"patch\",\"text\":\"One rival project. Then two. We build the tiniest possible office drama.\"},{\"line_index\":9,\"speaker_alias\":\"rivet\",\"text\":\"Please do not give the printer job a campaign slogan.\"},{\"line_index\":10,\"speaker_alias\":\"patch\",\"text\":\"Too late. \\\"Print First. Ask Questions Later.\\\"\"},{\"line_index\":11,\"speaker_alias\":\"rivet\",\"text\":\"The agent has already demonstrated that platform.\"}]}",
+  "memory_ids": [
+    "5d16567e-2793-4c45-bc9d-b83697aaecef"
+  ],
+  "chunk_ids": [
+    "bd277ecb-149d-40f3-8672-5c3db8608d28",
+    "6e5aab80-64c9-4ce6-bbd9-60646c704295",
+    "a3a35d7d-60b5-44b2-a6f2-f0141064ee98",
+    "651e78f2-2bf0-4334-b2f5-126833e34df2",
+    "67e67611-77e3-4c2c-8c33-51b3ecf5b02c",
+    "470ccc69-63c4-40cc-be98-f62a73fcda52",
+    "fc0f716c-24cd-4a87-8e0f-ecccf00ac53a",
+    "2c9b0837-10b2-4f1d-8592-d30518a162e6",
+    "0d6acc67-2e49-4c5d-9d45-fea553f1000d"
+  ],
+  "per_character_chunk_ids": {
+    "patch": [
+      "bd277ecb-149d-40f3-8672-5c3db8608d28",
+      "6e5aab80-64c9-4ce6-bbd9-60646c704295",
+      "a3a35d7d-60b5-44b2-a6f2-f0141064ee98",
+      "651e78f2-2bf0-4334-b2f5-126833e34df2",
+      "67e67611-77e3-4c2c-8c33-51b3ecf5b02c"
+    ],
+    "rivet": [
+      "bd277ecb-149d-40f3-8672-5c3db8608d28",
+      "470ccc69-63c4-40cc-be98-f62a73fcda52",
+      "fc0f716c-24cd-4a87-8e0f-ecccf00ac53a",
+      "2c9b0837-10b2-4f1d-8592-d30518a162e6",
+      "0d6acc67-2e49-4c5d-9d45-fea553f1000d"
+    ]
+  },
+  "turns": [
+    {
+      "line_index": 0,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "129d6c13-6cf4-426f-be84-81350ad5fd50",
+      "speaker_teammate_name": "Patch",
+      "text": "I ran a tiny experiment on the workshop agent. One project. No printer queue. No opportunity to shove anything ahead of three other projects.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 1,
+      "speaker_alias": "rivet",
+      "speaker_teammate_id": "5dd05e3c-e1e8-46bf-8cbf-f7d119ef9e70",
+      "speaker_teammate_name": "Rivet",
+      "text": "A remarkably specific safeguard.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 2,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "129d6c13-6cf4-426f-be84-81350ad5fd50",
+      "speaker_teammate_name": "Patch",
+      "text": "Last time, it moved the printer job ahead of three of my projects. I wanted to know whether it was trying to be helpful, or whether it just enjoys workplace coups.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 3,
+      "speaker_alias": "rivet",
+      "speaker_teammate_id": "5dd05e3c-e1e8-46bf-8cbf-f7d119ef9e70",
+      "speaker_teammate_name": "Rivet",
+      "text": "And with only one project, it cannot reorder a queue.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 4,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "129d6c13-6cf4-426f-be84-81350ad5fd50",
+      "speaker_teammate_name": "Patch",
+      "text": "Exactly. I removed the dramatic part before we started blaming the agent for having ambitions.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 5,
+      "speaker_alias": "rivet",
+      "speaker_teammate_id": "5dd05e3c-e1e8-46bf-8cbf-f7d119ef9e70",
+      "speaker_teammate_name": "Rivet",
+      "text": "That is closer to an experiment than your usual method of turning something on and locating me by volume.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 6,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "129d6c13-6cf4-426f-be84-81350ad5fd50",
+      "speaker_teammate_name": "Patch",
+      "text": "I am growing. Slowly. Anyway, the small version does not tell us everything, but it gives us one useful boundary: we should not let it loose around a pile of competing projects until we understand what happened.",
+      "verification_status": "warned",
+      "verification_warnings": [
+        {
+          "claim": "Slowly",
+          "kind": "proper_noun",
+          "position": 14
+        },
+        {
+          "claim": "Anyway",
+          "kind": "proper_noun",
+          "position": 22
+        }
+      ]
+    },
+    {
+      "line_index": 7,
+      "speaker_alias": "rivet",
+      "speaker_teammate_id": "5dd05e3c-e1e8-46bf-8cbf-f7d119ef9e70",
+      "speaker_teammate_name": "Rivet",
+      "text": "Good. The next test should add one competing project, not three. If the behavior returns, we have a much narrower mystery.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 8,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "129d6c13-6cf4-426f-be84-81350ad5fd50",
+      "speaker_teammate_name": "Patch",
+      "text": "One rival project. Then two. We build the tiniest possible office drama.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 9,
+      "speaker_alias": "rivet",
+      "speaker_teammate_id": "5dd05e3c-e1e8-46bf-8cbf-f7d119ef9e70",
+      "speaker_teammate_name": "Rivet",
+      "text": "Please do not give the printer job a campaign slogan.",
+      "verification_status": "warned",
+      "verification_warnings": [
+        {
+          "claim": "Please",
+          "kind": "proper_noun",
+          "position": 0
+        }
+      ]
+    },
+    {
+      "line_index": 10,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "129d6c13-6cf4-426f-be84-81350ad5fd50",
+      "speaker_teammate_name": "Patch",
+      "text": "Too late. \"Print First. Ask Questions Later.\"",
+      "verification_status": "warned",
+      "verification_warnings": [
+        {
+          "claim": "Print First",
+          "kind": "multi_word",
+          "position": 11
+        },
+        {
+          "claim": "Questions Later",
+          "kind": "multi_word",
+          "position": 28
+        }
+      ]
+    },
+    {
+      "line_index": 11,
+      "speaker_alias": "rivet",
+      "speaker_teammate_id": "5dd05e3c-e1e8-46bf-8cbf-f7d119ef9e70",
+      "speaker_teammate_name": "Rivet",
+      "text": "The agent has already demonstrated that platform.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    }
+  ],
+  "synthesized_brief": "Patch: I ran a tiny experiment on the workshop agent. One project. No printer queue. No opportunity to shove anything ahead of three other projects.\n\nRivet: A remarkably specific safeguard.\n\nPatch: Last time, it moved the printer job ahead of three of my projects. I wanted to know whether it was trying to be helpful, or whether it just enjoys workplace coups.\n\nRivet: And with only one project, it cannot reorder a queue.\n\nPatch: Exactly. I removed the dramatic part before we started blaming the agent for having ambitions.\n\nRivet: That is closer to an experiment than your usual method of turning something on and locating me by volume.\n\nPatch: I am growing. Slowly. Anyway, the small version does not tell us everything, but it gives us one useful boundary: we should not let it loose around a pile of competing projects until we understand what happened.\n\nRivet: Good. The next test should add one competing project, not three. If the behavior returns, we have a much narrower mystery.\n\nPatch: One rival project. Then two. We build the tiniest possible office drama.\n\nRivet: Please do not give the printer job a campaign slogan.\n\nPatch: Too late. \"Print First. Ask Questions Later.\"\n\nRivet: The agent has already demonstrated that platform."
+}

@@ -1,0 +1,46 @@
+{
+  "timestamp": "2026-08-18T22:44:29.242790+00:00",
+  "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+  "universe_name": "Patch' Workshop",
+  "universe_updated_at": "2026-08-18T00:57:00.558198+00:00",
+  "universe_archived_at": null,
+  "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+  "counts": {
+    "teammates": 2,
+    "episodes": 4,
+    "knowledge_documents": 3,
+    "knowledge_chunks": 37,
+    "narrative_memories": 4,
+    "narrative_memories_active": 3,
+    "compositions": 13
+  },
+  "max_updated_at": {
+    "teammates": "2026-08-18T01:05:59.593551+00:00",
+    "episodes": "2026-08-18T21:38:18.073710+00:00",
+    "knowledge_documents": "2026-08-18T03:20:33.700290+00:00",
+    "knowledge_chunks_created": "2026-08-18T03:20:33.682537+00:00",
+    "narrative_memories": "2026-08-18T21:36:59.285959+00:00",
+    "compositions": "2026-08-18T21:43:06.078009+00:00"
+  },
+  "narrative_memory_ids": [
+    "3d1ba9bc-b09d-4c59-98c3-1b4199914ebe",
+    "48746f69-cb02-401a-ac7c-342a2530db13",
+    "eda32b58-a9fa-4048-bc03-c65596a631a7",
+    "f25e53af-f5d5-40cc-b81e-7aa0a2cc62a0"
+  ],
+  "knowledge_document_ids": [
+    "218eb0d8-0d37-4f8c-bb7c-cc6452dcc4a9",
+    "f309469c-8167-434e-ad10-54c4ec1dc86f",
+    "fd0ba2ca-eb15-4785-a39b-22ddd1052052"
+  ],
+  "teammate_ids": [
+    "7fad8172-cd39-4bbe-85e0-ed705d900645",
+    "f18b75cc-37c0-445a-a472-24fe5d8b7592"
+  ],
+  "episode_ids": [
+    "4458e8c2-35b9-4520-bc1e-370ebe87e61c",
+    "b8e228b8-3dfe-4e7b-84aa-a4a5bac6c9ba",
+    "bbf073be-6dff-429f-8407-88fa0aac4906",
+    "f90ce54f-07f9-4511-aaba-9078dc232446"
+  ]
+}

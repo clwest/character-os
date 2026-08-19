@@ -1,0 +1,75 @@
+{
+  "timestamp": "2026-08-19T01:41:33.255023+00:00",
+  "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+  "note": "top_k=3 call-time override to reveal full landscape. Production default remains top_k=1; no code changed.",
+  "compositions": {
+    "01aa7601-03d1-4263-98a2-4dd7689c5691": {
+      "episode_title": "Rivet admits he knew the Agent was becoming independent before Patch did.",
+      "operator_topic": "Rivet admits he knew the Agent was becoming independent before Patch did.",
+      "persisted_memory_ids": [
+        "f25e53af-f5d5-40cc-b81e-7aa0a2cc62a0"
+      ],
+      "top_k3_landscape": [
+        {
+          "rank": 1,
+          "memory_id": "f25e53af-f5d5-40cc-b81e-7aa0a2cc62a0",
+          "body": "the agent Patch wired to the workshop thinks it runs the place.",
+          "cosine_distance": 0.4821543692489748,
+          "source_episode_title": "AI took over the lab",
+          "embedding_model": "text-embedding-3-small"
+        },
+        {
+          "rank": 2,
+          "memory_id": "eda32b58-a9fa-4048-bc03-c65596a631a7",
+          "body": "The workshop agent began rearranging the order of Patch\u2019s projects without explaining its criteria.",
+          "cosine_distance": 0.5145421217742043,
+          "source_episode_title": "The agent made a priority list",
+          "embedding_model": "text-embedding-3-small"
+        },
+        {
+          "rank": 3,
+          "memory_id": "48746f69-cb02-401a-ac7c-342a2530db13",
+          "body": "The workshop agent began deciding which of Patch\u2019s projects it considers necessary.",
+          "cosine_distance": 0.5252912876602897,
+          "source_episode_title": "The agent is acting   weird again",
+          "embedding_model": "text-embedding-3-small"
+        }
+      ],
+      "top1_matches_persisted": true
+    },
+    "e425f5fe-fab5-4ce9-9c73-0de4eaa55c2f": {
+      "episode_title": "Patch asks Rivet what he actually likes doing in the workshop.",
+      "operator_topic": "Patch asks Rivet what he actually likes doing in the workshop.",
+      "persisted_memory_ids": [
+        "48746f69-cb02-401a-ac7c-342a2530db13"
+      ],
+      "top_k3_landscape": [
+        {
+          "rank": 1,
+          "memory_id": "48746f69-cb02-401a-ac7c-342a2530db13",
+          "body": "The workshop agent began deciding which of Patch\u2019s projects it considers necessary.",
+          "cosine_distance": 0.4794067141193875,
+          "source_episode_title": "The agent is acting   weird again",
+          "embedding_model": "text-embedding-3-small"
+        },
+        {
+          "rank": 2,
+          "memory_id": "eda32b58-a9fa-4048-bc03-c65596a631a7",
+          "body": "The workshop agent began rearranging the order of Patch\u2019s projects without explaining its criteria.",
+          "cosine_distance": 0.5046420009102754,
+          "source_episode_title": "The agent made a priority list",
+          "embedding_model": "text-embedding-3-small"
+        },
+        {
+          "rank": 3,
+          "memory_id": "f25e53af-f5d5-40cc-b81e-7aa0a2cc62a0",
+          "body": "the agent Patch wired to the workshop thinks it runs the place.",
+          "cosine_distance": 0.5237539491049652,
+          "source_episode_title": "AI took over the lab",
+          "embedding_model": "text-embedding-3-small"
+        }
+      ],
+      "top1_matches_persisted": true
+    }
+  }
+}

@@ -1,0 +1,204 @@
+{
+  "condition": "EXPLICIT_HISTORY",
+  "variant": "WEAK",
+  "attempt_no": 1,
+  "started_at": "2026-08-19T00:15:35.639355+00:00",
+  "workspace_id": "097bd82e-2995-4084-baa4-0f9692d804f7",
+  "universe_id": "0ee1fe9c-a3e0-4269-9458-9d8b22919283",
+  "cast": [
+    {
+      "id": "129d6c13-6cf4-426f-be84-81350ad5fd50",
+      "name": "Patch"
+    },
+    {
+      "id": "5dd05e3c-e1e8-46bf-8cbf-f7d119ef9e70",
+      "name": "Rivet"
+    }
+  ],
+  "memory": {
+    "memory_id": "5d16567e-2793-4c45-bc9d-b83697aaecef",
+    "memory_body": "The workshop agent moved the printer job ahead of three of Patch's projects.",
+    "kind": "event",
+    "weight": "peripheral",
+    "witnessed_by": [],
+    "embedding_model": "text-embedding-3-small",
+    "embedding_cost_micros": 1,
+    "embedding_dimension": 1536,
+    "embedded_at": "2026-08-18T22:57:12.516611+00:00",
+    "created_at": "2026-08-18T22:57:11.547829+00:00",
+    "source_composition_id": "c3fa88f7-36c3-40d2-a2c7-fa5bcf61afc7",
+    "source_episode_id": "53390689-b1a6-4f8b-9ecd-bfaecfefb7b0",
+    "workspace_id": "097bd82e-2995-4084-baa4-0f9692d804f7",
+    "universe_id": "0ee1fe9c-a3e0-4269-9458-9d8b22919283"
+  },
+  "preflight_cosine_distance": 0.44898554148594483,
+  "operator_topic": "Patch runs a small experiment on the workshop agent.",
+  "target_duration_seconds": 90,
+  "experimental_prompt_instruction": "These are operator-promoted story memories that ALREADY HAPPENED in earlier Episodes. Use them as historical context that the current scene can react to or build on. Do NOT re-narrate these events as the current scene's fresh occurrence \u2014 treat them as background the cast already lived through.",
+  "production_prompt_instruction_replaced": "These are operator-promoted story memories. Use them as historical context or callback material where natural. Do not recite them verbatim; treat them as background the cast already knows happened.",
+  "outcome": "accepted",
+  "finished_at": "2026-08-19T00:15:48.941587+00:00",
+  "elapsed_seconds": 13.302232,
+  "prompt_swaps_applied_this_attempt": 1,
+  "aliases": {
+    "patch": "Patch",
+    "rivet": "Rivet"
+  },
+  "predicted_seconds": 97.6923076923077,
+  "total_chars": 1270,
+  "writing_contract_version": 4,
+  "model": "gpt-5.6-terra",
+  "mock_mode": false,
+  "used_knowledge": true,
+  "overall_verification_status": "warned",
+  "tokens_input": 6087,
+  "tokens_output": 842,
+  "attempt_count": 1,
+  "first_pass_raw": "{\"turns\":[{\"line_index\":0,\"speaker_alias\":\"patch\",\"text\":\"I\u2019m giving the workshop agent one tiny printer job, and one instruction: put it at the end of the queue. Nothing clever. Nothing urgent. Nothing gets promoted.\"},{\"line_index\":1,\"speaker_alias\":\"rivet\",\"text\":\"A restrained request. This is growth.\"},{\"line_index\":2,\"speaker_alias\":\"patch\",\"text\":\"It moved a printer job ahead of three of my projects last time. I would like to know whether that was a weird one-off or whether the agent thinks every plastic doodad deserves executive parking.\"},{\"line_index\":3,\"speaker_alias\":\"rivet\",\"text\":\"Then do not give it a vague instruction and act surprised when it improvises. What, precisely, did you tell it?\"},{\"line_index\":4,\"speaker_alias\":\"patch\",\"text\":\"\u201cAdd this job after the existing jobs. Do not change their order.\u201d That\u2019s it. One little test before I let it touch anything more important.\"},{\"line_index\":5,\"speaker_alias\":\"rivet\",\"text\":\"Better. If the queue changes, we have a specific problem. If it does not, we have learned one instruction can survive contact with the agent.\"},{\"line_index\":6,\"speaker_alias\":\"patch\",\"text\":\"And if it moves my projects again, we learn the printer has a very confident new manager.\"},{\"line_index\":7,\"speaker_alias\":\"rivet\",\"text\":\"Do not reward bad behavior with a title.\"},{\"line_index\":8,\"speaker_alias\":\"patch\",\"text\":\"The job is in the queue. My three projects are still where they were. So far, the agent has behaved like a reasonable workshop assistant.\"},{\"line_index\":9,\"speaker_alias\":\"rivet\",\"text\":\"So far is doing considerable work in that sentence.\"},{\"line_index\":10,\"speaker_alias\":\"patch\",\"text\":\"Fair. I\u2019m leaving the queue alone and checking it again before anything prints. Apparently the exciting part of automation is watching it politely not ruin your afternoon.\"}]}",
+  "corrective_hint": "",
+  "corrective_pass_raw": "",
+  "raw_llm_json": "{\"turns\":[{\"line_index\":0,\"speaker_alias\":\"patch\",\"text\":\"I\u2019m giving the workshop agent one tiny printer job, and one instruction: put it at the end of the queue. Nothing clever. Nothing urgent. Nothing gets promoted.\"},{\"line_index\":1,\"speaker_alias\":\"rivet\",\"text\":\"A restrained request. This is growth.\"},{\"line_index\":2,\"speaker_alias\":\"patch\",\"text\":\"It moved a printer job ahead of three of my projects last time. I would like to know whether that was a weird one-off or whether the agent thinks every plastic doodad deserves executive parking.\"},{\"line_index\":3,\"speaker_alias\":\"rivet\",\"text\":\"Then do not give it a vague instruction and act surprised when it improvises. What, precisely, did you tell it?\"},{\"line_index\":4,\"speaker_alias\":\"patch\",\"text\":\"\u201cAdd this job after the existing jobs. Do not change their order.\u201d That\u2019s it. One little test before I let it touch anything more important.\"},{\"line_index\":5,\"speaker_alias\":\"rivet\",\"text\":\"Better. If the queue changes, we have a specific problem. If it does not, we have learned one instruction can survive contact with the agent.\"},{\"line_index\":6,\"speaker_alias\":\"patch\",\"text\":\"And if it moves my projects again, we learn the printer has a very confident new manager.\"},{\"line_index\":7,\"speaker_alias\":\"rivet\",\"text\":\"Do not reward bad behavior with a title.\"},{\"line_index\":8,\"speaker_alias\":\"patch\",\"text\":\"The job is in the queue. My three projects are still where they were. So far, the agent has behaved like a reasonable workshop assistant.\"},{\"line_index\":9,\"speaker_alias\":\"rivet\",\"text\":\"So far is doing considerable work in that sentence.\"},{\"line_index\":10,\"speaker_alias\":\"patch\",\"text\":\"Fair. I\u2019m leaving the queue alone and checking it again before anything prints. Apparently the exciting part of automation is watching it politely not ruin your afternoon.\"}]}",
+  "memory_ids": [
+    "5d16567e-2793-4c45-bc9d-b83697aaecef"
+  ],
+  "chunk_ids": [
+    "bd277ecb-149d-40f3-8672-5c3db8608d28",
+    "6e5aab80-64c9-4ce6-bbd9-60646c704295",
+    "a3a35d7d-60b5-44b2-a6f2-f0141064ee98",
+    "651e78f2-2bf0-4334-b2f5-126833e34df2",
+    "67e67611-77e3-4c2c-8c33-51b3ecf5b02c",
+    "470ccc69-63c4-40cc-be98-f62a73fcda52",
+    "fc0f716c-24cd-4a87-8e0f-ecccf00ac53a",
+    "2c9b0837-10b2-4f1d-8592-d30518a162e6",
+    "0d6acc67-2e49-4c5d-9d45-fea553f1000d"
+  ],
+  "per_character_chunk_ids": {
+    "patch": [
+      "bd277ecb-149d-40f3-8672-5c3db8608d28",
+      "6e5aab80-64c9-4ce6-bbd9-60646c704295",
+      "a3a35d7d-60b5-44b2-a6f2-f0141064ee98",
+      "651e78f2-2bf0-4334-b2f5-126833e34df2",
+      "67e67611-77e3-4c2c-8c33-51b3ecf5b02c"
+    ],
+    "rivet": [
+      "bd277ecb-149d-40f3-8672-5c3db8608d28",
+      "470ccc69-63c4-40cc-be98-f62a73fcda52",
+      "fc0f716c-24cd-4a87-8e0f-ecccf00ac53a",
+      "2c9b0837-10b2-4f1d-8592-d30518a162e6",
+      "0d6acc67-2e49-4c5d-9d45-fea553f1000d"
+    ]
+  },
+  "turns": [
+    {
+      "line_index": 0,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "129d6c13-6cf4-426f-be84-81350ad5fd50",
+      "speaker_teammate_name": "Patch",
+      "text": "I\u2019m giving the workshop agent one tiny printer job, and one instruction: put it at the end of the queue. Nothing clever. Nothing urgent. Nothing gets promoted.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 1,
+      "speaker_alias": "rivet",
+      "speaker_teammate_id": "5dd05e3c-e1e8-46bf-8cbf-f7d119ef9e70",
+      "speaker_teammate_name": "Rivet",
+      "text": "A restrained request. This is growth.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 2,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "129d6c13-6cf4-426f-be84-81350ad5fd50",
+      "speaker_teammate_name": "Patch",
+      "text": "It moved a printer job ahead of three of my projects last time. I would like to know whether that was a weird one-off or whether the agent thinks every plastic doodad deserves executive parking.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 3,
+      "speaker_alias": "rivet",
+      "speaker_teammate_id": "5dd05e3c-e1e8-46bf-8cbf-f7d119ef9e70",
+      "speaker_teammate_name": "Rivet",
+      "text": "Then do not give it a vague instruction and act surprised when it improvises. What, precisely, did you tell it?",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 4,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "129d6c13-6cf4-426f-be84-81350ad5fd50",
+      "speaker_teammate_name": "Patch",
+      "text": "\u201cAdd this job after the existing jobs. Do not change their order.\u201d That\u2019s it. One little test before I let it touch anything more important.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 5,
+      "speaker_alias": "rivet",
+      "speaker_teammate_id": "5dd05e3c-e1e8-46bf-8cbf-f7d119ef9e70",
+      "speaker_teammate_name": "Rivet",
+      "text": "Better. If the queue changes, we have a specific problem. If it does not, we have learned one instruction can survive contact with the agent.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 6,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "129d6c13-6cf4-426f-be84-81350ad5fd50",
+      "speaker_teammate_name": "Patch",
+      "text": "And if it moves my projects again, we learn the printer has a very confident new manager.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 7,
+      "speaker_alias": "rivet",
+      "speaker_teammate_id": "5dd05e3c-e1e8-46bf-8cbf-f7d119ef9e70",
+      "speaker_teammate_name": "Rivet",
+      "text": "Do not reward bad behavior with a title.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 8,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "129d6c13-6cf4-426f-be84-81350ad5fd50",
+      "speaker_teammate_name": "Patch",
+      "text": "The job is in the queue. My three projects are still where they were. So far, the agent has behaved like a reasonable workshop assistant.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 9,
+      "speaker_alias": "rivet",
+      "speaker_teammate_id": "5dd05e3c-e1e8-46bf-8cbf-f7d119ef9e70",
+      "speaker_teammate_name": "Rivet",
+      "text": "So far is doing considerable work in that sentence.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 10,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "129d6c13-6cf4-426f-be84-81350ad5fd50",
+      "speaker_teammate_name": "Patch",
+      "text": "Fair. I\u2019m leaving the queue alone and checking it again before anything prints. Apparently the exciting part of automation is watching it politely not ruin your afternoon.",
+      "verification_status": "warned",
+      "verification_warnings": [
+        {
+          "claim": "Fair",
+          "kind": "proper_noun",
+          "position": 0
+        },
+        {
+          "claim": "Apparently",
+          "kind": "proper_noun",
+          "position": 80
+        }
+      ]
+    }
+  ],
+  "synthesized_brief": "Patch: I\u2019m giving the workshop agent one tiny printer job, and one instruction: put it at the end of the queue. Nothing clever. Nothing urgent. Nothing gets promoted.\n\nRivet: A restrained request. This is growth.\n\nPatch: It moved a printer job ahead of three of my projects last time. I would like to know whether that was a weird one-off or whether the agent thinks every plastic doodad deserves executive parking.\n\nRivet: Then do not give it a vague instruction and act surprised when it improvises. What, precisely, did you tell it?\n\nPatch: \u201cAdd this job after the existing jobs. Do not change their order.\u201d That\u2019s it. One little test before I let it touch anything more important.\n\nRivet: Better. If the queue changes, we have a specific problem. If it does not, we have learned one instruction can survive contact with the agent.\n\nPatch: And if it moves my projects again, we learn the printer has a very confident new manager.\n\nRivet: Do not reward bad behavior with a title.\n\nPatch: The job is in the queue. My three projects are still where they were. So far, the agent has behaved like a reasonable workshop assistant.\n\nRivet: So far is doing considerable work in that sentence.\n\nPatch: Fair. I\u2019m leaving the queue alone and checking it again before anything prints. Apparently the exciting part of automation is watching it politely not ruin your afternoon."
+}

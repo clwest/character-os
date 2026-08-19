@@ -1,0 +1,94 @@
+{
+  "timestamp": "2026-08-19T02:10:35.604528+00:00",
+  "id": "7d913cf4-23d5-454c-a2bb-3d0f2bb9d68a",
+  "name": "Dialogue \u2014 Hey Rivet,",
+  "template_kind": "dialogue_scene",
+  "status": "completed",
+  "verification_status": "verified",
+  "verification_warnings": [
+    {
+      "kind": "multi_word",
+      "claim": "Hey Rivet",
+      "position": 0,
+      "line_index": 0,
+      "speaker_name": "Patch",
+      "speaker_alias": "patch"
+    },
+    {
+      "kind": "proper_noun",
+      "claim": "Promising",
+      "position": 68,
+      "line_index": 3,
+      "speaker_name": "Rivet",
+      "speaker_alias": "rivet"
+    }
+  ],
+  "rejected_synthesis": "",
+  "mock_mode": false,
+  "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+  "spokesperson_id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+  "spokesperson_name": "Patch",
+  "cast": [
+    "Patch",
+    "Rivet"
+  ],
+  "episode_id": "9c3dbd88-9270-4223-a8b2-b1cdbf3f0f25",
+  "episode_title": "Patch tries to teach Rivet something ridiculous.",
+  "episode_operator_topic": "Patch tries to teach Rivet something ridiculous.",
+  "episode_universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+  "episode_universe_name": "Patch' Workshop",
+  "operator_topic": "Patch tries to teach Rivet something ridiculous.",
+  "target_duration_seconds": 90,
+  "synthesis_predicted_seconds": 98.53846153846153,
+  "synthesis_attempt_count": 1,
+  "first_pass_synthesis": "{\"turns\":[{\"line_index\":0,\"speaker_alias\":\"patch\",\"text\":\"Hey Rivet,\"},{\"line_index\":1,\"speaker_alias\":\"rivet\",\"text\":\"That tone usually means an object in this workshop has been given a responsibility it did not request.\"},{\"line_index\":2,\"speaker_alias\":\"patch\",\"text\":\"I\u2019m teaching you intuition.\"},{\"line_index\":3,\"speaker_alias\":\"rivet\",\"text\":\"You have selected a word with several meanings and no instructions. Promising start.\"},{\"line_index\":4,\"speaker_alias\":\"patch\",\"text\":\"Look at the bench. We\u2019ve got half-finished projects everywhere. The workshop agent already started rearranging them without explaining why, so I thought: what if you choose the next project by vibe?\"},{\"line_index\":5,\"speaker_alias\":\"rivet\",\"text\":\"The agent changing project order without criteria is not intuition. It is unexplained behavior. Your proposed correction is to add unexplained behavior with better branding.\"},{\"line_index\":6,\"speaker_alias\":\"patch\",\"text\":\"No, no. You look at the projects, pause dramatically, and say which one feels like it wants to exist today.\"},{\"line_index\":7,\"speaker_alias\":\"rivet\",\"text\":\"The 3D printer is familiar. It does not appear emotionally invested in being selected.\"},{\"line_index\":8,\"speaker_alias\":\"patch\",\"text\":\"Exactly. That\u2019s the lesson. You don\u2019t need evidence first. You make a tiny choice, build something, and then evidence shows up and either congratulates you or throws a wrench at your forehead.\"},{\"line_index\":9,\"speaker_alias\":\"rivet\",\"text\":\"That is not intuition. That is beginning an experiment before the details are settled.\"},{\"line_index\":10,\"speaker_alias\":\"patch\",\"text\":\"See? You\u2019re getting it already. Which project has the strongest vibe?\"},{\"line_index\":11,\"speaker_alias\":\"rivet\",\"text\":\"The one involving the 3D printer. Not because of a vibe. Because you are smiling at it in a way I have learned to treat as an early warning signal.\"}]}",
+  "corrective_hint": "",
+  "corrective_pass_synthesis": "",
+  "validation_failure_reason": "",
+  "writing_contract_version": 4,
+  "synthesized_brief": "# AI Topic dialogue synthesis\n# Aliases: patch='Patch', rivet='Rivet'\n# Per-character knowledge chunks: patch=[da7e6553-a5ea-463f-994f-354289ab9b5b,9c85e17e-731c-4e1b-860e-33825b9f668d,55518c20-a4e6-4a63-b21e-f25f0b4b0688,c24d1aa7-1dab-499f-83a7-f9554de5e8e7,0b0284a1-e8fc-411b-840d-ce7cc006ca91]; rivet=[da7e6553-a5ea-463f-994f-354289ab9b5b,fb84ba3d-b486-4f8d-a2bc-d47445af475a,43f0c543-c7a5-429a-b8cf-f1f750df7ae8,63935755-8e1f-4ecb-9cde-585b692388c7,8eda13b7-d561-4c0f-9c1d-7d72ff0b0033]\n# Predicted ~99s (1281 chars) targeting 90s\n\nPatch: Hey Rivet,\n\nRivet: That tone usually means an object in this workshop has been given a responsibility it did not request.\n\nPatch: I\u2019m teaching you intuition.\n\nRivet: You have selected a word with several meanings and no instructions. Promising start.\n\nPatch: Look at the bench. We\u2019ve got half-finished projects everywhere. The workshop agent already started rearranging them without explaining why, so I thought: what if you choose the next project by vibe?\n\nRivet: The agent changing project order without criteria is not intuition. It is unexplained behavior. Your proposed correction is to add unexplained behavior with better branding.\n\nPatch: No, no. You look at the projects, pause dramatically, and say which one feels like it wants to exist today.\n\nRivet: The 3D printer is familiar. It does not appear emotionally invested in being selected.\n\nPatch: Exactly. That\u2019s the lesson. You don\u2019t need evidence first. You make a tiny choice, build something, and then evidence shows up and either congratulates you or throws a wrench at your forehead.\n\nRivet: That is not intuition. That is beginning an experiment before the details are settled.\n\nPatch: See? You\u2019re getting it already. Which project has the strongest vibe?\n\nRivet: The one involving the 3D printer. Not because of a vibe. Because you are smiling at it in a way I have learned to treat as an early warning signal.\n",
+  "memory_ids": [
+    "eda32b58-a9fa-4048-bc03-c65596a631a7"
+  ],
+  "knowledge_chunk_ids": [
+    "da7e6553-a5ea-463f-994f-354289ab9b5b",
+    "9c85e17e-731c-4e1b-860e-33825b9f668d",
+    "55518c20-a4e6-4a63-b21e-f25f0b4b0688",
+    "c24d1aa7-1dab-499f-83a7-f9554de5e8e7",
+    "0b0284a1-e8fc-411b-840d-ce7cc006ca91",
+    "fb84ba3d-b486-4f8d-a2bc-d47445af475a",
+    "43f0c543-c7a5-429a-b8cf-f1f750df7ae8",
+    "63935755-8e1f-4ecb-9cde-585b692388c7",
+    "8eda13b7-d561-4c0f-9c1d-7d72ff0b0033"
+  ],
+  "knowledge_chunk_count": 9,
+  "step_count": 13,
+  "provider_dispatch_count_speech": 12,
+  "cost_estimate_micros": 0,
+  "cost_actual_micros": 240100,
+  "render_dispatched_at": "2026-08-19T01:59:49.745159+00:00",
+  "created_at": "2026-08-19T01:59:49.524094+00:00",
+  "updated_at": "2026-08-19T02:03:08.391076+00:00",
+  "final_asset_id": "39f029a0-9322-49b5-88e4-4e3ceb45cc6a",
+  "final_asset_duration_ms": 93051,
+  "resolved_memories": [
+    {
+      "id": "eda32b58-a9fa-4048-bc03-c65596a631a7",
+      "body": "The workshop agent began rearranging the order of Patch\u2019s projects without explaining its criteria.",
+      "source_episode_title": "The agent made a priority list",
+      "witnessed_by": [],
+      "kind": "event",
+      "status_now": "remembered",
+      "archived_at_now": null
+    }
+  ],
+  "prediction_check": {
+    "predicted_memory_id": "eda32b58-a9fa-4048-bc03-c65596a631a7",
+    "actual_memory_ids": [
+      "eda32b58-a9fa-4048-bc03-c65596a631a7"
+    ],
+    "prediction_matched": true,
+    "rivet_only_memory_id": "cd73d52f-6bce-443e-afa5-e24cddd53e78",
+    "rivet_only_retrieved": false
+  }
+}

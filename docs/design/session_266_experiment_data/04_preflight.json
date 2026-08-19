@@ -1,0 +1,33 @@
+{
+  "locked_topic": "Patch runs a small experiment on the workshop agent.",
+  "sides": {
+    "WEAK": {
+      "workspace_id": "097bd82e-2995-4084-baa4-0f9692d804f7",
+      "universe_id": "0ee1fe9c-a3e0-4269-9458-9d8b22919283",
+      "cast_names": [
+        "Patch",
+        "Rivet"
+      ],
+      "eligible_memory_count": 1,
+      "retrieved_memory_id": "5d16567e-2793-4c45-bc9d-b83697aaecef",
+      "retrieved_memory_body": "The workshop agent moved the printer job ahead of three of Patch's projects.",
+      "cosine_distance": 0.44898554148594483,
+      "embedding_model": "text-embedding-3-small",
+      "embedding_dimension": 1536
+    },
+    "STRONG": {
+      "workspace_id": "fa26e601-9193-4b5b-b502-44cfe06557bf",
+      "universe_id": "a6ff5a3f-9437-46dd-bdc5-b51bd3532cd9",
+      "cast_names": [
+        "Patch",
+        "Rivet"
+      ],
+      "eligible_memory_count": 1,
+      "retrieved_memory_id": "adbb9a9c-13cd-4154-94f0-de4a1b220be2",
+      "retrieved_memory_body": "The workshop agent began rearranging the order of Patch's projects without explaining its criteria.",
+      "cosine_distance": 0.457608597761903,
+      "embedding_model": "text-embedding-3-small",
+      "embedding_dimension": 1536
+    }
+  }
+}

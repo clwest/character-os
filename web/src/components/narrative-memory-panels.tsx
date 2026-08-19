@@ -175,14 +175,14 @@ export function NarrativeMemoryPromotePanel({
           htmlFor="nm-body"
           className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground"
         >
-          What happened?
+          What changed?
         </label>
         <textarea
           id="nm-body"
           className="min-h-[80px] rounded-md border border-fog/30 bg-black/20 px-3 py-2 text-foreground"
           value={body}
           onChange={(ev) => setBody(ev.target.value)}
-          placeholder="e.g. Patch connected an AI agent to the workshop tools and the printer started a job he did not queue."
+          placeholder="e.g. The workshop agent started making decisions Patch didn't ask it to make."
           data-testid="nm-body"
         />
 

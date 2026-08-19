@@ -1,0 +1,221 @@
+{
+  "condition": "EXPLICIT_HISTORY",
+  "variant": "STRONG",
+  "attempt_no": 1,
+  "started_at": "2026-08-19T00:16:13.235858+00:00",
+  "workspace_id": "fa26e601-9193-4b5b-b502-44cfe06557bf",
+  "universe_id": "a6ff5a3f-9437-46dd-bdc5-b51bd3532cd9",
+  "cast": [
+    {
+      "id": "40acbda6-dc88-464d-903a-5fd840aa94a3",
+      "name": "Patch"
+    },
+    {
+      "id": "4a325f14-adf8-47ca-9f61-b10102b817b0",
+      "name": "Rivet"
+    }
+  ],
+  "memory": {
+    "memory_id": "adbb9a9c-13cd-4154-94f0-de4a1b220be2",
+    "memory_body": "The workshop agent began rearranging the order of Patch's projects without explaining its criteria.",
+    "kind": "event",
+    "weight": "peripheral",
+    "witnessed_by": [],
+    "embedding_model": "text-embedding-3-small",
+    "embedding_cost_micros": 1,
+    "embedding_dimension": 1536,
+    "embedded_at": "2026-08-18T22:57:12.767482+00:00",
+    "created_at": "2026-08-18T22:57:12.535404+00:00",
+    "source_composition_id": "2b006c0d-04eb-4698-a0fc-e6f0c6e052de",
+    "source_episode_id": "b0d5af20-b26b-4725-8527-b5dd07d81aa8",
+    "workspace_id": "fa26e601-9193-4b5b-b502-44cfe06557bf",
+    "universe_id": "a6ff5a3f-9437-46dd-bdc5-b51bd3532cd9"
+  },
+  "preflight_cosine_distance": 0.457608597761903,
+  "operator_topic": "Patch runs a small experiment on the workshop agent.",
+  "target_duration_seconds": 90,
+  "experimental_prompt_instruction": "These are operator-promoted story memories that ALREADY HAPPENED in earlier Episodes. Use them as historical context that the current scene can react to or build on. Do NOT re-narrate these events as the current scene's fresh occurrence \u2014 treat them as background the cast already lived through.",
+  "production_prompt_instruction_replaced": "These are operator-promoted story memories. Use them as historical context or callback material where natural. Do not recite them verbatim; treat them as background the cast already knows happened.",
+  "outcome": "accepted",
+  "finished_at": "2026-08-19T00:16:24.302999+00:00",
+  "elapsed_seconds": 11.067141,
+  "prompt_swaps_applied_this_attempt": 1,
+  "aliases": {
+    "patch": "Patch",
+    "rivet": "Rivet"
+  },
+  "predicted_seconds": 92.61538461538461,
+  "total_chars": 1204,
+  "writing_contract_version": 4,
+  "model": "gpt-5.6-terra",
+  "mock_mode": false,
+  "used_knowledge": true,
+  "overall_verification_status": "warned",
+  "tokens_input": 6086,
+  "tokens_output": 772,
+  "attempt_count": 1,
+  "first_pass_raw": "{\"turns\":[{\"line_index\":0,\"speaker_alias\":\"patch\",\"text\":\"Rivet, I ran a tiny experiment on the workshop agent. Three project cards. Same projects, same order. I asked it to arrange them twice.\"},{\"line_index\":1,\"speaker_alias\":\"rivet\",\"text\":\"You tested the thing that has been quietly reordering your work without explaining itself. A remarkably restrained response.\"},{\"line_index\":2,\"speaker_alias\":\"patch\",\"text\":\"I\u2019m growing. Anyway, first run: it changed the order. Second run: changed it differently.\"},{\"line_index\":3,\"speaker_alias\":\"rivet\",\"text\":\"Did it provide a reason either time?\"},{\"line_index\":4,\"speaker_alias\":\"patch\",\"text\":\"Nope. Just shuffled my projects around like a very confident little goblin with access to my desk.\"},{\"line_index\":5,\"speaker_alias\":\"rivet\",\"text\":\"Then the useful result is not that it can rearrange things. We already knew that. The useful result is that its ordering is not something you can rely on yet.\"},{\"line_index\":6,\"speaker_alias\":\"patch\",\"text\":\"Exactly. I was ready to build it into the whole workshop flow, which would have been fun right up until it decided the unfinished prototype belonged ahead of the project we actually needed.\"},{\"line_index\":7,\"speaker_alias\":\"rivet\",\"text\":\"A small test has prevented a larger, more irritating test.\"},{\"line_index\":8,\"speaker_alias\":\"patch\",\"text\":\"So next I\u2019m not asking it to run the workshop. I\u2019m asking it one annoyingly specific question: why did you move this project?\"},{\"line_index\":9,\"speaker_alias\":\"rivet\",\"text\":\"Good. If it cannot explain the order, it does not get to choose the order.\"},{\"line_index\":10,\"speaker_alias\":\"patch\",\"text\":\"Harsh, but fair. Congratulations, workshop agent. You have been promoted from mysterious manager to suspicious intern.\"}]}",
+  "corrective_hint": "",
+  "corrective_pass_raw": "",
+  "raw_llm_json": "{\"turns\":[{\"line_index\":0,\"speaker_alias\":\"patch\",\"text\":\"Rivet, I ran a tiny experiment on the workshop agent. Three project cards. Same projects, same order. I asked it to arrange them twice.\"},{\"line_index\":1,\"speaker_alias\":\"rivet\",\"text\":\"You tested the thing that has been quietly reordering your work without explaining itself. A remarkably restrained response.\"},{\"line_index\":2,\"speaker_alias\":\"patch\",\"text\":\"I\u2019m growing. Anyway, first run: it changed the order. Second run: changed it differently.\"},{\"line_index\":3,\"speaker_alias\":\"rivet\",\"text\":\"Did it provide a reason either time?\"},{\"line_index\":4,\"speaker_alias\":\"patch\",\"text\":\"Nope. Just shuffled my projects around like a very confident little goblin with access to my desk.\"},{\"line_index\":5,\"speaker_alias\":\"rivet\",\"text\":\"Then the useful result is not that it can rearrange things. We already knew that. The useful result is that its ordering is not something you can rely on yet.\"},{\"line_index\":6,\"speaker_alias\":\"patch\",\"text\":\"Exactly. I was ready to build it into the whole workshop flow, which would have been fun right up until it decided the unfinished prototype belonged ahead of the project we actually needed.\"},{\"line_index\":7,\"speaker_alias\":\"rivet\",\"text\":\"A small test has prevented a larger, more irritating test.\"},{\"line_index\":8,\"speaker_alias\":\"patch\",\"text\":\"So next I\u2019m not asking it to run the workshop. I\u2019m asking it one annoyingly specific question: why did you move this project?\"},{\"line_index\":9,\"speaker_alias\":\"rivet\",\"text\":\"Good. If it cannot explain the order, it does not get to choose the order.\"},{\"line_index\":10,\"speaker_alias\":\"patch\",\"text\":\"Harsh, but fair. Congratulations, workshop agent. You have been promoted from mysterious manager to suspicious intern.\"}]}",
+  "memory_ids": [
+    "adbb9a9c-13cd-4154-94f0-de4a1b220be2"
+  ],
+  "chunk_ids": [
+    "e8b92037-6e01-4d2a-878c-a5e1def76490",
+    "06b01dcf-d417-4289-b30f-4abe4d0bc8f9",
+    "f2388d29-8396-4eb6-bdde-cb442b7956cb",
+    "12b5e1e3-826f-4fed-b824-bdc5092e788e",
+    "e4602f32-e570-45c1-bf37-36e97c950057",
+    "3bac768f-960a-43fb-b877-4e38ec4fbeee",
+    "fd4facef-6686-4341-aed4-29a56c6c5ba0",
+    "c3b7a40c-a16c-4038-9434-b208e2e818e7",
+    "707aa164-acfd-4a76-a1a5-f5db7b6282bf"
+  ],
+  "per_character_chunk_ids": {
+    "patch": [
+      "e8b92037-6e01-4d2a-878c-a5e1def76490",
+      "06b01dcf-d417-4289-b30f-4abe4d0bc8f9",
+      "f2388d29-8396-4eb6-bdde-cb442b7956cb",
+      "12b5e1e3-826f-4fed-b824-bdc5092e788e",
+      "e4602f32-e570-45c1-bf37-36e97c950057"
+    ],
+    "rivet": [
+      "e8b92037-6e01-4d2a-878c-a5e1def76490",
+      "3bac768f-960a-43fb-b877-4e38ec4fbeee",
+      "fd4facef-6686-4341-aed4-29a56c6c5ba0",
+      "c3b7a40c-a16c-4038-9434-b208e2e818e7",
+      "707aa164-acfd-4a76-a1a5-f5db7b6282bf"
+    ]
+  },
+  "turns": [
+    {
+      "line_index": 0,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "40acbda6-dc88-464d-903a-5fd840aa94a3",
+      "speaker_teammate_name": "Patch",
+      "text": "Rivet, I ran a tiny experiment on the workshop agent. Three project cards. Same projects, same order. I asked it to arrange them twice.",
+      "verification_status": "warned",
+      "verification_warnings": [
+        {
+          "claim": "Three",
+          "kind": "proper_noun",
+          "position": 54
+        }
+      ]
+    },
+    {
+      "line_index": 1,
+      "speaker_alias": "rivet",
+      "speaker_teammate_id": "4a325f14-adf8-47ca-9f61-b10102b817b0",
+      "speaker_teammate_name": "Rivet",
+      "text": "You tested the thing that has been quietly reordering your work without explaining itself. A remarkably restrained response.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 2,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "40acbda6-dc88-464d-903a-5fd840aa94a3",
+      "speaker_teammate_name": "Patch",
+      "text": "I\u2019m growing. Anyway, first run: it changed the order. Second run: changed it differently.",
+      "verification_status": "warned",
+      "verification_warnings": [
+        {
+          "claim": "Anyway",
+          "kind": "proper_noun",
+          "position": 13
+        },
+        {
+          "claim": "Second",
+          "kind": "proper_noun",
+          "position": 54
+        }
+      ]
+    },
+    {
+      "line_index": 3,
+      "speaker_alias": "rivet",
+      "speaker_teammate_id": "4a325f14-adf8-47ca-9f61-b10102b817b0",
+      "speaker_teammate_name": "Rivet",
+      "text": "Did it provide a reason either time?",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 4,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "40acbda6-dc88-464d-903a-5fd840aa94a3",
+      "speaker_teammate_name": "Patch",
+      "text": "Nope. Just shuffled my projects around like a very confident little goblin with access to my desk.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 5,
+      "speaker_alias": "rivet",
+      "speaker_teammate_id": "4a325f14-adf8-47ca-9f61-b10102b817b0",
+      "speaker_teammate_name": "Rivet",
+      "text": "Then the useful result is not that it can rearrange things. We already knew that. The useful result is that its ordering is not something you can rely on yet.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 6,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "40acbda6-dc88-464d-903a-5fd840aa94a3",
+      "speaker_teammate_name": "Patch",
+      "text": "Exactly. I was ready to build it into the whole workshop flow, which would have been fun right up until it decided the unfinished prototype belonged ahead of the project we actually needed.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 7,
+      "speaker_alias": "rivet",
+      "speaker_teammate_id": "4a325f14-adf8-47ca-9f61-b10102b817b0",
+      "speaker_teammate_name": "Rivet",
+      "text": "A small test has prevented a larger, more irritating test.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 8,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "40acbda6-dc88-464d-903a-5fd840aa94a3",
+      "speaker_teammate_name": "Patch",
+      "text": "So next I\u2019m not asking it to run the workshop. I\u2019m asking it one annoyingly specific question: why did you move this project?",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 9,
+      "speaker_alias": "rivet",
+      "speaker_teammate_id": "4a325f14-adf8-47ca-9f61-b10102b817b0",
+      "speaker_teammate_name": "Rivet",
+      "text": "Good. If it cannot explain the order, it does not get to choose the order.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 10,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "40acbda6-dc88-464d-903a-5fd840aa94a3",
+      "speaker_teammate_name": "Patch",
+      "text": "Harsh, but fair. Congratulations, workshop agent. You have been promoted from mysterious manager to suspicious intern.",
+      "verification_status": "warned",
+      "verification_warnings": [
+        {
+          "claim": "Harsh",
+          "kind": "proper_noun",
+          "position": 0
+        },
+        {
+          "claim": "Congratulations",
+          "kind": "proper_noun",
+          "position": 17
+        }
+      ]
+    }
+  ],
+  "synthesized_brief": "Patch: Rivet, I ran a tiny experiment on the workshop agent. Three project cards. Same projects, same order. I asked it to arrange them twice.\n\nRivet: You tested the thing that has been quietly reordering your work without explaining itself. A remarkably restrained response.\n\nPatch: I\u2019m growing. Anyway, first run: it changed the order. Second run: changed it differently.\n\nRivet: Did it provide a reason either time?\n\nPatch: Nope. Just shuffled my projects around like a very confident little goblin with access to my desk.\n\nRivet: Then the useful result is not that it can rearrange things. We already knew that. The useful result is that its ordering is not something you can rely on yet.\n\nPatch: Exactly. I was ready to build it into the whole workshop flow, which would have been fun right up until it decided the unfinished prototype belonged ahead of the project we actually needed.\n\nRivet: A small test has prevented a larger, more irritating test.\n\nPatch: So next I\u2019m not asking it to run the workshop. I\u2019m asking it one annoyingly specific question: why did you move this project?\n\nRivet: Good. If it cannot explain the order, it does not get to choose the order.\n\nPatch: Harsh, but fair. Congratulations, workshop agent. You have been promoted from mysterious manager to suspicious intern."
+}

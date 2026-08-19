@@ -1,0 +1,36 @@
+{
+  "sides": {
+    "WEAK": {
+      "memory_id": "5d16567e-2793-4c45-bc9d-b83697aaecef",
+      "memory_body": "The workshop agent moved the printer job ahead of three of Patch's projects.",
+      "kind": "event",
+      "weight": "peripheral",
+      "witnessed_by": [],
+      "embedding_model": "text-embedding-3-small",
+      "embedding_cost_micros": 1,
+      "embedding_dimension": 1536,
+      "embedded_at": "2026-08-18T22:57:12.516611+00:00",
+      "created_at": "2026-08-18T22:57:11.547829+00:00",
+      "source_composition_id": "c3fa88f7-36c3-40d2-a2c7-fa5bcf61afc7",
+      "source_episode_id": "53390689-b1a6-4f8b-9ecd-bfaecfefb7b0",
+      "workspace_id": "097bd82e-2995-4084-baa4-0f9692d804f7",
+      "universe_id": "0ee1fe9c-a3e0-4269-9458-9d8b22919283"
+    },
+    "STRONG": {
+      "memory_id": "adbb9a9c-13cd-4154-94f0-de4a1b220be2",
+      "memory_body": "The workshop agent began rearranging the order of Patch's projects without explaining its criteria.",
+      "kind": "event",
+      "weight": "peripheral",
+      "witnessed_by": [],
+      "embedding_model": "text-embedding-3-small",
+      "embedding_cost_micros": 1,
+      "embedding_dimension": 1536,
+      "embedded_at": "2026-08-18T22:57:12.767482+00:00",
+      "created_at": "2026-08-18T22:57:12.535404+00:00",
+      "source_composition_id": "2b006c0d-04eb-4698-a0fc-e6f0c6e052de",
+      "source_episode_id": "b0d5af20-b26b-4725-8527-b5dd07d81aa8",
+      "workspace_id": "fa26e601-9193-4b5b-b502-44cfe06557bf",
+      "universe_id": "a6ff5a3f-9437-46dd-bdc5-b51bd3532cd9"
+    }
+  }
+}

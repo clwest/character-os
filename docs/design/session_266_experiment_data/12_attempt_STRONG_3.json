@@ -1,0 +1,184 @@
+{
+  "condition": "EXPLICIT_HISTORY",
+  "variant": "STRONG",
+  "attempt_no": 3,
+  "started_at": "2026-08-19T00:16:31.521395+00:00",
+  "workspace_id": "fa26e601-9193-4b5b-b502-44cfe06557bf",
+  "universe_id": "a6ff5a3f-9437-46dd-bdc5-b51bd3532cd9",
+  "cast": [
+    {
+      "id": "40acbda6-dc88-464d-903a-5fd840aa94a3",
+      "name": "Patch"
+    },
+    {
+      "id": "4a325f14-adf8-47ca-9f61-b10102b817b0",
+      "name": "Rivet"
+    }
+  ],
+  "memory": {
+    "memory_id": "adbb9a9c-13cd-4154-94f0-de4a1b220be2",
+    "memory_body": "The workshop agent began rearranging the order of Patch's projects without explaining its criteria.",
+    "kind": "event",
+    "weight": "peripheral",
+    "witnessed_by": [],
+    "embedding_model": "text-embedding-3-small",
+    "embedding_cost_micros": 1,
+    "embedding_dimension": 1536,
+    "embedded_at": "2026-08-18T22:57:12.767482+00:00",
+    "created_at": "2026-08-18T22:57:12.535404+00:00",
+    "source_composition_id": "2b006c0d-04eb-4698-a0fc-e6f0c6e052de",
+    "source_episode_id": "b0d5af20-b26b-4725-8527-b5dd07d81aa8",
+    "workspace_id": "fa26e601-9193-4b5b-b502-44cfe06557bf",
+    "universe_id": "a6ff5a3f-9437-46dd-bdc5-b51bd3532cd9"
+  },
+  "preflight_cosine_distance": 0.457608597761903,
+  "operator_topic": "Patch runs a small experiment on the workshop agent.",
+  "target_duration_seconds": 90,
+  "experimental_prompt_instruction": "These are operator-promoted story memories that ALREADY HAPPENED in earlier Episodes. Use them as historical context that the current scene can react to or build on. Do NOT re-narrate these events as the current scene's fresh occurrence \u2014 treat them as background the cast already lived through.",
+  "production_prompt_instruction_replaced": "These are operator-promoted story memories. Use them as historical context or callback material where natural. Do not recite them verbatim; treat them as background the cast already knows happened.",
+  "outcome": "accepted",
+  "finished_at": "2026-08-19T00:16:41.123143+00:00",
+  "elapsed_seconds": 9.601748,
+  "prompt_swaps_applied_this_attempt": 1,
+  "aliases": {
+    "patch": "Patch",
+    "rivet": "Rivet"
+  },
+  "predicted_seconds": 88.15384615384616,
+  "total_chars": 1146,
+  "writing_contract_version": 4,
+  "model": "gpt-5.6-terra",
+  "mock_mode": false,
+  "used_knowledge": true,
+  "overall_verification_status": "verified",
+  "tokens_input": 6086,
+  "tokens_output": 758,
+  "attempt_count": 1,
+  "first_pass_raw": "{\"turns\":[{\"line_index\":0,\"speaker_alias\":\"patch\",\"text\":\"I gave the workshop agent a tiny project queue, and before you make that face, I did not let it reorganize the entire workshop.\"},{\"line_index\":1,\"speaker_alias\":\"rivet\",\"text\":\"Your use of the word \u201ctiny\u201d is encouraging. What did you ask it to do?\"},{\"line_index\":2,\"speaker_alias\":\"patch\",\"text\":\"Nothing clever. Just arrange a few projects. Then I want to see whether it can tell us why it picked that order.\"},{\"line_index\":3,\"speaker_alias\":\"rivet\",\"text\":\"A reasonable question, considering it previously began moving your projects around without explaining its criteria.\"},{\"line_index\":4,\"speaker_alias\":\"patch\",\"text\":\"Exactly. Maybe it has a brilliant system. Maybe it thinks the 3D printer is emotionally attached to one of them. I am open to both outcomes.\"},{\"line_index\":5,\"speaker_alias\":\"rivet\",\"text\":\"You are more open to the second outcome than evidence currently supports.\"},{\"line_index\":6,\"speaker_alias\":\"patch\",\"text\":\"The first run, it rearranged the queue. So far, normal enough. Then I asked what changed, and it had no useful explanation.\"},{\"line_index\":7,\"speaker_alias\":\"rivet\",\"text\":\"Then the ordering may be happening without a reason we can inspect. That is not the same as having a good reason.\"},{\"line_index\":8,\"speaker_alias\":\"patch\",\"text\":\"Which is why I am not handing it the whole project shelf. We run the little queue again, change one thing at a time, and see whether its choices stay sensible.\"},{\"line_index\":9,\"speaker_alias\":\"rivet\",\"text\":\"Good. If it cannot explain the queue, it does not get custody of the workshop. The 3D printer has suffered enough.\"}]}",
+  "corrective_hint": "",
+  "corrective_pass_raw": "",
+  "raw_llm_json": "{\"turns\":[{\"line_index\":0,\"speaker_alias\":\"patch\",\"text\":\"I gave the workshop agent a tiny project queue, and before you make that face, I did not let it reorganize the entire workshop.\"},{\"line_index\":1,\"speaker_alias\":\"rivet\",\"text\":\"Your use of the word \u201ctiny\u201d is encouraging. What did you ask it to do?\"},{\"line_index\":2,\"speaker_alias\":\"patch\",\"text\":\"Nothing clever. Just arrange a few projects. Then I want to see whether it can tell us why it picked that order.\"},{\"line_index\":3,\"speaker_alias\":\"rivet\",\"text\":\"A reasonable question, considering it previously began moving your projects around without explaining its criteria.\"},{\"line_index\":4,\"speaker_alias\":\"patch\",\"text\":\"Exactly. Maybe it has a brilliant system. Maybe it thinks the 3D printer is emotionally attached to one of them. I am open to both outcomes.\"},{\"line_index\":5,\"speaker_alias\":\"rivet\",\"text\":\"You are more open to the second outcome than evidence currently supports.\"},{\"line_index\":6,\"speaker_alias\":\"patch\",\"text\":\"The first run, it rearranged the queue. So far, normal enough. Then I asked what changed, and it had no useful explanation.\"},{\"line_index\":7,\"speaker_alias\":\"rivet\",\"text\":\"Then the ordering may be happening without a reason we can inspect. That is not the same as having a good reason.\"},{\"line_index\":8,\"speaker_alias\":\"patch\",\"text\":\"Which is why I am not handing it the whole project shelf. We run the little queue again, change one thing at a time, and see whether its choices stay sensible.\"},{\"line_index\":9,\"speaker_alias\":\"rivet\",\"text\":\"Good. If it cannot explain the queue, it does not get custody of the workshop. The 3D printer has suffered enough.\"}]}",
+  "memory_ids": [
+    "adbb9a9c-13cd-4154-94f0-de4a1b220be2"
+  ],
+  "chunk_ids": [
+    "e8b92037-6e01-4d2a-878c-a5e1def76490",
+    "06b01dcf-d417-4289-b30f-4abe4d0bc8f9",
+    "f2388d29-8396-4eb6-bdde-cb442b7956cb",
+    "12b5e1e3-826f-4fed-b824-bdc5092e788e",
+    "e4602f32-e570-45c1-bf37-36e97c950057",
+    "3bac768f-960a-43fb-b877-4e38ec4fbeee",
+    "fd4facef-6686-4341-aed4-29a56c6c5ba0",
+    "c3b7a40c-a16c-4038-9434-b208e2e818e7",
+    "707aa164-acfd-4a76-a1a5-f5db7b6282bf"
+  ],
+  "per_character_chunk_ids": {
+    "patch": [
+      "e8b92037-6e01-4d2a-878c-a5e1def76490",
+      "06b01dcf-d417-4289-b30f-4abe4d0bc8f9",
+      "f2388d29-8396-4eb6-bdde-cb442b7956cb",
+      "12b5e1e3-826f-4fed-b824-bdc5092e788e",
+      "e4602f32-e570-45c1-bf37-36e97c950057"
+    ],
+    "rivet": [
+      "e8b92037-6e01-4d2a-878c-a5e1def76490",
+      "3bac768f-960a-43fb-b877-4e38ec4fbeee",
+      "fd4facef-6686-4341-aed4-29a56c6c5ba0",
+      "c3b7a40c-a16c-4038-9434-b208e2e818e7",
+      "707aa164-acfd-4a76-a1a5-f5db7b6282bf"
+    ]
+  },
+  "turns": [
+    {
+      "line_index": 0,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "40acbda6-dc88-464d-903a-5fd840aa94a3",
+      "speaker_teammate_name": "Patch",
+      "text": "I gave the workshop agent a tiny project queue, and before you make that face, I did not let it reorganize the entire workshop.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 1,
+      "speaker_alias": "rivet",
+      "speaker_teammate_id": "4a325f14-adf8-47ca-9f61-b10102b817b0",
+      "speaker_teammate_name": "Rivet",
+      "text": "Your use of the word \u201ctiny\u201d is encouraging. What did you ask it to do?",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 2,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "40acbda6-dc88-464d-903a-5fd840aa94a3",
+      "speaker_teammate_name": "Patch",
+      "text": "Nothing clever. Just arrange a few projects. Then I want to see whether it can tell us why it picked that order.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 3,
+      "speaker_alias": "rivet",
+      "speaker_teammate_id": "4a325f14-adf8-47ca-9f61-b10102b817b0",
+      "speaker_teammate_name": "Rivet",
+      "text": "A reasonable question, considering it previously began moving your projects around without explaining its criteria.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 4,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "40acbda6-dc88-464d-903a-5fd840aa94a3",
+      "speaker_teammate_name": "Patch",
+      "text": "Exactly. Maybe it has a brilliant system. Maybe it thinks the 3D printer is emotionally attached to one of them. I am open to both outcomes.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 5,
+      "speaker_alias": "rivet",
+      "speaker_teammate_id": "4a325f14-adf8-47ca-9f61-b10102b817b0",
+      "speaker_teammate_name": "Rivet",
+      "text": "You are more open to the second outcome than evidence currently supports.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 6,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "40acbda6-dc88-464d-903a-5fd840aa94a3",
+      "speaker_teammate_name": "Patch",
+      "text": "The first run, it rearranged the queue. So far, normal enough. Then I asked what changed, and it had no useful explanation.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 7,
+      "speaker_alias": "rivet",
+      "speaker_teammate_id": "4a325f14-adf8-47ca-9f61-b10102b817b0",
+      "speaker_teammate_name": "Rivet",
+      "text": "Then the ordering may be happening without a reason we can inspect. That is not the same as having a good reason.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 8,
+      "speaker_alias": "patch",
+      "speaker_teammate_id": "40acbda6-dc88-464d-903a-5fd840aa94a3",
+      "speaker_teammate_name": "Patch",
+      "text": "Which is why I am not handing it the whole project shelf. We run the little queue again, change one thing at a time, and see whether its choices stay sensible.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    },
+    {
+      "line_index": 9,
+      "speaker_alias": "rivet",
+      "speaker_teammate_id": "4a325f14-adf8-47ca-9f61-b10102b817b0",
+      "speaker_teammate_name": "Rivet",
+      "text": "Good. If it cannot explain the queue, it does not get custody of the workshop. The 3D printer has suffered enough.",
+      "verification_status": "verified",
+      "verification_warnings": []
+    }
+  ],
+  "synthesized_brief": "Patch: I gave the workshop agent a tiny project queue, and before you make that face, I did not let it reorganize the entire workshop.\n\nRivet: Your use of the word \u201ctiny\u201d is encouraging. What did you ask it to do?\n\nPatch: Nothing clever. Just arrange a few projects. Then I want to see whether it can tell us why it picked that order.\n\nRivet: A reasonable question, considering it previously began moving your projects around without explaining its criteria.\n\nPatch: Exactly. Maybe it has a brilliant system. Maybe it thinks the 3D printer is emotionally attached to one of them. I am open to both outcomes.\n\nRivet: You are more open to the second outcome than evidence currently supports.\n\nPatch: The first run, it rearranged the queue. So far, normal enough. Then I asked what changed, and it had no useful explanation.\n\nRivet: Then the ordering may be happening without a reason we can inspect. That is not the same as having a good reason.\n\nPatch: Which is why I am not handing it the whole project shelf. We run the little queue again, change one thing at a time, and see whether its choices stay sensible.\n\nRivet: Good. If it cannot explain the queue, it does not get custody of the workshop. The 3D printer has suffered enough."
+}

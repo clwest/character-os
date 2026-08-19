@@ -1,0 +1,46 @@
+{
+  "timestamp": "2026-08-19T01:50:50.348377+00:00",
+  "prod_universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+  "source_composition_id": "e425f5fe-fab5-4ce9-9c73-0de4eaa55c2f",
+  "active_memory_count": 4,
+  "memories_from_this_composition": 1,
+  "memories": [
+    {
+      "id": "cd73d52f-6bce-443e-afa5-e24cddd53e78",
+      "body": "Because it had an opinion about our work. An uninvited opinion. That is scientifically interesting and operationally irritating.",
+      "kind": "event",
+      "weight": "peripheral",
+      "status": "remembered",
+      "archived_at": null,
+      "witnessed_by": [
+        {
+          "id": "f18b75cc-37c0-445a-a472-24fe5d8b7592",
+          "name": "Rivet"
+        }
+      ],
+      "witness_count": 1,
+      "whole_cast_convention": false,
+      "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+      "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+      "source_episode_id": "1fca6510-d6da-403b-a2f7-59d58c0881c5",
+      "source_episode_title": "Patch asks Rivet what he actually likes doing in the workshop.",
+      "source_composition_id": "e425f5fe-fab5-4ce9-9c73-0de4eaa55c2f",
+      "source_composition_name": "Dialogue \u2014 You know, I keep calling you o",
+      "created_at": "2026-08-19T01:43:32.651707+00:00",
+      "updated_at": "2026-08-19T01:43:34.004106+00:00",
+      "embedding_model": "text-embedding-3-small",
+      "embedding_dimension": 1536,
+      "embedding_cost_micros": 1,
+      "embedded_at": "2026-08-19T01:43:34.004010+00:00",
+      "has_embedding_vector": true,
+      "promoted_by_id": 883,
+      "supersedes_id": null
+    }
+  ],
+  "active_memory_ids": [
+    "f25e53af-f5d5-40cc-b81e-7aa0a2cc62a0",
+    "48746f69-cb02-401a-ac7c-342a2530db13",
+    "eda32b58-a9fa-4048-bc03-c65596a631a7",
+    "cd73d52f-6bce-443e-afa5-e24cddd53e78"
+  ]
+}
