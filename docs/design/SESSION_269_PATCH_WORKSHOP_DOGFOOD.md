@@ -2721,7 +2721,8 @@ dogfood; the second candidate below opens that direction.
 
 Doc + evidence sidecar only — no source-code change in §17.
 
-- §17 commit: (populated after commit below).
+- §17 commit: `9770d99` — `docs(session-269): §17 — second solo render d3107ed2 + FIRST Patch-only memory c614ca86`.
+- Push: `d17cc5c..9770d99 main -> main` (successful). Local main == origin/main == `9770d99`. Working tree clean.
 
 ---
 
