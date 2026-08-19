@@ -875,9 +875,253 @@ after reading this):
 
 ---
 
-**SESSION 269 IS NOT CLOSED.** This document captures what has
-been observed and audited from the two Episodes Chris authored so
-far plus the §9 read-only prequel-substrate audit. Runtime is
-unchanged. Any further Episodes, promotions, or audit findings
-should extend this document (add §10, §11…) rather than start a
-new one.
+## §10. Solo-cast narrative-memory lane (implementation)
+
+Read-only audit under §9 identified a recurring product boundary:
+
+- `dialogue_scene` retrieves `NarrativeMemory` but rejects
+  `len(cast) < 2` (`shell/character_os/dialogue_synthesis.py:1429`);
+- `talking_head` accepts a solo cast but never called
+  `retrieve_universe_memory` — solo scenes could not participate
+  in durable story continuity.
+
+Two operator scenarios now hit the same limitation:
+
+1. Rivet-solo storytelling was untestable for the SESSION 267
+   §14.13 witness-attribution research question.
+2. Patch-only pre-Rivet Episodes cannot be rendered without a
+   solo lane (§9.4 recipe reality check).
+
+The same gap will recur every time a new Universe cast member
+(Ruby, Mason, …) needs a solo scene. §10 opens a narrow slice
+to add memory retrieval to the legitimate solo recipe
+(`talking_head`) without weakening the two-cast contract on
+`dialogue_scene` and without touching chronology.
+
+### §10.1 Selected architecture seam
+
+**A (with a narrow E flavor):** thread an optional
+`memory_rows: Sequence[NarrativeMemory]` through the existing
+`build_render_brief` API. The retrieval PREDICATE itself stays
+owned by `apps.embeddings.retrieval.retrieve_universe_memory` —
+called from the `generate_avatar_speech` primitive with
+`cast=[spokesperson]` and `top_k=1`. No new recipe. No new
+retrieval implementation. No change to the dialogue lane.
+
+Options rejected:
+
+| Option | Reason rejected |
+|---|---|
+| B (extract a shared context-builder) | Adds surgery for zero call-site diversity today; the two callers are already the only two callers `build_render_brief` will have on the solo path. |
+| C (make `dialogue_scene` accept N=1 cast) | Weakens the >=2 contract per §9.4; operator brief explicitly says do NOT unless clearly cleanest. Not cleanest — `talking_head` already exists as the legitimate solo recipe. |
+| D (new solo-memory recipe) | Creates a second recipe that must be maintained in lockstep with `talking_head`. Rejected per operator brief. |
+
+Selected because:
+
+- Minimal source change (three functions extended by one optional
+  kwarg + one primitive body).
+- Zero duplication of retrieval logic — reuses
+  `retrieve_universe_memory` verbatim.
+- Zero regression risk on the >=2 `dialogue_scene` contract.
+- Provenance symmetric with dialogue (`Composition.memory_ids`
+  JSONField is already recipe-agnostic; `memories_used`
+  serializer method already recipe-agnostic).
+- Witness semantics preserved by construction (uses the same
+  predicate).
+- Canon boundary preserved (memory lane never becomes a
+  KnowledgeChunk / KnowledgeDocument).
+- Understandable six months from now (the change is small and
+  each function's docstring explains why the kwarg exists).
+- Works uniformly for future Ruby / Mason / … solo scenes.
+
+### §10.2 Files changed
+
+- `shell/character_os/script_synthesis.py`
+  - `ScriptResult.memory_ids: list[str] = field(default_factory=list)` (new attr).
+  - `build_render_brief(..., memory_rows: Sequence[NarrativeMemory] | None = None)` (new kwarg).
+  - Threads `memory_rows_list` + `memory_ids` through the force-mock, retrieval-failure, no-key, LLM-failure, and success paths; memory-only path no longer short-circuits onto trusted-passthrough when only chunks are empty.
+  - `_call_responses_api(..., memory_rows=...)` and `_assemble_system_prompt(..., memory_rows=...)` pass through.
+  - `_build_factual_basis_section(..., memory_rows=None)` emits a dedicated MEMORY block with the same past-events / canon-wins framing the dialogue lane uses.
+- `shell/character_os/duration_contract.py`
+  - `synthesize_with_duration_gate(..., memory_rows=None)` passes through to both corrective-pass `_synthesize()` invocations.
+- `shell/apps/compositions/primitives/avatar_speech.py`
+  - `_maybe_synthesize_script`: when `use_knowledge=True` AND
+    `spokesperson.universe_id` is set, lazy-imports and calls
+    `retrieve_universe_memory(workspace, universe, [spokesperson], raw_script, top_k=1)`. Retrieval failure degrades to empty memory (mirrors K2 posture).
+  - Stamps `composition.memory_ids` on the success path via the
+    existing observability-persistence tail; leaves the field
+    untouched on retrieval failure / empty pool.
+- `shell/apps/compositions/tests/test_isolation.py`
+  - `ALLOWED_FILES` gains `apps/compositions/tests/test_talking_head_memory_lane.py` (sanctioned test-side writer for the new suite).
+- `shell/apps/compositions/tests/test_talking_head_memory_lane.py` (new)
+  - 15 tests covering solo-cast eligibility, wiring, prompt-block emission, and provenance persistence.
+
+**SPA:** no changes. Composition detail's `MemoriesUsedSummary`
+and `MemoriesUsedPanel` (`web/src/routes/compositions/$id.tsx:65`
++ `:93`) render generically from `c.memories_used` regardless of
+`template_kind`. The `NarrativeMemoryPromotePanel` gates on
+`c.episode && terminal`, both of which are recipe-agnostic. Every
+existing frontend test remains green (26 / 26 in
+`web/src/components/narrative-memory-panels.test.tsx` +
+`memories-used-panel.test.tsx` + `memories-used-summary.test.tsx`).
+
+### §10.3 Invariants preserved
+
+- **Same Workspace isolation** — `retrieve_universe_memory` unchanged; base predicate filters on `workspace=`.
+- **Same Universe isolation** — same predicate; cross-Universe cast returns `[]`.
+- **Same REMEMBERED / non-archived filtering** — `status=REMEMBERED` + `archived_at__isnull=True` unchanged.
+- **Embedding required** — `embedding_vector__isnull=False` unchanged.
+- **Same witness eligibility semantics** — solo cast passes through the same `witnessed_by = ∅` OR `witnessed_by ∩ cast_ids ≠ ∅` filter. Solo `[Patch]` sees whole-cast + Patch-only rows and excludes Rivet-only rows by construction (tests §10.5 items 1-3).
+- **`top_k = 1`** — hard-coded at the primitive call site.
+- **No automatic memory promotion** — memory is retrieved for READ only; the promote path (`apps/memory/views.promote_from_composition`) is unchanged.
+- **No canon mutation** — the memory lane never touches `KnowledgeDocument` / `KnowledgeChunk`; §1 Factual Basis emits KNOWLEDGE CHUNKS then the MEMORY block as separate labelled sub-sections.
+- **No witness attribution as a Semantic-2 claim** — the prompt-block framing carries no new attribution language; identical wording to dialogue lane.
+- **No relevance floor / reranker / manual picker** — none introduced.
+- **Chronology unchanged** — §9 story-time finding untouched; solo memory retrieval has the same wall-clock-only awareness the dialogue lane has.
+
+### §10.4 Prompt-block emission
+
+Solo synthesis has no per-character SHARED vs SCOPED split (the
+single speaker can cite everything grounded in §1), so the MEMORY
+block simply appends after KNOWLEDGE CHUNKS. Same header text
+tests assert on in the dialogue lane:
+
+> `--- EPISODE / NARRATIVE MEMORY (past events in this Universe; static canon wins on conflict) ---`
+
+Body per row:
+
+> `[MEMORY <uuid>]\n<body>`
+
+### §10.5 Tests
+
+New suite: `apps/compositions/tests/test_talking_head_memory_lane.py` (15 tests, all pass).
+
+Predicate coverage (Phase 7 items 1-6):
+
+1. `test_patch_solo_whole_cast_memory_eligible` — whole-cast row visible to Patch-solo.
+2. `test_patch_solo_patch_only_memory_eligible` — Patch-only witness visible to Patch-solo.
+3. `test_patch_solo_rivet_only_memory_excluded` — Rivet-only witness invisible to Patch-solo.
+4. `test_rivet_solo_rivet_only_memory_eligible` — Rivet-only witness visible to Rivet-solo.
+5. `test_rivet_solo_patch_only_memory_excluded` — Patch-only witness invisible to Rivet-solo.
+6. `test_solo_cast_cross_universe_excluded` — Universe isolation preserved.
+
+Phase 7 item 7 (archived / superseded / unembedded) is already covered predicate-wide in `apps/embeddings/tests/test_retrieval_universe_memory.py` (`test_archived_memory_excluded`, `test_superseded_memory_excluded`, `test_unembedded_memory_excluded`). Since §10 reuses the same predicate function, those guarantees carry over unchanged. Item 8 (`top_k=1` fixed) is enforced at the call site and asserted in `test_universe_scoped_talking_head_invokes_memory_retrieval`.
+
+Wiring coverage:
+
+7. `test_universe_scoped_talking_head_invokes_memory_retrieval` — Phase 7 item 8 (top_k arg) + predicate call args.
+8. `test_universe_less_talking_head_skips_memory_retrieval` — Phase 7 item 11 (no regression for legacy universe-less spokespeople).
+9. `test_use_knowledge_false_skips_memory_retrieval` — off-switch parity with dialogue lane's `use_knowledge=False` behaviour.
+10. `test_retrieved_memory_persists_to_composition_memory_ids` — Phase 7 item 9 (`Composition.memory_ids` populated).
+11. `test_composition_memory_ids_untouched_when_pool_empty` — no bogus provenance on empty retrieval.
+
+Prompt-block coverage:
+
+12. `test_memory_block_lands_in_factual_basis_with_past_events_framing` — same header wording as dialogue lane.
+13. `test_empty_memory_rows_emits_no_memory_block` — no whitespace regression when memory_rows is None.
+
+`build_render_brief` coverage:
+
+14. `test_build_render_brief_calls_llm_when_only_memory_present` — memory-only path calls the LLM (does NOT silently short-circuit to trusted_passthrough) so the memory block actually influences the script.
+15. `test_build_render_brief_memory_ids_default_empty_when_no_memory` — backwards-compat: `ScriptResult.memory_ids` defaults to `[]`.
+
+Regression coverage (Phase 7 items 10 + 11):
+
+- Full `apps/compositions/tests/` + `apps/embeddings/tests/` + `apps/memory/tests/` → **1398 passed** (0 failed, 0 skipped). Zero regression on dialogue lane, canon lane, existing talking_head, verifier, duration contract, isolation, or observability suites.
+- Full SPA Continuity panel suite (`memories-used-panel`, `memories-used-summary`, `narrative-memory-panels`) → **26 passed**. Zero SPA regression.
+
+### §10.6 Runtime dogfood
+
+**Not run in this session.** The operator prompt Phase 6
+authorized implementation but Phase 10 does NOT authorize a
+render. Phase 5 explicitly frames the dogfood as a future
+verification: *"we are testing whether… the generated solo
+script remains coherent"* — that requires the operator to open
+the SPA and render. Falsifiable acceptance test defined below
+for whenever the operator chooses to proceed.
+
+### §10.7 Falsifiable acceptance test (defined; not run)
+
+Smallest first technical verification (§9.8 disposition B + this
+slice):
+
+1. Chris creates a Patch-solo talking_head Composition in the
+   Patch's Workshop Universe with a **current-time** topic (NOT
+   pre-Rivet on the first render — the pre-Rivet topic would make
+   chronology confound the memory-behaviour test).
+   Suggested first topic: any Patch-solo idea Chris naturally
+   wants to make where at least one whole-cast memory would
+   plausibly be relevant.
+2. Toggle "Use workspace knowledge" ON.
+3. Render.
+
+Success criteria:
+
+- Composition reaches `completed` status.
+- `Composition.memory_ids` contains exactly 1 UUID (per `top_k=1`).
+- The UUID is either a whole-cast row or a (future) Patch-only
+  row; NEVER a Rivet-only row (`c86d4902` or `cd73d52f`).
+- SPA `MemoriesUsedSummary` chip renders "Continuity — Used 1 story memory".
+- `MemoriesUsedPanel` renders the selected memory row.
+- The generated solo script remains coherent (no forced
+  exposition, no memory-hijack — matches the SESSION 267 §14 +
+  268 Obs #6 quality bar).
+
+Do NOT promote from the first render regardless of outcome. The
+first render is a technical verification, not story authorship.
+
+Once the technical path is proven, THEN Chris can either:
+
+- move to a pre-Rivet topic (accepting the §9.7 chronology
+  limitation as bounded evidence — some retrieved memories may
+  be temporally anachronistic; observation-only, no promotion),
+  or
+- promote a first Patch-only witness-scoped memory row (the
+  §9.9 HIGH-VALUE dogfood direction — creates the first Patch-
+  only witness class in the pool, orthogonal to chronology).
+
+### §10.8 Known chronology limitation
+
+§9 finding stands unchanged: Character OS still does NOT
+distinguish Episode creation order from Episode story order.
+§10 does NOT address chronology; it only unlocks the solo
+memory-retrieval lane. A pre-Rivet Patch-solo render remains
+non-destructive (per §9.8 render↔promote separation) but any
+retrieved memory row may be temporally anachronistic to the
+prose intent. Filtering that out remains an operator judgment,
+not a substrate guarantee.
+
+### §10.9 Explicit remaining gaps
+
+- No chronology / story-time / prequel-safe filtering (§9.7).
+- No runners-up + distances probe (§4.2 / §8 #1 / §8 #11).
+- No relevance floor (§4).
+- Solo `dialogue_scene` variant not built (§9 gap classifier
+  named it but the correct fix is `talking_head` gaining memory,
+  which §10 does — this gap is now closed by removing the need).
+- Patch-only witness class still has zero rows (§9.9). §10 makes
+  the first such row *possible* to create; the operator must
+  still author + promote one.
+
+### §10.10 Commit
+
+Doc + code + tests staged and committed together as the coherent
+§10 slice. Push status recorded below in §10.11.
+
+### §10.11 Commit + push checkpoint
+
+(Populated after commit.)
+
+---
+
+**SESSION 269 IS NOT CLOSED.** This document captures the two
+organic Episodes Chris authored (§1-§8), the §9 read-only prequel-
+substrate audit, and the §10 solo-cast narrative-memory lane
+implementation. Runtime is now DIFFERENT from SESSION 268 close
+by exactly one slice: `talking_head` compositions with Universe-
+scoped spokespeople now retrieve `NarrativeMemory` under
+`retrieve_universe_memory`. All other invariants — chronology,
+dialogue-lane behaviour, witness semantics, canon boundary,
+`top_k=1`, promote path — are untouched. Any further Episodes,
+promotions, or audit findings should extend this document (add
+§11, §12…) rather than start a new one.

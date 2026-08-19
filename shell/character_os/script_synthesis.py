@@ -37,7 +37,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence
 
 from django.conf import settings
 
@@ -49,6 +49,7 @@ from character_os.writing_contract import (
 )
 
 if TYPE_CHECKING:
+    from apps.memory.models import NarrativeMemory
     from apps.spokespeople.models import Teammate
 
 logger = logging.getLogger(__name__)
@@ -258,6 +259,16 @@ class ScriptResult:
     corrective_hint_used: str = ""
     corrective_pass_brief: str = ""
     predicted_seconds: float | None = None
+    # SESSION 269 §10 — solo-memory lane. Populated by the caller
+    # (avatar_speech primitive) via ``retrieve_universe_memory`` when
+    # the composition is Universe-scoped. Same shape as
+    # ``DialogueResult.memory_ids`` — a list of NarrativeMemory UUIDs
+    # (as str) that participated in synthesis. Empty on force-mock,
+    # universe-less, degraded, or empty-pool paths. Callers persist
+    # onto ``Composition.memory_ids`` for recipe-agnostic provenance
+    # (SESSION 264 Slice 2 field; already surfaced by the
+    # ``memories_used`` serializer method).
+    memory_ids: list[str] = field(default_factory=list)
 
 
 def _is_force_mock() -> bool:
@@ -285,6 +296,7 @@ def build_render_brief(
     target_duration_seconds: int | None = None,
     max_script_chars: int | None = None,
     corrective_hint: str | None = None,
+    memory_rows: "Sequence[NarrativeMemory] | None" = None,
 ) -> ScriptResult:
     """Build the brief that gets sent to media-engine.
 
@@ -316,6 +328,14 @@ def build_render_brief(
             this to request one bounded expansion or compression
             retry when the first synthesis is materially outside
             tolerance. Standalone shape ignores it.
+        memory_rows: SESSION 269 §10 — Universe-scoped narrative-
+            memory rows to include in the §1 Factual Basis. Same
+            shape and framing as the dialogue-lane MEMORY block
+            (past events; static canon wins on conflict). Provided
+            by the caller so retrieval semantics stay owned by
+            ``retrieve_universe_memory`` and never re-implemented
+            here. ``None`` / empty ⇒ no memory block emitted, no
+            ``memory_ids`` persisted.
 
     Returns:
         ``ScriptResult`` — always has a usable ``brief`` field
@@ -340,6 +360,12 @@ def build_render_brief(
     operator_prompt = (operator_prompt or "").strip()
     fallback_brief = operator_prompt or (spokesperson.business_brief or "").strip()
 
+    memory_rows_list = list(memory_rows or [])
+    memory_ids = [
+        str(getattr(m, "id", "")) for m in memory_rows_list
+        if getattr(m, "id", None) is not None
+    ]
+
     # Force-mock: no retrieval, no LLM. Deterministic shape that
     # tests can assert against. v1.2 — no synthesis means
     # trusted_passthrough.
@@ -354,6 +380,7 @@ def build_render_brief(
             used_knowledge=bool(chunk_ids),
             model=f"{SCRIPT_MODEL} (mock)",
             verification_status="trusted_passthrough",
+            memory_ids=memory_ids,
         )
 
     # Real mode — first retrieve. Even if retrieval fails for
@@ -370,14 +397,20 @@ def build_render_brief(
         return ScriptResult(
             brief=fallback_brief,
             verification_status="trusted_passthrough",
+            memory_ids=memory_ids,
         )
 
-    if not chunks:
-        # Contract rule 6 — graceful degradation. No knowledge,
-        # no synthesis, original brief flows through.
+    if not chunks and not memory_rows_list:
+        # Contract rule 6 — graceful degradation. No knowledge AND
+        # no narrative memory, no synthesis, original brief flows
+        # through. When memory_rows are present we still call the
+        # LLM so the memory block actually influences the script;
+        # short-circuiting on "no chunks" alone would silently
+        # drop narrative-memory input.
         return ScriptResult(
             brief=fallback_brief,
             verification_status="trusted_passthrough",
+            memory_ids=memory_ids,
         )
 
     if not _has_openai_key():
@@ -393,6 +426,7 @@ def build_render_brief(
             brief=fallback_brief,
             chunk_ids=[str(c.id) for c in chunks],
             verification_status="trusted_passthrough",
+            memory_ids=memory_ids,
         )
 
     try:
@@ -403,6 +437,7 @@ def build_render_brief(
             target_duration_seconds=target_duration_seconds,
             max_script_chars=max_script_chars,
             corrective_hint=corrective_hint,
+            memory_rows=memory_rows_list,
         )
     except Exception:
         logger.exception(
@@ -413,6 +448,7 @@ def build_render_brief(
             brief=fallback_brief,
             chunk_ids=[str(c.id) for c in chunks],
             verification_status="trusted_passthrough",
+            memory_ids=memory_ids,
         )
 
     final_brief = synthesised.strip() or fallback_brief
@@ -461,6 +497,7 @@ def build_render_brief(
         verification_warnings=[u.to_dict() for u in unsupported],
         verification_status=status,
         writing_contract_version=WRITING_CONTRACT_VERSION,
+        memory_ids=memory_ids,
     )
 
 
@@ -477,6 +514,7 @@ def _call_responses_api(
     target_duration_seconds: int | None = None,
     max_script_chars: int | None = None,
     corrective_hint: str | None = None,
+    memory_rows: "Sequence[NarrativeMemory] | None" = None,
 ) -> tuple[str, int, int]:
     """Single Responses-API call. Returns ``(text, tokens_in,
     tokens_out)``. Raises on API error — caller handles
@@ -501,6 +539,7 @@ def _call_responses_api(
         target_shape=target_shape,
         target_duration_seconds=target_duration_seconds,
         max_script_chars=max_script_chars,
+        memory_rows=memory_rows,
     )
     user = _assemble_task_message(
         operator_prompt=operator_prompt,
@@ -531,6 +570,7 @@ def _assemble_system_prompt(
     target_shape: str = "standalone",
     target_duration_seconds: int | None = None,
     max_script_chars: int | None = None,
+    memory_rows: "Sequence[NarrativeMemory] | None" = None,
 ) -> str:
     """SESSION 253 — assemble the 5-section system prompt.
 
@@ -544,9 +584,17 @@ def _assemble_system_prompt(
     (SESSION 253 ``duration_contract``) pass
     ``AVATAR_SPEECH_SAFE_MAX_CHARS`` so the LLM aims below the
     provider cap; callers that chunk their output pass ``None``.
+
+    ``memory_rows`` (SESSION 269 §10) — optional Universe-scoped
+    narrative-memory rows. Emitted inside §1 Factual Basis in a
+    dedicated block labelled the same way the dialogue lane
+    labels it, so the LLM reads memory as historical context and
+    static canon still wins on conflict.
     """
     sections: list[str] = [
-        _build_factual_basis_section(spokesperson, chunks=chunks),
+        _build_factual_basis_section(
+            spokesperson, chunks=chunks, memory_rows=memory_rows,
+        ),
         _build_character_voice_section(spokesperson),
         _build_brand_voice_section(spokesperson),
         _build_writing_contract_section(
@@ -610,10 +658,21 @@ def _build_factual_basis_section(
     spokesperson: "Teammate",
     *,
     chunks: list,
+    memory_rows: "Sequence[NarrativeMemory] | None" = None,
 ) -> str:
     """§1 Factual Basis — the ONLY sources capable of supporting
     factual claims. Retrieved K2 chunks + business_brief +
-    who_you_help + what_you_sell. Operator prompt is NOT here."""
+    who_you_help + what_you_sell. Operator prompt is NOT here.
+
+    SESSION 269 §10 — when ``memory_rows`` is non-empty (Universe-
+    scoped solo talking_head with narrative memory in scope),
+    emit a dedicated EPISODE / NARRATIVE MEMORY block AFTER the
+    knowledge chunks. Matches the dialogue-lane framing verbatim:
+    past events; static canon wins on conflict. Solo synthesis
+    has no per-character SHARED vs SCOPED split — everything the
+    single speaker can cite is grounded here — so the memory
+    block simply appends without a SHARED section.
+    """
     lines = [
         "=== SECTION 1 — FACTUAL BASIS ===",
         "The ONLY sources capable of supporting factual claims. "
@@ -640,6 +699,29 @@ def _build_factual_basis_section(
         lines.append(f"KNOWLEDGE CHUNKS:\n{chunks_text}")
     else:
         lines.append("KNOWLEDGE CHUNKS: (none retrieved for this task)")
+
+    # SESSION 269 §10 — narrative-memory block. Same header wording
+    # tests in the dialogue lane assert on ("past events in this
+    # Universe" + "static canon wins on conflict") so both lanes
+    # share one framing string in the operator's mental model.
+    memory_lines: list[str] = []
+    for m in memory_rows or ():
+        mid = str(getattr(m, "id", "") or "")
+        body = (getattr(m, "body", "") or "").strip()
+        if not (mid and body):
+            continue
+        memory_lines.append(f"[MEMORY {mid}]\n{body}")
+    if memory_lines:
+        lines.append(
+            "--- EPISODE / NARRATIVE MEMORY (past events in this "
+            "Universe; static canon wins on conflict) ---\n"
+            "These are operator-promoted story memories. Use them "
+            "as historical context or callback material where "
+            "natural. Do not recite them verbatim; treat them as "
+            "background the character already knows happened.\n\n"
+            + "\n\n".join(memory_lines)
+        )
+
     return "\n\n".join(lines)
 
 

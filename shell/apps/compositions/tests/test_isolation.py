@@ -152,6 +152,13 @@ ALLOWED_FILES = {
     # (whole-cast + narrowed-witness + archived-since-render +
     # cross-workspace stub cases). Sanctioned test-side writer.
     "apps/memory/tests/test_memories_used_serializer.py",
+    # SESSION 269 §10 — talking_head narrative-memory lane tests seed
+    # Composition + Episode + NarrativeMemory rows + solo talking_head
+    # Composition/Step rows directly to exercise the ``retrieve_universe_memory``
+    # → ``build_render_brief`` → ``Composition.memory_ids`` wiring
+    # on the solo cast path. Sanctioned test-side writer; same
+    # workspace-anchor guarantee as the dialogue-lane fixtures.
+    "apps/compositions/tests/test_talking_head_memory_lane.py",
     # SESSION 210 — `sweep_expired_assets` Celery task tests
     # seed Composition + Asset rows with crafted JWT URLs to
     # exercise the hourly Beat sweep. Asset.composition FK is

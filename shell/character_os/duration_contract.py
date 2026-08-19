@@ -51,7 +51,7 @@ up front, before any LLM call fires.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence
 
 from character_os.script_synthesis import (
     ScriptResult,
@@ -61,6 +61,7 @@ from character_os.script_synthesis import (
 )
 
 if TYPE_CHECKING:
+    from apps.memory.models import NarrativeMemory
     from apps.spokespeople.models import Teammate
 
 logger = logging.getLogger(__name__)
@@ -427,6 +428,7 @@ def synthesize_with_duration_gate(
     verifier_mode: str | None = None,
     opener: str | None = None,
     mock_mode: bool = False,
+    memory_rows: "Sequence[NarrativeMemory] | None" = None,
 ) -> ScriptResult:
     """Duration-driven K6 synthesis with acceptance gate.
 
@@ -519,6 +521,7 @@ def synthesize_with_duration_gate(
             target_duration_seconds=synth_target_seconds,
             max_script_chars=max_script_chars,
             corrective_hint=hint,
+            memory_rows=memory_rows,
         )
 
     synth = _synthesize()

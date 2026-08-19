@@ -363,6 +363,20 @@ def _maybe_synthesize_script(
     is skipped (operator-typed scripts are trusted), the status
     is ``trusted_passthrough``, and the contract version is 0
     (no contract was applied because no K6 pass ran).
+
+    SESSION 269 §10 — when the spokesperson is Universe-scoped
+    (``spokesperson.universe_id`` is set) AND ``use_knowledge`` is
+    truthy, the primitive additionally calls the shared
+    ``apps.embeddings.retrieval.retrieve_universe_memory`` predicate
+    with ``cast=[spokesperson]`` and ``top_k=1``, then threads the
+    resulting NarrativeMemory rows into ``build_render_brief`` /
+    ``synthesize_with_duration_gate`` so the LLM's §1 Factual Basis
+    section carries the same past-events framing the dialogue lane
+    emits. Retrieved memory UUIDs are stamped onto
+    ``composition.memory_ids`` for recipe-agnostic provenance
+    (SESSION 264 Slice 2 field). Retrieval failure degrades to
+    empty-memory rather than failing the render, matching the K2
+    lane's posture.
     """
     raw_script = (step.params or {}).get("script", "").strip()
     if not raw_script:
@@ -371,6 +385,40 @@ def _maybe_synthesize_script(
     use_knowledge = bool((step.params or {}).get("use_knowledge"))
     if not use_knowledge:
         return raw_script, [], [], "trusted_passthrough", 0
+
+    # SESSION 269 §10 — solo narrative-memory retrieval. Universe-
+    # gated (memory is a Universe primitive per SESSION 264 Slice 2);
+    # legacy universe-less spokespeople stay on the pre-§10 shape
+    # exactly. Retrieval fires exactly once per render, mirrors
+    # dialogue's cast-based predicate call, and never re-implements
+    # the predicate itself.
+    memory_rows: list = []
+    spokesperson = composition.spokesperson
+    universe = getattr(spokesperson, "universe", None)
+    universe_id = getattr(spokesperson, "universe_id", None)
+    if universe is not None and universe_id is not None:
+        try:
+            from apps.embeddings.retrieval import retrieve_universe_memory
+            memory_rows = list(
+                retrieve_universe_memory(
+                    composition.workspace,
+                    universe,
+                    [spokesperson],
+                    raw_script,
+                    top_k=1,
+                )
+            )
+        except Exception as exc:
+            logger.warning(
+                "avatar_speech: retrieve_universe_memory failed "
+                "workspace=%s universe=%s spokesperson=%s (%s); "
+                "proceeding without narrative memory",
+                composition.workspace_id,
+                universe_id,
+                spokesperson.id,
+                exc,
+            )
+            memory_rows = []
 
     # K6.4 v1.1 — per-render verifier mode. Picked up from
     # ``step.params['verifier_mode']`` if the caller (starter /
@@ -420,12 +468,14 @@ def _maybe_synthesize_script(
                 verifier_mode=verifier_mode,
                 opener=opener,
                 mock_mode=False,
+                memory_rows=memory_rows,
             )
         else:
             result = build_render_brief(
                 composition.spokesperson, raw_script,
                 verifier_mode=verifier_mode,
                 opener=opener,
+                memory_rows=memory_rows,
             )
     except ClaimVerifierError as exc:
         # Strict mode — surface as a primitive failure so the
@@ -539,6 +589,18 @@ def _maybe_synthesize_script(
     if composition.synthesis_predicted_seconds is None and _predicted is not None:
         composition.synthesis_predicted_seconds = _predicted
         _obs_fields_dirty.append("synthesis_predicted_seconds")
+    # SESSION 269 §10 — solo memory provenance. Same
+    # recipe-agnostic ``Composition.memory_ids`` JSONField the
+    # dialogue-lane starter writes into (SESSION 264 Slice 2),
+    # already surfaced generically by the ``memories_used``
+    # serializer method. Stamp only when a real retrieval ran and
+    # returned something; degraded / empty pools leave the field
+    # untouched so a re-run that DOES find a memory can populate
+    # it (append-once idiom mirrors the observability writes above).
+    _memory_ids = list(getattr(result, "memory_ids", []) or [])
+    if _memory_ids and not composition.memory_ids:
+        composition.memory_ids = _memory_ids
+        _obs_fields_dirty.append("memory_ids")
     if _obs_fields_dirty:
         composition.save(update_fields=_obs_fields_dirty + ["updated_at"])
     return (
