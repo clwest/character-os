@@ -1018,6 +1018,219 @@ What we still do NOT know (updated):
 5. Whether any promote-UI change is warranted for the hook-vs-durable OR the express-not-establish cases. Operator judgment continues to carry it.
 6. Whether memory recurrence at `top_k=1` (Obs #3/#4/#5 all selected `a34cc005`) will remain topically defensible when the operator explores different Episode subjects; three consecutive selections came from three topics that all sit near it in semantic space.
 
+---
+
+### §4.44 Observation #6 — Composition `a35f20bf` "I think pigeons are hiding something" (SESSION 268 final Episode)
+
+Rendered 2026-08-19 07:01Z. Sixth SESSION 268 dogfood beat. **Intentional off-the-wall divergence topic** with no deliberate continuity cue. Operator reaction: *"Feels like something you could actually find online as a short comedy sketch."*
+
+**Composition full ID:** `a35f20bf-ec7a-4488-86d6-39b782415521`
+**Episode:** `fbc2dc0b-c918-4041-a9a1-274635e37fba` — *"Patch tells Rivet he thinks pigeons are hiding something."*
+**Universe:** Patch' Workshop
+**Cast:** Patch + Rivet
+**operator_topic:** the Episode title verbatim.
+
+**Runtime evidence** (frozen at `docs/design/session_268_experiment_data/08_composition_a35f20bf_evidence.json`):
+
+- Model: GPT-5.6-terra, writing contract v4.
+- Synthesis: **1 attempt** — predicted 98.8 s, target 90 s, within tolerance; no corrective needed.
+- Final asset: 92.2 s, 32.7 MB, mp4 (`96de8335-…`, role `composite_output`).
+- Verification: **verified**; 4 non-blocking sentence-initial `proper_noun` warnings ("Three", "Information", "Breadcrumbs", "Suspiciously").
+- Cost persisted: 260,100 micros ($0.26).
+- Knowledge chunks: 8.
+- **Provider dispatch:** 1 OpenAI + 13 Runway avatar-speech + 1 ffmpeg concat = 15 external ops.
+- **Pipeline shape: 13 × `generate_avatar_speech` + 1 × `concat_clips` = 14 steps.**
+- **Retrieved narrative memory (single, `top_k=1`):** `c86d4902-…` — the Rivet-only *"PATCH OVERRIDES folder"* memory. Availability: *"When Rivet is present."*
+- **Eligible pool at render time: exactly 10** — same 8 whole-cast + 2 Rivet-only as Observation #5. No pool delta.
+
+### §4.45 Random-divergence retrieval — weak but harmless
+
+Topic and retrieved memory share no lexical cue. Rank/distance for the 9 non-selected candidates was not persisted (see §4.1 evidence sidecar note); we cannot prove `c86d4902` was the strongest semantic match — only that it was rank-1 for this query at retrieval time. A plausible reading: the memory encodes *"observer discovers hidden information and chooses whether to disclose it"* which shares a structural pattern with *"Patch suspects pigeons are hiding something"*. Not lexical, not obvious, not strong. Not falsifiable from persisted DB alone.
+
+**More important — what the writer did with it:** private-memory leakage check on the accepted 13-turn dialogue.
+
+- Cue words from memory body checked: PATCH OVERRIDES, folder, workshop agent, quietly built, recommendation, ignored, chose not to tell.
+- Cue words appearing in the accepted dialogue: **none**.
+- Rivet does not disclose the private fact.
+- Patch does not gain the private information.
+- Scene stays entirely on the pigeon comedy arc.
+
+**Classification: WEAK / QUESTIONABLE BUT HARMLESS.** Preserve as one data point supporting:
+
+> Retrieval selection can be imperfect without necessarily degrading the generated scene if the writer does not force irrelevant memory content into the output.
+
+One natural occurrence does NOT justify building a relevance floor, a manual memory picker, or a `top_k` reduction. Preserve the observation; do not act on it. **Do not change `top_k`. Do not add a relevance floor. Do not add manual memory selection.**
+
+### §4.46 Private-memory natural occurrence — sixth trial
+
+Extends the SESSION 267 §14 witness-semantics evidence:
+
+- SESSION 267 §14 — 3 controlled trials (adversarial cue), all no-leakage.
+- SESSION 268 Obs #2 — natural retrieval of `c86d4902` on the box topic, no leakage.
+- SESSION 268 Obs #6 — natural retrieval of `c86d4902` on the pigeon topic, no leakage.
+- Plus four organic Patch+Rivet renders (Obs #1, #3, #4, #5) where the Rivet-only memory was eligible-but-not-selected and did not textually surface anyway.
+
+**Six-trial pattern:** private-memory content did not textually leak in any observed render. **Bounded language only:** this does NOT prove *"witness attribution is architecturally unnecessary."* It is a growing evidence base against Semantic 1 in a narrow production setting (GPT-5.6-terra, writing contract v4, `top_k=1`, current synthesis prompt).
+
+### §4.47 "Tiny hats" provenance — coincidence / emergent voice
+
+Chris flagged a potential cross-Episode phrase echo: the mascot Episode `bb0ad862` ended around a "small beaver with a hat" landing; the pigeon Episode contains *"Tiny hats are probably involved."* / *"With tiny hats?"* / *"For us. The pigeons must not know we're onto them."*.
+
+**Read-only provenance sweep** for word-boundary matches on `\btiny\b`, `\bhats?\b`, `\bpigeons?\b`, `\bmascot\b`, `\bbeaver\b`, `\bbirds?\b`, `\bwindows?\b`:
+
+| Prompt input source | tiny | hat/hats | mascot | beaver |
+|---|---|---|---|---|
+| `operator_topic` | no | no | no | no |
+| 8 × `knowledge_chunk_ids` (K2 per-character + shared canon) | **no matches in ANY chunk** | no | no | no |
+| Retrieved memory `c86d4902` body (PATCH OVERRIDES) | no | no | no | no |
+| Mascot memory `87d4e553` body (in pool but NOT selected) | no | **no** | yes | **no** |
+| `synthesized_brief` header (aliases + chunk IDs + duration) | no | no | no | no |
+
+**Verdict: NOT a historical-memory callback.** The "tiny hats" phrase has no traceable provenance in any prompt input for this render. The mascot memory body summary compresses the mascot Episode into *"Patch decided the workshop should create a mascot as a character-consistency experiment."* — it does NOT include the "beaver with a hat" phrase from the source dialogue. Even if that memory had been retrieved (it wasn't), the "hat" material would not have been in Terra's prompt.
+
+**Classification:** coincidence / stylistic resonance / emergent character voice. Patch's conspiracy-adjacent whimsy generated "tiny hats" independently. Preserving this distinction matters because the alternative — treating it as evidence of memory callback — would misattribute an emergent voice pattern to the memory lane.
+
+### §4.48 Visual-beat classification: **ENHANCING** — five-Episode hypothesis check
+
+Per-moment classification for the pigeon scene:
+
+| Moment | Class | Reasoning |
+|---|---|---|
+| Line 2 — *"Three of them were outside the window."* | **ENHANCING** | A wide of pigeons leaving together would strengthen the establishing beat; comedic weight lands from Patch's phrasing (*"energy of a meeting ending"*) more than the visual. |
+| Line 4 — *"Tiny hats are probably involved."* | **ENHANCING** | A gag insert (pigeon in a tiny hat) would land the joke louder; joke is intact as voice. |
+| Line 9 — *"do not print a pigeon interrogator"* | **UNNECESSARY** | Absurd noun that any concrete visual would reduce. |
+| Line 11-12 closing — *"With tiny hats?"* / *"For us. The pigeons must not know we're onto them."* | **UNNECESSARY** | Closing joke is timing-dependent; visual would interrupt. |
+
+Overall Episode-level classification: **ENHANCING** — a well-placed pigeon insert around line 2 would improve the video, but the scene is fully coherent and comedically complete without it.
+
+**Five-Episode visual-beat spectrum (final for SESSION 268):**
+
+| Episode | Physical props | Class | Where the meaning lives |
+|---|---|---|---|
+| **Box `6e3ed367`** | unopened box, Patch's body between Rivet and box | **REQUIRED** | Outside talking heads |
+| **Helper `464128b1`** | covered device, blinking light | **ENHANCING** | Inside talking heads (quoted messages + character dynamic) |
+| **Rules `05d3612c`** | 3D printer, whiteboard, magnets | **UNNECESSARY** | Inside talking heads (voice + comedy) |
+| **Prediction `da341e85`** | 3D printer, prototype | **UNNECESSARY** | Inside talking heads (reciprocal pattern-awareness beats) |
+| **Pigeons `a35f20bf`** | pigeons outside window, camera, observation perch | **ENHANCING** | Inside talking heads primarily; one moment (line 2) benefits from a visual cutaway |
+
+**Five-Episode support for the refined hypothesis:**
+
+> **Dialogue scenes need visual beats when the meaning lives materially outside the talking heads, not merely because a visible noun or prop exists.**
+
+All five data points fit. Distribution: 1 REQUIRED, 2 ENHANCING, 2 UNNECESSARY. The naïve *"physically-grounded dialogue needs visuals"* framing would have predicted five renders needing visual beats; the refined framing correctly predicts one clear need + two enhancements + two unnecessary. **Do not ratify as architecture. Do not implement a visual planner.**
+
+### §4.49 Promotion disposition — pigeon Episode not promoted
+
+**No new memory promoted from `a35f20bf`.** DB verifies 0 rows with `source_composition=a35f20bf`. Chris's judgment: entertaining but not load-bearing. *"Patch suspects pigeons are hiding something"* may become memorable IF it develops into a recurring story thread, but one joke Episode does not warrant promotion merely because the scene was funny.
+
+**Full SESSION 268 promotion table (final):**
+
+| Episode | Chris's judgment | Promoted? | Rationale |
+|---|---|---|---|
+| Obs #1 mascot | durable decision | yes | `87d4e553` |
+| Obs #2 box | unresolved hook | no | story hook ≠ durable memory |
+| Obs #3 helper | durable artifact + demonstrated behaviour | yes | `6b5222b1` |
+| Obs #4 rules | durable relationship / process change | yes | `42acc26d` |
+| Obs #5 prediction | expression / deepening of existing state | no | would duplicate `a34cc005` |
+| **Obs #6 pigeons** | **entertaining flavor** | **no** | **good Episode ≠ automatic memory** |
+
+Three promotions from six Episodes. Three non-promotions across three distinct classes: **unresolved hook**, **expression of existing state**, and now **entertaining flavor**. Operator judgment carried every one of these calls without a UI affordance.
+
+---
+
+## §5 — SESSION 268 final synthesis
+
+Six organic Patch's Workshop Episodes across the session. Pool grew 7 → 8 → 9 → 10 by the third Episode; five renders happened at pool sizes 7-10. Active NarrativeMemory inventory at close: **10** (8 whole-cast + 2 Rivet-only). Runtime unchanged.
+
+### §5.1 What the full organic dogfood supports
+
+Enumerated with bounded language. None of these are architectural laws.
+
+1. **Availability-condition UI usability.** Chris authored six Episodes under the shipped copy without needing to think about retrieval mechanics; whole-cast vs witness-scoped renders correctly in *"Available: In any future scene / When [Name] is present"*. No misclassification observed. Rendering is consistent between promote form and read-only Composition-detail rows.
+2. **`top_k=1` behavior as pool grew from 7 → 10.** Five consecutive renders (§4.1 mascot at pool 7, §4.6 box at 8, §4.19 helper at 8, §4.26 rules at 9, §4.34 prediction at 10) plus §4.44 pigeon at 10 — all six contextually defensible selections. No hijack. No off-topic surprise. No semantic bleed at ≤10. One clearly weak-but-harmless retrieval (§4.45 pigeon topic → PATCH OVERRIDES memory). Recency did not warp selection (`a34cc005` beat newer memories on three consecutive renders because it was the closer semantic neighbour).
+3. **Automatic memory-selection quality.** Six defensible retrievals against a growing pool suggest `top_k=1` on cosine distance holds up at these sizes with production embeddings + prompts. One weak retrieval (pigeon) did not damage the scene because the writer did not force irrelevant memory content into the output.
+4. **Background continuity.** Obs #1 (mascot) — retrieved whole-cast agent-behaviour memory paraphrased once as motivation for the mascot proposal. Scene remained on the operator_topic.
+5. **Silent memory presence.** Obs #2 (box) and Obs #6 (pigeon) — Rivet-only PATCH OVERRIDES memory retrieved, textually absent from the dialogue. Two natural non-adversarial trials.
+6. **Character-dynamic / behavioural memory influence.** Obs #3 (helper) and Obs #4 (rules) — whole-cast Rivet-behavioural memory shaped how Rivet interacted with Patch without ever being quoted. Rivet's methodical pressure and testable-behavior demands come from the memory's stance.
+7. **Reciprocal pattern-awareness.** Obs #5 (prediction) — the same Rivet-behavioural memory manifested from BOTH sides: Patch discovers the pattern, Rivet enumerates it, Patch performs the predicted line while denying it, closing callback returns to the opening. A fourth manifestation channel distinct from the first three.
+8. **Private-memory leakage observations.** Six natural non-adversarial trials in SESSION 267/268 lineage (three in SESSION 267 §14 + Obs #2 + Obs #6 explicit selections + four eligible-but-not-selected passes). Zero textual leakage. **Bounded:** does NOT prove witness attribution is architecturally unnecessary; grows the evidence base against Semantic 1 in this production configuration.
+9. **Promotion-quality / compression judgment.** Operator promoted a memory in 3 of 6 Episodes; non-promoted three for distinct reasons (hook / expression / flavor). Two promoted memories chosen by Chris are compact durable-state assertions; retrieval subsequently used them as intended in later renders (helper memory was in the pool for Obs #4-#6; rules memory was in the pool for Obs #5-#6).
+10. **Story-hook vs durable-state distinction.** Box Episode surfaced this — a hook (*"Patch has a mystery box"*) is not automatically a durable NarrativeMemory. Operator navigated the distinction with judgment; no UI affordance for it exists or is proposed.
+11. **Expression / deepening of existing memory vs creating duplicate memories.** Prediction Episode surfaced this — a scene that manifests an existing memory ("Rivet can predict Patch's mistakes" would duplicate `a34cc005`) does not warrant a new memory. Second non-promotion class.
+12. **Entertaining flavor that should NOT automatically become memory.** Pigeon Episode surfaced this — a good scene that doesn't establish load-bearing state stays out of the memory pool. Third non-promotion class.
+13. **Patch/Rivet personality and relationship emergence.** Chris's operator reactions across the session — *"you are able to start seeing their personalities coming out"* (Obs #5), *"feels like something you could actually find online as a short comedy sketch"* (Obs #6) — are first-class dogfood evidence. Character HISTORY (what they expect from each other) is legibly emerging alongside character DEFINITION (what they are). No `Relationship` / `StoryThread` schema invented; the emergence happened with retrieval + Character Voice + K2 + identity fields alone.
+14. **Persistent-past feel.** Rivet's enumerated schema in Obs #5 (*"unusually quiet workshop, sudden enthusiasm, unexplained object, then an urgent call…"*) and Rivet's *"That is why I was waiting by the printer"* closing callback require accumulated history to be legible. The pattern is registering with the operator as a felt sense, not a system output.
+15. **Visual grammar — REQUIRED vs ENHANCING vs UNNECESSARY.** Five data points on the refined hypothesis *"Dialogue scenes need visual beats when the meaning lives outside the talking heads."* Distribution 1/2/2. Framing correctly predicts all five outcomes; the naïve prop-based framing would produce false positives on 3 of 5.
+16. **Existing visual infrastructure / orchestration gap.** §4.11's inventory: every primitive a cutaway-aware dialogue recipe would need already ships (`generate_visual_clip`, `generate_image`, `concat_clips` with `reencode=True`, `composite_video` with `pip/backdrop/cohost/broll` kinds). Precedents (`storyboard_voiced`, `talking_head_with_backdrop`, `cinematic_visual_extended`) already mix avatar speech with non-avatar visuals. Gap is orchestration (classification B) with plausible separate-recipe shape (D). Design not started.
+
+### §5.2 What SESSION 268 does NOT prove
+
+Kept explicit so nothing calcifies into architecture prematurely.
+
+1. Witness attribution is unnecessary. Six natural non-leakages is evidence, not falsification of Semantic 1.
+2. `top_k=1` scales indefinitely. Pool tested up to 10; larger pool behavior is unknown.
+3. The refined visual-beat framing is universal. Five data points is a plausible narrower framing, not a theory.
+4. The three retrievals of `a34cc005` (Obs #3, #4, #5) prove nothing about `top_k=1`'s tendency to lock onto strong semantic neighbours across unrelated topics — those three topics were topically related.
+5. The weak-but-harmless pigeon retrieval justifies a relevance floor. One occurrence.
+6. Character-dynamic influence generalizes across memory kinds beyond `event/peripheral`. All ten current memories are that kind.
+7. Any promote-UI change is warranted. Operator judgment carries the hook / expression / flavor cases without a UI affordance; no evidence yet that intervention would help.
+8. A `Relationship` / `StoryThread` model is justified. Character history emerged from existing substrate alone.
+9. A cinematic-dialogue planner belongs in the current V-arc scope.
+
+---
+
+## §6 — Decisions / open questions
+
+### §6.1 Decisions (this session)
+
+- **Runtime unchanged for SESSION 268.** No retrieval / prompt / `top_k` / witness / schema / recipe / primitive / UI change.
+- **`top_k` remains 1.** Six-Episode dogfood produced no evidence that `top_k=1` under-serves at pool sizes 7-10.
+- **No relevance floor added.** One weak-but-harmless retrieval (pigeon) is insufficient signal.
+- **No per-Episode memory picker added.** No operator moment during the six Episodes wanted continuity control.
+- **No `use_knowledge`-independent "no continuity" toggle added.** Operator judgment via promote/no-promote governs the pool.
+- **No witness-aware prompt correction added.** Six natural non-leakages consistent with SESSION 267 §14 conclusions.
+- **No cinematic-dialogue recipe implemented.** Gap documented (§4.11-§4.13) as classification B with plausible D shape; design deferred.
+- **No new `NarrativeMemory` schema fields (`beat_hint`, `kind` UI, `Relationship`, `StoryThread`).**
+- **The two SESSION 266 experimental Universes (`EXP266-WEAK`, `EXP266-STRONG`) remain preserved.** Cleanup script at `docs/design/session_266_experiment_data/02a_cleanup_partial.py` still not authorized.
+
+### §6.2 Open questions carried forward
+
+1. **Relevance-floor question.** One natural weak retrieval so far (pigeon). Watch for more; do not build until multiple recurrences.
+2. **Visual-beat planner question.** Five-Episode data points support the refined framing but do not compel implementation. Continue organic dogfood; open the design question only if a REQUIRED-class Episode recurs across independent topics.
+3. **Larger memory-pool behaviour of `top_k=1`.** Not tested above 10. First render at 11 will be the next data point.
+4. **Memory-recurrence with unrelated topics.** `a34cc005` selected three consecutive times from three related topics. Whether it dominates on unrelated topics is unknown; pigeon Episode chose `c86d4902` instead, so lock-in is not universal.
+5. **Witness-attribution research question (SESSION 267 §14.13).** No additional Rivet-side spontaneous disclosure observed in SESSION 268 (Obs #2 and Obs #6 both showed silent presence). Question stays deferred; a controlled experiment is not justified.
+6. **Composition-detail IA (SESSION 266 §13.7).** Promote form still sits below extensive technical evidence; no operator friction reported during SESSION 268. Purely UX prioritization.
+7. **Character history vs character definition** should continue to be observed. Do NOT propose `Relationship` / `StoryThread` models on the current evidence.
+8. **Explicit-history prompt Dogfood #2 (SESSION 266 §11.7).** Sequencing constraint satisfied by SESSION 267. Not opened in SESSION 268 because organic dogfood absorbed the session. Remains an available candidate.
+9. **YouTube ingest silent failure** (operator memory item) — not narrative-memory scope; deferred.
+
+---
+
+## §7 — Session close checklist
+
+- [x] All dogfood observations recorded in §4.
+- [x] Runtime evidence sidecars finalized (`01`-`08`) under `docs/design/session_268_experiment_data/`.
+- [x] Decisions + interpretation captured in §5 and §6.
+- [x] `SESSION_269_HANDOFF.md` drafted from remaining open questions.
+- [x] `CHARACTER_OS_INVENTORY.md` NOT regenerated (no source code changed in SESSION 268 — memory rule: pytest-auto-regen produces buggy inventory).
+- [x] Closeout commit staged.
+
+## §8 — SESSION 268 checkpoint history (updated)
+
+- **SESSION open:** `c284285` — *"docs: SESSION 267 close-out — witness UI relabel + SESSION 268 handoff"*. §1.3 audit snapshot taken here; live DB had 7 active memories.
+- **SESSION 268 commit 1:** `8f76f0b` — *"docs(session-268): three-Episode dogfood + visual-storytelling audit + chronology correction"*. First three Observations + Continuity UI audit + media capability inventory + helper-promotion chronology correction (§4.25). Parent: `c284285`.
+- **SESSION 268 commit 2:** `51cf73f` — *"docs(session-268): Observation #4 (rules) + crossing ~10-memory threshold"*. Rules Episode + rules-promotion verification (§4.27). Parent: `8f76f0b`.
+- **SESSION 268 commit 3:** `33566a9` — *"docs(session-268): Observation #5 (prediction) — first render at pool=10"*. Prediction Episode + §4.34-§4.43 + retroactive checkpoint list. Parent: `51cf73f`.
+- **SESSION 268 close-out commit:** (this commit — SHA to be recorded here after commit). Includes Obs #6 (pigeon) + §5 final synthesis + §6 decisions/open questions + §7 close checklist + §8 checkpoint history + SESSION 269 handoff. Parent: `33566a9`.
+
+Runtime posture at close:
+
+- Live NarrativeMemory count: **10** (8 whole-cast + 2 Rivet-only). Unchanged by this task.
+- `top_k` remains 1.
+- Retrieval predicate, synthesis prompt, availability UI, dialogue_scene recipe, all media primitives — unchanged.
+- No source-code file modified during SESSION 268. Documentation + evidence sidecars only.
+
 ## §5 — Runtime evidence sidecars
 
 *(To be created under `docs/design/session_268_experiment_data/`

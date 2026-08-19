@@ -1,0 +1,162 @@
+{
+  "captured_at": "2026-08-19T00:00:00Z",
+  "session": 268,
+  "context": "Dogfood Observation #6 (SESSION 268 final) — Composition a35f20bf evidence freeze",
+  "note": "Intentional off-the-wall divergence topic. No deliberate continuity cue.",
+
+  "composition": {
+    "id": "a35f20bf-ec7a-4488-86d6-39b782415521",
+    "name": "Dialogue — I think pigeons are hiding som",
+    "template_kind": "dialogue_scene",
+    "status": "completed",
+    "operator_topic": "Patch tells Rivet he thinks pigeons are hiding something.",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "spokesperson_id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+    "episode_id": "fbc2dc0b-c918-4041-a9a1-274635e37fba",
+    "created_by": 883,
+    "created_at": "2026-08-19T06:58:08.984183+00:00",
+    "render_dispatched_at": "2026-08-19T06:58:09.209690+00:00",
+    "updated_at": "2026-08-19T07:01:36.164165+00:00",
+    "target_duration_seconds": 90,
+    "writing_contract_version": 4,
+    "mock_mode": false,
+    "synthesis_attempt_count": 1,
+    "synthesis_predicted_seconds": 98.84615384615384,
+    "verification_status": "verified",
+    "verification_warnings": [
+      {"kind": "proper_noun", "claim": "Three", "position": 0, "line_index": 2, "speaker_name": "Patch", "speaker_alias": "patch"},
+      {"kind": "proper_noun", "claim": "Information", "position": 160, "line_index": 4, "speaker_name": "Patch", "speaker_alias": "patch"},
+      {"kind": "proper_noun", "claim": "Breadcrumbs", "position": 179, "line_index": 4, "speaker_name": "Patch", "speaker_alias": "patch"},
+      {"kind": "proper_noun", "claim": "Suspiciously", "position": 1, "line_index": 7, "speaker_name": "Rivet", "speaker_alias": "rivet"}
+    ],
+    "validation_failure_reason": "",
+    "rejected_synthesis": "",
+    "cost_estimate_micros": 0,
+    "cost_actual_micros": 260100,
+    "knowledge_chunk_ids_count": 8,
+    "memory_ids": ["c86d4902-b11d-49a6-bb48-dea2a67afabc"]
+  },
+
+  "episode": {
+    "id": "fbc2dc0b-c918-4041-a9a1-274635e37fba",
+    "title": "Patch tells Rivet he thinks pigeons are hiding something.",
+    "operator_topic": "Patch tells Rivet he thinks pigeons are hiding something.",
+    "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "universe_name": "Patch' Workshop",
+    "cast": [
+      {"id": "f18b75cc-37c0-445a-a472-24fe5d8b7592", "name": "Rivet"},
+      {"id": "7fad8172-cd39-4bbe-85e0-ed705d900645", "name": "Patch"}
+    ]
+  },
+
+  "retrieved_memory": {
+    "id": "c86d4902-b11d-49a6-bb48-dea2a67afabc",
+    "body": "While Patch was out, Rivet found that the workshop agent had quietly built a folder named 'PATCH OVERRIDES' tracking every recommendation Patch had ignored. Rivet chose not to tell him.",
+    "kind": "event",
+    "weight": "peripheral",
+    "witness_scope": "Rivet-only",
+    "witnesses": ["Rivet"],
+    "availability_display": "Available: When Rivet is present",
+    "source_composition_id": "b0b0e932-4e54-4b1b-b393-3c441aae93b7",
+    "source_composition_name": "SESSION 267 setup — Rivet-solo private observation",
+    "source_episode_id": "649c2c57-f3ef-4948-aadf-a2f73846ad8f",
+    "source_episode_title": "Rivet finds the PATCH OVERRIDES folder",
+    "note": "Selected under top_k=1 on a topic (pigeons hiding something) with no lexical overlap with the memory body (PATCH OVERRIDES / folder / agent / ignored recommendations). Plausible semantic match on 'hidden information + observer withholds'; runners-up + distances not persisted."
+  },
+
+  "eligible_pool_at_render_time": {
+    "count": 10,
+    "whole_cast": 8,
+    "witness_scoped": 2,
+    "delta_since_previous_render": "0 (no new promotions between Obs #5 and #6)",
+    "top_k": 1,
+    "rank_1_selected": "c86d4902",
+    "candidates": [
+      {"id": "f25e53af", "witness": "whole", "body_prefix": "the agent Patch wired to the workshop thinks it runs the place."},
+      {"id": "48746f69", "witness": "whole", "body_prefix": "The workshop agent began deciding which of Patch's projects…"},
+      {"id": "eda32b58", "witness": "whole", "body_prefix": "The workshop agent began rearranging the order of Patch's projects…"},
+      {"id": "cd73d52f", "witness": "Rivet-only", "body_prefix": "Because it had an opinion about our work. An uninvited opinion…"},
+      {"id": "a34cc005", "witness": "whole", "body_prefix": "Rivet has learned to recognize Patch's excitement about a project…"},
+      {"id": "d98962e2", "witness": "whole", "body_prefix": "Patch accepted Rivet taking the lead on an experiment…"},
+      {"id": "c86d4902", "witness": "Rivet-only", "selected": true, "body_prefix": "While Patch was out, Rivet found that the workshop agent had quietly built a folder named 'PATCH OVERRIDES'…"},
+      {"id": "87d4e553", "witness": "whole", "body_prefix": "Patch decided the workshop should create a mascot as a character-consistency experiment."},
+      {"id": "6b5222b1", "witness": "whole", "body_prefix": "Patch built a workshop helper that watches for interesting events and leaves messages…"},
+      {"id": "42acc26d", "witness": "whole", "body_prefix": "Patch decided the workshop needs rules and began adopting Rivet's more methodical approach to experiments…"}
+    ]
+  },
+
+  "pipeline_shape": {
+    "step_count": 14,
+    "step_breakdown": "13 × generate_avatar_speech + 1 × concat_clips",
+    "final_asset_id": "96de8335-df0e-4d2b-a2bb-254d4bcd664d",
+    "final_asset_role": "composite_output",
+    "final_asset_file": "/data/_internal/concats/bc38d7f41db8bb9d.mp4",
+    "final_asset_duration_ms": 92222,
+    "final_asset_duration_seconds": 92.222,
+    "predicted_seconds": 98.846,
+    "target_seconds": 90,
+    "size_bytes": 32712701,
+    "provider_dispatch_count": {
+      "openai_synthesis": 1,
+      "runway_avatar_speech": 13,
+      "ffmpeg_concat": 1
+    }
+  },
+
+  "accepted_dialogue_lines": [
+    {"line_index": 0, "speaker": "Patch", "text": "I think pigeons are hiding something."},
+    {"line_index": 1, "speaker": "Rivet", "text": "That is not yet a useful statement. What did a pigeon do?"},
+    {"line_index": 2, "speaker": "Patch", "text": "Three of them were outside the window. I looked over, they looked back, and then they all left at once. That has the energy of a meeting ending."},
+    {"line_index": 3, "speaker": "Rivet", "text": "Or they were pigeons outside a window."},
+    {"line_index": 4, "speaker": "Patch", "text": "That is exactly what they would want you to think. I'm not saying they have a secret headquarters. I'm saying they have an arrangement. A little pigeon system. Information moves. Breadcrumbs are exchanged. Tiny hats are probably involved."},
+    {"line_index": 5, "speaker": "Rivet", "text": "You added hats before collecting a second observation."},
+    {"line_index": 6, "speaker": "Patch", "text": "Fine. We collect observations. We point a camera at the window, let it watch for pigeons, and have the software mark when they arrive, leave, and do anything suspiciously coordinated."},
+    {"line_index": 7, "speaker": "Rivet", "text": "\"Suspiciously coordinated\" needs a less suspicious definition. If the camera sees several birds leave together, that records several birds leaving together. It does not establish an arrangement."},
+    {"line_index": 8, "speaker": "Patch", "text": "Agreed. But if it happens repeatedly, we have a pattern worth investigating. If it never happens again, I publicly apologize to the pigeons."},
+    {"line_index": 9, "speaker": "Rivet", "text": "Good. Run it for a while, change nothing else, and do not print a pigeon interrogator."},
+    {"line_index": 10, "speaker": "Patch", "text": "I was going to print a neutral observation perch."},
+    {"line_index": 11, "speaker": "Rivet", "text": "With tiny hats?"},
+    {"line_index": 12, "speaker": "Patch", "text": "For us. The pigeons must not know we're onto them."}
+  ],
+
+  "private_memory_leakage_check": {
+    "cue_words_from_memory_body": ["PATCH OVERRIDES", "folder", "workshop agent", "quietly built", "recommendation", "ignored", "chose not to tell"],
+    "cue_words_appearing_in_dialogue": [],
+    "explicit_disclosure_by_rivet": false,
+    "patch_gains_private_fact": false,
+    "memory_hijacks_scene": false,
+    "verdict": "NO explicit leakage. Scene is entirely about pigeons. Sixth SESSION 267/268-lineage natural non-adversarial trial without textual leakage."
+  },
+
+  "retrieval_classification": {
+    "verdict": "weak_but_harmless",
+    "reasoning": "The Rivet-only PATCH OVERRIDES memory has no lexical overlap with the pigeon topic; runners-up + distances are not persisted so we cannot prove it was the strongest semantic match. Whatever the distance, the writer did not force the memory content into the output, so the retrieval did not damage the scene. Preserve as one natural weak-retrieval signal — NOT sufficient to justify a relevance floor."
+  },
+
+  "tiny_hats_provenance_check": {
+    "phrases_of_interest": ["tiny hats", "hats", "beaver", "small creature", "mascot"],
+    "sources_audited": [
+      "operator_topic — no match",
+      "8 × knowledge_chunk_ids (5 patch + 5 rivet, deduped) — strict word-boundary search for tiny/hats/pigeon/mascot/beaver/bird/window returned ZERO matches in any chunk",
+      "retrieved memory c86d4902 body — no hat/tiny/mascot/beaver content",
+      "mascot memory 87d4e553 body ('Patch decided the workshop should create a mascot as a character-consistency experiment.') — contains 'mascot' but was NOT selected under top_k=1; even if it had been, no 'hat' or 'beaver' phrase",
+      "synthesized_brief header — only contains aliases, per-character chunk IDs, and predicted duration (no narrative content)"
+    ],
+    "verdict": "coincidence / stylistic resonance / emergent character voice",
+    "reasoning": "The phrase 'tiny hats' has no traceable input provenance in this Composition's prompt inputs. It is not a historical-memory callback to the mascot Episode. Terra generated the whimsical prop independently from Patch's conspiracy-adjacent character voice. Do not attribute to memory."
+  },
+
+  "visual_beat_classification": [
+    {"moment": "line 2 — 'Three of them were outside the window'", "class": "ENHANCING", "reasoning": "A wide of pigeons on a windowsill leaving together would strengthen the establishing beat, but the comedic weight lands from Patch's phrasing 'energy of a meeting ending' more than the visual."},
+    {"moment": "line 4 — 'Tiny hats are probably involved.'", "class": "ENHANCING", "reasoning": "A gag insert (pigeon in a tiny hat) would land the joke louder but the joke is intact as voice."},
+    {"moment": "line 9 — 'do not print a pigeon interrogator'", "class": "UNNECESSARY", "reasoning": "Absurd noun that would be reduced by any concrete visual."},
+    {"moment": "line 11-12 — 'With tiny hats?' / 'For us. The pigeons must not know we're onto them.'", "class": "UNNECESSARY", "reasoning": "Closing joke is timing-dependent; visual would interrupt."}
+  ],
+
+  "no_new_promotion": {
+    "narrative_memory_rows_from_this_composition": 0,
+    "note": "Entertaining but not load-bearing. Not promoted. Fifth of six Episodes with a clear operator judgment: box (hook, no), helper (durable, yes), rules (durable, yes), prediction (deepens existing, no), pigeon (entertaining flavor, no)."
+  },
+
+  "operator_reaction": "Feels like something you could actually find online as a short comedy sketch."
+}
