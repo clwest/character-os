@@ -1,0 +1,114 @@
+{
+  "captured_at": "2026-08-19T00:00:00Z",
+  "session": 269,
+  "context": "§13 operator-visible parity pass — verifies §12 IS actually reachable through the live running SPA, not merely present in source + tests. Prompted by the recurring dogfood lesson: 'implemented' and 'operator-visible' are separate verification states.",
+
+  "git_state_at_audit_time": {
+    "head": "87c328f5d57ee238e53bed7589e34ef4d99768e8",
+    "head_subject": "docs(session-269): record §12 slice commit SHA 06ba772 in checkpoint",
+    "head_local_time": "2026-08-19 10:22:56 -0600",
+    "section_12_slice_commit": "06ba772",
+    "section_12_slice_local_time": "2026-08-19 10:22:37 -0600",
+    "section_11_doc_commit": "91c9e3a",
+    "section_11_doc_local_time": "2026-08-19 09:51:25 -0600",
+    "section_10_slice_commit": "765bb73",
+    "section_10_slice_local_time": "2026-08-19 09:21:50 -0600",
+    "origin_main_matches_head": true,
+    "working_tree_clean_before_audit": true
+  },
+
+  "running_process_freshness": {
+    "django_start_local_time": "2026-08-19 09:53:42",
+    "media_engine_start_local_time": "2026-08-19 09:53:42",
+    "celery_start_local_time": "2026-08-19 09:53:42",
+    "vite_start_local_time": "2026-08-19 09:53:43",
+    "processes_predate_section_12_slice_boot": true,
+    "django_autoreload_evidence": [
+      "/tmp/character-os-django.log line: 'Watching for file changes with StatReloader' (×4)",
+      "/tmp/character-os-django.log line: 'shell/apps/universe/serializers.py changed, reloading.' (×3)"
+    ],
+    "django_autoreload_verdict": "loaded — post-slice serializer edits triggered process reload",
+    "celery_autoreload_verdict": "N/A — Celery does NOT autoreload; but §12 changes are all in DRF serializer/view path (Django-side), not in any Celery task. Celery being stale for §12 has no effect. Celery is still stale for §11 remedial retest of §10 — the current Celery process started 09:53:42 which is AFTER §10 slice 765bb73 (09:21:50), so §10 code IS loaded in the running Celery worker.",
+    "vite_hmr_verdict": "loaded — Vite watches on-disk source and transforms on request; §12 marker strings are present in the modules Vite currently serves (see live_module_grep below).",
+    "live_django_serializer_introspection": {
+      "method": "In-process Python import of apps.universe.serializers.EpisodeSerializer + get_fields() dump — runs against the SAME code the live server serves (autoreload confirmed).",
+      "fields": ["id", "universe", "universe_name", "title", "operator_topic", "cast", "cast_ids", "composition_count", "archived_at", "created_by", "created_at", "updated_at"],
+      "cast_ids_present": true,
+      "cast_ids_shape": "ListField, write_only=True, required=False, default=<class 'list'>"
+    },
+    "django_api_health": {
+      "curl_probe": "curl http://localhost:8010/api/episodes/",
+      "response_status": 403,
+      "response_body": "{\"detail\":\"Authentication credentials were not provided.\"}",
+      "interpretation": "endpoint is live and correctly rejects unauthenticated requests"
+    }
+  },
+
+  "live_vite_module_grep": {
+    "method": "curl http://localhost:5174/src/routes/workspace/universes.$id.episodes.tsx (etc.); grep for §12 marker strings in Vite's on-the-fly-transformed module response.",
+    "note": "Vite dev server has no separate bundle; each source file is transformed and served as an ES module on-demand. Presence of marker strings in the served module proves the current on-disk source is what will be delivered to any browser that requests the module.",
+
+    "create_episode_form_module": {
+      "url": "http://localhost:5174/src/routes/workspace/universes.$id.episodes.tsx",
+      "http_status": 200,
+      "bytes_served": 39504,
+      "markers_present": [
+        "episode-create-cast-picker",
+        "episode-create-cast-toggle-",
+        "Cast (optional; add now or later)",
+        "toggleCast",
+        "selectedCastIds"
+      ]
+    },
+
+    "episode_detail_module": {
+      "url": "http://localhost:5174/src/routes/workspace/episodes.$id.tsx",
+      "http_status": 200,
+      "markers_present": [
+        "episode-render-solo-cta",
+        "episode-render-dialogue-cta",
+        "episode-cast-empty-hint",
+        "New solo scene",
+        "New dialogue scene",
+        "Add at least one character"
+      ]
+    },
+
+    "recipe_form_module": {
+      "url": "http://localhost:5174/src/routes/recipes/$kind.tsx",
+      "http_status": 200,
+      "markers_present": [
+        "episode-context-chip",
+        "episode-context-title-link",
+        "episode-insufficient-cast",
+        "Rendering under episode"
+      ],
+      "note": "SESSION 262 chip is preserved. Chris's expected 'Episode-context chip near the top of the form' resolves to a <div data-testid=\"episode-context-chip\"> that reads 'Rendering under episode <title>' followed by the cast list."
+    },
+
+    "composition_detail_module": {
+      "url": "http://localhost:5174/src/routes/compositions/$id.tsx",
+      "http_status": 200,
+      "memory_panels_mounted_unconditionally": true,
+      "gate_conditions": {
+        "MemoriesUsedSummary": "no template_kind gate; no terminal gate; no episode gate — renders whenever c.memories_used is non-empty (panel component itself returns null on empty).",
+        "MemoriesUsedPanel": "same as above.",
+        "NarrativeMemoryPromotePanel": "gated on c.episode && terminal — an Episode-attached completed talking_head will surface promote UI, matching dialogue behavior."
+      }
+    }
+  },
+
+  "not_verifiable_without_browser": [
+    "actual pixel rendering (whether the picker chips are legible, whether the 'New solo scene' button is above the fold, etc.)",
+    "actual click interactions (whether the cast toggle button visually reflects selection state to a real user, whether keyboard nav works)",
+    "whether Chris's current browser tab has an OLD Vite bundle cached from before the §12 slice landed — a hard refresh (Cmd+Shift+R) is the only safe way to guarantee the new source is loaded in his running browser session",
+    "whether Continuity summary + panel would render for a real solo talking_head Composition — no such Composition exists yet in the live DB (Composition 44f2279f from §11 has memory_ids=[]); this is deferred to the acceptance test itself"
+  ],
+
+  "did_not_create_test_data": true,
+  "did_not_promote_memory": true,
+  "did_not_render": true,
+  "did_not_hard_delete": true,
+
+  "safe_to_dogfood_verdict": "B — SAFE WITH ONE KNOWN VISIBLE DIFFERENCE. See §13.9 in the main doc for the difference and mitigation."
+}

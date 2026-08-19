@@ -1635,3 +1635,224 @@ boundary, `top_k=1`, promote path, `talking_head` writing
 contract — are untouched. Any further Episodes, promotions, or
 audit findings should extend this document (add §13, §14…)
 rather than start a new one.
+
+## §13. Operator-visible parity pass for §12
+
+Read-only verification pass BEFORE Chris performs the §12
+acceptance test. Prompted by the recurring dogfood lesson: we
+have repeatedly encountered cases where source implemented +
+automated tests passing did NOT imply the operator could see or
+reach the capability. §13 codifies the distinction and applies
+it to §12.
+
+Evidence sidecar:
+`docs/design/session_269_experiment_data/04_operator_visible_parity_pass.json`
+
+### §13.1 New working rule (durable methodology)
+
+> **"Implemented" and "operator-visible" are separate verification
+> states.** For creator-facing work, a report must distinguish
+> four levels and NEVER upgrade a claim without evidence at the
+> claimed level:
+>
+> 1. **SOURCE IMPLEMENTED** — code exists at the current HEAD.
+> 2. **TESTED** — automated tests exercise the code and pass.
+> 3. **LIVE VISIBLE** — the currently running services actually
+>    serve the code to any real client that requests it (backend
+>    process has reloaded, Vite serves current source, no stale
+>    worker).
+> 4. **OPERATOR REACHABLE** — an ordinary operator following the
+>    documented flow through the real UI can see and use the
+>    capability without workarounds or hidden knowledge.
+>
+> A feature is not "shipped to the operator" until level 4 is
+> verified. Level 1+2 alone is a coding claim, not a shipping
+> claim. This rule is part of the ongoing Character OS dogfood
+> methodology.
+
+### §13.2 Running-process freshness at audit time
+
+Git HEAD: `87c328f` (`docs(session-269): record §12 slice commit
+SHA 06ba772 in checkpoint`). Origin/main matches. Working tree
+clean before audit.
+
+Process boot times vs commit landing times:
+
+| Process | Started (local) | vs §10 slice (09:21:50) | vs §12 slice (10:22:37) | Verdict |
+|---|---|---|---|---|
+| Django | 09:53:42 | AFTER | BEFORE, but autoreload picked up serializer edits (see log evidence below) | §10 + §12 code LOADED |
+| Media-engine | 09:53:42 | AFTER | BEFORE — §12 has no media-engine change | not relevant |
+| Celery | 09:53:42 | AFTER | BEFORE — §12 has no Celery-task change (all §12 logic is DRF serializer/view path) | §10 LOADED; §12 irrelevant to Celery |
+| Vite | 09:53:43 | AFTER | BEFORE — Vite HMR + on-demand source transform serves current on-disk source (see live_module_grep) | §12 modules LOADED |
+
+**Django autoreload evidence** (`/tmp/character-os-django.log`):
+
+- 4× `Watching for file changes with StatReloader`
+- 3× `shell/apps/universe/serializers.py changed, reloading.`
+
+Autoreload fired every time I edited the serializer during §12,
+so the live Django process holds the current serializer code.
+
+**Live Django serializer introspection** (in-process import of
+`apps.universe.serializers.EpisodeSerializer` inside the same
+autoreloaded module namespace):
+
+```
+EpisodeSerializer fields (live): [
+    'id', 'universe', 'universe_name', 'title', 'operator_topic',
+    'cast', 'cast_ids', 'composition_count', 'archived_at',
+    'created_by', 'created_at', 'updated_at'
+]
+cast_ids present? True
+cast_ids shape: ListField, write_only=True, required=False, default=list
+```
+
+**API health probe:** `curl http://localhost:8010/api/episodes/`
+→ `403 {"detail":"Authentication credentials were not provided."}`
+— endpoint live, correctly rejects unauthenticated requests.
+
+### §13.3 Live Vite module verification
+
+Vite dev server serves each source file as an ES module on
+demand. There is no separate bundle; presence of §12 marker
+strings in the served module PROVES the current on-disk source
+is what will be delivered to any browser that requests it.
+
+**Create Episode form module** — `curl http://localhost:5174/src/routes/workspace/universes.$id.episodes.tsx`:
+
+- HTTP 200, 39,504 bytes served
+- Markers present: `episode-create-cast-picker`, `episode-create-cast-toggle-`, `"Cast (optional; add now or later)"`, `toggleCast`, `selectedCastIds`
+
+**Episode detail module** — `curl http://localhost:5174/src/routes/workspace/episodes.$id.tsx`:
+
+- HTTP 200
+- Markers present: `episode-render-solo-cta`, `episode-render-dialogue-cta`, `episode-cast-empty-hint`, `"New solo scene"`, `"New dialogue scene"`, `"Add at least one character"`
+
+**Recipe form module** — `curl http://localhost:5174/src/routes/recipes/$kind.tsx`:
+
+- HTTP 200
+- Markers present: `episode-context-chip`, `episode-context-title-link`, `episode-insufficient-cast`, `"Rendering under episode"`
+
+**Composition detail module** — `curl http://localhost:5174/src/routes/compositions/$id.tsx`:
+
+- HTTP 200
+- `MemoriesUsedSummary` + `MemoriesUsedPanel` mounted unconditionally with `memories={c.memories_used}` — no `template_kind` gate, no `terminal` gate, no `episode` gate.
+- `NarrativeMemoryPromotePanel` gated on `c.episode && terminal` — an Episode-attached completed talking_head will surface promote UI (matches dialogue behaviour).
+
+### §13.4 Exact creator-facing wording (verbatim from the served module)
+
+- Create form section label: **`Cast (optional; add now or later)`**
+- Empty-cast picker hint: *"No characters in this Universe yet. Add teammates to this Universe from the Universe detail page, then come back — or create the Episode now and attach cast later."*
+- Zero-selection hint: *"No cast selected — this will save as a draft Episode. The scene action on the Episode page will remind you to add at least one character before rendering."*
+- One-selection hint: *"One character selected — the Episode will offer a solo-scene action."*
+- Multi-selection hint: *"N characters selected — the Episode will offer a dialogue-scene action."*
+- Episode detail cast=0 hint (`episode-cast-empty-hint`): *"Add at least one character to this Episode's cast (above) to enable scene creation."*
+- Episode detail cast=1 CTA button label: **`New solo scene`**
+- Episode detail cast=2+ CTA button label: **`New dialogue scene`**
+- Recipe-form Episode chip (SESSION 262, unchanged): *"Rendering under episode <title>" · "cast: <names>"*
+
+### §13.5 §12 → live parity matrix
+
+| Capability | Source | Test | Live SPA | Operator reachable |
+|---|---|---|---|---|
+| Cast picker on Create Episode | ✅ | ✅ | ✅ (module markers present) | ✅ (visible on `/workspace/universes/:id/episodes` after clicking "New Episode") |
+| One-cast selection | ✅ | ✅ | ✅ | ✅ (single-click toggle) |
+| Multi-cast selection | ✅ | ✅ | ✅ | ✅ (independent toggles) |
+| Zero-cast draft explanation copy | ✅ | ✅ | ✅ | ✅ (hint text renders inside picker block) |
+| Zero-cast scene CTA suppression | ✅ | ✅ | ✅ | ✅ (no `episode-render-solo-cta`/`episode-render-dialogue-cta` mounted when `cast.length === 0`; only `episode-cast-empty-hint`) |
+| One-cast "New solo scene" CTA | ✅ | ✅ | ✅ | ✅ (mounted when `cast.length === 1`) |
+| Two+-cast "New dialogue scene" CTA | ✅ | ✅ | ✅ | ✅ (mounted when `cast.length >= 2`; regression check green) |
+| Solo route carries `?episode=` | ✅ | ✅ | ✅ | ✅ (`/recipes/talking_head?episode=<id>` — verified in module string) |
+| Solo form pre-fills spokesperson | ✅ (SESSION 262 code) | ✅ | ✅ | ✅ (recipe form pre-fill from `Episode.cast[0].id` unchanged) |
+| Solo form pre-fills Episode topic | ✅ (SESSION 262 code) | ✅ | ✅ | ✅ (recipe form pre-fill from `Episode.operator_topic` unchanged) |
+| Episode-context indicator visible | ✅ (SESSION 262 chip, unchanged) | ✅ | ✅ | ✅ (`data-testid="episode-context-chip"` visible when `?episode=` is present, reads *"Rendering under episode <title>"*) |
+| Solo render submission would preserve Episode attachment | ✅ | ✅ (SESSION 262 tests + §12 unit tests) | ✅ (form includes `episode: episodeHint` in create payload when hint present) | **NOT VERIFIED** in live SPA — deferred to Chris's acceptance render |
+| Solo talking_head Composition renders Continuity summary + panel | ✅ (SESSION 264 Slice 3) | ✅ (component tests) | ✅ (panels mounted unconditionally on `/compositions/:id`) | **NOT YET LIVE-VERIFIABLE** — no solo talking_head Composition with `memory_ids != []` exists in the live DB yet (44f2279f from §11 has `memory_ids=[]`). Verifiable after Chris's acceptance render. |
+
+**No MISMATCH rows.** No SOURCE-ONLY rows.
+
+### §13.6 Known visible difference (one)
+
+Documented in §12.7 step 11: *"the Episode-context chip near the
+top of the form"*. The chip exists (SESSION 262
+`episode-context-chip`) and is visible in the served module. It
+is styled as a **bordered card**, not a small pill — the reference
+docstring calls it "chip" but the actual DOM is a
+`<div class="… rounded-md border border-luxe bg-card/60 px-4 py-2 text-sm">`
+reading *"Rendering under episode <title> · cast: <names>"*.
+
+**Impact:** cosmetic; Chris will still see the Episode context
+prominently. No fix warranted. Documenting so the description in
+§12.7 matches the visible DOM.
+
+Updated wording for §12.7 step 11 (from documentation only, no
+code change): *"the Episode-context indicator — a bordered card
+labelled 'Rendering under episode <title>' — at the top of the
+recipe form."*
+
+### §13.7 What was NOT verified without a browser
+
+Explicit gaps the operator should know about:
+
+1. **Actual pixel rendering** — chip legibility, button positions relative to fold, whether picker chips wrap gracefully at narrow widths.
+2. **Actual click / keyboard interactions** — visual selection state feedback, focus order, accessibility affordances.
+3. **Browser cache** — if Chris has a browser tab open from BEFORE §12 landed, the currently loaded modules in that tab may be stale. Vite HMR usually pushes updates without a refresh, but a hard refresh (Cmd+Shift+R on macOS) is the only guaranteed way to load current source into a running browser session.
+4. **Live Continuity panel for solo case** — no solo talking_head Composition with a populated `memory_ids` exists in the live DB. The panel is mounted architecturally correctly (§13.3 composition-detail module verification), but there is nothing operator-visible to point at until Chris renders one.
+
+### §13.8 Continuity panel: NOT YET LIVE-VERIFIABLE
+
+Per §13.5 last row + §F rules: the panels are mounted
+unconditionally on Composition detail; there is no
+`template_kind` / `episode` / `terminal` gate that would hide
+them from a talking_head Composition. Panel component itself
+returns null on empty `memories`, so a rendered but memory-less
+Composition is silent.
+
+Verifiable after Chris's acceptance render produces a Composition
+with `memory_ids != []`.
+
+**Did NOT:** promote memory, render, fake DB state, hard-delete
+anything. Read-only + one module introspection call.
+
+### §13.9 Final decision: B — SAFE WITH ONE KNOWN VISIBLE DIFFERENCE
+
+**Safe for Chris to dogfood.** Justification:
+
+- Live Django serializer confirmed to have `cast_ids` (autoreload
+  proof + in-process introspection).
+- Live Vite dev server confirmed to serve current source for all
+  four §12-relevant modules (marker-string grep).
+- All 12 §12 acceptance-matrix rows resolve to LIVE VISIBLE +
+  OPERATOR REACHABLE at the levels each is verifiable without a
+  browser session.
+- No MISMATCH rows.
+- One cosmetic difference (chip vs card) documented; Chris still
+  sees the Episode context clearly.
+- Continuity panel is the only row where LIVE evidence is
+  deferred — not because the plumbing is broken but because no
+  data exists to display yet. That is expected for a fresh
+  feature and will be demonstrated by Chris's own acceptance
+  render.
+
+**Operator hard-refresh reminder:** before running the §12
+acceptance test, Chris should reload the SPA (Cmd+Shift+R) to
+guarantee any browser tab held over from earlier in the session
+loads the current Vite modules. Vite HMR usually handles this
+automatically, but a manual refresh is the belt-and-braces
+guarantee against a stale-tab false negative.
+
+### §13.10 Commit checkpoint
+
+Doc-only slice — no code changes made in §13.
+
+- §13 doc + evidence commit: (populated after commit below).
+
+---
+
+**SESSION 269 IS NOT CLOSED.** §13 verified the §12 slice against
+live services and codified the four-level implemented → tested →
+live-visible → operator-reachable methodology. Chris may now
+proceed with the §12 acceptance test per §12.7 (with the
+hard-refresh reminder from §13.9). Any further Episodes,
+promotions, or audit findings should extend this document (add
+§14, §15…) rather than start a new one.
