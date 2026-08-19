@@ -1399,3 +1399,346 @@ post-review instructions):
   trigger did not fire).
 - DO proceed to UI-relabel analysis for the Semantic 1 /
   Semantic 2 language mismatch (§15).
+
+---
+
+## 15. UI-language investigation — Semantic 1 / Semantic 2 relabel
+
+Documentation-only analysis. No code change is authorized by
+this section. Chris + ChatGPT will review the ranked
+recommendation and exact microcopy before any implementation.
+
+### 15.1 What the runtime actually delivers
+
+The eligibility contract, restated in operator-facing terms
+(source of truth: `shell/apps/embeddings/retrieval.py:499-536`):
+
+- If the promote form's `witnessed_by` is left empty (radio
+  = "Everyone in this episode"), the memory becomes eligible
+  for retrieval into ANY future Composition whose cast is a
+  non-empty subset of this Universe.
+- If `witnessed_by` names a subset of the source Episode's
+  cast, the memory becomes eligible for retrieval into a
+  future Composition when **at least one** named witness
+  overlaps that Composition's cast.
+- After eligibility, ranking is pure cosine distance against
+  the query. Witness identity is discarded — the retrieved
+  row's `witnessed_by` M2M is NOT passed to the synthesis
+  prompt as attribution, restriction, or ownership metadata.
+
+The runtime therefore does NOT guarantee:
+
+- "Only these characters know this."
+- "This memory belongs to these characters."
+- "This memory is about these characters."
+- "These characters will cite this memory."
+- "These characters will bring this memory into a scene."
+
+It only guarantees:
+
+- "These characters' presence in a future scene is what
+  makes this memory available to the system for use in
+  that scene."
+
+### 15.2 Where the mismatch lives in the current UI
+
+Discovered while surveying `narrative-memory-panels.tsx`:
+
+| Surface | Line | Current copy | Semantic implication |
+|---|---|---|---|
+| Promote form legend | 191 | *"Who remembers this?"* | Semantic 2 (attribution). |
+| Promote form radio A | 207 | *"Everyone in this episode"* | Ambiguous — reads as "everyone remembers." |
+| Promote form radio B | 220 | *"Choose characters…"* | Neutral. |
+| Read-only memory row | 475, 618 | *"Remembered by: {names}"* | **Semantic 2 (attribution).** |
+| Read-only whole-cast label | 461, 606 | *"Everyone in the episode"* | Ambiguous, same as radio A. |
+| Error-message reference | 124 | *"…or switch to Everyone in this episode."* | Depends on radio A wording. |
+| Panel description | 168-170 | *"Save something that happened in this episode so the characters can remember it later."* | Semantic 2 (the characters remember). |
+
+**Surprise finding — the mismatch is not just the promote
+legend.** Two independent surfaces (promote legend +
+read-only "Remembered by") use Semantic-2 language. Any
+promote-form relabel that leaves *"Remembered by:"*
+untouched creates a fresh mismatch: promote form says one
+thing, display of that same memory says another. A coherent
+fix must address both surfaces. This is documentation-only
+here; §15.6 discusses whether the display change should ship
+with the promote change or as a follow-up.
+
+### 15.3 Candidate wording analysis
+
+Runtime dimension score legend (used in each candidate's
+row):
+
+- **✔** = matches the invariant.
+- **~** = partially / softly matches; can be misread but not
+  demonstrably wrong.
+- **✘** = misleads / implies a semantic the runtime does not
+  deliver.
+
+#### Candidate A — *"Relevant to"*
+
+> **Relevant to**
+> ○ Everyone in this episode
+> ○ Choose characters…
+
+| Dimension | Score | Notes |
+|---|---|---|
+| Truthful to Semantic 1 | ~ | "Relevant to X" is vague — accommodates both eligibility and attribution. |
+| Avoids Semantic 2 leak | ✘ | Reads naturally as "belongs to / concerns X." |
+| Avoids "about" leak | ✘ | *"Relevant to Rivet"* reads as "the memory concerns Rivet." |
+| Avoids memory-drives-cast direction | ✔ | No direction implied. |
+| Exposes impl detail | ✔ | No. |
+| Fits beside "What changed?" | ✔ | Compact. |
+| Whole-cast event reads | ~ | Bland; "relevant to Everyone" is thin. |
+| Rivet-specific attitude reads | ✘ | Reads as ownership: "the memory is Rivet's." |
+| Private observation reads | ✘ | Same ownership implication. |
+| Relationship memory reads | ✘ | *"Relevant to Patch, Rivet"* reads as aboutness. |
+| Helper text required | Yes | To disambiguate. |
+
+Verdict: **REJECT** — carries the aboutness / attribution
+implication in every non-whole-cast case.
+
+#### Candidate B — *"Memory applies to"*
+
+> **Memory applies to**
+> ○ Everyone in this episode
+> ○ Choose characters…
+
+| Dimension | Score | Notes |
+|---|---|---|
+| Truthful to Semantic 1 | ✘ | "Applies to X" reads as "governs X's arc / attaches to X." That is Semantic 2. |
+| Avoids Semantic 2 leak | ✘ | Same. |
+| Avoids "about" leak | ~ | Weaker than A but present. |
+| Avoids memory-drives-cast direction | ✔ | — |
+| Rivet-specific reads | ✘ | *"Applies to Rivet"* reads as arc-scoped ownership. |
+| Private observation reads | ✘ | Same. |
+
+Verdict: **REJECT** — stronger Semantic-2 implication than A.
+
+#### Candidate C — *"Which characters can bring this memory into a scene?"*
+
+> **Which characters can bring this memory into a scene?**
+> ○ Everyone in this episode
+> ○ Choose characters…
+
+| Dimension | Score | Notes |
+|---|---|---|
+| Truthful to Semantic 1 | ~ | Close — but overstates the character's role. The runtime is "presence in cast → eligible for retrieval," not "character-agent brings memory." |
+| Avoids Semantic 2 leak | ✔ | No ownership implication. |
+| Avoids "about" leak | ✔ | — |
+| Avoids memory-drives-cast direction | ✔ | Correct direction (character → memory). |
+| Exposes impl detail | ~ | "Bring into a scene" hints at retrieval mechanics. |
+| Fits beside "What changed?" | ~ | Slightly long. |
+| Whole-cast reads | ✔ | Natural. |
+| Rivet-specific reads | ~ | *"Only Rivet can bring this in"* implies Rivet exclusively — but the runtime is "Rivet's presence makes it eligible for retrieval, which the writer may or may not act on." |
+| Private observation reads | ~ | Same. |
+| Relationship reads | ~ | Same. |
+| Helper text required | Optional | The label is close to self-explanatory. |
+
+Verdict: **RUNNER-UP CANDIDATE.** The verb *"bring"* implies
+active character agency the runtime doesn't quite provide —
+a Rivet-witnessed memory becomes eligible when Rivet is
+present, but the writer decides what to do with it. Not
+false, but slightly overstates.
+
+#### Candidate D — *"Which characters is this memory connected to?"*
+
+> **Which characters is this memory connected to?**
+> ○ Everyone in this episode
+> ○ Choose characters…
+
+| Dimension | Score | Notes |
+|---|---|---|
+| Truthful to Semantic 1 | ~ | "Connected to" is very vague. |
+| Avoids Semantic 2 leak | ✘ | "Connected to X" reads similarly to "belongs to X." |
+| Avoids "about" leak | ✘ | Also accommodates aboutness. |
+| Avoids memory-drives-cast direction | ✔ | — |
+| Rivet-specific reads | ✘ | Ownership implication. |
+
+Verdict: **REJECT** — vague enough to accommodate
+Semantic 2 without preventing it.
+
+#### Proposed Candidate E — *"Which characters make this memory available to a future scene?"*
+
+> **Which characters make this memory available to a future scene?**
+> ○ Everyone in this episode
+> ○ Choose characters…
+
+| Dimension | Score | Notes |
+|---|---|---|
+| Truthful to Semantic 1 | ✔ | Exact match. Character presence in future cast makes memory available (eligible) for use in that scene. |
+| Avoids Semantic 2 leak | ✔ | "Make available" is enabling, not owning. |
+| Avoids "about" leak | ✔ | No aboutness implication. |
+| Avoids memory-drives-cast direction | ✔ | Correctly: character → memory availability. |
+| Avoids overstating character agency | ✔ | "Make available" is passive-enabling ("their presence unlocks the memory as a candidate"), not "bring" or "cite." The writer still decides whether to use it. |
+| Exposes impl detail | ✔ | Doesn't use "retrieval," "eligible," or "top_k." |
+| Fits beside "What changed?" | ✔ | Question form; parallel structure. |
+| Whole-cast reads | ✔ | *"Everyone in this episode"* answers "which characters make it available" — all of them. |
+| Rivet-specific reads | ✔ | *"[Rivet]"* — Rivet's presence in a future cast makes the memory available. Accurate. |
+| Private observation reads | ✔ | Same. |
+| Relationship reads | ✔ | *"[Patch, Rivet]"* — either character's presence makes it available. Accurate (OR-eligibility). |
+| Helper text required | Optional | See §15.5. |
+
+Verdict: **PRIMARY RECOMMENDATION.** Best on every
+dimension; no invented misconception.
+
+### 15.4 Ranked recommendation
+
+1. **Primary — Candidate E:** *"Which characters make this
+   memory available to a future scene?"*
+2. **Runner-up — Candidate C:** *"Which characters can bring
+   this memory into a scene?"* — same shape, slightly
+   overstates character agency.
+3. **Explicitly NOT recommended — Candidate B:** *"Memory
+   applies to"* — carries the strongest Semantic-2 ownership
+   implication. Also **NOT** recommend Candidate A
+   ("Relevant to") or D ("connected to") — both leak
+   aboutness / attribution. And **NOT** the existing *"Who
+   remembers this?"* which is the very Semantic-2 language
+   this relabel exists to correct.
+
+### 15.5 Complete proposed microcopy for the primary
+recommendation
+
+**Promote form only** (the smallest, tightest change):
+
+```
+Story history
+Remember this
+Save something that happened in this episode so the story
+can bring it back later.
+
+What changed?
+[textarea, unchanged]
+placeholder: unchanged
+
+Which characters make this memory available to a future scene?
+○ Everyone in this episode
+○ Choose characters…
+   (unchanged pill picker when "Choose characters…" is
+   selected)
+
+Error copy adjustments (line 124 in current file):
+   "Pick at least one character, or switch to Everyone in
+    this episode."
+   → UNCHANGED (radio label unchanged).
+```
+
+Panel description tweak (line 168-170 currently reads *"…so
+the characters can remember it later"*):
+
+```
+Save something that happened in this episode so the story
+can bring it back later.
+```
+
+Rationale: current wording implies characters do the
+remembering (Semantic 2). Rephrased so the story pulls the
+memory back — matches the runtime (system retrieves; writer
+uses).
+
+### 15.6 Read-only display surface — coherence question
+
+Discovered during investigation (§15.2): the read-only
+`MemoryRow` and `MemoryUsedRowView` components label the
+witness list as *"Remembered by: {names}"* (lines 475, 618).
+That is Semantic-2 language for the same field.
+
+Options for the read-only side:
+
+- **Option X (minimal, ships with the promote change):**
+  swap *"Remembered by:"* → *"Available in scenes with:"*.
+  Same information, matched to the promote-form legend.
+- **Option Y (defer):** leave *"Remembered by:"* for now;
+  address in a follow-up if operator confusion surfaces.
+  Downside: introduces a fresh promote-vs-display mismatch
+  that did NOT exist before this relabel.
+
+**Recommendation:** ship Option X together with the promote
+change. Fixing one surface without the other trades an
+old mismatch for a new one. The read-only strings are
+one-line changes each (2 total call sites), no logic
+change.
+
+For whole-cast rows, *"Available in scenes with: Everyone
+in the episode"* reads naturally.
+
+### 15.7 Traceability — why the proposed wording is truthful
+
+Mapping the primary label to the runtime, clause by clause:
+
+- *"Which characters"* — the operator picks Teammate IDs
+  from the source Episode's cast. Signal enforces cast
+  subset (`apps/memory/signals.py:28-98`).
+- *"make this memory available"* — the visibility filter
+  (`retrieval.py:508-529`) admits the memory into the
+  candidate pool when `witnessed_by` is empty (whole-cast
+  convention) OR at least one witness is in the current
+  cast. That admission is exactly "made available for
+  retrieval."
+- *"to a future scene"* — the retrieval fires per
+  Composition; each Composition is a scene render. "Future"
+  because the current render is the source of the memory
+  being promoted.
+
+**Nothing in the label overstates the runtime.** In
+particular:
+
+- It does NOT say *"only these characters know this"* —
+  Semantic 2, unenforced.
+- It does NOT say *"these characters will cite this"* —
+  writer decides.
+- It does NOT say *"this memory is about these
+  characters"* — aboutness is not the invariant.
+- It does NOT say *"these characters will bring this
+  memory in"* — the writer, not the characters, decides
+  what to do once the memory is retrieved.
+
+### 15.8 Remaining risks / ambiguity
+
+- **Multi-witness OR is implicit.** With witnesses = [Patch,
+  Rivet], the label reads *"Patch, Rivet make this memory
+  available…"* which reads as OR-eligibility (matches the
+  runtime). Whether operators intuit OR vs AND has not
+  been tested. The single-witness case is unambiguous;
+  the multi-witness case rests on English's natural
+  reading of a comma-separated subject.
+- **Whole-cast wording drift.** The current *"Everyone in
+  this episode"* / *"Everyone in the episode"* pair is
+  preserved for backwards visual consistency. If we ever
+  restructure the picker, we can revisit for parallelism.
+- **Panel description tweak (§15.5) is a second small
+  change.** Removing *"the characters can remember it
+  later"* eliminates a third Semantic-2 leak but is one
+  more diff. Recommend shipping together with the legend.
+- **Operator-testing gap unchanged.** SESSION 266 §14.10
+  item 2 (whether operators intuitively read the legend
+  as Semantic 1 or Semantic 2) is not settled by this
+  analysis or by SESSION 267's leakage experiment. The
+  relabel closes the ADVERTISED-vs-DELIVERED gap; whether
+  operators find the new advertising natural still needs
+  usage data.
+- **Cross-surface coherence risk if only the promote form
+  changes.** §15.6 recommends addressing both surfaces in
+  the same change to avoid introducing a new mismatch.
+
+### 15.9 What §15 does NOT do
+
+- Does NOT modify `narrative-memory-panels.tsx`.
+- Does NOT change any runtime behavior (prompt, retrieval,
+  top_k, witness semantics, schema, canon).
+- Does NOT run any further experiment.
+- Does NOT commit or push the design analysis alone;
+  packaging is up to Chris (design commit lands separately
+  from the experiment commit per Chris's SESSION 267
+  wrap-up instructions).
+- Does NOT close SESSION 267.
+
+### 15.10 Awaiting review
+
+**STOP for Chris + ChatGPT review of §15.4 ranked
+recommendation, §15.5 exact microcopy, §15.6 read-only
+coherence question, §15.7 traceability, and §15.8 remaining
+risks.** Implementation waits on operator authorization of
+the specific microcopy (and scope: promote-only vs
+promote + display).
