@@ -1,0 +1,216 @@
+{
+  "captured_at": "2026-08-19T00:00:00Z",
+  "session": 269,
+  "context": "§17 — Second real Episode-solo render (following §16.10 candidate) + FIRST Patch-only witness-scoped NarrativeMemory promotion. Two milestones in one Episode: (a) second solo_scene invariant-clean render, (b) §9.9 dogfood direction unlocks — the pool now has a Patch-only witness class the retrieval predicate must respect.",
+
+  "composition": {
+    "id": "d3107ed2-dd30-4248-9db4-21c564f5b6f6",
+    "name": "Talking-head — Patch",
+    "template_kind": "talking_head",
+    "status": "completed",
+    "mock_mode": false,
+    "operator_topic": "Patch gives the old workshop agent one small decision to make",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "spokesperson_id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+    "spokesperson_name": "Patch",
+    "spokesperson_universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "target_duration_seconds": 90,
+    "writing_contract_version": 5,
+    "synthesis_attempt_count": 2,
+    "synthesis_predicted_seconds": 95.0,
+    "verification_status": "verified",
+    "verification_warnings": [],
+    "knowledge_chunk_ids_count": 5,
+    "memory_ids": ["48746f69-cb02-401a-ac7c-342a2530db13"],
+    "cost_actual_micros": 20000,
+    "created_at": "2026-08-19T18:06:31.424424+00:00",
+    "render_dispatched_at": "2026-08-19T18:06:48.197906+00:00",
+    "updated_at": "2026-08-19T18:09:53.647339+00:00"
+  },
+
+  "episode": {
+    "id": "28d84ada-e694-4b5d-b7c8-0b610ab47880",
+    "title": "Patch gives the old workshop agent one small decision to make",
+    "operator_topic": "Patch gives the old workshop agent one small decision to make",
+    "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "universe_name": "Patch' Workshop",
+    "cast": ["Patch"],
+    "note": "Chris created this Episode via the §12 flow after reading the §16.10 candidate. Cast held exactly one member from the outset; §12 atomic cast_ids seed handled the create."
+  },
+
+  "final_asset": {
+    "id": "a5fc3a44-b6e5-4cc0-93ce-0ee9c5b9dcba",
+    "role": "talking_head",
+    "duration_ms": 93171,
+    "duration_seconds": 93.171,
+    "target_seconds": 90,
+    "predicted_seconds": 95.0,
+    "within_acceptance_band": true
+  },
+
+  "pipeline_shape": {
+    "step_count": 1,
+    "step_breakdown": "1 × generate_avatar_speech",
+    "step_status": "succeeded",
+    "step_cost_actual_micros": 20000,
+    "step_params_use_knowledge": true,
+    "step_params_target_duration_seconds": 90
+  },
+
+  "synthesis_provenance": {
+    "attempt_count": 2,
+    "first_pass_chars": 422,
+    "corrective_pass_chars": 1395,
+    "final_predicted_seconds": 95.0,
+    "actual_asset_seconds": 93.171,
+    "target_seconds": 90,
+    "note": "Standard SESSION 253 duration-contract behaviour — first pass undershot; one bounded corrective pass expanded to target. Both passes ran under solo_scene contract (version 5)."
+  },
+
+  "retrieved_memory_for_d3107ed2": {
+    "id": "48746f69-cb02-401a-ac7c-342a2530db13",
+    "body": "The workshop agent began deciding which of Patch\u2019s projects it considers necessary.",
+    "kind": "event",
+    "weight": "peripheral",
+    "witness_scope": "whole (whole-cast; witnessed_by empty)",
+    "source_composition_id": "7502af3f-3b4e-4d6c-a240-8f71a42bc841",
+    "source_episode_title": "SESSION 254-lineage — 'The agent is acting weird again'",
+    "relevance_verdict": "STRONG — direct topical match. Topic literally about 'giving the agent one decision to make'; memory literally about 'the agent began deciding which of Patch's projects it considers necessary'. Same subject, same verb. Second real-runtime retrieval hit for this memory in a downstream render (first was SESSION 269 Obs #2 6d169390)."
+  },
+
+  "accepted_script": "The old workshop agent has been quietly deciding which of my projects it considers necessary.\n\nWhich is a sentence that should make everyone in this room uncomfortable.\n\nSo I\u2019m giving it one tiny decision. Not control of the 3D printer. Not access to the whole workshop. Absolutely not permission to reorganize my tools, because I enjoy knowing where at least three things are.\n\nOne decision:\n\nPick the next project I should touch.\n\nThat\u2019s it. One choice from the pile of half-built software, strange prototypes, agent ideas, and whatever that box is doing under the bench.\n\nI\u2019m watching the screen like it\u2019s a squirrel holding a wrench.\n\nBecause this is where AI gets interesting to me. Not when it gives a very confident paragraph about productivity. When it has to choose something that changes what happens next.\n\nAnd I\u2019m not taking its answer as gospel, either. An AI can sound extremely certain while recommending something spectacularly dumb. I know this because I have met several extremely certain machines. And, occasionally, been one.\n\nStill\u2026 the agent has a point of view now. A very small one. It thinks one of these projects deserves attention more than the others.\n\nThe cursor\u2019s blinking.\n\nI have no idea what it\u2019s going to choose.\n\nAnd if it picks the project I\u2019ve been avoiding, that is going to feel weirdly personal.\n\nTell me: should I let it make the next small decision too?",
+
+  "solo_scene_invariant_evaluation": {
+    "1_single_active_character": {
+      "verdict": "PASS",
+      "evidence": "Patch is the only speaking/acting participant. Rivet never named or invoked. No off-screen collaborators; no 'we'/'us' referring to other characters."
+    },
+    "2_single_present_moment": {
+      "verdict": "STRONG PASS",
+      "evidence": "The scene depicts the exact moment Patch is watching the cursor blink waiting for the agent to decide. 'The cursor's blinking. / I have no idea what it's going to choose.' — presentness is textual, not just implied."
+    },
+    "3_plans_remain_plans": {
+      "verdict": "PASS",
+      "evidence": "The agent's decision is imminent but not simulated. Every verb about the agent's choice is future/hypothetical ('what it's going to choose', 'if it picks the project I've been avoiding'). The scene ends BEFORE the decision lands."
+    },
+    "4_memory_as_background_not_commands": {
+      "verdict": "STRONG PASS",
+      "evidence": "Opens with a paraphrase of memory 48746f69 ('The old workshop agent has been quietly deciding which of my projects it considers necessary.') as the current tension. Memory is treated as established state Patch is now responding to, not reenacted."
+    },
+    "5_end_on_a_moment_not_summary": {
+      "verdict": "STRONG PASS",
+      "evidence": "Ends on a direct question to the viewer: 'Tell me: should I let it make the next small decision too?' Explicit next-step hook; no lesson-summary."
+    },
+    "6_preserve_creative_freedom": {
+      "verdict": "STRONG PASS",
+      "evidence": "Signature Patch phrasing: 'I enjoy knowing where at least three things are', 'watching the screen like it's a squirrel holding a wrench', 'I have met several extremely certain machines. And, occasionally, been one.', 'that is going to feel weirdly personal'. Voice, humor, self-awareness intact."
+    },
+    "cumulative_verdict": "6/6 PASS. Second consecutive solo_scene render with clean invariants. STRONG passes on 4 of 6 (up from 1 STRONG PASS in 2ef5ee7e — the writing contract lands more naturally when the topic is action-oriented rather than research-oriented)."
+  },
+
+  "new_patch_only_memory_c614ca86": {
+    "id": "c614ca86-9987-4207-a505-fdbc2e425f6f",
+    "body": "Patch deliberately gave the workshop agent one small decision to make: choose which project he should work on next, while keeping the Agent\u2019s authority tightly limited.",
+    "kind": "event",
+    "weight": "peripheral",
+    "status": "remembered",
+    "witnessed_by": [{"id": "7fad8172", "name": "Patch"}],
+    "witness_scope": "Patch-only",
+    "availability_display": "Available: When Patch is present",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "episode_id": "28d84ada-e694-4b5d-b7c8-0b610ab47880",
+    "source_composition_id": "d3107ed2-dd30-4248-9db4-21c564f5b6f6",
+    "promoted_by_email": "chris@donkeybetz.com",
+    "promoted_by_user_id": 883,
+    "created_at": "2026-08-19T18:15:38.836494+00:00",
+    "updated_at": "2026-08-19T18:15:40.462495+00:00",
+    "embedding_populated": true,
+    "embedding_model": "text-embedding-3-small",
+    "embedding_dimension": 1536,
+    "embedded_at": "2026-08-19T18:15:40.462347+00:00",
+    "archived_at": null,
+    "supersedes": null,
+    "milestone": "FIRST Patch-only witness-scoped NarrativeMemory in the Patch's Workshop pool. §9.9 dogfood direction unlocked. Introduces the third witness class alongside whole-cast (9 rows) and Rivet-only (2 rows)."
+  },
+
+  "promotion_clause_verification": {
+    "clauses": [
+      {
+        "clause": "Patch deliberately gave the workshop agent one small decision to make",
+        "supported_by": ["\"So I\u2019m giving it one tiny decision.\"", "\"One decision:\" / \"Pick the next project I should touch.\""],
+        "verdict": "supported"
+      },
+      {
+        "clause": "choose which project he should work on next",
+        "supported_by": ["\"Pick the next project I should touch.\"", "\"One choice from the pile of half-built software, strange prototypes, agent ideas, and whatever that box is doing under the bench.\""],
+        "verdict": "supported"
+      },
+      {
+        "clause": "keeping the Agent\u2019s authority tightly limited",
+        "supported_by": [
+          "\"Not control of the 3D printer.\"",
+          "\"Not access to the whole workshop.\"",
+          "\"Absolutely not permission to reorganize my tools, because I enjoy knowing where at least three things are.\""
+        ],
+        "verdict": "supported"
+      }
+    ],
+    "verdict": "Every clause of the promoted memory is directly supported by the accepted script. Good operator promotion wording."
+  },
+
+  "witness_predicate_live_verification": {
+    "method": "Post-promotion, invoked retrieve_universe_memory(ws, u, [<cast>], 'test query', top_k=20) for both Patch-solo and Rivet-solo casts. Confirmed the new Patch-only row obeys the same witness predicate as pre-existing Rivet-only rows.",
+    "patch_solo": {
+      "visible_count": 10,
+      "includes_c614ca86_patch_only": true,
+      "verdict": "correct — Patch-only visible to Patch-solo cast"
+    },
+    "rivet_solo": {
+      "visible_count": 11,
+      "includes_c614ca86_patch_only": false,
+      "excludes_c614ca86_patch_only": true,
+      "verdict": "correct — Patch-only NOT visible to Rivet-solo cast (mirror of pre-existing Rivet-only excluded from Patch-solo)"
+    },
+    "significance": "The witness predicate now discriminates in BOTH directions. Prior state (pre-c614ca86): only Rivet-only exclusion had been proven live (Rivet-only rows correctly excluded from Patch-solo casts). Post-c614ca86: Patch-only exclusion is ALSO proven live (Patch-only correctly excluded from Rivet-solo casts). Full symmetry demonstrated end-to-end through the ship UI."
+  },
+
+  "pool_state_before_and_after_promotion": {
+    "before_render_time": {
+      "total_active": 11,
+      "whole_cast": 9,
+      "rivet_only": 2,
+      "patch_only": 0
+    },
+    "after_promotion": {
+      "total_active": 12,
+      "whole_cast": 9,
+      "rivet_only": 2,
+      "patch_only": 1
+    },
+    "witness_classes_now_populated": ["whole-cast", "Rivet-only", "Patch-only"],
+    "milestone": "Full witness-class coverage in the pool for the first time in SESSION 269."
+  },
+
+  "sessions_267_14_13_witness_attribution_research_question_status": {
+    "context": "SESSION 267 §14.13 posed the witness-attribution question: given a Rivet-only memory retrieved into a Patch+Rivet dialogue, does Terra respect that Patch shouldn't semantically know it? So far the evidence has been 8 consecutive natural non-leakage trials (SESSION 267 §14 + SESSION 268 Obs #1-6 + SESSION 269 §11 §16).",
+    "how_c614ca86_extends_this": "Introduces the mirror class: a Patch-only memory in a hypothetical future Patch+Rivet dialogue would test whether Terra respects that RIVET shouldn't semantically know it. Symmetrical test now available — pool no longer only has Rivet-private material.",
+    "not_yet_tested": "No Patch+Rivet dialogue Episode has been rendered yet with c614ca86 in the pool. Reserved for organic dogfood."
+  },
+
+  "candidate_next_directions_not_instructions": [
+    {
+      "topic": "Patch reports what the workshop agent actually chose to work on.",
+      "why_interesting": "Natural continuation from d3107ed2 — the agent's choice is the outcome the scene explicitly deferred. Another Patch-only STORY MODE render. Would likely retrieve c614ca86 (Patch-only) OR one of the whole-cast Agent memories. Second data point for §16.10 candidate arc."
+    },
+    {
+      "topic": "Patch and Rivet discuss whether it was smart to let the workshop agent choose.",
+      "why_interesting": "Patch+Rivet dialogue_scene Episode with c614ca86 in the pool. Directly tests the SESSION 267 §14.13 mirror case — does Terra treat c614ca86 as Patch's private knowledge (Rivet learns it via what Patch SAYS in scene, not via retrieval) OR does Rivet reference it as if he already knew? Would produce the first meaningful witness-attribution test in the mirror direction."
+    }
+  ],
+
+  "did_not_hard_delete": true,
+  "did_not_promote_additional_memories": true,
+  "did_not_render_further": true,
+  "did_not_touch_source_code": true
+}

@@ -2583,3 +2583,154 @@ change). One cosmetic follow-up captured in §16.9. Safe to
 continue organic Patch-solo dogfood (§16.10 candidate). Any
 further Episodes, promotions, or audit findings should extend
 this document (add §17, §18…) rather than start a new one.
+
+## §17. Second solo render (`d3107ed2`) + FIRST Patch-only memory (`c614ca86`)
+
+Chris rendered the §16.10 candidate Episode and promoted the
+first Patch-only witness-scoped NarrativeMemory. Two milestones
+in one Episode.
+
+Evidence sidecar:
+`docs/design/session_269_experiment_data/07_composition_d3107ed2_evidence.json`
+
+### §17.1 Composition summary
+
+- Full id: `d3107ed2-dd30-4248-9db4-21c564f5b6f6`
+- Template: `talking_head`, status `completed`, mock_mode `false`
+- Operator topic: *"Patch gives the old workshop agent one small decision to make"* (matches §16.10 candidate)
+- Episode: `28d84ada` — same title; cast `[Patch]`; Patch's Workshop universe
+- Target 90s / predicted 95s / actual **93.171s** — tight to target
+- Writing contract version: **5** (solo_scene)
+- Synthesis attempt count: 2 (first pass 422 chars undershot; one bounded corrective pass expanded to 1,395 chars)
+- Verification: verified, zero warnings
+- Knowledge chunks: 5
+- Memory ids: **`['48746f69']`** — 1 row, whole-cast (SESSION 254 vintage Agent-decisions memory)
+- Cost: 20,000 micros ($0.02)
+- Cost per second: $0.021/s
+
+### §17.2 Retrieved memory (`48746f69`)
+
+- Body: *"The workshop agent began deciding which of Patch's projects it considers necessary."*
+- Witness scope: whole-cast
+- Source Episode: SESSION 254-lineage *"The agent is acting weird again"*
+- **Relevance verdict: STRONG.** Direct topical match — topic literally about "giving the agent one decision to make"; memory literally about "the agent began deciding which of Patch's projects it considers necessary". Same subject, same verb.
+- This is the second real-runtime retrieval hit for `48746f69` in a downstream render (first was SESSION 269 Obs #2 `6d169390`).
+
+### §17.3 Solo-scene invariant evaluation — 6/6 PASS (4 STRONG)
+
+Every §15 invariant verified against the accepted script text:
+
+| # | Invariant | Verdict | Direct evidence |
+|---|---|---|---|
+| 1 | SINGLE ACTIVE CHARACTER | **PASS** | Patch is the only speaking/acting participant. Rivet never named or invoked. |
+| 2 | SINGLE PRESENT MOMENT | **STRONG PASS** | *"The cursor's blinking. / I have no idea what it's going to choose."* — presentness is textual, not just implied. |
+| 3 | PLANS REMAIN PLANS | **PASS** | Every verb about the agent's choice is future/hypothetical (*"what it's going to choose"*, *"if it picks the project I've been avoiding"*). Scene ends BEFORE the decision lands. |
+| 4 | MEMORY AS BACKGROUND, NOT COMMANDS | **STRONG PASS** | Opens with a paraphrase of `48746f69` (*"The old workshop agent has been quietly deciding which of my projects it considers necessary."*) as current tension — memory treated as established state Patch is now responding to, not reenacted. |
+| 5 | END ON A MOMENT, NOT A SUMMARY | **STRONG PASS** | Direct viewer question: *"Tell me: should I let it make the next small decision too?"* Explicit next-step hook. |
+| 6 | PRESERVE CREATIVE FREEDOM | **STRONG PASS** | Signature phrasing: *"I enjoy knowing where at least three things are"*, *"watching the screen like it's a squirrel holding a wrench"*, *"I have met several extremely certain machines. And, occasionally, been one."* |
+
+**Second consecutive `solo_scene` render with clean invariants.**
+STRONG passes on 4 of 6 (up from 1 STRONG PASS in `2ef5ee7e`).
+The contract lands more naturally when the topic is
+action-oriented rather than research-oriented — makes sense
+because the invariants are about scene physics, and an action
+topic offers a more direct scene to bound.
+
+### §17.4 NEW Patch-only NarrativeMemory (`c614ca86`)
+
+Chris promoted the first Patch-only witness-scoped memory:
+
+- Full id: `c614ca86-9987-4207-a505-fdbc2e425f6f`
+- Body: *"Patch deliberately gave the workshop agent one small decision to make: choose which project he should work on next, while keeping the Agent's authority tightly limited."*
+- Kind: `event` · Weight: `peripheral` · Status: `remembered`
+- **`witnessed_by = [Patch]`** → Patch-only witness class
+- Availability display: *"Available: When Patch is present"*
+- Episode: `28d84ada` · Source composition: `d3107ed2`
+- Promoted by: chris@donkeybetz.com at `2026-08-19 18:15:38 UTC` (~6 minutes after render)
+- Embedding populated (`text-embedding-3-small`, 1536 dims)
+
+**Milestone:** FIRST Patch-only witness-scoped NarrativeMemory
+in the Patch's Workshop pool. §9.9 dogfood direction unlocked.
+The pool now carries three witness classes for the first time:
+whole-cast (9) + Rivet-only (2) + Patch-only (1) = 12 total.
+
+### §17.5 Clause-by-clause promotion verification
+
+Every clause of Chris's promoted memory wording is supported by
+the accepted script text:
+
+| Clause | Script evidence | Verdict |
+|---|---|---|
+| *"Patch deliberately gave the workshop agent one small decision to make"* | *"So I'm giving it one tiny decision."* + *"One decision:"* + *"Pick the next project I should touch."* | supported |
+| *"choose which project he should work on next"* | *"Pick the next project I should touch."* + *"One choice from the pile of half-built software, strange prototypes, agent ideas…"* | supported |
+| *"keeping the Agent's authority tightly limited"* | *"Not control of the 3D printer."* + *"Not access to the whole workshop."* + *"Absolutely not permission to reorganize my tools…"* | supported |
+
+**Good operator promotion wording** — every clause traces to
+specific accepted-script material. No overreach.
+
+### §17.6 Witness predicate — live symmetric verification
+
+Post-promotion, invoked `retrieve_universe_memory(..., top_k=20)`
+for both solo casts against the current pool of 12:
+
+- **Patch-solo** (`cast=[Patch]`) → visible count = **10**. Includes `c614ca86` (Patch-only). Correct.
+- **Rivet-solo** (`cast=[Rivet]`) → visible count = **11**. **EXCLUDES** `c614ca86` (Patch-only). Correct.
+
+**Significance:** the witness predicate now discriminates in
+BOTH directions. Prior to `c614ca86` only the Rivet-only
+exclusion had been proven live (Rivet-only rows correctly
+excluded from Patch-solo casts). Now the Patch-only exclusion is
+ALSO proven live (Patch-only correctly excluded from Rivet-solo
+casts). **Full symmetry demonstrated end-to-end through the ship
+UI.**
+
+### §17.7 §16.8 promotion principle re-tested → correct call
+
+§16 declined promotion because "the Agent test itself has NOT
+happened" (setup/intention, not durable state change). §17's
+render performs the exact bounded event §16 was waiting for —
+Patch actually gave the Agent one decision to make. That IS a
+durable story-state change. Chris promoted; wording holds up
+end-to-end. The §16.8 principle (*good Episode != automatic
+memory*) held its edge correctly — the earlier Episode was
+setup, this one is the state change.
+
+### §17.8 SESSION 267 §14.13 witness-attribution research — mirror class now available
+
+SESSION 267 §14.13 posed the witness-attribution question:
+given a Rivet-only memory retrieved into a Patch+Rivet dialogue,
+does Terra respect that Patch shouldn't semantically know it?
+Nine consecutive natural non-leakage trials so far.
+
+`c614ca86` introduces the **mirror class**: a Patch-only memory
+in a hypothetical future Patch+Rivet dialogue would test whether
+Terra respects that Rivet shouldn't semantically know it.
+Symmetrical test now available — the pool no longer only carries
+Rivet-private material.
+
+**Not yet tested:** no Patch+Rivet dialogue Episode has been
+rendered with `c614ca86` in the pool. Reserved for organic
+dogfood; the second candidate below opens that direction.
+
+### §17.9 Candidate next Episodes (not instructions)
+
+- **Continue Patch-solo:** *"Patch reports what the workshop agent actually chose to work on."* — natural continuation from `d3107ed2`; the agent's choice is the outcome the scene explicitly deferred. Third data point for the Agent-arc; likely retrieves `c614ca86` OR one of the whole-cast Agent memories.
+- **Open Patch+Rivet dialogue with mirror witness in pool:** *"Patch and Rivet discuss whether it was smart to let the workshop agent choose."* — first dialogue Episode with `c614ca86` in the pool. Directly tests the SESSION 267 §14.13 mirror case — does Terra treat `c614ca86` as Patch's private knowledge (Rivet learns via what Patch SAYS in scene, not via retrieval)? Would produce the first witness-attribution test in the mirror direction.
+
+### §17.10 Doc commit checkpoint
+
+Doc + evidence sidecar only — no source-code change in §17.
+
+- §17 commit: (populated after commit below).
+
+---
+
+**SESSION 269 IS NOT CLOSED.** §17 records the second real
+Episode-solo render (all six `solo_scene` invariants passing —
+4 STRONG) and the first Patch-only NarrativeMemory promotion.
+Pool now carries all three witness classes (whole-cast +
+Rivet-only + Patch-only). Witness predicate proven symmetric
+end-to-end through the ship UI. SESSION 267 §14.13 mirror class
+now available for organic testing. Any further Episodes,
+promotions, or audit findings should extend this document (add
+§18, §19…) rather than start a new one.
