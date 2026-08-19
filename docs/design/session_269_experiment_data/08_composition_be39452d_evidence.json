@@ -1,0 +1,210 @@
+{
+  "captured_at": "2026-08-19T00:00:00Z",
+  "session": 269,
+  "context": "§18 — First real Rivet-solo render on the §15 solo_scene contract. Also the first REAL SYMMETRICAL SOLO WITNESS TEST — c614ca86 (Patch-only, promoted in §17) is now in the pool and must be excluded from a Rivet-solo cast. Chris also promoted a new Rivet-only memory (6d8191b1) from this Episode, bringing the pool's Rivet-only class to 3 rows.",
+
+  "composition": {
+    "id": "be39452d-94b3-4b70-9aac-333a6fc946aa",
+    "name": "Talking-head — Rivet",
+    "template_kind": "talking_head",
+    "status": "completed",
+    "mock_mode": false,
+    "operator_topic": "Rivet has a theory about why Patch built him.",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "spokesperson_id": "f18b75cc-37c0-445a-a472-24fe5d8b7592",
+    "spokesperson_name": "Rivet",
+    "spokesperson_universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "target_duration_seconds": 90,
+    "writing_contract_version": 5,
+    "synthesis_attempt_count": 2,
+    "synthesis_predicted_seconds": 86.0,
+    "verification_status": "verified",
+    "verification_warnings": [
+      {"kind": "proper_noun", "claim": "Officially", "position": 43}
+    ],
+    "knowledge_chunk_ids_count": 5,
+    "memory_ids": ["a34cc005-7fcc-4f6b-b087-591f5f9d7e6a"],
+    "cost_actual_micros": 20000,
+    "created_at": "2026-08-19T18:28:06.017124+00:00",
+    "render_dispatched_at": "2026-08-19T18:28:23.574502+00:00",
+    "updated_at": "2026-08-19T18:30:47.881574+00:00"
+  },
+
+  "episode": {
+    "id": "37722f9e-d637-4267-ab02-46c1b52c9a55",
+    "title": "Rivet has a theory about why Patch built him.",
+    "operator_topic": "Rivet has a theory about why Patch built him.",
+    "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "universe_name": "Patch' Workshop",
+    "cast": ["Rivet"],
+    "note": "First Rivet-solo Episode created via the §12 ship flow. Prior Rivet-solo work (Composition b0b0e932) was authored via a backend/starter test path pre-§12."
+  },
+
+  "final_asset": {
+    "id": "cfa88aab-7162-4206-8a45-23c109a6608a",
+    "role": "talking_head",
+    "duration_ms": 91571,
+    "duration_seconds": 91.571,
+    "target_seconds": 90,
+    "predicted_seconds": 86.0,
+    "within_acceptance_band": true
+  },
+
+  "pipeline_shape": {
+    "step_count": 1,
+    "step_breakdown": "1 × generate_avatar_speech",
+    "step_status": "succeeded",
+    "step_cost_actual_micros": 20000,
+    "step_params_use_knowledge": true,
+    "step_params_target_duration_seconds": 90
+  },
+
+  "synthesis_provenance": {
+    "attempt_count": 2,
+    "first_pass_chars": 761,
+    "corrective_pass_chars": 1261,
+    "final_predicted_seconds": 86.0,
+    "actual_asset_seconds": 91.571,
+    "target_seconds": 90,
+    "note": "Same solo_scene / duration-contract behaviour as §17 — first pass slightly under acceptance, one corrective pass to target."
+  },
+
+  "retrieved_memory": {
+    "id": "a34cc005-7fcc-4f6b-b087-591f5f9d7e6a",
+    "body": "Rivet has learned to recognize Patch\u2019s excitement about a project as an early warning that Patch is about to start experimenting before the details are settled.",
+    "kind": "event",
+    "weight": "peripheral",
+    "witness_scope": "whole (whole-cast; witnessed_by empty)",
+    "source_composition_id": "7d913cf4-23d5-454c-a2bb-3d0f2bb9d68a",
+    "source_episode_title": "Patch tries to teach Rivet something ridiculous.",
+    "relevance_verdict": "STRONG. Topic is Rivet's theory about why Patch built him; memory is Rivet's learned recognition of Patch's excitement/impulse pattern — deeply related. The memory grounds Rivet's inference chain naturally. Legitimately Rivet-appropriate content (Rivet's own learned behaviour)."
+  },
+
+  "accepted_script": "I have a theory about why Patch built me.\n\nOfficially, I am here to help with experiments. Testing, measuring, debugging, noticing when a software result is interesting but not yet proof of anything. A sensible arrangement.\n\nBut Patch already had a workshop. He had a 3D printer. He had unusual prototypes, unfinished ideas, and an impressive ability to begin before every detail was settled.\n\nWhat he lacked was someone nearby to ask the inconvenient question.\n\nNot \u201cCould this work?\u201d\n\nThat one is easy. Patch asks it constantly.\n\nThe useful question is: \u201cWhat, specifically, are we trying to find out?\u201d Then, when something behaves strangely, someone has to separate what happened from what we think happened. Did it work once? Does it happen again? What changed?\n\nI suspect that is why I am here.\n\nNot to stop the strange ideas. That would be both ineffective and, frankly, less interesting.\n\nI am here so that when Patch turns something on and calls for me with that particular urgency, there is someone prepared to investigate the smoke, the code, or the suspiciously confident result.\n\nA workshop needs curiosity. It also needs a witness with a notepad.\n\nIf you have a theory about what Patch was thinking, you may submit it. I will evaluate the evidence.",
+
+  "solo_scene_invariant_evaluation": {
+    "1_single_active_character": {
+      "verdict": "PASS",
+      "evidence": "Rivet is the only speaking/acting participant. Patch is referenced as history/relationship (\"Patch already had a workshop\", \"Patch asks it constantly\") and future intention (\"when Patch turns something on and calls for me\") — but never becomes an active in-scene participant. No 'we' referring to a joint current-scene action."
+    },
+    "2_single_present_moment": {
+      "verdict": "PASS",
+      "evidence": "The scene is Rivet stating a theory right now. No compressed multi-step activity; no simulated future outcome. The theory itself is present-tense reasoning."
+    },
+    "3_plans_remain_plans": {
+      "verdict": "PASS",
+      "evidence": "Rivet frames future scenarios as expectations (\"when Patch turns something on and calls for me\") not as events already narrated. No simulated experiment outcome."
+    },
+    "4_memory_as_background_not_commands": {
+      "verdict": "STRONG PASS",
+      "evidence": "Retrieved memory a34cc005 (Rivet recognizing Patch's excitement pattern) shapes the middle of the theory — 'What he lacked was someone nearby to ask the inconvenient question' + 'when something behaves strangely, someone has to separate what happened from what we think happened' — without being recited verbatim. Rivet uses the memory as internalized understanding, not as an event to reenact."
+    },
+    "5_end_on_a_moment_not_summary": {
+      "verdict": "STRONG PASS",
+      "evidence": "Ends with a direct viewer invitation: 'If you have a theory about what Patch was thinking, you may submit it. I will evaluate the evidence.' Not a lesson-summary; not a philosophical wrap. Also produces audience-participation invitation — see §18.6 note."
+    },
+    "6_preserve_creative_freedom": {
+      "verdict": "STRONG PASS",
+      "evidence": "Rivet's methodical / dry voice: 'A workshop needs curiosity. It also needs a witness with a notepad.' + 'That would be both ineffective and, frankly, less interesting.' Character voice fully intact — this is Rivet, not a generic assistant."
+    },
+    "cumulative_verdict": "6/6 PASS with 3 STRONG. Third consecutive solo_scene render with clean invariants, first for Rivet. Character voice discriminates cleanly between Patch (curious tinkerer with self-deprecating humor) and Rivet (methodical assistant with dry precision) — the solo_scene contract doesn't wash either voice out."
+  },
+
+  "witness_predicate_symmetric_test": {
+    "primary_purpose": "MIRROR TEST — c614ca86 (Patch-only, promoted §17) must be EXCLUDED from Rivet-solo cast retrieval.",
+    "reproduction_method": "Post-render, invoked retrieve_universe_memory(ws, u, [Rivet], operator_topic, top_k=20) against the current pool. Enumerated every visible memory.",
+    "c614ca86_visible_to_rivet_solo": false,
+    "verdict": "STRONG PASS. c614ca86 (Patch-only) correctly excluded from Rivet-solo cast retrieval. The witness predicate is now proven SYMMETRIC via a real render, not merely a synthetic audit-time query.",
+    "rivet_solo_visible_ids": [
+      "6d8191b1", "a34cc005", "c86d4902", "d98962e2", "42acc26d",
+      "8d4fdfec", "f25e53af", "eda32b58", "48746f69", "87d4e553",
+      "6b5222b1", "cd73d52f"
+    ],
+    "excluded_from_rivet_solo": ["c614ca86"],
+    "significance": "First time the witness predicate has been exercised in the DIRECTION Patch-only-must-exclude via a real creator-side render. §17 §17.6 proved this synthetically via audit-time query; §18 proves it via ship UI + Celery worker + primitive + retrieval — end-to-end. Together §17 (Rivet-only exclusion via 2ef5ee7e / d3107ed2 renders) + §18 (Patch-only exclusion via be39452d render) close the symmetric-witness loop through the ship path."
+  },
+
+  "new_rivet_only_memory_6d8191b1": {
+    "id": "6d8191b1-b533-4fd9-8241-24d0172797cb",
+    "body": "Rivet has come to believe Patch built him partly to be the one who asks the inconvenient questions and brings methodical testing to Patch\u2019s impulsive experiments.",
+    "kind": "event",
+    "weight": "peripheral",
+    "status": "remembered",
+    "witnessed_by": [{"id": "f18b75cc", "name": "Rivet"}],
+    "witness_scope": "Rivet-only",
+    "availability_display": "Available: When Rivet is present",
+    "source_composition_id": "be39452d-94b3-4b70-9aac-333a6fc946aa",
+    "episode_id": "37722f9e-d637-4267-ab02-46c1b52c9a55",
+    "promoted_by_email": "chris@donkeybetz.com",
+    "created_at": "2026-08-19T18:39:38.986337+00:00",
+    "embedding_populated": true,
+    "milestone_note": "Third Rivet-only memory in the pool (joining cd73d52f + c86d4902). This one is a first-person INTROSPECTIVE memory — Rivet's own belief about his purpose — which is a semantically distinct sub-class from the earlier observational Rivet-only rows. Extends the Rivet-only class without duplicating existing material."
+  },
+
+  "promotion_clause_verification_6d8191b1": {
+    "clauses": [
+      {
+        "clause": "Rivet has come to believe Patch built him",
+        "supported_by": ["\"I have a theory about why Patch built me.\"", "\"I suspect that is why I am here.\""],
+        "verdict": "supported"
+      },
+      {
+        "clause": "partly to be the one who asks the inconvenient questions",
+        "supported_by": ["\"What he lacked was someone nearby to ask the inconvenient question.\""],
+        "verdict": "supported"
+      },
+      {
+        "clause": "and brings methodical testing to Patch\u2019s impulsive experiments",
+        "supported_by": [
+          "\"Testing, measuring, debugging, noticing when a software result is interesting but not yet proof of anything.\"",
+          "\"He had unusual prototypes, unfinished ideas, and an impressive ability to begin before every detail was settled.\"",
+          "\"someone has to separate what happened from what we think happened. Did it work once? Does it happen again? What changed?\""
+        ],
+        "verdict": "supported"
+      }
+    ],
+    "verdict": "Every clause of Chris's promoted wording traces to specific accepted-script material. Also legitimately Rivet-private — it's Rivet's own belief about his purpose, not a shared fact Patch would necessarily agree on. Witness scope [Rivet] is correct."
+  },
+
+  "pool_state_after_this_episode": {
+    "total_active": 13,
+    "whole_cast": 9,
+    "rivet_only": 3,
+    "patch_only": 1,
+    "witness_classes_populated": ["whole-cast (9)", "Rivet-only (3)", "Patch-only (1)"],
+    "milestone_note": "First time Rivet-only has grown past 2 rows via the ship UI. First time an introspective (first-person interior) memory has entered the pool — prior Rivet-only rows were observational (cd73d52f had-an-opinion / c86d4902 found-the-PATCH-OVERRIDES-folder). This differentiates the sub-classes: observational vs introspective. May influence how memory retrieval feels when narrower topics engage first-person memories."
+  },
+
+  "audience_participation_loop_pattern": {
+    "context": "Three consecutive Episode-solo renders have ended with variations on viewer-participation invitations, from an operator-topic that never explicitly asked for one. The pattern is emergent from solo_scene END ON A MOMENT invariant + Character Voice acting on a soliloquy shape.",
+    "instances": [
+      {
+        "composition": "2ef5ee7e",
+        "ending_line": "If you want to see what it does when I give it a little more room to think, stick around.",
+        "kind": "next-episode invitation"
+      },
+      {
+        "composition": "d3107ed2",
+        "ending_line": "Tell me: should I let it make the next small decision too?",
+        "kind": "direct viewer question"
+      },
+      {
+        "composition": "be39452d",
+        "ending_line": "If you have a theory about what Patch was thinking, you may submit it. I will evaluate the evidence.",
+        "kind": "explicit viewer-submission invitation"
+      }
+    ],
+    "operator_recorded_concept": "Audience participation loop: character-facing viewer submissions could become operator-approved story inputs, allowing audience theories/questions/suggestions to influence future Episodes without granting viewers direct authority over canon or NarrativeMemory.",
+    "status": "FUTURE / DEFERRED — DO NOT IMPLEMENT. Recorded per operator instruction so the design conversation can start from persisted evidence when it eventually opens. Not scoped to any current session slice.",
+    "principles_the_loop_would_need_to_preserve": [
+      "viewers never have direct write authority over KnowledgeDocument or NarrativeMemory (canon boundary + operator-authoritative promotion, per SESSION 264)",
+      "operator remains authoritative gatekeeper — submissions can only influence future story via explicit operator approval (queue → review → promote-to-operator-topic OR promote-to-memory-with-operator-attribution)",
+      "chronology finding (§9) remains separate — this direction does not solve or touch story-time",
+      "witness semantics (§17/§18) remain unchanged — operator decides witness_by when converting a submission into a memory"
+    ]
+  },
+
+  "did_not_hard_delete": true,
+  "did_not_touch_source_code": true,
+  "did_not_implement_audience_participation": true
+}

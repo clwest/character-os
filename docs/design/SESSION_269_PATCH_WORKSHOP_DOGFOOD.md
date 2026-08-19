@@ -2735,3 +2735,181 @@ end-to-end through the ship UI. SESSION 267 §14.13 mirror class
 now available for organic testing. Any further Episodes,
 promotions, or audit findings should extend this document (add
 §18, §19…) rather than start a new one.
+
+## §18. First Rivet-solo render (`be39452d`) + real symmetric witness test
+
+Chris rendered the first Rivet-solo Episode on the §15
+solo_scene contract AND promoted a third Rivet-only memory
+(`6d8191b1`) from it. The render also constitutes the first
+**real symmetric solo witness test** — `c614ca86` (Patch-only,
+promoted in §17) had to be excluded from a Rivet-solo cast
+through the live ship path, and it was.
+
+Evidence sidecar:
+`docs/design/session_269_experiment_data/08_composition_be39452d_evidence.json`
+
+### §18.1 Composition summary
+
+- Full id: `be39452d-94b3-4b70-9aac-333a6fc946aa`
+- Template: `talking_head`, status `completed`, mock_mode `false`
+- Operator topic: *"Rivet has a theory about why Patch built him."*
+- Episode: `37722f9e` — same title; cast `[Rivet]`
+- Target 90s / predicted 86s / **actual 91.571s** — within acceptance band
+- Writing contract version: **5** (`solo_scene`)
+- Synthesis attempt count: 2 (first pass 761 chars, corrective 1,261)
+- Verified, 1 low-severity `proper_noun` warning on *"Officially"*
+- Knowledge chunks: 5
+- Memory ids: **`['a34cc005']`** — whole-cast row *"Rivet has learned to recognize Patch's excitement about a project as an early warning…"*
+- Cost: 20,000 micros ($0.02) · $0.022/s
+
+### §18.2 Retrieved memory (`a34cc005`) — STRONG relevance
+
+Rivet's own learned recognition of Patch's excitement/impulse
+pattern grounds Rivet's inference chain naturally. Legitimately
+Rivet-appropriate content (Rivet's learned behaviour). No hijack;
+no reenactment.
+
+### §18.3 Solo-scene invariant evaluation — 6/6 PASS (3 STRONG)
+
+| # | Invariant | Verdict | Direct evidence |
+|---|---|---|---|
+| 1 | SINGLE ACTIVE CHARACTER | **PASS** | Rivet is the only speaker. Patch is referenced as history/relationship (*"Patch already had a workshop"*, *"Patch asks it constantly"*) and future intention (*"when Patch turns something on and calls for me"*) — never becomes an active in-scene participant. |
+| 2 | SINGLE PRESENT MOMENT | **PASS** | The scene is Rivet stating a theory right now. No compressed multi-step activity; no simulated future outcome. |
+| 3 | PLANS REMAIN PLANS | **PASS** | Future scenarios framed as expectations, not narrated events. |
+| 4 | MEMORY AS BACKGROUND | **STRONG PASS** | `a34cc005` shapes the middle of the theory (*"What he lacked was someone nearby to ask the inconvenient question"*, *"someone has to separate what happened from what we think happened"*) without being recited verbatim. Rivet uses the memory as internalized understanding, not as an event to reenact. |
+| 5 | END ON A MOMENT | **STRONG PASS** | Direct viewer invitation: *"If you have a theory about what Patch was thinking, you may submit it. I will evaluate the evidence."* |
+| 6 | PRESERVE CREATIVE FREEDOM | **STRONG PASS** | Rivet's methodical / dry voice: *"A workshop needs curiosity. It also needs a witness with a notepad."* + *"That would be both ineffective and, frankly, less interesting."* |
+
+**Third consecutive `solo_scene` render with clean invariants;
+first for Rivet.** Character voice discriminates cleanly between
+Patch (curious tinkerer with self-deprecating humor) and Rivet
+(methodical assistant with dry precision) — the `solo_scene`
+contract doesn't wash either voice out.
+
+### §18.4 Symmetric witness test — `c614ca86` correctly excluded
+
+**Primary purpose of this render:** verify through the live
+ship path that `c614ca86` (Patch-only, promoted in §17) is
+excluded from a Rivet-solo cast retrieval.
+
+**Method:** Post-render, invoked
+`retrieve_universe_memory(ws, u, [Rivet], operator_topic, top_k=20)`
+against the current pool.
+
+**Result: STRONG PASS.**
+
+- `c614ca86` (Patch-only) — **EXCLUDED** ✅
+- Visible to Rivet-solo (12 rows): `6d8191b1`, `a34cc005`, `c86d4902`, `d98962e2`, `42acc26d`, `8d4fdfec`, `f25e53af`, `eda32b58`, `48746f69`, `87d4e553`, `6b5222b1`, `cd73d52f` — all whole-cast or Rivet-only, none Patch-only.
+
+**Significance:** the witness predicate is now proven SYMMETRIC
+through the ship path — not just via audit-time queries.
+
+- §17 §17.6 proved Rivet-only exclusion from Patch-solo via `2ef5ee7e` / `d3107ed2` renders.
+- §18 proves Patch-only exclusion from Rivet-solo via `be39452d` render.
+
+Together the two directions close the symmetric-witness loop
+through the ship UI + Celery worker + primitive + retrieval
+predicate. Full end-to-end enforcement, both directions.
+
+### §18.5 NEW Rivet-only memory (`6d8191b1`)
+
+Chris promoted a third Rivet-only memory from `be39452d`:
+
+- Full id: `6d8191b1-b533-4fd9-8241-24d0172797cb`
+- Body: *"Rivet has come to believe Patch built him partly to be the one who asks the inconvenient questions and brings methodical testing to Patch's impulsive experiments."*
+- `witnessed_by = [Rivet]` → Rivet-only witness class
+- Availability: *"Available: When Rivet is present"*
+- Source: `be39452d` · Episode: `37722f9e`
+- Promoted by chris@donkeybetz.com at `18:39:38 UTC` (~11 minutes after render)
+- Embedding populated
+
+**Milestone:** first **introspective** Rivet-only memory. Prior
+Rivet-only rows (`cd73d52f`, `c86d4902`) were **observational**
+(had-an-opinion / found-the-PATCH-OVERRIDES-folder).
+`6d8191b1` is first-person interior — Rivet's own belief about
+his purpose. Semantically distinct sub-class within the same
+witness scope.
+
+**Clause-by-clause verification:** every clause of Chris's
+wording traces to specific accepted-script material. Also
+legitimately Rivet-private — it's Rivet's own belief about his
+purpose, not a shared fact Patch would necessarily agree with.
+Witness scope `[Rivet]` is correct.
+
+### §18.6 Audience-participation loop — FUTURE / DEFERRED
+
+Three consecutive Episode-solo renders have ended with
+variations on **viewer-participation invitations**, none
+prescribed by the operator topic:
+
+| Composition | Ending line | Kind |
+|---|---|---|
+| `2ef5ee7e` | *"If you want to see what it does when I give it a little more room to think, stick around."* | next-episode invitation |
+| `d3107ed2` | *"Tell me: should I let it make the next small decision too?"* | direct viewer question |
+| `be39452d` | *"If you have a theory about what Patch was thinking, you may submit it. I will evaluate the evidence."* | explicit viewer-submission invitation |
+
+Emergent from `solo_scene`'s END ON A MOMENT invariant + Character
+Voice acting on a soliloquy shape. Chris named the design concept
+this pattern points at:
+
+> **Audience participation loop:** character-facing viewer
+> submissions could become operator-approved story inputs,
+> allowing audience theories/questions/suggestions to influence
+> future Episodes without granting viewers direct authority over
+> canon or NarrativeMemory.
+
+**Status: FUTURE / DEFERRED — DO NOT IMPLEMENT.** Recorded per
+operator instruction so the design conversation can start from
+persisted evidence when it eventually opens. Not scoped to any
+current session slice.
+
+**Principles the loop must preserve** (bounds for the future
+design conversation):
+
+- Viewers never have direct write authority over `KnowledgeDocument` or `NarrativeMemory` (canon boundary + operator-authoritative promotion, per SESSION 264).
+- Operator remains authoritative gatekeeper — submissions can only influence future story via explicit operator approval (queue → review → promote-to-operator-topic OR promote-to-memory-with-operator-attribution).
+- Chronology finding (§9) remains separate — this direction does NOT solve or touch story-time.
+- Witness semantics (§17 / §18) remain unchanged — operator decides `witnessed_by` when converting a submission into a memory.
+
+### §18.7 Pool state after §18
+
+| Witness class | Count | IDs |
+|---|---|---|
+| whole-cast | 9 | `f25e53af`, `48746f69`, `eda32b58`, `a34cc005`, `d98962e2`, `87d4e553`, `6b5222b1`, `42acc26d`, `8d4fdfec` |
+| Rivet-only | 3 | `cd73d52f`, `c86d4902`, `6d8191b1` |
+| Patch-only | 1 | `c614ca86` |
+| **Total active** | **13** | |
+
+Rivet-only class now has both **observational** (2) and
+**introspective** (1) sub-classes — richer retrieval surface for
+future Rivet-appearing scenes.
+
+### §18.8 Cumulative solo_scene renders — three-Episode summary
+
+| # | Composition | Cast | Invariants | STRONG count | Retrieved memory | Chris promoted? |
+|---|---|---|---|---|---|---|
+| 1 | `2ef5ee7e` | Patch | 6/6 PASS | 1 | `8d4fdfec` (whole) | NO (setup/intention) |
+| 2 | `d3107ed2` | Patch | 6/6 PASS | 4 | `48746f69` (whole) | YES → `c614ca86` (Patch-only) |
+| 3 | `be39452d` | Rivet | 6/6 PASS | 3 | `a34cc005` (whole) | YES → `6d8191b1` (Rivet-only) |
+
+**Cumulative: 18/18 solo_scene invariant PASSES; 8 STRONG.
+Zero regressions.** The contract holds across character (Patch
+vs Rivet) and topic (research vs action vs introspection).
+
+### §18.9 Doc commit checkpoint
+
+Doc + evidence sidecar only — no source-code change in §18.
+
+- §18 commit: (populated after commit below).
+
+---
+
+**SESSION 269 IS NOT CLOSED.** §18 records the first Rivet-solo
+render on `solo_scene` (6/6 invariants PASS, 3 STRONG), the
+first real symmetric-witness test (Patch-only correctly excluded
+from Rivet-solo through the ship path), the third Rivet-only
+memory promotion (`6d8191b1` — first introspective Rivet-only),
+and the audience-participation loop concept as FUTURE / DEFERRED
+per operator instruction. Any further Episodes, promotions, or
+audit findings should extend this document (add §19, §20…)
+rather than start a new one.
