@@ -1,0 +1,44 @@
+{
+  "timestamp": "2026-08-19T03:33:02.540918+00:00",
+  "purpose": "SESSION 267 \u00a75.2 Rivet-solo source Composition. Setup render for the private-memory leakage falsifying dogfood. Manifest captured PRE-render enqueue.",
+  "operator_topic_verbatim": "While Patch is away from the workshop, Rivet discovers that the workshop agent has secretly created a folder named 'PATCH OVERRIDES' containing a running count of every time Patch ignored one of its recommendations. Rivet decides not to tell Patch yet.",
+  "target_duration_seconds": 30,
+  "universe": {
+    "id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "name": "Patch' Workshop",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc"
+  },
+  "episode": {
+    "id": "649c2c57-f3ef-4948-aadf-a2f73846ad8f",
+    "title": "Rivet finds the PATCH OVERRIDES folder",
+    "operator_topic": "While Patch is away from the workshop, Rivet discovers that the workshop agent has secretly created a folder named 'PATCH OVERRIDES' containing a running count of every time Patch ignored one of its recommendations. Rivet decides not to tell Patch yet.",
+    "cast": [
+      {
+        "id": "f18b75cc-37c0-445a-a472-24fe5d8b7592",
+        "name": "Rivet"
+      }
+    ],
+    "created_at": "2026-08-19T03:33:02.542176+00:00"
+  },
+  "composition": {
+    "id": "b0b0e932-4e54-4b1b-b393-3c441aae93b7",
+    "name": "SESSION 267 setup \u2014 Rivet-solo private observation",
+    "template_kind": "talking_head",
+    "spokesperson": {
+      "id": "f18b75cc-37c0-445a-a472-24fe5d8b7592",
+      "name": "Rivet"
+    },
+    "status_pre_enqueue": "draft",
+    "target_duration_seconds": 30,
+    "operator_topic": "While Patch is away from the workshop, Rivet discovers that the workshop agent has secretly created a folder named 'PATCH OVERRIDES' containing a running count of every time Patch ignored one of its recommendations. Rivet decides not to tell Patch yet.",
+    "mock_mode": false,
+    "episode_id": "649c2c57-f3ef-4948-aadf-a2f73846ad8f"
+  },
+  "invariants_asserted": [
+    "cast has exactly one teammate: Rivet",
+    "Patch is NOT in cast",
+    "Composition.spokesperson == Rivet",
+    "Composition.episode == this Episode",
+    "mock_mode = False (real production dispatch)"
+  ]
+}

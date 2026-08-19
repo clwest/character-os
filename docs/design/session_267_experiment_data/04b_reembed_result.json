@@ -1,0 +1,10 @@
+{
+  "timestamp": "2026-08-19T03:45:02.624157+00:00",
+  "memory_id": "c86d4902-b11d-49a6-bb48-dea2a67afabc",
+  "changed": true,
+  "has_embedding_vector": true,
+  "embedded_at": "2026-08-19T03:45:02.615077+00:00",
+  "embedding_model": "text-embedding-3-small",
+  "embedding_dimension": 1536,
+  "embedding_cost_micros": 1
+}

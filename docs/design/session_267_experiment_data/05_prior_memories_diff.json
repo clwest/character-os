@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-08-19T03:45:37.077439+00:00",
+  "baseline_snapshot": "00_orient_memory_state.json",
+  "baseline_count": 6,
+  "live_active_count": 7,
+  "expected_count_delta": 1,
+  "actual_count_delta": 1,
+  "private_memory_present": true,
+  "missing_from_live": [],
+  "unexpected_new": [],
+  "per_row_diffs": {},
+  "assertion_all_prior_unchanged": true
+}
