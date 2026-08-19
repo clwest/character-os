@@ -1110,7 +1110,9 @@ Doc + code + tests staged and committed together as the coherent
 
 ### §10.11 Commit + push checkpoint
 
-(Populated after commit.)
+- Slice commit: `765bb73` — `feat(memory): SESSION 269 §10 — solo talking_head narrative-memory lane`.
+- Predecessor doc-only commit (SESSION 269 §1-§9): `bc4d8ba`.
+- Push status: recorded in the §10.11 update commit below.
 
 ---
 
