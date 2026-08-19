@@ -696,6 +696,162 @@ The earlier drafts of §4.22, §4.23, and §4.24 described the helper-memory pro
 
 ---
 
+### §4.26 Observation #4 — Composition `05d3612c` "This workshop needs rules"
+
+Rendered 2026-08-19 06:19Z. Fourth SESSION 268 dogfood beat. Chris's operator reaction: liked the finished video, and felt Patch and Rivet's individual personalities and their relationship are becoming increasingly visible.
+
+**Composition full ID:** `05d3612c-621e-481f-8664-f2231d36fa24`
+**Episode:** `b95ccd28-5f53-45dc-9db2-5af53b473257` — *"Patch tells Rivet he has decided the workshop needs rules. Rivet is immediately suspicious because Patch has never shown any interest in rules before."*
+**Universe:** Patch' Workshop
+**Cast:** Patch + Rivet
+**operator_topic:** the Episode title verbatim.
+
+**Runtime evidence** (frozen at `docs/design/session_268_experiment_data/05_composition_05d3612c_evidence.json`):
+
+- Model: GPT-5.6-terra, writing contract v4.
+- Synthesis: **1 attempt** — predicted 107.4 s, target 90 s, within tolerance; no corrective needed.
+- Final asset: 102.0 s, 36.1 MB, mp4 (`f58f0c26-…`, role `composite_output`).
+- Verification: **verified**; 5 non-blocking sentence-initial `proper_noun` warnings ("Helpful", "Like", "Also", "Fair", "Acceptable").
+- Cost persisted: 300,100 micros ($0.30).
+- Knowledge chunks: 8.
+- **Provider dispatch:** 1 OpenAI + 15 Runway avatar-speech + 1 ffmpeg concat = 17 external ops.
+- **Pipeline shape: 15 × `generate_avatar_speech` + 1 × `concat_clips` = 16 steps.** Same structural shape as prior renders.
+- **Retrieved narrative memory (single, `top_k=1`):** `a34cc005-…` — the whole-cast *"Rivet has learned to recognize Patch's excitement about a project as an early warning that Patch is about to start experimenting before the details are settled."* **Same memory as Observation #3.**
+- **Eligible pool at render time: 9 memories** (+1 helper `6b5222b1` vs Observation #3; **rules-memory `42acc26d` did NOT exist at render time** — created ~10 min after render dispatch, ~6.5 min after final asset; see §4.27).
+
+### §4.27 Memory-promotion verification (rules) — chronology preserved
+
+Chris promoted through the shipped *"Remember this."* UI after the render completed. Read-only DB verification (frozen at `06_rules_memory_promotion_verification.json`):
+
+- **Rules NarrativeMemory exists.**
+  - `id`: `42acc26d-0755-435b-9bea-628c07be9f9a`
+  - `body`: *"Patch decided the workshop needs rules and began adopting Rivet's more methodical approach to experiments, including making predictions and changing one thing at a time."* — matches Chris's intended text exactly.
+  - `kind` / `weight`: `event` / `peripheral`.
+  - `status`: `remembered`; `archived_at`: `NULL`.
+  - `witnessed_by`: empty → whole-cast → renders *"Available: In any future scene."*
+  - `embedding_vector`: present (retrieval-eligible for future renders).
+  - `source_composition`: `05d3612c-…`; `source_episode`: `b95ccd28-…`
+  - `created_at`: `2026-08-19T06:25:58.707397+00:00`; `updated_at`: `2026-08-19T06:25:59.359395+00:00` (async re-embed ~650 ms later).
+
+**Chronology preserved:**
+
+- **Render-time pool for `05d3612c` was 9.** Rules-memory did NOT participate in its own render (created ~387 s after final asset). Retrieval selected `a34cc005` from those 9. §4.26 and sidecar 05 capture this render-time state and remain correct.
+- **Post-promotion current state: 10 active memories** (8 whole-cast + 2 Rivet-only). This is the pool any FUTURE Patch's Workshop render will see.
+
+Full current inventory (10 rows) enumerated in sidecar 06's `current_active_inventory_verified_from_live_db`.
+
+### §4.28 Memory-use classification: **character-DYNAMIC influence, higher legibility**
+
+The retrieved `a34cc005` is deeply topically-aligned with this scene. The operator_topic and the memory both concern the same underlying pattern: Patch's process vs. Rivet's structured observational stance. This is the SAME manifestation channel as Observation #3 (character-dynamic influence, not exposition) but the topic itself sits closer to the memory's semantic content, so the influence reads more visibly.
+
+Behavioral manifestations (verified against the 15-turn accepted dialogue):
+
+- **Line 1 (Rivet):** *"You have started three experiments while saying that sentence. Explain."* — the exact excitement-as-early-warning stance the memory encodes, applied to the new topic.
+- **Line 3 (Rivet):** *"You mean a hypothesis. You rejected that idea last time because it sounded 'too clipboard-shaped.'"* — Rivet holds Patch to prior behavior; the memory's *"has learned to recognize"* framing operationalized as a callback (though not to the exact source Episode).
+- **Line 5 (Rivet):** *"What prompted this sudden conversion to preparation?"* — Rivet demands the diagnostic story instead of accepting the claim at face value. Memory-consistent.
+- **Line 9 (Rivet):** *"Once this print finishes, we can test whether that claim repeats."* — Rivet treats Patch's claim of change as itself a testable hypothesis. Directly extends the memory's observational stance.
+- **Line 13 (Rivet):** *"It is based on observation."* — nearly meta-textual to the memory's *"has learned to recognize"*. The word *"observation"* echoes the memory's epistemic verb.
+
+The memory is never quoted, never referenced by source Episode, no character narrates *"Rivet remembered that…"*. Same channel as Observation #3.
+
+### §4.29 Character/relationship progression — observed, not overclaimed
+
+Chris's operator observation is that Patch translates Rivet's methodology into his own personality rather than becoming Rivet-like, and Rivet remains observational rather than absorbing Patch's growth claim. Verified against the accepted dialogue:
+
+**Patch adopting Rivet's experimental methodology in his own voice:**
+
+- Line 2: *"Not boring rules. Helpful rules. Tiny guardrails. Like: before we turn something on, we write down what we think it's going to do."* — hypothesis-writing, framed as *"guardrails"* not method.
+- Line 4: *"I was younger then. Also, I'm not saying we need a clipboard. We could use a whiteboard. A handsome whiteboard. With magnets."* — Rivet's rigor + Patch's aesthetic preferences.
+- Line 8: *"Exactly. So rule two: change one thing at a time. See? I'm becoming responsible in real time."* — controlled variables, phrased self-congratulatorily.
+- Line 10: *"Fair. Rule three: when an experiment does something weird, we don't call it a disaster until we've looked at it."* — the anti-panic diagnostic reflex, in Patch's cadence.
+- Line 14: *"Fine. Put it on the handsome whiteboard. But use the large magnets. The tiny ones vanish into this place like they owe it money."* — Patch preserves his voice even in agreement.
+
+**Rivet remaining observational, not absorbing:**
+
+- Line 1: *"You have started three experiments while saying that sentence. Explain."*
+- Line 5: *"What prompted this sudden conversion to preparation?"*
+- Line 9: *"Once this print finishes, we can test whether that claim repeats."*
+- Line 11: *"Acceptable. Though I would like a separate rule prohibiting you from announcing rules five minutes after ignoring them."*
+- Line 13: *"It is based on observation."*
+
+**Causal-claim scope:** the retrieved memory `a34cc005` is semantically well-matched to this scene and plausibly reinforced Rivet's observational stance in synthesis. That said, `top_k=1` retrieval + no explicit-callback framing in the prompt means we **cannot claim** the memory *caused* the relationship progression. Patch's translate-in-his-own-voice pattern and Rivet's methodical-persistent character voice are also grounded in K2 chunks, Character Voice, and identity fields. The progression is real in the text; attribution to any single input is unprovable at `top_k=1`. Do not overclaim.
+
+Cross-Universe note: this Episode is a plausible narrative sequel to the memory Chris just promoted from the helper Episode (`6b5222b1` — *"Patch built a workshop helper…"*). That helper memory did NOT retrieve for this render; `a34cc005` did. This is a natural example of the eligible pool growing while `top_k=1` continues to select on cosine distance rather than recency.
+
+### §4.30 Visual-beat classification: **UNNECESSARY** — three-scene hypothesis check
+
+Per-moment classification for the rules scene:
+
+| Moment | Class | Reasoning |
+|---|---|---|
+| Line 0 — *"This workshop needs rules."* declaration | **UNNECESSARY** | Comedic weight is entirely in Patch's delivery. |
+| Line 1 — *"three experiments while saying that sentence"* | **UNNECESSARY** | Rivet-observation line. Showing the three experiments would over-explain the joke. |
+| Line 4 — *"a handsome whiteboard. With magnets."* | **UNNECESSARY** | Whiteboard is a joke prop; the humour is Patch's voice investing it with personality. Showing an actual whiteboard flattens. |
+| Line 6 — mystery 3D-printer test piece | **UNNECESSARY** | Printer is invoked only to justify the anecdote. Comedy is in *"whatever comes out will be a surprise"*; a printer shot adds nothing. |
+| Lines 13-14 landing — *"It is based on observation."* / *"the tiny ones vanish into this place like they owe it money."* | **UNNECESSARY** | Landing lives entirely in Patch's voice + Rivet's straight return. Any cutaway would interrupt character rhythm. |
+
+**Three-scene comparison table:**
+
+| Episode | Physical props | Visual-beat class | Where the meaning lives |
+|---|---|---|---|
+| **Box `6e3ed367`** | unopened box, 3D printer, Patch's body | **REQUIRED** | Outside talking heads (physical block IS the beat; unopened box IS the visual center) |
+| **Helper `464128b1`** | covered device, blinking light, 3D printer | **ENHANCING** | Inside talking heads (quoted helper messages carry payload; avatar downward glance supplies enough physicality) |
+| **Rules `05d3612c`** | 3D printer, whiteboard, magnets | **UNNECESSARY** | Entirely inside talking heads (jokes are voice-driven; props are named for comedy, not shown for information) |
+
+**Three-Episode support for the refined hypothesis:**
+
+> **Dialogue scenes need visual beats when the meaning lives outside the talking heads.**
+
+All three data points fit the refined framing. The naïve reading — *"physically-grounded dialogue needs visual beats"* — would have predicted "helper needs visuals" (wrong) and "rules needs visuals" (wrong). The refined framing correctly predicts all three outcomes.
+
+**Status: strengthened, still provisional.** Three data points is a stronger prior than two, but is not a theory of visual-beat necessity. Do NOT ratify as architecture. Do NOT design or implement a cinematic-dialogue planner. The correct planning question, if this hypothesis eventually holds, remains **"which moments actually NEED or materially BENEFIT from leaving talking heads?"** — a bar-clearing filter, not a beat decorator.
+
+### §4.31 Crossing the ~10-memory threshold — SESSION 268 explicit observation goal
+
+Current active count: **10** (8 whole-cast + 2 Rivet-only). Observation #4 rendered against a pool of 9. Observations #1-#4 collectively cover pool sizes {7, 8, 8, 9}. The ~10-pool threshold that SESSION 268 explicitly wanted to observe has now been crossed by the post-promotion state; the next Episode will render against 10.
+
+Provisional observations at this pool size (do NOT ratify as `top_k` calibration):
+
+- **`top_k=1` selection has been contextually appropriate across four consecutive renders.** No selection has surprised the operator as off-topic. No selection has hijacked a scene.
+- **Memory recurrence is real and not obviously problematic.** `a34cc005` retrieved twice consecutively (Obs #3 helper + Obs #4 rules). Both retrievals were topically defensible. Recurrence at this pool size is a data point about `top_k=1`'s tendency to return to strong semantic neighbours; it did not damage either scene.
+- **The private Rivet-only memory `c86d4902` (PATCH OVERRIDES) has not surfaced textually in any Patch+Rivet dialogue across four renders**, despite being eligible in every one. This is the fourth natural non-adversarial trial of the SESSION 267 §14 witness-semantics observation.
+- **Historical callbacks have emerged naturally.** Obs #3 helper and Obs #4 rules both reference Patch's methodological pattern; Obs #1 mascot referenced Patch's project process; none of these were operator-scripted callbacks — they emerged from the memory-informed dynamic.
+- **Semantic-bleed at pool sizes 7-9 has not been observed.** The next Episode at pool 10 is the first test of whether that continues.
+
+### §4.32 Four-Episode SESSION 268 synthesis — updated
+
+What four Episodes collectively support:
+
+1. **The availability-condition UI works.** Chris authored four Episodes under it without needing to think about retrieval mechanics.
+2. **`top_k=1` selection is contextually appropriate at pool sizes 7-9.** Four consecutive defensible retrievals; no operator-perceived off-topic selection; no scene hijack.
+3. **Memory manifests through at least three distinct channels.** Background continuity (Obs #1), silent presence (Obs #2), character-dynamic influence (Obs #3, #4). All three useful.
+4. **Private-memory retrieval does not automatically leak** — four natural non-adversarial trials without textual leakage, extending SESSION 267 §14's three.
+5. **The story-hook vs durable-state distinction is operator-navigable** — box (hook, not promoted) vs helper (durable, promoted) vs rules (durable, promoted). Operator judgment carried it without a UI affordance.
+6. **The refined visual-beat hypothesis holds across three data points** — REQUIRED / ENHANCING / UNNECESSARY, correctly predicted by *"meaning outside talking heads"* framing.
+7. **Character/relationship progression is legible in the finished text** — Obs #4 makes this explicit; Chris's operator reaction is first-class evidence. Attribution to specific inputs is unprovable at `top_k=1`; the emergence is real.
+8. **The persistent-past goal is registering** — Chris promoted two durable memories across the session (helper, rules); a third (mascot) was promoted earlier in the session. Callbacks are emerging without being scripted.
+
+What we still do NOT know (unchanged):
+
+1. Whether witness attribution is architecturally unnecessary. Four natural non-leakages does not falsify Semantic 1 in the SESSION 267 §14 sense.
+2. Whether `top_k=1` remains right at pool sizes materially larger than 10. Next Episode will be the first test at exactly 10.
+3. Whether the refined visual-beat hypothesis is the correct planning frame beyond three data points.
+4. Whether character-dynamic influence generalizes across memory kinds beyond `event/peripheral`. All ten current memories are `event/peripheral`; the schema supports other kinds we haven't exercised.
+5. Whether any promote-UI change is warranted for the hook-vs-durable distinction. Operator judgment continues to carry it without a UI affordance; no evidence yet that a UI intervention would help.
+
+### §4.33 Implementation disposition (Observation #4)
+
+**No implementation.** No new primitive, no recipe change, no `dialogue_scene` modification, no prompt / retrieval / witness / `top_k` change, no visual assets generated, no Episode created. The rules memory (§4.27) was promoted by Chris through the shipped UI **before** this documentation task began — no memory created or promoted BY this task.
+
+Runtime posture unchanged:
+
+- Live NarrativeMemory count: **10** (8 whole-cast + 2 Rivet-only).
+- `top_k` remains 1.
+- Retrieval predicate, synthesis prompt, availability UI — unchanged.
+- No source-code file modified during this task; documentation and evidence sidecars only.
+
+---
+
 ## §5 — Runtime evidence sidecars
 
 *(To be created under `docs/design/session_268_experiment_data/`

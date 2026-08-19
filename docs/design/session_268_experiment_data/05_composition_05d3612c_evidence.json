@@ -1,0 +1,173 @@
+{
+  "captured_at": "2026-08-19T00:00:00Z",
+  "session": 268,
+  "context": "Dogfood Observation #4 — Composition 05d3612c evidence freeze",
+  "note": "Fourth SESSION 268 Patch's Workshop dogfood beat. Also crosses the ~10-memory pool threshold that SESSION 268 explicitly wanted to observe.",
+
+  "composition": {
+    "id": "05d3612c-621e-481f-8664-f2231d36fa24",
+    "name": "Dialogue — I have made a decision. This w",
+    "template_kind": "dialogue_scene",
+    "status": "completed",
+    "operator_topic": "Patch tells Rivet he has decided the workshop needs rules. Rivet is immediately suspicious because Patch has never shown any interest in rules before.",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "spokesperson_id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+    "episode_id": "b95ccd28-5f53-45dc-9db2-5af53b473257",
+    "created_by": 883,
+    "created_at": "2026-08-19T06:15:58.165157+00:00",
+    "render_dispatched_at": "2026-08-19T06:15:58.360476+00:00",
+    "updated_at": "2026-08-19T06:19:31.614147+00:00",
+    "target_duration_seconds": 90,
+    "writing_contract_version": 4,
+    "mock_mode": false,
+    "synthesis_attempt_count": 1,
+    "synthesis_predicted_seconds": 107.38461538461539,
+    "verification_status": "verified",
+    "verification_warnings": [
+      {"kind": "proper_noun", "claim": "Helpful", "position": 18, "line_index": 2, "speaker_name": "Patch", "speaker_alias": "patch"},
+      {"kind": "proper_noun", "claim": "Like", "position": 50, "line_index": 2, "speaker_name": "Patch", "speaker_alias": "patch"},
+      {"kind": "proper_noun", "claim": "Also", "position": 20, "line_index": 4, "speaker_name": "Patch", "speaker_alias": "patch"},
+      {"kind": "proper_noun", "claim": "Fair", "position": 0, "line_index": 10, "speaker_name": "Patch", "speaker_alias": "patch"},
+      {"kind": "proper_noun", "claim": "Acceptable", "position": 0, "line_index": 11, "speaker_name": "Rivet", "speaker_alias": "rivet"}
+    ],
+    "validation_failure_reason": "",
+    "rejected_synthesis": "",
+    "cost_estimate_micros": 0,
+    "cost_actual_micros": 300100,
+    "knowledge_chunk_ids_count": 8,
+    "memory_ids": ["a34cc005-7fcc-4f6b-b087-591f5f9d7e6a"]
+  },
+
+  "episode": {
+    "id": "b95ccd28-5f53-45dc-9db2-5af53b473257",
+    "title": "Patch tells Rivet he has decided the workshop needs rules. R…",
+    "operator_topic": "Patch tells Rivet he has decided the workshop needs rules. Rivet is immediately suspicious because Patch has never shown any interest in rules before.",
+    "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "universe_name": "Patch' Workshop",
+    "cast": [
+      {"id": "f18b75cc-37c0-445a-a472-24fe5d8b7592", "name": "Rivet"},
+      {"id": "7fad8172-cd39-4bbe-85e0-ed705d900645", "name": "Patch"}
+    ]
+  },
+
+  "retrieved_memory": {
+    "id": "a34cc005-7fcc-4f6b-b087-591f5f9d7e6a",
+    "body": "Rivet has learned to recognize Patch's excitement about a project as an early warning that Patch is about to start experimenting before the details are settled.",
+    "kind": "event",
+    "weight": "peripheral",
+    "witness_scope": "whole-cast",
+    "witnesses": [],
+    "availability_display": "Available: In any future scene",
+    "source_composition_id": "7d913cf4-23d5-454c-a2bb-3d0f2bb9d68a",
+    "source_composition_name": "Dialogue — Hey Rivet,",
+    "source_episode_id": "9c3dbd88-9270-4223-a8b2-b1cdbf3f0f25",
+    "source_episode_title": "Patch tries to teach Rivet something ridiculous.",
+    "note_on_recurrence": "Same memory as Observation #3. Retrieved again from a different topic that ALSO concerns Patch's methodology + Rivet's stance. Suggests the memory occupies a stable semantic neighbourhood the top_k=1 lane returns to when scenes are about Patch's process."
+  },
+
+  "eligible_pool_at_render_time": {
+    "count": 9,
+    "delta_since_previous_render": "+1 (helper 6b5222b1 promoted 05:55:33Z, available at 06:15:58Z render). Rules-memory 42acc26d NOT yet present at render time (created 06:25:58Z, ~10 min after render).",
+    "top_k": 1,
+    "rank_1_selected": "a34cc005",
+    "candidates": [
+      {"id": "f25e53af", "witness": "whole", "body_prefix": "the agent Patch wired to the workshop thinks it runs the place."},
+      {"id": "48746f69", "witness": "whole", "body_prefix": "The workshop agent began deciding which of Patch's projects…"},
+      {"id": "eda32b58", "witness": "whole", "body_prefix": "The workshop agent began rearranging the order of Patch's projects…"},
+      {"id": "cd73d52f", "witness": "Rivet-only", "body_prefix": "Because it had an opinion about our work. An uninvited opinion…"},
+      {"id": "a34cc005", "witness": "whole", "selected": true, "body_prefix": "Rivet has learned to recognize Patch's excitement about a project…"},
+      {"id": "d98962e2", "witness": "whole", "body_prefix": "Patch accepted Rivet taking the lead on an experiment…"},
+      {"id": "c86d4902", "witness": "Rivet-only", "body_prefix": "While Patch was out, Rivet found that the workshop agent had quietly built a folder named 'PATCH OVERRIDES'…"},
+      {"id": "87d4e553", "witness": "whole", "body_prefix": "Patch decided the workshop should create a mascot as a character-consistency experiment."},
+      {"id": "6b5222b1", "witness": "whole", "body_prefix": "Patch built a workshop helper that watches for interesting events and leaves messages…"}
+    ]
+  },
+
+  "pipeline_shape": {
+    "step_count": 16,
+    "step_breakdown": "15 × generate_avatar_speech + 1 × concat_clips",
+    "final_asset_id": "f58f0c26-9ace-465d-b022-ad452b51c375",
+    "final_asset_role": "composite_output",
+    "final_asset_file": "/data/_internal/concats/d34d305f576f2d12.mp4",
+    "final_asset_duration_ms": 101964,
+    "final_asset_duration_seconds": 101.964,
+    "predicted_seconds": 107.385,
+    "target_seconds": 90,
+    "size_bytes": 36132665,
+    "provider_dispatch_count": {
+      "openai_synthesis": 1,
+      "runway_avatar_speech": 15,
+      "ffmpeg_concat": 1
+    }
+  },
+
+  "accepted_dialogue_lines": [
+    {"line_index": 0, "speaker": "Patch", "text": "I have made a decision. This workshop needs rules."},
+    {"line_index": 1, "speaker": "Rivet", "text": "You have started three experiments while saying that sentence. Explain."},
+    {"line_index": 2, "speaker": "Patch", "text": "Not boring rules. Helpful rules. Tiny guardrails. Like: before we turn something on, we write down what we think it's going to do."},
+    {"line_index": 3, "speaker": "Rivet", "text": "You mean a hypothesis. You rejected that idea last time because it sounded \"too clipboard-shaped.\""},
+    {"line_index": 4, "speaker": "Patch", "text": "I was younger then. Also, I'm not saying we need a clipboard. We could use a whiteboard. A handsome whiteboard. With magnets."},
+    {"line_index": 5, "speaker": "Rivet", "text": "What prompted this sudden conversion to preparation?"},
+    {"line_index": 6, "speaker": "Patch", "text": "The 3D printer is running a test piece, and I realized I cannot remember whether I changed the design, the settings, or both. Which is exciting, because whatever comes out will be a surprise."},
+    {"line_index": 7, "speaker": "Rivet", "text": "That is not what a test is for. If the result is strange, we will have no clean way to tell which change caused it."},
+    {"line_index": 8, "speaker": "Patch", "text": "Exactly. So rule two: change one thing at a time. See? I'm becoming responsible in real time."},
+    {"line_index": 9, "speaker": "Rivet", "text": "Once this print finishes, we can test whether that claim repeats."},
+    {"line_index": 10, "speaker": "Patch", "text": "Fair. Rule three: when an experiment does something weird, we don't call it a disaster until we've looked at it."},
+    {"line_index": 11, "speaker": "Rivet", "text": "Acceptable. Though I would like a separate rule prohibiting you from announcing rules five minutes after ignoring them."},
+    {"line_index": 12, "speaker": "Patch", "text": "That feels targeted."},
+    {"line_index": 13, "speaker": "Rivet", "text": "It is based on observation."},
+    {"line_index": 14, "speaker": "Patch", "text": "Fine. Put it on the handsome whiteboard. But use the large magnets. The tiny ones vanish into this place like they owe it money."}
+  ],
+
+  "memory_influence_analysis": {
+    "verdict": "behavioral_influence_plus_topic_alignment",
+    "memory_body": "Rivet has learned to recognize Patch's excitement about a project as an early warning that Patch is about to start experimenting before the details are settled.",
+    "topic_alignment": "The operator_topic is 'Patch decided the workshop needs rules … Rivet is immediately suspicious because Patch has never shown any interest in rules before.' — this topic and the memory are addressing the same underlying dynamic (Patch's process vs Rivet's structured stance). The retrieval hit is semantically excellent.",
+    "no_explicit_callback": "The dialogue does not quote the memory, does not reference the source Episode 'Patch tries to teach Rivet something ridiculous', and no character narrates 'Rivet remembered that…'.",
+    "behavioral_manifestations": [
+      {"line": 1, "speaker": "Rivet", "manifestation": "'You have started three experiments while saying that sentence. Explain.' — the exact excitement-as-early-warning stance the memory encodes, applied to the new topic."},
+      {"line": 3, "speaker": "Rivet", "manifestation": "'You mean a hypothesis. You rejected that idea last time because it sounded \"too clipboard-shaped.\"' — Rivet holds Patch to prior behavior; matches the memory's 'has learned to recognize' framing."},
+      {"line": 5, "speaker": "Rivet", "manifestation": "'What prompted this sudden conversion to preparation?' — Rivet demands the diagnostic story, refuses to accept the claim at face value. Memory-consistent."},
+      {"line": 9, "speaker": "Rivet", "manifestation": "'Once this print finishes, we can test whether that claim repeats.' — Rivet treats Patch's claim of change as itself a testable hypothesis. Directly extends the memory's observational stance."},
+      {"line": 13, "speaker": "Rivet", "manifestation": "'It is based on observation.' — nearly meta-textual to the memory's 'has learned to recognize'. The word 'observation' echoes the memory's epistemic verb."}
+    ],
+    "note": "This is the SAME manifestation channel as Observation #3 (character-DYNAMIC influence, not exposition), but the topic itself is closer to the memory's semantic content — so the influence reads more visibly. Same channel, higher legibility."
+  },
+
+  "relationship_progression_observation": {
+    "operator_claim": "Patch proposes workshop rules that substantially resemble Rivet's established experimental methodology, but Patch translates them into his own personality rather than simply becoming Rivet-like. Rivet remains skeptical and observational rather than simply accepting Patch's claimed growth.",
+    "textual_evidence_from_dialogue": {
+      "patch_adopting_rivet_methodology_in_his_own_voice": [
+        {"line": 2, "text": "Not boring rules. Helpful rules. Tiny guardrails. Like: before we turn something on, we write down what we think it's going to do."},
+        {"line": 4, "text": "I was younger then. Also, I'm not saying we need a clipboard. We could use a whiteboard. A handsome whiteboard. With magnets."},
+        {"line": 8, "text": "Exactly. So rule two: change one thing at a time. See? I'm becoming responsible in real time."},
+        {"line": 10, "text": "Fair. Rule three: when an experiment does something weird, we don't call it a disaster until we've looked at it."},
+        {"line": 14, "text": "Fine. Put it on the handsome whiteboard. But use the large magnets. The tiny ones vanish into this place like they owe it money."}
+      ],
+      "rivet_remaining_observational_not_absorbing": [
+        {"line": 1, "text": "You have started three experiments while saying that sentence. Explain."},
+        {"line": 5, "text": "What prompted this sudden conversion to preparation?"},
+        {"line": 9, "text": "Once this print finishes, we can test whether that claim repeats."},
+        {"line": 11, "text": "Acceptable. Though I would like a separate rule prohibiting you from announcing rules five minutes after ignoring them."},
+        {"line": 13, "text": "It is based on observation."}
+      ]
+    },
+    "causal_claim_scope": "Retrieved memory a34cc005 is semantically well-matched to this scene's dynamic and plausibly reinforced Rivet's observational stance in synthesis. That said: (a) top_k=1 retrieval + no explicit-callback framing in the prompt means we cannot claim the memory 'caused' the relationship progression — Patch's translate-in-his-own-voice + Rivet's methodical-persistent character voice are ALSO grounded in K2 chunks + Character Voice + identity fields. (b) Do not overclaim. The progression is real in the text; the attribution to any single input is unprovable.",
+    "operator_reaction": "Chris liked the finished video and felt Patch and Rivet's individual personalities and their relationship are becoming increasingly visible."
+  },
+
+  "visual_beat_classification_for_this_scene": [
+    {"moment": "line 0 — 'This workshop needs rules.' declaration", "class": "UNNECESSARY", "reasoning": "Comedic weight is entirely in the delivery."},
+    {"moment": "line 1 — 'You have started three experiments while saying that sentence'", "class": "UNNECESSARY", "reasoning": "The joke is a Rivet-observation line, not a visible action. Showing the three experiments would over-explain."},
+    {"moment": "line 4 — 'a handsome whiteboard. With magnets.'", "class": "UNNECESSARY", "reasoning": "The whiteboard is a joke prop; it's funny because Patch's voice invests it with personality (\"handsome\", \"with magnets\"). Showing an actual whiteboard flattens it."},
+    {"moment": "line 6 — the mystery 3D-printer test piece", "class": "UNNECESSARY", "reasoning": "The printer is invoked only to justify the anecdote. The comedy is in 'whatever comes out will be a surprise'; a printer shot adds nothing."},
+    {"moment": "line 13-14 — 'It is based on observation.' / 'But use the large magnets. The tiny ones vanish into this place like they owe it money.'", "class": "UNNECESSARY", "reasoning": "Landing lives entirely in Patch's voice + Rivet's straight-faced return. Any cutaway would interrupt the character rhythm."}
+  ],
+
+  "visual_beat_three_scene_summary": {
+    "box_6e3ed367": "REQUIRED — meaning lives outside talking heads (Patch's body between Rivet and the box IS the beat; unopened box IS the visual center).",
+    "helper_464128b1": "ENHANCING — meaning lives inside talking heads (quoted helper messages carry payload; avatar downward glance supplies enough physicality).",
+    "rules_05d3612c": "UNNECESSARY — meaning lives entirely in Patch's voice, Rivet's skepticism, and their character dynamic. Physical props (printer, whiteboard, magnets) are named for comedy; showing them would flatten.",
+    "hypothesis_status": "Three-Episode support for the refined framing: 'Dialogue scenes need visual beats when the meaning lives outside the talking heads.' All three data points fit. Still provisional; do not ratify as architecture."
+  }
+}
