@@ -1607,12 +1607,19 @@ storage the two-hander case uses.
 
 ### §12.9 Commit checkpoint
 
-(Populated after commit + push in §12.10.)
+- Slice commit: `06ba772` — `feat(episode): SESSION 269 §12 — one-character Episode creator workflow`.
+- Predecessor commits still pending push at commit time: `91c9e3a` (§11 doc audit).
+- Predecessors already on origin: `bbcc1f0` (§10 doc checkpoint), `765bb73` (§10 slice), `bc4d8ba` (§1-§9 doc).
 
 ### §12.10 Commit + push
 
-- Slice commit: (populated below).
-- Push: (populated below).
+Post-commit doc-update push status is captured in §12.11 below
+after the operator-visible fingerprint completes.
+
+### §12.11 Push checkpoint
+
+(Populated after `git push origin main` — see report at end
+of session turn.)
 
 ---
 
