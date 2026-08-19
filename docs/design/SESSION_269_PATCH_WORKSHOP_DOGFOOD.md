@@ -2299,8 +2299,10 @@ If any of the above regresses, capture as §16 evidence — but do NOT promote m
 
 ### §15.6 Commit checkpoint
 
-- §15 slice commit: (populated after commit below).
-- Push status: (populated after push below).
+- §15 slice commit: `44618fc` — `feat(story-mode): SESSION 269 §15 — Episode-solo talking_head STORY MODE`.
+- Push: `d0c5ca0..44618fc main -> main` (successful). Local main == origin/main == `44618fc`. Working tree clean.
+- 14 files changed, 1,182 insertions, 19 deletions.
+- Predecessors already on origin: `d0c5ca0` (§14 doc checkpoint), `929199f` (§14 audit/design), `394e373` (§13 doc checkpoint), `3c0b00f` (§13 parity pass), `87c328f` (§12 doc checkpoint), `06ba772` (§12 slice), `91c9e3a` (§11 doc audit), `bbcc1f0` (§10 doc checkpoint), `765bb73` (§10 slice), `bc4d8ba` (§1-§9 doc).
 
 ---
 
