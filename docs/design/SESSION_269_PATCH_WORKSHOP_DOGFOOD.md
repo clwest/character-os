@@ -3168,7 +3168,8 @@ gate.
 
 Doc + evidence sidecar only — no source-code change in §19.
 
-- §19 commit: (populated after commit below).
+- §19 commit: `ef57620` — `docs(session-269): §19 — Patch+Rivet dialogue ba431203 + whole-cast memory 36c21641`.
+- Push: `9ddce05..ef57620 main -> main` (successful). Local main == origin/main == `ef57620`. Working tree clean.
 
 ---
 
