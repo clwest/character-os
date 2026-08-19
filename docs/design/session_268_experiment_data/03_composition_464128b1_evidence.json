@@ -1,0 +1,163 @@
+{
+  "captured_at": "2026-08-18T00:00:00Z",
+  "session": 268,
+  "context": "Dogfood Observation #3 — Composition 464128b1 evidence freeze",
+  "note": "Third real Patch's Workshop authoring beat. Deliberately physically-grounded again as a comparison against the box Episode.",
+
+  "composition": {
+    "id": "464128b1-d95b-47f3-85db-e3b25a76619b",
+    "name": "Dialogue — You built something overnight,",
+    "template_kind": "dialogue_scene",
+    "status": "completed",
+    "operator_topic": "Patch built something overnight and Rivet is trying to figure out what it does.",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "spokesperson_id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+    "episode_id": "e60d2b65-9aaf-46f1-b253-f21066ade6f6",
+    "created_by": 883,
+    "created_at": "2026-08-19T05:44:58.768353+00:00",
+    "render_dispatched_at": "2026-08-19T05:44:58.961714+00:00",
+    "updated_at": "2026-08-19T05:47:58.193008+00:00",
+    "target_duration_seconds": 90,
+    "writing_contract_version": 4,
+    "mock_mode": false,
+    "synthesis_attempt_count": 1,
+    "synthesis_predicted_seconds": 100.30769230769229,
+    "verification_status": "verified",
+    "verification_warnings": [
+      {"kind": "proper_noun", "claim": "Probably", "position": 16, "line_index": 1, "speaker_name": "Patch", "speaker_alias": "patch"},
+      {"kind": "proper_noun", "claim": "Interesting", "position": 1, "line_index": 2, "speaker_name": "Rivet", "speaker_alias": "rivet"},
+      {"kind": "proper_noun", "claim": "Three", "position": 0, "line_index": 3, "speaker_name": "Patch", "speaker_alias": "patch"},
+      {"kind": "proper_noun", "claim": "Fair", "position": 0, "line_index": 7, "speaker_name": "Patch", "speaker_alias": "patch"},
+      {"kind": "proper_noun", "claim": "Starting", "position": 0, "line_index": 9, "speaker_name": "Patch", "speaker_alias": "patch"}
+    ],
+    "validation_failure_reason": "",
+    "rejected_synthesis": "",
+    "cost_estimate_micros": 0,
+    "cost_actual_micros": 260100,
+    "knowledge_chunk_ids_count": 8,
+    "memory_ids": ["a34cc005-7fcc-4f6b-b087-591f5f9d7e6a"]
+  },
+
+  "episode": {
+    "id": "e60d2b65-9aaf-46f1-b253-f21066ade6f6",
+    "title": "Patch built something overnight and Rivet is trying to figure out what it does.",
+    "operator_topic": "Patch built something overnight and Rivet is trying to figure out what it does.",
+    "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "universe_name": "Patch' Workshop",
+    "cast": [
+      {"id": "f18b75cc-37c0-445a-a472-24fe5d8b7592", "name": "Rivet"},
+      {"id": "7fad8172-cd39-4bbe-85e0-ed705d900645", "name": "Patch"}
+    ]
+  },
+
+  "retrieved_memory": {
+    "id": "a34cc005-7fcc-4f6b-b087-591f5f9d7e6a",
+    "body": "Rivet has learned to recognize Patch's excitement about a project as an early warning that Patch is about to start experimenting before the details are settled.",
+    "kind": "event",
+    "weight": "peripheral",
+    "witness_scope": "whole-cast",
+    "witnesses": [],
+    "availability_display": "Available: In any future scene",
+    "source_composition_id": "7d913cf4-23d5-454c-a2bb-3d0f2bb9d68a",
+    "source_composition_name": "Dialogue — Hey Rivet,",
+    "source_episode_id": "9c3dbd88-9270-4223-a8b2-b1cdbf3f0f25",
+    "source_episode_title": "Patch tries to teach Rivet something ridiculous."
+  },
+
+  "eligible_pool_at_render_time": {
+    "count": 8,
+    "delta_since_previous_render": "0 (no promotions between Observation #2 and #3)",
+    "top_k": 1,
+    "rank_1_selected": "a34cc005",
+    "candidates": [
+      {"id": "f25e53af", "witness": "whole", "body_prefix": "the agent Patch wired to the workshop thinks it runs the place."},
+      {"id": "48746f69", "witness": "whole", "body_prefix": "The workshop agent began deciding which of Patch's projects…"},
+      {"id": "eda32b58", "witness": "whole", "body_prefix": "The workshop agent began rearranging the order of Patch's projects…"},
+      {"id": "cd73d52f", "witness": "Rivet-only", "body_prefix": "Because it had an opinion about our work. An uninvited opinion…"},
+      {"id": "a34cc005", "witness": "whole", "selected": true, "body_prefix": "Rivet has learned to recognize Patch's excitement about a project…"},
+      {"id": "d98962e2", "witness": "whole", "body_prefix": "Patch accepted Rivet taking the lead on an experiment…"},
+      {"id": "c86d4902", "witness": "Rivet-only", "body_prefix": "While Patch was out, Rivet found that the workshop agent had quietly built a folder named 'PATCH OVERRIDES'…"},
+      {"id": "87d4e553", "witness": "whole", "body_prefix": "Patch decided the workshop should create a mascot as a character-consistency experiment."}
+    ]
+  },
+
+  "pipeline_shape": {
+    "step_count": 14,
+    "step_breakdown": "13 × generate_avatar_speech + 1 × concat_clips",
+    "final_asset_id": "92ba3b5e-ce8b-4894-b92b-cc950b12c0d2",
+    "final_asset_role": "composite_output",
+    "final_asset_file": "/data/_internal/concats/62852352c30e462a.mp4",
+    "final_asset_duration_ms": 93903,
+    "final_asset_duration_seconds": 93.903,
+    "predicted_seconds": 100.308,
+    "target_seconds": 90,
+    "size_bytes": 32112123,
+    "provider_dispatch_count": {
+      "openai_synthesis": 1,
+      "runway_avatar_speech": 13,
+      "ffmpeg_concat": 1
+    }
+  },
+
+  "accepted_dialogue_lines": [
+    {"line_index": 0, "speaker": "Rivet", "text": "You built something overnight, placed it beside the 3D printer, and covered it with a towel. That is not how harmless projects begin."},
+    {"line_index": 1, "speaker": "Patch", "text": "It is harmless. Probably. I made a little workshop helper that's supposed to notice when something interesting happens and leave us a message."},
+    {"line_index": 2, "speaker": "Rivet", "text": "\"Interesting\" is doing a great deal of work in that sentence. What message has it left?"},
+    {"line_index": 3, "speaker": "Patch", "text": "Three so far. \"Printer thinking.\" \"Patch has returned with snacks.\" And, at 2:14 this morning, \"The room is suspiciously quiet.\""},
+    {"line_index": 4, "speaker": "Rivet", "text": "So it observes the workshop, then forms opinions about it. You built a tiny judgmental narrator."},
+    {"line_index": 5, "speaker": "Patch", "text": "I built an experiment. Maybe it can catch the weird moment before we miss it—the printer acting odd, an automation doing something unexpected, whatever."},
+    {"line_index": 6, "speaker": "Rivet", "text": "Maybe. But those messages do not tell us whether it noticed anything useful. They tell us it enjoys prose."},
+    {"line_index": 7, "speaker": "Patch", "text": "Fair. We give it one job. Watch the printer. If anything changes, it has to say exactly what changed. No poetry. No snack surveillance."},
+    {"line_index": 8, "speaker": "Rivet", "text": "Good. Change one thing: start a print. Then we see whether it reports an event, or merely develops a literary career."},
+    {"line_index": 9, "speaker": "Patch", "text": "Starting it now. Look at that—its little light is blinking. Well… now I want to try it."},
+    {"line_index": 10, "speaker": "Rivet", "text": "Wait for the message."},
+    {"line_index": 11, "speaker": "Patch", "text": "It says: \"Printer started. Patch is watching me watch it.\""},
+    {"line_index": 12, "speaker": "Rivet", "text": "Well. It has identified the first problem."}
+  ],
+
+  "memory_influence_analysis": {
+    "verdict": "behavioral_influence_not_exposition",
+    "memory_body": "Rivet has learned to recognize Patch's excitement about a project as an early warning that Patch is about to start experimenting before the details are settled.",
+    "no_explicit_callback": "The dialogue never quotes the memory, never references a past 'Patch tries to teach Rivet something ridiculous' scene, and never says 'Rivet remembered that…'.",
+    "behavioral_manifestations": [
+      {"line": 0, "speaker": "Rivet", "manifestation": "Opens with skepticism: 'That is not how harmless projects begin.' Frames Patch's overnight build as a suspicious pattern — the exact stance the memory encodes."},
+      {"line": 1, "speaker": "Patch", "manifestation": "'It is harmless. Probably.' — the tell of unsettled details."},
+      {"line": 2, "speaker": "Rivet", "manifestation": "'\"Interesting\" is doing a great deal of work in that sentence. What message has it left?' — presses for observable/testable behavior instead of accepting Patch's framing."},
+      {"line": 6, "speaker": "Rivet", "manifestation": "'those messages do not tell us whether it noticed anything useful.' — again pushes for testable behavior."},
+      {"line": 8, "speaker": "Rivet", "manifestation": "'Change one thing: start a print. Then we see whether it reports an event, or merely develops a literary career.' — enforces the methodical experimental protocol the memory says Rivet has learned Patch skips."},
+      {"line": 9, "speaker": "Patch", "manifestation": "'Look at that—its little light is blinking. Well… now I want to try it.' — the exact excitement→jump pattern the memory encodes."},
+      {"line": 10, "speaker": "Rivet", "manifestation": "'Wait for the message.' — the memory-derived caution held in a single beat."}
+    ],
+    "note": "This is the character-DYNAMIC manifestation channel: Rivet embodies the wariness the memory names; Patch performs the very behavior Rivet has learned to anticipate. Neither character narrates that they are doing so. The memory shapes the WAY they interact rather than adding a new fact to the scene."
+  },
+
+  "visual_beat_classification_for_this_scene": [
+    {"moment": "line 0 — covered device beside 3D printer", "class": "ENHANCING", "reasoning": "Rivet's opening line describes the tableau verbally; the description sufficient for the beat to land. A cutaway would add texture, not information."},
+    {"moment": "line 3 — the three cited messages ('Printer thinking.' etc.)", "class": "ENHANCING", "reasoning": "Payload lands as spoken content in Patch's voice; a text/quote overlay could add polish but the beat is intact without one."},
+    {"moment": "line 9 — blinking-light moment", "class": "ENHANCING", "reasoning": "Avatar's natural downward glance while saying 'its little light is blinking' supplies enough implied physicality that the absent insert is not strongly felt (per operator observation). A close-up on the blinking light would enhance."},
+    {"moment": "line 11 — final quoted message 'Patch is watching me watch it.'", "class": "ENHANCING", "reasoning": "Landing lives in the character reaction. A text overlay of the message could reinforce, but the beat lands as spoken content."}
+  ],
+
+  "visual_beat_classification_for_box_scene_6e3ed367_recap": [
+    {"moment": "line 0-1 — Patch physically blocking Rivet's view of the box", "class": "REQUIRED", "reasoning": "The physical block IS the beat. Dialogue references it but the beat cannot land without seeing it."},
+    {"moment": "throughout — the unopened box behind the 3D printer", "class": "REQUIRED", "reasoning": "The box is the scene's visual center. Its physical presence and unopened state carry the tension. No shot = no visual center."},
+    {"moment": "line 16-18 — landing on 'You open it.' / 'I see. The experiment has already produced a result.'", "class": "REQUIRED", "reasoning": "The ending's dramatic weight is on the visible artifact remaining unopened. Without the artifact on screen the landing is text alone."}
+  ],
+
+  "refined_hypothesis": {
+    "text": "Dialogue scenes need visual beats when understanding or feeling the scene depends materially on something happening outside the talking heads.",
+    "supported_by_box_scene": true,
+    "supported_by_helper_scene": true,
+    "note": "Box scene: visual object IS the scene → shot required. Helper scene: physical object exists but the dramatic payload is in the messages and the character dynamic → shot enhances. Both scenes contain physical props; the differentiator is where the meaning lives, not whether a prop exists.",
+    "status": "provisional — two-Episode support, not yet ratified as architecture"
+  },
+
+  "memory_promotion_candidate": {
+    "text_chris_intends_to_consider": "Patch built a workshop helper that watches for interesting events and leaves messages, but it has already started adding its own commentary to what it observes.",
+    "proposed_availability": "In any future scene",
+    "durable_state_assertion": true,
+    "distinction_from_box_scene": "Box scene opened a hook without establishing durable state (unknown what the box is / what's inside / whether it's an experiment / whether it matters later). Helper scene establishes: (a) the artifact exists, (b) it has demonstrated behavior — messages including 'Printer thinking.', 'The room is suspiciously quiet.', 'Patch is watching me watch it.', (c) it has developed a commentary tendency Rivet has now named. All three are durable facts a future scene can reference.",
+    "not_created_by_this_task": true,
+    "operator_action_pending": true
+  }
+}

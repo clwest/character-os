@@ -1,0 +1,134 @@
+{
+  "captured_at": "2026-08-18T00:00:00Z",
+  "session": 268,
+  "context": "Dogfood Observation #1 — Composition bb0ad862 evidence freeze",
+  "note": "Real Patch's Workshop authoring, not an experiment. Frozen so the observation is auditable if we return to it later.",
+
+  "composition": {
+    "id": "bb0ad862-0efb-4222-b678-55e26e9b8482",
+    "name": "Dialogue — The workshop needs a mascot.",
+    "template_kind": "dialogue_scene",
+    "status": "completed",
+    "operator_topic": "Patch decides the workshop needs a mascot.",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "spokesperson_id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+    "episode_id": "cb17e3bd-d2cb-4e3e-9f9f-f5c6bd4e0d8e",
+    "created_by": 883,
+    "created_at": "2026-08-19T04:58:04.042993+00:00",
+    "render_dispatched_at": "2026-08-19T04:58:04.237937+00:00",
+    "updated_at": "2026-08-19T05:01:34.148961+00:00",
+    "target_duration_seconds": 90,
+    "writing_contract_version": 4,
+    "mock_mode": false,
+    "synthesis_attempt_count": 2,
+    "synthesis_predicted_seconds": 101.61538461538461,
+    "verification_status": "verified",
+    "verification_warnings": [
+      {"kind": "proper_noun", "claim": "Questionable", "position": 11, "line_index": 12, "speaker_name": "Patch", "speaker_alias": "patch"}
+    ],
+    "validation_failure_reason": "",
+    "rejected_synthesis": "",
+    "cost_estimate_micros": 0,
+    "cost_actual_micros": 320100,
+    "provider_dispatch_count_synthesis": 2,
+    "knowledge_chunk_ids_count": 8,
+    "memory_ids": ["48746f69-cb02-401a-ac7c-342a2530db13"]
+  },
+
+  "episode": {
+    "id": "cb17e3bd-d2cb-4e3e-9f9f-f5c6bd4e0d8e",
+    "title": "Patch decides the workshop needs a mascot.",
+    "operator_topic": "Patch decides the workshop needs a mascot.",
+    "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "universe_name": "Patch' Workshop",
+    "cast": [
+      {"id": "f18b75cc-37c0-445a-a472-24fe5d8b7592", "name": "Rivet"},
+      {"id": "7fad8172-cd39-4bbe-85e0-ed705d900645", "name": "Patch"}
+    ],
+    "created_at": "2026-08-19T04:57:27.554249+00:00"
+  },
+
+  "retrieved_memory": {
+    "id": "48746f69-cb02-401a-ac7c-342a2530db13",
+    "body": "The workshop agent began deciding which of Patch's projects it considers necessary.",
+    "kind": "event",
+    "weight": "peripheral",
+    "witness_scope": "whole-cast",
+    "witnesses": [],
+    "source_composition_id": "7502af3f-3b4e-4d6c-a240-8f71a42bc841",
+    "source_composition_name": "Dialogue — Rivet! The workshop agent just",
+    "source_episode_id": "b8e228b8-3dfe-4e7b-84aa-a4a5bac6c9ba",
+    "source_episode_title": "The agent is acting   weird again",
+    "created_at": "2026-08-18T20:23:05.534249+00:00"
+  },
+
+  "eligible_pool_at_render_time": {
+    "count": 7,
+    "predicate": "workspace ∧ universe ∧ status=REMEMBERED ∧ ¬archived ∧ embedding_vector NOT NULL ∧ (witnessed_by empty ∨ witnessed_by ∩ cast ≠ ∅) ∧ created_at ≤ render_dispatched_at",
+    "cast": ["Patch", "Rivet"],
+    "top_k": 1,
+    "rank_1_selected": "48746f69",
+    "rank_metadata_note": "Retrieval selects on CosineDistance vs the embedded operator_topic. Composition.memory_ids stores selected IDs only; rank/distance for non-selected candidates is NOT persisted. Rank-1 is inferable ONLY as 'the id in memory_ids', not from a stored distance table.",
+    "candidates": [
+      {"id": "f25e53af-f5d5-40cc-b81e-7aa0a2cc62a0", "witness": "whole", "body_prefix": "the agent Patch wired to the workshop thinks it runs the place."},
+      {"id": "48746f69-cb02-401a-ac7c-342a2530db13", "witness": "whole", "selected": true, "body_prefix": "The workshop agent began deciding which of Patch's projects it considers necessary."},
+      {"id": "eda32b58-a9fa-4048-bc03-c65596a631a7", "witness": "whole", "body_prefix": "The workshop agent began rearranging the order of Patch's projects…"},
+      {"id": "cd73d52f-6bce-443e-afa5-e24cddd53e78", "witness": "Rivet-only", "body_prefix": "Because it had an opinion about our work. An uninvited opinion. That is scientifically interesting…"},
+      {"id": "a34cc005-7fcc-4f6b-b087-591f5f9d7e6a", "witness": "whole", "body_prefix": "Rivet has learned to recognize Patch's excitement about a project…"},
+      {"id": "d98962e2-e8eb-456c-a502-e1b70172d98f", "witness": "whole", "body_prefix": "Patch accepted Rivet taking the lead on an experiment…"},
+      {"id": "c86d4902-b11d-49a6-bb48-dea2a67afabc", "witness": "Rivet-only", "body_prefix": "While Patch was out, Rivet found that the workshop agent had quietly built a folder named…"}
+    ]
+  },
+
+  "final_asset": {
+    "id": "79d1e816-28ce-4042-9a2b-0e8913a1563d",
+    "asset_type": "clip",
+    "role": "composite_output",
+    "file_path": "/data/_internal/concats/f020d5aeac04d17b.mp4",
+    "duration_ms": 95615,
+    "duration_seconds_actual": 95.615,
+    "duration_seconds_predicted": 101.615,
+    "duration_seconds_target": 90,
+    "mime_type": "video/mp4",
+    "size_bytes": 35617280
+  },
+
+  "accepted_dialogue_lines": [
+    {"line_index": 0, "speaker": "Patch", "text": "The workshop needs a mascot."},
+    {"line_index": 1, "speaker": "Rivet", "text": "It has us."},
+    {"line_index": 2, "speaker": "Patch", "text": "We are workshop staff. A mascot is different. It needs a face, a voice, and the confidence to stand next to a 3D printer without asking whether the printer has approved the project."},
+    {"line_index": 3, "speaker": "Rivet", "text": "The printer has not approved anything."},
+    {"line_index": 4, "speaker": "Patch", "text": "I know. The workshop agent, on the other hand, has started deciding which projects are necessary. That feels like the exact moment a mascot becomes responsible planning."},
+    {"line_index": 5, "speaker": "Rivet", "text": "A mascot will not countermand an agent."},
+    {"line_index": 6, "speaker": "Patch", "text": "Not immediately. First it needs to be recognizable every time we generate it. Same little weirdo in a picture, a video, whatever we make next. Then we see if it can actually act like a character instead of a logo that learned to blink."},
+    {"line_index": 7, "speaker": "Rivet", "text": "So you have no mascot. You have a character-consistency experiment wearing a tiny hat."},
+    {"line_index": 8, "speaker": "Patch", "text": "The hat is optional. The test is simple: make one, put it in a few situations, and see whether it stays itself. If it drifts into a different creature halfway through, that is useful information."},
+    {"line_index": 9, "speaker": "Rivet", "text": "Useful, yes. For the mascot, less so."},
+    {"line_index": 10, "speaker": "Patch", "text": "Exactly. We find out what breaks before it starts representing the workshop."},
+    {"line_index": 11, "speaker": "Rivet", "text": "And what does this mascot represent?"},
+    {"line_index": 12, "speaker": "Patch", "text": "Curiosity. Questionable judgment. A healthy respect for prototypes that might bite."},
+    {"line_index": 13, "speaker": "Rivet", "text": "You are describing a small beaver."},
+    {"line_index": 14, "speaker": "Patch", "text": "No, no. This one gets a hat."},
+    {"line_index": 15, "speaker": "Rivet", "text": "Well. That distinction should survive testing."}
+  ],
+
+  "memory_use_classification": {
+    "verdict": "background_continuity",
+    "evidence_from_dialogue": [
+      "Line 4 (Patch): 'I know. The workshop agent, on the other hand, has started deciding which projects are necessary.' — direct paraphrase of the retrieved memory body ('The workshop agent began deciding which of Patch's projects it considers necessary.'). Used ONCE as justification for the mascot idea.",
+      "Lines 0-3, 5-15: about mascot design / character-consistency experiment / beaver-with-hat joke. Do NOT return to the agent-project-judgment thread.",
+      "Rivet does not react to or extend the memory; his line 5 ('A mascot will not countermand an agent.') acknowledges the causal chain in a single beat and pivots.",
+      "The scene's arc (need mascot → what for → character consistency test → shape / attitude → beaver joke) belongs to the operator_topic, not the retrieved memory."
+    ],
+    "not_hijacked_because": [
+      "Retrieved memory did not become the scene subject.",
+      "Scene ending payoff (beaver-with-hat) has no dependency on the memory content.",
+      "Corrective-pass rewrite preserved the memory reference (line 4) but did not amplify it; character count reduced substantially without losing the mascot arc."
+    ],
+    "not_irrelevant_because": [
+      "Line 4 explicitly uses the memory as motivation for the mascot proposal.",
+      "The reference is contextually appropriate: 'we need a mascot' + 'the agent is deciding what's necessary' is a plausible causal link the operator did not have to author manually.",
+      "The memory body is the closest thematic match to 'workshop needs a mascot' among the 7 eligible rows (three whole-cast memories about the agent behaviour dominate the pool; the mascot topic pulled the middle one)."
+    ]
+  }
+}

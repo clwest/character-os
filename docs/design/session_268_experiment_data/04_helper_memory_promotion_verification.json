@@ -1,0 +1,80 @@
+{
+  "captured_at": "2026-08-19T00:00:00Z",
+  "session": 268,
+  "context": "Chronology correction — verifying Chris's helper-memory promotion in the live DB",
+  "note": "Read-only. Documentation-pass narration was written from Chris's pre-promotion state; DB had already moved on. This sidecar freezes the verified post-promotion state.",
+
+  "helper_memory": {
+    "id": "6b5222b1-f2f1-4e52-806f-f621e980dfe4",
+    "body": "Patch built a workshop helper that watches for interesting events and leaves messages, but it has already started adding its own commentary to what it observes.",
+    "kind": "event",
+    "weight": "peripheral",
+    "status": "remembered",
+    "archived_at": null,
+    "witnessed_by": [],
+    "witness_scope": "whole-cast",
+    "availability_display": "Available: In any future scene",
+    "embedding_present": true,
+    "source_composition_id": "464128b1-d95b-47f3-85db-e3b25a76619b",
+    "source_composition_name": "Dialogue — You built something overnight,",
+    "source_episode_id": "e60d2b65-9aaf-46f1-b253-f21066ade6f6",
+    "source_episode_title": "Patch built something overnight and Rivet is trying to figure out what it does.",
+    "created_at": "2026-08-19T05:55:33.112903+00:00",
+    "updated_at": "2026-08-19T05:55:35.480970+00:00",
+    "elapsed_from_final_asset_seconds": 455
+  },
+
+  "timeline": [
+    {"t": "2026-08-19T05:44:58.768353+00:00", "event": "helper Composition 464128b1 created"},
+    {"t": "2026-08-19T05:44:58.961714+00:00", "event": "helper render dispatched"},
+    {"t": "2026-08-19T05:47:58.193008+00:00", "event": "helper Composition final asset written / status=completed"},
+    {"t": "2026-08-19T05:55:33.112903+00:00", "event": "Chris promotes helper NarrativeMemory 6b5222b1 through shipped Remember-this UI (whole-cast)"},
+    {"t": "2026-08-19T05:55:35.480970+00:00", "event": "async re-embed pass persists embedding_vector on 6b5222b1"},
+    {"t": "later", "event": "Chris hands off Observation #3 documentation task to Claude; drafts of §4.17-§4.24 written from pre-promotion narration → stale"},
+    {"t": "this task", "event": "read-only DB verification catches drift; §4.22, §4.24 corrected; §4.25 added"}
+  ],
+
+  "render_time_state_for_464128b1": {
+    "note": "PRESERVED as-is in §4.17 and 03_composition_464128b1_evidence.json — the helper memory did NOT participate in its own render.",
+    "eligible_memory_count": 8,
+    "helper_memory_created_after_final_asset": true,
+    "seconds_between_final_asset_and_helper_creation": 455
+  },
+
+  "current_active_inventory_verified_from_live_db": {
+    "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "universe_name": "Patch' Workshop",
+    "total_active": 9,
+    "whole_cast": 7,
+    "witness_scoped": 2,
+    "rows": [
+      {"id_prefix": "f25e53af", "scope": "whole-cast", "body_prefix": "the agent Patch wired to the workshop thinks it runs the place.", "created_date": "2026-08-18"},
+      {"id_prefix": "48746f69", "scope": "whole-cast", "body_prefix": "The workshop agent began deciding which of Patch's projects it considers necessary.", "created_date": "2026-08-18"},
+      {"id_prefix": "eda32b58", "scope": "whole-cast", "body_prefix": "The workshop agent began rearranging the order of Patch's projects without explaining its criteria.", "created_date": "2026-08-18"},
+      {"id_prefix": "cd73d52f", "scope": "Rivet-only", "body_prefix": "Because it had an opinion about our work. An uninvited opinion. That is scientifically interesting…", "created_date": "2026-08-19"},
+      {"id_prefix": "a34cc005", "scope": "whole-cast", "body_prefix": "Rivet has learned to recognize Patch's excitement about a project as an early warning…", "created_date": "2026-08-19"},
+      {"id_prefix": "d98962e2", "scope": "whole-cast", "body_prefix": "Patch accepted Rivet taking the lead on an experiment and agreed to follow Rivet's more methodical process.", "created_date": "2026-08-19"},
+      {"id_prefix": "c86d4902", "scope": "Rivet-only", "body_prefix": "While Patch was out, Rivet found that the workshop agent had quietly built a folder named 'PATCH OVERRIDES'…", "created_date": "2026-08-19"},
+      {"id_prefix": "87d4e553", "scope": "whole-cast", "body_prefix": "Patch decided the workshop should create a mascot as a character-consistency experiment.", "created_date": "2026-08-19"},
+      {"id_prefix": "6b5222b1", "scope": "whole-cast", "body_prefix": "Patch built a workshop helper that watches for interesting events and leaves messages, but it has already started adding its own commentary to what it observes.", "created_date": "2026-08-19", "new_since_last_snapshot": true}
+    ]
+  },
+
+  "sections_corrected": [
+    "§4.22 — promotion re-stated as complete, chronology-correction pointer added",
+    "§4.24 — active count corrected 8→9, wording changed from 'no memory promoted' to 'no memory promoted BY this task'",
+    "§4.25 — this section added with full DB verification, timeline, corrected inventory"
+  ],
+
+  "no_writes_confirmed": {
+    "runtime_code_files_changed": false,
+    "memory_archived_deleted_or_edited": false,
+    "witness_semantics_touched": false,
+    "top_k_touched": false,
+    "prompts_touched": false,
+    "schema_touched": false,
+    "recipes_touched": false,
+    "ui_touched": false,
+    "docs_only": true
+  }
+}
