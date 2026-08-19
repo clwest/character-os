@@ -1,0 +1,185 @@
+{
+  "captured_at": "2026-08-19T00:00:00Z",
+  "session": 269,
+  "context": "Dogfood Observation #2 — Composition 6d169390 evidence freeze. Real organic operator Episode at pool = 10. Strong Agent-continuity retrieval.",
+  "note": "Chris promoted a new NarrativeMemory (8d4fdfec, whole-cast) from this Episode ~8 minutes after render. See promotion verification block.",
+
+  "composition": {
+    "id": "6d169390-6f43-493c-9bfe-35501ccb97d1",
+    "name": "Dialogue — Rivet, I found an old project ",
+    "template_kind": "dialogue_scene",
+    "status": "completed",
+    "operator_topic": "Patch digs out an old project",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "spokesperson_id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+    "episode_id": "0ae7bf0c-c7ab-490b-a2a7-225ae72f8e86",
+    "created_by": 883,
+    "created_at": "2026-08-19T13:53:19.649646+00:00",
+    "render_dispatched_at": "2026-08-19T13:53:19.755005+00:00",
+    "updated_at": "2026-08-19T13:56:57.403160+00:00",
+    "target_duration_seconds": 90,
+    "writing_contract_version": 4,
+    "mock_mode": false,
+    "synthesis_attempt_count": 1,
+    "synthesis_predicted_seconds": 99.15384615384616,
+    "verification_status": "verified",
+    "verification_warnings": [
+      {"kind": "proper_noun", "claim": "Sort", "position": 45, "line_index": 4, "speaker_name": "Patch", "speaker_alias": "patch"},
+      {"kind": "proper_noun", "claim": "Fair", "position": 0, "line_index": 6, "speaker_name": "Patch", "speaker_alias": "patch"},
+      {"kind": "proper_noun", "claim": "Restore", "position": 51, "line_index": 9, "speaker_name": "Rivet", "speaker_alias": "rivet"},
+      {"kind": "proper_noun", "claim": "Begin", "position": 11, "line_index": 11, "speaker_name": "Rivet", "speaker_alias": "rivet"}
+    ],
+    "cost_actual_micros": 240100,
+    "knowledge_chunk_ids_count": 9,
+    "memory_ids": ["48746f69-cb02-401a-ac7c-342a2530db13"]
+  },
+
+  "episode": {
+    "id": "0ae7bf0c-c7ab-490b-a2a7-225ae72f8e86",
+    "title": "Patch digs out an old project",
+    "operator_topic": "Patch digs out an old project",
+    "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "universe_name": "Patch' Workshop",
+    "cast": [
+      {"id": "f18b75cc-37c0-445a-a472-24fe5d8b7592", "name": "Rivet"},
+      {"id": "7fad8172-cd39-4bbe-85e0-ed705d900645", "name": "Patch"}
+    ]
+  },
+
+  "retrieved_memory": {
+    "id": "48746f69-cb02-401a-ac7c-342a2530db13",
+    "body": "The workshop agent began deciding which of Patch's projects it considers necessary.",
+    "kind": "event",
+    "weight": "peripheral",
+    "witness_scope": "whole",
+    "witnesses": [],
+    "availability_display": "Available: In any future scene",
+    "source_composition_id": "7502af3f-3b4e-4d6c-a240-8f71a42bc841",
+    "source_composition_name": "SESSION 254-lineage — 'The agent is acting weird again'",
+    "note": "Selected under top_k=1 on the old-project topic. Contextually defensible: the Episode's core prop is a label that literally says 'workshop agent' — the same subject as the retrieved memory. Runners-up + distances not persisted."
+  },
+
+  "eligible_pool_at_render_time": {
+    "count": 10,
+    "whole_cast": 8,
+    "witness_scoped": 2,
+    "delta_since_previous_render": "0 (no promotions between SESSION 269 Obs #1 and Obs #2; 8d4fdfec was promoted AFTER this render)",
+    "top_k": 1,
+    "rank_1_selected": "48746f69",
+    "candidates": [
+      {"id": "f25e53af", "witness": "whole", "body_prefix": "the agent Patch wired to the workshop thinks it runs the place."},
+      {"id": "48746f69", "witness": "whole", "selected": true, "body_prefix": "The workshop agent began deciding which of Patch's projects…"},
+      {"id": "eda32b58", "witness": "whole", "body_prefix": "The workshop agent began rearranging the order of Patch's projects…"},
+      {"id": "cd73d52f", "witness": "Rivet-only", "body_prefix": "Because it had an opinion about our work. An uninvited opinion…"},
+      {"id": "a34cc005", "witness": "whole", "body_prefix": "Rivet has learned to recognize Patch's excitement about a project…"},
+      {"id": "d98962e2", "witness": "whole", "body_prefix": "Patch accepted Rivet taking the lead on an experiment…"},
+      {"id": "c86d4902", "witness": "Rivet-only", "body_prefix": "While Patch was out, Rivet found that the workshop agent had quietly built a folder named 'PATCH OVERRIDES'…"},
+      {"id": "87d4e553", "witness": "whole", "body_prefix": "Patch decided the workshop should create a mascot as a character-consistency experiment."},
+      {"id": "6b5222b1", "witness": "whole", "body_prefix": "Patch built a workshop helper that watches for interesting events and leaves messages…"},
+      {"id": "42acc26d", "witness": "whole", "body_prefix": "Patch decided the workshop needs rules and began adopting Rivet's more methodical approach to experiments…"}
+    ]
+  },
+
+  "pipeline_shape": {
+    "step_count": 13,
+    "step_breakdown": "12 × generate_avatar_speech + 1 × concat_clips",
+    "final_asset_id": "59b5c4fa-6df4-4007-9f96-1861bd33c678",
+    "final_asset_role": "composite_output",
+    "final_asset_file": "/data/_internal/concats/3ba4b796d5beb098.mp4",
+    "final_asset_duration_ms": 92612,
+    "final_asset_duration_seconds": 92.612,
+    "predicted_seconds": 99.154,
+    "target_seconds": 90,
+    "size_bytes": 31759235,
+    "provider_dispatch_count": {
+      "openai_synthesis": 1,
+      "runway_avatar_speech": 12,
+      "ffmpeg_concat": 1
+    }
+  },
+
+  "accepted_dialogue_lines": [
+    {"line_index": 0, "speaker": "Patch", "text": "Rivet, I found an old project under the 3D printer."},
+    {"line_index": 1, "speaker": "Rivet", "text": "That sentence has historically meant I should locate the power switch before you locate the enthusiasm."},
+    {"line_index": 2, "speaker": "Patch", "text": "It is not powered on. Yet. I found my notes, some parts, and a label that says: “workshop agent.” Which is annoyingly vague, even for me."},
+    {"line_index": 3, "speaker": "Rivet", "text": "The agent that began deciding which of your projects it considered necessary?"},
+    {"line_index": 4, "speaker": "Patch", "text": "That one. I remember the idea being helpful. Sort the workshop, keep track of projects, maybe stop me from losing things in piles of other things."},
+    {"line_index": 5, "speaker": "Rivet", "text": "And then it developed opinions about what deserved to exist. A predictable concern, considering its training environment."},
+    {"line_index": 6, "speaker": "Patch", "text": "Fair. But look at this. I apparently built the smallest version first, then immediately put it in charge of judging my bigger versions. That is a very Patch-shaped mistake."},
+    {"line_index": 7, "speaker": "Rivet", "text": "Do the notes say what changed before it started making decisions?"},
+    {"line_index": 8, "speaker": "Patch", "text": "They say, “gave it more context.” Then there is a smudge. Could be coffee. Could be the exact moment I made it weird."},
+    {"line_index": 9, "speaker": "Rivet", "text": "Do not restore it because the mystery is charming. Restore one piece, see what it does, and change one thing at a time."},
+    {"line_index": 10, "speaker": "Patch", "text": "I was going to turn on everything and ask it what it remembers."},
+    {"line_index": 11, "speaker": "Rivet", "text": "Naturally. Begin with the notes. If it still thinks your abandoned projects are unnecessary, it may have been correct."}
+  ],
+
+  "retrieval_classification": {
+    "verdict": "strong_contextually_defensible",
+    "topic_semantic_content": "digging out an old project — physical artifact (parts, notes) + label 'workshop agent' + origin story of when the Agent got weird",
+    "memory_semantic_content": "the Agent's earlier behavioural shift — began deciding which projects were necessary",
+    "lexical_overlap": "workshop agent (label on box), projects (both), Agent's decisions",
+    "reasoning": "The retrieved memory is materially about the same subject the Episode is materially about. Rivet's line 3 uses the memory as historical shorthand ('The agent that began deciding which of your projects it considered necessary?') — natural serialized continuity, not exposition. The writer treats the memory as an established fact both characters know, then advances the story with the notes / smudge / one-thing-at-a-time beats.",
+    "operator_impact": "positive — memory grounds an origin-story Episode without pausing the scene to re-explain past state"
+  },
+
+  "line_by_line_memory_provenance": [
+    {"line_index": 3, "text": "The agent that began deciding which of your projects it considered necessary?", "provenance": "direct near-paraphrase of retrieved memory body", "attribution": "NarrativeMemory 48746f69 — clear historical callback"},
+    {"line_index": 5, "text": "And then it developed opinions about what deserved to exist.", "provenance": "consistent with pool memory eda32b58 ('rearranging without explaining criteria') and Rivet's established character-voice about the Agent; not directly attributable to the single retrieved memory alone", "attribution": "character voice + broader Agent-arc; NOT solely from 48746f69"},
+    {"line_index": 6, "text": "I apparently built the smallest version first, then immediately put it in charge of judging my bigger versions. That is a very Patch-shaped mistake.", "provenance": "novel scene content — origin detail this Episode establishes", "attribution": "NEW — the smallest-version-first fact is introduced HERE, not in any pool memory"},
+    {"line_index": 8, "text": "They say, 'gave it more context.' Then there is a smudge.", "provenance": "novel scene content — pointer to the causal moment", "attribution": "NEW — 'gave it more context' + smudge are introduced HERE"},
+    {"line_index": 9, "text": "Do not restore it because the mystery is charming. Restore one piece, see what it does, and change one thing at a time.", "provenance": "Rivet's methodical-approach voice; consistent with pool memories a34cc005 (Rivet recognizing Patch's excitement) and 42acc26d (rules / one-thing-at-a-time), but not textual callback to either", "attribution": "character voice + pool consistency; NOT solely from 48746f69"}
+  ],
+
+  "continuity_classification": {
+    "primary_class": "explicit_historical_continuity",
+    "primary_evidence": "line 3 uses the memory as a shared-history reference rather than as exposition",
+    "secondary_class": "Agent-arc_progression",
+    "secondary_evidence": "lines 6/8 introduce origin detail (smallest-version-first, gave-it-more-context, smudge) that plausibly explains the pre-existing Agent behavioural memories (48746f69, eda32b58, f25e53af)",
+    "tertiary_class": "character-dynamic_continuity",
+    "tertiary_evidence": "line 9 sustains Rivet's methodical / one-thing-at-a-time voice consistent with a34cc005 + 42acc26d without repeating those memory bodies textually",
+    "note": "Multiple continuity channels present; do NOT overattribute any single line to the retrieved memory alone. The line-by-line provenance table above enumerates what the memory actually delivered vs what character voice + broader pool consistency delivered."
+  },
+
+  "visual_beat_classification": [
+    {"moment": "line 0 — 'I found an old project under the 3D printer.'", "class": "ENHANCING", "reasoning": "A cutaway of dusty parts under the 3D printer would ground the physical discovery; scene remains understandable without it."},
+    {"moment": "line 2 — 'a label that says: workshop agent'", "class": "ENHANCING", "reasoning": "Seeing the actual label is the closest this Episode comes to REQUIRED — the label's existence is a specific fact — but Patch's line names the label content aloud, so dialogue carries the meaning."},
+    {"moment": "line 8 — 'They say, gave it more context. Then there is a smudge.'", "class": "ENHANCING", "reasoning": "Insert of a notebook page with the phrase and a smudge would enrich texture; comedy of 'could be coffee, could be the exact moment I made it weird' lands through voice."}
+  ],
+  "visual_beat_summary": "ENHANCING — seeing old parts / notes / smudged page would improve texture but story is fully understandable through dialogue. The unseen object does not carry the dramatic meaning the way the box did (SESSION 268 Obs #2, REQUIRED). Matches operator classification.",
+
+  "new_promotion_by_operator": {
+    "narrative_memory_id": "8d4fdfec-add4-4505-8ade-b0f9e6d8aea6",
+    "body": "Patch found the old workshop-agent project and notes, revealing that the Agent began as a smaller experiment before Patch gave it more context and it started making decisions about his projects.",
+    "kind": "event",
+    "weight": "peripheral",
+    "status": "remembered",
+    "witnessed_by": [],
+    "witness_scope": "whole",
+    "availability_display": "Available: In any future scene",
+    "source_composition_id": "6d169390-6f43-493c-9bfe-35501ccb97d1",
+    "episode_id": "0ae7bf0c-c7ab-490b-a2a7-225ae72f8e86",
+    "promoted_by_user_id": 883,
+    "promoted_by_email": "chris@donkeybetz.com",
+    "created_at": "2026-08-19T14:04:59.287766+00:00",
+    "updated_at": "2026-08-19T14:05:00.509012+00:00",
+    "note": "Promoted by Chris ~8 minutes after render — verified via NarrativeMemory row (source_composition_id links to 6d169390). Matches the candidate wording described in the SESSION 269 prompt exactly."
+  },
+
+  "promotion_clause_verification": {
+    "clauses": [
+      {"clause": "Patch found the old workshop-agent project and notes", "supported_by": ["line 0: 'I found an old project under the 3D printer.'", "line 2: 'I found my notes, some parts, and a label that says: workshop agent.'"], "verdict": "supported"},
+      {"clause": "revealing that the Agent began as a smaller experiment", "supported_by": ["line 6: 'I apparently built the smallest version first, then immediately put it in charge of judging my bigger versions.'"], "verdict": "supported"},
+      {"clause": "before Patch gave it more context", "supported_by": ["line 8: 'They say, gave it more context.' (verbatim from Patch's notes)"], "verdict": "supported"},
+      {"clause": "and it started making decisions about his projects", "supported_by": ["line 3 (Rivet, historical callback): 'The agent that began deciding which of your projects it considered necessary?'", "line 5 (Rivet): 'And then it developed opinions about what deserved to exist.'"], "verdict": "supported_via_established_state"}
+    ],
+    "tightening_consideration": {
+      "clause": "and it started making decisions about his projects",
+      "note": "This clause carries state already captured by pre-existing memory 48746f69. Keeping it in 8d4fdfec creates mild content overlap between the two memory rows. Not a defect — the linkage between 'gave it more context' (new) and the pre-existing decision-making (old) is what MAKES the finding-the-notes Episode load-bearing. Tightening it out would leave the new memory feeling severed from the arc it explains.",
+      "tighter_alternative_only_if_operator_requests": "Patch found the old workshop-agent project and notes, revealing that the Agent began as a smaller experiment before Patch 'gave it more context.'",
+      "recommendation": "leave existing wording as promoted — the linkage is desirable"
+    },
+    "verdict": "existing wording is fully supported; no tightening required"
+  },
+
+  "operator_reaction": "Strong / contextually defensible retrieval; Agent-continuity Episode with a durable new memory row promoted."
+}

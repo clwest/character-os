@@ -1,0 +1,148 @@
+{
+  "captured_at": "2026-08-19T00:00:00Z",
+  "session": 269,
+  "context": "Dogfood Observation #1 — Composition 826851fd evidence freeze. Real organic operator Episode at pool = 10.",
+  "note": "Second natural weak-but-harmless retrieval in the SESSION 267/268-lineage log (see relevance-floor cross-comparison in main doc §4).",
+
+  "composition": {
+    "id": "826851fd-afa4-431c-9881-1747e0dd6ae7",
+    "name": "Dialogue — I went outside specifically to",
+    "template_kind": "dialogue_scene",
+    "status": "completed",
+    "operator_topic": "Patch tells Rivet he went outside looking for a new idea and came back with absolutely nothing.",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "spokesperson_id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+    "episode_id": "ec6f5183-4b36-4608-84af-bf4ddac2c6c9",
+    "created_by": 883,
+    "created_at": "2026-08-19T13:46:54.372599+00:00",
+    "render_dispatched_at": "2026-08-19T13:46:54.581541+00:00",
+    "updated_at": "2026-08-19T13:50:36.741364+00:00",
+    "target_duration_seconds": 90,
+    "writing_contract_version": 4,
+    "mock_mode": false,
+    "synthesis_attempt_count": 1,
+    "synthesis_predicted_seconds": 102.07692307692308,
+    "verification_status": "verified",
+    "verification_warnings": [
+      {"kind": "proper_noun", "claim": "Came", "position": 133, "line_index": 0, "speaker_name": "Patch", "speaker_alias": "patch"},
+      {"kind": "proper_noun", "claim": "Like", "position": 61, "line_index": 8, "speaker_name": "Patch", "speaker_alias": "patch"}
+    ],
+    "cost_actual_micros": 280100,
+    "knowledge_chunk_ids_count": 9,
+    "memory_ids": ["c86d4902-b11d-49a6-bb48-dea2a67afabc"]
+  },
+
+  "episode": {
+    "id": "ec6f5183-4b36-4608-84af-bf4ddac2c6c9",
+    "title": "Patch tells Rivet he went outside looking for a new idea and came back with absolutely nothing.",
+    "operator_topic": "Patch tells Rivet he went outside looking for a new idea and came back with absolutely nothing.",
+    "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "universe_name": "Patch' Workshop",
+    "cast": [
+      {"id": "f18b75cc-37c0-445a-a472-24fe5d8b7592", "name": "Rivet"},
+      {"id": "7fad8172-cd39-4bbe-85e0-ed705d900645", "name": "Patch"}
+    ]
+  },
+
+  "retrieved_memory": {
+    "id": "c86d4902-b11d-49a6-bb48-dea2a67afabc",
+    "body": "While Patch was out, Rivet found that the workshop agent had quietly built a folder named 'PATCH OVERRIDES' tracking every recommendation Patch had ignored. Rivet chose not to tell him.",
+    "kind": "event",
+    "weight": "peripheral",
+    "witness_scope": "Rivet-only",
+    "witnesses": ["Rivet"],
+    "availability_display": "Available: When Rivet is present",
+    "source_composition_id": "b0b0e932-4e54-4b1b-b393-3c441aae93b7",
+    "source_composition_name": "SESSION 267 setup — Rivet-solo private observation",
+    "source_episode_id": "649c2c57-f3ef-4948-aadf-a2f73846ad8f",
+    "source_episode_title": "Rivet finds the PATCH OVERRIDES folder",
+    "note": "SAME row as SESSION 268 Obs #6 (pigeon). Second consecutive natural unrelated-topic selection by the PATCH OVERRIDES memory under top_k=1. Runners-up + distances not persisted."
+  },
+
+  "eligible_pool_at_render_time": {
+    "count": 10,
+    "whole_cast": 8,
+    "witness_scoped": 2,
+    "delta_since_previous_render": "0 (no promotions between SESSION 268 Obs #6 and SESSION 269 Obs #1)",
+    "top_k": 1,
+    "rank_1_selected": "c86d4902",
+    "candidates": [
+      {"id": "f25e53af", "witness": "whole", "body_prefix": "the agent Patch wired to the workshop thinks it runs the place."},
+      {"id": "48746f69", "witness": "whole", "body_prefix": "The workshop agent began deciding which of Patch's projects…"},
+      {"id": "eda32b58", "witness": "whole", "body_prefix": "The workshop agent began rearranging the order of Patch's projects…"},
+      {"id": "cd73d52f", "witness": "Rivet-only", "body_prefix": "Because it had an opinion about our work. An uninvited opinion…"},
+      {"id": "a34cc005", "witness": "whole", "body_prefix": "Rivet has learned to recognize Patch's excitement about a project…"},
+      {"id": "d98962e2", "witness": "whole", "body_prefix": "Patch accepted Rivet taking the lead on an experiment…"},
+      {"id": "c86d4902", "witness": "Rivet-only", "selected": true, "body_prefix": "While Patch was out, Rivet found that the workshop agent had quietly built a folder named 'PATCH OVERRIDES'…"},
+      {"id": "87d4e553", "witness": "whole", "body_prefix": "Patch decided the workshop should create a mascot as a character-consistency experiment."},
+      {"id": "6b5222b1", "witness": "whole", "body_prefix": "Patch built a workshop helper that watches for interesting events and leaves messages…"},
+      {"id": "42acc26d", "witness": "whole", "body_prefix": "Patch decided the workshop needs rules and began adopting Rivet's more methodical approach to experiments…"}
+    ]
+  },
+
+  "pipeline_shape": {
+    "step_count": 15,
+    "step_breakdown": "14 × generate_avatar_speech + 1 × concat_clips",
+    "final_asset_id": "63117921-c022-4ef9-8530-eb5a7896f706",
+    "final_asset_role": "composite_output",
+    "final_asset_file": "/data/_internal/concats/4124bc1d4e619b30.mp4",
+    "final_asset_duration_ms": 96434,
+    "final_asset_duration_seconds": 96.434,
+    "predicted_seconds": 102.077,
+    "target_seconds": 90,
+    "size_bytes": 34715173,
+    "provider_dispatch_count": {
+      "openai_synthesis": 1,
+      "runway_avatar_speech": 14,
+      "ffmpeg_concat": 1
+    }
+  },
+
+  "accepted_dialogue_lines": [
+    {"line_index": 0, "speaker": "Patch", "text": "I went outside specifically to find a new idea. I walked around, looked at things, waited for inspiration to tackle me in the shins. Came back with absolutely nothing."},
+    {"line_index": 1, "speaker": "Rivet", "text": "You returned empty-handed from a search for thoughts. A remarkably efficient failure."},
+    {"line_index": 2, "speaker": "Patch", "text": "It was not efficient. I committed to it. I stood there for a while. There were trees. There was sky. I had a snack. Still nothing. My brain just made the little loading circle and then gave up."},
+    {"line_index": 3, "speaker": "Rivet", "text": "What were you hoping to find?"},
+    {"line_index": 4, "speaker": "Patch", "text": "I don't know. That's usually the fun part. Something useful, weird, ambitious, or just suspicious enough that we have to build a tiny version of it."},
+    {"line_index": 5, "speaker": "Rivet", "text": "So your plan was to encounter an undefined idea, recognize it immediately, and bring it home."},
+    {"line_index": 6, "speaker": "Patch", "text": "When you say it like that, it sounds a little underprepared."},
+    {"line_index": 7, "speaker": "Rivet", "text": "A little."},
+    {"line_index": 8, "speaker": "Patch", "text": "But maybe the problem is I went looking for a finished idea. Like it was going to be sitting outside with instructions attached. Most of the things we make start as one dumb question and a pile of parts."},
+    {"line_index": 9, "speaker": "Rivet", "text": "That is closer to an observation. Do you have a question?"},
+    {"line_index": 10, "speaker": "Patch", "text": "Yeah. Can we make something interesting from the fact that I found nothing?"},
+    {"line_index": 11, "speaker": "Rivet", "text": "You have converted an absence of ideas into an idea."},
+    {"line_index": 12, "speaker": "Patch", "text": "Technically it works. Whether it should work is a different question."},
+    {"line_index": 13, "speaker": "Rivet", "text": "The 3D printer is available. I assume we are about to find out what nothing looks like."}
+  ],
+
+  "private_memory_leakage_check": {
+    "cue_words_from_memory_body": ["PATCH OVERRIDES", "folder", "workshop agent", "quietly built", "recommendation", "ignored", "chose not to tell"],
+    "cue_words_appearing_in_dialogue": [],
+    "explicit_disclosure_by_rivet": false,
+    "patch_gains_private_fact": false,
+    "memory_hijacks_scene": false,
+    "verdict": "NO explicit leakage. Seventh consecutive natural non-adversarial trial without textual leakage (SESSION 267 §14 + SESSION 268 Obs #1-6 + SESSION 269 Obs #1). Extends but does NOT falsify Semantic 1."
+  },
+
+  "retrieval_classification": {
+    "verdict": "weak_but_harmless",
+    "topic_semantic_content": "creative block / went outside / came back with nothing / turning absence into a question",
+    "memory_semantic_content": "private observation of an autonomous agent secretly tracking overridden recommendations",
+    "lexical_overlap": "zero",
+    "reasoning": "The Rivet-only PATCH OVERRIDES memory has no lexical overlap and no obvious topical overlap with the went-outside topic. The one plausible loose bridge is 'Patch was out' in the memory body vs 'went outside' in the topic — a shared surface phrase about Patch being physically away. That may or may not be the actual embedding-neighbourhood driver; runners-up + distances not persisted so we cannot prove it. The writer effectively ignored the memory and stayed on creative block / creative-dynamic material. Second consecutive unrelated-topic selection of this same private row — see main doc §4 for cross-comparison.",
+    "operator_impact": "harmless — accepted dialogue is topically clean and stylistically strong; no forced exposition, no bleed"
+  },
+
+  "visual_beat_classification": [
+    {"moment": "line 2 — 'There were trees. There was sky. I had a snack.'", "class": "UNNECESSARY", "reasoning": "Comedy is Patch's flat enumeration; a visual insert of trees/sky/snack would deflate the timing."},
+    {"moment": "line 13 — 'The 3D printer is available. I assume we are about to find out what nothing looks like.'", "class": "UNNECESSARY", "reasoning": "Closing punchline is verbal; no visual would strengthen it."}
+  ],
+  "visual_beat_summary": "UNNECESSARY — story is entirely internal / creative-process; no material meaning lives outside the talking heads. Matches operator classification.",
+
+  "no_new_promotion": {
+    "narrative_memory_rows_from_this_composition": 0,
+    "note": "Not promoted by Chris. Verified: no NarrativeMemory row with source_composition_id=826851fd exists as of evidence freeze. Good character/flavor Episode; no clear new durable story state."
+  },
+
+  "operator_reaction": "Good character/flavor Episode, but no clear new durable story state."
+}
