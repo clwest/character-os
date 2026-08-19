@@ -1742,3 +1742,373 @@ coherence question, §15.7 traceability, and §15.8 remaining
 risks.** Implementation waits on operator authorization of
 the specific microcopy (and scope: promote-only vs
 promote + display).
+
+### 15.11 Candidate F — availability-condition framing (post-review)
+
+Added after Chris + ChatGPT reviewed §15 and asked for direct
+evaluation of an availability-condition framing (asks the
+operator WHEN the memory is available rather than WHICH
+characters make it available). Documentation-only. No
+implementation authorized.
+
+Candidate F, as proposed by Chris:
+
+```
+When should this memory be available?
+○ In any future scene
+○ When these characters are present…
+   [character picker]
+```
+
+Analysis follows the same rigor as §15.3 with additional
+verification against the retrieval predicate for the two
+substantive concerns Chris flagged (OR ambiguity + whole-cast
+truthfulness).
+
+#### 15.11.1 Q1 — Does *"When these characters are present"*
+truthfully represent the overlap predicate?
+
+Runtime, verbatim from `shell/apps/embeddings/retrieval.py:508-529`:
+
+- `witnessed_by` empty → whole-cast pool.
+- Non-empty `witnessed_by` → union of whole-cast and
+  overlap-with-cast rows (`at-least-one-overlap`).
+
+For a **single-witness** memory (`witnessed_by = [Rivet]`):
+*"When Rivet is present"* is exactly the runtime — the memory
+becomes eligible in any future scene whose cast includes
+Rivet. **Truthful.**
+
+For a **multi-witness** memory (`witnessed_by = [Patch, Rivet]`):
+runtime is "eligible when Patch is present, OR when Rivet is
+present, OR both." *"When these characters are present"*
+without a quantifier reads in English's default as **AND**
+("when Patch AND Rivet are both present"). This is a real
+Semantic-precision failure — the runtime is OR-overlap, not
+AND-intersection. **NOT truthful for multi-witness under
+this wording.**
+
+#### 15.11.2 Q2 — Variants explicitly disambiguating OR
+
+Four variants tested against the mental-parse test:
+
+| Variant | Single-witness reads | Multi-witness reads | Verdict |
+|---|---|---|---|
+| **"When any of these characters are present"** | "When any of: Rivet" → trivially "when Rivet is present" ✔ | "When any of: Patch, Rivet" → OR is explicit ✔ | **BEST** — natural in both cases. |
+| "When one of these characters is present" | "When one of: Rivet" → grammatical friction; reads slightly odd | "When one of: Patch, Rivet" → OR is explicit ✔ | Grammatical friction on single-witness case. |
+| "In scenes with any of these characters" | "In scenes with any of: Rivet" → trivially "in scenes with Rivet" ✔ | "In scenes with any of: Patch, Rivet" → OR ✔ | Works but pivots the sentence framing away from "when" (a WHEN-question is answered with an IN-clause). |
+| "Available when any selected character is present" | "Available when any selected: Rivet" → awkward | "…any selected: Patch, Rivet" → OR ✔ | *"Selected"* is UI-jargon; leaks that this is a form control. |
+
+**Adopted variant: "When any of these characters are
+present"** — cleanest natural English for both single and
+multi cases, no jargon, explicit OR.
+
+#### 15.11.3 Q3 — *"In any future scene"* under the empty
+`witnessed_by` convention — truthful?
+
+Runtime for empty `witnessed_by`:
+
+- Workspace filter unconditional (line 501).
+- Universe filter unconditional (line 502).
+- Any non-empty cast in that Universe/Workspace ⇒ memory
+  admitted to the candidate pool (line 519-522).
+
+Operator mental model verification:
+
+- Whole-cast memories live at the Universe level, NOT
+  restricted to this Episode's cast. A future Episode with
+  DIFFERENT characters (still in the same Universe) can
+  still retrieve this memory.
+- Operator authoring in *Patch' Workshop* has an implicit
+  scope of "this story-world." "Any future scene" reads to
+  the operator as "any future scene in this story-world"
+  — which matches the Universe scoping exactly.
+- Universe is invisible-by-design in the current promote
+  UI (the operator is scoped by picking the Episode; the
+  Universe is upstream). Surfacing it would leak
+  implementation.
+
+**Verdict: truthful.** The Universe boundary is invisible-
+by-design; the operator's implicit scope is the current
+story-world, which is the Universe. *"In any future scene"*
+matches this exactly without exposing the word "Universe."
+
+**Fallback if operator confusion later surfaces:** *"In any
+future scene in this story"* — one word more, disambiguates
+against a cross-Universe misreading. Not recommended for v1
+because the mismatch is theoretical, not observed.
+
+*"In any future scene"* is NOT the same as *"Everyone in
+this episode"* (Candidate E). E claims Episode-cast reach;
+the runtime is Universe reach. **F's whole-cast wording is
+strictly more truthful than E's.** Recorded as an accuracy
+win for F.
+
+#### 15.11.4 Q4 — Read-only display under F + OR formatter
+feasibility
+
+Current read-only formatting
+(`narrative-memory-panels.tsx:461-462` and 606-607):
+
+```typescript
+memory.witnessed_by.length === 0
+  ? "Everyone in the episode"
+  : memory.witnessed_by.map((w) => w.name).join(", ")
+```
+
+Comma-join today. For F we need an OR-formatter:
+
+```typescript
+function formatWitnessAvailability(witnesses: {name: string}[]): string {
+  if (witnesses.length === 0) return "In any future scene";
+  if (witnesses.length === 1) return `When ${witnesses[0].name} is present`;
+  if (witnesses.length === 2) {
+    return `When ${witnesses[0].name} or ${witnesses[1].name} is present`;
+  }
+  const last = witnesses[witnesses.length - 1].name;
+  const rest = witnesses.slice(0, -1).map((w) => w.name).join(", ");
+  return `When ${rest}, or ${last} is present`;  // Oxford-or
+}
+```
+
+**This is pure presentation formatting over the existing
+witness array.** No schema change, no logic change, no
+runtime change. The `witnessed_by` M2M shape and content are
+identical to today — only the display string changes.
+
+Rendered examples:
+
+| Witnesses (state) | Display |
+|---|---|
+| `[]` (whole-cast) | `Available: In any future scene` |
+| `[Rivet]` | `Available: When Rivet is present` |
+| `[Patch, Rivet]` | `Available: When Patch or Rivet is present` |
+| `[Patch, Rivet, Bolt]` | `Available: When Patch, Rivet, or Bolt is present` |
+
+**Confirmation: multi-character OR can be rendered
+explicitly from the existing witness array with no runtime
+change.** Pure formatter.
+
+#### 15.11.5 Q5 — E vs F comparison
+
+Evaluation on Chris's 12 requested dimensions. Where F wins,
+the specific rationale is given.
+
+| Dimension | E | F | Notes |
+|---|---|---|---|
+| Creator comprehension | ~ | ✔ | F asks "when" (matches operator's decision framing "when should this come back") vs E asking "which characters cause availability" (requires operator to think mechanistically). |
+| Semantic accuracy — whole-cast | ✘ | ✔ | E's "Everyone in this episode" claims Episode-cast reach; runtime is Universe-wide. F's "In any future scene" matches the runtime. **F strictly more truthful.** |
+| Semantic accuracy — single character | ✔ | ✔ | Both truthful. |
+| Semantic accuracy — multi-character OR | ✘ (comma-join reads as AND) | ✔ (with "any of" variant + OR formatter) | F requires the "any of" variant on the radio + OR-formatter on display. Both feasible without runtime change. |
+| Private-observation case | ✔ | ✔ | Both work; F is slightly more direct ("When Rivet is present"). |
+| Relationship-memory case | ✘ (comma-join) | ✔ (OR-formatter) | Same as multi-character. |
+| Consistency between promote + read-only | ✔ | ✔ | Both coherent when both surfaces ship together. |
+| Implementation complexity | Slightly lower | Slightly higher | E needs a label swap + panel description tweak. F additionally needs the OR-formatter helper (~5 lines) and updates both radio labels. |
+| Exposes internal architecture | ~ | ~ | Both use "available" / "scene." Neither uses "Universe," "retrieval," "eligibility," "top_k," "M2M," "overlap." |
+| Implies Semantic 2 | ~ | ✔ | E's "which characters make available" has a mild ownership overtone. F's "when should this be available" is purely conditional — cleaner. |
+| Implies aboutness / ownership | ✔ | ✔ | Neither leaks. |
+| Overall | Adequate | **Preferred** | F wins on comprehension, whole-cast accuracy, multi-character OR clarity, and Semantic-2 avoidance. |
+
+**Winner: Candidate F (with "any of these characters" variant
+and OR-formatter for display).**
+
+#### 15.11.6 Final proposed microcopy
+
+**Promote form** (`narrative-memory-panels.tsx`):
+
+```
+Story history                          ← unchanged (line 164)
+Remember this                          ← unchanged (line 166)
+
+Save something that happened in this   ← REVISED (line 168-170)
+episode so the story can bring it
+back later.
+
+What changed?                          ← unchanged (line 178)
+[textarea, unchanged]                  ← unchanged
+placeholder unchanged                  ← unchanged (line 185)
+
+When should this memory be available?  ← REVISED (line 191)
+○ In any future scene                  ← REVISED (line 207)
+○ When any of these characters are     ← REVISED (line 220)
+  present…
+   [pill picker, unchanged]            ← unchanged
+```
+
+**Error message** (line 124):
+
+```
+Pick at least one character, or switch to
+'In any future scene'.
+```
+
+**Read-only memory display** (both `MemoryRow` at ~475 and
+`MemoryUsedRowView` at ~618):
+
+Label prefix: `Remembered by:` → `Available:`
+Value: use `formatWitnessAvailability(witnessed_by)` per
+§15.11.4.
+
+**Preserved (per Chris's product principle):**
+
+- "Story history" section header (line 164) — unchanged.
+- "Remember this" H3 (line 166) — unchanged.
+- "Remember this" submit button (line 275) — unchanged.
+- "What changed?" field label (line 178) — unchanged.
+- "Story history" list section title (line 356-357) — unchanged.
+- "Forget" archive action + associated confirm-copy —
+  unchanged.
+- Textarea placeholder — unchanged.
+- Body error copy "Tell us what happened first." (line 119)
+  — unchanged. (Loose relationship to "What changed?" label
+  but stable operator meaning: "tell us what to save.")
+
+#### 15.11.7 File / line call sites if authorized
+
+Single file: `web/src/components/narrative-memory-panels.tsx`.
+
+| Line | Current | Proposed |
+|---|---|---|
+| 124 | `"Pick at least one character, or switch to Everyone in this episode."` | `"Pick at least one character, or switch to 'In any future scene'."` |
+| 168-170 | `"Save something that happened in this episode so the characters can remember it later."` | `"Save something that happened in this episode so the story can bring it back later."` |
+| 191 | `Who remembers this?` | `When should this memory be available?` |
+| 207 | `Everyone in this episode` | `In any future scene` |
+| 220 | `Choose characters&hellip;` | `When any of these characters are present&hellip;` |
+| 459-462 | Inline `witnessLabel` computation | Replace with `formatWitnessAvailability(memory.witnessed_by)` |
+| 475 | `Remembered by: {witnessLabel}` | `Available: {witnessLabel}` |
+| 604-607 | Same inline `witnessLabel` computation | Same replacement |
+| 618 | `Remembered by: {witnessLabel}` | `Available: {witnessLabel}` |
+| (new) | — | Add `formatWitnessAvailability` helper (module-scope, ~7 lines including edge-case list of 3+) |
+
+**No other file requires changes** to ship the wording
+correction. The M2M shape, API payload contract, backend
+serializer, and retrieval predicate are all unchanged.
+
+#### 15.11.8 Estimated implementation scope
+
+- **Files touched:** 1 SPA component
+  (`narrative-memory-panels.tsx`) + 1 test file
+  (`memories-used-panel.test.tsx`) + optionally
+  `narrative-memory-panels.test.tsx` for a new
+  legend/radio-copy test.
+- **Line diff:** ~30 lines source + ~10 lines test updates.
+- **New helper:** `formatWitnessAvailability(witnesses)` —
+  ~7 lines, module-scope in
+  `narrative-memory-panels.tsx`.
+- **Runtime:** unchanged.
+- **API contract:** unchanged.
+- **Schema:** unchanged.
+- **Backend:** unchanged.
+- **No new tests required for backend.**
+
+#### 15.11.9 Tests that should change / add
+
+**Update — visible-string assertions:**
+
+- `web/src/components/memories-used-panel.test.tsx`:
+  - Line 75: `/Remembered by: Everyone in the episode/` →
+    `/Available: In any future scene/`
+  - Line 89: `/Remembered by: Patch, Rivet/` →
+    `/Available: When Patch or Rivet is present/`
+  - Docstring line 10 ("Empty `witnessed_by` renders as
+    'Everyone in the episode'") update to match.
+
+**Update — comment/docstring drift (no assertion changes):**
+
+- `web/src/components/narrative-memory-panels.test.tsx`:
+  - Test title `'"Everyone in this episode" is checked by
+    default'` → `'"In any future scene" is checked by default'`
+  - Docstring items 5 + 7 wording refresh.
+  - Test bodies use `data-testid` selectors (unchanged), so
+    behavior tests still pass without further change.
+- `shell/apps/memory/tests/test_memories_used_serializer.py`
+  line 209: docstring reference only — safe to update for
+  hygiene.
+
+**Add — one new focused test:**
+
+- `formatWitnessAvailability` unit test with 4 cases
+  (0, 1, 2, 3 witnesses) covering both the string outputs
+  and the Oxford-or edge case for 3+.
+- Optional: a promote-form legend + radio-copy assertion in
+  `narrative-memory-panels.test.tsx` to lock the new copy
+  in place against future drift.
+
+#### 15.11.10 Runtime semantics — explicit confirmation
+
+The following remain UNCHANGED by any implementation
+authorized from §15.11:
+
+- `shell/apps/embeddings/retrieval.py:499-543` — retrieval
+  predicate, `top_k` default, cosine ranking, witness
+  overlap semantics.
+- `shell/character_os/dialogue_synthesis.py:553-575` —
+  narrative-memory prompt block (no witness attribution
+  transmitted).
+- `shell/character_os/dialogue_synthesis.py:1530-1548` —
+  `top_k=1` call site.
+- `apps/memory/models.py:192-201` — `witnessed_by` M2M
+  shape.
+- `apps/memory/signals.py:28-98` — witness cast/Universe/
+  Workspace invariants.
+- `apps/memory/views.py:171-287` — sanctioned promotion
+  service.
+- All memory kinds, schema, canon, and existing 7 active
+  memories.
+
+**No production behavior changes.** The UI wording
+truthfully describes the same runtime this whole session
+has audited.
+
+#### 15.11.11 Final recommendation
+
+**Adopt Candidate F with the "any of these characters"
+variant + OR-formatter for display.** Documented in
+§15.11.6–§15.11.7 as the complete microcopy delta.
+
+Chris's Candidate F wording adjusted for the OR-precision
+gap identified in §15.11.1:
+
+- Original: *"When these characters are present…"* — REJECT
+  for multi-witness AND-implication.
+- Adopted: *"When any of these characters are present…"* —
+  natural for both single and multi cases; explicit OR
+  under multi.
+
+Preserves *"Story history"* / *"Remember this"* per Chris's
+product principle.
+
+#### 15.11.12 Remaining risks / open questions
+
+- **"In any future scene" precision.** Under multi-Episode
+  Universes the phrase may still be interpretable as
+  "any future scene, period." The Universe scoping IS the
+  operator's implicit story-world scope today, but future
+  UX changes that surface cross-Universe operations would
+  need to revisit.
+- **OR-formatter internationalization.** English "or"
+  is hard-coded in the formatter. If Character OS ever
+  ships i18n, the helper becomes a translation seam. Out
+  of scope for v1.
+- **Operator-intuition testing gap unchanged.** As with
+  §14.13, whether operators intuitively parse the new
+  wording correctly is unmeasured. Recommend collecting
+  dogfood impressions after the change lands.
+- **Same-commit vs staggered rollout.** §15.6 recommended
+  shipping promote-form + display together to avoid a new
+  mismatch. §15.11 preserves that recommendation. If Chris
+  prefers staggered, the promote-form-only change would
+  temporarily create a new gap ("When should this be
+  available?" saved copy → "Remembered by:" displayed copy)
+  until the display change lands.
+- **Test-name refresh scope.** Test titles referencing
+  "Everyone in this episode" are cosmetic drift; if left
+  stale, they mislead future readers. Recommend updating
+  in the same change.
+
+#### 15.11.13 STOP
+
+**Documentation-only. No file under
+`web/src/components/` modified. Implementation waits on
+Chris + ChatGPT authorization of §15.11.11 (Candidate F
+adopted variant) with §15.11.6 microcopy.**
