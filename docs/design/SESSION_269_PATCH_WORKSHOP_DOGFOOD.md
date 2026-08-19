@@ -2152,7 +2152,9 @@ before the next real solo render.
 
 Doc-only slice — no code changes in §14.
 
-- §14 doc + evidence commit: (populated after commit below).
+- §14 doc + evidence commit: `929199f` — `docs(session-269): §14 — Episode-solo is a STORY MODE, not standalone content`.
+- Push: `394e373..929199f main -> main` (successful). Local main == origin/main == `929199f`. Working tree clean.
+- Predecessors already on origin: `394e373` (§13 doc checkpoint), `3c0b00f` (§13 parity pass), `87c328f` (§12 doc checkpoint), `06ba772` (§12 slice), `91c9e3a` (§11 doc audit), `bbcc1f0` (§10 doc checkpoint), `765bb73` (§10 slice), `bc4d8ba` (§1-§9 doc).
 
 ---
 
