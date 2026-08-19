@@ -240,3 +240,70 @@ def test_for_shape_dispatches_solo_scene_distinctly() -> None:
     assert "SINGLE ACTIVE CHARACTER" in solo
     assert "SINGLE ACTIVE CHARACTER" not in long_form
     assert "SINGLE ACTIVE CHARACTER" not in standalone
+
+
+# ---- 7. Regression: build_render_brief whitelist (§15 hotfix) ----
+
+
+def test_build_render_brief_accepts_solo_scene_shape_with_duration() -> None:
+    """SESSION 269 §15 hotfix regression — the pre-§15
+    ``build_render_brief`` validation whitelisted only
+    ``"standalone"`` and ``"long_form"``. Composition 04b95526
+    failed at render time with ``ValueError: target_shape must
+    be 'standalone' or 'long_form', got 'solo_scene'`` because
+    the primitive correctly routed to solo_scene but the caller's
+    input-guard rejected the shape. This test locks in the
+    whitelist extension so a future refactor cannot silently
+    revert it."""
+    from unittest.mock import patch as mock_patch
+    from character_os.script_synthesis import build_render_brief
+
+    # Force-mock short-circuits the LLM + retrieval path so we
+    # only exercise the whitelist branch. The test asserts that
+    # calling build_render_brief with target_shape="solo_scene"
+    # does NOT raise ValueError — before the hotfix it did.
+    class _FakeTeammate:
+        pk = 1
+        id = 1
+        name = "Patch"
+        business_brief = "Workshop inventor."
+        workspace = None
+        universe = None
+        universe_id = None
+    tm = _FakeTeammate()
+
+    with mock_patch(
+        "character_os.script_synthesis._is_force_mock",
+        return_value=True,
+    ), mock_patch(
+        "character_os.script_synthesis.retrieve_for_teammate",
+        return_value=[],
+    ):
+        # Both duration-driven AND non-duration invocations must
+        # succeed — the primitive's non-duration branch also
+        # routes Episode-attached talking_head to solo_scene.
+        result_with_duration = build_render_brief(
+            tm, "topic", target_shape="solo_scene",
+            target_duration_seconds=90,
+        )
+        assert result_with_duration.brief != ""
+        result_no_duration = build_render_brief(
+            tm, "topic", target_shape="solo_scene",
+        )
+        assert result_no_duration.brief != ""
+
+
+def test_build_render_brief_rejects_unknown_target_shape() -> None:
+    """The whitelist must still reject genuinely unknown shapes —
+    the §15 hotfix expanded the allowed set to {standalone,
+    long_form, solo_scene} but did NOT open it wide."""
+    import pytest as _pytest
+    from character_os.script_synthesis import build_render_brief
+
+    class _FakeTeammate:
+        pk = 1
+        id = 1
+        name = "x"
+        business_brief = ""
+    with _pytest.raises(ValueError, match="target_shape must be"):
+        build_render_brief(_FakeTeammate(), "topic", target_shape="bogus")

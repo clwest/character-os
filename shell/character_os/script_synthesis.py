@@ -346,9 +346,22 @@ def build_render_brief(
         ``ValueError`` — ``target_shape="long_form"`` without
         a ``target_duration_seconds``.
     """
-    if target_shape not in ("standalone", "long_form"):
+    # SESSION 269 §15 — ``"solo_scene"`` joined the whitelist for
+    # Episode-attached talking_head STORY MODE. Contract text lives
+    # in ``writing_contract._solo_scene_contract``; shape reaches
+    # this call via the avatar_speech primitive's episode_id +
+    # template_kind discriminator + synthesize_with_duration_gate
+    # pass-through. Unlike ``long_form`` — where a duration-less
+    # invocation would silently fall through to short-form behaviour
+    # — ``solo_scene``'s LENGTH block degrades gracefully to
+    # "follow the caller's budget" when no duration is supplied,
+    # so the non-duration primitive branch (Episode-attached
+    # talking_head with the operator leaving Target duration blank)
+    # stays viable rather than crashing the render.
+    if target_shape not in ("standalone", "long_form", "solo_scene"):
         raise ValueError(
-            f"target_shape must be 'standalone' or 'long_form', got {target_shape!r}"
+            f"target_shape must be 'standalone', 'long_form', or "
+            f"'solo_scene', got {target_shape!r}"
         )
     if target_shape == "long_form" and not target_duration_seconds:
         raise ValueError(

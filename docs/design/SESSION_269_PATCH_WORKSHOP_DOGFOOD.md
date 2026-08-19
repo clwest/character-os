@@ -2304,6 +2304,70 @@ If any of the above regresses, capture as §16 evidence — but do NOT promote m
 - 14 files changed, 1,182 insertions, 19 deletions.
 - Predecessors already on origin: `d0c5ca0` (§14 doc checkpoint), `929199f` (§14 audit/design), `394e373` (§13 doc checkpoint), `3c0b00f` (§13 parity pass), `87c328f` (§12 doc checkpoint), `06ba772` (§12 slice), `91c9e3a` (§11 doc audit), `bbcc1f0` (§10 doc checkpoint), `765bb73` (§10 slice), `bc4d8ba` (§1-§9 doc).
 
+### §15.7 Hotfix — `build_render_brief` whitelist
+
+**Symptom:** Chris rendered the first Episode-solo scene on the
+§15 build. Composition `04b95526-5440-48dd-b9c3-54f83ee93361`
+failed at step 0 after ~2 seconds with:
+
+> `ValueError: target_shape must be 'standalone' or 'long_form', got 'solo_scene'`
+
+**Root cause:** `build_render_brief` in
+`shell/character_os/script_synthesis.py:349` had a pre-§15
+allow-list that only accepted `"standalone"` and `"long_form"`.
+The §15 slice added `_solo_scene_contract`, extended
+`WritingContract.for_shape`, threaded `target_shape` through
+`synthesize_with_duration_gate` + the primitive, and updated
+every downstream consumer — but I missed the input-guard on
+`build_render_brief` itself. The whitelist raised before the
+shape reached `WritingContract.for_shape`.
+
+**Fix (2 lines of intent, 8 lines of code):**
+
+- Extended whitelist to `("standalone", "long_form", "solo_scene")`.
+- Updated the error message accordingly.
+- Did NOT extend the `long_form requires target_duration_seconds`
+  guard to `solo_scene` — `_solo_scene_contract`'s LENGTH block
+  degrades gracefully to "follow the caller's budget" when no
+  duration is supplied, so the primitive's non-duration Episode-
+  attached branch stays viable rather than crashing.
+
+**Files:** `shell/character_os/script_synthesis.py`
+(one-block edit) + `shell/apps/compositions/tests/test_writing_contract_solo_scene.py`
+(2 new regression tests locking in the whitelist expansion
+end-to-end and asserting that genuinely unknown shapes still
+reject).
+
+**Live-process verification post-restart:** Stopped + restarted
+all four services (Celery does NOT autoreload, so the worker
+process needed a fresh boot to pick up the fix). In-process
+`build_render_brief(..., target_shape="solo_scene",
+target_duration_seconds=90)` under force-mock returns a valid
+brief with 33-char output — no ValueError. Django log shows
+`script_synthesis.py changed, reloading` for the autoreloader
+side; Celery boot time is post-hotfix so the whitelist fix is
+loaded there too.
+
+**Test results:** Full backend suite = **1566 passed** (1564
+pre-hotfix + 2 regression tests). SPA suite unchanged (640
+passed).
+
+**Methodology note extending §13.1 + §14.12:** the §15 unit
+tests all mocked `synthesize_with_duration_gate` /
+`build_render_brief` directly rather than exercising them, so
+the whitelist branch was never hit in test. The §14 slice
+proposal implicitly assumed every downstream shape-consuming
+function was already permissive; that assumption failed at one
+input-guard I did not enumerate. **New rule for
+shape/enum-adding slices:** when adding a new value to a
+polymorphic parameter, grep for the parameter name across the
+call chain and enumerate every allow-list / whitelist /
+validator that gates it. The §15.7 hotfix is the concrete
+example — the fix is 8 lines; the missed check cost one
+failed render.
+
+**Hotfix commit:** (populated below).
+
 ---
 
 **SESSION 269 IS NOT CLOSED.** §15 shipped the Episode-solo
