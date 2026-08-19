@@ -1845,7 +1845,9 @@ guarantee against a stale-tab false negative.
 
 Doc-only slice — no code changes made in §13.
 
-- §13 doc + evidence commit: (populated after commit below).
+- §13 doc + evidence commit: `3c0b00f` — `docs(session-269): §13 operator-visible parity pass for §12`.
+- Predecessor commits already on origin: `87c328f` (§12 doc checkpoint), `06ba772` (§12 slice), `91c9e3a` (§11 doc audit).
+- Push: `87c328f..3c0b00f  main -> main` (successful). Local main == origin/main == `3c0b00f`. Working tree clean.
 
 ---
 
