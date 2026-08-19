@@ -1,0 +1,270 @@
+{
+  "captured_at": "2026-08-19T00:00:00Z",
+  "session": 269,
+  "context": "§16 — FIRST real operator acceptance render for §15 Episode-solo STORY MODE. Also the first REAL-RUNTIME acceptance for the §10 NarrativeMemory lane (the §11 attempt had a stale Celery worker per §11.3; the §15.7 hotfix + full restart shipped the wire path). Both §10 and §15 acceptance criteria verified against persisted DB state. NOT PROMOTED.",
+
+  "composition": {
+    "id": "2ef5ee7e-7a55-4083-a587-1b5799bbaa47",
+    "name": "Talking-head — Patch",
+    "template_kind": "talking_head",
+    "status": "completed",
+    "mock_mode": false,
+    "operator_topic": "Patch does research on AI Agents",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "spokesperson_id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+    "spokesperson_name": "Patch",
+    "spokesperson_universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "target_duration_seconds": 90,
+    "writing_contract_version": 5,
+    "synthesis_attempt_count": 2,
+    "synthesis_predicted_seconds": 108.0,
+    "verification_status": "verified",
+    "verification_warnings": [
+      {"kind": "tech_term", "claim": "react", "position": 372}
+    ],
+    "knowledge_chunk_ids": [
+      "3c5165ea-c97f-4412-b8e7-b46d91777ae9",
+      "505acbba-fbc4-41b2-8494-4c937a3e3e28",
+      "b3c6e8ac-4ba0-4c41-9ca8-6fa4428c52c2",
+      "c24d1aa7-1dab-499f-83a7-f9554de5e8e7",
+      "ed18e966-1084-4626-914f-1bcc30f13dea"
+    ],
+    "memory_ids": ["8d4fdfec-add4-4505-8ade-b0f9e6d8aea6"],
+    "cost_actual_micros": 20000,
+    "created_at": "2026-08-19T17:43:11.818121+00:00",
+    "render_dispatched_at": "2026-08-19T17:43:25.627979+00:00",
+    "updated_at": "2026-08-19T17:46:21.723373+00:00"
+  },
+
+  "episode": {
+    "id": "2b6087d2-cbe3-47c4-a7ef-7d7625231472",
+    "title": "Patch does research on AI Agents",
+    "operator_topic": "Patch does research on AI Agents",
+    "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "universe_name": "Patch' Workshop",
+    "cast": ["Patch"],
+    "note": "The exact Episode referenced in §11 Chris live checkpoint — created via §12 flow, patched to hold Patch as the single cast member. Reused for the §15 real acceptance test after the §15.7 hotfix."
+  },
+
+  "final_asset": {
+    "id": "c00f0d2a-ea15-41e1-a48f-e8f8c69f1310",
+    "role": "talking_head",
+    "duration_ms": 104611,
+    "duration_seconds": 104.611,
+    "file_path_provider": "runway (cloudfront JWT)"
+  },
+
+  "pipeline_shape": {
+    "step_count": 1,
+    "step_breakdown": "1 × generate_avatar_speech",
+    "step_status": "succeeded",
+    "step_cost_actual_micros": 20000,
+    "step_params_use_knowledge": true,
+    "step_params_target_duration_seconds": 90
+  },
+
+  "section_b_section_10_runtime_acceptance": {
+    "verdict": "PASS",
+    "checks": {
+      "composition_episode_populated": {
+        "expected": "non-null Episode FK",
+        "observed_episode_id": "2b6087d2-cbe3-47c4-a7ef-7d7625231472",
+        "pass": true
+      },
+      "composition_memory_ids_len_1": {
+        "expected": 1,
+        "observed_memory_ids": ["8d4fdfec-add4-4505-8ade-b0f9e6d8aea6"],
+        "pass": true
+      },
+      "memory_id_is_8d4fdfec": {
+        "expected": "8d4fdfec-add4-4505-8ade-b0f9e6d8aea6",
+        "observed": "8d4fdfec-add4-4505-8ade-b0f9e6d8aea6",
+        "pass": true
+      },
+      "top_k_1_still_the_contract": {
+        "method": "invoked retrieve_universe_memory(ws, u, [patch], operator_topic, top_k=1) at audit time; returned exactly 1 row",
+        "pass": true
+      },
+      "witness_predicate_excluded_rivet_only_rows": {
+        "rivet_only_rows_in_pool": ["cd73d52f", "c86d4902"],
+        "rivet_only_rows_in_solo_visible_set": [],
+        "rivet_only_rows_in_composition_memory_ids": [],
+        "pass": true
+      },
+      "section_10_wire_path_end_to_end_proven_through_real_creator_ui": true
+    },
+    "note": "The §11 attempt (composition 44f2279f) proved the wire path was NOT firing because Celery had booted the day BEFORE the §10 slice landed. The §15.7 hotfix restart + this §16 render together close that loop — §10 is now proven through the real creator UI, not merely unit tests."
+  },
+
+  "section_b_section_15_runtime_acceptance": {
+    "verdict": "PASS",
+    "checks": {
+      "writing_contract_version_stamp": {
+        "expected": 5,
+        "observed": 5,
+        "pass": true,
+        "note": "Proves the solo_scene contract shaped this render; the primitive discriminator (composition.episode_id + template_kind=='talking_head') routed correctly."
+      },
+      "episode_solo_ux_used_at_submit_time": {
+        "note": "Chris used the §15 Story-intent form (§15.5 flow). The composition step params carry script='Patch does research on AI Agents' (== Episode.operator_topic) + use_knowledge=True — matches the SPA's silent force-supply for Episode-solo mode.",
+        "pass": true
+      },
+      "section_15_7_hotfix_did_not_regress": {
+        "note": "build_render_brief accepted target_shape='solo_scene' without raising ValueError — see §15.7 for the whitelist expansion.",
+        "pass": true
+      }
+    }
+  },
+
+  "eligible_pool_at_render_time": {
+    "count": 11,
+    "whole_cast": 9,
+    "rivet_only": 2,
+    "solo_cast_patch_visible_count": 9,
+    "solo_cast_patch_visible_ids": [
+      "f25e53af", "48746f69", "eda32b58", "a34cc005", "d98962e2",
+      "87d4e553", "6b5222b1", "42acc26d", "8d4fdfec"
+    ],
+    "rivet_only_excluded_ids": ["cd73d52f", "c86d4902"],
+    "top_k": 1,
+    "top_1_selected": "8d4fdfec",
+    "selected_body_prefix": "Patch found the old workshop-agent project and notes…",
+    "reproduced_at_audit_time_deterministically": true
+  },
+
+  "retrieved_memory": {
+    "id": "8d4fdfec-add4-4505-8ade-b0f9e6d8aea6",
+    "body": "Patch found the old workshop-agent project and notes, revealing that the Agent began as a smaller experiment before Patch gave it more context and it started making decisions about his projects.",
+    "kind": "event",
+    "weight": "peripheral",
+    "witness_scope": "whole (whole-cast; witnessed_by empty)",
+    "source_composition_id": "6d169390-6f43-493c-9bfe-35501ccb97d1",
+    "source_episode_id": "0ae7bf0c-c7ab-490b-a2a7-225ae72f8e86",
+    "source_episode_title": "Patch digs out an old project",
+    "note": "Promoted in §2 (SESSION 269 Obs #2). This is its first REAL-RUNTIME retrieval hit in a downstream render — proves the promote-then-retrieve loop works end-to-end through the ship UI."
+  },
+
+  "synthesis_provenance": {
+    "attempt_count": 2,
+    "first_pass_chars": 731,
+    "first_pass_predicted_seconds_estimate": 50,
+    "corrective_hint_head": "Your previous draft was 731 characters (120 words, estimated ~50s of speech). Target is 81s. REWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS...",
+    "corrective_pass_chars": 1599,
+    "final_predicted_seconds": 108.0,
+    "actual_asset_seconds": 104.611,
+    "target_seconds": 90,
+    "acceptance_band_seconds": "72-108 (±20%)",
+    "within_acceptance_band": true,
+    "note": "First-pass undershot; one bounded corrective pass expanded to target. Standard SESSION 253 duration-contract behaviour."
+  },
+
+  "accepted_script": "I\u2019m researching AI agents, and the annoying part is that the word \u201cagent\u201d makes everything sound more finished than it is.\n\nAn AI that gives you one answer? Useful. But an agent is interesting because it can keep going. It can make decisions, choose tools, search for information, read documents, write information, call APIs, handle multi-step tasks, maintain state, and react when something changes around it.\n\nThat is where the experiment starts getting properly weird.\n\nBecause the model is only one part of the machine. You might also need memory, search, databases, business rules, user profiles, tools, and regular software holding the whole thing together with what I assume is digital duct tape.\n\nAnd none of that means it\u2019s right.\n\nA language model can sound extremely confident while misunderstanding the job, losing context, inventing details, or chasing the completely wrong objective. So I\u2019m less interested in asking, \u201cIs this technically an agent?\u201d and more interested in the dangerous question:\n\nWhat happens when it can actually do something instead of merely talking about doing it?\n\nThen you add more agents. They can share information, divide work, disagree, cooperate, develop strategies\u2014or just create a tiny bureaucratic nightmare at machine speed.\n\nI\u2019m not claiming that proves consciousness. Interesting behavior is already plenty interesting.\n\nSo I\u2019m digging through the old workshop-agent notes, figuring out the smallest test that lets one actually make decisions about a project. If you want to see what it does when I give it a little more room to think, stick around.",
+
+  "section_c_solo_scene_invariant_evaluation": {
+    "1_single_active_character": {
+      "verdict": "PASS",
+      "evidence": "Patch is the only speaking / acting participant. Rivet is never named or invoked. No off-screen collaborators. No 'we' or 'us' referring to other characters.",
+      "compare_to_44f2279f": "§11 said 'I call for Rivet' + 'we line up a reprint'. This render says none of that."
+    },
+    "2_single_present_moment": {
+      "verdict": "PASS",
+      "evidence": "Patch is presently researching / thinking through AI agents and deciding what to test next. The script never simulates a future experiment or narrates its outcome. Every verb about the Agent test is in an intent/future frame ('figuring out the smallest test', 'lets one actually make decisions').",
+      "compare_to_44f2279f": "§11 compressed discovery + loading a file + running an experiment + observing mid-experiment failure + reaching a conclusion into one monologue. This render stays in the research moment."
+    },
+    "3_plans_remain_plans": {
+      "verdict": "PASS",
+      "evidence": "The future Agent test is framed as preparation ('figuring out the smallest test that lets one actually make decisions'). No 'halfway through, X fails' or 'we run it and it works'. The invitation 'stick around' explicitly defers the outcome to a later Episode.",
+      "compare_to_44f2279f": "§11 said 'Halfway through, the layer adhesion fails exactly where the old one snapped' — an invented in-scene outcome. This render invents no outcomes."
+    },
+    "4_memory_as_background_not_commands": {
+      "verdict": "STRONG PASS",
+      "evidence": "The retrieved workshop-agent memory (8d4fdfec) does not hijack the topic. It provides the natural reason for the research and enters near the end through: 'So I\u2019m digging through the old workshop-agent notes, figuring out the smallest test that lets one actually make decisions about a project.' The memory body is not recited verbatim; it grounds Patch's current intent.",
+      "compare_to_44f2279f": "§11 never actually retrieved a memory (Celery was stale). This render both retrieved AND integrated the memory as background."
+    },
+    "5_end_on_a_moment_not_summary": {
+      "verdict": "PASS",
+      "evidence": "Ends on a next-step hook: 'If you want to see what it does when I give it a little more room to think, stick around.' Not a lesson-summary; not a philosophical conclusion; not a retrospective wrap.",
+      "compare_to_44f2279f": "§11 ended with retrospective conclusion ('Either outcome\u2019s a win in this corner'). This render ends on an invitation."
+    },
+    "6_preserve_creative_freedom": {
+      "verdict": "PASS",
+      "evidence": "Patch voice remains vivid. Signature phrasing: 'digital duct tape', 'tiny bureaucratic nightmare at machine speed', 'the dangerous question', 'a little more room to think'. Curiosity, dry humor, and speculative reach all intact.",
+      "compare_to_44f2279f": "§11 was Patch-voiced too — that was never the problem. Both renders preserve voice."
+    },
+    "cumulative_verdict": "6/6 PASS. solo_scene contract materially corrected every §11 failure mode."
+  },
+
+  "section_d_comparison_44f2279f_vs_2ef5ee7e": {
+    "44f2279f_write_up_reference": "docs/design/session_269_experiment_data/03_composition_44f2279f_evidence.json",
+    "44f2279f_summary": "First creator-side solo talking_head after §10 landed. Two failures: (a) §10 wire path didn't fire (stale Celery worker), (b) writer applied long_form_contract producing cast-drift + temporal compression + retrospective framing.",
+    "2ef5ee7e_summary": "First creator-side solo talking_head after §12 (Episode cast picker) + §14 (contract audit) + §15 (solo_scene shape) + §15.7 (whitelist hotfix) + full restart. Both wire path AND writing contract now firing correctly.",
+    "table": [
+      {"dimension": "Episode attachment", "44f2279f": "None (standalone; Episode 91a63409 orphaned)", "2ef5ee7e": "Episode 2b6087d2 attached", "verdict": "FIXED"},
+      {"dimension": "memory_ids", "44f2279f": "[] (empty; §10 code not loaded)", "2ef5ee7e": "['8d4fdfec']", "verdict": "FIXED"},
+      {"dimension": "writing_contract_version", "44f2279f": 4, "2ef5ee7e": 5, "verdict": "PROVES solo_scene contract shaped 2ef5ee7e"},
+      {"dimension": "Active cast in script", "44f2279f": "Patch + off-screen Rivet + 'we'", "2ef5ee7e": "Patch only", "verdict": "FIXED (§15 invariant 1)"},
+      {"dimension": "Temporal frame", "44f2279f": "Compressed multi-phase arc (discovery→experiment→halfway-through→conclusion)", "2ef5ee7e": "One bounded present moment (research + intent)", "verdict": "FIXED (§15 invariants 2+3)"},
+      {"dimension": "Ending", "44f2279f": "'Either outcome's a win in this corner' (retrospective wrap)", "2ef5ee7e": "'stick around' (next-step hook)", "verdict": "FIXED (§15 invariant 5)"},
+      {"dimension": "Continuity provenance UI", "44f2279f": "Not shown (memory_ids empty)", "2ef5ee7e": "'Used 1 story memory' + panel visible", "verdict": "FIXED"},
+      {"dimension": "Character voice", "44f2279f": "Preserved", "2ef5ee7e": "Preserved", "verdict": "no regression"}
+    ],
+    "falsifiable_answer": "YES — solo_scene materially corrected every §11 failure mode. Not just 'the video is enjoyable' — the specific invariants (cast presence, temporal frame, ending shape, memory framing) each verifiable in the script text and each corrected."
+  },
+
+  "section_e_informational_flavor_classification": {
+    "verdict": "A — appropriate scene content because Patch is actively researching / explaining what he is learning",
+    "evidence_supporting_A": [
+      "Episode.operator_topic is literally 'Patch does research on AI Agents' — the informational material IS the scene subject.",
+      "The script stays bounded to Patch's current research moment (§15 invariant 2 PASS).",
+      "The script ends on a future-experiment hook (§15 invariant 5 PASS).",
+      "No process-summary / tutorial-completion framing.",
+      "Patch's voice inflects the material ('digital duct tape', 'tiny bureaucratic nightmare at machine speed') — it's character-voiced, not brand-copy."
+    ],
+    "evidence_that_could_support_B": [
+      "The middle paragraphs (agent capabilities: tools, memory, APIs, multi-step tasks, failure modes, multi-agent behavior) do read as an explainer to an unspecified audience."
+    ],
+    "why_not_B_regression": "The informational cadence is Patch thinking aloud about what he is learning right now. If the operator_topic were something like 'Patch fixes the 3D printer' and the script pivoted into an AI-agent explainer, that would be regression. Here the informational material IS the scene material. See §16.5 provisional classification."
+  },
+
+  "section_f_memory_relevance": {
+    "verdict": "STRONG / CONTEXTUALLY DEFENSIBLE",
+    "topic_vs_memory_lexical_overlap": ["workshop-agent", "agent", "workshop", "notes"],
+    "topic_vs_memory_semantic_overlap": "The memory literally describes finding the OLD workshop-agent project + notes, revealing the Agent's origin story. The topic is 'researching AI agents' with an ending that names the workshop-agent notes as the concrete research artifact. Same subject.",
+    "rank_1_at_audit_time_deterministic": true,
+    "rivet_only_rows_excluded": ["cd73d52f", "c86d4902"],
+    "witness_predicate_confirmed": "cast=[Patch] visible set = 9 whole-cast rows; both Rivet-only rows correctly filtered by witnessed_by ∩ {Patch} = ∅."
+  },
+
+  "section_g_promotion_decision": {
+    "promote_a_memory_from_2ef5ee7e": false,
+    "rationale": [
+      "The Episode is good, but no durable event has completed yet.",
+      "Patch researched agents, connected that research to the old workshop-agent notes, and formed an intention to run a small decision-making test — but the test itself has NOT happened.",
+      "This is better treated as setup / intention than durable story-state change.",
+      "Principle: good Episode != automatic memory. If the next Episode actually performs a bounded Agent experiment and something changes, reassess then."
+    ]
+  },
+
+  "section_h_ui_polish_finding": {
+    "verdict": "COSMETIC / CREATOR-COPY POLISH",
+    "observed_stale_helper_copy": [
+      "Target duration: 'Applies only when Use workspace knowledge is ticked...' (irrelevant in Episode STORY MODE — checkbox is hidden and use_knowledge=True is forced)",
+      "Fact-check mode: 'Only applies when Use workspace knowledge is on...' (same)"
+    ],
+    "risk_of_functional_confusion": "low — the referenced checkbox is not visible in Episode STORY MODE, so the copy points at nothing the operator can toggle. This is stale documentation, not a wrong control.",
+    "disposition": "Document as a tiny follow-up after §16 review. Do NOT fix in this pass unless trivially local and clearly safe (operator brief §H)."
+  },
+
+  "section_i_candidate_next_episode": {
+    "topic": "Patch gives the old workshop agent one small decision to make.",
+    "why_interesting": [
+      "natural continuation from 2ef5ee7e",
+      "Patch-only STORY MODE",
+      "likely strong memory relevance (8d4fdfec directly, plus f25e53af / 48746f69 / eda32b58 all about the Agent)",
+      "may create the first genuinely promotable Patch-only event (the test would be a bounded change in the workshop-agent story-state)",
+      "would allow Chris — if the scene warrants — to promote the first NarrativeMemory with availability 'When Patch is present', creating the first Patch-only witness class in the pool (§9.9 dogfood direction still open)"
+    ],
+    "explicitly_a_candidate": true,
+    "explicitly_not_an_instruction_to_render_or_promote": true
+  }
+}

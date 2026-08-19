@@ -2381,3 +2381,204 @@ All 1564 backend + 640 SPA tests green. All services restarted;
 §15 acceptance test per §15.5. Any further Episodes, promotions,
 or audit findings should extend this document (add §16, §17…)
 rather than start a new one.
+
+## §16. First real §15 acceptance render (`2ef5ee7e`)
+
+Chris rendered the first real Episode-solo scene on the §15
+build (post §15.7 hotfix + full restart). This is simultaneously
+the first real-runtime acceptance for §10 (the §11 attempt had a
+stale Celery worker per §11.3, so §10 was never proven through
+the ship UI until now).
+
+Evidence sidecar:
+`docs/design/session_269_experiment_data/06_composition_2ef5ee7e_evidence.json`
+carries the full DB row, pipeline shape, script text, pool
+enumeration, and eligibility reproduction.
+
+### §16.1 Composition summary
+
+- Full id: `2ef5ee7e-7a55-4083-a587-1b5799bbaa47`
+- Template: `talking_head`, status `completed`, mock_mode `false`
+- Operator topic: *"Patch does research on AI Agents"*
+- Episode: `2b6087d2` — *"Patch does research on AI Agents"*; cast `[Patch]`; Patch's Workshop universe
+- Target 90s / predicted 108s / actual **104.611s**
+- Writing contract version: **5** (proves `solo_scene` shaped this render)
+- Synthesis attempt count: 2 (first pass 731 chars ≈ 50s undershot target 81s; one bounded corrective pass expanded to 1,599 chars ≈ 108s; SESSION 253 duration-contract behaviour)
+- Verification: verified (1 low-severity `tech_term` warning on the word "react" — noise, not a substantive claim)
+- Knowledge chunks: 5 (Patch K2)
+- Memory ids: **`['8d4fdfec-add4-4505-8ade-b0f9e6d8aea6']`** — 1 row
+- Cost: 20,000 micros ($0.02) — Runway avatar_speech
+- Final asset: talking_head, 104,611 ms
+- Cost per second: $0.019/s
+
+### §16.2 §10 real-runtime acceptance — **PASS**
+
+| Check | Expected | Observed | Pass |
+|---|---|---|---|
+| `Composition.episode` populated | non-null | `2b6087d2` | ✅ |
+| `Composition.memory_ids` len | 1 | 1 | ✅ |
+| Selected memory id | `8d4fdfec` | `8d4fdfec` | ✅ |
+| `top_k=1` still the contract | 1 row returned by predicate at audit time for the same query | 1 row returned | ✅ |
+| Rivet-only rows excluded | `cd73d52f`, `c86d4902` not in `memory_ids` | not in `memory_ids` (verified against solo-cast visibility set) | ✅ |
+| §10 wire path proven through real creator UI | not merely unit tests | end-to-end verified: SPA → API → Composition → Celery worker → primitive → retrieve_universe_memory → memory_ids stamp → serializer → SPA panel | ✅ |
+
+**§11 loop closed.** §11.3 flagged the §10 wire path as INCOMPLETE
+because the pre-§10 Celery worker was still running. The §15.7
+restart + this render together prove §10 works through the ship
+UI, not just in unit tests.
+
+### §16.3 §15 real-runtime acceptance — **PASS**
+
+| Check | Expected | Observed | Pass |
+|---|---|---|---|
+| `writing_contract_version` stamp | 5 | 5 | ✅ |
+| Episode-solo UX at submit time | script auto-supplied from `Episode.operator_topic`; `use_knowledge=true` forced | step params carry `script='Patch does research on AI Agents'` (== Episode.operator_topic) + `use_knowledge=True` | ✅ |
+| §15.7 hotfix did not regress | `build_render_brief` accepts `target_shape='solo_scene'` without ValueError | render completed cleanly at step 0 | ✅ |
+
+### §16.4 Solo-scene invariant evaluation
+
+Every §15 invariant verified against the accepted script text:
+
+| # | Invariant | Verdict | Direct evidence |
+|---|---|---|---|
+| 1 | SINGLE ACTIVE CHARACTER | **PASS** | Patch is the only speaking/acting participant. Rivet never named or invoked. No off-screen collaborators. No "we"/"us" referring to other characters. |
+| 2 | SINGLE PRESENT MOMENT | **PASS** | Patch is presently researching AI agents and deciding what to test next. No future experiment is simulated. Every verb about the Agent test is intent/future frame. |
+| 3 | PLANS REMAIN PLANS | **PASS** | Future Agent test framed as preparation ("*figuring out the smallest test that lets one actually make decisions*"). No "*halfway through*" or "*we run it and it works*". |
+| 4 | MEMORY AS BACKGROUND, NOT COMMANDS | **STRONG PASS** | Retrieved memory grounds Patch's research reason without being recited verbatim, entering near the end via "*So I'm digging through the old workshop-agent notes, figuring out the smallest test that lets one actually make decisions about a project.*" No reenactment of the finding-the-notes Episode. |
+| 5 | END ON A MOMENT, NOT A SUMMARY | **PASS** | Ends on a next-step hook: "*If you want to see what it does when I give it a little more room to think, stick around.*" Not a lesson summary; not a philosophical wrap. |
+| 6 | PRESERVE CREATIVE FREEDOM | **PASS** | Signature Patch phrasing: "*digital duct tape*", "*tiny bureaucratic nightmare at machine speed*", "*the dangerous question*", "*a little more room to think*". Voice + humor + speculative reach all intact. |
+
+Cumulative: **6/6 PASS**. `solo_scene` contract materially
+corrected every §11 failure mode.
+
+### §16.5 Informational / explainer flavor — classification A
+
+The middle of the accepted script is informational (what an
+agent is, tools, memory, APIs, multi-step tasks, failure modes,
+multi-agent behavior). **This is NOT a long-form regression.**
+
+Classification: **A — appropriate scene content because Patch
+is actively researching / explaining what he is learning.**
+
+Justification:
+
+- `Episode.operator_topic` is literally *"Patch does research on AI Agents"* — the informational material IS the scene subject.
+- Script stays bounded to Patch's current research moment (§15 invariant 2 passes).
+- Script ends on a future-experiment hook, not a tutorial-completion arc (§15 invariant 5 passes).
+- No process-summary / retrospective framing.
+- Patch's voice inflects the material — "*digital duct tape*", "*tiny bureaucratic nightmare at machine speed*" — it's character-voiced, not brand-copy.
+
+If the operator_topic were "Patch fixes the 3D printer" and the
+script pivoted into an AI-agent explainer, THAT would be
+regression. Here the informational cadence is Patch thinking
+aloud about what he is learning right now. Appropriate.
+
+### §16.6 Comparison against §11 (`44f2279f`)
+
+Direct falsifiable comparison — the §11 failure modes were the
+motivation for §15:
+
+| Dimension | `44f2279f` (§11) | `2ef5ee7e` (§16) | Verdict |
+|---|---|---|---|
+| Episode attachment | None (standalone; Episode `91a63409` orphaned) | Episode `2b6087d2` attached | FIXED (by §12) |
+| `memory_ids` | `[]` (§10 code not loaded) | `['8d4fdfec']` | FIXED (by §15.7 restart) |
+| `writing_contract_version` | 4 | 5 | PROVES `solo_scene` shaped this render |
+| Active cast in script | Patch + off-screen Rivet + "we" | Patch only | FIXED (§15 invariant 1) |
+| Temporal frame | Compressed multi-phase arc (discovery → experiment → halfway-through → conclusion) | One bounded present moment (research + intent) | FIXED (§15 invariants 2+3) |
+| Ending | *"Either outcome's a win in this corner"* (retrospective wrap) | *"stick around"* (next-step hook) | FIXED (§15 invariant 5) |
+| Continuity provenance UI | Not shown (`memory_ids` empty) | *"Used 1 story memory"* + panel visible | FIXED |
+| Character voice | Preserved | Preserved | no regression |
+
+**Falsifiable answer: YES — `solo_scene` materially corrected
+every §11 failure mode.** Not merely "the video is enjoyable" —
+each invariant verifiable in the script text; each corrected
+against a specific `44f2279f` failure mode.
+
+### §16.7 Memory relevance
+
+- **Verdict:** STRONG / CONTEXTUALLY DEFENSIBLE.
+- Topic: *"Patch does research on AI Agents"*.
+- Memory: *"Patch found the old workshop-agent project and notes, revealing that the Agent began as a smaller experiment before Patch gave it more context and it started making decisions about his projects."*
+- Lexical overlap: `agent`, `workshop`, `notes`.
+- Semantic overlap: the memory is literally about the origin of the workshop-agent project; the topic's script explicitly names those notes as the concrete research artifact. Same subject.
+- Rank-1 selection reproduced deterministically at audit time.
+- Witness predicate confirmed: cast=[Patch] visible set = 9 whole-cast rows; both Rivet-only rows (`cd73d52f`, `c86d4902`) correctly filtered.
+
+This is the first real-runtime retrieval hit for `8d4fdfec` in a
+downstream render — proves the **promote-then-retrieve loop
+works end-to-end** through the ship UI (memory was promoted in
+§2 SESSION 269 Obs #2 from `6d169390`; now retrieved into
+`2ef5ee7e`).
+
+### §16.8 Promotion decision — DO NOT PROMOTE
+
+**Chris + ChatGPT judgment:** the Episode is good, but no
+durable event has completed yet. Patch:
+
+- researched agents;
+- connected that research to the old workshop-agent notes;
+- formed an intention to run a small decision-making test.
+
+The test itself has NOT happened. This is better treated as
+**setup / intention** than durable story-state change.
+
+**Principle:** *good Episode != automatic memory.* If the next
+Episode actually performs a bounded Agent experiment and
+something changes, reassess then.
+
+### §16.9 UI polish finding — helper-copy staleness
+
+The live §15 form worked correctly, but two controls carry
+pre-§15 helper copy referencing the now-hidden `use_knowledge`
+checkbox:
+
+- Target duration: *"Applies only when 'Use workspace knowledge' is ticked..."*
+- Fact-check mode: *"Only applies when 'Use workspace knowledge' is on..."*
+
+In Episode STORY MODE the checkbox is intentionally hidden and
+`use_knowledge=true` is forced.
+
+**Classification: COSMETIC / CREATOR-COPY POLISH.** Risk of
+functional confusion is low — the referenced checkbox is not
+visible in Episode STORY MODE, so the copy points at nothing the
+operator can toggle. Stale documentation, not a wrong control.
+
+**Disposition:** documented as a tiny follow-up after §16
+review. Not fixed in this pass per operator brief §H (not
+trivially local — the helper strings live inside
+`shell/apps/compositions/recipes.py` `RecipeField.help_text` and
+would benefit from a per-mode variant rather than a static
+edit).
+
+### §16.10 Candidate next organic Episode
+
+*Candidate, not instruction to render or promote.*
+
+**Topic:** *"Patch gives the old workshop agent one small
+decision to make."*
+
+Why interesting:
+
+- Natural continuation from `2ef5ee7e`.
+- Patch-only STORY MODE — reuses §15 wiring.
+- Likely strong memory relevance: `8d4fdfec` directly, plus `f25e53af` / `48746f69` / `eda32b58` all about the Agent's decision-making behaviour.
+- May create the first genuinely promotable Patch-only event (a bounded Agent-story-state change).
+- Would allow Chris — if the scene warrants — to promote the first NarrativeMemory with availability *"When Patch is present"*, creating the first Patch-only witness class in the pool. This is the §9.9 HIGH-VALUE dogfood direction, still open.
+
+### §16.11 Doc commit checkpoint
+
+Doc + evidence sidecar only — no source-code change in §16.
+
+- §16 commit: (populated after commit below).
+
+---
+
+**SESSION 269 IS NOT CLOSED.** §16 verifies the first real
+Episode-solo acceptance render — §10 wire path PASS, §15
+solo_scene contract PASS on all six invariants, memory
+retrieval end-to-end proven through the ship UI. `2ef5ee7e`
+NOT PROMOTED per §16.8 (setup/intention, not durable state
+change). One cosmetic follow-up captured in §16.9. Safe to
+continue organic Patch-solo dogfood (§16.10 candidate). Any
+further Episodes, promotions, or audit findings should extend
+this document (add §17, §18…) rather than start a new one.
