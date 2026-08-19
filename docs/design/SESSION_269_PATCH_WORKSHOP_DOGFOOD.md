@@ -2569,7 +2569,8 @@ Why interesting:
 
 Doc + evidence sidecar only — no source-code change in §16.
 
-- §16 commit: (populated after commit below).
+- §16 commit: `c91c4be` — `docs(session-269): §16 — first real §15 acceptance render (2ef5ee7e) PASS`.
+- Push: `ce14f53..c91c4be main -> main` (successful). Local main == origin/main == `c91c4be`. Working tree clean.
 
 ---
 
