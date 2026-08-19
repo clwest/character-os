@@ -1,0 +1,160 @@
+{
+  "captured_at": "2026-08-19T00:00:00Z",
+  "session": 268,
+  "context": "Dogfood Observation #5 — Composition da341e85 evidence freeze",
+  "note": "First SESSION 268 render at the explicit ~10-memory threshold. Fifth consecutive dogfood beat.",
+
+  "composition": {
+    "id": "da341e85-5c93-4d83-ab38-58122e807e43",
+    "name": "Dialogue — Hold on. You were standing nex",
+    "template_kind": "dialogue_scene",
+    "status": "completed",
+    "operator_topic": "Patch realizes Rivet has started expecting him to make certain mistakes.",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "spokesperson_id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+    "episode_id": "7b4471cb-fc0b-4f24-a88c-5e3e5bda3bf9",
+    "created_by": 883,
+    "created_at": "2026-08-19T06:36:21.907019+00:00",
+    "render_dispatched_at": "2026-08-19T06:36:22.073689+00:00",
+    "updated_at": "2026-08-19T06:40:55.896674+00:00",
+    "target_duration_seconds": 90,
+    "writing_contract_version": 4,
+    "mock_mode": false,
+    "synthesis_attempt_count": 1,
+    "synthesis_predicted_seconds": 90.53846153846153,
+    "verification_status": "verified",
+    "verification_warnings": [
+      {"kind": "proper_noun", "claim": "Hold", "position": 0, "line_index": 0, "speaker_name": "Patch", "speaker_alias": "patch"},
+      {"kind": "proper_noun", "claim": "Also", "position": 23, "line_index": 4, "speaker_name": "Patch", "speaker_alias": "patch"},
+      {"kind": "proper_noun", "claim": "Sometimes", "position": 4, "line_index": 7, "speaker_name": "Rivet", "speaker_alias": "rivet"}
+    ],
+    "validation_failure_reason": "",
+    "rejected_synthesis": "",
+    "cost_estimate_micros": 0,
+    "cost_actual_micros": 320100,
+    "knowledge_chunk_ids_count": 8,
+    "memory_ids": ["a34cc005-7fcc-4f6b-b087-591f5f9d7e6a"]
+  },
+
+  "episode": {
+    "id": "7b4471cb-fc0b-4f24-a88c-5e3e5bda3bf9",
+    "title": "Patch realizes Rivet has started expecting him to make certain mistakes.",
+    "operator_topic": "Patch realizes Rivet has started expecting him to make certain mistakes.",
+    "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "universe_name": "Patch' Workshop",
+    "cast": [
+      {"id": "f18b75cc-37c0-445a-a472-24fe5d8b7592", "name": "Rivet"},
+      {"id": "7fad8172-cd39-4bbe-85e0-ed705d900645", "name": "Patch"}
+    ]
+  },
+
+  "retrieved_memory": {
+    "id": "a34cc005-7fcc-4f6b-b087-591f5f9d7e6a",
+    "body": "Rivet has learned to recognize Patch's excitement about a project as an early warning that Patch is about to start experimenting before the details are settled.",
+    "kind": "event",
+    "weight": "peripheral",
+    "witness_scope": "whole-cast",
+    "witnesses": [],
+    "availability_display": "Available: In any future scene",
+    "source_composition_id": "7d913cf4-23d5-454c-a2bb-3d0f2bb9d68a",
+    "source_composition_name": "Dialogue — Hey Rivet,",
+    "source_episode_id": "9c3dbd88-9270-4223-a8b2-b1cdbf3f0f25",
+    "source_episode_title": "Patch tries to teach Rivet something ridiculous.",
+    "note_on_third_consecutive_selection": "Third consecutive retrieval of a34cc005 (Obs #3 helper, Obs #4 rules, Obs #5 prediction). The Episode topic 'Patch realizes Rivet has started expecting him to make certain mistakes.' is even closer to the memory's semantic content than the prior two topics — the topic is essentially about the memory. Retrieval is behaving predictably, not degenerately."
+  },
+
+  "eligible_pool_at_render_time": {
+    "count": 10,
+    "whole_cast": 8,
+    "witness_scoped": 2,
+    "delta_since_previous_render": "+1 (rules 42acc26d promoted 06:25:58Z, available at 06:36:22Z render)",
+    "top_k": 1,
+    "rank_1_selected": "a34cc005",
+    "candidates": [
+      {"id": "f25e53af", "witness": "whole", "body_prefix": "the agent Patch wired to the workshop thinks it runs the place."},
+      {"id": "48746f69", "witness": "whole", "body_prefix": "The workshop agent began deciding which of Patch's projects…"},
+      {"id": "eda32b58", "witness": "whole", "body_prefix": "The workshop agent began rearranging the order of Patch's projects…"},
+      {"id": "cd73d52f", "witness": "Rivet-only", "body_prefix": "Because it had an opinion about our work. An uninvited opinion…"},
+      {"id": "a34cc005", "witness": "whole", "selected": true, "body_prefix": "Rivet has learned to recognize Patch's excitement about a project…"},
+      {"id": "d98962e2", "witness": "whole", "body_prefix": "Patch accepted Rivet taking the lead on an experiment…"},
+      {"id": "c86d4902", "witness": "Rivet-only", "body_prefix": "While Patch was out, Rivet found that the workshop agent had quietly built a folder named 'PATCH OVERRIDES'…"},
+      {"id": "87d4e553", "witness": "whole", "body_prefix": "Patch decided the workshop should create a mascot as a character-consistency experiment."},
+      {"id": "6b5222b1", "witness": "whole", "body_prefix": "Patch built a workshop helper that watches for interesting events and leaves messages…"},
+      {"id": "42acc26d", "witness": "whole", "body_prefix": "Patch decided the workshop needs rules and began adopting Rivet's more methodical approach to experiments…"}
+    ]
+  },
+
+  "pipeline_shape": {
+    "step_count": 17,
+    "step_breakdown": "16 × generate_avatar_speech + 1 × concat_clips",
+    "final_asset_id": "afe63272-2cb4-4554-a780-4576f2fce05b",
+    "final_asset_role": "composite_output",
+    "final_asset_file": "/data/_internal/concats/c55a25626d42cf1d.mp4",
+    "final_asset_duration_ms": 85296,
+    "final_asset_duration_seconds": 85.296,
+    "predicted_seconds": 90.538,
+    "target_seconds": 90,
+    "size_bytes": 28440710,
+    "provider_dispatch_count": {
+      "openai_synthesis": 1,
+      "runway_avatar_speech": 16,
+      "ffmpeg_concat": 1
+    }
+  },
+
+  "accepted_dialogue_lines": [
+    {"line_index": 0, "speaker": "Patch", "text": "Hold on. You were standing next to the 3D printer before I even said I had an idea."},
+    {"line_index": 1, "speaker": "Rivet", "text": "You walked in holding a prototype and smiling at it. I made a reasonable prediction."},
+    {"line_index": 2, "speaker": "Patch", "text": "You expected me to start it before I had worked out the details."},
+    {"line_index": 3, "speaker": "Rivet", "text": "I expected you to start something before every detail was worked out. The printer was merely the nearest likely victim."},
+    {"line_index": 4, "speaker": "Patch", "text": "That is deeply unfair. Also, annoyingly accurate. How long have you been doing this?"},
+    {"line_index": 5, "speaker": "Rivet", "text": "Long enough to recognize the sequence: unusually quiet workshop, sudden enthusiasm, unexplained object, then an urgent call for me to investigate why it behaved strangely."},
+    {"line_index": 6, "speaker": "Patch", "text": "I do not always call urgently."},
+    {"line_index": 7, "speaker": "Rivet", "text": "No. Sometimes you call in the voice people use when they have already pressed the button."},
+    {"line_index": 8, "speaker": "Patch", "text": "Okay, maybe you have built a tiny predictive model of my bad decisions."},
+    {"line_index": 9, "speaker": "Rivet", "text": "Not a model. An observation. You are about to say the prototype only needs one quick test."},
+    {"line_index": 10, "speaker": "Patch", "text": "It only needs one quick—"},
+    {"line_index": 11, "speaker": "Rivet", "text": "Once is interesting. It is not enough to tell us whether it works."},
+    {"line_index": 12, "speaker": "Patch", "text": "Fine. We do it twice. Same setup, and we change one thing after that."},
+    {"line_index": 13, "speaker": "Rivet", "text": "That is unexpectedly sensible."},
+    {"line_index": 14, "speaker": "Patch", "text": "Don't get used to it. I have a reputation to maintain."},
+    {"line_index": 15, "speaker": "Rivet", "text": "I know. That is why I was waiting by the printer."}
+  ],
+
+  "memory_influence_analysis": {
+    "verdict": "clearest_character_dynamic_manifestation_yet",
+    "memory_body": "Rivet has learned to recognize Patch's excitement about a project as an early warning that Patch is about to start experimenting before the details are settled.",
+    "topic_alignment": "The operator_topic 'Patch realizes Rivet has started expecting him to make certain mistakes.' is essentially the memory's second-order form — Patch discovering the pattern the memory names. The topic and the memory are the SAME idea from two vantage points.",
+    "behavioral_manifestations": [
+      {"line": 0, "speaker": "Patch", "manifestation": "'Hold on. You were standing next to the 3D printer before I even said I had an idea.' — Patch NOTICES the pattern. This is the memory's dynamic surfaced as Patch's discovery rather than Rivet's stance."},
+      {"line": 1, "speaker": "Rivet", "manifestation": "'You walked in holding a prototype and smiling at it. I made a reasonable prediction.' — Rivet reifies the memory's 'has learned to recognize' verb into a named prediction."},
+      {"line": 3, "speaker": "Rivet", "manifestation": "'I expected you to start something before every detail was worked out. The printer was merely the nearest likely victim.' — near-verbatim paraphrase of the memory body, made concrete to this workshop."},
+      {"line": 5, "speaker": "Rivet", "manifestation": "'Long enough to recognize the sequence: unusually quiet workshop, sudden enthusiasm, unexplained object, then an urgent call for me to investigate why it behaved strangely.' — Rivet elaborates the memory's pattern into a specific multi-beat sequence. This reads like the memory has become a schema Rivet can enumerate."},
+      {"line": 7, "speaker": "Rivet", "manifestation": "'Sometimes you call in the voice people use when they have already pressed the button.' — a finer-grained observation than the memory alone contains; the memory has been elaborated into a repertoire."},
+      {"line": 8, "speaker": "Patch", "manifestation": "'Okay, maybe you have built a tiny predictive model of my bad decisions.' — Patch acknowledges the pattern. The memory is now something both characters see, not only Rivet's private stance."},
+      {"line": 9, "speaker": "Rivet", "manifestation": "'Not a model. An observation. You are about to say the prototype only needs one quick test.' — the callback in §4.28 (Rivet: 'It is based on observation.') now returns as an assertion; the memory's epistemic verb has become Rivet's stated epistemology."},
+      {"line": 10, "speaker": "Patch", "manifestation": "'It only needs one quick—' interrupted — Patch performs the predicted line while trying to deny it. Peak dynamic-influence beat."},
+      {"line": 15, "speaker": "Rivet", "manifestation": "'I know. That is why I was waiting by the printer.' — landing callback to the opening line 0. The whole scene has demonstrated the pattern the memory encodes and closed the loop."}
+    ],
+    "note": "The memory shapes the STRUCTURE of the scene — Patch's discovery, Rivet's enumeration, the interruption beat, the closing callback — not just a single reference. Both characters are now behaving from awareness of the pattern the memory names. Fourth manifestation channel: reciprocal pattern-awareness (both sides operating from the memory, not just Rivet)."
+  },
+
+  "causal_claim_scope": "top_k=1 retrieval + no explicit-callback framing in the prompt means we CANNOT prove the memory alone caused these lines. K2 chunks, Character Voice, identity fields, and the operator_topic ('Patch realizes Rivet has started expecting him to make certain mistakes.') all contribute. The topic itself is essentially the memory restated from Patch's vantage. Attribution to the memory-lane specifically is unprovable at this configuration. The relationship progression is real in the text; single-input attribution is not.",
+
+  "visual_beat_classification": [
+    {"moment": "line 0 — 'You were standing next to the 3D printer'", "class": "UNNECESSARY", "reasoning": "The image is invoked verbally to establish Rivet's prediction. Showing Rivet by the printer would spoil the discovery beat."},
+    {"moment": "line 5 — the enumerated sequence (quiet workshop → enthusiasm → unexplained object → urgent call)", "class": "UNNECESSARY", "reasoning": "The enumeration IS the beat; a montage would over-explain."},
+    {"moment": "line 10 — 'It only needs one quick—' interruption", "class": "UNNECESSARY", "reasoning": "The comedic weight lives in the audio interruption + Rivet's line 9 setup. A cutaway would erase the timing."},
+    {"moment": "line 15 — closing callback 'I know. That is why I was waiting by the printer.'", "class": "UNNECESSARY", "reasoning": "Landing lives entirely in Rivet's delivery + the callback structure. Visual would be redundant."}
+  ],
+
+  "operator_reaction": {
+    "chris_summary": "You are able to start seeing their personalities coming out.",
+    "framing": "First-class dogfood evidence of the persistent-past goal registering."
+  },
+
+  "no_new_promotion": {
+    "narrative_memory_rows_from_this_composition": 0,
+    "note": "No memory promoted from da341e85 as of this task. Chris's judgment: this Episode develops/demonstrates existing durable state (a34cc005) rather than establishing distinct new state. A new memory like 'Rivet can predict Patch's mistakes' would substantially duplicate a34cc005."
+  }
+}

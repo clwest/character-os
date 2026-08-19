@@ -852,6 +852,172 @@ Runtime posture unchanged:
 
 ---
 
+### §4.34 Observation #5 — Composition `da341e85` "Patch realizes Rivet has started expecting him to make certain mistakes"
+
+Rendered 2026-08-19 06:40Z. **First SESSION 268 render at the explicit ~10-memory threshold.** Fifth consecutive dogfood beat. Chris's operator reaction: *"You are able to start seeing their personalities coming out."*
+
+**Composition full ID:** `da341e85-5c93-4d83-ab38-58122e807e43`
+**Episode:** `7b4471cb-fc0b-4f24-a88c-5e3e5bda3bf9` — *"Patch realizes Rivet has started expecting him to make certain mistakes."*
+**Universe:** Patch' Workshop
+**Cast:** Patch + Rivet
+**operator_topic:** the Episode title verbatim.
+
+**Runtime evidence** (frozen at `docs/design/session_268_experiment_data/07_composition_da341e85_evidence.json`):
+
+- Model: GPT-5.6-terra, writing contract v4.
+- Synthesis: **1 attempt** — predicted 90.5 s (nearly exact against the 90 s target); no corrective needed.
+- Final asset: 85.3 s, 28.4 MB, mp4 (`afe63272-…`, role `composite_output`).
+- Verification: **verified**; 3 non-blocking sentence-initial `proper_noun` warnings ("Hold", "Also", "Sometimes").
+- Cost persisted: 320,100 micros ($0.32).
+- Knowledge chunks: 8.
+- **Provider dispatch:** 1 OpenAI + 16 Runway avatar-speech + 1 ffmpeg concat = 18 external ops.
+- **Pipeline shape: 16 × `generate_avatar_speech` + 1 × `concat_clips` = 17 steps.**
+- **Retrieved narrative memory (single, `top_k=1`):** `a34cc005-…` — the whole-cast *"Rivet has learned to recognize Patch's excitement about a project as an early warning…"* memory. **Third consecutive retrieval of this row** (Obs #3 helper, Obs #4 rules, Obs #5 prediction).
+- **Eligible pool at render time: exactly 10** — 8 whole-cast + 2 Rivet-only. Verified against live DB.
+
+### §4.35 Render-time state confirmation
+
+Verified against `render_dispatched_at=2026-08-19T06:36:22Z` predicate applied to `NarrativeMemory` rows in the Patch's Workshop Universe: **10 active memories** (8 whole-cast: `f25e53af`, `48746f69`, `eda32b58`, `a34cc005`, `d98962e2`, `87d4e553`, `6b5222b1`, `42acc26d`; 2 Rivet-only: `cd73d52f`, `c86d4902`). Delta from Observation #4 render-time (9): the rules-memory `42acc26d` created 06:25:58Z was available at 06:36:22Z render, growing the pool to 10 for this render's retrieval. Matches the operator observation exactly.
+
+### §4.36 Memory-use classification: **reciprocal pattern-awareness** — clearest character-dynamic manifestation yet
+
+The retrieved memory (`a34cc005`) is essentially the semantic mirror of the Episode topic. The topic *"Patch realizes Rivet has started expecting him to make certain mistakes"* is the memory (*"Rivet has learned to recognize Patch's excitement…"*) restated from Patch's vantage. Retrieval landing on this row is a strong hit.
+
+The scene's dramatic structure IS the memory's dynamic, played out reciprocally:
+
+- **Patch discovers the pattern.** Line 0: *"Hold on. You were standing next to the 3D printer before I even said I had an idea."* This is Patch noticing that Rivet's prior expectation has become predictable behavior.
+- **Rivet names the prediction.** Line 1: *"You walked in holding a prototype and smiling at it. I made a reasonable prediction."* — memory's *"has learned to recognize"* verb reified.
+- **Rivet paraphrases the memory.** Line 3: *"I expected you to start something before every detail was worked out."* — near-verbatim of the memory body.
+- **Rivet elaborates the memory into a schema.** Line 5: *"Long enough to recognize the sequence: unusually quiet workshop, sudden enthusiasm, unexplained object, then an urgent call for me to investigate why it behaved strangely."* The memory has become a multi-beat schema Rivet can enumerate.
+- **Rivet extends the schema with a finer observation.** Line 7: *"Sometimes you call in the voice people use when they have already pressed the button."*
+- **Patch acknowledges the pattern.** Line 8: *"maybe you have built a tiny predictive model of my bad decisions."* — the memory is now something BOTH characters see, not only Rivet's private stance.
+- **Rivet asserts the epistemology.** Line 9: *"Not a model. An observation. You are about to say the prototype only needs one quick test."* — the callback to §4.28's *"It is based on observation"* returns as a stated method.
+- **Patch performs the predicted line while trying to deny it.** Line 10: *"It only needs one quick—"* interrupted by Rivet's line 11. Peak dynamic-influence beat.
+- **Landing callback.** Lines 14-15: *"Don't get used to it. I have a reputation to maintain."* / *"I know. That is why I was waiting by the printer."* — closes the loop back to line 0.
+
+This is a distinct fourth manifestation channel: **reciprocal pattern-awareness** (both sides operating from the memory, not only the observer). Distinct from Obs #1 (background continuity), Obs #2 (silent presence), Obs #3-#4 (character-dynamic influence from one side / Rivet's stance).
+
+**Causal-claim scope (unchanged from §4.29):** at `top_k=1` with no explicit-callback framing in the prompt, we cannot prove the memory alone caused these lines. The operator_topic is essentially the memory restated; K2 chunks, Character Voice, and identity fields all contribute. **Do not overclaim.** The reciprocal pattern-awareness is real in the text; single-input attribution is unprovable.
+
+### §4.37 `top_k=1` at pool = 10 — provisional observation
+
+Applying the SESSION 268 §C bounded-language framing:
+
+- **Was the selected memory contextually defensible?** Yes. The topic is the memory restated; retrieval landed on the semantically obvious row.
+- **Did the scene feel hijacked?** No. The memory shaped the structure; the scene remained about the dynamic and its comedic beats, not a memory-recital.
+- **Did any semantic bleed appear?** No. No off-topic content surfaced; no earlier whole-cast memory was inappropriately mixed in.
+- **Did the newest memories displace a better older memory?** No. `42acc26d` (rules) was newest but not selected; `a34cc005` (older, closer neighbour) won on cosine distance. Recency did not warp selection.
+- **Did automatic `top_k=1` still feel invisible/helpful to the operator?** Yes. Chris did not want continuity control during this render.
+
+**Bounded interpretation:** one successful render at pool = 10 does NOT prove `top_k=1` scales indefinitely. It extends the current evidence from pool sizes 7-9 (Obs #1-#4) to pool size 10 (Obs #5). Five consecutive contextually defensible retrievals across pool sizes {7, 8, 8, 9, 10}. **Do not change `top_k`.**
+
+### §4.38 Promotion disposition — no new memory; principle observed
+
+**No new memory promoted from `da341e85`.** DB verification: 0 rows with `source_composition=da341e85` in `NarrativeMemory`. Chris's judgment matches: the Episode develops / demonstrates existing durable state (`a34cc005`) rather than establishing distinct new state. A candidate like *"Rivet can predict Patch's mistakes"* would substantially duplicate `a34cc005`.
+
+**Promotion principle observed (do NOT ratify as architecture):**
+
+> A good Episode does not require a new memory merely because it develops the relationship. Some Episodes successfully EXPRESS existing durable state rather than creating new durable state.
+
+Compare across the five SESSION 268 renders:
+
+| Episode | Establishes new durable state? | Promoted? | Note |
+|---|---|---|---|
+| Obs #1 mascot | yes | yes (Chris) | `87d4e553` durable decision |
+| Obs #2 box | no (hook) | no | story hook ≠ durable memory |
+| Obs #3 helper | yes | yes (Chris) | `6b5222b1` artifact + demonstrated behaviour |
+| Obs #4 rules | yes | yes (Chris) | `42acc26d` decision + methodology adoption |
+| **Obs #5 prediction** | **no (deepens existing state)** | **no** | **expresses `a34cc005` rather than adding new state** |
+
+Two out of five Episodes did not warrant promotion — one because state was unresolved (hook), one because state already existed and was merely developed. Both non-promotions were operator-judged; no UI affordance for either case.
+
+### §4.39 Visual-beat classification: **UNNECESSARY** — four-Episode hypothesis check
+
+Per-moment classification for the prediction scene:
+
+| Moment | Class | Reasoning |
+|---|---|---|
+| Line 0 — Rivet standing near the 3D printer | **UNNECESSARY** | Invoked verbally to establish Rivet's prediction. Showing Rivet by the printer would spoil the discovery beat. |
+| Line 5 — enumerated sequence (quiet workshop → enthusiasm → object → urgent call) | **UNNECESSARY** | The enumeration IS the beat; a montage would over-explain. |
+| Line 10 — *"It only needs one quick—"* interruption | **UNNECESSARY** | Comedic weight lives in the audio interruption + Rivet's line 9 setup. Cutaway would erase the timing. |
+| Line 15 — closing callback *"That is why I was waiting by the printer."* | **UNNECESSARY** | Landing lives in Rivet's delivery + the callback structure. Visual would be redundant. |
+
+**Four-Episode visual-beat spectrum (updated):**
+
+| Episode | Physical props | Class | Where the meaning lives |
+|---|---|---|---|
+| **Box `6e3ed367`** | unopened box, Patch's body between Rivet and box | **REQUIRED** | Outside talking heads |
+| **Helper `464128b1`** | covered device, blinking light | **ENHANCING** | Inside talking heads (quoted messages + character dynamic) |
+| **Rules `05d3612c`** | 3D printer, whiteboard, magnets | **UNNECESSARY** | Inside talking heads (voice + comedy) |
+| **Prediction `da341e85`** | 3D printer, prototype | **UNNECESSARY** | Inside talking heads (reciprocal pattern-awareness beats) |
+
+**Hypothesis status (still provisional):** four data points — 1 REQUIRED, 1 ENHANCING, 2 UNNECESSARY. All four fit *"Dialogue scenes need visual beats when the meaning lives outside the talking heads."* The naïve *"physically-grounded dialogue needs visual beats"* framing would have predicted three false positives (helper, rules, prediction). The refined framing correctly predicts all four. **Do not ratify as architecture. Do not implement a visual planner.**
+
+### §4.40 Persistent-personality observation — character definition vs character history
+
+Chris's operator reaction — *"You are able to start seeing their personalities coming out."* — is first-class dogfood evidence for the persistent-past goal.
+
+A distinction worth naming (do NOT invent a `Relationship` model or story-thread architecture from it):
+
+- **Character definition** — what Patch and Rivet ARE, as described in Character Voice + identity fields + K2. Static across scenes; the same substrate every render sees.
+- **Character history** — how repeated past interactions are beginning to affect what they EXPECT from each other. Emergent across scenes; visible when a scene references or performs a pattern that only makes sense in light of prior beats.
+
+Textual signals of character history in this Episode:
+
+- Line 3: *"The printer was merely the nearest likely victim."* — implies "victim" is a category that repeats.
+- Line 5: *"Long enough to recognize the sequence"* — makes duration explicit; Rivet has been observing over time.
+- Line 8: *"maybe you have built a tiny predictive model of my bad decisions"* — Patch attributes a cumulative model to Rivet; requires accumulated history.
+- Line 9: *"Not a model. An observation."* — Rivet corrects the framing; observational stance is stated as continuous, not point-in-time.
+- Line 15: *"I know. That is why I was waiting by the printer."* — closes the loop by referring to the pattern the whole scene demonstrated.
+
+None of these require an architectural change to surface. They emerged from: (a) memory `a34cc005` being available in the retrieval pool; (b) Character Voice + identity fields defining WHO Patch and Rivet are; (c) the topic being close to the memory's semantic content; (d) the writer weaving the emergent pattern into the scene structure.
+
+**Documented as observed emergence. Not designed. Not ratified. Not the trigger for a new schema.**
+
+### §4.41 Session-history checkpoint (retroactive record)
+
+The SESSION 268 durable doc did not record intermediate commit SHAs. Adding them here so the chronology survives review:
+
+- **SESSION open:** `c284285` — *"docs: SESSION 267 close-out — witness UI relabel + SESSION 268 handoff"* (previous session's close-out). The `§1.3` audit snapshot was taken against this HEAD, before any Observation #1-#5 renders. Live DB had 7 active memories at that time.
+- **SESSION 268 commit 1:** `8f76f0b` — *"docs(session-268): three-Episode dogfood + visual-storytelling audit + chronology correction"*. First three Observations + Continuity UI audit + media capability inventory + helper-promotion chronology correction (§4.25). Parent: `c284285`.
+- **SESSION 268 commit 2:** `51cf73f` — *"docs(session-268): Observation #4 (rules) + crossing ~10-memory threshold"*. Rules Episode + rules-promotion verification (§4.27). Parent: `8f76f0b`.
+- **SESSION 268 commit 3 (this commit):** Observation #5 (prediction Episode) + §4.34-§4.43. Parent: `51cf73f`.
+
+The §1.3 snapshot describes the SESSION-open state (7 memories); mid-session drift is captured in the corresponding Observation sections + verification sidecars (§4.6 mascot +1 to 8, §4.25 helper +1 to 9, §4.27 rules +1 to 10, §4.34 prediction render at 10 with no promotion). This checkpoint list is retroactive; commit SHAs before this pass were reported by Chris from the terminal.
+
+### §4.42 Implementation disposition (Observation #5)
+
+**No implementation.** No new primitive, no recipe change, no `dialogue_scene` modification, no prompt / retrieval / witness / `top_k` / schema change, no memory promoted, no visual assets generated, no Episode created.
+
+Runtime posture unchanged:
+
+- Live NarrativeMemory count: **10** (8 whole-cast + 2 Rivet-only). Unchanged by this task; no promotion.
+- `top_k` remains 1.
+- Retrieval predicate, synthesis prompt, availability UI — unchanged.
+- No source-code file modified during this task; documentation and evidence sidecars only.
+
+### §4.43 Five-Episode SESSION 268 synthesis — updated from §4.32
+
+What five Episodes collectively support:
+
+1. **Availability-condition UI works** across five real renders.
+2. **`top_k=1` selection is contextually appropriate at pool sizes 7-10** — five consecutive defensible retrievals across pool sizes {7, 8, 8, 9, 10}. No hijack. No off-topic surprise. No semantic bleed at ≤10.
+3. **Memory manifests through at least four distinct channels** — background continuity (Obs #1), silent presence (Obs #2), one-sided character-dynamic influence (Obs #3, #4), **reciprocal pattern-awareness (Obs #5)**.
+4. **Private-memory retrieval does not automatically leak** — five natural non-adversarial trials all consistent with SESSION 267 §14 Attempts 2/3 pattern.
+5. **The story-hook vs durable-state distinction is operator-navigable** — three promoted (mascot, helper, rules), two non-promoted (box = hook, prediction = deepens existing state).
+6. **The refined visual-beat hypothesis holds across four data points** — REQUIRED / ENHANCING / UNNECESSARY / UNNECESSARY, correctly predicted by *"meaning outside talking heads"* framing.
+7. **Character/relationship progression is legible and the operator perceives it** — Chris's Obs #5 reaction is first-class dogfood evidence of the persistent-past goal.
+8. **Distinct notion of character HISTORY (vs. character DEFINITION) is emerging in the text** — five Episodes accumulated enough shared past that scenes can reference and perform patterns only meaningful in light of prior beats.
+
+What we still do NOT know (updated):
+
+1. Whether witness attribution is architecturally unnecessary. Five natural non-leakages does not falsify Semantic 1.
+2. Whether `top_k=1` remains right at pool sizes materially larger than 10. Pool 10 tested once.
+3. Whether the refined visual-beat hypothesis is the correct planning frame beyond four data points.
+4. Whether character-dynamic influence generalizes across memory kinds beyond `event/peripheral`. All 10 current memories are `event/peripheral`.
+5. Whether any promote-UI change is warranted for the hook-vs-durable OR the express-not-establish cases. Operator judgment continues to carry it.
+6. Whether memory recurrence at `top_k=1` (Obs #3/#4/#5 all selected `a34cc005`) will remain topically defensible when the operator explores different Episode subjects; three consecutive selections came from three topics that all sit near it in semantic space.
+
 ## §5 — Runtime evidence sidecars
 
 *(To be created under `docs/design/session_268_experiment_data/`
