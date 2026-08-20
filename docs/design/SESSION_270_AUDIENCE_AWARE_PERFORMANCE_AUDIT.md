@@ -864,3 +864,107 @@ Recorded immediately after grading + interpretation. Restores the local-real sta
 
 **End of SESSION 270 first-experiment cycle.** All ten criteria PASS. NarrativeMemory pool unchanged (§13.15.4 recommends NOT PROMOTING). Experiment window deactivated. Chris decides whether to authorise Q-270-8 (demographic-vs-expertise) or Q-270-9 (directive minimalism) — or neither — as the next research move. Do NOT proceed to a second experiment without Chris's authorisation.
 
+---
+
+## §13.18 Q-270-9 — DIRECTIVE MINIMALISM (activation record)
+
+Authorised by Chris + ChatGPT after the first experiment's 10/10 PASS. Second and final SESSION 270 audience-conditioned experiment. Falsifiable pre-question restated verbatim from the authorisation brief:
+
+> *Can the existing Character OS writing machinery produce the same identity-preserving audience adaptation when given ONLY a minimal audience identity signal?*
+
+### §13.18.1 Experimental design (delta vs Experiment 1)
+
+Only ONE variable changes between the verbose child-directive Composition (`f0e0a7bf`) and the Q-270-9 render: the audience hint string.
+
+- Verbose (`f0e0a7bf`): 372-char CHANGE/PRESERVE contract.
+- **Minimal (Q-270-9): `AUDIENCE: children around 8-10 years old.` — 41 chars.**
+
+Every other control the first experiment held identical (Episode row `2b6087d2`, Patch spokesperson, Universe *"Patch' Workshop"*, cast=[Patch], template_kind `talking_head` → `solo_scene`, target 90 s, use_knowledge on, opener blank, verifier warn, writing contract v5) is preserved by construction: Chris uses the same SPA action described in §13.14 on the same Episode. Retrieval symmetry (knowledge chunks + `NarrativeMemory` top_k=1) is **NOT assumed** and will be re-verified from persisted state after the render.
+
+No source change is required — the SESSION 270 §13 audience-hint plumbing already accepts any string via the env-var fallback. This is an experimental-input change, not an implementation slice.
+
+### §13.18.2 Pre-activation clean state (baseline for the activation delta)
+
+- Working tree at start: clean. Local `main == origin/main == f34bdbe`.
+- Prior worker PID **61374** (Experiment 1 deactivation worker, per §13.16) was still running with **0 env-var hits** (verified via `ps eww`). This is the correct starting shape — the local-real stack was already in normal default behaviour, so the Q-270-9 activation delta is unambiguous.
+- Post-Experiment-1 NarrativeMemory pool unchanged: 14 active + 1 archived (verified at §13.9 grading pass).
+
+### §13.18.3 Activation actions (2026-08-19 21:04 local)
+
+- `pkill -f "celery -A character_os worker"` — worker 61374 killed cleanly (0 workers alive after).
+- Parent shell: `unset` prior env (already unset per §13.16), then `set -a && source .env && set +a` for the DB creds, then:
+  ```bash
+  export CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT='AUDIENCE: children around 8-10 years old.'
+  ```
+  - Parent shell env char count: **41** (confirmed via `printf '%s' "$..." | wc -c`).
+  - Parent shell env value: `[AUDIENCE: children around 8-10 years old.]`.
+  - Hex head: `4155 4449 454e 4345 3a20 6368 696c 6472` → `AUDIENCE: childr` — no leading zero-width chars, no smart-quotes, no encoding surprises.
+- Relaunched Celery via the canonical `start-local-real.sh` invocation:
+  ```bash
+  (cd shell && nohup ../.venv/bin/celery -A character_os worker --loglevel=info --concurrency=2 > /tmp/character-os-celery.log 2>&1 & echo "$!" > /tmp/character-os-celery.pid)
+  ```
+- New worker PID: **62207**. Boot timestamp from `/tmp/character-os-celery.log`: `[2026-08-20 03:04:08,683: INFO/MainProcess] celery@Chriss-MacBook-Pro.local ready.`
+
+### §13.18.4 Definitive activation-validity proofs (all four must hold — all four do)
+
+1. **Worker alive + control-plane responsive.** `celery -A character_os inspect ping --timeout 5` → `celery@Chriss-MacBook-Pro.local: OK / pong / 1 node online.`
+2. **Env var present in worker's process environment, exactly once, byte-identical to the minimal directive.**
+   - `ps eww $NEW_PID | grep -c "CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT="` → **1**.
+   - Regex recovery over the same `ps eww` output:
+     - `recovered_chars = 41` (matches parent-shell length exactly).
+     - `value_repr = 'AUDIENCE: children around 8-10 years old.'`.
+     - `matches_minimal = True` (byte-for-byte equal to the intended Q-270-9 directive; distinct from the 372-char Experiment-1 directive that was in worker PID 59393).
+3. **Worker is running the SESSION 270 implementation.** `manage.py shell` under the same `.venv/bin/python` the worker uses:
+   - `build_render_brief.audience_hint: True`
+   - `duration_gate.audience_hint: True`
+   - `assemble.audience_hint: True`
+   - `resolver env symbol: CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT`
+   - Note: the `manage.py shell` was invoked in a *separate* subshell that did not inherit the parent's export (its `env var visible to interpreter: <absent>` output is expected — that isolation is what makes point 2 above load-bearing). The worker's own env is what will be observable at render time via the activation log line.
+4. **Rest of local-real stack healthy:**
+
+    | Service | Probe | Status |
+    |---|---|---|
+    | Django | `curl http://localhost:8010/admin/` | `http=302` (login redirect — healthy) |
+    | media-engine | `curl http://localhost:8001/health` | `{"status":"ok",...,"any_mock":false,"llm_provider":"openai","llm_model":"gpt-4o-mini"}` (real-mode; **no provider mocks**) |
+    | Vite (SPA) | `curl http://localhost:5174/` | `http=200` |
+    | Celery worker | `celery -A character_os inspect ping` | `pong / 1 node online` |
+
+**Expected activation log line at render time** (must appear once per Q-270-9 render in `/tmp/character-os-celery.log`):
+
+```
+avatar_speech: SESSION 270 audience-hint experiment ACTIVE composition=<UUID> spokesperson=7fad8172-... hint_chars=41 — this is transient research plumbing; unset the setting/env or clear step.params['audience_hint'] to restore default behaviour
+```
+
+**`hint_chars=41`** is the load-bearing validity fingerprint. If Chris's render yields a log line with `hint_chars=372`, the render inherited the Experiment-1 directive from stale env (would indicate a shell-env leak) and MUST be treated as invalid.
+
+### §13.18.5 Persisted state untouched during activation
+
+Zero writes to `Episode`, `Composition`, `NarrativeMemory`, `Teammate`, `Universe`, `Workspace`, `KnowledgeChunk`, `KnowledgeDocument`, `EpisodeCast`, `Asset`. No migration. Working tree state during activation: this SESSION 270 doc edit only (Q-270-9 §13.18 activation record).
+
+### §13.18.6 Chris's single dogfood action
+
+In the SPA on Universe *"Patch' Workshop"*, on the same Episode used for Experiments 0 and 1 (*"Patch does research on AI Agents"*, Episode row `2b6087d2`):
+
+1. Click **New solo scene** on Episode detail (cast is already Patch-only).
+2. Recipe form: `Target duration = 90 s`, `Use workspace knowledge = on`, `Opener = blank`, `Fact-check mode = warn`.
+3. Click render.
+
+Do NOT modify or coach the generated script. Whatever Character OS produces is the specimen.
+
+After the render finishes, hand back the new Composition ID. Phase 2 (evidence freeze + three-way comparison + ten-criterion grading + minimalism verdict + cleanup) begins from there.
+
+### §13.18.7 Q-270-9 evidence + grading placeholders
+
+Populated in Phase 2 after Chris returns the Composition ID. Placeholders reserved so the section shape is stable across the freeze/grade pass.
+
+- **Composition:** `<PENDING>`
+- **Evidence sidecar:** `docs/design/session_270_experiment_data/02_composition_<short>_evidence.json` (to be created).
+- **Three-way comparison harness:** `<PENDING>`.
+- **Ten-criterion grading:** `<PENDING>`.
+- **Verbose-vs-minimal analysis:** `<PENDING>`.
+- **Stochasticity interpretation:** `<PENDING>`.
+- **NarrativeMemory recommendation:** `<PENDING>`.
+- **Q-270-9 verdict (Outcome A/B/C/D):** `<PENDING>`.
+- **What this does / does NOT prove:** `<PENDING>`.
+- **Deactivation record:** `<PENDING>`.
+
