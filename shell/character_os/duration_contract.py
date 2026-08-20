@@ -430,6 +430,7 @@ def synthesize_with_duration_gate(
     mock_mode: bool = False,
     memory_rows: "Sequence[NarrativeMemory] | None" = None,
     target_shape: str = "long_form",
+    audience_hint: str | None = None,
 ) -> ScriptResult:
     """Duration-driven K6 synthesis with acceptance gate.
 
@@ -453,6 +454,14 @@ def synthesize_with_duration_gate(
         mock_mode: skip corrective retry in mock mode
             (deterministic mock brief won't converge on a
             specific duration).
+        audience_hint: SESSION 270 — optional transient research
+            directive forwarded verbatim to
+            :func:`build_render_brief`. Emitted as a §5 Task HARD
+            CONSTRAINT when non-empty; ``None`` leaves the prompt
+            byte-stable versus pre-SESSION-270 behaviour. Both
+            first-pass and corrective retry receive the same
+            directive so the audience contract is stable across
+            attempts.
 
     Returns:
         ``ScriptResult`` on success.
@@ -530,6 +539,7 @@ def synthesize_with_duration_gate(
             max_script_chars=max_script_chars,
             corrective_hint=hint,
             memory_rows=memory_rows,
+            audience_hint=audience_hint,
         )
 
     synth = _synthesize()

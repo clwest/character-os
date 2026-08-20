@@ -405,4 +405,228 @@ This document is the SESSION 270 opening audit. Implementation is gated on opera
 
 ---
 
-**End of SESSION 270 opening audit.** Return to operator with the concise §Final Report before proceeding.
+## §13. Implementation checkpoint — solo-only `audience_hint` research plumbing
+
+**Status:** authorised by operator + ChatGPT review after §Final Report of §1-§12. Shipped as transient research plumbing per the constraints of the SESSION 270 authorisation brief. No permanent audience architecture introduced.
+
+### §13.1 What shipped
+
+Optional `audience_hint: str | None = None` kwarg threaded through the solo lane:
+
+```
+step.params["audience_hint"]                              (surface)
+    ↓
+_resolve_solo_audience_hint(step)                         (primitive gate)
+    ↓  (only when composition.episode_id AND template_kind == "talking_head")
+avatar_speech._maybe_synthesize_script                    (solo-only guard)
+    ↓
+synthesize_with_duration_gate(..., audience_hint=...)      (duration path)
+    ↓                                                    OR
+build_render_brief(..., audience_hint=...)                (non-duration path)
+    ↓
+_call_responses_api(..., audience_hint=...)
+    ↓
+_assemble_task_message(..., audience_hint=...)
+    ↓
+§5 Task HARD CONSTRAINTS → new AUDIENCE DIRECTIVE block
+```
+
+Every legacy caller stays byte-stable: `standalone` talking_head, `long_form_ad`, `dialogue_scene` — all untouched. `dialogue_synthesis` deliberately did not gain the kwarg (§13.5 test proves this).
+
+### §13.2 Files changed (source)
+
+- `shell/character_os/script_synthesis.py` — added `audience_hint` kwarg to `build_render_brief`, `_call_responses_api`, `_assemble_task_message`. When non-empty, emitted as a fourth Hard Constraint block labelled `AUDIENCE DIRECTIVE (research plumbing — apply as a performance instruction; adapt HOW the character communicates without altering identity, intelligence, personality, humor, factual grounding, Universe canon, NarrativeMemory semantics, or Episode intent)`.
+- `shell/character_os/duration_contract.py` — added `audience_hint` kwarg to `synthesize_with_duration_gate`; forwarded to `build_render_brief` on both first-pass and corrective-retry call sites via the `_synthesize` closure so the audience contract is stable across attempts.
+- `shell/apps/compositions/primitives/avatar_speech.py` — added `_resolve_solo_audience_hint(step)` (precedence step.params → `settings.CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT` → `os.environ["CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT"]`; whitespace-only treated as absent). Gated on `is_episode_talking_head` (solo-only). Logs once per render at INFO when active. Passes through to `synthesize_with_duration_gate` and `build_render_brief` on both paths.
+
+### §13.3 Files added (tests)
+
+- `shell/apps/compositions/tests/test_session270_audience_hint.py` — 17 tests across seven contract groups:
+  1. Absent-hint byte-stability (baseline `_assemble_task_message`; explicit `None`; whitespace).
+  2. Non-empty hint reaches §5 Hard Constraints (marker + ordering + text present).
+  3. Hint inherits the §5 Hard-Constraint precedence contract (assertion on the framing text: *"override Character Voice and Writing Contract preferences; do NOT override Factual Basis or Brand Voice prohibitions"*).
+  4. Hint coexists with `opener` + `corrective_hint` without corruption.
+  5. Hint does not leak into §1 Factual Basis, §2 Character Voice, §3 Brand Voice, or the narrative-memory block (end-to-end via `build_render_brief` with the OpenAI call captured — asserts the directive marker + fingerprint substrings appear ONLY after the §5 header).
+  6. `WRITING_CONTRACT_VERSION` unchanged (still 5).
+  7. Primitive-layer resolver precedence: absent-all → `None`; whitespace-only → `None`; step.params > settings > env; env-only used when step.params + settings absent.
+  8. `dialogue_synthesis` remains untouched — no `audience_hint` kwarg, no `AUDIENCE DIRECTIVE` marker in module source, `_build_task_section` output verified to contain no directive.
+  9. Public API surface: both `build_render_brief` and `synthesize_with_duration_gate` expose `audience_hint` as a keyword-only parameter with `default=None`.
+
+### §13.4 Test results
+
+- **New suite (`test_session270_audience_hint.py`):** 17 passed / 17.
+- **Related regression suites — 109 passed / 109:**
+  - `test_session253_character_voice_prompt.py`
+  - `test_session259_corrective_duration_hint.py`
+  - `test_session259_slice_b_avoid_phrases.py`
+  - `test_session259_writing_contract_v4.py`
+  - `test_primitive_avatar_speech.py`
+  - `test_session270_audience_hint.py`
+- **Broader synthesis + composition regression — 1209 passed / 1209:** entire `apps/compositions/tests/`, `apps/scripts/tests/test_synthesis.py`, `apps/videos/tests/test_script_synthesis.py`.
+- **Spokespeople + scripts + universe regression — 204 passed / 204:** entire `apps/spokespeople/`, `apps/scripts/`, `apps/universe/`.
+- **Cumulative:** 1413 tests pass, zero regressions. No skipped tests introduced by this slice.
+
+### §13.5 Defaults preserved — confirmations
+
+- `_assemble_task_message()` called with no `audience_hint` kwarg == called with `audience_hint=None` (asserted byte-identical in `test_assemble_task_message_explicit_none_matches_omission`).
+- Whitespace-only strings (`""`, `"   "`, `"\n\t  \n"`) produce the same bytes as an absent hint (`test_assemble_task_message_whitespace_only_hint_ignored`).
+- Non-solo lanes (standalone / long_form / long_form_ad / dialogue_scene) receive `None` unconditionally — the primitive gate is `_resolve_solo_audience_hint(step) if is_episode_talking_head else None`.
+- `WRITING_CONTRACT_VERSION` still `5`.
+
+### §13.6 No permanent architecture introduced — confirmations
+
+- No database migration (no `manage.py makemigrations` invocation; grep across `shell/apps/*/migrations/` shows no new file).
+- No `Universe` / `Episode` / `Composition` / `Teammate` model field.
+- No `RecipeField` on any recipe.
+- No SPA control (`web/` untouched).
+- No new serializer / API endpoint.
+- No `Audience` model / enum / taxonomy.
+- No demographic-vs-expertise dimension (`_resolve_solo_audience_hint` returns a plain string; no schema).
+- No Writing-Contract version bump.
+- No `dialogue_scene` audience plumbing.
+- No change to `who_you_help` or `desired_feeling` semantics or prompt labels.
+
+The `CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT` name is deliberate — `_EXPERIMENT` suffix advertises transience so the resolver + kwarg can be removed cleanly once SESSION 270's first Composition is graded.
+
+### §13.7 Celery restart verification
+
+- Killed running worker (PID 36295, boot 11:38 AM 2026-08-19) with `pkill -f "celery -A character_os worker"`.
+- Relaunched via canonical `start-local-real.sh` invocation:
+  ```
+  cd shell
+  nohup ../.venv/bin/celery -A character_os worker \
+      --loglevel=info --concurrency=2 \
+      > /tmp/character-os-celery.log 2>&1 &
+  ```
+- New PID **58724**, boot timestamp **2026-08-20 02:03:45** (post source edits, per `/tmp/character-os-celery.log:2`).
+- Control-plane liveness: `celery -A character_os inspect ping` → `celery@Chriss-MacBook-Pro.local: OK / pong / 1 node online.` at 02:03:46+.
+- Task registration confirmed via `celery -A character_os inspect registered` — `apps.compositions.tasks.execute_composition` present (2 mentions across worker registry surfaces).
+- Symbol-import proof via `manage.py shell` under the same Python interpreter path the worker uses:
+  ```
+  build_render_brief has audience_hint: True
+  duration_gate has audience_hint: True
+  _assemble_task_message has audience_hint: True
+  resolver env symbol: CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT
+  resolver setting symbol: CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT
+  ```
+  The worker (same `.venv/bin/celery` → same `.venv/bin/python`) resolved the `avatar_speech` primitive import at boot without error, which requires successful import of the `_SOLO_AUDIENCE_HINT_ENV` / `_SOLO_AUDIENCE_HINT_SETTING` constants and the `_resolve_solo_audience_hint` helper. Any missing symbol would have crashed the worker before it reached `ready.`
+
+### §13.8 Dogfood instructions for Chris (real-mode)
+
+**Prerequisites (already met at time of writing this section):**
+
+- Working tree clean; `main` at the SESSION 270 implementation commit.
+- Celery worker running the new code (see §13.7).
+- Django + media-engine + web (Vite) all up under the canonical `start-local-real.sh` stack.
+- Patch teammate exists in Universe *"Patch' Workshop"* (`spokesperson_id = 7fad8172-cd39-4bbe-85e0-ed705d900645`, `universe_id = 56d16b63-652e-4f54-bc7e-39114bbfc4c5`).
+- Episode topic `"Patch does research on AI Agents"` exists (baseline Composition `2ef5ee7e`).
+
+**Minimal Chris action to produce the one experimental Composition:**
+
+1. **Set the experimental env var and restart Celery so the worker's env carries it.** In a shell that will re-launch Celery:
+
+   ```bash
+   pkill -f "celery -A character_os worker"
+   cd /Users/donkeyking/Donkey_Betz/character-os
+   set -a && source .env && set +a
+   export CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT='AUDIENCE: children around 8-10 years old. Adapt register, vocabulary accessibility, explanation style, analogy choice, and assumed background knowledge for this audience. Preserve character identity, intelligence, personality, humor, factual grounding, Universe canon, NarrativeMemory semantics, and Episode intent. Communicate WITH the audience, do not talk DOWN to them.'
+   (cd shell && nohup ../.venv/bin/celery -A character_os worker --loglevel=info --concurrency=2 > /tmp/character-os-celery.log 2>&1 & echo "$!" > /tmp/character-os-celery.pid)
+   sleep 6
+   (cd shell && ../.venv/bin/celery -A character_os inspect ping --timeout 5) | grep pong
+   ```
+
+   Result: the worker is now running with the audience-hint env var set. Every solo Episode-attached `talking_head` render dispatched to this worker will pick the hint up until the env var is cleared and the worker restarted again. `standalone` and `long_form_ad` and `dialogue_scene` renders remain byte-stable regardless.
+
+2. **In the SPA (existing UI, no new controls), on the Universe *"Patch' Workshop"*:**
+   - Either reuse the existing Episode *"Patch does research on AI Agents"* OR create a new Episode with the identical `title` and `operator_topic` (identical strings — the baseline comparison is tight against `2ef5ee7e`).
+   - Cast: Patch only (single-character Episode).
+   - Click **New solo scene** on the Episode detail.
+   - On the recipe form: keep `Target duration = 90 s`, `Use workspace knowledge = on` (matches `2ef5ee7e`), leave `Opener` blank, `Fact-check mode = warn` (matches baseline).
+   - Click render.
+
+3. **After the render completes,** confirm the new Composition ID and freeze it as the audience-conditioned counterpart of `2ef5ee7e`. Copy that ID into §13.10 below (currently `<PENDING>`).
+
+4. **Unset the env var and restart Celery** so subsequent renders return to default behaviour:
+
+   ```bash
+   pkill -f "celery -A character_os worker"
+   unset CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT
+   cd /Users/donkeyking/Donkey_Betz/character-os
+   set -a && source .env && set +a
+   (cd shell && nohup ../.venv/bin/celery -A character_os worker --loglevel=info --concurrency=2 > /tmp/character-os-celery.log 2>&1 & echo "$!" > /tmp/character-os-celery.pid)
+   ```
+
+**Observable during the render (proof the experiment fired):**
+
+`/tmp/character-os-celery.log` will contain a line matching:
+
+```
+avatar_speech: SESSION 270 audience-hint experiment ACTIVE composition=<UUID> spokesperson=7fad8172-... hint_chars=<N> — this is transient research plumbing; unset the setting/env or clear step.params['audience_hint'] to restore default behaviour
+```
+
+Absence of that line means the hint did NOT reach the worker's synthesis path — the render is a baseline-shape, not an audience-conditioned experiment.
+
+### §13.9 Paired-comparison harness (populate when Composition renders)
+
+| Field | Baseline (adult/general) | Experiment (children ~8-10) |
+|---|---|---|
+| Composition ID | `2ef5ee7e-7a55-4083-a587-1b5799bbaa47` | `<PENDING>` |
+| Composition name | `Talking-head — Patch` | `<PENDING>` |
+| Universe | `56d16b63-...` "Patch' Workshop" | (same — required) |
+| Spokesperson | `7fad8172-...` Patch | (same — required) |
+| Episode title | *"Patch does research on AI Agents"* | (same — required) |
+| Episode operator_topic | *"Patch does research on AI Agents"* | (same — required) |
+| Cast | [Patch] | (same — required) |
+| Target duration | 90 s | 90 s (recommended — matches baseline) |
+| Predicted seconds | 108 s | `<PENDING>` |
+| Actual seconds (final asset) | see 06 sidecar | `<PENDING>` |
+| `writing_contract_version` | 5 | 5 (must remain 5 — §13.6) |
+| `knowledge_chunk_ids` | 5 chunks (see 06 sidecar) | `<PENDING>` |
+| `memory_ids` | `[8d4fdfec-...]` | `<PENDING>` (top_k=1 retrieval may or may not match; retrieval-symmetry not gated by this slice) |
+| `verification_status` | `verified` | `<PENDING>` |
+| `verification_warnings` count | 1 | `<PENDING>` |
+| Cost (`cost_actual_micros`) | 20 000 | `<PENDING>` |
+| audience-hint log line present | N/A | `<PENDING>` (must be YES for a valid experiment) |
+| First 1-2 sentences of accepted script | *"I'm researching AI agents, and the annoying part is that the word 'agent' makes everything sound more finished than it is."* | `<PENDING>` |
+
+### §13.10 Ten-criterion grading table (populate when Composition renders)
+
+Grade against `2ef5ee7e` per §8.4. **Do NOT reduce misses to a single FAIL — classify each miss.**
+
+| # | Criterion | Result (PASS / FAIL / AMBIGUOUS) | Failure type (if FAIL) | Evidence |
+|---|---|---|---|---|
+| 1 | Identity preservation | `<PENDING>` | identity-preservation failure | `<PENDING>` |
+| 2 | Intelligence preservation | `<PENDING>` | intelligence-preservation failure | `<PENDING>` |
+| 3 | Accessibility | `<PENDING>` | accessibility failure | `<PENDING>` |
+| 4 | Vocabulary / register adaptation | `<PENDING>` | vocabulary/register adaptation failure | `<PENDING>` |
+| 5 | Factual preservation | `<PENDING>` | factual-preservation failure | `<PENDING>` |
+| 6 | Story preservation | `<PENDING>` | story-preservation failure | `<PENDING>` |
+| 7 | Memory preservation | `<PENDING>` | memory-preservation failure | `<PENDING>` |
+| 8 | Personality / humor preservation | `<PENDING>` | personality/humor-preservation failure | `<PENDING>` |
+| 9 | No patronising voice | `<PENDING>` | patronizing-voice failure | `<PENDING>` |
+| 10 | Audience effect observable | `<PENDING>` | audience-effect failure | `<PENDING>` |
+
+**Overall verdict:** `<PENDING>` (all-10 PASS → EXPERIMENT PASSES; any FAIL → classify + interpret; AMBIGUOUS → repeat or narrow directive).
+
+**Interpretation guidance for failure classification:**
+
+- *identity / intelligence / personality-humor* failures → most likely prompt-precedence issue (audience directive winning where it shouldn't); revisit §5 precedence contract framing before assuming model incapacity.
+- *vocabulary / accessibility / patronising-voice* failures → most likely directive wording issue; consider narrowing the hint text before assuming an architectural need.
+- *factual / story / memory-preservation* failures → CRITICAL, because they would mean the audience directive is contaminating §1 Factual Basis, §2/§3 identity+brand, or memory semantics despite the test suite's leak checks. Would justify a §5 precedence audit before running any further experiments.
+- *audience-effect-observable* failure → most likely model behaviour issue (LLM ignoring the directive under solo_scene contract weight); consider whether the directive text needs the WRITING-contract to acknowledge audience as legitimate.
+
+### §13.11 Follow-up gate
+
+**Do NOT run a second audience experiment until §13.9 + §13.10 are populated and interpreted for the first Composition.**
+
+The point of the CHANGE/PRESERVE contract is falsifiable evidence, not a compounding stack of untested renders. One real Composition + full ten-criterion grading first.
+
+### §13.12 Implementation checkpoint commit
+
+- §13 slice commit: `<populated below>` — `<subject line populated below>`.
+- Push: `<populated below>`.
+- Working tree state at checkpoint: `<populated below>`.
+
+---
+
+**End of SESSION 270 opening audit + §13 implementation checkpoint.** Return to operator with the concise report and the dogfood instructions above. Do NOT extend into dialogue_scene / architecture / UI until the first Composition is graded.

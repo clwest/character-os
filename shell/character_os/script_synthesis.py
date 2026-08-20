@@ -297,6 +297,7 @@ def build_render_brief(
     max_script_chars: int | None = None,
     corrective_hint: str | None = None,
     memory_rows: "Sequence[NarrativeMemory] | None" = None,
+    audience_hint: str | None = None,
 ) -> ScriptResult:
     """Build the brief that gets sent to media-engine.
 
@@ -336,6 +337,17 @@ def build_render_brief(
             ``retrieve_universe_memory`` and never re-implemented
             here. ``None`` / empty ⇒ no memory block emitted, no
             ``memory_ids`` persisted.
+        audience_hint: SESSION 270 — optional transient research
+            directive describing who the character is addressing in
+            THIS composition. When non-empty, emitted verbatim as an
+            additional §5 Task HARD CONSTRAINT so the existing
+            precedence contract applies (overrides Character Voice
+            + Writing Contract preferences; NEVER overrides Factual
+            Basis or Brand Voice prohibitions). ``None`` / empty
+            ⇒ no directive emitted, prompt byte-stable versus the
+            pre-SESSION-270 shape. **Research plumbing** — not a
+            product surface; do not depend on this signature past
+            SESSION 270's first-experiment grading.
 
     Returns:
         ``ScriptResult`` — always has a usable ``brief`` field
@@ -451,6 +463,7 @@ def build_render_brief(
             max_script_chars=max_script_chars,
             corrective_hint=corrective_hint,
             memory_rows=memory_rows_list,
+            audience_hint=audience_hint,
         )
     except Exception:
         logger.exception(
@@ -528,6 +541,7 @@ def _call_responses_api(
     max_script_chars: int | None = None,
     corrective_hint: str | None = None,
     memory_rows: "Sequence[NarrativeMemory] | None" = None,
+    audience_hint: str | None = None,
 ) -> tuple[str, int, int]:
     """Single Responses-API call. Returns ``(text, tokens_in,
     tokens_out)``. Raises on API error — caller handles
@@ -558,6 +572,7 @@ def _call_responses_api(
         operator_prompt=operator_prompt,
         opener=opener,
         corrective_hint=corrective_hint,
+        audience_hint=audience_hint,
     )
 
     response = client.responses.create(
@@ -625,6 +640,7 @@ def _assemble_task_message(
     operator_prompt: str,
     opener: str | None = None,
     corrective_hint: str | None = None,
+    audience_hint: str | None = None,
 ) -> str:
     """SESSION 253 — assemble §5 Task (user message).
 
@@ -632,6 +648,15 @@ def _assemble_task_message(
     honor pinned openers / corrective hints as overrides on
     Character-Voice and Writing-Contract preferences without
     breaking Factual Basis or Brand Voice.
+
+    SESSION 270 — ``audience_hint`` (optional, transient research
+    plumbing) is emitted as an additional HARD CONSTRAINT when
+    non-empty so it inherits the same precedence contract as
+    opener / corrective_hint. It is intentionally NOT emitted into
+    §1 Factual Basis, §2 Character Voice, §3 Brand Voice, or the
+    NarrativeMemory block — audience adaptation must not
+    contaminate factual grounding, character identity, brand
+    prohibitions, or story-memory semantics.
     """
     parts: list[str] = ["=== SECTION 5 — TASK ==="]
     topic = operator_prompt.strip() or "(no explicit topic — use the Factual Basis)"
@@ -648,6 +673,15 @@ def _assemble_task_message(
         hard_constraints.append(
             f"CORRECTIVE HINT (previous attempt feedback — apply this):\n"
             f"{corrective_hint.strip()}"
+        )
+    if audience_hint and audience_hint.strip():
+        hard_constraints.append(
+            f"AUDIENCE DIRECTIVE (research plumbing — apply as a "
+            f"performance instruction; adapt HOW the character "
+            f"communicates without altering identity, intelligence, "
+            f"personality, humor, factual grounding, Universe canon, "
+            f"NarrativeMemory semantics, or Episode intent):\n"
+            f"{audience_hint.strip()}"
         )
     if hard_constraints:
         parts.append(

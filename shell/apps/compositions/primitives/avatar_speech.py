@@ -46,8 +46,11 @@ primitive.
 from __future__ import annotations
 
 import logging
+import os
 import time
 from typing import Any
+
+from django.conf import settings
 
 from apps.compositions.models import AssetRole, AssetType
 from character_os.claim_verifier import ClaimVerifierError
@@ -66,6 +69,49 @@ from character_os.writing_contract import WRITING_CONTRACT_VERSION
 from .mock import PrimitiveError, PrimitiveResult, _deterministic_path
 
 logger = logging.getLogger(__name__)
+
+
+# SESSION 270 — transient research plumbing for the audience-aware
+# character-performance experiment.
+#
+# Read (in order of precedence):
+#   1. ``step.params['audience_hint']``  — normal per-render surface
+#      (mirrors the ``opener`` / ``verifier_mode`` params shape).
+#   2. ``settings.CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT``
+#      — Django-settings override for the SESSION 270 dogfood.
+#   3. ``os.environ['CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT']``
+#      — env-var override, so the operator can toggle the
+#      experiment without editing settings.
+#
+# Gated on ``is_episode_talking_head`` (solo_scene lane only) inside
+# ``_maybe_synthesize_script``. Standalone talking_head + long_form_ad
+# and every dialogue_scene render remain byte-stable regardless of
+# the toggle. Names deliberately carry ``_EXPERIMENT`` to advertise
+# transience — remove this block along with the audience_hint kwarg
+# once SESSION 270 grades the first Composition and decides whether
+# audience needs a permanent architectural home.
+_SOLO_AUDIENCE_HINT_ENV = "CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT"
+_SOLO_AUDIENCE_HINT_SETTING = "CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT"
+
+
+def _resolve_solo_audience_hint(step) -> str | None:
+    """Precedence: step.params → settings → env. Returns ``None``
+    when every source is absent or whitespace-only; callers pass the
+    ``None`` verbatim to synthesis so pre-SESSION-270 prompts stay
+    byte-stable."""
+    per_render = (step.params or {}).get("audience_hint")
+    if isinstance(per_render, str) and per_render.strip():
+        return per_render.strip()
+
+    setting_value = getattr(settings, _SOLO_AUDIENCE_HINT_SETTING, None)
+    if isinstance(setting_value, str) and setting_value.strip():
+        return setting_value.strip()
+
+    env_value = os.environ.get(_SOLO_AUDIENCE_HINT_ENV, "")
+    if env_value.strip():
+        return env_value.strip()
+
+    return None
 
 
 # Polling cadence — mirrors apps/videos/tasks.poll_video_until_terminal.
@@ -475,6 +521,28 @@ def _maybe_synthesize_script(
     target_shape_for_synthesis = (
         "solo_scene" if is_episode_talking_head else "long_form"
     )
+
+    # SESSION 270 — solo-only audience-hint research plumbing.
+    # Read from step.params → settings → env; only pass to synthesis
+    # when this render is on the solo_scene lane. Standalone /
+    # long_form / long_form_ad renders remain byte-stable. Log
+    # exactly once per render so operator can confirm the
+    # experimental toggle actually reached the worker.
+    audience_hint = (
+        _resolve_solo_audience_hint(step) if is_episode_talking_head else None
+    )
+    if audience_hint is not None:
+        logger.info(
+            "avatar_speech: SESSION 270 audience-hint experiment ACTIVE "
+            "composition=%s spokesperson=%s hint_chars=%d — "
+            "this is transient research plumbing; unset the setting/env "
+            "or clear step.params['audience_hint'] to restore default "
+            "behaviour",
+            composition.id,
+            composition.spokesperson_id,
+            len(audience_hint),
+        )
+
     try:
         if target_duration_seconds:
             # Duration-driven synthesis + acceptance gate. Uses
@@ -492,6 +560,7 @@ def _maybe_synthesize_script(
                 mock_mode=False,
                 memory_rows=memory_rows,
                 target_shape=target_shape_for_synthesis,
+                audience_hint=audience_hint,
             )
         else:
             # Non-duration path — build_render_brief default
@@ -507,6 +576,7 @@ def _maybe_synthesize_script(
                 target_shape=(
                     "solo_scene" if is_episode_talking_head else "standalone"
                 ),
+                audience_hint=audience_hint,
             )
     except ClaimVerifierError as exc:
         # Strict mode — surface as a primitive failure so the
