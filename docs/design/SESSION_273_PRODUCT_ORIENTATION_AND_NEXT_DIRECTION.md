@@ -614,3 +614,162 @@ The intent is a KnowledgeDocument shaped like what a real bakery owner would upl
 - Pushed to `origin/main`.
 - Evidence sidecar: `docs/design/session_273_experiment_data/01_ruby_mason_substrate_audit.json` (1,489,060 bytes)
 - Audit script: `scripts/session273_substrate_audit.py` (read-only)
+
+---
+
+## §13. SLICE α — FRESH UNIVERSE + RUBY ATTACH + RETRIEVAL VERIFICATION + PROPOSED KD
+
+**Status:** Slice α of the Ruby fresh-domain dogfood — authorized by Chris after §11 audit closed. No render, no Composition, no Episode, no NarrativeMemory. **The proposed KnowledgeDocument in §13.4 has NOT been ingested** — it is awaiting Chris's approval before upload through `/workspace/knowledge`. No source code changed. No persona / voice / avatar / brand fields modified on Ruby. No existing KnowledgeDocument touched. No retrieval logic changed.
+
+**Executor script:** `scripts/session273_slice_alpha_universe_attach.py` (idempotent: creates the Universe once, attaches Ruby once, captures pre- and post-attach retrieval snapshots).
+
+**Evidence sidecar:** `docs/design/session_273_experiment_data/02_slice_alpha_universe_attach.json` (17,822 bytes).
+
+**Proposed KD sidecar (NOT INGESTED):** `docs/design/session_273_experiment_data/03_slice_alpha_proposed_knowledge_document.md` (7,165 bytes).
+
+### §13.1 Universe creation result
+
+| Field | Value |
+| --- | --- |
+| Universe ID | **`1a0af807-dd6a-47cd-bfaa-3d088f1c105f`** |
+| Name | `Fox & Flour Bakery` |
+| Slug (auto-derived) | `fox-flour-bakery` |
+| Workspace | `4ce5486d-35a4-4bee-8745-38004adb33bc` (Chris's workspace) |
+| `created_by` | user `883` (chris@donkeybetz.com — workspace owner) |
+| `created_at` | 2026-08-20 22:43:36 UTC |
+| `description` | *(empty — not consumed by K6 synthesis; management-surface field only)* |
+| `archived_at` | `None` (active) |
+
+Universe was created through the same ORM path the `UniverseViewSet.perform_create` API uses (`shell/apps/universe/views.py:67`). The API's only additional step (`serializer.save(created_by=user)`) was preserved by passing `created_by=chris` at construction. Slug auto-derivation happened inside `Universe.save()` per `UniverseSchema V1`.
+
+Workspace universe count went from **1 → 2** (was: `Patch' Workshop` `56d16b63` only; now also `Fox & Flour Bakery` `1a0af807-…`). No other Workspace, Teammate, KnowledgeDocument, or Episode was created or modified during Universe creation.
+
+### §13.2 Ruby attachment result
+
+| Field | Pre-attach | Post-attach |
+| --- | --- | --- |
+| `Teammate.id` | `5875a7b4-cf39-433d-89b3-4e34a89a5208` | *(unchanged)* |
+| `Teammate.universe_id` | `None` | **`1a0af807-dd6a-47cd-bfaa-3d088f1c105f`** |
+| `Teammate.universe.name` | *(none)* | `Fox & Flour Bakery` |
+| `Teammate.updated_at` | 2026-07-23 20:24:27 UTC | 2026-08-20 22:44:22 UTC |
+| Attach action | — | `attached` |
+| Fields written | — | `universe`, `updated_at` (via `save(update_fields=[…])`) |
+
+Ruby's persona (`business_brief`, `personality`, `character_point_of_view`, `voice_signature_phrases`, `voice_avoid_phrases`, `always_emphasize`, `never_say`, `who_you_help`, `what_you_sell`, `tone_archetype`, `voice_energy` / `humor` / `directness`), avatar (`runway_avatar_id`, `runway_avatar_status`, `portrait_path`), voice (`voice_id`), and brand (`visual_subject`, `visual_template`) fields were **NOT** touched — the save() explicitly whitelisted `universe` + `updated_at`.
+
+`Teammate.clean()` was invoked (via `full_clean()`) and passed. The workspace-mismatch guard fired correctly (both universe and teammate live in workspace `4ce5486d-…`).
+
+**Implementation note (not a code change):** on the first script invocation, `Teammate.full_clean()` produced a false workspace mismatch because `Universe.workspace_id` (freshly built) was a `str` while `Teammate.workspace_id` (from DB) was a `UUID`. The script now re-fetches the Universe from DB before the attach, restoring identical types. This is a scripting concern only — no production behavior implication.
+
+### §13.3 Retrieval-envelope verification
+
+Seven probe queries were run through `retrieve_for_teammate(ruby, query, top_k=5)` — three bakery-native and four community-adjacent — pre-attach and post-attach.
+
+**Pre-attach retrieval (Ruby.universe_id = None):**
+
+Retrieval branch `document.universe IS NULL` fired. Every probe query returned five chunks; the **cumulative distinct document set was 8 of the 9 unbound workspace-only KDs** documented in §11.5. Only `90ad200c` Riggs did not score high enough on any query to appear in a top-5.
+
+| Query kind | Query | Top-5 doc titles |
+| --- | --- | --- |
+| bakery-native | *sourdough starter feeding schedule* | Bookstore Events · TANK · Tulsi · Children's Reading · Tulsi |
+| bakery-native | *custom celebration cakes we accept how many days ahead* | Bookstore Events · TANK ×4 |
+| bakery-native | *seasonal pastries autumn menu ingredients* | Bookstore Events · About Hearth & Hollow · Supporting Local Authors · TANK · Tulsi |
+| community-adjacent | *welcoming first-time customers who feel intimidated* | TANK ×5 |
+| community-adjacent | *supporting local suppliers small business partners* | Supporting Local Authors · About Hearth & Hollow · TANK ×2 · Tulsi |
+| community-adjacent | *seasonal community events for families* | Bookstore Events · Supporting Local Authors · Children's Reading · About Hearth & Hollow · TANK |
+| community-adjacent | *helping regulars find something new to try* | Helping Customers Find Their Next Read · How We Recommend Books · Children's Reading · About Hearth & Hollow · Supporting Local Authors |
+
+**Every bakery-native query pulled zero bakery content and instead surfaced TANK (automotive financing), Tulsi (public-purpose identity), and Hearth & Hollow Books chunks.** This upgrades §11.5's "leakage risk" from theoretical to demonstrated: a Ruby render TODAY (pre-attach) would have fed §1 FACTUAL BASIS with irrelevant character corpora, regardless of topic.
+
+**Post-attach retrieval (Ruby.universe_id = `1a0af807-…`):**
+
+Retrieval branch `document.universe_id = 1a0af807-…` fired. **Zero chunks returned for every query** — because the Fox & Flour Bakery Universe currently has zero KnowledgeDocuments. This is the correct empty state: no leakage from unbound workspace KDs is structurally possible from here forward.
+
+| Metric | Pre-attach | Post-attach |
+| --- | --- | --- |
+| Distinct docs retrieved across all 7 probes | 8 (all unbound workspace-only) | 0 |
+| Unbound workspace-only KDs leaked | 8 of 9 | **0** |
+| `ISOLATION_VERIFIED` (post-attach unbound-leaked == 0) | — | **True** |
+
+Retrieval isolation is verified mechanically. When §13.4's KnowledgeDocument is ingested into the Fox & Flour Universe, retrieval will return only its chunks (subject to cosine ranking + top-k) and cannot fall back to any other character's corpus.
+
+Memory lane already confirmed empty (`retrieve_universe_memory` returns `[]` for a Universe with zero remembered memories — the Fox & Flour Universe has zero `NarrativeMemory` rows).
+
+### §13.4 Proposed KnowledgeDocument — CONTENT FOR CHRIS APPROVAL
+
+**Status: NOT INGESTED.** Full text is committed to `docs/design/session_273_experiment_data/03_slice_alpha_proposed_knowledge_document.md`. Upload will only occur after Chris authorizes the content.
+
+Authoring principles applied per §11.10:
+
+- **Included** naturally: breads / sourdough (~1 section), pastries, celebration cakes, ingredients / sourcing, bakery routines, seasonal offerings, customer experience, Ruby's reason for operating.
+- **Not included:** paired canonical + accessible paraphrase (Option D — §11.10 explicit avoidance), deliberate density manipulation, deliberate synonym rotation to avoid natural repeated terminology, corporate-KB scale, YouTube ingest content.
+- **Not modified on Ruby:** persona, business_brief, personality, voice fields, portrait, `who_you_help`, `what_you_sell`, `character_point_of_view`, `voice_signature_phrases`, `always_emphasize`, `never_say`.
+
+Length: **7,165 bytes** — moderate. Enough for several plausible Episodes; small enough that a real neighborhood bakery owner could realistically have written it in one sitting.
+
+Sections included (8):
+1. Breads & sourdough — house country loaf, rotating breads, pricing / day-old policy.
+2. Pastries — 3 AM bake, rotating case, don't-hold-over policy.
+3. Celebration cakes — lead times, base styles, fillings, deposits, pickup-only.
+4. Ingredients & sourcing — Colorado mill, family creamery, pastured eggs, farmers-market fruit, single-origin chocolate.
+5. Bakery routines — Wed–Sun open, Mon/Tue prep, bake schedule, staff assignments.
+6. Seasonal offerings — spring / summer / autumn / winter rotations plus preorder holidays.
+7. Customer experience — counter seats, regulars book, staff rule for basic questions, waitlist referral policy.
+8. Ruby's reason for operating — origin story, deliberate smallness, why she said no to expansion.
+
+Deliberate naturalness choices worth flagging:
+- **"Sourdough" appears repeatedly in §1** (house loaf, feeding, country sourdough, dark-chocolate sourdough). Not paraphrased. Real bakery language.
+- **Ingredient origins are named specifically** (Colorado mill, single-origin West Coast chocolate) — factual anchors K6.4 could verify.
+- **Prices are absent** — the KD says "priced by weight" without dollar amounts, so pricing claims cannot be invented from this doc.
+- **Chris and Ruby's grandmother are the only named humans** — the KD names no real staff, no real farms, no real chocolate maker (avoids inventing external identities).
+- **Ruby's personal motive** (§8) is intentionally understated — brief backstory, no dramatic arcs, gives Episodes a genuine reason but doesn't railroad the character.
+
+The full proposed content is in the sidecar file above.
+
+### §13.5 Anything unexpected
+
+1. **The retrieval leak was not merely theoretical.** §11.5 predicted 9 unbound workspace-only KDs *could* be visible to Ruby. Slice α proved 8 of them *actually surface in the top-5* on bakery queries — including on the exact "sourdough starter" query that should be the most bakery-native possible. A pre-attach Ruby render on any topic would have fed §1 FACTUAL BASIS with TANK financing / Tulsi / bookstore chunks. Post-attach it cannot. This is the strongest single validation of §11.5's mitigation guidance.
+2. **`Teammate.full_clean()` type mismatch on freshly built Universe.** On the first attach attempt, `Universe.workspace_id` was still a `str` from the constructor kwarg while `Teammate.workspace_id` was a `UUID` from DB. `Teammate.clean()`'s `!=` comparison then falsely fired the workspace-mismatch guard even though both IDs were the same UUID string. The script now re-fetches the Universe from DB before the attach; production API paths don't hit this because `perform_create → serializer.save()` refreshes the instance. Not a bug in production; noted as a scripting concern.
+3. **The Universe existed on script re-invocation because attempt #2 had already saved it.** The idempotence check (`Universe.objects.filter(workspace, name).first()`) correctly reused it on the successful run — so `created_now=False` in the sidecar is accurate for the third invocation, but the Universe was in fact created *during Slice α* (on the second attempt at 22:43:36 UTC). No duplicate Universe rows.
+
+### §13.6 Explicit non-changes during Slice α
+
+- No render dispatched. No Composition created. No provider (Runway / OpenAI / Stability / ElevenLabs) called.
+- No Episode created.
+- No NarrativeMemory created or promoted.
+- No KnowledgeDocument created, ingested, edited, or reassigned. The proposed KD in §13.4 is *file-only*, awaiting Chris's approval.
+- No spokesperson m2m mutation on any of the 9 unbound workspace KDs (Riggs / TANK / Tulsi / 6 Hearth & Hollow docs still m2m-empty; leak reported, not fixed).
+- Patch's Workshop Universe (`56d16b63`), its 3 Universe-scoped KDs, its 15 NarrativeMemory rows, its 27 Episodes, and all Patch/Rivet substrate remain untouched.
+- Ruby's `business_brief`, `personality`, `who_you_help`, `what_you_sell`, `desired_feeling`, `tone_archetype`, `character_point_of_view`, `always_emphasize`, `never_say`, `voice_signature_phrases`, `voice_avoid_phrases`, `voice_energy / humor / directness`, `runway_avatar_id`, `voice_id`, `visual_subject`, `visual_template`, `portrait_path` are all byte-identical to their §11 audit values.
+- Mason (`28b9a7ea-…`) untouched. Mason.universe_id still `None`. Mason's one failed composition `6f2132f5` untouched.
+- No source code changed. No Django migration. No SPA change. No writing-contract change. No retrieval-logic change. `_expansion_hint` and `_compression_hint` unchanged.
+- No experiment env vars set. No provider mocks toggled. Runtime unchanged.
+
+### §13.7 What Slice α leaves ready for Slice β (informational — do NOT begin without authorization)
+
+Once Chris approves the KD content in §13.4:
+1. Ingest the KD via the SPA `/workspace/knowledge` upload (real ingestion path, so chunking / embedding fires the way an operator would use it), scoped to Universe `1a0af807-…`.
+2. Verify with a single retrieval probe that the new KD is retrievable in the Fox & Flour Universe and that no other-character KDs come back.
+3. Slice β proper (first `talking_head` render, real-mode, real `audience_hint`, no retries) then begins as a separately-authorized micro-slice.
+
+Slice β is **not** authorized by this document and is not being started here.
+
+### §13.8 §13 return values
+
+- **Universe:** `Fox & Flour Bakery` — `1a0af807-dd6a-47cd-bfaa-3d088f1c105f` — created in workspace `4ce5486d-…`, slug `fox-flour-bakery`, created_by chris@donkeybetz.com.
+- **Ruby attachment:** Ruby `5875a7b4-…` now has `universe_id = 1a0af807-…`. Verified via `refresh_from_db()`. Persona / avatar / voice fields byte-identical to §11 audit.
+- **Retrieval isolation:** VERIFIED. Pre-attach: 8 unbound workspace-only KDs leaked into Ruby's top-5 across every probe query (including the bakery-native ones). Post-attach: 0 chunks returned across all 7 probe queries. No unbound KD can leak by construction until a KD is ingested into the Fox & Flour Universe.
+- **Proposed KnowledgeDocument:** committed to `docs/design/session_273_experiment_data/03_slice_alpha_proposed_knowledge_document.md` for Chris's review. NOT INGESTED.
+- **Anything unexpected:** the retrieval leak was demonstrated much more strongly than §11.5 predicted (bakery-native queries pulled TANK financing); minor scripting type-coercion issue on `Teammate.full_clean()` that is not a production concern.
+- **Confirmation of non-execution:** zero renders, zero Compositions, zero NarrativeMemory rows, zero Episodes, zero KnowledgeDocuments, zero source changes, zero persona edits.
+- **§13 commit SHA:** recorded in §14 at commit time.
+- **Repo/runtime health:** `main == origin/main` after commit; Django 302, media-engine ok/all-mocks-false, Vite 200; no experiment env vars; `_expansion_hint` CORRECT_ANCHOR preserved.
+
+---
+
+## §14. §13 COMMIT PROVENANCE
+
+- §13 Slice α commit: (recorded at commit time — see git log)
+- Slice α executor script: `scripts/session273_slice_alpha_universe_attach.py`
+- Slice α evidence sidecar: `docs/design/session_273_experiment_data/02_slice_alpha_universe_attach.json` (17,822 bytes)
+- Proposed KD sidecar (NOT INGESTED): `docs/design/session_273_experiment_data/03_slice_alpha_proposed_knowledge_document.md` (7,165 bytes)

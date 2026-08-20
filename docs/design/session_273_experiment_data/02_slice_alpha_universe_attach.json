@@ -1,0 +1,462 @@
+{
+  "generated_at": "2026-08-20T22:44:21.902977+00:00",
+  "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+  "ruby_id": "5875a7b4-cf39-433d-89b3-4e34a89a5208",
+  "universe_name_requested": "Fox & Flour Bakery",
+  "ruby_pre_attach": {
+    "id": "5875a7b4-cf39-433d-89b3-4e34a89a5208",
+    "universe_id": null,
+    "updated_at": "2026-07-23T20:24:27.974376+00:00"
+  },
+  "retrieval_pre_attach": {
+    "label": "PRE-ATTACH",
+    "queries": [
+      {
+        "kind": "bakery-native",
+        "query": "sourdough starter feeding schedule",
+        "chunk_count": 5,
+        "chunks": [
+          {
+            "chunk_id": "8241e7c8-5905-483d-b528-095533c1fdb2",
+            "document_id": "7f41d8e3-9be0-4591-9648-8c901861628d",
+            "document_title": "Bookstore Events",
+            "document_universe_id": null,
+            "distance": 0.8534673505354069
+          },
+          {
+            "chunk_id": "7a2e190a-b213-4256-8110-f25fb0d95a70",
+            "document_id": "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545",
+            "document_title": "TANK \u2014 AUTOMOTIVE FINANCING CONTENT KNOWLEDGE",
+            "document_universe_id": null,
+            "distance": 0.8710431835443795
+          },
+          {
+            "chunk_id": "345db502-f6e7-44a8-a6cf-817ac5b85244",
+            "document_id": "7ecde40b-6d72-45eb-b676-6feb260e2ff8",
+            "document_title": "Tulsi \u2014 Core Identity and Public Purpose",
+            "document_universe_id": null,
+            "distance": 0.881442788832905
+          },
+          {
+            "chunk_id": "4475e903-f006-44b7-91db-fa6cd057645c",
+            "document_id": "b58efd31-d05c-4008-beac-3a75755e5c6b",
+            "document_title": "Children\u2019s Reading",
+            "document_universe_id": null,
+            "distance": 0.8834914934241228
+          },
+          {
+            "chunk_id": "0a59c818-c913-40a0-b3f1-51fb86b38437",
+            "document_id": "7ecde40b-6d72-45eb-b676-6feb260e2ff8",
+            "document_title": "Tulsi \u2014 Core Identity and Public Purpose",
+            "document_universe_id": null,
+            "distance": 0.8839405057344472
+          }
+        ],
+        "distinct_document_ids": [
+          "7ecde40b-6d72-45eb-b676-6feb260e2ff8",
+          "7f41d8e3-9be0-4591-9648-8c901861628d",
+          "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545",
+          "b58efd31-d05c-4008-beac-3a75755e5c6b"
+        ]
+      },
+      {
+        "kind": "bakery-native",
+        "query": "custom celebration cakes we accept how many days ahead",
+        "chunk_count": 5,
+        "chunks": [
+          {
+            "chunk_id": "8241e7c8-5905-483d-b528-095533c1fdb2",
+            "document_id": "7f41d8e3-9be0-4591-9648-8c901861628d",
+            "document_title": "Bookstore Events",
+            "document_universe_id": null,
+            "distance": 0.81252920628257
+          },
+          {
+            "chunk_id": "9333b8e5-0932-4035-9dc7-baacc6f99d9e",
+            "document_id": "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545",
+            "document_title": "TANK \u2014 AUTOMOTIVE FINANCING CONTENT KNOWLEDGE",
+            "document_universe_id": null,
+            "distance": 0.823395356704992
+          },
+          {
+            "chunk_id": "b6cb1c0d-dd39-4523-9887-dccc6bfea0b8",
+            "document_id": "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545",
+            "document_title": "TANK \u2014 AUTOMOTIVE FINANCING CONTENT KNOWLEDGE",
+            "document_universe_id": null,
+            "distance": 0.8632146068670302
+          },
+          {
+            "chunk_id": "25aa602a-40d9-4418-8bd5-6f168bdb2247",
+            "document_id": "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545",
+            "document_title": "TANK \u2014 AUTOMOTIVE FINANCING CONTENT KNOWLEDGE",
+            "document_universe_id": null,
+            "distance": 0.8634624126056343
+          },
+          {
+            "chunk_id": "ae85e610-3679-4e9b-9323-cc624081fbf2",
+            "document_id": "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545",
+            "document_title": "TANK \u2014 AUTOMOTIVE FINANCING CONTENT KNOWLEDGE",
+            "document_universe_id": null,
+            "distance": 0.8798626713183264
+          }
+        ],
+        "distinct_document_ids": [
+          "7f41d8e3-9be0-4591-9648-8c901861628d",
+          "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545"
+        ]
+      },
+      {
+        "kind": "bakery-native",
+        "query": "seasonal pastries autumn menu ingredients",
+        "chunk_count": 5,
+        "chunks": [
+          {
+            "chunk_id": "8241e7c8-5905-483d-b528-095533c1fdb2",
+            "document_id": "7f41d8e3-9be0-4591-9648-8c901861628d",
+            "document_title": "Bookstore Events",
+            "document_universe_id": null,
+            "distance": 0.7659662915965837
+          },
+          {
+            "chunk_id": "263ec154-d421-48e4-8e31-de9444cbbcf1",
+            "document_id": "aa90d895-cac9-41d4-b505-f2b23ffd5241",
+            "document_title": "About Hearth & Hollow Books",
+            "document_universe_id": null,
+            "distance": 0.8340244365245386
+          },
+          {
+            "chunk_id": "e9c06f5d-6b82-45ac-acd0-bd6db4d74d08",
+            "document_id": "c408656d-191d-49be-a92d-8721aa294b58",
+            "document_title": "Supporting Local Authors",
+            "document_universe_id": null,
+            "distance": 0.8541559107063842
+          },
+          {
+            "chunk_id": "25aa602a-40d9-4418-8bd5-6f168bdb2247",
+            "document_id": "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545",
+            "document_title": "TANK \u2014 AUTOMOTIVE FINANCING CONTENT KNOWLEDGE",
+            "document_universe_id": null,
+            "distance": 0.856743978153071
+          },
+          {
+            "chunk_id": "345db502-f6e7-44a8-a6cf-817ac5b85244",
+            "document_id": "7ecde40b-6d72-45eb-b676-6feb260e2ff8",
+            "document_title": "Tulsi \u2014 Core Identity and Public Purpose",
+            "document_universe_id": null,
+            "distance": 0.8714470432080255
+          }
+        ],
+        "distinct_document_ids": [
+          "7ecde40b-6d72-45eb-b676-6feb260e2ff8",
+          "7f41d8e3-9be0-4591-9648-8c901861628d",
+          "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545",
+          "aa90d895-cac9-41d4-b505-f2b23ffd5241",
+          "c408656d-191d-49be-a92d-8721aa294b58"
+        ]
+      },
+      {
+        "kind": "community-adjacent",
+        "query": "welcoming first-time customers who feel intimidated",
+        "chunk_count": 5,
+        "chunks": [
+          {
+            "chunk_id": "0a6069c4-7879-4fb5-83bd-45a2f73e2f26",
+            "document_id": "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545",
+            "document_title": "TANK \u2014 AUTOMOTIVE FINANCING CONTENT KNOWLEDGE",
+            "document_universe_id": null,
+            "distance": 0.6479841334568477
+          },
+          {
+            "chunk_id": "25aa602a-40d9-4418-8bd5-6f168bdb2247",
+            "document_id": "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545",
+            "document_title": "TANK \u2014 AUTOMOTIVE FINANCING CONTENT KNOWLEDGE",
+            "document_universe_id": null,
+            "distance": 0.6506535519609866
+          },
+          {
+            "chunk_id": "ae85e610-3679-4e9b-9323-cc624081fbf2",
+            "document_id": "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545",
+            "document_title": "TANK \u2014 AUTOMOTIVE FINANCING CONTENT KNOWLEDGE",
+            "document_universe_id": null,
+            "distance": 0.6509514467357489
+          },
+          {
+            "chunk_id": "bbc79495-860c-4ed6-8fc4-ca996e8e80e2",
+            "document_id": "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545",
+            "document_title": "TANK \u2014 AUTOMOTIVE FINANCING CONTENT KNOWLEDGE",
+            "document_universe_id": null,
+            "distance": 0.6613268739318525
+          },
+          {
+            "chunk_id": "97ad4a9e-0717-4a23-b6db-28347ba0a681",
+            "document_id": "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545",
+            "document_title": "TANK \u2014 AUTOMOTIVE FINANCING CONTENT KNOWLEDGE",
+            "document_universe_id": null,
+            "distance": 0.6677345781753281
+          }
+        ],
+        "distinct_document_ids": [
+          "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545"
+        ]
+      },
+      {
+        "kind": "community-adjacent",
+        "query": "supporting local suppliers small business partners",
+        "chunk_count": 5,
+        "chunks": [
+          {
+            "chunk_id": "e9c06f5d-6b82-45ac-acd0-bd6db4d74d08",
+            "document_id": "c408656d-191d-49be-a92d-8721aa294b58",
+            "document_title": "Supporting Local Authors",
+            "document_universe_id": null,
+            "distance": 0.5235629115412261
+          },
+          {
+            "chunk_id": "263ec154-d421-48e4-8e31-de9444cbbcf1",
+            "document_id": "aa90d895-cac9-41d4-b505-f2b23ffd5241",
+            "document_title": "About Hearth & Hollow Books",
+            "document_universe_id": null,
+            "distance": 0.7274378233622144
+          },
+          {
+            "chunk_id": "86c99d02-cf57-4cf6-bd4f-f8e6122dcd8a",
+            "document_id": "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545",
+            "document_title": "TANK \u2014 AUTOMOTIVE FINANCING CONTENT KNOWLEDGE",
+            "document_universe_id": null,
+            "distance": 0.7274777486426105
+          },
+          {
+            "chunk_id": "a1f43974-2214-42f2-a833-5eeb28e24724",
+            "document_id": "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545",
+            "document_title": "TANK \u2014 AUTOMOTIVE FINANCING CONTENT KNOWLEDGE",
+            "document_universe_id": null,
+            "distance": 0.7437509355005313
+          },
+          {
+            "chunk_id": "c71f68ae-4ccd-4503-bcb9-2a8980298c5a",
+            "document_id": "7ecde40b-6d72-45eb-b676-6feb260e2ff8",
+            "document_title": "Tulsi \u2014 Core Identity and Public Purpose",
+            "document_universe_id": null,
+            "distance": 0.7506053872896115
+          }
+        ],
+        "distinct_document_ids": [
+          "7ecde40b-6d72-45eb-b676-6feb260e2ff8",
+          "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545",
+          "aa90d895-cac9-41d4-b505-f2b23ffd5241",
+          "c408656d-191d-49be-a92d-8721aa294b58"
+        ]
+      },
+      {
+        "kind": "community-adjacent",
+        "query": "seasonal community events for families",
+        "chunk_count": 5,
+        "chunks": [
+          {
+            "chunk_id": "8241e7c8-5905-483d-b528-095533c1fdb2",
+            "document_id": "7f41d8e3-9be0-4591-9648-8c901861628d",
+            "document_title": "Bookstore Events",
+            "document_universe_id": null,
+            "distance": 0.4938778706310648
+          },
+          {
+            "chunk_id": "e9c06f5d-6b82-45ac-acd0-bd6db4d74d08",
+            "document_id": "c408656d-191d-49be-a92d-8721aa294b58",
+            "document_title": "Supporting Local Authors",
+            "document_universe_id": null,
+            "distance": 0.696038217325847
+          },
+          {
+            "chunk_id": "4475e903-f006-44b7-91db-fa6cd057645c",
+            "document_id": "b58efd31-d05c-4008-beac-3a75755e5c6b",
+            "document_title": "Children\u2019s Reading",
+            "document_universe_id": null,
+            "distance": 0.7265061565315445
+          },
+          {
+            "chunk_id": "263ec154-d421-48e4-8e31-de9444cbbcf1",
+            "document_id": "aa90d895-cac9-41d4-b505-f2b23ffd5241",
+            "document_title": "About Hearth & Hollow Books",
+            "document_universe_id": null,
+            "distance": 0.7737247012365039
+          },
+          {
+            "chunk_id": "7a2e190a-b213-4256-8110-f25fb0d95a70",
+            "document_id": "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545",
+            "document_title": "TANK \u2014 AUTOMOTIVE FINANCING CONTENT KNOWLEDGE",
+            "document_universe_id": null,
+            "distance": 0.8200048019222367
+          }
+        ],
+        "distinct_document_ids": [
+          "7f41d8e3-9be0-4591-9648-8c901861628d",
+          "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545",
+          "aa90d895-cac9-41d4-b505-f2b23ffd5241",
+          "b58efd31-d05c-4008-beac-3a75755e5c6b",
+          "c408656d-191d-49be-a92d-8721aa294b58"
+        ]
+      },
+      {
+        "kind": "community-adjacent",
+        "query": "helping regulars find something new to try",
+        "chunk_count": 5,
+        "chunks": [
+          {
+            "chunk_id": "29fe790c-e7c1-488f-a357-40ecf1ae4a2e",
+            "document_id": "0088f31f-56fc-4e66-837a-f5391d6bbd94",
+            "document_title": "Helping Customers Find Their Next Read",
+            "document_universe_id": null,
+            "distance": 0.5948045734320784
+          },
+          {
+            "chunk_id": "b809c194-1cd8-4646-81bc-9077b7129843",
+            "document_id": "e37ea174-98e8-4588-a690-81f6e1bbfe4b",
+            "document_title": "How We Recommend Books",
+            "document_universe_id": null,
+            "distance": 0.6143167009516803
+          },
+          {
+            "chunk_id": "4475e903-f006-44b7-91db-fa6cd057645c",
+            "document_id": "b58efd31-d05c-4008-beac-3a75755e5c6b",
+            "document_title": "Children\u2019s Reading",
+            "document_universe_id": null,
+            "distance": 0.6338099078954549
+          },
+          {
+            "chunk_id": "263ec154-d421-48e4-8e31-de9444cbbcf1",
+            "document_id": "aa90d895-cac9-41d4-b505-f2b23ffd5241",
+            "document_title": "About Hearth & Hollow Books",
+            "document_universe_id": null,
+            "distance": 0.6373759993143743
+          },
+          {
+            "chunk_id": "e9c06f5d-6b82-45ac-acd0-bd6db4d74d08",
+            "document_id": "c408656d-191d-49be-a92d-8721aa294b58",
+            "document_title": "Supporting Local Authors",
+            "document_universe_id": null,
+            "distance": 0.667284331631122
+          }
+        ],
+        "distinct_document_ids": [
+          "0088f31f-56fc-4e66-837a-f5391d6bbd94",
+          "aa90d895-cac9-41d4-b505-f2b23ffd5241",
+          "b58efd31-d05c-4008-beac-3a75755e5c6b",
+          "c408656d-191d-49be-a92d-8721aa294b58",
+          "e37ea174-98e8-4588-a690-81f6e1bbfe4b"
+        ]
+      }
+    ]
+  },
+  "universe": {
+    "id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+    "name": "Fox & Flour Bakery",
+    "slug": "fox-flour-bakery",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "created_by_user_id": 883,
+    "created_at": "2026-08-20T22:43:36.947152+00:00",
+    "created_now": false
+  },
+  "ruby_post_attach": {
+    "id": "5875a7b4-cf39-433d-89b3-4e34a89a5208",
+    "universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+    "universe_name": "Fox & Flour Bakery",
+    "updated_at": "2026-08-20T22:44:22.069832+00:00",
+    "attach_action": "attached"
+  },
+  "retrieval_post_attach": {
+    "label": "POST-ATTACH",
+    "queries": [
+      {
+        "kind": "bakery-native",
+        "query": "sourdough starter feeding schedule",
+        "chunk_count": 0,
+        "chunks": [],
+        "distinct_document_ids": []
+      },
+      {
+        "kind": "bakery-native",
+        "query": "custom celebration cakes we accept how many days ahead",
+        "chunk_count": 0,
+        "chunks": [],
+        "distinct_document_ids": []
+      },
+      {
+        "kind": "bakery-native",
+        "query": "seasonal pastries autumn menu ingredients",
+        "chunk_count": 0,
+        "chunks": [],
+        "distinct_document_ids": []
+      },
+      {
+        "kind": "community-adjacent",
+        "query": "welcoming first-time customers who feel intimidated",
+        "chunk_count": 0,
+        "chunks": [],
+        "distinct_document_ids": []
+      },
+      {
+        "kind": "community-adjacent",
+        "query": "supporting local suppliers small business partners",
+        "chunk_count": 0,
+        "chunks": [],
+        "distinct_document_ids": []
+      },
+      {
+        "kind": "community-adjacent",
+        "query": "seasonal community events for families",
+        "chunk_count": 0,
+        "chunks": [],
+        "distinct_document_ids": []
+      },
+      {
+        "kind": "community-adjacent",
+        "query": "helping regulars find something new to try",
+        "chunk_count": 0,
+        "chunks": [],
+        "distinct_document_ids": []
+      }
+    ]
+  },
+  "unbound_workspace_only_kd_ids": [
+    "0088f31f-56fc-4e66-837a-f5391d6bbd94",
+    "520e350c-976e-40fc-9855-d66b0601ec8f",
+    "56fcdb9a-a5e6-4ab0-9a89-108b1fca930c",
+    "7ecde40b-6d72-45eb-b676-6feb260e2ff8",
+    "7f41d8e3-9be0-4591-9648-8c901861628d",
+    "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545",
+    "90ad200c-5019-4036-82e9-a1ccc5cbce72",
+    "aa90d895-cac9-41d4-b505-f2b23ffd5241",
+    "b58efd31-d05c-4008-beac-3a75755e5c6b",
+    "c408656d-191d-49be-a92d-8721aa294b58",
+    "e284edc9-d473-4076-8e2d-156f022b6ca7",
+    "e37ea174-98e8-4588-a690-81f6e1bbfe4b",
+    "ee7b7e5c-5857-4323-b369-e6efa69492d3"
+  ],
+  "distinct_doc_ids_pre": [
+    "0088f31f-56fc-4e66-837a-f5391d6bbd94",
+    "7ecde40b-6d72-45eb-b676-6feb260e2ff8",
+    "7f41d8e3-9be0-4591-9648-8c901861628d",
+    "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545",
+    "aa90d895-cac9-41d4-b505-f2b23ffd5241",
+    "b58efd31-d05c-4008-beac-3a75755e5c6b",
+    "c408656d-191d-49be-a92d-8721aa294b58",
+    "e37ea174-98e8-4588-a690-81f6e1bbfe4b"
+  ],
+  "distinct_doc_ids_post": [],
+  "unbound_leaked_pre": [
+    "0088f31f-56fc-4e66-837a-f5391d6bbd94",
+    "7ecde40b-6d72-45eb-b676-6feb260e2ff8",
+    "7f41d8e3-9be0-4591-9648-8c901861628d",
+    "8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545",
+    "aa90d895-cac9-41d4-b505-f2b23ffd5241",
+    "b58efd31-d05c-4008-beac-3a75755e5c6b",
+    "c408656d-191d-49be-a92d-8721aa294b58",
+    "e37ea174-98e8-4588-a690-81f6e1bbfe4b"
+  ],
+  "unbound_leaked_post": [],
+  "ISOLATION_VERIFIED": true,
+  "runtime_invariants": {
+    "experiment_env_vars_present": {},
+    "mock_env_vars_present": {}
+  }
+}
