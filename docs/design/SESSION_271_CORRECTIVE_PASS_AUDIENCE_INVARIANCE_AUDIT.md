@@ -564,12 +564,10 @@ Tests the H2-specific channel. Requires wording change inside `_expansion_hint`.
 
 ## §17. Slice commit + push record
 
-_Populated at commit time._
-
-- Slice commit SHA: `<pending — populated after commit>`
-- Push: `<pending>`
-- Local `main == origin/main`: `<verified at commit time>`
-- Working tree at slice close: `<verified clean>`
+- Slice commit SHA: `0cb3d7c` — `docs(session-271): Q-270-15 corrective-pass audience-invariance audit (frozen-evidence, source-only)`.
+- Push: `34d825f..0cb3d7c main -> main` (successful).
+- Local `main == origin/main == 0cb3d7c` verified.
+- Working tree at slice close: clean.
 
 ---
 
