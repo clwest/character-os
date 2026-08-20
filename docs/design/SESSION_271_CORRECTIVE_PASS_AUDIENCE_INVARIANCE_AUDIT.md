@@ -5853,4 +5853,13 @@ The next research question is **KNOWLEDGE AUTHORING / KNOWLEDGE SHAPE** (see §1
 
 ### §192.3 CLOSEOUT commit SHA
 
-_Recorded in a follow-up commit after this section's commit lands and its SHA is known. Pattern established SESSION 270 §14.6._
+- SESSION 271 CLOSEOUT commit: `e1f9b59` — `docs(session-271): §191 v6 verification verdict + §192 CLOSEOUT + SESSION 272 handoff`.
+- Push: `c2a59af..e1f9b59 main -> main` (successful).
+- Working tree at CLOSEOUT: clean.
+- SESSION 271 v6 implementation commit (§190): `c16814d`.
+- SESSION 271 §190 implementation-report commit: `c2a59af`.
+- Full SESSION 271 commit trail from open to close available via `git log --oneline docs/design/SESSION_271_*.md docs/design/session_271_experiment_data/`.
+
+---
+
+**End of SESSION 271. Audience-aware communication architecture for `solo_scene` — RATIFIED (Writing Contract v6 + `Composition.audience_hint`). See `docs/design/SESSION_272_HANDOFF.md`.**
