@@ -610,6 +610,7 @@ The intent is a KnowledgeDocument shaped like what a real bakery owner would upl
 
 ## §12. §11 COMMIT PROVENANCE
 
-- §11 audit commit: (recorded at commit time — see git log)
+- §11 audit commit: **`e07f1c6`** — `docs(session-273): §11 pre-dogfood Ruby/Mason substrate audit`
+- Pushed to `origin/main`.
 - Evidence sidecar: `docs/design/session_273_experiment_data/01_ruby_mason_substrate_audit.json` (1,489,060 bytes)
 - Audit script: `scripts/session273_substrate_audit.py` (read-only)
