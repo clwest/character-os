@@ -1003,10 +1003,10 @@ Fallback: an even smaller pre-experiment unit test. Confirm mechanically that a 
 
 ## §35. Slice 2 commit + push record
 
-- Slice commit SHA: `<pending — populated after commit>`
-- Push: `<pending>`
-- Local `main == origin/main`: `<verified at commit time>`
-- Working tree at slice close: `<verified clean>`
+- Slice commit SHA: `623118e` — `docs(session-271): Slice 2 — duration-correction design archaeology`.
+- Push: `e66aa5e..623118e main -> main` (successful).
+- Local `main == origin/main == 623118e` verified.
+- Working tree at slice close: clean.
 
 ---
 
