@@ -769,7 +769,8 @@ Slice β is **not** authorized by this document and is not being started here.
 
 ## §14. §13 COMMIT PROVENANCE
 
-- §13 Slice α commit: (recorded at commit time — see git log)
+- §13 Slice α commit: **`5175c1b`** — `feat(session-273): §13 Slice α — Fox & Flour Universe + Ruby attach + retrieval verify + proposed KD`
+- Pushed to `origin/main`.
 - Slice α executor script: `scripts/session273_slice_alpha_universe_attach.py`
 - Slice α evidence sidecar: `docs/design/session_273_experiment_data/02_slice_alpha_universe_attach.json` (17,822 bytes)
 - Proposed KD sidecar (NOT INGESTED): `docs/design/session_273_experiment_data/03_slice_alpha_proposed_knowledge_document.md` (7,165 bytes)
