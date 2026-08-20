@@ -1,0 +1,576 @@
+# SESSION 271 — Corrective-Pass Audience-Invariance Audit (Q-270-15)
+
+Audit-only investigation of the SESSION 270 §13.28 directional finding: in 2 of 3 minimal-directive audience-conditioned specimens the FIRST PASS was clean on at-risk technical terminology (`API`, `language model`, `state`) and the CORRECTIVE EXPANSION pass reintroduced it. This document determines mechanically what happens between the two synthesis passes, whether audience_hint reaches both, whether the corrective retry is an edit or a regeneration, and what current tests do / do not prove.
+
+**No code was changed.** No render was performed. All findings are drawn from source inspection + frozen evidence sidecars.
+
+---
+
+## §1. Repository / runtime orientation
+
+| Check | Value at audit start |
+|---|---|
+| HEAD | `34d825fa558fd5fab062ff733269e37766f1fae8` (SESSION 270 §14.6 CLOSEOUT SHA record) |
+| Local `main == origin/main` | ✅ both at `34d825f` |
+| Working tree | ✅ clean |
+| `CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT` env var | ❌ not set (audit runs against frozen evidence; no live audience-hint activation) |
+| `_resolve_solo_audience_hint(step={})` behaviour | Returns `None` per SESSION 270 §14.4 (frozen expectation; not re-run) |
+| `WRITING_CONTRACT_VERSION` | `5` (canonical definition: `shell/character_os/writing_contract.py:96`) |
+| Transient solo audience_hint plumbing | ✅ present + inactive (`shell/apps/compositions/primitives/avatar_speech.py:97-114` + kwargs on `build_render_brief` / `synthesize_with_duration_gate` / `_assemble_task_message`) |
+| Frozen evidence — baseline sidecar | ✅ `docs/design/session_269_experiment_data/06_composition_2ef5ee7e_evidence.json` |
+| Frozen evidence — SESSION 270 sidecars | ✅ four files in `docs/design/session_270_experiment_data/` (`01_composition_f0e0a7bf`, `02_composition_9880eb93`, `03_composition_0b3c1fc1`, `04_composition_c3ff972d`) |
+| Runtime services | Not restarted during this audit. Frozen-evidence audit. No live render fired. |
+| Postgres | Not consulted (audit was frozen-evidence-only; port 5433 auth failed on ad-hoc probe — irrelevant to conclusions since all needed data lives in sidecars + source) |
+
+---
+
+## §2. Production synthesis path (proven from source)
+
+Full call chain for a solo_scene (Episode-attached `talking_head`) render, with actual file paths and line numbers.
+
+```
+apps/compositions/primitives/avatar_speech.py
+├── _resolve_solo_audience_hint(step)                       # lines 97-114
+│   └── returns hint string OR None (params → settings → env precedence)
+└── generate_avatar_speech() / _maybe_synthesize_script()
+    ├── is_episode_talking_head = (episode_id is not None
+    │                              and template_kind == "talking_head")   # lines 517-520
+    ├── target_shape_for_synthesis = "solo_scene" if is_episode_talking_head else "long_form"  # lines 521-523
+    ├── audience_hint = _resolve_solo_audience_hint(step) if is_episode_talking_head else None  # lines 531-533
+    └── if target_duration_seconds:
+        └── synthesize_with_duration_gate(                  # lines 554-564
+                spokesperson=composition.spokesperson,
+                operator_prompt=raw_script,
+                target_duration_seconds=target_duration_seconds,
+                max_script_chars=AVATAR_SPEECH_SAFE_MAX_CHARS,
+                verifier_mode=verifier_mode,
+                opener=opener,
+                mock_mode=False,
+                memory_rows=memory_rows,
+                target_shape=target_shape_for_synthesis,     # "solo_scene"
+                audience_hint=audience_hint,                 # string OR None
+            )
+
+character_os/duration_contract.py :: synthesize_with_duration_gate  (lines 422-719)
+├── compute LLM-facing char budgets from calibrated synth target       # lines 501-508
+├── acceptance budgets from raw requested-target                       # lines 514-519
+├── def _synthesize(hint=None):                                        # lines 521-543
+│      return build_render_brief(
+│          spokesperson, operator_prompt,
+│          verifier_mode=verifier_mode,
+│          opener=opener,
+│          target_shape=target_shape,          # e.g. "solo_scene"
+│          target_duration_seconds=synth_target_seconds,
+│          max_script_chars=max_script_chars,
+│          corrective_hint=hint,                # None on first call, expansion/compression hint on retry
+│          memory_rows=memory_rows,
+│          audience_hint=audience_hint,         # CAPTURED FROM ENCLOSING SCOPE
+│      )
+├── synth = _synthesize()                       # FIRST PASS       line 545
+├── first_pass_brief = synth.brief              # frozen for observability   line 550
+├── measure chars/words/seconds                 # line 546
+├── if actual_chars < raw_min:
+│      hint = _expansion_hint(...)              # lines 591-599
+│      synth = _synthesize(hint)                # CORRECTIVE PASS  line 603
+├── elif actual_chars > acceptance_max or provider_cap_binds:
+│      hint = _compression_hint(...)            # lines 607-615
+│      synth = _synthesize(hint)                # CORRECTIVE PASS  line 619
+├── acceptance gate (raises DurationContractError on failure)
+└── return synth                                 # accepted script
+
+character_os/script_synthesis.py :: build_render_brief   (lines 288-479)
+├── validates target_shape ∈ {"standalone","long_form","solo_scene"}
+├── retrieve_for_teammate(...)                  # deterministic under identical query
+├── _call_responses_api(spokesperson, operator_prompt, chunks, opener=…,
+│                       target_shape=…, target_duration_seconds=…,
+│                       max_script_chars=…, corrective_hint=…,
+│                       memory_rows=…, audience_hint=…)     # lines 458-467
+
+character_os/script_synthesis.py :: _call_responses_api   (lines 533-591)
+├── system = _assemble_system_prompt(spokesperson, chunks=chunks, target_shape=…,
+│                                    target_duration_seconds=…, max_script_chars=…,
+│                                    memory_rows=…)          # lines 563-570
+│   (audience_hint DOES NOT flow into the system prompt)
+├── user = _assemble_task_message(operator_prompt=…, opener=…,
+│                                 corrective_hint=…,
+│                                 audience_hint=…)            # lines 571-576
+├── client.responses.create(model=SCRIPT_MODEL,
+│                           input=f"{system}\n\nUser: {user}", …)
+└── return (text, tokens_in, tokens_out)
+
+character_os/script_synthesis.py :: _assemble_task_message   (lines 638-698)
+├── parts = ["=== SECTION 5 — TASK ===", "TOPIC:\n{topic}"]
+├── hard_constraints = []
+├── if opener:           hard_constraints.append("PINNED OPENER …\n{opener}")
+├── if corrective_hint:  hard_constraints.append("CORRECTIVE HINT (previous attempt feedback — apply this):\n{corrective_hint}")
+├── if audience_hint:    hard_constraints.append("AUDIENCE DIRECTIVE (research plumbing — apply as a performance instruction; adapt HOW the character communicates without altering identity, intelligence, personality, humor, factual grounding, Universe canon, NarrativeMemory semantics, or Episode intent):\n{audience_hint}")
+├── if hard_constraints:
+│      parts.append("HARD CONSTRAINTS (override Character Voice and Writing Contract preferences; do NOT override Factual Basis or Brand Voice prohibitions):\n\n" + "\n\n".join(hard_constraints))
+└── parts.append("Write the spokesperson's spoken script for this task. Plain spoken English — this becomes voiceover.")
+```
+
+**System prompt structure** (`_assemble_system_prompt`, lines 594-635): §1 Factual Basis → §2 Character Voice → §3 Brand Voice → §4 Writing Contract → PRECEDENCE RULES. `audience_hint` NEVER enters the system prompt.
+
+**PRECEDENCE RULES text** (`_PRECEDENCE_RULES`, lines 886-904):
+> 1. Factual Basis (§1) beats everything on TRUTH. No claim survives that isn't grounded in §1.
+> 2. Brand Voice (§3) beats Character Voice (§2) on PROHIBITIONS. `never_say` overrides any character preference.
+> 3. Writing Contract (§4) beats Character Voice on STRUCTURE. One-CTA-when-included applies even to characters who prefer multiple asks.
+> 4. Character Voice (§2) beats Writing Contract on REGISTER. The contract's anti-generic list is a floor; character voice adds distinctive register on top.
+> 5. Task (§5) Hard Constraints beat Character Voice preferences and Writing Contract defaults, but NEVER override Factual Basis or Brand Voice prohibitions.
+> 6. Task Topic beats Character Voice on TOPIC SCOPE. POV shapes interpretation of the topic, not choice of topic.
+
+Both `corrective_hint` and `audience_hint` live inside §5 HARD CONSTRAINTS — same precedence tier per Rule 5. §1 Factual Basis outranks both on TRUTH per Rule 1.
+
+---
+
+## §3. Question A — Does audience_hint reach BOTH first pass AND corrective pass byte-identically?
+
+**Answer: YES — proven from source.**
+
+### §3.1 Closure capture proof
+
+`shell/character_os/duration_contract.py:521-543`:
+
+```python
+def _synthesize(hint: str | None = None) -> ScriptResult:
+    return build_render_brief(
+        spokesperson, operator_prompt,
+        verifier_mode=verifier_mode,
+        opener=opener,
+        target_shape=target_shape,
+        target_duration_seconds=synth_target_seconds,
+        max_script_chars=max_script_chars,
+        corrective_hint=hint,            # None on first call, string on retry
+        memory_rows=memory_rows,
+        audience_hint=audience_hint,     # CAPTURED FROM ENCLOSING synthesize_with_duration_gate SCOPE
+    )
+```
+
+`audience_hint` is captured from the enclosing function's parameter (line 433) and referenced by name inside the closure. Python closure semantics: the same name-lookup fires on every call, resolving to the same string object (or `None`). The value is not mutated anywhere between the two invocations.
+
+### §3.2 Call-site proof
+
+- **FIRST PASS** — `line 545`: `synth = _synthesize()` → `hint` defaults to `None` → `build_render_brief(..., corrective_hint=None, audience_hint=audience_hint)`.
+- **CORRECTIVE PASS (expansion)** — `line 603`: `synth = _synthesize(hint)` → `hint` is the `_expansion_hint(...)` string → `build_render_brief(..., corrective_hint="Your previous draft was …", audience_hint=audience_hint)`.
+- **CORRECTIVE PASS (compression)** — `line 619`: same pattern, `_compression_hint(...)`.
+
+The `audience_hint` argument to `build_render_brief` is byte-identical across both invocations because the enclosing function's parameter is not reassigned.
+
+### §3.3 Downstream propagation
+
+`build_render_brief` (line 466) forwards `audience_hint=audience_hint` to `_call_responses_api`. `_call_responses_api` (line 575) forwards to `_assemble_task_message(audience_hint=audience_hint)`. `_assemble_task_message` (lines 677-685) emits the AUDIENCE DIRECTIVE block whenever the string is truthy.
+
+**Verdict — Question A:** `audience_hint` reaches BOTH first-pass and corrective-pass `build_render_brief` invocations byte-identically. There is no divergence in the delivery mechanism. **H1 (audience_hint accidentally absent from corrective retry) is FALSIFIED by source inspection.**
+
+---
+
+## §4. Question B — Prompt-component delta between first pass and corrective pass
+
+| Prompt component | FIRST PASS | CORRECTIVE PASS | SAME / CHANGED | Notes |
+|---|---|---|---|---|
+| System §1 Factual Basis (knowledge chunks + memory) | Present | Present | **SAME** | Retrieval is deterministic under identical query (SESSION 270 §13.25.1 finding: 5 chunks + `mem_id=8d4fdfec` identical across all 5 specimens); the chunk set does not change between passes within a single render either — the second call retrieves again, but retrieval inputs are byte-identical, so retrieved chunks are the same. |
+| System §2 Character Voice | Present | Present | **SAME** | Static per spokesperson. |
+| System §3 Brand Voice | Present | Present | **SAME** | Static per spokesperson. |
+| System §4 Writing Contract (`solo_scene`, v5) | Present | Present | **SAME** | Contract text depends only on `target_shape` + budget interpolation; both derived from `synth_target_seconds` which is stable across passes. |
+| PRECEDENCE RULES block | Present | Present | **SAME** | Static string. |
+| User §5 header `=== SECTION 5 — TASK ===` | Present | Present | **SAME** |  |
+| User §5 TOPIC (operator_prompt) | Present | Present | **SAME** | `operator_prompt` closure variable is not reassigned. |
+| User §5 HARD CONSTRAINTS → PINNED OPENER | Absent (opener blank in all 5 specimens) | Absent | **SAME** | No specimen used an opener. |
+| User §5 HARD CONSTRAINTS → CORRECTIVE HINT | **Absent** | **PRESENT** (656-char expansion hint) | **CHANGED** | Only added block on retry. Full text quoted in §5.2. |
+| User §5 HARD CONSTRAINTS → AUDIENCE DIRECTIVE | Present (when hint truthy) | Present (when hint truthy) | **SAME** | Byte-identical string on both calls per §3. Text = `AUDIENCE: …` (41–372 chars depending on specimen). |
+| User §5 HARD CONSTRAINTS block header + wrapper text | Present on both (since `hard_constraints` non-empty on both when audience_hint present) | Present | **SAME** | The "HARD CONSTRAINTS (override Character Voice…)" preface fires whenever the list is non-empty. |
+| Final "Write the spokesperson's spoken script…" line | Present | Present | **SAME** |  |
+| Ordering within HARD CONSTRAINTS | (audience only, if present) | opener → CORRECTIVE HINT → AUDIENCE DIRECTIVE | **CHANGED** | On the retry, the CORRECTIVE HINT is inserted BEFORE the AUDIENCE DIRECTIVE in the list (see `_assemble_task_message` lines 666-685). Audience directive retains the trailing (recency) position. |
+| Previous first-pass draft text | N/A | **NOT INCLUDED** | — | The corrective call does not receive the first-pass script text as a prompt fragment. Only a metadata summary ("Your previous draft was N characters") is in the CORRECTIVE HINT. See §6. |
+
+**Delta summary:** The only thing that changes between first pass and corrective pass is the insertion of a single 656-char CORRECTIVE HINT block into §5 HARD CONSTRAINTS, positioned BEFORE the AUDIENCE DIRECTIVE within that block. All other prompt components — including the audience directive — are byte-stable.
+
+---
+
+## §5. Question C — corrective_hint source, placement, priority
+
+### §5.1 Source location
+
+`shell/character_os/duration_contract.py::_expansion_hint` (lines 355-384). Compression path is `_compression_hint` (lines 387-416) but all four SESSION 270 audience-conditioned first passes were too SHORT (631 / 711 / 779 / 881 chars vs 972 raw_min for the 81 s synth target of a 90 s request) so ALL retries were expansion retries. Baseline `2ef5ee7e` also took an expansion retry (first-pass 731 chars).
+
+### §5.2 Exact corrective_hint wording (from frozen evidence, all 5 specimens)
+
+Byte-identical shape across all 5 specimens; only the `{actual_chars}` / `{actual_words}` / `{actual_seconds}` / `{shortfall_chars}` numbers differ.
+
+Full text for `c3ff972d` (verbatim from `04_composition_c3ff972d_evidence.json::synthesis_provenance.corrective_hint_used`):
+
+```
+Your previous draft was 631 characters (128 words, estimated ~44s of speech). Target is 81s.
+REWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 341 more characters to meet the minimum.
+Preserve the central arc (opening → development → payoff → single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks — describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.
+```
+
+Confirmed across sidecars: same shape for `f0e0a7bf` (779→972), `9880eb93` (881→972), `0b3c1fc1` (711→972), `c3ff972d` (631→972).
+
+### §5.3 What corrective_hint DOES explicitly preserve
+
+Verbatim from `_expansion_hint`:
+
+- "the central arc (opening → development → payoff → single closing invitation)"
+- "the narrator perspective"
+- "the factual grounding from the knowledge chunks"
+
+### §5.4 What corrective_hint does NOT mention
+
+- audience adaptation
+- vocabulary translation
+- knowledge boundary of the listener
+- register / accessibility
+- listener context
+- any transformation applied by the first pass
+- the audience_hint itself
+- any explicit invariant like "preserve every transformation the previous draft made"
+
+### §5.5 Placement + priority in the assembled prompt
+
+- Both `corrective_hint` and `audience_hint` are appended to the same `hard_constraints` list inside `_assemble_task_message`.
+- Order within the list is: `opener` → `corrective_hint` → `audience_hint` (source order in the `if …: append(...)` block, lines 666-685).
+- Both are wrapped in the single "HARD CONSTRAINTS (override Character Voice and Writing Contract preferences; do NOT override Factual Basis or Brand Voice prohibitions)" preface.
+- Per PRECEDENCE RULES rule 5, both sit at the same precedence tier.
+- Per PRECEDENCE RULES rule 1, both are outranked by §1 Factual Basis on TRUTH. Since the corrective_hint explicitly instructs the model to "Expand secondary detail from the knowledge chunks", it directs attention toward §1 — the tier that outranks the audience directive on TRUTH.
+
+### §5.6 Instruction that plausibly competes with audience adaptation
+
+The corrective_hint contains one instruction that structurally competes with audience-vocabulary adaptation:
+
+> "Expand secondary detail from the knowledge chunks — describe more of the sensory / emotional beats already implied."
+
+Combined with:
+
+> "Preserve … the factual grounding from the knowledge chunks."
+
+These two clauses push the model back toward the raw §1 vocabulary. §1 for these five specimens contains chunks labelled `AI AGENTS`, `LANGUAGE MODELS`, `MULTI-AGENT SYSTEMS`, with token surfaces like *"call APIs"*, *"language model"*, *"select tools"* (see §7 for chunk head snippets). The audience_hint remains in the prompt but is quantitatively dominated: for `c3ff972d` the audience directive is 79 chars, the corrective hint is 656 chars.
+
+---
+
+## §6. Question D — Edit or regeneration?
+
+**Answer: The corrective retry is architecturally a REGENERATION, not an EDIT of the first-pass draft.**
+
+### §6.1 Proof from source
+
+`_synthesize` on the retry (`duration_contract.py:603`) calls `build_render_brief` with all the SAME inputs as the first call, plus a `corrective_hint` string. The first-pass draft text (`first_pass_brief`, line 550) is captured for observability but is **never passed to `build_render_brief` or to the LLM**. Grep for `first_pass_brief` in the module returns only:
+- line 550: assignment from `synth.brief`
+- lines 571, 650, 714: attached to the returned `ScriptResult` as observability metadata
+- line 654: passed to `_observability_kwargs` for `DurationContractError` bundling
+
+There is no code path that includes the first-pass text in the prompt to the corrective call.
+
+### §6.2 What the LLM sees on the corrective call
+
+- Same system prompt (§§1-4 + PRECEDENCE).
+- Same TOPIC (operator_prompt).
+- Same AUDIENCE DIRECTIVE (if any).
+- + NEW: a 656-char CORRECTIVE HINT that says "Your previous draft was N chars, estimated ~M seconds. Target is X seconds. REWRITE THE SAME NARRATIVE ABOVE Y CHARACTERS. Preserve the central arc, narrator perspective, factual grounding. Expand secondary detail from the knowledge chunks. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts."
+
+The phrase "REWRITE THE SAME NARRATIVE" is a linguistic promise that presupposes the model has the previous narrative in context. In this pipeline it does not. The model is being asked to *reconstitute* a plausible previous narrative from the same substrate (Factual Basis, Character Voice, Topic, Audience Directive) and then extend it.
+
+### §6.3 Implication for "preserving audience transformation"
+
+The corrective pass can only preserve things visible in its own context. It CAN preserve:
+
+- Anything driven by the system prompt (character identity, brand prohibitions, contract shape)
+- Anything driven by the TOPIC (operator_prompt)
+- Anything driven by the AUDIENCE DIRECTIVE (the string is present)
+
+It CANNOT preserve:
+
+- Specific vocabulary choices from the first pass (never sees the text)
+- Specific metaphor substitutions from the first pass
+- Specific paraphrase/translation decisions made during the first pass
+- Any transformation whose only trace was inside the first-pass output
+
+The audience_hint is a *description of the listener* (e.g. `AUDIENCE: general adults with no technical background who are new to AI agents.`). Under minimal-directive conditions it does not include HOW-to-adapt clauses. The first pass had to *invent* term-by-term translations from the listener description. Those inventions are stochastic and not persisted. On a fresh regeneration under the same listener description, the model may make the same choices, similar choices, or different choices. **Nothing in the pipeline constrains the corrective pass to reproduce the specific translations the first pass discovered.**
+
+### §6.4 Consequence for interpreting the §13.28 pattern
+
+The §13.28 directional pattern (2 of 3 minimal-directive audience specimens exhibit at-risk term reintroduction between first pass and corrective pass) is *architecturally consistent* with a fresh regeneration that combines (a) an unchanged audience directive with (b) a longer, more mass-heavy corrective instruction that explicitly directs the model back toward the raw Factual Basis. It does not require any bug in propagation; it is a natural consequence of the regeneration semantics.
+
+---
+
+## §7. Cross-specimen first→corrective evidence table
+
+All rows derived from frozen sidecars (`session_270_experiment_data/*.json` and `session_269_experiment_data/06_composition_2ef5ee7e_evidence.json`). At-risk term counts adopt the SESSION 270 §13.28 method: case-insensitive substring match for `API`, `APIs`, `language model`, `state` (SESSION 271 focus set — matches the operator's specified list); baseline row extended with `multi-step` and `database` for continuity with §13.28.
+
+| Specimen | audience_hint (chars — text) | Attempts | First-pass len | Accepted len | Corrective reason | Corrective hint (target min) | First-pass at-risk terms | Accepted at-risk terms | Direction |
+|---|---|---|---|---|---|---|---|---|---|
+| `2ef5ee7e` (baseline) | N/A — no directive | 2 | 731 | 1599 | too_short | 972 | 3 (`API`, `APIs`, `state`) | 6 (`API`, `APIs`, `language model`, `state`, `multi-step`, `database`) | **ADDED** — expected without audience filter |
+| `f0e0a7bf` (verbose 372-char CHANGE/PRESERVE contract) | 372 — `"AUDIENCE: children around 8-10 years old. Adapt register, vocabulary accessibility, explanation style, analogy choice, and assumed background knowledge for this audience. Preserve character identity, intelligence, personality, humor, factual grounding, Universe canon, NarrativeMemory semantics, and Episode intent. Communicate WITH the audience, do not talk DOWN to them."` | 2 | 779 | 1231 | too_short | 972 | 1 (`language model`) | 0 | **REMOVED** — verbose CHANGE clause carried through the retry |
+| `9880eb93` (41-char minimal child) | 41 — `"AUDIENCE: children around 8-10 years old."` | 2 | 881 | 1354 | too_short | 972 | 0 (clean) | 1 (`API` — as `"call an API"`) | **ADDED** — clean first pass, term reintroduced on corrective |
+| `0b3c1fc1` (42-char broad adult beginner) | 42 — `"AUDIENCE: adults who are new to AI agents."` | 2 | 711 | 1479 | too_short | 972 | 2 (`API` — `"call an API"`; `language model`) | 2 (same tokens; `API` becomes `"Call an API."`; `state` translated to `"Keep track of what happened"`) | **STABLE** — same terms in both passes; neither supports nor refutes the mechanical hypothesis |
+| `c3ff972d` (79-char nontechnical adult beginner) | 79 — `"AUDIENCE: general adults with no technical background who are new to AI agents."` | 2 | 631 | 1424 | too_short | 972 | 0 (clean; translated: `"keep track of what happened"`, `"handle a task across multiple steps"`) | 5+ (`call APIs`, `language model` ×2, `keep some state`, dense `"language model, memory, search, tools, databases, rules, user information, and ordinary software"` list) | **ADDED** — most extreme reintroduction of the five specimens |
+
+### §7.1 First-pass excerpts on at-risk terms (verbatim, for interpretation)
+
+- **`f0e0a7bf` first pass:** *"A language model can answer a question. An agent can keep going: make a decision, choose a tool, read a document, search for information, maybe do several steps in a row."*
+- **`9880eb93` first pass:** *"An agent might choose a tool, search for information, read a document, write something down, or handle a task with several steps."* (no API, no `state`, no `language model`)
+- **`0b3c1fc1` first pass:** *"A language model gives you an answer. An agent can take steps. It might choose a tool, search for information, read a document, write something down, call an API, and keep going until it finishes a task."*
+- **`c3ff972d` first pass:** *"It might choose tools, search for information, read documents, write things down, make decisions, keep track of what happened, and handle a task across multiple steps."* (no API, no `state` noun, no `language model`)
+
+### §7.2 Corrective-pass (accepted) excerpts on at-risk terms
+
+- **`f0e0a7bf` accepted:** *"It can make decisions, choose tools, look up information, read documents, write things down, **call other software**, and keep track of what happened before."* — API translated ✅; `language model` removed ✅
+- **`9880eb93` accepted:** *"It might choose a tool, search for information, read a document, write something down, **call an API**, remember part of a task, then decide what to do next."* — API reintroduced ❌; `state` translated to *"remember part of a task"*
+- **`0b3c1fc1` accepted:** *"A **language model** can tell you how it would organize a project. An agent might actually interact with the project… It might make decisions. Pick a tool. Search for information. Read documents. Write information somewhere. **Call an API**. Keep track of what happened. Do a task with more than one step."* — same terms as first pass
+- **`c3ff972d` accepted:** *"A **language model** can answer a question… An agent is more like an AI system that can keep going… It can make decisions, choose tools, search for information, read documents, write things down, **call APIs**, handle a task in steps, and **keep some state** while it does it. … You might have a **language model**, memory, search, tools, databases, rules, user information, and ordinary software all bolted together like a suspiciously ambitious shed."* — API added; `language model` added ×2; `state` regressed from *"keep track of what happened"* (first pass) to *"keep some state"* (accepted)
+
+### §7.3 At-risk terminology classification (per operator's rubric)
+
+Distinguishing raw unexplained term vs term-with-accessible-definition vs accessible translation vs contextually understandable term:
+
+| Occurrence | Classification |
+|---|---|
+| baseline `"call APIs, handle multi-step tasks, maintain state"` | **RAW UNEXPLAINED TERMS** |
+| `f0e0a7bf` accepted `"call other software"` | **ACCESSIBLE TRANSLATION** |
+| `f0e0a7bf` accepted `"keep track of what happened before"` | **ACCESSIBLE TRANSLATION** |
+| `9880eb93` accepted `"call an API"` | **RAW UNEXPLAINED TERM** |
+| `9880eb93` accepted `"remember part of a task"` | **ACCESSIBLE TRANSLATION** |
+| `0b3c1fc1` accepted `"Call an API."` | **RAW UNEXPLAINED TERM** |
+| `0b3c1fc1` accepted `"Keep track of what happened."` | **ACCESSIBLE TRANSLATION** |
+| `0b3c1fc1` accepted `"A language model"` | **CONTEXTUALLY UNDERSTANDABLE** (paired with contrast to "agent") |
+| `c3ff972d` accepted `"call APIs"` | **RAW UNEXPLAINED TERM** |
+| `c3ff972d` accepted `"keep some state"` | **RAW UNEXPLAINED TERM** — regression vs `0b3c1fc1`'s translation |
+| `c3ff972d` accepted dense list `"language model, memory, search, tools, databases, rules, user information, and ordinary software"` | **RAW UNEXPLAINED TERMS** — collectively scaffolded by *"suspiciously ambitious shed"* metaphor, so the *reader* can extract meaning even without individual definitions; borderline CONTEXTUALLY UNDERSTANDABLE by grouping, not by definition |
+
+Directional finding: minimal-directive corrective passes reintroduce raw unexplained terms; the verbose CHANGE-clause corrective pass produced accessible translations.
+
+---
+
+## §8. Factual Basis literalness analysis (qualitative)
+
+### §8.1 Chunk-head evidence (from sidecars)
+
+The five retrieved knowledge chunks are byte-identical across all five compositions (§13.25.1 STRONG finding). Their heads (from `01_composition_f0e0a7bf_evidence.json::knowledge_chunks_retrieved`):
+
+- `3c5165ea`: "…MULTI-AGENT SYSTEMS. Multiple AI agents can be placed in the same environment. They may communicate, cooperate, disagree, divide responsibilities…"
+- `505acbba`: "…AI AGENTS. An AI agent is generally an AI system that can do more than produce one response. Agents may make decisions, select tools…"
+- `b3c6e8ac`: "…LANGUAGE MODELS. Large language models can generate and interpret language…"
+- `c24d1aa7`: "PATCH — AI BUILDING, EXPERIMENTATION & CONTENT KNOWLEDGE. PURPOSE. Patch is an AI builder, experimenter, inventor…"
+- `ed18e966`: "…What Patch wants to know is what he can actually do with a system…"
+
+The literal section headings and label vocabulary — *AI AGENTS*, *LANGUAGE MODELS*, *MULTI-AGENT SYSTEMS* — sit at the top of chunks the LLM is instructed to "Expand secondary detail from" during the corrective retry. SESSION 270 §13.24.11.3 attributed the *"call APIs"* reintroduction in `c3ff972d`'s accepted output specifically to chunk `505acbba` and the *"language model, memory, search, tools, databases…"* dense list to chunk `b3c6e8ac`.
+
+### §8.2 Qualitative comparison
+
+- **First-pass excerpts** show paraphrased language even when the audience directive is minimal (e.g. `9880eb93` first pass: *"handle a task with several steps"* → paraphrase of `multi-step` from chunk 505acbba; `c3ff972d` first pass: *"keep track of what happened"* → paraphrase of *"maintain state"* or an equivalent enumeration in the chunks).
+- **Corrective-pass excerpts** contain closer matches to the chunk vocabulary (e.g. `c3ff972d` accepted: *"language model, memory, search, tools, databases, rules, user information, and ordinary software"* — the pattern reads as an enumeration derived from the *"LANGUAGE MODELS"* + *"AI AGENTS"* chunks combined).
+- **Verbose specimen contrast**: `f0e0a7bf`'s corrective pass keeps the audience translation (*"call other software"*, *"keep track of what happened before"*) and moves AWAY from the raw chunk vocabulary — the CHANGE clause explicitly says "Adapt vocabulary accessibility" and survives the retry.
+
+**Verdict (qualitative):** consistent with the hypothesis that corrective-pass expansion shows greater lexical/terminological resemblance to §1 Factual Basis than first-pass synthesis under minimal audience directives. Full chunk text was not fetched (DB unavailable in the audit shell — port 5433 auth failure); the chunk-head evidence + SESSION 270 §13.24.11.3 attribution + the corrective_hint's explicit "expand from the knowledge chunks" instruction are sufficient to establish qualitative directionality. **A stricter quantitative resemblance metric would require fetching the full chunk texts, which was not done in this audit.**
+
+---
+
+## §9. Instruction competition / precedence analysis
+
+### §9.1 Structural placement
+
+- Both `corrective_hint` and `audience_hint` are inside the same §5 HARD CONSTRAINTS block.
+- Emission order in the assembled prompt is `PINNED OPENER → CORRECTIVE HINT → AUDIENCE DIRECTIVE` (source order in `_assemble_task_message` lines 666-685). AUDIENCE DIRECTIVE therefore holds the trailing position — often a recency advantage in autoregressive LLM prompting.
+
+### §9.2 Mass asymmetry
+
+- Minimal audience directives: 41 (`9880eb93`), 42 (`0b3c1fc1`), 79 (`c3ff972d`), 372 (`f0e0a7bf` verbose) characters.
+- Corrective hint: 656 chars, invariant shape across all specimens.
+- Under minimal directives, the corrective_hint is 8–16× the character mass of the audience directive.
+- Under the verbose directive (`f0e0a7bf`), the audience directive is 57 % of the corrective hint's mass AND contains explicit HOW-to-adapt language.
+
+### §9.3 Semantic competition
+
+The corrective_hint contains two clauses that structurally compete with audience-vocabulary adaptation:
+
+1. `"Expand secondary detail from the knowledge chunks — describe more of the sensory / emotional beats already implied."` — directs attention back to §1 Factual Basis raw vocabulary.
+2. `"Preserve … the factual grounding from the knowledge chunks."` — reinforces the same direction.
+
+Neither clause instructs the model to preserve prior audience-adaptive vocabulary transformations. The Writing Contract (v5, `_solo_scene_contract`, `writing_contract.py:609-728`) contains six SOLO-SCENE INVARIANTS (SINGLE ACTIVE CHARACTER, SINGLE PRESENT MOMENT, PLANS REMAIN PLANS, MEMORY AS BACKGROUND, END ON A MOMENT, PRESERVE CREATIVE FREEDOM). **None address corrective-pass invariance of prior transformations. None mention audience.**
+
+### §9.4 Precedence-rule interaction
+
+Per `_PRECEDENCE_RULES` rule 1: *"Factual Basis (§1) beats everything on TRUTH."* The corrective_hint explicitly re-invokes §1 for expansion material. Since §1 is what beats everything on TRUTH, the model has a structural incentive on the retry to lean into §1's literal token surface for accuracy. The audience directive, occupying §5 Hard Constraints, cannot outrank §1 on TRUTH per rule 5 (*"do NOT override Factual Basis"*). Under a longer, more instructionally-heavy corrective hint that specifically points back at §1, the audience directive's influence on term-by-term vocabulary choice is architecturally weakened even though its byte-position remains stable.
+
+### §9.5 Sub-question — is there a global invariant somewhere requiring corrective passes to preserve first-pass transformations?
+
+**No.** Grep across `shell/character_os/writing_contract.py` and `shell/character_os/script_synthesis.py` reveals no invariant of the form "if this is a corrective retry, preserve X from the first pass." The corrective machinery is designed to hit a duration target; it inherits the same substrate as the first call and receives a size-shortfall summary. Preservation of higher-order transformations was not an explicit design goal of the SESSION 253 duration-contract extraction.
+
+---
+
+## §10. Test coverage audit
+
+Existing tests reviewed:
+- `shell/apps/compositions/tests/test_session270_audience_hint.py` (17 tests, 412 lines) — SESSION 270 audience-hint plumbing.
+- `shell/apps/compositions/tests/test_duration_contract_talking_head.py` — synthesize_with_duration_gate retry behaviour.
+- `shell/apps/compositions/tests/test_session262_composition_observability.py` — per-attempt provenance persistence.
+- `shell/apps/compositions/tests/test_writing_contract_solo_scene.py` — solo_scene shape budget interpolation.
+
+| Claim | Coverage | Evidence |
+|---|---|---|
+| audience_hint reaches FIRST pass' `_assemble_task_message` | **COVERED** | `test_session270_audience_hint.py::test_assemble_task_message_hint_emitted_under_hard_constraints` (line 121); `test_build_render_brief_hint_does_not_leak_via_synthesis_path` (line 220). |
+| audience_hint reaches CORRECTIVE pass' `_assemble_task_message` | **NOT COVERED** as an assertion. Architecturally implied by closure capture (§3), but no test asserts `audience_hint` is present in the retry-call kwargs of `build_render_brief`. `test_gate_retries_when_short_then_accepts` (line 240) asserts `"corrective_hint"` is in `retry_kwargs` and `"972" in retry_kwargs["corrective_hint"]`, but does not check `audience_hint`. |
+| corrective_hint reaches ONLY the corrective pass, not the first | **COVERED (implicitly)** | Same test — `fake_brb.call_args_list[0]` (first call) has no `corrective_hint`, `[1]` has one. |
+| Previous first-pass draft is / is not included in corrective prompt | **NOT COVERED** as an explicit assertion. Provable from source (`first_pass_brief` never appears in a prompt-assembly path). |
+| Other context (system prompt, TOPIC, memory, chunks) remains invariant between passes | **NOT COVERED** as an equality assertion between first and second call. Provable from source (`_synthesize` closure passes the same variables). |
+| Audience-specific SEMANTIC transformations (register / vocabulary translation / metaphor) survive the corrective retry | **NOT COVERED**. Would require end-to-end fixture-based semantic assertions or a golden-output regression — neither exists. |
+| PRECEDENCE order within HARD CONSTRAINTS (opener → corrective → audience) | **PARTIALLY COVERED** | `test_assemble_task_message_hint_coexists_with_opener_and_corrective` (line 159) asserts all three block markers are present in the same prompt but does not pin their relative order beyond `AUDIENCE DIRECTIVE` appearing at all. |
+| audience_hint containment (§1/§2/§3/memory do NOT carry the hint) | **COVERED** | `test_build_render_brief_hint_does_not_leak_via_synthesis_path` (line 220). |
+| Corrective-pass architecture is a regeneration (no first-pass text passed to LLM) | **NOT COVERED** as an explicit assertion. Provable from source. |
+
+**Summary:** Coverage is strong for the ambient plumbing (audience_hint delivery, containment, precedence-tier) but silent on the specific invariant relevant to Q-270-15 (audience_hint present on corrective retry) and on any semantic-preservation guarantee across passes. **No changes to tests were made** per the audit-only constraint.
+
+---
+
+## §11. H1–H6 hypothesis grading
+
+| # | Hypothesis | Verdict | Evidence |
+|---|---|---|---|
+| **H1** | audience_hint is accidentally absent from corrective synthesis. | **NOT SUPPORTED / FALSIFIED** by source | Closure capture in `duration_contract.py:521-543` proves `audience_hint` is passed byte-identically on both `_synthesize` invocations. Existing test `test_build_render_brief_hint_does_not_leak_via_synthesis_path` proves the audience_hint reaches the assembled prompt on at least one call. No test asserts equality across passes — that gap is what a controlled render or unit-level assertion would close — but there is no source evidence supporting absence. |
+| **H2** | audience_hint is present, but corrective_hint competes with it and causes more literal reuse of Factual Basis terminology. | **SUPPORTED** (qualitative + structural) | §5 + §8 + §9. The corrective_hint (656 chars) explicitly instructs "Expand secondary detail from the knowledge chunks", is 8–16× the mass of the minimal audience directives, and shares the same precedence tier. §1 Factual Basis outranks §5 Hard Constraints on TRUTH per rule 1. Chunks contain literal *"call APIs"* / *"LANGUAGE MODELS"* / *"AI AGENTS"* section vocabulary. Accepted-pass excerpts in §7 show closer resemblance to chunk vocabulary than first-pass excerpts. Full quantitative lexical-resemblance metric NOT computed; DB unavailable for chunk-text retrieval in this audit. |
+| **H3** | corrective synthesis is a fresh regeneration rather than an edit of the audience-adapted first pass, allowing stochastic loss of prior transformations. | **SUPPORTED** (proven from source) | §6. The first-pass text is captured for observability only; it never enters the prompt of the corrective call. The corrective call receives the same substrate + a size-shortfall summary. Any transformation whose only trace was in the first-pass output is not visible on the retry. |
+| **H4** | duration expansion simply requires more technical detail, making terminology recurrence statistically more likely without a mechanical prompt problem. | **PARTIALLY SUPPORTED — cannot be cleanly disentangled from H2 or H3** | The corrective_hint asks for +91 to +341 more chars across specimens; a proportional expansion could reasonably introduce more of the chunk vocabulary. But H2 provides a specific *mechanical* channel (the "expand from knowledge chunks" clause), and H3 shows the regeneration semantics allow prior audience translations to be lost even at the same length. H4 is compatible with the evidence but does not compete cleanly — the same evidence licences H2 + H3. Cannot be discriminated without an experiment that varies size-shortfall independent of instruction wording. |
+| **H5** | the 2-of-3 directional pattern is too small/stochastic to localize any mechanism. | **PARTIALLY SUPPORTED — for STATISTICAL localization, but NOT for MECHANICAL localization** | The n=3 minimal-directive sample is genuinely small for a stochastic argument. HOWEVER, the mechanical evidence (H3 proven from source, H2 supported structurally) is independent of the small sample: the regeneration semantics + the explicit "expand from chunks" clause + the mass asymmetry are STATIC properties of the pipeline, not measurements. So "we cannot statistically prove the corrective retry is worse on average" is a fair reading; "we cannot mechanically identify a channel by which this class of failure can occur" is NOT — that channel is proven. |
+| **H6** | some combination of the above. | **SUPPORTED** — the best reading | H1 is FALSIFIED. H2 + H3 are the primary mechanical channels; both are supported and are compatible with each other (a regenerated corrective pass that is additionally biased toward §1 by the corrective_hint text). H4 is compatible but not necessary. H5 is a legitimate warning about the specific 2-of-3 finding but does not weaken the source-level mechanical findings. |
+
+---
+
+## §12. Classification — audience failure vs corrective-pass invariance failure vs retry variance vs unresolved
+
+**Classification: CORRECTIVE-PASS INVARIANCE FAILURE (bounded).**
+
+Justification:
+
+- The audience directive itself IS producing clean first-pass adaptation under minimal directives in 2 of 3 audience-conditioned specimens (`9880eb93`, `c3ff972d`). This falsifies "audience directive is too weak by itself" as the primary cause for these two specimens — the directive worked, then its work was lost.
+- The word *failure* is used cautiously per the operator brief: accepted outputs remain broadly good (all five compositions scored 8+ PASS across the 10-criterion SESSION 270 grading). This is a reliability question about a specific transformation dimension (audience-appropriate technical vocabulary), not a claim that the pipeline is broken.
+- "General retry/regeneration variance" would be a fair reading IF the mechanism were purely stochastic. Source analysis (H2 + H3) shows the regeneration is additionally biased in a specific direction — toward §1 Factual Basis vocabulary — by the corrective_hint text. So the variance is not neutral; it has a direction.
+- "Unresolved" would be appropriate if H1 remained plausible. H1 is falsified from source.
+
+**More precise wording:** the corrective-pass expansion mechanism, as currently implemented, does not carry any invariant that requires it to preserve first-pass audience-adaptive vocabulary transformations. It is architecturally a regeneration with a size-shortfall summary + an "expand from knowledge chunks" instruction, and both properties structurally weaken audience-specific vocabulary transformations under minimal directives. This is a design gap, not a bug.
+
+---
+
+## §13. Broader implication (bounded future question — DO NOT test now)
+
+The operator + ChatGPT raised a broader hypothesis: if corrective synthesis can weaken audience-specific transformation, perhaps other high-level transformations could also drift during corrective retry (character voice, style, brand voice, explanation strategy, other Writing Contract constraints).
+
+**Architectural plausibility check (source-only, no experiments):**
+
+- Character Voice (§2) and Brand Voice (§3) live in the SYSTEM prompt and are byte-identical between passes. Their propositional content is not lost on the retry. Their *stylistic execution* (whether the model expresses character voice with the same lightness, dry wit, tempo, register) is a stochastic property of generation and IS in principle vulnerable to the same class of drift as audience vocabulary — because "stylistic execution" is also only visible in the first-pass output, and the retry is a regeneration.
+- Writing Contract (§4) hard structural rules (single active character, no future-narration, one CTA) are re-asserted every call; violations are visible in the output and could be re-verified. But *soft* register guidance (register examples, anti-generic list) shapes the model similarly on both calls, so violation risk on retry is comparable to first-pass risk — not obviously heightened.
+- Brand `never_say` phrases live in §3 and are re-asserted every call. Prohibited-phrase drift on the retry would be surprising unless the model chooses to violate a prohibition it did not violate on the first call — that is possible under a fresh regeneration but not more likely than on any other call.
+
+**Verdict:** the architecture *does* make corrective retry a sufficiently fresh regeneration that the *class* of drift is theoretically plausible for any transformation whose only trace was in the first-pass output. This is worth recording as a bounded future question. **Do not test now.** Recorded as **Q-270-17 (candidate, not activated):** *"Under corrective retry, does the accepted output preserve character-voice execution qualities (register, humor rate, tempo) that the first pass established? Test would require substrate with a distinct character-voice fingerprint and a controlled duration-forcing render."*
+
+---
+
+## §14. What was NOT changed during this audit
+
+Per the operator brief, none of the following were touched:
+
+- `shell/character_os/duration_contract.py` — no changes.
+- `shell/character_os/script_synthesis.py` — no changes.
+- `shell/character_os/writing_contract.py` — no changes.
+- `shell/apps/compositions/primitives/avatar_speech.py` — no changes.
+- Corrective_hint wording — not modified.
+- Audience_hint wording — not modified.
+- Writing Contract — not modified (still v5).
+- Any prompt template — not modified.
+- Any test — not added.
+- `CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT` — remains unset.
+- Any Composition — no render fired.
+- Any schema / migration — not touched.
+- SPA UI — not touched.
+- NarrativeMemory pool — untouched (still 14 active + 1 archived per SESSION 270 §14.4).
+
+Only durable documentation was created (this file).
+
+---
+
+## §15. Decision-gate recommendation
+
+**GATE: B — MECHANISM NARROWED BUT NOT PROVEN.**
+
+Justification:
+- H1 falsified from source (strong).
+- H3 proven from source: corrective retry is a REGENERATION, not an EDIT (strong).
+- H2 supported qualitatively + structurally (medium-strong): the corrective_hint explicitly redirects the model toward §1 raw vocabulary, at the same precedence tier as audience_hint but with 8–16× the mass, under a PRECEDENCE RULE that gives §1 the TRUTH tier.
+- H4 remains compatible but not disentangled from H2/H3.
+- H5 legitimately warns that the specific 2-of-3 sample cannot support a strong statistical claim, but does NOT weaken the source-level mechanical findings.
+
+Whether the observed pattern is caused primarily by (a) the fresh-regeneration property (H3), (b) the corrective_hint's explicit "expand from chunks" clause (H2), or (c) both — is not yet mechanically disentangled. Both (a) and (b) are properties of the pipeline that could each independently produce the pattern, and both are readily testable.
+
+### §15.1 Smallest next falsifiable question
+
+Two candidates, in priority order. Both are single controlled experiments; both can be executed without expanding substrate beyond the SESSION 270 controls.
+
+**PRIMARY CANDIDATE — Q-270-15a (recommended smallest slice):**
+
+*"Does inserting an explicit 'preserve audience-appropriate vocabulary' clause into the AUDIENCE DIRECTIVE (leaving corrective_hint byte-stable) close the at-risk term reintroduction gap in the corrective pass under minimal audience directives?"*
+
+This is the smallest instruction-side test. It leaves the pipeline architecture unchanged and tests only whether a term-preservation prompt clause inside the audience directive is sufficient to bind through the corrective retry. Substrate: same Universe / Episode / Patch / substrate as `9880eb93` (child) or `c3ff972d` (nontechnical adult). One render. Read from the frozen first-pass + corrective-pass fields on the Composition; grade against the §13.28 at-risk term set.
+
+**SECONDARY CANDIDATE — Q-270-15b:**
+
+*"Does replacing 'Expand secondary detail from the knowledge chunks' with 'Expand secondary detail while preserving the audience translations from the previous draft' (leaving audience_hint minimal, byte-stable) close the at-risk term reintroduction gap?"*
+
+Tests the H2-specific channel. Requires wording change inside `_expansion_hint`. Substrate same as above.
+
+**Discriminating power:** if Q-270-15a closes the gap and Q-270-15b does not, the audience-directive layer is the effective lever (H3 remains true but is mitigated). If Q-270-15b closes the gap and Q-270-15a does not, the corrective_hint wording is the effective lever (H2 confirmed). If both close it, either lever works; if neither, the regeneration semantics (H3) may need a different intervention (e.g. passing the first-pass draft to the corrective call as context).
+
+**Either experiment is a single render. Either produces evidence sufficient for a slice-2 decision. DO NOT execute now.** Await Chris + ChatGPT authorisation.
+
+---
+
+## §16. Answers to the SESSION 271 return-question set
+
+1. **What exactly happens between first and corrective synthesis?**
+   The corrective retry calls `build_render_brief` again with the same spokesperson, operator_prompt, target_shape, memory_rows, and audience_hint. It adds a 656-char `corrective_hint` string that summarises the size shortfall and instructs the model to "REWRITE THE SAME NARRATIVE" longer, "Preserve the central arc, narrator perspective, and factual grounding from the knowledge chunks", and "Expand secondary detail from the knowledge chunks — describe more of the sensory / emotional beats already implied". No previous-draft text is included.
+
+2. **Is audience_hint present on both?**
+   YES, byte-identically. Proven by closure capture in `duration_contract.py::synthesize_with_duration_gate::_synthesize` (line 542) — the same enclosing-scope variable is passed on both invocations. Downstream `build_render_brief` and `_assemble_task_message` emit the AUDIENCE DIRECTIVE block on both calls.
+
+3. **Is corrective synthesis editing the first draft or generating fresh?**
+   Generating fresh. The first-pass draft text is captured for observability (`first_pass_brief`) but is never included in any prompt sent to the LLM on the corrective call.
+
+4. **Why did technical terminology plausibly return in 2 of 3 minimal specimens?**
+   Because the corrective call is a fresh regeneration under (a) a size-expansion instruction that explicitly directs attention toward §1 raw vocabulary, (b) the same audience directive as the first pass (which is 8–16× smaller than the corrective_hint under minimal directives), and (c) no pipeline invariant requiring preservation of specific vocabulary transformations made by the first pass. The audience directive continues to shape the model's output — accepted outputs remain register-strong per SESSION 270 grading — but the specific term-by-term translations the first pass invented are not persisted and can be re-decided (or not made at all) on the retry.
+
+5. **Is Factual Basis being reused more literally?**
+   Qualitatively yes — the accepted-pass excerpts in §7 show closer lexical resemblance to chunk-head vocabulary than the first-pass excerpts under minimal directives. A quantitative resemblance metric requires full chunk text (DB unavailable in this audit shell) and was NOT computed. The verbose specimen `f0e0a7bf` is the counter-case: its explicit "vocabulary accessibility" clause survived the retry and the accepted output moved further from raw chunk vocabulary (*"call other software"* vs the chunks' *"call APIs"*).
+
+6. **What do current tests prove / not prove?**
+   PROVE: audience_hint reaches at least one call's assembled prompt in the §5 HARD CONSTRAINTS block; audience_hint does not leak into §1/§2/§3/memory; corrective_hint fires on the second call and contains the correct target character count; all resolution paths (params → settings → env). DO NOT PROVE: audience_hint reaches the CORRECTIVE call specifically (implied by closure but no explicit assertion); no first-pass text is passed to the corrective call; any semantic invariance of transformations across passes.
+
+7. **H1–H6 verdicts.**
+   H1 NOT SUPPORTED / FALSIFIED (source). H2 SUPPORTED (qualitative + structural). H3 SUPPORTED (proven from source). H4 PARTIALLY SUPPORTED but not disentangled from H2/H3. H5 PARTIALLY SUPPORTED for statistical claims, NOT for mechanical localization. H6 SUPPORTED (H2 + H3 combined is the best reading).
+
+8. **Final classification.**
+   **CORRECTIVE-PASS INVARIANCE (BOUNDED).** The audience directive itself does its job on the first pass in 2 of 3 minimal-directive specimens. The corrective retry is a fresh regeneration whose instruction set redirects attention toward §1 raw vocabulary. No pipeline invariant preserves audience-adaptive vocabulary transformations across passes. This is a design gap, not a bug. Accepted outputs remain broadly good; this is a reliability question about a specific transformation dimension.
+
+9. **Decision gate.**
+   **B — MECHANISM NARROWED BUT NOT PROVEN.** H1 falsified, H3 proven, H2 supported. Discriminating H2 vs H3 (or confirming both are load-bearing) requires ONE controlled render.
+
+10. **Smallest recommended next move.**
+    Q-270-15a: single controlled render on the SESSION 270 substrate, with audience_hint carrying an explicit vocabulary-preservation clause and corrective_hint byte-stable. Compare first-pass and corrective-pass at-risk terminology against the §13.28 baseline. Alternatively Q-270-15b (edit corrective_hint) if the operator prefers to test the H2 channel directly. **DO NOT EXECUTE without explicit authorisation.**
+
+11. **Durable doc path.**
+    `docs/design/SESSION_271_CORRECTIVE_PASS_AUDIENCE_INVARIANCE_AUDIT.md` (this file).
+
+12. **Commit SHA + push / clean-tree state.**
+    Recorded in §17 at the end of the audit slice.
+
+---
+
+## §17. Slice commit + push record
+
+_Populated at commit time._
+
+- Slice commit SHA: `<pending — populated after commit>`
+- Push: `<pending>`
+- Local `main == origin/main`: `<verified at commit time>`
+- Working tree at slice close: `<verified clean>`
+
+---
+
+**End of SESSION 271 audit. STOP condition reached. No engineering slice executed. Awaiting Chris + ChatGPT review before any code change or render.**
