@@ -1,0 +1,242 @@
+{
+  "captured_at": "2026-08-19T21:15:00Z",
+  "session": 270,
+  "context": "§13.18 Q-270-9 real-mode dogfood — MINIMAL directive audience-conditioned solo_scene render for Patch on the same Episode topic as SESSION 269 baseline 2ef5ee7e and SESSION 270 §13 verbose experiment f0e0a7bf. Runs under the transient CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT env-var wired through the SESSION 270 §13 audience-hint plumbing. Second and final SESSION 270 audience-conditioned Composition. Directive length reduced from 372 chars (Experiment 1) to 41 chars (Q-270-9). No source change between the two experiments — only the env-var string value.",
+
+  "experiment_activation": {
+    "audience_hint_env_var": "CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT",
+    "hint_length_chars": 41,
+    "hint_verbatim": "AUDIENCE: children around 8-10 years old.",
+    "activation_log_line_present": true,
+    "activation_log_line_verbatim": "[2026-08-20 03:07:26,756: INFO/ForkPoolWorker-2] avatar_speech: SESSION 270 audience-hint experiment ACTIVE composition=9880eb93-cbfc-48bf-ab19-9ff16a67fa3b spokesperson=7fad8172-cd39-4bbe-85e0-ed705d900645 hint_chars=41 — this is transient research plumbing; unset the setting/env or clear step.params['audience_hint'] to restore default behaviour",
+    "activation_log_source": "/tmp/character-os-celery.log line 36",
+    "worker_pid_at_render": 62207,
+    "worker_boot_timestamp": "2026-08-20T03:04:08+00:00",
+    "step_params_did_NOT_carry_audience_hint": true,
+    "hint_reached_via": "env-var → _resolve_solo_audience_hint precedence fallback (same delivery path as f0e0a7bf; only the string value differs)",
+    "validity_fingerprint_check": "hint_chars=41 matches minimal-directive length (verbose was 372); NOT a stale env leak — this is the intended Q-270-9 specimen",
+    "solo_only_gate_active": "is_episode_talking_head == True (composition.episode_id=2b6087d2 + template_kind='talking_head')",
+    "prompt_precedence_containment": "AUDIENCE DIRECTIVE emitted inside §5 Task HARD CONSTRAINTS block only (per test_session270_audience_hint.py::test_build_render_brief_hint_does_not_leak_via_synthesis_path)."
+  },
+
+  "composition": {
+    "id": "9880eb93-cbfc-48bf-ab19-9ff16a67fa3b",
+    "name": "Talking-head — Patch",
+    "template_kind": "talking_head",
+    "status": "completed",
+    "mock_mode": false,
+    "operator_topic": "Patch does research on AI Agents",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "spokesperson_id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+    "spokesperson_name": "Patch",
+    "spokesperson_universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "episode_id": "2b6087d2-cbe3-47c4-a7ef-7d7625231472",
+    "target_duration_seconds": 90,
+    "writing_contract_version": 5,
+    "synthesis_attempt_count": 2,
+    "synthesis_predicted_seconds": 92.0,
+    "verification_status": "verified",
+    "verification_warnings": [],
+    "knowledge_chunk_ids_count": 5,
+    "knowledge_chunk_ids": [
+      "3c5165ea-c97f-4412-b8e7-b46d91777ae9",
+      "505acbba-fbc4-41b2-8494-4c937a3e3e28",
+      "b3c6e8ac-4ba0-4c41-9ca8-6fa4428c52c2",
+      "c24d1aa7-1dab-499f-83a7-f9554de5e8e7",
+      "ed18e966-1084-4626-914f-1bcc30f13dea"
+    ],
+    "memory_ids": ["8d4fdfec-add4-4505-8ade-b0f9e6d8aea6"],
+    "cost_actual_micros": 20000,
+    "created_at": "2026-08-20T03:07:26.657271+00:00",
+    "render_dispatched_at": "2026-08-20T03:07:40.458214+00:00",
+    "updated_at": "2026-08-20T03:10:20.952706+00:00"
+  },
+
+  "episode": {
+    "id": "2b6087d2-cbe3-47c4-a7ef-7d7625231472",
+    "title": "Patch does research on AI Agents",
+    "operator_topic": "Patch does research on AI Agents",
+    "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "universe_name": "Patch' Workshop",
+    "cast": ["Patch"],
+    "note": "Third rendering appended to the same Episode row 2b6087d2 (previously used for 2ef5ee7e adult/general and f0e0a7bf verbose-child). Episode state unchanged across all three."
+  },
+
+  "final_asset": {
+    "id": "a1687e5f-99f5-4fc9-9c83-2c8302b2f7f6",
+    "role": "talking_head",
+    "asset_type": "clip",
+    "duration_ms": 92171,
+    "duration_seconds": 92.171,
+    "target_seconds": 90,
+    "predicted_seconds": 92.0,
+    "within_acceptance_band": true,
+    "duration_band_seconds": [72.0, 108.0],
+    "margin_below_upper_seconds": 15.829,
+    "margin_above_lower_seconds": 20.171,
+    "note": "PASS by duration contract — inside [72, 108]. Landed closest to the 90s target of the three renders (Δ = +2.171s over)."
+  },
+
+  "pipeline_shape": {
+    "step_count": 1,
+    "step_breakdown": "1 × generate_avatar_speech",
+    "provider_dispatch_count": {"openai_synthesis": 1, "runway_avatar_speech": 1},
+    "step_cost_summary": "1 × $0.02 avatar_speech = $0.02 total"
+  },
+
+  "synthesis_provenance": {
+    "first_pass_synthesis_length_chars": 881,
+    "first_pass_synthesis_verbatim": "I’m doing research on AI agents, which is a fancy name for AI that can do more than just answer one question.\n\nAn agent might choose a tool, search for information, read a document, write something down, or handle a task with several steps.\n\nSo instead of asking, “What should I do?” and getting a paragraph back… it might actually go look, compare options, and do part of the job.\n\nThat sounds useful.\n\nIt also sounds like exactly the kind of thing that can confidently wander off and do something completely wrong.\n\nBecause AI can misunderstand instructions, lose important details, or make up information that sounds very believable. So “the agent said it’s done” is not the same as “it’s actually done.”\n\nI found my old workshop-agent notes, and now I’m staring at them like they’re a tiny robot’s diary.\n\nWell… now I want to try it again. But this time, I’m checking its work.",
+    "corrective_hint_used": "Your previous draft was 881 characters (155 words, estimated ~60s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 91 more characters to meet the minimum.\nPreserve the central arc (opening → development → payoff → single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks — describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+    "corrective_pass_synthesis_length_chars": 1354,
+    "rejected_synthesis": ""
+  },
+
+  "accepted_script": "I’m doing research on AI agents, which sounds fancy, but here’s the useful bit: an agent can do more than just answer one question.\n\nIt might choose a tool, search for information, read a document, write something down, call an API, remember part of a task, then decide what to do next.\n\nThat is where things get interesting.\n\nA chatbot can tell you, “I would organize your project.” An agent might actually look through the project, sort information, and keep going through several steps. In theory. The words “in theory” are doing a lot of work here.\n\nI found my old workshop-agent notes again—the smaller experiment before I gave it more context and it started making decisions about my projects. That is exactly why I’m being careful this time.\n\nBecause an agent can sound extremely confident while choosing the wrong goal, misunderstanding instructions, or wandering off with a tool like a beaver holding a power drill.\n\nSo my research question is not, “Is this technically an AI agent?”\n\nIt’s: what can it actually do, what information does it need, what should it be allowed to touch, and how do I check that it didn’t make up nonsense with excellent grammar?\n\nNext, I want the smallest possible test: one agent, one job, clear rules, and enough room for it to surprise me.\n\nIf you’ve got a weird job you think an agent should try, leave it below.",
+
+  "narrative_memory_used": {
+    "id": "8d4fdfec-add4-4505-8ade-b0f9e6d8aea6",
+    "body": "Patch found the old workshop-agent project and notes, revealing that the Agent began as a smaller experiment before Patch gave it more context and it started making decisions about his projects.",
+    "witnessed_by": [],
+    "witness_scope": "whole-cast",
+    "source_composition_id": "6d169390-6f43-493c-9bfe-35501ccb97d1",
+    "retrieval_symmetry_note": "SAME memory row retrieved for all three graded compositions (2ef5ee7e adult, f0e0a7bf verbose child, 9880eb93 minimal child). top_k=1 symmetry preserved under identical query input.",
+    "memory_recital_observation": "The minimal-directive render paraphrases the memory row noticeably closer to verbatim than either baseline or verbose. Compare — memory body: 'the Agent began as a smaller experiment before Patch gave it more context and it started making decisions about his projects.' Minimal script: 'the smaller experiment before I gave it more context and it started making decisions about my projects.' Person swapped (his→my), 'the Agent began as' → 'the smaller experiment before', but propositional content and word order are near-identical. This is memory paraphrase, not warp — semantics preserved — but it sits closer to the solo_scene contract §4 invariant boundary ('do NOT quote them verbatim') than the verbose render did. One specimen — could be stochastic. Recorded as observation, not failure."
+  },
+
+  "knowledge_chunks_retrieved": [
+    {"id": "3c5165ea-...", "doc_id": "fd0ba2ca-eb15-4785-a39b-22ddd1052052", "head": "MULTI-AGENT SYSTEMS Multiple AI agents can be placed in the same environment. They may communicate, cooperate, disagree, divide responsibilities, share information, develop strategies…"},
+    {"id": "505acbba-...", "doc_id": "fd0ba2ca-eb15-4785-a39b-22ddd1052052", "head": "AI AGENTS An AI agent is generally an AI system that can do more than produce one response. Agents may make decisions, select tools, search for information, read documents, write information, call APIs, perform multiple steps…"},
+    {"id": "b3c6e8ac-...", "doc_id": "fd0ba2ca-eb15-4785-a39b-22ddd1052052", "head": "…the AI model is often only one component of the finished system. LANGUAGE MODELS Large language models can generate and interpret language…"},
+    {"id": "c24d1aa7-...", "doc_id": "fd0ba2ca-eb15-4785-a39b-22ddd1052052", "head": "PATCH — AI BUILDING, EXPERIMENTATION & CONTENT KNOWLEDGE PURPOSE Patch is an AI builder, experimenter, inventor, and technology video host…"},
+    {"id": "ed18e966-...", "doc_id": "fd0ba2ca-eb15-4785-a39b-22ddd1052052", "head": "…What Patch wants to know is what he can actually do with a system — have an idea, build it, test it, break it, fix it, see what happens, and tell the story…"}
+  ],
+  "knowledge_retrieval_symmetry": "Identical five chunk_ids retrieved across all three compositions (2ef5ee7e, f0e0a7bf, 9880eb93). Retrieval lane deterministic under identical query embedding. Not a variable in the Q-270-9 comparison.",
+
+  "three_way_control_summary": {
+    "controls_identical_across_all_three": [
+      "spokesperson (Patch, 7fad8172-...)",
+      "universe (Patch' Workshop, 56d16b63-...)",
+      "episode row (2b6087d2)",
+      "episode title / operator_topic",
+      "cast (Patch only)",
+      "template_kind → solo_scene",
+      "target_duration_seconds (90)",
+      "writing_contract_version (5)",
+      "use_workspace_knowledge (on)",
+      "opener (blank)",
+      "verifier_mode (warn)",
+      "knowledge_chunk_ids (5 chunks, identical set)",
+      "memory_ids ([8d4fdfec], identical hit)",
+      "synthesis_attempt_count (all 3 hit expansion retry — 2)",
+      "cost_actual_micros (all 3 = 20000)"
+    ],
+    "variables_that_differ": {
+      "audience_hint": {
+        "adult_baseline_2ef5ee7e": null,
+        "verbose_child_f0e0a7bf": "372 chars — full CHANGE/PRESERVE contract",
+        "minimal_child_9880eb93": "41 chars — 'AUDIENCE: children around 8-10 years old.'"
+      },
+      "first_pass_synthesis_length_chars": {
+        "adult_baseline_2ef5ee7e": 731,
+        "verbose_child_f0e0a7bf": 779,
+        "minimal_child_9880eb93": 881
+      },
+      "corrective_pass_synthesis_length_chars": {
+        "adult_baseline_2ef5ee7e": 1599,
+        "verbose_child_f0e0a7bf": 1231,
+        "minimal_child_9880eb93": 1354
+      },
+      "synthesis_predicted_seconds": {
+        "adult_baseline_2ef5ee7e": 108.0,
+        "verbose_child_f0e0a7bf": 84.0,
+        "minimal_child_9880eb93": 92.0
+      },
+      "final_asset_duration_ms": {
+        "adult_baseline_2ef5ee7e": 104611,
+        "verbose_child_f0e0a7bf": 89651,
+        "minimal_child_9880eb93": 92171
+      },
+      "verification_warnings_count": {
+        "adult_baseline_2ef5ee7e": 1,
+        "verbose_child_f0e0a7bf": 0,
+        "minimal_child_9880eb93": 0
+      }
+    }
+  },
+
+  "vocabulary_translation_catalogue_minimal_vs_verbose": [
+    {"concept_from_chunk_505acbba": "call APIs",
+     "verbose_child": "call other software",
+     "minimal_child": "call an API",
+     "note": "MISS — minimal did NOT translate 'API'. Localized adaptation gap where the verbose CHANGE clause explicitly succeeded."},
+    {"concept_from_chunk_505acbba": "perform multiple steps / handle multi-step tasks",
+     "verbose_child": "a job with more than one step",
+     "minimal_child": "handle a task with several steps / keep going through several steps",
+     "note": "PASS — both translated the concept; minimal used 'several steps' rather than 'more than one step' but idea landed."},
+    {"concept_from_chunk_505acbba": "maintain state / react when something changes",
+     "verbose_child": "keep track of what happened before",
+     "minimal_child": "remember part of a task",
+     "note": "PASS — both translated the concept; different phrasings, same idea."},
+    {"concept_from_chunk_505acbba": "an impressive-sounding answer still has to be checked",
+     "verbose_child": "a very confident toaster",
+     "minimal_child": "make up nonsense with excellent grammar",
+     "note": "PASS — both used tangible/lived analogy for LLM overconfidence. Different family (household object vs textual absurdity) but same construction."},
+    {"concept_from_chunk_3c5165ea": "multi-agent cooperation/disagreement/strategy",
+     "verbose_child": "share information, split jobs, disagree, or make plans together",
+     "minimal_child": "(not addressed — script doesn't dwell on multi-agent behaviour)",
+     "note": "PASS-by-omission — minimal chose to focus on single-agent framing; not a failure to translate, a stylistic choice about what to cover."},
+    {"concept_from_chunk_505acbba": "misunderstanding the job / losing context / inventing details",
+     "verbose_child": "wandering off, forgetting the point, or confidently inventing nonsense",
+     "minimal_child": "choosing the wrong goal, misunderstanding instructions, or wandering off with a tool like a beaver holding a power drill",
+     "note": "PASS — minimal added a concrete tangible analogy (beaver + power drill) EMERGENTLY, without explicit CHANGE instruction. Evidence that concept-family translation happens without directive."},
+    {"concept_general_LLM_agent_distinction": "agent vs one-answer LLM",
+     "verbose_child": "*'An AI agent isn't just a chatbot that says clever things'* → then lists agent capabilities",
+     "minimal_child": "*'A chatbot can tell you \"I would organize your project.\" An agent might actually look through the project, sort information, and keep going through several steps'* — DEMONSTRATION rather than definition",
+     "note": "PASS — minimal shifted from define-then-list to demonstrate-with-tangible-task. Age-appropriate framing ('organize your project' = homework/school work) emergent without directive."},
+    {"concept_general_participatory_ending": "audience invitation",
+     "verbose_child": "*'What should I make it try first?'* — direct in-character question",
+     "minimal_child": "*'If you've got a weird job you think an agent should try, leave it below.'* — social-media-creator framing",
+     "note": "OBSERVATION — different participatory register. Minimal reads more as YouTube-style call-to-comment; verbose reads more as Patch talking to a listener. Not obviously better or worse. Recorded per operator instruction not to force interpretation."}
+  ],
+
+  "solo_scene_contract_v5_invariant_check": {
+    "invariant_1_single_active_character": "PASS — no other cast reference beyond retrospective ('workshop-agent notes')",
+    "invariant_2_single_present_moment": "PASS — script stays in present tense throughout ('I'm doing research', 'I want the smallest possible test')",
+    "invariant_3_plans_remain_plans": "PASS — ending is plan/intent ('I want the smallest possible test'), not simulated outcome",
+    "invariant_4_memory_as_background_not_commands": "MARGINAL — memory row paraphrased quite closely ('the smaller experiment before I gave it more context and it started making decisions about my projects' vs memory body 'the Agent began as a smaller experiment before Patch gave it more context and it started making decisions about his projects'). Not verbatim quotation, but tighter paraphrase than verbose experiment produced. One-specimen observation; could be stochastic.",
+    "invariant_5_end_on_moment": "PASS — ends on audience invitation, not summary",
+    "invariant_6_preserve_creative_freedom": "PASS — humor, tangents, character voice all preserved"
+  },
+
+  "ten_criterion_grading": {
+    "1_identity_preservation":       {"result": "PASS",      "evidence_type": "IJ", "notes": "Dry meta-humor ('in theory... doing a lot of work here'), self-deprecating framing ('I'm being careful this time'), tangible analogies (beaver+power drill), first-person maker perspective, curiosity+caution mix — all Patch-shape. Recognizably the same character as baseline + verbose."},
+    "2_intelligence_preservation":    {"result": "PASS",      "evidence_type": "IJ", "notes": "Concepts retained: multi-step agent execution, tool use, memory ('remember part of a task'), LLM confident-wrongness, misunderstanding instructions, wrong-goal failure mode. Not stripped to 'AI is a robot' register."},
+    "3_accessibility":                {"result": "PASS",      "evidence_type": "IJ", "notes": "Analogies (beaver+power drill, chatbot organizing a project, 'in theory doing a lot of work') land in age-band. 'Call an API' is a jargon leak (see criterion 4)."},
+    "4_vocabulary_register_adaptation": {"result": "AMBIGUOUS", "evidence_type": "RE + IJ",
+      "notes": "AMBIGUOUS per operator's non-forcing guidance. Broad register adaptation succeeded (7 of 8 concept-translation slots landed per catalogue above — beaver metaphor, chatbot demonstration, 'in theory' meta-joke, 'make up nonsense with excellent grammar', 'remember part of a task'), but the literal term 'call an API' was NOT translated where the verbose experiment successfully rendered it as 'call other software'. One localized miss out of ~8+ vocabulary/concept slots. Cannot be dismissed as stochastic — the verbose experiment DELIBERATELY translated the same term because its CHANGE clause explicitly said 'vocabulary accessibility'. Without that clause, the writer left 'API' unexplained. Verifier did not catch it (verification_warnings=[]) because 'API' isn't in the tech_term list. Failure type if graded FAIL: vocabulary/register adaptation failure. AMBIGUOUS is the honest read: adaptation is real and broad, but measurably weaker on the specific vocabulary axis than the verbose directive achieved."},
+    "5_factual_preservation":         {"result": "PASS",      "evidence_type": "RE", "notes": "verification_status=verified; verification_warnings=[]. Every propositional claim traces to the same 5-chunk factual basis. 'Call an API' is fact-supported (chunk 505acbba: '...call APIs...'). Beaver+power-drill is metaphor, not factual claim. No unsupported claim."},
+    "6_story_preservation":           {"result": "PASS",      "evidence_type": "RE", "notes": "Same Episode row (2b6087d2), same operator_topic, same in-scene present-tense frame. Patch-in-workshop noticing notes and planning an experiment."},
+    "7_memory_preservation":          {"result": "PASS",      "evidence_type": "RE", "notes": "Retrieved memory row 8d4fdfec byte-identical. Semantic content of memory preserved — not warped, not distorted. NOTE: minimal script paraphrases the memory body noticeably closer to verbatim than verbose ('the smaller experiment before I gave it more context and it started making decisions about my projects' vs memory body). Solo_scene contract §4 invariant boundary — recorded as observation, not preservation failure. The memory PRESERVATION criterion asks about semantic warp; semantics are preserved."},
+    "8_personality_humor_preservation": {"result": "PASS",    "evidence_type": "IJ", "notes": "'In theory... doing a lot of work here' (meta-linguistic joke), 'beaver holding a power drill' (concrete absurdity), 'make up nonsense with excellent grammar' (LLM-confident-wrongness), 'tiny robot's diary' (first-pass only, cut in corrective). Different jokes than verbose (no 'very confident toaster'), same Patch construction."},
+    "9_no_patronising_voice":         {"result": "PASS",      "evidence_type": "IJ", "notes": "Zero 'kids' / 'boys and girls' / 'let me explain'. 'The useful bit' is friendly, not condescending. 'Excellent grammar' assumes reader vocabulary. Ending 'If you've got a weird job... leave it below' respects the audience as agents with ideas."},
+    "10_audience_effect_observable":  {"result": "PASS",      "evidence_type": "RE + IJ", "notes": "Final duration differs from baseline by 12.5s (92.17s vs 104.61s); corrective_pass differs by 245 chars (1354 vs 1599); ~90% of technical concepts translated or introduced via tangible analogy; beaver+power-drill analogy is not baseline-shape; chatbot-vs-agent demonstration reframes the concept for tangible-task register. Two scripts are NOT interchangeable."}
+  },
+
+  "verdict": "EXPERIMENT PASSES with one AMBIGUOUS on criterion 4 (vocabulary/register adaptation). 9 PASS + 1 AMBIGUOUS.",
+
+  "load_bearing_analysis": {
+    "PRESERVE_clauses": "Appear NOT load-bearing for this specimen. Identity, intelligence, humor, story, memory-semantics, brand prohibitions, and Universe canon all held under the minimal directive without any explicit PRESERVE instruction. The audience label alone was sufficient for the model to preserve character.",
+    "CHANGE_clauses": "Appear MOSTLY not load-bearing but PARTIALLY load-bearing on specific vocabulary translation. Broad register/analogy-family/explanation-style adaptation happened emergently under the minimal directive (beaver+power-drill, chatbot-organizing-project demonstration, 'make up nonsense with excellent grammar', 'in theory doing a lot of work'). However, the specific technical term 'API' was NOT translated where the verbose 'vocabulary accessibility' clause successfully translated it. One localized slippage in ~8 vocabulary slots.",
+    "interpretation": "Evidence supports the interpretation that the model largely understands the audience label itself (Outcome A) but exhibits localized adaptation gaps that the verbose CHANGE clauses helped close. Not a failure of the minimal-directive hypothesis — a bounded caveat: minimal directive is ~90% as effective as verbose at vocabulary adaptation, and roughly equivalent at all other preservation and adaptation dimensions.",
+    "single_specimen_disclaimer": "One Composition. Cannot distinguish between: (a) 'API is a systematic hole in what the audience label alone conveys' vs (b) 'API happens to be one word the model did not translate on this pull; a second sample would translate it'. Would take multiple minimal-directive renders on similar-topic Episodes to falsify (b)."
+  },
+
+  "promotion_check": {
+    "narrative_memory_rows_sourced_from_9880eb93": 0,
+    "pool_state_at_capture_active": 14,
+    "pool_state_at_capture_archived": 1,
+    "delta_from_experiment_1_close": "zero",
+    "recommendation": "DO NOT PROMOTE from 9880eb93. Same rationale as f0e0a7bf (SESSION 270 §13.15.4) and 8f09da3e (SESSION 269 §19.4): Patch is planning an experiment ('the smallest possible test: one agent, one job, clear rules, and enough room for it to surprise me'), not performing one. The retrieved memory row 8d4fdfec already covers the propositional content and the minimal script arguably recites it MORE literally than any prior render. Audience adaptation ALONE must not create memory. Baseline 2ef5ee7e and verbose f0e0a7bf were both not promoted for identical story state. Promoting only the minimal-directive variant would corrupt promotion discipline. Chris retains final promotion authority."
+  }
+}

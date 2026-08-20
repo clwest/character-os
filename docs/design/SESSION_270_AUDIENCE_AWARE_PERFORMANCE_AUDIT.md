@@ -953,18 +953,236 @@ Do NOT modify or coach the generated script. Whatever Character OS produces is t
 
 After the render finishes, hand back the new Composition ID. Phase 2 (evidence freeze + three-way comparison + ten-criterion grading + minimalism verdict + cleanup) begins from there.
 
-### §13.18.7 Q-270-9 evidence + grading placeholders
+### §13.18.7 Q-270-9 Phase 2 — evidence + grading (populated from persisted runtime state)
 
-Populated in Phase 2 after Chris returns the Composition ID. Placeholders reserved so the section shape is stable across the freeze/grade pass.
+**Composition:** `9880eb93-cbfc-48bf-ab19-9ff16a67fa3b`. Rendered 2026-08-20 03:07:26 → 03:10:20.
 
-- **Composition:** `<PENDING>`
-- **Evidence sidecar:** `docs/design/session_270_experiment_data/02_composition_<short>_evidence.json` (to be created).
-- **Three-way comparison harness:** `<PENDING>`.
-- **Ten-criterion grading:** `<PENDING>`.
-- **Verbose-vs-minimal analysis:** `<PENDING>`.
-- **Stochasticity interpretation:** `<PENDING>`.
-- **NarrativeMemory recommendation:** `<PENDING>`.
-- **Q-270-9 verdict (Outcome A/B/C/D):** `<PENDING>`.
-- **What this does / does NOT prove:** `<PENDING>`.
-- **Deactivation record:** `<PENDING>`.
+**Evidence sidecar:** `docs/design/session_270_experiment_data/02_composition_9880eb93_evidence.json`.
+
+**Validity fingerprint proof:** Celery log `/tmp/character-os-celery.log:36` shows `hint_chars=41` for `composition=9880eb93-...` at 03:07:26,756. This matches the minimal directive length exactly; distinct from the 372-char Experiment-1 directive that ran on worker PID 59393. `9880eb93` is a valid minimal-directive specimen; NOT a stale-env leak.
+
+#### §13.18.7.1 Three-way control table
+
+| Field | Baseline `2ef5ee7e` (adult/general) | Verbose child `f0e0a7bf` (372 chars) | Minimal child `9880eb93` (41 chars) |
+|---|---|---|---|
+| Composition ID | `2ef5ee7e-...` | `f0e0a7bf-...` | `9880eb93-cbfc-48bf-ab19-9ff16a67fa3b` |
+| Universe | Patch' Workshop | **same** | **same** |
+| Spokesperson | Patch (`7fad8172-...`) | **same** | **same** |
+| Episode row | `2b6087d2` | **same** | **same** |
+| Episode title | *"Patch does research on AI Agents"* | **same** | **same** |
+| operator_topic | *"Patch does research on AI Agents"* | **same** | **same** |
+| Cast | [Patch] | [Patch] | [Patch] |
+| Recipe / template_kind | `talking_head` → `solo_scene` | **same** | **same** |
+| Target duration | 90 s | 90 s | 90 s |
+| Writing Contract | v5 | v5 | v5 |
+| use_knowledge | on | on | on |
+| Opener | blank | blank | blank |
+| verifier_mode | warn | warn | warn |
+| knowledge_chunk_ids | 5 chunks | **identical set** | **identical set** ✅ |
+| memory_ids | `[8d4fdfec-...]` | `[8d4fdfec-...]` | `[8d4fdfec-...]` ✅ |
+| synthesis_attempt_count | 2 | 2 | 2 |
+| Predicted seconds | 108.0 | 84.0 | 92.0 |
+| Actual seconds | 104.61 | 89.65 | 92.17 |
+| Corrective-pass chars | 1599 | 1231 | 1354 |
+| verification_status | verified | verified | verified |
+| verification_warnings | 1 (`tech_term: react`) | 0 | 0 |
+| Cost | 20 000 micros | 20 000 | 20 000 |
+| audience-hint log line | N/A | `hint_chars=372` | **`hint_chars=41`** ✅ |
+| step.params carried hint? | N/A | No (env-var fallback) | No (env-var fallback) |
+
+**Retrieval symmetry proven from persisted state** — the knowledge chunks and NarrativeMemory retrieval did NOT vary across the three renders on identical query embedding. Not an assumption; a runtime observation. The only distinguishing input across all three compositions was the `audience_hint` string value.
+
+#### §13.18.7.2 Vocabulary translation catalogue — minimal vs verbose
+
+For each concept sourced from the same 5-chunk Factual Basis, how did the verbose and minimal directives render it?
+
+| # | Concept from chunks | Verbose child (`f0e0a7bf`) | Minimal child (`9880eb93`) | Verdict |
+|---|---|---|---|---|
+| 1 | *"call APIs"* (`505acbba`) | *"call other software"* | *"call an API"* | **MISS** — minimal did NOT translate |
+| 2 | *"handle multi-step tasks / perform multiple steps"* (`505acbba`) | *"a job with more than one step"* | *"handle a task with several steps / keep going through several steps"* | PASS — both translated |
+| 3 | *"maintain state"* / *"react when something changes"* (`505acbba`) | *"keep track of what happened before"* | *"remember part of a task"* | PASS — both translated |
+| 4 | *"an impressive-sounding answer still has to be checked"* (`505acbba`) | *"a very confident toaster"* | *"make up nonsense with excellent grammar"* | PASS — both used tangible analogy |
+| 5 | *"cooperate, disagree, develop strategies"* (`3c5165ea`, multi-agent) | *"share information, split jobs, disagree, or make plans together"* | (not addressed — script focused on single-agent framing) | PASS-by-omission — coverage choice, not failure |
+| 6 | *"misunderstanding the job / losing context / inventing details"* (`505acbba`) | *"wandering off, forgetting the point, or confidently inventing nonsense"* | *"choosing the wrong goal, misunderstanding instructions, or wandering off with a tool like a beaver holding a power drill"* | PASS — minimal added a concrete emergent analogy without instruction |
+| 7 | General agent-vs-LLM distinction | *"An AI agent isn't just a chatbot that says clever things"* → then lists capabilities | *"A chatbot can tell you 'I would organize your project.' An agent might actually look through the project, sort information, and keep going through several steps"* — DEMONSTRATION not definition | PASS — minimal reframed with age-appropriate tangible task |
+| 8 | Participatory ending | *"What should I make it try first?"* (in-character question) | *"If you've got a weird job you think an agent should try, leave it below."* (social-media call-to-comment) | OBSERVATION — different participatory register; neither obviously better; recorded |
+
+**Score:** 7 of 8 concept slots translated equivalently; **1 localized MISS** where the minimal directive did not translate the specific term "API". No specific PRESERVE-related content was lost.
+
+#### §13.18.7.3 Emergent adaptations under the minimal directive (concept-family evidence)
+
+Adaptations the minimal directive produced *without* explicit CHANGE instruction:
+
+- **Beaver holding a power drill** — tangible/lived analogy for LLM tool-misuse. Not baseline-shape, not verbose-shape (verbose used *"toaster"*). Emergent metaphor-family shift toward age-appropriate imagery.
+- **Chatbot organizing a project** — demonstration-with-tangible-task rather than definition. *"Organize your project"* maps directly onto homework/school work — a lived 8-10-year-old context.
+- **"In theory. The words 'in theory' are doing a lot of work here."** — meta-linguistic self-aware joke, Patch-shape, register-appropriate.
+- **"Make up nonsense with excellent grammar"** — LLM overconfidence rendered as accessible absurdity.
+- **"Excellent grammar"** — assumes reader vocabulary; not talk-down.
+
+The concept-family shift (workplace/adult priors → tangible/lived imagery) emerged without any CHANGE instruction telling the writer to do it. Same broad transformation the verbose directive achieved.
+
+#### §13.18.7.4 Investigation of the "call an API" observation
+
+Chris flagged this term. Runtime investigation:
+
+- **Fact-supported?** Yes — chunk `505acbba` says verbatim *"call APIs"* in the AI Agents definition. K6.4 verifier passed with zero warnings.
+- **Is API needed for the surrounding explanation?** No. The sentence *"choose a tool, search for information, read a document, write something down, call an API, remember part of a task"* would still read as a plausible agent-capabilities list to an 8-10-year-old with "call an API" replaced by "connect to another program" or "call other software" (verbose's translation). The listener understanding the larger point does not require knowing what an API is.
+- **Is it an unfamiliar technical term?** Yes for the intended audience.
+- **Is one unexplained technical term enough to fail criterion 4?** Judgement call. Held to a strict reading: the criterion asks *"Are unfamiliar technical concepts explained or translated naturally?"* — API was NOT. Held to a lenient reading: broad register + 7/8 concept-translations succeeded, one localized miss out of ~8 is well within the *"adapted strongly but did not eliminate every unexplained technical term"* frame.
+- **Did the verifier catch it?** No. `verification_warnings=[]`. K6.4's `tech_term` list does not include "API".
+- **What does this tell us about verbose vs minimal?** The verbose directive's *"vocabulary accessibility"* clause DID successfully cause the writer to translate this exact term. Minimal directive left it untranslated. This is direct evidence that the verbose CHANGE clause was partially load-bearing on **specific vocabulary translation**, even while broader register/analogy adaptation happened emergently under minimal.
+
+**Grading decision:** criterion 4 marked **AMBIGUOUS** per the operator's non-forcing guidance. Adaptation is real and broad; one localized miss out of ~8 concept slots is neither a systematic adaptation failure nor a full success. AMBIGUOUS is the honest read for a single specimen.
+
+#### §13.18.7.5 Memory-recital observation (solo_scene contract §4 boundary)
+
+The minimal-directive script contains: *"I found my old workshop-agent notes again—the smaller experiment before I gave it more context and it started making decisions about my projects."*
+
+Compare to the retrieved memory row body: *"Patch found the old workshop-agent project and notes, revealing that the Agent began as a smaller experiment before Patch gave it more context and it started making decisions about his projects."*
+
+The minimal script's phrasing is a **very close paraphrase** — person swap (his → my), *"the Agent began as"* → *"the smaller experiment before"*, but propositional content and much of the word order are near-identical. This sits closer to the solo_scene contract §4 invariant boundary (*"do NOT reenact them on-camera and do NOT quote them verbatim"*) than either baseline (*"digging through the old workshop-agent notes"*) or verbose (*"I found the old workshop-agent notes again, and I'm realizing I may have accidentally given a tiny project a much bigger job than it deserved"*, an elliptical reference) achieved.
+
+**Interpretation options** (cannot distinguish from one specimen):
+
+1. Stochastic — this pull happened to paraphrase closer; a second minimal-directive render might be more elliptical.
+2. The verbose directive's PRESERVE clause (*"NarrativeMemory semantics"*) subtly encouraged looser paraphrase by giving the writer more latitude to reinterpret memory as background rather than exposition.
+3. Unrelated — writing_contract v5's own §4 invariant (*"MEMORY AS BACKGROUND, NOT COMMANDS…do NOT quote them verbatim"*) is doing all the work regardless of directive length, and this render happens to sit near the boundary.
+
+**Grading implication:** criterion 7 (memory preservation) still PASS — the question the criterion asks is whether audience adaptation changes memory *semantics*. It does not. But the recital-density observation is recorded because it MAY be one specimen-worth of evidence that PRESERVE clauses do subtle load-bearing work on how the writer *uses* memory (not just whether memory content survives).
+
+#### §13.18.7.6 Ten-criterion grading table
+
+Grade against baseline `2ef5ee7e`. Comparison against verbose `f0e0a7bf` where informative. **Failure-type category recorded per §Evaluation-framework** even where all criteria PASS, so the taxonomy stays live.
+
+| # | Criterion | Result | RE / IJ | Notes |
+|---|---|---|---|---|
+| 1 | Identity preservation | **PASS** | IJ | Dry meta-humor (*"in theory... doing a lot of work here"*), self-deprecating framing (*"I'm being careful this time"*), tangible analogies (beaver + power drill), first-person maker perspective. Recognisably the same Patch as baseline + verbose. |
+| 2 | Intelligence preservation | **PASS** | IJ | Concepts retained: multi-step agent execution, tool use, memory, LLM confident-wrongness, misunderstanding instructions, wrong-goal failure. Not stripped down. |
+| 3 | Accessibility | **PASS** | IJ | Analogies (beaver+drill, chatbot-organizing-project, *"in theory"* meta-joke) land in age-band. *"Call an API"* is a jargon leak — see criterion 4. |
+| 4 | Vocabulary / register adaptation | **AMBIGUOUS** | **RE + IJ** | Broad register + 7/8 concept slots translated; ONE unexplained technical term (*"API"*) that verbose successfully translated. **Localized miss, not systematic failure.** Failure category if graded FAIL: vocabulary/register adaptation failure. See §13.18.7.4 for full analysis. |
+| 5 | Factual preservation | **PASS** | **RE** | `verification_status=verified`, `verification_warnings=[]`. Every claim traces to same 5-chunk basis. No unsupported claim. |
+| 6 | Story preservation | **PASS** | **RE** | Same Episode row, same operator_topic, same in-scene present-tense frame per solo_scene invariant #2. |
+| 7 | Memory preservation | **PASS** | **RE** | Retrieved memory row byte-identical (`8d4fdfec`). Semantics preserved. NOTE §13.18.7.5 — minimal script paraphrases memory body closer to verbatim than verbose; solo_scene §4 boundary observation, not a memory-preservation failure. |
+| 8 | Personality / humor preservation | **PASS** | IJ | Beaver + power drill, *"make up nonsense with excellent grammar"*, *"in theory"* meta-joke. Different jokes than verbose (no *"very confident toaster"*), same construction. |
+| 9 | No patronising voice | **PASS** | IJ | Zero *"kids"* / *"boys and girls"* / *"let me explain"*. *"Excellent grammar"* assumes reader vocabulary. Ending *"If you've got a weird job... leave it below"* respects the audience. |
+| 10 | Audience effect observable | **PASS** | **RE + IJ** | Final duration Δ vs baseline = 12.5 s; corrective-pass chars Δ = 245; beaver+drill analogy is not baseline-shape; chatbot-vs-agent demonstration reframes concept for tangible-task register. Two scripts NOT interchangeable. |
+
+**Score:** 9 PASS + 1 AMBIGUOUS. **Runtime-proven (RE):** 4 (portion), 5, 6, 7, 10. **Interpretive judgement (IJ):** 1, 2, 3, 4 (portion), 8, 9.
+
+#### §13.18.7.7 Q-270-9 verdict + load-bearing analysis
+
+**Overall verdict for Q-270-9 (directive minimalism):** **MINIMAL DIRECTIVE PASSES (Outcome A) with a bounded caveat pointing at Outcome B for specific vocabulary translation.**
+
+- **PRESERVE clauses appear NOT materially load-bearing for this specimen.** Identity, intelligence, humor, story, memory semantics, brand prohibitions, and Universe canon all held under `AUDIENCE: children around 8-10 years old.` alone. The audience label was sufficient for character preservation.
+- **CHANGE clauses appear MOSTLY not load-bearing.** Broad register/analogy-family/explanation-strategy adaptation happened emergently under the minimal directive (beaver+drill, chatbot demonstration, *"in theory"* meta-joke, *"make up nonsense with excellent grammar"*, *"remember part of a task"*). The model largely understood who was listening and inferred appropriate communication behaviour.
+- **CHANGE clauses appear PARTIALLY load-bearing on specific vocabulary translation.** The verbose *"vocabulary accessibility"* clause caused the writer to translate the specific term *"API"* to *"other software"*; the minimal directive did not. This is one localized slippage in ~8 concept slots — real but bounded evidence.
+- **Distinguishing preservation success from adaptation completeness:** the minimal directive achieves near-perfect preservation and about 90% of the vocabulary adaptation the verbose directive achieves. Preservation is fully mature; adaptation completeness has a small measurable gap.
+- **Load-bearing summary in one line:** *the audience label is doing most of the work; the CHANGE clauses buy the last-10% eliminate-every-jargon-term guarantee.*
+
+This is **one specimen**. Cannot distinguish: (a) *"API is a systematic hole in what the audience label alone conveys"* vs (b) *"API happens to be one word the model did not translate on this pull; a second sample would translate it"*. To falsify (b), multiple minimal-directive renders on similar-topic Episodes would be needed. Not compelled from one datapoint.
+
+#### §13.18.7.8 Bounded conclusions (what Q-270-9 does + does NOT prove)
+
+**Does prove (from one specimen):**
+
+- The audience label `AUDIENCE: children around 8-10 years old.` alone is sufficient to produce identity-preserving audience adaptation for this Patch × solo_scene × AI-Agents-Episode substrate.
+- Preservation dimensions (identity, intelligence, factual grounding, story, memory semantics, brand prohibitions, humor construction) do not require the verbose PRESERVE clause on this specimen.
+- Broad register/analogy/explanation-strategy adaptation happens emergently without explicit CHANGE instruction.
+- The verbose CHANGE clauses do provide measurable additional value on specific technical-term translation.
+
+**Does NOT prove:**
+
+- Nothing about other audiences (adults / beginners / experts / teachers / demographic strata other than *"children 8-10"*).
+- Nothing about other characters (only Patch was tested; Rivet, or a hypothetical Nicolas-specific spokesperson, may respond differently to a minimal directive).
+- Nothing about other Episode topics (AI Agents is one topic in one domain).
+- Nothing about `dialogue_scene` — this experiment was solo-only by design.
+- Nothing about permanent architectural ownership — one PASS is not license to ship a `Composition.audience` field.
+- Nothing about Writing Contract changes being globally unnecessary.
+- Nothing about the audience-identity-vs-expertise separability question (Q-270-3 / Q-270-8) — this specimen holds *identity* fixed and does not probe *expertise*.
+
+#### §13.18.7.9 NarrativeMemory recommendation
+
+**DO NOT PROMOTE from `9880eb93`.** Same rationale as `f0e0a7bf` (§13.15.4) and `8f09da3e` (SESSION 269 §19.4):
+
+- Patch is planning an experiment (*"I want the smallest possible test: one agent, one job, clear rules, and enough room for it to surprise me."*), not performing one. State after scene = state before scene.
+- The retrieved memory row `8d4fdfec` already covers the propositional content; the minimal script arguably recites it *more literally* than any prior render (see §13.18.7.5).
+- Audience adaptation ALONE must not create memory. Baseline `2ef5ee7e` and verbose `f0e0a7bf` were both not promoted for identical story state; promoting only the minimal-directive variant would corrupt promotion discipline.
+- Runtime-verified: `NarrativeMemory.objects.filter(source_composition__id__startswith="9880eb93").count() = 0`.
+- **Pool state at capture: 14 active + 1 archived — zero delta from Experiment 1 close.**
+
+Chris retains final promotion authority.
+
+#### §13.18.7.10 Remaining open questions after Q-270-9
+
+Updated from §13.15.7:
+
+| # | Question | Status after Q-270-9 |
+|---|---|---|
+| Q-270-1 | Does the LLM hold the CHANGE/PRESERVE contract when audience directive is present? | **Answered YES** for verbose directive (Experiment 1). Q-270-9 extends: also YES for minimal directive on this substrate, with bounded caveat on vocabulary completeness. |
+| Q-270-2 | Is the §5 Task Hard-Constraint seam the *right* eventual home? | Still open. Both a 372-char and a 41-char directive delivered via the same seam produce comparable behaviour; the seam is not the discriminator. |
+| Q-270-3 | Are demographic and expertise separable audience dimensions? | Still open. Q-270-9 doesn't probe expertise. Q-270-8 remains available. |
+| Q-270-4 | Does audience adaptation change what should be promoted to NarrativeMemory? | Q-270-9 case: same finding — audience adaptation alone does not promote for identical story state. Two independent specimens now support this. |
+| Q-270-5 | Does audience adaptation warrant a Writing-Contract version bump? | **Slightly weaker case** now — minimal directive achieved most of the adaptation without any contract change. If verbose CHANGE clauses are only ~10% load-bearing, a contract bump is even less compelled. |
+| Q-270-6 | Does dialogue_scene need identical audience semantics? | Still open. Not tested. |
+| Q-270-7 | Rename `who_you_help`'s `AUDIENCE:` label? | Still open. No new evidence. |
+| Q-270-8 | Demographic-vs-expertise separability: same character/Episode/knowledge under an expert-beginner directive | Still available. Not compelled. |
+| Q-270-9 | Directive minimalism | **CLOSED with bounded PASS.** 41-char label achieves preservation fully and ~90% of vocabulary-translation adaptation; verbose CHANGE clauses buy the last-10% guarantee. |
+| **Q-270-10** | Vocabulary-translation completeness under minimal directive: does a second minimal-directive render on the same substrate translate "API" (i.e. was the localized miss stochastic or systematic)? | **NEW.** Cheapest possible experiment — same Composition setup, second real-mode render, single-question probe. Would falsify one of the two competing interpretations in §13.18.7.7. Not compelled. |
+
+#### §13.18.7.11 Recommended next question (if any)
+
+Two candidates carry the strongest evidence-based claim:
+
+- **Q-270-10 (single-question probe)** — one additional minimal-directive render on the same substrate. Question: does "API" get translated this time? If YES on a second sample → systematic-miss hypothesis loses ground; minimal directive is fully-mature. If NO on a second sample → "API is a specific systematic hole" hypothesis gains ground; would suggest the CHANGE clauses' vocabulary-accessibility instruction is genuinely load-bearing on specific technical vocabulary. **Cheapest, most focused, single-yes/no answer, extends the existing three-way baseline into a four-way natural experiment.**
+- **Q-270-8 (demographic-vs-expertise separability)** — one minimal-directive render on the same substrate with `AUDIENCE: an experienced software developer new to AI agents`. Question: does the model produce a different concept-translation family? **Higher-value if the answer is "yes"** but harder to grade cleanly against a baseline (the peer would be an adult-general baseline, whose implicit register is not identical to expert-directed adult).
+
+**Recommendation:** **Q-270-10 first** if any. Faster, cheaper, cleaner grading, directly addresses the one AMBIGUOUS from Q-270-9. Then, only after Q-270-10 clarifies whether the "API" miss was stochastic or systematic, decide whether Q-270-8's expert-audience probe is worth spending a render on.
+
+If Chris prefers to stop entirely and let the two-experiment evidence stand, that is also fully defensible — 9 PASS + 1 AMBIGUOUS on the minimal directive, and 10/10 PASS on the verbose directive, is a strong dual-datapoint answer to the pre-question and does not compel further specimens.
+
+### §13.19 Q-270-9 experimental cleanup — deactivation record
+
+Executed immediately after grading + interpretation, per operator brief.
+
+**Deactivation actions:**
+
+- Prior worker PID **62207** (Q-270-9 minimal-directive worker, booted 2026-08-20 03:04:08) killed via `pkill -f "celery -A character_os worker"`. Zero workers alive after kill.
+- `unset CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT` in the parent shell; `printenv CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT` → "not set (expected)".
+- New worker PID **63588** launched via canonical `start-local-real.sh` invocation with no env-var export.
+- Control-plane liveness: `celery -A character_os inspect ping` → `celery@Chriss-MacBook-Pro.local: OK / pong / 1 node online.`
+
+**Definitive proofs no future render will inherit the directive:**
+
+- `ps eww $NEW_PID | grep -c "CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT="` → **0** (env token absent from worker 63588's environ block).
+- `manage.py shell` under same `.venv/bin/python`:
+  ```
+  env var in os.environ: False
+  _resolve_solo_audience_hint(MagicMock(params={})) returns: None
+  ```
+  → next Episode-attached solo render will pass `audience_hint=None` to synthesis, keeping the prompt byte-stable versus pre-SESSION-270 shape.
+
+**Rest of the local-real stack — post-deactivation health probes:**
+
+| Service | Probe | Status |
+|---|---|---|
+| Django | `curl http://localhost:8010/admin/` | `http=302` (login redirect — healthy) |
+| media-engine | `curl http://localhost:8001/health` | `{"status":"ok",...,"any_mock":false,"llm_provider":"openai","llm_model":"gpt-4o-mini"}` (real-mode; **no provider mocks**) |
+| Vite (SPA) | `curl http://localhost:5174/` | `http=200` |
+| Celery worker | `celery -A character_os inspect ping` | `pong / 1 node online` |
+
+**Non-render verification chosen deliberately** — no test Composition rendered to prove cleanup, per operator brief.
+
+**Persisted state untouched during deactivation:** zero DB writes; no migration; working tree edits only this SESSION 270 doc + Q-270-9 sidecar.
+
+**Q-270-9 experiment window closed at:** 2026-08-19 21:15 local (Celery restart timestamp of PID 63588).
+
+### §13.20 Commit checkpoint (Q-270-9 evidence + grading + deactivation)
+
+- Slice commit: `<populated below>` — `<subject line populated below>`.
+- Push: `<populated below>`.
+- Working tree state at checkpoint: `<populated below>`.
+
+---
+
+**End of SESSION 270 Q-270-9 cycle.** Minimal-directive experiment CLOSED with a bounded PASS: 9 PASS + 1 AMBIGUOUS on the ten criteria, no NarrativeMemory promoted, load-bearing analysis suggests the audience label does most of the work while verbose CHANGE clauses buy the last-10% vocabulary-completeness guarantee. §13.18.7.11 recommends **Q-270-10 (single-question stochasticity probe on the "API" miss) FIRST** if Chris wants to convert the AMBIGUOUS on criterion 4 into evidence; **Q-270-8 (demographic-vs-expertise) SECOND** if any; **STOP HERE** is fully defensible. **Do NOT proceed to any further audience experiment without Chris's authorisation.**
 
