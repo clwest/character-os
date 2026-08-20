@@ -4116,3 +4116,147 @@ Runtime was already in canonical mode from §128 cleanup — Trial 5 rendered on
 ---
 
 **End of SESSION 271 Slice 7 Phase 2 Trial 5. Replication verdict: E — INCONCLUSIVE (CASE C activation gap, 3rd of 5 experiment trials). Trial 4 774658ea remains the sole n=1 valid E-KNOWLEDGE-1 specimen. Promotion decision unchanged: NOT YET — need a genuine replication with Claude-inline activation.**
+
+---
+
+# SESSION 271 — SLICE 7 · TRIAL 6 · PRE-RENDER ACTIVATION RECORD (image-generation topic, E-KNOWLEDGE-1 ON, Claude-inline)
+
+Pre-render preparation only. **No render performed.** This section captures the mechanical activation evidence BEFORE Chris performs the operator UI action, so that if Trial 6 completes as a valid E-KNOWLEDGE-1 replication we have a durable pre-render checkpoint to compare against post-render forensics.
+
+**Purpose:** perform a genuine E-KNOWLEDGE-1 replication on a DIFFERENT Patch topic ("Patch experiments with AI image generation") under exactly the same experimental condition as valid Trial 4 (`774658ea` — AI-agents topic, E-KNOWLEDGE-1 ACTIVE) so we can isolate the topic axis while keeping every other experimental variable identical to the sole n=1 valid E-KNOWLEDGE-1 specimen.
+
+---
+
+## §144. Activation method
+
+Claude performed the full activation inline in ONE Bash tool call (same proven pattern that succeeded for Trial 2 and Trial 4 — the two Trials that avoided the CASE C activation-gap failure mode). Exact sequence:
+
+```
+1. unset CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT
+2. export CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT='AUDIENCE: general adults with no technical background who are new to AI agents.'
+3. export CHARACTER_OS_PATCH_COMMUNICATION_POLICY_EXPERIMENT=1
+4. bash scripts/start-local-real.sh     # kills all four services + launches with env inherited from shell
+```
+
+The `set -a; source .env; set +a` inside `start-local-real.sh` layers on top of the parent shell's exports, so both `CHARACTER_OS_*` env vars propagate to the new Celery worker's process environment.
+
+---
+
+## §145. Trial 6 experimental condition (frozen pre-render)
+
+| Variable | Trial 6 setting | Matches Trial 4 valid specimen? |
+|---|---|---|
+| Universe | `Patch's Workshop` (`56d16b63`) | YES (same) |
+| Episode | `06043499-cb8c-406b-9dcd-0053278471dc` — "Patch experiments with AI image generation" | **NO — DIFFERENT** (Trial 4 used `2b6087d2` AI-agents Episode). Deliberate topic axis. |
+| Spokesperson | `Patch` (`7fad8172`) | YES (same) |
+| Target duration | 90 s | YES (same) |
+| Workspace knowledge | ON | YES (same) |
+| Opener | blank | YES (same) |
+| Verifier mode | warn | YES (same) |
+| Writing Contract | v5 | YES (same) |
+| `CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT` | `"AUDIENCE: general adults with no technical background who are new to AI agents."` (79 chars) | **YES — byte-identical to Trial 4** (deliberately kept constant to control the audience-descriptor variable while topic varies) |
+| `CHARACTER_OS_PATCH_COMMUNICATION_POLICY_EXPERIMENT` | `1` (truthy) | YES (same as Trial 4) |
+| `CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT` | UNSET (Q-270-15c OFF) | YES (same as Trial 4) |
+
+Only variable that changes vs Trial 4 = **Episode + operator_topic + likely-retrieved chunk region** (image-gen chunks `20163bd6/850bd47b/d925b176` region vs AI-agents chunks `3c5165ea/505acbba` region — per Slice 6 §88 map).
+
+---
+
+## §146. Pre-render activation verification — all 5 gates PASS
+
+Executed immediately after the `bash scripts/start-local-real.sh` restart. All five gates required by operator brief.
+
+### §146.1 Worker PIDs alive after restart
+
+- Django: `95137`
+- media-engine: `95139`
+- Vite: `95162`
+- Celery workers: **`95141`, `95172`, `95173`** (3 processes; MainProcess + 2 ForkPoolWorkers via `--concurrency=2`)
+
+### §146.2 Gate 1 — E-KNOWLEDGE-1 is actually active
+
+**PASS.** `ps eww` on all three Celery worker PIDs shows `CHARACTER_OS_PATCH_COMMUNICATION_POLICY_EXPERIMENT=1` in each worker's process environment. Python `manage.py shell` in an env-mirroring shell confirms `_patch_communication_policy_experiment_active()` returns **`True`** and `_resolve_patch_communication_policy(Patch teammate, is_episode_talking_head=True)` returns the full 290-char rule text (matches `_PATCH_COMMUNICATION_POLICY_TEXT` constant byte-identically).
+
+### §146.3 Gate 2 — Audience-hint condition matches Trial 4 byte-identically
+
+**PASS.** `_resolve_solo_audience_hint(step={})` returns:
+```
+'AUDIENCE: general adults with no technical background who are new to AI agents.'
+```
+(79 chars). Byte-identical to Trial 4 `774658ea` audience directive.
+
+### §146.4 Gate 3 — Q-270-15c is OFF
+
+**PASS.** `CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT` is absent from every worker's process env (`ps eww` returns no matching line for any of the three PIDs). `_corrective_revision_experiment_active()` returns **`False`**.
+
+### §146.5 Gate 4 — No unintended CHARACTER_OS experiment variables
+
+**PASS.** `ps eww | tr ' ' '\n' | grep '^CHARACTER_OS_'` on all three worker PIDs returns EXACTLY the two intended entries: `SOLO_AUDIENCE_HINT_EXPERIMENT` + `PATCH_COMMUNICATION_POLICY_EXPERIMENT`. Nothing else.
+
+### §146.6 Gate 5 — Workers healthy and ready
+
+**PASS.** All service health probes green:
+
+| Service | Probe | Result |
+|---|---|---|
+| Django | `curl /admin/` | `http=302` ✅ |
+| media-engine | `curl /health` | `http=200`, `any_mock=false`, `llm_provider=openai`, `llm_model=gpt-4o-mini` ✅ |
+| Vite (SPA) | `curl /` | `http=200` ✅ |
+| Celery worker | `celery inspect ping` | `pong / 1 node online` ✅ |
+
+Rivet cross-check: `_resolve_patch_communication_policy(Rivet teammate, is_episode_talking_head=True)` returns `None` — spokesperson gate confirmed working (rule fires ONLY for Patch).
+
+---
+
+## §147. Pre-render state snapshot for post-render forensics
+
+To compare against post-render Trial 6 evidence:
+
+| Field | Pre-render value |
+|---|---|
+| HEAD | `9917d31dcdddbaa927f952e66993d09e846799b4` |
+| Local `main == origin/main` | ✅ |
+| Working tree | clean before this §144-§149 append |
+| NarrativeMemory pool (Patch's Workshop) | 14 remembered + 1 archived (unchanged since SESSION 270 §14.4) |
+| Writing Contract version | 5 |
+| Celery worker PIDs | 95141, 95172, 95173 |
+| Django / media-engine / Vite PIDs | 95137, 95139, 95162 |
+| Experiment env vars — in Claude's shell | `SOLO_AUDIENCE` set (79 chars), `PATCH_COMMUNICATION_POLICY=1`, `CORRECTIVE_REVISION` unset |
+| Experiment env vars — in worker processes (`ps eww`) | same as Claude's shell |
+| Trial-6 target Episode | `06043499-cb8c-406b-9dcd-0053278471dc` "Patch experiments with AI image generation" |
+
+---
+
+## §148. Chris's single dogfood action (Trial 6)
+
+Once this section is committed:
+
+1. SPA at http://localhost:5174/.
+2. Universe **Patch's Workshop** (`56d16b63`).
+3. Episode **"Patch experiments with AI image generation"** (`06043499`).
+4. New solo scene:
+   - Cast: **Patch only** (`7fad8172`)
+   - Recipe: **talking_head** → resolves to `solo_scene`
+   - Target duration: **90 seconds**
+   - Workspace knowledge: **ON**
+   - Opener: **blank**
+   - Fact-check mode: **warn**
+   - Do NOT type any audience directive anywhere — env var supplies it.
+5. Render.
+6. Return the Composition ID + accepted script + note whether corrective retry fired.
+
+**Do NOT** edit the generated script. **Do NOT** render a second time. **Do NOT** promote NarrativeMemory. **Do NOT** run any other experiment in parallel.
+
+---
+
+## §149. What Trial 6 will discriminate
+
+If Trial 6 produces:
+- **Accessible language throughout, low at-risk vocabulary, all four preservation dimensions intact** → confirms E-KNOWLEDGE-1 generalises across topics; strengthens Option A (persona migration) recommendation.
+- **Mixed accessible + raw enumeration** → E-KNOWLEDGE-1 helps but topic-specific chunk vocabulary still leaks; refines the causal model.
+- **Similar to Trial 5 62d68b17 (canonical baseline on image-gen)** → E-KNOWLEDGE-1 has little discriminating effect on this topic because default persona already handles it; supports the topic-asymmetry finding from Trial 5 §138.1.
+- **Worse than Trial 5** → policy over-constrains Patch on non-AI-agents topics; unexpected finding requiring interpretation.
+
+Whichever outcome, Claude will freeze evidence + update the durable doc + cleanup + commit + push (same pattern as prior Trial-4 / Trial-5 Phase-2 forensics).
+
+**Post-render commit + push record will be populated in §150+.**
