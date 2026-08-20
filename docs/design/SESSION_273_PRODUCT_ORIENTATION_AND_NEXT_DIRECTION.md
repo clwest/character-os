@@ -914,6 +914,7 @@ Memory lane: `retrieve_universe_memory` still returns `[]` for Ruby (the Fox & F
 
 ## §16. §15 COMMIT PROVENANCE
 
-- §15 Slice α completion commit: (recorded at commit time — see git log)
+- §15 Slice α completion commit: **`70e3113`** — `feat(session-273): §15 Slice α completion — approved Fox & Flour KD ingested + retrieval verified`
+- Pushed to `origin/main`.
 - Slice α ingest executor script: `scripts/session273_slice_alpha_ingest_kd.py`
 - Slice α ingest + retrieval evidence sidecar: `docs/design/session_273_experiment_data/04_slice_alpha_kd_ingest_and_retrieval.json` (6,436 bytes)
