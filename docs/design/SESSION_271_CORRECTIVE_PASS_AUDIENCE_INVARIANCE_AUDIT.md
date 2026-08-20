@@ -3457,3 +3457,343 @@ If first pass lands in tolerance and no retry fires — that is still informativ
 ---
 
 **End of SESSION 271 Slice 7 Phase 1. STOP condition reached. Plumbing implemented, tested green (26 new + 163 adjacent + 173 dialogue = 362 tests, zero failures), documented. Awaiting Chris to execute the §109 activation procedure and perform the §110 single dogfood action.**
+
+---
+
+# SESSION 271 — SLICE 7 · PHASE 2 · E-KNOWLEDGE-1 · Composition 774658ea Forensics + Verdict
+
+Phase 2 forensics on the E-KNOWLEDGE-1 dogfood render Chris performed after the §109 activation succeeded. Composition `774658ea-2f2c-4b15-b330-c1c4ada221d7`. **Verdict: B — PARTIAL SUPPORT (strong, tending toward A).** Frozen evidence sidecar: `docs/design/session_271_experiment_data/04_composition_774658ea_e_knowledge_1_trial4_evidence.json`.
+
+---
+
+## §114. Composition 774658ea identity
+
+| Field | Value |
+|---|---|
+| Short ID | `774658ea` |
+| Full UUID | `774658ea-2f2c-4b15-b330-c1c4ada221d7` |
+| Rendered | `2026-08-20 15:41:34 UTC` (created) → `15:41:49 UTC` (dispatched) → `15:44:48 UTC` (completed, 194.1 s wall) |
+| Status | `completed` / `verification_status="verified"` |
+| Writing Contract | `v5` |
+| Substrate | Universe `56d16b63` / Episode `2b6087d2` / Spokesperson `7fad8172` — IDENTICAL to c3ff972d + 1ff3d16f + 25467733 + 8b61ca92 |
+| Retrieved chunks | 5 chunks, IDENTICAL to every prior render on this substrate |
+| Memory row | `8d4fdfec-add4-4505-8ade-b0f9e6d8aea6` — same workshop-agent notes |
+| synthesis_attempt_count | **2** |
+| first_pass_synthesis chars | 948 (Draft A) |
+| corrective_pass_synthesis chars | 1510 (Draft B = accepted) |
+| corrective_hint chars | **655** ← canonical `_expansion_hint` fingerprint (Q-270-15c revision OFF) |
+| verification_warnings | 1× `multi_word` (`"Can AI"` at position 442) |
+| cost | $0.02; operator reported final media duration **100.4 s** |
+
+---
+
+## §115. Activation reality check — three independent proofs agree
+
+### §115.1 Worker environment
+
+- Worker PIDs 91538 / 91571 / 91572 (post-§109 activation restart, ~2026-08-20 15:15 UTC boot).
+- `ps eww` on all three PIDs: `CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT` + `CHARACTER_OS_PATCH_COMMUNICATION_POLICY_EXPERIMENT` present; `CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT` **ABSENT** (Q-270-15c OFF as required).
+
+### §115.2 Celery log markers (verbatim)
+
+Line 36 — audience active:
+```
+[2026-08-20 15:41:34,519: INFO/ForkPoolWorker-2] avatar_speech: SESSION 270 audience-hint experiment ACTIVE composition=774658ea-2f2c-4b15-b330-c1c4ada221d7 spokesperson=7fad8172-cd39-4bbe-85e0-ed705d900645 hint_chars=79 — this is transient research plumbing; unset the setting/env or clear step.params['audience_hint'] to restore default behaviour
+```
+
+Line 37 — E-KNOWLEDGE-1 policy active:
+```
+[2026-08-20 15:41:34,520: INFO/ForkPoolWorker-2] avatar_speech: SESSION 271 Slice 7 / E-KNOWLEDGE-1 Patch communication-policy experiment ACTIVE composition=774658ea-2f2c-4b15-b330-c1c4ada221d7 spokesperson=7fad8172-cd39-4bbe-85e0-ed705d900645 policy_chars=290 — this is transient research plumbing; unset CHARACTER_OS_PATCH_COMMUNICATION_POLICY_EXPERIMENT to restore canonical behaviour
+```
+
+Line 40 — canonical expansion retry (Q-270-15c OFF):
+```
+[2026-08-20 15:41:41,341: INFO/ForkPoolWorker-2] synthesize_with_duration_gate expansion retry
+```
+This is the CANONICAL log line (source: `duration_contract.py::synthesize_with_duration_gate::_expansion_hint` branch — Q-270-15c experimental branch would have produced `"SESSION 271 Q-270-15c expansion revision retry (experiment ACTIVE) ..."` marker). Confirms Q-270-15c OFF.
+
+### §115.3 Corrective hint fingerprint
+
+Persisted `Composition.corrective_hint` (655 chars) starts *"Your previous draft was 948 characters ... **REWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS** ..."* — canonical `_expansion_hint` byte-for-byte. NOT the 791-char experimental `_experimental_expansion_revision_hint` (`REVISE THE PREVIOUS DRAFT`). Q-270-15c confirmed OFF at every observable surface.
+
+**Three independent proofs agree: audience ON + policy ON + revision OFF, exactly as intended.**
+
+---
+
+## §116. Draft A (first pass, WITH policy always-present) — verbatim
+
+```
+I'm researching AI agents, which is annoyingly hard because "agent" gets slapped on anything with a chat box.
+
+The useful version is simpler: it's an AI system that can do more than give you one answer.
+
+It can make decisions, pick tools, read documents, search for information, write things down, call APIs, and work through multiple steps.
+
+So: less "tell me how to plan a trip," more "here are the rules, here are the tools—go figure out the plan."
+
+Which is where it gets interesting.
+
+Because once an AI can interact with information and tools, it can also misunderstand the job, chase the wrong goal, or sound incredibly confident while being completely wrong.
+
+I found the notes from that old workshop-agent experiment. It started small. Then I gave it more context, and suddenly it was making decisions about my projects.
+
+So I think the next question is not, "Is this technically an agent?"
+
+The question is: what should I let it do first?
+```
+(948 chars, 163 words, ~65 s spoken. Draft A at-risk: 2 = call APIs + APIs. NO language model, NO state, NO multi-step-hyphen, NO databases. Uses accessible *"AI system"* and *"work through multiple steps"*.)
+
+## §117. Draft B (corrective canonical regeneration, policy STILL always-present = accepted) — verbatim
+
+```
+I'm digging into AI agents, and the annoying part is that everybody uses that phrase like it explains itself.
+
+An agent is not just an AI that gives you one confident paragraph and disappears into the fog. In the useful version, it can make decisions, choose tools, search for information, read documents, write information, call APIs, handle a task with multiple steps, and keep track of what happened along the way.
+
+So instead of asking, "Can AI tell me how to organize a project?" the more interesting question is: can it actually look at the project, find what it needs, use the right tools, and do something useful without wandering into a hedge?
+
+That's where this gets fun. And slightly terrifying in the "why did I give the spreadsheet opinions?" sense.
+
+I found my old workshop-agent notes, from before I gave the thing more context and it started making decisions about my projects. Which is exactly why I'm doing this research carefully. A language model can sound extremely sure while being wrong, misunderstanding the goal, or inventing details with the confidence of a man explaining a parking ticket.
+
+So I'm mapping the boring-but-important bits: what information an agent gets, what tools it can touch, what it remembers, what rules stop it doing something stupid, and how we check its work afterward.
+
+Because "agent" is not the interesting part.
+
+The interesting part is what happens when the AI can actually do something.
+
+If you've got a job you think an agent should try, leave it below.
+```
+(1510 chars, ~100 s spoken. Draft B at-risk: 2 = call APIs + one language model. Added on retry: `language model` ×1 with contextual framing.)
+
+---
+
+## §118. Chris's specific question — answered
+
+> *"Did Draft A already contain 'keep track of what happened along the way'?"*
+
+**NO.** Draft A did NOT contain that phrase. The phrase appeared FIRST in Draft B (corrective canonical regeneration). This is direct causal evidence that the always-present COMMUNICATION POLICY block translated the source concept *"maintain state"* (chunk `505acbba`) into accessible language DURING a CANONICAL corrective retry, WITHOUT Q-270-15c revision architecture, WITHOUT Draft A anchoring.
+
+**Consequence:** the always-present policy shaped BOTH first-pass and corrective-pass output. Its effect is not dependent on Draft-A-in-context (which is what Q-270-15c revision provides). This is a substantively different mechanism from Q-270-15c revision — and produces LOWER at-risk-terminology count on this specimen (2 vs Trial 2's 3).
+
+---
+
+## §119. Within-composition at-risk terminology
+
+| Term | Draft A | Draft B | Direction |
+|---|---|---|---|
+| `API` | 1 | 1 | STABLE |
+| `APIs` | 1 | 1 | STABLE |
+| `language model` | 0 | **1** | **+1** (added on canonical corrective retry — but with contextual framing) |
+| `state` | 0 | 0 | STABLE (Draft B translates as *"keep track of what happened along the way"*) |
+| `multi-step` | 0 | 0 | STABLE (Draft A + B both use *"multiple steps"*) |
+| `database` | 0 | 0 | STABLE |
+| `react` | 0 | 0 | STABLE |
+
+**Draft B total at-risk: 2** — LOWEST of any accepted output on this substrate. See §120 cross-specimen table.
+
+**Accessible translations produced by Draft B**:
+- *"keep track of what happened along the way"* — accessible rendering of chunk `505acbba`'s raw *"maintain state"* (NEW in Draft B, not in Draft A)
+- *"handle a task with multiple steps"* — accessible rendering of chunk `505acbba`'s raw *"perform multi-step tasks"*
+- *"what information an agent gets, what tools it can touch, what it remembers, what rules stop it doing something stupid, and how we check its work afterward"* — accessible rendering of chunk `ed18e966`'s raw *"language model, memory, retrieval, search, tools, business rules, databases, user profiles, APIs, image generation..."*
+
+**Context around retained terms**:
+- *"call APIs"* — retained in the same enumeration as accessible translations, not blacklisted per operator brief.
+- *"A language model can sound extremely sure while being wrong, misunderstanding the goal, or inventing details with the confidence of a man explaining a parking ticket"* — the term is USED but immediately grounded in concrete failure modes a nontechnical adult can grasp. Distinct from c3ff972d's *"A language model can tell you how it would organize a project"* which was more definitional-only.
+
+---
+
+## §120. Cross-specimen comparison — Trial 4 vs all prior renders on this substrate
+
+| ID | Condition | Audience? | Revision? | Policy? | First-pass at-risk | Accepted at-risk | Direction |
+|---|---|---|---|---|---|---|---|
+| `2ef5ee7e` | SESSION 269 baseline (no experiments) | ❌ | ❌ | ❌ | 3 | 6 | +3 |
+| `c3ff972d` | SESSION 270 Q-270-13 audience canonical | ✅ | ❌ | ❌ | 0 | 5 | +5 |
+| `25467733` | Trial 1 activation gap (all OFF) | ❌ | ❌ | ❌ | 2 | 5 | +3 |
+| `1ff3d16f` | Trial 2 audience + Q-270-15c revision | ✅ | ✅ | ❌ | 1 | 3 | +2 |
+| `8b61ca92` | Trial 3 activation gap (all OFF) | ❌ | ❌ | ❌ | 2 | 5 | +3 |
+| **`774658ea`** | **Trial 4 audience + E-KNOWLEDGE-1 policy (revision OFF)** | ✅ | ❌ | ✅ | **2** | **2** | **+0** |
+
+**Headline:** Trial 4 (E-KNOWLEDGE-1) has the LOWEST accepted at-risk count of any specimen on this substrate — 2, versus 5 for every canonical audience-active baseline and 3 for Trial 2 (Q-270-15c revision + audience). Direction within-composition is +0 (no net addition of raw terms; one `language model` added with context, offset by zero addition of the four other categories that all baselines added).
+
+**Small-n caveat:** n=1 for E-KNOWLEDGE-1. Direction is unambiguous; magnitude stability across repeats is not measured.
+
+---
+
+## §121. §108 pre-registered criteria grading + four-dimension separated grading
+
+### §121.1 §108 dimensions 1-10 (frozen pre-render)
+
+| # | Dimension | Grade | Note |
+|---|---|---|---|
+| 1 | First-pass vocabulary shape | IMPROVED | Draft A 2 at-risk; comparable to Trial 2 Draft A (1) and BETTER than Trial 1/3 canonical baselines (2 each with worse enumeration) |
+| 2 | Accepted vocabulary shape | STRONGLY IMPROVED | 2 at-risk vs 5 for every canonical baseline; LOWER even than Trial 2 revision (3) |
+| 3 | Patch identity preservation | PASS_STRONG_ENRICHED | New humor markers not present in any prior specimen |
+| 4 | Factual grounding | PASS (verifier caveat) | 1× multi_word false-positive `"Can AI"` inside quoted rhetorical question (new Q-270-20 candidate class — see §123) |
+| 5 | Explanation quality | PASS_STRONG | `language model` grounded in concrete failure modes; system composition rendered as accessible enumeration |
+| 6 | Humor | PASS_STRONG_ENRICHED | Step up from every prior specimen |
+| 7 | Story intent | PASS | Same Episode, no story progression, invitation-only close |
+| 8 | Memory use | PASS | Same memory row, referential paraphrase, no promotion |
+| 9 | Duration | PASS | Predicted 102 s, actual 100.4 s (inside [72, 108]) |
+| 10 | Same factual concepts available | PASS | Every technical concept remains surfaceable |
+
+### §121.2 Four-dimension separated grading (per operator instruction)
+
+- **WHAT PATCH KNOWS** → **PRESERVED.** Factual capability intact. Every technical concept (decisions, tools, information retrieval, documents, APIs, multi-step, state via "keep track", language model, memory, rules, verification) present.
+- **HOW PATCH COMMUNICATES** → **IMPROVED.** Accessible translations of state + multi-step + system-composition; contextual framing of `language model`; `call APIs` remains raw but in an enumeration alongside accessible terms.
+- **WHO PATCH IS** → **PRESERVED_ENRICHED.** Personality + humor + intelligence + curiosity + confidence + experimentation instinct all present. New Patch-shape material: *"the confidence of a man explaining a parking ticket"*, *"wandering into a hedge"*, *"why did I give the spreadsheet opinions?"*.
+- **STORY STATE** → **PRESERVED.** Same Episode row, no progression, same memory row retrieved (14 remembered + 1 archived unchanged), invitation-only close.
+
+---
+
+## §122. E-KNOWLEDGE-1 verdict
+
+**B — PARTIAL SUPPORT (strong, tending toward A).**
+
+Rubric A required `≤ 1` at-risk terms in accepted output. Trial 4 has 2 (`call APIs` + one contextualised `language model`). Strict A not met.
+
+Rubric B (2-3 at-risk, dimensions 3-10 preserved, meaningful translation improvement over baselines) met with substantial margin:
+- At-risk count strictly lower than every canonical audience-active baseline (2 vs 5).
+- Even LOWER than Trial 2 Q-270-15c revision (2 vs 3).
+- Every preservation dimension held.
+- Patch identity arguably ENRICHED (new signature humor).
+- Explanation quality strong (concepts grounded in accessible failure modes).
+
+**Distinct-mechanism finding:** Trial 4 achieved this at-risk reduction under CANONICAL fresh regeneration on the corrective retry — Q-270-15c revision architecture was NOT active. The always-present policy shaped BOTH first-pass and corrective-pass output byte-identically (proven by §115). This is a different mechanism from Q-270-15c revision, and produces better numeric results on this specimen.
+
+---
+
+## §123. Verifier finding — new Q-270-20 candidate class
+
+Trial 4 verifier flagged `"Can AI"` (multi_word) at position 442, which is inside the quoted rhetorical question: *"Can AI tell me how to organize a project?"* — the model is quoting a hypothetical user question, NOT asserting that AI can/cannot do a specific thing.
+
+This is a NEW K6.4 false-positive class distinct from:
+- Q-270-16 (proper_noun heuristic — sentence-initial capitalised tokens: `Basically`, `Sometimes`, `Here`, `Annoying`, `Obviously`, `Especially`, `Proof`).
+- Q-270-18 (tech_term list contains lowercase `react`).
+
+**Candidate label: Q-270-20 — K6.4 multi_word heuristic false-positive on quoted rhetorical noun phrases.** Bounded verifier-quality follow-up. NOT audience-related. NOT to be fixed in any SESSION 271 slice.
+
+---
+
+## §124. Updated causal model — three-layer picture
+
+Previous Slice 5 §81.6 verdict was C (both mechanisms interact). E-KNOWLEDGE-1 evidence updates this to a more precise three-layer model:
+
+1. **Technical KnowledgeDocument** determines the available concept SPACE and default vocabulary. Lexical reservoir. Unchanged in this experiment.
+2. **Always-present character-invariant communication policy** CAN translate SOME of those concepts:
+   - `state` → *"keep track of what happened along the way"* (CONFIRMED — Draft A did not contain this; Draft B produced it under always-present policy)
+   - `multi-step` → *"multiple steps"* (CONFIRMED in both drafts)
+   - system-composition → accessible enumeration (CONFIRMED in Draft B)
+3. **Some raw source terms may STILL survive** when they are (a) the source's canonical name for a concept with no obvious accessible equivalent (`call APIs` — the model didn't invent *"connect to other software"* this time) or (b) contextually explained rather than translated (`language model can sound extremely sure while being wrong`). Not necessarily failures; they are USED with grounding rather than as raw definitional enumeration.
+
+**Slice 6 §96 causal ranking updated:** Factor 2 (retrieval omission of communication guidance) is now DIRECTLY confirmed as a load-bearing cause. Restoring the invariant via always-present policy measurably reduces at-risk vocabulary (2 vs 5) while preserving knowledge and identity.
+
+---
+
+## §125. Architectural conclusion — enough evidence to answer the big question
+
+> *"Do we now have enough evidence to say character-invariant communication behavior should NOT live solely in retrieval-dependent KnowledgeDocuments?"*
+
+**YES.** The evidence supports this architectural claim:
+
+- Slice 6 §91 proved the specific rule *"Patch uses technical terminology when it actually helps and translates it into ordinary language when it does not"* is currently retrieval-omitted for this substrate (chunks 16-17 never in top-5).
+- Slice 6 §92 documented that Patch's persona already carries a WEAKER version of this rule (`character_point_of_view`: *"He talks technical when it earns its keep and drops jargon otherwise."*); the KnowledgeDocument version has richer operational examples.
+- Slice 7 Trial 4 demonstrated that making the equivalent rule always-present measurably reduces at-risk terminology from 5 → 2 in the accepted output on the same substrate where the rule sits in an unretrievable chunk, while preserving every other dimension.
+
+Regardless of magnitude stability across future replications, the mechanism is proven: **retrieval-omitted character invariants stop shaping output; always-present character invariants resume shaping output.** The architectural implication follows regardless of the specific magnitude.
+
+---
+
+## §126. Decision-gate recommendation
+
+**Recommend Option B — Run one replication before promotion.**
+
+Justification:
+- Trial 4 evidence is directionally strong (2 at-risk vs 5 baseline) and includes clean per-question evidence (§118 confirmed *"keep track of what happened along the way"* appeared in Draft B but not Draft A).
+- n=1 for a persona/architectural change is insufficient. One additional controlled render (Trial 5) confirms magnitude stability of the ~2-at-risk residual.
+- If Trial 5 lands in [0, 3] at-risk range with preserved dimensions, Option A (persona migration for Patch) becomes safe.
+- If Trial 5 diverges materially (0-1 at-risk = stronger case for A; 4-5 at-risk = need interpretation before A), the trajectory tells us whether Trial 4 was typical or lucky.
+
+**Variant recommendation: B under a DIFFERENT topic.** Same-substrate replication only tests magnitude stability under one retrieval set. Topic-varied replication (still Patch, still nontechnical audience, e.g. an image-generation or 3D-printing topic that would retrieve different chunks) tests whether the policy generalises across the concept space. Higher information per render for the same cost.
+
+**Not recommended yet:**
+- **A (immediate persona migration)** — n=1 too low for a live persona edit.
+- **C (hybrid factual + accessible knowledge rewrite)** — architectural conclusion (§125) suggests persona-hosted policy is sufficient; rewriting factual knowledge is unnecessary if Trial 5 confirms Trial 4.
+- **D (broader Patch/Rivet rewrite)** — same reasoning.
+- **E (return to Q-270-15c/b)** — E-KNOWLEDGE-1 explores a mechanism that produces LOWER at-risk than Q-270-15c revision on this specimen (2 vs 3). Continuing corrective-pass architectural work should be de-prioritised behind persona-based fixes.
+
+---
+
+## §127. Future direction for Patch + Rivet knowledge
+
+**Do NOT rewrite either document yet.**
+
+Based on all current evidence, the likely direction is:
+
+1. **Keep factual technical knowledge intact.** The KnowledgeDocument's factual content (chunks 0-11 on Patch's document) is the concept space Patch reasons over. Rewriting it risks weakening technical grounding without evidence it's necessary.
+2. **Move true character invariants to always-present persona / context.** The six named Patch invariants (§91 retrieval-omitted for this substrate — HOW HANDLES TECHNICAL DETAIL, DOES NOT FAKE, DOES NOT WORSHIP, AUDIENCE RELATIONSHIP, MOST IMPORTANT RULE, BUILD-FIRST) should live where they can shape every render regardless of topic.
+3. **Optionally add accessible semantic formulations to factual knowledge** only if future evidence still shows excessive lexical gravity after persona migration. This is Slice 6 §97 Option B, deferred behind the always-present-policy path.
+
+**Rivet applicability:** in principle yes. Slice 6 §93 + §100 established that Rivet exhibits the compression-side variant of the same retrieval-dependent-invariant class of failure (SESSION 263 §6.5). Rivet's persona field `personality` already carries *"does not constantly explain technical concepts like a textbook"* — but Rivet's KnowledgeDocument has no dedicated communication-policy section to migrate from. The same architectural principle applies: whatever character-invariant behavioural rules Rivet needs to hold on every render should live on the Teammate row, not in retrieval-dependent chunks. Specific migration content requires reviewing Rivet's persona + KnowledgeDocument together (out of scope for this slice).
+
+---
+
+## §128. Cleanup + verification (executed post-forensics)
+
+Actions performed after evidence freeze:
+
+1. `unset CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT`, `unset CHARACTER_OS_PATCH_COMMUNICATION_POLICY_EXPERIMENT`, `unset CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT` in the parent shell.
+2. `bash scripts/start-local-real.sh` — killed all four services + relaunched with no experiment env vars.
+3. New canonical PIDs: Django `92825`, media-engine `92827`, Vite `92849`, Celery `92829` / `92859` / `92860`.
+
+Post-cleanup proofs (all pass):
+
+| Check | Result |
+|---|---|
+| `ps eww` on all three Celery worker PIDs → CHARACTER_OS_* env vars | **all three empty** ✅ |
+| Django shell — `os.environ.get(SOLO_AUDIENCE)` | `''` |
+| Django shell — `os.environ.get(PATCH_COMMUNICATION_POLICY)` | `''` |
+| Django shell — `os.environ.get(CORRECTIVE_REVISION)` | `''` |
+| `_resolve_solo_audience_hint(step={})` | `None` ✅ |
+| `_patch_communication_policy_experiment_active()` | `False` ✅ |
+| `_resolve_patch_communication_policy(Patch, is_episode_talking_head=True)` | `None` ✅ |
+| `_corrective_revision_experiment_active()` | `False` ✅ |
+| Django `curl /admin/` | `302` ✅ |
+| media-engine `curl /health` | `200`, `any_mock=false / llm_provider=openai / llm_model=gpt-4o-mini` ✅ |
+| Vite `curl /` | `200` ✅ |
+| Celery `inspect ping` | `pong / 1 node online` ✅ |
+| Patch's Workshop NarrativeMemory pool | **14 remembered + 1 archived** (unchanged since SESSION 270 §14.4 through every subsequent trial) ✅ |
+
+**Runtime restored to canonical mode across all three experiment surfaces.** All three env-gated experimental mechanisms (SESSION 270 audience-hint, SESSION 271 Q-270-15c revision, SESSION 271 Slice 7 E-KNOWLEDGE-1 policy) remain present in source but sit inert.
+
+---
+
+## §129. Slice 7 Phase 2 commit + push record
+
+- Phase 2 commit SHA: `<pending — populated after commit>`
+- Push: `<pending>`
+- Local `main == origin/main`: `<verified at commit time>`
+- Working tree at Phase 2 close: `<verified clean>`
+- Files touched by Phase 2:
+  - `docs/design/session_271_experiment_data/04_composition_774658ea_e_knowledge_1_trial4_evidence.json` (NEW evidence sidecar)
+  - `docs/design/SESSION_271_CORRECTIVE_PASS_AUDIENCE_INVARIANCE_AUDIT.md` §114-§129 appended
+- **NO source, no tests, no schema, no knowledge/persona edits in Phase 2 forensics.**
+
+---
+
+## §130. What was NOT changed in Slice 7 Phase 2
+
+- No live KnowledgeDocument edits (Patch `fd0ba2ca`, Rivet `218eb0d8`, shared `f309469c` all preserved).
+- No Teammate persona edits (Patch `7fad8172`, Rivet `f18b75cc` preserved).
+- No chunker code, no retrieval code, no writing contract change.
+- Q-270-15c revision plumbing unchanged, still env-gated + inactive.
+- SESSION 270 audience-hint plumbing unchanged.
+- No Composition observability schema change.
+- No new render performed by Claude.
+- No NarrativeMemory promotion; pool remains 14 remembered + 1 archived.
+- Q-270-16 (proper_noun), Q-270-18 (tech_term case), Q-270-20 (multi_word) verifier questions remain OUT OF SCOPE.
+- All experiment env vars are unset in Claude's shell as of Phase 2 close (cleanup performed after evidence capture).
+
+---
+
+**End of SESSION 271 Slice 7 Phase 2. Verdict: B — PARTIAL SUPPORT (strong). Architectural conclusion: character-invariant communication behavior should NOT live solely in retrieval-dependent KnowledgeDocuments. Recommendation: Option B — one replication before Option A persona migration.**

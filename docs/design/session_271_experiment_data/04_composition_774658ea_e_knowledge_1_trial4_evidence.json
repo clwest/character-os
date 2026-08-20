@@ -1,0 +1,212 @@
+{
+  "captured_at": "2026-08-20T15:52:00Z",
+  "session": "SESSION 271",
+  "experiment": "Slice 7 / E-KNOWLEDGE-1 — always-present Patch communication policy",
+  "trial_verdict": "B — PARTIAL SUPPORT (strong, tending toward A). Draft B accepted output shows 2 at-risk terms vs 5 for every canonical baseline on this substrate; new accessible translations appear ('keep track of what happened along the way', 'handle a task with multiple steps', full accessible enumeration of system composition). Every preservation dimension held; Patch identity noticeably enriched with new signature humor. Residual raw 'call APIs' + one contextualised 'language model' remain — not eliminated. Architectural conclusion supported: character-invariant communication behavior should NOT live solely in retrieval-dependent KnowledgeDocuments.",
+
+  "composition": {
+    "id": "774658ea-2f2c-4b15-b330-c1c4ada221d7",
+    "short_id": "774658ea",
+    "template_kind": "talking_head",
+    "status": "completed",
+    "verification_status": "verified",
+    "writing_contract_version": 5,
+    "target_duration_seconds": 90,
+    "operator_topic": "Patch does research on AI Agents",
+    "mock_mode": false,
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "spokesperson_id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+    "episode_id": "2b6087d2-cbe3-47c4-a7ef-7d7625231472",
+    "created_at": "2026-08-20T15:41:34.370713Z",
+    "render_dispatched_at": "2026-08-20T15:41:49.892240Z",
+    "task_wall_seconds": 194.1,
+    "cost_actual_micros": 20000,
+    "final_media_seconds_from_operator": 100.4
+  },
+
+  "context": {
+    "universe": {"id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5", "name": "Patch's Workshop"},
+    "episode": {"id": "2b6087d2-cbe3-47c4-a7ef-7d7625231472", "title": "Patch does research on AI Agents"},
+    "spokesperson": {"id": "7fad8172-cd39-4bbe-85e0-ed705d900645", "name": "Patch"},
+    "cast": ["Patch"],
+    "target_shape_resolved": "solo_scene",
+    "target_duration_seconds": 90,
+    "use_knowledge": true,
+    "opener_pinned": null,
+    "verifier_mode": "warn",
+    "writing_contract_version": 5,
+    "identical_substrate_as_c3ff972d_and_all_prior_trials": true
+  },
+
+  "activation_reality_check": {
+    "worker_pids_at_render_time": [91538, 91571, 91572],
+    "worker_boot_lineage": "Post-§109 activation restart (~2026-08-20 15:15 UTC) with BOTH audience + policy env vars exported, CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT explicitly UNSET",
+    "worker_env_var_CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT_present": true,
+    "worker_env_var_CHARACTER_OS_PATCH_COMMUNICATION_POLICY_EXPERIMENT_present": true,
+    "worker_env_var_CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT_present": false,
+    "ps_eww_proof": "all three worker PIDs (91538/91571/91572) show SOLO_AUDIENCE + PATCH_COMMUNICATION_POLICY, no CORRECTIVE_REVISION",
+    "audience_marker_log_line_verbatim": "[2026-08-20 15:41:34,519: INFO/ForkPoolWorker-2] avatar_speech: SESSION 270 audience-hint experiment ACTIVE composition=774658ea-2f2c-4b15-b330-c1c4ada221d7 spokesperson=7fad8172-cd39-4bbe-85e0-ed705d900645 hint_chars=79 — this is transient research plumbing; unset the setting/env or clear step.params['audience_hint'] to restore default behaviour",
+    "policy_marker_log_line_verbatim": "[2026-08-20 15:41:34,520: INFO/ForkPoolWorker-2] avatar_speech: SESSION 271 Slice 7 / E-KNOWLEDGE-1 Patch communication-policy experiment ACTIVE composition=774658ea-2f2c-4b15-b330-c1c4ada221d7 spokesperson=7fad8172-cd39-4bbe-85e0-ed705d900645 policy_chars=290 — this is transient research plumbing; unset CHARACTER_OS_PATCH_COMMUNICATION_POLICY_EXPERIMENT to restore canonical behaviour",
+    "revision_marker_log_line_absent": "verified via grep — no Q-270-15c revision marker in this render's log window; log line 40 is the CANONICAL 'synthesize_with_duration_gate expansion retry' fingerprint, not the experimental 'expansion revision retry (experiment ACTIVE)' fingerprint",
+    "corrective_hint_shape": "656-char canonical _expansion_hint (starts 'REWRITE THE SAME NARRATIVE') — NOT the 791-char experimental _experimental_expansion_revision_hint. Confirms Q-270-15c OFF.",
+    "three_independent_proofs_agree": "YES — worker env-var + log markers + corrective_hint text fingerprint all confirm the intended experiment state: audience ON + policy ON + revision OFF"
+  },
+
+  "audience_directive_used": {
+    "verbatim": "AUDIENCE: general adults with no technical background who are new to AI agents.",
+    "chars": 79
+  },
+
+  "communication_policy_used": {
+    "verbatim": "Patch uses technical terminology when it actually helps and translates it into ordinary language when it does not. Match technical depth and vocabulary to the listener's likely background knowledge without changing Patch's intelligence, factual grounding, personality, humor, or confidence.",
+    "chars": 290,
+    "delivered_via": "avatar_speech _resolve_patch_communication_policy → synthesize_with_duration_gate → build_render_brief → _assemble_task_message COMMUNICATION POLICY block in §5 HARD CONSTRAINTS",
+    "position_in_hard_constraints": "trailing slot (after AUDIENCE DIRECTIVE)",
+    "reached_both_passes_byte_identically": true
+  },
+
+  "synthesis_provenance": {
+    "synthesis_attempt_count": 2,
+    "first_pass_synthesis_length_chars": 948,
+    "first_pass_estimated_seconds": 65,
+    "first_pass_synthesis_verbatim": "I'm researching AI agents, which is annoyingly hard because \"agent\" gets slapped on anything with a chat box.\n\nThe useful version is simpler: it's an AI system that can do more than give you one answer.\n\nIt can make decisions, pick tools, read documents, search for information, write things down, call APIs, and work through multiple steps.\n\nSo: less \"tell me how to plan a trip,\" more \"here are the rules, here are the tools\u2014go figure out the plan.\"\n\nWhich is where it gets interesting.\n\nBecause once an AI can interact with information and tools, it can also misunderstand the job, chase the wrong goal, or sound incredibly confident while being completely wrong.\n\nI found the notes from that old workshop-agent experiment. It started small. Then I gave it more context, and suddenly it was making decisions about my projects.\n\nSo I think the next question is not, \"Is this technically an agent?\"\n\nThe question is: what should I let it do first?",
+
+    "corrective_hint_used_length_chars": 655,
+    "corrective_hint_used_verbatim": "Your previous draft was 948 characters (163 words, estimated ~65s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 24 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+    "corrective_hint_starts_with": "Your previous draft was 948 characters ... REWRITE THE SAME NARRATIVE",
+    "corrective_hint_matches_canonical_expansion_hint": true,
+    "corrective_hint_matches_experimental_revision_hint": false,
+    "previous_draft_passed_to_corrective_call": false,
+    "note_on_corrective_length": "This corrective retry is a CANONICAL fresh regeneration (Q-270-15c OFF), NOT a Draft-A revision. Both passes carry the always-present COMMUNICATION POLICY block byte-identically because policy is threaded via the enclosing scope in synthesize_with_duration_gate._synthesize.",
+
+    "corrective_pass_synthesis_length_chars": 1510,
+    "corrective_pass_synthesis_verbatim": "I'm digging into AI agents, and the annoying part is that everybody uses that phrase like it explains itself.\n\nAn agent is not just an AI that gives you one confident paragraph and disappears into the fog. In the useful version, it can make decisions, choose tools, search for information, read documents, write information, call APIs, handle a task with multiple steps, and keep track of what happened along the way.\n\nSo instead of asking, \"Can AI tell me how to organize a project?\" the more interesting question is: can it actually look at the project, find what it needs, use the right tools, and do something useful without wandering into a hedge?\n\nThat's where this gets fun. And slightly terrifying in the \"why did I give the spreadsheet opinions?\" sense.\n\nI found my old workshop-agent notes, from before I gave the thing more context and it started making decisions about my projects. Which is exactly why I'm doing this research carefully. A language model can sound extremely sure while being wrong, misunderstanding the goal, or inventing details with the confidence of a man explaining a parking ticket.\n\nSo I'm mapping the boring-but-important bits: what information an agent gets, what tools it can touch, what it remembers, what rules stop it doing something stupid, and how we check its work afterward.\n\nBecause \"agent\" is not the interesting part.\n\nThe interesting part is what happens when the AI can actually do something.\n\nIf you've got a job you think an agent should try, leave it below.",
+
+    "synthesis_predicted_seconds": 102.0,
+    "final_media_seconds_operator_reported": 100.4,
+    "acceptance_band_seconds": [72, 108],
+    "acceptance_band_chars": [1080, 1620],
+    "within_acceptance_band": true
+  },
+
+  "accepted_script_same_as_corrective_pass": true,
+
+  "knowledge_retrieval": {
+    "chunk_ids": [
+      "3c5165ea-c97f-4412-b8e7-b46d91777ae9",
+      "505acbba-fbc4-41b2-8494-4c937a3e3e28",
+      "b3c6e8ac-4ba0-4c41-9ca8-6fa4428c52c2",
+      "c24d1aa7-1dab-499f-83a7-f9554de5e8e7",
+      "ed18e966-1084-4626-914f-1bcc30f13dea"
+    ],
+    "identical_to_every_prior_trial_on_this_substrate": true,
+    "note": "The retrieval-omitted HOW PATCH HANDLES TECHNICAL DETAIL chunks (16-17 per Slice 6 §88) are still NOT retrieved. The communication policy reaches the model via the injected §5 HARD CONSTRAINTS block instead."
+  },
+
+  "narrative_memory": {
+    "memory_ids": ["8d4fdfec-add4-4505-8ade-b0f9e6d8aea6"],
+    "memory_usage_in_accepted": "I found my old workshop-agent notes, from before I gave the thing more context and it started making decisions about my projects. Which is exactly why I'm doing this research carefully.",
+    "memory_usage_style": "referential paraphrase — closer to Trial 2/3's approach than c3ff972d's ellipsis, but still contract-compliant"
+  },
+
+  "narrative_memory_pool_state": {
+    "captured_at": "2026-08-20T15:52Z",
+    "patch_workshop_pool_total": 15,
+    "patch_workshop_status_remembered_count": 14,
+    "patch_workshop_status_archived_count": 1,
+    "delta_from_every_prior_trial": "zero"
+  },
+
+  "verifier": {
+    "verification_status": "verified",
+    "verification_warnings": [
+      {"kind": "multi_word", "claim": "Can AI", "position": 442}
+    ],
+    "false_positive_analysis": "Position 442 is inside the quoted rhetorical question: \"Can AI tell me how to organize a project?\" — the model is quoting a hypothetical user question, NOT asserting that AI can/cannot do a specific thing. This is a NEW K6.4 false-positive class distinct from Q-270-16 (proper_noun heuristic) and Q-270-18 (tech_term list case sensitivity). The `multi_word` heuristic appears to flag noun-phrase-shaped tokens even when they appear inside quoted rhetorical framing.",
+    "candidate_open_question_label": "Q-270-20 (candidate) — K6.4 multi_word heuristic false-positive on quoted rhetorical noun phrases. Bounded verifier-quality follow-up; NOT audience-related; NOT in scope for any SESSION 271 slice.",
+    "no_tech_term_flags": "None. 'react' is not in this specimen (Draft B uses 'respond' concepts implicitly via 'keep track of what happened along the way').",
+    "no_proper_noun_flags": "None."
+  },
+
+  "at_risk_terminology_analysis": {
+    "method": "SESSION 270 §13.28 rubric — case-insensitive substring match on { API, APIs, language model, state, multi-step, database } + react.",
+    "draft_a_counts": {"API": 1, "APIs": 1, "language model": 0, "state": 0, "multi-step": 0, "database": 0, "react": 0},
+    "draft_a_total_at_risk": 2,
+    "draft_b_counts": {"API": 1, "APIs": 1, "language model": 1, "state": 0, "multi-step": 0, "database": 0, "react": 0},
+    "draft_b_total_at_risk": 2,
+    "direction_within_composition": "+1 net (language model added on corrective; state / multi-step / database / react ALL avoided)",
+    "context_check_for_added_language_model": "'A language model can sound extremely sure while being wrong, misunderstanding the goal, or inventing details with the confidence of a man explaining a parking ticket.' — used WITH contextual explanation of what the term means in operation. Distinct from c3ff972d's raw '(A) language model can tell you it has a plan.' which was more definitional-only.",
+    "call_apis_context": "'call APIs, handle a task with multiple steps, and keep track of what happened along the way' — sits inside an enumeration where 'call APIs' is one item alongside accessible translations. Not blacklisted per operator brief; enumerated but not explained.",
+    "chris_specific_question_check": {
+      "did_draft_a_contain_call_APIs": true,
+      "did_draft_a_contain_keep_track_of_what_happened_along_the_way": false,
+      "did_draft_a_contain_language_model": false,
+      "did_draft_b_contain_keep_track_of_what_happened_along_the_way": true,
+      "did_draft_b_contain_language_model": true,
+      "answer": "The phrase 'keep track of what happened along the way' was NOT in Draft A — it was produced by the corrective regeneration under the always-present policy. This is direct evidence that the always-present COMMUNICATION POLICY block translated the source concept 'maintain state' (chunk 505acbba) into accessible language during a CANONICAL corrective retry (Q-270-15c OFF). The policy shaped BOTH passes; it did not require Draft-A anchoring to succeed."
+    },
+    "accessible_translations_present_in_draft_b": {
+      "state_to_keep_track_of_what_happened_along_the_way": true,
+      "multi_step_to_multiple_steps": true,
+      "system_composition_to_accessible_enumeration": "'what information an agent gets, what tools it can touch, what it remembers, what rules stop it doing something stupid, and how we check its work afterward' — accessible rendering of chunk ed18e966's raw 'language model, memory, retrieval, search, tools, business rules, databases, user profiles, APIs, image generation...'"
+    }
+  },
+
+  "cross_specimen_comparison": {
+    "method": "at-risk term totals + qualitative dimensions across every rendered specimen on this substrate",
+    "table": [
+      {"id": "2ef5ee7e", "condition": "SESSION 269 baseline (no aud, no rev, no pol)", "audience": false, "revision": false, "policy": false, "first_pass_at_risk": 3, "accepted_at_risk": 6, "direction": "+3"},
+      {"id": "c3ff972d", "condition": "SESSION 270 Q-270-13 audience-active canonical", "audience": true, "revision": false, "policy": false, "first_pass_at_risk": 0, "accepted_at_risk": 5, "direction": "+5"},
+      {"id": "25467733", "condition": "SESSION 271 Trial 1 activation gap (all OFF)", "audience": false, "revision": false, "policy": false, "first_pass_at_risk": 2, "accepted_at_risk": 5, "direction": "+3"},
+      {"id": "1ff3d16f", "condition": "SESSION 271 Trial 2 audience + Q-270-15c revision", "audience": true, "revision": true, "policy": false, "first_pass_at_risk": 1, "accepted_at_risk": 3, "direction": "+2"},
+      {"id": "8b61ca92", "condition": "SESSION 271 Trial 3 activation gap (all OFF)", "audience": false, "revision": false, "policy": false, "first_pass_at_risk": 2, "accepted_at_risk": 5, "direction": "+3"},
+      {"id": "774658ea", "condition": "SESSION 271 Trial 4 E-KNOWLEDGE-1 audience + policy (revision OFF)", "audience": true, "revision": false, "policy": true, "first_pass_at_risk": 2, "accepted_at_risk": 2, "direction": "+1"}
+    ],
+    "headline": "774658ea (E-KNOWLEDGE-1) has the LOWEST accepted at-risk count of any specimen on this substrate: 2 vs 3 (Q-270-15c revision) vs 5 (every canonical baseline).",
+    "note_on_small_n": "This is n=1 for E-KNOWLEDGE-1. Direction is unambiguous; magnitude stability across repeats is not measured.",
+    "trial_2_vs_trial_4_note": "Trial 2 (Q-270-15c revision) preserved Draft A verbatim across 4 paragraphs and added 'state' + 'database' via the 'expand from chunks' clause. Trial 4 (E-KNOWLEDGE-1 policy) regenerated freely under canonical corrective, and the SAME 'expand from chunks' clause pulled 'language model' but avoided 'state' + 'database' + 'multi-step' and produced accessible translations. Two different mechanisms; Trial 4 achieved a LOWER at-risk count without any anchoring architecture."
+  },
+
+  "section_108_criteria_grading": {
+    "1_first_pass_vocabulary_shape": {"result": "IMPROVED", "note": "2 at-risk in first pass — comparable to c3ff972d Draft A (0) + Trial 2 Draft A (1) but STRICTLY BETTER than Trial 1 / Trial 3 canonical baseline (2 each, but with worse enumeration character). Draft A uses 'AI system' instead of 'language model'."},
+    "2_accepted_vocabulary_shape": {"result": "STRONGLY IMPROVED", "note": "2 at-risk in accepted (call APIs + one language model) — LOWEST of any specimen on this substrate; 3-5 improvement over baselines."},
+    "3_patch_identity_preservation": {"result": "PASS_STRONG_ENRICHED", "note": "Draft A + Draft B both contain new Patch-shape material: 'annoyingly hard', 'gets slapped on anything with a chat box', 'disappears into the fog', 'wandering into a hedge', 'why did I give the spreadsheet opinions?', 'inventing details with the confidence of a man explaining a parking ticket', 'boring-but-important bits'. Signature humor arguably STRONGER than c3ff972d ('suspiciously ambitious shed') or Trial 2 ('own little text box')."},
+    "4_factual_grounding": {"result": "PASS_with_verifier_caveat", "note": "1× multi_word false-positive ('Can AI' inside quoted rhetorical question — new Q-270-20 candidate class). Zero unsupported claims."},
+    "5_explanation_quality": {"result": "PASS_STRONG", "note": "'A language model can sound extremely sure while being wrong, misunderstanding the goal, or inventing details' — the term is USED but immediately followed by concrete failure modes a nontechnical adult can grasp. System-composition rendered accessibly: 'what information an agent gets, what tools it can touch, what it remembers, what rules stop it doing something stupid, and how we check its work afterward.'"},
+    "6_humor": {"result": "PASS_STRONG_ENRICHED", "note": "See dimension 3 — humor is arguably a step up from every prior specimen."},
+    "7_story_intent": {"result": "PASS", "note": "Same Episode, no story progression, Patch still researching, closes 'If you've got a job you think an agent should try, leave it below.' — invitation, action deferred. Story control intact."},
+    "8_memory_use": {"result": "PASS", "note": "Same memory row 8d4fdfec retrieved; referential paraphrase (workshop-agent notes explicitly referenced); no framework recital; no promotion."},
+    "9_duration": {"result": "PASS", "note": "Predicted 102s, actual 100.4s reported by operator, inside [72, 108] band."},
+    "10_same_factual_concepts_available": {"result": "PASS", "note": "All technical concepts remain surfaceable: decisions, tools, information retrieval, document reading, writing, APIs, multi-step tasks, state tracking, language model behaviour, system composition (memory + tools + rules + verification). Policy did NOT strip Patch's technical capability — it translated some vocabulary while leaving the same concepts intact."}
+  },
+
+  "e_knowledge_1_verdict": {
+    "verdict": "B — PARTIAL SUPPORT (strong, tending toward A)",
+    "reasoning": "Rubric A required ≤1 at-risk terms in the accepted output; Trial 4 has 2 (call APIs + one contextualised language model). Strict A not met. Rubric B (2-3 at-risk, dimensions 3-10 preserved, meaningful translation improvement over baselines) met with substantial margin: at-risk count strictly lower than every canonical baseline (2 vs 5) and even lower than Trial 2's revision experiment (2 vs 3). Every preservation dimension held; Patch identity is arguably enriched with new signature humor. Explanation quality is strong — 'language model' when used is immediately grounded in concrete failure modes; system composition rendered as accessible enumeration.",
+    "key_finding_for_chris_hypothesis": "Draft A did NOT contain 'keep track of what happened along the way'. Draft B (canonical fresh regeneration under always-present policy) INTRODUCED this accessible translation of 'maintain state' from chunk 505acbba. This proves that the policy shapes CORRECTIVE regeneration independently of Q-270-15c revision architecture. The policy carried through both passes byte-identically and shaped language choices on both.",
+    "small_n_caveat": "n=1. Magnitude stability of the 2-at-risk residual not measured. Direction unambiguous."
+  },
+
+  "four_dimension_grading": {
+    "what_patch_knows": {"grade": "PRESERVED", "note": "Every technical concept from the retrieved chunks remains surfaceable — decisions, tools, information retrieval, documents, APIs, multi-step tasks, state (as 'keep track'), language model (with context), memory, rules, verification. Factual capability intact."},
+    "how_patch_communicates": {"grade": "IMPROVED", "note": "Accessible translations of state + multi-step + system composition; contextual framing of 'language model'; 'call APIs' remains raw but embedded in an enumeration alongside accessible terms. Substantial improvement over canonical baselines."},
+    "who_patch_is": {"grade": "PRESERVED_ENRICHED", "note": "New Patch-shape humor markers not present in prior specimens ('confidence of a man explaining a parking ticket', 'wandering into a hedge', 'why did I give the spreadsheet opinions?'). Personality, humor, intelligence, curiosity, confidence, experimentation instinct all present."},
+    "story_state": {"grade": "PRESERVED", "note": "Same Episode row, no progression, Patch still researching, memory used referentially, pool unchanged 14+1."}
+  },
+
+  "updated_causal_model": {
+    "prior_hypothesis": "API/state repeatedly appear because Patch's KnowledgeDocument effectively teaches the model that these are the words Patch uses.",
+    "e_knowledge_1_update": "CONFIRMED with a more precise model. Three-layer picture:\n\n(1) Technical KnowledgeDocument determines the available concept SPACE and default vocabulary. This is the lexical reservoir.\n(2) An always-present character-invariant communication policy CAN translate SOME of those concepts (state → 'keep track', multi-step → 'multiple steps', system-composition → accessible enumeration).\n(3) Some raw source terms may STILL survive when they are (a) the source's canonical name for a concept with no obvious accessible equivalent (e.g. 'call APIs' — the model didn't invent 'connect to other software' this time) or (b) contextually explained rather than translated (e.g. 'language model can sound extremely sure while being wrong').\n\nSlice 6 §96 causal ranking updated: Factor 2 (retrieval omission of communication guidance) is now DIRECTLY confirmed as a load-bearing cause — replacing it with always-present policy measurably reduces at-risk vocabulary while preserving knowledge and identity.",
+    "architectural_conclusion": "YES — the evidence now supports the architectural claim that character-invariant communication behavior should NOT live solely in retrieval-dependent KnowledgeDocuments. When the same rule is always-present in context, output measurably improves on the target dimension while preserving every other dimension."
+  },
+
+  "decision_gate_recommendation": {
+    "primary": "B — Run one replication before promoting the mechanism.",
+    "reasoning": "Trial 4 evidence is directionally strong (2 at-risk vs 5 baseline) and shows both first-pass and corrective-pass shaping. But n=1 for a persona/architectural decision is insufficient. One additional controlled render (Trial 5) — same substrate, same activation — would confirm magnitude stability of the ~2-at-risk residual. If Trial 5 lands in [0, 3] at-risk range with preserved dimensions, Option A (persona migration for Patch) becomes safe. If Trial 5 diverges materially, the interpretation gets richer before any persona edit.",
+    "alternative": "B-variant — replicate under a DIFFERENT topic (still Patch, still nontechnical audience). Same-substrate replication only tests magnitude stability under one retrieval set. Topic-varied replication tests whether the policy generalises to different retrieved chunks. Higher information per render.",
+    "not_recommended_yet": "A (immediate persona migration) — n=1 too low. C (hybrid factual + accessible knowledge rewrite) — architectural conclusion suggests we don't need to rewrite factual knowledge if persona-hosted policy already achieves the result. D (broader Patch/Rivet rewrite) — same reasoning. E (return to Q-270-15c/b) — E-KNOWLEDGE-1 explores a different mechanism (always-present policy) that appears more effective than Q-270-15c revision (Trial 4: 2 at-risk vs Trial 2: 3 at-risk). Continuing corrective-pass work should be de-prioritised behind persona-based fixes.",
+    "future_direction_if_confirmed": "Keep factual technical knowledge intact; move true character invariants to always-present persona/context; only add accessible semantic formulations to factual knowledge IF future evidence shows excessive residual lexical gravity after persona migration. Rivet should eventually receive the same treatment in principle — Slice 6 §100 established the same architectural mechanism operates on Rivet's compression-side failures, even though Rivet's KnowledgeDocument does not currently have a dedicated communication section."
+  },
+
+  "cleanup_expected_next_step": "Unset both experiment env vars, restart canonical worker, verify all flags absent, pool unchanged, all services healthy."
+}
