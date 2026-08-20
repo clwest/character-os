@@ -1301,10 +1301,10 @@ Chris will hand off Composition ID before Phase 2 begins.
 
 ## §45. Slice 3 Phase 1 commit + push record
 
-- Phase 1 slice commit SHA: `<pending — populated after commit>`
-- Push: `<pending>`
-- Local `main == origin/main`: `<verified at commit time>`
-- Working tree at Phase 1 close: `<verified clean>`
+- Phase 1 slice commit SHA: `8112e57` — `feat(session-271): Q-270-15c corrective-revision experiment plumbing (Phase 1 — default OFF)`.
+- Push: `2f7df07..8112e57 main -> main` (successful).
+- Local `main == origin/main == 8112e57` verified.
+- Working tree at Phase 1 close: clean.
 - Files touched by Phase 1:
   - `shell/character_os/script_synthesis.py` — `previous_draft` kwarg on `build_render_brief` / `_call_responses_api` / `_assemble_task_message` + PREVIOUS DRAFT TO REVISE block emission
   - `shell/character_os/duration_contract.py` — `_CORRECTIVE_REVISION_ENV`, `_corrective_revision_experiment_active`, `_experimental_expansion_revision_hint`, env-gated expansion branch, compression-path canonical guard
