@@ -1997,3 +1997,270 @@ Do NOT immediately productise revision-based correction. Consider (in a future a
 Q-270-15c Trial 2 concludes SESSION 271 Slice 3 with a substantive positive finding on revision-based correction and a bounded residual cost. Awaiting operator authorisation for next slice (Patch's story progression, Q-270-15b, or something else).
 
 **End of SESSION 271 Slice 3 Phase 2 Trial 2. Q-270-15c verdict: B — REVISION HELPS BUT HAS COSTS.**
+
+---
+
+# SESSION 271 — SLICE 4 · Promotion Decision Audit for Q-270-15c Revision-Based Expansion Correction
+
+**Scope:** audit / decision only. No implementation, no activation, no render. Determines whether the Trial-2 evidence is sufficient to promote revision-based expansion correction as the default, or whether additional controlled evidence is required first.
+
+**Anchor state:** HEAD `9412d60`, `main == origin/main`, working tree clean, both experiment env vars unset, canonical runtime restored (§69). Writing Contract v5, NarrativeMemory pool 14 remembered + 1 archived (unchanged since SESSION 270 §14.4).
+
+**Out of scope for Slice 4** (recorded, not audited): Q-270-16 (K6.4 proper_noun heuristic false-positive class), Q-270-18 (K6.4 tech_term case-sensitivity — introduced §51), Layer 1 first-pass audience-directive reliability (§53 open question), Patch story progression, dialogue-lane corrective invariance (SESSION 263 §6.5 companion question). All remain future decisions.
+
+---
+
+## §72. Nine-dimension comparative evidence table
+
+Direct comparison between canonical fresh-regeneration corrective (SESSION 270 evidence + SESSION 271 Trial 1 evidence) and Q-270-15c Draft-A revision corrective (SESSION 271 Trial 2 evidence). Each row cites the source of the claim; "SESSION 270 §X" and "Trial 2 §Y" refer to sections of this document or the frozen evidence sidecars under `docs/design/session_270_experiment_data/` and `docs/design/session_271_experiment_data/`.
+
+| Dimension | Canonical fresh-regeneration | Q-270-15c revision (Trial 2 = 1ff3d16f) | Verdict |
+|---|---|---|---|
+| **1. Duration compliance** | Converges to acceptance band in every observed retry (5/5 SESSION 270 audience specimens + 1/1 Trial-1 baseline; see §13.28 + §50). | Trial 2: 1293 chars, predicted 88 s, actual 87.5 s — inside `[72, 108]`. n=1. | **PARITY (n=1 revision)**. No evidence revision is worse on duration compliance; expected — the length-shortfall summary text is unchanged. |
+| **2. Draft A preservation (byte level)** | Stochastic regeneration. Nothing in the prompt anchors Draft A. New metaphors appear on the retry (e.g. c3ff972d's *"suspiciously ambitious shed"* — not present in its own Draft A). | Trial 2: paragraphs 0-3 of Draft A byte-identical in Draft B (463 of 759 chars = 61 % verbatim carry-through). 8/8 key phrases preserved. See §63. | **REVISION STRICTLY BETTER** (proven by byte comparison; architecturally impossible under fresh regeneration). |
+| **3. Audience adaptation / invariance** | Under active audience directive: first-pass adaptation was CLEAN in 2 of 3 minimal-directive specimens (c3ff972d, 9880eb93) then regressed on the corrective (SESSION 270 §13.28). Canonical corrective added `language model` ×2, `keep some state`, dense unexplained enumeration in c3ff972d. | Trial 2: preserved every Draft A audience-accessible translation verbatim (*"keep track of what it found"*, *"work through a task in steps"*). Did NOT introduce `language model` or `react`. Introduced `state` (softened by citation framing) + `database` (raw). Net +2 at-risk terms vs canonical +5 (§64). | **REVISION STRICTLY BETTER** on preservation of first-pass adaptations; residual +2 remains. |
+| **4. Character voice / story quality** | c3ff972d: strongest register-adaptation specimen of the four SESSION 270 audience specimens (*"suspiciously ambitious shed"*, *"very organized new problem"*). Stochastic re-invention of metaphors — sometimes better, sometimes worse than Draft A. | Trial 2: Draft A's Patch voice preserved verbatim (*"sounds fancy until you strip the shiny label off"*, *"Basically:"* scaffolding, *"I've got notes. I've got questions"*). Revision added Patch-shape material (*"Annoying rule. Very important rule."*, *"own little text box"*). | **PARITY on strength / REVISION BETTER on stability.** Under revision, the operator can plan around what Draft A already contains rather than gambling on regeneration variance. |
+| **5. Factual grounding** | Verifier fires INSIDE `build_render_brief` and rejects unsupported claims via `ClaimVerifierError` BEFORE the corrective loop can access the draft (proof: `duration_contract.py::synthesize_with_duration_gate` catches nothing; if verifier raises inside the first `_synthesize()` call, it propagates up without retry). Same protection on both passes. | Trial 2: `verification_status="verified"`; 3× `proper_noun` false-positives (Q-270-16 class, out of scope); zero unsupported claims. Revision hint explicitly instructs *"Factual Basis still governs truth — do not preserve any claim in the previous draft that conflicts with the Factual Basis."* | **PARITY.** Verifier is orthogonal to which retry path runs. |
+| **6. New terminology introduced during expansion** | Baseline `2ef5ee7e`: +3 (SESSION 270 §13.28). c3ff972d: +5. 25467733: +3. Consistent direction: canonical corrective adds §1 raw vocabulary. | Trial 2: +2 (added `state`, `database`; avoided `language model`, `react`). Traceable to corrective_hint's *"Add supporting detail from the knowledge chunks where needed to expand"* clause — the Slice 2 §25 H2 mechanism operating at reduced strength when Draft A is in context. | **REVISION BETTER** at reduced strength. n=1 for revision — magnitude not yet stable estimate. |
+| **7. Failure / recovery behavior** | Same DurationContractError plumbing on both passes; observability fields (`first_pass_synthesis` / `corrective_hint` / `corrective_pass_synthesis`) populated identically on the raised exception (`duration_contract.py::_observability_kwargs`). If Draft A itself was rejected by K6.4, verifier raises BEFORE the retry — bad drafts never reach the revision branch. | Trial 2: same acceptance gate + exception plumbing. `previous_draft` is passed only on the corrective call; if that call also fails duration or verification, existing error paths handle it (no test coverage yet for Draft-B-rejected under revision, but the code path is identical to canonical). | **PARITY architecturally.** One caveat: if Draft A contains a Layer-1 miss (e.g. Trial 2's *"call APIs"*), revision preserves the miss into Draft B by design. Canonical could stochastically avoid the term on retry; revision cannot. |
+| **8. Token / cost implications** | First pass: X input tokens. Corrective pass: X + `len(corrective_hint)` chars ≈ X + 656/4 ≈ X + 164 tokens. No Draft A in prompt. | Corrective pass: X + `len(experimental_hint)` + `len(previous_draft)` chars ≈ X + 791/4 + 759/4 ≈ X + 388 tokens. **Δ ≈ +224 tokens on the CORRECTIVE call only** (~$0.00007 at gpt-5-mini pricing). Trial 2 total cost `20000 micros == $0.02` (Runway credit-based, unchanged). | **REVISION marginally higher input-token cost on the corrective call only.** Cost-negligible in absolute terms. For long_form_ad callers with larger Draft A (e.g. ~4500 chars at 5-minute target), the delta scales to ~+1300 tokens on the corrective call — still ~$0.0004. |
+| **9. Observability / debuggability** | `Composition.first_pass_synthesis`, `corrective_hint`, `corrective_pass_synthesis`, `synthesis_attempt_count` (SESSION 262 schema). `corrective_hint` text discriminates canonical vs experimental branch by fingerprint (656 chars starting *"REWRITE THE SAME NARRATIVE"* vs 791 chars starting *"REVISE THE PREVIOUS DRAFT"*). | Identical schema. Additionally, Trial 2 §60.2 shows the log line `"synthesize_with_duration_gate SESSION 271 Q-270-15c expansion revision retry (experiment ACTIVE) ... previous_draft_chars=NNN"` is a first-class marker for the revision branch. If promoted, the log line + `corrective_hint` fingerprint remain sufficient to reconstruct which path ran. | **PARITY.** No new schema needed. Existing SESSION 262 observability suffices. |
+
+**Summary:** revision is strictly better or at parity on all 9 dimensions; net-worse on nothing. The only regression risk identified is dimension 7's "Layer-1 miss lock-in" (revision cannot fix Draft A errors that canonical could stochastically avoid), but this is offset by dimension 2's Draft A preservation guarantee.
+
+---
+
+## §73. PROVED vs SUGGESTS vs UNKNOWN separation
+
+Rigorous evidence classification against the Trial 2 (n=1 revision) + Trial 1 (n=1 baseline) + SESSION 270 (n=5 canonical corrective) corpus.
+
+### §73.1 PROVED (byte-level or architectural)
+
+- **P1. The revision code path executes when the env var is set.** Three independent proofs in §60 (worker env-var, Celery log marker, corrective_hint fingerprint).
+- **P2. Draft A can be passed to the corrective LLM call byte-identically.** `Composition.first_pass_synthesis` (759 chars) matches `previous_draft_chars=759` in the Celery log line — same value.
+- **P3. Revision architecturally produces byte-level contiguous preservation.** Paragraphs 0-3 of Draft A (82 + 209 + 144 + 28 = 463 chars) survived verbatim in Draft B. This is impossible under fresh regeneration (the model would need to stochastically regenerate identical text three consecutive paragraphs — vanishing probability).
+- **P4. Revision preserves audience-accessible translations from the first pass.** Trial 2 §63.1: 8/8 key Draft A phrases (7 strict, 1 semantic verb-tense edit) preserved.
+- **P5. Revision does NOT eliminate §1-vocabulary reintroduction.** Trial 2 added `state` and `database` on the corrective pass despite Draft A not containing them. This is a bounded, directional finding.
+- **P6. The plumbing is byte-behavior-equivalent when the env var is OFF.** Slice 3 Phase 1 test suite (20/20 green including `test_experiment_off_expansion_retry_omits_previous_draft` and `test_experiment_off_first_pass_never_receives_previous_draft`). No regression risk from the current code being on `main`.
+- **P7. Q-270-15c does not touch dialogue synthesis.** Test `test_dialogue_synthesis_has_no_previous_draft_kwarg` + `test_dialogue_task_message_does_not_emit_previous_draft_block` + source grep confirm.
+- **P8. Non-duration callers of `build_render_brief` are unaffected.** `apps/scripts/synthesis.py::draft_script` line 115 and `apps/videos/views.py` line 151 do not pass `previous_draft`; default `None` preserves canonical behaviour.
+
+### §73.2 SUGGESTS (n=1 evidence; directionally supported)
+
+- **S1. Revision reduces §1-vocabulary reintroduction magnitude on the corrective pass.** Trial 2 revision +2 vs canonical c3ff972d +5 under identical substrate + audience directive. n=1 for revision. Direction is unambiguous; magnitude stability across repeats is unmeasured.
+- **S2. Revision preserves narrative arc + character voice under a compact revision hint (no term-specific coaching).** Trial 2 preserved 61 % byte-identical without the revision hint naming any specific vocabulary. n=1.
+- **S3. The residual +2 at-risk terms trace to the `"Add supporting detail from the knowledge chunks where needed to expand"` clause.** Traceable by paraphrase to chunk `b3c6e8ac` (LANGUAGE MODELS: *"the AI model is often only one component..."*) and chunk `505acbba` (AI AGENTS: *"maintain state"*). Consistent with Slice 2 §25 H2 prediction. Not proven — could equally be an unrelated stochastic effect.
+- **S4. Revision handles memory rows correctly.** Trial 2 accepted output cited memory content once, referentially — not recital. Same discipline as SESSION 269 §16.8. n=1.
+- **S5. Revision quality is at least comparable to canonical for operator-facing purposes.** §65 criterion 12 PASS_STRONG. n=1.
+
+### §73.3 UNKNOWN (evidence absent or insufficient)
+
+- **U1. Whether revision output quality is STABLE across repeated trials on the same substrate.** n=1. Trial 2's byte-level preservation might be typical or an outlier.
+- **U2. Whether the +2 residual magnitude is stable across repeats.** n=1. Could be 0-4 across a distribution; single-sample point estimate only.
+- **U3. Whether revision behaves the same on compression (over-length first pass).** Q-270-15c scoped to expansion only. `_experimental_expansion_revision_hint` does not exist for compression. Compression retry path stays canonical even under the current env var. SESSION 263 §6.5 documented a distinct compression failure mode (character-voice-amplifier); revision may or may not help there.
+- **U3a. Whether canonical compression + revision expansion (asymmetric behaviour) is coherent operator-facing.** Not evaluated.
+- **U4. Whether revision behaves correctly under `long_form_ad`'s multi-minute targets.** `long_form_ad` starter (starters.py:1279) calls `synthesize_with_duration_gate` with `max_script_chars=None` (no provider cap because it chunks) and no `audience_hint`. Under revision, the corrective would receive a much larger Draft A (up to ~4500 chars for a 5-minute target). No test render performed.
+- **U5. Whether revision preserves a pinned opener when the opener was pinned.** Trial 2 had `opener=None`. Not tested with `opener != None`.
+- **U6. Whether Draft-B-verification-rejection paths behave correctly under revision.** No test render where Draft B (revised) fails K6.4 strict.
+- **U7. Whether revision behaves correctly on non-audience-conditioned renders (baseline shape).** Trial 1 25467733 was baseline-shape but the revision experiment was inactive (§48). Revision has never run on a baseline (no audience) render.
+- **U8. Whether the residual +2 disappears when the corrective_hint is softened.** Q-270-15b territory (Slice 2 §32.2). Untested.
+- **U9. Whether the H2 mechanism (§25 Slice 2) is the ONLY residual driver, or whether other factors contribute.** Cannot discriminate from n=1 evidence.
+- **U10. Whether Draft A's Layer-1 miss (*"call APIs"*) lock-in is a general concern under repeated revision trials.** n=1.
+
+---
+
+## §74. Regression risk audit — non-Patch code paths that share the corrective mechanism
+
+Determines what happens *architecturally* if the env gate were removed and revision became the default expansion path. Source-only audit; no rendering.
+
+### §74.1 Callers of `synthesize_with_duration_gate` (only lane the experiment touches)
+
+Grep result (from `shell/apps/compositions/`):
+
+| File | Line | Caller | Passes `audience_hint`? | Passes `memory_rows`? | Passes `target_shape`? | `max_script_chars` | Notes |
+|---|---|---|---|---|---|---|---|
+| `primitives/avatar_speech.py` | 554 | avatar_speech primitive (talking_head, both Episode-attached solo_scene and standalone) | YES via `_resolve_solo_audience_hint` (SESSION 270 solo-only gate) | YES via `retrieve_universe_memory` | `"solo_scene"` if Episode-attached else `"long_form"` | `AVATAR_SPEECH_SAFE_MAX_CHARS = 1900` | Sole path tested under Q-270-15c Trial 2 (with Episode + solo_scene + audience_hint + memory). |
+| `starters.py` | 1279 | `long_form_ad` starter | **NO** (audience-hint plumbing is solo-only per SESSION 270 §D §B0) | **NO** (memory-lane plumbing is solo-only per SESSION 269 §10) | Default `"long_form"` | `None` (long_form_ad chunks output separately) | **Never tested with revision.** Would immediately inherit revision behaviour if the env gate were removed. |
+
+### §74.2 Non-duration callers of `build_render_brief` (unaffected by revision)
+
+| File | Line | Caller | Effect if revision were promoted |
+|---|---|---|---|
+| `apps/scripts/synthesis.py::draft_script` | 115 | Script-only draft (V6 shim) | UNAFFECTED. Does not call `synthesize_with_duration_gate`. `previous_draft` defaults to `None`. |
+| `apps/videos/views.py` (V6 shim path) | 151 | Legacy video shim | UNAFFECTED. Same reason. |
+
+### §74.3 Per-lane regression risk under hypothetical promotion
+
+- **avatar_speech + solo_scene + audience_hint (Q-270-15c Trial 2 substrate):** POSITIVE (§72). n=1 evidence. Safe to promote once magnitude stability is confirmed.
+- **avatar_speech + solo_scene + NO audience_hint:** UNKNOWN (U7). Baseline-shape (25467733 shape). Revision has never run here. The revision hint says *"Preserve the previous draft's meaning, voice, audience fit, arc, and factual grounding"* — the `"audience fit"` clause is harmless when there was no audience directive, but its effect is unmeasured.
+- **avatar_speech + standalone talking_head (`target_shape="long_form"`, Episode-less, with duration):** UNKNOWN. Different Writing Contract branch (`_long_form_contract` vs `_solo_scene_contract`). Revision hint is contract-agnostic; theoretically same behaviour, but untested.
+- **avatar_speech + pinned opener:** UNKNOWN (U5). Revision hint says *"Change only what is necessary to meet the length target"* — if Draft A already begins with the pinned opener, Draft B should preserve that first sentence. If Draft A failed to comply with the opener, Draft B might also fail. Not tested.
+- **long_form_ad (starters.py):** UNKNOWN (U4). The largest surface-area risk if revision is promoted globally:
+  - No `audience_hint` — the "audience fit" preservation clause is a no-op, but the "Preserve the previous draft's meaning, voice, arc, and factual grounding" clause still applies.
+  - No `memory_rows` — no interaction.
+  - `max_script_chars=None` — no interaction (revision applies to expansion of any size).
+  - `target_shape="long_form"` — Writing Contract §4 differs from solo_scene. Long_form has invariants like "at least one meaningful change", "every section earns its runtime", "one CTA" (`writing_contract._long_form_contract`). Revision preserving Draft A's structure should keep those invariants intact.
+  - Draft A could be ~4500 chars for a 5-minute target. Passing that back adds ~1100 input tokens on the corrective call. Absolute cost negligible; no context-window pressure at gpt-5-mini.
+  - **Key uncertainty:** long_form_ad chunks the accepted output into separate `generate_avatar_speech` calls. Draft-A revision preserving Draft A's paragraph structure should keep the chunker's boundaries stable, but this has not been verified.
+
+### §74.4 Compression path — coherence risk
+
+Q-270-15c leaves compression canonical even under the env var (`duration_contract.py::synthesize_with_duration_gate` explicitly logs the intentional fallback and uses `_compression_hint`). If revision were promoted for expansion only, the corrective machinery would have TWO behaviours depending on direction:
+
+- Under-length first pass → revision (preserve Draft A, expand)
+- Over-length first pass → fresh regeneration (compress)
+
+This asymmetric behaviour is *architecturally coherent* (each direction is separately optimised) but *operator-facing confusing* (why does compressing a script produce a different narrative arc than expanding it?). SESSION 263 §6.5 documented a distinct compression-side failure (character-voice-amplifier). Promoting expansion-only without addressing compression risks leaving one lane semantically inconsistent with the other.
+
+### §74.5 Failure-path risk
+
+Existing tests (`test_gate_still_short_after_retry_raises`, `test_session262_composition_observability`) exercise the DurationContractError path. Under revision, if Draft B ALSO fails duration, the exception is raised with the same observability payload — including the (now revised) `corrective_hint` text, which would let auditors distinguish canonical vs revised failures. Architecturally safe; no test coverage of "Draft B revised fails duration" specifically, but the code path is a straight-line extension of canonical.
+
+If Draft B fails K6.4 strict verification, `ClaimVerifierError` propagates the same way as under canonical (verifier fires inside `build_render_brief` regardless of corrective_hint content).
+
+### §74.6 Observability continuity
+
+SESSION 262 observability fields (`first_pass_synthesis`, `corrective_hint`, `corrective_pass_synthesis`, `synthesis_attempt_count`, `synthesis_predicted_seconds`) are populated identically under both branches. The `corrective_hint` text itself is the discriminator; retrospective audits can classify any Composition as canonical vs revised by inspecting the field's prefix. No schema change required.
+
+**Summary of §74:** the sole tested path (solo_scene + audience) is safe. long_form_ad and standalone-talking-head paths would inherit revision without direct validation. The compression path asymmetry is a coherence concern rather than a bug. No pre-existing test would fail; the risk is at semantically-untested surfaces.
+
+---
+
+## §75. Is n=1 revision evidence sufficient for promotion?
+
+**No.** Three concurrent gaps prevent a safe global promotion:
+
+1. **Magnitude stability of the revision residual is unmeasured.** Trial 2 showed +2 at-risk terms. Whether a second Trial-2-replica render would show +0, +2, or +5 is unknown. A single sample cannot separate "revision reduces the mean" from "Trial 2 was lucky."
+2. **Substrate coverage is single-lane.** long_form_ad (starters.py:1279) inherits any promotion but has never been rendered under revision. Standalone talking_head (Episode-less) same. Rivet or other characters same.
+3. **Direction coverage is one-sided.** Q-270-15c is expansion-only by design (§27, §32.5, §74.4). Compression stays canonical even under the env var. Promoting expansion revision creates an asymmetric corrective machine — coherent per §74.4 but semantically-inconsistent for operators reasoning about the pipeline.
+
+Each gap is closable with a small controlled experiment.
+
+### §75.1 Smallest discriminating experiments (in priority order — do NOT execute)
+
+**E1 — Trial 3: repeat Trial 2 exactly.** Same substrate (Patch's Workshop / Episode `2b6087d2` / spokesperson `7fad8172` / knowledge / memory / audience directive / target 90 s / both experiment env vars active). One render. Purpose: convert n=1 → n=2 for magnitude stability of the +2 residual. Discriminates whether Trial 2's byte-level preservation and residual magnitude are reproducible or single-sample noise. Cost ~$0.02 + LLM tokens.
+
+**E2 — Non-audience revision trial.** Same substrate as Trial 3 but with `CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT` unset (only `CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT` active). Purpose: measure whether revision behaves correctly in the baseline-shape substrate (Trial 1 25467733 shape). Rules out U7. Cost ~$0.02.
+
+**E3 — long_form_ad revision trial.** Any long-form dogfood with `use_knowledge=True` + a duration target that reliably triggers expansion retry. Purpose: closes U4 (largest untested surface). May require a fresh Episode substrate or a scripted long-form topic; needs operator judgement on substrate choice. Cost ~$0.05 (larger duration).
+
+The three experiments together cost less than $0.10 and take a single sitting to run once activation gates are set correctly (see §55).
+
+### §75.2 What the three experiments would NOT close
+
+- **Compression-variant behaviour (U3).** Q-270-15c does not have compression revision plumbing. Testing compression requires a separate Slice 5 to add `_experimental_compression_revision_hint` and wire the compression branch. That is a larger implementation slice.
+- **Rivet-substrate + character-voice preservation.** Substrate expansion beyond Patch.
+- **Pinned-opener interaction (U5).** Would require an operator-typed pinned opener on the render, testing whether Draft B preserves the pinned first sentence.
+- **Draft-B-verification-rejection (U6).** Would require an artificial or fortunate substrate where Draft B trips strict K6.4.
+
+None of these are blockers for a *decision to run E1/E2/E3*; they are additional risks the operator should weigh before a full production promotion.
+
+---
+
+## §76. Q-270-15c vs Q-270-15b sequencing — causal attribution
+
+Slice 2 §32.2 introduced Q-270-15b as a candidate follow-up: soften the corrective_hint's *"Add supporting detail from the knowledge chunks where needed to expand"* clause to something like *"Add supporting detail while preserving the previous draft's vocabulary choices where possible"*. Purpose: test whether the residual +2 at-risk terms are driven by this clause (H2 in Slice 1 §11).
+
+**Do NOT run Q-270-15b before strengthening Q-270-15c evidence.** Reasons:
+
+1. **Attribution symmetry.** If Q-270-15b changes both the corrective_hint text AND we haven't stabilised the revision residual estimate (n=1), any observed reduction cannot be cleanly attributed to the hint change vs the revision mechanism vs single-sample variance.
+2. **Two-variable trap.** Trial 2 established a n=1 magnitude estimate. If Q-270-15b runs next and shows +0 residual, we cannot distinguish "the hint change closed it" from "the second revision trial would have shown +0 anyway (regression to mean)."
+3. **Q-270-15b requires an implementation edit** (change `_experimental_expansion_revision_hint` text or add a variant). That edit is small but non-trivial. Doing it AFTER n=2 revision evidence gives the operator a defensible baseline against which to measure the hint change.
+
+**Recommended sequence:**
+
+1. E1 (Trial 3, same substrate, same hint) — get n=2 for revision residual magnitude.
+2. IF Trial 3 confirms residual (Trial 2 + Trial 3 both show +1 to +3 at-risk terms with strong preservation): move to Q-270-15b under the same substrate. Do this only if E1 supports it.
+3. IF Trial 3 shows +0 (revision residual disappears): revision + current hint is already sufficient. Q-270-15b becomes lower priority.
+4. IF Trial 3 shows +5+ (revision residual is worse than Trial 2): Trial 2 was lucky; revision is less effective than n=1 suggested. Reconsider before Q-270-15b.
+
+E2 and E3 (§75.1) can run in parallel with E1 without contaminating Q-270-15b's attribution (they change substrate, not the corrective_hint text).
+
+---
+
+## §77. Decision gate
+
+**Recommendation: B — ONE MORE CONTROLLED REVISION TRIAL FIRST.**
+
+Detailed justification for each option:
+
+- **A — Promote revision-based expansion NOW.** REJECTED.
+  - n=1 revision evidence insufficient to characterise magnitude stability (§73.2 S1, §73.3 U1-U2).
+  - Untested inheritance for `long_form_ad` + standalone-talking-head + baseline-shape (§74.3, U4, U7).
+  - Compression-path asymmetry unresolved (§74.4, U3).
+  - The byte-level preservation *mechanism* is proven (P3), but the *reliability across contexts* is not.
+
+- **B — One more controlled revision trial first.** RECOMMENDED.
+  - E1 (Trial 3 repeat of Trial 2) is the cheapest highest-information move (§75.1).
+  - Closes the single most important gap (magnitude stability) with a single render (~$0.02).
+  - Preserves attribution for eventual Q-270-15b (§76).
+  - Same activation procedure as Trial 2 (§55) — already validated.
+  - Trial 2 verdict B stands; E1 tells us whether verdict is stable or Trial 2 was single-sample favourable.
+
+- **C — Broader validation required first.** ACCEPTABLE ALTERNATIVE.
+  - E1 + E2 + E3 in one sitting (§75.1). Cost ~$0.10.
+  - Trades a session of operator time for closing U1 + U4 + U7 in one pass.
+  - Justified if the operator anticipates wanting to promote revision as default before end of month rather than spread across multiple sittings.
+  - **Not "required" over B** — B is a strict prefix of C.
+
+- **D — Do NOT promote revision.** REJECTED.
+  - Trial 2 evidence unambiguously supports the mechanism (P3, P4, S1).
+  - No dimension in §72 shows revision as worse than canonical; observed regression risks (§74) are at semantically-untested surfaces, not at the tested Q-270-15c substrate.
+  - Discarding the mechanism now would waste the Slice 3 investment and abandon a demonstrably-better corrective path for the solo_scene audience-conditioned lane.
+
+**Between B and C:** operator preference. If Chris + ChatGPT are willing to spend one sitting on all three follow-up trials, C is more efficient. If they prefer to see one confirmation and pause for interpretation, B is safer.
+
+---
+
+## §78. Smallest recommended next action
+
+**Option B primary recommendation:**
+
+Authorise a **Trial 3 render** — same substrate as Trial 2 (Patch's Workshop / Episode `2b6087d2` / spokesperson `7fad8172` / 90 s / knowledge ON / opener blank / verifier warn) with BOTH experiment env vars active (audience directive `AUDIENCE: general adults with no technical background who are new to AI agents.` + revision experiment on) using the §55 activation procedure exactly as performed for Trial 2.
+
+**Chris + ChatGPT decide.** Do NOT execute without explicit authorisation.
+
+Return artefacts expected from Trial 3 (same as Trial 2):
+- Full UUID of the new composition.
+- Three activation proofs (worker env-var, log marker, corrective_hint fingerprint).
+- Draft A + Draft B verbatim + within-composition diff.
+- At-risk terminology count.
+- §43 criteria grading.
+- Verdict A/B/C/D/E under the same rubric.
+- Comparison to Trial 2 (n=1→n=2): does preservation reproduce? does residual reproduce?
+
+If Trial 3 confirms Trial 2, Slice 6 can consider E2/E3 or move to Q-270-15b. If Trial 3 diverges materially, an interpretation slice comes first before any additional experiment.
+
+---
+
+## §79. Explicit list of things NOT changed in Slice 4
+
+- No production source touched.
+- No tests touched.
+- Writing Contract still v5.
+- Q-270-15c plumbing still present + inactive by default (env-gated).
+- Both experiment env vars still unset on `main` and in the current shell.
+- No render performed.
+- No new Composition created.
+- No NarrativeMemory promotion. Pool remains 14 remembered + 1 archived.
+- No worker restart during Slice 4 (canonical mode from §69 cleanup preserved).
+- No schema, no migration, no SPA UI, no dialogue-lane change.
+- Q-270-16 (proper_noun) and Q-270-18 (tech_term case) verifier questions remain OUT OF SCOPE.
+- Layer 1 first-pass audience-directive reliability remains OUT OF SCOPE for this slice (§53 open question).
+- Patch story progression remains OUT OF SCOPE.
+
+---
+
+## §80. Slice 4 commit + push record
+
+- Slice 4 commit SHA: `<pending — populated after commit>`
+- Push: `<pending>`
+- Local `main == origin/main`: `<verified at commit time>`
+- Working tree at Slice 4 close: `<verified clean>`
+- Files touched by Slice 4:
+  - `docs/design/SESSION_271_CORRECTIVE_PASS_AUDIENCE_INVARIANCE_AUDIT.md` — §72–§80 appended (this section)
+- **No source, no tests, no evidence sidecar, no schema in Slice 4.**
+
+---
+
+**End of SESSION 271 Slice 4. STOP condition reached. Promotion decision: B — one more controlled revision trial required before promotion. Smallest next action: authorise Trial 3 render (same substrate as Trial 2, §55 activation procedure). Awaiting operator authorisation.**
