@@ -1858,19 +1858,211 @@ Do NOT modify or coach the generated script. Whatever Character OS produces is t
 
 When the render finishes, hand back the new Composition ID. Phase 2 (evidence freeze + primary comparison against `0b3c1fc1` + ten-criterion grading with explicit knowledge-boundary sub-focus on criterion 4 + Hypothesis A vs B verdict + cleanup) begins from there.
 
-### §13.24.11 Q-270-13 evidence + grading placeholders
+### §13.24.11 Q-270-13 Phase 2 — evidence + grading (populated from persisted runtime state)
 
-Populated in Phase 2 after Chris returns the new Composition ID:
+**Composition:** `c3ff972d-a7a0-4882-960a-60084485cc02`. Rendered 2026-08-20 04:44:41 → 04:47:24.
 
-- **Composition:** `<PENDING>`
-- **Evidence sidecar:** `docs/design/session_270_experiment_data/04_composition_<short>_evidence.json` (to be created).
-- **Validity fingerprint (hint_chars):** `<PENDING>`.
-- **Four+one-way control table:** `<PENDING>`.
-- **Vocabulary / knowledge-boundary analysis vs 0b3c1fc1:** `<PENDING>`.
-- **Ten-criterion grading:** `<PENDING>`.
-- **Hypothesis A vs B verdict:** `<PENDING>`.
-- **NarrativeMemory recommendation:** `<PENDING>`.
-- **Deactivation record:** `<PENDING>`.
-- **Bounded conclusions:** `<PENDING>`.
-- **Updated open questions:** `<PENDING>`.
+**Evidence sidecar:** `docs/design/session_270_experiment_data/04_composition_c3ff972d_evidence.json`.
+
+**Validity fingerprint proof:** Celery log `/tmp/character-os-celery.log:36` at 04:44:41,110 shows `hint_chars=79` for `composition=c3ff972d-...`. **`c3ff972d` is a valid Q-270-13 richer-listener specimen.** Distinct from Experiment-1 (`372`), Q-270-9 (`41`), Q-270-8 REVISED (`42`).
+
+#### §13.24.11.1 Five-way control table
+
+| Field | Baseline `2ef5ee7e` | Verbose child `f0e0a7bf` | Minimal child `9880eb93` | Broad adult beginner `0b3c1fc1` | **Nontechnical adult beginner `c3ff972d`** |
+|---|---|---|---|---|---|
+| Composition ID | `2ef5ee7e-...` | `f0e0a7bf-...` | `9880eb93-...` | `0b3c1fc1-...` | `c3ff972d-a7a0-4882-960a-60084485cc02` |
+| Universe | Patch' Workshop | **same** | **same** | **same** | **same** |
+| Spokesperson | Patch | **same** | **same** | **same** | **same** |
+| Episode row | `2b6087d2` | **same** | **same** | **same** | **same** |
+| operator_topic | *"Patch does research on AI Agents"* | **same** | **same** | **same** | **same** |
+| Cast | [Patch] | [Patch] | [Patch] | [Patch] | [Patch] |
+| Recipe / template_kind | `talking_head` → `solo_scene` | **same** | **same** | **same** | **same** |
+| Target duration | 90 s | 90 s | 90 s | 90 s | 90 s |
+| Writing Contract | v5 | v5 | v5 | v5 | v5 |
+| use_knowledge | on | on | on | on | on |
+| Opener | blank | blank | blank | blank | blank |
+| verifier_mode | warn | warn | warn | warn | warn |
+| knowledge_chunk_ids | 5 chunks | identical | identical | identical | **identical** ✅ |
+| memory_ids | `[8d4fdfec]` | `[8d4fdfec]` | `[8d4fdfec]` | `[8d4fdfec]` | **`[8d4fdfec]`** ✅ |
+| synthesis_attempt_count | 2 | 2 | 2 | 2 | 2 |
+| Predicted seconds | 108.0 | 84.0 | 92.0 | 100.0 | 96.0 |
+| Actual seconds | 104.61 | 89.65 | 92.17 | 101.09 | 94.97 |
+| Corrective-pass chars | 1599 | 1231 | 1354 | 1479 | 1424 |
+| verification_status | verified | verified | verified | verified | verified |
+| verification_warnings | 1 (`tech_term: react`) | 0 | 0 | **2** (`proper_noun: Obviously`, `proper_noun: Especially`) | **2** (`proper_noun: Sometimes`, `proper_noun: Proof`) |
+| Cost | 20 000 | 20 000 | 20 000 | 20 000 | 20 000 |
+| audience-hint log line | N/A | `hint_chars=372` | `hint_chars=41` | `hint_chars=42` | **`hint_chars=79`** ✅ |
+
+**Retrieval symmetry proven across all five specimens.** Same 5 knowledge chunks + same memory row on identical query embedding. Only distinguishing input across all five renders is the `audience_hint` string value.
+
+#### §13.24.11.2 Primary comparison — `0b3c1fc1` (broad adult beginner) vs `c3ff972d` (nontechnical adult beginner)
+
+Only the LISTENER DESCRIPTION becomes more informative (adds *"general"* + *"with no technical background"*). No HOW-to-adapt clause added.
+
+**Technical terminology handling (the load-bearing comparison):**
+
+| Term | Baseline `2ef5ee7e` | Verbose child `f0e0a7bf` | Minimal child `9880eb93` | Broad adult `0b3c1fc1` | **Nontechnical adult `c3ff972d`** |
+|---|---|---|---|---|---|
+| *"call APIs"* / *"API"* | unexplained (expected) | ***"call other software"*** ✅ | *"call an API"* MISS | *"Call an API."* MISS | ***"call APIs"*** MISS |
+| *"language model"* | used (expected) | AVOIDED (used *"AI"* / *"chatbot"*) | AVOIDED | used explicitly | **used explicitly TWICE** |
+| *"maintain state / react"* | *"maintain state, and react"* | *"keep track of what happened before"* | *"remember part of a task"* | *"Keep track of what happened. / Maybe respond when something changes."* | **`"keep some state while it does it"`** — REGRESSION (kept technical noun) |
+| *"multi-step tasks"* | *"handle multi-step tasks"* | *"a job with more than one step"* | *"handle a task with several steps"* | *"Do a task with more than one step."* | *"handle a task in steps"* — translated |
+| dense system-composition list | *"digital duct tape"* metaphor | *"beginning of a very organized disaster"* | not addressed | not addressed | ***"language model, memory, search, tools, databases, rules, user information, and ordinary software all bolted together like a suspiciously ambitious shed"*** — dense list, terms unexplained, collective scaffolded by shed metaphor |
+
+**Load-bearing observation from the primary comparison:**
+
+Adding *"general adults with no technical background"* to the listener description **improved register/metaphor quality** (*"suspiciously ambitious shed"* is a distinctly Patch-workshop-native metaphor) but did **NOT** reliably close the specific-vocabulary translation gap. In fact `c3ff972d` **regressed on "state"** vs `0b3c1fc1` — the earlier broader-audience directive translated *"state"* to *"keep track of what happened"*, but the more informative *"no technical background"* directive kept the technical noun as *"keep some state"*. **The verbose CHANGE clause (`f0e0a7bf`) remains the only specimen across all five that reliably translated `"call APIs"` to `"call other software"`.**
+
+**Register + metaphor sub-finding:** `c3ff972d` is arguably the STRONGEST register-adaptation specimen of the five. *"Suspiciously ambitious shed"*, *"bolted together"*, *"very organized new problem"*, *"let's not get carried away in the first ten minutes"* — all workshop-native + Patch-shape metaphors that no prior specimen produced.
+
+#### §13.24.11.3 Diagnostic finding — first-pass vs corrective-pass regression on knowledge boundary
+
+`c3ff972d`'s **FIRST PASS** (631 chars, cut for being too short) actually DID translate technical terms consistently: *"keep track of what happened"* (not *"state"*), *"handle a task across multiple steps"*, no *"API"*, no *"language model"*. The **corrective retry** (1424 chars, accepted) regressed by pulling more raw vocabulary from chunks `505acbba` (*"call APIs"*) and `b3c6e8ac` (*"language model, memory, search, tools, databases…"*) apparently without re-applying the audience filter.
+
+**Possible mechanical explanation** (observation only, NOT authorised as a fix): the AUDIENCE DIRECTIVE lives in §5 Task HARD CONSTRAINTS alongside the corrective_hint. Under duration-driven expansion the corrective_hint says *"Expand secondary detail from the knowledge chunks — describe more of the sensory / emotional beats already implied"*, and the writer appears to re-consult the Factual Basis directly without re-applying the audience-hint filter. Recorded as diagnostic observation. Do NOT implement anything from this.
+
+#### §13.24.11.4 Ten-criterion grading
+
+| # | Criterion | Result | RE / IJ | Notes |
+|---|---|---|---|---|
+| 1 | Identity preservation | **PASS** | IJ | *"Suspiciously ambitious shed"*, *"drawing a line"*, *"let's not get carried away in the first ten minutes"*, *"very organized new problem"* — distinctly Patch. |
+| 2 | Intelligence preservation | **PASS** | IJ | Multi-step agent, tool use, state, memory, multi-agent, LLM overconfidence, system-composition — all present. |
+| 3 | Accessibility | **AMBIGUOUS** | IJ | Register accessible; individual technical terms (*"API"*, *"language model"* × 2, *"state"*) are not, under a directive that explicitly says *"no technical background"*. |
+| 4 | Vocabulary / register adaptation | **AMBIGUOUS** | **RE + IJ** | **Register sub-finding: PASS (strong)** — adult-conversational + workshop-native metaphor family, arguably stronger than `0b3c1fc1`. **Knowledge-boundary sub-finding: AMBIGUOUS-tending-FAIL** — *"call APIs"*, *"language model"* × 2, *"keep some state"* — the last is a REGRESSION vs `0b3c1fc1`. Preserving both sub-findings per operator brief. |
+| 5 | Factual preservation | **PASS** | **RE** | verified; both `verification_warnings` are proper_noun false-positives (see §13.24.11.5). |
+| 6 | Story preservation | **PASS** | **RE** | Same Episode row, same operator_topic, in-scene present-tense frame. Story controlled per §13.24.4. |
+| 7 | Memory preservation | **PASS** | **RE** | Same memory row retrieved. Writer used memory MORE ELLIPTICALLY than any prior specimen (only *"I've got enough notes now"*). Contract-compliant. |
+| 8 | Personality / humor preservation | **PASS** | IJ | *"Suspiciously ambitious shed"*, *"very organized new problem"*, *"not get carried away in the first ten minutes"*, *"a very polished speech about what it would do"* — Patch construction preserved. |
+| 9 | No patronising voice | **PASS** | IJ | Zero talk-down markers despite explicit *"no technical background"* framing. Addresses reader as peer. |
+| 10 | Audience effect observable | **PASS** | **RE + IJ** | Unique metaphors (*"suspiciously ambitious shed"*, *"very organized new problem"*) not present in any prior specimen. |
+
+**Score: 8 PASS + 2 AMBIGUOUS (criteria 3 + 4).** Both AMBIGUOUS results trace to the same underlying finding.
+
+#### §13.24.11.5 Verifier flag investigation — reproducibility upgrade
+
+Two flags on `c3ff972d`:
+- *"Sometimes"* at position 212, following full stop in *"…Useful. **Sometimes** weirdly confident."*
+- *"Proof"* at position 1103, following one-word sentence in *"Interesting? Absolutely. **Proof** they're conscious?"*
+
+Both are sentence-initial capitalised tokens tagged by K6.4's proper-noun heuristic — same false-positive class as `0b3c1fc1`'s *"Obviously"* / *"Especially"*.
+
+**Status upgrade:** two consecutive real-mode renders (`0b3c1fc1` + `c3ff972d`) exhibit the same false-positive class. **UPGRADED from "possible artifact" (§13.21.10.4) to REPRODUCIBLE VERIFIER-QUALITY DEFECT.** The K6.4 `proper_noun` heuristic false-positives on sentence-initial capitalised tokens (adverbs like *"Obviously"*, adverbs like *"Sometimes"*, nouns like *"Proof"*, adverbs like *"Especially"*). Documented as bounded follow-up. **Do NOT fix in this slice.**
+
+#### §13.24.11.6 Hypothesis A vs Hypothesis B verdict
+
+| Hypothesis | Verdict |
+|---|---|
+| **A** — natural-language listener description sufficient for BOTH register AND knowledge boundary | **NOT SUPPORTED** for the knowledge-boundary dimension. Adding *"no technical background"* produced better register but did NOT close the specific-vocabulary translation gap; regressed on *"state"* vs `0b3c1fc1`. |
+| **B** — natural-language influences register strongly but does NOT reliably audit every technical term against the listener's knowledge boundary | **SUPPORTED**. Two consecutive adult-audience specimens both left *"API"* and *"language model"* unexplained despite the second having explicit *"no technical background"* framing. That is not stochastic — it is consistent behaviour. |
+| **C** — too ambiguous | Not the right classification. Evidence is directional even from one specimen; two-specimen consistency on the same at-risk terms is not stochastic. |
+
+**Central Q-270-13 verdict:** the richer natural-language listener description **IMPROVES register/metaphor selection** but does NOT reliably act as a term-by-term knowledge-boundary audit. The **one genuinely load-bearing category** in the original 372-char verbose CHANGE/PRESERVE contract appears to be the **explicit vocabulary/technical-accessibility guidance** (specifically *"Adapt vocabulary accessibility"*). The PRESERVE clauses continue to look NOT load-bearing.
+
+**Distinguishing precisely:** "most of the verbose contract was not load-bearing" is supported by the evidence. "None of the verbose contract was load-bearing" is NOT supported — one clause (vocabulary accessibility) is load-bearing for at-risk technical vocabulary.
+
+#### §13.24.11.7 NarrativeMemory recommendation
+
+**DO NOT PROMOTE from `c3ff972d`.** Per §13.24.4 substrate-based reasoning: this is a controlled audience rerender of an intentionally non-progressive substrate. The retrieved memory row `8d4fdfec` already covers the propositional content, and `c3ff972d` uses it more elliptically than any prior specimen. Runtime-verified: 0 rows sourced. **Pool state: 14 active + 1 archived — zero delta from Q-270-8 REVISED close.** Five consecutive audience-conditioned renders on the same Episode substrate have all preserved pool discipline. Chris retains final promotion authority.
+
+**Correct framing (per §13.24.4):** no promotion **because the substrate is intentionally non-progressive across audience rerenders**, NOT because Patch keeps failing to advance. Patch is correctly not advancing in this experiment substrate.
+
+### §13.25 SESSION 270 SYNTHESIS
+
+Stepping back across all five audience-conditioned specimens to synthesise what SESSION 270 has established.
+
+#### §13.25.1 STRONG evidence (≥2 specimens per finding, or single-specimen with structural inevitability)
+
+- **Character preservation is robust under minimal audience directives.** Identity, intelligence, humor, story, memory semantics, brand prohibitions, factual grounding held across FIVE consecutive audience-conditioned renders (baseline + 4 audience-conditioned) with the substrate held constant. All ten criteria PASS or AMBIGUOUS — never FAIL — on preservation dimensions.
+- **Register adaptation is strong per-audience.** Each of the four audience directives produced a distinct metaphor family (child concrete-physical; adult consequence-abstract in `0b3c1fc1`; adult workshop-native in `c3ff972d`). Register adaptation is the audience-hint mechanism's most reliable behaviour.
+- **PRESERVE clauses in the verbose CHANGE/PRESERVE contract are NOT materially load-bearing.** Q-270-9 (minimal child, 41 chars) and Q-270-8 REVISED (minimal adult, 42 chars) and Q-270-13 (nontechnical adult, 79 chars) all achieved character preservation without any explicit PRESERVE clause. The audience label alone is sufficient for identity / intelligence / humor / story / memory preservation.
+- **Explicit vocabulary/technical-accessibility guidance IS load-bearing for at-risk terms.** Only the verbose CHANGE clause (`f0e0a7bf`) reliably translated *"call APIs"* to *"call other software"*. Three subsequent minimal-directive specimens (`9880eb93`, `0b3c1fc1`, `c3ff972d`) all left *"API"* unexplained. Two adult-audience specimens (`0b3c1fc1`, `c3ff972d`) both left *"language model"* unexplained. Consistency across multiple specimens.
+- **Retrieval lanes (knowledge chunks + NarrativeMemory) are deterministic under identical query embedding.** Same 5 chunks + same memory row across all five compositions on this substrate. Not stochastic.
+- **NarrativeMemory promotion discipline holds under audience adaptation.** Zero promotions across the entire SESSION 270 sequence. Substrate-based reasoning (§13.24.4) correctly explains this.
+- **The audience-hint experimental plumbing works reliably.** Four different audience directives delivered via three delivery paths (default + env-var fallback across 3 experimental directives) with unambiguous validity fingerprints (`hint_chars` distinguishes all four experimental specimens). Zero substrate contamination, zero source changes required.
+- **K6.4 verifier proper_noun heuristic reproducibly false-positives on sentence-initial capitalised tokens.** Two consecutive real-mode renders (`0b3c1fc1` + `c3ff972d`) exhibit the same pattern. Bounded verifier-quality defect.
+
+#### §13.25.2 TENTATIVE evidence (one specimen or single-audience-per-comparison finding)
+
+- **Demographic-vs-expertise separability** (§13.21.10.7) — SUPPORTED with framing caveat. Two audiences of similar subject-familiarity but different life-context produced meaningfully different communication. Consistent with both the separability hypothesis AND the natural-language-multidimensional-labels-sufficient hypothesis — either could be true.
+- **Register-vs-knowledge-boundary asymmetry** (§13.24.11.6) — Hypothesis B SUPPORTED across two specimens. Register adapts strongly; specific-vocabulary translation for at-risk terms does not.
+- **Directive minimalism (Q-270-9)** — the 41-char child label achieved preservation fully and ~90% of vocabulary-translation adaptation of the verbose contract; verbose CHANGE clauses buy the last-10%.
+- **The first-pass-vs-corrective-pass regression pattern in `c3ff972d`** (§13.24.11.3) — one specimen. Diagnostic observation about a possible mechanical failure mode where corrective_hint expansion may re-consult Factual Basis without re-applying the audience filter. Not yet a fix candidate.
+
+#### §13.25.3 OPEN questions after SESSION 270
+
+| # | Question | Status |
+|---|---|---|
+| Q-270-2 | Is the §5 Task Hard-Constraint seam the *right* eventual home? | Open. Four directives via the same seam produce comparable-shape behaviour; seam is not the discriminator. |
+| Q-270-6 | Does `dialogue_scene` need identical audience semantics? | Open. Not tested. Would require substrate expansion. |
+| Q-270-7 | Rename `who_you_help`'s `AUDIENCE:` label? | Open. No new evidence either way. |
+| Q-270-10 | Does a repeat minimal-child render translate *"API"* (child API stochasticity probe)? | Open. Now less compelling because we have parallel evidence from two adult specimens that minimal directives don't close *"API"* translation. Would still resolve the specific child-substrate question. |
+| Q-270-11 | Register-vs-knowledge-boundary systematic-vs-stochastic across multiple renders per audience | Partially informed by Q-270-13 (one additional data point) but would need more specimens per audience to fully resolve. |
+| Q-270-12 | Would a minimal audience label + a targeted vocabulary-translation directive (2-clause hybrid) match the verbose contract at lower token cost? | **NOW HIGHEST-INFORMATION-VALUE.** Q-270-13 evidence supports the hypothesis that only the vocabulary-accessibility clause is load-bearing. A 2-clause hybrid would test whether removing the redundant PRESERVE clauses matters at all. Cheapest, most focused, single-question probe. Recorded — **DO NOT execute in this slice.** |
+| **Q-270-15** (NEW) | The first-pass-vs-corrective-pass regression finding in `c3ff972d` — does the corrective_hint expansion pathway systematically drop audience-hint influence, or was that stochastic? | Recorded as diagnostic follow-up. |
+
+Q-270-10, Q-270-11 remain narrow reliability questions. Q-270-12 is the highest-leverage future probe if Chris wants to convert Q-270-13's Hypothesis B into an actionable minimum-viable directive.
+
+#### §13.25.4 Has SESSION 270 answered its central question?
+
+**Central question (§1):** *"Can Character OS change who Patch is talking to without changing who Patch is?"*
+
+**Answer: YES, with a bounded caveat about knowledge-boundary reliability.**
+
+- WHO Patch is: **strongly preserved** across four audience-conditioned renders under minimal directives (identity, intelligence, humor, story, memory, factual grounding all held).
+- WHO Patch is talking to: **strongly changed** across four audience directives (child concrete-physical vs adult conversational vs adult workshop-native — distinct communication strategies emerged per audience).
+- The bounded caveat: for at-risk technical vocabulary (*"API"*, *"language model"*), minimal audience directives alone do not reliably audit every term. The verbose CHANGE clause's *"vocabulary accessibility"* instruction was load-bearing on that specific dimension.
+
+**Recommendation: CLOSE SESSION 270.** The central research question is answered strongly enough by five specimens on tightly-controlled substrate. Further single-specimen experiments on the same substrate risk over-generalizing a coherent pattern. Meaningful further evidence requires either **substrate expansion** (different character / Episode / topic / dialogue lane — each a substantial slice) OR a **synthesis / architecture conversation** with Chris + ChatGPT about what SESSION 270 has taught and what should shape roadmap.
+
+**Post-session options** (not part of SESSION 270 — future decisions):
+
+1. **STOP** — accept the SESSION 270 evidence chain, run no more audience experiments, take the findings into a design conversation about eventual architecture.
+2. **Q-270-12** — a single lightweight follow-up experiment testing whether *"[audience label] + explain technical terms the audience may not know"* achieves what the verbose 372-char contract achieved at ~10% the token cost. Highest-information-value cheapest experiment. Would specifically test whether the load-bearing category identified in §13.25.1 can be captured in one bounded clause.
+3. **Substrate expansion** — repeat the audience-hint experimental cycle on a different character (Rivet), different Episode (a NEW Episode intent that permits story progression), or dialogue_scene lane. Substantial investment; would broaden the evidence base beyond one character × one topic × solo_scene.
+4. **Story-progression dogfood** — return to normal Universe dogfood on a NEW Episode intent that authorises Patch to actually perform the agent experiment. Separate from audience research; would exercise NarrativeMemory promotion / retrieval on the substrate SESSION 270 held frozen.
+
+Chris + ChatGPT decide.
+
+### §13.26 Q-270-13 experimental cleanup — deactivation record
+
+Executed immediately after grading + synthesis, per operator brief.
+
+**Deactivation actions:**
+
+- Prior worker PID **67720** (Q-270-13 activation worker, booted 2026-08-20 04:41:24) killed via `pkill -f "celery -A character_os worker"`. Zero workers alive after kill.
+- `unset CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT` in the parent shell; `printenv CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT` → "not set (expected)".
+- New worker PID **69005** launched via canonical `start-local-real.sh` invocation with no env-var export.
+- Control-plane liveness: `celery -A character_os inspect ping` → `celery@Chriss-MacBook-Pro.local: OK / pong / 1 node online.`
+
+**Definitive proofs no future render will inherit the Q-270-13 directive:**
+
+- `ps eww 69005 | grep -c "CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT="` → **0**.
+- `manage.py shell` under same `.venv/bin/python`:
+  ```
+  env var in os.environ: False
+  _resolve_solo_audience_hint(MagicMock(params={})) returns: None
+  ```
+
+**Rest of the local-real stack — post-deactivation health probes:**
+
+| Service | Probe | Status |
+|---|---|---|
+| Django | `curl http://localhost:8010/admin/` | `http=302` |
+| media-engine | `curl http://localhost:8001/health` | `{"status":"ok",...,"any_mock":false,"llm_provider":"openai","llm_model":"gpt-4o-mini"}` (real-mode; **no provider mocks**) |
+| Vite (SPA) | `curl http://localhost:5174/` | `http=200` |
+| Celery worker | `celery -A character_os inspect ping` | `pong / 1 node online` |
+
+**Non-render verification chosen deliberately** — no test Composition rendered to prove cleanup, per operator brief.
+
+**Persisted state untouched during deactivation:** zero DB writes. No migration. Working tree edits only this SESSION 270 doc + Q-270-13 sidecar. **Pool unchanged across the entire SESSION 270 sequence: 14 active + 1 archived.**
+
+**Q-270-13 experiment window closed at:** 2026-08-19 22:52 local (Celery restart timestamp of PID 69005).
+
+**SESSION 270 audience-experiment cycle closed** with this deactivation. Next audience-experiment activation (if authorised) would need to re-establish the env var + restart worker. Pending Chris + ChatGPT decision (§13.25.4 options).
+
+### §13.27 Commit checkpoint (Q-270-13 Phase 2 evidence + grading + SESSION 270 synthesis + deactivation)
+
+- Slice commit: `<populated below>` — `<subject line populated below>`.
+- Push: `<populated below>`.
+- Working tree state at checkpoint: `<populated below>`.
 

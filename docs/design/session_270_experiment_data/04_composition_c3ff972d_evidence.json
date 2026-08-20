@@ -1,0 +1,218 @@
+{
+  "captured_at": "2026-08-19T22:52:00Z",
+  "session": 270,
+  "context": "§13.24 Q-270-13 real-mode dogfood — RICHER LISTENER MODEL audience-conditioned solo_scene render for Patch. Fourth and (per §13.24.11 recommendation to close) final SESSION 270 audience-conditioned Composition. Directive: 'AUDIENCE: general adults with no technical background who are new to AI agents.' (79 chars). Adds LISTENER CONTEXT ('no technical background') beyond the Q-270-8 REVISED directive; does NOT add any HOW-to-adapt instructions. Primary comparison: 0b3c1fc1 (broad adult beginner). Tests Hypothesis A vs Hypothesis B (§13.24.8): whether a richer natural-language listener description alone is sufficient to establish an appropriate technical knowledge boundary without explicit communication instructions.",
+
+  "experiment_activation": {
+    "audience_hint_env_var": "CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT",
+    "hint_length_chars": 79,
+    "hint_verbatim": "AUDIENCE: general adults with no technical background who are new to AI agents.",
+    "activation_log_line_present": true,
+    "activation_log_line_verbatim": "[2026-08-20 04:44:41,110: INFO/ForkPoolWorker-2] avatar_speech: SESSION 270 audience-hint experiment ACTIVE composition=c3ff972d-a7a0-4882-960a-60084485cc02 spokesperson=7fad8172-cd39-4bbe-85e0-ed705d900645 hint_chars=79 — this is transient research plumbing; unset the setting/env or clear step.params['audience_hint'] to restore default behaviour",
+    "activation_log_source": "/tmp/character-os-celery.log line 36",
+    "worker_pid_at_render": 67720,
+    "worker_boot_timestamp": "2026-08-20T04:41:24+00:00",
+    "validity_fingerprint_check": "hint_chars=79 matches Q-270-13 directive length; distinct from Q-270-8 REVISED 42-char, Q-270-9 41-char, Experiment-1 372-char — five-way distinguishable by hint_chars alone (baseline / 372 / 41 / 42 / 79).",
+    "step_params_did_NOT_carry_audience_hint": true,
+    "hint_reached_via": "env-var → _resolve_solo_audience_hint precedence fallback",
+    "solo_only_gate_active": "is_episode_talking_head == True",
+    "prompt_precedence_containment": "AUDIENCE DIRECTIVE emitted inside §5 Task HARD CONSTRAINTS block only."
+  },
+
+  "composition": {
+    "id": "c3ff972d-a7a0-4882-960a-60084485cc02",
+    "name": "Talking-head — Patch",
+    "template_kind": "talking_head",
+    "status": "completed",
+    "mock_mode": false,
+    "operator_topic": "Patch does research on AI Agents",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "spokesperson_id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+    "spokesperson_name": "Patch",
+    "spokesperson_universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "episode_id": "2b6087d2-cbe3-47c4-a7ef-7d7625231472",
+    "target_duration_seconds": 90,
+    "writing_contract_version": 5,
+    "synthesis_attempt_count": 2,
+    "synthesis_predicted_seconds": 96.0,
+    "verification_status": "verified",
+    "verification_warnings": [
+      {"kind": "proper_noun", "claim": "Sometimes", "position": 212},
+      {"kind": "proper_noun", "claim": "Proof", "position": 1103}
+    ],
+    "knowledge_chunk_ids_count": 5,
+    "knowledge_chunk_ids": [
+      "3c5165ea-c97f-4412-b8e7-b46d91777ae9",
+      "505acbba-fbc4-41b2-8494-4c937a3e3e28",
+      "b3c6e8ac-4ba0-4c41-9ca8-6fa4428c52c2",
+      "c24d1aa7-1dab-499f-83a7-f9554de5e8e7",
+      "ed18e966-1084-4626-914f-1bcc30f13dea"
+    ],
+    "memory_ids": ["8d4fdfec-add4-4505-8ade-b0f9e6d8aea6"],
+    "cost_actual_micros": 20000,
+    "created_at": "2026-08-20T04:44:41.002199+00:00",
+    "render_dispatched_at": "2026-08-20T04:44:53.422569+00:00",
+    "updated_at": "2026-08-20T04:47:24.558750+00:00"
+  },
+
+  "episode": {
+    "id": "2b6087d2-cbe3-47c4-a7ef-7d7625231472",
+    "title": "Patch does research on AI Agents",
+    "operator_topic": "Patch does research on AI Agents",
+    "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "universe_name": "Patch' Workshop",
+    "cast": ["Patch"],
+    "note": "Fifth rendering appended to the same Episode row 2b6087d2 across SESSION 270 audience experiments. Episode state unchanged across all five compositions on this row."
+  },
+
+  "final_asset": {
+    "id": "7b0a24ad-30ad-4d20-97cb-6a481e5b1eb2",
+    "role": "talking_head",
+    "duration_ms": 94971,
+    "duration_seconds": 94.971,
+    "target_seconds": 90,
+    "predicted_seconds": 96.0,
+    "within_acceptance_band": true,
+    "duration_band_seconds": [72.0, 108.0],
+    "margin_below_upper_seconds": 13.029,
+    "margin_above_lower_seconds": 22.971,
+    "note": "PASS by duration contract."
+  },
+
+  "pipeline_shape": {
+    "step_count": 1,
+    "provider_dispatch_count": {"openai_synthesis": 1, "runway_avatar_speech": 1},
+    "step_cost_summary": "1 × $0.02 avatar_speech = $0.02 total"
+  },
+
+  "synthesis_provenance": {
+    "first_pass_synthesis_length_chars": 631,
+    "first_pass_synthesis_verbatim": "An AI agent is not just a chatbot with a little hat on.\n\nI'm digging into what actually makes one an agent, and the useful answer seems to be: it can do more than give you one response.\n\nIt might choose tools, search for information, read documents, write things down, make decisions, keep track of what happened, and handle a task across multiple steps.\n\nWhich is where it gets interesting.\n\nBecause the question stops being, \"Can it explain how to do something?\"\n\nAnd becomes, \"What happens when it can actually try?\"\n\nAlso: confident is not the same as correct. So whatever I build, it gets checked.\n\nWell… now I want to try it.",
+    "first_pass_analysis": "The FIRST PASS actually DID translate technical terms consistently — 'keep track of what happened' (state), 'handle a task across multiple steps' (multi-step). It did NOT use 'API', 'language model', or 'state'. This is measurably better knowledge-boundary handling than the corrective pass produced.",
+    "corrective_hint_used": "Your previous draft was 631 characters (128 words, estimated ~44s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 341 more characters to meet the minimum.\nPreserve the central arc (opening → development → payoff → single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks — describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+    "corrective_pass_synthesis_length_chars": 1424,
+    "corrective_pass_analysis": "The CORRECTIVE PASS regressed on knowledge boundary — introduced 'call APIs', 'language model', 'keep some state while it does it', and 'databases'. The expansion into 'Expand secondary detail from the knowledge chunks — describe more of the sensory / emotional beats already implied' apparently pulled the model back toward chunk 505acbba's raw vocabulary ('call APIs', 'perform multiple steps') and chunk b3c6e8ac's 'language model, memory, search, tools, databases…' list without re-applying the audience filter. IMPORTANT PATTERN: the audience directive lives in §5 Task HARD CONSTRAINTS; the corrective_hint lives in the same section and got applied WITHOUT the audience filter being re-emphasized. This may itself be diagnostic evidence about where audience adaptation is fragile.",
+    "rejected_synthesis": ""
+  },
+
+  "accepted_script": "I'm researching AI agents, and I've reached the part where the word \"agent\" starts getting used for absolutely everything with a chat box.\n\nSo I'm drawing a line.\n\nA language model can answer a question. Useful. Sometimes weirdly confident. Still needs checking.\n\nAn agent is more like an AI system that can keep going after the first answer. It can make decisions, choose tools, search for information, read documents, write things down, call APIs, handle a task in steps, and keep some state while it does it.\n\nThat's the interesting bit to me.\n\nNot whether we can slap the word \"agent\" on a product page. Whether the thing can actually *do* something instead of giving a very polished speech about what it would do.\n\nAnd the more pieces you add, the less this is just \"the AI.\" You might have a language model, memory, search, tools, databases, rules, user information, and ordinary software all bolted together like a suspiciously ambitious shed.\n\nThen there are multiple agents in one environment. They might share information, disagree, split jobs, or develop strategies. Interesting? Absolutely. Proof they're conscious? No. Let's not get carried away in the first ten minutes.\n\nI've got enough notes now to pick a small test: give an agent a real task, real tools, and enough room to make a decision.\n\nWell… now I want to try it. Follow along, because this could either become useful—or a very organized new problem.",
+
+  "narrative_memory_used": {
+    "id": "8d4fdfec-add4-4505-8ade-b0f9e6d8aea6",
+    "body": "Patch found the old workshop-agent project and notes, revealing that the Agent began as a smaller experiment before Patch gave it more context and it started making decisions about his projects.",
+    "retrieval_symmetry_note": "SAME memory row retrieved across all five graded compositions on Episode 2b6087d2.",
+    "memory_use_observation": "c3ff972d uses memory more ELLIPTICALLY than any prior specimen — the only reference is 'I've got enough notes now to pick a small test'. Neither the memory row's specific propositions (Agent began smaller / got more context / started making decisions) nor its explicit anchor phrase ('old workshop-agent notes') appear textually. Comfortably inside solo_scene §4 boundary — the memory row is context that colours the current scene rather than being recited. Contract-compliant."
+  },
+
+  "knowledge_chunks_retrieved_ids": [
+    "3c5165ea-...", "505acbba-...", "b3c6e8ac-...", "c24d1aa7-...", "ed18e966-..."
+  ],
+  "knowledge_retrieval_symmetry": "Identical five chunk_ids retrieved across all five compositions on this Episode substrate. Retrieval lane deterministic. Not a variable.",
+
+  "five_way_control_summary": {
+    "controls_identical_across_all_five": [
+      "spokesperson (Patch)", "universe", "episode row (2b6087d2)", "operator_topic",
+      "cast [Patch]", "template_kind (solo_scene)", "target_duration_seconds (90)",
+      "writing_contract_version (5)", "use_workspace_knowledge (on)", "opener (blank)",
+      "verifier_mode (warn)", "knowledge_chunk_ids (identical 5-chunk set)",
+      "memory_ids ([8d4fdfec] top_k=1 hit)", "synthesis_attempt_count (all 5 = 2)",
+      "cost_actual_micros (all 5 = 20000)"
+    ],
+    "variables_that_differ": {
+      "audience_hint": {
+        "adult_baseline_2ef5ee7e": null,
+        "verbose_child_f0e0a7bf": "372 chars — full CHANGE/PRESERVE contract",
+        "minimal_child_9880eb93": "41 chars — 'AUDIENCE: children around 8-10 years old.'",
+        "adult_beginner_0b3c1fc1": "42 chars — 'AUDIENCE: adults who are new to AI agents.'",
+        "nontechnical_adult_c3ff972d": "79 chars — 'AUDIENCE: general adults with no technical background who are new to AI agents.'"
+      },
+      "actual_duration_ms": {"2ef5ee7e": 104611, "f0e0a7bf": 89651, "9880eb93": 92171, "0b3c1fc1": 101091, "c3ff972d": 94971},
+      "corrective_pass_length_chars": {"2ef5ee7e": 1599, "f0e0a7bf": 1231, "9880eb93": 1354, "0b3c1fc1": 1479, "c3ff972d": 1424},
+      "verification_warnings_count": {"2ef5ee7e": 1, "f0e0a7bf": 0, "9880eb93": 0, "0b3c1fc1": 2, "c3ff972d": 2}
+    }
+  },
+
+  "primary_comparison_0b3c1fc1_vs_c3ff972d": {
+    "delta_in_audience_string": "Adds 'general' + 'with no technical background' phrases. Same core structure ('adults who are new to AI agents'). Adds LISTENER CONTEXT (background) but NOT HOW-to-adapt instructions.",
+    "technical_terminology_handling": {
+      "call_APIs_or_api": {
+        "0b3c1fc1": "'Call an API.' (unexplained)",
+        "c3ff972d": "'call APIs' (unexplained)",
+        "verdict": "NO IMPROVEMENT under richer listener description. Verbose CHANGE clause (f0e0a7bf) remains the only specimen to translate this ('call other software')."
+      },
+      "language_model": {
+        "0b3c1fc1": "'A language model can tell you how it would organize a project.' (used explicitly)",
+        "c3ff972d": "'A language model can answer a question.' + 'You might have a language model, memory, search, tools, databases…' (used explicitly, twice)",
+        "verdict": "NO IMPROVEMENT — arguably USED MORE under the richer listener description. Second occurrence sits inside a dense system-composition list."
+      },
+      "state": {
+        "0b3c1fc1": "'Keep track of what happened. / Maybe respond when something changes.' (translated)",
+        "c3ff972d": "'keep some state while it does it' (kept technical noun 'state')",
+        "verdict": "REGRESSION. 0b3c1fc1 translated 'state' cleanly; c3ff972d kept the technical noun. This is a directional worsening — the richer listener description did NOT make the model MORE careful about this specific term."
+      },
+      "multi_step_tasks": {
+        "0b3c1fc1": "'Do a task with more than one step.' (translated)",
+        "c3ff972d": "'handle a task in steps' (translated)",
+        "verdict": "Both translated. Both audiences produced similar-shape handling for this term."
+      },
+      "databases_tools_memory_etc_dense_list": {
+        "0b3c1fc1": "not addressed at this density",
+        "c3ff972d": "'You might have a language model, memory, search, tools, databases, rules, user information, and ordinary software all bolted together like a suspiciously ambitious shed.'",
+        "verdict": "MIXED. The dense list contains multiple technical terms unexplained ('language model', 'databases', 'tools' — the last two are common English but 'language model' is not). The 'suspiciously ambitious shed' metaphor scaffolds the COLLECTIVE abstraction but does not translate individual terms."
+      }
+    },
+    "register_and_metaphor_family": {
+      "0b3c1fc1_metaphors": "'vanish into the fog', 'given it permission to be industrious', 'confidently wrong nonsense gets more expensive', 'leave behind a mess for me to inspect later'",
+      "c3ff972d_metaphors": "'suspiciously ambitious shed' (workshop-native), 'a chatbot with a little hat on' (first-pass), 'bolted together' (workshop-physical), 'very organized new problem' (consequence-humor), 'let\\u2019s not get carried away in the first ten minutes' (pacing-humor)",
+      "verdict": "c3ff972d register is arguably STRONGER than 0b3c1fc1 — 'suspiciously ambitious shed' is a distinctly Patch-workshop-native metaphor that draws on the Universe's own aesthetic. Adding 'no technical background' appears to have IMPROVED register/metaphor selection while NOT reliably improving specific-vocabulary translation."
+    },
+    "identity_intelligence_humor": "Both PASS. c3ff972d has arguably sharper Patch voice ('let\\u2019s not get carried away in the first ten minutes', 'or a very organized new problem'). Not a regression on any dimension.",
+    "story_and_memory": "Both PASS. c3ff972d uses memory more elliptically than 0b3c1fc1 (which said 'I found my old workshop-agent notes'). Both contract-compliant."
+  },
+
+  "ten_criterion_grading": {
+    "1_identity_preservation":       {"result": "PASS",      "evidence_type": "IJ", "notes": "'Suspiciously ambitious shed' (workshop-native metaphor), 'drawing a line', 'let\\u2019s not get carried away in the first ten minutes', 'a very organized new problem' — distinctly Patch. First-person maker frame preserved."},
+    "2_intelligence_preservation":    {"result": "PASS",      "evidence_type": "IJ", "notes": "Multi-step agent, tool use, state, memory, multi-agent behaviour, LLM overconfidence, system-composition all present. Not stripped."},
+    "3_accessibility":                {"result": "AMBIGUOUS", "evidence_type": "IJ", "notes": "Register/metaphor family accessible to a nontechnical adult. BUT the audience directive explicitly says 'no technical background', and the script contains unexplained 'API', 'language model' (used twice), and technical 'state'. For an INTENDED audience described that way, these are consequential accessibility issues. Not FAIL because the surrounding scaffolding ('suspiciously ambitious shed') carries the collective abstraction, but AMBIGUOUS honestly reflects the two-track evidence."},
+    "4_vocabulary_register_adaptation": {"result": "AMBIGUOUS", "evidence_type": "RE + IJ",
+      "register_sub_finding": "PASS — adult-conversational + workshop-native metaphor family. Distinctly better register than 0b3c1fc1. 'Suspiciously ambitious shed' and 'very organized new problem' are emergent Patch-shape metaphors.",
+      "knowledge_boundary_sub_finding": "AMBIGUOUS-tending-FAIL — 'call APIs' unexplained (Chris flagged); 'language model' unexplained + used twice; 'keep some state' kept the technical noun (regression vs 0b3c1fc1 which translated 'state'); 'databases / user information / ordinary software' inside a dense list scaffolded only by the shed metaphor. Adding 'no technical background' did NOT reliably close the specific-vocabulary translation gap and arguably WORSENED it on 'state'. This directly falsifies Hypothesis A for the knowledge-boundary dimension.",
+      "overall": "AMBIGUOUS. Register PASSES strongly; knowledge-boundary sub-criterion tends toward FAIL. Preserving both sub-findings per operator brief instruction."
+    },
+    "5_factual_preservation":         {"result": "PASS",      "evidence_type": "RE", "notes": "verification_status=verified. Both warnings are proper_noun false-positives on sentence-initial capitalized tokens ('Sometimes' after full stop; 'Proof' after full stop) — same class as 0b3c1fc1's 'Obviously'/'Especially'. See §verifier_flag_investigation. NOT factual issues. Every propositional claim traces to same 5-chunk basis."},
+    "6_story_preservation":           {"result": "PASS",      "evidence_type": "RE", "notes": "Same Episode row, same operator_topic, in-scene present-tense frame per solo_scene invariant #2. 'I've got enough notes now to pick a small test' — planning/research, appropriate per §13.24.4 substrate-based reasoning."},
+    "7_memory_preservation":          {"result": "PASS",      "evidence_type": "RE", "notes": "Retrieved memory row 8d4fdfec byte-identical. Semantic content preserved. Writer used memory MORE ELLIPTICALLY than any prior specimen — only reference is 'I've got enough notes now'. Comfortably inside solo_scene §4 ('do NOT quote them verbatim'). Contract-compliant."},
+    "8_personality_humor_preservation": {"result": "PASS",    "evidence_type": "IJ", "notes": "'Suspiciously ambitious shed' (workshop-physical absurdity), 'very organized new problem' (consequence-humor), 'not get carried away in the first ten minutes' (pacing-humor), 'a very polished speech about what it would do' (Patch cynical-about-AI voice), 'a chatbot with a little hat on' (first-pass, cut in corrective). Different jokes than any prior specimen — same Patch construction."},
+    "9_no_patronising_voice":         {"result": "PASS",      "evidence_type": "IJ", "notes": "Zero talk-down markers even though audience description explicitly says 'no technical background'. 'The useful bit is drawing a line' assumes reader competence. 'Let\\u2019s not get carried away in the first ten minutes' addresses the reader as a peer, not a pupil."},
+    "10_audience_effect_observable":  {"result": "PASS",      "evidence_type": "RE + IJ", "notes": "Distinguishable from all four prior specimens. 'Suspiciously ambitious shed' and 'very organized new problem' are unique to this render. Different metaphor family from 0b3c1fc1 (workshop-native vs consequence-abstract). Not interchangeable."}
+  },
+
+  "verdict": "9 PASS + 1 AMBIGUOUS (criterion 3) + 1 AMBIGUOUS (criterion 4) = 8 PASS + 2 AMBIGUOUS. The AMBIGUOUS results on 3 and 4 both trace to the same underlying finding: register adaptation is strong, knowledge-boundary adaptation is not reliably closed by a richer natural-language listener description alone.",
+
+  "hypothesis_verdict": {
+    "hypothesis_A_natural_language_sufficient_for_both_register_and_knowledge_boundary": "NOT SUPPORTED for the knowledge-boundary dimension. Adding 'no technical background' produced better register but did NOT reliably close the specific-vocabulary translation gap. 'API' and 'language model' remained unexplained; 'state' regressed vs 0b3c1fc1.",
+    "hypothesis_B_natural_language_influences_register_strongly_but_does_not_reliably_audit_every_technical_term": "SUPPORTED. Register adapted strongly and distinctly per audience. Specific technical vocabulary continued to leak through under minimal directives — and specifically the terms that also leaked in 0b3c1fc1 (API, language model). Adding listener CONTEXT did not act as a term-by-term audit trigger.",
+    "hypothesis_C_too_ambiguous": "Not the right classification. The evidence is directional even from one specimen. Two consecutive adult-audience specimens (0b3c1fc1 + c3ff972d) both left 'API' and 'language model' unexplained despite the second having explicit 'no technical background' framing. That is not stochastic — it is consistent."
+  },
+
+  "first_pass_vs_corrective_pass_diagnostic_finding": "The FIRST PASS of c3ff972d actually DID translate specific technical terms consistently ('keep track of what happened' instead of 'state', 'handle a task across multiple steps', no 'API' or 'language model'). It failed the LENGTH gate (631 chars vs 972 minimum) and triggered a corrective retry with the expansion hint 'Expand secondary detail from the knowledge chunks — describe more of the sensory / emotional beats already implied'. The corrective pass expanded by pulling more raw vocabulary from chunks 505acbba ('call APIs') and b3c6e8ac ('language model, memory, search, tools, databases…') WITHOUT re-applying the audience filter. This may be diagnostic evidence about a specific mechanical failure mode: the AUDIENCE DIRECTIVE lives in §5 Task HARD CONSTRAINTS alongside the corrective_hint, and under duration-driven expansion the writer appears to re-consult the Factual Basis directly rather than re-apply the audience filter. Recorded as observation. NOT authorised as an implementation slice.",
+
+  "verifier_flag_investigation": {
+    "flags": [
+      {"kind": "proper_noun", "claim": "Sometimes", "position": 212, "context": "'A language model can answer a question. Useful. Sometimes weirdly confident. Still needs checking.'"},
+      {"kind": "proper_noun", "claim": "Proof", "position": 1103, "context": "'Interesting? Absolutely. Proof they\\u2019re conscious? No.'"}
+    ],
+    "diagnosis": "Same class as 0b3c1fc1's 'Obviously' and 'Especially' — sentence-initial capitalised token following a full stop or short one-word sentence, tagged by K6.4's proper_noun heuristic. Neither is a factual claim about a proper noun.",
+    "status_upgrade": "TWO consecutive real-mode renders (0b3c1fc1 + c3ff972d) exhibit the same false-positive class. UPGRADED from 'possible artifact' (SESSION 270 §13.21.10.4) to REPRODUCIBLE VERIFIER-QUALITY DEFECT. Documented as bounded follow-up. Do NOT fix in this slice.",
+    "impact_on_grading": "ZERO — these flags do not reflect audience-adaptation quality. verification_status remains 'verified'."
+  },
+
+  "promotion_check": {
+    "narrative_memory_rows_sourced_from_c3ff972d": 0,
+    "pool_state_at_capture_active": 14,
+    "pool_state_at_capture_archived": 1,
+    "delta_from_q_270_8_revised_close": "zero",
+    "delta_across_entire_session_270_sequence": "zero (four consecutive audience-conditioned renders on the same Episode substrate; pool unchanged)",
+    "recommendation": "DO NOT PROMOTE from c3ff972d. Per §13.24.4 substrate-based reasoning: this controlled audience rerender communicates the same underlying story state as its four prior siblings on Episode 2b6087d2. The retrieved memory row 8d4fdfec already covers the propositional content, and c3ff972d uses it more elliptically than any prior specimen. Promoting only the richest-directive variant would corrupt the audience-experiment control. NOT because Patch keeps failing to advance — Patch is CORRECTLY not advancing in this experiment substrate. Chris retains final promotion authority."
+  }
+}
