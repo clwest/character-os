@@ -4531,10 +4531,10 @@ Post-cleanup proofs (all pass):
 
 ## §160. Slice 7 Trial 6 Phase 2 commit + push record
 
-- Commit SHA: `<pending — populated after commit>`
-- Push: `<pending>`
-- Local `main == origin/main`: `<verified at commit time>`
-- Working tree at slice close: `<verified clean>`
+- Commit SHA: `4e91246` — `docs(session-271): Slice 7 Trial 6 Phase 2 — Composition abafba24 forensics + verdict A STRONG REPLICATION`.
+- Push: `c5e041c..4e91246 main -> main` (successful).
+- Local `main == origin/main == 4e91246` verified.
+- Working tree at slice close: clean.
 - Files touched:
   - `docs/design/session_271_experiment_data/06_composition_abafba24_e_knowledge_1_trial6_evidence.json` (NEW evidence sidecar)
   - `docs/design/SESSION_271_CORRECTIVE_PASS_AUDIENCE_INVARIANCE_AUDIT.md` §150-§160 appended
