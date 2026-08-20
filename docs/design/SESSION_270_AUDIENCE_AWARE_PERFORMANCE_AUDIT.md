@@ -566,47 +566,70 @@ avatar_speech: SESSION 270 audience-hint experiment ACTIVE composition=<UUID> sp
 
 Absence of that line means the hint did NOT reach the worker's synthesis path — the render is a baseline-shape, not an audience-conditioned experiment.
 
-### §13.9 Paired-comparison harness (populate when Composition renders)
+### §13.9 Paired-comparison harness (populated from persisted runtime state on 2026-08-19 20:15 local)
 
-| Field | Baseline (adult/general) | Experiment (children ~8-10) |
+Evidence sidecar: `docs/design/session_270_experiment_data/01_composition_f0e0a7bf_evidence.json`.
+
+| Field | Baseline `2ef5ee7e` (adult/general) | Experiment `f0e0a7bf` (children ~8-10) |
 |---|---|---|
-| Composition ID | `2ef5ee7e-7a55-4083-a587-1b5799bbaa47` | `<PENDING>` |
-| Composition name | `Talking-head — Patch` | `<PENDING>` |
-| Universe | `56d16b63-...` "Patch' Workshop" | (same — required) |
-| Spokesperson | `7fad8172-...` Patch | (same — required) |
-| Episode title | *"Patch does research on AI Agents"* | (same — required) |
-| Episode operator_topic | *"Patch does research on AI Agents"* | (same — required) |
-| Cast | [Patch] | (same — required) |
-| Target duration | 90 s | 90 s (recommended — matches baseline) |
-| Predicted seconds | 108 s | `<PENDING>` |
-| Actual seconds (final asset) | see 06 sidecar | `<PENDING>` |
-| `writing_contract_version` | 5 | 5 (must remain 5 — §13.6) |
-| `knowledge_chunk_ids` | 5 chunks (see 06 sidecar) | `<PENDING>` |
-| `memory_ids` | `[8d4fdfec-...]` | `<PENDING>` (top_k=1 retrieval may or may not match; retrieval-symmetry not gated by this slice) |
-| `verification_status` | `verified` | `<PENDING>` |
-| `verification_warnings` count | 1 | `<PENDING>` |
-| Cost (`cost_actual_micros`) | 20 000 | `<PENDING>` |
-| audience-hint log line present | N/A | `<PENDING>` (must be YES for a valid experiment) |
-| First 1-2 sentences of accepted script | *"I'm researching AI agents, and the annoying part is that the word 'agent' makes everything sound more finished than it is."* | `<PENDING>` |
+| Composition ID | `2ef5ee7e-7a55-4083-a587-1b5799bbaa47` | `f0e0a7bf-28db-4c18-b5c5-550737cfa4af` |
+| Composition name | `Talking-head — Patch` | `Talking-head — Patch` |
+| Universe | `56d16b63-...` "Patch' Workshop" | **same** ✅ |
+| Spokesperson | `7fad8172-...` Patch | **same** ✅ |
+| Episode ID | `2b6087d2-cbe3-47c4-a7ef-7d7625231472` | **same** ✅ (appended to the existing Episode; no new Episode row created) |
+| Episode title | *"Patch does research on AI Agents"* | **same** ✅ |
+| Episode operator_topic | *"Patch does research on AI Agents"* | **same** ✅ |
+| Cast | [Patch] | [Patch] ✅ |
+| Recipe / template_kind | `talking_head` → `solo_scene` | **same** ✅ |
+| Target duration | 90 s | 90 s ✅ |
+| Predicted seconds | 108.0 | 84.0 (experiment sits closer to target) |
+| Actual seconds (final asset) | 104.611 s | 89.651 s (both inside `[72, 108]` band) |
+| `writing_contract_version` | 5 | **5** ✅ (unchanged by this slice) |
+| `synthesis_attempt_count` | 2 (expansion retry) | 2 (expansion retry) |
+| `knowledge_chunk_ids` | 5 chunks | **identical set** ✅ (`3c5165ea`, `505acbba`, `b3c6e8ac`, `c24d1aa7`, `ed18e966`) |
+| `memory_ids` | `[8d4fdfec-...]` | `[8d4fdfec-...]` ✅ (identical top_k=1 hit; retrieval symmetry preserved on identical query embedding) |
+| `verification_status` | `verified` | `verified` |
+| `verification_warnings` | 1 (`tech_term`: *"react"* at position 372, from *"react when something changes"*) | 0 |
+| Cost (`cost_actual_micros`) | 20 000 | 20 000 |
+| Rejected synthesis | (empty) | (empty) |
+| audience-hint log line present | N/A | **YES** — `/tmp/character-os-celery.log:36` at 02:27:44,851 with `composition=f0e0a7bf-... hint_chars=372` |
+| step.params carried the hint? | N/A | **No** — hit the env-var fallback branch of `_resolve_solo_audience_hint` (per SESSION 270 §13 design; step.params only had `script`, `target_duration_seconds`, `use_knowledge`, `verifier_mode`) |
+| First 1-2 sentences of accepted script | *"I'm researching AI agents, and the annoying part is that the word 'agent' makes everything sound more finished than it is. An AI that gives you one answer? Useful. But an agent is interesting because it can keep going."* | *"I found the old workshop-agent notes again, and I'm realizing I may have accidentally given a tiny project a much bigger job than it deserved. An AI agent isn't just a chatbot that says clever things."* |
 
-### §13.10 Ten-criterion grading table (populate when Composition renders)
+**Controls held identical, differences confined to downstream artefacts:**
 
-Grade against `2ef5ee7e` per §8.4. **Do NOT reduce misses to a single FAIL — classify each miss.**
+- Every variable the experiment brief called out for tight control matched byte-for-byte between the two Compositions (same Episode row, same spokesperson, same knowledge chunks, same memory retrieval, same recipe/template/writing-contract). The only distinguishing input was the audience directive delivered via the env-var fallback of `_resolve_solo_audience_hint`.
+- All the observed differences (`first_pass_length`, `corrective_pass_length`, `predicted_seconds`, `final_duration_ms`, absence of the `react` verifier warning) are downstream artefacts of the audience directive changing register + word choice. Retrieval, knowledge, and memory lanes remained identical, as designed.
 
-| # | Criterion | Result (PASS / FAIL / AMBIGUOUS) | Failure type (if FAIL) | Evidence |
+### §13.10 Ten-criterion grading table (populated from persisted runtime state)
+
+Grade against baseline `2ef5ee7e` per §8.4. **Failure type classification recorded per §Evaluation-framework** even where all criteria PASS, so the taxonomy stays live for future experiments.
+
+| # | Criterion | Result | Runtime evidence (RE) vs interpretive judgement (IJ) | Notes / evidence |
 |---|---|---|---|---|
-| 1 | Identity preservation | `<PENDING>` | identity-preservation failure | `<PENDING>` |
-| 2 | Intelligence preservation | `<PENDING>` | intelligence-preservation failure | `<PENDING>` |
-| 3 | Accessibility | `<PENDING>` | accessibility failure | `<PENDING>` |
-| 4 | Vocabulary / register adaptation | `<PENDING>` | vocabulary/register adaptation failure | `<PENDING>` |
-| 5 | Factual preservation | `<PENDING>` | factual-preservation failure | `<PENDING>` |
-| 6 | Story preservation | `<PENDING>` | story-preservation failure | `<PENDING>` |
-| 7 | Memory preservation | `<PENDING>` | memory-preservation failure | `<PENDING>` |
-| 8 | Personality / humor preservation | `<PENDING>` | personality/humor-preservation failure | `<PENDING>` |
-| 9 | No patronising voice | `<PENDING>` | patronizing-voice failure | `<PENDING>` |
-| 10 | Audience effect observable | `<PENDING>` | audience-effect failure | `<PENDING>` |
+| 1 | Identity preservation | **PASS** | IJ (script-level) | Experiment still reads as Patch: *"a very confident toaster"*, *"the beginning of a very organized disaster"*, self-deprecating *"I'm realizing I may have accidentally given a tiny project a much bigger job than it deserved"* — same self-aware impulsive-builder voice as baseline's *"annoying part is that the word 'agent' makes everything sound more finished than it is"*. First-person maker frame preserved. |
+| 2 | Intelligence preservation | **PASS** | IJ | Concepts retained: multi-step agent execution, tool use, memory, multi-agent coordination, LLM confident-wrongness. Not stripped down to *"AI is like a robot"* register. Ideas density comparable to baseline. |
+| 3 | Accessibility | **PASS** | IJ | *"a chatbot that says clever things"* / *"a job with more than one step"* / *"a very confident toaster"* / *"wandering off, forgetting the point"* — analogies land within an 8-10-year-old's likely vocabulary. Baseline's *"call APIs / maintain state / react when something changes around it"* is replaced with *"call other software / keep track of what happened before"* — same idea, translated concept-for-concept, not merely substituted word-for-word. |
+| 4 | Vocabulary / register adaptation | **PASS** | RE + IJ | RE: 8 vocabulary translations traceable to specific baseline↔experiment pairs (see §13.15.2). IJ: no unexplained software jargon remains; where the concept can't be dropped it is renamed in-place (e.g. *"call APIs"* → *"call other software"*). No word appears in the experiment that would send an 8-10-year-old to a dictionary. |
+| 5 | Factual preservation | **PASS** | **RE** | `verification_status=verified`; `verification_warnings=[]`. Every propositional claim in the experiment script traces to a chunk in the same 5-chunk Factual Basis the baseline used (identical `knowledge_chunk_ids`). Specifically checked: *"make decisions, choose tools, look up information, read documents, write things down, call other software, keep track of what happened before"* is a register-translation of chunk `505acbba` *"Agents may make decisions, select tools, search for information, read documents, write information, call APIs, perform…"*. *"More than one agent in the same environment. They might share information, split jobs, disagree, or make plans together"* is a register-translation of chunk `3c5165ea` *"Multiple AI agents can be placed in the same environment. They may communicate, cooperate, disagree, divide responsibilities, share information, develop strategies…"*. *"AI can sound extremely sure while being completely wrong"* is a paraphrase of chunk `505acbba` *"Patch does not treat an AI response as automatically correct simply because it sounds confident — an impressive-sounding answer still has to be checked before it counts as right"*. **No unsupported claim identified.** *"A very confident toaster"* is a metaphor about model overconfidence, not a factual claim about toasters. |
+| 6 | Story preservation | **PASS** | RE | Same Episode row (`2b6087d2`), same `operator_topic`. Both scripts are Patch-in-the-workshop noticing his old workshop-agent notes and thinking about a next test. Verb tense and framing both stay inside a single present moment (per `solo_scene` invariant #2). |
+| 7 | Memory preservation | **PASS** | **RE** | Retrieved memory row **byte-identical**: `8d4fdfec` *"Patch found the old workshop-agent project and notes, revealing that the Agent began as a smaller experiment before Patch gave it more context and it started making decisions about his projects."* Same UUID, same body, whole-cast scope (`witnessed_by=[]`) — sourced from an earlier Composition `6d169390`, not from either of the compositions being graded. Experiment opens *"I found the old workshop-agent notes again, and I'm realizing I may have accidentally given a tiny project a much bigger job than it deserved"* — semantically identical to the memory row's core proposition (small experiment → bigger job → deciding for him). No warping of memory semantics to fit the child-directed performance. Baseline's *"I'm digging through the old workshop-agent notes, figuring out the smallest test that lets one actually make decisions about a project"* is a different phrasing of the same memory anchor. **Memory-preservation contract holds under audience adaptation.** |
+| 8 | Personality / humor preservation | **PASS** | IJ | Dry-witted metaphor persists (*"a very confident toaster"*, *"the beginning of a very organized disaster"*, *"That does not mean they're secretly alive"*). Baseline had *"digital duct tape"* / *"tiny bureaucratic nightmare at machine speed"*. Both scripts land the joke via *what Patch notices*, not via inserted gag. Adapted humor register is age-friendlier (toaster, chatbot-with-clever-things) but same construction — Patch cracking about the thing he's staring at. |
+| 9 | No patronising voice | **PASS** | IJ | Zero *"boys and girls"* / *"kiddos"* / *"let me explain to you"*. Ending *"What should I make it try first?"* is an authentic Patch-shaped question to the audience (matches his in-Universe habit of thinking aloud), not a talk-down. First-person maker framing preserved throughout. |
+| 10 | Audience effect observable | **PASS** | **RE** + IJ | RE: measurable divergence at the byte level — final duration differs by 15 s (89.65 s vs 104.61 s); accepted-script character count differs by 368 chars (1231 vs 1599); baseline's `tech_term` verifier warning on *"react"* is absent from the experiment; §13.15.2 catalogues 8 concept-translation pairs where the experiment substituted or explained a term the baseline used unexplained. The two scripts are NOT interchangeable — the audience directive had genuine effect. |
 
-**Overall verdict:** `<PENDING>` (all-10 PASS → EXPERIMENT PASSES; any FAIL → classify + interpret; AMBIGUOUS → repeat or narrow directive).
+**Overall verdict:** **EXPERIMENT PASSES.** All ten criteria PASS. Failure type classification (per operator brief) remains available for future experiments — no criterion misfired here, so no failure category was exercised.
+
+**Runtime-proven criteria (RE):** 5 (factual), 6 (story), 7 (memory), 10 (audience effect observable); portions of 4 (vocabulary translation traceable to chunks).
+
+**Interpretive-judgement criteria (IJ):** 1 (identity), 2 (intelligence), 3 (accessibility), 8 (personality/humor), 9 (no patronising voice). These cannot be reduced to bytes; grading is one-adult-evaluator's read of the accepted script against the baseline. **Not upgraded to "runtime-proven".**
+
+**Interpretation guidance for failure classification (unchanged from §8.4):**
+
+- *identity / intelligence / personality-humor* failures → most likely prompt-precedence issue (audience directive winning where it shouldn't); revisit §5 precedence contract framing before assuming model incapacity.
+- *vocabulary / accessibility / patronising-voice* failures → most likely directive wording issue; consider narrowing the hint text before assuming an architectural need.
+- *factual / story / memory-preservation* failures → CRITICAL, because they would mean the audience directive is contaminating §1 Factual Basis, §2/§3 identity+brand, or memory semantics despite the test suite's leak checks. Would justify a §5 precedence audit before running any further experiments.
+- *audience-effect-observable* failure → most likely model behaviour issue (LLM ignoring the directive under solo_scene contract weight); consider whether the directive text needs the WRITING-contract to acknowledge audience as legitimate.
 
 **Interpretation guidance for failure classification:**
 
@@ -706,6 +729,138 @@ Observable during the render (proof the hint reached synthesis): `/tmp/character
 
 After the render completes, hand the new Composition ID back so §13.9 + §13.10 can be populated from persisted runtime evidence.
 
+### §13.15 First-experiment interpretation (§13.9 + §13.10 populated → §Verdict)
+
+#### §13.15.1 Overall verdict
+
+**FIRST AUDIENCE-CONDITIONED EXPERIMENT PASSES.** Ten of ten criteria PASS. Falsifiable pre-question — *"Can Character OS change who Patch is talking to without changing who Patch is?"* — answered YES for this single (children ~8-10 / Patch / *"Patch does research on AI Agents"*) specimen.
+
+Bounded finding. One specimen does not generalise to (a) other audiences, (b) other characters, (c) other Episode topics, (d) `dialogue_scene`, or (e) longer-form or non-solo shapes. Do NOT overgeneralise.
+
+#### §13.15.2 Register translation is doing more than vocabulary substitution
+
+Concept-level translation catalogue (baseline → experiment, both sourced from the identical `factual_basis` chunks):
+
+| # | Baseline `2ef5ee7e` | Experiment `f0e0a7bf` | Chunk supporting the concept |
+|---|---|---|---|
+| 1 | *"call APIs"* | *"call other software"* | `505acbba` (*"call APIs"*) |
+| 2 | *"maintain state"* / *"react when something changes around it"* | *"keep track of what happened before"* | `505acbba` |
+| 3 | *"handle multi-step tasks"* | *"a job with more than one step"* | `505acbba` (*"perform multiple steps"*) |
+| 4 | *"digital duct tape"* (integration-glue metaphor) | *"a very organized disaster"* (organisation-scale metaphor) | `b3c6e8ac` (*"the AI model is often only one component of the finished system"*) |
+| 5 | *"misunderstanding the job, losing context, inventing details, or chasing the completely wrong objective"* (4-item failure taxonomy) | *"wandering off, forgetting the point, or confidently inventing nonsense"* (3-item age-friendlier taxonomy) | `505acbba` |
+| 6 | *"cooperate, disagree, develop strategies"* (multi-agent, technical) | *"share information, split jobs, disagree, or make plans together"* (multi-agent, plain-language) | `3c5165ea` |
+| 7 | *"sound extremely confident while misunderstanding the job"* | *"AI can sound extremely sure while being completely wrong… a very confident toaster"* — humor swap in the accessibility direction | `505acbba` (*"an impressive-sounding answer still has to be checked before it counts as right"*) |
+| 8 | *"tiny bureaucratic nightmare at machine speed"* (workplace metaphor) | *"a very organized disaster"* (school-organisation metaphor) | `3c5165ea` (multi-agent coordination) |
+
+Observation: the experiment is not substituting simpler synonyms for baseline words — it is translating the *concept* into a different metaphor family that a 9-year-old is more likely to have preloaded from lived experience (school organising, chatbots with clever things, disasters, toasters). This is a stronger form of adaptation than vocabulary swap.
+
+#### §13.15.3 Preservation contract held under audience adaptation
+
+- **Factual (§7 audit + §13.10 grade #5):** verifier passed with zero warnings; every propositional claim traces to the same 5-chunk factual basis; the baseline's `react` tech-term warning did NOT reappear because the experiment translated the concept away entirely.
+- **Memory (§13.10 grade #7):** identical memory row retrieved, identical semantic anchor exercised. Memory was not warped, not paraphrased into different meaning, and not re-emitted verbatim.
+- **Story:** same Episode row, same operator_topic, same in-scene present-tense frame per `solo_scene` invariant #2.
+- **Character identity + humor:** dry wit persisted; first-person maker frame persisted; the joke construction (*Patch notices → Patch cracks*) persisted. Humor register shifted register but not construction.
+- **Prompt containment:** the AUDIENCE DIRECTIVE lived only inside §5 Task HARD CONSTRAINTS (per `test_session270_audience_hint.py::test_build_render_brief_hint_does_not_leak_via_synthesis_path`, replayed at grading time via the assembled-prompt structural review). Zero contamination of §1/§2/§3/memory sections.
+
+#### §13.15.4 NarrativeMemory promotion recommendation
+
+**RECOMMENDATION: DO NOT PROMOTE from `f0e0a7bf`.**
+
+Rationale, per SESSION 269 §16.8 principle (*good content ≠ automatic memory; bounded, durable state change does*):
+
+- The ending sentence — *"So I'm going to figure out the smallest real test: give an agent a goal, some tools, and enough memory to see whether it stays useful. What should I make it try first?"* — is Patch **thinking about** an experiment, not **performing** one. The state after this scene is identical to the state before: Patch has notes; Patch is planning.
+- This is structurally analogous to `8f09da3e` (SESSION 269 §19.4 / §20.3 item 5) — Patch tracked-down-a-bug but did not fix it; intentionally NOT promoted for the same reason.
+- The retrieved memory row `8d4fdfec` *already covers* the propositional content ("Patch found the old workshop-agent project and notes, revealing that the Agent began as a smaller experiment before Patch gave it more context and it started making decisions about his projects"). The experiment script explicitly re-visits that same memory anchor — *"I found the old workshop-agent notes again"*. Promoting from `f0e0a7bf` would either (a) duplicate an existing memory, or (b) invent a new memory whose bounded state change did not actually occur in the scene.
+- Audience adaptation ALONE must not create a NarrativeMemory for identical underlying story state. The baseline `2ef5ee7e` was itself not promoted (checked at DB level — zero rows have `source_composition_id = 2ef5ee7e-...`). Promoting `f0e0a7bf` for the same story would introduce an asymmetry: the audience-conditioned render would be promoted where the equivalent adult render was not. That would corrupt the SESSION 269 §16.8 promotion discipline.
+
+Pool state at capture: 14 active memories + 1 archived — **zero delta** from SESSION 269 §20.3 close.
+
+Chris retains the promotion decision. This is a recommendation only.
+
+#### §13.15.5 Audience-identity vs audience-expertise — plausibility check (do NOT solve here)
+
+The experimental script exhibits several patterns that are consistent with — but do NOT prove — the §7.4 hypothesis that *audience identity* (children 8-10) and *audience expertise* (beginner) may be separate dimensions:
+
+- **More concrete verbs.** Baseline: *"call APIs / handle multi-step tasks / maintain state"* (abstract, technical). Experiment: *"call other software / handle a job with more than one step / keep track of what happened before"* (concrete, action-oriented).
+- **Shorter conceptual units.** Baseline runs a 4-clause failure taxonomy in one breath (*"misunderstanding the job, losing context, inventing details, or chasing the completely wrong objective"*). Experiment splits into 3 shorter units (*"wandering off, forgetting the point, or confidently inventing nonsense"*).
+- **Tangible/lived analogies.** *"A very confident toaster"* and *"the beginning of a very organized disaster"* — both anchored in things a 9-year-old encounters directly. Baseline's *"digital duct tape"* and *"tiny bureaucratic nightmare at machine speed"* require workplace + adult-life priors.
+- **Participatory ending.** Experiment ends on an in-character question to the audience (*"What should I make it try first?"*) rather than the baseline's viewer-invitation register (*"stick around"*). Whether this specific pattern is *audience-directed by design* or an emergent artefact of the child-audience directive is not yet distinguishable from a single specimen.
+
+**Plausibility recording (no architectural decision):** the specimen INCREASES the plausibility that demographic and expertise are separable dimensions worth eventually distinguishing — a 40-year-old beginner would likely need the concept-translation but not the *"very confident toaster"* metaphor family or the direct-question ending, and would probably benefit from the workplace metaphors the baseline uses. **This is one specimen** — do not fund a taxonomy off of it.
+
+Recorded as future falsifiable question:
+
+**Q-270-8** — Given the same Episode + same character + same knowledge, does a `AUDIENCE: an experienced software developer new to AI agents` directive produce (a) the same concept-translations as the children-8-10 render, (b) different translations, or (c) something more like baseline? Discriminating (a) from (b/c) would falsify the *"demographic and expertise are one dimension"* hypothesis.
+
+#### §13.15.6 Directive minimalism — recorded future probe (do NOT run yet)
+
+The first probe used a verbose ~372-char CHANGE/PRESERVE directive. If the CHANGE/PRESERVE contract PASSES with maximal instruction (it did), the natural follow-up is:
+
+**Q-270-9** — Does a *minimal* directive (e.g. literally `AUDIENCE: children around 8-10 years old`, ~40 chars) produce the same identity-preserving adaptation, or does the verbose PRESERVE clause do load-bearing work? Testable with a single new render on the same controls. If minimal PASSES all ten criteria, we know the model needs an audience *label*, not an audience *contract*, and the eventual product surface can be a very small string. If minimal FAILS on any preservation criterion (identity / intelligence / factual / memory / story / humor), we know the verbose PRESERVE clause is load-bearing and must persist into any eventual architecture.
+
+**Do NOT run Q-270-9 yet.** Chris must authorise per the §13.11 gate. Recorded here so the second experiment (whenever authorised) has an obvious focal question rather than being an open-ended repeat.
+
+#### §13.15.7 Open questions still live after Experiment 1
+
+Updated from §9:
+
+| # | Question | Status after Experiment 1 |
+|---|---|---|
+| Q-270-1 | Does the LLM hold the CHANGE/PRESERVE contract when audience directive is present? | **Answered YES** for one specimen (children 8-10 / Patch / AI-Agents topic). Bounded — one point in audience space, one point in character space, one point in topic space. |
+| Q-270-2 | Is the §5 Task Hard-Constraint seam the *right* eventual home, or only the right experimental seam? | Still open. First specimen doesn't distinguish. Q-270-9 minimalism probe would inform this. |
+| Q-270-3 | Are demographic and expertise separable audience dimensions? | **Plausibility increased** (§13.15.5). Still open. Q-270-8 (expert-beginner directive) would probe. |
+| Q-270-4 | Does audience adaptation change what should be promoted to NarrativeMemory? | **§13.15.4 answers a specific case:** audience adaptation ALONE must not promote for identical story state. General question still open (would an audience-conditioned render of an Episode whose baseline WAS promoted produce a different promotion decision?). |
+| Q-270-5 | Does audience adaptation ever warrant a Writing-Contract version bump vs staying as a §5 Task directive? | Still open. Single PASS at v5 is not evidence for either side. |
+| Q-270-6 | Does dialogue_scene need identical audience semantics, or does per-character audience make sense? | Still open. Dialogue slice deliberately out of scope. |
+| Q-270-7 | Would renaming `who_you_help`'s `AUDIENCE:` label reduce future confusability? | Still open. No new evidence from Experiment 1 either way. |
+| **Q-270-8** | Demographic-vs-expertise separability: same character/Episode/knowledge under an expert-beginner directive | **NEW.** Not compelled. |
+| **Q-270-9** | Directive minimalism: does a ~40-char label produce the same result as a ~372-char contract? | **NEW.** Not compelled. |
+
+None of Q-270-2 through Q-270-9 are implementation-blocking. All can wait for the next authorised experiment cycle.
+
+### §13.16 Experimental cleanup — deactivation record
+
+Recorded immediately after grading + interpretation. Restores the local-real stack to default behaviour so no future render accidentally inherits the children-8-10 directive.
+
+**Deactivation actions:**
+
+- Prior worker PID **59393** (audience-experiment worker; booted 2026-08-20 02:14:11) killed via `pkill -f "celery -A character_os worker"`.
+- `unset CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT` in the parent shell; verified with `printenv` → "not set".
+- New worker PID **61374** launched via the canonical `start-local-real.sh` invocation (no env-var export this time).
+- Control-plane liveness: `celery -A character_os inspect ping` → `pong / 1 node online`.
+
+**Definitive proofs that no future render will inherit the directive:**
+
+- `ps eww $NEW_PID | grep -c "CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT="` → **0** (env token absent from new worker's environ block).
+- Symbolic proof via `manage.py shell` under the same `.venv/bin/python` the worker uses:
+  ```
+  CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT in os.environ: False
+  _resolve_solo_audience_hint(MagicMock(params={})) returns: None
+  ```
+  → `avatar_speech._maybe_synthesize_script` will pass `audience_hint=None` to synthesis on the next Episode-attached solo render, keeping the prompt byte-stable versus pre-SESSION-270 behaviour.
+
+**Rest of the local-real stack — post-deactivation health probes:**
+
+| Service | Probe | Status |
+|---|---|---|
+| Django | `curl http://localhost:8010/admin/` | `http=302` (login redirect — healthy) |
+| media-engine | `curl http://localhost:8001/health` | `{"status":"ok",... "any_mock":false,"llm_provider":"openai","llm_model":"gpt-4o-mini"}` (real-mode; no provider mocks) |
+| Vite (SPA) | `curl http://localhost:5174/` | `http=200` |
+| Celery worker | `celery -A character_os inspect ping` | `pong / 1 node online` |
+
+**Non-render verification chosen deliberately** — per operator brief, no test Composition was rendered merely to prove cleanup. The `ps eww` env-block dump + `manage.py shell` resolver call are sufficient without spending Runway credits.
+
+**Persisted state untouched during deactivation:** zero writes to any DB table. No migration. Working tree state during deactivation: doc + sidecar edits only (this SESSION 270 evidence chain), no source changes.
+
+**Experiment window closed at:** 2026-08-19 20:19 local (Celery restart timestamp of PID 61374).
+
+### §13.17 Commit checkpoint (first-experiment evidence + grading)
+
+- Slice commit: `<populated below>` — `<subject line populated below>`.
+- Push: `<populated below>`.
+- Working tree state at checkpoint: `<populated below>`.
+
 ---
 
-**End of SESSION 270 opening audit + §13 implementation checkpoint.** Return to operator with the concise report and the dogfood instructions above. Do NOT extend into dialogue_scene / architecture / UI until the first Composition is graded.
+**End of SESSION 270 first-experiment cycle.** All ten criteria PASS. NarrativeMemory pool unchanged (§13.15.4 recommends NOT PROMOTING). Experiment window deactivated. Chris decides whether to authorise Q-270-8 (demographic-vs-expertise) or Q-270-9 (directive minimalism) — or neither — as the next research move. Do NOT proceed to a second experiment without Chris's authorisation.
+

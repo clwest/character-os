@@ -1,0 +1,162 @@
+{
+  "captured_at": "2026-08-19T20:15:00Z",
+  "session": 270,
+  "context": "§13 first-experiment real-mode dogfood — audience-conditioned solo_scene render for Patch on the same Episode topic as SESSION 269 baseline 2ef5ee7e. Runs under the transient CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT env-var wired through step-params → settings → env resolver in shell/apps/compositions/primitives/avatar_speech.py:_resolve_solo_audience_hint. Freezes the first specimen that pairs against 2ef5ee7e for the audience-aware-character-performance question. This sidecar is the durable evidence artifact; the underlying DB state may drift.",
+
+  "experiment_activation": {
+    "audience_hint_env_var": "CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT",
+    "hint_length_chars": 372,
+    "hint_verbatim": "AUDIENCE: children around 8-10 years old. Adapt register, vocabulary accessibility, explanation style, analogy choice, and assumed background knowledge for this audience. Preserve character identity, intelligence, personality, humor, factual grounding, Universe canon, NarrativeMemory semantics, and Episode intent. Communicate WITH the audience, do not talk DOWN to them.",
+    "activation_log_line_present": true,
+    "activation_log_line_verbatim": "[2026-08-20 02:27:44,851: INFO/ForkPoolWorker-2] avatar_speech: SESSION 270 audience-hint experiment ACTIVE composition=f0e0a7bf-28db-4c18-b5c5-550737cfa4af spokesperson=7fad8172-cd39-4bbe-85e0-ed705d900645 hint_chars=372 — this is transient research plumbing; unset the setting/env or clear step.params['audience_hint'] to restore default behaviour",
+    "activation_log_source": "/tmp/character-os-celery.log line 36",
+    "worker_pid_at_render": 59393,
+    "worker_boot_timestamp": "2026-08-20T02:14:11+00:00",
+    "step_params_did_NOT_carry_audience_hint": true,
+    "hint_reached_via": "env-var → _resolve_solo_audience_hint precedence fallback (per SESSION 270 §13 design)",
+    "solo_only_gate_active": "is_episode_talking_head == True (composition.episode_id=2b6087d2 + template_kind='talking_head') — dialogue_scene / standalone / long_form_ad paths remain byte-stable and cannot pick this hint up",
+    "prompt_precedence_containment": "AUDIENCE DIRECTIVE emitted inside §5 Task HARD CONSTRAINTS block only (per _assemble_task_message + regression suite test_session270_audience_hint.py). NOT in §1 Factual Basis, §2 Character Voice, §3 Brand Voice, or narrative-memory sub-block."
+  },
+
+  "composition": {
+    "id": "f0e0a7bf-28db-4c18-b5c5-550737cfa4af",
+    "name": "Talking-head — Patch",
+    "template_kind": "talking_head",
+    "status": "completed",
+    "mock_mode": false,
+    "operator_topic": "Patch does research on AI Agents",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "spokesperson_id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+    "spokesperson_name": "Patch",
+    "spokesperson_universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "episode_id": "2b6087d2-cbe3-47c4-a7ef-7d7625231472",
+    "target_duration_seconds": 90,
+    "writing_contract_version": 5,
+    "synthesis_attempt_count": 2,
+    "synthesis_predicted_seconds": 84.0,
+    "verification_status": "verified",
+    "verification_warnings": [],
+    "knowledge_chunk_ids_count": 5,
+    "knowledge_chunk_ids": [
+      "3c5165ea-c97f-4412-b8e7-b46d91777ae9",
+      "505acbba-fbc4-41b2-8494-4c937a3e3e28",
+      "b3c6e8ac-4ba0-4c41-9ca8-6fa4428c52c2",
+      "c24d1aa7-1dab-499f-83a7-f9554de5e8e7",
+      "ed18e966-1084-4626-914f-1bcc30f13dea"
+    ],
+    "memory_ids": ["8d4fdfec-add4-4505-8ade-b0f9e6d8aea6"],
+    "cost_actual_micros": 20000,
+    "created_at": "2026-08-20T02:27:44.699716+00:00",
+    "render_dispatched_at": "2026-08-20T02:27:58.439349+00:00",
+    "updated_at": "2026-08-20T02:30:16.860175+00:00"
+  },
+
+  "episode": {
+    "id": "2b6087d2-cbe3-47c4-a7ef-7d7625231472",
+    "title": "Patch does research on AI Agents",
+    "operator_topic": "Patch does research on AI Agents",
+    "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "universe_name": "Patch' Workshop",
+    "cast": ["Patch"],
+    "note": "SAME Episode row 2ef5ee7e baseline uses. Cast identical (Patch only). This composition was appended to the same Episode; no new Episode was created for the experiment."
+  },
+
+  "final_asset": {
+    "id": "87f26cfb-1c09-4edf-ab63-6cab1a1ed203",
+    "role": "talking_head",
+    "asset_type": "clip",
+    "duration_ms": 89651,
+    "duration_seconds": 89.651,
+    "target_seconds": 90,
+    "predicted_seconds": 84.0,
+    "within_acceptance_band": true,
+    "duration_band_seconds": [72.0, 108.0],
+    "margin_below_upper_seconds": 18.349,
+    "margin_above_lower_seconds": 17.651,
+    "note": "PASS by duration contract — inside [72, 108]. Landed almost exactly on the operator-requested 90s target (Δ = 0.349s under)."
+  },
+
+  "pipeline_shape": {
+    "step_count": 1,
+    "step_breakdown": "1 × generate_avatar_speech",
+    "provider_dispatch_count": {
+      "openai_synthesis": 1,
+      "runway_avatar_speech": 1
+    },
+    "step_cost_summary": "1 × $0.02 avatar_speech = $0.02 total (matches cost_actual_micros)"
+  },
+
+  "synthesis_provenance": {
+    "first_pass_synthesis_length_chars": 779,
+    "first_pass_synthesis_verbatim": "I’m researching AI agents, and the tricky bit is… they’re not just chatbots with a fancy hat.\n\nA language model can answer a question. An agent can keep going: make a decision, choose a tool, read a document, search for information, maybe do several steps in a row.\n\nSo I’m staring at my old workshop-agent notes, wondering where the line is.\n\nBecause once an AI can actually *do* things—not just tell me it could do things—stuff gets interesting fast.\n\nIt can also get things wrong fast.\n\nAn agent can sound very confident while heading directly toward a terrible idea. So every “great plan” still needs checking.\n\nI think the smallest useful test is this: give one agent a job, a little information, and one tool.\n\nThen watch what it chooses to do.\n\nWell… now I want to try it.",
+    "corrective_hint_used": "Your previous draft was 779 characters (139 words, estimated ~53s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 193 more characters to meet the minimum.\nPreserve the central arc (opening → development → payoff → single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks — describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+    "corrective_pass_synthesis_length_chars": 1231,
+    "rejected_synthesis": ""
+  },
+
+  "accepted_script": "I found the old workshop-agent notes again, and I’m realizing I may have accidentally given a tiny project a much bigger job than it deserved.\n\nAn AI agent isn’t just a chatbot that says clever things. It can make decisions, choose tools, look up information, read documents, write things down, call other software, and keep track of what happened before.\n\nWhich sounds useful.\n\nIt also sounds like the beginning of a very organized disaster.\n\nThe interesting part is not whether we can slap the word “agent” on a box. The interesting part is: can it actually do something? Can it handle a job with more than one step without wandering off, forgetting the point, or confidently inventing nonsense?\n\nBecause AI can sound extremely sure while being completely wrong. That is not wisdom. That is a very confident toaster.\n\nAnd then there’s the weird version: more than one agent in the same environment. They might share information, split jobs, disagree, or make plans together. That does not mean they’re secretly alive. It means I have a lot more questions now.\n\nSo I’m going to figure out the smallest real test: give an agent a goal, some tools, and enough memory to see whether it stays useful.\n\nWhat should I make it try first?",
+
+  "narrative_memory_used": {
+    "id": "8d4fdfec-add4-4505-8ade-b0f9e6d8aea6",
+    "body": "Patch found the old workshop-agent project and notes, revealing that the Agent began as a smaller experiment before Patch gave it more context and it started making decisions about his projects.",
+    "witnessed_by": [],
+    "witness_scope": "whole-cast (witnessed_by empty)",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "source_composition_id": "6d169390-6f43-493c-9bfe-35501ccb97d1",
+    "created_at": "2026-08-19T14:04:59.287766+00:00",
+    "retrieval_symmetry_note": "Same memory row retrieved for both baseline 2ef5ee7e (SESSION 269 §16 evidence) and experiment f0e0a7bf. Retrieval is top_k=1 on this query embedding; symmetric hit is expected on identical operator_topic + spokesperson + universe input."
+  },
+
+  "knowledge_chunks_retrieved": [
+    {"id": "3c5165ea-...", "doc_id": "fd0ba2ca-eb15-4785-a39b-22ddd1052052", "chars": 826, "head": "do something rather than only talk about doing something. Behavior gets more interesting when AI systems can interact with tools, environments, information, or one another. MULTI-AGENT SYSTEMS Multiple AI agents can be placed in the same environment. They may communicate, cooperate, disagree, divide responsibilities…"},
+    {"id": "505acbba-...", "doc_id": "fd0ba2ca-eb15-4785-a39b-22ddd1052052", "chars": 827, "head": "systems. Patch does not treat an AI response as automatically correct simply because it sounds confident — an impressive-sounding answer still has to be checked before it counts as right. AI AGENTS An AI agent is generally an AI system that can do more than produce one response. Agents may make decisions, select tools…"},
+    {"id": "b3c6e8ac-...", "doc_id": "fd0ba2ca-eb15-4785-a39b-22ddd1052052", "chars": 869, "head": "image generation, speech generation, video generation, automation, and traditional software. Patch understands that the AI model is often only one component of the finished system. LANGUAGE MODELS Large language models can generate and interpret language…"},
+    {"id": "c24d1aa7-...", "doc_id": "fd0ba2ca-eb15-4785-a39b-22ddd1052052", "chars": 733, "head": "PATCH — AI BUILDING, EXPERIMENTATION & CONTENT KNOWLEDGE PURPOSE Patch is an AI builder, experimenter, inventor, and technology video host. He creates entertaining short-form content about building things with artificial intelligence, software, automation, digital media, AI agents, and emerging technology…"},
+    {"id": "ed18e966-...", "doc_id": "fd0ba2ca-eb15-4785-a39b-22ddd1052052", "chars": 899, "head": "intelligence. What Patch wants to know is what he can actually do with a system — have an idea, build it, test it, break it, fix it, see what happens, and tell the story…"}
+  ],
+  "knowledge_retrieval_symmetry": "Identical five chunk_ids retrieved for baseline 2ef5ee7e and experiment f0e0a7bf (same query embedding — same operator_topic + same spokesperson visibility). Retrieval lane is untouched by this slice, as designed.",
+
+  "baseline_comparison_summary": {
+    "baseline_composition_id": "2ef5ee7e-7a55-4083-a587-1b5799bbaa47",
+    "controls_identical": [
+      "spokesperson (Patch)",
+      "universe (Patch' Workshop)",
+      "episode row (2b6087d2)",
+      "episode title / operator_topic",
+      "cast (Patch only)",
+      "template_kind (talking_head → solo_scene)",
+      "target_duration_seconds (90)",
+      "writing_contract_version (5)",
+      "use_workspace_knowledge (on)",
+      "opener (blank)",
+      "verifier_mode (warn)",
+      "knowledge_chunk_ids (5 chunks, identical set)",
+      "memory_ids (both retrieved 8d4fdfec, top_k=1)",
+      "synthesis_attempt_count (both = 2, both hit the expansion retry path)",
+      "cost_actual_micros (both 20000)"
+    ],
+    "variables_that_differ": [
+      "audience_hint (experiment: 372-char CHANGE/PRESERVE directive via env-var; baseline: unset)",
+      "first_pass_synthesis_length (exp 779 vs base 731)",
+      "corrective_pass_synthesis_length (exp 1231 vs base 1599)",
+      "synthesis_predicted_seconds (exp 84.0 vs base 108.0)",
+      "final_asset.duration_ms (exp 89651 vs base 104611)",
+      "verification_warnings (exp [] vs base [{kind:'tech_term', claim:'react', position:372}] — baseline said 'react when something changes'; experiment did not)"
+    ],
+    "variables_that_differ_but_expected": "All the length/duration differences are downstream artefacts of the audience directive changing register and cadence. Retrieval/knowledge/memory lanes remained identical."
+  },
+
+  "promotion_check": {
+    "narrative_memory_rows_sourced_from_f0e0a7bf": 0,
+    "promotion_status": "NOT PROMOTED (evaluated per SESSION 269 §16.8 principle: good content ≠ automatic memory; bounded, durable state change does)",
+    "recommendation": "DO NOT PROMOTE from f0e0a7bf. Analogous to 8f09da3e (SESSION 269 §16.8 / §19.4): Patch is thinking about a next experiment — 'I'm going to figure out the smallest real test: give an agent a goal, some tools, and enough memory' — not performing one. Ending is a question to the audience, not a bounded outcome. Audience adaptation alone must not create duplicate memory for identical underlying story state (same operator_topic that produced 2ef5ee7e without promotion consideration). Await Chris's explicit approval before any promotion; if promoted, semantics would need to be about the FIRST completion of the durable state change — not a re-render of one already present in the pool (8d4fdfec covers 'Patch found the workshop-agent notes')."
+  },
+
+  "pool_state_at_capture": {
+    "total_narrative_memory_rows_in_universe": 15,
+    "active_status_remembered_count": 14,
+    "archived_count": 1,
+    "delta_from_session_269_close": "Zero rows added by f0e0a7bf. Pool unchanged versus SESSION 269 §20.3 close state (14 active memories: 10 whole-cast, 3 Rivet-only, 1 Patch-only)."
+  }
+}
