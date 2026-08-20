@@ -3770,10 +3770,10 @@ Post-cleanup proofs (all pass):
 
 ## §129. Slice 7 Phase 2 commit + push record
 
-- Phase 2 commit SHA: `<pending — populated after commit>`
-- Push: `<pending>`
-- Local `main == origin/main`: `<verified at commit time>`
-- Working tree at Phase 2 close: `<verified clean>`
+- Phase 2 commit SHA: `8d89ef5` — `docs(session-271): Slice 7 Phase 2 — E-KNOWLEDGE-1 Composition 774658ea forensics + verdict B`.
+- Push: `a6935f6..8d89ef5 main -> main` (successful).
+- Local `main == origin/main == 8d89ef5` verified.
+- Working tree at Phase 2 close: clean.
 - Files touched by Phase 2:
   - `docs/design/session_271_experiment_data/04_composition_774658ea_e_knowledge_1_trial4_evidence.json` (NEW evidence sidecar)
   - `docs/design/SESSION_271_CORRECTIVE_PASS_AUDIENCE_INVARIANCE_AUDIT.md` §114-§129 appended
