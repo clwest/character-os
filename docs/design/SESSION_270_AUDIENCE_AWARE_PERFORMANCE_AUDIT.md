@@ -623,9 +623,9 @@ The point of the CHANGE/PRESERVE contract is falsifiable evidence, not a compoun
 
 ### §13.12 Implementation checkpoint commit
 
-- §13 slice commit: `<populated below>` — `<subject line populated below>`.
-- Push: `<populated below>`.
-- Working tree state at checkpoint: `<populated below>`.
+- §13 slice commit: `39a4fc0` — `feat(session-270): solo-only audience_hint research plumbing + tests + §13 doc`.
+- Push: `ad5b6a2..39a4fc0 main -> main` (successful). Local `main == origin/main == 39a4fc0`.
+- Working tree state at checkpoint: clean.
 
 ---
 
