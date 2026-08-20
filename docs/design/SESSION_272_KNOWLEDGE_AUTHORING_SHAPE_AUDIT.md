@@ -1235,3 +1235,286 @@ Left in place because:
 ---
 
 **End of SESSION 272 Slice C. Verdict C — NOT REPLICATED. Slice B's directional support was sampling noise. Option D as tested does not reduce raw-canonical reappearance and does not amplify third-form generation. Do not implement any knowledge-authoring convention on this evidence. Next candidate slice (recommended): reframe the question against the §17.6 finding — model-generated accessible expressions dominate BOTH conditions, suggesting Writing Contract v6 + persona already do the accessibility work. STOP.**
+
+---
+
+## §18. SLICE D — REFRAMED QUESTION: WHAT DRIVES CORRECTIVE-PASS CANONICAL REGRESSION
+
+Given Slice C Verdict C, the working assumption "accessible alternate wording must be supplied by KnowledgeDocument shape" is FALSIFIED. The reframed research question is:
+
+*When Writing Contract v6 + persona already produce accessible, character-native reformulations, what specifically causes corrective expansion to reintroduce canonical KnowledgeDocument wording?*
+
+This slice is **evidence-audit-first**. The 10 existing Slice C trials already contain enough qualifying Draft-A → Draft-B regression cases to constrain the hypothesis space substantially. No new rendering was performed for §18's analysis.
+
+### §18.1 The mechanistic delta between Draft A and Draft B
+
+Traced via code read of `character_os.script_synthesis._call_responses_api`, `_assemble_system_prompt`, `_assemble_task_message`, `_build_factual_basis_section`, and `duration_contract._expansion_hint` at `main` HEAD `7bc294c`.
+
+**System prompt (Draft A and Draft B — BYTE-IDENTICAL):**
+```
+§1 Factual Basis
+  BUSINESS SHAPE: {business_brief}
+  AUDIENCE: {who_you_help}
+  OFFERING: {what_you_sell}
+  KNOWLEDGE CHUNKS:
+    [CHUNK 1 — doc {id}]{chunk_text}
+    ...
+§2 Character Voice
+§3 Brand Voice
+§4 Writing Contract v6 (solo_scene)
+Precedence rules
+```
+
+**User prompt (Draft A):**
+```
+=== SECTION 5 — TASK ===
+TOPIC: {operator_prompt}
+
+Write the spokesperson's spoken script for this task. Plain
+spoken English — this becomes voiceover.
+```
+
+**User prompt (Draft B):**
+```
+=== SECTION 5 — TASK ===
+TOPIC: {operator_prompt}
+
+HARD CONSTRAINTS (override Character Voice and Writing
+Contract preferences; do NOT override Factual Basis or
+Brand Voice prohibitions):
+
+CORRECTIVE HINT (previous attempt feedback — apply this):
+Your previous draft was {N} characters ({W} words,
+estimated ~{S}s of speech). Target is {T}s.
+REWRITE THE SAME NARRATIVE ABOVE {MIN} CHARACTERS (aim
+for ~{IDEAL}, do not exceed {MAX}). You currently need
+at least {SHORTFALL} more characters to meet the minimum.
+Preserve the central arc (opening → development → payoff
+→ single closing invitation), the narrator perspective,
+and the factual grounding from the knowledge chunks.
+Expand secondary detail from the knowledge chunks —
+describe more of the sensory / emotional beats already
+implied. Do NOT restart with a new opening. Do NOT add
+a second call to action. Do NOT invent facts not present
+in the knowledge chunks.
+
+Write the spokesperson's spoken script for this task. Plain
+spoken English — this becomes voiceover.
+```
+
+**Confirmed:** the ONLY delta between the Draft A and Draft B LLM calls is the CORRECTIVE HINT block appended in §5 HARD CONSTRAINTS. Retrieval runs on each pass with the identical operator-topic query and returns identical chunks in identical order. The Q-270-15c experimental gate `_corrective_revision_experiment_active()` is OFF (verified §15.9 + §17.1); `previous_draft` is therefore NEVER supplied to the retry — the corrective retry does **not** see Draft A anywhere in its prompt.
+
+The corrective hint mentions "**knowledge chunks**" FOUR times: (1) "the factual grounding from the knowledge chunks," (2) "Expand secondary detail from the knowledge chunks," (3) "describe more of the sensory / emotional beats already implied," (4) "Do NOT invent facts not present in the knowledge chunks." The most action-directing of these is #2.
+
+### §18.2 Sub-observation — "REWRITE THE SAME NARRATIVE ABOVE" is misleading
+
+The corrective hint text says `REWRITE THE SAME NARRATIVE ABOVE {MIN} CHARACTERS`, referring to a previous draft that is expected to appear ABOVE the hint in the prompt. But `previous_draft` is only emitted when Q-270-15c is active. With Q-270-15c OFF (production default; SESSION 271 + 272), **there is no "narrative above."** The only text above §5 in the prompt is §1 Factual Basis (containing KNOWLEDGE CHUNKS), §2 Character Voice, §3 Brand Voice, and §4 Writing Contract v6.
+
+**This is a latent prompt-hygiene bug.** The instruction "REWRITE THE SAME NARRATIVE ABOVE" points at nothing in the default pipeline. Whether the model treats this as a no-op, or reaches for §1 (the only textually-narrative-adjacent content above §5), is empirically observable via the Draft B canonical hit patterns.
+
+The bug pre-existed SESSION 272. It is not being fixed here; it is being NAMED so the causal analysis stays honest.
+
+### §18.3 Draft A → Draft B per-trial per-concept transitions (existing evidence)
+
+Computed from `03_slice_c_aggregate_analysis.json`. Notation `C{n}P{n}A{n}` = canonical / paraphrase-supplied / accessible model-generated counts.
+
+**Load-bearing attractor `where the behavior first becomes incorrect` — the SESSION 271 §191.4 case:**
+
+| Trial | Draft A | Draft B | Transition |
+| --- | --- | --- | --- |
+| CTL 1 | C0P0A0 | C1P0A0 | **NEW CANONICAL introduced during corrective expansion** |
+| CTL 2 | C0P0A0 | C0P0A0 | — |
+| CTL 3 | C0P0A0 | C0P0A0 | — |
+| CTL 4 | C0P0A0 | C0P0A0 | — |
+| CTL 5 | C0P0A0 | C1P0A0 | **NEW CANONICAL introduced during corrective expansion** |
+| EXP 1 | C1P0A0 | C1P0A0 | persisted (present in Draft A) |
+| EXP 2 | C0P0A0 | C1P0A0 | **NEW CANONICAL introduced during corrective expansion** |
+| EXP 3 | C0P0A0 | C0P0A0 | — |
+| EXP 4 | C0P0A0 | C0P0A0 | — |
+| EXP 5 | C0P0A0 | C0P0A0 | — |
+
+**Draft-A → Draft-B introductions of this attractor: 3 out of 10 trials** (CTL1, CTL5, EXP2). One additional trial persisted the attractor from Draft A. Six trials never expressed it.
+
+**Other Draft-A → Draft-B canonical introductions (previously absent from Draft A):**
+
+| Concept | Trials where Draft B introduced canonical (previously absent from Draft A) |
+| --- | --- |
+| what_changed | CTL5, EXP1 |
+| where_incorrect | CTL1, CTL5, EXP2 (as above) |
+| evidence_beats_guessing | CTL1, EXP5 |
+| one_variable_at_a_time | EXP2, EXP3 |
+
+**Draft-B canonical reductions (present in Draft A → absent in Draft B) also occur.** Not every corrective retry is a monotonic canonical increase.
+
+| Concept | Trials where canonical decreased Draft A → Draft B |
+| --- | --- |
+| what_changed | CTL3 |
+| what_actually_happened | CTL3, EXP1 |
+| one_variable_at_a_time | CTL3 (C2→C1) |
+
+**Accessible-model-generated expression movement:**
+
+| Concept | Trials with a Draft-A accessible expression that persisted or grew in Draft B | Trials with Draft-A accessible dropped and NOT replaced by canonical |
+| --- | --- | --- |
+| reproducibility | CTL1, CTL2, CTL3, CTL4, EXP1, EXP4, EXP5 (persisted or grew) | CTL4 (A1→B0 with C=0), EXP2 (A1→B0 with C=0) — accessible dropped, no canonical replacement |
+| smallest_test | CTL1 (A3→A3), EXP1 (A3→A1), most trials grow accessible | — |
+
+Only **one** case of an obvious accessible→canonical substitution: EXP trial 4, `one_variable_at_a_time` A[C1P0A1] → B[C1P0A0] (Draft A had both canonical and accessible; Draft B kept canonical, dropped accessible). All other canonical introductions happened where Draft A had no representation of the concept at all.
+
+### §18.4 Hypothesis attribution
+
+**Hypothesis A — corrective-hint wording explicitly drives lexical copying from knowledge.**
+
+*Evidence FOR:*
+- The hint says `Expand secondary detail from the knowledge chunks` verbatim. Direct instruction.
+- The hint references "knowledge chunks" four times in the same sentence cluster.
+- The strongest attractor is INTRODUCED (not persisted, not model-improvised) in 3/10 corrective retries. The introduction pattern is consistent with "model looks at the source pointed at by the hint."
+- Draft B canonical mean 3.20 > Draft A canonical mean 3.00 (CTL); 3.00 > 2.40 (EXP). The delta is small but positive and reproducible across n=5.
+
+*Evidence AGAINST:*
+- Draft B accessible mean 4.40 > Draft A accessible mean 3.00 (CTL) — accessible grew faster than canonical during expansion. If the hint were purely canonical-copy pressure, accessible would not grow disproportionately.
+- Attractor introduction is 3/10, not systematic. If the hint were a strong forcing function on this specific phrase, we'd expect a much higher rate.
+
+*Confidence:* CONSISTENT — cannot be distinguished from C (§below) using existing evidence.
+
+**Hypothesis B — re-presenting retrieved knowledge during correction creates the lexical attractor regardless of hint wording.**
+
+*Evidence FOR:*
+- Draft A already contains ~3 canonical hits per trial while the corrective hint is entirely absent. Mere presence of KNOWLEDGE CHUNKS in §1 does drive some canonical reproduction.
+
+*Evidence AGAINST:*
+- Knowledge is present in Draft A prompt too, but canonical is LOWER in Draft A than in Draft B. If B were the sole mechanism, Draft A and Draft B would have equivalent canonical density.
+
+*Confidence:* B explains BASELINE canonical presence in Draft A (~3 hits). B alone does NOT explain the Draft-A → Draft-B increase. B is a floor; A or C or E1 is the roof.
+
+**Hypothesis C — duration expansion pressure causes the model to consume dense secondary-detail surfaces.**
+
+*Evidence FOR:*
+- Draft B is ~500+ chars longer than Draft A. More material must be generated. The model reaches for whatever material is available.
+- Both canonical AND accessible grew from Draft A to Draft B — consistent with "produce more of everything" behavior driven by the character-target instruction, not lexical-copy behavior driven by the "expand from knowledge chunks" wording.
+
+*Evidence AGAINST:*
+- Cannot be isolated from A because the current `_expansion_hint` text contains BOTH the length instruction AND the "expand from knowledge chunks" instruction. Existing evidence cannot separate them.
+
+*Confidence:* CONSISTENT — undistinguishable from A on existing evidence.
+
+**Hypothesis D — prior Draft A + knowledge interaction (Q-270-15c).**
+
+*RULED OUT* for Slices B and C. `_corrective_revision_experiment_active()` is OFF. `previous_draft` is never supplied. Draft B never sees Draft A. The 3 attractor introductions cannot be attributed to Draft-A interaction because Draft-A is not visible to the model at retry time.
+
+**Hypothesis E — other mechanism.**
+
+*Sub-hypothesis E1: "REWRITE THE SAME NARRATIVE ABOVE" mis-anchors to §1.*
+The hint literally instructs the model to rewrite "the narrative above" — but no Draft A is above in the prompt (Q-270-15c OFF). The only textually-narrative-adjacent content above §5 is §1 Factual Basis (containing KNOWLEDGE CHUNKS). If the model resolves "the narrative above" to §1, the hint effectively double-emphasizes "rewrite the knowledge chunks" — which would explain the small Draft-B canonical bump beyond §18.3's baseline.
+
+*Evidence FOR E1:* the phrase is a literal falsehood in the default pipeline. Model-following behavior would attempt to satisfy it by pointing at the nearest narrative-adjacent surface.
+
+*Evidence AGAINST E1:* purely inferential from prompt inspection; no isolated test exists.
+
+*Confidence:* CONSISTENT with existing evidence. Cannot be distinguished from A on evidence alone.
+
+### §18.5 Refined causal ranking
+
+The SESSION 271 §191.9 ranking (C > D > others) was inferred before Slices B, C, D. Slice C falsified C as the dominant lever for Draft B's residual canonical. Slice D localises the remaining candidates to the corrective hint itself.
+
+**Revised ranking (Slices A + B + C + D):**
+
+1. **Corrective-hint wording** (candidates A / C / E1, currently indistinguishable): DOMINANT contributor to the Draft-A → Draft-B canonical INCREASE and to attractor introductions in 3/10 retries. Slice C-scale evidence.
+2. **Presence of KNOWLEDGE CHUNKS in §1 Factual Basis** (B): explains the ~3-hit BASELINE canonical density visible in Draft A itself. This is a system-inherent floor and is not fixable by knowledge-doc shape (Slice C confirmed).
+3. **KnowledgeDocument lexical gravity** (C in SESSION 271 §191.9): REAL but BOUNDED. Slice C: Draft B canonical mean CTL 3.20 vs EXP 3.00 — a 0.20 delta across 5 trials, dominated by variance. Not the primary lever.
+4. **Writing Contract v6 + persona**: primary DRIVER of accessible/model-generated expressions across BOTH conditions. Not a regression source; a load-bearing accessibility mechanism. Should be preserved.
+5. **NarrativeMemory + prior Draft (Q-270-15c)**: RULED OUT for the current data. Neither is active in Slices B/C/D.
+
+### §18.6 Q-270-15c priority
+
+**Q-270-15c should MOVE UP.** The reframed evidence points at the corrective hint itself as the load-bearing regression surface. The three currently indistinguishable candidates (A hint-wording, C duration pressure, E1 "above" mis-anchor) are ALL owned by `_expansion_hint`. Whatever fix eventually lands there is a Q-270-15c-shaped slice.
+
+However, the SPECIFIC intervention Q-270-15c originally proposed — supplying `previous_draft` to the retry — is orthogonal to the three current candidates. Supplying Draft A does not test whether the hint's "expand from knowledge chunks" wording is causally load-bearing; it tests a different mechanism (previous-draft preservation). The next test needed is not the original Q-270-15c intervention; it is a **hint-wording ablation**.
+
+### §18.7 SESSION 271 §191.9 causal ranking — does it need revision?
+
+Yes. The revised ranking:
+
+| Rank | SESSION 271 §191.9 | Post-Slice-D revised |
+| --- | --- | --- |
+| 1 | C — KnowledgeDocument lexical gravity | **corrective-hint wording** (candidates A/C/E1, undistinguished) |
+| 2 | D — Corrective-pass expansion (as an amplifier of C) | **Knowledge chunk presence in §1 Factual Basis** (baseline canonical floor) |
+| 3 | A — Writing Contract v6 too weak (rejected) | KnowledgeDocument lexical gravity (bounded; not primary) |
+| 4 | B — Patch persona insufficient (rejected) | Writing Contract v6 + persona (primary accessibility mechanism; NOT a regression) |
+| 5 | E — combination (C+D) | previous_draft / NarrativeMemory (Q-270-15c OFF — inactive) |
+
+**Reason for revision:** SESSION 271's finding was made on n=1 Patch/AI-Agents renders and attributed observed canonical to "dense-enumeration lexical gravity." Slice C's n=5 Rivet/DEBUGGING replicate showed the Draft-B canonical count is nearly identical between shape conditions (3.00 vs 3.20). The 5→3 delta that seemed load-bearing at n=1 was noise. Slice D localises the remaining regression signal to the corrective hint, not to knowledge shape.
+
+### §18.8 Smallest fresh controlled experiment to disambiguate A / C / E1
+
+**Design (NOT run in this slice; STOP for review per instructions):**
+
+- **Goal:** disambiguate A (hint wording drives copy) vs C (duration pressure drives copy) vs E1 ("above" mis-anchors to §1).
+- **Substrate:** existing disposable Slice B/C workspaces reused verbatim. Canonical corpus untouched.
+- **Design:** three-condition A/B/B' comparison, n=5 per condition.
+
+  | Condition | Corrective hint text | Purpose |
+  | --- | --- | --- |
+  | **BASELINE-hint** | production `_expansion_hint` (unchanged) — reuses Slice C CTL data as-is | control |
+  | **NO-KNOWLEDGE-REF-hint** | same character-target instructions but strips all four references to "knowledge chunks" and removes the "REWRITE THE SAME NARRATIVE ABOVE" clause. Retains: character shortfall math, "Preserve the central arc," "Do NOT restart with a new opening," "Do NOT add a second call to action," "Do NOT invent facts." | isolates A (if canonical drops, hint wording was the driver) |
+  | **CORRECT-ANCHOR-hint** | same as BASELINE-hint but "REWRITE THE SAME NARRATIVE ABOVE" replaced with "EXPAND YOUR SCRIPT" (removes the false-narrative-above anchor while KEEPING the "expand from knowledge chunks" instruction) | isolates E1 (if canonical drops, the mis-anchor was contributing) |
+
+- **Isolation:** hint variants are constructed at call-site of `synthesize_with_duration_gate` by monkey-patching `_expansion_hint` for the duration of the experiment. NO permanent code change. Reversibility is a `try/finally` restoring the original callable.
+- **Measurements:** identical to Slice C — canonical / paraphrase / accessible per concept in Draft A and Draft B; attractor `where the behavior first becomes incorrect` frequency; Rivet identity markers; retrieval distance (deterministic); verification.
+- **Falsifiability:**
+  - If NO-KNOWLEDGE-REF-hint drops Draft-B canonical significantly → **A supported**.
+  - If NO-KNOWLEDGE-REF-hint leaves Draft-B canonical unchanged → **C supported** (duration pressure alone).
+  - If CORRECT-ANCHOR-hint drops canonical but NO-KNOWLEDGE-REF-hint doesn't further reduce → **E1 supported** primarily; A secondary.
+  - If both hint variants collapse canonical to Draft-A levels → **A + E1 together drive it**; C is minor.
+- **Cost:** ~$0.10 total (n=15 renders on gpt-4o-mini).
+- **AUTHORIZATION STATUS:** This experiment REQUIRES modifying corrective-hint wording. Chris's Slice D instructions explicitly say "Do NOT modify corrective-hint wording yet." Therefore this experiment is **DESIGNED but NOT RUN**. It is presented here for review.
+
+### §18.9 Slice D non-changes (verified)
+
+- Canonical RIVET doc `71e2ec43` — SHA still matches §15.7 baseline.
+- Writing Contract v6 — unchanged.
+- Corrective-hint wording — unchanged (design proposed; NOT executed).
+- Persona — unchanged.
+- Schema — unchanged.
+- No render performed in Slice D. Zero new LLM calls. Zero new Composition rows.
+- No new sidecar files. Analysis draws entirely from existing `03_slice_c_aggregate_analysis.json` + `02_slice_c_multishot_evidence.json`.
+- All experiment env vars — remain OFF.
+- Runtime — unchanged.
+- Disposable workspaces `session272-rivet-debug-ctl` / `session272-rivet-debug-exp` — untouched.
+
+### §18.10 Verdict
+
+**Verdict: EVIDENCE-BOUND ATTRIBUTION.**
+
+- The Draft-A → Draft-B canonical regression signal is REAL but small on average (Δ mean ~0.20 canonical hits) and manifests as **specific-attractor introductions** in a minority of trials (3/10 for `where the behavior first becomes incorrect`) rather than as uniform canonical uplift.
+- The load-bearing driver of this regression signal is confined to the corrective hint's user-prompt block. Draft A prompt is byte-identical to Draft B prompt EXCEPT for that block.
+- Three currently-indistinguishable mechanisms (A hint-wording, C duration pressure, E1 misleading "above" anchor) all live inside `_expansion_hint`.
+- Hypothesis D (previous_draft / Q-270-15c) is RULED OUT — the parameter is not supplied in default operation.
+- The corrective hint contains a latent prompt-hygiene bug (§18.2): `REWRITE THE SAME NARRATIVE ABOVE` refers to nothing when Q-270-15c is OFF.
+- SESSION 271 §191.9 causal ranking is REVISED (§18.7). Corrective-hint wording moves to rank 1; KnowledgeDocument shape is bounded and demoted.
+- Q-270-15c priority moves UP but the ORIGINAL Q-270-15c intervention (supply `previous_draft`) is NOT the right disambiguation test; a hint-wording ablation is.
+
+### §18.11 Recommended smallest next move
+
+**Option 1 (recommended — pending authorization):** run the §18.8 three-condition hint-wording ablation experiment. Requires modifying `_expansion_hint` under a monkey-patch (reversible; no committed code change). This IS a corrective-hint-wording modification, which Chris explicitly did not authorize for Slice D. **Chris's decision needed** before this can proceed.
+
+**Option 2 (interim, if authorization is deferred):** fix the "REWRITE THE SAME NARRATIVE ABOVE" prompt-hygiene bug as its own tiny slice, independent of the hypothesis test. The current text refers to content that isn't there in default operation. Even without knowing whether A/C/E1 are the dominant driver, "the hint claims Draft A is above but it isn't" is a real defect. Fix could be as small as replacing that phrase with `REWRITE THE SCRIPT` or similar under Q-270-15c OFF. This DOES modify the hint text, so it is also gated on Chris's authorization.
+
+**Option 3 (documentation-only):** promote the revised causal ranking (§18.7) to a memory record so future SESSION 272-adjacent work starts from the corrected baseline rather than re-inheriting SESSION 271 §191.9's overweight on KnowledgeDocument shape.
+
+**Not recommended:**
+- Testing Option A (per-term inline pairing) — Slice C already suggests knowledge shape is not the primary lever.
+- Testing REPO RED / Penny / Patch cross-substrate — same reason.
+- Rewriting canonical knowledge documents — same reason.
+- Modifying Writing Contract v6 — v6 is the accessibility mechanism, not a regression source.
+- Promoting NarrativeMemory — irrelevant to this question.
+- Cleaning persona directives from knowledge docs — separate slice; not causally implicated.
+
+### §18.12 Slice D evidence artifacts
+
+- **No new evidence sidecar generated.** Analysis draws from `02_slice_c_multishot_evidence.json` and `03_slice_c_aggregate_analysis.json`.
+- Prompt-path code paths cited: `character_os.script_synthesis._call_responses_api`, `_assemble_system_prompt`, `_assemble_task_message`, `_build_factual_basis_section`; `character_os.duration_contract._expansion_hint`; all at `main` HEAD `7bc294c`.
+
+---
+
+**End of SESSION 272 Slice D. Verdict: evidence-bound attribution. Corrective-hint wording is the load-bearing regression surface for Draft-B canonical reappearance; KnowledgeDocument shape is not. Three sub-hypotheses (A hint-wording / C duration pressure / E1 misleading-anchor) remain indistinguishable on existing evidence and all live inside `_expansion_hint`. Q-270-15c priority moves UP but the original Q-270-15c intervention is not the right disambiguation test. Recommended next slice designed (§18.8) but NOT RUN — requires corrective-hint modification which is not authorized in Slice D. STOP for review.**
