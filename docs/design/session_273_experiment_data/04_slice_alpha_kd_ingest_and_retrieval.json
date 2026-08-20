@@ -1,0 +1,126 @@
+{
+  "generated_at": "2026-08-20T22:55:46.995932+00:00",
+  "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+  "universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+  "ruby_id": "5875a7b4-cf39-433d-89b3-4e34a89a5208",
+  "kd_source_path": "/Users/donkeyking/Donkey_Betz/character-os/docs/design/session_273_experiment_data/03_slice_alpha_proposed_knowledge_document.md",
+  "kd_split": {
+    "title": "Fox & Flour Bakery \u2014 Working Knowledge",
+    "review_blockquote_stripped": "> **Status:** PROPOSED \u2014 NOT INGESTED. Awaiting Chris approval before\n> upload through `/workspace/knowledge` in the Fox & Flour Bakery\n> Universe (`1a0af807-dd6a-47cd-bfaa-3d088f1c105f`).\n>\n> Authored per SESSION 273 \u00a711.10: natural, plausible content a\n> neighborhood bakery owner would actually provide. NOT\n> experimentally shaped around SESSION 272 findings \u2014 no paired\n> canonical/accessible paraphrase, no deliberate density manipulation,\n> no attempt to avoid natural repeated terminology.",
+    "body_char_count": 6599,
+    "body_first_120_chars": "## Breads & sourdough\n\nSourdough is the foundation of Fox & Flour. Ruby maintains two active\nstarters that live in the w",
+    "body_last_120_chars": "hat ceiling\njust to grow.\n\nShe wants customers to leave with something they'll remember eating.\nThat's the whole point.\n"
+  },
+  "kd_created": {
+    "id": "74e7f18f-5b77-459c-bc36-b4ab617d8aca",
+    "title": "Fox & Flour Bakery \u2014 Working Knowledge",
+    "document_type": "markdown",
+    "ingested_via": "paste",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+    "status_immediate": "processed",
+    "deduped": true,
+    "content_hash": "7a0e4bd2551fe9787b7678abf080bcdfe0217399fa9dd2ca9ee161582e6c71df",
+    "created_at": "2026-08-20T22:54:40.502126+00:00",
+    "is_active": true,
+    "chunks_immediate": 10
+  },
+  "kd_polling": {
+    "final_status": "processed",
+    "final_chunks_total": 10,
+    "final_chunks_embedded": 10,
+    "elapsed_s_to_final": 0.0,
+    "history": [
+      {
+        "elapsed_s": 0.0,
+        "status": "processed",
+        "chunks_total": 10,
+        "chunks_embedded": 10
+      }
+    ]
+  },
+  "ruby_state": {
+    "id": "5875a7b4-cf39-433d-89b3-4e34a89a5208",
+    "universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+    "updated_at": "2026-08-20T22:44:22.069832+00:00"
+  },
+  "retrieval_probe": {
+    "query": "how far in advance do we need to book a custom celebration cake",
+    "top_k": 5,
+    "chunk_count": 5,
+    "chunks": [
+      {
+        "chunk_id": "cc0c4259-c36c-4ae1-b400-2a33b29e250f",
+        "document_id": "74e7f18f-5b77-459c-bc36-b4ab617d8aca",
+        "document_title": "Fox & Flour Bakery \u2014 Working Knowledge",
+        "document_universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+        "distance": 0.4142610875891165,
+        "chunk_preview": "lead time is a\nminimum of five days for standard tiered cakes and ten days for\nsculpted or heavily decorated cakes; peak seasons (spring weddings,\nDecember holidays) push those windows out further. Available base cake st"
+      },
+      {
+        "chunk_id": "5f169561-aebf-4d13-a5d6-86b26a743182",
+        "document_id": "74e7f18f-5b77-459c-bc36-b4ab617d8aca",
+        "document_title": "Fox & Flour Bakery \u2014 Working Knowledge",
+        "document_universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+        "distance": 0.45062915256837077,
+        "chunk_preview": "in\n  January.\n\nPreorder holidays (Thanksgiving, Christmas Eve, Easter) have a\npublished cutoff two weeks ahead and no walk-in same-day availability\nfor the specialty items.\n\n## Customer experience The bakery is a small s"
+      },
+      {
+        "chunk_id": "18f9eb09-fc6b-4b8c-92e9-1a74723a28fc",
+        "document_id": "74e7f18f-5b77-459c-bc36-b4ab617d8aca",
+        "document_title": "Fox & Flour Bakery \u2014 Working Knowledge",
+        "document_universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+        "distance": 0.484304226109999,
+        "chunk_preview": "spots rotate)\n- Scones on the weekend only\n\nPastries are not held over. What doesn't sell by close is either\nmarked half-price in the last hour or donated the same evening.\n\n## Celebration cakes Custom celebration cakes "
+      },
+      {
+        "chunk_id": "1754ac81-6a32-4453-9961-aec762587ea2",
+        "document_id": "74e7f18f-5b77-459c-bc36-b4ab617d8aca",
+        "document_title": "Fox & Flour Bakery \u2014 Working Knowledge",
+        "document_universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+        "distance": 0.5502870192056295,
+        "chunk_preview": "50% deposit is taken at booking. Deposits are non-refundable inside\nof 72 hours before pickup. Fox & Flour does not deliver cakes; all\norders are pickup only.\n\n## Ingredients & sourcing Flour comes from a Colorado-based "
+      },
+      {
+        "chunk_id": "659524ac-556a-4c5a-93f1-69b013f1b582",
+        "document_id": "74e7f18f-5b77-459c-bc36-b4ab617d8aca",
+        "document_title": "Fox & Flour Bakery \u2014 Working Knowledge",
+        "document_universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+        "distance": 0.5878339432530661,
+        "chunk_preview": "Friday, and Sunday.\nHer lead baker covers Thursday and Saturday. There are two counter\nstaff and one part-time decorator.\n\n## Seasonal offerings\n\nMenu rotations follow the calendar loosely: - **Spring:** rhubarb galettes"
+      }
+    ],
+    "distinct_document_ids": [
+      "74e7f18f-5b77-459c-bc36-b4ab617d8aca"
+    ],
+    "distinct_document_universe_ids": [
+      "1a0af807-dd6a-47cd-bfaa-3d088f1c105f"
+    ]
+  },
+  "contamination_analysis": {
+    "retrieved_doc_count": 1,
+    "retrieved_universes": [
+      "1a0af807-dd6a-47cd-bfaa-3d088f1c105f"
+    ],
+    "expected_universe": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+    "unbound_workspace_only_leaked": [],
+    "other_universe_leaked": [],
+    "only_fox_flour_universe": true,
+    "only_new_kd_returned": true
+  },
+  "ruby_persona_hashes_after_ingest": {
+    "business_brief_hash": -3252457775022246925,
+    "personality_hash": 5180869442085999030,
+    "who_you_help_hash": 0,
+    "what_you_sell_hash": 0,
+    "character_pov_hash": 0,
+    "voice_signature_hash": 0,
+    "voice_avoid_hash": 0,
+    "always_emphasize_hash": 0,
+    "never_say_hash": 0
+  },
+  "runtime_invariants": {
+    "experiment_env_vars_present": {},
+    "mock_env_vars_present": {}
+  }
+}

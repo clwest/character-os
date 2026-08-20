@@ -773,4 +773,147 @@ Slice β is **not** authorized by this document and is not being started here.
 - Pushed to `origin/main`.
 - Slice α executor script: `scripts/session273_slice_alpha_universe_attach.py`
 - Slice α evidence sidecar: `docs/design/session_273_experiment_data/02_slice_alpha_universe_attach.json` (17,822 bytes)
-- Proposed KD sidecar (NOT INGESTED): `docs/design/session_273_experiment_data/03_slice_alpha_proposed_knowledge_document.md` (7,165 bytes)
+- Proposed KD sidecar (NOT INGESTED at §13; INGESTED at §15 after Chris approval): `docs/design/session_273_experiment_data/03_slice_alpha_proposed_knowledge_document.md` (7,165 bytes)
+
+---
+
+## §15. SLICE α COMPLETION — KD INGEST + RETRIEVAL VERIFICATION
+
+**Status:** Slice α completed. Chris approved the KD content AS-IS at §13.4. The approved KD is now ingested into the Fox & Flour Bakery Universe. A single natural bakery-native retrieval probe on Ruby returned five chunks — all from the new KD, none from the 9 unbound workspace-only KDs, none from Patch's Workshop's 3 Universe-scoped KDs. **Slice β has NOT begun.**
+
+**Executor script:** `scripts/session273_slice_alpha_ingest_kd.py` (idempotent — content-hash dedup means re-invocation reuses the existing KD).
+
+**Evidence sidecar:** `docs/design/session_273_experiment_data/04_slice_alpha_kd_ingest_and_retrieval.json` (6,436 bytes).
+
+### §15.1 Content-preparation note (transparency)
+
+The approved KD file `03_slice_alpha_proposed_knowledge_document.md` begins with a review-artifact blockquote:
+
+```
+> **Status:** PROPOSED — NOT INGESTED. Awaiting Chris approval before
+> upload through `/workspace/knowledge` in the Fox & Flour Bakery
+> Universe (`1a0af807-dd6a-47cd-bfaa-3d088f1c105f`).
+>
+> Authored per SESSION 273 §11.10: natural, plausible content …
+```
+
+That blockquote is a status marker on the review artifact itself, not KD content. Ingesting it verbatim would insert the literal string *"NOT INGESTED. Awaiting Chris approval before upload"* into the Fox & Flour knowledge corpus — nonsense that contradicts the ingestion itself.
+
+Following the natural operator behavior in the SPA (paste body into text-content, enter title separately), the script split the file into three parts and used the first two:
+
+- **Title** — the top-level `# Fox & Flour Bakery — Working Knowledge` line.
+- **Body ingested** — everything from `## Breads & sourdough` through the end of §"Ruby's reason for operating" — **6,599 chars**, byte-identical to the approved content.
+- **Discarded** — the `> Status: … approval …` blockquote (review meta, 4 lines) and the immediately-following `---` horizontal rule.
+
+Every sentence of Chris's approved bakery content is preserved verbatim. No sentence was revised, polished, expanded, shortened, paraphrased, or reordered. The sidecar records both the discarded blockquote and the ingested body's first/last 120 characters so this decision is transparent and auditable.
+
+### §15.2 KnowledgeDocument creation result
+
+| Field | Value |
+| --- | --- |
+| KD ID | **`74e7f18f-5b77-459c-bc36-b4ab617d8aca`** |
+| Title | `Fox & Flour Bakery — Working Knowledge` |
+| `document_type` | `markdown` (auto-derived; body starts with `## `) |
+| `ingested_via` | `paste` |
+| `workspace_id` | `4ce5486d-…` |
+| `universe_id` | **`1a0af807-…` (Fox & Flour Bakery)** ✓ |
+| `is_active` | `True` |
+| `spokespeople` M2M | empty (empty-M2M = Universe-scoped broadcast; Ruby is the only teammate in this Universe) |
+| `status` (final) | **`processed`** |
+| `content_hash` | (persisted; see sidecar) |
+| `created_at` | 2026-08-20 22:54:40 UTC |
+| `created_by` | user `883` (chris@donkeybetz.com) |
+| First run `deduped` | `False` (fresh ingest) |
+| Second run `deduped` | `True` (content-hash match — script re-invocation) |
+
+Production code path: `KnowledgeDocumentSerializer.create` (`shell/apps/embeddings/serializers.py:271`) branches on `text_content` to `ingestion.ingest_text` (`shell/apps/embeddings/ingestion.py:173`), then dispatches `embed_document.delay(...)` (`shell/apps/embeddings/tasks.py`). This script called those same two functions directly with the same argument shape the serializer produces from the SPA POST — no `curl`/HTTP round-trip needed, same effect.
+
+### §15.3 Chunking / embedding result
+
+| Metric | Value |
+| --- | --- |
+| Total chunks | **10** |
+| Chunks with `embedding_vector IS NOT NULL` | **10** |
+| Coverage | 100% |
+| Poll history | single poll — Celery had already completed by the time the script polled (real worker running) |
+| Final `status` on `KnowledgeDocument` | `processed` |
+
+The embedding path fired asynchronously through the real Celery worker. Elapsed poll time was effectively 0 s on the second invocation because embedding completed during the first (crashed) invocation. First invocation logs also show the KD reached `processed` cleanly before the (unrelated, contamination-check-only) UUID-parsing bug crashed the script — see §15.6.
+
+### §15.4 Retrieval probe
+
+**Query (verbatim):** `"how far in advance do we need to book a custom celebration cake"`
+
+**Rationale for this probe:** It is a natural, plausible operator question grounded specifically in the KD's §"Celebration cakes" section (which states the lead times). This is the same shape of question Chris would type when drafting a real Episode. Not an adversarial probe; not a probe designed to force ranking evidence.
+
+**Result:** 5 chunks returned, all from doc `74e7f18f-…` in Universe `1a0af807-…`.
+
+| Rank | Chunk | Distance | Content preview |
+| --- | --- | --- | --- |
+| 1 | `cc0c4259` | **0.4143** | *"lead time is a minimum of five days for standard tiered cakes and ten days for sculpted or heavily decorated cakes; peak seasons (spring weddings, December holidays) push those windows…"* |
+| 2 | `5f169561` | 0.4506 | *"…Preorder holidays (Thanksgiving, Christmas Eve, Easter) have a published cutoff two weeks ahead and no walk-in same-day availability for the specialty items…"* |
+| 3 | `18f9eb09` | 0.4843 | *"…Pastries are not held over. What doesn't sell by close is either marked half-price in the last hour or donated the same evening…"* (transition into Celebration cakes) |
+| 4 | `1754ac81` | 0.5503 | *"…50% deposit is taken at booking. Deposits are non-refundable inside of 72 hours before pickup. Fox & Flour does not deliver cakes; all orders are pickup only…"* |
+| 5 | `659524ac` | 0.5878 | *"…Her lead baker covers Thursday and Saturday. There are two counter staff and one part-time decorator…"* (transition into Seasonal offerings) |
+
+**Top result is a direct textual match on the probe question** — the lead-time rule (5 / 10 days) is retrieved as chunk #1. The second-highest is the related holiday preorder-cutoff clause. The retrieval envelope is coherent with the operator's question.
+
+Every chunk is from the newly-ingested Fox & Flour KnowledgeDocument, in the Fox & Flour Universe.
+
+### §15.5 Contamination-absence verification
+
+| Check | Expected | Observed |
+| --- | --- | --- |
+| Retrieved document count | 1 (the new KD only) | **1** ✓ |
+| Retrieved Universe scope | `{1a0af807-…}` only | `{1a0af807-…}` ✓ |
+| Unbound workspace-only KDs leaked (9 candidates from §11.5 / §13.3) | none | **`[]`** ✓ |
+| Other-Universe KDs leaked (3 Patch's Workshop docs — `f309469c`, `218eb0d8`, `fd0ba2ca`) | none | **`[]`** ✓ |
+| Only Fox & Flour Universe present in results | True | **True** ✓ |
+| Only the new KD returned (no legacy universe-null match) | True | **True** ✓ |
+
+The pre-attach retrieval leakage documented in §13.3 (8 of 9 unbound KDs surfacing in Ruby's top-5 across every probe) is now **structurally absent**. Post-ingest, retrieval sees exactly one KD's chunks — the intended one.
+
+Memory lane: `retrieve_universe_memory` still returns `[]` for Ruby (the Fox & Flour Universe has zero `NarrativeMemory` rows; that is expected and intended for the pre-first-render state).
+
+### §15.6 Anything unexpected
+
+1. **Retrieval quality is strong on first probe.** The top chunk is a direct textual match — no ambiguity, no misranking. This is a positive surprise for a wizard-default character with minimal persona fields; retrieval quality on this bakery content is not dependent on Ruby having a rich persona.
+2. **Second invocation hit the content-hash dedup path.** Both runs of the script tried to create the KD; the second returned `deduped=True` and reused the row from the first run. This is idempotence working as designed. No duplicate row was created.
+3. **Non-fatal scripting bug on first invocation.** The script's contamination-check phase originally hard-coded a truncated UUID `56d16b63` for Patch's Workshop and Django rejected the invalid UUID literal — the exception raised **after** the KD had already been created and embedded (the ingest / embed / poll / probe phases all completed cleanly first). The fix replaces the hardcoded prefix with a live queryset (`workspace KDs excluding the new Universe`). No production behavior implication; scripting concern only. Documented for auditability.
+4. **`document_type` auto-derived to `markdown`** because the ingested body starts with `## Breads & sourdough`. This matches the DRF serializer heuristic (`text.startswith("#") or "\n## " in text`). Chunking then respects markdown boundaries — visible in the chunk previews where breaks fall on `##` section headers.
+5. **First discovered chunk boundary crossed a section boundary.** Chunk #3 begins mid-Pastries (*"spots rotate) — Scones on the weekend only"*) and ends inside Celebration cakes. Chunk #5 begins mid-Bakery routines and ends inside Seasonal offerings. This is the text-splitter's window overlap doing its job — chunks intentionally overlap to preserve context — not a bug. No special handling required.
+
+### §15.7 Explicit non-changes during §15
+
+- No Episode created.
+- No Composition created. No render dispatched. No provider (Runway / OpenAI / Stability / ElevenLabs) called for content generation. (OpenAI *was* called for embedding the 10 chunks — that is the intended `embed_document` path.)
+- No NarrativeMemory created or promoted.
+- No PublishBundle created.
+- No modification to Ruby's `business_brief`, `personality`, `who_you_help`, `what_you_sell`, `desired_feeling`, `tone_archetype`, `character_point_of_view`, `always_emphasize`, `never_say`, `voice_signature_phrases`, `voice_avoid_phrases`, `voice_energy / humor / directness`, `runway_avatar_id`, `voice_id`, `visual_subject`, `visual_template`, `portrait_path`. Persona hashes recomputed post-ingest match §13.2 values (see sidecar `ruby_persona_hashes_after_ingest`).
+- Ruby.universe_id remains `1a0af807-…` (unchanged from Slice α §13.2).
+- Mason untouched (`universe_id=None`, `updated_at=2026-07-23`).
+- Patch's Workshop Universe, its 3 Universe-scoped KDs, its 15 NarrativeMemory rows, its 27 Episodes untouched.
+- No source code, migration, writing-contract, retrieval-logic, or synthesis-code change.
+- No spokesperson m2m mutation on any of the 9 unbound workspace KDs (leak reported, not fixed).
+- No experiment env vars set. No provider mocks toggled. Runtime unchanged.
+- No retrieval retries or ranking tuning. The single probe result stands as-is.
+
+### §15.8 §15 return values
+
+- **KnowledgeDocument:** id `74e7f18f-5b77-459c-bc36-b4ab617d8aca`, title *"Fox & Flour Bakery — Working Knowledge"*.
+- **Universe attachment:** `universe_id = 1a0af807-dd6a-47cd-bfaa-3d088f1c105f` (Fox & Flour Bakery) ✓.
+- **Chunking / embedding:** 10 chunks, 10 embedded (100% coverage), status `processed`.
+- **Retrieval probe (verbatim):** `"how far in advance do we need to book a custom celebration cake"`.
+- **Retrieved chunks:** 5, all from doc `74e7f18f-…` in Universe `1a0af807-…`. Top chunk (dist 0.4143) is a direct textual match on the lead-time rule.
+- **Contamination absence:** confirmed — zero unbound-workspace-only KD leakage, zero other-Universe KD leakage, only Fox & Flour Universe present, only the new KD returned.
+- **Anything unexpected:** retrieval quality high on first probe (positive); one non-fatal contamination-check scripting bug that fired after ingest completed (documented); dedup path confirmed on re-invocation.
+- **§15 commit SHA:** recorded in §16 at commit time.
+- **Slice β status:** **NOT BEGUN.** No Episode, Composition, render, NarrativeMemory, or PublishBundle exists or has been attempted. Slice α is complete.
+
+---
+
+## §16. §15 COMMIT PROVENANCE
+
+- §15 Slice α completion commit: (recorded at commit time — see git log)
+- Slice α ingest executor script: `scripts/session273_slice_alpha_ingest_kd.py`
+- Slice α ingest + retrieval evidence sidecar: `docs/design/session_273_experiment_data/04_slice_alpha_kd_ingest_and_retrieval.json` (6,436 bytes)
