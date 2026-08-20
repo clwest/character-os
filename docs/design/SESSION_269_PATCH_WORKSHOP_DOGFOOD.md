@@ -3333,8 +3333,8 @@ Separate handoff document created at
 
 Doc-only closeout — no source-code change in §20.
 
-- §20 commit: (populated after commit below).
-- Handoff document commit: (populated after commit below).
+- §20 commit: `1f44c8e` — `docs(session-269): CLOSEOUT — §20 synthesis + SESSION 270 handoff`. Single commit carries both §20 CLOSEOUT + the new `docs/design/SESSION_270_HANDOFF.md`.
+- Push: `f07534f..1f44c8e main -> main` (successful). Local main == origin/main == `1f44c8e`. Working tree clean.
 
 ---
 
