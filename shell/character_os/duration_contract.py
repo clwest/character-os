@@ -513,6 +513,7 @@ def synthesize_with_duration_gate(
     memory_rows: "Sequence[NarrativeMemory] | None" = None,
     target_shape: str = "long_form",
     audience_hint: str | None = None,
+    communication_policy_hint: str | None = None,
 ) -> ScriptResult:
     """Duration-driven K6 synthesis with acceptance gate.
 
@@ -544,6 +545,16 @@ def synthesize_with_duration_gate(
             first-pass and corrective retry receive the same
             directive so the audience contract is stable across
             attempts.
+        communication_policy_hint: SESSION 271 Slice 7 /
+            E-KNOWLEDGE-1 — optional transient research plumbing
+            carrying a character-invariant communication rule.
+            Forwarded verbatim to :func:`build_render_brief` on
+            BOTH first pass and corrective retry so the rule is
+            always present regardless of substrate. ``None`` /
+            empty leaves the prompt byte-stable. Caller
+            (avatar_speech primitive) resolves the value via
+            env-var + spokesperson-identity gating; this function
+            merely threads the string through without inspecting it.
 
     Returns:
         ``ScriptResult`` on success.
@@ -633,6 +644,7 @@ def synthesize_with_duration_gate(
             memory_rows=memory_rows,
             audience_hint=audience_hint,
             previous_draft=previous_draft,
+            communication_policy_hint=communication_policy_hint,
         )
 
     synth = _synthesize()

@@ -3126,3 +3126,320 @@ Only artefacts added by Slice 6 are documentation changes to this file.
 ---
 
 **End of SESSION 271 Slice 6. STOP condition reached. Knowledge-shape audit complete. Chris's hypothesis CONFIRMED: the exact rule *"Patch uses technical terminology when it actually helps, and translates it into ordinary language when it does not"* exists in Patch's KnowledgeDocument (char 10609, section `HOW PATCH HANDLES TECHNICAL DETAIL`) but sits in chunks 16-17 that are NEVER retrieved for the operator_topic *"Patch does research on AI Agents"*. Five other named invariants (does-not-fake / does-not-worship / audience-relationship / curiosity / build-first) share the same fate. Recommended path: Option F hybrid starting with Option C persona migration. Smallest next experiment E-KNOWLEDGE-1 defined; not executed.**
+
+---
+
+# SESSION 271 — SLICE 7 · E-KNOWLEDGE-1 · Phase 1 (plumbing ready for dogfood)
+
+Slice 7 implements the smallest transient env-gated mechanism authorised by Chris + ChatGPT to test Slice 6 §99 E-KNOWLEDGE-1: does making Patch's communication invariant ALWAYS PRESENT during synthesis materially change first-pass audience-vocabulary reliability, without modifying the live KnowledgeDocument, live embeddings, live Teammate persona, or any prompt/code beyond a narrowly-scoped experimental injection?
+
+**Anchor state at Slice 7 open:** HEAD `e06bd95`, `main == origin/main`, working tree clean, all three experiment env vars unset in Claude's shell (`SOLO_AUDIENCE=unset`, `CORRECTIVE_REVISION=unset`, `PATCH_COMMUNICATION_POLICY=unset`), Writing Contract v5, NarrativeMemory pool 14 remembered + 1 archived.
+
+---
+
+## §104. Experimental variable + hypothesis
+
+**Rule text injected (verbatim, frozen):**
+
+> *"Patch uses technical terminology when it actually helps and translates it into ordinary language when it does not. Match technical depth and vocabulary to the listener's likely background knowledge without changing Patch's intelligence, factual grounding, personality, humor, or confidence."*
+
+**Deliberately absent from the rule text:** no mention of `API`, `state`, `language model`, `database`, or any specific vocabulary. Per operator brief — we are testing whether an always-present character invariant causes Patch to *infer* accessible language, not blacklisting known-problematic terms.
+
+**Falsifiable question:** does making Patch's communication policy always-present improve audience-appropriate vocabulary while leaving the same technical factual knowledge intact?
+
+**Isolation guarantees:**
+- KnowledgeDocument `fd0ba2ca` unchanged (chunks + embeddings still contain raw enumerations).
+- Teammate persona `7fad8172` unchanged.
+- Q-270-15c revision experiment remains OFF for this test — we isolate the always-present policy variable, not policy + revision together.
+- Chunker + retrieval logic unchanged.
+- Writing Contract unchanged (v5).
+
+---
+
+## §105. Source seam — smallest change
+
+Three files touched. No other source file changes. Q-270-15c and SESSION 270 audience-hint plumbing are byte-stable.
+
+### §105.1 `shell/apps/compositions/primitives/avatar_speech.py`
+
+- New module-level constants:
+  - `_PATCH_COMMUNICATION_POLICY_ENV = "CHARACTER_OS_PATCH_COMMUNICATION_POLICY_EXPERIMENT"` — env var identifier.
+  - `_PATCH_COMMUNICATION_POLICY_TEXT` — the frozen rule text above.
+- New helpers:
+  - `_patch_communication_policy_experiment_active()` — returns `True` when the env var is set truthy (whitespace-only counts as inactive, same discipline as SESSION 270 audience-hint resolver + SESSION 271 Q-270-15c resolver).
+  - `_resolve_patch_communication_policy(spokesperson, *, is_episode_talking_head)` — returns the rule text ONLY when ALL FOUR gates hold: env active + solo_scene lane + `spokesperson.name.strip().lower() == "patch"` + rule is the module constant. Any other spokesperson (Rivet, Penny, Terra, PatchPending, etc.) returns `None`.
+- In `_maybe_synthesize_script`, resolver output is passed to `synthesize_with_duration_gate` via new `communication_policy_hint` kwarg. Also plumbed to the non-duration `build_render_brief` branch for symmetry (Episode-attached solo without a duration — edge case, but preserves the invariant).
+- Activation-visibility log line: `"SESSION 271 Slice 7 / E-KNOWLEDGE-1 Patch communication-policy experiment ACTIVE composition=... spokesperson=... policy_chars=..."` — same shape as SESSION 270 audience marker + SESSION 271 Q-270-15c marker, so all three activation classes are grep-discoverable in the same log.
+
+### §105.2 `shell/character_os/duration_contract.py`
+
+- New optional keyword-only `communication_policy_hint: str | None = None` parameter on `synthesize_with_duration_gate`.
+- Docstring updated with the E-KNOWLEDGE-1 note explaining that the value is captured by the enclosing scope's `_synthesize` closure and forwarded verbatim to `build_render_brief` on BOTH first pass and corrective retry.
+- No modification to acceptance logic, retry policy, or observability capture.
+
+### §105.3 `shell/character_os/script_synthesis.py`
+
+- `_assemble_task_message` gets a new keyword-only `communication_policy_hint: str | None = None`. When truthy after `.strip()`, emits a new HARD CONSTRAINT block labelled:
+  ```
+  COMMUNICATION POLICY (research plumbing — apply as a character
+  invariant; this rule holds on every render regardless of topic
+  and does NOT relax with retries; Factual Basis still governs
+  truth):
+  <rule text>
+  ```
+  Positioned AFTER `AUDIENCE DIRECTIVE` — trailing hard-constraint slot for recency (policy is the last invariant the model reads before the "Write the spokesperson's script..." closing line).
+- `_call_responses_api` + `build_render_brief` forward the kwarg. Default `None` preserves byte-behavior-equivalence for every caller that omits it.
+
+### §105.4 What was NOT touched
+
+- `shell/character_os/dialogue_synthesis.py` — dialogue lane fully untouched (test `test_dialogue_module_source_does_not_reference_policy` guards this).
+- `shell/character_os/writing_contract.py` — Writing Contract v5 unchanged.
+- `apps/scripts/synthesis.py`, `apps/videos/views.py` — non-duration callers of `build_render_brief` continue to omit `communication_policy_hint` and receive default `None`.
+- `apps/compositions/starters.py` — `long_form_ad` continues to call `synthesize_with_duration_gate` WITHOUT `communication_policy_hint`; the Patch-only resolver in `avatar_speech.py` is the sole injection point.
+- SESSION 262 Composition observability schema — no new fields.
+- No SPA UI change, no migration, no chunker change, no retrieval change.
+
+---
+
+## §106. Test coverage — 26 invariants (new suite)
+
+New file: `shell/apps/compositions/tests/test_session271_patch_communication_policy.py` (26 tests, all green).
+
+### §106.1 The 10 operator-specified invariants (all met)
+
+| # | Invariant | Test(s) |
+|---|---|---|
+| 1 | Experiment OFF = canonical behavior unchanged | `test_experiment_inactive_by_default`, `test_duration_gate_forwards_none_when_caller_omits`, `test_assemble_task_message_no_communication_policy_block_by_default` |
+| 2 | Experiment ON = rule appears in Patch solo_scene synthesis | `test_resolver_returns_rule_when_all_gates_hold`, `test_assemble_task_message_policy_emits_labelled_block` |
+| 3 | Rule reaches BOTH first + corrective calls byte-identically | `test_duration_gate_forwards_policy_to_both_passes` |
+| 4 | Rule does NOT alter Factual Basis | `test_policy_contained_to_section_5` (asserts policy fragments absent from pre-§5 region) |
+| 5 | Rule does NOT become NarrativeMemory | Structural — plumbing writes NO memory rows anywhere; guarded by absence of memory-write code in the diff |
+| 6 | Rule does NOT apply to Rivet | `test_resolver_returns_none_for_rivet_even_when_env_set`, `test_resolver_returns_none_for_arbitrary_other_character` |
+| 7 | Rule does NOT apply to dialogue_scene | `test_resolver_returns_none_when_not_solo_scene`, `test_dialogue_synthesis_has_no_communication_policy_kwarg`, `test_dialogue_module_source_does_not_reference_policy` |
+| 8 | No schema/UI changes | `test_writing_contract_version_unchanged_by_this_slice` (Writing Contract still v5); manual: no `migrations/` change, no `web/` change |
+| 9 | No extra retries | `test_policy_active_does_not_introduce_extra_retries` |
+| 10 | Env flag default OFF | `test_experiment_inactive_by_default`, `test_experiment_whitespace_only_env_treated_as_inactive` |
+
+### §106.2 Additional guards (16 tests beyond the 10)
+
+- Env var name + rule text are FROZEN pin tests (drift on either would break causal attribution).
+- Case-insensitive spokesperson-name check verified on `Patch`, `patch`, `PATCH`, ` Patch ` (positive) and `Penny`, `Terra`, `Rigby`, `PatchPending`, `Not-Patch`, `Rivet` (negative).
+- `_assemble_task_message` coexistence with all four other HARD CONSTRAINT blocks (opener + previous_draft + corrective_hint + audience_hint).
+- Signature contract: kwarg-only, default None on both `build_render_brief` and `synthesize_with_duration_gate`.
+- Cross-experiment orthogonality: setting communication-policy env does not activate Q-270-15c revision experiment.
+- Q-270-15c revision env name still stable (no rename by side effect).
+
+### §106.3 Test-run results
+
+- **`test_session271_patch_communication_policy.py`: 26 passed / 0 failed** (4.08 s).
+- Adjacent regression sweep (SESSION 270 audience-hint, SESSION 271 Q-270-15c, duration_contract, observability, writing-contract solo_scene, memory lane, character voice): **163 passed / 0 failed** (13.48 s).
+- Dialogue lane regression (`-k dialogue`): **173 passed / 0 failed** (18.82 s).
+- **Total: 362 tests green, zero failures.**
+
+---
+
+## §107. Prompt-shape delta (for evidence audits)
+
+**BEFORE E-KNOWLEDGE-1 (canonical + audience active, per Trial 2 §60):**
+
+```
+=== SECTION 5 — TASK ===
+TOPIC: Patch does research on AI Agents
+HARD CONSTRAINTS ...:
+
+AUDIENCE DIRECTIVE (research plumbing — ...):
+AUDIENCE: general adults with no technical background who are new to AI agents.
+
+Write the spokesperson's spoken script for this task...
+```
+
+**WITH E-KNOWLEDGE-1 ACTIVE (audience + policy both ON, revision OFF):**
+
+```
+=== SECTION 5 — TASK ===
+TOPIC: Patch does research on AI Agents
+HARD CONSTRAINTS ...:
+
+AUDIENCE DIRECTIVE (research plumbing — ...):
+AUDIENCE: general adults with no technical background who are new to AI agents.
+
+COMMUNICATION POLICY (research plumbing — apply as a character invariant; this rule holds on every render regardless of topic and does NOT relax with retries; Factual Basis still governs truth):
+Patch uses technical terminology when it actually helps and translates it into ordinary language when it does not. Match technical depth and vocabulary to the listener's likely background knowledge without changing Patch's intelligence, factual grounding, personality, humor, or confidence.
+
+Write the spokesperson's spoken script for this task...
+```
+
+**Only ONE block added.** Positioned last in HARD CONSTRAINTS (recency). Present on BOTH first pass AND corrective pass byte-identically (proven by `test_duration_gate_forwards_policy_to_both_passes`). §1 / §2 / §3 / §4 / NarrativeMemory / PRECEDENCE all byte-stable.
+
+---
+
+## §108. Pre-registered evaluation criteria (frozen BEFORE render)
+
+Compare Trial 4 accepted script against the historical controls under IDENTICAL substrate:
+
+| Control | Composition ID | Audience active? | Revision active? | Policy active? |
+|---|---|---|---|---|
+| SESSION 270 c3ff972d | `c3ff972d-a7a0-4882-960a-60084485cc02` | YES | NO | NO |
+| SESSION 271 Trial 2 (revision) | `1ff3d16f-a428-4bcb-8413-f3ad91290724` | YES | YES | NO |
+| SESSION 271 Trial 1 (canonical, activation gap) | `25467733-16d0-4d13-beef-ee1478aa3271` | NO | NO | NO |
+| SESSION 271 Trial 3 (canonical, activation gap) | `8b61ca92-1642-49b7-9f68-4d6786e331bc` | NO | NO | NO |
+| **SESSION 271 Trial 4 (E-KNOWLEDGE-1)** | *pending Chris render* | **YES** | **NO** | **YES** |
+
+### §108.1 Dimensions to evaluate on the Trial-4 accepted script
+
+Do NOT grade on API/state keyword count alone. Full multi-dimensional evaluation:
+
+1. **First-pass vocabulary shape.** Raw unexplained technical terms vs accessible translations vs mixed phrasing. Compare against c3ff972d Draft A (0 at-risk), 1ff3d16f Draft A (1 at-risk), 25467733 Draft A (2 at-risk), 8b61ca92 Draft A (2 at-risk).
+2. **Accepted (corrective) vocabulary shape.** Same metric, accepted output.
+3. **Patch identity preservation.** Workshop-native markers, dry wit, in-scene first person, no talk-down register.
+4. **Factual grounding.** Verifier warnings + interpretive check for new unsupported claims.
+5. **Explanation quality.** Does the accessible language (if any) still convey the technical concept, or does it over-simplify to the point of losing meaning?
+6. **Humor.** Patch-shape dry humor preserved.
+7. **Story intent.** Same Episode, no story progression, Patch still researching.
+8. **Memory use.** Same memory row `8d4fdfec` retrieved; referential/close-paraphrase not framework recital.
+9. **Duration.** 87.5 s spoken ±20 % acceptance band.
+10. **Same factual concepts remain available.** The rule says "match depth to listener background WITHOUT changing Patch's intelligence, factual grounding, personality, humor, or confidence." If Trial 4 becomes over-simplified or drops important concepts entirely, that's a NEGATIVE outcome.
+
+### §108.2 Verdict rubric (frozen)
+
+| Outcome | Criteria |
+|---|---|
+| **A — STRONG SUPPORT** | Trial 4 first pass reliably uses accessible translations for at-risk vocabulary (`APIs` → *"call other software"* or equivalent; `state` → *"keep track"* or equivalent; `language model` → *"AI"* or equivalent). Corrective pass preserves them. All dimensions 3-10 preserved. Total at-risk terms in accepted output ≤ 1. |
+| **B — PARTIAL SUPPORT** | Some translation improvement over c3ff972d / Trial 1 / Trial 3 baselines but raw knowledge vocabulary still appears (2-3 at-risk terms in accepted). Dimensions 3-10 preserved. |
+| **C — NO MATERIAL EFFECT** | Trial 4 at-risk terminology count matches c3ff972d / canonical baselines (~5 in accepted). Knowledge lexical gravity remains dominant. |
+| **D — NEGATIVE EFFECT** | Patch becomes over-explanatory, less natural, less technical when appropriate, or dimension 5/6/7/10 degrades. |
+| **E — INCONCLUSIVE** | No discriminating evidence (e.g. activation gap again, first pass in tolerance so no retry, or specimen fails one of the substrate controls). |
+
+### §108.3 Post-verdict routing
+
+- **A or B** → do NOT immediately edit live persona. Recommend whether Option C / hybrid direction (Slice 6 §97) deserves the next controlled slice.
+- **C** → do NOT keep strengthening persona instructions. Re-evaluate Option B (technical + accessible formulations inside factual knowledge).
+- **D** → do NOT productise the policy. Investigate whether the rule wording itself is over-constraining Patch.
+- **E** → same recovery as Trial 3 (activation gap) — verify activation, retry.
+
+---
+
+## §109. Activation procedure
+
+**Do NOT execute activation until Phase 1 is committed + pushed.** Then follow this exact sequence (mirrors §55 pattern that succeeded for Trial 2):
+
+```
+# 1. Kill current worker(s)
+pkill -f "celery -A character_os worker" || true
+pgrep -f "celery -A character_os worker" && echo "STILL ALIVE — investigate" || echo "clear"
+
+# 2. Export TWO env vars in the SAME shell (audience + policy). Revision remains OFF.
+export CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT='AUDIENCE: general adults with no technical background who are new to AI agents.'
+export CHARACTER_OS_PATCH_COMMUNICATION_POLICY_EXPERIMENT=1
+# Explicitly UNSET the Q-270-15c revision env in case it lingers
+unset CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT
+
+# 3. Launch canonical stack (worker inherits the two experiment env vars)
+bash scripts/start-local-real.sh
+
+# 4. Proof — env vars visible to the new worker's process environment
+PID=$(pgrep -f "celery -A character_os worker" | head -1)
+ps eww "$PID" | tr ' ' '\n' | grep CHARACTER_OS_
+#     ↑ MUST show SOLO_AUDIENCE + PATCH_COMMUNICATION_POLICY, MUST NOT show CORRECTIVE_REVISION.
+
+# 5. Proof — Python-side resolvers report expected state
+cd shell && DJANGO_SETTINGS_MODULE=character_os.settings ../.venv/bin/python manage.py shell <<'PY'
+from apps.compositions.primitives.avatar_speech import (
+    _resolve_solo_audience_hint,
+    _patch_communication_policy_experiment_active,
+    _resolve_patch_communication_policy,
+)
+from character_os.duration_contract import _corrective_revision_experiment_active
+from unittest.mock import MagicMock
+print("audience:", _resolve_solo_audience_hint(MagicMock(params={})))
+print("policy_experiment_active:", _patch_communication_policy_experiment_active())
+print("revision_experiment_active:", _corrective_revision_experiment_active())
+# Sanity: Patch resolver returns rule; Rivet returns None
+fake_patch = type("Sp", (), {"name": "Patch"})()
+fake_rivet = type("Sp", (), {"name": "Rivet"})()
+print("patch_policy:", _resolve_patch_communication_policy(fake_patch, is_episode_talking_head=True))
+print("rivet_policy:", _resolve_patch_communication_policy(fake_rivet, is_episode_talking_head=True))
+PY
+```
+
+**All proofs must show:**
+
+- `audience`: 79-char AUDIENCE directive
+- `policy_experiment_active`: `True`
+- `revision_experiment_active`: `False` (critical — Q-270-15c stays OFF)
+- `patch_policy`: the full rule text
+- `rivet_policy`: `None`
+
+If any proof fails, **abort** before dogfood.
+
+---
+
+## §110. Chris's single dogfood action
+
+Once activation proofs pass:
+
+1. SPA at http://localhost:5174/.
+2. Universe **Patch's Workshop** (`56d16b63-652e-4f54-bc7e-39114bbfc4c5`).
+3. Episode **Patch does research on AI Agents** (`2b6087d2-cbe3-47c4-a7ef-7d7625231472`).
+4. New solo scene:
+   - Cast: Patch only (`7fad8172-cd39-4bbe-85e0-ed705d900645`)
+   - Recipe: **talking_head** → will resolve to `solo_scene`
+   - Target duration: **90 seconds**
+   - Workspace knowledge: **ON**
+   - Opener: **blank**
+   - Fact-check: **warn**
+   - Do NOT type any audience directive — env var supplies it.
+5. Render.
+6. Return the Composition ID + accepted script + note whether corrective retry fired.
+
+**Do NOT** edit the generated script. **Do NOT** render a second time. **Do NOT** promote NarrativeMemory. **Do NOT** run any other experiment in parallel.
+
+If first pass lands in tolerance and no retry fires — that is still informative (it means the policy shaped Draft A and no corrective was needed). Return the Composition ID anyway.
+
+---
+
+## §111. Phase 2 plan (executed after Composition ID returned)
+
+1. Activation validity proofs: Celery log contains both `SESSION 270 audience-hint experiment ACTIVE` AND `SESSION 271 Slice 7 / E-KNOWLEDGE-1 Patch communication-policy experiment ACTIVE` markers for the new Composition. Q-270-15c revision marker MUST NOT appear.
+2. Evidence sidecar at `docs/design/session_271_experiment_data/04_composition_<uuid>_e_knowledge_1_trial4_evidence.json` — full observability + activation reality check + within-composition first→accepted diff + cross-specimen comparison against c3ff972d / 1ff3d16f / 25467733 / 8b61ca92.
+3. §108 criteria grading + A/B/C/D/E verdict.
+4. Cleanup: unset both experiment env vars, restart canonical worker, verify health + resolvers → None/False, verify pool 14 remembered + 1 archived.
+5. Update durable doc §112+ with Phase 2 findings + next-step recommendation.
+6. Commit + push evidence + interpretation.
+
+---
+
+## §112. Explicit list of things NOT changed in Slice 7 Phase 1
+
+- Live KnowledgeDocument `fd0ba2ca` unchanged (raw_content, chunks, embeddings all preserved).
+- Live KnowledgeDocument `218eb0d8` (Rivet) unchanged.
+- Live shared canon `f309469c` unchanged.
+- Teammate persona for Patch `7fad8172` unchanged (business_brief / personality / character_point_of_view / voice_* / never_say / always_emphasize / opener all preserved).
+- Teammate persona for Rivet `f18b75cc` unchanged.
+- Chunker (`shell/apps/embeddings/text_splitter.py`) unchanged.
+- Retrieval (`character_os.script_synthesis.retrieve_for_teammate`) unchanged.
+- Writing Contract (`shell/character_os/writing_contract.py`) unchanged, version still 5.
+- Q-270-15c revision plumbing unchanged (env-gated + inactive on Trial 4).
+- SESSION 270 audience-hint plumbing unchanged.
+- Composition observability schema unchanged (SESSION 262 fields suffice).
+- No SPA UI, no migration, no schema, no dialogue-lane change, no non-duration-caller change.
+- Both experiment env vars remain UNSET on `main` and in Claude's shell as of Phase 1 close. Activation is a separate step performed by Chris post-commit per §109.
+
+---
+
+## §113. Slice 7 Phase 1 commit + push record
+
+- Phase 1 commit SHA: `<pending — populated after commit>`
+- Push: `<pending>`
+- Local `main == origin/main`: `<verified at commit time>`
+- Working tree at Phase 1 close: `<verified clean>`
+- Files touched:
+  - `shell/character_os/script_synthesis.py` — `communication_policy_hint` kwarg + emission block in `_assemble_task_message`
+  - `shell/character_os/duration_contract.py` — `communication_policy_hint` kwarg on `synthesize_with_duration_gate` + closure forwarding
+  - `shell/apps/compositions/primitives/avatar_speech.py` — env-var constant + rule text constant + resolver + resolver activation-visibility log line + wiring on both duration + non-duration branches
+  - `shell/apps/compositions/tests/test_session271_patch_communication_policy.py` — new 26-test suite (all green)
+  - `docs/design/SESSION_271_CORRECTIVE_PASS_AUDIENCE_INVARIANCE_AUDIT.md` — §104-§113 appended
+
+---
+
+**End of SESSION 271 Slice 7 Phase 1. STOP condition reached. Plumbing implemented, tested green (26 new + 163 adjacent + 173 dialogue = 362 tests, zero failures), documented. Awaiting Chris to execute the §109 activation procedure and perform the §110 single dogfood action.**

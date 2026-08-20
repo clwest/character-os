@@ -299,6 +299,7 @@ def build_render_brief(
     memory_rows: "Sequence[NarrativeMemory] | None" = None,
     audience_hint: str | None = None,
     previous_draft: str | None = None,
+    communication_policy_hint: str | None = None,
 ) -> ScriptResult:
     """Build the brief that gets sent to media-engine.
 
@@ -357,6 +358,18 @@ def build_render_brief(
             PREVIOUS DRAFT TO REVISE. Factual Basis still governs
             truth per PRECEDENCE RULES — Draft A is a source draft
             to preserve where possible, NOT a claim authority.
+            ``None`` / empty ⇒ no block emitted, prompt byte-stable.
+            **Research plumbing** — not a product surface.
+        communication_policy_hint: SESSION 271 Slice 7 /
+            E-KNOWLEDGE-1 — optional transient research plumbing
+            carrying a character-invariant communication rule
+            (e.g. Patch's HOW-Patch-handles-technical-detail rule)
+            that Slice 6 §91 found retrieval-omitted from the top-5
+            for this substrate. When non-empty, emitted verbatim as
+            a §5 Task HARD CONSTRAINT block labelled COMMUNICATION
+            POLICY, positioned AFTER AUDIENCE DIRECTIVE for recency.
+            Does NOT modify KnowledgeDocument or Teammate persona.
+            Same containment rule as audience_hint — only inside §5.
             ``None`` / empty ⇒ no block emitted, prompt byte-stable.
             **Research plumbing** — not a product surface.
 
@@ -476,6 +489,7 @@ def build_render_brief(
             memory_rows=memory_rows_list,
             audience_hint=audience_hint,
             previous_draft=previous_draft,
+            communication_policy_hint=communication_policy_hint,
         )
     except Exception:
         logger.exception(
@@ -555,6 +569,7 @@ def _call_responses_api(
     memory_rows: "Sequence[NarrativeMemory] | None" = None,
     audience_hint: str | None = None,
     previous_draft: str | None = None,
+    communication_policy_hint: str | None = None,
 ) -> tuple[str, int, int]:
     """Single Responses-API call. Returns ``(text, tokens_in,
     tokens_out)``. Raises on API error — caller handles
@@ -587,6 +602,7 @@ def _call_responses_api(
         corrective_hint=corrective_hint,
         audience_hint=audience_hint,
         previous_draft=previous_draft,
+        communication_policy_hint=communication_policy_hint,
     )
 
     response = client.responses.create(
@@ -656,6 +672,7 @@ def _assemble_task_message(
     corrective_hint: str | None = None,
     audience_hint: str | None = None,
     previous_draft: str | None = None,
+    communication_policy_hint: str | None = None,
 ) -> str:
     """SESSION 253 — assemble §5 Task (user message).
 
@@ -681,6 +698,18 @@ def _assemble_task_message(
     into §1 Factual Basis or §2/§3 voice sections. Draft A is NOT
     a factual authority — Factual Basis still governs truth per
     the PRECEDENCE RULES.
+
+    SESSION 271 Slice 7 / E-KNOWLEDGE-1 — ``communication_policy_hint``
+    (optional, transient research plumbing) is emitted as an
+    additional HARD CONSTRAINT block labelled COMMUNICATION POLICY
+    when non-empty, placed AFTER AUDIENCE DIRECTIVE for recency.
+    Same containment discipline as audience_hint/previous_draft:
+    only inside §5 Task. Tests whether making a character-invariant
+    communication rule ALWAYS PRESENT in context materially changes
+    first-pass audience-vocabulary reliability (see SESSION 271
+    §99 E-KNOWLEDGE-1). Does NOT modify KnowledgeDocument or
+    Teammate persona — purely additive at prompt-assembly time
+    under an env-var flag resolved by the caller.
     """
     parts: list[str] = ["=== SECTION 5 — TASK ==="]
     topic = operator_prompt.strip() or "(no explicit topic — use the Factual Basis)"
@@ -714,6 +743,14 @@ def _assemble_task_message(
             f"personality, humor, factual grounding, Universe canon, "
             f"NarrativeMemory semantics, or Episode intent):\n"
             f"{audience_hint.strip()}"
+        )
+    if communication_policy_hint and communication_policy_hint.strip():
+        hard_constraints.append(
+            f"COMMUNICATION POLICY (research plumbing — apply as a "
+            f"character invariant; this rule holds on every render "
+            f"regardless of topic and does NOT relax with retries; "
+            f"Factual Basis still governs truth):\n"
+            f"{communication_policy_hint.strip()}"
         )
     if hard_constraints:
         parts.append(

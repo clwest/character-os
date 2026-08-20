@@ -114,6 +114,91 @@ def _resolve_solo_audience_hint(step) -> str | None:
     return None
 
 
+# SESSION 271 Slice 7 / E-KNOWLEDGE-1 — transient research plumbing
+# for the Patch communication-policy experiment.
+#
+# Slice 6 §91 mechanically confirmed that Patch's KnowledgeDocument
+# section HOW PATCH HANDLES TECHNICAL DETAIL (char 10609, chunks
+# 16-17 of `fd0ba2ca-eb15-...`) is never retrieved for the operator
+# topic "Patch does research on AI Agents" — the top-5 semantic
+# retrieval pulls only chunks 0-4 (PURPOSE + WHAT PATCH KNOWS +
+# LANGUAGE MODELS + AI AGENTS + MULTI-AGENT SYSTEMS). That leaves
+# the communication invariant retrieval-omitted.
+#
+# This experiment injects a compact character-invariant rule into
+# §5 HARD CONSTRAINTS on EVERY Patch solo_scene render (regardless
+# of topic) so we can measure whether an always-present invariant
+# materially changes first-pass audience-vocabulary reliability.
+#
+# Gate discipline (all four must hold):
+#   1. env var CHARACTER_OS_PATCH_COMMUNICATION_POLICY_EXPERIMENT
+#      is truthy (whitespace-only counts as inactive, same
+#      discipline as _resolve_solo_audience_hint)
+#   2. composition is Episode-attached talking_head (solo_scene
+#      lane only; standalone talking_head + long_form_ad + dialogue
+#      remain byte-stable)
+#   3. spokesperson identity == Patch (name-based check —
+#      case-insensitive)
+#   4. rule is emitted verbatim on BOTH first pass and corrective
+#      retry (guaranteed by the closure in
+#      duration_contract.synthesize_with_duration_gate)
+#
+# Rule text is compact + policy-only (does NOT name specific
+# vocabulary like API/state/language model) per operator brief —
+# we are testing whether the model itself infers accessible
+# translations when a persona-invariant policy is always present.
+#
+# Removal plan: once E-KNOWLEDGE-1 produces a verdict, either
+# promote the mechanism deliberately (persona-migration slice) or
+# delete this constant + resolver + wiring. Do NOT let it drift
+# into permanent architecture.
+_PATCH_COMMUNICATION_POLICY_ENV = (
+    "CHARACTER_OS_PATCH_COMMUNICATION_POLICY_EXPERIMENT"
+)
+_PATCH_COMMUNICATION_POLICY_TEXT = (
+    "Patch uses technical terminology when it actually helps and "
+    "translates it into ordinary language when it does not. Match "
+    "technical depth and vocabulary to the listener's likely "
+    "background knowledge without changing Patch's intelligence, "
+    "factual grounding, personality, humor, or confidence."
+)
+
+
+def _patch_communication_policy_experiment_active() -> bool:
+    """Return True when the E-KNOWLEDGE-1 env var is set truthy.
+    Whitespace-only values count as inactive so operators can toggle
+    off with ``export CHARACTER_OS_PATCH_COMMUNICATION_POLICY_EXPERIMENT=``
+    without a stale-value trap."""
+    return bool(os.environ.get(_PATCH_COMMUNICATION_POLICY_ENV, "").strip())
+
+
+def _resolve_patch_communication_policy(
+    spokesperson,
+    *,
+    is_episode_talking_head: bool,
+) -> str | None:
+    """Return the compact Patch communication-policy rule when
+    every gate holds; otherwise ``None`` so the caller passes
+    ``None`` verbatim to synthesis and the prompt stays byte-stable.
+
+    Gates (all four must hold):
+    * env var set truthy
+    * caller has already resolved ``is_episode_talking_head==True``
+    * ``spokesperson.name`` matches Patch (case-insensitive)
+    * (rule text itself is the module-level constant so both
+      passes see the same string byte-identically via the
+      duration-contract closure)
+    """
+    if not is_episode_talking_head:
+        return None
+    if not _patch_communication_policy_experiment_active():
+        return None
+    sp_name = (getattr(spokesperson, "name", "") or "").strip().lower()
+    if sp_name != "patch":
+        return None
+    return _PATCH_COMMUNICATION_POLICY_TEXT
+
+
 # Polling cadence — mirrors apps/videos/tasks.poll_video_until_terminal.
 # Avatar-video render takes ~30-180 s real-mode, instant in mock.
 _POLL_INTERVAL_S = 2.0
@@ -543,6 +628,33 @@ def _maybe_synthesize_script(
             len(audience_hint),
         )
 
+    # SESSION 271 Slice 7 / E-KNOWLEDGE-1 — Patch-only, solo-only,
+    # env-gated always-present communication-policy rule. Slice 6
+    # §91 mechanically confirmed that Patch's KnowledgeDocument
+    # section HOW PATCH HANDLES TECHNICAL DETAIL is retrieval-omitted
+    # for the operator_topic "Patch does research on AI Agents".
+    # This experiment injects a compact character-invariant rule
+    # into §5 HARD CONSTRAINTS on every Patch solo_scene render
+    # regardless of topic so we can measure the effect on first-pass
+    # audience-vocabulary reliability. Rivet + dialogue + standalone
+    # talking_head + long_form_ad remain byte-stable regardless.
+    communication_policy_hint = _resolve_patch_communication_policy(
+        composition.spokesperson,
+        is_episode_talking_head=is_episode_talking_head,
+    )
+    if communication_policy_hint is not None:
+        logger.info(
+            "avatar_speech: SESSION 271 Slice 7 / E-KNOWLEDGE-1 Patch "
+            "communication-policy experiment ACTIVE composition=%s "
+            "spokesperson=%s policy_chars=%d — this is transient "
+            "research plumbing; unset "
+            "CHARACTER_OS_PATCH_COMMUNICATION_POLICY_EXPERIMENT to "
+            "restore canonical behaviour",
+            composition.id,
+            composition.spokesperson_id,
+            len(communication_policy_hint),
+        )
+
     try:
         if target_duration_seconds:
             # Duration-driven synthesis + acceptance gate. Uses
@@ -561,6 +673,7 @@ def _maybe_synthesize_script(
                 memory_rows=memory_rows,
                 target_shape=target_shape_for_synthesis,
                 audience_hint=audience_hint,
+                communication_policy_hint=communication_policy_hint,
             )
         else:
             # Non-duration path — build_render_brief default
@@ -577,6 +690,7 @@ def _maybe_synthesize_script(
                     "solo_scene" if is_episode_talking_head else "standalone"
                 ),
                 audience_hint=audience_hint,
+                communication_policy_hint=communication_policy_hint,
             )
     except ClaimVerifierError as exc:
         # Strict mode — surface as a primitive failure so the
