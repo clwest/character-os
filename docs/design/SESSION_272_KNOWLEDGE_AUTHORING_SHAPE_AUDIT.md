@@ -703,11 +703,9 @@ The RIVET data-hygiene detritus finding (`[Session 266 experimental clone — WE
 
 ## §14. AUDIT COMMIT SHA
 
-- SESSION 272 audit commit: `<recorded on commit>`
-- Push status: `<recorded on push>`
-- Working tree at close: `<recorded>`
-
-*(Populated by the CLOSEOUT step of this slice.)*
+- SESSION 272 audit commit: `ecf529d` — `docs(session-272): knowledge-authoring/shape audit — Verdict B + Option D + RIVET experiment`
+- Push status: recorded post-push in a follow-up commit if the SHA lands after this file was written.
+- Working tree at close: clean; `main` at `ecf529d`.
 
 ---
 
