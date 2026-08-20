@@ -1634,9 +1634,9 @@ Executed immediately after grading + interpretation, per operator brief.
 
 ### §13.23 Commit checkpoint (Q-270-8 REVISED Phase 2 evidence + grading + deactivation)
 
-- Slice commit: `<populated below>` — `<subject line populated below>`.
-- Push: `<populated below>`.
-- Working tree state at checkpoint: `<populated below>`.
+- Slice commit: `c8375cf` — `docs(session-270): §13.21.10 + §13.22 Q-270-8 REVISED Phase 2 — adult-beginner evidence, four-way comparison, verdict, deactivation`.
+- Push: `bfadc8a..c8375cf main -> main` (successful). Local `main == origin/main == c8375cf`.
+- Working tree state at checkpoint: clean.
 
 ### §13.21.10 Q-270-8 REVISED evidence + grading placeholders
 
