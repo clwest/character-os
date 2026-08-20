@@ -3797,3 +3797,322 @@ Post-cleanup proofs (all pass):
 ---
 
 **End of SESSION 271 Slice 7 Phase 2. Verdict: B — PARTIAL SUPPORT (strong). Architectural conclusion: character-invariant communication behavior should NOT live solely in retrieval-dependent KnowledgeDocuments. Recommendation: Option B — one replication before Option A persona migration.**
+
+---
+
+# SESSION 271 — SLICE 7 · PHASE 2 · TRIAL 5 · Composition 62d68b17 Forensics (different topic — ACTIVATION GAP)
+
+Trial 5 was intended as an E-KNOWLEDGE-1 replication on a DIFFERENT Patch topic ("Patch experiments with AI image generation"). **Verdict: E — INCONCLUSIVE for E-KNOWLEDGE-1 replication.** The render ran on canonical workers with NO experiment env vars — same activation-gap failure mode as Trials 1 (25467733) and 3 (8b61ca92). Q-270-15c revision was also OFF, but for the wrong reason (all experiments off, not deliberate selective activation).
+
+**Nevertheless, the specimen produced substantial COLLATERAL evidence** on why the AI-agents substrate is unusually difficult and why Patch's default persona handles other topics naturally. Frozen evidence sidecar: `docs/design/session_271_experiment_data/05_composition_62d68b17_e_knowledge_1_trial5_evidence.json`.
+
+---
+
+## §131. Composition 62d68b17 identity
+
+| Field | Value |
+|---|---|
+| Short ID | `62d68b17` |
+| Full UUID | `62d68b17-261c-45fb-978c-06bef966715f` |
+| Rendered | `2026-08-20 16:10:37 UTC` (created) → 172.8 s wall to completion |
+| Status | `completed` / `verification_status="verified"` |
+| Writing Contract | `v5` |
+| Universe | `Patch's Workshop` (`56d16b63`) — same as prior renders |
+| **Episode** | **NEW** — `06043499-cb8c-406b-9dcd-0053278471dc` ("Patch experiments with AI image generation") — DIFFERENT from every prior SESSION 271 render (which used `2b6087d2`) |
+| Spokesperson | `Patch` (`7fad8172`) — same |
+| operator_topic | `Patch experiments with AI image generation.` — different |
+| Target duration | `90 s`; predicted `92 s`; corrective 1352 chars accepted |
+| Retrieved chunks | **DIFFERENT SET** — `20163bd6, 850bd47b, b3c6e8ac, c24d1aa7, d925b176` (image-generation / character / spokesperson region; overlaps with AI-agents substrate only on `c24d1aa7` PURPOSE + `b3c6e8ac` LANGUAGE MODELS) |
+| Memory row | `8d4fdfec-add4-4505-8ade-b0f9e6d8aea6` — the workshop-agent memory (see §134 for retrieval discussion) |
+| synthesis_attempt_count | **2** |
+| first_pass_synthesis chars | 702 (Draft A) |
+| corrective_pass_synthesis chars | 1352 (Draft B = accepted) |
+| corrective_hint chars | **656** ← canonical `_expansion_hint` fingerprint |
+| verification_warnings | **`[]` — ZERO** ✅ first verifier-clean specimen in the entire SESSION 270+271 sequence |
+| cost | $0.02 |
+
+---
+
+## §132. Activation reality check — three proofs, all confirm CASE C
+
+### §132.1 Worker environment
+
+Workers currently alive (during forensics) are PIDs `92829` / `92859` / `92860` — these are the canonical cleanup workers I restarted at §128 (post-Trial-4 cleanup). Their etime at forensics is 20:21, so they booted ~2026-08-20 16:15 UTC — AFTER Trial 5's render at 16:10 UTC. So the workers processing Trial 5 were DIFFERENT (a previous set booted at 15:59 UTC per Celery log, killed and replaced during subsequent restart).
+
+`ps eww` on the current cleanup workers shows NO `CHARACTER_OS_*` env vars — canonical mode, as expected post-Trial-4-cleanup.
+
+### §132.2 Celery log markers
+
+`grep -nE "62d68b17|SESSION 270|SESSION 271|hint_chars|COMMUNICATION|policy_chars|expansion (retry|revision)"` for the Trial-5 render window:
+
+- Line 40 (verbatim, sole synthesis-retry line for this Composition):
+  ```
+  [2026-08-20 16:10:45,198: INFO/ForkPoolWorker-2] synthesize_with_duration_gate expansion retry
+  ```
+- **NO** `avatar_speech: SESSION 270 audience-hint experiment ACTIVE` marker.
+- **NO** `avatar_speech: SESSION 271 Slice 7 / E-KNOWLEDGE-1 Patch communication-policy experiment ACTIVE` marker.
+- **NO** `SESSION 271 Q-270-15c expansion revision retry (experiment ACTIVE)` marker.
+
+The audience + policy resolvers in `avatar_speech.py` emit their `ACTIVE` log line only when the resolver returns a non-None value. Both markers absent ⇒ both resolvers returned None ⇒ neither env var was set on the worker's process environment at render time.
+
+### §132.3 corrective_hint text fingerprint
+
+Persisted `Composition.corrective_hint` (656 chars) starts *"Your previous draft was 702 characters ... **REWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS** ..."* — canonical `_expansion_hint` byte-for-byte. The 791-char experimental `_experimental_expansion_revision_hint` fingerprint (`REVISE THE PREVIOUS DRAFT`) is absent. Q-270-15c revision confirmed OFF; E-KNOWLEDGE-1 policy confirmed absent from prompt.
+
+**Three independent proofs agree: E-KNOWLEDGE-1 was NOT active on Trial 5. This is CASE C activation gap — same class as Trial 1 (25467733) and Trial 3 (8b61ca92).**
+
+The pattern is now clear: 3 of 5 SESSION 271 experiment trials suffered activation gap when the operator handled activation across a session boundary. The 2 successes (Trial 2 Q-270-15c revision, Trial 4 E-KNOWLEDGE-1 policy) both used Claude-inline activation in the same Bash tool call.
+
+---
+
+## §133. Draft A (first pass) + Draft B (accepted) — verbatim
+
+### §133.1 Draft A (702 chars)
+
+```
+I gave an image generator a simple job: make one character look like the same character twice.
+
+Apparently that was ambitious.
+
+The first image is close. The second one has the right vibe, a different outfit, slightly different face, and hands that appear to be negotiating independently.
+
+This is the part people skip when they show you the shiny result. Image generation is not "type sentence, receive masterpiece." It's more like giving directions to a very talented artist who occasionally hears "blue jacket" as "become a different person."
+
+Still, this is useful. Now I know what it's struggling with: identity, clothes, and apparently fingers.
+
+Well… now I want to try it with better references.
+```
+
+### §133.2 Draft B (accepted, 1352 chars — canonical corrective regeneration)
+
+```
+I gave an image generator one simple job, and it immediately reminded me that "simple" is a deeply optimistic word.
+
+You give these systems instructions. Maybe reference information too. Then you wait to see whether they understood the assignment… or decided the assignment was more of a suggestion.
+
+Because the weird part is, even when the prompts are nearly the same, the result can wander. A character's clothes shift. An object appears in the wrong place. The composition gets dramatic for no clear reason. And text inside an image? That is where letters sometimes become haunted decorative noodles.
+
+So I'm not treating a bad generation like a failed project. Not yet.
+
+It's evidence.
+
+Maybe I asked for something vague. Maybe the prompt accidentally encouraged the exact nonsense I'm looking at. Or maybe this particular idea is just difficult for the model to hold onto: identity, anatomy, style, where things belong, all of it at once.
+
+And now I've got the dangerous thought: what if I keep the character, keep the style, and change only one thing at a time until I find out what makes it drift?
+
+That sounds responsible.
+
+It is also how a perfectly normal afternoon turns into forty-seven versions of the same suspiciously fashionable beaver.
+
+If you've got an image idea that might be brilliant or might be absolute garbage, send it my way.
+```
+
+---
+
+## §134. Retrieved chunks + topic-vocabulary asymmetry
+
+### §134.1 Which chunks retrieved (image-gen topic)
+
+| ID | idx | Section coverage | Vocabulary shape |
+|---|---|---|---|
+| `c24d1aa7` | 0 | PURPOSE | persona-facing, no jargon |
+| `b3c6e8ac` | 2 | LANGUAGE MODELS (retained across topics because it's semantically close to any AI query) | contains `language model` ×3 as reference-technical term |
+| `d925b176` | 7 | AI CHARACTERS tail + AI SPOKESPEOPLE body | mostly business-adjacent vocabulary |
+| `850bd47b` | 8 | AI SPOKESPEOPLE tail + **GENERATIVE IMAGES** body | *"Image-generation systems create images from **instructions and reference information**. Results can vary even when **prompts** are similar. Common challenges include **character consistency, hands and anatomy, text inside images, clothing consistency, object placement, maintaining identity, composition, and style consistency**."* |
+| `20163bd6` | 9 | GENERATIVE IMAGES tail + GENERATIVE VIDEO body | *"Potential issues include **facial changes, body distortion, background instability, lip-sync problems, object movement, character drift, clothing changes, and camera inconsistencies**."* |
+
+### §134.2 Vocabulary-density comparison AI-agents vs image-generation
+
+- **AI-agents chunks** (`505acbba` + `ed18e966`) contain reference-technical enumerations: `call APIs, perform multi-step tasks, maintain state, respond to changes in an environment, language model, memory, retrieval, search, tools, business rules, databases, user profiles`.
+- **Image-generation chunks** (`850bd47b` + `20163bd6`) contain descriptive-technical enumerations in ordinary English: `character consistency, hands and anatomy, text inside images, clothing consistency, object placement, maintaining identity, composition, style consistency, facial changes, body distortion, background instability, lip-sync problems, object movement, character drift, clothing changes, camera inconsistencies`.
+
+**A nontechnical adult can parse the image-gen vocabulary from surface reading; the AI-agents vocabulary requires prior knowledge of what `API` / `maintain state` / `multi-step` mean.**
+
+### §134.3 What Draft B used from the chunks (all accessible)
+
+- *"instructions"* + *"reference information"* — VERBATIM from chunk `850bd47b`
+- *"prompts"* — the term itself appears in Draft B ×2 (chunk `850bd47b` uses it too)
+- *"composition"*, *"identity"*, *"anatomy"*, *"style"*, *"drift"* — vocabulary drawn from chunks, used non-definitionally in Patch's own voice
+- *"failed generation is useful information"* + *"failure is a diagnostic"* — chunk `850bd47b`'s explicit epistemic frame, rendered as Patch's live reasoning
+- Signature Patch flourishes not in chunks: *"deeply optimistic word"*, *"haunted decorative noodles"*, *"forty-seven versions of the same suspiciously fashionable beaver"*
+
+### §134.4 Reasoning progression traced
+
+The chain *"generation varies → bad output becomes evidence → possible causes → isolate one variable → experiment"* traces to:
+
+- **Retrieved chunk `850bd47b`** (LOAD-BEARING): *"A failed generation is useful information: sometimes the model misunderstood the prompt, sometimes the prompt encouraged the wrong interpretation, sometimes the model simply struggles with the requested concept. Failure is a diagnostic, not the end of the process."*
+- Patch persona layer (partial): `character_point_of_view` says *"distinguishes what worked from what almost worked from what only sounded like it worked"*. The *"isolate one variable"* framing is Rivet's methodology (see Rivet knowledge SESSION 263 §6.5 evidence) but Patch's *"change only one thing at a time until I find out what makes it drift"* is a specific formulation not in Patch persona verbatim.
+- Draft B's chain is therefore RETRIEVED-KNOWLEDGE-driven with Patch persona shaping the voice and NarrativeMemory-independent (memory not cited).
+
+---
+
+## §135. Memory observation — retrieved but not cited
+
+### §135.1 What happened
+
+- The workshop-agent memory `8d4fdfec` was retrieved for the image-generation render.
+- Memory body: *"Patch found the old workshop-agent project and notes, revealing that the Agent began as a smaller experiment before Patch gave it more context and it started making decisions about his projects."*
+- Draft A + Draft B searched for workshop-agent / workshop / notes / "smaller experiment" / "started making decisions": **NO CITATIONS.** The model did not use the memory.
+
+### §135.2 Why the workshop-agent memory won retrieval
+
+Patch's Workshop pool = 14 remembered + 1 archived. The Universe-scoped narrative-memory retrieval takes top-K (likely top-1 in this shape). Among 14 remembered rows, the workshop-agent memory is the most Patch-canonical (references Patch's own projects, uses "experiment" — general enough to lexically match many AI-related queries).
+
+### §135.3 Interpretation
+
+**The model exercised correct discretion.** Memory retrieval selected best-available; the synthesis model recognised the memory was not topically relevant to image generation and did NOT cite it. This is architecturally clean behaviour — retrieval doesn't force citation.
+
+**Recorded as observation only.** Not treated as retrieval-quality problem per operator brief. A future architectural question could be whether narrative-memory retrieval should carry a relevance floor (return `None` if similarity < X threshold) to avoid noisy irrelevant retrievals reaching the prompt. That is a candidate **Q-270-21** — bounded architectural question, NOT in scope for any SESSION 271 slice.
+
+---
+
+## §136. At-risk terminology on this specimen
+
+### §136.1 AI-agents rubric applied to image-gen render
+
+| Term | Draft A | Draft B |
+|---|---|---|
+| `API` / `APIs` | 0 | 0 |
+| `language model` | 0 | 0 (uses *"the model"* and *"these systems"* instead) |
+| `state` | 0 | 0 (word doesn't appear; *"style"* is different) |
+| `multi-step` | 0 | 0 |
+| `database` | 0 | 0 |
+| `react` | 0 | 0 |
+
+**AI-agents rubric total: 0.** But this rubric is TOPIC-MISMATCHED — image-gen has its own vocabulary axis.
+
+### §136.2 Image-gen topic-specific vocabulary check
+
+| Term | Draft A | Draft B | Accessibility |
+|---|---|---|---|
+| `image generator` | ✅ | ✅ | accessible |
+| `prompt / prompts` | 0 | ×2 | technically-flavoured but contextualised (*"even when the prompts are nearly the same, the result can wander"*) |
+| `reference information` | *"references"* | ✅ (verbatim from chunk) | accessible enum, chunk-verbatim |
+| `model` | ✅ | ✅ | used generically, non-definitional |
+| `identity` | ✅ | ✅ | ordinary word |
+| `anatomy` | *"fingers"* | ✅ | ordinary word |
+| `style` | 0 | ✅ (×2) | ordinary word |
+| `composition` | 0 | ✅ | technical-adjacent but context-clear |
+| `drift` | 0 | *"what makes it drift"* | verb form of chunk's *"character drift"*; context-clear |
+
+**Every technical-flavoured term used in Draft B is context-clear.** No definitional lecture. Chunk vocabulary rendered as Patch's live observation.
+
+---
+
+## §137. Cross-specimen comparison (all six SESSION 271 renders)
+
+| ID | Topic | Aud | Rev | Pol | Accepted at-risk (AI-agents rubric) | Note |
+|---|---|---|---|---|---|---|
+| `2ef5ee7e` | AI agents | ❌ | ❌ | ❌ | 6 | baseline |
+| `c3ff972d` | AI agents | ✅ | ❌ | ❌ | 5 | audience canonical |
+| `25467733` | AI agents | ❌ | ❌ | ❌ | 5 | activation gap |
+| `1ff3d16f` | AI agents | ✅ | ✅ | ❌ | 3 | Q-270-15c revision |
+| `8b61ca92` | AI agents | ❌ | ❌ | ❌ | 5 | activation gap |
+| **`774658ea`** | **AI agents** | ✅ | ❌ | ✅ | **2** | **E-KNOWLEDGE-1 policy active (Trial 4)** |
+| **`62d68b17`** | **AI image gen (NEW)** | ❌ | ❌ | ❌ | **0** (topic-mismatched rubric) | **Trial 5 activation gap on different topic** |
+
+**Critical reading:** 62d68b17's 0-at-risk score on the AI-agents rubric is not evidence of E-KNOWLEDGE-1 replication. It is evidence that a DIFFERENT topic uses DIFFERENT source vocabulary. The image-generation chunks don't contain the raw enumerations that made the AI-agents topic difficult. Patch's default persona handled the image-gen topic accessibly without any experimental support.
+
+---
+
+## §138. Verdict — E · INCONCLUSIVE for E-KNOWLEDGE-1 replication
+
+Per the frozen rubric:
+
+- **A — STRONG REPLICATION** — NOT MET (experiment did not execute).
+- **B — PARTIAL REPLICATION** — NOT MET (same reason).
+- **C — NO REPLICATION** — NOT MET (we cannot claim no replication because we didn't test).
+- **D — NEGATIVE** — NOT MET (no negative evidence produced).
+- **E — INCONCLUSIVE** — MET. Runtime evidence cannot discriminate whether E-KNOWLEDGE-1 replicates on a different topic because the experiment did not execute.
+
+**Trial 4 (774658ea) remains the sole n=1 valid E-KNOWLEDGE-1 specimen.**
+
+### §138.1 Collateral findings still valuable
+
+1. **Topic asymmetry confirmed.** The AI-agents substrate is unusually jargon-heavy. Other Patch topics (image gen) have more accessible source chunks. E-KNOWLEDGE-1's target problem is topic-specific to enumeration-heavy topics.
+2. **Default persona is sufficient for less-jargon-heavy topics.** Patch's `personality` + `character_point_of_view` fields naturally produce accessible output when the retrieved chunks don't push against them.
+3. **Retrieval-relevance-floor is a future architectural question (Q-270-21 candidate)** — workshop-agent memory retrieved but not cited; correct behaviour but suggests the retrieval mechanism could be tuned.
+4. **First verifier-clean accepted script.** No Q-270-16 / Q-270-18 / Q-270-20 false-positives triggered on Draft B. Draft A had one `proper_noun` warning (*"Apparently"*) which Draft B rewrote away.
+
+---
+
+## §139. Promotion-decision update — NOT YET
+
+**Not enough evidence for persona migration.** Trial 5 was intended to be n=2 for the E-KNOWLEDGE-1 mechanism; instead it was another activation gap. We still have n=1 for the actual mechanism (Trial 4 774658ea).
+
+### §139.1 What we DO have
+
+- **Architectural principle strongly supported (§125):** character-invariant communication behavior should not live solely in retrieval-dependent KnowledgeDocuments. Trial 4 demonstrated the mechanism.
+- **Topic asymmetry evidence (Trial 5 collateral):** the AI-agents substrate is the hard case; other Patch topics don't need E-KNOWLEDGE-1 or its equivalent as urgently.
+- **Persona already carries a weaker version of the rule (Slice 6 §92):** persona says *"drops jargon otherwise"*; KnowledgeDocument has the richer operational rule with worked examples.
+
+### §139.2 What we DON'T have
+
+- Magnitude stability of the E-KNOWLEDGE-1 mechanism (n=1, needs n≥2 same-substrate).
+- Genuine replication on a DIFFERENT topic under actually-active E-KNOWLEDGE-1 conditions.
+- Comparison of E-KNOWLEDGE-1 vs a strengthened persona under identical conditions.
+
+### §139.3 Recommended smallest next action
+
+**Run a genuine E-KNOWLEDGE-1 replication where activation is Claude-inline** (proven pattern that succeeded for Trial 4). Either:
+- **Option R1 (same substrate):** Rerun on `2b6087d2` (AI agents) with policy + audience active, revision OFF. Same conditions as Trial 4 → checks magnitude stability of the +2-at-risk residual.
+- **Option R2 (different topic + active experiment):** Rerun on the image-gen Episode `06043499` with policy + audience active. Checks whether the mechanism operates when the topic is naturally more accessible — expect ≤ Trial 5's 0-at-risk (which was already low without the policy).
+
+R1 is more discriminating for the promotion decision (does the AI-agents-specific improvement replicate?). R2 is more informative about generalisation.
+
+**Do NOT execute Option A (persona migration) yet.** Wait for n≥2 mechanism-confirmed evidence.
+
+---
+
+## §140. Rivet applicability (unchanged since Slice 7 Phase 2 §127)
+
+Same architectural principle in principle applies to Rivet. Rivet's KnowledgeDocument (14 chunks, dominantly B-role reasoning per Slice 6 §90.2) does not have the specific communication-policy section Patch's does, so migration content would need to come from Rivet's persona + any relevant chunk material together. This is a downstream design conversation, not a Slice-scope action. **Do not modify Rivet knowledge or persona.**
+
+---
+
+## §141. Cleanup + verification (executed post-forensics)
+
+Runtime was already in canonical mode from §128 cleanup — Trial 5 rendered on those same canonical workers WITHOUT any activation, so nothing to disable. State snapshot at Slice-close:
+
+| Check | Result |
+|---|---|
+| `CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT` in Claude shell | unset ✅ |
+| `CHARACTER_OS_PATCH_COMMUNICATION_POLICY_EXPERIMENT` in Claude shell | unset ✅ |
+| `CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT` in Claude shell | unset ✅ |
+| `ps eww` on all three Celery worker PIDs (92829/92859/92860 — canonical §128 cleanup workers) → CHARACTER_OS_* env vars | **empty for all three** ✅ |
+| Django `curl /admin/` | `302` ✅ |
+| media-engine `curl /health` | `200`, `any_mock=false` ✅ |
+| Vite `curl /` | `200` ✅ |
+| Celery `inspect ping` | `pong` ✅ |
+| Patch's Workshop NarrativeMemory pool | **14 remembered + 1 archived** (unchanged since SESSION 270 §14.4 across every subsequent trial) ✅ |
+
+**No worker restart needed.** All three experimental env-gated mechanisms remain present in source but inert.
+
+---
+
+## §142. Slice 7 Phase 2 Trial 5 commit + push record
+
+- Commit SHA: `<pending — populated after commit>`
+- Push: `<pending>`
+- Local `main == origin/main`: `<verified at commit time>`
+- Working tree at slice close: `<verified clean>`
+- Files touched:
+  - `docs/design/session_271_experiment_data/05_composition_62d68b17_e_knowledge_1_trial5_evidence.json` (NEW evidence sidecar)
+  - `docs/design/SESSION_271_CORRECTIVE_PASS_AUDIENCE_INVARIANCE_AUDIT.md` §131-§143 appended
+
+## §143. What was NOT changed in Slice 7 Phase 2 Trial 5
+
+- No live KnowledgeDocument edits (all three unchanged).
+- No Teammate persona edits.
+- No code, no chunker, no retrieval, no writing contract, no schema, no migration, no SPA UI.
+- Q-270-15c revision plumbing unchanged.
+- SESSION 270 audience-hint plumbing unchanged.
+- E-KNOWLEDGE-1 policy plumbing unchanged.
+- No new render performed by Claude.
+- No NarrativeMemory promotion. Pool remains 14 remembered + 1 archived.
+- Q-270-16 / Q-270-18 / Q-270-20 / Q-270-21 verifier + retrieval-relevance questions all remain OUT OF SCOPE.
+- All experiment env vars are unset in Claude's shell (cleanup performed after evidence capture).
+
+---
+
+**End of SESSION 271 Slice 7 Phase 2 Trial 5. Replication verdict: E — INCONCLUSIVE (CASE C activation gap, 3rd of 5 experiment trials). Trial 4 774658ea remains the sole n=1 valid E-KNOWLEDGE-1 specimen. Promotion decision unchanged: NOT YET — need a genuine replication with Claude-inline activation.**

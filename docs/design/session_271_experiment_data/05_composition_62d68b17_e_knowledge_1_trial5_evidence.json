@@ -1,0 +1,163 @@
+{
+  "captured_at": "2026-08-20T16:38:00Z",
+  "session": "SESSION 271",
+  "experiment": "Slice 7 / E-KNOWLEDGE-1 replication attempt on a DIFFERENT Patch topic (Trial 5)",
+  "trial_verdict": "E — INCONCLUSIVE for E-KNOWLEDGE-1 REPLICATION (activation gap: same failure mode as Trials 1 and 3). The render ran on CANONICAL workers with NO experiment env vars. Both audience-hint and Patch-communication-policy resolvers returned None; corrective_hint fingerprint is canonical 656-char _expansion_hint. Q-270-15c revision was OFF (consistent with intent but coincidentally, not because activation was correct). BUT — the specimen provides strong COLLATERAL evidence that (a) Patch's default persona produces excellent accessible-language output on non-AI-agents topics, and (b) the AI-agents substrate is unusually difficult because ITS source chunks are exceptionally enumeration-heavy compared to other Patch chunks (image generation, character/spokesperson, video, voice).",
+
+  "composition": {
+    "id": "62d68b17-261c-45fb-978c-06bef966715f",
+    "short_id": "62d68b17",
+    "template_kind": "talking_head",
+    "status": "completed",
+    "verification_status": "verified",
+    "writing_contract_version": 5,
+    "target_duration_seconds": 90,
+    "operator_topic": "Patch experiments with AI image generation.",
+    "mock_mode": false,
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "spokesperson_id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+    "episode_id": "06043499-cb8c-406b-9dcd-0053278471dc",
+    "episode_note": "NEW Episode — DIFFERENT from all prior SESSION 271 renders (which used 2b6087d2 'Patch does research on AI Agents')",
+    "created_at": "2026-08-20T16:10:37.920258Z",
+    "task_wall_seconds": 172.8,
+    "cost_actual_micros": 20000
+  },
+
+  "activation_reality_check": {
+    "worker_pids_at_render_time": ["worker that processed the composition — see log line 30 '[2026-08-20 15:59:39] mingle: all alone / ready'; that worker's PID is not recorded but was later killed and replaced by cleanup workers 92829/92859/92860 (etime 20:21 at forensics)"],
+    "worker_boot_timestamp": "2026-08-20 15:59:39 UTC (per Celery log line 'mingle: all alone / celery@... ready')",
+    "worker_env_var_CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT_present": false,
+    "worker_env_var_CHARACTER_OS_PATCH_COMMUNICATION_POLICY_EXPERIMENT_present": false,
+    "worker_env_var_CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT_present": false,
+    "audience_marker_log_line_present": false,
+    "policy_marker_log_line_present": false,
+    "q270_15c_revision_marker_log_line_present": false,
+    "canonical_log_line_verbatim_for_this_render": "[2026-08-20 16:10:45,198: INFO/ForkPoolWorker-2] synthesize_with_duration_gate expansion retry",
+    "corrective_hint_fingerprint_check": "corrective_hint (656 chars) starts 'Your previous draft was 702 characters ... REWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS ...' — canonical _expansion_hint byte-for-byte. E-KNOWLEDGE-1 would have added a COMMUNICATION POLICY block; audience-hint would have added an AUDIENCE DIRECTIVE block; both are ABSENT.",
+    "case_classification": "CASE C activation gap (same class as Trial 1 25467733 and Trial 3 8b61ca92). Root cause: worker booted at 15:59 UTC without exporting either experiment env var; Trial 5 render at 16:10 used that same worker environment.",
+    "definitive": "Neither the audience directive nor the communication policy was active on the render worker for 62d68b17. This is NOT a valid E-KNOWLEDGE-1 replication trial."
+  },
+
+  "synthesis_provenance": {
+    "synthesis_attempt_count": 2,
+    "first_pass_synthesis_length_chars": 702,
+    "first_pass_estimated_seconds": 48,
+    "first_pass_synthesis_verbatim": "I gave an image generator a simple job: make one character look like the same character twice.\n\nApparently that was ambitious.\n\nThe first image is close. The second one has the right vibe, a different outfit, slightly different face, and hands that appear to be negotiating independently.\n\nThis is the part people skip when they show you the shiny result. Image generation is not \u201ctype sentence, receive masterpiece.\u201d It\u2019s more like giving directions to a very talented artist who occasionally hears \u201cblue jacket\u201d as \u201cbecome a different person.\u201d\n\nStill, this is useful. Now I know what it\u2019s struggling with: identity, clothes, and apparently fingers.\n\nWell\u2026 now I want to try it with better references.",
+
+    "corrective_hint_used_length_chars": 656,
+    "corrective_hint_used_verbatim": "Your previous draft was 702 characters (114 words, estimated ~48s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 270 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+    "corrective_hint_matches_canonical_expansion_hint": true,
+
+    "corrective_pass_synthesis_length_chars": 1352,
+    "corrective_pass_synthesis_verbatim": "I gave an image generator one simple job, and it immediately reminded me that \u201csimple\u201d is a deeply optimistic word.\n\nYou give these systems instructions. Maybe reference information too. Then you wait to see whether they understood the assignment\u2026 or decided the assignment was more of a suggestion.\n\nBecause the weird part is, even when the prompts are nearly the same, the result can wander. A character\u2019s clothes shift. An object appears in the wrong place. The composition gets dramatic for no clear reason. And text inside an image? That is where letters sometimes become haunted decorative noodles.\n\nSo I\u2019m not treating a bad generation like a failed project. Not yet.\n\nIt\u2019s evidence.\n\nMaybe I asked for something vague. Maybe the prompt accidentally encouraged the exact nonsense I\u2019m looking at. Or maybe this particular idea is just difficult for the model to hold onto: identity, anatomy, style, where things belong, all of it at once.\n\nAnd now I\u2019ve got the dangerous thought: what if I keep the character, keep the style, and change only one thing at a time until I find out what makes it drift?\n\nThat sounds responsible.\n\nIt is also how a perfectly normal afternoon turns into forty-seven versions of the same suspiciously fashionable beaver.\n\nIf you\u2019ve got an image idea that might be brilliant or might be absolute garbage, send it my way.",
+
+    "synthesis_predicted_seconds": 92.0,
+    "acceptance_band_seconds": [72, 108],
+    "within_acceptance_band": true
+  },
+
+  "verifier": {
+    "verification_status": "verified",
+    "verification_warnings": [],
+    "note": "ZERO warnings on this specimen. First render in the entire SESSION 270+271 sequence with a clean verifier output. Draft A first-pass log DID emit a K6.4 warning ('Apparently' proper_noun — Q-270-16 class) but Draft B corrective rewrite eliminated that word entirely, resulting in verifier-clean accepted output."
+  },
+
+  "knowledge_retrieval": {
+    "chunk_ids": [
+      "20163bd6-3694-4fac-879e-4268771e6341",
+      "850bd47b-2bc8-4994-a753-652d8c90163b",
+      "b3c6e8ac-4ba0-4c41-9ca8-6fa4428c52c2",
+      "c24d1aa7-1dab-499f-83a7-f9554de5e8e7",
+      "d925b176-33ea-45c0-8c34-e950e9818bbe"
+    ],
+    "different_from_ai_agents_substrate": true,
+    "overlap_with_ai_agents_chunks": ["c24d1aa7 (PURPOSE)", "b3c6e8ac (LANGUAGE MODELS)"],
+    "new_chunks_for_this_topic": ["d925b176 (AI CHARACTERS tail + AI SPOKESPEOPLE body)", "850bd47b (AI SPOKESPEOPLE tail + GENERATIVE IMAGES body)", "20163bd6 (GENERATIVE IMAGES tail + GENERATIVE VIDEO)"],
+
+    "chunk_850bd47b_generative_images_verbatim_extract": "GENERATIVE IMAGES Image-generation systems create images from instructions and reference information. Results can vary even when prompts are similar. Common challenges include character consistency, hands and anatomy, text inside images, clothing consistency, object placement, maintaining identity, composition, and style consistency. Patch treats iteration as part of image generation. A failed generation is useful information: sometimes the model misunderstood the prompt, sometimes the prompt encouraged the wrong interpretation, sometimes the model simply struggles with the requested concept. Failure is a diagnostic, not the end of the process.",
+    "chunk_20163bd6_generative_video_verbatim_extract": "GENERATIVE VIDEO AI video generation can create or transform moving imagery. Video introduces problems image generation does not have because visual identity has to remain coherent over time. Potential issues include facial changes, body distortion, background instability, lip-sync problems, object movement, character drift, clothing changes, and camera inconsistencies.",
+
+    "vocabulary_density_comparison_vs_ai_agents_chunks": "The image-generation chunks (850bd47b + 20163bd6) contain vocabulary that is dominantly ORDINARY ENGLISH: 'instructions', 'reference information', 'character consistency', 'hands and anatomy', 'text inside images', 'clothing consistency', 'object placement', 'maintaining identity', 'composition', 'style consistency', 'character drift', 'clothing changes', 'camera inconsistencies'. These read as descriptive-technical (a nontechnical adult can parse them) rather than reference-technical (jargon labels for concepts). Compare with AI-agents chunks 505acbba + ed18e966 which contain 'call APIs, perform multi-step tasks, maintain state, respond to changes in an environment, language model, memory, retrieval, search, tools, business rules, databases, user profiles' — reference-technical enumeration.",
+    "topic_difficulty_asymmetry": "AI-agents topic is UNUSUALLY jargon-heavy for Patch's knowledge base. Image-generation topic is naturally easier because its retrieved source chunks provide accessible vocabulary. This means measuring E-KNOWLEDGE-1's replication on image-generation would be a LESS DEMANDING test than the AI-agents specimen 774658ea."
+  },
+
+  "narrative_memory": {
+    "memory_ids": ["8d4fdfec-add4-4505-8ade-b0f9e6d8aea6"],
+    "memory_body_verbatim": "Patch found the old workshop-agent project and notes, revealing that the Agent began as a smaller experiment before Patch gave it more context and it started making decisions about his projects.",
+    "memory_topic_relevance_to_render_topic": "LOW — memory is about the workshop-agent (AI-agent) project; render topic is image generation. Semantic overlap: 'experiment', 'notes', 'projects'.",
+    "memory_used_in_accepted_script": false,
+    "note_on_memory_used_search": "grep for 'workshop-agent' / 'old notes' / 'making decisions' / any workshop-agent memory content in the accepted script returns EMPTY. The retrieval mechanism selected the workshop-agent memory as top-1 (likely because it is the highest-weighted Patch-related memory available in the pool of 14 remembered rows), but the synthesis model correctly recognised it was NOT relevant to image generation and did NOT cite it.",
+    "interpretation": "This is CORRECT model behavior: memory was retrieved but not force-cited. It is not a retrieval-quality problem per operator brief — the mechanism selects best-available, and the model exercises discretion about citation. A future architectural question could be whether memory retrieval should carry a relevance threshold (e.g. return None if similarity < X); that is out of scope here. Recorded as observation only.",
+    "candidate_open_question_label": "Q-270-21 (candidate) — should NarrativeMemory retrieval carry a relevance floor so cross-topic memories don't reach the assembled prompt? Bounded architectural question; NOT in scope for any SESSION 271 slice."
+  },
+
+  "narrative_memory_pool_state": {
+    "captured_at": "2026-08-20T16:38Z",
+    "patch_workshop_pool_total": 15,
+    "patch_workshop_status_remembered_count": 14,
+    "patch_workshop_status_archived_count": 1,
+    "delta_from_every_prior_trial": "zero"
+  },
+
+  "concept_and_terminology_analysis_within_composition": {
+    "at_risk_term_check_ai_agents_rubric": {
+      "API": {"draft_a": 0, "draft_b": 0},
+      "APIs": {"draft_a": 0, "draft_b": 0},
+      "language model": {"draft_a": 0, "draft_b": 0, "note": "chunk b3c6e8ac was retrieved but the term did NOT enter either draft — model chose 'the model' and 'these systems' instead"},
+      "state": {"draft_a": 0, "draft_b": 0, "note_multi_meaning": "the word 'state' does not appear in either draft; 'style' does but style != state"},
+      "multi-step": {"draft_a": 0, "draft_b": 0},
+      "database": {"draft_a": 0, "draft_b": 0},
+      "react": {"draft_a": 0, "draft_b": 0}
+    },
+    "topic_specific_terminology_from_operator_brief": {
+      "image generator": {"draft_a": "'gave an image generator a simple job'", "draft_b": "'gave an image generator one simple job' + 'these systems'"},
+      "prompt / prompts": {"draft_a": 0, "draft_b": "prompts (×2: 'even when the prompts are nearly the same', 'Maybe the prompt accidentally encouraged the exact nonsense')", "accessibility": "used in context — chunk 850bd47b uses 'prompts' too; the model paraphrases but keeps the term. Nontechnical adult can parse from surrounding context ('what you type', 'what you asked for')."},
+      "reference information": {"draft_a": "'better references' (close paraphrase)", "draft_b": "'reference information' (VERBATIM from chunk 850bd47b)", "accessibility": "accessible term; chunk-source but not jargon-labeled"},
+      "composition": {"draft_a": 0, "draft_b": "'The composition gets dramatic for no clear reason' — accessible-in-context usage of the term"},
+      "model": {"draft_a": "'this particular idea is just difficult for the model to hold onto' (Draft B)", "draft_b": "'the model' + 'these systems' — used but non-definitional"},
+      "identity": {"draft_a": "'identity, clothes, and apparently fingers'", "draft_b": "'identity, anatomy, style, where things belong'"},
+      "anatomy": {"draft_a": "'apparently fingers'", "draft_b": "'anatomy'"},
+      "style": {"draft_a": 0, "draft_b": "'style' × 2 — used as one of the properties the model struggles with; no definitional lecture"},
+      "consistency": {"draft_a": 0, "draft_b": "not used explicitly as 'consistency' but the concept is present ('keep the character, keep the style, and change only one thing at a time')"},
+      "drift": {"draft_a": 0, "draft_b": "'what makes it drift' — VERBATIM from chunk 20163bd6's 'character drift', but Draft B uses the verb form in context"}
+    },
+    "accessibility_verdict": "The accepted output uses topic-specific vocabulary ('prompt', 'model', 'composition', 'identity', 'anatomy', 'style', 'drift', 'reference information') but every one of them appears in a context where a nontechnical adult can parse the meaning. No definitional recital, no raw enumeration. This is what the E-KNOWLEDGE-1 policy would AIM to produce — but this specimen achieved it WITHOUT the policy being active.",
+    "reasoning_progression_present": "generation varies → bad output becomes evidence → possible causes → isolate one variable → experiment. Source: mostly retrieved chunk 850bd47b ('A failed generation is useful information: sometimes the model misunderstood the prompt, sometimes the prompt encouraged the wrong interpretation, sometimes the model simply struggles with the requested concept. Failure is a diagnostic, not the end of the process.') + chunk implicit content, RENDERED as Patch's own live reasoning through the chain. Not persona-invariant per Slice 5/6 analysis (Patch persona says 'distinguishes what worked from what almost worked' but not the specific isolate-one-variable formulation). So the diagnostic-reasoning progression came from RETRIEVED FACTUAL KNOWLEDGE (chunk 850bd47b) rather than persona invariant."
+  },
+
+  "cross_specimen_comparison": {
+    "table": [
+      {"id": "2ef5ee7e", "topic": "AI agents", "condition": "baseline", "aud": false, "rev": false, "pol": false, "accepted_at_risk": 6},
+      {"id": "c3ff972d", "topic": "AI agents", "condition": "audience canonical", "aud": true, "rev": false, "pol": false, "accepted_at_risk": 5},
+      {"id": "25467733", "topic": "AI agents", "condition": "activation gap (all OFF)", "aud": false, "rev": false, "pol": false, "accepted_at_risk": 5},
+      {"id": "1ff3d16f", "topic": "AI agents", "condition": "aud + Q-270-15c revision", "aud": true, "rev": true, "pol": false, "accepted_at_risk": 3},
+      {"id": "8b61ca92", "topic": "AI agents", "condition": "activation gap (all OFF)", "aud": false, "rev": false, "pol": false, "accepted_at_risk": 5},
+      {"id": "774658ea", "topic": "AI agents", "condition": "aud + E-KNOWLEDGE-1 policy", "aud": true, "rev": false, "pol": true, "accepted_at_risk": 2},
+      {"id": "62d68b17", "topic": "AI image generation (NEW EPISODE)", "condition": "activation gap (all OFF)", "aud": false, "rev": false, "pol": false, "accepted_at_risk_ai_agents_rubric": 0, "note": "0 on the AI-agents rubric (no API/language model/state/multi-step/database/react) but the rubric is topic-mismatched — image-gen has its own vocabulary axis (prompt, model, composition, identity, anatomy, style, drift, reference information) that this specimen uses accessibly."}
+    ],
+    "critical_note": "62d68b17 is NOT directly comparable to the AI-agents specimens on the same at-risk rubric because the topic + retrieved chunks are different. Its 0-at-risk score on the AI-agents rubric does NOT indicate that E-KNOWLEDGE-1 replicated — it indicates that a different topic uses different vocabulary. The correct comparison for E-KNOWLEDGE-1 replication would be a properly-activated image-generation render (call it Trial 6), where the policy could be evaluated against a canonical image-generation control (this specimen)."
+  },
+
+  "e_knowledge_1_replication_verdict": {
+    "verdict": "E — INCONCLUSIVE FOR E-KNOWLEDGE-1 REPLICATION",
+    "reasoning": "The E-KNOWLEDGE-1 experiment did not execute on this render (three independent proofs: no marker log lines, no worker env vars, canonical corrective_hint fingerprint). Q-270-15c revision was also OFF (as intended — but for the wrong reason: it was off because ALL experiments were off, not because of deliberate selective activation). No claim can be made that the E-KNOWLEDGE-1 mechanism does or does not replicate on a different topic based on this specimen.",
+    "collateral_findings_still_valuable": [
+      "The image-generation source chunks are LESS jargon-heavy than the AI-agents chunks. Patch's default persona (Character Voice §2) produces excellent accessible language on this substrate WITHOUT any experimental support.",
+      "The AI-agents topic is therefore atypical for Patch — it may need E-KNOWLEDGE-1 or an equivalent architectural fix specifically because ITS chunks are enumeration-heavy in a way image-generation chunks are not.",
+      "This suggests the eventual persona-migration decision may only need to strengthen invariants that fight against a specific class of chunk shape (raw enumeration lists), rather than a blanket 'always translate every technical term' rule.",
+      "Memory retrieval selected the workshop-agent memory (irrelevant to image generation) but the model correctly did NOT cite it. Retrieval-relevance-floor is a plausible architectural improvement (candidate Q-270-21) but not a current failure.",
+      "Draft A verifier warning ('Apparently' proper_noun — Q-270-16 class) was ELIMINATED in Draft B rewrite, producing the first verifier-clean accepted script in the entire SESSION 270+271 sequence."
+    ]
+  },
+
+  "promotion_decision_after_two_data_points": {
+    "trial_count_for_e_knowledge_1_actually_executed": 1,
+    "trial_count_for_activation_gap_case_c": 3,
+    "sufficient_evidence_for_persona_migration_yet": "NO. The n=1 for actual E-KNOWLEDGE-1 mechanism (774658ea) supports the ARCHITECTURAL principle strongly (§125 in the durable doc) but is insufficient for a live persona edit. Trial 5 (this render) was intended to be n=2 but did not execute the experiment.",
+    "recommended_next_action": "Run a valid E-KNOWLEDGE-1 replication where Claude performs the full activation inline (proven pattern that succeeded for Trial 4 774658ea) BEFORE handing off the SPA action to Chris. The activation-gap failure mode has now occurred 3 of 5 trials on this experiment surface (Trials 1, 3, 5); the two successes (2 and 4) both used Claude-inline activation. Either same substrate (AI agents) OR different substrate — but activation confirmed via Claude-inline execution, not session-boundary handoff.",
+    "if_next_trial_confirms_774658ea": "Option A (persona migration) becomes safe. Specific migration content per §127 of the durable doc.",
+    "if_next_trial_diverges": "Interpretation slice before any persona edit."
+  },
+
+  "cleanup_expected_next_step": "Unset all three experiment env vars, restart canonical worker, verify all flags absent, pool unchanged, all services healthy."
+}
