@@ -2586,10 +2586,10 @@ If Chris + ChatGPT are willing, an alternative is that Claude performs the full 
 
 ## §86. Slice 5 commit + push record
 
-- Slice 5 commit SHA: `<pending — populated after commit>`
-- Push: `<pending>`
-- Local `main == origin/main`: `<verified at commit time>`
-- Working tree at Slice 5 close: `<verified clean>`
+- Slice 5 commit SHA: `8df2a03` — `docs(session-271): Slice 5 — knowledge audit + Trial 3 (8b61ca92) forensics with knowledge confound`.
+- Push: `591152c..8df2a03 main -> main` (successful).
+- Local `main == origin/main == 8df2a03` verified.
+- Working tree at Slice 5 close: clean.
 - Files touched by Slice 5:
   - `docs/design/session_271_experiment_data/03_composition_8b61ca92_q270_15c_trial3_evidence.json` (NEW evidence sidecar)
   - `docs/design/SESSION_271_CORRECTIVE_PASS_AUDIENCE_INVARIANCE_AUDIT.md` §81–§86 appended
