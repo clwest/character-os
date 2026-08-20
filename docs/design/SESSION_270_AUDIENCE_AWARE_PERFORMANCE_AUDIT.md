@@ -627,6 +627,85 @@ The point of the CHANGE/PRESERVE contract is falsifiable evidence, not a compoun
 - Push: `ad5b6a2..39a4fc0 main -> main` (successful). Local `main == origin/main == 39a4fc0`.
 - Working tree state at checkpoint: clean.
 
+### §13.13 Activation record (experiment window open — do NOT edit `main` while this is live)
+
+Recorded at operator's activation request, immediately before Chris's one authorised real-mode dogfood render. Preserved so the render's evidence chain names an unambiguous activation moment.
+
+**Worker restart:**
+
+- Prior worker PID **58724** killed at `2026-08-19 20:14:0Xs` local via `pkill -f "celery -A character_os worker"`.
+- New worker PID **59393** launched with the SESSION 270 env var exported into its parent shell:
+
+  ```bash
+  export CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT='AUDIENCE: children around 8-10 years old. Adapt register, vocabulary accessibility, explanation style, analogy choice, and assumed background knowledge for this audience. Preserve character identity, intelligence, personality, humor, factual grounding, Universe canon, NarrativeMemory semantics, and Episode intent. Communicate WITH the audience, do not talk DOWN to them.'
+  (cd shell && nohup ../.venv/bin/celery -A character_os worker \
+      --loglevel=info --concurrency=2 \
+      > /tmp/character-os-celery.log 2>&1 & echo "$!" > /tmp/character-os-celery.pid)
+  ```
+- Boot timestamp from `/tmp/character-os-celery.log`: **`[2026-08-20 02:14:11,886: INFO/MainProcess] celery@Chriss-MacBook-Pro.local ready.`**
+- Control-plane liveness: `celery -A character_os inspect ping` → `celery@Chriss-MacBook-Pro.local: OK / pong / 1 node online.`
+
+**Env var reached the worker's process environment (definitive proof):**
+
+- `ps eww $NEW_PID | grep -c "CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT="` → **1** (env token present in the worker's environ block exactly once — not inherited from a sibling process, not multiply-set).
+- Full-value recovery via regex over the same `ps eww` output:
+  - `recovered_chars = 372` (matches the parent-shell export length exactly).
+  - `starts_with = 'AUDIENCE: children around 8-10 years old'`.
+  - `ends_with = ' the audience, do not talk DOWN to them.'`.
+  - Byte-identical to the SESSION 270 authorisation-brief text.
+
+**Worker is running the SESSION 270 implementation:**
+
+Symbol import via `manage.py shell` under the same `.venv/bin/python` the worker uses:
+- `build_render_brief has audience_hint: True`
+- `duration_gate has audience_hint: True`
+- `_assemble_task_message has audience_hint: True`
+- `resolver env constant: CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT`
+
+Any missing symbol would have crashed the worker before it printed `ready.` at 02:14:11 — the successful `ready.` line is itself a passive proof that `avatar_speech._resolve_solo_audience_hint` + `_SOLO_AUDIENCE_HINT_ENV` + `_SOLO_AUDIENCE_HINT_SETTING` imports resolved. Confirmed at 02:14:12 via the explicit `manage.py shell` re-check for completeness.
+
+**Rest of the local-real stack — health probes at activation:**
+
+| Service | Probe | Status |
+|---|---|---|
+| Django | `curl -sfo /dev/null -w "http=%{http_code}" http://localhost:8010/admin/` | `http=302` (login redirect — healthy) |
+| media-engine | `curl -sf http://localhost:8001/health` | `{"status":"ok","service":"adspark-studio","openai_mock":false,"runway_mock":false,"image_gen_mock":false,"any_mock":false,"llm_provider":"openai","llm_model":"gpt-4o-mini"}` (real-mode confirmed — no provider mocks) |
+| Vite (SPA) | `curl -sfo /dev/null -w "http=%{http_code}" http://localhost:5174/` | `http=200` |
+| Celery worker | `celery -A character_os inspect ping --timeout 5` | `pong / 1 node online` |
+
+**Persisted state untouched (per operator brief):**
+
+Zero writes to `Episode`, `Composition`, `NarrativeMemory`, `Teammate`, `Universe`, `Workspace`, `KnowledgeChunk`, `KnowledgeDocument`, `EpisodeCast`, `Asset`, or any other DB table. No migration executed. Working tree clean before the activation and clean after it (this doc update aside).
+
+**Deactivation contract:**
+
+The experiment window remains open until Chris (or a follow-up session) runs:
+
+```bash
+pkill -f "celery -A character_os worker"
+unset CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT
+cd /Users/donkeyking/Donkey_Betz/character-os && set -a && source .env && set +a
+(cd shell && nohup ../.venv/bin/celery -A character_os worker \
+    --loglevel=info --concurrency=2 \
+    > /tmp/character-os-celery.log 2>&1 & echo "$!" > /tmp/character-os-celery.pid)
+```
+
+Until then, EVERY Episode-attached solo `talking_head` render dispatched to this worker will pick up the hint (regardless of Universe / spokesperson / topic). Standalone talking_head + long_form_ad + dialogue_scene renders remain byte-stable regardless of the toggle.
+
+### §13.14 Chris's single dogfood action (identical to §13.8 step 2)
+
+Activation done. To produce the one experimental Composition, in the SPA on Universe *"Patch' Workshop"*:
+
+- Reuse the existing Episode *"Patch does research on AI Agents"* (or recreate with identical `title` + `operator_topic`).
+- Cast: Patch only (single-character Episode).
+- Click **New solo scene** on Episode detail.
+- Recipe form: Target duration = **90 s**, Use workspace knowledge = **on**, Opener = **blank**, Fact-check mode = **warn**.
+- Click render.
+
+Observable during the render (proof the hint reached synthesis): `/tmp/character-os-celery.log` will contain a line matching `avatar_speech: SESSION 270 audience-hint experiment ACTIVE composition=<UUID> spokesperson=7fad8172-... hint_chars=372 — this is transient research plumbing…`. Absence of that line means the render did NOT pick up the hint — treat the resulting Composition as baseline-shape, not experiment.
+
+After the render completes, hand the new Composition ID back so §13.9 + §13.10 can be populated from persisted runtime evidence.
+
 ---
 
 **End of SESSION 270 opening audit + §13 implementation checkpoint.** Return to operator with the concise report and the dogfood instructions above. Do NOT extend into dialogue_scene / architecture / UI until the first Composition is graded.
