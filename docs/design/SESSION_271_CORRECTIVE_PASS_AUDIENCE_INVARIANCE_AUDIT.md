@@ -1964,10 +1964,10 @@ Post-cleanup service health probes (all green):
 
 ## §70. Slice 3 Phase 2 Trial 2 commit + push record
 
-- Trial 2 slice commit SHA: `<pending — populated after commit>`
-- Push: `<pending>`
-- Local `main == origin/main`: `<verified at commit time>`
-- Working tree at Trial 2 close: `<verified clean>`
+- Trial 2 slice commit SHA: `d491e15` — `docs(session-271): Slice 3 Phase 2 Trial 2 — Composition 1ff3d16f Q-270-15c verdict B (REVISION HELPS BUT HAS COSTS)`.
+- Push: `8174c5b..d491e15 main -> main` (successful).
+- Local `main == origin/main == d491e15` verified.
+- Working tree at Trial 2 close: clean.
 - Files touched by Phase 2 Trial 2:
   - `docs/design/session_271_experiment_data/02_composition_1ff3d16f_q270_15c_trial2_evidence.json` (NEW evidence sidecar)
   - `docs/design/SESSION_271_CORRECTIVE_PASS_AUDIENCE_INVARIANCE_AUDIT.md` §59–§71 appended (this section)
