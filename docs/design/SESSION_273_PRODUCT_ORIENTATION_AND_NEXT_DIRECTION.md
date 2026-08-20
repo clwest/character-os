@@ -316,7 +316,8 @@ Then the friction is now the highest-signal work item, and Chris has real eviden
 
 ## §10. COMMIT PROVENANCE
 
-- SESSION 273 orientation doc commit: (recorded at commit time — see git log)
+- SESSION 273 orientation doc commit: **`96ad5d7`** — `docs(session-273): product orientation + next-direction recommendation`
+- Pushed to `origin/main` at close of orientation slice.
 
 ---
 
