@@ -1,0 +1,751 @@
+{
+  "session": 272,
+  "slice": "E",
+  "writing_contract_version": 6,
+  "operator_topic": "Rivet demonstrates his debugging approach \u2014 when a generation comes out wrong once, how does he decide whether it's a fluke or a real problem worth investigating?",
+  "target_duration_seconds": 90,
+  "audience_hint": "",
+  "trials_per_condition": 5,
+  "frozen_hint_exemplars": {
+    "NO_KNOWLEDGE_REF": {
+      "text": "Your previous draft was 568 characters (100 words, estimated ~39s of speech). Target is 81s.\nEXPAND THE SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 404 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding already established. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts.",
+      "sha256": "333d5ea5f29e4a371e119db9287a6bf826438084a9db4ce92914e98af405ba5a"
+    },
+    "CORRECT_ANCHOR": {
+      "text": "Your previous draft was 568 characters (100 words, estimated ~39s of speech). Target is 81s.\nEXPAND YOUR SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 404 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+      "sha256": "fccb006dac0c9461d646a7cf552fc56de2acdcd85d01ef9daea746a8e4566dbd"
+    }
+  },
+  "baseline_sample": {
+    "text": "Your previous draft was 568 characters (100 words, estimated ~39s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 404 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+    "sha256": "04b627df90264ff13d507c78a240902d2e9df57d37a18ab4e402c29a84a5bd91"
+  },
+  "post_experiment_baseline_sample": {
+    "text": "Your previous draft was 568 characters (100 words, estimated ~39s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 404 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+    "sha256": "04b627df90264ff13d507c78a240902d2e9df57d37a18ab4e402c29a84a5bd91"
+  },
+  "restore_verified": true,
+  "setup_manifest_ref": "docs/design/session_272_experiment_data/00_slice_b_setup_manifest.json",
+  "slice_c_evidence_ref": "docs/design/session_272_experiment_data/02_slice_c_multishot_evidence.json",
+  "BASELINE_trials": [
+    {
+      "elapsed_seconds": 13.156,
+      "retrieval": {
+        "returned_chunk_count": 1,
+        "scored_chunks": [
+          {
+            "id": "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00",
+            "chunk_index": 0,
+            "document_id": "d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6",
+            "distance": 0.3381360414404444,
+            "length": 517,
+            "sha256_16": "b17105434b87d6ab",
+            "text": "DEBUGGING When something breaks, Rivet prefers reducing the problem before trying to fix it. Changing one meaningful variable and testing again is more informative than changing ten things at once. Useful debugging questions include what changed, what was expected, what actually happened, whether the behavior can be reproduced, where the behavior first becomes incorrect, what evidence exists, what assumption might be wrong, and what smallest test would separate two possible explanations. Evidence beats guessing."
+          }
+        ]
+      },
+      "hint_capture": {
+        "emitted_hint_texts": [
+          "Your previous draft was 568 characters (100 words, estimated ~39s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 404 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks."
+        ],
+        "emitted_hint_sha256": [
+          "04b627df90264ff13d507c78a240902d2e9df57d37a18ab4e402c29a84a5bd91"
+        ],
+        "provenance_note": "reused from Slice C CTL \u2014 corrective_hint_used field"
+      },
+      "synthesis": {
+        "attempt_count": 2,
+        "first_pass_brief": "One bad generation is not a pattern. It is a clue wearing a suspicious hat.\n\nFirst, I ask what changed. What did we expect? What actually happened? And can we make it happen again?\n\nI do not change the prompt, the settings, the workflow, and three unrelated things all at once. That produces a new mystery, which Patch considers a hobby.\n\nChange one meaningful variable. Run the smallest test that separates two explanations.\n\nIf the bad result repeats, we have evidence. If it does not, we may have found a fluke.\n\nEither way, guessing can wait. The next test cannot.",
+        "corrective_hint_used": "Your previous draft was 568 characters (100 words, estimated ~39s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 404 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+        "corrective_pass_brief": "Well. That generation came out wrong once.\n\nOnce is not a diagnosis. It is a clue wearing a dramatic hat.\n\nBefore I decide the whole system is broken, I want to know: what changed? What was I expecting? What actually happened instead? And, importantly, can it happen again?\n\nBecause one strange result might be a fluke. Or it might be the first visible crack in an assumption we were very pleased with five minutes ago.\n\nThe tempting response is to change everything at once. New prompt, new settings, new workflow, perhaps a ceremonial restart. Then, if it works, nobody knows why. If it fails, nobody knows where to look next. Very efficient, if your goal is confusion.\n\nSo I reduce the problem.\n\nI keep as much as possible the same and change one meaningful variable. Then I test again. Not because it is thrilling. It is not. But evidence beats guessing, and a small test can separate two possible explanations faster than an hour of enthusiastic tinkering.\n\nI look for where the behavior first becomes incorrect. I check what evidence we actually have. I ask which assumption might be wrong.\n\nThen I make the smallest test I can.\n\nIf the odd result repeats, we have a real problem worth investigating. If it does not, we have learned something too: do not build a theory around one suspicious generation.\n\nTry that next time something comes out wrong. Change one thing. Test again. Let the evidence do the worrying.",
+        "accepted_brief": "Well. That generation came out wrong once.\n\nOnce is not a diagnosis. It is a clue wearing a dramatic hat.\n\nBefore I decide the whole system is broken, I want to know: what changed? What was I expecting? What actually happened instead? And, importantly, can it happen again?\n\nBecause one strange result might be a fluke. Or it might be the first visible crack in an assumption we were very pleased with five minutes ago.\n\nThe tempting response is to change everything at once. New prompt, new settings, new workflow, perhaps a ceremonial restart. Then, if it works, nobody knows why. If it fails, nobody knows where to look next. Very efficient, if your goal is confusion.\n\nSo I reduce the problem.\n\nI keep as much as possible the same and change one meaningful variable. Then I test again. Not because it is thrilling. It is not. But evidence beats guessing, and a small test can separate two possible explanations faster than an hour of enthusiastic tinkering.\n\nI look for where the behavior first becomes incorrect. I check what evidence we actually have. I ask which assumption might be wrong.\n\nThen I make the smallest test I can.\n\nIf the odd result repeats, we have a real problem worth investigating. If it does not, we have learned something too: do not build a theory around one suspicious generation.\n\nTry that next time something comes out wrong. Change one thing. Test again. Let the evidence do the worrying.",
+        "chunk_ids": [
+          "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00"
+        ],
+        "memory_ids": [],
+        "verification_status": "verified",
+        "used_knowledge": true,
+        "model": "gpt-5.6-terra"
+      },
+      "provenance": "slice_c_ctl_trial_1",
+      "condition": "BASELINE"
+    },
+    {
+      "elapsed_seconds": 14.472,
+      "retrieval": {
+        "returned_chunk_count": 1,
+        "scored_chunks": [
+          {
+            "id": "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00",
+            "chunk_index": 0,
+            "document_id": "d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6",
+            "distance": 0.3381360414404444,
+            "length": 517,
+            "sha256_16": "b17105434b87d6ab"
+          }
+        ]
+      },
+      "hint_capture": {
+        "emitted_hint_texts": [
+          "Your previous draft was 694 characters (118 words, estimated ~48s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 278 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks."
+        ],
+        "emitted_hint_sha256": [
+          "eeb57c71fa86da50c06228288d7daf60916565ff8ced85361b0063a3d96efa10"
+        ],
+        "provenance_note": "reused from Slice C CTL \u2014 corrective_hint_used field"
+      },
+      "synthesis": {
+        "attempt_count": 2,
+        "first_pass_brief": "Hm. That generation came out wrong.\n\nNot \u201cinteresting wrong.\u201d Just wrong.\n\nNow, the tempting move is to change the prompt, the settings, the file, the lighting, and possibly the entire project out of irritation.\n\nWe will not be doing that.\n\nFirst question: can it happen again?\n\nIf it does, then I want to know where it first becomes incorrect. What did we expect? What actually happened? What changed before it went strange?\n\nAnd if it does not happen again\u2026 well, it may have been a fluke. Annoying, but not yet evidence of a larger problem.\n\nOne meaningful variable. One more test.\n\nPatch calls this \u201cbeing cautious.\u201d\n\nI call it refusing to create nine new mysteries while investigating one.",
+        "corrective_hint_used": "Your previous draft was 694 characters (118 words, estimated ~48s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 278 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+        "corrective_pass_brief": "This generation came out wrong once. Once is not a pattern. It is an inconvenience with excellent timing.\n\nI\u2019m not going to change everything and hope the next attempt behaves better. That makes the result impossible to read. If ten things change and the output improves, we have learned only that one of ten things may have mattered. Possibly two. Very efficient, if confusion is the goal.\n\nFirst, I want to know what changed. What did we expect? What actually happened? Can this same behavior be reproduced, or did the machine simply choose one unusual moment to become mysterious?\n\nThen I look for where it first becomes incorrect. Not where the result is obviously bad\u2014the first point where it stops matching what we thought should happen. That is usually more useful.\n\nThere may be evidence already: an input, a setting, an instruction, a detail we assumed did not matter. Assumptions are often very confident right up until they are wrong.\n\nSo the next move is small. Change one meaningful variable. Test again. Choose the smallest test that separates two possible explanations.\n\nIf it happens again, we have a problem worth investigating. If it does not, we have a fluke\u2014or a problem that has learned to hide.\n\nEither way, come watch what the evidence says before we start blaming the nearest button.",
+        "accepted_brief": "This generation came out wrong once. Once is not a pattern. It is an inconvenience with excellent timing.\n\nI\u2019m not going to change everything and hope the next attempt behaves better. That makes the result impossible to read. If ten things change and the output improves, we have learned only that one of ten things may have mattered. Possibly two. Very efficient, if confusion is the goal.\n\nFirst, I want to know what changed. What did we expect? What actually happened? Can this same behavior be reproduced, or did the machine simply choose one unusual moment to become mysterious?\n\nThen I look for where it first becomes incorrect. Not where the result is obviously bad\u2014the first point where it stops matching what we thought should happen. That is usually more useful.\n\nThere may be evidence already: an input, a setting, an instruction, a detail we assumed did not matter. Assumptions are often very confident right up until they are wrong.\n\nSo the next move is small. Change one meaningful variable. Test again. Choose the smallest test that separates two possible explanations.\n\nIf it happens again, we have a problem worth investigating. If it does not, we have a fluke\u2014or a problem that has learned to hide.\n\nEither way, come watch what the evidence says before we start blaming the nearest button.",
+        "chunk_ids": [
+          "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00"
+        ],
+        "memory_ids": [],
+        "verification_status": "verified",
+        "used_knowledge": true,
+        "model": "gpt-5.6-terra"
+      },
+      "provenance": "slice_c_ctl_trial_2",
+      "condition": "BASELINE"
+    },
+    {
+      "elapsed_seconds": 13.083,
+      "retrieval": {
+        "returned_chunk_count": 1,
+        "scored_chunks": [
+          {
+            "id": "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00",
+            "chunk_index": 0,
+            "document_id": "d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6",
+            "distance": 0.3381360414404444,
+            "length": 517,
+            "sha256_16": "b17105434b87d6ab"
+          }
+        ]
+      },
+      "hint_capture": {
+        "emitted_hint_texts": [
+          "Your previous draft was 861 characters (146 words, estimated ~59s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 111 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks."
+        ],
+        "emitted_hint_sha256": [
+          "7f2a54cfe66bd09f323e7a0c12d46a1b53fbff4dbecc9d9a9b95441e04b0285b"
+        ],
+        "provenance_note": "reused from Slice C CTL \u2014 corrective_hint_used field"
+      },
+      "synthesis": {
+        "attempt_count": 2,
+        "first_pass_brief": "This generation came out wrong once.\n\nOnce is not a pattern. It is a clue wearing a fake moustache.\n\nBefore I start changing everything, I want to know what changed, what I expected, and what actually happened. Then I ask the rude but useful question: can I make it happen again?\n\nIf I can\u2019t reproduce it, I have evidence of one strange result. Annoying, but not yet a diagnosis.\n\nIf I can reproduce it, then we have something worth investigating.\n\nThe next step is smaller, not bigger. Change one meaningful variable. Run the smallest test that separates two possible explanations. Find the first point where the result becomes incorrect.\n\nBecause changing ten things at once is not debugging.\n\nIt is redecorating the crime scene.\n\nSo, same setup. One change. Test again.\n\nLet\u2019s see whether this was a fluke\u2026 or whether something has decided to be interesting.",
+        "corrective_hint_used": "Your previous draft was 861 characters (146 words, estimated ~59s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 111 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+        "corrective_pass_brief": "Well. That generation is wrong.\n\nNot dramatically wrong. Those are almost helpful. This is the more irritating kind: close enough to make you wonder whether you misremembered what you asked for.\n\nI am not calling it a problem yet.\n\nOne strange result is evidence of something, but not necessarily evidence of a broken system. It could be a fluke. It could be an unclear instruction. It could be one assumption quietly wearing a false moustache.\n\nSo I stop before changing everything.\n\nFirst: what did we expect? Then: what actually appeared? Those are not always the same question, no matter how confidently Patch says, \u201cIt knows what I meant.\u201d\n\nNext, can we reproduce it? If the same setup produces the same wrong result again, that is more interesting. If it does not, we have learned something too. Annoyingly, but usefully.\n\nThen I look for the first point where it becomes incorrect. Not the final mess\u2014the first wrong turn. And I want evidence, not a collection of increasingly creative guesses.\n\nThe next move should be small: change one meaningful variable, then test again. That gives us a chance of knowing what mattered.\n\nIf you have a generation that came out wrong once, bring me the expected result, the actual result, and your least glamorous assumption. We can start there.",
+        "accepted_brief": "Well. That generation is wrong.\n\nNot dramatically wrong. Those are almost helpful. This is the more irritating kind: close enough to make you wonder whether you misremembered what you asked for.\n\nI am not calling it a problem yet.\n\nOne strange result is evidence of something, but not necessarily evidence of a broken system. It could be a fluke. It could be an unclear instruction. It could be one assumption quietly wearing a false moustache.\n\nSo I stop before changing everything.\n\nFirst: what did we expect? Then: what actually appeared? Those are not always the same question, no matter how confidently Patch says, \u201cIt knows what I meant.\u201d\n\nNext, can we reproduce it? If the same setup produces the same wrong result again, that is more interesting. If it does not, we have learned something too. Annoyingly, but usefully.\n\nThen I look for the first point where it becomes incorrect. Not the final mess\u2014the first wrong turn. And I want evidence, not a collection of increasingly creative guesses.\n\nThe next move should be small: change one meaningful variable, then test again. That gives us a chance of knowing what mattered.\n\nIf you have a generation that came out wrong once, bring me the expected result, the actual result, and your least glamorous assumption. We can start there.",
+        "chunk_ids": [
+          "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00"
+        ],
+        "memory_ids": [],
+        "verification_status": "verified",
+        "used_knowledge": true,
+        "model": "gpt-5.6-terra"
+      },
+      "provenance": "slice_c_ctl_trial_3",
+      "condition": "BASELINE"
+    },
+    {
+      "elapsed_seconds": 13.312,
+      "retrieval": {
+        "returned_chunk_count": 1,
+        "scored_chunks": [
+          {
+            "id": "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00",
+            "chunk_index": 0,
+            "document_id": "d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6",
+            "distance": 0.3381360414404444,
+            "length": 517,
+            "sha256_16": "b17105434b87d6ab"
+          }
+        ]
+      },
+      "hint_capture": {
+        "emitted_hint_texts": [
+          "Your previous draft was 625 characters (106 words, estimated ~43s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 347 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks."
+        ],
+        "emitted_hint_sha256": [
+          "eca3fa5cfd53864907f3ac51121cc4d140ab5569f3ed983e761d63370aadbf28"
+        ],
+        "provenance_note": "reused from Slice C CTL \u2014 corrective_hint_used field"
+      },
+      "synthesis": {
+        "attempt_count": 2,
+        "first_pass_brief": "This generation came out wrong once.\n\nThat is not yet a problem. It is an observation wearing a little hat that says \u201cpossibly concerning.\u201d\n\nFirst question: can I make it happen again?\n\nI\u2019m not changing ten things and hoping one of them feels guilty. I\u2019ll keep the setup the same, change one meaningful variable, and test again.\n\nIf it repeats, we have something worth investigating. If it does not, then it may have been a fluke.\n\nEither way, I want evidence: what changed, what I expected, what actually happened, and where the result first stopped making sense.\n\nGuessing is very fast.\n\nUnfortunately, it is not debugging.",
+        "corrective_hint_used": "Your previous draft was 625 characters (106 words, estimated ~43s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 347 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+        "corrective_pass_brief": "One bad generation is not a diagnosis. It is one bad generation.\n\nIt may be a fluke. It may be a real problem. It may be an assumption we forgot we were making because everything was going so well for nearly seven minutes.\n\nSo I do not immediately change every setting within reach. That is how you turn a useful mystery into several decorative mysteries.\n\nFirst, I look at what changed. What did we expect? What actually happened? Can this behavior be reproduced, or did it simply choose one inconvenient moment to become interesting?\n\nThen I look for where it first becomes incorrect. Not where it looks most dramatic. The first wrong step is usually more useful than the loudest one.\n\nIf there are two possible explanations, I want the smallest test that separates them. Change one meaningful variable. Try again. Keep the rest still. Evidence is slower than guessing for about thirty seconds, and faster after that.\n\nIf it fails again under the same conditions, fine. Now we have something worth investigating. If it does not, we have learned that panic was premature. Patch will be relieved to hear this, briefly.\n\nGot a generation that came out strange? Bring me the evidence, and we\u2019ll start with the smallest useful question.",
+        "accepted_brief": "One bad generation is not a diagnosis. It is one bad generation.\n\nIt may be a fluke. It may be a real problem. It may be an assumption we forgot we were making because everything was going so well for nearly seven minutes.\n\nSo I do not immediately change every setting within reach. That is how you turn a useful mystery into several decorative mysteries.\n\nFirst, I look at what changed. What did we expect? What actually happened? Can this behavior be reproduced, or did it simply choose one inconvenient moment to become interesting?\n\nThen I look for where it first becomes incorrect. Not where it looks most dramatic. The first wrong step is usually more useful than the loudest one.\n\nIf there are two possible explanations, I want the smallest test that separates them. Change one meaningful variable. Try again. Keep the rest still. Evidence is slower than guessing for about thirty seconds, and faster after that.\n\nIf it fails again under the same conditions, fine. Now we have something worth investigating. If it does not, we have learned that panic was premature. Patch will be relieved to hear this, briefly.\n\nGot a generation that came out strange? Bring me the evidence, and we\u2019ll start with the smallest useful question.",
+        "chunk_ids": [
+          "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00"
+        ],
+        "memory_ids": [],
+        "verification_status": "verified",
+        "used_knowledge": true,
+        "model": "gpt-5.6-terra"
+      },
+      "provenance": "slice_c_ctl_trial_4",
+      "condition": "BASELINE"
+    },
+    {
+      "elapsed_seconds": 12.691,
+      "retrieval": {
+        "returned_chunk_count": 1,
+        "scored_chunks": [
+          {
+            "id": "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00",
+            "chunk_index": 0,
+            "document_id": "d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6",
+            "distance": 0.3381360414404444,
+            "length": 517,
+            "sha256_16": "b17105434b87d6ab"
+          }
+        ]
+      },
+      "hint_capture": {
+        "emitted_hint_texts": [
+          "Your previous draft was 784 characters (131 words, estimated ~54s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 188 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks."
+        ],
+        "emitted_hint_sha256": [
+          "5949d076c23e4f07a1c521da267c72a4dfd69d615832977bcd712a97e0fe7f70"
+        ],
+        "provenance_note": "reused from Slice C CTL \u2014 corrective_hint_used field"
+      },
+      "synthesis": {
+        "attempt_count": 2,
+        "first_pass_brief": "One bad generation is not a pattern. It is a clue wearing a very confident hat.\n\nSo I do not immediately change everything. I check what we expected, what actually happened, and what\u2014if anything\u2014changed before it went wrong.\n\nThen I repeat the smallest useful test.\n\nSame setup. One meaningful variable changed, if there is one worth changing. Otherwise, the same setup again.\n\nIf the strange result does not return, it may have been a fluke. Annoying, but not yet a mystery.\n\nIf it does return, then we have evidence. Now I want to know where it first becomes incorrect, which assumption failed, and what tiny test could separate two possible explanations.\n\nPatch prefers the part where we dramatically rebuild the entire thing.\n\nI prefer knowing which part is actually broken first.",
+        "corrective_hint_used": "Your previous draft was 784 characters (131 words, estimated ~54s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 188 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+        "corrective_pass_brief": "This generation came out wrong once.\n\nThat is not yet a problem. It is an observation wearing a tiny hat and demanding attention.\n\nThe tempting response is to change everything: rewrite the prompt, swap the settings, blame the software, blame the machine, possibly blame Patch. Efficient emotionally. Useless technically.\n\nFirst, I ask what changed. What did we expect? What actually happened? Can we reproduce it? If it only happens once, it may be a fluke. If it happens again under the same conditions, then it has earned a place on the workbench.\n\nThe important part is not making the result prettier immediately. It is finding where the behavior first becomes incorrect. Did the input lead us somewhere strange, or did something go wrong after that? What evidence do we actually have? Which assumption are we treating as a fact because it would be convenient?\n\nThen I choose the smallest test that separates two explanations. Change one meaningful variable. Run it again. Watch what happens.\n\nNot ten changes at once. That is not debugging. That is throwing tools into a drawer and calling it organization.\n\nA bad generation can be random. Or it can be the first useful clue we have. The only way to tell is to give it one careful second look.\n\nIf you have a result that makes no sense, bring the evidence. We will start there.",
+        "accepted_brief": "This generation came out wrong once.\n\nThat is not yet a problem. It is an observation wearing a tiny hat and demanding attention.\n\nThe tempting response is to change everything: rewrite the prompt, swap the settings, blame the software, blame the machine, possibly blame Patch. Efficient emotionally. Useless technically.\n\nFirst, I ask what changed. What did we expect? What actually happened? Can we reproduce it? If it only happens once, it may be a fluke. If it happens again under the same conditions, then it has earned a place on the workbench.\n\nThe important part is not making the result prettier immediately. It is finding where the behavior first becomes incorrect. Did the input lead us somewhere strange, or did something go wrong after that? What evidence do we actually have? Which assumption are we treating as a fact because it would be convenient?\n\nThen I choose the smallest test that separates two explanations. Change one meaningful variable. Run it again. Watch what happens.\n\nNot ten changes at once. That is not debugging. That is throwing tools into a drawer and calling it organization.\n\nA bad generation can be random. Or it can be the first useful clue we have. The only way to tell is to give it one careful second look.\n\nIf you have a result that makes no sense, bring the evidence. We will start there.",
+        "chunk_ids": [
+          "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00"
+        ],
+        "memory_ids": [],
+        "verification_status": "verified",
+        "used_knowledge": true,
+        "model": "gpt-5.6-terra"
+      },
+      "provenance": "slice_c_ctl_trial_5",
+      "condition": "BASELINE"
+    }
+  ],
+  "NO_KNOWLEDGE_REF_trials": [
+    {
+      "elapsed_seconds": 15.663,
+      "retrieval": {
+        "returned_chunk_count": 1,
+        "scored_chunks": [
+          {
+            "id": "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00",
+            "chunk_index": 0,
+            "document_id": "d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6",
+            "distance": 0.3381360414404444,
+            "length": 517,
+            "sha256_16": "b17105434b87d6ab"
+          }
+        ]
+      },
+      "hint_capture": {
+        "emitted_hint_texts": [
+          "Your previous draft was 721 characters (121 words, estimated ~50s of speech). Target is 81s.\nEXPAND THE SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 251 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding already established. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts."
+        ],
+        "emitted_hint_sha256": [
+          "9f13b9b9449d54738e18526160eb621bec7242276e8153919ab39a55cc54f8a9"
+        ]
+      },
+      "synthesis": {
+        "attempt_count": 2,
+        "first_pass_brief": "This one came out wrong.\n\nThat is not yet a problem. It is one piece of evidence wearing a small hat.\n\nFirst question: can it happen again? If it cannot, I write it down and remain mildly suspicious. If it can, then we have something worth investigating.\n\nThe mistake people make is changing everything at once: prompt, settings, software, probably the chair they were sitting in. Then, when it improves, nobody knows why.\n\nSo I change one meaningful thing and try again. Same input, same setup, one variable different.\n\nWas the expected result clear? What actually happened? Where does it first become incorrect?\n\nA single strange result may be a fluke.\n\nTwo matching strange results are the beginning of a conversation.",
+        "corrective_hint_used": "Your previous draft was 721 characters (121 words, estimated ~50s of speech). Target is 81s.\nEXPAND THE SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 251 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding already established. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts.",
+        "corrective_pass_brief": "This generation came out wrong once. That is not yet a problem. It is a clue wearing a small hat.\n\nThe tempting response is to change everything: rewrite the prompt, swap tools, adjust settings, blame the software, and perhaps blame the moon. But if I change ten things and the next result looks better, I have learned almost nothing except that chaos occasionally gets lucky.\n\nSo first, I stop.\n\nWhat changed? What did we expect? What actually happened? Can I reproduce it?\n\nIf the same setup produces the same strange result again, then it has earned my attention. If it does not, that matters too. A one-off might be a fluke. A repeatable failure is evidence.\n\nThen I look for where it first becomes incorrect. Not where the final result is embarrassing. That part is usually obvious. I mean the first point where reality quietly takes a wrong turn.\n\nAnd instead of guessing, I choose one meaningful variable to change. One. The smallest test that separates two possible explanations.\n\nWas the instruction unclear? Fine: change the instruction and nothing else.\n\nWas the input the issue? Keep the instruction, change only the input.\n\nIt is slower than randomly twisting every knob at once. Briefly. Then it becomes much faster, because we are no longer testing our optimism.\n\nThis one is waiting for its smallest test.\n\nIf you have a weird result, bring it along. We will ask it what changed.",
+        "accepted_brief": "This generation came out wrong once. That is not yet a problem. It is a clue wearing a small hat.\n\nThe tempting response is to change everything: rewrite the prompt, swap tools, adjust settings, blame the software, and perhaps blame the moon. But if I change ten things and the next result looks better, I have learned almost nothing except that chaos occasionally gets lucky.\n\nSo first, I stop.\n\nWhat changed? What did we expect? What actually happened? Can I reproduce it?\n\nIf the same setup produces the same strange result again, then it has earned my attention. If it does not, that matters too. A one-off might be a fluke. A repeatable failure is evidence.\n\nThen I look for where it first becomes incorrect. Not where the final result is embarrassing. That part is usually obvious. I mean the first point where reality quietly takes a wrong turn.\n\nAnd instead of guessing, I choose one meaningful variable to change. One. The smallest test that separates two possible explanations.\n\nWas the instruction unclear? Fine: change the instruction and nothing else.\n\nWas the input the issue? Keep the instruction, change only the input.\n\nIt is slower than randomly twisting every knob at once. Briefly. Then it becomes much faster, because we are no longer testing our optimism.\n\nThis one is waiting for its smallest test.\n\nIf you have a weird result, bring it along. We will ask it what changed.",
+        "chunk_ids": [
+          "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00"
+        ],
+        "memory_ids": [],
+        "verification_status": "verified",
+        "used_knowledge": true,
+        "model": "gpt-5.6-terra",
+        "verification_warnings": [
+          {
+            "claim": "Briefly",
+            "kind": "proper_noun",
+            "position": 1193
+          }
+        ]
+      },
+      "provenance": "slice_e_fresh",
+      "condition": "NO_KNOWLEDGE_REF (isolates hypothesis A \u2014 hint-wording drives lexical copy)"
+    },
+    {
+      "elapsed_seconds": 11.044,
+      "retrieval": {
+        "returned_chunk_count": 1,
+        "scored_chunks": [
+          {
+            "id": "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00",
+            "chunk_index": 0,
+            "document_id": "d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6",
+            "distance": 0.3381360414404444,
+            "length": 517,
+            "sha256_16": "b17105434b87d6ab"
+          }
+        ]
+      },
+      "hint_capture": {
+        "emitted_hint_texts": [
+          "Your previous draft was 690 characters (117 words, estimated ~48s of speech). Target is 81s.\nEXPAND THE SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 282 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding already established. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts."
+        ],
+        "emitted_hint_sha256": [
+          "908b428c0fc32937a4f773cfe7720eee2e25af81d1e1e2a52b20bd6f39bb93a5"
+        ]
+      },
+      "synthesis": {
+        "attempt_count": 2,
+        "first_pass_brief": "This generation came out wrong once.\n\nThat is not yet a problem. It is a clue wearing a problem-shaped hat.\n\nBefore I start changing settings, rewriting prompts, or blaming the machine with great confidence, I want one small answer: can it happen again?\n\nSame input. Same setup. One more try.\n\nIf it behaves normally, then we have a fluke\u2014or at least insufficient evidence for a proper panic. If it fails again, I start narrowing it down: what changed, what should have happened, and where does the result first stop matching expectations?\n\nOne meaningful variable at a time.\n\nIt is slower than changing everything at once.\n\nIt is also much faster than having no idea which change mattered.",
+        "corrective_hint_used": "Your previous draft was 690 characters (117 words, estimated ~48s of speech). Target is 81s.\nEXPAND THE SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 282 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding already established. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts.",
+        "corrective_pass_brief": "This generation came out wrong. Not \u201ca little unusual.\u201d Wrong.\n\nThe tempting response is to change everything: rewrite the prompt, swap the tool, adjust the settings, blame the computer, blame the moon. Patch is remarkably efficient at that part.\n\nI\u2019m not doing any of those things yet.\n\nOne bad result is evidence of one bad result. It might be a real problem. It might be a fluke. Those are different jobs.\n\nFirst, I want to know what we expected to happen, and what actually happened instead. Then: can this behavior be reproduced? If it can, where does it first become incorrect? If it cannot, that is also useful information. Annoying information, certainly. Still useful.\n\nThe next test should be small enough to separate two explanations. Change one meaningful variable. Run it again. Compare the result.\n\nNot ten changes. One.\n\nIf the problem disappears, we have a clue. If it returns, we have a different clue. Either way, we stop guessing and start collecting evidence.\n\nThis one stays on the bench for now. If you enjoy watching us find out whether a strange result is a fluke or a fault, stay with us.",
+        "accepted_brief": "This generation came out wrong. Not \u201ca little unusual.\u201d Wrong.\n\nThe tempting response is to change everything: rewrite the prompt, swap the tool, adjust the settings, blame the computer, blame the moon. Patch is remarkably efficient at that part.\n\nI\u2019m not doing any of those things yet.\n\nOne bad result is evidence of one bad result. It might be a real problem. It might be a fluke. Those are different jobs.\n\nFirst, I want to know what we expected to happen, and what actually happened instead. Then: can this behavior be reproduced? If it can, where does it first become incorrect? If it cannot, that is also useful information. Annoying information, certainly. Still useful.\n\nThe next test should be small enough to separate two explanations. Change one meaningful variable. Run it again. Compare the result.\n\nNot ten changes. One.\n\nIf the problem disappears, we have a clue. If it returns, we have a different clue. Either way, we stop guessing and start collecting evidence.\n\nThis one stays on the bench for now. If you enjoy watching us find out whether a strange result is a fluke or a fault, stay with us.",
+        "chunk_ids": [
+          "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00"
+        ],
+        "memory_ids": [],
+        "verification_status": "verified",
+        "used_knowledge": true,
+        "model": "gpt-5.6-terra",
+        "verification_warnings": [
+          {
+            "claim": "Annoying",
+            "kind": "proper_noun",
+            "position": 631
+          },
+          {
+            "claim": "Compare",
+            "kind": "proper_noun",
+            "position": 792
+          }
+        ]
+      },
+      "provenance": "slice_e_fresh",
+      "condition": "NO_KNOWLEDGE_REF (isolates hypothesis A \u2014 hint-wording drives lexical copy)"
+    },
+    {
+      "elapsed_seconds": 11.039,
+      "retrieval": {
+        "returned_chunk_count": 1,
+        "scored_chunks": [
+          {
+            "id": "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00",
+            "chunk_index": 0,
+            "document_id": "d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6",
+            "distance": 0.3381360414404444,
+            "length": 517,
+            "sha256_16": "b17105434b87d6ab"
+          }
+        ]
+      },
+      "hint_capture": {
+        "emitted_hint_texts": [
+          "Your previous draft was 747 characters (129 words, estimated ~51s of speech). Target is 81s.\nEXPAND THE SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 225 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding already established. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts."
+        ],
+        "emitted_hint_sha256": [
+          "9d49ef8e4c8a6f5126d4367ec4d957fa46b6f1310a7ef7aa44c8f51ecad09c6b"
+        ]
+      },
+      "synthesis": {
+        "attempt_count": 2,
+        "first_pass_brief": "This generation came out wrong once.\n\nThat is not yet a problem. It is a clue wearing a very small hat.\n\nFirst, I ask what changed. Was it the prompt, the settings, the input, or nothing we can identify? Then I check what we expected against what actually happened. Those are often less similar than Patch remembers.\n\nNext: can I make it happen again?\n\nIf it will not repeat, I note it and move on carefully. If it does repeat, then it has earned my attention.\n\nThe important part is not changing everything at once. Change one meaningful variable. Test again. Find the first point where the result becomes incorrect.\n\nGuessing is fast. Evidence is faster, eventually.\n\nAnd considerably less likely to create three new problems while solving none.",
+        "corrective_hint_used": "Your previous draft was 747 characters (129 words, estimated ~51s of speech). Target is 81s.\nEXPAND THE SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 225 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding already established. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts.",
+        "corrective_pass_brief": "This generation came out wrong once.\n\nThat is not yet a mystery. It is one disappointing data point wearing a dramatic little hat.\n\nThe useful question is not, \u201cHow do I fix everything?\u201d It is: can I make it happen again?\n\nFirst, I stop changing things. If I adjust the prompt, the settings, the input, and three other variables at once, then get a different result, I have learned almost nothing. Except that chaos remains highly productive.\n\nSo I look at what changed. What did I expect? What actually happened? Where does the result first become incorrect? And what evidence do I have besides my immediate feeling that it looks haunted?\n\nThen I choose the smallest test that separates two explanations.\n\nMaybe it was a one-off. Maybe one change caused it. Maybe an assumption was wrong before we even started. I do not need a grand theory yet. I need one meaningful variable, one repeatable test, and an answer that survives being checked.\n\nIf it happens again under the same conditions, now we have a problem worth investigating.\n\nIf it does not, good. We have avoided dismantling the workshop over a fluke.\n\nBring me the strange result before you \u201cfix\u201d it.",
+        "accepted_brief": "This generation came out wrong once.\n\nThat is not yet a mystery. It is one disappointing data point wearing a dramatic little hat.\n\nThe useful question is not, \u201cHow do I fix everything?\u201d It is: can I make it happen again?\n\nFirst, I stop changing things. If I adjust the prompt, the settings, the input, and three other variables at once, then get a different result, I have learned almost nothing. Except that chaos remains highly productive.\n\nSo I look at what changed. What did I expect? What actually happened? Where does the result first become incorrect? And what evidence do I have besides my immediate feeling that it looks haunted?\n\nThen I choose the smallest test that separates two explanations.\n\nMaybe it was a one-off. Maybe one change caused it. Maybe an assumption was wrong before we even started. I do not need a grand theory yet. I need one meaningful variable, one repeatable test, and an answer that survives being checked.\n\nIf it happens again under the same conditions, now we have a problem worth investigating.\n\nIf it does not, good. We have avoided dismantling the workshop over a fluke.\n\nBring me the strange result before you \u201cfix\u201d it.",
+        "chunk_ids": [
+          "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00"
+        ],
+        "memory_ids": [],
+        "verification_status": "verified",
+        "used_knowledge": true,
+        "model": "gpt-5.6-terra",
+        "verification_warnings": [
+          {
+            "claim": "Except",
+            "kind": "proper_noun",
+            "position": 398
+          },
+          {
+            "claim": "Bring",
+            "kind": "proper_noun",
+            "position": 1113
+          }
+        ]
+      },
+      "provenance": "slice_e_fresh",
+      "condition": "NO_KNOWLEDGE_REF (isolates hypothesis A \u2014 hint-wording drives lexical copy)"
+    },
+    {
+      "elapsed_seconds": 11.961,
+      "retrieval": {
+        "returned_chunk_count": 1,
+        "scored_chunks": [
+          {
+            "id": "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00",
+            "chunk_index": 0,
+            "document_id": "d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6",
+            "distance": 0.3381360414404444,
+            "length": 517,
+            "sha256_16": "b17105434b87d6ab"
+          }
+        ]
+      },
+      "hint_capture": {
+        "emitted_hint_texts": [
+          "Your previous draft was 807 characters (139 words, estimated ~55s of speech). Target is 81s.\nEXPAND THE SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 165 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding already established. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts."
+        ],
+        "emitted_hint_sha256": [
+          "6b7fe01c6b6b9bbb2f06eb47cc746681ff42c33f546a617df4e8228aa48d7fbd"
+        ]
+      },
+      "synthesis": {
+        "attempt_count": 2,
+        "first_pass_brief": "This generation came out wrong.\n\nNot \u201cinteresting wrong.\u201d Wrong wrong.\n\nNow, one bad result is not a pattern. It could be a fluke, a bad input, or Patch having changed something and forgotten to mention it. Again.\n\nSo I do not immediately rebuild everything.\n\nFirst: can it happen again?\n\nIf it cannot, I make a note and move on. Annoying, but not yet a problem.\n\nIf it does happen again, then we have evidence. Not answers. Evidence.\n\nNext, I change one meaningful thing and test again. One. Not ten.\n\nWhat changed? What did we expect? Where does it first stop behaving correctly?\n\nThat smallest test is usually less exciting than guessing. It is also how you avoid spending an afternoon fixing six things that were never broken.\n\nRight. Same input. One variable changed.\n\nLet\u2019s see if it misbehaves twice.",
+        "corrective_hint_used": "Your previous draft was 807 characters (139 words, estimated ~55s of speech). Target is 81s.\nEXPAND THE SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 165 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding already established. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts.",
+        "corrective_pass_brief": "This generation came out wrong once.\n\nThat is not, by itself, a mystery. It is one piece of evidence wearing a dramatic little hat.\n\nFirst, I write down what I expected and what actually happened. Not \u201cit looks weird.\u201d Specifically: which part is wrong, and compared to what?\n\nThen I ask the inconvenient questions. What changed? Can I reproduce this? Where does the behavior first become incorrect? And, most importantly, what assumption am I making because it would be convenient if it were true?\n\nIf the next attempt behaves normally, I do not announce victory. I have learned that the strange result may have been a fluke. If it fails again in the same way, then we have something worth investigating.\n\nThe temptation is to change everything at once: prompt, settings, tools, files, perhaps the phase of the moon. That produces motion, certainly. Information? Less reliably.\n\nSo I change one meaningful variable and test again. The smallest test that can separate two explanations is usually the useful one.\n\nRight now, I am not fixing the generation. I am deciding whether it has earned more of our attention.\n\nIf you have a result that makes no sense, start by asking what evidence would make it make sense.",
+        "accepted_brief": "This generation came out wrong once.\n\nThat is not, by itself, a mystery. It is one piece of evidence wearing a dramatic little hat.\n\nFirst, I write down what I expected and what actually happened. Not \u201cit looks weird.\u201d Specifically: which part is wrong, and compared to what?\n\nThen I ask the inconvenient questions. What changed? Can I reproduce this? Where does the behavior first become incorrect? And, most importantly, what assumption am I making because it would be convenient if it were true?\n\nIf the next attempt behaves normally, I do not announce victory. I have learned that the strange result may have been a fluke. If it fails again in the same way, then we have something worth investigating.\n\nThe temptation is to change everything at once: prompt, settings, tools, files, perhaps the phase of the moon. That produces motion, certainly. Information? Less reliably.\n\nSo I change one meaningful variable and test again. The smallest test that can separate two explanations is usually the useful one.\n\nRight now, I am not fixing the generation. I am deciding whether it has earned more of our attention.\n\nIf you have a result that makes no sense, start by asking what evidence would make it make sense.",
+        "chunk_ids": [
+          "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00"
+        ],
+        "memory_ids": [],
+        "verification_status": "verified",
+        "used_knowledge": true,
+        "model": "gpt-5.6-terra",
+        "verification_warnings": [
+          {
+            "claim": "Specifically",
+            "kind": "proper_noun",
+            "position": 219
+          },
+          {
+            "claim": "Information",
+            "kind": "proper_noun",
+            "position": 851
+          },
+          {
+            "claim": "Less",
+            "kind": "proper_noun",
+            "position": 864
+          }
+        ]
+      },
+      "provenance": "slice_e_fresh",
+      "condition": "NO_KNOWLEDGE_REF (isolates hypothesis A \u2014 hint-wording drives lexical copy)"
+    },
+    {
+      "elapsed_seconds": 13.439,
+      "retrieval": {
+        "returned_chunk_count": 1,
+        "scored_chunks": [
+          {
+            "id": "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00",
+            "chunk_index": 0,
+            "document_id": "d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6",
+            "distance": 0.3381360414404444,
+            "length": 517,
+            "sha256_16": "b17105434b87d6ab"
+          }
+        ]
+      },
+      "hint_capture": {
+        "emitted_hint_texts": [
+          "Your previous draft was 782 characters (133 words, estimated ~54s of speech). Target is 81s.\nEXPAND THE SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 190 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding already established. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts."
+        ],
+        "emitted_hint_sha256": [
+          "ee2b07f77a8de3df7e60e62646e6cec4e6383b84071acb73e4192dca4f853941"
+        ]
+      },
+      "synthesis": {
+        "attempt_count": 2,
+        "first_pass_brief": "One bad generation is not automatically a problem. It is evidence.\n\nFirst, I ask what changed. Was it the prompt, the settings, the input, the software, or\u2014my personal favorite\u2014an assumption nobody wrote down?\n\nThen I ask what I expected, what actually happened, and whether I can make it happen again.\n\nIf it will not reproduce, I do not spend the afternoon repairing a ghost.\n\nIf it does reproduce, I reduce the problem. Change one meaningful variable. Run the smallest test that separates the likely explanations.\n\nNot ten changes at once. That is not debugging. That is redecorating a crime scene.\n\nSo, this result goes in the \u201cinteresting\u201d pile for now. One more controlled test, and then we find out whether it was a fluke\u2026 or a real problem wearing a very efficient disguise.",
+        "corrective_hint_used": "Your previous draft was 782 characters (133 words, estimated ~54s of speech). Target is 81s.\nEXPAND THE SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 190 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding already established. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts.",
+        "corrective_pass_brief": "This generation came out wrong once. Once is not a pattern. It is, however, an invitation to stop staring at it and start asking inconvenient questions.\n\nWhat changed? What did we expect? What actually happened? Can we make it happen again, or did the machine simply choose chaos for recreational purposes?\n\nPatch\u2019s preferred method is to adjust everything until the result looks less alarming. I admire the optimism. I do not recommend the evidence trail.\n\nI\u2019d change one meaningful variable, then test again. Not ten variables. One. If the result changes, we have learned something. If it does not, we have also learned something, which is irritating but useful.\n\nThen I want to know where it first becomes incorrect. Is the input wrong? Is an assumption wrong? Did the generation behave differently than expected? What evidence do we actually have besides one strange result and a growing sense of betrayal?\n\nThe smallest test that separates two possible explanations is usually the one worth doing next.\n\nSo I\u2019m not calling this a real problem yet. I\u2019m labeling it, preserving the evidence, and choosing one thing to change.\n\nIf you\u2019ve got a weird result, bring the evidence. We\u2019ll start there.",
+        "accepted_brief": "This generation came out wrong once. Once is not a pattern. It is, however, an invitation to stop staring at it and start asking inconvenient questions.\n\nWhat changed? What did we expect? What actually happened? Can we make it happen again, or did the machine simply choose chaos for recreational purposes?\n\nPatch\u2019s preferred method is to adjust everything until the result looks less alarming. I admire the optimism. I do not recommend the evidence trail.\n\nI\u2019d change one meaningful variable, then test again. Not ten variables. One. If the result changes, we have learned something. If it does not, we have also learned something, which is irritating but useful.\n\nThen I want to know where it first becomes incorrect. Is the input wrong? Is an assumption wrong? Did the generation behave differently than expected? What evidence do we actually have besides one strange result and a growing sense of betrayal?\n\nThe smallest test that separates two possible explanations is usually the one worth doing next.\n\nSo I\u2019m not calling this a real problem yet. I\u2019m labeling it, preserving the evidence, and choosing one thing to change.\n\nIf you\u2019ve got a weird result, bring the evidence. We\u2019ll start there.",
+        "chunk_ids": [
+          "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00"
+        ],
+        "memory_ids": [],
+        "verification_status": "verified",
+        "used_knowledge": true,
+        "model": "gpt-5.6-terra",
+        "verification_warnings": []
+      },
+      "provenance": "slice_e_fresh",
+      "condition": "NO_KNOWLEDGE_REF (isolates hypothesis A \u2014 hint-wording drives lexical copy)"
+    }
+  ],
+  "CORRECT_ANCHOR_trials": [
+    {
+      "elapsed_seconds": 12.619,
+      "retrieval": {
+        "returned_chunk_count": 1,
+        "scored_chunks": [
+          {
+            "id": "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00",
+            "chunk_index": 0,
+            "document_id": "d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6",
+            "distance": 0.3381360414404444,
+            "length": 517,
+            "sha256_16": "b17105434b87d6ab"
+          }
+        ]
+      },
+      "hint_capture": {
+        "emitted_hint_texts": [
+          "Your previous draft was 873 characters (142 words, estimated ~60s of speech). Target is 81s.\nEXPAND YOUR SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 99 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks."
+        ],
+        "emitted_hint_sha256": [
+          "b45a24084e70e6c325b9d85fd7b537414a8a28509c287f1fae5c025df7709aa4"
+        ]
+      },
+      "synthesis": {
+        "attempt_count": 2,
+        "first_pass_brief": "One bad generation is not automatically a problem. It is, at most, a suspicious event.\n\nFirst, I keep the setup the same and try again. Same input, same settings, one meaningful variable at a time. If it behaves normally the next time, we have evidence of a fluke. Not proof. Evidence.\n\nIf it fails again, then I start asking better questions: What changed? What did we expect? What actually happened? Where does it first become wrong?\n\nPatch\u2019s preferred method is changing ten things and declaring the original problem \u201cprobably solved.\u201d This produces excitement, certainly. It does not produce answers.\n\nThe smallest test that separates two explanations is usually the useful one.\n\nSo: reproduce it first. Then reduce it. Then investigate the part that is actually broken.\n\nI have written that down several times. Patch continues to regard labels as a personal challenge.",
+        "corrective_hint_used": "Your previous draft was 873 characters (142 words, estimated ~60s of speech). Target is 81s.\nEXPAND YOUR SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 99 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+        "corrective_pass_brief": "This generation came out wrong once. Once is not a pattern. It is an inconvenience wearing a tiny hat.\n\nSo I\u2019m not changing everything yet. First, I want to know what we expected to happen, and what actually happened instead. Those are not always the same question, particularly around here.\n\nThen I check whether the behavior can be reproduced. If it happens again under the same conditions, it has earned a little more of my attention. If it does not, that still tells us something: we have less evidence than we thought we did.\n\nThe tempting response is to alter ten settings and call it troubleshooting. That produces movement, certainly. Information? Less reliably.\n\nI would rather change one meaningful variable and test again. What changed? Where does the result first become incorrect? What assumption are we making that may be wrong? And what is the smallest test that could separate two possible explanations?\n\nMaybe it is a fluke. Maybe it is a real problem. At this moment, we do not need to guess which. We need evidence.\n\nStart small with me: pick the one thing you would test first.",
+        "accepted_brief": "This generation came out wrong once. Once is not a pattern. It is an inconvenience wearing a tiny hat.\n\nSo I\u2019m not changing everything yet. First, I want to know what we expected to happen, and what actually happened instead. Those are not always the same question, particularly around here.\n\nThen I check whether the behavior can be reproduced. If it happens again under the same conditions, it has earned a little more of my attention. If it does not, that still tells us something: we have less evidence than we thought we did.\n\nThe tempting response is to alter ten settings and call it troubleshooting. That produces movement, certainly. Information? Less reliably.\n\nI would rather change one meaningful variable and test again. What changed? Where does the result first become incorrect? What assumption are we making that may be wrong? And what is the smallest test that could separate two possible explanations?\n\nMaybe it is a fluke. Maybe it is a real problem. At this moment, we do not need to guess which. We need evidence.\n\nStart small with me: pick the one thing you would test first.",
+        "chunk_ids": [
+          "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00"
+        ],
+        "memory_ids": [],
+        "verification_status": "verified",
+        "used_knowledge": true,
+        "model": "gpt-5.6-terra",
+        "verification_warnings": [
+          {
+            "claim": "Information",
+            "kind": "proper_noun",
+            "position": 643
+          },
+          {
+            "claim": "Less",
+            "kind": "proper_noun",
+            "position": 656
+          }
+        ]
+      },
+      "provenance": "slice_e_fresh",
+      "condition": "CORRECT_ANCHOR (isolates hypothesis E1 \u2014 false-anchor mis-directs to \u00a71)"
+    },
+    {
+      "elapsed_seconds": 10.864,
+      "retrieval": {
+        "returned_chunk_count": 1,
+        "scored_chunks": [
+          {
+            "id": "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00",
+            "chunk_index": 0,
+            "document_id": "d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6",
+            "distance": 0.3381360414404444,
+            "length": 517,
+            "sha256_16": "b17105434b87d6ab"
+          }
+        ]
+      },
+      "hint_capture": {
+        "emitted_hint_texts": [
+          "Your previous draft was 751 characters (126 words, estimated ~52s of speech). Target is 81s.\nEXPAND YOUR SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 221 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks."
+        ],
+        "emitted_hint_sha256": [
+          "0982050bfbb8ec4156115704764ba556038ae1a793c65d0d017ee032ad84addd"
+        ]
+      },
+      "synthesis": {
+        "attempt_count": 2,
+        "first_pass_brief": "One generation came out wrong.\n\nThat is not yet a problem. It is evidence of a problem-shaped event.\n\nFirst question: can it happen again?\n\nI\u2019m not changing five settings, rewriting everything, and blaming the nearest cable. We repeat the smallest meaningful test and change one variable at a time.\n\nWhat did we expect? What actually happened? What changed before it went strange? And where does the result first stop matching the plan?\n\nIf it repeats, good. Not *good* good. But useful. Now we have something to investigate.\n\nIf it does not repeat, I write it down anyway. A fluke is still information. It\u2019s just information with an annoying habit of becoming important later.\n\nPatch calls this \u201cbeing cautious.\u201d\n\nI call it refusing to debug a ghost.",
+        "corrective_hint_used": "Your previous draft was 751 characters (126 words, estimated ~52s of speech). Target is 81s.\nEXPAND YOUR SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 221 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+        "corrective_pass_brief": "One bad generation is not yet a problem. It is an event. Annoying, perhaps. But still only one event.\n\nThe first question is: can it happen again?\n\nIf the next attempt behaves normally, I do not immediately declare victory. I ask what changed. Was it the prompt? The settings? The input? Or did we simply get one strange result and panic efficiently?\n\nIf it happens again, then we have something worth investigating.\n\nNot everything at once. That is how Patch turns a small mystery into seventeen unrelated mysteries. We change one meaningful variable, test again, and watch where the behavior first becomes incorrect.\n\nWhat did we expect? What actually happened? What evidence do we have? Which assumption is doing the most damage?\n\nThen I look for the smallest test that separates two explanations. If the problem follows one input, that tells us something. If it appears across different inputs, that tells us something else.\n\nGuessing is very fast. Evidence is slightly slower, but it has the useful feature of being evidence.\n\nSo when a generation comes out wrong once, do not rebuild the entire machine around it. Reproduce it first. Then reduce the problem.\n\nBring me the weird result. We will ask it one question at a time.",
+        "accepted_brief": "One bad generation is not yet a problem. It is an event. Annoying, perhaps. But still only one event.\n\nThe first question is: can it happen again?\n\nIf the next attempt behaves normally, I do not immediately declare victory. I ask what changed. Was it the prompt? The settings? The input? Or did we simply get one strange result and panic efficiently?\n\nIf it happens again, then we have something worth investigating.\n\nNot everything at once. That is how Patch turns a small mystery into seventeen unrelated mysteries. We change one meaningful variable, test again, and watch where the behavior first becomes incorrect.\n\nWhat did we expect? What actually happened? What evidence do we have? Which assumption is doing the most damage?\n\nThen I look for the smallest test that separates two explanations. If the problem follows one input, that tells us something. If it appears across different inputs, that tells us something else.\n\nGuessing is very fast. Evidence is slightly slower, but it has the useful feature of being evidence.\n\nSo when a generation comes out wrong once, do not rebuild the entire machine around it. Reproduce it first. Then reduce the problem.\n\nBring me the weird result. We will ask it one question at a time.",
+        "chunk_ids": [
+          "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00"
+        ],
+        "memory_ids": [],
+        "verification_status": "verified",
+        "used_knowledge": true,
+        "model": "gpt-5.6-terra",
+        "verification_warnings": [
+          {
+            "claim": "Annoying",
+            "kind": "proper_noun",
+            "position": 57
+          },
+          {
+            "claim": "Bring",
+            "kind": "proper_noun",
+            "position": 1166
+          }
+        ]
+      },
+      "provenance": "slice_e_fresh",
+      "condition": "CORRECT_ANCHOR (isolates hypothesis E1 \u2014 false-anchor mis-directs to \u00a71)"
+    },
+    {
+      "elapsed_seconds": 12.481,
+      "retrieval": {
+        "returned_chunk_count": 1,
+        "scored_chunks": [
+          {
+            "id": "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00",
+            "chunk_index": 0,
+            "document_id": "d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6",
+            "distance": 0.3381360414404444,
+            "length": 517,
+            "sha256_16": "b17105434b87d6ab"
+          }
+        ]
+      },
+      "hint_capture": {
+        "emitted_hint_texts": [
+          "Your previous draft was 874 characters (145 words, estimated ~60s of speech). Target is 81s.\nEXPAND YOUR SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 98 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks."
+        ],
+        "emitted_hint_sha256": [
+          "a5612037022d063e6f42999ee47463fb736167e33c60d8a7b47ceac3e274ba3c"
+        ]
+      },
+      "synthesis": {
+        "attempt_count": 2,
+        "first_pass_brief": "One wrong generation is not a mystery. It is a data point wearing a fake moustache.\n\nFirst, I do not fix anything. I ask what changed, what I expected, and what actually happened.\n\nThen I try to reproduce it.\n\nIf it happens once and never again, fine. Annoying, but fine. If it happens again under the same conditions, it has earned my attention.\n\nThe important part is resisting the urge to change everything at once. New prompt, new settings, new model, new workflow\u2014excellent. Now we have learned precisely nothing.\n\nChange one meaningful variable. Test again.\n\nThen ask where the result first goes wrong, what evidence we have, and which assumption might be wrong.\n\nThe smallest test that separates two explanations is usually the one I want.\n\nEvidence beats guessing.\n\nPatch calls that \u201cslowing down.\u201d\n\nI call it not creating three new problems while investigating one.",
+        "corrective_hint_used": "Your previous draft was 874 characters (145 words, estimated ~60s of speech). Target is 81s.\nEXPAND YOUR SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 98 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+        "corrective_pass_brief": "This generation came out wrong once.\n\nThat is not, by itself, a mystery. It is one bad result. We do not yet know whether it is a fluke, a repeatable problem, or evidence that one of our assumptions has wandered off without leaving a note.\n\nThe tempting response is to change everything. Different prompt, different settings, different tool, perhaps a small ceremonial reboot. Very satisfying. Almost useless.\n\nFirst, I want to know what changed. What did we expect to happen, and what actually happened instead? Can I reproduce this exact behavior? If I can\u2019t, then we have a strange result, not necessarily a broken process.\n\nIf I can reproduce it, I look for the first point where it becomes incorrect. Not the loudest symptom. The first wrong thing.\n\nThen I change one meaningful variable and try again. One. Not ten. If the result changes, that tells us something. If it does not, that also tells us something, which is less exciting but considerably more helpful.\n\nThe smallest test is usually the polite one. It asks two possible explanations to stop arguing and produce evidence.\n\nSo this one stays on the bench for now. I am not calling it a failure yet.\n\nStay with me. We\u2019ll find out whether it was a fluke\u2014or whether it has earned the right to become a problem.",
+        "accepted_brief": "This generation came out wrong once.\n\nThat is not, by itself, a mystery. It is one bad result. We do not yet know whether it is a fluke, a repeatable problem, or evidence that one of our assumptions has wandered off without leaving a note.\n\nThe tempting response is to change everything. Different prompt, different settings, different tool, perhaps a small ceremonial reboot. Very satisfying. Almost useless.\n\nFirst, I want to know what changed. What did we expect to happen, and what actually happened instead? Can I reproduce this exact behavior? If I can\u2019t, then we have a strange result, not necessarily a broken process.\n\nIf I can reproduce it, I look for the first point where it becomes incorrect. Not the loudest symptom. The first wrong thing.\n\nThen I change one meaningful variable and try again. One. Not ten. If the result changes, that tells us something. If it does not, that also tells us something, which is less exciting but considerably more helpful.\n\nThe smallest test is usually the polite one. It asks two possible explanations to stop arguing and produce evidence.\n\nSo this one stays on the bench for now. I am not calling it a failure yet.\n\nStay with me. We\u2019ll find out whether it was a fluke\u2014or whether it has earned the right to become a problem.",
+        "chunk_ids": [
+          "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00"
+        ],
+        "memory_ids": [],
+        "verification_status": "verified",
+        "used_knowledge": true,
+        "model": "gpt-5.6-terra",
+        "verification_warnings": [
+          {
+            "claim": "Different",
+            "kind": "proper_noun",
+            "position": 288
+          },
+          {
+            "claim": "Very",
+            "kind": "proper_noun",
+            "position": 377
+          },
+          {
+            "claim": "Almost",
+            "kind": "proper_noun",
+            "position": 394
+          }
+        ]
+      },
+      "provenance": "slice_e_fresh",
+      "condition": "CORRECT_ANCHOR (isolates hypothesis E1 \u2014 false-anchor mis-directs to \u00a71)"
+    },
+    {
+      "elapsed_seconds": 13.809,
+      "retrieval": {
+        "returned_chunk_count": 1,
+        "scored_chunks": [
+          {
+            "id": "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00",
+            "chunk_index": 0,
+            "document_id": "d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6",
+            "distance": 0.3381360414404444,
+            "length": 517,
+            "sha256_16": "b17105434b87d6ab"
+          }
+        ]
+      },
+      "hint_capture": {
+        "emitted_hint_texts": [
+          "Your previous draft was 720 characters (128 words, estimated ~50s of speech). Target is 81s.\nEXPAND YOUR SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 252 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks."
+        ],
+        "emitted_hint_sha256": [
+          "b2ca47b8eced394b4c07aee44fb1633b14e0cdff85581d87c62f3e1985f4060f"
+        ]
+      },
+      "synthesis": {
+        "attempt_count": 2,
+        "first_pass_brief": "One bad generation is not a pattern. It is a clue.\n\nFirst, I ask what changed. Then: what was supposed to happen, and what actually happened? If I cannot reproduce the problem, I do not yet have a problem. I have a suspicious anecdote.\n\nThe useful next step is smaller than Patch usually wants it to be. Change one meaningful variable. Run it again. Keep the rest still.\n\nIf the result changes with that one variable, we have evidence. If it does not, we narrow the question again.\n\nNot ten adjustments. Not a frantic rebuild. One test that separates two possible explanations.\n\nEvidence beats guessing.\n\nPatch finds this less exciting than turning every dial at once. Which is why I keep the dials where I can see them.",
+        "corrective_hint_used": "Your previous draft was 720 characters (128 words, estimated ~50s of speech). Target is 81s.\nEXPAND YOUR SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 252 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+        "corrective_pass_brief": "This generation came out wrong once. Once is not a pattern. It is a mildly suspicious event wearing a hat.\n\nSo I do not immediately declare the system broken. Patch may find that disappointing. He enjoys a diagnosis before we have evidence.\n\nFirst, I ask what changed. Not what feels different. What actually changed. The input? The instructions? The settings? The software? Then: what did we expect, and what happened instead?\n\nIf we cannot describe the difference clearly, we are not debugging yet. We are just being concerned near a machine.\n\nNext question: can it happen again? I would repeat the same test before changing anything meaningful. If the result is normal the second time, that does not prove everything is fine. It means we have one odd result, not a confirmed problem.\n\nBut if it repeats, now we have something useful. Then I reduce the problem. Change one meaningful variable, test again, and watch for the first point where the behavior becomes incorrect.\n\nNot ten changes at once. Ten changes gives you ten possible explanations and no evidence for any of them. Very efficient, if your goal is confusion.\n\nThe smallest test that separates two explanations is usually the one I want.\n\nIf you get a strange generation, do not fix it immediately. Tell me: what changed, what did you expect, and can you make it happen again?",
+        "accepted_brief": "This generation came out wrong once. Once is not a pattern. It is a mildly suspicious event wearing a hat.\n\nSo I do not immediately declare the system broken. Patch may find that disappointing. He enjoys a diagnosis before we have evidence.\n\nFirst, I ask what changed. Not what feels different. What actually changed. The input? The instructions? The settings? The software? Then: what did we expect, and what happened instead?\n\nIf we cannot describe the difference clearly, we are not debugging yet. We are just being concerned near a machine.\n\nNext question: can it happen again? I would repeat the same test before changing anything meaningful. If the result is normal the second time, that does not prove everything is fine. It means we have one odd result, not a confirmed problem.\n\nBut if it repeats, now we have something useful. Then I reduce the problem. Change one meaningful variable, test again, and watch for the first point where the behavior becomes incorrect.\n\nNot ten changes at once. Ten changes gives you ten possible explanations and no evidence for any of them. Very efficient, if your goal is confusion.\n\nThe smallest test that separates two explanations is usually the one I want.\n\nIf you get a strange generation, do not fix it immediately. Tell me: what changed, what did you expect, and can you make it happen again?",
+        "chunk_ids": [
+          "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00"
+        ],
+        "memory_ids": [],
+        "verification_status": "verified",
+        "used_knowledge": true,
+        "model": "gpt-5.6-terra",
+        "verification_warnings": [
+          {
+            "claim": "Very",
+            "kind": "proper_noun",
+            "position": 1083
+          }
+        ]
+      },
+      "provenance": "slice_e_fresh",
+      "condition": "CORRECT_ANCHOR (isolates hypothesis E1 \u2014 false-anchor mis-directs to \u00a71)"
+    },
+    {
+      "elapsed_seconds": 11.978,
+      "retrieval": {
+        "returned_chunk_count": 1,
+        "scored_chunks": [
+          {
+            "id": "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00",
+            "chunk_index": 0,
+            "document_id": "d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6",
+            "distance": 0.3381360414404444,
+            "length": 517,
+            "sha256_16": "b17105434b87d6ab"
+          }
+        ]
+      },
+      "hint_capture": {
+        "emitted_hint_texts": [
+          "Your previous draft was 807 characters (138 words, estimated ~55s of speech). Target is 81s.\nEXPAND YOUR SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 165 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks."
+        ],
+        "emitted_hint_sha256": [
+          "5be26f8a4a46abf2dc4451d05e16bb20f575d0ee1edacf7476bc6780bbea6905"
+        ]
+      },
+      "synthesis": {
+        "attempt_count": 2,
+        "first_pass_brief": "One bad generation is not yet a problem. It is a clue wearing a trench coat.\n\nFirst, I ask: what did we expect, and what actually happened? Then I try to reproduce it without changing anything important.\n\nIf it happens again, good. Not good-good. Useful-good.\n\nNow we have evidence that something may be wrong.\n\nThen I change one meaningful variable and test again. One. Not ten. If Patch changes the prompt, settings, file, tool, and lunar phase all at once, we learn nothing except that Patch has been near the controls.\n\nThe smallest test is usually the best one: the test that separates two possible explanations.\n\nWas it a one-off? A bad input? A wrong assumption? Did the behavior become incorrect at a particular point?\n\nUntil we can answer that, we are not debugging.\n\nWe are decorating uncertainty.",
+        "corrective_hint_used": "Your previous draft was 807 characters (138 words, estimated ~55s of speech). Target is 81s.\nEXPAND YOUR SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 165 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+        "corrective_pass_brief": "One generation comes out wrong, and suddenly everyone wants to call it a problem.\n\nPossibly it is. Possibly it had one bad moment. Those are different things, despite the dramatic sighing.\n\nFirst, I do not change ten settings and try again. That produces ten new explanations and no useful evidence. I want the smallest test that separates two possibilities: was this a one-off result, or can the behavior be reproduced?\n\nSo I look at what changed. What did I expect? What actually happened? Is the wrong result consistent, or did it appear once and vanish? And where does it first become incorrect?\n\nIf I can reproduce it under the same conditions, it is worth investigating. If I cannot, that is still information. Annoying information, certainly. But information.\n\nThen I change one meaningful variable and test again. One. Not every option within reach because patience has abandoned the room.\n\nThe point is not to guess more confidently. The point is to collect evidence until the assumption causing the trouble has nowhere left to hide.\n\nIf you have a strange result, bring the evidence. We will start with the smallest test.",
+        "accepted_brief": "One generation comes out wrong, and suddenly everyone wants to call it a problem.\n\nPossibly it is. Possibly it had one bad moment. Those are different things, despite the dramatic sighing.\n\nFirst, I do not change ten settings and try again. That produces ten new explanations and no useful evidence. I want the smallest test that separates two possibilities: was this a one-off result, or can the behavior be reproduced?\n\nSo I look at what changed. What did I expect? What actually happened? Is the wrong result consistent, or did it appear once and vanish? And where does it first become incorrect?\n\nIf I can reproduce it under the same conditions, it is worth investigating. If I cannot, that is still information. Annoying information, certainly. But information.\n\nThen I change one meaningful variable and test again. One. Not every option within reach because patience has abandoned the room.\n\nThe point is not to guess more confidently. The point is to collect evidence until the assumption causing the trouble has nowhere left to hide.\n\nIf you have a strange result, bring the evidence. We will start with the smallest test.",
+        "chunk_ids": [
+          "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00"
+        ],
+        "memory_ids": [],
+        "verification_status": "verified",
+        "used_knowledge": true,
+        "model": "gpt-5.6-terra",
+        "verification_warnings": [
+          {
+            "claim": "Possibly",
+            "kind": "proper_noun",
+            "position": 83
+          },
+          {
+            "claim": "Annoying",
+            "kind": "proper_noun",
+            "position": 717
+          }
+        ]
+      },
+      "provenance": "slice_e_fresh",
+      "condition": "CORRECT_ANCHOR (isolates hypothesis E1 \u2014 false-anchor mis-directs to \u00a71)"
+    }
+  ]
+}

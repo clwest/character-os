@@ -1518,3 +1518,245 @@ Yes. The revised ranking:
 ---
 
 **End of SESSION 272 Slice D. Verdict: evidence-bound attribution. Corrective-hint wording is the load-bearing regression surface for Draft-B canonical reappearance; KnowledgeDocument shape is not. Three sub-hypotheses (A hint-wording / C duration pressure / E1 misleading-anchor) remain indistinguishable on existing evidence and all live inside `_expansion_hint`. Q-270-15c priority moves UP but the original Q-270-15c intervention is not the right disambiguation test. Recommended next slice designed (§18.8) but NOT RUN — requires corrective-hint modification which is not authorized in Slice D. STOP for review.**
+
+---
+
+## §19. SLICE E — CORRECTIVE-HINT WORDING ABLATION (3 CONDITIONS × n=5)
+
+Chris authorized the §18.8 hint-wording ablation as experiment-only. Slice E executes it with a reversible in-process monkey-patch of `character_os.duration_contract._expansion_hint`. No source-code change committed. Restore verified before + after.
+
+### §19.1 Frozen hint variants
+
+Frozen text sha256 recorded at start of Slice E and confirmed unchanged at end:
+
+**BASELINE** — production `_expansion_hint` verbatim. Rendered exemplar sha256 `04b627df90264ff13d507c78a240902d2e9df57d37a18ab4e402c29a84a5bd91`. Text:
+
+> Your previous draft was {N} characters ({W} words, estimated ~{S}s of speech). Target is {T}s.
+> REWRITE THE SAME NARRATIVE ABOVE {MIN} CHARACTERS (aim for ~{IDEAL}, do not exceed {MAX}). You currently need at least {SHORTFALL} more characters to meet the minimum.
+> Preserve the central arc (opening → development → payoff → single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks — describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.
+
+**NO_KNOWLEDGE_REF** — sha256 `333d5ea5f29e4a371e119db9287a6bf826438084a9db4ce92914e98af405ba5a`. Removes all four `knowledge chunks` mentions and the misleading `REWRITE THE SAME NARRATIVE ABOVE` clause. Preserves character-shortfall math, arc/narrator preservation, factual-grounding language (character-agnostic), no-restart, no-second-CTA, no-invent-facts.
+
+> Your previous draft was {N} characters ({W} words, estimated ~{S}s of speech). Target is {T}s.
+> EXPAND THE SCRIPT TO AT LEAST {MIN} CHARACTERS (aim for ~{IDEAL}, do not exceed {MAX}). You currently need at least {SHORTFALL} more characters to meet the minimum.
+> Preserve the central arc (opening → development → payoff → single closing invitation), the narrator perspective, and the factual grounding already established. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts.
+
+**CORRECT_ANCHOR** — sha256 `fccb006dac0c9461d646a7cf552fc56de2acdcd85d01ef9daea746a8e4566dbd`. Production text verbatim EXCEPT `REWRITE THE SAME NARRATIVE ABOVE` → `EXPAND YOUR SCRIPT`. All four `knowledge chunks` references RETAINED.
+
+> Your previous draft was {N} characters ({W} words, estimated ~{S}s of speech). Target is {T}s.
+> EXPAND YOUR SCRIPT TO AT LEAST {MIN} CHARACTERS (aim for ~{IDEAL}, do not exceed {MAX}). You currently need at least {SHORTFALL} more characters to meet the minimum.
+> Preserve the central arc (opening → development → payoff → single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks — describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.
+
+### §19.2 Isolation
+
+- Monkey-patch applied per condition inside `try / finally` (`scripts/session272_slice_e_ablation.py`).
+- Each trial captures the exact hint emitted by the monkey-patched function so any drift would be visible.
+- Restore verified: production `_expansion_hint` sha256 before Slice E = production sha256 after Slice E = `04b627df90264ff13d507c78a240902d2e9df57d37a18ab4e402c29a84a5bd91`. No source-code diff.
+- Substrate reused from Slice B/C — same Rivet clone, same doc, same chunk.
+- BASELINE trials reused verbatim from Slice C CTL (n=5, mechanically equivalent — same operator topic, same target duration, same audience_hint, same WCV6, same corrective hint, same clone, same doc, same runtime, same model, no NarrativeMemory). No rerun of BASELINE.
+
+### §19.3 Aggregate results
+
+Trials per condition: 5. All 15 trials verified. All required exactly 1 corrective retry (attempts=2 across the board).
+
+**Total canonical hits in accepted Draft B:**
+
+| Condition | mean | median | values |
+| --- | --- | --- | --- |
+| BASELINE | **3.20** | 3 | [5, 3, 1, 3, 4] |
+| NO_KNOWLEDGE_REF | **3.00** | 3 | [4, 2, 3, 3, 3] |
+| CORRECT_ANCHOR | **3.40** | 3 | [4, 4, 3, 3, 3] |
+
+Total canonical count is **essentially unchanged** across all three conditions. Removing the knowledge-chunk references does NOT reduce total canonical density. Fixing the anchor does NOT reduce it either.
+
+**Total accessible model-generated hits in accepted Draft B:**
+
+| Condition | mean | median | values |
+| --- | --- | --- | --- |
+| BASELINE | **4.40** | 3 | [8, 3, 3, 3, 5] |
+| NO_KNOWLEDGE_REF | **3.60** | 4 | [4, 1, 5, 2, 6] |
+| CORRECT_ANCHOR | **4.40** | 5 | [2, 5, 3, 7, 5] |
+
+NO_KNOWLEDGE_REF drops accessible by 0.80. CORRECT_ANCHOR unchanged.
+
+**Rivet identity markers in accepted Draft B:**
+
+| Condition | mean | values |
+| --- | --- | --- |
+| BASELINE | **5.60** | [10, 4, 4, 6, 4] |
+| NO_KNOWLEDGE_REF | **3.60** (Δ −2.00) | [3, 3, 4, 4, 4] |
+| CORRECT_ANCHOR | **4.00** (Δ −1.60) | [4, 5, 3, 5, 3] |
+
+Both modifications reduce identity marker density. NO_KNOWLEDGE_REF is worse.
+
+**K6.4 verifier warnings per Draft B:**
+
+| Condition | total | mean | values |
+| --- | --- | --- | --- |
+| BASELINE | 0 | 0.00 | [0, 0, 0, 0, 0] |
+| NO_KNOWLEDGE_REF | 8 | 1.60 | [1, 2, 2, 3, 0] |
+| CORRECT_ANCHOR | 10 | 2.00 | [2, 2, 3, 1, 2] |
+
+**Note (capture gap):** BASELINE trials reuse Slice C JSON, which did not persist the `verification_warnings` list (only `verification_status`). Slice C rendering DID emit K6.4 warning stderr lines during those trials (e.g., "flagged 2 unsupported claim(s): 'Well', 'Very'"). The BASELINE zero is therefore an **artifact of Slice C's capture surface, not an observed zero**. A truthful comparison of verifier-warning frequency across conditions cannot be made from this evidence alone. The NO_KNOWLEDGE_REF vs CORRECT_ANCHOR comparison (both freshly captured under Slice E) is fair: 1.60 vs 2.00 — statistically indistinguishable at n=5.
+
+**Draft B length (chars):**
+
+| Condition | mean | values |
+| --- | --- | --- |
+| BASELINE | 1316 | [1420, 1307, 1289, 1233, 1332] |
+| NO_KNOWLEDGE_REF | 1216 (Δ −100) | [1395, 1113, 1161, 1213, 1198] |
+| CORRECT_ANCHOR | 1215 (Δ −101) | [1097, 1231, 1272, 1342, 1131] |
+
+Both modifications produce Draft Bs ~100 chars shorter than BASELINE on average. Model tracks the target loosely under all three hint texts, but BASELINE aims slightly higher on average.
+
+### §19.4 The strongest-attractor evidence — three tiers
+
+The primary Slice E hypothesis-test surface is the SESSION 271 §191.9 attractor `where the behavior first becomes incorrect`. Verbatim-only classification (Slice C's method) understates the picture. Recording three tiers:
+
+- **Exact verbatim** — `where the behavior first becomes incorrect` (the strict SESSION 271 attractor).
+- **Near-canonical** — `where {it,the result,the behavior,things} first becomes incorrect` and close variants (the concept in altered wording).
+- **Any-variant total** — union of exact + near-canonical.
+
+| Condition | Exact-verbatim | Near-canonical | Any-variant total |
+| --- | --- | --- | --- |
+| BASELINE | **2/5** (trials 1, 5) | 2/5 (trials 2, 4) | **4/5** |
+| NO_KNOWLEDGE_REF | **0/5** — fully suppressed | 2/5 (trials 1, 5) | **2/5** (−50%) |
+| CORRECT_ANCHOR | **1/5** (trial 2) | 0/5 | **1/5** (−75%) |
+
+**Key finding:** CORRECT_ANCHOR — the MINIMAL change (only the false-anchor phrase edited) — produces the LARGEST reduction in any-variant attractor family (4/5 → 1/5, a 75% reduction). NO_KNOWLEDGE_REF — the LARGER change (all `knowledge chunks` references removed AND the false anchor removed) — produces a smaller any-variant reduction (4/5 → 2/5, a 50% reduction), but does uniquely eliminate the exact-verbatim form (2/5 → 0/5).
+
+Interpretation: the two hint components drive attractor introduction via **different mechanisms**.
+
+- The false-anchor phrase `REWRITE THE SAME NARRATIVE ABOVE` is the dominant driver of the concept's REAPPEARANCE, exact or near-canonical. When the phrase is present (BASELINE, CORRECT_ANCHOR retains it? — no, CORRECT_ANCHOR REPLACES it with `EXPAND YOUR SCRIPT`; BASELINE retains it), the attractor family is heavy (BASELINE 4/5).
+- Wait — let me re-verify: CORRECT_ANCHOR replaced `REWRITE THE SAME NARRATIVE ABOVE` with `EXPAND YOUR SCRIPT`. That's the ONLY change from BASELINE. And CORRECT_ANCHOR dropped attractor family 4/5 → 1/5 (a 75% reduction). **The false-anchor phrase is the dominant driver.**
+- The `Expand secondary detail from the knowledge chunks` wording is a SECONDARY driver of the EXACT VERBATIM form specifically. Removing it (NO_KNOWLEDGE_REF) eliminates the verbatim 2/5 → 0/5 but the concept still leaks in near-canonical form (2/5). Preserving it while fixing the anchor (CORRECT_ANCHOR) keeps 1/5 exact verbatim.
+
+### §19.5 Verdict on the Slice E decision framework
+
+Applying Chris's decision logic:
+
+- **A — KNOWLEDGE-REFERENCE WORDING CAUSAL:** "removing knowledge-expansion references materially reduces Draft-B canonical reappearance while CORRECT-ANCHOR remains near baseline." **PARTIALLY FALSIFIED.** CORRECT_ANCHOR does NOT remain near baseline on the attractor family — it drops 4/5 → 1/5. Knowledge-reference wording is the smaller lever.
+- **C — DURATION PRESSURE DOMINANT:** "NO-KNOWLEDGE-REF remains essentially equivalent to baseline despite the removal of all knowledge-expansion wording." **PARTIALLY SUPPORTED for total canonical.** Total canonical is essentially unchanged across all three (3.00 – 3.40, within 0.40 of each other). **REFUTED for the attractor family** — attractor drops 4/5 → 2/5 under NO_KNOWLEDGE_REF.
+- **E1 — FALSE ANCHOR CAUSAL:** "CORRECT-ANCHOR materially reduces canonical reappearance and NO-KNOWLEDGE-REF provides little additional reduction." **STRONGLY SUPPORTED for the attractor family.** CA reduces 4/5 → 1/5 (75% drop). NKR reduces 4/5 → 2/5 (50% drop, WORSE than CA). E1 is the dominant mechanism.
+- **A + E1 — BOTH CONTRIBUTE:** **PARTIALLY SUPPORTED for exact-verbatim only.** NKR uniquely eliminates the exact form (0/5) that CA cannot fully suppress (1/5). Both mechanisms contribute distinct effects on the strict-verbatim measure.
+
+**Verdict: E1-DOMINANT with A providing an additional verbatim-suppression effect.**
+
+- The load-bearing driver of the `where * first becomes incorrect` attractor family is the false-anchor phrase `REWRITE THE SAME NARRATIVE ABOVE`.
+- The `Expand secondary detail from the knowledge chunks` wording drives whether the attractor appears in EXACT verbatim vs near-canonical form, but does not drive whether the concept appears at all.
+- Total canonical density is largely governed by KNOWLEDGE CHUNKS being present in §1 (Slice D §18.4 hypothesis B baseline), not by hint wording.
+- Duration pressure (C) is not falsified as a floor but does not explain the specific attractor pattern.
+
+### §19.6 Factual grounding — the secondary question
+
+*Does removing knowledge-expansion wording harm factual grounding?*
+
+- **Verifier `verified` outcome:** 5/5 in every condition. No condition failed verification.
+- **Verifier warning counts:** unreliable comparison due to Slice C capture gap (§19.3 note). Between the two freshly-captured conditions (NKR 1.60 avg, CA 2.00 avg), difference is small.
+- **Qualitative inspection of NKR Drafts B:** no invented facts detected. Character/Rivet flavor preserved (`chaos remains highly productive`, `a dramatic little hat`, `Patch's preferred method is to adjust everything until the result looks less alarming`). Debugging concepts are all present, expressed in near-canonical or accessible form. No dropped factual detail. No generic filler.
+- **Qualitative inspection of CA Drafts B:** similar — factual grounding intact, Rivet identity present at slightly lower density.
+- **NO GENERIC-FILLER FAILURE observed** in either modified condition.
+
+**Rivet identity marker density is measurably lower under both modifications** (5.60 → 3.60 / 4.00). This is a real signal but qualitatively small: the character reads as Rivet in every draft under every condition. The classifier is counting keyword hits, not perceptual identity strength.
+
+### §19.7 Is the `"REWRITE THE SAME NARRATIVE ABOVE"` phrase independently confirmed as harmful?
+
+**YES.** CORRECT_ANCHOR is the minimum-viable ablation of this phrase alone. The result:
+
+- Attractor family in Draft B: **4/5 → 1/5** (75% reduction).
+- Total canonical count: 3.20 → 3.40 (unchanged within variance).
+- Total accessible count: 4.40 → 4.40 (unchanged).
+- Verification: 5/5 → 5/5 (unchanged).
+- Rivet identity markers: 5.60 → 4.00 (reduced; but qualitatively character is intact).
+
+The phrase is confirmed as a load-bearing driver of the specific attractor family, without materially harming total canonical density, accessibility, or verification. Identity marker density is reduced but character voice qualitatively holds.
+
+The phrase is BOTH incorrect wording (it references a Draft A that isn't present when Q-270-15c is OFF) AND independently harmful (drives the strongest attractor).
+
+### §19.8 Revised Q-270-15c recommendation
+
+The original Q-270-15c intervention proposed supplying `previous_draft` to the retry (so the "REWRITE THE SAME NARRATIVE ABOVE" phrase becomes truthful). Slice E provides an alternative intervention: **remove or replace the phrase directly** without supplying `previous_draft`.
+
+**Q-270-15c revised recommendation:**
+- Slice E's CORRECT_ANCHOR variant achieves substantial attractor suppression without touching the two other levers Q-270-15c originally proposed (draft preservation semantics, corrective-revision experiment gate).
+- Supplying `previous_draft` remains a separate, orthogonal intervention with its own tradeoffs (may over-preserve Draft A wording; may introduce new attractor patterns).
+- The false-anchor fix is a smaller, more reversible production change than the full Q-270-15c intervention.
+
+**Prioritization:** the false-anchor fix should ship as its own bounded slice BEFORE Q-270-15c's original `previous_draft` intervention. If further attractor reduction is needed after the false-anchor fix, THEN test `previous_draft` supply as a follow-up.
+
+### §19.9 Smallest production change IF evidence supports one
+
+**IF a production change is warranted:** replace `REWRITE THE SAME NARRATIVE ABOVE` with `EXPAND YOUR SCRIPT` in `character_os.duration_contract._expansion_hint`. Retain ALL other production-hint wording, including the four `knowledge chunks` references.
+
+**Evidence supporting this specific fix:**
+- CORRECT_ANCHOR achieves the largest attractor-family reduction with the smallest hint change (75% reduction from a single-phrase replacement).
+- CORRECT_ANCHOR preserves total canonical, accessible, and verification outcomes.
+- Rivet identity marker density is reduced (4.00 vs 5.60) but qualitatively character is intact.
+- No factual invention observed.
+- Reverses a known prompt-hygiene bug (the phrase is factually incorrect in the default pipeline).
+
+**Evidence against removing knowledge-chunk references entirely:**
+- NO_KNOWLEDGE_REF is a larger change with smaller attractor-family benefit (50% vs 75%).
+- NO_KNOWLEDGE_REF reduces accessible (4.40 → 3.60) where CORRECT_ANCHOR does not.
+- NO_KNOWLEDGE_REF reduces identity markers more (3.60 vs 4.00).
+- The knowledge-chunks references also carry the `Do NOT invent facts not present in the knowledge chunks` safety instruction — removing them may weaken factual grounding on other substrates.
+
+**Do NOT implement this fix in Slice E.** Chris's instructions were explicit: `Do NOT implement the production fix yet.`
+
+### §19.10 Refined SESSION 271 §191.9 causal ranking (post-Slice-E)
+
+| Rank | Post-Slice-D | Post-Slice-E |
+| --- | --- | --- |
+| 1 | Corrective-hint wording (A/C/E1 undistinguished) | **E1 — false anchor `REWRITE THE SAME NARRATIVE ABOVE`** (dominant driver of the attractor family) |
+| 2 | Knowledge presence in §1 (baseline floor) | Knowledge presence in §1 (baseline canonical floor — unchanged) |
+| 3 | KnowledgeDocument shape (bounded) | A — `Expand secondary detail from the knowledge chunks` wording (drives VERBATIM vs near-canonical form, not total appearance) |
+| 4 | WCV6 + persona | C — duration expansion pressure (floor; not falsified but not dominant) |
+| 5 | previous_draft (inactive) | KnowledgeDocument shape (bounded, secondary; Slice C) |
+| 6 | — | WCV6 + persona (primary accessibility mechanism; unchanged) |
+| 7 | — | previous_draft / NarrativeMemory (inactive) |
+
+E1 promoted to rank 1. A demoted to rank 3 (still meaningful for exact-verbatim suppression but not the dominant lever). KnowledgeDocument shape stays low.
+
+### §19.11 Slice E non-changes (verified)
+
+- Canonical RIVET doc `71e2ec43` full-text SHA verified `75bac33223e3333893be2e589ac5adbbe9f16a9bfed361fe873a516e4d473b6e` — matches §15.7 baseline pre AND post Slice E.
+- `character_os.duration_contract._expansion_hint` production text — VERIFIED restored (sha256 `04b627df90264ff13d507c78a240902d2e9df57d37a18ab4e402c29a84a5bd91` before and after). No source-code diff.
+- No committed change to `_expansion_hint`.
+- No permanent modification to `character_os/duration_contract.py`.
+- Writing Contract v6 — unchanged.
+- Persona / Teammate rows — unchanged.
+- Schema — unchanged.
+- All experiment env vars — remain OFF.
+- Q-270-15c gate — remains OFF.
+- NarrativeMemory — no promotion; disposable workspaces still have zero memories.
+- 67 other canonical KnowledgeDocuments — unchanged.
+- Runtime — unchanged.
+- No Composition rows written.
+- Disposable workspaces `session272-rivet-debug-ctl` / `session272-rivet-debug-exp` — retained; substrate identical to Slice B / C manifests.
+
+### §19.12 Slice E evidence artifacts
+
+- `docs/design/session_272_experiment_data/04_slice_e_ablation_evidence.json` — all 15 trials (5 BASELINE reused + 5 NKR fresh + 5 CA fresh); frozen hint exemplars + shas; production hint sample before and after; restore verification.
+- `docs/design/session_272_experiment_data/05_slice_e_aggregate_analysis.json` — per-trial per-concept per-draft counts.
+- `docs/design/session_272_experiment_data/05_slice_e_aggregate_summary.txt` — human-readable summary.
+- `scripts/session272_slice_e_hint_variants.py` — frozen variant text (with SHA-256 exemplars).
+- `scripts/session272_slice_e_ablation.py` — reversible monkey-patch runner.
+- `scripts/session272_slice_e_analyze.py` — 3-condition aggregator.
+
+### §19.13 Recommended smallest next move
+
+**Option 1 (recommended for review):** propose the CORRECT_ANCHOR fix as a bounded production slice — replace `REWRITE THE SAME NARRATIVE ABOVE` with `EXPAND YOUR SCRIPT` in `_expansion_hint`. Ships as a single-line change plus a duration-contract test update. Evidence supports the fix at n=5. Not for Slice E to implement.
+
+**Option 2 (interim):** re-run BASELINE trials with the Slice E capture surface to fix the verifier-warnings capture gap and produce a fair three-condition K6.4 comparison. Cost ~$0.02 for 5 fresh renders. Reuses existing substrate.
+
+**Option 3 (deferred):** test whether the fix generalizes to other characters / substrates before shipping. e.g., re-run the CORRECT_ANCHOR variant against the EXP substrate (paired paraphrase doc) to see whether the paraphrase interacts with the corrected anchor. Or test against Patch/AI-Agents substrate. Would tighten evidence beyond a single-character single-topic sample.
+
+**Not recommended:**
+- Ship NO_KNOWLEDGE_REF — larger change, smaller benefit, more identity cost.
+- Ship a hint rewrite bundled with knowledge-doc changes — Slice C already showed knowledge shape is not the primary lever.
+- Activate original Q-270-15c `previous_draft` supply — evidence supports fixing the anchor first; Q-270-15c may be redundant after that.
+- Test Option A (per-term inline pairing) — evidence supports focusing on hint wording, not on knowledge shape.
+
+---
+
+**End of SESSION 272 Slice E. Verdict: E1 (false-anchor phrase `REWRITE THE SAME NARRATIVE ABOVE`) is the DOMINANT driver of the `where the behavior first becomes incorrect` attractor family — 75% reduction from a single-phrase replacement. A (knowledge-chunk-reference wording) drives whether the attractor appears in exact verbatim vs near-canonical form, but is not the dominant lever. `REWRITE THE SAME NARRATIVE ABOVE` is INDEPENDENTLY CONFIRMED as both incorrect wording AND harmful. Smallest production change recommended (CORRECT_ANCHOR) but NOT implemented in this slice. Production `_expansion_hint` restored + verified. Canonical corpus byte-stable. STOP.**

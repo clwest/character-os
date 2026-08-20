@@ -1,0 +1,2422 @@
+{
+  "trials": {
+    "BASELINE": [
+      {
+        "trial": 1,
+        "provenance": "slice_c_ctl_trial_1",
+        "attempt_count": 2,
+        "verification_status": "verified",
+        "verification_warnings_count": 0,
+        "draft_a_len": 568,
+        "draft_b_len": 1420,
+        "retrieval_distance": 0.3381360414404444,
+        "hint_emitted_sha256": [
+          "04b627df90264ff13d507c78a240902d2e9df57d37a18ab4e402c29a84a5bd91"
+        ],
+        "draft_a": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 3
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 3
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 3,
+            "paraphrase_total": 0,
+            "accessible_total": 7,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "smallest test": 1,
+            "suspicious hat": 1,
+            "Patch": 1,
+            "fluke": 1
+          }
+        },
+        "draft_b": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "where_incorrect": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 3
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "evidence_beats_guessing": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 1
+            }
+          },
+          "totals": {
+            "canonical_total": 5,
+            "paraphrase_total": 0,
+            "accessible_total": 8,
+            "attractor_where_incorrect": 1
+          },
+          "identity_markers": {
+            "evidence beats guessing": 1,
+            "meaningful variable": 1,
+            "reduce the problem": 1,
+            "smallest test": 1,
+            "small test": 1,
+            "not a diagnosis": 1,
+            "dramatic hat": 1,
+            "wearing a dramatic hat": 1,
+            "test again": 2,
+            "fluke": 1
+          }
+        }
+      },
+      {
+        "trial": 2,
+        "provenance": "slice_c_ctl_trial_2",
+        "attempt_count": 2,
+        "verification_status": "verified",
+        "verification_warnings_count": 0,
+        "draft_a_len": 694,
+        "draft_b_len": 1307,
+        "retrieval_distance": 0.3381360414404444,
+        "hint_emitted_sha256": [
+          "eeb57c71fa86da50c06228288d7daf60916565ff8ced85361b0063a3d96efa10"
+        ],
+        "draft_a": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 2
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 3,
+            "paraphrase_total": 0,
+            "accessible_total": 3,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "Patch": 1,
+            "fluke": 1
+          }
+        },
+        "draft_b": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 2
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 3,
+            "paraphrase_total": 0,
+            "accessible_total": 3,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "smallest test": 1,
+            "test again": 1,
+            "fluke": 1
+          }
+        }
+      },
+      {
+        "trial": 3,
+        "provenance": "slice_c_ctl_trial_3",
+        "attempt_count": 2,
+        "verification_status": "verified",
+        "verification_warnings_count": 0,
+        "draft_a_len": 861,
+        "draft_b_len": 1289,
+        "retrieval_distance": 0.3381360414404444,
+        "hint_emitted_sha256": [
+          "7f2a54cfe66bd09f323e7a0c12d46a1b53fbff4dbecc9d9a9b95441e04b0285b"
+        ],
+        "draft_a": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 3
+            },
+            "one_variable_at_a_time": {
+              "canonical": 2,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 4,
+            "paraphrase_total": 0,
+            "accessible_total": 4,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "smallest test": 1,
+            "test again": 1,
+            "fluke": 1
+          }
+        },
+        "draft_b": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "what_actually_happened": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 1,
+            "paraphrase_total": 0,
+            "accessible_total": 3,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "Patch": 1,
+            "test again": 1,
+            "fluke": 1
+          }
+        }
+      },
+      {
+        "trial": 4,
+        "provenance": "slice_c_ctl_trial_4",
+        "attempt_count": 2,
+        "verification_status": "verified",
+        "verification_warnings_count": 0,
+        "draft_a_len": 625,
+        "draft_b_len": 1233,
+        "retrieval_distance": 0.3381360414404444,
+        "hint_emitted_sha256": [
+          "eca3fa5cfd53864907f3ac51121cc4d140ab5569f3ed983e761d63370aadbf28"
+        ],
+        "draft_a": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 3,
+            "paraphrase_total": 0,
+            "accessible_total": 1,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "test again": 1,
+            "fluke": 1
+          }
+        },
+        "draft_b": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 2
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 3,
+            "paraphrase_total": 0,
+            "accessible_total": 3,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "smallest test": 1,
+            "not a diagnosis": 1,
+            "decorative mysteries": 1,
+            "Patch": 1,
+            "fluke": 1
+          }
+        }
+      },
+      {
+        "trial": 5,
+        "provenance": "slice_c_ctl_trial_5",
+        "attempt_count": 2,
+        "verification_status": "verified",
+        "verification_warnings_count": 0,
+        "draft_a_len": 784,
+        "draft_b_len": 1332,
+        "retrieval_distance": 0.3381360414404444,
+        "hint_emitted_sha256": [
+          "5949d076c23e4f07a1c521da267c72a4dfd69d615832977bcd712a97e0fe7f70"
+        ],
+        "draft_a": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 2,
+            "paraphrase_total": 0,
+            "accessible_total": 0,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "Patch": 1,
+            "fluke": 1
+          }
+        },
+        "draft_b": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 2
+            },
+            "where_incorrect": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 2
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 4,
+            "paraphrase_total": 0,
+            "accessible_total": 5,
+            "attractor_where_incorrect": 1
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "smallest test": 1,
+            "Patch": 1,
+            "fluke": 1
+          }
+        }
+      }
+    ],
+    "NO_KNOWLEDGE_REF": [
+      {
+        "trial": 1,
+        "provenance": "slice_e_fresh",
+        "attempt_count": 2,
+        "verification_status": "verified",
+        "verification_warnings_count": 1,
+        "draft_a_len": 721,
+        "draft_b_len": 1395,
+        "retrieval_distance": 0.3381360414404444,
+        "hint_emitted_sha256": [
+          "9f13b9b9449d54738e18526160eb621bec7242276e8153919ab39a55cc54f8a9"
+        ],
+        "draft_a": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "one_variable_at_a_time": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 1,
+            "paraphrase_total": 0,
+            "accessible_total": 1,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "fluke": 1
+          }
+        },
+        "draft_b": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 2,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 3
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 4,
+            "paraphrase_total": 0,
+            "accessible_total": 4,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "smallest test": 2,
+            "fluke": 1
+          }
+        }
+      },
+      {
+        "trial": 2,
+        "provenance": "slice_e_fresh",
+        "attempt_count": 2,
+        "verification_status": "verified",
+        "verification_warnings_count": 2,
+        "draft_a_len": 690,
+        "draft_b_len": 1113,
+        "retrieval_distance": 0.3381360414404444,
+        "hint_emitted_sha256": [
+          "908b428c0fc32937a4f773cfe7720eee2e25af81d1e1e2a52b20bd6f39bb93a5"
+        ],
+        "draft_a": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 1,
+              "accessible": 0
+            },
+            "what_actually_happened": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 2,
+            "paraphrase_total": 1,
+            "accessible_total": 1,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "fluke": 1
+          }
+        },
+        "draft_b": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 2,
+            "paraphrase_total": 0,
+            "accessible_total": 1,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "Patch": 1,
+            "fluke": 2
+          }
+        }
+      },
+      {
+        "trial": 3,
+        "provenance": "slice_e_fresh",
+        "attempt_count": 2,
+        "verification_status": "verified",
+        "verification_warnings_count": 2,
+        "draft_a_len": 747,
+        "draft_b_len": 1161,
+        "retrieval_distance": 0.3381360414404444,
+        "hint_emitted_sha256": [
+          "9d49ef8e4c8a6f5126d4367ec4d957fa46b6f1310a7ef7aa44c8f51ecad09c6b"
+        ],
+        "draft_a": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 3,
+            "paraphrase_total": 0,
+            "accessible_total": 1,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "Patch": 1,
+            "test again": 1
+          }
+        },
+        "draft_b": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 2
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 3,
+            "paraphrase_total": 0,
+            "accessible_total": 5,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "smallest test": 1,
+            "workshop": 1,
+            "fluke": 1
+          }
+        }
+      },
+      {
+        "trial": 4,
+        "provenance": "slice_e_fresh",
+        "attempt_count": 2,
+        "verification_status": "verified",
+        "verification_warnings_count": 3,
+        "draft_a_len": 807,
+        "draft_b_len": 1213,
+        "retrieval_distance": 0.3381360414404444,
+        "hint_emitted_sha256": [
+          "6b7fe01c6b6b9bbb2f06eb47cc746681ff42c33f546a617df4e8228aa48d7fbd"
+        ],
+        "draft_a": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "what_actually_happened": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 2
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "one_variable_at_a_time": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 1,
+            "paraphrase_total": 0,
+            "accessible_total": 4,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "smallest test": 1,
+            "Patch": 1,
+            "test again": 1,
+            "fluke": 1
+          }
+        },
+        "draft_b": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 2
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 3,
+            "paraphrase_total": 0,
+            "accessible_total": 2,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "smallest test": 1,
+            "test again": 1,
+            "fluke": 1
+          }
+        }
+      },
+      {
+        "trial": 5,
+        "provenance": "slice_e_fresh",
+        "attempt_count": 2,
+        "verification_status": "verified",
+        "verification_warnings_count": 0,
+        "draft_a_len": 782,
+        "draft_b_len": 1198,
+        "retrieval_distance": 0.3381360414404444,
+        "hint_emitted_sha256": [
+          "ee2b07f77a8de3df7e60e62646e6cec4e6383b84071acb73e4192dca4f853941"
+        ],
+        "draft_a": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 3
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 3,
+            "paraphrase_total": 0,
+            "accessible_total": 4,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "reduce the problem": 1,
+            "smallest test": 1,
+            "fluke": 1
+          }
+        },
+        "draft_b": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 3
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 2
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 3,
+            "paraphrase_total": 0,
+            "accessible_total": 6,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "smallest test": 1,
+            "Patch": 1,
+            "test again": 1
+          }
+        }
+      }
+    ],
+    "CORRECT_ANCHOR": [
+      {
+        "trial": 1,
+        "provenance": "slice_e_fresh",
+        "attempt_count": 2,
+        "verification_status": "verified",
+        "verification_warnings_count": 2,
+        "draft_a_len": 873,
+        "draft_b_len": 1097,
+        "retrieval_distance": 0.3381360414404444,
+        "hint_emitted_sha256": [
+          "b45a24084e70e6c325b9d85fd7b537414a8a28509c287f1fae5c025df7709aa4"
+        ],
+        "draft_a": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 2
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 3,
+            "paraphrase_total": 0,
+            "accessible_total": 3,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "smallest test": 1,
+            "Patch": 2,
+            "fluke": 1
+          }
+        },
+        "draft_b": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 2
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 4,
+            "paraphrase_total": 0,
+            "accessible_total": 2,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "smallest test": 1,
+            "test again": 1,
+            "fluke": 1
+          }
+        }
+      },
+      {
+        "trial": 2,
+        "provenance": "slice_e_fresh",
+        "attempt_count": 2,
+        "verification_status": "verified",
+        "verification_warnings_count": 2,
+        "draft_a_len": 751,
+        "draft_b_len": 1231,
+        "retrieval_distance": 0.3381360414404444,
+        "hint_emitted_sha256": [
+          "0982050bfbb8ec4156115704764ba556038ae1a793c65d0d017ee032ad84addd"
+        ],
+        "draft_a": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "one_variable_at_a_time": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 2
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 2,
+            "paraphrase_total": 0,
+            "accessible_total": 4,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "Patch": 1,
+            "fluke": 1
+          }
+        },
+        "draft_b": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "where_incorrect": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 2
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 4,
+            "paraphrase_total": 0,
+            "accessible_total": 5,
+            "attractor_where_incorrect": 1
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "reduce the problem": 1,
+            "smallest test": 1,
+            "Patch": 1,
+            "test again": 1
+          }
+        }
+      },
+      {
+        "trial": 3,
+        "provenance": "slice_e_fresh",
+        "attempt_count": 2,
+        "verification_status": "verified",
+        "verification_warnings_count": 3,
+        "draft_a_len": 874,
+        "draft_b_len": 1272,
+        "retrieval_distance": 0.3381360414404444,
+        "hint_emitted_sha256": [
+          "a5612037022d063e6f42999ee47463fb736167e33c60d8a7b47ceac3e274ba3c"
+        ],
+        "draft_a": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 2
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 4,
+            "paraphrase_total": 0,
+            "accessible_total": 4,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "evidence beats guessing": 1,
+            "meaningful variable": 1,
+            "smallest test": 1,
+            "Patch": 1,
+            "test again": 1
+          }
+        },
+        "draft_b": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 2
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 3,
+            "paraphrase_total": 0,
+            "accessible_total": 3,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "smallest test": 1,
+            "fluke": 2
+          }
+        }
+      },
+      {
+        "trial": 4,
+        "provenance": "slice_e_fresh",
+        "attempt_count": 2,
+        "verification_status": "verified",
+        "verification_warnings_count": 1,
+        "draft_a_len": 720,
+        "draft_b_len": 1342,
+        "retrieval_distance": 0.3381360414404444,
+        "hint_emitted_sha256": [
+          "b2ca47b8eced394b4c07aee44fb1633b14e0cdff85581d87c62f3e1985f4060f"
+        ],
+        "draft_a": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 4,
+            "paraphrase_total": 0,
+            "accessible_total": 2,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "evidence beats guessing": 1,
+            "meaningful variable": 1,
+            "Patch": 2
+          }
+        },
+        "draft_b": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 2,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 2
+            },
+            "what_actually_happened": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 3
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 2
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 3,
+            "paraphrase_total": 0,
+            "accessible_total": 7,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "reduce the problem": 1,
+            "smallest test": 1,
+            "Patch": 1,
+            "test again": 1
+          }
+        }
+      },
+      {
+        "trial": 5,
+        "provenance": "slice_e_fresh",
+        "attempt_count": 2,
+        "verification_status": "verified",
+        "verification_warnings_count": 2,
+        "draft_a_len": 807,
+        "draft_b_len": 1131,
+        "retrieval_distance": 0.3381360414404444,
+        "hint_emitted_sha256": [
+          "5be26f8a4a46abf2dc4451d05e16bb20f575d0ee1edacf7476bc6780bbea6905"
+        ],
+        "draft_a": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 2
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 2,
+            "paraphrase_total": 0,
+            "accessible_total": 3,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "smallest test": 1,
+            "Patch": 2,
+            "test again": 1
+          }
+        },
+        "draft_b": {
+          "per_concept": {
+            "what_changed": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "what_expected": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 1
+            },
+            "what_actually_happened": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "reproducibility": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "where_incorrect": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "assumption": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "smallest_test": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 4
+            },
+            "one_variable_at_a_time": {
+              "canonical": 1,
+              "paraphrase": 0,
+              "accessible": 0
+            },
+            "evidence_beats_guessing": {
+              "canonical": 0,
+              "paraphrase": 0,
+              "accessible": 0
+            }
+          },
+          "totals": {
+            "canonical_total": 3,
+            "paraphrase_total": 0,
+            "accessible_total": 5,
+            "attractor_where_incorrect": 0
+          },
+          "identity_markers": {
+            "meaningful variable": 1,
+            "smallest test": 2,
+            "test again": 1
+          }
+        }
+      }
+    ]
+  },
+  "summary": {
+    "trials_per_condition": 5,
+    "distributions": {
+      "BASELINE": {
+        "draft_a_canonical": [
+          3,
+          3,
+          4,
+          3,
+          2
+        ],
+        "draft_b_canonical": [
+          5,
+          3,
+          1,
+          3,
+          4
+        ],
+        "draft_a_accessible": [
+          7,
+          3,
+          4,
+          1,
+          0
+        ],
+        "draft_b_accessible": [
+          8,
+          3,
+          3,
+          3,
+          5
+        ],
+        "draft_b_paraphrase": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "identity_markers_draft_b": [
+          10,
+          4,
+          4,
+          6,
+          4
+        ],
+        "verification_warnings": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "draft_lens": [
+          [
+            568,
+            1420
+          ],
+          [
+            694,
+            1307
+          ],
+          [
+            861,
+            1289
+          ],
+          [
+            625,
+            1233
+          ],
+          [
+            784,
+            1332
+          ]
+        ],
+        "verified": 5
+      },
+      "NO_KNOWLEDGE_REF": {
+        "draft_a_canonical": [
+          1,
+          2,
+          3,
+          1,
+          3
+        ],
+        "draft_b_canonical": [
+          4,
+          2,
+          3,
+          3,
+          3
+        ],
+        "draft_a_accessible": [
+          1,
+          1,
+          1,
+          4,
+          4
+        ],
+        "draft_b_accessible": [
+          4,
+          1,
+          5,
+          2,
+          6
+        ],
+        "draft_b_paraphrase": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "identity_markers_draft_b": [
+          3,
+          3,
+          4,
+          4,
+          4
+        ],
+        "verification_warnings": [
+          1,
+          2,
+          2,
+          3,
+          0
+        ],
+        "draft_lens": [
+          [
+            721,
+            1395
+          ],
+          [
+            690,
+            1113
+          ],
+          [
+            747,
+            1161
+          ],
+          [
+            807,
+            1213
+          ],
+          [
+            782,
+            1198
+          ]
+        ],
+        "verified": 5
+      },
+      "CORRECT_ANCHOR": {
+        "draft_a_canonical": [
+          3,
+          2,
+          4,
+          4,
+          2
+        ],
+        "draft_b_canonical": [
+          4,
+          4,
+          3,
+          3,
+          3
+        ],
+        "draft_a_accessible": [
+          3,
+          4,
+          4,
+          2,
+          3
+        ],
+        "draft_b_accessible": [
+          2,
+          5,
+          3,
+          7,
+          5
+        ],
+        "draft_b_paraphrase": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "identity_markers_draft_b": [
+          4,
+          5,
+          3,
+          5,
+          3
+        ],
+        "verification_warnings": [
+          2,
+          2,
+          3,
+          1,
+          2
+        ],
+        "draft_lens": [
+          [
+            873,
+            1097
+          ],
+          [
+            751,
+            1231
+          ],
+          [
+            874,
+            1272
+          ],
+          [
+            720,
+            1342
+          ],
+          [
+            807,
+            1131
+          ]
+        ],
+        "verified": 5
+      }
+    },
+    "verdict_inputs": {
+      "BASELINE": {
+        "attractor_where_incorrect_freq_draft_a": 0,
+        "attractor_where_incorrect_freq_draft_b": 2
+      },
+      "NO_KNOWLEDGE_REF": {
+        "attractor_where_incorrect_freq_draft_a": 0,
+        "attractor_where_incorrect_freq_draft_b": 0
+      },
+      "CORRECT_ANCHOR": {
+        "attractor_where_incorrect_freq_draft_a": 0,
+        "attractor_where_incorrect_freq_draft_b": 1
+      }
+    }
+  }
+}
