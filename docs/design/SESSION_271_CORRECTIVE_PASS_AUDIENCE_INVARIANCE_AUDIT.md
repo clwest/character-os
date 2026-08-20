@@ -1668,10 +1668,10 @@ Concise answers below; forensic evidence lives in §46-§56 + the sidecar.
 
 ## §58. Phase 2 commit + push record
 
-- Phase 2 slice commit SHA: `<pending — populated after commit>`
-- Push: `<pending>`
-- Local `main == origin/main`: `<verified at commit time>`
-- Working tree at Phase 2 close: `<verified clean>`
+- Phase 2 slice commit SHA: `0baea20` — `docs(session-271): Slice 3 Phase 2 — Composition 25467733 forensic inspection (Q-270-15c Trial 1 verdict E — INCONCLUSIVE)`.
+- Push: `41358be..0baea20 main -> main` (successful).
+- Local `main == origin/main == 0baea20` verified.
+- Working tree at Phase 2 close: clean.
 - Files touched by Phase 2:
   - `docs/design/session_271_experiment_data/01_composition_25467733_q270_15c_trial1_evidence.json` (NEW evidence sidecar)
   - `docs/design/SESSION_271_CORRECTIVE_PASS_AUDIENCE_INVARIANCE_AUDIT.md` — §46-§58 appended
