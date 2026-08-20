@@ -3185,3 +3185,163 @@ non-adversarial trial), documents the whole-cast promotion of
 Nothing needs implementation before continuing dogfood. Any
 further Episodes, promotions, or audit findings should extend
 this document (add §20, §21…) rather than start a new one.
+
+## §20. CLOSEOUT
+
+SESSION 269 reached a clean stopping point after `ba431203` +
+`36c21641` (§19). No implementation gate blocks further
+dogfood. This section synthesizes what shipped, what is
+observed-but-not-enforced, what remains deferred, and hands off
+to SESSION 270.
+
+**Consistency check performed:** section headers §0-§19 present;
+Composition IDs cross-referenced across §1-§19 evidence sidecars
+(`01_composition_826851fd_evidence.json` through
+`09_composition_ba431203_evidence.json`); pool counts (§19.8)
+re-verified against runtime state at closeout — **still 14
+active** (10 whole-cast + 3 Rivet-only + 1 Patch-only, zero
+other scope, zero delta since §19).
+
+### §20.1 Shipped implementation
+
+Slices that landed source code during SESSION 269:
+
+| Slice | Commit | Summary |
+|---|---|---|
+| §10 | `765bb73` | Solo-cast NarrativeMemory lane — `talking_head` primitive now calls `retrieve_universe_memory` under the same witness predicate `dialogue_scene` uses. Persists `Composition.memory_ids` via the recipe-agnostic JSONField the dialogue path already writes to. |
+| §12 | `06ba772` | One-character Episode creator workflow — inline cast picker on Create Episode form; `EpisodeSerializer` gains write-only `cast_ids` for atomic create; Episode detail scene-CTA gated on cast cardinality (cast=1 → "New solo scene"; cast=2+ → "New dialogue scene"; cast=0 → no CTA + hint). |
+| §15 | `44618fc` | Episode-attached solo talking_head STORY MODE — new `solo_scene` writing contract (WRITING_CONTRACT_VERSION 4→5) encoding SINGLE ACTIVE CHARACTER + SINGLE PRESENT MOMENT + PLANS REMAIN PLANS + MEMORY AS BACKGROUND + END ON A MOMENT + PRESERVE CREATIVE FREEDOM. Primitive routes to `solo_scene` when `composition.episode_id is not None AND template_kind == "talking_head"`. SPA hides `script` + `use_knowledge` fields for Episode-solo mode and force-supplies both on submit. |
+| §15.7 | `251b3b0` | Whitelist hotfix — `build_render_brief` input-guard extended to accept `"solo_scene"`. Root cause + methodology lesson (grep polymorphic parameters across the call chain) captured in §15.7. |
+
+**Backend regression baseline at closeout:** 1566 passed
+(§15.7 result — 1548 pre-§15 baseline + 12 new solo_scene
+contract tests + 4 new primitive routing tests + 2 new
+whitelist regression tests). SPA baseline: 640 passed.
+
+**Byte-stable under every §15/§15.7 change:** standalone
+`talking_head` dual-mode UX, `dialogue_scene` contract text,
+`long_form_ad` behaviour, `retrieve_universe_memory` predicate,
+`top_k=1`, witness semantics, canon boundary, `Composition.episode`
+FK semantics, promote path.
+
+### §20.2 Accepted / observed runtime behaviour
+
+Findings validated by evidence in this document, safe to build
+on:
+
+- **Retrieval predicate is symmetric end-to-end** (§17.6 Patch-only exclusion via `2ef5ee7e`/`d3107ed2`; §18.4 Patch-only exclusion via `be39452d`). Both directions proven through the ship path (SPA → Celery worker → primitive → predicate).
+- **`solo_scene` contract holds across characters and topic classes.** Cumulative across `2ef5ee7e` (Patch research), `d3107ed2` (Patch action), `be39452d` (Rivet introspection): **18/18 invariant PASSES, 8 STRONG, zero regressions.**
+- **`dialogue_scene` contract holds on a fresh domain** (§19.5 software-debugging on `ba431203`: 11/11 PASS with 4 STRONG).
+- **Promote-then-retrieve loop works end-to-end.** §16.2 (memory `8d4fdfec` promoted §2, retrieved into `2ef5ee7e`), §17.4 (memory `48746f69` retrieved into `d3107ed2`), §19.7 (memory `36c21641` promoted from `ba431203`, embedded, available for future retrieval).
+- **Pool now carries all three witness classes:** whole-cast (10), Rivet-only (3), Patch-only (1). Rivet-only sub-classes: observational (2) + introspective (1). Total active: **14**.
+- **Duration contract PASS** across every SESSION 269 render — target 90s renders landing between 91.6s and 104.6s, all within `[72.0, 108.0]s` (±20% band per SESSION 253/260 calibration).
+
+### §20.3 Preserved findings (operator's explicit list — items 4, 5, 6)
+
+**4. Private-memory finding (from §19.3):**
+
+- Witness-based retrieval **ELIGIBILITY** is architecturally enforced (`shell/apps/embeddings/retrieval.py:499-543`).
+- `ba431203` demonstrated a Rivet-private memory (`c86d4902` PATCH OVERRIDES) being retrieved into a Patch+Rivet scene without its secret being disclosed to Patch.
+- Current dialogue generation does **NOT** architecturally guarantee per-character epistemic isolation once the memory enters scene context — the memory-block emission in `shell/character_os/dialogue_synthesis.py:553-575` frames the row as *"background the cast already knows happened"* with NO per-character witness scoping in the prompt.
+- 5 consecutive natural non-adversarial trials with no textual leakage (SESSION 267 §14 setup + SESSION 268 Obs #6 + SESSION 269 §11/§16/§19). Extends but does NOT falsify SESSION 267 §14.13 Semantic 1.
+- **This remains an observed desirable behaviour and a future concern for larger casts, NOT a current implementation requirement.** In a Universe with 3+ characters (e.g. a memory `witnessed_by=[Rivet, Ruby]` retrieved into a Patch+Rivet+Mason scene), the distinction could become load-bearing.
+
+**5. Memory-promotion finding (from §16.8 principle held through §19):**
+
+- **Good content alone does not justify NarrativeMemory.**
+- **Bounded, durable state change does.**
+- `8f09da3e` (Patch tracks-down-the-bug, doesn't fix) was intentionally NOT promoted — setup/intention only.
+- `ba431203` was promoted (as whole-cast `36c21641`) because the bug was actually fixed and Patch experienced a concrete successful single-variable debugging result witnessed by Rivet — bounded, testable state change both characters carry forward.
+- Pattern held across 5 successive promote/no-promote decisions in SESSION 269 (§16, §17, §18, `8f09da3e`, §19). Discipline is evidence-supported.
+
+**6. Software/coding content-lane finding (from §19.10):**
+
+- Patch's impulsive-tinkerer characterization **generalized beyond 3D-printer/workshop-agent material** (2 samples: `8f09da3e` + `ba431203`).
+- Rivet's methodical experimental discipline **transferred naturally into software debugging** — arguably more naturally than the earlier 3D-printer contexts.
+- Current `talking_head` + `dialogue_scene` media capabilities were sufficient. Zero code snippets, zero framework-recitation, zero dry tutorials. **No additional visual infrastructure required.**
+- Bounded finding from two samples — documents that the lane works with existing infrastructure; NOT a new implementation requirement.
+
+### §20.4 Deferred / non-blocking findings
+
+Carried forward — none silently discarded, none implemented in
+SESSION 269:
+
+| # | Finding | Origin | Status |
+|---|---|---|---|
+| D-1 | Runners-up + distances probe on `retrieve_universe_memory` — would resolve the `c86d4902` broad-embedding-neighbour question | §4.2 / §8 #1 | not built; not compelled |
+| D-2 | Repeated weak-retrieval signal from `c86d4902` — now **four** natural hits (pigeon / went-outside / research / software-bug) | §4 upgraded → §11 §16 §19 | still weak_but_harmless; no relevance floor built |
+| D-3 | Chronology / story-time primitive on Episode — no `story_date`, no sequence, no `happened_at` field exists anywhere; smallest missing concept named as *"a single scalar on Episode representing the operator's assertion of where in the story this Episode happens"* | §9.7 | untouched; NOT solved by any subsequent slice |
+| D-4 | Per-character epistemic isolation in dialogue prompts | §19.3 (new) | writer-behaviour-only; may become load-bearing in 3+ cast Universes |
+| D-5 | Composition-detail IA — promote form still sits below extensive technical evidence | SESSION 266 §13.7 | still low signal |
+| D-6 | Explicit-history prompt Dogfood #2 | SESSION 266 §11.7 | still deferred |
+| D-7 | Visual-planner design (dialogue-scene cutaway architecture) | §7 (SESSION 268 §7) | one REQUIRED-class Episode across seven; gate not met |
+| D-8 | Solo Episode-attach ergonomics polish — auto-add spokesperson to `Episode.cast` when `?episode=` submit; audit whether cast=0 can silently fall through | §12.10 (partial); §11.4 | zero-cast fall-through fixed in §12; auto-add still deferred |
+| D-9 | Composition-detail Episode-solo helper-copy staleness — Target duration / Fact-check mode still say *"Applies only when Use workspace knowledge is ticked…"* despite the checkbox being hidden in Episode STORY MODE | §16.9 | cosmetic; documented as tiny follow-up |
+| D-10 | Audience-participation loop — three consecutive solo Episode endings included viewer-submission invitations; operator's design concept recorded verbatim in §18.6 | §18.6 | FUTURE / DEFERRED per operator instruction; DO NOT IMPLEMENT |
+| D-11 | Cleanup of SESSION 266 experimental Universes `EXP266-WEAK` / `EXP266-STRONG` | §7 deferred list (SESSION 268 §8) | preserved for forensic inspection per operator instruction |
+
+### §20.5 Nothing must be implemented before starting SESSION 270
+
+Every deferred item above is non-blocking. The current
+substrate is coherent for continued dogfood AND for the
+SESSION 270 design conversation. Chris may open the
+audience-aware design question without any implementation gate
+first.
+
+### §20.6 Checkpoint history
+
+Chronological commit-SHA record for SESSION 269 (from
+`git log --oneline`, earliest → latest):
+
+- `bc4d8ba` — §1-§9 doc (Obs #1 + #2 + pre-Rivet chronology audit)
+- `765bb73` — §10 slice (solo talking_head NarrativeMemory lane)
+- `bbcc1f0` — §10 doc checkpoint
+- `91c9e3a` — §11 doc (first real solo talking_head dogfood audit — 44f2279f)
+- `06ba772` — §12 slice (one-character Episode creator workflow)
+- `87c328f` — §12 doc checkpoint
+- `3c0b00f` — §13 doc (operator-visible parity pass)
+- `394e373` — §13 doc checkpoint
+- `929199f` — §14 doc (Episode-solo STORY MODE audit + design)
+- `d0c5ca0` — §14 doc checkpoint
+- `44618fc` — §15 slice (solo_scene writing contract + primitive routing + SPA UX)
+- `7646498` — §15 doc checkpoint
+- `251b3b0` — §15.7 hotfix (whitelist solo_scene in build_render_brief)
+- `ce14f53` — §15.7 doc checkpoint
+- `c91c4be` — §16 doc (first real §15 acceptance render — 2ef5ee7e)
+- `d17cc5c` — §16 doc checkpoint
+- `9770d99` — §17 doc (d3107ed2 + first Patch-only memory c614ca86)
+- `ea7ead4` — §17 doc checkpoint
+- `e099a85` — §18 doc (first Rivet-solo be39452d + symmetric witness test)
+- `9ddce05` — §18 doc checkpoint
+- `ef57620` — §19 doc (Patch+Rivet dialogue ba431203 + whole-cast memory 36c21641)
+- `f07534f` — §19 doc checkpoint
+- `<closeout SHA populated below>` — §20 CLOSEOUT
+
+### §20.7 Handoff to SESSION 270
+
+Separate handoff document created at
+`docs/design/SESSION_270_HANDOFF.md`. Key summary here:
+
+- **Current state:** all §20.2 accepted behaviour is live; branch `main` is clean; pool = 14 active memories across three witness classes.
+- **Open question for SESSION 270 (initial only; do NOT investigate or implement in the closeout):**
+  **Audience-aware character performance.** Character OS currently knows *who* is speaking (spokesperson identity), *what* the story intent is (Episode topic), *what facts are grounded* (Universe canon + K2 + NarrativeMemory), and *what shape* to write (recipe / writing contract). It does NOT currently know *who the character is speaking TO*. Could the same Patch and Rivet — same identities, knowledge, relationships, memories, Episode intent — communicate naturally to children around 8-10 years old without becoming different characters or "dumbing down"?
+- **Conceptual axis:** CHANGE audience/register/vocabulary/analogy/assumed-background; PRESERVE identity/intelligence/personality/relationship-dynamics/factual-grounding/story-state/memory-semantics/Episode-intent.
+- **Prescribed first move (per operator brief):** evidence-first inspection of the existing writing pipeline to determine **where audience/register currently exists implicitly, if anywhere**, before proposing implementation.
+- **DO NOT** decide the eventual architecture (Composition-level? Episode-level? Universe-level? default+override hierarchy?) in SESSION 270's opening. Investigate the current implicit assumptions first.
+
+### §20.8 CLOSEOUT commit checkpoint
+
+Doc-only closeout — no source-code change in §20.
+
+- §20 commit: (populated after commit below).
+- Handoff document commit: (populated after commit below).
+
+---
+
+**SESSION 269 CLOSED.** All accepted behaviour shipped (§10 solo
+memory lane, §12 one-character Episode workflow, §15 solo_scene
+STORY MODE, §15.7 whitelist hotfix). All deferred findings
+preserved (§20.4). Pool state: **14 active memories** (10
+whole-cast + 3 Rivet-only + 1 Patch-only). Nothing implementation-
+blocking. SESSION 270 opens on the audience-aware character-
+performance question per `docs/design/SESSION_270_HANDOFF.md`.
