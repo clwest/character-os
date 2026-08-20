@@ -3117,10 +3117,11 @@ Only artefacts added by Slice 6 are documentation changes to this file.
 
 ## §103. Slice 6 commit + push record
 
-- Slice 6 commit SHA: `<pending — populated after commit>`
-- Push: `<pending>`
-- Local `main == origin/main`: `<verified at commit time>`
-- Working tree at Slice 6 close: `<verified clean>`
+- Slice 6 commit SHA: `bc81e78` — `docs(session-271): Slice 6 — knowledge-shape deep audit (retrieval-dependent behavioral invariants)`.
+- Push: `9efa47f..bc81e78 main -> main` (successful).
+- Local `main == origin/main == bc81e78` verified.
+- Working tree at Slice 6 close: clean.
+- Also committed in this slice: previously-untracked `docs/knowledge_snapshots/{patch_knowledge.md, rivet_knowledge.md, README.md}` as the source data this audit references.
 
 ---
 
