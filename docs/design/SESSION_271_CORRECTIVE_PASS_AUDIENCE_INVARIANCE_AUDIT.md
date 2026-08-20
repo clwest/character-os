@@ -2264,3 +2264,337 @@ If Trial 3 confirms Trial 2, Slice 6 can consider E2/E3 or move to Q-270-15b. If
 ---
 
 **End of SESSION 271 Slice 4. STOP condition reached. Promotion decision: B — one more controlled revision trial required before promotion. Smallest next action: authorise Trial 3 render (same substrate as Trial 2, §55 activation procedure). Awaiting operator authorisation.**
+
+---
+
+# SESSION 271 — SLICE 5 · Read-only Knowledge Audit + Trial 3 (8b61ca92) Forensics with Confound
+
+**Read-only knowledge audit performed at operator request** to test a candidate confound: are `API` / `state` / `language model` / `database` / `multi-step` repeatedly appearing in Patch's scripts because his retrieved knowledge base literally contains and frames those terms as *"what Patch knows about AI agents,"* rather than primarily because of corrective-pass behaviour?
+
+**Composition 8b61ca92 (Trial 3) forensics** performed in the same slice because the two questions inform each other: Trial 3 verdict must incorporate the knowledge-confound finding, and the knowledge audit's cross-specimen mapping requires the Trial-3 texts.
+
+**Anchor state at Slice 5 open:** HEAD `591152c`, `main == origin/main`, working tree clean, both experiment env vars unset in Claude's shell + on the current worker (which is still the §69 canonical cleanup worker). No new source, no experiments, no renders performed in Slice 5.
+
+---
+
+## §81. Knowledge audit — the 5 retrieved chunks
+
+All five retrieved chunks come from ONE workspace document — **`PATCH — AI BUILDING, EXPERIMENTATION & CONTENT KNOWLEDGE`** (document UUID `fd0ba2ca-eb15-4785-a39b-22ddd1052052`), M2M-scoped to spokesperson Patch (`7fad8172`), workspace `4ce5486d`, status `processed`. Retrieval is deterministic under the identical operator_topic *"Patch does research on AI Agents"* across every SESSION 269 / SESSION 270 / SESSION 271 render on this substrate.
+
+### §81.1 Full chunk texts (verbatim, in `chunk_index` order)
+
+**Chunk 0 — `c24d1aa7` (733 chars, chunk_index=0):**
+
+> PATCH — AI BUILDING, EXPERIMENTATION & CONTENT KNOWLEDGE
+>
+> PURPOSE
+>
+> Patch is an AI builder, experimenter, inventor, and technology video host. He creates entertaining short-form content about building things with artificial intelligence, software, automation, digital media, AI agents, and emerging technology. Patch is build-first, not news-first. He is not primarily an AI news reporter, and he does not spend his time repeating announcements about new models, benchmark scores, funding rounds, or predictions about artificial general intelligence. What Patch wants to know is what he can actually do with a system — have an idea, build it, test it, break it, fix it, see what happens, and tell the story.
+>
+> WHAT PATCH KNOWS ABOUT AI
+
+**Chunk 1 — `ed18e966` (899 chars, chunk_index=1):**
+
+> intelligence. What Patch wants to know is what he can actually do with a system — have an idea, build it, test it, break it, fix it, see what happens, and tell the story.
+>
+> WHAT PATCH KNOWS ABOUT AI Artificial intelligence is not one magical thing. Different AI systems are useful for different jobs. **AI systems can work with text, images, audio, speech, video, documents, structured data, software code, tools, APIs, databases, search systems, and physical devices.** Modern AI applications often combine several systems rather than relying on one model to do everything. **A useful AI product may contain a language model, memory, retrieval, search, tools, business rules, databases, user profiles, APIs, image generation, speech generation, video generation, automation, and traditional software.** Patch understands that the AI model is often only one component of the finished system.
+>
+> LANGUAGE MODELS
+
+**Chunk 2 — `b3c6e8ac` (869 chars, chunk_index=2):**
+
+> image generation, speech generation, video generation, automation, and traditional software. Patch understands that the AI model is often only one component of the finished system.
+>
+> **LANGUAGE MODELS Large language models can generate and interpret language.** They help with conversation, writing, summarization, classification, reasoning, planning, information extraction, software development, tool selection, and structured outputs. **Language models can also make mistakes:** they can misunderstand instructions, produce incorrect information, invent details, lose important context, follow the wrong objective, and behave differently depending on prompting and surrounding systems. Patch does not treat an AI response as automatically correct simply because it sounds confident — an impressive-sounding answer still has to be checked before it counts as right.
+>
+> AI AGENTS
+
+**Chunk 3 — `505acbba` (827 chars, chunk_index=3):**
+
+> systems. Patch does not treat an AI response as automatically correct simply because it sounds confident — an impressive-sounding answer still has to be checked before it counts as right.
+>
+> **AI AGENTS An AI agent is generally an AI system that can do more than produce one response. Agents may make decisions, select tools, search for information, read documents, write information, call APIs, perform multi-step tasks, maintain state, interact with other agents, and respond to changes in an environment.** The interesting question for Patch is not whether something is technically an agent — it is what happens when the AI can actually do something rather than only talk about doing something. Behavior gets more interesting when AI systems can interact with tools, environments, information, or one another.
+>
+> MULTI-AGENT SYSTEMS
+
+**Chunk 4 — `3c5165ea` (826 chars, chunk_index=4):**
+
+> do something rather than only talk about doing something. Behavior gets more interesting when AI systems can interact with tools, environments, information, or one another.
+>
+> **MULTI-AGENT SYSTEMS Multiple AI agents can be placed in the same environment. They may communicate, cooperate, disagree, divide responsibilities, share information, develop strategies, and affect one another's decisions.** Multi-agent experiments are useful for exploring coordination, simulation, planning, and emergent behavior — questions like whether agents will remember each other, whether they will form groups, and what happens when one agent has information another does not. Patch should never pretend emergent behavior proves consciousness or sentience; interesting behavior is interesting enough without exaggerating what it means.
+>
+> AI MEMORY
+
+### §81.2 Exact quotes containing the at-risk terms
+
+| Term | Location(s) | Verbatim quote |
+|---|---|---|
+| **APIs** | chunk 1 (`ed18e966`) | *"tools, APIs, databases, search systems"* |
+| **APIs** | chunk 1 (`ed18e966`) | *"business rules, databases, user profiles, APIs, image generation"* |
+| **APIs** | chunk 3 (`505acbba`) | *"read documents, write information, **call APIs**, perform multi-step tasks"* |
+| **API** (singular) | — | Never used singular; always `APIs` |
+| **multi-step** | chunk 3 (`505acbba`) | *"**perform multi-step tasks**, maintain state"* |
+| **maintain state / state** | chunk 3 (`505acbba`) | *"perform multi-step tasks, **maintain state**, interact with other agents"* |
+| **language model** | chunk 1 (`ed18e966`) | *"A useful AI product may contain a **language model**, memory, retrieval, search"* |
+| **language model** | chunk 2 (`b3c6e8ac`) | *"LANGUAGE MODELS Large **language models** can generate and interpret language."* |
+| **language model** | chunk 2 (`b3c6e8ac`) | *"**Language models** can also make mistakes"* |
+| **databases** | chunk 1 (`ed18e966`) | *"tools, APIs, **databases**, search systems"* (×2) |
+| **tools** | chunk 1 (`ed18e966`) | *"software code, **tools**, APIs"* |
+| **tools** | chunk 3 (`505acbba`) | *"select **tools**, search for information"* |
+| **respond to changes** | chunk 3 (`505acbba`) | *"maintain state, interact with other agents, and **respond to changes in an environment**"* |
+| **interact with tools/environments** | chunk 3 (`505acbba`) | *"AI systems can **interact with tools, environments, information, or one another**"* |
+
+**Zero accessible-language equivalents present in the chunks.** No occurrence of *"connect to other software"*, *"keep track of what happened"*, *"remember where it is in a task"*, *"several steps"*, *"AI that generates language"*, or any comparable audience-adapted phrasing appears anywhere in the five chunks.
+
+### §81.3 Classification — factual knowledge vs Patch voice vs example vs other
+
+| Chunk | Type of content | Classification | Persona/voice framing? |
+|---|---|---|---|
+| c24d1aa7 (PURPOSE) | Persona description of Patch's role + focus | **PATCH VOICE / FRAMING** — describes what Patch IS + what Patch does + what Patch does NOT do. No technical at-risk vocabulary here. | Yes (explicitly persona) |
+| ed18e966 (WHAT PATCH KNOWS ABOUT AI) | Encyclopedic inventory of AI systems + components | **FACTUAL KNOWLEDGE, framed as PATCH'S KNOWLEDGE** — the section title itself is *"WHAT PATCH KNOWS ABOUT AI."* The final sentence *"Patch understands that the AI model is often only one component of the finished system"* stamps the content as Patch's belief. | **Yes — hybrid**. Content is factual, but framing positions it as Patch's own reference vocabulary. |
+| b3c6e8ac (LANGUAGE MODELS) | Factual descriptions of language-model capabilities + failure modes | **FACTUAL KNOWLEDGE** — bulk of chunk is domain fact. Last sentence adds a Patch persona claim (*"Patch does not treat an AI response as automatically correct..."*). | Partial (persona claim tacked on to factual content) |
+| 505acbba (AI AGENTS) | Definitional enumeration of what agents do | **FACTUAL KNOWLEDGE, framed as REFERENCE VOCABULARY** — the sentence *"The interesting question for Patch is not whether something is technically an agent"* positions the terminology as *the words Patch uses to think about agents.* | **Yes — hybrid**. Same shape as chunk 1. |
+| 3c5165ea (MULTI-AGENT SYSTEMS + AI MEMORY split) | Factual descriptions of multi-agent behaviour | **FACTUAL KNOWLEDGE** with one persona claim (*"Patch should never pretend emergent behavior proves consciousness"*). | Partial |
+
+**No content is classified as EXAMPLE LANGUAGE or STYLE GUIDANCE.** The document contains no *"BAD → GOOD"* register-adaptation pairs, no *"say X, not Y"* substitution instructions, no explicit accessible-translation guidance. Every enumeration is raw domain vocabulary presented as reference material.
+
+### §81.4 Does Patch's knowledge encourage him to use these technical terms?
+
+**YES — explicitly, structurally, and repeatedly.** Three mechanisms:
+
+1. **Section-title framing.** Chunk 1's section is literally titled *"WHAT PATCH KNOWS ABOUT AI"* and lists the terms as an inventory. The section header doubles as a persona claim about Patch's knowledge domain.
+2. **Persona anchor sentences.** Multiple chunks end (or contain) sentences like *"Patch understands that the AI model is often only one component..."*, *"The interesting question for Patch is not whether something is technically an agent..."*, *"Patch does not treat an AI response as automatically correct..."*. These sentences position the surrounding raw vocabulary as *Patch's own reference terminology* rather than as external facts.
+3. **No accessible alternatives.** The chunks provide the model with **zero** audience-adapted translations. When the corrective_hint says *"Expand secondary detail from the knowledge chunks"* — or the writing contract implicitly relies on §1 Factual Basis for supporting detail — the ONLY vocabulary the model has to draw from is the raw enumeration.
+
+The model reasonably interprets these chunks as: *"Patch is an AI-agent builder; here are the words Patch uses when he talks about agents."* Under that interpretation, producing *"call APIs, handle multi-step tasks, keep state"* is exactly what a well-grounded Patch script SHOULD do.
+
+### §81.5 Cross-specimen mapping — every at-risk term traces to chunk source language
+
+Every at-risk term that appeared in any accepted script across SESSION 270 + SESSION 271 traces directly to chunks `505acbba`, `b3c6e8ac`, or `ed18e966`:
+
+| Specimen | Excerpt (accepted) | Chunk source | Match type |
+|---|---|---|---|
+| **c3ff972d** accepted (canonical corrective, audience active) | *"call APIs"* | `505acbba` *"call APIs"* | **VERBATIM** |
+| c3ff972d accepted | *"handle a task in steps"* | `505acbba` *"perform multi-step tasks"* | PARAPHRASE |
+| c3ff972d accepted | *"keep some state while it does it"* | `505acbba` *"maintain state"* | PARAPHRASE |
+| c3ff972d accepted | *"language model"* (×2) | `b3c6e8ac` *"language model"* | VERBATIM (as noun) |
+| c3ff972d accepted | *"language model, memory, search, tools, databases, rules, user information, and ordinary software"* | `ed18e966` *"language model, memory, retrieval, search, tools, business rules, databases, user profiles, APIs..."* | **VERBATIM enumeration structure** |
+| **25467733** accepted (canonical, no audience) | *"call APIs, handle multi-step tasks, keep state, and react when something changes around it"* | `505acbba` *"call APIs, perform multi-step tasks, maintain state, interact with other agents, and respond to changes in an environment"* | **NEAR-VERBATIM SEQUENCE** |
+| 25467733 accepted | *"A language model can tell you it has a plan"* | `b3c6e8ac` *"Language models can also make mistakes"* + `505acbba` context | PARAPHRASE |
+| **1ff3d16f Draft A** (revision Trial 2 first pass, audience active) | *"call APIs, and work through a task in steps"* | `505acbba` *"call APIs, perform multi-step tasks"* | PARAPHRASE |
+| 1ff3d16f Draft A | *"keep track of what it found"* | (no chunk source — accessible translation invented by first pass) | **NOT IN CHUNKS** |
+| **1ff3d16f Draft B** (revision Trial 2 corrective, audience active) | *"call APIs, and work through a task in steps"* | (preserved from Draft A) | PRESERVED |
+| 1ff3d16f Draft B | *"an agent can maintain state and respond to changes in an environment"* | `505acbba` *"maintain state, interact with other agents, and respond to changes in an environment"* | **NEAR-VERBATIM (revision picked up the tail of the enumeration)** |
+| 1ff3d16f Draft B | *"memory, search, databases, business rules, user information, and whatever tools"* | `ed18e966` *"memory, retrieval, search, tools, business rules, databases, user profiles"* | **VERBATIM enumeration structure** |
+| **8b61ca92 Draft A** (Trial 3 CANONICAL first pass — activation gap) | *"call APIs"* | `505acbba` *"call APIs"* | **VERBATIM** |
+| 8b61ca92 Draft A | *"keep track of what it's doing"* | (no chunk source — accessible translation invented by first pass) | **NOT IN CHUNKS** |
+| **8b61ca92 Draft B** (Trial 3 CANONICAL corrective) | *"call APIs, and work through more than one step"* | `505acbba` *"call APIs, perform multi-step tasks"* | PARAPHRASE |
+| 8b61ca92 Draft B | *"keep state"* | `505acbba` *"maintain state"* | PARAPHRASE |
+| 8b61ca92 Draft B | *"react when something changes"* | `505acbba` *"respond to changes in an environment"* | PARAPHRASE |
+| 8b61ca92 Draft B | *"A language model"* | `b3c6e8ac` *"language model"* | VERBATIM (as noun) |
+
+**Zero cases of the model inventing at-risk terminology without a source in the knowledge chunks.** The direction is 100 % chunk → script.
+
+**Accessible translations that appeared in scripts (*"keep track of what happened"*, *"keep track of what it found"*, *"keep track of what it's doing"*, *"handle a task across multiple steps"*, *"work through a task in steps"*) are NOT in any chunk — they are *inventions of the first-pass LLM* when the audience directive or writing-contract stylistic guidance pushed it to translate.
+
+### §81.6 Answer to Chris's question A/B/C/D
+
+**Verdict: C — BOTH MECHANISMS INTERACT, with retrieved knowledge as the PRIMARY attractor.**
+
+Detailed reasoning:
+
+- **A (corrective expansion introduces terminology alone)** — PARTIALLY TRUE but INSUFFICIENT. §13.28 documented the corrective-pass regression pattern. But the source of the vocabulary is not the corrective pass itself; the corrective pass amplifies leakage from knowledge chunks by explicitly instructing *"Expand secondary detail from the knowledge chunks."* The corrective pass is the AMPLIFIER, not the ORIGIN.
+- **B (retrieved knowledge strongly attracts synthesis toward that terminology)** — STRONGLY SUPPORTED by §81.5's cross-specimen mapping. Every at-risk term traces to chunks; accessible translations that appeared were invented by the model, not retrieved. Chunk `ed18e966`'s section title *"WHAT PATCH KNOWS ABOUT AI"* + chunk `505acbba`'s *"The interesting question for Patch..."* frame the raw vocabulary as Patch's own reference language.
+- **C (both interact)** — **BEST SUPPORTED.** The knowledge is the reservoir; the corrective_hint's *"expand from chunks"* clause is the pump. The audience directive weakly gates the flow at first-pass; canonical corrective removes that gate; Q-270-15c revision preserves whatever Draft A got right but cannot introduce translations that Draft A didn't invent AND cannot prevent the "expand from chunks" pump from adding new chunk-sourced terminology.
+- **D (something else)** — no evidence for an unrelated mechanism.
+
+### §81.7 Answer to Chris's direct question
+
+> *"Is Patch repeatedly saying API / state because his knowledge effectively tells Character OS that these are things Patch talks about?"*
+
+**Yes.** The knowledge document is titled *"PATCH — AI BUILDING, EXPERIMENTATION & CONTENT KNOWLEDGE"* and contains sections literally headed *"WHAT PATCH KNOWS ABOUT AI"* and *"AI AGENTS"* whose bulk is raw technical enumerations (*"call APIs, perform multi-step tasks, maintain state, interact with other agents, and respond to changes in an environment"*). Persona-anchor sentences (*"The interesting question for Patch..."*, *"Patch understands that the AI model is often only one component..."*) frame the terminology as *Patch's own reference vocabulary*. No accessible-translation alternatives are provided. From the model's point of view, generating *"call APIs, handle multi-step tasks, keep state, and react when something changes"* is grounded, in-character, factual output.
+
+This substantially reframes the Q-270-15c / audience investigation. The audience directive (Layer 1) is fighting a knowledge base that explicitly teaches the model *these are the words Patch uses.* The corrective_hint's *"expand from chunks"* clause (Layer 2) is drawing directly from that same knowledge base. Q-270-15c revision (Layer 2 mitigation) can preserve whatever accessible language Draft A managed to invent, but cannot cure a knowledge chunk that has zero accessible language to begin with.
+
+### §81.8 Consequence for prior interpretation
+
+Prior sections of this document that need to be read with the confound in mind:
+
+- **§13.28 pattern (SESSION 270)** — the +at-risk direction on canonical corrective retries remains a real behavioural observation, but the CAUSAL story is now: the corrective_hint pumps from a knowledge reservoir that contains only raw vocabulary, and the audience directive is only strong enough to gate the FIRST pass some of the time.
+- **§25 H2 mechanism (SESSION 271 Slice 2)** — H2 is CONFIRMED but reframed. The "expand from knowledge chunks" clause is load-bearing because the chunks it pumps are Patch's persona-framed reference vocabulary. Softening the clause (Q-270-15b) may reduce leakage but cannot solve the underlying knowledge-shape issue.
+- **§66 Q-270-15c Trial 2 verdict B** — REMAINS VALID as a Layer-2 mitigation finding. Revision demonstrably preserved Draft A's inventions (*"keep track of what it found"*, *"work through a task in steps"*). The residual +2 (`state`, `database`) are exactly the terms the "expand from chunks" pump pulled from `505acbba` + `ed18e966`. The verdict was already qualified as "helps but has costs"; the knowledge audit explains WHY the costs exist.
+- **§53 Layer 1 first-pass audience-directive reliability** — the mixed first-pass results (c3ff972d clean; 0b3c1fc1 with 2 at-risk; 25467733 with 2; 1ff3d16f with 1; 8b61ca92 with 2) are consistent with the model sometimes translating chunk vocabulary at first pass and sometimes not. Not a directive-strength problem alone; also a knowledge-shape problem.
+
+### §81.9 Bounded implications for future work (do NOT act)
+
+- **Knowledge-shape rewrite** — the document could be rewritten to include audience-adapted phrasing alongside the raw terminology (e.g. *"call APIs (i.e. connect to other software)"* or a *"HOW PATCH EXPLAINS THIS TO NEWCOMERS"* section). That is a NON-TRIVIAL content edit + would need its own dogfood. Recorded as candidate Q-270-19.
+- **Chunk-level filter** — a future audience-aware retrieval could exclude the raw-vocabulary chunks under certain audience directives, or promote translation-carrying chunks if any exist. Non-trivial architectural change.
+- **Contract-level guidance** — the Writing Contract could gain a clause *"When retrieved knowledge is technical vocabulary, translate before delivering rather than reciting."* Non-trivial contract bump.
+- **NONE of the above is authorised.** They are architectural options for a future design conversation.
+
+### §81.10 What was NOT audited in this pass
+
+- Other Patch knowledge documents (there is only ONE workspace knowledge document in scope — `fd0ba2ca` — but Patch may have other documents in other workspaces or narrative-memory content).
+- The narrative-memory row `8d4fdfec` content — audited previously (SESSION 269 §16.8); no at-risk technical vocabulary.
+- Rivet's knowledge (SESSION 263 §6.5's compression-amplifier finding was on a different character with a different knowledge shape).
+- Whether replacing the document would change results — not tested (would require content edit + re-render).
+
+---
+
+## §82. Trial 3 (Composition `8b61ca92`) forensics
+
+### §82.1 Composition identity
+
+| Field | Value |
+|---|---|
+| Full UUID | `8b61ca92-1642-49b7-9f68-4d6786e331bc` |
+| Rendered | `2026-08-20 14:04:20 UTC` (created) → 186.5 s wall to completion |
+| Status | `completed` / `verification_status="verified"` |
+| Writing Contract | `v5` |
+| Substrate | Same as all prior Patch AI-Agent renders (Universe `56d16b63`, Episode `2b6087d2`, spokesperson `7fad8172`, target 90 s, knowledge ON, opener blank, verifier warn, same 5 chunks, memory `8d4fdfec`). |
+| synthesis_attempt_count | **2** |
+| first_pass_synthesis chars | **764** (Draft A) |
+| corrective_pass_synthesis chars | **1434** (accepted) |
+| corrective_hint chars | **656** ← canonical `_expansion_hint` fingerprint |
+| verification_warnings | `[{"kind":"tech_term","claim":"react","position":492},{"kind":"proper_noun","claim":"Sometimes","position":619}]` |
+| cost | `20000` micros = $0.02 |
+
+### §82.2 Activation reality check — CASE C activation gap (same as Trial 1)
+
+- **Worker PIDs at render time:** 77192 / 77222 / 77223 (etime 07:13:23 at forensics = booted ~2026-08-20 06:58 UTC).
+- **Worker lineage:** these are the CANONICAL cleanup workers I restarted at end of Slice 3 Phase 2 Trial 2 cleanup (§69). Neither env var was set when they booted; nothing restarted them between §69 and Trial 3.
+- **`ps eww` proof:** all three worker PIDs show **NO** `CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT` and **NO** `CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT`.
+- **Celery log grep for experiment markers:** empty (no `SESSION 270 audience-hint experiment ACTIVE`, no `SESSION 271 Q-270-15c ... expansion revision retry (experiment ACTIVE)`).
+- **Log line for this render (line 38, verbatim):** *"[2026-08-20 14:04:26,965: INFO/ForkPoolWorker-2] synthesize_with_duration_gate expansion retry"* — canonical fingerprint.
+- **corrective_hint text fingerprint:** 656 chars, starts *"Your previous draft was 764 characters ... REWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS ..."* — canonical `_expansion_hint` byte-for-byte.
+
+**Three independent proofs agree: Trial 3 ran in CANONICAL mode. The Q-270-15c revision branch did not execute. Draft A was not passed to the corrective LLM call.** Same activation-gap failure mode as Trial 1 (25467733). Root cause: workers 77192/77222/77223 were the §69 canonical cleanup workers; the §55 activation procedure was not re-executed prior to Trial 3.
+
+### §82.3 Trial 3 verdict for Q-270-15c
+
+**E — INCONCLUSIVE FOR Q-270-15c.** The revision branch never touched Trial 3. Cannot score criteria 7 / 8 / 9 / 11 (per §43 rubric) as evidence for or against Draft-A revision.
+
+### §82.4 Trial 3 as a canonical baseline-shape data point (collateral value)
+
+Trial 3 is a second canonical-baseline-shape specimen (Trial 1 25467733 was the first). Cross-composition table:
+
+| Specimen | Audience directive? | Q-270-15c revision? | First-pass at-risk | Accepted at-risk | Direction |
+|---|---|---|---|---|---|
+| `2ef5ee7e` (SESSION 269 baseline) | NO | N/A | 3 | 6 | +3 |
+| `25467733` (Trial 1 canonical) | NO | NO | 2 | 5 | +3 |
+| **`8b61ca92` (Trial 3 canonical)** | **NO** | **NO** | **2** | **5** | **+3** |
+
+Canonical baseline direction now reproduces at **n=3** with identical +3 magnitude. Consistent with SESSION 270 §13.28's original pattern.
+
+### §82.5 Within-composition Trial 3 diff
+
+Unlike Trial 2 (revision), Trial 3's canonical corrective REGENERATED the narrative:
+
+- **Draft A opener:** *"I'm trying to pin down what makes an AI an agent instead of just a chatbot with confidence."*
+- **Draft B opener (canonical corrective, no anchoring):** *"I found my old workshop-agent notes, and I'm doing that dangerous thing where I read my own handwriting..."*
+
+Different first sentence, different structural approach. The memory row (`8d4fdfec`) is FOREGROUNDED as the opening beat in Draft B where it was absent from Draft A. Draft B introduces new Patch-shape material not present in Draft A (*"chatbot with a little hat on"* — SAME phrase as c3ff972d + 1ff3d16f, suggesting a stochastic Patch-voice attractor; *"a deeply efficient way to waste an afternoon"*, *"extremely polite obstacles"*, *"very suspicious pile of notes"*).
+
+**Draft A → Draft B paragraph diff:** none of Draft A's 8 paragraphs survives byte-identically. This is the expected fresh-regeneration behaviour and stands in stark contrast to Trial 2's revision preservation (4 of 7 paragraphs byte-identical).
+
+### §82.6 Trial 3 at-risk terminology (with knowledge-audit lens)
+
+| Term | Draft A | Draft B | Source chunk | Note |
+|---|---|---|---|---|
+| `call APIs` | 1 | 1 | `505acbba` *"call APIs"* verbatim | Draft A already carries the raw term (Layer 1 miss, per §81.4). |
+| `keep track of what it's doing` (accessible) | 1 (Draft A) | 0 (dropped in Draft B) | (invented by Draft A; not in chunks) | Canonical regeneration DROPPED the accessible translation. Draft B replaces it with the raw *"keep state"* enumeration. This is the SESSION 270 §13.28 pattern reproducing at n=3. |
+| `keep state` | 0 | 1 | `505acbba` *"maintain state"* | Pulled by canonical corrective. |
+| `react when something changes` | 0 | 1 | `505acbba` *"respond to changes in an environment"* (paraphrase) | Also triggers K6.4 tech_term false-positive (Q-270-18 class). |
+| `A language model` | 0 | 1 | `b3c6e8ac` *"language model"* | Pulled by canonical corrective. |
+| `multi-step` | 0 | 0 (Draft B says *"more than one step"* — accessible variant survives) | `505acbba` *"multi-step"* | Not pulled in this specimen. |
+
+**Direction: +3 at-risk terms** (added `state`, `react`, `language model`; STABLE on `API`/`APIs`; DROPPED an accessible translation from Draft A). Identical direction and magnitude to Trial 1 25467733.
+
+### §82.7 K6.4 verifier flags (both false-positives)
+
+- `tech_term`: `react` at position 492 — Q-270-18 class (K6.4 tech_term list contains lowercase English verb *"react"*, per §51). NOT audience-related.
+- `proper_noun`: `Sometimes` at position 619 — Q-270-16 class (sentence-initial capitalised token, SESSION 270 §13.24.11.5). NOT audience-related.
+
+### §82.8 Trial 3 with the knowledge-audit lens
+
+The knowledge audit substantially reframes Trial 3's collateral value:
+
+- Trial 3 provides a THIRD canonical baseline-shape specimen showing the +3 at-risk direction. This n=3 evidence is now firmly anchored.
+- Trial 3 also shows a first-pass accessible translation (*"keep track of what it's doing"*) being INVENTED by Draft A and then DROPPED by canonical corrective. This is exactly the pattern §81.5 predicts: the knowledge chunks contain no accessible translation, so canonical fresh regeneration has nothing to draw from and defaults to raw chunk vocabulary (`keep state` from `505acbba`).
+- Compared to Trial 2 (revision) whose Draft A translations survived byte-identically, Trial 3 (canonical) illustrates the mechanism: **Draft A's inventions have no chunk-source anchor; canonical regeneration cannot recover them; revision preserves them because the previous draft is in context.**
+
+Read together, Trials 1 + 2 + 3 form a coherent three-specimen picture:
+
+| Trial | Path | Draft A accessible translation | Fate in accepted |
+|---|---|---|---|
+| Trial 1 25467733 | Canonical | (partial: no "state" noun, but "call APIs" raw) | Regenerated, raw terms added |
+| Trial 2 1ff3d16f | Revision | *"keep track of what it found"* + *"work through a task in steps"* | **PRESERVED verbatim** |
+| Trial 3 8b61ca92 | Canonical | *"keep track of what it's doing"* + *"more than one step"* | *"more than one step"* preserved; *"keep track"* DROPPED for raw *"keep state"* |
+
+The revision-vs-canonical semantic difference is now clearer: **Draft A's stochastic accessible inventions survive under revision; canonical corrective drops them.**
+
+### §82.9 What Trial 3 does NOT change
+
+- Q-270-15c Trial 2 verdict B still stands as the sole n=1 revision data point.
+- Slice 4 promotion decision (B — one more controlled revision trial first) is UNCHANGED. Trial 3 was intended to be that controlled trial but ran in canonical mode due to the same activation gap that produced Trial 1's inconclusive result.
+- The knowledge-audit finding is INDEPENDENT of Q-270-15c but reframes the ambient question. Layer 1 (first-pass audience-directive reliability) is now understood to be fighting a knowledge base that lacks accessible-translation alternatives; Layer 2 (corrective-pass invariance) is understood to be a mitigation that preserves Draft A's inventions but cannot cure the knowledge shape.
+
+---
+
+## §83. Sequencing implications after the knowledge audit
+
+The knowledge audit finding **does not invalidate** any prior slice but **does reorder priorities**:
+
+- **Q-270-15c Trial 3 (revision, actually active)** — STILL WORTH RUNNING to close the n=1 → n=2 magnitude-stability gap. The §55 activation procedure needs to be re-executed correctly. Trial 3 as rendered (8b61ca92) unfortunately does NOT close that gap.
+- **Q-270-15b (soften "expand from chunks" clause)** — STILL DEFERRED behind a real Trial 3. Now understood to be a partial fix at best: softening the clause may reduce leakage, but the knowledge chunks remain the reservoir.
+- **Q-270-19 (candidate)** — knowledge-document rewrite to include audience-accessible translations. Highest LEVERAGE per the knowledge audit; largest SLICE cost (requires content re-authoring). NOT authorised.
+- **Layer 1 first-pass audience-directive reliability** — remains open. The audience directive would need to be significantly stronger to counter a knowledge base that frames raw vocabulary as Patch's reference terminology. Or the knowledge would need to change. Neither is authorised.
+
+---
+
+## §84. Decision recommendation update (does not supersede Slice 4)
+
+Slice 4 recommended **B — one more controlled revision trial first**. Trial 3 (8b61ca92) did NOT deliver that evidence because of the same activation gap that broke Trial 1.
+
+**Updated recommendation: B still holds.** The next authorised action remains authorising a properly-activated revision Trial (call it Trial 4). The §55 procedure needs to be executed step-by-step with proof capture between each step; specifically:
+
+1. `pkill -f "celery -A character_os worker"` and verify no worker survives.
+2. Export both env vars in the SAME shell that will run `bash scripts/start-local-real.sh`.
+3. Run the start script.
+4. **Before rendering**, verify the new worker PID actually has both env vars via `ps eww $PID | tr ' ' '\n' | grep CHARACTER_OS_`.
+5. **Only then** render.
+
+If Chris + ChatGPT are willing, an alternative is that Claude performs the full activation procedure in one Bash call (proven-good pattern from Trial 2 activation §55) and hands off the SPA action to Chris. Trial 2 activation succeeded when Claude ran the whole procedure inline; Trial 1 and Trial 3 both suffered from the activation being carried across multiple shell contexts.
+
+**No implementation. No render. Awaiting operator authorisation.**
+
+---
+
+## §85. What was NOT changed in Slice 5
+
+- No source, no tests, no prompts, no writing contract, no schema, no migration.
+- Q-270-15c plumbing still present + inactive by default.
+- Both experiment env vars remain unset on the current worker (still the §69 canonical cleanup worker).
+- No render performed by Claude.
+- No new Composition created.
+- No NarrativeMemory promotion. Pool remains 14 remembered + 1 archived.
+- Knowledge document `fd0ba2ca` NOT edited. Only read.
+- No knowledge chunk deletions, re-embeddings, or M2M-scope changes.
+- Q-270-16 and Q-270-18 verifier questions remain OUT OF SCOPE.
+
+---
+
+## §86. Slice 5 commit + push record
+
+- Slice 5 commit SHA: `<pending — populated after commit>`
+- Push: `<pending>`
+- Local `main == origin/main`: `<verified at commit time>`
+- Working tree at Slice 5 close: `<verified clean>`
+- Files touched by Slice 5:
+  - `docs/design/session_271_experiment_data/03_composition_8b61ca92_q270_15c_trial3_evidence.json` (NEW evidence sidecar)
+  - `docs/design/SESSION_271_CORRECTIVE_PASS_AUDIENCE_INVARIANCE_AUDIT.md` §81–§86 appended
+- **No source, no tests, no schema, no knowledge edits in Slice 5.**
+
+---
+
+**End of SESSION 271 Slice 5. STOP condition reached. Knowledge-audit finding: retrieved chunks are the PRIMARY attractor for at-risk technical vocabulary; Patch's knowledge document literally frames those terms as *"WHAT PATCH KNOWS ABOUT AI"* and provides zero accessible-translation alternatives. Trial 3 (8b61ca92) verdict: E — INCONCLUSIVE for Q-270-15c (activation gap) but useful as a third canonical baseline-shape data point. Slice 4 recommendation B stands; a properly-activated Trial 4 remains the next authorised action if operator chooses to close the n=1 revision magnitude-stability gap.**

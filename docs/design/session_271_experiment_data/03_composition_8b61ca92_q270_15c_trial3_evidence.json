@@ -1,0 +1,106 @@
+{
+  "captured_at": "2026-08-20T14:15:00Z",
+  "session": "SESSION 271",
+  "experiment": "Q-270-15c Draft-A corrective-revision experiment — Trial 3 (INTENDED)",
+  "trial_verdict": "E — INCONCLUSIVE FOR Q-270-15c (activation gap, same failure mode as Trial 1). USEFUL AS A SECOND CANONICAL BASELINE-SHAPE SPECIMEN. The revision branch did NOT execute; the corrective_hint text is 656 chars starting 'REWRITE THE SAME NARRATIVE' (canonical _expansion_hint), NOT the 791-char experimental 'REVISE THE PREVIOUS DRAFT' text. Log line reports canonical 'synthesize_with_duration_gate expansion retry'. Neither experiment env var is present in the render worker's environment.",
+
+  "composition": {
+    "id": "8b61ca92-1642-49b7-9f68-4d6786e331bc",
+    "short_id": "8b61ca92",
+    "template_kind": "talking_head",
+    "status": "completed",
+    "verification_status": "verified",
+    "writing_contract_version": 5,
+    "target_duration_seconds": 90,
+    "operator_topic": "Patch does research on AI Agents",
+    "mock_mode": false,
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "spokesperson_id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+    "episode_id": "2b6087d2-cbe3-47c4-a7ef-7d7625231472",
+    "created_at": "2026-08-20T14:04:20.647546Z",
+    "task_wall_seconds": 186.5,
+    "cost_actual_micros": 20000
+  },
+
+  "activation_reality_check": {
+    "worker_pids_at_render_time": [77192, 77222, 77223],
+    "worker_boot_lineage": "These are the CANONICAL workers restarted at end of Slice 3 Phase 2 Trial 2 cleanup (§69), booted ~2026-08-20 06:58 UTC with BOTH experiment env vars unset. Worker etime at Phase 3 forensics: 07:13:23 — no restart between §69 cleanup and Trial 3 render.",
+    "worker_env_var_CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT_present": false,
+    "worker_env_var_CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT_present": false,
+    "celery_log_marker_SESSION_270_audience_ACTIVE_present": false,
+    "celery_log_marker_SESSION_271_Q_270_15c_ACTIVE_present": false,
+    "celery_log_line_for_synthesis_retry_verbatim": "[2026-08-20 14:04:26,965: INFO/ForkPoolWorker-2] synthesize_with_duration_gate expansion retry",
+    "corrective_hint_fingerprint_check": "corrective_hint (656 chars) starts 'Your previous draft was 764 characters ... REWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS ...' — matches CANONICAL _expansion_hint byte-for-byte. Does NOT match experimental _experimental_expansion_revision_hint.",
+    "three_independent_proofs_agree": "YES — worker env-var + log marker + corrective_hint text fingerprint all confirm the CANONICAL branch fired. Same activation-gap failure mode as Trial 1 (25467733)."
+  },
+
+  "synthesis_provenance": {
+    "synthesis_attempt_count": 2,
+    "first_pass_synthesis_length_chars": 764,
+    "first_pass_synthesis_word_count": 138,
+    "first_pass_synthesis_verbatim": "I\u2019m trying to pin down what makes an AI an agent instead of just a chatbot with confidence.\n\nBecause an agent can do more than answer once. It can make decisions, choose tools, read documents, search for information, write things down, call APIs, and keep track of what it\u2019s doing.\n\nWhich is exciting.\n\nAnd also exactly how you end up with a digital intern reorganizing your entire life because you asked it to \u201cbe helpful.\u201d\n\nThe useful question isn\u2019t, \u201cIs this technically an agent?\u201d\n\nIt\u2019s: what can it actually do when it gets access to tools, information, and a job with more than one step?\n\nI\u2019ve got a pile of notes, several bad ideas, and a growing suspicion that the smallest useful test is going to become a much larger problem.\n\nWell\u2026 now I want to try it.",
+    "corrective_hint_used_length_chars": 656,
+    "corrective_hint_used_verbatim": "Your previous draft was 764 characters (138 words, estimated ~52s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 208 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+    "previous_draft_passed_to_corrective_call": false,
+    "corrective_pass_synthesis_length_chars": 1434,
+    "corrective_pass_synthesis_verbatim": "I found my old workshop-agent notes, and I\u2019m doing that dangerous thing where I read my own handwriting and think, \u201cOh. This was a smaller idea before I gave it more context.\u201d\n\nI\u2019m researching AI agents again, but I\u2019m trying not to let the word \u201cagent\u201d turn into fog.\n\nAn agent is not just a chatbot with a little hat on. It can make decisions, choose tools, search for information, read documents, write information, call APIs, and work through more than one step. It can keep state. It can react when something changes.\n\nWhich is where this gets interesting.\n\nA language model can give you one very confident answer. Sometimes it\u2019s useful. Sometimes it\u2019s confidently wrong, which is a deeply efficient way to waste an afternoon.\n\nBut give that system tools, information, memory, and an environment? Now it can actually *do* things. Or attempt to. There is a difference, and I plan to find it.\n\nI keep coming back to the same question: what happens when the AI has a job, access to the stuff it needs, and enough context to make choices about the project?\n\nCould it organize the work? Could it pick the wrong objective? Could it remember something important? Could two agents cooperate\u2014or become extremely polite obstacles in each other\u2019s way?\n\nI\u2019m not calling that consciousness. I\u2019m calling it a very suspicious pile of notes that deserves a proper test.\n\nIf you\u2019ve got an agent experiment you think I should build, throw it at me.",
+    "synthesis_predicted_seconds": 97.0,
+    "acceptance_band_seconds": [72, 108],
+    "acceptance_band_chars": [1080, 1620],
+    "within_acceptance_band": true
+  },
+
+  "verifier": {
+    "verification_status": "verified",
+    "verification_warnings": [
+      {"kind": "tech_term", "claim": "react", "position": 492},
+      {"kind": "proper_noun", "claim": "Sometimes", "position": 619}
+    ],
+    "false_positive_analysis": "Both flags are false positives already catalogued: 'react' at 492 is the lowercase English verb (Q-270-18 tech_term list case-sensitivity — introduced in 25467733 §51); 'Sometimes' at 619 is a sentence-initial capitalised adverb (Q-270-16 proper_noun heuristic — SESSION 270 §13.24.11.5). Neither is audience-related; neither in scope for any SESSION 271 slice."
+  },
+
+  "at_risk_terminology_within_composition": {
+    "method": "SESSION 270 §13.28 rubric — { 'API', 'APIs', 'language model', 'state', 'multi-step', 'database' } + 'react'.",
+    "first_pass_counts": {"API": 1, "APIs": 1, "language model": 0, "state": 0, "multi-step": 0, "database": 0, "react": 0},
+    "first_pass_total_at_risk": 2,
+    "corrective_pass_counts": {"API": 1, "APIs": 1, "language model": 1, "state": 1, "multi-step": 0, "database": 0, "react": 1},
+    "corrective_pass_total_at_risk": 5,
+    "direction": "+3 net (added 'language model', 'state', 'react')",
+    "same_shape_as_25467733_trial_1_canonical": true
+  },
+
+  "knowledge_retrieval": {
+    "chunk_ids": [
+      "3c5165ea-c97f-4412-b8e7-b46d91777ae9",
+      "505acbba-fbc4-41b2-8494-4c937a3e3e28",
+      "b3c6e8ac-4ba0-4c41-9ca8-6fa4428c52c2",
+      "c24d1aa7-1dab-499f-83a7-f9554de5e8e7",
+      "ed18e966-1084-4626-914f-1bcc30f13dea"
+    ],
+    "identical_to_all_prior_specimens": true
+  },
+
+  "narrative_memory": {
+    "memory_ids": ["8d4fdfec-add4-4505-8ade-b0f9e6d8aea6"],
+    "memory_usage_in_accepted": "Opening line \"I found my old workshop-agent notes, and I\u2019m doing that dangerous thing where I read my own handwriting and think, \u201cOh. This was a smaller idea before I gave it more context.\u201d\" — paraphrase of the memory body, foregrounded as scene opener (more literal than c3ff972d's ellipsis, similar in directness to 1ff3d16f's memory usage).",
+    "memory_recital_or_influence": "influence — memory body is not quoted verbatim but its content directly shapes the opening beat"
+  },
+
+  "narrative_memory_pool_state": {
+    "captured_at": "2026-08-20T14:15Z",
+    "patch_workshop_pool_total": 15,
+    "patch_workshop_status_remembered_count": 14,
+    "patch_workshop_status_archived_count": 1,
+    "delta_from_all_prior_trials": "zero"
+  },
+
+  "case_classification": {
+    "verdict": "CASE C \u2014 activation gap (same as Trial 1). Q-270-15c revision code path did not execute. Composition was rendered on the CANONICAL post-Trial-2-cleanup worker without either experiment env var. Not a plumbing defect \u2014 the plumbing tested green in Slice 3 Phase 1. Not a Q-270-15c specimen \u2014 the experiment simply wasn't reactivated between Trial 2 cleanup and Trial 3 render.",
+    "root_cause": "Workers 77192/77222/77223 were the §69 canonical cleanup workers (booted with NEITHER env var). The §55 activation procedure was not re-executed prior to Trial 3."
+  },
+
+  "collateral_value": {
+    "as_second_canonical_baseline_shape_specimen": "Yes. Together with Trial 1 (25467733), Trial 3 (8b61ca92) is a second n=1 canonical baseline-shape data point on the SESSION 270 §13.28 direction. Both first passes: 2 at-risk terms (call APIs + one other). Both accepted passes: 5 at-risk terms (+3 net). Direction reproduces.",
+    "as_input_to_knowledge_confound_analysis": "Very high. Trial 3 first pass has 'keep track of what it's doing' \u2014 an accessible translation \u2014 present alongside the raw 'call APIs'. Trial 3 accepted regenerates 'keep state' (raw) via canonical corrective. The pattern of accessible-in-first, raw-in-corrective now reproduces across three specimens (c3ff972d, 1ff3d16f Draft A, 8b61ca92 Draft A vs their corrective passes)."
+  }
+}
