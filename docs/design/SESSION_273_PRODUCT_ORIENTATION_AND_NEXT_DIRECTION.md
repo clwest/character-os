@@ -1407,6 +1407,7 @@ If **no row appears** at all, that means the SPA never issued the fetch — the 
 
 ## §22. §21 COMMIT PROVENANCE
 
-- §21 diagnostic-only commit: (recorded at commit time — see git log)
+- §21 diagnostic-only commit: **`be86e33`** — `docs(session-273): §21 cast-add 404 follow-up — URL-shape truth table; no fix landed`
+- Pushed to `origin/main`.
 - Diagnostic script (read-only, atomic-rollback): `scripts/session273_diag_cast_404.py`
 - Diagnostic evidence sidecar: `docs/design/session_273_experiment_data/07_diag_cast_404.json` (2,996 bytes)
