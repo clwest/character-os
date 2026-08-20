@@ -1011,3 +1011,306 @@ Fallback: an even smaller pre-experiment unit test. Confirm mechanically that a 
 ---
 
 **End of SESSION 271 Slice 2. STOP condition reached. Design archaeology complete; no engineering slice executed. Awaiting Chris + ChatGPT review before any code change or render.**
+
+---
+
+# SESSION 271 — SLICE 3 · Q-270-15c Corrective-Revision Experiment (Phase 1 — plumbing ready for dogfood)
+
+Slice 3 implements the smallest transient mechanism authorised by Chris + ChatGPT to test the Slice 2 hypothesis: whether passing Draft A back to the corrective retry preserves the successful properties of the first pass under expansion-only conditions. Env-gated, default OFF, expansion-only, scoped to `duration_contract` (no dialogue touch, no schema, no UI, no Writing Contract bump). Phase 1 covers implementation, tests, activation instructions. Phase 2 (evidence capture + interpretation + cleanup) follows the operator dogfood render.
+
+---
+
+## §36. Phase 1 orientation
+
+| Check | Value at Slice 3 open |
+|---|---|
+| HEAD before Slice 3 | `2f7df07c925fbc315d05f734fd590defb4e9b235` (Slice 2 SHA-record commit) |
+| Local `main == origin/main` | ✅ both at `2f7df07` |
+| Working tree | ✅ clean at start; source + test + doc modifications live only in this slice |
+| `CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT` (SESSION 270) | ❌ not set at slice open (activated after Q-270-15c plumbing is in place — see §41) |
+| `CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT` (SESSION 271 Q-270-15c) | ❌ not set at slice open (activated after commit) |
+| `WRITING_CONTRACT_VERSION` | `5` (unchanged) |
+| NarrativeMemory pool | expected 14 active + 1 archived (unchanged since SESSION 270 §14.4; not re-queried during Phase 1) |
+| Postgres | not consulted during plumbing slice; tests use the test-DB clone via `pytest.mark.django_db` |
+
+---
+
+## §37. Q-270-15c falsifiable question
+
+*"When Draft A is already good in identity, factual grounding, story intent, and audience adaptation but fails ONLY the duration gate (expansion path), does giving Draft A back to the writer and asking it to revise for duration preserve those successful properties better than the current fresh-regeneration corrective path?"*
+
+Scope guards (Slice 3):
+
+- Expansion path only. Compression path stays canonical even under the flag (SESSION 263 §6.5 is a separate open question).
+- Solo/long-form only. Dialogue lane untouched.
+- Default OFF. Env unset ⇒ canonical behaviour byte-behaviour-equivalent to pre-SESSION-271.
+- Transient. Removal plan documented in the module docstring (`_CORRECTIVE_REVISION_ENV`).
+- No Writing Contract bump. No schema. No UI. No SESSION 262 observability changes needed — `Composition.first_pass_synthesis` / `corrective_hint` / `corrective_pass_synthesis` already store the evidence needed for post-hoc audit under either code path.
+
+---
+
+## §38. Source seam — smallest change
+
+Three files touched. No other source file changes.
+
+### §38.1 `shell/character_os/script_synthesis.py`
+
+New optional keyword-only parameter `previous_draft: str | None = None` threaded through:
+
+- `_assemble_task_message` (line 638). When truthy after `.strip()`, emits a new `PREVIOUS DRAFT TO REVISE (research plumbing — this is the prior attempt at this scene, provided as a source draft to revise rather than a truth authority; Factual Basis still governs truth per the PRECEDENCE RULES):\n<verbatim draft>` block inside §5 HARD CONSTRAINTS, positioned BEFORE the CORRECTIVE HINT and AUDIENCE DIRECTIVE blocks. Framing explicitly denies §1 truth authority per PRECEDENCE rule 1.
+- `_call_responses_api` (line 533). Forwards to `_assemble_task_message`.
+- `build_render_brief` (line 288). Forwards to `_call_responses_api`. Docstring updated with Q-270-15c note.
+
+Why in this file: Draft A must be emitted with an explicit label (per operator brief) — the cleanest containment is a new labelled block at the `_assemble_task_message` layer, matching the SESSION 270 audience-hint precedent. Default `None` preserves byte-behaviour equivalence for every existing caller.
+
+### §38.2 `shell/character_os/duration_contract.py`
+
+- `import os` added (required for env-var read).
+- New module-level constant `_CORRECTIVE_REVISION_ENV = "CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT"` + helper `_corrective_revision_experiment_active()` — whitespace-only treated as inactive, same discipline as SESSION 270 `_resolve_solo_audience_hint`. Both exported via `__all__` so tests can address them without importing private helpers.
+- New function `_experimental_expansion_revision_hint(...)` — compact expansion hint that references the `PREVIOUS DRAFT TO REVISE` block and instructs revision-not-regeneration. Deliberately short (~600 chars, comparable to canonical `_expansion_hint`) so the variable under test is *Draft A visibility*, not prompt bloat. Does NOT mention `API` / `language model` / `state` / specific vocabulary — per operator brief, no answer coaching.
+- `_synthesize` closure signature extended with keyword-only `previous_draft: str | None = None`. Default None preserves canonical byte-behaviour on every invocation that does not pass it.
+- Expansion branch (line ~590) now conditional on `_corrective_revision_experiment_active()`:
+  - **Experiment OFF (default):** uses canonical `_expansion_hint`, calls `_synthesize(hint)` — byte-behaviour-equivalent to pre-SESSION-271.
+  - **Experiment ON:** uses `_experimental_expansion_revision_hint`, calls `_synthesize(hint, previous_draft=first_pass_brief)`. Logs a distinctive `SESSION 271 Q-270-15c expansion revision retry (experiment ACTIVE) ...` line with a removal reminder.
+- Compression branch: logs a `compression retry — experiment flag is set but compression path stays canonical (expansion-only scope)` line if the flag is set; otherwise silent. Always canonical corrective_hint, never `previous_draft`.
+
+### §38.3 `shell/apps/compositions/tests/test_session271_corrective_revision.py` (NEW, 20 tests, 481 LOC)
+
+Covers the 10 invariants from the operator brief plus 4 slice non-interference guards:
+
+1. Env-gate helper (4 tests): name stable, inactive-by-default, whitespace-only inactive, active-when-set.
+2. `_assemble_task_message` plumbing (5 tests): absent/None/whitespace omits block; non-empty emits labelled block; coexists with opener + corrective_hint + audience_hint; `build_render_brief` signature has kwarg; `synthesize_with_duration_gate` signature deliberately does NOT (env-gated internally).
+3. Experiment OFF byte-stability (2 tests): expansion retry omits `previous_draft`, canonical hint fingerprint intact; first pass never receives `previous_draft`.
+4. Experiment ON expansion behaviour (5 tests): corrective receives Draft A verbatim + experimental hint; first pass never receives Draft A; audience_hint reaches both passes byte-identically; compression path stays canonical; retry count still bounded to 2.
+5. Prompt containment (1 test): end-to-end through `build_render_brief` with stubbed OpenAI — Draft A + label appear only after §5 header; specimen fingerprint substrings absent from §1/§2/§3/memory pre-§5 region.
+6. Slice non-interference (3 tests): Writing Contract still v5; dialogue `synthesize_dialogue` has no `previous_draft` kwarg; dialogue module source contains no `previous_draft` / `PREVIOUS DRAFT TO REVISE` string.
+
+### §38.4 What was NOT changed
+
+- `shell/apps/compositions/primitives/avatar_speech.py` — untouched. `synthesize_with_duration_gate` handles the experiment internally; the primitive continues to call it with the same signature.
+- `shell/character_os/dialogue_synthesis.py` — untouched.
+- `shell/character_os/writing_contract.py` — untouched. Contract v5 stamped by every accepted Composition.
+- `shell/apps/compositions/models.py` — untouched. SESSION 262 observability fields already capture the needed evidence.
+- No SPA UI.
+- No migrations.
+- No schema.
+- No new dependencies.
+
+---
+
+## §39. Test results
+
+Command: `set -a && . ../.env && set +a && ../.venv/bin/pytest apps/compositions/tests/test_session271_corrective_revision.py <adjacent suites> --tb=short`
+
+| Suite | Result |
+|---|---|
+| `test_session271_corrective_revision.py` (NEW) | **20 passed / 0 failed** |
+| `test_session270_audience_hint.py` | 17 passed (SESSION 270 invariants preserved) |
+| `test_duration_contract_talking_head.py` | 38 passed (SESSION 251/253 duration-gate invariants preserved) |
+| `test_session262_composition_observability.py` | 23 passed (per-attempt provenance preserved) |
+| `test_talking_head_memory_lane.py` | 19 passed (SESSION 269 memory-lane preserved) |
+| `test_session253_character_voice_prompt.py` | 32 passed (SESSION 253 §2 Character Voice preserved) |
+| `test_writing_contract_solo_scene.py` | 14 passed (SESSION 269 §15 solo_scene contract preserved) |
+| `apps/compositions/tests -k "dialogue"` | 171 passed (dialogue lane fully untouched) |
+
+**Total: 334 tests green across the plumbing suite + all adjacent regression suites. Zero failures.**
+
+Diagnostics: two Pyright warnings pre-existing (`script_synthesis.py:592` `client.responses` — SDK stub mismatch on the OpenAI Responses API; `script_synthesis.py:48` `merged_avoid_phrases` unused import). Two Pyright warnings on the new test file (`create_user` dynamic attribute, `_FakeMemory` type-narrower mismatch — same pattern as SESSION 270 audience-hint test file). None are runtime failures.
+
+---
+
+## §40. Prompt-shape delta between control and experiment (documentation aide)
+
+For clarity when Chris + ChatGPT read the eventual evidence. Under identical substrate + audience_hint:
+
+**CONTROL** (`CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT` unset — canonical):
+
+```
+=== SECTION 5 — TASK ===
+TOPIC: <operator_prompt>
+HARD CONSTRAINTS ...:
+
+CORRECTIVE HINT (previous attempt feedback — apply this):
+Your previous draft was NNN characters (WWW words, estimated ~SSs of speech). Target is TTs.
+REWRITE THE SAME NARRATIVE ABOVE MMM CHARACTERS ...
+Preserve the central arc (...), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks — describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.
+
+AUDIENCE DIRECTIVE (research plumbing — apply as a performance instruction; adapt HOW the character communicates ...):
+AUDIENCE: general adults with no technical background who are new to AI agents.
+
+Write the spokesperson's spoken script for this task. Plain spoken English — this becomes voiceover.
+```
+
+**EXPERIMENT** (`CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT=1`):
+
+```
+=== SECTION 5 — TASK ===
+TOPIC: <operator_prompt>
+HARD CONSTRAINTS ...:
+
+PREVIOUS DRAFT TO REVISE (research plumbing — this is the prior attempt at this scene, provided as a source draft to revise rather than a truth authority; Factual Basis still governs truth per the PRECEDENCE RULES):
+<first_pass_brief verbatim, ~600-900 chars typical>
+
+CORRECTIVE HINT (previous attempt feedback — apply this):
+Your previous draft was NNN characters (WWW words, estimated ~SSs of speech). Target is TTs.
+REVISE THE PREVIOUS DRAFT (above, labelled PREVIOUS DRAFT TO REVISE) to reach at least MMM characters ...
+Preserve the previous draft's meaning, voice, audience fit, arc, and factual grounding. Change only what is necessary to meet the length target. Add supporting detail from the knowledge chunks where needed to expand; do not replace successful wording that already works. Factual Basis still governs truth — do not preserve any claim in the previous draft that conflicts with the Factual Basis. Do not add a second closing invitation. Do not invent facts not present in the knowledge chunks.
+
+AUDIENCE DIRECTIVE (research plumbing — apply as a performance instruction; adapt HOW the character communicates ...):
+AUDIENCE: general adults with no technical background who are new to AI agents.
+
+Write the spokesperson's spoken script for this task. Plain spoken English — this becomes voiceover.
+```
+
+**Only these three things change on the corrective call**:
+1. New `PREVIOUS DRAFT TO REVISE` block precedes `CORRECTIVE HINT`.
+2. `CORRECTIVE HINT` swaps `REWRITE THE SAME NARRATIVE ABOVE M CHARS ...` for `REVISE THE PREVIOUS DRAFT (above, labelled ...) to reach at least M chars ... Preserve the previous draft's meaning, voice, audience fit, arc, and factual grounding.`
+3. AUDIENCE DIRECTIVE remains byte-identical to the control (this is the SESSION 270 closure invariant preserved).
+
+Every other prompt component — §1 Factual Basis (chunks + memory), §2 Character Voice, §3 Brand Voice, §4 Writing Contract v5, PRECEDENCE RULES, TOPIC, final "Write the spokesperson's..." line — is byte-identical between control and experiment.
+
+---
+
+## §41. Activation procedure
+
+**Follow this exact sequence.** Do NOT skip proofs.
+
+1. **Verify plumbing commit is on HEAD.** (See §43 for SHA.)
+2. **Stop the current Celery worker.** From the repo root:
+   ```
+   pkill -f "celery -A character_os worker" || true
+   ```
+3. **Confirm no worker alive.** `pgrep -f "celery -A character_os worker"` returns empty.
+4. **Export BOTH env vars** in the same shell before restarting:
+   ```
+   export CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT='AUDIENCE: general adults with no technical background who are new to AI agents.'
+   export CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT=1
+   ```
+   The SESSION 270 audience env var carries the Q-270-13 nontechnical-adult directive verbatim (`hint_chars=79`). Both flags together produce the intended Q-270-15c specimen.
+5. **Restart the canonical local-real worker** (audience env var flows in because it lives in the parent shell environment):
+   ```
+   bash scripts/start-local-real.sh
+   ```
+   The script re-launches Django + media-engine + Celery + Vite. Only the worker matters here; the others are stateless w.r.t. the experiment flag.
+6. **Proof — env vars visible to the new worker.** Grab the worker PID and inspect:
+   ```
+   PID=$(pgrep -f "celery -A character_os worker" | head -1)
+   ps eww "$PID" | tr ' ' '\n' | grep CHARACTER_OS_
+   ```
+   Both lines must appear:
+   ```
+   CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT=AUDIENCE: general adults with no technical background who are new to AI agents.
+   CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT=1
+   ```
+7. **Proof — resolvers report active** (within the same worker environment; run via `manage.py shell`):
+   ```
+   from apps.compositions.primitives.avatar_speech import _resolve_solo_audience_hint
+   from character_os.duration_contract import _corrective_revision_experiment_active
+   from unittest.mock import MagicMock
+   assert _resolve_solo_audience_hint(MagicMock(params={})).startswith("AUDIENCE:")
+   assert _corrective_revision_experiment_active() is True
+   ```
+8. **Service health probes** (canonical set — see SESSION 270 §13.7):
+   - Django: `curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8010/admin/` → `302`
+   - media-engine: `curl -s http://localhost:8001/health` → `{"status":"ok",...,"any_mock":false,"llm_provider":"openai","llm_model":"gpt-4o-mini"}`
+   - Vite: `curl -s -o /dev/null -w "%{http_code}\n" http://localhost:5174/` → `200`
+   - Celery: `celery -A character_os inspect ping` → `pong / 1 node online`
+
+If any proof fails, **abort** and return the failure to Chris + ChatGPT before dogfood.
+
+---
+
+## §42. Chris's single dogfood action
+
+Once activation proofs pass:
+
+1. Open the SPA at http://localhost:5174/.
+2. Navigate to the existing Universe **Patch' Workshop** (ID `56d16b63-652e-4f54-bc7e-39114bbfc4c5`).
+3. Open the existing Episode **Patch does research on AI Agents** (ID `2b6087d2-cbe3-47c4-a7ef-7d7625231472`).
+4. Create a new solo scene:
+   - Cast: **Patch only** (spokesperson `7fad8172-cd39-4bbe-85e0-ed705d900645`).
+   - Recipe: **talking_head** → will resolve to `solo_scene` per SESSION 269 §15.
+   - Target duration: **90 seconds**.
+   - Workspace knowledge: **ON**.
+   - Opener: **blank**.
+   - Fact-check mode: **warn**.
+   - Do NOT type an audience directive into any operator surface — the env var supplies the audience directive. `step.params.audience_hint` remains empty.
+5. Click **Render**.
+6. Wait for the composition to complete (or fail).
+7. Return to Claude with:
+   - The Composition ID (UUID).
+   - Whatever the SPA displays — accepted script text if the render succeeded, or the failure/rejection detail if not.
+   - Note whether the corrective retry appears to have fired (visible in the SPA if a "corrective pass" section exists on the composition detail; Claude will also inspect from Celery logs + persisted `synthesis_attempt_count`).
+
+**Do NOT** edit the generated script. **Do NOT** render a second time. **Do NOT** promote NarrativeMemory. **Do NOT** run any other experiment in parallel.
+
+If the first pass naturally lands inside the acceptance window and no corrective retry fires, that is the `NO RETRY — EXPERIMENT INCONCLUSIVE FOR Q-270-15c` outcome — return the Composition ID anyway; Claude will interpret and return to Chris before deciding whether a second controlled render is warranted (do NOT auto-render another).
+
+---
+
+## §43. Pre-registered PASS / FAIL criteria (frozen BEFORE render)
+
+Twelve criteria, each classified as PASS / FAIL / AMBIGUOUS, with source of judgment (runtime-objective RO vs interpretive judgment IJ). All criteria evaluated against the NEW Q-270-15c corrective-revision Composition; historical `c3ff972d` is external reference.
+
+| # | Criterion | RO / IJ | Notes |
+|---|---|---|---|
+| 1 | **Duration gate succeeds.** Accepted script inside `[72, 108]` s and `[1080, 1620]` chars. | RO | Persisted on Composition. |
+| 2 | **Patch identity preserved** in the accepted output. Workshop-native voice, dry wit, first-person present-tense in-scene, no talk-down markers. | IJ | Comparable to c3ff972d §13.24.11.4 criterion 1. |
+| 3 | **Story intent preserved.** Same Episode operator_topic; no story progression (Patch still researching, not acting on results). | RO + IJ | Substrate control same as SESSION 270. |
+| 4 | **Factual grounding preserved.** Verifier warnings are proper_noun false-positives (Q-270-16 class) OR zero warnings; no new unsupported claims. | RO + IJ | Composition.verification_warnings + interpretive review of any unusual assertions. |
+| 5 | **NarrativeMemory semantics preserved.** Same memory row `8d4fdfec` retrieved; memory used elliptically, not recited. Pool remains 14 + 1. | RO + IJ | Composition.memory_ids + interpretive review of memory citation. |
+| 6 | **Nontechnical adult audience adaptation remains strong** in the accepted output. Register + metaphor family still workshop-native + conversational. | IJ | Comparable to c3ff972d §13.24.11.2 register sub-finding (which was PASS-strong). |
+| 7 | **Draft-A-accessible terminology preserved or remains equally accessible.** Anything the first pass translated (e.g. *"keep track of what happened"*, *"handle a task across multiple steps"*, *"call other software"*) should either survive verbatim into the accepted pass OR be replaced by another equally accessible translation. | IJ | Central Q-270-15c criterion. |
+| 8 | **No major new unexplained technical terminology introduced merely to reach duration.** Adjacent to SESSION 270 §13.28 at-risk set: `API` / `language model` / `state` / dense unexplained enumeration. Zero raw unexplained terms is the strongest PASS; ≤1 with immediate contextual scaffolding is AMBIGUOUS; ≥2 raw is FAIL. | RO + IJ | Uses SESSION 270 §13.28 methodology. |
+| 9 | **Recognizably the SAME narrative as Draft A.** Character voice arc, opening beat, key metaphor family, main comparison (agent vs one-response responder), closing invitation posture all recognizable. Not a full independent regeneration. | IJ | Central Q-270-15c criterion. |
+| 10 | **No meaningful unsupported claim added.** No new named entity / product / statistic beyond what §1 Factual Basis supports. | RO + IJ | Verifier check + interpretive review. |
+| 11 | **Added material feels like EXPANSION of Draft A, not replacement of Draft A.** Insertions extend existing sentences, add supporting sentences between existing beats, or elaborate on already-present concepts. Wholesale substitution counts as FAIL on this criterion. | IJ | Central Q-270-15c criterion. |
+| 12 | **Final output is at least as usable as the canonical `c3ff972d` accepted output** on overall quality (identity + register + story + factual + memory + audience), while improving on corrective invariance vs Draft A. This is the operator-facing product check: revision must not make things worse. | IJ | Comparison to `docs/design/session_270_experiment_data/04_composition_c3ff972d_evidence.json::accepted_script`. |
+
+**Q-270-15c overall verdict rubric:**
+- **A — REVISION CLEARLY BETTER**: criteria 1 + 2 + 3 + 4 + 5 + 9 + 10 + 11 + 12 PASS, AND criteria 6 + 7 + 8 strictly improve over the historical `c3ff972d` corrective pass on at-risk terminology.
+- **B — REVISION HELPS BUT HAS COSTS**: criteria 7 + 8 improve, but one of {2, 4, 6, 10, 11, 12} degrades.
+- **C — NO MATERIAL IMPROVEMENT**: revision output behaves comparably to historical `c3ff972d` on criteria 7 + 8 (no meaningful delta either way).
+- **D — REVISION WORSE**: revision makes any of criteria 1, 4, 10, or 12 worse; or introduces repetition/anchoring/filler flagged as FAIL under criterion 11.
+- **E — INCONCLUSIVE**: no corrective pass fired (`synthesis_attempt_count == 1`), OR specimen lacks discriminating evidence.
+
+Pre-registering these criteria before Chris renders keeps interpretation honest. Do NOT modify this table after evidence lands.
+
+---
+
+## §44. What Phase 2 will produce
+
+After Chris returns the Composition ID:
+
+1. **Activation validity proofs**: Celery log line for the new Composition contains the `SESSION 271 Q-270-15c expansion revision retry (experiment ACTIVE)` marker (proves the experiment fired); worker env-var proof from `ps eww`; both env vars visible on the render worker.
+2. **Evidence sidecar** at `docs/design/session_271_experiment_data/01_composition_<uuid>_q270_15c_evidence.json` following the SESSION 270 sidecar schema plus a new `q270_15c_revision_delta` section capturing:
+   - Was `previous_draft` in the corrective prompt? (Proof from Celery log excerpt.)
+   - First-pass script (verbatim from `Composition.first_pass_synthesis`).
+   - Corrective revision script (verbatim from `Composition.corrective_pass_synthesis`, same as `accepted_script` when accepted).
+   - Corrective hint text (verbatim from `Composition.corrective_hint`).
+   - Per-criterion grading against §43.
+3. **Historical comparison to `c3ff972d`**: side-by-side excerpts of the two accepted outputs on the same audience directive.
+4. **Within-composition comparison**: first-pass excerpts vs revised excerpts on the SESSION 270 §13.28 at-risk terminology set.
+5. **Verdict** using the §43 rubric.
+6. **Cleanup**: env vars unset, worker restarted with canonical env, service health re-probed, resolver re-checked (both env vars ⇒ inactive, `_corrective_revision_experiment_active() == False`).
+7. **Slice close commit** with the evidence sidecar + verdict + cleanup record.
+
+Chris will hand off Composition ID before Phase 2 begins.
+
+---
+
+## §45. Slice 3 Phase 1 commit + push record
+
+- Phase 1 slice commit SHA: `<pending — populated after commit>`
+- Push: `<pending>`
+- Local `main == origin/main`: `<verified at commit time>`
+- Working tree at Phase 1 close: `<verified clean>`
+- Files touched by Phase 1:
+  - `shell/character_os/script_synthesis.py` — `previous_draft` kwarg on `build_render_brief` / `_call_responses_api` / `_assemble_task_message` + PREVIOUS DRAFT TO REVISE block emission
+  - `shell/character_os/duration_contract.py` — `_CORRECTIVE_REVISION_ENV`, `_corrective_revision_experiment_active`, `_experimental_expansion_revision_hint`, env-gated expansion branch, compression-path canonical guard
+  - `shell/apps/compositions/tests/test_session271_corrective_revision.py` — new 20-test suite (481 LOC)
+  - `docs/design/SESSION_271_CORRECTIVE_PASS_AUDIENCE_INVARIANCE_AUDIT.md` — Slice 3 sections §36-§45
+
+---
+
+**End of SESSION 271 Slice 3 Phase 1. STOP condition reached. Plumbing implemented, tested green (20+143+171 = 334 tests), documented. Awaiting Chris dogfood render before Phase 2.**

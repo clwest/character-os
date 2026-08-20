@@ -298,6 +298,7 @@ def build_render_brief(
     corrective_hint: str | None = None,
     memory_rows: "Sequence[NarrativeMemory] | None" = None,
     audience_hint: str | None = None,
+    previous_draft: str | None = None,
 ) -> ScriptResult:
     """Build the brief that gets sent to media-engine.
 
@@ -348,6 +349,16 @@ def build_render_brief(
             pre-SESSION-270 shape. **Research plumbing** — not a
             product surface; do not depend on this signature past
             SESSION 270's first-experiment grading.
+        previous_draft: SESSION 271 Q-270-15c — optional transient
+            research plumbing carrying a prior attempt at this
+            scene, to be revised by the corrective retry rather
+            than regenerated from scratch. When non-empty, emitted
+            verbatim as a §5 Task HARD CONSTRAINT block labelled
+            PREVIOUS DRAFT TO REVISE. Factual Basis still governs
+            truth per PRECEDENCE RULES — Draft A is a source draft
+            to preserve where possible, NOT a claim authority.
+            ``None`` / empty ⇒ no block emitted, prompt byte-stable.
+            **Research plumbing** — not a product surface.
 
     Returns:
         ``ScriptResult`` — always has a usable ``brief`` field
@@ -464,6 +475,7 @@ def build_render_brief(
             corrective_hint=corrective_hint,
             memory_rows=memory_rows_list,
             audience_hint=audience_hint,
+            previous_draft=previous_draft,
         )
     except Exception:
         logger.exception(
@@ -542,6 +554,7 @@ def _call_responses_api(
     corrective_hint: str | None = None,
     memory_rows: "Sequence[NarrativeMemory] | None" = None,
     audience_hint: str | None = None,
+    previous_draft: str | None = None,
 ) -> tuple[str, int, int]:
     """Single Responses-API call. Returns ``(text, tokens_in,
     tokens_out)``. Raises on API error — caller handles
@@ -573,6 +586,7 @@ def _call_responses_api(
         opener=opener,
         corrective_hint=corrective_hint,
         audience_hint=audience_hint,
+        previous_draft=previous_draft,
     )
 
     response = client.responses.create(
@@ -641,6 +655,7 @@ def _assemble_task_message(
     opener: str | None = None,
     corrective_hint: str | None = None,
     audience_hint: str | None = None,
+    previous_draft: str | None = None,
 ) -> str:
     """SESSION 253 — assemble §5 Task (user message).
 
@@ -657,6 +672,15 @@ def _assemble_task_message(
     NarrativeMemory block — audience adaptation must not
     contaminate factual grounding, character identity, brand
     prohibitions, or story-memory semantics.
+
+    SESSION 271 Q-270-15c — ``previous_draft`` (optional, transient
+    research plumbing) is emitted as an additional HARD CONSTRAINT
+    block labelled PREVIOUS DRAFT TO REVISE when non-empty, so the
+    corrective retry can see the prior attempt verbatim. Same
+    containment rule as audience_hint: only inside §5 Task, never
+    into §1 Factual Basis or §2/§3 voice sections. Draft A is NOT
+    a factual authority — Factual Basis still governs truth per
+    the PRECEDENCE RULES.
     """
     parts: list[str] = ["=== SECTION 5 — TASK ==="]
     topic = operator_prompt.strip() or "(no explicit topic — use the Factual Basis)"
@@ -668,6 +692,14 @@ def _assemble_task_message(
             f"PINNED OPENER (use verbatim as the first sentence; "
             f"the rest of the script must follow naturally from it):\n"
             f"{opener.strip()}"
+        )
+    if previous_draft and previous_draft.strip():
+        hard_constraints.append(
+            f"PREVIOUS DRAFT TO REVISE (research plumbing — this is "
+            f"the prior attempt at this scene, provided as a source "
+            f"draft to revise rather than a truth authority; Factual "
+            f"Basis still governs truth per the PRECEDENCE RULES):\n"
+            f"{previous_draft.strip()}"
         )
     if corrective_hint and corrective_hint.strip():
         hard_constraints.append(

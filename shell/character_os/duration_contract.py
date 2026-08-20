@@ -51,6 +51,7 @@ up front, before any LLM call fires.
 from __future__ import annotations
 
 import logging
+import os
 from typing import TYPE_CHECKING, Sequence
 
 from character_os.script_synthesis import (
@@ -147,6 +148,44 @@ K6_DURATION_SYNTHESIS_TARGET_MULTIPLIER: float = 0.90
 # range and applying the bias could underflow the acceptance
 # min. Widening the calibration would require its own dogfood.
 _SYNTHESIS_CALIBRATION_MIN_SECONDS: int = 30
+
+
+# SESSION 271 Q-270-15c — transient corrective-revision experiment.
+#
+# When this env var is set truthy, the EXPANSION corrective retry
+# inside :func:`synthesize_with_duration_gate` passes the first-pass
+# script text back to the LLM as ``previous_draft`` and swaps the
+# canonical :func:`_expansion_hint` for the compact
+# :func:`_experimental_expansion_revision_hint`, which instructs
+# the model to REVISE the previous draft rather than regenerate
+# from substrate.
+#
+# Scope guardrails (deliberate):
+#
+# * First pass is byte-behavior-equivalent to canonical production
+#   regardless of this flag — Draft A only reaches the RETRY.
+# * EXPANSION path only. The compression path stays canonical even
+#   when the flag is set; a log line records the fallback.
+# * Non-duration path (build_render_brief single-pass callers) is
+#   NOT touched — Q-270-15c is a corrective-retry experiment.
+# * Dialogue synthesis (:mod:`character_os.dialogue_synthesis`) is
+#   NOT touched — Q-270-15c scopes to solo/long-form only.
+# * Default OFF. Env unset or whitespace-only ⇒ canonical behaviour.
+#
+# Removal plan: once Q-270-15c produces a verdict, either promote
+# the mechanism deliberately (its own architectural slice) or
+# delete this constant + the branch + the experimental hint. Do
+# NOT let this drift into permanent architecture.
+_CORRECTIVE_REVISION_ENV = "CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT"
+
+
+def _corrective_revision_experiment_active() -> bool:
+    """Return True when the SESSION 271 Q-270-15c corrective-
+    revision experiment is currently activated via env var.
+    Whitespace-only values count as inactive so operators can
+    unset by ``export CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT=``
+    without a stale-value trap."""
+    return bool(os.environ.get(_CORRECTIVE_REVISION_ENV, "").strip())
 
 
 def calibrated_synthesis_target(requested_target_seconds: int) -> int:
@@ -384,6 +423,49 @@ def _expansion_hint(
     )
 
 
+def _experimental_expansion_revision_hint(
+    *,
+    actual_chars: int,
+    actual_words: int,
+    actual_seconds: int,
+    target_duration_seconds: int,
+    effective_ideal: int,
+    effective_min: int,
+    effective_max: int,
+) -> str:
+    """SESSION 271 Q-270-15c — expansion corrective hint used ONLY
+    when the corrective-revision experiment is active. Paired with
+    ``previous_draft`` (Draft A) being passed to build_render_brief
+    so the LLM sees the prior attempt verbatim inside §5 as
+    PREVIOUS DRAFT TO REVISE.
+
+    Deliberately compact — the variable under test is that Draft A
+    is now visible. Do NOT coach the answer with vocabulary /
+    metaphor / joke preservation checklists; the point is to test
+    whether the draft itself supplies the preservation signal.
+    """
+    shortfall_chars = effective_min - actual_chars
+    return (
+        f"Your previous draft was {actual_chars} characters "
+        f"({actual_words} words, estimated ~{actual_seconds}s of "
+        f"speech). Target is {target_duration_seconds}s.\n"
+        f"REVISE THE PREVIOUS DRAFT (above, labelled PREVIOUS DRAFT "
+        f"TO REVISE) to reach at least {effective_min} characters "
+        f"(aim for ~{effective_ideal}, do not exceed {effective_max}). "
+        f"You currently need at least {shortfall_chars} more "
+        f"characters to meet the minimum.\n"
+        f"Preserve the previous draft's meaning, voice, audience "
+        f"fit, arc, and factual grounding. Change only what is "
+        f"necessary to meet the length target. Add supporting "
+        f"detail from the knowledge chunks where needed to expand; "
+        f"do not replace successful wording that already works. "
+        f"Factual Basis still governs truth — do not preserve any "
+        f"claim in the previous draft that conflicts with the "
+        f"Factual Basis. Do not add a second closing invitation. "
+        f"Do not invent facts not present in the knowledge chunks."
+    )
+
+
 def _compression_hint(
     *,
     actual_chars: int,
@@ -518,7 +600,11 @@ def synthesize_with_duration_gate(
     min_seconds = max(1, int(round(target_duration_seconds * (1 - _DURATION_TOLERANCE))))
     max_seconds = max(min_seconds + 1, int(round(target_duration_seconds * (1 + _DURATION_TOLERANCE))))
 
-    def _synthesize(hint: str | None = None) -> ScriptResult:
+    def _synthesize(
+        hint: str | None = None,
+        *,
+        previous_draft: str | None = None,
+    ) -> ScriptResult:
         # K6 sees the SYNTH target — the LENGTH block, char
         # budget in the prompt, and word budget all derive from
         # this. Operator-facing target is preserved separately
@@ -530,6 +616,12 @@ def synthesize_with_duration_gate(
         # talking_head renders pass ``"solo_scene"``; other shape
         # branches in WritingContract.for_shape are chosen by the
         # avatar_speech primitive.
+        #
+        # SESSION 271 Q-270-15c — ``previous_draft`` is defaulted
+        # None so first-pass invocations remain byte-behavior-
+        # equivalent to canonical production. Only the expansion
+        # corrective retry, under the experiment flag, passes a
+        # non-None value; every other invocation stays canonical.
         return build_render_brief(
             spokesperson, operator_prompt,
             verifier_mode=verifier_mode,
@@ -540,6 +632,7 @@ def synthesize_with_duration_gate(
             corrective_hint=hint,
             memory_rows=memory_rows,
             audience_hint=audience_hint,
+            previous_draft=previous_draft,
         )
 
     synth = _synthesize()
@@ -587,23 +680,69 @@ def synthesize_with_duration_gate(
         min(raw_max, max_script_chars) if max_script_chars is not None
         else raw_max
     )
+    # SESSION 271 Q-270-15c — corrective-revision experiment gate.
+    # Resolved ONCE here so both branches (expansion / compression)
+    # observe the same value even if the env changes mid-render.
+    _q270_15c_active = _corrective_revision_experiment_active()
+
     if actual_chars < raw_min:
-        hint = _expansion_hint(
-            actual_chars=actual_chars,
-            actual_words=actual_words,
-            actual_seconds=actual_seconds,
-            target_duration_seconds=synth_target_seconds,
-            effective_ideal=synth_ideal,
-            effective_min=synth_min,
-            effective_max=synth_max,
-        )
-        logger.info("synthesize_with_duration_gate expansion retry")
-        corrective_hint_used = hint
-        attempt_count = 2
-        synth = _synthesize(hint)
+        # SESSION 271 Q-270-15c — expansion path. When the
+        # experiment is active, swap the canonical expansion hint
+        # for the compact revision hint AND pass Draft A back to
+        # the LLM as previous_draft. Every other invocation of
+        # _synthesize (first pass; compression retry) remains
+        # byte-behavior-equivalent to canonical production because
+        # previous_draft defaults to None.
+        if _q270_15c_active:
+            hint = _experimental_expansion_revision_hint(
+                actual_chars=actual_chars,
+                actual_words=actual_words,
+                actual_seconds=actual_seconds,
+                target_duration_seconds=synth_target_seconds,
+                effective_ideal=synth_ideal,
+                effective_min=synth_min,
+                effective_max=synth_max,
+            )
+            logger.info(
+                "synthesize_with_duration_gate SESSION 271 Q-270-15c "
+                "expansion revision retry (experiment ACTIVE) sp=%s "
+                "previous_draft_chars=%d — this is transient research "
+                "plumbing; unset CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT "
+                "to restore canonical fresh-regeneration behaviour",
+                spokesperson.pk, actual_chars,
+            )
+            corrective_hint_used = hint
+            attempt_count = 2
+            synth = _synthesize(hint, previous_draft=first_pass_brief)
+        else:
+            hint = _expansion_hint(
+                actual_chars=actual_chars,
+                actual_words=actual_words,
+                actual_seconds=actual_seconds,
+                target_duration_seconds=synth_target_seconds,
+                effective_ideal=synth_ideal,
+                effective_min=synth_min,
+                effective_max=synth_max,
+            )
+            logger.info("synthesize_with_duration_gate expansion retry")
+            corrective_hint_used = hint
+            attempt_count = 2
+            synth = _synthesize(hint)
         corrective_pass_brief = synth.brief
         actual_chars, actual_words, actual_seconds = _measure(synth.brief)
     elif actual_chars > acceptance_max_chars or provider_cap_binds:
+        # SESSION 271 Q-270-15c — compression path stays canonical
+        # even when the experiment flag is set. Q-270-15c scopes to
+        # expansion only (SESSION 271 §32.3); compression semantics
+        # are a separate open question (SESSION 263 §6.5). Record
+        # the intentional fallback for observability.
+        if _q270_15c_active:
+            logger.info(
+                "synthesize_with_duration_gate SESSION 271 Q-270-15c "
+                "compression retry — experiment flag is set but "
+                "compression path stays canonical (expansion-only "
+                "scope); running fresh-regeneration corrective pass"
+            )
         hint = _compression_hint(
             actual_chars=actual_chars,
             actual_words=actual_words,
@@ -726,4 +865,9 @@ __all__ = [
     "calibrated_synthesis_target",
     "compute_effective_budget",
     "synthesize_with_duration_gate",
+    # SESSION 271 Q-270-15c — transient corrective-revision
+    # experiment surface. Exported so tests can address them
+    # without importing private helpers.
+    "_CORRECTIVE_REVISION_ENV",
+    "_corrective_revision_experiment_active",
 ]
