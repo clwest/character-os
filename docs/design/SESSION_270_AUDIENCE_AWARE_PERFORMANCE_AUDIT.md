@@ -2217,9 +2217,9 @@ Separate handoff document created at `docs/design/SESSION_271_HANDOFF.md`. Key s
 
 ### §14.6 SESSION 270 CLOSEOUT commit
 
-- Closeout commit: `<populated after commit>`.
-- Push: `<populated after commit>`.
-- Working tree state at closeout: `<populated after commit>`.
+- Closeout commit: `a9a4f0d` — `docs(session-270): close audience-performance research and hand off session 271`. Carries §13.28 cross-specimen re-audit + §13.25 causal-language refinement + §14 final closeout + `docs/design/SESSION_271_HANDOFF.md` creation.
+- Push: `838106c..a9a4f0d main -> main` (successful). Local `main == origin/main == a9a4f0d`.
+- Working tree state at closeout: clean.
 
 ---
 
