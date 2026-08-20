@@ -601,6 +601,15 @@ def talking_head(
     # keys stay stable. Blank outro_text still means no outro
     # regardless of this field's value.
     outro_image: str | None = None,
+    # SESSION 271 §187 / Writing Contract v6 — optional per-render
+    # listener descriptor. Blank / whitespace-only ⇒ leave
+    # Composition.audience_hint at its "" default (universal
+    # audience-aware invariant falls back to Teammate.who_you_help).
+    # Non-blank ⇒ persisted on Composition.audience_hint and
+    # copied into the avatar-speech step's params below so the
+    # SESSION 270 `_resolve_solo_audience_hint` resolver picks
+    # it up in its step.params → settings → env precedence chain.
+    audience_hint: str | None = None,
 ) -> Composition:
     """Create a single-step ``talking_head`` composition.
 
@@ -670,6 +679,10 @@ def talking_head(
         coerced_duration = None
 
     composition_name = name.strip() or f"Talking-head — {spokesperson.name}"
+    # SESSION 271 §187 — coerce audience_hint at the starter so the
+    # composition row's persisted value is normalized to the same
+    # shape the resolver reads (stripped, no None).
+    coerced_audience_hint = (audience_hint or "").strip()
     composition = Composition.objects.create(
         workspace=workspace,
         spokesperson=spokesperson,
@@ -690,6 +703,7 @@ def talking_head(
         # already-coerced-and-guarded value above.
         operator_topic=script.strip() if use_knowledge else "",
         target_duration_seconds=coerced_duration,
+        audience_hint=coerced_audience_hint,
     )
     step_params: dict = {
         "script": script.strip(),
@@ -710,6 +724,19 @@ def talking_head(
     # requests never carry a duration in step params.
     if coerced_duration is not None:
         step_params["target_duration_seconds"] = coerced_duration
+    # SESSION 271 §181.4 / Slice 9 — canonical audience_hint
+    # runtime plumbing. Composition.audience_hint is the persisted
+    # source of truth (SESSION 271 §178 Option C hybrid); the
+    # starter copies it into step.params here so the SESSION 270
+    # ``_resolve_solo_audience_hint`` resolver in avatar_speech
+    # picks it up first in its step.params → settings → env
+    # precedence chain — no primitive-layer changes required.
+    # Empty Composition.audience_hint ⇒ no step.params key added
+    # ⇒ resolver returns None ⇒ universal Writing Contract v6
+    # invariant reads Teammate.who_you_help from §1 AUDIENCE as
+    # the character's baseline listener.
+    if composition.audience_hint:
+        step_params["audience_hint"] = composition.audience_hint
 
     CompositionStep.objects.create(
         composition=composition,

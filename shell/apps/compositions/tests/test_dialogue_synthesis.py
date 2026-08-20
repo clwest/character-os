@@ -689,10 +689,12 @@ def test_writing_contract_version_is_4():
         topic="test topic", target_duration_seconds=60,
         mock_mode=True,
     )
-    # SESSION 269 §15 bumped 4 → 5 (solo_scene shape). The
-    # dialogue_scene contract text is byte-stable; only the
-    # module-level VERSION stamp moved.
-    assert result.writing_contract_version == 5
+    # SESSION 269 §15 bumped 4 → 5 (solo_scene shape). SESSION 271
+    # §187 bumped 5 → 6 (universal audience-aware invariant on
+    # solo_scene only). The dialogue_scene contract text is
+    # byte-stable across both bumps; only the module-level VERSION
+    # stamp moved.
+    assert result.writing_contract_version == 6
     assert result.writing_contract_version == WRITING_CONTRACT_VERSION
 
 

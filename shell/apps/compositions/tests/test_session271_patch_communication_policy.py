@@ -487,13 +487,26 @@ def test_policy_contained_to_section_5(monkeypatch):
     # Policy MUST NOT leak into pre-§5 regions.
     pre_section5 = assembled[:section5_start]
     assert "COMMUNICATION POLICY" not in pre_section5
+    # SESSION 271 §187 landed the universal AUDIENCE-AWARE
+    # COMMUNICATION invariant in §4 Writing Contract — it shares
+    # phrase-shape with the Slice 7 experimental policy (that was
+    # the whole point of the promotion). So the leak-detection
+    # fragments below are the CHARACTER-SPECIFIC substrings that
+    # can only come from the ``_EXPECTED_RULE`` experiment text
+    # (which explicitly names Patch), never from the character-
+    # agnostic v6 invariant. Character-agnostic phrases like
+    # "listener's likely background knowledge" or "translates it
+    # into ordinary language" NOW appear legitimately pre-§5
+    # (inside §4) and are no longer leak signals — the guarantee
+    # this test protects is that Slice 7's PATCH-SPECIFIC policy
+    # text does not escape §5.
     for fragment in (
-        "translates it into ordinary language",
-        "listener's likely background knowledge",
         "without changing Patch's intelligence",
+        _EXPECTED_RULE,
     ):
         assert fragment not in pre_section5, (
-            f"Policy fragment {fragment!r} leaked into pre-§5 region"
+            f"Slice 7 Patch-specific policy fragment {fragment!r} "
+            f"leaked into pre-§5 region"
         )
     # Sanity: memory block sits pre-§5 (inside §1 Factual Basis).
     assert "EPISODE / NARRATIVE MEMORY" in pre_section5
@@ -505,8 +518,15 @@ def test_policy_contained_to_section_5(monkeypatch):
 def test_writing_contract_version_unchanged_by_this_slice():
     """SESSION 271 Slice 7 must NOT bump the writing contract version.
     Communication-policy plumbing is transient research infrastructure,
-    not a shipped commitment."""
-    assert WRITING_CONTRACT_VERSION == 5
+    not a shipped commitment.
+
+    SESSION 271 §187 (Slice 9 implementation) landed the universal
+    AUDIENCE-AWARE COMMUNICATION invariant in
+    ``_solo_scene_contract`` — a v5→v6 bump orthogonal to the
+    Slice 7 experiment plumbing that this test suite exercises.
+    This assertion tracks the post-§187 canonical version; the
+    Slice 7 machinery itself still touched zero contract text."""
+    assert WRITING_CONTRACT_VERSION == 6
 
 
 def test_dialogue_synthesis_has_no_communication_policy_kwarg():

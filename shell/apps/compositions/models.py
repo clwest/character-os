@@ -526,6 +526,38 @@ class Composition(models.Model):
     synthesis_predicted_seconds = models.FloatField(null=True, blank=True)
     render_dispatched_at = models.DateTimeField(null=True, blank=True)
 
+    # SESSION 271 §181.2 / Slice 9 — canonical per-render listener
+    # descriptor. Emitted as §5 HARD-CONSTRAINT AUDIENCE DIRECTIVE
+    # block when non-empty; left empty ⇒ the UNIVERSAL Writing
+    # Contract v6 audience-aware invariant (SESSION 271 §179.4)
+    # reads Teammate.who_you_help via §1 AUDIENCE as the
+    # character's baseline listener.
+    #
+    # Additive-nullable-or-empty per SESSION 262 discipline;
+    # immutable-after-first-write via the ``_IMMUTABLE_OBSERVABILITY_FIELDS``
+    # mechanism below.
+    #
+    # This is the CANONICAL production surface promoted from the
+    # SESSION 270 env-var research plumbing per the Slice 8 §125
+    # architectural conclusion + Slice 9 §178 Option C hybrid
+    # (Composition = source of truth; talking_head starter copies
+    # to step.params['audience_hint'] which the SESSION 270
+    # ``_resolve_solo_audience_hint`` resolver already reads first
+    # in its step.params → settings → env precedence chain).
+    audience_hint = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "Per-render listener descriptor for audience-aware "
+            "communication (SESSION 271 §181.2). When non-empty, "
+            "emitted as a §5 HARD CONSTRAINT AUDIENCE DIRECTIVE "
+            "block for solo_scene renders. Left empty ⇒ the "
+            "universal Writing Contract v6 invariant reads "
+            "Teammate.who_you_help from §1 AUDIENCE as the "
+            "character's baseline listener."
+        ),
+    )
+
     # EPISODE_SCHEMA_V1 (SESSION 262) — optional narrative anchor.
     # NULL = standalone / legacy Composition (default; unchanged from
     # pre-Episode behavior). Non-NULL = Composition belongs to a
@@ -609,6 +641,11 @@ class Composition(models.Model):
         "validation_failure_reason",
         "synthesis_predicted_seconds",
         "render_dispatched_at",
+        # SESSION 271 §183 provenance requirement — audience_hint
+        # answers "who was this Composition addressing?" mechanically
+        # for every future audit. Immutable-after-first-write so the
+        # answer never drifts.
+        "audience_hint",
     )
 
     @classmethod

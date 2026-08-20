@@ -122,6 +122,15 @@ ALLOWED_FILES = {
     # DialogueSynthesisFailedError view-rescue persistence
     # pattern. Sanctioned test-side writer.
     "apps/compositions/tests/test_session262_composition_observability.py",
+    # SESSION 271 §187 / Slice 9 — Composition.audience_hint
+    # canonical field tests construct Composition rows directly
+    # to exercise the additive-nullable field default, the
+    # SESSION 262 immutability-once-populated save() guard on
+    # the new field, and the talking_head starter's copy-into-
+    # step.params plumbing. Sanctioned test-side writer;
+    # cross-workspace isolation guarantee is unaffected (every
+    # row anchors to the test-created workspace).
+    "apps/compositions/tests/test_session271_slice9_audience_hint_field.py",
     # SESSION 262 / EPISODE_SCHEMA_V1 — Episode model + attach/detach
     # + observability-non-mutation tests construct Composition rows
     # directly to exercise Composition.episode FK invariants +

@@ -565,8 +565,15 @@ def test_experiment_on_previous_draft_contained_to_section5(monkeypatch):
 def test_writing_contract_version_unchanged_by_this_slice():
     """SESSION 271 Q-270-15c must NOT bump the writing contract
     version. Corrective-revision semantics remain an open
-    architectural question, not a shipped commitment."""
-    assert WRITING_CONTRACT_VERSION == 5
+    architectural question, not a shipped commitment.
+
+    SESSION 271 §187 (later slice in the same session) landed the
+    universal AUDIENCE-AWARE COMMUNICATION invariant in
+    ``_solo_scene_contract`` — a v5→v6 bump orthogonal to
+    corrective-revision. This assertion tracks the post-§187
+    canonical version; the Q-270-15c slice itself still touched
+    zero contract text."""
+    assert WRITING_CONTRACT_VERSION == 6
 
 
 def test_dialogue_synthesis_has_no_previous_draft_kwarg():

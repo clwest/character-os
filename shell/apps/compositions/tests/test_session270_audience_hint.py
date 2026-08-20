@@ -306,8 +306,15 @@ def test_build_render_brief_hint_does_not_leak_via_synthesis_path(monkeypatch):
 def test_writing_contract_version_unchanged_by_this_slice():
     """SESSION 270 slice must NOT bump the writing contract version.
     Audience-conditional writing contracts remain an open
-    architectural question, deliberately unshipped."""
-    assert WRITING_CONTRACT_VERSION == 5
+    architectural question, deliberately unshipped.
+
+    SESSION 271 §187 (subsequent slice) resolved that question by
+    landing the universal AUDIENCE-AWARE COMMUNICATION invariant
+    in ``_solo_scene_contract`` — a character-agnostic v5→v6
+    bump. This assertion has moved to `== 6` to reflect the
+    post-slice-9 canonical version. The SESSION 270 slice itself
+    still did not touch the contract; the bump belongs to §187."""
+    assert WRITING_CONTRACT_VERSION == 6
 
 
 # ---- 5. Primitive-layer resolver precedence ----------------------

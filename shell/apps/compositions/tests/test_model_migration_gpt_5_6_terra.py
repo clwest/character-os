@@ -97,9 +97,12 @@ def test_dialogue_calibration_constants_unchanged_by_migration():
 
     SESSION 269 §15 bumped ``WRITING_CONTRACT_VERSION`` 4 → 5 to
     add the ``solo_scene`` shape — a contract-content change, not
-    a model-migration change. Calibration constants below remain
+    a model-migration change. SESSION 271 §187 bumped 5 → 6 to
+    add the universal AUDIENCE-AWARE COMMUNICATION invariant to
+    ``_solo_scene_contract`` — also a contract-content change,
+    not a model swap. Calibration constants below remain
     unchanged."""
-    assert WRITING_CONTRACT_VERSION == 5
+    assert WRITING_CONTRACT_VERSION == 6
     assert _DIALOGUE_CPS == 13
     assert _DIALOGUE_CORRECTIVE_HEADROOM_FRACTION == 0.92
     assert _DURATION_TOLERANCE == 0.20

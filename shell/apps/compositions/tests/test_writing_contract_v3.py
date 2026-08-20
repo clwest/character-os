@@ -73,10 +73,14 @@ def dialogue_text() -> str:
 def test_writing_contract_version_reflects_current_slice() -> None:
     """SESSION 269 §15 bumped the version 4 → 5 to add the
     ``solo_scene`` shape (Episode-attached talking_head story mode).
-    Standalone + long_form + dialogue_scene contract text remain
-    byte-stable across every bump — the snapshots below prove it.
-    Every bump forces a deliberate version-stamp conversation."""
-    assert WRITING_CONTRACT_VERSION == 5
+    SESSION 271 §187 bumped 5 → 6 to add the universal
+    AUDIENCE-AWARE COMMUNICATION invariant to ``_solo_scene_contract``
+    (Slice 9 Option C hybrid — retrieval-independent listener
+    adaptation without changing character identity). Standalone +
+    long_form + dialogue_scene contract text remain byte-stable
+    across every bump — the snapshots below prove it. Every bump
+    forces a deliberate version-stamp conversation."""
+    assert WRITING_CONTRACT_VERSION == 6
     assert isinstance(WRITING_CONTRACT_VERSION, int)
 
 

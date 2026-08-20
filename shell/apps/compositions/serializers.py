@@ -307,6 +307,13 @@ class CompositionSerializer(serializers.ModelSerializer):
             # the Episode.
             "episode",
             "episode_title",
+            # SESSION 271 §187 / Writing Contract v6 — per-render
+            # listener descriptor. Read-only surface; the write
+            # path is the composition-create body's top-level
+            # ``audience_hint`` key (see ``views.py``). Blank on
+            # renders that rely on the universal audience-aware
+            # invariant's baseline (Teammate.who_you_help).
+            "audience_hint",
         )
         read_only_fields = fields
 

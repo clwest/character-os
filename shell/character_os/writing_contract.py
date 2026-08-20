@@ -93,7 +93,23 @@ from __future__ import annotations
 # branch in ``for_shape``. Only Episode-attached talking_head
 # Compositions receive the new shape; every other caller keeps
 # its existing target_shape and behaviour.
-WRITING_CONTRACT_VERSION: int = 5
+#
+# Version 6 (SESSION 271 §187) — added UNIVERSAL AUDIENCE-AWARE
+# COMMUNICATION invariant block to ``_solo_scene_contract`` only.
+# Encodes: adapt communication to the listener without changing
+# character identity/intelligence/expertise/humor/personality/
+# factual grounding/confidence; use technical terminology when it
+# actually helps and translate to ordinary language when it does
+# not; match technical depth/vocabulary/examples/analogies to
+# listener background. Character-agnostic invariant — every
+# solo_scene render on every character inherits it via the
+# contract text. Standalone + long_form + dialogue_scene contract
+# text remain byte-stable; extension to other shapes is a
+# subsequent slice gated on solo-scene evidence per §187 tail.
+# Paired with new ``Composition.audience_hint`` per-render
+# canonical surface (SESSION 271 §181.2) that reaches synthesis
+# via talking_head starter → step.params → SESSION 270 resolver.
+WRITING_CONTRACT_VERSION: int = 6
 
 
 # ---- Anti-generic-AI-copy defaults --------------------------------
@@ -645,6 +661,8 @@ def _solo_scene_contract(
         "",
         _SOLO_SCENE_INVARIANTS_BLOCK,
         "",
+        _AUDIENCE_AWARE_COMMUNICATION_BLOCK,
+        "",
         _SOLO_SCENE_SHAPES_BLOCK,
         "",
         _CTA_POLICY_BLOCK,
@@ -653,6 +671,26 @@ def _solo_scene_contract(
         "",
         _ANTI_GENERIC_REGISTER_BLOCK,
     ])
+
+
+# SESSION 271 §187 / v6 — UNIVERSAL character-agnostic audience-
+# aware communication invariant. Deliberately character-agnostic
+# (character name is NOT interpolated) — this rule applies to every
+# character on every solo_scene render. Ratified verbatim per
+# Slice 9 §179.4. Currently inserted into ``_solo_scene_contract``
+# only; long_form + dialogue_scene extensions are deferred future
+# slices per §187 tail.
+_AUDIENCE_AWARE_COMMUNICATION_BLOCK = (
+    "AUDIENCE-AWARE COMMUNICATION (universal — applies to every "
+    "render)\n"
+    "  Adapt communication to the listener without changing "
+    "character identity, intelligence, expertise, humor, "
+    "personality, factual grounding, or confidence. Use technical "
+    "terminology when it actually helps, and translate it into "
+    "ordinary language when it does not. Match technical depth, "
+    "vocabulary, examples, and analogies to the listener's likely "
+    "background knowledge."
+)
 
 
 _SOLO_SCENE_INVARIANTS_BLOCK = (

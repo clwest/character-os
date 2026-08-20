@@ -612,6 +612,22 @@ class CompositionViewSet(viewsets.GenericViewSet):
         # spokesperson rejections fire via ``Composition.clean()``.
         episode_id = body.get("episode")
 
+        # SESSION 271 §187 / Writing Contract v6 — optional per-render
+        # listener descriptor. Blank / whitespace-only ⇒ leave
+        # Composition.audience_hint at its "" default so the universal
+        # audience-aware invariant falls back to Teammate.who_you_help.
+        # Non-blank ⇒ attach to the composition AFTER the starter
+        # returns (SESSION 262 immutability guard permits first-write
+        # on an empty field; talking_head starter also runs before
+        # this write so its own step.params copy uses the empty default
+        # — the write here is the observability record, and any
+        # per-step propagation for future recipes must be re-run via
+        # rerender rather than mutated in place).
+        raw_audience_hint = body.get("audience_hint", "")
+        if not isinstance(raw_audience_hint, str):
+            raise ValidationError({"audience_hint": "must be a string"})
+        audience_hint = raw_audience_hint.strip()
+
         if not kind:
             raise ValidationError({"kind": "required"})
         if kind not in RECIPES:
@@ -684,6 +700,26 @@ class CompositionViewSet(viewsets.GenericViewSet):
             )
         except (ValueError, KeyError, TypeError) as exc:
             raise ValidationError({"params": str(exc)})
+
+        # SESSION 271 §187 — inject audience_hint into starter kwargs
+        # ONLY when the starter's signature accepts it (currently
+        # ``talking_head``; a future slice may extend to the other
+        # solo_scene starters). Blank / whitespace-only audience_hint
+        # is silently dropped so pre-v6 recipes stay byte-identical.
+        # The starter is responsible for persisting the coerced value
+        # on the Composition row so ``_IMMUTABLE_OBSERVABILITY_FIELDS``
+        # captures it in the first-write snapshot.
+        if audience_hint:
+            import inspect as _inspect
+            try:
+                starter_sig = _inspect.signature(recipe.starter)
+            except (TypeError, ValueError):
+                starter_sig = None
+            if (
+                starter_sig is not None
+                and "audience_hint" in starter_sig.parameters
+            ):
+                kwargs["audience_hint"] = audience_hint
 
         try:
             with transaction.atomic():

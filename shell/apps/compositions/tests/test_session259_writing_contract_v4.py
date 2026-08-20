@@ -75,11 +75,12 @@ def dialogue_text() -> str:
 
 def test_writing_contract_version_current() -> None:
     """SESSION 259 continuity slice bumped 3 → 4; SESSION 269
-    §15 bumped 4 → 5 (solo_scene shape). The dialogue-scene
-    contract text this test file exercises remains byte-stable
-    across every bump — see the SHA-snapshot suite in
-    ``test_writing_contract_v3.py``."""
-    assert WRITING_CONTRACT_VERSION == 5
+    §15 bumped 4 → 5 (solo_scene shape); SESSION 271 §187 bumped
+    5 → 6 (universal audience-aware invariant on solo_scene only).
+    The dialogue-scene contract text this test file exercises
+    remains byte-stable across every bump — see the SHA-snapshot
+    suite in ``test_writing_contract_v3.py``."""
+    assert WRITING_CONTRACT_VERSION == 6
     assert isinstance(WRITING_CONTRACT_VERSION, int)
 
 

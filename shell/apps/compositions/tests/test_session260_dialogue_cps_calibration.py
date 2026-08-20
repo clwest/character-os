@@ -404,10 +404,11 @@ def test_writing_contract_version_unchanged() -> None:
     """SESSION 260 is calibration-only — bumps to the WRITING
     CONTRACT version stamp come from separate slices (v4 =
     SESSION 259 dialogue causal chain; v5 = SESSION 269 §15
-    solo_scene shape). This suite must track whatever the
+    solo_scene shape; v6 = SESSION 271 §187 universal
+    audience-aware invariant). This suite must track whatever the
     current stamp is; the assertion below is the deliberate
-    version-stamp conversation for §15."""
-    assert WRITING_CONTRACT_VERSION == 5
+    version-stamp conversation for §187."""
+    assert WRITING_CONTRACT_VERSION == 6
 
 
 def test_turn_bands_unchanged() -> None:

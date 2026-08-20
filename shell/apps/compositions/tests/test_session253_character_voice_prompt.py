@@ -501,8 +501,14 @@ def test_writing_contract_version_is_4_after_continuity_slice():
         Episode-attached talking_head story mode. Standalone
         + long_form + dialogue_scene contract text remain
         byte-stable.
+      * v6: SESSION 271 §187 added the universal
+        AUDIENCE-AWARE COMMUNICATION invariant to
+        ``_solo_scene_contract`` (retrieval-independent listener
+        adaptation without changing character identity).
+        Standalone + long_form + dialogue_scene contract text
+        remain byte-stable.
     """
-    assert WRITING_CONTRACT_VERSION == 5
+    assert WRITING_CONTRACT_VERSION == 6
 
 
 def test_writing_contract_for_shape_returns_versioned_content():

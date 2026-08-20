@@ -20,8 +20,9 @@ Coverage matches the §14 acceptance list:
    outcome).
 4. Length + shape blocks handle both budgeted and unbudgeted
    invocations.
-5. WRITING_CONTRACT_VERSION == 5 (recorded by version stamp on
-   every §15 Composition).
+5. WRITING_CONTRACT_VERSION == 6 (recorded by version stamp on
+   every §15 Composition; bumped from 5 in SESSION 271 §187 when
+   the universal AUDIENCE-AWARE COMMUNICATION invariant landed).
 6. long_form + standalone + dialogue_scene byte-stability is
    proven in ``test_writing_contract_v3.py`` — this module does
    not duplicate those SHA snapshots but references them by
@@ -211,12 +212,87 @@ def test_solo_contract_budgeted_invocation_carries_char_budget(
 # ---- 5. Version stamp ------------------------------------------
 
 
-def test_writing_contract_version_5() -> None:
-    """§15 bumped the version 4 → 5. Composition.writing_contract_version
-    stamp records which contract shaped each render — audits can
-    trace whether a given Composition ran under v4 (pre-§15) or v5
-    (Episode-solo aware)."""
-    assert WRITING_CONTRACT_VERSION == 5
+def test_writing_contract_version_6() -> None:
+    """§15 bumped the version 4 → 5. SESSION 271 §187 bumped 5 → 6
+    to add the universal AUDIENCE-AWARE COMMUNICATION invariant to
+    ``_solo_scene_contract`` (character-agnostic, retrieval-
+    independent). Composition.writing_contract_version stamp records
+    which contract shaped each render — audits can trace whether a
+    given Composition ran under v4 (pre-§15), v5 (Episode-solo
+    aware), or v6 (universal audience-aware)."""
+    assert WRITING_CONTRACT_VERSION == 6
+
+
+# ---- 5b. Universal AUDIENCE-AWARE COMMUNICATION invariant -------
+
+
+def test_solo_contract_contains_universal_audience_aware_block(
+    solo_text: str,
+) -> None:
+    """SESSION 271 §187 / v6 — the universal audience-aware
+    invariant lives inside ``_solo_scene_contract`` as a
+    character-agnostic block that fires on every solo_scene render.
+    Retrieval-independent (no dependency on any KnowledgeDocument
+    chunk being retrieved) and cast-independent (does not name
+    Patch, Rivet, or any specific character).
+
+    The wording was ratified clause-by-clause in Slice 9 §179.4
+    against fox-baker / bear-coffee-shop / Patch / Rivet /
+    unrelated-domain thought experiments. Any wording change is
+    a v6 → v7 bump that must be a deliberate slice with fresh
+    thought-experiment validation."""
+    assert "AUDIENCE-AWARE COMMUNICATION" in solo_text
+    # The framing clause — must call out "universal — applies to
+    # every render" so the LLM understands it's not opt-in.
+    assert "universal — applies to every render" in solo_text
+    # The seven-dimension identity guard (§179.4 § 7-dim inventory).
+    # These are the axes that MUST NOT vary with audience.
+    for dimension in [
+        "identity",
+        "intelligence",
+        "expertise",
+        "humor",
+        "personality",
+        "factual grounding",
+        "confidence",
+    ]:
+        assert dimension in solo_text, (
+            f"universal audience-aware block missing identity "
+            f"dimension: {dimension!r}"
+        )
+    # The four adaptation levers (§179.4) — technical depth,
+    # vocabulary, examples, analogies. These ARE allowed to vary
+    # with audience.
+    for lever in ["technical depth", "vocabulary", "examples", "analogies"]:
+        assert lever in solo_text, (
+            f"universal audience-aware block missing adaptation "
+            f"lever: {lever!r}"
+        )
+    # The listener-background anchor — the LLM must match to the
+    # listener's likely background knowledge.
+    assert "background knowledge" in solo_text
+
+
+def test_solo_contract_audience_block_precedes_shape_menu(
+    solo_text: str,
+) -> None:
+    """§187 placement — the universal audience-aware block sits
+    between ``_SOLO_SCENE_INVARIANTS_BLOCK`` and
+    ``_SOLO_SCENE_SHAPES_BLOCK`` so the LLM reads it as a
+    top-of-contract gate alongside the other invariants, not as
+    a downstream soft-guidance suggestion."""
+    audience_idx = solo_text.find("AUDIENCE-AWARE COMMUNICATION")
+    shapes_idx = solo_text.find("NARRATIVE SHAPES")
+    invariants_idx = solo_text.find("INVARIANTS")
+    assert audience_idx != -1, "audience-aware block missing"
+    assert shapes_idx != -1, "shape menu missing"
+    assert invariants_idx != -1, "invariants block missing"
+    # Order: INVARIANTS → AUDIENCE-AWARE → SHAPES.
+    assert invariants_idx < audience_idx < shapes_idx, (
+        f"expected INVARIANTS < AUDIENCE-AWARE < SHAPES, got "
+        f"invariants={invariants_idx} audience={audience_idx} "
+        f"shapes={shapes_idx}"
+    )
 
 
 # ---- 6. Shape dispatch -----------------------------------------
