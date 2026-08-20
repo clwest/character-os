@@ -4991,10 +4991,10 @@ This is the definitive fox-first check. The architecture does NOT require Charac
 
 ## §176. Slice 8 commit + push record
 
-- Slice 8 commit SHA: `<pending — populated after commit>`
-- Push: `<pending>`
-- Local `main == origin/main`: `<verified at commit time>`
-- Working tree at slice close: `<verified clean>`
+- Slice 8 commit SHA: `bc14ccf` — `docs(session-271): Slice 8 — character-agnostic audience-aware communication architecture (design/audit only)`.
+- Push: `cb2de91..bc14ccf main -> main` (successful).
+- Local `main == origin/main == bc14ccf` verified.
+- Working tree at slice close: clean.
 
 ---
 
