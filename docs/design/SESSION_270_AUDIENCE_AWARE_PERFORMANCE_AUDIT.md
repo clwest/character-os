@@ -1975,7 +1975,7 @@ Stepping back across all five audience-conditioned specimens to synthesise what 
 - **Character preservation is robust under minimal audience directives.** Identity, intelligence, humor, story, memory semantics, brand prohibitions, factual grounding held across FIVE consecutive audience-conditioned renders (baseline + 4 audience-conditioned) with the substrate held constant. All ten criteria PASS or AMBIGUOUS — never FAIL — on preservation dimensions.
 - **Register adaptation is strong per-audience.** Each of the four audience directives produced a distinct metaphor family (child concrete-physical; adult consequence-abstract in `0b3c1fc1`; adult workshop-native in `c3ff972d`). Register adaptation is the audience-hint mechanism's most reliable behaviour.
 - **PRESERVE clauses in the verbose CHANGE/PRESERVE contract are NOT materially load-bearing.** Q-270-9 (minimal child, 41 chars) and Q-270-8 REVISED (minimal adult, 42 chars) and Q-270-13 (nontechnical adult, 79 chars) all achieved character preservation without any explicit PRESERVE clause. The audience label alone is sufficient for identity / intelligence / humor / story / memory preservation.
-- **Explicit vocabulary/technical-accessibility guidance IS load-bearing for at-risk terms.** Only the verbose CHANGE clause (`f0e0a7bf`) reliably translated *"call APIs"* to *"call other software"*. Three subsequent minimal-directive specimens (`9880eb93`, `0b3c1fc1`, `c3ff972d`) all left *"API"* unexplained. Two adult-audience specimens (`0b3c1fc1`, `c3ff972d`) both left *"language model"* unexplained. Consistency across multiple specimens.
+- **Explicit vocabulary/technical-accessibility guidance appears reliability-enhancing for at-risk terms in the FINAL ACCEPTED output.** Only the verbose CHANGE clause (`f0e0a7bf`) is the tested condition whose final accepted output consistently closed the *"call APIs"* gap (translated to *"call other software"*). Three subsequent minimal-directive specimens (`9880eb93`, `0b3c1fc1`, `c3ff972d`) all left *"API"* unexplained in their accepted outputs. However — see §13.28 for a post-Q-270-13 cross-specimen re-audit that **does NOT support** the stronger claim that this clause is causally *necessary*: the c3ff972d and 9880eb93 first passes did NOT contain those at-risk terms; the corrective-pass expansion mechanism reintroduced them. So "load-bearing for final-output reliability" is supported; "intrinsically necessary for the audience adaptation itself" is NOT supported by the evidence. Distinguish accordingly.
 - **Retrieval lanes (knowledge chunks + NarrativeMemory) are deterministic under identical query embedding.** Same 5 chunks + same memory row across all five compositions on this substrate. Not stochastic.
 - **NarrativeMemory promotion discipline holds under audience adaptation.** Zero promotions across the entire SESSION 270 sequence. Substrate-based reasoning (§13.24.4) correctly explains this.
 - **The audience-hint experimental plumbing works reliably.** Four different audience directives delivered via three delivery paths (default + env-var fallback across 3 experimental directives) with unambiguous validity fingerprints (`hint_chars` distinguishes all four experimental specimens). Zero substrate contamination, zero source changes required.
@@ -1986,42 +1986,44 @@ Stepping back across all five audience-conditioned specimens to synthesise what 
 - **Demographic-vs-expertise separability** (§13.21.10.7) — SUPPORTED with framing caveat. Two audiences of similar subject-familiarity but different life-context produced meaningfully different communication. Consistent with both the separability hypothesis AND the natural-language-multidimensional-labels-sufficient hypothesis — either could be true.
 - **Register-vs-knowledge-boundary asymmetry** (§13.24.11.6) — Hypothesis B SUPPORTED across two specimens. Register adapts strongly; specific-vocabulary translation for at-risk terms does not.
 - **Directive minimalism (Q-270-9)** — the 41-char child label achieved preservation fully and ~90% of vocabulary-translation adaptation of the verbose contract; verbose CHANGE clauses buy the last-10%.
-- **The first-pass-vs-corrective-pass regression pattern in `c3ff972d`** (§13.24.11.3) — one specimen. Diagnostic observation about a possible mechanical failure mode where corrective_hint expansion may re-consult Factual Basis without re-applying the audience filter. Not yet a fix candidate.
+- **First-pass-vs-corrective-pass audience-invariance regression** — originally recorded as one-specimen diagnostic in §13.24.11.3, now **upgraded** by the post-close cross-specimen re-audit in §13.28. Across ALL FIVE frozen SESSION 270 specimens, first-pass and corrective-pass technical-term counts show a directional pattern: **2 of 3 minimal-directive audience-conditioned specimens** (`9880eb93` and `c3ff972d`) had first passes with ZERO at-risk terms (`API` / `language model` / `state`) that were REINTRODUCED by the corrective expansion pass. Only the verbose specimen `f0e0a7bf` — whose CHANGE clause persisted through the corrective retry — showed the opposite direction (technical terms REMOVED between first and corrective passes). This is meaningfully stronger than one-specimen evidence but still bounded by small n. See §13.28 table.
 
-#### §13.25.3 OPEN questions after SESSION 270
+#### §13.25.3 OPEN questions after SESSION 270 (priority-ordered — updated post-close per §13.28 re-audit)
 
-| # | Question | Status |
-|---|---|---|
-| Q-270-2 | Is the §5 Task Hard-Constraint seam the *right* eventual home? | Open. Four directives via the same seam produce comparable-shape behaviour; seam is not the discriminator. |
-| Q-270-6 | Does `dialogue_scene` need identical audience semantics? | Open. Not tested. Would require substrate expansion. |
-| Q-270-7 | Rename `who_you_help`'s `AUDIENCE:` label? | Open. No new evidence either way. |
-| Q-270-10 | Does a repeat minimal-child render translate *"API"* (child API stochasticity probe)? | Open. Now less compelling because we have parallel evidence from two adult specimens that minimal directives don't close *"API"* translation. Would still resolve the specific child-substrate question. |
-| Q-270-11 | Register-vs-knowledge-boundary systematic-vs-stochastic across multiple renders per audience | Partially informed by Q-270-13 (one additional data point) but would need more specimens per audience to fully resolve. |
-| Q-270-12 | Would a minimal audience label + a targeted vocabulary-translation directive (2-clause hybrid) match the verbose contract at lower token cost? | **NOW HIGHEST-INFORMATION-VALUE.** Q-270-13 evidence supports the hypothesis that only the vocabulary-accessibility clause is load-bearing. A 2-clause hybrid would test whether removing the redundant PRESERVE clauses matters at all. Cheapest, most focused, single-question probe. Recorded — **DO NOT execute in this slice.** |
-| **Q-270-15** (NEW) | The first-pass-vs-corrective-pass regression finding in `c3ff972d` — does the corrective_hint expansion pathway systematically drop audience-hint influence, or was that stochastic? | Recorded as diagnostic follow-up. |
+| Priority | # | Question | Status after §13.28 re-audit |
+|---|---|---|---|
+| **HIGH** | **Q-270-15** | When a solo_scene audience-conditioned first pass is rejected only for duration, does the corrective retry preserve the same audience-specific vocabulary/knowledge-boundary transformation while expanding content? | **UPGRADED from "diagnostic follow-up" to HIGH-PRIORITY bounded investigation candidate.** §13.28 cross-specimen re-audit shows 2 of 3 minimal-directive audience-conditioned specimens exhibited technical-term reintroduction between first pass and corrective pass. If this is a systematic mechanical failure, adding a stronger instruction (Q-270-12) may only paper over a bug that is losing the audience filter mechanically during expansion. **AUDIT-first (no paid render required for the audit step)** — compare first-pass vs corrective-pass prompt assembly + frozen outputs across existing specimens before any code change. Only if that audit supports the mechanical-cause hypothesis, consider a controlled additional render to confirm. |
+| **MEDIUM** | Q-270-12 | Would a minimal audience label + a targeted vocabulary-translation directive (2-clause hybrid) match the verbose contract at lower token cost? | Still cheapest single-question probe of the "load-bearing category" hypothesis. **Reordered below Q-270-15** because if Q-270-15 confirms a corrective-pass mechanical cause, Q-270-12's premise (that we need a stronger instruction) becomes suspect. Recorded — do NOT execute before Q-270-15 audit is at least attempted. |
+| LOW | Q-270-10 | Does a repeat minimal-child render translate *"API"* (child API stochasticity probe)? | Now less compelling — parallel evidence from three minimal-directive specimens shows API reintroduction in corrective passes. Narrow reliability question. |
+| LOW | Q-270-11 | Register-vs-knowledge-boundary systematic-vs-stochastic across multiple renders per audience | Partially informed by Q-270-13 + §13.28. Would need more specimens per audience to fully resolve. |
+| OPEN | Q-270-2 | Is the §5 Task Hard-Constraint seam the *right* eventual home? | Open. Four directives via the same seam produce comparable-shape behaviour; seam is not the discriminator. |
+| OPEN | Q-270-6 | Does `dialogue_scene` need identical audience semantics? | Open. Not tested. Would require substrate expansion. |
+| OPEN | Q-270-7 | Rename `who_you_help`'s `AUDIENCE:` label? | Open. No new evidence either way. |
+| OPEN | Q-270-16 (NEW) | K6.4 `proper_noun` heuristic false-positives on sentence-initial capitalised tokens — reproducibility upgraded to defect status per §13.24.11.5. Bounded verifier-quality follow-up. | Not audience-related. Do NOT fix in any SESSION 271 audience-experiment slice. |
 
-Q-270-10, Q-270-11 remain narrow reliability questions. Q-270-12 is the highest-leverage future probe if Chris wants to convert Q-270-13's Hypothesis B into an actionable minimum-viable directive.
+**Priority rationale:** Q-270-15 must be attempted first because it changes the interpretation of what "vocabulary-accessibility guidance is load-bearing" actually means. If corrective-pass mechanically drops the audience filter, the correct fix may be at the corrective-pass layer (re-emphasise audience_hint on retry) rather than at the directive layer (add a vocabulary clause). Q-270-15 has HIGH information value for LOW cost (starts with an audit of already-frozen evidence).
 
 #### §13.25.4 Has SESSION 270 answered its central question?
 
 **Central question (§1):** *"Can Character OS change who Patch is talking to without changing who Patch is?"*
 
-**Answer: YES, with a bounded caveat about knowledge-boundary reliability.**
+**Answer: YES, with a bounded caveat about end-to-end pipeline reliability around at-risk technical vocabulary.**
 
 - WHO Patch is: **strongly preserved** across four audience-conditioned renders under minimal directives (identity, intelligence, humor, story, memory, factual grounding all held).
 - WHO Patch is talking to: **strongly changed** across four audience directives (child concrete-physical vs adult conversational vs adult workshop-native — distinct communication strategies emerged per audience).
-- The bounded caveat: for at-risk technical vocabulary (*"API"*, *"language model"*), minimal audience directives alone do not reliably audit every term. The verbose CHANGE clause's *"vocabulary accessibility"* instruction was load-bearing on that specific dimension.
+- The bounded caveat (**refined post-close per §13.28**): for at-risk technical vocabulary (*"API"*, *"language model"*, *"state"*), the CURRENT END-TO-END SYNTHESIS PIPELINE does not, under minimal audience directives, guarantee that every such term will remain audience-accessible in the FINAL ACCEPTED output. **Whether that weakness originates in the audience directive itself, the corrective-pass expansion mechanism, or their interaction is NOT yet resolved.** The §13.28 re-audit indicates first-pass audience adaptation was clean in 2 of 3 minimal specimens; corrective expansion sometimes reintroduces technical vocabulary from the Factual Basis. The verbose CHANGE clause's *"vocabulary accessibility"* instruction was the only tested condition that produced a final accepted output with the API translation preserved — but that is "load-bearing for final-output reliability", **not** proof of causal necessity. Q-270-15 (§13.25.3) is the highest-priority open question to disambiguate.
 
 **Recommendation: CLOSE SESSION 270.** The central research question is answered strongly enough by five specimens on tightly-controlled substrate. Further single-specimen experiments on the same substrate risk over-generalizing a coherent pattern. Meaningful further evidence requires either **substrate expansion** (different character / Episode / topic / dialogue lane — each a substantial slice) OR a **synthesis / architecture conversation** with Chris + ChatGPT about what SESSION 270 has taught and what should shape roadmap.
 
-**Post-session options** (not part of SESSION 270 — future decisions):
+**Post-session options** (not part of SESSION 270 — future decisions; priority order updated per §13.28 re-audit):
 
-1. **STOP** — accept the SESSION 270 evidence chain, run no more audience experiments, take the findings into a design conversation about eventual architecture.
-2. **Q-270-12** — a single lightweight follow-up experiment testing whether *"[audience label] + explain technical terms the audience may not know"* achieves what the verbose 372-char contract achieved at ~10% the token cost. Highest-information-value cheapest experiment. Would specifically test whether the load-bearing category identified in §13.25.1 can be captured in one bounded clause.
-3. **Substrate expansion** — repeat the audience-hint experimental cycle on a different character (Rivet), different Episode (a NEW Episode intent that permits story progression), or dialogue_scene lane. Substantial investment; would broaden the evidence base beyond one character × one topic × solo_scene.
-4. **Story-progression dogfood** — return to normal Universe dogfood on a NEW Episode intent that authorises Patch to actually perform the agent experiment. Separate from audience research; would exercise NarrativeMemory promotion / retrieval on the substrate SESSION 270 held frozen.
+1. **STOP + design conversation** — accept the SESSION 270 evidence chain, run no more audience experiments, take the findings into a design conversation about eventual architecture.
+2. **Q-270-15 audit** (new highest priority) — investigate the corrective-pass audience-invariance question using ALREADY-FROZEN evidence first. No paid render required for the initial audit. Compare first-pass vs corrective-pass prompt assembly + captured outputs across current specimens. If the audit supports the mechanical-cause hypothesis, ONE additional controlled render may confirm; if not, the cause hypothesis is falsified without any render cost.
+3. **Q-270-12** (was highest, now medium) — a single lightweight follow-up experiment testing whether *"[audience label] + explain technical terms the audience may not know"* achieves what the verbose 372-char contract achieved at ~10% the token cost. Reordered below Q-270-15 because its premise (that we need a stronger directive) is potentially wrong if Q-270-15 confirms a mechanical cause.
+4. **Substrate expansion** — repeat the audience-hint experimental cycle on a different character (Rivet), different Episode (a NEW Episode intent that permits story progression), or dialogue_scene lane. Substantial investment; would broaden the evidence base beyond one character × one topic × solo_scene.
+5. **Story-progression dogfood** — return to normal Universe dogfood on a NEW Episode intent that authorises Patch to actually perform the agent experiment. Separate from audience research; would exercise NarrativeMemory promotion / retrieval on the substrate SESSION 270 held frozen.
 
-Chris + ChatGPT decide.
+Chris + ChatGPT decide. See `SESSION_271_HANDOFF.md` for the two clean starting workstreams (story progression vs Q-270-15 audit).
 
 ### §13.26 Q-270-13 experimental cleanup — deactivation record
 
@@ -2065,4 +2067,161 @@ Executed immediately after grading + synthesis, per operator brief.
 - Slice commit: `618f25a` — `docs(session-270): §13.24.11 + §13.25 + §13.26 Q-270-13 Phase 2 — nontechnical-adult evidence, five-way comparison, verdict, SESSION 270 synthesis, close recommendation, deactivation`.
 - Push: `83171af..618f25a main -> main` (successful). Local `main == origin/main == 618f25a`.
 - Working tree state at checkpoint: clean.
+
+### §13.28 POST-CLOSE cross-specimen first-pass re-audit (added during CLOSEOUT slice)
+
+Chris + ChatGPT flagged that the c3ff972d first-pass observation (§13.24.11.3) deserved a cross-specimen re-audit against the four earlier compositions before the SESSION 270 causal interpretation was frozen. This section is that re-audit. **No new render was performed.** All data extracted from already-persisted `Composition.first_pass_synthesis` and `Composition.corrective_pass_synthesis` fields via `manage.py shell`.
+
+#### §13.28.1 Method
+
+Compositions inspected: `2ef5ee7e`, `f0e0a7bf`, `9880eb93`, `0b3c1fc1`, `c3ff972d`. For each, extracted the frozen first-pass and corrective-pass synthesis text and counted occurrences of six at-risk technical terms: `API`, `APIs`, `language model`, `state`, `multi-step`, `database`. Case-insensitive substring match. Also inspected corrective_hint length + expansion direction.
+
+#### §13.28.2 Cross-specimen results (extracted from persisted state)
+
+| Specimen | Directive | Attempts | First-pass len | Corrective-pass len | First-pass at-risk terms | Corrective-pass at-risk terms | Direction between passes |
+|---|---|---|---|---|---|---|---|
+| `2ef5ee7e` | (none — baseline) | 2 | 731 | 1599 | `API` ×1, `APIs` ×1, `state` ×1 | `API`, `APIs`, `language model`, `state`, `multi-step`, `database` | ADDED terms (expected — no audience filter) |
+| `f0e0a7bf` | 372-char CHANGE/PRESERVE | 2 | 779 | 1231 | `language model` ×1 | (none) | **REMOVED `language model`** — CHANGE clause persisted through expansion |
+| `9880eb93` | 41-char minimal child | 2 | 881 | 1354 | (none) | `API` ×1 | **ADDED `API`** in corrective retry |
+| `0b3c1fc1` | 42-char adult beginner | 2 | 711 | 1479 | `API` ×1, `language model` ×1 | `API` ×1, `language model` ×1 | STABLE — same terms in both passes |
+| `c3ff972d` | 79-char nontechnical adult | 2 | 631 | 1424 | (none) | `API`, `APIs`, `language model` ×2, `state`, `database` | **ADDED 5+ terms** in corrective retry |
+
+All five specimens received expansion-direction corrective hints (target 972 chars minimum, first passes were 631–881 chars). Corrective hint text is byte-identical across all specimens (656 chars, `REWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS ...`).
+
+#### §13.28.3 What the re-audit shows
+
+**Directional pattern (2 of 3 minimal-directive audience-conditioned specimens):**
+
+- `9880eb93` first pass was **completely clean** on the six at-risk terms; `API` was **added** by the corrective retry.
+- `c3ff972d` first pass was **completely clean** on the six at-risk terms; corrective retry **added `API` + `APIs` + `language model` ×2 + `state` + `database`** (five distinct at-risk terms).
+- `0b3c1fc1` first pass had `API` + `language model`; corrective retry kept the same terms (STABLE — not a regression, not an improvement).
+
+**Contrast case (`f0e0a7bf`, verbose CHANGE/PRESERVE):**
+
+- First pass had `language model`; corrective retry **removed** it. The verbose CHANGE clause's *"vocabulary accessibility"* instruction persisted through the corrective retry and continued to enforce accessibility.
+
+**Baseline case (`2ef5ee7e`, no audience directive):**
+
+- First pass had 3 at-risk terms; corrective retry added 3 more. No audience filter to preserve; behaviour is what you'd expect from unfiltered expansion of the Factual Basis.
+
+#### §13.28.4 What this re-audit changes about the causal interpretation
+
+**Strengthened:**
+
+- The **final-output pipeline** does not, under minimal audience directives, reliably preserve knowledge-boundary adaptation across the corrective retry. Documented across 2 of 3 minimal-directive audience-conditioned specimens; the third (`0b3c1fc1`) has a first pass that already carried the terms in question, so it neither supports nor refutes the corrective-pass hypothesis.
+- The verbose CHANGE clause is the ONLY tested condition whose FINAL ACCEPTED output consistently closed the at-risk vocabulary gap. **Load-bearing for final-output reliability** is supported.
+
+**Weakened / newly-bounded:**
+
+- The stronger claim that minimal natural-language audience descriptions are **intrinsically too weak** to enforce technical knowledge boundaries is **NOT supported** by the first-pass evidence. In 2 of 3 minimal-directive specimens the audience directive DID produce a clean first draft. The failure appears at the corrective-pass boundary, not at the first-pass audience-filter boundary.
+- "Explicit vocabulary/technical-accessibility guidance is causally NECESSARY" is **NOT proven**. It is CONSISTENT with the evidence, but the alternative causal explanation — that the corrective-pass mechanism specifically drops or dilutes the audience filter during expansion — is ALSO consistent with the evidence and now materially better supported than one-specimen diagnostic evidence would suggest.
+
+#### §13.28.5 Consequence for open-question priority
+
+**Q-270-15 upgraded to HIGH priority** (§13.25.3). The audit step (compare first-pass vs corrective-pass prompt assembly across existing specimens) requires **no additional paid render** — the evidence is already frozen in the sidecars + DB. Only if the prompt-audit supports the mechanical-cause hypothesis would a controlled additional render be needed to confirm.
+
+**Q-270-12 reordered below Q-270-15** because its premise ("we need a stronger directive to close vocabulary gaps") is potentially wrong if Q-270-15 confirms a corrective-pass mechanical cause. Adding a vocabulary clause without first understanding whether the existing audience adaptation is being degraded mechanically risks papering over a fixable bug.
+
+#### §13.28.6 Bounded conclusion
+
+This re-audit does NOT change:
+
+- The 8 PASS + 2 AMBIGUOUS grade for `c3ff972d` (§13.24.11.4) — the accepted output is what the operator/viewer receives.
+- Any earlier composition's grades.
+- The central-question answer (§13.25.4) — YES with bounded caveat, now more precisely attributed to the end-to-end pipeline rather than the audience directive itself.
+- The NarrativeMemory non-promotion recommendation across all five specimens.
+
+This re-audit DOES change:
+
+- The causal language in §13.25.1 (updated in this closeout — "appears reliability-enhancing" rather than "IS load-bearing").
+- The elevation of Q-270-15 in §13.25.3.
+- Post-session option priority in §13.25.4.
+
+---
+
+## §14. SESSION 270 FINAL CLOSEOUT
+
+### §14.1 Final answer to the central question
+
+*"Can Character OS change who Patch is talking to without changing who Patch is?"*
+
+**YES.** Preservation of identity, intelligence, humor, story, memory semantics, brand prohibitions, and factual grounding is robust under minimal natural-language audience directives (`≥41 chars`) across four audience-conditioned specimens on tightly-controlled substrate.
+
+**Bounded caveat:** end-to-end reliability around audience-appropriate handling of at-risk technical vocabulary (`API`, `language model`, `state`) remains an open quality question. The §13.28 cross-specimen re-audit narrows the plausible causal explanation: first-pass audience adaptation is often clean; the corrective-pass expansion mechanism is a plausible contributor to the reintroduction of technical terms in accepted outputs. Q-270-15 is the highest-priority question to disambiguate.
+
+**Bounded scope of the answer:** Patch × solo_scene × "AI Agents" topic × the four tested audience descriptions × the current `gpt-5.6-terra` + writing-contract-v5 + audience-hint-plumbing configuration. Not proven for other characters, other Episode topics, `dialogue_scene`, other model configurations, or other audience descriptions.
+
+### §14.2 Final classification of findings
+
+**STRONG (per §13.25.1 after causal-language refinement):**
+
+1. Character OS CAN change who Patch is addressing without changing who Patch is — 4 audience-conditioned specimens, all 10 criteria PASS or AMBIGUOUS on preservation dimensions, never FAIL.
+2. Patch identity / intelligence / humor / story / memory / factual grounding remained stable under audience conditioning without any explicit PRESERVE instruction.
+3. Audience labels produce meaningful register / metaphor / explanation changes distinctly per audience — child concrete-physical vs adult conversational vs adult workshop-native are three demonstrably different communication strategies.
+4. Child vs adult-beginner outputs demonstrate listener-context sensitivity beyond one generic beginner register (§13.21.10.7 SUPPORTED with caveat).
+5. NarrativeMemory semantics + promotion discipline hold across five consecutive audience-conditioned renders (zero promotions, pool unchanged 14 active + 1 archived).
+6. Same-knowledge + same-memory substrate stayed controlled across the experiment series (identical `knowledge_chunk_ids` + identical `memory_ids` across all 5 compositions).
+7. K6.4 `proper_noun` heuristic reproducibly false-positives on sentence-initial capitalised tokens (defect status, bounded follow-up as Q-270-16).
+8. Final-output technical vocabulary reliability remains **imperfect** under minimal directives; explicit vocabulary/technical-accessibility guidance **appears reliability-enhancing** for final-output vocabulary handling (`f0e0a7bf` verbose specimen is the only one whose accepted output consistently closed the API gap).
+
+**TENTATIVE (per §13.25.2 after §13.28 upgrade):**
+
+- Register-vs-knowledge-boundary asymmetry (Hypothesis B in §13.24.11.6) — SUPPORTED across two adult-audience specimens, but §13.28 introduces a competing causal explanation (corrective-pass audience-invariance) that is equally consistent with the evidence.
+- Directive minimalism (Q-270-9) — 41-char label achieved preservation fully + ~90% of vocabulary-translation adaptation; verbose CHANGE clauses buy the last ~10% in final-output.
+- **First-pass-vs-corrective-pass audience-invariance regression (upgraded from one-specimen diagnostic to cross-specimen pattern by §13.28)** — 2 of 3 minimal-directive audience-conditioned specimens exhibited technical-term reintroduction between first and corrective passes. Directionally strong but still bounded by small n.
+
+**OPEN (per §13.25.3 priority-reordered per §13.28):**
+
+- **HIGH: Q-270-15** — corrective-pass audience-invariance investigation (audit-first, no paid render needed for the initial audit step).
+- **MEDIUM: Q-270-12** — minimal audience + one bounded technical-accessibility clause (reordered below Q-270-15 because its premise is potentially wrong).
+- LOW: Q-270-10, Q-270-11 (narrow reliability questions, largely subsumed by §13.28 evidence).
+- OPEN: Q-270-2 (eventual seam architecture), Q-270-6 (dialogue_scene), Q-270-7 (`who_you_help` label rename), Q-270-16 (K6.4 verifier defect — not audience-related).
+
+**CORRECTED / SUPERSEDED (per operator instruction "Do not delete historical wording"):**
+
+- §13.21.10.6 register-vs-knowledge-boundary reading — **REFRAMED** in §13.24.1 as under-determined by one specimen; historical wording preserved.
+- §13.25.1 "IS load-bearing" language — **REPHRASED** to "appears reliability-enhancing for final-output vocabulary handling"; historical claim strength weakened based on §13.28 re-audit.
+- §13.24.11.6 "the one genuinely load-bearing category" claim — **still directionally supported** but now bounded: load-bearing for **final-output reliability**, not proven causally necessary.
+- Reasoning behind NarrativeMemory non-promotion across SESSION 270 — **REFRAMED** in §13.24.4 from story-based (*"Patch keeps planning, not doing"*) to substrate-based (*"controlled audience rerenders intentionally freeze story state"*). Verdicts unchanged.
+
+### §14.3 Story-progression lesson preserved
+
+Preserving Chris's story-progression correction from §13.24.4 into the closeout so future sessions do not repeat the interpretation mistake:
+
+- **AUDIENCE DOGFOOD** — same story, different listener, no expected state progression. Reusing the same Episode is a control, NOT a story failure. Patch ending on *"I want to try it"* under audience conditioning is CORRECT behaviour for a non-progressive substrate.
+- **UNIVERSE STORY DOGFOOD** — new Episode intent authorises story progression; NarrativeMemory promotion may become appropriate; different NarrativeMemory retrieval + potential canon growth.
+- These are DIFFERENT modes. Do not mix them in a single render.
+
+### §14.4 Runtime state at closeout
+
+Verified before commit:
+
+- Working tree: **clean**.
+- Local `main == origin/main == 838106c` (pre-closeout HEAD; this closeout will produce a new HEAD).
+- Celery worker PID **69005**, canonical local-real, `0` env-var hits (post-Q-270-13 deactivation worker per §13.26).
+- Resolver `_resolve_solo_audience_hint(MagicMock(params={}))` → `None`.
+- Django `http=302`, media-engine `status=ok` (`any_mock=false`, `llm_provider=openai`, `llm_model=gpt-4o-mini`), Vite `http=200`.
+- NarrativeMemory pool in Patch' Workshop Universe: **14 active + 1 archived** — unchanged across the entire SESSION 270 sequence.
+- Frozen SESSION 270 evidence sidecars present + intact: `01_composition_f0e0a7bf`, `02_composition_9880eb93`, `03_composition_0b3c1fc1`, `04_composition_c3ff972d`.
+- SESSION 269 baseline sidecar (`06_composition_2ef5ee7e`) intact in its own directory.
+- Transient audience-hint research plumbing (`shell/apps/compositions/primitives/avatar_speech.py::_resolve_solo_audience_hint` + kwarg through `build_render_brief` / `synthesize_with_duration_gate` / `_assemble_task_message`) **still present** — status remains "experimental research plumbing". No removal authorised. Any decision to remove or productise must be a deliberate future slice.
+
+### §14.5 Handoff to SESSION 271
+
+Separate handoff document created at `docs/design/SESSION_271_HANDOFF.md`. Key summary here:
+
+- Two clean starting workstreams: (1) **Patch story progression** on a NEW Episode intent, (2) **Q-270-15 corrective-pass audience-invariance audit** (starts with frozen-evidence audit, no paid render required for the initial step).
+- SESSION 270 methodology (`AUDIT / ORIENT → falsifiable question → smallest change → real UI dogfood → freeze evidence → interpret → durable doc → commit`) carries forward.
+- Verification hierarchy (`SOURCE IMPLEMENTED → TESTED → LIVE VISIBLE → OPERATOR REACHABLE`) carries forward.
+- Non-promotion discipline (*good content ≠ memory-worthy event*, *audience rerender ≠ story progression*) carries forward.
+
+### §14.6 SESSION 270 CLOSEOUT commit
+
+- Closeout commit: `<populated after commit>`.
+- Push: `<populated after commit>`.
+- Working tree state at closeout: `<populated after commit>`.
+
+---
+
+**SESSION 270 CLOSED.** Central audience-aware character-performance question answered YES with bounded end-to-end pipeline caveat. Five specimens graded, evidence frozen in four session_270 sidecars + one session_269 baseline sidecar. Interpretation corrections applied per §13.24.1 + §13.28. Causal language weakened per §13.28 re-audit. Q-270-15 elevated to HIGH priority. SESSION 271 handoff created. NarrativeMemory pool unchanged 14+1. Runtime clean. Transient audience-hint research plumbing preserved as experimental — no permanent architecture introduced. **Do NOT begin SESSION 271 work in this slice.**
 
