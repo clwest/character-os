@@ -4092,10 +4092,10 @@ Runtime was already in canonical mode from §128 cleanup — Trial 5 rendered on
 
 ## §142. Slice 7 Phase 2 Trial 5 commit + push record
 
-- Commit SHA: `<pending — populated after commit>`
-- Push: `<pending>`
-- Local `main == origin/main`: `<verified at commit time>`
-- Working tree at slice close: `<verified clean>`
+- Commit SHA: `bcbd3a2` — `docs(session-271): Slice 7 Phase 2 Trial 5 — Composition 62d68b17 forensics (activation gap; verdict E — INCONCLUSIVE for E-KNOWLEDGE-1 replication)`.
+- Push: `540fd2f..bcbd3a2 main -> main` (successful).
+- Local `main == origin/main == bcbd3a2` verified.
+- Working tree at slice close: clean.
 - Files touched:
   - `docs/design/session_271_experiment_data/05_composition_62d68b17_e_knowledge_1_trial5_evidence.json` (NEW evidence sidecar)
   - `docs/design/SESSION_271_CORRECTIVE_PASS_AUDIENCE_INVARIANCE_AUDIT.md` §131-§143 appended
