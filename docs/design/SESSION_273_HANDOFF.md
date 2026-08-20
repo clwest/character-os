@@ -96,7 +96,7 @@ SESSION 272 was a deep multi-slice causal investigation. SESSION 273 should rega
 
 ## §H. SESSION 272 CLOSEOUT COMMIT + PROVENANCE
 
-- SESSION 272 CLOSEOUT commit: **`_SHA_recorded_after_commit_`** (populated by the CLOSEOUT commit step)
+- SESSION 272 CLOSEOUT commit: **`0c17b7d`** — `docs(session-272): §22 CLOSEOUT + SESSION 273 handoff`
 - Slice F production fix commit: `14e49b1`
 - Slice G forensics commit: `55369c0`
 - Full commit trail from SESSION 272 open to close available via `git log --oneline docs/design/SESSION_272_*.md docs/design/session_272_experiment_data/`.

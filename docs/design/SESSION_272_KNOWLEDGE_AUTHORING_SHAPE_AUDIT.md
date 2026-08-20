@@ -2411,13 +2411,11 @@ Future researchers should be able to reconstruct SESSION 272 from these artifact
 
 ### §22.8 SESSION 272 CLOSEOUT commit SHA
 
-- SESSION 272 CLOSEOUT commit: **`_SHA_recorded_after_commit_`**
-- Push status: **`_recorded_after_push_`**
-- Working tree at CLOSEOUT: **clean**
+- SESSION 272 CLOSEOUT commit: **`0c17b7d`** — `docs(session-272): §22 CLOSEOUT + SESSION 273 handoff`
+- Push: `55369c0..0c17b7d main -> main` (successful)
+- Working tree at CLOSEOUT: clean
 - Slice F production commit: `14e49b1`
 - Slice G forensics commit: `55369c0`
-
-*(Populated by the CLOSEOUT commit step.)*
 
 ---
 
