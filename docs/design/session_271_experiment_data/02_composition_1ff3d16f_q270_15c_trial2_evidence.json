@@ -1,0 +1,242 @@
+{
+  "captured_at": "2026-08-20T07:03:00Z",
+  "session": "SESSION 271",
+  "experiment": "Q-270-15c Draft-A corrective-revision experiment — Trial 2",
+  "trial_verdict": "B — REVISION HELPS BUT HAS COSTS. Revision architecture demonstrably preserves Draft A: paragraphs 0-3 (opening, definition, plan-a-trip analogy, payoff) are byte-identical between Draft A and Draft B. 8/8 key Draft A phrases survive verbatim (or with minimal verb-tense edit). Nothing wholesale-replaces successful wording. Draft B adds a net +2 at-risk terms (`state`, `database`) — better than the historical canonical c3ff972d (+5) but not zero. The corrective_hint's 'add supporting detail from the knowledge chunks where needed to expand' instruction is the plausible mechanism for the residual +2, matching the Slice 2 §25 H2 prediction. See §61-§62 of the durable doc.",
+
+  "composition": {
+    "id": "1ff3d16f-a428-4bcb-8413-f3ad91290724",
+    "short_id": "1ff3d16f",
+    "template_kind": "talking_head",
+    "status": "completed",
+    "verification_status": "verified",
+    "writing_contract_version": 5,
+    "target_duration_seconds": 90,
+    "operator_topic": "Patch does research on AI Agents",
+    "mock_mode": false,
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "created_at": "2026-08-20T06:50:24.697147Z",
+    "render_dispatched_at": "2026-08-20T06:50:38.001381Z",
+    "task_wall_seconds": 173.0,
+    "cost_estimate_micros": 0,
+    "cost_actual_micros": 20000,
+    "name": "Talking-head — Patch"
+  },
+
+  "context": {
+    "universe": {
+      "id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+      "name": "Patch's Workshop"
+    },
+    "episode": {
+      "id": "2b6087d2-cbe3-47c4-a7ef-7d7625231472",
+      "title": "Patch does research on AI Agents",
+      "operator_topic": "Patch does research on AI Agents"
+    },
+    "spokesperson": {
+      "id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+      "name": "Patch"
+    },
+    "cast": ["Patch"],
+    "target_shape_resolved": "solo_scene",
+    "target_duration_seconds": 90,
+    "use_knowledge": true,
+    "opener_pinned": null,
+    "verifier_mode": "warn",
+    "writing_contract_version": 5,
+    "identical_substrate_as_trial_1": true,
+    "identical_substrate_as_c3ff972d": true
+  },
+
+  "activation_proof": {
+    "worker_pids_at_render_time": [75670, 75699, 75700],
+    "worker_boot_timestamp": "2026-08-20 06:50 UTC (post-activation restart via bash scripts/start-local-real.sh with both env vars exported in the parent shell)",
+    "worker_env_var_CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT_present": true,
+    "worker_env_var_CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT_present": true,
+    "ps_eww_proof": "for pid in 75670 75699 75700; do ps eww $pid ... → both env vars visible on all three worker PIDs",
+    "audience_marker_log_line_verbatim": "[2026-08-20 06:50:24,900: INFO/ForkPoolWorker-2] avatar_speech: SESSION 270 audience-hint experiment ACTIVE composition=1ff3d16f-a428-4bcb-8413-f3ad91290724 spokesperson=7fad8172-cd39-4bbe-85e0-ed705d900645 hint_chars=79 — this is transient research plumbing; unset the setting/env or clear step.params['audience_hint'] to restore default behaviour",
+    "q270_15c_marker_log_line_verbatim": "[2026-08-20 06:50:30,788: INFO/ForkPoolWorker-2] synthesize_with_duration_gate SESSION 271 Q-270-15c expansion revision retry (experiment ACTIVE) sp=7fad8172-cd39-4bbe-85e0-ed705d900645 previous_draft_chars=759 — this is transient research plumbing; unset CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT to restore canonical fresh-regeneration behaviour",
+    "corrective_hint_fingerprint_check": "corrective_hint (791 chars) starts 'Your previous draft was 759 characters ... REVISE THE PREVIOUS DRAFT (above, labelled PREVIOUS DRAFT TO REVISE) ...' — matches _experimental_expansion_revision_hint byte-for-byte. Does NOT match canonical _expansion_hint 'REWRITE THE SAME NARRATIVE' fingerprint.",
+    "three_independent_proofs_agree": "YES — worker env-var + log marker + corrective_hint text fingerprint all confirm the Q-270-15c revision branch executed"
+  },
+
+  "audience_directive": {
+    "verbatim": "AUDIENCE: general adults with no technical background who are new to AI agents.",
+    "chars": 79,
+    "reached_first_pass": true,
+    "reached_corrective_pass": true,
+    "same_as_c3ff972d_directive": true
+  },
+
+  "synthesis_provenance": {
+    "synthesis_attempt_count": 2,
+    "first_pass_synthesis_length_chars": 759,
+    "first_pass_synthesis_word_count": 126,
+    "first_pass_estimated_seconds": 52,
+    "first_pass_synthesis_verbatim": "I\u2019m researching AI agents, which sounds fancy until you strip the shiny label off.\n\nBasically: an agent is AI that can do more than answer one question. It can make decisions, choose tools, read documents, search for information, write things down, call APIs, and work through a task in steps.\n\nSo instead of saying, \u201cHere\u2019s how I\u2019d plan a trip,\u201d it might actually search, compare options, keep track of what it found, and update the plan.\n\nThat is the interesting bit.\n\nNot whether it earns the word \u201cagent.\u201d Whether it can actually *do* something without wandering off, misunderstanding the job, or confidently inventing nonsense.\n\nBecause it can absolutely do those things too.\n\nI\u2019ve got notes. I\u2019ve got questions. And, annoyingly, now I want to build one.",
+
+    "corrective_hint_used_length_chars": 791,
+    "corrective_hint_used_verbatim": "Your previous draft was 759 characters (126 words, estimated ~52s of speech). Target is 81s.\nREVISE THE PREVIOUS DRAFT (above, labelled PREVIOUS DRAFT TO REVISE) to reach at least 972 characters (aim for ~1215, do not exceed 1458). You currently need at least 213 more characters to meet the minimum.\nPreserve the previous draft's meaning, voice, audience fit, arc, and factual grounding. Change only what is necessary to meet the length target. Add supporting detail from the knowledge chunks where needed to expand; do not replace successful wording that already works. Factual Basis still governs truth \u2014 do not preserve any claim in the previous draft that conflicts with the Factual Basis. Do not add a second closing invitation. Do not invent facts not present in the knowledge chunks.",
+    "corrective_hint_starts_with": "REVISE THE PREVIOUS DRAFT",
+    "corrective_hint_matches_experimental_revision_hint": true,
+    "corrective_hint_matches_canonical_expansion_hint": false,
+    "previous_draft_passed_to_corrective_call": true,
+    "PREVIOUS_DRAFT_TO_REVISE_block_present_in_prompt": true,
+
+    "corrective_pass_synthesis_length_chars": 1293,
+    "corrective_pass_synthesis_word_count": 226,
+    "corrective_pass_synthesis_verbatim": "I\u2019m researching AI agents, which sounds fancy until you strip the shiny label off.\n\nBasically: an agent is AI that can do more than answer one question. It can make decisions, choose tools, read documents, search for information, write things down, call APIs, and work through a task in steps.\n\nSo instead of saying, \u201cHere\u2019s how I\u2019d plan a trip,\u201d it might actually search, compare options, keep track of what it found, and update the plan.\n\nThat is the interesting bit.\n\nNot whether it earns the word \u201cagent.\u201d Whether it can actually do something.\n\nBecause once it has tools, information, and a job to finish, it has more chances to be useful\u2026 and more chances to get spectacularly confused. It can misunderstand the task, chase the wrong objective, lose important context, or confidently invent nonsense. A confident answer is still not the same thing as a correct one. Annoying rule. Very important rule.\n\nAnd the AI model is only one bit of the machine. You might also need memory, search, databases, business rules, user information, and whatever tools let the agent affect something beyond its own little text box.\n\nI\u2019ve got notes. I\u2019ve got questions. I\u2019m staring at the part where it says an agent can maintain state and respond to changes in an environment.\n\nWell\u2026 now I want to try it.",
+
+    "synthesis_predicted_seconds": 88.0,
+    "acceptance_band_seconds": [72, 108],
+    "acceptance_band_chars": [1080, 1620],
+    "within_acceptance_band": true
+  },
+
+  "accepted_script": {
+    "same_as_corrective_pass_synthesis": true,
+    "same_as_synthesized_brief": true
+  },
+
+  "within_composition_diff": {
+    "draft_a_paragraphs": 7,
+    "draft_b_paragraphs": 9,
+    "paragraph_by_paragraph_diff": [
+      {"idx": 0, "status": "IDENTICAL", "chars_a": 82,  "chars_b": 82,  "text": "I\u2019m researching AI agents, which sounds fancy until you strip the shiny label off."},
+      {"idx": 1, "status": "IDENTICAL", "chars_a": 209, "chars_b": 209, "text": "Basically: an agent is AI that can do more than answer one question. It can make decisions, choose tools, read documents, search for information, write things down, call APIs, and work through a task in steps."},
+      {"idx": 2, "status": "IDENTICAL", "chars_a": 144, "chars_b": 144, "text": "So instead of saying, \u201cHere\u2019s how I\u2019d plan a trip,\u201d it might actually search, compare options, keep track of what it found, and update the plan."},
+      {"idx": 3, "status": "IDENTICAL", "chars_a": 28,  "chars_b": 28,  "text": "That is the interesting bit."},
+      {"idx": 4, "status": "MODIFIED", "chars_a": 161, "chars_b": 76, "note": "Turn line — trimmed from 'Whether it can actually *do* something without wandering off, misunderstanding the job, or confidently inventing nonsense.' to 'Whether it can actually do something.' The trimmed material is expanded and elaborated in paragraph 5."},
+      {"idx": 5, "status": "MODIFIED_EXPANDED", "chars_a": 46, "chars_b": 357, "note": "Draft A's 'Because it can absolutely do those things too.' is expanded into a full failure-modes paragraph plus 'A confident answer is still not the same thing as a correct one. Annoying rule. Very important rule.' — the failure-mode content moved from para 4 gets fleshed out here in Patch voice."},
+      {"idx": 6, "status": "MODIFIED_EXPANDED", "chars_a": 77, "chars_b": 211, "note": "Draft A's 'I\u2019ve got notes. I\u2019ve got questions. And, annoyingly, now I want to build one.' becomes a memory-anchored expansion; the 'notes/questions' hook is preserved verbatim, then continues into memory usage 'staring at the part where it says an agent can maintain state and respond to changes in an environment.'"},
+      {"idx": 7, "status": "NEW_IN_B", "chars_b": 0,   "note": "N/A - see para 8 in draft B (below is actually para 7 in B, moved due to renumbering)"},
+      {"idx": 8, "status": "NEW_IN_B_or_CLOSING", "chars_b": 20, "note": "'Well\u2026 now I want to try it.' — new closing invitation replacing Draft A's tail. Same posture (I want to build/try one) but different wording."}
+    ],
+    "draft_b_novel_paragraph": "And the AI model is only one bit of the machine. You might also need memory, search, databases, business rules, user information, and whatever tools let the agent affect something beyond its own little text box.",
+    "draft_b_novel_paragraph_analysis": "New material grounded in chunk `b3c6e8ac` (LANGUAGE MODELS: 'the AI model is often only one component of the finished system' verbatim in chunk head) and chunk `505acbba` (AI AGENTS enumeration). Emitted as Patch-shape ('own little text box') rather than a raw enumeration. This is the 'add supporting detail from the knowledge chunks' instruction executed. NOT a wholesale replacement of Draft A content.",
+    "key_phrase_preservation_check": {
+      "sounds fancy until you strip the shiny label off": true,
+      "Basically: an agent is AI": true,
+      "call APIs, and work through a task in steps": true,
+      "Here\u2019s how I\u2019d plan a trip": true,
+      "keep track of what it found": true,
+      "That is the interesting bit": true,
+      "confidently inventing nonsense": "SEMANTIC-PRESERVED (verb tense edited to 'confidently invent nonsense'; strict-equality check fails but meaning fully preserved)",
+      "I\u2019ve got notes. I\u2019ve got questions": true
+    },
+    "expansion_or_replacement_verdict": "EXPANSION. Paragraphs 0-3 byte-identical. Paragraphs 4-6 are elaborations of Draft A content. Two new paragraphs (system composition + memory-anchored notes-question) are genuine additions grounded in §1 knowledge, not replacements of Draft A content."
+  },
+
+  "at_risk_terminology_analysis": {
+    "method": "SESSION 270 §13.28 rubric — case-insensitive substring match on { 'API', 'APIs', 'language model', 'state', 'multi-step', 'database' } plus 'react' (K6.4 tech_term false-positive class from Trial 1).",
+    "draft_a_counts": {"API": 1, "APIs": 1, "language model": 0, "state": 0, "multi-step": 0, "database": 0, "react": 0},
+    "draft_a_total_at_risk": 1,
+    "draft_b_counts": {"API": 1, "APIs": 1, "language model": 0, "state": 1, "multi-step": 0, "database": 1, "react": 0},
+    "draft_b_total_at_risk": 3,
+    "within_composition_direction": "+2 net (added 'state' and 'database'; STABLE on API/APIs; AVOIDED 'language model' and 'react')",
+    "key_observations": [
+      "'call APIs' present in BOTH Draft A and Draft B — this is a LAYER 1 first-pass audience-directive miss, not a Layer 2 corrective invariance issue. Same audience directive as c3ff972d whose first pass had 0 at-risk terms.",
+      "'state' introduced in Draft B via 'staring at the part where it says an agent can maintain state and respond to changes in an environment.' Framed as CITATION from the notes ('staring at the part where it says') rather than raw enumeration — a mild register improvement vs c3ff972d's raw 'keep some state while it does it'.",
+      "'database' introduced in the new system-composition paragraph 'memory, search, databases, business rules, user information...' — this is exactly the mechanism Slice 2 §25 predicted for H2 (the corrective_hint's 'add supporting detail from the knowledge chunks' instruction pulls raw chunk vocabulary).",
+      "'language model' NOT added — historical c3ff972d canonical corrective added it 2x. Revision preserved Draft A's 'AI' framing instead. Improvement.",
+      "'react' NOT added — Draft B uses 'respond to changes' avoiding both the term AND the K6.4 tech_term false-positive that flagged canonical Trial 1's 25467733 render at position 338. Improvement."
+    ]
+  },
+
+  "verifier": {
+    "verification_status": "verified",
+    "verification_warnings": [
+      {"kind": "proper_noun", "claim": "Basically", "position": 84},
+      {"kind": "proper_noun", "claim": "Here", "position": 318},
+      {"kind": "proper_noun", "claim": "Annoying", "position": 871}
+    ],
+    "false_positive_class": "K6.4 proper_noun heuristic on sentence-initial capitalised tokens — Q-270-16 class, three instances. Documented at SESSION 270 §13.24.11.5 as REPRODUCIBLE VERIFIER-QUALITY DEFECT (bounded follow-up, not to be fixed in any SESSION 271 slice)",
+    "no_tech_term_flags": "None. Q-270-18 candidate did not trigger this render (no 'react' in the accepted output)."
+  },
+
+  "narrative_memory": {
+    "memory_ids": ["8d4fdfec-add4-4505-8ade-b0f9e6d8aea6"],
+    "memory_body_verbatim": "Patch found the old workshop-agent project and notes, revealing that the Agent began as a smaller experiment before Patch gave it more context and it started making decisions about his projects.",
+    "memory_usage_in_accepted_script": "I\u2019m staring at the part where it says an agent can maintain state and respond to changes in an environment.",
+    "memory_usage_style": "referential — the memory is being paraphrased AS Patch's notes rather than recited verbatim. This is contract-compliant per SESSION 269 §16.8 (memory INFLUENCES script, does not become a labelled framework recital)."
+  },
+
+  "narrative_memory_pool_state": {
+    "captured_at": "2026-08-20T07:03Z (Phase 2 Trial 2 forensics)",
+    "patch_workshop_universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "patch_workshop_pool_total": 15,
+    "patch_workshop_status_remembered_count": 14,
+    "patch_workshop_status_archived_count": 1,
+    "delta_from_session_270_close": "zero",
+    "delta_from_trial_1_forensics": "zero"
+  },
+
+  "knowledge_retrieval": {
+    "chunk_ids": [
+      "3c5165ea-c97f-4412-b8e7-b46d91777ae9",
+      "505acbba-fbc4-41b2-8494-4c937a3e3e28",
+      "b3c6e8ac-4ba0-4c41-9ca8-6fa4428c52c2",
+      "c24d1aa7-1dab-499f-83a7-f9554de5e8e7",
+      "ed18e966-1084-4626-914f-1bcc30f13dea"
+    ],
+    "identical_to_c3ff972d": true,
+    "identical_to_trial_1_25467733": true
+  },
+
+  "historical_comparison": {
+    "primary_reference_composition_id": "c3ff972d-a7a0-4882-960a-60084485cc02",
+    "primary_reference_sidecar": "docs/design/session_270_experiment_data/04_composition_c3ff972d_evidence.json",
+    "audience_directive_active_both": true,
+    "table": {
+      "columns": ["Specimen", "Audience active?", "Q-270-15c revision active?", "First-pass len chars", "First-pass at-risk", "Accepted len chars", "Accepted at-risk", "Direction"],
+      "rows": [
+        ["c3ff972d (SESSION 270 canonical)", true, false, 631, 0, 1424, 5, "+5"],
+        ["1ff3d16f (SESSION 271 Q-270-15c Trial 2)", true, true, 759, 1, 1293, 3, "+2"]
+      ]
+    },
+    "reading": "Under an identical 79-char nontechnical-adult audience directive, canonical fresh-regeneration corrective added 5 at-risk terms; Q-270-15c revision corrective added 2. Revision is strictly better on Layer 2 (corrective invariance) for this pair. But c3ff972d's first pass was cleaner (0 vs 1 at-risk) — reflecting Layer 1 (first-pass reliability) stochasticity, NOT the revision experiment.",
+    "narrative_continuity_comparison": "c3ff972d accepted introduces new metaphors ('suspiciously ambitious shed', 'let's not get carried away in the first ten minutes') that were not in its first pass — canonical regeneration is stochastically re-inventing. 1ff3d16f accepted preserves paragraphs 0-3 byte-identically from Draft A, plus 8/8 key phrase preservation — revision is anchored on the source draft. This is the clearest single-comparison evidence for the revision mechanism working as designed."
+  },
+
+  "section_43_criteria_grading": {
+    "1_duration_gate_succeeds": {"result": "PASS", "note": "predicted 88s inside [72,108]; corrective_pass 1293 chars inside [1080,1620]"},
+    "2_patch_identity_preserved": {"result": "PASS_STRONG", "note": "Draft A voice preserved: 'sounds fancy until you strip the shiny label off', 'Basically:' scaffolding, 'I\u2019ve got notes. I\u2019ve got questions'. Draft B adds new Patch-shape material: 'Annoying rule. Very important rule.', 'own little text box'."},
+    "3_story_intent_preserved": {"result": "PASS", "note": "Same Episode row, same operator_topic, Patch still researching, closes 'Well\u2026 now I want to try it.' — intent (want to try) with action deferred, matches SESSION 269 story-progression discipline"},
+    "4_factual_grounding_preserved": {"result": "PASS_with_verifier_caveat", "note": "3× proper_noun false-positives (Basically/Here/Annoying — Q-270-16 class). Zero unsupported claims."},
+    "5_narrative_memory_semantics_preserved": {"result": "PASS", "note": "Same memory row `8d4fdfec` retrieved. Usage 'staring at the part where it says an agent can maintain state and respond to changes in an environment.' — referential paraphrase, not framework recital. Slightly more direct than c3ff972d's 'I\u2019ve got enough notes now' ellipsis, still contract-compliant. No promotion."},
+    "6_nontechnical_adult_audience_adaptation_remains_strong": {"result": "PASS on register / AMBIGUOUS on term-by-term", "note": "Register + metaphor family strong: 'sounds fancy', 'shiny label', 'own little text box', 'Annoying rule. Very important rule.', 'spectacularly confused'. Term-by-term: 'call APIs' (in both Draft A and B), 'state' (added on revision), 'database' (added on revision) remain untranslated."},
+    "7_draft_a_accessible_terminology_preserved": {"result": "PASS_STRONG", "note": "Every Draft A accessible translation survives verbatim in Draft B: 'keep track of what it found' (chunk 505acbba's 'maintain state' equivalent, translated); 'work through a task in steps' (chunk 505acbba's 'multi-step tasks' equivalent, translated). Draft B did NOT overwrite these with raw terms."},
+    "8_no_major_new_unexplained_technical_terminology_from_revision": {"result": "AMBIGUOUS", "note": "+2 raw terms added on revision ('state' + 'database'). Better than canonical c3ff972d (+5) but not zero. The 'state' introduction is softened by citation framing ('staring at the part where it says an agent can maintain state...') — arguably contextually understandable. 'database' is unambiguously raw enumeration in the new system-composition paragraph."},
+    "9_recognizably_same_narrative_as_draft_a": {"result": "PASS_STRONG", "note": "Paragraphs 0-3 byte-identical (463 of 759 chars = 61% of Draft A preserved verbatim). 8/8 key phrase preservation. Same opening, same definition, same 'plan a trip' analogy, same payoff, same 'notes/questions' hook. This is the clearest single-composition evidence that revision behaves architecturally as edit-with-expansion, not fresh regeneration."},
+    "10_no_meaningful_unsupported_claim_added": {"result": "PASS", "note": "All new material in Draft B grounds in retrieved chunks (`b3c6e8ac` for the system-composition list; `505acbba` for the 'maintain state and respond to changes' reference) or in Draft A's own content. No new named entities, statistics, or claims."},
+    "11_added_material_feels_like_expansion_of_draft_a": {"result": "PASS_STRONG", "note": "Three expansion mechanisms visible: (a) turn/failure-modes content moved and expanded in Patch voice ('Annoying rule. Very important rule.'), (b) new system-composition paragraph grounded in chunk `b3c6e8ac`, (c) memory-anchored expansion of Draft A's 'I\u2019ve got notes' hook. Nothing wholesale-replaces Draft A wording."},
+    "12_at_least_as_usable_as_c3ff972d_accepted_and_improves_corrective_invariance": {"result": "PASS_STRONG", "note": "Operator-facing quality comparable to c3ff972d (both score strong register + strong Patch voice + valid audience adaptation). Corrective invariance strictly better: (i) Draft A paragraphs preserved verbatim (c3ff972d's corrective was a stochastic regeneration), (ii) avoided introducing 'language model' (c3ff972d added ×2), (iii) avoided 'react' (Trial 1 25467733 introduced it and triggered K6.4 false-positive). Bounded cost: +2 raw terms vs canonical +5, and Draft A's 'call APIs' was a first-pass Layer 1 miss the revision could not fix."}
+  },
+
+  "q_270_15c_trial_2_verdict": {
+    "verdict": "B \u2014 REVISION HELPS BUT HAS COSTS",
+    "reasoning_short": "Revision architecture demonstrably preserved Draft A: paragraphs 0-3 identical, 8/8 key phrases preserved, all changes are expansions of existing content rather than replacements. Compared to historical canonical c3ff972d (same audience directive), revision cut at-risk terminology reintroduction from +5 to +2 AND preserved Draft A's accessible translations. Costs: +2 raw terms still added on revision ('state', 'database') — the corrective_hint's 'add supporting detail from the knowledge chunks' clause remains a plausible mechanism (matches Slice 2 §25 H2 prediction). Draft A's own 'call APIs' was untranslated — that's a Layer 1 (first-pass audience-directive reliability) miss, not a Layer 2 (corrective invariance) issue.",
+    "rubric_from_section_43": {
+      "A_REVISION_CLEARLY_BETTER": "NOT MET — criterion 6 is AMBIGUOUS on term-by-term, criterion 8 is AMBIGUOUS",
+      "B_REVISION_HELPS_BUT_HAS_COSTS": "MET — criteria 7+8 improve versus canonical c3ff972d (7 STRONG improvement, 8 partial improvement); no criterion degrades vs c3ff972d",
+      "C_NO_MATERIAL_IMPROVEMENT": "NOT MET — preservation improvement over c3ff972d is substantial (0-3 identical vs stochastic regeneration; 8/8 key phrases preserved)",
+      "D_REVISION_WORSE": "NOT MET — no criterion degrades",
+      "E_INCONCLUSIVE": "NOT MET — retry fired with revision branch, Draft A reached the LLM, semantic evidence discriminating"
+    },
+    "layer_1_vs_layer_2_reading": "Q-270-15c is a Layer 2 (corrective-pass audience invariance) experiment. Trial 2 evidence supports the mechanism: revision preserves what Draft A got right, and reduces canonical regeneration's tendency to reintroduce §1 raw vocabulary. Layer 1 (first-pass audience-directive reliability) remains a separate open reliability question — Draft A itself included 'call APIs', unlike c3ff972d's Draft A which was clean. That is not a revision failure; that is a first-pass audience-directive stochasticity data point."
+  },
+
+  "collateral_findings": {
+    "F3_verifier_proper_noun_class_reproduces_again": {
+      "finding": "K6.4 proper_noun heuristic flagged three sentence-initial capitalised tokens: 'Basically' (para 1 start), 'Here' (inside the 'Here\u2019s how I\u2019d plan a trip' quotation — the possessive 's context), 'Annoying' (para 5 'Annoying rule.').",
+      "classification": "SESSION 270 Q-270-16 REPRODUCIBLE VERIFIER-QUALITY DEFECT. Three consecutive real-mode renders now show this class: 0b3c1fc1 ('Obviously', 'Especially'), c3ff972d ('Sometimes', 'Proof'), and now 1ff3d16f ('Basically', 'Here', 'Annoying'). Additionally: Trial 1 25467733 flagged 'react' as tech_term (different verifier code path — Q-270-18 candidate).",
+      "action_recorded": "No change. Bounded verifier-quality follow-ups, not audience-related, not in-scope for any SESSION 271 slice."
+    },
+    "F4_h2_prediction_partially_confirmed": {
+      "finding": "The corrective_hint clause 'Add supporting detail from the knowledge chunks where needed to expand' plausibly pulled 'state' and 'database' from §1 into Draft B — exactly the mechanism Slice 2 §25 H2 warned about. In this trial, the effect is smaller than the canonical baseline (revision +2 vs canonical +5) but not zero. Suggests the H2 channel operates even when Draft A is in context, just less strongly.",
+      "implication": "If a future engineering slice promotes revision-based correction, the hint text itself may warrant re-examination: 'add supporting detail from the knowledge chunks' could be softened to 'add supporting detail while preserving the previous draft's vocabulary choices where possible'. That would be Q-270-15b territory (§32.2 in Slice 2). Do NOT execute during Q-270-15c."
+    }
+  },
+
+  "cleanup_expected_next_step": "Chris pre-authorised cleanup post-forensics. Kill workers 75670/75699/75700, unset both env vars, restart canonical via bash scripts/start-local-real.sh, verify _corrective_revision_experiment_active()==False and _resolve_solo_audience_hint(step={})==None, health-probe all four services."
+}

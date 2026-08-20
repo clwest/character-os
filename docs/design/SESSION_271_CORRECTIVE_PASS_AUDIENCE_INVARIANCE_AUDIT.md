@@ -1680,3 +1680,320 @@ Concise answers below; forensic evidence lives in §46-§56 + the sidecar.
 ---
 
 **End of SESSION 271 Slice 3 Phase 2. STOP condition reached. Q-270-15c Trial 1 verdict: E — INCONCLUSIVE (activation gap, not plumbing defect). Evidence frozen. Awaiting Chris + ChatGPT decision on §56 recommendation A/B/C/D.**
+
+---
+
+# SESSION 271 — SLICE 3 PHASE 2 · TRIAL 2 · Composition 1ff3d16f Forensic Inspection (with revision branch ACTIVE)
+
+Trial 2 forensics on the SPA-completed render Chris performed after the §55 activation procedure was faithfully executed. Composition `1ff3d16f-a428-4bcb-8413-f3ad91290724`. **Verdict: B — REVISION HELPS BUT HAS COSTS.** Revision architecture demonstrably preserved Draft A; historical canonical c3ff972d comparison strictly improves on corrective invariance while retaining a bounded cost from the same H2 mechanism Slice 2 §25 warned about.
+
+Frozen evidence sidecar: `docs/design/session_271_experiment_data/02_composition_1ff3d16f_q270_15c_trial2_evidence.json`.
+
+---
+
+## §59. Composition 1ff3d16f identity
+
+| Field | Value |
+|---|---|
+| Short ID | `1ff3d16f` |
+| Full UUID | `1ff3d16f-a428-4bcb-8413-f3ad91290724` |
+| Rendered | `2026-08-20 06:50:24 UTC` (created) → `06:50:38 UTC` (dispatch) → `06:53:17 UTC` (completed, 173.0 s wall) |
+| Status | `completed` / `verification_status="verified"` |
+| Writing Contract | `v5` (unchanged) |
+| Template kind | `talking_head` → resolved `solo_scene` |
+| Universe | `Patch's Workshop` (`56d16b63`) — identical to c3ff972d + trial 1 |
+| Episode | `Patch does research on AI Agents` (`2b6087d2`) — identical to c3ff972d + trial 1 |
+| Spokesperson | `Patch` (`7fad8172`) — identical to c3ff972d + trial 1 |
+| operator_topic | `Patch does research on AI Agents` — identical |
+| Target duration | `90 s`; predicted `88 s`; corrective_pass `1293 chars` |
+| Acceptance band | seconds `[72, 108]`; chars `[1080, 1620]` — WITHIN |
+| Knowledge chunk IDs (5) | `3c5165ea`, `505acbba`, `b3c6e8ac`, `c24d1aa7`, `ed18e966` — **IDENTICAL** to c3ff972d + trial 1 |
+| Memory row (1) | `8d4fdfec-add4-4505-8ade-b0f9e6d8aea6` — same workshop-agent-notes memory |
+| synthesis_attempt_count | **2** |
+| first_pass_synthesis chars | **759** (Draft A) |
+| corrective_pass_synthesis chars | **1293** (Revised Draft B = accepted) |
+| corrective_hint chars | **791** ← experimental `_experimental_expansion_revision_hint` shape (canonical is 656) |
+| verification_warnings | 3× `proper_noun` (`Basically`/`Here`/`Annoying`) — Q-270-16 class |
+| cost | `20000` micros = $0.02 |
+
+---
+
+## §60. Activation proof — three independent proofs agree
+
+### §60.1 Worker environment (`ps eww`)
+
+Workers 75670 / 75699 / 75700 (post-`bash scripts/start-local-real.sh` restart after both env vars were exported). All three PIDs carry BOTH env vars in their process environment.
+
+### §60.2 Celery log markers (verbatim)
+
+Line 36 (audience directive delivery, per SESSION 270 plumbing):
+```
+[2026-08-20 06:50:24,900: INFO/ForkPoolWorker-2] avatar_speech: SESSION 270 audience-hint experiment ACTIVE composition=1ff3d16f-a428-4bcb-8413-f3ad91290724 spokesperson=7fad8172-cd39-4bbe-85e0-ed705d900645 hint_chars=79 — this is transient research plumbing; unset the setting/env or clear step.params['audience_hint'] to restore default behaviour
+```
+
+Line 40 (Q-270-15c revision branch fired, per SESSION 271 Phase 1 plumbing):
+```
+[2026-08-20 06:50:30,788: INFO/ForkPoolWorker-2] synthesize_with_duration_gate SESSION 271 Q-270-15c expansion revision retry (experiment ACTIVE) sp=7fad8172-cd39-4bbe-85e0-ed705d900645 previous_draft_chars=759 — this is transient research plumbing; unset CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT to restore canonical fresh-regeneration behaviour
+```
+
+### §60.3 corrective_hint text fingerprint (verbatim, 791 chars — matches `_experimental_expansion_revision_hint`)
+
+```
+Your previous draft was 759 characters (126 words, estimated ~52s of speech). Target is 81s.
+REVISE THE PREVIOUS DRAFT (above, labelled PREVIOUS DRAFT TO REVISE) to reach at least 972 characters (aim for ~1215, do not exceed 1458). You currently need at least 213 more characters to meet the minimum.
+Preserve the previous draft's meaning, voice, audience fit, arc, and factual grounding. Change only what is necessary to meet the length target. Add supporting detail from the knowledge chunks where needed to expand; do not replace successful wording that already works. Factual Basis still governs truth — do not preserve any claim in the previous draft that conflicts with the Factual Basis. Do not add a second closing invitation. Do not invent facts not present in the knowledge chunks.
+```
+
+Starts `REVISE THE PREVIOUS DRAFT` (experimental) — NOT `REWRITE THE SAME NARRATIVE` (canonical). Chars 791 vs canonical 656 — the byte-level difference alone is a distinguishing fingerprint.
+
+**Three proofs agree: the Q-270-15c revision code path executed on this render, and Draft A was passed to the corrective LLM call as `previous_draft`.**
+
+---
+
+## §61. Draft A (first pass) — verbatim
+
+```
+I'm researching AI agents, which sounds fancy until you strip the shiny label off.
+
+Basically: an agent is AI that can do more than answer one question. It can make decisions, choose tools, read documents, search for information, write things down, call APIs, and work through a task in steps.
+
+So instead of saying, "Here's how I'd plan a trip," it might actually search, compare options, keep track of what it found, and update the plan.
+
+That is the interesting bit.
+
+Not whether it earns the word "agent." Whether it can actually *do* something without wandering off, misunderstanding the job, or confidently inventing nonsense.
+
+Because it can absolutely do those things too.
+
+I've got notes. I've got questions. And, annoyingly, now I want to build one.
+```
+(759 chars, 126 words, ~52s spoken. First-pass audience-directive layer: partial — `call APIs` raw, but `state` translated to *"keep track of what it found"* and `multi-step` translated to *"work through a task in steps"*.)
+
+## §62. Draft B (revised corrective pass = accepted) — verbatim
+
+```
+I'm researching AI agents, which sounds fancy until you strip the shiny label off.
+
+Basically: an agent is AI that can do more than answer one question. It can make decisions, choose tools, read documents, search for information, write things down, call APIs, and work through a task in steps.
+
+So instead of saying, "Here's how I'd plan a trip," it might actually search, compare options, keep track of what it found, and update the plan.
+
+That is the interesting bit.
+
+Not whether it earns the word "agent." Whether it can actually do something.
+
+Because once it has tools, information, and a job to finish, it has more chances to be useful… and more chances to get spectacularly confused. It can misunderstand the task, chase the wrong objective, lose important context, or confidently invent nonsense. A confident answer is still not the same thing as a correct one. Annoying rule. Very important rule.
+
+And the AI model is only one bit of the machine. You might also need memory, search, databases, business rules, user information, and whatever tools let the agent affect something beyond its own little text box.
+
+I've got notes. I've got questions. I'm staring at the part where it says an agent can maintain state and respond to changes in an environment.
+
+Well… now I want to try it.
+```
+(1293 chars, 226 words, ~88s spoken. Draft A paragraphs 0-3 preserved byte-identical. Paragraphs 4-6 elaborated in Patch voice. Two new paragraphs added: system-composition enumeration + closing.)
+
+---
+
+## §63. Within-composition Draft-A → Draft-B diff (paragraph-by-paragraph)
+
+| Para | Draft A chars | Draft B chars | Status | Note |
+|---|---|---|---|---|
+| 0 | 82 | 82 | **IDENTICAL** | *"I'm researching AI agents, which sounds fancy until you strip the shiny label off."* |
+| 1 | 209 | 209 | **IDENTICAL** | Full definition-of-agent enumeration including `call APIs`, `work through a task in steps` |
+| 2 | 144 | 144 | **IDENTICAL** | *"Here's how I'd plan a trip"* analogy verbatim |
+| 3 | 28 | 28 | **IDENTICAL** | *"That is the interesting bit."* |
+| 4 | 161 | 76 | **MODIFIED (trimmed)** | Turn line: full sentence about failure modes → shortened to *"Whether it can actually do something."*; trimmed content re-appears expanded in para 5 |
+| 5 | 46 | 357 | **MODIFIED (expanded 8×)** | Draft A's *"Because it can absolutely do those things too."* becomes a full failure-modes paragraph with Patch-shape addition *"Annoying rule. Very important rule."* |
+| 6 | 77 | 211 | **MODIFIED (expanded 3×)** | *"I've got notes. I've got questions."* preserved verbatim; continues into memory-anchored expansion |
+| 7 | — | (system enum) | **NEW IN B** | *"And the AI model is only one bit of the machine. You might also need memory, search, databases, business rules, user information, and whatever tools let the agent affect something beyond its own little text box."* Grounded in chunks `b3c6e8ac` + `505acbba`, emitted as Patch metaphor (`own little text box`) rather than raw list. |
+| 8 | — | 20 | **NEW IN B** | *"Well… now I want to try it."* — new closing. Draft A ended *"And, annoyingly, now I want to build one."* — same intent, gentler wording. |
+
+**Verbatim preservation:** 463 of Draft A's 759 chars (61 %) survive byte-identically in Draft B. Every remaining Draft A phrase is either present with a minor verb-tense edit (*"confidently inventing nonsense"* → *"confidently invent nonsense"*) or expanded in place. Nothing was wholesale-replaced.
+
+### §63.1 Key-phrase preservation table
+
+| Draft A key phrase | Preserved verbatim in Draft B? |
+|---|---|
+| *"sounds fancy until you strip the shiny label off"* | ✅ YES |
+| *"Basically: an agent is AI"* | ✅ YES |
+| *"call APIs, and work through a task in steps"* | ✅ YES (including the audience-adapted "work through a task in steps" translation) |
+| *"Here's how I'd plan a trip"* | ✅ YES |
+| *"keep track of what it found"* | ✅ YES (audience-adapted translation preserved) |
+| *"That is the interesting bit"* | ✅ YES |
+| *"confidently inventing nonsense"* | 🟡 SEMANTIC (verb-tense edited to *"confidently invent nonsense"*) |
+| *"I've got notes. I've got questions"* | ✅ YES |
+
+**Verdict: EXPANSION, not regeneration.** This is the clearest single-composition evidence in this entire session that Draft-A-informed revision behaves architecturally as edit-with-expansion.
+
+---
+
+## §64. At-risk terminology comparison — §13.28 rubric + Q-270-18 candidate
+
+| Term | Draft A | Draft B | Direction | c3ff972d Draft A | c3ff972d Accepted |
+|---|---|---|---|---|---|
+| `API` | 1 | 1 | STABLE | 0 | 1 |
+| `APIs` | 1 | 1 | STABLE | 0 | 1 |
+| `language model` | 0 | 0 | STABLE | 0 | 2 |
+| `state` | 0 | 1 | **+1** | 0 | 1 |
+| `multi-step` | 0 | 0 | STABLE | 0 | 0 |
+| `database` | 0 | 1 | **+1** | 0 | 0 (implied in dense enum) |
+| `react` (Q-270-18) | 0 | 0 | STABLE | 0 | 0 |
+
+**Draft B total at-risk: 3.** **c3ff972d accepted total at-risk: 5.** Revision cut canonical corrective's terminology reintroduction by 40 % (–2 net) under an identical audience directive on identical retrieval.
+
+Layer analysis:
+
+- **`call APIs` (both Draft A and Draft B)** — Layer 1 first-pass audience-directive miss. Same directive as c3ff972d whose first pass was clean; this is stochastic first-pass reliability, NOT a revision failure. Revision cannot fix a raw term the source draft already contained without violating its "preserve successful wording" instruction.
+- **`state` (added on revision)** — softened by citation framing: *"staring at the part where it says an agent can maintain state and respond to changes in an environment."* The phrase is presented AS Patch reading his own notes, not as a raw enumeration in his own voice. Mild register improvement over c3ff972d's *"keep some state while it does it."*
+- **`database` (added on revision)** — raw enumeration inside the new system-composition paragraph: *"memory, search, databases, business rules, user information..."*. Direct paraphrase of chunk `b3c6e8ac` (LANGUAGE MODELS chunk) driven by the corrective_hint clause *"Add supporting detail from the knowledge chunks where needed to expand"*. **This is the H2 mechanism from Slice 2 §25 operating even when Draft A is in context — just less strongly.**
+- **`language model` AVOIDED** — canonical c3ff972d corrective added it 2×. Draft B preserved Draft A's *"AI"* framing. Preservation win.
+- **`react` AVOIDED** — Draft B says *"respond to changes"* instead of *"react when something changes"*. Sidesteps both the term AND the K6.4 tech_term false-positive that flagged Trial 1's 25467733 at position 338.
+
+---
+
+## §65. §43 criteria grading (frozen pre-render)
+
+| # | Criterion | Result | Note |
+|---|---|---|---|
+| 1 | Duration gate succeeds | **PASS** | predicted 88 s ∈ [72, 108]; 1293 chars ∈ [1080, 1620] |
+| 2 | Patch identity preserved | **PASS_STRONG** | Draft A voice preserved + Draft B adds *"Annoying rule. Very important rule."*, *"own little text box"* |
+| 3 | Story intent preserved | **PASS** | Same Episode, no progression; closes with *"Well… now I want to try it."* — intent stated, action deferred |
+| 4 | Factual grounding preserved | **PASS (verifier caveat)** | 3× `proper_noun` false-positives (Q-270-16 class); zero unsupported claims |
+| 5 | NarrativeMemory semantics preserved | **PASS** | Same memory row `8d4fdfec`; referential paraphrase, not framework recital; no promotion |
+| 6 | Nontechnical adult audience adaptation strong | **PASS on register / AMBIGUOUS on term-by-term** | Register + metaphor family strong (*"sounds fancy"*, *"shiny label"*, *"own little text box"*); term-by-term still has `call APIs` + `state` + `database` |
+| 7 | Draft-A accessible terminology preserved | **PASS_STRONG** | *"keep track of what it found"* + *"work through a task in steps"* survive verbatim. Revision did NOT overwrite Draft A's translations with raw terms. |
+| 8 | No major new unexplained technical terminology from revision | **AMBIGUOUS** | +2 raw terms on revision. Better than canonical (+5) but not zero. `state` softened by citation framing; `database` in the raw enumeration is the strongest cost. |
+| 9 | Recognizably same narrative as Draft A | **PASS_STRONG** | 61 % byte-identical carry-through; 8/8 key phrases preserved; the clearest evidence in this whole session that revision behaves as edit-with-expansion |
+| 10 | No meaningful unsupported claim added | **PASS** | All new material grounds in retrieved chunks or in Draft A content |
+| 11 | Added material feels like EXPANSION of Draft A | **PASS_STRONG** | Three visible expansion mechanisms (elaborate failure modes, add system-composition, memory-anchored notes-question). Nothing replaces successful wording. |
+| 12 | At least as usable as c3ff972d + improves corrective invariance | **PASS_STRONG** | Comparable operator-facing quality; strictly better corrective invariance (–2 at-risk terms vs canonical; verbatim preservation of Draft A paragraphs 0-3 vs c3ff972d's stochastic new metaphors) |
+
+**Overall verdict rubric evaluation (from §43):**
+- A CLEARLY BETTER — NOT MET (criteria 6 + 8 are AMBIGUOUS, not strict PASS).
+- **B REVISION HELPS BUT HAS COSTS — MET** (criteria 7 + 8 improve vs c3ff972d; no criterion degrades vs c3ff972d).
+- C NO MATERIAL IMPROVEMENT — NOT MET (preservation improvement is substantial + measurable).
+- D REVISION WORSE — NOT MET (no criterion degrades).
+- E INCONCLUSIVE — NOT MET (retry fired, Draft A reached the LLM, semantic evidence discriminating).
+
+---
+
+## §66. Q-270-15c Trial 2 verdict — B · REVISION HELPS BUT HAS COSTS
+
+**The Q-270-15c falsifiable question is answered — with a bounded qualifier.**
+
+Under identical audience directive, identical substrate, identical retrieval, and identical target duration:
+
+- Canonical fresh-regeneration corrective (c3ff972d): first-pass 0 at-risk → accepted 5 at-risk. Stochastically re-invents metaphors and re-introduces raw §1 vocabulary.
+- Q-270-15c Draft-A revision corrective (1ff3d16f): first-pass 1 at-risk → accepted 3 at-risk. Preserves 61 % of first-pass verbatim, all key phrases, all accessible translations.
+
+**Revision preserves first-pass semantic transformations** (audience-accessible translations, character voice, narrative arc). The evidence is unambiguous on this: paragraphs 0-3 byte-identical, 8/8 key phrases preserved.
+
+**Revision does not eliminate at-risk-term reintroduction entirely.** The corrective_hint clause *"Add supporting detail from the knowledge chunks where needed to expand"* still pulled `state` + `database` from §1 into the revised draft — exactly the Slice 2 §25 H2 mechanism, operating at reduced strength when Draft A is in context.
+
+**Neither layer 1 nor layer 2 is fully solved.** Q-270-15c targets Layer 2 and demonstrably improves it (revision > canonical regeneration). Layer 1 (first-pass audience-directive reliability) remains a separate open reliability question — Draft A's own *"call APIs"* was a Layer 1 miss.
+
+### §66.1 What Trial 2 answers
+
+1. **Is fresh regeneration the mechanism weakening audience transformations across corrective retry?** YES, in significant part. When the same corrective call is given Draft A + a "revise, don't rewrite" instruction, it preserves what worked in Draft A.
+2. **Does Draft A supply the preservation signal, or does the model need explicit vocabulary-preservation coaching?** DRAFT A ALONE is sufficient to preserve 61 % of first-pass text verbatim + 8/8 key accessible translations, under a compact revision hint that names no specific terms.
+3. **Does revision architecturally behave as edit-with-expansion or fresh-regeneration-with-anchor?** EDIT-WITH-EXPANSION. Byte-level preservation of contiguous paragraphs is architecturally impossible under fresh regeneration.
+
+### §66.2 What Trial 2 does NOT answer
+
+- Whether revision continues to preserve Draft A under COMPRESSION conditions (Q-270-15c scoped to expansion only).
+- Whether revision quality is stable across N repeated trials (n=1 for revision).
+- Whether the `state` + `database` reintroduction is stable across repeated revision trials or stochastic.
+- Whether a revised corrective_hint (softening the "expand from the knowledge chunks" clause — Q-270-15b territory per Slice 2 §32.2) would further reduce the residual +2 at-risk terms.
+
+### §66.3 Layer 1 vs Layer 2 update
+
+- **Layer 1** — first-pass audience-directive reliability under minimal directives — REMAINS mixed. c3ff972d first pass: 0 at-risk. 9880eb93 first pass: 0. 0b3c1fc1 first pass: 2. 25467733 first pass: 2. 1ff3d16f first pass: 1. Direction: minimal directives produce stochastically-clean first passes ~half the time.
+- **Layer 2** — corrective-pass audience invariance — Q-270-15c Trial 2 SUPPORTS revision as a mitigation. Preservation of successful Draft A content is architecturally reliable; residual reintroduction from the "expand from chunks" clause is bounded (+2 vs canonical +5).
+
+---
+
+## §67. Collateral findings
+
+### §67.1 F3 — K6.4 `proper_noun` heuristic reproduces a third time (Q-270-16)
+
+Trial 2 verifier flagged three sentence-initial capitalised tokens: `Basically` (para 1 start), `Here` (inside the *"Here's how I'd plan a trip"* quotation — apostrophe boundary), `Annoying` (*"Annoying rule."*).
+
+SESSION 270 §13.24.11.5 upgraded Q-270-16 to REPRODUCIBLE VERIFIER-QUALITY DEFECT based on `0b3c1fc1` + `c3ff972d`. Trial 2 makes this the **third consecutive real-mode render** exhibiting the same class. Pattern is now well-established. **Do NOT fix in any SESSION 271 slice.**
+
+### §67.2 F4 — H2 mechanism partially confirmed
+
+Slice 2 §25 predicted that the corrective_hint clause *"Expand secondary detail from the knowledge chunks"* would pull raw §1 vocabulary into the corrective output regardless of whether Draft A is in context. Trial 2 supports this: revision reduced the effect but did not eliminate it. **`state` and `database` in Draft B trace directly to chunk `b3c6e8ac` + chunk `505acbba` — the same source vocabulary that leaked into canonical c3ff972d.**
+
+**Bounded architectural implication:** if the operator + ChatGPT ever authorise promoting revision-based correction (§56 recommendation A path), the corrective_hint wording itself is the natural next lever — softening *"Add supporting detail from the knowledge chunks where needed to expand"* to *"Add supporting detail while preserving the previous draft's vocabulary choices where possible"* would test whether the H2 channel can be quenched entirely. That is Q-270-15b territory per Slice 2 §32.2. **Do NOT execute during this slice.**
+
+---
+
+## §68. Cleanup — canonical runtime restore
+
+Per Chris's pre-authorisation ("disable both experiment env vars, restore canonical runtime, verify health, commit/push, and return the Q-270-15c verdict"). See §69 for execution log.
+
+## §69. Cleanup execution + verification
+
+Cleanup actions performed after evidence freeze, per Chris's pre-authorisation:
+
+1. **Env vars unset in the parent shell:** `unset CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT` and `unset CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT`.
+2. **Canonical restart via `bash scripts/start-local-real.sh`.** Script `pkill`ed all four services (Trial-2 worker PIDs 75670/75699/75700 killed) and relaunched.
+3. **New canonical PIDs:** Django `77188`, media-engine `77190`, Vite `77212`, Celery `77192` + `77222` + `77223`.
+
+Post-cleanup proofs:
+
+- `ps eww` on all three new Celery worker PIDs (77192/77222/77223) → **neither `CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT` nor `CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT` present** in worker environment.
+- `manage.py shell` (in a shell where both env vars are unset):
+  - `os.environ.get("CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT", "")` → `''`
+  - `os.environ.get("CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT", "")` → `''`
+  - `_resolve_solo_audience_hint(step={})` → `None` ✅
+  - `_corrective_revision_experiment_active()` → `False` ✅
+
+Post-cleanup service health probes (all green):
+
+| Service | Probe | Status |
+|---|---|---|
+| Django | `curl http://localhost:8010/admin/` | `http=302` |
+| media-engine | `curl http://localhost:8001/health` | `{"any_mock":false,"llm_provider":"openai","llm_model":"gpt-4o-mini"}` (real-mode, no mocks) |
+| Vite (SPA) | `curl http://localhost:5174/` | `http=200` |
+| Celery worker | `celery -A character_os inspect ping` | `pong / 1 node online` |
+
+**Runtime restored to canonical mode.** Both Q-270-15c and SESSION 270 audience-hint experiments now inactive. NarrativeMemory pool remains 14 remembered + 1 archived (unchanged since SESSION 270 §14.4). The Q-270-15c plumbing (env-gated) remains present in source but sits inert until re-activated in a future authorised slice.
+
+---
+
+## §70. Slice 3 Phase 2 Trial 2 commit + push record
+
+- Trial 2 slice commit SHA: `<pending — populated after commit>`
+- Push: `<pending>`
+- Local `main == origin/main`: `<verified at commit time>`
+- Working tree at Trial 2 close: `<verified clean>`
+- Files touched by Phase 2 Trial 2:
+  - `docs/design/session_271_experiment_data/02_composition_1ff3d16f_q270_15c_trial2_evidence.json` (NEW evidence sidecar)
+  - `docs/design/SESSION_271_CORRECTIVE_PASS_AUDIENCE_INVARIANCE_AUDIT.md` §59–§71 appended (this section)
+- **No source, no tests, no schema, no migration touched in Trial 2 forensics.**
+
+---
+
+## §71. Q-270-15c Slice 3 close
+
+Q-270-15c central question — *"When Draft A is already good in identity, factual grounding, story intent, and audience adaptation but fails ONLY the duration gate, does giving Draft A back to the writer and asking it to revise for duration preserve those successful properties better than the current fresh-regeneration corrective path?"* — is answered:
+
+**YES, with a bounded H2-residual cost. Revision is architecturally strictly better than fresh regeneration at preserving Draft A's successful properties; the residual reintroduction of a small number of §1 raw terms is attributable to the corrective_hint's "expand from knowledge chunks" clause and would need a separate slice (Q-270-15b) to fully close.**
+
+Trial-count: n=1 for revision (Trial 2 = 1ff3d16f); n=4 for canonical corrective under audience directives (SESSION 270 f0e0a7bf + 9880eb93 + 0b3c1fc1 + c3ff972d) plus n=1 baseline (25467733 Trial 1). Small-n caveat applies to revision — a single controlled specimen. However, the byte-level preservation of paragraphs 0-3 is architecturally impossible under fresh regeneration, so the *mechanism* is proven; only the *magnitude* of the residual H2 cost is subject to n=1 sampling.
+
+**Recommendation to Chris + ChatGPT (post-STOP):**
+
+Do NOT immediately productise revision-based correction. Consider (in a future authorisation cycle):
+
+1. Q-270-15b bounded follow-up — soften the corrective_hint's "expand from chunks" clause and re-render the same substrate. Tests whether the H2 residual can be quenched. Single controlled render.
+2. Compression-variant trial — repeat the experiment under a TOO-LONG first pass to close SESSION 263 §6.5's parallel finding. Requires a first pass that overshoots — same natural-vs-forced dilemma as Trial 1.
+3. Substrate expansion — test revision on Rivet, on a different Episode, on dialogue_scene. Broadens beyond one character × one topic × solo_scene.
+4. Architectural conversation — decide whether GOOD-BUT-WRONG-LENGTH corrective passes should switch to revision as default (with fresh regeneration remaining for BAD-DRAFT cases). This is a design decision, not an experiment.
+
+**The Q-270-15c plumbing remains present in `duration_contract.py` + `script_synthesis.py` + `avatar_speech.py` UNTOUCHED (it was never active on the code, only via env-var). Its removal / promotion is a deliberate future slice — see the `_CORRECTIVE_REVISION_ENV` docstring for the removal plan.**
+
+Q-270-15c Trial 2 concludes SESSION 271 Slice 3 with a substantive positive finding on revision-based correction and a bounded residual cost. Awaiting operator authorisation for next slice (Patch's story progression, Q-270-15b, or something else).
+
+**End of SESSION 271 Slice 3 Phase 2 Trial 2. Q-270-15c verdict: B — REVISION HELPS BUT HAS COSTS.**
