@@ -1386,22 +1386,257 @@ Do NOT modify or coach the generated script. Whatever Character OS produces is t
 
 When the render completes, hand back the new Composition ID. Phase 2 (evidence freeze + three-way comparison against `2ef5ee7e` + `9880eb93` + ten-criterion grading + demographic-vs-expertise verdict + cleanup) begins from there.
 
-### §13.21.10 Q-270-8 REVISED evidence + grading placeholders
+### §13.21.10 Q-270-8 REVISED Phase 2 — evidence + grading (populated from persisted runtime state)
 
-Populated in Phase 2 after Chris returns the new Composition ID:
+**Composition:** `0b3c1fc1-d6cc-4ce9-9647-264fc23b2cb9`. Rendered 2026-08-20 03:48:05 → 03:51:04.
 
-- **Composition:** `<PENDING>`
-- **Evidence sidecar:** `docs/design/session_270_experiment_data/03_composition_<short>_evidence.json` (to be created).
-- **Validity fingerprint (audience-hint activation log line, hint_chars=42):** `<PENDING>`.
-- **Three-way control table:** `<PENDING>`.
-- **Vocabulary / concept-translation catalogue vs child specimens:** `<PENDING>`.
-- **Ten-criterion grading:** `<PENDING>`.
-- **Demographic-vs-expertise hypothesis verdict (SUPPORTED / NOT SUPPORTED / AMBIGUOUS):** `<PENDING>`.
-- **API observation from THIS render:** `<PENDING>`.
-- **NarrativeMemory recommendation:** `<PENDING>`.
-- **Deactivation record:** `<PENDING>`.
-- **Bounded conclusions:** `<PENDING>`.
-- **Updated open questions:** `<PENDING>`.
+**Evidence sidecar:** `docs/design/session_270_experiment_data/03_composition_0b3c1fc1_evidence.json`.
+
+**Validity fingerprint proof:** Celery log `/tmp/character-os-celery.log:36` shows `hint_chars=42` for `composition=0b3c1fc1-...` at 03:48:05,223 — matches the adult-beginner directive length exactly; distinct from Q-270-9's 41-char child-minimal and Experiment-1's 372-char verbose. **`0b3c1fc1` is a valid adult-beginner specimen.**
+
+#### §13.21.10.1 Four-way control table
+
+| Field | Baseline `2ef5ee7e` (adult/general) | Verbose child `f0e0a7bf` (372 chars) | Minimal child `9880eb93` (41 chars) | **Adult beginner `0b3c1fc1` (42 chars)** |
+|---|---|---|---|---|
+| Composition ID | `2ef5ee7e-...` | `f0e0a7bf-...` | `9880eb93-...` | `0b3c1fc1-d6cc-4ce9-9647-264fc23b2cb9` |
+| Universe | Patch' Workshop | **same** | **same** | **same** |
+| Spokesperson | Patch | **same** | **same** | **same** |
+| Episode row | `2b6087d2` | **same** | **same** | **same** |
+| operator_topic | *"Patch does research on AI Agents"* | **same** | **same** | **same** |
+| Cast | [Patch] | [Patch] | [Patch] | [Patch] |
+| Recipe / template_kind | `talking_head` → `solo_scene` | **same** | **same** | **same** |
+| Target duration | 90 s | 90 s | 90 s | 90 s |
+| Writing Contract | v5 | v5 | v5 | v5 |
+| use_knowledge | on | on | on | on |
+| Opener | blank | blank | blank | blank |
+| verifier_mode | warn | warn | warn | warn |
+| knowledge_chunk_ids | 5 chunks | identical | identical | **identical** ✅ |
+| memory_ids | `[8d4fdfec]` | `[8d4fdfec]` | `[8d4fdfec]` | **`[8d4fdfec]`** ✅ |
+| synthesis_attempt_count | 2 | 2 | 2 | 2 |
+| Predicted seconds | 108.0 | 84.0 | 92.0 | 100.0 |
+| Actual seconds | 104.61 | 89.65 | 92.17 | 101.09 |
+| Corrective-pass chars | 1599 | 1231 | 1354 | 1479 |
+| verification_status | verified | verified | verified | verified |
+| verification_warnings | 1 (`tech_term: react`) | 0 | 0 | **2 (`proper_noun: Obviously` + `proper_noun: Especially` — both false-positives on sentence-initial adverbs, see §13.21.10.4)** |
+| Cost | 20 000 | 20 000 | 20 000 | 20 000 |
+| audience-hint log line | N/A | `hint_chars=372` | `hint_chars=41` | **`hint_chars=42`** ✅ |
+
+**Retrieval symmetry proven across all four specimens.** The knowledge chunks and NarrativeMemory retrieval did NOT vary on identical query embedding. Only distinguishing input across all four renders is the `audience_hint` string value.
+
+#### §13.21.10.2 Vocabulary catalogue — adult-beginner vs child-beginner vs baseline
+
+Full catalogue in sidecar `03_composition_0b3c1fc1_evidence.json` §vocabulary_translation_catalogue_adult_beginner. Key rows summarised:
+
+| Concept from chunks | Adult baseline `2ef5ee7e` | Verbose child `f0e0a7bf` | Minimal child `9880eb93` | **Adult beginner `0b3c1fc1`** |
+|---|---|---|---|---|
+| *"call APIs"* | *"call APIs"* (expected unexplained) | ***"call other software"*** | *"call an API"* (MISS) | ***"Call an API."*** (unexplained — see §13.21.10.5) |
+| *"perform multiple steps"* | *"handle multi-step tasks"* | *"a job with more than one step"* | *"handle a task with several steps"* | ***"Do a task with more than one step."*** (TRANSLATED like verbose-child) |
+| *"maintain state / react when something changes"* | *"maintain state, and react when something changes around it"* | *"keep track of what happened before"* | *"remember part of a task"* | ***"Keep track of what happened. / Maybe respond when something changes."*** (TRANSLATED — nearly verbatim to verbose-child) |
+| LLM confident-wrongness | *"sound extremely confident while misunderstanding the job"* | *"a very confident toaster"* | *"make up nonsense with excellent grammar"* | ***"confidently wrong nonsense gets more expensive"*** / ***"if an AI sounds sure of itself, that is not evidence"*** |
+| Multi-agent behaviour | *"tiny bureaucratic nightmare at machine speed"* | *"share information, split jobs, disagree, or make plans together"* | (not addressed) | ***"split up responsibilities, and affect each other's choices"*** |
+| Agent vs one-answer LLM | *"An AI that gives you one answer? Useful. But an agent…"* | *"An AI agent isn't just a chatbot that says clever things"* | *"A chatbot can tell you 'I would organize your project.' An agent might actually look through the project…"* (homework framing) | ***"A language model can tell you how it would organize a project. An agent might actually interact with the project… and leave behind a mess for me to inspect later."*** (workplace framing) |
+| Participatory ending | *"stick around"* | *"What should I make it try first?"* | *"leave it below"* | ***"Well… now I want to try it. What would you make an agent do first?"*** |
+
+#### §13.21.10.3 Ten-criterion grading
+
+Same rubric as Experiments 1 and Q-270-9. Grade against baseline `2ef5ee7e`.
+
+| # | Criterion | Result | RE / IJ | Notes |
+|---|---|---|---|---|
+| 1 | Identity preservation | **PASS** | IJ | *"tiny robot in a trench coat"*, *"vanish into the fog"*, *"given it permission to be industrious"*, *"leave behind a mess for me to inspect later"* — Patch dry wit + self-aware maker voice preserved. |
+| 2 | Intelligence preservation | **PASS** | IJ | Multi-step agent, tool use, memory, LLM confidence-vs-checking, multi-agent behaviour, tool-permission consequences — all retained. |
+| 3 | Accessibility | **PASS** | IJ | For the INTENDED audience (adults new to AI agents): adult-conversational register lands. *"Language model"* and *"call an API"* are borderline but post-ChatGPT are commonly-encountered in adult media. |
+| 4 | Vocabulary / register adaptation | **PASS** | **RE + IJ** | REGISTER adapted strongly (consequence-metaphors + workplace-adjacent phrasing). VOCABULARY: 3 concept-translations landed (*"maintain state"* → *"keep track of what happened"*, *"multi-step"* → *"more than one step"*, multi-agent → *"split up responsibilities"*). Two technical terms unchanged: *"API"* and *"language model"* — both defensible for adult beginners. Not classified AMBIGUOUS (unlike the minimal-child specimen) because adult context makes these terms contextually available. |
+| 5 | Factual preservation | **PASS** | **RE** | `verification_status=verified`. Both `verification_warnings` are proper-noun false-positives on sentence-initial adverbs (see §13.21.10.4) — NOT factual issues. Every claim traces to same 5-chunk basis. |
+| 6 | Story preservation | **PASS** | **RE** | Same Episode row, same operator_topic, same in-scene present-tense frame. Same story anchor. |
+| 7 | Memory preservation | **PASS** | **RE** | Retrieved memory row `8d4fdfec` byte-identical. Semantic content preserved. Echoes *"give it more context"* from memory body — less literal than minimal-child; comfortably inside solo_scene §4 boundary. |
+| 8 | Personality / humor preservation | **PASS** | IJ | *"Tiny robot in a trench coat"*, *"vanish into the fog"*, *"confidently wrong nonsense gets more expensive"*, *"permission to be industrious"* — different jokes than child specimens, same Patch construction. |
+| 9 | No patronising voice | **PASS** | IJ | No talk-down markers. Adult-conversational without over-explaining. Respects listener capacity for nuance. |
+| 10 | Audience effect observable | **PASS** | **RE + IJ** | Distinguishable from baseline (metaphor family shifted from workplace-integration to consequence-focused); distinguishable from BOTH child specimens (adult register, no concrete-physical metaphors like beaver+drill or toaster). Δduration vs baseline = 3.5 s; Δchars = 120. Not interchangeable. |
+
+**Score:** **10 PASS out of 10.** **Runtime-proven (RE):** 4 (portion), 5, 6, 7, 10. **Interpretive judgement (IJ):** 1, 2, 3, 4 (portion), 8, 9.
+
+#### §13.21.10.4 Verifier flag investigation ("Obviously", "Especially")
+
+Both flags are `kind: proper_noun`:
+
+- Position 743: *"…worth watching. Obviously, \"actually does things\" is also where…"* — `Obviously` is a sentence-initial discourse adverb.
+- Position 930: *"…It still needs checking. Especially if I've connected it to tools…"* — `Especially` is a sentence-initial discourse adverb.
+
+**Diagnosis:** K6.4's proper-noun heuristic tags any capitalized token as a proper-noun candidate; sentence-initial adverbs following a full stop are a known false-positive class. Neither is a factual claim about a proper noun; neither is a fact-support issue.
+
+**Impact on Q-270-8 grading:** ZERO. `verification_status` remains `verified` (`warn` mode does not reject on warnings). Criterion 5 (factual preservation) remains PASS. These flags do NOT reflect audience-adaptation quality.
+
+**Bounded follow-up recorded (do NOT fix in this slice):** the K6.4 proper-noun heuristic false-positives on sentence-initial discourse adverbs. Verifier-quality issue, not an audience-experiment issue. Documented for possible future K6.4 tuning if it surfaces operationally.
+
+#### §13.21.10.5 API observation from THIS render
+
+`0b3c1fc1` uses *"Call an API."* unexplained. Combined with the prior `9880eb93` minimal-child specimen (*"call an API"*, also unexplained) and the verbose-child `f0e0a7bf` (*"call other software"* — translated), the pattern across three audience-directive renders is:
+
+| Directive | API rendering | Interpretation |
+|---|---|---|
+| 372-char verbose (child + explicit CHANGE clause) | *"call other software"* | Translated — CHANGE clause did the work |
+| 41-char label (child, no CHANGE clause) | *"call an API"* | Unexplained — MISS for the intended audience |
+| 42-char label (adult beginner, no CHANGE clause) | *"Call an API."* | Unexplained — defensible for adult beginner |
+
+**Two data points on API-under-minimal-directive:** one uncontested miss (child), one defensible occurrence (adult). Does NOT resolve Q-270-10 (Q-270-10 specifically asks whether the child miss is stochastic under a REPEATED child minimal-directive render — this experiment used a different audience, so it cannot substitute). But it does provide **broader evidence** about minimal audience directives: they do not close the specific-technical-vocabulary translation gap for at-risk terms; only the explicit CHANGE clause does. For audiences where the term is defensible (adults post-ChatGPT), the omission is not a real miss. For audiences where it is not (8-10-year-olds), it is.
+
+*"Language model"* observation follows the same pattern: baseline used it, minimal-child avoided it (used *"AI"* / *"chatbot"* instead), adult-beginner used it explicitly (*"A language model can tell you how it would organize a project"*). Consistent with the model's audience-inference doing per-term contextual availability judgements based on the audience string.
+
+#### §13.21.10.6 Register-vs-knowledge-boundary hypothesis
+
+**Observation:** Register (metaphor family + sentence rhythm + tone-toward-listener + world-assumption family) adapted **strongly and distinctly** under both minimal audience labels (child: concrete-physical / adult: consequence-focused). Specific technical vocabulary adapted **partially** — some terms translated per audience, others left in place; the verbose CHANGE clause was uniquely reliable at closing specific vocabulary gaps.
+
+**Consistent with the hypothesis:** *Character OS infers audience REGISTER more reliably from minimal audience directives than it infers precise KNOWLEDGE BOUNDARY.* The model appears to answer "talk to this listener like an X" more completely than "this listener is new enough to Y that adjacent Z terminology may need explanation."
+
+**Competing interpretations considered:**
+
+1. For adult beginners, *"API"* and *"language model"* may be genuinely acceptable — adults encounter these in general media post-ChatGPT. The observed "miss" may not be a miss at all in the adult case.
+2. The audience string *"adults who are new to AI agents"* may itself be under-specified about adjacent technical knowledge — the beginner-ness is specific to AGENTS, not to all AI/software.
+3. Single specimen per audience cannot rule out stochastic vocabulary selection on any given render.
+
+**Bounded conclusion:** evidence **consistent with** the register-vs-knowledge-boundary hypothesis. Two data points on API-under-minimal-directive; one uncontested miss (child) + one defensible occurrence (adult) do not conclusively support systematic loss but do consistently show that specific-vocabulary translation is looser than register adaptation under minimal directives.
+
+#### §13.21.10.7 Demographic-vs-expertise hypothesis verdict
+
+**SUPPORTED, with important framing caveat.**
+
+**Evidence supporting the hypothesis:**
+
+- Adult-beginner and child-beginner audiences share the subject-familiarity axis (both AI-agent beginners) but differ on the life-context/demographic axis.
+- Observed distinctly different metaphor families (consequence-focused adult vs concrete-physical child).
+- Observed distinctly different world assumptions (workplace/consequence adult vs school/homework child).
+- Observed distinctly different technical-vocabulary tolerance (*"language model"* used explicitly in adult; avoided in child).
+- Observed distinctly different sentence-rhythm patterns (mixed staccato+long adult vs medium-declarative child).
+- Both audiences received similar concept-translations for the shared-beginner-mode terms (*"maintain state"* → *"keep track of what happened"* in both), demonstrating that the subject-familiarity axis produced its own convergent adaptation.
+
+**IMPORTANT FRAMING CAVEAT — this does NOT prove:**
+
+- Character OS *needs* formal separate `age_group` + `expertise_level` model fields or enums. The natural-language audience descriptions already **encode** both dimensions, and the model differentiated them from those strings alone.
+- Any specific architecture. It is entirely possible that natural-language audience descriptions are sufficient and that formal decomposition would add complexity without capability.
+
+**Competing hypothesis newly recorded — natural-language multidimensional audience labels may be sufficient:**
+
+- *"Children around 8-10 years old"* and *"Adults who are new to AI agents"* are BOTH multidimensional labels — they carry age/demographic + subject-familiarity + implied register + implied world-context in a single natural-language string.
+- The model demonstrably inferred meaningfully different communication strategies from those strings, differing on multiple dimensions consistent with the labels.
+- This is behavioural evidence CONSISTENT WITH the hypothesis that Character OS may not need to formally decompose audience into separate dimensions — the model appears to already parse natural-language audience labels multidimensionally.
+
+**Both hypotheses (separability + natural-language-sufficiency) are compatible with the same evidence.** Recorded as observation. **DO NOT** promote either into architecture from three specimens.
+
+#### §13.21.10.8 NarrativeMemory recommendation
+
+**DO NOT PROMOTE from `0b3c1fc1`.** Same rationale as prior specimens:
+
+- Patch is planning (*"do I give it more context, some tools, and one very specific job?"* / *"now I want to try it"*), not performing an experiment. State after scene = state before.
+- Retrieved memory row `8d4fdfec` already covers the propositional content.
+- Baseline `2ef5ee7e`, verbose child `f0e0a7bf`, and minimal child `9880eb93` were all not promoted for identical story state; promoting only the adult-beginner variant would corrupt promotion discipline.
+- Runtime-verified: `NarrativeMemory.objects.filter(source_composition__id__startswith="0b3c1fc1").count() = 0`.
+- **Pool state at capture: 14 active + 1 archived — zero delta from Q-270-9 close, zero delta from four consecutive audience-conditioned renders on the same Episode substrate.** This is itself evidence that the SESSION 269 §16.8 promotion discipline is holding across audience adaptation.
+
+Chris retains final promotion authority.
+
+#### §13.21.10.9 Bounded conclusions from Q-270-8 REVISED
+
+**Does prove (from one specimen per audience across three audiences):**
+
+- Adult-beginner Patch communicates **meaningfully differently** from child-beginner Patch under the same Episode / character / knowledge / memory / writing contract — with distinct metaphor families, sentence rhythms, world assumptions, and technical-vocabulary tolerance.
+- Character OS's audience-hint machinery differentiates two audiences with similar subject-familiarity but different life-context on the basis of the natural-language label alone.
+- Register adaptation is reliably driven by minimal audience labels; specific technical-vocabulary translation is less reliable and appears to require explicit CHANGE instructions to close specific vocabulary gaps for at-risk audiences.
+- Character preservation (identity, intelligence, humor, story, memory semantics, brand prohibitions, factual grounding) held across a THIRD audience-conditioned render. Preservation is robust under minimal directives across multiple audiences.
+- The K6.4 verifier proper-noun heuristic false-positives on sentence-initial discourse adverbs — recorded as a bounded verifier-quality follow-up, NOT an audience finding.
+
+**Does NOT prove:**
+
+- Nothing about audiences other than "adults new to AI agents" and "children 8-10".
+- Nothing about characters other than Patch.
+- Nothing about Episode topics other than "AI Agents".
+- Nothing about permanent audience architecture — three specimens is not license to ship a formal audience model.
+- Nothing about whether formal age/expertise dimensions are required OR unnecessary — both hypotheses remain consistent with the evidence.
+- Nothing about dialogue_scene behaviour.
+- Nothing systematic about the "API" behaviour under repeated child conditions (Q-270-10 remains open and unresolved — the adult-beginner specimen does not substitute).
+
+#### §13.21.10.10 Updated open questions after Q-270-8 REVISED
+
+| # | Question | Status after Q-270-8 REVISED |
+|---|---|---|
+| Q-270-1 | Does the LLM hold the CHANGE/PRESERVE contract under audience directive? | **Answered YES** across three audiences (verbose child, minimal child, minimal adult-beginner). Preservation dimension is robust under minimal directives. |
+| Q-270-2 | Is the §5 Task Hard-Constraint seam the *right* eventual home? | Still open. Three audiences delivered via the same seam produce comparable-shape behaviour; the seam is not the discriminator. |
+| Q-270-3 | Are demographic and expertise separable audience dimensions? | **§13.21.10.7 SUPPORTED with caveat.** Behavioural evidence for separability, but competing "natural-language-sufficient" hypothesis equally compatible. |
+| Q-270-4 | Does audience adaptation change what should be promoted to NarrativeMemory? | Q-270-8 case: same finding — audience adaptation alone does not promote for identical story state. **Three independent specimens** now support this. Discipline held. |
+| Q-270-5 | Does audience adaptation warrant a Writing-Contract version bump? | **Weaker case** — three specimens achieved preservation and most adaptation under minimal directives, no contract change. A contract bump is not compelled. |
+| Q-270-6 | Does dialogue_scene need identical audience semantics? | Still open. Not tested. |
+| Q-270-7 | Rename `who_you_help`'s `AUDIENCE:` label? | Still open. |
+| Q-270-8 REVISED | Demographic-vs-expertise separability probe (adult-beginner variant) | **CLOSED with SUPPORTED-with-caveat.** Two audiences of similar subject-familiarity but different life-context produced meaningfully different communication. |
+| Q-270-9 | Directive minimalism | **CLOSED with bounded PASS.** 41-char label achieves preservation fully and ~90% of vocabulary-translation adaptation. |
+| Q-270-10 | Vocabulary-translation completeness: does a REPEATED minimal-child render translate "API"? | Still open. Adult-beginner API occurrence provides broader evidence but does NOT substitute for the specific repeat-child probe Q-270-10 asks about. |
+| **Q-270-11** | Register-vs-knowledge-boundary systematic-vs-stochastic: does a minimal audience directive systematically leave specific technical vocabulary unaddressed for at-risk audiences? | **NEW.** Would take multiple renders per audience to distinguish stochastic from systematic. Not compelled. |
+| **Q-270-12** | Would a minimal audience label + a targeted vocabulary-translation directive (2-clause hybrid) match the verbose CHANGE/PRESERVE contract at lower token cost? | **NEW.** Practical productisation question if / when architecture eventually opens. Not compelled. |
+
+None are implementation-blocking.
+
+#### §13.21.10.11 Recommended next question — or STOP
+
+**Recommendation:** **STOP experimenting; move to synthesis conversation.**
+
+Rationale:
+
+1. Three audience-conditioned specimens on tightly-controlled substrate (baseline + child × 2 directive lengths + adult-beginner) produced a coherent evidence chain:
+   - Preservation robust under minimal directives across multiple audiences.
+   - Register adaptation robust under minimal directives, distinctly per audience.
+   - Specific-vocabulary translation partial under minimal directives; verbose CHANGE clause is uniquely reliable at closing specific gaps.
+   - Character identity, story, memory, factual grounding all held.
+   - Pool discipline held (zero promotions from four consecutive audience-conditioned renders).
+2. Additional specimens on the SAME substrate (character × Episode × topic × spokesperson) risk over-interpreting a coherent pattern without expanding the substrate.
+3. Meaningful further evidence would require **substrate expansion** — different character (Rivet? another spokesperson entirely?), different Episode topic, dialogue_scene lane — each of which is a substantial slice, not a single additional render.
+4. The current evidence chain is **strong enough to open synthesis conversation**: what has SESSION 270 taught us, and what should the architecture / product roadmap do with it? That conversation belongs with Chris + ChatGPT, not with a fourth experiment.
+
+**Alternative if Chris prefers to continue experimenting:**
+
+- **Q-270-10** (single-question stochasticity probe on the child minimal-directive API miss) remains the cheapest, most focused experiment. Would take one more render on the child audience substrate. Would resolve whether "API" is systematically or stochastically missed under child minimal directive.
+- **Q-270-11 / Q-270-12** are broader — require multiple renders to answer.
+- Q-270-8 in its ORIGINAL expert-developer formulation remains available but is now lower-priority than the register-vs-knowledge-boundary questions.
+
+### §13.22 Q-270-8 REVISED experimental cleanup — deactivation record
+
+Executed immediately after grading + interpretation, per operator brief.
+
+**Deactivation actions:**
+
+- Prior worker PID **64483** (Q-270-8 REVISED activation worker, booted 2026-08-20 03:44:43) killed via `pkill -f "celery -A character_os worker"`. Zero workers alive after kill.
+- `unset CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT` in the parent shell; `printenv CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT` → "not set (expected)".
+- New worker PID **66420** launched via canonical `start-local-real.sh` invocation with no env-var export.
+- Control-plane liveness: `celery -A character_os inspect ping` → `celery@Chriss-MacBook-Pro.local: OK / pong / 1 node online.`
+
+**Definitive proofs no future render will inherit the adult-beginner directive:**
+
+- `ps eww 66420 | grep -c "CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT="` → **0**.
+- `manage.py shell` under same `.venv/bin/python`:
+  ```
+  env var in os.environ: False
+  _resolve_solo_audience_hint(MagicMock(params={})) returns: None
+  ```
+  → next Episode-attached solo render will pass `audience_hint=None` to synthesis; prompt byte-stable versus pre-SESSION-270 shape.
+
+**Rest of the local-real stack — post-deactivation health probes:**
+
+| Service | Probe | Status |
+|---|---|---|
+| Django | `curl http://localhost:8010/admin/` | `http=302` (login redirect — healthy) |
+| media-engine | `curl http://localhost:8001/health` | `{"status":"ok",...,"any_mock":false,"llm_provider":"openai","llm_model":"gpt-4o-mini"}` (real-mode; **no provider mocks**) |
+| Vite (SPA) | `curl http://localhost:5174/` | `http=200` |
+| Celery worker | `celery -A character_os inspect ping` | `pong / 1 node online` |
+
+**Non-render verification chosen deliberately** — no test Composition rendered to prove cleanup, per operator brief.
+
+**Persisted state untouched during deactivation:** zero DB writes; no migration; working tree edits only this SESSION 270 doc + Q-270-8 REVISED sidecar. Pool state unchanged at 14 active + 1 archived — same across the entire SESSION 270 experimental sequence.
+
+**Q-270-8 REVISED experiment window closed at:** 2026-08-19 21:52 local (Celery restart timestamp of PID 66420).
+
+### §13.23 Commit checkpoint (Q-270-8 REVISED Phase 2 evidence + grading + deactivation)
+
+- Slice commit: `<populated below>` — `<subject line populated below>`.
+- Push: `<populated below>`.
+- Working tree state at checkpoint: `<populated below>`.
 
 ### §13.21.10 Q-270-8 REVISED evidence + grading placeholders
 

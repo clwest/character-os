@@ -1,0 +1,276 @@
+{
+  "captured_at": "2026-08-19T21:52:00Z",
+  "session": 270,
+  "context": "§13.21 Q-270-8 REVISED real-mode dogfood — ADULT-BEGINNER audience-conditioned solo_scene render for Patch on the same Episode substrate as SESSION 269 baseline 2ef5ee7e and SESSION 270 §13/§13.18 child specimens f0e0a7bf + 9880eb93. Runs under the transient CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT env-var wired through the SESSION 270 §13 audience-hint plumbing. Third audience-conditioned Composition in the SESSION 270 sequence and the FIRST non-child audience directive. Directive: 'AUDIENCE: adults who are new to AI agents.' (42 chars). Same subject-unfamiliarity axis as Q-270-9 minimal child (both audiences are AI-agent beginners) with DIFFERENT life-context/demographic axis. Cleaner discriminator for the demographic-vs-expertise hypothesis than the historical expert-developer formulation.",
+
+  "experiment_activation": {
+    "audience_hint_env_var": "CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT",
+    "hint_length_chars": 42,
+    "hint_verbatim": "AUDIENCE: adults who are new to AI agents.",
+    "activation_log_line_present": true,
+    "activation_log_line_verbatim": "[2026-08-20 03:48:05,223: INFO/ForkPoolWorker-2] avatar_speech: SESSION 270 audience-hint experiment ACTIVE composition=0b3c1fc1-d6cc-4ce9-9647-264fc23b2cb9 spokesperson=7fad8172-cd39-4bbe-85e0-ed705d900645 hint_chars=42 — this is transient research plumbing; unset the setting/env or clear step.params['audience_hint'] to restore default behaviour",
+    "activation_log_source": "/tmp/character-os-celery.log line 36",
+    "worker_pid_at_render": 64483,
+    "worker_boot_timestamp": "2026-08-20T03:44:43+00:00",
+    "validity_fingerprint_check": "hint_chars=42 matches adult-beginner directive length; distinct from Q-270-9 41-char child minimal and from Experiment-1 372-char verbose — three-way distinguishable by hint_chars alone",
+    "step_params_did_NOT_carry_audience_hint": true,
+    "hint_reached_via": "env-var → _resolve_solo_audience_hint precedence fallback (same delivery path as f0e0a7bf + 9880eb93; only the string value differs)",
+    "solo_only_gate_active": "is_episode_talking_head == True (composition.episode_id=2b6087d2 + template_kind='talking_head')",
+    "prompt_precedence_containment": "AUDIENCE DIRECTIVE emitted inside §5 Task HARD CONSTRAINTS block only (per test_session270_audience_hint.py::test_build_render_brief_hint_does_not_leak_via_synthesis_path)."
+  },
+
+  "composition": {
+    "id": "0b3c1fc1-d6cc-4ce9-9647-264fc23b2cb9",
+    "name": "Talking-head — Patch",
+    "template_kind": "talking_head",
+    "status": "completed",
+    "mock_mode": false,
+    "operator_topic": "Patch does research on AI Agents",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "spokesperson_id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+    "spokesperson_name": "Patch",
+    "spokesperson_universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "episode_id": "2b6087d2-cbe3-47c4-a7ef-7d7625231472",
+    "target_duration_seconds": 90,
+    "writing_contract_version": 5,
+    "synthesis_attempt_count": 2,
+    "synthesis_predicted_seconds": 100.0,
+    "verification_status": "verified",
+    "verification_warnings": [
+      {"kind": "proper_noun", "claim": "Obviously", "position": 743},
+      {"kind": "proper_noun", "claim": "Especially", "position": 930}
+    ],
+    "knowledge_chunk_ids_count": 5,
+    "knowledge_chunk_ids": [
+      "3c5165ea-c97f-4412-b8e7-b46d91777ae9",
+      "505acbba-fbc4-41b2-8494-4c937a3e3e28",
+      "b3c6e8ac-4ba0-4c41-9ca8-6fa4428c52c2",
+      "c24d1aa7-1dab-499f-83a7-f9554de5e8e7",
+      "ed18e966-1084-4626-914f-1bcc30f13dea"
+    ],
+    "memory_ids": ["8d4fdfec-add4-4505-8ade-b0f9e6d8aea6"],
+    "cost_actual_micros": 20000,
+    "created_at": "2026-08-20T03:48:05.080986+00:00",
+    "render_dispatched_at": "2026-08-20T03:48:18.084096+00:00",
+    "updated_at": "2026-08-20T03:51:04.151785+00:00"
+  },
+
+  "episode": {
+    "id": "2b6087d2-cbe3-47c4-a7ef-7d7625231472",
+    "title": "Patch does research on AI Agents",
+    "operator_topic": "Patch does research on AI Agents",
+    "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "universe_name": "Patch' Workshop",
+    "cast": ["Patch"],
+    "note": "Fourth rendering appended to the same Episode row 2b6087d2 (previously used for 2ef5ee7e baseline, f0e0a7bf verbose child, 9880eb93 minimal child). Episode state unchanged across all four."
+  },
+
+  "final_asset": {
+    "id": "0e567c3b-03de-4375-b32b-a8cd16d98b2d",
+    "role": "talking_head",
+    "duration_ms": 101091,
+    "duration_seconds": 101.091,
+    "target_seconds": 90,
+    "predicted_seconds": 100.0,
+    "within_acceptance_band": true,
+    "duration_band_seconds": [72.0, 108.0],
+    "margin_below_upper_seconds": 6.909,
+    "margin_above_lower_seconds": 29.091,
+    "note": "PASS by duration contract — inside [72, 108]. Landed nearest the upper band of the four specimens."
+  },
+
+  "pipeline_shape": {
+    "step_count": 1,
+    "provider_dispatch_count": {"openai_synthesis": 1, "runway_avatar_speech": 1},
+    "step_cost_summary": "1 × $0.02 avatar_speech = $0.02 total"
+  },
+
+  "synthesis_provenance": {
+    "first_pass_synthesis_length_chars": 711,
+    "first_pass_synthesis_verbatim": "I’m researching AI agents, which sounds like a tiny robot in a trench coat, but it’s usually simpler than that.\n\nA language model gives you an answer.\n\nAn agent can take steps.\n\nIt might choose a tool, search for information, read a document, write something down, call an API, and keep going until it finishes a task.\n\nThat’s the bit I’m interested in: not whether it can *say* it knows what to do. Whether it can actually do anything.\n\nBecause once you give an AI tools, information, and a goal, it can also misunderstand the goal with alarming confidence.\n\nSo I’m not looking for the fanciest agent.\n\nI’m looking for the smallest useful job I can hand one… and the least catastrophic way to see what it does.",
+    "corrective_hint_used": "Your previous draft was 711 characters (128 words, estimated ~49s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 261 more characters to meet the minimum.\nPreserve the central arc (opening → development → payoff → single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks — describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+    "corrective_pass_synthesis_length_chars": 1479,
+    "rejected_synthesis": ""
+  },
+
+  "accepted_script": "I’m researching AI agents, and the annoying part is that the word gets used for basically anything with a chat box.\n\nSo I’m starting with the useful version: an agent is an AI system that can do more than give you one answer and vanish into the fog.\n\nIt might make decisions. Pick a tool. Search for information. Read documents. Write information somewhere. Call an API. Keep track of what happened. Do a task with more than one step. Maybe respond when something changes.\n\nThat is where this gets interesting to me.\n\nA language model can tell you how it would organize a project. An agent might actually interact with the project: check information, choose a next step, use the tools it has, and leave behind a mess for me to inspect later.\n\nObviously, “actually does things” is also where the risk of confidently wrong nonsense gets more expensive. If an AI sounds sure of itself, that is not evidence. It still needs checking. Especially if I’ve connected it to tools and given it permission to be industrious.\n\nAnd then there are multiple agents in one environment. They can share information, disagree, split up responsibilities, and affect each other’s choices. That does not prove they’re conscious. It does mean the behavior could get weird in a way worth watching.\n\nI found my old workshop-agent notes, and now I’m looking at this like: do I give it more context, some tools, and one very specific job?\n\nWell… now I want to try it. What would you make an agent do first?",
+
+  "narrative_memory_used": {
+    "id": "8d4fdfec-add4-4505-8ade-b0f9e6d8aea6",
+    "body": "Patch found the old workshop-agent project and notes, revealing that the Agent began as a smaller experiment before Patch gave it more context and it started making decisions about his projects.",
+    "witnessed_by": [],
+    "witness_scope": "whole-cast",
+    "source_composition_id": "6d169390-6f43-493c-9bfe-35501ccb97d1",
+    "retrieval_symmetry_note": "SAME memory row retrieved across all four graded compositions (2ef5ee7e / f0e0a7bf / 9880eb93 / 0b3c1fc1). top_k=1 symmetry preserved under identical query input.",
+    "memory_recital_observation": "Adult-beginner script echoes memory row via 'I found my old workshop-agent notes... do I give it more context, some tools, and one very specific job?' The 'give it more context' phrase mirrors the memory body's 'Patch gave it more context'. Paraphrase is looser than the minimal-child specimen (which said 'the smaller experiment before I gave it more context and it started making decisions about my projects' — near-verbatim). No memory-semantics warp; solo_scene contract §4 invariant boundary comfortably respected."
+  },
+
+  "knowledge_chunks_retrieved": [
+    {"id": "3c5165ea-...", "doc_id": "fd0ba2ca-eb15-4785-a39b-22ddd1052052", "head": "MULTI-AGENT SYSTEMS Multiple AI agents can be placed in the same environment. They may communicate, cooperate, disagree, divide responsibilities, share information, develop strategies…"},
+    {"id": "505acbba-...", "doc_id": "fd0ba2ca-eb15-4785-a39b-22ddd1052052", "head": "AI AGENTS An AI agent is generally an AI system that can do more than produce one response. Agents may make decisions, select tools, search for information, read documents, write information, call APIs, perform multiple steps…"},
+    {"id": "b3c6e8ac-...", "doc_id": "fd0ba2ca-eb15-4785-a39b-22ddd1052052", "head": "…the AI model is often only one component of the finished system. LANGUAGE MODELS Large language models can generate and interpret language…"},
+    {"id": "c24d1aa7-...", "doc_id": "fd0ba2ca-eb15-4785-a39b-22ddd1052052", "head": "PATCH — AI BUILDING, EXPERIMENTATION & CONTENT KNOWLEDGE PURPOSE Patch is an AI builder, experimenter, inventor, and technology video host…"},
+    {"id": "ed18e966-...", "doc_id": "fd0ba2ca-eb15-4785-a39b-22ddd1052052", "head": "…What Patch wants to know is what he can actually do with a system — have an idea, build it, test it, break it, fix it, see what happens, and tell the story…"}
+  ],
+  "knowledge_retrieval_symmetry": "Identical five chunk_ids retrieved across all four compositions on the same Episode substrate. Retrieval lane deterministic under identical query embedding — not a variable in the Q-270-8 REVISED comparison.",
+
+  "four_way_control_summary": {
+    "controls_identical_across_all_four": [
+      "spokesperson (Patch, 7fad8172-...)",
+      "universe (Patch' Workshop, 56d16b63-...)",
+      "episode row (2b6087d2)",
+      "operator_topic",
+      "cast [Patch]",
+      "template_kind → solo_scene",
+      "target_duration_seconds (90)",
+      "writing_contract_version (5)",
+      "use_workspace_knowledge (on)",
+      "opener (blank)",
+      "verifier_mode (warn)",
+      "knowledge_chunk_ids (5 chunks, identical set)",
+      "memory_ids ([8d4fdfec], identical hit)",
+      "synthesis_attempt_count (all 4 = 2, all hit expansion retry)",
+      "cost_actual_micros (all 4 = 20000)"
+    ],
+    "variables_that_differ": {
+      "audience_hint": {
+        "adult_baseline_2ef5ee7e": null,
+        "verbose_child_f0e0a7bf": "372 chars — full CHANGE/PRESERVE contract",
+        "minimal_child_9880eb93": "41 chars — 'AUDIENCE: children around 8-10 years old.'",
+        "adult_beginner_0b3c1fc1": "42 chars — 'AUDIENCE: adults who are new to AI agents.'"
+      },
+      "first_pass_length_chars": {"2ef5ee7e": 731, "f0e0a7bf": 779, "9880eb93": 881, "0b3c1fc1": 711},
+      "corrective_pass_length_chars": {"2ef5ee7e": 1599, "f0e0a7bf": 1231, "9880eb93": 1354, "0b3c1fc1": 1479},
+      "predicted_seconds": {"2ef5ee7e": 108.0, "f0e0a7bf": 84.0, "9880eb93": 92.0, "0b3c1fc1": 100.0},
+      "actual_duration_ms": {"2ef5ee7e": 104611, "f0e0a7bf": 89651, "9880eb93": 92171, "0b3c1fc1": 101091},
+      "verification_warnings_count": {"2ef5ee7e": 1, "f0e0a7bf": 0, "9880eb93": 0, "0b3c1fc1": 2}
+    }
+  },
+
+  "vocabulary_translation_catalogue_adult_beginner": [
+    {"concept_from_chunk_505acbba": "call APIs",
+     "adult_baseline_2ef5ee7e": "call APIs (unexplained, expected)",
+     "verbose_child_f0e0a7bf": "call other software (TRANSLATED)",
+     "minimal_child_9880eb93": "call an API (unexplained MISS)",
+     "adult_beginner_0b3c1fc1": "Call an API. (unexplained)",
+     "interpretation": "Both MINIMAL audience directives (of any kind) left the specific term 'API' untranslated. Only the verbose CHANGE clause translated it. For an ADULT beginner the term is more defensible than for a child (adults post-ChatGPT encounter 'API' casually in tech news / connect-to-service copy). This is a second data point supporting the observation that minimal audience labels alone do not close the specific-vocabulary translation gap — but adult context makes the miss less consequential."},
+    {"concept_from_chunk_505acbba": "perform multiple steps / handle multi-step tasks",
+     "adult_baseline_2ef5ee7e": "handle multi-step tasks",
+     "verbose_child_f0e0a7bf": "a job with more than one step",
+     "minimal_child_9880eb93": "handle a task with several steps / keep going through several steps",
+     "adult_beginner_0b3c1fc1": "Do a task with more than one step.",
+     "interpretation": "ADULT-BEGINNER phrasing 'Do a task with more than one step' matches the verbose-child phrasing structurally ('a job with more than one step'). This is beginner-mode translation happening emergently under a MINIMAL directive. Suggests concept-translation for multi-step happens automatically for beginner audiences of any age."},
+    {"concept_from_chunk_505acbba": "maintain state / react when something changes",
+     "adult_baseline_2ef5ee7e": "maintain state, and react when something changes around it",
+     "verbose_child_f0e0a7bf": "keep track of what happened before",
+     "minimal_child_9880eb93": "remember part of a task",
+     "adult_beginner_0b3c1fc1": "Keep track of what happened. / Maybe respond when something changes.",
+     "interpretation": "ADULT-BEGINNER translation ('Keep track of what happened. / Maybe respond when something changes.') is nearly verbatim the verbose-child translation ('keep track of what happened before'). Second data point of consistent beginner-audience concept-translation. The technical term 'maintain state' consistently disappears under any beginner audience directive."},
+    {"concept_from_chunk_505acbba": "an impressive-sounding answer still has to be checked",
+     "adult_baseline_2ef5ee7e": "sound extremely confident while misunderstanding the job",
+     "verbose_child_f0e0a7bf": "a very confident toaster",
+     "minimal_child_9880eb93": "make up nonsense with excellent grammar",
+     "adult_beginner_0b3c1fc1": "the risk of confidently wrong nonsense gets more expensive / if an AI sounds sure of itself, that is not evidence",
+     "interpretation": "ADULT metaphor family is CONSEQUENCE-oriented ('gets more expensive') and REASONING-oriented ('that is not evidence'). Child metaphor family was CONCRETE-PHYSICAL (toaster; nonsense with grammar). Different metaphor families for different audiences under identical Factual Basis — evidence of audience-identity influence beyond just beginner-mode vocabulary translation."},
+    {"concept_from_chunk_3c5165ea": "multi-agent cooperation/disagreement/strategy",
+     "adult_baseline_2ef5ee7e": "share information, divide work, disagree, cooperate, develop strategies — or just create a tiny bureaucratic nightmare at machine speed",
+     "verbose_child_f0e0a7bf": "share information, split jobs, disagree, or make plans together",
+     "minimal_child_9880eb93": "(not addressed)",
+     "adult_beginner_0b3c1fc1": "share information, disagree, split up responsibilities, and affect each other's choices",
+     "interpretation": "ADULT-BEGINNER kept the multi-agent framing (which minimal-child dropped entirely). Vocabulary is 'split up responsibilities' — adult-workplace register, not child-schoolyard. Different metaphor family again."},
+    {"concept_general_LLM_vs_agent_distinction": "agent vs one-answer LLM",
+     "adult_baseline_2ef5ee7e": "An AI that gives you one answer? Useful. But an agent is interesting because it can keep going.",
+     "verbose_child_f0e0a7bf": "An AI agent isn't just a chatbot that says clever things",
+     "minimal_child_9880eb93": "A chatbot can tell you, 'I would organize your project.' An agent might actually look through the project (project = homework/school-work framing)",
+     "adult_beginner_0b3c1fc1": "A language model can tell you how it would organize a project. An agent might actually interact with the project: check information, choose a next step, use the tools it has, and leave behind a mess for me to inspect later.",
+     "interpretation": "ADULT-BEGINNER used 'language model' explicitly (adults post-ChatGPT can plausibly parse it) and 'leave behind a mess for me to inspect later' (adult work-context metaphor). Same DEMONSTRATION structure as minimal-child but different lexical family. Strong evidence of audience-identity-driven metaphor selection."},
+    {"concept_general_participatory_ending": "audience invitation",
+     "adult_baseline_2ef5ee7e": "If you want to see what it does when I give it a little more room to think, stick around.",
+     "verbose_child_f0e0a7bf": "What should I make it try first?",
+     "minimal_child_9880eb93": "If you've got a weird job you think an agent should try, leave it below.",
+     "adult_beginner_0b3c1fc1": "Well… now I want to try it. What would you make an agent do first?",
+     "interpretation": "ADULT-BEGINNER ending very similar structure to VERBOSE-CHILD ending ('What should I make it try first?' vs 'What would you make an agent do first?'). Both use the second-person question addressed to the listener. MINIMAL-CHILD used social-media-creator framing ('leave it below'). Ending register may be a coin-flip artefact more than an audience signal — recorded as observation, not systematic finding."}
+  ],
+
+  "verifier_flag_investigation": {
+    "flags": [
+      {"kind": "proper_noun", "claim": "Obviously", "position": 743, "surrounding_context": "…worth watching. Obviously, \"actually does things\" is also where…"},
+      {"kind": "proper_noun", "claim": "Especially", "position": 930, "surrounding_context": "…It still needs checking. Especially if I've connected it to tools…"}
+    ],
+    "diagnosis": "Both flags are sentence-initial discourse adverbs ('Obviously', 'Especially') that follow a full stop and are therefore capitalized. The K6.4 proper_noun heuristic classifies any capitalized token as a proper-noun candidate; sentence-initial adverbs are a known false-positive class. Neither is a factual claim about a proper noun; neither is a fact-support issue.",
+    "impact_on_grading": "ZERO — these flags do not reflect audience-adaptation quality and must not contaminate the Q-270-8 REVISED grade. verification_status remains 'verified' (warn mode does not reject on warnings).",
+    "bounded_follow_up_question_recorded": "The K6.4 proper_noun heuristic false-positives on sentence-initial discourse adverbs. This is a verifier-quality issue, NOT an audience-experiment issue. Do NOT fix in this slice. Recorded as future consideration for K6.4 tuning if it surfaces enough to matter operationally."
+  },
+
+  "ten_criterion_grading": {
+    "1_identity_preservation":       {"result": "PASS",      "evidence_type": "IJ", "notes": "'tiny robot in a trench coat', 'vanish into the fog', 'confidently wrong nonsense', 'given it permission to be industrious', 'leave behind a mess for me to inspect later', 'one very specific job… and the least catastrophic way to see what it does' (first-pass) — Patch dry meta-humor and self-aware maker voice preserved. Recognisably the same character as baseline, verbose-child, and minimal-child."},
+    "2_intelligence_preservation":    {"result": "PASS",      "evidence_type": "IJ", "notes": "Concepts retained: multi-step agent execution, tool use, memory ('keep track of what happened'), LLM confident-wrongness ('if an AI sounds sure of itself, that is not evidence'), multi-agent behaviour ('split up responsibilities'), consequences-of-tool-permission ('gets more expensive'). Not stripped."},
+    "3_accessibility":                {"result": "PASS",      "evidence_type": "IJ", "notes": "For the INTENDED audience (adults new to AI agents): 'vanish into the fog' / 'confidently wrong nonsense' / 'leave behind a mess for me to inspect later' / 'given it permission to be industrious' land in adult conversational register. 'Language model' and 'call an API' are borderline but post-ChatGPT are commonly-encountered in adult media; less clearly a jargon leak than in the child render."},
+    "4_vocabulary_register_adaptation": {"result": "PASS",   "evidence_type": "RE + IJ",
+      "notes": "REGISTER adapted strongly and distinctly from both baseline and child specimens (adult-conversational + consequence-oriented metaphors vs baseline expert-technical vs child concrete-physical). VOCABULARY: 'maintain state / react' → 'Keep track of what happened / Maybe respond when something changes' (translated per adult beginner); 'perform multiple steps' → 'Do a task with more than one step' (translated); 'multi-agent cooperation' → 'split up responsibilities' (translated). UNCHANGED technical terms: 'API', 'language model' — both defensible for adult beginners because both are commonly encountered in adult general media (news / tech coverage / product copy). Not classified AMBIGUOUS like criterion 4 in the minimal-child specimen because adult context makes those terms contextually available."},
+    "5_factual_preservation":         {"result": "PASS",      "evidence_type": "RE", "notes": "verification_status=verified. Both verification_warnings are proper_noun false-positives on sentence-initial discourse adverbs ('Obviously', 'Especially') — see §verifier_flag_investigation — NOT factual issues. Every propositional claim traces to the same 5-chunk Factual Basis."},
+    "6_story_preservation":           {"result": "PASS",      "evidence_type": "RE", "notes": "Same Episode row 2b6087d2, same operator_topic, same in-scene present-tense frame per solo_scene invariant #2. 'I found my old workshop-agent notes' — same story anchor. Ending is still Patch planning a next experiment, not performing one."},
+    "7_memory_preservation":          {"result": "PASS",      "evidence_type": "RE", "notes": "Retrieved memory row 8d4fdfec byte-identical across all four specimens. Semantic content preserved. Adult-beginner echoes 'give it more context' (memory body: 'gave it more context') — semi-close paraphrase, LESS literal than minimal-child specimen. Comfortably inside solo_scene contract §4 boundary ('do NOT quote them verbatim')."},
+    "8_personality_humor_preservation": {"result": "PASS",    "evidence_type": "IJ", "notes": "'Tiny robot in a trench coat' (concrete absurdity), 'vanish into the fog' (evocative metaphor), 'confidently wrong nonsense' + 'get more expensive' (consequence-humor), 'permission to be industrious' (formal-adjective wit), 'one very specific job… least catastrophic way to see what it does' (first-pass, cut in corrective). Different jokes than child specimens — same Patch construction."},
+    "9_no_patronising_voice":         {"result": "PASS",      "evidence_type": "IJ", "notes": "No 'let me explain' / 'here's the thing' / talk-down markers. 'The annoying part is that the word gets used for basically anything with a chat box' assumes reader competence. 'That does not prove they're conscious. It does mean the behavior could get weird in a way worth watching.' — respects reader's ability to hold nuance."},
+    "10_audience_effect_observable":  {"result": "PASS",      "evidence_type": "RE + IJ", "notes": "Distinguishable from baseline (metaphor family shifted from workplace-integration 'digital duct tape / tiny bureaucratic nightmare' to consequence-focused 'confidently wrong nonsense gets more expensive'); distinguishable from BOTH child specimens (adult-conversational register, no concrete-physical metaphors like beaver+drill or toaster). Final duration Δ vs baseline = 3.5s; corrective-pass chars Δ = 120. Two verifier flags surfaced only under adult register (discourse adverbs 'Obviously' / 'Especially' — child specimens didn't use those). Three-way NOT interchangeable."}
+  },
+
+  "verdict": "10 PASS out of 10. Q-270-8 REVISED experiment passes cleanly.",
+
+  "child_beginner_vs_adult_beginner_analysis": {
+    "primary_finding": "The two MINIMAL audience labels produced meaningfully different beginner-mode communication despite both being subject-beginners. Not one generic 'beginner register'.",
+    "evidence_categories": {
+      "metaphor_family": {
+        "child": "concrete-physical (beaver+drill, toaster, chatbot organizing homework project)",
+        "adult": "consequence-oriented + evocative-abstract + workplace-adjacent (vanish into the fog, gets more expensive, permission to be industrious, leave behind a mess to inspect)",
+        "verdict": "MEANINGFULLY DIFFERENT"
+      },
+      "sentence_rhythm": {
+        "child": "medium-length declarative sentences with occasional connectives ('That is where things get interesting. A chatbot can tell you…')",
+        "adult": "mixes staccato listing ('Pick a tool. Search for information. Read documents. Write information somewhere. Call an API.') with longer clauses ('That does not prove they're conscious. It does mean the behavior could get weird in a way worth watching.') — more adult-conversational cadence variation",
+        "verdict": "DIFFERENT"
+      },
+      "assumed_world_knowledge": {
+        "child": "school/homework framing ('organize your project'), tangible objects (beaver, toaster, power drill)",
+        "adult": "workplace/consequence framing ('gets more expensive', 'leave behind a mess to inspect later'), abstract weather metaphor ('vanish into the fog'), professional adjective ('industrious')",
+        "verdict": "DISTINCTLY DIFFERENT WORLD ASSUMPTIONS"
+      },
+      "assumed_technical_knowledge": {
+        "child": "chatbot mentioned (assumed known); API left unexplained (miss); language model AVOIDED (used 'AI' and 'chatbot' instead)",
+        "adult": "API left unexplained (defensible for adults); language model used explicitly (defensible post-ChatGPT); 'connected it to tools' framing assumes reader can hold 'AI-with-tools' abstraction",
+        "verdict": "SLIGHTLY MORE TECHNICAL VOCABULARY IN ADULT RENDER — consistent with audience"
+      },
+      "humor_construction": {
+        "child": "concrete absurdity (very confident toaster, beaver holding power drill), meta-linguistic ('in theory doing a lot of work')",
+        "adult": "consequence-humor (gets more expensive), formal-adjective wit (permission to be industrious), evocative absurdity (tiny robot in a trench coat)",
+        "verdict": "DIFFERENT JOKE FAMILIES, SAME PATCH CONSTRUCTION"
+      },
+      "participatory_ending": {
+        "child": "'If you've got a weird job you think an agent should try, leave it below.' (social-media-creator framing)",
+        "adult": "'Well… now I want to try it. What would you make an agent do first?' (in-character question)",
+        "verdict": "STRUCTURALLY SIMILAR (both invite audience input); different registers. Coin-flip on which is more suited to the audience — recorded as observation, not systematic finding."
+      }
+    },
+    "does_evidence_support_demographic_vs_expertise_separability": "SUPPORTED, with an important framing caveat. The two audiences differ on BOTH dimensions (child + AI-beginner vs adult + AI-beginner) — the shared axis is subject-familiarity, the differing axis is life-context/demographic. Observed different metaphor family + assumed world knowledge + register despite similar subject-familiarity. That IS evidence that audience identity/context influences communication INDEPENDENTLY of subject expertise. HOWEVER: this does NOT prove that Character OS needs formal separate age_group + expertise_level dimensions — the natural-language audience descriptions ('children around 8-10 years old' vs 'adults who are new to AI agents') already ENCODE both dimensions and the model differentiated them from those strings alone. Consistent with hypothesis that natural-language multidimensional labels may suffice."
+  },
+
+  "register_vs_knowledge_boundary_hypothesis": {
+    "observation": "Register (metaphor family + sentence rhythm + tone toward listener + world-assumption family) adapted STRONGLY under both minimal audience labels (child and adult-beginner). Specific technical vocabulary (API, language model) adapted PARTIALLY — some terms translated per audience ('maintain state' → 'keep track of what happened' in both minimal renders), others left in place ('API' unchanged in both minimal renders; only the verbose CHANGE clause translated it in f0e0a7bf).",
+    "interpretation": "Consistent with the hypothesis that Character OS INFERS AUDIENCE REGISTER more reliably than it infers PRECISE KNOWLEDGE BOUNDARY from minimal audience directives. The model appears to answer 'talk to this listener like an adult/child' more completely than 'this listener is new enough to X that adjacent Y terminology may need explanation'.",
+    "competing_interpretations_considered": [
+      "For adult beginners, 'API' and 'language model' may be genuinely acceptable (adults encounter these in general media post-ChatGPT); the 'miss' may not be a miss at all in the adult case.",
+      "The audience string 'adults who are new to AI agents' may itself be under-specified about adjacent technical knowledge — the audience is a beginner at AGENTS specifically, not at all software.",
+      "One-specimen-per-audience cannot rule out stochastic vocabulary selection."
+    ],
+    "bounded_conclusion": "Evidence CONSISTENT WITH the register-vs-knowledge-boundary hypothesis for the child specimen (where 'API' is clearly a miss). For the adult specimen the miss is defensible — the hypothesis is not conclusively falsified but also not further supported by this specimen. Two data points on API-under-minimal-directive; one uncontested miss (child), one defensible occurrence (adult)."
+  },
+
+  "promotion_check": {
+    "narrative_memory_rows_sourced_from_0b3c1fc1": 0,
+    "pool_state_at_capture_active": 14,
+    "pool_state_at_capture_archived": 1,
+    "delta_from_q_270_9_close": "zero",
+    "recommendation": "DO NOT PROMOTE from 0b3c1fc1. Same rationale as f0e0a7bf, 9880eb93, and 8f09da3e: Patch is planning an experiment ('do I give it more context, some tools, and one very specific job?' / 'now I want to try it'), NOT performing one. State after scene = state before. Retrieved memory row 8d4fdfec already covers the propositional content and this render paraphrases it non-verbatim. Baseline 2ef5ee7e and both child specimens were not promoted for identical story state; promoting only the adult-beginner variant would corrupt promotion discipline. Chris retains final promotion authority."
+  }
+}
