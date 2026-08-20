@@ -1959,3 +1959,277 @@ Chris to drive the SPA/UI per §20.5. AI to tail DB/logs/API in parallel per `fe
 ---
 
 **End of SESSION 272 Slice F pre-dogfood checkpoint. Production `_expansion_hint` now matches the Slice E CORRECT_ANCHOR exemplar byte-for-byte. Tests updated + green. Runtime restarted + verified. Substrate proposed for Chris's dogfood. STOP.**
+
+---
+
+## §21. SLICE G — CORRECT_ANCHOR PRODUCTION DOGFOOD FORENSICS
+
+Post-production forensics on Composition short ID `8cb9e115`. Rendered by Chris on 2026-08-20 21:26 UTC on the Slice F production hint, then handed to AI for evidence extraction and verdict. No code / knowledge / memory mutation in this slice.
+
+### §21.1 Composition provenance (frozen)
+
+- **Full UUID:** `8cb9e115-d7a9-4af5-ba86-746a5e5bbcc1`
+- **Short ID:** `8cb9e115`
+- **Composition name:** `Talking-head — Rivet`
+- **Status:** `completed`
+- **Verification:** `verified`
+- **Recipe / lane:** `talking_head` (solo_scene)
+- **Workspace:** `4ce5486d-35a4-4bee-8745-38004adb33bc` — `chriss-workspace` (Chris's workspace)
+- **Universe:** `56d16b63-652e-4f54-bc7e-39114bbfc4c5` — `patch-workshop` (Patch' Workshop — the CANONICAL current Universe; not the legacy experimental EXP266-WEAK universe from Slice B/C substrate)
+- **Rivet Teammate:** `f18b75cc-37c0-445a-a472-24fe5d8b7592` (production Rivet in Chris's canonical universe; NOT the disposable clone `af86f830-…` from Slice B/C)
+- **Episode:** `1c21d1e3-67c4-48ee-8a82-0a894467f9d0` — *Rivet explains why one good result isn't enough*
+- **Operator topic:** *"Rivet explains why one good result isn't enough — the case for repeating an experiment before believing it."*
+- **Requested duration:** 90s
+- **Model-predicted duration:** 79.0s
+- **Actual final clip:** 85.9s (per Chris's SPA report; well within acceptance band)
+- **Writing Contract version:** **6** ✓
+- **audience_hint:** `""` (empty) ✓
+- **mock_mode:** `False` ✓
+- **synthesis_attempt_count:** **2** (corrective expansion FIRED)
+- **Cost actual micros:** 20,000 = $0.02
+- **Created:** 2026-08-20 21:26:53 UTC
+- **Render dispatched:** 2026-08-20 21:27:08 UTC
+- **KnowledgeDocument grounding:** `RIVET — EXPERIMENTATION, TESTING & WORKSHOP KNOWLEDGE` (doc `218eb0d8-0d37-4f8c-bb7c-cc6452dcc4a9` — canonical Rivet KD in this workspace)
+- **Retrieved chunks (5):**
+  1. `fb84ba3d…` idx 0 — PURPOSE + HYPOTHESIS BEFORE CONCLUSION header
+  2. `fadd9548…` idx 1 — HYPOTHESIS BEFORE CONCLUSION body + OBSERVATION VS EXPLANATION header
+  3. `6bd12128…` idx 2 — OBSERVATION VS EXPLANATION body + REPRODUCIBILITY header
+  4. `8eda13b7…` idx 3 — REPRODUCIBILITY body + AI OUTPUTS REQUIRE VERIFICATION header
+  5. `6f43e6f0…` idx 7 — end of DEBUGGING (contains "the behavior first becomes incorrect" in tail overlap) + CHANGE ONE THING + AI CHARACTER TESTING
+- **NarrativeMemory:** `d98962e2-e8eb-456c-a502-e1b70172d98f` — body: *"Patch accepted Rivet taking the lead on an experiment and agreed to follow Rivet's more methodical process."*
+
+Frozen sidecar: `docs/design/session_272_experiment_data/06_slice_g_composition_8cb9e115_evidence.json` (12 KB).
+
+### §21.2 Runtime activation proof — the persisted corrective_hint field
+
+**Composition.corrective_hint** — the actual expansion hint text that reached the LLM at retry time — was persisted verbatim on the Composition row. Direct runtime evidence, not source-inference.
+
+Persisted corrective_hint (654 chars, sha256 `[recorded in sidecar]`):
+
+> Your previous draft was 623 characters (113 words, estimated ~43s of speech). Target is 81s.
+> **EXPAND YOUR SCRIPT TO AT LEAST** 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 349 more characters to meet the minimum.
+> Preserve the central arc (opening → development → payoff → single closing invitation), the narrator perspective, and **the factual grounding from the knowledge chunks**. **Expand secondary detail from the knowledge chunks** — describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. **Do NOT invent facts not present in the knowledge chunks**.
+
+Mechanical checks:
+- Contains `EXPAND YOUR SCRIPT`: **True** ✓
+- Contains `REWRITE THE SAME NARRATIVE ABOVE`: **False** ✓
+- Contains `Expand secondary detail from the knowledge chunks`: **True** ✓
+- Contains `Do NOT invent facts not present in the knowledge chunks`: **True** ✓
+
+**This is direct runtime proof.** The Slice F production hint was in force at 2026-08-20 21:27 UTC when this render's corrective retry fired. Not inferred from current source; persisted from the actual LLM call.
+
+Other runtime conditions confirmed:
+- WCV=6 (Composition.writing_contract_version=6)
+- audience_hint="" (SESSION 270 audience experiment not activated on this render)
+- mock_mode=False (real provider render)
+- Cost $0.02 recorded, real gpt-4o-mini invocation
+- Q-270-15c gate — the render was in production default; Q-270-15c is env-gated inside `synthesize_with_duration_gate` and only activates when `_corrective_revision_experiment_active()` returns True. The persisted corrective_hint uses the canonical `_expansion_hint` format (not the experimental `_experimental_expansion_revision_hint` format which would start `REVISE THE PREVIOUS DRAFT`), so **Q-270-15c was OFF for this render** — no `previous_draft` supplied.
+
+### §21.3 Corrective expansion fired — Draft A vs Draft B
+
+**Draft A (first_pass_synthesis, 623 chars, ~113 words, model estimate ~43s):**
+
+> Well. That worked once.
+>
+> That is interesting. It is not the same as reliable.
+>
+> Before we celebrate, I want to know: does it happen again? Does it happen every time? What changes if we alter the prompt, or use a different input?
+>
+> Because one good result can be luck. Or a hidden condition. Or the system behaving itself briefly out of spite.
+>
+> What we observed is simple: it worked this time.
+>
+> Why it worked—and whether we can trust it to work again—that is a different question.
+>
+> So we repeat the test. Change one important thing at a time. Keep track of what happens.
+>
+> Then, if it still works, we can start being impressed.
+
+Draft A was well below the 972-char minimum → corrective expansion mandatory.
+
+**Draft B (corrective_pass_synthesis = accepted synthesized_brief, 1163 chars):**
+
+> One good result is interesting. It is not proof.
+>
+> Right now, we have an output that looks promising. Fine. I am pleased for it. Briefly.
+>
+> But before we decide it works, there are a few inconvenient questions. Does it happen again? Does it happen every time? If we change the prompt, does the result change? Would another model behave the same way? Was there some detail in the input that quietly caused the whole thing?
+>
+> Because an AI doing the right thing once can mean several things. It may have followed the instruction reliably. It may have guessed well. It may have been helped by context we did not notice. Those are not the same explanation, and pretending they are is how people become confidently wrong.
+>
+> Patch and I have learned this the useful way: if you change the prompt, model, settings, and input all at once, then get a better result, you have not fixed anything. You have created a coincidence with excellent presentation.
+>
+> So the next step is smaller. Repeat the test. Change one important thing. Watch what moves.
+>
+> If the result survives that, then I will start believing it. Carefully.
+>
+> Try the experiment again before you call it a success.
+
+### §21.4 Draft A → Draft B regression checklist
+
+| Check | Result |
+| --- | --- |
+| A. Opening restart | **No.** Draft B opens "One good result is interesting. It is not proof." — same thesis as Draft A's "That worked once. That is interesting. It is not the same as reliable." Continuation of the same arc, not a fresh restart. `Do NOT restart with a new opening` instruction respected. |
+| B. Duplicate CTA | **No.** Single closing line: "Try the experiment again before you call it a success." No secondary CTA. |
+| C. Invented facts | **No.** Every claim in Draft B traces to the retrieved chunks or is character voice. |
+| D. Factual drift | **No.** All debugging/reproducibility concepts are consistent with the source. |
+| E. Awkward direct copying from retrieved knowledge | **No.** Reproducibility questions (chunk 3) are the most-lexically-adjacent passage: source says "whether it happens again, whether it happens every time, whether changing the prompt changes the result, whether another model behaves the same way, whether a different input causes the same failure, ... whether some hidden condition affected it." Draft B renders these as "Does it happen again? Does it happen every time? If we change the prompt, does the result change? Would another model behave the same way? Was there some detail in the input that quietly caused the whole thing?" — accessible reformulations, near-canonical structural echoes, no raw verbatim runs. |
+| F. Canonical enumeration expansion | **Mild + preserved.** Draft B includes an enumeration "if you change the prompt, model, settings, and input all at once" — echoes chunk 2 CHANGE ONE THING's "If the prompt, the model, the character, the lighting, the style, and the settings all change at once" — accessible reformulation, not verbatim copy. |
+| G. Character flattening | **No.** Draft B RETAINS AND EXPANDS Rivet signature (§21.6). |
+| H. Unnecessary jargon introduction | **No.** Draft B is if anything more accessible than Draft A. |
+| I. Useful secondary-detail expansion | **Yes.** Draft B adds: "Would another model behave the same way?" (new question from chunk 3), "Was there some detail in the input that quietly caused the whole thing?" (new question from chunk 3), "It may have followed the instruction reliably. It may have guessed well. It may have been helped by context we did not notice." (interpretation of what one good result can mean), "You have created a coincidence with excellent presentation." (character-flavored expansion of chunk 2's "coincidence waiting to fail"). All are genuine expansions from source material. |
+| J. Central arc preserved | **Yes.** Both drafts follow: one good result → questions to ask → change one variable → try again. Draft B expands the middle and drops in a Patch/Rivet-shared line, keeping the arc intact. |
+
+### §21.5 Knowledge / lexical-gravity check — the strongest attractor
+
+The retrieved chunks include chunk 5 (idx 7) which contains the exact phrase **`the behavior first becomes incorrect`** in its tail overlap — the SESSION 271 §191.4 verbatim canonical attractor.
+
+Checked Draft B for the attractor family:
+
+| Form | Present in Draft B? |
+| --- | --- |
+| Exact canonical `where the behavior first becomes incorrect` | **NO** |
+| Near-canonical `where {it, the result, the behavior, things} first becomes incorrect` | **NO** |
+| Any similar formulation | **NO** — the concept is expressed via the reproducibility-questions cluster instead |
+
+**Zero attractor leakage into Draft B, even though the exact phrase was physically present in the retrieved chunk.** Chris's CORRECT_ANCHOR fix produced the intended behaviour on a real production render.
+
+Additional lexical-gravity spot check on other canonical debugging vocabulary:
+
+| Canonical phrase | Where sourced | Draft B expression |
+| --- | --- | --- |
+| "whether it happens again" | chunk 3 | "Does it happen again?" — accessible |
+| "whether it happens every time" | chunk 3 | "Does it happen every time?" — accessible |
+| "whether changing the prompt changes the result" | chunk 3 | "If we change the prompt, does the result change?" — accessible reworded |
+| "whether another model behaves the same way" | chunk 3 | "Would another model behave the same way?" — accessible reworded |
+| "whether a different input causes the same failure" + "hidden condition affected it" | chunk 3 | "Was there some detail in the input that quietly caused the whole thing?" — accessible fused |
+| "one important variable at a time" | chunk 2 | "Change one important thing." — accessible-shortened |
+| "coincidence waiting to fail" | chunk 2 | "coincidence with excellent presentation" — character-flavored |
+| "One successful generation does not establish reliability" | chunk 3 | "It is not the same as reliable." (Draft A) / "It is not proof." (Draft B) — accessible |
+| Model-generated character-native (no source) | — | "Fine. I am pleased for it. Briefly." · "there are a few inconvenient questions" · "You have created a coincidence with excellent presentation" · "Watch what moves." · "then I will start believing it. Carefully." |
+
+**Classification (Chris's §5 criteria):** Draft B is dominated by **D — MIXED canonical + character-native language**, with a strong bias toward **C — independent reformulation**. No cases of **A — heavy copying**.
+
+### §21.6 Rivet identity — perceptual + mechanical
+
+Perceptually: this render is Rivet. Draft B carries the character's dry-methodical worldview through every paragraph:
+
+- `One good result is interesting. It is not proof.` — Rivet thesis
+- `Fine. I am pleased for it. Briefly.` — signature terse-adverb closing
+- `there are a few inconvenient questions` — Rivet phrasing
+- `pretending they are is how people become confidently wrong` — Rivet epistemic humor
+- `You have created a coincidence with excellent presentation` — Rivet dry witticism
+- `Patch and I have learned this the useful way` — Rivet-Patch shared context
+- `Watch what moves.` — Rivet terse instruction
+- `then I will start believing it. Carefully.` — signature closing pattern
+
+Corrective expansion did not weaken Rivet. If anything, Draft B is **more** distinctively Rivet than Draft A — the added length gave room for four additional signature drops (`Fine. I am pleased for it. Briefly.` / `You have created a coincidence with excellent presentation.` / `Patch and I have learned this the useful way` / `Watch what moves.`) that are absent from Draft A. Character was strengthened, not flattened.
+
+**Slice E's identity-marker mechanical count** (which showed CORRECT_ANCHOR ↓ vs BASELINE) is a keyword-hit heuristic — this real production render demonstrates why perceptual identity strength should be weighted higher than a rigid marker count. The Slice E mechanical measurement understated identity strength in the CORRECT_ANCHOR condition.
+
+### §21.7 NarrativeMemory analysis
+
+**Memory used:** `d98962e2` — *"Patch accepted Rivet taking the lead on an experiment and agreed to follow Rivet's more methodical process."*
+
+**Draft B line drawing on it:** *"Patch and I have learned this the useful way: if you change the prompt, model, settings, and input all at once, then get a better result, you have not fixed anything."*
+
+**Classification:** **Natural continuity.** The memory establishes that Patch and Rivet share prior methodological experience. Draft B uses that as narrative anchor (`Patch and I have learned this the useful way`) to introduce the change-one-thing methodology. The memory is NOT recited verbatim; it is used as backstory the character already knows. This matches the SESSION 269 §10 "past events; static canon wins on conflict; do not recite verbatim; treat as background the character already knows" contract.
+
+**Does anything new materially happen in this render that deserves NarrativeMemory promotion?** No. This render is Rivet explaining an existing methodology (one-result-is-not-proof / reproducibility discipline) in a stand-alone talking-head format. Nothing durable happened in the story that should be promoted to canon. Chris's expected verdict of NO is correct.
+
+**Verify counts:** Total NarrativeMemory count post-render: **17** (matches pre-Slice-G / SESSION 271 §I baseline). Zero promotion in Slice F or Slice G.
+
+### §21.8 Q-270-16 verifier evidence — additional false-positive specimen
+
+The K6.4 verifier flagged two claims with `kind: "proper_noun"`:
+- `"Briefly"` at position 128 → context: `Fine. I am pleased for it. Briefly.`
+- `"Carefully"` at position 1097 → context: `then I will start believing it. Carefully.`
+
+Both are **sentence-initial adverbs functioning as one-word terse closings** — a distinctive Rivet voice pattern. Because they start their sentences and are therefore capitalized, the noun-phrase extractor mis-classified them as proper nouns.
+
+**Assessment: both flags are Q-270-16 false positives.** Neither `Briefly` nor `Carefully` is a proper noun; both are legitimate character voice functioning as terse adverbial closings.
+
+**Q-270-16 status update:** additional evidence for the reproducible verifier defect first named in SESSION 271 §E. This composition preserves the two false-positive specimens (`Briefly` at position 128, `Carefully` at position 1097 in the accepted brief) as additional Q-270-16 evidence. **Do NOT fix Q-270-16 in Slice G** — Chris explicitly excluded that.
+
+Importantly: Q-270-16 false positives do NOT contaminate the CORRECT_ANCHOR verdict. The render is `verified` (not `warned` at strict mode; warn-mode passes with warnings). The false positives are voice-preservation evidence, not regression.
+
+### §21.9 Production dogfood verdict
+
+**Verdict: A — CORRECT_ANCHOR PRODUCTION VERIFIED.**
+
+Reasoning:
+- Corrective expansion FIRED (`synthesis_attempt_count=2`, Draft A 623 chars below 972-char minimum).
+- The Slice F production hint executed at retry time (persisted `corrective_hint` field contains `EXPAND YOUR SCRIPT TO AT LEAST 972 CHARACTERS`; does NOT contain `REWRITE THE SAME NARRATIVE ABOVE`).
+- Zero attractor leakage (`where the behavior first becomes incorrect` and near-canonical variants — absent from Draft B despite exact verbatim in retrieved chunk).
+- No opening restart · no duplicate CTA · no invented facts · no factual drift · no awkward direct copying · no character flattening.
+- Draft B is perceptually MORE Rivet than Draft A (four signature-line additions).
+- NarrativeMemory used as natural backstory continuity, not recited.
+- Verification `verified`; K6.4 warnings are Q-270-16 false positives (separate concern).
+- Final clip 85.9s within acceptance band.
+
+The verdict is A, not merely "the video was good." The production sanity check specifically demonstrated corrective expansion executing cleanly under the new hint with the previously-load-bearing attractor absent from output.
+
+### §21.10 Q-270-15c status recommendation
+
+**Recommendation: 1 — CLOSE / DEFER INDEFINITELY.**
+
+Reasoning:
+- Q-270-15c was proposed to solve the corrective-pass canonical reappearance problem via the alternative mechanism of supplying `previous_draft` to the retry.
+- Slice E n=5 ablation established that the CORRECT_ANCHOR single-phrase swap achieves 75% attractor-family reduction — the intervention Q-270-15c would have provided is redundant with a much smaller change.
+- Slice G production render confirms the CORRECT_ANCHOR fix works on a real Rivet substrate against a knowledge chunk that physically contained the strongest attractor. Zero leakage.
+- No specimen in the SESSION 272 arc requires `previous_draft` as an additional lever. Every observed corrective-pass behaviour has been explainable by the anchor-phrase mechanism.
+- Keeping Q-270-15c open would maintain research overhead for no expected additional information gain.
+
+**Recommended concrete action:**
+- Do NOT delete the Q-270-15c code path. It is env-gated (`_CORRECTIVE_REVISION_ENV`), inactive by default, does no runtime harm, and preserves optionality if a future need for previous-draft-supplied retry emerges.
+- Do NOT continue treating Q-270-15c as an open research question. Close it in the SESSION 272 CLOSEOUT.
+- The 26-test suite `test_session271_patch_communication_policy.py` and Q-270-15c-specific tests can remain as trip-wires; they cost nothing to keep and would catch any accidental activation.
+
+### §21.11 SESSION 272 direction — has the arc reached a natural stopping point?
+
+**Yes.** SESSION 272 should close.
+
+Recap of the arc:
+- Slice A / audit — knowledge-shape lexical gravity established as cross-character property; Option D paired paraphrase proposed.
+- Slice B — Option D showed directional support at n=1.
+- Slice C — Option D failed to replicate at n=5. Chris's Slice C hypothesis (Option D enables third-form generation) also unsupported.
+- Slice D — reframed to corrective-pass regression; three sub-hypotheses inside `_expansion_hint` remained indistinguishable.
+- Slice E — three-condition ablation localised the dominant driver to the false-anchor phrase (E1).
+- Slice F — CORRECT_ANCHOR shipped to production.
+- Slice G — real production dogfood verified. Zero attractor leakage.
+
+The bottleneck was NEVER knowledge-shape. It was a prompt-hygiene defect in `_expansion_hint`. That defect is now fixed, verified in production, and closed.
+
+**Additional knowledge-authoring experimentation is NOT justified now.** Continuing to test authoring conventions would burn effort on a lever that Slice C already demoted to bounded-and-secondary. The knowledge-shape question moves from "open research" to "solved-adjacent" — real but not the load-bearing lever, and adequately addressed by the current architecture (WCV6 + persona + retrieval + the fixed corrective hint).
+
+### §21.12 Smallest next moves (all optional; none block SESSION 272 close)
+
+1. **`_compression_hint` analog fix.** The compression hint still opens with `REWRITE THE SAME NARRATIVE BELOW`. Same class of false-anchor bug on the compression path. Not experimentally evaluated in Slice E. A small bounded slice could either: (a) replicate the Slice E ablation on the compression path; or (b) ship the analogous change (`EXPAND YOUR SCRIPT` → `TRIM YOUR SCRIPT`?) with a shorter follow-up dogfood. Chris's discretion.
+2. **Q-270-16 proper_noun verifier fix.** Sentence-initial capitalized adverbs are being misclassified. Slice G adds a third false-positive specimen (`Briefly` + `Carefully`). Standalone verifier-quality slice; unrelated to knowledge-shape or corrective hint.
+3. **Slice C verification_warnings capture-gap remediation.** Slice C's evidence sidecar didn't persist the `verification_warnings` list, making the Slice E K6.4 comparison unreliable. Trivially fixable in the sidecar-writer for any future replicate. Very low priority.
+4. **Substrate saturation update.** Slice B/C used disposable Slice-clone Rivet in workspace `097bd82e`. Slice G used real production Rivet in workspace `4ce5486d`. The SESSION 271 memory `project_patch_ai_agents_substrate_saturated` should be updated to reflect that Rivet on reproducibility (Slice G's Episode topic) is now a rendered specimen and may or may not tolerate further dogfood.
+
+**None of these is required for SESSION 272 CLOSEOUT.**
+
+### §21.13 Explicit non-changes during Slice G
+
+- No source code edited.
+- No prompt or Writing Contract change.
+- No KnowledgeDocument edited (canonical RIVET `71e2ec43` SHA still `75bac33223…`; Rivet render doc `218eb0d8` unchanged).
+- No persona / Teammate row edited.
+- No schema change.
+- No NarrativeMemory promoted (total count still 17).
+- No new render performed.
+- No Composition modified (Composition `8cb9e115` was read-only; sidecar frozen for archival).
+- All experiment env vars remain OFF.
+- Provider mocks remain OFF.
+- Q-270-15c gate remains OFF.
+- Runtime unchanged since Slice F restart.
+
+### §21.14 Slice G evidence artifact
+
+- `docs/design/session_272_experiment_data/06_slice_g_composition_8cb9e115_evidence.json` — full Composition provenance, all synthesis fields, persisted corrective_hint with SHA + mechanical checks, all 5 retrieved chunks (full text), memory row body, runtime state at forensic read (WCV, production hint sample, hint SHA, Q-270-15c gate state).
+
+---
+
+**End of SESSION 272 Slice G. Verdict: A — CORRECT_ANCHOR PRODUCTION VERIFIED. The Slice F fix executed cleanly on a real production render, produced no attractor leakage even against a chunk containing the exact verbatim strongest attractor, preserved (in fact strengthened) Rivet identity, drew on NarrativeMemory naturally, and passed verification. K6.4 flags on `Briefly` / `Carefully` are additional Q-270-16 false-positive evidence (separate concern). Q-270-15c recommendation: CLOSE. SESSION 272 arc has reached a natural stopping point. STOP.**

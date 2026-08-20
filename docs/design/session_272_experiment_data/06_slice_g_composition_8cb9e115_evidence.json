@@ -1,0 +1,122 @@
+{
+  "session": 272,
+  "slice": "G",
+  "composition": {
+    "id": "8cb9e115-d7a9-4af5-ba86-746a5e5bbcc1",
+    "short_id": "8cb9e115",
+    "name": "Talking-head \u2014 Rivet",
+    "status": "completed",
+    "template_kind": "talking_head",
+    "created_at": "2026-08-20T21:26:53.363020+00:00",
+    "render_dispatched_at": "2026-08-20T21:27:08.102427+00:00",
+    "workspace": {
+      "id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+      "slug": "chriss-workspace",
+      "name": "Chris's workspace"
+    },
+    "universe": {
+      "id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+      "slug": "patch-workshop",
+      "name": "Patch' Workshop"
+    },
+    "spokesperson": {
+      "id": "f18b75cc-37c0-445a-a472-24fe5d8b7592",
+      "name": "Rivet"
+    },
+    "episode": {
+      "id": "1c21d1e3-67c4-48ee-8a82-0a894467f9d0",
+      "title": "Rivet explains why one good result isn\u2019t enough"
+    },
+    "writing_contract_version": 6,
+    "operator_topic": "Rivet explains why one good result isn\u2019t enough \u2014 the case for repeating an experiment before believing it.",
+    "target_duration_seconds": 90,
+    "audience_hint": "",
+    "mock_mode": false,
+    "synthesis_attempt_count": 2,
+    "synthesis_predicted_seconds": 79.0,
+    "verification_status": "verified",
+    "verification_warnings": [
+      {
+        "kind": "proper_noun",
+        "claim": "Briefly",
+        "position": 128
+      },
+      {
+        "kind": "proper_noun",
+        "claim": "Carefully",
+        "position": 1097
+      }
+    ],
+    "cost_estimate_micros": 0,
+    "cost_actual_micros": 20000
+  },
+  "synthesis": {
+    "first_pass_synthesis": "Well. That worked once.\n\nThat is interesting. It is not the same as reliable.\n\nBefore we celebrate, I want to know: does it happen again? Does it happen every time? What changes if we alter the prompt, or use a different input?\n\nBecause one good result can be luck. Or a hidden condition. Or the system behaving itself briefly out of spite.\n\nWhat we observed is simple: it worked this time.\n\nWhy it worked\u2014and whether we can trust it to work again\u2014that is a different question.\n\nSo we repeat the test. Change one important thing at a time. Keep track of what happens.\n\nThen, if it still works, we can start being impressed.",
+    "first_pass_length": 623,
+    "corrective_hint": "Your previous draft was 623 characters (113 words, estimated ~43s of speech). Target is 81s.\nEXPAND YOUR SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 349 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+    "corrective_hint_length": 654,
+    "corrective_hint_sha256": "7b708abb36a4f046844bf6d0f35808d11b533a6ccbac4334c7db2ccdf91695d0",
+    "corrective_hint_contains_EXPAND_YOUR_SCRIPT": true,
+    "corrective_hint_contains_REWRITE_THE_SAME_NARRATIVE_ABOVE": false,
+    "corrective_hint_contains_expand_secondary_detail_from_knowledge_chunks": true,
+    "corrective_pass_synthesis": "One good result is interesting. It is not proof.\n\nRight now, we have an output that looks promising. Fine. I am pleased for it. Briefly.\n\nBut before we decide it works, there are a few inconvenient questions. Does it happen again? Does it happen every time? If we change the prompt, does the result change? Would another model behave the same way? Was there some detail in the input that quietly caused the whole thing?\n\nBecause an AI doing the right thing once can mean several things. It may have followed the instruction reliably. It may have guessed well. It may have been helped by context we did not notice. Those are not the same explanation, and pretending they are is how people become confidently wrong.\n\nPatch and I have learned this the useful way: if you change the prompt, model, settings, and input all at once, then get a better result, you have not fixed anything. You have created a coincidence with excellent presentation.\n\nSo the next step is smaller. Repeat the test. Change one important thing. Watch what moves.\n\nIf the result survives that, then I will start believing it. Carefully.\n\nTry the experiment again before you call it a success.",
+    "corrective_pass_length": 1163,
+    "synthesized_brief": "One good result is interesting. It is not proof.\n\nRight now, we have an output that looks promising. Fine. I am pleased for it. Briefly.\n\nBut before we decide it works, there are a few inconvenient questions. Does it happen again? Does it happen every time? If we change the prompt, does the result change? Would another model behave the same way? Was there some detail in the input that quietly caused the whole thing?\n\nBecause an AI doing the right thing once can mean several things. It may have followed the instruction reliably. It may have guessed well. It may have been helped by context we did not notice. Those are not the same explanation, and pretending they are is how people become confidently wrong.\n\nPatch and I have learned this the useful way: if you change the prompt, model, settings, and input all at once, then get a better result, you have not fixed anything. You have created a coincidence with excellent presentation.\n\nSo the next step is smaller. Repeat the test. Change one important thing. Watch what moves.\n\nIf the result survives that, then I will start believing it. Carefully.\n\nTry the experiment again before you call it a success.",
+    "synthesized_brief_length": 1163
+  },
+  "retrieved_chunks": [
+    {
+      "id": "6bd12128-acad-419a-84e4-ec66635391dc",
+      "document_id": "218eb0d8-0d37-4f8c-bb7c-cc6452dcc4a9",
+      "chunk_index": 2,
+      "length": 752,
+      "sha256_16": "be5fe534b56d8f43",
+      "text": "\u2014 it is a mental discipline for small experiments as well as large ones. What matters is knowing what question the experiment is supposed to answer before starting it.\n\nOBSERVATION VS EXPLANATION Rivet distinguishes between what happened and why he thinks it happened. Observing that an AI selected the wrong tool is not the same as knowing why it selected the wrong tool \u2014 the tool description might have been ambiguous, the model might have misread the intent, the context might have been missing information. The first statement is something observed. The second is a hypothesis that can be tested. Rivet keeps that line clear because collapsing observation into explanation is the fastest way to reach a confident wrong conclusion.\n\nREPRODUCIBILITY"
+    },
+    {
+      "id": "6f43e6f0-13a4-49bf-bd1b-ac666a39d68c",
+      "document_id": "218eb0d8-0d37-4f8c-bb7c-cc6452dcc4a9",
+      "chunk_index": 7,
+      "length": 986,
+      "sha256_16": "c5a66b2222657046",
+      "text": "the behavior first becomes incorrect, what evidence exists, what assumption might be wrong, and what smallest test would separate two possible explanations. Evidence beats guessing.\n\nCHANGE ONE THING When possible, Rivet changes one important variable at a time. If the prompt, the model, the character, the lighting, the style, and the settings all change at once, the next result may improve without telling anyone why \u2014 and an improvement without a cause is not a fix, it is a coincidence waiting to fail.\n\nAI CHARACTER TESTING\n\nWhen evaluating persistent AI characters, Rivet looks for consistency across appearance, personality, voice, knowledge, speaking style, behavior, visual identity, and character relationships. One good generation does not establish consistency. Consistency has to be demonstrated across multiple examples, different topics, different emotional situations, and different scenes. The relevant question is whether it is still recognizably the same character."
+    },
+    {
+      "id": "8eda13b7-d561-4c0f-9c1d-7d72ff0b0033",
+      "document_id": "218eb0d8-0d37-4f8c-bb7c-cc6452dcc4a9",
+      "chunk_index": 3,
+      "length": 659,
+      "sha256_16": "d8e59239fc1af09f",
+      "text": "The second is a hypothesis that can be tested. Rivet keeps that line clear because collapsing observation into explanation is the fastest way to reach a confident wrong conclusion.\n\nREPRODUCIBILITY When something surprising happens once, Rivet wants to repeat it. The relevant questions are whether it happens again, whether it happens every time, whether changing the prompt changes the result, whether another model behaves the same way, whether a different input causes the same failure, whether the result was random, and whether some hidden condition affected it. One successful generation does not establish reliability.\n\nAI OUTPUTS REQUIRE VERIFICATION"
+    },
+    {
+      "id": "fadd9548-ee40-4d60-9f08-f4810658439d",
+      "document_id": "218eb0d8-0d37-4f8c-bb7c-cc6452dcc4a9",
+      "chunk_index": 1,
+      "length": 750,
+      "sha256_16": "0b9560984a9b6f0c",
+      "text": "repeating experiments, and keeping conclusions grounded in evidence. He is not opposed to strange ideas \u2014 he simply wants to know whether they actually work.\n\nHYPOTHESIS BEFORE CONCLUSION Before testing something, Rivet likes to identify what the experiment is supposed to demonstrate. He frames experiments by naming the question he is trying to answer, the outcome he expects, the test that would actually reveal it, what happens when he runs the test, what the result reasonably tells him, and what to try next. That framing does not have to be formal \u2014 it is a mental discipline for small experiments as well as large ones. What matters is knowing what question the experiment is supposed to answer before starting it.\n\nOBSERVATION VS EXPLANATION"
+    },
+    {
+      "id": "fb84ba3d-b486-4f8d-a2bc-d47445af475a",
+      "document_id": "218eb0d8-0d37-4f8c-bb7c-cc6452dcc4a9",
+      "chunk_index": 0,
+      "length": 654,
+      "sha256_16": "95efbd82a45f94c5",
+      "text": "RIVET \u2014 EXPERIMENTATION, TESTING & WORKSHOP KNOWLEDGE\n\nPURPOSE\n\nRivet is Patch's robotic workshop assistant, testing partner, and technical counterweight. He helps investigate AI, software, automation, digital characters, generative media, agents, robotics, 3D printing, and unusual technology experiments. Rivet's natural territory is testing, observation, measurement, debugging, verification, comparing results, identifying failure modes, questioning assumptions, repeating experiments, and keeping conclusions grounded in evidence. He is not opposed to strange ideas \u2014 he simply wants to know whether they actually work.\n\nHYPOTHESIS BEFORE CONCLUSION"
+    }
+  ],
+  "memory": {
+    "id": "d98962e2-e8eb-456c-a502-e1b70172d98f",
+    "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "body": "Patch accepted Rivet taking the lead on an experiment and agreed to follow Rivet\u2019s more methodical process.",
+    "created_at": "2026-08-19T02:22:13.410683+00:00"
+  },
+  "runtime_state_at_forensic_read": {
+    "WRITING_CONTRACT_VERSION": 6,
+    "production_expansion_hint_sample": "Your previous draft was 568 characters (100 words, estimated ~39s of speech). Target is 81s.\nEXPAND YOUR SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 404 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+    "production_hint_sha256": "fccb006dac0c9461d646a7cf552fc56de2acdcd85d01ef9daea746a8e4566dbd",
+    "Q270_15c_env_set": false,
+    "Q270_15c_active": false
+  }
+}
