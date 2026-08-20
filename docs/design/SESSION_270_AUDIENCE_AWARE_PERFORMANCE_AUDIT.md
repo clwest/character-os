@@ -856,9 +856,9 @@ Recorded immediately after grading + interpretation. Restores the local-real sta
 
 ### §13.17 Commit checkpoint (first-experiment evidence + grading)
 
-- Slice commit: `<populated below>` — `<subject line populated below>`.
-- Push: `<populated below>`.
-- Working tree state at checkpoint: `<populated below>`.
+- Slice commit: `a83e8fc` — `docs(session-270): §13.9 + §13.10 + §13.15-§13.17 — first-experiment evidence, grading, promotion recommendation, deactivation`.
+- Push: `5c82374..a83e8fc main -> main` (successful). Local `main == origin/main == a83e8fc`.
+- Working tree state at checkpoint: clean.
 
 ---
 
