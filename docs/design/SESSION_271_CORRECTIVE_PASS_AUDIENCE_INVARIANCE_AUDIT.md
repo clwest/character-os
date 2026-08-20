@@ -2598,3 +2598,530 @@ If Chris + ChatGPT are willing, an alternative is that Claude performs the full 
 ---
 
 **End of SESSION 271 Slice 5. STOP condition reached. Knowledge-audit finding: retrieved chunks are the PRIMARY attractor for at-risk technical vocabulary; Patch's knowledge document literally frames those terms as *"WHAT PATCH KNOWS ABOUT AI"* and provides zero accessible-translation alternatives. Trial 3 (8b61ca92) verdict: E — INCONCLUSIVE for Q-270-15c (activation gap) but useful as a third canonical baseline-shape data point. Slice 4 recommendation B stands; a properly-activated Trial 4 remains the next authorised action if operator chooses to close the n=1 revision magnitude-stability gap.**
+
+---
+
+# SESSION 271 — SLICE 6 · Knowledge-Shape Deep Audit (retrieval-dependent behavioral invariants)
+
+**Scope:** read-only mechanical audit prompted by the operator hypothesis:
+
+> *"Patch's document contains factual/reference knowledge, reasoning/behavior guidance, and communication guidance. Runtime top_k=5 semantic retrieval may retrieve topic-specific factual chunks while omitting globally important behavioral/communication guidance such as 'Patch uses technical terminology when it actually helps, and translates it into ordinary language when it does not.'"*
+
+**Anchor state:** HEAD `9efa47f`, `main == origin/main`, working tree clean, both experiment env vars unset, canonical worker (§69 cleanup lineage), NarrativeMemory pool 14 remembered + 1 archived. **No knowledge modified, no embeddings changed, no chunks rewritten, no code touched, no renders performed in Slice 6.**
+
+**Reference data:** the two exported knowledge snapshots (`docs/knowledge_snapshots/patch_knowledge.md` + `docs/knowledge_snapshots/rivet_knowledge.md`) contain the verbatim `raw_content`. This slice adds the structural analysis on top of those snapshots.
+
+---
+
+## §87. Chunker mechanics (read from `shell/apps/embeddings/text_splitter.py`)
+
+`TextSplitter` — the shell-side chunker used at ingest time — is **paragraph-first with a soft character ceiling and section-unaware**:
+
+- `DEFAULT_CHUNK_SIZE = 1000` chars (soft — sentences longer than 1000 chars are emitted whole).
+- `DEFAULT_CHUNK_OVERLAP = 200` chars (word-boundary snapped from the tail of the previous chunk).
+- Split priority: `\n\n` paragraph boundaries first; sentence boundaries (`.`) as fallback inside oversized paragraphs.
+- **Zero section-heading awareness.** ALL-CAPS section headings (`WHAT PATCH KNOWS ABOUT AI`, `AI AGENTS`, `MULTI-AGENT SYSTEMS`, `HOW PATCH HANDLES TECHNICAL DETAIL`, etc.) are treated as ordinary paragraphs. If a heading is short (<< 1000 chars), it gets stitched with adjacent content into whichever chunk crosses that offset.
+
+**Consequence:** chunks routinely START mid-sentence or mid-section (visible in the exported chunk map — chunk 1 starts with *"intelligence."*, chunk 2 starts with *"image generation, speech generation..."*). Section boundaries and chunk boundaries are decorrelated. A single semantic policy can be split across two adjacent chunks (each with different similarity scores); a factual enumeration and an unrelated policy directive can end up in the same chunk if they sit in the same 1000-char window.
+
+**Ingest call path** (`shell/apps/embeddings/tasks.py:75`): `TextSplitter(chunk_size=DEFAULT_CHUNK_SIZE, chunk_overlap=DEFAULT_CHUNK_OVERLAP).split(text)` — no override at ingest, no per-document config, no section-aware branch. Both Patch's and Rivet's documents were chunked under identical settings.
+
+---
+
+## §88. Patch chunk map (fd0ba2ca — 22 chunks, 13205 chars total)
+
+Each chunk carries the section content that lands in its 1000-char window. Section headings (from `raw_content` character positions) reproduced in the "Section coverage" column; `crosses boundary` = YES when a section header appears inside a chunk that also carries content from a different section.
+
+| idx | id (short) | chars | Section coverage (headings appearing in this chunk) | Crosses section boundary? |
+|---|---|---|---|---|
+| 0 | `c24d1aa7` | 733 | `PURPOSE` (chunk 0 starts document; ends before `WHAT PATCH KNOWS ABOUT AI` header at 708 — heading appears as the LAST line of chunk 0) | **YES** (heading tail-stitched) |
+| 1 | `ed18e966` | 899 | tail of PURPOSE (`intelligence. What Patch wants to know...`) + `WHAT PATCH KNOWS ABOUT AI` body + start of `LANGUAGE MODELS` header | **YES** (spans 3 sections) |
+| 2 | `b3c6e8ac` | 869 | tail of WHAT PATCH KNOWS + `LANGUAGE MODELS` body + start of `AI AGENTS` header | **YES** |
+| 3 | `505acbba` | 827 | tail of LANGUAGE MODELS + `AI AGENTS` body + start of `MULTI-AGENT SYSTEMS` header | **YES** |
+| 4 | `3c5165ea` | 826 | tail of AI AGENTS + `MULTI-AGENT SYSTEMS` body + start of `AI MEMORY` header | **YES** |
+| 5 | `99c39cba` | 876 | tail of MULTI-AGENT SYSTEMS + `AI MEMORY` body + start of `AI CHARACTERS` header | **YES** |
+| 6 | `1b98ba6a` | 673 | tail of AI MEMORY + `AI CHARACTERS` body (partial) | **YES** |
+| 7 | `d925b176` | 762 | `AI CHARACTERS` continues + `AI SPOKESPEOPLE` header + body | **YES** |
+| 8 | `850bd47b` | 851 | `AI SPOKESPEOPLE` tail + `GENERATIVE IMAGES` header + body | **YES** |
+| 9 | `20163bd6` | 724 | `GENERATIVE IMAGES` tail + `GENERATIVE VIDEO` header start | **YES** |
+| 10 | `09dd4b26` | 947 | `GENERATIVE VIDEO` body + `VOICE AI` header start | **YES** |
+| 11 | `da2fc3ed` | 959 | `VOICE AI` body + `HALLUCINATIONS` + `FAILURE IS USEFUL CONTENT` (contains *"testing, error handling, permissions, cost controls, and deployment. The model isn't the product..."*) | **YES** (dense — 3+ sections) |
+| 12 | `9c85e17e` | 714 | `FAILURE IS USEFUL CONTENT` tail (contains *"Patch does not defend an AI merely because it produced an impressive answer. When accuracy matters, verify it."*) | tail-only, minimal cross |
+| 13 | `72706cbb` | 717 | tail of FAILURE + `BUILDING SMALL FIRST` header + body | **YES** |
+| 14 | `c95c05c0` | 665 | `BUILDING SMALL FIRST` tail + `HOW PATCH THINKS ABOUT STORYTELLING` header start | **YES** |
+| 15 | `fcd668a4` | 698 | `HOW PATCH THINKS ABOUT STORYTELLING` body (contains *"Patch's experiment instincts"* material) | possibly single-section |
+| 16 | `55518c20` | 923 | tail of STORYTELLING + **`HOW PATCH HANDLES TECHNICAL DETAIL`** (starts at char 10512) — **the exact section Chris hypothesized** | **YES** |
+| 17 | `b88d9bb6` | 948 | tail of HOW PATCH HANDLES TECHNICAL DETAIL + `PATCH DOES NOT FAKE RESULTS` + `PATCH DOES NOT WORSHIP AI` + `SHORT-FORM VIDEO CRAFT` — the highest-density behavioral chunk in the document | **YES** (4+ sections) |
+| 18 | `4addeffa` | 459 | `SHORT-FORM VIDEO CRAFT` middle | single-section |
+| 19 | `75d74fd4` | 920 | `SHORT-FORM VIDEO CRAFT` tail + start of `PATCH'S RELATIONSHIP WITH THE AUDIENCE` | **YES** |
+| 20 | `0b0284a1` | 825 | `PATCH'S RELATIONSHIP WITH THE AUDIENCE` body + `THE MOST IMPORTANT PATCH RULE` header start | **YES** |
+| 21 | `33d2dfd5` | 475 | `THE MOST IMPORTANT PATCH RULE` body (contains *"beginning an experiment — that is the whole point"*, the closing curiosity rule) | single-section |
+
+**Boundary-crossing summary: 18 of 22 chunks (82 %) span two or more sections.** The chunker's 1000-char window sits astride section boundaries by construction.
+
+**Section-to-chunk index** (which chunks contain each section's content):
+
+| Section | Header offset | Chunks containing content |
+|---|---|---|
+| PURPOSE | 58 | 0, 1 |
+| WHAT PATCH KNOWS ABOUT AI | 708 | 1, 2 |
+| LANGUAGE MODELS | 1421 | 2, 3 |
+| AI AGENTS | 2100 | 3, 4 |
+| MULTI-AGENT SYSTEMS | 2720 | 4, 5 |
+| AI MEMORY | 3364 | 5, 6 |
+| AI CHARACTERS | 4038 | 6, 7 |
+| AI SPOKESPEOPLE | 4519 | 7, 8 |
+| GENERATIVE IMAGES | 5082 | 8, 9 |
+| GENERATIVE VIDEO | 5737 | 9, 10 |
+| VOICE AI | 6277 | 10, 11 |
+| HALLUCINATIONS | 7499 | 11 |
+| FAILURE IS USEFUL CONTENT | 7775 | 11, 12, 13 |
+| BUILDING SMALL FIRST | 8305 | 13, 14 |
+| HOW PATCH THINKS ABOUT STORYTELLING | 9284 | 14, 15, 16 |
+| **HOW PATCH HANDLES TECHNICAL DETAIL** | **10512** | **16, 17** |
+| PATCH DOES NOT FAKE RESULTS | 10866 | 17 |
+| PATCH DOES NOT WORSHIP AI | 11283 | 17 |
+| SHORT-FORM VIDEO CRAFT | 11553 | 17, 18, 19 |
+| PATCH'S RELATIONSHIP WITH THE AUDIENCE | ~12290 | 19, 20 |
+| THE MOST IMPORTANT PATCH RULE | 12617 | 20, 21 |
+
+**Every behavioral / communication rule Chris asked about sits in chunk 16 or later** — chunks that a "Patch does research on AI Agents" query cannot semantically match.
+
+---
+
+## §89. Rivet chunk map (218eb0d8 — 14 chunks, 7732 chars total)
+
+| idx | id (short) | chars | Section coverage | Crosses section boundary? |
+|---|---|---|---|---|
+| 0 | `fb84ba3d` | 654 | `PURPOSE` + start of `HYPOTHESIS BEFORE CONCLUSION` header | **YES** |
+| 1 | `fadd9548` | 750 | tail of PURPOSE + `HYPOTHESIS BEFORE CONCLUSION` body | **YES** |
+| 2 | `6bd12128` | 752 | `HYPOTHESIS` tail + `OBSERVATION VS EXPLANATION` header + body | **YES** |
+| 3 | `8eda13b7` | 659 | `OBSERVATION VS EXPLANATION` tail + `REPRODUCIBILITY` header start | **YES** |
+| 4 | `80811ca8` | 667 | `REPRODUCIBILITY` body + `AI OUTPUTS REQUIRE VERIFICATION` header start | **YES** |
+| 5 | `fac8c122` | 576 | `AI OUTPUTS REQUIRE VERIFICATION` body (contains *"When an AI claims tests pass, someone runs the tests..."* — the recital-shape sentence SESSION 263 §6.5 flagged) | single-section |
+| 6 | `912049f6` | 720 | `AI OUTPUTS` tail + `FAILURES ARE DATA` header + body | **YES** |
+| 7 | `6f43e6f0` | 986 | `FAILURES ARE DATA` tail + `DEBUGGING` header + body + `CHANGE ONE THING` header start | **YES** (3 sections) |
+| 8 | `fa3d1016` | 863 | `CHANGE ONE THING` tail + `AI CHARACTER TESTING` header + body | **YES** |
+| 9 | `63935755` | 760 | `AI CHARACTER TESTING` tail + `VISUAL CHARACTER TESTING` header + body | **YES** |
+| 10 | `43f0c543` | 669 | `VISUAL` tail + `ROBOT CHARACTER TESTING` header + body | **YES** |
+| 11 | `1aa4e0b2` | 751 | `ROBOT CHARACTER TESTING` tail + `PROMPT ITERATION` header + body | **YES** |
+| 12 | `c8e0bace` | 969 | `PROMPT ITERATION` tail + `SMALL EXPERIMENTS` + `COST MATTERS` + `CHEAP FAILURE IS GOOD` + start of `METRICS NEED CONTEXT` | **YES** (5 sections — highest density in Rivet's doc) |
+| 13 | `9c42b986` | 482 | `METRICS NEED CONTEXT` body | single-section |
+
+**Boundary-crossing summary: 12 of 14 chunks (86 %) span two or more sections.** Same architectural pattern as Patch's document.
+
+**Section-to-chunk index (Rivet):**
+
+| Section | Header offset | Chunks |
+|---|---|---|
+| PURPOSE | 55 | 0, 1 |
+| HYPOTHESIS BEFORE CONCLUSION | 626 | 1, 2 |
+| OBSERVATION VS EXPLANATION | 1192 | 2, 3 |
+| REPRODUCIBILITY | 1761 | 3, 4 |
+| AI OUTPUTS REQUIRE VERIFICATION | 2208 | 4, 5, 6 |
+| FAILURES ARE DATA | 2691 | 6, 7 |
+| DEBUGGING | 3080 | 7 |
+| CHANGE ONE THING | 3600 | 7, 8 |
+| AI CHARACTER TESTING | 3928 | 8, 9 |
+| VISUAL CHARACTER TESTING | 4406 | 9, 10 |
+| ROBOT CHARACTER TESTING | 5047 | 10, 11 |
+| PROMPT ITERATION | 5619 | 11, 12 |
+| SMALL EXPERIMENTS | 6096 | 12 |
+| COST MATTERS | 6654 | 12 |
+| CHEAP FAILURE IS GOOD | 7211 | 12 |
+| METRICS NEED CONTEXT | 7422 | 12, 13 |
+
+**Rivet's document has NO section equivalent to Patch's `HOW PATCH HANDLES TECHNICAL DETAIL`.** The nearest analogue is Rivet's persona field (`personality` line: *"Rivet does not constantly explain technical concepts like a textbook. He speaks conversationally and usually keeps explanations concise."*) — but this lives in the Teammate record, not in the KnowledgeDocument.
+
+---
+
+## §90. Semantic-role classification
+
+Each section classified with one or more roles (allow multi-role — some sections genuinely mix). Legend: **A** = factual/reference (WHAT the character knows), **B** = reasoning/epistemic (HOW the character thinks/tests/interprets), **C** = communication/persona (HOW the character expresses knowledge), **D** = story/content strategy, **E** = canon/relationship/world, **F** = other.
+
+### §90.1 Patch classification
+
+| Section | Roles | Note |
+|---|---|---|
+| PURPOSE | A + C + E | Persona identity + build-first framing |
+| WHAT PATCH KNOWS ABOUT AI | **A** | Encyclopedic AI-systems inventory |
+| LANGUAGE MODELS | **A** | Factual capabilities + failure modes |
+| AI AGENTS | **A** | Definitional enumeration (source of `call APIs`, `maintain state`, `multi-step tasks`, `respond to changes`) |
+| MULTI-AGENT SYSTEMS | **A** | Multi-agent factual behavior |
+| AI MEMORY | **A** | Memory-system factual content |
+| AI CHARACTERS | A + E | Character-building domain knowledge |
+| AI SPOKESPEOPLE | A + E | Spokesperson-building domain knowledge |
+| GENERATIVE IMAGES | **A** | Image-generation factual knowledge |
+| GENERATIVE VIDEO | **A** | Video-generation factual knowledge |
+| VOICE AI | **A** | Voice-AI factual knowledge |
+| HALLUCINATIONS | A + B | Factual + how to reason about them |
+| FAILURE IS USEFUL CONTENT | **D + C** | Content strategy + persona posture |
+| BUILDING SMALL FIRST | **B + D** | Reasoning discipline + content strategy |
+| HOW PATCH THINKS ABOUT STORYTELLING | **D** | Story craft |
+| **HOW PATCH HANDLES TECHNICAL DETAIL** | **C** (the exact rule Chris named) | Communication policy — *"Patch uses technical terminology when it actually helps, and translates it into ordinary language when it does not."* |
+| PATCH DOES NOT FAKE RESULTS | **B + C** | Epistemic + communication invariant |
+| PATCH DOES NOT WORSHIP AI | **B** | Epistemic invariant |
+| SHORT-FORM VIDEO CRAFT | **D** | Content strategy |
+| PATCH'S RELATIONSHIP WITH THE AUDIENCE | **C + E** | Communication + audience-relationship invariant |
+| THE MOST IMPORTANT PATCH RULE | **B + C** | Curiosity-before-certainty; core invariant |
+
+Distribution: **10 A-heavy sections (factual), 6 B-heavy (reasoning/epistemic), 6 C-heavy (communication/persona), 5 D-heavy (story), 4 E-heavy (canon/world)**. (Sums exceed 21 because of multi-role.)
+
+**The document mixes four architectural jobs in one file.**
+
+### §90.2 Rivet classification
+
+| Section | Roles |
+|---|---|
+| PURPOSE | A + C + E |
+| HYPOTHESIS BEFORE CONCLUSION | **B** |
+| OBSERVATION VS EXPLANATION | **B** |
+| REPRODUCIBILITY | **B** |
+| AI OUTPUTS REQUIRE VERIFICATION | **B + C** |
+| FAILURES ARE DATA | B + D |
+| DEBUGGING | **B** |
+| CHANGE ONE THING | **B** |
+| AI CHARACTER TESTING | A + B |
+| VISUAL CHARACTER TESTING | A + B |
+| ROBOT CHARACTER TESTING | A + B + E |
+| PROMPT ITERATION | B + D |
+| SMALL EXPERIMENTS | B + D |
+| COST MATTERS | B + D |
+| CHEAP FAILURE IS GOOD | B + D |
+| METRICS NEED CONTEXT | B |
+
+Distribution: **Rivet is dominantly B (reasoning/epistemic)** — 13 of 16 sections carry a B tag; only 4 carry A. Very different content profile from Patch. **No dedicated C (communication) section in Rivet's document at all.**
+
+---
+
+## §91. Retrieval-omission analysis — "Patch does research on AI Agents" query
+
+The 5 chunks that ARE retrieved (deterministic across every prior SESSION 269/270/271 render on this operator_topic):
+
+| Retrieved chunk | idx | Section coverage |
+|---|---|---|
+| `c24d1aa7` | 0 | PURPOSE |
+| `ed18e966` | 1 | tail of PURPOSE + **WHAT PATCH KNOWS ABOUT AI** |
+| `b3c6e8ac` | 2 | LANGUAGE MODELS |
+| `505acbba` | 3 | **AI AGENTS** — the definitional enumeration |
+| `3c5165ea` | 4 | MULTI-AGENT SYSTEMS + AI MEMORY start |
+
+**17 of 22 chunks (77 %) NOT retrieved.** Every section indexed ≥ AI MEMORY completion is absent.
+
+### §91.1 What's in the 17 omitted chunks — behavioral / communication rules NOT reaching the model
+
+| Section | Roles | Retrieved? |
+|---|---|---|
+| AI MEMORY (body/tail) | A | Partial (chunk 4 tail; chunk 5+ not retrieved) |
+| AI CHARACTERS | A + E | **NO** |
+| AI SPOKESPEOPLE | A + E | **NO** |
+| GENERATIVE IMAGES | A | **NO** |
+| GENERATIVE VIDEO | A | **NO** |
+| VOICE AI | A | **NO** |
+| HALLUCINATIONS | A + B | **NO** |
+| FAILURE IS USEFUL CONTENT | D + C | **NO** — includes *"Patch does not defend an AI merely because it produced an impressive answer"* |
+| BUILDING SMALL FIRST | B + D | **NO** — build-first / experiment-instinct invariant |
+| HOW PATCH THINKS ABOUT STORYTELLING | D | **NO** |
+| **HOW PATCH HANDLES TECHNICAL DETAIL** | **C — the exact rule Chris hypothesized** | **NO** |
+| PATCH DOES NOT FAKE RESULTS | B + C | **NO** — the "does not fake results" invariant |
+| PATCH DOES NOT WORSHIP AI | B | **NO** — the "does not worship AI" invariant |
+| SHORT-FORM VIDEO CRAFT | D | **NO** |
+| PATCH'S RELATIONSHIP WITH THE AUDIENCE | C + E | **NO** — the audience-relationship invariant |
+| THE MOST IMPORTANT PATCH RULE | B + C | **NO** — the curiosity-before-certainty rule |
+
+**Every behavioral / communication rule Chris named is retrieval-dependent AND is currently NOT reaching the model** for the tested substrate.
+
+### §91.2 Direct answer to the operator hypothesis
+
+> *"Determine whether the chunk containing 'Patch uses technical terminology when it actually helps, and translates it into ordinary language when it does not.' is absent."*
+
+**CONFIRMED ABSENT.** That exact sentence sits at char 10609 in `raw_content`, inside the `HOW PATCH HANDLES TECHNICAL DETAIL` section. Content of that section is distributed across chunks 16 (`55518c20`) and 17 (`b88d9bb6`). Neither of those chunks is in the top-5 retrieved set for *"Patch does research on AI Agents"*, and there is no other pathway for that rule to reach the assembled prompt via KnowledgeDocument retrieval.
+
+**Corollary for the other rules Chris named:**
+
+- *"does not fake results"* — chunk 17, NOT retrieved.
+- *"does not worship AI"* — chunk 17, NOT retrieved.
+- *"relationship with audience"* — chunks 19-20, NOT retrieved.
+- *"curiosity before certainty"* — chunk 21 (THE MOST IMPORTANT PATCH RULE), NOT retrieved.
+- *"core attitude"* — same chunk region, NOT retrieved.
+- *"build-first / experiment instinct"* — chunk 13-14 (BUILDING SMALL FIRST + PATCH'S EXPERIMENT INSTINCTS), NOT retrieved.
+
+**All six named rules are absent from the retrieval-scoped Factual Basis for this substrate.**
+
+---
+
+## §92. Teammate persona (§2 Character Voice) — invariant coverage comparison
+
+The Teammate row for Patch (`7fad8172`) carries independent persona fields that go into §2 Character Voice on EVERY render (per SESSION 253 architecture) regardless of retrieval. Do those already carry the rules the knowledge document duplicates?
+
+### §92.1 Patch — mapping
+
+| Rule from KnowledgeDocument (retrieval-dependent) | Present in Teammate persona (retrieval-independent)? | Persona coverage strength |
+|---|---|---|
+| *"Patch uses technical terminology when it actually helps, and translates it into ordinary language when it does not"* | **YES — partial**. `character_point_of_view` says: *"He talks technical when it earns its keep and drops jargon otherwise."* `personality` says: *"He can simplify technical concepts without pretending the underlying complexity does not exist. Patch respects the audie[nce...]"* (field truncated at 2000 chars in earlier dump — may continue) | **PARTIAL** — the *policy* is present in persona; the *specific instructional wording* differs |
+| *"Patch does not fake results"* | **YES — strong**. `business_brief`: *"Patch never pretends an experiment succeeded when it did not."* `personality`: *"If the result is already known, tell the story honestly."* `character_point_of_view`: *"Patch does not stage results, invent outcomes, or claim something worked when it didn't."* | **STRONG** — redundant across three persona fields |
+| *"Patch does not worship AI"* | **YES — strong**. `personality`: *"Patch is especially suspicious of hype... does not sound like an AI-generated technology influencer... does not constantly describe everything as revolutionary, groundbreaking..."* `voice_avoid_phrases`: *"revolutionary, groundbreaking, game-changing, incredible, the future"* | **STRONG** — plus a hard-blacklist via `voice_avoid_phrases` |
+| *"Patch's relationship with the audience"* | **YES — strong**. `business_brief`: *"The audience is curious people who enjoy AI and technology but do not necessarily want highly technical lectures."* `personality`: *"Patch respects the audie[nce...]"* `character_point_of_view`: *"He respects the audience's intelligence — assumes they can follow, does not assume they already know."* | **STRONG** |
+| *"THE MOST IMPORTANT PATCH RULE"* (curiosity before certainty) | **YES — partial**. `personality`: *"completely comfortable admitting when he has no idea what is going to happen... Patch celebrates discovery more than success"* `character_point_of_view`: *"He notices hype and resists it, distinguishes what worked from what almost worked from what only sounded like it worked"* | **STRONG** |
+| *"Build-first, not news-first / experiment instinct"* | **YES — strong**. `business_brief`: *"The content is build-first rather than news-first."* `personality`: entire personality is build-first framing | **STRONG** |
+
+**Interpretation:** Patch's persona (Character Voice §2) already carries versions of every behavioural invariant that the KnowledgeDocument also encodes. The KnowledgeDocument is largely DUPLICATING what the persona already says — but with different wording, more specific examples (embeddings, cost controls, etc.), and framed as *"WHAT PATCH KNOWS"* / *"HOW PATCH"* sections.
+
+### §92.2 Where persona coverage is WEAKER than KnowledgeDocument
+
+The KnowledgeDocument's `HOW PATCH HANDLES TECHNICAL DETAIL` section gives a MORE OPERATIONALLY SPECIFIC rule than persona:
+
+- Persona says (paraphrased): *"drops jargon otherwise"*, *"can simplify technical concepts"* — advisory / declarative.
+- KnowledgeDocument says: *"Patch uses technical terminology when it actually helps, and translates it into ordinary language when it does not. Explaining that embeddings turn information into numbers a system can search by meaning is fine; dumping an architecture diagram into a 30-second TikTok is not. Technical depth should match the story."* — with a **worked example of BOTH good and bad cases**.
+
+So the KnowledgeDocument version is a **richer operational rule with concrete positive/negative examples**, whereas the persona version is a **compressed declarative rule**.
+
+This asymmetry matters: even if the persona carries the rule in principle, the KnowledgeDocument version is more discriminative — but the KnowledgeDocument version is not reaching the model for this substrate.
+
+### §92.3 Rivet — mapping
+
+| Rule from KnowledgeDocument | Present in Teammate persona? | Coverage strength |
+|---|---|---|
+| Testing/verification/reproducibility discipline | **YES — strong**. `character_point_of_view`: entire POV is testing-focused. `personality`: *"analytical, observant, dry, patient... respects evidence"* | **STRONG** |
+| *"Does not constantly explain technical concepts like a textbook"* | **YES** — `personality`: exactly this sentence + *"speaks conversationally and usually keeps explanations concise"* | **STRONG** |
+| Character-relationship posture (with Patch) | **YES — strong**. `business_brief` + `personality` extensively cover the Rivet/Patch dynamic | **STRONG** |
+| Failure-mode language ("Trust is useful. Verification is better.") | **NO** — this specific epigram lives only in the KnowledgeDocument (chunk 5 `fac8c122`). SESSION 263 §6.5 identified this as a retrieval-driven recital risk. | **Persona missing** |
+
+**Rivet has NO KnowledgeDocument section devoted to communication/audience-vocabulary policy** (there is no equivalent to Patch's `HOW PATCH HANDLES TECHNICAL DETAIL`). Rivet's persona field `personality` contains the closest equivalent (*"does not constantly explain technical concepts like a textbook"*), but there is no operational example the way Patch's document provides.
+
+**Cross-character difference:** Patch's document has a communication section that Rivet's does not; Patch's document DUPLICATES persona-level rules; Rivet's document is dominantly reasoning/epistemic without duplicating persona.
+
+---
+
+## §93. Does Rivet exhibit the same retrieval-dependent behavior problem?
+
+**Smaller version of the same problem, plus a distinct compression-side finding from SESSION 263.**
+
+Rivet's document does not contain the specific `HOW RIVET HANDLES TECHNICAL DETAIL` communication section. But it DOES contain many reasoning-invariant chunks that are retrieval-dependent:
+
+- Chunks 2-7 (HYPOTHESIS / OBSERVATION / REPRODUCIBILITY / AI OUTPUTS / FAILURES / DEBUGGING / CHANGE ONE THING) all sit in the top-of-document region and WOULD be retrieved for any Rivet-topic query about experiments / debugging / testing.
+- SESSION 263 §6.5 already documented that Rivet's chunks `80811ca8` (REPRODUCIBILITY) + `fac8c122` (AI OUTPUTS REQUIRE VERIFICATION) + `1aa4e0b2` (ROBOT CHARACTER TESTING) get retrieved AND then get compressed into imperative recitals under duration-corrective compression — the *"same K2 grounding, different reading effect"* finding.
+- Rivet's later chunks (12 `c8e0bace` with SMALL EXPERIMENTS / COST MATTERS / CHEAP FAILURE IS GOOD / METRICS NEED CONTEXT and 13 `9c42b986` METRICS NEED CONTEXT tail) sit BELOW the top-of-document region and are less likely to be retrieved for common queries — same retrieval-omission structural risk as Patch.
+
+**Same structural problem, different symptom expression.** Patch loses communication-policy invariants at retrieval and gets raw factual enumeration on the corrective pass. Rivet gets his reasoning invariants retrieved but compressed into imperative recitals on the corrective compression pass.
+
+---
+
+## §94. Multi-role responsibility audit
+
+Does a single `KnowledgeDocument` do multiple architectural jobs?
+
+**YES — unambiguously.** Patch's document is currently:
+
+1. **Semantic factual corpus** (retrievable AI-domain knowledge — chunks 0-11 dominantly).
+2. **Character behavioral policy** (invariants like DOES NOT FAKE, DOES NOT WORSHIP, THE MOST IMPORTANT PATCH RULE — chunks 12, 17, 21).
+3. **Communication policy** (HOW PATCH HANDLES TECHNICAL DETAIL — chunks 16-17).
+4. **Content / story guidance** (FAILURE IS USEFUL CONTENT, HOW PATCH THINKS ABOUT STORYTELLING, SHORT-FORM VIDEO CRAFT — chunks 11-19).
+
+All four jobs share ONE storage path, ONE chunker, ONE embedding + retrieval mechanism, ONE top_k=5 budget per synthesis call.
+
+**Responsibility split — safe to remain retrieval-dependent vs intended as character invariant:**
+
+| Job | Safe as retrieval-dependent? | Intended as character invariant? |
+|---|---|---|
+| Semantic factual corpus (WHAT PATCH KNOWS, LANGUAGE MODELS, AI AGENTS, MEMORY, etc.) | **YES** — retrieval is exactly what factual corpus is for. Different topics should surface different facts. | NO — Patch does not need to recite *"multi-agent"* in every script. |
+| Character behavioral policy (DOES NOT FAKE, DOES NOT WORSHIP, MOST IMPORTANT RULE) | **NO** — these are supposed to hold on EVERY script regardless of topic. | **YES** — persona duplicates these; retrieval version is redundant + fragile. |
+| Communication policy (HOW PATCH HANDLES TECHNICAL DETAIL) | **NO** — this is the whole point of the Q-270-13 / Q-270-15c investigation. | **YES** — this is what audience-adaptation reliability requires. |
+| Content / story guidance (STORYTELLING, VIDEO CRAFT, FAILURE-AS-CONTENT) | **PARTIAL** — some guidance is topic-specific (image vs video vs voice); some is universal. | Mixed. |
+
+---
+
+## §95. Chunker adequacy assessment
+
+The chunker itself is not the load-bearing failure — but its section-unawareness contributes.
+
+Facts:
+
+- 82 % of Patch chunks span two or more sections.
+- Section headings are treated as ordinary paragraph text; a heading can end up as the last line of one chunk and the body it introduces in the next chunk.
+- Under sliding-window ingest, a policy sentence like *"Patch uses technical terminology when it actually helps..."* is stitched with adjacent story-craft content in the same chunk, and its embedding is a blend of both.
+- Retrieval similarity for the assembled chunk is against the WHOLE chunk content, so a communication-policy chunk with story-craft content gets a similarity score based on the average of both — likely losing to a chunk that is pure AI-agent factual content when the query is *"Patch does research on AI Agents."*
+
+**Chunker is a contributor, not the primary cause.** Even a section-aware chunker would not automatically fix the problem — a "HOW PATCH HANDLES TECHNICAL DETAIL" chunk with its own embedding would still lose the top-5 competition to "AI AGENTS" for the tested query. The chunker adequacy is a secondary concern; the primary concern is that character-invariant behavior is being stored in a top-k retrieval lane at all.
+
+---
+
+## §96. Causal ranking for the API/state repetition (4-factor updated)
+
+Revised from Slice 5 §81.6 with the retrieval-omission finding now included as a distinct fourth factor.
+
+| # | Factor | Evidence strength | Contribution to observed phenomenon |
+|---|---|---|---|
+| **1 (STRONGEST)** | **Lexical gravity from retrieved factual chunks.** The retrieved chunks are dominantly the AI-agent factual enumeration (chunks 0-4). The raw phrase *"call APIs, perform multi-step tasks, maintain state, interact with other agents, and respond to changes in an environment"* is delivered verbatim to the model on every render, framed as PATCH knowledge. | Confirmed across 5+ specimens (Slice 5 §81.5). Every at-risk term in every accepted output traces to chunk source language. | **Primary attractor.** The vocabulary is IN the prompt, LABELED as what Patch knows. |
+| **2 (STRONG)** | **Retrieval omission of communication guidance.** The rule *"Patch uses technical terminology when it actually helps, and translates it into ordinary language when it does not"* — plus every other C/B invariant — is NEVER in the top-5 retrieved set for this substrate. So the model receives the raw enumeration WITHOUT the accompanying translation-policy rule. | Confirmed by §91 chunk mapping. Rule sits in chunks 16-17; retrieval returns chunks 0-4 only. | **Missing counter-force.** Even if the model wanted to translate, the specific operational example (embeddings → *"numbers a system can search by meaning"*) is not in context. |
+| **3 (MODERATE)** | **Absence of accessible alternatives within the retrieved chunks.** The retrieved chunks contain zero audience-translated forms of the terms (Slice 5 §81.2). The model has to invent translations if it wants to translate — Draft A sometimes does (*"keep track of what it found"*, *"work through a task in steps"*); Draft B under canonical regeneration usually doesn't. | Chunk-level verification. | **Enables the amplifier.** No translation examples in the chunks means both first pass and corrective have to invent. First pass sometimes does; corrective usually doesn't. |
+| **4 (WEAK-MODERATE)** | **Corrective-pass expansion behavior.** The corrective_hint explicitly instructs *"Expand secondary detail from the knowledge chunks"* — pointing the model at the same knowledge reservoir that contains only raw vocabulary. Q-270-15c revision showed this effect is reduced but not eliminated when Draft A is in context (+2 residual vs canonical +5). | Slice 2 §25, Slice 3 §64 evidence. | **Amplifier.** Adds ~2 more raw terms to a corrective retry regardless of whether canonical or revision is used. |
+
+**Interaction:** Factor 1 provides the vocabulary; Factor 2 removes the counter-rule; Factor 3 removes the alternative; Factor 4 makes the corrective pass pull more of Factor 1 into the accepted output. The four factors compound.
+
+**Single-cause claim NOT supported.** Removing Factor 1 (rewrite the chunks) would address Factors 1 + 3 simultaneously. Fixing Factor 2 (ensure communication guidance always reaches the model) would provide a counter-force. Fixing Factor 4 (softer corrective_hint or revision architecture) reduces amplification. No single fix is sufficient; each provides partial relief.
+
+---
+
+## §97. Should we rewrite Patch/Rivet knowledge? — 6-option comparison
+
+For each option: benefit, risk, problem it actually solves, cost, tests-required-before-shipping.
+
+### Option A — Rewrite technical knowledge into more accessible prose
+
+*Rewrite chunks like AI AGENTS to say "Call other software, keep track of what happened, handle jobs with multiple steps"* instead of *"call APIs, maintain state, perform multi-step tasks."*
+
+- **Benefit:** eliminates the lexical-gravity attractor at its source. Every retrieval gains audience-accessible phrasing for free.
+- **Risk:** removes accurate technical vocabulary from Patch's factual grounding. Patch could no longer say *"call APIs"* even when talking to a developer audience where the technical term is correct. Also may weaken K6.4 verifier's ability to check technical claims.
+- **Solves:** Factor 1 (lexical gravity) + Factor 3 (absent alternatives).
+- **Does NOT solve:** Factor 2 (retrieval omission of policy). Communication-policy sections remain retrieval-dependent.
+- **Cost:** substantial content re-authoring (~13k chars of Patch content + 7.7k for Rivet + shared canon). Requires operator judgement on every substitution.
+- **Tests before shipping:** re-render every controlled specimen and check whether Patch still sounds like Patch under expert-audience conditions.
+
+### Option B — Keep technical knowledge but include technical + accessible formulations together
+
+*Rewrite AI AGENTS to say "Agents may call APIs (i.e. connect to other software), perform multi-step tasks (jobs with more than one step), maintain state (keep track of what happened)..."*
+
+- **Benefit:** preserves technical accuracy; adds retrievable accessible alternatives in the same chunk so both formulations reach the model.
+- **Risk:** chunks grow ~40% longer, potentially forcing the chunker to split them across more chunks (secondary retrieval effects). May make the raw enumeration EVEN more prominent in retrieval.
+- **Solves:** Factor 3 (absent alternatives) partially; Factor 1 (lexical gravity) only if accessible forms dominate; Factor 2 not at all.
+- **Cost:** medium — additive edit rather than substitution.
+- **Tests before shipping:** re-render + check whether audience-conditioned first passes now use the accessible forms.
+
+### Option C — Move character-invariant reasoning/communication rules out of retrieval-dependent knowledge and into Character Voice/persona
+
+*Delete `HOW PATCH HANDLES TECHNICAL DETAIL`, `PATCH DOES NOT FAKE RESULTS`, `PATCH DOES NOT WORSHIP AI`, `PATCH'S RELATIONSHIP WITH THE AUDIENCE`, `THE MOST IMPORTANT PATCH RULE`, and `BUILDING SMALL FIRST` from the KnowledgeDocument. Move any wording those sections carry that ISN'T already in Teammate persona into Teammate persona (specifically the operational examples — embeddings translation example, "digital duct tape" vs "system composition" etc.).*
+
+- **Benefit:** ends the retrieval-dependent-invariant class of failure. Every render receives the full behavioral / communication policy via §2 Character Voice regardless of topic. Retrieval budget freed for actual FACTUAL grounding.
+- **Risk:** persona fields grow (currently `personality` = 2634 chars, `character_point_of_view` = 1206 chars). §2 Character Voice section of the assembled prompt gets longer. May bump against §2 verbosity limits (if any exist in prompt-composition logic — none currently do; SESSION 253 has no size cap on Character Voice).
+- **Solves:** Factor 2 (retrieval omission) definitively.
+- **Does NOT solve:** Factor 1 (lexical gravity from retained factual chunks) unless paired with Option A or B.
+- **Cost:** medium — content migration + persona-field editing.
+- **Tests before shipping:** re-render + confirm every previously-retrieval-dependent invariant still shapes output when its section is removed from the document.
+
+### Option D — Split knowledge by semantic responsibility
+
+*Create separate KnowledgeDocuments per role: `PATCH — AI DOMAIN FACTS` (A-only), `PATCH — CONTENT STRATEGY` (D-only), etc. Character-invariant rules move to persona (per Option C).*
+
+- **Benefit:** clean separation of concerns. Each document can be chunked / retrieved / M2M-scoped independently. Could support per-role retrieval (e.g. always retrieve top-1 from communication-policy doc + top-4 from factual doc).
+- **Risk:** requires per-role retrieval logic changes (`retrieve_for_teammate` currently doesn't discriminate by document role). Multiple documents create ingestion + versioning overhead.
+- **Solves:** Factors 1 + 2 if paired with per-role retrieval; Factor 3 partially.
+- **Does NOT solve:** anything on its own without retrieval-layer changes.
+- **Cost:** HIGH — content re-authoring + code changes to retrieval + potentially new fields on `KnowledgeDocument` (role tag).
+- **Tests before shipping:** full retrieval-lane regression + re-render across substrates.
+
+### Option E — Leave current knowledge architecture intact and solve only in synthesis/audience/corrective logic
+
+*Keep KnowledgeDocument as-is; strengthen audience_hint, revise corrective_hint, promote Q-270-15c revision, add Q-270-15b hint softening.*
+
+- **Benefit:** no content authoring. Purely code/prompt changes; contained in the synthesis layer.
+- **Risk:** Slice 5 §81.6 verdict C stands — the knowledge is the primary attractor. Prompt-layer fixes are trying to overcome a knowledge shape that literally frames raw vocabulary as *"WHAT PATCH KNOWS."* Q-270-15c Trial 2 gave B (revision helps but has costs) — a bounded mitigation, not a cure.
+- **Solves:** Factor 4 (partial); Factor 2 partial (if audience_hint is strengthened enough to override lexical gravity — Layer 1 mixed evidence per §53).
+- **Does NOT solve:** Factors 1, 3.
+- **Cost:** LOW — code + prompt changes only.
+- **Tests before shipping:** already partially tested via Slice 3 + Slice 4.
+
+### Option F — HYBRID (Option C + Option B, order matters)
+
+*First, migrate character-invariant behavioural + communication rules to persona (Option C). Then re-render and see whether the persona-level rules alone materially change first-pass audience-vocabulary reliability. Only if not, additively augment the retained factual chunks with accessible-language formulations (Option B).*
+
+- **Benefit:** discriminates between the two mechanisms. If Option C alone fixes the problem (persona-level operational rule outweighs chunk lexical gravity), Option B is unnecessary. If Option C is not enough, Option B fills the remaining gap without conflicting.
+- **Risk:** sequenced experiment cost. Two content-authoring passes rather than one.
+- **Solves:** Factor 2 first, then Factors 1 + 3 if needed.
+- **Cost:** MEDIUM (Option C) + potentially MEDIUM again (Option B).
+- **Tests before shipping:** at least two controlled renders (pre-Option-C baseline vs post-Option-C; if needed, post-Option-B).
+
+---
+
+## §98. Recommended knowledge-authoring principle
+
+Regardless of which option is chosen, the audit surfaces one clear organising principle for future knowledge authoring:
+
+> **KnowledgeDocuments are for RETRIEVAL-APPROPRIATE FACTUAL corpus. Character invariants (identity, communication policy, epistemic behaviour, brand prohibitions, audience relationship) belong on the Teammate row (§2 Character Voice + §3 Brand Voice) — not in a top-k retrieval lane where topic queries can accidentally omit them.**
+
+Corollary rules:
+
+- If a policy should hold on EVERY render, it belongs in persona.
+- If a fact should be surfaced ONLY when relevant, it belongs in a KnowledgeDocument.
+- If a chunk mixes both, the persona wording should be authoritative and the chunk should focus on retrievable domain-specific detail.
+- Section-titled "HOW [CHARACTER] HANDLES X" is a red flag — HOW rules are almost always invariant policy, not retrievable facts.
+
+**This principle does not require immediate action.** It informs future authoring + guides whether Options A-F are worth pursuing.
+
+---
+
+## §99. Smallest controlled experiment (do NOT execute)
+
+Given the four-factor causal ranking, the SMALLEST controlled experiment that would tell us whether knowledge shape is materially causing the repeated terminology is:
+
+**E-KNOWLEDGE-1 (Option C dry-run):** produce a candidate REVISED Patch persona that absorbs the operational rules currently in the KnowledgeDocument's `HOW PATCH HANDLES TECHNICAL DETAIL` + `PATCH DOES NOT FAKE RESULTS` + `PATCH DOES NOT WORSHIP AI` + `PATCH'S RELATIONSHIP WITH THE AUDIENCE` + `THE MOST IMPORTANT PATCH RULE` sections. Do NOT modify the live Teammate row and do NOT modify the KnowledgeDocument. Instead, temporarily bypass those chunks (e.g. via a temporary retrieval filter env-var, or via a one-off test using the SESSION 270 `audience_hint` field to inject the operational rule text as a HARD CONSTRAINT). Render one controlled Composition. Compare Draft A + accepted at-risk terminology vs c3ff972d / 1ff3d16f baselines.
+
+**Purpose:** cheapest way to test the ONE-VARIABLE hypothesis "moving the communication-policy rule into always-present context changes first-pass audience-vocabulary reliability."
+
+**Alternative shape:** ship a temporary experimental branch on `_assemble_task_message` that injects a compact operational-rule sentence into §5 HARD CONSTRAINTS under an env-var flag. Cheaper than a persona edit; reversible; no live-data mutation. Similar shape to SESSION 270's `audience_hint` plumbing pattern.
+
+**Preserve the current documents + Composition evidence as the control.** Any experiment that modifies live knowledge is a destructive change; Chris + ChatGPT have not authorised that.
+
+**Cost estimate:** ~$0.02 (one solo_scene render) + implementation time for the temporary injection mechanism. Cheaper if we reuse the existing `audience_hint` env-var plumbing to carry the operational rule instead of the audience directive.
+
+**Predicted outcomes:**
+
+- If E-KNOWLEDGE-1 first pass reliably uses accessible translations (e.g. *"call other software"*, *"keep track"*) — evidence STRONGLY SUPPORTS Option C as sufficient.
+- If E-KNOWLEDGE-1 first pass still uses raw enumeration — evidence suggests Factor 1 (lexical gravity) dominates and Option B or A is also needed.
+- If E-KNOWLEDGE-1 first pass looks like Trial 2 Draft A (mixed: some translated, some raw) — evidence suggests knowledge shape is partial cause; the full fix likely requires Option F hybrid.
+
+---
+
+## §100. Rivet — same audit applied
+
+Rivet's structural situation is DIFFERENT but exhibits a related pattern:
+
+- Rivet's KnowledgeDocument is dominantly B-role (reasoning / epistemic) — 13 of 16 sections carry a B tag.
+- No dedicated C (communication) section exists in Rivet's document; the equivalent lives in Rivet's persona (`personality` field).
+- SESSION 263 §6.5 documented that Rivet's retrieval-dependent reasoning rules (`REPRODUCIBILITY`, `AI OUTPUTS REQUIRE VERIFICATION`) get retrieved AND get compressed into imperative recitals under duration-corrective compression.
+
+**Implication:** Rivet is a compression-side analogue of Patch's expansion-side pattern. Patch's problem is *retrieval-omitted communication policy failing to counter chunk lexical gravity on expansion.* Rivet's problem is *retrieval-included reasoning-rule content being turned into imperative fragments by compression.* The knowledge-shape principle in §98 addresses both — persona-hosted invariants are less vulnerable to both mechanisms because they don't rely on retrieval and don't compress under the same instructions.
+
+---
+
+## §101. Summary — direct answers to the operator questions
+
+1. **Chunk map** — §88 (Patch 22 chunks) + §89 (Rivet 14 chunks). 82 % of Patch chunks and 86 % of Rivet chunks span two or more sections.
+2. **Semantic-role findings** — §90. Patch mixes A/B/C/D/E in one document; Rivet is B-dominant with A/D/E secondaries.
+3. **Retrieval-dependent invariant findings** — §91. Every named behavioral / communication rule (technical-translation, does-not-fake, does-not-worship, audience-relationship, curiosity-before-certainty, build-first) is retrieval-dependent AND NOT reaching the model for the `Patch does research on AI Agents` substrate.
+4. **Patch vs Rivet comparison** — §93 + §100. Same structural problem, different symptom expressions.
+5. **Causal ranking for API/state repetition** — §96. Four-factor interaction: lexical gravity (strongest) + retrieval omission of counter-rule (strong) + absent accessible alternatives (moderate) + corrective-pass expansion amplifier (weak-moderate). Compound cause, not single-source.
+6. **Is knowledge rewrite warranted?** — §97. Options A-F evaluated. **Recommended path: Option F (HYBRID starting with Option C — migrate character invariants to persona first, test, then decide on Option B additive translations).** Do NOT jump to Option A (full technical rewrite) or Option E (leave knowledge intact) without evidence.
+7. **Recommended knowledge-authoring principle** — §98. Retrieval lane for facts; persona for invariants; "HOW [character] handles X" sections are a red flag.
+8. **Smallest next experiment** — §99. E-KNOWLEDGE-1: temporarily inject the communication-policy rule via existing `audience_hint` env-var plumbing OR a new tiny env-gated HARD CONSTRAINT injection; do NOT mutate live knowledge or persona. One controlled render. ~$0.02.
+
+---
+
+## §102. What was NOT changed in Slice 6
+
+- No knowledge modified (KnowledgeDocument content, chunk_text, embeddings all unchanged).
+- No Teammate persona edited.
+- No chunker code touched.
+- No retrieval code touched.
+- No prompts, no writing contract, no schema, no migration.
+- Q-270-15c plumbing still inactive.
+- No render performed.
+- No new Composition created.
+- No NarrativeMemory promotion. Pool remains 14 remembered + 1 archived.
+- Q-270-16 (proper_noun) and Q-270-18 (tech_term case) verifier questions remain OUT OF SCOPE.
+- Layer 1 first-pass audience-directive reliability remains OUT OF SCOPE for further activation.
+
+Only artefacts added by Slice 6 are documentation changes to this file.
+
+---
+
+## §103. Slice 6 commit + push record
+
+- Slice 6 commit SHA: `<pending — populated after commit>`
+- Push: `<pending>`
+- Local `main == origin/main`: `<verified at commit time>`
+- Working tree at Slice 6 close: `<verified clean>`
+
+---
+
+**End of SESSION 271 Slice 6. STOP condition reached. Knowledge-shape audit complete. Chris's hypothesis CONFIRMED: the exact rule *"Patch uses technical terminology when it actually helps, and translates it into ordinary language when it does not"* exists in Patch's KnowledgeDocument (char 10609, section `HOW PATCH HANDLES TECHNICAL DETAIL`) but sits in chunks 16-17 that are NEVER retrieved for the operator_topic *"Patch does research on AI Agents"*. Five other named invariants (does-not-fake / does-not-worship / audience-relationship / curiosity / build-first) share the same fate. Recommended path: Option F hybrid starting with Option C persona migration. Smallest next experiment E-KNOWLEDGE-1 defined; not executed.**
