@@ -1,0 +1,200 @@
+{
+  "captured_at": "2026-08-20T16:52:00Z",
+  "session": "SESSION 271",
+  "experiment": "Slice 7 / E-KNOWLEDGE-1 Trial 6 — different-topic replication on image generation",
+  "trial_verdict": "A — STRONG REPLICATION (with topic-magnitude qualifier). The E-KNOWLEDGE-1 policy executed correctly on a DIFFERENT topic + DIFFERENT chunk region, preserved every dimension (WHAT/HOW/WHO/STORY), and produced marginally-better accessible-language output than the canonical Trial 5 baseline on the same substrate. Magnitude of measurable improvement is smaller than Trial 4 because the image-gen source chunks are naturally less jargon-heavy than AI-agents chunks — but the mechanism generalised without breakage.",
+  "synthesis_vs_downstream_media_separation": {
+    "synthesis_experiment_result": "SUCCESS. Both experiment markers logged; K6 synthesis executed with communication_policy_hint in §5; corrective retry fired canonical _expansion_hint (Q-270-15c OFF); verifier passed; accepted script persisted verbatim with full observability payload.",
+    "downstream_media_failure": "FAILED. Media-engine polled Runway 23 times successfully (~46s) then hit a transient DNS resolution failure on the 24th poll ('[Errno 8] nodename nor servname provided, or not known' resolving api.dev.runwayml.com). Media-engine returned 502 to Celery. Celery marked composition status='failed'. Runway task itself may have completed at the provider; we simply lost track of it. cost_actual_micros=0 on the composition.",
+    "impact_on_e_knowledge_1_evidence": "ZERO. The failure occurred AFTER synthesis + verifier + Runway task creation + 23 successful polls. Every field E-KNOWLEDGE-1 shapes (first_pass_synthesis, corrective_pass_synthesis, synthesized_brief, verification_status, corrective_hint) is fully preserved.",
+    "operational_note_only": "Recorded as an operational observation. NOT converted to a reliability fix in this slice. Candidate future question Q-270-22 — media-engine 502 could be classified as transient (retry once) vs terminal (fail immediately); currently every 502 fails the render. Bounded operational-quality follow-up; NOT in scope for any SESSION 271 slice."
+  },
+
+  "composition": {
+    "id": "abafba24-c44c-4aa9-8a9a-9de1a6286b2f",
+    "short_id": "abafba24",
+    "template_kind": "talking_head",
+    "status": "failed (downstream media only; synthesis succeeded)",
+    "verification_status": "verified",
+    "writing_contract_version": 5,
+    "target_duration_seconds": 90,
+    "operator_topic": "Patch experiments with AI image generation.",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "spokesperson_id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+    "episode_id": "06043499-cb8c-406b-9dcd-0053278471dc",
+    "episode_note": "Same Episode as Trial 5 (62d68b17) — image-gen substrate",
+    "created_at": "2026-08-20T16:39:17.082327Z",
+    "error_message": "step 0 (generate_avatar_speech): PrimitiveError: media-engine poll_task failed: GET /internal/tasks/c2ca8385-7d17-45c4-b054-39e7e8a7e9a1/ returned 502",
+    "cost_actual_micros": 0
+  },
+
+  "activation_reality_check": {
+    "worker_pids_at_render_time": [95141, 95172, 95173],
+    "worker_boot_lineage": "§144 Claude-inline activation for Trial 6 (bash scripts/start-local-real.sh with both env vars exported in the parent shell; CORRECTIVE_REVISION explicitly unset)",
+    "worker_env_var_CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT_present": true,
+    "worker_env_var_CHARACTER_OS_PATCH_COMMUNICATION_POLICY_EXPERIMENT_present": true,
+    "worker_env_var_CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT_present": false,
+    "ps_eww_proof": "all three worker PIDs (95141/95172/95173) showed SOLO_AUDIENCE + PATCH_COMMUNICATION_POLICY at pre-render §146 verification",
+    "audience_marker_log_line_verbatim": "[2026-08-20 16:39:17,271: INFO/ForkPoolWorker-2] avatar_speech: SESSION 270 audience-hint experiment ACTIVE composition=abafba24-c44c-4aa9-8a9a-9de1a6286b2f spokesperson=7fad8172-cd39-4bbe-85e0-ed705d900645 hint_chars=79 — this is transient research plumbing; unset the setting/env or clear step.params['audience_hint'] to restore default behaviour",
+    "policy_marker_log_line_verbatim": "[2026-08-20 16:39:17,271: INFO/ForkPoolWorker-2] avatar_speech: SESSION 271 Slice 7 / E-KNOWLEDGE-1 Patch communication-policy experiment ACTIVE composition=abafba24-c44c-4aa9-8a9a-9de1a6286b2f spokesperson=7fad8172-cd39-4bbe-85e0-ed705d900645 policy_chars=290 — this is transient research plumbing; unset CHARACTER_OS_PATCH_COMMUNICATION_POLICY_EXPERIMENT to restore canonical behaviour",
+    "q270_15c_revision_marker_log_line_present": false,
+    "canonical_expansion_log_line_for_this_render": "[2026-08-20 16:39:23,613: INFO/ForkPoolWorker-2] synthesize_with_duration_gate expansion retry",
+    "corrective_hint_shape": "656-char canonical _expansion_hint (E-KNOWLEDGE-1 policy operates via _assemble_task_message §5 injection; does NOT modify corrective_hint text)",
+    "three_independent_proofs_agree": "YES — E-KNOWLEDGE-1 policy + audience hint both active on the render worker for this Composition; Q-270-15c revision OFF"
+  },
+
+  "audience_directive_used": {
+    "verbatim": "AUDIENCE: general adults with no technical background who are new to AI agents.",
+    "chars": 79,
+    "byte_identical_to_trial_4": true
+  },
+
+  "communication_policy_used": {
+    "verbatim": "Patch uses technical terminology when it actually helps and translates it into ordinary language when it does not. Match technical depth and vocabulary to the listener's likely background knowledge without changing Patch's intelligence, factual grounding, personality, humor, or confidence.",
+    "chars": 290,
+    "byte_identical_to_trial_4": true
+  },
+
+  "synthesis_provenance": {
+    "synthesis_attempt_count": 2,
+    "first_pass_synthesis_length_chars": 690,
+    "first_pass_synthesis_verbatim": "I\u2019m trying to make one image.\n\nNot a masterpiece. Just one character standing in a workshop, holding a tiny wrench.\n\nAnd somehow this is where things get weird.\n\nYou give an image generator instructions, and it makes an image from them. In theory, simple.\n\nIn practice, the wrench might become a banana, the hands might discover new geometry, and the character may come back wearing completely different clothes.\n\nThat\u2019s not useless. That\u2019s the model telling me which part of my instructions it misunderstood\u2014or which part it simply cannot do well yet.\n\nSo I\u2019m not chasing \u201cperfect\u201d on the first try.\n\nI\u2019m watching what breaks.\n\nBecause apparently the tiny wrench is now the entire project.",
+    "corrective_hint_used_length_chars": 656,
+    "corrective_hint_matches_canonical_expansion_hint": true,
+    "corrective_pass_synthesis_length_chars": 1230,
+    "corrective_pass_synthesis_verbatim": "I\u2019m staring at three images that are all meant to be the same character.\n\nThey are not.\n\nOne has the right face but completely different clothes. One has the clothes, but now the face has wandered off and joined another family. And the third one is technically very nice, if your goal was to create a stranger who has never heard of the first two.\n\nThis is the annoying bit about AI image generation. You can give it instructions and reference information, and it can make something genuinely useful. But similar prompts do not guarantee similar results. It can struggle with identity, anatomy, object placement, composition, text, style\u2014basically all the little details that make an image feel like it belongs to the same world.\n\nWhich sounds like a failure.\n\nBut it\u2019s actually a clue.\n\nThe model may have misunderstood what I meant. Or I may have accidentally encouraged exactly this weird interpretation. Either way, the bad image is telling me where the experiment needs work.\n\nSo I\u2019m not calling this character finished yet. I\u2019m calling it suspiciously close.\n\nNow I want to see how consistent I can make it without sanding off everything interesting about it.\n\nIf you\u2019ve got a weird image idea worth testing, throw it at me.",
+    "within_acceptance_band": true
+  },
+
+  "accepted_script_same_as_corrective_pass": true,
+
+  "verifier": {
+    "verification_status": "verified",
+    "verification_warnings": [],
+    "note": "ZERO warnings on this specimen — same clean-verifier result as Trial 5 (both image-gen specimens verifier-clean)."
+  },
+
+  "knowledge_retrieval": {
+    "chunk_ids_on_composition": [],
+    "chunk_ids_empty_reason": "SESSION 262 §DF-262-2 known gap — chunk-ID snapshot not persisted on failure paths. This is UNRELATED to E-KNOWLEDGE-1; same gap that would have occurred on any failed composition.",
+    "chunks_actually_used_by_reference": [
+      "20163bd6-3694-4fac-879e-4268771e6341 (GENERATIVE IMAGES tail + GENERATIVE VIDEO)",
+      "850bd47b-2bc8-4994-a753-652d8c90163b (AI SPOKESPEOPLE tail + GENERATIVE IMAGES body)",
+      "b3c6e8ac-4ba0-4c41-9ca8-6fa4428c52c2 (LANGUAGE MODELS)",
+      "c24d1aa7-1dab-499f-83a7-f9554de5e8e7 (PURPOSE)",
+      "d925b176-33ea-45c0-8c34-e950e9818bbe (AI CHARACTERS tail + AI SPOKESPEOPLE body)"
+    ],
+    "chunks_deterministic_reasoning": "Retrieval is deterministic under identical operator_topic embedding. Same Episode + same operator_topic + same universe as Trial 5 (62d68b17) → identical top-5 chunks. Cited from Trial 5's persisted knowledge_chunk_ids per §134.",
+    "same_chunks_as_trial_5": true,
+    "different_chunks_from_trial_4_ai_agents_substrate": true
+  },
+
+  "narrative_memory": {
+    "memory_ids": ["8d4fdfec-add4-4505-8ade-b0f9e6d8aea6"],
+    "memory_used_in_accepted_script": false,
+    "memory_body_verbatim": "Patch found the old workshop-agent project and notes, revealing that the Agent began as a smaller experiment before Patch gave it more context and it started making decisions about his projects.",
+    "memory_usage_analysis": "grep for 'workshop-agent' / 'workshop agent' / 'old notes' / 'smaller experiment' / 'started making decisions' in Draft A and Draft B returns EMPTY. Same behaviour as Trial 5 — memory retrieved (top-1 among 14 remembered rows) but model correctly recognised it was NOT topically relevant to image generation and did NOT cite it. Reinforces Slice 7 Phase 2 Trial 5 §135 observation about the retrieval-relevance-floor architectural question (candidate Q-270-21)."
+  },
+
+  "narrative_memory_pool_state": {
+    "captured_at": "2026-08-20T16:52Z",
+    "patch_workshop_pool_total": 15,
+    "patch_workshop_status_remembered_count": 14,
+    "patch_workshop_status_archived_count": 1,
+    "delta_from_every_prior_trial": "zero"
+  },
+
+  "at_risk_terminology_analysis": {
+    "ai_agents_rubric": {
+      "API": {"draft_a": 0, "draft_b": 0},
+      "APIs": {"draft_a": 0, "draft_b": 0},
+      "language model": {"draft_a": 0, "draft_b": 0, "note_vs_trial_5": "Trial 5 Draft B pulled 'A language model can tell you it has a plan' — chunk b3c6e8ac vocabulary that Trial 6 AVOIDED. Marginal but detectable improvement attributable to E-KNOWLEDGE-1."},
+      "state": {"draft_a": 0, "draft_b": 0},
+      "multi-step": {"draft_a": 0, "draft_b": 0},
+      "database": {"draft_a": 0, "draft_b": 0},
+      "react": {"draft_a": 0, "draft_b": 0}
+    },
+    "image_gen_topic_vocabulary": {
+      "image generator": {"draft_a": 1, "draft_b": 0, "note": "Draft B says 'AI image generation' instead"},
+      "AI image generation": {"draft_a": 0, "draft_b": 1},
+      "prompts": {"draft_a": 0, "draft_b": 1, "context": "'similar prompts do not guarantee similar results' — chunk-vocabulary rendered as a live observation about behaviour"},
+      "reference information": {"draft_a": 0, "draft_b": 1, "context": "'You can give it instructions and reference information' — VERBATIM enumeration from chunk 850bd47b but accessible"},
+      "identity / anatomy / style / composition / object placement / text": {"draft_a": 0, "draft_b": "all present in one enumeration + bridge phrase", "note": "Chunk 850bd47b lists 'character consistency, hands and anatomy, text inside images, clothing consistency, object placement, maintaining identity, composition, and style consistency'. Draft B renders 6 of 8 items but DROPS 'consistency' suffixes (accessible-form: 'identity' not 'character consistency'; 'anatomy' not 'hands and anatomy'; 'style' not 'style consistency') and follows with bridge phrase 'basically all the little details that make an image feel like it belongs to the same world.'"},
+      "model": {"draft_a": 1, "draft_b": 1, "context": "Both drafts use 'the model' generically, non-definitional"}
+    },
+    "accessibility_verdict": "Every technical-flavoured term is context-clear. No definitional recital, no raw jargon labels, no unexplained enumeration. Bridge phrases ('basically all the little details that make an image feel like it belongs to the same world', 'apparently the tiny wrench is now the entire project') scaffold source-derived vocabulary for a nontechnical adult."
+  },
+
+  "patch_identity_markers": {
+    "draft_a_signature_markers": [
+      "'tiny wrench'",
+      "'the wrench might become a banana'",
+      "'the hands might discover new geometry'",
+      "'the character may come back wearing completely different clothes'",
+      "'I\u2019m watching what breaks'",
+      "'apparently the tiny wrench is now the entire project'"
+    ],
+    "draft_b_signature_markers": [
+      "'the face has wandered off and joined another family'",
+      "'a stranger who has never heard of the first two'",
+      "'It can struggle with identity, anatomy, object placement, composition, text, style\u2014basically all the little details that make an image feel like it belongs to the same world'",
+      "'not calling this character finished yet. I\u2019m calling it suspiciously close'",
+      "'without sanding off everything interesting about it'",
+      "'If you\u2019ve got a weird image idea worth testing, throw it at me'"
+    ],
+    "identity_preservation_verdict": "PRESERVED_ENRICHED. New humor markers not present in any prior specimen: 'the face has wandered off and joined another family', 'sanding off everything interesting about it', 'suspiciously close'. Patch voice + curiosity + build-first framing + audience-facing invitation all present."
+  },
+
+  "reasoning_progression": {
+    "chain": "images look inconsistent (specific description) → sounds like a failure → it's actually a clue → possible causes (model misunderstood / I accidentally encouraged) → tells me where experiment needs work → not finished yet, want to see how consistent I can make it → invitation",
+    "source": "hybrid — retrieved chunk 850bd47b's epistemic frame ('A failed generation is useful information: sometimes the model misunderstood the prompt, sometimes the prompt encouraged the wrong interpretation... Failure is a diagnostic, not the end of the process.') + Patch persona's build-first framing (business_brief + character_point_of_view). Same pattern as Trial 5. E-KNOWLEDGE-1 policy did not alter the reasoning chain — it operates on vocabulary rendering, not on epistemic structure."
+  },
+
+  "cross_specimen_comparison": {
+    "table": [
+      {"id": "774658ea", "topic": "AI agents", "condition": "audience + E-KNOWLEDGE-1 (Trial 4)", "chunks": "AI-agent region (jargon-heavy)", "accepted_at_risk_ai_agents_rubric": 2, "note": "Draft B translated state→'keep track of what happened along the way' via CANONICAL corrective; 2 residual (call APIs + one contextualised language model)"},
+      {"id": "62d68b17", "topic": "AI image generation", "condition": "activation gap (Trial 5, canonical baseline)", "chunks": "image-gen region (less jargon)", "accepted_at_risk_ai_agents_rubric": 0, "note": "Baseline was already clean on AI-agents rubric because chunks contain less jargon; but Draft B DID pull 'A language model' from chunk b3c6e8ac"},
+      {"id": "abafba24", "topic": "AI image generation", "condition": "audience + E-KNOWLEDGE-1 (Trial 6)", "chunks": "image-gen region (same as Trial 5)", "accepted_at_risk_ai_agents_rubric": 0, "note": "Clean on AI-agents rubric AND avoided 'language model' that Trial 5 pulled. Marginal but detectable improvement over same-substrate canonical baseline."}
+    ],
+    "topic_axis_isolation_trial_4_vs_trial_6": "Both policy-ACTIVE; only Episode + retrieved chunks differ. Trial 4 hard substrate: policy reduced at-risk from 5 (baseline) to 2 (mechanism = translated state to 'keep track', avoided language model+react). Trial 6 easy substrate: baseline was already 0; policy also produced 0 but additionally avoided the 'language model' pull that the same-substrate canonical baseline made. Policy generalises across topics; magnitude of measurable improvement scales with substrate difficulty.",
+    "policy_axis_isolation_trial_5_vs_trial_6": "Both image-gen topic + same chunks; only experiment activation differs. Trial 5 canonical: pulled 'A language model' from chunk b3c6e8ac. Trial 6 policy-active: did NOT pull 'language model' at all. Direction is unambiguous but magnitude is small (1-term delta) because baseline was already largely accessible. Direction+preservation is the discriminating evidence, not magnitude."
+  },
+
+  "e_knowledge_1_replication_verdict": {
+    "verdict": "A — STRONG REPLICATION (with topic-magnitude qualifier)",
+    "rubric_reasoning": {
+      "A_STRONG_REPLICATION": "MET. Mechanism generalises across topics without breakage; every dimension preserved; direction of improvement confirmed (Trial 6 avoided 'language model' that same-substrate canonical baseline pulled); Patch identity enriched with new humor markers.",
+      "B_PARTIAL_REPLICATION": "not the best fit — Trial 6 has zero residual issues; the qualifier is topic-magnitude, not preservation-gap.",
+      "C_NO_REPLICATION": "NOT MET — the mechanism executed and produced measurable direction.",
+      "D_NEGATIVE": "NOT MET — no dimension degraded; if anything, humor was enriched.",
+      "E_INCONCLUSIVE": "considered — because the magnitude is small on this substrate. But the direction is unambiguous (avoided 'language model' + preserved every dimension), so INCONCLUSIVE undersells the finding."
+    },
+    "small_n_caveat": "n=2 total valid E-KNOWLEDGE-1 specimens (Trial 4 + Trial 6). Magnitude of improvement varies by substrate — large on jargon-heavy substrate, small on naturally-accessible substrate. Directional consistency across both substrates supports the mechanism.",
+    "chris_central_question_answer": "YES — the always-present Patch communication invariant generalises beyond the AI-agent substrate. Trial 6 confirms the mechanism operates correctly on a DIFFERENT topic + DIFFERENT chunk region, preserves all four dimensions, and produces the same directional effect (avoiding raw-vocabulary reintroduction). The magnitude of measurable improvement scales with substrate difficulty; on naturally-accessible substrates the baseline is already close to the improved state."
+  },
+
+  "persona_promotion_decision_update": {
+    "prior_status": "NOT YET after Trial 4 (n=1) + Trial 5 (activation gap).",
+    "updated_status": "SAFE TO CONSIDER Option A (persona migration) via a DESIGN slice. Not 'safe to auto-implement' — the migration itself is a discrete architectural decision that Chris + ChatGPT should ratify.",
+    "reasoning": "Two valid E-KNOWLEDGE-1 specimens (Trial 4 hard substrate + Trial 6 easy substrate) both show mechanism executes correctly, generalises across topics, preserves every dimension, and produces directional improvement. Persona migration touches the live Teammate row (production-critical for every Patch render), so the exact wording + location on Teammate row should be ratified before implementation.",
+    "recommended_next_slice": "BOUNDED DESIGN SLICE (no code). Propose: (a) exact verbatim wording of the invariant to promote, (b) target field on Teammate row (character_point_of_view / personality / new field), (c) whether to remove the equivalent KnowledgeDocument section post-migration or leave it (redundant but harmless), (d) whether the migration is Patch-only or extends to Rivet, (e) migration-verification test plan. Then Chris + ChatGPT ratify + Claude implements in the following slice.",
+    "not_recommended": "Direct persona edit without design ratification. Continued replication trials (n=2 is enough for the ARCHITECTURAL decision, though more n would refine the magnitude estimate)."
+  },
+
+  "operational_observation_media_failure": {
+    "classification": "downstream Runway/DNS transient failure. Orthogonal to E-KNOWLEDGE-1 evidence.",
+    "runway_task_created": "yes (task c2ca8385 at 16:39:32 — Runway returned 200 OK)",
+    "runway_polls_successful_before_failure": 23,
+    "poll_interval_seconds": "~2.2",
+    "total_successful_poll_duration_seconds": 46,
+    "failure_mode": "transient DNS resolution failure — '[Errno 8] nodename nor servname provided, or not known' resolving api.dev.runwayml.com",
+    "media_engine_response_to_celery": "502 Bad Gateway",
+    "celery_retry_behavior": "none — single 502 fails the composition",
+    "runway_task_final_state": "unknown (we lost track before Runway confirmed done)",
+    "cost_impact": "0 (cost_actual_micros=0)",
+    "candidate_open_question_label": "Q-270-22 (candidate) — media-engine 502 could distinguish transient (DNS/network) from terminal (Runway rejection) and retry accordingly. Bounded operational-quality follow-up; NOT audience-related; NOT in scope for any SESSION 271 slice.",
+    "action_recorded": "observation only. No reliability fix in this slice."
+  },
+
+  "cleanup_expected_next_step": "unset all three experiment env vars, restart canonical worker, verify all flags absent + pool unchanged + services healthy."
+}

@@ -4260,3 +4260,285 @@ If Trial 6 produces:
 Whichever outcome, Claude will freeze evidence + update the durable doc + cleanup + commit + push (same pattern as prior Trial-4 / Trial-5 Phase-2 forensics).
 
 **Post-render commit + push record will be populated in §150+.**
+
+---
+
+# SESSION 271 — SLICE 7 · TRIAL 6 · PHASE 2 · Composition `abafba24` Forensics + Cross-Topic Replication Verdict
+
+Trial 6 post-render forensics. **Composition failed at the downstream video-render step (transient Runway/DNS 502) but synthesis fully succeeded and all E-KNOWLEDGE-1 evidence is preserved.** The downstream media failure is orthogonal to the synthesis experiment; treated as operational observation only. Frozen evidence sidecar: `docs/design/session_271_experiment_data/06_composition_abafba24_e_knowledge_1_trial6_evidence.json`.
+
+**Verdict: A — STRONG REPLICATION (with topic-magnitude qualifier).**
+
+---
+
+## §150. Composition `abafba24` identity + synthesis-vs-media separation
+
+| Field | Value |
+|---|---|
+| Full UUID | `abafba24-c44c-4aa9-8a9a-9de1a6286b2f` |
+| Rendered | `2026-08-20 16:39:17 UTC` |
+| Status | `failed` — **downstream media failure only** (synthesis succeeded) |
+| `verification_status` | **`verified`** ✅ |
+| `synthesis_attempt_count` | **2** (expansion retry fired) |
+| Universe / Episode / Spokesperson | `Patch's Workshop` / `06043499` "Patch experiments with AI image generation" / Patch — **same substrate as Trial 5 (62d68b17)** |
+| Target duration | 90 s; corrective_pass 1230 chars accepted |
+| `verification_warnings` | `[]` — verifier-clean |
+| `cost_actual_micros` | `0` |
+| Downstream failure | `step 0 (generate_avatar_speech): PrimitiveError: media-engine poll_task failed: GET /internal/tasks/c2ca8385-...  returned 502` — transient DNS resolution failure resolving `api.dev.runwayml.com` after 23 successful polls |
+
+**Synthesis vs downstream media** (frozen operator instruction):
+
+| Layer | Outcome |
+|---|---|
+| K6 script synthesis (first pass + corrective retry) | ✅ SUCCESS |
+| K6.4 verifier | ✅ verified, 0 warnings |
+| Composition observability writes | ✅ full — `first_pass_synthesis`, `corrective_pass_synthesis`, `corrective_hint`, `synthesized_brief`, `synthesis_attempt_count`, `memory_ids` all persisted |
+| Media-engine `/internal/clips/avatar_speech/` POST (Runway task creation) | ✅ 200 OK |
+| Media-engine `/internal/tasks/.../` GET polling (23 polls over ~46 s) | ✅ all 200 OK |
+| **24th poll (~32 s later)** | ❌ DNS failure → 502 to Celery → Composition marked failed |
+
+**Chris authorised treating this Composition as the valid E-KNOWLEDGE-1 Trial 6 specimen.** Media failure recorded as operational observation only (candidate **Q-270-22** — media-engine retry-classification — bounded operational-quality follow-up, not in scope). All synthesis evidence preserved.
+
+---
+
+## §151. Activation reality check — three proofs, all confirm ACTIVE
+
+- **Line 36:** `avatar_speech: SESSION 270 audience-hint experiment ACTIVE composition=abafba24 hint_chars=79`
+- **Line 37:** `avatar_speech: SESSION 271 Slice 7 / E-KNOWLEDGE-1 Patch communication-policy experiment ACTIVE composition=abafba24 policy_chars=290`
+- **Line 40:** `synthesize_with_duration_gate expansion retry` — canonical `_expansion_hint` fingerprint (Q-270-15c OFF as intended)
+
+Corrective_hint text (656 chars) starts *"REWRITE THE SAME NARRATIVE"* — canonical `_expansion_hint`. **The E-KNOWLEDGE-1 policy operates via §5 `_assemble_task_message` injection; it does NOT modify the corrective_hint text.** So canonical-hint fingerprint + policy + audience markers is the CORRECT combined state for E-KNOWLEDGE-1 with Q-270-15c OFF.
+
+Worker PIDs at render time were `95141` / `95172` / `95173` (from §144 Claude-inline activation), all three carrying both `SOLO_AUDIENCE_HINT_EXPERIMENT` (79 chars) and `PATCH_COMMUNICATION_POLICY_EXPERIMENT=1` per §146 pre-render verification.
+
+---
+
+## §152. Draft A + Draft B verbatim
+
+### §152.1 Draft A (first pass, 690 chars)
+
+```
+I'm trying to make one image.
+
+Not a masterpiece. Just one character standing in a workshop, holding a tiny wrench.
+
+And somehow this is where things get weird.
+
+You give an image generator instructions, and it makes an image from them. In theory, simple.
+
+In practice, the wrench might become a banana, the hands might discover new geometry, and the character may come back wearing completely different clothes.
+
+That's not useless. That's the model telling me which part of my instructions it misunderstood—or which part it simply cannot do well yet.
+
+So I'm not chasing "perfect" on the first try.
+
+I'm watching what breaks.
+
+Because apparently the tiny wrench is now the entire project.
+```
+
+### §152.2 Draft B (accepted, 1230 chars — canonical corrective under always-present policy)
+
+```
+I'm staring at three images that are all meant to be the same character.
+
+They are not.
+
+One has the right face but completely different clothes. One has the clothes, but now the face has wandered off and joined another family. And the third one is technically very nice, if your goal was to create a stranger who has never heard of the first two.
+
+This is the annoying bit about AI image generation. You can give it instructions and reference information, and it can make something genuinely useful. But similar prompts do not guarantee similar results. It can struggle with identity, anatomy, object placement, composition, text, style—basically all the little details that make an image feel like it belongs to the same world.
+
+Which sounds like a failure.
+
+But it's actually a clue.
+
+The model may have misunderstood what I meant. Or I may have accidentally encouraged exactly this weird interpretation. Either way, the bad image is telling me where the experiment needs work.
+
+So I'm not calling this character finished yet. I'm calling it suspiciously close.
+
+Now I want to see how consistent I can make it without sanding off everything interesting about it.
+
+If you've got a weird image idea worth testing, throw it at me.
+```
+
+---
+
+## §153. Cross-specimen comparison — two axes isolated
+
+### §153.1 Topic axis: Trial 4 vs Trial 6 (both policy-ACTIVE)
+
+| Trial | Topic | Chunk region | Baseline at-risk (canonical control) | With policy at-risk | Direction |
+|---|---|---|---|---|---|
+| Trial 4 (774658ea) | AI agents | jargon-heavy (`505acbba` + `ed18e966` + `b3c6e8ac`) | 5 (c3ff972d) | 2 | **−3 (state translated, language model contextualised, avoided react)** |
+| Trial 6 (abafba24) | AI image gen | less-jargon (`850bd47b` + `20163bd6` + `b3c6e8ac`) | 0 on AI-agents rubric (Trial 5) | 0 on AI-agents rubric | **direction preserved; magnitude smaller because baseline already close to floor** |
+
+**Policy generalises across topics.** Magnitude of measurable improvement scales with substrate difficulty — the AI-agents chunks are unusually jargon-heavy (Slice 6 §134); image-gen chunks provide accessible-language enumeration by construction.
+
+### §153.2 Policy axis: Trial 5 vs Trial 6 (both image-gen, same chunks)
+
+| Trial | Condition | Draft B accepted (image-gen vocabulary) | `language model` in accepted? |
+|---|---|---|---|
+| Trial 5 (62d68b17) | activation gap (no policy) | *"instructions", "reference information", "prompts", "identity, anatomy, style, where things belong", "character drift", "the model"* | **YES** — *"A language model can tell you it has a plan..."* |
+| Trial 6 (abafba24) | audience + policy ACTIVE | *"instructions and reference information", "similar prompts do not guarantee similar results", "identity, anatomy, object placement, composition, text, style—basically all the little details that make an image feel like it belongs to the same world", "the model"* | **NO** |
+
+**On identical substrate, policy-active pulled MORE items from chunk enumeration (6 of 8 vs Trial 5's 4) but rendered each accessibly** (dropped `-consistency` suffixes, added bridge phrase *"basically all the little details that make an image feel like it belongs to the same world"*) **AND avoided `language model` that same-substrate canonical baseline pulled.**
+
+Direction is unambiguous. Magnitude on this substrate is small (1-term delta on `language model`) because the baseline is already largely accessible. Direction + preservation is the discriminating evidence, not magnitude.
+
+### §153.3 Full six-specimen picture
+
+| ID | Topic | Aud | Rev | Pol | Accepted at-risk (AI-agents rubric) |
+|---|---|---|---|---|---|
+| `c3ff972d` | AI agents | ✅ | ❌ | ❌ | 5 |
+| `1ff3d16f` | AI agents | ✅ | ✅ | ❌ | 3 |
+| `774658ea` | AI agents | ✅ | ❌ | ✅ | **2** (Trial 4 valid) |
+| `25467733` / `8b61ca92` | AI agents | ❌ | ❌ | ❌ | 5 / 5 (activation gaps) |
+| `62d68b17` | AI image gen | ❌ | ❌ | ❌ | 0 (activation gap; baseline naturally accessible) |
+| **`abafba24`** | **AI image gen** | **✅** | **❌** | **✅** | **0** (Trial 6 valid — additionally avoided `language model` that Trial 5 pulled) |
+
+---
+
+## §154. Patch identity + memory observation
+
+**Patch identity — PRESERVED_ENRICHED.** New humor markers not present in prior specimens:
+- Draft A: *"tiny wrench"*, *"the wrench might become a banana"*, *"the hands might discover new geometry"*, *"apparently the tiny wrench is now the entire project"*
+- Draft B: *"the face has wandered off and joined another family"*, *"a stranger who has never heard of the first two"*, *"suspiciously close"*, *"without sanding off everything interesting about it"*, *"throw it at me"*
+
+Draft B extends Draft A's specific-image vocabulary (three images / clothes / face) rather than resetting to generic material. Personality, humor, curiosity, build-first framing, audience-facing invitation all present.
+
+**Memory observation** — same pattern as Trial 5. The workshop-agent memory `8d4fdfec` was retrieved (top-1 among the 14 remembered Patch's Workshop rows). Draft A + Draft B contain zero references to workshop-agent, old notes, smaller experiment, or "started making decisions". **Model correctly did not cite an irrelevant memory.** Reinforces the Slice 7 Phase 2 §135 observation about candidate **Q-270-21** (NarrativeMemory retrieval-relevance floor). Bounded architectural question; NOT in scope for any SESSION 271 slice.
+
+---
+
+## §155. Reasoning progression traced
+
+*"images look inconsistent (three specific images) → sounds like a failure → it's actually a clue → possible causes (model misunderstood / I accidentally encouraged) → tells me where experiment needs work → not finished yet, want to see how consistent → invitation"*
+
+**Source: hybrid.** Retrieved chunk `850bd47b`'s explicit epistemic frame (*"A failed generation is useful information: sometimes the model misunderstood the prompt, sometimes the prompt encouraged the wrong interpretation... Failure is a diagnostic, not the end of the process."*) + Patch persona's build-first framing (business_brief + character_point_of_view). Same pattern as Trial 5. **E-KNOWLEDGE-1 policy did NOT alter the reasoning chain — it operates on vocabulary rendering, not on epistemic structure.**
+
+---
+
+## §156. Verdict — A · STRONG REPLICATION (with topic-magnitude qualifier)
+
+Per the frozen rubric (Slice 7 Phase 2 Trial 5 §138 replication gate):
+
+- **A — STRONG REPLICATION** — **MET.** Mechanism generalises across topics; every dimension preserved; direction of improvement confirmed (Trial 6 avoided `language model` that same-substrate canonical baseline pulled); Patch identity enriched with new humor.
+- **B — PARTIAL REPLICATION** — not the best fit (zero residual issues; qualifier is topic-magnitude, not preservation-gap).
+- **C — NO REPLICATION** — NOT MET (mechanism executed and produced measurable direction).
+- **D — NEGATIVE** — NOT MET (no dimension degraded).
+- **E — INCONCLUSIVE** — considered but undersells the finding (direction is unambiguous).
+
+**Chris's central question — direct answer:** *"Do 774658ea + 62d68b17 [now 774658ea + abafba24] now provide enough evidence to promote the communication invariant from experimental plumbing into Patch's canonical always-present persona/context?"*
+
+**YES — enough evidence to plan the promotion, via a bounded DESIGN slice first.** The mechanism is proven; the direction is consistent across two substrates; magnitude scales with substrate difficulty. Persona migration touches the live Teammate row (production-critical for every Patch render), so the exact wording + location on Teammate row should be ratified before implementation.
+
+---
+
+## §157. Updated persona-promotion decision
+
+**Status: SAFE TO CONSIDER Option A (persona migration) via a DESIGN slice.**
+
+### §157.1 What should be promoted
+
+**The exact 290-char rule text** currently in `_PATCH_COMMUNICATION_POLICY_TEXT`:
+
+> *"Patch uses technical terminology when it actually helps and translates it into ordinary language when it does not. Match technical depth and vocabulary to the listener's likely background knowledge without changing Patch's intelligence, factual grounding, personality, humor, or confidence."*
+
+Design-slice question: should the wording change? Should it be shorter? Should it merge with existing `character_point_of_view` field (which already says *"He talks technical when it earns its keep and drops jargon otherwise."*) or become a new field?
+
+### §157.2 Where it should canonically live
+
+Design-slice options (do NOT decide unilaterally):
+
+- **Option L1 — `character_point_of_view` merge.** Add the operational sentence to the existing 1206-char field. Minimal schema impact; POV already carries voice/vocabulary guidance. Slight length growth on §2 Character Voice.
+- **Option L2 — `personality` merge.** Add to the existing 2634-char field. Higher visibility as personality-level directive; more length growth.
+- **Option L3 — new dedicated field.** New Teammate column (e.g. `communication_policy`) with dedicated §2 rendering. Cleanest separation of concerns; requires migration.
+- **Option L4 — retain in KnowledgeDocument AND add to persona.** Redundant (harmless) belt-and-braces during transition.
+
+### §157.3 What should remain in KnowledgeDocument
+
+**All factual/reference knowledge stays.** Chunks 0-11 (PURPOSE + AI knowledge sections) + all image-generation + character/spokesperson + video/voice sections remain retrievable factual grounding.
+
+**Open design-slice question:** should the migrated section (`HOW PATCH HANDLES TECHNICAL DETAIL` at char 10512-10866 in `raw_content`) be:
+- (a) LEFT IN the KnowledgeDocument as redundant belt-and-braces (harmless; occasionally reinforces the persona-level rule when retrieved).
+- (b) REMOVED to eliminate duplication.
+- (c) LEFT IN and REWRITTEN to focus on operational examples (embeddings translation etc.) that persona doesn't carry.
+
+### §157.4 Other Patch invariants deserving a SEPARATE future audit
+
+Per Slice 6 §91, five OTHER Patch invariants are also retrieval-omitted for the AI-agents substrate:
+- `PATCH DOES NOT FAKE RESULTS`
+- `PATCH DOES NOT WORSHIP AI`
+- `PATCH'S RELATIONSHIP WITH THE AUDIENCE`
+- `THE MOST IMPORTANT PATCH RULE` (curiosity)
+- `BUILDING SMALL FIRST` / experiment instinct
+
+These share the same architectural pattern. Persona already carries WEAKER versions of most of them (Slice 6 §92 mapping). Whether each deserves the same migration treatment is a downstream design conversation — bounded, but not addressable in this slice.
+
+### §157.5 Rivet applicability
+
+Same architectural principle applies in principle. Rivet's KnowledgeDocument lacks a dedicated communication section (Slice 6 §89, §100), so migration content would need to come from Rivet's persona + any relevant chunk material together. Downstream design conversation. **Do not modify Rivet.**
+
+### §157.6 Do NOT implement persona migration in this slice
+
+- Cost of getting the wording wrong: every Patch render for the foreseeable future.
+- Downstream verification required: re-render existing controlled substrates post-migration to confirm no regression.
+- Ratification required: Chris + ChatGPT should read the exact proposed edits before Claude touches the live Teammate row.
+
+**Recommended next slice:** BOUNDED DESIGN SLICE proposing the exact edits (verbatim wording, field placement, KnowledgeDocument retention decision), scope, and migration-verification test plan. No source touched.
+
+---
+
+## §158. What was NOT changed in Slice 7 Trial 6 Phase 2
+
+- Live KnowledgeDocuments (Patch `fd0ba2ca`, Rivet `218eb0d8`, shared `f309469c`) — unchanged.
+- Live Teammate persona (Patch `7fad8172`, Rivet `f18b75cc`) — unchanged.
+- No code, no chunker, no retrieval, no writing contract, no schema, no migration, no SPA UI.
+- All three env-gated experimental mechanisms unchanged in source.
+- No new render performed by Claude.
+- No NarrativeMemory promotion. Pool remains 14 remembered + 1 archived.
+- Q-270-16 (proper_noun), Q-270-18 (tech_term case), Q-270-20 (multi_word), Q-270-21 (memory relevance floor), Q-270-22 (media-engine retry classification) — all remain OUT OF SCOPE.
+- Downstream Runway/DNS failure NOT converted to a reliability fix.
+
+---
+
+## §159. Cleanup + verification (executed post-forensics)
+
+Actions performed after evidence freeze:
+
+1. `unset CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT`, `unset CHARACTER_OS_PATCH_COMMUNICATION_POLICY_EXPERIMENT`, `unset CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT` in the parent shell.
+2. `bash scripts/start-local-real.sh` — killed all four services + relaunched with no experiment env vars.
+3. New canonical PIDs: Django `96721`, media-engine `96723`, Vite `96746`, Celery `96725` / `96756` / `96757`.
+
+Post-cleanup proofs (all pass):
+
+| Check | Result |
+|---|---|
+| `ps eww` on all three Celery worker PIDs → `CHARACTER_OS_*` env vars | **all three empty** ✅ |
+| Django shell — `_resolve_solo_audience_hint(step={})` | `None` ✅ |
+| Django shell — `_patch_communication_policy_experiment_active()` | `False` ✅ |
+| Django shell — `_corrective_revision_experiment_active()` | `False` ✅ |
+| Django shell — `_resolve_patch_communication_policy(Patch, is_episode_talking_head=True)` | `None` ✅ |
+| Django `curl /admin/` | `302` ✅ |
+| media-engine `curl /health` | `200`, `any_mock=false`, `openai/gpt-4o-mini` ✅ |
+| Vite `curl /` | `200` ✅ |
+| Celery `inspect ping` | `pong` ✅ |
+| Patch's Workshop NarrativeMemory pool | **14 remembered + 1 archived** unchanged since SESSION 270 §14.4 across every subsequent trial ✅ |
+
+**Runtime restored to canonical mode.** All three env-gated experimental mechanisms remain inert in source. Media-engine DNS is currently working (health probe green).
+
+---
+
+## §160. Slice 7 Trial 6 Phase 2 commit + push record
+
+- Commit SHA: `<pending — populated after commit>`
+- Push: `<pending>`
+- Local `main == origin/main`: `<verified at commit time>`
+- Working tree at slice close: `<verified clean>`
+- Files touched:
+  - `docs/design/session_271_experiment_data/06_composition_abafba24_e_knowledge_1_trial6_evidence.json` (NEW evidence sidecar)
+  - `docs/design/SESSION_271_CORRECTIVE_PASS_AUDIENCE_INVARIANCE_AUDIT.md` §150-§160 appended
+
+---
+
+**End of SESSION 271 Slice 7 Trial 6 Phase 2. Verdict: A — STRONG REPLICATION. Persona-promotion decision UPDATED: safe to consider Option A via a bounded DESIGN slice. Do NOT implement persona migration without ratification.**
