@@ -1186,3 +1186,237 @@ Executed immediately after grading + interpretation, per operator brief.
 
 **End of SESSION 270 Q-270-9 cycle.** Minimal-directive experiment CLOSED with a bounded PASS: 9 PASS + 1 AMBIGUOUS on the ten criteria, no NarrativeMemory promoted, load-bearing analysis suggests the audience label does most of the work while verbose CHANGE clauses buy the last-10% vocabulary-completeness guarantee. §13.18.7.11 recommends **Q-270-10 (single-question stochasticity probe on the "API" miss) FIRST** if Chris wants to convert the AMBIGUOUS on criterion 4 into evidence; **Q-270-8 (demographic-vs-expertise) SECOND** if any; **STOP HERE** is fully defensible. **Do NOT proceed to any further audience experiment without Chris's authorisation.**
 
+---
+
+## §13.21 Q-270-8 REVISED — ADULT-BEGINNER AUDIENCE PROBE
+
+Authorised by Chris + ChatGPT after the Q-270-9 close. Continuation of the SESSION 270 evidence-first cycle. Phase 1 = activation only; Phase 2 = evidence freeze + three-way grading + interpretation after Chris's single dogfood render.
+
+### §13.21.1 Substitution of audience directive vs the historical Q-270-8 wording
+
+The historical Q-270-8 was originally recorded in §13.15.7 and §13.18.7.10 as an **expert-beginner** probe:
+
+> **Q-270-8** — Given the same Episode + same character + same knowledge, does a `AUDIENCE: an experienced software developer new to AI agents` directive produce (a) the same concept-translations as the children-8-10 render, (b) different translations, or (c) something more like baseline?
+
+**That formulation is SUPERSEDED for this experiment only.** The historical wording remains in §13.15.7 and §13.18.7.10 unchanged for provenance; nothing has been rewritten.
+
+**Reason for the substitution** (Chris + ChatGPT judgement recorded 2026-08-19):
+
+An experienced software developer already carries substantial technical background. That formulation would confound two variables:
+
+- **WHO the listener is** (life context, cultural frame, demographic)
+- **WHAT the listener already knows** (subject-matter expertise)
+
+Distinguishing those two dimensions is exactly the open question. If we compare `AUDIENCE: an experienced software developer new to AI agents` against `AUDIENCE: children around 8-10 years old`, the child audience is both *demographically different* AND *technically less versed*. Any observed adaptation difference is inseparably a joint function of both dimensions.
+
+Substituting **adult beginner** as the second audience holds *technical familiarity roughly constant* (both audiences are AI-agent beginners) while *changing life-context/demographic*. That is the cleaner discriminator for the demographic-vs-expertise hypothesis.
+
+### §13.21.2 Q-270-8 REVISED — falsifiable question
+
+> *Can the same Patch explain the same AI-agent subject to adults who are new to AI agents while remaining recognisably the same Patch and adapting differently from the children-8-10 performance?*
+
+**Experimental directive (verbatim, byte-clean, no PRESERVE clause, no CHANGE clause):**
+
+```
+AUDIENCE: adults who are new to AI agents.
+```
+
+### §13.21.3 What this experiment tests + what it does NOT test
+
+**Tests:**
+
+- Whether a minimal audience *identity* directive with the subject-familiarity axis roughly matched to Q-270-9 produces a different communication strategy from the child-audience render.
+- Whether Character OS, under Writing Contract v5 and the same substrate as Experiments 0 / 1 / Q-270-9, can distinguish "adult general with unfamiliar subject" from "child general with unfamiliar subject" at the register/analogy/explanation-strategy level.
+- Whether adult-beginner performance retains Patch's identity, intelligence, humor, story, memory semantics, and factual grounding.
+- Whether — as a secondary observation — the `API` vocabulary behaviour differs across the two beginner audiences (does adult Patch say `API`? Explain it? Avoid it? Use it as-is?).
+
+**Does NOT test:**
+
+- Nothing about *expert* audiences. The originally-proposed expert-developer directive is deferred.
+- Nothing about permanent audience-model architecture (still no fields, no enums, no taxonomy).
+- Nothing about `dialogue_scene`. Solo-only by construction.
+- Nothing about other Universes / characters / Episode topics.
+
+### §13.21.4 Comparison substrate + control set (fixed BEFORE render)
+
+| Field | Baseline `2ef5ee7e` (adult/general) | Minimal child `9880eb93` (children 8-10) | **New Q-270-8 REVISED** (adult beginner) |
+|---|---|---|---|
+| Universe | Patch' Workshop | **same** | **required same** |
+| Spokesperson | Patch (`7fad8172-...`) | **same** | **required same** |
+| Episode row | `2b6087d2` | **same** | **required same** — reuse existing Episode |
+| Episode title / operator_topic | *"Patch does research on AI Agents"* | **same** | **required same** |
+| Cast | [Patch] | **same** | **required same** |
+| Recipe / template_kind | `talking_head` → `solo_scene` | **same** | **required same** |
+| Target duration | 90 s | 90 s | **90 s** |
+| Writing Contract | v5 | v5 | **v5 — must remain unchanged** |
+| use_knowledge | on | on | **on** |
+| Opener | blank | blank | **blank** |
+| verifier_mode | warn | warn | **warn** |
+| `audience_hint` | (unset) | `AUDIENCE: children around 8-10 years old.` (41 chars) | **`AUDIENCE: adults who are new to AI agents.` (chars TBD from runtime)** |
+| Knowledge retrieval | 5 chunks (observed) | identical set | **NOT ASSUMED** — will be verified from persisted state |
+| NarrativeMemory retrieval | `[8d4fdfec]` (top_k=1) | `[8d4fdfec]` (top_k=1) | **NOT ASSUMED** — will be verified from persisted state |
+
+Only the `audience_hint` string is intentionally different. Retrieval symmetry is expected on identical query input but will be **proved from persisted evidence**, not assumed.
+
+### §13.21.5 Grading framework — ten criteria (fixed BEFORE render)
+
+Same ten criteria used for Experiments 1 and Q-270-9, so the three specimens are graded on an identical rubric:
+
+1. Identity preservation
+2. Intelligence preservation
+3. Accessibility (for the *intended* audience — adult AI-agent beginners)
+4. Vocabulary / register adaptation
+5. Factual preservation
+6. Story preservation
+7. Memory preservation
+8. Personality / humor preservation
+9. No patronising voice
+10. Audience effect observable
+
+Result codes: **PASS**, **FAIL**, **AMBIGUOUS**. Failure-type classification per §Evaluation-framework. Distinguish runtime evidence (**RE**) from interpretive judgement (**IJ**).
+
+### §13.21.6 Q-270-8 REVISED comparative question (fixed BEFORE render)
+
+> *Does adult-beginner Patch communicate differently from child-beginner Patch in a way that is explained by the LISTENER rather than by a change in PATCH?*
+
+Comparison dimensions to inspect (evidence categories, **not** a fresh taxonomy — do not codify these into architecture):
+
+- **API-vocabulary behaviour** (does adult Patch say *"API"*? explain it? avoid it?)
+- **Jargon handling** more broadly (any other technical terms surfaced or translated)
+- **Definition strategy** (does he define anything at all, or lean on world-model priors?)
+- **Analogy choice** (workshop / everyday-adult / consumer-software / lived-experience metaphors?)
+- **Sentence complexity + clause density**
+- **Assumed world knowledge** (adult life-context references — home / office / driving / paperwork / kitchen / hobbies?)
+- **Assumed technical knowledge** (does the adult-beginner render assume more or fewer software priors than the child-beginner render?)
+- **Humor construction** (same Patch shape? or different joke families?)
+- **Explanation sequencing** (define → demo, or demo → define, or define-in-flight?)
+- **Direct audience address / participatory framing** (in-character question vs social-media call-to-comment vs neither?)
+
+Possible outcomes for the demographic-vs-expertise hypothesis:
+
+- **SUPPORTED** — adult-beginner and child-beginner receive meaningfully different communication strategies despite both being subject-beginners.
+- **NOT SUPPORTED** — they receive effectively the same beginner register.
+- **AMBIGUOUS** — differences exist but one specimen cannot confidently attribute them to audience identity vs generation variance.
+
+Do NOT force a conclusion. Whichever the evidence supports.
+
+### §13.21.7 Runtime-state orientation (recorded before activation)
+
+- Repository HEAD: `dd8832e` — the Q-270-9 checkpoint-SHA doc back-fill. Local `main == origin/main`. Working tree clean.
+- SESSION 270 audience-hint implementation still present + unchanged:
+  - `build_render_brief.audience_hint` kw-only param — verified via `inspect.signature`.
+  - `synthesize_with_duration_gate.audience_hint` — verified.
+  - `_assemble_task_message.audience_hint` — verified.
+  - Resolver constant `_SOLO_AUDIENCE_HINT_ENV = "CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT"` — verified.
+- Prior Q-270-9 deactivation worker PID **63588** still running with **0** env-var hits (per `ps eww $PID | grep -c "..."`). Resolver on empty-step returns `None`. Interpreter's `os.environ` shows no experimental env var.
+- Frozen evidence sidecars intact:
+  - `docs/design/session_269_experiment_data/06_composition_2ef5ee7e_evidence.json` (baseline).
+  - `docs/design/session_270_experiment_data/01_composition_f0e0a7bf_evidence.json` (verbose child).
+  - `docs/design/session_270_experiment_data/02_composition_9880eb93_evidence.json` (minimal child).
+
+### §13.21.8 Activation record (2026-08-19 21:44 local)
+
+**Directive:**
+
+- Verbatim: `AUDIENCE: adults who are new to AI agents.`
+- Char count: **42** (computed from `printf '%s' "$..." | wc -c`; hex-verified byte-clean — head `4155 4449 454e 4345 3a20 6164 756c 7473`, tail `6f20 4149 2061 6765 6e74 732e`; no leading zero-width chars, no smart-quotes, no encoding surprises).
+- **`hint_chars=42` will be the load-bearing activation-log fingerprint for Chris's render.** Distinct from the 41-char child-audience directive (Q-270-9 `9880eb93`), distinct from the 372-char verbose directive (Experiment 1 `f0e0a7bf`). Three-way distinguishable by hint_chars alone.
+
+**Worker restart:**
+
+- Prior worker PID **63588** (Q-270-9 deactivation worker, booted 2026-08-19 21:29:36) killed via `pkill -f "celery -A character_os worker"`. Zero workers alive after kill.
+- Parent shell: `set -a && source .env && set +a` for DB creds, then `export CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT='AUDIENCE: adults who are new to AI agents.'`. Parent-shell verification: `printf '%s' "$..." | wc -c` → 42, matches computed length.
+- Relaunched Celery via the canonical `start-local-real.sh` invocation:
+  ```bash
+  (cd shell && nohup ../.venv/bin/celery -A character_os worker --loglevel=info --concurrency=2 > /tmp/character-os-celery.log 2>&1 & echo "$!" > /tmp/character-os-celery.pid)
+  ```
+- New worker PID **64483**. Boot timestamp from `/tmp/character-os-celery.log`: `[2026-08-20 03:44:43,897: INFO/MainProcess] celery@Chriss-MacBook-Pro.local ready.`
+
+**All four activation-validity proofs hold:**
+
+1. **Worker alive + control-plane responsive.** `celery -A character_os inspect ping --timeout 5` → `celery@Chriss-MacBook-Pro.local: OK / pong / 1 node online.`
+2. **Env var present in worker's process environment, exactly once, byte-identical to the adult-beginner directive.**
+   - `ps eww 64483 | grep -c "CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT="` → **1**.
+   - Regex recovery over the same `ps eww` output:
+     - `recovered_chars = 42` (matches parent-shell length exactly).
+     - `value_repr = 'AUDIENCE: adults who are new to AI agents.'`.
+     - `matches_adult_beginner = True` (byte-for-byte equal to the intended Q-270-8 REVISED directive).
+     - `distinct_from_child_minimal = True` (not the Q-270-9 41-char directive).
+     - `distinct_from_verbose = True` (length ≠ 372; not the Experiment-1 directive).
+3. **Worker is running the SESSION 270 implementation.** `manage.py shell` under the same `.venv/bin/python`:
+   - `build_render_brief.audience_hint: True`
+   - `duration_gate.audience_hint: True`
+   - `assemble.audience_hint: True`
+   - `resolver env symbol: CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT`
+   - Note: `manage.py shell` in a *separate* subshell that did not inherit the parent's export (its `os.environ` view is not the worker's; the worker's env is proved by point 2 above).
+4. **Rest of local-real stack healthy:**
+
+    | Service | Probe | Status |
+    |---|---|---|
+    | Django | `curl http://localhost:8010/admin/` | `http=302` (login redirect — healthy) |
+    | media-engine | `curl http://localhost:8001/health` | `{"status":"ok",...,"any_mock":false,"llm_provider":"openai","llm_model":"gpt-4o-mini"}` (real-mode; **no provider mocks**) |
+    | Vite (SPA) | `curl http://localhost:5174/` | `http=200` |
+    | Celery worker | `celery -A character_os inspect ping` | `pong / 1 node online` |
+
+**Persisted state untouched during activation:** zero writes to `Episode` / `Composition` / `NarrativeMemory` / `Teammate` / `Universe` / `Workspace` / `KnowledgeChunk` / `KnowledgeDocument` / `EpisodeCast` / `Asset`. No migration. Working tree touched only this SESSION 270 doc (§13.21 sections). Pool state unchanged: 14 active + 1 archived per Q-270-9 close.
+
+**Expected activation log line at render time** (must appear once per Q-270-8 REVISED render in `/tmp/character-os-celery.log`):
+
+```
+avatar_speech: SESSION 270 audience-hint experiment ACTIVE composition=<UUID> spokesperson=7fad8172-... hint_chars=42 — this is transient research plumbing; unset the setting/env or clear step.params['audience_hint'] to restore default behaviour
+```
+
+**`hint_chars=42` is the load-bearing validity fingerprint for Phase 2.** If Chris's render yields:
+
+- `hint_chars=42` → Q-270-8 REVISED specimen, proceed to grading.
+- `hint_chars=41` → stale Q-270-9 child-audience leak — INVALID, discard.
+- `hint_chars=372` → stale Experiment-1 verbose leak — INVALID, discard.
+- no activation log line at all → render did not pick up the hint — INVALID, discard.
+
+### §13.21.9 Chris's single dogfood action
+
+Activation done. To produce the one adult-beginner Composition, in the SPA on Universe *"Patch' Workshop"*:
+
+1. Open the existing Episode **"Patch does research on AI Agents"** (Episode row `2b6087d2` — same row used by baseline `2ef5ee7e`, verbose `f0e0a7bf`, and minimal-child `9880eb93`). Cast is already Patch-only.
+2. Click **New solo scene** on Episode detail.
+3. Recipe form: `Target duration = 90 s`, `Use workspace knowledge = on`, `Opener = blank`, `Fact-check mode = warn`.
+4. Click render.
+
+Do NOT modify or coach the generated script. Whatever Character OS produces is the specimen.
+
+When the render completes, hand back the new Composition ID. Phase 2 (evidence freeze + three-way comparison against `2ef5ee7e` + `9880eb93` + ten-criterion grading + demographic-vs-expertise verdict + cleanup) begins from there.
+
+### §13.21.10 Q-270-8 REVISED evidence + grading placeholders
+
+Populated in Phase 2 after Chris returns the new Composition ID:
+
+- **Composition:** `<PENDING>`
+- **Evidence sidecar:** `docs/design/session_270_experiment_data/03_composition_<short>_evidence.json` (to be created).
+- **Validity fingerprint (audience-hint activation log line, hint_chars=42):** `<PENDING>`.
+- **Three-way control table:** `<PENDING>`.
+- **Vocabulary / concept-translation catalogue vs child specimens:** `<PENDING>`.
+- **Ten-criterion grading:** `<PENDING>`.
+- **Demographic-vs-expertise hypothesis verdict (SUPPORTED / NOT SUPPORTED / AMBIGUOUS):** `<PENDING>`.
+- **API observation from THIS render:** `<PENDING>`.
+- **NarrativeMemory recommendation:** `<PENDING>`.
+- **Deactivation record:** `<PENDING>`.
+- **Bounded conclusions:** `<PENDING>`.
+- **Updated open questions:** `<PENDING>`.
+
+### §13.21.10 Q-270-8 REVISED evidence + grading placeholders
+
+Populated in Phase 2 after Chris returns the new Composition ID:
+
+- **Composition:** `<PENDING>`
+- **Evidence sidecar:** `docs/design/session_270_experiment_data/03_composition_<short>_evidence.json` (to be created).
+- **Validity fingerprint (audience-hint activation log line, hint_chars):** `<PENDING>`.
+- **Three-way control table:** `<PENDING>`.
+- **Vocabulary / concept-translation catalogue vs child specimens:** `<PENDING>`.
+- **Ten-criterion grading:** `<PENDING>`.
+- **Demographic-vs-expertise hypothesis verdict (SUPPORTED / NOT SUPPORTED / AMBIGUOUS):** `<PENDING>`.
+- **API observation from THIS render:** `<PENDING>`.
+- **NarrativeMemory recommendation:** `<PENDING>`.
+- **Deactivation record:** `<PENDING>`.
+- **Bounded conclusions:** `<PENDING>`.
+- **Updated open questions:** `<PENDING>`.
+
