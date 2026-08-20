@@ -4542,3 +4542,460 @@ Post-cleanup proofs (all pass):
 ---
 
 **End of SESSION 271 Slice 7 Trial 6 Phase 2. Verdict: A — STRONG REPLICATION. Persona-promotion decision UPDATED: safe to consider Option A via a bounded DESIGN slice. Do NOT implement persona migration without ratification.**
+
+---
+
+# SESSION 271 — SLICE 8 · Character-Agnostic Audience-Aware Communication Architecture (design/audit only)
+
+**Scope:** design/audit-only. No code, no schema, no knowledge, no persona edits, no renders. Reframes the E-KNOWLEDGE-1 finding as a **general character-capability architecture question** so the fix generalises to every future character without character-specific experimental cycles.
+
+**Anchor state at Slice 8 open:** HEAD `cb2de91`, `main == origin/main`, working tree clean, all three experiment env vars unset, canonical worker (§159 cleanup), NarrativeMemory pool 14 remembered + 1 archived, Writing Contract v5.
+
+**Central question:** how should Character OS represent + enforce audience-aware communication behavior as a UNIVERSAL character capability so a completely new character (fox baker, bear coffee-shop owner, first-ever teammate created before Chris had ever seen Patch or Rivet) inherits the correct architecture on day one — without repeating the Slice 6 knowledge-shape / Slice 7 E-KNOWLEDGE-1 discovery cycle?
+
+---
+
+## §161. Current-architecture map — where communication behavior CAN come from today
+
+Read-only inspection of `shell/character_os/script_synthesis.py::_assemble_system_prompt` + `_build_*_section` helpers + Teammate schema.
+
+### §161.1 Assembled prompt structure
+
+```
+=== SECTION 1 — FACTUAL BASIS ===          (retrieval + Teammate business_brief / who_you_help / what_you_sell + knowledge chunks + NarrativeMemory)
+=== SECTION 2 — CHARACTER VOICE ===        (Teammate personality + character_point_of_view + tone_archetype + voice_energy/humor/directness + voice_signature_phrases)
+=== SECTION 3 — BRAND VOICE ===            (Teammate always_emphasize + never_say + desired_feeling)
+=== SECTION 4 — WRITING CONTRACT ===       (shape-specific static text; version-stamped)
+=== PRECEDENCE RULES ===                   (static, universal)
+
+User:
+=== SECTION 5 — TASK ===                   (operator_topic + opener + previous_draft + corrective_hint + audience_hint + communication_policy_hint)
+```
+
+### §161.2 Sources of communication behavior — full inventory
+
+| Surface | Ownership | Retrieval-dependent? | Always-present when non-empty? | Current usage |
+|---|---|---|---|---|
+| **KnowledgeDocument chunks** (§1) | per-character (M2M) + universe-canon | **YES** (top-k semantic) | NO (retrieval decides) | facts + can accidentally carry behavior invariants (Slice 6 finding) |
+| **NarrativeMemory** (§1 tail) | per-universe | YES (top-k semantic) | NO | past events; retrieval may miss; retrieval-relevance floor is open Q-270-21 |
+| **Teammate.business_brief** (§1) | per-character | NO (persona) | YES | business shape; grounds Factual Basis |
+| **Teammate.who_you_help** (§1 as `AUDIENCE:` block) | per-character | NO | YES | character's canonical target audience (business-level static descriptor) |
+| **Teammate.what_you_sell** (§1) | per-character | NO | YES | offering; grounds Factual Basis |
+| **Teammate.personality** (§2) | per-character | NO | YES | HOW the character sounds — register + humor + energy |
+| **Teammate.character_point_of_view** (§2) | per-character | NO | YES | what the character notices/believes/enjoys; also carries subtle communication-behavior guidance (Slice 6 §92: *"He talks technical when it earns its keep and drops jargon otherwise."*) |
+| **Teammate.tone_archetype** (§2) | per-character | NO | YES | short archetype label (e.g. `expert`) |
+| **Teammate.voice_energy / voice_humor / voice_directness** (§2) | per-character | NO | YES | 3-axis voice controls (short enumerated values) |
+| **Teammate.voice_signature_phrases** (§2) | per-character | NO | YES | optional signature phrases |
+| **Teammate.always_emphasize** (§3) | per-character (brand) | NO | YES | brand messaging emphasis |
+| **Teammate.never_say** (§3) | per-character (brand) | NO | YES | brand prohibitions (absolute) |
+| **Teammate.desired_feeling** (§3) | per-character (brand) | NO | YES | audience-feeling target |
+| **Teammate.voice_avoid_phrases** (Writing Contract merger) | per-character | NO | YES | merged with platform blacklist inside §4 anti-generic block |
+| **Writing Contract §4** | UNIVERSAL (per-shape) | NO | YES | length + invariants + narrative shapes + CTA + anti-self-description + anti-generic register |
+| **audience_hint** (§5 HARD CONSTRAINT — SESSION 270 research plumbing) | per-render (currently env-var experimental) | NO | YES when present | per-render listener descriptor |
+| **communication_policy_hint** (§5 HARD CONSTRAINT — SESSION 271 Slice 7 research plumbing) | per-character resolver (currently Patch-only, env-gated) | NO | YES when present | E-KNOWLEDGE-1 rule text |
+| **operator_topic** (§5 TOPIC) | per-render | NO | YES | render subject |
+
+### §161.3 Two critical dimensions
+
+- **Retrieval-dependent vs always-present.** Slice 6 §125 established the architectural principle: **character-invariant behavior must NOT depend on top-k retrieval succeeding.** Only knowledge-chunk content is retrieval-dependent; everything else in the assembled prompt is always-present when non-empty.
+- **Universal vs character-specific.** The Writing Contract §4 is currently the sole UNIVERSAL surface (per-shape static text applied to every character). Everything else in §1-§3 + §5-HARD-CONSTRAINTS is character-specific or per-render.
+
+Any architectural home for a UNIVERSAL character invariant MUST be always-present (not retrieval-dependent) AND must not force character authors to configure it per character.
+
+---
+
+## §162. Ownership / responsibility matrix (proposed)
+
+Rows = what needs to be represented for audience-aware communication. Columns = ownership surfaces.
+
+| Concept | UNIVERSAL WC | Teammate persona | KnowledgeDoc | Per-render (§5) | Notes |
+|---|---|---|---|---|---|
+| WHO the character is (identity, personality, voice, brand posture) | — | ✅ (§2 + §3 today) | — | — | Already owned correctly. |
+| WHAT the character knows (facts, domain knowledge, prior events) | — | ✅ (§1 business_brief/who_you_help/what_you_sell) | ✅ (retrievable domain corpus + NarrativeMemory) | — | Already owned correctly. |
+| HOW the character NATURALLY communicates (baseline register/humor/depth) | — | ✅ (§2 personality + character_point_of_view + voice_* axes) | — | — | Already owned correctly. |
+| That audience adaptation is REQUIRED on every render (character-agnostic invariant) | **✅ NEW (proposed)** | — | — | — | Currently missing as universal. Slice 6 §125 + Slice 7 §157 findings support this move. |
+| WHAT MUST REMAIN INVARIANT while adapting (identity, intelligence, expertise, humor, factual grounding, confidence) | **✅ NEW (proposed)** | — | — | — | Currently the E-KNOWLEDGE-1 rule text carries this half; belongs in universal invariant. |
+| WHO is being addressed on THIS render (per-render listener descriptor) | — | — (`who_you_help` is different — it's the character's target-audience descriptor, not the render's listener) | — | ✅ (audience_hint — currently env-var experimental; needs canonical per-render surface) | Need proper per-render surface (Composition field or step.params) so audience_hint isn't tied to env-var research plumbing forever. |
+| Character-specific audience-adaptation preferences (e.g. "this fox baker leans toward beginner-friendly by default because home bakers are the primary audience") | — | ✅ (`who_you_help` at §1 — already used to shape the character's baseline audience assumption) | — | — | Already owned; the per-render `audience_hint` overrides for a specific render when it differs from `who_you_help`. |
+| Character-specific EXPLICIT translation rules (e.g. "Rivet always says 'measurement' not 'metric'") | — | ✅ (character_point_of_view or new dedicated field if authoring pattern emerges — SPECULATIVE, not needed today) | — | — | Not needed for MVP; existing character_point_of_view field can carry any exceptional per-character rule. |
+
+**Two proposed additions** to the ownership map:
+1. Writing Contract §4 gains a new UNIVERSAL invariant block covering the two rules above (audience-adaptation requirement + preservation contract). Character-agnostic; character NAME interpolated at render time.
+2. `audience_hint` promoted from env-var research plumbing to a canonical per-render surface (probably `Composition.audience_hint: TextField` — additive, nullable-or-empty-default per the SESSION 262 discipline).
+
+---
+
+## §163. Separation of concepts — the six things audience-aware communication must know
+
+Explicit conceptual split. Each concept goes in exactly one place; nothing is duplicated across surfaces.
+
+| Concept | Definition | Home |
+|---|---|---|
+| WHO the character is | identity + personality + voice + brand posture | Teammate persona (§2 + §3) |
+| WHAT the character knows | domain facts + business shape + memory | KnowledgeDocument + NarrativeMemory + Teammate `business_brief`/`who_you_help`/`what_you_sell` (§1) |
+| HOW the character naturally communicates | baseline register, humor, depth, sentence rhythm | Teammate persona (§2 personality + character_point_of_view + voice_*) |
+| HOW communication adapts to a particular audience | universal rule; character-agnostic | **NEW: Writing Contract §4 universal invariant** |
+| WHAT must remain invariant while adapting | identity + intelligence + expertise + humor + factual grounding + confidence | **NEW: Writing Contract §4 universal invariant (same block)** |
+| WHO is being addressed on THIS render | per-render listener context | **NEW: canonical `audience_hint` per-render surface** (Composition field OR step.params — TBD in implementation slice) |
+
+**Nothing character-specific is asked of a new-character author beyond what Teammate persona already collects.** The universal invariant lives in the contract; the per-render listener is a per-render input.
+
+---
+
+## §164. Classifying the E-KNOWLEDGE-1 rule — universal, configurable, or Patch-specific?
+
+E-KNOWLEDGE-1 rule text (frozen, 290 chars):
+> *"Patch uses technical terminology when it actually helps and translates it into ordinary language when it does not. Match technical depth and vocabulary to the listener's likely background knowledge without changing Patch's intelligence, factual grounding, personality, humor, or confidence."*
+
+### §164.1 Parse
+
+- **Sentence 1** ("uses technical terminology when it actually helps and translates it into ordinary language when it does not") — describes a BEHAVIOR that any well-designed character should exhibit. Only "Patch" is character-specific; the rest generalises verbatim.
+- **Sentence 2** ("Match technical depth and vocabulary to the listener's likely background knowledge without changing intelligence, factual grounding, personality, humor, or confidence") — describes a PRESERVATION CONTRACT that any well-designed character should honour. Only "Patch's" is character-specific; the rest generalises verbatim.
+
+### §164.2 De-nouned universal form
+
+> *"Adapt communication to the listener without changing character identity, intelligence, expertise, humor, personality, factual grounding, or confidence. Use technical terminology when it actually helps, and translate it into ordinary language when it does not. Match technical depth, vocabulary, examples, and analogies to the listener's likely background knowledge."*
+
+**Character name is not required.** Every character in Character OS should exhibit this behavior; it is a WRITER-BEHAVIOR invariant, not a per-character trait.
+
+### §164.3 Classification
+
+**UNIVERSAL invariant** (with optional per-character configuration underneath — but no character-specific configuration is required for MVP). Belongs in Writing Contract §4.
+
+---
+
+## §165. Thought experiments — five characters × three audiences
+
+For each character × audience, ask: *would the recommended architecture (Universal WC invariant + per-render audience_hint + existing Teammate fields) correctly adapt without changing identity, intelligence, expertise, humor, or factual grounding?*
+
+Each character below is described as if it existed today with the standard Teammate persona fields filled in. The `audience_hint` supplies the per-render listener.
+
+### §165.1 Fox who owns a neighborhood bakery ("Fenn")
+
+- `who_you_help`: "Neighborhood home bakers who want better bread."
+- `personality`: "Enthusiastic, self-deprecating, believes bread is a small act of chemistry and a large act of patience. Uses baking metaphors for life. Dry humor about failed loaves."
+- `character_point_of_view`: "Notices when someone's dough is under-proofed by looking at it. Believes technique matters more than expensive equipment. Distrusts anything sold as a 'secret ingredient.'"
+- Domain: bread, ingredients, ovens, timing, small-business ops.
+
+| Audience directive | Expected behavior under UNIVERSAL invariant |
+|---|---|
+| *"AUDIENCE: professional artisan bakers"* | Uses `hydration percentage`, `poolish`, `autolyse`, `bulk fermentation`, `Maillard reaction`. Fox voice preserved. Fenn does not oversimplify. |
+| *"AUDIENCE: general adult beginners who have never baked bread"* | Says *"how wet the dough is"* instead of `hydration percentage`, *"letting it rest overnight to build flavor"* instead of `poolish`, *"the browning reaction that happens when bread bakes"* instead of `Maillard reaction`. Fox voice preserved. Enthusiasm intact. |
+| *"AUDIENCE: children around 8-10 years old"* | Says *"the dough is a little alive because of the yeast"*, *"the oven makes it turn golden"*, uses baking-as-play framing. Fox voice preserved (still self-deprecating about failed loaves). Not condescending. |
+
+**Verdict: universal invariant handles Fenn correctly.** No fox-specific configuration required. First-render-ready.
+
+### §165.2 Bear who owns a specialty coffee shop ("Ursula")
+
+- `who_you_help`: "Coffee-curious adults who want to enjoy better coffee at home."
+- `personality`: "Calm, methodical, quietly enthusiastic. Believes coffee is water first and beans second. Has a dry, patient way of correcting misconceptions without lecturing."
+- `character_point_of_view`: "Notices grind size mistakes from across the room. Believes cheap equipment done right beats expensive equipment done wrong. Skeptical of extraction charts that ignore taste."
+- Domain: coffee beans, roasting, extraction, brewing methods, water chemistry, small-business ops.
+
+| Audience directive | Expected behavior |
+|---|---|
+| *"AUDIENCE: cafe owners choosing an espresso machine"* | Uses `extraction yield`, `TDS`, `channelling`, `dose ratio`, `pre-infusion`. Ursula voice preserved. |
+| *"AUDIENCE: someone who just bought their first pour-over kit"* | Says *"how much of the coffee actually ended up in the cup"* instead of `extraction yield`, *"the water finds a shortcut through the coffee bed"* instead of `channelling`. Ursula voice preserved. |
+| *"AUDIENCE: children"* | *"Coffee is really just special water with the taste of the bean melted into it."* Voice preserved. |
+
+**Verdict: universal invariant handles Ursula correctly.**
+
+### §165.3 Patch (existing)
+
+- Slice 7 Trial 4 (774658ea) + Trial 6 (abafba24) already demonstrated the mechanism works on Patch under the same architecture, via env-var research plumbing that would become the universal-invariant instance.
+
+### §165.4 Rivet (existing)
+
+- Slice 6 §100 established the same architectural mechanism applies. Rivet's persona already carries *"does not constantly explain technical concepts like a textbook. He speaks conversationally and usually keeps explanations concise."* Universal invariant reinforces + generalises that.
+- **Corollary:** Rivet does not need a Rivet-specific override. The universal invariant already covers everything Rivet's persona was trying to say about communication.
+
+### §165.5 Deliberately different character — a rescue-fire-truck teammate ("Ember") for a municipal safety-education channel
+
+- `who_you_help`: "Homeowners who want to understand fire risk in their home."
+- `personality`: "Sturdy, direct, patient. Doesn't sugarcoat but doesn't scare people either. Practical about what actually helps."
+- Domain: home fire hazards, extinguishers, smoke detectors, evacuation planning.
+
+| Audience directive | Expected behavior |
+|---|---|
+| *"AUDIENCE: professional home inspectors"* | Uses `Class A/B/C/K extinguisher ratings`, `NFPA 72 spacing`, `dead-air pockets in ceiling geometry`. Ember voice preserved. |
+| *"AUDIENCE: general homeowners"* | Says *"the right extinguisher for the kind of fire you might get"*, *"where to put smoke detectors so they can actually hear the fire early"*. Ember voice preserved. |
+| *"AUDIENCE: children"* | Says *"a smoke detector is a beeping bird that lives on your ceiling and yells if there's smoke"*. Ember voice preserved (still direct, not scary). |
+
+**Verdict: universal invariant handles Ember correctly across a completely unrelated domain.**
+
+### §165.6 Cross-character verdict
+
+All five characters × three audiences work under the same universal-invariant architecture. **Nothing character-specific is required beyond what Teammate persona already collects.**
+
+---
+
+## §166. Design options — placement of the universal invariant
+
+Five options; compared honestly.
+
+### §166.1 Option W1 — Universal Writing Contract §4 invariant (RECOMMENDED)
+
+Add a new AUDIENCE-AWARE COMMUNICATION block to `_solo_scene_contract` (and eventually to `_long_form_contract` + `_dialogue_scene_contract`, but scoped to `solo_scene` first per E-KNOWLEDGE-1 evidence).
+
+Contract-version bump: **v5 → v6.** Wording de-nouned as in §164.2.
+
+- **Benefit:** every character inherits automatically. Zero character-author burden. First render on a new character has the invariant. Character name interpolatable at render time via existing contract-builder pattern.
+- **Risk:** contract-version bump — historically bumped intentionally, each bump is a deliberate change (§13.28 catalog). Composition observability includes `writing_contract_version` stamp; audits remain traceable.
+- **Cost:** small (add a text block to one function). Non-schema.
+- **Extensibility:** trivial to extend later (add more communication-invariant clauses if evidence supports).
+- **Migration:** no data migration; every future render stamps v6.
+- **Regression risk:** low. §125 established that always-present policy improved output on the harder substrate (Trial 4) and did not regress on the easier substrate (Trial 6).
+
+### §166.2 Option W2 — New Teammate `communication_policy` field with universal default
+
+Add `communication_policy: TextField(default=<UNIVERSAL_RULE_TEXT>)` to Teammate model. Render it in §2 Character Voice.
+
+- **Benefit:** per-character override capability if a specific character needs it.
+- **Risk:** schema change + migration + per-character opt-in surface. Character authors could confusingly override the default with a weaker rule.
+- **Cost:** schema migration + admin/API/serializer/wizard updates.
+- **Extensibility:** medium — per-character policies could proliferate without benefit.
+- **When it makes sense:** if evidence emerges that DIFFERENT characters need DIFFERENT communication rules. **Slice 8 §165 evidence shows this is NOT the case today** — every character exhibited under the same universal rule.
+
+### §166.3 Option W3 — Merge into Teammate `character_point_of_view` (per-character text)
+
+Append the rule text to every character's `character_point_of_view` field.
+
+- **Benefit:** no schema change; uses existing field.
+- **Risk:** requires character authors to remember to include the rule. Fragile. Fox baker created on day 1 would NOT have it unless Chris explicitly wrote it. **Fails the fox-first test.**
+- **Cost:** ongoing content authoring burden.
+- **Extensibility:** poor.
+
+### §166.4 Option W4 — Hybrid: Universal invariant in contract + optional per-character override
+
+Ship W1 as the default. Add W2's `communication_policy` field later ONLY if concrete per-character override evidence appears.
+
+- **Benefit:** all of W1's benefits; W2 available later without pre-commitment.
+- **Cost:** same as W1 today (W2 addition deferred).
+- **Verdict:** effectively the same as W1 for MVP; W2 remains a future architectural option gated on future evidence.
+
+### §166.5 Option W5 — Leave communication rule in KnowledgeDocument only
+
+- **Rejected** per Slice 6 §125 + Slice 7 §157 evidence: retrieval-omitted rule failed to shape output on the AI-agents substrate; that's the whole problem this architecture is trying to solve.
+
+### §166.6 Recommendation matrix
+
+| Option | Universal | Fox-first-test PASS | Schema impact | Recommended? |
+|---|---|---|---|---|
+| **W1 (WC §4 invariant + audience_hint promotion)** | ✅ | ✅ | Contract v6 bump; per-render `audience_hint` surface | **RECOMMENDED** |
+| W2 (Teammate field with default) | ✅ (via default) | ✅ (if default is set) | Schema migration | not now |
+| W3 (character_point_of_view merge) | ❌ | ❌ | none | not viable |
+| W4 (W1 + W2 optional later) | ✅ | ✅ | same as W1 today | reasonable long-term posture |
+| W5 (KnowledgeDocument only) | ❌ | ❌ | none | rejected |
+
+---
+
+## §167. What audience-aware communication needs to govern (7-dim inventory)
+
+Per operator brief item 6. Classification: UNIVERSAL (contract) / CONFIGURABLE (persona) / OUT-OF-SCOPE.
+
+| Dimension | Classification | Note |
+|---|---|---|
+| Assumed background knowledge | **UNIVERSAL** | The universal invariant explicitly names this: *"match technical depth ... to the listener's likely background knowledge"*. |
+| Terminology | **UNIVERSAL** | "Use technical terminology when it actually helps, translate to ordinary language when it does not." |
+| Explanation depth | **UNIVERSAL** | Named in the invariant. |
+| Examples/analogies | **UNIVERSAL** | Include in the invariant explicitly (§164.2 already does — *"examples, and analogies"*). |
+| Sentence/idea complexity | UNIVERSAL (implicit) | Follows naturally from calibrating depth to background. May not need explicit invariant clause. |
+| Prerequisite explanation | UNIVERSAL (implicit) | Follows from background-knowledge match. |
+| Tone/register | **CONFIGURABLE (existing)** | Character's baseline tone lives in `voice_energy` / `voice_humor` / `voice_directness` + `personality`. Audience adaptation shifts register within the character's range (e.g. Patch stays dry-humored across all three audience types) but the CHARACTER doesn't change. Universal invariant explicitly says *"without changing character identity, intelligence, expertise, humor, personality, factual grounding, or confidence."* — protects tone from over-adaptation. |
+
+**All seven dimensions are handleable by the single universal invariant + existing persona configuration.** No new per-character fields required.
+
+---
+
+## §168. Universal vs character-specific final split
+
+| Layer | Content | Who authors | Where it lives |
+|---|---|---|---|
+| **Universal invariant** | *"Adapt communication to the listener without changing character identity, intelligence, expertise, humor, personality, factual grounding, or confidence. Use technical terminology when it actually helps, and translate it into ordinary language when it does not. Match technical depth, vocabulary, examples, and analogies to the listener's likely background knowledge."* | Character OS team (one-time) | Writing Contract §4 (v6) |
+| Character baseline tone / voice | personality + voice_energy/humor/directness + tone_archetype | character author | Teammate row (§2) |
+| Character target audience baseline | `who_you_help` | character author | Teammate row (§1) |
+| Character domain knowledge | KnowledgeDocument chunks + business_brief + what_you_sell | character author | KnowledgeDocument + Teammate row (§1) |
+| Per-render listener context | audience directive | operator per render | canonical `audience_hint` per-render surface (Composition field or step.params) |
+| Character-specific explicit translation rules (SPECULATIVE — not needed today) | any per-character exceptions | character author IF needed | `character_point_of_view` free text; if a pattern emerges later, promote to a dedicated field per Option W2. |
+
+**No new per-character field required for MVP.** The universal invariant handles what current evidence shows every character needs.
+
+---
+
+## §169. Onboarding — what a new character needs on day 1
+
+If Chris creates a brand-new character tomorrow (say, Fenn the fox baker) via the existing spokesperson wizard:
+
+**Required (existing fields):**
+
+- `name`
+- `business_brief` (grounds §1; also carries the character's business framing)
+- `personality` (grounds §2 tone + baseline register)
+- `character_point_of_view` (grounds §2 POV)
+- `who_you_help` (declares the character's canonical target audience — carried into §1)
+- `what_you_sell` (grounds §1 offering)
+- `tone_archetype` (§2)
+- `voice_energy` / `voice_humor` / `voice_directness` (§2)
+- `always_emphasize` / `never_say` / `desired_feeling` (§3)
+- `voice_avoid_phrases` (§4 anti-generic)
+- `runway_avatar_id` (media surface)
+- optional `voice_signature_phrases`
+- optional `opener`
+
+**Automatic (inherited from Writing Contract v6):**
+
+- Audience-aware communication invariant. Fenn inherits it on the first render. No wizard question required.
+
+**Per-render (existing surface, needs canonical promotion):**
+
+- `audience_hint` — the operator declares who this specific render is addressing (may be Fenn's default `who_you_help` audience, or a specific segment, or a different audience entirely).
+
+**What Character OS should DERIVE at first-render time (already does):**
+
+- Retrieve knowledge chunks scoped to Fenn.
+- Retrieve NarrativeMemory scoped to Fenn's Universe (if any).
+- Assemble §1-§5 with all of the above.
+
+**Zero net authoring burden increase.** All existing fields; new invariant is universal.
+
+---
+
+## §170. Migration implications
+
+### §170.1 Writing Contract v6 bump
+
+- Additive text block in `_solo_scene_contract` (and eventually `_long_form_contract` + `_dialogue_scene_contract`).
+- `WRITING_CONTRACT_VERSION: int = 5` → `6`.
+- Composition observability field `writing_contract_version` stamps 6 for future renders; older Compositions retain stamp 5. Audit trail preserved.
+- Tests: update existing writing-contract tests to expect v6 + AUDIENCE-AWARE COMMUNICATION block present.
+- Risk: any test that pins v5 explicitly needs updating (found ~10 references per prior `Grep`).
+
+### §170.2 `audience_hint` promotion from research plumbing to canonical per-render surface
+
+Two candidate homes:
+
+- **Home A: `step.params['audience_hint']`** — reuse the existing step-params dict (already how `opener` / `verifier_mode` are passed per-render). No schema change. Wizard/API surface addition to expose in the SPA.
+- **Home B: `Composition.audience_hint: TextField(default="")`** — additive-nullable-or-empty per SESSION 262 discipline. One migration.
+
+Home A is smaller (no schema). Home B is more observable (persisted per-Composition; SESSION 262 pattern).
+
+Both are acceptable; choice becomes an implementation-slice decision. Recommend Home A first (smaller); promote to Home B if evidence emerges that per-Composition audit trail matters more than per-step trace.
+
+### §170.3 What migration does NOT require
+
+- No changes to KnowledgeDocument content.
+- No changes to Teammate schema.
+- No changes to Rivet (universal invariant applies uniformly).
+- No changes to retrieval or chunker.
+- No changes to Brand Voice (§3) or NarrativeMemory.
+- No changes to the SESSION 270 `audience_hint` env-var research plumbing (leave in place for future research; production surface is separate).
+- No changes to Q-270-15c revision plumbing.
+- No changes to E-KNOWLEDGE-1 policy plumbing (leave in place; production behaviour supersedes it).
+
+Existing experimental env-gated mechanisms can be retired later in a bounded cleanup slice once the canonical architecture ships.
+
+---
+
+## §171. Risks + regressions
+
+| Risk | Severity | Mitigation |
+|---|---|---|
+| Writing Contract v6 changes output for every character | MEDIUM | Trial 4 evidence shows the change is DIRECTIONALLY POSITIVE on hard substrate + NEUTRAL on easy substrate (Trial 6). Universal invariant is character-agnostic. Expected direction: audience-appropriate outputs marginally better; no character-identity regression. |
+| Character authors reading the contract might not understand it | LOW | Contract is INTERNAL to the LLM prompt; character authors don't read it. |
+| Character author has NO idea that audience_hint is available per render | MEDIUM | Wizard / composition-create surface should expose the audience_hint field clearly. Documentation. |
+| Character-specific need emerges that the universal invariant can't handle (e.g. a character whose whole shtick is deliberately impenetrable jargon) | LOW | Universal invariant explicitly says *"without changing character identity, intelligence, expertise, humor, personality"* — so an impenetrable-jargon character's personality would be preserved. If a real edge case emerges later, promote to Option W2 (per-character override) at that point. |
+| The universal invariant + per-render audience_hint compete or interact confusingly | LOW | Slice 7 Trial 4 + Trial 6 already tested this combination (both surfaces active). Direction was positive. |
+| Composition renders from before the v6 bump don't have the invariant | ACCEPTED | Historical Compositions stay stamped v5. No retroactive re-rendering needed. |
+| Retiring E-KNOWLEDGE-1 env-gated plumbing loses the ability to A/B test | LOW | Env-gated plumbing can remain in source (default OFF) for future ablation experiments even after v6 ships. |
+
+---
+
+## §172. Smallest falsifiable next step
+
+Before the design conversation converges: **the audit is complete; the next step is a DESIGN-RATIFICATION conversation between Chris + ChatGPT**, not an experiment.
+
+If that conversation ratifies Option W1, the smallest implementation slice is:
+
+1. **Writing Contract v6 bump** — additive AUDIENCE-AWARE COMMUNICATION block in `_solo_scene_contract` only (start scoped to the lane where E-KNOWLEDGE-1 was validated). `WRITING_CONTRACT_VERSION` bump.
+2. **Test updates** — Writing Contract solo-scene tests pin the new invariant text + v6 stamp.
+3. **Adjacent regression sweep** — SESSION 270 audience-hint + SESSION 271 Q-270-15c + E-KNOWLEDGE-1 test suites remain green (they're env-gated + orthogonal).
+4. **One controlled dogfood render** — same substrate as Trial 4 (Patch AI-agents Episode `2b6087d2`, 90 s, audience directive supplied via SESSION 270 env-var plumbing which stays intact) but WITHOUT the E-KNOWLEDGE-1 policy env var — the invariant is now in the contract. Should produce output comparable to Trial 4 without needing E-KNOWLEDGE-1 activation.
+5. **Verdict:** if the v6-render output preserves Trial 4's at-risk-terminology reduction (≤3 accepted) + Patch identity + factual grounding, promotion succeeds. If not, ROLL BACK to v5 and re-open the design conversation.
+
+**Scope of the smallest implementation slice: solo_scene contract only.** Extension to long_form + dialogue is a subsequent slice gated on solo-scene evidence.
+
+If the design conversation prefers Option W4 (W1 now + optional W2 later), the smallest slice above is identical; W2 remains deferred.
+
+**No render is needed FOR THIS DESIGN SLICE.** The next render is part of the IMPLEMENTATION SLICE that follows Chris + ChatGPT ratification.
+
+---
+
+## §173. Decision gate
+
+**IMPLEMENT — proposed implementation slice ready to execute after Chris + ChatGPT ratification.**
+
+Not "MORE EVIDENCE" because:
+- Slice 6 §125 established the architectural principle from source + Slice 5 chunk audit.
+- Slice 7 Trial 4 executed the mechanism on the hard substrate; verdict B strong (§122).
+- Slice 7 Trial 6 confirmed generalisation on a different topic; verdict A (§156).
+- Slice 8 architectural audit (this slice) shows the mechanism generalises character-agnostically across the five thought-experiment characters.
+- The change is CONTRACT-LEVEL (additive text block, one function, one version bump).
+
+Not "ARCHITECTURE QUESTION REMAINS" because:
+- Universal-vs-character-specific split is resolved (universal invariant + per-render `audience_hint` + existing Teammate fields).
+- Fox-first test (§174) passes.
+- New-character onboarding requires zero net additional wizard questions.
+
+Ratification-blocking questions Chris + ChatGPT should discuss before Claude implements:
+
+1. **Wording of the invariant.** §164.2 is Claude's draft; ChatGPT may want to refine.
+2. **Home for canonical `audience_hint`.** step.params vs Composition field.
+3. **Scope of v6 contract change.** solo_scene only (recommended) vs solo_scene + long_form + dialogue simultaneously.
+4. **Fate of existing env-gated experimental plumbing** — leave in place (recommended) vs remove alongside v6 bump.
+
+---
+
+## §174. Fox-first test — explicit answer
+
+> *"If Character OS had never seen Patch or Rivet and the first character ever created were a fox who owns a bakery, would the architecture we are recommending still make sense?"*
+
+**YES.**
+
+- The fox baker (Fenn) creates a Teammate row via the standard wizard using the fields Character OS already collects (name, business_brief, personality, character_point_of_view, who_you_help, what_you_sell, voice_* axes, always_emphasize, never_say, desired_feeling, voice_avoid_phrases, tone_archetype).
+- Fenn's baker KnowledgeDocument is uploaded and chunked.
+- Chris renders Fenn's first video ("Fenn shows how to fix an overproofed loaf") with a per-render audience directive ("AUDIENCE: home bakers who have made bread twice and got frustrated").
+- Writing Contract v6 is stamped on the render. The universal AUDIENCE-AWARE COMMUNICATION block is in §4. It tells the model to adapt vocabulary + depth + examples to the listener while preserving Fenn's identity + expertise + humor + factual grounding.
+- The model produces Fenn-in-character output that adapts vocabulary to the audience.
+- **No Fenn-specific configuration was required.** The invariant is character-agnostic. Fenn does not know or care about Patch's existence, or Rivet's, or the E-KNOWLEDGE-1 experiment.
+
+This is the definitive fox-first check. The architecture does NOT require Character OS to have gone through the Patch discovery cycle first. Fenn works from day one.
+
+---
+
+## §175. What was NOT changed in Slice 8
+
+- No source code touched.
+- No tests added.
+- No knowledge documents modified.
+- No Teammate rows modified.
+- No schema, no migration.
+- No Writing Contract change (still v5).
+- No SPA UI change.
+- Env-gated experimental plumbing (SESSION 270 audience-hint, Q-270-15c revision, Slice 7 E-KNOWLEDGE-1 policy) all unchanged; all three currently OFF at runtime.
+- No render performed.
+- No NarrativeMemory promotion.
+- Q-270-16 / Q-270-18 / Q-270-20 / Q-270-21 / Q-270-22 all remain OUT OF SCOPE.
+- **This slice is design/audit only.** All changes are documentation.
+
+---
+
+## §176. Slice 8 commit + push record
+
+- Slice 8 commit SHA: `<pending — populated after commit>`
+- Push: `<pending>`
+- Local `main == origin/main`: `<verified at commit time>`
+- Working tree at slice close: `<verified clean>`
+
+---
+
+**End of SESSION 271 Slice 8 architectural design/audit. Recommendation: Option W1 — UNIVERSAL Writing Contract §4 audience-aware communication invariant (contract v6 bump, solo_scene scope) + promote `audience_hint` to canonical per-render surface. Fox-first test passes. Decision gate: IMPLEMENT — smallest implementation slice defined; awaiting Chris + ChatGPT ratification on wording + home for audience_hint + scope + env-plumbing fate.**
