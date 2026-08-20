@@ -1056,3 +1056,182 @@ Or run `scripts/session272_slice_b_setup.py` again — its `_teardown_if_exists(
 ---
 
 **End of SESSION 272 Slice B. Verdict B — PARTIAL / CONFOUNDED. Do not implement Option D. Next candidate slice: multi-shot replicate of Slice B (highest information-per-cost) before considering Option A per-term inline pairing.**
+
+---
+
+## §17. SLICE C — MULTI-SHOT REPLICATE — 5 TRIALS PER CONDITION — VERDICT
+
+### §17.1 Setup
+
+- Reused the exact Slice B disposable substrates verbatim (workspaces `session272-rivet-debug-ctl` / `session272-rivet-debug-exp`, Rivet clones, single-chunk KnowledgeDocuments).
+- Substrate verification before rendering: workspace + universe + teammate + doc + chunk IDs all match Slice B manifest byte-for-byte. Chunk hash sha16 match.
+- Canonical RIVET doc `71e2ec43-…` full-text SHA-256 verified equal to §15.7 baseline before AND after all trials.
+- Zero experiment env vars in worker PIDs.
+- All 10 renders used Writing Contract v6, `audience_hint=""`, `target_shape="solo_scene"`, `target_duration_seconds=90`, `retrieve_for_teammate` default `top_k=5`, canonical corrective hint, gpt-4o-mini via OpenAI. No NarrativeMemory. No Composition rows written.
+- Slice B evidence preserved verbatim as **trial 1** in both conditions. **Trials 2–5** run fresh in Slice C. Total dataset: **CTL n=5, EXP n=5**.
+
+Setup + render scripts: `scripts/session272_slice_c_multishot.py`. Aggregate scorer: `scripts/session272_slice_c_analyze.py`. Evidence: `docs/design/session_272_experiment_data/02_slice_c_multishot_evidence.json`. Aggregate: `03_slice_c_aggregate_analysis.json` + `03_slice_c_aggregate_summary.txt`.
+
+### §17.2 Three-category classifier
+
+To test the emerging Slice B hypothesis (Option D may not function as a substitution vocabulary; it may reduce lexical anchoring by giving synthesis room to generate character-native accessible expressions), each draft is scored per debugging concept along three disjoint categories:
+
+1. **Canonical** — verbatim substrings from the canonical DEBUGGING chunk (`what changed`, `what was expected`, `what actually happened`, `whether the behavior can be reproduced`, `where the behavior first becomes incorrect`, `what evidence exists`, `what assumption might be wrong`, `what smallest test would separate two possible explanations`, `one meaningful variable`, `changing ten things at once`, `evidence beats guessing`).
+2. **Paraphrase-supplied** — verbatim substrings from the Option D paired paraphrase paragraph (`what changed since it worked`, `what should have happened`, `what actually did`, `whether you can reproduce it`, `where the trouble starts`, `what evidence you have`, `what assumption might be wrong`, `what small test would settle it`). Present ONLY in the EXP doc.
+3. **Accessible model-generated** — regex-defined semantic equivalents NOT verbatim in either category 1 or category 2 (`what did I expect`, `what actually appeared`, `can it happen again`, `one small test`, `since the last result`, etc.). Blank-out order enforces disjointness at scoring time.
+
+### §17.3 Aggregate results (n=5 per condition)
+
+**Draft A (first pass; before corrective retry):**
+
+| Metric | CTL | EXP |
+| --- | --- | --- |
+| Canonical hits per trial | [3, 3, 4, 3, 2] · mean **3.00** · median 3 | [3, 2, 1, 3, 3] · mean **2.40** · median 3 |
+| Paraphrase-supplied hits per trial | [0, 0, 0, 0, 0] | [0, 1, 0, 0, 0] |
+| Accessible (model-gen) hits per trial | [7, 3, 4, 1, 0] · mean **3.00** | [4, 1, 3, 1, 2] · mean **2.20** |
+| Attractor `where the behavior first becomes incorrect` freq | 0/5 | 1/5 |
+
+**Draft B (accepted after 1 corrective expansion; the SESSION 271 §191.9 test point):**
+
+| Metric | CTL | EXP |
+| --- | --- | --- |
+| Canonical hits per trial | [5, 3, 1, 3, 4] · mean **3.20** · median 3 | [3, 3, 2, 3, 4] · mean **3.00** · median 3 |
+| Paraphrase-supplied hits per trial | [0, 0, 0, 0, 0] · mean **0.00** | [0, 0, 0, 0, 0] · mean **0.00** |
+| Accessible (model-gen) hits per trial | [8, 3, 3, 3, 5] · mean **4.40** · median 3 | [5, 3, 2, 3, 7] · mean **4.00** · median 3 |
+| Attractor `where the behavior first becomes incorrect` freq | 2/5 | 2/5 |
+| Rivet identity markers per Draft B | [10, 4, 4, 6, 4] · mean **5.60** | [6, 2, 4, 7, 5] · mean **4.80** |
+| Retrieval distance (deterministic — same doc, same query) | 0.3381 (identical across all 5) | 0.3635 (identical across all 5) |
+| Verified | 5/5 | 5/5 |
+| Attempts per trial | all 2 | all 2 |
+| Corrective retry required | 5/5 | 5/5 |
+
+**Per-concept Draft B canonical hits (5-trial cumulative, values shown per trial):**
+
+| Concept | CTL cumulative | EXP cumulative |
+| --- | --- | --- |
+| what_changed | 4/5 (1,1,0,1,1) | 4/5 (1,0,1,1,1) |
+| what_expected | 0/5 (0,0,0,0,0) | 0/5 (0,0,0,0,0) |
+| what_actually_happened | 4/5 (1,1,0,1,1) | 3/5 (0,1,0,1,1) |
+| reproducibility (verbatim canonical) | 0/5 | 0/5 |
+| **where_incorrect (STRONGEST ATTRACTOR)** | **2/5** (1,0,0,0,1) | **2/5** (1,1,0,0,0) |
+| evidence | 0/5 | 0/5 |
+| assumption | 0/5 | 0/5 |
+| smallest_test (canonical form) | 0/5 | 0/5 |
+| one_meaningful_variable | 5/5 (1,1,1,1,1) | 5/5 (1,1,1,1,1) |
+| evidence_beats_guessing | 1/5 (1,0,0,0,0) | 1/5 (0,0,0,0,1) |
+
+**Per-concept Draft B accessible model-generated hits:**
+
+| Concept | CTL cumulative | EXP cumulative |
+| --- | --- | --- |
+| what_changed | 0/5 | 1/5 |
+| what_expected | 5/5 (1,1,1,1,1) | 3/5 (1,1,0,0,1) |
+| what_actually_happened | 1/5 | 1/5 |
+| reproducibility | 4/5 (1,0,1,0,2) | 4/5 (1,0,0,1,2) |
+| smallest_test (accessible form: `small test`, `one small test`) | 9 total (3,2,0,2,2) | 11 total (1,2,2,2,4) |
+| assumption | 1/5 | 0/5 |
+| one_meaningful_variable | 1/5 | 0/5 |
+
+**Per-concept Draft B supplied-paraphrase hits:** 0/5 in every concept, in BOTH conditions. **The Option D paired paraphrase paragraph is never adopted verbatim by synthesis.**
+
+### §17.4 Analysis vs the Slice B hypothesis
+
+**Slice B trial 1 delta:** CTL canonical=5, EXP canonical=3 (a 40% reduction on n=1).
+
+**Slice C n=5 delta:** CTL mean=3.20, EXP mean=3.00 (a 6% reduction). Slice B's delta was dominated by the CTL trial-1 value of 5 (later trials: 3, 1, 3, 4 → mean 2.75 for trials 2–5 in CTL). CTL trial 1's `5` was an outlier at the high end.
+
+**Slice B's directional support for Option D does NOT replicate at n=5.** Distributions overlap almost entirely. Medians are identical (3 vs 3).
+
+**Strongest attractor `where the behavior first becomes incorrect`:** appears in Draft B at exactly the same frequency (2/5) in both conditions. Option D does not displace it.
+
+**Supplied Option D paraphrase adoption:** 0/5 in EXP Draft B. **Zero times across five trials.** The paraphrase paragraph is not a substitution table — synthesis never reaches for its verbatim wording in the accepted draft. Slice B's original interpretation ("Option D reduces attractor count by giving parallel accessible form") is not what happens mechanically.
+
+**Model-generated accessible expressions dominate.** In BOTH conditions, Draft B accessible ≈ 4/trial — greater than either canonical (~3) or paraphrase (0). This is the dominant form of accessible expression in the pipeline.
+
+- CTL mean accessible = 4.40 (higher than EXP)
+- EXP mean accessible = 4.00 (lower than CTL)
+
+**EXP does NOT increase model-generated accessible frequency.** If anything, it slightly reduces it. Chris's Slice C hypothesis — that Option D "may reduce lexical anchoring by providing multiple semantic surfaces, allowing synthesis to generate a third character-native expression" — is **not supported** by the n=5 data. Third-form generation happens robustly in BOTH conditions and appears independent of doc shape.
+
+**Where does the third-form generation come from?** Given it's uniform across CTL and EXP, and given persona and Writing Contract v6 are identical, the mechanism is most consistent with **v6 universal invariant + Rivet persona reasoning naturally**. The knowledge doc shape is not a load-bearing input for accessible reformulation.
+
+**Rivet identity markers:** CTL Draft B mean = 5.60, EXP Draft B mean = 4.80. CTL preserves identity slightly BETTER on average. This is a small negative for EXP (marginal identity regression), consistent with Slice B's observation that EXP lost the `evidence beats guessing` signature line — but at n=5 the effect is small and variable (EXP trial 4 has 7 markers, higher than CTL trials 2–5).
+
+**Retrieval distance:** deterministic per doc — CTL=0.3381 across every trial, EXP=0.3635 across every trial. EXP retrieval is stably ~7.5% worse. In a single-doc workspace this doesn't change ranking (only one chunk anyway), but the direction is negative for Option D at scale.
+
+**Verification:** 5/5 verified in both conditions. No verifier regression. Both conditions triggered exactly 1 corrective expansion per trial (Draft A always undershot the 81-second synth target).
+
+**Qualitative convergence:** all 10 accepted drafts share a distinctive Rivet-flavored opening pattern (`This generation came out wrong once.` / `One bad generation is not a diagnosis.` / `Well. That generation is wrong.`) and closer patterns (`test again`, `let the evidence do the worrying`). No obvious stylistic divergence between CTL and EXP is visible on inspection. The two conditions produce copy of comparable quality, tone, and factual grounding.
+
+### §17.5 Verdict on the primary Slice C question
+
+**Verdict C — NOT REPLICATED.**
+
+Slice B's 5 → 3 raw-canonical reduction was noise. At n=5 the mean canonical delta drops to 0.20 (from 2.00), medians are equal, distributions overlap. The strongest single attractor is unaffected. The supplied paraphrase paragraph is never adopted. Rivet identity is marginally worse under EXP. Retrieval is deterministically worse under EXP. Verification is unchanged (both perfect).
+
+Chris's emerging Slice C hypothesis — that Option D might work by unlocking third-form generation rather than substitution — is **not supported**. Third-form generation happens robustly regardless of doc shape and slightly LOWER under EXP.
+
+### §17.6 What DID replicate — a load-bearing observation
+
+The single most stable finding across 10 trials, which explains the residual jargon behavior more parsimoniously than the Slice A / Slice B knowledge-shape hypothesis, is this:
+
+**Model-generated accessible expressions dominate BOTH conditions at ~4 hits per Draft B — more than either canonical (~3) or supplied paraphrase (0).**
+
+- The canonical enumeration produces a stable ~3 hits per Draft B, driven mostly by the load-bearing chunk containing that exact wording (retrieval is single-doc so this chunk is always retrieved).
+- The supplied paraphrase is inert.
+- Model-generated accessible expressions do the actual accessibility work, and their frequency is a property of Writing Contract v6 + persona + operator topic, not of knowledge-doc shape.
+
+This suggests the SESSION 271 §191.9 causal ranking may need refinement:
+
+- **C** (KnowledgeDocument lexical gravity, ranked dominant in §191.9) is real but bounded — it caps at ~3 hits per Draft B regardless of Option D presence.
+- **D** (corrective expansion) is what causes canonical hits to appear at all — Draft A canonical mean ~2.4–3.0 versus Draft B canonical mean ~3.0–3.2, so the corrective retry adds ~0.2–0.8 canonical hits on average.
+- **The v6 universal invariant + Rivet persona** does most of the accessibility work by generating fresh character-native expressions. This is what Chris was hoping Option D might amplify — but it turns out the model already does this on its own.
+
+### §17.7 Slice C non-changes (verified)
+
+- Canonical RIVET doc `71e2ec43` full-text SHA equal to `75bac33223e3333893be2e589ac5adbbe9f16a9bfed361fe873a516e4d473b6e` — matches §15.7 baseline pre AND post all 8 fresh trials.
+- Writing Contract v6 — unchanged.
+- Corrective-hint wording — unchanged.
+- Persona / any Teammate row — unchanged for canonical Rivet + every other canonical teammate. Slice B clones reused.
+- Schema — unchanged.
+- Experiment env vars — all remain OFF.
+- NarrativeMemory — no promotion; disposable workspaces still have zero memories.
+- Runtime / model — unchanged.
+- 67 other canonical KnowledgeDocuments — unchanged.
+- EXP paraphrase paragraph — unchanged from Slice B (same doc, same chunk sha16 `71639d24737b4c4a`).
+
+### §17.8 Recommended smallest next move
+
+Given Verdict C, the Option D authoring convention as tested is not supported by evidence. Three low-cost follow-ups are candidates. **The audit doc does not commit to any of them; each is a decision point for a subsequent slice.**
+
+**Option 1 (recommended) — REFRAME the knowledge-shape research question.** The load-bearing empirical finding (§17.6) is that model-generated accessible expressions do the accessibility work regardless of doc shape. This suggests the SESSION 271 §191.9 causal ranking overweights knowledge shape (C) relative to the model's intrinsic reformulation behavior. The right next slice may be to characterize *where* v6 + persona already succeed and *where specifically* they fail — then decide whether knowledge-shape is even the right lever. Concrete slice: audit a fresh Rivet-adjacent Episode where the raw-canonical attractor `where the behavior first becomes incorrect` DOES appear in Draft B (2/5 rate here), inspect prompt-side context, determine whether a corrective-hint tweak (Q-270-15c) rather than a knowledge-shape tweak is the correct lever.
+
+**Option 2 — Test Option A (per-term inline pairing) as previously specified in §16.9.** Physical per-term co-location may displace the sticky attractor where Option D didn't. Cost: same as Slice C. Reversibility: shadow docs.
+
+**Option 3 — Multi-shot at n=10 or n=20.** If someone wants tighter confidence intervals on the Slice C means, add more trials at ~$0.20 per 10 trials. Low information density; the effect is either not there or too small to matter operationally.
+
+**Not recommended:**
+- Any implementation of Option D as an authoring convention. Evidence does not support it.
+- Rewriting the canonical Rivet or Patch KnowledgeDocuments.
+- Modifying Writing Contract v6.
+- Modifying corrective-hint wording as a co-shipped fix. Q-270-15c is a separate concern; the Slice C evidence does not obligate that slice.
+- Testing Penny / REPO RED at this stage. Cross-domain generalization is only worth pursuing after a within-Rivet effect is stable.
+- Cleaning persona directives from any KnowledgeDocument. Separate slice.
+- Promoting NarrativeMemory. Not relevant.
+
+### §17.9 Disposable substrate — retention decision
+
+Left in place because:
+- Any of Options 1/2/3 above reuses them.
+- No cost to leaving; two workspaces + two docs + two chunks + zero memories occupy negligible storage.
+- Reversibility contract from §15.11 remains a one-line ORM cascade delete if abandoned.
+
+### §17.10 Slice C evidence sidecars
+
+- `docs/design/session_272_experiment_data/02_slice_c_multishot_evidence.json` — all 10 trials, retrieval, drafts, verification, model.
+- `docs/design/session_272_experiment_data/03_slice_c_aggregate_analysis.json` — machine-readable aggregate + per-concept per-trial per-draft counts.
+- `docs/design/session_272_experiment_data/03_slice_c_aggregate_summary.txt` — human-readable per-condition summary.
+
+---
+
+**End of SESSION 272 Slice C. Verdict C — NOT REPLICATED. Slice B's directional support was sampling noise. Option D as tested does not reduce raw-canonical reappearance and does not amplify third-form generation. Do not implement any knowledge-authoring convention on this evidence. Next candidate slice (recommended): reframe the question against the §17.6 finding — model-generated accessible expressions dominate BOTH conditions, suggesting Writing Contract v6 + persona already do the accessibility work. STOP.**
