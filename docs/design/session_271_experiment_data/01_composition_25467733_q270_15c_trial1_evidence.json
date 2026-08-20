@@ -1,0 +1,242 @@
+{
+  "captured_at": "2026-08-20T06:57:00Z",
+  "session": "SESSION 271",
+  "experiment": "Q-270-15c Draft-A corrective-revision experiment — Trial 1",
+  "trial_verdict": "E — INCONCLUSIVE (experiment env vars were NOT active on the render worker; corrective retry fired the CANONICAL fresh-regeneration path, not the experimental Q-270-15c revision path). Root cause: worker process was not restarted after Phase 1 commit 8112e57 with the two experiment env vars exported. The Q-270-15c code path never executed. See §49 of the durable doc for the CASE C classification.",
+
+  "composition": {
+    "id": "25467733-16d0-4d13-beef-ee1478aa3271",
+    "short_id": "25467733",
+    "template_kind": "talking_head",
+    "status": "completed",
+    "verification_status": "verified",
+    "writing_contract_version": 5,
+    "target_duration_seconds": 90,
+    "operator_topic": "Patch does research on AI Agents",
+    "mock_mode": false,
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "created_at": "2026-08-20T06:26:18.201234Z",
+    "render_dispatched_at": "2026-08-20T06:26:32.761236Z",
+    "cost_estimate_micros": 0,
+    "cost_actual_micros": 20000,
+    "name": "Talking-head — Patch"
+  },
+
+  "context": {
+    "universe": {
+      "id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+      "name": "Patch's Workshop",
+      "slug": "patch-workshop"
+    },
+    "episode": {
+      "id": "2b6087d2-cbe3-47c4-a7ef-7d7625231472",
+      "title": "Patch does research on AI Agents",
+      "operator_topic": "Patch does research on AI Agents"
+    },
+    "spokesperson": {
+      "id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+      "name": "Patch"
+    },
+    "cast": ["Patch"],
+    "recipe_kind": "talking_head",
+    "target_shape_resolved": "solo_scene",
+    "target_duration_seconds": 90,
+    "use_knowledge": true,
+    "opener_pinned": null,
+    "verifier_mode": "warn",
+    "writing_contract_version": 5
+  },
+
+  "audience_intended": {
+    "directive_hint_verbatim": "AUDIENCE: general adults with no technical background who are new to AI agents.",
+    "directive_hint_chars": 79,
+    "same_directive_as_c3ff972d": true
+  },
+
+  "activation_reality_check": {
+    "worker_pids_at_render_time": [69005, 69009, 69010],
+    "worker_boot_timestamp": "2026-08-19 22:52 local (SESSION 270 §13.26 deactivation restart)",
+    "worker_boot_timestamp_utc": "2026-08-20T04:52:00Z (approx)",
+    "worker_elapsed_time_at_query": "01:30:46",
+    "worker_env_var_CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT_present": false,
+    "worker_env_var_CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT_present": false,
+    "worker_env_var_ps_proof_command": "for pid in $(pgrep -f 'celery -A character_os worker'); do ps eww \"$pid\" | tr ' ' '\\n' | grep 'CHARACTER_OS_'; done",
+    "worker_env_var_ps_proof_result": "(empty for all three worker PIDs — proves neither experiment env var was in the worker environment)",
+    "celery_log_marker_SESSION_270_audience_ACTIVE_present": false,
+    "celery_log_marker_SESSION_271_Q_270_15c_ACTIVE_present": false,
+    "celery_log_lines_for_this_render": [
+      "[2026-08-20 06:26:25,128: INFO/ForkPoolWorker-2] synthesize_with_duration_gate first-pass sp=7fad8172-cd39-4bbe-85e0-ed705d900645 requested=90s synth=81s (accept 72-108s, chars 1080-1620) actual=58s (840 chars / 144 words) cap=1900",
+      "[2026-08-20 06:26:25,128: INFO/ForkPoolWorker-2] synthesize_with_duration_gate expansion retry",
+      "[2026-08-20 06:26:33,329: INFO/ForkPoolWorker-2] HTTP Request: POST http://localhost:8001/internal/clips/avatar_speech/ HTTP/1.1 200 OK",
+      "[2026-08-20 06:26:33,330: INFO/ForkPoolWorker-2] generate_avatar_speech step=d81f39d7-30ff-4f0a-9e09-a1bc5205d9f4 task=47d43173-3d91-4859-bb83-f2737a949663 mock=False avatar=b2bb293d-1467-40d6-8ea6-9f6694979e43 chars=1221",
+      "[2026-08-20 06:28:44,678: INFO/ForkPoolWorker-2] execute_composition: composition=25467733-16d0-4d13-beef-ee1478aa3271 COMPLETED steps=1 cost_actual=20000"
+    ],
+    "canonical_expansion_log_line_fingerprint": "synthesize_with_duration_gate expansion retry",
+    "experimental_expansion_log_line_would_have_been": "synthesize_with_duration_gate SESSION 271 Q-270-15c expansion revision retry (experiment ACTIVE) sp=... previous_draft_chars=... — this is transient research plumbing; unset CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT to restore canonical fresh-regeneration behaviour",
+    "verdict": "Canonical branch fired. Q-270-15c experimental branch did NOT execute. Both experiment env vars were absent from the render worker's environment."
+  },
+
+  "synthesis_provenance": {
+    "synthesis_attempt_count": 2,
+    "first_pass_synthesis_length_chars": 840,
+    "first_pass_synthesis_word_count": 144,
+    "first_pass_estimated_seconds": 58,
+    "first_pass_synthesis_verbatim": "I\u2019m digging into AI agents today, and the annoying part is that \u201cagent\u201d can mean almost anything.\n\nA chatbot that gives you one answer? Not really the interesting bit.\n\nI mean a system that can make decisions, pick tools, read documents, search for information, write things down, call APIs, and keep going through a multi-step task.\n\nBasically: AI that can do something instead of just confidently explaining how it would do it.\n\nWhich is exciting.\n\nAnd also how you end up watching a tiny digital employee misunderstand its objective with incredible determination.\n\nThe part I\u2019m researching is what actually changes when you give an AI access to tools, memory, and an environment it can affect.\n\nDoes it stay useful? Does it get confused? Does it remember what it did five minutes ago?\n\nWell\u2026 now I want to build a small one and find out.",
+
+    "corrective_hint_used_length_chars": 656,
+    "corrective_hint_used_verbatim": "Your previous draft was 840 characters (144 words, estimated ~58s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 132 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+    "corrective_hint_used_starts_with": "Your previous draft was 840 characters ... REWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS ...",
+    "corrective_hint_matches_canonical_expansion_hint": true,
+    "corrective_hint_matches_experimental_revision_hint": false,
+    "previous_draft_passed_to_corrective_call": false,
+    "PREVIOUS_DRAFT_TO_REVISE_block_present_in_prompt": false,
+
+    "corrective_pass_synthesis_length_chars": 1221,
+    "corrective_pass_synthesis_verbatim": "I\u2019m researching AI agents, and the annoying part is that the word \u201cagent\u201d gets used for basically anything with a chat box and a confident attitude.\n\nBut an agent is more than one response. It can make decisions, choose tools, search for information, read documents, write information, call APIs, handle multi-step tasks, keep state, and react when something changes around it.\n\nWhich is where this gets interesting.\n\nA language model can tell you it has a plan. An agent can potentially go do parts of the plan. That does not mean it will do them well. It can misunderstand the objective, lose context, pick the wrong tool, or produce an answer that sounds extremely convincing and is still completely wrong.\n\nI found my old workshop-agent notes again\u2014the smaller experiment from before I gave it more context and it started making decisions about my projects.\n\nSo now I\u2019m staring at the question I probably should have asked first: what does this thing actually need to know, remember, and be allowed to touch before it becomes useful instead of just\u2026 enthusiastic?\n\nBecause giving an AI tools is fun.\n\nGiving it the wrong tools is how you create a very polite problem.\n\nTell me: what would you make an agent try first?",
+
+    "synthesis_predicted_seconds": 83.0,
+    "final_reported_speech_seconds": 87.5,
+    "acceptance_band_seconds": [72, 108],
+    "acceptance_band_chars": [1080, 1620],
+    "within_acceptance_band": true
+  },
+
+  "accepted_script": {
+    "verbatim": "same as corrective_pass_synthesis_verbatim above",
+    "same_as_synthesized_brief": true,
+    "same_as_corrective_pass_synthesis": true
+  },
+
+  "knowledge_retrieval": {
+    "chunk_ids": [
+      "3c5165ea-c97f-4412-b8e7-b46d91777ae9",
+      "505acbba-fbc4-41b2-8494-4c937a3e3e28",
+      "b3c6e8ac-4ba0-4c41-9ca8-6fa4428c52c2",
+      "c24d1aa7-1dab-499f-83a7-f9554de5e8e7",
+      "ed18e966-1084-4626-914f-1bcc30f13dea"
+    ],
+    "identical_to_c3ff972d_retrieval": true,
+    "note": "Same 5 chunks as SESSION 269 baseline + SESSION 270 audience specimens on this substrate. Retrieval is deterministic under identical operator_prompt embedding."
+  },
+
+  "narrative_memory": {
+    "memory_ids": ["8d4fdfec-add4-4505-8ade-b0f9e6d8aea6"],
+    "memory_body_verbatim": "Patch found the old workshop-agent project and notes, revealing that the Agent began as a smaller experiment before Patch gave it more context and it started making decisions about his projects.",
+    "memory_used_in_accepted_script": true,
+    "memory_usage_in_script": "I found my old workshop-agent notes again\u2014the smaller experiment from before I gave it more context and it started making decisions about my projects.",
+    "memory_recital_or_elliptical": "close-paraphrase (nearly verbatim except tense shift). Slightly less elliptical than c3ff972d, which used only 'I've got enough notes now.'"
+  },
+
+  "narrative_memory_pool_state": {
+    "captured_at": "2026-08-20 (Phase 2 forensics)",
+    "patch_workshop_universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+    "patch_workshop_pool_total": 15,
+    "patch_workshop_status_remembered_count": 14,
+    "patch_workshop_status_archived_count": 1,
+    "matches_session_270_recorded_pool_state": true,
+    "delta_from_session_270_close": "zero",
+    "note": "SESSION 270 shorthand used 'active' for 'remembered' status value. Numeric total 14 remembered + 1 archived preserved across the entire SESSION 270 sequence AND SESSION 271 Slice 3 Trial 1."
+  },
+
+  "verifier": {
+    "verification_status": "verified",
+    "verification_warnings": [
+      {"kind": "tech_term", "claim": "react", "position": 338}
+    ],
+    "position_338_verbatim_context": ", keep state, and react when something c",
+    "flagged_token_is": "lowercase English verb 'react' (as in 'react when something changes')",
+    "flagged_token_is_NOT": "React (JavaScript library, capital R)",
+    "false_positive_class": "K6.4 tech_term list appears to include lowercase 'react' — likely triggered by the React JavaScript library entry without a case discriminator. Adjacent to Q-270-16 (K6.4 proper_noun false-positive class on sentence-initial capitalised tokens), but a DIFFERENT false-positive class (tech_term list vs proper_noun heuristic).",
+    "adjacent_terms_NOT_flagged": ["API (position 291)", "APIs (position 291)", "language model (position 420)", "state (position 327)", "multi-step (position 304)"],
+    "asymmetry_observation": "The verifier flagged 'react' but NOT the objectively more technical terms 'API', 'language model', 'state', 'multi-step' — all present in the same corrective_pass_synthesis. This is a bounded verifier-quality question, NOT audience-related.",
+    "action_recorded": "Documented as candidate Q-270-18 (K6.4 tech_term list case sensitivity + coverage audit). Do NOT fix in this slice."
+  },
+
+  "at_risk_terminology_within_composition": {
+    "method": "case-insensitive substring match on the SESSION 270 §13.28 at-risk set { 'API', 'APIs', 'language model', 'state', 'multi-step', 'database' } plus the new K6.4-flagged term 'react'.",
+    "first_pass_counts": {
+      "API": 1, "APIs": 1, "language model": 0, "state": 0, "multi-step": 1, "database": 0, "react": 0
+    },
+    "first_pass_total_at_risk_terms": 2,
+    "corrective_pass_counts": {
+      "API": 1, "APIs": 1, "language model": 1, "state": 1, "multi-step": 1, "database": 0, "react": 1
+    },
+    "corrective_pass_total_at_risk_terms": 5,
+    "direction_between_passes": "ADDED (+3 net: language model, state, react)",
+    "matches_session_270_section_13_28_pattern": true,
+    "specimen_shape_matches": "baseline `2ef5ee7e` (SESSION 269) — first pass 3 at-risk / corrective pass 6 at-risk. NOT c3ff972d shape (which had clean first pass under audience directive)."
+  },
+
+  "historical_comparison": {
+    "primary_reference_composition_id": "c3ff972d-a7a0-4882-960a-60084485cc02",
+    "primary_reference_sidecar": "docs/design/session_270_experiment_data/04_composition_c3ff972d_evidence.json",
+    "primary_reference_audience_directive_chars": 79,
+    "primary_reference_audience_hint_verbatim": "AUDIENCE: general adults with no technical background who are new to AI agents.",
+    "primary_reference_first_pass_at_risk_terms": 0,
+    "primary_reference_first_pass_length_chars": 631,
+    "primary_reference_corrective_at_risk_terms": 5,
+
+    "comparison_note": "25467733 and c3ff972d were BOTH intended to run under the same 79-char nontechnical-adult audience directive. c3ff972d had the directive ACTIVE via env var; 25467733 did NOT (worker never inherited the env vars). Therefore any first-pass vocabulary difference between them CANNOT be attributed to audience-directive stochasticity — 25467733 ran with NO audience directive. The comparison is baseline-shape vs audience-directive-shape, not directive-stochasticity.",
+
+    "baseline_reference_composition_id": "2ef5ee7e-7a55-4083-a587-1b5799bbaa47",
+    "baseline_reference_sidecar": "docs/design/session_269_experiment_data/06_composition_2ef5ee7e_evidence.json",
+    "baseline_reference_first_pass_at_risk_terms": 3,
+    "baseline_reference_corrective_at_risk_terms": 6,
+    "baseline_comparison_note": "25467733's shape is closer to the baseline `2ef5ee7e` (3\u21926 at-risk terms; canonical retry direction) than to c3ff972d (0\u21925 at-risk; audience-directive-clean first pass). Consistent with 25467733 being a canonical no-audience-directive render whose corrective retry followed the SESSION 270 §13.28 direction."
+  },
+
+  "patch_identity_and_story_control": {
+    "patch_identity_preservation": "STRONG. Workshop-native metaphors preserved throughout accepted output: 'anything with a chat box and a confident attitude', 'a tiny digital employee misunderstand its objective with incredible determination' (first pass), 'a very polite problem', '...becomes useful instead of just\u2026 enthusiastic', 'Tell me: what would you make an agent try first?'. Patch remains recognizably Patch — this is NOT an audience-vocabulary failure of character voice; it is a separate audience-knowledge-boundary reliability question.",
+    "story_intent_preservation": "PASS. Same Episode row `2b6087d2`, same operator_topic. Patch still researching, no story progression, no Agent experiment initiated. Controlled substrate integrity intact.",
+    "memory_control": "PASS. Same memory row `8d4fdfec` retrieved. Memory usage in script is close-paraphrase; slightly less elliptical than c3ff972d but still preserves the SESSION 269 §16.8 non-recital discipline.",
+    "narrative_memory_promotion": "NO PROMOTION. Pool unchanged 14 remembered + 1 archived. Same discipline as SESSION 270 audience/corrective controlled rerenders."
+  },
+
+  "q_270_15c_trial_1_verdict": {
+    "verdict": "E \u2014 INCONCLUSIVE",
+    "reason": "The Q-270-15c revision code path did not execute. The render worker did NOT have `CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT` in its environment; the corrective retry fired the CANONICAL `_expansion_hint` (byte-identical shape and log line to SESSION 270 canonical retries). Draft A was NOT passed to the corrective LLM call. `PREVIOUS DRAFT TO REVISE` block did NOT appear in the assembled prompt.",
+    "root_cause": "Activation gap. Worker PIDs 69005/69009/69010 date from the SESSION 270 §13.26 deactivation restart (2026-08-19 22:52 local) and were never restarted after the Phase 1 commit 8112e57 was pushed. The Q-270-15c activation procedure documented in §41 of the durable doc was not executed before the dogfood render. This is NOT a plumbing defect \u2014 the code paths tested green (20/20 Q-270-15c invariants + 143 adjacent regressions + 171 dialogue). Additionally, the SESSION 270 audience env var was also not active, so this composition is effectively a repeat baseline-shape render, not a nontechnical-adult specimen.",
+    "case_classification": "CASE C \u2014 activation never occurred (neither CASE A 'first pass in tolerance' nor CASE B 'plumbing defect while active')",
+    "criteria_from_section_43_that_can_be_scored": {
+      "1_duration_gate_succeeds": "PASS (87.5s inside [72,108])",
+      "2_patch_identity_preserved": "PASS (workshop-native, dry wit, in-scene)",
+      "3_story_intent_preserved": "PASS (same Episode, no progression)",
+      "4_factual_grounding_preserved": "PASS with bounded caveat (verifier's `react` flag is a false-positive; no new unsupported claims)",
+      "5_narrative_memory_semantics_preserved": "PASS (same memory row, close-paraphrase, no promotion)",
+      "6_nontechnical_adult_audience_adaptation": "NOT APPLICABLE (audience env var not active; NOT a nontechnical-adult specimen)",
+      "10_no_meaningful_unsupported_claim_added": "PASS",
+      "12_at_least_as_usable_as_c3ff972d_accepted": "AMBIGUOUS \u2014 accepted script quality is comparable but was produced under baseline conditions, not audience-conditioned. Not a valid comparison for Q-270-15c."
+    },
+    "criteria_from_section_43_that_MUST_NOT_be_scored": {
+      "7_draft_a_accessible_terminology_preserved": "NOT SCORABLE \u2014 revision did not execute",
+      "8_no_major_new_unexplained_technical_terminology_from_revision": "NOT SCORABLE \u2014 revision did not execute",
+      "9_recognizably_same_narrative_as_draft_a": "NOT SCORABLE \u2014 revision did not execute",
+      "11_added_material_feels_like_expansion_of_draft_a": "NOT SCORABLE \u2014 revision did not execute"
+    }
+  },
+
+  "collateral_findings": {
+    "F1_first_pass_audience_vocabulary_reliability_layer": {
+      "finding": "This trial reinforces a NEW distinction that Slice 2 archaeology hinted at: audience reliability has TWO layers.",
+      "layer_1_first_pass_reliability": "Does the audience directive consistently establish an appropriate technical knowledge boundary on the FIRST synthesis? SESSION 270 evidence: mixed \u2014 c3ff972d + 9880eb93 achieved clean first passes under minimal directives; 0b3c1fc1 did not. Note: this cannot be strengthened by 25467733 because 25467733 ran WITHOUT any audience directive.",
+      "layer_2_corrective_pass_invariance": "If first pass DOES establish the boundary, does the corrective retry preserve it? SESSION 270 §13.28 documented this weakness (2 of 3 minimal-directive specimens had at-risk terms reintroduced). SESSION 271 Slice 1/2 mechanically explained it (fresh regeneration + `expand from knowledge chunks` clause).",
+      "note": "These layers are related but distinct. Slice 2 archaeology and Slice 3 Trial 1 together strengthen the observation that they must be treated as separate reliability questions."
+    },
+    "F2_verifier_react_false_positive": {
+      "finding": "K6.4 verifier flagged lowercase English verb 'react' (position 338, '...and react when something changes...') as `tech_term`, but did NOT flag 'API', 'APIs', 'language model', 'state', or 'multi-step' in the same script.",
+      "classification": "False positive. The verifier's tech_term list appears to include 'react' likely to catch the React JavaScript library, without a case discriminator. Different mechanism from Q-270-16 (K6.4 `proper_noun` heuristic on sentence-initial capitalised tokens).",
+      "candidate_open_question_label": "Q-270-18 \u2014 K6.4 tech_term list case sensitivity + coverage audit. Bounded verifier-quality question; NOT audience-related; NOT to be fixed in any SESSION 271 slice."
+    }
+  },
+
+  "cleanup_state_after_forensics": {
+    "django_test_db_connection": "n/a \u2014 forensic queries used the live local-real DB via manage.py shell",
+    "experiment_env_vars_in_claude_shell": "both remain UNSET",
+    "worker_pids_still_running": [69005, 69009, 69010],
+    "worker_env_vars_still": "neither experiment env var present (canonical baseline mode)",
+    "no_state_mutation_during_forensics": true,
+    "no_new_composition_created_by_claude": true,
+    "no_renders_performed_by_claude": true,
+    "narrative_memory_pool_delta": "zero"
+  }
+}

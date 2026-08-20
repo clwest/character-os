@@ -1314,3 +1314,369 @@ Chris will hand off Composition ID before Phase 2 begins.
 ---
 
 **End of SESSION 271 Slice 3 Phase 1. STOP condition reached. Plumbing implemented, tested green (20+143+171 = 334 tests), documented. Awaiting Chris dogfood render before Phase 2.**
+
+---
+
+# SESSION 271 — SLICE 3 PHASE 2 · Composition 25467733 Forensic Inspection
+
+Phase 2 forensics on the SPA-completed render Chris performed for Q-270-15c Trial 1. **Verdict: E — INCONCLUSIVE. The Q-270-15c revision code path did not execute because the worker environment did not contain either experiment env var — an ACTIVATION GAP, not a plumbing defect.** The composition is preserved as a bounded collateral data point on canonical baseline-shape behaviour, but is NOT a Q-270-15c specimen and does NOT answer the falsifiable question in §37.
+
+Frozen evidence sidecar: `docs/design/session_271_experiment_data/01_composition_25467733_q270_15c_trial1_evidence.json`.
+
+---
+
+## §46. Composition 25467733 identity
+
+| Field | Value |
+|---|---|
+| Short ID | `25467733` |
+| Full UUID | `25467733-16d0-4d13-beef-ee1478aa3271` |
+| Rendered | `2026-08-20 06:26:18 UTC` (created) → `06:26:32 UTC` (render dispatched) → `06:28:44 UTC` (task completed, 146.4 s wall) |
+| Status | `completed` / `verification_status="verified"` |
+| Writing Contract | `v5` (unchanged) |
+| Template kind | `talking_head` → resolved to `solo_scene` (Episode-attached) |
+| Universe | `Patch's Workshop` (`56d16b63-652e-4f54-bc7e-39114bbfc4c5`) |
+| Episode | `Patch does research on AI Agents` (`2b6087d2-cbe3-47c4-a7ef-7d7625231472`) |
+| Spokesperson | `Patch` (`7fad8172-cd39-4bbe-85e0-ed705d900645`) |
+| operator_topic | `Patch does research on AI Agents` |
+| Target duration | `90 s`; predicted `83 s`; actual asset `87.5 s` |
+| Acceptance band | seconds `[72, 108]`; chars `[1080, 1620]` — WITHIN |
+| Knowledge chunk IDs (5) | `3c5165ea`, `505acbba`, `b3c6e8ac`, `c24d1aa7`, `ed18e966` — IDENTICAL to c3ff972d + baseline retrieval |
+| Memory row (1) | `8d4fdfec-add4-4505-8ade-b0f9e6d8aea6` — the workshop-agent-notes memory |
+| synthesis_attempt_count | **2** |
+| first_pass_synthesis chars | 840 |
+| corrective_pass_synthesis chars | 1221 (= `synthesized_brief`) |
+| corrective_hint chars | **656** ← canonical `_expansion_hint` shape |
+| verification_warnings | `[{"kind":"tech_term","claim":"react","position":338}]` |
+| cost | `20000` micros ($0.02, one Runway call) |
+
+---
+
+## §47. Activation reality check — worker environment inspection
+
+Prior to grading anything, we verified whether the two experiment env vars actually reached the render worker.
+
+### §47.1 Worker process inspection
+
+- Worker PIDs currently alive: `69005`, `69009`, `69010`.
+- Worker etime at Phase 2 forensics: `01:30:46` (booted ~2026-08-19 22:52 local, ~04:52 UTC).
+- **Boot time exactly matches SESSION 270 §13.26 deactivation restart** (`Worker PID 69005 launched via canonical start-local-real.sh invocation with no env-var export`).
+- Env-var inspection: `for pid in 69005 69009 69010; do ps eww "$pid" | tr ' ' '\n' | grep 'CHARACTER_OS_'; done` → **empty for all three PIDs**.
+
+**Conclusion:** the worker that processed Composition 25467733 was the SESSION 270 deactivation-mode worker, running in canonical no-experiment configuration. Neither `CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT` nor `CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT` was in its environment.
+
+### §47.2 Celery log inspection
+
+`/tmp/character-os-celery.log` — search for experiment markers:
+
+- `grep -nE 'SESSION 270|audience-hint|hint_chars|SESSION 271|Q-270-15c|CORRECTIVE_REVISION'` → **empty**.
+- Only synthesis line for this composition: `synthesize_with_duration_gate expansion retry` (line 39). This is the CANONICAL log line (source: `duration_contract.py::synthesize_with_duration_gate` line ~615 in the OFF branch — `logger.info("synthesize_with_duration_gate expansion retry")`).
+- The Q-270-15c experimental branch would have produced a very different, marker-rich log line: `synthesize_with_duration_gate SESSION 271 Q-270-15c expansion revision retry (experiment ACTIVE) sp=... previous_draft_chars=... — this is transient research plumbing; unset CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT to restore canonical fresh-regeneration behaviour`. **This marker is absent.**
+
+### §47.3 Corrective hint text inspection
+
+Persisted `Composition.corrective_hint` verbatim (656 chars):
+
+```
+Your previous draft was 840 characters (144 words, estimated ~58s of speech). Target is 81s.
+REWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 132 more characters to meet the minimum.
+Preserve the central arc (opening → development → payoff → single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks — describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.
+```
+
+Starts `REWRITE THE SAME NARRATIVE` — this is the canonical `_expansion_hint`. The experimental hint would have started `REVISE THE PREVIOUS DRAFT (above, labelled PREVIOUS DRAFT TO REVISE) ...`. **The experimental hint text is absent.**
+
+**Three independent proofs (env-var inspection + log marker + hint text fingerprint) all agree:** the Q-270-15c revision path did not execute on this render.
+
+---
+
+## §48. Q-270-15c Trial 1 verdict — E · INCONCLUSIVE
+
+Per §43 rubric E: *"No corrective pass fired (`synthesis_attempt_count == 1`), OR specimen lacks discriminating evidence."*
+
+**A corrective pass DID fire — but it was the CANONICAL fresh-regeneration corrective pass, not the experimental Q-270-15c revision pass.** The revision code path did not execute; Draft A was not passed to the corrective LLM call; the `PREVIOUS DRAFT TO REVISE` block did not appear in the assembled prompt. Therefore the specimen lacks discriminating evidence for the Q-270-15c question.
+
+**§43 criteria that ARE scorable** (independent of the revision branch):
+
+| # | Criterion | Result |
+|---|---|---|
+| 1 | Duration gate succeeds (87.5 s in [72, 108]) | PASS |
+| 2 | Patch identity preserved | PASS |
+| 3 | Story intent preserved (same Episode, no progression) | PASS |
+| 4 | Factual grounding preserved (`react` flag is verifier false-positive, see §51) | PASS with bounded caveat |
+| 5 | NarrativeMemory semantics preserved | PASS |
+| 10 | No meaningful unsupported claim added | PASS |
+
+**§43 criteria that MUST NOT be scored** (would misattribute canonical behaviour to the revision experiment):
+- Criterion 6 (nontechnical adult audience adaptation) — **NOT APPLICABLE**: the audience env var was also not active, so this is not an audience-conditioned specimen.
+- Criterion 7 (Draft-A-accessible terminology preserved) — **NOT SCORABLE**: revision did not execute.
+- Criterion 8 (no new unexplained technical terminology from revision) — **NOT SCORABLE**: revision did not execute.
+- Criterion 9 (recognizably same narrative as Draft A) — **NOT SCORABLE**: revision did not execute.
+- Criterion 11 (added material feels like expansion of Draft A) — **NOT SCORABLE**: revision did not execute.
+- Criterion 12 (at least as usable as c3ff972d accepted) — **AMBIGUOUS**: usability is comparable, but produced under baseline conditions, not audience-conditioned — not a valid comparison.
+
+**Overall: E — INCONCLUSIVE. The Q-270-15c falsifiable question remains unanswered.**
+
+---
+
+## §49. Case classification — a new CASE C beyond the operator brief's A/B
+
+The operator brief pre-registered two cases:
+
+- **CASE A:** experiment active, first pass in tolerance → INCONCLUSIVE / NO RETRY.
+- **CASE B:** experiment active, first pass failed duration, revision did not fire → plumbing defect.
+
+The actual outcome is neither. It is:
+
+- **CASE C (activation gap):** experiment was NOT active on the worker (env vars absent). First pass failed duration → canonical retry fired. Draft A was never in play.
+
+This is not a code defect. Phase 1 tests validated the plumbing (20/20 Q-270-15c invariants green, including proof of Draft-A propagation when the env var is set). The gap is between commit + push (Phase 1 §45 = `8112e57` on `main`) and the render worker's process boot time. Since the worker process was the SESSION 270 deactivation restart (which pre-dates Phase 1 commit), the Phase 1 code loaded correctly (fresh Python imports on Celery task dispatch use the file on disk), but no code path referencing the env var was reached because `os.environ.get("CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT", "")` returned `""` in the worker's process environment.
+
+**Root cause:** the §41 activation procedure was not executed before the dogfood render — the worker was never `pkill`ed and re-launched with the two env vars exported.
+
+---
+
+## §50. What Composition 25467733 IS useful for — bounded collateral
+
+Since neither experiment was active, this composition is effectively a **repeat baseline-shape render on the SESSION 269 substrate**, not a Q-270-15c specimen and not a nontechnical-adult audience specimen. It nevertheless adds a bounded data point to the SESSION 270 §13.28 canonical-corrective pattern.
+
+### §50.1 At-risk terminology within-composition delta
+
+Method: SESSION 270 §13.28 rubric (case-insensitive substring match on `API`, `APIs`, `language model`, `state`, `multi-step`, `database`) plus `react` (K6.4-flagged).
+
+| Term | First pass (840 chars) | Accepted (1221 chars) | Direction |
+|---|---|---|---|
+| `API` | 1 (at char 286: *"call APIs"*) | 1 (at char 291: *"call APIs"*) | STABLE |
+| `APIs` | 1 | 1 | STABLE |
+| `language model` | 0 | **1** (at char 420: *"A language model can tell you it has a plan."*) | **ADDED** |
+| `state` | 0 | **1** (at char 327: *"keep state"*) | **ADDED** |
+| `multi-step` | 1 (at char 317: *"multi-step task"*) | 1 (at char 304: *"handle multi-step tasks"*) | STABLE |
+| `database` | 0 | 0 | STABLE |
+| `react` | 0 | **1** (at char 338: *"react when something changes"*) | **ADDED (+ verifier flag)** |
+
+**Direction:** +3 net (added `language model`, `state`, `react`). Baseline-shape corrective retry pulled more raw §1 terminology than the first pass — same pattern SESSION 270 §13.28 documented for baseline `2ef5ee7e` (3 → 6 at-risk terms).
+
+### §50.2 Comparison table — 25467733 vs baseline vs c3ff972d
+
+| Specimen | Audience directive active? | Q-270-15c revision active? | First-pass at-risk | Accepted at-risk | Direction |
+|---|---|---|---|---|---|
+| `2ef5ee7e` (SESSION 269 baseline) | NO | N/A (pre-SESSION 271) | 3 | 6 | +3 |
+| `c3ff972d` (SESSION 270 Q-270-13 nontechnical adult) | **YES (79-char directive)** | N/A (pre-SESSION 271) | **0** | 5 | +5 (post-audience clean → §13.28 regression) |
+| **`25467733` (SESSION 271 Q-270-15c Trial 1)** | **NO (activation gap)** | **NO (activation gap)** | 2 | 5 | +3 |
+
+**Shape reading:** 25467733's shape sits between the baseline and c3ff972d, matching the "canonical no-audience corrective adds §1 vocabulary" direction rather than the "audience-clean first pass regressed by corrective retry" pattern. Consistent with 25467733 being a canonical render, not an audience-conditioned one.
+
+### §50.3 What we cannot conclude
+
+- We CANNOT strengthen the claim about first-pass audience-vocabulary stochasticity by comparing 25467733's first pass to c3ff972d's, because 25467733 had no audience directive. That comparison is baseline vs directive-active — informative about *whether an audience directive helps*, not about *directive stochasticity across runs*.
+- We CANNOT conclude anything about Q-270-15c revision semantics.
+
+### §50.4 What we CAN reinforce (bounded)
+
+Composition 25467733 is a **third data point** on the SESSION 270 §13.28 canonical-corrective-pass direction: without audience conditioning, the canonical expansion retry consistently adds raw §1 terminology (baseline `2ef5ee7e`: +3; broad-adult first-pass-carried `0b3c1fc1`: stable; `9880eb93`: +1; `c3ff972d`: +5; now baseline-shape `25467733`: +3). The direction is now well-established for canonical retries.
+
+---
+
+## §51. The `react` verifier flag — Q-270-18 candidate
+
+**Finding:** K6.4 verifier flagged the lowercase English verb `react` at position 338 (`"...keep state, and react when something changes around it."`) as `tech_term`.
+
+The same script contains, all unflagged:
+- `API` at position 291 (called out in SESSION 270 §13.28 as at-risk technical vocabulary)
+- `APIs` at position 291
+- `language model` at position 420
+- `state` at position 327 (as a technical noun)
+- `multi-step` at position 304
+
+The verifier flagged the verb `react` but missed the objectively more technical terms `API`, `language model`, and `state`.
+
+**Interpretation:** the K6.4 `tech_term` list appears to contain `react` — likely to catch the React JavaScript library — without a case discriminator. This is a false-positive class distinct from Q-270-16 (K6.4 `proper_noun` heuristic false-positives on sentence-initial capitalised tokens, SESSION 270 §13.24.11.5). Q-270-16 was about sentence-initial *"Sometimes"* / *"Proof"* / *"Obviously"* / *"Especially"* — those live in a different verifier code path (proper-noun heuristic vs tech-term list).
+
+**Candidate open question label — Q-270-18:** *"K6.4 `tech_term` list — case sensitivity + coverage audit. Lowercase English verb `react` is flagged as `tech_term`; more technical terms (`API`, `language model`, `state`) in the same script are not. Suggests the list needs (a) a case discriminator for tokens whose lowercase form is common English, and (b) coverage expansion for genuinely technical terminology that is currently uncatalogued."*
+
+**DO NOT** fix in any SESSION 271 slice. Bounded verifier-quality follow-up. NOT audience-related.
+
+---
+
+## §52. Patch identity + story-progression control
+
+### §52.1 Patch identity (independent of audience-boundary reliability)
+
+Even though the technical vocabulary is a poor match for the intended nontechnical-adult audience (which was never activated anyway), Patch's voice remains distinctively strong in the accepted output. Workshop-native markers include:
+
+- *"anything with a chat box and a confident attitude"* — brand-critical humour
+- *"handle multi-step tasks, keep state, and react when something changes around it"* — technically dense but delivered in a Patch-shape enumeration
+- *"A language model can tell you it has a plan. An agent can potentially go do parts of the plan."* — Patch's characteristic clean contrast
+- *"a very polite problem"* — signature Patch understatement
+- *"becomes useful instead of just… enthusiastic"* — dry wit, first-person present-tense in-scene
+- *"Tell me: what would you make an agent try first?"* — audience-facing invitation without patronising register
+
+**Verdict: identity PASS.** Character-voice preservation and audience-vocabulary reliability are distinct dimensions. This composition scores strong on identity, weak on audience knowledge-boundary reliability — but the latter was not exercised (no audience directive was live).
+
+### §52.2 Story control
+
+- Same Episode row `2b6087d2` — no new Episode.
+- Same `operator_topic` — no story-level drift.
+- Story state: Patch still researching. The accepted script closes with *"Tell me: what would you make an agent try first?"* — a research-planning frame, not an action-taken frame. Patch has still not begun the Agent experiment.
+- **Story-progression discipline preserved.**
+
+### §52.3 Memory control
+
+- Same memory row `8d4fdfec-add4-4505-8ade-b0f9e6d8aea6` retrieved.
+- Memory usage in accepted script: *"I found my old workshop-agent notes again—the smaller experiment from before I gave it more context and it started making decisions about my projects."*
+- Slightly less elliptical than c3ff972d's *"I've got enough notes now"* — closer to close-paraphrase — but still within the SESSION 269 §16.8 non-recital discipline (retrieved memory INFLUENCES the script rather than being quoted verbatim under a labelled framework heading).
+- **No memory promotion.**
+
+### §52.4 NarrativeMemory pool state (verified via manage.py shell)
+
+Query: `NarrativeMemory.objects.filter(universe_id="56d16b63-...")` grouped by `status`.
+
+| Universe | status | count |
+|---|---|---|
+| Patch's Workshop `56d16b63` | `remembered` | **14** |
+| Patch's Workshop `56d16b63` | `archived` | **1** |
+
+**Pool = 14 remembered + 1 archived = unchanged from SESSION 270 §14.4.**
+
+Note: SESSION 270 shorthand used the word *"active"* for the `remembered` status value; both refer to the same pool state. The pool count is byte-stable across the entire SESSION 270 audience-experiment sequence + SESSION 271 Slice 3 Trial 1.
+
+---
+
+## §53. Audience-reliability dimension refinement
+
+Slice 2 archaeology + Slice 3 Trial 1 activation gap together suggest a useful conceptual refinement:
+
+- **Layer 1 — first-pass audience-directive reliability.** Does the audience directive (of a given length + shape) consistently establish an appropriate technical knowledge boundary in the FIRST synthesis? SESSION 270 evidence: **mixed under minimal directives**. `c3ff972d` and `9880eb93` achieved clean first passes; `0b3c1fc1` did not. Sample too small to characterise the distribution.
+- **Layer 2 — corrective-pass audience invariance.** If the first pass DID achieve a clean audience boundary, does the corrective retry preserve it? SESSION 270 §13.28 documented this weakness (2 of 3 clean-first-pass specimens had at-risk terms reintroduced). SESSION 271 Slice 1/2 mechanically explained it (fresh regeneration + explicit "expand from knowledge chunks" clause + Draft A absent from the corrective context).
+
+These layers can fail independently. A robust audience-vocabulary product would need BOTH:
+- (a) a first-pass mechanism that reliably establishes the audience boundary, AND
+- (b) a corrective-pass mechanism that preserves it under length-driven expansion.
+
+Q-270-15c targets (b) directly and is orthogonal to (a). It remains the highest-information next experiment for layer 2. Q-270-15a-style stronger-directive experiments would target (a).
+
+Composition 25467733 does not strengthen or weaken either layer's evidence, because neither mechanism was active.
+
+---
+
+## §54. What was NOT changed during Phase 2
+
+- No production source touched. Slice 3 Phase 1 code (`shell/character_os/duration_contract.py`, `shell/character_os/script_synthesis.py`) unchanged. The Q-270-15c plumbing remains present + inactive by default.
+- No test touched.
+- Writing Contract remains `v5`.
+- No schema / migration.
+- No SPA UI.
+- No render performed by Claude (only forensic reads).
+- No new Composition created.
+- No NarrativeMemory promotion. Pool remains 14 remembered + 1 archived.
+- No env-var manipulation by Claude. Chris owns activation/deactivation state changes.
+- No worker restart by Claude.
+
+The only artefacts written in Phase 2 are:
+- `docs/design/session_271_experiment_data/01_composition_25467733_q270_15c_trial1_evidence.json` (new evidence sidecar).
+- Sections §46-§56 appended to this durable document.
+
+---
+
+## §55. Cleanup + activation-reactivation handoff for Chris
+
+The Q-270-15c experiment plumbing is present on `main` (Phase 1 commit `8112e57`) but was never activated on the render worker for Trial 1. Because no experiment was live, **no cleanup is required from Claude's side** — the workers are already in canonical no-experiment mode.
+
+If Chris + ChatGPT choose Recommendation A (§56) — one more natural controlled render with the experiment actually active — the following canonical activation procedure (repeated verbatim from §41) is what must be executed in Chris's shell, in order:
+
+```
+# 1. Kill the SESSION 270 §13.26 workers currently in canonical mode
+pkill -f "celery -A character_os worker" || true
+pgrep -f "celery -A character_os worker" && echo "STILL ALIVE — investigate" || echo "clear"
+
+# 2. Export BOTH env vars in the SAME shell that will launch the worker
+export CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT='AUDIENCE: general adults with no technical background who are new to AI agents.'
+export CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT=1
+
+# 3. Launch canonical stack — the fresh worker inherits the env vars
+bash scripts/start-local-real.sh
+
+# 4. Proof — env vars visible to the NEW worker's process environment
+PID=$(pgrep -f "celery -A character_os worker" | head -1)
+ps eww "$PID" | tr ' ' '\n' | grep CHARACTER_OS_
+#     ↑ MUST show both env vars. If empty, worker did not inherit.
+
+# 5. Proof — Python-side resolvers report active
+cd shell && DJANGO_SETTINGS_MODULE=character_os.settings ../.venv/bin/python manage.py shell <<'PY'
+from apps.compositions.primitives.avatar_speech import _resolve_solo_audience_hint
+from character_os.duration_contract import _corrective_revision_experiment_active
+from unittest.mock import MagicMock
+print("audience:", _resolve_solo_audience_hint(MagicMock(params={})))
+print("revision_active:", _corrective_revision_experiment_active())
+PY
+# audience: AUDIENCE: general adults ...
+# revision_active: True
+```
+
+If either proof fails, **abort** before dogfood.
+
+If Chris + ChatGPT choose Recommendation C (§56), no activation is needed — the plumbing simply sits inert until removed or promoted in a future slice.
+
+---
+
+## §56. Decision-gate recommendation
+
+**Recommend Option A — ONE MORE NATURAL CONTROLLED RENDER.**
+
+Justification:
+
+- Q-270-15c retains its full information value. The Slice 2 archaeology (§28 classification as C — MINIMAL IMPLEMENTATION / LOCAL OPTIMUM; §29 SESSION 263 prior art on the compression variant of the same class of failure) shows the underlying architectural question — *does giving Draft A to the corrective retry preserve first-pass semantic transformations?* — is the highest-value open question in this line.
+- Trial 1 did not exercise the experiment at all. The plumbing tested green (20/20 invariants + 143 adjacent regressions + 171 dialogue) but never touched a live substrate. No evidence has been added FOR or AGAINST the falsifiable question.
+- The activation gap has a documented, repeatable fix (§55).
+- Repeating one controlled render on the same substrate with the activation procedure faithfully executed is the smallest, cheapest way to close the information gap. Same substrate as SESSION 270 `c3ff972d` (same Universe, Episode, spokesperson, target duration, knowledge, memory, verifier, contract), same audience directive, plus the Q-270-15c revision flag genuinely ON. Cost: one Runway render ≈ $0.02 + LLM tokens.
+- Natural stochasticity remains a factor — Trial 2 might again produce a first pass that lands in tolerance and does not fire a retry. If that happens, the escalation path (Option B — deterministic non-production harness) becomes worth considering.
+
+Do NOT recommend:
+
+- **Option B (harness) NOT YET.** The natural-render approach has one honest attempt behind it; the failure was operational, not stochastic. One more natural attempt is the appropriate escalation step; the harness is warranted only if repeated natural attempts fail to exercise the retry.
+- **Option C (drop) NOT.** No evidence has changed Q-270-15c's information value.
+- **Option D (something else) NOT.** No unexpected runtime finding requires a different path.
+
+**Chris + ChatGPT decide.** Do not execute Recommendation A without explicit authorisation.
+
+---
+
+## §57. Return-to-Chris index
+
+Concise answers below; forensic evidence lives in §46-§56 + the sidecar.
+
+1. Full UUID for Composition 25467733 → `25467733-16d0-4d13-beef-ee1478aa3271`.
+2. Was Q-270-15c experiment active? → **NO** (`ps eww` on worker PIDs 69005/69009/69010 shows no env var; canonical log line + canonical hint text confirm the OFF branch fired).
+3. Was audience experiment active? → **NO** (same worker environment; no `SESSION 270 audience-hint experiment ACTIVE` marker in Celery log).
+4. `synthesis_attempt_count` → **2**.
+5. Did corrective revision fire? → **NO — canonical `_expansion_hint` fired instead.**
+6. Did Draft A reach a corrective call? → **NO.** `previous_draft` was not passed; `PREVIOUS DRAFT TO REVISE` block was not in the assembled prompt.
+7. Q-270-15c Trial 1 verdict → **E — INCONCLUSIVE.**
+8. If inconclusive, why exactly? → **Activation gap (CASE C).** Worker was the SESSION 270 §13.26 deactivation-restart worker (booted 2026-08-19 22:52 local); it was never killed + restarted with the two env vars exported after Phase 1 commit `8112e57` landed. Neither env var was in the worker's process environment.
+9. What does 25467733 teach us about FIRST-PASS audience-vocabulary reliability? → **Nothing** — no audience directive was active. It teaches us about canonical baseline-shape corrective behaviour (+3 at-risk terms net), reinforcing SESSION 270 §13.28.
+10. Comparison to `c3ff972d` first pass → **Not a valid comparison** — c3ff972d had a live 79-char audience directive; 25467733 had none. Any first-pass vocabulary difference is baseline-vs-directive-active, not directive stochasticity.
+11. What happened with `react` verifier warning? → **False-positive.** Lowercase English verb `react` at position 338 (*"...keep state, and react when something changes..."*). Same script contains `API`, `APIs`, `language model`, `state`, `multi-step` — all unflagged. Classification: K6.4 `tech_term` list contains `react` (likely for the React JavaScript library) without a case discriminator. New false-positive class distinct from Q-270-16 (`proper_noun` heuristic). Candidate label: **Q-270-18** — do NOT fix in this slice.
+12. Did Patch identity remain strong? → **YES.** Workshop-native markers preserved (*"anything with a chat box and a confident attitude"*, *"a very polite problem"*, *"...becomes useful instead of just… enthusiastic"*). Character-voice preservation and audience-vocabulary reliability are distinct dimensions; this render scored strong on the former.
+13. Did story/memory controls remain intact? → **YES.** Same Episode row, same operator_topic, Patch still researching (not acting), same memory row retrieved, close-paraphrase not recital, no promotion.
+14. NarrativeMemory pool state → **14 remembered + 1 archived = 15 total in Patch's Workshop universe.** Unchanged since SESSION 270 §14.4.
+15. Cleanup / runtime state → **No cleanup performed by Claude (no state to clean).** Workers still in canonical no-experiment mode. Both experiment env vars remain unset in Claude's shell. §55 provides the exact activation procedure if Chris + ChatGPT choose to attempt Trial 2.
+16. Frozen sidecar path → `docs/design/session_271_experiment_data/01_composition_25467733_q270_15c_trial1_evidence.json`.
+17. Durable document path → `docs/design/SESSION_271_CORRECTIVE_PASS_AUDIENCE_INVARIANCE_AUDIT.md` (this file; §46-§57 are the Phase 2 sections).
+18. Commit SHA + push/clean-tree status → recorded in §58 below.
+19. Recommend A/B/C/D → **A — one more natural controlled render, with the §55 activation procedure faithfully executed this time.** Do NOT execute without operator authorisation.
+
+---
+
+## §58. Phase 2 commit + push record
+
+- Phase 2 slice commit SHA: `<pending — populated after commit>`
+- Push: `<pending>`
+- Local `main == origin/main`: `<verified at commit time>`
+- Working tree at Phase 2 close: `<verified clean>`
+- Files touched by Phase 2:
+  - `docs/design/session_271_experiment_data/01_composition_25467733_q270_15c_trial1_evidence.json` (NEW evidence sidecar)
+  - `docs/design/SESSION_271_CORRECTIVE_PASS_AUDIENCE_INVARIANCE_AUDIT.md` — §46-§58 appended
+- **No source, no tests, no schema, no migration touched in Phase 2.**
+
+---
+
+**End of SESSION 271 Slice 3 Phase 2. STOP condition reached. Q-270-15c Trial 1 verdict: E — INCONCLUSIVE (activation gap, not plumbing defect). Evidence frozen. Awaiting Chris + ChatGPT decision on §56 recommendation A/B/C/D.**
