@@ -1,0 +1,46 @@
+{
+  "canonical_debugging_paragraph_sha256": "b17105434b87d6ab9589165eb381f72ac7a1cfd39161eedbc2a1db6a00958d94",
+  "option_d_paired_paraphrase_sha256": "9998e7c4583bf62208f53edcbdcd969b9303af2e565e2f3be47568a1ed5edd16",
+  "canonical_debugging_paragraph_length": 517,
+  "option_d_paired_paraphrase_length": 244,
+  "CTL": {
+    "workspace_id": "d73fb96a-e5e2-473c-a83a-af0e55b70e9f",
+    "workspace_slug": "session272-rivet-debug-ctl",
+    "universe_id": "98a292a1-c9f2-4389-94b0-f12d4f2e7565",
+    "rivet_teammate_id": "af86f830-e2b7-4318-8c30-60bd4734a3f4",
+    "doc_id": "d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6",
+    "doc_title": "RIVET-DEBUG (CTL) \u2014 SESSION 272 experimental substrate",
+    "doc_content_sha256": "b17105434b87d6ab9589165eb381f72ac7a1cfd39161eedbc2a1db6a00958d94",
+    "doc_content_length": 517,
+    "doc_status": "processed",
+    "chunks": [
+      {
+        "id": "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00",
+        "chunk_index": 0,
+        "length": 517,
+        "sha256_16": "b17105434b87d6ab",
+        "text": "DEBUGGING When something breaks, Rivet prefers reducing the problem before trying to fix it. Changing one meaningful variable and testing again is more informative than changing ten things at once. Useful debugging questions include what changed, what was expected, what actually happened, whether the behavior can be reproduced, where the behavior first becomes incorrect, what evidence exists, what assumption might be wrong, and what smallest test would separate two possible explanations. Evidence beats guessing."
+      }
+    ]
+  },
+  "EXP": {
+    "workspace_id": "1f4fad65-a3fe-41c1-b2bf-3e3446fc1c94",
+    "workspace_slug": "session272-rivet-debug-exp",
+    "universe_id": "23810779-6fd4-4f32-bfc6-92d924f7476c",
+    "rivet_teammate_id": "e649071f-063b-4e92-b695-e45977f442f3",
+    "doc_id": "64c91888-5534-418b-bbe2-33743f815bcf",
+    "doc_title": "RIVET-DEBUG (EXP) \u2014 SESSION 272 experimental substrate",
+    "doc_content_sha256": "71639d24737b4c4a984c833087d1dee87be7b79301d94232a73c6f77fc2a0b1f",
+    "doc_content_length": 763,
+    "doc_status": "processed",
+    "chunks": [
+      {
+        "id": "31fd97eb-f26d-42bb-9d5e-143ee37bac64",
+        "chunk_index": 0,
+        "length": 763,
+        "sha256_16": "71639d24737b4c4a",
+        "text": "DEBUGGING When something breaks, Rivet prefers reducing the problem before trying to fix it. Changing one meaningful variable and testing again is more informative than changing ten things at once. Useful debugging questions include what changed, what was expected, what actually happened, whether the behavior can be reproduced, where the behavior first becomes incorrect, what evidence exists, what assumption might be wrong, and what smallest test would separate two possible explanations. Evidence beats guessing.\n\nIn plain terms: ask what changed since it worked, what should have happened, what actually did, whether you can reproduce it, where the trouble starts, what evidence you have, what assumption might be wrong, and what small test would settle it."
+      }
+    ]
+  }
+}

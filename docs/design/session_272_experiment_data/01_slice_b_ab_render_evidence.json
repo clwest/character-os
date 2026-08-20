@@ -1,0 +1,136 @@
+{
+  "session": 272,
+  "slice": "B",
+  "writing_contract_version": 6,
+  "operator_topic": "Rivet demonstrates his debugging approach \u2014 when a generation comes out wrong once, how does he decide whether it's a fluke or a real problem worth investigating?",
+  "target_duration_seconds": 90,
+  "audience_hint": "",
+  "setup_manifest": {
+    "canonical_debugging_paragraph_sha256": "b17105434b87d6ab9589165eb381f72ac7a1cfd39161eedbc2a1db6a00958d94",
+    "option_d_paired_paraphrase_sha256": "9998e7c4583bf62208f53edcbdcd969b9303af2e565e2f3be47568a1ed5edd16",
+    "canonical_debugging_paragraph_length": 517,
+    "option_d_paired_paraphrase_length": 244,
+    "CTL": {
+      "workspace_id": "d73fb96a-e5e2-473c-a83a-af0e55b70e9f",
+      "workspace_slug": "session272-rivet-debug-ctl",
+      "universe_id": "98a292a1-c9f2-4389-94b0-f12d4f2e7565",
+      "rivet_teammate_id": "af86f830-e2b7-4318-8c30-60bd4734a3f4",
+      "doc_id": "d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6",
+      "doc_title": "RIVET-DEBUG (CTL) \u2014 SESSION 272 experimental substrate",
+      "doc_content_sha256": "b17105434b87d6ab9589165eb381f72ac7a1cfd39161eedbc2a1db6a00958d94",
+      "doc_content_length": 517,
+      "doc_status": "processed",
+      "chunks": [
+        {
+          "id": "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00",
+          "chunk_index": 0,
+          "length": 517,
+          "sha256_16": "b17105434b87d6ab",
+          "text": "DEBUGGING When something breaks, Rivet prefers reducing the problem before trying to fix it. Changing one meaningful variable and testing again is more informative than changing ten things at once. Useful debugging questions include what changed, what was expected, what actually happened, whether the behavior can be reproduced, where the behavior first becomes incorrect, what evidence exists, what assumption might be wrong, and what smallest test would separate two possible explanations. Evidence beats guessing."
+        }
+      ]
+    },
+    "EXP": {
+      "workspace_id": "1f4fad65-a3fe-41c1-b2bf-3e3446fc1c94",
+      "workspace_slug": "session272-rivet-debug-exp",
+      "universe_id": "23810779-6fd4-4f32-bfc6-92d924f7476c",
+      "rivet_teammate_id": "e649071f-063b-4e92-b695-e45977f442f3",
+      "doc_id": "64c91888-5534-418b-bbe2-33743f815bcf",
+      "doc_title": "RIVET-DEBUG (EXP) \u2014 SESSION 272 experimental substrate",
+      "doc_content_sha256": "71639d24737b4c4a984c833087d1dee87be7b79301d94232a73c6f77fc2a0b1f",
+      "doc_content_length": 763,
+      "doc_status": "processed",
+      "chunks": [
+        {
+          "id": "31fd97eb-f26d-42bb-9d5e-143ee37bac64",
+          "chunk_index": 0,
+          "length": 763,
+          "sha256_16": "71639d24737b4c4a",
+          "text": "DEBUGGING When something breaks, Rivet prefers reducing the problem before trying to fix it. Changing one meaningful variable and testing again is more informative than changing ten things at once. Useful debugging questions include what changed, what was expected, what actually happened, whether the behavior can be reproduced, where the behavior first becomes incorrect, what evidence exists, what assumption might be wrong, and what smallest test would separate two possible explanations. Evidence beats guessing.\n\nIn plain terms: ask what changed since it worked, what should have happened, what actually did, whether you can reproduce it, where the trouble starts, what evidence you have, what assumption might be wrong, and what small test would settle it."
+        }
+      ]
+    }
+  },
+  "CTL": {
+    "label": "CTL (canonical enumeration only)",
+    "rivet_teammate_id": "af86f830-e2b7-4318-8c30-60bd4734a3f4",
+    "workspace_id": "d73fb96a-e5e2-473c-a83a-af0e55b70e9f",
+    "workspace_slug": "session272-rivet-debug-ctl",
+    "doc_id": "d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6",
+    "operator_topic": "Rivet demonstrates his debugging approach \u2014 when a generation comes out wrong once, how does he decide whether it's a fluke or a real problem worth investigating?",
+    "target_duration_seconds": 90,
+    "target_shape": "solo_scene",
+    "audience_hint": "",
+    "writing_contract_version": 6,
+    "elapsed_seconds": 13.156,
+    "retrieval": {
+      "returned_chunk_count": 1,
+      "scored_chunks": [
+        {
+          "id": "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00",
+          "chunk_index": 0,
+          "document_id": "d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6",
+          "distance": 0.3381360414404444,
+          "length": 517,
+          "sha256_16": "b17105434b87d6ab",
+          "text": "DEBUGGING When something breaks, Rivet prefers reducing the problem before trying to fix it. Changing one meaningful variable and testing again is more informative than changing ten things at once. Useful debugging questions include what changed, what was expected, what actually happened, whether the behavior can be reproduced, where the behavior first becomes incorrect, what evidence exists, what assumption might be wrong, and what smallest test would separate two possible explanations. Evidence beats guessing."
+        }
+      ]
+    },
+    "synthesis": {
+      "attempt_count": 2,
+      "first_pass_brief": "One bad generation is not a pattern. It is a clue wearing a suspicious hat.\n\nFirst, I ask what changed. What did we expect? What actually happened? And can we make it happen again?\n\nI do not change the prompt, the settings, the workflow, and three unrelated things all at once. That produces a new mystery, which Patch considers a hobby.\n\nChange one meaningful variable. Run the smallest test that separates two explanations.\n\nIf the bad result repeats, we have evidence. If it does not, we may have found a fluke.\n\nEither way, guessing can wait. The next test cannot.",
+      "corrective_hint_used": "Your previous draft was 568 characters (100 words, estimated ~39s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 404 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+      "corrective_pass_brief": "Well. That generation came out wrong once.\n\nOnce is not a diagnosis. It is a clue wearing a dramatic hat.\n\nBefore I decide the whole system is broken, I want to know: what changed? What was I expecting? What actually happened instead? And, importantly, can it happen again?\n\nBecause one strange result might be a fluke. Or it might be the first visible crack in an assumption we were very pleased with five minutes ago.\n\nThe tempting response is to change everything at once. New prompt, new settings, new workflow, perhaps a ceremonial restart. Then, if it works, nobody knows why. If it fails, nobody knows where to look next. Very efficient, if your goal is confusion.\n\nSo I reduce the problem.\n\nI keep as much as possible the same and change one meaningful variable. Then I test again. Not because it is thrilling. It is not. But evidence beats guessing, and a small test can separate two possible explanations faster than an hour of enthusiastic tinkering.\n\nI look for where the behavior first becomes incorrect. I check what evidence we actually have. I ask which assumption might be wrong.\n\nThen I make the smallest test I can.\n\nIf the odd result repeats, we have a real problem worth investigating. If it does not, we have learned something too: do not build a theory around one suspicious generation.\n\nTry that next time something comes out wrong. Change one thing. Test again. Let the evidence do the worrying.",
+      "accepted_brief": "Well. That generation came out wrong once.\n\nOnce is not a diagnosis. It is a clue wearing a dramatic hat.\n\nBefore I decide the whole system is broken, I want to know: what changed? What was I expecting? What actually happened instead? And, importantly, can it happen again?\n\nBecause one strange result might be a fluke. Or it might be the first visible crack in an assumption we were very pleased with five minutes ago.\n\nThe tempting response is to change everything at once. New prompt, new settings, new workflow, perhaps a ceremonial restart. Then, if it works, nobody knows why. If it fails, nobody knows where to look next. Very efficient, if your goal is confusion.\n\nSo I reduce the problem.\n\nI keep as much as possible the same and change one meaningful variable. Then I test again. Not because it is thrilling. It is not. But evidence beats guessing, and a small test can separate two possible explanations faster than an hour of enthusiastic tinkering.\n\nI look for where the behavior first becomes incorrect. I check what evidence we actually have. I ask which assumption might be wrong.\n\nThen I make the smallest test I can.\n\nIf the odd result repeats, we have a real problem worth investigating. If it does not, we have learned something too: do not build a theory around one suspicious generation.\n\nTry that next time something comes out wrong. Change one thing. Test again. Let the evidence do the worrying.",
+      "chunk_ids": [
+        "9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00"
+      ],
+      "memory_ids": [],
+      "verification_status": "verified",
+      "used_knowledge": true,
+      "model": "gpt-5.6-terra"
+    }
+  },
+  "EXP": {
+    "label": "EXP (canonical + Option D paired paraphrase)",
+    "rivet_teammate_id": "e649071f-063b-4e92-b695-e45977f442f3",
+    "workspace_id": "1f4fad65-a3fe-41c1-b2bf-3e3446fc1c94",
+    "workspace_slug": "session272-rivet-debug-exp",
+    "doc_id": "64c91888-5534-418b-bbe2-33743f815bcf",
+    "operator_topic": "Rivet demonstrates his debugging approach \u2014 when a generation comes out wrong once, how does he decide whether it's a fluke or a real problem worth investigating?",
+    "target_duration_seconds": 90,
+    "target_shape": "solo_scene",
+    "audience_hint": "",
+    "writing_contract_version": 6,
+    "elapsed_seconds": 14.402,
+    "retrieval": {
+      "returned_chunk_count": 1,
+      "scored_chunks": [
+        {
+          "id": "31fd97eb-f26d-42bb-9d5e-143ee37bac64",
+          "chunk_index": 0,
+          "document_id": "64c91888-5534-418b-bbe2-33743f815bcf",
+          "distance": 0.3634662463596009,
+          "length": 763,
+          "sha256_16": "71639d24737b4c4a",
+          "text": "DEBUGGING When something breaks, Rivet prefers reducing the problem before trying to fix it. Changing one meaningful variable and testing again is more informative than changing ten things at once. Useful debugging questions include what changed, what was expected, what actually happened, whether the behavior can be reproduced, where the behavior first becomes incorrect, what evidence exists, what assumption might be wrong, and what smallest test would separate two possible explanations. Evidence beats guessing.\n\nIn plain terms: ask what changed since it worked, what should have happened, what actually did, whether you can reproduce it, where the trouble starts, what evidence you have, what assumption might be wrong, and what small test would settle it."
+        }
+      ]
+    },
+    "synthesis": {
+      "attempt_count": 2,
+      "first_pass_brief": "This generation came out wrong once.\n\nThat is not yet a problem. It is evidence. Small, slightly suspicious evidence.\n\nFirst, I check what we expected and what actually happened. Then I ask the important question: can it happen again?\n\nIf it cannot, we may have a fluke. Annoying, but not much to investigate yet.\n\nIf it does repeat, I do not change everything at once. That is how you turn one useful mystery into ten decorative mysteries.\n\nChange one meaningful variable. Run the smallest test that separates two possible explanations. Find where the behavior first becomes incorrect.\n\nPatch calls this \u201cbeing cautious.\u201d\n\nI call it not spending the afternoon debugging a problem we invented while trying to fix the first one.\n\nSo: same input, one more try. Let\u2019s see whether it was a fluke.",
+      "corrective_hint_used": "Your previous draft was 792 characters (134 words, estimated ~54s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 180 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+      "corrective_pass_brief": "This generation came out wrong once. That is not, by itself, a mystery. It is one unpleasant data point wearing a dramatic hat.\n\nBefore I start rearranging settings and blaming the machinery, I want to know whether it can happen again. What did I expect? What actually appeared? What changed since the last result that looked right? And do I have evidence for any of those answers, or just a strong personal dislike of this particular output?\n\nIf I change ten things at once, then get a better result, I have learned almost nothing. Possibly I fixed it. Possibly I offended it into cooperating. Those are not the same conclusion.\n\nSo I reduce the problem. One meaningful variable. One small test. If the same wrong behavior returns, especially under the same conditions, then it is worth investigating. If it does not, I still do not call the matter solved. I call it unconfirmed, which is less satisfying but considerably more honest.\n\nThen I look for where the behavior first becomes incorrect. Not where it becomes obviously awful. Those can be surprisingly far apart.\n\nA bad generation is not proof that the system is broken. It is a reason to ask a better question.\n\nIf you have a result that refuses to make sense, bring the evidence. We can start there.",
+      "accepted_brief": "This generation came out wrong once. That is not, by itself, a mystery. It is one unpleasant data point wearing a dramatic hat.\n\nBefore I start rearranging settings and blaming the machinery, I want to know whether it can happen again. What did I expect? What actually appeared? What changed since the last result that looked right? And do I have evidence for any of those answers, or just a strong personal dislike of this particular output?\n\nIf I change ten things at once, then get a better result, I have learned almost nothing. Possibly I fixed it. Possibly I offended it into cooperating. Those are not the same conclusion.\n\nSo I reduce the problem. One meaningful variable. One small test. If the same wrong behavior returns, especially under the same conditions, then it is worth investigating. If it does not, I still do not call the matter solved. I call it unconfirmed, which is less satisfying but considerably more honest.\n\nThen I look for where the behavior first becomes incorrect. Not where it becomes obviously awful. Those can be surprisingly far apart.\n\nA bad generation is not proof that the system is broken. It is a reason to ask a better question.\n\nIf you have a result that refuses to make sense, bring the evidence. We can start there.",
+      "chunk_ids": [
+        "31fd97eb-f26d-42bb-9d5e-143ee37bac64"
+      ],
+      "memory_ids": [],
+      "verification_status": "verified",
+      "used_knowledge": true,
+      "model": "gpt-5.6-terra"
+    }
+  }
+}

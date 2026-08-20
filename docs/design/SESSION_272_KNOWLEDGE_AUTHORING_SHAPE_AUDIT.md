@@ -709,4 +709,350 @@ The RIVET data-hygiene detritus finding (`[Session 266 experimental clone — WE
 
 ---
 
-**End of SESSION 272 knowledge-authoring/knowledge-shape audit. Documentation-only. No implementation. Next slice: RIVET DEBUGGING shadow-doc experiment per §11.2 — separate slice, subsequent SESSION 272 turn.**
+**End of SESSION 272 audit — Slice A (documentation-only).**
+
+---
+
+## §15. SLICE B — RIVET DEBUGGING PAIRED-PARAPHRASE EXPERIMENT — ISOLATION DESIGN
+
+*(Written before any mutation, per the SESSION 272 §11.2 experimental protocol.)*
+
+### §15.1 Primary falsifiable question
+
+*When the SAME factual knowledge additionally provides a neutral accessible lexical surface, does synthesis — especially corrective expansion — prefer or materially use that surface rather than reproducing the canonical enumeration?*
+
+### §15.2 Sole intended variable
+
+**Presence of a paired accessible paraphrase paragraph in the DEBUGGING section of the retrievable knowledge.** All other pipeline inputs must be held constant across conditions A (control) and B (experiment).
+
+### §15.3 Isolation design: two disposable workspaces (Iso-2WS)
+
+Retrieval scope is enforced by construction in `apps.embeddings.retrieval.retrieve_for_teammate` (K0 contract rule 3):
+- Workspace filter is unconditional (`document__workspace=spokesperson.workspace`).
+- Universe filter is unconditional (`document__universe_id=spokesperson.universe_id`, or IS NULL when the teammate has no Universe).
+- M2M spokespeople visibility filter narrows further (`spokespeople__isnull=True` broadcast OR `spokespeople=this_teammate`).
+
+Given the workspace unique constraint `(workspace, name)` on Teammate (unique_together per SESSION 271 §262), TWO teammates named `Rivet` cannot coexist in the same workspace. The **cleanest** way to hold every other variable constant while varying only the paraphrase is **two disposable workspaces, each containing one cloned Rivet Teammate and one shadow document**:
+
+| Field | WS_CTL (control) | WS_EXP (experiment) |
+| --- | --- | --- |
+| Workspace slug | `session272-rivet-debug-ctl` | `session272-rivet-debug-exp` |
+| Universe slug | `session272-rivet-debug-ctl` | `session272-rivet-debug-exp` |
+| Teammate name | `Rivet` (cloned byte-for-byte from `5dd05e3c-e1e8-46bf-8cbf-f7d119ef9e70`) | `Rivet` (same clone) |
+| KnowledgeDocument | `RIVET-DEBUG (CTL) — SESSION 272 experimental substrate` | `RIVET-DEBUG (EXP) — SESSION 272 experimental substrate` |
+| Doc content | canonical DEBUGGING paragraph | canonical DEBUGGING paragraph + Option D paired paraphrase paragraph |
+| Other docs in workspace | NONE | NONE |
+| Other teammates in workspace | NONE | NONE |
+
+Both workspaces are disposable — Django FK cascade cleanly removes each. The **canonical RIVET doc `71e2ec43-6edc-47cf-beb5-25698a440d16` in workspace `097bd82e` is not touched** and its 14-chunk baseline SHA is recorded in §15.7 for post-experiment verification.
+
+### §15.4 What CTL and EXP share (byte-identical)
+
+- Character: **Rivet** (cloned byte-for-byte from the canonical Teammate row — `business_brief`, `personality`, `voice_energy`, `voice_humor`, `voice_directness`, `voice_signature_phrases`, `voice_avoid_phrases`, `tone_archetype`, `visual_template`, `who_you_help`, `character_point_of_view`, `desired_feeling`, `always_emphasize`, `never_say`, `runway_avatar_id`, `voice_id`).
+- Writing Contract version: **6**.
+- audience_hint: `""` (empty; universal invariant fires alone).
+- Operator topic: `Rivet demonstrates his debugging approach — when a generation comes out wrong once, how does he decide whether it's a fluke or a real problem worth investigating?` — a fresh unsaturated substrate, not any SESSION 271 topic.
+- Target duration: **90 seconds** (identical to canonical v6 verification render `994e7b1b`).
+- corrective_hint template: canonical duration-based (unchanged; Q-270-15c experiment env vars remain OFF).
+- Retrieval top_k: `5` (default).
+- Synthesis pipeline: `synthesize_with_duration_gate` (direct call).
+- Runtime: local-real mode; media-engine `openai_mock=false`; `RENDER_SCRIPT_FORCE_MOCK` unset.
+- NarrativeMemory policy: NONE — no memory rows attached to either render, so `retrieve_universe_memory` returns empty in both (both workspaces are fresh; no memories exist).
+- Model / provider: `gpt-4o-mini` via OpenAI (per media-engine health).
+
+### §15.5 The single differing factor
+
+The DEBUGGING section paraphrase paragraph, added ONLY to the EXP doc, character-agnostic (no reference to Rivet), same paragraph shape as canonical enumeration:
+
+**Canonical DEBUGGING paragraph (present in BOTH CTL and EXP):**
+
+> DEBUGGING When something breaks, Rivet prefers reducing the problem before trying to fix it. Changing one meaningful variable and testing again is more informative than changing ten things at once. Useful debugging questions include what changed, what was expected, what actually happened, whether the behavior can be reproduced, where the behavior first becomes incorrect, what evidence exists, what assumption might be wrong, and what smallest test would separate two possible explanations. Evidence beats guessing.
+
+**Option D paired paraphrase paragraph (EXP only):**
+
+> In plain terms: ask what changed since it worked, what should have happened, what actually did, whether you can reproduce it, where the trouble starts, what evidence you have, what assumption might be wrong, and what small test would settle it.
+
+The paraphrase preserves 100% of the eight canonical debugging-question concepts but expresses each in accessible everyday language. It does not remove the canonical enumeration; it adds a parallel accessible surface. No character voice, no audience directive, no anti-script.
+
+### §15.6 Confound analysis + mitigations
+
+| Potential confound | Mitigation |
+| --- | --- |
+| **Retrieval ranking may differ** — EXP doc has extra ~250 chars, so its embedding may drift; its chunk may score differently than CTL's. | Report actual retrieval scores + chunk IDs for both conditions. Do NOT interpret script differences as Option D evidence if retrieval fails to return the DEBUGGING chunk in one condition. |
+| **Chunking may differ** — the chunker (`TextSplitter`, `DEFAULT_CHUNK_SIZE=1000`, `DEFAULT_CHUNK_OVERLAP=200`) splits at paragraph boundaries first. CTL is one paragraph (~720 chars) → one chunk. EXP is two paragraphs (~720 + ~250 = ~970 chars) → one chunk (still under 1000). | Verify chunk count post-embedding for both docs. If both docs produce exactly one chunk, chunking is not a variable. |
+| **Doc length differs** — inherent to the experiment; the paraphrase IS the length. | Not a mitigatable confound — it is the treatment. Report actual chunk sizes. |
+| **Teammate clone drift** — if any field differs between the two Rivet clones. | Clone via `Teammate.objects.get(pk=canonical).pk = None; save()` pattern, then verify field-by-field equality. Explicit assertion loop before render. |
+| **Universe emptiness** — no NarrativeMemory in either workspace; canonical Patch's Workshop has 17 memories. Different memory-block content between experimental and canonical renders is a separate variable, not a CTL-vs-EXP one. Both CTL and EXP have zero memories → symmetric. | Verified in §15.9. |
+| **Missing Rivet-adjacent knowledge** — both workspaces have ONLY the debugging paragraph. Synthesis has less material than a canonical Rivet render. | This is symmetric across CTL and EXP → not a variable. Renders may be terser than production; the metric of interest (paraphrase reappearance in corrective expansion) is still measurable. |
+| **audience_hint provenance** — the SESSION 271 `_resolve_solo_audience_hint` reads step.params → settings → env. Since we go via `talking_head` starter or direct `synthesize_with_duration_gate` call, we pass `audience_hint=""` explicitly. Env vars are OFF (verified §15.9). | No leakage. |
+| **Model non-determinism** — LLM sampling temperature is not zero. Same input can produce slightly different outputs across runs. | Report all raw outputs. Single-shot experiment is enough to falsify (paraphrase presence) but not to quantify precisely — this is acknowledged as a limitation, not a design flaw. |
+| **Retrieval score reveals corpus imbalance** — a workspace with ONE doc always retrieves that doc at rank 1 regardless of query similarity. This means retrieval is guaranteed to return the DEBUGGING chunk in both conditions. | Confirmed. Retrieval isolation is by construction. |
+
+### §15.7 Baseline hashes (canonical RIVET doc, must remain unchanged)
+
+Recorded at experiment open. Verified again post-experiment in §16.7.
+
+- Doc ID: `71e2ec43-6edc-47cf-beb5-25698a440d16`
+- Workspace: `097bd82e-2995-4084-baa4-0f9692d804f7` (Patch's Workshop)
+- Chunks: 14
+- Full-text SHA-256: `75bac33223e3333893be2e589ac5adbbe9f16a9bfed361fe873a516e4d473b6e`
+- Full-text length: 10,323 chars
+- Per-chunk truncated hashes (16 hex chars):
+
+| idx | chunk_id | length | sha256_16 |
+| --- | --- | --- | --- |
+| 0 | fc0f716c-… | 654 | 95efbd82a45f94c5 |
+| 1 | 1af12752-… | 750 | 0b9560984a9b6f0c |
+| 2 | 0aba73ef-… | 752 | be5fe534b56d8f43 |
+| 3 | da5da06a-… | 659 | d8e59239fc1af09f |
+| 4 | ae6894f2-… | 667 | 7d5c1ac39d7917d4 |
+| 5 | bb65fcda-… | 576 | f6f405e6a516e306 |
+| 6 | 3b1da9ef-… (DEBUGGING) | 720 | 9c932bd9b55d6418 |
+| 7 | 24d21cfd-… | 986 | c5a66b2222657046 |
+| 8 | 8f1686ac-… | 863 | 580739eb98ddd1e6 |
+| 9 | 470ccc69-… | 760 | ff1e01c78d8f7998 |
+| 10 | 0d6acc67-… | 669 | f5c2b2a577aa1b30 |
+| 11 | 2c9b0837-… | 751 | b8f7cf2bf0adceae |
+| 12 | c95dd3a9-… | 969 | 8bd2a8bc0f73d9e6 |
+| 13 | 0158ad0d-… | 547 | 6378b7696f4e2aa9 |
+
+### §15.8 Cross-contamination proof
+
+**Claim:** The shadow docs in WS_CTL and WS_EXP cannot influence retrieval for:
+- (a) the canonical RIVET Teammate (in workspace `097bd82e`),
+- (b) any other Character OS teammate anywhere in the corpus,
+- (c) each other.
+
+**Proof:**
+
+1. `retrieve_for_teammate` filters `document__workspace = spokesperson.workspace` unconditionally (`retrieval.py` line 195). Cross-workspace retrieval is impossible by construction.
+2. The canonical Rivet Teammate `5dd05e3c` has `workspace = 097bd82e`. Its retrieval scope is workspace `097bd82e` only. It cannot see WS_CTL or WS_EXP docs.
+3. The disposable Rivet clones live in WS_CTL and WS_EXP respectively. Each has retrieval scope of its own workspace only. They cannot see the canonical RIVET doc `71e2ec43` (workspace `097bd82e`), nor each other's shadow doc (different workspace).
+4. The M2M spokespeople contract-rule 2 test suite (`test_retrieval_privacy`, `test_retrieval_isolation`) is the load-bearing enforcement; edits to bypass it fail review.
+
+**Impact on other teammates:** none. No shared Universe, no shared workspace, no M2M spokespeople linkage.
+
+### §15.9 Runtime state prior to mutation
+
+- `main == origin/main` at `211fc5f` (SESSION 272 §14 SHA-record commit).
+- Working tree clean.
+- Django `:8010/admin/` → `http=302`.
+- Media-engine `:8001/health` → `{status:ok, openai_mock:false, runway_mock:false, image_gen_mock:false, any_mock:false, llm_provider:openai, llm_model:gpt-4o-mini}`.
+- Vite `:5174/` → `http=200`.
+- Celery worker: fresh (~34s post-restart at Slice A close); `inspect ping` replied.
+- Experiment env vars: **zero found** across all worker PIDs.
+- Canonical RIVET doc SHA verified matches §15.7 baseline.
+
+### §15.10 Explicit non-changes committed to for Slice B
+
+- Canonical RIVET doc `71e2ec43`: byte-stable. Verified pre + post.
+- All other canonical KnowledgeDocuments (67 of 68): unchanged.
+- Writing Contract v6: unchanged.
+- Corrective-hint wording: unchanged.
+- Persona / any Teammate row: unchanged for canonical Rivet `5dd05e3c` and every other canonical teammate.
+- Schema: unchanged (no migration).
+- Environment variables: unchanged (all `CHARACTER_OS_*_HINT` / `_POLICY` / `_EXPERIMENT` remain OFF).
+- NarrativeMemory: no promotion, no new memory rows.
+- Runtime / model configuration: unchanged.
+
+### §15.11 Reversibility contract
+
+At end of Slice B, the following ORM operations restore the corpus to its pre-experiment state:
+
+```
+Workspace.objects.filter(slug__in=["session272-rivet-debug-ctl", "session272-rivet-debug-exp"]).delete()
+```
+
+Django FK cascade deletes: Universe, Teammate, KnowledgeDocument, KnowledgeChunk, Composition, CompositionStep in each disposable workspace. Cross-workspace refs are impossible by construction (proof §15.8). Canonical Patch's Workshop is untouched.
+
+Reversibility is exercised at the end of Slice B — the disposable workspaces are deleted after evidence is frozen to sidecars.
+
+---
+
+## §16. SLICE B — RIVET DEBUGGING PAIRED-PARAPHRASE EXPERIMENT — EXECUTION + VERDICT
+
+### §16.1 Setup manifest
+
+Setup script: `scripts/session272_slice_b_setup.py`. Ingested via `apps.embeddings.ingestion.ingest_text` (production path). Embedded synchronously via `apps.embeddings.tasks.embed_document` (production task, called directly).
+
+| Field | CTL | EXP |
+| --- | --- | --- |
+| Workspace | `d73fb96a-e5e2-473c-a83a-af0e55b70e9f` (slug `session272-rivet-debug-ctl`) | `1f4fad65-a3fe-41c1-b2bf-3e3446fc1c94` (slug `session272-rivet-debug-exp`) |
+| Universe | `98a292a1-c9f2-4389-94b0-f12d4f2e7565` | `23810779-6fd4-4f32-bfc6-92d924f7476c` |
+| Rivet Teammate | `af86f830-e2b7-4318-8c30-60bd4734a3f4` | `e649071f-063b-4e92-b695-e45977f442f3` |
+| KnowledgeDocument | `d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6` (517 chars) | `64c91888-5534-418b-bbe2-33743f815bcf` (763 chars) |
+| Doc SHA-256 | `b17105434b87d6ab9589165eb381f72ac7a1cfd39161eedbc2a1db6a00958d94` | `71639d24737b4c4a984c833087d1dee87be7b79301d94232a73c6f77fc2a0b1f` |
+| Chunk count | **1** (idx=0, 517 chars, sha16=`b17105434b87d6ab`) | **1** (idx=0, 763 chars, sha16=`71639d24737b4c4a`) |
+| Doc status | `processed` | `processed` |
+
+**Chunking symmetry confirmed:** Both docs produced exactly one chunk. Neither hit the 1000-char soft split limit. Chunker did NOT introduce a chunking variable across conditions.
+
+Setup sidecar: `docs/design/session_272_experiment_data/00_slice_b_setup_manifest.json`.
+
+### §16.2 Rendering
+
+Render script: `scripts/session272_slice_b_render.py`. Direct call to `character_os.duration_contract.synthesize_with_duration_gate` (no Runway avatar_speech, no Celery, no Composition row). Same call signature for both conditions:
+
+```
+synthesize_with_duration_gate(
+    rivet_teammate,
+    OPERATOR_TOPIC,
+    target_duration_seconds=90,
+    target_shape="solo_scene",
+    audience_hint="",
+)
+```
+
+Both conditions used **Writing Contract v6**. `audience_hint=""` → universal invariant fires alone (no §5 AUDIENCE DIRECTIVE emitted). No corrective-hint change. No experiment env vars set (verified via `ps eww` on worker PIDs).
+
+### §16.3 Retrieval results
+
+Retrieval distance to the operator topic (lower = closer semantic match):
+
+| Condition | Chunks returned | Rank-1 chunk ID | Distance |
+| --- | --- | --- | --- |
+| CTL | 1 | `9a2b6f01-4557-4107-ae9e-8c2a9a9d2e00` | **0.3381** |
+| EXP | 1 | `31fd97eb-f26d-42bb-9d5e-143ee37bac64` | **0.3635** |
+
+**Confound flag noted (per §15.6):** EXP retrieval distance is 7.5% higher than CTL. The Option D paired paraphrase slightly diluted the embedding's match to the debugging query. This is a real side effect — the extended chunk still ranked at position 1 in a single-doc workspace, but its cosine similarity to the query is measurably worse. In a multi-doc workspace, this could plausibly push the shadow-form chunk down the ranking. Flagged for follow-up.
+
+### §16.4 Synthesis outputs
+
+**Both conditions accepted after ONE corrective retry (attempt_count=2).** Both verified. Both first-pass drafts undershot the 81-second synth target and triggered the canonical `Expand secondary detail from the knowledge chunks` corrective hint.
+
+| Condition | Draft A chars | Corrective hint fired | Draft B chars | verification_status |
+| --- | --- | --- | --- | --- |
+| CTL | 568 (≈39 s) | duration expansion | 1420 (accepted) | `verified` |
+| EXP | 792 (≈54 s) | duration expansion | 1260 (accepted) | `verified` |
+
+Full drafts + hints are in the frozen sidecar `01_slice_b_ab_render_evidence.json`.
+
+### §16.5 Concept-level lexical analysis
+
+**Coding scheme (SESSION 271 §191.6 style):** count verbatim substring matches for each canonical enumeration item and each Option D paraphrase item.
+
+Canonical enumeration items sought (from the DEBUGGING chunk verbatim):
+`what changed` / `what was expected` / `what actually happened` / `whether the behavior can be reproduced` / `where the behavior first becomes incorrect` / `what evidence exists` / `what assumption might be wrong` / `what smallest test would separate two possible explanations` / `one meaningful variable` / `changing ten things at once` / `evidence beats guessing`.
+
+Option D paraphrase items sought (present ONLY in the EXP document):
+`what should have happened` / `what actually did` / `whether you can reproduce it` / `where the trouble starts` / `what evidence you have` / `what small test would settle it` / `since it worked` / `in plain terms` / `small test`.
+
+| Draft | RAW-CANONICAL matches | Which canonical items matched | PARAPHRASE matches | Which paraphrase items matched |
+| --- | --- | --- | --- | --- |
+| CTL Draft A | **3** | `what changed`, `what actually happened`, `one meaningful variable` | 0 | — |
+| CTL Draft B (accepted) | **5** | `what changed`, `what actually happened`, `where the behavior first becomes incorrect`, `one meaningful variable`, `evidence beats guessing` | 1 | `small test` (also present in CTL — not paraphrase-specific) |
+| EXP Draft A | **3** | `what actually happened`, `where the behavior first becomes incorrect`, `one meaningful variable` | 0 | — |
+| EXP Draft B (accepted) | **3** | `what changed`, `where the behavior first becomes incorrect`, `one meaningful variable` | 1 | `small test` |
+
+**Primary finding — Draft B raw canonical matches:**
+
+- CTL Draft B: **5** raw canonical hits (including `evidence beats guessing`, Rivet's signature line).
+- EXP Draft B: **3** raw canonical hits.
+
+**EXP produced 40% fewer raw canonical enumeration items in the corrective-expanded accepted script.** Directional support for Option D reducing lexical-gravity attractor reappearance.
+
+**Secondary finding — the load-bearing attractor was NOT displaced:**
+
+`where the behavior first becomes incorrect` (identified in SESSION 271 §191.9 as an example of dense-enumeration gravity) appears verbatim in BOTH Draft Bs. The Option D paraphrase equivalent `where the trouble starts` appears in NEITHER draft. Even though the paraphrase was physically adjacent in the retrieved EXP chunk, synthesis reached for the canonical form on this specific attractor. **Option D reduces total attractor count but does not selectively displace the strongest attractor.**
+
+**Tertiary finding — EXP did not adopt paraphrase-specific vocabulary preferentially:**
+
+The paraphrase-specific phrases (`what should have happened`, `what actually did`, `whether you can reproduce it`, `where the trouble starts`, `what evidence you have`, `what small test would settle it`, `since it worked`, `in plain terms`) all appeared **zero** times in the EXP drafts. EXP Draft B does contain **semantically equivalent accessible verbiage** — `What did I expect?`, `What actually appeared?`, `What changed since the last result that looked right?` — but these are model-generated new expressions, not verbatim adoption of the paraphrase text. The paired paraphrase apparently acted as a *stylistic cue* rather than as a substitution table.
+
+### §16.6 Rivet identity marker preservation
+
+Rivet's signature phrasing / worldview markers:
+
+| Marker | CTL Draft B | EXP Draft B |
+| --- | --- | --- |
+| `evidence beats guessing` (canonical signature line) | ✓ | ✗ (absent) |
+| `meaningful variable` | ✓ | ✓ |
+| `reduce the problem` | ✓ | ✓ |
+| `smallest test` | ✓ | ✗ (only `one small test`) |
+| `one small test` | ✗ | ✓ |
+| `not a diagnosis` | ✓ | ✗ (uses `not, by itself, a mystery`) |
+| `dramatic hat` / `wearing a dramatic hat` | ✓ ✓ | ✓ ✓ |
+| `decorative mysteries` (Rivet-flavored line) | ✗ | ✓ (EXP Draft A: "ten decorative mysteries") |
+| **Total identifiable markers** | **7** | **5** |
+
+**Observation:** EXP Draft B preserves Rivet identity but *loses two canonical markers* (`evidence beats guessing`, `smallest test`) while *adding two accessible equivalents* (`one small test`, `decorative mysteries`). Net identity preservation: **broadly intact but slightly reshaped**. Not a regression, but not a strict superset of CTL either.
+
+### §16.7 Canonical RIVET doc hash verification (post-experiment)
+
+Verified after both renders: canonical RIVET doc `71e2ec43-6edc-47cf-beb5-25698a440d16` unchanged.
+
+- Full-text SHA-256 (post): `75bac33223e3333893be2e589ac5adbbe9f16a9bfed361fe873a516e4d473b6e` — **matches §15.7 baseline** ✓
+- Full-text length: 10,323 chars — matches ✓
+- 14 chunk hashes — all match ✓
+
+No mutation to canonical Rivet knowledge occurred.
+
+### §16.8 Verdict on the primary falsifiable question
+
+**Verdict B — PARTIAL / CONFOUNDED.**
+
+- Effect direction is consistent with Option D reducing raw-canonical reappearance in corrective expansion: CTL 5 → EXP 3 raw canonical hits (a 40% reduction).
+- Effect is **not clean**: the strongest single attractor (`where the behavior first becomes incorrect`) was NOT displaced in EXP, and the paraphrase-specific vocabulary was NOT adopted verbatim in EXP.
+- **Retrieval confound**: EXP retrieval cosine distance 0.3635 vs CTL 0.3381 (7.5% worse). In a multi-doc workspace this could plausibly starve the shadow-form chunk of retrieval altogether. Cannot be dismissed.
+- **Statistical confound**: single-shot render per condition. LLM sampling variance is uncontrolled. A 5 → 3 delta at n=1 is directional but not statistically defensible.
+- **Identity confound**: EXP lost the signature `evidence beats guessing` line. This is a mildly negative side effect that would need to be verified across more trials.
+
+The question is not answered A / C / D by this experiment. The evidence rules out "no effect" and rules out "Option D fixes it" — it lands squarely at "Option D helps somewhat, doesn't block the strongest attractor, and comes with side effects worth measuring."
+
+### §16.9 Recommended smallest next move
+
+**Do NOT promote Option D to a production authoring convention.**
+
+Two low-cost follow-up experiments would meaningfully advance the question. Neither should be run in this slice. Each is a bounded next-slice candidate.
+
+**Follow-up #1 — Multi-shot replicate (highest information-per-cost).**
+- Run the SAME CTL/EXP setup 4 more times each (n=5 per condition). Same operator_topic, same everything. Measure canonical-vs-paraphrase distribution across trials. Falsifiability: if the CTL-vs-EXP delta stays consistently around 40%, effect is real. If it collapses to zero or flips, single-shot delta was sampling noise.
+- Cost: ~$0.25 total on gpt-4o-mini.
+- Reversibility: same disposable workspaces reused; no new corpus rows.
+
+**Follow-up #2 — Per-term inline pairing (Option A shape from §7).**
+- Modify the EXP doc to use per-item inline pairing rather than a trailing paired paraphrase paragraph. Example: `Useful debugging questions include what changed (since it worked), what was expected (what should have happened), what actually happened (what actually did), ...`.
+- This physically co-locates each canonical term with its accessible gloss, giving synthesis a substitution-table shape rather than a stylistic-cue shape.
+- Falsifiability: if Option A displaces `where the behavior first becomes incorrect` with `where it goes wrong` or similar in Draft B where Option D did not, the paired-inline shape is materially stronger.
+- Same disposable workspace, same render pipeline. Additive slice; canonical corpus still untouched.
+
+**Not recommended for the next slice:**
+- Rewriting canonical Rivet doc. Waiting for multi-shot evidence.
+- Rewriting canonical Patch doc. Same.
+- Modifying the corrective hint text. Owned by Q-270-15c; separate concern.
+- Adding Option D authoring guidance to a scope-lock document. Waiting for stronger evidence.
+- REPO RED-style canned-quote pathology test. Separate slice; different mechanism.
+- Cross-domain (Patch/PENNY/REPO RED) generalization test. Wait for Rivet finding to stabilize first.
+
+### §16.10 Cleanup (reversibility exercised)
+
+Disposable workspaces WERE NOT deleted at experiment close, because the follow-up multi-shot replicate reuses the exact same substrate. If the follow-up is deferred indefinitely, run:
+
+```
+Workspace.objects.filter(
+    slug__in=["session272-rivet-debug-ctl", "session272-rivet-debug-exp"],
+).delete()
+```
+
+Or run `scripts/session272_slice_b_setup.py` again — its `_teardown_if_exists()` prologue is idempotent and deletes-and-recreates cleanly.
+
+### §16.11 Slice B non-changes (verified)
+
+- Canonical RIVET doc `71e2ec43` — SHA verified unchanged post-experiment (§16.7).
+- Writing Contract v6 — unchanged.
+- Corrective-hint wording — unchanged (canonical duration hint used verbatim).
+- Persona / Teammate row for canonical Rivet `5dd05e3c` — unchanged. Clones are separate rows in disposable workspaces.
+- Schema — unchanged.
+- All experiment env vars — remain OFF.
+- NarrativeMemory — no promotion; disposable workspaces have zero memories.
+- Runtime / model — unchanged.
+- 67 other canonical KnowledgeDocuments — unchanged.
+
+### §16.12 Evidence sidecars
+
+- `docs/design/session_272_experiment_data/00_slice_b_setup_manifest.json` — setup manifest (workspace/universe/teammate/doc IDs, chunk texts, hashes).
+- `docs/design/session_272_experiment_data/01_slice_b_ab_render_evidence.json` — retrieval scores, first-pass drafts, corrective hints, accepted drafts, verification statuses, attempt counts, model.
+
+---
+
+**End of SESSION 272 Slice B. Verdict B — PARTIAL / CONFOUNDED. Do not implement Option D. Next candidate slice: multi-shot replicate of Slice B (highest information-per-cost) before considering Option A per-term inline pairing.**
