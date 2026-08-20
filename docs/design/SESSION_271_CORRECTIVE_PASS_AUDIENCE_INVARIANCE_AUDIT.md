@@ -2253,10 +2253,10 @@ If Trial 3 confirms Trial 2, Slice 6 can consider E2/E3 or move to Q-270-15b. If
 
 ## §80. Slice 4 commit + push record
 
-- Slice 4 commit SHA: `<pending — populated after commit>`
-- Push: `<pending>`
-- Local `main == origin/main`: `<verified at commit time>`
-- Working tree at Slice 4 close: `<verified clean>`
+- Slice 4 commit SHA: `cca8bb9` — `docs(session-271): Slice 4 — promotion decision audit for Q-270-15c revision-based expansion (verdict B: one more controlled trial first)`.
+- Push: `9412d60..cca8bb9 main -> main` (successful).
+- Local `main == origin/main == cca8bb9` verified.
+- Working tree at Slice 4 close: clean.
 - Files touched by Slice 4:
   - `docs/design/SESSION_271_CORRECTIVE_PASS_AUDIENCE_INVARIANCE_AUDIT.md` — §72–§80 appended (this section)
 - **No source, no tests, no evidence sidecar, no schema in Slice 4.**
