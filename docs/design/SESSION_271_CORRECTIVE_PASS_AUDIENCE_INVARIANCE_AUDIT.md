@@ -4999,3 +4999,534 @@ This is the definitive fox-first check. The architecture does NOT require Charac
 ---
 
 **End of SESSION 271 Slice 8 architectural design/audit. Recommendation: Option W1 — UNIVERSAL Writing Contract §4 audience-aware communication invariant (contract v6 bump, solo_scene scope) + promote `audience_hint` to canonical per-render surface. Fox-first test passes. Decision gate: IMPLEMENT — smallest implementation slice defined; awaiting Chris + ChatGPT ratification on wording + home for audience_hint + scope + env-plumbing fate.**
+
+---
+
+# SESSION 271 — SLICE 9 · Final pre-implementation design ratification (audience-context home + invariant wording + v6 scope)
+
+Slice 8 ratified the high-level architecture. Slice 9 resolves the remaining implementation questions mechanically before Claude touches production code.
+
+**Anchor state at Slice 9 open:** HEAD `cd01b85`, `main == origin/main`, working tree clean, all three experiment env vars unset, canonical worker (§159 cleanup lineage), NarrativeMemory pool 14 remembered + 1 archived, Writing Contract v5. NO code, NO schema, NO knowledge, NO persona edits, NO renders in Slice 9.
+
+---
+
+## §177. Read-only mechanical inventory (source facts underlying every §178+ decision)
+
+### §177.1 Composition model — persisted fields relevant to render intent
+
+Per `shell/apps/compositions/models.py`:
+
+| Field | Type | SESSION | Populated by | Note |
+|---|---|---|---|---|
+| `operator_topic` | TextField, blank default `""` | 262 | starter at create time | verbatim render topic/brief; NOT the listener |
+| `target_duration_seconds` | PositiveSmallInt, nullable | 262 | starter | required for duration-driven recipes |
+| `synthesis_attempt_count` | PositiveSmallInt, default 0 | 262 | duration gate | 0/1/2 |
+| `first_pass_synthesis` / `corrective_hint` / `corrective_pass_synthesis` | TextField, blank default `""` | 262 | duration gate | immutable-after-write |
+| `validation_failure_reason` | TextField, blank default `""` | 262 | verifier/gate | free-form |
+| `synthesis_predicted_seconds` | FloatField, nullable | 262 | duration gate | |
+| `render_dispatched_at` | DateTimeField, nullable | 262 | primitives at client-call boundary | immutable |
+| `writing_contract_version` | PositiveSmallInt, default 0 | 253 | synth path | version stamp |
+| `verification_warnings` / `verification_status` / `synthesized_brief` / `rejected_synthesis` | mixed | pre-262 + 253 | verifier + synth | |
+
+**No `audience_hint` field exists on Composition today.** No existing Composition-level surface names the render's listener context.
+
+### §177.2 CompositionStep model — per-step params surface
+
+`CompositionStep.params: JSONField(default=dict, blank=True)` — free-form JSON per step primitive. Per-primitive schema enforced inside `apps/compositions/primitives/<name>.py`.
+
+Current step.params usage for `generate_avatar_speech` (from `starters.py:694-720`):
+
+```python
+step_params: dict = {
+    "script": script.strip(),
+    "use_knowledge": bool(use_knowledge),
+}
+if verifier_mode:            step_params["verifier_mode"] = verifier_mode
+if opener and opener.strip():step_params["opener"] = opener.strip()
+if coerced_duration:         step_params["target_duration_seconds"] = coerced_duration
+```
+
+Note: `audience_hint` is NOT part of any starter's step_params today. SESSION 270 audience-hint plumbing reads `step.params['audience_hint']` FIRST in its precedence chain (`avatar_speech.py::_resolve_solo_audience_hint`), then Django settings, then env var. **The step.params slot is already supported by the resolver — but no starter writes to it.**
+
+### §177.3 avatar_speech resolver precedence (SESSION 270 §13)
+
+```python
+def _resolve_solo_audience_hint(step) -> str | None:
+    per_render = (step.params or {}).get("audience_hint")
+    if isinstance(per_render, str) and per_render.strip():
+        return per_render.strip()
+
+    setting_value = getattr(settings, _SOLO_AUDIENCE_HINT_SETTING, None)
+    if isinstance(setting_value, str) and setting_value.strip():
+        return setting_value.strip()
+
+    env_value = os.environ.get(_SOLO_AUDIENCE_HINT_ENV, "")
+    if env_value.strip():
+        return env_value.strip()
+
+    return None
+```
+
+**Existing surface already accepts `step.params['audience_hint']` as highest-precedence source.** Env var is fallback for research plumbing. **No primitive changes required to canonicalise step.params as the runtime read path.**
+
+### §177.4 Composition immutability + rerender semantics
+
+- Grep for `rerender / regenerate / clone_composition / _copy_composition` across `apps/compositions/`: **no matches.**
+- Rerender = new Composition per `EPISODE_LIFECYCLE_V1.md §Q3` + SESSION 262 immutability discipline (COMPOSITION_OBSERVABILITY_V1.md Q5).
+- Historical Compositions preserve step.params + all SESSION 262 observability fields forever.
+
+**Implication:** whatever slot carries `audience_hint` for THIS Composition must be persisted so a later audit can answer *"who was this Composition addressing?"* without replay. Transient locations (env vars, request headers not stored) are out.
+
+### §177.5 Character audience surface today — `who_you_help`
+
+`Teammate.who_you_help: TextField` is rendered inside `_build_factual_basis_section` (§1) as an `AUDIENCE:` block: `AUDIENCE:\n{who_you_help}`. This is the CHARACTER'S TARGET AUDIENCE (business-level; static per character); it is DIFFERENT from the per-render listener.
+
+Confusion risk: two things labelled "AUDIENCE" — §1 `AUDIENCE:` block (character canonical audience) vs §5 HARD-CONSTRAINT `AUDIENCE DIRECTIVE` block (per-render listener). Both can coexist without conflict; the model already handles both correctly in every SESSION 270/271 render.
+
+### §177.6 SESSION 270 audience_hint activation-gap failure history
+
+3 of 5 SESSION 271 experiment trials suffered activation gap because the SESSION 270 env-var path required session-boundary env-var propagation. Trials 2 + 4 + 6 succeeded via Claude-inline activation in a single Bash tool call. **Env-var-only surface is architecturally fragile for anything beyond research plumbing.** Production surface must not rely on env-var propagation.
+
+---
+
+## §178. Canonical audience-context recommendation
+
+### §178.1 Option matrix (evaluated against 13 criteria)
+
+| Criterion | A: `step.params["audience_hint"]` only | B: `Composition.audience_hint` field only | **C: HYBRID (Composition field = source of truth; starter copies to step.params for runtime)** | D: existing structure reused |
+|---|---|---|---|---|
+| First render | ✅ works (SESSION 270 resolver reads step.params) | ✅ works if primitive learns to read Composition | **✅ works** — starter copies field → step.params, primitive unchanged | ❌ no existing Composition-level render-intent field carries listener context |
+| Corrective retry | ✅ step.params stays constant | ✅ Composition field stays constant | **✅ both stay constant** | — |
+| Composition rerender (new row) | ⚠️ operator must resupply audience_hint via API/step.params on every rerender | ✅ operator supplies via new Composition field; may be pre-filled from prior Composition | **✅ operator supplies via new Composition field; starter copies again** | — |
+| Async Celery execution | ✅ params serialise as JSON | ✅ Composition row already accessible in worker | **✅** — worker reads step.params (unchanged path) | — |
+| Historical auditability | ⚠️ `CompositionStep.objects.filter(primitive="generate_avatar_speech")[0].params.get("audience_hint")` — awkward; multi-step recipes may store on any step | ✅ `Composition.audience_hint` — one-line query per composition | **✅ same as B for the source-of-truth query; step.params provides secondary runtime trace** | — |
+| Reproducibility | ⚠️ need to snapshot step.params separately for audit → SESSION 262 §DF-262-2 already flagged that failure paths lose per-step context | ✅ persisted on immutable Composition row | **✅ same as B** | — |
+| UI editing before render | ⚠️ requires operator to touch step.params JSON blob or SPA form on step surface | ✅ SPA form field on Composition-create surface — same shape as `target_duration_seconds` today | **✅ same as B** | — |
+| Episode-attached talking_head | ✅ current path already works (SESSION 270 dogfood) | ✅ Composition already Episode-scoped; audience_hint stamps at create | **✅** — starter copies from Composition → step | — |
+| Future long_form | ⚠️ starter would need to remember to add audience_hint to every generate_avatar_speech step params dict (long_form_ad has N steps) | ✅ ONE Composition-level field, N steps read via starter copy | **✅** — starter writes once (as Composition field), copies to each step | — |
+| Future dialogue | ⚠️ dialogue-scene has one synth call → OK, but the dialogue lane doesn't currently touch audience_hint at all (SESSION 270 §D §B0) | ✅ future dialogue-lane rollout would read `Composition.audience_hint` — same shape as talking_head | **✅ same** | — |
+| API compatibility | ⚠️ existing recipe registry doesn't expose audience_hint as a first-class recipe field — would require per-primitive schema updates | ✅ additive Composition field; DRF serializer additive expose | **✅ same as B** | — |
+| Schema/migration cost | none | one migration (0015): additive `audience_hint: TextField(blank=True, default="")` | **same as B** (one migration) | — |
+| Single source of truth | ❌ step.params is per-step; multi-step recipes could disagree | ✅ Composition-level | **✅** — Composition is the source; step.params derives from it (write-through cache) | — |
+| Mechanically answers *"who was this Composition addressing?"* | ⚠️ requires knowing which step + JSON key path | ✅ one field | **✅** | — |
+
+**Verdict: Option C — HYBRID.**
+
+- **Source of truth:** `Composition.audience_hint: TextField(blank=True, default="")` — additive-nullable-or-empty per SESSION 262 discipline. Immutable-after-write (same rule as `operator_topic` / `target_duration_seconds`).
+- **Runtime read path:** unchanged. SESSION 270 resolver keeps reading `step.params['audience_hint']` first; starter copies `Composition.audience_hint` → `step.params['audience_hint']` at step-create time so the primitive doesn't need modification.
+- **Env var + Django setting:** SESSION 270 fallback chain (settings → env) remains available for research/experimental plumbing but is NEVER the source of truth in production. Existing E-KNOWLEDGE-1 tests continue to pass because they use `monkeypatch.setenv` which the resolver still honors when step.params is empty.
+
+**Why hybrid over pure B:** the resolver's step.params → settings → env chain is already the deployed contract (SESSION 270 tests + 6 trials of dogfood evidence). Changing the primitive to read directly from Composition would touch the primitive layer for zero mechanical gain and risk breaking the audience-hint E2E test. Starter-side copy is a 1-line change; primitive stays untouched.
+
+### §178.2 Audience-context lifecycle / data-flow map
+
+```
+                     operator UI (SPA)                         (post-implementation)
+                          │
+                          │  POST /api/compositions/  {..., "audience_hint": "..."}
+                          ▼
+                   view / serializer
+                          │  writes Composition.audience_hint (source of truth)
+                          ▼
+                       starter
+                          │  copies Composition.audience_hint → step_params["audience_hint"]
+                          ▼
+              CompositionStep.params (runtime cache)
+                          │
+                          │  Celery execute_composition → generate_avatar_speech primitive
+                          ▼
+     avatar_speech._resolve_solo_audience_hint(step)
+       (unchanged resolver: step.params → settings → env)
+                          │
+                          ▼
+           synthesize_with_duration_gate(..., audience_hint=...)
+             (unchanged closure — audience_hint reaches both passes)
+                          │
+                          ▼
+           build_render_brief → _assemble_task_message
+             emits §5 AUDIENCE DIRECTIVE block (unchanged)
+```
+
+**No new primitive-layer code required.** The starter-side one-line copy + Composition field is the entire mechanical change on the audience-hint front.
+
+### §178.3 Env-plumbing continuity
+
+SESSION 270 audience-hint env var + Django-setting chain remains available for future research (audience-directive ablation, E-KNOWLEDGE-1 style tests). Production sets neither; production Composition creates carry `audience_hint` directly in the API request payload. Env-gated research plumbing and canonical production surface coexist without conflict.
+
+---
+
+## §179. Invariant wording — clause-by-clause review
+
+Current candidate (Slice 8 §164.2):
+
+> *"Adapt communication to the listener without changing character identity, intelligence, expertise, humor, personality, factual grounding, or confidence. Use technical terminology when it actually helps, and translate it into ordinary language when it does not. Match technical depth, vocabulary, examples, and analogies to the listener's likely background knowledge."*
+
+### §179.1 Clause-by-clause defense
+
+| Clause | Necessary? | Why | Character-agnostic across Fenn/Ursula/Ember/Patch/Rivet? |
+|---|---|---|---|
+| *"Adapt communication to the listener"* | ✅ YES | states the invariant's purpose | ✅ |
+| *"without changing character identity"* | ✅ YES | protects §2 Character Voice from over-adaptation | ✅ |
+| *"intelligence"* | ✅ YES | protects against dumbing-down when audience is a beginner | ✅ |
+| *"expertise"* | ✅ YES | protects against a fox baker losing baking depth when talking to kids | ✅ (each character has DIFFERENT expertise; the invariant preserves whatever expertise the character has) |
+| *"humor"* | ✅ YES | protects Patch's dry wit / Ursula's calm restraint | ✅ |
+| *"personality"* | ⚠️ redundant with "identity"? | subtle: identity = who; personality = how they express themselves. Distinct enough. **KEEP.** | ✅ |
+| *"factual grounding"* | ✅ YES | reinforces PRECEDENCE rule 1 (§1 wins on TRUTH) even under audience adaptation | ✅ |
+| *"or confidence"* | ✅ YES | protects against a child-audience render becoming full of hedges that make the character sound uncertain | ✅ |
+| *"Use technical terminology when it actually helps"* | ✅ YES | prevents blanket-jargon-suppression (an expert-audience render should use precise vocabulary) | ✅ |
+| *"and translate it into ordinary language when it does not"* | ✅ YES | pairs with the previous clause to give a bidirectional rule | ✅ (Trial 4 evidence: this exact clause produced *"keep track of what happened along the way"* translation) |
+| *"Match technical depth, vocabulary, examples, and analogies to the listener's likely background knowledge"* | ✅ YES | covers 6 of the 7 §167 audience-aware dimensions in one sentence | ✅ |
+
+### §179.2 Potential over-restriction concerns
+
+- *"ordinary language"* — could over-suppress technical vocab when listener wants it? **No, because the preceding "when it actually helps" clause protects expert-audience renders.** Trial 4 Draft B kept `call APIs` in the accessible enumeration and used `language model` with contextual grounding — the invariant did NOT force translation of every technical term.
+- *"examples, and analogies"* — should always adapt or only when useful? The sentence says "match ... to the listener's likely background knowledge" — this is bounded ("match", not "always insert"). Model uses judgment.
+
+### §179.3 Alternative shorter form — evaluated + rejected
+
+Shortest defensible version:
+
+> *"Adapt communication to the listener without changing character identity, intelligence, humor, or factual grounding. Use technical terms when they help; translate when they don't. Match depth to the listener's background knowledge."*
+
+- Drops: *"expertise"*, *"personality"*, *"confidence"*, *"vocabulary, examples, and analogies"*
+- Cost of shortening: loses explicit preservation of Ursula's calm-methodical vs Ember's stoic-direct personality (both would be at risk under blanket "adapt"). Loses child-audience confidence protection. Loses examples/analogies as first-class communication levers.
+- **Verdict: keep the fuller wording.** The extra clauses are load-bearing across the thought-experiment characters.
+
+### §179.4 Final invariant wording — RATIFIED (recommended)
+
+**Frozen for v6 implementation** (Claude recommends adopting verbatim; Chris + ChatGPT may still refine):
+
+> *"Adapt communication to the listener without changing character identity, intelligence, expertise, humor, personality, factual grounding, or confidence. Use technical terminology when it actually helps, and translate it into ordinary language when it does not. Match technical depth, vocabulary, examples, and analogies to the listener's likely background knowledge."*
+
+**Character count:** 336. **Word count:** 55. Comparable to Writing Contract's existing invariant blocks (§13.28 lists LENGTH block ~150 chars; INVARIANTS ~800 chars; NARRATIVE SHAPES ~400 chars; each dimension is a small paragraph). Fits.
+
+---
+
+## §180. No-explicit-audience_hint fallback hierarchy
+
+### §180.1 What Character OS already knows about the character's audience when `audience_hint` is empty
+
+`_build_factual_basis_section` emits `AUDIENCE:\n{who_you_help}` inside §1 whenever the character has `who_you_help` populated. So the character's DEFAULT AUDIENCE is ALREADY visible to the model in §1 — no fallback logic needed at the invariant layer.
+
+### §180.2 Fallback hierarchy (mechanical, no new code beyond §178.1)
+
+1. **`Composition.audience_hint` set** → emitted as §5 HARD-CONSTRAINT `AUDIENCE DIRECTIVE` block (per-render override).
+2. **`Composition.audience_hint` empty** → no §5 block; universal invariant in §4 reads §1 `AUDIENCE:` (Teammate.who_you_help) as the character's baseline listener context.
+3. **`Teammate.who_you_help` also empty** → no §1 AUDIENCE block either; universal invariant is character-agnostic and produces character-persona-defaulted output. Model reasons about audience implicitly from `personality` / `character_point_of_view`.
+
+### §180.3 Fox-first check on fallback
+
+- Chris creates Fenn with `who_you_help = "home bakers who want better bread"`. Renders a video with no per-render `audience_hint`. **Expected:** universal invariant reads §1 AUDIENCE = home bakers; Fenn adapts to home-baker background knowledge; produces sensible first render.
+- If Chris forgets to fill `who_you_help` (edge case): character-persona-defaulted output. Not ideal, but not broken; wizard should recommend filling `who_you_help` but not require it.
+
+**No new required wizard field.** Existing `who_you_help` continues to be the character's canonical audience descriptor.
+
+### §180.4 What NOT to add
+
+- No new "default_audience" field on Teammate — `who_you_help` already covers this.
+- No hardcoded "ordinary curious adult" default in the invariant — that would force a bias into every character.
+- No settings-level global default — same reason.
+
+---
+
+## §181. Exact Writing Contract v6 implementation plan (bounded)
+
+### §181.1 Source changes
+
+Single file: `shell/character_os/writing_contract.py`.
+
+1. **Version bump:** `WRITING_CONTRACT_VERSION: int = 5` → `6`.
+2. **Add invariant block** as new module-level constant, e.g.:
+   ```python
+   _AUDIENCE_AWARE_COMMUNICATION_BLOCK = (
+       "AUDIENCE-AWARE COMMUNICATION (universal — applies to every render)\n"
+       "  Adapt communication to the listener without changing "
+       "character identity, intelligence, expertise, humor, "
+       "personality, factual grounding, or confidence. Use "
+       "technical terminology when it actually helps, and "
+       "translate it into ordinary language when it does not. "
+       "Match technical depth, vocabulary, examples, and "
+       "analogies to the listener's likely background knowledge."
+   )
+   ```
+3. **Insert block into `_solo_scene_contract`** — after `_SOLO_SCENE_INVARIANTS_BLOCK`, before `_SOLO_SCENE_SHAPES_BLOCK`. Sits in the same architectural position as `_INVARIANTS_BLOCK` in long_form.
+4. **Docstring update on `WRITING_CONTRACT_VERSION`** — add a v6 note (SESSION 271 §181 reference).
+
+**Do NOT** touch `_long_form_contract`, `_dialogue_scene_contract`, `_standalone_contract` in this slice. All three remain byte-stable.
+
+### §181.2 Composition field addition
+
+Second file: `shell/apps/compositions/models.py`.
+
+Add one field to `Composition`:
+
+```python
+# SESSION 271 Slice 9 — audience_hint promoted from SESSION 270
+# env-var research plumbing to canonical per-render surface.
+# Additive-nullable-or-empty per SESSION 262 discipline; immutable
+# after first write (same rule as operator_topic).
+audience_hint = models.TextField(
+    blank=True, default="",
+    help_text="Per-render listener descriptor. When non-empty, "
+              "emitted as §5 HARD CONSTRAINT AUDIENCE DIRECTIVE. "
+              "Left empty ⇒ universal Writing Contract invariant "
+              "reads Teammate.who_you_help from §1 as the "
+              "character's baseline audience.",
+)
+```
+
+Migration `0015_composition_audience_hint.py` — additive-nullable.
+
+### §181.3 Immutability enforcement
+
+Add `audience_hint` to the SESSION 262 `_IMMUTABLE_ONCE_WRITTEN_FIELDS` set (per `COMPOSITION_OBSERVABILITY_SCHEMA_V1.md` Q5). One-line change. Consistent with `operator_topic` behavior.
+
+### §181.4 Starter-side copy
+
+`shell/apps/compositions/starters.py::talking_head` (line ~694 in the `step_params` block):
+
+```python
+# SESSION 271 Slice 9 — canonical audience_hint plumbing.
+# Composition-level audience_hint is the source of truth;
+# copy into step.params so the primitive's SESSION 270 resolver
+# picks it up without modification.
+if composition.audience_hint:
+    step_params["audience_hint"] = composition.audience_hint
+```
+
+Two-line change. Other starters (talking_head_with_backdrop, long_form_ad, dialogue) NOT touched in this slice — solo_scene talking_head is the sole scope.
+
+### §181.5 Serializer + API surface
+
+`shell/apps/compositions/serializers.py` — add `audience_hint` to the `CompositionCreateSerializer` (or equivalent) so the SPA POST payload can carry it. Field: `serializers.CharField(required=False, allow_blank=True, default="")`.
+
+### §181.6 SPA UI
+
+Out-of-scope for the initial v6 implementation slice — the field can be exercised via API/tests without SPA UI. SPA form addition is a follow-up slice once the mechanism is validated on Composition-create via curl or the existing composition-detail edit flow.
+
+### §181.7 Tests
+
+- `test_writing_contract_solo_scene.py`: assert `WRITING_CONTRACT_VERSION == 6` + invariant block present in the assembled `_solo_scene_contract` text.
+- New: `test_session271_slice9_audience_hint_field.py`:
+  - Composition.audience_hint field exists + defaults to `""`.
+  - Immutability: setting audience_hint on save works once; subsequent updates via `update_fields` raise or no-op per SESSION 262 pattern.
+  - Starter copies Composition.audience_hint → step_params['audience_hint'] when non-empty.
+  - Starter does NOT add step_params['audience_hint'] when Composition.audience_hint is empty.
+  - Adjacent regression: existing test_session270_audience_hint.py still passes (env-var fallback still works).
+- Adjacent regression sweep: SESSION 270 audience-hint (17 tests) + SESSION 271 Q-270-15c (20 tests) + SESSION 271 E-KNOWLEDGE-1 (26 tests) + duration-contract talking_head (38 tests) + composition observability (23 tests) all green.
+
+### §181.8 Post-implementation verification render (single controlled dogfood)
+
+Substrate: same as Trial 4 (Patch AI-agents Episode `2b6087d2`, 90 s, knowledge ON, opener blank, verifier warn).
+
+- Composition.audience_hint set (via API or admin) to the Trial-4 79-char nontechnical-adult directive.
+- ALL three env vars UNSET (SESSION 270 audience env, Q-270-15c revision env, E-KNOWLEDGE-1 policy env).
+- Render.
+
+Expected: accepted script preserves audience-adaptation shape and at-risk terminology comparable to Trial 4 (≤3 raw terms), preserved Patch identity, preserved factual grounding, memory usage discipline, duration acceptance. Writing Contract v6 stamped on the Composition. Composition.audience_hint = 79 chars persisted.
+
+**If verification matches Trial 4:** promotion succeeds; extend to `long_form_contract` + `dialogue_scene_contract` in a subsequent slice.
+
+**If verification regresses vs Trial 4:** roll back per §182.
+
+---
+
+## §182. Rollback plan
+
+Two independent rollback surfaces:
+
+### §182.1 Contract v6 rollback
+
+- Revert `WRITING_CONTRACT_VERSION` to `5`.
+- Remove `_AUDIENCE_AWARE_COMMUNICATION_BLOCK` insertion from `_solo_scene_contract`.
+- Composition rows already stamped `writing_contract_version=6` KEEP their stamp — observability preserved; audits distinguish v5 vs v6 renders.
+- Zero data migration required.
+
+### §182.2 Composition.audience_hint rollback
+
+- Do NOT drop the field. Additive-nullable field is harmless when unused.
+- Starter can stop copying to step.params (revert §181.4 diff).
+- Field remains in the schema for a future v6 retry attempt.
+
+### §182.3 Rollback triggers
+
+Roll back if the post-implementation verification render:
+
+- Shows Trial-4 identity regression (Patch loses signature humor, becomes over-explanatory, or contract invariant fights §2 persona).
+- Shows factual-grounding regression (verifier warnings spike beyond Trial 4 baseline classes).
+- Introduces a new failure mode not seen in Trials 4 + 6.
+
+Do NOT roll back for:
+- Marginal at-risk-terminology differences (magnitude variance per §153 topic-asymmetry).
+- Verifier false-positive classes already catalogued (Q-270-16 / -18 / -20).
+- Downstream media failures (per Trial 6 §150 orthogonal-failure discipline).
+
+---
+
+## §183. Provenance / observability requirements
+
+Per operator brief item FIFTH: what should be persisted so later audits can reconstruct the render's communication conditions?
+
+| Field | Already persisted (SESSION 262) | Newly required in v6? |
+|---|---|---|
+| `writing_contract_version` | ✅ (v5 today, v6 post-promotion) | no change — already covers "which invariant set applied" |
+| `Composition.audience_hint` | ❌ | **NEW** (§181.2) — resolves "who was this Composition addressing?" mechanically |
+| `Composition.operator_topic` | ✅ | no change — covers "what topic" |
+| `Composition.synthesis_attempt_count` | ✅ | no change — covers "did correction fire" |
+| `Composition.first_pass_synthesis` / `corrective_pass_synthesis` / `corrective_hint` | ✅ | no change |
+| `CompositionStep.params` (including copied `audience_hint`) | ✅ (JSON blob on step) | starter writes the derived copy; audit source-of-truth is `Composition.audience_hint` |
+| Character audience baseline (`Teammate.who_you_help` snapshot at render time) | ⚠️ NOT snapshotted per Composition | **future consideration** — if Teammate.who_you_help mutates after a render, historical Compositions lose the exact §1 AUDIENCE that was rendered. Slice 9 does NOT propose adding this yet; recorded as candidate Q-270-23 for a future observability slice. |
+| Resolved-audience source (explicit vs fallback) | ❌ | **NOT proposed for MVP** — auditable from `Composition.audience_hint` empty-vs-populated + Teammate.who_you_help current value. Adding an `audience_source_kind` field would over-engineer. |
+
+**MVP provenance requirement:** exactly one new field (`Composition.audience_hint`). Every other reconstructive query is already answerable via existing SESSION 262 fields + Writing Contract version stamp + persona snapshot.
+
+---
+
+## §184. Migration / API / UI implications
+
+### §184.1 Migration (0015)
+
+- Additive-nullable `Composition.audience_hint: TextField(blank=True, default="")`.
+- Zero backfill: all pre-v6 Compositions retain empty audience_hint. That's semantically correct — they existed before the field.
+- No index required (not a query filter).
+- Immutability enforcement via SESSION 262 pattern (`_loaded_observability` snapshot on `from_db()` + `save()` reject override in `update_fields`).
+
+### §184.2 API compatibility
+
+- Existing composition-create payloads without `audience_hint` continue to work (default empty).
+- New payloads with `audience_hint: "..."` write to the field.
+- Serializer field is `required=False, allow_blank=True`.
+- No breaking change to any existing recipe or API surface.
+
+### §184.3 SPA UI
+
+- Deferred to a follow-up slice. Composition-create surface adds one text input labelled *"Audience (optional — who is this render addressing? Overrides the character's canonical `who_you_help` for this specific render.)"* — same shape as the existing `opener` field.
+- Not shipping SPA UI with v6 initial slice: the field can be exercised via API or admin to validate the mechanism; SPA becomes a UX polish slice.
+
+### §184.4 Recipe registry
+
+- talking_head recipe metadata (`shell/apps/compositions/recipes.py`) may want a new `audience_hint` input-slot descriptor. Deferred to the follow-up SPA slice.
+
+---
+
+## §185. Fox-first re-test against the FINAL design
+
+> *"Assume Character OS has never seen Patch or Rivet, and Fenn the fox baker is the first character ever created. Chris fills the standard wizard (name, business_brief, personality, character_point_of_view, `who_you_help = 'home bakers who want better bread'`, what_you_sell, voice_* axes, brand fields). Chris renders Fenn's first video: `POST /api/compositions/` with `audience_hint: 'home bakers who have made bread twice and got frustrated'` and `operator_topic: 'Fenn shows how to fix an overproofed loaf.'`"*
+
+Trace:
+
+1. Composition row created with `audience_hint = 'home bakers who have made bread twice and got frustrated'` + `operator_topic = ...` + `writing_contract_version` will be stamped v6 at synth time.
+2. talking_head starter copies `composition.audience_hint` → `step_params['audience_hint']`.
+3. Celery execute_composition → generate_avatar_speech primitive.
+4. `_resolve_solo_audience_hint(step)` returns the 60-char home-baker directive.
+5. `synthesize_with_duration_gate` closure passes `audience_hint=` on both first and corrective calls.
+6. `build_render_brief` → `_assemble_task_message` emits §5 HARD-CONSTRAINT AUDIENCE DIRECTIVE block with the home-baker directive.
+7. `_build_writing_contract_section(target_shape="solo_scene", ...)` invokes `_solo_scene_contract` → §4 includes the new AUDIENCE-AWARE COMMUNICATION invariant block.
+8. LLM synthesises Fenn-in-character output that adapts to the home-baker background without changing Fenn's identity/expertise/humor.
+9. `Composition.audience_hint` = "home bakers who have made bread twice and got frustrated" preserved on the row.
+
+**Result of the audit question — *"Who was this exact Composition addressing?"***
+
+`SELECT audience_hint FROM apps_compositions_composition WHERE id = '<uuid>'` → *"home bakers who have made bread twice and got frustrated"*. **Single query. Persisted forever.**
+
+**Fenn works from day one. No fox-specific configuration. Universal invariant + existing Teammate fields + one new per-render surface.**
+
+The final design PASSES the fox-first test.
+
+---
+
+## §186. Final READY / NOT READY implementation gate
+
+**READY.**
+
+Every remaining implementation question resolved:
+
+1. **Canonical audience-context home** — Option C hybrid: `Composition.audience_hint` (source of truth, immutable, SESSION 262 discipline) + starter-side copy → `step.params` (runtime cache; primitive layer unchanged). (§178)
+2. **Invariant wording** — Slice 8 §164.2 verbatim, ratified across all clauses (§179).
+3. **v6 implementation scope** — solo_scene contract only + Composition.audience_hint field + starter copy + serializer surface + tests + one verification render. NO long_form / dialogue / SPA UI in this slice. (§181)
+4. **No-explicit-audience fallback** — hierarchy already exists via §1 `AUDIENCE:` (`Teammate.who_you_help`). No new wizard field. (§180)
+5. **Provenance requirements** — one new field (`Composition.audience_hint`). Every other reconstructive query answerable from existing SESSION 262 schema + v6 stamp + persona snapshot. (§183)
+6. **Rollback plan** — additive schema (harmless to leave) + reversible contract text block + version-stamp preserves historical audit boundary. (§182)
+
+---
+
+## §187. Bounded implementation instructions for the NEXT slice (recommended; do NOT execute in Slice 9)
+
+**When Chris + ChatGPT authorise the implementation slice, Claude executes exactly this — nothing more:**
+
+1. **Edit `shell/character_os/writing_contract.py`:**
+   - `WRITING_CONTRACT_VERSION: int = 5` → `6` (with docstring note referencing SESSION 271 §181).
+   - Add `_AUDIENCE_AWARE_COMMUNICATION_BLOCK` module constant (verbatim wording from §179.4).
+   - Insert the block into `_solo_scene_contract` between `_SOLO_SCENE_INVARIANTS_BLOCK` and `_SOLO_SCENE_SHAPES_BLOCK`.
+   - **Do NOT** modify `_long_form_contract`, `_dialogue_scene_contract`, `_standalone_contract`.
+
+2. **Edit `shell/apps/compositions/models.py`:**
+   - Add `audience_hint = models.TextField(blank=True, default="", help_text="...")` field on `Composition` (per §181.2).
+   - Add `"audience_hint"` to the SESSION 262 immutable field set.
+
+3. **Create migration `shell/apps/compositions/migrations/0015_composition_audience_hint.py`:**
+   - `makemigrations` will generate the additive-nullable migration; verify + commit as-is.
+
+4. **Edit `shell/apps/compositions/starters.py::talking_head`:**
+   - Add two lines after the existing step_params dict init:
+     ```python
+     if composition.audience_hint:
+         step_params["audience_hint"] = composition.audience_hint
+     ```
+
+5. **Edit `shell/apps/compositions/serializers.py`:**
+   - Add `audience_hint = serializers.CharField(required=False, allow_blank=True, default="")` to `CompositionCreateSerializer` (or the appropriate composition-create serializer).
+
+6. **Test updates:**
+   - `test_writing_contract_solo_scene.py`: pin `WRITING_CONTRACT_VERSION == 6` + assert AUDIENCE-AWARE COMMUNICATION block present.
+   - New `test_session271_slice9_audience_hint_field.py`: 6-8 tests per §181.7.
+   - Regression sweep: run SESSION 270 audience-hint suite (17 tests) + SESSION 271 Q-270-15c (20) + E-KNOWLEDGE-1 (26) + duration-contract talking_head (38) + composition observability (23) — all must remain green.
+
+7. **Commit + push:** contract + model + migration + starter + serializer + tests in ONE commit. Doc update in a follow-up.
+
+8. **Hand off to Chris for the single controlled verification render** (§181.8). Env vars all OFF. Composition.audience_hint set to the Trial-4 79-char directive. Same substrate as Trial 4.
+
+9. **Post-render forensics** (Phase 2 pattern): freeze evidence sidecar, compare against Trial 4, verify Composition.audience_hint persisted correctly, verify writing_contract_version stamp = 6.
+
+10. **If verification passes:** commit close-out doc + declare v6 shipped for solo_scene. **If verification fails:** rollback per §182 + re-open design conversation.
+
+**Deferred to follow-up slices (do NOT do in the v6 implementation slice):**
+
+- Extend v6 invariant to `_long_form_contract` + `_dialogue_scene_contract`.
+- SPA UI surface for audience_hint.
+- Retire E-KNOWLEDGE-1 policy env-gated plumbing (leave in place until proven redundant).
+- Retire SESSION 270 audience-hint env-var research plumbing (leave in place as research fallback).
+- Migrate the other 5 Patch invariants identified in Slice 6 §91 (DOES NOT FAKE, DOES NOT WORSHIP, RELATIONSHIP WITH AUDIENCE, MOST IMPORTANT RULE, BUILDING SMALL FIRST) — separate audit + design cycle per invariant.
+- Rivet-specific implications — separate design conversation.
+- Q-270-21 (memory retrieval relevance floor), Q-270-22 (media-engine retry classification), Q-270-23 (Teammate.who_you_help snapshot on Composition) — bounded operational questions, own future slices.
+
+---
+
+## §188. What was NOT changed in Slice 9
+
+- No source code touched.
+- No tests added.
+- No knowledge documents modified.
+- No Teammate rows modified.
+- No schema, no migration.
+- Writing Contract still v5.
+- No SPA UI change.
+- Env-gated experimental plumbing all remain in source; all three currently OFF at runtime.
+- No render performed.
+- No NarrativeMemory promotion.
+- Q-270-16 / Q-270-18 / Q-270-20 / Q-270-21 / Q-270-22 / Q-270-23 all remain OUT OF SCOPE.
+
+Slice 9 is design/audit only. All changes are documentation.
+
+---
+
+## §189. Slice 9 commit + push record
+
+- Slice 9 commit SHA: `<pending — populated after commit>`
+- Push: `<pending>`
+- Local `main == origin/main`: `<verified at commit time>`
+- Working tree at slice close: `<verified clean>`
+
+---
+
+**End of SESSION 271 Slice 9 final pre-implementation design ratification. Gate: READY. Recommended v6 implementation slice defined in §187 — awaits Chris + ChatGPT authorisation. Fox-first re-test PASSES against the final design.**
