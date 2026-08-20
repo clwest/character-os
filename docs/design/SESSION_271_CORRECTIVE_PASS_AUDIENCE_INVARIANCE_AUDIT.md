@@ -5530,3 +5530,80 @@ Slice 9 is design/audit only. All changes are documentation.
 ---
 
 **End of SESSION 271 Slice 9 final pre-implementation design ratification. Gate: READY. Recommended v6 implementation slice defined in §187 — awaits Chris + ChatGPT authorisation. Fox-first re-test PASSES against the final design.**
+
+---
+
+## §190. v6 Implementation Slice — Executed Per §187
+
+Authorised by Chris after Slice 9 close. Landed as commit `c16814d` (`feat(session-271): Writing Contract v6 + Composition.audience_hint canonical field (§187 Slice 9)`), pushed `685f3f4..c16814d main -> main`.
+
+### §190.1 Shipped surfaces
+
+| Surface | Change | File |
+| --- | --- | --- |
+| Writing Contract | `WRITING_CONTRACT_VERSION` 5 → 6; new module constant `_AUDIENCE_AWARE_COMMUNICATION_BLOCK` inserted into `_solo_scene_contract` between INVARIANTS and SHAPES | `shell/character_os/writing_contract.py` |
+| Composition schema | New `audience_hint = TextField(blank=True, default="")`; added to `_IMMUTABLE_OBSERVABILITY_FIELDS` (SESSION 262 provenance guard extended) | `shell/apps/compositions/models.py` |
+| Migration | `0018_composition_audience_hint.py` — single `AddField` op, additive-nullable-or-empty per SESSION 262 discipline; zero backfill (all pre-v6 rows retain empty `audience_hint`) | `shell/apps/compositions/migrations/0018_composition_audience_hint.py` |
+| Starter | `talking_head` accepts optional `audience_hint` kwarg → coerced (strip) → persisted on Composition row → copied to `step.params["audience_hint"]` when non-empty | `shell/apps/compositions/starters.py` |
+| API create | `CompositionRecipeViewSet.create` reads optional top-level `audience_hint` body key, string-validates + strips, injects into starter kwargs only when the starter's signature accepts it (`inspect.signature` gate; currently `talking_head` only) | `shell/apps/compositions/views.py` |
+| API read | `CompositionSerializer` exposes `audience_hint` on GET responses for observability | `shell/apps/compositions/serializers.py` |
+
+### §190.2 Runtime plumbing chain (unchanged from Slice 9 §178 Option C hybrid)
+
+```
+API body.audience_hint
+  → views.create (validate/strip/inject via inspect.signature gate)
+    → talking_head starter (coerce + persist Composition.audience_hint + copy to step.params)
+      → step.params["audience_hint"]  ← source of truth for the resolver
+        → _resolve_solo_audience_hint (SESSION 270; step.params > settings > env precedence unchanged)
+          → synthesize_with_duration_gate (audience_hint kwarg)
+            → build_render_brief (audience_hint kwarg)
+              → _assemble_task_message (§5 HARD CONSTRAINTS AUDIENCE DIRECTIVE block)
+                → OpenAI Responses API input
+```
+
+Blank `Composition.audience_hint` ⇒ starter skips the copy ⇒ resolver returns None ⇒ prompt byte-stable versus pre-SESSION-270 shape ⇒ **universal v6 AUDIENCE-AWARE COMMUNICATION invariant in §4 reads `Teammate.who_you_help` from §1 AUDIENCE as the character's baseline listener** (Slice 9 §178 fallback semantics honoured).
+
+### §190.3 Test coverage
+
+- **New:** `test_session271_slice9_audience_hint_field.py` — 10 DB-backed tests: (1) field default = "", (2) first-write on empty accepted, (3) starter copies non-empty to step.params, (4) starter strips whitespace, (5) blank/None/whitespace hint → no step.params key added (× 4 blanks), (6) absent kwarg parity with None, (7) immutability guard raises `ValidationError` on divergent second write, (8) no-op save of same value passes, (9) SESSION 270 resolver step.params precedence still wins, (10) resolver returns None on empty step.params fallback.
+- **Universal invariant assertions added to `test_writing_contract_solo_scene.py`:** (a) presence of "AUDIENCE-AWARE COMMUNICATION" label + "universal — applies to every render" framing, (b) all 7 identity dimensions from §179.4 (identity, intelligence, expertise, humor, personality, factual grounding, confidence), (c) all 4 adaptation levers (technical depth, vocabulary, examples, analogies), (d) "background knowledge" listener anchor, (e) placement gate: `INVARIANTS < AUDIENCE-AWARE < SHAPES`.
+- **Version-pin updates (10 files):** every `assert WRITING_CONTRACT_VERSION == 5` bumped to `== 6` with SESSION 271 §187 context appended to docstrings; standalone + long_form + dialogue_scene contract SHA snapshots byte-stable (v6 only touched `_solo_scene_contract`).
+- **Slice 7 leak-detection fragments narrowed:** `test_session271_patch_communication_policy.py::test_policy_contained_to_section_5` now checks only Patch-specific text (`without changing Patch's intelligence` + full `_EXPECTED_RULE`) since character-agnostic phrases like "listener's likely background knowledge" and "translates it into ordinary language" now appear legitimately pre-§5 (inside §4 v6 invariant).
+- **Isolation whitelist:** `test_isolation.py::ALLOWED_FILES` extended for the new test file (documented rationale).
+
+### §190.4 Regression sweep results
+
+- `apps/compositions/tests/ + apps/universe/tests/`: **1327 passed, 0 failed** (102s).
+- Broader adjacent sweep (`apps/embeddings/ apps/spokespeople/ apps/scripts/ apps/memory/ apps/campaigns/ apps/accounts/ apps/realtime/ apps/videos/ apps/billing/ character_os/`): 880 passed, 1 pre-existing failure in `character_os/clients/tests/test_media_engine_timeouts.py::test_downstream_deadlines_covers_every_client_method` (`image_overlay` method missing from `DOWNSTREAM_DEADLINES_S` mapping). **Confirmed pre-existing on `main` before this slice** via `git stash` verification; orthogonal to §187 scope. Belongs to a separate media-engine deadlines cleanup slice.
+- `manage.py migrate compositions`: `0018_composition_audience_hint OK`.
+- `manage.py check`: `System check identified no issues (0 silenced)`.
+
+### §190.5 Pre-verification-render environment audit
+
+Snapshot at commit `c16814d`:
+
+| Signal | Value | Interpretation |
+| --- | --- | --- |
+| Celery worker PIDs | `96723, 96725, 96756, 96757` (parent + 3 pre-fork workers) | Real-mode canonical stack running |
+| `SOLO_AUDIENCE_HINT` env in workers | **unset** | SESSION 270 experiment plumbing INACTIVE — v6 invariant runs unshadowed |
+| `COMMUNICATION_POLICY_HINT` env in workers | **unset** | SESSION 271 Slice 7 experiment plumbing INACTIVE — v6 invariant runs unshadowed |
+| Any `HINT` / `POLICY` / `EXPERIMENT` env in workers | **unset** | Clean baseline; whatever v6 produces is attributable to the contract change alone |
+| Media-engine `:8001/health` | `{"status":"ok","service":"adspark-studio","openai_mock":false,"runway_mock":false,"image_gen_mock":false,"any_mock":false,"llm_provider":"openai","llm_model":"gpt-4o-mini"}` | Real OpenAI + Runway + Stability (no mocks) |
+| Django `:8010` | Responsive (admin returns 302) | API layer live |
+
+### §190.6 READY FOR V6 VERIFICATION RENDER
+
+All §187 acceptance conditions met. The v6 verification render can proceed under the following controls:
+
+- **Composition surface:** `POST /api/compositions/` with `kind="talking_head"`, `workspace=<Chris's Patch workspace>`, and body top-level `audience_hint` blank (empty) OR non-empty (per experimental design).
+- **Expected v6 behaviour with `audience_hint=""`:** universal AUDIENCE-AWARE COMMUNICATION invariant in §4 Writing Contract reads `Teammate.who_you_help` (from §1 AUDIENCE) as the baseline listener; adapts communication accordingly WITHOUT changing character identity / intelligence / expertise / humor / personality / factual grounding / confidence.
+- **Expected v6 behaviour with `audience_hint="AUDIENCE: children around 8-10 years old..."`:** §5 HARD CONSTRAINTS AUDIENCE DIRECTIVE block emitted in addition to the §4 universal invariant; both compose (invariant sets the identity guard, directive names the specific listener).
+- **Observability:** `Composition.audience_hint` (immutable post-first-write), `Composition.writing_contract_version = 6`, `step.params["audience_hint"]` (present iff non-blank), `synthesized_brief`, `knowledge_chunk_ids`, `memory_ids`, `render_dispatched_at`.
+- **Do NOT set** any of: `SOLO_AUDIENCE_HINT`, `COMMUNICATION_POLICY_HINT`, or any experiment env var — the point of this render is to observe the v6 invariant unshadowed.
+
+Chris to trigger the render manually via the SPA composition-create form (blank `audience_hint`) OR via API with non-blank `audience_hint`, and report the resulting Composition ID for Trial 7 forensic analysis.
+
+---
+
+**End of SESSION 271 §190 v6 implementation slice. Commit `c16814d` on `main`. READY FOR V6 VERIFICATION RENDER.**
