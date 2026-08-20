@@ -5522,10 +5522,10 @@ Slice 9 is design/audit only. All changes are documentation.
 
 ## §189. Slice 9 commit + push record
 
-- Slice 9 commit SHA: `<pending — populated after commit>`
-- Push: `<pending>`
-- Local `main == origin/main`: `<verified at commit time>`
-- Working tree at slice close: `<verified clean>`
+- Slice 9 commit SHA: `c1d7a00` — `docs(session-271): Slice 9 — final pre-implementation design ratification (audience-context home + invariant wording + v6 scope)`.
+- Push: `cd01b85..c1d7a00 main -> main` (successful).
+- Local `main == origin/main == c1d7a00` verified.
+- Working tree at slice close: clean.
 
 ---
 
