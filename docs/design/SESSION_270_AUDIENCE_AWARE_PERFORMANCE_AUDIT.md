@@ -1178,9 +1178,9 @@ Executed immediately after grading + interpretation, per operator brief.
 
 ### §13.20 Commit checkpoint (Q-270-9 evidence + grading + deactivation)
 
-- Slice commit: `<populated below>` — `<subject line populated below>`.
-- Push: `<populated below>`.
-- Working tree state at checkpoint: `<populated below>`.
+- Slice commit: `f8d1866` — `docs(session-270): §13.18.7 Q-270-9 Phase 2 — minimal-directive evidence, three-way comparison, grading, verdict, deactivation`.
+- Push: `663224d..f8d1866 main -> main` (successful). Local `main == origin/main == f8d1866`.
+- Working tree state at checkpoint: clean.
 
 ---
 
