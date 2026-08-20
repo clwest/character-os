@@ -918,3 +918,229 @@ Memory lane: `retrieve_universe_memory` still returns `[]` for Ruby (the Fox & F
 - Pushed to `origin/main`.
 - Slice α ingest executor script: `scripts/session273_slice_alpha_ingest_kd.py`
 - Slice α ingest + retrieval evidence sidecar: `docs/design/session_273_experiment_data/04_slice_alpha_kd_ingest_and_retrieval.json` (6,436 bytes)
+
+---
+
+## §17. SLICE α CLOSEOUT — CHRIS-EDITED KD + 3-PROBE VERIFICATION + SHARED-KNOWLEDGE FINDING
+
+**Status:** Slice α CLOSED. Chris confirmed the KD in the SPA and added a **spokesperson m2m assignment: Ruby only**. This section verifies the resulting DB state mechanically, runs three natural retrieval probes across kinds (bakery-native / community-adjacent / operational-detail), documents a newly-surfaced **shared/global knowledge product finding**, and confirms Slice β has not begun.
+
+**Read-only executor:** `scripts/session273_slice_alpha_closeout_verify.py` — inspects existing state, runs 3 retrieval probes, records everything. Does not mutate.
+
+**Evidence sidecar:** `docs/design/session_273_experiment_data/05_slice_alpha_closeout_verification.json` (1,487,193 bytes).
+
+### §17.1 How Chris's UI action landed in the DB
+
+Chris used the SPA `/workspace/knowledge` editor to attach Ruby as spokesperson on the already-ingested KD. Mechanical evidence:
+
+| Field | Value | Change from §15? |
+| --- | --- | --- |
+| KD `id` | `74e7f18f-5b77-459c-bc36-b4ab617d8aca` | same — no new row |
+| Title | `Fox & Flour Bakery — Working Knowledge` | unchanged |
+| `content_hash` | `7a0e4bd2551f…` | unchanged (body byte-identical to §15 ingest) |
+| Chunks total / embedded | 10 / 10 | unchanged |
+| `document_type` | `markdown` | unchanged |
+| `ingested_via` | `paste` | unchanged |
+| `universe_id` | `1a0af807-…` (Fox & Flour Bakery) | unchanged |
+| `is_active` | `True` | unchanged |
+| `status` | `processed` | unchanged |
+| `updated_at` | 2026-08-20 22:54:46 UTC | unchanged (m2m table writes do not bump parent `updated_at` — Django default) |
+| **`m2m spokespeople`** | **`[Ruby (5875a7b4-…)]`** | **CHANGED** (was empty at §15) |
+
+Workspace KD count went 16 → 17 at §15 ingest, and remains 17 after Chris's UI edit — the m2m add did not create a duplicate KD row. No re-ingest happened; the content, chunks, and embeddings from §15 remain in place. This is the correct SPA behavior for the "attach an existing KD to a character" flow.
+
+### §17.2 KD verification (mechanical)
+
+All six invariants pass:
+
+| Check | Expected | Observed |
+| --- | --- | --- |
+| Universe is Fox & Flour | `1a0af807-…` | ✓ |
+| Workspace is Chris's | `4ce5486d-…` | ✓ |
+| m2m spokespeople count | 1 | 1 ✓ |
+| m2m spokespeople = Ruby only | `[5875a7b4-…]` | `[5875a7b4-…]` ✓ |
+| Status = `processed` | True | True ✓ |
+| Chunks fully embedded | 10 / 10 | 10 / 10 ✓ |
+| Is active | True | True ✓ |
+
+**Content match with §13.4 approved specimen:** the `content_hash` recorded here (`7a0e4bd2551f…`) equals the hash captured at §15 ingest. `raw_content` and `processed_content` char counts also match §15's captured values. Chris's UI edit did not touch the body; every sentence approved in §13.4 remains verbatim in the ingested KD.
+
+### §17.3 Ruby persona invariance
+
+Ruby persona/voice/avatar/brand fields recorded via SHA-256 to allow durable cross-process comparison:
+
+- `Ruby.universe_id` = `1a0af807-…` (Fox & Flour) — unchanged since §13.2 attach.
+- `Ruby.updated_at` = 2026-08-20 22:44:22 UTC — unchanged since §13.2 attach (Chris's KD-edit action did not touch Ruby).
+- `business_brief` opens with `"Ruby owns Fox & Flour Bakery, a neighborhood artisan bakery known for naturally …"` — byte-identical to §11.2 audit.
+- `personality` opens with `"Warm, cheerful, and genuinely caring. Ruby loves helping people find the perfect treat …"` — byte-identical to §11.2.
+- `who_you_help` / `what_you_sell` / `desired_feeling` / `character_point_of_view` / `always_emphasize` / `never_say` / `voice_signature_phrases` / `voice_avoid_phrases` — all still empty (SHA-256 of empty string).
+- `portrait_path`, `runway_avatar_id`, `voice_id`, `visual_subject`, `visual_template` — all unchanged.
+
+Ruby is byte-identical to her pre-SESSION-273 wizard-default state except for the two explicitly authorized changes: `universe_id` set at §13.2, and the reverse m2m appearance (Ruby now shows up on `KnowledgeDocument.spokespeople` for the new KD).
+
+### §17.4 Retrieval probes (verbatim)
+
+Three probes were run through `retrieve_for_teammate(ruby, query, top_k=5)`. Every probe returned exactly 5 chunks — all from the single Fox & Flour KD (`74e7f18f-…`) in the Fox & Flour Universe (`1a0af807-…`). No probe was retried; no query was tuned to make results attractive.
+
+**Probe 1 — bakery-native.**
+Query: `"how do we handle the sourdough starter feeding routine for the country loaf"`
+
+| # | dist | Chunk preview |
+| --- | --- | --- |
+| 1 | **0.4098** | *"## Breads & sourdough — Sourdough is the foundation of Fox & Flour. Ruby maintains two active starters that live in the walk-in fridge and get fed the night before each bake day…"* |
+| 2 | 0.5719 | *"…dark-chocolate-and-sour-cherry sourdough that goes out on Fridays only. A soft brioche is baked twice weekly…"* |
+| 3 | 0.6353 | *"…'artisan' as a buzzword. She prefers to name the actual farm or mill when a customer asks. The bakery's habit is: if it's on the menu, Ruby can tell you where it came from…"* |
+| 4 | 0.6424 | Bakery routines transition to Seasonal offerings |
+| 5 | 0.6530 | 50% deposit + Ingredients transition |
+
+Top chunk is a direct textual match on the sourdough-starter-feeding rule.
+
+**Probe 2 — customer/community-adjacent.**
+Query: `"how do you help a first-time customer who feels intimidated by the case"`
+
+| # | dist | Chunk preview |
+| --- | --- | --- |
+| 1 | 0.7202 | *"…Preorder holidays (Thanksgiving, Christmas Eve, Easter) have a published cutoff two weeks ahead and no walk-in same-day availability for the specialty items… ## Customer…"* |
+| 2 | 0.7372 | *"…a small waitlist for celebration cakes during peak weeks. When the shop can't take a booking, the counter staff recommend one of two other independent bakers in town who…"* |
+| 3 | 0.7844 | Staff / Seasonal offerings header |
+| 4 | 0.7866 | Celebration-cake lead time |
+| 5 | 0.7910 | *"…than to a distant owner who never smelled the ovens. The name comes from an old family nickname (Ruby's grandmother called her 'little fox')…"* |
+
+Distances are notably higher than probes 1 and 3 (~0.72–0.79). This is the fuzziest of the three probes and the KD's answer (the §Customer experience section: *"no question about the menu is too basic to answer patiently"*) does not appear in the top-5 — retrieval is pulling on the Universe-context adjacent chunks (referrals, ownership motive) that share embedding-space semantics with the query. Not a failure; not a distinction the operator can currently see. This is the kind of retrieval fuzziness that only shows up when a probe is genuinely adjacent-to-content rather than directly-supported.
+
+*Note:* the pre-attach evidence at §13.3 pulled the Hearth & Hollow bookstore corpus on almost every community-adjacent probe. Post-attach, the same query kind now returns only Fox & Flour content — even where the match is fuzzy, contamination is structurally absent.
+
+**Probe 3 — operational-detail.**
+Query: `"what is the deposit and cancellation policy on custom celebration cakes"`
+
+| # | dist | Chunk preview |
+| --- | --- | --- |
+| 1 | **0.4075** | *"lead time is a minimum of five days for standard tiered cakes and ten days for sculpted or heavily decorated cakes; peak seasons (spring weddings, December holidays) push…"* |
+| 2 | 0.4907 | Pastries → Celebration cakes transition |
+| 3 | **0.4912** | *"50% deposit is taken at booking. Deposits are non-refundable inside of 72 hours before pickup. Fox & Flour does not deliver cakes; all orders are pickup only. ## Ingredients…"* |
+| 4 | 0.5760 | Holiday preorder cutoffs |
+| 5 | 0.5877 | Sourdough varieties |
+
+Direct policy match at chunk #3 (`50% deposit… non-refundable inside of 72 hours`). Chunk #1 pulls the closely-related lead-time rule.
+
+### §17.5 Isolation verdict
+
+Aggregate across all 3 probes (15 chunks total):
+
+| Check | Expected | Observed |
+| --- | --- | --- |
+| Distinct retrieved doc ids | `{74e7f18f-…}` | `{74e7f18f-…}` ✓ |
+| Distinct retrieved Universe scopes | `{1a0af807-…}` | `{1a0af807-…}` ✓ |
+| Unbound workspace-only KDs leaked (§11.5's 9 candidates) | `[]` | `[]` ✓ |
+| Other-Universe KDs leaked (Patch's Workshop's 3 Universe-scoped) | `[]` | `[]` ✓ |
+| Ruby-ineligible KDs leaked (m2m to a non-Ruby teammate) | `[]` | `[]` ✓ |
+| Only the Fox & Flour KD returned | True | **True** ✓ |
+
+**A. Ruby retrieves Fox & Flour knowledge:** yes.
+**B. Every returned KD belongs to the Fox & Flour Universe:** yes.
+**C. Returned KD is spokesperson-eligible for Ruby:** yes — m2m spokespeople = `[Ruby]`; the retrieval filter matches on `document.spokespeople = spokesperson` branch (not the `isnull=True` broadcast branch, because m2m is non-empty).
+**D. None of the previously demonstrated unbound workspace KDs leak:** confirmed structurally impossible from Universe-scoped retrieval.
+**E. No Patch/Rivet/TANK/Tulsi/Hearth & Hollow/Mike/Penny/etc. material appears:** confirmed zero across 3 probes × 5 chunks.
+
+### §17.6 NEW PRODUCT FINDING — shared / global knowledge behavior is uncharacterized
+
+**What Chris observed while creating the Ruby KD:** the SPA offers a spokesperson-assignment field on the KnowledgeDocument. His operator-mental-model, developed from the UI, is:
+
+- Knowledge **assigned to a character** → character-specific knowledge.
+- Knowledge with **no character assignment** → effectively "shared" or "global" knowledge, retrievable by any character whose scoping matches.
+
+**What §11 / §13 evidence already tells us mechanically** (this is not new experiment work; it is what the code + prior probes already prove):
+
+- Retrieval filter (`shell/apps/embeddings/retrieval.py:159–226`):
+  - Workspace filter: unconditional (contract rule 3).
+  - Universe filter: `document.universe_id = teammate.universe_id` — or `document.universe IS NULL` when teammate has no Universe.
+  - Spokesperson filter: `document.spokespeople IS NULL (empty m2m) OR document.spokespeople = teammate`.
+- **§13.3 demonstrated** that 8 of 9 workspace-only KDs (Universe=NULL, spokespeople=empty) were retrieval-visible to Ruby before her Universe attachment — including pulling Hearth & Hollow bookstore chunks on bakery-native queries. That is "shared / global knowledge" behaving as a broadcast tier.
+- **§13 attach + §17 verification** proved that scoping Ruby into a Universe **and** binding her KD to her via m2m fully isolates her retrieval envelope. Chris's approach is the strongest-isolation variant.
+
+**What has NOT been dogfooded** — the SESSION 273 finding to preserve:
+
+We have **code-level eligibility** and **accidental-leakage evidence** for "shared / global knowledge", but we have **not intentionally characterized** its behavior across characters + Universes. Every question below is currently unanswered by dogfood evidence:
+
+1. **What are the operator-visible knowledge classes today?**
+   1. Workspace-global: `universe = None`, `spokespeople = empty` — broadcast within workspace to any teammate with `universe_id = None`.
+   2. Workspace character-specific: `universe = None`, `spokespeople = {A}` — visible only to A (and only while A also has `universe_id = None`).
+   3. Universe-shared: `universe = U`, `spokespeople = empty` — broadcast within Universe U.
+   4. Universe character-specific: `universe = U`, `spokespeople = {A}` — visible only to A within Universe U. **(This is the class Ruby's Fox & Flour KD occupies.)**
+2. **Who can retrieve each class?** Code answers this (see filter above), but the operator's mental model from the UI does not yet reliably distinguish "assigned" vs "shared".
+3. **What happens when shared and character-specific knowledge both match on the same query?** Retrieval is cosine-ranked with a hard `top_k=5` — an unbound shared doc that scores 0.42 can and does outrank a character-scoped doc that scores 0.51. Not evidence-verified in a controlled setup.
+4. **Does character-specific knowledge receive any retrieval priority?** No, by inspection of `retrieval.py:216` — the two branches are OR'd in the same queryset, then ranked purely by cosine distance. No priority boost.
+5. **Can unrelated shared knowledge outrank relevant character-specific knowledge?** §13.3 already suggests yes: on the bakery-native `"sourdough starter feeding schedule"` probe, an unbound Bookstore Events chunk beat unbound-TANK chunks — and no character-specific bakery content existed to compare. The class-competition regime is untested when *both* are present.
+6. **Does `top_k` cause starvation/competition?** Not tested. If a workspace has 50 shared docs and 1 character-specific doc, does the character doc reliably surface at top_k=5? Unknown.
+7. **How does this behave with multiple characters in one Universe?** Not tested — Fox & Flour has one character (Ruby); Patch's Workshop has multiple but no unbound shared KDs.
+8. **How does it behave across separate Universes?** Universe isolation is proven at §17.5, but the shared-tier behavior across Universe boundaries is not.
+9. **Is "unassigned" the correct operator-facing term if it actually means shared?** The current UI labels the field neutrally. Operator intuition may or may not align with retrieval semantics. Not investigated.
+10. **Would the UI benefit from explicit copy like** *"Shared with everyone in this Universe"* / *"Shared workspace knowledge"* / *"Only Ruby will retrieve this"*? Not investigated.
+
+**Future falsifiable question** (frozen; not scheduled; not started):
+
+> How does unassigned/shared knowledge behave across multiple characters and Universes when character-specific knowledge is also present? Do the four classes above produce the retrieval semantics the operator expects from the UI, or is the "unassigned = shared" convention hiding surprises?
+
+**Explicit non-actions during §17:**
+
+- No retrieval code changed.
+- No Knowledge UI changed.
+- No existing KD reassigned or unassigned.
+- No new "shared knowledge" experiment run.
+- No cross-character or cross-Universe retrieval probe attempted (Fox & Flour intentionally has only Ruby; no second character exists in that Universe to probe against).
+- No proposal on operator-facing copy.
+- No SESSION 273 scope creep — this finding is preserved for a *future* session decision, not this one.
+
+**Dogfood principle re-affirmed:** Ruby's KD stays Universe-scoped + Ruby-scoped for her first render. We do not want a shared/global tier interacting with her first-render evidence. Any shared-knowledge dogfood must happen on a separate substrate (fresh character(s), fresh Universe, controlled) — never opportunistically piggybacked on the Ruby dogfood.
+
+### §17.7 Workspace state after §17
+
+| Metric | Pre-§17 | Post-§17 | Δ |
+| --- | --- | --- | --- |
+| Total workspace KDs | 17 | 17 | 0 |
+| Total workspace NarrativeMemory | 15 | 15 | 0 |
+| Total workspace Universes | 2 | 2 | 0 |
+| Total workspace Episodes | 27 | 27 | 0 |
+| Total workspace Compositions | 135 | 135 | 0 |
+| Ruby.universe_id | `1a0af807-…` | `1a0af807-…` | unchanged |
+| Ruby.updated_at | 2026-08-20 22:44:22 | 2026-08-20 22:44:22 | unchanged |
+| Mason.universe_id | `None` | `None` | unchanged |
+| Mason.updated_at | 2026-07-23 17:43:20 | 2026-07-23 17:43:20 | unchanged |
+| KD `74e7f18f` m2m spokespeople | `[]` (post-§15 pre-Chris-edit) | `[Ruby]` (Chris SPA edit) | +1 (authorized) |
+
+### §17.8 Explicit non-changes during §17
+
+- No render dispatched. No Composition created.
+- No Episode created.
+- No NarrativeMemory created or promoted.
+- No PublishBundle created.
+- No modification to Ruby's persona, voice, avatar, brand, or `universe_id`.
+- Mason untouched.
+- Patch's Workshop Universe, its 3 Universe-scoped KDs, its 15 NarrativeMemory, its 27 Episodes untouched.
+- No source code / migration / writing-contract / retrieval / synthesis / K6.4 change.
+- No spokesperson m2m mutation on any of the 9 unbound workspace KDs.
+- No retrieval retries. No query tuning after seeing results.
+- The KD `74e7f18f` was **not** re-ingested, deleted, edited, or reassigned by this section. The only mutation between §15 and §17 was Chris's authorized SPA action to add Ruby to `spokespeople` m2m.
+- No experiment env vars set. No provider mocks toggled. Runtime unchanged.
+
+### §17.9 §17 return values
+
+- **KD ID / title:** `74e7f18f-5b77-459c-bc36-b4ab617d8aca` — `Fox & Flour Bakery — Working Knowledge`.
+- **Universe assignment:** `1a0af807-dd6a-47cd-bfaa-3d088f1c105f` (Fox & Flour Bakery).
+- **Spokesperson assignment:** `[Ruby (5875a7b4-…)]` — Ruby only, as Chris configured.
+- **Chunks / embedding:** 10 / 10 (100%), status `processed`, content_hash unchanged from §15.
+- **Retrieval probes + results:** 3 probes (bakery-native / community-adjacent / operational-detail) × top_k=5 = 15 chunks; every chunk from `74e7f18f-…` in Universe `1a0af807-…`. Top-1 distances 0.4098 / 0.7202 / 0.4075 respectively.
+- **Isolation verdict:** VERIFIED — zero unbound workspace-only leakage, zero other-Universe leakage, zero Ruby-ineligible leakage, only the Fox & Flour KD returned.
+- **Shared/global-knowledge finding:** documented at §17.6 as a **NEW SESSION 273 product finding**. Not experimentally characterized; future falsifiable question frozen for a later session. Ruby's dogfood is intentionally kept clear of the shared-tier regime.
+- **Anything unexpected:** the community-adjacent probe has substantially higher distances (~0.72–0.79) than the other two probes, and pulled Universe-context adjacent chunks (referrals, ownership motive) rather than the §Customer experience section's direct answer. This is a fuzziness observation, not a defect — preserved as-is per the "if something surprising happens, preserve it and STOP rather than fixing it" rule. No probe was retried; no query was tuned.
+- **§17 commit SHA:** recorded in §18 at commit time.
+- **Repo / runtime health:** clean tree; `main == origin/main`; Django 302 / media-engine ok-all-mocks-false / Vite 200; no experiment env vars.
+- **Slice β status:** **NOT BEGUN.** Compositions=135 (unchanged), Episodes=27 (unchanged), NarrativeMemory=15 (unchanged), no PublishBundle created. No render has been dispatched for Ruby. Slice α is CLOSED.
+
+---
+
+## §18. §17 COMMIT PROVENANCE
+
+- §17 Slice α closeout commit: (recorded at commit time — see git log)
+- Slice α closeout verification script (read-only): `scripts/session273_slice_alpha_closeout_verify.py`
+- Slice α closeout evidence sidecar: `docs/design/session_273_experiment_data/05_slice_alpha_closeout_verification.json` (1,487,193 bytes)
