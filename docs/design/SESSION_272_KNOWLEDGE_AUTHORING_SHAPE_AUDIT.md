@@ -2233,3 +2233,192 @@ The bottleneck was NEVER knowledge-shape. It was a prompt-hygiene defect in `_ex
 ---
 
 **End of SESSION 272 Slice G. Verdict: A — CORRECT_ANCHOR PRODUCTION VERIFIED. The Slice F fix executed cleanly on a real production render, produced no attractor leakage even against a chunk containing the exact verbatim strongest attractor, preserved (in fact strengthened) Rivet identity, drew on NarrativeMemory naturally, and passed verification. K6.4 flags on `Briefly` / `Carefully` are additional Q-270-16 false-positive evidence (separate concern). Q-270-15c recommendation: CLOSE. SESSION 272 arc has reached a natural stopping point. STOP.**
+
+---
+
+## §22. SESSION 272 CLOSEOUT
+
+### §22.1 Arc summary — history preserved without hindsight rewriting
+
+**A. Initial question (Slice A audit — §1–§13).** SESSION 271 §191 ratified Writing Contract v6 for `solo_scene` but recorded a bounded known limitation: under duration-driven corrective expansion, canonical terminology from retrieved knowledge (`call APIs`, `state`, `where the behavior first becomes incorrect`) reappeared in Draft B. SESSION 271 §191.9 causally ranked this as **C — KnowledgeDocument lexical gravity (dominant)** amplified by **D — corrective-pass expansion (co-dominant)**. SESSION 272 opened with the question deferred to it: *how should Character OS factual knowledge represent technically precise concepts while giving synthesis accessible semantic formulations, without duplicating facts, dumbing down expert knowledge, or baking audience-specific prose into KnowledgeDocuments?* The cross-character audit (PATCH `19778800`, RIVET `71e2ec43`, PENNY `e284edc9`, REPO RED `ee7b7e5c`) established that dense-enumeration / single-lexical-surface encoding is a **cross-character structural property** of Character OS knowledge authoring, not a Patch-specific pathology. REPO RED additionally exposed a **distinct canned-quote / voice-lock pathology** (Shape β) that CORRECT_ANCHOR does not address and that remains a future architectural concern.
+
+**B. Initial hypothesis (§7 Phase 5).** Option **D — paired canonical + accessible paraphrase per factual section** was proposed as the smallest additive authoring convention that (a) preserved canonical terminology for expert audiences, (b) provided synthesis a parallel accessible lexical surface for beginner audiences, (c) worked with existing chunking/retrieval/synthesis, and (d) required no schema change. Option **C — structured term/meaning/example micro-schema** was recognized as the stronger long-term architectural endpoint for ingestion normalization but ruled out for near-term work because it required schema + chunking + retrieval changes.
+
+**C. Controlled experimentation on knowledge shape (Slice B + Slice C).** Slice B (§16) shipped the paired paraphrase to a shadow doc under isolated two-workspace conditions (Iso-2WS) with byte-identical Rivet clones. At **n=1** Option D showed directional support: CTL Draft B canonical hits = 5, EXP Draft B canonical hits = 3 (a 40% reduction). Slice C (§17) replicated the same experiment at **n=5 per condition**. The 40% reduction did NOT hold: CTL mean canonical hits Draft B = 3.20 · EXP mean = 3.00 · delta 0.20 · medians identical (3). The strongest attractor `where the behavior first becomes incorrect` appeared in both conditions at 2/5. The supplied paraphrase paragraph was NEVER adopted verbatim (0/5 in EXP). Chris's emerging Slice C hypothesis — that Option D might work by unlocking third-form character-native reformulation rather than substitution — was tested with a three-category classifier (canonical / paraphrase-supplied / accessible model-generated). Third-form model-generated expressions dominated BOTH conditions at ~4 hits per Draft B. The doc shape did NOT amplify third-form generation. **Verdict C — NOT REPLICATED.** Knowledge shape moved from suspected-primary-cause to **bounded / secondary** cause.
+
+**D. Corrective-pass investigation (Slice D — §18).** Reframed to *when Writing Contract v6 + persona already produce accessible reformulations, what specifically causes corrective expansion to reintroduce canonical KnowledgeDocument wording?* Evidence-audit-first slice with zero new renders. Code-read of `script_synthesis._call_responses_api` + `_assemble_task_message` + `duration_contract._expansion_hint` proved the Draft-A → Draft-B prompt delta is exactly and only the CORRECTIVE HINT block in §5 (system prompt byte-identical; retrieval deterministic; Q-270-15c OFF ⇒ `previous_draft` never supplied to the retry). Per-trial per-concept transitions on Slice C's 10 trials showed the load-bearing attractor `where the behavior first becomes incorrect` was NEWLY introduced in Draft B in 3/10 trials (CTL1, CTL5, EXP2). A latent prompt-hygiene bug was named: the hint said `REWRITE THE SAME NARRATIVE ABOVE` while no Draft A was above in the default pipeline — the phrase pointed at nothing, or worse, at §1 Factual Basis / KNOWLEDGE CHUNKS. Three sub-hypotheses remained indistinguishable and all lived inside `_expansion_hint`: **A** hint-wording ("Expand secondary detail from the knowledge chunks", referenced 4× in the hint), **C** duration expansion pressure, **E1** `REWRITE THE SAME NARRATIVE ABOVE` mis-anchoring. **D** (previous_draft interaction / Q-270-15c) was **ruled out** because Q-270-15c was OFF and `previous_draft` was never supplied.
+
+**E. Slice E ablation — the decisive finding (§19).** Chris authorized experiment-only wording ablation via reversible in-process monkey-patch of `_expansion_hint` (try/finally restore; no source-code commit). Three conditions × n=5:
+
+| Condition | Draft B canonical mean | Attractor family (exact + near-canonical) | Draft B accessible mean | Rivet identity mean | Retrieval distance |
+| --- | --- | --- | --- | --- | --- |
+| BASELINE (production verbatim; Slice C CTL reused) | 3.20 | **4/5** | 4.40 | 5.60 | 0.3381 |
+| NO_KNOWLEDGE_REF (all 4× `knowledge chunks` refs removed + false anchor removed) | 3.00 | **2/5** (−50%) | 3.60 | 3.60 | 0.3381 |
+| CORRECT_ANCHOR (single phrase swap — false anchor only) | 3.40 | **1/5** (−75%) | 4.40 | 4.00 | 0.3381 |
+
+**CORRECT_ANCHOR — the smallest hint change — produced the largest attractor-family reduction (75%).** NO_KNOWLEDGE_REF (a larger change) uniquely eliminated the exact-verbatim form (0/5) but retained more near-canonical variants (2/5). **Verdict: E1-DOMINANT, with A providing an additional verbatim-suppression effect.** The revised §191.9 causal ranking placed **corrective-hint wording** at rank 1 and demoted KnowledgeDocument shape to bounded/secondary. `REWRITE THE SAME NARRATIVE ABOVE` was independently confirmed as both incorrect wording (references a Draft A not present when Q-270-15c is OFF) AND harmful (drives the strongest attractor).
+
+**F. Slice F production implementation (§20).** Chris authorized the smallest production change. One-line edit to `character_os.duration_contract._expansion_hint`:
+
+```
+-  REWRITE THE SAME NARRATIVE ABOVE {effective_min} CHARACTERS
++  EXPAND YOUR SCRIPT TO AT LEAST {effective_min} CHARACTERS
+```
+
+Plus a docstring rationale block. All other production hint wording preserved byte-for-byte, including all 4 `knowledge chunks` references. Writing Contract v6 unchanged. `_compression_hint` untouched (out of Slice E scope). Q-270-15c gate remained OFF; public signature of `synthesize_with_duration_gate` unchanged. Post-fix production hint SHA `fccb006dac0c9461d646a7cf552fc56de2acdcd85d01ef9daea746a8e4566dbd` matches the Slice E CORRECT_ANCHOR frozen exemplar byte-identically. Tests: 8/8 new Slice F focused, 20/20 Q-270-15c contract preserved, 1365/1365 broader compositions+character_os regression (minus pre-existing SESSION 271 §C.4 `image_overlay` timeout test). No KnowledgeDocument / persona / retrieval / chunking / embedding / schema / NarrativeMemory changes. Runtime restarted via `start-local-real.sh` after implementation. Slice F commit `14e49b1`.
+
+**G. Slice G production dogfood (§21).** Chris rendered Composition **`8cb9e115-d7a9-4af5-ba86-746a5e5bbcc1`** (short ID `8cb9e115`) on the Slice F production hint. Substrate: **real production Rivet Teammate `f18b75cc-…`** in **Chris's canonical Patch' Workshop Universe `56d16b63-…`** (workspace `4ce5486d-…`). Episode: *"Rivet explains why one good result isn't enough — the case for repeating an experiment before believing it."* Recipe: `talking_head` (solo_scene). WCV=6. audience_hint="". mock_mode=False. Requested duration 90s; final clip 85.9s; cost $0.02; verified.
+
+**Corrective expansion FIRED.** `synthesis_attempt_count=2`. Draft A was 623 characters / ~43s of speech — well below the 972-char / 81s minimum. Draft B accepted at 1163 characters. The persisted `Composition.corrective_hint` field (the actual text the LLM saw at retry time) contained:
+
+> `EXPAND YOUR SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458)…`
+
+and did NOT contain `REWRITE THE SAME NARRATIVE ABOVE`. This is direct persisted runtime proof, not source-inference, that the Slice F production hint was in force when this render's corrective retry fired.
+
+**Zero attractor leakage.** The 5th retrieved chunk (`6f43e6f0`, idx 7 of doc `218eb0d8`) physically contained the exact verbatim `the behavior first becomes incorrect` in its tail overlap. Draft B contains ZERO instances of the exact-canonical attractor AND ZERO near-canonical variants of that family.
+
+**Qualitative checks (§21.4):**
+
+- No opening restart · No duplicate CTA · No invented facts · No factual drift · No awkward direct copying · No character flattening · Central arc preserved · Useful secondary-detail expansion.
+
+**Rivet identity STRENGTHENED across corrective expansion.** Four representative Rivet-native additions appeared in Draft B that were absent from Draft A:
+
+- *"Fine. I am pleased for it. Briefly."*
+- *"You have created a coincidence with excellent presentation."*
+- *"Patch and I have learned this the useful way."*
+- *"Watch what moves."*
+- *"…then I will start believing it. Carefully."*
+
+(These lines are evidence that corrective expansion created ROOM for character-native language; they are NOT to be overfit into future requirements.)
+
+**NarrativeMemory used naturally.** Memory `d98962e2` (*"Patch accepted Rivet taking the lead on an experiment…"*) drove the Draft B line `Patch and I have learned this the useful way` — natural backstory continuity rather than verbatim recital. Zero NarrativeMemory promotion this render.
+
+**K6.4 flags** on `Briefly` (position 128) and `Carefully` (position 1097) are additional **Q-270-16** false-positive evidence — both are sentence-initial capitalized adverbs functioning as terse Rivet one-word closings, not proper nouns. Verifier NOT fixed in Slice G.
+
+Slice G commit `55369c0`.
+
+### §22.2 Final SESSION 272 verdict
+
+**KNOWLEDGE SHAPE** — Real cross-character phenomenon (dense-enumeration lexical gravity is present in PATCH, RIVET, PENNY, and REPO RED). **Bounded / secondary**, not the dominant cause of the observed corrective-pass regression. No production authoring convention should be promoted on current evidence.
+
+**WRITING CONTRACT v6** — Remains the primary universal audience-aware communication layer. Working as intended. Not the source of the regression. Not changed by SESSION 272.
+
+**PERSONA** — Remains responsible for character-native communication. Rivet's `character_point_of_view` / `personality` / `voice_signature_phrases` / `voice_avoid_phrases` are what produced the accessible reformulations that dominate BOTH Slice E conditions. Not the bottleneck. Not changed by SESSION 272.
+
+**CORRECTIVE EXPANSION** — The dominant regression cause was the false anchor `REWRITE THE SAME NARRATIVE ABOVE` inside `_expansion_hint`. That phrase referred to a Draft A that only exists when Q-270-15c is active and is therefore a functional lie in default production. It mis-directed synthesis to reach into §1 KNOWLEDGE CHUNKS for verbatim copying.
+
+**CORRECT_ANCHOR** — **Production verified.** Single-phrase swap (`REWRITE THE SAME NARRATIVE ABOVE` → `EXPAND YOUR SCRIPT`) in `_expansion_hint`. Preserves all 4 `knowledge chunks` references. Slice E n=5 evidence: 75% attractor-family reduction. Slice G production render: zero attractor leakage even against a chunk containing the exact verbatim attractor.
+
+**Option D (paired paraphrase)** — Do NOT promote it to a mandatory authoring convention. n=5 evidence does not support it. Do not retest it without new evidence justifying the effort.
+
+**Option C (structured term/meaning/example schema)** — Retain as a possible future architectural direction for structured ingestion / normalization if future evidence justifies it. NOT scheduled for implementation.
+
+**Additional knowledge-authoring experimentation** — **Not justified now.** The demonstrated bottleneck was the corrective hint, not knowledge shape. That bottleneck is fixed and verified in production. Continuing to test authoring conventions would burn effort on a lever that Slices B/C/E already demoted.
+
+### §22.3 Q-270-15c — CLOSE / DEFER INDEFINITELY
+
+Q-270-15c proposed supplying `previous_draft` to the corrective retry so the model could see Draft A verbatim and preserve its accessible reformulations. The smaller CORRECT_ANCHOR change achieved the objective without requiring this additional mechanism. Slice G's production render confirmed that CORRECT_ANCHOR alone suppresses the strongest attractor even when the source phrase is physically present in the retrieved chunks.
+
+**Actions:**
+
+- **Do NOT delete** the dormant Q-270-15c code path. It is env-gated (`CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT`), inactive by default, does no runtime harm, and preserves optionality if a future need for previous-draft-supplied retry emerges.
+- **Keep the 20-test Q-270-15c contract suite** (`shell/apps/compositions/tests/test_session271_corrective_revision.py`) as regression trip-wires. Would catch any accidental activation or drift.
+- **Remove Q-270-15c from the active research queue.** Do not schedule further work on it. Do not re-open unless a specific new specimen demonstrates a mechanism CORRECT_ANCHOR cannot solve.
+
+### §22.4 Q-270-16 — PRESERVED OPEN, OUT OF SCOPE
+
+The K6.4 claim verifier misclassifies sentence-initial capitalized adverbs as proper nouns. Reproducible defect.
+
+**Cumulative false-positive specimens:**
+- SESSION 271 §E documented Q-270-16 as an open finding.
+- Slice G adds two new specimens on Composition `8cb9e115`:
+  - `"Briefly"` at position 128 in the accepted brief — context: *"Fine. I am pleased for it. Briefly."*
+  - `"Carefully"` at position 1097 in the accepted brief — context: *"…then I will start believing it. Carefully."*
+
+Both are legitimate Rivet-flavored terse one-word adverbial closings, not proper nouns. Preserved on Composition `8cb9e115.verification_warnings` as durable evidence.
+
+**Do NOT fix Q-270-16 in this closeout.** SESSION 273 may choose to schedule a verifier-quality slice, but that is Chris's decision at SESSION 273 open, not a precommitted plan.
+
+### §22.5 Optional future work carried forward (none automatically prioritized)
+
+1. **Compression-hint analog fix.** `_compression_hint` still opens with `REWRITE THE SAME NARRATIVE BELOW` (sha256 `78e40309734620471aa3858269312d600fe9de8f4cd7b1d9f9e670a95e9bf3dd`). Same class of false-anchor bug as pre-Slice-F `_expansion_hint`. **NOT experimentally evaluated in Slice E** (Slice E scope was expansion path only). A bounded future slice could either (a) replicate the Slice E three-condition ablation on the compression path, or (b) ship the analog change with a shorter dogfood. Whether this is worth doing is a SESSION 273 decision.
+2. **Q-270-16 verifier proper_noun false-positive cleanup.** Sentence-initial capitalized words are being misclassified. Slice G adds a third specimen (`Briefly` + `Carefully`). Standalone verifier-quality slice; unrelated to knowledge-shape or corrective hint.
+3. **Slice C `verification_warnings` capture-gap remediation.** Slice C's `_run_one_trial` in `scripts/session272_slice_c_multishot.py` didn't persist the `verification_warnings` list. This made the Slice E K6.4 cross-condition warning comparison unreliable. Low priority; trivially fixable in the sidecar-writer for any future replicate. Only matters if the Slice C substrate is ever revisited.
+4. **Substrate saturation bookkeeping.** SESSION 271 memory `project_patch_ai_agents_substrate_saturated` should be updated to reflect that (a) Rivet on reproducibility now has a real production specimen (Composition `8cb9e115`); (b) any future SESSION on Rivet + reproducibility should consider prior specimen shape before adding more of the same. Substrate variety discipline continues.
+5. **REPO RED Shape β / canned-quote voice-lock.** REPO RED's KnowledgeDocument `ee7b7e5c` mixes: canned character quotes, anti-scripts, content-strategy directives, and audience prescriptions with factual claims. This is a **distinct knowledge-authoring pathology** NOT solved or touched by CORRECT_ANCHOR. Preserved as a future architectural concern. Do NOT automatically schedule work on it.
+
+### §22.6 Final non-change / invariant audit (verified at closeout)
+
+| Invariant | Expected | Observed | Match |
+| --- | --- | --- | --- |
+| Writing Contract version | 6 | 6 | ✓ |
+| `_expansion_hint` contains `EXPAND YOUR SCRIPT` | True | True | ✓ |
+| `_expansion_hint` contains `REWRITE THE SAME NARRATIVE ABOVE` | False | False | ✓ |
+| `_expansion_hint` contains `Expand secondary detail from the knowledge chunks` | True | True | ✓ |
+| `_expansion_hint` production sample sha256 | `fccb006dac0c9461d646a7cf552fc56de2acdcd85d01ef9daea746a8e4566dbd` | `fccb006dac0c9461d646a7cf552fc56de2acdcd85d01ef9daea746a8e4566dbd` | ✓ |
+| `_compression_hint` contains `REWRITE THE SAME NARRATIVE BELOW` | True (unchanged) | True | ✓ |
+| Q-270-15c env var set | False | False | ✓ |
+| `_corrective_revision_experiment_active()` | False | False | ✓ |
+| Experiment env vars in worker PIDs | 0 | 0 | ✓ |
+| Provider mocks (openai / runway / image_gen / any) | all False | all False | ✓ |
+| Canonical RIVET `71e2ec43` full-text SHA | `75bac33223e3333893be2e589ac5adbbe9f16a9bfed361fe873a516e4d473b6e` | matches §15.7 baseline | ✓ |
+| RIVET render doc `218eb0d8` present | True | True | ✓ |
+| Total NarrativeMemory count | 17 (SESSION 271 §I baseline) | 17 | ✓ |
+| Total KnowledgeDocument count | 70 (68 canonical + 2 disposable Slice B/C) | 70 | ✓ |
+| Disposable CTL shadow doc `d8ab3d2c` retained | True | True | ✓ |
+| Disposable EXP shadow doc `64c91888` retained | True | True | ✓ |
+| Composition `8cb9e115` intact + verified + contains `EXPAND YOUR SCRIPT` in `corrective_hint` | True | True | ✓ |
+| Canonical Rivet Teammate `5dd05e3c` present | True | True | ✓ |
+| Real production Rivet Teammate `f18b75cc` present | True | True | ✓ |
+| Django `:8010/admin/` | 302 | 302 | ✓ |
+| Media-engine `:8001/health` | ok/all-mocks-false | ok/all-mocks-false | ✓ |
+| Vite `:5174/` | 200 | 200 | ✓ |
+| Celery worker | inspect ping replies | replied | ✓ |
+| Repo | main == origin/main; clean tree | matches | ✓ (pre-closeout commit) |
+
+All expected invariants match observed state. Nothing silently repaired. No unexpected drift. Ready for closeout commit.
+
+### §22.7 SESSION 272 evidence index
+
+All frozen artifacts under `docs/design/session_272_experiment_data/`:
+
+| File | Bytes | Contents |
+| --- | --- | --- |
+| `00_slice_b_setup_manifest.json` | 3,078 | Slice B disposable substrate creation manifest — workspaces + universes + Rivet clones + shadow docs + chunk hashes. |
+| `01_slice_b_ab_render_evidence.json` | 15,825 | Slice B n=1 A/B render — CTL + EXP first-pass, corrective hint used, accepted brief, retrieval, verification. |
+| `02_slice_c_multishot_evidence.json` | 51,293 | Slice C n=5 replicate — 10 trials (trial 1 preserved from Slice B; 4 more per condition); retrieval + drafts + verification per trial. |
+| `03_slice_c_aggregate_analysis.json` | 42,663 | Slice C 3-category classifier per-concept per-trial per-draft counts + aggregate summary. |
+| `03_slice_c_aggregate_summary.txt` | 4,348 | Human-readable Slice C aggregate + verdict inputs. |
+| `04_slice_e_ablation_evidence.json` | 93,612 | Slice E 3-condition n=5 ablation — 15 trials; frozen hint exemplars + shas; production hint sample before/after; monkey-patch restore verification. |
+| `05_slice_e_aggregate_analysis.json` | 64,573 | Slice E per-trial per-concept per-condition counts; verdict inputs. |
+| `05_slice_e_aggregate_summary.txt` | 3,336 | Human-readable Slice E 3-condition summary. |
+| `06_slice_g_composition_8cb9e115_evidence.json` | 12,137 | Slice G production dogfood forensics — full Composition provenance, persisted corrective_hint with SHA + mechanical checks, all 5 retrieved chunks, memory row body, runtime state at forensic read. |
+
+Adjacent scripts under `scripts/` (retained for reproducibility):
+- `session272_slice_b_setup.py` — disposable substrate creation
+- `session272_slice_b_render.py` — Slice B A/B render
+- `session272_slice_c_multishot.py` — Slice C n=5 replicate
+- `session272_slice_c_analyze.py` — Slice C 3-category classifier + aggregator
+- `session272_slice_e_hint_variants.py` — frozen NO_KNOWLEDGE_REF + CORRECT_ANCHOR variant text
+- `session272_slice_e_ablation.py` — reversible monkey-patch runner
+- `session272_slice_e_analyze.py` — Slice E 3-condition aggregator
+
+Adjacent tests under `shell/apps/compositions/tests/`:
+- `test_session272_slice_f_expansion_hint_anchor.py` — Slice F production-fix pin (8 tests)
+- `test_session271_corrective_revision.py` (edited by Slice F) — Q-270-15c 20-test contract preserved
+
+Future researchers should be able to reconstruct SESSION 272 from these artifacts + this durable document without needing terminal history.
+
+### §22.8 SESSION 272 CLOSEOUT commit SHA
+
+- SESSION 272 CLOSEOUT commit: **`_SHA_recorded_after_commit_`**
+- Push status: **`_recorded_after_push_`**
+- Working tree at CLOSEOUT: **clean**
+- Slice F production commit: `14e49b1`
+- Slice G forensics commit: `55369c0`
+
+*(Populated by the CLOSEOUT commit step.)*
+
+---
+
+**SESSION 272 CLOSED.** Bottleneck identified (corrective-hint false anchor), fix shipped (CORRECT_ANCHOR), production verified (Composition `8cb9e115` — zero attractor leakage, Rivet identity strengthened). Q-270-15c CLOSED. Q-270-16 OPEN. Additional knowledge-authoring experimentation not currently justified. See `docs/design/SESSION_273_HANDOFF.md` for next-session orientation.
