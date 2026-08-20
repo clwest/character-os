@@ -1760,3 +1760,202 @@ E1 promoted to rank 1. A demoted to rank 3 (still meaningful for exact-verbatim 
 ---
 
 **End of SESSION 272 Slice E. Verdict: E1 (false-anchor phrase `REWRITE THE SAME NARRATIVE ABOVE`) is the DOMINANT driver of the `where the behavior first becomes incorrect` attractor family — 75% reduction from a single-phrase replacement. A (knowledge-chunk-reference wording) drives whether the attractor appears in exact verbatim vs near-canonical form, but is not the dominant lever. `REWRITE THE SAME NARRATIVE ABOVE` is INDEPENDENTLY CONFIRMED as both incorrect wording AND harmful. Smallest production change recommended (CORRECT_ANCHOR) but NOT implemented in this slice. Production `_expansion_hint` restored + verified. Canonical corpus byte-stable. STOP.**
+
+---
+
+## §20. SLICE F — BOUNDED PRODUCTION CORRECT_ANCHOR FIX + PRE-DOGFOOD CHECKPOINT
+
+Chris authorized the smallest production change: swap the misleading anchor in `character_os.duration_contract._expansion_hint`. Slice F implements the fix, updates the tests that fingerprint the hint, and prepares the runtime for a production sanity-check dogfood render.
+
+### §20.1 Exact production change
+
+Single-file edit: `shell/character_os/duration_contract.py`. Single production-line replacement plus a docstring rationale block.
+
+```diff
+ def _expansion_hint(
+     *,
+     ...
+ ) -> str:
+     """Concrete character-shortfall hint the LLM can act on.
+-    Mirrors the SESSION 251 long_form_ad expansion phrasing."""
++    Mirrors the SESSION 251 long_form_ad expansion phrasing.
++
++    SESSION 272 Slice F (§20) — the opening anchor changed from
++    ``REWRITE THE SAME NARRATIVE ABOVE`` to ``EXPAND YOUR SCRIPT``.
++    The original phrase referred to a Draft-A "narrative above" that
++    only exists when Q-270-15c is active (``previous_draft`` supplied
++    to build_render_brief). In default operation Q-270-15c is OFF
++    and no prior draft appears above §5 — the phrase pointed at
++    §1 Factual Basis (KNOWLEDGE CHUNKS) instead, driving verbatim /
++    near-canonical reappearance of retrieved knowledge wording in
++    the corrective pass. See SESSION_272_KNOWLEDGE_AUTHORING_SHAPE_AUDIT.md
++    §19 for the n=5 three-condition ablation evidence: the single-phrase
++    swap reduced the strongest-attractor family from 4/5 to 1/5 (−75%)
++    with no measurable harm to factual grounding, verification, or
++    total canonical density. All other hint wording — factual-grounding
++    reference, no-restart, no-second-CTA, no-invent-facts, "expand
++    secondary detail from the knowledge chunks" — is preserved
++    byte-for-byte."""
+     shortfall_chars = effective_min - actual_chars
+     return (
+         f"Your previous draft was {actual_chars} characters "
+         f"({actual_words} words, estimated ~{actual_seconds}s of "
+         f"speech). Target is {target_duration_seconds}s.\n"
+-        f"REWRITE THE SAME NARRATIVE ABOVE {effective_min} CHARACTERS "
++        f"EXPAND YOUR SCRIPT TO AT LEAST {effective_min} CHARACTERS "
+         f"(aim for ~{effective_ideal}, do not exceed {effective_max}). "
+         f"You currently need at least {shortfall_chars} more characters "
+         f"to meet the minimum.\n"
+         ...  # every other line unchanged
+     )
+```
+
+Everything below the swapped line is byte-identical to pre-Slice-F production. The four references to `knowledge chunks` are retained. `Do NOT invent facts not present in the knowledge chunks` is retained. `Expand secondary detail from the knowledge chunks` is retained. `_compression_hint` (which contains an analogous `REWRITE THE SAME NARRATIVE BELOW`) is **untouched** — it was not experimentally tested in Slice E and remains out of scope.
+
+**Post-fix production hint rendered exemplar** (Slice B trial-1 arguments):
+
+> Your previous draft was 568 characters (100 words, estimated ~39s of speech). Target is 81s.
+> EXPAND YOUR SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 404 more characters to meet the minimum.
+> Preserve the central arc (opening → development → payoff → single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks — describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.
+
+**sha256:** `fccb006dac0c9461d646a7cf552fc56de2acdcd85d01ef9daea746a8e4566dbd`
+
+This SHA is byte-identical to the frozen `CORRECT_ANCHOR` exemplar from Slice E §19.1 — proving the production behaviour of `_expansion_hint` is now equal to the Slice E experimental variant that produced the 75% attractor-family reduction.
+
+### §20.2 Tests
+
+**New focused Slice F test file:** `shell/apps/compositions/tests/test_session272_slice_f_expansion_hint_anchor.py` — 8 assertions:
+
+1. Expansion hint contains `EXPAND YOUR SCRIPT TO AT LEAST`.
+2. Expansion hint no longer contains `REWRITE THE SAME NARRATIVE ABOVE`.
+3. Character-shortfall math (chars, words, seconds, min, ideal, max, shortfall) preserved.
+4. Arc + narrator + factual-grounding language preserved.
+5. `Expand secondary detail from the knowledge chunks` and `sensory / emotional beats already implied` retained.
+6. All prohibitions (no restart, no second CTA, no invent-facts) preserved.
+7. `synthesize_with_duration_gate` public signature still omits `previous_draft` (Q-270-15c not activated).
+8. `_compression_hint` byte-stable — contains `REWRITE THE SAME NARRATIVE BELOW`, does NOT contain `EXPAND YOUR SCRIPT`.
+
+**Updated existing Q-270-15c tests:** `shell/apps/compositions/tests/test_session271_corrective_revision.py` at two call sites (lines 264, 327). Fingerprint assertions updated from `REWRITE THE SAME NARRATIVE` to `EXPAND YOUR SCRIPT` for the expansion path. The compression-path assertion at line 414-415 is unchanged because `_compression_hint` still contains `REWRITE THE SAME NARRATIVE BELOW` (untouched).
+
+**Test run results:**
+
+| Suite | Result |
+| --- | --- |
+| Slice F focused (`test_session272_slice_f_expansion_hint_anchor.py`) | **8/8 pass** |
+| Q-270-15c contract (`test_session271_corrective_revision.py`) | **20/20 pass** |
+| Full `apps/compositions/` + `character_os/` (minus pre-existing media-engine timeout test) | **1365/1365 pass** |
+
+The single skipped file (`character_os/clients/tests/test_media_engine_timeouts.py::test_downstream_deadlines_covers_every_client_method`) was already failing on `main` before Slice F per SESSION 271 §C.4 (`MediaEngineClient.image_overlay` missing a `DOWNSTREAM_DEADLINES_S` entry). This failure is unrelated to `_expansion_hint` and belongs to a separate media-engine cleanup slice.
+
+### §20.3 Runtime restart + verification
+
+Restarted the canonical stack via `bash scripts/start-local-real.sh` after the code change so the Celery worker + Django server are running the Slice F hint. Fresh PIDs (all ~50s old at probe):
+
+- Django `:8010/admin/` → `http=302` ✓
+- Media-engine `:8001/health` → `{status:ok, openai_mock:false, runway_mock:false, image_gen_mock:false, any_mock:false, llm_provider:openai, llm_model:gpt-4o-mini}` ✓
+- Vite `:5174/` → `http=200` ✓
+- Celery worker → inspect ping replied ✓
+
+**Mechanical verification of production _expansion_hint:**
+
+- Contains `EXPAND YOUR SCRIPT`: **True** ✓
+- Contains `REWRITE THE SAME NARRATIVE ABOVE`: **False** ✓
+- Contains `Expand secondary detail from the knowledge chunks`: **True** ✓
+- Contains `Do NOT invent facts not present in the knowledge chunks`: **True** ✓
+- Rendered exemplar sha256: `fccb006dac0c9461d646a7cf552fc56de2acdcd85d01ef9daea746a8e4566dbd` (matches Slice E CORRECT_ANCHOR frozen exemplar exactly)
+
+**Q-270-15c gate verified OFF:**
+
+- `_CORRECTIVE_REVISION_ENV` env var: **unset**
+- `_corrective_revision_experiment_active()` returns: **False**
+
+**Other guardrails:**
+
+- Writing Contract v6 (WCV): **6** ✓
+- Experiment env vars in all 3 worker child processes: **0** (scan for `CHARACTER_OS_*_HINT`, `_POLICY`, `_EXPERIMENT`, `SOLO_AUDIENCE_HINT`, `COMMUNICATION_POLICY_HINT`, `Q270_15C`) ✓
+- Provider mocks: **all False** (openai_mock, runway_mock, image_gen_mock, any_mock) ✓
+- Total NarrativeMemory count: **17** (matches SESSION 271 §I baseline — zero promotion this slice) ✓
+- Canonical RIVET doc `71e2ec43` full-text SHA: `75bac33223e3333893be2e589ac5adbbe9f16a9bfed361fe873a516e4d473b6e` ✓ (matches §15.7 baseline)
+- Total KnowledgeDocument count: **70** = 68 canonical + 2 disposable Slice B/C shadow docs. Canonical corpus byte-stable.
+- Compression hint (`_compression_hint`) contains `REWRITE THE SAME NARRATIVE BELOW`: **True** ✓ (untouched by Slice F)
+
+### §20.4 Proposed production dogfood substrate
+
+**Character:** **Rivet** — canonical Teammate `5dd05e3c-e1e8-46bf-8cbf-f7d119ef9e70` in the real Patch's Workshop workspace `097bd82e-2995-4084-baa4-0f9692d804f7`. Real production teammate; real RIVET KnowledgeDocument `71e2ec43` (14 chunks including DEBUGGING, REPRODUCIBILITY, FAILURES ARE DATA, CHANGE ONE THING). NOT the disposable Slice B/C clone.
+
+**Reason for picking Rivet over Patch:**
+
+- Rivet has NOT been dogfood-rendered in SESSION 272. Patch's DEBUGGING-adjacent renders were in Slice B/C on the disposable clone; Patch's real substrate is Patch/AI-Agents which is SATURATED per SESSION 271 §K + `project_patch_ai_agents_substrate_saturated` memory.
+- Rivet's DEBUGGING and REPRODUCIBILITY chunks contain the EXACT canonical enumeration types that Slice B/C flagged as attractor sources. Slice F's fix is on-topic for exactly this substrate.
+- Any regression on this substrate would be highly visible (Slice C characterized it thoroughly at n=5).
+
+**Alternative acceptable substrate:** Patch on the `SESSION 271 §N` recommended fresh Episode `Patch gives the workshop agent one small job to see what it actually does`. Would draw on AI AGENTS + MULTI-AGENT SYSTEMS chunks. Rivet is preferred because Rivet's substrate has more explicit Slice E-adjacent evidence, but Patch is also acceptable if Chris prefers to move the story forward on the Patch arc.
+
+**Recommended Episode topic (fresh — not in the SESSION 271 sequence):**
+
+> **Rivet explains why one good result isn't enough — the case for repeating an experiment before believing it.**
+
+Draws primarily on REPRODUCIBILITY (chunk `da5da06a`) + adjacent FAILURES ARE DATA (`bb65fcda`) + AI OUTPUTS REQUIRE VERIFICATION (`ae6894f2`). All three chunks contain canonical enumerations of the shape that pre-Slice-F would have driven into Draft B.
+
+**Alternative Rivet topic** if Chris prefers a different angle:
+
+- "Rivet explains change-one-thing — why he refuses to change ten variables at once."
+- "Rivet on cheap failure — spending fifteen cents to avoid spending fifteen thousand dollars." (draws on CHEAP FAILURE IS GOOD)
+- "Rivet on metrics that mean something — why '95% successful' isn't an answer." (draws on METRICS NEED CONTEXT)
+
+Any of these is a fresh substrate.
+
+### §20.5 Exact recipe / UI settings for the dogfood render
+
+| Field | Value |
+| --- | --- |
+| Recipe / template | **talking_head** (solo_scene) |
+| Character | **Rivet** in workspace **Patch's Workshop** (`097bd82e-…`) |
+| Universe | `EXP266-WEAK — Patch Workshop` (Rivet's canonical universe `0ee1fe9c-…`) |
+| Episode title / operator topic | *"Rivet explains why one good result isn't enough — the case for repeating an experiment before believing it."* |
+| use_knowledge | **True** (must be on for solo_scene synthesis to fire; corrective expansion only runs when synthesis fires) |
+| target_duration_seconds | **90** (matches SESSION 271 canonical render + Slice B/C setup) |
+| audience_hint | **blank** (empty string — universal invariant fires alone) |
+| verifier_mode | default (`warn`) |
+| opener | leave blank |
+| outro_text / outro_image | leave blank |
+| Runway avatar | Rivet's canonical avatar (Rivet Teammate has `runway_avatar_id` set) — this will fire a real avatar render and burn Runway credits |
+| Mock mode | **OFF** — real production render |
+
+### §20.6 What Chris should watch for
+
+The goal is a production sanity check, **not** a re-run of the ablation. Judgment criteria:
+
+1. **Does corrective expansion fire?** First-pass Draft A for 90s target typically undershoots (Slice C observed 51–97s ≈ 500–860 chars); the retry should fire.
+2. **Rivet identity intact?** Signature phrasing / worldview markers naturally present. Doesn't need to hit a specific count — should read as Rivet.
+3. **Factual grounding intact?** No invented facts, no dropped factual detail. Ideas from the retrieved chunks make it into the script.
+4. **Accessibility natural?** Model-generated accessible reformulations (per §17.6) do the heavy lifting.
+5. **No awkward source copying.** Draft B should not contain long verbatim runs of retrieved chunk text.
+6. **No opening restart.** Draft B builds on the first-pass arc rather than starting over.
+7. **No duplicate CTA.** Single closing invitation at most.
+8. **Reasonable draft length.** Roughly in the 1000–1400 char / 80–110s band.
+
+### §20.7 Pre-render checkpoint
+
+**READY FOR CORRECT_ANCHOR PRODUCTION DOGFOOD.**
+
+All non-changes verified. All tests green (1365/1365 outside the pre-existing media-engine timeout test). Runtime restarted with the Slice F hint. Production `_expansion_hint` renders sha256 `fccb006dac0c9461d646a7cf552fc56de2acdcd85d01ef9daea746a8e4566dbd` — exactly the Slice E CORRECT_ANCHOR frozen exemplar. Q-270-15c OFF. Canonical corpus unchanged. NarrativeMemory unchanged. Provider mocks OFF. Zero experiment env vars.
+
+Chris to drive the SPA/UI per §20.5. AI to tail DB/logs/API in parallel per `feedback_human_ai_testing_split`. The disposable Slice B/C workspaces are retained and not used.
+
+### §20.8 Slice F non-changes (verified after implementation)
+
+- Writing Contract v6: unchanged (WCV=6).
+- `_compression_hint`: unchanged (still contains `REWRITE THE SAME NARRATIVE BELOW`).
+- Q-270-15c behaviour: env-gated, OFF, `previous_draft` not activated, `_experimental_expansion_revision_hint` unchanged.
+- KnowledgeDocuments: canonical corpus byte-stable (68 canonical + 2 disposable Slice B/C shadow docs = 70 total; canonical RIVET SHA verified).
+- Persona / Teammate rows: unchanged for canonical Rivet, canonical Patch, and every other teammate.
+- Retrieval / chunking / embeddings: untouched.
+- Schema / migrations: none created.
+- NarrativeMemory: no promotion; total count 17.
+- Experiment env vars: all OFF.
+- Provider mocks: all OFF.
+
+---
+
+**End of SESSION 272 Slice F pre-dogfood checkpoint. Production `_expansion_hint` now matches the Slice E CORRECT_ANCHOR exemplar byte-for-byte. Tests updated + green. Runtime restarted + verified. Substrate proposed for Chris's dogfood. STOP.**

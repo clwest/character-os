@@ -259,9 +259,14 @@ def test_experiment_off_expansion_retry_omits_previous_draft(monkeypatch):
         )
 
     # Canonical expansion hint fingerprint retained on the retry.
+    # SESSION 272 Slice F (§20) — the expansion-hint opening anchor
+    # is now ``EXPAND YOUR SCRIPT``; the pre-Slice-F ``REWRITE THE
+    # SAME NARRATIVE ABOVE`` phrase has been removed from the
+    # expansion hint but remains in the compression hint (BELOW).
     retry_kwargs = fake_brb.call_args_list[1].kwargs
     assert retry_kwargs.get("corrective_hint")
-    assert "REWRITE THE SAME NARRATIVE" in retry_kwargs["corrective_hint"]
+    assert "EXPAND YOUR SCRIPT" in retry_kwargs["corrective_hint"]
+    assert "REWRITE THE SAME NARRATIVE ABOVE" not in retry_kwargs["corrective_hint"]
     assert "REVISE THE PREVIOUS DRAFT" not in retry_kwargs["corrective_hint"]
 
 
@@ -322,9 +327,13 @@ def test_experiment_on_expansion_retry_receives_previous_draft(monkeypatch):
         "as previous_draft when the Q-270-15c experiment is ON"
     )
     # Experimental hint fingerprint present, canonical fingerprint absent.
+    # SESSION 272 Slice F (§20) — the canonical expansion hint now
+    # opens with ``EXPAND YOUR SCRIPT``; the experimental revision
+    # hint continues to open with ``REVISE THE PREVIOUS DRAFT``.
     assert retry_kwargs.get("corrective_hint")
     assert "REVISE THE PREVIOUS DRAFT" in retry_kwargs["corrective_hint"]
-    assert "REWRITE THE SAME NARRATIVE" not in retry_kwargs["corrective_hint"]
+    assert "EXPAND YOUR SCRIPT" not in retry_kwargs["corrective_hint"]
+    assert "REWRITE THE SAME NARRATIVE ABOVE" not in retry_kwargs["corrective_hint"]
 
 
 def test_experiment_on_first_pass_no_previous_draft(monkeypatch):

@@ -402,13 +402,30 @@ def _expansion_hint(
     effective_max: int,
 ) -> str:
     """Concrete character-shortfall hint the LLM can act on.
-    Mirrors the SESSION 251 long_form_ad expansion phrasing."""
+    Mirrors the SESSION 251 long_form_ad expansion phrasing.
+
+    SESSION 272 Slice F (§20) — the opening anchor changed from
+    ``REWRITE THE SAME NARRATIVE ABOVE`` to ``EXPAND YOUR SCRIPT``.
+    The original phrase referred to a Draft-A "narrative above" that
+    only exists when Q-270-15c is active (``previous_draft`` supplied
+    to build_render_brief). In default operation Q-270-15c is OFF
+    and no prior draft appears above §5 — the phrase pointed at
+    §1 Factual Basis (KNOWLEDGE CHUNKS) instead, driving verbatim /
+    near-canonical reappearance of retrieved knowledge wording in
+    the corrective pass. See SESSION_272_KNOWLEDGE_AUTHORING_SHAPE_AUDIT.md
+    §19 for the n=5 three-condition ablation evidence: the single-phrase
+    swap reduced the strongest-attractor family from 4/5 to 1/5 (−75%)
+    with no measurable harm to factual grounding, verification, or
+    total canonical density. All other hint wording — factual-grounding
+    reference, no-restart, no-second-CTA, no-invent-facts, "expand
+    secondary detail from the knowledge chunks" — is preserved
+    byte-for-byte."""
     shortfall_chars = effective_min - actual_chars
     return (
         f"Your previous draft was {actual_chars} characters "
         f"({actual_words} words, estimated ~{actual_seconds}s of "
         f"speech). Target is {target_duration_seconds}s.\n"
-        f"REWRITE THE SAME NARRATIVE ABOVE {effective_min} CHARACTERS "
+        f"EXPAND YOUR SCRIPT TO AT LEAST {effective_min} CHARACTERS "
         f"(aim for ~{effective_ideal}, do not exceed {effective_max}). "
         f"You currently need at least {shortfall_chars} more characters "
         f"to meet the minimum.\n"
