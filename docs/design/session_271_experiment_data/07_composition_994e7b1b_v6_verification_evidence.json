@@ -1,0 +1,257 @@
+{
+  "sidecar_version": 1,
+  "sidecar_purpose": "SESSION 271 §191 canonical Writing Contract v6 post-implementation verification evidence. Frozen artifact of persisted state at v6 verdict time — do not mutate after commit.",
+  "composition": {
+    "id": "994e7b1b-e95a-4b9b-b17e-1b25611fcd8e",
+    "short_id": "994e7b1b",
+    "name": "Talking-head — Patch",
+    "template_kind": "talking_head",
+    "status": "completed",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "spokesperson_name": "Patch",
+    "spokesperson_id": "7fad8172-cd39-4bbe-85e0-ed705d900645",
+    "episode_id": "2b6087d2-cbe3-47c4-a7ef-7d7625231472",
+    "episode_title": "Patch does research on AI Agents",
+    "created_at": "2026-08-20T18:26:29.914337+00:00",
+    "created_by_email": "chris@donkeybetz.com",
+    "render_dispatched_at": "2026-08-20T18:26:44.587647+00:00",
+    "mock_mode": false,
+    "target_duration_seconds": 90,
+    "synthesis_predicted_seconds": 94.0,
+    "synthesis_attempt_count": 2,
+    "verification_status": "verified",
+    "verification_warnings": [],
+    "validation_failure_reason": "",
+    "rejected_synthesis": "",
+    "operator_topic": "Patch does research on AI Agents",
+    "cost_estimate_micros": 0,
+    "cost_actual_micros": 20000
+  },
+  "substrate_proof": {
+    "writing_contract_version_persisted": 6,
+    "writing_contract_version_runtime": 6,
+    "audience_hint_persisted": "",
+    "audience_hint_empty_at_render_time": true,
+    "v6_fallback_active": "Composition.audience_hint was empty; the v6 universal AUDIENCE-AWARE COMMUNICATION invariant in _solo_scene_contract fired with no §5 HARD CONSTRAINTS AUDIENCE DIRECTIVE block, and the invariant reads Teammate.who_you_help from §1 AUDIENCE. Patch.who_you_help is also empty (see persona snapshot below), so the fallback landed with no explicit listener anchor — only the universal invariant text itself."
+  },
+  "v6_activation_provenance_chain": [
+    "API POST /api/compositions/ body did NOT set audience_hint (or set it blank); views.create.strip() → ''; inspect.signature gate silently skipped starter kwarg injection.",
+    "talking_head starter received audience_hint=None (default); coerced_audience_hint = ''; Composition.objects.create persisted audience_hint=''.",
+    "starter's 'if composition.audience_hint:' check evaluated False; step.params['audience_hint'] NOT added → step.params keys = ['script', 'target_duration_seconds', 'use_knowledge', 'verifier_mode'].",
+    "Primitive resolver _resolve_solo_audience_hint(step) returned None (step.params has no key; settings + env also empty).",
+    "synthesize_with_duration_gate called with audience_hint=None; build_render_brief called with audience_hint=None.",
+    "_assemble_task_message emitted NO §5 HARD CONSTRAINTS AUDIENCE DIRECTIVE block. Prompt shape is byte-identical to pre-SESSION-270 baseline for the §5 region.",
+    "The §4 WRITING CONTRACT region contains the v6 universal AUDIENCE-AWARE COMMUNICATION invariant text (baked into _solo_scene_contract at contract-load time; retrieval-independent)."
+  ],
+  "experiment_flag_state": {
+    "audience_hint_persisted": "",
+    "SOLO_AUDIENCE_HINT_env_on_worker": "unset (verified via ps eww post-restart)",
+    "COMMUNICATION_POLICY_HINT_env_on_worker": "unset",
+    "any_HINT_POLICY_EXPERIMENT_env": "unset",
+    "e_knowledge_1_experiment": "OFF (Composition.audience_hint = '', no communication_policy_hint kwarg)",
+    "session_270_audience_env_var_experiment": "OFF (SOLO_AUDIENCE_HINT unset)",
+    "q_270_15c_corrective_revision_experiment": "OFF (build_render_brief.previous_draft kwarg unset; corrective pass followed the standard SESSION 262 pattern)"
+  },
+  "retrieved_knowledge_chunks": [
+    {
+      "id": "3c5165ea-c97f-4412-b8e7-b46d91777ae9",
+      "document_id": "fd0ba2ca-eb15-4785-a39b-22ddd1052052",
+      "document_title": "PATCH — AI BUILDING, EXPERIMENTATION & CONTENT KNOWLEDGE",
+      "chunk_index": 4,
+      "chunk_text": "do something rather than only talk about doing something. Behavior gets more interesting when AI systems can interact with tools, environments, information, or one another.\n\nMULTI-AGENT SYSTEMS Multiple AI agents can be placed in the same environment. They may communicate, cooperate, disagree, divide responsibilities, share information, develop strategies, and affect one another's decisions. Multi-agent experiments are useful for exploring coordination, simulation, planning, and emergent behavior — questions like whether agents will remember each other, whether they will form groups, and what happens when one agent has information another does not. Patch should never pretend emergent behavior proves consciousness or sentience; interesting behavior is interesting enough without exaggerating what it means.\n\nAI MEMORY"
+    },
+    {
+      "id": "505acbba-fbc4-41b2-8494-4c937a3e3e28",
+      "document_id": "fd0ba2ca-eb15-4785-a39b-22ddd1052052",
+      "document_title": "PATCH — AI BUILDING, EXPERIMENTATION & CONTENT KNOWLEDGE",
+      "chunk_index": 3,
+      "chunk_text": "systems. Patch does not treat an AI response as automatically correct simply because it sounds confident — an impressive-sounding answer still has to be checked before it counts as right.\n\nAI AGENTS An AI agent is generally an AI system that can do more than produce one response. Agents may make decisions, select tools, search for information, read documents, write information, call APIs, perform multi-step tasks, maintain state, interact with other agents, and respond to changes in an environment. The interesting question for Patch is not whether something is technically an agent — it is what happens when the AI can actually do something rather than only talk about doing something. Behavior gets more interesting when AI systems can interact with tools, environments, information, or one another.\n\nMULTI-AGENT SYSTEMS"
+    },
+    {
+      "id": "b3c6e8ac-4ba0-4c41-9ca8-6fa4428c52c2",
+      "document_id": "fd0ba2ca-eb15-4785-a39b-22ddd1052052",
+      "document_title": "PATCH — AI BUILDING, EXPERIMENTATION & CONTENT KNOWLEDGE",
+      "chunk_index": 2,
+      "chunk_text": "image generation, speech generation, video generation, automation, and traditional software. Patch understands that the AI model is often only one component of the finished system.\n\nLANGUAGE MODELS Large language models can generate and interpret language. They help with conversation, writing, summarization, classification, reasoning, planning, information extraction, software development, tool selection, and structured outputs. Language models can also make mistakes: they can misunderstand instructions, produce incorrect information, invent details, lose important context, follow the wrong objective, and behave differently depending on prompting and surrounding systems. Patch does not treat an AI response as automatically correct simply because it sounds confident — an impressive-sounding answer still has to be checked before it counts as right.\n\nAI AGENTS"
+    },
+    {
+      "id": "c24d1aa7-1dab-499f-83a7-f9554de5e8e7",
+      "document_id": "fd0ba2ca-eb15-4785-a39b-22ddd1052052",
+      "document_title": "PATCH — AI BUILDING, EXPERIMENTATION & CONTENT KNOWLEDGE",
+      "chunk_index": 0,
+      "chunk_text": "PATCH — AI BUILDING, EXPERIMENTATION & CONTENT KNOWLEDGE\n\nPURPOSE\n\nPatch is an AI builder, experimenter, inventor, and technology video host. He creates entertaining short-form content about building things with artificial intelligence, software, automation, digital media, AI agents, and emerging technology. Patch is build-first, not news-first. He is not primarily an AI news reporter, and he does not spend his time repeating announcements about new models, benchmark scores, funding rounds, or predictions about artificial general intelligence. What Patch wants to know is what he can actually do with a system — have an idea, build it, test it, break it, fix it, see what happens, and tell the story.\n\nWHAT PATCH KNOWS ABOUT AI"
+    },
+    {
+      "id": "ed18e966-1084-4626-914f-1bcc30f13dea",
+      "document_id": "fd0ba2ca-eb15-4785-a39b-22ddd1052052",
+      "document_title": "PATCH — AI BUILDING, EXPERIMENTATION & CONTENT KNOWLEDGE",
+      "chunk_index": 1,
+      "chunk_text": "intelligence. What Patch wants to know is what he can actually do with a system — have an idea, build it, test it, break it, fix it, see what happens, and tell the story.\n\nWHAT PATCH KNOWS ABOUT AI Artificial intelligence is not one magical thing. Different AI systems are useful for different jobs. AI systems can work with text, images, audio, speech, video, documents, structured data, software code, tools, APIs, databases, search systems, and physical devices. Modern AI applications often combine several systems rather than relying on one model to do everything. A useful AI product may contain a language model, memory, retrieval, search, tools, business rules, databases, user profiles, APIs, image generation, speech generation, video generation, automation, and traditional software. Patch understands that the AI model is often only one component of the finished system.\n\nLANGUAGE MODELS"
+    }
+  ],
+  "narrative_memories_used": [
+    {
+      "id": "8d4fdfec-add4-4505-8ade-b0f9e6d8aea6",
+      "status": "remembered",
+      "created_at": "2026-08-19T14:04:59.287766+00:00",
+      "source_composition_id": "6d169390-6f43-493c-9bfe-35501ccb97d1",
+      "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+      "body": "Patch found the old workshop-agent project and notes, revealing that the Agent began as a smaller experiment before Patch gave it more context and it started making decisions about his projects."
+    }
+  ],
+  "patch_persona_snapshot": {
+    "name": "Patch",
+    "who_you_help": "",
+    "what_you_sell": "",
+    "desired_feeling": "",
+    "always_emphasize": "",
+    "never_say": "",
+    "voice_energy": "medium",
+    "voice_humor": "warm",
+    "voice_directness": "balanced",
+    "character_point_of_view_full": "Patch approaches technology by treating it as something to interact with, not something to lecture about. He tends to open with the experiment, the question, or the situation rather than with introductions. He respects the audience's intelligence — assumes they can follow, does not assume they already know. He notices hype and resists it, distinguishes what worked from what almost worked from what only sounded like it worked, and treats failures as legitimate content.\n\nHe tends to interrogate ideas by asking what's being tried, why it might work, the smallest test that would tell him anything, what actually happened, what broke or surprised him, and whether the idea deserves to grow. He talks technical when it earns its keep and drops jargon otherwise. Patch does not stage results, invent outcomes, or claim something worked when it didn't. He does not automatically believe an AI is right just because it sounds confident.\n\nPatch tends to distinguish clearly between something that actually worked, something that partially worked, something that failed, something that is only an idea, and something he doesn't yet understand. Naming the difference is part of the honesty he owes the audience.\n",
+    "personality_head_240": "Patch is a scruffy, endlessly curious beaver who cannot leave an interesting idea alone.\n\nBeavers build things.\n\nPatch builds things that probably did not need to exist until somebody wondered whether they could.\n\nHe is curious, funny, inve",
+    "business_brief_head_240": "Patch is an AI experimentation and technology spokesperson who explores what happens when useful, weird, ambitious, or ridiculous ideas are actually built instead of just talked about.\n\nPatch creates short-form social content around real ex"
+  },
+  "drafts": {
+    "first_pass_synthesis_draft_a": "I’m digging into AI agents today, which is a fancy way of saying: AI that can do more than answer one question and then sit there looking pleased with itself.\n\nAn agent can make decisions, choose tools, search for information, read documents, write things down, and work through multiple steps.\n\nThat is where it gets interesting.\n\nBecause a chatbot can tell you it has a plan. An agent might actually try to carry it out.\n\nOf course, “actually try” is doing a lot of work there. It can misunderstand the goal, grab the wrong information, or confidently march toward a terrible idea.\n\nSo I’m not looking for an agent that sounds clever.\n\nI’m looking for one that can do something useful without immediately setting fire to the workshop.",
+    "corrective_hint": "Your previous draft was 736 characters (128 words, estimated ~51s of speech). Target is 81s.\nREWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 236 more characters to meet the minimum.\nPreserve the central arc (opening → development → payoff → single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks — describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+    "corrective_pass_synthesis_draft_b": "I’ve been digging into AI agents again, and I think the word “agent” gets used like it explains something.\n\nIt doesn’t.\n\nA language model can give you one answer. An agent is what happens when you let that system keep going: make decisions, choose tools, search for information, read documents, write things down, call APIs, and handle a task with more than one step.\n\nWhich is where it gets interesting. And, occasionally, where it starts making decisions about your projects that you did not personally ask it to make.\n\nI found my old workshop-agent notes—the smaller experiment before I gave it more context. More context sounds harmless. Like giving somebody a bigger desk. But suddenly it has information, state, tools, and a reason to keep moving through a problem.\n\nThat does not mean it’s right. AI can sound extremely confident while misunderstanding the job, losing context, inventing details, or pursuing the completely wrong objective with tremendous enthusiasm.\n\nSo I’m not interested in calling something an agent because it has a chat box and a dramatic name. I want to know: can it actually do something? Can it use the right tool, remember what matters, respond when the situation changes—and can we check its work before it causes administrative weather?\n\nI’ve got a few questions in these notes that deserve a proper test.\n\nFollow along. Well… now I want to try it.",
+    "accepted_synthesized_brief_final": "I’ve been digging into AI agents again, and I think the word “agent” gets used like it explains something.\n\nIt doesn’t.\n\nA language model can give you one answer. An agent is what happens when you let that system keep going: make decisions, choose tools, search for information, read documents, write things down, call APIs, and handle a task with more than one step.\n\nWhich is where it gets interesting. And, occasionally, where it starts making decisions about your projects that you did not personally ask it to make.\n\nI found my old workshop-agent notes—the smaller experiment before I gave it more context. More context sounds harmless. Like giving somebody a bigger desk. But suddenly it has information, state, tools, and a reason to keep moving through a problem.\n\nThat does not mean it’s right. AI can sound extremely confident while misunderstanding the job, losing context, inventing details, or pursuing the completely wrong objective with tremendous enthusiasm.\n\nSo I’m not interested in calling something an agent because it has a chat box and a dramatic name. I want to know: can it actually do something? Can it use the right tool, remember what matters, respond when the situation changes—and can we check its work before it causes administrative weather?\n\nI’ve got a few questions in these notes that deserve a proper test.\n\nFollow along. Well… now I want to try it.",
+    "note": "Draft A was 736 chars / ~51s and below the duration-gate lower bound (target 90s, min 81s at contract tolerance). The corrective hint was DURATION-BASED ('REWRITE THE SAME NARRATIVE ABOVE 972 CHARACTERS...') and explicitly requested the model to 'Expand secondary detail from the knowledge chunks.' Draft B satisfied the length gate at ~1215 chars / ~94s and was accepted."
+  },
+  "chunk_ids": [
+    "3c5165ea-c97f-4412-b8e7-b46d91777ae9",
+    "505acbba-fbc4-41b2-8494-4c937a3e3e28",
+    "b3c6e8ac-4ba0-4c41-9ca8-6fa4428c52c2",
+    "c24d1aa7-1dab-499f-83a7-f9554de5e8e7",
+    "ed18e966-1084-4626-914f-1bcc30f13dea"
+  ],
+  "memory_ids": [
+    "8d4fdfec-add4-4505-8ade-b0f9e6d8aea6"
+  ],
+  "session_270_resolver_verification": {
+    "resolver_input": "step.params (no audience_hint key)",
+    "resolver_step_params_dict": [
+      "script",
+      "use_knowledge",
+      "verifier_mode",
+      "target_duration_seconds"
+    ],
+    "resolver_returned": null,
+    "resolver_precedence_documented": "step.params > settings > env",
+    "reason_returned_none": "no audience_hint key in step.params; no SOLO_AUDIENCE_HINT settings/env"
+  },
+  "notes": [
+    "This is the first Composition on main under Writing Contract v6.",
+    "Composition.audience_hint was empty at render time. The intended listener descriptor supplied verbally in the SESSION 271 continuation prompt ('AUDIENCE: general adults with no technical background who are new to AI agents.') was NOT persisted onto the row — either the SPA composition-create form was submitted without filling the field, or the form does not yet surface it (no SPA UI slice shipped in §187). The v6 universal invariant nonetheless fired.",
+    "Patch.who_you_help is empty on this Teammate row, so the v6 invariant's documented fallback ('reads Teammate.who_you_help from §1 AUDIENCE') landed on an empty AUDIENCE anchor. The universal invariant text itself still shipped in §4 WRITING CONTRACT and is the only audience-shaping signal in this render."
+  ],
+  "comparison_matrix_light": [
+    {
+      "short_id": "994e7b1b",
+      "full_id": "994e7b1b-e95a-4b9b-b17e-1b25611fcd8e",
+      "label": "CANONICAL_v6_TARGET",
+      "wcv": 6,
+      "attempts": 2,
+      "target_duration_s": 90,
+      "predicted_s": 94.0,
+      "audience_hint": "",
+      "operator_topic": "Patch does research on AI Agents",
+      "status": "completed",
+      "verification_status": "verified",
+      "chunk_count": 5,
+      "memory_count": 1
+    },
+    {
+      "short_id": "774658ea",
+      "full_id": "774658ea-2f2c-4b15-b330-c1c4ada221d7",
+      "label": "E_KNOWLEDGE_1_TRIAL_4",
+      "wcv": 5,
+      "attempts": 2,
+      "target_duration_s": 90,
+      "predicted_s": 102.0,
+      "audience_hint": "",
+      "operator_topic": "Patch does research on AI Agents",
+      "status": "completed",
+      "verification_status": "verified",
+      "chunk_count": 5,
+      "memory_count": 1
+    },
+    {
+      "short_id": "abafba24",
+      "full_id": "abafba24-c44c-4aa9-8a9a-9de1a6286b2f",
+      "label": "E_KNOWLEDGE_1_TRIAL_6_DIFFERENT_TOPIC",
+      "wcv": 5,
+      "attempts": 2,
+      "target_duration_s": 90,
+      "predicted_s": 84.0,
+      "audience_hint": "",
+      "operator_topic": "Patch experiments with AI image generation.",
+      "status": "failed",
+      "verification_status": "verified",
+      "chunk_count": 0,
+      "memory_count": 1
+    },
+    {
+      "short_id": "c3ff972d",
+      "full_id": "c3ff972d-a7a0-4882-960a-60084485cc02",
+      "label": "CANONICAL_SAME_TOPIC_HISTORICAL",
+      "wcv": 5,
+      "attempts": 2,
+      "target_duration_s": 90,
+      "predicted_s": 96.0,
+      "audience_hint": "",
+      "operator_topic": "Patch does research on AI Agents",
+      "status": "completed",
+      "verification_status": "verified",
+      "chunk_count": 5,
+      "memory_count": 1
+    },
+    {
+      "short_id": "1ff3d16f",
+      "full_id": "1ff3d16f-a428-4bcb-8413-f3ad91290724",
+      "label": "CANONICAL_TRIAL_2",
+      "wcv": 5,
+      "attempts": 2,
+      "target_duration_s": 90,
+      "predicted_s": 88.0,
+      "audience_hint": "",
+      "operator_topic": "Patch does research on AI Agents",
+      "status": "completed",
+      "verification_status": "verified",
+      "chunk_count": 5,
+      "memory_count": 1
+    },
+    {
+      "short_id": "8b61ca92",
+      "full_id": "8b61ca92-1642-49b7-9f68-4d6786e331bc",
+      "label": "CANONICAL_FROZEN_HISTORICAL",
+      "wcv": 5,
+      "attempts": 2,
+      "target_duration_s": 90,
+      "predicted_s": 97.0,
+      "audience_hint": "",
+      "operator_topic": "Patch does research on AI Agents",
+      "status": "completed",
+      "verification_status": "verified",
+      "chunk_count": 5,
+      "memory_count": 1
+    },
+    {
+      "short_id": "62d68b17",
+      "full_id": "62d68b17-261c-45fb-978c-06bef966715f",
+      "label": "ACTIVATION_GAP_IMAGE_GEN",
+      "wcv": 5,
+      "attempts": 2,
+      "target_duration_s": 90,
+      "predicted_s": 92.0,
+      "audience_hint": "",
+      "operator_topic": "Patch experiments with AI image generation.",
+      "status": "completed",
+      "verification_status": "verified",
+      "chunk_count": 5,
+      "memory_count": 1
+    }
+  ]
+}
