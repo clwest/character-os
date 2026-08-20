@@ -1145,3 +1145,121 @@ We have **code-level eligibility** and **accidental-leakage evidence** for "shar
 - Pushed to `origin/main`.
 - Slice α closeout verification script (read-only): `scripts/session273_slice_alpha_closeout_verify.py`
 - Slice α closeout evidence sidecar: `docs/design/session_273_experiment_data/05_slice_alpha_closeout_verification.json` (1,487,193 bytes)
+
+---
+
+## §19. CAST-ADD 400 DIAGNOSTIC — NOT REPRODUCED; NO PRODUCTION FIX LANDED
+
+**Status:** Chris reported that clicking "Add to cast" in the Episode detail page (Fox & Flour Episode `77b04b6b`, adding Ruby) returned HTTP 400. This section documents the diagnostic that ran against the exact substrate — Chris's user account, real Ruby, real Fox & Flour Episode — and **failed to reproduce the failure**. Every proof point examined shows the backend cast-add path is healthy for this exact case. **No production code was changed. No fix was landed.**
+
+**Evidence sidecar:** `docs/design/session_273_experiment_data/06_diag_cast_400.json` (2,917 bytes).
+**Diagnostic script (read-only; atomic-rollback):** `scripts/session273_diag_cast_400.py`.
+
+### §19.1 Preconditions verified
+
+| Object | Field | Value | Python type |
+| --- | --- | --- | --- |
+| Ruby | `id` | `5875a7b4-cf39-433d-89b3-4e34a89a5208` | UUID |
+| Ruby | `workspace_id` | `4ce5486d-…` | **UUID** |
+| Ruby | `universe_id` | `1a0af807-…` | **UUID** |
+| Episode `77b04b6b` | `universe_id` | `1a0af807-…` | **UUID** |
+| Episode `77b04b6b` | `universe.workspace_id` | `4ce5486d-…` | **UUID** |
+| Episode `77b04b6b` | cast (pre-diag) | `[]` (empty) | — |
+
+ID comparisons: `ruby.universe_id == episode.universe_id` → **True**; `ruby.workspace_id == episode.universe.workspace_id` → **True**. No UUID-vs-string type mismatch — both sides are `uuid.UUID` objects loaded from the DB. **This is not the §13.2 scripting hazard.**
+
+### §19.2 Three-probe reproduction (all in `transaction.atomic()` + savepoint_rollback — nothing persists)
+
+**Probe 1 — DRF `APIClient.post(…)` with `force_authenticate(chris)`:**
+- URL: `/api/episodes/77b04b6b-…/cast/`
+- Payload: `{"teammate": "5875a7b4-…"}` (format=json)
+- **Status: 201 Created**. Response body (440 bytes) is a full Episode payload including `cast: [{id: 5875a7b4-…, name: "Ruby"}]`.
+
+**Probe 2 — direct `episode.cast.add(ruby)` (isolates the `m2m_changed pre_add` signal):**
+- **Result: success.** `episode.cast.all()` now includes Ruby.
+
+**Probe 3 — `EpisodeCast(episode, teammate).full_clean()` (isolates model-level `clean()`):**
+- **Result: clean_passed.**
+
+All three layers of defense-in-depth (view / signal / model.clean) accept this exact combination. Rollback verified: post-probe `episode.cast` is empty as before.
+
+### §19.3 Existing regression coverage
+
+`shell/apps/universe/tests/test_episode.py` already covers the operator scenario:
+
+| Test | Scenario | Status |
+| --- | --- | --- |
+| `test_9_cross_workspace_cast_rejected` | Cross-workspace teammate → 400 | **PASS** |
+| `test_10_cross_universe_cast_rejected` | Cross-Universe teammate → 400 | **PASS** |
+| `test_11_legacy_teammate_cast_rejected` | Teammate with `universe=NULL` → 400 | **PASS** |
+| `test_13_cast_add_via_api_201` | Same-Universe teammate via API → 201 | **PASS** |
+
+The positive-path test is byte-shape-identical to what the SPA does (`APIClient.post("/api/episodes/<id>/cast/", {"teammate": str(pk)}, format="json")`). Not a regression from an incomplete prior fix.
+
+### §19.4 Server log for the reported window contains ZERO cast POST attempts
+
+`/tmp/character-os-django.log` covers 22:56–23:28 UTC. In that window the log contains:
+
+- 1× `POST /api/knowledge/74e7f18f-…/attach/` → 200 (Chris attaching Ruby m2m to the KD — from §17)
+- 1× `POST /api/episodes/` → **201** (Chris creating Fox & Flour Episode `77b04b6b`)
+- 3× `POST /api/episodes/` → **400** (75 bytes each — the `episode_unique_title_per_universe` `UniqueTogetherValidator` error diagnosed in the previous turn; Chris retrying Episode-create with the same title)
+- Zero `POST /api/episodes/…/cast/` attempts
+
+No `403`, no `500`, no cast-endpoint traffic of any kind. Given the Vite proxy config (`web/vite.config.ts`) proxies `/api/*` to Django at `:8010` with `cookieDomainRewrite: ""`, a successful click in the SPA would appear in this log. It does not.
+
+### §19.5 Two hypotheses consistent with the evidence
+
+**Hypothesis A (most likely on current evidence):** The "cast-add 400" report is a misattribution of the still-recurring `POST /api/episodes/ → 400` (unique-title constraint from the previous turn). Chris may have interpreted the earlier failure as a cast-add failure, since both surface on the same Episode detail page workflow and both return HTTP 400.
+
+**Hypothesis B:** Chris did click "Add to cast" but the SPA's `handleAddCast` short-circuited on `if (!castPick) return;` (no teammate selected in the dropdown), producing no HTTP request. The picker's disabled state should prevent this visually, but if Ruby's option was not selected before clicking, the request never fires — and no 400 is possible because no request is made.
+
+Either hypothesis explains the absence of cast-add traffic in the log while being consistent with Chris's user-facing impression.
+
+### §19.6 What would change my conclusion
+
+Chris opening browser DevTools **Network** tab, clicking Add-to-cast, and sharing:
+1. The exact request URL
+2. The exact request body
+3. The exact response status
+4. The exact response body
+
+If the request appears and the response is genuinely 400, I will re-open this section with the new evidence. Until then, inventing a fix would violate the "smallest real fix" rule and would risk weakening the signal / clean / constraint defense-in-depth for a phantom bug.
+
+### §19.7 Prior-cast-bug context (searched; not found)
+
+Grep across the tree for prior cast fixes surfaces only the SESSION 262 introduction of `m2m_changed pre_add` signal-based validation (`shell/apps/universe/signals.py`) and the SESSION 269 §12 atomic `cast_ids` at Episode-create (`EpisodeSerializer.create`). Both come with tests. There is no half-fixed prior cast bug this could be a regression of.
+
+### §19.8 Explicit non-changes during §19
+
+- No production code changed (no view, no serializer, no signal, no model, no SPA component, no migration).
+- No test file changed.
+- No EpisodeCast row created outside a transaction that rolled back. **Post-diagnostic `Episode.cast.count() = 0` for Episode `77b04b6b`** — same as pre-diagnostic.
+- No Ruby persona / voice / avatar / brand / universe / m2m modification.
+- No KnowledgeDocument mutation.
+- No Composition, Episode (new), NarrativeMemory, PublishBundle created.
+- No experiment env vars set. No provider mocks toggled. Runtime unchanged. `_expansion_hint` CORRECT_ANCHOR preserved.
+- No manual DB shell insert of EpisodeCast — as Chris explicitly forbade.
+
+### §19.9 §19 return values
+
+- **Exact 400 error:** none captured; the only 400s in the server log are `POST /api/episodes/` with body `{"non_field_errors":["The fields universe, title must make a unique set."]}` (75 bytes — the Episode-create duplicate-title constraint, previously diagnosed). Zero `POST /api/episodes/…/cast/` 400s in the reported window.
+- **Root cause:** on current evidence, no defect exists in the cast-add path. Backend accepts the exact Ruby-into-Fox&Flour cast add across three independent layers (view / signal / model.clean).
+- **Regression from prior fix?** No — cast tests 9–14 all pass; there is no half-fixed prior cast bug.
+- **Files changed:** none.
+- **Tests:** 4 relevant existing cast tests pass (`test_9`, `test_10`, `test_11`, `test_13`). No new test written because no failure was reproduced.
+- **Commit SHA:** (this section commits diagnostic evidence + doc only; no code fix.)
+- **Runtime health:** clean; `main == origin/main`; Django 302 / media-engine ok-all-mocks-false / Vite 200; no experiment env vars.
+- **Exact action Chris should retry:**
+  1. Open browser DevTools → Network tab (Preserve log ON).
+  2. Navigate to `/workspace/episodes/77b04b6b-110d-408d-82a3-a04e5ca66417`.
+  3. Scroll to §2 Cast → select **Ruby** in the dropdown → click **Add to cast**.
+  4. In the Network tab, find the `POST /api/episodes/…/cast/` row.
+  5. Report back: request URL · request body · response status · response body.
+
+---
+
+## §20. §19 COMMIT PROVENANCE
+
+- §19 diagnostic-evidence commit: (recorded at commit time — see git log)
+- Diagnostic script (read-only, atomic-rollback): `scripts/session273_diag_cast_400.py`
+- Diagnostic evidence sidecar: `docs/design/session_273_experiment_data/06_diag_cast_400.json` (2,917 bytes)

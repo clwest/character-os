@@ -1,0 +1,77 @@
+{
+  "generated_at": "2026-08-20T23:32:11.915632+00:00",
+  "preconditions": {
+    "ruby": {
+      "id": "5875a7b4-cf39-433d-89b3-4e34a89a5208",
+      "name": "Ruby",
+      "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+      "workspace_id_type": "UUID",
+      "universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+      "universe_id_type": "UUID"
+    },
+    "episode": {
+      "id": "77b04b6b-110d-408d-82a3-a04e5ca66417",
+      "title": "Why our sourdough takes its time",
+      "universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+      "universe_id_type": "UUID",
+      "universe_workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+      "universe_workspace_id_type": "UUID",
+      "cast_count": 0,
+      "cast_current": []
+    },
+    "id_comparisons": {
+      "ruby.universe_id == episode.universe_id": true,
+      "ruby.workspace_id == episode.universe.workspace_id": true,
+      "str(ruby.universe_id) == str(episode.universe_id)": true,
+      "ruby.universe_id repr": "UUID('1a0af807-dd6a-47cd-bfaa-3d088f1c105f')",
+      "episode.universe_id repr": "UUID('1a0af807-dd6a-47cd-bfaa-3d088f1c105f')",
+      "ruby.workspace_id repr": "UUID('4ce5486d-35a4-4bee-8745-38004adb33bc')",
+      "episode.universe.workspace_id repr": "UUID('4ce5486d-35a4-4bee-8745-38004adb33bc')"
+    }
+  },
+  "probe_1_drf_client": {
+    "status_code": 201,
+    "body_json": {
+      "id": "77b04b6b-110d-408d-82a3-a04e5ca66417",
+      "universe": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+      "universe_name": "Fox & Flour Bakery",
+      "title": "Why our sourdough takes its time",
+      "operator_topic": "Why our sourdough takes its time",
+      "cast": [
+        {
+          "id": "5875a7b4-cf39-433d-89b3-4e34a89a5208",
+          "name": "Ruby"
+        }
+      ],
+      "composition_count": 0,
+      "archived_at": null,
+      "created_by": 883,
+      "created_at": "2026-08-20T23:16:04.872303Z",
+      "updated_at": "2026-08-20T23:16:04.872324Z"
+    },
+    "body_raw": "{\"id\":\"77b04b6b-110d-408d-82a3-a04e5ca66417\",\"universe\":\"1a0af807-dd6a-47cd-bfaa-3d088f1c105f\",\"universe_name\":\"Fox & Flour Bakery\",\"title\":\"Why our sourdough takes its time\",\"operator_topic\":\"Why our sourdough takes its time\",\"cast\":[{\"id\":\"5875a7b4-cf39-433d-89b3-4e34a89a5208\",\"name\":\"Ruby\"}],\"composition_count\":0,\"archived_at\":null,\"created_by\":883,\"created_at\":\"2026-08-20T23:16:04.872303Z\",\"updated_at\":\"2026-08-20T23:16:04.872324Z\"}",
+    "body_bytes": 440,
+    "episode_cast_after_probe": [
+      [
+        "5875a7b4-cf39-433d-89b3-4e34a89a5208",
+        "Ruby"
+      ]
+    ]
+  },
+  "probe_2_direct_m2m_add": {
+    "result": "success",
+    "cast_after": [
+      [
+        "5875a7b4-cf39-433d-89b3-4e34a89a5208",
+        "Ruby"
+      ]
+    ]
+  },
+  "probe_3_full_clean": {
+    "result": "clean_passed"
+  },
+  "post_probe_state": {
+    "episode_cast_count": 0,
+    "episode_cast_members": []
+  }
+}
