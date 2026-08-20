@@ -1141,6 +1141,7 @@ We have **code-level eligibility** and **accidental-leakage evidence** for "shar
 
 ## §18. §17 COMMIT PROVENANCE
 
-- §17 Slice α closeout commit: (recorded at commit time — see git log)
+- §17 Slice α closeout commit: **`8171b5b`** — `feat(session-273): §17 Slice α CLOSEOUT — Chris SPA Ruby-m2m + 3-probe verify + shared-knowledge product finding`
+- Pushed to `origin/main`.
 - Slice α closeout verification script (read-only): `scripts/session273_slice_alpha_closeout_verify.py`
 - Slice α closeout evidence sidecar: `docs/design/session_273_experiment_data/05_slice_alpha_closeout_verification.json` (1,487,193 bytes)
