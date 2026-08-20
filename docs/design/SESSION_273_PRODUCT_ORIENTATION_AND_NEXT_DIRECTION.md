@@ -1260,6 +1260,7 @@ Grep across the tree for prior cast fixes surfaces only the SESSION 262 introduc
 
 ## §20. §19 COMMIT PROVENANCE
 
-- §19 diagnostic-evidence commit: (recorded at commit time — see git log)
+- §19 diagnostic-evidence commit: **`9e34844`** — `docs(session-273): §19 cast-add 400 diagnostic — NOT REPRODUCED; no fix landed`
+- Pushed to `origin/main`.
 - Diagnostic script (read-only, atomic-rollback): `scripts/session273_diag_cast_400.py`
 - Diagnostic evidence sidecar: `docs/design/session_273_experiment_data/06_diag_cast_400.json` (2,917 bytes)
