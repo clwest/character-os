@@ -2062,7 +2062,7 @@ Executed immediately after grading + synthesis, per operator brief.
 
 ### §13.27 Commit checkpoint (Q-270-13 Phase 2 evidence + grading + SESSION 270 synthesis + deactivation)
 
-- Slice commit: `<populated below>` — `<subject line populated below>`.
-- Push: `<populated below>`.
-- Working tree state at checkpoint: `<populated below>`.
+- Slice commit: `618f25a` — `docs(session-270): §13.24.11 + §13.25 + §13.26 Q-270-13 Phase 2 — nontechnical-adult evidence, five-way comparison, verdict, SESSION 270 synthesis, close recommendation, deactivation`.
+- Push: `83171af..618f25a main -> main` (successful). Local `main == origin/main == 618f25a`.
+- Working tree state at checkpoint: clean.
 
