@@ -3429,10 +3429,24 @@ If first pass lands in tolerance and no retry fires — that is still informativ
 
 ## §113. Slice 7 Phase 1 commit + push record
 
-- Phase 1 commit SHA: `<pending — populated after commit>`
-- Push: `<pending>`
-- Local `main == origin/main`: `<verified at commit time>`
-- Working tree at Phase 1 close: `<verified clean>`
+- Phase 1 commit SHA: `6cfd856` — `feat(session-271): Slice 7 Phase 1 — E-KNOWLEDGE-1 Patch communication-policy experiment plumbing (default OFF)`.
+- Push: `e06bd95..6cfd856 main -> main` (successful).
+- Local `main == origin/main == 6cfd856` verified.
+- Working tree at Phase 1 close: clean.
+
+**Activation confirmed post-commit (Claude executed §109):**
+
+- Worker PIDs `91538` / `91571` / `91572` (post-`bash scripts/start-local-real.sh` restart).
+- `ps eww` on all three PIDs shows BOTH `CHARACTER_OS_SOLO_AUDIENCE_HINT_EXPERIMENT` and `CHARACTER_OS_PATCH_COMMUNICATION_POLICY_EXPERIMENT` present; `CHARACTER_OS_CORRECTIVE_REVISION_EXPERIMENT` ABSENT.
+- Python-side resolvers (in a shell mirroring the worker env):
+  - `_resolve_solo_audience_hint(step={})` → 79-char AUDIENCE directive ✅
+  - `_patch_communication_policy_experiment_active()` → **`True`** ✅
+  - `_corrective_revision_experiment_active()` → **`False`** ✅ (Q-270-15c stays OFF)
+  - `_resolve_patch_communication_policy(Patch teammate, is_episode_talking_head=True)` → full 290-char rule text ✅
+  - `_resolve_patch_communication_policy(Rivet teammate, is_episode_talking_head=True)` → `None` ✅ (spokesperson gate holds)
+- Service health: Django `http=302`, media-engine `any_mock=false / llm_provider=openai / llm_model=gpt-4o-mini`, Vite `http=200`, Celery `pong / 1 node online`.
+
+**Ready for Chris's §110 dogfood action.**
 - Files touched:
   - `shell/character_os/script_synthesis.py` — `communication_policy_hint` kwarg + emission block in `_assemble_task_message`
   - `shell/character_os/duration_contract.py` — `communication_policy_hint` kwarg on `synthesize_with_duration_gate` + closure forwarding
