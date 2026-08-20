@@ -1,0 +1,80 @@
+{
+  "generated_at": "2026-08-20T23:45:05.266002+00:00",
+  "ruby_id": "5875a7b4-cf39-433d-89b3-4e34a89a5208",
+  "episode_id": "77b04b6b-110d-408d-82a3-a04e5ca66417",
+  "user_id": 883,
+  "probes": [
+    {
+      "label": "canonical",
+      "method": "POST",
+      "url": "/api/episodes/77b04b6b-110d-408d-82a3-a04e5ca66417/cast/",
+      "status_code": 201,
+      "body_bytes": 440,
+      "body_snippet": "{\"id\":\"77b04b6b-110d-408d-82a3-a04e5ca66417\",\"universe\":\"1a0af807-dd6a-47cd-bfaa-3d088f1c105f\",\"universe_name\":\"Fox & Flour Bakery\",\"title\":\"Why our sourdough takes its time\",\"operator_topic\":\"Why our"
+    },
+    {
+      "label": "id_literal_undefined",
+      "method": "POST",
+      "url": "/api/episodes/undefined/cast/",
+      "status_code": 404,
+      "body_bytes": 23,
+      "body_snippet": "{\"detail\":\"Not found.\"}"
+    },
+    {
+      "label": "id_literal_null",
+      "method": "POST",
+      "url": "/api/episodes/null/cast/",
+      "status_code": 404,
+      "body_bytes": 23,
+      "body_snippet": "{\"detail\":\"Not found.\"}"
+    },
+    {
+      "label": "post_to_cast_remove_url",
+      "method": "POST",
+      "url": "/api/episodes/77b04b6b-110d-408d-82a3-a04e5ca66417/cast/5875a7b4-cf39-433d-89b3-4e34a89a5208/",
+      "status_code": 405,
+      "body_bytes": 41,
+      "body_snippet": "{\"detail\":\"Method \\\"POST\\\" not allowed.\"}"
+    },
+    {
+      "label": "missing_api_prefix",
+      "method": "POST",
+      "url": "/episodes/77b04b6b-110d-408d-82a3-a04e5ca66417/cast/",
+      "status_code": 404,
+      "body_bytes": 4157,
+      "body_snippet": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n  <title>Page not found at /episodes/77b04b6b-110d-408d-82a3-a04e5ca66417/cast/</title>\n  "
+    },
+    {
+      "label": "missing_teammate_key",
+      "method": "POST",
+      "url": "/api/episodes/77b04b6b-110d-408d-82a3-a04e5ca66417/cast/",
+      "status_code": 400,
+      "body_bytes": 23,
+      "body_snippet": "{\"teammate\":\"required\"}"
+    },
+    {
+      "label": "bad_uuid_shape",
+      "method": "POST",
+      "url": "/api/episodes/not-a-uuid/cast/",
+      "status_code": 404,
+      "body_bytes": 23,
+      "body_snippet": "{\"detail\":\"Not found.\"}"
+    },
+    {
+      "label": "wrong_episode_uuid",
+      "method": "POST",
+      "url": "/api/episodes/00000000-0000-0000-0000-000000000000/cast/",
+      "status_code": 404,
+      "body_bytes": 48,
+      "body_snippet": "{\"detail\":\"No Episode matches the given query.\"}"
+    },
+    {
+      "label": "sanity_get_episode",
+      "method": "GET",
+      "url": "/api/episodes/77b04b6b-110d-408d-82a3-a04e5ca66417/",
+      "status_code": 200,
+      "body_bytes": 381,
+      "body_snippet": "{\"id\":\"77b04b6b-110d-408d-82a3-a04e5ca66417\",\"universe\":\"1a0af807-dd6a-47cd-bfaa-3d088f1c105f\",\"universe_name\":\"Fox & Flour Bakery\",\"title\":\"Why our sourdough takes its time\",\"operator_topic\":\"Why our"
+    }
+  ]
+}

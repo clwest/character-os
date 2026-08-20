@@ -1264,3 +1264,149 @@ Grep across the tree for prior cast fixes surfaces only the SESSION 262 introduc
 - Pushed to `origin/main`.
 - Diagnostic script (read-only, atomic-rollback): `scripts/session273_diag_cast_400.py`
 - Diagnostic evidence sidecar: `docs/design/session_273_experiment_data/06_diag_cast_400.json` (2,917 bytes)
+
+---
+
+## §21. CAST-ADD 404 FOLLOW-UP — SPA URL-SHAPE HYPOTHESIS; NO FIX LANDED
+
+**Status:** Chris now reports HTTP 404 from the same "Add to cast" action. Diagnostic ran against the same substrate. **Zero 404s in the entire Django access log** (`/tmp/character-os-django.log`, 246 lines, full session window 22:56 – 23:38 UTC — `grep -iE "404|Not Found"` returns empty). Chris's browser 404 did not reach Django. This section documents the URL-shape truth table and the strongest single hypothesis, but **does not land a production fix** until Chris shares the exact DevTools Network row so hypothesis becomes evidence.
+
+**Evidence sidecar:** `docs/design/session_273_experiment_data/07_diag_cast_404.json` (2,996 bytes).
+**Diagnostic script:** `scripts/session273_diag_cast_404.py` (read-only, atomic-rollback).
+
+### §21.1 Live-observation preflight (before any restart / fix)
+
+| Service | PID | ELAPSED | Command tail |
+| --- | --- | --- | --- |
+| Media-engine (`:8001`) | 12677 | 02:24:42 | `uvicorn app.main:app --host 0.0.0.0 --port 8001 --log-level warning` |
+| Vite (`:5174`) | 12699 | 02:24:42 | `node vite.js` |
+| Django (`:8010`) | 12705 | 02:24:42 | `manage.py runserver 0.0.0.0:8010` |
+
+All three services started together (`start-local-real.sh`) 2 h 24 min before this section. Source-file mtimes on the relevant SPA + Django files predate service start:
+
+| File | Last-modified |
+| --- | --- |
+| `web/src/lib/api/episodes.ts` | Aug 19 10:05 |
+| `web/src/routes/workspace/episodes.$id.tsx` | Aug 19 10:06 |
+| `web/vite.config.ts` | Aug 16 17:53 |
+| `shell/apps/universe/views.py` | Aug 17 17:53 |
+
+`git log -1` on those files → commit `06ba7721` (2026-08-19 10:22). Both Vite and Django are running current-HEAD code. **Restart is not a candidate fix.** Vite HMR would have reloaded any mid-session edits anyway.
+
+Vite proxy (`web/vite.config.ts`) still forwards `/api` → `http://localhost:8010` with `cookieDomainRewrite: ""` and `changeOrigin: true`. Any browser request whose path begins `/api/*` is proxied to Django. If Django receives the request, it appears in `/tmp/character-os-django.log`. **Zero cast POSTs and zero 404s appear in that log.**
+
+### §21.2 URL-shape truth table — what each candidate malformed URL returns
+
+Nine probes fired via DRF `APIClient` force-authenticated as Chris, each inside `transaction.atomic()` + `savepoint_rollback` (nothing persists):
+
+| Probe | Method + URL | Status | Body (first ≤200 bytes) |
+| --- | --- | --- | --- |
+| canonical | POST `/api/episodes/77b04b6b-…/cast/` | **201** | full Episode payload with `cast:[{Ruby}]` |
+| **id_literal_undefined** | POST `/api/episodes/undefined/cast/` | **404** | **`{"detail":"Not found."}` (23 bytes)** |
+| id_literal_null | POST `/api/episodes/null/cast/` | **404** | `{"detail":"Not found."}` (23 bytes) |
+| post_to_cast_remove_url | POST `/api/episodes/77b04b6b-…/cast/5875a7b4-…/` | 405 | `{"detail":"Method \"POST\" not allowed."}` (41 bytes) |
+| missing_api_prefix | POST `/episodes/77b04b6b-…/cast/` | 404 | Django HTML "Page not found" (4,157 bytes) |
+| missing_teammate_key | POST `/api/episodes/77b04b6b-…/cast/` with `{}` | 400 | `{"teammate":"required"}` (23 bytes) |
+| bad_uuid_shape | POST `/api/episodes/not-a-uuid/cast/` | 404 | `{"detail":"Not found."}` (23 bytes) |
+| wrong_episode_uuid | POST `/api/episodes/00000000-…/cast/` | 404 | `{"detail":"No Episode matches the given query."}` (48 bytes) |
+| sanity_get_episode | GET `/api/episodes/77b04b6b-…/` | 200 | Episode payload (381 bytes) |
+
+Three candidate SPA malformations produce 404 with the DRF-standard `{"detail":"Not found."}` body:
+- `id_literal_undefined` (JS template literal `${undefined}` → path segment `"undefined"`)
+- `id_literal_null` (same idea, `${null}`)
+- `bad_uuid_shape` (any string DRF's UUID router rejects)
+
+If Chris's `apiJson` wrapper (see `web/src/lib/api/client.ts:76–78`) received one of these, the operator-visible message via `alert(err.message)` would be **`"POST /api/episodes/undefined/cast/ → 404"`** or **`"POST /api/episodes/null/cast/ → 404"`** or **`"POST /api/episodes/not-a-uuid/cast/ → 404"`**.
+
+### §21.3 Strongest single hypothesis on current evidence
+
+**`episodeId` is `undefined` at the moment the mutation fires** in `useAddCastMember` (`web/src/lib/api/episodes.ts:217–232`):
+
+```typescript
+export function useAddCastMember(episodeId: string | undefined) {
+  // ...
+  mutationFn: async (teammateId: string) =>
+    apiJson<Episode>(
+      `/api/episodes/${episodeId}/cast/`,   // ← ${undefined} → "undefined"
+      { method: "POST", body: { teammate: teammateId } },
+      (json) => episodeSchema.parse(json),
+    ),
+```
+
+If `episodeId` is `undefined` when the closure is created (before React re-renders with the URL param), the URL becomes the literal string `/api/episodes/undefined/cast/`. Django then returns exactly `404 {"detail":"Not found."}` (23 bytes) — matches the truth table.
+
+**This hypothesis is contradicted by one observation:** the Django access log contains zero requests to `/api/episodes/undefined/cast/` (or any 404). If the SPA had actually sent this request, it would have been proxied by Vite (which is proxying `/api/*` correctly) and logged by Django. So one of the following must also be true:
+1. Chris's retry happened but the SPA short-circuited before issuing the fetch (e.g., a client-side guard, an early `return`, or a React Query mutation state that never fired).
+2. The 404 Chris sees is a browser-cached response or a UI-only render that never corresponded to a live HTTP request.
+3. Chris's retry hit a URL that returns a 404 from something other than Django (e.g., a static asset), and the mental attribution to the cast button is misplaced.
+
+### §21.4 Restart / rebuild required?
+
+**No.** PIDs + mtimes prove services are running current-HEAD code. Vite HMR keeps the SPA bundle current. Nothing about a restart would change any observed behavior.
+
+### §21.5 Smallest defensive candidate (NOT LANDED)
+
+If Chris's next reproduction confirms `/api/episodes/undefined/cast/` in DevTools Network, the smallest correct fix is a **client-side guard** in `useAddCastMember` (and `useRemoveCastMember`, and any peer mutation that shares this template-literal URL pattern) that throws a typed `ApiError` **before** issuing the fetch when `episodeId` is `undefined` / empty. This is a defensive fix — never construct a URL that can't be valid.
+
+Plus a Vitest regression test asserting:
+- Calling `useAddCastMember(undefined).mutate(rubyId)` produces a synchronous / thrown error rather than an HTTP request to `.../undefined/cast/`.
+- Calling `useAddCastMember(realEpisodeId).mutate(rubyId)` produces `POST /api/episodes/<realEpisodeId>/cast/` with body `{teammate: rubyId}`.
+
+This fix does **not** weaken backend validation, does **not** special-case Ruby / Fox & Flour, and would work for arbitrary future Universes and characters. It would improve the operator-visible error text from "→ 404" to something like "cast add requested with no episode context — refresh the page and try again".
+
+**BUT** the fix does not explain **why** `episodeId` is undefined at the moment of click. That still needs Chris's DevTools evidence to root-cause. Landing the defensive guard without root-causing risks masking a real underlying bug.
+
+### §21.6 Why no fix landed in this section
+
+- Django access log evidence contradicts the SPA-URL-undefined hypothesis (zero cast POSTs, zero 404s reaching Django).
+- The "smallest real fix" rule requires proving the failure mode before writing code. My probes show what Django *would* return for each candidate URL — they do not prove which URL Chris's SPA is sending.
+- Landing a defensive guard without root-causing risks:
+  - Silently masking a genuine navigation / state-management bug in the SPA
+  - Producing a "better error message" that never surfaces in Chris's flow because the request path never reaches the guard for the reason we've hypothesised
+  - Adding SPA test scaffolding that documents a scenario that may not actually occur
+
+### §21.7 Exact action Chris should retry
+
+Open browser **DevTools → Network** (☑️ Preserve log · ☑️ Fetch/XHR filter), then:
+
+1. Reload `/workspace/episodes/77b04b6b-110d-408d-82a3-a04e5ca66417` (fresh mount).
+2. Scroll to §2 Cast → select **Ruby** in the dropdown → click **Add to cast**.
+3. In DevTools Network, find the POST row (if any).
+4. Copy back:
+   - Exact request URL (full path — expected `/api/episodes/77b04b6b-…/cast/`)
+   - Exact request payload JSON
+   - Response status (200 · 201 · 400 · 404 · 405 · other)
+   - Response body
+
+If **no row appears** at all, that means the SPA never issued the fetch — the failure is client-side and I'll trace `handleAddCast` / `useAddCastMember` state. If a row appears with a 404 whose URL contains `undefined` / `null` / a malformed UUID, §21.5's defensive fix becomes evidence-backed and lands next turn. If a row appears with a different status or unexpected URL, that shape drives the next diagnostic.
+
+### §21.8 Explicit non-changes during §21
+
+- No production code changed (no view, no serializer, no signal, no model, no SPA component, no migration).
+- No test file changed.
+- No EpisodeCast row created — all probes ran in `transaction.atomic()` + `savepoint_rollback`. `Episode 77b04b6b.cast.count() = 0` — same as pre-diagnostic.
+- No service restarted.
+- No Ruby persona / voice / avatar / KD / Universe modification.
+- No Composition, Episode (new), NarrativeMemory, PublishBundle created.
+- No experiment env vars set. No provider mocks toggled. `_expansion_hint` CORRECT_ANCHOR preserved.
+- No manual DB / shell insertion of cast row.
+
+### §21.9 §21 return values
+
+- **Exact browser request URL/method:** not captured — Django log contains **zero** cast POSTs and **zero** 404s across the entire session; Chris's browser 404 did not reach Django. Awaiting DevTools evidence.
+- **Exact 404 body:** hypothesized as DRF's `{"detail":"Not found."}` (23 bytes) if URL contains `undefined` / `null` / non-UUID; not confirmed against Chris's real request.
+- **Which service returned it:** unknown — not Django (zero 404s in log); not Vite HMR (would render index.html for unknown SPA routes, not 404); possibly a browser-level failure or a UI-render of a stale mutation error.
+- **Root cause:** unknown; strongest hypothesis on backend evidence is SPA URL-templating a null/undefined episodeId. Not confirmed.
+- **Restart required?** No — running-code matches HEAD.
+- **Files changed:** none (diagnostic evidence + this doc section only).
+- **Tests:** existing cast tests (9 / 10 / 11 / 13 / 14) still pass; no new test written — inventing a test for the specific SPA state-management bug requires knowing the state.
+- **Commit SHA:** recorded in §22 at commit time.
+- **What Chris should retry:** §21.7 above — reproduce with DevTools open and share the exact Network row.
+
+---
+
+## §22. §21 COMMIT PROVENANCE
+
+- §21 diagnostic-only commit: (recorded at commit time — see git log)
+- Diagnostic script (read-only, atomic-rollback): `scripts/session273_diag_cast_404.py`
+- Diagnostic evidence sidecar: `docs/design/session_273_experiment_data/07_diag_cast_404.json` (2,996 bytes)
