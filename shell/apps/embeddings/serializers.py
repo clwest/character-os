@@ -293,6 +293,42 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
                     ),
                 })
 
+        # SESSION 276 Slice 20 / Delta Stage 7 (Q-276-36) — fresh-write
+        # NULL closure. On CREATE, require a POSITIVE audience signal.
+        # One of:
+        #   * ``spokesperson_ids`` non-empty  → CHARACTER
+        #   * ``universe`` non-null            → UNIVERSE
+        #   * ``audience_scope="workspace"``   → WORKSPACE
+        # Applied only on CREATE (``self.instance is None``); PATCH
+        # updates never re-persist audience_scope so cannot land NULL
+        # from an omission. See §345/§346.
+        #
+        # Load-bearing: the check runs AFTER the individual field
+        # validators and the workspace/universe cross-checks above so
+        # a partially-invalid payload gets the more specific error
+        # first. NULL is the fail-open value being closed; this guard
+        # is the primary API-boundary enforcement point.
+        if self.instance is None:
+            has_positive_audience = (
+                bool(spokespeople)
+                or universe is not None
+                or audience_scope_intent == "workspace"
+            )
+            if not has_positive_audience:
+                raise serializers.ValidationError({
+                    "audience_scope": {
+                        "code": "audience_scope_required_on_create",
+                        "detail": (
+                            "CREATE requires a positive audience signal — "
+                            "supply one of: ``spokesperson_ids`` (CHARACTER), "
+                            "``universe`` (UNIVERSE), or "
+                            "``audience_scope=\"workspace\"`` (WORKSPACE). "
+                            "Legacy NULL creation was closed in SESSION 276 "
+                            "Slice 20."
+                        ),
+                    },
+                })
+
         return attrs
 
     def _validate_pdf_data_uri(self, value: str) -> None:

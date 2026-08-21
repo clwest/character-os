@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 
 from apps.accounts.models import Workspace
@@ -296,9 +297,27 @@ def _persist(
                 # marker present — this is the positive-intent path.
                 create_audience_scope = AudienceScope.WORKSPACE
             else:
-                # Transitional NULL for the ``(no sp + no universe +
-                # no marker)`` case — non-SPA callers land here.
-                create_audience_scope = None
+                # SESSION 276 Slice 20 / Delta Stage 7 (Q-276-36) —
+                # deeper ingestion-boundary NULL closure. Every ingest
+                # caller must state a positive audience signal (one of:
+                # ``spokespeople``, ``universe``, or
+                # ``workspace_shared_intent=True``). The DRF serializer
+                # rejects this shape at the API boundary; this raise is
+                # the independent internal-API backstop for direct
+                # ingestion callers (management commands, tests, jobs)
+                # and defense in depth for any future path that bypasses
+                # the serializer. Fails closed rather than persisting a
+                # NULL row. See §345/§346.
+                raise DjangoValidationError({
+                    "audience_scope": [
+                        "Fresh KnowledgeDocument creation requires a "
+                        "positive audience signal — one of: "
+                        "``spokespeople`` (CHARACTER), ``universe`` "
+                        "(UNIVERSE), or ``workspace_shared_intent=True`` "
+                        "(WORKSPACE). Legacy NULL creation was closed in "
+                        "SESSION 276 Slice 20."
+                    ],
+                })
             doc = KnowledgeDocument.objects.create(
                 workspace=workspace,
                 # SESSION 261 — Universe scope passthrough. NULL

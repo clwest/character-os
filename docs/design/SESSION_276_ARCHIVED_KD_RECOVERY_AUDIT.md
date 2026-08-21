@@ -7230,6 +7230,322 @@ STOP before Slice 20. Review Slice 19 evidence with Chris + ChatGPT.
 
 **End of SESSION 276 Slice 19 / Delta Stage 7 reframe. Chris's disposable-dogfood product decision (§340) collapses the SESSION 276 tail from per-row audience-reconstruction triage into a wholesale KD reset. Q-276-35 superseded; Slice 18 finding preserved as future product evidence. Cascade audit bounds the blast radius: only KnowledgeDocument + KnowledgeChunk + KnowledgeDocumentSpokesperson affected (1149 chunks + 62 through-rows cascade); Workspaces / Users / Teammates / Universes / Composition / Script / RealtimeSession rows all preserved; JSON provenance in dogfood-tier rows becomes silently stale (no errors). Zero test / runtime dependency on any specific persisted KD UUID. Fresh-write NULL loophole precisely identified: SPA cannot produce NULL (Slice 12 mandate); dev tools + internal Python API + direct API without marker CAN. Revised close plan: Slice 20 (data reset + NULL loophole closure bundled) + Slice 21 (NULL branch removal + NOT NULL migration + CHECK constraint). 2 slices to finish Delta. STOP for Chris + ChatGPT review of §350 recommendation, §351 gate, §352 Q-276-36 next-question candidate.**
 
+---
+
+# SESSION 276 — Slice 20 / Delta Stage 7 execution — dogfood reset + fresh-write NULL closure (Q-276-36)
+
+Landed. First code+DB slice since Slice 17 — implements Chris's disposable-dogfood scope correction (§340) alongside the Option D fresh-write NULL closure (§345.4). Data reset via one-shot `KnowledgeDocument.objects.all().delete()`; ingestion + serializer boundary both fail-closed on missing audience signal; adversarial regression proves normal product paths cannot recreate NULL. Slice 21 preparation: distinction between DB-scalar-enforceable and app-layer-enforceable invariants documented (§361).
+
+## §354. Slice 20 baseline SHA + working tree
+
+- Base commit at Slice 20 start: `9fc73da` (`docs(session-276): record Slice 19 landed SHA 55caa25 in audit doc`).
+- `main == origin/main == 9fc73da`; working tree clean prior to Slice 20 code work.
+- Slice 20 lands as code + tests + doc + DB reset. First slice since Slice 17 to mutate the DB.
+
+## §355. Slice 20 falsifiable question — Q-276-36 (executed)
+
+> If (a) all 72 existing KnowledgeDocument rows are hard-deleted through a single authorized cleanup operation, AND (b) the fresh-write ingestion path is closed to prevent `audience_scope=NULL` recreation (via §345.4 Option D — serializer 4xx AND ingestion fail-closed), does the resulting DB reach `KnowledgeDocument.objects.filter(audience_scope__isnull=True).count() == 0` AND every attempted post-closure write from any caller either supply a positive audience marker OR fail closed, with all backend + SPA tests passing after fixtures that intentionally created NULL rows are updated?
+
+**Answer: YES.** Real DB post-reset: 0 KDs, 0 chunks, 0 through-rows, 0 NULL. 2160 backend tests + 656 SPA tests pass with updated fixtures. 12 new adversarial tests (§359 Test taxonomy A-K) verify closure across every caller category.
+
+## §356. Predictions before evidence
+
+1. `.delete()` on the KnowledgeDocument queryset removes 72 KDs and CASCADEs to 1149 chunks + 62 through-rows. Cross-model side-effects limited to embeddings-app tables per §343 audit.
+2. Post-reset NULL count = 0 (by construction — no KD rows exist).
+3. Workspace / User / Teammate / Universe / Composition / Script / RealtimeSession row counts UNCHANGED.
+4. JSON provenance in Composition (103 non-empty), Script (5), Video (0), RealtimeSession (20) becomes stale; `resolve_chunk_ids_to_docs` returns `[]` silently.
+5. Serializer + ingestion closure at Option D shape rejects every CREATE call lacking spokespeople / universe / `audience_scope="workspace"` marker.
+6. Slice 8 orphan-archive contract remains intact — signal still stamps NONE + preserves chunks (§359 Test I).
+7. Slice 9 safe-revival gate remains intact — orphan-archived doc cannot silently revive without positive audience signal (§359 Test J).
+8. smoke_ingest command updated to supply positive marker; all 3 call sites emit `workspace_shared_intent=True` (§359 Test K).
+9. Test / fixture updates fall into 3 categories: (A) Category A — tests characterizing NULL creation rewrite to assert fail-closed; (B) Category B — helper callers add `workspace_shared_intent=True` or `spokespeople=[...]`; (C) Category C — DRF POST payloads add `audience_scope: "workspace"`.
+
+## §357. Phase C — data reset execution
+
+Executed via `/tmp/slice20_reset_and_verify.py` — captured pre-delete counts, ran `KnowledgeDocument.objects.all().delete()`, verified post-delete state.
+
+**Pre-delete fingerprint (matches Slice 19 §303 baseline):**
+
+```
+KnowledgeDocument: 72
+KnowledgeChunk: 1149
+KnowledgeDocumentSpokesperson (through): 62
+Workspace: 882 | User: 878 | Teammate: 16 | Universe: 6
+Composition: 162 | Script: 6 | Video: 0 | RealtimeSession: 40
+```
+
+**Delete result:**
+
+```
+Delete count: 1283
+Breakdown: {
+  'embeddings.KnowledgeDocumentSpokesperson': 62,
+  'embeddings.KnowledgeChunk': 1149,
+  'embeddings.KnowledgeDocument': 72,
+}
+```
+
+**Post-delete fingerprint:**
+
+```
+KnowledgeDocument: 0    (delta -72)
+KnowledgeChunk: 0       (delta -1149)
+KnowledgeDocumentSpokesperson: 0  (delta -62)
+Workspace: 882          (unchanged)
+User: 878               (unchanged)
+Teammate: 16            (unchanged)
+Universe: 6             (unchanged)
+Composition: 162        (unchanged)
+Script: 6               (unchanged)
+Video: 0                (unchanged)
+RealtimeSession: 40     (unchanged)
+NULL audience_scope count: 0
+```
+
+Every §343 preservation assertion holds. Real DB is at the target state: zero KDs, zero chunks, zero through-rows, zero NULL, all preserved entities intact.
+
+## §358. Phase D — Option D implementation diff
+
+Two hunks land the closure. Both surfaces (API boundary and internal ingestion) enforce independently.
+
+### §358.1 Serializer — `shell/apps/embeddings/serializers.py` (validate on CREATE)
+
+New guard at end of `KnowledgeDocumentSerializer.validate()`:
+
+```python
+if self.instance is None:
+    has_positive_audience = (
+        bool(spokespeople)
+        or universe is not None
+        or audience_scope_intent == "workspace"
+    )
+    if not has_positive_audience:
+        raise serializers.ValidationError({
+            "audience_scope": {
+                "code": "audience_scope_required_on_create",
+                "detail": "CREATE requires a positive audience signal — ...",
+            },
+        })
+```
+
+Structured error contract matches Slice 13 §215 pattern: `{"code": <machine-readable>, "detail": <operator-friendly>}`. Machine-readable code is `audience_scope_required_on_create`.
+
+### §358.2 Ingestion — `shell/apps/embeddings/ingestion.py` (`_persist` else branch)
+
+The pre-Slice-20 branch that landed `audience_scope=None` for `(no sp + no universe + no marker)` is replaced with a `DjangoValidationError` raise:
+
+```python
+else:
+    raise DjangoValidationError({
+        "audience_scope": [
+            "Fresh KnowledgeDocument creation requires a "
+            "positive audience signal — one of: "
+            "``spokespeople`` (CHARACTER), ``universe`` "
+            "(UNIVERSE), or ``workspace_shared_intent=True`` "
+            "(WORKSPACE). Legacy NULL creation was closed in "
+            "SESSION 276 Slice 20."
+        ],
+    })
+```
+
+Import added: `from django.core.exceptions import ValidationError as DjangoValidationError` (line 33).
+
+### §358.3 smoke_ingest — `shell/apps/embeddings/management/commands/smoke_ingest.py`
+
+Three `ingest_text` / `ingest_pdf` call sites updated to pass `workspace_shared_intent=True`. Command's smoke test now creates a WORKSPACE-scoped doc; retrieval by the smoke's teammate (legacy no-Universe) still finds it via §306 Delta LIST + §285 Delta retrieval WORKSPACE branch.
+
+## §359. Phase E — adversarial test taxonomy
+
+New file `apps/embeddings/tests/test_fresh_write_null_closure_slice20.py` — 12 tests A-K exercising every caller category and every positive-signal path.
+
+- **A** — DRF CREATE with no audience signal → 400 with structured error code `audience_scope_required_on_create`.
+- **B** — DRF CREATE via URL path with no signal → 400 (path-agnostic).
+- **C** — Direct `ingest_text(...)` with no signal → `DjangoValidationError`, no row persists.
+- **D** — Direct `ingest_pdf(...)` with mocked PDF extraction + no signal → `DjangoValidationError`.
+- **E** — Direct `ingest_url(...)` with mocked URL fetch + no signal → `DjangoValidationError`.
+- **F** — CHARACTER create via `spokesperson_ids` → `audience_scope=CHARACTER`, M2M set correctly.
+- **G** — UNIVERSE create via `universe` → `audience_scope=UNIVERSE`, universe FK set correctly.
+- **H** — WORKSPACE create via `audience_scope="workspace"` → `audience_scope=WORKSPACE`, universe FK NULL.
+- **I** — Orphan-on-teammate-delete UNCHANGED: Slice 8 signal still stamps NONE + preserves chunks.
+- **J** — Revival UNCHANGED: orphan-archived doc cannot silently revive via re-ingestion (Slice 9 `OrphanRevivalRejected` still fires).
+- **K** — smoke_ingest supplies positive signal — static source check counts `workspace_shared_intent=True` markers matches `ingest_text(` call count.
+
+**Result:** 12/12 pass.
+
+## §360. Phase F — regression + verification
+
+### §360.1 Test / fixture updates categorized
+
+**Category A — NULL-characterization tests rewritten to assert fail-closed (5 tests):**
+- `test_ingestion.py::test_fresh_create_without_spokespeople_or_universe_leaves_audience_scope_null`
+- `test_ingestion.py::test_fresh_create_universe_inference_asymmetric_with_workspace` (NULL branch)
+- `test_ingestion.py::test_slice12_B_omission_remains_null`
+- `test_api.py::test_slice12_api_omission_remains_null`
+- `test_knowledge_universe_api.py::test_post_knowledge_without_universe_creates_legacy` — now supplies `audience_scope="workspace"` and asserts WORKSPACE outcome.
+
+**Category B — Helper callers updated to pass positive marker:**
+- `test_ingestion.py` (7 callers): `workspace_shared_intent=True`.
+- `test_scripts/test_synthesis.py`, `test_videos/test_script_synthesis.py`: `workspace_shared_intent=True` in `_ingest` helper.
+- `conversations/test_k6_5_verifier.py::_attach_doc`, `compositions/test_claim_verifier.py::_ingest_attached`, `videos/test_render_with_knowledge.py`: `spokespeople=[sp]` at ingest time (produces CHARACTER audience).
+
+**Category C — DRF POST payloads updated to include `audience_scope="workspace"`:**
+- `test_api.py`: 5 payloads.
+- `test_api_k7.py`: 6 payloads.
+
+### §360.2 Full regression results
+
+- **Backend (`apps/embeddings/ + apps/spokespeople/ + apps/compositions/ + apps/scripts/ + apps/videos/ + apps/conversations/ + apps/universe/ + apps/realtime/ + apps/memory/ + apps/accounts/`):** **2160 passed** / 0 failed / 4:08.
+- **SPA (`web/`, `npm test`):** **656 passed** / 49 files / 6.16s.
+- **`python manage.py makemigrations --check --dry-run embeddings`:** `"No changes detected in app 'embeddings'"` — clean.
+
+### §360.3 Post-close verification
+
+Additional per-slice verification via the adversarial test suite (§359):
+
+- `NULL count == 0` in real DB (empty KD table by construction).
+- Direct probes: DRF CREATE without marker → 400; direct `ingest_text` → `ValidationError`; direct `ingest_pdf` → `ValidationError`; direct `ingest_url` → `ValidationError`.
+- Positive scope creates land at expected scope: F → CHARACTER, G → UNIVERSE, H → WORKSPACE.
+- Orphan/revival unchanged: I passes (chunks preserved after orphan-archive), J passes (revival still blocked).
+- smoke_ingest static check: 3 `ingest_text/pdf` call sites all supply `workspace_shared_intent=True`.
+
+## §361. Phase G — Slice 21 preparation: constraint enforceability distinction
+
+Per Chris's §4 authorization: distinguish invariants enforceable at DB scalar-column level (A), invariants requiring application/service/signal enforcement because they cross the M2M through-table (B), and invariants where a DB trigger would be justified (C). This is documentation only; Slice 20 does NOT implement Slice 21.
+
+Slice 4 §51 Delta invariants:
+
+| # | Invariant | Tier | Justification |
+|---|---|---|---|
+| 1 | `audience_scope IS NOT NULL` | **A** — DB scalar (column NOT NULL) | Requires only `alter_field(null=False)`. Slice 20 confirmed real DB has 0 NULL rows. Migration risk: nil. |
+| 2 | `CHARACTER → spokespeople M2M non-empty` | **B** — app layer only | Depends on through-table `embeddings_knowledgedocument_spokespeople`. Row-level CHECK on KnowledgeDocument cannot inspect through-table state. |
+| 3 | `UNIVERSE → universe FK non-null` | **A** — DB scalar CheckConstraint | `NOT (audience_scope='universe' AND universe_id IS NULL)`. Both columns on KnowledgeDocument. |
+| 4 | `WORKSPACE → universe FK is null` | **A** — DB scalar CheckConstraint | `NOT (audience_scope='workspace' AND universe_id IS NOT NULL)`. Same shape as #3. |
+| 5 | `NONE → is_active=False` | **A** — DB scalar CheckConstraint | `NOT (audience_scope='none' AND is_active=True)`. Same shape. |
+
+### §361.1 Why constraint #2 stays at app layer
+
+The CHARACTER → M2M-non-empty invariant is currently enforced by SIX independent app-layer guards, each covering a specific mutation path:
+
+1. **Slice 10 (Q-276-24)** — fresh CHARACTER CREATE at `ingestion._persist:275-276` — stamps CHARACTER only when `spokespeople` is passed.
+2. **Slice 9 (Q-276-23)** — orphan revival at `ingestion._persist` revival branch — rejects revival without positive audience.
+3. **Slice 13 (Q-276-27)** — final-character detach at `views._toggle_spokesperson` — rejects `POST /detach/` that would leave CHARACTER row with empty M2M.
+4. **Slice 14 (Q-276-28)** — PATCH empty-spokesperson-set at `serializers.update()` guard #1 — rejects PATCH `spokesperson_ids=[]` on CHARACTER.
+5. **Slice 15 (Q-276-29)** — Universe reassignment shape guards at `serializers.update()` guards #2/#3.
+6. **Slice 20 (this slice)** — fresh-write NULL closure at serializer + ingestion — prevents `(no sp)` shape from producing CHARACTER at all.
+
+**Adding a DB trigger for #2 would duplicate coverage of Slices 10 + 13 + 14 + 15 + 20** without providing marginal safety improvement. Chris's authorization explicitly forbids adding complexity ("Do NOT add complexity merely to say every invariant is DB-enforced"); Slice 21 should NOT add a trigger for #2.
+
+### §361.2 Recommended Slice 21 constraint architecture (smallest correct)
+
+**Migration file (single migration):**
+- `alter_field("audience_scope", null=False)` — enforces #1.
+- Three `CheckConstraint` entries added to `KnowledgeDocument.Meta.constraints`:
+  - `session276_universe_requires_universe_fk` — enforces #3.
+  - `session276_workspace_forbids_universe_fk` — enforces #4.
+  - `session276_none_requires_inactive` — enforces #5.
+
+**Code changes (post-migration):**
+- Remove NULL compatibility branches from `retrieval.py:216-269` (Slice 16 §285) and `views.py:106-146` (Slice 17 §306).
+- Remove Slice 16 §290 tests A/B (NULL fallback semantic) and Slice 17 §311 tests A/B (LIST NULL fallback).
+- No changes to `ingestion.py` (Slice 20 already closed the NULL branch; the `DjangoValidationError` raise remains as defense-in-depth even though a NOT NULL constraint would also fire).
+
+**Zero DB triggers, zero application-layer guard additions.** The Slices 8-15 + Slice 20 write-boundary enforcement already covers invariant #2 comprehensively.
+
+### §361.3 Non-recommended alternatives (rejected)
+
+- **DB trigger for #2:** Rejected — duplicates existing 6-slice app enforcement; PostgreSQL trigger complexity + testing burden for zero marginal safety.
+- **Model-layer `clean()` + `save()` override for #2:** Rejected — Django `full_clean()` is not called by every save path (DRF calls `save()` directly). Would need signal + save-override pair, which Slices 8/13/14 already implemented.
+- **Single "audience_scope validator" at model level:** Rejected — spreads Delta invariant knowledge across multiple layers without single-source-of-truth benefit.
+
+## §362. Prediction vs actual
+
+| Prediction (§356) | Actual |
+|---|---|
+| 1. `.delete()` cascades 1283 rows within embeddings app only | ✓ 1283 rows deleted; embeddings app only |
+| 2. Post-reset NULL count = 0 | ✓ verified via count query |
+| 3. Preserved entities unchanged | ✓ 882/878/16/6/162/6/0/40 all identical |
+| 4. JSON provenance becomes stale silently | ✓ carve-out behavior verified by design + Slice 16 Test N still passes |
+| 5. Option D closure rejects every missing-signal CREATE | ✓ Tests A/B/C/D/E all pass |
+| 6. Slice 8 orphan-archive intact | ✓ Test I passes |
+| 7. Slice 9 safe-revival intact | ✓ Test J passes |
+| 8. smoke_ingest updated | ✓ Test K passes (static check) |
+| 9. Test updates cover Categories A/B/C | ✓ ~33 callsite updates across 8 test files |
+
+9/9 predictions supported.
+
+## §363. Files changed (Slice 20)
+
+**Production code (3 files):**
+- `shell/apps/embeddings/serializers.py` — positive-audience guard in `validate()`
+- `shell/apps/embeddings/ingestion.py` — import + `_persist` else-branch raise
+- `shell/apps/embeddings/management/commands/smoke_ingest.py` — 3 call-site updates
+
+**Tests (11 files):**
+- `test_fresh_write_null_closure_slice20.py` — new file, 12 tests A-K
+- `test_retrieval_privacy.py` — ALLOWED_FILES extension
+- `test_ingestion.py` — Category A rewrites (2) + Category B updates (7)
+- `test_api.py` — Category A rewrite (1) + Category C updates (5)
+- `test_api_k7.py` — Category C updates (6)
+- `test_knowledge_universe_api.py` — Category A rewrite (1)
+- `conversations/test_k6_5_verifier.py`, `compositions/test_claim_verifier.py`, `scripts/test_synthesis.py`, `videos/test_script_synthesis.py`, `videos/test_render_with_knowledge.py` — Category B helper updates
+
+**Durable doc:** this Slice 20 appendix (§354-§368).
+
+**DB mutation:** 1283 rows deleted (72 KDs + 1149 chunks + 62 through-rows). Zero writes to any other table.
+
+## §364. Unresolved questions
+
+1. **Slice 21 scope.** §361.2 recommends the smallest correct architecture. Chris + ChatGPT decide.
+2. **Fresh dogfood seeding.** Deferred until after Slice 21.
+3. **JSON provenance stale-array hygiene.** 128 non-empty JSON arrays now reference deleted chunk UUIDs. Documented per Chris's directive.
+4. **Universe RESTRICT-block release.** 6 Universes newly deletable; not acted on.
+
+## §365. Recommendation
+
+**Slice 20 is complete and safe.** All 9 predictions supported. Real DB at target state (0 KDs, 0 NULL). Every product write path guarded. Every dev/test caller updated.
+
+**Recommended next action:** Slice 21 per §361.2. Single migration: NOT NULL + 3 CHECK constraints. Delete NULL compat branches from retrieval + LIST + associated tests. No DB triggers. No new app-layer guards.
+
+## §366. Explicit STOP gate
+
+STOP before Slice 21. Review Slice 20 evidence with Chris + ChatGPT.
+
+- Does Chris accept §361.2 as recommended Slice 21 scope?
+- Does Chris want `session276_*` naming convention preserved for constraint names?
+- Fresh dogfood seed after Slice 21, or separate initiative?
+
+## §367. Smallest recommended next question — Q-276-37
+
+**Q-276-37 (candidate — Slice 21 opener).** *If a single migration is added to (a) `alter_field("audience_scope", null=False)` and (b) install three `CheckConstraint` entries enforcing the Slice 4 §51 scalar Delta invariants (UNIVERSE → universe non-null; WORKSPACE → universe null; NONE → is_active=False), AND the NULL compatibility branches at `retrieval.py:216-269` and `views.py:106-146` are removed along with the Slice 16 §290 A/B and Slice 17 §311 A/B NULL-fallback tests, does the migration apply cleanly on the current (0-KD) DB, do all remaining backend + SPA tests pass unchanged, and does the audit's Delta model become byte-shape-complete at the DB level for every enforceable invariant?*
+
+## §368. Slice 20 checklist
+
+- [x] Slice 19 landed as `55caa25`; SHA-record `9fc73da`
+- [x] Slice 20 baseline verified — `main == origin/main == 9fc73da`, working tree clean (§354)
+- [x] Q-276-36 falsifiable question stated (§355)
+- [x] Predictions before evidence — 9 predictions (§356)
+- [x] Phase A audit — serializer + ingestion + smoke_ingest shapes traced (§358 diff)
+- [x] Phase B predictions + pre-delete count capture (§357)
+- [x] Phase C — data reset via `KnowledgeDocument.objects.all().delete()` (§357)
+- [x] Phase C — post-delete counts verified (KD/chunks/through=0; preserved entities unchanged)
+- [x] Phase D — Option D closure (serializer + ingestion) (§358)
+- [x] Phase E — smoke_ingest updated + 12 adversarial tests A-K (§359)
+- [x] Phase F — full regression: 2160 backend + 656 SPA tests pass; makemigrations clean (§360.2)
+- [x] Phase G — Slice 21 preparation: DB scalar vs app-layer distinction documented (§361)
+- [x] Prediction vs actual — 9/9 supported (§362)
+- [x] Files changed (§363)
+- [x] Unresolved questions (§364)
+- [x] Recommendation (§365)
+- [x] Explicit STOP gate (§366)
+- [x] Smallest next question Q-276-37 (§367)
+- [x] Zero permanent management commands built for the one-time reset; zero JSON provenance cleanup machinery; zero triggers; zero universe_canon reformulation; zero recovery UI; zero fresh dogfood repopulation; zero provider spend
+- [ ] Commit + push Slice 20 code + tests + doc
+- [ ] Chris + ChatGPT review + Slice 21 scoping decision
+
+---
+
+**End of SESSION 276 Slice 20 / Delta Stage 7 execution. Disposable-dogfood scope correction executed via one-shot ORM delete: 1283 rows cascade-removed (72 KDs + 1149 chunks + 62 through-rows) with zero side-effects on Workspace/User/Teammate/Universe/Composition/Script/RealtimeSession row counts. Fresh-write NULL closure landed at both API (serializer 4xx with structured error code `audience_scope_required_on_create`) and internal (ingestion `_persist` raises `DjangoValidationError`) boundaries. smoke_ingest updated to supply `workspace_shared_intent=True`. 12 adversarial tests A-K prove closure holds across DRF + direct-`ingest_text` + `ingest_pdf` + `ingest_url` + Slice 8 orphan-archive + Slice 9 safe-revival paths. ~33 fixture callsites updated across 8 test files (Categories A/B/C). 2160 backend + 656 SPA tests pass; makemigrations clean. Slice 21 preparation records the DB-scalar vs app-layer enforcement distinction: 4 of 5 Slice 4 §51 invariants are DB-scalar-enforceable via NOT NULL + CheckConstraint; the CHARACTER→M2M-non-empty invariant stays at app-layer (Slices 10/13/14/15/20). Recommended Slice 21 = 1 migration + delete 2 code branches + associated test updates. STOP for Chris + ChatGPT review of §365 recommendation, §366 gate, §367 Q-276-37 next-question candidate.**
+
 
 
 

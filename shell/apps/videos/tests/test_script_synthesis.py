@@ -75,7 +75,8 @@ def _make_teammate(ws: Workspace, name: str, brief: str = "") -> Teammate:
 
 def _ingest(ws: Workspace, title: str, body: str) -> str:
     """Create + embed a knowledge doc, return its id."""
-    result = ingest_text(workspace=ws, title=title, content=body)
+    # SESSION 276 Slice 20 — explicit workspace-shared audience signal.
+    result = ingest_text(workspace=ws, title=title, content=body, workspace_shared_intent=True)
     embed_document.apply(args=[str(result.document.pk)])
     result.document.refresh_from_db()
     assert result.document.status == DocumentStatus.PROCESSED

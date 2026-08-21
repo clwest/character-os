@@ -165,6 +165,7 @@ def test_create_via_text_content_runs_full_pipeline() -> None:
             "First paragraph of substantive content.\n\n"
             "Second paragraph keeps going with more text."
         ),
+        "audience_scope": "workspace",  # SESSION 276 Slice 20 positive audience
     }
     response = client.post("/api/knowledge/", payload, format="json")
     assert response.status_code == http.HTTP_201_CREATED, response.content
@@ -194,6 +195,7 @@ def test_create_via_markdown_auto_detects_doc_type() -> None:
             "workspace": str(ws.pk),
             "title": "MD doc",
             "text_content": "# A heading\n\n## A subheading\n\nBody",
+            "audience_scope": "workspace",  # SESSION 276 Slice 20 positive audience
         },
         format="json",
     )
@@ -241,6 +243,7 @@ def test_create_via_pdf_data_uri_runs_full_pipeline() -> None:
                     "workspace": str(ws.pk),
                     "title": "fake.pdf",
                     "pdf_data_uri": pdf_data_uri,
+                    "audience_scope": "workspace",  # SESSION 276 Slice 20 positive audience
                 },
                 format="json",
             )
@@ -493,6 +496,7 @@ def test_patch_text_content_no_op_when_unchanged() -> None:
             "workspace": str(ws.pk),
             "title": "Static",
             "text_content": "Line one.\nLine two.",
+            "audience_scope": "workspace",  # SESSION 276 Slice 20 positive audience
         },
         format="json",
     )
@@ -551,6 +555,7 @@ def test_patch_text_content_rejects_workspace_hash_collision() -> None:
             "workspace": str(ws.pk),
             "title": "B",
             "text_content": "This exact text.",
+            "audience_scope": "workspace",  # SESSION 276 Slice 20 positive audience
         },
         format="json",
     )
@@ -561,6 +566,7 @@ def test_patch_text_content_rejects_workspace_hash_collision() -> None:
             "workspace": str(ws.pk),
             "title": "A",
             "text_content": "Something else entirely.",
+            "audience_scope": "workspace",  # SESSION 276 Slice 20 positive audience
         },
         format="json",
     )
@@ -590,6 +596,7 @@ def test_patch_text_content_and_title_together() -> None:
             "workspace": str(ws.pk),
             "title": "old-title",
             "text_content": "old body content.",
+            "audience_scope": "workspace",  # SESSION 276 Slice 20 positive audience
         },
         format="json",
     )
@@ -701,9 +708,12 @@ def test_slice12_api_workspace_marker_stamps_workspace() -> None:
 
 
 def test_slice12_api_omission_remains_null() -> None:
-    """Slice 12 — DRF payload with no spokespeople + no Universe + no
-    marker must NOT be silently defaulted to WORKSPACE by the
-    serializer."""
+    """Slice 12 (SUPERSEDED by Slice 20 Q-276-36) — DRF CREATE payload
+    with no spokespeople + no Universe + no ``audience_scope="workspace"``
+    marker now fails at the serializer boundary with a 4xx instead of
+    landing at ``audience_scope=NULL``. See
+    ``docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md`` §345/§346.
+    """
     ws, user = _make_workspace_with_user("s12-null@k4.test", "S12Null")
     client = APIClient()
     _login(client, user)
@@ -717,13 +727,10 @@ def test_slice12_api_omission_remains_null() -> None:
         },
         format="json",
     )
-    assert response.status_code == http.HTTP_201_CREATED, response.content
-    body = response.json()
-
-    doc = KnowledgeDocument.objects.get(pk=body["id"])
-    assert doc.audience_scope is None, (
-        "DRF serializer must not silently default omission to WORKSPACE"
-    )
+    assert response.status_code == http.HTTP_400_BAD_REQUEST, response.content
+    assert not KnowledgeDocument.objects.filter(
+        workspace=ws, title="slice12-api-null",
+    ).exists(), "no KD row must persist when the API fails closed"
 
 
 def test_slice12_api_rejects_marker_with_spokespeople() -> None:

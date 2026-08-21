@@ -382,6 +382,12 @@ ALLOWED_FILES = {
     # verify the ``resolve_chunk_ids_to_docs`` provenance carve-out
     # is unaffected. Same sanction as the truth-table tests.
     "apps/embeddings/tests/test_retrieval_delta_slice16.py",
+    # SESSION 276 Slice 20 — fresh-write NULL closure adversarial tests.
+    # Queries KnowledgeChunk directly (via `KnowledgeChunk.objects.filter(...)`
+    # in Test I) to verify that Slice 8's orphan-archive path still
+    # preserves chunks after Slice 20's NULL closure lands. Same sanction
+    # as the truth-table tests.
+    "apps/embeddings/tests/test_fresh_write_null_closure_slice20.py",
 }
 
 # The pattern we actually care about: ``<Model>.objects`` —

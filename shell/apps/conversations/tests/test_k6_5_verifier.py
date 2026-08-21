@@ -93,10 +93,12 @@ def _make_teammate(ws: Workspace, name: str = "Donny") -> Teammate:
 
 
 def _attach_doc(ws: Workspace, sp: Teammate, body: str = RAG_DOC_EXCERPT * 4) -> None:
-    result = ingest_text(workspace=ws, title="RAG doc", content=body)
+    # SESSION 276 Slice 20 — pass spokespeople to ingest_text so audience
+    # is CHARACTER at creation. Prior "attach after" pattern created a
+    # transitional NULL row that Slice 20's fresh-write closure rejects.
+    result = ingest_text(workspace=ws, title="RAG doc", content=body, spokespeople=[sp])
     embed_document.apply(args=[str(result.document.pk)])
     result.document.refresh_from_db()
-    result.document.spokespeople.add(sp)
 
 
 # ---------------------------------------------------------------

@@ -166,6 +166,11 @@ class Command(BaseCommand):
                 workspace=workspace,
                 title=f"smoke-pdf {pdf_path.name}",
                 payload=pdf_path,
+                # SESSION 276 Slice 20 — explicit positive audience
+                # signal per Delta fresh-write NULL closure. The smoke
+                # command validates the workspace-wide ingestion+retrieval
+                # pipeline; WORKSPACE audience matches that scope.
+                workspace_shared_intent=True,
             )
         else:
             self.stdout.write("  · ingest_text(sample)")
@@ -175,6 +180,9 @@ class Command(BaseCommand):
                 content=_SAMPLE_TEXT,
                 document_type=DocumentType.MARKDOWN,
                 ingested_via=IngestedVia.PASTE,
+                # SESSION 276 Slice 20 — explicit positive audience
+                # signal per Delta fresh-write NULL closure.
+                workspace_shared_intent=True,
             )
 
         doc = result.document
@@ -242,6 +250,8 @@ class Command(BaseCommand):
                 content=_SAMPLE_TEXT,
                 document_type=DocumentType.MARKDOWN,
                 ingested_via=IngestedVia.PASTE,
+                # SESSION 276 Slice 20 — explicit positive audience signal.
+                workspace_shared_intent=True,
             )
             if not second.deduped or second.document.pk != doc.pk:
                 raise CommandError(

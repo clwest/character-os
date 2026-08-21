@@ -108,6 +108,8 @@ def test_video_create_with_knowledge_persists_citation_ids() -> None:
         workspace=ws,
         title="bell-facts",
         content="Our brass bells are 110 dB. We ship same day.",
+        # SESSION 276 Slice 20 — attach directly so audience = CHARACTER.
+        spokespeople=[sp],
     )
     embed_document.apply(args=[str(res.document.pk)])
 

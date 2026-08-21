@@ -60,6 +60,7 @@ def test_ingest_text_creates_pending_document() -> None:
         title="hello",
         content="Some content here.\n\nSecond paragraph.",
         document_type=DocumentType.TEXT,
+        workspace_shared_intent=True,  # SESSION 276 Slice 20 positive audience
     )
     assert result.deduped is False
     assert result.document.status == DocumentStatus.PENDING
@@ -73,8 +74,8 @@ def test_ingest_text_dedups_same_content_in_workspace() -> None:
     ws = _make_workspace("ingest2@test.local", "Ingest WS 2")
     text = "Same exact content.\n\nMore content."
 
-    first = ingest_text(workspace=ws, title="A", content=text)
-    second = ingest_text(workspace=ws, title="B", content=text)
+    first = ingest_text(workspace=ws, title="A", content=text, workspace_shared_intent=True)
+    second = ingest_text(workspace=ws, title="B", content=text, workspace_shared_intent=True)
 
     assert first.deduped is False
     assert second.deduped is True
@@ -87,8 +88,8 @@ def test_ingest_text_dedup_is_per_workspace() -> None:
     ws_b = _make_workspace("ingestB@test.local", "WS B")
     text = "Shared content across workspaces.\n\nMore."
 
-    doc_a = ingest_text(workspace=ws_a, title="A", content=text)
-    doc_b = ingest_text(workspace=ws_b, title="B", content=text)
+    doc_a = ingest_text(workspace=ws_a, title="A", content=text, workspace_shared_intent=True)
+    doc_b = ingest_text(workspace=ws_b, title="B", content=text, workspace_shared_intent=True)
 
     assert doc_a.deduped is False
     assert doc_b.deduped is False
@@ -130,7 +131,7 @@ def test_ingest_text_restores_soft_deleted_row() -> None:
     ws = _make_workspace("restore@test.local", "Restore WS")
     text = "Content that will get soft-deleted then restored."
 
-    first = ingest_text(workspace=ws, title="original", content=text)
+    first = ingest_text(workspace=ws, title="original", content=text, workspace_shared_intent=True)
     assert first.deduped is False
 
     # Operator soft-deletes (mirrors the viewset's destroy).
@@ -141,7 +142,7 @@ def test_ingest_text_restores_soft_deleted_row() -> None:
     doc.save()
 
     # Re-ingest — same content, new title.
-    second = ingest_text(workspace=ws, title="restored", content=text)
+    second = ingest_text(workspace=ws, title="restored", content=text, workspace_shared_intent=True)
     assert second.deduped is False, "restored row should re-fire embed"
     assert second.document.pk == first.document.pk, "same row, not a new one"
     assert second.document.is_active is True
@@ -157,12 +158,12 @@ def test_ingest_text_restore_preserves_title_when_new_is_blank() -> None:
     ws = _make_workspace("restore-title@test.local", "Restore Title WS")
     text = "Content to test title preservation."
 
-    first = ingest_text(workspace=ws, title="keep me", content=text)
+    first = ingest_text(workspace=ws, title="keep me", content=text, workspace_shared_intent=True)
     first.document.is_active = False
     first.document.save(update_fields=["is_active"])
 
     # URL-ingest path passes title="" when nothing supplied.
-    second = ingest_text(workspace=ws, title="", content=text)
+    second = ingest_text(workspace=ws, title="", content=text, workspace_shared_intent=True)
     assert second.deduped is False
     assert second.document.title == "keep me"
 
@@ -192,6 +193,7 @@ def test_embed_document_processes_to_completion() -> None:
         workspace=ws,
         title="doc",
         content=("Paragraph one with content.\n\n" * 5),
+        workspace_shared_intent=True,  # SESSION 276 Slice 20 positive audience
     )
     out = embed_document.apply(args=[str(result.document.pk)]).get()
     assert out["status"] == "processed"
@@ -210,6 +212,7 @@ def test_embed_document_chunks_have_correct_dim() -> None:
     ws = _make_workspace("embed2@test.local", "Embed WS 2")
     result = ingest_text(
         workspace=ws, title="dim doc", content="just one chunk worth of text",
+        workspace_shared_intent=True,  # SESSION 276 Slice 20 positive audience
     )
     embed_document.apply(args=[str(result.document.pk)])
 
@@ -229,6 +232,7 @@ def test_embed_document_is_idempotent() -> None:
     ws = _make_workspace("idem@test.local", "Idem WS")
     result = ingest_text(
         workspace=ws, title="idem", content="some content to chunk",
+        workspace_shared_intent=True,  # SESSION 276 Slice 20 positive audience
     )
     embed_document.apply(args=[str(result.document.pk)])
     first_count = result.document.chunks.count()
@@ -351,39 +355,36 @@ def test_fresh_create_universe_scoped_character_still_maps_to_character() -> Non
 
 @pytest.mark.django_db
 def test_fresh_create_without_spokespeople_or_universe_leaves_audience_scope_null() -> None:
-    """Slice 10 Test D (updated by Slice 11) — fresh create with NO
-    spokespeople AND no Universe must NOT be stamped CHARACTER,
-    UNIVERSE, WORKSPACE, or NONE. Slice 11 (Q-276-25) confirmed that
-    the SPA's "None (legacy)" gesture IS positive workspace-shared
-    intent BUT the backend cannot distinguish that gesture from a
-    non-SPA caller that simply omitted the Universe arg. WORKSPACE
-    inference at ``_persist`` would recreate the "absence means
-    broadcast" semantics Delta was introduced to eliminate.
+    """Slice 10 Test D (SUPERSEDED by Slice 20 Q-276-36) — fresh create
+    with NO spokespeople AND no Universe AND no workspace_shared_intent
+    marker must now FAIL CLOSED. Previously (Slice 11/12) the row was
+    permitted to land at ``audience_scope=NULL`` as a transitional
+    state. Slice 20 (§345/§346) closes that loophole at the deeper
+    ingestion boundary — the ``_persist`` else branch raises
+    ``ValidationError`` instead of persisting a NULL row.
 
-    This test guards against a future slice accidentally adding
-    WORKSPACE inference without an explicit intent-payload contract.
+    The API-level guard (serializer 4xx) is verified separately in
+    ``test_slice20_serializer_rejects_create_without_audience_signal``.
     """
     ws = _make_workspace(
         "slice10-d@test.local", "Slice10 WS D",
     )
 
-    result = ingest_text(
-        workspace=ws,
-        title="no-sp-no-universe-create",
-        content="Content with no explicit spokespeople + no Universe.",
-        # spokespeople NOT supplied; universe NOT supplied
-    )
+    with pytest.raises(ValidationError) as exc_info:
+        ingest_text(
+            workspace=ws,
+            title="no-sp-no-universe-create",
+            content="Content with no explicit spokespeople + no Universe.",
+            # spokespeople NOT supplied; universe NOT supplied
+        )
+    assert "audience_scope" in str(exc_info.value)
+    assert (
+        KnowledgeDocument.objects.filter(
+            workspace=ws, title="no-sp-no-universe-create",
+        ).exists()
+        is False
+    ), "no KD row must persist when ingestion fails closed"
 
-    kd = result.document
-    kd.refresh_from_db()
-    assert kd.is_active is True
-    assert kd.audience_scope is None, (
-        "fresh no-spokespeople + no-Universe create must remain "
-        "transitional NULL until an explicit intent-payload contract "
-        "resolves the SPA-vs-non-SPA gesture ambiguity"
-    )
-    assert kd.spokespeople.count() == 0
-    assert kd.universe_id is None
 
 
 @pytest.mark.django_db
@@ -457,17 +458,16 @@ def test_fresh_create_universe_inference_asymmetric_with_workspace() -> None:
     assert kd_universe.audience_scope == AudienceScope.UNIVERSE
     assert kd_universe.universe_id == u.pk
 
-    # (no sp, no universe) branch → still NULL
-    result_null = ingest_text(
-        workspace=ws,
-        title="asym-null",
-        content="No-scope content G.",
-        # neither spokespeople nor universe supplied
-    )
-    kd_null = result_null.document
-    kd_null.refresh_from_db()
-    assert kd_null.audience_scope is None
-    assert kd_null.universe_id is None
+    # (no sp, no universe) branch — SUPERSEDED by Slice 20 Q-276-36
+    # fresh-write NULL closure. Previously landed at NULL; now the
+    # ingestion path raises ValidationError instead.
+    with pytest.raises(ValidationError):
+        ingest_text(
+            workspace=ws,
+            title="asym-null",
+            content="No-scope content G.",
+            # neither spokespeople nor universe supplied
+        )
 
 
 @pytest.mark.django_db
@@ -552,26 +552,29 @@ def test_slice12_A_explicit_workspace_marker_stamps_workspace() -> None:
 
 @pytest.mark.django_db
 def test_slice12_B_omission_remains_null() -> None:
-    """Slice 12 Test B — load-bearing. A non-SPA caller that omits
-    spokespeople AND universe AND the marker must land at NULL, not
-    WORKSPACE. Guards against absence-means-broadcast regression."""
+    """Slice 12 Test B (SUPERSEDED by Slice 20 Q-276-36) — a non-SPA
+    caller that omits spokespeople AND universe AND the marker now
+    fails closed instead of landing at NULL. Slice 12 preserved the
+    NULL branch as a transitional state so absence-means-broadcast
+    regressions could be tested; Slice 20 closes that branch at the
+    ingestion boundary and the API surface (§345/§346)."""
     ws = _make_workspace(
         "slice12-b@test.local", "Slice12 WS B",
     )
-    result = ingest_text(
-        workspace=ws,
-        title="omitted-everything",
-        content="Non-SPA caller-style content without marker.",
-        # No spokespeople, no universe, no workspace_shared_intent.
+    with pytest.raises(ValidationError):
+        ingest_text(
+            workspace=ws,
+            title="omitted-everything",
+            content="Non-SPA caller-style content without marker.",
+            # No spokespeople, no universe, no workspace_shared_intent.
+        )
+    # No KD row should persist when ingestion fails closed.
+    assert (
+        KnowledgeDocument.objects.filter(
+            workspace=ws, title="omitted-everything",
+        ).exists()
+        is False
     )
-    kd = result.document
-    kd.refresh_from_db()
-    assert kd.is_active is True
-    assert kd.audience_scope is None, (
-        "omission must remain NULL; do NOT stamp WORKSPACE"
-    )
-    assert kd.universe_id is None
-    assert kd.spokespeople.count() == 0
 
 
 @pytest.mark.django_db

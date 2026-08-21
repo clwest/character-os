@@ -90,6 +90,7 @@ def test_create_via_source_url_input_runs_full_pipeline() -> None:
             {
                 "workspace": str(ws.pk),
                 "source_url_input": "https://example.com/article",
+                "audience_scope": "workspace",  # SESSION 276 Slice 20 positive audience
             },
             format="json",
         )
@@ -123,6 +124,7 @@ def test_create_via_source_url_input_with_via_serper_marks_ingested_via() -> Non
                 "workspace": str(ws.pk),
                 "source_url_input": "https://example.com/article",
                 "via_serper": True,
+                "audience_scope": "workspace",  # SESSION 276 Slice 20 positive audience
             },
             format="json",
         )
@@ -146,6 +148,7 @@ def test_create_via_source_url_with_caller_title_overrides_extracted() -> None:
                 "workspace": str(ws.pk),
                 "source_url_input": "https://example.com/article",
                 "title": "Operator's own title",
+                "audience_scope": "workspace",  # SESSION 276 Slice 20 positive audience
             },
             format="json",
         )
@@ -170,6 +173,7 @@ def test_create_via_source_url_failure_surfaces_400() -> None:
             {
                 "workspace": str(ws.pk),
                 "source_url_input": "https://example.com/missing",
+                "audience_scope": "workspace",  # SESSION 276 Slice 20 positive audience
             },
             format="json",
         )
@@ -321,6 +325,7 @@ def test_url_ingest_is_idempotent_via_content_hash() -> None:
             {
                 "workspace": str(ws.pk),
                 "source_url_input": "https://dedup.example.com/",
+                "audience_scope": "workspace",  # SESSION 276 Slice 20 positive audience
             },
             format="json",
         )
@@ -329,6 +334,7 @@ def test_url_ingest_is_idempotent_via_content_hash() -> None:
             {
                 "workspace": str(ws.pk),
                 "source_url_input": "https://dedup.example.com/",
+                "audience_scope": "workspace",  # SESSION 276 Slice 20 positive audience
             },
             format="json",
         )

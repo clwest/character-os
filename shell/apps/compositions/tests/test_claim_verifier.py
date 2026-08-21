@@ -757,10 +757,11 @@ def _make_teammate(ws: Workspace, name: str, brief: str = "") -> Teammate:
 
 
 def _ingest_attached(ws: Workspace, sp: Teammate, title: str, body: str) -> None:
-    result = ingest_text(workspace=ws, title=title, content=body)
+    # SESSION 276 Slice 20 — pass spokespeople to ingest_text so audience
+    # is CHARACTER at creation. Prior "attach after" pattern is closed.
+    result = ingest_text(workspace=ws, title=title, content=body, spokespeople=[sp])
     embed_document.apply(args=[str(result.document.pk)])
     result.document.refresh_from_db()
-    result.document.spokespeople.add(sp)
 
 
 def test_build_render_brief_populates_verification_warnings() -> None:

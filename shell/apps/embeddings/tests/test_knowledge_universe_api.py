@@ -68,9 +68,13 @@ def test_post_knowledge_with_universe_success(client, workspace):
 
 @pytest.mark.django_db
 def test_post_knowledge_without_universe_creates_legacy(client, workspace):
-    """Backward-compat: API caller that omits ``universe`` still
-    gets a legacy doc (universe=NULL). The SPA is the layer that
-    forces an explicit pick — the API stays backward-compatible.
+    """SUPERSEDED by Slice 20 Q-276-36 — the API previously accepted a
+    CREATE payload with no Universe + no spokespeople + no
+    ``audience_scope`` marker as a legacy NULL doc. Slice 20 closes
+    that branch: the API now requires a positive audience signal.
+    Supplying ``audience_scope="workspace"`` (the SPA's "None (legacy)"
+    gesture per Slice 12 §189) still lands as a workspace-shared doc
+    with ``universe=None``.
     """
     resp = client.post(
         "/api/knowledge/",
@@ -78,12 +82,17 @@ def test_post_knowledge_without_universe_creates_legacy(client, workspace):
             "workspace": str(workspace.id),
             "title": "Legacy doc",
             "text_content": "legacy content",
+            "audience_scope": "workspace",  # SESSION 276 Slice 20 marker
         },
         format="json",
     )
     assert resp.status_code == 201, resp.content
     body = resp.json()
     assert body["universe"] is None
+    # audience_scope is write-only; verify via DB read.
+    from apps.embeddings.models import KnowledgeDocument, AudienceScope
+    doc = KnowledgeDocument.objects.get(pk=body["id"])
+    assert doc.audience_scope == AudienceScope.WORKSPACE
 
 
 @pytest.mark.django_db
