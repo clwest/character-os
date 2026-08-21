@@ -1092,3 +1092,619 @@ matches Chris's operator intent.
 
 _Landed SHA: `d2cbee4` (Slice 2 audit commit)._
 
+---
+
+# Slice 3 — Q-277-3 — NULL-UNIVERSE CHARACTER SEMANTICS AUDIT (audit-only)
+
+Chris + ChatGPT reviewed Slice 2. Workspace classification accepted
+(tenant boundary; Universe = world). Knowledge UI implementation
+deferred again — Slice 2 exposed that the ordinary character-create
+flow neither requires nor asks for a Universe, and legacy `universe=NULL`
+teammates persist in production. Before reshaping Knowledge around
+Universe membership, Slice 3 must determine what NULL-Universe
+actually represents in the CURRENT product.
+
+## §41 Slice 3 baseline
+
+- HEAD @ Slice 3 open: `bad5cc9` (Slice 2 SHA-record). Clean, pushed.
+- KnowledgeDocument substrate unchanged (0 rows / 0 chunks; audience
+  constraints intact).
+- Read-only. No DB mutations, no source edits.
+
+## §42 Slice 3 checklist
+
+- [x] STEP 0 — verify baseline (git + KD empty + Slice 2 landed).
+- [x] PART A — inventory every current character-create path.
+- [x] PART B — reconstruct ordinary SPA character-create flow.
+- [x] PART C — build NULL-Universe capability matrix.
+- [x] PART D — Knowledge composition boundary (Delta interaction).
+- [x] PART E — Episode / cast composition boundary.
+- [x] PART F — Memory / continuity composition boundary.
+- [x] PART G — current-DB provenance for legacy NULL teammates.
+- [x] PART H — historical intent (SESSION 259 → 261 substrate).
+- [x] PART I — falsification: search for legitimate modern NULL use case.
+- [x] PART J — generalization test (Fox & Flour / Patch+Rivet / Riverstone / dealership + non-business cases).
+- [x] PART K — active vs draft state.
+- [x] PART L — operator mental model.
+- [x] PART M — current vs emerging hierarchy diagrams.
+- [x] PART N — Q-277-3 classification + Universe-required recommendation.
+- [x] PART O — effect on the proposed Knowledge UI.
+- [x] PART P — smallest next falsifiable question.
+- [ ] Commit + push audit; SHA-record.
+
+## §43 Q-277-3
+
+> Is `Teammate.universe=NULL` still a legitimate CURRENT Character OS
+> product state that an ordinary operator should be able to create and
+> use, or is it primarily historical/transition residue from before
+> Universe became the world/business/cast boundary?
+
+Companion:
+
+> Has Universe become sufficiently load-bearing across current Character OS
+> that every newly created ordinary character should have an explicit
+> Universe before becoming an active usable character?
+
+## §44 Prediction (before source inspection)
+
+Prediction: NULL-Universe is currently **compatibility residue**. The
+SPA character-create wizard never asks for a Universe, so every new
+teammate lands NULL by default; but every downstream Universe-aware
+workflow (Episode cast, UNIVERSE-audience Knowledge retrieval,
+NarrativeMemory, retrieve_universe_canon shared-tier lane) either
+excludes NULL teammates outright or falls back to a shrinking
+legacy-only pool. Composition without Episode still works for NULL
+teammates today. Expect the answer to be **classification C** with a
+**LIKELY YES** on the required-Universe recommendation, gated on
+first-Universe onboarding UX.
+
+## §45 PART A — Every current character-create path
+
+Grep results across `shell/apps/` for `Teammate.objects.create` +
+`perform_create` (see also `shell/apps/spokespeople/views.py:277-306`).
+
+| Create path | File | Universe accepted? | Universe required? | Default if omitted | Operator-visible? |
+|---|---|---|---|---|---|
+| SPA `/spokespeople/new` → `POST /api/spokespeople/` | `web/src/routes/spokespeople/new.tsx:87-100` → `web/src/lib/api/spokespeople.ts:157-194` → `apps/spokespeople/views.py:277-345` | payload accepts `universe` (serializer field, `apps/spokespeople/serializers.py:53`) | **no** (no validate-side requirement; only cross-workspace consistency) | `NULL` (nothing sent from SPA) | primary — the wizard the operator uses |
+| Direct API `POST /api/spokespeople/ {universe: <uuid>}` | same viewset | yes | no | `NULL` | dev/automation path |
+| `python manage.py seed_cast` | `apps/spokespeople/management/commands/seed_cast.py:198-204` | not passed | no | `NULL` | developer command, not product |
+| `SpokespersonUniversePanel` PATCH | `web/src/components/spokesperson-universe-panel.tsx` | yes (post-hoc) | no | n/a (edit) | secondary — appears on the spokesperson detail page after creation |
+| Django admin | `apps/spokespeople/admin.py` (default ModelAdmin) | yes | no | `NULL` | staff-only |
+| Test factories | `apps/spokespeople/tests/**` | yes when explicit | never | `NULL` | not product |
+
+**Conclusion:** every product-shaped create path (SPA wizard, seed
+command, admin) lands `universe=NULL` unless the caller *deliberately*
+sends a Universe FK. The SPA has no code path that sends one at create
+time — Universe assignment is always a second, later step through
+`SpokespersonUniversePanel`.
+
+## §46 PART B — Ordinary operator character-create flow (SPA)
+
+Trace: `/dashboard` → click "New spokesperson" → `/spokespeople/new`.
+
+Fields shown (from `web/src/routes/spokespeople/new.tsx:107-171`):
+- `Name` (required)
+- `Business brief` (required)
+- `Portrait` (optional — reveals a portrait upload widget)
+- Submit button `Create spokesperson`.
+
+Not shown:
+- Workspace (implicit from `me.data.default_workspace.id`).
+- Universe / World — no picker, no radio, no chip. Zero references to `universe` or `Universe` in the file.
+- Draft / active toggle (`Teammate.Status` is bake-lifecycle; see §54).
+
+API payload emitted (line 90-95):
+```
+{ workspace: <uuid>, name: <str>, business_brief: <str>, portrait_data_uri?: <base64> }
+```
+
+Backend persistence:
+- Serializer accepts payload (`apps/spokespeople/serializers.py:41-95`); universe field defaults to NULL.
+- `perform_create` fires optional avatar bake against media-engine; row is `SETUP_NEEDED` (or `READY` after successful bake).
+- Persisted `universe_id`: `NULL`.
+
+Subsequent Universe assignment happens post-hoc via
+`SpokespersonUniversePanel` on the detail page. Assignment is
+optional — no warning banner, no "incomplete" badge, no dashboard
+call-out indicates a NULL-Universe teammate is anything other than
+finished. The operator receives no signal that Universe assignment
+matters.
+
+## §47 PART C — NULL-Universe capability matrix
+
+Source-derived from viewsets, retrieval, and clean-hook rejections.
+
+| Capability | `universe=NULL` teammate works? | Different behavior vs Universe-bound teammate? | Evidence |
+|---|---|---|---|
+| Detail page (`/spokespeople/{id}`) | yes | none | `web/src/routes/spokespeople/$id.tsx` renders identically |
+| Edit basic fields (name, business_brief, personality, voice etc.) | yes | none | serializer PATCH path |
+| Portrait / avatar bake / rebake | yes | none | `perform_create` + `rebake_avatar` don't consult universe |
+| Voice preset / bake | yes | none | independent of universe |
+| Universe assignment (post-hoc) | yes | is the operation itself | `SpokespersonUniversePanel` PATCH with `universe-move-preview` |
+| Delete + orphan-archive | yes | none | `apps/spokespeople/signals.py` pre_delete handles either state |
+| CHARACTER-audience KD create with this teammate in M2M | yes IF the KD is also `universe=NULL` | doc lands `audience_scope=CHARACTER + universe=NULL` in legacy pool | `apps/embeddings/signals.py:117-138` allows both-NULL pairing only |
+| CHARACTER-audience KD share with a Universe-bound teammate | **no** | signal rejects cross-Universe attach (`sp.universe=NULL` + `doc.universe=U_X` forbidden per SESSION 261 M2M contract) | `apps/embeddings/signals.py:108-110` |
+| UNIVERSE-audience KD retrieval (`retrieve_for_teammate`) | **no** | LIST predicate branches on `spokesperson.universe_id is None → document.universe__isnull=True`; UNIVERSE-audience row must have `universe_id NOT NULL` (CheckConstraint `session276_universe_requires_universe_fk`) → impossible combination | `apps/embeddings/retrieval.py:211-247` |
+| WORKSPACE-audience KD retrieval | yes | doc universe must be NULL (constraint `session276_workspace_forbids_universe_fk`), matches teammate's NULL filter | same |
+| `retrieve_universe_canon` shared-tier lane | **no** | `if top_k <= 0 or universe is None or not cast: return []` — legacy dialogue gets no canon lane; mixed cast returns empty (`retrieval.py:362-374`) | same file |
+| `retrieve_universe_memory` | **no** | Universe-scoped lane; NULL teammate has no Universe to key on | `apps/embeddings/retrieval.py` §"SESSION 264 Slice 2" |
+| Episode cast (`EpisodeCast`) | **no** | `EpisodeCast.clean` explicitly rejects legacy teammate: "Teammate ... has no Universe (legacy). A Universe-scoped Episode cannot include a legacy Teammate in its cast" | `apps/universe/models.py:454-464` |
+| Composition without Episode | yes | none | `apps/compositions/models.py` clean only rejects when Episode is attached |
+| Composition WITH Episode (SESSION 262+) | **no** | `Composition.clean` rejects legacy spokesperson: "spokesperson has no Universe (legacy). A Universe-scoped Episode cannot attach a legacy Composition" | `apps/compositions/models.py:820-831` |
+| NarrativeMemory | **no** | NarrativeMemory FKs Universe (NOT nullable, `apps/memory/models.py:170-175`); promoted from a Composition-with-Episode which itself requires Universe | derived |
+| Talk / SpokespersonAskPanel (K6 synthesize with knowledge) | yes but shrunken corpus | uses `retrieve_for_teammate` → only WORKSPACE + legacy-CHARACTER docs available | `apps/spokespeople/views.py::ask` |
+| Realtime avatar session | yes | independent of universe scope for the session itself | `apps/realtime/models.py` |
+| Video generation | yes | independent | `apps/videos/` |
+| Campaigns / bundles / assets | yes | workspace-scoped; independent | respective apps |
+
+**Reading:** a NULL-Universe teammate can do everything a Universe-bound
+teammate can do at the **workspace-tenant** layer (avatar, voice,
+portrait, composition-without-episode, video, campaigns). It **cannot
+participate in any Universe-anchored workflow** — no episodes, no
+episode-derived memory, no shared-tier canon lane, no UNIVERSE-audience
+knowledge, and CHARACTER-audience knowledge shares are restricted to
+the shrinking legacy-legacy pool.
+
+## §48 PART D — Knowledge composition boundary (Delta interaction)
+
+Focus on the specific interaction between `Teammate.universe=NULL` and
+the SESSION 276 Delta `audience_scope` model.
+
+1. **CHARACTER-scoped Knowledge for a NULL teammate.**
+   - Allowed: the doc must also be created with `universe=NULL`. The
+     M2M signal (`apps/embeddings/signals.py:117-138`) rejects any
+     non-NULL doc-universe when attaching a NULL sp (and vice versa).
+   - Persisted shape: `audience_scope=CHARACTER + universe=NULL +
+     spokespeople=[<NULL-sp>...]`.
+   - Retrieval: `retrieve_for_teammate` filters to `document__universe__isnull=True`
+     for NULL teammates, then the CHARACTER Q branch matches. Works.
+2. **Multiple NULL-Universe characters sharing one CHARACTER doc.**
+   - Allowed. All spokespeople must be NULL-universe; workspace must
+     match. The legacy pool is fungible.
+3. **NULL teammate receiving UNIVERSE-scoped Knowledge.** Impossible.
+   `retrieve_for_teammate` narrows to `document__universe__isnull=True`
+   for NULL teammates, but every UNIVERSE-audience doc has
+   `universe_id NOT NULL` (Check `session276_universe_requires_universe_fk`).
+   Zero rows.
+4. **NULL teammate receiving WORKSPACE-scoped Knowledge.** Yes.
+   `document.universe=NULL` matches, and `Q(audience_scope=WORKSPACE)`
+   matches. This is the entire mechanical purpose of the WORKSPACE
+   fallback branch today — Slice 21 §"Load-bearing properties" §3:
+   "WORKSPACE is visible to legacy no-Universe teammates
+   (universe filter enforces NULL-vs-NULL match)."
+5. **Semantic retrieval semantics.** NULL-Universe CHARACTER knowledge
+   is retrieved by exactly the same predicate as Universe-anchored
+   CHARACTER knowledge (M2M presence + audience_scope=CHARACTER); the
+   only difference is the universe scope. From the retrieval code's
+   perspective, both are legitimate — the Delta enum treats
+   `audience_scope=CHARACTER` as a first-class positive audience,
+   regardless of universe.
+6. **Universe-consistency guards on both-NULL pairings.** The M2M
+   signal (`apps/embeddings/signals.py:112-115`) has an *explicit
+   docstring exception* for the both-NULL pair: **"Allowed:
+   `doc.universe = NULL` and `sp.universe = NULL` (legacy)."** This
+   is a deliberate carve-out, not an accident. The signal was written
+   to keep the legacy pool functional during the SESSION 261
+   transition.
+
+**Net product effect:** the Delta audience model is coherent for
+NULL-Universe teammates *within the legacy pool*. As soon as any
+Universe boundary is crossed (mixed teammates, or a UNIVERSE-audience
+doc), the NULL teammate is silently excluded. The legacy pool has no
+Universe-derived narrative continuity, no shared-tier canon lane, and
+no route to UNIVERSE-audience content.
+
+## §49 PART E — Episode / cast composition boundary
+
+- Episode is Universe-scoped; `Episode.universe` is NOT NULL, CASCADE
+  (`apps/universe/models.py:278-287`).
+- `EpisodeCast.clean` at `apps/universe/models.py:446-481` enforces
+  three invariants at attach time:
+  1. `teammate.universe_id` must equal `episode.universe_id` (cross-Universe forbidden).
+  2. `teammate.universe_id` must be non-NULL (**legacy teammates explicitly rejected**, with the operator-visible message: "A Universe-scoped Episode cannot include a legacy Teammate in its cast. Assign the Teammate to Universe ... first.").
+  3. `teammate.workspace_id` must equal `episode.universe.workspace_id`.
+- SPA behavior: `episode-cast-picker` filters to same-Universe teammates
+  (see `web/src/routes/workspace/episode-cast-picker.test.tsx` for the
+  contract). Legacy teammates would not appear as pickable.
+- Consequence: **a NULL-Universe teammate cannot join any Episode**.
+  Every narrative anchoring (title, cast, composition-with-episode)
+  is invisible to them. To include Penny in an Episode, Chris must
+  first assign her a Universe.
+
+## §50 PART F — Memory / continuity composition boundary
+
+- `NarrativeMemory.universe` is **NOT NULL** (`apps/memory/models.py:170-175`,
+  CASCADE); denormalized from `Episode.universe`.
+- `NarrativeMemory.source_composition` FK is RESTRICT-typed;
+  NarrativeMemory is promoted from a Composition-with-Episode, which
+  requires a Universe-bound spokesperson (§47).
+- `retrieve_universe_memory` (SESSION 264 Slice 2) is Universe-keyed
+  by construction.
+- Consequence: **NULL-Universe teammates have no continuity boundary**
+  — no promoted memories, no cross-composition narrative recall, no
+  Universe-scoped memory retrieval at synthesis time. A NULL teammate's
+  every conversation is contextually amnesic beyond the raw
+  KnowledgeDocument corpus.
+
+## §51 PART G — Current DB evidence
+
+Query executed against `character_os` DB (port 5434), read-only. Only
+`chriss-workspace` is analyzed (the four experimental workspaces from
+Slice 2 §29 are scaffolding).
+
+**Chris's real workspace ("Chris's workspace", 8 teammates):**
+
+| Teammate | Universe | Created | Provenance class | Compositions | Videos | Episode cast rows |
+|---|---|---|---|---|---|---|
+| Ruby | Fox & Flour Bakery | 2026-07-23 | (universe-assigned) | — | — | — |
+| Patch | Patch's Workshop | 2026-08-16 | (universe-assigned) | — | — | — |
+| Rivet | Patch's Workshop | 2026-08-16 | (universe-assigned) | — | — | — |
+| Mason | NULL | 2026-07-23 | A (pre-SESSION 261) | 1 | 0 | 0 |
+| Penny | NULL | 2026-07-23 | A (pre-SESSION 261) | **58** | 0 | 0 |
+| Mike | NULL | 2026-08-16 | A (pre-SESSION 261) | 3 | 0 | 0 |
+| Repo Red | NULL | 2026-08-16 | A (pre-SESSION 261) | 4 | 0 | 0 |
+| Riggs | NULL | 2026-08-17 | B/A boundary (same day as SESSION 261 landing) | 1 | 0 | 0 |
+
+Observations:
+- Only ONE real NULL-Universe teammate was created on/after the
+  SESSION 261 substrate landing date (2026-08-17) — Riggs — and there
+  is no evidence of intentional "keep me outside a Universe" intent
+  (the SPA wizard has no such affordance to begin with).
+- Zero NULL-Universe teammates appear in any Episode cast (as
+  expected — `EpisodeCast.clean` blocks them).
+- All 5 legacy teammates DO participate in Compositions (Penny alone
+  has 58) — they are actively used, not abandoned rows. But every one
+  of those compositions has `episode = NULL`, so no story continuity,
+  no memory promotion, no shared-tier canon.
+- **Classification:** 5/5 legacy teammates fit "A. clearly historical/legacy dogfood"; 0/5 fit "C. intentionally kept outside any Universe" (no source evidence supports that reading).
+
+## §52 PART H — Historical intent (SESSION 259 → 261)
+
+Cited from `UNIVERSE_BOUNDARY_V1.md` and `UNIVERSE_SCHEMA_V1.md`.
+
+- **`UNIVERSE_SCHEMA_V1.md` §"Teammate.universe FK addition":** The
+  FK was introduced as `null=True` (nullable) specifically because
+  every existing teammate in `chriss-workspace` would have needed a
+  data migration on Day 1; SESSION 261 opted for **opt-in
+  prospective adoption** rather than forced backfill.
+- **Teammate.universe helptext (source, `apps/spokespeople/models.py:86-89`):** > "World this teammate belongs to. NULL = legacy workspace-wide semantics (pre-SESSION 261)."
+- **`UNIVERSE_BOUNDARY_V1.md` §"Working hypothesis" position 3:** "A Workspace may contain many Universes."
+- **`UNIVERSE_BOUNDARY_V1.md` §"Working hypothesis" position 4:** "Characters, canon, relationships, locations, episodes, and shared world knowledge belong to a Universe." — future intent.
+- **`UNIVERSE_BOUNDARY_V1.md` §Q1 opening:** the audit finding that motivated the Universe substrate was that "seven teammates spanning at least four unrelated fictional worlds ... cohabit `chriss-workspace`" — the current NULL-teammate population is the direct remainder of that inventory (Penny → Riverstone, Mike/Repo Red → dealership candidate, Mason → ambiguous, Riggs → ambiguous).
+- Design docs treat `universe=NULL` as **"legacy"** in every context — helptext, invariants doc, retrieval commentary. Not "workspace-wide", not "unassigned by design", not "valid alternative state". The word chosen was "legacy" and it is used consistently.
+- No design doc describes a **forward** use case for NULL-Universe teammates. The nullability is documented as a migration accommodation only.
+
+**Historical verdict:** `universe=NULL` was **explicitly a transitional
+compatibility state**, chosen to avoid a forced Day-1 backfill.
+Universe-required at create was deferred, not designed as a permanent
+optional state.
+
+## §53 PART I — Falsification: does a legitimate modern "no Universe" use case exist?
+
+For each candidate, ask whether current source/UI supports it.
+
+| Candidate | Modern current support in source/UI? | Verdict |
+|---|---|---|
+| Reusable character shared across Worlds | No — `Teammate.universe` is single-value FK, not M2M; there is no cross-Universe character mechanism (see `UNIVERSE_ARCHITECTURE_INTEGRATION_V1.md` — crossover deferred). NULL doesn't create this; it just opts out. | falsified |
+| Generic workspace spokesperson | Backend permits it. Product-wise it means "excluded from every Universe-anchored feature" (§47). Not "generic" — "amputated." | falsified |
+| Draft character not yet assigned | No lifecycle state expresses this. `Teammate.Status` is bake-lifecycle, not universe-lifecycle (§54). | falsified as a *represented* state; potentially useful as a *future* state if introduced |
+| Template character | Not a Character OS concept today. No template model. | falsified |
+| System / helper character | None persisted as a Teammate row. Would be an accounts / preferences concern. | falsified |
+| Operator assistant | Same — not a spokesperson concept. | falsified |
+| Character intentionally outside story continuity | Coherent in principle, but the SPA offers no way to express this intent and no post-CREATE surface communicates "this character is outside continuity." Currently indistinguishable from "operator forgot to assign a Universe." | not currently supported; would need affirmative product concept |
+| Temporary creation state | Would require a real draft/active lifecycle (§54). Does not exist. | falsified |
+
+No current source or UI evidence supports a modern legitimate "no
+Universe" use case for an ordinary operator-created character. NULL
+today is definitionally "everything Universe-based is unavailable, and
+nothing else changes."
+
+## §54 PART K — Active vs draft state (does a lifecycle already exist?)
+
+- `Teammate.Status` = `SETUP_NEEDED | READY | ARCHIVED`
+  (`apps/spokespeople/models.py:30-33`). Toggled by:
+  - `SETUP_NEEDED → READY` when the avatar bake succeeds
+    (`apps/spokespeople/views.py:424-425` on create; `:874` on rebake).
+  - `→ ARCHIVED` via delete/archive path.
+- Every current gate that consults `.status` is checking the
+  **avatar/portrait bake state**, not Universe assignment.
+- There is **no existing "draft-until-Universe-assigned" lifecycle**.
+  Adding one would be a new state machine, not an enrichment of
+  `Teammate.Status`.
+
+So the "NULL as temporary construction state" reading is **not
+mechanically expressible today**. If Chris wanted to model that, it
+would be a Slice-4-or-later product concept, not an interpretation of
+the existing schema.
+
+## §55 PART L — Operator mental model
+
+- The character-create wizard's helper text says "What this spokesperson
+  is called inside the **workspace**." (`new.tsx:113`). The word "world"
+  or "universe" is never used.
+- The back-link at the top of the wizard is labeled **"Workspace"**
+  (`new.tsx:187`) — reinforcing "you are creating a character *inside
+  a workspace*", not "inside a world".
+- The dashboard's `KnowledgeCorpusPanel` has a tiny sibling "Worlds"
+  chip that Chris himself annotated as a discoverability compromise
+  (SESSION 262 note in `dashboard/index.tsx:37-46`).
+- The `Onboarding tour` component has three milestones: "hasSpokesperson",
+  "hasKnowledge", "hasComposition". No milestone mentions Universe.
+- `SpokespersonUniversePanel` is a post-hoc panel on the detail page;
+  there is no banner, badge, or count on the dashboard telling Chris
+  "N of your M spokespeople are unassigned to a World."
+
+**Mental-model conclusion:** the SPA still communicates the older
+model — "a character inside my Workspace." The backend model has
+narrowed (Workspace = tenant, Universe = world) but the operator has
+been offered no chrome or copy that would prompt him to think in
+Universes at create time. This is the same class of drift as the
+Knowledge lexical drift documented in Slice 1: architectural
+narrowing without operator-UX propagation.
+
+## §56 PART M — Hierarchy diagrams
+
+**Current mechanical model (source-derived, unchanged from Slice 2 §34):**
+
+```
+Account (User)
+  └─ Workspace                                    [tenant / security]
+        ├─ Universe                              [world / cast / continuity]
+        │    ├─ Teammate  (universe FK set)
+        │    ├─ KnowledgeDocument (audience_scope in {CHARACTER, UNIVERSE})
+        │    ├─ Episode → EpisodeCast → NarrativeMemory
+        │    └─ (retrieve_universe_canon + retrieve_universe_memory lanes)
+        └─ Teammate  (universe = NULL)           [legacy pool]
+             └─ KnowledgeDocument (audience_scope in {CHARACTER (legacy pair), WORKSPACE})
+             └─ Composition WITHOUT Episode
+             └─ (retrieve_for_teammate over legacy docs only)
+```
+
+Legacy pool is fully functional at the composition-without-episode
+layer but structurally *excluded* from every Universe-anchored
+feature (episode, memory, canon lane, UNIVERSE-audience Knowledge).
+
+**Emerging modern product inference (source-supported, NOT yet enforced):**
+
+```
+Account (User)
+  └─ Workspace                                    [tenant / security]
+        └─ Universe                              [world / cast / continuity]
+             └─ Teammate  (universe REQUIRED)
+                  ├─ CHARACTER-audience KDs (Universe-consistent M2M)
+                  ├─ Episode participation
+                  ├─ NarrativeMemory (Universe-anchored)
+                  └─ Universe canon + memory retrieval lanes
+```
+
+Label the second diagram: **SOURCE-SUPPORTED PRODUCT INFERENCE**. It
+is not established architecture — `Teammate.universe` remains
+nullable — but every downstream Universe-aware feature enforces it de
+facto by rejecting the legacy case. The two diagrams differ only in
+whether `Teammate.universe` is optional or required.
+
+## §57 PART N — Q-277-3 classification + Universe-required recommendation
+
+**Classification:** **C — historical/compatibility state still
+mechanically tolerated.** Justification: (a) no design doc describes a
+forward NULL-Universe use case (§52 — every doc uses the word
+"legacy"); (b) no source evidence supports a legitimate modern
+use case (§53); (c) no lifecycle expresses NULL as a construction
+state (§54); (d) every DB observation is consistent with pre-SESSION 261
+residue (§51); (e) every Universe-aware feature (Episode,
+NarrativeMemory, UNIVERSE-audience retrieval, canon lane) explicitly
+rejects NULL teammates rather than accommodating them; (f) the SPA
+never asks the operator whether they want a Universe.
+
+Weak carve-out: NULL is not *harmful* — legacy teammates still work
+for composition-without-episode + WORKSPACE-audience knowledge. So it
+is C with a small "still-functions-in-a-shrinking-envelope" footnote,
+not classification D ("mixed — specific modern use cases remain").
+
+**Should new ordinary characters require explicit Universe?** **LIKELY YES,
+BUT ANOTHER QUESTION MUST BE ANSWERED FIRST.**
+
+The prerequisite is the same class of gap Slice 2 identified: the SPA
+has no first-class Universe-management UX. Specifically, before we can
+require a Universe at teammate-create, we must answer:
+
+- Is there a low-friction "create your first Universe" onboarding path
+  a fresh operator can complete on the way to creating their first
+  character? Today: no. Universe creation lives at
+  `/workspace/universes`, discoverable via a 10px chip on the Knowledge
+  tile.
+- What happens to Chris's 5 real legacy teammates (Mason, Penny, Mike,
+  Repo Red, Riggs) — do we (a) migrate them to Universes with an
+  operator-driven backfill flow, (b) leave them as a permanent legacy
+  pool with a visible badge, or (c) archive them? SESSION 276 §340
+  established that dogfood data is disposable, but Penny has 58
+  compositions and archiving those unread would be a real signal loss.
+- If Universe is required at create, is the SPA wizard the correct
+  place to also let the operator create a new Universe inline, or
+  does the create-Universe step have to happen first as a separate
+  gesture?
+
+Answering these three prerequisites is upstream of the
+"require-Universe-at-create" implementation decision.
+
+## §58 PART O — Effect on the proposed Knowledge UI
+
+Slice 1 §17 recommended a Knowledge audience picker with three peer
+choices; Slice 2 §35 demoted WORKSPACE to "Advanced". Slice 3 further
+sharpens the model.
+
+**If (and only if) every ordinary character belongs to exactly one
+Universe**, the ordinary Knowledge mental model becomes:
+
+```
+Where does this knowledge belong?
+    → pick a World / Universe
+Who there should know it?
+    → Everyone in <World>
+    OR
+    → Just these characters:  [multi-select of that World's characters]
+```
+
+Advantages of this shape (evaluated against the permanent Delta model):
+- Every audience choice becomes *automatically Universe-consistent* —
+  the M2M signal's cross-Universe rejection becomes impossible-by-UI
+  rather than impossible-by-post-hoc-error.
+- CHARACTER assignment is expressible at CREATE (fixes the primary
+  gap identified in Slice 1 §17).
+- The `spokespeople.length` filter constraint (§47) is enforceable by
+  the picker itself: once the operator picks a World, the multi-select
+  is scoped to that World's roster.
+- WORKSPACE audience gracefully falls off the primary picker (Slice 2
+  recommendation) — it becomes a system/preferences concept anchored
+  at the Workspace level, not a per-KD audience choice.
+- The audience question ("Where does this knowledge belong?") sits at
+  the same conceptual level as the character-create question ("Which
+  World is this character in?") — consistent operator vocabulary
+  across two surfaces.
+
+But this shape depends on Universe-required-at-create. As long as a
+teammate can be `universe=NULL`, the picker must retain either a
+"legacy" branch or a "no World — restricted to legacy characters"
+option, reintroducing the exact lexical drift Slice 1 identified.
+
+**Net effect on WORKSPACE audience:** under Slice 2 + Slice 3 combined,
+WORKSPACE audience is a compatibility path serving exactly one
+population — the legacy NULL-Universe teammate pool. Once Chris either
+migrates or archives those 5 teammates and requires Universe at create,
+WORKSPACE audience has no remaining ordinary-operator use case.
+Reposition it as a *system preference* surface (operator-wide
+directives, cross-tenant policy), not a knowledge-document audience.
+
+## §59 Slice 3 findings — separated
+
+**OBSERVED FACT (source):**
+- SPA wizard does not send `universe` at create; every wizard-created
+  teammate lands `universe=NULL` (`web/src/routes/spokespeople/new.tsx:87-100`).
+- Serializer accepts `universe` optionally with no positive-value
+  requirement (`apps/spokespeople/serializers.py:41-149`).
+- `Teammate.Status` is bake-lifecycle only, not Universe-lifecycle
+  (`apps/spokespeople/models.py:30-33`, `views.py:329,424-425,874`).
+- Six enforcement sites explicitly reject legacy teammates from
+  Universe-aware features: `EpisodeCast.clean` (`universe/models.py:454-464`);
+  `Composition.clean` (`compositions/models.py:820-844`); M2M signal
+  cross-Universe rejection (`embeddings/signals.py:108-110`);
+  `retrieve_for_teammate` universe-branching (`embeddings/retrieval.py:211-214`);
+  `retrieve_universe_canon` (`retrieval.py:362-374`);
+  `NarrativeMemory.universe` NOT NULL (`memory/models.py:170-175`).
+
+**SOURCE-DERIVED FACT:**
+- The both-NULL M2M pairing is an explicit design carve-out (docstring
+  at `signals.py:112-115`), not an accident — the legacy pool was
+  intentionally preserved during the SESSION 261 transition.
+- A NULL teammate's retrieval envelope shrinks to
+  `document.universe=NULL` (legacy CHARACTER + WORKSPACE only) —
+  it never reaches UNIVERSE audience.
+- `retrieve_universe_canon` returns empty for legacy dialogue
+  (`retrieval.py:362`), so legacy-teammate synthesis loses the
+  shared-tier canon lane silently.
+
+**OPERATOR OBSERVATION:**
+- Chris's operator observation from the SESSION 277 handoff and from
+  Slice 2 review remains active: he no longer knows what Workspace
+  represents in the current product. Slice 3 finds an analogous gap
+  at the character-create layer — the wizard silently produces
+  NULL-Universe teammates and offers no signal that this is a
+  degraded state.
+
+**INFERENCE:**
+- `universe=NULL` today is best described as "everything Universe-based
+  is unavailable to this character, but nothing else changes." That
+  is not a modern product concept; it is a compatibility silhouette.
+- The current 5 real legacy teammates are pre-SESSION-261 residue.
+  Only Riggs was created on/after the SESSION 261 landing date, and
+  the SPA still gives no way to affirmatively opt out of a Universe —
+  so even his NULL state is "the default the wizard produces," not
+  "a state Chris deliberately chose."
+- The recommendation to require Universe at create is well-supported
+  by every downstream feature enforcement point; the blocker is
+  operator UX (no first-Universe onboarding path), not architectural
+  incoherence.
+
+**PRODUCT RECOMMENDATION (Chris + ChatGPT to decide):**
+- Treat `universe=NULL` as a **transitional compatibility state**, not
+  a permanent product option.
+- Before requiring Universe at teammate-create, land one prerequisite:
+  a first-Universe onboarding path (either inline-in-the-wizard or a
+  guided-once-per-workspace flow), and a decision about the 5 legacy
+  teammates (migrate / badge / archive).
+- After those two prerequisites, remove nullability from
+  `Teammate.universe` (mirror of what SESSION 276 did for
+  `KnowledgeDocument.audience_scope`) and treat the Knowledge UI as
+  Universe-primary per §58.
+- Do **not** attempt any of this in Slice 4 without an explicit
+  scope-lock.
+
+## §60 Unresolved questions (Slice 3 — deferred)
+
+- Should the SPA character-create wizard grow a Universe picker with
+  an inline "create a new World" option, or should Universe creation
+  remain a separate up-front gesture?
+- What is the right treatment for Chris's 5 current legacy teammates?
+  Migration to Universes (Penny → Riverstone, Mike/Repo Red →
+  Dealership, Mason/Riggs → ?), permanent legacy pool with a visible
+  badge, or archival?
+- If Universe becomes required at teammate-create, does the SPA also
+  gain a Universe switcher / management surface (Slice 2 §38 already
+  flagged this class of gap)?
+- If WORKSPACE audience is repositioned as a system preference, where
+  does it live? Settings? A dedicated "workspace policy" surface? A
+  future Membership/agency-tier surface?
+- Does the "one character in exactly one Universe" model rule out
+  future cross-World characters (a personified assistant that appears
+  in both bakery and workshop episodes)? If yes, is that acceptable
+  given the current explicit position that cross-Universe access is
+  deferred (`UNIVERSE_ARCHITECTURE_INTEGRATION_V1.md`)?
+
+## §61 PART P — Smallest next falsifiable question
+
+Given Slice 3's findings, the smallest next question is a scoped
+**prerequisite** question, not a Knowledge UI question.
+
+> **Q-277-4** — What is the smallest UI/product change that lets a new
+> operator create their first Universe on their way to creating their
+> first character, without redesigning the spokesperson wizard or the
+> `/workspace/universes` surface, and without requiring a data
+> migration for Chris's 5 existing legacy teammates?
+
+This is the question that stands between "we know Universe should be
+required at create" and "we can safely change the create flow." It is
+a UI-scoping question with three plausible shapes to evaluate:
+
+1. **Inline `<Create a new World>` option in the spokesperson wizard's
+   Universe picker.** Zero navigation, one new gesture.
+2. **Onboarding banner on the dashboard** when a workspace has zero
+   Universes but ≥1 teammate. Redirects to `/workspace/universes/new`,
+   returns to the dashboard on completion.
+3. **A single scope-locked onboarding step** that gates the "New
+   spokesperson" button until at least one Universe exists in the
+   workspace.
+
+Answering Q-277-4 is a design exercise (not an implementation)
+producing a scope-locked recommendation for the smallest change that
+makes Universe-required-at-create safe. Do not implement without an
+explicit follow-up scope lock.
+
+**Alternate smaller experiments** (present, do not select):
+- Static banner on the spokesperson detail page for NULL-Universe
+  teammates: "This spokesperson isn't in a World yet. They cannot
+  participate in Episodes, canon retrieval, or Universe knowledge."
+  A read-only visibility fix; tests whether Chris ever picks a
+  Universe once the consequence is made visible.
+- SPA form validation that requires Universe at create *only* when at
+  least one Universe already exists in the workspace. Zero migration;
+  smallest possible enforcement; falls back gracefully for zero-Universe
+  workspaces.
+- Return to Slice 1's Q-277-2 Knowledge UI (three peer choices, one
+  screen) with an explicit "legacy character mode" branch — accept the
+  Slice-1 lexical drift as a permanent cost of keeping legacy
+  supported, and revisit the require-Universe question separately.
+
+## §62 Slice 3 landed SHA
+
+_Landed SHA: TBD (SHA-record commit after Slice 3 lands)._
+
