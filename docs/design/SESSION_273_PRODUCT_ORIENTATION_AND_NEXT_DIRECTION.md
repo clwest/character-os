@@ -2352,7 +2352,8 @@ Frozen as HYPOTHESIS. Not scheduled.
 
 ## §33. §29–§32 COMMIT PROVENANCE
 
-- §29–§32 commit: (recorded at commit time — see git log)
+- §29–§32 commit: **`7401308`** — `docs(session-273): §29-§32 Ruby video #2 forensics + multi-domain verdict + one-page Episode hypothesis + status tracker`
+- Pushed to `origin/main`.
 - Freeze script (read-only): `scripts/session273_ruby_video2_freeze.py`
 - Evidence sidecar: `docs/design/session_273_experiment_data/11_slice_beta_video2_forensics.json`
 
