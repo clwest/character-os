@@ -4792,3 +4792,298 @@ Slice 12 completes fresh-CREATE Delta-coherence; Q-276-27 begins mutation-surfac
 **End of SESSION 276 Slice 12 / Delta Stage 3B-4. Explicit WORKSPACE fresh-create marker landed end-to-end (SPA → DRF → `_persist`). Q-276-26 CONFIRMED — all four Delta audience states (CHARACTER, UNIVERSE, WORKSPACE, NONE) now produced by fresh CREATE with positive operator intent; non-SPA omission remains transitional NULL; contradictions rejected at DRF boundary with defensive precedence at `_persist`; orphan revival gate unbypassable by marker; real DB unchanged for 6th consecutive slice. STOP for Chris + ChatGPT review of §206 recommendation, §207 gate, and §208 Q-276-27 next question.**
 
 **Slice 12 landed commit SHA:** `9665461` (`feat(session-276): Slice 12 / Delta Stage 3B-4 — explicit WORKSPACE fresh-create marker`). Pushed to `origin/main`. Post-push `main == origin/main == 9665461`; working tree clean.
+
+**Slice 12 SHA-record follow-up:** `e2fbdcb` (`docs(session-276): record Slice 12 landed SHA 9665461`) — doc-only checklist + Slice 13 authorization record.
+
+---
+
+# SESSION 276 — Slice 13 / Delta Stage 3C-1 — final-character detach fails closed (refined Q-276-27)
+
+**Status.** IMPLEMENTATION SLICE — closes the Slice 3 §37.J live SPA-facing audience-broadening hole. Backend `_toggle_spokesperson` rejects final-character detach on active `audience_scope=CHARACTER` KDs with a structured 4xx BEFORE any M2M mutation; SPA surfaces the structured message inline. Explicitly does NOT wire audience promotion buttons or PATCH audience transitions — those remain deferred to independently-authorized slices.
+
+**Slice 13 baseline.** `main == origin/main == e2fbdcb` (Slice 12 SHA-record). Working tree clean at slice start. Real-DB state carried forward through 7 slices now:
+
+- 72 KDs; `CHARACTER=59`, `UNIVERSE=3`, `NULL=10`, `WORKSPACE=0`, `NONE=0`
+- 0 inactive, 1149 chunks, 62 M2M through-rows
+- Migration head: `0008_session276_stage2_backfill`
+
+**Load-bearing rule carried forward:**
+
+> A CHARACTER-scoped KD must never become an active empty-M2M KD as an incidental result of detach. Fail closed.
+
+## §210. Slice 13 falsifiable question — refined Q-276-27
+
+> If the existing detach mutation refuses to remove the final spokesperson from an active `audience_scope=CHARACTER` KnowledgeDocument, while preserving ordinary narrowing detach behavior when another spokesperson remains, does the live detach-final audience-broadening hole close without changing any legitimate existing audience transition?
+
+## §211. Predictions before evidence
+
+1. Existing multi-character detach can remain unchanged.
+2. Final-character detach can be detected BEFORE M2M mutation.
+3. Returning HTTP 400 before mutation closes the broadening path without introducing an audience transition in this slice.
+4. SPA can surface a clear operator-facing message without a new audience picker.
+5. No DB transaction is required for a rejected operation.
+6. Shared UNIVERSE / WORKSPACE rows are unaffected (guard is CHARACTER-only).
+7. Real DB unchanged.
+
+Compared to evidence in §223.
+
+## §212. Source trace — detach path (pre-Slice-13)
+
+- **Endpoint:** `KnowledgeDocumentViewSet.detach` at `shell/apps/embeddings/views.py:146-159` → calls `_toggle_spokesperson(request, attach=False)` at `views.py:161-191`.
+- **Available at view boundary:** `doc = self.get_object()` returns the KD (queryset already filters `is_active=True` — inactive KDs 404 pre-guard). `doc.audience_scope` accessible; `doc.spokespeople.count()` and `doc.spokespeople.filter(pk=sp.pk).exists()` available for pre-mutation check.
+- **Order of operations pre-Slice-13:** `get_object` → sp lookup → workspace-match check → `.remove()` — no guard between.
+- **SPA callers:** `web/src/components/knowledge-panel.tsx:158-160` (spokesperson-detail page). The SPA `useToggleSpokespersonAttachment` hook posts to `/api/knowledge/<id>/detach/`. No other production SPA caller today.
+- **`ApiError` shape:** `web/src/lib/api/client.ts:20-30` — carries `status` + parsed `body`; suitable for structured-error discrimination.
+
+## §213. NULL-audience state audit (real DB + tests)
+
+Real DB read-only queries:
+
+```
+KnowledgeDocument.objects.filter(
+    audience_scope__isnull=True,
+).annotate(spc=Count("spokespeople")).filter(spc__gt=0).count()
+→ 0
+
+KnowledgeDocument.objects.filter(
+    audience_scope="character",
+).annotate(spc=Count("spokespeople")).filter(spc=0).count()
+→ 0
+```
+
+**Zero rows in real DB have `NULL + non-empty M2M`.** Slice 7 Stage 2 backfill classified every M2M-carrying row as CHARACTER, and Slice 10's CREATE stamp guarantees all new M2M-carrying rows land at CHARACTER too. Zero rows have CHARACTER + empty M2M either. The guard scoped to `audience_scope == CHARACTER` covers 100% of production character-scoped KDs unambiguously.
+
+The `NULL + M2M non-empty` shape only appears in test fixtures that call `KnowledgeDocument.objects.create()` directly (bypassing Slice 10's CREATE stamp path). Slice 13 preserves existing detach behavior on those rows (documented deliberate carve-out — see §219).
+
+## §214. Backend guard design
+
+**Location:** `_toggle_spokesperson` at `shell/apps/embeddings/views.py:161-236` (post-Slice-13 line numbers), inserted between the workspace-match check and the `.add()` / `.remove()` block.
+
+**Guard condition** (four-part conjunction; all must be true):
+
+1. `not attach` — this is a detach request.
+2. `doc.audience_scope == AudienceScope.CHARACTER` — positive character-audience evidence.
+3. `doc.spokespeople.filter(pk=sp.pk).exists()` — the SP is currently attached (idempotent detach of non-attached SP remains a no-op).
+4. `doc.spokespeople.count() == 1` — this SP is the only remaining one; removing them would leave empty M2M.
+
+**Action on match:** raise `ValidationError` with a structured body BEFORE `.remove()` runs. No mutation.
+
+**Scope carve-outs:**
+
+- `audience_scope=UNIVERSE` / `WORKSPACE` rows: never guarded (empty M2M is legitimate for these audiences).
+- `audience_scope=NULL` legacy rows: never guarded (documented in §213 as fixture-only in real DB).
+- `is_active=False` rows: already unreachable via `get_object` (queryset filters `is_active=True`).
+
+## §215. Structured error contract
+
+Response body shape:
+
+```json
+{
+  "code": "final_character_detach_requires_audience_decision",
+  "detail": "'<Name>' is the last character using this knowledge. Removing them would leave the knowledge without an audience. Choose a new audience or archive/delete the knowledge instead."
+}
+```
+
+- HTTP status: **400** (DRF `ValidationError` default).
+- `code`: machine-readable, stable across releases. SPA discriminates on this exact string.
+- `detail`: operator-friendly copy interpolating the character's name. NO mention of `M2M` / `audience_scope` / `CHARACTER` / retrieval predicate internals per task rule.
+
+## §216. SPA behavior
+
+- **New pure helper:** `finalDetachErrorMessage(err)` exported from `web/src/components/knowledge-panel.tsx` extracts the `detail` string from an `ApiError` iff `body.code === FINAL_DETACH_ERROR_CODE`. Returns `null` otherwise (caller falls back to existing generic error handling).
+- **`handleDetach` extended:** now wraps `toggle.mutateAsync(...)` in try/catch; on `finalDetachErrorMessage`-hit it sets local state and re-throws is skipped. Other errors bubble up unchanged.
+- **Inline alert** (role="alert"): appears below the row when `finalDetachMessage` is set. Shows the backend `detail` + a "Dismiss" button (data-testid `final-detach-dismiss-<id>`). No promotion buttons.
+- **No new SPA API surface**: no new payload field, no new endpoint, no new hook, no new mutation.
+
+## §217. Backend tests (`shell/apps/embeddings/tests/test_api_k5.py`)
+
+9 new tests appended, `_make_character_doc` helper added.
+
+| Test | Coverage | Status |
+|---|---|---|
+| A `test_slice13_A_multi_character_detach_narrows_normally` | {A,B} + detach A → {B}, audience_scope stays CHARACTER | PASS |
+| B `test_slice13_B_final_character_detach_rejected` | {A} + detach A → HTTP 400 + `code=final_character_detach_requires_audience_decision` + full state preservation | PASS |
+| C `test_slice13_C_final_detach_leaves_through_row_intact` | KnowledgeDocumentSpokesperson count pre==post rejection (mechanically verifies pre-mutation guard) | PASS |
+| D `test_slice13_D_universe_scoped_character_final_detach_rejected` | Universe=U + CHARACTER + {A} + detach A → 400 (Universe context does NOT auto-promote to UNIVERSE) | PASS |
+| E `test_slice13_E_multi_character_universe_scoped_detach_narrows` | Universe=U + CHARACTER + {A,B} + detach A → {B}, Universe stays U | PASS |
+| F `test_slice13_F_detach_of_unattached_spokesperson_is_still_noop` | Idempotent detach of non-attached SP still succeeds 200 (guard's `exists()` precondition prevents false positives) | PASS |
+| G-workspace `test_slice13_G_workspace_audience_row_unaffected_by_guard` | WORKSPACE canon with empty M2M — detach any SP is a 200 no-op | PASS |
+| G-universe `test_slice13_G_universe_audience_row_unaffected_by_guard` | UNIVERSE canon with empty M2M — same | PASS |
+| Legacy `test_slice13_legacy_null_audience_detach_behavior_preserved` | Pre-Delta fixture rows (audience_scope=NULL, M2M non-empty) still allow legacy detach behavior — documents deliberate carve-out | PASS |
+
+## §218. SPA tests (new file `knowledge-panel.final-detach.test.tsx`)
+
+5 new Vitest unit tests for `finalDetachErrorMessage`:
+
+- Exact Slice 13 code + structured body → returns `detail` string.
+- Different `code` → returns `null`.
+- Non-`ApiError` (native Error / null / string) → returns `null`.
+- `ApiError` with missing / malformed body → returns `null`.
+- Substring-collision guard (`code` with suffix) → returns `null`.
+
+All 5 pass.
+
+## §219. Universe-scoped CHARACTER case + multi-character case + shared-canon case
+
+- **Universe-scoped CHARACTER, final detach:** Test D → 400 (guard fires; Universe context does NOT bypass).
+- **Universe-scoped CHARACTER, multi-detach:** Test E → 200 (Universe stays; M2M narrows; audience_scope=CHARACTER preserved).
+- **UNIVERSE / WORKSPACE shared canon:** Tests G-workspace / G-universe → 200 no-op (guard is CHARACTER-only; empty M2M is legitimate for these audience states so no false positive).
+
+## §220. PATCH `spokesperson_ids=[]` audit (READ-ONLY, NOT fixed in Slice 13)
+
+**Location:** `shell/apps/embeddings/serializers.py:564-565` — `KnowledgeDocumentSerializer.update()` calls `instance.spokespeople.set(validated_data["spokespeople"])` with zero guard.
+
+**Behavior today:** `PATCH /api/knowledge/<id>/ {"spokesperson_ids": []}` on an active CHARACTER KD → M2M emptied silently → row becomes `CHARACTER + empty M2M` (Slice 4 §51 row #3 malformed shape). Under legacy retrieval predicate this KD would broadcast to eligible teammates in scope.
+
+**Slice 13 detach guard has NO effect on this path** — the guard lives on the `_toggle_spokesperson` view action, not on the serializer's `update()`. Different code path.
+
+**Recorded as Q-276-28 candidate** (§227). Slice 13 does not fix; task instruction explicit.
+
+## §221. Real-DB post-Slice-13 verification
+
+Code changed; real DB rows did not change. No detach executed against production data during Slice 13.
+
+```
+$ manage.py shell -c "..."
+total=72
+distribution={'universe': 3, 'character': 59, None: 10}
+inactive=0
+chunks=1149
+m2m=62
+```
+
+Byte-identical to Slice 7 §103 through Slice 12 §202. **Zero drift across 7 consecutive slices.**
+
+## §222. Regression results
+
+```
+$ pytest apps/embeddings/tests/test_api_k5.py -v
+19 passed in 6.33s                          # 10 existing + 9 new (A/B/C/D/E/F/G-ws/G-u/legacy)
+
+$ pytest apps/embeddings/ apps/spokespeople/ apps/universe/ apps/compositions/ -q
+1684 passed, 2 warnings in 133.50s          # broader — +9 from Slice 12's 1675
+
+$ pnpm exec vitest run
+656 passed across 49 files                  # SPA suite — +5 from Slice 12's 651
+
+$ python manage.py makemigrations --check embeddings
+No changes detected in app 'embeddings'
+```
+
+Every existing test still passes. 2 pre-existing DateTime warnings unrelated.
+
+## §223. Prediction vs actual
+
+| Prediction (§211) | Actual | Status |
+|---|---|---|
+| Count>1 detach unchanged | Tests A, E pass | ✓ |
+| Count==1 CHARACTER detach rejected before mutation | Tests B, C, D pass; through-row count preserved | ✓ |
+| Universe-scoped CHARACTER behaves identically to legacy CHARACTER on final detach | Test D passes | ✓ |
+| Shared canon unaffected | Tests G-workspace, G-universe pass | ✓ |
+| SPA clearly explains blocked operation | Inline alert with role="alert" + backend `detail` copy | ✓ |
+| No new audience transition introduced | Zero promotion buttons; zero audience PATCH; scope preserved | ✓ |
+| PATCH empty-list hole remains separate | Confirmed in §220 audit — hole intact, deferred to Q-276-28 | ✓ |
+| Real DB unchanged | 72 KDs, same distribution, 0 inactive; 7 consecutive slices with zero drift | ✓ |
+
+**Refined Q-276-27 CONFIRMED.** Zero falsifications. Zero unexpected findings.
+
+## §224. Files changed (Slice 13)
+
+```
+ M shell/apps/embeddings/views.py                                            (+~45 lines net — AudienceScope import + docstring + final-detach guard block)
+ M shell/apps/embeddings/tests/test_api_k5.py                                (+~230 lines — 2 imports + _make_character_doc helper + 9 new tests)
+ M web/src/components/knowledge-panel.tsx                                    (+~65 lines net — useState + ApiError import + finalDetachErrorMessage helper + handleDetach try/catch + inline alert)
+?? web/src/components/knowledge-panel.final-detach.test.tsx                  (new — 64 lines, 5 tests)
+?? docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md                     (this Slice 13 section)
+```
+
+Zero backend model / migration / signal / serializer / admin / retrieval / ingestion changes. Zero SPA payload / API / hook / mutation changes. Slice 13 is strictly scoped to the detach endpoint + SPA error surfacing.
+
+## §225. Unresolved questions
+
+Carried from prior slices (all still open):
+
+- **Promoted from audit to primary next-slice candidate: PATCH `spokesperson_ids=[]` hole (Q-276-28).** §220 confirms the hole is intact and outside the Slice 13 detach guard's coverage.
+- Serializer PATCH `audience_scope` transitions (CHARACTER→UNIVERSE, CHARACTER→WORKSPACE, revival contract). Needs its own falsifiable question.
+- Attach/detach transition for `NULL-audience + M2M` legacy fixtures — real DB has zero; test fixtures only. Documented carve-out.
+- Universe reassignment audience implications (Slice 3 §37 T14/T15).
+- Provenance direction Alpha vs Beta.
+- Retrieval predicate switch (Stage 5).
+- Operator triage UI for the 10 ambiguous rows (Stage 4).
+- DB CHECK constraints + NOT NULL cutover (Stage 6).
+- Bundle vs split (still open from Slice 1 §8.4).
+
+**No new Slice-13-specific unresolved questions.**
+
+## §226. Recommendation
+
+**Refined Q-276-27 is confirmed. The live SPA-facing detach-final audience-broadening hole is closed.** Under Delta invariants, the operator cannot silently transform a CHARACTER-scoped KD into a broadcast KD by clicking "Detach" on the last spokesperson. The rejection copy explicitly names the operator's next-choice options (new audience or archive/delete) without wiring any new mutation.
+
+Slice 13 does not authorize any further work. The natural next slice closes the parallel PATCH-empty-list hole so both detach paths on the KD's spokespeople M2M are Delta-coherent.
+
+## §227. Explicit STOP gate
+
+**STOP.** Slice 13 authorizes no further work.
+
+Do NOT begin:
+
+- PATCH `spokesperson_ids=[]` fix (Q-276-28 candidate)
+- Generic audience PATCH contract
+- CHARACTER → UNIVERSE promotion
+- CHARACTER → WORKSPACE promotion
+- Universe reassignment audience changes
+- Provenance work
+- Retrieval predicate change
+- Operator triage UI
+- DB CHECK constraints
+- NOT NULL cutover
+- Recovery UI or promotion buttons in the SPA
+
+## §228. Smallest recommended next question
+
+**Q-276-28.** *If `KnowledgeDocumentSerializer.update()` at `shell/apps/embeddings/serializers.py:564-565` is extended so that setting `spokesperson_ids=[]` on an active `audience_scope=CHARACTER` KD is rejected with the same structured `final_character_detach_requires_audience_decision` error the Slice 13 detach endpoint returns, does the parallel PATCH-empty-list broadening path close without changing any legitimate multi-character audience-narrowing PATCH?*
+
+Falsifiable by:
+1. Extending `update()` with a pre-set check: if `"spokespeople" in validated_data` AND `validated_data["spokespeople"] == []` AND `instance.audience_scope == CHARACTER` AND `instance.spokespeople.count() >= 1`, raise the same structured 400 the Slice 13 detach guard uses.
+2. Regression tests: (a) PATCH `spokesperson_ids=[c]` (multi-character narrowing) still succeeds; (b) PATCH `spokesperson_ids=[]` on CHARACTER rejected with same code; (c) PATCH `spokesperson_ids=[]` on WORKSPACE / UNIVERSE (no-op) unchanged; (d) legacy NULL-audience rows unchanged.
+
+Small change; symmetric with Slice 13; closes the last SPA-independent audience-broadening path on the M2M surface.
+
+## §229. Slice 13 checklist
+
+- [x] Step 0 — commit + push Slice 12 SHA-record (commit `e2fbdcb`)
+- [x] Slice 13 baseline verified — `main == origin/main == e2fbdcb`, working tree clean at slice start
+- [x] Refined Q-276-27 falsifiable question stated (§210)
+- [x] Predictions before evidence (§211)
+- [x] Detach source trace (§212)
+- [x] NULL-audience state audit — real DB zero + test fixture carve-out documented (§213)
+- [x] Backend guard design (§214) — 4-part conjunction, CHARACTER-only, pre-mutation
+- [x] Structured error contract defined (§215)
+- [x] SPA behavior extended (§216) — `finalDetachErrorMessage` helper + inline alert; NO promotion buttons
+- [x] Backend Test A: multi-character detach unchanged
+- [x] Backend Test B: final-character detach rejected with structured 4xx
+- [x] Backend Test C: no partial mutation (through-row count preserved)
+- [x] Backend Test D: Universe-scoped CHARACTER final detach also rejects
+- [x] Backend Test E: multi-character Universe-scoped detach narrows normally
+- [x] Backend Test F: non-attached SP detach still 200 no-op
+- [x] Backend Test G: WORKSPACE / UNIVERSE canon rows unaffected
+- [x] Backend legacy-carve-out test: NULL-audience fixture behavior preserved
+- [x] SPA tests: 5 unit tests for `finalDetachErrorMessage` discrimination
+- [x] PATCH `spokesperson_ids=[]` audit performed (§220) — hole confirmed intact; deferred to Q-276-28
+- [x] 19/19 K5 API tests pass (§222)
+- [x] 1684/1684 broader backend regression pass (§222)
+- [x] 656/656 SPA suite pass across 49 files (§222)
+- [x] `makemigrations --check embeddings` clean (§222)
+- [x] Real DB unchanged: 72 KDs, `CHARACTER=59, UNIVERSE=3, NULL=10, NONE=0, inactive=0` (§221)
+- [x] Prediction vs actual — refined Q-276-27 CONFIRMED (§223)
+- [x] Files changed inventory (§224)
+- [x] Explicit STOP gate (§227)
+- [x] Smallest next question Q-276-28 (§228)
+- [x] Zero PATCH audience / CHARACTER→UNIVERSE / CHARACTER→WORKSPACE / Universe reassignment / provenance / retrieval / migration / model / constraint changes; zero recovery UI or promotion buttons; zero provider spend
+- [ ] Commit + push Slice 13
+- [ ] Chris + ChatGPT review + Slice 14 scoping decision (§226)
+
+---
+
+**End of SESSION 276 Slice 13 / Delta Stage 3C-1. Final-character detach on active CHARACTER KDs now fails closed with a structured 4xx BEFORE any M2M mutation; SPA surfaces the backend `detail` inline without wiring audience-promotion buttons. Refined Q-276-27 CONFIRMED — 19/19 K5 API tests pass (10 existing + 9 new); 1684/1684 broader backend regression + 656/656 SPA suite; multi-character detach unchanged; Universe context does NOT auto-promote to UNIVERSE; shared canon rows unaffected. Real DB unchanged for 7th consecutive slice. STOP for Chris + ChatGPT review of §226 recommendation, §227 gate, and §228 Q-276-28 next question.**

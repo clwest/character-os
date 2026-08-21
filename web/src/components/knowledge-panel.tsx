@@ -13,10 +13,12 @@
  * Upload happens at the workspace level — the panel sends the
  * operator there via the "Manage workspace knowledge" link.
  */
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { FileText, ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { ApiError } from "@/lib/api/client";
 import {
   statusTone,
   useSpokespersonKnowledge,
@@ -25,6 +27,30 @@ import {
   type DocumentStatus,
 } from "@/lib/api/knowledge";
 import { cn } from "@/lib/utils";
+
+/**
+ * SESSION 276 Slice 13 / Delta Stage 3C-1 (refined Q-276-27) —
+ * machine-readable error code the backend returns when a detach
+ * would remove the last remaining spokesperson from an active
+ * ``audience_scope=CHARACTER`` KD. See
+ * ``shell/apps/embeddings/views.py`` ``_toggle_spokesperson``.
+ */
+const FINAL_DETACH_ERROR_CODE =
+  "final_character_detach_requires_audience_decision";
+
+/** Extract the backend's ``detail`` string from a rejected detach.
+ * Returns the exact backend copy if this is the Slice 13 final-
+ * detach case; ``null`` otherwise (caller falls back to whatever
+ * generic error handling exists). Kept as a pure helper so the
+ * SPA test can assert the discrimination without a full mock. */
+export function finalDetachErrorMessage(err: unknown): string | null {
+  if (!(err instanceof ApiError)) return null;
+  const body = err.body as
+    | { code?: string; detail?: string; [k: string]: unknown }
+    | null;
+  if (body?.code !== FINAL_DETACH_ERROR_CODE) return null;
+  return typeof body.detail === "string" ? body.detail : null;
+}
 
 
 interface KnowledgePanelProps {
@@ -143,6 +169,12 @@ function KnowledgePanelRow({
   spokespersonName: string;
 }) {
   const toggle = useToggleSpokespersonAttachment(workspaceId, spokespersonId);
+  // SESSION 276 Slice 13 — surfaces the backend's structured
+  // final-detach error inline so the operator sees a clear,
+  // non-technical explanation instead of a generic failure.
+  const [finalDetachMessage, setFinalDetachMessage] = useState<string | null>(
+    null,
+  );
 
   const isAttached = doc.spokespeople.includes(spokespersonId);
   const visibility = doc.spokespeople.length === 0
@@ -156,57 +188,90 @@ function KnowledgePanelRow({
     await toggle.mutateAsync({ documentId: doc.id, attach: true });
   }
   async function handleDetach() {
-    await toggle.mutateAsync({ documentId: doc.id, attach: false });
+    setFinalDetachMessage(null);
+    try {
+      await toggle.mutateAsync({ documentId: doc.id, attach: false });
+    } catch (err) {
+      // SESSION 276 Slice 13 — the backend rejects a detach that
+      // would leave a CHARACTER KD with an empty M2M. Surface the
+      // structured message inline; other errors bubble up.
+      const message = finalDetachErrorMessage(err);
+      if (message) {
+        setFinalDetachMessage(message);
+        return;
+      }
+      throw err;
+    }
   }
 
   return (
     <li
       data-testid={`spokesperson-knowledge-row-${doc.id}`}
       data-visibility={visibility}
-      className="flex items-center gap-3 px-5 py-4"
+      className="flex flex-col gap-2 px-5 py-4"
     >
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <p className="truncate text-sm font-medium" title={doc.title}>
-            {doc.title}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <p className="truncate text-sm font-medium" title={doc.title}>
+              {doc.title}
+            </p>
+          </div>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {visibility === "workspace-wide" ? (
+              <>Visible to every spokesperson in the workspace · {doc.chunk_count} chunk{doc.chunk_count === 1 ? "" : "s"}</>
+            ) : (
+              <>Attached to {doc.spokespeople.length} spokespe{doc.spokespeople.length === 1 ? "rson" : "ople"} · {doc.chunk_count} chunk{doc.chunk_count === 1 ? "" : "s"}</>
+            )}
           </p>
         </div>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {visibility === "workspace-wide" ? (
-            <>Visible to every spokesperson in the workspace · {doc.chunk_count} chunk{doc.chunk_count === 1 ? "" : "s"}</>
-          ) : (
-            <>Attached to {doc.spokespeople.length} spokespe{doc.spokespeople.length === 1 ? "rson" : "ople"} · {doc.chunk_count} chunk{doc.chunk_count === 1 ? "" : "s"}</>
-          )}
-        </p>
+
+        <StatusPill status={doc.status} />
+
+        {visibility === "workspace-wide" ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            data-testid={`attach-button-${doc.id}`}
+            onClick={handleAttach}
+            disabled={toggle.isPending}
+            title={`Restrict to ${spokespersonName} only`}
+          >
+            {toggle.isPending ? "…" : `Make ${spokespersonName}-only`}
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            data-testid={`detach-button-${doc.id}`}
+            onClick={handleDetach}
+            disabled={toggle.isPending}
+            title={`Remove ${spokespersonName} from this doc's visibility`}
+          >
+            {toggle.isPending ? "…" : "Detach"}
+          </Button>
+        )}
       </div>
 
-      <StatusPill status={doc.status} />
-
-      {visibility === "workspace-wide" ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          data-testid={`attach-button-${doc.id}`}
-          onClick={handleAttach}
-          disabled={toggle.isPending}
-          title={`Restrict to ${spokespersonName} only`}
+      {finalDetachMessage && (
+        <div
+          role="alert"
+          data-testid={`final-detach-blocked-${doc.id}`}
+          className="rounded-sm border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100"
         >
-          {toggle.isPending ? "…" : `Make ${spokespersonName}-only`}
-        </Button>
-      ) : (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          data-testid={`detach-button-${doc.id}`}
-          onClick={handleDetach}
-          disabled={toggle.isPending}
-          title={`Remove ${spokespersonName} from this doc's visibility`}
-        >
-          {toggle.isPending ? "…" : "Detach"}
-        </Button>
+          <p>{finalDetachMessage}</p>
+          <button
+            type="button"
+            onClick={() => setFinalDetachMessage(null)}
+            className="mt-1 text-[11px] uppercase tracking-wider text-amber-200/80 underline-offset-2 hover:text-amber-100 hover:underline"
+            data-testid={`final-detach-dismiss-${doc.id}`}
+          >
+            Dismiss
+          </button>
+        </div>
       )}
     </li>
   );

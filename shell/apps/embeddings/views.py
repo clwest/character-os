@@ -36,7 +36,7 @@ from rest_framework.response import Response
 from apps.spokespeople.models import Teammate
 from character_os.permissions import IsWorkspaceMember
 
-from .models import DeactivationReason, KnowledgeDocument
+from .models import AudienceScope, DeactivationReason, KnowledgeDocument
 from .serializers import (
     KnowledgeDocumentDetailSerializer,
     KnowledgeDocumentSerializer,
@@ -149,12 +149,19 @@ class KnowledgeDocumentViewSet(viewsets.ModelViewSet):
         Body: ``{"spokesperson_id": "<uuid>"}``. Idempotent —
         detaching an unattached spokesperson is a no-op.
 
-        Note: detaching the last spokesperson on a doc that
-        previously had explicit M2M attachments collapses
-        visibility back to *all* spokespeople in the workspace
-        (empty M2M = visible to all). That's the intentional
-        semantics of the scope-lock; surfaced loudly in the
-        SPA's UI copy.
+        SESSION 276 Slice 13 / Delta Stage 3C-1 (refined Q-276-27):
+        an attempt to detach the LAST remaining spokesperson from an
+        active ``audience_scope=CHARACTER`` KD is rejected with a
+        structured 4xx BEFORE any M2M mutation. Under legacy
+        retrieval such a transition silently broadened the KD to a
+        workspace-wide broadcast (Slice 3 §37.J); under Delta the
+        row would also be malformed (Slice 4 §51 row #3 — CHARACTER
+        + empty M2M). The operator must instead choose a different
+        audience or archive/delete the document — those alternative
+        transitions belong to later slices and are NOT wired here.
+        Multi-character detach (count>1) is unchanged: narrowing
+        {A,B} → {B} remains a legitimate CHARACTER-scoped audience
+        change.
         """
         return self._toggle_spokesperson(request, attach=False)
 
@@ -175,6 +182,37 @@ class KnowledgeDocumentViewSet(viewsets.ModelViewSet):
             raise ValidationError({
                 "spokesperson_id": (
                     f"Teammate {sp.name!r} is in another workspace."
+                ),
+            })
+
+        # SESSION 276 Slice 13 / Delta Stage 3C-1 (refined Q-276-27) —
+        # final-character detach guard. Reject BEFORE any M2M mutation
+        # when the request would leave an active CHARACTER KD with an
+        # empty spokespeople set. Scope: ``audience_scope=CHARACTER``
+        # only (positive evidence that this KD is character-scoped).
+        # Legacy transitional NULL-audience rows are NOT guarded here
+        # because inferring intent from absence is exactly what Delta
+        # was introduced to eliminate; the real DB currently contains
+        # ZERO NULL+non-empty-M2M rows (Slice 7 backfill classified
+        # every M2M-carrying row as CHARACTER), so this guard covers
+        # 100% of production character-scoped KDs. Test fixtures that
+        # create KDs directly via ``KnowledgeDocument.objects.create``
+        # without going through Slice 10's CREATE stamp path may land
+        # at NULL+M2M — those retain existing legacy detach behavior
+        # deliberately.
+        if (
+            not attach
+            and doc.audience_scope == AudienceScope.CHARACTER
+            and doc.spokespeople.filter(pk=sp.pk).exists()
+            and doc.spokespeople.count() == 1
+        ):
+            raise ValidationError({
+                "code": "final_character_detach_requires_audience_decision",
+                "detail": (
+                    f"{sp.name!r} is the last character using this "
+                    f"knowledge. Removing them would leave the knowledge "
+                    f"without an audience. Choose a new audience or "
+                    f"archive/delete the knowledge instead."
                 ),
             })
 
