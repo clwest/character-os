@@ -5758,9 +5758,11 @@ This is Stage 5 opener. Larger investigation than Slice 15 because it touches th
 - [x] Explicit STOP gate (§276)
 - [x] Smallest next question Q-276-30 (§277) — retrieval cutover
 - [x] Zero UNIVERSE↔UNIVERSE audience-transition wiring; zero generic audience PATCH; zero automatic UNIVERSE↔WORKSPACE conversion; zero retrieval / provenance / legacy triage / constraint / NOT NULL / recovery UI / SPA changes; zero provider spend
-- [ ] Commit + push Slice 15
-- [ ] Chris + ChatGPT review + Slice 16 scoping decision (§275)
+- [x] Commit + push Slice 15 — landed as `20ee0cc`
+- [x] Chris + ChatGPT review + Slice 16 scoping decision (§275) — Q-276-30 authorized (retrieval cutover design/equivalence audit; narrow implementation only if gate passes)
 
 ---
 
 **End of SESSION 276 Slice 15 / Delta Stage 3C-3. Universe reassignment PATCH now shape-preservation-safe: UNIVERSE audience row cannot lose its Universe FK; WORKSPACE audience row cannot gain one. UNIVERSE↔UNIVERSE swap preserved pending future audience-transition contract. CHARACTER preflight unchanged. Q-276-29 CONFIRMED with two narrow guards + one preserved-behavior finding. 8/8 Slice 15 tests pass; 1703/1703 broader backend regression. Real DB unchanged for 9th consecutive slice; zero Delta invariant violations across all 4 invariants. Every KD mutation surface for M2M + Universe FK now Delta-coherent. STOP for Chris + ChatGPT review of §275 recommendation, §276 gate, and §277 Q-276-30 retrieval-cutover next question.**
+
+**Slice 15 landed commit SHA:** `20ee0cc` (`fix(session-276): Slice 15 / Delta Stage 3C-3 — Universe reassignment shape guards`). Pushed to `origin/main`. Post-push `main == origin/main == 20ee0cc`; working tree clean.
