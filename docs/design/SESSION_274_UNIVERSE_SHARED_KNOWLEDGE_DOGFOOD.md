@@ -696,7 +696,7 @@ Prior to Slice 2 there were zero live Class C KDs in production. Slice 2 created
 - [x] Starvation / coexistence verdict recorded (§12.4 — all 8 questions answered from evidence; §12.5 direct-observation table)
 - [x] UI Class C operator-path observations recorded (§9 — full walkthrough grounded in Slice 1 §5 SPA source audit; §9.1 legibility answered "no"; §9.2 lists Slice-1 gaps now concretely demonstrated with live specimen `8f825c98-…`)
 - [x] GREEN / YELLOW / RED verdict recorded (§13 — YELLOW, with justification against all three definitions)
-- [ ] Render decision made (§8) — deferred; Slice 2 stop condition is "STOP and wait for Chris" before any render
+- [x] Render decision made (§19) — **NO RENDER** for SESSION 274; retrieval-level evidence is sufficient to characterize current Class C + Class D behavior; zero additional provider cost; zero Composition created
 - [x] Product options revisited with Slice 2 evidence (§14 — Slice 2 evidence integrated into P1/P2/P2-lite/P3/P4 assessment; emergent read points at P2-lite; no decision made)
 - [x] Workspace-global-necessity assessment finalized for Slice 2 (§15 — updated with Chris's deleted-character-orphan clarification; hazard statement recorded as carried follow-up, not investigated in this slice)
 - [x] Deleted-character / orphan-KD lifecycle hazard recorded as product finding (§15.1 — hazard statement + follow-up scope; no fix attempted in Slice 2)
@@ -719,7 +719,7 @@ Prior to Slice 2 there were zero live Class C KDs in production. Slice 2 created
 
 ---
 
-**Slice 2 pre-approval scaffolding populated with post-ingest evidence. Second stop reached — waiting on Chris's decision on the optional Slice 3 render.**
+**Slice 2 pre-approval scaffolding populated with post-ingest evidence. Second stop reached.**
 
 ---
 
@@ -734,5 +734,142 @@ Prior to Slice 2 there were zero live Class C KDs in production. Slice 2 created
 - Slice 1 §8 product-decision brief updated with §14: Slice 2 evidence points most naturally at **P2-lite** (independent per-scope budgets + dedup-before-K6 + persist provenance). Not a decision — Chris chooses.
 - Chris's deleted-character-orphan clarification recorded in §15.1 as a follow-up hazard requiring a dedicated read-only lifecycle audit slice; not investigated in Slice 2.
 
-**Slice 2 does NOT render Ruby.** That decision awaits Chris.
+---
+
+## §19. RENDER DECISION — NO RENDER FOR SESSION 274
+
+**Decision: NO RENDER.** Recorded at SESSION 274 CLOSEOUT.
+
+**Reason:** the retrieval-layer evidence in §11 (baseline), §12 (post-ingest matrix), §12.4 (8 answers), and §12.5 (direct duplicate-chunk observation) already answered the current SESSION 274 question upstream of K6. A provider render would primarily probe downstream K6 handling of a duplicated-fact factual basis — useful signal in principle, but not required to establish the YELLOW verdict recorded in §13, and not required to establish the product-model direction in §14.
+
+**Consequence:**
+- No additional provider cost incurred.
+- No `Composition` row created for this slice.
+- No K6 synthesis output produced.
+- Whether K6 duplicates the same fact in the video script when the same fact arrives twice in the factual basis is **carried as an open experiment (E4-adjacent from Slice 1 §8.4)** for a future slice, not required for SESSION 274 close.
+- The proposed Episode topic (`Ordering a celebration cake at Fox & Flour`) is dropped from the SESSION 274 scope and NOT carried forward automatically; a future slice that needs it can propose it fresh.
+
+---
+
+## §20. FINAL SESSION 274 PRODUCT VERDICTS
+
+| Item | SESSION 274 verdict |
+| --- | --- |
+| **Universe-shared knowledge (Class C — `universe=U, spokespeople=∅`)** | **VIABLE / MECHANICALLY CONFIRMED.** Eligibility works exactly as designed; single live production specimen (`8f825c98-…`) verified end-to-end. |
+| **Character-specific knowledge (Class D — `universe=U, spokespeople={A}`)** | **VIABLE / MECHANICALLY CONFIRMED.** Ruby's `74e7f18f-…` remains the anchor specimen; SESSION 273 grounded 2 videos on it alone. |
+| **Class C + Class D coexistence** | **CONFIRMED.** In 3 of 4 Ruby retrieval probes both classes appeared in top_k; Ruby's authoritative Class D chunk held rank 0 on the Ruby-specific query; Class C landed rank 0 on the business-shared query. |
+| **Cross-Universe isolation** | **CONFIRMED.** Patch (Patch's Workshop), Rivet (Patch's Workshop), Mason (legacy) all returned 0 Fox & Flour Class C hits on a business-flavored probe. Matches SESSION 261 rows 4 and 9. |
+| **Current flat cosine top_k ranking** | **YELLOW.** Eligibility is structurally sound, but shared / private chunks compete without semantic lanes, quotas, deduplication, or priority. Duplicate / near-duplicate facts can consume retrieval budget (Q-B rank 0/rank 1 at 0.0003 gap; Q-A 2 unused Class C slots). |
+| **P2-lite** (preserve schema; independent per-scope small budgets + dedup-before-K6 + persist provenance) | **LEADING CANDIDATE DIRECTION. NOT IMPLEMENTED. NOT YET AUTHORIZED.** Emergent read from §14; awaits Chris's product decision. |
+| **P1 / P2 / P3 / P4** (Slice 1 §8.5) | Held for reference. Slice 2 evidence is compatible with P1 (least fix), most naturally aligned with P2-lite / P2 (targets both YELLOW findings), moderately compatible with P4 (larger structural rework), and increases skepticism of P3 (workspace inheritance without per-tier budgets would compound YELLOW). No decision made. |
+| **Workspace-shared Class A** (`universe=None, spokespeople=∅`) | **PRODUCT PURPOSE QUESTIONABLE / LEGACY BEHAVIOR REQUIRES LIFECYCLE INVESTIGATION.** Chris's operator report of deleted-character orphan KDs is unverified but plausible; recorded in §15.1 as SESSION 275 follow-up. Non-orphan use cases for workspace-global retrieval remain unclear (§15 candidates evaluated; most belong at system / policy layer, not retrieval). |
+| **Knowledge UI scope semantics** | **KNOWN PRODUCT / UX PROBLEM. NOT FIXED IN SESSION 274.** SPA does not surface `universe` post-save; empty-M2M mechanic is entirely implicit; the "Visible to every spokesperson in the workspace" label is provably wrong for the live Class C specimen `8f825c98-…`. |
+
+---
+
+## §21. IMPORTANT DISTINCTION — DATA PRESERVATION vs RETRIEVAL ELIGIBILITY
+
+SESSION 274 has NOT proven that preserving `KnowledgeDocument` rows after character deletion is itself wrong. The unresolved SESSION 275 question is more precise:
+
+> Does deleting or detaching a character preserve a formerly character-specific `KnowledgeDocument` while changing its effective retrieval semantics because:
+>
+> - `spokespeople` becomes empty
+>
+> and
+>
+> - empty `spokespeople` currently means shared / broadcast eligibility?
+
+If so, distinguish:
+
+- **DATA PRESERVATION** — the KD row, its chunks, and its embeddings survive the character deletion. May be desirable (see §22 for Chris's recollection about intentional non-destruction).
+- **RETRIEVAL ELIGIBILITY** — the surviving KD becomes visible to more teammates than the operator originally intended, because empty-M2M semantics is overloaded to mean "broadcast to all in scope."
+
+These are separate concerns. SESSION 275 must not conflate them. The desired-preservation half of the design may be sound; the eligibility-promotion half may be an accidental overload of the empty-M2M signal.
+
+---
+
+## §22. CHRIS'S HISTORICAL RECOLLECTION (HYPOTHESIS, UNVERIFIED)
+
+The following is preserved as a **hypothesis to investigate in SESSION 275**, not as established fact:
+
+> Chris recalls that KnowledgeDocuments may have been intentionally preserved when deleting characters because deleting the associated chunk / embedding substrate was undesirable or unsafe. The exact historical implementation rationale has not yet been mechanically verified.
+
+SESSION 275 must investigate whether repository history / ADRs / session docs / model comments / delete-path source support that recollection. Do NOT assume it is correct. Do NOT assume it is incorrect. Verify or falsify from evidence.
+
+---
+
+## §23. SESSION 274 CLOSEOUT PROGRESSION
+
+The full arc, preserved for the record:
+
+1. **SESSION 273** discovered that "workspace-global" was not actually global to characters inside Universes (row 5 of the SESSION 261 truth table).
+2. **SESSION 274 Slice 1** (commit `e7ff4a4`) reconstructed the four mechanical knowledge classes (A / B / C / D + emergent D-fullcast) from `shell/apps/embeddings/retrieval.py:194–226` and pinned each cell of the truth table to a load-bearing test.
+3. Class A (`universe=None, spokespeople=∅`) was found to apply only to legacy teammates (`universe=None`). Universe-scoped teammates cannot retrieve it — row 5.
+4. Class C (`universe=U, spokespeople=∅`) was identified as the true "Universe-shared" scope. Zero live specimens existed in `chriss-workspace` at Slice 1 open.
+5. Class D (`universe=U, spokespeople={A}`) was identified as character-specific eligibility inside a Universe.
+6. Shared / private knowledge was found to compete in one flat cosine-ranked `top_k` pool with no per-scope quotas, no per-document diversity, no priority weighting, no dedup, and no K6 scope labels (Slice 1 §3, §7 B–F).
+7. Production data showed Class C was effectively unused (Slice 1 §4.7): 0 in `chriss-workspace`, 0 in `admins-workspace`, only 2 in disposable `session272-rivet-debug-*` workspaces.
+8. Ruby / Fox & Flour Bakery was selected as the controlled Class C + Class D substrate (Slice 2 §2).
+9. Chris approved Option A EXTRACT-ONLY content — zero invented Fox & Flour facts, business-voice restatements of Ruby's approved `74e7f18f` KD.
+10. A real Class C KD was created (Slice 2 §11.6): `8f825c98-…`, 5 processed+embedded chunks, universe=Fox & Flour, spokespeople=∅.
+11. Ruby's eligibility was verified: Class C + Class D both reachable via `retrieve_for_teammate` (Slice 2 §12.1).
+12. Patch, Rivet, and Mason exclusion was verified: 0 Fox & Flour Class C hits in each of their top-5 for a business-flavored probe (Slice 2 §12.2).
+13. Retrieval competition was directly observed: Q-A had 2 Class C slots (mild starvation of Ruby's alternative D chunks); Q-B had a 0.0003 cosine gap between duplicated business facts (fragile near-tie); Q-C and Q-D showed natural mixtures (Slice 2 §12.3).
+14. Duplicate / near-duplicate C/D facts were observed to consume retrieval slots — Q-B rank 0 (Class C, dist 0.3758) and rank 1 (Class D, dist 0.3761) both encode the same "5-day / 10-day / 50% deposit" fact (Slice 2 §12.5).
+15. Behavior was classified **YELLOW** per Chris's definitions (Slice 2 §13): model works; ranking produces surprising / fragile competition; operator intent generally preserved but tiebreakers are within cosine measurement noise.
+16. **P2-lite emerged as the leading candidate direction** (Slice 2 §14): preserve current schema; expose Class C/D correctly in the SPA; retrieve each with independent small budgets; merge / dedupe before K6; persist provenance metadata later. **Not authorized for implementation.**
+17. **No Ruby render was needed** — the retrieval evidence already established the YELLOW verdict; K6 downstream characterization is carried as a future experiment, not required for SESSION 274 close.
+18. The Class A pool raised the deleted-character lifecycle question (Slice 2 §15). Chris supplied the historical embedding-preservation recollection (recorded verbatim in §22 as unverified hypothesis).
+19. That question was **deliberately deferred to SESSION 275** — SESSION 274 does not investigate the lifecycle, does not modify or delete the 9 Class A KDs (evidence), and does not modify the newly created Class C KD.
+
+**SESSION 274 CLOSED at commit `<CLOSEOUT_SHA_PLACEHOLDER>`** (SHA recorded in a follow-up commit per SESSION 273 precedent).
+
+---
+
+## §24. SESSION 274 NON-CHANGE / INVARIANT AUDIT
+
+Executed at CLOSEOUT via `manage.py shell` (read-only) + `curl` (runtime) + `ps eww` (env drift) + `git status/rev-parse`.
+
+**KDs:**
+- Class C KD `8f825c98-…` present. `title='Fox & Flour Bakery — House Policies & Hours'`, `universe=1a0af807-…` (Fox & Flour Bakery ✓), `spokespeople.count()=0` ✓, `status=processed`, `is_active=True`, `chunks=5` ✓.
+- Ruby's Class D KD `74e7f18f-…`: `content_hash=7a0e4bd2551fe9787b7678abf080bcdfe0217399fa9dd2ca9ee161582e6c71df` (unchanged from Slice 2 open), `chunks=10` (unchanged), `spokespeople.count()=1` (unchanged).
+- Patch's Workshop 3 KDs present with the same chunk counts as Slice 1 baseline (PATCH 22 chunks / RIVET 14 chunks / PATCH'S WORKSHOP SHARED CANON 1 chunk).
+- `chriss-workspace` KD class distribution: A=9, B=4, **C=1** (Slice 2 delta), D=4. Total=18 (was 17 at Slice 1; delta = +1 Class C, expected).
+- No Class A KD modified. The 9 legacy orphan-candidate KDs (TANK, Tulsi, 6× Hearth & Hollow, Riggs) preserved intact as SESSION 275 evidence.
+
+**Teammates:**
+- Ruby `5875a7b4-…`: universe=Fox & Flour Bakery (unchanged), name=`Ruby`, persona field footprint unchanged from SESSION 273 close (`character_point_of_view`, `voice_signature_phrases`, `voice_avoid_phrases` all empty; `tone_archetype`, `personality`, `business_brief`, `voice_energy`, `voice_humor`, `voice_directness` wizard-populated). No persona field was written during SESSION 274.
+- Mason `28b9a7ea-…`: `universe=None` (unchanged, still legacy, untouched).
+- Patch `7fad8172-…`, Rivet `f18b75cc-…`: universe=Patch's Workshop (unchanged, untouched).
+
+**NarrativeMemory:**
+- Fox & Flour Bakery Universe: 0 rows ✓ (unchanged).
+- No NarrativeMemory row created during SESSION 274.
+
+**Retrieval implementation:**
+- `shell/apps/embeddings/retrieval.py` unchanged. No quotas added. No reranking. No dedup. No per-scope priority. No K6 scope labels. No `top_k` change (still 5 per solo retrieve, 2 per canon).
+- No P2-lite implementation shipped.
+
+**SPA / API:**
+- No Knowledge UI copy change. No `universe` field surfaced in list / detail views. No scope-class badge added. Empty-M2M mechanic still implicit.
+- No serializer change. No view change.
+
+**Runtime:**
+- Django `:8010/admin/` → 302 ✓
+- Media-engine `:8001/health` → `{"status":"ok","openai_mock":false,"runway_mock":false,"image_gen_mock":false,"any_mock":false,"llm_provider":"openai","llm_model":"gpt-4o-mini"}` ✓
+- Vite `:5174/` → 200 ✓
+- Celery: 1 node online ✓
+- Zero MOCK / EXPERIMENT env vars on PIDs 26101 (Django), 12677 (media-engine uvicorn), 26630 (celery beat / worker) ✓
+
+**Repository (pre-closeout-edit state):**
+- HEAD `e96e33d`. `origin/main == e96e33d`. Working tree clean.
+- No source, config, or migration change staged.
+- Two docs pending closeout edits: this Slice 2 doc (§16 checkbox + §19–§24) and a new `SESSION_275_HANDOFF.md`.
+
+**Nothing materially differs from expected state.** No corrective action taken.
+
+---
+
+**SESSION 274 CLOSED.** Slice 1 (`e7ff4a4`) + Slice 2 dogfood (`e96e33d`) + Closeout (this commit) constitute the complete SESSION 274 arc. SESSION 275 opens with the knowledge-lifecycle investigation handoff at `docs/design/SESSION_275_HANDOFF.md`.
+
 
