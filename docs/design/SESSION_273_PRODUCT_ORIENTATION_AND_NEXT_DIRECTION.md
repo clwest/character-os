@@ -2075,3 +2075,343 @@ If Chris wants literal cupcakes, either add cupcake content to the KD (author 1�
 - Pushed to `origin/main`.
 - Freeze script (read-only): `scripts/session273_success_freeze.py`
 - Evidence sidecar: `docs/design/session_273_experiment_data/10_slice_beta_success_forensics.json` (17,852 bytes)
+
+---
+
+## §29. RUBY VIDEO #2 — CELEBRATION CAKES FORENSICS
+
+**Status:** Chris rendered a second successful Ruby talking_head — a **completely different KD section** (Celebration cakes) from Video #1 (Breads & sourdough). Composition `5052035e-f07e-4b42-bd3f-f4c3e0168a8f`. Attempts=2. Real Runway. Actual media **79.5 s**. Cost **$0.02**. Verified with 0 warnings. Chris's qualitative assessment: *"I think it's really good."*
+
+**Evidence sidecar:** `docs/design/session_273_experiment_data/11_slice_beta_video2_forensics.json` (~24 KB).
+**Freeze script (read-only):** `scripts/session273_ruby_video2_freeze.py`.
+
+### §29.1 Full record
+
+| Field | Value |
+| --- | --- |
+| Composition ID | **`5052035e-f07e-4b42-bd3f-f4c3e0168a8f`** |
+| Episode ID | `d17297a3-0c85-4742-ae26-38c6c22b3bc9` (*"Our celebration cakes"*, new Episode created for this render) |
+| status | `completed` |
+| created_at | 2026-08-21 00:57:19 UTC |
+| render_dispatched_at | 2026-08-21 00:57:34 UTC |
+| target_duration_seconds | 90 |
+| writing_contract_version | 6 |
+| synthesis_attempt_count | **2** (corrective fired) |
+| synthesis_predicted_seconds | **84.0** (in band `[72, 108]`) |
+| verification_status | `verified` |
+| verification_warnings | 0 |
+| validation_failure_reason | *(empty)* |
+| audience_hint | *""* |
+| operator_topic | *"Our celebration cakes"* |
+| mock_mode | False |
+| knowledge_chunk_ids | 5 |
+| memory_ids | 0 |
+| final_asset_id | `88543d8b-b433-4b35-8d63-24c1ba53c8d1` |
+| **Actual media duration** | **79.5 s** ✓ |
+| **cost_actual_micros** | **20000 ($0.02)** ✓ |
+
+Per-pass script measurements:
+
+| Field | chars | words | predicted secs |
+| --- | --- | --- | --- |
+| `first_pass_synthesis` | **900** | 146 | 60.0 |
+| `corrective_pass_synthesis` | **1243** | 208 | 82.9 |
+| `synthesized_brief` | 1243 | 208 | 82.9 |
+
+Note: first-pass 900 chars was NOT below `raw_min=1080` by that much (short by 180 chars) — but was below the acceptance floor. Corrective fired, produced 1243 chars, comfortably inside `[1080, 1620]`.
+
+### §29.2 §25 corrective hint executed — all 8 pins pass
+
+Corrective hint sha256₁₂ = `952fe2522ecd` (655 bytes; distinct from Video #1's `cd8405372b91`; per-render text differs by first-pass numbers).
+
+| Assertion | Observed |
+| --- | --- |
+| Contains `EXPAND YOUR SCRIPT` | ✓ |
+| Contains `AT LEAST 1080 CHARACTERS` | ✓ |
+| Contains `aim for ~1350` | ✓ |
+| Contains `do not exceed 1620` | ✓ |
+| Contains `Target is 90s` | ✓ |
+| Absent `AT LEAST 972 CHARACTERS` | ✓ |
+| Absent `Target is 81s` | ✓ |
+| Absent `REWRITE THE SAME NARRATIVE ABOVE` | ✓ |
+
+### §29.3 Knowledge grounding — every material claim
+
+Ruby's approved KD unchanged (`content_hash=7a0e4bd2551fe978…`). Brief claim-by-claim, checked against KD substring + semantic support:
+
+| Material claim in brief | KD source | Verdict |
+| --- | --- | --- |
+| vanilla-bean chiffon | §Celebration cakes: *"vanilla-bean chiffon, brown-butter almond, chocolate devil's food, olive oil citrus, and hummingbird"* | GROUNDED |
+| brown-butter almond | same KD list — appears line-wrapped as `brown-butter\nalmond` (semantically identical) | GROUNDED |
+| chocolate devil's food | same KD list | GROUNDED |
+| olive oil citrus | same KD list | GROUNDED |
+| hummingbird | same KD list | GROUNDED |
+| Swiss meringue buttercream | §Celebration cakes: *"Swiss meringue buttercream in a dozen or so flavors"* | GROUNDED |
+| fresh curd | §Celebration cakes: *"fresh curds, whipped ganache, and seasonal fruit compotes"* | GROUNDED |
+| whipped ganache | same KD line | GROUNDED |
+| seasonal fruit compote | same KD line | GROUNDED |
+| fondant available | §Celebration cakes: *"Fondant is available but Ruby steers most customers toward buttercream finishes"* | GROUNDED |
+| *"I do offer fondant, but I'll usually nudge people toward buttercream"* | direct paraphrase of KD's *"Ruby steers most customers toward buttercream"* + `rustic-elegant` aesthetic phrase from same KD line | GROUNDED |
+| standard tiered cake ≥ 5 days | §Celebration cakes: *"minimum of five days for standard tiered cakes"* | GROUNDED |
+| sculpted / heavily decorated ≥ 10 days | §Celebration cakes: *"ten days for sculpted or heavily decorated cakes"* | GROUNDED |
+| spring wedding season / December holidays fill up ahead | §Celebration cakes: *"peak seasons (spring weddings, December holidays) push those windows out further"* | GROUNDED |
+| 50 % deposit | §Celebration cakes: *"A 50% deposit is taken at booking."* | GROUNDED |
+| pickup only / no delivery | §Celebration cakes: *"Fox & Flour does not deliver cakes; all orders are pickup only."* (brief says *"no delivery"* — semantic paraphrase of *"does not deliver"*) | GROUNDED |
+| birthday / wedding / **shower** | KD's §Celebration cakes covers *"custom celebration cakes"* generically and names *"spring weddings"* specifically. *"birthday"*, *"shower"*, and *"one wonderfully specific reason to gather"* are natural celebration-category rhetoric consistent with the KD's celebration-cake framing; they do not introduce a new Fox & Flour product line, policy, or business fact. | SUPPORTED INFERENCE |
+| *"I want that cake handed over with both of us knowing it's ready for its big moment"* | combines KD's pickup-only structural fact + Ruby's `personality` field ("Warm, cheerful, and genuinely caring. Ruby loves helping people find the perfect treat for any occasion") — no new business claim | GROUNDED (character-native rendering of grounded pickup fact) |
+
+**17 GROUNDED, 1 SUPPORTED INFERENCE, 0 UNSUPPORTED.** No fabricated products, prices, policies, or people. K6.4 verifier independently agreed (`verification_status=verified`, `verification_warnings=[]`).
+
+**Chris's specifically-flagged lines:**
+- *"I'll usually nudge people toward buttercream."* → **GROUNDED** — direct paraphrase of KD.
+- *"I want that cake handed over with both of us knowing it's ready for its big moment."* → **GROUNDED** — character-native voice attached to the KD's pickup-only structural fact; no new policy invented.
+
+### §29.4 Retrieval isolation — CLEAN
+
+All 5 retrieved chunks belong to `Fox & Flour Bakery — Working Knowledge` (`74e7f18f-…`) in Fox & Flour Bakery Universe (`1a0af807-…`). Zero cross-Universe leakage. Zero cross-character-bound leakage. Ruby is the eligible spokesperson (KD m2m still `[Ruby]`).
+
+Chunks retrieved (provenance order):
+1. Celebration cake deposit policy + Ingredients transition
+2. Pastries policy → Celebration cakes header
+3. Rotating breads (background)
+4. Bake schedule / staff transition
+5. Celebration cake lead times (5-day / 10-day)
+
+Retrieval is topic-appropriate: chunks 1, 2, and 5 span the entire §Celebration cakes section.
+
+---
+
+## §30. RUBY MULTI-DOMAIN WIZARD-DEFAULT VERDICT
+
+### §30.1 Two-video comparison
+
+| Dimension | Video #1 — Sourdough | Video #2 — Celebration cakes |
+| --- | --- | --- |
+| Composition | `2d50f101-…` | `5052035e-…` |
+| Topic / domain | Breads & sourdough (bake craft) | Celebration cakes (custom special-order) |
+| KD section exercised | §Breads & sourdough | §Celebration cakes |
+| First-pass chars / words | 521 / 96 | 900 / 146 |
+| Corrective fired? | Yes | Yes |
+| Corrective chars / words | 1273 / 226 | 1243 / 208 |
+| Synth predicted secs | 86.0 | 84.0 |
+| Actual media secs | 81.7 | 79.5 |
+| Chunks used | 5 (all Fox & Flour) | 5 (all Fox & Flour) |
+| Memory used | 0 | 0 |
+| Audience hint | *""* | *""* |
+| Verification | `verified` / 0 warnings | `verified` / 0 warnings |
+| K6.4 material grounding | 11/11 GROUNDED | 17 GROUNDED + 1 SUPPORTED INFERENCE, 0 unsupported |
+| Provider cost | $0.02 | $0.02 |
+| Character voice | consistent with Ruby's `personality` + `tone_archetype=friend` | consistent (same fields; more decorator/pickup rhetoric) |
+
+### §30.2 Multi-domain wizard-default verdict — **CONFIRMED**
+
+Ruby has now produced **two consecutive successful, grounded, character-consistent renders in two distinct KD sections**, with:
+
+- Zero persona enrichment between renders (`character_point_of_view`, `voice_signature_phrases`, `voice_avoid_phrases`, `always_emphasize`, `never_say`, `who_you_help`, `what_you_sell`, `desired_feeling` all still empty).
+- Zero NarrativeMemory involved.
+- Zero KD modification.
+- Zero audience-hint injection.
+- Only `business_brief` + `personality` + `tone_archetype` + WCV6 + §25 corrective-floor fix.
+
+**Verdict: CONFIRMED.** A minimally-authored wizard-default character can produce coherent, grounded output across multiple distinct knowledge domains without persona enrichment or NarrativeMemory. **n=2** — directional, not statistical. Explicitly not a general reliability claim; further rendering variance is expected.
+
+### §30.3 NarrativeMemory recommendation — DO NOT PROMOTE
+
+Video #2 explains established Fox & Flour cake offerings and policies (base cakes, fillings, buttercream preference, lead times, deposit rule, pickup-only). It does not narrate a story event.
+
+- **KNOWLEDGE (what Ruby's bakery offers):** ✓ already covered by the KD.
+- **NARRATIVE MEMORY (something happened that should influence later scenes):** absent.
+
+Fox & Flour NarrativeMemory count remains **0** (mechanically verified). **Recommendation: DO NOT PROMOTE MEMORY.** Chris's stated expectation matches the evidence.
+
+---
+
+## §31. EPISODE CREATION UI — FOUR-PAGE OPERATOR FRICTION
+
+### §31.1 Current common-flow interaction count (Ruby solo talking_head, Chris's dogfood pattern)
+
+Starting from Dashboard, to produce one 90 s Ruby video on a new Episode:
+
+| # | Page / route | Action | Data entered | Existing context re-used |
+| --- | --- | --- | --- | --- |
+| 1 | Dashboard → **Worlds tile** | click Worlds → arrives at `/workspace/universes` | — | — |
+| 2 | `/workspace/universes/1a0af807-…` | click Fox & Flour Universe card → Universe detail | — | Universe = Fox & Flour |
+| 3 | `/workspace/universes/1a0af807-…/episodes` | click "Episodes" section → episode list + create form | *title*, *operator_topic*, (SESSION 269 §12) *cast checkbox* → **submit** | Universe |
+| 4 | `/workspace/episodes/<new-id>` | (auto-nav) Episode detail; scroll to §2 Cast (if not seeded at create) then scroll to §Render | (if needed) select Ruby → **Add to cast**; then click **New solo scene** | Universe, Episode, cast |
+| 5 | `/recipes/talking_head?episode=<id>` | fill recipe form: duration (default 90), optional audience_hint → **Render** | *duration* | Universe, Episode, cast, spokesperson (from `cast[0]`), operator_topic (pre-filled) |
+| 6 | `/compositions/<new-id>` | (auto-nav) watch status poll → completed | — | everything |
+
+**Counting per Chris's definition:**
+
+- **Page transitions:** 6 (Dashboard → Universes → Universe → Episodes → Episode detail → Recipe form → Composition detail)
+- **Action-required pages:** **~4** (Episodes-create, optional Episode-detail cast affordance, Recipe form, Composition detail — matches Chris's "approximately FOUR")
+- **Major clicks:** ≥ 6 (Worlds tile · Fox & Flour card · Episodes · cast checkbox · Create · New solo scene · Render)
+- **Text entries:** 2 (title / operator_topic) — optionally 1 more (duration if changing default)
+- **Repeated selections:** 1 — cast at Episode-create then implicit spokesperson pre-fill at recipe form (same character, propagated by SESSION 262 pre-fill)
+- **Places existing context is re-entered:** 1 — `operator_topic` is asked at Episode create AND appears again as recipe-form `topic` field (SESSION 262 pre-fills, but the field is still shown as editable)
+
+### §31.2 Historical hypothesis — SUPPORTED
+
+Chris's hypothesis: *"The UI was originally built around earlier Character OS architecture/workflows, and the current Universe/Episode/story-oriented product has been backed into that existing UI over time."*
+
+Repository evidence:
+
+| Surface | First-add commit | Session |
+| --- | --- | --- |
+| Recipe gallery + `talking_head` starter + composition flow | pre-`c601941` (public release) — SESSION 200s / long_form_ad era | pre-SESSION 251 |
+| Long-form duration-driven synthesis | `7f22085 feat(long-form-ad): duration-driven synthesis with character-budget acceptance gate` | SESSION 251 |
+| **Universe app + model + admin + API** | **`8f54bdb feat(universe): SESSION 261 Phase 1 — Universe app + model + admin + API`** | **SESSION 261** |
+| **Episode schema + workflow** | **`adf334c feat(episode): SESSION 262 — EPISODE_SCHEMA_V1 implementation`** | **SESSION 262** |
+| Story Mode + atomic `cast_ids` at Episode create | SESSION 269 §12 (recent) | SESSION 269 |
+
+The recipe → composition pipeline predates Universe (SESSION 261) and Episode (SESSION 262). Universe and Episode surfaces were **added on top** of the existing recipe / composition SPA. Chris's "backed into" hypothesis is supported by the timeline: the multi-page traversal reflects incremental build history, not a single operator-intent design.
+
+### §31.3 Product finding — captured (not scheduled)
+
+> **CREATING A VIDEO CURRENTLY REQUIRES TRAVERSING MULTIPLE DOMAIN SURFACES (Universe → Universe detail → Episode create → Episode detail → Recipe form → Composition detail) DESPITE THE UNDERLYING OPERATOR INTENT ("have Ruby make a 90-second video about celebration cakes") BEING EXPRESSIBLE ON A SINGLE FORM.** The current multi-page shape is compatible with the domain architecture but is not a designed consequence of it — it reflects the order in which the surfaces were built.
+
+Frozen as a **SESSION 273 product finding**. Not scheduled for work in this session.
+
+---
+
+## §32. ONE-PAGE EPISODE CREATION — PRODUCT HYPOTHESIS
+
+**Status: HYPOTHESIS. Not an authorized build.** Documenting feasibility and constraints only. No SPA / backend changes proposed for implementation this session.
+
+### §32.1 Candidate surface
+
+**Route:** e.g. `/create` or `/quick-create` (single new SPA route).
+
+```
+CREATE EPISODE
+
+Universe            [Fox & Flour Bakery ▾]
+Character / Cast    [☑ Ruby]  (+ Add another …)
+Episode title       [Our celebration cakes]
+                    (auto-derived from topic if left blank; matches
+                     SESSION 269 §12 existing behavior)
+Scene type          [Solo]   ← auto-inferred: 1 cast = Solo,
+                                              ≥2 cast = Dialogue;
+                                overridable
+Duration            [90 s ▾]
+Audience (optional) [                       ]
+
+▸ Advanced         (collapsed: recipe-specific controls, opener,
+                   verifier mode, etc.)
+
+                                      [ Create & Render ]
+```
+
+### §32.2 Feasibility — current APIs are sufficient
+
+Under the hood the new surface would compose two existing API calls sequentially:
+
+1. `POST /api/episodes/` with `{universe, title, operator_topic, cast_ids}` — atomic Episode-with-cast create (SESSION 269 §12; already shipped).
+2. `POST /api/compositions/` with `{episode, template_kind, spokesperson, target_duration_seconds, audience_hint, ...}` — Composition create + auto-dispatch (already shipped).
+
+Then redirect to `/compositions/<new-id>`.
+
+**Backend changes required: NONE.** Purely a SPA slice.
+
+### §32.3 Integrity and failure recovery
+
+**Race between step 1 and step 2:** if Episode creates but Composition create fails, the Episode row exists with an empty composition list. This is EXACTLY the current behavior — Chris's `77b04b6b-…` Episode existed with 4 failed Compositions and 1 successful Composition. Not a new state; not a regression.
+
+**Option A (recommended):** orchestrated (not atomic). Failure path: operator arrives at `/workspace/episodes/<new-id>` (fallback nav) and can retry Composition creation from Episode detail.
+
+**Option B (deferred):** thin backend endpoint `POST /api/episodes/and-render/` that wraps both in a transaction and rolls back Episode on Composition failure. Adds complexity without evidence Option A is insufficient. Chris can escalate to Option B if operator evidence shows the orphan-Episode UX is confusing.
+
+**Recipe selection for solo vs dialogue:** SESSION 269 §12 already infers from cast count. The one-page surface would preselect `template_kind=talking_head` when `cast.length=1` and `template_kind=dialogue_scene` when `cast.length≥2`, with an override for other recipes accessible via the collapsed Advanced panel.
+
+**Multi-character Episodes:** the same page supports 2+ cast checkboxes; Scene type auto-updates to `Dialogue`. Same surface.
+
+**Advanced users:** the existing detailed surfaces (`/workspace/universes/*`, `/workspace/episodes/*`, `/recipes/*`, `/compositions/*`) remain unchanged and fully functional. The one-page flow is an **additional entry point**, not a replacement.
+
+**Domain integrity preserved:** all backend guards (`EpisodeCast.clean()`, `pre_add` signal on `Episode.cast.through`, `Composition.clean()` cross-Universe / cross-workspace checks, `KnowledgeDocument` retrieval isolation) continue to fire — the SPA just presents fewer intermediate surfaces to the operator.
+
+### §32.4 Proposed one-page interaction count
+
+| Metric | Current common flow | Proposed one-page flow | Reduction |
+| --- | --- | --- | --- |
+| Page transitions (action-required) | ~4 | 1 | **−3** |
+| Page transitions (total incl. auto-nav to composition detail) | 6 | 2 | **−4** |
+| Major clicks | ≥ 6 | 2 (submit + optional dropdown open) | **≥ −4** |
+| Text entries | 2–3 | 1 (topic only; title auto-derived) | **−1 to −2** |
+| Repeated selections | 1 (cast at Episode-create; spokesperson at recipe form — same character) | 0 (single cast selection) | **−1** |
+| Places existing context is re-entered | 1 (operator_topic asked twice) | 0 | **−1** |
+
+Directional (n=1 target-flow); not manufactured metric.
+
+### §32.5 Feasibility verdict — **FEASIBLE (SPA-only)**
+
+With zero backend or model changes. Preserves all domain integrity guards. Coexists with existing surfaces. Failure recovery matches current behavior. Requires a single new SPA route + component + wire-up + tests.
+
+Frozen as HYPOTHESIS. Not scheduled.
+
+---
+
+## §33. §29–§32 COMMIT PROVENANCE
+
+- §29–§32 commit: (recorded at commit time — see git log)
+- Freeze script (read-only): `scripts/session273_ruby_video2_freeze.py`
+- Evidence sidecar: `docs/design/session_273_experiment_data/11_slice_beta_video2_forensics.json`
+
+---
+
+## Current Session 273 Status
+
+### Completed
+
+- [x] Repository / runtime orientation (§1)
+- [x] Operator-reachable product map (§2)
+- [x] Sessions 269–272 practical-consequence summary (§3)
+- [x] Unresolved product / story threads inventory (§4)
+- [x] Operator-experience friction (§5)
+- [x] Candidate direction matrix (§6)
+- [x] Recommended next falsifiable question (§7)
+- [x] Ruby / Mason pre-dogfood substrate audit (§11)
+- [x] Ruby fresh Universe creation (§13.1 — `Fox & Flour Bakery` = `1a0af807-…`)
+- [x] Ruby attached to Universe (§13.2)
+- [x] Retrieval isolation demonstrated pre-KD-ingest (§13.3 — 8 of 9 unbound-KD leakages structurally eliminated)
+- [x] Proposed KnowledgeDocument authored for approval (§13.4)
+- [x] KD approved AS-IS by Chris and ingested through production `/api/knowledge/` path (§15 — KD `74e7f18f-…`)
+- [x] Chunking + embedding verified (§15.3 — 10/10 chunks embedded)
+- [x] Post-ingest retrieval verification with natural bakery-native probe (§15.4)
+- [x] Chris configured KD spokesperson m2m = Ruby only via SPA (§17.1)
+- [x] Three-probe retrieval verification (bakery-native / community-adjacent / operational-detail) (§17.4–§17.5)
+- [x] Ruby persona SHA-256 invariance verified (§17.3)
+- [x] Shared / global knowledge product finding captured as future falsifiable question (§17.6)
+- [x] Episode `77b04b6b-…` created for sourdough dogfood (SPA operator path; §23.1 background)
+- [x] Episode-cast reported 400 diagnosed — NOT REPRODUCED; no fix landed (§19)
+- [x] Episode-cast reported 404 diagnosed — URL-shape truth table; no fix landed (§21)
+- [x] First Ruby render attempt characterized as failed at duration_contract:too_short (§23)
+- [x] Four-run duration-failure cluster characterized (§25.1–§25.2 — 893 / 1032 / 1031 / 1008 chars)
+- [x] Patch/Rivet comparison — 15 successful corrective renders in [1163, 1599] chars (§25.3)
+- [x] §25 corrective-expansion fix implemented — corrective hint targets raw acceptance floor (§25.8 — commit `e7e4d68`)
+- [x] §25 automated regression coverage — 6 new tests + 1 updated existing test; full 1,261-test compositions suite green (§25.9)
+- [x] §25 real production verification — Ruby Video #1 `2d50f101-…` (§27)
+- [x] Ruby Video #1 forensic verification — 11/11 claims grounded, verified, 81.7 s clip, $0.02 (§27.5)
+- [x] Ruby Video #2 rendered — `5052035e-…` (§29)
+- [x] Ruby Video #2 forensic verification — 17 GROUNDED + 1 SUPPORTED INFERENCE + 0 UNSUPPORTED; verified; 79.5 s; $0.02 (§29.3)
+- [x] Multi-domain wizard-default verdict — CONFIRMED (n=2; §30.2)
+- [x] NarrativeMemory decision for Video #1 — DO NOT PROMOTE (§27.7)
+- [x] NarrativeMemory decision for Video #2 — DO NOT PROMOTE (§30.3)
+- [x] Episode-creation UI operator-friction finding captured (§31)
+- [x] One-page Episode creation hypothesis investigated (feasibility: SPA-only) (§32)
+
+### Open
+
+- [ ] Shared / global knowledge intentional experiment (frozen at §17.6; four classes to characterize across characters + Universes)
+- [ ] One-page Episode creation implementation (frozen HYPOTHESIS at §32; requires Chris authorization for a build slice)
+- [ ] Composition-observability SPA surfacing (frozen at §5 / §27.9.6 — nine SESSION 262 fields captured per render but not visible in the SPA)
+- [ ] Mason substrate dogfood (deferred at §11.9 Slice ε — sequential companion once Ruby arc stabilizes)
+- [ ] Optional Ruby Slice δ — PublishBundle across Video #1 / Video #2 (§11.9)
+- [ ] Optional additional Ruby Episodes on other KD sections (Bakery routines / Pastries / Ingredients & sourcing / Ruby's reason for operating) — no acceptance criterion set yet
+- [ ] Compression-hint analog for the `_compression_hint` false-anchor (`REWRITE THE SAME NARRATIVE BELOW` — carried from SESSION 272 §22.5.1, not yet evaluated)
+- [ ] Q-270-16 K6.4 verifier false-positive fix (carried from SESSION 271 / 272; not scheduled)
+- [ ] YouTube ingest silent-failure hazard (memory `project_youtube_ingest_silent_failure`; not scheduled)
+- [ ] REPO RED Shape β authoring pathology (carried from SESSION 272 §22.5.5; not scheduled)
+
+### Next recommended action
+
+- [ ] **Chris + ChatGPT decide** between: (a) intentional shared/global-knowledge experiment (§17.6 — highest architectural product-value on current evidence), (b) one-page Episode creation build authorization (§32 — highest operator-UX product value; SPA-only, zero backend risk), or (c) Mason companion dogfood on a fully-fresh second character to strengthen the multi-domain wizard-default verdict from n=2 to n≥3.

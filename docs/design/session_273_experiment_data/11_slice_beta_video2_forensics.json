@@ -1,0 +1,324 @@
+{
+  "generated_at": "2026-08-21T01:08:29.895733+00:00",
+  "composition_id": "5052035e-f07e-4b42-bd3f-f4c3e0168a8f",
+  "composition": {
+    "id": "5052035e-f07e-4b42-bd3f-f4c3e0168a8f",
+    "template_kind": "talking_head",
+    "status": "completed",
+    "created_at": "2026-08-21T00:57:19.965126+00:00",
+    "updated_at": "2026-08-21T00:59:38.575566+00:00",
+    "target_duration_seconds": 90,
+    "writing_contract_version": 6,
+    "synthesis_attempt_count": 2,
+    "synthesis_predicted_seconds": 84.0,
+    "validation_failure_reason": "",
+    "verification_status": "verified",
+    "verification_warnings": [],
+    "render_dispatched_at": "2026-08-21T00:57:34.693663+00:00",
+    "cost_actual_micros": 20000,
+    "final_asset_id": "88543d8b-b433-4b35-8d63-24c1ba53c8d1",
+    "audience_hint": "",
+    "operator_topic": "Our celebration cakes",
+    "mock_mode": false,
+    "knowledge_chunk_ids": [
+      "1754ac81-6a32-4453-9961-aec762587ea2",
+      "18f9eb09-fc6b-4b8c-92e9-1a74723a28fc",
+      "514ee8d3-2fea-40c6-92a3-116e83849d37",
+      "659524ac-556a-4c5a-93f1-69b013f1b582",
+      "cc0c4259-c36c-4ae1-b400-2a33b29e250f"
+    ],
+    "memory_ids": []
+  },
+  "episode": {
+    "id": "d17297a3-0c85-4742-ae26-38c6c22b3bc9",
+    "title": "Our celebration cakes",
+    "operator_topic": "Our celebration cakes",
+    "universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+    "cast": [
+      [
+        "Ruby",
+        "5875a7b4-cf39-433d-89b3-4e34a89a5208"
+      ]
+    ]
+  },
+  "scripts": {
+    "first_pass_synthesis": {
+      "chars": 900,
+      "words": 146,
+      "predicted_seconds": 60.0,
+      "full": "If you\u2019re planning a celebration, this is the part of the bakery I get especially excited about.\n\nOur cakes are custom, and I design them myself. We can start with a vanilla-bean chiffon, brown-butter almond, chocolate devil\u2019s food, olive oil citrus, or hummingbird cake\u2014then find the filling that fits the occasion. Buttercream, fresh curd, whipped ganache, seasonal fruit compote\u2026 there are some very happy decisions to make.\n\nI usually nudge people toward buttercream finishes. They feel a little more relaxed, a little more delicious-looking\u2014rustic-elegant, not overly fussy.\n\nFor a standard tiered cake, please reach out at least five days ahead. Sculpted or heavily decorated cakes need at least ten, and spring weddings and December tend to fill up sooner.\n\nWe take a 50% deposit when you book, and cakes are pickup only. Bring me your date and your rough idea\u2014I\u2019ll help you turn it into cake."
+    },
+    "corrective_pass_synthesis": {
+      "chars": 1243,
+      "words": 208,
+      "predicted_seconds": 82.9,
+      "full": "I\u2019m looking at this week\u2019s cake notes, and honestly, this is my favorite kind of baking: turning somebody\u2019s celebration into a cake that feels like it belongs to them.\n\nWe start with the part that should be delicious before it\u2019s ever decorated. Maybe vanilla-bean chiffon, brown-butter almond, chocolate devil\u2019s food, olive oil citrus, or hummingbird. Then we talk filling\u2014Swiss meringue buttercream, a bright fresh curd, whipped ganache, or a seasonal fruit compote. There are a lot of lovely directions to go.\n\nI do offer fondant, but I\u2019ll usually nudge people toward buttercream. It has that softer, rustic-elegant look I love, and it tastes like cake should taste: generous, celebratory, and very much worth cutting into.\n\nFor a standard tiered cake, I need at least five days\u2019 notice. Sculpted or heavily decorated cakes need at least ten, and spring wedding season or the December holidays can fill up farther ahead. A 50% deposit holds the date, and all cake orders are picked up here at the bakery\u2014no delivery, because I want that cake handed over with both of us knowing it\u2019s ready for its big moment.\n\nIf you\u2019ve got a birthday, wedding, shower, or one wonderfully specific reason to gather coming up, come talk to me about your cake."
+    },
+    "synthesized_brief": {
+      "chars": 1243,
+      "words": 208,
+      "predicted_seconds": 82.9,
+      "full": "I\u2019m looking at this week\u2019s cake notes, and honestly, this is my favorite kind of baking: turning somebody\u2019s celebration into a cake that feels like it belongs to them.\n\nWe start with the part that should be delicious before it\u2019s ever decorated. Maybe vanilla-bean chiffon, brown-butter almond, chocolate devil\u2019s food, olive oil citrus, or hummingbird. Then we talk filling\u2014Swiss meringue buttercream, a bright fresh curd, whipped ganache, or a seasonal fruit compote. There are a lot of lovely directions to go.\n\nI do offer fondant, but I\u2019ll usually nudge people toward buttercream. It has that softer, rustic-elegant look I love, and it tastes like cake should taste: generous, celebratory, and very much worth cutting into.\n\nFor a standard tiered cake, I need at least five days\u2019 notice. Sculpted or heavily decorated cakes need at least ten, and spring wedding season or the December holidays can fill up farther ahead. A 50% deposit holds the date, and all cake orders are picked up here at the bakery\u2014no delivery, because I want that cake handed over with both of us knowing it\u2019s ready for its big moment.\n\nIf you\u2019ve got a birthday, wedding, shower, or one wonderfully specific reason to gather coming up, come talk to me about your cake."
+    }
+  },
+  "corrective_hint": {
+    "value": "Your previous draft was 900 characters (146 words, estimated ~62s of speech). Target is 90s.\nEXPAND YOUR SCRIPT TO AT LEAST 1080 CHARACTERS (aim for ~1350, do not exceed 1620). You currently need at least 180 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+    "checks": {
+      "contains_EXPAND_YOUR_SCRIPT": true,
+      "contains_AT_LEAST_1080_CHARACTERS": true,
+      "contains_aim_for_1350": true,
+      "contains_do_not_exceed_1620": true,
+      "contains_Target_is_90s": true,
+      "absent_AT_LEAST_972_CHARACTERS": true,
+      "absent_Target_is_81s": true,
+      "absent_REWRITE_THE_SAME_NARRATIVE_ABOVE": true,
+      "sha256_first_12": "952fe2522ecd",
+      "byte_length": 655
+    }
+  },
+  "chunks_used": [
+    {
+      "chunk_id": "1754ac81-6a32-4453-9961-aec762587ea2",
+      "document_id": "74e7f18f-5b77-459c-bc36-b4ab617d8aca",
+      "document_title": "Fox & Flour Bakery \u2014 Working Knowledge",
+      "document_universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+      "chars": 932,
+      "preview_first_300": "50% deposit is taken at booking. Deposits are non-refundable inside\nof 72 hours before pickup. Fox & Flour does not deliver cakes; all\norders are pickup only.\n\n## Ingredients & sourcing Flour comes from a Colorado-based regional mill. Butter and dairy are\nsourced from a family creamery two hours nor"
+    },
+    {
+      "chunk_id": "18f9eb09-fc6b-4b8c-92e9-1a74723a28fc",
+      "document_id": "74e7f18f-5b77-459c-bc36-b4ab617d8aca",
+      "document_title": "Fox & Flour Bakery \u2014 Working Knowledge",
+      "document_universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+      "chars": 577,
+      "preview_first_300": "spots rotate)\n- Scones on the weekend only\n\nPastries are not held over. What doesn't sell by close is either\nmarked half-price in the last hour or donated the same evening.\n\n## Celebration cakes Custom celebration cakes are Fox & Flour's flagship special-order\nwork. Ruby designs the cakes herself an"
+    },
+    {
+      "chunk_id": "514ee8d3-2fea-40c6-92a3-116e83849d37",
+      "document_id": "74e7f18f-5b77-459c-bc36-b4ab617d8aca",
+      "document_title": "Fox & Flour Bakery \u2014 Working Knowledge",
+      "document_universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+      "chars": 999,
+      "preview_first_300": "that most\nweeks sells out by mid-afternoon, and in cooler months a\ndark-chocolate-and-sour-cherry sourdough that goes out on Fridays\nonly. A soft brioche is baked twice weekly for the pastry program. Whole loaves are priced by weight and cut on request. Half loaves are\navailable. Day-old bread is di"
+    },
+    {
+      "chunk_id": "659524ac-556a-4c5a-93f1-69b013f1b582",
+      "document_id": "74e7f18f-5b77-459c-bc36-b4ab617d8aca",
+      "document_title": "Fox & Flour Bakery \u2014 Working Knowledge",
+      "document_universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+      "chars": 923,
+      "preview_first_300": "Friday, and Sunday.\nHer lead baker covers Thursday and Saturday. There are two counter\nstaff and one part-time decorator.\n\n## Seasonal offerings\n\nMenu rotations follow the calendar loosely: - **Spring:** rhubarb galettes, strawberry-basil cake, hot-cross buns\n  the week before Easter, an asparagus-a"
+    },
+    {
+      "chunk_id": "cc0c4259-c36c-4ae1-b400-2a33b29e250f",
+      "document_id": "74e7f18f-5b77-459c-bc36-b4ab617d8aca",
+      "document_title": "Fox & Flour Bakery \u2014 Working Knowledge",
+      "document_universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+      "chars": 814,
+      "preview_first_300": "lead time is a\nminimum of five days for standard tiered cakes and ten days for\nsculpted or heavily decorated cakes; peak seasons (spring weddings,\nDecember holidays) push those windows out further. Available base cake styles include vanilla-bean chiffon, brown-butter\nalmond, chocolate devil's food, "
+    }
+  ],
+  "chunks_used_count": 5,
+  "final_asset": {
+    "id": "88543d8b-b433-4b35-8d63-24c1ba53c8d1",
+    "role": "talking_head",
+    "asset_type": "clip",
+    "duration_ms": 79531,
+    "cost_micros": 20000,
+    "file_path": "https://dnznrvs05pmza.cloudfront.net/4f6017ca-53af-4393-a949-0a75d35eb307.mp4?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiYmZiODI3NjQyZDA5NmQ4OSIsImJ1Y2tldCI6InJ1bndheS10YXNrLWFydGlmYWN0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4NzM3NDU2NH0.AqBKHNcco7fCMjGNc7Iuh2B12paZflK1XnA-9E3AFas",
+    "actual_media_seconds": 79.5
+  },
+  "steps": [
+    {
+      "id": "abd31ee7-4745-489d-ad0e-ea157d4fdacb",
+      "position": 0,
+      "primitive": "generate_avatar_speech",
+      "status": "succeeded",
+      "started_at": "2026-08-21T00:57:20.041795+00:00",
+      "completed_at": "2026-08-21T00:59:38.539525+00:00",
+      "elapsed_ms": 138510,
+      "cost_actual_micros": 20000,
+      "cost_estimate_micros": 0,
+      "media_engine_task_id": null,
+      "output_asset_id": "88543d8b-b433-4b35-8d63-24c1ba53c8d1"
+    }
+  ],
+  "grounding_scan": {
+    "vanilla-bean chiffon": {
+      "in_brief": true,
+      "in_kd": true
+    },
+    "brown-butter almond": {
+      "in_brief": true,
+      "in_kd": false
+    },
+    "chocolate devil's food": {
+      "in_brief": false,
+      "in_kd": true
+    },
+    "olive oil citrus": {
+      "in_brief": true,
+      "in_kd": true
+    },
+    "hummingbird": {
+      "in_brief": true,
+      "in_kd": true
+    },
+    "swiss meringue buttercream": {
+      "in_brief": true,
+      "in_kd": true
+    },
+    "fresh curd": {
+      "in_brief": true,
+      "in_kd": true
+    },
+    "curd": {
+      "in_brief": true,
+      "in_kd": true
+    },
+    "whipped ganache": {
+      "in_brief": true,
+      "in_kd": true
+    },
+    "ganache": {
+      "in_brief": true,
+      "in_kd": true
+    },
+    "seasonal fruit compote": {
+      "in_brief": true,
+      "in_kd": true
+    },
+    "compote": {
+      "in_brief": true,
+      "in_kd": true
+    },
+    "fondant": {
+      "in_brief": true,
+      "in_kd": true
+    },
+    "buttercream": {
+      "in_brief": true,
+      "in_kd": true
+    },
+    "5-day": {
+      "in_brief": false,
+      "in_kd": false
+    },
+    "five days": {
+      "in_brief": true,
+      "in_kd": true
+    },
+    "10-day": {
+      "in_brief": false,
+      "in_kd": false
+    },
+    "ten days": {
+      "in_brief": false,
+      "in_kd": true
+    },
+    "sculpted": {
+      "in_brief": true,
+      "in_kd": true
+    },
+    "heavily decorated": {
+      "in_brief": true,
+      "in_kd": true
+    },
+    "spring weddings": {
+      "in_brief": false,
+      "in_kd": true
+    },
+    "december holidays": {
+      "in_brief": true,
+      "in_kd": true
+    },
+    "50% deposit": {
+      "in_brief": true,
+      "in_kd": true
+    },
+    "50 percent deposit": {
+      "in_brief": false,
+      "in_kd": false
+    },
+    "half deposit": {
+      "in_brief": false,
+      "in_kd": false
+    },
+    "72 hours": {
+      "in_brief": false,
+      "in_kd": true
+    },
+    "seventy-two hours": {
+      "in_brief": false,
+      "in_kd": false
+    },
+    "pickup": {
+      "in_brief": false,
+      "in_kd": true
+    },
+    "does not deliver": {
+      "in_brief": false,
+      "in_kd": true
+    },
+    "no delivery": {
+      "in_brief": true,
+      "in_kd": false
+    },
+    "birthday": {
+      "in_brief": true,
+      "in_kd": true
+    },
+    "wedding": {
+      "in_brief": true,
+      "in_kd": true
+    },
+    "shower": {
+      "in_brief": true,
+      "in_kd": false
+    }
+  },
+  "comparison_with_video1": {
+    "video1": {
+      "id": "2d50f101-8a92-439a-bcff-d12853c9dd3f",
+      "topic": "Why our sourdough takes its time",
+      "attempts": 2,
+      "first_pass_chars": 521,
+      "corrective_chars": 1273,
+      "brief_chars": 1273,
+      "brief_words": 226,
+      "predicted_seconds": 86.0,
+      "cost_micros": 20000,
+      "audience_hint": "",
+      "memory_ids": [],
+      "verification_status": "verified",
+      "chunk_count": 5
+    },
+    "video2": {
+      "id": "5052035e-f07e-4b42-bd3f-f4c3e0168a8f",
+      "topic": "Our celebration cakes",
+      "attempts": 2,
+      "first_pass_chars": 900,
+      "corrective_chars": 1243,
+      "brief_chars": 1243,
+      "brief_words": 208,
+      "predicted_seconds": 84.0,
+      "cost_micros": 20000,
+      "audience_hint": "",
+      "memory_ids": [],
+      "verification_status": "verified",
+      "chunk_count": 5
+    }
+  },
+  "side_effect_invariants": {
+    "ruby_universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+    "ruby_updated_at": "2026-08-20T22:44:22.069832+00:00",
+    "kd_content_hash": "7a0e4bd2551fe9787b7678abf080bcdfe0217399fa9dd2ca9ee161582e6c71df",
+    "kd_m2m_spokespeople": [
+      [
+        "Ruby",
+        "5875a7b4-cf39-433d-89b3-4e34a89a5208"
+      ]
+    ],
+    "narrative_memory_count_universe": 0
+  }
+}
