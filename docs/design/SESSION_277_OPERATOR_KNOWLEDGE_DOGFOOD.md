@@ -1090,5 +1090,5 @@ matches Chris's operator intent.
 
 ## §40 Slice 2 landed SHA
 
-_Landed SHA: TBD (SHA-record commit after Slice 2 lands)._
+_Landed SHA: `d2cbee4` (Slice 2 audit commit)._
 
