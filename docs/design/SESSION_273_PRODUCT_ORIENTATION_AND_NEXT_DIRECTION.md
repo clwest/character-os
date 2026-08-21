@@ -1837,3 +1837,240 @@ For every target the new corrective floor equals the render acceptance floor exa
 - Evidence sidecar: `docs/design/session_273_experiment_data/09_slice_beta_four_run_failure.json` (10,019 bytes)
 - Freeze script (read-only): `scripts/session273_four_run_freeze.py`
 - Celery workers restarted post-fix to load new code (Django auto-reloaded)
+
+---
+
+## §27. RUBY SLICE β POST-§25 SUCCESS — FRESH-SUBSTRATE PRODUCTION VERIFICATION
+
+**Status:** Chris rendered a fifth 90 s Ruby talking_head after the §25 commit `e7e4d68`. **Composition `2d50f101-8a92-439a-bcff-d12853c9dd3f` succeeded end-to-end** — corrective expansion fired against the new raw-target hint, produced a 1273-char script that passed the acceptance gate, Runway rendered an **81.7 s** clip for **$0.02**, K6.4 verifier stamped `verified` with 0 warnings. First real Ruby video on the Fox & Flour Bakery substrate. §25 is production-verified on a fresh, minimally-authored character.
+
+**Evidence sidecar:** `docs/design/session_273_experiment_data/10_slice_beta_success_forensics.json` (17,852 bytes).
+**Freeze script (read-only):** `scripts/session273_success_freeze.py`.
+
+### §27.1 Full Composition record
+
+| Field | Value |
+| --- | --- |
+| Composition ID | **`2d50f101-8a92-439a-bcff-d12853c9dd3f`** |
+| template_kind | `talking_head` |
+| status | `completed` |
+| created_at | 2026-08-21 00:39:xx UTC |
+| render_dispatched_at | 2026-08-21 00:40:08 UTC |
+| target_duration_seconds | 90 |
+| writing_contract_version | 6 |
+| synthesis_attempt_count | **2** (corrective fired) |
+| synthesis_predicted_seconds | **86.0** (in band [72, 108]) |
+| validation_failure_reason | *(empty — no failure)* |
+| verification_status | **`verified`** |
+| verification_warnings | 0 |
+| audience_hint | *""* (empty — Chris did not set one) |
+| operator_topic | *"Why our sourdough takes its time"* |
+| mock_mode | `False` |
+| knowledge_chunk_ids | 5 chunks (all Fox & Flour KD) |
+| memory_ids | 0 |
+| final_asset_id | `d03ddad8-16f4-4d69-aeee-0e4024e35072` |
+| **Actual media duration** | **81.7 s** (in band [72, 108]) ✓ |
+| **cost_actual_micros** | **20000 ($0.02)** ✓ |
+
+### §27.2 §25 corrective-hint execution — all 8 pins pass
+
+Corrective hint sha256 (first 12): `cd8405372b91` (654 bytes; distinct from all 4 pre-fix hint SHAs). Verified checks:
+
+| Assertion | Observed |
+| --- | --- |
+| Contains `EXPAND YOUR SCRIPT` | ✓ True |
+| Contains `AT LEAST 1080 CHARACTERS` | ✓ True |
+| Contains `aim for ~1350` | ✓ True |
+| Contains `do not exceed 1620` | ✓ True |
+| Contains `Target is 90s` | ✓ True |
+| Absent `AT LEAST 972 CHARACTERS` (pre-§25 synth-min) | ✓ True |
+| Absent `Target is 81s` (pre-§25 synth-target) | ✓ True |
+| Absent `REWRITE THE SAME NARRATIVE ABOVE` (pre-SESSION-272 anchor) | ✓ True |
+
+The §25 code change executed in production exactly as specified. CORRECT_ANCHOR from SESSION 272 Slice F is preserved.
+
+### §27.3 Five-run before/after table
+
+| Run | Generation | ID | FP chars | Corr min instructed | Corr chars | Predicted secs | Status | Dispatched? | Actual media | Cost |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | pre-§25 | `35eace56-…` | 594 | 972 | 893 | 61.0 | failed | ✗ | — | $0.00 |
+| 2 | pre-§25 | `21e25a2b-…` | 741 | 972 | 1032 | 70.0 | failed | ✗ | — | $0.00 |
+| 3 | pre-§25 | `f99fe915-…` | 503 | 972 | 1031 | 70.0 | failed | ✗ | — | $0.00 |
+| 4 | pre-§25 | `fcc52ef6-…` | 653 | 972 | 1008 | 69.0 | failed | ✗ | — | $0.00 |
+| **5** | **post-§25** | **`2d50f101-…`** | 521 | **1080** | **1273** | **86.0** | **completed** | **✓** | **81.7 s** | **$0.02** |
+
+Ruby's post-§25 first-pass was **521 chars — below her pre-fix 4-run first-pass average (623)**. So corrective expansion was NOT easier on this render — the fix worked on the *same class* of undersized first-pass. The corrective produced **+752 chars of expansion** (521 → 1273) vs the pre-fix 4-run average of +399 chars (623 → 1022). Directional; n=1 post-fix.
+
+### §27.4 §25 production verdict — **CONFIRMED**
+
+Load-bearing checks:
+
+- Synthesis satisfied the raw duration contract (`predicted=86.0s` inside `[72, 108]`; `corr_chars=1273` inside `[1080, 1620]`).
+- Primitive accepted the same script — no additional check exists at the primitive layer; K6's gate IS the primitive's acceptance surface (§25.8, §23.2).
+- Runway dispatched **exactly once** (`render_dispatched_at` populated; single `CompositionStep`; `cost_actual_micros=20000`).
+- Final media (**81.7 s**) sits inside the requested acceptance band `[72, 108]`.
+- No hidden fallback changed the requested duration. `target_duration_seconds=90` persisted immutable per SESSION 262.
+- No manual/operator tuning between run 4 and run 5. Ruby persona SHA-256s unchanged from §11.2 audit. KD `content_hash` unchanged (`7a0e4bd2551fe978…`). KD m2m still `[Ruby]`. Universe unchanged. Cast unchanged. **The only change between runs 4 and 5 was commit `e7e4d68` + Celery restart.**
+
+Verdict: **CONFIRMED.** SESSION 273 §25 is production-verified on a fresh / minimally-authored character. The 108-char instrumentation gap between K6 corrective hint minimum (972) and render acceptance minimum (1080) is closed. What SESSION 272 §22.4 claimed on saturated substrate (Rivet) now generalizes to fresh substrate (Ruby).
+
+### §27.5 Knowledge grounding forensics
+
+Five chunks retrieved, ALL from `Fox & Flour Bakery — Working Knowledge` (`74e7f18f-…`) in the Fox & Flour Universe (`1a0af807-…`). Zero cross-character / cross-Universe leakage. Ruby-scope m2m eligibility respected (KD.spokespeople = `[Ruby]` and Ruby renders both branches of the retrieval filter).
+
+Chunks retrieved (in provenance order):
+1. Celebration cake deposit / non-delivery policy + §Ingredients & sourcing header
+2. §Ingredients & sourcing — no-buzzword farm-naming habit
+3. Rotating breads — olive-and-rosemary, rye-caraway, Friday dark-chocolate-sour-cherry
+4. Bake schedule / staff / seasonal offerings transition
+5. §Breads & sourdough opening — country loaf, walk-in fridge, two active starters
+
+Fact-by-fact grounding of the accepted 1273-char brief against the KD (Chris's listed check items):
+
+| Claim in accepted brief | KD source | Grounded? |
+| --- | --- | --- |
+| afternoon-before mixing | §Breads: *"The dough is mixed the afternoon before baking"* | ✓ |
+| overnight proofing | §Breads: *"gets to proof overnight before we shape it and bake it early in the morning"* | ✓ |
+| two active starters | §Breads: *"Ruby maintains two active starters"* | ✓ |
+| walk-in fridge | §Breads: *"starters that live in the walk-in fridge and get fed the night before each bake day"* | ✓ |
+| deck oven | §Breads: *"baked in a deck oven for a dark, blistered crust"* | ✓ |
+| bread flour / ~15% whole wheat | §Breads: *"mostly bread flour with roughly 15% whole wheat"* → brief says *"mostly bread flour and about fifteen percent whole wheat"* | ✓ |
+| olive-and-rosemary loaf | §Breads: *"rustic olive-and-rosemary loaf that customers ask about by name"* → brief says *"olive-and-rosemary loaf people ask about by name"* | ✓ |
+| rye-caraway loaf | §Breads: *"rye-caraway sandwich loaf that most weeks sells out by mid-afternoon"* → brief says *"rye-caraway sandwich loaf that often disappears by mid-afternoon"* | ✓ |
+| Friday dark-chocolate-and-sour-cherry sourdough | §Breads: *"in cooler months a dark-chocolate-and-sour-cherry sourdough that goes out on Fridays only"* → brief says *"when the weather turns cooler, our Friday dark-chocolate-and-sour-cherry sourdough"* | ✓ |
+| country loaf availability | §Breads: *"The country sourdough is available every day Fox & Flour is open"* → brief says *"the country loaf is here every day we're open"* | ✓ |
+| half-loaf option | §Breads: *"Half loaves are available."* → brief says *"let us cut you a half loaf to take home"* | ✓ |
+
+**11 / 11 claims grounded in Ruby's approved substrate.** Zero invented facts. K6.4 verifier independently agreed (`verification_status=verified`, `verification_warnings=[]`).
+
+**Verdict:** knowledge grounding CLEAN. No leakage from any of the 9 unbound workspace KDs (Riggs / TANK / Tulsi / 6 Hearth & Hollow Books docs) that §11.5 identified as retrievable-in-principle for unattached teammates. Retrieval isolation demonstrated end-to-end at production scale.
+
+### §27.6 Character-identity forensics
+
+Ruby persona at render time (unchanged from §11.2 audit):
+- `business_brief`: 330 chars — Fox & Flour Bakery, sourdough, seasonal desserts, custom celebration cakes, small-batch, community gathering
+- `personality`: 338 chars — warm/cheerful/caring, loves helping people, excited about fresh bread, knowledgeable without technical
+- `tone_archetype`: `friend`
+- `character_point_of_view`: **empty**
+- `voice_signature_phrases`: **empty**
+- `voice_avoid_phrases`: **empty**
+- `always_emphasize`: **empty**
+- `never_say`: **empty**
+- `who_you_help`: **empty**
+- `what_you_sell`: **empty**
+- `desired_feeling`: **empty**
+
+Brief tone reads consistent with `personality`:
+- *"Time is part of the ingredient list, even if it doesn't fit on the label"* — warm, observational, non-technical
+- *"the loaf I come back to again and again: sturdy enough for a sandwich, lovely beside dinner, and very hard to leave alone once it's cut"* — first-person, personal, knowledgeable-without-jargon
+- *"people ask about by name"* — community-forward
+- *"let us cut you a half loaf to take home"* — warm invitation
+- No corporate voice; no over-technical baking terminology; no forced signature phrases
+
+**Verdict:** wizard-default character produced coherent, character-native output on the first successful render **without any of the enriched persona fields** (POV, signature phrases, avoid list, always emphasize, never say). `business_brief` + `personality` + `tone_archetype` alone were sufficient for a 1273-char, 90 s solo talking head. The §11 hypothesis that "minimal-persona × fresh-KD" caused Ruby's failures is now correctly narrowed to "the calibration gap was the load-bearing cause" (§25.4); minimal persona is *usable*, not deficient.
+
+**Audience-hint value: `""` (empty).** Chris did not set one. Any audience adaptation observed in the brief comes from the universal `_solo_scene_contract` (SESSION 271 WCV6), not from operator-supplied conditioning.
+
+### §27.7 Memory promotion decision — **DO NOT PROMOTE**
+
+The accepted brief explains established Fox & Flour bakery facts (starter feeding rhythm, dough mixing schedule, house loaf composition, rotating bread program, half-loaf option). It does not narrate a story event, does not change Ruby's world, does not create a callback anchor for future episodes.
+
+Distinction per SESSION 269 §10 / SESSION 264 Slice 1 conventions:
+- **KNOWLEDGE:** *"Ruby makes sourdough this way."* → belongs in KD, already there.
+- **NARRATIVE MEMORY:** *"Something happened to Ruby / Fox & Flour during this Episode that should affect later scenes."* → not present here.
+
+Ruby's Fox & Flour Universe NarrativeMemory count remains **0** post-render (mechanically verified). Recommendation: **DO NOT PROMOTE MEMORY.** Chris's stated expectation matches the mechanical evidence.
+
+### §27.8 Cupcake feasibility scan for Episode 2 — **B (reasonably supported by cake knowledge, but NOT cupcake-specific)**
+
+Mechanical keyword scan of the 6,599-char Fox & Flour KD (`74e7f18f-…`, `content_hash=7a0e4bd2551fe978…`, unchanged):
+
+| Keyword class | Hits in KD |
+| --- | --- |
+| **`cupcake` / `cupcakes`** | **0 / 0** ← the specific word never appears |
+| `celebration cake` | 3 |
+| `tiered cake` | 1 |
+| `sculpted` | 1 |
+| `fondant` | 2 |
+| `buttercream` | 2 |
+| `swiss meringue` | 1 |
+| `chiffon` | 1 |
+| `hummingbird` | 1 |
+| `devil's food` | 1 |
+| `olive oil citrus` | 1 |
+| `brown-butter` | 2 |
+| `curd` | 1 |
+| `ganache` | 1 |
+| `compote` | 1 |
+| `decorator` | 2 |
+| `fillings` | 1 |
+| `pastry` | 5 |
+| `pastries` | 2 |
+
+18 of 23 cake / frosting / pastry keywords are supported by the KD. **The literal word "cupcake" is absent.** A cupcake-specific Episode would require inventing facts about individual-portion cakes, cupcake flavors, cupcake-decorating conventions, cupcake pricing, or cupcake availability — none of which Fox & Flour has been given.
+
+**Classification: B — CUPCAKES REASONABLY SUPPORTED BY EXISTING CAKE KNOWLEDGE.** The generalizable cake / frosting / decorator substrate is rich, but cupcake as a specific product line is not authored.
+
+**Best simple Episode 2 topics fully grounded in the current KD (different section than sourdough):**
+
+1. **"Our celebration cakes"** — §Celebration cakes is the KD's second-richest section: 5-day / 10-day lead times, chiffon / almond / devil's food / olive oil citrus / hummingbird base cakes, Swiss meringue buttercream in ~12 flavors, curds / ganache / compote fillings, buttercream-over-fondant aesthetic, 50 % deposit with 72 h non-refundable cutoff, pickup-only. This is closest to Chris's cake intuition and is directly grounded.
+
+2. **"What's happening before the bakery opens"** — §Bakery routines: Wednesday–Sunday hours, Monday/Tuesday for large-order production + cleaning + menu development, dough mixed afternoon before, starters fed at night, morning bake, pastry lamination on Sundays. Different domain (operations vs product), specific and story-visible.
+
+3. **"Choosing a pastry this morning"** — §Pastries: 3 AM bake, 7 AM case-out, all-butter croissants (plain and almond), kouign-amann in three rotating flavors, cardamom-sugar buns, seasonal galette / hand pie, two-or-three cookies (chocolate chunk always, others rotate), weekend scones, no-hold-over half-price-or-donate policy. Fresh section from sourdough; lots of specific facts.
+
+If Chris wants literal cupcakes, either add cupcake content to the KD (author 1–2 paragraphs) or reframe as "Celebration cakes" and lean on the extensive existing material.
+
+### §27.9 Product findings surfaced by this render (observations only — not feature work)
+
+1. **Fresh-character 90 s reliability restored post-§25.** One clean render is not a statistical guarantee, but the corrective mechanism now instructs the LLM to reach the actual acceptance floor (not below it), and Ruby's LLM overshoot pattern (+50-ish) puts corrective output comfortably inside band on the first successful attempt.
+2. **Wizard-default persona is sufficient for 90 s solo output.** 8 of 11 persona fields empty; the accepted brief still reads as Ruby's voice. This weakens the "must enrich persona" instinct that §23.4 speculated about. Persona enrichment is optional, not required.
+3. **NarrativeMemory is not a prerequisite for good first output.** Ruby has zero memories. Brief is coherent and grounded.
+4. **Retrieval isolation is production-verified.** 5 chunks retrieved for a real 90 s render, all Fox & Flour, zero leakage. §11.5's 9-doc contamination risk is fully mitigated by the Universe-attach + Ruby-only m2m combination (§13 + §17).
+5. **KD sufficiency demonstrated at 6.6 KB.** A single 6,599-char KD with 10 chunks (100 % embedded) supported an 11-claim, 226-word script with zero fabrication.
+6. **Composition observability landed cleanly.** All nine SESSION 262 fields + SESSION 271 `audience_hint` populated correctly for a successful path (not only failed paths). Chris still has to open Django admin / DB shell to see them — the operator-visibility gap flagged at §5 remains open.
+7. **UI likely did not surface the successful corrective behavior.** SPA composition-detail probably shows only the accepted brief + Runway MP4; the two-attempt provenance (first-pass 521 chars → corrective 1273 chars → accepted) is invisible without querying `Composition.first_pass_synthesis` / `.corrective_pass_synthesis`. Product finding, not a fix.
+8. **SESSION 272 §22.4 assumption fully generalized.** Corrective expansion is now a net-positive character-native-elaboration tool on BOTH rich-persona substrate (Rivet Slice G) AND wizard-default substrate (Ruby post-§25).
+
+### §27.10 Explicit non-changes during §27
+
+- No code / test / migration / SPA / synthesis-prompt / retrieval / K6.4 change.
+- No new Composition created (only forensics on the existing successful row).
+- No additional Runway or OpenAI call.
+- No NarrativeMemory created or promoted.
+- No new Episode.
+- No PublishBundle.
+- No Ruby persona / voice / avatar / brand / universe / m2m modification.
+- No KnowledgeDocument mutation (content_hash preserved).
+- Mason untouched.
+- Patch/Rivet substrate untouched.
+- No experiment env vars set. No provider mocks toggled.
+- CORRECT_ANCHOR + §25 corrective floor preserved.
+- All 4 pre-fix failed Compositions still on disk as evidence.
+
+### §27.11 §27 return values
+
+1. **Full Composition UUID:** `2d50f101-8a92-439a-bcff-d12853c9dd3f`.
+2. **First-pass measurements:** 521 chars / 96 words / ~34.7 s predicted.
+3. **Corrective expansion fire?** **YES** — `synthesis_attempt_count=2`; corrective hint executed with new §25 bounds.
+4. **Exact corrective bounds used:** `EXPAND YOUR SCRIPT TO AT LEAST 1080 CHARACTERS (aim for ~1350, do not exceed 1620). Target is 90s.` — matches raw operator target's char budget clamped to provider cap.
+5. **Corrective-pass measurements:** 1273 chars / 226 words / 86.0 s predicted.
+6. **Five-run before/after comparison:** §27.3 above. Pre-fix 4/4 failed at corrective mean 991 chars ($0 cost / no dispatch). Post-fix 1/1 succeeded at corrective 1273 chars ($0.02 cost / Runway dispatched / 81.7 s clip).
+7. **§25 production verdict:** **CONFIRMED.** Rationale in §27.4.
+8. **Knowledge-grounding verdict:** CLEAN. 11 / 11 claims grounded in Ruby's KD. Zero leakage from unbound workspace / other-Universe / other-character-bound docs. K6.4 verifier: `verified` with 0 warnings.
+9. **Character-identity verdict:** wizard-default persona produced coherent character-native output. Enriched persona fields not required for first success.
+10. **Audience-hint value:** `""` (empty). Chris did not set one.
+11. **Memory recommendation:** **DO NOT PROMOTE.** Episode explains established bakery knowledge, not a story event.
+12. **Cupcake feasibility: B** (reasonably supported by existing cake / frosting / decorator material, but the literal word "cupcake" is absent from the KD).
+13. **Best simple Episode 2 topic:** **"Our celebration cakes"** — closest to Chris's cake intuition and fully grounded in §Celebration cakes (5-day / 10-day lead times, chiffon / hummingbird / devil's food base cakes, Swiss meringue buttercream, curds / ganache / compote fillings, 50 % deposit rule, pickup-only). Runners-up: "What's happening before the bakery opens" (§Bakery routines), "Choosing a pastry this morning" (§Pastries).
+14. **Anything unexpected:** actual Runway delivery cps = 1273 / 81.7 = 15.58 (vs the 15 cps calibration constant) — 3.9 % faster delivery than the estimator assumes; predicted 86.0 s vs actual 81.7 s (–5.0 %). Both comfortably inside acceptance. Not a concern; consistent with SESSION 253/254 dogfood variance. Flagging as a data point, not a defect.
+15. **§27 commit SHA:** recorded in §28 at commit time.
+16. **Repo / runtime health:** clean tree; `main == origin/main`; Django `:8010` → 302; media-engine `:8001/health` → all mocks false; Vite `:5174` → 200; Celery worker online; no experiment env vars.
+
+---
+
+## §28. §27 COMMIT PROVENANCE
+
+- §27 forensic verification commit: (recorded at commit time — see git log)
+- Freeze script (read-only): `scripts/session273_success_freeze.py`
+- Evidence sidecar: `docs/design/session_273_experiment_data/10_slice_beta_success_forensics.json` (17,852 bytes)

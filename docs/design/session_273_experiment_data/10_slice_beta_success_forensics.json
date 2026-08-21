@@ -1,0 +1,360 @@
+{
+  "generated_at": "2026-08-21T00:49:58.448954+00:00",
+  "composition_id": "2d50f101-8a92-439a-bcff-d12853c9dd3f",
+  "composition": {
+    "id": "2d50f101-8a92-439a-bcff-d12853c9dd3f",
+    "template_kind": "talking_head",
+    "status": "completed",
+    "created_at": "2026-08-21T00:39:54.761381+00:00",
+    "updated_at": "2026-08-21T00:42:28.803944+00:00",
+    "target_duration_seconds": 90,
+    "writing_contract_version": 6,
+    "synthesis_attempt_count": 2,
+    "synthesis_predicted_seconds": 86.0,
+    "validation_failure_reason": "",
+    "verification_status": "verified",
+    "verification_warnings": [],
+    "render_dispatched_at": "2026-08-21T00:40:08.939660+00:00",
+    "cost_actual_micros": 20000,
+    "final_asset_id": "d03ddad8-16f4-4d69-aeee-0e4024e35072",
+    "audience_hint": "",
+    "operator_topic": "Why our sourdough takes its time",
+    "mock_mode": false,
+    "knowledge_chunk_ids": [
+      "1754ac81-6a32-4453-9961-aec762587ea2",
+      "1b037cb9-0966-44b2-8f88-8d0016fedc1b",
+      "514ee8d3-2fea-40c6-92a3-116e83849d37",
+      "659524ac-556a-4c5a-93f1-69b013f1b582",
+      "7bd3d35d-9b88-4a44-8583-d426789c5f47"
+    ],
+    "memory_ids": []
+  },
+  "scripts": {
+    "first_pass_synthesis": {
+      "chars": 521,
+      "words": 96,
+      "predicted_seconds": 34.7,
+      "full": "Sourdough is never really in a hurry, and neither are we.\n\nThe night before a bake day, I feed our two starters. Then the dough gets mixed in the afternoon and proofs overnight. By early morning, it\u2019s ready to shape and bake in the deck oven.\n\nOur country loaf is naturally leavened, with mostly bread flour and a little whole wheat in the mix. That long, steady rhythm is what we give it time for\u2014before it goes into the oven for that dark, blistered crust.\n\nYou can find the country sourdough here every day we\u2019re open."
+    },
+    "corrective_pass_synthesis": {
+      "chars": 1273,
+      "words": 226,
+      "predicted_seconds": 84.9,
+      "full": "This is why our sourdough takes its time: it starts before the bakery is even open.\n\nThe afternoon before a bake day, we mix the dough. Then it rests and proofs overnight. Our starters are fed the night before, too\u2014two active starters we keep in the walk-in fridge. They\u2019re the beginning of every country loaf we make.\n\nBy early morning, the dough has had time to become what it needs to be. We shape it, bake it in the deck oven, and let the crust get dark and blistered. There isn\u2019t a shortcut that gives you that same kind of loaf. Time is part of the ingredient list, even if it doesn\u2019t fit on the label.\n\nOur house country sourdough is naturally leavened, with mostly bread flour and about fifteen percent whole wheat in the mix. It\u2019s the loaf I come back to again and again: sturdy enough for a sandwich, lovely beside dinner, and very hard to leave alone once it\u2019s cut.\n\nAnd then there are the breads that rotate through the week\u2014the olive-and-rosemary loaf people ask about by name, the rye-caraway sandwich loaf that often disappears by mid-afternoon, and, when the weather turns cooler, our Friday dark-chocolate-and-sour-cherry sourdough.\n\nBut the country loaf is here every day we\u2019re open. If you\u2019re curious, come by and let us cut you a half loaf to take home."
+    },
+    "synthesized_brief": {
+      "chars": 1273,
+      "words": 226,
+      "predicted_seconds": 84.9,
+      "full": "This is why our sourdough takes its time: it starts before the bakery is even open.\n\nThe afternoon before a bake day, we mix the dough. Then it rests and proofs overnight. Our starters are fed the night before, too\u2014two active starters we keep in the walk-in fridge. They\u2019re the beginning of every country loaf we make.\n\nBy early morning, the dough has had time to become what it needs to be. We shape it, bake it in the deck oven, and let the crust get dark and blistered. There isn\u2019t a shortcut that gives you that same kind of loaf. Time is part of the ingredient list, even if it doesn\u2019t fit on the label.\n\nOur house country sourdough is naturally leavened, with mostly bread flour and about fifteen percent whole wheat in the mix. It\u2019s the loaf I come back to again and again: sturdy enough for a sandwich, lovely beside dinner, and very hard to leave alone once it\u2019s cut.\n\nAnd then there are the breads that rotate through the week\u2014the olive-and-rosemary loaf people ask about by name, the rye-caraway sandwich loaf that often disappears by mid-afternoon, and, when the weather turns cooler, our Friday dark-chocolate-and-sour-cherry sourdough.\n\nBut the country loaf is here every day we\u2019re open. If you\u2019re curious, come by and let us cut you a half loaf to take home."
+    }
+  },
+  "corrective_hint": {
+    "value": "Your previous draft was 521 characters (96 words, estimated ~36s of speech). Target is 90s.\nEXPAND YOUR SCRIPT TO AT LEAST 1080 CHARACTERS (aim for ~1350, do not exceed 1620). You currently need at least 559 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.",
+    "checks": {
+      "contains_EXPAND_YOUR_SCRIPT": true,
+      "contains_AT_LEAST_1080_CHARACTERS": true,
+      "contains_aim_for_1350": true,
+      "contains_do_not_exceed_1620": true,
+      "contains_Target_is_90s": true,
+      "absent_AT_LEAST_972_CHARACTERS": true,
+      "absent_Target_is_81s": true,
+      "absent_REWRITE_THE_SAME_NARRATIVE_ABOVE": true,
+      "sha256_first_12": "cd8405372b91",
+      "byte_length": 654
+    }
+  },
+  "chunks_used": [
+    {
+      "chunk_id": "1754ac81-6a32-4453-9961-aec762587ea2",
+      "document_id": "74e7f18f-5b77-459c-bc36-b4ab617d8aca",
+      "document_title": "Fox & Flour Bakery \u2014 Working Knowledge",
+      "document_universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+      "chars": 932,
+      "preview_first_300": "50% deposit is taken at booking. Deposits are non-refundable inside\nof 72 hours before pickup. Fox & Flour does not deliver cakes; all\norders are pickup only.\n\n## Ingredients & sourcing Flour comes from a Colorado-based regional mill. Butter and dairy are\nsourced from a family creamery two hours nor"
+    },
+    {
+      "chunk_id": "1b037cb9-0966-44b2-8f88-8d0016fedc1b",
+      "document_id": "74e7f18f-5b77-459c-bc36-b4ab617d8aca",
+      "document_title": "Fox & Flour Bakery \u2014 Working Knowledge",
+      "document_universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+      "chars": 872,
+      "preview_first_300": "\"artisan\" as a buzzword. She\nprefers to name the actual farm or mill when a customer asks. The\nbakery's habit is: if it's on the menu, Ruby can tell you where it\ncame from.\n\n## Bakery routines Fox & Flour is open Wednesday through Sunday, 7 AM to 3 PM. Monday\nand Tuesday are closed to the public and"
+    },
+    {
+      "chunk_id": "514ee8d3-2fea-40c6-92a3-116e83849d37",
+      "document_id": "74e7f18f-5b77-459c-bc36-b4ab617d8aca",
+      "document_title": "Fox & Flour Bakery \u2014 Working Knowledge",
+      "document_universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+      "chars": 999,
+      "preview_first_300": "that most\nweeks sells out by mid-afternoon, and in cooler months a\ndark-chocolate-and-sour-cherry sourdough that goes out on Fridays\nonly. A soft brioche is baked twice weekly for the pastry program. Whole loaves are priced by weight and cut on request. Half loaves are\navailable. Day-old bread is di"
+    },
+    {
+      "chunk_id": "659524ac-556a-4c5a-93f1-69b013f1b582",
+      "document_id": "74e7f18f-5b77-459c-bc36-b4ab617d8aca",
+      "document_title": "Fox & Flour Bakery \u2014 Working Knowledge",
+      "document_universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+      "chars": 923,
+      "preview_first_300": "Friday, and Sunday.\nHer lead baker covers Thursday and Saturday. There are two counter\nstaff and one part-time decorator.\n\n## Seasonal offerings\n\nMenu rotations follow the calendar loosely: - **Spring:** rhubarb galettes, strawberry-basil cake, hot-cross buns\n  the week before Easter, an asparagus-a"
+    },
+    {
+      "chunk_id": "7bd3d35d-9b88-4a44-8583-d426789c5f47",
+      "document_id": "74e7f18f-5b77-459c-bc36-b4ab617d8aca",
+      "document_title": "Fox & Flour Bakery \u2014 Working Knowledge",
+      "document_universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+      "chars": 834,
+      "preview_first_300": "## Breads & sourdough\n\nSourdough is the foundation of Fox & Flour. Ruby maintains two active\nstarters that live in the walk-in fridge and get fed the night before\neach bake day. The house loaf is a naturally leavened country\nsourdough with a mixed-flour crumb \u2014 mostly bread flour with roughly\n15% wh"
+    }
+  ],
+  "chunks_used_count": 5,
+  "final_asset": {
+    "id": "d03ddad8-16f4-4d69-aeee-0e4024e35072",
+    "role": "talking_head",
+    "asset_type": "clip",
+    "duration_ms": 81651,
+    "cost_micros": 20000,
+    "file_path": "https://dnznrvs05pmza.cloudfront.net/d7c6d493-a5a5-4702-ba76-306a0b59d47b.mp4?_jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJrZXlIYXNoIjoiOGE4YjZjM2Y2YWYxNTQxNCIsImJ1Y2tldCI6InJ1bndheS10YXNrLWFydGlmYWN0cyIsInN0YWdlIjoicHJvZCIsImV4cCI6MTc4NzQxNzAyM30.Iq7X7m4zgouZ8Akbl2be17jMpr2Xx-__HL07bVmvnnY",
+    "actual_media_seconds": 81.7
+  },
+  "steps": [
+    {
+      "id": "cec2bd5e-79fa-42ac-8803-aef2effbe229",
+      "position": 0,
+      "primitive": "generate_avatar_speech",
+      "status": "succeeded",
+      "started_at": "2026-08-21T00:39:54.904428+00:00",
+      "completed_at": "2026-08-21T00:42:28.781161+00:00",
+      "elapsed_ms": 153902,
+      "cost_actual_micros": 20000,
+      "cost_estimate_micros": 0,
+      "media_engine_task_id": null,
+      "output_asset_id": "d03ddad8-16f4-4d69-aeee-0e4024e35072",
+      "error_message": ""
+    }
+  ],
+  "five_run_comparison": [
+    {
+      "composition_id": "35eace56-4611-4a0d-abdd-be5d764bb4b8",
+      "generation": "pre-\u00a725",
+      "created_at": "2026-08-20T23:48:53.186787+00:00",
+      "first_pass_chars": 594,
+      "first_pass_words": 106,
+      "corrective_min_instructed": 972,
+      "corrective_chars": 893,
+      "corrective_words": 163,
+      "predicted_seconds": 61.0,
+      "status": "failed",
+      "provider_dispatched": false,
+      "actual_media_seconds": null,
+      "cost_micros": 0,
+      "attempt_count": 2
+    },
+    {
+      "composition_id": "21e25a2b-47ed-4abc-bcd8-9077fd42d217",
+      "generation": "pre-\u00a725",
+      "created_at": "2026-08-21T00:11:09.098573+00:00",
+      "first_pass_chars": 741,
+      "first_pass_words": 139,
+      "corrective_min_instructed": 972,
+      "corrective_chars": 1032,
+      "corrective_words": 183,
+      "predicted_seconds": 70.0,
+      "status": "failed",
+      "provider_dispatched": false,
+      "actual_media_seconds": null,
+      "cost_micros": 0,
+      "attempt_count": 2
+    },
+    {
+      "composition_id": "f99fe915-dcfb-4832-9f7f-d4e1e5c54a09",
+      "generation": "pre-\u00a725",
+      "created_at": "2026-08-21T00:12:28.381764+00:00",
+      "first_pass_chars": 503,
+      "first_pass_words": 94,
+      "corrective_min_instructed": 972,
+      "corrective_chars": 1031,
+      "corrective_words": 189,
+      "predicted_seconds": 70.0,
+      "status": "failed",
+      "provider_dispatched": false,
+      "actual_media_seconds": null,
+      "cost_micros": 0,
+      "attempt_count": 2
+    },
+    {
+      "composition_id": "fcc52ef6-8c3c-4614-81f9-9251960b0543",
+      "generation": "pre-\u00a725",
+      "created_at": "2026-08-21T00:13:14.987103+00:00",
+      "first_pass_chars": 653,
+      "first_pass_words": 114,
+      "corrective_min_instructed": 972,
+      "corrective_chars": 1008,
+      "corrective_words": 180,
+      "predicted_seconds": 69.0,
+      "status": "failed",
+      "provider_dispatched": false,
+      "actual_media_seconds": null,
+      "cost_micros": 0,
+      "attempt_count": 2
+    },
+    {
+      "composition_id": "2d50f101-8a92-439a-bcff-d12853c9dd3f",
+      "generation": "post-\u00a725",
+      "created_at": "2026-08-21T00:39:54.761381+00:00",
+      "first_pass_chars": 521,
+      "first_pass_words": 96,
+      "corrective_min_instructed": 1080,
+      "corrective_chars": 1273,
+      "corrective_words": 226,
+      "predicted_seconds": 86.0,
+      "status": "completed",
+      "provider_dispatched": true,
+      "actual_media_seconds": 81.7,
+      "cost_micros": 20000,
+      "attempt_count": 2
+    }
+  ],
+  "side_effect_invariants": {
+    "ruby_universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+    "ruby_updated_at": "2026-08-20T22:44:22.069832+00:00",
+    "episode_cast": [
+      [
+        "Ruby",
+        "5875a7b4-cf39-433d-89b3-4e34a89a5208"
+      ]
+    ],
+    "kd_universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+    "kd_m2m_spokespeople": [
+      [
+        "Ruby",
+        "5875a7b4-cf39-433d-89b3-4e34a89a5208"
+      ]
+    ],
+    "kd_content_hash": "7a0e4bd2551fe9787b7678abf080bcdfe0217399fa9dd2ca9ee161582e6c71df",
+    "narrative_memory_count_universe": 0
+  },
+  "cupcake_feasibility_scan": {
+    "kd_id": "74e7f18f-5b77-459c-bc36-b4ab617d8aca",
+    "kd_raw_content_chars": 6599,
+    "keyword_hits": {
+      "buttercream": {
+        "count": 2,
+        "excerpts": [
+          "ird.\nfillings range from swiss meringue buttercream in a dozen or so\nflavors to fresh curds",
+          "e but ruby steers most customers toward buttercream\nfinishes; the shop's aesthetic leans to"
+        ]
+      },
+      "swiss meringue": {
+        "count": 1,
+        "excerpts": [
+          "s, and hummingbird.\nfillings range from swiss meringue buttercream in a dozen or so\nflavors to"
+        ]
+      },
+      "celebration cake": {
+        "count": 3,
+        "excerpts": [
+          "t hour or donated the same evening.\n\n## celebration cakes\n\ncustom celebration cakes are fox & fl",
+          " evening.\n\n## celebration cakes\n\ncustom celebration cakes are fox & flour's flagship special-ord",
+          " & flour maintains a small waitlist for celebration cakes during\npeak weeks. when the shop can't"
+        ]
+      },
+      "tiered cake": {
+        "count": 1,
+        "excerpts": [
+          " is a\nminimum of five days for standard tiered cakes and ten days for\nsculpted or heavily d"
+        ]
+      },
+      "sculpted": {
+        "count": 1,
+        "excerpts": [
+          " standard tiered cakes and ten days for\nsculpted or heavily decorated cakes; peak season"
+        ]
+      },
+      "fondant": {
+        "count": 2,
+        "excerpts": [
+          "d ganache, and seasonal fruit compotes.\nfondant is available but ruby steers most custo",
+          "toward rustic-elegant rather\nthan sharp-fondant.\n\na 50% deposit is taken at booking. de"
+        ]
+      },
+      "chiffon": {
+        "count": 1,
+        "excerpts": [
+          "e base cake styles include vanilla-bean chiffon, brown-butter\nalmond, chocolate devil's"
+        ]
+      },
+      "hummingbird": {
+        "count": 1,
+        "excerpts": [
+          "ate devil's food, olive oil citrus, and hummingbird.\nfillings range from swiss meringue but"
+        ]
+      },
+      "devil's food": {
+        "count": 1,
+        "excerpts": [
+          "chiffon, brown-butter\nalmond, chocolate devil's food, olive oil citrus, and hummingbird.\nfil"
+        ]
+      },
+      "olive oil citrus": {
+        "count": 1,
+        "excerpts": [
+          "-butter\nalmond, chocolate devil's food, olive oil citrus, and hummingbird.\nfillings range from s"
+        ]
+      },
+      "brown-butter": {
+        "count": 2,
+        "excerpts": [
+          "ke styles include vanilla-bean chiffon, brown-butter\nalmond, chocolate devil's food, olive o",
+          "for weekend pickup.\n- **autumn:** apple-brown-butter tarts, pumpkin-cardamom loaves,\n  pear-"
+        ]
+      },
+      "curd": {
+        "count": 1,
+        "excerpts": [
+          "cream in a dozen or so\nflavors to fresh curds, whipped ganache, and seasonal fruit c"
+        ]
+      },
+      "ganache": {
+        "count": 1,
+        "excerpts": [
+          "n or so\nflavors to fresh curds, whipped ganache, and seasonal fruit compotes.\nfondant i"
+        ]
+      },
+      "compote": {
+        "count": 1,
+        "excerpts": [
+          "ds, whipped ganache, and seasonal fruit compotes.\nfondant is available but ruby steers "
+        ]
+      },
+      "decorator": {
+        "count": 2,
+        "excerpts": [
+          "xecutes most of them with\none part-time decorator on the weekends. the order lead time is",
+          "are two counter\nstaff and one part-time decorator.\n\n## seasonal offerings\n\nmenu rotations"
+        ]
+      },
+      "fillings": {
+        "count": 1,
+        "excerpts": [
+          "ood, olive oil citrus, and hummingbird.\nfillings range from swiss meringue buttercream i"
+        ]
+      },
+      "pastry": {
+        "count": 5,
+        "excerpts": [
+          "t brioche is baked twice weekly for the pastry program.\n\nwhole loaves are priced by we",
+          "nday evening.\n\n## pastries\n\nthe morning pastry case is baked fresh each morning starti",
+          "vernight, shape and bake early morning. pastry lamination happens on\nsundays for the f"
+        ]
+      },
+      "pastries": {
+        "count": 2,
+        "excerpts": [
+          "local food shelf on sunday evening.\n\n## pastries\n\nthe morning pastry case is baked fresh",
+          "s rotate)\n- scones on the weekend only\n\npastries are not held over. what doesn't sell by"
+        ]
+      }
+    },
+    "hit_keyword_count": 18
+  }
+}
