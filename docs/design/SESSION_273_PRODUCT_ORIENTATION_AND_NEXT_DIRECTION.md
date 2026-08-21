@@ -1829,7 +1829,8 @@ For every target the new corrective floor equals the render acceptance floor exa
 
 ## §26. §25 COMMIT PROVENANCE
 
-- §25 fix + tests + doc commit: (recorded at commit time — see git log)
+- §25 fix + tests + doc commit: **`e7e4d68`** — `fix(session-273): §25 corrective expansion targets raw acceptance floor`
+- Pushed to `origin/main`.
 - Fix: `shell/character_os/duration_contract.py` — expansion branch of `synthesize_with_duration_gate` now uses raw-target char budget for the corrective hint.
 - Updated test: `shell/apps/compositions/tests/test_duration_contract_talking_head.py::test_gate_retries_when_short_then_accepts`
 - New test file (6 tests): `shell/apps/compositions/tests/test_session273_corrective_targets_render_min.py`
