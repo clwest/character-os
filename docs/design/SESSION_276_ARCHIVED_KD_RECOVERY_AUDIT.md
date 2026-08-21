@@ -5081,9 +5081,11 @@ Small change; symmetric with Slice 13; closes the last SPA-independent audience-
 - [x] Explicit STOP gate (§227)
 - [x] Smallest next question Q-276-28 (§228)
 - [x] Zero PATCH audience / CHARACTER→UNIVERSE / CHARACTER→WORKSPACE / Universe reassignment / provenance / retrieval / migration / model / constraint changes; zero recovery UI or promotion buttons; zero provider spend
-- [ ] Commit + push Slice 13
-- [ ] Chris + ChatGPT review + Slice 14 scoping decision (§226)
+- [x] Commit + push Slice 13 — landed as `f5dd9e8`
+- [x] Chris + ChatGPT review + Slice 14 scoping decision (§226) — Q-276-28 authorized: extend `KnowledgeDocumentSerializer.update` to reject PATCH `spokesperson_ids=[]` on active CHARACTER KDs; reuse Slice 13 error code
 
 ---
 
 **End of SESSION 276 Slice 13 / Delta Stage 3C-1. Final-character detach on active CHARACTER KDs now fails closed with a structured 4xx BEFORE any M2M mutation; SPA surfaces the backend `detail` inline without wiring audience-promotion buttons. Refined Q-276-27 CONFIRMED — 19/19 K5 API tests pass (10 existing + 9 new); 1684/1684 broader backend regression + 656/656 SPA suite; multi-character detach unchanged; Universe context does NOT auto-promote to UNIVERSE; shared canon rows unaffected. Real DB unchanged for 7th consecutive slice. STOP for Chris + ChatGPT review of §226 recommendation, §227 gate, and §228 Q-276-28 next question.**
+
+**Slice 13 landed commit SHA:** `f5dd9e8` (`fix(session-276): Slice 13 / Delta Stage 3C-1 — final-character detach fails closed`). Pushed to `origin/main`. Post-push `main == origin/main == f5dd9e8`; working tree clean.
