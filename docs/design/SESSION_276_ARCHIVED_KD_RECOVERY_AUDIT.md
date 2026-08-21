@@ -3334,9 +3334,11 @@ Falsifiable by extending `ingestion._persist` (~2 lines to add `existing.audienc
 - [x] Explicit STOP gate (§125)
 - [x] Smallest next question Q-276-23 (§126)
 - [x] Zero provenance / retrieval / mutation-surface / SPA / migration / constraint changes; zero provider spend
-- [ ] Commit + push Slice 8
-- [ ] Chris + ChatGPT review + Slice 9 scoping decision (§124)
+- [x] Commit + push Slice 8 — landed as `875b164`
+- [x] Chris + ChatGPT review + Slice 9 scoping decision (§124) — Q-276-23 authorized (refined: skip transitional NULL; land directly at CHARACTER)
 
 ---
 
 **End of SESSION 276 Slice 8 / Delta Stage 3A. Orphan-archive extended to stamp `audience_scope='none'` atomically. Q-276-18 CONFIRMED — 13/13 SESSION 275 lifecycle tests pass with new audience assertions; failure-injection atomicity holds for all three fields; canon and narrowing untouched. Real DB unchanged (no Teammate deleted). STOP for Chris + ChatGPT review of §124 recommendation, §125 gate, and §126 Q-276-23 next question.**
+
+**Slice 8 landed commit SHA:** `875b164` (`fix(session-276): Slice 8 / Delta Stage 3A — stamp orphaned knowledge audience_scope=none`). Pushed to `origin/main`. Post-push `main == origin/main == 875b164`; working tree clean.
