@@ -36,7 +36,7 @@ from rest_framework.response import Response
 from apps.spokespeople.models import Teammate
 from character_os.permissions import IsWorkspaceMember
 
-from .models import KnowledgeDocument
+from .models import DeactivationReason, KnowledgeDocument
 from .serializers import (
     KnowledgeDocumentDetailSerializer,
     KnowledgeDocumentSerializer,
@@ -111,10 +111,21 @@ class KnowledgeDocumentViewSet(viewsets.ModelViewSet):
         """Soft delete — flip ``is_active=False`` instead of
         dropping the row. The chunk rows stay so the retrieval
         path's ``is_active=True`` filter is the gatekeeper.
-        Hard-delete is an admin-only operation."""
+        Hard-delete is an admin-only operation.
+
+        SESSION 275 — also stamps ``deactivated_reason=OPERATOR_DELETE``
+        so the safe-revival gate in ``ingestion._persist`` and any
+        future audit UI can distinguish operator-initiated soft-deletes
+        from system-initiated orphan-archives set by the ``pre_delete``
+        signal on ``Teammate``. See
+        ``docs/design/SESSION_275_CHARACTER_KNOWLEDGE_LIFECYCLE_AUDIT.md``.
+        """
         instance = self.get_object()
         instance.is_active = False
-        instance.save(update_fields=["is_active", "updated_at"])
+        instance.deactivated_reason = DeactivationReason.OPERATOR_DELETE
+        instance.save(
+            update_fields=["is_active", "deactivated_reason", "updated_at"],
+        )
         return Response(status=drf_status.HTTP_204_NO_CONTENT)
 
     # ---- M2M toggle actions (K5) -----------------------

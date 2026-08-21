@@ -78,6 +78,26 @@ describe("SpokespersonDeleteModal (SESSION 251)", () => {
     ).toBeInTheDocument();
   });
 
+  it("discloses the SESSION 275 knowledge-lifecycle contract", () => {
+    // Product-contract copy — the backend ``pre_delete``/``post_delete``
+    // signals archive KDs where the deleted teammate was the sole
+    // spokesperson, and preserve KDs shared with other characters or
+    // intentionally shared with a Universe / workspace. The modal
+    // must disclose this so an operator can reason about audience
+    // scope before confirming the destructive action. See
+    // ``docs/design/SESSION_275_CHARACTER_KNOWLEDGE_LIFECYCLE_AUDIT.md``.
+    renderModal({ spokespersonName: "Sasha" });
+    const copy = screen.getByTestId("spokesperson-delete-knowledge-copy");
+    expect(copy).toHaveTextContent(
+      /Knowledge assigned only to Sasha will be\s+archived/i,
+    );
+    expect(copy).toHaveTextContent(/shared with other characters stays with/i);
+    expect(copy).toHaveTextContent(
+      /intentionally shared Universe or workspace knowledge stays\s+shared/i,
+    );
+    expect(copy).toHaveTextContent(/not be\s+exposed to your other characters/i);
+  });
+
   it("cancel fires onDismiss and does NOT delete", async () => {
     const mutateAsync = vi.fn();
     deleteMock.mockReturnValue({ mutateAsync, isPending: false });

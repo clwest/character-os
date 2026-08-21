@@ -120,6 +120,11 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
             "status",
             "error_message",
             "is_active",
+            # SESSION 275 — expose the reason a KD's ``is_active``
+            # went False (operator delete vs system orphan archive).
+            # Read-only; the two mutation paths are the DELETE view
+            # and the ``pre_delete`` signal on ``Teammate``.
+            "deactivated_reason",
             "chunk_count",
             "created_at",
             "updated_at",
@@ -145,6 +150,9 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
             "ingested_via",
             # document_type is derived from the same branching
             "document_type",
+            # SESSION 275 — set only by DELETE view or the Teammate
+            # pre_delete signal; never operator-writable.
+            "deactivated_reason",
         ]
 
     def get_chunk_count(self, obj: KnowledgeDocument) -> int:
@@ -307,6 +315,10 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     "pdf_data_uri": f"PDF extraction failed: {exc}",
                 })
+            except ingestion.OrphanRevivalRejected as exc:
+                raise serializers.ValidationError({
+                    "spokesperson_ids": str(exc),
+                })
         elif source_url:
             from .models import IngestedVia
             try:
@@ -323,6 +335,10 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     "source_url_input": f"URL fetch failed: {exc}",
                 })
+            except ingestion.OrphanRevivalRejected as exc:
+                raise serializers.ValidationError({
+                    "spokesperson_ids": str(exc),
+                })
         else:
             # Heuristic: if the text starts with ``#`` or contains
             # ``\n## `` it's probably markdown; everything else is
@@ -332,15 +348,20 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
                 if (text.startswith("#") or "\n## " in text)
                 else DocumentType.TEXT
             )
-            result = ingestion.ingest_text(
-                workspace=workspace,
-                title=title,
-                content=text,
-                document_type=doc_type,
-                spokespeople=spokespeople,
-                created_by=created_by,
-                universe=universe,
-            )
+            try:
+                result = ingestion.ingest_text(
+                    workspace=workspace,
+                    title=title,
+                    content=text,
+                    document_type=doc_type,
+                    spokespeople=spokespeople,
+                    created_by=created_by,
+                    universe=universe,
+                )
+            except ingestion.OrphanRevivalRejected as exc:
+                raise serializers.ValidationError({
+                    "spokesperson_ids": str(exc),
+                })
 
         # Fire the async embedding pass only on fresh ingests —
         # dedup hits already have chunks. Re-fetch afterward so

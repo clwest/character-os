@@ -419,3 +419,684 @@ docs(session-275): §1-§20 Slice 1 — character-delete → KD lifecycle audit 
 ```
 
 Recommend Chris authorize the commit before Slice 2. This is a pure additive doc, no code changes, no schema changes.
+
+---
+
+# SESSION 275 — Slice 2 — Knowledge Lifecycle Contract / Smallest Safe Design
+
+**Slice 2 is a DESIGN / DECISION slice. Read-only + doc-only. No code, no migrations, no fixtures.**
+
+## §21. Slice 1 commit
+
+- Slice 1 committed as `66c45fd` on 2026-08-20.
+- Pushed to `origin/main`. `main == origin/main == 66c45fd`. Working tree clean at Slice 2 open.
+- File changed: `docs/design/SESSION_275_CHARACTER_KNOWLEDGE_LIFECYCLE_AUDIT.md` (+421 lines).
+
+## §22. Slice 2 question
+
+Given the audience-promotion mechanism proven in Slice 1, **what lifecycle contract should Character OS enforce when a character is deleted, and what is the smallest safe implementation that preserves historical data WITHOUT increasing knowledge audience?**
+
+## §23. Lifecycle invariant — verdict: **SUPPORTED**
+
+Proposed invariant (verbatim):
+
+> A removal or deletion action must never broaden the audience of surviving knowledge.
+>
+> For any KnowledgeDocument K with audience A_before:
+> `delete(character X)` must satisfy `A_after(K) ⊆ A_before(K)`
+> unless the operator explicitly chooses a broader audience.
+
+**Verdict: SUPPORTED — evidence-backed.**
+
+Nothing in current product / history / test contract contradicts this. Supporting evidence:
+
+- SESSION 251 commit `0c64c5c` message declares preservation intent as **"historical customer content survives the delete"** — consistent with data preservation. It says nothing about audience widening being desirable; audience-widening is a mechanical side-effect of the CASCADE on the through-model.
+- `docs/design/KNOWLEDGE_LAYER.md` §"Data model" (`shell/apps/embeddings/models.py:14-17`): *"`spokespeople` M2M is the visibility filter — empty M2M means 'visible to all spokespeople in the workspace.'"* This is an *authoring* semantic (operator explicitly chose to broadcast by leaving M2M empty), not a *deletion* semantic. Applying the same semantics to a M2M that was previously non-empty inverts the authoring intent.
+- `docs/design/UNIVERSE_SCHEMA_V1.md` §"Deletion policy" already establishes RESTRICT on `Universe` to *"structurally prevent the knowledge-bleed hazard where hard-delete of a populated Universe would silently demote… and expose it to unrelated legacy characters"* — the same class of hazard the invariant guards. Precedent supports the invariant.
+- No test in the suite asserts audience-widening is desired on delete (§11).
+
+**One caveat.** If Chris ever wants a workflow like "delete this character AND promote their knowledge to Universe canon in one gesture," the invariant would say "no — that must be two explicit operations (unassign→broaden, THEN delete)." That is a philosophical stance, not an evidence-blocker. **Marking this as a REQUIRES PRODUCT DECISION for one narrow case** would only apply if Chris wants deletion to double as promotion. Nothing in the current product suggests he does. Recommendation: adopt the invariant as-is.
+
+## §24. Preservation vs. active retrieval — explicit separation
+
+Slice 1 conflated some of these; Slice 2 makes them axiomatic.
+
+| Concept | Storage | Question it answers | Current control |
+|---|---|---|---|
+| **DATA EXISTS** | `KnowledgeDocument` row + `KnowledgeChunk` rows + `embedding_vector` pgvector column + `source_metadata` + `raw_content` + `processed_content` | Does the knowledge still exist on disk? | Whether row is deleted (hard) — no soft equivalent |
+| **ACTIVE FOR RETRIEVAL** | `KnowledgeDocument.is_active=True` AND `status="processed"` | Would `retrieve_for_teammate` consider this KD as a source? | `is_active` (flipped by `views.py:destroy`); `status` (set by ingestion pipeline) |
+| **ASSIGNED AUDIENCE** | `KnowledgeDocument.universe` + `KnowledgeDocument.spokespeople` M2M | Who is this KD scoped for? | Universe on ingestion form; M2M via K5 attach/detach endpoints |
+| **OPERATOR VISIBILITY** | Filtered by SPA (`views.py:70` `.filter(is_active=True)`) | Can the operator see this KD in the Knowledge list? | Whichever `is_active` is |
+| **HISTORICAL PROVENANCE** | `Composition.knowledge_chunk_ids` (JSON UUID list) resolvable via `resolve_chunk_ids_to_docs` (`retrieval.py:63-118`) | Can we display "this Composition drew from doc X"? | Resolver does NOT filter `is_active` — provenance is safe regardless of active status |
+
+**The load-bearing insight:** DATA EXISTS + HISTORICAL PROVENANCE are independent of ACTIVE FOR RETRIEVAL. Flipping `is_active=False` preserves the first two and only affects the third (plus operator visibility, which is downstream of the same flag). This is exactly what a "safe orphan archive" needs.
+
+## §25. Candidate lifecycle options
+
+Each evaluated against the invariant (§23) and the smallest-safe criterion.
+
+### Option A — INACTIVATE ORPHANED KDs
+
+On `Teammate` deletion, iterate every KD where this Teammate is currently a spokesperson. For each such KD:
+- If this Teammate is the **only** spokesperson (i.e., after cascade, spokespeople count would go 1→0), set `is_active=False`.
+- Otherwise leave alone (audience narrows safely to the surviving spokespeople).
+
+Then let Django's default cascade drop the through-rows.
+
+- **Historical intent preserved?** Yes — data survives (§24 row 1 unchanged); provenance resolves (§24 row 5 unchanged).
+- **KD later reassignable?** Not with today's UI — see §30. Requires small SPA follow-up.
+- **API/UI already understands inactive KDs?** Partially. Retrieval + list already filter it out (§29). SPA renders nothing for inactive today. Admin can see + filter.
+- **Does soft-delete use the same state?** Yes — that's the overload concern. Both operator delete and orphan-archive would set `is_active=False`. Without a `deactivated_reason` column, an operator inspecting an inactive KD later cannot tell which happened.
+- **Overload acceptable for smallest safe fix?** Borderline. Adding one nullable enum column (`deactivated_reason`) resolves the overload cleanly; without it, we ship a semantics mud-puddle. **Recommendation: pair Option A with a tiny `deactivated_reason` column** so intent is recoverable from day 1.
+
+**Verdict:** smallest true delta. See §35.
+
+### Option B — EXPLICIT ORPHAN STATE
+
+Add a `lifecycle_state = CharField(choices=[ACTIVE, ORPHANED, ARCHIVED, DELETED])` on `KnowledgeDocument`. Retrieval filters `lifecycle_state=ACTIVE`.
+
+- **Schema/migration cost:** medium. New column + backfill (all existing rows default `ACTIVE` if `is_active=True`, `DELETED` if `is_active=False`).
+- **Clarity:** high — the enum is self-documenting. Distinguishes the three concerns.
+- **Future extensibility:** high — easy to add `PENDING_REVIEW`, `ARCHIVED_BY_ADMIN`, etc.
+- **Overbuilt for current problem?** Slightly. Solves the audience bug + solves the semantic-overload concern in one migration.
+- **Comparison to Option A + `deactivated_reason`:** functionally near-identical (both give you a distinguishable orphan state). Option A reuses `is_active`; Option B replaces it. Option B costs one migration to introduce, plus a deprecation window to remove `is_active`. Net: Option B is cleaner long-term but strictly larger than Option A now.
+
+**Verdict:** viable, but strictly more surface area than Option A + `deactivated_reason`. If Chris wants a proper state machine, escalate to Option C.
+
+### Option C — EXPLICIT AUDIENCE MODEL
+
+Replace empty-M2M overloading with an explicit `audience` enum on `KnowledgeDocument`:
+- `audience = CHARACTER_SPECIFIC` (M2M authoritative)
+- `audience = UNIVERSE_SHARED` (Universe-broadcast; M2M ignored)
+- `audience = WORKSPACE_SHARED` (legacy Class A; universe=None + broadcast)
+- `audience = ORPHANED` (post-delete, not retrievable)
+- `audience = NONE` (never assigned; not retrievable)
+
+This is the SESSION 274 §8.5 P4 direction and would unblock P2-lite. **Too large for SESSION 275** — requires backfilling all existing rows into an explicit state, retrievel-predicate rewrite, K5 endpoint rewrite, SPA scope UI rewrite. Weeks of work.
+
+**Verdict:** long-term correct. Do NOT block Slice 2 on it.
+
+### Option D — DELETE KD WITH CHARACTER (cascade)
+
+Change `KnowledgeDocumentSpokesperson.knowledgedocument` to cascade on Teammate delete via a signal, OR delete the KD outright when its last spokesperson is deleted.
+
+- **What is lost:**
+  - `KnowledgeChunk` rows (CASCADE) → embedding vectors gone (payment sunk, must re-embed if content returns).
+  - `Composition.knowledge_chunk_ids` provenance points at dead UUIDs → `resolve_chunk_ids_to_docs` silently drops those chunks (`retrieval.py:102-104`) → historical Composition detail shows "drew from 3 chunks (2 no longer exist)" or worse.
+  - `raw_content` + `processed_content` gone → re-ingestion requires the operator to have the source.
+- **Contradicts SESSION 251 commit `0c64c5c` intent** ("preserve historical outputs").
+
+**Verdict:** Rejected. Solves the promotion bug but demolishes the recorded preservation intent. Do NOT recommend.
+
+### Option E — REQUIRE OPERATOR DECISION
+
+Modify the Teammate delete modal to present, per affected KD: `archive / reassign / delete / share explicitly`.
+
+- **Correctness:** high — operator picks per KD.
+- **UX burden:** high. If a character has 22 KDs (Chris's TANK-era case had that many chunks; other characters may have many docs), the modal becomes a table.
+- **Backend complexity:** medium. Each KD needs a per-doc mutation before the Teammate delete; whole flow must be transactional. Race conditions if operator dawdles and another operator ingests a new doc during the decision.
+- **Atomicity:** solvable but non-trivial. Would want to pre-serialize the operator's choices into one delete-with-plan request.
+- **When it belongs:** as a Phase-2 SPA layer on TOP of Option A. Immediate backend fix (Option A) makes the default safe; Option E is a discoverable "advanced" flow for operators who want to convert-instead-of-archive.
+
+**Verdict:** correct long-term UX complement, not the immediate backend safety fix.
+
+## §26. Multi-spokesperson trace (each option × each scenario)
+
+Legend:
+- `{A}` = KD.spokespeople contains only Teammate A
+- `{A,B}` = KD.spokespeople contains both A and B
+- `∅` = born-empty (Class A or Class C canon)
+- Universe scope shown as suffix: `-none` or `-U`
+
+Scenarios (each applies at both `-none` and `-U`):
+
+| # | Start | Action | Option A expected | Option D expected | Option E expected |
+|---|---|---|---|---|---|
+| 1 | `{A}-none` | delete A | KD `is_active=False` (orphan-archived) | KD row deleted, chunks CASCADEd | operator picks per KD |
+| 2 | `{A}-U` | delete A | KD `is_active=False` (universe intact but hidden) | KD row deleted | operator picks |
+| 3 | `{A,B}-none` | delete A | M2M cascades to `{B}`, KD stays active | KD row deleted (bad) | operator picks |
+| 4 | `{A,B}-U` | delete A | M2M cascades to `{B}`, KD stays active in U | KD row deleted (bad) | operator picks |
+| 5 | `{A,B}-none` | delete A then B | after A: `{B}` active. After B: `∅`, KD inactivated | after A: KD gone; B delete is no-op for this KD | 2 prompts |
+| 6 | `∅-none` (born-empty Class A canon) | delete unrelated legacy teammate T | no effect — T is not in M2M | no effect | no effect |
+| 7 | `∅-U` (born-empty Class C canon — Ruby's Fox & Flour hours) | delete Ruby | no effect — Ruby is not in M2M | no effect | no effect |
+
+**Option A satisfies every row.** Scenarios 6 and 7 are the load-bearing ones (§27) — Option A correctly leaves born-empty shared KDs alone because the condition is "was `teammate` in the M2M AND removing them empties it" — a born-empty KD fails the first clause.
+
+## §27. Intentionally shared KD behavior — the load-bearing distinction
+
+Class C born-empty KDs (e.g. Ruby's Fox & Flour "House Policies & Hours") **must not** be archived when a Universe member is deleted. Option A achieves this **by construction**: the signal iterates KDs where the deleted Teammate is currently a spokesperson (via `KnowledgeDocument.spokespeople.filter(pk=teammate.pk)` equivalent). A born-empty KD has ∅ spokespeople; the deleted Teammate was never in that M2M; the iteration skips it.
+
+Explicit rule:
+
+```
+IF teammate ∈ KD.spokespeople (was)
+   AND KD.spokespeople.count() == 1 (i.e. teammate was the sole spokesperson)
+   AND KD.is_active == True (don't re-archive)
+THEN set KD.is_active = False (and KD.deactivated_reason = 'orphaned_by_teammate_delete')
+```
+
+Do NOT propose "archive every empty KD after delete" — that would break Class C canon. The condition must be *"membership + last member,"* not *"empty result state."*
+
+## §28. Enforcement-boundary analysis
+
+| Boundary | Coverage | Atomicity | Testability | Risk of bypass | Verdict |
+|---|---|---|---|---|---|
+| `TeammateViewSet.perform_destroy` | DRF only | tx around one request | high | admin, mgmt cmds, tests bypass | Rejected |
+| dedicated `TeammateDeletionService` module | callers must opt-in | good | high | anyone calling `Teammate.delete()` directly bypasses | Rejected (relies on discipline) |
+| `Teammate.delete()` model override | single-instance only | tx per row | high | `queryset.delete()` (admin bulk delete via `delete_selected`) bypasses model.delete(); iterates rows via collector only | Rejected — bypass real |
+| **`@receiver(pre_delete, sender=Teammate)`** | catches **every** ORM path (single `.delete()`, `queryset.delete()`, admin bulk, mgmt cmds, tests). Only raw SQL bypasses. Fires per-row for both single and bulk. | tx per delete (parent tx) | high | raw SQL only | **Winner** |
+| `@receiver(m2m_changed, sender=KnowledgeDocument.spokespeople.through)` on `pre_remove` | catches M2M edits including cascade-remove | tx-tied | high | wrong semantics — fires for `.detach()` too (broader than delete) | Rejected — semantic mismatch |
+| DB-level check constraint | at commit | strong | opaque to Python | catches nothing at app layer (can't set `is_active` via constraint) | Rejected |
+
+**Recommendation: `pre_delete` signal on `Teammate` at `shell/apps/spokespeople/signals.py`.** `shell/apps/spokespeople/apps.py:15-18` already imports `signals` in `ready()` — no wiring change needed.
+
+Bulk-delete note: Django's collector iterates and fires `pre_delete` per row for `queryset.delete()`. Under the same transaction. Small per-row overhead is acceptable — Teammate deletes are rare (not a hot path).
+
+## §29. `is_active` semantic audit — verdict
+
+Currently **DELETED** (soft-delete), single-purpose, clean:
+
+| Set False | `shell/apps/embeddings/views.py:116` (`destroy()`) — operator-triggered soft-delete |
+| Set True | `shell/apps/embeddings/ingestion.py:117` — implicit revival via `(workspace, content_hash)` dedup on re-ingest |
+| Filtered in retrieval | `shell/apps/embeddings/retrieval.py:155,196,364` |
+| Filtered in list | `shell/apps/embeddings/views.py:70` (viewset queryset) |
+| Filtered in workspace stats | `shell/apps/accounts/views.py:146` |
+| Admin display | `shell/apps/embeddings/admin.py:29` list_display; `:32` list_filter |
+| SPA rendering | None. `web/src/lib/api/knowledge.ts:69` types it but no UI shows or acts on it |
+| Explicit reactivate endpoint | None |
+| Distinguishable from other set-False causes | No — no `reason` field, no `deactivated_at` |
+
+**Overloading `is_active` for orphan-archive without a companion column: CONVENIENT-BUT-OVERLOADED.**
+- Both paths (operator delete + orphan archive) would set `is_active=False`.
+- Later audit cannot distinguish intent.
+- Re-ingestion dedup (`ingestion.py:113-131`) blindly restores any inactive row — orphan-archived KDs would be re-activated by a coincidental content-hash collision, which is not always desired.
+
+**Mitigation (small):** add `deactivated_reason = CharField(max_length=32, blank=True, default="")` (choices: `""` / `"operator_delete"` / `"orphaned_by_teammate_delete"`) as part of the same migration. Nullable-blank preserves backward compat; existing rows keep `""`.
+
+This is the smallest schema addition that removes the semantic overload from day 1.
+
+## §30. Reassignment / reactivation audit
+
+Today:
+
+- **Attach single spokesperson (K5):** `POST /api/knowledge/<id>/attach/` (`shell/apps/embeddings/views.py:122-148`). **Blocks on `is_active=True`** — get_object filters `is_active=True` (line 70). An inactive KD returns 404. Impact: after Option A archives a KD, operator cannot attach a replacement teammate without first flipping `is_active=True`.
+- **Detach single spokesperson (K5):** symmetric — same 404 gate.
+- **Bulk reassign:** no endpoint, no SPA.
+- **Manual reactivate:** no endpoint. Only path is re-ingestion of identical content (dedup-triggered).
+- **Universe reassign:** PATCH `universe` field is accepted by `KnowledgeDocumentSerializer` (`shell/apps/embeddings/serializers.py:111,404-424`) but no SPA UI exposes it. Direct API call required.
+- **View inactive KDs:** admin-only. SPA has no "archived" tab.
+
+**Implication for Option A:** the immediate safety fix is technically ship-able WITHOUT recovery UI (the KD is safe from audience widening the moment it becomes inactive; further recovery is optional). But Chris would rely on admin + re-ingest to recover. **Recommendation: ship Option A backend independently; ship recovery UI as Slice 3/4 depending on Chris's urgency.** See §35.
+
+Minimum recovery affordances the SPA would need in a follow-up slice:
+
+1. "Show archived" toggle on `/workspace/knowledge` list (filter param `include_inactive=true` → viewset relaxes `is_active` filter).
+2. Badge on archived rows (e.g., "Archived — assigned character deleted" when `deactivated_reason='orphaned_by_teammate_delete'`).
+3. Restore button that flips `is_active=True` (small new `POST /api/knowledge/<id>/restore/` endpoint or PATCH exposure of `is_active`).
+4. Attach action needs to accept `is_active=False` KDs (relax the 404 gate for restore-then-attach flows) OR chain restore → attach as one operator gesture.
+
+## §31. Historical provenance impact
+
+`resolve_chunk_ids_to_docs()` (`shell/apps/embeddings/retrieval.py:63-118`) intentionally **does NOT filter `document__is_active`.** Docstring lines 71-74 confirm: *"resolving the K6-populated `Composition.knowledge_chunk_ids` JSON list."* Missing chunks are skipped silently (`if chunk is None: continue`, lines 102-104), but soft-deleted chunks (still on disk under an inactive KD) are found and returned normally.
+
+**Consequence for Option A:** setting `is_active=False` on an orphaned KD does NOT break Composition provenance display. Historical "this render drew from …" continues to resolve. Regression contract §32 test 8 will lock this in.
+
+## §32. Desired regression contract — 10 tests (design, not implementation)
+
+Target file: `shell/apps/spokespeople/tests/test_delete.py` (extend) or a new `test_delete_orphan_archive.py`.
+
+| # | Test name | Setup | Action | Assertion | Gap covered |
+|---|---|---|---|---|---|
+| 1 | `test_last_spokesperson_delete_legacy_inactivates_kd` | KD `universe=None, spokespeople={A}`, legacy teammate T | delete A | `KD.is_active=False`, `deactivated_reason='orphaned_by_teammate_delete'`; `retrieve_for_teammate(T)` returns 0 chunks | B→A promotion blocked |
+| 2 | `test_last_spokesperson_delete_universe_inactivates_kd` | KD `universe=U, spokespeople={A}`, second teammate B in U | delete A | `KD.is_active=False`; `retrieve_for_teammate(B)` returns 0 chunks | D→C promotion blocked |
+| 3 | `test_multi_spokesperson_delete_one_leaves_kd_active` | KD `spokespeople={A,B}` | delete A | `KD.is_active=True`; `KD.spokespeople.count()==1`; retrieval for B still returns it | audience narrowing (safe) preserved |
+| 4 | `test_multi_spokesperson_delete_sequential_final_inactivates` | KD `spokespeople={A,B}` | delete A → delete B | after A: active with `{B}`; after B: `is_active=False` | Sequential-to-empty guarded |
+| 5 | `test_born_empty_class_c_survives_universe_member_delete` | KD `universe=U, spokespeople=∅` (canon); teammate R in U | delete R | KD unchanged; `is_active=True`; retrieval for other U-members still returns it | Class C canon protected |
+| 6 | `test_born_empty_class_a_survives_legacy_teammate_delete` | KD `universe=None, spokespeople=∅`; unrelated legacy teammate T | delete T | KD unchanged; `is_active=True` | Class A canon protected |
+| 7 | `test_chunks_and_embeddings_survive_orphan_archive` | KD with 3 chunks + vectors, `spokespeople={A}` | delete A | KD chunks count still 3; embedding vectors still present; only `is_active` flipped | Data preservation preserved |
+| 8 | `test_composition_provenance_resolves_after_orphan_archive` | Composition C with `knowledge_chunk_ids=[chunk_ids of KD]`, `spokespeople={A}` on KD | delete A | `resolve_chunk_ids_to_docs(C.knowledge_chunk_ids)` still returns all chunks + doc titles | Provenance preserved |
+| 9 | `test_teammate_delete_atomic_if_kd_update_fails` | KD `spokespeople={A}`, force `KnowledgeDocument.objects.filter().update()` to raise via mock | delete A | Teammate NOT deleted; KD.is_active still True; transaction rolled back | Atomicity |
+| 10 | `test_deactivated_reason_distinguishes_operator_delete_from_orphan_archive` | Two KDs: KD1 operator-deleted via `DELETE /api/knowledge/<KD1>/`; KD2 orphan-archived via last-spokesperson-delete | inspect both | KD1: `is_active=False, deactivated_reason='operator_delete'`; KD2: `is_active=False, deactivated_reason='orphaned_by_teammate_delete'` | Semantic clarity of overload mitigation |
+
+Also add coverage for the bulk-delete boundary: `test_bulk_queryset_delete_triggers_orphan_signal` — asserts that `Teammate.objects.filter(...).delete()` (used by admin's `delete_selected`) fires the signal per row and archives the KDs (§28 concern).
+
+## §33. Existing nine-KD remediation — kept separate
+
+The nine live Class A orphan-candidate KDs in `chriss-workspace` (Slice 1 §2, §12) are NOT auto-remediated by Option A. Option A is a **forward-only** contract — it triggers on a delete event that has not yet happened. It does nothing on existing rows.
+
+**Explicitly reject** an automatic backfill of the form *"set `is_active=False` for every KD where `universe=None, spokespeople=∅`"* — that would break intentional Class A/C canon (§27 confirms canon can be born-empty; we cannot mechanically distinguish canon from orphan for pre-existing rows without a history journal).
+
+Options for later remediation, listed for record — do NOT choose in Slice 2:
+
+- **Leave as-is.** Zero risk of collateral archive; accepts that 8-9 rows may broadcast to legacy teammates in Chris's workspace.
+- **Manual per-KD operator review.** Ship a small SPA screen listing the 9 candidates + a per-row "archive / promote to canon / reassign to teammate" chooser.
+- **Content-shape heuristic + operator confirmation.** Content-sniff (like Slice 1 §2 did — "Tulsi", "TANK", "Riggs", "About Hearth & Hollow" all title-shaped for characters) produces a shortlist; operator confirms archive.
+- **Preserve + attach to Chris's active teammates.** Reassign the Hearth & Hollow set to a still-present teammate if the bookstore ever becomes an active identity again; archive the character-named ones.
+
+Defer to Slice 3+.
+
+## §34. Operator / UI contract
+
+The Teammate delete modal currently says only *"videos and assets remain."* After Option A ships, the modal MUST be able to state (operator semantics, not final copy):
+
+- The character will be deleted.
+- Videos already generated will remain in the library.
+- Compositions, scripts, campaigns, and threads that this character produced will remain (attributed as `character deleted`).
+- **Knowledge that was assigned only to this character will be archived** (no longer available for retrieval; recoverable by admin or by re-ingest of the same content).
+- **Knowledge shared with other characters will remain assigned to those characters.**
+- **Knowledge intentionally shared with the Universe or workspace (never assigned to a specific character) will remain shared.**
+- **Knowledge will NOT silently become available to other characters.**
+
+The backend safety fix (§28) can ship **independently** of this copy — the invariant is enforced regardless of what the modal says. But shipping backend without UI-copy update leaves operators surprised when they later notice an archived KD. Recommend shipping copy update in the same commit as the backend fix, and defer the richer per-KD chooser (§25 Option E) + recovery UI (§30) to Slice 3.
+
+## §35. Recommended immediate contract
+
+**Adopt Option A + `deactivated_reason` column.**
+
+Why it wins:
+- Satisfies the invariant (§23) in every scenario (§26).
+- Preserves data + preserves historical provenance (§24, §31).
+- Enforcement boundary is airtight for every ORM deletion path (§28).
+- Correctly distinguishes intentional Class C/A canon from orphaned-empty (§27).
+- Minimal schema delta: one nullable CharField.
+- Reuses existing `is_active` filter path — retrieval / list / stats already respect it (§29).
+- Provenance-safe by prior design of `resolve_chunk_ids_to_docs` (§31).
+- Signal + column pair enables clean future recovery UI without further schema changes.
+
+## §36. Long-term lifecycle direction
+
+Adopt **Option C (explicit audience model)** in a future session paired with SESSION 274 §8.5 P4 / KnowledgeAudience work. Option A is *not* orthogonal to Option C — the `deactivated_reason='orphaned_by_teammate_delete'` marker becomes `audience=ORPHANED` under Option C's enum. Migration path is straightforward: mirror is_active → audience during the Option C migration, then deprecate the CharField `deactivated_reason` in favor of the enum.
+
+Option E (per-KD chooser on delete modal) is the natural UX complement once Option C ships — with explicit audience states, the operator's choices become "reassign to teammate X / promote to workspace-shared / promote to universe-shared / archive / delete." Slice ε or ζ material.
+
+## §37. Proposed implementation plan (Option A + `deactivated_reason`)
+
+**Files to touch:**
+
+| File | Change | Lines est. |
+|---|---|---|
+| `shell/apps/embeddings/migrations/0NNN_add_deactivated_reason.py` | new migration: add `deactivated_reason` CharField(max_length=32, blank=True, default="") to `KnowledgeDocument` | ~25 |
+| `shell/apps/embeddings/models.py` | add `deactivated_reason` field with `TextChoices` (empty / `OPERATOR_DELETE` / `ORPHANED_BY_TEAMMATE_DELETE`) | ~15 |
+| `shell/apps/embeddings/views.py:110-118` | `destroy()` sets `deactivated_reason='operator_delete'` alongside `is_active=False` | +1 line, +1 update_field |
+| `shell/apps/embeddings/ingestion.py:113-131` | when re-ingest revives a soft-deleted KD, clear `deactivated_reason` back to "" | +1 line |
+| `shell/apps/embeddings/serializers.py` | expose `deactivated_reason` as read-only in `KnowledgeDocumentSerializer` | +1 field, +1 in `read_only_fields` |
+| `shell/apps/spokespeople/signals.py` | add `@receiver(pre_delete, sender=Teammate)` handler that finds KDs where deleted teammate is sole spokesperson and bulk-updates them to `is_active=False, deactivated_reason='orphaned_by_teammate_delete'` | ~45 |
+| `shell/apps/spokespeople/tests/test_delete.py` (or new `test_delete_orphan_archive.py`) | 10 regression tests per §32 + 1 bulk-delete test | ~350 (tests are verbose) |
+| `web/src/components/spokesperson-delete-modal.tsx:95-98` | update copy per §34 (operator semantics; final wording is Chris's call) | ~10 |
+
+**Query shape for signal handler (Django ORM):**
+
+```python
+from django.db.models import Count
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
+from django.utils import timezone
+
+@receiver(pre_delete, sender=Teammate)
+def archive_kds_orphaned_by_teammate_delete(sender, instance, **kwargs):
+    # Import inside the handler to avoid the models.py circular chain.
+    from apps.embeddings.models import KnowledgeDocument, DeactivationReason
+
+    # Find every KD where this teammate is currently the SOLE spokesperson.
+    # Use the through-table for a distinct count (avoiding the JOIN
+    # amplification that a naive Count('spokespeople') would produce
+    # when combined with a filter on that same M2M).
+    orphan_kd_ids = (
+        KnowledgeDocument.objects
+        .filter(spokespeople=instance, is_active=True)
+        .annotate(sp_count=Count(
+            "knowledgedocumentspokesperson",
+            distinct=True,
+        ))
+        .filter(sp_count=1)
+        .values_list("pk", flat=True)
+    )
+    if orphan_kd_ids:
+        KnowledgeDocument.objects.filter(pk__in=list(orphan_kd_ids)).update(
+            is_active=False,
+            deactivated_reason=DeactivationReason.ORPHANED_BY_TEAMMATE_DELETE,
+            updated_at=timezone.now(),
+        )
+```
+
+**Transaction strategy:** `pre_delete` fires inside the same transaction as `Teammate.delete()`. Django's atomic transaction wrapping (default in DRF request handlers via `ATOMIC_REQUESTS` or per-endpoint `transaction.atomic`) means: if the KD update raises, the teammate delete rolls back. Test 9 in §32 asserts this.
+
+**Backward compatibility:** `deactivated_reason` is nullable with `default=""` — no data migration required; existing rows keep the default. Serializer field is read-only; no SPA client changes required to consume it.
+
+**Migration requirements:** YES — one `AlterField` / `AddField` migration on `KnowledgeDocument`. Zero downtime; column addition is fast on Postgres.
+
+**Existing 9 orphan-candidate KDs:** UNTOUCHED by this plan (§33). Their `deactivated_reason` will remain `""` post-migration.
+
+**Rollback considerations:**
+- Signal is idempotent — running Teammate delete twice on the same teammate would find zero orphaned KDs on second pass.
+- Migration is reversible with a matching `RemoveField` operation (no data loss because the column is additive and never load-bearing for reads outside the audit trail).
+- Ship behind a feature flag if Chris wants to observe first? Not required — the signal only fires on the exact delete-with-last-spokesperson case, which is a rare event. Direct ship is acceptable.
+
+**Backward-compat with re-ingestion revival (`ingestion.py:113-131`):** the current code flips `is_active=True` on dedup hit. That code is unaware of `deactivated_reason`. Small addition: clear the reason on revival. Otherwise a revived orphaned KD would falsely claim `deactivated_reason='orphaned_by_teammate_delete'`.
+
+**Non-goals in this implementation:**
+- Recovery UI (Slice 3+).
+- "Show archived" toggle in Knowledge list (Slice 3+).
+- Modal per-KD chooser à la Option E (Slice 3+ / Option C companion).
+- Backfill / triage of the 9 existing orphan-candidate KDs (deferred; §33).
+- Any migration of Composition provenance shape (unnecessary — provenance is provably safe under Option A).
+
+## §38. Slice 2 decision gate
+
+Slice 2 is a design/decision slice. Nothing has been implemented. All source, DB, KDs, teammates, retrieval, SPA copy, and models remain untouched. The 9 orphan-candidate KDs remain preserved.
+
+**Chris must explicitly approve before implementation begins.** Approval targets:
+
+1. Adopt the no-audience-broadening invariant as stated in §23.
+2. Adopt Option A + `deactivated_reason` column as the immediate safety contract (§35).
+3. Defer Option C (explicit audience) + Option E (per-KD chooser) + recovery UI to later slices (§36, §30).
+4. Do NOT auto-remediate the 9 existing orphan-candidate KDs (§33).
+5. Update the Teammate delete modal copy in the same commit as the backend fix (§34).
+
+Optional companion decision:
+
+6. Ship a lightweight "Show archived" list toggle + Restore button in the SAME slice as the backend fix, so operators aren't waiting on Slice 3 for recovery capability. Recommendation: **Yes**, but Chris's call.
+
+### Slice 2 checklist
+
+- [x] Slice 1 committed / pushed (`66c45fd`)
+- [x] no-audience-broadening invariant assessed — SUPPORTED (§23)
+- [x] preservation vs active retrieval separated (§24)
+- [x] Option A assessed (§25)
+- [x] Option B assessed (§25)
+- [x] Option C assessed (§25)
+- [x] Option D assessed (§25)
+- [x] Option E assessed (§25)
+- [x] multi-spokesperson lifecycle assessed (§26)
+- [x] intentionally shared KD lifecycle assessed (§27)
+- [x] enforcement boundaries compared (§28)
+- [x] `is_active` semantics audited (§29)
+- [x] reassignment/reactivation audited (§30)
+- [x] Composition provenance impact assessed (§31)
+- [x] desired regression contract designed (§32)
+- [x] existing orphan remediation separated (§33)
+- [x] operator/UI contract defined (§34)
+- [x] immediate safety recommendation made (§35)
+- [x] long-term model recommendation made (§36)
+- [x] implementation plan produced (§37)
+- [x] **Chris approval obtained** — Slice 2 approved with modification (no generic "Show archived + Restore" in this slice)
+
+---
+
+# SESSION 275 — Slice 3 — Implementation
+
+**Slice 3 implements the Option A + `deactivated_reason` contract approved in Slice 2 with Chris's modification that no generic Restore/Show-archived UI ships in this slice.**
+
+## §39. Slice 3 approval snapshot
+
+Chris + ChatGPT approved 2026-08-20:
+
+1. Adopt the no-audience-broadening invariant (§23).
+2. Adopt Option A + `deactivated_reason` immediate safety contract (§35).
+3. Adopt `pre_delete`-based enforcement (§28), subject to test validation.
+4. Do NOT auto-remediate the 9 existing orphan-candidate KDs (§33).
+5. Update the Teammate delete modal copy in the same slice (§34).
+6. Defer Option C / Option E / recovery UI to later slices (§36, §30).
+
+**Modification vs Slice 2 §38 item 6:** DO NOT ship a generic "Show archived + Restore" affordance in Slice 3. A bare `is_active=False → True` restore on a `spokespeople=∅` KD recreates the exact audience-widening hazard. Future recovery must require an explicit safe-audience decision (attach a character, promote to Universe-shared, promote to workspace-shared). Slice 3 records this as a load-bearing requirement for the future recovery slice (§46).
+
+## §40. Files changed
+
+| File | Change | Purpose |
+|---|---|---|
+| `shell/apps/embeddings/models.py` | Added `DeactivationReason` TextChoices + `deactivated_reason` CharField(max_length=40, blank, default="") on `KnowledgeDocument` | Distinguishable orphan-archive vs operator-delete state |
+| `shell/apps/embeddings/migrations/0006_session275_deactivated_reason.py` | New migration adding the field | Applied cleanly to local Postgres (0006 → OK) |
+| `shell/apps/spokespeople/signals.py` | Added `_stash_kd_membership_for_orphan_check` (pre_delete) + `_archive_orphaned_kds_on_teammate_delete` (post_delete) | Enforce audience invariant on every ORM delete path (single + bulk) |
+| `shell/apps/embeddings/views.py` | `KnowledgeDocumentViewSet.destroy` also stamps `deactivated_reason=OPERATOR_DELETE`; added import | Distinguishable operator-delete reason |
+| `shell/apps/embeddings/ingestion.py` | Added `OrphanRevivalRejected` exception + safe-revival gate in `_persist`; revival now clears `deactivated_reason` | Prevent re-ingestion from silently reactivating an orphan-archived KD into empty-M2M broadcast |
+| `shell/apps/embeddings/serializers.py` | Added `deactivated_reason` to fields + `read_only_fields`; added `OrphanRevivalRejected` catch in all three ingest branches | Read-only API exposure; clean 400 on rejected revival |
+| `web/src/components/spokesperson-delete-modal.tsx` | Added second paragraph disclosing knowledge lifecycle contract; updated docstring | Operator can reason about audience scope before confirm |
+| `web/src/components/spokesperson-delete-modal.test.tsx` | Added `discloses the SESSION 275 knowledge-lifecycle contract` test | Locks the copy contract |
+| `shell/apps/spokespeople/tests/test_delete_orphan_archive.py` | New 12-test regression file | 10 cases from §32 + bulk-delete case + operator-revival case |
+| `shell/apps/embeddings/tests/test_retrieval_privacy.py` | Added the new test file to K0 privacy `ALLOWED_FILES` | Sanctioned test-side writer for `KnowledgeChunk.objects.create` (real pgvector seeds) |
+| `shell/apps/compositions/tests/test_isolation.py` | Added the new test file to composition-writer `ALLOWED_FILES` | Sanctioned test-side writer for `Composition.objects.create` (provenance test) |
+
+Nothing else was touched. `shell/apps/spokespeople/apps.py:15-18` already imports `signals` in `ready()` — no wiring change was needed.
+
+## §41. Migration
+
+`shell/apps/embeddings/migrations/0006_session275_deactivated_reason.py` — depends on `0005_universe_fk`. Applied cleanly to the local Postgres via `python manage.py migrate embeddings`:
+
+```
+Operations to perform:
+  Apply all migrations: embeddings
+Running migrations:
+  Applying embeddings.0006_session275_deactivated_reason... OK
+```
+
+Migration is additive (one nullable CharField with `default=""`), so no data migration and zero downtime. `makemigrations --dry-run --check embeddings` reports "No changes detected" against the model — migration matches the field definition exactly.
+
+## §42. Signal behavior — final implementation
+
+Two receivers, coordinated via a private instance attribute:
+
+- **`@receiver(pre_delete, sender=Teammate) _stash_kd_membership_for_orphan_check`** — snapshots the list of KD ids where this teammate is currently a spokesperson (via `KnowledgeDocumentSpokesperson.filter(teammate=instance).values_list('knowledgedocument_id')`) and stores it on `instance._session275_orphan_candidate_kd_ids`.
+- **`@receiver(post_delete, sender=Teammate) _archive_orphaned_kds_on_teammate_delete`** — reads the snapshot; queries `KnowledgeDocument.filter(pk__in=snapshot, is_active=True).annotate(sp_count=Count('spokespeople')).filter(sp_count=0)`; bulk-updates the survivors to `is_active=False, deactivated_reason=ORPHANED_BY_TEAMMATE_DELETE`.
+
+**Why not a single pre_delete?** The Slice 2 §37 sketch proposed a pre_delete that filters on `sp_count=1`. Test 9 (bulk-delete of two teammates sharing a KD) proved that pattern was wrong: when Django's Collector fires all pre_delete signals BEFORE any cascade SQL runs, each teammate's pre_delete still sees the OTHER doomed teammates as spokespeople — a KD with `{A,B}` where both are being deleted looks "still has 2 members" to both pre_delete handlers, and neither archives it. Splitting into pre_delete-snapshot + post_delete-check-post-cascade correctly handles both single- and bulk-delete. This is a deviation from the Slice 2 §37 pseudocode (see §48) — the invariant and the file targets are unchanged, but the mechanism moved to a two-signal pattern that only became necessary once the test suite proved it.
+
+Bulk-delete correctness in post_delete: for two teammates sharing a KD, both post_delete handlers see the KD as empty. The first sets `is_active=False`; the second's `is_active=True` filter matches nothing and does nothing. No duplicate stamps, no logic collision.
+
+## §43. Single-spokesperson result
+
+Test 1 (`test_last_spokesperson_delete_legacy_inactivates_kd`) + Test 2 (`test_last_spokesperson_delete_universe_inactivates_kd`) — PASS.
+
+Confirmed: `spokespeople={A}` (universe=None or universe=U) → delete A → KD becomes `is_active=False`, `deactivated_reason='orphaned_by_teammate_delete'`, `spokespeople.count()==0`. `retrieve_for_teammate` returns 0 chunks for any other legacy teammate (Case 1) or any other same-Universe teammate (Case 2).
+
+## §44. Multi-spokesperson result
+
+Test 3 (`test_multi_spokesperson_delete_one_leaves_kd_active`) + Test 4 (`test_multi_spokesperson_delete_sequential_final_archives`) + Test 9 (`test_bulk_queryset_delete_triggers_orphan_archive_per_row`) — ALL PASS.
+
+Confirmed:
+- `{A,B}` → delete A → KD stays active with `{B}`. B still retrieves it. Audience narrowed safely.
+- `{A,B}` → delete A then delete B (sequential) → after A: active; after B: archived.
+- `{A,B}` → bulk `Teammate.objects.filter(pk__in=[A,B]).delete()` → KD_shared archived by whichever post_delete fires first; second post_delete no-ops because of the `is_active=True` filter.
+
+## §45. Intentionally shared KD result
+
+Test 5 (`test_born_empty_class_c_canon_survives_universe_member_delete`) + Test 6 (`test_born_empty_class_a_canon_survives_unrelated_delete`) — PASS.
+
+Confirmed by construction: the pre_delete snapshot lists only KDs where THIS teammate is currently a spokesperson. Class C canon (born-empty) never had the deleted teammate in its M2M, so it never enters the snapshot; post_delete never touches it. Class A born-empty is symmetric. The load-bearing distinction from §27 holds in code, not just in design.
+
+## §46. Operator-delete behavior
+
+Test 10 (`test_deactivated_reason_distinguishes_operator_delete_from_orphan`) — PASS.
+
+Operator soft-delete via `DELETE /api/knowledge/<id>/` now sets `deactivated_reason='operator_delete'` alongside `is_active=False` (`views.py:110-124`). System orphan-archive sets `deactivated_reason='orphaned_by_teammate_delete'`. Both flip `is_active=False`; the reason field discriminates.
+
+## §47. Orphan-archive behavior + safe-revival gate
+
+Test 11 (`test_ingestion_revival_rejects_orphan_without_spokespeople`) + Test 12 (`test_ingestion_revival_of_operator_deleted_kd_still_works`) — PASS.
+
+`ingestion._persist` now branches on `existing.deactivated_reason` when the dedup hit is soft-deleted:
+
+- Reason == `ORPHANED_BY_TEAMMATE_DELETE`:
+  - If caller supplied NO spokespeople (or empty list) → raise `OrphanRevivalRejected`. KD stays inactive with reason preserved. Serializer catches the exception in each ingest branch and returns HTTP 400 with the error attached to `spokesperson_ids`.
+  - If caller supplied non-empty spokespeople → revive normally: `is_active=True`, `deactivated_reason=""`, `spokespeople.set(new_list)`. Audience is bounded by the explicit new set — safe.
+- Reason == `OPERATOR_DELETE` (or blank legacy):
+  - Revive as today. `deactivated_reason` cleared to `""`. Prior M2M preserved if caller supplied nothing (unchanged behavior); replaced if caller supplied a new list.
+
+**Future recovery invariant (§16, kept as load-bearing rule for later slices):** any recovery flow that flips `is_active=False → True` for an `ORPHANED_BY_TEAMMATE_DELETE` KD MUST require an explicit safe-audience decision (attach character(s), promote to Universe-shared, or promote to workspace-shared). A bare flip is disallowed. Slice 3 enforces this at the ingestion revival boundary; a future recovery UI must enforce the same at the admin/API boundary before shipping.
+
+## §48. Composition provenance result
+
+Test 8 (`test_composition_provenance_resolves_after_orphan_archive`) — PASS.
+
+`resolve_chunk_ids_to_docs(chunk_ids, workspace=ws)` continues to return the archived KD's chunks + title (output shape: `{id, title, chunk_count}`) after orphan-archive flips `is_active=False`. Confirms §31 design — the resolver intentionally omits the `is_active` filter, so historical Composition provenance survives orphan-archive unchanged.
+
+## §49. Bulk QuerySet.delete result
+
+Test 9 (`test_bulk_queryset_delete_triggers_orphan_archive_per_row`) — PASS.
+
+`Teammate.objects.filter(pk__in=[A,B]).delete()` correctly archives:
+- KD_solo_a (A was sole spokesperson) → orphaned
+- KD_solo_b (B was sole spokesperson) → orphaned
+- KD_shared (A and B were both spokespersons) → orphaned by the first post_delete handler; second no-ops via `is_active=True` filter
+
+Confirms the pre_delete/post_delete split (§42) handles admin's `delete_selected` and any programmatic queryset delete.
+
+## §50. Atomicity result — PROVEN BY TEST
+
+**§50 originally stated that atomicity was reasoned-only. Chris + ChatGPT reviewed Slice 3 and correctly flagged that this was an unmet acceptance condition. The atomicity gap is now closed by an explicit failure-injection regression test — added after that review; this section is rewritten to reflect the new evidence.**
+
+Test: `test_teammate_delete_atomic_if_orphan_archive_update_fails` in `shell/apps/spokespeople/tests/test_delete_orphan_archive.py` (case 13 of the test matrix).
+
+**Failure injection method.** Patches `django.db.models.query.QuerySet.update` at the class level via `pytest`'s `monkeypatch` fixture, but only raises for updates whose `self.model is KnowledgeDocument`. Every other `.update()` in the delete plan runs unchanged. The archive step in `_archive_orphaned_kds_on_teammate_delete` calls exactly one such update (`KnowledgeDocument.objects.filter(pk__in=orphan_ids).update(...)`), so the injection hits exactly the archive write. Django's Collector uses `sql.UpdateQuery.update_batch` directly for SET_NULL cascades (Composition / Script / Asset etc.) — those are NOT routed through `QuerySet.update` — so the injection does NOT interfere with the SET_NULL fan-out.
+
+**Exception type.** A test-local `InjectedArchiveFailure(RuntimeError)` marker so we can uniquely assert we caught OUR raise (not a coincidental DB error).
+
+**Boundary.** The teammate delete is wrapped in `with transaction.atomic()` inside the test so the `django_db` outer transaction can observe the rollback of the savepoint without contaminating fixture state. Inside the savepoint, `Collector.delete()` wraps its operations in `mark_for_rollback_on_error(self.using)` (`django/db/models/deletion.py:452`) — the raise propagates, the connection is marked for rollback, and the atomic exit rolls back the savepoint.
+
+**Pre-delete state (recorded).** `Teammate.objects.filter(pk=a.pk).exists()` = True; `KnowledgeDocument.objects.filter(pk=kd.pk).exists()` = True; `kd.is_active` = True; `kd.deactivated_reason` = ""; `kd.chunks.count()` = 1; `KnowledgeDocumentSpokesperson.objects.filter(teammate=a, knowledgedocument=kd).exists()` = True.
+
+**Injection observed.** `call_hits["count"] >= 1` — the archive `.update()` was attempted (proves we tested the real path, not an unrelated failure).
+
+**Post-rollback state (asserted).** Every one of the pre-delete assertions holds exactly. Teammate row present. KD present. `is_active=True` unchanged. `deactivated_reason=""` unchanged. Through-row present. Chunk count unchanged.
+
+**Transaction-boundary evidence.** `Model.delete()` and `QuerySet.delete()` both funnel through `Collector.delete()` (`django/db/models/deletion.py:436`), which wraps operations in `mark_for_rollback_on_error(self.using)` (line 452). Confirmed via `grep` on the pinned `django/db/models/deletion.py` in the local venv (Django 5.2.16). This means the atomicity contract proven by the single-instance test above is identical for `QuerySet.delete()` — no duplicate bulk-atomicity test is required. Test 9 already exercises the bulk-delete happy path; the atomicity contract is inherited from the same Collector.
+
+**Invariant proven.** Either the teammate delete + M2M through-row cascade + KD orphan-archive all commit, or NONE of them commit. No partial-state observable.
+
+## §51. Ingestion / reactivation finding
+
+The revival gate (§47) means the safe-revival contract is enforced end-to-end at the ingestion boundary today. No other reactivation path exists in the operator-facing SPA (§30 Slice 2). Admin can still hard-set `is_active=True` via Django admin — that path is admin-only and out of scope for operator-safety guarantees; the future recovery slice will address it (§46 load-bearing rule).
+
+## §52. Narrow test results
+
+`pytest apps/spokespeople/tests/test_delete_orphan_archive.py` → **13 passed in 5.39s** (post-atomicity-test run). All test cases from §32 covered, plus:
+- `test_bulk_queryset_delete_triggers_orphan_archive_per_row` (bulk-delete boundary)
+- `test_ingestion_revival_of_operator_deleted_kd_still_works` (revival gate specificity)
+- `test_teammate_delete_atomic_if_orphan_archive_update_fails` (atomicity — added after Chris + ChatGPT review of Slice 3 §50)
+
+## §53. Broader regression results
+
+Post-atomicity-test rerun: `pytest apps/spokespeople/tests/ apps/embeddings/tests/ apps/compositions/tests/ apps/universe/tests/` with `EMBEDDING_FORCE_MOCK=1` → **1636 passed in 126.31s. 0 regressions.** (Previously 1635; the +1 is the atomicity test.)
+
+Full-suite run (`pytest`) with the same env → 2776 passed + 80 failures + 1 skipped **at Slice 3 pre-atomicity checkpoint**. Every failure was verified against pre-Slice-3 `main` (git-stashed) and reproduces identically. **Zero failures caused by Slice 3.** The 80 pre-existing failures are in `apps/bootstrap_review/tests/*` (missing `candidate.json` fixture files) and `character_os/clients/tests/test_media_engine_timeouts.py` (unrelated timeout assertion) — outside SESSION 275's scope. The atomicity addition only added one new test; the full-suite failure set is unchanged.
+
+## §54. SPA verification
+
+`npx vitest run src/components/spokesperson-delete-modal.test.tsx` → **8 passed** (7 pre-existing + 1 new for SESSION 275 knowledge-lifecycle copy).
+
+Full SPA suite (`npx vitest run`) → **641 passed across 47 files, 0 failures.**
+
+## §55. Existing nine-KD preservation confirmation
+
+Queried `chriss-workspace` post-migration + post-code-change:
+
+```
+Total Class A KDs in chriss-workspace: 9
+  aa90d895 About Hearth & Hollow Books                       is_active=True reason=''
+  e37ea174 How We Recommend Books                            is_active=True reason=''
+  b58efd31 Children's Reading                                is_active=True reason=''
+  7f41d8e3 Bookstore Events                                  is_active=True reason=''
+  c408656d Supporting Local Authors                          is_active=True reason=''
+  0088f31f Helping Customers Find Their Next Read            is_active=True reason=''
+  7ecde40b Tulsi — Core Identity and Public Purpose          is_active=True reason=''
+  8c6f0c14 TANK — AUTOMOTIVE FINANCING CONTENT KNOWLEDGE     is_active=True reason=''
+  90ad200c Riggs                                             is_active=True reason=''
+```
+
+All 9 KDs unchanged: `is_active=True`, `deactivated_reason=''` (blank because they predate the migration and no code path in Slice 3 touches existing rows). Ruby's Class C KD `8f825c98-…` (Fox & Flour) and Ruby's Class D KD `74e7f18f-…` similarly untouched.
+
+## §56. Slice 3 checklist
+
+- [x] Slice 2 committed (`0d…` — Slice 2 was in the same working tree as Slice 3 changes; both will land in Slice 3's commit per Chris's approval that Slice 2 didn't need its own commit before implementation)
+- [x] `DeactivationReason` TextChoices added to `KnowledgeDocument` model
+- [x] `deactivated_reason` field added; migration `0006_session275_deactivated_reason` created + applied
+- [x] pre_delete + post_delete signals on `Teammate` implemented (`_stash_kd_membership_for_orphan_check` + `_archive_orphaned_kds_on_teammate_delete`)
+- [x] `KnowledgeDocumentViewSet.destroy` stamps `deactivated_reason=OPERATOR_DELETE`
+- [x] Ingestion revival gates on `deactivated_reason == ORPHANED_BY_TEAMMATE_DELETE` + no explicit spokespeople; raises `OrphanRevivalRejected`
+- [x] `OrphanRevivalRejected` caught in all three ingest branches of `KnowledgeDocumentSerializer.create` → HTTP 400
+- [x] `deactivated_reason` added to serializer fields + read_only_fields
+- [x] `SpokespersonDeleteModal` copy updated with §34 semantics; docstring updated
+- [x] `spokesperson-delete-modal.test.tsx` extended with `discloses the SESSION 275 knowledge-lifecycle contract` test
+- [x] `test_delete_orphan_archive.py` — 12 tests covering §32 matrix + bulk + revival cases; all pass
+- [x] K0 privacy `ALLOWED_FILES` updated to sanction the test file's `KnowledgeChunk.objects.create` seeds
+- [x] Composition-isolation `ALLOWED_FILES` updated to sanction the test file's `Composition.objects.create` provenance seed
+- [x] Migration applied cleanly; `makemigrations --dry-run --check` reports "No changes detected"
+- [x] Narrow test run: 13/13 pass (12 original + 1 atomicity added after review)
+- [x] Broader test run (spokespeople + embeddings + compositions + universe): 1636/1636 pass with `EMBEDDING_FORCE_MOCK=1`
+- [x] Full test run: 2776 pass; 80 failures verified as pre-existing on baseline `main`
+- [x] SPA test run: 641/641 pass
+- [x] Nine orphan-candidate KDs preserved unchanged (verified via direct DB query)
+- [x] Ruby's Class C `8f825c98-…` and Class D `74e7f18f-…` untouched
+- [x] Composition provenance still resolves after orphan-archive (test 8)
+- [x] **Atomic rollback verified by failure-injection regression test (test 13, added after Chris + ChatGPT flagged §50 gap)**
+- [x] Documentation extended (§39-§56 + §50 rewritten with runtime evidence)
+- [x] **Chris approval to commit Slice 3** — granted 2026-08-20, all acceptance conditions closed
+
+## §57. Deviations from approved Slice 2 design
+
+Two:
+
+1. **Signal split** (§42): Slice 2 §37 sketched a single pre_delete handler that filtered `sp_count=1`. Slice 3 test 9 proved that pattern fails for bulk-delete of teammates who share a KD. Implementation moved to **pre_delete-snapshot + post_delete-check-post-cascade** — the enforcement boundary, target files, invariant, and semantics are unchanged; only the mechanism split into two signals. The single-signal §37 sketch was pseudocode; the two-signal implementation is the version proven by tests.
+
+2. **Ingestion revival gate**: Slice 2 §29 flagged the ingestion revival hazard but §37 did not spell out the exception name or the caller-facing error shape. Slice 3 chose `OrphanRevivalRejected` (Python exception in `ingestion.py`) surfaced as a 400 with the error attached to `spokesperson_ids` via three per-branch except clauses in `serializers.py.create`. This is a specification refinement, not a design change.
+
+No other deviations. The audience invariant, `deactivated_reason` field shape, target files, migration approach, and UI copy scope all match Slice 2 §37 exactly.
+
+## §58. Slice 3 decision gate
+
+**Nothing committed yet.** All Slice 3 changes are in the working tree, uncommitted, pending Chris's approval.
+
+To commit: `git add …` (see §59 diff summary) and use a message like:
+
+```
+feat(session-275): §39-§58 Slice 3 — orphan-archive contract + safe revival gate
+```
+
+Recommended: single commit covering all Slice 3 files (migration + signals + views + ingestion + serializers + UI copy + tests + doc). Slice 2 doc additions (§21-§38) already commingled with Slice 3 additions in the working tree — one commit lands both since Slice 2 was doc-only and approval + implementation happen back-to-back.
+
+## §59. Slice 3 git diff summary
+
+```
+10 files modified + 2 new files (post-atomicity-test):
+  M docs/design/SESSION_275_CHARACTER_KNOWLEDGE_LIFECYCLE_AUDIT.md  (+~540 for §21-§59)
+  M shell/apps/compositions/tests/test_isolation.py                 (+7)
+  M shell/apps/embeddings/ingestion.py                              (+61)
+  M shell/apps/embeddings/models.py                                 (+38)
+  M shell/apps/embeddings/serializers.py                            (+21)
+  M shell/apps/embeddings/tests/test_retrieval_privacy.py           (+7)
+  M shell/apps/embeddings/views.py                                  (+14, -3)
+  M shell/apps/spokespeople/signals.py                              (+112, -5)
+  M web/src/components/spokesperson-delete-modal.tsx                (+22, -2)
+  M web/src/components/spokesperson-delete-modal.test.tsx           (+20)
+  A shell/apps/embeddings/migrations/0006_session275_deactivated_reason.py  (~35)
+  A shell/apps/spokespeople/tests/test_delete_orphan_archive.py     (~600 — bumped from ~475 by the atomicity test)
+```
+
+Zero unintended surface change. No changes to retrieval predicate, no changes to Universe interactions, no changes to Composition provenance resolver, no changes to intentional Class C/A canon semantics, no touch of the 9 orphan-candidate KDs, no touch of Ruby/Patch/Rivet/Mason.
+
+## §60. Acceptance-condition reconciliation (post-review)
+
+Literal comparison of the approved Slice 3 prompt's acceptance conditions against actual evidence:
+
+| Requirement (Slice 3 prompt) | Status | Evidence |
+|---|---|---|
+| CASE 1 (`{A}` → delete A → archived + not retrievable) | Verified | Test 1 |
+| CASE 2 (`{A,B}` → delete A → active with `{B}`; then delete B → archived) | Verified | Tests 3 + 4 |
+| CASE 3 (born-empty ∅ → delete unrelated → no change) | Verified | Tests 5 + 6 |
+| Distinguish "became empty" from "was already empty" | Verified — by construction (§27, §45) | Signal design + tests 5-6 |
+| `deactivated_reason` semantics (active/default, operator_delete, orphaned_by_teammate_delete) | Verified | Model + test 10 |
+| Operator DELETE also stamps `operator_delete` | Verified | View + test 10 |
+| Legitimate re-ingestion reasoning + no accidental orphan reactivation | Verified | Ingestion gate + tests 11 + 12 |
+| pre_delete enforcement (if source still supports) — source still supports; split to pre_delete + post_delete for correctness | Verified | Signals + §42/§57 |
+| Atomic behavior (orphan-archive + Teammate delete) | **Verified by test 13** — was reasoned-only at first submission; closed by explicit failure-injection test after review | Test 13 + §50 |
+| Verify `instance.delete()` and `QuerySet.delete()` behavior | Verified — same Collector transaction boundary confirmed via Django source (`deletion.py:452`); test 9 covers bulk delete happy path; test 13 covers single-delete atomicity (inherited by bulk) | §42 + §50 evidence |
+| Regression matrix from §32 | Verified — all 10 designed cases exist + 2 additional (bulk, revival) + atomicity = 13 tests | Test file |
+| Test invariants "prove behavior, not implementation details" | Verified — every test asserts observable state (M2M count, is_active, retrieval output, provenance resolution) not internal wiring | Test file |
+| Do not weaken broadcast semantics | Verified | 293 embeddings-app tests including all existing retrieval-truth-table tests still green |
+| Delete modal copy per §34 semantics | Verified | Modal + copy-contract test |
+| No recovery UI | Verified — none added | Slice 3 diff |
+| Nine orphan KDs untouched | Verified | §55 direct DB query |
+| Migrations clean | Verified | `showmigrations` + `--dry-run --check` |
+| No provider credit spend | Verified — no provider calls in any code path added | Diff review |
+
+All acceptance conditions are now mechanically verified. **No other unmet acceptance condition remains after the atomicity gap closure.**
+

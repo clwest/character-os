@@ -1,5 +1,5 @@
 /**
- * SpokespersonDeleteModal — SESSION 251.
+ * SpokespersonDeleteModal — SESSION 251, extended in SESSION 275.
  *
  * Customer-facing delete confirmation for a Teammate. Fires
  * ``DELETE /api/spokespeople/<id>/`` on confirm; on success the
@@ -7,8 +7,15 @@
  *
  * Historical outputs (compositions, assets, transcripts, scripts,
  * campaigns, threads) survive the delete via the SESSION 251
- * SET_NULL migrations. The copy states this explicitly so the
- * customer knows what they are and are not signing up for.
+ * SET_NULL migrations.
+ *
+ * SESSION 275 — copy also discloses knowledge lifecycle: knowledge
+ * assigned only to this character is archived (audience-invariant
+ * enforcement — the ``pre_delete`` signal on ``Teammate`` prevents
+ * silent broadcast promotion). Knowledge shared with other
+ * characters stays with them; intentionally-shared canon knowledge
+ * stays shared. Audit doc:
+ * ``docs/design/SESSION_275_CHARACTER_KNOWLEDGE_LIFECYCLE_AUDIT.md``.
  *
  * Mirrors the visual + interaction shape of
  * ``ToolApprovalModal`` (Esc dismiss, backdrop dismiss when idle,
@@ -95,6 +102,17 @@ export function SpokespersonDeleteModal({
             {spokespersonName} will be removed from your team and can no
             longer be used to create new content. Existing generated
             videos and assets will remain in your library.
+          </p>
+          <p
+            className="text-sm text-muted-foreground"
+            data-testid="spokesperson-delete-knowledge-copy"
+          >
+            Knowledge assigned only to {spokespersonName} will be
+            archived and stop appearing in retrieval. Knowledge shared
+            with other characters stays with those characters, and
+            intentionally shared Universe or workspace knowledge stays
+            shared. {spokespersonName}'s private knowledge will not be
+            exposed to your other characters.
           </p>
         </div>
 

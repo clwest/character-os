@@ -60,6 +60,24 @@ class DocumentStatus(models.TextChoices):
     FAILED = "failed", "Failed"
 
 
+class DeactivationReason(models.TextChoices):
+    """SESSION 275 — reason a KD's ``is_active`` flipped False.
+
+    Empty string is the active/default state. Populated only when
+    ``is_active=False``. Distinguishes operator-initiated soft-delete
+    from system-initiated orphan-archive so audit + safe-revival
+    paths can act on the difference. Read-only via the API.
+    """
+    OPERATOR_DELETE = (
+        "operator_delete",
+        "Operator deleted",
+    )
+    ORPHANED_BY_TEAMMATE_DELETE = (
+        "orphaned_by_teammate_delete",
+        "Orphaned by teammate delete",
+    )
+
+
 # Embedding model is locked to text-embedding-3-small for v1
 # (scope lock §"Out of scope" — multi-model is a re-embed-all
 # event we defer). 1536 is the dimension that model emits.
@@ -219,6 +237,28 @@ class KnowledgeDocument(models.Model):
         help_text=(
             "Soft delete. ``retrieve_for_teammate`` filters "
             "``is_active=True``; admins can audit deleted docs."
+        ),
+    )
+
+    # SESSION 275 — audit-invariant support. Populated only when
+    # ``is_active=False``. Empty string on active rows (and on legacy
+    # pre-SESSION 275 soft-deletes, which the migration backfills to
+    # blank). Distinguishes operator-initiated soft delete
+    # (``OPERATOR_DELETE``, set by ``KnowledgeDocumentViewSet.destroy``)
+    # from system-initiated orphan-archive (``ORPHANED_BY_TEAMMATE_DELETE``,
+    # set by the ``pre_delete`` signal on ``Teammate`` when this KD's
+    # sole remaining spokesperson is being deleted). The safe-revival
+    # branch in ``ingestion._persist`` uses this field to reject
+    # revivals that would silently broaden an orphaned KD's audience.
+    # See ``docs/design/SESSION_275_CHARACTER_KNOWLEDGE_LIFECYCLE_AUDIT.md``.
+    deactivated_reason = models.CharField(
+        max_length=40,
+        blank=True,
+        default="",
+        choices=DeactivationReason.choices,
+        help_text=(
+            "Populated when ``is_active=False``. Blank when active. "
+            "Distinguishes operator soft-delete from system orphan-archive."
         ),
     )
 

@@ -70,6 +70,12 @@ ALLOWED_FILES = {
     # prior compositions/transcripts intact). Sanctioned test-side
     # writer; the pre_save signal still fires on every create.
     "apps/spokespeople/tests/test_delete.py",
+    # SESSION 275 Slice 3 — orphan-archive lifecycle tests seed a
+    # Composition row (with knowledge_chunk_ids provenance) to
+    # verify that historical Composition provenance still resolves
+    # after ``pre_delete``/``post_delete`` orphan-archive flips
+    # KD.is_active=False. Sanctioned test-side writer.
+    "apps/spokespeople/tests/test_delete_orphan_archive.py",
     "apps/compositions/tests/test_primitive_visual_clip.py",
     "apps/compositions/tests/test_v5_long_form.py",
     "apps/compositions/tests/test_v7_composite.py",

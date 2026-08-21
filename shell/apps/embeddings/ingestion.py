@@ -36,11 +36,31 @@ from apps.accounts.models import Workspace
 
 from . import pdf, url_fetch
 from .models import (
+    DeactivationReason,
     DocumentStatus,
     DocumentType,
     IngestedVia,
     KnowledgeDocument,
 )
+
+
+class OrphanRevivalRejected(Exception):
+    """SESSION 275 — raised by ``_persist`` when dedup would revive
+    a KnowledgeDocument that was archived because its last assigned
+    spokesperson was deleted, and the current ingestion call does
+    not supply an explicit new spokesperson set.
+
+    Reactivating such a KD into ``is_active=True`` with an empty
+    spokespeople M2M would silently broadcast its content to every
+    eligible teammate — the exact audience-widening hazard the
+    ``pre_delete`` signal on ``Teammate`` was introduced to prevent.
+    See ``docs/design/SESSION_275_CHARACTER_KNOWLEDGE_LIFECYCLE_AUDIT.md``
+    §23, §29.
+
+    The serializer catches this specifically and converts it to a
+    clean 400 for the operator (per-path, alongside the existing
+    ``pdf.PdfExtractionError`` / ``url_fetch.UrlFetchError`` handlers).
+    """
 
 if TYPE_CHECKING:
     from apps.spokespeople.models import Teammate
@@ -110,6 +130,33 @@ def _persist(
             )
             return IngestResult(document=existing, deduped=True)
 
+        # SESSION 275 — safe-revival gate. A KD archived by the
+        # ``pre_delete`` signal on ``Teammate`` (because its sole
+        # spokesperson was deleted) has ``spokespeople=∅``. Reviving
+        # it into ``is_active=True`` while leaving that M2M empty
+        # would flip the KD to broadcast-eligible under the retrieval
+        # predicate's ``Q(spokespeople__isnull=True)`` fallback — the
+        # exact audience-widening hazard the signal was introduced
+        # to prevent (audit doc §23). Require the caller to supply
+        # a non-empty explicit spokespeople set; otherwise reject.
+        # Operator-deleted rows (``OPERATOR_DELETE`` or legacy blank)
+        # revive unchanged — their prior M2M is preserved if the
+        # caller supplies nothing, or replaced if they supply new
+        # spokespeople.
+        if existing.deactivated_reason == (
+            DeactivationReason.ORPHANED_BY_TEAMMATE_DELETE
+        ):
+            if not spokespeople:
+                raise OrphanRevivalRejected(
+                    "This content matches a knowledge document that was "
+                    "archived when its assigned character was deleted. "
+                    "Reactivating it without an explicit character "
+                    "assignment would silently broaden its audience to "
+                    "every eligible teammate. Re-ingest with a specific "
+                    "character selected, or contact an admin to restore "
+                    "and reassign it manually."
+                )
+
         # Soft-deleted row with the same content: restore +
         # re-embed. embed_document is idempotent — it wipes
         # stale chunks before re-running, so calling it on a
@@ -117,11 +164,19 @@ def _persist(
         existing.is_active = True
         existing.status = DocumentStatus.PENDING
         existing.error_message = ""
+        # SESSION 275 — revival clears the deactivation reason.
+        # ``OPERATOR_DELETE`` reason no longer applies (the row is
+        # active again). For ``ORPHANED_BY_TEAMMATE_DELETE`` we only
+        # reach here when the caller supplied spokespeople (gate
+        # above), so the audience is bounded by that explicit set —
+        # safe to clear.
+        existing.deactivated_reason = ""
         new_title = title.strip()
         if new_title:
             existing.title = new_title
         existing.save(update_fields=[
-            "is_active", "status", "error_message", "title", "updated_at",
+            "is_active", "status", "error_message",
+            "deactivated_reason", "title", "updated_at",
         ])
         if spokespeople:
             existing.spokespeople.set(spokespeople)

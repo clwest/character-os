@@ -368,6 +368,13 @@ ALLOWED_FILES = {
     # but pattern-match on the raw import goes through the same
     # gate; whitelisting keeps the isolation intact.
     "apps/embeddings/tests/test_retrieval_universe_memory.py",
+    # SESSION 275 Slice 3 — orphan-archive lifecycle tests. Seeds
+    # KnowledgeChunk rows directly (with real pgvector vectors) to
+    # verify chunks + embeddings survive the pre_delete/post_delete
+    # orphan-archive path and that ``resolve_chunk_ids_to_docs``
+    # still returns provenance for archived KDs. Same sanction as
+    # the retrieval truth-table tests.
+    "apps/spokespeople/tests/test_delete_orphan_archive.py",
 }
 
 # The pattern we actually care about: ``<Model>.objects`` —
