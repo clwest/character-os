@@ -2359,6 +2359,271 @@ Frozen as HYPOTHESIS. Not scheduled.
 
 ---
 
+## §34. SESSION 273 CLOSEOUT — ARC NARRATIVE
+
+SESSION 273 is CLOSED. The narrative below preserves the actual order-of-discovery so future readers can see how the answers were arrived at, not just the final answers.
+
+### §34.A Product-level reset
+
+SESSION 273 intentionally opened by stepping BACK from the SESSION 270–272 synthesis/knowledge-shape rabbit hole. Rather than immediately picking another technical thread from SESSION 272's carry-forward list (compression-hint analog, Q-270-16 verifier, etc.), Chris asked for a product orientation across the whole Character OS surface (§1–§10). That orientation was durable, evidence-based, and produced a ranked candidate matrix (§6) with dogfood-first candidates preferred over speculative builds. The recommended next falsifiable question (§7) was fresh-substrate dogfood: *does the current Character OS work end-to-end for a completely new character in a completely new business, or does the fresh substrate expose friction saturated Patch/Rivet substrate has been hiding?*
+
+### §34.B Ruby / Mason substrate audit
+
+The audit (§11) found two existing wizard-default characters (Ruby, Mason) that predated SESSION 269 — meaning their identity/persona could not have been post-hoc tuned by anything the last three sessions taught. Both were minimally-authored (only `business_brief` + `personality` + `tone_archetype` populated; 8 richer persona fields empty on each). **Ruby: Category A (fully clean fresh-domain substrate).** **Mason: Category B (clean enough with one zero-effect failed composition).** Ruby was selected as the primary substrate; Mason deferred to a sequential companion.
+
+### §34.C Hidden knowledge contamination discovered
+
+§11.5 flagged that Ruby and Mason (both `universe_id = None` pre-attach) shared a workspace with 9 unbound workspace-only KnowledgeDocuments (Riggs, TANK, Tulsi, six Hearth & Hollow Books docs) that were *retrieval-eligible in principle* under the current `retrieve_for_teammate` semantics. §13.3 then **demonstrated** the leak mechanically: even the bakery-native probe *"sourdough starter feeding schedule"* on pre-attach Ruby pulled Bookstore Events + TANK + Tulsi + Children's Reading chunks — zero bakery content. Attaching Ruby to a fresh Fox & Flour Bakery Universe (§13) structurally eliminated the leak (post-attach probes returned zero chunks). Chris then confirmed Ruby's KD spokesperson m2m = Ruby only via the SPA (§17), producing the fully-isolated retrieval envelope used for all subsequent renders.
+
+### §34.D Ruby knowledge ingestion
+
+Chris authored one natural 6,599-char Fox & Flour Bakery KD (§13.4). Content deliberately not shaped by SESSION 272 findings (no paired paraphrase, no density manipulation). Chris approved AS-IS. §15 ingested through the production `KnowledgeDocumentSerializer.create` → `ingestion.ingest_text` → `embed_document.delay` path. 10/10 chunks embedded (100 % coverage). Retrieval probes confirmed Fox & Flour KD content dominated a natural bakery-native query (top chunk dist 0.4143). §17 verified Chris's SPA m2m edit landed as `[Ruby]` only. Retrieval isolation reconfirmed at 3 additional probes; zero external contamination.
+
+The shared/global knowledge semantics question was captured as a **separate architectural finding** (§17.6) with ten open sub-questions — precedence, ranking, top_k starvation, multi-character behavior, cross-Universe boundaries, operator terminology, etc. That finding was **deliberately not pursued inside SESSION 273** and is carried to SESSION 274 as the primary starting question.
+
+### §34.E Episode / cast operator path
+
+Chris created Episode `77b04b6b-…` (*"Why our sourdough takes its time"*) via the SPA (§23.1 background). Two subsequent Episode-create attempts returned 400s from the `episode_unique_title_per_universe` constraint — diagnosed as duplicate-title, not a defect. Then two operator-cast reports (400, then 404) were investigated in §19 and §21 respectively: **no reproducible backend defect** existed in either case; DRF `APIClient` with Chris's user + real Ruby + real Episode consistently returned 201, and no cast POST ever appeared in the Django access log. The URL-shape truth table (§21.2) documented what each candidate malformed URL would return. **No unjustified code fix was landed.** The episode/cast UX friction (multi-page traversal for cast add + no visible feedback on skipped clicks) contributed to the larger operator-friction problem later captured formally in §31.
+
+### §34.F Ruby first-render failure arc
+
+Chris's first `talking_head` on Episode `77b04b6b-…` failed at `duration_contract:too_short`. §23 initially concluded "no code defect" based on a single specimen. Chris then ran **three more** attempts on identical substrate. §25 froze the four-run cluster:
+
+| # | Composition | first-pass | corrective | verdict |
+|---|---|---|---|---|
+| 1 | `35eace56-…` | 594 | 893 | failed |
+| 2 | `21e25a2b-…` | 741 | 1032 | failed |
+| 3 | `f99fe915-…` | 503 | 1031 | failed |
+| 4 | `fcc52ef6-…` | 653 | 1008 | failed |
+
+Cluster mean 991, stdev 66. **Three of four corrective outputs cleared the 972-char hint minimum** (by +36 to +60 chars) **but zero of four cleared the 1080-char render acceptance minimum.** Provider safety worked correctly on every attempt (no Runway call, no cost). But operator reliability was unacceptable: an operator asking for a 90-second video should not have to click Render four times.
+
+### §34.G Duration-calibration root cause
+
+§25.4 traced the 0.90 calibration multiplier's history: introduced SESSION 253 amendment B to compensate gpt-5's first-pass overshoot on the operator target; recalibrated to 0.90 in SESSION 254 (Penny 90s Real-Runway dogfood). **A legitimate first-pass calibration.** The defect was that the corrective-expansion hint accidentally inherited the same synth-target math via code locality — no documented rationale existed for the corrective hint using the synth-target minimum specifically. For a 90 s render this meant the LLM was told "EXPAND TO AT LEAST 972 chars" while the actual render acceptance minimum was 1080. Fresh-substrate Ruby followed the lower instruction closely (+50-ish char overshoot) and consistently failed. Saturated Patch/Rivet (15 successful 90 s corrective renders in [1163, 1599] chars — mean ~1360) had historically masked the gap by overshooting the hint minimum by ~+380 chars on average.
+
+### §34.H §25 fix
+
+Commit **`e7e4d68`**. Surgical: on the expansion path of `synthesize_with_duration_gate`, compute `char_budget_for_duration(target_duration_seconds, max_script_chars=effective_cap)` and pass those bounds to `_expansion_hint` (and the dormant `_experimental_expansion_revision_hint`) instead of the calibrated synth-target bounds. For a 90 s render the corrective hint now says *"EXPAND YOUR SCRIPT TO AT LEAST 1080 CHARACTERS (aim for ~1350, do not exceed 1620). Target is 90s."*
+
+Explicitly unchanged:
+- First-pass K6 calibration (synth_target still 81 s for 90 s operator target)
+- Compression retry (still uses synth-target math; compression naturally overshoots)
+- CORRECT_ANCHOR wording (SESSION 272 Slice F preserved byte-for-byte)
+- `_DURATION_TOLERANCE` (0.20), `_AVATAR_SPEECH_CHARS_PER_SECOND` (15), `AVATAR_SPEECH_SAFE_MAX_CHARS` (1900), `K6_DURATION_SYNTHESIS_TARGET_MULTIPLIER` (0.90)
+- Acceptance gate — still raises `TOO_SHORT` / `TOO_LONG` / `OVER_PROVIDER_CAP` against the raw operator target
+- Provider guard — zero Runway spend on out-of-band synthesis
+
+6 new regression tests (`test_session273_corrective_targets_render_min.py`) + 1 updated existing test. Full compositions suite: 1,261 tests green in 97 s.
+
+### §34.I Ruby production success
+
+**Video #1 — Composition `2d50f101-8a92-439a-bcff-d12853c9dd3f` (§27) — "Why our sourdough takes its time":**
+- Post-fix corrective executed (all 8 §25 hint pins verified)
+- First-pass 521 chars → corrective 1273 chars → accepted → dispatched
+- Runway 81.7 s clip, $0.02 cost
+- K6.4 verifier: `verified` with 0 warnings
+- 11 / 11 material claims grounded in Ruby's KD (afternoon-before mixing / overnight proofing / two active starters / walk-in fridge / deck oven / ~15% whole wheat / olive-and-rosemary loaf / rye-caraway loaf / Friday dark-chocolate-sour-cherry sourdough / country loaf availability / half-loaf option)
+- Zero NarrativeMemory used
+- Wizard-default persona sufficient (all 8 richer persona fields still empty)
+
+**Video #2 — Composition `5052035e-f07e-4b42-bd3f-f4c3e0168a8f` (§29) — "Our celebration cakes":**
+- Distinct KD section (§Celebration cakes vs §Breads & sourdough)
+- Post-fix corrective executed (all 8 §25 hint pins verified again)
+- First-pass 900 chars → corrective 1243 chars → accepted → dispatched
+- Runway 79.5 s clip, $0.02 cost
+- K6.4 verifier: `verified` with 0 warnings
+- 17 GROUNDED + 1 SUPPORTED INFERENCE + 0 UNSUPPORTED across all material cake claims
+- Zero NarrativeMemory, zero persona enrichment, zero audience_hint
+- Chris's qualitative assessment: *"I think it's really good."*
+
+### §34.J Multi-domain verdict
+
+Two consecutive successful renders on two distinct KD sections with zero persona enrichment, zero NarrativeMemory, zero KD modification, zero audience-hint injection, zero manual tuning between videos. **Wizard-default multi-domain verdict: CONFIRMED, directional (n=2).** Explicitly not a general statistical reliability claim; further variance is expected. But sufficient to confirm that a minimally-authored wizard-default character CAN produce coherent, grounded, character-consistent output across distinct knowledge domains under WCV6 + §25.
+
+### §34.K NarrativeMemory
+
+Neither Ruby Episode warranted NarrativeMemory promotion. Both explain established Fox & Flour facts (sourdough craft / celebration-cake offerings) rather than narrating a story event that should influence later scenes. Fox & Flour Universe NarrativeMemory count remains 0. The knowledge-vs-story-event distinction (KNOWLEDGE = "Ruby's bakery does X"; NARRATIVE MEMORY = "something happened in this Episode that changes future scenes") held cleanly across both decisions.
+
+### §34.L Episode-creation UI finding
+
+Formal product finding captured in §31. Current common Episode flow exposes internal domain architecture across ~4 action-required pages / 6 total transitions. Repository timeline supports Chris's historical hypothesis: recipe / composition pipeline predates Universe (SESSION 261 commit `8f54bdb`) and Episode (SESSION 262 commit `adf334c`). §32 documents the one-page Episode creator as a validated SPA-only product hypothesis (zero backend changes; all existing APIs sufficient; domain integrity preserved). **Implementation intentionally NOT authorized in SESSION 273** — carried to SESSION 274 as a candidate.
+
+---
+
+## §35. SESSION 273 FINAL VERDICTS
+
+| Question | Verdict |
+| --- | --- |
+| **Fresh-substrate generalization** | **CONFIRMED directionally** (Ruby × 2 videos across 2 KD sections) |
+| **Wizard-default persona** | **SUFFICIENT** for coherent first / second standalone content; enrichment optional, not required |
+| **NarrativeMemory** | **NOT REQUIRED** for strong first / second standalone outputs (Fox & Flour: 0 memories, 2 videos verified) |
+| **Knowledge isolation** | **CONFIRMED** when Universe + character-scoped m2m are used intentionally (§13.3 leak demonstrated pre-attach → §15 / §17 / §27 / §29 all clean post-attach) |
+| **Shared / global knowledge semantics** | **NOT YET CHARACTERIZED INTENTIONALLY.** Carried to SESSION 274 as primary opening question. |
+| **§25 duration fix** | **PRODUCTION VERIFIED** (5 successful post-fix renders across two videos + Chris's four pre-fix failures preserved as regression evidence; 1,261 compositions tests green) |
+| **CORRECT_ANCHOR (SESSION 272 Slice F)** | **PRESERVED / STILL VERIFIED** (`_expansion_hint` function body byte-identical; production hint sample text still matches SESSION 272 §22.6 substring pins) |
+| **One-page Episode creation** | **FEASIBLE HYPOTHESIS, NOT IMPLEMENTED** (§32 — SPA-only; zero backend changes; not authorized this session) |
+| **Mason companion dogfood** | **DEFERRED** to SESSION 274+ |
+
+---
+
+## §36. SESSION 273 EVIDENCE INDEX
+
+All frozen artifacts under `docs/design/session_273_experiment_data/`. Every SESSION 273 finding can be reconstructed from these sidecars + this document without terminal history.
+
+| # | File | Section | Contents |
+| --- | --- | --- | --- |
+| 01 | `01_ruby_mason_substrate_audit.json` | §11 | Full Teammate + workspace-retrieval-env dump for Ruby + Mason. Contamination classification. |
+| 02 | `02_slice_alpha_universe_attach.json` | §13 | Fox & Flour Universe creation + Ruby attach + pre-attach / post-attach retrieval probes proving structural isolation. |
+| 03 | `03_slice_alpha_proposed_knowledge_document.md` | §13.4 / §15.1 | Chris-approved KD content (verbatim). |
+| 04 | `04_slice_alpha_kd_ingest_and_retrieval.json` | §15 | KD ingest evidence (10/10 chunks embedded) + first natural bakery-native retrieval probe. |
+| 05 | `05_slice_alpha_closeout_verification.json` | §17 | Post-SPA-edit KD verification (m2m = [Ruby]) + 3-probe retrieval isolation + persona SHA-256 invariance. |
+| 06 | `06_diag_cast_400.json` | §19 | Cast-add 400 diagnostic — three-probe not-reproduced evidence. |
+| 07 | `07_diag_cast_404.json` | §21 | Cast-add 404 diagnostic — URL-shape truth table. |
+| 08 | `08_slice_beta_ruby_failed_composition.json` | §23 | First Ruby render failure — full observability payload of Composition `35eace56-…`. |
+| 09 | `09_slice_beta_four_run_failure.json` | §25 | Four-run failure cluster + per-run hint SHAs + Ruby persona snapshot + cluster stats + Patch/Rivet comparison inputs. |
+| 10 | `10_slice_beta_success_forensics.json` | §27 | Ruby Video #1 forensic verification — full accepted brief + §25 hint pins + 11/11 grounding + 5-run comparison table. |
+| 11 | `11_slice_beta_video2_forensics.json` | §29 | Ruby Video #2 forensic verification — full accepted brief + §25 hint pins + 17-claim grounding scan + video #1 vs #2 comparison. |
+
+Read-only executor scripts (retained for reproducibility) under `scripts/`:
+- `session273_substrate_audit.py`
+- `session273_slice_alpha_universe_attach.py`
+- `session273_slice_alpha_ingest_kd.py`
+- `session273_slice_alpha_closeout_verify.py`
+- `session273_diag_cast_400.py`
+- `session273_diag_cast_404.py`
+- `session273_slice_beta_freeze.py`
+- `session273_four_run_freeze.py`
+- `session273_success_freeze.py`
+- `session273_ruby_video2_freeze.py`
+- `session273_closeout_invariants.py`
+
+Production fix (single-file diff):
+- `shell/character_os/duration_contract.py` — expansion branch of `synthesize_with_duration_gate`
+
+Tests added / edited:
+- `shell/apps/compositions/tests/test_session273_corrective_targets_render_min.py` (new — 6 tests)
+- `shell/apps/compositions/tests/test_duration_contract_talking_head.py::test_gate_retries_when_short_then_accepts` (updated to pin §25 behavior)
+
+---
+
+## §37. SESSION 273 INVARIANT / NON-CHANGE AUDIT (verified at closeout)
+
+Executed via `scripts/session273_closeout_invariants.py` immediately before this section was written. **38 / 38 invariants PASS.**
+
+| Invariant | Expected | Observed |
+| --- | --- | --- |
+| Writing Contract version | 6 | 6 ✓ |
+| `K6_DURATION_SYNTHESIS_TARGET_MULTIPLIER` | 0.90 | 0.90 ✓ |
+| `AVATAR_SPEECH_SAFE_MAX_CHARS` | 1900 | 1900 ✓ |
+| `calibrated_synthesis_target(90)` | 81 | 81 ✓ |
+| `_expansion_hint` contains `EXPAND YOUR SCRIPT` | ✓ | ✓ |
+| `_expansion_hint` absent `REWRITE THE SAME NARRATIVE ABOVE` | ✓ | ✓ |
+| `_expansion_hint` uses raw 90 s target under §25 caller | ✓ | ✓ |
+| `_expansion_hint` bounds (1080 / 1350 / 1620) | ✓ | ✓ |
+| `_compression_hint` still opens with `REWRITE THE SAME NARRATIVE BELOW` (out of scope) | ✓ (unchanged) | ✓ |
+| `char_budget_for_duration(60, cap)` | (900, 720, 1080) | ✓ |
+| `char_budget_for_duration(90, cap)` | (1350, 1080, 1620) | ✓ |
+| `char_budget_for_duration(120, cap)` | (1800, 1440, 1900) | ✓ |
+| Q-270-15c env var | empty (dormant) | empty ✓ |
+| Ruby `universe_id` | `1a0af807-…` (Fox & Flour) | ✓ |
+| Ruby `updated_at` | 2026-08-20 22:44:22 (from §13.2 attach; unchanged) | ✓ |
+| Ruby `business_brief` opening | §11.2 wizard-default | byte-identical ✓ |
+| Ruby `personality` opening | §11.2 wizard-default | byte-identical ✓ |
+| Ruby `character_point_of_view` / `voice_signature_phrases` / `voice_avoid_phrases` / `always_emphasize` / `never_say` / `who_you_help` / `what_you_sell` / `desired_feeling` | all empty (wizard-default) | all empty ✓ (8 checks) |
+| Mason `universe_id` | `None` (never attached) | `None` ✓ |
+| Mason `updated_at` | 2026-07-23 | unchanged ✓ |
+| KD `74e7f18f` `universe_id` | Fox & Flour | ✓ |
+| KD content_hash prefix | `7a0e4bd2551f…` (from §15 ingest) | ✓ |
+| KD `status` / `is_active` | `processed` / True | ✓ |
+| KD m2m spokespeople | `[Ruby]` only | ✓ |
+| Fox & Flour Universe `archived_at` | `None` | `None` ✓ |
+| Fox & Flour NarrativeMemory count | 0 | 0 ✓ |
+| Ruby successful compositions | 2 (Video #1 + Video #2) | 2 ✓ |
+| Ruby failed compositions | 4 (pre-§25 cluster preserved) | 4 ✓ |
+| Experiment env vars | none | none ✓ |
+| `_MOCK` env vars | none | none ✓ |
+
+Also verified externally (not part of the automated audit):
+- No shared / global knowledge experiment executed intentionally.
+- No one-page Episode UI implementation landed.
+- Runtime: Django `:8010` → 302 · media-engine `:8001/health` → all mocks false · Vite `:5174` → 200 · Celery `inspect ping` → 1 node online.
+- Repository: `main == origin/main`. Working tree clean before this closeout commit.
+
+---
+
+## Current Session 273 Status
+
+### Completed (final)
+
+- [x] Product-level reset + orientation (§1–§10)
+- [x] Ruby / Mason substrate audit — Ruby Category A · Mason Category B (§11)
+- [x] Fox & Flour Bakery Universe creation (`1a0af807-…`; §13.1)
+- [x] Ruby attach to Universe (§13.2)
+- [x] Hidden knowledge contamination demonstrated pre-attach (§13.3 — 8 of 9 unbound KDs leaked on real probes)
+- [x] KD proposed and Chris-approved (§13.4)
+- [x] KD ingested through production `/api/knowledge/` path (§15 — KD `74e7f18f-…`, 10/10 chunks embedded)
+- [x] Chris SPA edit — KD spokesperson m2m = Ruby only (§17.1)
+- [x] Retrieval isolation verified across 3 natural probes post-attach + post-ingest (§17.4–§17.5)
+- [x] Ruby persona SHA-256 invariance verified (§17.3)
+- [x] Shared / global knowledge finding captured as future falsifiable question (§17.6) — **deferred to SESSION 274**
+- [x] Episode `77b04b6b-…` created via SPA (§23.1 background)
+- [x] Cast-add 400 diagnostic — NOT REPRODUCED; no fix landed (§19)
+- [x] Cast-add 404 diagnostic — NOT REPRODUCED; no fix landed (§21)
+- [x] First Ruby render failure characterized (§23)
+- [x] Four-run duration failure cluster characterized (§25.1–§25.2)
+- [x] Patch/Rivet comparison — 15 successful 90 s corrective renders in [1163, 1599] chars (§25.3)
+- [x] §25 corrective-expansion fix implemented (§25.8 — commit `e7e4d68`)
+- [x] §25 automated regression coverage — 6 new tests + 1 updated; 1,261 compositions tests green (§25.9)
+- [x] §25 production verification — Video #1 `2d50f101-…` succeeded end-to-end (§27)
+- [x] Ruby Video #1 forensic verification — 11/11 claims GROUNDED (§27.5)
+- [x] Ruby Video #2 rendered — `5052035e-…` "Our celebration cakes" (§29)
+- [x] Ruby Video #2 forensic verification — 17 GROUNDED + 1 SUPPORTED INFERENCE + 0 UNSUPPORTED (§29.3)
+- [x] Multi-domain wizard-default verdict — CONFIRMED (n=2, directional) (§30.2)
+- [x] NarrativeMemory decision Video #1 — DO NOT PROMOTE (§27.7)
+- [x] NarrativeMemory decision Video #2 — DO NOT PROMOTE (§30.3)
+- [x] Episode-creation UI operator-friction finding captured (§31)
+- [x] One-page Episode creation hypothesis investigated — SPA-only feasible (§32) — **deferred to SESSION 274 for authorization decision**
+- [x] SESSION 273 arc narrative (§34)
+- [x] SESSION 273 final verdicts (§35)
+- [x] SESSION 273 evidence index (§36)
+- [x] SESSION 273 invariant / non-change audit — 38/38 PASS (§37)
+
+### Deferred to SESSION 274
+
+- [ ] Intentional shared / global knowledge experiment (frozen §17.6; **SESSION 274 primary opening question**)
+- [ ] One-page Episode creator implementation (frozen §32; requires Chris authorization)
+- [ ] Mason substrate companion dogfood (deferred §11.9 Slice ε)
+- [ ] Composition observability SPA surfacing (frozen §5 / §27.9.6 — 9 SESSION 262 fields captured per render but not visible in the SPA)
+
+### Future (unscheduled)
+
+- [ ] Optional Ruby Slice δ PublishBundle across Video #1 / Video #2 (§11.9)
+- [ ] Additional Ruby Episodes on unused KD sections (Bakery routines / Pastries / Ingredients & sourcing / Ruby's reason for operating)
+- [ ] Compression-hint analog — `_compression_hint` false anchor `REWRITE THE SAME NARRATIVE BELOW` (carried from SESSION 272 §22.5.1)
+- [ ] Q-270-16 K6.4 verifier false-positive fix (carried from SESSION 271 / 272)
+- [ ] YouTube ingest silent-failure hazard (memory `project_youtube_ingest_silent_failure`)
+- [ ] REPO RED Shape β authoring pathology (carried from SESSION 272 §22.5.5)
+
+### Next recommended action (for SESSION 274)
+
+- [ ] Open SESSION 274 with the shared / global knowledge product characterization (**READ-ONLY** first — do not change retrieval, rename UI labels, or migrate KDs). See `docs/design/SESSION_274_HANDOFF.md`.
+
+---
+
+## §38. SESSION 273 CLOSEOUT COMMIT SHA
+
+- SESSION 273 CLOSEOUT commit: (recorded at commit time — see git log)
+- SESSION 274 handoff: `docs/design/SESSION_274_HANDOFF.md`
+- Invariant audit script (read-only): `scripts/session273_closeout_invariants.py`
+- Full commit trail from SESSION 273 open to close available via `git log --oneline docs/design/SESSION_273_*.md docs/design/session_273_experiment_data/`.
+
+---
+
+**SESSION 273 CLOSED.** Fresh-substrate dogfood produced two successful production videos, one production duration-calibration fix (`e7e4d68`), one architectural product finding (shared/global knowledge semantics), one operator-UX product finding (one-page Episode creator). Writing Contract v6 unchanged. CORRECT_ANCHOR preserved. §25 corrective-floor fix production-verified. All invariants held. Ruby / KD / Universe / Mason / Patch / Rivet substrate untouched beyond the explicitly-authorized changes. See `docs/design/SESSION_274_HANDOFF.md` for next-session orientation.
+
+---
+
 ## Current Session 273 Status
 
 ### Completed
