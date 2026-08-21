@@ -24,10 +24,19 @@ Chris + ChatGPT review of Slice 3 flagged §50 as reasoned-only):
  12. Ingestion revival of operator-deleted KD works unchanged
  13. Atomicity: archive-step failure rolls back the whole delete
 
+SESSION 276 Slice 8 / Delta Stage 3A (Q-276-18) extends the archive
+step so a true final-character orphan is stamped
+``audience_scope=AudienceScope.NONE`` in the SAME bulk ``.update(...)``
+call. Tests are extended in place — same test IDs, additional
+audience_scope assertions — so a future regression against either
+SESSION 275's original contract OR Delta's audience-invariant
+extension fires on the same row.
+
 If any assertion fails, the audience invariant is broken. Do not
 "fix" the tests. Fix the model, the migration, the signal, or the
 ingestion gate. See
-``docs/design/SESSION_275_CHARACTER_KNOWLEDGE_LIFECYCLE_AUDIT.md``.
+``docs/design/SESSION_275_CHARACTER_KNOWLEDGE_LIFECYCLE_AUDIT.md`` +
+``docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md`` §99-§121.
 """
 from __future__ import annotations
 
@@ -41,6 +50,7 @@ from apps.embeddings.ingestion import (
     ingest_text,
 )
 from apps.embeddings.models import (
+    AudienceScope,
     DeactivationReason,
     DocumentStatus,
     DocumentType,
@@ -121,19 +131,28 @@ def _make_kd(
 def test_last_spokesperson_delete_legacy_inactivates_kd():
     """Case 1 (§26 row 1): universe=None, spokespeople={A}.
     Deleting A must archive the KD and remove it from any other
-    legacy teammate's retrieval."""
+    legacy teammate's retrieval.
+
+    SESSION 276 Slice 8 extension: the archive write also stamps
+    ``audience_scope=NONE`` — the true orphan has no safe surviving
+    audience.
+    """
     ws = _make_workspace("s275-1@t")
     a = Teammate.objects.create(workspace=ws, name="Alpha")
     other = Teammate.objects.create(workspace=ws, name="Other")
     kd = _make_kd(ws, "private-to-alpha", spokespeople=[a])
     assert kd.is_active is True
     assert kd.deactivated_reason == ""
+    # Fixture default: Stage 3 mutation-surface pass hasn't happened;
+    # test-factory-created KDs still start with audience_scope=None.
+    assert kd.audience_scope is None
 
     a.delete()
 
     kd.refresh_from_db()
     assert kd.is_active is False
     assert kd.deactivated_reason == DeactivationReason.ORPHANED_BY_TEAMMATE_DELETE
+    assert kd.audience_scope == AudienceScope.NONE  # SESSION 276 Slice 8
     assert kd.spokespeople.count() == 0  # through-row cascaded
 
     # And it must not surface to any other legacy teammate.
@@ -147,7 +166,10 @@ def test_last_spokesperson_delete_legacy_inactivates_kd():
 def test_last_spokesperson_delete_universe_inactivates_kd():
     """Case 2 (§26 row 2): universe=U, spokespeople={A}.
     Deleting A must archive the KD and NOT promote it to Class C
-    Universe-shared for other teammates in U."""
+    Universe-shared for other teammates in U.
+
+    SESSION 276 Slice 8 extension: same NONE stamp as Case 1.
+    """
     ws = _make_workspace("s275-2@t")
     u = Universe.objects.create(workspace=ws, name="World")
     a = Teammate.objects.create(workspace=ws, name="A", universe=u)
@@ -159,6 +181,7 @@ def test_last_spokesperson_delete_universe_inactivates_kd():
     kd.refresh_from_db()
     assert kd.is_active is False
     assert kd.deactivated_reason == DeactivationReason.ORPHANED_BY_TEAMMATE_DELETE
+    assert kd.audience_scope == AudienceScope.NONE  # SESSION 276 Slice 8
     assert kd.universe_id == u.id  # Universe untouched
     assert kd.spokespeople.count() == 0
 
@@ -172,17 +195,29 @@ def test_last_spokesperson_delete_universe_inactivates_kd():
 def test_multi_spokesperson_delete_one_leaves_kd_active():
     """Case 3 (§26 rows 3/4): spokespeople={A,B}. Deleting A
     narrows the audience to {B} — safe. KD stays active; B still
-    retrieves it."""
+    retrieves it.
+
+    SESSION 276 Slice 8 extension: narrowing deletes must NOT stamp
+    NONE — the signal filter (``sp_count=0``) already excludes this
+    KD from the archive set. ``audience_scope`` is preserved from
+    its pre-delete value (None in the current transitional fixture;
+    would be CHARACTER after Stage 3B).
+    """
     ws = _make_workspace("s275-3@t")
     a = Teammate.objects.create(workspace=ws, name="A")
     b = Teammate.objects.create(workspace=ws, name="B")
     kd = _make_kd(ws, "shared-ab", spokespeople=[a, b])
+    pre_delete_audience_scope = kd.audience_scope
 
     a.delete()
 
     kd.refresh_from_db()
     assert kd.is_active is True
     assert kd.deactivated_reason == ""
+    # SESSION 276 Slice 8: narrowing preserves audience_scope; must
+    # NOT be NONE.
+    assert kd.audience_scope == pre_delete_audience_scope
+    assert kd.audience_scope != AudienceScope.NONE
     assert list(kd.spokespeople.values_list("pk", flat=True)) == [b.pk]
 
     hits = retrieve_for_teammate(b, _query_vector=_vec(1.0), top_k=10)
@@ -193,20 +228,28 @@ def test_multi_spokesperson_delete_one_leaves_kd_active():
 
 
 def test_multi_spokesperson_delete_sequential_final_archives():
-    """Case 4 (§26 row 5): after A→{B}, deleting B must archive."""
+    """Case 4 (§26 row 5): after A→{B}, deleting B must archive.
+
+    SESSION 276 Slice 8 extension: intermediate delete preserves
+    ``audience_scope``; final delete stamps NONE.
+    """
     ws = _make_workspace("s275-4@t")
     a = Teammate.objects.create(workspace=ws, name="A")
     b = Teammate.objects.create(workspace=ws, name="B")
     kd = _make_kd(ws, "shared-ab-seq", spokespeople=[a, b])
+    pre_delete_audience_scope = kd.audience_scope
 
     a.delete()
     kd.refresh_from_db()
     assert kd.is_active is True
+    assert kd.audience_scope == pre_delete_audience_scope  # narrowing preserves
+    assert kd.audience_scope != AudienceScope.NONE
 
     b.delete()
     kd.refresh_from_db()
     assert kd.is_active is False
     assert kd.deactivated_reason == DeactivationReason.ORPHANED_BY_TEAMMATE_DELETE
+    assert kd.audience_scope == AudienceScope.NONE  # SESSION 276 Slice 8
     assert kd.spokespeople.count() == 0
 
 
@@ -217,19 +260,29 @@ def test_born_empty_class_c_canon_survives_universe_member_delete():
     """Case 5 (§26 row 7): KD born with spokespeople=∅ inside a
     Universe is Universe-shared canon. Deleting any Universe
     member must NOT touch it — the deleted member was never in
-    the M2M."""
+    the M2M.
+
+    SESSION 276 Slice 8 extension: intentional canon must NOT be
+    stamped NONE. The pre-delete snapshot excludes this KD from
+    the archive candidate set (Ruby was never in the M2M), so the
+    signal's ``.update()`` never touches it.
+    """
     ws = _make_workspace("s275-5@t")
     u = Universe.objects.create(workspace=ws, name="Bakery")
     ruby = Teammate.objects.create(workspace=ws, name="Ruby", universe=u)
     witness = Teammate.objects.create(workspace=ws, name="Witness", universe=u)
     canon = _make_kd(ws, "bakery-hours-canon", universe=u)  # spokespeople=∅
     assert canon.spokespeople.count() == 0
+    pre_delete_audience_scope = canon.audience_scope
 
     ruby.delete()
 
     canon.refresh_from_db()
     assert canon.is_active is True, "born-empty Class C canon must survive"
     assert canon.deactivated_reason == ""
+    # SESSION 276 Slice 8: canon must remain unchanged; NOT stamped NONE.
+    assert canon.audience_scope == pre_delete_audience_scope
+    assert canon.audience_scope != AudienceScope.NONE
     assert canon.universe_id == u.id
     hits = retrieve_for_teammate(witness, _query_vector=_vec(1.0), top_k=10)
     assert canon.id in {c.document_id for c in hits}
@@ -241,23 +294,34 @@ def test_born_empty_class_c_canon_survives_universe_member_delete():
 def test_born_empty_class_a_canon_survives_unrelated_delete():
     """Case 6 (§26 row 6): universe=None, spokespeople=∅ from
     intentional authoring. Deleting an unrelated legacy teammate
-    must NOT touch it."""
+    must NOT touch it.
+
+    SESSION 276 Slice 8 extension: same as Case 5 — canon must
+    NOT be stamped NONE by an unrelated teammate delete.
+    """
     ws = _make_workspace("s275-6@t")
     unrelated = Teammate.objects.create(workspace=ws, name="Unrelated")
     canon = _make_kd(ws, "workspace-canon")  # universe=None, spokespeople=∅
+    pre_delete_audience_scope = canon.audience_scope
 
     unrelated.delete()
 
     canon.refresh_from_db()
     assert canon.is_active is True
     assert canon.deactivated_reason == ""
+    assert canon.audience_scope == pre_delete_audience_scope
+    assert canon.audience_scope != AudienceScope.NONE
 
 
 # ---- 7. chunks + embeddings survive orphan archive -------------------
 
 
 def test_chunks_and_embeddings_survive_orphan_archive():
-    """Case 7: the archive step must NOT drop chunks or vectors."""
+    """Case 7: the archive step must NOT drop chunks or vectors.
+
+    SESSION 276 Slice 8 extension: also confirms the archive stamps
+    NONE while preserving chunk data.
+    """
     ws = _make_workspace("s275-7@t")
     a = Teammate.objects.create(workspace=ws, name="A")
     kd = _make_kd(ws, "keep-my-chunks", spokespeople=[a])
@@ -275,6 +339,7 @@ def test_chunks_and_embeddings_survive_orphan_archive():
 
     kd.refresh_from_db()
     assert kd.is_active is False
+    assert kd.audience_scope == AudienceScope.NONE  # SESSION 276 Slice 8
     assert kd.chunks.count() == 3
     for chunk in kd.chunks.all():
         assert chunk.embedding_vector is not None
@@ -305,6 +370,7 @@ def test_composition_provenance_resolves_after_orphan_archive():
 
     kd.refresh_from_db()
     assert kd.is_active is False
+    assert kd.audience_scope == AudienceScope.NONE  # SESSION 276 Slice 8
     # Composition survives (SET_NULL from SESSION 251) and its
     # provenance list still holds the same chunk UUIDs.
     comp.refresh_from_db()
@@ -341,8 +407,10 @@ def test_bulk_queryset_delete_triggers_orphan_archive_per_row():
     kd_shared.refresh_from_db()
     assert kd_a.is_active is False
     assert kd_a.deactivated_reason == DeactivationReason.ORPHANED_BY_TEAMMATE_DELETE
+    assert kd_a.audience_scope == AudienceScope.NONE  # SESSION 276 Slice 8
     assert kd_b.is_active is False
     assert kd_b.deactivated_reason == DeactivationReason.ORPHANED_BY_TEAMMATE_DELETE
+    assert kd_b.audience_scope == AudienceScope.NONE  # SESSION 276 Slice 8
     # kd_shared: last-teammate-standing depends on Django delete
     # order. Regardless of order, after both teammates are gone the
     # M2M is empty and one of the two pre_delete signals must have
@@ -352,6 +420,9 @@ def test_bulk_queryset_delete_triggers_orphan_archive_per_row():
         kd_shared.deactivated_reason
         == DeactivationReason.ORPHANED_BY_TEAMMATE_DELETE
     )
+    # SESSION 276 Slice 8: all three orphaned KDs — including the
+    # last-teammate-standing shared one — must be stamped NONE.
+    assert kd_shared.audience_scope == AudienceScope.NONE
 
 
 # ---- 10. deactivated_reason distinguishes operator vs orphan ---------
@@ -373,11 +444,19 @@ def test_deactivated_reason_distinguishes_operator_delete_from_orphan():
 
     # KD1: operator soft-delete via API
     kd_op = _make_kd(ws, "will-be-op-deleted", spokespeople=[a])
+    pre_op_audience_scope = kd_op.audience_scope
     r = client.delete(f"/api/knowledge/{kd_op.id}/")
     assert r.status_code == 204
     kd_op.refresh_from_db()
     assert kd_op.is_active is False
     assert kd_op.deactivated_reason == DeactivationReason.OPERATOR_DELETE
+    # SESSION 276 Slice 8: the operator-delete API path is NOT modified
+    # in this slice — it belongs to the Stage 3B mutation-surface pass.
+    # audience_scope must be preserved unchanged (NULL under current
+    # transitional fixtures; would be preserved to whatever it was
+    # after Stage 3B ships). Only orphan-archive stamps NONE.
+    assert kd_op.audience_scope == pre_op_audience_scope
+    assert kd_op.audience_scope != AudienceScope.NONE
 
     # KD2: orphan-archived via teammate delete
     kd_orphan = _make_kd(ws, "will-be-orphaned", spokespeople=[a])
@@ -388,6 +467,7 @@ def test_deactivated_reason_distinguishes_operator_delete_from_orphan():
         kd_orphan.deactivated_reason
         == DeactivationReason.ORPHANED_BY_TEAMMATE_DELETE
     )
+    assert kd_orphan.audience_scope == AudienceScope.NONE  # SESSION 276 Slice 8
 
 
 # ---- 11. ingestion revival rejects orphan without new spokespeople ---
@@ -413,6 +493,8 @@ def test_ingestion_revival_rejects_orphan_without_spokespeople():
     kd.refresh_from_db()
     assert kd.is_active is False
     assert kd.deactivated_reason == DeactivationReason.ORPHANED_BY_TEAMMATE_DELETE
+    # SESSION 276 Slice 8: archive stamps NONE.
+    assert kd.audience_scope == AudienceScope.NONE
 
     # Attempt to re-ingest identical content with NO new spokespeople.
     with pytest.raises(OrphanRevivalRejected):
@@ -429,9 +511,23 @@ def test_ingestion_revival_rejects_orphan_without_spokespeople():
         kd.deactivated_reason
         == DeactivationReason.ORPHANED_BY_TEAMMATE_DELETE
     ), "reason must be preserved on rejected revival"
+    # SESSION 276 Slice 8: audience_scope must also be preserved on
+    # rejected revival — the revival gate short-circuits before any
+    # mutation.
+    assert kd.audience_scope == AudienceScope.NONE
 
     # Now revive WITH an explicit new teammate — must succeed and
     # clear the deactivation reason.
+    #
+    # SESSION 276 Slice 8 known transitional state: this slice does
+    # NOT extend the ingestion revival path (Stage 3B territory), so
+    # audience_scope remains NONE post-revival even though is_active
+    # returns to True. That leaves a CHARACTER-shape row (M2M non-
+    # empty) carrying audience_scope=NONE — a Slice 4 §51 row-3
+    # malformed shape that will fail closed under retrieval today
+    # (safe) and be cleaned up when Stage 3B extends ingestion. This
+    # test intentionally does NOT assert audience_scope post-revival
+    # so it doesn't lock in transitional behavior.
     c = Teammate.objects.create(workspace=ws, name="C")
     result2 = ingest_text(
         workspace=ws,
@@ -537,6 +633,7 @@ def test_teammate_delete_atomic_if_orphan_archive_update_fails(monkeypatch):
     kd = _make_kd(ws, "atomic-source", spokespeople=[a])
     original_is_active = kd.is_active
     original_reason = kd.deactivated_reason
+    original_audience_scope = kd.audience_scope  # SESSION 276 Slice 8
     original_chunk_count = kd.chunks.count()
     assert original_is_active is True
     assert original_reason == ""
@@ -586,6 +683,18 @@ def test_teammate_delete_atomic_if_orphan_archive_update_fails(monkeypatch):
     )
     assert kd.deactivated_reason == original_reason, (
         "deactivated_reason must be unchanged (no partial archive commit)"
+    )
+    # SESSION 276 Slice 8 / Q-276-18 — the same failure-injection
+    # atomicity contract must hold for the new audience_scope field.
+    # If the archive .update() raises, the audience_scope stamp must
+    # roll back alongside is_active and deactivated_reason. Because
+    # all three fields ship in the same .update() call, this is
+    # inherited from the SESSION 275 atomicity guarantee — but it is
+    # asserted explicitly here so a future regression that split
+    # the writes across separate .update() calls would fail
+    # deterministically.
+    assert kd.audience_scope == original_audience_scope, (
+        "audience_scope must be unchanged (no partial NONE stamp)"
     )
     assert KnowledgeDocumentSpokesperson.objects.filter(
         teammate=a, knowledgedocument=kd,

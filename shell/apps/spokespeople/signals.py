@@ -175,13 +175,28 @@ def _archive_orphaned_kds_on_teammate_delete(sender, instance, **kwargs):
     ``mark_for_rollback_on_error``) — a raise here rolls the whole
     delete back. Test 9 in ``test_delete_orphan_archive.py`` locks
     the atomicity contract.
+
+    SESSION 276 Slice 8 / Delta Stage 3A (Q-276-18): the same archive
+    write also stamps ``audience_scope=AudienceScope.NONE``. A true
+    final-character orphan by construction has no safe surviving
+    audience — the Delta invariant (Slice 4 §51, §66) requires such
+    rows to fail closed. Stamping ``NONE`` in the same ``update()``
+    call keeps atomicity: either all three lifecycle fields
+    (``is_active``, ``deactivated_reason``, ``audience_scope``) commit
+    together or none do. Non-orphan multi-character-narrowing deletes
+    are excluded by the ``sp_count=0`` filter above and their
+    ``audience_scope`` is preserved unchanged.
     """
     kd_ids = getattr(instance, _ORPHAN_CANDIDATE_ATTR, None)
     if not kd_ids:
         return
 
-    # Lazy imports — same reason as pre_delete stash.
-    from apps.embeddings.models import DeactivationReason, KnowledgeDocument
+    # Lazy imports — same reason as pre_delete stash. AudienceScope was
+    # added in SESSION 276 Slice 5 (migration 0007); NONE is Delta's
+    # fail-closed value per Slice 4 §51.
+    from apps.embeddings.models import (
+        AudienceScope, DeactivationReason, KnowledgeDocument,
+    )
 
     orphan_ids = list(
         KnowledgeDocument.objects
@@ -196,6 +211,7 @@ def _archive_orphaned_kds_on_teammate_delete(sender, instance, **kwargs):
     KnowledgeDocument.objects.filter(pk__in=orphan_ids).update(
         is_active=False,
         deactivated_reason=DeactivationReason.ORPHANED_BY_TEAMMATE_DELETE,
+        audience_scope=AudienceScope.NONE,
         updated_at=timezone.now(),
     )
     logger.info(

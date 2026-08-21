@@ -3044,3 +3044,299 @@ Falsifiable by writing the ~2-line signal patch + 1 new assertion in the existin
 **End of SESSION 276 Slice 7 / Delta Stage 2. Deterministic backfill persisted. Q-276-22 CONFIRMED — 62/72 rows classified (CHARACTER=59, UNIVERSE=3), 10 rows preserved NULL, zero non-audience state changed. Migration head advanced to `0008_session276_stage2_backfill`. STOP for Chris + ChatGPT review of §109 recommendation, §110 gate, and §111 Q-276-18 next question.**
 
 **Slice 7 landed commit SHA:** `65be308` (`feat(session-276): Slice 7 / Delta Stage 2 — persist deterministic audience backfill`). Pushed to `origin/main`. Post-push `main == origin/main == 65be308`; working tree clean.
+
+**Slice 7 SHA-record follow-up:** `8e268d5` (`docs(session-276): record Slice 7 landed SHA 65be308`) — doc-only checklist + inline SHA record.
+
+---
+
+# SESSION 276 — Slice 8 / Delta Stage 3A — orphan-archive stamps `audience_scope=none` (Q-276-18)
+
+**Status.** IMPLEMENTATION SLICE — extends the SESSION 275 Teammate-delete orphan-archive `.update()` to atomically stamp `audience_scope='none'` alongside `is_active=False` and `deactivated_reason='orphaned_by_teammate_delete'`. Chris + ChatGPT authorized the smallest next question (Q-276-18) with the constraint that Slice 8 is limited to the lifecycle boundary only — no broader Stage 3B mutation-surface pass, no provenance, no retrieval change.
+
+**Slice 8 baseline.** `main == origin/main == 8e268d5` (Slice 7 SHA-record). Working tree clean at slice start. Real-DB state carried forward from Slice 7:
+
+- 72 KDs; `CHARACTER=59`, `UNIVERSE=3`, `NULL=10`, `WORKSPACE=0`, `NONE=0`
+- 0 inactive rows
+- 1149 chunks, 62 M2M through-rows
+- Migration head: `0008_session276_stage2_backfill`
+
+**Authorized product semantics** (from task):
+
+For a true final-character orphan, the desired durable state is:
+
+- `is_active=False`
+- `deactivated_reason='orphaned_by_teammate_delete'`
+- `audience_scope='none'`
+- spokespeople M2M empty
+- Universe preserved as historical/scope context
+- chunks preserved
+- embeddings preserved
+- Composition provenance preserved
+
+MUST NOT occur when:
+
+- deleting one member of a multi-character KD leaves another member
+- deleting an unrelated teammate near intentionally shared canon
+- a KD was intentionally born empty/shared
+
+## §113. Slice 8 falsifiable question — Q-276-18
+
+> If the existing SESSION 275 Teammate-delete orphan archive operation is extended so that a true final-character orphan is stamped `audience_scope='none'` in the SAME archive write that sets `is_active=False` and `deactivated_reason='orphaned_by_teammate_delete'`, does the complete SESSION 275 lifecycle contract — especially bulk-delete behavior and failure-injection atomicity — remain correct?
+
+**Prediction:** yes. The change is a one-field addition to the existing bulk `.update(...)`. All 5 existing SESSION 275 lifecycle guarantees plus the failure-injection atomicity contract must hold, with the new invariant added: true orphans get `NONE`; non-orphans preserve pre-delete `audience_scope`.
+
+## §114. Exact signal diff (`shell/apps/spokespeople/signals.py`)
+
+Two surgical changes to `_archive_orphaned_kds_on_teammate_delete`:
+
+**1.** Lazy import extended to include `AudienceScope`:
+
+```python
+# Before:
+from apps.embeddings.models import DeactivationReason, KnowledgeDocument
+
+# After:
+from apps.embeddings.models import (
+    AudienceScope, DeactivationReason, KnowledgeDocument,
+)
+```
+
+**2.** Bulk `.update()` extended with one field:
+
+```python
+# Before:
+KnowledgeDocument.objects.filter(pk__in=orphan_ids).update(
+    is_active=False,
+    deactivated_reason=DeactivationReason.ORPHANED_BY_TEAMMATE_DELETE,
+    updated_at=timezone.now(),
+)
+
+# After:
+KnowledgeDocument.objects.filter(pk__in=orphan_ids).update(
+    is_active=False,
+    deactivated_reason=DeactivationReason.ORPHANED_BY_TEAMMATE_DELETE,
+    audience_scope=AudienceScope.NONE,
+    updated_at=timezone.now(),
+)
+```
+
+Docstring block also extended with a SESSION 276 Slice 8 paragraph explaining why the NONE stamp belongs in the same `.update()` (atomicity inheritance from SESSION 275 test 13).
+
+Zero other code changes anywhere. No refactor. No new signal. No pre_delete/post_delete restructuring. The `sp_count=0` filter (existing) still gates which KDs receive the stamp — narrowing deletes are excluded by construction.
+
+## §115. Test changes (`shell/apps/spokespeople/tests/test_delete_orphan_archive.py`)
+
+Extended the existing SESSION 275 lifecycle regression suite in place — same 13 test IDs, additional `audience_scope` assertions. Two new imports (`AudienceScope`) and one docstring update. No parallel test file created.
+
+Per-test extensions:
+
+| Test | New audience_scope assertions |
+|---|---|
+| Case 1 (singleton legacy orphan) | `kd.audience_scope is None` pre-delete (fixture default); `kd.audience_scope == AudienceScope.NONE` post-archive |
+| Case 2 (singleton Universe orphan) | Same |
+| Case 3 (multi-spokesperson narrowing) | Capture `pre_delete_audience_scope`; assert unchanged post-delete; assert `!= AudienceScope.NONE` |
+| Case 4 (sequential final orphan) | Intermediate: unchanged. Final: `AudienceScope.NONE` |
+| Case 5 (Class C canon + Universe-member delete) | `pre_delete_audience_scope` captured; unchanged post-delete; NOT NONE |
+| Case 6 (Class A canon + unrelated delete) | Same as Case 5 |
+| Case 7 (chunks + embeddings survive) | Post-archive: `AudienceScope.NONE` |
+| Case 8 (Composition provenance) | Post-archive: `AudienceScope.NONE`; provenance still resolves |
+| Case 9 (bulk QuerySet delete) | All 3 orphaned KDs (kd_a, kd_b, kd_shared) stamped `AudienceScope.NONE` |
+| Case 10 (operator-delete vs orphan) | Operator-delete API path preserves `audience_scope` (Stage 3B scope, NOT changed here); orphan path stamps NONE |
+| Case 11 (revival gate) | Post-archive NONE; rejected-revival preserves NONE. Post-successful-revival intentionally NOT asserted (Stage 3B revival extension will address the malformed CHARACTER-shape+NONE state that emerges — flagged as known transitional) |
+| Case 12 (operator-delete revival) | No new assertions (operator-delete never touches audience_scope) |
+| **Case 13 (atomicity failure-injection — LOAD-BEARING)** | Capture `original_audience_scope`; assert `kd.audience_scope == original_audience_scope` post-rollback — proves the NONE stamp rolls back atomically with the other lifecycle fields |
+
+Total additions: ~30 lines across the 13 tests. Zero behavior weakening — every existing assertion still fires.
+
+## §116. Extended lifecycle test results
+
+```
+$ pytest apps/spokespeople/tests/test_delete_orphan_archive.py -v
+13 passed in 5.55s
+
+  Case 1  test_last_spokesperson_delete_legacy_inactivates_kd            PASSED
+  Case 2  test_last_spokesperson_delete_universe_inactivates_kd          PASSED
+  Case 3  test_multi_spokesperson_delete_one_leaves_kd_active            PASSED
+  Case 4  test_multi_spokesperson_delete_sequential_final_archives       PASSED
+  Case 5  test_born_empty_class_c_canon_survives_universe_member_delete  PASSED
+  Case 6  test_born_empty_class_a_canon_survives_unrelated_delete        PASSED
+  Case 7  test_chunks_and_embeddings_survive_orphan_archive              PASSED
+  Case 8  test_composition_provenance_resolves_after_orphan_archive      PASSED
+  Case 9  test_bulk_queryset_delete_triggers_orphan_archive_per_row      PASSED
+  Case 10 test_deactivated_reason_distinguishes_operator_delete_from_    PASSED
+  Case 11 test_ingestion_revival_rejects_orphan_without_spokespeople     PASSED
+  Case 12 test_ingestion_revival_of_operator_deleted_kd_still_works      PASSED
+  Case 13 test_teammate_delete_atomic_if_orphan_archive_update_fails     PASSED
+```
+
+## §117. Per-scenario evidence
+
+**A — Singleton orphan gets NONE** (Case 1 + Case 2): confirmed. Both legacy and Universe scopes stamp `AudienceScope.NONE` in the same archive write.
+
+**B — Narrowing delete does NOT stamp NONE** (Case 3): confirmed. Pre-delete `audience_scope` captured (None in transitional fixture); post-A-delete audience_scope unchanged. `sp_count=0` signal filter excludes this KD from the archive candidate set.
+
+**C — Intentional shared canon untouched** (Cases 5 + 6): confirmed. Empty-M2M canon KDs, when an unrelated teammate is deleted, retain their audience_scope. The `pre_delete` snapshot excludes them (deleted teammate was never in their M2M).
+
+**D — Bulk / QuerySet delete** (Case 9): confirmed. `Teammate.objects.filter(pk__in=[a.pk, b.pk]).delete()` correctly archives `kd_a`, `kd_b`, and the last-teammate-standing `kd_shared` — all three stamped `NONE`.
+
+**E — Atomic failure injection** (Case 13): confirmed. Injected `InjectedArchiveFailure` in the archive `.update()` triggers rollback of the entire delete plan. Post-rollback assertions verified:
+
+- Teammate row still exists ✓
+- KnowledgeDocument still exists ✓
+- `is_active == original_is_active` (True) ✓
+- `deactivated_reason == original_reason` ('') ✓
+- **`audience_scope == original_audience_scope` (None) ✓** ← NEW Slice 8 assertion
+- M2M through-row still exists ✓
+- chunks unchanged ✓
+
+The NONE stamp rolls back atomically with the other lifecycle fields because all three ship in the same `.update()` call.
+
+**F — Preserved SESSION 275 semantics** (all 13 tests): confirmed. No pre-existing assertion was weakened; every SESSION 275 guarantee still fires.
+
+## §118. Real-DB post-Slice-8 verification
+
+Signal code changed; real DB rows did not change (no Teammate was deleted during Slice 8).
+
+```
+$ manage.py shell -c "..."
+total=72
+distribution={'universe': 3, 'character': 59, None: 10}
+inactive=0
+chunks=1149
+m2m=62
+```
+
+Byte-identical to Slice 7 §103 post-migration state. Zero drift. Slice 8 changes future lifecycle behavior only.
+
+## §119. Broader regression results
+
+```
+$ pytest apps/spokespeople/tests/test_delete_orphan_archive.py \
+         apps/embeddings/tests/test_audience_scope_stage1.py \
+         apps/embeddings/tests/test_stage2_backfill_migration.py -q
+28 passed in 6.79s                          # extended lifecycle + Stage 1 + Stage 2 migration
+
+$ python manage.py makemigrations --check embeddings
+No changes detected in app 'embeddings'    # no schema drift
+
+$ pytest apps/embeddings/ apps/spokespeople/ apps/universe/ apps/compositions/ -q
+1651 passed, 2 warnings in 126.36s          # broader — same count as Slice 7
+```
+
+Every regression suite unchanged in count from Slice 7. The 2 warnings are pre-existing DateTime naive-vs-aware unrelated to Slice 8.
+
+## §120. Prediction vs actual
+
+| Prediction | Actual | Status |
+|---|---|---|
+| One tiny signal-write extension (~1 field to `.update()` + 1 import addition) | Exactly that; docstring block also extended for durability | ✓ |
+| True orphan gets NONE (single delete) | Cases 1, 2 pass | ✓ |
+| True orphan gets NONE (bulk delete) | Case 9: all 3 stamped NONE | ✓ |
+| Non-orphans (narrowing) preserve audience_scope; NOT NONE | Cases 3, 4 (intermediate) pass | ✓ |
+| Intentional canon untouched; NOT NONE | Cases 5, 6 pass | ✓ |
+| Failure injection proves atomicity including audience_scope rollback | Case 13 pass with new `original_audience_scope` assertion | ✓ |
+| Current real DB unchanged | 72 KDs; same distribution; 0 inactive | ✓ |
+| All 13 SESSION 275 lifecycle tests still pass | 13/13 pass | ✓ |
+| Broader regression unchanged | 1651/1651 pass | ✓ |
+| No schema drift | `makemigrations --check` clean | ✓ |
+
+**Q-276-18 CONFIRMED.** Zero falsifications. Zero unexpected findings.
+
+## §121. Known transitional state (not a bug)
+
+After Slice 8, an operator-triggered ingestion revival of an orphan-archived KD produces a row with:
+
+- `is_active=True` (revived)
+- `deactivated_reason=""` (cleared by revival)
+- `audience_scope='none'` (still — ingestion revival NOT extended in this slice)
+- `spokespeople=[c]` (new explicit set)
+
+This is a Slice 4 §51 row-3 malformed shape (`CHARACTER-like M2M + audience_scope=NONE + active`). It **fails closed under retrieval** (the future Delta predicate keys positively on audience_scope; NONE never matches) — so no leak. It is a KNOWN Stage-3B follow-up: extending `ingestion._persist` at `shell/apps/embeddings/ingestion.py:181-187` to also clear `audience_scope` (or set it to `CHARACTER`) on revival will resolve it. Slice 8 intentionally does NOT lock in an assertion about this transitional state (Case 11 comment records the deferred concern).
+
+Retrieval today still uses the legacy empty-M2M-broadcast predicate; the malformed shape doesn't leak until Stage 5 switches retrieval. By that time Stage 3B should have shipped.
+
+## §122. Files changed (Slice 8)
+
+```
+ M shell/apps/spokespeople/signals.py                                        (+18 lines — docstring + import + one .update() field)
+ M shell/apps/spokespeople/tests/test_delete_orphan_archive.py               (+~40 lines — extended assertions, one import)
+?? docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md                     (this Slice 8 section)
+```
+
+Zero SPA / retrieval / mutation-surface / serializer / admin / ingestion / migration / constraint changes.
+
+## §123. Unresolved questions
+
+Carried from Slice 4 §67, Slice 5 §81, Slice 6 §94, Slice 7 §108 (all still open):
+
+- Stage 3B mutation-surface pass (§121 explicitly flags the ingestion revival extension as the smallest follow-up).
+- Provenance direction Alpha vs Beta.
+- Retrieval predicate switch (Stage 5).
+- Operator triage UI for the 10 ambiguous rows (Stage 4).
+- DB CHECK constraints + NOT NULL cutover (Stage 6).
+- SPA audience UI (deferred; server-side inference for authoring remains preserved).
+- Bundle vs split (still open from Slice 1 §8.4).
+
+**No new Slice-8-specific unresolved questions.** The known transitional state at §121 is a documented Stage-3B follow-up, not an unresolved question.
+
+## §124. Recommendation
+
+**Q-276-18 is confirmed. Delta lifecycle boundary is now audience-invariant-aware.** A future orphan-archive on a live Teammate delete will atomically stamp `is_active=False + deactivated_reason='orphaned_by_teammate_delete' + audience_scope='none'` in one bulk write; all three roll back atomically on failure.
+
+Slice 8 does not authorize any further work. Each subsequent stage requires an independent Chris + ChatGPT decision:
+
+- **Stage 3B mutation-surface pass** — extend ingestion `_persist`, `KnowledgeDocumentSerializer.create/update`, and `views.KnowledgeDocumentViewSet.attach/detach` to set / update `audience_scope` on writes. Preserves server-side inference (Slice 4 §60). This is the natural next step and resolves the known transitional state in §121.
+- **Operator triage UI** (Stage 4).
+- **Retrieval predicate switch** (Stage 5).
+- **CHECK constraints + NOT NULL cutover** (Stage 6).
+
+## §125. Explicit STOP gate
+
+**STOP.** Slice 8 authorizes no further work.
+
+Do NOT begin:
+
+- Stage 3B mutation-surface pass (ingestion, serializer, attach/detach)
+- Provenance work (Direction Alpha / Beta)
+- Retrieval predicate change
+- Operator triage UI
+- DB CHECK constraints
+- NOT NULL cutover
+- SPA audience-picker or audience-visibility UI
+- Removal of SESSION 275 protections
+
+## §126. Smallest recommended next question
+
+**Q-276-23.** *If `ingestion._persist` at `shell/apps/embeddings/ingestion.py:164-186` is extended so that reviving any inactive KD ALSO clears `audience_scope` to NULL (letting Stage 3B's serializer/view mutation-surface pass then re-classify to CHARACTER via server-side inference from the caller-supplied `spokespeople` list), does the SESSION 276 §121 transitional inconsistency disappear without breaking either the SESSION 275 revival gate or the Slice 8 archive contract?*
+
+Falsifiable by extending `ingestion._persist` (~2 lines to add `existing.audience_scope = None` alongside the `deactivated_reason=""` clear at line 173) + adding one assertion to Case 11 that post-revival `audience_scope IS NULL` (transitional-safe until Stage 3B/serializer sets it). Small, well-scoped, addresses the §121 known transitional state directly.
+
+## §127. Slice 8 checklist
+
+- [x] Step 0 — commit + push Slice 7 SHA-record (commit `8e268d5`)
+- [x] Slice 8 baseline verified — `main == origin/main == 8e268d5`, working tree clean at slice start
+- [x] Q-276-18 falsifiable question stated (§113)
+- [x] Signal diff (§114) — one field added to bulk `.update()`; one import extension; docstring block extended
+- [x] Test extensions (§115) — 13 tests updated in place with `audience_scope` assertions; no parallel test file
+- [x] Test A: singleton orphan gets NONE — Cases 1, 2 pass (§116)
+- [x] Test B: narrowing delete does NOT stamp NONE — Cases 3, 4 pass (§116)
+- [x] Test C: shared canon untouched — Cases 5, 6 pass (§116)
+- [x] Test D: bulk / QuerySet delete stamps NONE for true orphans only — Case 9 pass (§116)
+- [x] Test E: atomic failure injection rolls back audience_scope — Case 13 pass with new assertion (§117)
+- [x] Test F: preserved SESSION 275 semantics — all 13 lifecycle tests pass (§116)
+- [x] Combined Slice 5 + Slice 7 + Slice 8 tests: 28/28 pass (§119)
+- [x] Broader regression: 1651/1651 pass (§119)
+- [x] `makemigrations --check embeddings` clean (§119)
+- [x] Real DB unchanged: 72 KDs, `CHARACTER=59, UNIVERSE=3, NULL=10, NONE=0, inactive=0` (§118)
+- [x] Known Stage-3B transitional state documented (§121)
+- [x] Prediction vs actual — Q-276-18 CONFIRMED (§120)
+- [x] Files changed inventory (§122)
+- [x] Explicit STOP gate (§125)
+- [x] Smallest next question Q-276-23 (§126)
+- [x] Zero provenance / retrieval / mutation-surface / SPA / migration / constraint changes; zero provider spend
+- [ ] Commit + push Slice 8
+- [ ] Chris + ChatGPT review + Slice 9 scoping decision (§124)
+
+---
+
+**End of SESSION 276 Slice 8 / Delta Stage 3A. Orphan-archive extended to stamp `audience_scope='none'` atomically. Q-276-18 CONFIRMED — 13/13 SESSION 275 lifecycle tests pass with new audience assertions; failure-injection atomicity holds for all three fields; canon and narrowing untouched. Real DB unchanged (no Teammate deleted). STOP for Chris + ChatGPT review of §124 recommendation, §125 gate, and §126 Q-276-23 next question.**
