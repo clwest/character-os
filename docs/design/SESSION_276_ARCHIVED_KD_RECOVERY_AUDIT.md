@@ -6955,12 +6955,14 @@ STOP before Slice 19 (archive-path extension). Review Slice 18 evidence with Chr
 - [x] Explicit STOP gate (§337)
 - [x] Smallest next question Q-276-35 (§338)
 - [x] Zero DB mutation; zero code change; zero migration; zero legacy row mutation; zero `33c07feb` mutation; no hard-delete; no NULL compatibility removal; no NOT NULL constraint; no CHECK constraint; no universe_canon aesthetic cleanup; no recovery UI; no provider spend
-- [ ] Commit + push Slice 18 documentation
+- [x] Commit + push Slice 18 documentation — landed as `0855c2f`
 - [ ] Chris + ChatGPT review + Slice 19 scoping decision
 
 ---
 
 **End of SESSION 276 Slice 18 / Delta Stage 7 opener. Audit-only lands. Part B STOP condition triggered exactly as authorization requested — the existing `destroy()` operator-delete path does NOT stamp `audience_scope=NONE`; NULL rows would remain NULL after soft-archive, which mismatches the intended Delta-safe target. No DB mutation performed. 9 §316 rows durably inventoried by UUID + shape; `33c07feb` forensically profiled with two evidence-supported options (WORKSPACE vs NONE) pending admin@mail.com signoff; NULL-debt analysis proves fresh writes can still produce NULL. 332 backend + 656 SPA tests pass unchanged; real DB byte-identical for 12th consecutive slice. STOP for Chris + ChatGPT review of §336 recommendation, §337 gate, §338 Q-276-35 next-question candidate.**
+
+**Slice 18 landed commit SHA:** `0855c2f` (`docs(session-276): Slice 18 / Delta Stage 7 opener — legacy-KD archive audit (Q-276-33) STOP finding, no mutation`). Pushed to `origin/main`. Post-push `main == origin/main == 0855c2f`; working tree clean. Documentation-only landing (no code, no test, no DB delta).
 
 
 
