@@ -78,6 +78,33 @@ class DeactivationReason(models.TextChoices):
     )
 
 
+class AudienceScope(models.TextChoices):
+    """SESSION 276 Slice 5 / Delta Stage 1 — first-class audience marker.
+
+    Replaces the negative-shape-derived audience semantics
+    (empty-M2M-broadcast) documented in
+    ``docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md``
+    §31, §46-§71. The full four-state model is Slice 4 §50 and
+    §51.
+
+    Stage 1 posture: the field is nullable, unpopulated on every
+    existing row, and NOT consulted by retrieval or any mutation
+    path. Retrieval keeps the empty-M2M-broadcast semantics at
+    ``apps/embeddings/retrieval.py:216-220`` unchanged. Later
+    stages populate rows deterministically, extend mutation
+    surfaces to set the field, and only then switch retrieval to
+    key on the field positively.
+
+    NULL is a MIGRATION-ONLY state — post-Delta the field will be
+    NOT NULL. NULL does NOT mean WORKSPACE; it means "audience
+    not yet classified under Delta."
+    """
+    CHARACTER = ("character", "Character-specific")
+    UNIVERSE = ("universe", "Universe-shared")
+    WORKSPACE = ("workspace", "Workspace-shared")
+    NONE = ("none", "None — fail-closed")
+
+
 # Embedding model is locked to text-embedding-3-small for v1
 # (scope lock §"Out of scope" — multi-model is a re-embed-all
 # event we defer). 1536 is the dimension that model emits.
@@ -259,6 +286,29 @@ class KnowledgeDocument(models.Model):
         help_text=(
             "Populated when ``is_active=False``. Blank when active. "
             "Distinguishes operator soft-delete from system orphan-archive."
+        ),
+    )
+
+    # SESSION 276 Slice 5 / Delta Stage 1 — first-class audience
+    # marker. NULL on every existing row after this migration;
+    # retrieval + mutation paths do NOT yet consult this field.
+    # Empty-M2M-broadcast semantics at
+    # ``apps/embeddings/retrieval.py:216-220`` remain authoritative
+    # during Stage 1. Later stages populate rows deterministically
+    # and switch retrieval to key on this field positively.
+    # See ``docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md``
+    # §46-§71 for the full Delta design and staged rollout plan.
+    audience_scope = models.CharField(
+        max_length=20,
+        choices=AudienceScope.choices,
+        null=True,
+        blank=True,
+        default=None,
+        help_text=(
+            "Delta Stage 1 first-class audience marker. NULL is a "
+            "MIGRATION-ONLY state during Delta rollout; NULL does NOT "
+            "mean WORKSPACE. Retrieval currently does not consult this "
+            "field. See SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md."
         ),
     )
 

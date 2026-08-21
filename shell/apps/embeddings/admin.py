@@ -31,7 +31,15 @@ class KnowledgeDocumentAdmin(admin.ModelAdmin):
     )
     list_filter = ("status", "document_type", "ingested_via", "is_active")
     search_fields = ("title", "content_hash", "workspace__name")
-    readonly_fields = ("id", "content_hash", "created_at", "updated_at")
+    # SESSION 276 Slice 5 / Delta Stage 1 — ``audience_scope`` is
+    # readonly in admin so admins cannot accidentally mutate it before
+    # Delta invariants (Slice 4 §52) are enforced at the model layer
+    # in later stages. Stage 1 posture: field exists, is visible for
+    # audit, and cannot be edited via any operator surface.
+    readonly_fields = (
+        "id", "content_hash", "created_at", "updated_at",
+        "audience_scope",
+    )
     # ``filter_horizontal`` is incompatible with an explicit M2M
     # ``through=`` (admin.E013). The explicit through
     # (``KnowledgeDocumentSpokesperson``) is load-bearing per
