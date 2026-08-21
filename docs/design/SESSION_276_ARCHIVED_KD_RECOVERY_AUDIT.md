@@ -112,7 +112,7 @@ Per SESSION 275 §14 diagram, Teammate deletion is SET_NULL for `Composition.spo
 
 **Hearth & Hollow (#1–#6):** zero Composition, Asset, or CharacterIdentity row references *Hearth*, *Hollow*, or *bookstore*. No forensic SET_NULL fingerprint exists for a Hearth & Hollow Teammate.
 
-**Riggs (#9):** Riggs teammate CURRENTLY EXISTS (`5731a73d`, `status=ready`, `created_at=2026-08-17T15:52:32`); its CharacterIdentity row (`2026-08-17T15:53:11`) has an intact `teammate` link. The Riggs KD was created at `2026-08-17T15:53:36` — 64 seconds AFTER the Riggs teammate row and 25 seconds AFTER its CharacterIdentity row. The KD content is a stub ("Just knows a lot about everything") and was ingested unattached (`spokespeople=∅`). This is **not** an orphan pattern — it is a live teammate + a stub knowledge doc that was ingested without an M2M attach.
+**Riggs (#9):** Riggs teammate CURRENTLY EXISTS (`5731a73d`, `status=ready`, `created_at=2026-08-17T15:52:32`); its CharacterIdentity row (`2026-08-17T15:53:11`) has an intact `teammate` link. The Riggs KD was created at `2026-08-17T15:53:36` — 64 seconds AFTER the Riggs teammate row and 25 seconds AFTER its CharacterIdentity row. The KD content is a stub ("Just knows a lot about everything") and was ingested unattached (`spokespeople=∅`). ~~This is **not** an orphan pattern — it is a live teammate + a stub knowledge doc that was ingested without an M2M attach.~~ **CORRECTED — see §279:** the "not an orphan pattern" conclusion is retracted. The raw observations above (name collision + 64s timing proximity + intact CharacterIdentity FK) remain factually correct, but do not establish that the KD was authored for the currently live Riggs Teammate — operator (Chris) clarified 2026-08-21 that this was an auto-select control test. Intended audience is INDETERMINATE.
 
 ### §4.3 Design-doc / knowledge-base references
 
@@ -141,9 +141,9 @@ Using this evidence hierarchy: PROVEN > STRONG > WEAK > INDETERMINATE.
 | 6 | `0088f31f` Helping Customers Find Their Next Read | **WEAK-INFERENCE — same** | Same burst; +26s after #5 | Same |
 | 7 | `7ecde40b` Tulsi | **STRONG-INFERENCE — formerly-character-specific orphan** | Composition + Asset both titled *"Talking-head — Tulsi"* with `spokesperson_id=None` (SET_NULL fingerprint); Tulsi named as historical Teammate in 4 design docs; content is Tulsi-first-person self-description; operator testimony | No CharacterIdentity row survived (unlike TANK) — makes the fingerprint slightly weaker than TANK. Could theoretically be a Composition/Asset whose spokesperson was manually cleared rather than deleted, but no product path currently allows manual clearing |
 | 8 | `8c6f0c14` TANK | **PROVEN — formerly-character-specific orphan** | CharacterIdentity[Tank] with `teammate_id=None` is unique in the workspace (SET_NULL fingerprint); Composition `Tank's first video` + 2 Assets with `spokesperson_id=None`; TANK named in 3 design docs; content is character brief; operator testimony | None. The CharacterIdentity SET_NULL fingerprint alone is definitive |
-| 9 | `90ad200c` Riggs | **PROVEN — NOT an orphan; unattached / never-attached KD** | Riggs Teammate `5731a73d` currently exists, `status=ready`; Riggs CharacterIdentity has intact `teammate` link; KD created 64s AFTER Teammate creation; content is a 33-char stub ("Just knows a lot about everything"); no Composition/Asset produced | None. This is a misconfigured / never-attached ingest, not an orphan |
+| 9 | `90ad200c` Riggs | ~~**PROVEN — NOT an orphan; unattached / never-attached KD**~~ **CORRECTED → INDETERMINATE (see §279)** | Raw observations preserved: Riggs Teammate `5731a73d` currently exists, `status=ready`; Riggs CharacterIdentity has intact `teammate` link; KD created 64s AFTER Teammate creation; content is a 33-char stub ("Just knows a lot about everything"); no Composition/Asset produced | ~~None. This is a misconfigured / never-attached ingest, not an orphan~~ **CORRECTED (see §279):** name collision + timing proximity is not a fingerprint under the §4.4 hierarchy. Operator (Chris) clarified 2026-08-21 that the KD is not necessarily attributable to the live Riggs Teammate — auto-select control test. Reclassified INDETERMINATE |
 
-**Distribution:** 1 PROVEN orphan (TANK), 1 STRONG-INFERENCE orphan (Tulsi), 1 PROVEN not-orphan (Riggs), 6 WEAK-INFERENCE (Hearth & Hollow burst).
+**Distribution (CORRECTED — see §279):** 1 PROVEN orphan (TANK), 1 STRONG-INFERENCE orphan (Tulsi), 7 WEAK-INFERENCE / INDETERMINATE (6× Hearth & Hollow + Riggs). ~~Prior wording: "1 PROVEN not-orphan (Riggs), 6 WEAK-INFERENCE" — retracted.~~
 
 ### §4.5 Answer to Track A question
 
@@ -151,7 +151,7 @@ Using this evidence hierarchy: PROVEN > STRONG > WEAK > INDETERMINATE.
 
 - **PROVEN orphan (TANK #8):** yes — CharacterIdentity SET_NULL fingerprint is dispositive. Safe to remediate as "orphaned by past Teammate delete."
 - **STRONG-INFERENCE orphan (Tulsi #7):** yes — combined Composition + Asset SET_NULL fingerprint + design-doc + operator testimony is sufficient to remediate as orphan **for Chris's own workspace under his signoff**. Would not survive a hypothetical adversarial audit against a stranger's workspace, but this is Chris's own data.
-- **PROVEN not-orphan (Riggs #9):** yes — the Riggs Teammate exists. This is a misconfigured/unattached KD; the correct remediation is either attach it to Riggs or delete it. It is **not** an orphan case.
+- ~~**PROVEN not-orphan (Riggs #9):** yes — the Riggs Teammate exists. This is a misconfigured/unattached KD; the correct remediation is either attach it to Riggs or delete it. It is **not** an orphan case.~~ **CORRECTED — see §279.** Retracted. Riggs is now classified INDETERMINATE. Identity continuity between the live Riggs Teammate and KD `90ad200c` was inferred only from name + timing — not a fingerprint tier. Operator (Chris) supplied 2026-08-21 clarification that the KD is not necessarily attributable to the live Riggs Teammate (auto-select control test). Remediation now requires operator signoff on the same tier as Hearth & Hollow, not a mechanical "attach to Riggs" default.
 - **WEAK-INFERENCE (Hearth & Hollow #1–#6):** no. Two hypotheses fit the evidence equally well: (a) Hearth & Hollow was a Teammate that produced no Composition before deletion → orphan, OR (b) Hearth & Hollow was always intended as workspace-level *business canon* about the bookstore → intentional shared knowledge. Cannot distinguish from surviving evidence. Combined with operator testimony (SESSION 274 §596) they *lean* orphan, but that leaning is Chris's recall, not a fingerprint. **Indeterminate under a strict evidence bar; ORPHAN-BY-OPERATOR-TESTIMONY under Chris's signoff.**
 
 > What evidence would be required before an operator could safely remediate an indeterminate row?
@@ -343,7 +343,7 @@ Points 1–3, 5–7 exist in the model today. Point 4 does not — the SESSION 2
 
 | Prediction (§2) | Evidence |
 |---|---|
-| Track A: subset classifiable, subset indeterminate | Confirmed. 1 PROVEN orphan (TANK), 1 STRONG orphan (Tulsi), 1 PROVEN not-orphan (Riggs), 6 WEAK / indeterminate (Hearth & Hollow) |
+| Track A: subset classifiable, subset indeterminate | Confirmed. ~~1 PROVEN orphan (TANK), 1 STRONG orphan (Tulsi), 1 PROVEN not-orphan (Riggs), 6 WEAK / indeterminate (Hearth & Hollow)~~ **CORRECTED (see §279):** 1 PROVEN orphan (TANK), 1 STRONG orphan (Tulsi), 7 WEAK / INDETERMINATE (6× Hearth & Hollow + Riggs). |
 | Track B: SESSION 275 signal + revival gate seal orphan-archive; SPA gap remains | Confirmed. Ingestion revival is safe-gated. SPA has zero visibility |
 | Track B: DRF API sealed by `is_active=True` queryset filter | Confirmed — but the seal is *coincidental* (queryset filter, not serializer read-only or endpoint invariant). Django admin remains an unguarded revival path |
 
@@ -353,7 +353,7 @@ Points 1–3, 5–7 exist in the model today. Point 4 does not — the SESSION 2
 2. **Should the SESSION 275 `pre_delete` snapshot persist a durable record?** Currently in-memory only. If yes, that's a small addition (a `KnowledgeDocumentArchiveLog` model with `kd_id`, `teammate_id`, `teammate_name`, `archived_at`) that would enable operator-visible "archived because *teammate X* was deleted" copy in any future recovery UI. Not implemented; not authorized.
 3. **Should Django admin enforce the safe-audience contract?** Admin bypasses the ingestion gate. A `KnowledgeDocumentAdmin.save_model` override could refuse `is_active=False → True` transitions on `ORPHANED_BY_TEAMMATE_DELETE` rows without an accompanying non-empty M2M or a Universe change. Not implemented; not authorized.
 4. **Bundle vs split slice.** Does Chris want legacy remediation (Question A) and recovery UX (Question B) as (a) one bundled slice, (b) two separate slices where one blocks the other, or (c) two independent slices? This is the scoping question in SESSION 276 handoff §E step 4. **Not answered by evidence — a Chris product decision.**
-5. **Riggs KD.** It's not an orphan and it's not an intentional canon — it's a stub. Should the recovery workflow have a "misconfigured / never-attached" concept, or is that class of row always handled by *attach* / *delete* alone?
+5. ~~**Riggs KD.** It's not an orphan and it's not an intentional canon — it's a stub. Should the recovery workflow have a "misconfigured / never-attached" concept, or is that class of row always handled by *attach* / *delete* alone?~~ **CORRECTED — see §279.** The "not an orphan / stub attributable to the live Riggs Teammate" framing is retracted; Riggs is INDETERMINATE. The residual product question — *should recovery UX carry a distinct "misconfigured / never-attached" bucket at all?* — is superseded: without a fingerprint distinguishing that bucket from operator-signoff INDETERMINATE, the workflow reduces to "operator classifies each row from the ambiguous set."
 
 ## §9. Recommendation
 
@@ -1619,7 +1619,7 @@ Executed 2026-08-21. All KnowledgeDocument rows across every workspace in the cu
 - **chriss-workspace: 9 rows** — the historical set from Slice 1 §4:
   - TANK `8c6f0c14` — PROVEN historical orphan (CharacterIdentity[Tank].teammate_id=NULL fingerprint). Correct Delta target = `NONE + is_active=False`.
   - Tulsi `7ecde40b` — STRONG historical orphan (Composition + Asset with spokesperson_id=NULL). Correct Delta target = `NONE + is_active=False`.
-  - Riggs `90ad200c` — PROVEN never-attached / misconfigured (Riggs teammate exists; KD created 64s after; content stub). Correct Delta target under operator decision: either `CHARACTER` (attach to Riggs), delete, or `NONE + is_active=False` if Chris decides it was noise.
+  - Riggs `90ad200c` — ~~PROVEN never-attached / misconfigured (Riggs teammate exists; KD created 64s after; content stub)~~ **CORRECTED (see §279): INDETERMINATE.** Raw observations preserved; the "attach to the live Riggs Teammate" default is retracted (name + timing is not a fingerprint). Correct Delta target under operator decision: (a) `CHARACTER` if Chris chooses to attach to some specific teammate, (b) `NONE + is_active=False` if Chris decides it was noise, (c) hard-delete.
   - 6× Hearth & Hollow (`aa90d895 · e37ea174 · b58efd31 · 7f41d8e3 · c408656d · 0088f31f`) — mechanically indeterminate; operator recollection (SESSION 274 §596) says orphan; content is bookstore-first-party voice. Correct Delta target under operator decision: either `WORKSPACE` (accept as intentional workspace canon) or `NONE + is_active=False` (accept operator recollection).
 - **admins-workspace: 1 row** — `33c07feb "Wikipedia is trafilatura's home turf"` by admin@mail.com. Pre-Universe era; internal admin workspace. Likely intentional workspace-shared tech note but no forensic evidence. Correct Delta target: `WORKSPACE` under admin decision, OR `NONE + is_active=False` if admin decides it's obsolete.
 
@@ -1642,7 +1642,7 @@ Per task instruction, Slice 1 classifications are preserved unless new evidence 
 | 1–6 | 6× Hearth & Hollow | WEAK-INFERENCE orphan; operator recollection supports orphan | (a) `WORKSPACE` (formalize current effective audience; NOT a broaden), (b) `NONE + is_active=False` (accept operator recollection; NARROW). Blanket `WORKSPACE` violates task-added migration invariant | Leaving active + `audience_scope=NULL` during Stages 1–4 preserves current behavior via fallback. Post-Stage-6 the row FAILS CLOSED — retrieves to nobody. That is a NARROW (safe re invariant) but a behavior change |
 | 7 | Tulsi | STRONG-INFERENCE orphan | (a) `NONE + is_active=False` (matches evidence), (b) `WORKSPACE` (formalize leak — but no evidence supports intent). Recommended: `NONE + is_active=False` under Chris signoff | Same |
 | 8 | TANK | PROVEN orphan | `NONE + is_active=False` (deterministic by evidence — CharacterIdentity SET_NULL fingerprint is dispositive). This is the ONE ambiguous row Slice 1 evidence classifies definitively | Same |
-| 9 | Riggs | PROVEN not-orphan / misconfigured | (a) `CHARACTER` with M2M={Riggs} (attach), (b) `NONE + is_active=False`, (c) hard-delete. Operator decision | Same |
+| 9 | Riggs | ~~PROVEN not-orphan / misconfigured~~ **CORRECTED → INDETERMINATE (§279)** | (a) `CHARACTER` (attach to a specific teammate — no longer defaulted to the live Riggs Teammate), (b) `NONE + is_active=False`, (c) hard-delete. Operator decision | Same |
 | 10 | admins `33c07feb` | trafilatura tech note; no orphan fingerprint | (a) `WORKSPACE` under admin decision, (b) `NONE + is_active=False`. Same shape as Hearth & Hollow ambiguity | Same |
 
 **Load-bearing answers to §56 sub-questions:**
@@ -4158,7 +4158,7 @@ The 10 legacy NULL rows in the current DB have `(is_active=True, universe=None, 
 
 - 1 PROVEN historical orphan (TANK)
 - 1 STRONG historical orphan (Tulsi)
-- 1 PROVEN never-attached / misconfigured (Riggs)
+- ~~1 PROVEN never-attached / misconfigured (Riggs)~~ **CORRECTED (see §279):** 1 INDETERMINATE (Riggs) — the earlier "PROVEN never-attached / misconfigured attributable to the live Riggs Teammate" verdict is retracted; name + timing is not a fingerprint tier
 - 6 mechanically indeterminate (Hearth & Hollow set) + 1 admins-workspace tech note
 
 If a fresh-create WORKSPACE inference rule existed today, and any of these rows had been created via a legacy path that produced the same shape, they would all be indistinguishable from intentional workspace canon. That is exactly the ambiguity Slice 4 §55.2 identified as "cannot be blanket-migrated per the task-added migration invariant."
@@ -5766,3 +5766,103 @@ This is Stage 5 opener. Larger investigation than Slice 15 because it touches th
 **End of SESSION 276 Slice 15 / Delta Stage 3C-3. Universe reassignment PATCH now shape-preservation-safe: UNIVERSE audience row cannot lose its Universe FK; WORKSPACE audience row cannot gain one. UNIVERSE↔UNIVERSE swap preserved pending future audience-transition contract. CHARACTER preflight unchanged. Q-276-29 CONFIRMED with two narrow guards + one preserved-behavior finding. 8/8 Slice 15 tests pass; 1703/1703 broader backend regression. Real DB unchanged for 9th consecutive slice; zero Delta invariant violations across all 4 invariants. Every KD mutation surface for M2M + Universe FK now Delta-coherent. STOP for Chris + ChatGPT review of §275 recommendation, §276 gate, and §277 Q-276-30 retrieval-cutover next question.**
 
 **Slice 15 landed commit SHA:** `20ee0cc` (`fix(session-276): Slice 15 / Delta Stage 3C-3 — Universe reassignment shape guards`). Pushed to `origin/main`. Post-push `main == origin/main == 20ee0cc`; working tree clean.
+
+---
+
+# SESSION 276 — Durable audit correction (pre-Slice-16): Riggs KD reclassification
+
+## §279. Operator historical correction — Riggs KD (`90ad200c-5019-4036-82e9-a1ccc5cbce72`)
+
+**Trigger.** Chris supplied first-party historical context that falsifies the Slice 1 §4.4 / §4.5 conclusion that Riggs `90ad200c` is a *PROVEN not-orphan / never-attached KD attributable to the currently live Riggs Teammate*. This section records the correction inline, preserves the underlying source facts as they were originally observed, and updates every downstream count / statement.
+
+### §279.1 Original Slice 1 evidence (preserved verbatim; still true as raw observations)
+
+The following surviving-artifact evidence gathered during Slice 1 remains factually correct and is preserved as-is. It is the *inference* built on top of it that is retracted.
+
+- A live Teammate row `5731a73d` named "Riggs" exists in `chriss-workspace`, with `status=ready`.
+- A `CharacterIdentity[Riggs]` row exists with `teammate_id` populated (intact FK link to `5731a73d`) — i.e. no SET_NULL fingerprint.
+- The KD `90ad200c` was created `~64s` after the Riggs Teammate was created (Slice 1 §4.2 timeline row, `2026-08-17T15:53:11` Teammate vs `2026-08-17T15:53:36` KD ingest start).
+- KD `90ad200c` has an empty `spokespeople` M2M (0 rows).
+- KD content is a 33-character stub: *"Just knows a lot about everything"*.
+- No Composition or Asset row was produced from this KD.
+- `is_active=True`, `deactivated_reason=''`, `audience_scope=NULL`, `universe=NULL` (Slice 5 §78.3 and Slice 7 §104 real-DB dumps).
+
+**These facts remain the primary evidence for this row.** They are not being deleted or rewritten.
+
+### §279.2 What is retracted
+
+The following Slice 1 conclusions are **RETRACTED** as unsupported by the surviving evidence:
+
+- *"PROVEN — NOT an orphan; unattached / never-attached KD"* (§4.4 row 9)
+- *"PROVEN not-orphan (Riggs #9): yes — the Riggs Teammate exists"* (§4.5)
+- *"1 PROVEN not-orphan (Riggs)"* in the §4.4 distribution and every downstream restatement (§7 table, §55.2, §56 row 9, §170 legacy control comparison)
+- The Slice 1 §8 unresolved question #5 assumption that Riggs is a *stub* whose intended audience is the currently live Riggs Teammate
+
+**Reason for retraction.** Identity continuity between the live Teammate `5731a73d` and the KD `90ad200c` was inferred solely from (a) name collision and (b) temporal proximity. Neither is a load-bearing artifact fingerprint under the Slice 1 evidence hierarchy (`PROVEN > STRONG > WEAK > INDETERMINATE`, §4.4). The prior verdict conflated *"a Teammate with this name exists"* with *"this KD was authored for that Teammate."*
+
+### §279.3 Operator historical context supplied by Chris (recorded separately; NOT treated as system provenance)
+
+Chris's first clarification (2026-08-21):
+
+> The currently live Riggs character is not necessarily the character/concept the knowledge document was intended for. He was testing a new prompting/UI idea and selected the first name presented by an auto-select control. Therefore the temporal proximity and shared "Riggs" name do not establish identity continuity between the live Teammate and the KnowledgeDocument.
+
+Chris's second clarification (2026-08-21, same-day follow-up):
+
+> The historical Riggs associated with the old knowledge was a RACCOON character presented in front of a white-screen background. The currently live Riggs Teammate is an ENGLISH BULLDOG wearing a welder's cap. These are definitively different character identities that reused the same display name. Therefore display-name equality between historical/current Teammates must not be treated as identity continuity or provenance evidence.
+
+**Both clarifications are recorded as OPERATOR HISTORICAL CONTEXT — first-party recall from the operator who authored the row.** They are *not* being treated as fabricated system provenance (no CharacterIdentity/Composition/Asset/log/journal fingerprint), and they are *not* being persisted to the DB as an `audience_scope` or M2M mutation. They stand on the same evidentiary tier as the Hearth & Hollow operator-recollection testimony (Slice 1 §4.5 / SESSION 274 §596): **sufficient basis for operator-signoff remediation, insufficient for mechanical classification.**
+
+The second clarification also strengthens the retraction: the KD's intended character (raccoon Riggs) is *definitively distinct* from the currently live Teammate (bulldog Riggs). The "attach to the live Riggs Teammate" default that Slice 1 §4.5 recommended would have attached the KD to the wrong character identity. Under Chris's own operator-recollection tier the historical raccoon Riggs is now a plausible orphan-of-deleted-character candidate — but no SET_NULL fingerprint survives to promote that from operator recall to STRONG/PROVEN.
+
+### §279.4 Corrected Riggs classification
+
+- **Corrected verdict:** `INDETERMINATE — intended audience not mechanically recoverable from surviving repository evidence.`
+- **Evidence tier:** WEAK / INDETERMINATE (no SET_NULL fingerprint; no positive identity fingerprint; name+timing coincidence is not a fingerprint under the §4.4 hierarchy).
+- **Operator-recall qualifier:** Chris's §279.3 clarification places Riggs in the same tier as the Hearth & Hollow set for remediation purposes — a decision requires his signoff, not a mechanical rule.
+- **Delta target options (unchanged from Slice 4 §56 row 9 shape, but for a different reason):** (a) `CHARACTER` if Chris chooses to attach it to some specific teammate, (b) `NONE + is_active=False` if Chris decides it was noise, (c) hard-delete. Removed as an option: the prior "attach to the currently live Riggs Teammate" default is retracted.
+
+### §279.5 Corrected distribution of the 9 legacy KDs
+
+| Tier | Slice 1 count (retracted) | Corrected count |
+|---|---|---|
+| PROVEN orphan | 1 (TANK) | 1 (TANK) |
+| STRONG-INFERENCE orphan | 1 (Tulsi) | 1 (Tulsi) |
+| PROVEN not-orphan | 1 (Riggs) | **0** |
+| WEAK / INDETERMINATE | 6 (Hearth & Hollow) | **7** (6× Hearth & Hollow + Riggs) |
+
+Total still 9 rows (chriss-workspace legacy set). The +1 admins-workspace `33c07feb` row (Slice 4 §55.2) is unaffected — it was already tier INDETERMINATE.
+
+### §279.6 Downstream sites corrected in-place
+
+Each of the following inline sites has been amended with a `> **CORRECTED — see §279:**` marker preserving the original text as historical record while replacing the retracted verdict:
+
+- §4.4 table row 9 (line ~144)
+- §4.4 distribution summary (line ~146)
+- §4.5 PROVEN not-orphan bullet (line ~154)
+- §7 prediction-vs-evidence table row (line ~346)
+- §8 unresolved question #5 (line ~356)
+- §55.2 ambiguous-classification bullet for Riggs (line ~1622)
+- §56 table row 9 (line ~1645)
+- §170 legacy-control comparison list (line ~4161)
+
+### §279.7 Confirmations required by the operator correction
+
+- **DB mutation:** none. The Riggs KD `90ad200c` is NOT touched. `audience_scope` remains `NULL`; `spokespeople` M2M remains empty; `is_active=True` unchanged. Slice 7 real-DB fingerprint (§104) is unchanged.
+- **Stage-2 migration impact:** none. Slice 7's deterministic backfill (`shell/apps/embeddings/migrations/0008_session276_stage2_backfill.py`) explicitly leaves rows with `spokespeople=∅ AND universe=NULL` as `audience_scope=NULL` (Slice 7 §92.3 Rule C). Riggs matched Rule C then and still does now. The Riggs reclassification does not change which rules the migration applied.
+- **Q-276-30 (Slice 16) impact:** none. The 62-row *classified* population under Q-276-30 excludes all `audience_scope=NULL` rows by definition — Riggs is a NULL row, so it was never in the classified equivalence population. It falls under the *NULL compatibility fallback* branch (10 rows), which by design preserves legacy shape-derived behavior byte-identically. The Slice 16 equivalence proof is unchanged.
+- **Slice 4 §55.2 ambiguous-row count (10):** unchanged. Riggs was already in the 10-row ambiguous set (as "PROVEN not-orphan / misconfigured"); it is now in that same set as "INDETERMINATE / operator-signoff required." The row count is stable.
+
+### §279.8 Evidence-hierarchy discipline lesson
+
+This correction reinforces the Slice 1 §4.4 hierarchy with two general rules:
+
+1. **Name collision + timing proximity is not a fingerprint.** Any future classification that leans on those two artifacts alone must be tiered WEAK / INDETERMINATE, not PROVEN.
+2. **Display-name equality between historical and currently live Teammates must not be treated as identity continuity or provenance evidence.** Chris's raccoon-Riggs-vs-bulldog-Riggs clarification (§279.3) proves the operator can — and did — reuse a display name across definitively distinct character identities. A shared display string carries no schema-level identity guarantee; nothing in the Teammate/CharacterIdentity model prevents it.
+
+Load-bearing fingerprints remain: SET_NULL on a related row (CharacterIdentity / Composition / Asset), an intact FK from a related row referencing a *specific* Teammate PK (not just a name), or an explicit audit-log entry. None of these exist tying the Riggs KD to any specific historical Teammate. Both the "attach to live Riggs" and "attach to some deleted raccoon Riggs" verdicts are unfingerprinted — the row is INDETERMINATE.
+
+**Audit consequence for other rows in this doc:** the other 8 legacy KDs in Slice 1 §4.4 (TANK #8 via CharacterIdentity SET_NULL, Tulsi #7 via Composition+Asset SET_NULL, Hearth & Hollow #1-6 already tiered WEAK/INDETERMINATE with no name-based identity claim) are unaffected — their classifications never leaned on display-name equality to a currently live Teammate. The lesson is applied only to Riggs; the rest of the §4.4 tiering is not disturbed.
+
+---
+
+**End of Riggs correction. No code change; no DB mutation. Slice 16 (Q-276-30) authorization is unchanged and proceeds after this correction is committed.**
