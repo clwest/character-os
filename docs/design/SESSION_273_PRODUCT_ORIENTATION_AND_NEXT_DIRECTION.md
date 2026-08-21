@@ -2613,7 +2613,8 @@ Also verified externally (not part of the automated audit):
 
 ## §38. SESSION 273 CLOSEOUT COMMIT SHA
 
-- SESSION 273 CLOSEOUT commit: (recorded at commit time — see git log)
+- SESSION 273 CLOSEOUT commit: **`7b95798`** — `docs(session-273): §34-§38 CLOSEOUT + SESSION 274 handoff`
+- Pushed to `origin/main`.
 - SESSION 274 handoff: `docs/design/SESSION_274_HANDOFF.md`
 - Invariant audit script (read-only): `scripts/session273_closeout_invariants.py`
 - Full commit trail from SESSION 273 open to close available via `git log --oneline docs/design/SESSION_273_*.md docs/design/session_273_experiment_data/`.

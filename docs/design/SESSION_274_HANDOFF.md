@@ -130,7 +130,7 @@ SESSION 273 was a fresh-substrate dogfood arc that also happened to surface a re
 
 ## §H. SESSION 273 CLOSEOUT COMMIT + PROVENANCE
 
-- SESSION 273 CLOSEOUT commit: **(recorded at commit time — will be filled into §38 of the SESSION 273 doc and here after push)**
+- SESSION 273 CLOSEOUT commit: **`7b95798`** — `docs(session-273): §34-§38 CLOSEOUT + SESSION 274 handoff`
 - §25 fix commit: `e7e4d68`
 - Ruby Video #1 forensics commit: `e275085`
 - Ruby Video #2 + one-page hypothesis commit: `7401308`
