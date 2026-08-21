@@ -7813,9 +7813,13 @@ Concise final summary. The full record is in §1-§381 above.
 
 ---
 
-## §383. Slice 21 landed commit SHA (SHA-record follow-up appended after commit)
+## §383. Slice 21 landed commit SHA
 
-To be recorded post-commit.
+**Slice 21 landed commit SHA:** `7929733` (`feat(session-276): Slice 21 / Delta Stage 8 FINAL — NOT NULL + 3 CheckConstraints; CLOSE SESSION 276`). Pushed to `origin/main`. Post-push `main == origin/main == 7929733`; working tree clean.
+
+Migration head after Slice 21: `0009_session276_final_delta_constraints`.
+
+SESSION 276 CLOSED at commit `7929733`. Fresh dogfood defers to SESSION 277 per `docs/design/SESSION_277_HANDOFF.md`.
 
 ## §384. Slice 21 checklist
 
@@ -7836,8 +7840,8 @@ To be recorded post-commit.
 - [x] Prediction vs actual (§380)
 - [x] Files changed (§379)
 - [x] Zero fresh dogfood; zero universe_canon reformulation; zero recovery UI; zero JSON provenance cleanup; zero more SESSION 276 slices; zero provider spend
-- [ ] Commit + push Slice 21 code + tests + migration + doc + handoff
-- [ ] Record landed SHA follow-up
+- [x] Commit + push Slice 21 code + tests + migration + doc + handoff — landed as `7929733`
+- [x] Record landed SHA follow-up (§383)
 
 ---
 
