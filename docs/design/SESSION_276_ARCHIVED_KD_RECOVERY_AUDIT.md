@@ -6964,5 +6964,272 @@ STOP before Slice 19 (archive-path extension). Review Slice 18 evidence with Chr
 
 **Slice 18 landed commit SHA:** `0855c2f` (`docs(session-276): Slice 18 / Delta Stage 7 opener — legacy-KD archive audit (Q-276-33) STOP finding, no mutation`). Pushed to `origin/main`. Post-push `main == origin/main == 0855c2f`; working tree clean. Documentation-only landing (no code, no test, no DB delta).
 
+---
+
+# SESSION 276 — Slice 19 / Delta Stage 7 reframe — disposable-dogfood product decision + cascade audit
+
+Audit-only slice. **Chris supplied a scope-changing product decision that supersedes Q-276-35.** All existing KnowledgeDocument data — the 10 NULL rows AND the 62 classified CHARACTER / UNIVERSE rows — is disposable dogfood with no product-preservation value. Slice 19 records the decision durably, audits the dependency / cascade blast radius of a wholesale KD reset, and reframes the SESSION 276 close plan around a materially simpler cleanup path.
+
+## §340. Operator product decision — existing KnowledgeDocument dataset is disposable dogfood (RECORDED DURABLY)
+
+**Trigger.** Chris supplied first-party product intent on receipt of Slice 18's STOP finding:
+
+> The existing KnowledgeDocument dataset is DOGFOOD / EXPERIMENTAL DATA. None of the existing KnowledgeDocument content needs to be preserved for product reasons. This includes: TANK, Tulsi, historical Riggs, Hearth & Hollow, the admins-workspace trafilatura row, the currently classified CHARACTER / UNIVERSE knowledge rows, other historical knowledge generated during Character OS dogfood. Chris does NOT want us spending additional engineering slices reconstructing, preserving, archiving, or designing special migration behavior around these specific persisted specimens. They were useful as evidence for discovering the product invariants. They are not production/customer records.
+
+**Scope explicitly clarified by Chris:**
+
+- **Disposable:** KnowledgeDocument rows, KnowledgeChunk rows, KnowledgeDocumentSpokesperson through-rows.
+- **NOT disposable:** user accounts, Workspace rows, Teammate rows, Universe rows, unrelated Composition / Asset / Script / Video / RealtimeSession rows, application configuration.
+- **Composition / Script / Video / RealtimeSession** rows themselves are preserved; only their `knowledge_chunk_ids` JSON provenance arrays would become stale (safe degradation — see §342).
+
+**Consequence.** All prior Delta-triage design in this document that assumed audience reconstruction / archive-preservation for the 10 NULL rows (§55.2 ambiguous-classification analysis, §316 operator legacy-cleanup decision, §320 Q-276-33 candidate, §338 Q-276-35 candidate) is superseded as a product requirement. Those findings remain evidentially valuable — they proved the shape of Delta invariants under pressure of real data — but they are no longer implementation drivers.
+
+### §340.1 Q-276-35 supersession
+
+Q-276-35 (§338) asked whether adding a NONE-stamping mode to the operator-delete lifecycle would produce a Delta-safe archive of the 9 §316 rows. Under §340, the answer is: **no code addition is required merely to preserve rows Chris has said should not be preserved.** Q-276-35 is superseded.
+
+**Slice 18 finding preserved as future product evidence.** The mismatch documented at §326 — that `KnowledgeDocumentViewSet.destroy()` does NOT stamp `audience_scope=NONE` on soft-delete of a NULL row — remains a real characterization of current product behavior. It is preserved here as a durable observation for any future product need that requires the soft-archive semantic to converge on NONE (e.g., if customer-facing lifecycle later demands Stage 8-compatible archive shape). It is NOT justification to implement that behavior in SESSION 276.
+
+### §340.2 What Chris's decision unblocks
+
+- **Wholesale KD dataset reset** becomes a legitimate one-slice cleanup instead of a per-row triage across 10 rows.
+- **admin@mail.com triage of `33c07feb`** (§329.4) is no longer required — the row is included in the disposable set.
+- **The Stage 7 audience-reconstruction planning burden collapses.** Stages 7-9 can compress into ≤ 2 slices (§344).
+
+## §341. Slice 19 falsifiable question (reframed from Q-276-33/35)
+
+> Given that all existing KnowledgeDocument data is disposable dogfood (§340), what is the smallest safe way to eliminate the legacy NULL-data blocker so SESSION 276 can finish validating the permanent Delta model without inventing preservation requirements for test data?
+
+Slice 19 answers this AUDIT-ONLY. Slice 20 (authorized separately) would execute the recommended cleanup.
+
+## §342. Slice 19 baseline SHA + working tree
+
+- Base commit at Slice 19 start: `aa23235` (`docs(session-276): record Slice 18 landed SHA 0855c2f in audit doc`).
+- `main == origin/main == aa23235`; working tree clean prior to Slice 19.
+- Slice 19 lands as documentation-only (audit + product-decision record). Zero code changes; zero DB mutation.
+
+## §343. Cascade / dependency audit — impact of hard-deleting all KnowledgeDocuments
+
+Read-only script executed at `/tmp/slice19_cascade_audit.py` — the following evidence is authoritative for §340's cleanup planning.
+
+### §343.1 Pre-cleanup DB inventory
+
+```
+KnowledgeDocument rows: 72   (active=72; inactive=0)
+KnowledgeChunk rows: 1149    (per-chunk embedding vectors)
+KnowledgeDocumentSpokesperson through-rows: 62
+```
+
+### §343.2 Direct DB cascade (Django FK on_delete)
+
+Only two tables reference KnowledgeDocument via FK. Both are declared with `on_delete=CASCADE`:
+
+| Model | FK field | on_delete | Impact of `KnowledgeDocument.delete()` |
+|---|---|---|---|
+| `KnowledgeChunk` (`models.py:409-413`) | `document` → KnowledgeDocument | CASCADE | 1149 rows deleted; pgvector vectors freed |
+| `KnowledgeDocumentSpokesperson` (`models.py:135-139`) | `knowledgedocument` → KnowledgeDocument | CASCADE | 62 M2M through-rows deleted |
+
+**Outbound FKs from KnowledgeDocument** (not affected by KD delete; documented for completeness):
+
+- `workspace` (CASCADE from Workspace side — deleting Workspace deletes KDs, but KD delete does NOT touch Workspace).
+- `universe` (RESTRICT from KD side — deleting Universe is BLOCKED while any KD references it; KD delete removes the block).
+- `created_by` → User (SET_NULL from User side; KD delete does not touch User).
+- `spokespeople` M2M via through-table (through rows CASCADE; Teammate rows untouched).
+
+**Grep verification.** `Grep pattern "ForeignKey\([^)]*KnowledgeDocument"` across the entire `shell/` tree returns ZERO hits outside `apps/embeddings/models.py`. No other model has an FK to KnowledgeDocument or KnowledgeChunk. Cascade is 100% contained within the embeddings app.
+
+### §343.3 Non-FK provenance references (JSON UUID arrays — would become STALE, not broken)
+
+Four models carry `knowledge_chunk_ids` JSONFields storing chunk-UUID strings (no DB-level FK):
+
+| Model | Total rows | Non-empty JSON provenance |
+|---|---|---|
+| `apps/scripts/models.py:123` — Script | 6 | 5 |
+| `apps/compositions/models.py:427` — Composition | 162 | 103 |
+| `apps/videos/models.py:114` — Video | 0 | 0 |
+| `apps/realtime/models.py:102` — RealtimeSession | 40 | 20 |
+
+**Post-cleanup behavior:** JSON arrays retain stale chunk-UUID strings. `resolve_chunk_ids_to_docs` at `retrieval.py:63-118` (Slice 16 §283.2 provenance carve-out) queries `KnowledgeChunk.objects.filter(id__in=chunk_ids)` — stale IDs return an empty QuerySet, resolver returns `[]`, provenance panels show "no docs used" silently. **No 500s; no exceptions; no DB integrity errors.** The stale rows are themselves dogfood-tier artifacts per §340 (all 162 Composition rows + 6 Scripts + 40 RealtimeSessions were produced during Character OS dogfood).
+
+Chris's §340 scope preserves these Composition / Script / Video / RealtimeSession rows themselves — only their provenance-panel display degrades. Acceptable per §340: dogfood provenance for dogfood renders.
+
+### §343.4 Unaffected entities (per §340)
+
+| Entity | Row count | Impact of KD cleanup |
+|---|---|---|
+| Workspace | 882 | UNAFFECTED |
+| User | 878 | UNAFFECTED |
+| Teammate | 16 | UNAFFECTED |
+| Universe | 6 | UNAFFECTED (RESTRICT blocks removed but Universes not deleted) |
+
+**Blast radius is tightly bounded.** KD hard-delete affects only KnowledgeDocument / KnowledgeChunk / KnowledgeDocumentSpokesperson tables. All other product data survives verbatim.
+
+### §343.5 Universe RESTRICT-block release
+
+6 Universe rows currently have KD references blocking their DELETE. Hard-deleting all KDs releases those blocks — Universe rows become newly deletable. **Slice 19 does not act on this**; documented for future awareness. Universes remain intact under Chris's §340 preservation scope.
+
+## §344. Test / runtime dependency on persisted KDs
+
+Grep for hardcoded UUIDs of the 10 NULL rows across the entire repo:
+
+```
+grep -r "8c6f0c14|7ecde40b|90ad200c|aa90d895|e37ea174|b58efd31|7f41d8e3|c408656d|0088f31f|33c07feb"
+```
+
+**Results:**
+
+- **Documentation files** (`docs/design/*.md`): 6 files reference the UUIDs as historical evidence. These references are STATIC (text mentions in audit findings) and would remain valid — the audit's job is to record what existed at a point in time; the docs don't require the rows to persist. Files: `SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md`, `SESSION_275_CHARACTER_KNOWLEDGE_LIFECYCLE_AUDIT.md`, `SESSION_276_HANDOFF.md`, `SESSION_273_PRODUCT_ORIENTATION_AND_NEXT_DIRECTION.md`, + 2 session_273 experiment JSON files.
+- **Test code** (`apps/compositions/tests/test_claim_verifier.py:69-71`): one docstring comment references `33c07feb` as the origin of a hardcoded content excerpt used in the test. The test itself uses the excerpt as inline test data; it does NOT query the persisted row. Safe.
+- **Migrations** (`apps/embeddings/migrations/`): only `0008_session276_stage2_backfill.py` uses `RunPython`, and that runs generic classification rules (Slice 7 §92) with no hardcoded UUIDs. Idempotent by design.
+- **Fixtures / initial_data / loaddata:** none. No `fixtures/` directory in `apps/embeddings/` or `shell/`. No initial-data files exist.
+
+**Tests use `@pytest.mark.django_db` — transactional per-test DBs isolated from the real dogfood DB.** No test loads or depends on any specific persisted KnowledgeDocument row.
+
+**Runtime startup (Django + Celery boot):** no code paths query for specific KD UUIDs. Startup validates only schema + migrations + connection; no data-content dependencies.
+
+**Conclusion.** Hard-deleting all 72 KDs breaks zero tests, zero runtime paths, and zero user flows. It cosmetically degrades stale JSON provenance in dogfood-tier Composition / Script / RealtimeSession rows (documented at §343.3).
+
+## §345. Fresh-write NULL producibility (independent of dogfood cleanup)
+
+Chris's authorization framed this as: *"The goal is not merely 'DB currently has zero NULL rows.' The goal is 'Normal product behavior cannot recreate ambiguous audience state.'"* Slice 19 audits both criteria.
+
+### §345.1 Current DB NULL state
+
+Post-Slice-18 (unchanged since Slice 15): **10 NULL rows**. All 10 would be swept away by the §343 wholesale KD reset — going to 0 NULL rows mechanically.
+
+### §345.2 Can fresh writes still produce audience_scope=NULL?
+
+**YES.** The fresh CREATE path at `shell/apps/embeddings/ingestion.py:275-301` explicitly lands NULL for the `(no spokespeople + no universe + no workspace_shared_intent marker)` case. The Slice 11 Option 3 decision (§169-§175) preserved this as "transitional NULL" during Delta rollout.
+
+Precise caller enumeration:
+
+**SPA callers (cannot produce NULL):**
+- All 4 SPA CREATE call sites at `web/src/routes/workspace/knowledge.tsx` are wired to the mandatory `UniverseScopePicker` per Slice 12. The picker forces one of `{spokespeople[], universe, workspace_shared_intent=True}`. SPA-originated writes **cannot** land at NULL.
+
+**Non-SPA callers (CAN produce NULL):**
+1. **`python manage.py smoke_ingest`** — developer-only management command at `apps/embeddings/management/commands/smoke_ingest.py`. Calls `ingest_text(...)` without the workspace_shared_intent marker. Explicitly a dev diagnostic tool.
+2. **Direct `POST /api/knowledge/` API without `workspace_shared_intent`** — technically accepted by the serializer as long as the row shape is valid (`(no spokespeople + no universe)` reaches the NULL branch in `_persist`). Not a UI-driven caller — no first-party product surface today invokes it.
+3. **Internal Python API** (`ingest_text(...)`, `ingest_pdf(...)`) called from other Python code (tests, fixtures, future dev jobs) without passing spokespeople / universe / workspace_shared_intent=True.
+
+None of (1)-(3) are "normal current product flows." The SPA is the only end-user surface, and it cannot produce NULL.
+
+### §345.3 Why this matters even under §340 disposable-dogfood scope
+
+Chris's decision removes the pressure to preserve the CURRENT NULL rows, but does NOT close the future producibility loophole. A fresh dogfood session that exercises `smoke_ingest` or direct API calls can re-create NULL rows and re-open the same debt the Delta rollout was designed to eliminate.
+
+**Blocks Stage 8 (`NOT NULL` constraint):** the constraint requires that no CURRENT and no FUTURE write can land NULL. §345.2 shows fresh writes can still land NULL, so Stage 8 is blocked until the loophole closes even after wholesale KD reset.
+
+**The fresh-write NULL closure is a genuine permanent-product issue.** It deserves the next small implementation slice per Chris's authorization: *"If yes, THAT is a real permanent-product issue and deserves the next small implementation slice."*
+
+### §345.4 Options for closing the loophole (design record; not implemented in Slice 19)
+
+**Option A — Ingestion default to NONE + is_active=False when no positive signal.** Preserves the API surface; changes silent-NULL to explicit fail-closed. Simple; matches Delta's fail-closed principle at the write boundary. Requires caller code paths that today produce NULL to either supply a marker OR accept the fail-closed default.
+
+**Option B — Serializer rejects payloads without a positive audience signal.** Requires the DRF `POST /api/knowledge/` to fail with 4xx when the payload lacks any of `spokespeople`, `universe`, `workspace_shared_intent`. Breaks the smoke_ingest dev tool unless it's updated; but smoke_ingest is dev-only.
+
+**Option C — Ingestion function signature required-arg change.** Make `ingest_text(...)` / `ingest_pdf(...)` require one of the three positive markers as a keyword arg. Compile-time enforcement (arg-missing = TypeError). Cleanest but breaks every existing internal caller until updated.
+
+**Option D — Combined (Options A + B).** Ingestion defaults + serializer 4xx. Belt-and-suspenders; matches the pattern of Slices 13 + 14 (structured error + failing-closed serializer). Recommended for consistency with prior Delta slices.
+
+Slice 19 does NOT choose. That's a Slice 20 / 21 authorization question.
+
+## §346. Revised shortest path to SESSION 276 close
+
+Compared to the pre-§340 path (which required per-row triage of 10 NULL rows + Q-276-35 code + Q-276-34 admins-workspace triage + Stage 8 constraint), the disposable-dogfood decision compresses SESSION 276 to a much shorter tail. Recommended sequence:
+
+**Slice 20 — Data reset + fresh-write NULL closure (bundled).**
+
+- (a) Hard-delete all 72 KnowledgeDocument rows via a targeted, authorized management command or admin action. Cascades remove 1149 chunks + 62 through-rows. JSON provenance in Composition / Script / RealtimeSession becomes stale (safe degradation per §343.3).
+- (b) Implement Option D (or Chris-selected variant) to close the fresh-write NULL loophole (§345).
+- (c) Prove `KnowledgeDocument.objects.filter(audience_scope__isnull=True).count() == 0` post-cleanup AND that any test / API call attempting to create a NULL row fails-closed.
+- (d) Run full regression + smoke tests.
+
+**Slice 21 — NULL branch removal + `NOT NULL` migration + CHECK constraint.**
+
+- (a) Remove NULL compatibility branches from `retrieval.py:216-269` (Slice 16 §285) and `views.py:106-146` (Slice 17 §306).
+- (b) Update Slice 16 / 17 tests A / B (NULL fallback tests) to test CHARACTER / UNIVERSE / WORKSPACE fixtures instead.
+- (c) Add migration: `audience_scope` becomes `NOT NULL` with a `CHECK` constraint enforcing Delta invariants per Slice 4 §51 (e.g., CHARACTER → M2M non-empty; UNIVERSE → universe non-null; WORKSPACE → universe NULL; NONE → is_active False).
+- (d) Full regression + fresh dogfood session verifies no NULL, no invariant violations.
+
+**Optional Slice 22 — universe_canon aesthetic reformulation** (§317.3). Non-blocking; can defer indefinitely.
+
+**Minimum Slices to close Delta:** 2 (Slice 20 + Slice 21). Down from the pre-§340 estimate of 3-5 slices.
+
+## §347. Prediction vs actual
+
+Slice 19 was AUDIT-only; predictions were about the audit outputs themselves.
+
+| Prediction | Evidence |
+|---|---|
+| KD-owned cascade is contained within embeddings app | ✓ §343.2 — only KnowledgeChunk + KnowledgeDocumentSpokesperson via FK; grep confirms zero external FK |
+| JSON provenance references become stale but not broken | ✓ §343.3 — 128 non-empty JSON arrays across Script/Composition/RealtimeSession would silently return `[]` via `resolve_chunk_ids_to_docs` |
+| Workspaces / Teammates / Universes / Users untouched | ✓ §343.4 — none have FKs from KD's perspective |
+| Zero test/runtime dependency on specific persisted KD UUIDs | ✓ §344 — only docstring / audit-doc references; no functional dependency |
+| SPA callers cannot produce NULL | ✓ §345.2 — Slice 12 UniverseScopePicker enforces marker |
+| Non-SPA callers (dev tools + internal Python API) CAN still produce NULL | ✓ §345.2 — 3 caller categories identified |
+| Disposable-dogfood decision materially simplifies the close plan | ✓ §346 — 2 slices instead of 3-5 |
+
+7/7 predictions supported.
+
+## §348. Files changed (Slice 19)
+
+- `docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md` — this Slice 19 appendix (§340-§352).
+- **Not touched:** zero `.py` files, zero test files, zero SPA files, zero migrations, zero DB rows.
+
+## §349. Unresolved questions
+
+1. **Slice 20 execution mechanism.** For (a) data reset, is Chris's preference: (i) a one-off `python manage.py shell -c "KnowledgeDocument.objects.all().delete()"` invocation under his signoff, (ii) a permanent management command (`python manage.py reset_knowledge_dogfood`) with an interactive confirmation prompt, or (iii) a Django admin bulk action?
+2. **Fresh-write NULL closure — chosen option.** §345.4 lists A/B/C/D. Chris + ChatGPT decide which lands in Slice 20.
+3. **Composition / Script / RealtimeSession provenance stale-JSON hygiene.** After §343.3 stale references land, is there a follow-up (e.g., "delete-all-dogfood-provenance") desired, or is the silent-empty degradation acceptable indefinitely?
+4. **Fresh dogfood after Slice 20.** Chris likely wants to re-populate KDs with a small validation set post-cleanup to prove end-to-end Delta behavior on a fresh substrate. Not part of Slice 20 / 21 but implied by the "fresh dogfood from a clean knowledge substrate" step in the user's likely-session-end plan.
+5. **Slice 22 (universe_canon reformulation).** Still open; still non-blocking; still deferrable.
+
+## §350. Recommendation
+
+**Slice 19 is complete as an audit-only documentation slice.** The disposable-dogfood decision (§340) is durably recorded. The cascade / dependency blast radius of a wholesale KD reset is bounded (§343). The fresh-write NULL loophole is precisely identified (§345). The revised close plan collapses SESSION 276 to 2 remaining slices (§346).
+
+**Recommended next action:** Slice 20 (audit-first as usual, then narrow implementation gate). Bundle the wholesale KD reset AND the fresh-write NULL closure into a single slice — they are architecturally coupled (the reset gets NULL count to 0; the closure keeps it at 0). Then Slice 21 removes the compatibility branches and adds the `NOT NULL` + CHECK constraint. Then SESSION 276 closes with a fresh dogfood run on a clean knowledge substrate.
+
+## §351. Explicit STOP gate
+
+STOP before Slice 20. Review Slice 19 evidence with Chris + ChatGPT.
+
+- Does Chris prefer §349.1 mechanism (i), (ii), or (iii) for the data reset?
+- Does Chris prefer §345.4 option A, B, C, or D for the fresh-write NULL closure?
+- Does Chris want Slice 20 to bundle both (a) + (b), or split them?
+- Does Chris want the Slice 21 CHECK constraint to encode all four Delta invariants (Slice 4 §51) or a subset?
+- Does Chris want to pre-authorize a "fresh dogfood seed" step for Slice 22, or defer that decision until Slice 21 lands?
+
+## §352. Smallest recommended next question — Q-276-36
+
+**Q-276-36 (candidate — Slice 20 opener).** *If (a) all 72 existing KnowledgeDocument rows are hard-deleted through a single authorized cleanup operation, AND (b) the fresh-write ingestion path is closed to prevent `audience_scope=NULL` recreation (via Chris-selected option from §345.4), does the resulting DB reach `KnowledgeDocument.objects.filter(audience_scope__isnull=True).count() == 0` AND every attempted post-closure write from any caller (SPA, direct API, management commands, internal Python API) either supply a positive audience marker OR fail closed, with all 332 backend + 656 SPA tests passing unchanged after fixtures that intentionally created NULL rows are updated to CHARACTER / UNIVERSE / WORKSPACE?*
+
+## §353. Slice 19 checklist
+
+- [x] Slice 18 landed as `0855c2f`; catch-up SHA-record `aa23235`
+- [x] Slice 19 baseline verified — `main == origin/main == aa23235`, working tree clean (§342)
+- [x] Chris's disposable-dogfood product decision recorded durably (§340)
+- [x] Q-276-35 supersession recorded; Slice 18 finding preserved as future product evidence (§340.1)
+- [x] Slice 19 falsifiable question reframed (§341)
+- [x] Cascade / dependency audit — direct FKs, JSON references, unaffected entities, Universe RESTRICT block (§343)
+- [x] Test / runtime dependency check — zero functional dependency on persisted KD UUIDs (§344)
+- [x] Fresh-write NULL producibility audit — SPA cannot; non-SPA can via 3 caller categories (§345)
+- [x] 4 closure options for the fresh-write loophole documented (§345.4)
+- [x] Revised shortest path to SESSION 276 close — 2 remaining slices (§346)
+- [x] Prediction vs actual — 7/7 supported (§347)
+- [x] Files changed (§348)
+- [x] Unresolved questions (§349)
+- [x] Recommendation (§350)
+- [x] Explicit STOP gate (§351)
+- [x] Smallest next question Q-276-36 (§352)
+- [x] Zero DB mutation; zero code change; zero migration; zero legacy row mutation; no hard-delete executed; no NULL closure implemented; no NOT NULL constraint; no CHECK constraint; no universe_canon aesthetic cleanup; no recovery UI; no provider spend
+- [ ] Commit + push Slice 19 documentation
+- [ ] Chris + ChatGPT review + Slice 20 scoping decision (mechanism + closure option + bundle-vs-split)
+
+---
+
+**End of SESSION 276 Slice 19 / Delta Stage 7 reframe. Chris's disposable-dogfood product decision (§340) collapses the SESSION 276 tail from per-row audience-reconstruction triage into a wholesale KD reset. Q-276-35 superseded; Slice 18 finding preserved as future product evidence. Cascade audit bounds the blast radius: only KnowledgeDocument + KnowledgeChunk + KnowledgeDocumentSpokesperson affected (1149 chunks + 62 through-rows cascade); Workspaces / Users / Teammates / Universes / Composition / Script / RealtimeSession rows all preserved; JSON provenance in dogfood-tier rows becomes silently stale (no errors). Zero test / runtime dependency on any specific persisted KD UUID. Fresh-write NULL loophole precisely identified: SPA cannot produce NULL (Slice 12 mandate); dev tools + internal Python API + direct API without marker CAN. Revised close plan: Slice 20 (data reset + NULL loophole closure bundled) + Slice 21 (NULL branch removal + NOT NULL migration + CHECK constraint). 2 slices to finish Delta. STOP for Chris + ChatGPT review of §350 recommendation, §351 gate, §352 Q-276-36 next-question candidate.**
+
+
 
 
