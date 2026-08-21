@@ -1635,6 +1635,7 @@ The exact invariant Ruby's failure exercised is already tested:
 
 ## §24. §23 COMMIT PROVENANCE
 
-- §23 diagnostic + assumption-refinement commit: (recorded at commit time — see git log)
+- §23 diagnostic + assumption-refinement commit: **`f00a698`** — `docs(session-273): §23 Slice β Ruby first-render failure — no code defect; SESSION 272 §22.4 refined`
+- Pushed to `origin/main`.
 - Freeze script (read-only): `scripts/session273_slice_beta_freeze.py`
 - Failed-Composition evidence sidecar: `docs/design/session_273_experiment_data/08_slice_beta_ruby_failed_composition.json` (5,576 bytes)
