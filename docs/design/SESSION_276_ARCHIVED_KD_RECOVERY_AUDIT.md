@@ -3342,3 +3342,385 @@ Falsifiable by extending `ingestion._persist` (~2 lines to add `existing.audienc
 **End of SESSION 276 Slice 8 / Delta Stage 3A. Orphan-archive extended to stamp `audience_scope='none'` atomically. Q-276-18 CONFIRMED — 13/13 SESSION 275 lifecycle tests pass with new audience assertions; failure-injection atomicity holds for all three fields; canon and narrowing untouched. Real DB unchanged (no Teammate deleted). STOP for Chris + ChatGPT review of §124 recommendation, §125 gate, and §126 Q-276-23 next question.**
 
 **Slice 8 landed commit SHA:** `875b164` (`fix(session-276): Slice 8 / Delta Stage 3A — stamp orphaned knowledge audience_scope=none`). Pushed to `origin/main`. Post-push `main == origin/main == 875b164`; working tree clean.
+
+**Slice 8 SHA-record follow-up:** `fba60e1` (`docs(session-276): record Slice 8 landed SHA 875b164`) — doc-only checklist + inline SHA record + records Slice 9 authorization with refined Q-276-23.
+
+---
+
+# SESSION 276 — Slice 9 / Delta Stage 3B-1 — orphan revival lands directly at CHARACTER (Q-276-23 refined)
+
+**Status.** IMPLEMENTATION SLICE — closes the Slice 8 §121 known transitional state. Extends `ingestion._persist` so an orphan-revival with the caller-supplied non-empty spokespersons (already required by the SESSION 275 gate) also stamps `audience_scope=CHARACTER` in the same save, and wraps the revival save + M2M `.set()` in a single `transaction.atomic()` savepoint for atomicity.
+
+Chris + ChatGPT **refined** Q-276-23 before authorization: the smallest coherent Delta transition is *inactive orphan + NONE + explicit non-empty spokespeople → active CHARACTER*, **without** passing through a persisted active-NULL bridge state. This slice implements exactly that refinement.
+
+**Slice 9 baseline.** `main == origin/main == fba60e1` (Slice 8 SHA-record). Working tree clean at slice start. Real-DB state carried forward from Slice 7 and unchanged through Slice 8:
+
+- 72 KDs; `CHARACTER=59`, `UNIVERSE=3`, `NULL=10`, `WORKSPACE=0`, `NONE=0`
+- 0 inactive rows
+- 1149 chunks, 62 M2M through-rows
+- Migration head: `0008_session276_stage2_backfill`
+
+**Authorized rule** (from task): explicit spokesperson selection → `CHARACTER`. NULL remains migration-only for the 10 unresolved historical rows. NULL is NOT a normal runtime bridge state.
+
+## §128. Slice 9 falsifiable question — Q-276-23 (refined)
+
+> When an inactive `KnowledgeDocument` archived as `orphaned_by_teammate_delete` is revived through ingestion with the non-empty spokesperson list already required by the SESSION 275 `OrphanRevivalRejected` gate, can that SAME revival operation set `audience_scope=CHARACTER` directly — rather than NONE or NULL — so the resulting row is immediately Delta-coherent without relying on a later serializer/view pass?
+
+**Prediction:** yes. `_persist` receives `spokespeople` as an explicit keyword argument and the SESSION 275 gate already requires it non-empty on orphan revival. Direct CHARACTER stamp is safe and eliminates the Slice 8 §121 malformed transitional state.
+
+## §129. Source trace — `ingestion._persist` revival path
+
+Read at `shell/apps/embeddings/ingestion.py:95-225`. Key findings:
+
+- **`spokespeople` is a keyword argument** (`ingestion.py:106`) with a `list[Teammate] | None` type. Available at the revival branch.
+- **SESSION 275 gate at `ingestion.py:146-158`** enforces `if orphan_reason AND not spokespeople → raise`. Post-gate, on the orphan-revival branch, `spokespeople` is provably non-empty.
+- **Revival save + M2M set were NOT wrapped in a transaction** pre-Slice-9 (lines 177-182 of pre-Slice-9). Only the CREATE branch was atomic (`ingestion.py:189-213`). Any failure between `existing.save()` and `existing.spokespeople.set(...)` — for example, an `m2m_changed` signal veto (workspace or Universe cross-check at `apps/embeddings/signals.py:31,93`) — would leave a durable malformed row: `is_active=True + deactivated_reason='' + M2M=∅`.
+- **Operator-delete revival falls through the same code** without the gate applying. `spokespeople` may legitimately be None or empty for that branch (preserves prior M2M).
+
+The trace confirmed the assumed shape. Q-276-23 refinement is safe.
+
+## §130. Exact implementation diff (`shell/apps/embeddings/ingestion.py`)
+
+Three surgical changes:
+
+**1.** Import extended:
+
+```python
+# Before:
+from .models import (
+    DeactivationReason, DocumentStatus, DocumentType, IngestedVia,
+    KnowledgeDocument,
+)
+
+# After:
+from .models import (
+    AudienceScope,
+    DeactivationReason, DocumentStatus, DocumentType, IngestedVia,
+    KnowledgeDocument,
+)
+```
+
+**2.** Orphan-reason branch captures the outcome into a local flag (`is_orphan_revival`) so the save later can conditionally add `audience_scope` to `update_fields` without duplicating the reason-check:
+
+```python
+# Before:
+if existing.deactivated_reason == (
+    DeactivationReason.ORPHANED_BY_TEAMMATE_DELETE
+):
+    if not spokespeople:
+        raise OrphanRevivalRejected(...)
+
+# After:
+is_orphan_revival = existing.deactivated_reason == (
+    DeactivationReason.ORPHANED_BY_TEAMMATE_DELETE
+)
+if is_orphan_revival:
+    if not spokespeople:
+        raise OrphanRevivalRejected(...)
+```
+
+**3.** Revival save + M2M set wrapped in `transaction.atomic()`; on the orphan branch, `existing.audience_scope = AudienceScope.CHARACTER` is set alongside the other lifecycle fields; `audience_scope` is appended to `update_fields` conditionally:
+
+```python
+# After (essential structure):
+with transaction.atomic():
+    existing.is_active = True
+    existing.status = DocumentStatus.PENDING
+    existing.error_message = ""
+    existing.deactivated_reason = ""
+    new_title = title.strip()
+    if new_title:
+        existing.title = new_title
+
+    update_fields = [
+        "is_active", "status", "error_message",
+        "deactivated_reason", "title", "updated_at",
+    ]
+    if is_orphan_revival:
+        existing.audience_scope = AudienceScope.CHARACTER
+        update_fields.append("audience_scope")
+
+    existing.save(update_fields=update_fields)
+    if spokespeople:
+        existing.spokespeople.set(spokespeople)
+```
+
+The log-line also gains an `orphan_revival=%s` field for future audit. Operator-delete revival never touches `audience_scope` — the field is NOT in `update_fields` unless `is_orphan_revival` is True.
+
+Zero other code changes. No new function, no refactored dispatch, no signal touched, no admin/serializer/view/retrieval change.
+
+## §131. Test extensions (`shell/apps/spokespeople/tests/test_delete_orphan_archive.py`)
+
+Extended in place (same file as SESSION 275 + Slice 8). Three changes:
+
+### §131.1 Case 11 (`test_ingestion_revival_rejects_orphan_without_spokespeople`)
+
+Replaced the Slice 8 "known transitional state" comment block with the Slice 9 CHARACTER-stamp assertions:
+
+```python
+# After successful revival with explicit spokespeople [c]:
+kd.refresh_from_db()
+assert kd.is_active is True
+assert kd.deactivated_reason == ""
+assert list(kd.spokespeople.values_list("pk", flat=True)) == [c.pk]
+# SESSION 276 Slice 9: primary Q-276-23 assertion.
+assert kd.audience_scope == AudienceScope.CHARACTER
+# Adversarial invariant.
+assert not (
+    kd.is_active is True
+    and kd.audience_scope in (AudienceScope.NONE, None)
+), "revived orphan must never be active + NONE/NULL"
+```
+
+The rejection path is unchanged (also asserts audience_scope stays NONE after rejected revival).
+
+### §131.2 Case 12 (`test_ingestion_revival_of_operator_deleted_kd_still_works`)
+
+Added `pre_delete_audience_scope` capture and post-revival assertion that the operator-delete branch does NOT touch `audience_scope`:
+
+```python
+pre_delete_audience_scope = original.audience_scope  # NULL in fixture
+# ...soft-delete + revive...
+assert original.audience_scope == pre_delete_audience_scope
+```
+
+This guards against a future regression that widens Slice 9's scope beyond orphan revival.
+
+### §131.3 New Case 14 — multi-spokesperson orphan revival
+
+```python
+def test_orphan_revival_with_multiple_spokespeople_stamps_character():
+    # ...orphan A, then revive with [b, c]...
+    assert kd.audience_scope == AudienceScope.CHARACTER
+    assert set(kd.spokespeople.values_list("pk", flat=True)) == {b.pk, c.pk}
+```
+
+Multi-character revival lands at CHARACTER (multi-character is a shape variant of CHARACTER, not a distinct audience type — Slice 4 §48).
+
+### §131.4 New Case 15 — revival atomicity (transaction rollback)
+
+```python
+def test_orphan_revival_atomic_if_m2m_set_fails(monkeypatch):
+    # ...orphan a, then connect m2m_changed pre_add receiver that raises...
+    with pytest.raises(InjectedM2MFailure):
+        ingest_text(..., spokespeople=[c])
+    # Verify the ENTIRE revival rolled back:
+    assert kd.is_active is False (unchanged)
+    assert kd.deactivated_reason == 'orphaned_by_teammate_delete' (unchanged)
+    assert kd.audience_scope == AudienceScope.NONE (unchanged)
+    assert kd.spokespeople.count() == 0 (unchanged)
+    # Adversarial invariant:
+    assert not (active AND CHARACTER AND empty M2M)
+```
+
+This proves the new `transaction.atomic()` wrapper actually rolls back the CHARACTER stamp + is_active flip when M2M `.set()` fails. Without the atomic block, the save would commit and the KD would be left in the exact Slice 4 §51 row-3 malformed shape the invariant forbids.
+
+Total: 2 assertions added to existing tests + 2 new tests (14 & 15). The lifecycle test count grows from 13 → 15.
+
+## §132. Orphan-rejection result (Case 11)
+
+`spokespeople=[]` → `OrphanRevivalRejected` raised. Post-rejection assertions verified:
+
+- `is_active=False` (unchanged)
+- `deactivated_reason='orphaned_by_teammate_delete'` (preserved)
+- `audience_scope='none'` (preserved — the gate short-circuits before any mutation)
+
+**PASS.** SESSION 275 rejection contract is unchanged.
+
+## §133. Orphan successful-revival result (Case 11 continuation)
+
+`spokespeople=[c]` (non-empty) → revival succeeds. Post-revival assertions verified:
+
+- `is_active=True`
+- `deactivated_reason=''` (cleared)
+- `audience_scope='character'` (NEW Slice 9 stamp)
+- `spokespeople=[c.pk]` (attached)
+- Adversarial invariant: NOT `(active AND audience_scope IN {NONE, NULL})` — verified
+
+**PASS.** Row is a coherent Delta CHARACTER shape immediately. No transitional NONE / NULL bridge state persists.
+
+## §134. Multi-spokesperson revival result (Case 14 — new)
+
+Orphan A → revive with `spokespeople=[b, c]`. Post-revival:
+
+- `is_active=True`
+- `deactivated_reason=''`
+- `audience_scope='character'`
+- `spokespeople` M2M contains exactly `{b.pk, c.pk}`
+
+**PASS.** Multi-character is CHARACTER shape.
+
+## §135. Operator-delete comparison (Case 12)
+
+Operator-deleted KD created with `audience_scope=None` (fixture default; not yet touched by Stage 3B mutation-surface pass). Revived without new spokespeople. Post-revival:
+
+- `is_active=True`
+- `deactivated_reason=''`
+- `spokespeople=[a.pk]` (prior M2M preserved per SESSION 275)
+- `audience_scope == pre_delete_audience_scope` (None) — Slice 9 did NOT touch this branch
+
+**PASS.** Operator-delete revival is unchanged. `is_orphan_revival` flag in `_persist` is False for this branch; `audience_scope` is NOT added to `update_fields`.
+
+## §136. Atomicity / malformed-state analysis (Case 15 — new)
+
+The new `transaction.atomic()` wrapper is exercised deterministically:
+
+- Setup: an `m2m_changed` `pre_add` receiver on `KnowledgeDocumentSpokesperson.through` that raises `InjectedM2MFailure`.
+- Action: `ingest_text(..., spokespeople=[c])` on the orphaned KD.
+- Expected: revival save writes fire; `.set([c])` triggers `pre_add`; receiver raises; the whole atomic block rolls back.
+- Verified post-rollback:
+  - `is_active=False` (unchanged)
+  - `deactivated_reason='orphaned_by_teammate_delete'` (preserved)
+  - `audience_scope='none'` (preserved)
+  - `spokespeople.count()==0` (empty)
+  - Adversarial invariant: NOT `(active AND CHARACTER AND empty M2M)` — verified
+
+**PASS.** No malformed CHARACTER-shape+empty-M2M row can be left by a partial revival. This is a *load-bearing* invariant for Delta because Stage 5+ retrieval will fail closed on such a shape but existing SESSION 275 code had no protection against creating it.
+
+Bonus: this test also indirectly proves that Slice 9's atomic wrapper closes a pre-existing SESSION 275 hole where the save/set ordering could leave a similar malformed shape even for operator-delete revival (which the wrapper also now covers).
+
+## §137. Real-DB post-Slice-9 verification
+
+Code changed; real DB rows did not change. No ingestion revival was executed during Slice 9.
+
+```
+$ manage.py shell -c "..."
+total=72
+distribution={'universe': 3, 'character': 59, None: 10}
+inactive=0
+chunks=1149
+m2m=62
+```
+
+Byte-identical to Slice 7 §103 / Slice 8 §118. Zero drift across three consecutive slices. Slice 9 changes future ingestion-revival behavior only.
+
+## §138. Regression results
+
+```
+$ pytest apps/spokespeople/tests/test_delete_orphan_archive.py -v
+15 passed in 5.82s                          # 13 existing + 2 new (Case 14, Case 15)
+
+$ pytest apps/spokespeople/tests/test_delete_orphan_archive.py \
+         apps/embeddings/tests/test_audience_scope_stage1.py \
+         apps/embeddings/tests/test_stage2_backfill_migration.py \
+         apps/embeddings/tests/test_ingestion.py -q
+42 passed in 8.09s                          # lifecycle + Stage 1 + Stage 2 + ingestion
+
+$ python manage.py makemigrations --check embeddings
+No changes detected in app 'embeddings'    # no schema drift
+
+$ pytest apps/embeddings/ apps/spokespeople/ apps/universe/ apps/compositions/ -q
+1653 passed, 2 warnings in 126.86s          # broader — +2 from Slice 8's 1651 (Case 14 + Case 15)
+```
+
+Every existing test still passes. The 2 warnings are the same pre-existing DateTime naive-vs-aware warnings unrelated to Slice 9.
+
+## §139. Prediction vs actual
+
+| Prediction | Actual | Status |
+|---|---|---|
+| Source confirms `_persist` has explicit spokespersons available at revival | `ingestion.py:106` — keyword arg present; gate at `:146-158` provably non-empty | ✓ |
+| Orphan revival lands directly at CHARACTER | Case 11 assertion `audience_scope == CHARACTER` passes | ✓ |
+| No runtime NULL bridge needed | Case 11 asserts `NOT (active AND audience_scope IN {NONE, NULL})` | ✓ |
+| SESSION 275 no-spokesperson rejection remains | Case 11 rejection branch still raises + preserves state | ✓ |
+| Operator-delete revival remains unchanged | Case 12 asserts `audience_scope == pre_delete_audience_scope` (unchanged) | ✓ |
+| Existing lifecycle contract remains intact | 15/15 lifecycle + 42/42 targeted + 1653/1653 broader | ✓ |
+| Multi-spokesperson revival works | Case 14 verifies `{b, c}` attaches + CHARACTER | ✓ |
+| Revival atomicity closes M2M-failure hole | Case 15 verifies full rollback under injected `m2m_changed` failure | ✓ |
+| Real DB unchanged | 72 KDs, same distribution, 0 inactive | ✓ |
+
+**Q-276-23 (refined) CONFIRMED.** Zero falsifications. Zero unexpected findings.
+
+## §140. Files changed (Slice 9)
+
+```
+ M shell/apps/embeddings/ingestion.py                                        (+~35 lines net — import, is_orphan_revival flag, transaction.atomic() wrapper, conditional audience_scope stamp, log-line extension)
+ M shell/apps/spokespeople/tests/test_delete_orphan_archive.py               (+~130 lines — Case 11/12 extensions + Case 14 + Case 15)
+?? docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md                     (this Slice 9 section)
+```
+
+Zero changes to: SPA, retrieval, serializer create/update, view attach/detach, admin, signals, migrations, models, constraints. Slice 9 is scoped strictly to the ingestion revival branch.
+
+## §141. Unresolved questions
+
+Carried from prior slices (all still open):
+
+- Fresh ingest/create audience population (rest of Stage 3B — mutation-surface pass for serializer.create + view.attach/detach).
+- Serializer PATCH audience mutation.
+- Provenance direction Alpha vs Beta.
+- Retrieval predicate switch (Stage 5).
+- Operator triage UI for the 10 ambiguous rows (Stage 4).
+- DB CHECK constraints + NOT NULL cutover (Stage 6).
+- SPA audience UI (deferred).
+- Bundle vs split (still open from Slice 1 §8.4).
+
+**No new Slice-9-specific unresolved questions.** The Slice 8 §121 known transitional state is CLOSED by this slice.
+
+**One side-effect worth flagging:** the new `transaction.atomic()` wrapper around the revival branch also protects operator-delete revival from the same M2M-race hole (originally a SESSION 275 latent hole that this slice incidentally closes). That is a defensive improvement, not a broadening of scope — the wrapper serves the CHARACTER-stamp atomicity contract and covering operator-delete revival is free.
+
+## §142. Recommendation
+
+**Q-276-23 (refined) is confirmed. The Slice 8 §121 malformed transitional state is eliminated.** Orphan revival now atomically produces a coherent Delta CHARACTER row; operator-delete revival is unchanged (still preserves prior audience anchor).
+
+Slice 9 does not authorize any further work. Each subsequent Stage 3B step requires an independent Chris + ChatGPT decision:
+
+- **Fresh-create audience inference** — `_persist` CREATE branch (`ingestion.py:189-213`) currently produces new rows with `audience_scope=NULL`. Extending it to infer from `(spokespeople, universe)` at create time (CHARACTER if M2M non-empty; UNIVERSE if universe set + M2M empty; WORKSPACE if both NULL and operator explicitly chose workspace-shared) is the next natural step and directly parallels Slice 9's structure.
+- **Serializer PATCH** — extend `KnowledgeDocumentSerializer.update` to handle audience_scope transitions.
+- **View attach/detach** — extend view actions to transition audience_scope on M2M changes.
+- **Operator triage UI** (Stage 4).
+- **Retrieval predicate switch** (Stage 5).
+
+## §143. Explicit STOP gate
+
+**STOP.** Slice 9 authorizes no further work.
+
+Do NOT begin:
+
+- Fresh-create audience inference (`_persist` CREATE branch)
+- Serializer audience mutation
+- Attach/detach audience transitions
+- Universe transitions
+- Provenance work
+- Retrieval predicate change
+- Operator triage UI
+- DB CHECK constraints
+- NOT NULL cutover
+- SPA changes
+- Removal of SESSION 275 protections
+
+## §144. Smallest recommended next question
+
+**Q-276-24.** *If `_persist`'s CREATE branch (`ingestion.py:189-213`) is extended so a fresh KnowledgeDocument is stamped `audience_scope=CHARACTER` when `spokespeople` is non-empty at create time, does every existing create path continue to work AND does the resulting row match Slice 4 §51 row #1 or row #2 without any subsequent server-side reclassification?*
+
+Falsifiable by adding `audience_scope=AudienceScope.CHARACTER` to the create call when `spokespeople` is non-empty (~1 conditional in the CREATE branch), then extending an ingestion test to assert the freshly created KD has `audience_scope=CHARACTER` when spokespeople are supplied. Scoped strictly to CHARACTER inference; UNIVERSE and WORKSPACE inference at create time is a separate Q-276-25.
+
+## §145. Slice 9 checklist
+
+- [x] Step 0 — commit + push Slice 8 SHA-record (commit `fba60e1`)
+- [x] Slice 9 baseline verified — `main == origin/main == fba60e1`, working tree clean at slice start
+- [x] Q-276-23 refined per Chris + ChatGPT (§128 preamble)
+- [x] Source trace of `ingestion._persist` revival path (§129) — spokespeople keyword arg present; SESSION 275 gate provably non-empty; save/set not atomic pre-Slice-9
+- [x] Ingestion diff (§130) — one import + `is_orphan_revival` flag + `transaction.atomic()` wrapper + conditional CHARACTER stamp
+- [x] Test A: orphan revival without spokespersons still rejected (Case 11 rejection branch — preserved SESSION 275 contract; audience_scope stays NONE) (§132)
+- [x] Test B: orphan revival with explicit spokesperson lands at CHARACTER (Case 11 successful branch) (§133)
+- [x] Test C: multi-spokesperson orphan revival → CHARACTER (new Case 14) (§134)
+- [x] Test D: operator-delete revival unchanged — audience_scope preserved (Case 12) (§135)
+- [x] Test E: atomicity — M2M failure rolls back CHARACTER stamp + is_active flip (new Case 15) (§136)
+- [x] Adversarial invariant — NOT `(active AND audience_scope IN {NONE, NULL})` asserted on revived row (Case 11) (§133)
+- [x] Adversarial invariant — NOT `(active AND CHARACTER AND empty M2M)` asserted on rolled-back revival (Case 15) (§136)
+- [x] 15/15 lifecycle tests pass (§138)
+- [x] 42/42 combined lifecycle + Stage 1 + Stage 2 + ingestion tests pass (§138)
+- [x] 1653/1653 broader regression pass (§138)
+- [x] `makemigrations --check embeddings` clean (§138)
+- [x] Real DB unchanged: 72 KDs, `CHARACTER=59, UNIVERSE=3, NULL=10, NONE=0, inactive=0` (§137)
+- [x] Prediction vs actual — Q-276-23 refined CONFIRMED (§139)
+- [x] Files changed inventory (§140)
+- [x] Explicit STOP gate (§143)
+- [x] Smallest next question Q-276-24 (§144)
+- [x] Zero create-branch / serializer / attach-detach / provenance / retrieval / SPA / migration / constraint changes; zero provider spend
+- [ ] Commit + push Slice 9
+- [ ] Chris + ChatGPT review + Slice 10 scoping decision (§142)
+
+---
+
+**End of SESSION 276 Slice 9 / Delta Stage 3B-1. Orphan revival now atomically transitions inactive+NONE → active+CHARACTER when the required non-empty spokespeople are supplied. Slice 8 §121 malformed transitional state eliminated. Q-276-23 (refined) CONFIRMED — 15/15 lifecycle tests pass (13 existing + 2 new); operator-delete revival unchanged; revival atomicity closes M2M-failure hole (also incidentally covers a pre-existing SESSION 275 latent hole). Real DB unchanged. STOP for Chris + ChatGPT review of §142 recommendation, §143 gate, and §144 Q-276-24 next question.**

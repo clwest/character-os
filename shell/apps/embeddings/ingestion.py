@@ -36,6 +36,7 @@ from apps.accounts.models import Workspace
 
 from . import pdf, url_fetch
 from .models import (
+    AudienceScope,
     DeactivationReason,
     DocumentStatus,
     DocumentType,
@@ -143,9 +144,10 @@ def _persist(
         # revive unchanged — their prior M2M is preserved if the
         # caller supplies nothing, or replaced if they supply new
         # spokespeople.
-        if existing.deactivated_reason == (
+        is_orphan_revival = existing.deactivated_reason == (
             DeactivationReason.ORPHANED_BY_TEAMMATE_DELETE
-        ):
+        )
+        if is_orphan_revival:
             if not spokespeople:
                 raise OrphanRevivalRejected(
                     "This content matches a knowledge document that was "
@@ -161,28 +163,57 @@ def _persist(
         # re-embed. embed_document is idempotent — it wipes
         # stale chunks before re-running, so calling it on a
         # previously-processed doc is safe.
-        existing.is_active = True
-        existing.status = DocumentStatus.PENDING
-        existing.error_message = ""
-        # SESSION 275 — revival clears the deactivation reason.
-        # ``OPERATOR_DELETE`` reason no longer applies (the row is
-        # active again). For ``ORPHANED_BY_TEAMMATE_DELETE`` we only
-        # reach here when the caller supplied spokespeople (gate
-        # above), so the audience is bounded by that explicit set —
-        # safe to clear.
-        existing.deactivated_reason = ""
-        new_title = title.strip()
-        if new_title:
-            existing.title = new_title
-        existing.save(update_fields=[
-            "is_active", "status", "error_message",
-            "deactivated_reason", "title", "updated_at",
-        ])
-        if spokespeople:
-            existing.spokespeople.set(spokespeople)
+        #
+        # SESSION 276 Slice 9 / Delta Stage 3B-1 — the revival branch
+        # is now wrapped in ``transaction.atomic()`` so the audience
+        # + M2M writes commit together. Previously (SESSION 275)
+        # ``existing.save()`` and ``existing.spokespeople.set(...)``
+        # ran outside a transaction; a race or a ``m2m_changed``
+        # signal veto between the two could leave an active row with
+        # empty M2M. Wrapping both in a single savepoint closes that
+        # hole for both orphan revival (which now stamps CHARACTER)
+        # and operator-delete revival (which preserves prior audience).
+        with transaction.atomic():
+            existing.is_active = True
+            existing.status = DocumentStatus.PENDING
+            existing.error_message = ""
+            # SESSION 275 — revival clears the deactivation reason.
+            # ``OPERATOR_DELETE`` reason no longer applies (the row is
+            # active again). For ``ORPHANED_BY_TEAMMATE_DELETE`` we
+            # only reach here when the caller supplied spokespeople
+            # (gate above), so the audience is bounded by that
+            # explicit set — safe to clear.
+            existing.deactivated_reason = ""
+            new_title = title.strip()
+            if new_title:
+                existing.title = new_title
+
+            update_fields = [
+                "is_active", "status", "error_message",
+                "deactivated_reason", "title", "updated_at",
+            ]
+
+            # SESSION 276 Slice 9 / Delta Stage 3B-1 (Q-276-23) —
+            # orphan revival lands directly at
+            # ``audience_scope=CHARACTER``. The gate above guarantees
+            # ``spokespeople`` is non-empty, so the resulting row is
+            # a coherent Delta CHARACTER shape immediately — no
+            # transitional NONE / NULL state persists. Operator-
+            # deleted revival (``is_orphan_revival=False``) does NOT
+            # touch ``audience_scope`` — the operator's prior audience
+            # (Slice 2 §22 refinement) is preserved unchanged.
+            if is_orphan_revival:
+                existing.audience_scope = AudienceScope.CHARACTER
+                update_fields.append("audience_scope")
+
+            existing.save(update_fields=update_fields)
+            if spokespeople:
+                existing.spokespeople.set(spokespeople)
+
         logger.info(
-            "knowledge ingest restored workspace=%s hash=%s doc=%s",
-            workspace.slug, digest[:12], existing.pk,
+            "knowledge ingest restored workspace=%s hash=%s doc=%s "
+            "orphan_revival=%s",
+            workspace.slug, digest[:12], existing.pk, is_orphan_revival,
         )
         return IngestResult(document=existing, deduped=False)
 

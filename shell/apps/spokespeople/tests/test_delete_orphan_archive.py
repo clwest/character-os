@@ -519,15 +519,14 @@ def test_ingestion_revival_rejects_orphan_without_spokespeople():
     # Now revive WITH an explicit new teammate — must succeed and
     # clear the deactivation reason.
     #
-    # SESSION 276 Slice 8 known transitional state: this slice does
-    # NOT extend the ingestion revival path (Stage 3B territory), so
-    # audience_scope remains NONE post-revival even though is_active
-    # returns to True. That leaves a CHARACTER-shape row (M2M non-
-    # empty) carrying audience_scope=NONE — a Slice 4 §51 row-3
-    # malformed shape that will fail closed under retrieval today
-    # (safe) and be cleaned up when Stage 3B extends ingestion. This
-    # test intentionally does NOT assert audience_scope post-revival
-    # so it doesn't lock in transitional behavior.
+    # SESSION 276 Slice 9 / Delta Stage 3B-1 (Q-276-23): the same
+    # revival ALSO stamps audience_scope=CHARACTER directly. Because
+    # the SESSION 275 gate above already required a non-empty
+    # spokesperson set, the row is a coherent Delta CHARACTER shape
+    # immediately — no transitional NONE / NULL bridge state persists.
+    # Together with the M2M .set() (both inside a single
+    # transaction.atomic() savepoint in _persist), the row transitions
+    # atomically: inactive+NONE → active+CHARACTER+M2M={C}.
     c = Teammate.objects.create(workspace=ws, name="C")
     result2 = ingest_text(
         workspace=ws,
@@ -540,6 +539,15 @@ def test_ingestion_revival_rejects_orphan_without_spokespeople():
     assert kd.is_active is True
     assert kd.deactivated_reason == ""
     assert list(kd.spokespeople.values_list("pk", flat=True)) == [c.pk]
+    # SESSION 276 Slice 9: post-revival audience_scope = CHARACTER
+    # (not NONE, not NULL). This is the primary Q-276-23 assertion.
+    assert kd.audience_scope == AudienceScope.CHARACTER
+    # Adversarial invariant — a revived row must NEVER be active with
+    # NONE or NULL audience_scope simultaneously.
+    assert not (
+        kd.is_active is True
+        and kd.audience_scope in (AudienceScope.NONE, None)
+    ), "revived orphan must never be active + NONE/NULL"
 
 
 # ---- 12. ingestion revival of operator-deleted KD unchanged ---------
@@ -554,6 +562,13 @@ def test_ingestion_revival_of_operator_deleted_kd_still_works():
     helper) so the content_hash matches the SHA-256 the revival
     path recomputes; otherwise dedup misses and a fresh KD is made
     instead of reviving the target row.
+
+    SESSION 276 Slice 9 / Delta Stage 3B-1: operator-delete revival
+    is EXPLICITLY NOT modified by this slice. ``audience_scope`` must
+    remain whatever it was pre-revival — the operator's prior
+    audience anchor (Slice 2 §22 refinement). Under the current
+    transitional fixture, that's NULL; post-full-Stage-3B it would
+    be CHARACTER. Either way, revival must not touch the field.
     """
     ws = _make_workspace("s275-12@t")
     a = Teammate.objects.create(workspace=ws, name="A")
@@ -563,6 +578,7 @@ def test_ingestion_revival_of_operator_deleted_kd_still_works():
         content="body-of-operator-content",
         spokespeople=[a],
     ).document
+    pre_delete_audience_scope = original.audience_scope
 
     # Operator soft-delete (simulate the API destroy path directly on
     # the row — same field writes, avoids APIClient login setup).
@@ -584,6 +600,10 @@ def test_ingestion_revival_of_operator_deleted_kd_still_works():
     assert original.is_active is True
     assert original.deactivated_reason == ""
     assert list(original.spokespeople.values_list("pk", flat=True)) == [a.pk]
+    # SESSION 276 Slice 9: operator-delete revival must NOT stamp
+    # CHARACTER (or anything else) on audience_scope. The Q-276-23
+    # extension is scoped strictly to the orphan-revival branch.
+    assert original.audience_scope == pre_delete_audience_scope
 
 
 # ---- 13. atomic rollback if orphan-archive step fails ---------------
@@ -702,3 +722,140 @@ def test_teammate_delete_atomic_if_orphan_archive_update_fails(monkeypatch):
     assert kd.chunks.count() == original_chunk_count, (
         "chunks must be unchanged"
     )
+
+
+# ---- 14. SESSION 276 Slice 9 — orphan revival with multiple sp ------
+
+
+def test_orphan_revival_with_multiple_spokespeople_stamps_character():
+    """SESSION 276 Slice 9 / Delta Stage 3B-1 (Q-276-23).
+
+    Orphan revival supplied with multiple explicit spokespersons must
+    still land at ``audience_scope=CHARACTER`` — multi-character KDs
+    are a CHARACTER-shape variant (M2M count ≥ 2), not a distinct
+    audience type. Both attach rows must survive the transaction.
+    """
+    ws = _make_workspace("s276-9-multi@t")
+    # Ingest with A only, then delete A → orphan.
+    a = Teammate.objects.create(workspace=ws, name="A")
+    result = ingest_text(
+        workspace=ws,
+        title="multi-content",
+        content="body-of-multi-content",
+        spokespeople=[a],
+    )
+    kd = result.document
+    a.delete()
+    kd.refresh_from_db()
+    assert kd.is_active is False
+    assert kd.deactivated_reason == DeactivationReason.ORPHANED_BY_TEAMMATE_DELETE
+    assert kd.audience_scope == AudienceScope.NONE
+
+    # Revive with TWO explicit spokespersons.
+    b = Teammate.objects.create(workspace=ws, name="B")
+    c = Teammate.objects.create(workspace=ws, name="C")
+    result2 = ingest_text(
+        workspace=ws,
+        title="multi-content-owned",
+        content="body-of-multi-content",
+        spokespeople=[b, c],
+    )
+    kd.refresh_from_db()
+    assert result2.document.id == kd.id
+    assert kd.is_active is True
+    assert kd.deactivated_reason == ""
+    assert kd.audience_scope == AudienceScope.CHARACTER
+    m2m_pks = set(kd.spokespeople.values_list("pk", flat=True))
+    assert m2m_pks == {b.pk, c.pk}
+
+
+# ---- 15. SESSION 276 Slice 9 — revival atomicity ---------------------
+
+
+def test_orphan_revival_atomic_if_m2m_set_fails(monkeypatch):
+    """SESSION 276 Slice 9 / Delta Stage 3B-1 (Q-276-23).
+
+    The revival branch is wrapped in ``transaction.atomic()`` so the
+    ``.save()`` (which now writes ``audience_scope=CHARACTER``) and
+    the ``.spokespeople.set(...)`` commit together. If M2M assignment
+    fails (e.g. an ``m2m_changed`` signal raises), the revival save
+    must roll back so no active-KD row is left with:
+
+    * ``audience_scope=CHARACTER`` but empty M2M (Slice 4 §51 row #3
+      malformed shape), OR
+    * ``is_active=True`` but stale ``deactivated_reason=ORPHANED...``.
+
+    Injection: raise from ``m2m_changed`` on ``pre_add`` for the
+    revived KD's through-model. That's the same signal wiring the
+    workspace/Universe cross-check already uses at
+    ``apps/embeddings/signals.py:31,93``.
+    """
+    from django.db.models.signals import m2m_changed
+
+    from apps.embeddings.models import (
+        KnowledgeDocument as KDModel,
+    )
+
+    ws = _make_workspace("s276-9-atomic@t")
+    a = Teammate.objects.create(workspace=ws, name="A")
+    ingest_text(
+        workspace=ws,
+        title="atomic-content",
+        content="body-of-atomic-content",
+        spokespeople=[a],
+    )
+    a.delete()
+    kd = KDModel.objects.filter(workspace=ws, title="atomic-content").first()
+    assert kd is not None
+    assert kd.is_active is False
+    assert kd.deactivated_reason == DeactivationReason.ORPHANED_BY_TEAMMATE_DELETE
+    assert kd.audience_scope == AudienceScope.NONE
+
+    pre_revival_is_active = kd.is_active
+    pre_revival_reason = kd.deactivated_reason
+    pre_revival_audience_scope = kd.audience_scope
+
+    class InjectedM2MFailure(RuntimeError):
+        pass
+
+    def failing_pre_add(sender, action, **kwargs):
+        if action == "pre_add":
+            raise InjectedM2MFailure(
+                "simulated m2m_changed pre_add failure during revival"
+            )
+
+    through_model = KDModel.spokespeople.through  # type: ignore[attr-defined]
+    m2m_changed.connect(failing_pre_add, sender=through_model)
+    try:
+        c = Teammate.objects.create(workspace=ws, name="C")
+        with pytest.raises(InjectedM2MFailure):
+            ingest_text(
+                workspace=ws,
+                title="atomic-content-retry",
+                content="body-of-atomic-content",
+                spokespeople=[c],
+            )
+    finally:
+        m2m_changed.disconnect(failing_pre_add, sender=through_model)
+
+    # Verify the ENTIRE revival rolled back: no partial-state where
+    # audience_scope moved to CHARACTER but M2M is empty.
+    kd.refresh_from_db()
+    assert kd.is_active is pre_revival_is_active, (
+        "revival save must roll back if M2M fails"
+    )
+    assert kd.deactivated_reason == pre_revival_reason, (
+        "deactivated_reason must be preserved on rolled-back revival"
+    )
+    assert kd.audience_scope == pre_revival_audience_scope, (
+        "audience_scope must be preserved on rolled-back revival"
+    )
+    assert kd.spokespeople.count() == 0, (
+        "M2M must remain empty after rolled-back revival"
+    )
+    # Adversarial invariant — no malformed CHARACTER+empty-M2M shape.
+    assert not (
+        kd.is_active is True
+        and kd.audience_scope == AudienceScope.CHARACTER
+        and kd.spokespeople.count() == 0
+    ), "revival must never leave a malformed CHARACTER+empty-M2M active shape"
