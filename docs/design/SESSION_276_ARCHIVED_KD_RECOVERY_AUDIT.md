@@ -2734,3 +2734,311 @@ Even though Q-276-17 passed cleanly.
 **End of SESSION 276 Slice 6 / Delta Stage 2 rehearsal. Q-276-17 CONFIRMED — deterministic classification produces the exact Slice 4 §55 distribution under a mechanically rolled-back transaction. Zero data persisted. Stage 2 migration NOT authorized to land. STOP for Chris + ChatGPT review of §95 recommendation, §96 gate, and §97 next question.**
 
 **Slice 6 landed commit SHA:** `5f87c06` (`docs(session-276): Slice 6 — verify deterministic audience backfill rehearsal`). Pushed to `origin/main`. Post-push `main == origin/main == 5f87c06`; working tree clean.
+
+**Slice 6 SHA-record follow-up:** `0780f82` (`docs(session-276): record Slice 6 landed SHA 5f87c06`) — doc-only checklist + inline SHA record.
+
+---
+
+# SESSION 276 — Slice 7 / Delta Stage 2 persisted deterministic backfill (Q-276-22)
+
+**Status.** IMPLEMENTATION SLICE — persists the audience classification rehearsed and confirmed in Slice 6. Chris + ChatGPT authorized the smallest next question (Q-276-22) with the approved product decisions from §94–§97.
+
+**Slice 7 baseline.** `main == origin/main == 0780f82` (Slice 6 SHA-record). Working tree clean at slice start. Migration head pre-slice: `0007_session276_audience_scope` (Slice 5 Stage 1 substrate). Slice 6 fingerprints carried forward:
+
+- kd_count = 72
+- chunk_count = 1149
+- m2m_count = 62
+- m2m_rows_hash = `-8154885081713289592`
+- audience_scope_dist = `{None: 72}`
+
+**Authorized decisions carried forward** (from Slice 6 §94–§97):
+
+1. Direction Delta remains approved.
+2. Migration-only unresolved representation stays `audience_scope=NULL`; no permanent PENDING enum value.
+3. Stage 2 migration MUST include a preflight abort on any inactive KD.
+4. Reverse migration must be a STRICT INVERSE — not a generic reset.
+5. Stage 2 lands STANDALONE (Q-276-18 signal extension deferred).
+6. SESSION 275 signal extension stamping `audience_scope=NONE` remains Stage 3 work.
+7. The 10 ambiguous rows remain NULL; no classify / quarantine / archive.
+8. No provenance implementation in this slice.
+9. No retrieval change.
+10. No serializer/API audience behavior change.
+11. No SPA change.
+
+**Frozen UNIVERSE-canon set** approved for Stage 2 migration:
+
+- `8f825c98-f420-4867-8700-6d4db6832d9d` — Ruby / Fox & Flour Bakery House Policies & Hours
+- `d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6` — SESSION 272 rivet-debug-ctl substrate
+- `64c91888-5534-418b-bbe2-33743f815bcf` — SESSION 272 rivet-debug-exp substrate
+
+## §99. Slice 7 falsifiable question — Q-276-22
+
+> If the Stage 2 migration using the Slice 6 §92 shape is landed on top of the existing Delta Stage-1 substrate and run against the current DB, does the persisted post-migration state exactly match the Slice 6 §90 in-transaction rehearsal fingerprint?
+
+**Prediction:** yes. Persisted distribution: CHARACTER=59, UNIVERSE=3, NULL=10, WORKSPACE=0, NONE=0. Only `audience_scope` changes on the 62 deterministic rows. Zero change to any other field, M2M row, chunk, or lifecycle state.
+
+## §100. Final frozen-3 UUID sanity check (pre-migration)
+
+Executed at Slice 7 start; every check passed:
+
+```
+=== Slice 7 fresh baseline ===
+total KDs: 72
+audience_scope distribution: {None: 72}
+inactive rows: 0
+chunk count: 1149
+M2M through-rows: 62
+
+Shape buckets (unchanged from Slice 6 §87):
+  (active=True, universe_set=False, m2m_nonempty=False): 10
+  (active=True, universe_set=False, m2m_nonempty=True):  49
+  (active=True, universe_set=True,  m2m_nonempty=False):  3
+  (active=True, universe_set=True,  m2m_nonempty=True):  10
+
+=== FINAL frozen UNIVERSE-canon sanity check ===
+  8f825c98.. OK | ws=chriss-workspace          | title='Fox & Flour Bakery — House Policies & Hours'
+  d8ab3d2c.. OK | ws=session272-rivet-debug-ctl | title='RIVET-DEBUG (CTL) — SESSION 272 experimental substrate'
+  64c91888.. OK | ws=session272-rivet-debug-exp | title='RIVET-DEBUG (EXP) — SESSION 272 experimental substrate'
+
+  ALL THREE FROZEN CANON IDS PASS SANITY CHECK
+```
+
+Every frozen ID: exists, active, universe non-null, M2M empty, `audience_scope=NULL`, correct workspace, correct title prefix. Zero drift since Slice 4 §55.1 and Slice 6 §87 evidence. Safe to proceed with migration.
+
+## §101. Migration implementation shape
+
+New file: `shell/apps/embeddings/migrations/0008_session276_stage2_backfill.py` (~120 lines with docstrings).
+
+### §101.1 Structure
+
+- Django `RunPython` data migration with `apply_forward` + `apply_reverse` functions and a dedicated `Stage2PreflightError(RuntimeError)` exception subclass.
+- Historical model access via `apps.get_model("embeddings", "KnowledgeDocument")` — never imports the runtime model class or the `AudienceScope` enum.
+- Choice values as string literals (`"character"`, `"universe"`) — not the runtime enum — so future model-code refactors cannot alter this migration's meaning.
+- Frozen constant list: `UNIVERSE_CANON_ROWS_20260821 = [3 UUIDs]` embedded as historical fact.
+
+### §101.2 Forward operation (`apply_forward`)
+
+1. **PREFLIGHT.** Raise `Stage2PreflightError` if `KnowledgeDocument.objects.filter(is_active=False).count() > 0`. Message cites the Slice 4 §55 / Slice 6 §87 zero-inactive assumption and the Q-276-18 signal-extension ordering dependency.
+2. **Rule A — CHARACTER.** `KnowledgeDocument.objects.annotate(_sp_count=Count("spokespeople")).filter(_sp_count__gt=0).update(audience_scope="character")`. Generic predicate — surviving explicit M2M is positive evidence.
+3. **Rule B — UNIVERSE.** `KnowledgeDocument.objects.filter(pk__in=UNIVERSE_CANON_ROWS_20260821).update(audience_scope="universe")`. Frozen-3 only. NOT a generic shape predicate.
+4. **Rule C — NULL preserved.** No code — the 10 ambiguous rows are untouched by construction (Rule A shape-filter excludes empty M2M; Rule B PK-filter excludes non-frozen rows).
+
+### §101.3 Reverse operation (`apply_reverse`)
+
+Strict inverse of forward:
+
+1. **Reverse Rule B.** `KnowledgeDocument.objects.filter(pk__in=UNIVERSE_CANON_ROWS_20260821, audience_scope="universe").update(audience_scope=None)`. `audience_scope="universe"` filter guards against clobbering a Stage-3+ reassignment.
+2. **Reverse Rule A.** `KnowledgeDocument.objects.annotate(_sp_count=Count("spokespeople")).filter(_sp_count__gt=0, audience_scope="character").update(audience_scope=None)`. Same guard shape.
+
+Documented caveat: reverse is strict-inverse only pre-Stage-3. Post-Stage-3 rollback may clobber Stage-3 assignments; that's a downstream ordering concern, not a Slice 7 responsibility.
+
+### §101.4 Idempotency + generic properties
+
+- Forward is idempotent by construction — Rule A sets same value; Rule B sets same value; running twice = running once.
+- Reverse is idempotent (filter matches nothing on second call).
+- No `RunSQL`, no raw connection cursor, no schema change.
+- No dependency on runtime code beyond `django.db.models.Count`.
+
+## §102. Migration regression tests
+
+New test module: `shell/apps/embeddings/tests/test_stage2_backfill_migration.py` (~275 lines, 6 test cases).
+
+Imports the migration module via `importlib.import_module("apps.embeddings.migrations.0008_session276_stage2_backfill")` because Python cannot `import` a module whose name starts with a digit. Invokes `apply_forward` / `apply_reverse` directly with the runtime `django.apps.apps` registry, which is contract-equivalent to the historical registry Django passes at migration time (both provide `get_model("embeddings", "KnowledgeDocument")` returning a queryset-capable class).
+
+| Test | Coverage | Status |
+|---|---|---|
+| T1 `test_forward_classifies_character_universe_and_ambiguous` | Rule A + Rule B + Rule C together — synthesized rows in a test workspace get exactly the predicted classification | PASS |
+| T2 `test_forward_does_not_falsely_classify_non_frozen_universe_row_as_universe` | An `(active, universe non-null, M2M empty)` row **not in the frozen set** stays NULL — the load-bearing shape-vs-identity guard | PASS |
+| T3 `test_forward_aborts_when_any_inactive_row_exists` | Preflight raises `Stage2PreflightError` on any inactive KD; no partial CHARACTER writes leak | PASS |
+| T4 `test_reverse_restores_stage1_state_for_forward_touched_rows` | Forward → reverse round-trips the audience_scope to NULL for rows the forward touched; ambiguous rows remain NULL | PASS |
+| T5 `test_reverse_does_not_touch_unrelated_audience_values` | Reverse leaves WORKSPACE, NONE, off-frozen UNIVERSE, and CHARACTER-with-empty-M2M rows untouched — proves strict-inverse posture against future Stage-3+ mixed states | PASS |
+| T6 `test_forward_is_idempotent` | Running forward twice = running forward once (state hash byte-identical) | PASS |
+
+## §103. Pre- vs post-migration fingerprint
+
+**Pre-migration** (§100 fresh baseline, matches Slice 6 §90 BEFORE):
+
+```
+kd_count: 72
+chunk_count: 1149
+m2m_count: 62
+m2m_rows_hash: -8154885081713289592
+audience_scope_dist: {None: 72}
+inactive: 0
+migration head: 0007_session276_audience_scope
+```
+
+**Post-migration** (fresh read after `manage.py migrate embeddings`):
+
+```
+kd_count: 72                                    ← unchanged
+chunk_count: 1149                               ← unchanged
+m2m_count: 62                                   ← unchanged
+m2m_rows_hash: -8154885081713289592             ← byte-identical to Slice 6 §90 BEFORE
+audience_scope_dist: {'universe': 3, 'character': 59, None: 10}   ← matches Slice 6 §90 IN-TRANSACTION
+inactive: 0                                     ← unchanged
+migration head: 0008_session276_stage2_backfill  ← advanced
+```
+
+**Every non-audience field is byte-identical.** The `m2m_rows_hash` match is the strongest single proof — every M2M through-row's `(knowledgedocument_id, teammate_id)` pair is unchanged.
+
+## §104. Persisted classification proof
+
+Full assertions run against live DB post-migration:
+
+- Distribution: `CHARACTER=59 ✓  UNIVERSE=3 ✓  NULL=10 ✓  WORKSPACE=0 ✓  NONE=0 ✓`
+- Every `CHARACTER` row has M2M ≥ 1: **0 violations**.
+- The 3 frozen UUIDs are `UNIVERSE`:
+  ```
+  8f825c98.. UNIVERSE ✓
+  d8ab3d2c.. UNIVERSE ✓
+  64c91888.. UNIVERSE ✓
+  ```
+- The 10 ambiguous rows remain `NULL`:
+  ```
+  33c07feb.. NULL ✓  ("Wikipedia is trafilatura's home turf")
+  aa90d895.. NULL ✓  ('About Hearth & Hollow Books')
+  e37ea174.. NULL ✓  ('How We Recommend Books')
+  b58efd31.. NULL ✓  ("Children's Reading")
+  7f41d8e3.. NULL ✓  ('Bookstore Events')
+  c408656d.. NULL ✓  ('Supporting Local Authors')
+  0088f31f.. NULL ✓  ('Helping Customers Find Their Next Read')
+  7ecde40b.. NULL ✓  ('Tulsi — Core Identity and Public Purpose')
+  8c6f0c14.. NULL ✓  ('TANK — AUTOMOTIVE FINANCING CONTENT KNOWLEDGE')
+  90ad200c.. NULL ✓  ('Riggs')
+  ```
+
+## §105. Regression results
+
+```
+$ pytest apps/embeddings/tests/test_stage2_backfill_migration.py -v
+6 passed in 3.92s                          # Slice 7 new tests
+
+$ pytest apps/embeddings/tests/test_stage2_backfill_migration.py \
+         apps/embeddings/tests/test_audience_scope_stage1.py \
+         apps/spokespeople/tests/test_delete_orphan_archive.py -v
+28 passed in 6.88s                         # Slice 7 + Slice 5 + SESSION 275 lifecycle
+
+$ pytest apps/embeddings/ apps/spokespeople/ apps/universe/ apps/compositions/ -q
+1651 passed, 2 warnings in 128.09s         # broader regression
+
+$ python manage.py makemigrations --check embeddings
+No changes detected in app 'embeddings'    # no schema drift
+```
+
+The 2 warnings are pre-existing DateTime naive-vs-aware unrelated to Slice 7 (identical warnings recorded in Slice 5 §78.2).
+
+## §106. Prediction vs actual
+
+| Prediction | Actual | Status |
+|---|---|---|
+| Persisted CHARACTER count = 59 | 59 | ✓ |
+| Persisted UNIVERSE count = 3 | 3 | ✓ |
+| Persisted NULL count = 10 | 10 | ✓ |
+| Persisted WORKSPACE count = 0 | 0 (absent from distribution dict) | ✓ |
+| Persisted NONE count = 0 | 0 (absent) | ✓ |
+| Only `audience_scope` changes | `m2m_rows_hash` byte-identical; `chunk_count`, `m2m_count`, `kd_count` unchanged | ✓ |
+| 10 ambiguous rows remain NULL | all 10 verified NULL individually | ✓ |
+| No retrieval behavior change | retrieval.py unchanged; 221 embeddings tests pass | ✓ |
+| No lifecycle behavior change | 13/13 SESSION 275 orphan tests pass; 0 inactive rows | ✓ |
+| Persisted state matches Slice 6 §90 IN-TRANSACTION exactly | distribution + m2m_rows_hash + all bucket counts identical | ✓ |
+
+**Q-276-22 CONFIRMED. Zero deviations. Zero unexpected findings.** Stage 2 migration is behaviorally identical to the Slice 6 rehearsal.
+
+## §107. Files changed (Slice 7)
+
+```
+?? shell/apps/embeddings/migrations/0008_session276_stage2_backfill.py       (new — 120 lines with docstring)
+?? shell/apps/embeddings/tests/test_stage2_backfill_migration.py             (new — 275 lines, 6 tests)
+?? docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md                     (untracked; this Slice 7 section)
+```
+
+Zero SPA changes. Zero mutation-surface changes. Zero retrieval changes. Zero signal changes. Zero serializer changes. Zero admin changes. Zero constraint additions.
+
+## §108. Unresolved questions
+
+Carried from Slice 4 §67, Slice 5 §81, Slice 6 §94 (all still open):
+
+- Q-276-18 signal extension stamping `audience_scope=NONE` on orphan-archive (Slice 4 §66 refinement 2; Slice 6 §94.3). Delayed to Stage 3.
+- Provenance direction Alpha vs Beta (Slice 2 §24.1).
+- Auto-quarantine at Stage 6 vs indefinite operator triage (§67.6).
+- SPA audience-picker vs server-side inference (§67.9).
+- Model-layer invariant enforcement mechanism (`clean()` vs `pre_save` vs `m2m_changed`) — Stage 5+.
+- Bundle vs split (still open from Slice 1 §8.4).
+
+**No new Slice-7-specific unresolved questions.** Every design assumption from Slice 4 §57.1 Stage 2 shape held.
+
+## §109. Recommendation
+
+**Stage 2 is complete and persisted. Direction Delta now has 62/72 rows carrying deterministic audience labels; 10 rows carry NULL awaiting operator triage.**
+
+Retrieval still uses the empty-M2M-broadcast fallback (unchanged) — no runtime behavior change from Slice 7. The `audience_scope` column is populated for the deterministic subset but not yet consulted by retrieval or any mutation path.
+
+Slice 7 does not authorize any further work. Each subsequent stage requires an independent Chris + ChatGPT decision:
+
+- **Q-276-18 / Stage 3 signal extension.** Extend `_archive_orphaned_kds_on_teammate_delete` at `shell/apps/spokespeople/signals.py:196-200` to also stamp `audience_scope="none"` alongside `deactivated_reason="orphaned_by_teammate_delete"`. Small change (~2 lines in the `.update()` call + 1 signal test).
+- **Stage 3 mutation-surface pass.** Extend ingestion `_persist`, `KnowledgeDocumentSerializer.create/update`, and `views.KnowledgeDocumentViewSet.attach/detach` to set `audience_scope` on writes. Preserves server-side inference (per Slice 4 §60).
+- **Operator triage UI for the 10 ambiguous rows** (Stage 4).
+- **Retrieval predicate switch** (Stage 5).
+- **CHECK constraints + NOT NULL cutover** (Stage 6).
+
+## §110. Explicit STOP gate
+
+**STOP.** Slice 7 authorizes no further work.
+
+Do NOT begin:
+
+- Q-276-18 signal extension
+- Mutation-surface population of `audience_scope` on writes
+- Provenance work (Direction Alpha / Beta)
+- Retrieval predicate change
+- Operator triage UI for the 10 ambiguous rows
+- DB CHECK constraints
+- NOT NULL cutover
+- SPA audience-picker or audience-visibility UI
+- Removal of SESSION 275 protections
+
+## §111. Smallest recommended next question
+
+**Q-276-18.** *If the SESSION 275 `_archive_orphaned_kds_on_teammate_delete` signal is extended to also stamp `audience_scope="none"` alongside `deactivated_reason="orphaned_by_teammate_delete"` in its bulk `.update(...)`, does the SESSION 275 test 13 atomicity guarantee still hold, and do all 13 SESSION 275 lifecycle tests still pass?*
+
+Falsifiable by writing the ~2-line signal patch + 1 new assertion in the existing atomicity test, then rerunning `apps/spokespeople/tests/test_delete_orphan_archive.py`. Small, well-scoped, and the natural next Delta step per Slice 4 §57.1 Stage 3.
+
+## §112. Slice 7 checklist
+
+- [x] Step 0 — commit + push Slice 6 SHA-record (commit `0780f82`)
+- [x] Slice 7 fresh baseline verified (§100) — 72 KDs, all NULL, 0 inactive, migration head `0007`
+- [x] Final frozen-3 UUID sanity check (§100) — all 3 pass every property
+- [x] Migration `0008_session276_stage2_backfill.py` created (§101) — `RunPython` with forward + reverse + preflight
+- [x] Historical model access via `apps.get_model` (§101.1)
+- [x] Choice values as string literals (not runtime enum) (§101.1)
+- [x] Frozen 3-UUID constant embedded (§101.1)
+- [x] Preflight aborts on any inactive row (§101.2)
+- [x] Rule A generic via `Count("spokespeople") > 0` (§101.2)
+- [x] Rule B restricted to frozen 3 UUIDs (§101.2)
+- [x] Rule C — no code touches ambiguous rows (§101.2)
+- [x] Reverse is strict inverse (§101.3)
+- [x] Reverse guarded by current-value filter (§101.3)
+- [x] Migration tests added — 6 cases covering forward classification, no-false-Universe, preflight, reverse restore, reverse-no-clobber, idempotence (§102)
+- [x] All 6 migration tests pass (§102)
+- [x] Migration applied to local DB (§103) — `Applying embeddings.0008_session276_stage2_backfill... OK`
+- [x] Post-migration distribution matches Slice 6 §90 IN-TRANSACTION exactly (§103, §104)
+- [x] All 3 frozen UUIDs are UNIVERSE (§104)
+- [x] All 10 ambiguous IDs remain NULL (§104)
+- [x] Every CHARACTER row has M2M ≥ 1 (§104)
+- [x] `m2m_rows_hash` byte-identical to Slice 6 §90 BEFORE (§103) — M2M untouched
+- [x] `chunk_count`, `kd_count`, `m2m_count` unchanged (§103)
+- [x] 28-test focused regression (Stage 2 + Stage 1 + SESSION 275 lifecycle) passes (§105)
+- [x] 1651-test broader regression passes (§105)
+- [x] `makemigrations --check` — no schema drift (§105)
+- [x] Prediction vs actual — Q-276-22 CONFIRMED (§106)
+- [x] Files changed inventory (§107)
+- [x] Explicit STOP gate (§110)
+- [x] Smallest next question Q-276-18 (§111)
+- [x] Zero SPA / mutation-surface / retrieval / signal / serializer / admin / constraint changes; zero provider spend
+- [ ] Commit + push Slice 7
+- [ ] Chris + ChatGPT review + Slice 8 scoping decision (§109)
+
+---
+
+**End of SESSION 276 Slice 7 / Delta Stage 2. Deterministic backfill persisted. Q-276-22 CONFIRMED — 62/72 rows classified (CHARACTER=59, UNIVERSE=3), 10 rows preserved NULL, zero non-audience state changed. Migration head advanced to `0008_session276_stage2_backfill`. STOP for Chris + ChatGPT review of §109 recommendation, §110 gate, and §111 Q-276-18 next question.**
