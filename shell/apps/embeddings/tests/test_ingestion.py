@@ -349,15 +349,18 @@ def test_fresh_create_universe_scoped_character_still_maps_to_character() -> Non
 
 
 @pytest.mark.django_db
-def test_fresh_create_without_spokespeople_leaves_audience_scope_null() -> None:
-    """Slice 10 Test D — fresh create with NO spokespeople must NOT be
-    stamped CHARACTER (or UNIVERSE / WORKSPACE / NONE). Q-276-25
-    hasn't authorized positive audience inference for the "absence of
-    characters" boundary yet — that case remains transitional
-    ``audience_scope=NULL`` under the current contract.
+def test_fresh_create_without_spokespeople_or_universe_leaves_audience_scope_null() -> None:
+    """Slice 10 Test D (updated by Slice 11) — fresh create with NO
+    spokespeople AND no Universe must NOT be stamped CHARACTER,
+    UNIVERSE, WORKSPACE, or NONE. Slice 11 (Q-276-25) confirmed that
+    the SPA's "None (legacy)" gesture IS positive workspace-shared
+    intent BUT the backend cannot distinguish that gesture from a
+    non-SPA caller that simply omitted the Universe arg. WORKSPACE
+    inference at ``_persist`` would recreate the "absence means
+    broadcast" semantics Delta was introduced to eliminate.
 
-    This test guards against Slice 10 silently absorbing Q-276-25's
-    scope.
+    This test guards against a future slice accidentally adding
+    WORKSPACE inference without an explicit intent-payload contract.
     """
     ws = _make_workspace(
         "slice10-d@test.local", "Slice10 WS D",
@@ -365,19 +368,105 @@ def test_fresh_create_without_spokespeople_leaves_audience_scope_null() -> None:
 
     result = ingest_text(
         workspace=ws,
-        title="no-sp-create",
-        content="Content with no explicit spokespeople at create.",
-        # spokespeople NOT supplied — falls to _persist default None
+        title="no-sp-no-universe-create",
+        content="Content with no explicit spokespeople + no Universe.",
+        # spokespeople NOT supplied; universe NOT supplied
     )
 
     kd = result.document
     kd.refresh_from_db()
     assert kd.is_active is True
     assert kd.audience_scope is None, (
-        "fresh no-spokespeople create must remain transitional NULL "
-        "until Q-276-25 authorizes UNIVERSE / WORKSPACE inference"
+        "fresh no-spokespeople + no-Universe create must remain "
+        "transitional NULL until an explicit intent-payload contract "
+        "resolves the SPA-vs-non-SPA gesture ambiguity"
     )
     assert kd.spokespeople.count() == 0
+    assert kd.universe_id is None
+
+
+@pytest.mark.django_db
+def test_fresh_create_no_spokespeople_with_explicit_universe_stamps_universe() -> None:
+    """Slice 11 Test F — fresh create with NO spokespeople but WITH
+    an explicit Universe stamps ``audience_scope=UNIVERSE`` at
+    creation time. This is the Q-276-25 answer A: explicit Universe
+    supplied at ``_persist`` is positive operator intent for
+    UNIVERSE-shared canon.
+
+    Evidence: every SPA create surface uses UniverseScopePicker which
+    forces an explicit pick; scripts creating UNIVERSE canon rows
+    (session272_slice_b_setup.py, session273_slice_alpha_ingest_kd.py)
+    document the audience intent explicitly. See
+    docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md §164-§180.
+    """
+    ws = _make_workspace(
+        "slice11-f@test.local", "Slice11 WS F",
+    )
+    u = Universe.objects.create(workspace=ws, name="Slice11 Universe F")
+
+    result = ingest_text(
+        workspace=ws,
+        title="universe-canon-create",
+        content="Content shared across all teammates in Universe F.",
+        # NO spokespeople supplied — explicit UNIVERSE-shared intent.
+        universe=u,
+    )
+
+    kd = result.document
+    kd.refresh_from_db()
+    assert kd.is_active is True
+    assert kd.deactivated_reason == ""
+    assert kd.audience_scope == AudienceScope.UNIVERSE
+    assert kd.universe_id == u.pk
+    assert kd.spokespeople.count() == 0
+    # Adversarial invariant — UNIVERSE requires universe non-null (Slice 4 §52 #2).
+    assert not (
+        kd.audience_scope == AudienceScope.UNIVERSE
+        and kd.universe_id is None
+    ), "fresh UNIVERSE create must never produce universe=NULL malformed shape"
+
+
+@pytest.mark.django_db
+def test_fresh_create_universe_inference_asymmetric_with_workspace() -> None:
+    """Slice 11 Test G — deliberate asymmetry guard. Verifies that
+    Slice 11 implemented ONLY the UNIVERSE inference branch, NOT the
+    WORKSPACE inference branch.
+
+    * (no sp, universe=U)  → UNIVERSE  (Slice 11 stamps)
+    * (no sp, universe=None) → NULL   (still transitional)
+
+    Guards against a future slice accidentally coupling the two
+    inference branches. WORKSPACE inference requires an explicit
+    intent-payload contract per Q-276-25 answer B.
+    """
+    ws = _make_workspace(
+        "slice11-g@test.local", "Slice11 WS G",
+    )
+    u = Universe.objects.create(workspace=ws, name="Slice11 Universe G")
+
+    # (no sp, universe=U) branch → UNIVERSE
+    result_universe = ingest_text(
+        workspace=ws,
+        title="asym-universe",
+        content="Universe-scoped content G.",
+        universe=u,
+    )
+    kd_universe = result_universe.document
+    kd_universe.refresh_from_db()
+    assert kd_universe.audience_scope == AudienceScope.UNIVERSE
+    assert kd_universe.universe_id == u.pk
+
+    # (no sp, no universe) branch → still NULL
+    result_null = ingest_text(
+        workspace=ws,
+        title="asym-null",
+        content="No-scope content G.",
+        # neither spokespeople nor universe supplied
+    )
+    kd_null = result_null.document
+    kd_null.refresh_from_db()
+    assert kd_null.audience_scope is None
+    assert kd_null.universe_id is None
 
 
 @pytest.mark.django_db

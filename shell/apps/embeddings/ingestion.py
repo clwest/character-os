@@ -226,22 +226,47 @@ def _persist(
             # is Delta-coherent immediately, with no transitional NULL
             # bridge state.
             #
-            # No spokespeople → leave ``audience_scope`` unset (NULL).
-            # UNIVERSE-shared and WORKSPACE-shared fresh-create
-            # inference are deferred to Q-276-25 because "absence of
-            # characters" is exactly the semantic boundary that caused
-            # the original audience-broadening bug class and needs its
-            # own explicit-intent evidence before positive stamping.
+            # SESSION 276 Slice 11 / Delta Stage 3B-3 (Q-276-25, A) —
+            # when the caller supplies NO spokespeople but DOES supply
+            # an explicit ``universe``, that IS positive operator intent
+            # for UNIVERSE-shared canon. Every SPA create surface uses
+            # ``UniverseScopePicker`` which requires the operator to
+            # explicitly pick a Universe (or "None (legacy)") — submit
+            # is disabled while unpicked and ``universeScopeToPayload("")``
+            # throws (``web/src/routes/workspace/knowledge.tsx:106-112``).
+            # Non-SPA callers that produce this shape (``scripts/session272
+            # _slice_b_setup.py:154-162`` and ``scripts/session273_slice
+            # _alpha_ingest_kd.py:211-220`` — which created the 3 frozen
+            # UNIVERSE-canon rows in the SESSION 276 Slice 7 backfill)
+            # explicitly document the audience intent in comments
+            # ("empty M2M = broadcast; Universe scope handles isolation").
+            # See ``docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md``
+            # §164-§180 for the full audit.
+            #
+            # WORKSPACE inference for the ``(no sp + no universe)`` case
+            # is INTENTIONALLY NOT implemented in this slice. The SPA's
+            # "None (legacy)" gesture IS positive workspace-shared
+            # intent, but the backend cannot distinguish "operator
+            # picked None (legacy)" from "caller omitted the Universe
+            # arg" (e.g., ``smoke_ingest`` mgmt command). That distinction
+            # requires an explicit ``audience_scope`` intent field on
+            # the payload — deferred to a future slice with an explicit
+            # API contract decision.
             #
             # Atomicity: the surrounding ``transaction.atomic()`` block
             # already covers ``KnowledgeDocument.objects.create()`` +
             # ``doc.spokespeople.set(...)``. If M2M assignment fails
             # (e.g. cross-workspace or cross-Universe signal veto), the
-            # whole KD row rolls back — no ``CHARACTER + empty M2M``
-            # malformed shape can persist.
-            create_audience_scope = (
-                AudienceScope.CHARACTER if spokespeople else None
-            )
+            # whole KD row rolls back — no ``CHARACTER + empty M2M`` or
+            # ``UNIVERSE + universe=NULL`` malformed shape can persist.
+            if spokespeople:
+                create_audience_scope = AudienceScope.CHARACTER
+            elif universe is not None:
+                create_audience_scope = AudienceScope.UNIVERSE
+            else:
+                # Transitional NULL for the ``(no sp + no universe)``
+                # case pending the explicit-intent-payload decision.
+                create_audience_scope = None
             doc = KnowledgeDocument.objects.create(
                 workspace=workspace,
                 # SESSION 261 — Universe scope passthrough. NULL

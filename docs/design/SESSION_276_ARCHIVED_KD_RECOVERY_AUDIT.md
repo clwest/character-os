@@ -4045,3 +4045,369 @@ This is a slightly larger investigation than Q-276-24 because "absence of charac
 **End of SESSION 276 Slice 10 / Delta Stage 3B-2. Fresh CREATE with explicit spokespeople now lands directly at Delta CHARACTER shape. Q-276-24 CONFIRMED — 17/17 ingestion tests pass (12 existing + 5 new); multi-character and Universe-scoped character variants covered; M2M failure atomicity inherited from pre-existing create-branch transaction; no-character create explicitly unchanged (Q-276-25 scope guard). Real DB unchanged. STOP for Chris + ChatGPT review of §160 recommendation, §161 gate, and §162 Q-276-25 next question.**
 
 **Slice 10 landed commit SHA:** `b75036d` (`feat(session-276): Slice 10 / Delta Stage 3B-2 — fresh CREATE stamps CHARACTER on explicit spokespeople`). Pushed to `origin/main`. Post-push `main == origin/main == b75036d`; working tree clean.
+
+**Slice 10 SHA-record follow-up:** `4d4635e` (`docs(session-276): record Slice 10 landed SHA b75036d`) — doc-only checklist + Slice 11 audit-first authorization record.
+
+---
+
+# SESSION 276 — Slice 11 / Delta Stage 3B-3 — fresh CREATE UNIVERSE inference (Q-276-25, audit + narrow implementation)
+
+**Status.** AUDIT-FIRST SLICE with narrow authorized implementation for the UNIVERSE case only. WORKSPACE case audit-only per §176. Chris + ChatGPT authorized investigation-first; implementation was performed only for the branch the audit independently justified.
+
+**Slice 11 baseline.** `main == origin/main == 4d4635e` (Slice 10 SHA-record). Working tree clean at slice start. Real-DB state carried forward, unchanged through 5 slices now:
+
+- 72 KDs; `CHARACTER=59`, `UNIVERSE=3`, `NULL=10`, `WORKSPACE=0`, `NONE=0`
+- 0 inactive, 1149 chunks, 62 M2M through-rows
+- Migration head: `0008_session276_stage2_backfill`
+
+**Load-bearing product rule** (from task, restated): *"Empty / missing character relations must not silently mean 'share more broadly' unless the operator explicitly chose that broader audience."* `no spokespeople` alone is NOT positive evidence for UNIVERSE or WORKSPACE.
+
+## §164. Slice 11 falsifiable question — Q-276-25
+
+> At fresh CREATE time, when no spokespeople are supplied:
+>
+> 1. does an explicitly supplied Universe constitute sufficient positive operator intent to persist `audience_scope=UNIVERSE`; and
+> 2. when neither spokespeople nor Universe are supplied, is there any positive operator evidence that the user intended WORKSPACE-shared canon, or would stamping WORKSPACE merely recreate the old "absence means broadcast" semantics?
+
+## §165. Predictions before evidence
+
+**A.** `spokespeople=∅ + universe=U` likely sufficient positive evidence for UNIVERSE if the caller/API/UI reached that shape because the operator explicitly selected Universe U as the knowledge scope.
+
+**B.** `spokespeople=∅ + universe=NULL` likely NOT sufficient for WORKSPACE unless a positive workspace-sharing gesture exists.
+
+**C.** Some create paths may rely on omission-as-default; Delta must not silently convert those to WORKSPACE.
+
+**D.** The correct answer may be asymmetric (UNIVERSE yes, WORKSPACE no or deferred).
+
+Compared to evidence in §178.
+
+## §166. Complete create-caller inventory
+
+Traced every non-test production caller of `_persist` / `ingest_text` / `ingest_pdf` / `ingest_url`.
+
+| # | Caller | File:line | Operator gesture | `spokespeople` | `universe` | Interpretation |
+|---|---|---|---|---|---|---|
+| 1 | Workspace paste form (`WorkspacePasteForm`) | `web/src/routes/workspace/knowledge.tsx:288-305` | Operator picks `UniverseScopePicker` (Universe UUID OR "None (legacy)") — submit disabled while unpicked | omitted | explicitly picked (UUID → uuid, "None (legacy)" → null) | Universe: explicit UNIVERSE-shared intent. NULL: explicit workspace-shared per copy |
+| 2 | Workspace PDF upload | `knowledge.tsx:395-402` | Same UniverseScopePicker | omitted | explicit | Same as 1 |
+| 3 | Workspace URL ingest | `knowledge.tsx:492-498` | Same UniverseScopePicker | omitted | explicit | Same as 1 |
+| 4 | Workspace Serper search-then-ingest | `knowledge.tsx:587-596` | Same UniverseScopePicker | omitted | explicit | Same as 1 |
+| 5 | Spokesperson ask-panel citation-add | `web/src/components/spokesperson-ask-panel.tsx:613-621` | Operator asks Q, clicks "teach the character" | `[spokesperson.id]` | not sent (defaults to None) | CHARACTER (Slice 10 stamps) |
+| 6 | DRF `KnowledgeDocumentSerializer.create` | `shell/apps/embeddings/serializers.py:279-364` | pass-through of SPA payload | `validated_data.get("spokespeople") or []` | `validated_data.get("universe")` | Not an independent gesture — passes SPA payload through |
+| 7 | `smoke_ingest` mgmt command | `shell/apps/embeddings/management/commands/smoke_ingest.py:157-178` | Not an operator; diagnostic; savepoint-rolled-back | omitted | omitted | Internal smoke; produces `(no sp, no universe)` shape; rolled back |
+| 8 | `scripts/session272_slice_b_setup.py` | `scripts/session272_slice_b_setup.py:154-162` | Not an operator; experimental substrate | omitted | Universe (explicit) | Comment (`:152-153`): *"No spokespeople M2M attach — broadcast (M2M-null) so the cloned Rivet Teammate sees it via the broadcast branch of retrieval."* Positive UNIVERSE-shared intent |
+| 9 | `scripts/session273_slice_alpha_ingest_kd.py` | `scripts/session273_slice_alpha_ingest_kd.py:211-220` | Not an operator; Ruby canon substrate | omitted | Universe (explicit) | Comment (`:218`): *"empty M2M = broadcast; Universe scope handles isolation."* Positive UNIVERSE-shared intent. Created the frozen Ruby `8f825c98` |
+
+## §167. UniverseScopePicker semantics
+
+`web/src/routes/workspace/knowledge.tsx:48-117` — load-bearing SPA component driving callers 1-4.
+
+Key behavioral evidence:
+
+- **`export type UniverseScopeValue = "" | typeof UNIVERSE_LEGACY_SENTINEL | string`** — the empty string is the unpicked sentinel (`:48`).
+- **`universeScopeToPayload("")` throws** (`:106-108`): *"Universe scope must be explicitly picked"*. Prevents any payload from being sent without a scope decision.
+- **`universeScopePicked(value)`** returns `false` for `""` (`:115-117`); every submit handler checks this and refuses to send.
+- The `<option value="" disabled>{...}</option>` at `:82` prevents the operator from selecting the empty sentinel.
+- The two positive-choice options are:
+  - `<option value={UNIVERSE_LEGACY_SENTINEL}>None (legacy — visible to workspace-wide legacy teammates only)</option>` (`:85-86`)
+  - `<option key={u.id} value={u.id}>{u.name}</option>` for each Universe (`:88-90`)
+- Explanatory helper text (`:94-98`): *"Pick a world to scope this doc to that world's characters, or pick 'None (legacy)' to make it visible to legacy (pre-Universe) characters."*
+
+**Conclusion.** Every workspace-knowledge create surface FORCES an explicit scope decision. There is no path where the operator can send a KD create WITHOUT actively choosing either a Universe or "None (legacy) — visible to workspace-wide legacy teammates only".
+
+## §168. Part B — UNIVERSE case analysis
+
+Case: `spokespeople=∅ + universe=U`.
+
+Callers that produce this shape today:
+
+- **SPA callers 1-4:** operator explicitly picked Universe U in UniverseScopePicker. The submit button was disabled until picked; `universeScopeToPayload` would have thrown otherwise. This is a positive, gated operator gesture.
+- **Non-SPA callers 8, 9:** scripts creating the SESSION 272 rivet-debug and Ruby Fox & Flour canon KDs. Both code comments explicitly document the intent as broadcast-in-Universe-scope.
+
+Absent from the inventory: any caller that treats Universe as merely context inherited from surrounding page state without an operator decision. All observed cases are positive-intent.
+
+**Distinguish** *"knowledge is being created while I happen to be inside Universe U"* from *"I choose for this knowledge to be shared with everyone in Universe U"* — the SPA fuses these into a single operator gesture (picking Universe U in UniverseScopePicker), which is intentional per the picker's design and per the explanatory copy.
+
+Would stamping `audience_scope=UNIVERSE` preserve effective audience? YES — under the current retrieval predicate at `shell/apps/embeddings/retrieval.py:194-221`, `(is_active=True, universe=U, spokespeople=∅)` matches every teammate in Universe U (SD state in Slice 4 §31). `audience_scope=UNIVERSE` under the eventual Delta retrieval will produce the same audience.
+
+Would it ever broaden vs what the operator selected? NO — the operator explicitly picked Universe U; the UNIVERSE stamp names that exact choice.
+
+## §169. Part C — WORKSPACE case analysis
+
+Case: `spokespeople=∅ + universe=NULL`.
+
+Callers that produce this shape today:
+
+- **SPA callers 1-4** when the operator explicitly picks "None (legacy)" in UniverseScopePicker. Copy: *"None (legacy — visible to workspace-wide legacy teammates only)"*. This IS positive workspace-sharing operator intent per the copy.
+- **`smoke_ingest` mgmt command (caller 7):** produces this shape without any operator gesture; savepoint-rolled-back.
+
+**The load-bearing complication:** at the `_persist` boundary, `universe=None` reaches the function regardless of which upstream caller sent the payload. The DRF serializer at `shell/apps/embeddings/serializers.py:293` uses `validated_data.get("universe")` — this returns `None` both for "SPA sent `universe: null` explicitly" and "SPA didn't send the `universe` key at all". The backend cannot distinguish.
+
+For SPA-generated payloads, `(no sp + no universe)` IS a positive workspace-shared gesture. For non-SPA-generated payloads (mgmt commands, curl, custom scripts), it is not necessarily positive intent — it may be omission.
+
+**Options:**
+
+1. Infer WORKSPACE at `_persist` boundary. **Rejected** — recreates "absence means broadcast" for non-SPA callers. Task instruction: *"Do not preserve accidental broadcast semantics merely for backward compatibility."*
+2. Extend SPA payload with an explicit `audience_scope=workspace` field on the "None (legacy)" gesture; infer WORKSPACE only when the field is present.
+3. Do nothing yet; `(no sp + no universe)` remains transitional `audience_scope=NULL`.
+
+**Slice 11 chooses Option 3** because Option 2 requires an SPA + DRF payload contract addition that is scope-adjacent to Q-276-25 but not authorized. Option 3 is invariant-safe (no broadening) and forces a future explicit product decision.
+
+## §170. Part D — legacy control comparison
+
+The 10 legacy NULL rows in the current DB have `(is_active=True, universe=None, spokespeople=∅, deactivated_reason='')` — the exact shape a WORKSPACE inference rule would sweep. Slice 1 §4.4 evidence proved these rows represent MULTIPLE meanings simultaneously:
+
+- 1 PROVEN historical orphan (TANK)
+- 1 STRONG historical orphan (Tulsi)
+- 1 PROVEN never-attached / misconfigured (Riggs)
+- 6 mechanically indeterminate (Hearth & Hollow set) + 1 admins-workspace tech note
+
+If a fresh-create WORKSPACE inference rule existed today, and any of these rows had been created via a legacy path that produced the same shape, they would all be indistinguishable from intentional workspace canon. That is exactly the ambiguity Slice 4 §55.2 identified as "cannot be blanket-migrated per the task-added migration invariant."
+
+This adversarial control reinforces the Option 3 decision: without a positive marker distinguishing intent from omission, `(no sp + no universe)` cannot be stamped WORKSPACE at the ingestion boundary.
+
+## §171. Part E — server inference vs explicit intent
+
+Slice 4 §57.1 Stage 3 originally described server-side inference for all three cases. Slice 11 refines:
+
+| Branch | Slice 4 §57.1 Stage 3 assumption | Slice 11 verdict |
+|---|---|---|
+| explicit spokespeople → CHARACTER | Server infers | CONFIRMED (Slice 10 landed) |
+| no sp + universe → UNIVERSE | Server infers | CONFIRMED (Slice 11 implements) |
+| neither → WORKSPACE | Server infers | REJECTED — needs explicit payload contract |
+
+CHARACTER inference is proven safe because explicit M2M is positive evidence at every layer (serializer + `_persist` + through-model signals). UNIVERSE inference is proven safe because explicit `universe` FK is positive evidence at every layer. WORKSPACE inference is NOT safe at the `_persist` layer because `universe=None` collapses "explicit None (legacy)" and "omitted" into the same signal.
+
+**Inference stops being trustworthy at the boundary where positive evidence can no longer be distinguished from omission.** For WORKSPACE, that boundary is DRF `validated_data`. To make WORKSPACE inference safe, we must lift the operator gesture into a payload field the backend can positively observe.
+
+## §172. Part F — UI philosophy
+
+Slice 11 does NOT expose `audience_scope` as an operator-facing enum dropdown. If Slice 11 authorized an SPA change (it did not), a simple product gesture such as:
+
+- "Only selected character(s)" → `audience_scope=character` payload
+- "Everyone in this Universe" → `audience_scope=universe` payload
+- "Everyone in this workspace" → `audience_scope=workspace` payload
+
+...would preserve Chris's product philosophy while giving the backend the positive marker it needs. The UniverseScopePicker "None (legacy)" copy already gestures in this direction; a future slice can promote it to a positive payload field without renaming any operator concept.
+
+## §173. Part G — falsifiable read-only experiments
+
+No provider spend. All evidence gathered via source inspection + regression tests + the pre-existing DB inventory verified through 5 consecutive slices.
+
+- Grep for every caller of `ingest_text` / `ingest_pdf` / `ingest_url` / `_persist` in non-test code (§166 enumerates all 9).
+- Inspection of `UniverseScopePicker` semantics (§167).
+- Inspection of script-side comments in caller 8 and caller 9 (§166).
+- Verification that the 3 frozen UNIVERSE canon rows in Slice 7's Stage 2 backfill correspond exactly to callers 8 and 9's output + Ruby's SESSION 275 §Slice 1 evidence.
+
+No tests were needed to falsify the audit — the evidence is at the source-inspection layer.
+
+## §174. Decision table
+
+| # | Input / gesture | Positive evidence | Current actual audience | Proposed Delta state | Safe to infer? |
+|---|---|---|---|---|---|
+| 1 | explicit character A supplied | `spokespeople=[A]` non-empty at `_persist` boundary | those legacy teammates via M2M-hit | `CHARACTER` | YES (Slice 10 landed) |
+| 2 | explicit A + B supplied | M2M count ≥ 2 at `_persist` | those specific teammates | `CHARACTER` (variant shape) | YES (Slice 10 landed) |
+| 3 | explicit character A inside Universe U (`universe=U, spokespeople=[A in U]`) | Both fields positively supplied; Universe M2M-consistency signal passes | those Universe-U teammates | `CHARACTER` (Universe is scope context) | YES (Slice 10 landed) |
+| 4 | no characters + explicit Universe U (`spokespeople=∅, universe=U`) | Positive `universe` FK; SPA required explicit UniverseScopePicker pick; scripts document intent explicitly | every teammate in Universe U | `UNIVERSE` | **YES — Slice 11 implements** |
+| 5 | no characters + Universe inherited implicitly (hypothetical) | none observed in current caller inventory | n/a | `UNIVERSE` | Not applicable (no such caller today) |
+| 6 | no characters + no Universe + explicit workspace-share gesture (SPA "None (legacy)") | Positive SPA-side gesture (picked "None (legacy)" copy explicitly names workspace-wide audience) — but NOT visible to backend as distinct from omission | every legacy teammate in workspace | `WORKSPACE` — but requires explicit payload marker | **NO** — needs future API contract |
+| 7 | no characters + no Universe + no explicit share gesture (`smoke_ingest` etc.) | omission | every legacy teammate in workspace (via current predicate) | ambiguous | **NO** — do not stamp WORKSPACE |
+| 8 | mgmt / seed caller with no operator gesture (e.g. `smoke_ingest`) | omission | matches whatever shape the caller happens to produce | ambiguous | **NO** — do not stamp WORKSPACE |
+
+## §175. Answers A and B (separately)
+
+### §175.A UNIVERSE inference — **YES, safe to implement now.**
+
+Rows 4 of §174. Every current caller producing `(no sp + universe=U)` does so with positive operator intent (SPA UniverseScopePicker explicit pick; scripts document intent in code comments). The resulting `audience_scope=UNIVERSE` stamp preserves current effective retrieval audience exactly. No caller uses Universe as merely context inheritance without operator intent.
+
+### §175.B WORKSPACE inference — **NO, requires future explicit API contract.**
+
+Rows 6-8 of §174. The SPA's "None (legacy)" gesture IS positive workspace-shared intent, but at the `_persist` boundary the backend cannot distinguish that gesture from omission (`smoke_ingest` produces the same shape without operator intent). Adding a WORKSPACE inference rule at `_persist` would silently re-create the "absence means broadcast" semantics Delta was introduced to eliminate. Correct next step: lift the operator gesture into an explicit payload field the backend can positively observe. That is a future slice with its own falsifiable question.
+
+## §176. Implementation performed
+
+Because §175.A is YES, Slice 11 implements the UNIVERSE-inference branch. §175.B is NO; WORKSPACE is NOT implemented.
+
+### §176.1 Ingestion diff (`shell/apps/embeddings/ingestion.py`)
+
+CREATE branch's audience-scope resolution extended from a 2-way conditional (CHARACTER-or-None) to a 3-way conditional (CHARACTER-or-UNIVERSE-or-None):
+
+```python
+# Before (post-Slice-10):
+create_audience_scope = (
+    AudienceScope.CHARACTER if spokespeople else None
+)
+
+# After (Slice 11):
+if spokespeople:
+    create_audience_scope = AudienceScope.CHARACTER
+elif universe is not None:
+    create_audience_scope = AudienceScope.UNIVERSE
+else:
+    # Transitional NULL for the (no sp + no universe) case pending
+    # the explicit-intent-payload decision.
+    create_audience_scope = None
+```
+
+Docstring block extended with Slice 11 rationale, source-citation to `UniverseScopePicker`, and explicit note that WORKSPACE inference is NOT implemented pending API contract decision.
+
+Zero other changes. No new import, no signal touched, no serializer / view / admin / retrieval / migration / model change.
+
+### §176.2 Test extensions (`shell/apps/embeddings/tests/test_ingestion.py`)
+
+Three test changes:
+
+- Test D (existing Slice 10 `test_fresh_create_without_spokespeople_leaves_audience_scope_null`) renamed to `test_fresh_create_without_spokespeople_or_universe_leaves_audience_scope_null` and its docstring extended to document the Slice 11 WORKSPACE-inference rejection reasoning. Still asserts `(no sp, no universe) → NULL`.
+- **New Test F `test_fresh_create_no_spokespeople_with_explicit_universe_stamps_universe`** — the primary Slice 11 assertion. `(no sp, universe=U) → audience_scope=UNIVERSE`; adversarial invariant NOT `(UNIVERSE + universe=NULL)`.
+- **New Test G `test_fresh_create_universe_inference_asymmetric_with_workspace`** — verifies the deliberate asymmetry: `(no sp, universe=U) → UNIVERSE` AND `(no sp, no universe) → NULL`. Guards against a future slice accidentally coupling the two inference branches.
+
+## §177. Regression results
+
+```
+$ pytest apps/embeddings/tests/test_ingestion.py -v
+19 passed in 5.35s                          # 17 existing (12 pre-Slice-10 + 5 Slice 10 A/B/C/D/E) + 2 new (F, G)
+
+$ pytest apps/embeddings/tests/test_ingestion.py \
+         apps/spokespeople/tests/test_delete_orphan_archive.py \
+         apps/embeddings/tests/test_audience_scope_stage1.py \
+         apps/embeddings/tests/test_stage2_backfill_migration.py -q
+49 passed in 8.82s                          # ingestion + lifecycle + Stage 1 + Stage 2
+
+$ python manage.py makemigrations --check embeddings
+No changes detected in app 'embeddings'    # no schema drift
+
+$ pytest apps/embeddings/ apps/spokespeople/ apps/universe/ apps/compositions/ -q
+1660 passed, 2 warnings in 127.72s          # broader — +2 from Slice 10's 1658 (Test F + Test G)
+```
+
+Every existing test still passes. 2 pre-existing DateTime warnings unrelated.
+
+## §178. Prediction vs actual
+
+| Prediction (§165) | Actual | Status |
+|---|---|---|
+| A: `(no sp + universe=U)` sufficient positive evidence when caller reached shape by explicit operator selection | Confirmed via UniverseScopePicker semantics (§167) + script comment inspection (§166 callers 8, 9). Slice 11 implements UNIVERSE stamping | ✓ |
+| B: `(no sp + universe=NULL)` NOT sufficient for WORKSPACE unless positive gesture exists | Confirmed asymmetric: SPA's "None (legacy)" IS positive gesture, but backend cannot distinguish from omission; Slice 11 defers WORKSPACE inference | ✓ |
+| C: some current create paths rely on omission-as-default | Confirmed: `smoke_ingest` mgmt command (caller 7) produces `(no sp, no universe)` with no operator gesture | ✓ |
+| D: correct answer may be asymmetric | Confirmed: A = YES (UNIVERSE now), B = NO (WORKSPACE deferred) | ✓ |
+
+All 4 predictions supported. Zero falsifications.
+
+## §179. Real-DB post-Slice-11 verification
+
+Code changed; real DB rows did not change. No ingestion CREATE was executed against production data during Slice 11.
+
+```
+$ manage.py shell -c "..."
+total=72
+distribution={'universe': 3, 'character': 59, None: 10}
+inactive=0
+chunks=1149
+m2m=62
+```
+
+Byte-identical to Slice 7 §103, Slice 8 §118, Slice 9 §137, Slice 10 §155. **Zero drift across five consecutive slices.**
+
+## §180. Files changed (Slice 11)
+
+```
+ M shell/apps/embeddings/ingestion.py                                        (+~30 lines net — docstring extension + 3-way conditional replacing 2-way)
+ M shell/apps/embeddings/tests/test_ingestion.py                             (+~90 lines — Test D docstring update + Test F + Test G)
+?? docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md                     (this Slice 11 section)
+```
+
+Zero SPA changes, zero serializer / view / admin / signal / retrieval / migration / model / constraint changes. Slice 11 is scoped strictly to `_persist`'s CREATE branch.
+
+## §181. Unresolved questions
+
+Carried from prior slices (all still open):
+
+- **New / promoted: WORKSPACE fresh-create explicit-intent payload contract** — Slice 11 confirmed this needs its own slice (Q-276-26 candidate).
+- Serializer PATCH audience mutation.
+- Attach / detach audience transitions (especially the detach-final SPA hole; Slice 3 §37.J).
+- Universe reassignment audience implications.
+- Provenance direction Alpha vs Beta.
+- Retrieval predicate switch (Stage 5).
+- Operator triage UI for the 10 ambiguous rows (Stage 4).
+- DB CHECK constraints + NOT NULL cutover (Stage 6).
+- SPA audience UI (deferred).
+- Bundle vs split (still open from Slice 1 §8.4).
+
+## §182. Recommendation
+
+**Q-276-25 is answered asymmetrically. UNIVERSE inference is confirmed and implemented; WORKSPACE inference is confirmed to require a future explicit payload-contract slice.**
+
+Slice 11 does not authorize any further work. Each subsequent step requires an independent Chris + ChatGPT decision:
+
+- **Q-276-26 (candidate) — WORKSPACE explicit intent payload.** Extend SPA "None (legacy)" gesture + DRF create serializer + `_persist` to carry a positive `audience_scope=workspace` intent field. Design decision: lift the operator gesture into a payload field vs. tie it to a specific SPA feature flag. Requires SPA + backend + tests.
+- **Serializer PATCH audience_scope handling** — currently not on the serializer read/write surface.
+- **Attach / detach audience transitions** — the detach-final SPA hole from Slice 3 §37.J is now the largest remaining CHARACTER-shape audience broadening path.
+- **Retrieval predicate switch** (Stage 5).
+
+## §183. Explicit STOP gate
+
+**STOP.** Slice 11 authorizes no further work.
+
+Do NOT begin:
+
+- Q-276-26 WORKSPACE explicit-intent payload contract
+- Serializer PATCH audience mutation
+- Attach / detach audience transitions
+- Universe reassignment audience implications
+- Provenance work
+- Retrieval predicate change
+- Operator triage UI
+- DB CHECK constraints
+- NOT NULL cutover
+- SPA changes
+- Removal of SESSION 275 protections
+
+## §184. Smallest recommended next question
+
+**Q-276-26.** *If the SPA `UniverseScopePicker`'s "None (legacy)" gesture is extended to send an explicit `audience_scope="workspace"` field on the create payload, and the DRF `KnowledgeDocumentSerializer.create` is extended to forward that field to `_persist`, and `_persist`'s CREATE branch stamps `audience_scope=WORKSPACE` only when that positive field is present (not when the field is merely absent), does every current SPA-generated create path continue to work AND does the "None (legacy)" gesture produce a Delta-coherent WORKSPACE row without silently affecting any non-SPA caller?*
+
+Falsifiable by:
+1. Extending the SPA payload type (`web/src/lib/api/knowledge.ts`) with an optional `audience_scope` field.
+2. Extending the four UniverseScopePicker call sites to send `audience_scope: "workspace"` when the operator picks "None (legacy)" (and NOT send it when they pick a Universe).
+3. Extending the DRF serializer + `_persist` to accept and forward the field, but ONLY stamp WORKSPACE when the field is positively present.
+4. Adding regression tests that (a) SPA-generated "None (legacy)" payload → WORKSPACE, (b) non-SPA `_persist` call without the field stays NULL, (c) SPA-generated Universe-picker payload → UNIVERSE (unchanged).
+
+This is a slightly larger slice than Q-276-25's UNIVERSE branch because it touches SPA + serializer + `_persist`, but the invariant it locks in (positive-marker WORKSPACE) is the last piece needed before all four Delta audience states can be stamped at create time.
+
+## §185. Slice 11 checklist
+
+- [x] Step 0 — commit + push Slice 10 SHA-record (commit `4d4635e`)
+- [x] Slice 11 baseline verified — `main == origin/main == 4d4635e`, working tree clean at slice start
+- [x] Q-276-25 falsifiable question stated (§164)
+- [x] Predictions before evidence (§165)
+- [x] Complete create-caller inventory (§166) — 9 callers enumerated (4 SPA + 1 SPA-citation + 1 DRF + 1 mgmt + 2 scripts)
+- [x] `UniverseScopePicker` semantics documented (§167) — forces explicit operator pick
+- [x] Part B UNIVERSE analysis (§168) — every current caller producing `(no sp + universe=U)` is positive-intent
+- [x] Part C WORKSPACE analysis (§169) — SPA gesture exists but backend cannot distinguish from omission
+- [x] Part D legacy-control comparison (§170) — 10 legacy NULL rows adversarial control
+- [x] Part E server-inference vs explicit-intent (§171) — CHARACTER + UNIVERSE safe at boundary; WORKSPACE needs payload marker
+- [x] Part F UI philosophy preserved (§172) — no operator-facing `audience_scope` dropdown
+- [x] Part G falsifiable experiments (§173) — source-inspection sufficient
+- [x] Decision table (§174) — 8 rows
+- [x] Answer A UNIVERSE separately: YES (§175.A)
+- [x] Answer B WORKSPACE separately: NO (§175.B)
+- [x] UNIVERSE narrow implementation (§176) — 3-way conditional in ingestion.py CREATE branch + docstring
+- [x] Test D updated to reflect `(no sp + no universe) → NULL` justification
+- [x] Test F: fresh (no sp + universe=U) → UNIVERSE
+- [x] Test G: asymmetry guard (`(no sp, U) → UNIVERSE` AND `(no sp, None) → NULL`)
+- [x] Adversarial invariant — NOT `(UNIVERSE + universe=NULL)` asserted (Test F)
+- [x] 19/19 ingestion tests pass (§177)
+- [x] 49/49 combined targeted (§177)
+- [x] 1660/1660 broader regression pass (§177)
+- [x] `makemigrations --check embeddings` clean (§177)
+- [x] Real DB unchanged: 72 KDs, `CHARACTER=59, UNIVERSE=3, NULL=10, NONE=0, inactive=0` (§179)
+- [x] Prediction vs actual — Q-276-25 answered asymmetrically (§178)
+- [x] Files changed inventory (§180)
+- [x] Explicit STOP gate (§183)
+- [x] Smallest next question Q-276-26 (§184)
+- [x] Zero WORKSPACE inference / serializer PATCH / attach-detach / provenance / retrieval / SPA / migration / constraint changes; zero provider spend
+- [ ] Commit + push Slice 11
+- [ ] Chris + ChatGPT review + Slice 12 scoping decision (§182)
+
+---
+
+**End of SESSION 276 Slice 11 / Delta Stage 3B-3. Q-276-25 answered asymmetrically: UNIVERSE inference implemented (safe positive evidence at `_persist` boundary via explicit `universe` FK); WORKSPACE inference deferred (SPA "None (legacy)" gesture exists but backend cannot distinguish from omission — needs explicit payload-marker contract). 19/19 ingestion tests pass (12 existing + 5 Slice 10 + 2 new Slice 11); real DB unchanged for 5th consecutive slice. STOP for Chris + ChatGPT review of §182 recommendation, §183 gate, and §184 Q-276-26 next question.**
