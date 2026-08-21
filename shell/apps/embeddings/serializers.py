@@ -525,6 +525,83 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
                 ),
             })
 
+        # SESSION 276 Slice 15 / Delta Stage 3C-3 (Q-276-29) — narrow
+        # shape-preservation guards for Universe PATCH on active shared-
+        # canon rows. Two Delta-invariant violations are reachable
+        # today via ``PATCH {"universe": ...}`` on non-CHARACTER rows
+        # (existing M2M-orphan preflight at ``:567-579`` only covers
+        # cross-Universe consistency for M2M-carrying rows, not
+        # audience-shape preservation for shared canon):
+        #
+        #   Guard #1 — ``audience_scope=UNIVERSE`` + ``universe=None``
+        #     Violates Slice 4 §52 invariant #2 (UNIVERSE requires
+        #     universe non-NULL). Would leave the row in the Slice 4
+        #     §51 row-#5 malformed shape.
+        #
+        #   Guard #2 — ``audience_scope=WORKSPACE`` + ``universe non-NULL``
+        #     Violates Slice 4 §52 invariant #3 (WORKSPACE requires
+        #     universe NULL). Would leave the row in the §51 row-#7
+        #     malformed shape.
+        #
+        # Slice 15 caller inventory (audit doc §257): ZERO SPA
+        # callers, ZERO backend callers, ZERO scripts PATCH
+        # ``universe`` on an existing KD today. These guards are
+        # therefore purely defensive against future / external
+        # callers; they cannot break any current operator gesture.
+        #
+        # Guards are shape-preservation, NOT audience-transition. They
+        # do NOT auto-transition ``audience_scope`` (that would be
+        # exactly the "absence-means-audience-change" anti-pattern
+        # Delta was introduced to eliminate). To move a UNIVERSE row
+        # to WORKSPACE or vice versa, a future slice must design an
+        # explicit audience-transition contract with positive operator
+        # intent — see §274 for the deferred question.
+        #
+        # Placed at top of ``update()`` (post-``is_valid()``) so DRF's
+        # global exception handler renders ``.detail`` as-is, matching
+        # the Slice 13/14 error-shape contract byte-identically. The
+        # ``code`` strings are new (not the CHARACTER-specific Slice
+        # 13/14 code) — they describe distinct invariants and clients
+        # should discriminate them separately.
+        #
+        # Both guards run BEFORE the M2M-orphan preflight below, so a
+        # payload that combines a shape-violating Universe change
+        # with a spokespeople change rejects on the shape-invariant
+        # first (unrelated fields do not partially persist).
+        if (
+            "universe" in validated_data
+            and instance.is_active
+        ):
+            new_universe_val = validated_data["universe"]
+            if (
+                instance.audience_scope == AudienceScope.UNIVERSE
+                and new_universe_val is None
+            ):
+                raise serializers.ValidationError({
+                    "code": "universe_audience_row_requires_universe",
+                    "detail": (
+                        "This knowledge is shared with everyone in a "
+                        "specific World. Removing the World would leave "
+                        "it without a defined audience. Choose a "
+                        "different World, or delete this knowledge "
+                        "instead."
+                    ),
+                })
+            if (
+                instance.audience_scope == AudienceScope.WORKSPACE
+                and new_universe_val is not None
+            ):
+                raise serializers.ValidationError({
+                    "code": "workspace_audience_row_forbids_universe",
+                    "detail": (
+                        "This knowledge is shared workspace-wide. "
+                        "Assigning it to a specific World would change "
+                        "who can see it. That kind of audience change "
+                        "requires a dedicated audience action, not a "
+                        "scope edit."
+                    ),
+                })
+
         # These write-only fields remain create-only. Editing a
         # PDF-provenance doc means editing its extracted text, not
         # re-uploading a new PDF; same for URL. Rejecting keeps

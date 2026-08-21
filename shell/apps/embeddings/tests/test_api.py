@@ -1201,3 +1201,301 @@ def test_slice14_error_code_matches_slice13_detach_guard() -> None:
     assert detach_code == patch_code == FINAL_DETACH_CODE, (
         f"error code drift: detach={detach_code!r} patch={patch_code!r}"
     )
+
+
+# =====================================================================
+# SESSION 276 Slice 15 / Delta Stage 3C-3 (Q-276-29) — Universe
+# reassignment shape-preservation guards on PATCH. Reject two malformed
+# Delta transitions (UNIVERSE+null and WORKSPACE+non-null) BEFORE any
+# mutation. Do NOT auto-transition audience. Do NOT change CHARACTER
+# Universe move behavior (existing M2M-orphan preflight already
+# protects). See §254-§278 of the audit doc.
+# =====================================================================
+
+
+UNIVERSE_AUDIENCE_REQUIRES_UNIVERSE = "universe_audience_row_requires_universe"
+WORKSPACE_AUDIENCE_FORBIDS_UNIVERSE = "workspace_audience_row_forbids_universe"
+
+
+def _make_universe_canon(
+    ws: Workspace, title: str, universe: Universe,
+) -> KnowledgeDocument:
+    """Slice 15 helper — creates a UNIVERSE-audience canon row
+    matching the Slice 11 fresh-CREATE inference: universe non-null,
+    M2M empty, audience_scope=UNIVERSE."""
+    return KnowledgeDocument.objects.create(
+        workspace=ws, title=title,
+        document_type=DocumentType.TEXT,
+        processed_content=title, content_hash=f"HASH-{title}",
+        ingested_via="paste",
+        universe=universe,
+        audience_scope=AudienceScope.UNIVERSE,
+    )
+
+
+def _make_workspace_canon(ws: Workspace, title: str) -> KnowledgeDocument:
+    """Slice 15 helper — creates a WORKSPACE-audience canon row
+    matching the Slice 12 fresh-CREATE marker path: universe null,
+    M2M empty, audience_scope=WORKSPACE."""
+    return KnowledgeDocument.objects.create(
+        workspace=ws, title=title,
+        document_type=DocumentType.TEXT,
+        processed_content=title, content_hash=f"HASH-{title}",
+        ingested_via="paste",
+        audience_scope=AudienceScope.WORKSPACE,
+    )
+
+
+# ---- Test B — UNIVERSE + PATCH universe=null rejected ----
+
+
+def test_slice15_universe_row_rejects_universe_removal() -> None:
+    """Slice 15 Guard #1 — PATCH universe=null on a UNIVERSE-audience
+    row would produce audience_scope=UNIVERSE + universe=NULL, the
+    Slice 4 §51 row-#5 malformed shape. Reject with structured 4xx."""
+    ws, user = _make_workspace_with_user("s15-b@k4.test", "S15B")
+    u = Universe.objects.create(workspace=ws, name="S15B U")
+    doc = _make_universe_canon(ws, "s15-b", u)
+
+    client = APIClient()
+    _login(client, user)
+    response = client.patch(
+        f"/api/knowledge/{doc.pk}/",
+        {"universe": None},
+        format="json",
+    )
+    assert response.status_code == http.HTTP_400_BAD_REQUEST, response.content
+    body = response.json()
+    assert body.get("code") == UNIVERSE_AUDIENCE_REQUIRES_UNIVERSE, body
+    assert isinstance(body.get("detail"), str) and body["detail"], body
+
+    doc.refresh_from_db()
+    assert doc.audience_scope == AudienceScope.UNIVERSE
+    assert doc.universe_id == u.pk
+    assert doc.is_active is True
+
+
+# ---- Test C — WORKSPACE + PATCH universe=U rejected ----
+
+
+def test_slice15_workspace_row_rejects_universe_assignment() -> None:
+    """Slice 15 Guard #2 — PATCH universe=<U> on a WORKSPACE-audience
+    row would produce audience_scope=WORKSPACE + universe=U, the
+    Slice 4 §51 row-#7 malformed shape. Reject."""
+    ws, user = _make_workspace_with_user("s15-c@k4.test", "S15C")
+    u = Universe.objects.create(workspace=ws, name="S15C U")
+    doc = _make_workspace_canon(ws, "s15-c")
+
+    client = APIClient()
+    _login(client, user)
+    response = client.patch(
+        f"/api/knowledge/{doc.pk}/",
+        {"universe": str(u.pk)},
+        format="json",
+    )
+    assert response.status_code == http.HTTP_400_BAD_REQUEST, response.content
+    body = response.json()
+    assert body.get("code") == WORKSPACE_AUDIENCE_FORBIDS_UNIVERSE, body
+
+    doc.refresh_from_db()
+    assert doc.audience_scope == AudienceScope.WORKSPACE
+    assert doc.universe_id is None
+    assert doc.is_active is True
+
+
+# ---- Test A — UNIVERSE + PATCH universe=U_new preserved (unchanged) ----
+
+
+def test_slice15_universe_row_universe_swap_preserved() -> None:
+    """Slice 15 Test A — UNIVERSE row + PATCH universe=U_new preserves
+    current behavior. The audience-replacement question (is this a
+    legitimate operator gesture?) is deferred until a positive-intent
+    UI/API contract exists. Slice 15 does NOT change this behavior."""
+    ws, user = _make_workspace_with_user("s15-a@k4.test", "S15A")
+    u_old = Universe.objects.create(workspace=ws, name="S15A Old")
+    u_new = Universe.objects.create(workspace=ws, name="S15A New")
+    doc = _make_universe_canon(ws, "s15-a", u_old)
+
+    client = APIClient()
+    _login(client, user)
+    response = client.patch(
+        f"/api/knowledge/{doc.pk}/",
+        {"universe": str(u_new.pk)},
+        format="json",
+    )
+    # Preserved current behavior — Slice 15 did NOT block this.
+    assert response.status_code == http.HTTP_200_OK, response.content
+    doc.refresh_from_db()
+    assert doc.audience_scope == AudienceScope.UNIVERSE
+    assert doc.universe_id == u_new.pk
+
+
+# ---- Test D — CHARACTER Universe moves protected by existing preflight ----
+
+
+def test_slice15_character_universe_swap_still_protected_by_existing_preflight() -> None:
+    """Slice 15 Test D — CHARACTER + M2M members inside U_old + PATCH
+    universe=U_new must reject via the existing M2M-orphan preflight
+    at ``serializers.py:567-579`` (SESSION 261). Slice 15 did NOT
+    modify this behavior; verifying it still works as designed."""
+    ws, user = _make_workspace_with_user("s15-d@k4.test", "S15D")
+    u_old = Universe.objects.create(workspace=ws, name="S15D Old")
+    u_new = Universe.objects.create(workspace=ws, name="S15D New")
+    a = Teammate.objects.create(workspace=ws, name="Alpha", universe=u_old)
+    doc = KnowledgeDocument.objects.create(
+        workspace=ws, title="s15-d",
+        document_type=DocumentType.TEXT,
+        processed_content="body", content_hash="HASH-S15D",
+        ingested_via="paste",
+        universe=u_old,
+        audience_scope=AudienceScope.CHARACTER,
+    )
+    doc.spokespeople.set([a])
+
+    client = APIClient()
+    _login(client, user)
+    response = client.patch(
+        f"/api/knowledge/{doc.pk}/",
+        {"universe": str(u_new.pk)},
+        format="json",
+    )
+    # SESSION 261 M2M-orphan preflight rejects: A.universe=U_old ≠ U_new.
+    assert response.status_code == http.HTTP_400_BAD_REQUEST
+    body = response.json()
+    # Not the Slice-15 code — this is the SESSION 261 preflight error.
+    assert "universe" in body
+    doc.refresh_from_db()
+    assert doc.universe_id == u_old.pk
+    assert list(doc.spokespeople.values_list("pk", flat=True)) == [a.pk]
+
+
+# ---- Test E — CHARACTER + universe=U + M2M empty (already malformed) ----
+
+
+def test_slice15_character_universe_empty_m2m_universe_removal_currently_passes() -> None:
+    """Slice 15 characterization — a CHARACTER row with empty M2M
+    is ALREADY malformed (Slice 4 §51 row #3). Slice 15 does NOT
+    guard against Universe-PATCH on already-malformed rows because
+    the CHARACTER+empty invariant is enforced at other mutation
+    surfaces (Slice 13 detach, Slice 14 PATCH-empty). This test
+    characterizes current behavior — real DB has zero such rows;
+    only test fixtures land here."""
+    ws, user = _make_workspace_with_user("s15-e@k4.test", "S15E")
+    u = Universe.objects.create(workspace=ws, name="S15E U")
+    # Directly construct the malformed shape (would not be reachable
+    # via normal API paths post-Slice-13/14).
+    doc = KnowledgeDocument.objects.create(
+        workspace=ws, title="s15-e",
+        document_type=DocumentType.TEXT,
+        processed_content="body", content_hash="HASH-S15E",
+        ingested_via="paste",
+        universe=u,
+        audience_scope=AudienceScope.CHARACTER,
+    )  # NO M2M attached
+
+    client = APIClient()
+    _login(client, user)
+    response = client.patch(
+        f"/api/knowledge/{doc.pk}/",
+        {"universe": None},
+        format="json",
+    )
+    # Preflight passes (M2M empty); universe change applies.
+    # Documented characterization: Slice 15 does not add coverage
+    # for pre-malformed rows; those are Slice 13/14's problem class.
+    assert response.status_code == http.HTTP_200_OK
+    doc.refresh_from_db()
+    assert doc.audience_scope == AudienceScope.CHARACTER
+    assert doc.universe_id is None
+
+
+# ---- Test F — atomic rejection preserves unrelated fields ----
+
+
+def test_slice15_universe_removal_rejection_does_not_partially_persist_title() -> None:
+    """Slice 15 — guard runs at top of update(); rejected PATCH must
+    not partially persist unrelated fields such as title."""
+    ws, user = _make_workspace_with_user("s15-f@k4.test", "S15F")
+    u = Universe.objects.create(workspace=ws, name="S15F U")
+    doc = _make_universe_canon(ws, "s15-f", u)
+
+    client = APIClient()
+    _login(client, user)
+    response = client.patch(
+        f"/api/knowledge/{doc.pk}/",
+        {"title": "changed-title", "universe": None},
+        format="json",
+    )
+    assert response.status_code == http.HTTP_400_BAD_REQUEST
+    body = response.json()
+    assert body.get("code") == UNIVERSE_AUDIENCE_REQUIRES_UNIVERSE
+
+    doc.refresh_from_db()
+    # Title MUST NOT have changed — guard rejected the whole request.
+    assert doc.title == "s15-f", (
+        "title must not partially persist when the Universe guard rejects"
+    )
+    assert doc.universe_id == u.pk
+
+
+# ---- Test G — NULL legacy row Universe PATCH characterization ----
+
+
+def test_slice15_legacy_null_audience_universe_patch_characterization() -> None:
+    """Slice 15 characterization — pre-Delta NULL-audience row +
+    PATCH universe=U. Slice 15 does NOT classify these rows; the
+    Universe FK change applies but audience_scope stays NULL
+    (transitional). Documents deliberate carve-out. Real DB has
+    zero such rows with any spokespeople attached; the 10 real NULL
+    rows are all empty-M2M ambiguous historical rows requiring
+    operator triage (Slice 4 §55.2)."""
+    ws, user = _make_workspace_with_user("s15-g@k4.test", "S15G")
+    u = Universe.objects.create(workspace=ws, name="S15G U")
+    # Direct-create fixture matching the ambiguous legacy shape.
+    doc = KnowledgeDocument.objects.create(
+        workspace=ws, title="s15-g",
+        document_type=DocumentType.TEXT,
+        processed_content="body", content_hash="HASH-S15G",
+        ingested_via="paste",
+    )
+    assert doc.audience_scope is None
+
+    client = APIClient()
+    _login(client, user)
+    response = client.patch(
+        f"/api/knowledge/{doc.pk}/",
+        {"universe": str(u.pk)},
+        format="json",
+    )
+    # Preserved current behavior — guards fire only on CHARACTER/
+    # UNIVERSE/WORKSPACE, not on NULL transitional rows.
+    assert response.status_code == http.HTTP_200_OK
+    doc.refresh_from_db()
+    assert doc.audience_scope is None  # unchanged
+    assert doc.universe_id == u.pk
+
+
+# ---- Test H — inactive KD PATCH unreachable (queryset filter) ----
+
+
+def test_slice15_inactive_kd_patch_returns_404() -> None:
+    """Slice 15 characterization — inactive KDs are unreachable via
+    PATCH because ``KnowledgeDocumentViewSet.get_queryset`` filters
+    ``is_active=True`` (``views.py:70``). Confirms our guards need not
+    handle inactive rows explicitly — the queryset gate blocks them
+    first with 404."""
+    ws, user = _make_workspace_with_user("s15-h@k4.test", "S15H")
+    u = Universe.objects.create(workspace=ws, name="S15H U")
+    doc = _make_universe_canon(ws, "s15-h", u)
+    doc.is_active = False
+    doc.deactivated_reason = "operator_delete"
+    doc.save(update_fields=["is_active", "deactivated_reason", "updated_at"])
+
+    client = APIClient()
+    _login(client, user)
+    response = client.patch(
+        f"/api/knowledge/{doc.pk}/",
+        {"universe": None},
+        format="json",
+    )
+    assert response.status_code == http.HTTP_404_NOT_FOUND

@@ -5379,3 +5379,388 @@ Small audit-first slice; unresolved whether it needs a code-change slice after o
 **End of SESSION 276 Slice 14 / Delta Stage 3C-2. PATCH `spokesperson_ids=[]` on active CHARACTER KDs now fails closed with a structured 4xx BEFORE any mutation, byte-identical to Slice 13's `/detach/` code. Q-276-28 CONFIRMED — 11/11 Slice 14 tests pass; 1695/1695 broader backend regression; legitimate narrowing/replacement PATCH unchanged; shared canon unaffected; legacy NULL carve-out preserved; atomic rejection prevents partial field mutation; combined Universe+empty rejected atomically. Real DB unchanged for 8th consecutive slice. STOP for Chris + ChatGPT review of §250 recommendation, §251 gate, and §252 Q-276-29 candidate next question.**
 
 **Slice 14 landed commit SHA:** `9be7f33` (`fix(session-276): Slice 14 / Delta Stage 3C-2 — PATCH empty-spokespeople fails closed`). Pushed to `origin/main`. Post-push `main == origin/main == 9be7f33`; working tree clean.
+
+**Slice 14 SHA-record follow-up:** `bb077d3` (`docs(session-276): record Slice 14 landed SHA 9be7f33`) — doc-only checklist + Slice 15 authorization record.
+
+---
+
+# SESSION 276 — Slice 15 / Delta Stage 3C-3 — Universe reassignment audience semantics (Q-276-29)
+
+**Status.** AUDIT-FIRST SLICE with two narrow shape-preservation guards independently justified by the audit. Both guards are shape-preservation, NOT audience-transition — they reject Delta-invariant-violating Universe-PATCH shapes without auto-transitioning `audience_scope`. `UNIVERSE→UNIVERSE` swap behavior preserved (no positive-intent evidence for a stricter rule).
+
+**Slice 15 baseline.** `main == origin/main == bb077d3` (Slice 14 SHA-record). Working tree clean at slice start. Real-DB state carried forward through 9 slices:
+
+- 72 KDs; `CHARACTER=59`, `UNIVERSE=3`, `NULL=10`, `WORKSPACE=0`, `NONE=0`
+- 0 inactive, 1149 chunks, 62 M2M through-rows
+- Zero Delta-invariant violations across all 4 invariants (§256)
+
+## §254. Slice 15 falsifiable question — Q-276-29
+
+> When an active `KnowledgeDocument`'s `universe` field is changed through PATCH, what product/audience transition does that operation actually mean for each existing `audience_scope`, and which transitions are explicit, Delta-coherent audience decisions versus accidental malformed/broadened states?
+
+## §255. Predictions before evidence
+
+- **A** UNIVERSE + U_old → UNIVERSE + U_new may be legitimate IF all callers proved to send it as explicit audience choice.
+- **B** UNIVERSE → NULL invalid under Delta; should fail closed.
+- **C** WORKSPACE + universe=U creates malformed shape; must not silently succeed.
+- **D** CHARACTER Universe reassignment likely already protected by existing M2M-orphan preflight.
+- **E** Correct behavior may be scope-specific rather than one generic rule.
+- **F** Existing serializer likely permits at least one malformed Delta shape because `audience_scope` isn't touched.
+
+Compared to evidence in §271.
+
+## §256. Real-DB pre-audit — Delta invariant violations
+
+Read-only queries against production data:
+
+```
+CHARACTER + empty M2M:      0
+UNIVERSE + universe=NULL:   0
+WORKSPACE + universe:       0
+active + audience_scope=NONE: 0
+```
+
+**Zero rows currently violate any Delta invariant.** Guards added by this slice are purely defensive — they protect FUTURE PATCH operations from producing the two reachable malformed shapes (§262).
+
+## §257. Universe-PATCH caller inventory
+
+Full-repo grep for callers that send `universe` in a PATCH payload:
+
+| # | Caller | Sends `universe` on PATCH? | Notes |
+|---|---|---|---|
+| 1 | SPA `web/src/routes/workspace/knowledge.tsx` — 4 create sites | NO — all use CREATE only (`useCreateKnowledge`); no updateKnowledge callers with universe | |
+| 2 | SPA `web/src/components/spokesperson-ask-panel.tsx` — Beat 3 fix-loop | NO — `useUpdateKnowledge` sends `{text_content}` only (`ask-panel.tsx:509-512`) | |
+| 3 | DRF `KnowledgeDocumentSerializer.update` | n/a — receives PATCH from external clients | |
+| 4 | `smoke_ingest` mgmt command | NO — creates only, never PATCHes | |
+| 5 | `scripts/session272_slice_b_setup.py` | NO | |
+| 6 | `scripts/session273_slice_alpha_ingest_kd.py` | NO | |
+
+**Zero production callers PATCH the `universe` field today.** External API clients (curl, third-party integrations) could theoretically trigger it via `PATCH /api/knowledge/<id>/ {"universe": ...}` but no such caller exists in the repository. This means:
+
+1. Slice 15 guards CANNOT break any current operator gesture.
+2. The `UNIVERSE→UNIVERSE` swap "audience-replacement" question has NO current caller evidence supporting an explicit-intent gesture. Per task Prediction A rule: preserve current behavior; do NOT block. Future audience-transition contract design remains a deferred question.
+
+## §258. Serializer `update()` Universe branch source trace
+
+Post-Slice-14 layout (`shell/apps/embeddings/serializers.py:556-581`):
+
+```python
+if "universe" in validated_data:
+    new_universe = validated_data["universe"]
+    # M2M-orphan preflight (SESSION 261)
+    if instance.pk:
+        bad = instance.spokespeople.exclude(
+            universe_id=(new_universe.pk if new_universe else None),
+        )
+        if bad.exists():
+            raise ValidationError({"universe": "Reassigning would orphan..."})
+    instance.universe = new_universe
+    changed_fields.append("universe")
+```
+
+**Existing preflight only checks M2M-orphan (cross-Universe consistency).** Does NOT consider `audience_scope`. Therefore:
+
+- CHARACTER + M2M non-empty: preflight protects against orphaning M2M members. ✓
+- CHARACTER + empty M2M: preflight passes trivially (empty M2M has no cross-Universe rows). Row is ALREADY malformed regardless (Slice 4 §51 row #3).
+- UNIVERSE + empty M2M: preflight passes trivially. Universe change applies WITHOUT touching `audience_scope`. Reachable malformed shapes (§262).
+- WORKSPACE + empty M2M: same — preflight passes; Universe change applies; malformed reachable.
+
+Save order: `title` → `universe` (with preflight) → `text_content` → `save(update_fields)` → M2M `.set()`. All inside DRF request's atomic block; Slice 14 guard added at top of `update()` runs first.
+
+## §259. Scope × Universe transition matrix
+
+Every reachable combination of start state × PATCH input. "Current" = post-Slice-14 behavior. "Guard-worthy?" = does the transition produce a Delta-malformed shape?
+
+| # | Start state | PATCH | Current behavior | Post-transition Delta shape | Guard-worthy? |
+|---|---|---|---|---|---|
+| 1 | CHARACTER, universe=NULL, M2M={A legacy} | universe=U | M2M-preflight REJECTS (A.universe=None ≠ U) | n/a (already blocked) | No — existing protection |
+| 2 | CHARACTER, universe=U_old, M2M={A in U_old} | universe=U_new | M2M-preflight REJECTS (A.universe=U_old ≠ U_new) | n/a | No |
+| 3 | CHARACTER, universe=U, M2M={A in U} | universe=null | M2M-preflight REJECTS | n/a | No |
+| 4 | CHARACTER, universe=NULL, M2M=∅ (already malformed) | universe=U | Preflight PASSES; universe assigns | still malformed (row was already) | No — Slice 13/14 territory |
+| 5 | UNIVERSE, universe=U_old, M2M=∅ | universe=U_new | Preflight PASSES; universe swaps | **Valid Delta shape** (UNIVERSE + non-null universe); effective audience REPLACES from U_old members to U_new members | **AUDIT-ONLY** — no caller evidence justifies stricter guard (§257) |
+| 6 | UNIVERSE, universe=U, M2M=∅ | universe=null | Preflight PASSES; universe→NULL | **MALFORMED** (Slice 4 §51 row #5 — UNIVERSE + universe=NULL) | **GUARD #1** |
+| 7 | WORKSPACE, universe=NULL, M2M=∅ | universe=U | Preflight PASSES; universe assigns | **MALFORMED** (Slice 4 §51 row #7 — WORKSPACE + universe non-null) | **GUARD #2** |
+| 8 | WORKSPACE, universe=NULL, M2M=∅ | universe=null | No-op | Valid | No |
+| 9 | NULL (legacy), universe=NULL, M2M=∅ | universe=U | Preflight PASSES; universe assigns; audience_scope stays NULL | Transitional (NULL is not a Delta-invariant target) | No — carve-out preserved |
+| 10 | NONE (inactive) | any | Unreachable — `get_queryset` filters `is_active=True` → 404 | n/a | No — queryset gate protects |
+
+## §260. Effective-audience classification
+
+For each transition:
+
+- Case 5 (UNIVERSE swap): audience REPLACEMENT (not narrowing / broadening — different set entirely). Under the invariant, replacement requires positive operator intent. Absent that intent evidence (§257 caller inventory shows zero callers), preserve current behavior but do NOT prove it's safe. Recorded as deferred design question (§274).
+- Case 6 (UNIVERSE→null): audience BROADENING (from "Universe U members" to "everyone in workspace" under legacy retrieval predicate) OR audience UNDEFINED (under Delta retrieval, malformed row fails closed). Guard closes both interpretations.
+- Case 7 (WORKSPACE→U): audience NARROWING under legacy predicate (broadcast → Universe-only) but audience UNDEFINED under Delta. Guard closes because the row shape is invalid regardless of retrieval semantics.
+
+## §261. Legacy vs Delta retrieval consequence
+
+Retrieval has NOT switched to Delta (Stage 5 deferred). Current legacy predicate at `shell/apps/embeddings/retrieval.py:194-224`:
+
+- Case 6 post-transition (UNIVERSE + universe=null, empty M2M): legacy predicate matches every legacy teammate in workspace (broadcast). Silent audience-broadening from "Universe U members" to "all legacy teammates." **This is a live audience-broadening path Slice 15 closes.**
+- Case 7 post-transition (WORKSPACE + universe=U, empty M2M): legacy predicate for a teammate in Universe U matches empty-M2M rows scoped to U. Effective audience NARROWS from "all legacy teammates" to "Universe U members only." Not a broadening in retrieval terms — but the row shape is malformed under Delta and the audience change was silent regardless.
+
+Delta predicate (Slice 4 §53, deferred to Stage 5): both cases fail closed on malformed shape. Guards make the malformed shape unreachable in the first place, so the Stage 5 cutover has zero pre-existing malformed rows to fail closed on.
+
+## §262. Malformed-state inventory (reachable via Universe PATCH pre-Slice-15)
+
+Two Delta-invariant violations reachable via `PATCH {"universe": ...}` before Slice 15:
+
+- **UNIVERSE + universe=NULL** — Slice 4 §52 invariant #2 violation
+- **WORKSPACE + universe non-null** — Slice 4 §52 invariant #3 violation
+
+No other invariants reachable through this mutation surface. CHARACTER's M2M-orphan preflight protects invariant #1 for non-empty M2M rows. Empty-M2M CHARACTER rows are already malformed pre-condition; Slice 13/14 close their entry points (detach + PATCH-empty).
+
+## §263. Answers §H — A, B, C, D
+
+**A. UNIVERSE U_old → U_new:** current caller evidence is INSUFFICIENT to treat as explicit audience reassignment (§257 — zero production callers). Preserve current behavior. Do NOT block. Future explicit audience-transition contract design deferred to a separate falsifiable question.
+
+**B. UNIVERSE → NULL:** never valid under Delta. **Guard implemented.** Rejects with structured 4xx. Does NOT auto-transition to WORKSPACE (that would be exactly the absence-means-audience-change anti-pattern Delta was introduced to eliminate).
+
+**C. WORKSPACE → non-null Universe:** never valid under Delta. **Guard implemented.** Rejects with structured 4xx. Does NOT auto-transition to UNIVERSE.
+
+**D. CHARACTER Universe changes:** existing M2M-orphan preflight already handles all reachable cases for non-empty CHARACTER rows. Empty-M2M CHARACTER is a pre-condition malformed shape not caused by Universe PATCH. No new guard.
+
+## §264. Guard implementation (`shell/apps/embeddings/serializers.py`)
+
+Two new checks at top of `update()`, added after the Slice 14 CHARACTER-empty guard, before the existing `pdf_data_uri`/`source_url_input` create-only rejections. Both fire only on active rows (queryset already gates `is_active=True` but the guards check explicitly for defense-in-depth):
+
+**Guard #1 — UNIVERSE-audience row cannot lose its Universe FK:**
+
+```python
+if (
+    "universe" in validated_data
+    and instance.is_active
+    and instance.audience_scope == AudienceScope.UNIVERSE
+    and validated_data["universe"] is None
+):
+    raise serializers.ValidationError({
+        "code": "universe_audience_row_requires_universe",
+        "detail": (
+            "This knowledge is shared with everyone in a specific "
+            "World. Removing the World would leave it without a "
+            "defined audience. Choose a different World, or delete "
+            "this knowledge instead."
+        ),
+    })
+```
+
+**Guard #2 — WORKSPACE-audience row cannot gain a Universe FK:**
+
+```python
+if (
+    "universe" in validated_data
+    and instance.is_active
+    and instance.audience_scope == AudienceScope.WORKSPACE
+    and validated_data["universe"] is not None
+):
+    raise serializers.ValidationError({
+        "code": "workspace_audience_row_forbids_universe",
+        "detail": (
+            "This knowledge is shared workspace-wide. Assigning it "
+            "to a specific World would change who can see it. That "
+            "kind of audience change requires a dedicated audience "
+            "action, not a scope edit."
+        ),
+    })
+```
+
+Placed at top of `update()` (post-`is_valid()`) so `serializers.ValidationError` renders `.detail` as-is via DRF's global exception handler (bypasses the `as_serializer_error()` list-wrapping). Byte-identical response-shape contract to Slice 13/14 guards. Atomicity: guards run before ANY field mutation on `instance`.
+
+**Error codes:** two distinct new codes (NOT the Slice 13/14 `final_character_detach_requires_audience_decision` code) because they describe distinct invariants. Machine-readable discrimination allows future SPA UX to route to appropriate operator affordances for each case.
+
+Zero SPA / signal / model / migration / retrieval change.
+
+## §265. Test evidence — Test B (Guard #1)
+
+`test_slice15_universe_row_rejects_universe_removal` — PASSES.
+
+- Setup: UNIVERSE row with universe=U, M2M=∅.
+- Action: `PATCH {"universe": null}`.
+- Result: HTTP 400, `code=universe_audience_row_requires_universe`, `detail` present.
+- Post-rejection state: `audience_scope=UNIVERSE`, `universe_id=U.pk`, `is_active=True` — all unchanged.
+
+## §266. Test evidence — Test C (Guard #2)
+
+`test_slice15_workspace_row_rejects_universe_assignment` — PASSES.
+
+- Setup: WORKSPACE row with universe=NULL, M2M=∅.
+- Action: `PATCH {"universe": U.pk}`.
+- Result: HTTP 400, `code=workspace_audience_row_forbids_universe`.
+- Post-rejection state: `audience_scope=WORKSPACE`, `universe_id=None` — unchanged.
+
+## §267. Test evidence — Test A (UNIVERSE swap preserved)
+
+`test_slice15_universe_row_universe_swap_preserved` — PASSES.
+
+- Setup: UNIVERSE row with universe=U_old, M2M=∅.
+- Action: `PATCH {"universe": U_new.pk}`.
+- Result: HTTP 200 (current behavior preserved).
+- Post-transition: `audience_scope=UNIVERSE`, `universe_id=U_new.pk`. Row shape still valid; effective audience replaced.
+
+Deferred question §274 records the audience-transition contract this transition still needs.
+
+## §268. Test evidence — Test D (CHARACTER existing preflight)
+
+`test_slice15_character_universe_swap_still_protected_by_existing_preflight` — PASSES.
+
+- Setup: CHARACTER row + M2M={A in U_old}.
+- Action: `PATCH {"universe": U_new.pk}`.
+- Result: HTTP 400 via SESSION 261 M2M-orphan preflight (NOT the Slice 15 code). Response body contains `universe` field error.
+- Post-rejection: `universe=U_old`, M2M unchanged.
+
+## §269. Test evidence — Tests E, G, H (characterization)
+
+- **Test E** (CHARACTER + empty M2M + universe removal): passes (200). Row was already malformed; Slice 15 does not add coverage. Slice 13/14 handle entry points.
+- **Test G** (NULL legacy + universe assignment): passes (200). NULL rows are transitional; Slice 15 does not classify.
+- **Test H** (inactive KD PATCH): passes (404). Queryset gate protects; guards need not handle inactive rows.
+
+## §270. Test evidence — Test F (atomicity)
+
+`test_slice15_universe_removal_rejection_does_not_partially_persist_title` — PASSES.
+
+- Setup: UNIVERSE row.
+- Action: `PATCH {"title": "changed", "universe": null}`.
+- Result: HTTP 400 with Slice 15 Guard #1 code.
+- Post-rejection: `title` UNCHANGED. Guards' top-of-`update()` placement gives atomic all-or-nothing rejection.
+
+## §271. Prediction vs actual
+
+| Prediction (§255) | Actual | Status |
+|---|---|---|
+| A UNIVERSE swap may be legitimate IF callers prove intent | No callers today; preserve current behavior; do NOT block (Test A passes 200) | ✓ (correctly deferred) |
+| B UNIVERSE → NULL invalid, should fail closed | Guard #1 implemented; Test B passes | ✓ |
+| C WORKSPACE + U creates malformed; must not silently succeed | Guard #2 implemented; Test C passes | ✓ |
+| D CHARACTER Universe changes already protected | Test D passes via SESSION 261 preflight | ✓ |
+| E scope-specific behavior needed | Confirmed — 4 different scopes, 4 different treatments | ✓ |
+| F serializer permits malformed states | Confirmed — 2 reachable pre-Slice-15 (§262); both closed | ✓ |
+
+All 6 predictions supported.
+
+## §272. Real-DB post-Slice-15 verification
+
+Code changed; real DB rows did not change. No PATCH executed against production data during Slice 15.
+
+```
+$ manage.py shell -c "..."
+total=72  distribution={'universe': 3, 'character': 59, None: 10}
+inactive=0  chunks=1149  m2m=62
+```
+
+Byte-identical to Slice 7 §103 through Slice 14 §247. **Zero drift across 9 consecutive slices.**
+
+Also verified: zero real-DB rows violate any of the 4 Delta invariants (§256). Guards are purely defensive; nothing to remediate.
+
+## §273. Regression results
+
+```
+$ pytest apps/embeddings/tests/test_api.py -v -k "slice15"
+8 passed in 5.05s                           # Slice 15 tests
+
+$ pytest apps/embeddings/ apps/spokespeople/ apps/universe/ apps/compositions/ -q
+1703 passed, 2 warnings in 133.77s          # broader — +8 from Slice 14's 1695
+
+$ python manage.py makemigrations --check embeddings
+No changes detected in app 'embeddings'
+```
+
+SPA suite NOT run — zero frontend files touched. Task rule permits skipping.
+
+## §274. Unresolved questions
+
+Carried forward from prior slices (all still open):
+
+- **Deferred from Slice 15 §263.A** — UNIVERSE audience-transition contract. Current behavior preserved (Test A passes 200 on `UNIVERSE U_old → U_new`). No production caller today. If a future SPA gesture emerges (e.g. "move this canon to a different World"), that slice must design a positive-intent audience-transition contract before enabling stricter guarding here.
+- **Generic audience PATCH** — CHARACTER↔UNIVERSE, CHARACTER↔WORKSPACE, UNIVERSE↔WORKSPACE transitions all require independent explicit-intent contracts.
+- **Provenance direction Alpha vs Beta** (Slice 2 §24.1).
+- **Retrieval predicate switch** (Stage 5) — now safer to attempt because zero malformed rows can reach it via KD PATCH.
+- **Operator triage UI for the 10 ambiguous rows** (Stage 4).
+- **DB CHECK constraints + NOT NULL cutover** (Stage 6).
+- **Terminology debt** — Slice 15 adds two more codes to the vocabulary; a future audience-invariant-error-code review may consolidate.
+- **Bundle vs split** (still open from Slice 1 §8.4).
+
+**No new Slice-15-specific unresolved questions.**
+
+## §275. Recommendation
+
+**Q-276-29 answered with two narrow implementation guards + one preserved-behavior finding.** Universe reassignment PATCH is now shape-preservation-safe: UNIVERSE and WORKSPACE audience rows cannot enter Delta-malformed states via `universe` field mutation. CHARACTER rows remain protected by SESSION 261's existing M2M-orphan preflight. UNIVERSE↔UNIVERSE swap (audience replacement) awaits a dedicated audience-transition contract.
+
+Combined with Slices 8/9/10/11/12/13/14, the KD mutation surface for M2M and Universe FK edits is now Delta-coherent for the four legitimate audience states + the fail-closed NONE state. What remains:
+
+- **Retrieval cutover (Stage 5)** — no malformed shape can reach a Delta predicate via any current mutation path.
+- **Legacy 10-row triage (Stage 4)** — operator decisions for the ambiguous historical rows.
+- **DB constraints + NOT NULL cutover (Stage 6)** — enforce invariants at DB level once all mutation surfaces are audit-verified (that milestone is achieved).
+- **Provenance** — orthogonal to the audience-invariant arc.
+
+Slice 15 does not authorize any further work.
+
+## §276. Explicit STOP gate
+
+**STOP.** Slice 15 authorizes no further work.
+
+Do NOT begin:
+
+- Generic audience PATCH
+- CHARACTER → UNIVERSE / CHARACTER → WORKSPACE
+- Automatic UNIVERSE ↔ WORKSPACE conversion
+- Retrieval cutover (Stage 5)
+- Provenance work
+- Legacy 10-row triage (Stage 4)
+- DB CHECK constraints (Stage 6)
+- NOT NULL cutover
+- Recovery UI
+- SPA audience picker
+
+## §277. Smallest recommended next question
+
+Now that every mutation surface for CHARACTER / UNIVERSE / WORKSPACE audience shapes fails closed on Delta-invariant violations, the natural next question is a design-first inspection of the **retrieval cutover** — the last big Delta architectural change before DB-level constraint enforcement.
+
+**Q-276-30 (candidate).** *If the retrieval predicate at `shell/apps/embeddings/retrieval.py:194-224` is switched to key positively on `audience_scope` (Slice 4 §53 design) with a compatibility fallback for `audience_scope IS NULL` legacy rows (10 rows in real DB), does every existing retrieval test pass unchanged AND does every audience-classified row (62 of 72) produce the same effective audience under the new predicate as under the current legacy predicate?*
+
+Falsifiable by:
+1. Design the new predicate on paper against the Slice 4 §54 equivalence table.
+2. Test the predicate against synthesized instances of every row-shape in Slice 4 §51.
+3. Run the full 293+ embeddings retrieval test suite after the predicate switch.
+4. Verify Slice 4 §54 equivalence holds row-by-row for the 62 deterministic real-DB rows.
+
+This is Stage 5 opener. Larger investigation than Slice 15 because it touches the load-bearing retrieval surface — but every prior slice has been prep for exactly this cutover.
+
+## §278. Slice 15 checklist
+
+- [x] Step 0 — commit + push Slice 14 SHA-record (commit `bb077d3`)
+- [x] Slice 15 baseline verified — `main == origin/main == bb077d3`, working tree clean at slice start
+- [x] Q-276-29 falsifiable question stated (§254)
+- [x] Predictions before evidence (§255)
+- [x] Real-DB pre-audit — zero Delta invariant violations (§256)
+- [x] Universe-PATCH caller inventory — zero production callers (§257)
+- [x] Serializer update() Universe branch source trace (§258)
+- [x] Scope × Universe transition matrix — 10 cases (§259)
+- [x] Effective-audience classification (§260)
+- [x] Legacy vs Delta retrieval consequence comparison (§261)
+- [x] Malformed-state inventory — 2 reachable pre-Slice-15 (§262)
+- [x] Answers A/B/C/D (§263) — A preserved (no caller evidence), B/C guards implemented, D existing preflight
+- [x] Guard #1 (UNIVERSE + null) implemented (§264)
+- [x] Guard #2 (WORKSPACE + non-null) implemented (§264)
+- [x] Distinct machine-readable error codes for each guard
+- [x] Test B — Guard #1 passes (§265)
+- [x] Test C — Guard #2 passes (§266)
+- [x] Test A — UNIVERSE swap preserved (§267)
+- [x] Test D — CHARACTER Universe swap protected by existing preflight (§268)
+- [x] Tests E/G/H — characterization (§269)
+- [x] Test F — atomic rejection preserves title (§270)
+- [x] 8/8 Slice 15 tests pass (§273)
+- [x] 1703/1703 broader backend regression (+8 from Slice 14's 1695) (§273)
+- [x] `makemigrations --check embeddings` clean (§273)
+- [x] SPA suite skipped — zero frontend files touched (§273)
+- [x] Real DB unchanged: 72 KDs, `CHARACTER=59, UNIVERSE=3, NULL=10, NONE=0, inactive=0` (§272)
+- [x] Prediction vs actual — all 6 predictions supported (§271)
+- [x] Unresolved questions (§274) — no new Slice-15-specific
+- [x] Recommendation (§275)
+- [x] Explicit STOP gate (§276)
+- [x] Smallest next question Q-276-30 (§277) — retrieval cutover
+- [x] Zero UNIVERSE↔UNIVERSE audience-transition wiring; zero generic audience PATCH; zero automatic UNIVERSE↔WORKSPACE conversion; zero retrieval / provenance / legacy triage / constraint / NOT NULL / recovery UI / SPA changes; zero provider spend
+- [ ] Commit + push Slice 15
+- [ ] Chris + ChatGPT review + Slice 16 scoping decision (§275)
+
+---
+
+**End of SESSION 276 Slice 15 / Delta Stage 3C-3. Universe reassignment PATCH now shape-preservation-safe: UNIVERSE audience row cannot lose its Universe FK; WORKSPACE audience row cannot gain one. UNIVERSE↔UNIVERSE swap preserved pending future audience-transition contract. CHARACTER preflight unchanged. Q-276-29 CONFIRMED with two narrow guards + one preserved-behavior finding. 8/8 Slice 15 tests pass; 1703/1703 broader backend regression. Real DB unchanged for 9th consecutive slice; zero Delta invariant violations across all 4 invariants. Every KD mutation surface for M2M + Universe FK now Delta-coherent. STOP for Chris + ChatGPT review of §275 recommendation, §276 gate, and §277 Q-276-30 retrieval-cutover next question.**
