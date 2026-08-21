@@ -344,4 +344,4 @@ Do NOT implement Q-277-2 without Chris + ChatGPT explicit approval — Slice 1 i
 
 ---
 
-_Slice 1 landed SHA: TBD (SHA-record commit after audit doc lands)._
+_Slice 1 landed SHA: `471f929` (audit document commit)._
