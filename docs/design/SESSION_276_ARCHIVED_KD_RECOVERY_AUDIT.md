@@ -6228,9 +6228,18 @@ Chris's product-order preference decides which lands first.
 - [x] Explicit STOP gate (§297)
 - [x] Smallest next questions Q-276-31 / Q-276-32 (§298)
 - [x] Zero SPA changes; zero migration; zero model / serializer / view / ingestion / signals mutation; zero provider spend
-- [ ] Commit + push Slice 16
+- [x] Commit + push Slice 16 — landed as `791a7df`
 - [ ] Chris + ChatGPT review + next slice scoping decision
 
 ---
 
 **End of SESSION 276 Slice 16 / Delta Stage 5A. Retrieval predicate now Delta-coherent: positive `audience_scope`-keyed visibility for every classified row; NULL-branch preservation for the 10 unresolved historical rows byte-identical to legacy; NONE and future unknown values fail closed; provenance carve-out untouched. 14/14 Slice 16 tests + 277 pre-existing embeddings tests + 250/250 real-DB equivalence pairs. Real DB unchanged for 10th consecutive slice. Every KD mutation surface AND the retrieval surface are now Delta-invariant enforced end-to-end. STOP for Chris + ChatGPT review of §296 recommendation, §297 gate, §298 next-question candidates.**
+
+**Slice 15 landed commit SHA:** `20ee0cc` (`fix(session-276): Slice 15 / Delta Stage 3C-3 — Universe reassignment shape guards`). SHA-record follow-up: `75047d9`.
+
+**Riggs correction landed commit SHA (pre-Slice-16, §279 addendum):** `87802bd` (`docs(session-276): correct Riggs KD classification — INDETERMINATE (§279)`). Pushed to `origin/main` before Slice 16 code work began; served as `main` baseline for Slice 16.
+
+**Slice 16 landed commit SHA:** `791a7df` (`feat(session-276): Slice 16 / Delta Stage 5A — retrieval cutover to positive audience_scope predicate`). Pushed to `origin/main`. Post-push `main == origin/main == 791a7df`; working tree clean.
+
+**Riggs correction still holds under Slice 16.** Per §279.3 / §279.7: the historical raccoon Riggs (the character the KD `90ad200c` was intended for) and the currently live English-bulldog / welder's-cap Riggs Teammate (`5731a73d`) are definitively distinct character identities. Display-name equality does not establish identity continuity. Riggs remains INDETERMINATE; the Slice 16 cutover leaves the row unchanged and it continues to fall under the NULL compatibility fallback branch (74/74 NULL pairs byte-identical, §286).
+
