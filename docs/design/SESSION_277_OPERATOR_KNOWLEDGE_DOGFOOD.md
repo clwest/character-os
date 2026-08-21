@@ -1706,5 +1706,5 @@ explicit follow-up scope lock.
 
 ## §62 Slice 3 landed SHA
 
-_Landed SHA: TBD (SHA-record commit after Slice 3 lands)._
+_Landed SHA: `647f139` (Slice 3 audit commit)._
 
