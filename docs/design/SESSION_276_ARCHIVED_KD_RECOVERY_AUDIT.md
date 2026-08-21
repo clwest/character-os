@@ -6243,3 +6243,363 @@ Chris's product-order preference decides which lands first.
 
 **Riggs correction still holds under Slice 16.** Per §279.3 / §279.7: the historical raccoon Riggs (the character the KD `90ad200c` was intended for) and the currently live English-bulldog / welder's-cap Riggs Teammate (`5731a73d`) are definitively distinct character identities. Display-name equality does not establish identity continuity. Riggs remains INDETERMINATE; the Slice 16 cutover leaves the row unchanged and it continues to fall under the NULL compatibility fallback branch (74/74 NULL pairs byte-identical, §286).
 
+---
+
+# SESSION 276 — Slice 17 / Delta Stage 5B — SPA-list `?spokesperson=` cutover to positive `audience_scope` predicate (Q-276-31)
+
+Companion cutover to Slice 16. Applies the same positive-audience predicate shape to the SPA workspace-knowledge LIST endpoint's `?spokesperson=` filter, plus records the operator's newly-supplied legacy-cleanup decision.
+
+## §300. Slice 17 falsifiable question — Q-276-31
+
+> If the SPA-list `KnowledgeDocumentViewSet.get_queryset` `?spokesperson=` filter is switched to the same positive `audience_scope`-keyed semantics as `retrieve_for_teammate`, does the workspace Knowledge list return exactly the same document IDs for every real teammate in the current DB, while preserving the deliberate NULL compatibility behavior and passing the relevant backend + SPA regressions?
+
+## §301. Predictions before evidence
+
+1. Per-teammate LIST result sets are byte-identical between the legacy shape predicate and the Delta predicate for every real teammate in the current DB (16 teammates across all workspaces).
+2. CHARACTER, UNIVERSE, and NULL rows all produce byte-identical LIST results. WORKSPACE rows: 0 in real DB — the branch is design-covered but has no live rows to test (Slice 17 tests §311.F synthesize such a row).
+3. NONE + any future unknown `audience_scope` value fail closed at the LIST layer, mirroring Slice 16's retrieval predicate.
+4. Universe scoping via the `?universe=` query param remains explicit (LIST does NOT auto-derive Universe from the requesting spokesperson; that is `retrieval.py`'s contract). Composing `?spokesperson=T&?universe=U` intersects the two filters.
+5. Real DB is byte-identical before and after cutover (read-only architectural change; no mutations).
+6. All 303 embeddings tests (291 pre-Slice-17 + 12 new Slice 17) pass; all 656 SPA tests pass (no SPA code changes).
+
+## §302. Slice 17 baseline SHA
+
+- Base commit at Slice 17 start: `31aacd1` (`docs(session-276): record Slice 16 landed SHA 791a7df in audit doc + check off §299 commit-and-push item`).
+- `main == origin/main == 31aacd1`; working tree clean prior to Slice 17 code work.
+- Slice 16 code landed at `791a7df` — Slice 17 builds on top.
+
+## §303. Real-DB pre-Slice-17 baseline
+
+Executed at Slice 17 start (base `31aacd1`):
+
+```
+total=72   by_scope={None: 10, 'character': 59, 'universe': 3}
+inactive=0   chunks=1149   m2m_nonempty=59
+teammates_across_all_workspaces=16
+```
+
+Matches Slice 16 §282/§292 fingerprint exactly. 11 consecutive read-only slices.
+
+## §304. LIST filter path — exact legacy predicate (pre-Slice-17)
+
+`shell/apps/embeddings/views.py:82-90` verbatim (audience portion only; the surrounding `workspace__memberships__user` auth wall + `is_active=True` filter + optional `?workspace=` / `?document_type=` / `?universe=` params remain byte-identical under Slice 17):
+
+```python
+# SESSION 138 / K5 — optional spokesperson visibility
+# filter. Returns docs visible to this spokesperson:
+# either no M2M attachments (visible to all) OR the
+# spokesperson is one of the attached.
+spokesperson_id = self.request.query_params.get("spokesperson")
+if spokesperson_id:
+    qs = qs.filter(
+        Q(spokespeople__isnull=True) | Q(spokespeople=spokesperson_id)
+    ).distinct()
+```
+
+Legacy semantics: a doc is `?spokesperson=T`-visible if its M2M is empty (broadcast) OR the requesting spokesperson is in its M2M — SHAPE-DERIVED, identical in structure to the pre-Slice-16 `retrieval.py` audience predicate.
+
+## §305. Comparison to Slice 16 retrieval Delta predicate
+
+The audience-M2M portion of `retrieve_for_teammate` and the LIST `?spokesperson=` filter had *identical* pre-Slice-16 shape. Slice 16 replaced the retrieval version; Slice 17 replaces the LIST version with the parallel Delta shape.
+
+Differences the LIST predicate must preserve (i.e., NOT copy verbatim from retrieval):
+
+- LIST does NOT filter `status="processed"` (retrieval does). Documents in `pending` / `failed` states are still visible in the operator-facing list. Slice 17 preserves this.
+- LIST does NOT auto-derive Universe scoping from `spokesperson.universe_id` (retrieval does). The `?universe=` query param is explicit operator input via the SPA. Slice 17 preserves this.
+- LIST returns `KnowledgeDocument` rows (not `KnowledgeChunk` rows), so the Q lookups use field names directly (`audience_scope`, `spokespeople`) — no `document__` prefix.
+
+## §306. Delta LIST predicate design + NULL compatibility contract
+
+```python
+qs = qs.filter(
+    # NULL compatibility (10 legacy rows) — legacy shape verbatim
+    (
+        Q(audience_scope__isnull=True)
+        & (
+            Q(spokespeople__isnull=True)
+            | Q(spokespeople=spokesperson_id)
+        )
+    )
+    # CHARACTER — explicit M2M membership required
+    | Q(
+        audience_scope=AudienceScope.CHARACTER,
+        spokespeople=spokesperson_id,
+    )
+    # UNIVERSE — visible; ?universe= param below narrows explicitly
+    | Q(audience_scope=AudienceScope.UNIVERSE)
+    # WORKSPACE — visible
+    | Q(audience_scope=AudienceScope.WORKSPACE)
+    # NONE / any future unknown value: no Q branch → fail closed
+).distinct()
+```
+
+**NULL compatibility contract (load-bearing, mirrors Slice 16 §285).**
+
+The NULL fallback branch matches EXACTLY `audience_scope IS NULL` (via `__isnull=True`), NOT "anything other than the known values." Consequences:
+
+- **Preserves** legacy shape-derived semantics for the 10 unresolved historical NULL rows byte-identically.
+- **Fails closed** for any future unknown `audience_scope` value (branch does not match; no CHARACTER/UNIVERSE/WORKSPACE branch either).
+- **NONE fails closed** by the same construction. Defense in depth on top of `is_active=True` (NONE rows are also `is_active=False` per Slice 8 orphan-archive contract, so the LIST already excludes them via the base queryset).
+
+Unknown-scope values must NOT silently receive legacy broadcast semantics at either the retrieval OR the LIST layer. This is the load-bearing sibling constraint between Slices 16 and 17.
+
+## §307. Universe scoping — why LIST does not auto-derive
+
+The retrieval predicate at `retrieval.py:211-214` derives Universe scoping from `spokesperson.universe_id`:
+
+```python
+if spokesperson.universe_id is None:
+    qs = qs.filter(document__universe__isnull=True)
+else:
+    qs = qs.filter(document__universe_id=spokesperson.universe_id)
+```
+
+The LIST endpoint at `views.py:101-106` uses an **explicit** `?universe=` query param passed by the operator via the SPA:
+
+```python
+universe_param = self.request.query_params.get("universe")
+if universe_param:
+    if universe_param.strip().lower() == "none":
+        qs = qs.filter(universe__isnull=True)
+    else:
+        qs = qs.filter(universe_id=universe_param)
+```
+
+**Why the asymmetry is correct:** retrieval feeds RAG synthesis at render time — the spokesperson's Universe context is the correct implicit scope. The LIST feeds an operator-facing management surface — the operator picks Universe scope explicitly via UI controls. Copying retrieval's implicit universe derivation into the LIST would silently hide docs the operator expects to see when managing an out-of-Universe teammate. Slice 17 preserves this asymmetry.
+
+## §308. Real-DB LIST equivalence proof
+
+Executed via read-only script `/tmp/slice17_list_equivalence_proof.py` — enumerated every real Teammate (16 across all workspaces) and compared the doc-ID set returned by the legacy predicate vs the proposed Delta predicate, scoped per-workspace (auth wall is orthogonal to the predicate itself).
+
+**Result:**
+
+```
+KDs total (all): 72
+KDs scope distribution: {None: 10, 'character': 59, 'universe': 3}
+KDs inactive: 0
+Teammates evaluated: 16
+
+Teammate-level divergences (legacy set != delta set): 0
+  Doc-scope buckets in legacy-only diffs: {'CHARACTER': 0, 'UNIVERSE': 0, 'WORKSPACE': 0, 'NULL': 0, 'NONE': 0}
+  Doc-scope buckets in delta-only diffs: {'CHARACTER': 0, 'UNIVERSE': 0, 'WORKSPACE': 0, 'NULL': 0, 'NONE': 0}
+
+*** LIST-FILTER EQUIVALENCE PROVEN ***
+```
+
+**Per-scope accounting:**
+
+- **CHARACTER (59 rows):** legacy predicate returns those where M2M non-empty AND (M2M empty OR sp in M2M) → reduces to "sp in M2M". Delta CHARACTER branch: `audience_scope=CHARACTER AND sp in M2M`. Identical by construction (CHARACTER-classified rows are M2M-non-empty by Delta invariant).
+- **UNIVERSE (3 rows, all M2M empty per Slice 4 §55.1 Rule B):** legacy returns them (M2M empty passes the OR). Delta UNIVERSE branch returns them unconditionally. Identical.
+- **WORKSPACE (0 rows in DB):** predicate branch design-covered; no live evidence. Slice 17 tests §311.F synthesize a WORKSPACE row and assert visibility.
+- **NULL (10 rows):** legacy predicate applies verbatim. Delta NULL fallback applies the identical predicate under a `__isnull=True` guard. Identical.
+- **NONE (0 rows in DB):** predicate design fails closed. Slice 17 tests §311.G synthesize a NONE row (with `is_active=True` forced to isolate the audience branch) and assert invisibility.
+
+Re-executed post-code-change: still 0 divergences.
+
+## §309. Implementation gate assessment
+
+| # | Condition | Status | Evidence |
+|---|---|---|---|
+| 1 | Real-DB LIST equivalence | ✅ PASS | §308 — 16/16 teammates, 0 divergences on every scope class |
+| 2 | NONE + unknown scope fail closed | ✅ PASS | §306 — no matching Q branch; §311.G / §311.H exercise |
+| 3 | NULL compatibility preserves legacy exactly | ✅ PASS | §308 — NULL rows byte-identical; §306 uses `__isnull=True` |
+| 4 | NULL fallback matches EXACTLY `audience_scope IS NULL` | ✅ PASS by construction (§306); §311.H falsifies drift |
+| 5 | Universe `?universe=` param unchanged | ✅ PASS | §307 — LIST retains explicit Universe scoping |
+| 6 | Auth wall (`workspace__memberships__user`) unchanged | ✅ PASS | §310 diff scoped to lines 86-90 only |
+| 7 | Other query-param filters (workspace, doc_type) unchanged | ✅ PASS | §310 |
+| 8 | `retrieval.py` untouched (Slice 16 sealed) | ✅ PASS | zero diff in `apps/embeddings/retrieval.py` |
+
+All 8 conditions pass. Implementation authorized and executed (§310).
+
+## §310. Exact implementation diff
+
+**Single hunk** in `shell/apps/embeddings/views.py:82-90`. `AudienceScope` was already imported (line 39, pre-existing from Slice 5/6). Workspace + `is_active` + optional workspace/doc_type/universe filters are byte-identical.
+
+```python
+# Removed (legacy)
+spokesperson_id = self.request.query_params.get("spokesperson")
+if spokesperson_id:
+    qs = qs.filter(
+        Q(spokespeople__isnull=True) | Q(spokespeople=spokesperson_id)
+    ).distinct()
+
+# Added (Delta) — see §306 for full block + load-bearing comment
+spokesperson_id = self.request.query_params.get("spokesperson")
+if spokesperson_id:
+    qs = qs.filter(
+        (
+            Q(audience_scope__isnull=True)
+            & (
+                Q(spokespeople__isnull=True)
+                | Q(spokespeople=spokesperson_id)
+            )
+        )
+        | Q(
+            audience_scope=AudienceScope.CHARACTER,
+            spokespeople=spokesperson_id,
+        )
+        | Q(audience_scope=AudienceScope.UNIVERSE)
+        | Q(audience_scope=AudienceScope.WORKSPACE)
+    ).distinct()
+```
+
+Documented with a 25-line comment restating the load-bearing NULL contract, NONE/unknown fail-closed property, and the intentional Universe-scoping asymmetry with retrieval.
+
+## §311. Slice 17-specific tests (`test_api_list_delta_slice17.py`)
+
+New file. 12 tests A-L exercising every LIST Delta branch through the DRF API (not just the queryset — the auth wall + serializer + pagination are covered end-to-end).
+
+- **A / B — NULL fallback preserved.** Empty-M2M broadcast + explicit M2M narrow.
+- **C / D — CHARACTER.** M2M membership required; non-members excluded.
+- **E — UNIVERSE broadcast at LIST layer.** Visible via LIST even when the requesting sp is legacy (no-Universe) — LIST does NOT auto-scope by sp.universe (§307). Load-bearing asymmetry with retrieval preserved.
+- **F — WORKSPACE audience.** Visible via LIST.
+- **G — NONE fail-closed.** Row forced to `is_active=True` + M2M={T} + `audience_scope=NONE` is still NOT visible. Proves the audience predicate itself excludes NONE, not just the `is_active` gate.
+- **H — Unknown scope fail-closed.** Row with `audience_scope="future_x"` + M2M={T} still NOT visible. Falsifies future drift toward "match anything other than known."
+- **I — `?spokesperson=T&?universe=U` intersection.** Both filters applied; only Universe-U docs surface when U is passed.
+- **J — `is_active=False` invisible regardless of scope.** Baseline preserved.
+- **K — Cross-workspace auth wall.** User A queries `?spokesperson=<sp in B>` — auth scoping produces empty set.
+- **L — No `?spokesperson=` param.** Filter branch does not fire; full workspace list returned unchanged (baseline preserved).
+
+**Result:** 12/12 pass.
+
+## §312. Test results
+
+- **`apps/embeddings/tests/` post-cutover:** 303 passed (291 pre-Slice-17 + 12 new Slice 17). Zero regressions in the 291 pre-existing tests.
+- **SPA test suite (`web/`, `npm test`):** 656 passed / 49 files. Unchanged from Slice 15/16 baseline. No SPA code was modified in Slice 17; the change was scoped to backend `views.py`.
+- **Real-DB LIST equivalence re-run post-code-change:** 0 divergences (identical to pre-implementation proof).
+
+Broader backend regression (`apps/` + `character_os/`) not re-executed in Slice 17 — the 81 pre-existing failures documented in Slice 16 §291 (79 `apps/bootstrap_review/` + 1 `character_os/clients/tests/test_media_engine_timeouts.py::test_downstream_deadlines_covers_every_client_method` + 1 previously-fixed allow-list issue) are unrelated to `views.py` and remain out of Slice 17 scope.
+
+## §313. Post-cutover real-DB fingerprint
+
+Executed post-implementation:
+
+```
+total=72   by_scope={None: 10, 'character': 59, 'universe': 3}
+inactive=0   chunks=1149   m2m_nonempty=59
+```
+
+Unchanged from §303 pre-baseline. **Real DB byte-identical for the 11th consecutive slice.** No writes; no schema changes; no migration; no admin/operator triage triggered.
+
+## §314. Prediction vs actual
+
+| Prediction (§301) | Evidence |
+|---|---|
+| 1. Per-teammate LIST equivalence | ✓ 16/16 teammates, 0 divergences (§308) |
+| 2. CHARACTER / UNIVERSE / NULL byte-identical; WORKSPACE branch design-covered | ✓ per-scope breakdown (§308) |
+| 3. NONE + unknown fail closed at LIST layer | ✓ tests G, H pass (§311) |
+| 4. Universe `?universe=` unchanged; composition intersects | ✓ test I passes (§311) |
+| 5. Real DB byte-identical | ✓ fingerprint unchanged (§313) |
+| 6. 303 embeddings + 656 SPA tests pass | ✓ §312 |
+
+6/6 predictions supported.
+
+## §315. Files changed (Slice 17)
+
+- `shell/apps/embeddings/views.py` — 1 hunk (audience-M2M portion of `?spokesperson=` filter replaced). Net: −4 lines, +45 lines including the 25-line load-bearing comment.
+- `shell/apps/embeddings/tests/test_api_list_delta_slice17.py` — new file (~275 lines; 12 tests).
+- `docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md` — this Slice 17 appendix (§300-§321) + §316 operator legacy-cleanup decision.
+
+**Not touched:** `retrieval.py` (Slice 16 sealed); `models.py`, migrations, `serializers.py`, `ingestion.py`, `signals.py`, `admin.py`, any SPA file, any other view or endpoint, `test_retrieval_privacy.py` allow-list (LIST doesn't touch KnowledgeChunk).
+
+## §316. Operator historical-knowledge decision (RECORDED DURABLY)
+
+**Trigger.** Chris supplied a first-party product decision during Slice 17 authorization: the historical/dogfood knowledge represented by the following legacy KDs is no longer relevant to the current Character OS work and may ultimately be deleted:
+
+- **TANK** (`8c6f0c14`) — PROVEN historical orphan (CharacterIdentity SET_NULL fingerprint; §4.4)
+- **Tulsi** (`7ecde40b`) — STRONG-INFERENCE historical orphan (Composition + Asset SET_NULL fingerprint; §4.4)
+- **Historical raccoon Riggs** (`90ad200c`) — INDETERMINATE per Riggs correction §279; distinct from the currently live English-bulldog / welder's-cap Riggs Teammate (`5731a73d`)
+- **Hearth & Hollow Books** (6 KDs: `aa90d895`, `e37ea174`, `b58efd31`, `7f41d8e3`, `c408656d`, `0088f31f`) — WEAK-INFERENCE / operator-recollection tier per §4.4
+
+**Scope of the decision:** the 9 chriss-workspace legacy KDs above (TANK + Tulsi + Riggs + 6× Hearth & Hollow). The +1 admins-workspace NULL row (`33c07feb "Wikipedia is trafilatura's home turf"`, §55.2) is **explicitly NOT covered** by this decision. Its status is deferred until the future legacy-cleanup slice inspects/identifies it independently — the operator has NOT asserted that the same decision applies to it.
+
+**Slice 17 does NOT act on this decision.** No row is deleted or mutated. `audience_scope` is not assigned. The 9 rows remain `audience_scope=NULL, is_active=True` and continue to fall under the NULL compatibility fallback branch introduced in Slices 16 + 17. Their retrieval + LIST semantics are byte-identical to pre-Delta.
+
+**Consequence for the Stage 7 (legacy triage) question.** Prior planning (§298 candidate Q-276-32) assumed operator needed to reconstruct an intended audience for each of the 9 unresolved rows in order to preserve them under a `NOT NULL` constraint. Chris's decision materially simplifies Stage 7:
+
+- The 9 chriss-workspace legacy rows do NOT need audience reconstruction — the operator may choose `NONE + is_active=False` (soft delete) for any or all of them, or hard-delete them, at operator lifecycle timing of Chris's choosing.
+- The +1 admins-workspace NULL row remains an audience-reconstruction candidate pending future inspection.
+- The Stage 7 question narrows from "operator-classify 10 rows" to "operator lifecycle-decides 9 rows (retain-as-is-decision-deferred OR archive OR delete) + inspect and classify 1 row."
+- A future `NOT NULL` constraint on `audience_scope` remains blocked until either (a) all 10 rows are given an explicit scope OR (b) the constraint is deferred until after operator lifecycle actions remove them from the active set.
+
+This decision is recorded as OPERATOR HISTORICAL / LIFECYCLE CONTEXT — first-party product intent from Chris. It stands on the same tier as the Riggs raccoon-vs-bulldog clarification (§279.3): sufficient basis for operator-signoff lifecycle action, insufficient for mechanical inference.
+
+## §317. Unresolved questions
+
+1. **Stage 7 legacy cleanup slice.** When does Chris want to act on §316? A single "archive/delete these 9 legacy rows" slice becomes feasible once he's ready. Not authorized by Q-276-31; blocks the future `NOT NULL` audience_scope constraint.
+2. **Admins-workspace `33c07feb` (Slice 4 §55.2).** Belongs to a different operator (admin@mail.com); intended-audience inference remains open. Chris's §316 decision explicitly does NOT cover it.
+3. **`retrieve_universe_canon` shared-tier predicate reformulation.** Slice 16 §295.2 flagged this as aesthetic / future stage 5B'; Slice 17 did NOT tackle it (scope was strictly `views.py:86-90`). Still open.
+4. **SPA-side smoke test.** Chris may want to poke the Knowledge tab in the running dogfood workspace to confirm the operator-visible list looks identical (Q-276-31 asserts byte-equivalent doc IDs, but operator UX confirmation is a separate signal).
+
+## §318. Recommendation
+
+**Slice 17 is complete and safe to land.** All 8 gate conditions passed with evidence. Real DB byte-identical. Legacy LIST semantics preserved for every existing row across all 16 real teammates. Positive predicate now enforces `audience_scope`-keyed visibility at both retrieval (Slice 16) AND the SPA-facing management list (Slice 17). NONE and future unknown values fail closed at both surfaces.
+
+Combined with the Slices 8-16 chain, the load-bearing invariants of Direction Delta are enforced end-to-end:
+
+- **Every mutation surface** (Slices 8, 9, 10, 11, 12, 13, 14, 15) rejects Delta-invariant violations at the write boundary.
+- **Both audience-filtered read surfaces** (Slice 16 retrieval + Slice 17 LIST) key positively on `audience_scope`.
+- **NULL compatibility branch** is uniform across both surfaces; preserved verbatim for the 10 unresolved historical rows.
+- **NONE + unknown values fail closed** uniformly.
+
+The Direction Delta architecture is now shape-complete at every surface Chris authorized. Remaining Delta work:
+
+- **Stage 7 — Legacy cleanup / triage** — operator lifecycle action on the 9 chriss-workspace rows per §316 + inspection of the +1 admins row.
+- **Stage 8 — DB constraint** — `NOT NULL CHECK` on `audience_scope` once §316 lifecycle actions complete.
+- **Stage 9 (optional) — universe_canon reformulation** — §317.3 aesthetic cleanup; not invariant-required.
+
+## §319. Explicit STOP gate
+
+STOP before Stage 7 (legacy cleanup) or Stage 8 (constraint). Review Slice 17 evidence with Chris + ChatGPT.
+
+- Does Chris want the next slice to be Stage 7 (legacy cleanup) or Stage 9 (`universe_canon` reformulation) or a different priority?
+- If Stage 7 next: does Chris want to lifecycle-decide all 9 rows in one slice, or split them into archive-first / delete-later?
+- If Stage 7 next: what to do about the +1 admins-workspace row? (Inspection-first slice, or bundled into Chris's lifecycle-decision slice with a "defer classification" outcome?)
+- Any real-world SPA smoke test Chris wants to run before considering Slice 17 sealed?
+
+## §320. Smallest recommended next question
+
+Two candidates depending on Chris's answer to §319:
+
+**Q-276-33 (candidate — Stage 7 opener).** *If Chris archives (or hard-deletes) the 9 chriss-workspace legacy rows identified in §316 (TANK, Tulsi, historical raccoon Riggs, 6× Hearth & Hollow), does the real-DB fingerprint transition to `total=63, by_scope={None: 1, character: 59, universe: 3}, inactive=9` (assuming archive path) without any Delta invariant violation, and do all 303 embeddings + 656 SPA + retrieval equivalence tests pass unchanged? Separately, what inspection is needed for admins-workspace `33c07feb` before its audience_scope can be assigned?*
+
+**Q-276-34 (candidate — Stage 9 aesthetic).** *If `retrieve_universe_canon` (SESSION 263 shared-tier lane) is reformulated positively as `(audience_scope=UNIVERSE) OR (audience_scope=CHARACTER AND M2M covers full cast)`, does its 12-test suite pass unchanged, and does the reformulated predicate produce byte-identical shared-tier results for the 3 UNIVERSE canon rows in the real DB?*
+
+Chris's product-order preference decides which lands first. §316 makes Q-276-33 significantly easier than the pre-Slice-17 formulation (Q-276-32) because operator lifecycle-decides instead of audience-reconstructs.
+
+## §321. Slice 17 checklist
+
+- [x] Step 0 — Slice 16 landed as `791a7df`; catch-up SHA-record commit `31aacd1`
+- [x] Slice 17 baseline verified — `main == origin/main == 31aacd1`, working tree clean at slice start (§302)
+- [x] Q-276-31 falsifiable question stated (§300)
+- [x] Predictions before evidence (§301)
+- [x] Real-DB pre-Slice-17 baseline (§303)
+- [x] Legacy LIST predicate identified verbatim (§304)
+- [x] Comparison to Slice 16 retrieval Delta predicate (§305)
+- [x] Delta LIST predicate design + NULL contract (§306)
+- [x] Universe scoping asymmetry documented + preserved (§307)
+- [x] Real-DB equivalence proof — 16/16 teammates, 0 divergences on every scope class (§308)
+- [x] Per-scope accounting for CHARACTER, UNIVERSE, WORKSPACE, NULL, NONE, unknown (§306, §308, §311)
+- [x] Implementation gate assessment — 8/8 conditions pass (§309)
+- [x] Delta LIST predicate implemented at `views.py:86-90` (§310)
+- [x] `test_api_list_delta_slice17.py` A-L — 12/12 tests pass (§311)
+- [x] 303/303 embeddings tests pass post-cutover (§312)
+- [x] 656/656 SPA tests pass (unchanged; no SPA code touched) (§312)
+- [x] Post-change real-DB fingerprint unchanged (§313)
+- [x] Real-DB equivalence re-run post-code — 0 divergences (§312)
+- [x] Prediction vs actual — 6/6 predictions supported (§314)
+- [x] Files changed (§315)
+- [x] Operator historical-knowledge decision recorded (§316) — 9 chriss-workspace legacy rows may be lifecycle-deleted; admins-workspace row deferred
+- [x] Unresolved questions (§317)
+- [x] Recommendation (§318)
+- [x] Explicit STOP gate (§319)
+- [x] Smallest next questions Q-276-33 / Q-276-34 (§320)
+- [x] Zero SPA changes; zero migration; zero retrieval.py modification; zero model / serializer / ingestion / signals mutation; zero legacy row mutation; zero NOT NULL constraint; zero provider spend
+- [ ] Commit + push Slice 17
+- [ ] Chris + ChatGPT review + next slice scoping decision
+
+---
+
+**End of SESSION 276 Slice 17 / Delta Stage 5B. SPA-list `?spokesperson=` filter now Delta-coherent: positive `audience_scope`-keyed visibility mirroring Slice 16 retrieval; NULL fallback preserves legacy shape byte-identically for the 10 unresolved historical rows; NONE and future unknown values fail closed at both retrieval + LIST layers; Universe scoping asymmetry preserved (LIST is explicit via `?universe=`; retrieval auto-derives from spokesperson). 12/12 Slice 17 tests + 303/303 embeddings + 656/656 SPA + 16/16 real-DB LIST equivalence teammates. Real DB unchanged for 11th consecutive slice. Every mutation surface AND both audience-filtered read surfaces are now Delta-invariant enforced end-to-end. Operator legacy-cleanup decision for 9 chriss-workspace historical rows recorded durably (§316). STOP for Chris + ChatGPT review of §318 recommendation, §319 gate, §320 next-question candidates.**
+
+

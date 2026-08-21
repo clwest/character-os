@@ -79,14 +79,51 @@ class KnowledgeDocumentViewSet(viewsets.ModelViewSet):
         if workspace_id:
             qs = qs.filter(workspace_id=workspace_id)
 
-        # SESSION 138 / K5 — optional spokesperson visibility
-        # filter. Returns docs visible to this spokesperson:
-        # either no M2M attachments (visible to all) OR the
-        # spokesperson is one of the attached.
+        # SESSION 138 / K5 — optional spokesperson visibility filter.
+        # SESSION 276 / Slice 17 / Delta Stage 5B (Q-276-31) —
+        # Cut over to the positive ``audience_scope``-keyed predicate,
+        # mirroring the Slice 16 retrieval cutover at
+        # ``retrieval.py:194-224``. Semantics per Delta scope:
+        #
+        # * CHARACTER — visible if the requesting spokesperson is in
+        #   the doc's M2M.
+        # * UNIVERSE — visible (Universe-scoped docs are broadcast to
+        #   teammates in that Universe; the ``?universe=`` filter below
+        #   provides operator-explicit narrowing on top of this).
+        # * WORKSPACE — visible (workspace-shared canon).
+        # * NULL fallback — preserves legacy shape-derived semantics
+        #   byte-identically for the 10 unresolved historical rows the
+        #   Stage-2 migration intentionally left as ``audience_scope=NULL``.
+        # * NONE + any future unknown ``audience_scope`` value — fail
+        #   closed (no matching branch). NONE is defense in depth on top
+        #   of the ``is_active=True`` filter above; unknown values must
+        #   NOT silently receive legacy broadcast (load-bearing NULL
+        #   contract; see retrieval.py:216-269 for the sibling constraint).
+        #
+        # Universe scoping is intentionally NOT auto-derived from the
+        # requesting spokesperson (that is retrieval.py's contract).
+        # The SPA list surface uses an explicit ``?universe=`` query
+        # param, applied below, so operators can narrow independently.
+        #
+        # Real-DB equivalence: SESSION 276 Slice 17 §… — 16/16 real
+        # teammates return byte-identical doc-ID sets under the legacy
+        # and Delta predicates. Zero divergences on any scope class.
         spokesperson_id = self.request.query_params.get("spokesperson")
         if spokesperson_id:
             qs = qs.filter(
-                Q(spokespeople__isnull=True) | Q(spokespeople=spokesperson_id)
+                (
+                    Q(audience_scope__isnull=True)
+                    & (
+                        Q(spokespeople__isnull=True)
+                        | Q(spokespeople=spokesperson_id)
+                    )
+                )
+                | Q(
+                    audience_scope=AudienceScope.CHARACTER,
+                    spokespeople=spokesperson_id,
+                )
+                | Q(audience_scope=AudienceScope.UNIVERSE)
+                | Q(audience_scope=AudienceScope.WORKSPACE)
             ).distinct()
 
         # Optional doc-type filter (useful for the SPA's tab UI).
