@@ -2363,3 +2363,372 @@ Deferred to a future slice pending Chris authorization.
 ---
 
 **End of SESSION 276 Slice 5 / Delta Stage 1. Field added; migration applied; every regression passes; DB verified inert. STOP before Stage 2. Awaiting Chris authorization for (a) commit of Slice 5 changes and (b) any subsequent stage scope.**
+
+**Slice 5 landed commit SHA:** `ee9efd7` (`feat(session-276): Slice 5 / Delta Stage 1 — inert audience_scope substrate`). Pushed to `origin/main`. Post-push `main == origin/main == ee9efd7`; working tree clean.
+
+---
+
+# SESSION 276 — Slice 6 / Delta Stage 2 backfill rehearsal (Q-276-17)
+
+**Status.** READ-ONLY / ROLLBACK-ONLY data-migration rehearsal. Answers Slice 4 §70 Q-276-17. Does NOT persist any Stage 2 assignment. Does NOT create the Stage 2 migration. Substrate from Slice 5 is the landed `audience_scope` field.
+
+**Slice 6 baseline.** `main == origin/main == ee9efd7` (Slice 5 landing SHA). Working tree clean at slice start. 72 KDs; all `audience_scope IS NULL`; Slice 5 verification carried forward.
+
+**Load-bearing invariants carried forward:** SESSION 275 §23 audience-broadening prohibition; Slice 2 §22 SE-vs-SF audience refinement; Slice 4 §66 Delta model + §55 migration bucket inventory.
+
+## §86. Slice 6 falsifiable question — Q-276-17
+
+> If the deterministic Delta backfill logic runs against the current real `KnowledgeDocument` dataset inside an explicitly rolled-back transaction, does it produce exactly the migration shape predicted by Slice 4:
+>
+> - 59 rows → `CHARACTER`
+> - 3 evidence-backed rows → `UNIVERSE`
+> - 10 ambiguous rows → remain `NULL`
+> - 0 rows → `WORKSPACE`
+> - 0 rows → `NONE`
+>
+> with no changes to any other `KnowledgeDocument` fields, M2M rows, Universes, lifecycle state, chunks, or retrieval behavior?
+
+**Prediction:** yes. The prediction is deterministic — Slice 4 §55 established the bucket counts and the exact 3 UNIVERSE canon IDs + 10 ambiguous IDs from a fresh full-DB read. Slice 6 mechanically verifies against live DB state.
+
+## §87. Fresh Slice 6 DB baseline (read-only, pre-rehearsal)
+
+Executed at Slice 6 start; identical to Slice 5 §78.3.
+
+```
+total KDs: 72
+audience_scope distribution: {None: 72}
+
+Shape buckets:
+  (active=True, universe=False, m2m_nonempty=False, reason=''): 10   [10 ambiguous]
+  (active=True, universe=False, m2m_nonempty=True,  reason=''): 49   [CHARACTER legacy]
+  (active=True, universe=True,  m2m_nonempty=False, reason=''):  3   [3 UNIVERSE canon candidates]
+  (active=True, universe=True,  m2m_nonempty=True,  reason=''): 10   [CHARACTER Universe-scoped]
+  inactive: 0
+
+CHARACTER target: 49 legacy + 10 Universe = 59
+
+3 UNIVERSE canon candidates (universe=U + M2M=∅, active):
+  8f825c98-f420-4867-8700-6d4db6832d9d  ws=chriss-workspace          title='Fox & Flour Bakery — House Policies & Hours'
+  d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6  ws=session272-rivet-debug-ctl title='RIVET-DEBUG (CTL) — SESSION 272 experimental substrate'
+  64c91888-5534-418b-bbe2-33743f815bcf  ws=session272-rivet-debug-exp title='RIVET-DEBUG (EXP) — SESSION 272 experimental substrate'
+
+10 ambiguous rows (active + universe=NULL + M2M=∅):
+  33c07feb-65ee-4ed3-8fc0-0f2fc33600c7  ws=admins-workspace   title="Wikipedia is trafilatura's home turf"
+  aa90d895-cac9-41d4-b505-f2b23ffd5241  ws=chriss-workspace   title='About Hearth & Hollow Books'
+  e37ea174-98e8-4588-a690-81f6e1bbfe4b  ws=chriss-workspace   title='How We Recommend Books'
+  b58efd31-d05c-4008-beac-3a75755e5c6b  ws=chriss-workspace   title="Children's Reading"
+  7f41d8e3-9be0-4591-9648-8c901861628d  ws=chriss-workspace   title='Bookstore Events'
+  c408656d-191d-49be-a92d-8721aa294b58  ws=chriss-workspace   title='Supporting Local Authors'
+  0088f31f-56fc-4e66-837a-f5391d6bbd94  ws=chriss-workspace   title='Helping Customers Find Their Next Read'
+  7ecde40b-6d72-45eb-b676-6feb260e2ff8  ws=chriss-workspace   title='Tulsi — Core Identity and Public Purpose'
+  8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545  ws=chriss-workspace   title='TANK — AUTOMOTIVE FINANCING CONTENT KNOWLEDGE'
+  90ad200c-5019-4036-82e9-a1ccc5cbce72  ws=chriss-workspace   title='Riggs'
+```
+
+Zero drift from Slice 5. Zero new rows. Zero inactive. Zero non-NULL `audience_scope`. The 3 UNIVERSE canon candidates match Slice 4 §55.1 exactly; the 10 ambiguous rows match Slice 4 §55.2 exactly.
+
+## §88. Deterministic classification rules (as rehearsed)
+
+Rules are Slice 4 §55.1 + §55.2 verbatim; no new rules invented.
+
+- **Rule A — CHARACTER.** Every KD with M2M count ≥ 1 gets `audience_scope=CHARACTER`. Applies regardless of `universe` (legacy or Universe-scoped). Positive evidence: the M2M itself.
+- **Rule B — UNIVERSE.** Only the 3 frozen evidence-backed IDs (§87) receive `audience_scope=UNIVERSE`. Not applied to any other `universe != NULL AND M2M empty` row. **Frozen ID set embedded as a constant — see §92 for rationale.**
+- **Rule C — NULL preserved.** The 10 ambiguous rows stay `audience_scope IS NULL`. No implicit classification. Post-Delta operator triage will decide each explicitly.
+- **Rule D — inactive rows.** Zero in the current DB. If any existed, the rehearsal would STOP before applying rules — Stage 2 semantics for inactive rows are deferred to a later slice.
+
+## §89. Rehearsal mechanism
+
+Executed via `manage.py shell` (single Python process, single DB connection). Structure:
+
+```python
+class ForcedRollback(Exception): ...
+
+before = full_fingerprint()
+try:
+    with transaction.atomic():
+        # Rule A
+        KnowledgeDocument.objects.annotate(spc=Count("spokespeople")) \
+            .filter(spc__gt=0).update(audience_scope=AudienceScope.CHARACTER)
+        # Rule B
+        KnowledgeDocument.objects.filter(pk__in=UNIVERSE_CANON_IDS) \
+            .update(audience_scope=AudienceScope.UNIVERSE)
+        during = full_fingerprint()
+        # invariant assertions ...
+        raise ForcedRollback  # mechanical rollback trigger
+except ForcedRollback:
+    pass
+after = full_fingerprint()
+assert before == after  # rollback proof
+```
+
+`transaction.atomic()` guarantees rollback on any raised exception. `ForcedRollback` is a purpose-defined marker exception so the rehearsal cannot be silenced by any real error being swallowed. `full_fingerprint()` reads persisted state via a fresh queryset — after the `except` block, Django's connection returns to the pre-atomic autocommit state and reads see committed data only.
+
+**Why this is a mechanical proof, not intent-based:** the rollback is triggered by an exception INSIDE the atomic block; Django's `atomic` context manager unwinds via `__exit__(exc_type, ...)` and issues a ROLLBACK to the DB. The AFTER fingerprint is a fresh query against the committed data. If any assignment had leaked past ROLLBACK, `after.audience_scope_dist` would show non-None values.
+
+## §90. Fingerprints (BEFORE / IN-TX / AFTER-ROLLBACK)
+
+```
+=== BEFORE fingerprint ===
+  kd_count: 72
+  chunk_count: 1149
+  m2m_count: 62
+  kd_rows_hash: -7801475400362189577
+  m2m_rows_hash: -8154885081713289592
+  audience_scope_dist: {None: 72}
+
+=== IN-TRANSACTION fingerprint (post-writes, pre-rollback) ===
+  kd_count: 72
+  chunk_count: 1149
+  m2m_count: 62
+  kd_rows_hash: -5078510630773828736             ← CHANGED (audience_scope column mutated)
+  m2m_rows_hash: -8154885081713289592            ← UNCHANGED (M2M rows untouched)
+  audience_scope_dist: {'universe': 3, 'character': 59, None: 10}
+
+=== FORCED ROLLBACK executed ===
+
+=== AFTER-ROLLBACK fingerprint ===
+  kd_count: 72
+  chunk_count: 1149
+  m2m_count: 62
+  kd_rows_hash: -7801475400362189577             ← RESTORED (matches BEFORE)
+  m2m_rows_hash: -8154885081713289592
+  audience_scope_dist: {None: 72}
+
+=== ROLLBACK PROOF ===
+  BEFORE == AFTER for every fingerprint field
+  Zero rehearsal assignments persisted; DB returned to Stage 1 baseline exactly
+```
+
+**Independent post-rehearsal recheck** (fresh `manage.py shell -c` invocation, new DB connection):
+
+```
+post-rehearsal: total=72, distribution={None: 72}, inactive=0
+```
+
+Zero persistence confirmed by two independent read paths.
+
+## §91. In-transaction invariant assertions (all passed)
+
+Under the mid-rehearsal DB state, before the forced rollback:
+
+| Invariant | Assertion | Result |
+|---|---|---|
+| Distribution — CHARACTER | count == 59 | PASS |
+| Distribution — UNIVERSE | count == 3 | PASS |
+| Distribution — NULL | count == 10 | PASS |
+| Distribution — WORKSPACE | count == 0 (absent from dict) | PASS |
+| Distribution — NONE | count == 0 (absent from dict) | PASS |
+| Rule A shape — CHARACTER + M2M ≥ 1 | 0 rows violate | PASS |
+| Rule B shape — UNIVERSE + universe non-NULL | 0 rows violate | PASS |
+| Rule B identity — UNIVERSE row IDs == frozen 3 | exact set match | PASS |
+| Rule C — 10 ambiguous stay NULL | every ambiguous ID verified `audience_scope is None` | PASS |
+| Rule D — no inactive rows | count == 0 | PASS |
+| Zero-change vector — kd_count | == 72 (unchanged) | PASS |
+| Zero-change vector — chunk_count | == 1149 (unchanged) | PASS |
+| Zero-change vector — m2m_count | == 62 (unchanged) | PASS |
+| Zero-change vector — m2m_rows_hash | == BEFORE (M2M rows untouched) | PASS |
+
+Every assertion passed. The only field that changed inside the transaction was `audience_scope` (kd_rows_hash diverged as expected); every other field on every row was byte-identical.
+
+## §92. Eventual migration implementation-shape analysis
+
+Not a design commitment — deferred to a future authorized slice. Recorded here so Chris can review before Stage 2 is scoped.
+
+### §92.1 Rule A — CHARACTER via M2M existence
+
+Can be expressed generically without embedding IDs:
+
+```python
+KnowledgeDocument.objects.annotate(spc=Count("spokespeople")) \
+    .filter(spc__gt=0).update(audience_scope=AudienceScope.CHARACTER)
+```
+
+This is safe as a **generic** predicate because the shape "has ≥1 explicit spokesperson attach row" is definitionally character-scoped — it was explicit at attach time. No historical drift risk: if a future migration re-runs, additional rows with new attach rows correctly receive CHARACTER; existing CHARACTER rows are idempotent.
+
+**Verdict:** Rule A is safe as a generic `.filter(spc__gt=0).update(...)` inside the migration.
+
+### §92.2 Rule B — UNIVERSE with frozen IDs
+
+The generic predicate `universe != NULL AND M2M empty` **cannot** be used safely because it would sweep any future row with that shape — including a future orphan whose signal writes `audience_scope=NONE` and then somehow reverts, or a future data-migration bug that creates a row with the same shape. The whole point of Slice 4 is to STOP deriving audience from shape ambiguity.
+
+**Recommended shape for the Stage 2 migration** — embed the 3 UUIDs as explicit historical constants:
+
+```python
+# SESSION 276 Slice 4 §55.1 evidence-backed intentional UNIVERSE canon.
+# Frozen list — do NOT extend without a new audit slice.
+UNIVERSE_CANON_ROWS_20260821 = [
+    "8f825c98-f420-4867-8700-6d4db6832d9d",  # Ruby Fox&Flour House Policies & Hours
+    "d8ab3d2c-cab3-41f3-91a1-bab8ba88f5b6",  # SESSION 272 rivet-debug-ctl substrate
+    "64c91888-5534-418b-bbe2-33743f815bcf",  # SESSION 272 rivet-debug-exp substrate
+]
+KnowledgeDocument.objects.filter(pk__in=UNIVERSE_CANON_ROWS_20260821) \
+    .update(audience_scope=AudienceScope.UNIVERSE)
+```
+
+Frozen IDs give the migration a **deterministic meaning relative to the 2026-08-21 dataset**. Future rows of the same shape (`universe != NULL AND M2M empty`) do NOT receive UNIVERSE from this migration — they will be classified by whatever mechanism owns audience assignment at their create time (Stage 3+).
+
+### §92.3 Rule C — NULL preserved
+
+No code needed; the field is already NULL for every row post-Stage-1. The migration simply skips these 10 rows. Operator triage (Stage 4) will assign explicit values.
+
+### §92.4 Rule D — inactive rows
+
+Zero exist today. Migration should guard with a preflight assertion:
+
+```python
+if KnowledgeDocument.objects.filter(is_active=False).count() > 0:
+    raise RuntimeError(
+        "Stage 2 preflight failed: inactive KDs present. Stage 2 does not "
+        "define semantics for inactive rows — see Slice 4 §51 rows 10-15 + "
+        "future signal extension. Halt and design before proceeding."
+    )
+```
+
+If any orphan-archived row exists at the time of Stage 2 migration, it needs `audience_scope=NONE` (Slice 4 §51 row 15) — but that logic belongs to the SESSION 275 signal extension (Q-276-18), NOT to Stage 2. Preflight ensures the two migrations are ordered correctly.
+
+### §92.5 Idempotency
+
+The proposed migration is **idempotent** by construction:
+
+- Rule A `.filter(spc__gt=0).update(audience_scope=CHARACTER)` — running twice sets the same value. No side effect.
+- Rule B `.filter(pk__in=[3 constants]).update(audience_scope=UNIVERSE)` — running twice sets the same value.
+- Rule C — no code; no-op.
+- Rule D — preflight raises if state has drifted; no partial mutations.
+
+Two runs produce identical DB state to one run.
+
+### §92.6 Django mechanism
+
+**`RunPython` with an explicit forward + reverse function pair** is the smallest appropriate Django mechanism. The migration is data-only (no schema change); `RunPython` is designed for exactly this. No `RunSQL` — the ORM `.update()` calls are Postgres-portable and readable.
+
+### §92.7 Reverse migration
+
+The reverse function should ONLY revert the two deterministic assignments performed by the forward function. It should NOT sweep every `audience_scope` back to NULL — that could reverse legitimate Stage 3+ mutations if Stage 2 is rolled back after later stages have deployed.
+
+```python
+def reverse(apps, schema_editor):
+    KnowledgeDocument = apps.get_model("embeddings", "KnowledgeDocument")
+    # Undo Rule A: revert every CHARACTER row to NULL (only if we still
+    # believe every CHARACTER value was set by THIS migration; if Stage 3
+    # has been deployed on top, that assumption is false — see caveat).
+    # Undo Rule B: revert exactly the 3 frozen IDs to NULL.
+    KnowledgeDocument.objects.filter(pk__in=UNIVERSE_CANON_ROWS_20260821) \
+        .update(audience_scope=None)
+    # Rule A reverse is unsafe past Stage 3 → document as "reverse only
+    # meaningful if immediately after forward". If Chris wants a strict
+    # reverse, we can add a companion tracking table (overkill for now).
+```
+
+**Documented caveat:** if Stage 3 (mutation-surface updates writing `audience_scope` on new/edited KDs) has deployed before Stage 2 is reversed, some CHARACTER values were set by Stage 3, not Stage 2. Reversing Rule A generically would clobber those. Practical guidance: the Stage 2 reverse is only meaningful for immediate rollback (before Stage 3 code lands). Longer-term rollback requires re-running the Stage 2 forward or a fresh audit.
+
+**Verdict:** the migration file itself is small (~40 lines including docstring, constants, forward, reverse). Slice 6 does not create it.
+
+## §93. Prediction vs actual
+
+| Prediction (§86) | Actual | Status |
+|---|---|---|
+| `CHARACTER = 59` | `character: 59` in IN-TRANSACTION distribution | ✓ |
+| `UNIVERSE = 3` | `universe: 3` | ✓ |
+| `NULL = 10` | `None: 10` | ✓ |
+| `WORKSPACE = 0` | absent from distribution dict | ✓ |
+| `NONE = 0` | absent from distribution dict | ✓ |
+| No changes to other fields | m2m_rows_hash + chunk_count + m2m_count unchanged mid-transaction; kd_rows_hash restored post-rollback | ✓ |
+| Rollback returns DB to exact BEFORE state | BEFORE == AFTER for every fingerprint field | ✓ |
+| Zero persistence | Independent recheck shows `distribution={None: 72}` | ✓ |
+
+**Q-276-17 CONFIRMED.** Deterministic classification produces the exact predicted distribution under mechanically rolled-back transaction. Rule A + Rule B assignments together cover 62/72 rows; Rule C leaves 10/72 ambiguous rows correctly untouched.
+
+## §94. Unresolved questions
+
+Carried forward from Slice 4 §67 + Slice 5 §81 (all still open):
+
+- Migration-only NULL vs explicit PENDING (Slice 4 §67.5). Slice 6 evidence continues to support NULL as sufficient.
+- Auto-quarantine at Stage 6 vs indefinite operator triage (§67.6).
+- Preserve `OrphanRevivalRejected` gate through Stage 7 or retire (§67.7).
+- Companion audience-decision-provenance model (§67.8).
+- Explicit audience picker in SPA (§67.9).
+- `clean()` vs `pre_save` vs `m2m_changed` for invariant #1 (§67.10).
+- Provenance direction Alpha vs Beta.
+- Bundle vs split.
+
+New from Slice 6 (§92):
+
+- (§94.1) **Should Stage 2 migration embed a preflight assertion for inactive rows?** §92.4 recommends yes; Chris confirms shape.
+- (§94.2) **Should Stage 2 reverse migration be a strict inverse (only undo forward) or a generic reset to NULL?** §92.7 recommends strict inverse with a documented "only safe immediately after forward" caveat.
+- (§94.3) **Which stage owns the SESSION 275 signal extension that stamps `audience_scope=NONE` on future orphan-archive events?** Slice 4 §57.1 placed it in Stage 3 (mutation-surface pass). Ordering matters — Stage 2 depends on it NOT firing during backfill (which it won't, because Stage 2 doesn't delete Teammates). Post-Stage-2 the signal must exist before any real orphan-archive fires in production.
+- (§94.4) **Rehearsal-only script — retain or discard?** The Slice 6 rehearsal was executed via a one-shot `manage.py shell << PYEOF` heredoc; no file was created. If Chris wants a permanent regression harness that runs the rehearsal-with-rollback as a pytest test, that would live in `apps/embeddings/tests/`. Not currently authorized.
+
+## §95. Recommendation
+
+**Q-276-17 is confirmed. Direction Delta Stage 2 backfill algorithm is validated deterministic for the current dataset.** Slice 6 does not authorize creating the Stage 2 migration.
+
+Recommended shape for the eventual Stage 2 migration (§92):
+
+- Django `RunPython` with explicit forward + reverse.
+- Rule A generic (`.filter(spc__gt=0).update(...)`).
+- Rule B with the 3 frozen UUIDs embedded as constants (`UNIVERSE_CANON_ROWS_20260821`).
+- Preflight assertion that zero inactive rows exist (guards against Stage 3 signal-extension ordering issues).
+- Reverse strictly inverts what forward did.
+- Idempotent by construction.
+- Docstring citing Slice 4 §55.1 evidence + Slice 6 §90 rehearsal fingerprints.
+
+**Migration file estimated size:** ~40 lines including docstring, constants, forward, reverse.
+
+Before Slice 7 (or equivalent), Chris + ChatGPT should decide:
+
+1. Confirm the Stage 2 migration shape (§92) — accept or refine.
+2. Confirm §94.1-§94.3 residuals.
+3. Decide whether Stage 2 migration lands standalone or bundled with the Q-276-18 signal extension.
+4. Confirm the frozen ID list (§92.2) is the correct set — one last sanity check on the 3 UUIDs before they become permanent history-code constants.
+
+## §96. Explicit STOP gate
+
+**STOP.** Slice 6 authorizes no further work.
+
+Do NOT begin:
+
+- Real Stage 2 data migration file (0008)
+- Q-276-18 signal extension for `audience_scope=NONE` on orphan-archive
+- Provenance work (Direction Alpha / Beta)
+- Mutation-surface changes to populate `audience_scope`
+- Retrieval predicate change
+- Operator triage UI
+- DB CHECK constraints
+- NOT NULL constraint
+- SPA-side changes
+- Removal of SESSION 275 protections
+
+Even though Q-276-17 passed cleanly.
+
+## §97. Smallest recommended next question
+
+**Q-276-22.** *If the Stage 2 migration (§92 shape) is landed on top of Slice 5 and run against the current DB, does the persisted post-migration state exactly match Slice 6 §90 IN-TRANSACTION fingerprint?* Falsifiable by writing the migration file and running `manage.py migrate embeddings` — but this is the actual Stage 2 execution, so requires explicit Chris authorization.
+
+(Q-276-18 signal extension remains available as an alternative next slice, per §94.3.)
+
+## §98. Slice 6 checklist
+
+- [x] Land Slice 5 checkpoint first (Step 0) — commit `ee9efd7` pushed to `origin/main`
+- [x] Slice 6 baseline verified — `main == origin/main == ee9efd7`, working tree clean at slice start
+- [x] Fresh read-only DB inventory (§87) — 72 KDs, 10 ambiguous, 3 UNIVERSE canon, 0 inactive
+- [x] Deterministic classification rules verified against Slice 4 §55 (§88)
+- [x] Rehearsal mechanism designed with `transaction.atomic()` + `ForcedRollback` (§89)
+- [x] BEFORE fingerprint captured (§90)
+- [x] IN-TRANSACTION distribution captured (§90) — CHARACTER=59, UNIVERSE=3, NULL=10
+- [x] All in-transaction invariants asserted (§91) — 14 assertions, all passed
+- [x] Forced rollback executed (§90)
+- [x] AFTER-ROLLBACK fingerprint captured (§90) — matches BEFORE exactly
+- [x] Independent post-rehearsal recheck via fresh DB connection (§90) — confirms zero persistence
+- [x] Prediction vs actual (§93) — Q-276-17 CONFIRMED
+- [x] Eventual migration shape analysis (§92) — no migration created
+- [x] Unresolved questions (§94)
+- [x] Recommendation (§95)
+- [x] Explicit STOP gate (§96)
+- [x] Smallest next question Q-276-22 (§97)
+- [x] Zero KD rows persistently modified; zero migrations created; zero mutation-surface changes; zero signal changes; zero retrieval changes; zero SPA changes; zero provider spend
+- [ ] Commit + push Slice 6 doc-only change
+- [ ] Chris + ChatGPT review + Slice 7 scoping decision (§95)
+
+---
+
+**End of SESSION 276 Slice 6 / Delta Stage 2 rehearsal. Q-276-17 CONFIRMED — deterministic classification produces the exact Slice 4 §55 distribution under a mechanically rolled-back transaction. Zero data persisted. Stage 2 migration NOT authorized to land. STOP for Chris + ChatGPT review of §95 recommendation, §96 gate, and §97 next question.**
