@@ -4784,9 +4784,11 @@ Slice 12 completes fresh-CREATE Delta-coherence; Q-276-27 begins mutation-surfac
 - [x] Explicit STOP gate (§207)
 - [x] Smallest next question Q-276-27 (§208)
 - [x] Zero PATCH audience / attach-detach / provenance / retrieval / migration / model / constraint changes; zero provider spend
-- [ ] Commit + push Slice 12
-- [ ] Chris + ChatGPT review + Slice 13 scoping decision (§206)
+- [x] Commit + push Slice 12 — landed as `9665461`
+- [x] Chris + ChatGPT review + Slice 13 scoping decision (§206) — refined Q-276-27 authorized: close ONLY the unsafe final-detach transition; do NOT wire promotion buttons or audience PATCH in this slice
 
 ---
 
 **End of SESSION 276 Slice 12 / Delta Stage 3B-4. Explicit WORKSPACE fresh-create marker landed end-to-end (SPA → DRF → `_persist`). Q-276-26 CONFIRMED — all four Delta audience states (CHARACTER, UNIVERSE, WORKSPACE, NONE) now produced by fresh CREATE with positive operator intent; non-SPA omission remains transitional NULL; contradictions rejected at DRF boundary with defensive precedence at `_persist`; orphan revival gate unbypassable by marker; real DB unchanged for 6th consecutive slice. STOP for Chris + ChatGPT review of §206 recommendation, §207 gate, and §208 Q-276-27 next question.**
+
+**Slice 12 landed commit SHA:** `9665461` (`feat(session-276): Slice 12 / Delta Stage 3B-4 — explicit WORKSPACE fresh-create marker`). Pushed to `origin/main`. Post-push `main == origin/main == 9665461`; working tree clean.
