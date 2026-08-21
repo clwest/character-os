@@ -1041,17 +1041,13 @@ Two:
 
 No other deviations. The audience invariant, `deactivated_reason` field shape, target files, migration approach, and UI copy scope all match Slice 2 §37 exactly.
 
-## §58. Slice 3 decision gate
+## §58. Slice 3 decision gate — LANDED
 
-**Nothing committed yet.** All Slice 3 changes are in the working tree, uncommitted, pending Chris's approval.
+Slice 3 is **LANDED** at commit `89d21d3` on 2026-08-20.
 
-To commit: `git add …` (see §59 diff summary) and use a message like:
+Single commit covered all Slice 3 files (migration + signals + views + ingestion + serializers + UI copy + tests + doc §21-§60). Slice 2 doc additions (§21-§38) commingled with Slice 3 implementation in the same commit per Chris's approval that Slice 2 doc-only work didn't need a separate landing.
 
-```
-feat(session-275): §39-§58 Slice 3 — orphan-archive contract + safe revival gate
-```
-
-Recommended: single commit covering all Slice 3 files (migration + signals + views + ingestion + serializers + UI copy + tests + doc). Slice 2 doc additions (§21-§38) already commingled with Slice 3 additions in the working tree — one commit lands both since Slice 2 was doc-only and approval + implementation happen back-to-back.
+`main == origin/main == 89d21d3` post-push. Working tree clean.
 
 ## §59. Slice 3 git diff summary
 
