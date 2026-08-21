@@ -2238,5 +2238,5 @@ Chris + ChatGPT should approve the exact scope before it lands.
 
 ## §86 Slice 4 landed SHA
 
-_Landed SHA: TBD (SHA-record commit after Slice 4 lands)._
+_Landed SHA: `c9131af` (Slice 4 audit commit)._
 
