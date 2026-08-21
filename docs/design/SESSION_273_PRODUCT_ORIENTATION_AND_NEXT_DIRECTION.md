@@ -1639,3 +1639,200 @@ The exact invariant Ruby's failure exercised is already tested:
 - Pushed to `origin/main`.
 - Freeze script (read-only): `scripts/session273_slice_beta_freeze.py`
 - Failed-Composition evidence sidecar: `docs/design/session_273_experiment_data/08_slice_beta_ruby_failed_composition.json` (5,576 bytes)
+
+---
+
+## §25. RUBY FOUR-RUN DURATION CALIBRATION FINDING — CORRECTIVE HINT ANCHORED TO RAW ACCEPTANCE FLOOR
+
+**Status:** §23 recorded a single Ruby failure and concluded "no code defect." Chris ran **three more attempts on the same substrate** and produced a tight cluster (893 · 1032 · 1031 · 1008) that falsified that conclusion. The corrective-hint minimum (972 chars for 90 s) has been lower than the render acceptance minimum (1080 chars for 90 s) since SESSION 254; saturated characters hid this by systematically overshooting. Fresh substrates expose it. **This section lands the smallest general fix.**
+
+**Fix:** on the expansion path in `synthesize_with_duration_gate`, compute the corrective hint's `effective_min / ideal / max` from `char_budget_for_duration(target_duration_seconds, max_script_chars=effective_cap)` — the operator-target budget clamped to the provider cap — instead of the calibrated synth-target budget. First-pass K6 calibration and compression retry are unchanged.
+
+**Evidence sidecars:**
+- `docs/design/session_273_experiment_data/09_slice_beta_four_run_failure.json` (10,019 bytes) — four-run cluster + per-run hint SHAs + persona snapshot.
+- Freeze script (read-only): `scripts/session273_four_run_freeze.py`.
+
+### §25.1 Four-run comparison table (all Ruby, all 90 s, all fresh Fox & Flour substrate)
+
+| Run | Composition ID | Created (UTC) | attempts | FP chars | Corr chars | Corr secs | Δ hint(972) | Δ render(1080) | Cost | Provider call |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | `35eace56-…` | 23:48:53 | 2 | 594 | **893** | 59.5 | **−79** | **−187** | 0 | none |
+| 2 | `21e25a2b-…` | 00:11:09 | 2 | 741 | **1032** | 68.8 | **+60** | **−48** | 0 | none |
+| 3 | `f99fe915-…` | 00:12:28 | 2 | 503 | **1031** | 68.7 | **+59** | **−49** | 0 | none |
+| 4 | `fcc52ef6-…` | 00:13:14 | 2 | 653 | **1008** | 67.2 | **+36** | **−72** | 0 | none |
+
+Every run: `template_kind=talking_head`, `writing_contract_version=6`, `target_duration_seconds=90`, `audience_hint=""`, `mock_mode=False`, `render_dispatched_at=None`, `validation_failure_reason="duration_contract:too_short"`, `verification_status="rejected"`. First and third runs' `corrective_hint` differ by 1 byte (654 vs 653 due to `actual_chars` digit count); every other byte of the hint is identical. All four hints contain **`EXPAND YOUR SCRIPT`** ✓, none contain `REWRITE THE SAME NARRATIVE ABOVE` ✓ (SESSION 272 Slice F CORRECT_ANCHOR preserved).
+
+### §25.2 Cluster statistics on the four corrective outputs
+
+| Metric | Value |
+| --- | --- |
+| min | 893 |
+| max | 1032 |
+| mean | **991** |
+| median | 1019.5 |
+| stdev | 66.3 |
+| **cleared 972 (synth-min / hint-min)** | **3 / 4** |
+| **cleared 1080 (raw min / render-min)** | **0 / 4** |
+
+Three of four runs cleared the hint minimum (972) with an average overshoot of **+52 chars** — well below the ~+200 char overshoot pattern that saturated characters exhibit (see §25.3). The tight 1008-1032 sub-cluster (runs 2/3/4, stdev 12) is consistent with the LLM optimizing toward the *stated minimum* rather than the *stated ideal*. Directional evidence only (n=4); not a statistical claim.
+
+### §25.3 Patch / Rivet comparison — the assumption saturated characters hid
+
+Query: all `Rivet` and `Patch` `talking_head` `target_duration_seconds=90` Compositions where corrective expansion fired (`synthesis_attempt_count=2`). Results:
+
+| Character | Composition | FP chars | Corr chars | Status |
+| --- | --- | --- | --- | --- |
+| Rivet (Slice G — SESSION 272 §22.4) | `8cb9e115-…` | 623 | **1163** | completed |
+| Rivet | `be39452d-…` | 761 | **1261** | completed |
+| Patch | `2ef5ee7e-…` | 731 | **1599** | completed |
+| Patch | `d3107ed2-…` | 422 | **1395** | completed |
+| Patch | `8f09da3e-…` | 635 | **1346** | completed |
+| Patch | `f0e0a7bf-…` | 779 | **1231** | completed |
+| Patch | `9880eb93-…` | 881 | **1354** | completed |
+| Patch | `0b3c1fc1-…` | 711 | **1479** | completed |
+| Patch | `c3ff972d-…` | 631 | **1424** | completed |
+| Patch | `25467733-…` | 840 | **1221** | completed |
+| Patch | `1ff3d16f-…` | 759 | **1293** | completed |
+| Patch | `8b61ca92-…` | 764 | **1434** | completed |
+| Patch | `774658ea-…` | 948 | **1510** | completed |
+| Patch | `62d68b17-…` | 702 | **1352** | completed |
+| Patch | `abafba24-…` | 690 | 1230 (in-band) | **failed downstream** — media-engine 502; synthesis actually succeeded at 1230 |
+| Patch | `994e7b1b-…` | 736 | **1384** | completed |
+
+**Saturated-character corrective range: [1163, 1599]. Mean ≈ 1360. Every synthesis-side result was in the render acceptance band [1080, 1620]. Median overshoot vs 972 hint-min: ~+380 chars.**
+
+Ruby's four-run range: **[893, 1032]. Mean 991.** Zero overlap with the saturated range. Median overshoot vs 972 hint-min: **+47 chars**.
+
+The synth-min (972) has always been below the render-min (1080). Saturated characters cleared 1080 by ~200 chars anyway. Ruby's fresh substrate produces roughly the observed hint-min ±60 chars, which puts her deterministically below 1080. Chris's candidate hypothesis is confirmed: **"a model can satisfy the corrective instruction and still deterministically fail the actual render contract."**
+
+### §25.4 Historical rationale for `K6_DURATION_SYNTHESIS_TARGET_MULTIPLIER = 0.90`
+
+Traced through `shell/character_os/duration_contract.py:82-150`:
+
+- **Introduced** in SESSION 253 amendment B. Purpose: gpt-5 with the SESSION 253 Writing Contract overshot the operator-requested target on first pass. The original 0.78 multiplier compensated so first-pass output landed at the operator target.
+- **Recalibrated** in SESSION 254 from 0.78 → 0.90 after Stage 3 raised `_AVATAR_SPEECH_CHARS_PER_SECOND` from 11 → 15. Empirical measurement on Penny 90 s Real-Runway dogfood (kayak-beginner topic): pre-recalibration first pass = 1196 chars = 72.73 s (0.73 s inside the −20 % failure floor). 0.90 was the "smallest evidence-supported move" toward centering first-pass output at the operator target without reintroducing too_long overshoots.
+- **Rationale is a MODEL-CALIBRATION constant, NOT a provider constraint.** Comment at `duration_contract.py:132-136`: *"It only affects what K6 aims at internally. The operator-facing target, the acceptance band, error messages, and downstream audit trails all continue to reference the operator-requested duration."*
+- **Corrective hint accidentally inherited the calibration** because the code used `synth_target_seconds / synth_min / synth_ideal / synth_max` for both the first-pass build_render_brief call AND the corrective-hint text. There is no documented rationale for the corrective hint using the synth-target math specifically — it was a code-locality artifact.
+- **No existing test** asserted the calibrated synth-target math on the corrective hint as *desirable behavior* — the only test (`test_gate_retries_when_short_then_accepts:268`) asserted `"972" in retry_kwargs["corrective_hint"]` with a comment describing it as "K6 keeps aiming low on the retry" (pinning existing behavior, not defending its correctness). SESSION 253/254 calibration evidence was gathered on richly-authored characters, not on fresh substrates.
+
+**Conclusion:** the 0.90 multiplier is correct for first-pass calibration and should not be changed. The corrective hint's inheritance of that same math is what fails on fresh substrates. §25 fixes only the inheritance.
+
+### §25.5 Fix classes evaluated
+
+| Option | Description | Correctness | Overlong risk | Cost | Patch/Rivet compat | Fresh reliability | Complexity | Verdict |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| A. Raise corrective MIN to render min (this fix) | Corrective hint targets raw acceptance floor | ✓ matches Ruby evidence | Low — LLM aims at hint min ± overshoot; still within accept band [1080, 1620] | Same (1 bounded retry) | Patch/Rivet already overshoot 1080 by 200+; no change | Strongly improved | Low (5-line caller change) | **CHOSEN** |
+| B. Raise `K6_DURATION_SYNTHESIS_TARGET_MULTIPLIER` (e.g. 0.90 → 0.95) | Loosens first-pass bias | Reintroduces the gpt-5 too_long overshoots SESSION 254 was designed to prevent | High | Same | Would regress SESSION 254 Penny dogfood | Modest | Medium | rejected |
+| C. Separate first-pass calibration from corrective-pass minimum | Semantically identical to A, framed differently | ✓ | Low | Same | Same as A | Same as A | Same as A | subsumed by A |
+| D. Corrective floor = raw min + buffer | Even more conservative | ✓ but arbitrary buffer size | Slight | Same | Same | Better than A but marginal | Adds a magic number | not evidence-supported; A is smallest |
+| E. No change | Rely on operator retry | — | — | — | — | Chris hit 4 zero-cost failures — operator-hostile | — | rejected per §25.6 principle |
+
+### §25.6 Product-standard restatement
+
+> Four zero-cost failed attempts in a row are **not** an acceptable operator experience just because the provider guard worked. **Provider safety** (Runway credits protected) and **operator reliability** (a normally-configured render succeeds without retry-until-lucky) are separate invariants. §25 lands operator reliability without weakening the provider guard.
+
+### §25.7 Regression matrix — proposed corrective-hint bounds across targets
+
+Under the fix, `char_budget_for_duration(target, max_script_chars=1900)` returns the corrective-hint bounds:
+
+| Target (s) | K6 synth target (s) | Corrective hint (pre-§25): min / ideal / max | Corrective hint (post-§25): min / ideal / max | Instrumentation gap closed |
+| --- | --- | --- | --- | --- |
+| 30 | 27 | 324 / 405 / 486 | **360 / 450 / 540** | +36 |
+| 45 | 40 | 480 / 600 / 720 | **540 / 675 / 810** | +60 |
+| 60 | 54 | 648 / 810 / 972 | **720 / 900 / 1080** | +72 |
+| 75 | 68 | 816 / 1020 / 1224 | **900 / 1125 / 1350** | +84 |
+| **90** (Ruby) | 81 | 972 / 1215 / 1458 | **1080 / 1350 / 1620** | **+108** |
+| 120 | 108 | 1296 / 1620 / 1900 | **1440 / 1800 / 1900** | +144 |
+| 150 | 135 | 1620 / 1850 / 1900 | **1800 / 1850 / 1900** | +180 |
+| 180 (incompatible) | 162 | 1944 / 1944 / 1900 | (incompatible pre-LLM; raises `REASON_INCOMPATIBLE_WITH_PROVIDER`) | n/a |
+
+For every target the new corrective floor equals the render acceptance floor exactly. For 150 s the ideal/max clamp against the 1900 cap; already so pre-§25. 180 s is out of scope (provider-incompatible; raises before any LLM call).
+
+**Overlong protection preserved:** the acceptance gate still runs after the corrective pass. If the LLM overshoots the corrective ideal (1350 for 90 s) and lands above 1620, `REASON_TOO_LONG` fires — unchanged.
+
+### §25.8 Implementation
+
+**File changed:** `shell/character_os/duration_contract.py`.
+**Location:** `synthesize_with_duration_gate`, expansion branch (`if actual_chars < raw_min:`).
+**Diff summary:**
+- Added: `exp_ideal, exp_min, exp_max = char_budget_for_duration(target_duration_seconds, max_script_chars=effective_cap)` at the top of the branch.
+- Changed: both `_expansion_hint(...)` and `_experimental_expansion_revision_hint(...)` (Q-270-15c dormant path) call sites now pass `target_duration_seconds=target_duration_seconds` (raw, not `synth_target_seconds`) and `effective_ideal=exp_ideal / effective_min=exp_min / effective_max=exp_max` (not `synth_*`).
+- Extended the `logger.info` line to include the new hint bounds.
+- Added a code comment explaining the SESSION 273 §25 rationale + Ruby / Patch-Rivet evidence.
+
+**NOT changed:**
+- Compression retry (`elif actual_chars > acceptance_max_chars or provider_cap_binds:`) — still uses `synth_*`. Compression naturally overshoots; the asymmetric fix is intentional.
+- First-pass `_synthesize()` call — still uses `synth_target_seconds` for `build_render_brief`. SESSION 254 calibration preserved.
+- `_expansion_hint` / `_experimental_expansion_revision_hint` / `_compression_hint` function bodies — untouched. SESSION 272 Slice F CORRECT_ANCHOR wording preserved byte-for-byte.
+- `char_budget_for_duration` / `calibrated_synthesis_target` / `K6_DURATION_SYNTHESIS_TARGET_MULTIPLIER` / `_DURATION_TOLERANCE` / `_AVATAR_SPEECH_CHARS_PER_SECOND` / `AVATAR_SPEECH_SAFE_MAX_CHARS` — all untouched.
+- Acceptance gate at the bottom of `synthesize_with_duration_gate` — untouched. Still raises `TOO_SHORT` / `TOO_LONG` / `OVER_PROVIDER_CAP` against the raw operator target with the same tolerances.
+
+### §25.9 Regression coverage
+
+**New test file:** `shell/apps/compositions/tests/test_session273_corrective_targets_render_min.py` — 6 tests:
+1. `test_90s_corrective_hint_targets_1080_render_min_not_972_synth_min` — Ruby's exact scenario. Positive: hint contains `AT LEAST 1080 CHARACTERS` + `Target is 90s` + `aim for ~1350` + `do not exceed 1620`. Negative: no `AT LEAST 972 CHARACTERS`, no `Target is 81s`.
+2. `test_60s_corrective_hint_targets_720_render_min` — scale-check.
+3. `test_120s_corrective_hint_targets_1440_render_min_clamped_at_cap` — provider-cap clamping check (max = 1900 not 2160).
+4. `test_corrective_hint_min_equals_render_acceptance_min_across_targets` — structural invariant swept across 45/60/75/90/105/120 s.
+5. `test_compression_hint_unchanged_by_session_273_still_uses_synth_target` — asserts the asymmetric fix (compression still on synth-target).
+6. `test_gate_still_rejects_ruby_cluster_at_or_below_1080_chars` — the gate still enforces `REASON_TOO_SHORT` for each of Ruby's observed values [893, 1032, 1031, 1008]; `effective_min_chars=1080`, `effective_max_chars=1620` on the exception.
+
+**Updated existing test:** `test_gate_retries_when_short_then_accepts` in `test_duration_contract_talking_head.py:268-274` — old assertion `"972" in retry_kwargs["corrective_hint"]` swapped to `"AT LEAST 1080 CHARACTERS" in retry_kwargs["corrective_hint"]` + `"Target is 90s"` + negative for the pre-§25 markers. Comment now cites SESSION 273 §25.
+
+**Full compositions test suite:** 1,261 tests passed in 97 s. Every SESSION 272 Slice F CORRECT_ANCHOR test, every Q-270-15c corrective-revision contract test, every SESSION 271 audience-hint test, every long-form-ad duration test, every dialogue duration test — all green. No test file besides the two called out was edited.
+
+### §25.10 Runtime — Django + Celery both loaded new code
+
+- Django `runserver` auto-reloaded on the file save (`/tmp/character-os-django.log`: *"duration_contract.py changed, reloading."*).
+- Celery does NOT auto-reload; killed the pre-fix workers (PIDs 12679/12709/12710) and restarted with `../.venv/bin/celery -A character_os worker --loglevel=info --concurrency=2`. New PIDs 26621/26626/26630/26631. `celery inspect ping` → OK / pong, 1 node online.
+- Media-engine unchanged.
+- No experiment env vars set. No provider mocks toggled.
+- CORRECT_ANCHOR (`_expansion_hint` function body) untouched — SESSION 272 §22.6 invariants preserved at the function level.
+
+### §25.11 Explicit non-changes during §25
+
+- No Ruby modification (persona, voice, avatar, brand, universe, m2m).
+- No Mason modification.
+- No KnowledgeDocument modification.
+- No new Composition (the four failed rows preserved intact for durable evidence).
+- No Episode modification.
+- No NarrativeMemory created or promoted.
+- No PublishBundle.
+- No render dispatched.
+- No SPA change.
+- No migration.
+- No writing-contract change (WCV still 6).
+- No `_expansion_hint` / `_compression_hint` function body change — SESSION 272 Slice F wording preserved byte-for-byte.
+- No K6.4 / retrieval / synthesis-prompt-shape change.
+- No change to `K6_DURATION_SYNTHESIS_TARGET_MULTIPLIER` (still 0.90) / `_DURATION_TOLERANCE` (still 0.20) / `_AVATAR_SPEECH_CHARS_PER_SECOND` (still 15) / `AVATAR_SPEECH_SAFE_MAX_CHARS` (still 1900).
+- Media-engine untouched. Provider mocks OFF.
+- Patch/Rivet substrate untouched.
+
+### §25.12 §25 return values
+
+1. **All four Composition UUIDs:** `35eace56-4611-4a0d-abdd-be5d764bb4b8`, `21e25a2b-47ed-4abc-bcd8-9077fd42d217`, `f99fe915-dcfb-4832-9f7f-d4e1e5c54a09`, `fcc52ef6-8c3c-4614-81f9-9251960b0543`.
+2. **Four-run corrective output table:** §25.1 above.
+3. **Mean / median / range:** mean 991, median 1019.5, range [893, 1032], stdev 66.3.
+4. **972-vs-1080 gap confirmed as causal?** **YES.** 3 of 4 runs cleared the 972 hint-min; 0 of 4 cleared the 1080 render-min. Saturated-character cluster [1163, 1599] shows zero overlap with Ruby's cluster; the ~200-char overshoot pattern on Patch/Rivet is what historically hid the 108-char instrumentation gap.
+5. **Patch/Rivet comparison:** 15 successful 90 s corrective-pass results in [1163, 1599]. §25.3 above.
+6. **Why 0.90 exists:** SESSION 253/254 first-pass gpt-5 overshoot compensation, calibrated on Penny 90 s real-Runway dogfood. Model-calibration constant, not a provider constraint. Never intended to govern the corrective hint's char minimum; that was a code-locality artifact.
+7. **Recommended fix:** Option A — corrective-expansion hint targets `char_budget_for_duration(target, max_script_chars=cap)` (the operator target's raw budget, clamped to the provider cap) instead of the synth-target budget. First-pass calibration + compression retry unchanged.
+8. **Implementation landed:** yes, one file — `shell/character_os/duration_contract.py`. Diff summary in §25.8.
+9. **Tests / results:** 6 new §25 tests + 1 updated existing test; **1,261 compositions tests pass** in 97 s. SESSION 272 Slice F CORRECT_ANCHOR tests all green (function body untouched).
+10. **§25 commit SHA:** recorded in §26 at commit time.
+11. **Exact instruction for Chris's next single rerender:** open the SPA `/recipes/talking_head?episode=77b04b6b-…`, re-fill the topic (*"Why our sourdough takes its time"* — same as the first four attempts), leave audience_hint empty, requested duration 90 s, click Render. **One** attempt. The corrective-hint text on this render will contain `EXPAND YOUR SCRIPT TO AT LEAST 1080 CHARACTERS (aim for ~1350, do not exceed 1620)` — the corrective pass is now instructed to reach the actual render minimum. Expected outcome, based on the four-run cluster overshoot pattern (+50 above hint min): corrective pass ~1130 chars → inside acceptance band → Runway call fires → 90 s Fox & Flour Bakery clip.
+   - If it succeeds: SESSION 272 §22.4 assumption fully restored, generalized across fresh + saturated substrates.
+   - If it fails again: rare-tail-of-distribution. Chris decides whether to retry once more or gather one more evidence specimen for a follow-up slice.
+
+---
+
+## §26. §25 COMMIT PROVENANCE
+
+- §25 fix + tests + doc commit: (recorded at commit time — see git log)
+- Fix: `shell/character_os/duration_contract.py` — expansion branch of `synthesize_with_duration_gate` now uses raw-target char budget for the corrective hint.
+- Updated test: `shell/apps/compositions/tests/test_duration_contract_talking_head.py::test_gate_retries_when_short_then_accepts`
+- New test file (6 tests): `shell/apps/compositions/tests/test_session273_corrective_targets_render_min.py`
+- Evidence sidecar: `docs/design/session_273_experiment_data/09_slice_beta_four_run_failure.json` (10,019 bytes)
+- Freeze script (read-only): `scripts/session273_four_run_freeze.py`
+- Celery workers restarted post-fix to load new code (Django auto-reloaded)

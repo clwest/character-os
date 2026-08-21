@@ -715,6 +715,25 @@ def synthesize_with_duration_gate(
     _q270_15c_active = _corrective_revision_experiment_active()
 
     if actual_chars < raw_min:
+        # SESSION 273 §25 — corrective expansion targets the RAW
+        # acceptance floor, not the calibrated first-pass floor.
+        # SESSION 254's 0.90 first-pass multiplier compensates for
+        # gpt-5's habitual overshoot on the operator-requested target;
+        # applying the same downward bias to the corrective hint
+        # means telling the LLM to expand to a minimum BELOW the
+        # acceptance minimum. Fresh / minimally-authored characters
+        # (Ruby SESSION 273 Slice β — 4/4 90s attempts clustered at
+        # 893 / 1032 / 1031 / 1008 chars; 3/4 cleared synth_min=972
+        # but 0/4 cleared render_min=1080) expose the gap. Saturated
+        # characters (Patch/Rivet — 15/15 90s attempts landed
+        # 1163-1599 chars) hid it by systematically overshooting the
+        # hint minimum. Corrective hint now uses the operator target's
+        # char budget clamped to the provider cap so the LLM's stated
+        # "at least" floor equals the actual acceptance floor.
+        # First-pass calibration and compression retry are unchanged.
+        exp_ideal, exp_min, exp_max = char_budget_for_duration(
+            target_duration_seconds, max_script_chars=effective_cap,
+        )
         # SESSION 271 Q-270-15c — expansion path. When the
         # experiment is active, swap the canonical expansion hint
         # for the compact revision hint AND pass Draft A back to
@@ -727,10 +746,10 @@ def synthesize_with_duration_gate(
                 actual_chars=actual_chars,
                 actual_words=actual_words,
                 actual_seconds=actual_seconds,
-                target_duration_seconds=synth_target_seconds,
-                effective_ideal=synth_ideal,
-                effective_min=synth_min,
-                effective_max=synth_max,
+                target_duration_seconds=target_duration_seconds,
+                effective_ideal=exp_ideal,
+                effective_min=exp_min,
+                effective_max=exp_max,
             )
             logger.info(
                 "synthesize_with_duration_gate SESSION 271 Q-270-15c "
@@ -748,12 +767,18 @@ def synthesize_with_duration_gate(
                 actual_chars=actual_chars,
                 actual_words=actual_words,
                 actual_seconds=actual_seconds,
-                target_duration_seconds=synth_target_seconds,
-                effective_ideal=synth_ideal,
-                effective_min=synth_min,
-                effective_max=synth_max,
+                target_duration_seconds=target_duration_seconds,
+                effective_ideal=exp_ideal,
+                effective_min=exp_min,
+                effective_max=exp_max,
             )
-            logger.info("synthesize_with_duration_gate expansion retry")
+            logger.info(
+                "synthesize_with_duration_gate expansion retry sp=%s "
+                "requested=%ds hint_min=%d hint_ideal=%d hint_max=%d "
+                "(SESSION 273 §25 raw-target hint)",
+                spokesperson.pk, target_duration_seconds,
+                exp_min, exp_ideal, exp_max,
+            )
             corrective_hint_used = hint
             attempt_count = 2
             synth = _synthesize(hint)

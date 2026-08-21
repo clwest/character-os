@@ -258,14 +258,20 @@ def test_gate_retries_when_short_then_accepts():
         )
     assert result.brief == corrected
     assert fake_brb.call_count == 2
-    # Second call carries a corrective_hint referencing the
-    # SYNTH-target budget (SESSION 253 amendment B / SESSION 254
-    # multiplier 0.90) so K6 keeps aiming low on the retry. For a
-    # 90 s request the synth target is 81 s → synth_min =
-    # round(81 * 15 * 0.8) = 972.
+    # SESSION 273 §25 — corrective_hint targets the RAW acceptance
+    # floor for the operator-requested duration, not the calibrated
+    # synth-target floor. SESSION 253/254's 0.90 multiplier stays on
+    # first-pass K6 calibration (compensates gpt-5 overshoot on the
+    # operator target); once first-pass has already undershot, the
+    # corrective hint must tell the LLM to expand to the actual
+    # render acceptance minimum. For a 90 s request the raw
+    # acceptance floor is 90 * 15 * 0.8 = 1080 chars.
     retry_kwargs = fake_brb.call_args_list[1].kwargs
     assert "corrective_hint" in retry_kwargs
-    assert "972" in retry_kwargs["corrective_hint"]
+    assert "AT LEAST 1080 CHARACTERS" in retry_kwargs["corrective_hint"]
+    assert "Target is 90s" in retry_kwargs["corrective_hint"]
+    # Post-§25: hint no longer references the synth-target min (972).
+    assert "AT LEAST 972 CHARACTERS" not in retry_kwargs["corrective_hint"]
 
 
 def test_gate_retries_when_long_then_accepts():
