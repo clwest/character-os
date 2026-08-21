@@ -2726,9 +2726,11 @@ Even though Q-276-17 passed cleanly.
 - [x] Explicit STOP gate (§96)
 - [x] Smallest next question Q-276-22 (§97)
 - [x] Zero KD rows persistently modified; zero migrations created; zero mutation-surface changes; zero signal changes; zero retrieval changes; zero SPA changes; zero provider spend
-- [ ] Commit + push Slice 6 doc-only change
-- [ ] Chris + ChatGPT review + Slice 7 scoping decision (§95)
+- [x] Commit + push Slice 6 doc-only change — landed as `5f87c06`
+- [x] Chris + ChatGPT review + Slice 7 scoping decision (§95) — Q-276-22 authorized
 
 ---
 
 **End of SESSION 276 Slice 6 / Delta Stage 2 rehearsal. Q-276-17 CONFIRMED — deterministic classification produces the exact Slice 4 §55 distribution under a mechanically rolled-back transaction. Zero data persisted. Stage 2 migration NOT authorized to land. STOP for Chris + ChatGPT review of §95 recommendation, §96 gate, and §97 next question.**
+
+**Slice 6 landed commit SHA:** `5f87c06` (`docs(session-276): Slice 6 — verify deterministic audience backfill rehearsal`). Pushed to `origin/main`. Post-push `main == origin/main == 5f87c06`; working tree clean.
