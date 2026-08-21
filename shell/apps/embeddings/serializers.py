@@ -25,7 +25,7 @@ from rest_framework import serializers
 from apps.accounts.models import Workspace
 from apps.spokespeople.models import Teammate
 
-from .models import DocumentType, KnowledgeChunk, KnowledgeDocument
+from .models import AudienceScope, DocumentType, KnowledgeChunk, KnowledgeDocument
 
 
 # Cap the inbound PDF payload at 10 MB. The base64 encoded form
@@ -454,6 +454,77 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
         edits raw text, not source uploads. Callers that need
         to swap the source can delete + re-create.
         """
+        # SESSION 276 Slice 14 / Delta Stage 3C-2 (Q-276-28) —
+        # explicit-empty-spokespeople guard for PATCH on active
+        # CHARACTER KDs. Symmetric with the Slice 13 ``/detach/``
+        # final-detach guard at ``apps/embeddings/views.py``
+        # ``_toggle_spokesperson``. The invariant is:
+        #
+        #     ``audience_scope=CHARACTER`` requires at least one
+        #     spokesperson at all times while active.
+        #
+        # Rule shape: reject any PATCH that explicitly supplies
+        # ``spokesperson_ids=[]`` (source-mapped to ``spokespeople``
+        # in ``validated_data``) on an active CHARACTER KD, regardless
+        # of the current M2M size. This is stricter than "reject only
+        # the final detach" — the invariant target is the resulting
+        # row shape (CHARACTER + empty M2M is malformed), not the
+        # number of members going in.
+        #
+        # Distinguishing explicit-empty from omission is load-bearing:
+        # ``validated_data.get("spokespeople")`` collapses
+        # ``None``/``[]``/absent into the same falsy value, so we use
+        # ``"spokespeople" in validated_data`` to detect a positive
+        # empty-list payload.
+        #
+        # Guard runs at the TOP of ``update()`` — after
+        # ``is_valid()``/``run_validation`` has fully completed but
+        # BEFORE any field mutation on ``instance``. This placement is
+        # load-bearing for two reasons:
+        #
+        #   1. Raising here bypasses DRF's serializer-level
+        #      ``as_serializer_error()`` normalization (which wraps
+        #      dict values in lists for field-error rendering). The
+        #      raised ``ValidationError.detail`` is rendered by the
+        #      global exception handler as-is — matching the Slice 13
+        #      ``/detach/`` guard's response shape exactly. Load-
+        #      bearing for the ``test_slice14_error_code_matches_
+        #      slice13_detach_guard`` byte-identical-code assertion.
+        #
+        #   2. All subsequent ``update()`` code (title assign, universe
+        #      preflight, text_content re-ingest, ``.save()``,
+        #      ``.spokespeople.set()``) runs sequentially AFTER this
+        #      check. Raising here guarantees NO partial field
+        #      mutation persists alongside a rejected audience payload
+        #      (test H). If the guard were in ``validate()``, the same
+        #      atomicity would apply — but the list-wrapping breaks
+        #      contract symmetry with Slice 13.
+        #
+        # Only fires on PATCH (``update()`` is only called on PATCH
+        # for existing instances). Only fires when
+        # ``instance.audience_scope == CHARACTER`` — legacy NULL rows
+        # retain existing serializer behavior (Slice 13 carve-out;
+        # real DB has ZERO NULL+non-empty-M2M rows).
+        #
+        # Reuses the Slice 13 ``code`` string byte-identically for
+        # SPA + external-client discrimination symmetry across
+        # ``/detach/`` and PATCH mutation surfaces. See
+        # docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md
+        # §230-§252.
+        if (
+            "spokespeople" in validated_data
+            and validated_data["spokespeople"] == []
+            and instance.is_active
+            and instance.audience_scope == AudienceScope.CHARACTER
+        ):
+            raise serializers.ValidationError({
+                "code": "final_character_detach_requires_audience_decision",
+                "detail": (
+                    "This knowledge needs at least one character unless "
+                    "you choose a different audience or archive it."
+                ),
+            })
+
         # These write-only fields remain create-only. Editing a
         # PDF-provenance doc means editing its extracted text, not
         # re-uploading a new PDF; same for URL. Rejecting keeps

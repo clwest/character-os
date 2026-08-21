@@ -837,3 +837,367 @@ def test_slice12_api_patch_ignores_marker() -> None:
         "PATCH must not transition audience_scope via the marker"
     )
     assert list(kd.spokespeople.values_list("pk", flat=True)) == [a.pk]
+
+
+# =====================================================================
+# SESSION 276 Slice 14 / Delta Stage 3C-2 (Q-276-28) — PATCH empty-
+# spokesperson-set on active CHARACTER KDs fails closed with the
+# same structured error the Slice 13 /detach/ guard returns. Symmetric
+# invariant: CHARACTER requires at least one spokesperson. See
+# docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md §230-§252.
+# =====================================================================
+
+
+FINAL_DETACH_CODE = "final_character_detach_requires_audience_decision"
+
+
+def _make_char_doc_with_sp(
+    ws: Workspace,
+    title: str,
+    spokespeople: list[Teammate],
+    *,
+    universe=None,
+) -> KnowledgeDocument:
+    """Slice 14 helper — matches Slice 10's CREATE-time CHARACTER stamp
+    so PATCH semantics test the intended shape."""
+    doc = KnowledgeDocument.objects.create(
+        workspace=ws, title=title,
+        document_type=DocumentType.TEXT,
+        processed_content=title, content_hash=f"HASH-{title}",
+        ingested_via="paste",
+        universe=universe,
+        audience_scope=AudienceScope.CHARACTER,
+    )
+    doc.spokespeople.set(spokespeople)
+    return doc
+
+
+# ---- Test A — CHARACTER {A} + PATCH [] rejected ----
+
+
+def test_slice14_A_patch_empty_on_single_character_rejected() -> None:
+    ws, user = _make_workspace_with_user("s14-a@k4.test", "S14A")
+    a = Teammate.objects.create(workspace=ws, name="Alpha")
+    doc = _make_char_doc_with_sp(ws, "s14-a", [a])
+
+    client = APIClient()
+    _login(client, user)
+    response = client.patch(
+        f"/api/knowledge/{doc.pk}/",
+        {"spokesperson_ids": []},
+        format="json",
+    )
+    assert response.status_code == http.HTTP_400_BAD_REQUEST, response.content
+    body = response.json()
+    assert body.get("code") == FINAL_DETACH_CODE, body
+    assert isinstance(body.get("detail"), str) and body["detail"], body
+
+    doc.refresh_from_db()
+    assert list(doc.spokespeople.values_list("pk", flat=True)) == [a.pk]
+    assert doc.audience_scope == AudienceScope.CHARACTER
+    assert doc.is_active is True
+    assert doc.deactivated_reason == ""
+    assert doc.title == "s14-a"
+
+
+# ---- Test B — CHARACTER {A,B} + PATCH [] also rejected ----
+
+
+def test_slice14_B_patch_empty_on_multi_character_also_rejected() -> None:
+    """Slice 14 Test B — proves the invariant is about the RESULTING
+    row shape (CHARACTER + empty M2M is malformed), not about count>1
+    protection. Empty-list PATCH on a two-member CHARACTER row fails
+    identically to a one-member row."""
+    ws, user = _make_workspace_with_user("s14-b@k4.test", "S14B")
+    a = Teammate.objects.create(workspace=ws, name="Alpha")
+    b = Teammate.objects.create(workspace=ws, name="Beta")
+    doc = _make_char_doc_with_sp(ws, "s14-b", [a, b])
+
+    client = APIClient()
+    _login(client, user)
+    response = client.patch(
+        f"/api/knowledge/{doc.pk}/",
+        {"spokesperson_ids": []},
+        format="json",
+    )
+    assert response.status_code == http.HTTP_400_BAD_REQUEST
+    body = response.json()
+    assert body.get("code") == FINAL_DETACH_CODE
+
+    doc.refresh_from_db()
+    assert set(doc.spokespeople.values_list("pk", flat=True)) == {a.pk, b.pk}
+
+
+# ---- Test C — narrowing via PATCH still works ----
+
+
+def test_slice14_C_patch_narrowing_still_works() -> None:
+    ws, user = _make_workspace_with_user("s14-c@k4.test", "S14C")
+    a = Teammate.objects.create(workspace=ws, name="Alpha")
+    b = Teammate.objects.create(workspace=ws, name="Beta")
+    doc = _make_char_doc_with_sp(ws, "s14-c", [a, b])
+
+    client = APIClient()
+    _login(client, user)
+    response = client.patch(
+        f"/api/knowledge/{doc.pk}/",
+        {"spokesperson_ids": [str(b.pk)]},
+        format="json",
+    )
+    assert response.status_code == http.HTTP_200_OK, response.content
+    doc.refresh_from_db()
+    assert list(doc.spokespeople.values_list("pk", flat=True)) == [b.pk]
+    assert doc.audience_scope == AudienceScope.CHARACTER
+
+
+# ---- Test D — character replacement via PATCH still works ----
+
+
+def test_slice14_D_patch_character_replacement_works() -> None:
+    ws, user = _make_workspace_with_user("s14-d@k4.test", "S14D")
+    a = Teammate.objects.create(workspace=ws, name="Alpha")
+    b = Teammate.objects.create(workspace=ws, name="Beta")
+    doc = _make_char_doc_with_sp(ws, "s14-d", [a])
+
+    client = APIClient()
+    _login(client, user)
+    response = client.patch(
+        f"/api/knowledge/{doc.pk}/",
+        {"spokesperson_ids": [str(b.pk)]},
+        format="json",
+    )
+    assert response.status_code == http.HTTP_200_OK, response.content
+    doc.refresh_from_db()
+    assert list(doc.spokespeople.values_list("pk", flat=True)) == [b.pk]
+
+
+# ---- Test E — Universe-scoped CHARACTER + empty rejected ----
+
+
+def test_slice14_E_universe_scoped_character_empty_patch_rejected() -> None:
+    """Slice 14 Test E — Universe context does NOT auto-promote to
+    UNIVERSE-shared via an empty spokespeople PATCH."""
+    ws, user = _make_workspace_with_user("s14-e@k4.test", "S14E")
+    u = Universe.objects.create(workspace=ws, name="S14E U")
+    a = Teammate.objects.create(workspace=ws, name="Alpha", universe=u)
+    doc = _make_char_doc_with_sp(ws, "s14-e", [a], universe=u)
+
+    client = APIClient()
+    _login(client, user)
+    response = client.patch(
+        f"/api/knowledge/{doc.pk}/",
+        {"spokesperson_ids": []},
+        format="json",
+    )
+    assert response.status_code == http.HTTP_400_BAD_REQUEST
+    body = response.json()
+    assert body.get("code") == FINAL_DETACH_CODE
+
+    doc.refresh_from_db()
+    assert list(doc.spokespeople.values_list("pk", flat=True)) == [a.pk]
+    assert doc.audience_scope == AudienceScope.CHARACTER
+    assert doc.universe_id == u.pk
+
+
+# ---- Test F — shared-canon rows (UNIVERSE/WORKSPACE) PATCH [] is no-op ----
+
+
+def test_slice14_F_workspace_row_patch_empty_is_noop_unchanged() -> None:
+    """Slice 14 Test F — WORKSPACE-audience row (already empty M2M
+    by construction). PATCH sp_ids=[] is a no-op today and remains
+    so — the Slice 14 guard is CHARACTER-only."""
+    ws, user = _make_workspace_with_user("s14-f-ws@k4.test", "S14FWS")
+    doc = KnowledgeDocument.objects.create(
+        workspace=ws, title="s14-f-ws",
+        document_type=DocumentType.TEXT,
+        processed_content="body", content_hash="HASH-S14FWS",
+        ingested_via="paste",
+        audience_scope=AudienceScope.WORKSPACE,
+    )  # M2M intentionally empty
+
+    client = APIClient()
+    _login(client, user)
+    response = client.patch(
+        f"/api/knowledge/{doc.pk}/",
+        {"spokesperson_ids": []},
+        format="json",
+    )
+    assert response.status_code == http.HTTP_200_OK, response.content
+    doc.refresh_from_db()
+    assert doc.audience_scope == AudienceScope.WORKSPACE
+    assert doc.spokespeople.count() == 0
+
+
+def test_slice14_F_universe_row_patch_empty_is_noop_unchanged() -> None:
+    """Slice 14 Test F (paired) — same for UNIVERSE canon rows."""
+    ws, user = _make_workspace_with_user("s14-f-u@k4.test", "S14FU")
+    u = Universe.objects.create(workspace=ws, name="S14FU U")
+    doc = KnowledgeDocument.objects.create(
+        workspace=ws, title="s14-f-u",
+        document_type=DocumentType.TEXT,
+        processed_content="body", content_hash="HASH-S14FU",
+        ingested_via="paste",
+        universe=u,
+        audience_scope=AudienceScope.UNIVERSE,
+    )
+
+    client = APIClient()
+    _login(client, user)
+    response = client.patch(
+        f"/api/knowledge/{doc.pk}/",
+        {"spokesperson_ids": []},
+        format="json",
+    )
+    assert response.status_code == http.HTTP_200_OK
+    doc.refresh_from_db()
+    assert doc.audience_scope == AudienceScope.UNIVERSE
+    assert doc.universe_id == u.pk
+    assert doc.spokespeople.count() == 0
+
+
+# ---- Test G — legacy NULL row PATCH [] preserved (carve-out) ----
+
+
+def test_slice14_G_legacy_null_audience_patch_empty_preserved() -> None:
+    """Slice 14 Test G — a legacy NULL-audience row (pre-Slice-10
+    shape, only exists in test fixtures — real DB has zero) is NOT
+    guarded by Slice 14. PATCH sp_ids=[] on it behaves as before,
+    emptying the M2M without stamping any audience. Documents the
+    deliberate carve-out for the transitional debt."""
+    ws, user = _make_workspace_with_user("s14-g@k4.test", "S14G")
+    a = Teammate.objects.create(workspace=ws, name="Alpha")
+    # Legacy shape: direct create without audience_scope + explicit
+    # M2M attach post-creation.
+    doc = KnowledgeDocument.objects.create(
+        workspace=ws, title="s14-g",
+        document_type=DocumentType.TEXT,
+        processed_content="body", content_hash="HASH-S14G",
+        ingested_via="paste",
+    )
+    doc.spokespeople.set([a])
+    assert doc.audience_scope is None
+    assert doc.spokespeople.count() == 1
+
+    client = APIClient()
+    _login(client, user)
+    response = client.patch(
+        f"/api/knowledge/{doc.pk}/",
+        {"spokesperson_ids": []},
+        format="json",
+    )
+    # Legacy behavior preserved — 200 OK, M2M emptied.
+    assert response.status_code == http.HTTP_200_OK, response.content
+    doc.refresh_from_db()
+    assert doc.audience_scope is None
+    assert doc.spokespeople.count() == 0
+
+
+# ---- Test H — atomic rejection preserves unrelated fields ----
+
+
+def test_slice14_H_rejected_patch_does_not_partially_persist_title() -> None:
+    """Slice 14 Test H — the guard lives in ``validate()``, which runs
+    inside DRF's ``is_valid()`` phase BEFORE ``save()``/``update()``.
+    A PATCH that bundles a valid title change with an invalid empty
+    spokespeople list must fail the whole request; neither field
+    should partially persist."""
+    ws, user = _make_workspace_with_user("s14-h@k4.test", "S14H")
+    a = Teammate.objects.create(workspace=ws, name="Alpha")
+    doc = _make_char_doc_with_sp(ws, "s14-h", [a])
+
+    client = APIClient()
+    _login(client, user)
+    response = client.patch(
+        f"/api/knowledge/{doc.pk}/",
+        {"title": "changed-title", "spokesperson_ids": []},
+        format="json",
+    )
+    assert response.status_code == http.HTTP_400_BAD_REQUEST
+    body = response.json()
+    assert body.get("code") == FINAL_DETACH_CODE
+
+    doc.refresh_from_db()
+    # Title MUST NOT have changed — the guard rejected the whole request.
+    assert doc.title == "s14-h", (
+        "title must not partially persist when the guard rejects the "
+        "same-request audience mutation"
+    )
+    assert list(doc.spokespeople.values_list("pk", flat=True)) == [a.pk]
+
+
+# ---- Test I — combined Universe + empty rejected ----
+
+
+def test_slice14_I_combined_universe_plus_empty_rejected() -> None:
+    """Slice 14 Test I — a PATCH that bundles a Universe reassignment
+    with an empty spokespeople list on an active CHARACTER row must
+    NOT sneak through the audience-broadening path via Universe.
+    The empty-list rejection fires first (in validate()); the whole
+    request 400s; no partial state persists.
+
+    Slice 14 does NOT define the "correct" Universe-transition
+    audience semantics — those remain a separate unresolved question.
+    The invariant this test protects is: an invalid CHARACTER shape
+    is never persisted regardless of what else is in the payload.
+    """
+    ws, user = _make_workspace_with_user("s14-i@k4.test", "S14I")
+    u_from = Universe.objects.create(workspace=ws, name="S14I From")
+    u_to = Universe.objects.create(workspace=ws, name="S14I To")
+    a = Teammate.objects.create(workspace=ws, name="Alpha", universe=u_from)
+    doc = _make_char_doc_with_sp(ws, "s14-i", [a], universe=u_from)
+
+    client = APIClient()
+    _login(client, user)
+    response = client.patch(
+        f"/api/knowledge/{doc.pk}/",
+        {"universe": str(u_to.pk), "spokesperson_ids": []},
+        format="json",
+    )
+    assert response.status_code == http.HTTP_400_BAD_REQUEST
+
+    doc.refresh_from_db()
+    # Universe MUST NOT have moved — request atomically rejected.
+    assert doc.universe_id == u_from.pk, (
+        "Universe must not partially persist alongside a rejected "
+        "empty-spokespeople payload"
+    )
+    assert list(doc.spokespeople.values_list("pk", flat=True)) == [a.pk]
+    assert doc.audience_scope == AudienceScope.CHARACTER
+
+
+# ---- Error-contract consistency with Slice 13 detach ----
+
+
+def test_slice14_error_code_matches_slice13_detach_guard() -> None:
+    """Slice 14 — SPA + external clients should be able to discriminate
+    the same underlying invariant across BOTH mutation surfaces
+    (``/detach/`` and PATCH) using the same ``code`` value. This test
+    hits both endpoints and asserts the ``code`` string is byte-
+    identical, preventing future drift between the two guards.
+    """
+    ws, user = _make_workspace_with_user("s14-code@k4.test", "S14C")
+    a = Teammate.objects.create(workspace=ws, name="Alpha")
+    doc = _make_char_doc_with_sp(ws, "s14-code", [a])
+
+    client = APIClient()
+    _login(client, user)
+
+    detach_resp = client.post(
+        f"/api/knowledge/{doc.pk}/detach/",
+        {"spokesperson_id": str(a.pk)},
+        format="json",
+    )
+    assert detach_resp.status_code == http.HTTP_400_BAD_REQUEST
+    detach_code = detach_resp.json().get("code")
+
+    patch_resp = client.patch(
+        f"/api/knowledge/{doc.pk}/",
+        {"spokesperson_ids": []},
+        format="json",
+    )
+    assert patch_resp.status_code == http.HTTP_400_BAD_REQUEST
+    patch_code = patch_resp.json().get("code")
+
+    assert detach_code == patch_code == FINAL_DETACH_CODE, (
+        f"error code drift: detach={detach_code!r} patch={patch_code!r}"
+    )

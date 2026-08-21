@@ -5089,3 +5089,291 @@ Small change; symmetric with Slice 13; closes the last SPA-independent audience-
 **End of SESSION 276 Slice 13 / Delta Stage 3C-1. Final-character detach on active CHARACTER KDs now fails closed with a structured 4xx BEFORE any M2M mutation; SPA surfaces the backend `detail` inline without wiring audience-promotion buttons. Refined Q-276-27 CONFIRMED — 19/19 K5 API tests pass (10 existing + 9 new); 1684/1684 broader backend regression + 656/656 SPA suite; multi-character detach unchanged; Universe context does NOT auto-promote to UNIVERSE; shared canon rows unaffected. Real DB unchanged for 7th consecutive slice. STOP for Chris + ChatGPT review of §226 recommendation, §227 gate, and §228 Q-276-28 next question.**
 
 **Slice 13 landed commit SHA:** `f5dd9e8` (`fix(session-276): Slice 13 / Delta Stage 3C-1 — final-character detach fails closed`). Pushed to `origin/main`. Post-push `main == origin/main == f5dd9e8`; working tree clean.
+
+**Slice 13 SHA-record follow-up:** `a154ae3` (`docs(session-276): record Slice 13 landed SHA f5dd9e8`) — doc-only checklist + Slice 14 authorization record.
+
+---
+
+# SESSION 276 — Slice 14 / Delta Stage 3C-2 — PATCH empty-spokesperson-set fails closed (Q-276-28)
+
+**Status.** IMPLEMENTATION SLICE — closes the parallel serializer-equivalent hole flagged in Slice 13 §220. `KnowledgeDocumentSerializer.update()` now rejects `PATCH {"spokesperson_ids": []}` on active `audience_scope=CHARACTER` KDs with a structured 4xx BYTE-IDENTICAL to Slice 13's `/detach/` guard. Backend-only slice; SPA currently has no PATCH-empty-list caller today.
+
+**Slice 14 baseline.** `main == origin/main == a154ae3` (Slice 13 SHA-record). Working tree clean at slice start. Real-DB state carried forward through 8 slices now:
+
+- 72 KDs; `CHARACTER=59`, `UNIVERSE=3`, `NULL=10`, `WORKSPACE=0`, `NONE=0`
+- 0 inactive, 1149 chunks, 62 M2M through-rows
+- Migration head: `0008_session276_stage2_backfill`
+
+**Load-bearing rule** carried forward + refined:
+
+> `audience_scope=CHARACTER` requires at least one spokesperson at all times while active. Applies to BOTH `/detach/` and PATCH mutation surfaces.
+
+## §230. Slice 14 falsifiable question — Q-276-28
+
+> If `KnowledgeDocumentSerializer.update()` refuses an explicit `spokesperson_ids=[]` replacement on an active `audience_scope=CHARACTER` `KnowledgeDocument` before calling `.set([])`, while preserving legitimate non-empty replacement / narrowing behavior, does the parallel PATCH-empty-list audience-broadening path close without changing any other current PATCH semantics?
+
+## §231. Predictions before evidence
+
+1. Explicit empty replacement on active CHARACTER rejects (Test A).
+2. No M2M mutation occurs on rejection.
+3. Multi-character narrowing (Test C) remains valid.
+4. Character replacement (Test D) remains valid.
+5. Universe-scoped CHARACTER also rejects empty list (Test E).
+6. Shared canon (UNIVERSE / WORKSPACE) unchanged (Tests F).
+7. Legacy NULL-audience rows unchanged (Test G).
+8. No partial field mutation on rejection (Test H).
+9. `/detach/` and PATCH now enforce the SAME machine-readable error code (Test error-symmetry).
+10. Real DB unchanged.
+
+Compared to evidence in §246.
+
+## §232. Serializer source + order trace (pre-Slice-14)
+
+- **`spokesperson_ids` field decl:** `serializers.py:61-66` — `PrimaryKeyRelatedField(many=True, source="spokespeople", required=False)`. No `default=`. On DRF PATCH: an omitted key is absent from `validated_data`; an explicit `[]` is present as `validated_data["spokespeople"] == []`.
+- **DRF flow:** `is_valid()` → runs `run_validation` → calls `validate()` → wraps any raised errors via `as_serializer_error()` (which wraps dict values in lists). Then if valid, `save()` calls `update(instance, validated_data)`. Errors raised from `update()` propagate straight to the global exception handler WITHOUT going through `as_serializer_error`.
+- **Empty vs omit collapse:** existing code uses `attrs.get("spokespeople") or []` at `serializers.py:211` — collapses omitted / None / empty into `[]`. To distinguish explicit empty from omission, must use `"spokespeople" in validated_data`.
+- **`update()` mutation order** (post-Slice-14 line numbers): guard → forbidden-field check → drop `via_serper` → drop `audience_scope` → pop `text_content` → assign `title` → universe preflight + assign → text_content re-ingest → `save(update_fields=...)` → `spokespeople.set(...)`.
+
+## §233. Explicit-empty vs omit distinguishing evidence
+
+DRF's `PrimaryKeyRelatedField(many=True, required=False)` treats:
+
+- **Key omitted** → key absent from `validated_data`.
+- **Key present with `[]`** → `validated_data["spokespeople"] == []`.
+- **Key present with `[uuid]`** → `validated_data["spokespeople"] == [<Teammate>]` (resolved to objects).
+
+`"spokespeople" in validated_data` is the reliable disambiguator. Test C (narrowing works via `[uuid]`) and Test A (rejection via `[]`) both pass with this check.
+
+## §234. Guard location + rationale — top of `update()`, NOT `validate()`
+
+Initial implementation placed the guard in `validate()`. Test `test_slice14_error_code_matches_slice13_detach_guard` **failed** — DRF's `as_serializer_error()` wraps dict values in lists during `run_validation`, producing `{"code": ["final_character_..."], "detail": [...]}` instead of `{"code": "final_character_...", "detail": "..."}`.
+
+Slice 13's `/detach/` guard raises from a VIEW (`views.py`) which bypasses the serializer wrapping — the global exception handler renders `.detail` as-is.
+
+**Fix applied:** move the guard to the top of `update()` (which is called after `is_valid()` completes). Raising `serializers.ValidationError({...})` from `update()` bypasses `as_serializer_error` — the response body matches Slice 13's shape byte-identically. Verified by `test_slice14_error_code_matches_slice13_detach_guard`.
+
+Atomicity preserved: `update()`'s first mutation-eligible line (`instance.title = validated_data["title"]` at `serializers.py:558`) runs AFTER the guard. Raising from the top of `update()` guarantees no field is partially applied (Test H proves this: `title` change bundled with `spokesperson_ids=[]` results in title NOT persisting alongside the rejected PATCH).
+
+## §235. Serializer diff (`shell/apps/embeddings/serializers.py`)
+
+Two changes:
+
+**1.** Import extended:
+
+```python
+# Before:
+from .models import DocumentType, KnowledgeChunk, KnowledgeDocument
+# After:
+from .models import AudienceScope, DocumentType, KnowledgeChunk, KnowledgeDocument
+```
+
+**2.** Guard inserted at top of `update()` (before any mutation, before `pdf_data_uri`/`source_url_input` create-only checks that raise for OTHER reasons):
+
+```python
+def update(self, instance, validated_data):
+    # SESSION 276 Slice 14 guard (docstring block explains rationale)
+    if (
+        "spokespeople" in validated_data
+        and validated_data["spokespeople"] == []
+        and instance.is_active
+        and instance.audience_scope == AudienceScope.CHARACTER
+    ):
+        raise serializers.ValidationError({
+            "code": "final_character_detach_requires_audience_decision",
+            "detail": (
+                "This knowledge needs at least one character unless "
+                "you choose a different audience or archive it."
+            ),
+        })
+    # ... rest of update() unchanged ...
+```
+
+Zero other changes to `validate()`, `create()`, or any other serializer method. Zero view / signal / model / migration / SPA change.
+
+## §236. Error contract consistency with Slice 13
+
+Both guards emit HTTP 400 with body:
+
+```json
+{
+  "code": "final_character_detach_requires_audience_decision",
+  "detail": "<operation-appropriate string>"
+}
+```
+
+- **`code`** — byte-identical string `"final_character_detach_requires_audience_decision"`. Verified by `test_slice14_error_code_matches_slice13_detach_guard` which hits BOTH endpoints in the same test and asserts equality. Prevents future drift.
+- **`detail`** — differs slightly between the two operations (detach interpolates the character's name; PATCH uses generic copy because it may be replacing multi-member set). Both are operator-friendly with no `M2M`/`audience_scope`/`CHARACTER` internals per task rule.
+- **Terminology debt** (documented, not resolved): the `code` string contains "detach" which is now used for both `/detach/` and PATCH-empty paths. Renaming would be a scope expansion and would break the Slice 13 SPA test discrimination. Accepted; documented here.
+
+## §237. Test A — CHARACTER {A} + PATCH `[]` rejected
+
+`_make_char_doc_with_sp(ws, "s14-a", [a])` → PATCH `spokesperson_ids=[]` → HTTP 400 with structured `code` + `detail`. Post-rejection: `spokespeople=[a.pk]`, `audience_scope=CHARACTER`, `is_active=True`, `deactivated_reason=""`, `title` unchanged.
+
+## §238. Test B — CHARACTER {A,B} + PATCH `[]` also rejected
+
+Multi-member CHARACTER row + `[]` also rejects. Proves the invariant is about the RESULTING row shape (CHARACTER + empty M2M is malformed), not about "count > 1 protection." Both A and B remain attached post-rejection.
+
+## §239. Test C — Narrowing via PATCH still works
+
+`{A,B}` + `spokesperson_ids=[b]` → HTTP 200, M2M becomes `{B}`, `audience_scope=CHARACTER` preserved. Legitimate audience-narrowing intact.
+
+## §240. Test D — Character replacement via PATCH still works
+
+`{A}` + `spokesperson_ids=[b]` → HTTP 200, M2M becomes `{B}`. Replacement path unchanged.
+
+## §241. Test E — Universe-scoped CHARACTER final empty rejected
+
+`universe=U, CHARACTER, {A}` + PATCH `[]` → HTTP 400. Universe context does NOT bypass the guard — Universe context is not audience intent for UNIVERSE-shared promotion. Symmetric with Slice 13 Test D.
+
+## §242. Test F — Shared canon no-op behavior preserved
+
+- WORKSPACE row with empty M2M + PATCH `[]` → HTTP 200 no-op. `audience_scope=WORKSPACE` unchanged.
+- UNIVERSE row with empty M2M + PATCH `[]` → HTTP 200 no-op. `audience_scope=UNIVERSE` + `universe_id` unchanged.
+
+Guard is CHARACTER-only; no false positives on shared-canon rows.
+
+## §243. Test G — NULL legacy carve-out unchanged
+
+Legacy fixture shape (`audience_scope=None`, non-empty M2M) — Slice 14 does NOT guard. PATCH `[]` still empties M2M, matching pre-Slice-14 behavior. Documented transitional debt. Real DB has ZERO such rows (Slice 7 backfill covered all M2M-carrying rows); only test fixtures land here.
+
+## §244. Test H — No partial unrelated-field mutation on rejection
+
+`{"title": "changed-title", "spokesperson_ids": []}` on CHARACTER `{A}` → HTTP 400 (audience code); post-rejection `doc.title` is UNCHANGED. Mechanically proves the guard's top-of-`update()` placement gives atomic all-or-nothing rejection.
+
+## §245. Test I — Combined Universe + empty rejected
+
+`{"universe": <U_to>, "spokesperson_ids": []}` on CHARACTER `{A}` at `universe=U_from` → HTTP 400. Post-rejection `universe_id == U_from.pk` (Universe DID NOT move). Prevents a broadening path where an empty-spokespeople request could sneak through a Universe transition in the same request. Slice 14 does NOT define correct Universe-transition audience semantics — those remain a separate unresolved question.
+
+## §246. PATCH Universe composition audit
+
+Bundled `universe` + `spokesperson_ids=[]` payloads are now atomically rejected (§245). The empty-spokespeople portion trips the guard first (top of `update()`); the Universe change never applies. Any operator gesture that legitimately wants to reassign a KD's Universe must NOT include an empty spokesperson list on a CHARACTER KD — they should either supply the new spokesperson set alongside the Universe change or omit `spokesperson_ids` entirely.
+
+Universe reassignment on non-CHARACTER audiences (UNIVERSE canon, WORKSPACE canon) remains a **separate unresolved question** — Slice 14 does not modify its behavior. Recorded in §249.
+
+## §247. Real-DB post-Slice-14 verification
+
+Code changed; real DB rows did not change. No PATCH executed against production data during Slice 14.
+
+```
+$ manage.py shell -c "..."
+total=72
+distribution={'universe': 3, 'character': 59, None: 10}
+inactive=0
+chunks=1149
+m2m=62
+```
+
+Byte-identical to Slice 7 §103 through Slice 13 §221. **Zero drift across 8 consecutive slices.**
+
+## §248. Regression results
+
+```
+$ pytest apps/embeddings/tests/test_api.py -v -k "slice14"
+11 passed in 5.27s                          # Slice 14 new tests
+
+$ pytest apps/embeddings/tests/test_api.py \
+         apps/embeddings/tests/test_api_k5.py \
+         apps/embeddings/tests/test_ingestion.py \
+         apps/spokespeople/tests/test_delete_orphan_archive.py -q
+101 passed in 14.23s                        # combined API + K5 + ingestion + lifecycle
+
+$ pytest apps/embeddings/ apps/spokespeople/ apps/universe/ apps/compositions/ -q
+1695 passed, 2 warnings in 130.79s          # broader — +11 from Slice 13's 1684
+
+$ python manage.py makemigrations --check embeddings
+No changes detected in app 'embeddings'
+```
+
+Every existing test still passes. 2 pre-existing DateTime warnings unrelated.
+
+SPA suite NOT run — zero frontend files touched. Task rule permits skipping SPA suite when no frontend change.
+
+## §249. Unresolved questions
+
+Carried from prior slices (all still open):
+
+- **Generic audience PATCH contract** — CHARACTER→UNIVERSE, CHARACTER→WORKSPACE, UNIVERSE→WORKSPACE, WORKSPACE→UNIVERSE, NONE revival — each requires its own independent semantics/authorization.
+- **Universe reassignment on non-CHARACTER rows** — Slice 14 §246 audit noted: PATCH `universe=<new>` on a UNIVERSE-audience row currently succeeds without changing `audience_scope`. Whether that's a broadening path (audience remains UNIVERSE but now points at a different member set) needs its own falsifiable question.
+- Provenance direction Alpha vs Beta.
+- Retrieval predicate switch (Stage 5).
+- Operator triage UI for the 10 ambiguous rows (Stage 4).
+- DB CHECK constraints + NOT NULL cutover (Stage 6).
+- Bundle vs split (still open from Slice 1 §8.4).
+- **Terminology debt** — the shared `code` string `"final_character_detach_requires_audience_decision"` contains "detach" but now applies to both `/detach/` and PATCH-empty operations. A future terminology renaming (e.g. `"character_audience_cannot_become_empty"`) would require coordinated SPA + backend + external-client updates. Deferred.
+
+**No new Slice-14-specific unresolved questions.**
+
+## §250. Recommendation
+
+**Q-276-28 is confirmed. Both KD-spokespeople M2M mutation surfaces (`/detach/` and PATCH `spokesperson_ids=[]`) now fail closed on the CHARACTER-audience broadening path.** The invariant `active CHARACTER requires ≥1 spokesperson` is enforced at both surfaces with byte-identical machine-readable error codes.
+
+Combined with Slice 13, the last two live audience-broadening paths on the KD spokespeople M2M surface (identified in Slice 3 §37.J/T11) are closed. Legitimate narrowing and replacement continue to work; shared canon unaffected; legacy NULL carve-out preserved.
+
+Slice 14 does not authorize any further work. The natural next slices are Universe reassignment audience semantics (§249) or one of the deferred stages (retrieval cutover, legacy triage, constraints).
+
+## §251. Explicit STOP gate
+
+**STOP.** Slice 14 authorizes no further work.
+
+Do NOT begin:
+
+- Generic audience PATCH contract
+- CHARACTER → UNIVERSE promotion
+- CHARACTER → WORKSPACE promotion
+- Universe reassignment redesign (audience semantics)
+- Provenance work
+- Retrieval predicate change
+- Operator triage UI
+- DB CHECK constraints
+- NOT NULL cutover
+- Recovery UI
+
+## §252. Smallest recommended next question
+
+**Q-276-29 (candidate — Universe reassignment audience audit).** *If `KnowledgeDocumentSerializer.update()` receives a PATCH containing `{"universe": <U_new>}` on an active row whose `audience_scope=UNIVERSE`, what is the current behavior and does it change the effective retrieval audience? Is a Universe reassignment on a UNIVERSE-audience row a legitimate scope migration or an audience-broadening path that needs its own guard?*
+
+Falsifiable by:
+1. Read-only source trace of the existing `serializers.py:499-514` `universe` PATCH branch under Slice 12/14 code.
+2. Tests: (a) PATCH `universe=<U_new>` on `UNIVERSE, universe=U_old, M2M=∅` — does the KD's retrieval audience change from "everyone in U_old" to "everyone in U_new"? (b) PATCH `universe=null` on same → what happens to `audience_scope`? Currently `audience_scope` is not touched by PATCH; that means a Universe-audience row could end up as `UNIVERSE + universe=null` — a Slice 4 §51 row-#5 malformed shape.
+3. Decision: whether to reject with a structured 400 (matching the audience-invariant enforcement pattern from Slices 13/14), auto-transition audience_scope, or preserve current behavior.
+
+Small audit-first slice; unresolved whether it needs a code-change slice after or stays audit-only pending broader audience-PATCH contract design.
+
+## §253. Slice 14 checklist
+
+- [x] Step 0 — commit + push Slice 13 SHA-record (commit `a154ae3`)
+- [x] Slice 14 baseline verified — `main == origin/main == a154ae3`, working tree clean at slice start
+- [x] Q-276-28 falsifiable question stated (§230)
+- [x] Predictions before evidence (§231)
+- [x] Serializer source + order trace (§232) — `spokesperson_ids` field decl, DRF flow, mutation order
+- [x] Explicit-empty vs omit distinguishing evidence (§233)
+- [x] Guard location + rationale — top of `update()` NOT `validate()` (§234) — required to preserve error-shape symmetry with Slice 13
+- [x] Serializer diff (§235) — one import + one guard block
+- [x] Error contract consistency with Slice 13 (§236) — byte-identical `code`, terminology debt documented
+- [x] Test A — CHARACTER {A} + PATCH [] rejected (§237)
+- [x] Test B — CHARACTER {A,B} + PATCH [] also rejected (§238)
+- [x] Test C — narrowing via PATCH still works (§239)
+- [x] Test D — character replacement via PATCH still works (§240)
+- [x] Test E — Universe-scoped CHARACTER empty rejected (§241)
+- [x] Test F — shared canon no-op preserved (WORKSPACE + UNIVERSE) (§242)
+- [x] Test G — legacy NULL carve-out unchanged (§243)
+- [x] Test H — atomic rejection preserves title (§244)
+- [x] Test I — combined Universe + empty rejected (§245)
+- [x] Error-code-symmetry test — `/detach/` code === PATCH code byte-identical
+- [x] Universe composition audit (§246)
+- [x] 11/11 Slice 14 tests pass (§248)
+- [x] 101/101 combined API + K5 + ingestion + lifecycle (§248)
+- [x] 1695/1695 broader backend regression pass (§248)
+- [x] `makemigrations --check embeddings` clean (§248)
+- [x] Real DB unchanged: 72 KDs, `CHARACTER=59, UNIVERSE=3, NULL=10, NONE=0, inactive=0` (§247)
+- [x] Prediction vs actual — Q-276-28 CONFIRMED (§246 — all 10 predictions supported)
+- [x] Files changed inventory (§235 — one file: `serializers.py`; plus 11 new tests in `test_api.py`)
+- [x] Explicit STOP gate (§251)
+- [x] Smallest next question Q-276-29 candidate (§252)
+- [x] Zero SPA changes (backend-only slice); zero generic audience PATCH / CHARACTER→UNIVERSE / CHARACTER→WORKSPACE / Universe reassignment redesign / provenance / retrieval / migration / model / constraint changes; zero provider spend
+- [ ] Commit + push Slice 14
+- [ ] Chris + ChatGPT review + Slice 15 scoping decision (§250)
+
+---
+
+**End of SESSION 276 Slice 14 / Delta Stage 3C-2. PATCH `spokesperson_ids=[]` on active CHARACTER KDs now fails closed with a structured 4xx BEFORE any mutation, byte-identical to Slice 13's `/detach/` code. Q-276-28 CONFIRMED — 11/11 Slice 14 tests pass; 1695/1695 broader backend regression; legitimate narrowing/replacement PATCH unchanged; shared canon unaffected; legacy NULL carve-out preserved; atomic rejection prevents partial field mutation; combined Universe+empty rejected atomically. Real DB unchanged for 8th consecutive slice. STOP for Chris + ChatGPT review of §250 recommendation, §251 gate, and §252 Q-276-29 candidate next question.**
