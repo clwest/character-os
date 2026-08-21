@@ -1708,3 +1708,535 @@ explicit follow-up scope lock.
 
 _Landed SHA: `647f139` (Slice 3 audit commit)._
 
+---
+
+# Slice 4 — Q-277-4 — MINIMUM VALID UNIVERSE CREATION CONTRACT (audit-only)
+
+Chris + ChatGPT reviewed Slice 3. NULL-Universe teammate classified C
+(historical compatibility). Universe-required-at-create endorsed in
+principle, gated on one prerequisite: is Universe creation cheap
+enough that inline-in-the-wizard is safe? Slice 4 answers that
+prerequisite.
+
+## §63 Penny operator-history correction (recorded before substantive investigation)
+
+Chris clarified the significance of the Slice 3 §51 finding "Penny has
+58 compositions." Recording per the three-line contract the SESSION 277
+prompt requires:
+
+- **OBSERVED FACT:** Penny has 58 compositions attached in the DB
+  (`Composition.objects.filter(spokesperson=<Penny>).count() == 58`);
+  every one has `episode = NULL`.
+- **OPERATOR CONTEXT:** those compositions belong to an obsolete
+  dogfood / content-generation era — Penny has not been used since the
+  newer Patch + Rivet development flow began. The Penny-era work was
+  closer to "Can I make a commercial?", produced by a substantially
+  older content-generation model + workflow. Chris considers the
+  outputs materially outdated compared with current Patch/Rivet-era
+  character-driven content.
+- **PRODUCT CONSEQUENCE:** Penny's existence should NOT block new-character
+  Universe requirements and should NOT force preservation of the legacy
+  NULL-Universe product model. General SESSION 276 §340 rule stands —
+  dogfood data provides evidence without becoming a permanent product
+  requirement.
+
+Slice 4 does **not** mutate Penny. Slice 3's classification (C) stands;
+its recommendation ("LIKELY YES on require-Universe, prerequisite is
+first-Universe onboarding UX") is now sharpened — Penny is not the
+blocker; the actual blocker is the cost/ergonomics of creating a
+Universe. Slice 4 investigates only that cost.
+
+## §64 Slice 4 baseline
+
+- HEAD @ Slice 4 open: `38a55d0` (Slice 3 SHA-record). Clean, pushed.
+- Substrate: KD=0, KC=0, `chriss-workspace` teammates=8 (unchanged),
+  Universes=2 (unchanged). Zero drift since Slice 3.
+- Read-only. No source/data changes.
+
+## §65 Slice 4 checklist
+
+- [x] STEP 0 — verify baseline + insert Penny operator-history correction.
+- [x] PART A — inventory every Universe create path.
+- [x] PART B — exact model requirements + minimum valid row.
+- [x] PART C — exact API contract + minimum valid POST body.
+- [x] PART D — current SPA create-World flow.
+- [x] PART E — immediate-usability test (Teammate / KD / Episode / cast / memory / retrieval / composition).
+- [x] PART F — name / slug / identity semantics.
+- [x] PART G — zero-Universe fresh account scenario.
+- [x] PART H — existing-Universe scenario.
+- [x] PART I — inline-create feasibility classification A/B/C/D/E.
+- [x] PART J — separate-onboarding-necessity assessment.
+- [x] PART K — legacy-character coexistence analysis.
+- [x] PART L — Penny-specific record (deferred; see §63).
+- [x] PART M — effect on the Knowledge model.
+- [x] PART N — terminology (Universe vs World in current copy).
+- [x] PART O — Q-277-4 answer + product recommendation.
+- [x] PART P — smallest next falsifiable question.
+- [ ] Commit + push; SHA-record.
+
+## §66 Q-277-4
+
+> What is the minimum valid operator input required to create a fully
+> usable Universe / World in current Character OS, and can that existing
+> creation contract safely support an inline "Create new World" action
+> inside the ordinary character creation flow without duplicating or
+> bypassing important Universe configuration?
+
+Companion:
+
+> If a fresh operator has zero Universes and clicks "Create character",
+> can Character OS create the required World with a tiny amount of
+> operator input and then continue character creation coherently?
+
+## §67 Prediction (before source inspection)
+
+Prediction: Universe creation is **already extremely cheap** — a single
+required field (`name`) plus the implicit workspace, with slug
+auto-derived. A minimally-created Universe is immediately usable for
+Teammate assignment, KD creation, Episode creation, and every
+Universe-aware retrieval lane. Inline-create feasibility will land at
+**A (trivially feasible)** or **B (feasible with small shared-component
+work)**. Separate onboarding is unlikely to be necessary. Legacy NULL
+teammates coexist trivially — DB nullability does not need to change
+in this slice.
+
+_(This prediction is falsifiable by finding any of: additional required
+fields hidden in the serializer, a post-create dependency step
+enforced by signals, or a validation gate that makes a name-only
+Universe unusable for downstream Universe-aware features.)_
+
+## §68 PART A — Universe create-path inventory
+
+Grep across `shell/apps/`, `shell/apps/*/management/`, and
+`web/src/` for `Universe.objects.create` / `POST /api/universes/` /
+`createUniverse`.
+
+| Create path | Required fields | Optional fields | Defaults | Operator-visible? |
+|---|---|---|---|---|
+| SPA `/workspace/universes` → `CreatePanel` → `POST /api/universes/` (`web/src/routes/workspace/universes.tsx:118-193` → `web/src/lib/api/universes.ts:117-141`) | `workspace`, `name` | `description` | slug auto-derived; archived_at=NULL; created_by=request.user | primary — the operator's create surface |
+| Direct API `POST /api/universes/` | `workspace`, `name` | `description` | same | dev/automation path |
+| Django admin (`apps/universe/admin.py:6-27`) | same | same | same | staff-only |
+| Test factories (`apps/universe/tests/**`) | `workspace`, `name` when explicit | — | — | not product |
+| No management commands create Universes (`grep Universe.objects.create` in `shell/apps/*/management/` → zero non-test hits). | — | — | — | — |
+| No post_save / pre_save signals fire on Universe (`apps/universe/signals.py` only defines `m2m_changed` on `Episode.cast`; no save-side receivers anywhere for Universe). | — | — | — | — |
+
+**Conclusion:** exactly two product-shaped create paths — SPA and
+direct API — with identical contracts. No hidden second-step
+requirement, no signal-driven side-effects on Universe creation.
+
+## §69 PART B — Exact model requirements + minimum valid row
+
+Universe fields (`shell/apps/universe/models.py:33-165`), classified
+per the prompt schema:
+
+| Field | Requirement class | Source |
+|---|---|---|
+| `id` (UUID) | E — generated automatically | `default=uuid.uuid4` |
+| `workspace` (FK, CASCADE) | A — required from operator (or B if inferred from `?workspace` context) | line 55-59; NOT NULL |
+| `name` (Char 120) | A — required from operator | line 63-71; `clean()` rejects blank; `validate_name` also rejects blank |
+| `slug` (Slug 140) | E — generated automatically via `save()` | line 76-84 (`db_index=True` implicit via SlugField); `save()` at line 144-165 auto-derives from name with per-workspace collision suffix |
+| `description` (Text, blank=True, default="") | C — optional | line 89-96 |
+| `created_by` (FK User, SET_NULL, null=True) | B — required but safely derived (stamped by viewset from `request.user`) | line 100-106; `perform_create` sets it at `views.py:67-73` |
+| `created_at` / `updated_at` | E — generated | `auto_now_add`, `auto_now` |
+| `archived_at` (nullable) | D — defaulted (NULL = active) | line 115 |
+
+Uniqueness: `(workspace, slug)` unique constraint
+(`universe_unique_slug_per_workspace` at line 120-124). Not `(workspace, name)` — names are NOT unique; only slugs.
+
+Related-object requirements at create time: **none**. No membership
+row is created; no default Universe knowledge; no default cast; no
+first Episode; no first NarrativeMemory.
+
+**Minimum valid database row:**
+
+```
+Universe(
+    id=<generated>,
+    workspace=<the operator's workspace>,
+    name="Fox & Flour Bakery",     # only operator-required field
+    slug=<auto-derived by save()>,
+    description="",                # default
+    created_by=<request.user>,     # stamped by view
+    archived_at=NULL,              # default
+)
+```
+
+## §70 PART C — Exact API contract + minimum valid POST body
+
+Serializer: `apps/universe/serializers.py::UniverseSerializer` (Meta
+lines 37-68).
+
+- **Payload-required fields:** `workspace` (UUID), `name` (non-blank string).
+- **Payload-optional fields:** `description` (defaults to blank).
+- **Payload-forbidden (read-only in serializer):** `id`, `workspace_name`, `slug`, `created_by`, `created_at`, `updated_at`, `archived_at`, `teammate_count`, `knowledge_document_count`, `episode_count`.
+- **Slug is NOT operator-supplied**; the SlugField is in `read_only_fields`. Auto-derivation runs server-side.
+- **Validation:**
+  - `validate_workspace` (line 74-84) — rejects with 403-equivalent 400 if the caller is not a Membership of the workspace.
+  - `validate_name` (line 91-96) — rejects blank/whitespace-only.
+- **Duplicate name behavior:** allowed. Two Universes with the same name in the same workspace produce distinct slugs (`foo` and `foo-2` via `save()`'s per-workspace collision loop).
+- **Cross-workspace protection:** `validate_workspace` + `Universe.workspace` FK CASCADE together prevent cross-workspace Universe attach.
+- **Permission class:** `IsWorkspaceMember` (`apps/universe/views.py:41`). On create, `has_permission` requires only `is_authenticated`; per-workspace membership is enforced by `validate_workspace` before save.
+- **Post-create side effects:** none beyond `perform_create` stamping `created_by`. No signals, no cascade seeds, no dependent-row creation.
+- **Error contract:** DRF `ValidationError` → 400 `{field: [messages]}`.
+
+**Minimum valid API request:**
+
+```
+POST /api/universes/
+Content-Type: application/json
+Authorization: <session/cookie>
+
+{"workspace": "<workspace-uuid>", "name": "Fox & Flour Bakery"}
+```
+
+Response (201): full Universe serialized (id, slug auto-derived,
+teammate/KD/episode counts = 0, description="", archived_at=null,
+created_by=<user id>).
+
+## §71 PART D — Current SPA create-World flow
+
+Route: `/workspace/universes` (`web/src/routes/workspace/universes.tsx`).
+
+Discoverability: three entry points — nav rail has no Universes item;
+dashboard `KnowledgeCorpusPanel` has a 10px "Worlds" chip
+(`web/src/routes/dashboard/index.tsx:582-588`); `/workspace/universes`
+also reachable by URL. Slice 2 §27 already flagged this as thin
+discoverability.
+
+Fields shown on `CreatePanel` (line 118-193):
+- `Name` — single-line Input, required, `maxLength=120`, placeholder `"e.g. Workshop, Bakery, Riverstone"`.
+- `Description (optional)` — textarea, `min-h-[80px]`.
+
+Helper text: **"Pick a name; describe it in a sentence. Slug is auto-derived."**
+
+Submit behavior: sends `{workspace, name, description?}`, invalidates
+the `["universes", "list", workspaceId]` query, clears the form
+in place. Operator stays on `/workspace/universes` and sees the new row
+in the list below.
+
+Steps: **one form, one submit.** Zero navigation between fields and
+submit. No advanced fields, no templates, no presets.
+
+Immediately available after create: yes — the Universe row exists,
+the SPA lists it, and every downstream Universe-aware feature can
+reference it by UUID immediately (see §72).
+
+**Verdict:** Universe creation is fundamentally **simple**, not
+configuration-heavy.
+
+## §72 PART E — Immediate usability test (source-derived, no runtime)
+
+Given a Universe row with only `workspace + name + auto-slug + created_by`:
+
+| Downstream feature | Immediately usable? | Source evidence |
+|---|---|---|
+| Assign a Teammate (`Teammate.universe = <new-universe>`) | yes | `apps/spokespeople/serializers.py:126-149` — only cross-workspace consistency check |
+| CHARACTER-audience Knowledge (M2M attach) | yes | M2M signal (`apps/embeddings/signals.py:93-154`) requires `sp.universe_id == doc.universe_id`; a fresh Universe with matching teammates just works |
+| UNIVERSE-audience Knowledge (`audience_scope=UNIVERSE + universe=<new>`) | yes | Delta serializer (`apps/embeddings/serializers.py:311-330`) accepts `universe` as the positive audience marker; CheckConstraint `session276_universe_requires_universe_fk` satisfied |
+| Episode creation (`Episode.universe = <new-universe>`) | yes | `apps/universe/models.py:278-287` — only `universe` FK required plus `title` + `operator_topic` (both operator-supplied at Episode create) |
+| EpisodeCast (`teammate.universe_id == episode.universe_id`) | yes as soon as ≥1 teammate is assigned to this Universe | `EpisodeCast.clean` at line 446-481 |
+| NarrativeMemory (Universe-anchored) | yes as soon as a Composition-with-Episode promotes one | `apps/memory/models.py:170-175` denormalizes universe from Episode |
+| `retrieve_universe_canon` shared-tier lane | yes as soon as ≥1 KD exists in the Universe | `apps/embeddings/retrieval.py:305-440` — key is `universe_id`, no seed row required |
+| `retrieve_universe_memory` | yes (same shape as canon) | `retrieval.py` §"SESSION 264 Slice 2" |
+| Compositions | yes | independent of Universe unless attached to an Episode |
+
+**Nothing requires a second setup step.** The minimal Universe is
+immediately operational across every Universe-aware feature. No
+default KD is required, no default cast is required, no seed
+Episode is required.
+
+## §73 PART F — Name / slug / identity semantics
+
+- **Name.** Single Char 120 field. Not unique per workspace (§69). Operator-visible identity handle. `__str__` at `universe/models.py:133-134` returns `f"{self.name} ({self.workspace.name})"`.
+- **Slug.** Auto-derived by `save()` at line 144-165 from `slugify(name)`; collision handled by suffixing `-2`, `-3`, ... per workspace. Unique per workspace (`universe_unique_slug_per_workspace`). Server-side only — the SPA never asks for it.
+- **Durable identity:** UUID `id`, not slug. Every FK across the codebase references `Universe.id`. Slug is a URL routing convenience (`/workspace/universes/:id` today uses id, not slug — see `universes.$id.tsx`).
+- **Rename safety.** `Universe.save()` regenerates the slug only when `self.slug` is empty. Renaming an existing Universe does NOT change the slug (line 149 `if not self.slug`). Safe by default.
+- **Duplicate names.** Legal at the DB layer; distinguished only by slug suffix. Operators would see two "Fox & Flour Bakery" rows sharing a name — no rejection, no warning. That's a UX opportunity for a future slice; not a blocker for inline create.
+- **Description.** Blank by default; no downstream feature reads it. `Universe.description` is a management-surface field per its help text (line 89-96) — "Not consumed by synthesis; purely a management surface field." Omitting it has zero functional consequence.
+
+**For an inline create,** a name is sufficient. Nothing beyond a name
+is required for correctness or to avoid later problems. Slug will be
+auto-derived; description can be added later on the Universe detail
+page.
+
+## §74 PART G — Zero-Universe fresh account scenario
+
+Fresh operator: workspace exists (created by allauth signup /
+`default_workspace_for`), zero Universes, zero characters.
+
+**Current path** (SPA today, before any change):
+1. Operator clicks "New spokesperson" → `/spokespeople/new`.
+2. Fills name + business_brief (+ optional portrait).
+3. Submit → `POST /api/spokespeople/` with no `universe` field.
+4. Backend creates `Teammate` with `universe=NULL`.
+5. Character exists as a legacy NULL-Universe teammate.
+6. Downstream: as documented in Slice 3 §47 — locked out of Episodes,
+   Universe-audience knowledge, canon/memory lanes.
+
+**Hypothetical path** (evaluate only; no implementation):
+1. Operator clicks "New spokesperson".
+2. Wizard shows a Universe picker; empty list; picker offers "+ Create a new World" inline.
+3. Operator types "Fox & Flour Bakery"; inline sends `POST /api/universes/ {workspace, name}` (this is the exact minimum request from §70).
+4. Response returns new Universe UUID; picker selects it automatically.
+5. Operator submits the character form; SPA sends `POST /api/spokespeople/ {workspace, name, business_brief, universe: <new-uuid>}`.
+6. Backend creates `Teammate` with `universe=<new-uuid>`.
+
+**Backend obstacles:** none. Every step uses existing endpoints in
+their documented shape. Universe create endpoint is idempotent-safe
+in the sense that a repeated submission produces a distinct Universe
+with a suffixed slug (no partial-state risk). Teammate serializer
+already accepts `universe` via its default ModelSerializer field
+(`spokespeople/serializers.py:53`); it just isn't sent by today's SPA
+payload.
+
+## §75 PART H — Existing-Universe scenario
+
+Existing: Fox & Flour + Patch's Workshop (Chris's real workspace).
+
+Would adding a Universe selector to the existing wizard suffice?
+
+- **API already accepts universe?** Yes (`spokespeople/serializers.py:41-149`; universe field, optional, cross-workspace validated).
+- **SPA payload simply omits it today?** Yes (`web/src/lib/api/spokespeople.ts:157-184` — `CreateSpokespersonInput` does not include `universe`).
+- **Character serializer validates workspace/Universe consistency?** Yes (`spokespeople/serializers.py:126-149`).
+- **Universe list already available through an API hook?** Yes (`web/src/lib/api/universes.ts:74-96` `useUniverses(workspaceId)`, used today by `UniverseScopePicker` on the Knowledge screen).
+- **Extra backend work required?** None.
+
+**This distinguishes cleanly:** the gap is **UI debt** (SPA doesn't
+render a Universe picker at create time and doesn't send the field in
+the payload), not a **backend capability gap**. Both the serializer
+and the query hook already exist.
+
+## §76 PART I — Inline-create feasibility
+
+Evaluate an inline "+ Create new World" gesture within character creation.
+
+Can the inline create safely:
+
+1. **Ask for minimal required fields?** Yes — a single Name input is
+   sufficient (§73).
+2. **POST the Universe?** Yes — reuse `useCreateUniverse` (which the
+   `/workspace/universes` CreatePanel already uses).
+3. **Receive the new Universe ID?** Yes — the mutation returns the
+   full `Universe` payload including `id`.
+4. **Select it automatically in the picker?** Trivial — set the
+   picker's state to the returned UUID.
+5. **Continue the character-create submission?** Yes — same
+   `useCreateSpokesperson` call with `universe: <new-uuid>` added.
+
+Without:
+- **Bypassing validation?** Not bypassed — both endpoints run their
+  standard serializer validation independently.
+- **Duplicating substantial Universe setup?** Nothing to duplicate;
+  Universe setup is a single name field.
+- **Creating partially configured Worlds?** No partial state exists
+  in the model — a name-only Universe is fully valid (§72).
+- **Requiring navigation?** No — both requests fire from the wizard.
+- **Changing backend models?** No.
+
+The only latent concern is **error-recovery UX**: if the character
+POST fails after the Universe POST succeeds, the operator has a
+Universe row and no character. That's not a data-integrity problem
+(the Universe is a legitimate stand-alone row) but it is a
+"what-just-happened" cliff for the operator. Mitigation is
+front-end-only (a retry that reuses the just-created Universe id).
+
+**Classification: A — trivially feasible.** Zero backend changes; two
+existing endpoints; one existing API hook; the only new SPA work is
+UI plumbing to render the picker + optional inline create + include
+the universe field in the payload.
+
+_(Note: this is the strongest possible answer to the falsification
+premise. If Chris + ChatGPT want a more conservative reading — e.g.
+inline-create-with-shared-form-component reuse of `CreatePanel` from
+`universes.tsx` — that's classification B. Either way, no larger
+onboarding redesign is required.)_
+
+## §77 PART J — Do we even need a separate onboarding flow?
+
+Given §72-§76:
+
+- Universe creation is single-name-field.
+- No signals, no seed rows, no configuration required.
+- SPA form already exists.
+- Character wizard has a natural place for the picker + inline create.
+- Backend accepts `universe` at teammate create.
+
+**Answer: no separate onboarding flow is required to make
+Universe-required-at-create safe.** The character wizard can carry
+the entire prerequisite through inline create.
+
+A dashboard banner, gated onboarding, separate World setup page, or
+multi-step wizard would be ceremony without operator payoff. The
+smallest coherent product surface is: **augment the existing
+spokesperson wizard with a Universe picker + inline "+ Create new
+World" option**.
+
+_(Onboarding-shaped alternatives remain worth considering later for
+first-time-user education, but they are **not** blockers for
+require-Universe-at-create. That is Slice 4's specific finding.)_
+
+## §78 PART K — Legacy-character coexistence
+
+Slice 3 §57 identified the "existing NULL rows remain readable/usable +
+SPA future CREATE requires Universe" model as compatible in principle.
+Slice 4 confirms mechanically:
+
+- `Teammate.universe` remains `null=True` at the DB layer. The 5
+  current legacy teammates (Mason, Penny, Mike, Repo Red, Riggs) keep
+  their rows unchanged.
+- Requiring `universe` only at the **SPA payload layer** (SPA form
+  validation + zod schema on `CreateSpokespersonInput`) blocks NEW
+  legacy creation without disturbing existing rows.
+- Every current view/queryset already handles both states (`universe=NULL`
+  branch in `retrieve_for_teammate` at `retrieval.py:211-214`;
+  `SpokespersonUniversePanel` reads current value and offers assignment).
+- No source invariant requires making the DB column NOT NULL to stop
+  new legacy creation. Payload-layer + serializer-layer requirement
+  is sufficient.
+
+**Compatibility rule** (proposed for Chris + ChatGPT, not implemented):
+> Existing legacy characters continue functioning under compatibility
+> behavior. New ordinary characters stop creating new legacy state.
+> DB column stays nullable; SPA + serializer stop accepting NULL on
+> create.
+
+This mirrors the SESSION 276 Delta pattern precisely: nullability is
+frozen at the DB layer until the SPA has stopped producing NULLs, at
+which point a future slice can flip the column NOT NULL.
+
+## §79 PART L — Penny (deferred)
+
+Per §63: Penny's 58 compositions are historical dogfood. She stays
+untouched in Slice 4. Future Chris may create a Riverstone Universe
+and migrate her, recreate her, archive her, or ignore her — that
+decision is downstream of the Universe-required-at-create question,
+not a prerequisite for it.
+
+## §80 PART M — Effect on the Knowledge model
+
+If new characters land under Universe-required create (§76-§78), the
+downstream Knowledge model becomes:
+
+```
+World (Universe)
+    ↓
+Knowledge belongs here
+    ↓
+Everyone in <World>
+    OR
+Specific character(s) in <World>
+```
+
+**Consequence for the ordinary Knowledge UI:**
+- The picker's placeholder question becomes "Where does this knowledge belong?" with the choice list being the operator's Universes.
+- The audience sub-question becomes "Who there should know it?" — Everyone / just these characters (multi-select scoped to the picked Universe's roster).
+- The "None (legacy — visible to workspace-wide legacy teammates only)" option (Slice 1 §11) has **no ordinary use case remaining**: it exists today only to serve the shrinking legacy NULL-Universe pool, and new characters no longer enter that pool.
+
+**Consequence for WORKSPACE audience:**
+- Serves only the 5 legacy teammates (§78) and any KDs already created
+  under that shape.
+- Reposition as a **system/preferences concept**, not a
+  KnowledgeDocument audience choice — matches Slice 2 §35 recommendation
+  and Slice 3 §58 sharpening.
+
+**Consequence for the Delta CheckConstraints:**
+- No change required. `session276_universe_requires_universe_fk`,
+  `session276_workspace_forbids_universe_fk`,
+  `session276_none_requires_inactive` remain load-bearing exactly as
+  today. Universe-required-at-create for Teammate does not touch KD
+  invariants.
+
+## §81 PART N — Terminology observation
+
+- Universe create page title uses **"Universes"** (`SectionHeader number={1} title="Universes"` at `universes.tsx:48`) and **"Your worlds."** as the h1 (line 53).
+- Empty state: **"No worlds yet"** (line 105-106).
+- Create panel: **"Create a world"** (line 146-147).
+- List heading: **"Worlds"** (line 71).
+- Row description: **"N teammates, M docs, slug <slug>"** (line 229-234).
+- Nav rail (Slice 2 §27) has no Universes item; the sole dashboard entry is a "Worlds" chip.
+
+The SPA is already predominantly using **"World(s)"** as the operator-facing word; "Universe" appears as the section marker but the everyday copy is "world". An inline gesture reading **"+ Create new World"** would be consistent with existing SPA copy and would not require a terminology sweep. Universe/World terminology cleanup is a separate concern (Slice 2 §38 already noted the synonym pair) and does not block Slice 4's recommendation.
+
+## §82 PART O — Q-277-4 answer
+
+1. **Minimum operator fields to create a fully usable Universe:** ONE — `name`. Workspace is implicit from `me.data.default_workspace.id` in the SPA (still sent explicitly in the API payload). Slug is server-generated. Description is optional and has zero functional consequence.
+2. **Whether a new Universe is immediately operational:** **YES.** No signals, no seed rows, no dependent-row creation. Every Universe-aware feature (Teammate assignment, CHARACTER + UNIVERSE audience KDs, Episode create, EpisodeCast, NarrativeMemory, canon and memory retrieval lanes, Compositions) works immediately by referencing the new Universe UUID.
+3. **Inline-create feasibility:** **A — trivially feasible.** Zero backend changes required. Two existing endpoints (`POST /api/universes/`, `POST /api/spokespeople/`); one existing API hook (`useCreateUniverse`); one existing query hook (`useUniverses`). Only new work is SPA UI plumbing.
+4. **Whether a separate onboarding flow is necessary:** **NO.** The character wizard can carry the entire prerequisite through inline create. Onboarding ceremony would add friction without operator payoff.
+5. **Whether existing NULL teammates block enforcing Universe on NEW SPA character creation:** **NO.** DB nullability stays. Legacy rows continue functioning. New rows stop creating legacy state via SPA-payload-layer + serializer-layer positive-value requirement. Mirror of the SESSION 276 Delta pattern (freeze representation before flipping DB column).
+
+**Product recommendation** (Chris + ChatGPT to decide; do not implement in this slice):
+- Confirm the **inline-Create-World-inside-character-wizard** as the smallest coherent product surface.
+- Scope-lock exactly the SPA changes needed (Universe picker + inline "+ Create new World" + payload change + serializer positive-value guard) — do not bundle DB nullability changes, do not bundle legacy migration, do not bundle Knowledge UI reshape.
+- The Knowledge UI reshape (Slice 1 §17 → Slice 2 §35 → Slice 3 §58 → Slice 4 §80) becomes the *next* slice after Universe-required-at-create ships and legacy stops accreting.
+
+## §83 Slice 4 findings — separated
+
+**OBSERVED FACT (source):**
+- Universe serializer marks `slug`, `created_by`, `created_at`, `updated_at`, `archived_at`, and counts as `read_only_fields` (`apps/universe/serializers.py:56-66`).
+- `validate_name` rejects blank/whitespace-only name (`serializers.py:91-96`).
+- `perform_create` stamps `created_by` from `request.user` (`views.py:67-73`); no other post-create logic.
+- No `post_save`/`pre_save` signals on Universe anywhere in the codebase (`apps/universe/signals.py` only defines `m2m_changed` on Episode.cast).
+- SPA `CreatePanel` collects only Name + optional Description (`web/src/routes/workspace/universes.tsx:118-193`).
+- Teammate serializer already accepts `universe` (`apps/spokespeople/serializers.py:41-149`); SPA payload just omits it today.
+- Both `useCreateUniverse` and `useUniverses` API hooks already exist (`web/src/lib/api/universes.ts:74-141`).
+
+**SOURCE-DERIVED FACT:**
+- Two visually-distinct create paths (SPA, direct API) share one serializer with identical minimum requirements.
+- Duplicate Universe names in one workspace are legal; slugs collide via per-workspace suffix loop.
+- `Universe.description` is documented as management-surface only and consumed by no synthesis path.
+- SPA copy already uses "World(s)" as the operator-facing term for `/workspace/universes`.
+
+**OPERATOR HISTORICAL CONTEXT (Chris):**
+- Penny's 58 compositions belong to an obsolete "Can I make a commercial?" dogfood era, produced with a substantially older content-generation model. They provide evidence, not a permanent product requirement.
+
+**INFERENCE:**
+- Requiring Universe at new-character-create is a SPA/serializer change only, not a schema change. DB nullability can safely lag by design.
+- The gap between "backend can already do this" and "operator can do this" is UI plumbing — the same class of gap Slice 3 identified for Teammate creation, and Slice 1 identified for Knowledge audience.
+- Inline "+ Create new World" is the smallest coherent implementation because Universe creation is single-field and every downstream feature is immediately operational.
+
+**PRODUCT RECOMMENDATION (Chris + ChatGPT decision, not implementation):**
+- Adopt the compatibility rule (§78): existing legacy characters continue functioning; SPA + serializer stop accepting new NULL-Universe creates.
+- Scope Slice 5 (if approved) to the minimum SPA change to require Universe at teammate-create + serializer positive-value guard. No other changes bundled.
+- Defer Knowledge UI reshape to a subsequent slice (Slice 6+) once legacy stops accreting.
+
+## §84 Unresolved questions (Slice 4 — deferred)
+
+- Should the SPA's compatibility rule land as a client-side zod required validation, or also as a serializer-level positive-value requirement mirroring the SESSION 276 Delta `audience_scope_required_on_create` pattern? (Both together is defense-in-depth; either alone gets us most of the way.)
+- Duplicate Universe names — legal today, potentially confusing when a picker lists two "Fox & Flour Bakery" rows. Is this something to reject at the API layer (add `(workspace, name)` unique) or handle in the picker with a distinguishing badge?
+- Terminology: SPA uses "World" predominantly and "Universe" as a section marker. Chris + ChatGPT to decide whether an inline gesture should read "+ Create new World" (consistent with existing empty-state and h1 copy) or "+ Create new Universe" (consistent with the URL and the section header).
+- Error recovery: what happens if the Universe POST succeeds but the character POST fails? Front-end-only mitigation (retry reuses the just-created Universe id); acceptable or does it need a rollback path?
+- Should the inline picker default to "the operator's most-recently-used Universe" when Universes already exist? Zero-Universe case sends the operator into inline create; single-Universe case could pre-select; multi-Universe case requires explicit pick.
+
+## §85 PART P — Smallest next falsifiable question
+
+Given Slice 4's evidence (inline create trivially feasible), the
+smallest next question is implementation-adjacent — a **scope-lock
+question** rather than an audit question:
+
+> **Q-277-5** — If the SPA `/spokespeople/new` wizard adds a required
+> Universe picker with an inline "+ Create new World" option that
+> POSTs `{workspace, name}` to the existing `/api/universes/` endpoint
+> and then includes `universe: <uuid>` in the character POST, does
+> this change: (a) fully prevent new `universe=NULL` teammate creation
+> through the SPA, (b) leave the 5 existing legacy teammates
+> untouched, and (c) require zero backend model changes, zero
+> migrations, and zero Knowledge UI changes? Or does implementation
+> expose a gap not visible from source inspection alone (for example:
+> a hidden auto-select behavior that would still fire on payload
+> omission, or a client-caching interaction that would race the
+> Universe create/select cycle)?
+
+Answering Q-277-5 requires a small implementation experiment — the
+wizard change itself. It is the natural implementation slice, but
+Chris + ChatGPT should approve the exact scope before it lands.
+
+**Alternate smaller questions** (present, do not select):
+- **Q-277-5-alt-A** (defense-in-depth prompt): should the serializer ALSO require a positive `universe` on create (mirroring Delta `audience_scope_required_on_create`), or is SPA-only zod validation sufficient given the SESSION 276 pattern?
+- **Q-277-5-alt-B** (terminology-first): before touching the wizard, spend one micro-slice on Universe-vs-World copy consistency across the SPA so the inline gesture wording is settled first.
+- **Q-277-5-alt-C** (dogfood-first): with today's UI unchanged, run the fresh SESSION 277 handoff dogfood (three audience creations from the current Knowledge UI). Use the observed friction to confirm that reshaping the wizard first is the right ordering vs reshaping the Knowledge UI first.
+
+## §86 Slice 4 landed SHA
+
+_Landed SHA: TBD (SHA-record commit after Slice 4 lands)._
+
