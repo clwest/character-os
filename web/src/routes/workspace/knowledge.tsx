@@ -116,6 +116,27 @@ export function universeScopePicked(value: UniverseScopeValue): boolean {
   return value !== "";
 }
 
+/** SESSION 276 Slice 12 / Delta Stage 3B-4 (Q-276-26) — translate
+ * the picker state into the positive WORKSPACE fresh-create marker.
+ * Returns `"workspace"` when the operator explicitly picked the
+ * "None (legacy)" sentinel (that's the positive workspace-sharing
+ * gesture — the option's own copy names the resulting audience);
+ * returns `undefined` when the operator picked a specific Universe
+ * (which becomes UNIVERSE at `_persist` via `universe=<uuid>`)
+ * or when the picker is unpicked (submit should be disabled).
+ *
+ * Callers should spread the result into their create payload:
+ * `{ ..., audience_scope: universeScopeToAudienceMarker(scope) }`.
+ * The backend serializer rejects the marker if combined with
+ * `spokesperson_ids` or a non-null `universe`, so this helper must
+ * never be called on a payload that also includes either. */
+export function universeScopeToAudienceMarker(
+  value: UniverseScopeValue,
+): "workspace" | undefined {
+  if (value === UNIVERSE_LEGACY_SENTINEL) return "workspace";
+  return undefined;
+}
+
 
 export function WorkspaceKnowledgeRoute() {
   const navigate = useNavigate();
@@ -292,6 +313,7 @@ function PasteForm({ workspaceId }: { workspaceId: string | undefined }) {
       await create.mutateAsync({
         workspace: workspaceId,
         universe: universeScopeToPayload(scope),
+        audience_scope: universeScopeToAudienceMarker(scope),
         title: title.trim(),
         text_content: content,
       });
@@ -398,6 +420,7 @@ function UploadForm({ workspaceId }: { workspaceId: string | undefined }) {
       await create.mutateAsync({
         workspace: workspaceId,
         universe: universeScopeToPayload(scope),
+        audience_scope: universeScopeToAudienceMarker(scope),
         title: title.trim(),
         pdf_data_uri: dataUri,
       });
@@ -494,6 +517,7 @@ function UrlForm({ workspaceId }: { workspaceId: string | undefined }) {
       await create.mutateAsync({
         workspace: workspaceId,
         universe: universeScopeToPayload(scope),
+        audience_scope: universeScopeToAudienceMarker(scope),
         title: title.trim() || undefined,
         source_url_input: url.trim(),
       });
@@ -590,6 +614,7 @@ function SearchForm({ workspaceId }: { workspaceId: string | undefined }) {
       await create.mutateAsync({
         workspace: workspaceId,
         universe: universeScopeToPayload(scope),
+        audience_scope: universeScopeToAudienceMarker(scope),
         title: result.title,
         source_url_input: result.url,
         via_serper: true,

@@ -106,6 +106,7 @@ def _persist(
     created_by: "AbstractBaseUser | None" = None,
     spokespeople: "list[Teammate] | None" = None,
     universe=None,
+    workspace_shared_intent: bool = False,
 ) -> IngestResult:
     """Create-or-return the KnowledgeDocument row. Dedup via
     ``(workspace, content_hash)`` unique constraint.
@@ -243,29 +244,60 @@ def _persist(
             # See ``docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md``
             # §164-§180 for the full audit.
             #
-            # WORKSPACE inference for the ``(no sp + no universe)`` case
-            # is INTENTIONALLY NOT implemented in this slice. The SPA's
-            # "None (legacy)" gesture IS positive workspace-shared
-            # intent, but the backend cannot distinguish "operator
-            # picked None (legacy)" from "caller omitted the Universe
-            # arg" (e.g., ``smoke_ingest`` mgmt command). That distinction
-            # requires an explicit ``audience_scope`` intent field on
-            # the payload — deferred to a future slice with an explicit
-            # API contract decision.
+            # SESSION 276 Slice 12 / Delta Stage 3B-4 (Q-276-26) —
+            # WORKSPACE fresh-create requires POSITIVE operator intent
+            # via ``workspace_shared_intent=True`` at the ``_persist``
+            # boundary. The SPA's "None (legacy)" gesture in
+            # ``UniverseScopePicker`` now sends
+            # ``audience_scope: "workspace"`` on the create payload;
+            # the serializer converts that into
+            # ``workspace_shared_intent=True`` here. Non-SPA callers
+            # (mgmt commands, scripts) that omit the marker continue
+            # to produce ``audience_scope=NULL`` — no absence-means-
+            # broadcast reinterpretation.
+            #
+            # Precedence (Slice 12 §189): spokespeople > universe >
+            # workspace_shared_intent > None. Contradictory payloads
+            # (spokespeople OR universe + workspace_shared_intent) are
+            # rejected by the serializer BEFORE they reach ``_persist``
+            # — see ``KnowledgeDocumentSerializer.validate``. This
+            # branch is defensive: if a contradictory combination ever
+            # reaches here, the higher-precedence positive evidence
+            # wins and the workspace marker is ignored silently. That
+            # matches the CHARACTER/UNIVERSE trust order but adds a
+            # log.warning so contradictions are visible.
             #
             # Atomicity: the surrounding ``transaction.atomic()`` block
             # already covers ``KnowledgeDocument.objects.create()`` +
             # ``doc.spokespeople.set(...)``. If M2M assignment fails
             # (e.g. cross-workspace or cross-Universe signal veto), the
-            # whole KD row rolls back — no ``CHARACTER + empty M2M`` or
-            # ``UNIVERSE + universe=NULL`` malformed shape can persist.
+            # whole KD row rolls back — no malformed shape can persist.
             if spokespeople:
                 create_audience_scope = AudienceScope.CHARACTER
+                if workspace_shared_intent:
+                    logger.warning(
+                        "knowledge ingest received contradictory "
+                        "workspace_shared_intent=True alongside "
+                        "spokespeople; CHARACTER precedence wins. "
+                        "Serializer should have rejected this."
+                    )
             elif universe is not None:
                 create_audience_scope = AudienceScope.UNIVERSE
+                if workspace_shared_intent:
+                    logger.warning(
+                        "knowledge ingest received contradictory "
+                        "workspace_shared_intent=True alongside "
+                        "universe=%s; UNIVERSE precedence wins. "
+                        "Serializer should have rejected this.",
+                        universe,
+                    )
+            elif workspace_shared_intent:
+                # No spokespeople, no Universe, explicit workspace
+                # marker present — this is the positive-intent path.
+                create_audience_scope = AudienceScope.WORKSPACE
             else:
-                # Transitional NULL for the ``(no sp + no universe)``
-                # case pending the explicit-intent-payload decision.
+                # Transitional NULL for the ``(no sp + no universe +
+                # no marker)`` case — non-SPA callers land here.
                 create_audience_scope = None
             doc = KnowledgeDocument.objects.create(
                 workspace=workspace,
@@ -316,6 +348,7 @@ def ingest_text(
     spokespeople: "list[Teammate] | None" = None,
     source_metadata: dict | None = None,
     universe=None,
+    workspace_shared_intent: bool = False,
 ) -> IngestResult:
     """Ingest pasted / typed text or markdown.
 
@@ -328,6 +361,14 @@ def ingest_text(
     should enqueue ``apps.embeddings.tasks.embed_document``
     against ``result.document.pk`` to populate the chunks
     (unless ``deduped=True`` — those already have chunks).
+
+    SESSION 276 Slice 12 (Q-276-26): ``workspace_shared_intent`` is
+    the positive-intent marker for fresh WORKSPACE creation. Callers
+    that produce ``(no spokespeople + no universe)`` and want the
+    resulting KD stamped ``audience_scope=WORKSPACE`` must pass
+    ``workspace_shared_intent=True``. Omission (the default) keeps
+    the row transitional NULL — non-SPA callers must not accidentally
+    stamp WORKSPACE.
     """
     if document_type not in {DocumentType.TEXT, DocumentType.MARKDOWN}:
         raise ValueError(
@@ -349,6 +390,7 @@ def ingest_text(
         created_by=created_by,
         spokespeople=spokespeople,
         universe=universe,
+        workspace_shared_intent=workspace_shared_intent,
     )
 
 
@@ -361,6 +403,7 @@ def ingest_pdf(
     spokespeople: "list[Teammate] | None" = None,
     source_metadata: dict | None = None,
     universe=None,
+    workspace_shared_intent: bool = False,
 ) -> IngestResult:
     """Ingest an uploaded PDF.
 
@@ -370,6 +413,8 @@ def ingest_pdf(
 
     Raises ``pdf.PdfExtractionError`` if extraction fails
     (most commonly: scanned/image-only PDF — out of scope v1).
+
+    ``workspace_shared_intent``: see ``ingest_text`` docstring.
     """
     extract = pdf.extract_text(payload)
     normalised = _normalize(extract.text)
@@ -396,6 +441,7 @@ def ingest_pdf(
         created_by=created_by,
         spokespeople=spokespeople,
         universe=universe,
+        workspace_shared_intent=workspace_shared_intent,
     )
 
 
@@ -409,6 +455,7 @@ def ingest_url(
     source_metadata: dict | None = None,
     ingested_via: IngestedVia = IngestedVia.PASTE,
     universe=None,
+    workspace_shared_intent: bool = False,
 ) -> IngestResult:
     """Ingest a URL.
 
@@ -426,6 +473,7 @@ def ingest_url(
         ingested_via: ``PASTE`` when operator typed the URL,
             ``SERPER`` when it came from search discovery.
             Both flow through the same fetch+extract pipeline.
+        workspace_shared_intent: see ``ingest_text`` docstring.
 
     Raises:
         ``url_fetch.UrlFetchError`` for any fetch / extract
@@ -455,4 +503,5 @@ def ingest_url(
         created_by=created_by,
         spokespeople=spokespeople,
         universe=universe,
+        workspace_shared_intent=workspace_shared_intent,
     )

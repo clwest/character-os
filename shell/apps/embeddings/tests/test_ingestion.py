@@ -19,6 +19,7 @@ from apps.accounts.models import Workspace
 from apps.embeddings.ingestion import ingest_text
 from apps.embeddings.models import (
     AudienceScope,
+    DeactivationReason,
     DocumentStatus,
     DocumentType,
     IngestedVia,
@@ -511,3 +512,275 @@ def test_fresh_create_rolls_back_atomically_if_m2m_set_fails() -> None:
         workspace=ws_a,
         title="atomic-cross-workspace",
     ).exists()
+
+
+# =====================================================================
+# SESSION 276 Slice 12 / Delta Stage 3B-4 (Q-276-26) — explicit
+# WORKSPACE fresh-create marker. See §186-§204 of the audit doc.
+# =====================================================================
+
+
+@pytest.mark.django_db
+def test_slice12_A_explicit_workspace_marker_stamps_workspace() -> None:
+    """Slice 12 Test A — the SPA "None (legacy)" gesture reaches
+    ``_persist`` via ``workspace_shared_intent=True`` and stamps
+    ``audience_scope=WORKSPACE``. This is the primary Q-276-26
+    assertion."""
+    ws = _make_workspace(
+        "slice12-a@test.local", "Slice12 WS A",
+    )
+    result = ingest_text(
+        workspace=ws,
+        title="explicit-workspace",
+        content="Content marked explicitly as workspace-shared.",
+        # NO spokespeople, NO universe, WITH the positive marker.
+        workspace_shared_intent=True,
+    )
+    kd = result.document
+    kd.refresh_from_db()
+    assert kd.is_active is True
+    assert kd.deactivated_reason == ""
+    assert kd.audience_scope == AudienceScope.WORKSPACE
+    assert kd.universe_id is None
+    assert kd.spokespeople.count() == 0
+    # Adversarial: WORKSPACE requires universe=NULL (Slice 4 §52 #3).
+    assert not (
+        kd.audience_scope == AudienceScope.WORKSPACE
+        and kd.universe_id is not None
+    ), "WORKSPACE row must not have a Universe FK"
+
+
+@pytest.mark.django_db
+def test_slice12_B_omission_remains_null() -> None:
+    """Slice 12 Test B — load-bearing. A non-SPA caller that omits
+    spokespeople AND universe AND the marker must land at NULL, not
+    WORKSPACE. Guards against absence-means-broadcast regression."""
+    ws = _make_workspace(
+        "slice12-b@test.local", "Slice12 WS B",
+    )
+    result = ingest_text(
+        workspace=ws,
+        title="omitted-everything",
+        content="Non-SPA caller-style content without marker.",
+        # No spokespeople, no universe, no workspace_shared_intent.
+    )
+    kd = result.document
+    kd.refresh_from_db()
+    assert kd.is_active is True
+    assert kd.audience_scope is None, (
+        "omission must remain NULL; do NOT stamp WORKSPACE"
+    )
+    assert kd.universe_id is None
+    assert kd.spokespeople.count() == 0
+
+
+@pytest.mark.django_db
+def test_slice12_C_universe_pick_still_stamps_universe() -> None:
+    """Slice 12 Test C — Universe fresh-create unaffected by the
+    workspace marker addition. When the marker is absent but a
+    Universe is supplied, precedence produces UNIVERSE."""
+    ws = _make_workspace(
+        "slice12-c@test.local", "Slice12 WS C",
+    )
+    u = Universe.objects.create(workspace=ws, name="Slice12 Universe C")
+    result = ingest_text(
+        workspace=ws,
+        title="universe-pick",
+        content="Universe-scoped canon content.",
+        universe=u,
+        # workspace_shared_intent NOT supplied — precedence yields UNIVERSE
+    )
+    kd = result.document
+    kd.refresh_from_db()
+    assert kd.audience_scope == AudienceScope.UNIVERSE
+    assert kd.universe_id == u.pk
+
+
+@pytest.mark.django_db
+def test_slice12_D_character_creation_unaffected() -> None:
+    """Slice 12 Test D — CHARACTER fresh-create unaffected. Explicit
+    spokespeople still stamp CHARACTER regardless of the marker."""
+    ws = _make_workspace(
+        "slice12-d@test.local", "Slice12 WS D",
+    )
+    a = _make_teammate(ws, "Alpha")
+    result = ingest_text(
+        workspace=ws,
+        title="character-pick",
+        content="Character-scoped content.",
+        spokespeople=[a],
+    )
+    kd = result.document
+    kd.refresh_from_db()
+    assert kd.audience_scope == AudienceScope.CHARACTER
+    assert list(kd.spokespeople.values_list("pk", flat=True)) == [a.pk]
+
+
+@pytest.mark.django_db
+def test_slice12_E_precedence_when_marker_conflicts_with_spokespeople() -> None:
+    """Slice 12 Test E1 — direct ``_persist``-level defensive
+    precedence check. When both spokespeople and the marker reach
+    ``_persist`` (bypassing the serializer contradiction guard),
+    CHARACTER precedence wins. Logs a warning; does NOT silently
+    broaden to WORKSPACE.
+
+    Rationale: the serializer's ``validate()`` normally rejects
+    this combination with HTTP 400. But if a non-DRF caller ever
+    bypasses the serializer, ``_persist`` must not silently produce
+    a wrong-audience row.
+    """
+    ws = _make_workspace(
+        "slice12-e1@test.local", "Slice12 WS E1",
+    )
+    a = _make_teammate(ws, "Alpha")
+    result = ingest_text(
+        workspace=ws,
+        title="conflicting-payload-character",
+        content="Content with both spokespeople and workspace marker.",
+        spokespeople=[a],
+        workspace_shared_intent=True,  # contradiction — CHARACTER wins
+    )
+    kd = result.document
+    kd.refresh_from_db()
+    assert kd.audience_scope == AudienceScope.CHARACTER
+    assert list(kd.spokespeople.values_list("pk", flat=True)) == [a.pk]
+
+
+@pytest.mark.django_db
+def test_slice12_E_precedence_when_marker_conflicts_with_universe() -> None:
+    """Slice 12 Test E2 — defensive precedence when Universe + marker
+    both reach ``_persist``. UNIVERSE precedence wins; marker ignored."""
+    ws = _make_workspace(
+        "slice12-e2@test.local", "Slice12 WS E2",
+    )
+    u = Universe.objects.create(workspace=ws, name="Slice12 Universe E2")
+    result = ingest_text(
+        workspace=ws,
+        title="conflicting-payload-universe",
+        content="Content with Universe and workspace marker.",
+        universe=u,
+        workspace_shared_intent=True,  # contradiction — UNIVERSE wins
+    )
+    kd = result.document
+    kd.refresh_from_db()
+    assert kd.audience_scope == AudienceScope.UNIVERSE
+    assert kd.universe_id == u.pk
+
+
+@pytest.mark.django_db
+def test_slice12_F_pdf_ingestion_threads_marker() -> None:
+    """Slice 12 Test F1 — ``ingest_pdf`` also carries the marker.
+
+    Uses a minimal valid PDF payload so ``pdf.extract_text`` yields
+    non-empty text without provider spend. Only asserts the audience-
+    scope propagation; other PDF-ingestion behavior is covered by
+    existing tests."""
+    from apps.embeddings import pdf as pdf_module
+    import unittest.mock
+
+    ws = _make_workspace(
+        "slice12-f-pdf@test.local", "Slice12 WS F PDF",
+    )
+
+    class _FakeExtract:
+        text = "Fake PDF text content for Slice 12 F."
+        page_count = 1
+
+    with unittest.mock.patch.object(
+        pdf_module, "extract_text", return_value=_FakeExtract(),
+    ):
+        from apps.embeddings.ingestion import ingest_pdf
+
+        result = ingest_pdf(
+            workspace=ws,
+            title="slice12-pdf",
+            payload=b"%PDF-1.4 fake",
+            workspace_shared_intent=True,
+        )
+
+    kd = result.document
+    kd.refresh_from_db()
+    assert kd.audience_scope == AudienceScope.WORKSPACE
+    assert kd.document_type == "pdf"
+
+
+@pytest.mark.django_db
+def test_slice12_F_url_ingestion_threads_marker() -> None:
+    """Slice 12 Test F2 — ``ingest_url`` also carries the marker."""
+    from apps.embeddings import url_fetch as url_fetch_module
+    import unittest.mock
+
+    ws = _make_workspace(
+        "slice12-f-url@test.local", "Slice12 WS F URL",
+    )
+
+    class _FakeUrlExtract:
+        text = "Fake URL-extracted content for Slice 12 F."
+        title = "Fake page title"
+        metadata: dict = {}
+
+    with unittest.mock.patch.object(
+        url_fetch_module, "fetch_url", return_value=_FakeUrlExtract(),
+    ):
+        from apps.embeddings.ingestion import ingest_url
+
+        result = ingest_url(
+            workspace=ws,
+            url="https://example.test/slice12",
+            title="slice12-url",
+            workspace_shared_intent=True,
+        )
+
+    kd = result.document
+    kd.refresh_from_db()
+    assert kd.audience_scope == AudienceScope.WORKSPACE
+    assert kd.document_type == "url"
+
+
+@pytest.mark.django_db
+def test_slice12_G_workspace_marker_cannot_bypass_orphan_revival_gate() -> None:
+    """Slice 12 Test G — the workspace marker must NOT provide an
+    alternate route to revive an orphan-archived KD. The SESSION 275
+    ``OrphanRevivalRejected`` gate still requires explicit non-empty
+    spokespeople for an orphan revival, regardless of any marker
+    supplied on the payload.
+
+    This is a load-bearing invariant: without this guard, an operator
+    could revive a former-character orphan by simply picking "None
+    (legacy)" — which would formalize a broadcast-broadening recovery
+    path the SESSION 275/276 arc explicitly forbids.
+    """
+    from apps.embeddings.ingestion import OrphanRevivalRejected
+
+    ws = _make_workspace(
+        "slice12-g@test.local", "Slice12 WS G",
+    )
+    a = _make_teammate(ws, "Alpha")
+    # 1. Create a KD attached to A.
+    original = ingest_text(
+        workspace=ws,
+        title="slice12-g-content",
+        content="Content that will become an orphan.",
+        spokespeople=[a],
+    ).document
+    # 2. Delete A — orphan-archive stamps NONE.
+    a.delete()
+    original.refresh_from_db()
+    assert original.audience_scope == AudienceScope.NONE
+    assert original.is_active is False
+
+    # 3. Attempt to revive by re-ingesting the same content with the
+    #    workspace marker but NO spokespeople. Must be rejected.
+    with pytest.raises(OrphanRevivalRejected):
+        ingest_text(
+            workspace=ws,
+            title="slice12-g-content-retry",
+            content="Content that will become an orphan.",
+            workspace_shared_intent=True,  # cannot bypass gate
+        )
+
+    # 4. State must be preserved.
+    original.refresh_from_db()
+    assert original.is_active is False
+    assert original.audience_scope == AudienceScope.NONE
+    assert original.deactivated_reason == DeactivationReason.ORPHANED_BY_TEAMMATE_DELETE

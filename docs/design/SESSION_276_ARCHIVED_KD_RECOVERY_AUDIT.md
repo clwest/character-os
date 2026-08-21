@@ -4413,3 +4413,380 @@ This is a slightly larger slice than Q-276-25's UNIVERSE branch because it touch
 **End of SESSION 276 Slice 11 / Delta Stage 3B-3. Q-276-25 answered asymmetrically: UNIVERSE inference implemented (safe positive evidence at `_persist` boundary via explicit `universe` FK); WORKSPACE inference deferred (SPA "None (legacy)" gesture exists but backend cannot distinguish from omission — needs explicit payload-marker contract). 19/19 ingestion tests pass (12 existing + 5 Slice 10 + 2 new Slice 11); real DB unchanged for 5th consecutive slice. STOP for Chris + ChatGPT review of §182 recommendation, §183 gate, and §184 Q-276-26 next question.**
 
 **Slice 11 landed commit SHA:** `bd2852c` (`feat(session-276): Slice 11 / Delta Stage 3B-3 — fresh CREATE UNIVERSE inference (Q-276-25 asymmetric)`). Pushed to `origin/main`. Post-push `main == origin/main == bd2852c`; working tree clean.
+
+**Slice 11 SHA-record follow-up:** `bfd1282` (`docs(session-276): record Slice 11 landed SHA bd2852c`) — doc-only checklist + Slice 12 authorization record.
+
+---
+
+# SESSION 276 — Slice 12 / Delta Stage 3B-4 — explicit WORKSPACE fresh-create marker (Q-276-26)
+
+**Status.** IMPLEMENTATION SLICE — introduces the smallest explicit `audience_scope="workspace"` payload marker for fresh CREATE only. The SPA's existing "None (legacy)" gesture in `UniverseScopePicker` now carries positive workspace-shared intent through DRF into `_persist`; non-SPA callers that omit the marker continue to produce `audience_scope=NULL`.
+
+**Slice 12 baseline.** `main == origin/main == bfd1282` (Slice 11 SHA-record). Working tree clean at slice start. Real-DB state carried forward, unchanged through 6 slices now:
+
+- 72 KDs; `CHARACTER=59`, `UNIVERSE=3`, `NULL=10`, `WORKSPACE=0`, `NONE=0`
+- 0 inactive, 1149 chunks, 62 M2M through-rows
+- Migration head: `0008_session276_stage2_backfill`
+
+**Load-bearing product rule** (from task): *"Never restore this inference: `no spokespeople + no Universe => WORKSPACE`. WORKSPACE must require POSITIVE intent."*
+
+## §186. Slice 12 falsifiable question — Q-276-26
+
+> If the existing SPA `UniverseScopePicker` workspace-sharing gesture ("None (legacy)") carries an explicit WORKSPACE audience-intent marker through the create API, and `_persist` stamps WORKSPACE ONLY when that marker is positively present, can fresh workspace-shared creation become Delta-coherent without changing the behavior of callers that merely omit both character and Universe scope?
+
+**Prediction:** yes. The SPA already has positive operator intent; the information is lost only in transport. Threading a positive marker through DRF → `_persist` preserves fail-safe semantics for non-SPA callers.
+
+## §187. Transport-path trace (pre-Slice-12)
+
+Traced end-to-end:
+
+1. Operator picks `UniverseScopePicker` option in one of 4 SPA surfaces (`web/src/routes/workspace/knowledge.tsx:311-318,417-424,514-521,610-617`).
+2. `universeScopeToPayload(scope)` returns UUID or `null` (`knowledge.tsx:106-112`).
+3. `useCreateKnowledge().mutateAsync({workspace, universe, title, text_content})` builds payload.
+4. `createKnowledge` POSTs to `/api/knowledge/` (`web/src/lib/api/knowledge.ts:239-247`).
+5. DRF `KnowledgeDocumentSerializer.create` reads `validated_data.get("universe")` (`shell/apps/embeddings/serializers.py:342`).
+6. `ingest_text/pdf/url` forwards `universe` and `spokespeople` to `_persist`.
+7. `_persist` applies precedence: spokespeople → CHARACTER; universe → UNIVERSE; else NULL.
+
+**Gap.** After step 2, `universe: null` reaches `_persist` and is indistinguishable from a caller that simply omitted the arg.
+
+## §188. Payload contract
+
+New optional field on the create payload (write-only, create-only):
+
+```
+audience_scope: "workspace" | undefined
+```
+
+Serializer ChoiceField accepts only `"workspace"`. CHARACTER and UNIVERSE audience states continue to derive from their already-proven positive inputs (`spokesperson_ids` and `universe` respectively); the marker is scoped strictly to the third case.
+
+## §189. Precedence + contradiction rules
+
+Precedence:
+
+1. `spokespeople` non-empty → `CHARACTER`
+2. `universe` non-NULL → `UNIVERSE`
+3. `workspace_shared_intent=True` (from `audience_scope="workspace"` payload) → `WORKSPACE`
+4. else → `NULL` (transitional)
+
+Contradictions rejected by the DRF serializer's `validate()` **before** the payload reaches `_persist`:
+
+- `spokesperson_ids` non-empty + `audience_scope="workspace"` → HTTP 400
+- `universe` non-NULL + `audience_scope="workspace"` → HTTP 400
+
+Defensive fallback: if a non-DRF caller somehow bypasses the serializer, `_persist` logs a warning and honors the higher-precedence signal (CHARACTER or UNIVERSE) — never silently broadens to WORKSPACE.
+
+## §190. Exact SPA diff (`web/src/routes/workspace/knowledge.tsx` + `web/src/lib/api/knowledge.ts`)
+
+**Three changes:**
+
+**1.** `web/src/lib/api/knowledge.ts:223-247` — extend `CreateKnowledgePayload` interface with the optional `audience_scope?: "workspace"` field. Docstring cites Slice 12 §186-§204.
+
+**2.** `web/src/routes/workspace/knowledge.tsx` — new helper alongside the existing `universeScopeToPayload`:
+
+```ts
+export function universeScopeToAudienceMarker(
+  value: UniverseScopeValue,
+): "workspace" | undefined {
+  if (value === UNIVERSE_LEGACY_SENTINEL) return "workspace";
+  return undefined;
+}
+```
+
+Returns `"workspace"` **only** when the operator picks the legacy sentinel. Returns `undefined` for both "unpicked" and "Universe UUID" cases so the field is elided from the payload for both.
+
+**3.** All 4 create call sites now spread `audience_scope: universeScopeToAudienceMarker(scope)` alongside `universe: universeScopeToPayload(scope)`. Call sites: `knowledge.tsx:316, 423, 520, 617`.
+
+Zero other SPA files touched. `spokesperson-ask-panel.tsx` (citation-add flow) is unchanged — that flow always sends `spokesperson_ids` so it produces CHARACTER; no marker needed.
+
+## §191. Exact serializer diff (`shell/apps/embeddings/serializers.py`)
+
+**Four changes:**
+
+**1.** Write-only ChoiceField added at `serializers.py:94-118`:
+
+```python
+audience_scope = serializers.ChoiceField(
+    write_only=True,
+    required=False,
+    allow_null=True,
+    choices=[("workspace", "Workspace-shared")],
+)
+```
+
+**2.** Field added to `Meta.fields` list. Not added to `read_only_fields` (write-only per the field decl).
+
+**3.** `validate()` extended with contradiction guard: rejects `audience_scope="workspace"` combined with `spokesperson_ids` or `universe`. Applied only on CREATE (`self.instance is None`); PATCH ignores the marker entirely.
+
+**4.** `create()` reads `validated_data.get("audience_scope") == "workspace"` into local `workspace_shared_intent`, forwards it to all three `ingest_text/pdf/url` call sites.
+
+`update()` extended with `validated_data.pop("audience_scope", None)` to silently drop the field on PATCH (audience-transition PATCH semantics are deferred).
+
+## §192. Exact ingestion diff (`shell/apps/embeddings/ingestion.py`)
+
+**Three changes:**
+
+**1.** `_persist` signature gains `workspace_shared_intent: bool = False`.
+
+**2.** CREATE branch precedence conditional extended from 3-way to 4-way:
+
+```python
+if spokespeople:
+    create_audience_scope = AudienceScope.CHARACTER
+    if workspace_shared_intent:
+        logger.warning("...")  # contradiction defensive log
+elif universe is not None:
+    create_audience_scope = AudienceScope.UNIVERSE
+    if workspace_shared_intent:
+        logger.warning("...")
+elif workspace_shared_intent:
+    create_audience_scope = AudienceScope.WORKSPACE
+else:
+    create_audience_scope = None
+```
+
+**3.** `ingest_text` / `ingest_pdf` / `ingest_url` signatures each gain `workspace_shared_intent: bool = False` and forward it to `_persist`.
+
+Revival branch (`_persist:126-218`) is **unchanged**. The marker cannot reach the revival branch's mutations because it's only referenced in the CREATE branch after the dedup miss.
+
+## §193. Fresh WORKSPACE result (Slice 12 Test A + API test)
+
+Backend test `test_slice12_A_explicit_workspace_marker_stamps_workspace`:
+
+```python
+ingest_text(workspace=ws, ..., workspace_shared_intent=True)
+# → audience_scope=WORKSPACE, universe=NULL, spokespeople=∅
+```
+
+DRF-boundary test `test_slice12_api_workspace_marker_stamps_workspace`:
+
+```
+POST /api/knowledge/ { workspace, title, text_content,
+                       audience_scope: "workspace" }
+→ 201 Created; doc.audience_scope == WORKSPACE
+```
+
+Both pass. Adversarial invariant NOT `(WORKSPACE AND universe non-NULL)` verified.
+
+## §194. Omission NULL result (Slice 12 Test B + API test)
+
+Backend + DRF: fresh create with no spokespeople + no universe + no marker → `audience_scope IS NULL`. **This is the load-bearing regression.** Prevents Slice 12 from accidentally reinstating "absence means broadcast." Non-SPA callers (mgmt commands, scripts, curl) unchanged.
+
+## §195. UNIVERSE regression (Slice 12 Test C)
+
+`ingest_text(..., universe=U)` still stamps `audience_scope=UNIVERSE` (Slice 11 behavior preserved). Universe precedence wins over marker absence.
+
+## §196. CHARACTER regression (Slice 12 Test D)
+
+`ingest_text(..., spokespeople=[a])` still stamps `audience_scope=CHARACTER` (Slice 10 behavior preserved). CHARACTER precedence wins over marker absence.
+
+## §197. Contradiction rejection (Slice 12 Tests E1, E2 + API tests)
+
+At `_persist` boundary (defensive):
+
+- `spokespeople + marker` → CHARACTER wins; logger warning fires.
+- `universe + marker` → UNIVERSE wins; logger warning fires.
+
+At DRF serializer boundary (primary):
+
+- `spokesperson_ids + audience_scope="workspace"` → **HTTP 400** with `{"audience_scope": "Cannot combine..."}`.
+- `universe + audience_scope="workspace"` → **HTTP 400** with `{"audience_scope": "Cannot combine..."}`.
+
+Additional DRF test: `test_slice12_api_rejects_invalid_audience_scope_value` — verifies that only `"workspace"` is a valid value. Payloads with `"character"`, `"universe"`, `"none"`, or arbitrary strings are rejected with 400. Ensures the marker cannot be used to stamp CHARACTER / UNIVERSE / NONE via the API.
+
+## §198. Revival regression (Slice 12 Test G)
+
+The load-bearing safety test. Sequence:
+
+1. Create KD attached to teammate A.
+2. Delete A → orphan-archive stamps `NONE` (Slice 8).
+3. Re-ingest same content with `workspace_shared_intent=True` but no `spokespeople`.
+4. **`OrphanRevivalRejected` raised** — SESSION 275/276 recovery invariant honored.
+5. Post-state: KD remains `is_active=False, audience_scope=NONE, deactivated_reason=ORPHANED_BY_TEAMMATE_DELETE`.
+
+The marker CANNOT bypass the orphan-revival CHARACTER-recovery gate. This preserves the entire SESSION 275/276 arc's core invariant against silent broadening via any recovery path.
+
+## §199. All-ingestion-types coverage (Slice 12 Tests F1, F2)
+
+Test F1: `ingest_pdf` with `workspace_shared_intent=True` (using mocked PDF extraction) produces `audience_scope=WORKSPACE`. Test F2: same for `ingest_url` with mocked URL fetch. All three ingestion transports (`text`, `pdf`, `url`) correctly thread the marker to `_persist`.
+
+## §200. SPA tests (new file `knowledge.audience-marker.test.tsx`)
+
+Vitest unit tests for the pure `universeScopeToAudienceMarker` helper and its two siblings:
+
+- Legacy sentinel → `"workspace"`
+- Universe UUID → `undefined`
+- Unpicked → `undefined`
+- Asymmetry invariant: helper only ever emits `"workspace"` OR `undefined` — never emits any other audience state (guards against Slice 12 silently absorbing CHARACTER/UNIVERSE inference into the marker path).
+- `universeScopeToPayload` behavior unchanged (throws on unpicked; returns null on sentinel; returns UUID otherwise).
+- `universeScopePicked` behavior unchanged.
+
+**10/10 SPA tests pass.**
+
+## §201. Regression results
+
+```
+$ pytest apps/embeddings/tests/test_ingestion.py \
+         apps/embeddings/tests/test_api.py \
+         apps/spokespeople/tests/test_delete_orphan_archive.py -v
+71 passed in 11.26s        # ingestion (28: 19 pre-Slice-12 + 9 new A-G) + DRF (27: 21 pre + 6 new)
+                            # + SESSION 275 lifecycle (15)
+
+$ pytest apps/embeddings/ apps/spokespeople/ apps/universe/ apps/compositions/ -q
+1675 passed, 2 warnings in 133.03s
+                            # broader — +15 from Slice 11's 1660 (9 ingestion + 6 API)
+
+$ pnpm exec vitest run
+651 passed across 48 files
+                            # SPA suite — +10 from prior baseline
+
+$ python manage.py makemigrations --check embeddings
+No changes detected in app 'embeddings'
+```
+
+Every existing test still passes. Zero regressions. 2 pre-existing DateTime warnings unrelated.
+
+## §202. Real-DB post-Slice-12 verification
+
+Code changed; real DB rows did not change. No create/PATCH executed against production data during Slice 12.
+
+```
+$ manage.py shell -c "..."
+total=72
+distribution={'universe': 3, 'character': 59, None: 10}
+inactive=0
+chunks=1149
+m2m=62
+```
+
+Byte-identical to Slice 7 §103 → 11 §179. **Zero drift across 6 consecutive slices.**
+
+## §203. Prediction vs actual
+
+| Prediction (§186 prediction) | Actual | Status |
+|---|---|---|
+| SPA workspace-share gesture provides positive intent | Confirmed via 4 create sites now passing `audience_scope: universeScopeToAudienceMarker(scope)` | ✓ |
+| Positive marker survives transport | Confirmed via API test → serializer → ingestion → `_persist` chain | ✓ |
+| Fresh explicit workspace share → WORKSPACE | Slice 12 Test A + API test pass | ✓ |
+| Omission remains NULL | Slice 12 Test B + API test pass | ✓ |
+| Universe remains UNIVERSE | Slice 12 Test C passes | ✓ |
+| Characters remain CHARACTER | Slice 12 Test D passes | ✓ |
+| Contradictory broad-audience payloads fail safely | Serializer 400s in E1/E2 API tests; `_persist` defensive precedence wins in E1/E2 backend tests | ✓ |
+| Orphan revival cannot use marker to bypass CHARACTER recovery contract | Slice 12 Test G confirmed `OrphanRevivalRejected` raised | ✓ |
+| Real DB unchanged | 72 KDs, same distribution, 0 inactive; 6 consecutive slices with zero drift | ✓ |
+
+**Q-276-26 CONFIRMED.** Zero falsifications. Zero unexpected findings.
+
+## §204. Files changed (Slice 12)
+
+```
+ M shell/apps/embeddings/ingestion.py                                        (+~45 lines net — 4-way precedence + workspace_shared_intent kwarg on _persist + ingest_text/pdf/url)
+ M shell/apps/embeddings/serializers.py                                      (+~55 lines net — write-only audience_scope field + Meta.fields + validate() contradiction + create() forwarding + update() drop)
+ M shell/apps/embeddings/tests/test_ingestion.py                             (+~230 lines — Slice 12 tests A/B/C/D/E1/E2/F1/F2/G)
+ M shell/apps/embeddings/tests/test_api.py                                   (+~155 lines — 6 DRF-boundary tests)
+ M web/src/lib/api/knowledge.ts                                              (+~15 lines — optional audience_scope field on CreateKnowledgePayload)
+ M web/src/routes/workspace/knowledge.tsx                                    (+~25 lines net — universeScopeToAudienceMarker helper + 4 call-site additions)
+?? web/src/routes/workspace/knowledge.audience-marker.test.tsx               (new — 84 lines, 10 tests)
+?? docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md                     (this Slice 12 section)
+```
+
+Zero migration / model / signal / admin / retrieval changes. Slice 12 is scoped strictly to the fresh-CREATE payload contract.
+
+## §205. Unresolved questions
+
+Carried from prior slices (all still open):
+
+- Serializer PATCH audience_scope transitions (currently silently dropped on PATCH — deferred).
+- Attach / detach audience transitions (Slice 3 §37.J detach-final hole still exists).
+- Universe reassignment audience implications.
+- Provenance direction Alpha vs Beta.
+- Retrieval predicate switch (Stage 5).
+- Operator triage UI for the 10 ambiguous rows (Stage 4).
+- DB CHECK constraints + NOT NULL cutover (Stage 6).
+- Bundle vs split (still open from Slice 1 §8.4).
+
+**No new Slice-12-specific unresolved questions.** Every case in the fresh-CREATE decision table (Slice 11 §174) now has a Delta-coherent behavior.
+
+## §206. Recommendation
+
+**Q-276-26 is confirmed. Delta fresh-CREATE contract is now complete for all four audience states.** Combined with Slice 10 (CHARACTER via spokespeople) + Slice 11 (UNIVERSE via universe FK), fresh CREATE now produces:
+
+| SPA operator gesture | Payload | `_persist` stamps |
+|---|---|---|
+| Pick spokesperson(s), any scope | `spokesperson_ids=[...]` | `CHARACTER` |
+| Pick UniverseScopePicker=Universe U, no character | `universe: <uuid>` | `UNIVERSE` |
+| Pick UniverseScopePicker="None (legacy)", no character | `universe: null, audience_scope: "workspace"` | `WORKSPACE` |
+| Non-SPA caller with no marker | (none) | `NULL` (transitional) |
+
+Slice 12 does not authorize any further work. Each subsequent step requires an independent Chris + ChatGPT decision:
+
+- **Attach / detach audience transitions** — the largest remaining Delta-invariant hole is the detach-final SPA gesture (Slice 3 §37.J) which currently produces the exact malformed CHARACTER + empty-M2M shape Delta was designed to prevent.
+- **Serializer PATCH audience_scope transitions** — needed for a general operator audience-change gesture.
+- **Retrieval predicate switch** (Stage 5) — once every mutation surface produces Delta-coherent rows, retrieval can begin keying on `audience_scope` positively.
+- **Legacy triage UI** for the 10 ambiguous rows (Stage 4).
+
+## §207. Explicit STOP gate
+
+**STOP.** Slice 12 authorizes no further work.
+
+Do NOT begin:
+
+- Serializer PATCH audience transitions
+- Attach / detach fixes
+- Universe reassignment transitions
+- Provenance work
+- Retrieval predicate change
+- Operator triage UI
+- DB CHECK constraints
+- NOT NULL cutover
+- UI redesign
+- Recovery UI
+
+## §208. Smallest recommended next question
+
+**Q-276-27.** *If the SPA `/detach/` endpoint (`web/src/components/knowledge-panel.tsx:199-210`) is extended so that detaching the last remaining spokesperson on an active CHARACTER-shape KD returns a specific 400 with a body describing the three legitimate operator options ("delete this document," "make it Universe-shared," "make it workspace-shared"), and the SPA UI surfaces those choices as a confirmation dialog, does the Slice 3 §37.J detach-final hole close without changing any existing detach behavior for count>1 KDs?*
+
+Falsifiable by:
+1. Extending `KnowledgeDocumentViewSet.detach` (`shell/apps/embeddings/views.py:146-159`) with a precondition check: if the detach would leave M2M empty on a CHARACTER-audience KD, return HTTP 400 with a JSON body naming the three options.
+2. Adding a SPA confirm dialog on the last-detach case that surfaces the three choices as buttons.
+3. Regression tests proving (a) count>1 detach unchanged, (b) count=1 detach on CHARACTER returns 400, (c) each recovery option (delete / promote-Universe / promote-Workspace) is Delta-coherent.
+
+Slice 12 completes fresh-CREATE Delta-coherence; Q-276-27 begins mutation-surface Delta-coherence for existing rows. Together they'd close the last two live SPA-facing audience-broadening paths Slice 3 §37 identified.
+
+## §209. Slice 12 checklist
+
+- [x] Step 0 — commit + push Slice 11 SHA-record (commit `bfd1282`)
+- [x] Slice 12 baseline verified — `main == origin/main == bfd1282`, working tree clean at slice start
+- [x] Q-276-26 falsifiable question stated (§186)
+- [x] Transport-path trace (§187) — pre-Slice-12 gap identified between SPA and `_persist`
+- [x] Payload contract defined (§188) — `audience_scope: "workspace" | undefined`, write-only + create-only, single valid value
+- [x] Precedence + contradiction rules defined (§189)
+- [x] SPA diff (§190) — `CreateKnowledgePayload` extended + `universeScopeToAudienceMarker` helper + 4 call sites
+- [x] Serializer diff (§191) — write-only ChoiceField + Meta.fields + `validate()` contradiction guard + `create()` forwarding + `update()` drop
+- [x] Ingestion diff (§192) — 4-way precedence + `workspace_shared_intent` kwarg on `_persist` + `ingest_text/pdf/url`
+- [x] Test A: explicit WORKSPACE marker stamps WORKSPACE (§193)
+- [x] Test B: omission remains NULL — load-bearing regression (§194)
+- [x] Test C: UNIVERSE regression unchanged (§195)
+- [x] Test D: CHARACTER regression unchanged (§196)
+- [x] Test E1/E2: contradiction rejection (`_persist` defensive + DRF 400) (§197)
+- [x] Test F1/F2: PDF and URL ingestion transports thread marker (§199)
+- [x] Test G: orphan revival gate cannot be bypassed by marker (§198)
+- [x] API tests (§193, §194, §197) — 6 new DRF-boundary tests including PATCH-ignores-marker
+- [x] SPA tests (§200) — 10 new Vitest tests for `universeScopeToAudienceMarker` + regression coverage of siblings
+- [x] Adversarial invariants — NOT `(WORKSPACE + universe non-NULL)`, NOT `(active + CHARACTER + empty M2M)`
+- [x] 71/71 combined ingestion + DRF + SESSION 275 lifecycle tests pass (§201)
+- [x] 1675/1675 broader backend regression pass (§201)
+- [x] 651/651 SPA suite pass (§201)
+- [x] `makemigrations --check embeddings` clean (§201)
+- [x] Real DB unchanged: 72 KDs, `CHARACTER=59, UNIVERSE=3, NULL=10, NONE=0, inactive=0` (§202)
+- [x] Prediction vs actual — Q-276-26 CONFIRMED (§203)
+- [x] Files changed inventory (§204)
+- [x] Explicit STOP gate (§207)
+- [x] Smallest next question Q-276-27 (§208)
+- [x] Zero PATCH audience / attach-detach / provenance / retrieval / migration / model / constraint changes; zero provider spend
+- [ ] Commit + push Slice 12
+- [ ] Chris + ChatGPT review + Slice 13 scoping decision (§206)
+
+---
+
+**End of SESSION 276 Slice 12 / Delta Stage 3B-4. Explicit WORKSPACE fresh-create marker landed end-to-end (SPA → DRF → `_persist`). Q-276-26 CONFIRMED — all four Delta audience states (CHARACTER, UNIVERSE, WORKSPACE, NONE) now produced by fresh CREATE with positive operator intent; non-SPA omission remains transitional NULL; contradictions rejected at DRF boundary with defensive precedence at `_persist`; orphan revival gate unbypassable by marker; real DB unchanged for 6th consecutive slice. STOP for Chris + ChatGPT review of §206 recommendation, §207 gate, and §208 Q-276-27 next question.**

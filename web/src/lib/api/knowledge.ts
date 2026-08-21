@@ -234,6 +234,16 @@ export interface CreateKnowledgePayload {
    * but the SPA MUST send an explicit value picked by the
    * operator — no silent workspace-wide default. */
   universe?: string | null;
+  /** SESSION 276 Slice 12 / Delta Stage 3B-4 (Q-276-26) —
+   * positive WORKSPACE fresh-create marker. Set to `"workspace"`
+   * ONLY when the operator explicitly picks the
+   * `UniverseScopePicker` "None (legacy — visible to workspace-wide
+   * legacy teammates only)" option. Omission remains the transitional
+   * NULL state (non-SPA callers). Do NOT combine with either
+   * `spokesperson_ids` or `universe` — backend rejects contradictory
+   * payloads with a 400. See
+   * docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md §186-§204. */
+  audience_scope?: "workspace";
 }
 
 export async function createKnowledge(

@@ -38,10 +38,12 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import Workspace
 from apps.embeddings.models import (
+    AudienceScope,
     DocumentStatus,
     DocumentType,
     KnowledgeDocument,
 )
+from apps.universe.models import Universe
 from apps.spokespeople.models import Teammate
 from django.contrib.auth import get_user_model
 
@@ -661,3 +663,177 @@ def _rows(body):
     if isinstance(body, dict) and "results" in body:
         return body["results"]
     return body
+
+
+# =====================================================================
+# SESSION 276 Slice 12 / Delta Stage 3B-4 (Q-276-26) — DRF-boundary
+# tests for the explicit WORKSPACE fresh-create marker. Covers the
+# serializer's contradiction rejection + write-only forwarding into
+# ``_persist``. Ingestion-boundary tests are in test_ingestion.py.
+# =====================================================================
+
+
+def test_slice12_api_workspace_marker_stamps_workspace() -> None:
+    """Slice 12 — end-to-end via DRF. Payload with the marker but
+    without ``spokesperson_ids`` or ``universe`` produces a
+    WORKSPACE-stamped KD."""
+    ws, user = _make_workspace_with_user("s12-w@k4.test", "S12WS")
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/knowledge/",
+        {
+            "workspace": str(ws.pk),
+            "title": "slice12-api-workspace",
+            "text_content": "Content marked workspace-shared at API.",
+            "audience_scope": "workspace",
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    body = response.json()
+
+    doc = KnowledgeDocument.objects.get(pk=body["id"])
+    assert doc.audience_scope == AudienceScope.WORKSPACE
+    assert doc.universe_id is None
+    assert doc.spokespeople.count() == 0
+
+
+def test_slice12_api_omission_remains_null() -> None:
+    """Slice 12 — DRF payload with no spokespeople + no Universe + no
+    marker must NOT be silently defaulted to WORKSPACE by the
+    serializer."""
+    ws, user = _make_workspace_with_user("s12-null@k4.test", "S12Null")
+    client = APIClient()
+    _login(client, user)
+
+    response = client.post(
+        "/api/knowledge/",
+        {
+            "workspace": str(ws.pk),
+            "title": "slice12-api-null",
+            "text_content": "Content with no marker at API.",
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_201_CREATED, response.content
+    body = response.json()
+
+    doc = KnowledgeDocument.objects.get(pk=body["id"])
+    assert doc.audience_scope is None, (
+        "DRF serializer must not silently default omission to WORKSPACE"
+    )
+
+
+def test_slice12_api_rejects_marker_with_spokespeople() -> None:
+    """Slice 12 — serializer rejects contradiction with 400."""
+    ws, user = _make_workspace_with_user("s12-cont-sp@k4.test", "S12CS")
+    client = APIClient()
+    _login(client, user)
+    a = Teammate.objects.create(workspace=ws, name="A")
+
+    response = client.post(
+        "/api/knowledge/",
+        {
+            "workspace": str(ws.pk),
+            "title": "slice12-api-contradiction-sp",
+            "text_content": "Contradictory payload.",
+            "spokesperson_ids": [str(a.pk)],
+            "audience_scope": "workspace",
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_400_BAD_REQUEST
+    body = response.json()
+    assert "audience_scope" in body or "non_field_errors" in body
+
+
+def test_slice12_api_rejects_marker_with_universe() -> None:
+    """Slice 12 — serializer rejects Universe + marker."""
+    ws, user = _make_workspace_with_user("s12-cont-u@k4.test", "S12CU")
+    client = APIClient()
+    _login(client, user)
+    u = Universe.objects.create(workspace=ws, name="S12CU U")
+
+    response = client.post(
+        "/api/knowledge/",
+        {
+            "workspace": str(ws.pk),
+            "title": "slice12-api-contradiction-u",
+            "text_content": "Contradictory payload with universe.",
+            "universe": str(u.pk),
+            "audience_scope": "workspace",
+        },
+        format="json",
+    )
+    assert response.status_code == http.HTTP_400_BAD_REQUEST
+    body = response.json()
+    assert "audience_scope" in body or "non_field_errors" in body
+
+
+def test_slice12_api_rejects_invalid_audience_scope_value() -> None:
+    """Slice 12 — only ``"workspace"`` is a valid marker value. The
+    serializer's ChoiceField rejects any other string with 400. Ensures
+    the marker cannot be used to stamp CHARACTER / UNIVERSE / NONE via
+    the API — those states only derive from their positive inputs."""
+    ws, user = _make_workspace_with_user("s12-bad@k4.test", "S12Bad")
+    client = APIClient()
+    _login(client, user)
+
+    for bad_value in ("character", "universe", "none", "anything"):
+        response = client.post(
+            "/api/knowledge/",
+            {
+                "workspace": str(ws.pk),
+                "title": f"slice12-bad-{bad_value}",
+                "text_content": "Content with bad marker.",
+                "audience_scope": bad_value,
+            },
+            format="json",
+        )
+        assert response.status_code == http.HTTP_400_BAD_REQUEST, (
+            f"expected 400 for audience_scope={bad_value!r}, got "
+            f"{response.status_code}: {response.content}"
+        )
+
+
+def test_slice12_api_patch_ignores_marker() -> None:
+    """Slice 12 — PATCH must silently ignore the marker (create-only).
+    An existing CHARACTER-scoped row must not be transitioned to
+    WORKSPACE by PATCHing ``audience_scope=workspace``.
+    """
+    ws, user = _make_workspace_with_user("s12-patch@k4.test", "S12P")
+    client = APIClient()
+    _login(client, user)
+    a = Teammate.objects.create(workspace=ws, name="A")
+
+    # Create a CHARACTER-scoped KD via existing path.
+    create_resp = client.post(
+        "/api/knowledge/",
+        {
+            "workspace": str(ws.pk),
+            "title": "slice12-patch-target",
+            "text_content": "Character-scoped content.",
+            "spokesperson_ids": [str(a.pk)],
+        },
+        format="json",
+    )
+    assert create_resp.status_code == http.HTTP_201_CREATED
+    kd_id = create_resp.json()["id"]
+    kd = KnowledgeDocument.objects.get(pk=kd_id)
+    assert kd.audience_scope == AudienceScope.CHARACTER
+
+    # PATCH with the marker — should be silently ignored, not applied.
+    patch_resp = client.patch(
+        f"/api/knowledge/{kd_id}/",
+        {"audience_scope": "workspace"},
+        format="json",
+    )
+    # PATCH should succeed (200) — the field is silently dropped.
+    assert patch_resp.status_code == http.HTTP_200_OK, patch_resp.content
+    kd.refresh_from_db()
+    assert kd.audience_scope == AudienceScope.CHARACTER, (
+        "PATCH must not transition audience_scope via the marker"
+    )
+    assert list(kd.spokespeople.values_list("pk", flat=True)) == [a.pk]

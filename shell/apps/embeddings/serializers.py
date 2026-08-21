@@ -96,6 +96,24 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
         required=False,
         default=False,
     )
+    # SESSION 276 Slice 12 / Delta Stage 3B-4 (Q-276-26) — positive
+    # WORKSPACE fresh-create marker. Only ``"workspace"`` is a valid
+    # value in this slice; CHARACTER and UNIVERSE audience states
+    # continue to derive from their already-proven positive inputs
+    # (``spokesperson_ids`` and ``universe`` respectively). This
+    # marker exists so the SPA's "None (legacy)" gesture in
+    # ``UniverseScopePicker`` (which the operator explicitly picks)
+    # carries positive intent through DRF into ``ingest_*``; non-SPA
+    # callers that omit the marker continue to produce
+    # ``audience_scope=NULL`` — no absence-means-broadcast
+    # reinterpretation. Write-only + create-only (PATCH ignores).
+    # See docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md §186-§204.
+    audience_scope = serializers.ChoiceField(
+        write_only=True,
+        required=False,
+        allow_null=True,
+        choices=[("workspace", "Workspace-shared")],
+    )
 
     class Meta:
         model = KnowledgeDocument
@@ -133,6 +151,8 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
             "pdf_data_uri",
             "source_url_input",
             "via_serper",
+            # SESSION 276 Slice 12 — WORKSPACE fresh-create marker.
+            "audience_scope",
         ]
         read_only_fields = [
             "id",
@@ -231,7 +251,36 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
                         f"Universe. Bad: {bad_universe}"
                     ),
                 })
-        elif spokespeople and universe is None:
+        # SESSION 276 Slice 12 / Delta Stage 3B-4 (Q-276-26) — reject
+        # contradictory positive-audience payloads at the create
+        # boundary rather than silently reinterpreting. Precedence
+        # (per §189): spokespeople > universe > workspace marker >
+        # NULL. If the caller sends more than one positive-audience
+        # signal, that's a bug — surface it as a clean 400.
+        #
+        # Applied only on CREATE (``self.instance is None``); PATCH
+        # ignores the marker entirely so revival / metadata edits
+        # can't smuggle audience transitions through this field.
+        audience_scope_intent = attrs.get("audience_scope")
+        if self.instance is None and audience_scope_intent == "workspace":
+            if spokespeople:
+                raise serializers.ValidationError({
+                    "audience_scope": (
+                        "Cannot combine ``audience_scope='workspace'`` with "
+                        "explicit spokespeople — the two positive-audience "
+                        "signals contradict. Send one or the other."
+                    ),
+                })
+            if universe is not None:
+                raise serializers.ValidationError({
+                    "audience_scope": (
+                        "Cannot combine ``audience_scope='workspace'`` with "
+                        "an explicit Universe — the two positive-audience "
+                        "signals contradict. Send one or the other."
+                    ),
+                })
+
+        if spokespeople and universe is None:
             # Doc is legacy; spokespeople must also be legacy.
             bad_legacy = [
                 sp.name for sp in spokespeople if sp.universe_id is not None
@@ -296,6 +345,14 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
         pdf_uri = (validated_data.get("pdf_data_uri") or "").strip()
         source_url = (validated_data.get("source_url_input") or "").strip()
         via_serper = bool(validated_data.get("via_serper") or False)
+        # SESSION 276 Slice 12 / Delta Stage 3B-4 (Q-276-26) —
+        # positive WORKSPACE fresh-create marker. Only ``"workspace"``
+        # is a valid value; contradiction with spokespeople / universe
+        # rejected in ``validate()`` above. Forwarded to ``ingest_*``
+        # as ``workspace_shared_intent=True`` when present.
+        workspace_shared_intent = (
+            validated_data.get("audience_scope") == "workspace"
+        )
 
         request = self.context.get("request")
         created_by = request.user if request and request.user.is_authenticated else None
@@ -310,6 +367,7 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
                     spokespeople=spokespeople,
                     created_by=created_by,
                     universe=universe,
+                    workspace_shared_intent=workspace_shared_intent,
                 )
             except ingestion.pdf.PdfExtractionError as exc:
                 raise serializers.ValidationError({
@@ -330,6 +388,7 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
                     created_by=created_by,
                     ingested_via=IngestedVia.SERPER if via_serper else IngestedVia.PASTE,
                     universe=universe,
+                    workspace_shared_intent=workspace_shared_intent,
                 )
             except ingestion.url_fetch.UrlFetchError as exc:
                 raise serializers.ValidationError({
@@ -357,6 +416,7 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
                     spokespeople=spokespeople,
                     created_by=created_by,
                     universe=universe,
+                    workspace_shared_intent=workspace_shared_intent,
                 )
             except ingestion.OrphanRevivalRejected as exc:
                 raise serializers.ValidationError({
@@ -408,6 +468,11 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
                     ),
                 })
         validated_data.pop("via_serper", None)
+        # SESSION 276 Slice 12 — ``audience_scope`` write-only marker
+        # is create-only; PATCH must ignore it silently. Audience-
+        # transition PATCH semantics are deferred to a future slice
+        # with its own falsifiable question.
+        validated_data.pop("audience_scope", None)
 
         text_content = validated_data.pop("text_content", None)
         content_changed = False
