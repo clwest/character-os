@@ -6595,11 +6595,13 @@ Chris's product-order preference decides which lands first. §316 makes Q-276-33
 - [x] Explicit STOP gate (§319)
 - [x] Smallest next questions Q-276-33 / Q-276-34 (§320)
 - [x] Zero SPA changes; zero migration; zero retrieval.py modification; zero model / serializer / ingestion / signals mutation; zero legacy row mutation; zero NOT NULL constraint; zero provider spend
-- [ ] Commit + push Slice 17
+- [x] Commit + push Slice 17 — landed as `6e7bd6c`
 - [ ] Chris + ChatGPT review + next slice scoping decision
 
 ---
 
 **End of SESSION 276 Slice 17 / Delta Stage 5B. SPA-list `?spokesperson=` filter now Delta-coherent: positive `audience_scope`-keyed visibility mirroring Slice 16 retrieval; NULL fallback preserves legacy shape byte-identically for the 10 unresolved historical rows; NONE and future unknown values fail closed at both retrieval + LIST layers; Universe scoping asymmetry preserved (LIST is explicit via `?universe=`; retrieval auto-derives from spokesperson). 12/12 Slice 17 tests + 303/303 embeddings + 656/656 SPA + 16/16 real-DB LIST equivalence teammates. Real DB unchanged for 11th consecutive slice. Every mutation surface AND both audience-filtered read surfaces are now Delta-invariant enforced end-to-end. Operator legacy-cleanup decision for 9 chriss-workspace historical rows recorded durably (§316). STOP for Chris + ChatGPT review of §318 recommendation, §319 gate, §320 next-question candidates.**
+
+**Slice 17 landed commit SHA:** `6e7bd6c` (`feat(session-276): Slice 17 / Delta Stage 5B — SPA-list ?spokesperson= cutover to positive audience_scope predicate`). Pushed to `origin/main`. Post-push `main == origin/main == 6e7bd6c`; working tree clean.
 
 
