@@ -375,6 +375,13 @@ ALLOWED_FILES = {
     # still returns provenance for archived KDs. Same sanction as
     # the retrieval truth-table tests.
     "apps/spokespeople/tests/test_delete_orphan_archive.py",
+    # SESSION 276 Slice 16 — Delta retrieval-cutover regression tests.
+    # Directly seeds KnowledgeChunk rows to exercise the positive
+    # ``audience_scope``-keyed predicate (NULL fallback / CHARACTER /
+    # UNIVERSE / WORKSPACE / NONE / unknown-value fail-closed) and to
+    # verify the ``resolve_chunk_ids_to_docs`` provenance carve-out
+    # is unaffected. Same sanction as the truth-table tests.
+    "apps/embeddings/tests/test_retrieval_delta_slice16.py",
 }
 
 # The pattern we actually care about: ``<Model>.objects`` —

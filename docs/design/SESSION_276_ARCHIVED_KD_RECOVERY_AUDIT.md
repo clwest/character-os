@@ -5866,3 +5866,371 @@ Load-bearing fingerprints remain: SET_NULL on a related row (CharacterIdentity /
 ---
 
 **End of Riggs correction. No code change; no DB mutation. Slice 16 (Q-276-30) authorization is unchanged and proceeds after this correction is committed.**
+
+---
+
+# SESSION 276 — Slice 16 / Delta Stage 5A — retrieval cutover to positive `audience_scope` predicate (Q-276-30)
+
+Falsifiable question, real-DB equivalence proof, narrow implementation of the Delta predicate at `shell/apps/embeddings/retrieval.py:retrieve_for_teammate`, and post-cutover regression evidence.
+
+## §280. Slice 16 falsifiable question — Q-276-30
+
+> If the retrieval predicate at `shell/apps/embeddings/retrieval.py:194-224` is switched to key positively on `audience_scope` (Slice 4 §53 design) with a compatibility fallback for `audience_scope IS NULL` legacy rows (10 rows in real DB), does every existing retrieval test pass unchanged AND does every audience-classified row (62 of 72) produce the same effective audience under the new predicate as under the current legacy predicate?
+
+## §281. Predictions before evidence
+
+1. The Delta predicate is byte-identical to the legacy predicate for every CHARACTER row (M2M non-empty by invariant → both predicates reduce to "teammate in M2M").
+2. The Delta predicate is byte-identical for every UNIVERSE row (M2M empty by evidence-backed intentional classification → legacy passes on `spokespeople__isnull=True`; Delta passes on `audience_scope=UNIVERSE`).
+3. The NULL fallback branch preserves legacy shape-derived behavior verbatim for the 10 unresolved historical rows.
+4. NONE and any future unknown `audience_scope` value fail closed under Delta.
+5. The provenance carve-out (`resolve_chunk_ids_to_docs`) is untouched by Slice 16 and remains audience-agnostic.
+6. Existing embeddings tests (~277 pre-change) pass unchanged post-cutover because the NULL fallback preserves the shape the fixtures create.
+7. Real DB is byte-identical before and after cutover (read-only architectural change; no mutations).
+
+## §282. Real-DB pre-Slice-16 baseline
+
+Executed 2026-08-21 at Slice 16 start (post Riggs correction commit `87802bd`; base for Slice 16 code work):
+
+```
+total=72   by_scope={None: 10, 'character': 59, 'universe': 3}
+inactive=0   chunks=1149   m2m_nonempty=59
+```
+
+Matches Slice 15 §272 fingerprint (72 KDs, 59 CHARACTER + 3 UNIVERSE + 10 NULL + 0 NONE + 0 inactive). Distribution stable for 10 consecutive slices.
+
+## §283. Retrieval entry point inventory (Q-276-30 Part A)
+
+Five buckets, per authorization scope. Only Bucket 1 is Slice 16's target.
+
+### §283.1 Bucket 1 — Audience-filtered semantic retrieval (SLICE 16 TARGET)
+
+- **`retrieve_for_teammate`** (`shell/apps/embeddings/retrieval.py:159-226`). THE canonical audience-filtered retrieval. Production callers:
+  - `character_os/realtime_document.py:131` — realtime document lookup
+  - `character_os/script_synthesis.py:422, 438` — script/video synthesis
+  - `character_os/teammate_ask.py:188, 213` — teammate ask
+  - `character_os/dialogue_synthesis.py:1490` — per-character dialogue lane
+  - `apps/realtime/tools/recall_knowledge.py:92` — realtime tool
+  - `apps/embeddings/views.py:391` — knowledge preview endpoint
+- **`retrieve_for_thread`** (`retrieval.py:229-279`). Delegates to `retrieve_for_teammate` for its doc-chunk half; predicate inherited transparently. Production callers: `character_os/conversation_synthesis.py:128, 143`.
+
+### §283.2 Bucket 2 — Provenance resolution (PROVENANCE CARVE-OUT — must NOT change)
+
+- **`resolve_chunk_ids_to_docs`** (`retrieval.py:63-118`). Intentionally does NOT filter `is_active` or audience; resolves already-recorded chunk IDs into a doc-level summary. Callers: `apps/compositions/serializers.py:388`, `apps/scripts/serializers.py:166`. Slice 16 leaves this function byte-identical.
+- **`list_chunk_ids_for_document`** (`retrieval.py:121-136`). Lists all chunk IDs of a given document; audience is the caller's responsibility. Unchanged.
+- **`count_chunks_for_workspace`** (`retrieval.py:139-156`). Workspace-level chunk count; filters `is_active` but NOT audience (aggregate, not per-teammate view). Unchanged.
+
+### §283.3 Bucket 3 — Admin/operator listing (SPA `/api/knowledge/`)
+
+- **`KnowledgeDocumentViewSet.get_queryset`** (`shell/apps/embeddings/views.py:62-108`). LIST endpoint. Optional `?spokesperson=<uuid>` filter (lines 86-90) uses the pre-Delta shape `Q(spokespeople__isnull=True) | Q(spokespeople=<id>)` and mirrors legacy semantics identically to the audience row of the retrieval predicate. **Out of Slice 16 scope** — the SPA list surface is a separate cutover slice (Q-276-30 explicitly scopes to `retrieval.py:194-224`). Flagged here as follow-up.
+
+### §283.4 Bucket 4 — Ingestion dedup (not audience retrieval)
+
+- **`ingestion._persist`** at `apps/embeddings/ingestion.py:124, 302, 330` — per-workspace CREATE/UPDATE dedup lookups; not audience-filtered retrieval. Untouched by Slice 16.
+
+### §283.5 Bucket 5 — Other retrieval lanes (independent contracts)
+
+- **`retrieve_universe_canon`** (`retrieval.py:282-413`) — SESSION 263 shared-tier lane with its own "M2M empty OR M2M covers every cast member" predicate. Distinct semantic contract; independent Delta consideration for a future slice. Untouched.
+- **`retrieve_universe_memory`** (`retrieval.py:439-543`) — SESSION 264 lane returning `NarrativeMemory`, not `KnowledgeChunk`. Different model entirely; not in `audience_scope` scope. Untouched.
+
+## §284. Exact legacy predicate (pre-Slice-16)
+
+`retrieval.py:194-224` verbatim (audience portion only; workspace + `is_active=True` + `status="processed"` + universe filters remain byte-identical under Slice 16):
+
+```python
+qs = (
+    qs.filter(
+        Q(document__spokespeople__isnull=True)
+        | Q(document__spokespeople=spokesperson)
+    )
+    .distinct()
+    .annotate(distance=CosineDistance("embedding_vector", vector))
+    .order_by("distance")
+)
+```
+
+Legacy semantics: a doc is audience-visible if its M2M is empty (broadcast) OR the retrieving spokesperson is in its M2M.
+
+## §285. Delta predicate design + NULL compatibility contract
+
+Matches Slice 4 §54 equivalence table row-by-row.
+
+```python
+qs = (
+    qs.filter(
+        # NULL compatibility (10 legacy rows) — legacy shape verbatim
+        (
+            Q(document__audience_scope__isnull=True)
+            & (
+                Q(document__spokespeople__isnull=True)
+                | Q(document__spokespeople=spokesperson)
+            )
+        )
+        # CHARACTER — explicit M2M membership required
+        | Q(
+            document__audience_scope=AudienceScope.CHARACTER,
+            document__spokespeople=spokesperson,
+        )
+        # UNIVERSE — broadcast within Universe (universe filter above
+        # already narrows to matching universe_id)
+        | Q(document__audience_scope=AudienceScope.UNIVERSE)
+        # WORKSPACE — legacy broadcast within workspace-with-no-Universe.
+        # Universe filter above enforces NULL-vs-NULL match.
+        | Q(document__audience_scope=AudienceScope.WORKSPACE)
+        # NONE / any future unknown value: no Q branch → fail closed
+    )
+    .distinct()
+    .annotate(distance=CosineDistance("embedding_vector", vector))
+    .order_by("distance")
+)
+```
+
+**NULL compatibility contract (load-bearing).**
+
+The NULL fallback branch matches EXACTLY `audience_scope IS NULL` (`__isnull=True`), NOT "anything other than the known values." Consequences:
+
+- **Preserves** legacy shape-derived semantics for the 10 unresolved historical NULL rows byte-identically.
+- **Preserves** it for any future row that somehow slips past all Delta write-boundary guards and lands with `audience_scope=NULL` (defense in depth).
+- **Fails closed** for any future unknown `audience_scope` value (e.g., an experimental `LEGACY_EXPERIMENTAL` scope introduced without predicate coverage) — the value does not match the NULL branch (`__isnull=True` is False) and does not match any CHARACTER / UNIVERSE / WORKSPACE branch. Invisible to every teammate until a predicate branch is explicitly added.
+
+**NONE also fails closed** by the same construction (no matching Q branch). Combined with the existing `is_active=True` filter this is defense in depth: NONE rows are ALSO inactive by the Stage-3A orphan-archive contract (Slice 8), so retrieval would already reject them. The Delta predicate now rejects them a second time on scope grounds.
+
+## §286. 62-row real-DB equivalence proof
+
+Executed 2026-08-21 against the real DB via a read-only Python script (`/tmp/slice16_equivalence_proof.py`) that enumerated every `(doc, teammate)` pair in the active + processed dataset and compared visibility under both predicates.
+
+**Result:**
+
+```
+Total KDs (all): 72
+Scope distribution (all): {None: 10, 'character': 59, 'universe': 3}
+Scope distribution (is_active=True, status=processed): {None: 10, 'character': 59, 'universe': 3}
+
+Total (doc, teammate) pairs evaluated: 250
+  Pairs on CLASSIFIED rows (CHARACTER/UNIVERSE/WORKSPACE): 176
+  Pairs on NULL-fallback rows: 74
+  Per-scope pair counts: {'CHARACTER': 166, 'UNIVERSE': 10, 'WORKSPACE': 0, 'NULL': 74, 'NONE': 0}
+
+Divergences (legacy != delta): 0
+  Per-scope divergence counts: {'CHARACTER': 0, 'UNIVERSE': 0, 'WORKSPACE': 0, 'NULL': 0, 'NONE': 0}
+
+*** EQUIVALENCE PROVEN ***
+```
+
+**Interpretation.**
+
+- Q-276-30 asked for equivalence over the 62 *classified* rows. The scan actually evaluates all 72 active rows against all workspace teammates (250 pairs total), extending the guarantee beyond the classified subset.
+- **176 pairs on classified rows** span every combination of (CHARACTER doc, teammate in workspace) plus (UNIVERSE doc, universe-matching teammate). All 176 identical.
+- **74 pairs on NULL-fallback rows** span the 10 historical NULL rows against their workspace teammates. All 74 identical — the NULL fallback branch preserves legacy shape byte-identically as designed.
+- **0 WORKSPACE pairs** because the real DB has 0 WORKSPACE-scoped rows today (Slice 4 §55 finding preserved). The predicate branch is design-covered but has no live rows to test — Slice 16 tests §291.I / §291.J synthesize such rows to exercise the branch.
+- **0 NONE pairs** because the real DB has 0 NONE-scoped rows (no orphan-archive has ever fired in production; Slice 4 §55.3 finding preserved).
+
+Re-executed post-implementation with identical output. Real DB is byte-identical before and after the code change.
+
+## §287. Retrieval-test baseline (pre-change)
+
+Executed against `main == 87802bd` prior to code change:
+
+```
+apps/embeddings/tests/  →  277 passed
+```
+
+Includes the load-bearing `test_retrieval_privacy` (cross-workspace / M2M / cross-thread isolation), `test_retrieval_universe` (9-row truth table), `test_retrieval_universe_canon`, `test_retrieval_universe_memory`, and `test_preview` suites.
+
+## §288. Implementation gate assessment
+
+| # | Condition | Status | Evidence |
+|---|---|---|---|
+| 1 | 62/62 real-DB equivalence | ✅ PASS | §286 — 176/176 classified pairs identical; 74/74 NULL pairs identical (250/250 total) |
+| 2 | NONE / malformed fail closed | ✅ PASS | §285 — no Q branch for NONE; unknown scopes excluded by construction |
+| 3 | NULL compatibility preserves legacy for 10 unresolved rows | ✅ PASS | §286 — 74/74 NULL pairs byte-identical |
+| 4 | NULL fallback = `audience_scope IS NULL` exactly (not "other-than-known") | ✅ PASS | §285 — branch uses `__isnull=True`; unknown values fail closed |
+| 5 | Provenance carve-out (`resolve_chunk_ids_to_docs`) unchanged | ✅ PASS | §283.2; §291.N verifies |
+| 6 | Other retrieval lanes (`universe_canon`, `universe_memory`) unchanged | ✅ PASS | §283.5 — untouched by Slice 16 diff (§289) |
+| 7 | Existing retrieval test suite passes pre-change | ✅ PASS | §287 — 277 embeddings tests pass on base commit |
+
+All 7 conditions pass. Implementation authorized and executed (§289).
+
+## §289. Exact implementation diff
+
+Two hunks in `shell/apps/embeddings/retrieval.py`:
+
+**Hunk 1** — add `AudienceScope` import (line 47):
+
+```python
+# before
+from .models import KnowledgeChunk, KnowledgeDocument
+
+# after
+from .models import AudienceScope, KnowledgeChunk, KnowledgeDocument
+```
+
+**Hunk 2** — replace audience block at lines 216-224 with the Delta predicate. Workspace + `is_active=True` + `status="processed"` + universe filter (lines 194-214) are byte-identical to pre-Slice-16. Only the audience-M2M section changes:
+
+```python
+# Removed (legacy)
+qs = (
+    qs.filter(
+        Q(document__spokespeople__isnull=True)
+        | Q(document__spokespeople=spokesperson)
+    )
+    .distinct()
+    .annotate(distance=CosineDistance("embedding_vector", vector))
+    .order_by("distance")
+)
+
+# Added (Delta) — see §285 for full block + load-bearing comment
+qs = (
+    qs.filter(
+        (Q(document__audience_scope__isnull=True)
+         & (Q(document__spokespeople__isnull=True)
+            | Q(document__spokespeople=spokesperson)))
+        | Q(document__audience_scope=AudienceScope.CHARACTER,
+            document__spokespeople=spokesperson)
+        | Q(document__audience_scope=AudienceScope.UNIVERSE)
+        | Q(document__audience_scope=AudienceScope.WORKSPACE)
+    )
+    .distinct()
+    .annotate(distance=CosineDistance("embedding_vector", vector))
+    .order_by("distance")
+)
+```
+
+The block is documented with a 25-line comment restating the four load-bearing properties (NULL fallback exactness; NULL preservation for 10 legacy rows; NONE fail-closed; UNIVERSE / WORKSPACE reliance on the universe filter above).
+
+Plus one hunk in `shell/apps/embeddings/tests/test_retrieval_privacy.py` — add `test_retrieval_delta_slice16.py` to `ALLOWED_FILES` per K0 rule 2 sanction pattern (identical to the sanction for `test_retrieval_universe.py`, `test_retrieval_universe_canon.py`, etc.).
+
+## §290. Slice 16-specific tests (`test_retrieval_delta_slice16.py`)
+
+New file. 14 tests A-N exercising every Delta predicate branch.
+
+- **A / B — NULL fallback preservation.** `NULL + M2M empty → broadcasts`; `NULL + M2M={T} → visible only to T`. Load-bearing that the compatibility branch preserves legacy byte-identically.
+- **C / D / E — CHARACTER.** Visible only to M2M members. E is the load-bearing "CHARACTER + M2M={A} must NOT surface to B" check.
+- **F / G / H — UNIVERSE.** Visible to same-universe teammates; NOT visible to legacy (no-Universe) teammates or different-Universe teammates (universe filter enforces).
+- **I / J — WORKSPACE.** Visible to legacy teammates; NOT visible to universe-scoped teammates (universe filter enforces NULL-vs-NULL).
+- **K — NONE fail-closed.** Row with `audience_scope=NONE` + M2M={T} + `is_active=True` (deliberately breaking the archive invariant for the test) still NOT visible. Defense in depth against a hypothetical is_active gate bug.
+- **L — Unknown scope fail-closed.** Row with `audience_scope="future_x"` (fits `max_length=20`; not in the enum) + M2M={T} still NOT visible. Load-bearing: the NULL fallback matches EXACTLY `IS NULL`, not "other-than-known." Directly falsifies any future implementation drift that silently broadcasts unknown values.
+- **M — Multi-scope union correctness.** A teammate in Universe U sees CHARACTER-with-M2M-membership + UNIVERSE-with-matching-universe; does NOT see UNIVERSE-with-other-universe or WORKSPACE-canon (they have universe=NULL).
+- **N — Provenance carve-out unchanged.** `resolve_chunk_ids_to_docs` surfaces a chunk from an A-only CHARACTER doc even when the caller is teammate B who cannot see the doc via `retrieve_for_teammate`. Proves the carve-out remains audience-agnostic.
+
+**Result:** 14/14 pass.
+
+## §291. Regression results
+
+- **`apps/embeddings/tests/` post-cutover:** 291 passed (277 pre-change + 14 new Slice 16 tests). Zero regressions in the pre-existing 277.
+- **Full backend regression (`apps/` + `character_os/`):** 2857 passed, 81 failed, 1 skipped. All 81 failures are pre-existing on base commit `87802bd`:
+  - 79 in `apps/bootstrap_review/` (unrelated substrate — verified failing on base with Slice 16 changes stashed).
+  - 1 in `character_os/clients/tests/test_media_engine_timeouts.py::test_downstream_deadlines_covers_every_client_method` — missing `image_overlay` in `DOWNSTREAM_DEADLINES_S`; pre-existing media-engine client debt unrelated to retrieval.
+  - 1 in `apps/embeddings/tests/test_retrieval_privacy.py::test_only_retrieval_module_queries_chunk_tables` — caused by the new `test_retrieval_delta_slice16.py` file querying `KnowledgeChunk.objects.create` in its fixture helper; resolved in-slice by adding the new file to `ALLOWED_FILES` (identical sanction pattern as prior retrieval-truth-table tests). After the fix: 0 Slice 16-caused failures.
+- **Net effect of Slice 16 on regression:** zero new failures across the full backend suite.
+
+## §292. Post-cutover real-DB fingerprint
+
+Executed post-implementation:
+
+```
+total=72   by_scope={None: 10, 'character': 59, 'universe': 3}
+inactive=0   chunks=1149   m2m_nonempty=59
+```
+
+Unchanged from §282 pre-baseline. **Real DB byte-identical for the 10th consecutive slice.** No writes; no schema changes; no migration; no admin/operator triage triggered.
+
+Equivalence proof re-executed post-code-change: **0 divergences across 250 pairs** — identical to pre-implementation proof.
+
+## §293. Prediction vs actual
+
+| Prediction (§281) | Evidence |
+|---|---|
+| 1. CHARACTER byte-identical | ✓ 166/166 CHARACTER pairs identical |
+| 2. UNIVERSE byte-identical | ✓ 10/10 UNIVERSE pairs identical |
+| 3. NULL fallback preserves legacy | ✓ 74/74 NULL pairs identical |
+| 4. NONE + unknown fail closed | ✓ Tests K, L pass |
+| 5. Provenance carve-out untouched | ✓ Test N + no diff to `resolve_chunk_ids_to_docs` |
+| 6. Existing tests pass unchanged | ✓ 277/277 pre-existing embeddings tests pass |
+| 7. Real DB byte-identical | ✓ Fingerprint unchanged (§292) |
+
+7/7 predictions supported.
+
+## §294. Files changed (Slice 16)
+
+- `shell/apps/embeddings/retrieval.py` — 2 hunks (imports + audience block). Net: −5 lines, +40 lines including the 25-line load-bearing comment.
+- `shell/apps/embeddings/tests/test_retrieval_privacy.py` — 1 hunk (7 lines added to `ALLOWED_FILES`).
+- `shell/apps/embeddings/tests/test_retrieval_delta_slice16.py` — new file (~320 lines; 14 tests).
+- `docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md` — this Slice 16 appendix (§280-§302).
+
+**No touched:** models.py, migrations, serializers.py, ingestion.py, views.py (LIST filter), signals.py, admin.py, any SPA file, any other retrieval helper, any composition/dialogue/talking-head/preview production caller (they consume `retrieve_for_teammate` transparently).
+
+## §295. Unresolved questions
+
+1. **SPA list `?spokesperson=` filter (Bucket 3 in §283.3).** `KnowledgeDocumentViewSet.get_queryset` at `views.py:86-90` still uses the pre-Delta shape `Q(spokespeople__isnull=True) | Q(spokespeople=<id>)`. Under the current DB it produces identical results (same equivalence proof applies) but it is not YET keyed on `audience_scope`. A future slice (Q-276-31 candidate) could cut it over for shape uniformity; this is *not* invariant-required because the SPA list is authenticated + workspace-scoped and Chris's own workspace.
+2. **`retrieve_universe_canon` shared-tier predicate.** SESSION 263 lane uses a distinct "M2M empty OR M2M covers cast" predicate. Under Delta it could be reformulated positively (audience_scope=UNIVERSE for the empty case; audience_scope=CHARACTER + full-cast M2M for the "covers all" case). Not blocking — the current implementation is Delta-invariant-safe (universe filter + shape); reformulation is aesthetic / future stage 5B.
+3. **Stage 6 removal of the NULL fallback.** Once the 10 unresolved rows are triaged by the operator, the NULL branch can be removed and the CHARACTER / UNIVERSE / WORKSPACE branches tightened. That is a separate Delta Stage 6 slice — not authorized by Q-276-30. Slice 16 leaves the fallback in place indefinitely.
+4. **Bucket 3 flag decision.** Does Chris want the SPA list cutover bundled with the next slice, or held for a later dedicated cutover?
+
+## §296. Recommendation
+
+**Slice 16 is complete and safe to land.** All 7 gate conditions passed with evidence. Real DB byte-identical. Legacy retrieval semantics preserved for every existing row. Positive predicate now enforces `audience_scope`-keyed visibility; NONE and future unknown values fail closed; provenance carve-out unchanged.
+
+The retrieval surface is now Delta-coherent. Combined with:
+- Slice 8 (orphan-archive stamps `NONE`),
+- Slice 9 (revival lands directly at `CHARACTER`),
+- Slice 10 (fresh CREATE → CHARACTER),
+- Slice 11 (fresh CREATE UNIVERSE inference),
+- Slice 12 (explicit WORKSPACE marker),
+- Slice 13 (final-detach fails closed),
+- Slice 14 (PATCH empty M2M fails closed),
+- Slice 15 (Universe reassignment shape guards),
+
+the load-bearing invariants of Direction Delta are enforced end-to-end at every mutation surface AND at the retrieval predicate. The remaining Delta work is:
+- Stage 5B — companion cutovers (SPA list filter; universe_canon reformulation) — cosmetic.
+- Stage 6 — remove the NULL fallback + add a DB-level `NOT NULL CHECK` + `audience_scope` column constraint — requires operator triage of the 10 unresolved rows first.
+- Stage 7 — Legacy row triage — the operator-facing "here are the 10 undecided rows, choose CHARACTER / WORKSPACE / NONE for each" UI.
+
+## §297. Explicit STOP gate
+
+STOP before Stage 5B or Stage 6. Review Slice 16 evidence with Chris + ChatGPT.
+
+- Does Chris want to bundle the SPA list `?spokesperson=` filter cutover with the next slice?
+- Does the universe_canon reformulation (§295.2) belong in Delta Stage 5B or is it deferred until after Stage 7 (legacy triage) when the 10 NULL rows are gone?
+- Is there any real-world workflow (talking-head render, dialogue synthesis, teammate ask, realtime doc lookup, or preview) Chris wants to smoke-test on the running dogfood workspace before we consider Slice 16 sealed?
+
+## §298. Smallest recommended next question
+
+Two candidates depending on Chris's answer to §297:
+
+**Q-276-31 (candidate — Stage 5B).** *If the SPA list `KnowledgeDocumentViewSet.get_queryset` `?spokesperson=` filter is switched to the same positive `audience_scope`-keyed predicate as `retrieve_for_teammate`, does the SPA workspace-knowledge list still return exactly the same doc IDs for every real teammate in Chris's workspace, and do the 291 embeddings + 656 SPA tests pass unchanged?*
+
+**Q-276-32 (candidate — Stage 7 opener).** *If Chris triages the 10 unresolved NULL rows to their operator-chosen audience_scope (per §279.5 corrected distribution: 1 TANK → NONE; 1 Tulsi → NONE; 1 Riggs → operator decision; 6 Hearth & Hollow → operator decision; 1 admins `33c07feb` → operator decision), does a rehearsal `NOT NULL` constraint on `audience_scope` succeed on the resulting DB shape without violating any invariant?*
+
+Chris's product-order preference decides which lands first.
+
+## §299. Slice 16 checklist
+
+- [x] Step 0 — commit + push Riggs correction (commit `87802bd`)
+- [x] Slice 16 baseline verified — `main == origin/main == 87802bd`, working tree clean at slice start
+- [x] Q-276-30 falsifiable question stated (§280)
+- [x] Predictions before evidence (§281)
+- [x] Real-DB pre-Slice-16 baseline (§282)
+- [x] Retrieval entry point inventory — 5 buckets (§283)
+- [x] Exact legacy predicate (§284)
+- [x] Delta predicate design + NULL compatibility contract (§285)
+- [x] 62-row real-DB equivalence proof — 250/250 pairs identical (§286)
+- [x] Retrieval-test baseline pre-change — 277/277 passing (§287)
+- [x] Implementation gate assessment — 7/7 conditions pass (§288)
+- [x] Delta predicate implemented at `retrieval.py:194-224` audience block (§289)
+- [x] `test_retrieval_delta_slice16.py` A-N — 14/14 tests pass (§290)
+- [x] Post-cutover regression: 291/291 embeddings tests pass (§291)
+- [x] Full backend regression: 81 pre-existing failures (79 bootstrap_review + 1 media_engine + 1 test_retrieval_privacy allow-list); allow-list fixed in-slice; 0 new failures caused by Slice 16 (§291)
+- [x] Post-change real-DB fingerprint unchanged (§292); real-DB equivalence re-run post-code — 0 divergences
+- [x] Prediction vs actual — 7/7 predictions supported (§293)
+- [x] Files changed (§294)
+- [x] Unresolved questions (§295)
+- [x] Recommendation (§296)
+- [x] Explicit STOP gate (§297)
+- [x] Smallest next questions Q-276-31 / Q-276-32 (§298)
+- [x] Zero SPA changes; zero migration; zero model / serializer / view / ingestion / signals mutation; zero provider spend
+- [ ] Commit + push Slice 16
+- [ ] Chris + ChatGPT review + next slice scoping decision
+
+---
+
+**End of SESSION 276 Slice 16 / Delta Stage 5A. Retrieval predicate now Delta-coherent: positive `audience_scope`-keyed visibility for every classified row; NULL-branch preservation for the 10 unresolved historical rows byte-identical to legacy; NONE and future unknown values fail closed; provenance carve-out untouched. 14/14 Slice 16 tests + 277 pre-existing embeddings tests + 250/250 real-DB equivalence pairs. Real DB unchanged for 10th consecutive slice. Every KD mutation surface AND the retrieval surface are now Delta-invariant enforced end-to-end. STOP for Chris + ChatGPT review of §296 recommendation, §297 gate, §298 next-question candidates.**

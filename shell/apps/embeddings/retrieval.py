@@ -44,7 +44,7 @@ from pgvector.django import CosineDistance
 from apps.conversations.models import ConversationEmbedding, ConversationThread
 from apps.spokespeople.models import Teammate
 
-from .models import KnowledgeChunk, KnowledgeDocument
+from .models import AudienceScope, KnowledgeChunk, KnowledgeDocument
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -213,10 +213,52 @@ def retrieve_for_teammate(
     else:
         qs = qs.filter(document__universe_id=spokesperson.universe_id)
 
+    # SESSION 276 / Slice 16 / Delta Stage 5A (Q-276-30) —
+    # Positive audience predicate keyed on ``audience_scope``.
+    # Replaces the pre-Delta shape-derived audience filter
+    # (``Q(spokespeople__isnull=True) | Q(spokespeople=T)``) with
+    # explicit per-scope branches. Load-bearing properties:
+    #
+    # 1. NULL fallback matches EXACTLY ``audience_scope IS NULL``.
+    #    It is NOT "anything other than the known values" — future
+    #    unknown ``audience_scope`` values (e.g., an experimental
+    #    scope introduced without predicate coverage) must fail
+    #    closed, not silently receive legacy broadcast semantics.
+    # 2. The NULL branch preserves legacy shape-derived retrieval
+    #    byte-identically for the 10 unresolved historical rows the
+    #    Stage-2 migration (0008) intentionally left as
+    #    ``audience_scope=NULL``. See SESSION 276 §54 equivalence
+    #    table + §279 legacy-row inventory.
+    # 3. NONE (orphan-archived) has no branch — such rows fail
+    #    closed. Combined with the ``is_active=True`` filter above
+    #    this is defense in depth; NONE rows are also inactive by
+    #    the Stage-3A orphan-archive contract.
+    # 4. UNIVERSE / WORKSPACE branches rely on the universe filter
+    #    above to enforce Universe / no-Universe visibility. The
+    #    Delta invariants (UNIVERSE → universe non-null,
+    #    WORKSPACE → universe NULL) are enforced at the write
+    #    boundary (serializer + ingestion + admin) so the audience
+    #    branches here can trust the shape.
+    #
+    # Equivalence proof: SESSION 276 Slice 16 §… — 250/250
+    # (doc, teammate) pairs across the current real DB show
+    # byte-identical visibility between the legacy predicate and
+    # this Delta predicate.
     qs = (
         qs.filter(
-            Q(document__spokespeople__isnull=True)
-            | Q(document__spokespeople=spokesperson)
+            (
+                Q(document__audience_scope__isnull=True)
+                & (
+                    Q(document__spokespeople__isnull=True)
+                    | Q(document__spokespeople=spokesperson)
+                )
+            )
+            | Q(
+                document__audience_scope=AudienceScope.CHARACTER,
+                document__spokespeople=spokesperson,
+            )
+            | Q(document__audience_scope=AudienceScope.UNIVERSE)
+            | Q(document__audience_scope=AudienceScope.WORKSPACE)
         )
         .distinct()
         .annotate(distance=CosineDistance("embedding_vector", vector))
