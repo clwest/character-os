@@ -1,0 +1,114 @@
+{
+  "generated_at": "2026-08-20T23:58:50.491822+00:00",
+  "composition_id": "35eace56-4611-4a0d-abdd-be5d764bb4b8",
+  "composition": {
+    "id": "35eace56-4611-4a0d-abdd-be5d764bb4b8",
+    "template_kind": "talking_head",
+    "status": "failed",
+    "created_at": "2026-08-20T23:48:53.186787+00:00",
+    "updated_at": "2026-08-20T23:49:08.571740+00:00",
+    "spokesperson_id": "5875a7b4-cf39-433d-89b3-4e34a89a5208",
+    "episode_id": "77b04b6b-110d-408d-82a3-a04e5ca66417",
+    "workspace_id": "4ce5486d-35a4-4bee-8745-38004adb33bc",
+    "operator_topic": "Why our sourdough takes its time",
+    "audience_hint": "",
+    "target_duration_seconds": 90,
+    "writing_contract_version": 6,
+    "synthesis_attempt_count": 2,
+    "synthesis_predicted_seconds": 61.0,
+    "validation_failure_reason": "duration_contract:too_short",
+    "mock_mode": false,
+    "cost_actual_micros": 0,
+    "cost_estimate_micros": 0,
+    "render_dispatched_at": null,
+    "final_asset_id": null,
+    "knowledge_chunk_ids": [],
+    "memory_ids": [],
+    "verification_status": "rejected",
+    "verification_warnings": [],
+    "error_message": "step 0 (generate_avatar_speech): PrimitiveError: Duration contract failed (too_short): generated script is approximately 61s (893 chars / 163 words), below the allowed 72-second minimum for a 90-second target (accept band 72-108s, 1080-1620 chars). No Runway call fired."
+  },
+  "script_measurements": {
+    "first_pass_synthesis": {
+      "chars": 594,
+      "words": 106,
+      "head_180": "I\u2019m looking at today\u2019s country loaves, and this is the part I never rush.\n\nOur sourdough starts with the starters we fed the night before. The dough is mixed the afternoon before b",
+      "tail_180": "af that dark, blistered crust.\n\nBy the time the doors open, the country sourdough is ready for its place in the bread case\u2014warm, deeply browned, and available every day we\u2019re open."
+    },
+    "corrective_pass_synthesis": {
+      "chars": 893,
+      "words": 163,
+      "head_180": "This is the part of sourdough that asks us to slow down a little. I\u2019m looking at today\u2019s country loaf\u2014dark, blistered crust, that mixed-flour crumb inside\u2014and none of it happened q",
+      "tail_180": "here by way of an afternoon, a night, and a very early start.\n\nThat\u2019s why the country sourdough is here every day we\u2019re open. If you\u2019re curious, come by and let us cut you a slice."
+    },
+    "synthesized_brief": {
+      "chars": 0,
+      "words": 0,
+      "head_180": "",
+      "tail_180": ""
+    },
+    "rejected_synthesis": {
+      "chars": 893,
+      "words": 163,
+      "head_180": "This is the part of sourdough that asks us to slow down a little. I\u2019m looking at today\u2019s country loaf\u2014dark, blistered crust, that mixed-flour crumb inside\u2014and none of it happened q",
+      "tail_180": "here by way of an afternoon, a night, and a very early start.\n\nThat\u2019s why the country sourdough is here every day we\u2019re open. If you\u2019re curious, come by and let us cut you a slice."
+    }
+  },
+  "corrective_hint": {
+    "present": true,
+    "chars": 654,
+    "value": "Your previous draft was 594 characters (106 words, estimated ~41s of speech). Target is 81s.\nEXPAND YOUR SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 378 more characters to meet the minimum.\nPreserve the central arc (opening \u2192 development \u2192 payoff \u2192 single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks \u2014 describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks."
+  },
+  "steps": [
+    {
+      "id": "2e0bb0f2-0ecf-4568-b76f-15650c8e9454",
+      "position": 0,
+      "primitive": "generate_avatar_speech",
+      "status": "failed",
+      "cost_actual_micros": 0,
+      "cost_estimate_micros": 0,
+      "started_at": "2026-08-20T23:48:53.280802+00:00",
+      "completed_at": "2026-08-20T23:49:08.542831+00:00",
+      "elapsed_ms": 15261,
+      "error_message": "PrimitiveError: Duration contract failed (too_short): generated script is approximately 61s (893 chars / 163 words), below the allowed 72-second minimum for a 90-second target (accept band 72-108s, 1080-1620 chars). No Runway call fired.",
+      "media_engine_task_id": null,
+      "output_asset_id": null,
+      "params": {
+        "script": "Why our sourdough takes its time",
+        "use_knowledge": true,
+        "verifier_mode": "warn",
+        "target_duration_seconds": 90
+      },
+      "inputs": []
+    }
+  ],
+  "assets_since_comp": [],
+  "side_effect_invariants": {
+    "ruby": {
+      "universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+      "updated_at": "2026-08-20T22:44:22.069832+00:00"
+    },
+    "episode": {
+      "id": "77b04b6b-110d-408d-82a3-a04e5ca66417",
+      "title": "Why our sourdough takes its time",
+      "cast": [
+        [
+          "Ruby",
+          "5875a7b4-cf39-433d-89b3-4e34a89a5208"
+        ]
+      ]
+    },
+    "kd": {
+      "id": "74e7f18f-5b77-459c-bc36-b4ab617d8aca",
+      "universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+      "m2m_spokespeople": [
+        [
+          "Ruby",
+          "5875a7b4-cf39-433d-89b3-4e34a89a5208"
+        ]
+      ],
+      "content_hash": "7a0e4bd2551fe9787b7678abf080bcdfe0217399fa9dd2ca9ee161582e6c71df"
+    },
+    "narrative_memories_in_fox_flour": 0
+  }
+}

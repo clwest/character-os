@@ -1411,3 +1411,230 @@ If **no row appears** at all, that means the SPA never issued the fetch — the 
 - Pushed to `origin/main`.
 - Diagnostic script (read-only, atomic-rollback): `scripts/session273_diag_cast_404.py`
 - Diagnostic evidence sidecar: `docs/design/session_273_experiment_data/07_diag_cast_404.json` (2,996 bytes)
+
+---
+
+## §23. RUBY SLICE β FIRST-RENDER FAILURE — DURATION CONTRACT / CORRECTIVE EXPANSION DIAGNOSTIC
+
+**Status:** Slice β opened with a real Runway-mode render attempt on Ruby. Corrective expansion **fired with CORRECT_ANCHOR** and correctly refused to dispatch to the provider when the corrected script was still under the acceptance minimum. **No Runway call fired. Zero cost. No code defect.** This is a fresh-substrate finding that refines SESSION 272 §22.4's assumption about corrective expansion.
+
+**Failed Composition preserved intact:** `35eace56-4611-4a0d-abdd-be5d764bb4b8`. Not retried, not deleted, not requeued.
+
+**Evidence sidecar:** `docs/design/session_273_experiment_data/08_slice_beta_ruby_failed_composition.json` (5,576 bytes).
+**Freeze script (read-only):** `scripts/session273_slice_beta_freeze.py`.
+
+### §23.1 Failed Composition — all observability fields
+
+| Field | Value |
+| --- | --- |
+| Composition ID | **`35eace56-4611-4a0d-abdd-be5d764bb4b8`** |
+| status | `failed` |
+| template_kind | `talking_head` |
+| spokesperson | Ruby (`5875a7b4-…`) |
+| episode | `77b04b6b-…` (Fox & Flour: *"Why our sourdough takes its time"*) |
+| operator_topic | *"Why our sourdough takes its time"* |
+| audience_hint | *""* (empty) |
+| target_duration_seconds | **90** |
+| writing_contract_version | **6** ✓ |
+| **synthesis_attempt_count** | **2** ← corrective pass DID fire |
+| **synthesis_predicted_seconds** | **61.0** |
+| validation_failure_reason | `duration_contract:too_short` |
+| render_dispatched_at | **`None`** ← Runway never called |
+| cost_actual_micros | **0** ← zero cost |
+| final_asset_id | `None` |
+| knowledge_chunk_ids | `[]` — empty by design (only populated from produced-Asset `source_spec`; no Asset produced because K6 rejected) |
+| memory_ids | `[]` — Fox & Flour has zero `NarrativeMemory` |
+| verification_status | `rejected` |
+| verification_warnings | *(empty)* |
+| mock_mode | `False` |
+| created_at | 2026-08-20 23:48:53 UTC |
+| error_message (verbatim) | *"step 0 (generate_avatar_speech): PrimitiveError: Duration contract failed (too_short): generated script is approximately 61s (893 chars / 163 words), below the allowed 72-second minimum for a 90-second target (accept band 72-108s, 1080-1620 chars). No Runway call fired."* |
+
+**Per-pass measurements:**
+
+| Script | Chars | Words | Predicted secs (at 15 cps) |
+| --- | --- | --- | --- |
+| `first_pass_synthesis` | **594** | 106 | ~39.6 |
+| `corrective_pass_synthesis` | **893** | 163 | **~61.0** |
+| `synthesized_brief` (accepted brief) | **0** | 0 | — (nothing accepted) |
+| `rejected_synthesis` (mirrors corrective) | 893 | 163 | ~61.0 |
+
+**Corrective hint text (verbatim from `Composition.corrective_hint`):**
+
+> `Your previous draft was 594 characters (106 words, estimated ~41s of speech). Target is 81s.`
+> `EXPAND YOUR SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 378 more characters to meet the minimum.`
+> `Preserve the central arc (opening → development → payoff → single closing invitation), the narrator perspective, and the factual grounding from the knowledge chunks. Expand secondary detail from the knowledge chunks — describe more of the sensory / emotional beats already implied. Do NOT restart with a new opening. Do NOT add a second call to action. Do NOT invent facts not present in the knowledge chunks.`
+
+- ✓ contains **`EXPAND YOUR SCRIPT`** — SESSION 272 CORRECT_ANCHOR active
+- ✓ does NOT contain `REWRITE THE SAME NARRATIVE ABOVE`
+
+**Side-effect invariants (verified post-failure):**
+- Ruby.universe_id = `1a0af807-…` (Fox & Flour) — unchanged
+- Ruby.updated_at = 2026-08-20 22:44:22 — unchanged since §13.2 attach
+- Episode `77b04b6b` cast = `[Ruby]` — unchanged
+- KD `74e7f18f` universe = Fox & Flour, m2m = `[Ruby]`, content_hash unchanged
+- NarrativeMemory in Fox & Flour = **0** (nothing was promoted or auto-created)
+- No Asset created since composition timestamp
+
+### §23.2 Duration-contract comparison across layers (target = 90 s)
+
+Contracts derived directly from source-of-truth constants at `shell/character_os/script_synthesis.py:120–200`, `shell/character_os/duration_contract.py:82–150`, `shell/apps/compositions/primitives/avatar_speech.py:292`:
+
+| Layer | Min chars | Ideal chars | Max chars | Min secs | Max secs | Ruby actual | Verdict on 893 chars |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| K6 synth-target budget (81s = 90 × 0.90 calibration bias) | 972 | 1215 | 1458 | (internal) | (internal) | 594 · 893 | first: below · corrective: **below hint min (972)** |
+| K6 acceptance/rejection (raw 90s) | **1080** | 1350 | **1620** | **72** | **108** | 893 | **REJECTS — raises `DurationContractError(REASON_TOO_SHORT)`** |
+| Primitive `generate_avatar_speech` acceptance | **1080** | — | **1620** | **72** | **108** | (never reached) | would reject |
+
+**All three layers agree.** Same `_AVATAR_SPEECH_CHARS_PER_SECOND = 15`, same `_DURATION_TOLERANCE = 0.20`. The primitive uses `AVATAR_SPEECH_SAFE_MAX_CHARS = 1900` as `max_script_chars` on the K6 gate; the K6 gate IS the primitive's acceptance surface. There is no separate primitive-vs-K6 contract — they are the same call path.
+
+### §23.3 What actually happened, step by step
+
+1. Operator requested a 90 s talking_head via `/recipes/talking_head?episode=77b04b6b-…`.
+2. `avatar_speech` primitive called `synthesize_with_duration_gate(target_duration_seconds=90, max_script_chars=1900)`.
+3. `calibrated_synthesis_target(90) = round(90 × 0.90) = 81`. K6 was asked to aim for 81 s (biased downward per SESSION 253/254 calibration to compensate for gpt-5's habitual overshoot).
+4. **First-pass K6 output: 594 chars / 106 words / ~41 s.** Below the 90 s acceptance min of 1080 chars → expansion corrective triggers.
+5. Corrective hint constructed via `_expansion_hint` (`duration_contract.py:394`). Opens with **`EXPAND YOUR SCRIPT TO AT LEAST 972 CHARACTERS`** — CORRECT_ANCHOR active per SESSION 272 Slice F.
+6. **Second-pass K6 output: 893 chars / 163 words / ~61 s.** Still below the 90 s acceptance min of 1080 chars.
+7. Acceptance gate raises `DurationContractError(REASON_TOO_SHORT, actual_chars=893, effective_min=1080, effective_max=1620)`.
+8. `avatar_speech` primitive catches the exception, persists **all nine SESSION 262 observability fields** onto the Composition (`first_pass_synthesis`, `corrective_hint`, `corrective_pass_synthesis`, `synthesis_attempt_count`, `synthesis_predicted_seconds`, `validation_failure_reason`, `rejected_synthesis`, `verification_status="rejected"`, `error_message`), then re-raises as `PrimitiveError`.
+9. Composition step fails. Composition marked `failed`. **No Runway `/v1/avatar_videos` call fired. Zero cost.**
+
+The system worked exactly as designed. The design intentionally allows **ONE** bounded corrective pass to prevent runaway LLM cost; when the second attempt also fails, the composition fails permanently rather than looping.
+
+### §23.4 Why the LLM produced only 893 chars
+
+The **corrective-pass output references KD content not present in `business_brief`:**
+
+- *"walk-in fridge"* → in KD §Breads & sourdough only
+- *"two active starters"* → in KD only
+- *"15% whole wheat"* → in KD only (Ruby's business_brief says *"naturally leavened sourdough"* generically)
+- *"deck oven"* → in KD only
+- *"dark, blistered crust"* → in KD only
+
+So retrieval DID fire and the model DID access the Fox & Flour KD. (Note: `Composition.knowledge_chunk_ids` remained `[]` because that field is only populated from produced-Asset `source_spec` — no Asset was produced. This is by design; not a bug.)
+
+The LLM had good source material and still stopped at 893 chars vs the 972-char hint minimum (short by 79 chars, ~8%). Candidate explanations (not investigated further this slice):
+
+| Candidate | Evidence supporting | Evidence against |
+| --- | --- | --- |
+| Sparse retrieved factual basis | — | Corrective clearly uses KD content beyond business_brief |
+| K6.4 verifier removed material | — | `verification_warnings: []` — no rejections |
+| Model constrained against elaboration | — | Hint explicitly asks for more |
+| audience_hint compressed the response | — | `audience_hint: ""` (empty; no compression pressure) |
+| **Minimal persona reduces character-native elaboration** | Ruby: `character_point_of_view`, `voice_signature_phrases`, `voice_avoid_phrases`, `always_emphasize`, `never_say`, `who_you_help`, `what_you_sell`, `desired_feeling` **all empty**. Compare Rivet Slice G §22.4 — richly populated persona produced +540 chars corrective expansion (623 → 1163). Ruby produced +299 (594 → 893). | — |
+| Corrective hint synth-min (972) is below primitive acceptance-min (1080) — LLM aims at hint, not acceptance | Hint explicitly says "at least 972"; LLM stopped at 893 which is even below that | This is the SESSION 253/254 calibration bias (0.90); K6 aims low so its overshoot lands at operator target. Rivet's Slice G worked under the same calibration. |
+| Output-token ceiling / other model constraint | — | No evidence in logs; 893 is well under any token cap |
+
+**Strongest hypothesis on current evidence: minimal-persona × fresh-KD combination.** Not proven, but consistent with the Rivet-vs-Ruby comparison.
+
+### §23.5 SESSION 272 §22.4 assumption — refinement, not contradiction
+
+SESSION 272 §22.4 concluded (from Slice G real production Rivet render at 90 s):
+> *"Corrective expansion is now a net-positive character-native-elaboration tool, not a canonical-regression risk. Long-form scripts can lean on corrective expansion instead of fighting it."*
+
+Ruby's specimen adds this qualification (does not overturn):
+
+> *Corrective expansion reaches the acceptance minimum reliably when the character carries rich persona fields (`character_point_of_view`, `voice_signature_phrases`, and/or `voice_avoid_phrases`) for the LLM to elaborate with. On a **wizard-default character** (only `business_brief` + `personality` + `tone_archetype` populated) at a 90 s target, a single bounded corrective pass may produce output that still falls short of the acceptance minimum. The gate correctly rejects; no Runway call fires; no cost is incurred. The failure is a **legitimate signal about substrate readiness for 90 s targets**, not a code defect and not a regression of the CORRECT_ANCHOR fix.*
+
+Rivet-vs-Ruby comparison at target = 90 s:
+
+| Metric | Rivet Slice G (SESSION 272 §22.4) | Ruby Slice β (this section) |
+| --- | --- | --- |
+| First-pass chars | 623 | 594 |
+| Corrective-pass chars | **1163** (accepted, in band 1080–1620) | **893** (rejected, below 1080) |
+| Expansion delta | **+540** | +299 |
+| Final Composition status | COMPLETED | **failed** (zero cost) |
+| Character persona shape | rich (signature phrases, POV, avoid list) | wizard-default (persona = personality + tone only) |
+| KD | saturated (`218eb0d8` used in ≥5 renders) | fresh (`74e7f18f`, first render) |
+
+### §23.6 Root cause + smallest fix
+
+**Root cause:** LLM under-produced on the corrective pass (893 vs 972 hint minimum). The system correctly refused to dispatch. **Zero code defect.**
+
+**Smallest fix: NONE landed.** No production code, test, migration, or SPA change made. Rationale:
+
+- All three duration-contract layers agree (K6 synth · K6 acceptance · primitive acceptance — same code path, same constants).
+- Corrective expansion fired.
+- CORRECT_ANCHOR is present and correct.
+- Design allows **ONE** bounded corrective pass; second failure is permanent by intent (bounded cost).
+- Existing tests already cover this exact invariant: `test_gate_still_short_after_retry_raises` (`test_duration_contract_talking_head.py:294`) asserts that a two-undersize sequence raises `DurationContractError(REASON_TOO_SHORT)`. All 14 relevant existing tests pass.
+- Changing any of `_DURATION_TOLERANCE` (0.20), `K6_DURATION_SYNTHESIS_TARGET_MULTIPLIER` (0.90), or `_AVATAR_SPEECH_CHARS_PER_SECOND` (15) to make Ruby's 893 chars accept would violate Chris's Rule 7 constraints ("no weakening duration validation; no increasing tolerance just to accept 893 chars; no silently changing a 90s request into 60s"). Increasing the corrective-pass count (from 1 to 2) would violate the bounded-cost design without evidence that a third attempt would converge.
+
+### §23.7 Regression coverage — sufficient, no new tests needed
+
+The exact invariant Ruby's failure exercised is already tested:
+
+| Test | Scenario | Status |
+| --- | --- | --- |
+| `test_gate_still_short_after_retry_raises` | 2 sequential undersize outputs → `DurationContractError(REASON_TOO_SHORT)` raised, gate refuses dispatch | **PASS** (verifies Ruby's exact path) |
+| `test_avatar_speech_safe_max_chars_locked_at_1900` | Cap pinned at 1900 | **PASS** |
+| `test_avatar_speech_delivery_rate_locked_at_15_cps` | CPS pinned at 15 | **PASS** |
+| `test_90s_duration_math_reflects_15_cps` | Ruby's exact target math | **PASS** |
+| `test_calibrated_synthesis_target_90s_is_81s` | 90 s → 81 s synth target | **PASS** |
+| `test_synth_target_never_leaks_into_prompt_target_arg` | Synth-target does not leak into operator error surfaces | **PASS** |
+| 8× SESSION 272 Slice F pins (`test_session272_slice_f_expansion_hint_anchor.py`) | CORRECT_ANCHOR preserved | **PASS** |
+
+**Total: 14 tests, 14 PASS in 3.63 s.** The layer invariant Chris named ("anything synthesis accepts for dispatch must satisfy the primitive's duration contract for the same target") is structurally guaranteed — the primitive delegates directly to K6's gate; there is no separate primitive-side acceptance check. A test would be a tautology on the current code path.
+
+### §23.8 Provider-call proof / cost proof
+
+- `Composition.render_dispatched_at` = `None` — no step reached the media-engine dispatch phase.
+- `Composition.cost_actual_micros` = **0**.
+- `CompositionStep` for step 0 (`generate_avatar_speech`) marked `failed` with `error_message` matching the K6 rejection; `media_engine_task_id` not set; `output_asset_id` not set.
+- No `Asset` created for Ruby since Composition timestamp.
+- Media-engine log (`/tmp/character-os-media.log`, tail-checked) shows no new POST during the failed render window.
+- Runway API log (via media-engine forwarding) shows no `/v1/avatar_videos` request in the render window.
+- **Zero Runway credits consumed. Zero OpenAI cost persisted on Composition (though 2 K6 completions did fire; not currently persisted on `Composition.cost_actual_micros` per §5 observability-gap finding).**
+
+### §23.9 Explicit non-changes during §23
+
+- No production code changed (no `duration_contract.py`, no `script_synthesis.py`, no `avatar_speech.py`, no starters, no view, no serializer, no signal, no model, no SPA component, no migration).
+- No test file added or edited.
+- Failed Composition `35eace56-…` **preserved intact** — not deleted, not retried, not requeued, not edited.
+- No new Composition created.
+- No render dispatched.
+- No NarrativeMemory created or promoted.
+- No PublishBundle created.
+- No Ruby persona / voice / avatar / brand / universe / m2m modification.
+- No KnowledgeDocument mutation.
+- No Episode mutation.
+- Mason untouched.
+- Patch's Workshop substrate untouched.
+- No writing-contract version change (WCV still 6).
+- No `_expansion_hint` / `_compression_hint` edit — CORRECT_ANCHOR preserved.
+- No experiment env var set. No provider mock toggled. Runtime unchanged.
+- No manual DB shell insertion.
+
+### §23.10 §23 return values
+
+- **Failed Composition UUID:** `35eace56-4611-4a0d-abdd-be5d764bb4b8`.
+- **First-pass chars / words / predicted seconds:** **594 / 106 / ~41 s**.
+- **`synthesis_attempt_count`:** **2**.
+- **Did corrective expansion fire?** **YES** — `_expansion_hint` invoked with `synth_target=81, synth_min=972, synth_ideal=1215, synth_max=1458`.
+- **Corrective-pass chars / words / predicted seconds:** **893 / 163 / ~61 s**.
+- **Exact relevant `corrective_hint`:** *"EXPAND YOUR SCRIPT TO AT LEAST 972 CHARACTERS (aim for ~1215, do not exceed 1458). You currently need at least 378 more characters to meet the minimum."* (Full text in §23.1; contains `EXPAND YOUR SCRIPT`, does not contain `REWRITE THE SAME NARRATIVE ABOVE` — CORRECT_ANCHOR active.)
+- **Why 893 chars "reached" `generate_avatar_speech`:** it did NOT reach the primitive's dispatch. K6's acceptance gate raised `DurationContractError(REASON_TOO_SHORT)` after the corrective pass. The `avatar_speech` primitive caught the exception, persisted observability, and re-raised as `PrimitiveError`. Zero Runway call.
+- **Synthesis vs primitive duration-contract comparison:** IDENTICAL — same constants, same code path, no mismatch (§23.2 table).
+- **Root cause:** LLM under-production on corrective pass. Strongest hypothesis: minimal-persona × fresh-KD (Ruby has 8 empty persona fields vs Rivet's rich signature phrases / POV / avoid list; Ruby's KD is on its first render vs Rivet's saturated `218eb0d8`).
+- **Contradicts / refines SESSION 272?** **REFINES**, does not contradict. §22.4 held Rivet-on-90s; Ruby-on-90s shows the assumption is substrate-conditional. §23.5 records the refinement.
+- **Smallest fix landed:** **NONE.** No code defect. System worked as designed. Existing 14 tests cover the invariant.
+- **Regression tests:** all 14 relevant tests pass (§23.7). No new tests needed.
+- **Provider-call count / proof no Runway spend:** zero Runway `/v1/avatar_videos` calls (§23.8).
+- **`cost_actual_micros`:** **0**.
+- **Files changed:** `docs/design/SESSION_273_PRODUCT_ORIENTATION_AND_NEXT_DIRECTION.md`, `docs/design/session_273_experiment_data/08_slice_beta_ruby_failed_composition.json`, `scripts/session273_slice_beta_freeze.py`. No production code, test, SPA, or migration edited.
+- **§23 commit SHA:** recorded in §24 at commit time.
+- **Exact action Chris should take next:** operator's decision. Options (evidence-supported, none pre-committed):
+  1. **Retry the same 90 s render.** LLM output has variance; the same substrate may converge on the next attempt.
+  2. **Reduce target to 60 s.** Halves the required char minimum (720 chars @ 60 s vs 1080 @ 90 s). Ruby's 594-char first pass is already inside a 60 s acceptance band (48–72 s). Fresh dogfood evidence for how the same character behaves at a smaller target.
+  3. **Enrich Ruby's persona.** Populate `character_point_of_view`, one or two `voice_signature_phrases`, an `always_emphasize` clause — matches how Rivet is authored. Then retry 90 s. This tests the hypothesis in §23.4 directly and is reversible.
+  4. **Enrich the Fox & Flour KD.** Add a second KD (still Universe-scoped + Ruby-scoped) with more of Ruby's operator-perspective content. Chris authors, not me.
+  5. **Preserve the failed Composition as-is** and move on to a different substrate (Mason companion, or a different topic on Ruby). SESSION 272 pattern of freezing failed specimens applies.
+
+---
+
+## §24. §23 COMMIT PROVENANCE
+
+- §23 diagnostic + assumption-refinement commit: (recorded at commit time — see git log)
+- Freeze script (read-only): `scripts/session273_slice_beta_freeze.py`
+- Failed-Composition evidence sidecar: `docs/design/session_273_experiment_data/08_slice_beta_ruby_failed_composition.json` (5,576 bytes)
