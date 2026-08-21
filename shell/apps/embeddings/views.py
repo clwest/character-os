@@ -79,46 +79,29 @@ class KnowledgeDocumentViewSet(viewsets.ModelViewSet):
         if workspace_id:
             qs = qs.filter(workspace_id=workspace_id)
 
-        # SESSION 138 / K5 — optional spokesperson visibility filter.
-        # SESSION 276 / Slice 17 / Delta Stage 5B (Q-276-31) —
-        # Cut over to the positive ``audience_scope``-keyed predicate,
-        # mirroring the Slice 16 retrieval cutover at
-        # ``retrieval.py:194-224``. Semantics per Delta scope:
+        # SESSION 276 / Slice 21 / Delta Stage 8 — permanent positive
+        # ``audience_scope``-keyed LIST predicate. The Slice 17 NULL
+        # compatibility branch was removed once the NOT NULL migration
+        # (0009) made ``audience_scope IS NULL`` unrepresentable at
+        # the DB layer.
         #
+        # Semantics per Delta scope:
         # * CHARACTER — visible if the requesting spokesperson is in
         #   the doc's M2M.
-        # * UNIVERSE — visible (Universe-scoped docs are broadcast to
-        #   teammates in that Universe; the ``?universe=`` filter below
-        #   provides operator-explicit narrowing on top of this).
-        # * WORKSPACE — visible (workspace-shared canon).
-        # * NULL fallback — preserves legacy shape-derived semantics
-        #   byte-identically for the 10 unresolved historical rows the
-        #   Stage-2 migration intentionally left as ``audience_scope=NULL``.
-        # * NONE + any future unknown ``audience_scope`` value — fail
-        #   closed (no matching branch). NONE is defense in depth on top
-        #   of the ``is_active=True`` filter above; unknown values must
-        #   NOT silently receive legacy broadcast (load-bearing NULL
-        #   contract; see retrieval.py:216-269 for the sibling constraint).
+        # * UNIVERSE — visible (Universe-scoped canon; explicit
+        #   ``?universe=`` param below narrows further).
+        # * WORKSPACE — visible (workspace-shared legacy canon).
+        # * NONE + any unknown / future ``audience_scope`` value — no
+        #   Q branch → fails CLOSED. NONE is also filtered by the
+        #   ``is_active=True`` base filter above (Slice 8 contract).
         #
-        # Universe scoping is intentionally NOT auto-derived from the
-        # requesting spokesperson (that is retrieval.py's contract).
-        # The SPA list surface uses an explicit ``?universe=`` query
-        # param, applied below, so operators can narrow independently.
-        #
-        # Real-DB equivalence: SESSION 276 Slice 17 §… — 16/16 real
-        # teammates return byte-identical doc-ID sets under the legacy
-        # and Delta predicates. Zero divergences on any scope class.
+        # Universe scoping intentionally NOT auto-derived from the
+        # requesting spokesperson (retrieval.py's contract, not
+        # LIST's — see §307). Operator narrows via ``?universe=``.
         spokesperson_id = self.request.query_params.get("spokesperson")
         if spokesperson_id:
             qs = qs.filter(
-                (
-                    Q(audience_scope__isnull=True)
-                    & (
-                        Q(spokespeople__isnull=True)
-                        | Q(spokespeople=spokesperson_id)
-                    )
-                )
-                | Q(
+                Q(
                     audience_scope=AudienceScope.CHARACTER,
                     spokespeople=spokesperson_id,
                 )

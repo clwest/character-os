@@ -88,7 +88,14 @@ def _make_doc_with_chunk(
 ) -> KnowledgeDocument:
     """Create a processed KnowledgeDocument with one chunk
     bearing the supplied vector. Optional spokesperson M2M
-    attach narrows visibility."""
+    attach narrows visibility.
+
+    SESSION 276 Slice 21: audience_scope is derived from shape
+    (spokespeople → CHARACTER, else → WORKSPACE) so the row
+    satisfies the permanent NOT NULL + CheckConstraint invariants.
+    """
+    from apps.embeddings.models import AudienceScope
+    scope = AudienceScope.CHARACTER if spokespeople else AudienceScope.WORKSPACE
     doc = KnowledgeDocument.objects.create(
         workspace=ws,
         title=title,
@@ -98,6 +105,7 @@ def _make_doc_with_chunk(
         content_hash=f"hash-{title}",
         ingested_via=IngestedVia.PASTE,
         status=DocumentStatus.PROCESSED,
+        audience_scope=scope,
     )
     if spokespeople:
         doc.spokespeople.set(spokespeople)
@@ -233,6 +241,7 @@ def test_workspace_anchor_required() -> None:
             processed_content="x",
             content_hash="stray",
             ingested_via=IngestedVia.PASTE,
+            audience_scope="workspace",  # SESSION 276 Slice 21
         )
 
 
@@ -268,6 +277,7 @@ def test_content_hash_dedup_is_per_workspace() -> None:
         document_type=DocumentType.TEXT,
         processed_content="dup", content_hash="SHARED-HASH",
         ingested_via=IngestedVia.PASTE,
+        audience_scope="workspace",  # SESSION 276 Slice 21
     )
 
     # Same hash in ws_b — OK
@@ -276,6 +286,7 @@ def test_content_hash_dedup_is_per_workspace() -> None:
         document_type=DocumentType.TEXT,
         processed_content="dup", content_hash="SHARED-HASH",
         ingested_via=IngestedVia.PASTE,
+        audience_scope="workspace",
     )
 
     # Same hash in ws_a again — rejected
@@ -285,6 +296,7 @@ def test_content_hash_dedup_is_per_workspace() -> None:
             document_type=DocumentType.TEXT,
             processed_content="dup", content_hash="SHARED-HASH",
             ingested_via=IngestedVia.PASTE,
+            audience_scope="workspace",
         )
 
 

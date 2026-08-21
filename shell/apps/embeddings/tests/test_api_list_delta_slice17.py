@@ -125,29 +125,12 @@ def _login(client, user):
     client.force_authenticate(user=user)
 
 
-# ---- A / B — NULL compatibility fallback preserved -------------------
-
-
-def test_slice17_A_null_fallback_empty_m2m_visible_via_list():
-    ws, user = _mk_ws("s17a@t.test", "A")
-    tm = Teammate.objects.create(workspace=ws, name="A")
-    _mk_doc(ws, "NULL empty", audience_scope=None)
-    client = APIClient(); _login(client, user)
-    r = _list(client, ws.pk, spokesperson_id=tm.pk)
-    assert r.status_code == http.HTTP_200_OK
-    assert "NULL empty" in _titles(r)
-
-
-def test_slice17_B_null_fallback_m2m_narrows_via_list():
-    ws, user = _mk_ws("s17b@t.test", "B")
-    tm_in = Teammate.objects.create(workspace=ws, name="In")
-    tm_out = Teammate.objects.create(workspace=ws, name="Out")
-    _mk_doc(ws, "NULL narrow", spokespeople=[tm_in], audience_scope=None)
-    client = APIClient(); _login(client, user)
-    r_in = _list(client, ws.pk, spokesperson_id=tm_in.pk)
-    r_out = _list(client, ws.pk, spokesperson_id=tm_out.pk)
-    assert "NULL narrow" in _titles(r_in)
-    assert "NULL narrow" not in _titles(r_out)
+# ---- A / B removed by SESSION 276 Slice 21 ---------------------------
+# Slice 17 tests A/B exercised the temporary NULL compatibility branch
+# in the LIST `?spokesperson=` filter. That branch was removed by
+# Slice 21; migration 0009 makes `audience_scope IS NULL`
+# unrepresentable at the DB layer. Tests C-L below remain — they cover
+# the permanent Delta LIST semantics.
 
 
 # ---- C / D — CHARACTER audience --------------------------------------
@@ -204,21 +187,11 @@ def test_slice17_F_workspace_audience_visible_via_list():
 # ---- G / H — Fail-closed --------------------------------------------
 
 
-def test_slice17_G_none_audience_fails_closed_via_list_even_if_active():
-    """Defense in depth: NONE fails closed at the audience predicate,
-    not only via is_active=True. Row is intentionally is_active=True
-    to prove the audience branch itself excludes it."""
-    ws, user = _mk_ws("s17g@t.test", "G")
-    tm = Teammate.objects.create(workspace=ws, name="G")
-    _mk_doc(
-        ws, "NONE doc",
-        spokespeople=[tm],
-        audience_scope=AudienceScope.NONE,
-        is_active=True,
-    )
-    client = APIClient(); _login(client, user)
-    r = _list(client, ws.pk, spokesperson_id=tm.pk)
-    assert "NONE doc" not in _titles(r)
+# Test G removed by SESSION 276 Slice 21 — the NONE + is_active=True
+# shape is now unrepresentable at the DB layer via
+# `session276_none_requires_inactive`. The audience-branch defense-in-
+# depth check is superseded by the CHECK constraint; NONE rows are
+# is_active=False and already excluded by the LIST base filter.
 
 
 def test_slice17_H_unknown_audience_scope_fails_closed_via_list():
@@ -301,7 +274,10 @@ def test_slice17_K_cross_workspace_spokesperson_returns_empty():
 def test_slice17_L_no_spokesperson_param_returns_full_workspace_list():
     ws, user = _mk_ws("s17l@t.test", "L")
     tm = Teammate.objects.create(workspace=ws, name="L")
-    _mk_doc(ws, "unattached", audience_scope=None)
+    # SESSION 276 Slice 21: WORKSPACE scope replaces the previous
+    # NULL-audience "unattached" fixture. Under the permanent Delta
+    # model every row must carry an explicit scope.
+    _mk_doc(ws, "unattached", audience_scope=AudienceScope.WORKSPACE)
     _mk_doc(ws, "attached CHAR", spokespeople=[tm], audience_scope=AudienceScope.CHARACTER, content_hash_seed="2")
     client = APIClient(); _login(client, user)
     # Without ?spokesperson= the filter branch does not fire; both docs

@@ -50,11 +50,14 @@ def _user_with_workspace(email: str, name: str) -> tuple[Workspace, User]:
 
 
 def _make_doc(ws: Workspace, title: str, *, spokespeople=None) -> KnowledgeDocument:
+    # SESSION 276 Slice 21: derive audience_scope from shape.
+    scope = AudienceScope.CHARACTER if spokespeople else AudienceScope.WORKSPACE
     doc = KnowledgeDocument.objects.create(
         workspace=ws, title=title,
         document_type=DocumentType.TEXT,
         processed_content=title, content_hash=f"HASH-{title}",
         ingested_via="paste",
+        audience_scope=scope,
     )
     if spokespeople:
         doc.spokespeople.set(spokespeople)
@@ -155,7 +158,12 @@ def test_attach_is_idempotent() -> None:
 def test_detach_removes_spokesperson() -> None:
     ws, user = _user_with_workspace("k5e@test", "WS E")
     sp = Teammate.objects.create(workspace=ws, name="Maya")
-    doc = _make_doc(ws, "detach-target", spokespeople=[sp])
+    keep = Teammate.objects.create(workspace=ws, name="Keep")
+    # SESSION 276 Slice 13/21: CHARACTER-scoped detach is legal only
+    # when at least one spokesperson remains. Fixture uses TWO
+    # attached spokespeople so detaching Maya leaves Keep and the
+    # CHARACTER invariant remains satisfied.
+    doc = _make_doc(ws, "detach-target", spokespeople=[sp, keep])
 
     client = APIClient()
     client.force_authenticate(user=user)
@@ -167,6 +175,7 @@ def test_detach_removes_spokesperson() -> None:
     assert response.status_code == http.HTTP_200_OK
     doc.refresh_from_db()
     assert sp not in list(doc.spokespeople.all())
+    assert keep in list(doc.spokespeople.all())
 
 
 def test_detach_is_idempotent() -> None:
@@ -528,31 +537,6 @@ def test_slice13_G_universe_audience_row_unaffected_by_guard() -> None:
 # ---- Legacy NULL-audience preservation ----
 
 
-def test_slice13_legacy_null_audience_detach_behavior_preserved() -> None:
-    """Slice 13 audit — pre-Delta legacy KDs (created via
-    ``_make_doc`` without ``audience_scope=CHARACTER``) retain their
-    existing detach behavior. The guard is scoped strictly to
-    ``audience_scope=CHARACTER`` positive-evidence rows. Real DB has
-    ZERO NULL+non-empty-M2M rows (Slice 7 backfill classified every
-    M2M-carrying row as CHARACTER), so this legacy path only appears
-    in test fixtures. Documenting the deliberate carve-out."""
-    ws, user = _user_with_workspace("s13-legacy@test", "S13 Legacy")
-    a = Teammate.objects.create(workspace=ws, name="Alpha")
-    # Direct create — no audience_scope, matches pre-Slice-10 fixture
-    # shape (audience_scope=NULL + M2M non-empty).
-    doc = _make_doc(ws, "legacy-null", spokespeople=[a])
-    assert doc.audience_scope is None
-    assert doc.spokespeople.count() == 1
-
-    client = APIClient()
-    client.force_authenticate(user=user)
-    response = client.post(
-        f"/api/knowledge/{doc.pk}/detach/",
-        {"spokesperson_id": str(a.pk)},
-        format="json",
-    )
-    # Legacy behavior preserved: succeeds with empty M2M.
-    assert response.status_code == http.HTTP_200_OK
-    doc.refresh_from_db()
-    assert doc.audience_scope is None  # unchanged
-    assert doc.spokespeople.count() == 0
+# Slice 13 legacy-NULL detach carve-out test removed by SESSION 276
+# Slice 21 — migration 0009 made ``audience_scope IS NULL``
+# unrepresentable at the DB layer.

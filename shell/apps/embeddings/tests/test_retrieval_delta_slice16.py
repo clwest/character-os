@@ -95,35 +95,12 @@ def _visible_ids(results) -> set:
     return {c.document_id for c in results}
 
 
-# ---- A / B — NULL compatibility (legacy shape preserved) ------------
-
-
-@pytest.mark.django_db
-def test_slice16_A_null_fallback_empty_m2m_broadcasts_to_any_teammate():
-    """NULL + M2M empty: legacy broadcast preserved byte-identically."""
-    ws = _make_workspace("s16a@u.test", "A")
-    tm = Teammate.objects.create(workspace=ws, name="Ada")
-    doc = _make_doc(ws, "Legacy Doc", _vec(1.0), audience_scope=None)
-    assert doc.audience_scope is None  # sanity
-    assert doc.spokespeople.count() == 0  # sanity
-    results = retrieve_for_teammate(tm, _query_vector=_vec(1.0), top_k=10)
-    assert doc.id in _visible_ids(results)
-
-
-@pytest.mark.django_db
-def test_slice16_B_null_fallback_m2m_narrows_to_explicit_members():
-    """NULL + M2M={T}: legacy narrow-visibility preserved."""
-    ws = _make_workspace("s16b@u.test", "B")
-    tm_in = Teammate.objects.create(workspace=ws, name="In")
-    tm_out = Teammate.objects.create(workspace=ws, name="Out")
-    doc = _make_doc(
-        ws, "NULL narrow doc", _vec(1.0),
-        spokespeople=[tm_in], audience_scope=None,
-    )
-    in_results = retrieve_for_teammate(tm_in, _query_vector=_vec(1.0), top_k=10)
-    out_results = retrieve_for_teammate(tm_out, _query_vector=_vec(1.0), top_k=10)
-    assert doc.id in _visible_ids(in_results)
-    assert doc.id not in _visible_ids(out_results)
+# ---- A / B removed by SESSION 276 Slice 21 --------------------------
+# Slice 16 tests A/B exercised the temporary NULL compatibility branch
+# in `retrieve_for_teammate`. That branch was removed by Slice 21;
+# migration 0009 makes `audience_scope IS NULL` unrepresentable at the
+# DB layer. Tests C-N below remain — they cover the permanent Delta
+# retrieval semantics.
 
 
 # ---- C / D / E — CHARACTER audience --------------------------------
@@ -249,21 +226,12 @@ def test_slice16_J_workspace_not_visible_to_universe_teammate():
 # ---- K / L — Fail-closed ------------------------------------------
 
 
-@pytest.mark.django_db
-def test_slice16_K_none_audience_fails_closed():
-    """NONE is defense in depth even against an is_active=True bug."""
-    ws = _make_workspace("s16k@u.test", "K")
-    tm = Teammate.objects.create(workspace=ws, name="K")
-    doc = _make_doc(
-        ws, "NONE doc", _vec(1.0),
-        spokespeople=[tm], audience_scope=AudienceScope.NONE,
-    )
-    # Row is intentionally is_active=True to prove the audience predicate
-    # ALSO fails closed, even if the is_active gate were somehow bypassed.
-    results = retrieve_for_teammate(tm, _query_vector=_vec(1.0), top_k=10)
-    assert doc.id not in _visible_ids(results), (
-        "NONE audience_scope must fail closed regardless of M2M membership"
-    )
+# Test K removed by SESSION 276 Slice 21 — the NONE + is_active=True
+# shape is now unrepresentable at the DB layer via
+# `session276_none_requires_inactive`. The audience-branch defense-in-
+# depth check is superseded by the CHECK constraint; NONE rows must be
+# is_active=False, and the `is_active=True` filter in retrieval
+# already excludes them.
 
 
 @pytest.mark.django_db

@@ -213,47 +213,28 @@ def retrieve_for_teammate(
     else:
         qs = qs.filter(document__universe_id=spokesperson.universe_id)
 
-    # SESSION 276 / Slice 16 / Delta Stage 5A (Q-276-30) —
-    # Positive audience predicate keyed on ``audience_scope``.
-    # Replaces the pre-Delta shape-derived audience filter
-    # (``Q(spokespeople__isnull=True) | Q(spokespeople=T)``) with
-    # explicit per-scope branches. Load-bearing properties:
+    # SESSION 276 / Slice 21 / Delta Stage 8 — permanent positive
+    # audience predicate keyed on ``audience_scope``. The Slice 16
+    # NULL compatibility branch was removed once Slice 20's DB
+    # reset + fresh-write closure + Slice 21's NOT NULL migration
+    # (0009) made ``audience_scope IS NULL`` unrepresentable at the
+    # DB layer.
     #
-    # 1. NULL fallback matches EXACTLY ``audience_scope IS NULL``.
-    #    It is NOT "anything other than the known values" — future
-    #    unknown ``audience_scope`` values (e.g., an experimental
-    #    scope introduced without predicate coverage) must fail
-    #    closed, not silently receive legacy broadcast semantics.
-    # 2. The NULL branch preserves legacy shape-derived retrieval
-    #    byte-identically for the 10 unresolved historical rows the
-    #    Stage-2 migration (0008) intentionally left as
-    #    ``audience_scope=NULL``. See SESSION 276 §54 equivalence
-    #    table + §279 legacy-row inventory.
-    # 3. NONE (orphan-archived) has no branch — such rows fail
-    #    closed. Combined with the ``is_active=True`` filter above
-    #    this is defense in depth; NONE rows are also inactive by
-    #    the Stage-3A orphan-archive contract.
-    # 4. UNIVERSE / WORKSPACE branches rely on the universe filter
-    #    above to enforce Universe / no-Universe visibility. The
-    #    Delta invariants (UNIVERSE → universe non-null,
-    #    WORKSPACE → universe NULL) are enforced at the write
-    #    boundary (serializer + ingestion + admin) so the audience
-    #    branches here can trust the shape.
-    #
-    # Equivalence proof: SESSION 276 Slice 16 §… — 250/250
-    # (doc, teammate) pairs across the current real DB show
-    # byte-identical visibility between the legacy predicate and
-    # this Delta predicate.
+    # Load-bearing properties:
+    # 1. CHARACTER requires explicit M2M membership (row-level
+    #    predicate).
+    # 2. UNIVERSE is visible within the retrieving Universe (the
+    #    universe filter above already narrowed to matching
+    #    universe_id).
+    # 3. WORKSPACE is visible to legacy no-Universe teammates
+    #    (universe filter enforces NULL-vs-NULL match).
+    # 4. NONE + any unknown / future ``audience_scope`` value has
+    #    NO matching Q branch → fails CLOSED. NONE is also filtered
+    #    by ``is_active=True`` above (Slice 8 contract) — defense
+    #    in depth.
     qs = (
         qs.filter(
-            (
-                Q(document__audience_scope__isnull=True)
-                & (
-                    Q(document__spokespeople__isnull=True)
-                    | Q(document__spokespeople=spokesperson)
-                )
-            )
-            | Q(
+            Q(
                 document__audience_scope=AudienceScope.CHARACTER,
                 document__spokespeople=spokesperson,
             )

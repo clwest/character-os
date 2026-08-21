@@ -58,7 +58,19 @@ def _make_doc(
     universe: Universe | None = None,
     spokespeople: list[Teammate] | None = None,
     content_hash_seed: str = "",
+    audience_scope: str | None = None,
 ) -> KnowledgeDocument:
+    # SESSION 276 Slice 21: derive a valid audience_scope from shape
+    # when not explicitly passed. CHARACTER when M2M is supplied;
+    # UNIVERSE when only a universe is supplied; WORKSPACE otherwise.
+    if audience_scope is None:
+        from apps.embeddings.models import AudienceScope
+        if spokespeople:
+            audience_scope = AudienceScope.CHARACTER
+        elif universe is not None:
+            audience_scope = AudienceScope.UNIVERSE
+        else:
+            audience_scope = AudienceScope.WORKSPACE
     doc = KnowledgeDocument.objects.create(
         workspace=ws,
         universe=universe,
@@ -69,6 +81,7 @@ def _make_doc(
         content_hash=f"hash-{title}-{content_hash_seed}",
         ingested_via=IngestedVia.PASTE,
         status=DocumentStatus.PROCESSED,
+        audience_scope=audience_scope,
     )
     if spokespeople:
         doc.spokespeople.set(spokespeople)

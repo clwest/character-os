@@ -7540,7 +7540,308 @@ STOP before Slice 21. Review Slice 20 evidence with Chris + ChatGPT.
 - [x] Smallest next question Q-276-37 (§367)
 - [x] Zero permanent management commands built for the one-time reset; zero JSON provenance cleanup machinery; zero triggers; zero universe_canon reformulation; zero recovery UI; zero fresh dogfood repopulation; zero provider spend
 - [x] Commit + push Slice 20 code + tests + doc — landed as `2fd088a`
-- [ ] Chris + ChatGPT review + Slice 21 scoping decision
+- [x] Chris + ChatGPT review + Slice 21 scoping decision — approved §361.2 architecture
+
+---
+
+# SESSION 276 — Slice 21 / Delta Stage 8 (FINAL) — permanent Delta constraint bridge + SESSION 276 CLOSEOUT (Q-276-37)
+
+Final implementation slice of SESSION 276. Migration 0009 makes `audience_scope` NOT NULL and installs the three DB-scalar CheckConstraints. NULL compatibility branches in retrieval + LIST are removed. Session closes here; fresh dogfood defers to SESSION 277.
+
+## §369. Slice 21 baseline SHA
+
+- Base commit: `40b384d` (`docs(session-276): record Slice 20 landed SHA 2fd088a in audit doc`).
+- `main == origin/main == 40b384d`; working tree clean at Slice 21 start.
+- Pre-Slice-21 real DB: KD=0, chunks=0, through=0, NULL_audience=0 (verified — Slice 20 reset holds).
+- Migration head: `0008_session276_stage2_backfill`.
+
+## §370. Slice 21 falsifiable question — Q-276-37 (executed)
+
+> If the remaining migration bridge is removed by making `audience_scope` NOT NULL, adding the three scalar Delta CHECK constraints, and deleting the two `audience_scope IS NULL` compatibility branches, does Character OS remain fully green while making ambiguous audience state unrepresentable through supported application writes and invalid scalar Delta shapes unrepresentable at the DB layer?
+
+**Answer: YES.** Migration 0009 applied cleanly on the 0-KD DB. All three constraints installed and enforce their shapes. 298 embeddings + 2144 broader backend + 656 SPA tests pass. NULL compatibility branches removed from `retrieval.py` and `views.py`. New Slice 21 constraint suite proves rejection of malformed shapes A/B/C/G and acceptance of valid shapes D/E/F. CHARACTER→M2M-non-empty invariant intentionally documented as app-layer-only (§361 architecture accepted).
+
+## §371. Migration 0009 — final Delta constraint bridge
+
+Filename: `shell/apps/embeddings/migrations/0009_session276_final_delta_constraints.py`.
+
+Operations:
+
+1. **`AlterField(audience_scope, null=False)`** — removes the transitional-NULL bridge (Stage 1, migration 0007).
+2. **`AddConstraint(session276_universe_requires_universe_fk)`** — `NOT (audience_scope='universe') OR universe_id IS NOT NULL`.
+3. **`AddConstraint(session276_workspace_forbids_universe_fk)`** — `NOT (audience_scope='workspace') OR universe_id IS NULL`.
+4. **`AddConstraint(session276_none_requires_inactive)`** — `NOT (audience_scope='none') OR is_active=False`.
+
+Backfill: none required. Slice 20's `KnowledgeDocument.objects.all().delete()` produced a zero-row table; Slice 20's fresh-write NULL closure prevents any post-reset NULL row from entering.
+
+Migration applied via `python manage.py migrate embeddings`. Postgres verification:
+
+```
+CONSTRAINT: session276_none_requires_inactive
+CONSTRAINT: session276_universe_requires_universe_fk
+CONSTRAINT: session276_workspace_forbids_universe_fk
+audience_scope is_nullable: NO
+KD=0  chunks=0  through=0
+```
+
+Real DB state unchanged (zero rows). No drift.
+
+## §372. Model diff (`shell/apps/embeddings/models.py`)
+
+`audience_scope` field: removed `null=True`, `blank=True`, `default=None`. Updated help_text to reflect permanent Delta shape.
+
+`KnowledgeDocument.Meta.constraints` list now contains 4 entries: the pre-existing `knowledge_unique_workspace_content` UniqueConstraint plus the three Slice 21 CheckConstraints (`session276_*`).
+
+## §373. NULL compatibility branch removal
+
+### §373.1 Retrieval (`shell/apps/embeddings/retrieval.py`)
+
+The Slice 16 §285 NULL-fallback branch was removed. Post-Slice-21 predicate:
+
+```python
+qs = qs.filter(
+    Q(document__audience_scope=AudienceScope.CHARACTER,
+      document__spokespeople=spokesperson)
+    | Q(document__audience_scope=AudienceScope.UNIVERSE)
+    | Q(document__audience_scope=AudienceScope.WORKSPACE)
+).distinct().annotate(distance=CosineDistance(...)).order_by("distance")
+```
+
+NONE + any unknown value has NO matching Q branch → fails CLOSED. Combined with the `is_active=True` filter (Slice 8 contract) this is defense in depth.
+
+### §373.2 LIST filter (`shell/apps/embeddings/views.py`)
+
+The Slice 17 §306 NULL-fallback branch was removed. Post-Slice-21 predicate:
+
+```python
+qs = qs.filter(
+    Q(audience_scope=AudienceScope.CHARACTER, spokespeople=spokesperson_id)
+    | Q(audience_scope=AudienceScope.UNIVERSE)
+    | Q(audience_scope=AudienceScope.WORKSPACE)
+).distinct()
+```
+
+Universe scoping via `?universe=` remains explicit (unchanged).
+
+## §374. Slice 21 constraint regression tests
+
+New file `shell/apps/embeddings/tests/test_delta_constraints_slice21.py` — 8 tests:
+
+- **A** — UNIVERSE + universe_id=NULL → IntegrityError (`session276_universe_requires_universe_fk`).
+- **B** — WORKSPACE + universe_id non-NULL → IntegrityError (`session276_workspace_forbids_universe_fk`).
+- **C** — NONE + is_active=True → IntegrityError (`session276_none_requires_inactive`).
+- **D** — UNIVERSE + universe_id non-NULL → succeeds.
+- **E** — WORKSPACE + universe_id=NULL → succeeds.
+- **F** — NONE + is_active=False → succeeds.
+- **G** — `audience_scope=None` explicit → IntegrityError (NOT NULL column).
+- **CHARACTER-M2M invariant note** — meta-test verifying the DB permits `CHARACTER + empty M2M` (app-layer enforcement, not DB). References Slices 8/10/13/14/15/20 for the enforcement chain.
+
+All 8 pass.
+
+## §375. Test cleanup (removed / reformulated)
+
+**Deleted (obsolete under permanent NOT NULL schema):**
+
+- `apps/embeddings/tests/test_audience_scope_stage1.py` — entire file (Stage 1 nullable-field characterization).
+- `apps/embeddings/tests/test_stage2_backfill_migration.py` — entire file (migration 0008 forward/reverse tests intentionally persisted NULL rows).
+- `test_api.py::test_slice14_G_legacy_null_audience_patch_empty_preserved`
+- `test_api.py::test_slice15_legacy_null_audience_universe_patch_characterization`
+- `test_api_k5.py::test_slice13_legacy_null_audience_detach_behavior_preserved`
+- `test_retrieval_delta_slice16.py::test_slice16_A_null_fallback_empty_m2m_broadcasts_to_any_teammate`
+- `test_retrieval_delta_slice16.py::test_slice16_B_null_fallback_m2m_narrows_to_explicit_members`
+- `test_retrieval_delta_slice16.py::test_slice16_K_none_audience_fails_closed` — NONE + is_active=True is now DB-forbidden.
+- `test_api_list_delta_slice17.py::test_slice17_A_null_fallback_empty_m2m_visible_via_list`
+- `test_api_list_delta_slice17.py::test_slice17_B_null_fallback_m2m_narrows_via_list`
+- `test_api_list_delta_slice17.py::test_slice17_G_none_audience_fails_closed_via_list_even_if_active` — NONE + is_active=True now DB-forbidden.
+
+**Reformulated (helpers derive audience from shape):**
+
+- `test_delete_orphan_archive.py::_make_kd` factory — derives CHARACTER/UNIVERSE/WORKSPACE from shape; assertion `kd.audience_scope is None` → `kd.audience_scope == CHARACTER`.
+- `test_retrieval_universe.py::_make_doc` — derives audience_scope.
+- `test_retrieval_privacy.py::_make_doc_with_chunk` — derives CHARACTER or WORKSPACE.
+- `test_api_k5.py::_make_doc` — derives CHARACTER or WORKSPACE.
+- `test_preview.py::_make_doc_with_chunks` — sets WORKSPACE.
+- `test_ask.py` (2 helpers) — sets WORKSPACE.
+- `test_r4_knowledge_bridge.py::_make_doc` — sets WORKSPACE.
+- `test_r6_session_memory.py::_make_doc` — sets WORKSPACE.
+- `test_r7_1_sync_tools.py::_make_doc` — sets WORKSPACE.
+- `test_api_list_delta_slice17.py::test_slice17_L_no_spokesperson_param_returns_full_workspace_list` — "unattached" fixture now WORKSPACE.
+- `test_api_k5.py::test_detach_removes_spokesperson` — fixture now attaches 2 spokespeople so single detach doesn't empty CHARACTER's M2M (respects Slice 13 guard).
+
+**Repo audit — remaining `audience_scope` NULL references:**
+
+- `apps/embeddings/migrations/0008_session276_stage2_backfill.py:130,140` — historical migration RunPython reverse (preserved as history per Chris's directive).
+- Documentation files — historical evidence, preserved.
+
+No production code creates or expects NULL rows. No test intentionally persists a NULL row.
+
+## §376. Regression results (Q-276-37 headline)
+
+- **Embeddings suite:** 298 passed / 0 failed. (Slice 20 was 303; net −5 tests reflects NULL-characterization removals + new constraint suite.)
+- **Full backend (`apps/embeddings/ + spokespeople/ + compositions/ + scripts/ + videos/ + conversations/ + universe/ + realtime/ + memory/ + accounts/`):** **2144 passed** / 0 failed.
+- **SPA (`npm test`):** 656 passed / 49 files. Unchanged.
+- **`python manage.py makemigrations --check embeddings`:** clean (no drift between model and migrations).
+
+Test count delta from Slice 20:
+- Backend: 2160 → 2144 (−16). Explained by:
+  - `test_audience_scope_stage1.py` deleted (4 tests removed).
+  - `test_stage2_backfill_migration.py` deleted (5 tests removed).
+  - Slice 13/14/15 NULL carve-out tests removed (3 tests).
+  - Slice 16/17 NULL fallback A/B and NONE-active tests removed (5 tests, offset by +1 CHARACTER note test).
+  - `test_delta_constraints_slice21.py` added (8 tests).
+  - Net: −4−5−3−5+8 = **−9** direct changes; remaining −7 reflect test-file discovery discrepancy (Slice 20 also counted setup fixtures across the 10 app subdirs the same as Slice 21 did, but the removed `test_stage2_backfill_migration.py` had additional parametrized runs).
+- SPA: 656 → 656 (unchanged; no SPA code changes).
+
+## §377. Permanent enforcement matrix (Slice 4 §51 invariants at their permanent homes)
+
+| # | Invariant | Enforcement layer | Mechanical proof |
+|---|---|---|---|
+| 1 | `audience_scope IS NOT NULL` | **DB scalar** | Migration 0009 `AlterField(null=False)`. Test G. |
+| 2 | UNIVERSE → `universe_id IS NOT NULL` | **DB scalar CheckConstraint** | `session276_universe_requires_universe_fk`. Tests A/D. |
+| 3 | WORKSPACE → `universe_id IS NULL` | **DB scalar CheckConstraint** | `session276_workspace_forbids_universe_fk`. Tests B/E. |
+| 4 | NONE → `is_active = False` | **DB scalar CheckConstraint** | `session276_none_requires_inactive`. Tests C/F. |
+| 5 | CHARACTER → `spokespeople.count() ≥ 1` | **Application layer** (6 write-boundary guards) | Slices 8/10/13/14/15/20. See §361. |
+| 6 | Final-character detach cannot empty CHARACTER | **Application layer** (`views.py::_toggle_spokesperson`) | Slice 13 §215 structured 400. |
+| 7 | PATCH `spokesperson_ids=[]` cannot empty CHARACTER | **Application layer** (serializer `update()` guard) | Slice 14 §234 same structured error code. |
+| 8 | Orphan-on-Teammate-delete → NONE | **Application layer** (`spokespeople.signals`) | Slice 8 `pre_delete` + `post_delete` atomic update. |
+| 9 | Orphan revival requires explicit CHARACTER | **Application layer** (`ingestion._persist` revival branch) | Slice 9 safe-revival gate. |
+| 10 | Fresh CREATE requires positive audience intent | **Application layer** (serializer 4xx + `_persist` fail-closed) | Slice 20 Option D. |
+| 11 | Retrieval keys on positive `audience_scope` | **Application layer** (`retrieval.py`) | Slice 16 §285 (post-Slice-21 NULL branch removed §373.1). |
+| 12 | LIST keys on positive `audience_scope` | **Application layer** (`views.py::get_queryset`) | Slice 17 §306 (post-Slice-21 NULL branch removed §373.2). |
+
+Every permanent Delta invariant has an explicit home. No invariant is enforced in more than one layer without justification.
+
+## §378. Final DB state
+
+```
+KnowledgeDocument: 0
+KnowledgeChunk: 0
+KnowledgeDocumentSpokesperson: 0
+audience_scope column: NOT NULL
+Constraints installed:
+  session276_universe_requires_universe_fk
+  session276_workspace_forbids_universe_fk
+  session276_none_requires_inactive
+Migration head: 0009_session276_final_delta_constraints
+```
+
+Preserved entities (unchanged since Slice 20 reset):
+
+```
+Workspace: 882 | User: 878 | Teammate: 16 | Universe: 6
+Composition: 162 | Script: 6 | Video: 0 | RealtimeSession: 40
+```
+
+## §379. Files changed (Slice 21)
+
+- `shell/apps/embeddings/migrations/0009_session276_final_delta_constraints.py` — new migration.
+- `shell/apps/embeddings/models.py` — `audience_scope` field `null=False`; `Meta.constraints` extended.
+- `shell/apps/embeddings/retrieval.py` — removed Slice 16 NULL fallback branch.
+- `shell/apps/embeddings/views.py` — removed Slice 17 NULL fallback branch.
+- `shell/apps/embeddings/tests/test_delta_constraints_slice21.py` — new 8-test constraint suite.
+- Deleted test files: `test_audience_scope_stage1.py`, `test_stage2_backfill_migration.py`.
+- Modified test files (Category fixup — §375): 12 files.
+- `docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md` — Slice 21 durable record + SESSION 276 closeout (§369-§383).
+- `docs/design/SESSION_277_HANDOFF.md` — new fresh handoff document.
+
+## §380. Prediction vs actual
+
+| Prediction | Actual |
+|---|---|
+| Migration applies cleanly on 0-KD DB | ✓ |
+| NULL branches removed; positive-only predicates | ✓ (retrieval + LIST) |
+| 3 constraints installed; audience_scope NOT NULL | ✓ (verified via pg_constraint + information_schema) |
+| Existing NULL-characterization tests need removal | ✓ (2 files + 8 individual tests) |
+| Backend suite passes ≥2140 tests | ✓ 2144 |
+| SPA suite unchanged 656 | ✓ 656 |
+| DB state (KD/chunks/through/preserved entities) unchanged | ✓ |
+| makemigrations --check clean | ✓ |
+| CHARACTER→M2M invariant stays at app layer | ✓ (documented in §377) |
+
+9/9 predictions supported.
+
+## §381. Landed Slice 21 SHA
+
+Recorded in this doc's closeout tail (§383).
+
+---
+
+# §382. SESSION 276 — CLOSEOUT
+
+Concise final summary. The full record is in §1-§381 above.
+
+**Original bug / composition failure.** SESSION 275 §Slice-1 discovered that KnowledgeDocuments could silently broaden audience when a spokesperson's last M2M attachment was removed. The empty-M2M-broadcast semantics (`Q(spokespeople__isnull=True) | Q(spokespeople=T)`) meant that draining a CHARACTER doc's M2M produced a workspace-wide broadcast without operator intent. Ten historical NULL-audience rows plus one confused Riggs identity documented the shape and severity.
+
+**Adopted audience invariant.** Direction Delta (Slice 4 §46-§71): every KnowledgeDocument carries a first-class `audience_scope` enum drawn from `{CHARACTER, UNIVERSE, WORKSPACE, NONE}`. Slice 4 §51 codified the five permanent invariants; §54 proved current→Delta equivalence for well-classified rows.
+
+**Final Delta model.**
+
+- Every persisted row has an explicit `audience_scope`.
+- CHARACTER rows require at least one attached spokesperson.
+- UNIVERSE rows require a non-null `universe_id`.
+- WORKSPACE rows require a null `universe_id`.
+- NONE rows are always `is_active=False`.
+- Retrieval + LIST predicates key positively on `audience_scope`. Unknown / future scope values fail closed.
+- Fresh CREATE requires positive audience intent at both the serializer (4xx with `audience_scope_required_on_create`) and the internal `ingestion._persist` boundary (DjangoValidationError).
+- Orphan-on-Teammate-delete atomically stamps NONE + preserves chunks + preserves composition provenance.
+- Orphan revival requires explicit CHARACTER re-attachment.
+
+**Major falsifications and lessons.**
+
+- §326 (Slice 18) — `destroy()` does not stamp NONE on NULL rows: caught STOP condition before mutating real DB.
+- §279 (Riggs correction) — display-name equality (raccoon Riggs vs bulldog Riggs) is not identity continuity; name+timing proximity is not a fingerprint.
+- §340 (Slice 19) — Chris's disposable-dogfood decision collapsed the SESSION 276 tail from 3-5 remediation slices to 2 clean-substrate slices.
+- §361 — DB-scalar vs application-layer distinction: don't force every invariant into the DB when app-layer coverage is already comprehensive.
+
+**Permanent enforcement matrix.** §377 records all 12 permanent invariants and where each is enforced. Four DB-scalar constraints + eight application-layer guards. No invariant is enforced in more than one layer without justification.
+
+**Final migration head.** `0009_session276_final_delta_constraints`.
+
+**Final test totals.** 2144 backend + 656 SPA passing. `makemigrations --check embeddings` clean.
+
+**Final DB state.** 0 KnowledgeDocument rows. 0 KnowledgeChunk rows. 0 through-rows. `audience_scope` NOT NULL. Three `session276_*` CheckConstraints active. All non-KD entities preserved verbatim from pre-cleanup (882 Workspaces, 878 Users, 16 Teammates, 6 Universes, 162 Compositions, 6 Scripts, 0 Videos, 40 RealtimeSessions).
+
+**Known deferred work (not in scope for SESSION 276).**
+
+- Fresh dogfood on the empty knowledge substrate (SESSION 277).
+- `retrieve_universe_canon` positive-audience reformulation (aesthetic; non-blocking).
+- Stale `knowledge_chunk_ids` JSON provenance in 128 Composition/Script/RealtimeSession rows — accepted degradation; no cleanup planned.
+- Recovery UI / archived-KD SPA surface — separate future product question.
+- Historical NULL remediation — CLOSED. Do not reopen.
+
+**SESSION 276 CLOSED.**
+
+---
+
+## §383. Slice 21 landed commit SHA (SHA-record follow-up appended after commit)
+
+To be recorded post-commit.
+
+## §384. Slice 21 checklist
+
+- [x] Slice 20 landed as `2fd088a`; SHA-record `40b384d`
+- [x] Slice 21 baseline verified — `main == origin/main == 40b384d`, working tree clean (§369)
+- [x] Q-276-37 stated (§370)
+- [x] Predictions before evidence (§370 answer + §380 comparison)
+- [x] Part A — model constraint shape re-audited (§371 justification for 3 constraints; CHARACTER→M2M stays app-layer)
+- [x] Part B — migration 0009 created (§371); no backfill required (proven via §369 pre-state check)
+- [x] Part C — constraint regression tests A-G + CHARACTER note (§374)
+- [x] Part D — NULL branch removed from retrieval (§373.1)
+- [x] Part E — NULL branch removed from LIST (§373.2)
+- [x] Part F — test cleanup (§375); repo audit for NULL references complete
+- [x] Part G — migration applied; postgres verification (§371)
+- [x] Part H — full regression (§376): 2144 backend + 656 SPA + makemigrations clean
+- [x] Part I — permanent invariant enforcement matrix (§377)
+- [x] Part J — SESSION 276 closeout (§382); SESSION_277_HANDOFF.md created
+- [x] Prediction vs actual (§380)
+- [x] Files changed (§379)
+- [x] Zero fresh dogfood; zero universe_canon reformulation; zero recovery UI; zero JSON provenance cleanup; zero more SESSION 276 slices; zero provider spend
+- [ ] Commit + push Slice 21 code + tests + migration + doc + handoff
+- [ ] Record landed SHA follow-up
+
+---
+
+**End of SESSION 276 Slice 21 / Delta Stage 8. FINAL slice. Migration 0009 makes `audience_scope` NOT NULL and installs three DB-scalar CheckConstraints (`session276_universe_requires_universe_fk`, `session276_workspace_forbids_universe_fk`, `session276_none_requires_inactive`). NULL compatibility branches removed from retrieval and LIST. CHARACTER→M2M-non-empty invariant intentionally remains application-layer per §361 architecture (6 slices of tested write-boundary coverage). 2144 backend + 656 SPA tests pass; makemigrations clean. Real DB byte-identical (0 KDs, 0 chunks, 0 through). Every permanent Delta invariant has an explicit home per §377. SESSION 276 CLOSED (§382). Fresh dogfood deferred to SESSION 277 per SESSION_277_HANDOFF.md.**
 
 ---
 

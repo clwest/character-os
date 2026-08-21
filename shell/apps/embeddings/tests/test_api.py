@@ -1062,41 +1062,10 @@ def test_slice14_F_universe_row_patch_empty_is_noop_unchanged() -> None:
     assert doc.spokespeople.count() == 0
 
 
-# ---- Test G — legacy NULL row PATCH [] preserved (carve-out) ----
-
-
-def test_slice14_G_legacy_null_audience_patch_empty_preserved() -> None:
-    """Slice 14 Test G — a legacy NULL-audience row (pre-Slice-10
-    shape, only exists in test fixtures — real DB has zero) is NOT
-    guarded by Slice 14. PATCH sp_ids=[] on it behaves as before,
-    emptying the M2M without stamping any audience. Documents the
-    deliberate carve-out for the transitional debt."""
-    ws, user = _make_workspace_with_user("s14-g@k4.test", "S14G")
-    a = Teammate.objects.create(workspace=ws, name="Alpha")
-    # Legacy shape: direct create without audience_scope + explicit
-    # M2M attach post-creation.
-    doc = KnowledgeDocument.objects.create(
-        workspace=ws, title="s14-g",
-        document_type=DocumentType.TEXT,
-        processed_content="body", content_hash="HASH-S14G",
-        ingested_via="paste",
-    )
-    doc.spokespeople.set([a])
-    assert doc.audience_scope is None
-    assert doc.spokespeople.count() == 1
-
-    client = APIClient()
-    _login(client, user)
-    response = client.patch(
-        f"/api/knowledge/{doc.pk}/",
-        {"spokesperson_ids": []},
-        format="json",
-    )
-    # Legacy behavior preserved — 200 OK, M2M emptied.
-    assert response.status_code == http.HTTP_200_OK, response.content
-    doc.refresh_from_db()
-    assert doc.audience_scope is None
-    assert doc.spokespeople.count() == 0
+# ---- Test G removed by SESSION 276 Slice 21 ----
+# The legacy NULL-audience carve-out test is obsolete: migration 0009
+# made `audience_scope IS NULL` unrepresentable at the DB layer. See
+# docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md §353-§368.
 
 
 # ---- Test H — atomic rejection preserves unrelated fields ----
@@ -1445,41 +1414,9 @@ def test_slice15_universe_removal_rejection_does_not_partially_persist_title() -
     assert doc.universe_id == u.pk
 
 
-# ---- Test G — NULL legacy row Universe PATCH characterization ----
-
-
-def test_slice15_legacy_null_audience_universe_patch_characterization() -> None:
-    """Slice 15 characterization — pre-Delta NULL-audience row +
-    PATCH universe=U. Slice 15 does NOT classify these rows; the
-    Universe FK change applies but audience_scope stays NULL
-    (transitional). Documents deliberate carve-out. Real DB has
-    zero such rows with any spokespeople attached; the 10 real NULL
-    rows are all empty-M2M ambiguous historical rows requiring
-    operator triage (Slice 4 §55.2)."""
-    ws, user = _make_workspace_with_user("s15-g@k4.test", "S15G")
-    u = Universe.objects.create(workspace=ws, name="S15G U")
-    # Direct-create fixture matching the ambiguous legacy shape.
-    doc = KnowledgeDocument.objects.create(
-        workspace=ws, title="s15-g",
-        document_type=DocumentType.TEXT,
-        processed_content="body", content_hash="HASH-S15G",
-        ingested_via="paste",
-    )
-    assert doc.audience_scope is None
-
-    client = APIClient()
-    _login(client, user)
-    response = client.patch(
-        f"/api/knowledge/{doc.pk}/",
-        {"universe": str(u.pk)},
-        format="json",
-    )
-    # Preserved current behavior — guards fire only on CHARACTER/
-    # UNIVERSE/WORKSPACE, not on NULL transitional rows.
-    assert response.status_code == http.HTTP_200_OK
-    doc.refresh_from_db()
-    assert doc.audience_scope is None  # unchanged
-    assert doc.universe_id == u.pk
+# ---- Test G removed by SESSION 276 Slice 21 ----
+# The legacy NULL Universe-PATCH carve-out test is obsolete: migration
+# 0009 made `audience_scope IS NULL` unrepresentable at the DB layer.
 
 
 # ---- Test H — inactive KD PATCH unreachable (queryset filter) ----

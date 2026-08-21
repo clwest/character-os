@@ -362,6 +362,7 @@ def test_other_workspace_sessions_excluded():
 def _make_doc_with_chunks(
     ws: Workspace, *, title: str, chunks: list[str], seed: float = 0.9,
 ) -> KnowledgeDocument:
+    from apps.embeddings.models import AudienceScope
     doc = KnowledgeDocument.objects.create(
         workspace=ws, title=title,
         document_type=DocumentType.TEXT,
@@ -370,6 +371,7 @@ def _make_doc_with_chunks(
         processed_content="\n\n".join(chunks),
         content_hash=f"hash-{title}-{seed}",
         status=DocumentStatus.PROCESSED,
+        audience_scope=AudienceScope.WORKSPACE,  # SESSION 276 Slice 21
     )
     for i, text in enumerate(chunks):
         KnowledgeChunk.objects.create(

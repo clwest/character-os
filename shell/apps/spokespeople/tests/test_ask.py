@@ -83,6 +83,7 @@ def _make_doc(
     chunk_count: int = 1,
     seed: float = 0.5,
 ) -> tuple[KnowledgeDocument, list[KnowledgeChunk]]:
+    from apps.embeddings.models import AudienceScope
     doc = KnowledgeDocument.objects.create(
         workspace=ws,
         title=title,
@@ -92,6 +93,7 @@ def _make_doc(
         processed_content="x",
         content_hash=f"hash-{title}-{seed}",
         status=DocumentStatus.PROCESSED,
+        audience_scope=AudienceScope.WORKSPACE,  # SESSION 276 Slice 21
     )
     chunks = [
         KnowledgeChunk.objects.create(
@@ -269,6 +271,7 @@ def test_honest_fallback_when_only_unprocessed_docs() -> None:
     sp = _make_teammate(ws)
     # Doc + chunk exist but doc status is PENDING (worker never
     # advanced it). Retrieval filters on document__status=processed.
+    from apps.embeddings.models import AudienceScope
     doc = KnowledgeDocument.objects.create(
         workspace=ws, title="Uploaded but not processed",
         document_type=DocumentType.TEXT,
@@ -276,6 +279,7 @@ def test_honest_fallback_when_only_unprocessed_docs() -> None:
         raw_content="x", processed_content="x",
         content_hash="hash-pending",
         status=DocumentStatus.PENDING,
+        audience_scope=AudienceScope.WORKSPACE,  # SESSION 276 Slice 21
     )
     KnowledgeChunk.objects.create(
         document=doc, chunk_index=0,

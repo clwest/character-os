@@ -95,12 +95,27 @@ def _make_kd(
     *,
     spokespeople: list[Teammate] | None = None,
     universe: Universe | None = None,
+    audience_scope: str | None = None,
     content_seed: str = "",
     with_chunk: bool = True,
     chunk_vector_seed: float = 1.0,
 ) -> KnowledgeDocument:
     """Create a processed KD with one chunk. Chunks include a real
-    pgvector vector so retrieval assertions work end-to-end."""
+    pgvector vector so retrieval assertions work end-to-end.
+
+    SESSION 276 Slice 21: NULL audience_scope is unrepresentable at the
+    DB layer. When ``audience_scope`` is omitted, this helper derives a
+    valid scope from shape: spokespeople → CHARACTER; universe (no sp)
+    → UNIVERSE; else → WORKSPACE. Callers can still pass an explicit
+    ``audience_scope`` to override.
+    """
+    if audience_scope is None:
+        if spokespeople:
+            audience_scope = AudienceScope.CHARACTER
+        elif universe is not None:
+            audience_scope = AudienceScope.UNIVERSE
+        else:
+            audience_scope = AudienceScope.WORKSPACE
     kd = KnowledgeDocument.objects.create(
         workspace=ws,
         universe=universe,
@@ -111,6 +126,7 @@ def _make_kd(
         content_hash=f"hash-{title}-{content_seed}",
         ingested_via=IngestedVia.PASTE,
         status=DocumentStatus.PROCESSED,
+        audience_scope=audience_scope,
     )
     if spokespeople:
         kd.spokespeople.set(spokespeople)
@@ -143,9 +159,9 @@ def test_last_spokesperson_delete_legacy_inactivates_kd():
     kd = _make_kd(ws, "private-to-alpha", spokespeople=[a])
     assert kd.is_active is True
     assert kd.deactivated_reason == ""
-    # Fixture default: Stage 3 mutation-surface pass hasn't happened;
-    # test-factory-created KDs still start with audience_scope=None.
-    assert kd.audience_scope is None
+    # SESSION 276 Slice 21: _make_kd factory now derives audience_scope
+    # from shape (spokespeople → CHARACTER); NULL is unrepresentable.
+    assert kd.audience_scope == AudienceScope.CHARACTER
 
     a.delete()
 
@@ -546,8 +562,8 @@ def test_ingestion_revival_rejects_orphan_without_spokespeople():
     # NONE or NULL audience_scope simultaneously.
     assert not (
         kd.is_active is True
-        and kd.audience_scope in (AudienceScope.NONE, None)
-    ), "revived orphan must never be active + NONE/NULL"
+        and kd.audience_scope == AudienceScope.NONE
+    ), "revived orphan must never be active + NONE"
 
 
 # ---- 12. ingestion revival of operator-deleted KD unchanged ---------

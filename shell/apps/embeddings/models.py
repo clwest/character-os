@@ -289,26 +289,23 @@ class KnowledgeDocument(models.Model):
         ),
     )
 
-    # SESSION 276 Slice 5 / Delta Stage 1 — first-class audience
-    # marker. NULL on every existing row after this migration;
-    # retrieval + mutation paths do NOT yet consult this field.
-    # Empty-M2M-broadcast semantics at
-    # ``apps/embeddings/retrieval.py:216-220`` remain authoritative
-    # during Stage 1. Later stages populate rows deterministically
-    # and switch retrieval to key on this field positively.
-    # See ``docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md``
-    # §46-§71 for the full Delta design and staged rollout plan.
+    # SESSION 276 Slice 21 / Delta Stage 8 — permanent Delta audience
+    # marker. Every row carries exactly one of CHARACTER / UNIVERSE /
+    # WORKSPACE / NONE. NULL is unrepresentable at the DB layer as of
+    # migration 0009. Fresh writes require positive audience intent
+    # (Slice 20 closure at serializer + ingestion boundaries). Direct
+    # ORM ``KnowledgeDocument.objects.create(...)`` calls that omit
+    # this field will raise IntegrityError at the DB layer.
+    # See docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md
+    # §353-§368 for the closing Slice 21 record.
     audience_scope = models.CharField(
         max_length=20,
         choices=AudienceScope.choices,
-        null=True,
-        blank=True,
-        default=None,
         help_text=(
-            "Delta Stage 1 first-class audience marker. NULL is a "
-            "MIGRATION-ONLY state during Delta rollout; NULL does NOT "
-            "mean WORKSPACE. Retrieval currently does not consult this "
-            "field. See SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md."
+            "Delta first-class audience marker. Permanent post-SESSION-276: "
+            "every row is one of CHARACTER / UNIVERSE / WORKSPACE / NONE. "
+            "NULL is unrepresentable. See "
+            "SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md §353-§368."
         ),
     )
 
@@ -328,6 +325,33 @@ class KnowledgeDocument(models.Model):
             models.UniqueConstraint(
                 fields=["workspace", "content_hash"],
                 name="knowledge_unique_workspace_content",
+            ),
+            # SESSION 276 Slice 21 / Delta Stage 8 — the three scalar
+            # Delta invariants that live entirely on KnowledgeDocument
+            # columns. The CHARACTER-M2M-non-empty invariant is NOT
+            # encoded here; it stays at the application layer per
+            # §361. See migration 0009_session276_final_delta_constraints
+            # for the full rationale.
+            models.CheckConstraint(
+                condition=(
+                    ~models.Q(audience_scope=AudienceScope.UNIVERSE)
+                    | models.Q(universe_id__isnull=False)
+                ),
+                name="session276_universe_requires_universe_fk",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    ~models.Q(audience_scope=AudienceScope.WORKSPACE)
+                    | models.Q(universe_id__isnull=True)
+                ),
+                name="session276_workspace_forbids_universe_fk",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    ~models.Q(audience_scope=AudienceScope.NONE)
+                    | models.Q(is_active=False)
+                ),
+                name="session276_none_requires_inactive",
             ),
         ]
         indexes = [

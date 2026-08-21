@@ -87,6 +87,7 @@ def _make_doc_with_chunks(
     chunk_count: int = 1,
     seed: float = 1.0,
 ) -> KnowledgeDocument:
+    from apps.embeddings.models import AudienceScope
     doc = KnowledgeDocument.objects.create(
         workspace=ws, title=title,
         document_type=DocumentType.TEXT,
@@ -94,6 +95,7 @@ def _make_doc_with_chunks(
         raw_content="x", processed_content="x",
         content_hash=f"hash-{title}-{seed}",
         status=DocumentStatus.PROCESSED,
+        audience_scope=AudienceScope.WORKSPACE,  # SESSION 276 Slice 21
     )
     for i in range(chunk_count):
         KnowledgeChunk.objects.create(
