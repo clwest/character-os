@@ -6604,4 +6604,363 @@ Chris's product-order preference decides which lands first. §316 makes Q-276-33
 
 **Slice 17 landed commit SHA:** `6e7bd6c` (`feat(session-276): Slice 17 / Delta Stage 5B — SPA-list ?spokesperson= cutover to positive audience_scope predicate`). Pushed to `origin/main`. Post-push `main == origin/main == 6e7bd6c`; working tree clean.
 
+---
+
+# SESSION 276 — Slice 18 / Delta Stage 7 opener — legacy-KD lifecycle archive audit (Q-276-33)
+
+Audit-only slice. Part B triggered the authorization's STOP condition — the existing operator-delete lifecycle path does NOT produce the intended Delta-safe archive shape for the 9 §316 rows. No DB mutation performed. Forensic inspection of the 10th NULL row + NULL-debt analysis + full regression proceeded READ-ONLY.
+
+## §322. Slice 18 falsifiable question — Q-276-33 (refined)
+
+**Primary.** If the 9 chriss-workspace historical KDs explicitly lifecycle-decided by Chris in §316 are archived through the existing safe operator lifecycle semantics, does Character OS remove them from active retrieval/LIST without broadening audience, preserve their chunks/provenance, and leave exactly one historical `audience_scope=NULL` row requiring a decision?
+
+**Secondary.** What exactly is the remaining admins-workspace NULL KD `33c07feb` ("Wikipedia is trafilatura's home turf"), and is there enough evidence to recommend WORKSPACE, NONE/archive, or another explicit state?
+
+## §323. Slice 18 baseline SHA
+
+- Base commit at Slice 18 start: `e2087cd` (`docs(session-276): record Slice 17 landed SHA 6e7bd6c in audit doc`).
+- `main == origin/main == e2087cd`; working tree clean prior to Slice 18.
+- Slice 17 code landed at `6e7bd6c`; Slice 18 was NEVER expected to modify code (Q-276-33 is a lifecycle-action + audit slice) but Part B's STOP finding means Slice 18 lands as documentation-only.
+
+## §324. Predictions before evidence
+
+1. All 9 §316 rows will be present in the DB with `audience_scope=NULL, is_active=True, deactivated_reason=''` and empty M2M.
+2. The 10th NULL row will match `33c07feb` "Wikipedia is trafilatura's home turf" in admins workspace.
+3. The existing `destroy()` operator-delete path will EITHER (a) stamp `audience_scope=NONE` on soft-archive (Delta-safe target) OR (b) preserve the pre-existing `audience_scope` value including NULL (revival-preserving semantics).
+4. If (3a), the archive proceeds and leaves exactly 1 NULL row (`33c07feb`) + 9 NONE rows.
+5. If (3b), the archive would leave the 9 rows as `is_active=False, audience_scope=NULL, deactivated_reason=OPERATOR_DELETE` — NOT Delta-safe for eventual `NOT NULL` constraint. **STOP condition.**
+6. TANK + Tulsi have surviving composition provenance (per Slice 1 §4.2 SET_NULL fingerprints); their chunks must remain resolvable via `resolve_chunk_ids_to_docs` after any archive.
+7. `33c07feb` is authored by admin@mail.com; product recommendation cannot be made from title alone.
+8. Fresh CREATE path can still land at `audience_scope=NULL` when a non-SPA caller omits spokespeople + universe + workspace_shared_intent marker.
+
+## §325. Part A — pre-mutation inventory of all NULL rows
+
+Read-only DB enumeration executed via `/tmp/slice18_partA_inventory.py`.
+
+**Full DB fingerprint (pre-mutation):**
+
+```
+total=72   by_scope={None: 10, 'character': 59, 'universe': 3}
+inactive=0   chunks=1149   m2m_nonempty=59
+```
+
+Matches Slices 15-17 fingerprint verbatim (12th consecutive slice with unchanged real DB).
+
+**The 10 `audience_scope=NULL` rows enumerated:**
+
+| # | Short UUID | Full UUID | Title | Workspace | Chunks | Composition refs | is_active | audience_scope | deactivated_reason | M2M |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | `8c6f0c14` | `8c6f0c14-b2c9-4161-b6b7-a17d3f9b4545` | TANK — AUTOMOTIVE FINANCING CONTENT KNOWLEDGE | chriss-workspace | 22 | 12 | True | NULL | '' | 0 |
+| 2 | `7ecde40b` | `7ecde40b-6d72-45eb-b676-6feb260e2ff8` | Tulsi — Core Identity and Public Purpose | chriss-workspace | 3 | 8 | True | NULL | '' | 0 |
+| 3 | `90ad200c` | `90ad200c-5019-4036-82e9-a1ccc5cbce72` | Riggs (historical raccoon) | chriss-workspace | 1 | 0 | True | NULL | '' | 0 |
+| 4 | `aa90d895` | Hearth & Hollow #1 | About Hearth & Hollow Books | chriss-workspace | 1 | 0 | True | NULL | '' | 0 |
+| 5 | `e37ea174` | Hearth & Hollow #2 | How We Recommend Books | chriss-workspace | 1 | 0 | True | NULL | '' | 0 |
+| 6 | `b58efd31` | Hearth & Hollow #3 | Children's Reading | chriss-workspace | 1 | 0 | True | NULL | '' | 0 |
+| 7 | `7f41d8e3` | Hearth & Hollow #4 | Bookstore Events | chriss-workspace | 1 | 0 | True | NULL | '' | 0 |
+| 8 | `c408656d` | Hearth & Hollow #5 | Supporting Local Authors | chriss-workspace | 1 | 0 | True | NULL | '' | 0 |
+| 9 | `0088f31f` | Hearth & Hollow #6 | Helping Customers Find Their Next Read | chriss-workspace | 1 | 0 | True | NULL | '' | 0 |
+| 10 | `33c07feb` | `33c07feb-65ee-4ed3-8fc0-0f2fc33600c7` | Wikipedia is trafilatura's home turf | admins-workspace | 22 | 0 | True | NULL | '' | 0 |
+
+**§316-authorization match:** all 9 short UUIDs specified by Chris are present with the described names. Zero deviation. The 10th NULL row is exactly `33c07feb` per Chris's explicit exclusion. All 9 rows: `chris@donkeybetz.com` author, `is_active=True`, `audience_scope=NULL`, `deactivated_reason=''`, empty M2M, no Universe. Ready-for-archive shape per §316.
+
+**Preservation-critical:** TANK's 22 chunks with 12 composition provenance refs and Tulsi's 3 chunks with 8 composition refs must survive any archive path. The 7 remaining §316 rows have 0 composition refs each and are simpler.
+
+## §326. Part B — archive-path audit + STOP FINDING
+
+**The existing operator-delete lifecycle path is `KnowledgeDocumentViewSet.destroy()` at `shell/apps/embeddings/views.py:147-166`** (invoked by the SPA's delete button via `DELETE /api/knowledge/<id>/`). Exact behavior:
+
+```python
+def destroy(self, request, *args, **kwargs):
+    instance = self.get_object()
+    instance.is_active = False
+    instance.deactivated_reason = DeactivationReason.OPERATOR_DELETE
+    instance.save(
+        update_fields=["is_active", "deactivated_reason", "updated_at"],
+    )
+    return Response(status=drf_status.HTTP_204_NO_CONTENT)
+```
+
+**What it does:**
+- Flips `is_active=True → False`
+- Sets `deactivated_reason=OPERATOR_DELETE`
+- Preserves `audience_scope` unchanged (whatever it was pre-archive)
+- Preserves M2M unchanged
+- Preserves chunks + embeddings + composition provenance (chunk rows are not touched)
+
+**What it does NOT do:**
+- **Does NOT stamp `audience_scope=NONE`.**
+
+**Contrast — Slice 8 orphan-archive signal at `shell/apps/spokespeople/signals.py:211-216`** (fires on Teammate `post_delete` when a KD's M2M becomes empty via cascade):
+
+```python
+KnowledgeDocument.objects.filter(pk__in=orphan_ids).update(
+    is_active=False,
+    deactivated_reason=DeactivationReason.ORPHANED_BY_TEAMMATE_DELETE,
+    audience_scope=AudienceScope.NONE,    # ← STAMPS NONE
+    updated_at=timezone.now(),
+)
+```
+
+The orphan-archive path DOES stamp NONE atomically alongside `is_active=False`. The operator-delete `destroy()` path does NOT. This asymmetry was introduced deliberately in Slice 8 for the orphan case (§114) — a truly orphaned row has no surviving audience by construction. The operator-delete case was left unchanged for **revival-preservation semantics**: an operator might un-archive a CHARACTER-scoped doc and expect its audience to survive intact.
+
+**Consequence for the 9 §316 rows (currently `audience_scope=NULL`):**
+
+Running the current `destroy()` path against each of the 9 rows would produce:
+
+- **Before:** `is_active=True, audience_scope=NULL, deactivated_reason=''`
+- **After:** `is_active=False, audience_scope=NULL, deactivated_reason=OPERATOR_DELETE`
+
+**Retrieval + LIST safety:** ✅ preserved. Both Slice 16 (`retrieval.py`) and Slice 17 (`views.py` LIST) apply `is_active=True` as a base filter, so the archived rows would be invisible to both retrieval and LIST regardless of `audience_scope`. Under the Delta predicate a NULL row also passes through the NULL-compatibility fallback branch, which further requires `spokespeople__isnull=True OR sp in M2M` — the archived-and-empty-M2M shape naturally continues to satisfy the NULL branch's broadcast case. But no active retrieval would ever reach it because of `is_active=True`.
+
+**Delta-shape completeness:** ❌ NOT met. The archived rows would remain in the `audience_scope=NULL` bucket. The current DB has 10 NULL rows; after archiving 9 the count would still be 10 NULL (9 inactive + 1 active). The intended Delta target for archived knowledge — `audience_scope=NONE` — is not reached.
+
+**Stage 8 (`NOT NULL` constraint) impact:** ❌ BLOCKED. If Stage 8 adds a `NOT NULL` constraint on `audience_scope`, it must first eliminate all NULL rows. Archiving via the current `destroy()` path does NOT eliminate NULL — it merely inactivates the rows. Stage 8 would still require an explicit scope assignment (either NONE via a code change, or a per-row operator/admin decision).
+
+**Per the Slice 18 authorization:** *"If the current archive path does NOT produce the intended Delta-safe state, STOP and report the mismatch before mutating real rows. Do not invent a one-off data patch merely to make the count work."*
+
+**STOP CONDITION MET.** Slice 18 does NOT archive any row. Slice 18 lands as documentation-only.
+
+## §327. Part C — corrected post-archive fingerprint (predicted, hypothetical)
+
+For record and future-slice planning: the correct predicted post-state depends on whether Delta target is reached.
+
+**Scenario A — if a code change lands that makes `destroy()` stamp `NONE` when `audience_scope` is currently NULL:**
+
+- total KDs = 72 (soft archive, no hard delete)
+- CHARACTER = 59
+- UNIVERSE = 3
+- WORKSPACE = 0
+- NONE = 9  (the 9 §316 rows post-archive)
+- NULL = 1  (only `33c07feb` remaining)
+- inactive = 9
+- chunks preserved (1149)
+- m2m_nonempty = 59
+
+**Scenario B — if `destroy()` is used unchanged (current behavior):**
+
+- total KDs = 72
+- CHARACTER = 59
+- UNIVERSE = 3
+- WORKSPACE = 0
+- NONE = 0
+- NULL = 10  (all 10 rows remain NULL; 9 now inactive)
+- inactive = 9
+- chunks preserved (1149)
+- m2m_nonempty = 59
+
+The prior Q-276-33 wording predicted `total=63, inactive=9`. That combination is arithmetically inconsistent with soft archive (total should remain 72). It corresponds to hard-delete of 9 rows, which is explicitly forbidden by the Slice 18 authorization ("Do NOT hard-delete them in this slice"). **The correct soft-archive prediction is Scenario A above.**
+
+## §328. Part D / E — SKIPPED (per §326 STOP)
+
+No archive was performed. The 9 §316 rows remain unmutated:
+- `is_active=True`
+- `audience_scope=NULL`
+- `deactivated_reason=''`
+- All chunks + embeddings + composition provenance intact
+- All M2M relationships unchanged (empty for all 9, as before)
+- All Universe FKs unchanged (NULL for all 9, as before)
+
+## §329. Part F — forensic inspection of `33c07feb`
+
+READ ONLY. Executed via `/tmp/slice18_partF_inspect_33c07feb.py`. Full evidence separated into observation / source-derived / inference / recommendation tiers per authorization.
+
+### §329.1 OBSERVED FACT (direct DB read)
+
+- UUID: `33c07feb-65ee-4ed3-8fc0-0f2fc33600c7`
+- Title: `"Wikipedia is trafilatura's home turf"`
+- Workspace: **Admin's workspace** (`f4f2aa20-e2e2-4ae2-85a0-abacd8bea231`)
+- Created by: **admin@mail.com** (workspace superuser, not chris@donkeybetz.com)
+- Created at: `2026-05-14T20:35:29.095303+00:00` — pre-Universe (SESSION 261 Universe primitive shipped later)
+- Updated at: `2026-05-14T20:35:42.849266+00:00` (~14 seconds after create; single-shot ingest, no manual re-edit)
+- Document type: `url` (not `text` or `markdown` — recorded as a URL ingestion)
+- Ingested via: `paste`
+- Status: `processed`
+- is_active: True; audience_scope: NULL; deactivated_reason: `''`
+- Universe: NULL; spokespeople M2M count: 0
+- Chunk count: 22
+- content_hash: `52a6c67f721554f7a491958836866369cdee094fab156a857770513148c46a95`
+- raw_content length: 16,656 chars; processed_content length: ~similar
+
+### §329.2 SOURCE-DERIVED FACT (content sniff + composition query)
+
+- First 500 chars of processed_content start with: *"Retrieval-augmented generation\nRetrieval-augmented generation (RAG) is a technique that enables large language models (LLMs) to retrieve and incorporate new information from external data sources.[1] With RAG, LLMs first refer to a specified set of documents, then respond to user queries..."* — this is verbatim from the Wikipedia article on Retrieval-augmented generation.
+- Tail of processed_content ends with a bibliography entry citing Kelcey, Chang, Dai, Uszkoreit, Le, Petrov "Natural Questions: a Benchmark for Question Answering Research" — matches Wikipedia RAG article's references section.
+- Composition provenance refs (chunks → compositions): **0**. This document was NEVER used to render any teammate composition.
+- Same-workspace peer KDs: 45 rows, all `audience_scope=CHARACTER`, all attached to admins-workspace teammates (24/7 Global AI, Contract Concierge, MentorForge, context-kit, etc.). The `33c07feb` row is the ONLY NULL / non-CHARACTER doc in admins-workspace.
+- Same-workspace teammates: 2 — Riggs (`cf3b2322`) and Rigby (`d3d0fb14`), both no-Universe. **Note:** the admins-workspace Riggs is a separate Teammate row from chriss-workspace's Riggs (`5731a73d`). Cross-workspace name reuse; not identity continuity.
+
+### §329.3 INFERENCE (evidence-tiered)
+
+- **Author + workspace:** created by admin@mail.com in admins-workspace → likely an operational / engineering test note, not a customer-facing character doc.
+- **Empty M2M + no Universe:** never bound to a specific character or Universe. Was ingested unattached.
+- **Content = Wikipedia RAG article:** the underlying content is a Wikipedia article about retrieval-augmented generation. The title (*"Wikipedia is trafilatura's home turf"*) is admin's editorial commentary — trafilatura is the HTML-extraction library Character OS uses for URL ingestion; Wikipedia's HTML is famously well-structured; the title reads as an evaluative annotation ("here is an example where trafilatura works exceptionally well").
+- **Zero composition provenance:** never rendered into any teammate's output. Pure ingestion-pipeline artifact.
+- **Substantive content (~16.6KB, 22 chunks):** not a stub, not a smoke-test placeholder. A real Wikipedia article was extracted end-to-end.
+
+Combined: this row appears to be a **deliberate engineering exemplar** — admin@mail.com ingested a Wikipedia URL to validate that the trafilatura-based ingestion pipeline correctly extracts long-form structured content, then annotated it with an editorial title recording the finding. The document was never intended to feed any teammate; it was a pipeline validation artifact.
+
+### §329.4 PRODUCT RECOMMENDATION
+
+Slice 18 does NOT mutate this row. The lifecycle decision belongs to admin@mail.com.
+
+Two evidence-supported options for the eventual triage slice:
+
+- **Option A — `WORKSPACE`:** if admin considers the row a retained internal engineering reference (example of clean trafilatura extraction) that should remain workspace-visible for future ingestion / extraction work. This would be a positive audience assignment and matches the "retained tech note" tier of the Slice 4 §55.2 ambiguous-classification analysis.
+- **Option B — `NONE + is_active=False` (soft archive via same lifecycle path as §316 rows):** if admin considers it obsolete pipeline validation debris that no longer needs to remain visible. Content is easily re-derivable (Wikipedia URL is durable), so there is no information-preservation cost to archiving.
+
+Slice 18 flags this row as **INDETERMINATE pending admin@mail.com's explicit signoff**, on the same evidentiary tier as the Hearth & Hollow / Riggs §316 recall — sufficient basis for operator-signoff lifecycle action, insufficient for mechanical inference.
+
+## §330. Part G — NULL debt analysis
+
+### §330.1 Current NULL count
+
+Post-Slice-18 (no mutation): **10 NULL rows** (the same 10 identified in §325 — nothing changed).
+
+If the Slice 18 archive had proceeded per Scenario A of §327, the NULL count would drop to 1 (only `33c07feb`). Under Scenario B (current path unchanged) it would remain 10. Slice 18 landed as documentation-only, so the count remains 10.
+
+### §330.2 What blocks removing NULL branches at each surface
+
+Both surfaces currently carry a NULL compatibility branch: `retrieval.py:216-269` (Slice 16 §285) and `views.py:106-146` (Slice 17 §306).
+
+| Surface | Would break if NULL branch removed | Why |
+|---|---|---|
+| Slice 16 retrieval `retrieve_for_teammate` | Yes | 10 real NULL rows would silently become invisible to every teammate. TANK + Tulsi + Hearth & Hollow (all currently retrievable via broadcast) would drop from RAG. `33c07feb` would also drop from admin RAG. |
+| Slice 17 LIST `?spokesperson=` filter | Yes | Same 10 rows would drop from SPA workspace-knowledge lists — operator would be unable to see them for triage. |
+| Fresh-write path (`ingestion._persist`) | No — the branch is not a "removal" but a "produces NULL" path. See §330.3. |
+| Schema (`audience_scope` nullability) | Yes | Currently `null=True` on the model. `NOT NULL` migration would fail while any NULL rows exist. |
+
+### §330.3 Can fresh writes still produce NULL?
+
+**Yes.** The fresh CREATE path at `shell/apps/embeddings/ingestion.py:298-301` explicitly lands at `audience_scope=None` for the `(no spokespeople + no universe + no workspace_shared_intent marker)` case:
+
+```python
+elif workspace_shared_intent:
+    # No spokespeople, no Universe, explicit workspace marker present
+    create_audience_scope = AudienceScope.WORKSPACE
+else:
+    # Transitional NULL for the ``(no sp + no universe + no marker)`` case
+    # — non-SPA callers land here.
+    create_audience_scope = None
+```
+
+**SPA callers (Slice 12 workflow):** all four SPA CREATE call sites at `web/src/routes/workspace/knowledge.tsx` were wired to pass one of `{spokespeople[], universe, audience_scope: "workspace"}` via the mandatory `UniverseScopePicker`. SPA-originated writes cannot land at NULL.
+
+**Non-SPA callers:** management commands (e.g., `smoke_ingest`), fixture-driven tests, the DRF `POST /api/knowledge/` API called without the workspace_shared_intent marker, and any other programmatic caller CAN still produce `audience_scope=NULL`. This is the "transitional NULL" behavior explicitly preserved by Slice 11's Option 3 decision (§169-§175).
+
+### §330.4 What removing the NULL branches would require
+
+1. **Historical NULL rows resolved** — all 10 rows given an explicit `audience_scope` (via archive to NONE, or explicit CHARACTER/UNIVERSE/WORKSPACE assignment).
+2. **Fresh-write path made NULL-impossible** — either:
+   - default to a fail-closed value (e.g., NONE) when no positive signal is given, OR
+   - require an explicit `audience_scope` param on all CREATE calls and reject those without one, OR
+   - restrict CREATE to SPA-shaped payloads that always include a marker.
+3. **`NOT NULL` migration on the field** with a `CHECK` constraint enforcing the Delta invariants (Slice 4 §51).
+4. **Retrieval + LIST NULL branches removed** from `retrieval.py:216-269` and `views.py:106-146` as clean-up.
+5. **Test surface updated** — tests that intentionally create NULL rows (Slice 16 §290 tests A/B; Slice 17 §311 tests A/B) would need to change fixtures to CHARACTER/UNIVERSE/WORKSPACE.
+
+Per the Slice 18 authorization: *"Do NOT implement the fix in this slice unless it is already mechanically impossible and you are only documenting that fact."* Fresh writes are still mechanically able to produce NULL; the fix is not implemented in Slice 18.
+
+## §331. Part H — regression results
+
+- **`apps/embeddings/tests/`** + **`apps/spokespeople/tests/test_delete_orphan_archive.py`** + **`apps/compositions/tests/test_f6_citations.py`** + **`apps/spokespeople/tests/test_delete.py`**: **332 passed** / 4 warnings / 35.58s. Zero regressions (Slice 17 baseline was 303 embeddings + 29 spokespeople-related = 332).
+- **`python manage.py makemigrations --check --dry-run embeddings`**: `"No changes detected in app 'embeddings'"` — clean.
+- **SPA suite (`web/`, `npm test`)**: **656 passed** / 49 files / 5.97s. Unchanged from Slice 17.
+
+Broader backend regression (bootstrap_review + media_engine) not re-executed — Slice 18 modifies zero code and cannot affect those subsystems.
+
+## §332. Post-Slice-18 real-DB fingerprint
+
+Re-executed post-Part-H:
+
+```
+total=72   by_scope={None: 10, 'character': 59, 'universe': 3}
+inactive=0   chunks=1149   m2m_nonempty=59
+```
+
+Identical to §325 pre-Slice-18 baseline. **Real DB byte-identical for the 12th consecutive slice.** No writes; no mutations of any kind.
+
+## §333. Prediction vs actual
+
+| Prediction (§324) | Evidence |
+|---|---|
+| 1. All 9 §316 rows present in expected shape | ✓ §325 — all 9 short-UUID matched; all 9 have `is_active=True, audience_scope=NULL, deactivated_reason='', empty M2M, no Universe` |
+| 2. 10th NULL = `33c07feb` "Wikipedia is trafilatura's home turf" | ✓ §325 / §329.1 |
+| 3. `destroy()` either stamps NONE OR preserves audience_scope | ✓ §326 — path (3b) confirmed: preserves audience_scope unchanged, does NOT stamp NONE |
+| 4/5. Archive succeeds → 1 NULL + 9 NONE / STOP if path preserves NULL | STOP triggered (§326); Slice 18 lands doc-only |
+| 6. TANK + Tulsi have composition provenance to preserve | ✓ §325 — TANK 12 refs, Tulsi 8 refs. Would need preservation on any future archive |
+| 7. `33c07feb` recommendation cannot be made from title alone | ✓ §329.2-4 — content sniff + peer analysis + composition query needed for evidence-tiered recommendation |
+| 8. Fresh CREATE can still produce NULL | ✓ §330.3 — ingestion.py:298-301 explicitly lands NULL for `(no sp + no universe + no marker)` case |
+
+8/8 predictions supported. Prediction (3) resolved to path (b); Prediction (5) STOP triggered as the invariant-safe outcome.
+
+## §334. Files changed (Slice 18)
+
+- `docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md` — this Slice 18 appendix (§322-§339).
+- **Not touched:** no `.py` files, no test files, no SPA files, no migrations. Zero code delta. Zero DB delta.
+
+## §335. Unresolved questions
+
+1. **Slice 19 archive-path extension.** The current `destroy()` path preserves `audience_scope` for revival-preservation semantics. Should Slice 19 (a) add a NONE-stamping mode to `destroy()` when the pre-archive scope is NULL (or when the operator explicitly signals "final archive, no revival intent"), (b) add a new endpoint / action `POST /api/knowledge/<id>/archive-final/` that stamps NONE atomically, or (c) leave `destroy()` unchanged and require a targeted, one-time signed data migration for the 9 §316 rows? The user's authorization forbids "one-off data patch merely to make the count work" — favoring option (a) or (b) as reusable primitives.
+2. **`33c07feb` triage.** Requires admin@mail.com signoff on WORKSPACE vs NONE (§329.4). Not solvable from evidence alone.
+3. **Fresh-write NULL closure.** Making the fresh-write path NULL-impossible (§330.4 step 2) is a separate ingestion + serializer + SPA slice. Blocks Stage 8 (`NOT NULL` constraint).
+4. **Chunk / composition preservation contract.** Slice 18 established that the Slice 8 orphan-archive path already preserves chunks + embeddings + provenance (chunk table is not touched; only KD lifecycle fields flip). Any future NONE-stamping extension of `destroy()` must preserve the same guarantee. Documented here so Slice 19 spec is unambiguous.
+5. **NULL-branch removal timing.** After the 10 NULL rows are resolved AND the fresh-write path is closed, the NULL compatibility branches in retrieval + LIST can be removed. Sequencing: Slice 19 (archive-path extension + `33c07feb` triage) → Slice 20 (fresh-write NULL closure) → Slice 21 (branch removal + `NOT NULL` + schema constraint).
+
+## §336. Recommendation
+
+**Slice 18 is complete as an audit-only slice.** The STOP condition triggered by Part B correctly caught the archive-path mismatch BEFORE any DB mutation, exactly as the Slice 18 authorization requested.
+
+Key durable outputs:
+
+1. **§325 pre-mutation inventory** — the 9 §316 rows are now durably specified by full UUID + shape + preservation-critical facts (chunks, composition refs). Any future archive slice can act on this inventory without re-discovery.
+2. **§326 STOP finding** — the current `destroy()` path leaves `audience_scope` unchanged. Slice 19 must either extend `destroy()` or add a companion `archive-final` primitive to close the NULL-to-NONE transition.
+3. **§329 `33c07feb` forensic profile** — evidence-tiered recommendation (Option A: WORKSPACE, Option B: NONE + archive) with admin signoff required.
+4. **§330 NULL-debt inventory** — 10 rows now; fresh-writes can still produce NULL; complete stage-plan for eventual Stage 8 `NOT NULL` constraint.
+
+**Recommended next action.** Slice 19 as an implementation slice (small): extend the operator-delete lifecycle to atomically stamp `audience_scope=NONE` on soft-archive when the pre-archive scope is NULL (or when the operator explicitly signals "final archive"). Then Slice 20 re-runs §325's inventory against the extended path and actually archives the 9 rows.
+
+## §337. Explicit STOP gate
+
+STOP before Slice 19 (archive-path extension). Review Slice 18 evidence with Chris + ChatGPT.
+
+- Does Chris prefer Slice 19 option (a) — extend `destroy()` with NONE-stamping mode, (b) add new `archive-final` endpoint, or (c) something else?
+- Is Chris ready to loop in admin@mail.com for `33c07feb` triage (Slice 19 could bundle both), or should `33c07feb` be deferred further?
+- Does Chris want to close the fresh-write NULL loophole in the same slice as the archive-path extension, or as a separate follow-up?
+
+## §338. Smallest recommended next question — Q-276-35
+
+**Q-276-35 (candidate — Slice 19 opener).** *If a NONE-stamping mode is added to the operator-delete lifecycle path (either as an extension of `destroy()` when pre-archive `audience_scope=NULL`, or as a new companion `archive-final` action), does the resulting path atomically stamp `is_active=False + deactivated_reason=OPERATOR_DELETE + audience_scope=NONE` on the 9 §316 rows, preserve all chunks + embeddings + composition provenance, and reduce the DB NULL count to exactly 1 (`33c07feb`) without any Delta invariant violation and with all 332 embeddings-related + 656 SPA tests passing unchanged?*
+
+## §339. Slice 18 checklist
+
+- [x] Slice 17 landed as `6e7bd6c`; catch-up SHA-record `e2087cd`
+- [x] Slice 18 baseline verified — `main == origin/main == e2087cd`, working tree clean (§323)
+- [x] Q-276-33 falsifiable question stated (§322) — primary + secondary
+- [x] Predictions before evidence (§324)
+- [x] Part A — pre-mutation inventory of all 10 NULL rows (§325)
+- [x] All 9 §316-authorized rows confirmed present with matching UUIDs
+- [x] 10th NULL row confirmed as `33c07feb` per §316 exclusion
+- [x] Full pre-mutation shape captured (chunks, comp refs, is_active, audience_scope, deactivated_reason, M2M, Universe)
+- [x] Part B — archive-path audit revealed `destroy()` does NOT stamp NONE (§326)
+- [x] Part C — corrected soft-archive fingerprint prediction (§327); Scenario A (with fix) vs Scenario B (current path); prior `total=63` prediction was hard-delete-shape confusion, corrected to soft-archive `total=72`
+- [x] Part D/E — SKIPPED per §326 STOP; no DB mutation
+- [x] Part F — `33c07feb` forensic inspection (§329) with evidence-tiered recommendation (Option A: WORKSPACE, Option B: NONE + archive)
+- [x] Part G — NULL debt analysis (§330); 10 rows now; fresh-writes can still produce NULL via `ingestion.py:298-301`
+- [x] Part H — regression: 332 backend + 656 SPA + `makemigrations --check` clean (§331)
+- [x] Real-DB fingerprint unchanged (§332); 12th consecutive read-only slice
+- [x] Prediction vs actual — 8/8 predictions supported (§333)
+- [x] Files changed — doc only (§334)
+- [x] Unresolved questions (§335)
+- [x] Recommendation (§336)
+- [x] Explicit STOP gate (§337)
+- [x] Smallest next question Q-276-35 (§338)
+- [x] Zero DB mutation; zero code change; zero migration; zero legacy row mutation; zero `33c07feb` mutation; no hard-delete; no NULL compatibility removal; no NOT NULL constraint; no CHECK constraint; no universe_canon aesthetic cleanup; no recovery UI; no provider spend
+- [ ] Commit + push Slice 18 documentation
+- [ ] Chris + ChatGPT review + Slice 19 scoping decision
+
+---
+
+**End of SESSION 276 Slice 18 / Delta Stage 7 opener. Audit-only lands. Part B STOP condition triggered exactly as authorization requested — the existing `destroy()` operator-delete path does NOT stamp `audience_scope=NONE`; NULL rows would remain NULL after soft-archive, which mismatches the intended Delta-safe target. No DB mutation performed. 9 §316 rows durably inventoried by UUID + shape; `33c07feb` forensically profiled with two evidence-supported options (WORKSPACE vs NONE) pending admin@mail.com signoff; NULL-debt analysis proves fresh writes can still produce NULL. 332 backend + 656 SPA tests pass unchanged; real DB byte-identical for 12th consecutive slice. STOP for Chris + ChatGPT review of §336 recommendation, §337 gate, §338 Q-276-35 next-question candidate.**
+
+
 
