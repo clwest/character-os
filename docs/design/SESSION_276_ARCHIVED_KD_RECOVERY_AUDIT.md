@@ -3726,3 +3726,320 @@ Falsifiable by adding `audience_scope=AudienceScope.CHARACTER` to the create cal
 **End of SESSION 276 Slice 9 / Delta Stage 3B-1. Orphan revival now atomically transitions inactive+NONE → active+CHARACTER when the required non-empty spokespeople are supplied. Slice 8 §121 malformed transitional state eliminated. Q-276-23 (refined) CONFIRMED — 15/15 lifecycle tests pass (13 existing + 2 new); operator-delete revival unchanged; revival atomicity closes M2M-failure hole (also incidentally covers a pre-existing SESSION 275 latent hole). Real DB unchanged. STOP for Chris + ChatGPT review of §142 recommendation, §143 gate, and §144 Q-276-24 next question.**
 
 **Slice 9 landed commit SHA:** `a12a141` (`fix(session-276): Slice 9 / Delta Stage 3B-1 — orphan revival lands directly at CHARACTER`). Pushed to `origin/main`. Post-push `main == origin/main == a12a141`; working tree clean.
+
+**Slice 9 SHA-record follow-up:** `7c10749` (`docs(session-276): record Slice 9 landed SHA a12a141`) — doc-only checklist + Slice 10 authorization record.
+
+---
+
+# SESSION 276 — Slice 10 / Delta Stage 3B-2 — fresh CREATE with explicit spokespeople stamps CHARACTER (Q-276-24)
+
+**Status.** IMPLEMENTATION SLICE — extends `ingestion._persist`'s CREATE branch so a fresh `KnowledgeDocument` created with one or more explicit spokespersons is stamped `audience_scope=CHARACTER` at creation time. No transitional NULL bridge for character-specific fresh KDs. UNIVERSE / WORKSPACE inference (Q-276-25) explicitly deferred.
+
+**Slice 10 baseline.** `main == origin/main == 7c10749` (Slice 9 SHA-record). Working tree clean at slice start. Real-DB state carried forward from Slice 7 → 8 → 9, all identical:
+
+- 72 KDs; `CHARACTER=59`, `UNIVERSE=3`, `NULL=10`, `WORKSPACE=0`, `NONE=0`
+- 0 inactive rows
+- 1149 chunks, 62 M2M through-rows
+- Migration head: `0008_session276_stage2_backfill`
+
+**Authorized product rule** (from task): explicit spokesperson selection → `CHARACTER`. Fresh no-spokesperson creation stays transitional NULL for now; UNIVERSE and WORKSPACE inference are the "absence of characters" boundary that caused the original bug class and needs separate explicit-intent evidence.
+
+## §146. Slice 10 falsifiable question — Q-276-24
+
+> If the fresh `KnowledgeDocument` CREATE branch in `ingestion._persist` stamps `audience_scope=CHARACTER` whenever the caller supplies one or more explicit spokespeople, does every existing character-specific create path continue to behave correctly and does the newly-created KD immediately satisfy the Delta CHARACTER state without later repair?
+
+**Prediction:** yes. `_persist` receives `spokespeople` as a keyword argument; the CREATE branch already sits inside `transaction.atomic()`; conditional CHARACTER stamp is safe.
+
+## §147. Create-call-path inventory + atomicity trace
+
+Source at `shell/apps/embeddings/ingestion.py`.
+
+### §147.1 Callers into `_persist` CREATE branch
+
+Three ingestion entry points, all keyword-only, all pass `spokespeople` unchanged through to `_persist`:
+
+| Entry point | Location | `spokespeople` handling |
+|---|---|---|
+| `ingest_text` | `ingestion.py:259-303` | `spokespeople: list[Teammate] | None = None` → passed through to `_persist(..., spokespeople=spokespeople, ...)` |
+| `ingest_pdf` | `ingestion.py:306-353` | same shape; same pass-through |
+| `ingest_url` | `ingestion.py:354-...` (grepped; same pattern) | same shape; same pass-through |
+
+At `_persist` boundary `spokespeople` is either `None`, an empty list, or a non-empty iterable of `Teammate` rows. The existing `if spokespeople:` truthiness check treats `None` and `[]` identically.
+
+### §147.2 Existing transaction boundary
+
+CREATE branch at `ingestion.py:220-244` is already wrapped in `with transaction.atomic():`. Ordering:
+
+1. `KnowledgeDocument.objects.create(...)` — inserts the row.
+2. `if spokespeople: doc.spokespeople.set(spokespeople)` — writes through-rows.
+
+If `.set()` raises (e.g. `m2m_changed` cross-workspace or cross-Universe signal veto), the atomic block rolls back the `create()` too. This is the exact same atomicity contract Slice 9 added to the revival branch; the CREATE branch has had it since original K3 (SESSION 138).
+
+**Conclusion.** Stamping `audience_scope=CHARACTER` on the fresh row at `create()` time is safe: if M2M `.set()` subsequently fails, the CHARACTER-marked row rolls back atomically. No malformed `active CHARACTER + empty M2M` shape can persist from this path.
+
+## §148. Exact implementation diff (`shell/apps/embeddings/ingestion.py`)
+
+One conditional local + one new kwarg on the create call:
+
+```python
+# Before (CREATE branch):
+try:
+    with transaction.atomic():
+        doc = KnowledgeDocument.objects.create(
+            workspace=workspace,
+            universe=universe,
+            title=title.strip() or "Untitled",
+            ...
+            created_by=created_by,
+        )
+        if spokespeople:
+            doc.spokespeople.set(spokespeople)
+
+# After:
+try:
+    with transaction.atomic():
+        # SESSION 276 Slice 10 / Delta Stage 3B-2 (Q-276-24) — explicit
+        # spokespeople at create time = CHARACTER scope by construction.
+        # Materialise the Delta value now; no transitional NULL bridge.
+        # UNIVERSE/WORKSPACE inference for the no-spokespeople case is
+        # deferred to Q-276-25.
+        create_audience_scope = (
+            AudienceScope.CHARACTER if spokespeople else None
+        )
+        doc = KnowledgeDocument.objects.create(
+            workspace=workspace,
+            universe=universe,
+            title=title.strip() or "Untitled",
+            ...
+            created_by=created_by,
+            audience_scope=create_audience_scope,
+        )
+        if spokespeople:
+            doc.spokespeople.set(spokespeople)
+```
+
+Docstring block added between the atomic-open and the create() call explaining the scope, Universe/Workspace deferral, and the atomicity guarantee inherited from the pre-existing wrapper.
+
+**Zero refactor.** No new function; no import change beyond `AudienceScope` which was already imported for Slice 9. No signal touched. No admin/serializer/view/retrieval change. No migration.
+
+## §149. Test extensions (`shell/apps/embeddings/tests/test_ingestion.py`)
+
+Extended the existing ingestion regression file with 5 new tests. Also added `AudienceScope` + `Universe` imports.
+
+| Test | Coverage | Status |
+|---|---|---|
+| A `test_fresh_create_with_single_spokesperson_stamps_character` | Single explicit sp at create → `audience_scope=CHARACTER`; adversarial invariant NOT `(active + CHARACTER + empty M2M)` | PASS |
+| B `test_fresh_create_with_multiple_spokespeople_stamps_character` | `[a, b]` → CHARACTER; both attached | PASS |
+| C `test_fresh_create_universe_scoped_character_still_maps_to_character` | `universe=U` + `[a in U]` → `universe=U` preserved AND `audience_scope=CHARACTER` (Slice 4 §51 row #2 shape) | PASS |
+| D `test_fresh_create_without_spokespeople_leaves_audience_scope_null` | Fresh create with NO sp → `audience_scope IS NULL` (transitional). **Guards against Slice 10 silently absorbing Q-276-25 scope.** | PASS |
+| E `test_fresh_create_rolls_back_atomically_if_m2m_set_fails` | Cross-workspace spokesperson triggers `m2m_changed` cross-workspace signal veto → `ValidationError` raised; asserts pre-vs-post KD count unchanged (whole `create()` rolled back) + asserts titled row does not exist | PASS |
+
+Test D is the important scope-guard: if a future slice accidentally starts inferring UNIVERSE / WORKSPACE at create time without a Q-276-25 authorization, this test will fail deterministically.
+
+## §150. Single-character result (Test A)
+
+`ingest_text(workspace=ws, ..., spokespeople=[a])` produces:
+
+- `is_active=True`
+- `deactivated_reason=""`
+- `audience_scope='character'`
+- `spokespeople.pks == [a.pk]`
+- `spokespeople.count() >= 1`
+- Adversarial NOT `(active + CHARACTER + empty M2M)` — verified
+
+**PASS.** Fresh CHARACTER row is Delta-coherent immediately, no repair needed.
+
+## §151. Multi-character result (Test B)
+
+`ingest_text(..., spokespeople=[a, b])` produces:
+
+- `audience_scope='character'`
+- `spokespeople.pks == {a.pk, b.pk}`
+
+**PASS.** Multi-character is CHARACTER shape; no separate enum needed.
+
+## §152. Universe-scoped CHARACTER result (Test C)
+
+`ingest_text(..., spokespeople=[a in U], universe=U)` produces:
+
+- `universe_id == U.pk`
+- `audience_scope='character'`
+- `spokespeople.pks == [a.pk]`
+
+**PASS.** Universe is scope context, not audience type. Slice 4 §51 row #2 shape produced directly at create.
+
+## §153. No-character unchanged result (Test D)
+
+`ingest_text(...)` without `spokespeople` argument produces:
+
+- `is_active=True`
+- `audience_scope is None` (transitional; unchanged from pre-Slice-10 behavior)
+- `spokespeople.count() == 0`
+
+**PASS.** Slice 10 did NOT silently absorb Q-276-25 scope. Fresh no-spokespeople creation still lands at NULL until Q-276-25 authorizes positive UNIVERSE / WORKSPACE inference.
+
+## §154. M2M failure atomicity result (Test E)
+
+`ingest_text(workspace=ws_a, spokespeople=[foreign_sp_in_ws_b])` triggers the cross-workspace `m2m_changed pre_add` receiver at `apps/embeddings/signals.py:31`. Sequence:
+
+1. `KnowledgeDocument.objects.create(...)` inserts a new row with `audience_scope=CHARACTER`.
+2. `doc.spokespeople.set([foreign_sp])` fires `m2m_changed pre_add`.
+3. The workspace-consistency receiver raises `ValidationError` — `foreign_sp` belongs to a different workspace.
+4. The exception propagates out of `.set()`, then out of the atomic block.
+5. Django rolls back the `create()` insert.
+
+Post-attempt assertions verified:
+
+- `pre_count == post_count` — no new row committed to `ws_a`.
+- `KnowledgeDocument.objects.filter(workspace=ws_a, title=...).exists() is False` — no orphan active-CHARACTER + empty-M2M row.
+
+**PASS.** The pre-existing `transaction.atomic()` boundary handles Slice 10's CHARACTER stamp correctly by inheritance; no additional atomicity work required.
+
+## §155. Real-DB post-Slice-10 verification
+
+Code changed; real DB rows did not change. No ingestion CREATE was executed against production data.
+
+```
+$ manage.py shell -c "..."
+total=72
+distribution={'universe': 3, 'character': 59, None: 10}
+inactive=0
+chunks=1149
+m2m=62
+```
+
+Byte-identical to Slice 7 §103, Slice 8 §118, Slice 9 §137. **Zero drift across four consecutive slices.**
+
+## §156. Regression results
+
+```
+$ pytest apps/embeddings/tests/test_ingestion.py -v
+17 passed in 5.08s                          # 12 existing + 5 new (A/B/C/D/E)
+
+$ pytest apps/embeddings/tests/test_ingestion.py \
+         apps/spokespeople/tests/test_delete_orphan_archive.py \
+         apps/embeddings/tests/test_audience_scope_stage1.py \
+         apps/embeddings/tests/test_stage2_backfill_migration.py -q
+47 passed in 8.85s                          # ingestion + lifecycle + Stage 1 + Stage 2
+
+$ python manage.py makemigrations --check embeddings
+No changes detected in app 'embeddings'    # no schema drift
+
+$ pytest apps/embeddings/ apps/spokespeople/ apps/universe/ apps/compositions/ -q
+1658 passed, 2 warnings in 126.66s          # broader — +5 from Slice 9's 1653
+```
+
+Every existing test still passes. The 2 warnings are the same pre-existing DateTime naive-vs-aware warnings unrelated to Slice 10.
+
+## §157. Prediction vs actual
+
+| Prediction | Actual | Status |
+|---|---|---|
+| Explicit spokesperson(s) available at CREATE boundary | `ingest_text/pdf/url` all pass `spokespeople` unchanged through to `_persist(...)` | ✓ |
+| Fresh character-specific KDs land directly at CHARACTER | Test A passes | ✓ |
+| Multi-character still maps to CHARACTER | Test B passes | ✓ |
+| Universe-scoped character KD remains CHARACTER (Slice 4 §51 row #2) | Test C passes | ✓ |
+| No-character creation remains unchanged (NULL) | Test D passes; Slice 10 scope guard | ✓ |
+| No active CHARACTER + empty-M2M state can persist | Test E rollback verified via pre-vs-post row count | ✓ |
+| Existing create paths remain compatible | 17/17 ingestion + 47/47 targeted + 1658/1658 broader | ✓ |
+| Real DB unchanged | 72 KDs, same distribution, 0 inactive | ✓ |
+
+**Q-276-24 CONFIRMED.** Zero falsifications. Zero unexpected findings.
+
+## §158. Files changed (Slice 10)
+
+```
+ M shell/apps/embeddings/ingestion.py                                        (+~20 lines net — docstring, create_audience_scope local, audience_scope kwarg on create call)
+ M shell/apps/embeddings/tests/test_ingestion.py                             (+~130 lines — 2 imports + 5 new tests A/B/C/D/E)
+?? docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md                     (this Slice 10 section)
+```
+
+Zero changes to: SPA, retrieval, serializer create/update, view attach/detach, admin, signals, migrations, models, constraints. Slice 10 is strictly scoped to `_persist`'s CREATE branch.
+
+## §159. Unresolved questions
+
+Carried from prior slices (all still open):
+
+- Fresh UNIVERSE-shared and WORKSPACE-shared inference at create time (Q-276-25 — natural next slice).
+- Serializer PATCH audience mutation.
+- Attach / detach audience transitions.
+- Universe reassignment audience implications.
+- Provenance direction Alpha vs Beta.
+- Retrieval predicate switch (Stage 5).
+- Operator triage UI for the 10 ambiguous rows (Stage 4).
+- DB CHECK constraints + NOT NULL cutover (Stage 6).
+- SPA audience UI (deferred).
+- Bundle vs split (still open from Slice 1 §8.4).
+
+**No new Slice-10-specific unresolved questions.**
+
+## §160. Recommendation
+
+**Q-276-24 is confirmed. Fresh CHARACTER-specific KDs now land at Delta CHARACTER shape at create time.** Combined with Slice 8 (orphan-archive stamps NONE) and Slice 9 (orphan revival stamps CHARACTER), the character-lifecycle boundary is fully Delta-aware: create/revive → CHARACTER; final-delete → NONE. Only the "absence of characters" boundary (fresh no-spokespeople creation, and any lifecycle path that reaches empty-M2M outside orphan-archive) still produces NULL / transitional state.
+
+Slice 10 does not authorize any further work. Each subsequent step requires an independent Chris + ChatGPT decision:
+
+- **Q-276-25 — fresh UNIVERSE-shared and WORKSPACE-shared inference at create time.** This is the natural next slice. It requires deciding what positive evidence at create time signals "operator intended shared canon" vs "operator forgot to select characters" — that's exactly the semantic distinction Delta was introduced to make explicit.
+- **Serializer PATCH audience_scope handling** — currently the field is not on the serializer read/write surface; extending it needs explicit-intent-payload contract design.
+- **Attach / detach audience transitions** — currently CHARACTER-with-M2M stays CHARACTER regardless of the attach/detach path; but detaching the last spokesperson leaves a `CHARACTER + empty M2M` shape (the exact malformed row #3 from Slice 4 §51). This is one of the two "detach-final" holes SESSION 275 didn't close — needs its own falsifiable slice.
+- **Retrieval predicate switch** (Stage 5).
+
+## §161. Explicit STOP gate
+
+**STOP.** Slice 10 authorizes no further work.
+
+Do NOT begin:
+
+- Fresh UNIVERSE-shared or WORKSPACE-shared inference (Q-276-25)
+- Serializer PATCH audience mutation
+- Attach / detach audience transitions
+- Universe reassignment audience implications
+- Provenance work
+- Retrieval predicate change
+- Operator triage UI
+- DB CHECK constraints
+- NOT NULL cutover
+- SPA changes
+- Removal of SESSION 275 protections
+
+## §162. Smallest recommended next question
+
+**Q-276-25.** *At fresh CREATE time, when the caller supplies NO spokespeople but DOES supply an explicit `universe` value, is that combination positive operator evidence for `audience_scope=UNIVERSE` — and when the caller supplies neither, does that combination require an explicit operator gesture (rather than a silent stamp of WORKSPACE) before the fresh KD can be Delta-coherent?*
+
+Falsifiable by:
+1. Inspecting every caller of `ingest_text/pdf/url` (SPA + tests + management commands + serializer create) to enumerate which combinations of `(spokespeople, universe)` are actually generated today.
+2. Testing whether a UNIVERSE stamp for the `(no sp, universe=U)` case would preserve current effective audience for the 3 evidence-backed frozen UNIVERSE canon rows (Slice 4 §55.1) and for the SESSION 272 experiment substrates.
+3. Testing whether the `(no sp, no universe)` case ever legitimately means "explicit workspace-shared canon" today — or whether it's currently always a transitional / to-be-classified case (matching the 10 ambiguous historical rows).
+
+This is a slightly larger investigation than Q-276-24 because "absence of characters" is the semantic boundary the whole SESSION 276 arc was opened to make explicit — it deserves a first pass that leans on Slice 3's mutation inventory + Slice 4's truth table rather than jumping straight to implementation.
+
+## §163. Slice 10 checklist
+
+- [x] Step 0 — commit + push Slice 9 SHA-record (commit `7c10749`)
+- [x] Slice 10 baseline verified — `main == origin/main == 7c10749`, working tree clean at slice start
+- [x] Q-276-24 falsifiable question stated (§146)
+- [x] Create-call-path inventory (§147.1) — `ingest_text/pdf/url` all pass `spokespeople` through unchanged
+- [x] Existing transaction boundary confirmed (§147.2) — pre-existing `transaction.atomic()` already covers create + M2M .set()
+- [x] Ingestion diff (§148) — `create_audience_scope` local + one new kwarg on create() + docstring
+- [x] Test A: single-character fresh create → CHARACTER (§150)
+- [x] Test B: multi-character fresh create → CHARACTER (§151)
+- [x] Test C: Universe-scoped CHARACTER preserves both (§152)
+- [x] Test D: no-character create unchanged (NULL) — Slice 10 scope guard (§153)
+- [x] Test E: M2M failure rolls back CHARACTER stamp + KD create (§154)
+- [x] Adversarial invariant — NOT `(active + CHARACTER + empty M2M)` (Test A + Test E) (§150, §154)
+- [x] 17/17 ingestion tests pass (§156)
+- [x] 47/47 combined ingestion + lifecycle + Stage 1 + Stage 2 tests pass (§156)
+- [x] 1658/1658 broader regression pass (§156)
+- [x] `makemigrations --check embeddings` clean (§156)
+- [x] Real DB unchanged: 72 KDs, `CHARACTER=59, UNIVERSE=3, NULL=10, NONE=0, inactive=0` (§155)
+- [x] Prediction vs actual — Q-276-24 CONFIRMED (§157)
+- [x] Files changed inventory (§158)
+- [x] Explicit STOP gate (§161)
+- [x] Smallest next question Q-276-25 (§162)
+- [x] Zero UNIVERSE/WORKSPACE inference / serializer PATCH / attach/detach / provenance / retrieval / SPA / migration / constraint changes; zero provider spend
+- [ ] Commit + push Slice 10
+- [ ] Chris + ChatGPT review + Slice 11 scoping decision (§160)
+
+---
+
+**End of SESSION 276 Slice 10 / Delta Stage 3B-2. Fresh CREATE with explicit spokespeople now lands directly at Delta CHARACTER shape. Q-276-24 CONFIRMED — 17/17 ingestion tests pass (12 existing + 5 new); multi-character and Universe-scoped character variants covered; M2M failure atomicity inherited from pre-existing create-branch transaction; no-character create explicitly unchanged (Q-276-25 scope guard). Real DB unchanged. STOP for Chris + ChatGPT review of §160 recommendation, §161 gate, and §162 Q-276-25 next question.**

@@ -219,6 +219,29 @@ def _persist(
 
     try:
         with transaction.atomic():
+            # SESSION 276 Slice 10 / Delta Stage 3B-2 (Q-276-24) — when
+            # the caller supplies one or more explicit spokespeople, the
+            # new KD is a character-scoped row by construction. Stamp
+            # ``audience_scope=CHARACTER`` at creation time so the row
+            # is Delta-coherent immediately, with no transitional NULL
+            # bridge state.
+            #
+            # No spokespeople → leave ``audience_scope`` unset (NULL).
+            # UNIVERSE-shared and WORKSPACE-shared fresh-create
+            # inference are deferred to Q-276-25 because "absence of
+            # characters" is exactly the semantic boundary that caused
+            # the original audience-broadening bug class and needs its
+            # own explicit-intent evidence before positive stamping.
+            #
+            # Atomicity: the surrounding ``transaction.atomic()`` block
+            # already covers ``KnowledgeDocument.objects.create()`` +
+            # ``doc.spokespeople.set(...)``. If M2M assignment fails
+            # (e.g. cross-workspace or cross-Universe signal veto), the
+            # whole KD row rolls back — no ``CHARACTER + empty M2M``
+            # malformed shape can persist.
+            create_audience_scope = (
+                AudienceScope.CHARACTER if spokespeople else None
+            )
             doc = KnowledgeDocument.objects.create(
                 workspace=workspace,
                 # SESSION 261 — Universe scope passthrough. NULL
@@ -235,6 +258,7 @@ def _persist(
                 ingested_via=ingested_via,
                 status=DocumentStatus.PENDING,
                 created_by=created_by,
+                audience_scope=create_audience_scope,
             )
             if spokespeople:
                 # The m2m_changed signal in ``apps.embeddings.signals``

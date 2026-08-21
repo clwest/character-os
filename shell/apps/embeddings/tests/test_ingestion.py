@@ -18,6 +18,7 @@ from django.test import override_settings
 from apps.accounts.models import Workspace
 from apps.embeddings.ingestion import ingest_text
 from apps.embeddings.models import (
+    AudienceScope,
     DocumentStatus,
     DocumentType,
     IngestedVia,
@@ -25,6 +26,7 @@ from apps.embeddings.models import (
 )
 from apps.embeddings.tasks import embed_document
 from apps.spokespeople.models import Teammate
+from apps.universe.models import Universe
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -246,3 +248,177 @@ def test_embed_document_handles_missing_doc() -> None:
     out = embed_document.apply(args=[str(uuid.uuid4())]).get()
     assert out["status"] == "not_found"
     assert out["chunks_created"] == 0
+
+
+# =====================================================================
+# SESSION 276 Slice 10 / Delta Stage 3B-2 (Q-276-24) — fresh CREATE
+# with explicit spokespeople stamps ``audience_scope=CHARACTER`` at
+# creation time. No transitional NULL bridge state for character-
+# specific KDs. See docs/design/SESSION_276_ARCHIVED_KD_RECOVERY_AUDIT.md
+# §146-§163.
+#
+# Scope guard: this slice handles ONLY the "explicit spokespeople →
+# CHARACTER" case. Fresh no-spokespeople creation (UNIVERSE / WORKSPACE
+# inference) is deferred to Q-276-25.
+# =====================================================================
+
+
+@pytest.mark.django_db
+def test_fresh_create_with_single_spokesperson_stamps_character() -> None:
+    """Slice 10 Test A — single explicit spokesperson at create time
+    lands the new KD at ``audience_scope=CHARACTER`` directly."""
+    ws = _make_workspace(
+        "slice10-a@test.local", "Slice10 WS A",
+    )
+    a = _make_teammate(ws, "Alpha")
+
+    result = ingest_text(
+        workspace=ws,
+        title="single-sp-create",
+        content="Content owned by Alpha only.",
+        spokespeople=[a],
+    )
+
+    kd = result.document
+    kd.refresh_from_db()
+    assert result.deduped is False
+    assert kd.is_active is True
+    assert kd.deactivated_reason == ""
+    assert kd.audience_scope == AudienceScope.CHARACTER
+    assert list(kd.spokespeople.values_list("pk", flat=True)) == [a.pk]
+    # Adversarial invariant: fresh CHARACTER row must have M2M ≥ 1.
+    assert kd.spokespeople.count() >= 1
+    assert not (
+        kd.is_active is True
+        and kd.audience_scope == AudienceScope.CHARACTER
+        and kd.spokespeople.count() == 0
+    ), "fresh CHARACTER create must not produce empty-M2M active row"
+
+
+@pytest.mark.django_db
+def test_fresh_create_with_multiple_spokespeople_stamps_character() -> None:
+    """Slice 10 Test B — multi-character fresh create still maps to
+    CHARACTER. Multi-character is a shape variant of CHARACTER, not a
+    distinct audience type (Slice 4 §48)."""
+    ws = _make_workspace(
+        "slice10-b@test.local", "Slice10 WS B",
+    )
+    a = _make_teammate(ws, "A")
+    b = _make_teammate(ws, "B")
+
+    result = ingest_text(
+        workspace=ws,
+        title="multi-sp-create",
+        content="Content shared by A and B from creation.",
+        spokespeople=[a, b],
+    )
+
+    kd = result.document
+    kd.refresh_from_db()
+    assert kd.audience_scope == AudienceScope.CHARACTER
+    m2m = set(kd.spokespeople.values_list("pk", flat=True))
+    assert m2m == {a.pk, b.pk}
+
+
+@pytest.mark.django_db
+def test_fresh_create_universe_scoped_character_still_maps_to_character() -> None:
+    """Slice 10 Test C — a character-specific KD inside a Universe
+    (``universe=U`` + ``spokespeople=[A in U]``) is still CHARACTER
+    scope; the Universe is scope context, not audience type. Verifies
+    Slice 4 §51 row #2 shape produced at create time.
+    """
+    ws = _make_workspace(
+        "slice10-c@test.local", "Slice10 WS C",
+    )
+    u = Universe.objects.create(workspace=ws, name="Slice10 Universe")
+    a = Teammate.objects.create(workspace=ws, name="A", universe=u)
+
+    result = ingest_text(
+        workspace=ws,
+        title="universe-char-create",
+        content="Character-specific content inside Universe U.",
+        spokespeople=[a],
+        universe=u,
+    )
+
+    kd = result.document
+    kd.refresh_from_db()
+    assert kd.universe_id == u.pk
+    assert kd.audience_scope == AudienceScope.CHARACTER
+    assert list(kd.spokespeople.values_list("pk", flat=True)) == [a.pk]
+
+
+@pytest.mark.django_db
+def test_fresh_create_without_spokespeople_leaves_audience_scope_null() -> None:
+    """Slice 10 Test D — fresh create with NO spokespeople must NOT be
+    stamped CHARACTER (or UNIVERSE / WORKSPACE / NONE). Q-276-25
+    hasn't authorized positive audience inference for the "absence of
+    characters" boundary yet — that case remains transitional
+    ``audience_scope=NULL`` under the current contract.
+
+    This test guards against Slice 10 silently absorbing Q-276-25's
+    scope.
+    """
+    ws = _make_workspace(
+        "slice10-d@test.local", "Slice10 WS D",
+    )
+
+    result = ingest_text(
+        workspace=ws,
+        title="no-sp-create",
+        content="Content with no explicit spokespeople at create.",
+        # spokespeople NOT supplied — falls to _persist default None
+    )
+
+    kd = result.document
+    kd.refresh_from_db()
+    assert kd.is_active is True
+    assert kd.audience_scope is None, (
+        "fresh no-spokespeople create must remain transitional NULL "
+        "until Q-276-25 authorizes UNIVERSE / WORKSPACE inference"
+    )
+    assert kd.spokespeople.count() == 0
+
+
+@pytest.mark.django_db
+def test_fresh_create_rolls_back_atomically_if_m2m_set_fails() -> None:
+    """Slice 10 Test E — atomicity. If M2M ``.set()`` fails during a
+    fresh CHARACTER create (e.g. cross-workspace signal veto), the
+    whole ``KnowledgeDocument.objects.create()`` must roll back so no
+    active-CHARACTER row with empty M2M can persist.
+
+    Exercises the pre-existing ``transaction.atomic()`` block at
+    ``ingestion.py:220-244`` — Slice 10 relies on that boundary for
+    the same atomicity guarantee Slice 9 added to the revival branch.
+    """
+    ws_a = _make_workspace(
+        "slice10-e-a@test.local", "Slice10 WS E A",
+    )
+    ws_b = _make_workspace(
+        "slice10-e-b@test.local", "Slice10 WS E B",
+    )
+    # Foreign spokesperson — different workspace triggers the
+    # existing cross-workspace m2m_changed guard at
+    # apps/embeddings/signals.py:31.
+    foreign = _make_teammate(ws_b, "ForeignSP")
+
+    pre_count = KnowledgeDocument.objects.filter(workspace=ws_a).count()
+    with pytest.raises(ValidationError):
+        ingest_text(
+            workspace=ws_a,
+            title="atomic-cross-workspace",
+            content="Content that must not persist without its M2M.",
+            spokespeople=[foreign],
+        )
+
+    # Assert the KD was NOT created — atomic block rolled back the
+    # KnowledgeDocument.objects.create() when the M2M .set() raised.
+    post_count = KnowledgeDocument.objects.filter(workspace=ws_a).count()
+    assert post_count == pre_count, (
+        "M2M failure must roll back the KD create (atomic block)"
+    )
+    # And of course no orphan active-CHARACTER + empty-M2M row exists.
+    assert not KnowledgeDocument.objects.filter(
+        workspace=ws_a,
+        title="atomic-cross-workspace",
+    ).exists()
