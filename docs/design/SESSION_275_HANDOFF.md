@@ -6,7 +6,7 @@ Fresh-session starting point. SESSION 274 is CLOSED.
 
 - Slice 1 characterization: `docs/design/SESSION_274_SHARED_GLOBAL_KNOWLEDGE_CHARACTERIZATION.md` (§1–§11)
 - Slice 2 dogfood + CLOSEOUT: `docs/design/SESSION_274_UNIVERSE_SHARED_KNOWLEDGE_DOGFOOD.md` (§1–§24)
-- Slice 1 commit `e7ff4a4` · Slice 2 commit `e96e33d` · SESSION 274 CLOSEOUT commit `<CLOSEOUT_SHA_PLACEHOLDER>`
+- Slice 1 commit `e7ff4a4` · Slice 2 commit `e96e33d` · SESSION 274 CLOSEOUT commit `ccdb724`
 
 Read at minimum §19–§24 of the Slice 2 doc before starting SESSION 275. This handoff is orientation, not a substitute.
 
@@ -23,7 +23,7 @@ Read at minimum §19–§24 of the Slice 2 doc before starting SESSION 275. This
 
 ## §B. WHERE WE ARE
 
-- **SESSION 274 is CLOSED** at commit `<CLOSEOUT_SHA_PLACEHOLDER>`.
+- **SESSION 274 is CLOSED** at commit `ccdb724`.
 - `main == origin/main`. Working tree clean at closeout.
 - No retrieval code, no SPA copy, no Knowledge UI, no K6 prompt, no schema was changed.
 - Ruby's Fox & Flour Class C KD (`8f825c98-…`) was created and is preserved as-is. Do **NOT** delete it.
@@ -233,14 +233,14 @@ SESSION 275 should preserve but NOT begin with these:
 
 ## §M. SESSION 274 CLOSEOUT COMMIT + PROVENANCE
 
-- SESSION 274 CLOSEOUT commit: **`<CLOSEOUT_SHA_PLACEHOLDER>`** (SHA recorded here in a follow-up commit per SESSION 273 precedent).
+- SESSION 274 CLOSEOUT commit: **`ccdb724`** (SHA recorded here in a follow-up commit per SESSION 273 precedent).
 - Slice 1 characterization commit: `e7ff4a4`
 - Slice 2 dogfood commit: `e96e33d`
 - Full SESSION 274 commit trail: `git log --oneline docs/design/SESSION_274_*.md`
 
 ## §N. RECOMMENDED SESSION 275 START
 
-1. `git status && git log --oneline -10` — verify main is at the SESSION 274 CLOSEOUT SHA (`<CLOSEOUT_SHA_PLACEHOLDER>`) and working tree is clean.
+1. `git status && git log --oneline -10` — verify main is at the SESSION 274 CLOSEOUT SHA (`ccdb724`) and working tree is clean.
 2. `bash scripts/start-local-real.sh` if services aren't already up.
 3. Read `docs/design/SESSION_274_UNIVERSE_SHARED_KNOWLEDGE_DOGFOOD.md` §19–§24 (render decision, final verdicts, distinction between data preservation vs retrieval eligibility, Chris's historical recollection, closeout progression, non-change audit). Skim Slice 1 §2 (four-scope truth table) and Slice 2 §12 (retrieval matrix) for retrieval-mechanics context.
 4. Confirm the 9 Class A orphan-candidate KDs are still present and unchanged in `chriss-workspace`.

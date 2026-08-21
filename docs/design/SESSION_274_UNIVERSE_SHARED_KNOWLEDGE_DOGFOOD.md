@@ -822,7 +822,7 @@ The full arc, preserved for the record:
 18. The Class A pool raised the deleted-character lifecycle question (Slice 2 §15). Chris supplied the historical embedding-preservation recollection (recorded verbatim in §22 as unverified hypothesis).
 19. That question was **deliberately deferred to SESSION 275** — SESSION 274 does not investigate the lifecycle, does not modify or delete the 9 Class A KDs (evidence), and does not modify the newly created Class C KD.
 
-**SESSION 274 CLOSED at commit `<CLOSEOUT_SHA_PLACEHOLDER>`** (SHA recorded in a follow-up commit per SESSION 273 precedent).
+**SESSION 274 CLOSED at commit `ccdb724`** (SHA recorded in a follow-up commit per SESSION 273 precedent).
 
 ---
 
