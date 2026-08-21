@@ -3718,9 +3718,11 @@ Falsifiable by adding `audience_scope=AudienceScope.CHARACTER` to the create cal
 - [x] Explicit STOP gate (§143)
 - [x] Smallest next question Q-276-24 (§144)
 - [x] Zero create-branch / serializer / attach-detach / provenance / retrieval / SPA / migration / constraint changes; zero provider spend
-- [ ] Commit + push Slice 9
-- [ ] Chris + ChatGPT review + Slice 10 scoping decision (§142)
+- [x] Commit + push Slice 9 — landed as `a12a141`
+- [x] Chris + ChatGPT review + Slice 10 scoping decision (§142) — Q-276-24 authorized (fresh CREATE branch → CHARACTER only for explicit spokespeople; UNIVERSE/WORKSPACE inference deferred to Q-276-25)
 
 ---
 
 **End of SESSION 276 Slice 9 / Delta Stage 3B-1. Orphan revival now atomically transitions inactive+NONE → active+CHARACTER when the required non-empty spokespeople are supplied. Slice 8 §121 malformed transitional state eliminated. Q-276-23 (refined) CONFIRMED — 15/15 lifecycle tests pass (13 existing + 2 new); operator-delete revival unchanged; revival atomicity closes M2M-failure hole (also incidentally covers a pre-existing SESSION 275 latent hole). Real DB unchanged. STOP for Chris + ChatGPT review of §142 recommendation, §143 gate, and §144 Q-276-24 next question.**
+
+**Slice 9 landed commit SHA:** `a12a141` (`fix(session-276): Slice 9 / Delta Stage 3B-1 — orphan revival lands directly at CHARACTER`). Pushed to `origin/main`. Post-push `main == origin/main == a12a141`; working tree clean.
