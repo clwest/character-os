@@ -5371,9 +5371,11 @@ Small audit-first slice; unresolved whether it needs a code-change slice after o
 - [x] Explicit STOP gate (§251)
 - [x] Smallest next question Q-276-29 candidate (§252)
 - [x] Zero SPA changes (backend-only slice); zero generic audience PATCH / CHARACTER→UNIVERSE / CHARACTER→WORKSPACE / Universe reassignment redesign / provenance / retrieval / migration / model / constraint changes; zero provider spend
-- [ ] Commit + push Slice 14
-- [ ] Chris + ChatGPT review + Slice 15 scoping decision (§250)
+- [x] Commit + push Slice 14 — landed as `9be7f33`
+- [x] Chris + ChatGPT review + Slice 15 scoping decision (§250) — Q-276-29 authorized audit-first: narrow shape-preservation guards allowed only if evidence justifies
 
 ---
 
 **End of SESSION 276 Slice 14 / Delta Stage 3C-2. PATCH `spokesperson_ids=[]` on active CHARACTER KDs now fails closed with a structured 4xx BEFORE any mutation, byte-identical to Slice 13's `/detach/` code. Q-276-28 CONFIRMED — 11/11 Slice 14 tests pass; 1695/1695 broader backend regression; legitimate narrowing/replacement PATCH unchanged; shared canon unaffected; legacy NULL carve-out preserved; atomic rejection prevents partial field mutation; combined Universe+empty rejected atomically. Real DB unchanged for 8th consecutive slice. STOP for Chris + ChatGPT review of §250 recommendation, §251 gate, and §252 Q-276-29 candidate next question.**
+
+**Slice 14 landed commit SHA:** `9be7f33` (`fix(session-276): Slice 14 / Delta Stage 3C-2 — PATCH empty-spokespeople fails closed`). Pushed to `origin/main`. Post-push `main == origin/main == 9be7f33`; working tree clean.
