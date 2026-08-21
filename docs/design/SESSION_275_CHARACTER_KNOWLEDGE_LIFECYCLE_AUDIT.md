@@ -1175,7 +1175,7 @@ For every ORM path that deletes a `Teammate`:
 - Slice 1 read-only audit: `66c45fd` (2026-08-20)
 - Slice 3 implementation (includes Slice 2 doc + Slice 3 code + tests + Slice 2/3/CLOSEOUT doc sections): **`89d21d3`** (2026-08-20)
 - Slice 3 SHA-record follow-up: `45e82f5`
-- SESSION 275 CLOSEOUT (this section): **recorded in a follow-up doc-only commit per SESSION 273/274 precedent**
+- SESSION 275 CLOSEOUT commit (this section landed at): **`05e6f8f`** (2026-08-21)
 
 ### Final repository state
 

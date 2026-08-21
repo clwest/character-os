@@ -194,7 +194,7 @@ See §F — same set as SESSION 275 carried forward; SESSION 275 did not touch a
 
 ## §M. SESSION 275 CLOSEOUT COMMIT + PROVENANCE
 
-- SESSION 275 CLOSEOUT commit: **recorded in a follow-up commit per SESSION 273/274 precedent** — the SHA will be written into this line and into the audit doc §61 immediately after the CLOSEOUT commit lands, in the same shape as SESSION 274's `0cea5b9` follow-up.
+- SESSION 275 CLOSEOUT commit: **`05e6f8f`** (2026-08-21).
 - Slice 1 audit commit: `66c45fd`
 - Slice 3 implementation commit: `89d21d3`
 - Slice 3 SHA-record follow-up: `45e82f5`
