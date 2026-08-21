@@ -2071,6 +2071,7 @@ If Chris wants literal cupcakes, either add cupcake content to the KD (author 1�
 
 ## §28. §27 COMMIT PROVENANCE
 
-- §27 forensic verification commit: (recorded at commit time — see git log)
+- §27 forensic verification commit: **`e275085`** — `docs(session-273): §27 Ruby first successful render — §25 CONFIRMED in production`
+- Pushed to `origin/main`.
 - Freeze script (read-only): `scripts/session273_success_freeze.py`
 - Evidence sidecar: `docs/design/session_273_experiment_data/10_slice_beta_success_forensics.json` (17,852 bytes)
