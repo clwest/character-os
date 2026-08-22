@@ -42,6 +42,8 @@ export function UniverseDetailRoute() {
 
   const [name, setName] = useState<string>("");
   const [description, setDescription] = useState<string>("");
+  // SESSION 277 Slice 8 (Q-277-8) — editable World brief.
+  const [brief, setBrief] = useState<string>("");
   const [dirty, setDirty] = useState(false);
 
   const u = universe.data;
@@ -58,6 +60,7 @@ export function UniverseDetailRoute() {
         payload: {
           name: name.trim() || u.name,
           description: description,
+          brief: brief,
         },
       });
       setDirty(false);
@@ -154,6 +157,27 @@ export function UniverseDetailRoute() {
               }}
               maxLength={120}
             />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="universe-brief">What is this World?</Label>
+            <textarea
+              id="universe-brief"
+              data-testid="universe-brief"
+              className="min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              value={dirty ? brief : u.brief}
+              onChange={(e) => {
+                setDirty(true);
+                setBrief(e.target.value);
+              }}
+              maxLength={2000}
+              placeholder="A warm neighborhood artisan bakery built around small-batch baking..."
+            />
+            <p className="text-xs text-muted-foreground">
+              Compact shared identity every character in this World
+              inherits during synthesis. Keep detailed facts, pricing,
+              policies, menus, and procedures in Knowledge. Aim for 1–3
+              short paragraphs.
+            </p>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="universe-description">Description</Label>

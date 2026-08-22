@@ -118,6 +118,12 @@ function EmptyState() {
 function CreatePanel({ workspaceId }: { workspaceId: string | undefined }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  // SESSION 277 Slice 8 (Q-277-8) — compact World identity.
+  // Optional (blank is valid), but exposed here on the dedicated
+  // create surface so operators can populate it at Universe-create
+  // time. The Slice-5 inline "+ Create new World" flow in the
+  // spokesperson wizard remains name-only per Slice 8 scope-lock.
+  const [brief, setBrief] = useState("");
   const create = useCreateUniverse(workspaceId);
 
   const disabled = !workspaceId || !name.trim() || create.isPending;
@@ -130,9 +136,11 @@ function CreatePanel({ workspaceId }: { workspaceId: string | undefined }) {
         workspace: workspaceId,
         name: name.trim(),
         description: description.trim() || undefined,
+        brief: brief.trim() || undefined,
       });
       setName("");
       setDescription("");
+      setBrief("");
     } catch (err) {
       console.error("universe create failed", err);
     }
@@ -164,6 +172,24 @@ function CreatePanel({ workspaceId }: { workspaceId: string | undefined }) {
           />
         </div>
         <div className="flex flex-col gap-2">
+          <Label htmlFor="universe-brief">What is this World? (optional)</Label>
+          <textarea
+            id="universe-brief"
+            data-testid="universe-brief"
+            className="min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            value={brief}
+            onChange={(e) => setBrief(e.target.value)}
+            placeholder="A warm neighborhood artisan bakery built around small-batch baking, naturally leavened sourdough, handcrafted pastries..."
+            maxLength={2000}
+          />
+          <p className="text-xs text-muted-foreground">
+            Describe the enduring shared context every character in this
+            World should understand — its kind, purpose, audience, and
+            atmosphere. Keep detailed facts, pricing, policies, menus,
+            and procedures in Knowledge. Aim for 1–3 short paragraphs.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2">
           <Label htmlFor="universe-description">Description (optional)</Label>
           <textarea
             id="universe-description"
@@ -171,7 +197,7 @@ function CreatePanel({ workspaceId }: { workspaceId: string | undefined }) {
             className="min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="What is this world about?"
+            placeholder="Internal note about this world — not consumed by synthesis."
           />
         </div>
 

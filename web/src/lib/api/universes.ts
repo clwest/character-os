@@ -26,6 +26,10 @@ const universeSchema = z.object({
   name: z.string(),
   slug: z.string(),
   description: z.string().default(""),
+  /** SESSION 277 Slice 8 (Q-277-8) — compact deterministic World
+   * identity injected into synthesis. 2000-char cap. Blank is
+   * valid indefinitely (existing Universes migrated with brief=""). */
+  brief: z.string().default(""),
   created_by: z.union([z.string(), z.number()]).nullable(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -118,6 +122,11 @@ export interface CreateUniverseInput {
   workspace: string;
   name: string;
   description?: string;
+  /** SESSION 277 Slice 8 (Q-277-8) — compact World identity.
+   * Optional at CREATE (Slice-5 inline name-only flow still
+   * works); the dedicated /workspace/universes/new form exposes
+   * an input for this. */
+  brief?: string;
 }
 
 export async function createUniverse(
@@ -145,6 +154,8 @@ export function useCreateUniverse(workspaceId: string | undefined) {
 export interface UpdateUniverseInput {
   name?: string;
   description?: string;
+  /** SESSION 277 Slice 8 (Q-277-8) — operator-editable via PATCH. */
+  brief?: string;
 }
 
 export async function updateUniverse(

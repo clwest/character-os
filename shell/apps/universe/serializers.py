@@ -43,6 +43,11 @@ class UniverseSerializer(serializers.ModelSerializer):
             "name",
             "slug",
             "description",
+            # SESSION 277 Slice 8 (Q-277-8) — compact deterministic
+            # World identity. Optional at CREATE (Slice-5 name-only
+            # inline flow keeps working); operator-editable via
+            # PATCH. See Universe.brief model field.
+            "brief",
             "created_by",
             "created_at",
             "updated_at",

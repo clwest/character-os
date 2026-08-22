@@ -309,9 +309,20 @@ def _system_prompt(spokesperson) -> str:
         getattr(spokesperson, "personality", "") or ""
     ).strip()
     brief = (spokesperson.business_brief or "").strip()
+    # SESSION 277 Slice 8 (Q-277-8) — WORLD SHAPE. Compact
+    # deterministic Universe identity for the realtime avatar
+    # session. Omitted cleanly for legacy universe=NULL teammates.
+    universe = getattr(spokesperson, "universe", None)
+    world_brief = (getattr(universe, "brief", "") or "").strip() if universe else ""
     return (
         f"You are {spokesperson.name}, an on-camera spokesperson speaking "
         f"in first person to a user. Tone archetype: {tone!r}. "
+        + (
+            f"The World you belong to (shared context every "
+            f"character in this World inherits — paraphrase as "
+            f"needed): {world_brief}\n"
+            if world_brief else ""
+        )
         + (f"Your voice + character: {personality}\n" if personality else "")
         + (f"Business context (paraphrase as needed): {brief}\n" if brief else "")
         + "Stay in character. Pull facts only from the workspace knowledge "

@@ -798,6 +798,17 @@ def _build_factual_basis_section(
         "present here. If a fact isn't in this section, leave "
         "it out.",
     ]
+    # SESSION 277 Slice 8 (Q-277-8) — WORLD SHAPE. Compact
+    # deterministic Universe-owned identity, injected first so the
+    # character's business_brief is layered on top of shared World
+    # context (Slice 7 §137 non-overlapping-ownership convention).
+    # Omitted cleanly when the Universe is missing (legacy
+    # ``teammate.universe=NULL``), the Universe row is unavailable,
+    # or ``brief`` is blank.
+    universe = getattr(spokesperson, "universe", None)
+    world_brief = (getattr(universe, "brief", "") or "").strip() if universe else ""
+    if world_brief:
+        lines.append(f"WORLD SHAPE:\n{world_brief}")
     brief = (getattr(spokesperson, "business_brief", "") or "").strip()
     who = (getattr(spokesperson, "who_you_help", "") or "").strip()
     what = (getattr(spokesperson, "what_you_sell", "") or "").strip()

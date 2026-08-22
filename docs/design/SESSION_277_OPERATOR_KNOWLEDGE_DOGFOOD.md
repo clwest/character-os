@@ -4033,6 +4033,354 @@ it against real synthesis. Its scope is deliberately narrow:
 
 _Landed SHA: `24f4ff9` (Slice 7 audit/design commit)._
 
+---
+
+# Slice 8 — Q-277-8 — Implement minimum World semantic contract
+
+Chris + ChatGPT approved Slice 7's Option D. Slice 8 lands the
+smallest coherent implementation: one new `Universe.brief` TextField,
+one migration, one serializer field, five synthesis wirings, one
+SPA form addition, one detail-page edit control. **No changes to
+`business_brief`, no changes to the Slice-5 wizard, no changes to
+Knowledge UI, no data migration, no legacy row mutation.**
+
+## §145 Slice 8 baseline
+
+- HEAD @ Slice 8 open: `ae70b46` (Slice 7 SHA-record). Clean, pushed.
+- Substrate before: KD=0, KC=0; `chriss-workspace` 9 teammates, 2 Universes (Fox & Flour: brief_len=0, description_len=0; Patch's Workshop: brief_len=0, description_len=31 — the "First world for Patch and Rivet" note).
+- Substrate after migration: identical row counts, `brief=""` for both existing Universes (default preserved). No mutation to Ruby, Tyson, Patch, Rivet, or any teammate.
+
+## §146 Slice 8 checklist
+
+- [x] STEP 0 — verify baseline.
+- [x] PART A — model field (`Universe.brief` TextField, blank=True, default="", max_length=2000).
+- [x] PART B — narrow documented contract (help_text + model-file comment).
+- [x] PART C — length policy (2000-char cap; operator UI encourages concision).
+- [x] PART D — serializer / API (read/create/update; Slice-5 name-only POST preserved).
+- [x] PART E — dedicated World-create UI (`/workspace/universes/new` gains brief textarea).
+- [x] PART F — World-detail visibility (Universe detail page uses existing edit pattern for brief).
+- [x] PART G — synthesis wiring (five call sites; deterministic; blank-omitted).
+- [x] PART H — script_synthesis: WORLD SHAPE before BUSINESS SHAPE.
+- [x] PART I — dialogue_synthesis: one WORLD SHAPE block for the whole cast.
+- [x] PART J — claim_verifier: `Universe.brief` in evidence corpus.
+- [x] PART K — teammate_ask + conversation_synthesis wired.
+- [x] PART L — legacy / blank-brief compatibility tested.
+- [x] PART M — multi-character single-copy tested.
+- [x] PART N — field ownership invariants tested.
+- [x] PART O — migration applied; DB state verified.
+- [x] PART P — targeted regression (2321/2321 backend, 665/665 SPA).
+- [x] PART Q — broader regression + `makemigrations --check` (unrelated compositions drift noted, not caused by Slice 8).
+- [x] PART R — no controlled real-data mutation (Chris will author Fox & Flour brief via UI per §156).
+- [x] PART S — dogfood question deferred to §157.
+- [x] PART T — `business_brief` untouched.
+- [x] PART U — Knowledge UI untouched.
+- [x] PART V — Slice-5 wizard untouched.
+- [x] PART W — prediction vs actual (§155).
+- [ ] Commit + push; SHA-record.
+
+## §147 Q-277-8
+
+> If Character OS adds one first-class `Universe.brief` field, injects
+> it deterministically into the current synthesis/evidence paths as
+> World identity, while leaving detailed World facts in the existing
+> Universe-audience Knowledge lane, does a World become semantically
+> self-sufficient without breaking existing characters/Worlds whose
+> brief is blank?
+
+## §148 Files changed (exact scope)
+
+| File | Kind | What |
+|---|---|---|
+| `shell/apps/universe/models.py` | edit | Add `Universe.brief` TextField (blank=True, default="", max_length=2000) with narrow contract help_text. |
+| `shell/apps/universe/migrations/0004_session277_universe_brief.py` | new | Pure `AddField`. No data migration. |
+| `shell/apps/universe/serializers.py` | edit | Add `brief` to `UniverseSerializer.Meta.fields` (writable; not read_only). |
+| `shell/apps/universe/tests/test_universe_brief.py` | new | 19 tests: field contract (5), non-interference invariants (4), script_synthesis wiring (3), dialogue_synthesis wiring (3), claim_verifier wiring (3), legacy compat (1). |
+| `shell/character_os/script_synthesis.py` | edit | `_build_factual_basis_section` — emit `WORLD SHAPE:` before `BUSINESS SHAPE:` when `spokesperson.universe.brief` is populated; omit cleanly otherwise. |
+| `shell/character_os/dialogue_synthesis.py` | edit | `_build_factual_basis_section` — emit ONE `--- WORLD SHAPE (shared World identity...) ---` block at the top of §1 for the whole cast. Suppress on mixed-Universe cast. |
+| `shell/character_os/teammate_ask.py` | edit | `_system_prompt` — include "The World you belong to" preface when Universe.brief is populated. |
+| `shell/character_os/conversation_synthesis.py` | edit | `_system_prompt` — same preface for realtime avatar sessions. |
+| `shell/character_os/claim_verifier.py` | edit | `build_factual_corpus` — include `spokesperson.universe.brief` as evidence alongside `business_brief`/`who_you_help`/`what_you_sell`. Docstring updated. |
+| `web/src/lib/api/universes.ts` | edit | Add `brief` to `universeSchema` (default ""), `CreateUniverseInput`, `UpdateUniverseInput`. |
+| `web/src/routes/workspace/universes.tsx` | edit | `CreatePanel` — add "What is this World?" textarea (optional, maxLength=2000, helper copy) + include `brief` in the POST payload. |
+| `web/src/routes/workspace/universes.$id.tsx` | edit | Universe detail — add editable "What is this World?" textarea + include `brief` in the PATCH payload. |
+| `web/src/routes/workspace/universes.brief.test.tsx` | new | 3 tests: brief field rendered with helper; Slice-5 name-only create still works; brief round-trips into CREATE payload. |
+
+**Not touched:**
+- `web/src/components/spokesperson-wizard.tsx` (Slice-5 inline `+ Create new World` remains name-only per PART V scope-lock).
+- `shell/apps/spokespeople/serializers.py` (`business_brief` unchanged per PART T).
+- `web/src/routes/workspace/knowledge*` and `web/src/components/knowledge-panel*` (Knowledge UI untouched per PART U).
+- Ruby, Tyson, Patch, Rivet, all legacy teammates, all Universes, all KDs — no data mutation.
+
+## §149 Final field contract
+
+`shell/apps/universe/models.py`:
+
+```python
+brief = models.TextField(
+    blank=True,
+    default="",
+    max_length=2000,
+    help_text=(
+        "Compact World identity / context (1-3 short paragraphs). "
+        "Describes what this World IS — its kind, broad purpose, "
+        "audience shape, tonal register. Injected deterministically "
+        "into synthesis whenever the World is in scope. Keep "
+        "detailed pricing, policies, menus, and procedures in "
+        "Knowledge instead. 2000-char cap. Blank stays valid; "
+        "existing Universes migrate with brief=\"\"."
+    ),
+)
+```
+
+- **Length policy:** 2000-char pragmatic cap. Comfortably fits 1-3 short
+  paragraphs. Matches the character `personality` field's observed
+  300-2000 range (Slice 7 §134). Operator UI helper text encourages
+  concision even though the cap is generous.
+- **Compat:** blank remains valid indefinitely. Existing Universes
+  migrated with `brief=""`. Slice-5 name-only POST still works.
+- **No auto-generation:** brief is never derived from characters
+  and never populates from character `business_brief`. Explicit
+  operator authorship only.
+- **No side effects:** no KnowledgeDocument creation, no chunking,
+  no embedding.
+
+## §150 Serializer / API behavior
+
+- READ (`GET /api/universes/`, `GET /api/universes/:id/`) — returns `brief` in the response payload.
+- CREATE (`POST /api/universes/`) — accepts `brief` (optional). Slice-5 minimum `{workspace, name}` remains 201.
+- UPDATE (`PATCH /api/universes/:id/`) — accepts `brief`. Empty string is valid.
+- Workspace + permissions unchanged (pre-existing `IsWorkspaceMember` + `validate_workspace`).
+- No new endpoints; no new validators beyond the model-level `max_length=2000`.
+
+## §151 SPA behavior
+
+- `/workspace/universes/new` `CreatePanel` — new textarea labeled **"What is this World? (optional)"**, `data-testid="universe-brief"`, `maxLength={2000}`, `min-h-[120px]`, placeholder "A warm neighborhood artisan bakery built around small-batch baking...", helper copy: > "Describe the enduring shared context every character in this World should understand — its kind, purpose, audience, and atmosphere. Keep detailed facts, pricing, policies, menus, and procedures in Knowledge. Aim for 1–3 short paragraphs."
+- `/workspace/universes/:id` detail — the existing edit control gains a matching editable textarea (identical labeling + helper copy). PATCH sends `brief` alongside `name` and `description`.
+- `useCreateUniverse` + `useUniverses` hooks unchanged in shape; the Universe zod schema now parses `brief`.
+- SPA inline "+ Create new World" flow in the Slice-5 spokesperson wizard is **not** modified. That inline flow remains name-only. Chris + ChatGPT can decide separately whether to enrich it.
+
+## §152 Synthesis wiring (five call sites)
+
+1. **`script_synthesis._build_factual_basis_section`** (single-character K6). If `spokesperson.universe.brief` is populated: emit `WORLD SHAPE:\n<brief>` **before** `BUSINESS SHAPE:` (character-owned) so the LLM reads World identity as prior context. Omitted cleanly for `universe=NULL` teammates or blank brief. `WORLD SHAPE` counts as `FACTUAL BASIS` per §1 framing — grounded, cite-able.
+2. **`dialogue_synthesis._build_factual_basis_section`** (multi-cast). One `--- WORLD SHAPE (shared World identity; any character may cite) ---` block at the top of §1 for the entire cast. Derived from the first cast member's Universe with defensive scan across all cast members — if the cast mixes Universes (which the canon lane already rejects at `retrieval.py:372-374`), suppress rather than pick arbitrarily. **Never emitted more than once** per synthesis.
+3. **`claim_verifier.build_factual_corpus`** (evidence). `spokesperson.universe.brief` joins the evidence corpus alongside `business_brief`, `who_you_help`, `what_you_sell`. Emitted **before** character-owned briefs so if future scoring becomes order-sensitive, World-owned identity precedes character-owned. Docstring updated to reflect the new evidence source.
+4. **`teammate_ask._system_prompt`** (K6 ask). If populated: adds "The World you belong to (shared context every character in this World inherits — paraphrase as needed; authoritative alongside the excerpts): <brief>" to the system prompt. Omitted for `universe=NULL` or blank brief.
+5. **`conversation_synthesis._system_prompt`** (Runway realtime). Same shape as (4) for realtime avatar sessions.
+
+Universal properties across all 5 sites:
+- **Deterministic** — never subject to cosine ranking.
+- **Blank-omitted** — no `WORLD SHAPE:` header appears if brief is empty; no literal `None`/`""` noise.
+- **Scoped from `spokesperson.universe`** — never cross-Universe; never substituted from Workspace-wide context.
+- **Independent of retrieval** — populated brief always reaches synthesis even with `KD=0`.
+
+## §153 Claim-verifier behavior
+
+`build_factual_corpus(chunks, spokesperson=<sp>)` now includes:
+
+1. Retrieved KD chunk text (unchanged).
+2. `sp.universe.brief` (**new**, only if `sp.universe` is not None and brief is non-blank).
+3. `sp.business_brief` (unchanged).
+4. `sp.who_you_help` (unchanged).
+5. `sp.what_you_sell` (unchanged).
+
+Excluded fields (`personality`, `character_point_of_view`, brand
+positioning, allowed vocabulary) remain excluded per the pre-existing
+SESSION 253 boundary. World brief is added as **evidence**, not as
+allowed-vocabulary or voice metadata — a claim like "Fox & Flour is
+an artisan neighborhood bakery" can now be grounded by the Universe
+brief.
+
+## §154 Compatibility results
+
+| Scenario | Behavior |
+|---|---|
+| Existing Universe with `brief=""` (Fox & Flour, Patch's Workshop today) | No `WORLD SHAPE:` block emitted anywhere. Prompts identical to pre-Slice-8 baseline. |
+| Legacy `teammate.universe=NULL` (Mason, Penny, Mike, Repo Red, Riggs) | No universe lookup → `world_brief=""`. No block emitted. No crash. Existing synthesis unchanged. |
+| Mixed-Universe dialogue cast | Defensive suppression — no arbitrary pick. Matches the canon lane's cast-Universe check pattern. |
+| Slice-5 name-only POST `{workspace, name}` | Still 201. Universe lands with `brief=""`. Slice-5 wizard inline create unaffected. |
+| Populated `Universe.brief` + KD=0 | Ruby / Tyson synthesis receives the World brief deterministically. §157 dogfood specimen. |
+| Populated `Universe.brief` + populated Universe-audience KDs | Both surfaces present: `WORLD SHAPE` block plus `SHARED WORLD KNOWLEDGE` chunk list. Complementary, not overlapping. |
+| Cross-Universe attempt (e.g. `Ruby.universe.brief` bleeding into Tyson-not-in-Fox-Flour dialogue) | Impossible — `world_brief` derived from `spokesperson.universe`, not from workspace-wide context. |
+
+## §155 PART W — Prediction vs actual
+
+**Prediction (§147):** one compact deterministic World field + existing
+Universe-audience KD lane is sufficient; populated brief always
+available; blank cleanly omitted; evidence-corpus grounding; single-copy
+for shared dialogue.
+
+**Actual (measured against tests + inspection):**
+
+| Property | Predicted | Actual |
+|---|---|---|
+| World brief reaches every intended synthesis path | YES | YES — all 5 sites wired; 3 synthesis-wiring test groups pass. |
+| Deterministic (never cosine-ranked) | YES | YES — direct string injection; no ranking pipeline. |
+| Omitted cleanly when blank | YES | YES — `test_script_synthesis_omits_world_shape_when_brief_blank`, `test_claim_verifier_omits_universe_brief_when_blank`, `test_dialogue_synthesis_omits_world_shape_for_blank_brief` all pass. |
+| Available to claim verification | YES | YES — `test_claim_verifier_includes_universe_brief_as_evidence` passes. |
+| Emitted once for shared dialogue | YES | YES — `test_dialogue_synthesis_emits_world_shape_once_for_shared_cast` explicitly asserts `section.count("WORLD SHAPE") == 1`. |
+| Any unexpected call path still relies exclusively on business_brief | (checked) | No unexpected coupling surfaced during audit. Every call site that reads `business_brief` was inspected in Slice 7 §108 and wired in Slice 8 §152. |
+| Any test reveal World identity needs more than one field | (checked) | No. 19/19 backend + 3/3 SPA tests validate the single-field contract. |
+| Hidden coupling with Knowledge or character creation | (checked) | No. `test_universe_brief_does_not_create_knowledge_document`, `test_universe_brief_does_not_mutate_teammate_business_brief`, `test_teammate_create_does_not_touch_universe_brief`, `test_teammate_update_does_not_touch_universe_brief` all pass. |
+
+**Verdict: CONFIRMED.** No falsification signal. Q-277-8 is answered
+YES.
+
+## §156 Test totals + DB state
+
+**Backend, change-adjacent regression** (universe + spokespeople +
+embeddings + memory + compositions + identity + realtime + videos +
+accounts + billing): **2321 passed / 2321 total** in 253s. Slice 5
+baseline was 2302; +19 = 19 new tests in `test_universe_brief.py`.
+
+**SPA full suite:** **665 passed / 665 total** in 6.3s. Slice 5
+baseline was 662; +3 = 3 new tests in `universes.brief.test.tsx`.
+
+**`makemigrations --check`:** the Universe app is clean; `--dry-run`
+shows the pre-existing `compositions.0019_alter_composition_*` drift
+that predates Slice 8 (pre-Slice-8 baseline had the same drift; not
+caused by this slice).
+
+**Full backend suite:** the 80 pre-existing failures documented in
+Slice 5 §92 (76 `bootstrap_review` missing-fixture-data + 1
+`test_media_engine_timeouts` stale-manifest + 3 `test_ask` intermittent
+`EMBEDDING_FORCE_MOCK` race) are unrelated to Slice 8; not re-run at
+this level. Change-adjacent regression above is the load-bearing gate.
+
+**Real-DB state after migration:**
+```
+KD=0  KC=0
+chriss teammates: 9
+chriss universes: 2
+  'Fox & Flour Bakery'  brief_len=0  description_len=0
+  "Patch' Workshop"     brief_len=0  description_len=31
+```
+Zero rows mutated. Migration is pure `AddField`.
+
+## §157 Dogfood-readiness — instructions for Chris
+
+**Do NOT** author Knowledge in this slice — we want to prove the
+World brief works with the Knowledge corpus still empty.
+
+Suggested operator-authored specimen for Fox & Flour (Chris to enter
+via UI, not via shell):
+
+> Fox & Flour Bakery is a warm neighborhood artisan bakery built around
+> small-batch baking, naturally leavened sourdough, handcrafted pastries,
+> seasonal desserts, and celebration cakes. It aims to feel like a familiar
+> neighborhood gathering place where careful craft and quality ingredients
+> matter more than speed or mass production.
+
+Manual dogfood steps:
+
+1. Navigate to `/workspace/universes`.
+2. Click **"Fox & Flour Bakery"** to open the detail page.
+3. Locate the new **"What is this World?"** textarea in the Edit
+   section (below Name, above Description).
+4. Paste the paragraph above (or your preferred phrasing).
+5. Click **Save**.
+6. Verify the new brief persists after page refresh.
+
+Then, without adding any Knowledge:
+
+7. Open Ruby's detail page (`/spokespeople/{ruby_id}`).
+8. Use the built-in "Ask" panel (K6 direct ask) to ask something
+   like "What kind of place is Fox & Flour?"
+9. Verify Ruby's answer reflects the bakery identity you just added
+   to the World brief — even with KD=0.
+10. Repeat with Tyson (same World) and confirm both characters share
+    the same World identity without needing you to re-type it into
+    either character's `business_brief`.
+
+**Compatibility spot-check** (optional):
+
+11. Open Patch's detail page (`/spokespeople/{patch_id}`) — brief=""
+    still. Ask any question. Verify no regression vs pre-Slice-8
+    behavior.
+
+**Reporting:** feed the observations back for Chris + ChatGPT to
+determine the next slice. Likely candidates:
+- If the Fox & Flour brief works cleanly, consider Slice 9 (welcome-page
+  handoff redesign per Slice 6 §120 / Slice 7 §139) or Slice 9-alt
+  (Slice-5 inline `+ Create new World` gets a brief input).
+- If a synthesis path missed the brief, narrow to that path.
+
+**Provider spend note:** the Ask flow is a K6 provider call. Chris
+should approve provider spend before dogfooding synthesis. Prompt
+composition can be inspected without provider spend by dumping the
+built prompt via a management command or shell if desired.
+
+## §158 Findings — separated
+
+**OBSERVED FACT (source / test):**
+- `Universe.brief` added, migration `0004_session277_universe_brief.py` applied cleanly.
+- 19/19 backend + 3/3 SPA new tests pass.
+- 2321/2321 backend change-adjacent regression pass; 665/665 SPA full suite pass.
+- Post-migration DB: Fox & Flour + Patch's Workshop rows preserved with `brief=""`; teammate + KD counts unchanged; no data mutation.
+- Five synthesis sites now read `spokesperson.universe.brief`; three of them tested at the section-builder boundary.
+
+**SOURCE-DERIVED FACT:**
+- The compact-identity + retrievable-detail pattern generalizes cleanly from character-layer to World-layer with a single new field.
+- No precedence engine required; two conventions (non-overlapping ownership + narrator-precedence for overlaps) suffice.
+- No new retrieval infrastructure; no chunking; no embedding; no cache invalidation beyond the existing `useCreateUniverse` list-invalidation.
+- Backwards compatibility is a natural property of the field's default (`""` → no block).
+
+**INFERENCE:**
+- Slice 8 lands the smallest viable World-owned semantic contract without disturbing character-owned overlap. The overlap remains as compatibility substrate until a separate slice decides how to decompose it.
+- Slice-5's invariant is unchanged and remains sound.
+- The natural next slices are downstream UX (welcome-page handoff, inline-World brief authoring). Both were explicitly scope-locked out of Slice 8 per PART U + PART V.
+
+**PRODUCT RECOMMENDATION (Chris + ChatGPT decide):**
+- Author Fox & Flour brief via the SPA per §157.
+- Observe whether Ruby / Tyson synthesis inherits the World identity cleanly with KD=0.
+- If YES, choose between Slice 9-A (welcome-page handoff redesign) or Slice 9-B (Slice-5 inline `+ Create new World` grows a brief input).
+- If NO, narrow to the failing surface before proceeding.
+
+**UNRESOLVED QUESTION:**
+- Should the welcome-page action button (post-character-create) route change to preserve `?universe=<uuid>&spokesperson=<uuid>` and offer both audience choices explicitly? (Slice 6 §120, Slice 7 §139 — deferred to Slice 9-A.)
+- Should the Slice-5 inline `+ Create new World` grow a brief input, or does the operator naturally author brief later via `/workspace/universes/:id`? (Slice 7 §138 — deferred to Slice 9-B.)
+- Should `Universe.description` be renamed or repurposed now that `Universe.brief` is the first-class semantic field? (Deferred; low priority.)
+- Does the character wizard need to surface the current World's brief as read-only context so the operator sees what the character will inherit? (Slice 7 §138 — deferred; separate UX question.)
+- Once briefs exist on Universes, does `Teammate.business_brief` decomposition become the natural next arc, or does it remain permanent character-owned compatibility? (Deferred per PART T; not urgent.)
+
+## §159 PART S — Smallest next falsifiable question
+
+Deferred until Chris's dogfood evidence per §157 lands.
+
+If dogfood confirms the World brief is deterministically available
+to Ruby/Tyson synthesis with KD=0, the smallest next question is:
+
+> **Q-277-9-A** — If the welcome-page action button after character
+> create ("Teach {character} about your business") preserves
+> `?universe=<uuid>&spokesperson=<uuid>` in the handoff to the
+> Knowledge page and pre-selects the character's Universe as the
+> audience scope, does the operator's mental-model handoff (Slice 6
+> §120) close without any additional Knowledge UI reshape?
+
+or, at Chris's discretion:
+
+> **Q-277-9-B** — If the Slice-5 inline "+ Create new World" gesture
+> in the spokesperson wizard grows the same brief textarea as
+> `/workspace/universes/new` (still optional), does inline-World
+> creation naturally acquire semantic identity at the same moment
+> the operator names the World?
+
+Both are small, orthogonal, and independently deployable. Either can
+land as Slice 9. Do not implement without Chris + ChatGPT explicit
+scope approval.
+
+**Alternate smaller question** (present, do not select):
+- **Q-277-9-alt** (character brief decomposition): observe whether
+  operators start deleting World-identity content from their
+  character `business_brief` fields naturally now that the World
+  owns identity. If yes, `business_brief` slims into a role/expertise
+  field organically without a migration slice. Requires dogfood
+  observation, not implementation.
+
+## §160 Slice 8 landed SHA
+
+_Landed SHA: TBD (SHA-record commit after Slice 8 lands)._
+
+
 
 
 

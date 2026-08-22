@@ -499,6 +499,38 @@ def _build_factual_basis_section(
         "scene.)",
     ]
 
+    # SESSION 277 Slice 8 (Q-277-8) — WORLD SHAPE. Shared World
+    # identity injected exactly ONCE for the whole cast (never
+    # duplicated per character). Sits at the top of §1 before the
+    # SHARED WORLD KNOWLEDGE (canon lane) block so identity always
+    # reaches the LLM even when zero Universe-audience KDs exist.
+    # Derived from the first cast member's Universe; per the
+    # ``EpisodeCast.clean`` + ``synthesize_dialogue`` cast-Universe
+    # invariant, every cast member shares the same Universe when
+    # they cross Universe boundaries — but this loop scans all cast
+    # for defensive symmetry with the canon lane's cast-Universe
+    # check (retrieval.py:372-374).
+    world_universe = None
+    for _alias, _tm, _chunks in cast_labels:
+        u = getattr(_tm, "universe", None)
+        if u is not None:
+            if world_universe is None:
+                world_universe = u
+            elif getattr(u, "id", None) != getattr(world_universe, "id", None):
+                # Mixed-Universe cast — defensive; canon lane returns
+                # empty in this case, and we suppress WORLD SHAPE for
+                # symmetry rather than pick one Universe arbitrarily.
+                world_universe = None
+                break
+    world_brief = (
+        (getattr(world_universe, "brief", "") or "").strip()
+        if world_universe else ""
+    )
+    if world_brief:
+        lines.append("")
+        lines.append("--- WORLD SHAPE (shared World identity; any character may cite) ---")
+        lines.append(world_brief)
+
     # SESSION 263 Slice B + C.1. Emit SHARED deterministically
     # from the canon lane's output, and promote any scope-shared
     # chunks that leak into per-character retrieval so they don't

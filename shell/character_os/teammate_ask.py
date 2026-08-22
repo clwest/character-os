@@ -339,12 +339,27 @@ def _system_prompt(spokesperson: "Teammate") -> str:
         getattr(spokesperson, "personality", "") or ""
     ).strip()
     brief = (spokesperson.business_brief or "").strip()
+    # SESSION 277 Slice 8 (Q-277-8) — WORLD SHAPE. Compact
+    # deterministic Universe identity so the speaker knows what
+    # World they inhabit even when the character's own
+    # ``business_brief`` is thin or the Knowledge corpus is empty.
+    # Omitted cleanly for legacy ``universe=NULL`` teammates or
+    # when the Universe row's ``brief`` is blank.
+    universe = getattr(spokesperson, "universe", None)
+    world_brief = (getattr(universe, "brief", "") or "").strip() if universe else ""
     return (
         f"You are {spokesperson.name}, answering a question from "
         f"the operator who employs you. Your tone archetype is "
         f"{tone!r}. This is a one-turn Q&A — answer in first "
         f"person, plain conversational language, short (one to "
         f"three sentences).\n"
+        + (
+            f"The World you belong to (shared context every "
+            f"character in this World inherits — paraphrase as "
+            f"needed; authoritative alongside the excerpts): "
+            f"{world_brief}\n"
+            if world_brief else ""
+        )
         + (
             f"Speaker voice + character (use this ONLY to shape "
             f"tone and perspective — do NOT recite or paraphrase "

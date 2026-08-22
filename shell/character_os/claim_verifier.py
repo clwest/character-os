@@ -680,6 +680,10 @@ def build_factual_corpus(
     Included:
 
     * Retrieved K2 chunks (``chunk_text`` on each).
+    * Universe ``brief`` (SESSION 277 Slice 8 — compact
+      deterministic World identity; grounds claims like "Fox &
+      Flour is an artisan bakery" that the Universe row now owns
+      first-class).
     * Teammate ``business_brief`` (business shape / facts).
     * Teammate ``who_you_help`` (audience shape — factual).
     * Teammate ``what_you_sell`` (offering shape — factual).
@@ -714,6 +718,19 @@ def build_factual_corpus(
         if text:
             parts.append(text)
     if spokesperson is not None:
+        # SESSION 277 Slice 8 (Q-277-8) — Universe brief is
+        # first-class World-owned semantic evidence. Emitted BEFORE
+        # character-owned business_brief so if the brief-verifier
+        # ever gains order-sensitive scoring, World identity
+        # precedes character identity (Slice 7 §137
+        # narrator-precedence convention).
+        universe = getattr(spokesperson, "universe", None)
+        world_brief = (
+            (getattr(universe, "brief", "") or "").strip()
+            if universe else ""
+        )
+        if world_brief:
+            parts.append(world_brief)
         for field_name in ("business_brief", "who_you_help", "what_you_sell"):
             value = (getattr(spokesperson, field_name, "") or "").strip()
             if value:

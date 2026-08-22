@@ -95,6 +95,48 @@ class Universe(models.Model):
         ),
     )
 
+    # SESSION 277 Slice 8 (Q-277-8) — first-class World identity /
+    # context. Compact deterministic semantic payload that answers
+    # "what kind of place / business / story is this?" — injected
+    # into synthesis via a deterministic ``WORLD SHAPE:`` block at
+    # the top of §1 FACTUAL BASIS. Not retrieval-ranked, not cosine
+    # weighted, not competing with per-character SCOPED knowledge.
+    # Mirrors the character-layer identity/knowledge split
+    # (personality is always injected, KD chunks are cosine
+    # retrieved). See ``docs/design/SESSION_277_OPERATOR_KNOWLEDGE_DOGFOOD.md``
+    # §128-§144 for the Slice 7 design rationale.
+    #
+    # CONTRACT — the field SHOULD hold: what kind of place /
+    # business / story this is; broad purpose; broad
+    # products/services category; broad audience shape; tonal
+    # register / atmosphere.
+    # The field SHOULD NOT become: a pricing database, detailed
+    # policies, a full menu / product catalog, an operating manual,
+    # a character biography, personality, character-private
+    # expertise, or story memory. Detailed factual content
+    # belongs in Universe-audience ``KnowledgeDocument`` rows.
+    #
+    # 2000-char pragmatic cap comfortably fits 1-3 short paragraphs
+    # without inviting the ``business_brief`` overload that
+    # motivated this slice. Operator UI should encourage concision
+    # even though the technical cap is generous. Blank remains
+    # valid indefinitely so existing Universes migrate without
+    # operator intervention.
+    brief = models.TextField(
+        blank=True,
+        default="",
+        max_length=2000,
+        help_text=(
+            "Compact World identity / context (1-3 short paragraphs). "
+            "Describes what this World IS — its kind, broad purpose, "
+            "audience shape, tonal register. Injected deterministically "
+            "into synthesis whenever the World is in scope. Keep "
+            "detailed pricing, policies, menus, and procedures in "
+            "Knowledge instead. 2000-char cap. Blank stays valid; "
+            "existing Universes migrate with brief=\"\"."
+        ),
+    )
+
     # Audit anchor — who created it. SET_NULL when the user
     # deletes so the Universe row survives the audit gap.
     created_by = models.ForeignKey(
