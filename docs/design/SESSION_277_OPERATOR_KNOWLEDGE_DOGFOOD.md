@@ -3481,7 +3481,7 @@ Do NOT begin any of these without Chris + ChatGPT approval.
 
 ## §127 Slice 6 landed SHA
 
-_Landed SHA: TBD (SHA-record commit after Slice 6 lands)._
+_Landed SHA: `8164ab6` (Slice 6 audit commit)._
 
 
 
