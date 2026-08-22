@@ -6618,7 +6618,7 @@ approval.
 
 ## §270 Slice 13 landed SHA
 
-_Landed SHA: TBD (SHA-record commit after Slice 13 lands)._
+_Landed SHA: `3434a2f` (Slice 13 implementation commit)._
 
 
 
