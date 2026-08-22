@@ -5949,7 +5949,7 @@ Do NOT begin any of these without Chris + ChatGPT explicit approval.
 
 ## §237 Slice 12 landed SHA
 
-_Landed SHA: TBD (SHA-record commit after Slice 12 lands)._
+_Landed SHA: `71410da` (Slice 12 implementation commit)._
 
 
 
