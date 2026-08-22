@@ -6620,6 +6620,223 @@ approval.
 
 _Landed SHA: `3434a2f` (Slice 13 implementation commit)._
 
+---
+
+# Slice 13.1 — Q-277-13-C-verify — World-origin dogfood verification (audit-only)
+
+Chris completed Sequence WD (§267). This slice records the
+runtime evidence and closes Q-277-13-C.
+
+## §271 Slice 13.1 baseline
+
+- HEAD @ Slice 13.1 open: `0a2c935` (Slice 13 SHA-record). Clean, pushed.
+- Chris's Slice-13 dogfood produced 1 new KD via `/workspace/universes/:id` → "Add shared knowledge" flow. No shell mutation.
+- Total Fox & Flour KDs: 3 (2 Slice-12.2 + 1 Slice-13). No other KDs in the workspace.
+
+## §272 Operator dogfood record (recorded)
+
+**OPERATOR OBSERVATION (Chris via ChatGPT):**
+> The World-detail flow worked exactly as predicted.
+> Chris entered through the Fox & Flour Bakery World-detail
+> surface, used the new "Add shared knowledge" flow, and was
+> able to create the test knowledge without being asked to
+> choose a character/audience again.
+>
+> From the operator perspective:
+>
+>     World → Add shared knowledge → Knowledge ingestion
+>
+> felt correct and the World-origin contextual behavior worked
+> as designed.
+
+**Note:** The operator was NOT prompted to reconfirm audience —
+matches the Slice-13 §256 product rule ("Preserve what Character
+OS already knows. Ask only what it genuinely doesn't know.").
+
+## §273 Persisted document evidence
+
+Identified the new KD as the newest row in Chris's workspace
+(chronological order — 3rd of 3 Fox & Flour KDs).
+
+**OBSERVED DB FACT — Chris's Slice-13 dogfood KD:**
+
+| Field | Value |
+|---|---|
+| `id` | `fa2c668c-d08b-4305-874c-33d99a11ccf6` |
+| `title` | `"Fox & Flour holiday policy"` (matches §267 Sequence WD suggested content) |
+| `workspace` | Chris's workspace |
+| `universe` | Fox & Flour Bakery (`1a0af807-…`) ✓ |
+| `audience_scope` | **`universe`** ✓ |
+| `spokespeople` (M2M) | `[]` ✓ (empty — correct for UNIVERSE audience; SESSION 275 "no silent broadening") |
+| `is_active` | `True` |
+| `status` | `processed` |
+| `chunk_count` | 1 |
+| `ingested_via` | `paste` |
+| `document_type` | `text` |
+| `raw content` | `"Fox & Flour is closed on Christmas Day."` |
+| `created_at` | `2026-08-22T03:48:17Z` |
+
+**OBSERVED DB FACT — Safety checks:**
+- WORKSPACE-audience KDs in chriss-workspace: **0** ✓ (Slice 13 §259 acceptance G — no accidental WORKSPACE fallback).
+- Cross-Universe leakage in chriss-workspace: **0** ✓.
+- No missing Universe FK (universe_id is set correctly).
+- No CHARACTER audience.
+- No silent fallback.
+
+## §274 Retrieval boundary — production `retrieve_for_teammate`
+
+Exercised the actual synthesis retrieval path with four teammates
+covering all relevant classes of isolation.
+
+**RUNTIME/RETRIEVAL FACT (probes with arbitrary zero-vector — the
+predicate/eligibility is what matters):**
+
+| Teammate | Universe | Eligible-KD titles | Sees the new KD? |
+|---|---|---|---|
+| Tyson  | Fox & Flour Bakery | Fox & Flour Hours; **Fox & Flour holiday policy**; Tyson's Pastry Pairing Specialty | **YES** ✓ |
+| Ruby   | Fox & Flour Bakery | Fox & Flour Hours; **Fox & Flour holiday policy** | **YES** ✓ |
+| Patch  | Patch's Workshop (different Universe) | (empty) | **NO** ✓ — cross-World isolation |
+| Penny  | NULL (legacy pool) | (empty) | **NO** ✓ — legacy-pool isolation |
+
+**Matrix matches every prediction.**
+
+Additional Slice-12.2 invariants preserved (worth noting from the
+same probe):
+- Ruby STILL does NOT see "Tyson's Pastry Pairing Specialty" (CHARACTER-audience SCOPE RULE from SESSION 275 unbroken).
+- Tyson STILL sees his own CHARACTER-audience KD alongside the two UNIVERSE-audience KDs (character sees all Universe knowledge + own private knowledge).
+
+## §275 Prediction vs actual
+
+Slice 13 predicted **CONFIRMED** at the automated-test level.
+Slice 13.1 dogfood provides operator-runtime evidence for the
+same conclusion.
+
+| Q-277-13-C dimension | Predicted | Actual |
+|---|---|---|
+| World-origin route produces UNIVERSE KD | YES | YES (§273) |
+| Universe FK matches origin World | YES | YES (§273) |
+| Empty M2M (no silent CHARACTER broadening) | YES | YES (§273) |
+| Retrievable by Fox & Flour characters | YES | YES for Tyson + Ruby (§274) |
+| Not retrievable outside Fox & Flour | YES | YES for Patch (§274) |
+| Not retrievable in legacy pool | YES | YES for Penny (§274) |
+| No WORKSPACE audience anywhere | YES | 0 WORKSPACE KDs in workspace (§273) |
+| Slice-12 SCOPE RULE still holds | (not regressed) | Ruby STILL blocked from Tyson's specialty (§274) |
+| Operator was not asked to reconfirm audience | YES | Operator observation (§272) |
+
+## §276 Cross-World isolation evidence (§H → Patch)
+
+**RUNTIME/RETRIEVAL FACT:** Patch (Patch's Workshop) — a
+control character in a different Universe within the same
+Workspace — retrieves ZERO chunks from Fox & Flour's KDs. This
+is the exact "no cross-World leak" invariant Universe was
+introduced to guarantee (SESSION 261 §"Working hypothesis" 5;
+Slice 6 §113 duplication-drift risk closed at retrieval layer).
+
+Slice 13's `WorldOriginUploadPanel` was engineered to be
+UNIVERSE-scoped-by-construction; the retrieval layer confirms
+end-to-end that this scoping actually propagates to the synthesis
+boundary.
+
+## §277 Q-277-13-C verdict
+
+**Q-277-13-C: CONFIRMED end-to-end.**
+
+- Automated verification: 721/721 SPA tests pass (Slice 13 §265).
+- Operator dogfood: Chris confirmed the flow feels correct (§272).
+- Real-DB shape: exactly matches the target UNIVERSE audience (§273).
+- Production retrieval: matches every predicted cell across Fox & Flour characters, cross-Universe control, and legacy-pool control (§274-§276).
+- No WORKSPACE audience emitted anywhere in the workspace.
+- Slice-12 SCOPE RULE remains honored.
+
+**Sufficient evidence to close this arc: YES.** No further code
+change required. Chris's Slice-13 KD may remain in place; it is a
+correctly-shaped operator artifact, not test residue.
+
+## §278 Contextual navigation product rule — status
+
+The rule under evidence (Slice 13 §256):
+
+> "Preserve what Character OS already knows.
+> Ask only what it genuinely doesn't know."
+
+Supporting evidence to date:
+
+| Origin | System knew | System asked | Fits rule? |
+|---|---|---|---|
+| Character welcome (Slice 12) | character + World | audience (Everyone in W / Just X) | ✓ (audience genuinely unknown at origin) |
+| Character-detail KnowledgePanel (Slice 12) | character + World | audience (same two choices) | ✓ (same reason) |
+| World-detail "Add shared knowledge" (Slice 13) | World + audience (UNIVERSE-by-origin) | — nothing beyond ingest | ✓ (audience determined by origin) |
+| Bare `/workspace/knowledge` (dashboard/nav rail) | nothing | audience (via generic `UniverseScopePicker`) | ✓ (nothing to preserve) |
+
+**PRODUCT RECOMMENDATION (Chris + ChatGPT decide):** the rule has
+now been tested at two contextual origins (character + world) plus
+the no-context baseline, and holds in every case. It is a
+**supported operator-navigation product rule** within the evidence
+we have, but has NOT been proven universal beyond these three
+substrates. Any future Knowledge-adjacent handoff (e.g. Episode
+origin, transcript origin, composition origin) should test the
+rule against its own origin's known/unknown split before adopting
+it uncritically. Record as a supported rule; do not promote to a
+universal product invariant yet.
+
+## §279 UX observations
+
+**PRODUCT/UX OBSERVATION (indirect from operator report + source):**
+
+- The operator did not report any friction with the button placement (bottom of the Overview panel, below Operator notes).
+- The operator did not report confusion about the difference between "Add shared knowledge" (World-origin) vs "Teach {character} about your business" (character-welcome origin).
+- The World-origin flow is measurably shorter than the character-origin flow (no audience selection step + no per-form scope picker), which is the intended UX consequence of the product rule.
+
+**Deferred UX questions** (not blocking):
+- Copy: "Add shared knowledge" vs alternatives (Q-277-13-B).
+- Universe.description internal rename vs operator label mismatch (Slice 9 §184).
+- Character-brief decomposition observation (Q-277-13-D).
+
+## §280 Preservation
+
+**No mutation performed by Slice 13.1.**
+- Chris's three KDs (2 Slice-12.2 + 1 Slice-13) all remain in place.
+- Tyson, Ruby, Patch, Rivet, Penny + other teammates unchanged.
+- Fox & Flour Bakery, Patch's Workshop unchanged.
+- Knowledge UI, character UI, World UI unchanged.
+- Backend unchanged.
+- No test or source files modified.
+- This slice is pure read-only verification with durable
+  documentation.
+
+## §281 Smallest next falsifiable question
+
+Q-277-13-C is now confirmed both mechanically and operationally.
+Three options remain from Slice 12 §236 + Slice 13 §269:
+
+- **Q-277-13-B** (copy micro-slice) — reword welcome-page CTA and/or KnowledgePanel empty-state now that all three handoff origins are settled. Purely SPA copy; low churn. Recommend last among the three because no operator friction has been reported.
+- **Q-277-13-D** (character-brief decomposition observation, from Slice 8 §159) — pure observation, no code. Watch whether Chris naturally trims Universe-identity content from character `business_brief` fields now that `Universe.brief` (Slice 8) AND shared-World Knowledge (Slice 12 + 13) are live. Data can accumulate over regular dogfood without a dedicated slice.
+- **Q-277-14** (new — evidence stack review) — take stock of everything SESSION 277 has established (Workspace → Universe → Character; Universe.brief; contextual handoff; audience-picker split; shared-World knowledge action) and produce a concise durable "current product model" summary or handoff document for future sessions. Purely durable documentation. Would give the next session a compact orientation instead of requiring it to re-read the ~6,700-line SESSION 277 audit doc.
+
+**Recommendation: Q-277-14** — SESSION 277 has covered a large
+architectural + UX arc across ~14 slices (many with dogfood cycles);
+consolidating it into a single durable "as-of Slice 13.1 state"
+summary would (a) let Chris + ChatGPT scan the current model at a
+glance, (b) give a future SESSION 278 handoff a clean starting
+point, and (c) capture the durable product rules that emerged
+(Slice 5 invariant, Slice 8 identity-vs-knowledge split, Slice 12
+handoff contract, Slice 13 contextual navigation rule). Estimated
+scope: one new document under `docs/design/`, or a new section at
+the top of the existing SESSION 277 doc.
+
+Q-277-13-B is the smallest remaining code slice; Q-277-13-D is
+observation-only. Q-277-14 has the highest value-per-cost right now
+because it locks the SESSION 277 arc into a durable reference
+before its context gets compressed by the next session.
+
+Do NOT begin any of these without Chris + ChatGPT explicit
+approval.
+
+## §282 Slice 13.1 landed SHA
+
+_Landed SHA: TBD (SHA-record commit after Slice 13.1 lands)._
+
+
 
 
 
