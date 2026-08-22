@@ -4031,7 +4031,7 @@ it against real synthesis. Its scope is deliberately narrow:
 
 ## §144 Slice 7 landed SHA
 
-_Landed SHA: TBD (SHA-record commit after Slice 7 lands)._
+_Landed SHA: `24f4ff9` (Slice 7 audit/design commit)._
 
 
 
