@@ -6360,7 +6360,7 @@ approval.
 
 ## §255 Slice 12.2 landed SHA
 
-_Landed SHA: TBD (SHA-record commit after Slice 12.2 lands)._
+_Landed SHA: `34df871` (Slice 12.2 verification commit)._
 
 
 
