@@ -15,6 +15,10 @@ import {
   type SpokespersonTemplate,
   type ToneArchetype,
 } from "@/lib/api/spokespeople";
+// SESSION 277 Slice 5 (Q-277-5) — World picker + inline "+ Create
+// new World" on Step 1. Reuses the existing Universe list/create
+// hooks so backend behavior is byte-identical to /workspace/universes.
+import { useUniverses, useCreateUniverse } from "@/lib/api/universes";
 import { WizardPortraitStep } from "@/components/wizard-portrait-step";
 import { VoiceCapture, type VoiceCaptureValue } from "@/components/voice-capture";
 import { ApiError } from "@/lib/api/client";
@@ -80,6 +84,14 @@ interface WizardState {
     // at the default until the operator picks one on Step 2.
     visual_template: PortraitTemplate;
     tone_archetype: string;
+    // SESSION 277 Slice 5 (Q-277-5) — World / Universe the new
+    // character will belong to. Required for CREATE per the
+    // Slice-5 compatibility rule; ``null`` disables step-1 advance
+    // and Step-4 submit. Never auto-selected — even when the
+    // workspace has exactly one Universe — per Slice 5 §"Scope lock"
+    // ("we want World membership to be an intentional operator
+    // decision during dogfood").
+    universe: string | null;
   };
   portrait: {
     // SESSION 124 PortraitUploadResult shape — kept loose here so
@@ -124,6 +136,7 @@ const INITIAL_STATE: WizardState = {
     visual_subject: "",
     visual_template: "mascot", // matches GeneratePanel's prior local default
     tone_archetype: "expert", // matches model default
+    universe: null, // SESSION 277 Slice 5 — operator must pick explicitly
   },
   portrait: {
     dataUri: null,
@@ -179,11 +192,15 @@ const MIN_BRIEF_CHARS = 8;
 function canAdvance(state: WizardState): boolean {
   switch (state.step) {
     case 1:
-      // Step 1: name AND brief required. tone_archetype has a sane
-      // default (`expert`) so we don't gate on it.
+      // Step 1: name AND brief AND World required. tone_archetype
+      // has a sane default (`expert`) so we don't gate on it.
+      // SESSION 277 Slice 5 (Q-277-5) — World is mandatory before
+      // advancing to Step 2. Not auto-selected even for single-
+      // Universe workspaces per Slice 5 §"Scope lock".
       return (
         state.identity.name.trim().length > 0 &&
-        state.identity.business_brief.trim().length >= MIN_BRIEF_CHARS
+        state.identity.business_brief.trim().length >= MIN_BRIEF_CHARS &&
+        state.identity.universe != null
       );
     case 2:
       // Step 2: a portrait must be chosen via one of the three
@@ -196,11 +213,12 @@ function canAdvance(state: WizardState): boolean {
     case 4:
       // Step 4 (SESSION 132 — slice 9): re-check the upstream gates
       // defensively. Submit fires when all of name + brief +
-      // portrait are present.
+      // portrait + World are present.
       return (
         state.identity.name.trim().length > 0 &&
         state.identity.business_brief.trim().length >= MIN_BRIEF_CHARS &&
-        state.portrait.dataUri != null
+        state.portrait.dataUri != null &&
+        state.identity.universe != null
       );
   }
 }
@@ -244,6 +262,13 @@ export function SpokespersonWizard() {
 
   const onSubmit = useCallback(async () => {
     if (!workspaceId) return;
+    // SESSION 277 Slice 5 (Q-277-5) — defense-in-depth. The Step-1
+    // gate already blocks Step-4 submit without a Universe (see
+    // `canAdvance`), and the backend serializer independently rejects
+    // CREATE without a Universe with a structured 400. This client
+    // check is the third layer — refuse to fire the mutation at all
+    // if the state somehow reaches submit without a Universe.
+    if (state.identity.universe == null) return;
     const voicePreset =
       state.voice.mode === "preset" && state.voice.preset
         ? state.voice.preset
@@ -253,6 +278,7 @@ export function SpokespersonWizard() {
     try {
       const sp = await create.mutateAsync({
         workspace: workspaceId,
+        universe: state.identity.universe,
         name: state.identity.name.trim(),
         business_brief: state.identity.business_brief.trim(),
         personality: state.identity.personality.trim() || undefined,
@@ -315,6 +341,7 @@ export function SpokespersonWizard() {
     state.identity.visual_subject,
     state.identity.visual_template,
     state.identity.tone_archetype,
+    state.identity.universe,
     state.portrait.dataUri,
     create,
     clone,
@@ -694,7 +721,200 @@ function Step1Identity({
           ))}
         </select>
       </div>
+
+      {/* SESSION 277 Slice 5 (Q-277-5) — required World picker with
+          inline "+ Create new World". Explicit-pick only; never
+          auto-selected. Empty-Universe workspaces get the inline
+          create surface. */}
+      <WorldPicker state={state} dispatch={dispatch} />
     </>
+  );
+}
+
+
+// ---- SESSION 277 Slice 5 — World picker + inline create -----------
+
+/** Sentinel option value that opens the inline create surface.
+ * Chosen to be visually distinct from any UUID; the picker never
+ * dispatches this value onto identity.universe. */
+const CREATE_NEW_WORLD_SENTINEL = "__CREATE__" as const;
+
+/** Required World picker for Step 1. Reads Universe list via the
+ * existing `useUniverses(workspaceId)` hook; POSTs new Worlds via
+ * the existing `useCreateUniverse(workspaceId)` mutation. On
+ * successful inline create, invalidates the Universe list query
+ * and selects the new World automatically.
+ *
+ * Load-bearing behaviors:
+ * - No auto-select even when a single Universe exists (per
+ *   Slice 5 §"Scope lock" — World membership must be an intentional
+ *   operator decision during dogfood).
+ * - Inline create requests only Name; description is deferred to
+ *   `/workspace/universes/{id}` if the operator wants to add it later.
+ * - Successful inline create is a valid standalone entity; if the
+ *   character CREATE later fails, the World remains and the operator
+ *   can retry (Slice 5 §"Partial failure behavior").
+ */
+function WorldPicker({
+  state,
+  dispatch,
+}: {
+  state: WizardState;
+  dispatch: React.Dispatch<WizardAction>;
+}) {
+  const me = useMe();
+  const workspaceId = me.data?.default_workspace?.id;
+  const universes = useUniverses(workspaceId);
+  const create = useCreateUniverse(workspaceId);
+
+  const [mode, setMode] = useState<"select" | "create">("select");
+  const [newName, setNewName] = useState("");
+
+  const rows = universes.data ?? [];
+  const selected = state.identity.universe;
+
+  function handleSelect(e: React.ChangeEvent<HTMLSelectElement>) {
+    const value = e.target.value;
+    if (value === CREATE_NEW_WORLD_SENTINEL) {
+      setMode("create");
+      return;
+    }
+    dispatch({
+      type: "SET_IDENTITY",
+      patch: { universe: value === "" ? null : value },
+    });
+  }
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!workspaceId || !newName.trim()) return;
+    try {
+      const world = await create.mutateAsync({
+        workspace: workspaceId,
+        name: newName.trim(),
+      });
+      dispatch({
+        type: "SET_IDENTITY",
+        patch: { universe: world.id },
+      });
+      setNewName("");
+      setMode("select");
+    } catch (err) {
+      // Error surfaces via `create.error` below.
+      console.error("inline world create failed", err);
+    }
+  }
+
+  function handleCancelCreate() {
+    setNewName("");
+    setMode("select");
+    // Leave `state.identity.universe` untouched — cancelling should
+    // return to whatever World (if any) was previously selected.
+  }
+
+  return (
+    <div className="flex flex-col gap-2" data-testid="wizard-world-picker">
+      <Label
+        htmlFor="wizard-world"
+        className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground"
+      >
+        World
+      </Label>
+      <p className="text-xs text-muted-foreground">
+        The World this spokesperson belongs to. Every character lives
+        inside exactly one World — that scopes their knowledge, their
+        episode cast, and their memory. Pick an existing World or
+        create a new one.
+      </p>
+
+      {mode === "select" && (
+        <select
+          id="wizard-world"
+          value={selected ?? ""}
+          onChange={handleSelect}
+          disabled={universes.isLoading}
+          className="h-10 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+          data-testid="wizard-world-select"
+          required
+        >
+          <option value="" disabled>
+            {universes.isLoading ? "Loading…" : "— Pick a World —"}
+          </option>
+          {rows.map((w) => (
+            <option key={w.id} value={w.id}>
+              {w.name}
+            </option>
+          ))}
+          <option value={CREATE_NEW_WORLD_SENTINEL}>
+            + Create new World…
+          </option>
+        </select>
+      )}
+
+      {mode === "create" && (
+        <form
+          onSubmit={handleCreate}
+          className="flex flex-col gap-3 rounded-md border border-luxe bg-card/60 p-4"
+          data-testid="wizard-world-create-panel"
+        >
+          <div className="flex flex-col gap-2">
+            <Label
+              htmlFor="wizard-world-new-name"
+              className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground"
+            >
+              New World name
+            </Label>
+            <Input
+              id="wizard-world-new-name"
+              data-testid="wizard-world-new-name"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="e.g. Fox & Flour Bakery, Patch's Workshop"
+              maxLength={120}
+              autoFocus
+              required
+            />
+          </div>
+          {create.error && (
+            <p
+              className="text-xs text-destructive"
+              data-testid="wizard-world-create-error"
+            >
+              {extractMessage(create.error) ?? "Could not create World."}
+            </p>
+          )}
+          <div className="flex items-center gap-2">
+            <Button
+              type="submit"
+              size="sm"
+              data-testid="wizard-world-create-submit"
+              disabled={!newName.trim() || create.isPending}
+            >
+              {create.isPending ? "Creating…" : "Create World"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleCancelCreate}
+              data-testid="wizard-world-create-cancel"
+              disabled={create.isPending}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      )}
+
+      {selected && mode === "select" && (
+        <p
+          className="text-xs text-muted-foreground"
+          data-testid="wizard-world-selected"
+        >
+          Selected World: <code className="font-mono">{selected}</code>
+        </p>
+      )}
+    </div>
   );
 }
 

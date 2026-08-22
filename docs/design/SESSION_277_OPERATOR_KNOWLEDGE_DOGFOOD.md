@@ -2240,3 +2240,368 @@ Chris + ChatGPT should approve the exact scope before it lands.
 
 _Landed SHA: `c9131af` (Slice 4 audit commit)._
 
+---
+
+# Slice 5 — Q-277-5 — Universe-required character creation (IMPLEMENTATION)
+
+Chris + ChatGPT approved Slice 4 and authorized the first implementation
+slice. Scope: make World membership explicit + required for new
+ordinary character creation, with inline "+ Create new World" so a
+fresh operator with zero Worlds is never sent out of the wizard.
+Legacy `universe=NULL` teammates remain untouched. No DB migration.
+
+## §87 Slice 5 baseline
+
+- HEAD @ Slice 5 open: `f7fc0cc` (Slice 4 SHA-record). Clean, pushed.
+- Substrate: KD=0, KC=0; `chriss-workspace` teammates=8, Universes=2 —
+  identical to Slice 4 baseline. Zero drift.
+
+## §88 Q-277-5
+
+> If `/spokespeople/new` adds a required World picker with inline
+> "+ Create new World", sends the selected World UUID in the character
+> CREATE payload, and the backend independently rejects new
+> NULL-Universe ordinary characters, does this fully stop NEW legacy
+> state while preserving all existing legacy teammates and requiring
+> no model migration?
+
+## §89 Files changed (exact scope)
+
+| File | Kind | What |
+|---|---|---|
+| `shell/apps/spokespeople/serializers.py` | edit | `TeammateSerializer.validate()` — add CREATE-only positive-Universe guard raising `universe_required_on_create` when `self.instance is None and universe is None`. UPDATE path unchanged. |
+| `shell/apps/spokespeople/tests/test_universe_required_on_create.py` | new | 8 regression tests: create-without-universe → 400 (structured code); explicit-null → 400; valid universe → 201; cross-workspace guard still fires; legacy PATCH without universe → 200; legacy row LIST/GET → 200; legacy PATCH-add-universe → 200. |
+| `shell/apps/spokespeople/tests/test_rebake_avatar.py` | edit | Two pre-existing tests updated to pass `universe: str(u.id)` in the create POST (added `_universe(ws)` helper). |
+| `shell/apps/spokespeople/tests/test_step4d_canonical_migration.py` | edit | Eight pre-existing tests updated with the same helper + payload field. |
+| `web/src/lib/api/spokespeople.ts` | edit | `CreateSpokespersonInput` gains `universe?: string`. |
+| `web/src/components/spokesperson-wizard.tsx` | edit | Import `useUniverses`/`useCreateUniverse`; extend `WizardState.identity` with `universe: string \| null`; wire step-1 + step-4 gate; new `WorldPicker` component (select + inline create form with sentinel `__CREATE__`); include `universe` in the create POST payload. |
+| `web/src/components/spokesperson-wizard.world-picker.test.tsx` | new | 6 regression tests: Next disabled without World; no auto-select even for single-Universe workspace; select existing World enables Next; picking "+ Create new World…" opens inline form; inline submit selects the new World and enables Next; cancel preserves prior selection. |
+
+**Not touched:** `web/src/routes/spokespeople/new.tsx` (only the wizard
+was reshaped; the legacy escape hatch behind `?legacy=1` will get a
+clean 400 from the backend if someone uses it). No DB migration.
+`Teammate.universe` remains `null=True` on the model. Knowledge UI
+untouched. Existing legacy teammates untouched.
+
+## §90 Behavior before/after
+
+**Backend serializer — CREATE**
+
+| Payload | Before Slice 5 | After Slice 5 |
+|---|---|---|
+| `{workspace, name, business_brief}` (no `universe`) | **201** — Teammate created with `universe=NULL` (legacy) | **400** — `{"universe": {"code": "universe_required_on_create", "detail": "..."}}` |
+| `{workspace, name, business_brief, universe: null}` | 201 — legacy | 400 — same code |
+| `{workspace, name, business_brief, universe: <uuid>}` | 201 — Universe-bound | 201 — unchanged |
+| `{workspace, name, business_brief, universe: <cross-workspace-uuid>}` | 400 — cross-workspace | 400 — cross-workspace (unchanged; pre-existing guard fires first) |
+
+**Backend serializer — UPDATE / PATCH**
+
+| Payload | Before | After |
+|---|---|---|
+| PATCH legacy row `{business_brief: "..."}` (no universe) | 200 | **200** — unchanged (Slice-5 guard is CREATE-only; `self.instance is not None` skips it) |
+| PATCH legacy row `{universe: <uuid>}` | 200 | 200 — unchanged (SESSION 261 assignment path preserved) |
+| GET legacy row detail | 200 | 200 — unchanged |
+| LIST including legacy rows | present | present — unchanged |
+
+**SPA wizard — Step 1 gate**
+
+| State | Before | After |
+|---|---|---|
+| Name + brief filled, no World picked | Next enabled | **Next disabled** (`canAdvance` now also requires `identity.universe != null`) |
+| Name + brief filled, existing World picked | Next enabled | Next enabled — unchanged |
+| Zero Worlds in workspace, no "+ Create new World" chosen | not applicable (no picker) | Placeholder "— Pick a World —" holds; Next disabled |
+| Zero Worlds, "+ Create new World…" chosen + name submitted | not applicable | Inline `POST /api/universes/` fires; new UUID auto-selected; Next enables |
+
+**SPA wizard — auto-selection**
+
+- Never. Even a workspace with exactly one Universe leaves the picker
+  at "— Pick a World —" per Slice 5 §"Scope lock" ("World membership
+  must be an intentional operator decision during dogfood"). This is
+  enforced by the picker's default state (`identity.universe: null`
+  in `INITIAL_STATE`) plus the "— Pick a World —" `disabled`
+  placeholder option.
+
+**SPA wizard — Step 4 submit payload**
+
+- Before: `{workspace, name, business_brief, personality?, visual_subject?, visual_template, tone_archetype, portrait_data_uri?, voice_preset?}`.
+- After: same fields plus `universe: <uuid>` (the World the operator picked on Step 1). A `state.identity.universe == null` check at the top of `onSubmit` refuses to fire the mutation as a third defense layer.
+
+## §91 Tests added / touched
+
+**New:**
+- `shell/apps/spokespeople/tests/test_universe_required_on_create.py` — 8 backend tests. All pass.
+- `web/src/components/spokesperson-wizard.world-picker.test.tsx` — 6 SPA tests. All pass.
+
+**Existing tests updated for the new payload requirement** (added
+`_universe(ws)` helper + `universe: str(u.id)` in each create POST;
+no behavior change):
+- `shell/apps/spokespeople/tests/test_rebake_avatar.py` — 2 tests.
+- `shell/apps/spokespeople/tests/test_step4d_canonical_migration.py` — 8 tests.
+
+## §92 Test results
+
+**Slice-5 regression file (backend):** 8/8 pass in 4.47s.
+```
+test_create_without_universe_returns_400 PASSED
+test_create_with_explicit_null_universe_returns_400 PASSED
+test_create_with_valid_universe_returns_201 PASSED
+test_create_with_cross_workspace_universe_returns_400 PASSED
+test_patch_existing_legacy_row_without_universe_returns_200 PASSED
+test_patch_legacy_row_to_add_universe_returns_200 PASSED
+test_get_existing_legacy_row_returns_200 PASSED
+test_list_includes_legacy_rows PASSED
+```
+
+**Slice-5 regression file (SPA):** 6/6 pass in ~0.5s.
+```
+keeps Next disabled when name+brief are filled but no World is picked ✓
+does NOT auto-select when exactly one World exists (Slice 5 scope-lock) ✓
+enables Next once an existing World is selected ✓
+opens the inline create surface when '+ Create new World…' is picked ✓
+submits inline create, selects the new World, and enables Next ✓
+cancels inline create without changing the current selection ✓
+```
+
+**Full SPA test suite:** 662 passed / 662 total (50 files). No regressions.
+
+**Change-adjacent backend regression** (spokespeople + universe +
+embeddings + compositions + memory + identity + realtime + videos +
+accounts + billing): **2302 passed / 2302 total** in 253s. Zero
+regressions attributable to Slice 5.
+
+**Full backend suite:** 80 pre-existing failures observed
+(76 in `bootstrap_review` — missing frozen candidate fixture data,
+`InvalidCandidate: candidate.json not found`; 1 in
+`test_media_engine_timeouts.py` — stale `DOWNSTREAM_DEADLINES_S`
+manifest missing `image_overlay`; 3 in `apps.spokespeople.tests.test_ask`
+which need `EMBEDDING_FORCE_MOCK=1`, which was set — but reruns
+show they intermittently pass when the reused-DB fixture cache is
+warm; noise, not regression). **None are in code paths this slice
+touches**; all pre-date it. Recorded here so future readers can rule
+them out.
+
+## §93 Q-277-5 verdict
+
+**CONFIRMED.**
+
+- (a) NEW legacy state fully stopped through the SPA. The wizard
+  cannot submit without a World (Step-1 gate + Step-4 defense layer +
+  onSubmit guard). Verified by the SPA regression's `wizard-next
+  disabled` assertions and by `wizard-world-selected` reflecting the
+  chosen UUID before submit is enabled.
+- (a) NEW legacy state also stopped through the direct API. Backend
+  serializer rejects `universe=NULL` or omitted-`universe` CREATE
+  with `HTTP 400 {"universe": {"code": "universe_required_on_create",
+  "detail": "..."}}`. Verified by the two backend rejection tests.
+- (b) Existing legacy teammates untouched. Verified by
+  `test_patch_existing_legacy_row_without_universe_returns_200`,
+  `test_patch_legacy_row_to_add_universe_returns_200`,
+  `test_get_existing_legacy_row_returns_200`, and
+  `test_list_includes_legacy_rows`. Real-DB inspection at Slice 5
+  close (§94) shows Chris's 5 legacy teammates unchanged.
+- (c) Zero backend model changes, zero migrations, zero Knowledge UI
+  changes. Verified by `git diff --stat` (no `.py` file under
+  `apps/*/models.py` changed; no file under `apps/*/migrations/`
+  changed; no file under `web/src/routes/workspace/knowledge*` or
+  `web/src/components/knowledge-panel*` changed).
+
+**No hidden behavior surfaced:** the specific concerns Slice 5 §"Q-277-5
+falsification target" flagged were checked one by one during
+implementation and did not fire:
+- Serializer defaults / omission handling — the new guard treats both
+  omission and explicit `null` identically (§90); the
+  `test_create_with_explicit_null_universe_returns_400` test locks
+  that in.
+- Existing auto-selection behavior — none exists at the SPA layer;
+  `identity.universe` starts as `null` and stays `null` until the
+  operator picks. The `does NOT auto-select when exactly one World
+  exists` regression pins that.
+- Create/update serializer coupling — the guard's `self.instance is
+  None` check cleanly separates CREATE from UPDATE; the two legacy
+  PATCH tests confirm.
+- React Query cache invalidation after inline World creation — the
+  existing `useCreateUniverse` mutation already invalidates
+  `["universes", "list", workspaceId]` on success
+  (`web/src/lib/api/universes.ts:133-141`); the new World appears in
+  the picker's list naturally on the next render. No manual cache
+  invalidation added.
+- Stale World lists — the mutation's `mutateAsync` resolves with the
+  full Universe payload, so the picker selects by UUID directly
+  without waiting for the list refetch. No race window between
+  create and select.
+- Race between World POST and character POST — the wizard is
+  sequential: World creation completes (`await create.mutateAsync`)
+  before `dispatch({type: "SET_IDENTITY", patch: {universe: world.id}})`
+  fires, and the character POST only fires from Step 4's submit
+  button, well after Step 1 has closed the inline create panel.
+- Workspace scoping — the inline create passes
+  `workspace: workspaceId` from `useMe`, matching the character
+  create's workspace; the serializer's pre-existing
+  cross-workspace guard would still reject any mismatch.
+- Accidental legacy-row mutation — none. All Slice-5 code paths
+  are additive: the serializer adds a branch that only fires on
+  CREATE; the SPA adds a picker whose only backend calls are `POST
+  /api/universes/` (creates a new row, never touches existing
+  teammates) and the pre-existing `POST /api/spokespeople/`.
+
+## §94 Runtime state at Slice 5 close (read-only)
+
+Re-verified against local DB (`DB_PORT=5434`), read-only:
+
+- KnowledgeDocument = 0, KnowledgeChunk = 0 (substrate unchanged).
+- `chriss-workspace` teammates = 8 (unchanged — Mason, Penny, Mike,
+  Repo Red, Riggs still legacy; Ruby, Patch, Rivet still
+  Universe-bound).
+- Universes = 2 (unchanged — Fox & Flour Bakery, Patch's Workshop).
+- No Slice-5 code path mutated any of these rows.
+
+## §95 Findings — separated
+
+**OBSERVED FACT (source/test):**
+- Backend `TeammateSerializer.validate()` at
+  `shell/apps/spokespeople/serializers.py:126-186` now branches on
+  `self.instance is None and universe is None` and raises a
+  structured `universe_required_on_create` ValidationError.
+- SPA `SpokespersonWizard` `INITIAL_STATE.identity.universe = null`;
+  `canAdvance()` for step 1 and step 4 both require
+  `state.identity.universe != null`; `onSubmit` refuses when
+  `state.identity.universe == null` as a third defense layer.
+- SPA `WorldPicker` renders a `<select>` with placeholder + existing
+  Worlds + `+ Create new World…` sentinel option; picking the
+  sentinel opens an inline form (name only) that POSTs `/api/universes/`
+  via the existing `useCreateUniverse` mutation; on success the
+  new UUID becomes selected.
+- 8 backend + 6 SPA new tests pass; 2302 change-adjacent backend
+  regressions pass.
+
+**SOURCE/TEST-DERIVED FACT:**
+- The Slice 5 change is fully additive at the code-path level. Every
+  pre-existing successful create path continues to succeed as long as
+  the caller supplies a Universe. Pre-existing tests that POST
+  without `universe` needed the payload updated (10 tests, 2 files);
+  no test needed a behavior change.
+- React Query cache-invalidation behavior is byte-identical to the
+  existing `/workspace/universes` CreatePanel because the inline
+  wizard variant reuses the same `useCreateUniverse` hook.
+- Terminology: the SPA already used "World" throughout
+  `/workspace/universes` copy (h1, empty state, CTA button); the
+  Step-1 picker's `<Label>World</Label>` + placeholder `"— Pick a
+  World —"` + sentinel `"+ Create new World…"` are consistent with
+  that existing vocabulary. No terminology sweep performed
+  (per scope lock).
+
+**OPERATOR CONTEXT:**
+- Penny's 58 compositions belong to an obsolete dogfood era (Slice 4
+  §63) and were NOT a blocker for this slice. Slice 5 confirms that
+  by preserving Penny (and the other 4 legacy teammates) untouched
+  while stopping NEW legacy creation.
+
+**INFERENCE:**
+- The compatibility rule proposed in Slice 4 §78 ("existing legacy
+  characters continue functioning; new ordinary characters stop
+  creating new legacy state") is achievable and now enforced. DB
+  nullability can lag indefinitely; the SPA-layer + serializer-layer
+  positive-value requirement is sufficient to stop legacy accretion.
+- The natural next surface to reshape is the Knowledge UI (§80),
+  now that new characters land Universe-bound. But per the scope
+  lock, dogfood evidence comes first.
+
+**PRODUCT DECISION (recorded, not further implemented in this slice):**
+- Ship Slice 5 to Chris for dogfood before touching Knowledge UI.
+- If dogfood succeeds, Slice 6 candidates are (a) reshape Knowledge
+  UI around World / audience as recommended in §80; or (b) revisit
+  the LegacyCreateForm escape hatch (which currently would fail
+  ungracefully behind `?legacy=1`) — either delete it, or add a
+  matching World picker.
+
+## §96 Dogfood boundary — instructions for Chris
+
+**Please dogfood the following two flows in the SPA. Do NOT ingest
+Knowledge (that's a separate future slice); focus on character
+creation.**
+
+### Sequence A — Create a character in an EXISTING World
+
+1. Navigate to `/dashboard`.
+2. Click "New spokesperson" (or "+ New" from the masthead).
+3. On Step 1, fill in Name (e.g. `Test Bakery Character`) and
+   Business Brief (any short paragraph, ≥ 8 characters).
+4. Under the new **World** label, use the select and pick either
+   **Fox & Flour Bakery** or **Patch's Workshop**.
+5. Confirm: the "Selected World" hint appears below the select showing
+   the UUID.
+6. Click Next. Step 2 should load.
+7. Add a portrait (any of Upload / Camera / Generate).
+8. Click Next, then Next through Voice (Skip is fine).
+9. On Step 4 Confirm, click "Create spokesperson".
+10. Expected: the wizard proceeds to `/spokespeople/<id>/welcome`.
+11. Verify: the newly-created teammate appears in `/workspace/universes/<world>` "Members" list (or Teammate list) as a Universe-bound spokesperson.
+
+### Sequence B — Create a character in a BRAND-NEW World inline
+
+1. Navigate to `/dashboard`.
+2. Click "New spokesperson".
+3. On Step 1, fill in Name and Business Brief as above.
+4. Under **World**, open the select and pick **"+ Create new World…"**
+   (bottom of the list).
+5. Expected: the inline create panel appears with a "New World name"
+   input.
+6. Type a World name (e.g. `Dogfood Test World`).
+7. Click "Create World".
+8. Expected: the panel closes, the picker returns to the select in
+   its normal position, the "Selected World" hint appears showing
+   the new UUID, and the newly-created World is now one of the
+   options in the select.
+9. Continue Step 2 → Step 3 → Step 4 as in Sequence A.
+10. Click "Create spokesperson".
+11. Expected: the new character is created inside the new World; the
+    World also appears in `/workspace/universes` list.
+
+### Negative-path check (Sequence C — optional)
+
+1. Start "New spokesperson".
+2. Fill Name + Brief but do NOT pick a World.
+3. Expected: the "Next" button at the bottom of Step 1 is disabled.
+4. Do NOT click submit; navigating back to the dashboard is fine.
+
+### What to report back
+
+- Whether the picker feels intuitive on Step 1 (or whether "World"
+  belongs elsewhere in the flow).
+- Whether the inline "+ Create new World…" gesture feels like the
+  right ergonomic (or whether we should force a separate
+  `/workspace/universes/new` navigation).
+- Whether the "Selected World: <uuid>" copy is useful or clutter
+  (a name would be nicer but requires threading; deferred).
+- Whether either flow behaves unexpectedly at any step — copy issue,
+  race, error message, cache staleness, missing option in the picker.
+- Any surprise wrt existing teammates. (You shouldn't see any — but
+  if a legacy teammate's detail page now behaves differently, that's
+  a bug we want to catch.)
+
+Do NOT create the "Dogfood Test World" in a way that would clutter
+production for long. It can be archived from
+`/workspace/universes/<id>` after the dogfood run.
+
+## §97 PART P — Smallest next falsifiable question (after dogfood)
+
+Deferred until Chris's dogfood evidence is in. If dogfood succeeds
+cleanly, the smallest next question is:
+
+> **Q-277-6** — Now that new characters are guaranteed to be
+> Universe-bound and the shrinking legacy pool is frozen, does the
+> Knowledge audience picker (Slice 1 §17 → Slice 2 §35 → Slice 3
+> §58 → Slice 4 §80 collapsed shape "Where does this belong? →
+> Who there should know it?") work cleanly when tested against the
+> operator's actual creation intent for CHARACTER, UNIVERSE, and
+> WORKSPACE audiences?
+
+If dogfood exposes friction (picker feels misplaced, inline create
+UX is confusing, or a specific edge case surfaces), the next slice
+narrows to that friction rather than moving on to Knowledge UI.
+
+## §98 Slice 5 landed SHA
+
+_Landed SHA: TBD (SHA-record commit after Slice 5 lands)._
+
+

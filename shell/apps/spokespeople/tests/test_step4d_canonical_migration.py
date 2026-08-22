@@ -42,6 +42,7 @@ from apps.identity.models import (
     PrequalificationSourceCall,
 )
 from apps.spokespeople.models import Teammate
+from apps.universe.models import Universe
 from character_os.clients.media_engine import (
     AvatarCreateResult,
     PortraitCreateResult,
@@ -63,6 +64,14 @@ def _make_workspace(email: str):
     ws = Workspace.objects.filter(owner=user).first()
     assert ws is not None
     return ws, user
+
+
+def _universe(ws: Workspace, name: str = "Test World") -> Universe:
+    """SESSION 277 Slice 5 — helper. New teammate API creates now
+    require a Universe (``universe_required_on_create``); tests that
+    POST to /api/spokespeople/ must supply one. Direct
+    ``Teammate.objects.create(...)`` calls bypass the serializer."""
+    return Universe.objects.create(workspace=ws, name=name)
 
 
 def _fake_avatar_client(
@@ -141,6 +150,7 @@ def _fake_rebake_client(
 
 def test_perform_create_routes_mirrors_through_canonical() -> None:
     ws, user = _make_workspace("pc-canonical@t")
+    u = _universe(ws)
     client = APIClient()
     client.force_authenticate(user)
 
@@ -151,6 +161,7 @@ def test_perform_create_routes_mirrors_through_canonical() -> None:
             "/api/spokespeople/",
             data={
                 "workspace": str(ws.pk),
+                "universe": str(u.id),
                 "name": "Ada",
                 "business_brief": "brief",
                 "portrait_data_uri": portrait_uri,
@@ -182,6 +193,7 @@ def test_perform_create_without_portrait_skips_canonical() -> None:
     write. Teammate lands as SETUP_NEEDED with empty mirrors.
     """
     ws, user = _make_workspace("pc-no-portrait@t")
+    u = _universe(ws)
     client = APIClient()
     client.force_authenticate(user)
 
@@ -189,6 +201,7 @@ def test_perform_create_without_portrait_skips_canonical() -> None:
         "/api/spokespeople/",
         data={
             "workspace": str(ws.pk),
+            "universe": str(u.id),
             "name": "NoPortrait",
             "business_brief": "brief",
         },
@@ -229,6 +242,7 @@ def test_clone_voice_preset_refuses_portrait_less_teammate_with_409() -> None:
 
 def test_clone_voice_preset_succeeds_after_portrait_authoring() -> None:
     ws, user = _make_workspace("cvp-with-portrait@t")
+    u = _universe(ws)
     client = APIClient()
     client.force_authenticate(user)
 
@@ -238,6 +252,7 @@ def test_clone_voice_preset_succeeds_after_portrait_authoring() -> None:
             "/api/spokespeople/",
             data={
                 "workspace": str(ws.pk),
+                "universe": str(u.id),
                 "name": "Beth",
                 "business_brief": "b",
                 "portrait_data_uri": "data:image/png;base64,x",
@@ -260,6 +275,7 @@ def test_clone_voice_preset_succeeds_after_portrait_authoring() -> None:
 
 def test_clone_voice_clone_path_persists_via_canonical() -> None:
     ws, user = _make_workspace("cvc-with-portrait@t")
+    u = _universe(ws)
     client = APIClient()
     client.force_authenticate(user)
 
@@ -269,6 +285,7 @@ def test_clone_voice_clone_path_persists_via_canonical() -> None:
             "/api/spokespeople/",
             data={
                 "workspace": str(ws.pk),
+                "universe": str(u.id),
                 "name": "Cara",
                 "business_brief": "b",
                 "portrait_data_uri": "data:image/png;base64,x",
@@ -317,6 +334,7 @@ def test_change_voice_persists_via_canonical_even_when_patch_fails() -> None:
     identity state (matches pre-4.d "persist regardless" behavior).
     """
     ws, user = _make_workspace("cv-patch-fail@t")
+    u = _universe(ws)
     client = APIClient()
     client.force_authenticate(user)
 
@@ -326,6 +344,7 @@ def test_change_voice_persists_via_canonical_even_when_patch_fails() -> None:
             "/api/spokespeople/",
             data={
                 "workspace": str(ws.pk),
+                "universe": str(u.id),
                 "name": "Ellis",
                 "business_brief": "b",
                 "portrait_data_uri": "data:image/png;base64,x",
@@ -368,6 +387,7 @@ def test_rebake_avatar_landed_pre_bake_save_drops_voice_id() -> None:
     authoring event, not overwritten by the failed intent.
     """
     ws, user = _make_workspace("rb-pre@t")
+    u = _universe(ws)
     client = APIClient()
     client.force_authenticate(user)
 
@@ -378,6 +398,7 @@ def test_rebake_avatar_landed_pre_bake_save_drops_voice_id() -> None:
             "/api/spokespeople/",
             data={
                 "workspace": str(ws.pk),
+                "universe": str(u.id),
                 "name": "Frida",
                 "business_brief": "b",
                 "portrait_data_uri": "data:image/png;base64,x",
@@ -421,6 +442,7 @@ def test_rebake_avatar_landed_pre_bake_save_drops_voice_id() -> None:
 
 def test_rebake_avatar_success_routes_all_three_mirrors_through_canonical() -> None:
     ws, user = _make_workspace("rb-success@t")
+    u = _universe(ws)
     client = APIClient()
     client.force_authenticate(user)
 
@@ -430,6 +452,7 @@ def test_rebake_avatar_success_routes_all_three_mirrors_through_canonical() -> N
             "/api/spokespeople/",
             data={
                 "workspace": str(ws.pk),
+                "universe": str(u.id),
                 "name": "Gray",
                 "business_brief": "b",
                 "portrait_data_uri": "data:image/png;base64,x",
@@ -516,6 +539,7 @@ def test_refresh_portrait_refuses_pre_backfill_teammate_with_409() -> None:
 
 def test_refresh_portrait_creates_new_version_on_success() -> None:
     ws, user = _make_workspace("rp-success@t")
+    u = _universe(ws)
     client = APIClient()
     client.force_authenticate(user)
 
@@ -525,6 +549,7 @@ def test_refresh_portrait_creates_new_version_on_success() -> None:
             "/api/spokespeople/",
             data={
                 "workspace": str(ws.pk),
+                "universe": str(u.id),
                 "name": "Hana",
                 "business_brief": "b",
                 "portrait_data_uri": "data:image/png;base64,x",

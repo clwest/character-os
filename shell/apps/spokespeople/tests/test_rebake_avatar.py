@@ -27,6 +27,7 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import Workspace
 from apps.spokespeople.models import Teammate
+from apps.universe.models import Universe
 from character_os.clients.media_engine import (
     AvatarCreateResult,
     PortraitCreateResult,
@@ -42,6 +43,15 @@ def _make_workspace(email: str) -> tuple[Workspace, "User"]:
     ws = Workspace.objects.filter(owner=user).first()
     assert ws is not None
     return ws, user
+
+
+def _universe(ws: Workspace, name: str = "Test World") -> Universe:
+    """SESSION 277 Slice 5 — helper. New teammate API creates now
+    require a Universe (``universe_required_on_create``); tests that
+    POST to /api/spokespeople/ must create + supply one. Direct
+    ``Teammate.objects.create(...)`` calls bypass the serializer and
+    do not need this."""
+    return Universe.objects.create(workspace=ws, name=name)
 
 
 def _make_teammate(
@@ -212,6 +222,7 @@ def test_create_persists_visual_template_from_payload():
     didn't send it; the serializer didn't expose it.
     """
     ws, user = _make_workspace("create-vt@test")
+    u = _universe(ws)
     client = APIClient()
     client.force_authenticate(user)
 
@@ -219,6 +230,7 @@ def test_create_persists_visual_template_from_payload():
         "/api/spokespeople/",
         data={
             "workspace": str(ws.id),
+            "universe": str(u.id),
             "name": "Test Mascot",
             "business_brief": "...",
             "visual_subject": "test subject",
@@ -238,6 +250,7 @@ def test_create_defaults_visual_template_to_mascot_when_omitted():
     original choice.
     """
     ws, user = _make_workspace("create-vt-default@test")
+    u = _universe(ws)
     client = APIClient()
     client.force_authenticate(user)
 
@@ -245,6 +258,7 @@ def test_create_defaults_visual_template_to_mascot_when_omitted():
         "/api/spokespeople/",
         data={
             "workspace": str(ws.id),
+            "universe": str(u.id),
             "name": "Default Template",
             "business_brief": "...",
             "tone_archetype": "expert",

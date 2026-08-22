@@ -130,6 +130,13 @@ class TeammateSerializer(serializers.ModelSerializer):
         (UNIVERSE_SCHEMA_V1.md §"Universe consistency invariant").
         This surfaces a clean 400 at the API boundary instead of
         letting Teammate.clean() raise mid-save.
+
+        SESSION 277 Slice 5 (Q-277-5) — CREATE-time positive-Universe
+        requirement. New ordinary teammates must be created inside a
+        World. Existing legacy ``universe=NULL`` rows remain readable
+        and PATCH-able (the DB column stays nullable per Slice 4 §78);
+        this is CREATE-only enforcement. Mirror of the SESSION 276
+        Delta ``audience_scope_required_on_create`` pattern.
         """
         attrs = super().validate(attrs)
         universe: Universe | None = attrs.get("universe")
@@ -146,4 +153,26 @@ class TeammateSerializer(serializers.ModelSerializer):
                         "this teammate."
                     ),
                 })
+
+        # SESSION 277 Slice 5 — CREATE-only positive-Universe guard.
+        # ``self.instance is None`` distinguishes CREATE from UPDATE;
+        # PATCH of an existing legacy row (universe still NULL) is
+        # explicitly allowed so legacy teammates remain editable
+        # without a forced migration. New rows must have a Universe.
+        if self.instance is None and universe is None:
+            raise serializers.ValidationError({
+                "universe": {
+                    "code": "universe_required_on_create",
+                    "detail": (
+                        "New characters must belong to a World. Supply "
+                        "``universe: <uuid>`` in the payload. Existing "
+                        "legacy Universe-less teammates remain readable "
+                        "and PATCH-able — this requirement applies to "
+                        "new creates only. See "
+                        "docs/design/SESSION_277_OPERATOR_KNOWLEDGE_DOGFOOD.md "
+                        "§68-§86 for the Slice 5 rationale."
+                    ),
+                },
+            })
+
         return attrs

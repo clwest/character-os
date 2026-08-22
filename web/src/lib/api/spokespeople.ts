@@ -158,6 +158,14 @@ export interface CreateSpokespersonInput {
   workspace: string;
   name: string;
   business_brief: string;
+  /** SESSION 277 Slice 5 (Q-277-5) — World / Universe the new
+   * character belongs to. Required for new ordinary creates; the
+   * SPA wizard collects this via the Step 1 World picker. Backend
+   * serializer rejects CREATE without a Universe with a structured
+   * ``universe_required_on_create`` code. Legacy NULL-Universe
+   * rows created before this slice remain readable + PATCH-able
+   * (DB column stays nullable per Slice 4 §78). */
+  universe?: string;
   // W11.y (SESSION 175) — HOW the spokesperson speaks. Optional
   // at create time; defaults to "" (operator can edit later).
   personality?: string;
