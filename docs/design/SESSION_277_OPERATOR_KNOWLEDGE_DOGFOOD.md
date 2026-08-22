@@ -4892,6 +4892,250 @@ Do NOT begin any of these without Chris + ChatGPT explicit approval.
 
 _Landed SHA: `8a27622` (Slice 9 audit commit)._
 
+---
+
+# Slice 10 — Q-277-10 — World detail view/edit correction (implementation)
+
+Chris + ChatGPT approved Slice 9 §179 Option **A + B + D + C**:
+- **A** — read-only overview default + explicit Edit affordance.
+- **B** — separate identity settings from destructive lifecycle.
+- **D** — lifecycle actions move into a distinct region.
+- **C companion** — `Universe.description` remains the existing DB
+  field but its operator-visible label becomes **"Operator notes
+  (optional)"** with clarifying helper copy. **No** internal rename;
+  no migration; no synthesis change.
+
+Slice 10 lands the smallest SPA-only implementation of that
+correction.
+
+## §186 Slice 10 baseline
+
+- HEAD @ Slice 10 open: `3aada74` (Slice 9 SHA-record). Clean, pushed.
+- Real-DB verified: `Fox & Flour Bakery.brief` still 331 chars
+  (Chris's Slice-8 dogfood specimen preserved). No mutation since
+  Slice 9 close.
+
+## §187 Q-277-10
+
+> If the `/workspace/universes/:id` page defaults to a read-only
+> overview (World name + brief rendered as prose; character list;
+> docs/episodes/memories sections unchanged) with an explicit "Edit"
+> affordance that reveals the current three-field form (Name + What
+> is this World? + Operator notes), Save/Cancel return to the
+> overview, and destructive lifecycle actions (Archive / Delete
+> permanently) move into a visually distinct region below the primary
+> content, does Chris's UX friction (§162) close without any schema
+> change, without touching `Universe.description`'s internal name,
+> without touching the Knowledge UI, and without touching the
+> character wizard?
+
+## §188 Slice 10 acceptance criteria (recorded before implementation)
+
+1. **Default state:** `/workspace/universes/:id` opens in **Overview** — no textareas or inputs visible for identity content. Name shown as `<h1>`; brief shown as prose paragraphs (or an empty-state hint if blank).
+2. **Explicit Edit affordance:** an "Edit" button appears near the top of the page. Clicking it swaps the Overview into an Edit form.
+3. **Edit form contents:** three fields in this order —
+   - **Name** (text input)
+   - **What is this World?** (textarea; helper copy explaining it is shared identity characters inherit)
+   - **Operator notes (optional)** (textarea; helper copy explaining it is private operator reference, NOT consumed by synthesis)
+4. **Save behavior:** persists via existing `useUpdateUniverse` mutation (payload unchanged — `{name, description, brief}`), then returns to Overview showing the refetched data.
+5. **Cancel behavior:** discards staged edits and returns to Overview without hitting the API.
+6. **Danger region:** Archive/Unarchive + Delete permanently move into a distinct section below the primary content sections (Characters / Episodes / Docs / Memories), labeled clearly (e.g. "Lifecycle" or "Danger zone"). Not inline with Save.
+7. **Preserved sections:** Teammates list, Docs list, Episodes link, `NarrativeMemoryList` — unchanged behavior, may be reordered for coherent IA per §178.
+8. **API contract preserved:** no new endpoints; no serializer change; `Universe.description` DB field unchanged; `useUpdateUniverse` payload shape unchanged.
+9. **Zero backend / migration / synthesis / model changes.**
+10. **Regression:** all existing SPA tests pass. New tests cover view default, Edit-toggle, Save-returns-to-Overview, Cancel-returns-to-Overview, "Operator notes (optional)" label present, Danger region separate from Save.
+
+## §189 Slice 10 prediction (before implementation)
+
+Prediction: **Q-277-10 CONFIRMED.** The change is SPA-only inside
+one file (`web/src/routes/workspace/universes.$id.tsx`); no backend
+touch; no test that depended on `data-testid="universe-name"` or
+`data-testid="universe-description"` breaks — those testids can be
+preserved on the Edit form while the Overview uses distinct testids.
+The `handleSave` payload shape is unchanged (still
+`{name, description, brief}`). Fox & Flour's brief renders as prose;
+Patch's Workshop's blank brief triggers an empty-state hint. Chris's
+UX friction §162 closes because the page no longer defaults to a
+form. Description-vs-brief operator confusion (§170) closes via the
+label change + helper copy — no internal rename required.
+
+_(Falsifiable by: any acceptance criterion above failing; any
+existing SPA test regressing without a clean update; any operator
+mutation path breaking.)_
+
+## §190 Files changed (exact scope)
+
+| File | Kind | What |
+|---|---|---|
+| `web/src/routes/workspace/universes.$id.tsx` | rewrite | Introduce `mode: "view" \| "edit"` state defaulting to `"view"`. Add `OverviewPanel` (brief as prose, empty-state hint if blank, operator-notes section that only renders when notes are non-empty). Add `EditPanel` with three fields (Name, "What is this World?", "Operator notes (optional)") + Save + Cancel + helper copy distinguishing brief-shared-identity from notes-private. Add `DangerRegion` at the bottom of the page (Archive/Unarchive + Delete permanently) with "Lifecycle" heading + explanatory copy. Edit affordance is a right-aligned "Edit" button next to the name header. |
+| `web/src/routes/workspace/universes.detail.test.tsx` | new | 7 regression tests: default renders Overview; blank-brief empty-state hint; Edit reveals the form + hides the Edit button + shows "Operator notes (optional)" label + helper copy; Save fires update with `{name, brief, description}` and returns to Overview; Cancel does not call mutation and returns to Overview; Danger region separate from Edit form; Overview notes section only when non-empty. |
+
+**Not touched (per Slice-10 scope-lock):**
+- `web/src/routes/workspace/universes.tsx` (list + create page).
+- `web/src/components/spokesperson-wizard.tsx` (Slice-5 inline `+ Create new World` — unchanged).
+- `web/src/lib/api/universes.ts` (API contract unchanged).
+- Any `shell/apps/*` code (zero backend change).
+- Any migration (`Universe.description` DB column name unchanged).
+- Any synthesis path (Slice-8 wiring untouched).
+- Knowledge UI, character wizard, Episode surface.
+
+## §191 Behavior before → after
+
+**Default page state**
+- Before: always renders the "Edit" form (Name + brief + description as textareas + Save + Archive + Delete permanently in one row).
+- After: renders `OverviewPanel` with `brief` as prose paragraphs and operator-notes rendered only when populated. Editable content is not visible until the operator clicks Edit.
+
+**Edit affordance**
+- Before: none — the form was always active.
+- After: right-aligned "Edit" button next to the World name; visible only in Overview mode.
+
+**Save behavior**
+- Before: `setDirty(false)` snaps values to server truth; inputs stay visible.
+- After: `useUpdateUniverse.mutateAsync({name, brief, description})` fires, then `onSaved()` returns the page to Overview showing refetched data.
+
+**Cancel behavior**
+- Before: did not exist.
+- After: `onCancel()` returns to Overview without calling the mutation. Staged edits are discarded (staged state lives in the EditPanel component; unmount discards).
+
+**Destructive actions**
+- Before: `Save`, `Archive`, `Delete permanently` shared the same flex-row directly below the identity textareas.
+- After: `Archive` + `Delete permanently` live in the `DangerRegion` at the bottom of the page (below Characters / Episodes / Docs / Memories) inside a destructive-tinted bordered card labeled "Lifecycle". Save stays inside the Edit form.
+
+**Operator-facing label**
+- Before: `Description` (both fields — brief and description — looked visually identical with no clarifying copy).
+- After: `What is this World?` + helper "every character in this World inherits and uses during synthesis"; `Operator notes (optional)` + helper "characters do not use this and it is not consumed by synthesis". Distinction is explicit.
+
+**API contract**
+- Unchanged. `useUpdateUniverse` still POSTs `{name, brief, description}`. `Universe.description` DB column and its serializer field name are untouched.
+
+## §192 PART W — Prediction vs actual
+
+Prediction from §189 was: **CONFIRMED.** Actual result matches
+prediction across every acceptance criterion.
+
+| Acceptance criterion (§188) | Predicted | Actual |
+|---|---|---|
+| 1. Default state = Overview | YES | YES — `mode` starts at `"view"`; `OverviewPanel` renders; no textareas visible. `test_defaults_to_Overview_with_the_brief_rendered_as_prose` locks. |
+| 2. Explicit Edit affordance | YES | YES — right-aligned button next to the name header; `data-testid="universe-edit-toggle"`. |
+| 3. Three-field form with "Operator notes (optional)" + distinguishing helper copy | YES | YES — `test_clicking_Edit_reveals_the_three_field_form` asserts label + copy. |
+| 4. Save persists via existing hook + returns to Overview | YES | YES — `useUpdateUniverse.mutateAsync({name, brief, description})` called with exact shape; then `setMode("view")`. Test asserts payload + return-to-Overview. |
+| 5. Cancel discards + returns to Overview without hitting API | YES | YES — `test_Cancel_returns_to_Overview_and_does_NOT_call_the_mutation` locks. |
+| 6. Danger region distinct from ordinary editing | YES | YES — `DangerRegion` at the bottom with destructive-tinted border, "Lifecycle" heading, its own helper copy. Test asserts Save is never in the same visual group as Archive/Delete. |
+| 7. Preserved sections | YES | YES — Teammates / Docs / Episodes link / `NarrativeMemoryList` unchanged; only reordered so the DangerRegion is last. |
+| 8. API contract preserved | YES | YES — no changes to `universes.ts`; `useUpdateUniverse` payload identical. |
+| 9. Zero backend / migration / synthesis / model changes | YES | YES — `git status` shows only two files changed under `web/src/routes/workspace/`. |
+| 10. All existing SPA tests pass + new tests cover the criteria | YES | YES — 672/672 (Slice-8 baseline 665 + 7 new). Zero regressions. |
+
+**Q-277-10 verdict: CONFIRMED.** No falsification signal.
+
+## §193 Test totals + DB state
+
+- **New SPA tests:** 7/7 pass in `universes.detail.test.tsx`.
+- **Full SPA suite:** 672 passed / 672 total in 6.48s (52 files). Baseline 665 + 7 new. Zero regressions.
+- **TypeScript check:** `npx tsc --noEmit` exit 0.
+- **Backend:** unchanged; no regression run necessary. Slice-8 baseline (2321/2321) unaffected.
+- **Real-DB state:** Fox & Flour Bakery brief still 331 chars; Patch's Workshop still blank brief + 31-char description. Zero data mutation.
+
+## §194 Runtime / behavior inspection (source-derived)
+
+- Overview default: `mode = "view"`; `OverviewPanel` renders `{u.name}` as `<h1>` (in the page header) + `{u.brief}` as a `<p>` with `whitespace-pre-wrap` and `text-cream text-base`. Empty brief triggers an italic muted-foreground hint.
+- Overview notes section: only renders when `u.description.trim()` is non-empty. Zero-noise for the common case where operators haven't added notes.
+- Edit reveals `EditPanel`, a controlled form seeded from server truth on mount. `dirty` is derived (not stateful) — comparing `name.trim()`, `brief`, `notes` against the incoming `u` values.
+- Save button disabled unless `dirty` or `update.isPending`.
+- Cancel is a `variant="ghost"` button with an `<X>` icon; disabled while update is pending to prevent race with a successful Save.
+- Danger region uses `border-destructive/40 bg-destructive/5` styling to visually separate from the neutral `border-luxe bg-card/60` used by Overview / Edit / Episodes sections.
+
+**No runtime dogfood performed** — provider spend explicitly not
+authorized in this slice, and the change is view-layer only. Chris
+can dogfood the new layout at his convenience via the SPA per §195.
+
+## §195 Dogfood instructions for Chris (optional)
+
+1. Navigate to `/workspace/universes` and click **Fox & Flour Bakery**.
+2. Verify the page opens in **Overview** — you see the World brief as prose (the 331-char paragraph you authored in Slice 8), no textareas visible.
+3. Click the **Edit** button (right of the name).
+4. Verify the three-field form appears: Name, "What is this World?", "Operator notes (optional)". Each has clarifying helper copy — brief-is-shared vs notes-are-private.
+5. Try editing something small (e.g. add a period at the end of the brief).
+6. Click **Save**. Verify the page returns to Overview showing the updated brief.
+7. Click **Edit** again. Edit the brief. Click **Cancel**. Verify you return to Overview with the un-cancelled original brief still shown.
+8. Scroll to the bottom of the page. Verify **Archive** and **Delete permanently** live inside a bordered "Lifecycle" region visually distinct from ordinary editing.
+9. Navigate to **Patch's Workshop** to see the blank-brief empty-state hint.
+10. **Operator notes on Patch's Workshop:** currently reads "First world for Patch and Rivet" (your 2026-08-17 SESSION 261 note). Confirm that in Overview mode this text renders under an **"Operator notes"** header with a "not used by characters" clarification — that verifies the label decision landed.
+
+**What to report back:** whether the default-Overview shape feels
+like the World's home; whether the empty-state hint on Patch's
+Workshop reads clearly; whether "Operator notes (optional)" as a
+label is understandable; whether the Danger region placement feels
+right (bottom of page) or you'd prefer another location.
+
+## §196 Findings — separated
+
+**OBSERVED FACT (source / test):**
+- `web/src/routes/workspace/universes.$id.tsx` rewritten from an always-open-form scaffold into a view/edit page with a distinct Danger region.
+- One new test file: 7/7 pass covering default-view, empty-state hint, Edit-reveal + labels + helper copy, Save-with-payload + return-to-Overview, Cancel-no-mutation + return-to-Overview, Danger-region-separate, notes-section-only-when-populated.
+- Full SPA suite 672/672 pass (baseline 665 + 7 new).
+- No backend / migration / synthesis / API-contract changes.
+- `Universe.description` DB column and serializer field name unchanged; only operator-visible label + helper copy change.
+
+**SOURCE / TEST-DERIVED FACT:**
+- The `handleSave` payload shape `{name, brief, description}` is byte-identical to Slice 8's payload — the backend serializer accepts unchanged.
+- The `dirty` state derivation is now local to `EditPanel` (computed from staged inputs vs server truth) instead of a boolean-toggle across the whole page — simpler, matches per-panel scope.
+- Empty operator-notes cleanly omits its Overview section (no stray header). Empty brief triggers an explicit CTA-shaped hint pointing at Edit.
+- The Danger region uses `border-destructive/40 bg-destructive/5` treatment matching the existing `variant="destructive"` button conventions.
+
+**INFERENCE:**
+- Chris's dogfood UX friction §162 closes structurally: the page no longer defaults to a form.
+- Description-vs-brief operator confusion §170 closes via the label change + distinguishing helper copy without any DB / API / serializer / migration touch.
+- The change is fully additive and reversible — reverting a single file returns to Slice-8 behavior.
+
+**UNRESOLVED QUESTION:**
+- Should the same view/edit + Danger pattern be applied to the sibling Episode detail page (`episodes.$id.tsx`) for consistency? Slice 9 §184 noted this as deferred; still deferred.
+- Should the Docs section on the World detail page also surface CHARACTER-audience docs attached to members, with audience badges? Slice 9 §184 finding; still deferred.
+- Should `Universe.description`'s internal name be renamed at the model / serializer / SPA type level to match its now-visible label ("notes")? Not necessary for Q-277-10; a possible small companion slice.
+- Does the welcome-page handoff gap (Slice 6 §120, "Teach {character} about your business" → generic Knowledge page with picker reset) become the natural next slice, now that both World identity and the World detail page are shaped correctly?
+
+## §197 PART Q — Smallest next falsifiable question
+
+Given Slice 10's confirmation of Q-277-10, three natural downstream
+questions are visible. Recommend ONE, do not implement:
+
+> **Q-277-11-A** (welcome-page handoff) — If the
+> `/spokespeople/{id}/welcome` "Teach {character} about your business"
+> action preserves `?universe=<uuid>&spokesperson=<uuid>` in the
+> handoff to the Knowledge page (or a scoped variant of it) and
+> pre-selects the character's Universe as the audience scope, does
+> the operator's mental-model handoff (Slice 6 §120) close without
+> any Knowledge UI reshape?
+
+or:
+
+> **Q-277-11-B** (Universe.description internal rename) — If the DB
+> column `Universe.description` is renamed to `Universe.notes` via a
+> `RenameField` migration + serializer + SPA type updates
+> (preserving the "notes / not used by characters" operator label
+> already shipped in Slice 10), does the internal name / operator
+> label alignment close without any behavioral change?
+
+or:
+
+> **Q-277-11-C** (Episode detail view/edit) — apply the Slice-10
+> view/edit + Danger pattern to `/workspace/universes/:id/episodes/…`
+> (or wherever Episode detail lives) for cross-surface consistency.
+
+**Recommendation:** **Q-277-11-A** is highest-leverage — it closes
+the original Slice-6 operator friction and unblocks the next
+Knowledge-UX arc. Q-277-11-B is small housekeeping that can land
+any time. Q-277-11-C is nice-to-have consistency work whose value
+depends on operator dogfood of the Slice-10 layout first.
+
+Do NOT begin any of these without Chris + ChatGPT explicit approval.
+
+## §198 Slice 10 landed SHA
+
+_Landed SHA: TBD (SHA-record commit after Slice 10 lands)._
+
+
+
 
 
 
