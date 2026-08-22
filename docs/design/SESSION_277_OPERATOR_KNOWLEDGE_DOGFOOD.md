@@ -6117,7 +6117,7 @@ Backend defense-in-depth regression added:
 
 ## §243 Slice 12.1 landed SHA
 
-_Landed SHA: TBD (SHA-record commit after hot-fix lands)._
+_Landed SHA: `039172a` (Slice 12.1 hot-fix commit)._
 
 
 
