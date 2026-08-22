@@ -6834,7 +6834,7 @@ approval.
 
 ## §282 Slice 13.1 landed SHA
 
-_Landed SHA: TBD (SHA-record commit after Slice 13.1 lands)._
+_Landed SHA: `90c7037` (Slice 13.1 verification commit)._
 
 
 
