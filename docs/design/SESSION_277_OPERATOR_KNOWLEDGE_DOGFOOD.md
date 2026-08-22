@@ -6836,6 +6836,36 @@ approval.
 
 _Landed SHA: `90c7037` (Slice 13.1 verification commit)._
 
+---
+
+## §283 SESSION 277 CLOSED
+
+**Status:** CLOSED — 2026-08-21.
+
+No further slices, code changes, or dogfood work land under SESSION 277.
+
+**Handoff document:** `docs/design/SESSION_278_HANDOFF.md`
+
+That handoff is compact and self-contained. It captures the current
+product model, the contextual-navigation product rule, the three
+current operator flows for adding Knowledge, the real dogfood
+evidence matrix (Tyson × Ruby × Patch × Penny), the Slice 12.1
+hot-fix lesson (Universe-bound CHARACTER payloads must include
+BOTH `universe` and `spokesperson_ids`), the known legacy state
+(Penny + 5 legacy teammates + `business_brief` overlap), the
+deferred items (Q-277-13-B, Q-277-13-D), a do-not-relitigate list,
+references to load-bearing files/migrations/tests, and the
+recommended starting posture for the fresh SESSION 278 Claude.
+
+Any SESSION 278 work should begin by reading that handoff first
+and this audit document only if deeper historical context is
+needed.
+
+_Baseline at close: HEAD `88c255a`; clean working tree; local ==
+`origin/main`; no runtime/product data changed during closeout;
+Slice 13.1 real-DB verification state (3 KDs, 2 Universes, 9
+teammates in `chriss-workspace`) intact._
+
 
 
 
