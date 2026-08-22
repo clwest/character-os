@@ -5685,7 +5685,7 @@ lock:
 
 ## §224 Slice 11 landed SHA
 
-_Landed SHA: TBD (SHA-record commit after Slice 11 lands)._
+_Landed SHA: `5d335e0` (Slice 11 audit commit)._
 
 
 
