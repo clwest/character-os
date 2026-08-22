@@ -2602,6 +2602,6 @@ narrows to that friction rather than moving on to Knowledge UI.
 
 ## §98 Slice 5 landed SHA
 
-_Landed SHA: TBD (SHA-record commit after Slice 5 lands)._
+_Landed SHA: `3d988c1` (Slice 5 implementation commit)._
 
 
