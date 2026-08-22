@@ -4380,6 +4380,519 @@ scope approval.
 
 _Landed SHA: `fbf2bf8` (Slice 8 implementation commit)._
 
+---
+
+# Slice 9 — Q-277-9 — World detail surface audit (audit-only)
+
+Chris + ChatGPT approved Slice 8. Chris performed the first real
+operator dogfood of `Universe.brief` on Fox & Flour and reported a
+UI concern. Slice 9 investigates that observation without touching
+implementation.
+
+## §161 Slice 9 baseline
+
+- HEAD @ Slice 9 open: `e7f8c5c` (Slice 8 SHA-record). Clean, pushed.
+- Real-DB verified read-only:
+  - `KnowledgeDocument.objects.count() == 0`, `KnowledgeChunk.objects.count() == 0`.
+  - `chriss-workspace`: 9 teammates, 2 Universes.
+  - **Fox & Flour Bakery**: `brief_len=331` (matches Chris's dogfood specimen byte-for-byte), `description_len=0`, `archived_at=None`, `teammate_count=2`, `episode_count=2`, `knowledge_document_count=0`.
+  - **Patch's Workshop**: `brief_len=0` (blank — control), `description_len=31` ("First world for Patch and Rivet"), `archived_at=None`, `teammate_count=2`, `episode_count=27`, `knowledge_document_count=0`.
+- Zero drift since Slice 8 close.
+
+## §162 Chris's Slice 8 dogfood evidence (recorded)
+
+**OBSERVED FACT (real-DB):**
+- Chris navigated to Fox & Flour Bakery's World detail page and entered a 331-char brief via the SPA's "What is this World?" textarea. Save persisted; the row now carries the brief. No other Universe mutated.
+- Slice-8 operator mutation path works end-to-end for the specimen field.
+
+**OPERATOR CONTEXT (Chris's verbatim reaction):**
+> "I was able to update it but I am not crazy about how it looks
+> since the forms just stay even after you save."
+
+**OBSERVED FACT (source):** The page (`web/src/routes/workspace/universes.$id.tsx:145-249`) is one section labeled **"Edit"** containing three `<Input>` / `<textarea>` fields plus Save + Archive + "Delete permanently" buttons. There is no read-only view state — the fields render as inputs whether or not the operator has touched them. `dirty` state only controls the Save button's enabled/disabled and which value the inputs display (`value={dirty ? name : u.name}`); after Save, `setDirty(false)` snaps values back to server truth but the inputs stay visible.
+
+## §163 Q-277-9
+
+> Does the current World detail page represent the modern Character
+> OS World model clearly to an ordinary operator now that World
+> identity is first-class, or is the page still primarily an old
+> administrative CRUD surface whose structure no longer matches the
+> product?
+>
+> Companion: Should the normal World detail state be a readable
+> WORLD VIEW rather than a permanently-open edit form?
+>
+> Companion: What legitimate operator-facing purpose does
+> `Universe.description` still serve now that `Universe.brief` owns
+> semantic World identity?
+
+## §164 Slice 9 checklist
+
+- [x] STEP 0 — baseline + dogfood record.
+- [x] PART A — inventory current World detail page.
+- [x] PART B — view state vs edit state.
+- [x] PART C — page-job classification.
+- [x] PART D — `Universe.description` forensic.
+- [x] PART E — brief-vs-description comparison.
+- [x] PART F — Fox & Flour specimen.
+- [x] PART G — Patch's Workshop control.
+- [x] PART H — generalization.
+- [x] PART I — destructive-action placement.
+- [x] PART J — character/member surface.
+- [x] PART K — World Knowledge surface.
+- [x] PART L — Episode / memory surface.
+- [x] PART M — information architecture classification.
+- [x] PART N — smallest product correction.
+- [x] PART O — scope-guard preserved (no dashboard project).
+- [x] PART P — Q-277-9 answers.
+- [x] PART Q — smallest next question.
+- [ ] Commit + push audit; SHA-record.
+
+## §165 Prediction (before source inspection)
+
+Prediction: Q-277-9 lands as **MIXED**. The page IS structurally a CRUD/settings surface (always-open edit form; destructive buttons adjacent to identity edit; description labeled ambiguously) rather than an operator-facing World home. The smallest correction is likely **PART N option A/B combined**: introduce a read-only overview default with an explicit "Edit" affordance, keep the destructive lifecycle actions but relocate them below or in a distinct "Danger" region, clarify or hide `Universe.description` (now redundant with `brief` for its original stated purpose). This is a UX/IA correction, not a dashboard rewrite.
+
+## §166 PART A — Page inventory (render order)
+
+Source: `web/src/routes/workspace/universes.$id.tsx:110-333`.
+
+| # | Element | Data source | Read/Edit | Notes |
+|---|---|---|---|---|
+| 1 | Back button "Back to worlds" | — | — | Navigate to `/workspace/universes`. |
+| 2 | `SectionHeader number={2} title="World detail"` | — | — | Editorial marker. |
+| 3 | Icon `<Globe2>` + `<h1>` name | `u.name` | read | `data-testid="universe-detail-name"`. |
+| 4 | Slug + optional archived pill | `u.slug`, `u.archived_at` | read | Small text. |
+| 5 | Hairline separator | — | — | — |
+| 6 | Section h2 **"Edit"** | — | — | Wraps every editable field + destructive controls. |
+| 7 | Name `<Input>` | `u.name` ↔ `name` state | **edit (always)** | `maxLength=120`. |
+| 8 | "What is this World?" `<textarea>` | `u.brief` ↔ `brief` state | **edit (always)** | `maxLength=2000` + helper copy. |
+| 9 | Description `<textarea>` | `u.description` ↔ `description` state | **edit (always)** | No helper copy; no clarifying label. |
+| 10 | Save button | mutation `useUpdateUniverse` | action | Disabled unless `dirty`. |
+| 11 | Archive / Unarchive button | `useArchiveUniverse` / `useUnarchiveUniverse` | action | Outline variant. |
+| 12 | **Delete permanently button** | `useHardDeleteUniverse` | destructive action | `variant="destructive"`; disabled while members/docs exist. |
+| 13 | Helper text: "Delete permanently is blocked while this world has members..." | — | text | Only when blocked. |
+| 14 | Update-error text | — | text | On mutation error. |
+| 15 | Episodes section (h2 + count + link) | `u.episode_count` | read | Link to `/workspace/universes/:id/episodes`; no inline list. |
+| 16 | Teammates section (h2 + count + list) | `useSpokespeople().filter(sp.universe === id)` | read | Bulleted list of names → `/spokespeople/:id`. |
+| 17 | `<NarrativeMemoryList>` "World memories" | `/api/narrative-memories/?universe=<id>` | read | Empty state: "No memories promoted in this world yet." |
+| 18 | Docs section (h2 + count + list) | `useKnowledgeList(workspaceId).filter(d.universe === id)` | read | Bulleted list of titles → `/workspace/knowledge/:id`. Client-side filter — CHARACTER-audience docs are excluded here because they don't set `universe`. |
+
+**Structural observation:** the page interleaves five discrete concerns:
+- Identity display (3-4).
+- Identity editing (7-9).
+- Destructive lifecycle (11-12).
+- Membership overview (16).
+- Content overview (15, 17, 18).
+
+They render in this order under one flat page — no visual separation between "what this is" and "what to do with it."
+
+## §167 PART B — View state vs edit state (source-verified)
+
+- The page has **no view state**. `useState` initializes empty strings for name/description/brief and the fields render as inputs from first render.
+- The visible section heading is "Edit" — labeling the section but not toggling state.
+- After Save (`handleSave`), `setDirty(false)` fires. Inputs snap to `u.name`/`u.brief`/`u.description` from refetched data via `value={dirty ? … : u.…}`. Fields remain rendered as inputs; no success toast; no visual acknowledgement other than the Save button becoming disabled.
+- `dirty` state is a single boolean covering all three fields — editing any one field enables Save for all three; a bad concurrent edit could unintentionally overwrite a field the operator didn't intend to touch.
+
+**Comparison against sibling detail pages (source-verified):**
+
+| Detail page | Pattern | Notes |
+|---|---|---|
+| `/workspace/knowledge/:id` (`knowledge.$id.tsx`) | **Pure read + delete.** | No edit form. Metadata `<dl>` table; chunk list; single delete button. |
+| `/spokespeople/:id` (`$id.tsx`) | **Read + modal edit.** | `IdentityPanel` renders read-only with an "Edit" pencil button that opens `SpokespersonEditModal`. |
+| `/workspace/universes/:id` (this page) | **Always-open form.** | This slice's subject. |
+| `/workspace/universes/:id/episodes/…` sibling episode routes | **Also always-open form.** | SESSION 262 pattern — matches this page. |
+
+**Verdict:** the World detail page shares the always-open pattern
+with the SESSION 262 Episode surface, but diverges from the older
+character/knowledge conventions (read + modal / read + action).
+Chris's dogfood reaction targets this specific divergence.
+
+## §168 PART C — Page-job classification
+
+Every operator job listed in the prompt, tested against the current page:
+
+| Operator job | Supported? | Primary/Secondary/Admin/Elsewhere |
+|---|---|---|
+| Understand what this World is | Partial — name + slug + edit form containing the brief | **PRIMARY (should be)** — currently a form, not a read view. |
+| See which characters belong | Yes — bulleted list of member names | **PRIMARY** — supported, minimal. |
+| See shared Knowledge | Yes — Docs list, client-filtered on `d.universe === id` | PRIMARY — currently correct but thin. |
+| See Episodes / continuity | Partial — count + link to sibling route; no inline list | PRIMARY — actual list lives elsewhere. |
+| See / edit World identity | Yes but form-mode-only | **SECONDARY (should be)** — should default to view. |
+| Add shared Knowledge | **No** — no action on this page | Elsewhere (`/workspace/knowledge` with picker reset — Slice 6 §120 finding). |
+| Create another character in this World | **No** — no action on this page | Elsewhere (`/spokespeople/new`). |
+| Inspect narrative memory | Yes — `NarrativeMemoryList` embedded | PRIMARY — supported. |
+| Archive/manage lifecycle | Yes | Admin — currently mixed into identity-edit section. |
+| Permanent delete | Yes but visually prominent | Admin/DANGER — currently mixed into identity-edit section. |
+
+**Reading:** the page IS the overview page for the World but its
+STRUCTURE is a CRUD/settings surface. Chris's UI reaction accurately
+reflects the mismatch.
+
+## §169 PART D — `Universe.description` forensic
+
+**Introduced:** commit `8f54bdb` (2026-08-17, SESSION 261 Phase 1) — original Universe app + model. Design doc `UNIVERSE_SCHEMA_V1.md` line 395 field table: > `description | Text | Yes (blank ok) | Operator prose about the world. | None. Not consumed by synthesis.`
+
+**Consumers (source-traced today):**
+- Backend synthesis: **NONE.** `grep "\.description" shell/character_os/ shell/apps/universe/` returns zero hits in synthesis code paths.
+- Backend serializer: exposes it on GET/POST/PATCH (unchanged since 8f54bdb).
+- Backend admin: displayed in the admin (per commit doc).
+- SPA universes list (`/workspace/universes`): NOT rendered on rows (only name + counts + slug).
+- SPA universe detail (`/workspace/universes/:id`): rendered as an editable textarea (Slice-8-preserved from pre-Slice-8 behavior).
+- SPA universe create form (`/workspace/universes`, `CreatePanel`): rendered as a "Description (optional)" textarea below the brief.
+- Tests: `test_universe_get_returns_brief` etc. GET/POST/PATCH mechanics — no test asserts description CONTENT.
+
+**Real-DB usage today:**
+- Fox & Flour: `description=""`.
+- Patch's Workshop: `description="First world for Patch and Rivet"` — a 31-char operator note dating from SESSION 261 that Chris typed pre-Slice-8.
+
+**Historical intent:** "Operator prose about the world. Not consumed
+by synthesis." A management-surface / operator-note field.
+
+**Classification today:** **A (operator/admin note)** with a strong overlay of **F (mixed/unclear)** now that Slice 8 introduced `Universe.brief` which occupies the same semantic space with clearer purpose and synthesis consumption.
+
+Chris's Patch's-Workshop note ("First world for Patch and Rivet") is a
+useful metadata record — provenance / audit context — that shouldn't
+just be discarded. But calling it "Description" and placing it directly
+under "What is this World?" invites operator confusion (§170).
+
+**Not delete-worthy without operator direction.** Options for future
+disposition — do not implement:
+- Rename to `notes` / label as "Operator notes (private, not shown to characters)".
+- Move to an admin-only field (invisible in main detail view).
+- Deprecate entirely once existing content is preserved elsewhere.
+
+## §170 PART E — brief vs description semantics
+
+| Field | Intended owner | Operator meaning (as labeled today) | Synthesis use | Product value |
+|---|---|---|---|---|
+| `name` | Universe (identity) | "Fox & Flour Bakery" — the World's name | Yes — passed as prompt scope indirectly | high |
+| `slug` | Universe (routing) | URL fragment (`fox-flour-bakery`) | No | low but stable |
+| `brief` | Universe (semantic identity) | "What is this World?" — 1-3 paragraph identity | **Yes (§152)** — deterministic WORLD SHAPE block | **high (new)** |
+| `description` | Universe (operator note today) | "Description" — untyped textarea | No | ambiguous |
+
+**Can an ordinary operator reasonably distinguish "What is this World?"
+from "Description"?** No, not without additional guidance. Both are
+free-form text fields on the same section, both are labeled
+similarly, and neither the SPA nor the model help-text tells the
+operator which one the characters will read.
+
+**Nature of the problem:** primarily **duplicated semantics + labeling
+gap**. `description` had a legitimate pre-Slice-8 role ("operator prose
+about the world"); Slice-8's `brief` narrowed the WORLD IDENTITY
+responsibility to `brief`, leaving `description` in a stale-but-
+occupied state — still exposed on the UI, still writable, no obvious
+purpose to a fresh operator.
+
+**Not a rename decision here.** Options include:
+- Rename operator-visible label to "Notes" or "Operator notes" while preserving the DB column.
+- Hide `description` from the primary detail surface entirely; expose only in an admin/settings sub-surface.
+- Deprecate cleanly with a preservation path for existing content (Patch's Workshop's 31-char note).
+
+## §171 PART F — Fox & Flour specimen
+
+Chris visits Fox & Flour's detail page six months from now. Can he answer:
+
+| Question | Yes / Partial / No | Where the info comes from today |
+|---|---|---|
+| What is Fox & Flour? | **Partial** | The brief exists but is inside an editable textarea, not a read-view. The operator has to look at the field VALUE inside a form. |
+| Who lives/works here? | **Yes** | Teammates section lists Ruby + Tyson with links. |
+| What does everyone here know? | **Partial** | Docs list is shown but empty today (KD=0). Copy doesn't explain audience shape. |
+| What has happened here? | **Yes** (mechanically) | `NarrativeMemoryList` embedded; empty today. |
+| What can I do next? | **Mixed** | Save (if editing), Archive, Delete permanently, "Manage episodes →". No "Add shared knowledge here" action; no "Add another character here" action. |
+
+**Additional observations:**
+- The 331-char brief is present but reads visually as "the value of a form field", not "the definitive answer to what this place is."
+- Character count (2) matches DB truth; Docs count (0) matches; Episodes count (2) matches — these are all correct.
+- No indication anywhere on this page that Fox & Flour has an assigned "type" (bakery vs workshop vs fantasy world) beyond the brief text.
+
+## §172 PART G — Patch's Workshop control (blank brief, non-blank description)
+
+Patch's Workshop has `brief=""` + `description="First world for Patch and Rivet"`.
+
+| Question | Answer |
+|---|---|
+| Does the page look incomplete? | Yes — the "What is this World?" field is blank; a fresh operator visiting for the first time sees a large empty textarea under the identity header. |
+| Does the operator-note (`description`) accidentally appear to be the primary World identity? | **YES.** Because `brief` is blank and `description` is populated, the only prose the operator sees is Chris's 2026-08-17 metadata note "First world for Patch and Rivet" — which reads as if it's what the World IS, but it's actually an audit note about who created it. |
+| Does the page teach the operator how to complete the World? | No. Neither field has an empty-state prompt like "Give this World an identity" or "This is what characters will inherit." |
+
+**Structural finding:** the ordering (name → brief → description) plus
+identical visual treatment (both are textareas without differentiating
+copy or affordances) means that when brief is blank the operator's
+attention naturally lands on description. That's the exact pattern
+Slice 8 explicitly tried to fix at the semantic layer (§149 contract)
+but the SPA layout undermines it.
+
+## §173 PART H — Generalization
+
+Test the current page structure against future World shapes:
+
+| Specimen | Current page structure holds? | Notes |
+|---|---|---|
+| Bakery World with 2 characters (today's Fox & Flour) | Marginal | Content-list sections short enough that the CRUD form still visually dominates. |
+| Workshop World with 2 characters + 27 episodes (today's Patch's Workshop) | Poor | Episode count 27 gets ONE line ("Manage episodes →"); the CRUD form is still the dominant visual element. |
+| Dealership with 5-10 characters | Poor | Teammates section grows; the CRUD form still consumes the top third. |
+| Fictional fantasy World with many entities | Poor | Same — content grows, but the form dominates the fold. |
+| World with no characters yet (Copper Creek Coffee scenario) | Very poor | Nothing to show below the fold; CRUD form is 100% of the visible page; empty-state guidance absent. |
+| World with lots of shared Knowledge | Poor | Docs section grows; the "Add shared knowledge" action lives elsewhere (Slice 6 §120 handoff gap). |
+| World with many Episodes / memories | Poor | `NarrativeMemoryList` grows; still under the CRUD form. |
+| Archived World | Marginal | Small "archived" pill under the header; otherwise identical layout; edit form still active. |
+
+**Verdict on generalization:** the always-open CRUD form does not
+scale as the operator's primary interaction surface. Even under
+today's small data volumes, it dominates the fold and pushes the
+World's actual content (characters, docs, episodes, memories) below.
+
+## §174 PART I — Destructive-action placement
+
+Current layout (§166 rows 10-12):
+
+```
+[Save]  [Archive]  [Delete permanently]
+```
+
+All three buttons live in a single flex-row directly below the three edit textareas, in the same visual grouping.
+
+**Findings:**
+- **Save + Archive + Delete permanently share the same visual weight tier** despite being three qualitatively different operations (mutation, soft-delete, hard-delete).
+- **Delete permanently uses `variant="destructive"`** — some visual distinction exists — but it's still adjacent to Save, meaning a mouse-slip during ordinary editing lands next to a permanent-delete button.
+- The "Delete permanently is blocked while this world has members. Reassign every teammate and doc first." helper text is defensive but only appears when the button is disabled.
+- No confirmation dialog beyond a browser `confirm()` (line 87-91).
+- The action group has no header like "Danger zone" or "Lifecycle" to signal it is separate from ordinary editing.
+
+**Verdict:** destructive lifecycle actions are TOO PROMINENT relative
+to their frequency and severity. They belong under a "Danger" region
+or an overflow menu, or at minimum should be visually separated from
+Save.
+
+## §175 PART J — Character / member surface
+
+Source: `universes.$id.tsx:271-294`.
+
+- Teammates section renders as a bulleted list of names only, each a link to `/spokespeople/:id`.
+- No portrait / avatar preview.
+- No teammate role / brief preview.
+- No "Add another character to this World" action.
+- No membership reassignment (Chris already knows characters cannot cross-Universe attach — Slice 3 §57 M2M signal).
+- Count matches DB truth.
+
+**Verdict:** the members section functions as a **link list**, not
+a member roster. Coherent for the current 1-2 characters per World
+scale; doesn't scale to dealership-with-10-characters. For today's
+Fox & Flour it clearly communicates "Ruby + Tyson live here"; for
+a hypothetical larger cast the list would need cards or grouping.
+
+## §176 PART K — World Knowledge surface
+
+Source: `universes.$id.tsx:308-331`.
+
+- Docs section renders `memberDocs = knowledge.data.filter(d => d.universe === id)` — a client-side filter on `d.universe`.
+- **CHARACTER-audience KDs are excluded** because they don't set `universe` at the document level (they set it implicitly via M2M spokespeople who belong to the Universe). This is a subtle Slice-1/§10 finding: the page shows only UNIVERSE-audience docs, not everything a character in this World can retrieve.
+- **WORKSPACE-audience KDs are also excluded** for the same reason.
+- No "Add shared knowledge to this World" action — the operator must navigate to `/workspace/knowledge`, then re-pick the World via `UniverseScopePicker` (Slice 6 §120 handoff gap).
+- Copy above the list simply says "Docs (N)" — no audience clarification; no "these are Universe-shared" hint.
+
+**Verdict:** the current page does NOT naturally communicate "this
+is knowledge everyone in Fox & Flour can use." The list is
+correct-by-construction for UNIVERSE-audience docs but the framing
+is silent about audience. A CHARACTER-audience KD attached to Ruby
+would not appear here — which is technically correct (that KD
+belongs to Ruby, not the World) but the section header "Docs" doesn't
+say so.
+
+## §177 PART L — World Episode / memory surface
+
+- Episodes: h2 + count + copy + link to `/workspace/universes/:id/episodes`. No inline list. Episodes are managed on a sibling page.
+- Memory: `<NarrativeMemoryList filter={{universeId: u.id}} showSource title="World memories">` — inline embed of a full memory list. Empty state present.
+
+**Verdict:** hybrid — memories inline, Episodes off-page. Neither
+gets prominent visual weight; both live below the CRUD form. The
+page reads as "a settings record with a members list, some memories,
+some docs" rather than "the home of this World's ongoing story."
+
+**Home-vs-settings verdict for the whole page:** **settings record.**
+
+## §178 PART M — Information architecture classification
+
+Classify each current section into an IA bucket:
+
+| Section (render order) | IA bucket |
+|---|---|
+| Name / slug / archived-pill header (rows 3-5) | OVERVIEW |
+| "Edit" section: Name input (row 7) | SETTINGS |
+| "Edit" section: "What is this World?" textarea (row 8) | OVERVIEW (content should be) / SETTINGS (form is) |
+| "Edit" section: Description textarea (row 9) | SETTINGS / uncertain (§170) |
+| Save button (row 10) | SETTINGS |
+| Archive/Unarchive (row 11) | SETTINGS / DANGER (light) |
+| Delete permanently (row 12) | DANGER |
+| Delete-blocked helper (row 13) | DANGER guidance |
+| Update-error text (row 14) | SETTINGS feedback |
+| Episodes section (row 15) | ACTIVITY / STORY |
+| Teammates section (row 16) | CHARACTERS |
+| NarrativeMemoryList (row 17) | ACTIVITY / STORY |
+| Docs section (row 18) | KNOWLEDGE |
+
+**Ordering vs model:** current order interleaves OVERVIEW with
+SETTINGS with DANGER at the top of the page, and CONTENT / CHARACTERS
+/ KNOWLEDGE / ACTIVITY at the bottom. A more coherent order would be
+roughly: OVERVIEW → CHARACTERS → KNOWLEDGE → ACTIVITY/STORY →
+SETTINGS → DANGER.
+
+## §179 PART N — Smallest product correction
+
+Options from the prompt evaluated against Slice 9 evidence:
+
+| Option | Would it address Chris's UX concern? | Would it address §170 brief-vs-description? | Would it address §174 destructive placement? | Cost |
+|---|---|---|---|---|
+| A. Explicit read-only default state + Edit toggle | **Yes (primary complaint)** | Partial (view state at least makes the two fields displayable as distinct rendered text vs input) | No (buttons stay where they are) | Small SPA change |
+| B. Separate Overview and Settings visually | Yes | Partial | Yes if Danger moves too | Small SPA change |
+| C. Rename or hide `description` | No (form still open) | **Yes** (primary description issue) | No | Small SPA + optional serializer/help_text |
+| D. Move destructive actions | No (form still open) | No | **Yes** (primary Danger issue) | Small SPA change |
+| E. Add a World brief summary card at the top | Partial (view of brief improves) | Partial | No | Small SPA change |
+| F. Something smaller | — | — | — | — |
+| G. Current page is fine; preference only | — | — | — | — |
+
+**Recommendation:** the smallest coherent correction that addresses
+Chris's primary complaint AND the two structural issues §170 + §174
+is a **combined A + B + D**: introduce a read-only default view with
+an explicit Edit affordance, and while restructuring for view/edit,
+separate destructive lifecycle from identity settings into a distinct
+region (labeled "Lifecycle" or "Danger"). Option C (rename/hide
+description) is a small companion decision that can land in the same
+slice or as a separate micro-slice — either way, it depends on Chris's
+disposition of the field per §170.
+
+**Not recommended:** F/G. G would ignore Chris's operator observation;
+F is undefined.
+
+**What the smallest correction is NOT:**
+- Not a new World dashboard.
+- Not tabs.
+- Not a routing change.
+- Not an Episode redesign.
+- Not a Knowledge UI reshape.
+- Not a membership reassignment surface.
+- Not new activity feeds.
+
+The correction is a **view-mode default + IA re-grouping** on the
+existing single-page detail surface. Estimated scope: one file
+(`universes.$id.tsx`), possibly one companion test file, no schema
+change, no migration, no backend change.
+
+## §180 PART O — Scope guard preserved
+
+Slice 9 does not recommend:
+- Giant analytics dashboard.
+- Multi-tab rewrite.
+- New routing architecture.
+- New World homepage system.
+- Episode redesign.
+- Knowledge redesign.
+- New activity feed.
+- New membership architecture.
+- New settings subsystem.
+
+The audit did not find that the existing surface fundamentally cannot
+support the required operator jobs. The finding is: the existing
+surface's DEFAULT STATE and INTERNAL ORDERING don't match the modern
+product. The correction is small and stays on the same route/page.
+
+## §181 PART P — Q-277-9 answers
+
+1. **Is the current page primarily a World detail page or a CRUD/settings page?** **CRUD/settings** — dominated by an always-open edit form + destructive actions; content overview lives below.
+2. **Does the always-open edit form harm the operator model?** **YES** (Chris's dogfood observation is validated by structural comparison to sibling detail pages).
+3. **Should normal state be read-only overview with explicit Edit?** **YES** — matches the older character/knowledge patterns and gives content visual priority over settings.
+4. **What is `Universe.description` today?** **A + F** — an operator/admin note field whose responsibilities now overlap with the (new) `Universe.brief`. Not synthesis-consumed. Real-DB shows Patch's Workshop uses it for a metadata note ("First world for Patch and Rivet"). Not delete-worthy without operator direction.
+5. **Is brief-vs-description understandable?** **No.** Both are free-form textareas with similar labels and identical visual treatment; the operator has no cue for which one characters will read.
+6. **Are characters surfaced coherently?** **Yes for small casts (1-2), poor for large casts.** Current bulleted-name list is minimal but correct.
+7. **Is World-shared Knowledge surfaced coherently?** **Partial.** The Docs list is technically correct (Universe-audience docs only) but framing is silent about audience.
+8. **Are lifecycle actions too prominent?** **YES.** Delete permanently sits inline with Save in the same button row.
+9. **Does the page function as the home of a World?** **NO.** It functions as a settings record with a members list below.
+10. **What is the smallest justified correction?** **Combined A + B + D** per §179: read-only default view + explicit Edit + separate identity settings from destructive lifecycle. Optional companion (C) `Universe.description` disposition.
+
+**Q-277-9 verdict: MIXED.** The page mechanically works and passes
+its regression suite; it accurately represents the DB data. But its
+structure does not represent the modern World product model to an
+ordinary operator, and Chris's dogfood observation is source-verified
+as a real UX gap, not just a preference.
+
+## §182 PART Q — Smallest next falsifiable question
+
+Given Slice 9's evidence, the smallest next question is a scope-locked
+implementation slice:
+
+> **Q-277-10** — If the `/workspace/universes/:id` page defaults to a
+> read-only overview (World name + brief rendered as prose; character
+> list; docs/episodes/memories sections unchanged) with an explicit
+> "Edit" affordance that reveals the current three-field form, and
+> destructive lifecycle actions (Archive / Delete permanently) move
+> into a visually distinct region below the primary content, does
+> Chris's UX friction (§162) close without any schema change, without
+> touching `Universe.description`, without touching the Knowledge UI,
+> and without touching the character wizard?
+
+Answering Q-277-10 requires only SPA changes to
+`web/src/routes/workspace/universes.$id.tsx` (and possibly a companion
+test file). Scope explicitly excludes:
+- Any schema change.
+- Any change to `Universe.description` (that's a follow-on question — see below).
+- Any Knowledge UI change.
+- Any character wizard change.
+- Any Episode redesign.
+- Any new routes.
+- Any new hooks.
+
+**Alternate smaller questions** (present, do not select):
+
+- **Q-277-10-alt-A** (description-only): before touching layout, decide `Universe.description`'s disposition. Options: rename operator-visible label to "Notes"; hide from default view; deprecate. Landing this first would tighten the Q-277-10 scope by removing the description-vs-brief label question.
+- **Q-277-10-alt-B** (return to Knowledge handoff): tackle the Slice 6 §120 handoff gap first ("Teach {character} about your business" → preserved `?universe=<uuid>&spokesperson=<uuid>` + audience preselection). Answers Chris's original Slice-6 friction directly. Orthogonal to the World detail page redesign.
+- **Q-277-10-alt-C** (character-brief decomposition observation): watch whether operators naturally trim World-identity content from character `business_brief` fields now that `Universe.brief` owns identity. Observation-only, no code.
+
+Do NOT begin any of these without Chris + ChatGPT explicit approval.
+
+## §183 Slice 9 findings — separated
+
+**OBSERVED FACT (real-DB / source):**
+- Fox & Flour Bakery: `brief` populated (331 chars, matches Chris's dogfood), `description=""`. Save + persistence verified.
+- Patch's Workshop: `brief=""`, `description="First world for Patch and Rivet"`.
+- `web/src/routes/workspace/universes.$id.tsx` renders an always-open form with Save + Archive + Delete-permanently in a shared button row directly below the identity textareas.
+- Every synthesis-consumer grep for `\.description` in `shell/character_os/` returns zero hits (confirmed for Slice 6, re-confirmed here).
+- Sibling detail pages: knowledge is pure-read-plus-delete; spokesperson is read + modal edit; Episode is always-open form (SESSION 262 pattern matching this page).
+
+**SOURCE-DERIVED FACT:**
+- The always-open pattern is an emerging convention in the SESSION 261/262 Universe/Episode wave. It diverges from older character/knowledge conventions.
+- Universe.description is documented as "operator prose about the world; not consumed by synthesis" (`UNIVERSE_SCHEMA_V1.md:395`).
+- Slice-8's `Universe.brief` (§149) inherits the "operator-writeable description of what the World is" responsibility that `description`'s docstring originally claimed.
+- The Docs section is client-filtered on `d.universe === id`, silently excluding CHARACTER-audience KDs — technically correct, semantically undocumented on the page.
+
+**OPERATOR CONTEXT (Chris):**
+- "I was able to update it but I am not crazy about how it looks since the forms just stay even after you save."
+- Operator context is validated by the source structure; not aesthetic preference alone.
+
+**INFERENCE:**
+- The always-open form pattern was a reasonable SESSION 261 default when Universe was purely admin metadata (no first-class semantic payload). Slice 8's addition of a semantic `brief` field elevates `brief` to overview-worthy content — but the page structure hasn't caught up.
+- `Universe.description` and `Universe.brief` are now semantically overlapping. The overlap is small enough that a labeling change + IA correction addresses it without a data migration.
+- Destructive-action prominence was tolerable when the World was a barely-used substrate; now that operators enter meaningful semantic content, the mismatch is more visible.
+
+**PRODUCT RECOMMENDATION (Chris + ChatGPT decide):**
+- Adopt the smallest correction from §179 (A + B + D combined).
+- Defer description-disposition (option C) as a small companion decision — either land in the same slice or separately.
+- Preserve Slice 5 invariant unchanged (no wizard changes).
+- Preserve Slice 8 semantics unchanged (no synthesis wiring changes).
+
+## §184 Unresolved questions (Slice 9 — deferred)
+
+- Should the SESSION 262 Episode detail page get the same view-mode treatment for consistency? (Out of Slice 9 scope; separate future question.)
+- Should the Docs section on the World detail page also surface CHARACTER-audience docs attached to that World's members, with an audience badge distinguishing UNIVERSE from CHARACTER? Or does that belong in the eventual Knowledge UI reshape?
+- Should the World detail page grow a "Add another character to this World" action, or does the operator naturally go to `/spokespeople/new` and pick the World from the Slice-5 wizard picker?
+- Should the World detail page grow a "Add shared knowledge to this World" action that pre-fills the audience picker (Slice 6 §120 handoff gap)? Related to Q-277-10-alt-B.
+- What is the correct operator-visible label for `Universe.description` if we don't repurpose or delete it? "Notes"? "Operator notes"? "Internal"?
+- Should Fox & Flour eventually receive an authored Universe-audience KD (the Slice 6 §112 historical specimen) or does the compact brief suffice for now? Deferred to dogfood observation.
+
+## §185 Slice 9 landed SHA
+
+_Landed SHA: TBD (SHA-record commit after Slice 9 lands)._
+
+
 
 
 
