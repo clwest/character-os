@@ -3483,5 +3483,556 @@ Do NOT begin any of these without Chris + ChatGPT approval.
 
 _Landed SHA: `8164ab6` (Slice 6 audit commit)._
 
+---
+
+# Slice 7 — Q-277-7 — Minimum World semantic contract (audit / design)
+
+Chris + ChatGPT approved Slice 6 and authorized Slice 7 as an
+**audit/design** slice. Objective: determine the minimum first-class
+semantic contract a World must own so it meaningfully represents its
+business/place/story independently of any single character, then
+recommend the smallest coherent representation. **No implementation
+in this slice.** Slice 5's World-required invariant is preserved.
+
+## §128 Slice 7 baseline
+
+- HEAD @ Slice 7 open: `3f24233` (Slice 6 SHA-record). Clean, pushed.
+- Substrate: KD=0, KC=0.
+- `chriss-workspace`: **9 teammates** (4 Universe-bound — Ruby, Patch, Rivet, Tyson; 5 legacy — Mason, Penny, Mike, Repo Red, Riggs), 2 Universes (Fox & Flour Bakery, Patch's Workshop). Slice 6 §99 wrote "8→8"; the correct current count is 9 (Tyson is the 4th Universe-bound teammate, not an existing row). No mutation since Slice 6.
+
+## §129 Slice 7 checklist
+
+- [x] STEP 0 — verify baseline (no drift since Slice 6).
+- [x] PART A — Define "World identity" (what remains true when all characters are removed).
+- [x] PART B — Identity vs Knowledge: existing analogous pattern verified in synthesis.
+- [x] PART C — Minimum contract.
+- [x] PART D — Current field ownership map.
+- [x] PART E — Representation options A/B/C/D/E compared.
+- [x] PART F — Synthesis precedence / composition implications.
+- [x] PART G — Onboarding consequences.
+- [x] PART H — "Teach Tyson about your business" re-evaluation.
+- [x] PART I — Generalization against 12 arbitrary future cases.
+- [x] PART J — Q-277-7 answers.
+- [ ] Commit + push; SHA-record.
+
+## §130 Q-277-7
+
+> What is the MINIMUM first-class semantic contract a World/Universe
+> must own so that it meaningfully represents its business/place/story
+> independently of any single character? And after determining that
+> contract: which existing or proposed substrate is the smallest
+> coherent owner?
+
+## §131 Prediction (before source analysis)
+
+Prediction: Character OS **already implements** the "compact identity
+always injected + detailed facts retrieved" pattern for the CHARACTER
+layer — personality/POV/voice axes are deterministic; KD chunks are
+cosine-retrieved. Prediction: the WORLD layer needs the same split —
+a compact deterministic identity slot (World brief) plus optional
+Universe-audience KDs. The minimum contract is: **one compact
+`Universe.brief`-style semantic field + the pre-existing
+Universe-audience KD lane**. The two together correspond to Option D
+in the prompt. Prediction: business_brief is fundamentally mixed and
+its "world identity" responsibilities naturally migrate to the World
+brief while its "character role / expertise" responsibilities stay
+where they are.
+
+## §132 PART A — What is World identity?
+
+**Method:** for each specimen, list what must remain true after ALL
+characters in that World are removed for the World to still
+meaningfully exist. Anything essential is World-identity; anything
+that disappears with the last character is character-owned.
+
+| Specimen | If all characters removed, World must still know | If gone, would you say "the World is undefined"? |
+|---|---|---|
+| Fox & Flour without Ruby / Tyson | "artisan neighborhood bakery, sourdough foundation, handcrafted pastries, seasonal desserts, celebration cakes, small-batch, warm neighborhood atmosphere" | YES (today only the name survives — §110 established) |
+| Patch's Workshop without Patch / Rivet | "workshop where experimental ideas about AI + technology get built and tested, build-first framing, honest about failure" | YES (today only the 31-char note survives — §111) |
+| Riverstone without Penny | "outdoor adventure guiding service — routes, seasons, gear, safety posture" | YES (nothing exists yet — Riverstone is not a Universe today) |
+| Dealership with zero characters yet | "car dealership — make/model focus, sales / finance / service departments, warranty and financing posture" | YES (needs to exist before hiring characters) |
+| Bookstore (multiple characters) | "curated independent bookstore — genres, atmosphere, event/reading schedule, customer relationship style" | YES (identity must survive individual bookseller changes) |
+| Fictional fantasy World (non-business) | "setting/era, factions, magic system if any, tonal register, cultural rules" | YES (World identity has nothing to do with business — must generalize) |
+
+**Categories of information the specimens produced:**
+
+| Candidate category | Identity? Knowledge? Configuration? Memory? Character-owned? |
+|---|---|
+| Purpose / what this place or organization is | **identity** (always) |
+| Products / services | **knowledge** (retrievable; details) |
+| Customers / audience shape | **identity** (compact) |
+| Setting / atmosphere / tonal register | **identity** (compact) |
+| Policies | **knowledge** (retrievable; details, may change) |
+| Pricing | **knowledge** (retrievable; details, changes often) |
+| Brand promises | **identity** (compact; rarely changes) |
+| Shared history | **memory** (already Universe-owned via NarrativeMemory) |
+| Locations | mixed — a single named place = identity; catalog of places = knowledge |
+| Shared vocabulary | **identity** (compact; must always be in scope) |
+| Shared factual canon | **knowledge** (retrievable) |
+| Character role within the World | **character-owned** |
+| Character personality / voice | **character-owned** |
+| Character personal expertise | **character-owned** |
+| Provider credentials / billing | **tenant-owned** (Workspace) |
+
+**Reading:** World identity is the small, compact, always-present
+context that answers "what kind of place is this?" World knowledge is
+the larger, retrievable, mutable body of details. Both are legitimate
+and distinct.
+
+## §133 PART B — Identity vs Knowledge (is the split real?)
+
+**Test:** does Character OS already treat compact identity and
+retrievable detail as different substrates?
+
+**Answer: YES.** Source-verified from three convergent patterns:
+
+- **Character voice** (`script_synthesis._build_character_voice_section` at `script_synthesis.py:844-870`): personality, tone_archetype, voice_energy, voice_humor, voice_directness, voice_signature_phrases, character_point_of_view are all **deterministically injected** into §2 CHARACTER VOICE — always visible, never cosine-ranked, never at risk of being outranked by a retrieved chunk. This is the compact-identity pattern applied to characters.
+- **Character facts** (`script_synthesis._build_factual_basis_section` at `script_synthesis.py:801-817` and claim_verifier at `claim_verifier.py:711-721`): business_brief + who_you_help + what_you_sell are **also deterministically injected**, but KD chunks are cosine-retrieved. Both types live in §1 FACTUAL BASIS but arrive via different pipelines.
+- **Universe-shared canon** (`dialogue_synthesis._build_factual_basis_section` at `dialogue_synthesis.py:449-575`): the SHARED WORLD KNOWLEDGE block is emitted deterministically from `retrieve_universe_canon` (a policy function, not the same as cosine-ranked per-character retrieval). NarrativeMemory rows are also emitted deterministically from `retrieve_universe_memory`. The 3-tier prompt structure — **SHARED / MEMORY / PER-CHARACTER SCOPED** — is exactly the identity-vs-knowledge shape at the World layer, minus a Universe-owned compact identity slot.
+
+**Answers to PART B specific questions:**
+
+- *Is "Fox & Flour is an artisan neighborhood bakery" the same kind of thing as "custom cakes require 50% deposit"?* **No.** The first is compact identity that must always be in scope; the second is a policy detail that may change and belongs in a retrievable body.
+- *Should both be retrieved by cosine similarity?* **No.** Basic identity must never fail to reach synthesis because a chunk didn't rank high enough.
+- *Should basic identity ever fail to reach synthesis?* **No.** Deterministic injection is the pre-existing pattern for compact identity (personality, tone) and for Universe-canon retrieval (deterministic pass-through of `retrieve_universe_canon` output).
+- *Does claim verification treat these differently today?* Partly. Personality/POV are explicitly **excluded** from the evidence corpus (`claim_verifier.py:687-703`). business_brief/who_you_help/what_you_sell are **included** as peer evidence. A Universe brief that carries factual identity (e.g. "artisan bakery specializing in sourdough") would need to enter the evidence corpus similarly — it grounds the claim "we make sourdough" independent of a KD chunk.
+- *What happens when identity/context and a retrieved KD conflict?* Currently: no precedence rule (§109). Both would appear as peer evidence to the LLM. The scale of the conflict risk depends on whether the World brief carries *facts* (increases risk) or *framing* (reduces risk).
+- *What happens when a character brief conflicts with either?* Currently: no precedence. The character brief is emitted as SCOPED evidence with the SCOPE RULE preventing another character from citing it, but nothing prevents the character's cited fact from silently disagreeing with a World brief or Universe-audience KD chunk.
+- *Analogous pattern elsewhere?* **Yes** — the character voice section is the exact analogue: compact identity is always in scope; detailed factual chunks are retrieved.
+
+**Verdict on identity vs knowledge:** **DISTINCT.** They must not share
+one substrate. World identity is always-in-scope compact context;
+World knowledge is retrievable factual detail.
+
+## §134 PART C — Minimum World semantic contract
+
+Minimum information a World must own to be meaningfully independent
+of any single character:
+
+**IN THE MINIMUM CONTRACT (World identity):**
+
+1. **World name** — already present (`Universe.name`).
+2. **World brief** — a compact 1-3 paragraph description of what
+   the World IS. Must be deterministically injectable into every
+   synthesis path this World participates in. Answers: what kind of
+   place / business / story is this; what is its purpose; what is
+   its overall audience shape; what is its atmosphere / tonal
+   register. Should NOT contain fluid details (pricing, weekly menu,
+   specific policies) — those belong in retrievable knowledge.
+
+**NOT IN THE MINIMUM CONTRACT (belongs elsewhere):**
+
+- Detailed product / service catalog → Universe-audience KnowledgeDocument.
+- Pricing → Universe-audience KnowledgeDocument.
+- Policies → Universe-audience KnowledgeDocument.
+- Shared vocabulary / entity catalog → Universe-audience KnowledgeDocument (or a future first-class canon primitive if it grows).
+- Story history → already covered by `NarrativeMemory` (Universe-scoped).
+- Character role / personality → stays on Teammate.
+- Character-specific expertise → stays on Teammate + character-audience KDs.
+- Provider credentials / billing → stays on Workspace.
+
+**Rationale:**
+- (1) satisfies the "meaningfully exist before first character" requirement (§114).
+- (1) + Universe-audience KDs satisfy the "shared context inherited without re-typing" requirement (§115).
+- (1) as a deterministic slot satisfies the "identity is never outranked" requirement (§133).
+- Everything left in retrievable knowledge preserves the flexibility to update details without editing every character.
+- Deleting one character does not delete World identity (which lives on the Universe row + Universe-audience KDs).
+- Changing a shared business fact happens in ONE place (the KD or the brief), not N.
+
+**Size discipline:** the World brief must be short enough to always
+inject into every prompt without token budget concerns. The existing
+personality field averages 300-2000 chars in the current substrate
+(Ruby=338, Patch=~2000, Rivet=1952). A World brief in the 300-1000
+char range is comfortably injectable and matches the "compact
+identity" pattern established for characters.
+
+## §135 PART D — Current Teammate field ownership map
+
+Revisit each identity/brief field with the natural-owner test:
+"if the World grew a first-class compact identity, where would this
+information most coherently live?"
+
+| Field | Current owner | Content today (Ruby specimen) | Natural owner in modern model |
+|---|---|---|---|
+| `business_brief` | Teammate | "Ruby owns Fox & Flour Bakery, a neighborhood artisan bakery... naturally leavened sourdough... celebration cakes... locally sourced ingredients... warm community gathering place" | **MIXED — must be decomposed.** ~70% is World identity (bakery kind, product breadth, atmosphere). ~30% is character role ("Ruby owns"). |
+| `who_you_help` | Teammate | (audience) | **WORLD identity.** Audience is a property of the World/business, not per-character; duplicating it across Ruby + Tyson is the exact §113 duplication pattern. |
+| `what_you_sell` | Teammate | (offering) | **WORLD identity.** Same reasoning — offering is a World-owned fact. |
+| `always_emphasize` | Teammate | brand positioning | **MIXED.** If it names *what* to emphasize (product truths) → WORLD identity / knowledge. If it names *how* character voice should emphasize (voice-shaping) → CHARACTER. Currently ambiguous. |
+| `never_say` | Teammate | prohibitions | **MIXED.** Brand-level "we never claim X" → WORLD. Character-level "this character avoids Y" → CHARACTER. |
+| `desired_feeling` | Teammate | brand feeling target | **WORLD identity / brand.** The feeling the *business* wants to leave — not the feeling one character produces vs another. |
+| `character_point_of_view` | Teammate | POV framing | **CHARACTER identity.** Character-owned — correct today. |
+| `personality` | Teammate | HOW this character speaks | **CHARACTER identity.** Character-owned — correct today. |
+| `visual_subject` / `visual_template` / `tone_archetype` | Teammate | media / voice axis | CHARACTER — correct today. |
+| `voice_*` (energy, humor, directness, signature_phrases, avoid_phrases) | Teammate | character voice details | CHARACTER — correct today. |
+| `runway_avatar_id` / `portrait_path` / `voice_id` | Teammate | provider IDs | CHARACTER — correct today. |
+
+**Reading:** three fields (`who_you_help`, `what_you_sell`,
+`desired_feeling`) are structurally World-owned and currently
+character-owned. Two fields (`always_emphasize`, `never_say`) are
+mixed. business_brief is the mixed field with the largest text and
+the deepest overload. The remaining eight character-owned fields are
+correctly placed.
+
+**Do NOT migrate anything in Slice 7.** This is classification only.
+
+## §136 PART E — Representation options
+
+Evaluate the five candidate representations named in the prompt.
+
+**OPTION A — reuse `Universe.description`**
+
+- Semantic clarity: **poor** — current help text says "management surface field, not consumed by synthesis." Repurposing would be a hidden semantic change on an existing field.
+- Deterministic availability: **would require synthesis wiring** (nothing reads it today, §108).
+- Retrieval behavior: not retrieved.
+- Claim verification: not in evidence corpus today; would need explicit inclusion.
+- Editability: single field on Universe detail page.
+- Onboarding UX: the Universe-create form already collects it, but currently as an optional throwaway note.
+- Multi-character consistency: would work if consumers were added.
+- Non-business Worlds: works — description is generic.
+- Migration: none for schema. Semantic-only change with backward-compat risk on any operator who typed a note in `description` expecting it to be a throwaway.
+- Business_brief compat: no direct effect.
+- Extensibility: fine.
+- Overload risk: **repeats the business_brief mistake** — a field whose stated purpose ("management surface") is different from what synthesis reads. Guarantees future ambiguity.
+
+**OPTION B — add `Universe.brief`**
+
+- Semantic clarity: **strong** — new field with a specific documented purpose.
+- Deterministic availability: **wire once into script_synthesis + dialogue_synthesis + teammate_ask + conversation_synthesis + claim_verifier** — one field, five sites.
+- Retrieval behavior: not retrieved; always injected.
+- Claim verification: must join the evidence corpus (`claim_verifier.build_evidence_corpus`) at the World layer.
+- Editability: new Universe detail page section (or an inline field on the create form).
+- Onboarding UX: Universe-create form gains one required field.
+- Multi-character consistency: perfect — one authoritative source.
+- Non-business Worlds: works — the field can hold "fantasy world with X setting, Y factions" as easily as "artisan bakery."
+- Migration: **one new nullable Text field on Universe; no data migration** (existing Universes get `brief=""`; SPA and API prompt operator to fill).
+- Business_brief compat: **no immediate change to business_brief.** The World brief exists ALONGSIDE character briefs. Precedence rule in §137.
+- Extensibility: single-purpose, resists overloading if scoped tightly.
+- Overload risk: low if the field's contract is explicit ("World identity: compact 1-3 paragraphs answering what this World is, its audience shape, its tonal register — NOT policies, pricing, product catalog").
+
+**OPTION C — seed Universe-audience KnowledgeDocument only**
+
+- Semantic clarity: **weak-to-moderate** — World identity ends up as a chunk, competing in cosine retrieval with detailed policy/pricing chunks.
+- Deterministic availability: **NO.** The chunk is retrieval-ranked; basic identity ("this is a bakery") may lose to a highly-cosine-similar detail chunk under low `top_k`. Fails §133's identity-must-always-be-in-scope requirement unless we add a special "always include this KD" flag, which itself becomes a first-class KD-level attribute.
+- Retrieval behavior: standard cosine.
+- Claim verification: already covered by KD chunk pathway.
+- Editability: familiar Knowledge UI (paste/PDF/URL).
+- Onboarding UX: operator must author a KD at World create time — heavier than typing a paragraph.
+- Multi-character consistency: single source; works.
+- Non-business Worlds: works.
+- Migration: none; requires operators to seed a KD.
+- Business_brief compat: business_brief remains character-owned; overlap continues.
+- Extensibility: piggybacks on a general-purpose substrate — good for scaling knowledge, bad for guarantees.
+- Overload risk: introduces a special-case flag ("always include") or accepts that identity may occasionally be missing from prompts.
+
+**OPTION D — compact World identity/context (Option-B-shaped) + Universe-audience Knowledge for details**
+
+- Semantic clarity: **strongest** — explicit split between always-injected identity and retrievable knowledge; mirrors the character-layer split precisely.
+- Deterministic availability: YES for the brief.
+- Retrieval behavior: for the KDs — standard.
+- Claim verification: brief joins evidence corpus; KD chunks already there.
+- Editability: brief inline on Universe detail; KDs via existing Knowledge UI.
+- Onboarding UX: brief required at Universe-create (small paragraph); KDs remain optional post-hoc.
+- Multi-character consistency: perfect for identity; KDs already Universe-audience-consistent.
+- Non-business Worlds: works.
+- Migration: one nullable Text field + wiring (same as Option B) + zero mandatory KD creation.
+- Business_brief compat: no immediate change.
+- Extensibility: excellent — the KD lane extends naturally as the World grows; brief stays compact.
+- Overload risk: low — brief has a narrow contract; KDs have a separate contract; no field is asked to be both.
+
+**OPTION E — another substrate**
+
+Considered candidates:
+
+- Repurpose `NarrativeMemory` for identity → **rejected.** NarrativeMemory is bound to an Episode (`memory/models.py:137-157`) and treated as past events; identity is present-tense and not tied to a story.
+- Add a `WorldProfile` sibling model → **rejected as overkill for the minimum contract.** A single Text field satisfies the current requirement; a whole model invites the overload it should prevent.
+- Recycle `Universe.description` AND rename it → **rejected as backward-compat hazard** (see Option A).
+- Store World identity as a special reserved character in the Workspace ("workspace-persona") → **rejected** — inverts the SESSION 261 direction (World-owns-characters, not character-owns-World).
+
+**Comparison summary:**
+
+| Option | Semantic clarity | Deterministic availability | Overload risk | Migration cost | Best-fits-existing-pattern |
+|---|---|---|---|---|---|
+| A — reuse description | poor | needs wiring | high (silent semantic change) | zero | no |
+| B — new Universe.brief | strong | one-field wiring | low | one nullable field | yes |
+| C — seed KD only | weak | no (cosine race) | requires special "always-include" flag | zero | no (breaks the pattern) |
+| **D — B + Universe KDs** | **strongest** | yes | low | one nullable field | **yes — matches character-layer pattern** |
+| E — other | — | — | — | — | — |
+
+**Recommendation:** **OPTION D.** The minimum contract is a single
+new deterministic Universe-owned identity field (`Universe.brief`) +
+the pre-existing Universe-audience KD lane for retrievable detail.
+This mirrors the character-layer identity/knowledge split (§133),
+requires one nullable field addition and one set of synthesis
+wirings, resists overloading, and generalizes across business and
+non-business Worlds.
+
+## §137 PART F — Synthesis precedence / composition
+
+Adopting Option D would give synthesis the following semantic layers
+(order = specificity from broadest to narrowest, NOT necessarily
+conflict-precedence):
+
+```
+1. World identity (Universe.brief)                — always injected
+2. World knowledge (Universe-audience KD chunks)  — cosine-retrieved
+3. Narrative memory (NarrativeMemory rows)        — deterministically emitted
+4. Character identity (personality, POV, voice)   — always injected
+5. Character knowledge (business_brief + who_you_help + what_you_sell + character-audience KD chunks)  — brief always, chunks cosine
+6. Character voice / brand (never_say, always_emphasize, desired_feeling)  — always injected
+7. Task / topic (operator prompt)                 — always injected
+8. Audience / performance (recipe params)         — always injected
+```
+
+Slice 6 §109 finding: today there is no precedence between duplicated
+business facts. Would introducing World identity require an explicit
+precedence rule?
+
+**Answer: not necessarily.** Prefer eliminating duplicated ownership
+over inventing a conflict-resolution engine.
+
+Two composition principles suffice:
+
+**Principle 1 — non-overlapping semantic responsibilities.** If the
+World owns "this is an artisan bakery" and the character owns "Ruby
+is the owner," they don't overlap and can never conflict. business_brief
+overlap becomes the operator's editing choice, not an architectural
+requirement.
+
+**Principle 2 — narrator-precedence for facts that legitimately
+overlap.** Universe canon (SHARED WORLD KNOWLEDGE) already wins over
+NarrativeMemory when they conflict per the dialogue prompt's
+"static canon wins on conflict" wording (`dialogue_synthesis.py:566-568`).
+The same convention naturally extends to World brief > per-character
+brief in the rare cases where both assert the same fact type.
+
+**Consequence:** synthesis prompt-building changes required (for
+Option D):
+
+1. `script_synthesis._build_factual_basis_section` — add a `WORLD SHAPE:` block (from `Universe.brief`) before or in place of `BUSINESS SHAPE:` when the Universe brief is populated. Leave `BUSINESS SHAPE:` for legacy character-owned brief content; the two can coexist during transition.
+2. `dialogue_synthesis._build_factual_basis_section` — add `WORLD SHAPE:` at the top of the SHARED WORLD KNOWLEDGE block. Deterministic; not affected by cosine ranking.
+3. `claim_verifier.build_evidence_corpus` — extend to include `spokesperson.universe.brief` alongside `business_brief`, `who_you_help`, `what_you_sell`. World-owned facts must count as evidence for claim support.
+4. `teammate_ask.py` — same "authoritative business context" region gains the World brief.
+5. `conversation_synthesis.py` — the Runway realtime personality field currently receives character brief; consider extending to include the World brief so the avatar knows what World it's in.
+
+No new precedence rules are strictly required. Two conventions
+suffice: non-overlapping semantic ownership (Principle 1) and
+narrator-precedence for legitimate overlaps (Principle 2). Both are
+prompt-side additions, not evaluator/scoring logic.
+
+## §138 PART G — Onboarding consequences
+
+Under Option D:
+
+**NEW WORLD (Universe-first)**
+1. `/workspace/universes/new` collects `name` (required) and
+   **`brief`** (required — 1-3 paragraphs).
+2. `POST /api/universes/` includes `brief`. Universe row lands with
+   compact semantic identity.
+3. Operator can immediately create the first character inside this
+   World; character wizard sees a Universe with defined identity and
+   the character-brief field narrows to "your character's role /
+   personality / expertise."
+
+**NEW CHARACTER + INLINE NEW WORLD (Slice-5 flow, enriched)**
+1. `/spokespeople/new` picker shows existing Worlds + "+ Create new
+   World…" (Slice 5, unchanged mechanically).
+2. Inline create surface asks for `name` + **`brief`**.
+3. Character wizard's `business_brief` field narrows to character-owned
+   copy (role + personality + character-specific expertise).
+
+**EXISTING WORLD**
+1. `/spokespeople/new` picker; operator selects Fox & Flour.
+2. Character wizard shows the World's `brief` (read-only or as a
+   context hint) so the operator sees "the character inherits: 'Fox &
+   Flour is a warm neighborhood artisan bakery ...'."
+3. Character wizard's `business_brief` field narrows semantically to
+   "character role + personality + character-specific expertise" —
+   the operator no longer needs to retype the bakery's identity.
+
+**Consequence:** onboarding becomes structurally aligned with the
+mental model "the World has an identity; the character has a role."
+Slice 5's World-required invariant is preserved; only the payload the
+operator supplies at Universe-create time changes.
+
+**No wizard step count changes.** Universe-create today is single-form
+single-submit; adding one required text field does not add a step.
+
+## §139 PART H — "Teach Tyson about your business" re-evaluated
+
+Under Option D, the welcome page's action button gets a well-defined
+target that today lacks one:
+
+- If the operator's intent is "add facts about the World that every
+  character in this World may cite," the correct target is a
+  Universe-audience KD create scoped to the character's `universe_id`.
+- If the operator's intent is "add facts that only Tyson knows"
+  (e.g. Tyson's certifications, private notes), the correct target
+  is a CHARACTER-audience KD scoped to Tyson.
+- The button currently routes to a generic Knowledge page that
+  requires re-selecting World AND does not surface the CHARACTER
+  option — it forces the operator into UNIVERSE- or WORKSPACE-audience
+  choices and asks them to interpret "None (legacy)" (Slice 1 §11).
+
+**Correct semantic operation the button should represent:**
+one action, two audience choices. Something like:
+
+- "Teach Fox & Flour more" (UNIVERSE-audience KD) — shared with every
+  character in the World, including future ones.
+- "Teach Tyson personally" (CHARACTER-audience KD) — scoped to Tyson.
+
+The wording "Teach {character} about your business" is misleading
+because Tyson does not *own* the business — the World does. Do not
+settle wording yet; the operation split matters more than the copy.
+
+**Consequence for the Slice 6 §120 handoff finding:** the correct
+handoff to the Knowledge page (or a scoped variant of it) would
+carry `?universe=<uuid>` and offer both audience choices with the
+`?spokesperson=<uuid>` context preserved. Backend query-param support
+already exists (`apps/embeddings/views.py:117-126`). SPA plumbing is
+the only gap.
+
+## §140 PART I — Generalization test
+
+Test Option D against the 12 arbitrary future cases the prompt names.
+
+| # | Case | Option D fit | Notes |
+|---|---|---|---|
+| 1 | fox owns a bakery | GOOD | World brief = bakery identity; character brief = fox's role. |
+| 2 | bakery has five characters with different jobs | GOOD | World brief once; five character briefs narrow to role/personality/expertise. Duplication risk (§113) eliminated. |
+| 3 | coffee shop has three bears | GOOD | Same shape — one World identity, three character identities. |
+| 4 | dealership with sales + finance + service | GOOD | World brief captures "car dealership — sales, finance, service departments, warranty and financing posture." Each character brief narrows to their department role. Prevents the "salesperson, finance, service each carry a full dealership brief" contradiction risk (§121). |
+| 5 | shared company handbook | GOOD | Universe-audience KDs carry policies; World brief captures "we operate under handbook X, target audience Y" without duplicating the whole handbook. |
+| 6 | one character has private expertise | GOOD | CHARACTER-audience KD covers this; unchanged from today. |
+| 7 | Patch/Rivet fictional workshop | GOOD | World brief = "workshop where AI/tech ideas get built and tested, build-first framing." Character briefs narrow to Patch's inventor voice, Rivet's dry counterweight. Overlap between Patch's brief and Rivet's brief on "the workshop" disappears. |
+| 8 | fantasy story World with no business | GOOD | World brief = setting/era/factions/magic system. No business assumed; the substrate is business-agnostic. |
+| 9 | World created before any characters exist | GOOD | Universe.brief is present at Universe-create time; the World is meaningful with zero characters (§114 gap closed). |
+| 10 | character deleted while World survives | GOOD | Universe row + brief + KDs + memories persist; the World's meaning is unaffected. |
+| 11 | all characters deleted while World survives | GOOD | Same — World meaning survives. Today the World would effectively lose everything (§110-§111). |
+| 12 | shared policy changes after ten characters exist | GOOD | Edit ONE Universe-audience KD (or the World brief). No character-by-character sweep. Prevents the "ten characters each carrying a stale policy" drift. |
+
+**Non-business specimen (case 8) test:** the recommendation does not
+assume Worlds are businesses. `Universe.brief` is a generic text
+field for whatever compact identity fits — bakery, workshop, dealership,
+bookstore, fantasy realm, purely fictional story World, single-creator
+personal brand. All fit the same substrate.
+
+**Solo-creator specimen (case 6 companion — one character, one
+World):** even here Option D works — the operator can put the
+compact business identity on the World brief and leave the character
+brief for personal role/voice. Redundancy with the character brief
+becomes an operator style choice rather than an architectural
+requirement. (This case is the least improved by Option D; the
+current shape is already fine for it. But Option D does not
+*degrade* it.)
+
+## §141 PART J — Q-277-7 answers
+
+1. **Does Character OS need a first-class World semantic identity/context?** **YES.** Fox & Flour and Patch's Workshop specimens both fail to describe themselves independently of their characters today (§110-§111). Every non-solo generalization case worsens without it (§140).
+2. **Is World identity semantically distinct from World Knowledge?** **YES.** The existing character-layer split (personality always-injected vs KD chunks retrieved) is the source-verified precedent (§133). Compact identity must always be in scope; detailed knowledge is retrievable.
+3. **What is the MINIMUM World semantic contract?** ONE new compact deterministic field — `Universe.brief` — carrying: what kind of place / business / story this is, its audience shape, its tonal register. Explicitly 1-3 paragraphs; explicitly NOT a policy/pricing/catalog dump (those go in Knowledge).
+4. **What should remain Knowledge instead?** Policies, pricing, product catalog, vocabulary/entity catalog, mutable operational details. Retrieved by the existing Universe-audience KD lane. No new KD infrastructure required.
+5. **What should remain character-owned?** Character role, personality, tone, voice axes, POV, signature/avoid phrases, personal expertise, private knowledge (CHARACTER-audience KDs). Portrait/voice/avatar identifiers.
+6. **Is `business_brief` fundamentally character-owned, World-owned, mixed, or legacy compatibility?** **Mixed (Slice 6 §117 classification B + D).** Its natural decomposition splits into World-brief-worthy content ("bakery kind, product breadth, atmosphere") and character-brief-worthy content ("Ruby owns; Ruby's baker role and personality"). Slice 7 does not decompose it. business_brief stays where it is; it becomes optional/character-narrow as the World brief captures the World's identity.
+7. **Which representation option is recommended?** **OPTION D — compact World identity/context (a new `Universe.brief` field) + Universe-audience Knowledge for retrievable detail.** Compared systematically in §136.
+8. **Does that recommendation require synthesis changes?** **Yes but small.** Five call sites (`script_synthesis`, `dialogue_synthesis`, `teammate_ask`, `conversation_synthesis`, `claim_verifier`) need to read the new field and emit it deterministically. No retrieval infrastructure changes required. No precedence engine required (§137).
+9. **Does it require a schema change?** **Yes — one new nullable Text field on `Universe`.** No data migration; existing rows land with `brief=""`. `Universe.description` retains its current role (management surface note) and could later be repurposed or deprecated.
+10. **Does it require Knowledge changes?** **No.** The Universe-audience KD lane already exists and works. The recommendation does NOT require a mandatory seed KD at Universe-create time (that was Option C, rejected).
+11. **What should happen when creating a character inside an existing World?** The character wizard should surface the World's brief as read-only context, and the character's `business_brief` field should narrow (in copy and expectation) to character-owned content. Slice 7 does not implement this; it's the natural downstream UX consequence.
+12. **Does the current "Teach Tyson about your business" handoff remain conceptually correct?** **NO** (§139). The correct operation is a single action with two audience choices: "Teach {World} more" (UNIVERSE-audience KD) OR "Teach {character} personally" (CHARACTER-audience KD). Current handoff conflates both and forces a "None (legacy)" workaround for either.
+13. **Does Slice 5 remain sound?** **YES.** Slice 5's invariant (every ordinary new character belongs to a World) is orthogonal to World semantic ownership. Both statements can hold simultaneously (§119).
+14. **What is the smallest next falsifiable question after this?** See §142.
+
+## §142 PART S — Smallest next falsifiable question
+
+If Chris + ChatGPT approve Option D as the target, the smallest next
+question is:
+
+> **Q-277-8** — If a single new `Universe.brief` TextField is added
+> (nullable, blank default, one new Universe-serializer field, wired
+> deterministically into `script_synthesis._build_factual_basis_section`
+> and `dialogue_synthesis._build_factual_basis_section` as a
+> `WORLD SHAPE:` block before per-character `BUSINESS SHAPE:`, and
+> added to `claim_verifier.build_evidence_corpus` as evidence),
+> does synthesis for a Fox & Flour character correctly reflect the
+> World's identity without duplicating it into every character's
+> `business_brief`? And does it do so without regression against
+> existing character-only synthesis paths where `Universe.brief=""`?
+
+Q-277-8 is a **scope-locked implementation** slice (Slice 8). It
+lands the minimum contract from §134 into the codebase and validates
+it against real synthesis. Its scope is deliberately narrow:
+- One new nullable Text field on `Universe`.
+- One serializer field + one SPA form change (Universe-create).
+- Five synthesis call-site wirings.
+- Zero changes to `business_brief`.
+- Zero changes to the Slice 5 wizard.
+- Zero changes to the Knowledge UI (§139's welcome-page handoff is
+  Slice 9+, downstream of Q-277-8).
+- Zero legacy data migration (existing Universes land with `brief=""`).
+
+**Alternate smaller questions** (present, do not select):
+
+- **Q-277-8-alt-A** (audit-only continuation): before adding the
+  field, ask Chris to author a proposed World brief for Fox & Flour
+  (as durable markdown in the docs, not as data) and observe whether
+  it fits the 1-3 paragraph size expectation and doesn't leak
+  policy/pricing detail. Tests §134 empirically without touching
+  code.
+- **Q-277-8-alt-B** (character brief decomposition first): decide
+  what happens to the character-owned overlap in `business_brief`
+  before adding the World brief. Answers question 6 in §141 more
+  fully but delays the World identity fix.
+- **Q-277-8-alt-C** (handoff-only): implement the Tyson welcome-page
+  handoff (`?universe=<uuid>&spokesperson=<uuid>` preserved with the
+  audience choice split) before the World brief. Tests whether pure
+  handoff repair reduces the operator friction without requiring the
+  semantic decomposition. Predicted to help but not resolve the
+  duplication drift.
+
+## §143 Findings — separated
+
+**OBSERVED FACT (source):**
+- Character-layer identity vs knowledge split is source-verified: personality/tone/voice_axes are deterministically injected in `script_synthesis._build_character_voice_section`; KD chunks are cosine-retrieved in `_build_factual_basis_section`.
+- Universe-layer SHARED / MEMORY / SCOPED prompt structure is source-verified in `dialogue_synthesis._build_factual_basis_section:449-609`.
+- `retrieve_universe_canon` and `retrieve_universe_memory` return possibly-empty deterministic lists; the SHARED and MEMORY blocks are omitted when the list is empty (`dialogue_synthesis.py:541,563`).
+- `Universe` has no field consumed by any synthesis path today (Slice 6 §108, re-confirmed).
+- `claim_verifier.build_evidence_corpus` at `claim_verifier.py:711-721` treats character-owned `business_brief`/`who_you_help`/`what_you_sell` as peer evidence with KD chunks; there is no precedence rule.
+- Real-DB substrate at Slice 7 open: 9 teammates (Tyson landed via Slice-5 wizard), 2 Universes, KD=0. Nothing mutated since Slice 6.
+
+**SOURCE-DERIVED FACT:**
+- The character-layer pattern generalizes cleanly to the World layer: adding a compact deterministic `Universe.brief` at the same architectural tier costs one new field and five wiring points.
+- Adopting Option D does not require inventing a precedence engine; two conventions (non-overlapping ownership + narrator-precedence for legitimate overlaps) suffice.
+- Existing Universe-audience KD retrieval already handles World-owned detail; no new retrieval infrastructure is needed.
+- Zero-KD Universes (Fox & Flour today) get an immediately-usable World identity from the new field with no KD authoring.
+
+**INFERENCE:**
+- Option D is the smallest coherent representation that matches the pattern Character OS has already established at the character layer.
+- business_brief's overload survives Option D unchanged; that's fine as a first move — decomposition is a separate future decision.
+- Slice 5's invariant remains sound and improves under Option D (new characters land in a semantically-populated World).
+- The welcome-page handoff and Knowledge UI reshape become natural, small downstream slices AFTER Option D lands.
+
+**PRODUCT HYPOTHESIS (to test in Q-277-8):**
+- H1 — a single 1-3 paragraph `Universe.brief` is sufficient to eliminate the §110-§111 "World cannot describe itself without characters" gap.
+- H2 — deterministically injecting `Universe.brief` into synthesis reduces cross-character duplication drift (§113) without a precedence engine.
+- H3 — the SPA form change is a single required text field on `/workspace/universes/new` + a read-only display on `/workspace/universes/:id`.
+
+**PRODUCT RECOMMENDATION (Chris + ChatGPT decide, not implemented in Slice 7):**
+- Adopt Option D as the minimum World semantic contract.
+- Schedule Q-277-8 as the next slice (single-field + five wirings; no Knowledge UI, no wizard changes, no data migration, no business_brief changes).
+- Defer character-brief decomposition (Q-277-8-alt-B) and welcome-page handoff (Q-277-8-alt-C) to subsequent slices.
+- Preserve Slice 5's invariant throughout.
+
+**UNRESOLVED QUESTION:**
+- What is the exact character-count expectation / cap for `Universe.brief` (300? 500? 1000? 2000?)? Slice 7 estimates 300-1000 chars matches the character-personality precedent; Q-277-8 can settle a firm cap in the model field.
+- Should `Universe.description` be repurposed (renamed to something like `Universe.notes`) or preserved as-is with clarifying help text? Not blocking Q-277-8.
+- Should the wizard preview the World brief when creating a character inside an existing World, or is that a separate slice?
+- Does the welcome-page handoff redesign (§139) belong before or after Q-277-8? Recommendation: **after**, so the World brief is available to inform whether the handoff copy should say "Teach {World} more" or something else.
+- If Option D lands, does `business_brief` eventually deprecate in favor of a slimmer character-owned field (e.g. `character_role`)? Deferred — the character-layer decomposition is a separate arc.
+
+## §144 Slice 7 landed SHA
+
+_Landed SHA: TBD (SHA-record commit after Slice 7 lands)._
+
+
 
 
