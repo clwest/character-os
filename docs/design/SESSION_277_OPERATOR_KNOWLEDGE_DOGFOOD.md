@@ -4378,7 +4378,7 @@ scope approval.
 
 ## §160 Slice 8 landed SHA
 
-_Landed SHA: TBD (SHA-record commit after Slice 8 lands)._
+_Landed SHA: `fbf2bf8` (Slice 8 implementation commit)._
 
 
 
