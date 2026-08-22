@@ -26,6 +26,7 @@ import {
   type KnowledgeDocument,
   type DocumentStatus,
 } from "@/lib/api/knowledge";
+import { buildKnowledgeHandoffPath } from "@/lib/knowledge/handoff";
 import { cn } from "@/lib/utils";
 
 /**
@@ -57,6 +58,13 @@ interface KnowledgePanelProps {
   workspaceId: string;
   spokespersonId: string;
   spokespersonName: string;
+  /** SESSION 277 Slice 12 (Q-277-12) — the character's Universe
+   * UUID, when known. Threaded into the "Manage workspace
+   * knowledge" + empty-state Links so the destination
+   * `/workspace/knowledge` receives contextual audience state.
+   * Undefined / null for legacy `universe=NULL` teammates —
+   * destination falls back to the generic flow. */
+  spokespersonUniverseId?: string | null;
 }
 
 
@@ -64,7 +72,17 @@ export function KnowledgePanel({
   workspaceId,
   spokespersonId,
   spokespersonName,
+  spokespersonUniverseId,
 }: KnowledgePanelProps) {
+  // SESSION 277 Slice 12 (Q-277-12) — build the character-detail-
+  // origin handoff URL used by both the header manage-link and the
+  // empty-state open-link. Query params always include spokesperson
+  // + origin; include universe only when known (see handoff.ts).
+  const handoffPath = buildKnowledgeHandoffPath({
+    universeId: spokespersonUniverseId,
+    spokespersonId,
+    origin: "character_detail_knowledge_panel",
+  });
   const list = useSpokespersonKnowledge(workspaceId, spokespersonId, {
     refetchInterval: (query) => {
       const docs = query.state.data ?? [];
@@ -87,7 +105,7 @@ export function KnowledgePanel({
         count={docs.length}
         action={
           <Link
-            to="/workspace/knowledge"
+            to={handoffPath}
             data-testid="manage-knowledge-link"
             className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground transition-colors hover:text-foreground"
           >
@@ -107,7 +125,10 @@ export function KnowledgePanel({
       )}
 
       {!list.isLoading && docs.length === 0 && (
-        <EmptyState spokespersonName={spokespersonName} />
+        <EmptyState
+          spokespersonName={spokespersonName}
+          handoffPath={handoffPath}
+        />
       )}
 
       {docs.length > 0 && (
@@ -131,7 +152,13 @@ export function KnowledgePanel({
 }
 
 
-function EmptyState({ spokespersonName }: { spokespersonName: string }) {
+function EmptyState({
+  spokespersonName,
+  handoffPath,
+}: {
+  spokespersonName: string;
+  handoffPath: string;
+}) {
   return (
     <div
       className="rounded-md border border-dashed border-border p-8 text-center"
@@ -146,7 +173,7 @@ function EmptyState({ spokespersonName }: { spokespersonName: string }) {
         they apply to this spokesperson.
       </p>
       <Link
-        to="/workspace/knowledge"
+        to={handoffPath}
         className="mt-4 inline-block text-sm font-medium underline-offset-4 hover:underline"
         data-testid="empty-add-knowledge"
       >

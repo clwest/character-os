@@ -5687,6 +5687,272 @@ lock:
 
 _Landed SHA: `5d335e0` (Slice 11 audit commit)._
 
+---
+
+# Slice 12 — Q-277-12 — Contextual character-origin Knowledge handoff (implementation)
+
+Chris + ChatGPT approved Slice 11's Q-277-12 with one product
+sharpener: **contextual character-origin flows do NOT expose
+WORKSPACE audience.** The contextual decision is exactly two
+first-class choices — `Everyone in {World}` and `Just {Character}`.
+The generic dashboard/nav-rail `/workspace/knowledge` flow is
+untouched when no contextual params are present.
+
+## §225 Slice 12 baseline
+
+- HEAD @ Slice 12 open: `6a42181` (Slice 11 SHA-record). Clean, pushed.
+- Real-DB: KD=0, KC=0. Fox & Flour brief=331; Patch's Workshop description=31. Zero drift.
+- Backend contract already supports both target audience payloads:
+  - UNIVERSE create: `{workspace, universe: <uuid>, title, ...content}` — no `audience_scope`, no `spokesperson_ids` (Slice 5 serializer §299).
+  - CHARACTER create: `{workspace, spokesperson_ids: [<uuid>], title, ...content}` — no `audience_scope`, no `universe` (Slice 5 serializer §299).
+- `CreateKnowledgePayload` interface at `web/src/lib/api/knowledge.ts:223-247` already declares both fields. **No backend / serializer / API-client changes required.**
+
+## §226 Q-277-12
+
+> If the `/spokespeople/:id/welcome` Knowledge CTA and the
+> character-detail `KnowledgePanel` links preserve the context
+> Character OS already knows (universe + spokesperson + origin), and
+> `/workspace/knowledge` uses that context to present an explicit
+> World-vs-character audience decision (no WORKSPACE option in
+> contextual mode), does the onboarding handoff become coherent
+> without changing backend semantics or breaking the generic
+> Knowledge flow when no contextual params are present?
+
+## §227 Slice 12 prediction (before implementation)
+
+Prediction: **CONFIRMED.** The three-file scope is sufficient. The
+`WorkspaceKnowledgeRoute` component will:
+
+1. Read `?universe`, `?spokesperson`, `?origin` via `useSearchParams`.
+2. Validate: origin ∈ {`character_welcome`, `character_detail_knowledge_panel`}; universe UUID resolves to an active Universe in the operator's workspaces; spokesperson UUID resolves to a Teammate that BOTH exists and (a) belongs to that Universe OR (b) is universe-null AND the origin is `character_detail_knowledge_panel` (legacy-teammate origin — fall back to generic mode without contextual audience choice).
+3. When context is valid: render `ContextualUploadPanel` instead of the existing `UploadPanel`. Header names the World and character. Audience selector shows exactly two first-class choices. Neither is preselected. Ingest tabs (Paste / Upload / URL / Search) render inline BELOW the audience choice; submit is disabled until an audience is picked.
+4. On submit: build the appropriate payload — UNIVERSE (`universe: <uuid>`) OR CHARACTER (`spokesperson_ids: [<uuid>]`). Never include `audience_scope="workspace"`. Never mix `universe` with `spokesperson_ids`.
+5. When context is absent or invalid: render the existing `UploadPanel` unchanged.
+
+Predicted acceptance-criteria outcomes:
+
+| Criterion | Predicted |
+|---|---|
+| A. Welcome handoff preserves World + character + origin | YES |
+| B. KnowledgePanel handoff preserves World + character + origin (universe when known) | YES |
+| C. Contextual destination shows correct World and character names | YES (resolved via existing `useUniverses` + `useSpokespeople`) |
+| D. Neither audience silently selected | YES |
+| E. World choice → UNIVERSE payload | YES |
+| F. Character choice → CHARACTER payload | YES |
+| G. WORKSPACE not exposed in contextual mode | YES |
+| H. Submit blocked before audience picked | YES |
+| I. Bare `/workspace/knowledge` unchanged | YES |
+| J. Refresh / deep-link preserves state | YES (URL query params are stateless-persistent) |
+| K. Invalid / stale params fail safely without broadening | YES (falls back to existing generic UploadPanel — no audience preselection) |
+| L. Existing SPA tests remain green | YES (additive change) |
+
+Expected payload semantics (exact):
+
+- **World audience (Everyone in {World}):**
+  ```
+  { workspace, universe: <uuid>, title, text_content OR pdf_data_uri OR source_url_input, ... }
+  ```
+  Backend interprets: `audience_scope=UNIVERSE`.
+- **Character audience (Just {Character}):**
+  ```
+  { workspace, spokesperson_ids: [<uuid>], title, text_content OR pdf_data_uri OR source_url_input, ... }
+  ```
+  Backend interprets: `audience_scope=CHARACTER`. `spokesperson.universe` is deferred to the backend M2M signal for cross-Universe rejection (Slice 3 §47).
+
+_Falsifiable by:_ any acceptance-criterion failure; any existing SPA test regressing; any payload that mixes `universe` with `spokesperson_ids` or emits `audience_scope="workspace"`.
+
+## §228 Files changed (exact scope)
+
+| File | Kind | What |
+|---|---|---|
+| `web/src/lib/knowledge/handoff.ts` | new | Shared handoff contract: `KNOWLEDGE_HANDOFF_PARAM` constants, `KNOWLEDGE_HANDOFF_ORIGINS` discriminator union, `buildKnowledgeHandoffPath(...)` builder, `parseKnowledgeHandoff(searchParams)` parser + `looksLikeUuid` shape check. Single source of truth for the query-param contract used by all three surfaces. |
+| `web/src/lib/knowledge/handoff.test.ts` | new | 12 pure-function tests: builder with/without universe; parser rejects on missing/unknown/malformed values; round-trip preserves data; origin enum locked at exactly 2 values. |
+| `web/src/routes/spokespeople/welcome.tsx` | edit | Import `buildKnowledgeHandoffPath`. Change the primary CTA `<Link to="/workspace/knowledge">` → `<Link to={buildKnowledgeHandoffPath({universeId: spokesperson.universe, spokespersonId: spokesperson.id, origin: "character_welcome"})}>`. Copy unchanged (Slice 11 §211 said wording depends on destination shape). |
+| `web/src/routes/spokespeople/welcome.handoff.test.tsx` | new | 2 tests: welcome CTA href carries universe+spokesperson+origin; universe param is omitted for legacy `universe=NULL` teammates. |
+| `web/src/components/knowledge-panel.tsx` | edit | Import `buildKnowledgeHandoffPath`. Add optional `spokespersonUniverseId?: string \| null` prop. Both `Manage workspace knowledge` header Link and the `EmptyState`'s `Open workspace knowledge →` Link now route to the same computed `handoffPath` with `origin: "character_detail_knowledge_panel"`. |
+| `web/src/routes/spokespeople/$id.tsx` | edit | Caller — passes `spokespersonUniverseId={s.universe}` to `<KnowledgePanel>` (single-line prop addition; source already has `s.universe`). |
+| `web/src/routes/workspace/knowledge.tsx` | edit | Import `useSearchParams`, `useUniverse`, `useSpokesperson`, `parseKnowledgeHandoff`. In `WorkspaceKnowledgeRoute`, read handoff params. When `parsed !== null`, render new `ContextualUploadPanel`; else render existing `UploadPanel` unchanged. New `ContextualUploadPanel` + `AudienceOption` + 4 ingest sub-forms (`ContextualPasteForm` / `ContextualUploadForm` / `ContextualUrlForm` / `ContextualSearchForm`) appended before `readableError`. Shared `contextualAudiencePayload` helper enforces the payload contract (World → `{universe}`; Character → `{spokesperson_ids}`; never mixed, never WORKSPACE). |
+| `web/src/routes/workspace/knowledge.contextual.test.tsx` | new | 14 tests: name resolution (C); no audience preselected (D); ingest blocked until audience picked (H); WORKSPACE never exposed (G); ingest reveal after choice; UNIVERSE payload shape (E); CHARACTER payload shape (F); bare `/workspace/knowledge` unchanged (I); 5 fail-safe fallback cases (K: sp doesn't resolve / universe doesn't resolve / stale sp-vs-URL mismatch / malformed UUIDs / legacy teammate w/o World); deep-link mounts contextual mode (J). |
+
+**Not touched (per Slice-12 scope-lock):**
+- Any backend / serializer / migration / retrieval / synthesis file.
+- The character wizard (`spokesperson-wizard.tsx`).
+- The World detail page (`universes.$id.tsx`).
+- The Universe list / create page (`universes.tsx`).
+- Any Episode file.
+- The generic `UploadPanel` and its 4 ingest sub-forms — preserved byte-identically for the bare-URL path.
+- `Universe.description` internal name (still just an operator-visible label change in Slice 10).
+
+## §229 Payload semantics (exact, source-verified)
+
+Confirmed against `web/src/lib/api/knowledge.ts:223-247` `CreateKnowledgePayload` + Slice 5 serializer §299.
+
+**World audience (Everyone in {World}):**
+```
+POST /api/knowledge/
+{
+  workspace: <workspace-uuid>,
+  universe:  <world-uuid>,
+  title:     <string>,
+  text_content OR pdf_data_uri OR source_url_input (+ optional via_serper),
+}
+```
+- Backend interprets: `audience_scope=UNIVERSE`.
+- Fields NEVER emitted: `spokesperson_ids`, `audience_scope`.
+
+**Character audience (Just {Character}):**
+```
+POST /api/knowledge/
+{
+  workspace:         <workspace-uuid>,
+  spokesperson_ids:  [ <character-uuid> ],
+  title:             <string>,
+  text_content OR pdf_data_uri OR source_url_input (+ optional via_serper),
+}
+```
+- Backend interprets: `audience_scope=CHARACTER`.
+- Fields NEVER emitted: `universe`, `audience_scope`.
+- Backend M2M signal (Slice 3 §47) enforces cross-Universe rejection: because the operator arrived through a character whose Universe was validated at handoff parse time (§231), the M2M attach is guaranteed to satisfy `sp.universe_id == doc.universe_id` — where the KD has `universe=NULL` (character-only pool) and the character has whatever universe it belongs to. This is the existing SESSION 276 shape; Slice 12 does not change it.
+
+**WORKSPACE audience is impossible from contextual mode.** No code path in `ContextualUploadPanel` / its 4 sub-forms sets `audience_scope="workspace"`. WORKSPACE remains reachable only via the pre-existing `UniverseScopePicker` "None (legacy)" sentinel inside the generic `UploadPanel`, which is only rendered when there are no handoff params.
+
+## §230 Compatibility behavior (source-verified)
+
+**Bare `/workspace/knowledge`:**
+- `parseKnowledgeHandoff(new URLSearchParams())` returns `null`.
+- The `parsed ? … : <UploadPanel />` branch renders the pre-Slice-12 `UploadPanel` unchanged.
+- All four generic ingest forms + the generic `UniverseScopePicker` behave byte-identically to Slice 11.
+- Dashboard/nav-rail entry point unaffected. Locked by `test_bare /workspace/knowledge unchanged (I)`.
+
+**Legacy `universe=NULL` teammate via character-detail KnowledgePanel:**
+- Handoff URL includes `?spokesperson=<uuid>&origin=character_detail_knowledge_panel` but NOT `?universe=<uuid>`.
+- `parseKnowledgeHandoff` returns `{universeId: null, spokespersonId, origin}`.
+- `ContextualUploadPanel` mounts, `useUniverse(undefined)` returns `data: undefined`, contextual mode detects `!uData` → falls back to `<UploadPanel/>`.
+- Rationale: "Everyone in {World}" has no target when the character has no World, and CHARACTER-only for a legacy teammate should go through the existing legacy path unchanged. Locked by `test_falls back when a legacy universe=NULL teammate arrives via character_detail origin`.
+
+**Stale query params** (character was moved to a different Universe after the URL was generated):
+- `parseKnowledgeHandoff` succeeds (shape valid).
+- `ContextualUploadPanel` resolves both sides via TanStack Query hooks. The `paramMatchesTeammate` guard rejects `sp.universe !== universeIdParam`; falls back to generic `UploadPanel`. Locked by `test_falls back when the spokesperson.universe doesn't match the URL universe (stale)`.
+
+**Malformed UUIDs / unknown origin in URL:**
+- `parseKnowledgeHandoff` rejects at the shape layer (regex UUID check + origin enum check). Returns `null` → generic `UploadPanel`. Locked by `test_falls back when malformed UUIDs are in the URL`.
+
+**Refresh / deep-link:**
+- URL query params are stateless-persistent. Directly navigating to `/workspace/knowledge?universe=…&spokesperson=…&origin=…` (as `MemoryRouter` does in tests) renders contextual mode from first paint. Locked by `test_mounts directly on the contextual URL and renders contextual mode (J)`.
+
+## §231 Prediction vs actual
+
+Predicted **CONFIRMED**; actual **CONFIRMED**. Every acceptance criterion matches the §227 table.
+
+| Criterion | Predicted | Actual | Evidence |
+|---|---|---|---|
+| A. Welcome handoff preserves World + character + origin | YES | YES | `test_routes to /workspace/knowledge with universe + spokesperson + origin=character_welcome` |
+| A (legacy). Universe omitted for `universe=NULL` teammate | YES | YES | `test_omits the universe param when the character is legacy universe=NULL` |
+| B. KnowledgePanel handoff preserves context | YES | YES (source-verified — new `handoffPath` used by both Links) |
+| C. Human-readable World + character names | YES | YES | `test_resolves World + character names in human vocabulary (C)` |
+| D. Neither audience silently selected | YES | YES | `test_does NOT preselect either audience (D)` |
+| E. World → UNIVERSE payload | YES | YES | `test_sends {workspace, universe, title, text_content} — no spokesperson_ids, no audience_scope (E)` |
+| F. Character → CHARACTER payload | YES | YES | `test_sends {workspace, spokesperson_ids: [<uuid>], title, text_content} — no universe, no audience_scope (F)` |
+| G. WORKSPACE never exposed in contextual mode | YES | YES | `test_does NOT expose WORKSPACE as an audience option (G)` |
+| H. Ingest blocked until audience picked | YES | YES | `test_blocks ingest until an audience is picked (H)` |
+| I. Bare `/workspace/knowledge` unchanged | YES | YES | `test_renders the pre-Slice-12 UploadPanel (with UniverseScopePicker) when no params (I)` |
+| J. Deep-link / refresh preserves state | YES | YES | `test_mounts directly on the contextual URL and renders contextual mode (J)` |
+| K. Invalid / stale params fail safely | YES | YES (5 sub-cases) | `test_stale / invalid handoff params fail safely (K)` block |
+| L. Existing SPA tests remain green | YES | YES | Full suite 700/700 pass |
+
+## §232 Test totals + DB state
+
+- **New SPA tests:** 28/28 pass across three files (`handoff.test.ts` 12; `welcome.handoff.test.tsx` 2; `knowledge.contextual.test.tsx` 14).
+- **Full SPA suite:** 700 passed / 700 total in 6.65s (55 files). Baseline 672 + 28 new. Zero regressions.
+- **TypeScript check:** `npx tsc --noEmit` exit 0.
+- **Backend:** unchanged; no regression run necessary. Slice 8 backend baseline (2321/2321) unaffected.
+- **Real-DB state:** unchanged. KD=0, Fox & Flour brief=331 chars, Patch's Workshop description=31 chars, 9 teammates, 2 Universes.
+
+## §233 Chris dogfood-readiness
+
+Slice 12 is SPA-only + fully additive; automated verification is thorough. **Optional operator dogfood** can validate the runtime feel but is not required to establish correctness.
+
+If Chris wants to dogfood:
+
+**Sequence W — welcome-page handoff:**
+1. From `/dashboard`, click "New spokesperson".
+2. Complete the wizard for a test character in Fox & Flour (or any Universe you don't mind polluting temporarily — pick "+ Create new World" if you want an isolated test World).
+3. On the welcome page, click **"Teach {name} about your business"**.
+4. Verify the destination URL is now `/workspace/knowledge?universe=<uuid>&spokesperson=<uuid>&origin=character_welcome`.
+5. Verify the page shows a **"Teach {name} in {World}"** header (not the pre-Slice-12 generic "What your spokespeople know.").
+6. Verify TWO audience options: **Everyone in {World}** / **Just {name}**. Neither is preselected.
+7. Verify the ingest tabs (Paste / Upload PDF / URL / Search) DO NOT render until one audience is picked.
+8. Pick **Everyone in {World}**. Ingest a small paste — one sentence like "Business hours: 7 AM – 3 PM daily." Submit.
+9. Verify the created KD lands in Universe-audience (visible on `/workspace/universes/<id>` Docs section).
+10. Repeat with **Just {name}** to verify CHARACTER audience creation lands on the character's KnowledgePanel.
+
+**Sequence P — KnowledgePanel handoff:**
+1. Navigate to any Universe-bound character detail page (e.g. `/spokespeople/<tyson-id>`).
+2. Scroll to the Knowledge section. Click **"Manage workspace knowledge"** in the header (or "Open workspace knowledge →" in the empty state).
+3. Verify the URL includes `?universe=<uuid>&spokesperson=<uuid>&origin=character_detail_knowledge_panel`.
+4. Same contextual UI as Sequence W step 5-10.
+
+**Sequence B — bare-flow compatibility:**
+1. Navigate to `/workspace/knowledge` directly from the nav rail.
+2. Verify the pre-Slice-12 page renders (title "What your spokespeople know.", the four generic ingest forms with the `UniverseScopePicker` "World / Universe" dropdown at the top of each).
+3. Confirm no contextual audience selector appears.
+
+**No provider spend required** unless Chris chooses to synthesize with the new KD. Ingestion itself just chunks + embeds; verify against `/workspace/knowledge` list.
+
+## §234 Findings — separated
+
+**OBSERVED FACT (source / test):**
+- Handoff contract centralized in `web/src/lib/knowledge/handoff.ts`. 12 tests lock builder + parser shape.
+- Welcome CTA + KnowledgePanel header Link + KnowledgePanel empty-state Link all route through `buildKnowledgeHandoffPath(...)`. Verified by inspection + `welcome.handoff.test.tsx`.
+- Destination `WorkspaceKnowledgeRoute` reads `useSearchParams`, calls `parseKnowledgeHandoff`, branches on `parsed !== null`. When true renders `ContextualUploadPanel`; when false renders the pre-Slice-12 `UploadPanel` unchanged.
+- `ContextualUploadPanel` presents exactly two audience options — no WORKSPACE affordance anywhere. `test_does NOT expose WORKSPACE as an audience option (G)` locks by absence of `/None \(legacy/`, `/workspace-wide/`, and `paste-universe-scope` testid.
+- Payload shape enforced by `contextualAudiencePayload()` helper (single source of truth for the World-vs-Character branch). Both payload-shape tests assert `spokesperson_ids` NOT-in payload for World, `universe` NOT-in payload for Character, `audience_scope` NOT-in payload for either.
+- Zero backend files, models, migrations, or serializers touched. `git diff --stat` confirms.
+
+**SOURCE-DERIVED FACT:**
+- The Slice-5 CHARACTER-required-at-create invariant is unaffected — Slice 12 never mutates Teammate rows, only reads `spokesperson.universe`.
+- The Slice-8 `Universe.brief` synthesis wiring is unaffected — Slice 12 never touches synthesis code.
+- The generic `UploadPanel` + its `UniverseScopePicker` continue to expose the WORKSPACE-via-legacy-sentinel gesture for the dashboard/nav-rail path per §230. WORKSPACE is deprecated for character-origin flows but preserved for the generic flow.
+- All 5 fail-safe fallback cases route to the generic `UploadPanel` — never guess an audience.
+
+**INFERENCE:**
+- Slice 11's audit-recommended "handoff preservation + audience-picker reshape" landed as a single coherent slice with no scope creep.
+- The `ContextualUploadPanel` duplicates the 4-tab ingest UI internally (as new `Contextual*Form` components). A future consolidation slice could DRY these against the generic forms, but that would risk breaking the compatibility guarantee (bare-URL path unchanged). Duplication is intentional isolation.
+- The `contextualAudiencePayload` helper is the single non-negotiable rule; all four contextual sub-forms call it. A future test could add a snapshot lock on its return shape to prevent regressions.
+
+**PRODUCT RECOMMENDATION (Chris + ChatGPT decide):**
+- Consider Slice 13 dogfood on live real-mode with actual Tyson/Ruby to confirm operator flow feel.
+- Consider a small follow-on that revisits welcome-page copy (Slice 11 §211) now that the destination shape is settled — the wording "Teach {name} about your business" can be re-examined given the destination surface now explicitly asks "Who should know this?".
+- Do NOT collapse the four `Contextual*Form` components into shared helpers with the generic path in the next slice — the compatibility isolation guarantee is a live invariant. Any consolidation should be preceded by an audit slice.
+
+## §235 Unresolved questions (Slice 12 — deferred)
+
+- Should the welcome-page copy update in a follow-on slice? "Teach {name} about your business" reads slightly awkwardly given the destination now explicitly frames the audience choice. Candidates: "Teach {name} something", "Add knowledge — for {name} or {World}", "Continue onboarding". Deferred.
+- Should the character-detail KnowledgePanel's empty-state copy ("{name} doesn't know anything yet") update to reflect that "knowledge" now has two shapes (World-shared + character-specific)? Deferred; may be evident once dogfooded.
+- Should Slice 9's future World-detail "Add shared knowledge to this World" action (Slice 9 §184) reuse the same handoff contract with `origin: "world_detail_add_knowledge"`? That would be a natural sibling to Slice 12's two origins. Add-only, backward-compatible with the current `KNOWLEDGE_HANDOFF_ORIGINS` union. Deferred.
+- Should the 4 contextual sub-forms and the 4 generic sub-forms eventually share ingest primitives (title + textarea + PDF picker + URL + Serper)? Consolidation would reduce duplication but requires an audit of the compatibility invariant first.
+- Should the character-detail KnowledgePanel's `KnowledgePanelRow` (per-row Make X-only / Detach controls) also route through the contextual page for its "add" flow? Currently no such action exists on the row — this is a hypothetical for a later slice.
+
+## §236 Smallest next falsifiable question
+
+Given Slice 12's confirmation, three natural downstream questions exist:
+
+> **Q-277-13-A** (dogfood-first) — Ask Chris to perform Sequences W + P + B from §233 and report whether the contextual mode feels correct in real operation. If yes, no further code required for this arc. If not, the observation guides Q-277-13-B or -C.
+
+> **Q-277-13-B** (copy micro-slice) — Reword the welcome-page CTA + the KnowledgePanel empty-state copy so both surfaces frame the destination's "Who should know this?" question up-front (e.g. change "Teach {name} about your business" to "Add knowledge — for {name} or {World}"). Single-line-per-surface change, no test churn.
+
+> **Q-277-13-C** (world-detail origin) — Extend the handoff contract to include a `world_detail_add_knowledge` origin and add an "Add shared knowledge" action to `/workspace/universes/:id`. Would create symmetry with the character-origin flow and close Slice 9 §184.
+
+**Recommendation:** **Q-277-13-A first.** Automated verification confirms the mechanics; operator confirmation confirms the ergonomics. Q-277-13-B and -C are small and can land after dogfood if the feel is right.
+
+Do NOT begin any of these without Chris + ChatGPT explicit approval.
+
+## §237 Slice 12 landed SHA
+
+_Landed SHA: TBD (SHA-record commit after Slice 12 lands)._
+
+
+
 
 
 

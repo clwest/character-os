@@ -160,6 +160,7 @@ export function SpokespersonDetailRoute() {
           workspaceId={s.workspace}
           spokespersonId={s.id}
           spokespersonName={s.name}
+          spokespersonUniverseId={s.universe}
         />
       </section>
 

@@ -2,6 +2,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowRight, MessageCircle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSpokesperson } from "@/lib/api/spokespeople";
+import { buildKnowledgeHandoffPath } from "@/lib/knowledge/handoff";
 
 /**
  * Post-creation welcome screen.
@@ -106,13 +107,28 @@ export function SpokespersonWelcomeRoute() {
       </div>
 
       <div className="flex flex-col gap-3 border-t border-luxe pt-8">
+        {/* SESSION 277 Slice 12 (Q-277-12) — Preserve the character
+            onboarding context (universe + spokesperson + origin) so
+            `/workspace/knowledge` can render an explicit World-vs-
+            character audience decision instead of the generic scope
+            picker. Query params are the persistence mechanism (see
+            Slice 11 §217): stateless, refresh-safe, deep-linkable.
+            When `spokesperson.universe` is null (legacy teammate),
+            the universe param is omitted and the destination falls
+            back to the generic flow. */}
         <Button
           asChild
           size="lg"
           className="w-full justify-between text-base"
           data-testid="welcome-teach-cta"
         >
-          <Link to="/workspace/knowledge">
+          <Link
+            to={buildKnowledgeHandoffPath({
+              universeId: spokesperson.universe,
+              spokespersonId: spokesperson.id,
+              origin: "character_welcome",
+            })}
+          >
             <span className="flex items-center gap-2">
               <Sparkles className="h-4 w-4" />
               Teach {name} about your business
