@@ -6119,6 +6119,250 @@ Backend defense-in-depth regression added:
 
 _Landed SHA: `039172a` (Slice 12.1 hot-fix commit)._
 
+---
+
+# Slice 12.2 — Q-277-13-A — Operator dogfood verification (audit-only)
+
+Chris completed the real operator dogfood of Slice 12 (contextual
+character-origin Knowledge handoff) after Slice 12.1 landed. Two
+KnowledgeDocuments were created through the new contextual flow.
+Slice 12.2 is a **read-only verification** that the persisted rows
+and the actual retrieval boundary match the Slice 12 prediction.
+
+## §244 Slice 12.2 baseline
+
+- HEAD @ Slice 12.2 open: `b326375` (Slice 12.1 SHA-record). Clean, pushed.
+- Chris's dogfood produced 2 new `KnowledgeDocument` rows through the SPA. No shell mutation. No prior KDs — this is the first live post-Slice-8 Knowledge substrate.
+
+## §245 Operator dogfood record (recorded)
+
+**OPERATOR OBSERVATION (Chris):** two KDs created through the new
+contextual `/workspace/knowledge` flow after entering it via the
+character welcome/handoff:
+
+| # | Title | Content | Audience picked in UI |
+|---|---|---|---|
+| 1 | "Fox & Flour Hours" | "Fox & Flour Bakery is open daily from 7:00 AM to 3:00 PM." | **Everyone in Fox & Flour** (UNIVERSE) |
+| 2 | "Tyson's Pastry Pairing Specialty" | "Tyson is especially knowledgeable about pairing pastries with coffee and enjoys helping customers choose combinations." | **Just Tyson** (CHARACTER) |
+
+Both appeared to create successfully in the UI. No 400s reported
+(Slice 12.1 hot-fix landed BEFORE this dogfood run, so the
+Universe-bound CHARACTER shape was correct).
+
+## §246 DB shape verification (read-only)
+
+Queried `chriss-workspace` KDs at Slice 12.2 open.
+
+**OBSERVED DB FACT — Fox & Flour Hours:**
+
+| Field | Value |
+|---|---|
+| `id` | `d40b567e-557b-49e3-aa42-8002c86c6126` |
+| `workspace` | Chris's workspace |
+| `universe` | Fox & Flour Bakery (`1a0af807-…`) |
+| `audience_scope` | **`universe`** ✓ |
+| `spokespeople` (M2M) | `[]` (empty — correct for UNIVERSE audience) ✓ |
+| `is_active` | `True` |
+| `status` | `processed` |
+| `chunk_count` | 1 |
+| `ingested_via` | `paste` |
+| `document_type` | `text` |
+| `created_at` | `2026-08-22T03:07:01Z` |
+
+**OBSERVED DB FACT — Tyson's Pastry Pairing Specialty:**
+
+| Field | Value |
+|---|---|
+| `id` | `3ff45702-cb8b-49f0-82f6-97013c0f8da6` |
+| `workspace` | Chris's workspace |
+| `universe` | Fox & Flour Bakery (`1a0af807-…`) — **Slice 12.1 fix confirmed** ✓ |
+| `audience_scope` | **`character`** ✓ |
+| `spokespeople` (M2M) | `['Tyson']` ✓ |
+| `is_active` | `True` |
+| `status` | `processed` |
+| `chunk_count` | 1 |
+| `ingested_via` | `paste` |
+| `document_type` | `text` |
+| `created_at` | `2026-08-22T03:20:05Z` |
+
+**OBSERVED DB FACT — Safety checks:**
+- `KnowledgeDocument.objects.filter(workspace__slug='chriss-workspace', audience_scope='workspace').count() == 0` — **zero accidental WORKSPACE-audience KDs**.
+- `KnowledgeDocument.objects.filter(workspace__slug='chriss-workspace').exclude(universe_id__in=<chriss universes>).exclude(universe__isnull=True).count() == 0` — **zero cross-workspace universe leakage**.
+- Both KDs have `chunk_count=1` — chunking + embedding pipeline succeeded (status=processed).
+
+## §247 Retrieval boundary verification (production path)
+
+Exercised the actual synthesis retrieval path
+(`apps/embeddings/retrieval.py::retrieve_for_teammate`) with an
+arbitrary query vector (dim matches existing chunks; ranking is
+irrelevant — the filter/eligibility predicate is what determines
+which chunks each teammate CAN retrieve). This is the same code
+path `script_synthesis`, `dialogue_synthesis`, `teammate_ask`, and
+`conversation_synthesis` all consume.
+
+**RUNTIME/RETRIEVAL FACT:**
+
+```
+TYSON (universe=Fox & Flour Bakery):
+  eligible chunks: 2
+    - 'Fox & Flour Hours'                (1 chunk)
+    - "Tyson's Pastry Pairing Specialty" (1 chunk)
+
+RUBY (universe=Fox & Flour Bakery):
+  eligible chunks: 1
+    - 'Fox & Flour Hours' (1 chunk)
+```
+
+**Eligibility matrix — actual:**
+
+|                                  | Tyson | Ruby |
+|---|---|---|
+| Fox & Flour Hours                | **YES** | **YES** |
+| Tyson's Pastry Pairing Specialty | **YES** | **NO** |
+
+**MATRIX MATCHES PREDICTION EXACTLY.** All four cells align with
+the Slice-6 §110 SCOPE RULE and the Slice-12 handoff intent:
+- UNIVERSE-audience Fox & Flour Hours reaches every Fox & Flour
+  character (Tyson AND Ruby).
+- CHARACTER-audience Tyson specialty reaches only Tyson (Ruby is
+  correctly excluded by the M2M filter — the Q-fan at
+  `retrieval.py:236-247` matches CHARACTER-audience only when
+  `spokespeople=spokesperson`).
+
+## §248 SPA LIST predicate parity check
+
+The character-detail KnowledgePanel LIST view uses the same
+`?spokesperson=<uuid>` predicate (`KnowledgeDocumentViewSet.get_queryset`
+at `apps/embeddings/views.py:101-110`). Exercised via
+`APIRequestFactory` to confirm the SPA-visible LIST matches the
+retrieval boundary.
+
+**RUNTIME/LIST FACT:**
+
+```
+TYSON LIST ?spokesperson=Tyson: ['Fox & Flour Hours', "Tyson's Pastry Pairing Specialty"]
+RUBY  LIST ?spokesperson=Ruby:  ['Fox & Flour Hours']
+```
+
+Matches the retrieval matrix exactly. **Ruby's character-detail
+KnowledgePanel will show only Fox & Flour Hours; Tyson's will show
+both.** No cross-character leakage in either the synthesis path or
+the SPA list view.
+
+## §249 No unexpected behavior detected
+
+Inspected for the specific concerns the prompt names:
+
+- **Chunks:** both KDs produced exactly 1 chunk each. Chunk pipeline succeeded. Nothing over-chunked / under-chunked.
+- **Embeddings:** both KDs reached `status='processed'`. Slice 12.2 didn't need to inspect embedding vector content because eligibility is the target, but the retrieval probe succeeded (chunks queryable).
+- **Audience assignment:** exactly matches the operator's UI selection for both KDs.
+- **Universe association:** exactly matches — Fox & Flour on both, no cross-Universe / cross-workspace leak.
+- **KnowledgePanel visibility:** confirmed via LIST-predicate parity check (§248).
+- **No accidental WORKSPACE-audience row.**
+- **No accidental legacy `universe=NULL` row** — both KDs correctly carry the Universe FK (Slice 12.1 hot-fix confirmed working live).
+
+## §250 Prediction vs actual (Slice 12 §231 / Q-277-13-A)
+
+Slice 12 predicted **CONFIRMED** across all 12 acceptance criteria
+(A-L) at the automated-test level. Slice 12.1 corrected the
+Universe-bound CHARACTER payload after Chris's initial dogfood
+exposed the missing `universe` FK. Slice 12.2 (this document)
+provides operator-runtime evidence that the corrected flow works
+end-to-end.
+
+| Q-277-13-A dimension | Predicted (Slice 12 §233) | Actual (real-DB + retrieval) |
+|---|---|---|
+| World-audience payload creates UNIVERSE KD | YES | YES (§246) |
+| Character-audience payload creates CHARACTER KD in the character's Universe | YES (Slice 12.1) | YES (§246 — Slice 12.1 fix verified live) |
+| UNIVERSE KD reaches Tyson | YES | YES (§247) |
+| UNIVERSE KD reaches Ruby | YES | YES (§247) |
+| CHARACTER KD reaches Tyson | YES | YES (§247) |
+| CHARACTER KD does NOT reach Ruby (SCOPE RULE) | YES | YES (§247) |
+| SPA LIST parity with retrieval | YES | YES (§248) |
+| No accidental WORKSPACE-audience KD | YES | YES (§246) |
+| No cross-workspace universe leak | YES | YES (§246) |
+
+## §251 Findings — separated
+
+**OPERATOR OBSERVATION (Chris):**
+- Created two KDs through the new contextual flow. Both appeared to create successfully in the UI.
+- No 400s or errors reported this run (Slice 12.1 hot-fix landed before this dogfood).
+
+**OBSERVED DB FACT:**
+- Two KDs persisted with exactly the audiences the operator selected in the UI (§246).
+- Zero accidental WORKSPACE-audience rows; zero cross-workspace/Universe leakage.
+
+**RUNTIME/RETRIEVAL FACT:**
+- Production `retrieve_for_teammate` predicate returns the correct eligibility set for both Tyson and Ruby (§247).
+- SPA LIST predicate `?spokesperson=<uuid>` returns matching sets (§248).
+- The Tyson×Ruby × KD matrix matches the Slice-11 §217 handoff-contract intent exactly.
+
+**INFERENCE:**
+- The Slice 12 handoff plumbing + Slice 12.1 payload shape correctly land as `audience_scope=CHARACTER` (with Universe FK) or `audience_scope=UNIVERSE` (with empty M2M) depending on the operator's audience choice.
+- The SESSION 275 SCOPE RULE ("do not silently broaden character-private knowledge to a larger audience") is honored end-to-end: Ruby cannot retrieve Tyson's specialty.
+- The Slice 6 §110 "Universe-bound CHARACTER" shape (`audience_scope=CHARACTER + universe=<uuid> + spokespeople=[sp]`) is now produced by the real SPA operator flow, not just tests.
+
+**PRODUCT/UX OBSERVATION:**
+- Chris did not report any additional friction. The prompt describes the create operations as "successful in the UI" — consistent with Slice 10's Overview correction and Slice 12's contextual mode.
+- Chris has NOT yet re-verified that Ruby's KnowledgePanel now shows only "Fox & Flour Hours" (not the specialty) or that Tyson's shows both. That specific character-detail-page inspection is a small optional follow-on to the operator dogfood; the LIST-predicate parity check in §248 proves it will work.
+
+## §252 Q-277-13-A verdict
+
+**Q-277-13-A: CONFIRMED end-to-end.** Automated verification
+(700/700 SPA + 491/491 change-adjacent backend), the Slice 12.1
+hot-fix backend regression, and the Slice 12.2 real-DB + retrieval
++ LIST verification all agree. The Tyson×Ruby matrix is
+`YES/YES/YES/NO` exactly as predicted.
+
+**Sufficient evidence to close Q-277-13-A: YES.** No further code
+change required for this arc. The Slice-11 handoff contract, the
+Slice-12 contextual UI, the Slice-12.1 payload correction, and the
+production retrieval boundary all cohere in real operator use.
+
+## §253 Preservation
+
+**No mutation performed by Slice 12.2.** The two KDs remain in
+place. Tyson, Ruby, Fox & Flour, Patch's Workshop unchanged.
+Knowledge UI unchanged. No test files modified. No source files
+modified. This slice is a pure read-only verification with
+durable documentation.
+
+## §254 Smallest next falsifiable question
+
+Given Slice 12.2's clean confirmation of the whole Slice-11 →
+Slice-12 → Slice-12.1 arc, three legitimate next questions remain
+from Slice 12 §236:
+
+- **Q-277-13-B** (copy micro-slice) — reword welcome-page CTA and character-detail KnowledgePanel empty-state now that the destination shape is settled. Purely SPA copy; no test churn.
+- **Q-277-13-C** (world-detail origin) — extend the handoff contract with a `world_detail_add_knowledge` origin and add an "Add shared knowledge to this World" action to `/workspace/universes/:id`. Closes Slice 9 §184.
+- **Q-277-13-D** (character-brief decomposition observation — was Q-277-9-alt in Slice 8 §159) — observation-only: with `Universe.brief` populated on Fox & Flour and the contextual flow producing correctly-scoped KDs, does Chris notice that Ruby / Tyson's `business_brief` fields (Slice 6 §113 duplication) still overlap with Universe-owned content? If yes, a future micro-slice can narrow `business_brief` copy. If no, the overlap is tolerated as historical compatibility residue.
+
+**Recommendation:** **Q-277-13-C** — highest architectural leverage
+of the three. It extends the handoff contract additively
+(one new origin value + one new World-detail action button) and
+closes the last remaining Slice-9 §184 gap: World-detail as an
+equal peer origin to character-welcome / character-detail
+KnowledgePanel. Estimated scope: two files (`universes.$id.tsx`
+adds an "Add shared knowledge" button routing via
+`buildKnowledgeHandoffPath({universeId, spokespersonId: null,
+origin: "world_detail_add_knowledge"})`; `knowledge.tsx` contextual
+mode handles the `spokespersonId is null` origin — pre-selects
+`audience=UNIVERSE + universe=<uuid>`, hides the CHARACTER
+audience option).
+
+**Alternate:** **Q-277-13-B** is a fine micro-slice that can land
+independently at any time. **Q-277-13-D** is observation-only and
+doesn't require an implementation slice at all — Chris can note
+it during future dogfood.
+
+Do NOT begin any of these without Chris + ChatGPT explicit
+approval.
+
+## §255 Slice 12.2 landed SHA
+
+_Landed SHA: TBD (SHA-record commit after Slice 12.2 lands)._
+
+
 
 
 
