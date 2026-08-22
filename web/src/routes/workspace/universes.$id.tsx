@@ -15,6 +15,14 @@
  *   `Universe.description` remains the existing DB field; its
  *   operator-visible label becomes "Operator notes (optional)" per
  *   the accepted product decision — the model column is NOT renamed.
+ * SESSION 277 Slice 13 (Q-277-13-C) — OverviewPanel gains an
+ *   "Add shared knowledge" action that routes through
+ *   `/workspace/knowledge` with the world_detail_add_knowledge
+ *   origin. The origin's audience is UNIVERSE by construction; the
+ *   destination surface preselects that audience and does not offer
+ *   a character choice (see workspace/knowledge.tsx). Chris's
+ *   accepted product rule (§256): "Preserve what Character OS
+ *   already knows. Ask only what it genuinely doesn't know."
  */
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -22,10 +30,12 @@ import {
   ChevronLeft,
   Globe2,
   Pencil,
+  Sparkles,
   Trash2,
   ArchiveRestore,
   X,
 } from "lucide-react";
+import { buildKnowledgeHandoffPath } from "@/lib/knowledge/handoff";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -274,6 +284,15 @@ export function UniverseDetailRoute() {
 function OverviewPanel({ universe: u }: { universe: Universe }) {
   const briefTrimmed = (u.brief ?? "").trim();
   const notesTrimmed = (u.description ?? "").trim();
+  // SESSION 277 Slice 13 (Q-277-13-C) — World-detail Knowledge
+  // origin. Routes to the same /workspace/knowledge surface
+  // character-origin flows use, with an origin discriminator that
+  // pre-selects UNIVERSE audience at the destination. Never
+  // includes a spokesperson — the origin's audience IS the World.
+  const addSharedKnowledgePath = buildKnowledgeHandoffPath({
+    universeId: u.id,
+    origin: "world_detail_add_knowledge",
+  });
   return (
     <section
       data-testid="universe-overview"
@@ -324,6 +343,32 @@ function OverviewPanel({ universe: u }: { universe: Universe }) {
             </p>
           </div>
         )}
+
+        {/* SESSION 277 Slice 13 — shared-knowledge entry point.
+            Small button; not a redesign. Placed at the bottom of
+            the Overview card because "add shared knowledge" is a
+            direct extension of "what is this World?" — the same
+            audience by construction. */}
+        <div className="flex flex-col gap-2 border-t border-luxe pt-4">
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="w-fit"
+            data-testid="universe-add-shared-knowledge"
+          >
+            <Link to={addSharedKnowledgePath}>
+              <Sparkles className="mr-2 h-4 w-4" />
+              Add shared knowledge
+            </Link>
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Add facts every character in this World should know —
+            products, pricing, policies, shared context. Detailed
+            per-character knowledge is added from each character's
+            page.
+          </p>
+        </div>
       </div>
     </section>
   );

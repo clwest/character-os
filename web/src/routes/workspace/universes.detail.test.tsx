@@ -348,4 +348,37 @@ describe("World detail — SESSION 277 Slice 10 view/edit correction", () => {
     const notesView = screen.getByTestId("universe-notes-view");
     expect(notesView.textContent).toBe("Private reminder to self.");
   });
+
+  // ---------------------------------------------------------------
+  // SESSION 277 Slice 13 (Q-277-13-C) — Add shared knowledge action.
+  // ---------------------------------------------------------------
+
+  it("renders the 'Add shared knowledge' action on Overview with the correct handoff URL", () => {
+    renderRoute();
+    const cta = screen.getByTestId("universe-add-shared-knowledge");
+    expect(cta).toBeTruthy();
+    // Button renders as a Link via asChild — extract the underlying
+    // <a href>.
+    const href =
+      cta.getAttribute("href") ??
+      cta.querySelector("a")?.getAttribute("href") ??
+      "";
+    expect(href.startsWith("/workspace/knowledge?")).toBe(true);
+    const params = new URLSearchParams(href.split("?")[1]);
+    expect(params.get("universe")).toBe("u_1");
+    expect(params.get("origin")).toBe("world_detail_add_knowledge");
+    // No spokesperson param — origin is world-detail.
+    expect(params.get("spokesperson")).toBeNull();
+  });
+
+  it("does NOT expose 'Add shared knowledge' inside the Edit form (Slice-10 IA preserved)", async () => {
+    const user = userEvent.setup();
+    renderRoute();
+    // Overview shows it.
+    expect(screen.getByTestId("universe-add-shared-knowledge")).toBeTruthy();
+    // Enter Edit mode — the Overview panel unmounts, so the button
+    // is no longer visible.
+    await user.click(screen.getByTestId("universe-edit-toggle"));
+    expect(screen.queryByTestId("universe-add-shared-knowledge")).toBeNull();
+  });
 });

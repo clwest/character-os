@@ -6362,6 +6362,266 @@ approval.
 
 _Landed SHA: `34df871` (Slice 12.2 verification commit)._
 
+---
+
+# Slice 13 — Q-277-13-C — World-detail Knowledge origin (implementation)
+
+Chris + ChatGPT accepted Slice 12.2 verification and authorized
+Q-277-13-C: extend the contextual handoff with a **World-detail
+origin** so operators can add shared knowledge to a World without
+being asked to re-choose the audience the origin already implies.
+
+## §256 Slice 13 product rule
+
+**"Preserve what Character OS already knows. Ask only what it
+genuinely doesn't know."**
+
+- Character-origin flow (Slice 12): World known + character known → **audience unknown** → ask "Everyone in {World}" vs "Just {Character}".
+- World-detail origin (this slice): World known + **audience IMPLIED by origin (UNIVERSE)** → no audience question. Character choice is not offered at all — a world_detail_add_knowledge action is a positive UNIVERSE-audience gesture by construction.
+
+Adopting this rule keeps SESSION 275's "system actions should not
+silently broaden audience" invariant intact: the operator affirmatively
+chose "Add shared knowledge" from within the World; that click IS the
+audience intent.
+
+## §257 Slice 13 baseline
+
+- HEAD @ Slice 13 open: `c32d3c4` (Slice 12.2 SHA-record). Clean, pushed.
+- KD state (from Slice 12.2 §246): 2 KDs in Fox & Flour — 1 UNIVERSE + 1 CHARACTER. Chunks processed. Preserved untouched.
+- No source drift since Slice 12.2.
+
+## §258 Q-277-13-C
+
+> If `/workspace/universes/:id` grows an "Add shared knowledge" action
+> that routes through the SAME `/workspace/knowledge` surface used by
+> the contextual character-origin flow, and the destination handles a
+> new `world_detail_add_knowledge` origin by preselecting the
+> UNIVERSE audience for the origin World, hiding the CHARACTER audience
+> choice entirely, and producing the same UNIVERSE-audience POST
+> shape Slice 12 already uses — does this cleanly close the Slice 9
+> §184 World-origin gap without disturbing generic Knowledge, without
+> disturbing character-origin behavior, without any backend change,
+> and without any risk of introducing a WORKSPACE-audience document?
+
+## §259 Slice 13 acceptance criteria (recorded before implementation)
+
+**Origin isolation** (prompt A-G):
+
+A. Bare `/workspace/knowledge` (dashboard/nav-rail entry) remains generic — `UploadPanel` with `UniverseScopePicker`.
+B. Character-origin entry (`?universe=&spokesperson=&origin=character_welcome|character_detail_knowledge_panel`) still renders the two-audience `ContextualUploadPanel` from Slice 12 exactly as-is.
+C. World-detail origin entry (`?universe=&origin=world_detail_add_knowledge`) renders a new `ContextualUploadPanel` variant: shared-World mode, no audience selector, ingest tabs immediately available.
+D. Switching ingest tabs (Paste ↔ Upload PDF ↔ URL ↔ Search) in world-detail mode preserves the World context — no per-tab UniverseScopePicker reset.
+E. Refresh / direct-URL mounting from the world-detail handoff URL renders world-detail mode from first paint.
+F. Invalid / missing Universe (bad UUID, unresolvable, universe param absent from a world_detail origin) → fall back to generic `UploadPanel`. Never fabricate a World and never fall back to WORKSPACE.
+G. No code path introduced by this slice may emit `audience_scope="workspace"` or the "None (legacy)" sentinel. The world-detail POST payload must be identical in shape to the Slice 12 "World audience" payload: `{workspace, universe: <uuid>, title, ...content}`.
+
+**Additive-only surface changes:**
+- Extend `KNOWLEDGE_HANDOFF_ORIGINS` union: add `"world_detail_add_knowledge"`.
+- Extend `buildKnowledgeHandoffPath` signature: `spokespersonId?: string` (optional) with logic to omit the param when undefined.
+- Extend `parseKnowledgeHandoff`: origin-conditional validation — character origins require spokesperson UUID; world-detail origin requires universe UUID.
+- Add `<Button>` "Add shared knowledge" to `universes.$id.tsx` `OverviewPanel` — small, placed at the bottom of the Overview card with a helper hint. Not turning the page into a dashboard.
+- Add world-detail branch to `ContextualUploadPanel` on `workspace/knowledge.tsx` — same panel shell + ingest sub-forms; new variant with preselected UNIVERSE audience + no character resolution + no character-choice option.
+
+**Preservation invariants:**
+- Slice 5 wizard unchanged.
+- Slice 8 `Universe.brief` synthesis unchanged.
+- Slice 10 World-detail view/edit unchanged.
+- Slice 11/12 handoff contract additively extended (no breaking change to existing origins).
+- Slice 12.1 Universe-bound CHARACTER payload unchanged.
+- Backend: zero changes.
+- No migration.
+- Chris's existing KDs untouched.
+
+## §260 Slice 13 prediction (before implementation)
+
+Prediction: **CONFIRMED.** Additive extension. The existing
+`ContextualUploadPanel` and its four ingest sub-forms need one
+branch (origin-based) to skip the audience selector when the
+origin implies UNIVERSE. The `contextualAudiencePayload` helper
+already produces the exact right payload for World audience — it
+just needs to be forced to `"world"` for the world-detail origin
+regardless of any user click. Character-origin path stays untouched
+by construction; bare-URL path stays untouched by construction.
+
+Backend already accepts the exact payload (Slice 6 §110 + Slice 5
+serializer §299 UNIVERSE branch). No serializer changes. No new
+routes. No new hooks.
+
+**Falsifiable by:** any acceptance criterion failing; any existing
+SPA test regressing; any payload emitting `audience_scope="workspace"`;
+any world-detail route accidentally exposing a CHARACTER option.
+
+## §261 Files changed (exact scope)
+
+| File | Kind | What |
+|---|---|---|
+| `web/src/lib/knowledge/handoff.ts` | edit | Extend `KNOWLEDGE_HANDOFF_ORIGINS` with `"world_detail_add_knowledge"`. Add `isCharacterHandoffOrigin` helper. Make `spokespersonId` optional in `BuildKnowledgeHandoffPathInput`. Change `ParsedKnowledgeHandoff.spokespersonId` to `string \| null`. Rewrite `parseKnowledgeHandoff` with origin-conditional validation: character origins require spokesperson UUID; world-detail origin requires universe UUID (returns null otherwise); stray spokesperson param on world-detail is intentionally ignored. |
+| `web/src/lib/knowledge/handoff.test.ts` | edit | Update `KNOWLEDGE_HANDOFF_ORIGINS` enum assertion. Add 7 world-origin tests (build path, parse, missing/malformed universe, stray spokesperson ignored, round-trip, character-origin regression guard). |
+| `web/src/routes/workspace/universes.$id.tsx` | edit | Import `buildKnowledgeHandoffPath` and `Sparkles`. `OverviewPanel` gains an "Add shared knowledge" `<Button asChild>` at the bottom (border-top separator) with `data-testid="universe-add-shared-knowledge"` routing to `buildKnowledgeHandoffPath({universeId: u.id, origin: "world_detail_add_knowledge"})`. Helper copy describes shared-World intent + points character-private knowledge to the character page. |
+| `web/src/routes/workspace/universes.detail.test.tsx` | edit | Add 2 tests: URL carries `?universe=<uuid>&origin=world_detail_add_knowledge` with no spokesperson; button hidden in Edit mode (Slice-10 IA preserved). |
+| `web/src/routes/workspace/knowledge.tsx` | edit | Split top-level dispatch: `parsed?.origin === "world_detail_add_knowledge"` → `WorldOriginUploadPanel`; other origins → `CharacterOriginUploadPanel` (renamed from `ContextualUploadPanel`, byte-identical behavior). New `WorldOriginUploadPanel`: resolves Universe only (no `useSpokesperson`); renders `Add shared knowledge to {World}` heading; no audience selector; ingest tabs available immediately; fails safely to `<UploadPanel/>` when Universe doesn't resolve. Uses existing `ContextualPasteForm`/`ContextualUploadForm`/`ContextualUrlForm`/`ContextualSearchForm` with `audience="world"` and sentinel empty `spokespersonId`. |
+| `web/src/routes/workspace/knowledge.world-origin.test.tsx` | new | 12 tests: world-detail mode renders correct header + world name; no character resolution (`useSpokesperson` never called); no audience selector; ingest tabs immediately available; no WORKSPACE exposure; payload shape `{workspace, universe, ...content}`; tab switching preserves context; deep-link mounts world-detail mode; 4 fail-safe cases (unresolved universe, missing param, malformed UUID, stray spokesperson ignored). |
+
+**Not touched:**
+- `web/src/routes/spokespeople/welcome.tsx` — character-welcome origin unchanged.
+- `web/src/components/knowledge-panel.tsx` — character-detail origin unchanged.
+- `web/src/routes/workspace/knowledge.contextual.test.tsx` — Slice-12 tests locked; not modified.
+- `web/src/routes/spokespeople/welcome.handoff.test.tsx` — unchanged.
+- Any backend / model / migration / serializer / synthesis / retrieval file.
+- Slice 5 wizard.
+- Slice 10 World detail Edit/Danger regions.
+- `Universe.description` internal name (still just an operator-visible label).
+
+## §262 Behavior before / after (source-verified)
+
+**`/workspace/universes/:id` — OverviewPanel:**
+- Before: no shared-knowledge affordance. To add shared World knowledge the operator had to navigate to `/workspace/knowledge` (Slice 6 §120 gap).
+- After: small outline "Add shared knowledge" button at the bottom of Overview. Routes via handoff contract with `origin=world_detail_add_knowledge` + universe UUID.
+
+**`/workspace/knowledge` top-level dispatch:**
+- Before: `parsed ? <ContextualUploadPanel/> : <UploadPanel/>`.
+- After: three-way dispatch. World-detail origin → `<WorldOriginUploadPanel/>` (new). Character origin → `<CharacterOriginUploadPanel/>` (renamed from `ContextualUploadPanel`; behavior byte-identical). No parsed context → `<UploadPanel/>` (unchanged).
+
+**`WorldOriginUploadPanel` — new panel:**
+- Header: "Add shared knowledge to {Universe name}" + helper copy pointing character-private knowledge to the character page.
+- Body: four ingest tabs (Paste / Upload PDF / URL / Search) render immediately. No audience selector.
+- Payload: `contextualAudiencePayload("world", uData, "")` returns `{universe: uData.id}` — same shape as Slice 12's World branch.
+- Fail-safe: Universe hook returns undefined → `<UploadPanel/>` fallback.
+- Never calls `useSpokesperson`.
+
+**`ParsedKnowledgeHandoff` shape:**
+- Before: `{universeId: string | null; spokespersonId: string; origin: KnowledgeHandoffOrigin}`.
+- After: `{universeId: string | null; spokespersonId: string | null; origin: KnowledgeHandoffOrigin}`. Origin-conditional invariants documented in `parseKnowledgeHandoff` JSDoc.
+
+## §263 Payload semantics (source-verified)
+
+World-detail origin POST body (all four ingest sub-forms):
+
+```
+POST /api/knowledge/
+{
+  workspace: <workspace-uuid>,
+  universe:  <world-uuid>,
+  title:     <string>,
+  text_content OR pdf_data_uri OR source_url_input (+ optional via_serper),
+}
+```
+
+- Backend interprets: `audience_scope=UNIVERSE` (Slice 5 serializer §299, Slice 6 §108 precedence).
+- Fields NEVER emitted: `spokesperson_ids`, `audience_scope`.
+- Identical shape to Slice 12's "World audience" character-origin payload. Backend regression already covers it (Slice 12 §232 backend suite).
+
+## §264 Prediction vs actual
+
+Predicted **CONFIRMED** (§260). Actual **CONFIRMED**. Every
+acceptance criterion (A–G) is locked by a test:
+
+| Criterion | Predicted | Actual | Test |
+|---|---|---|---|
+| A. Bare `/workspace/knowledge` unchanged | YES | YES | `knowledge.contextual.test.tsx::"renders the pre-Slice-12 UploadPanel …" (I)` still green |
+| B. Character-origin behavior unchanged | YES | YES | `knowledge.contextual.test.tsx` full 14-test file still green + `handoff.test.ts::"character-origin unchanged — spokesperson still REQUIRED"` explicit regression guard |
+| C. World-detail origin → shared-World mode | YES | YES | `knowledge.world-origin.test.tsx::"renders shared-World header with the resolved World name"` |
+| D. Tab switching preserves context | YES | YES | `knowledge.world-origin.test.tsx::"preserves the World context when switching ingest tabs"` |
+| E. Refresh / deep-link deterministic | YES | YES | `knowledge.world-origin.test.tsx::"mounts world-detail mode from first paint on direct navigation"` |
+| F. Invalid / missing World fails safely | YES | YES | `knowledge.world-origin.test.tsx` block "fail-safe (F)" — 4 sub-cases |
+| G. Payload shape correct + no WORKSPACE fallback | YES | YES | `knowledge.world-origin.test.tsx::"posts {workspace, universe, title, text_content} — no spokesperson_ids, no audience_scope"` |
+| No CHARACTER option in world-detail mode | YES | YES | `knowledge.world-origin.test.tsx::"does NOT render the two-choice audience selector"` |
+| No `useSpokesperson` call in world-detail mode | YES | YES | `knowledge.world-origin.test.tsx::"does NOT resolve a character"` (`useSpokespersonMock` never called) |
+
+## §265 Test totals + DB state
+
+- **New/extended SPA tests:** 21 pass across three touched/new files:
+  - `handoff.test.ts` — 19 tests (12 existing + 7 new world-origin).
+  - `universes.detail.test.tsx` — 9 tests (7 existing + 2 new Slice-13).
+  - `knowledge.world-origin.test.tsx` — 12 new tests.
+- **Full SPA suite:** **721 passed / 721 total** in 6.68s (56 files). Slice-12.2 baseline 700 + 21 new. Zero regressions.
+- **TypeScript:** `npx tsc --noEmit` exit 0.
+- **Backend:** no changes; no regression run necessary.
+- **Real-DB state:** unchanged. Chris's two Slice-12.2 KDs preserved; Tyson/Ruby/Fox&Flour/Patch's Workshop unchanged.
+
+## §266 Findings — separated
+
+**OBSERVED FACT (source / test):**
+- Handoff contract extended additively — `KNOWLEDGE_HANDOFF_ORIGINS` now enumerates 3 values; character-origin behavior locked by regression guard.
+- World-detail action button on `OverviewPanel` routes via `buildKnowledgeHandoffPath({universeId: u.id, origin: "world_detail_add_knowledge"})` — no spokesperson param emitted.
+- Destination top-level dispatch splits on `parsed?.origin`; world-detail routes to `WorldOriginUploadPanel` (new); character origins route to `CharacterOriginUploadPanel` (renamed; behavior byte-identical).
+- World-detail panel never calls `useSpokesperson`, never renders the audience selector, and produces the same `{workspace, universe, ...content}` payload as Slice 12's World branch.
+- All 4 fail-safe cases (unresolved / missing / malformed universe; stray spokesperson on world-detail) fall back to the generic `UploadPanel`.
+
+**SOURCE-DERIVED FACT:**
+- Payload shape for world-detail is byte-identical to Slice 12 World-audience payload — backend regression already covers it (Slice 12 §232). No new backend test required.
+- The parser's origin discriminator wins over any stray spokesperson param — a bookmarked world-detail URL that leaks a spokesperson UUID does not flip into character mode.
+- The world-detail panel does not have an audience state variable; there is no code path that could emit `audience_scope="workspace"` or select CHARACTER.
+- `CharacterOriginUploadPanel` rename is name-only; the Slice-12 tests reference behavior via `data-testid`, so they remain valid without update.
+
+**PRODUCT HYPOTHESIS (dogfood target):**
+- H1 — Chris will experience the world-detail origin as materially different from the character-origin flow: no audience question, immediate ingest.
+- H2 — Adding a "Fox & Flour Sunday hours" or similar shared fact from the World-detail button will produce the same `audience_scope=UNIVERSE + universe=Fox&Flour` shape as the Slice-12 dogfood-produced "Fox & Flour Hours" KD.
+- H3 — Neither Tyson-audience nor Ruby-audience nor WORKSPACE-audience can be reached from the world-detail flow, even by URL manipulation.
+
+**PRODUCT PREFERENCE (Chris — TBD in dogfood):**
+- Whether the button copy "Add shared knowledge" reads correctly (alternatives: "Add World knowledge", "Add shared context"). Deferred to dogfood.
+- Whether the button placement at the bottom of Overview feels right or should move (top of page, near name, or a dedicated action strip). Deferred to dogfood.
+
+## §267 Dogfood instructions for Chris
+
+Short sequence (per prompt):
+
+**Sequence WD — World-detail Knowledge:**
+1. Navigate: `Worlds` → **Fox & Flour Bakery**.
+2. On the Overview panel, find the new **"Add shared knowledge"** button (bottom of Overview, below any Operator notes).
+3. Click it. The URL should become `/workspace/knowledge?universe=…&origin=world_detail_add_knowledge`.
+4. Verify: the page heading reads "Add shared knowledge to *Fox & Flour Bakery*". Ingest tabs (Paste / Upload PDF / URL / Search) are immediately visible. **No** "Who should know this?" question. **No** character or "Just Tyson" option.
+5. On the Paste tab, add one harmless shared fact — e.g. title "Fox & Flour Sunday policy" + content "Fox & Flour is closed on Christmas Day."
+6. Submit. Verify successful creation (no 400).
+7. Confirm the new KD appears in the workspace Documents list AND on `/workspace/universes/<fox-flour-id>` Docs section.
+
+**Compatibility spot-check (optional, Sequences B + P + W remain unchanged):**
+- Bare `/workspace/knowledge` from nav rail → generic UploadPanel + UniverseScopePicker.
+- Character welcome/handoff → two-choice audience selector.
+- Character-detail KnowledgePanel handoff → two-choice audience selector.
+
+**Do NOT** mutate Chris's existing two KDs to prove the fix. This
+slice is verified additively.
+
+## §268 Unresolved questions (Slice 13 — deferred)
+
+- Should the "Add shared knowledge" button also appear on `/workspace/universes` list rows, or only on the detail page? Deferred; the list page is a separate scope.
+- Should the world-detail heading include a small preview of `Universe.brief` for context? Deferred — nice-to-have; adds visual weight; possibly clutter.
+- Should Slice-10's Edit mode also gain the "Add shared knowledge" affordance (it currently only appears in Overview)? Deferred; the current placement is correct because Edit mode is a settings surface, not the content-creation surface.
+- Universe.description internal rename remains open (Q-277-11-B alternate) — small housekeeping.
+- Character-brief decomposition observation remains open (Q-277-13-D) — observation-only.
+
+## §269 Smallest next falsifiable question
+
+Given Slice 13's clean implementation + full test coverage, the
+smallest next question is **operator dogfood confirmation**:
+
+> **Q-277-13-C-verify** — After Chris performs Sequence WD from
+> §267 in real-mode, does the resulting KnowledgeDocument persist
+> with `audience_scope=UNIVERSE + universe=Fox&Flour + spokespeople=[]`
+> and does the operator flow feel materially different from the
+> character-origin two-choice flow (no audience question asked)?
+
+Same shape as Slice 12.2 (real-DB + retrieval verification after
+dogfood). Predicted **CONFIRMED**; the automated tests already lock
+the payload shape and the UI absence-of-CHARACTER-option; the
+dogfood verification would provide operator-runtime confirmation of
+the flow feel.
+
+Two alternates remain from Slice 12 §236:
+- **Q-277-13-B** (copy micro-slice) — reword welcome-page CTA + KnowledgePanel empty-state now that all three handoff origins are settled.
+- **Q-277-13-D** (character-brief decomposition observation) — watch whether Chris naturally trims Universe-identity content from character `business_brief` fields now that both `Universe.brief` (Slice 8) and shared-World Knowledge (Slice 13) are live.
+
+Do NOT begin any of these without Chris + ChatGPT explicit
+approval.
+
+## §270 Slice 13 landed SHA
+
+_Landed SHA: TBD (SHA-record commit after Slice 13 lands)._
+
+
+
 
 
 

@@ -197,15 +197,31 @@ export function WorkspaceKnowledgeRoute() {
       </header>
 
       {/* SESSION 277 Slice 12 (Q-277-12) — Contextual character-
-          origin mode. When the URL carries valid handoff params
-          (universe / spokesperson / origin), render the two-choice
-          audience selector variant. When absent or invalid, fall
-          through to the pre-Slice-12 generic UploadPanel unchanged
-          (compatibility path per §217). */}
-      {parsed ? (
-        <ContextualUploadPanel
+          origin mode: when the URL carries valid character-origin
+          handoff params (universe / spokesperson / origin), render
+          the two-choice audience selector variant.
+          SESSION 277 Slice 13 (Q-277-13-C) — World-detail origin:
+          when origin=world_detail_add_knowledge, render the shared-
+          World variant that preselects UNIVERSE audience and does
+          not offer a character choice. Both variants live in the
+          same page; the parser produces a discriminated union we
+          dispatch on. When parsed is null (bare URL or invalid
+          params), fall through to the pre-Slice-12 generic
+          UploadPanel unchanged (compatibility path per §217). */}
+      {parsed?.origin === "world_detail_add_knowledge" ? (
+        // Parser guarantees universeId !== null for this origin
+        // (handoff.ts §"world_detail_add_knowledge: universe is
+        // REQUIRED"). The `!` here is safe because
+        // parseKnowledgeHandoff returns null otherwise.
+        <WorldOriginUploadPanel
           workspaceId={workspaceId}
-          spokespersonId={parsed.spokespersonId}
+          universeIdParam={parsed.universeId!}
+        />
+      ) : parsed ? (
+        // Character origin: parser guarantees spokespersonId !== null.
+        <CharacterOriginUploadPanel
+          workspaceId={workspaceId}
+          spokespersonId={parsed.spokespersonId!}
           universeIdParam={parsed.universeId}
           origin={parsed.origin}
         />
@@ -851,9 +867,12 @@ function labelForIngestedVia(via: KnowledgeDocument["ingested_via"]): string {
 // ---- SESSION 277 Slice 12 — Contextual character-origin upload ----
 
 /**
- * ContextualUploadPanel — the Slice-12 replacement for `UploadPanel`
- * when the URL carries valid character-origin handoff params. The
- * operator is presented with:
+ * CharacterOriginUploadPanel — the Slice-12 replacement for
+ * `UploadPanel` when the URL carries valid character-origin handoff
+ * params. Renamed from `ContextualUploadPanel` in Slice 13 when
+ * the world-detail sibling was added; behavior is byte-identical.
+ *
+ * The operator is presented with:
  *   1. A resolved "You just created {Character} in {World}" banner.
  *   2. An explicit two-choice audience selector:
  *      - Everyone in {World} — UNIVERSE audience.
@@ -862,12 +881,14 @@ function labelForIngestedVia(via: KnowledgeDocument["ingested_via"]): string {
  *      Search) rendered AFTER audience is picked, without the
  *      generic UniverseScopePicker (audience is already known).
  *
- * Payload rules (matches Slice 5 serializer §299):
+ * Payload rules (matches Slice 5 serializer §299 + Slice 12.1
+ * Universe-bound CHARACTER shape):
  *   - World choice → { workspace, universe: <uuid>, ...content }
- *     Never mixes with spokesperson_ids. Never sets audience_scope.
- *   - Character choice → { workspace, spokesperson_ids: [<uuid>],
- *     ...content }
- *     Never mixes with universe. Never sets audience_scope.
+ *   - Character choice → { workspace, universe: <uuid>,
+ *     spokesperson_ids: [<uuid>], ...content } — Slice 12.1
+ *     hot-fix. Precedence at _persist makes spokespeople win →
+ *     audience_scope=CHARACTER; the universe FK satisfies the
+ *     SESSION 261 M2M invariant.
  *
  * WORKSPACE audience is intentionally NOT exposed in contextual
  * mode per Chris + ChatGPT Slice 12 product decision. The generic
@@ -883,7 +904,7 @@ function labelForIngestedVia(via: KnowledgeDocument["ingested_via"]): string {
 
 type AudienceChoice = "world" | "character";
 
-function ContextualUploadPanel({
+function CharacterOriginUploadPanel({
   workspaceId,
   spokespersonId,
   universeIdParam,
@@ -1041,6 +1062,150 @@ function ContextualUploadPanel({
           </Tabs>
         </div>
       )}
+    </section>
+  );
+}
+
+
+// ---- SESSION 277 Slice 13 — World-detail origin upload panel ----
+
+/**
+ * WorldOriginUploadPanel — shared-World variant of the contextual
+ * upload flow. Rendered when the destination URL carries
+ * origin=world_detail_add_knowledge. Product rule (Slice 13 §256):
+ * "Preserve what Character OS already knows. Ask only what it
+ * genuinely doesn't know."
+ *
+ * The origin itself expresses UNIVERSE-audience intent — the
+ * operator affirmatively clicked "Add shared knowledge" from
+ * inside the World. There is no character to disambiguate and no
+ * audience question to ask. This panel therefore:
+ *
+ *   - Resolves the World name (from `useUniverse`) — never a
+ *     character.
+ *   - Skips the audience selector entirely.
+ *   - Renders the ingest tabs immediately, using
+ *     `contextualAudiencePayload("world", ...)` to build the same
+ *     `{workspace, universe: <uuid>, ...content}` payload the
+ *     character-origin World branch produces (Slice 5 UNIVERSE
+ *     serializer §299 / Slice 6 §110).
+ *
+ * Never exposes a CHARACTER audience option in this variant
+ * (Slice 13 acceptance G). Never emits `audience_scope="workspace"`.
+ * Fails safely to the generic `UploadPanel` when the Universe
+ * doesn't resolve (Slice 13 acceptance F).
+ *
+ * Payload is byte-identical to Slice 12's World branch — this
+ * variant differs only in UI (no selector) and in the fact that
+ * `spokespersonId` is unused. The `contextualAudiencePayload`
+ * helper is shared; we pass a sentinel empty string for
+ * `spokespersonId` since it's never read on the World branch.
+ */
+function WorldOriginUploadPanel({
+  workspaceId,
+  universeIdParam,
+}: {
+  workspaceId: string | undefined;
+  universeIdParam: string;
+}) {
+  const universe = useUniverse(universeIdParam);
+
+  if (universe.isLoading) {
+    return (
+      <section
+        data-testid="contextual-loading"
+        className="rounded-md border border-luxe bg-card/60 p-6"
+      >
+        <p className="text-sm text-fog">Loading context…</p>
+      </section>
+    );
+  }
+
+  // Fail safely: if the Universe param doesn't resolve, fall back
+  // to the generic UploadPanel. Never fabricate a World; never
+  // silently substitute WORKSPACE audience (Slice 13 §259
+  // acceptance F + G).
+  const uData = universe.data;
+  if (!uData) {
+    return <UploadPanel workspaceId={workspaceId} />;
+  }
+
+  return (
+    <section
+      data-testid="contextual-upload"
+      data-origin="world_detail_add_knowledge"
+      className="rounded-md border border-luxe bg-card/60 p-6"
+    >
+      <div className="flex items-start gap-3">
+        <Sparkles className="mt-1 h-5 w-5 shrink-0 text-gold" />
+        <div className="flex flex-col gap-1">
+          <h2 className="font-display text-2xl tracking-tight text-cream">
+            Add shared knowledge to{" "}
+            <span
+              data-testid="contextual-world-name"
+              className="italic gold-text"
+            >
+              {uData.name}
+            </span>
+          </h2>
+          <p className="text-sm text-mist">
+            Every character in this World inherits what you add here.
+            To teach a single character something private, use their
+            page instead.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-6" data-testid="contextual-ingest">
+        <Tabs defaultValue="paste">
+          <TabsList>
+            <TabsTrigger value="paste" data-testid="ctx-tab-paste">
+              Paste
+            </TabsTrigger>
+            <TabsTrigger value="upload" data-testid="ctx-tab-upload">
+              Upload PDF
+            </TabsTrigger>
+            <TabsTrigger value="url" data-testid="ctx-tab-url">
+              URL
+            </TabsTrigger>
+            <TabsTrigger value="search" data-testid="ctx-tab-search">
+              Search
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="paste" className="mt-4">
+            <ContextualPasteForm
+              workspaceId={workspaceId}
+              audience="world"
+              universe={uData}
+              spokespersonId=""
+            />
+          </TabsContent>
+          <TabsContent value="upload" className="mt-4">
+            <ContextualUploadForm
+              workspaceId={workspaceId}
+              audience="world"
+              universe={uData}
+              spokespersonId=""
+            />
+          </TabsContent>
+          <TabsContent value="url" className="mt-4">
+            <ContextualUrlForm
+              workspaceId={workspaceId}
+              audience="world"
+              universe={uData}
+              spokespersonId=""
+            />
+          </TabsContent>
+          <TabsContent value="search" className="mt-4">
+            <ContextualSearchForm
+              workspaceId={workspaceId}
+              audience="world"
+              universe={uData}
+              spokespersonId=""
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
     </section>
   );
 }

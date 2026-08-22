@@ -134,9 +134,106 @@ describe("parseKnowledgeHandoff", () => {
   });
 
   it("KNOWLEDGE_HANDOFF_ORIGINS enumerates exactly the accepted values", () => {
+    // SESSION 277 Slice 13 (Q-277-13-C) — added
+    // `world_detail_add_knowledge`. The enum is the authoritative
+    // list of origins the destination surface handles; extending
+    // it requires an explicit destination branch, so this
+    // assertion is a code-review checkpoint.
     expect([...KNOWLEDGE_HANDOFF_ORIGINS]).toEqual([
       "character_welcome",
       "character_detail_knowledge_panel",
+      "world_detail_add_knowledge",
     ]);
+  });
+});
+
+
+// -----------------------------------------------------------------
+// SESSION 277 Slice 13 (Q-277-13-C) — world_detail_add_knowledge
+// -----------------------------------------------------------------
+
+describe("world_detail_add_knowledge origin", () => {
+  it("builds a path with universe + origin, no spokesperson", () => {
+    const path = buildKnowledgeHandoffPath({
+      universeId: REAL_UUID_A,
+      origin: "world_detail_add_knowledge",
+    });
+    const params = new URLSearchParams(path.split("?")[1]);
+    expect(params.get("universe")).toBe(REAL_UUID_A);
+    expect(params.get("spokesperson")).toBeNull();
+    expect(params.get("origin")).toBe("world_detail_add_knowledge");
+  });
+
+  it("parses to {universeId, spokespersonId: null, origin: world_detail_add_knowledge}", () => {
+    const params = new URLSearchParams({
+      universe: REAL_UUID_A,
+      origin: "world_detail_add_knowledge",
+    });
+    const parsed = parseKnowledgeHandoff(params);
+    expect(parsed).toEqual({
+      universeId: REAL_UUID_A,
+      spokespersonId: null,
+      origin: "world_detail_add_knowledge",
+    });
+  });
+
+  it("ignores a stray spokesperson param when origin is world_detail_add_knowledge", () => {
+    // Belt-and-braces: even if a spokesperson UUID leaks into the
+    // URL for a world-detail origin (e.g. bookmark reuse), the
+    // parser MUST NOT convert this into a character-origin
+    // handoff. The origin discriminator wins.
+    const params = new URLSearchParams({
+      universe: REAL_UUID_A,
+      spokesperson: REAL_UUID_B,
+      origin: "world_detail_add_knowledge",
+    });
+    const parsed = parseKnowledgeHandoff(params);
+    expect(parsed).toEqual({
+      universeId: REAL_UUID_A,
+      spokespersonId: null, // parsed as null — origin overrides
+      origin: "world_detail_add_knowledge",
+    });
+  });
+
+  it("returns null when the universe param is missing on a world-detail origin", () => {
+    // world-detail origin REQUIRES a universe. Without one there
+    // is no target audience — destination MUST fall back to
+    // generic (never fabricate a World, never fall back to
+    // WORKSPACE).
+    const params = new URLSearchParams({
+      origin: "world_detail_add_knowledge",
+    });
+    expect(parseKnowledgeHandoff(params)).toBeNull();
+  });
+
+  it("returns null when the universe param is malformed on a world-detail origin", () => {
+    const params = new URLSearchParams({
+      universe: "not-a-uuid",
+      origin: "world_detail_add_knowledge",
+    });
+    expect(parseKnowledgeHandoff(params)).toBeNull();
+  });
+
+  it("round-trips a world-detail handoff URL", () => {
+    const path = buildKnowledgeHandoffPath({
+      universeId: REAL_UUID_A,
+      origin: "world_detail_add_knowledge",
+    });
+    const params = new URLSearchParams(path.split("?")[1]);
+    expect(parseKnowledgeHandoff(params)).toEqual({
+      universeId: REAL_UUID_A,
+      spokespersonId: null,
+      origin: "world_detail_add_knowledge",
+    });
+  });
+
+  it("character-origin unchanged — spokesperson still REQUIRED (Slice 12 behavior)", () => {
+    // Regression guard: adding a world-origin path must NOT loosen
+    // the character-origin requirement.
+    const params = new URLSearchParams({
+      universe: REAL_UUID_A,
+      origin: "character_welcome",
+    });
+    expect(parseKnowledgeHandoff(params)).toBeNull();
   });
 });
