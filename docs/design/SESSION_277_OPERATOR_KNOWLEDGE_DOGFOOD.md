@@ -4890,7 +4890,7 @@ Do NOT begin any of these without Chris + ChatGPT explicit approval.
 
 ## §185 Slice 9 landed SHA
 
-_Landed SHA: TBD (SHA-record commit after Slice 9 lands)._
+_Landed SHA: `8a27622` (Slice 9 audit commit)._
 
 
 
