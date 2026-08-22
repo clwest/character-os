@@ -5134,6 +5134,560 @@ Do NOT begin any of these without Chris + ChatGPT explicit approval.
 
 _Landed SHA: `e24e475` (Slice 10 implementation commit)._
 
+---
+
+# Slice 11 — Q-277-11 — Post-character Knowledge handoff semantics (audit-only)
+
+Chris + ChatGPT accepted Slice 10 after operator dogfood.
+
+**Slice 10 operator dogfood confirmation (§199 below).** Slice 11
+investigates the welcome-page → Knowledge handoff before touching
+any code — because the phrase "Teach {character} about your
+business" carries an unresolved audience ambiguity now that Character
+OS has first-class World identity + character identity + separate
+audience-scoped Knowledge lanes.
+
+## §199 Slice 10 operator dogfood confirmation (recorded)
+
+**OPERATOR OBSERVATION (Chris via ChatGPT):**
+- Both Fox & Flour Bakery and Patch's Workshop detail pages "look good" in the Slice-10 layout.
+- Default Overview state feels correct.
+- Real "Operator notes" behavior was visible on Patch's Workshop because its old `Universe.description` value was populated ("First world for Patch and Rivet").
+- The operator-visible distinction between **What is this World?** (brief, shared, characters inherit) and **Operator notes (optional)** (private, not consumed by synthesis) is understandable.
+- No additional World-detail UX complaint surfaced during this dogfood.
+
+**Classification:** OPERATOR DOGFOOD CONFIRMATION. Slice 10 is
+accepted from both automated verification (§193 — 672/672 pass) and
+operator runtime inspection. Do not reopen the World-detail page
+unless new evidence requires it.
+
+## §200 Slice 11 baseline
+
+- HEAD @ Slice 11 open: `82a8c35` (Slice 10 SHA-record). Clean, pushed.
+- Real-DB: KD=0, KC=0. Fox & Flour brief=331 chars (Chris's dogfood specimen preserved), description=0. Patch's Workshop brief=0, description=31 (SESSION 261 legacy note). Zero drift since Slice 10.
+
+## §201 Q-277-11
+
+> When an operator finishes creating a character and clicks
+> "Teach {character} about your business", is the intended Knowledge
+> audience naturally the character's entire World, the specific
+> character, or does the action represent an unresolved choice
+> between those two?
+>
+> Companion: What context should Character OS preserve automatically
+> during the handoff from character onboarding into Knowledge so the
+> operator never has to reconstruct facts the system already knows?
+
+## §202 Slice 11 checklist
+
+- [x] STEP 0 — baseline + Slice 10 dogfood confirmation.
+- [x] PART A — trace current welcome page.
+- [x] PART B — trace route handoff.
+- [x] PART C — Knowledge page input contract (re-confirm Slice 6 finding).
+- [x] PART D — semantic intent of "about your business".
+- [x] PART E — classify onboarding knowledge examples.
+- [x] PART F — is one default audience justified?
+- [x] PART G — preserved context vs operator decision.
+- [x] PART H — button wording audit.
+- [x] PART I — character with existing World (Tyson specimen).
+- [x] PART J — first character in new World (Copper Creek Coffee / Hazel specimen).
+- [x] PART K — multi-character World (Ruby + Tyson specimen).
+- [x] PART L — World-detail entry point comparison.
+- [x] PART M — character-detail KnowledgePanel comparison.
+- [x] PART N — minimum handoff contract.
+- [x] PART O — does this require full Knowledge UI reshape?
+- [x] PART P — generalization.
+- [x] PART Q — Q-277-11 answers.
+- [ ] Commit + push audit; SHA-record.
+
+## §203 Prediction (before source inspection)
+
+Prediction: the current wording is a **pre-Universe artifact**
+(SESSION 107 spokesperson-≈-business assumption). Semantic verdict:
+**MIXED** — "your business" reads as WORLD-scoped for most content
+(menu, pricing, policies), but the "Teach {character}" framing
+implies CHARACTER audience. Both are legitimate operator intents and
+should not be collapsed into one default. World-context preservation
+is **always safe**; audience selection is **never safe to infer**
+because the wrong inference either broadens (character-private fact
+becomes World-shared) or narrows (World fact becomes character-only)
+retrieval materially. Minimum handoff contract: preserve
+`universe_id` + `spokesperson_id` + `origin`, and require an
+explicit operator audience choice on the destination surface with
+those two options pre-labeled (Everyone in {World} vs {Character}
+only).
+
+## §204 PART A — Current welcome page (source-verified)
+
+Route: `/spokespeople/:id/welcome` — `web/src/routes/spokespeople/welcome.tsx`.
+
+- Component: `SpokespersonWelcomeRoute`. Reads `id` from `useParams`; calls `useSpokesperson(id)` → full spokesperson payload including `spokesperson.universe` (Slice-8 `Universe.brief` transitively available via a second fetch if needed).
+- Header: "§ — Setup · Step 2 of 4" + `<h1>` "Meet {name}."
+- Portrait + copy block: "{name} is ready to work. Here's what they know so far:" followed by a bulleted list — **"Their name and personality" / "The brief you gave them about your business" / "How to sound like themself, in their own voice"**.
+- Follow-up copy: *"That's a solid starting point — but {name} doesn't know your **specifics** yet. Your menu, your pricing, your policies, the details a real customer would ask about. That's the next step, and it's what turns {name} from a polished demo into something that actually represents your business."*
+- Primary CTA: `<Button asChild size="lg" data-testid="welcome-teach-cta"><Link to="/workspace/knowledge">…Teach {name} about your business…</Link></Button>` — **string href, no query params, no router state**.
+- Secondary CTA: "Say hi to {name} first" → `/spokespeople/{id}/talk`.
+- Tertiary: `SkipLink` → `/spokespeople/{id}` (detail page).
+- Trailing note: *"if you talk to {name} before adding knowledge, they'll answer generically — small talk about your industry, not specifics about your business."*
+
+**Data available in component state at the moment of the click:** id, name, portrait, personality, business_brief (transitively via spokesperson payload), `spokesperson.universe` (nullable UUID). **All context needed for a preselecting handoff is already present client-side.** The Link simply doesn't propagate any of it.
+
+## §205 PART B — Route handoff (source-verified)
+
+- Destination: `<Link to="/workspace/knowledge">` — bare string.
+- No `?universe=<uuid>&spokesperson=<uuid>` query params.
+- No `state={…}` prop for react-router-dom navigation state.
+- No `sessionStorage` / `localStorage` write.
+- No pre-mutation to seed the destination form.
+
+**Context preserved during navigation:** **NONE.**
+
+**Context lost:**
+- The spokesperson id the operator just created.
+- The Universe the spokesperson belongs to (`spokesperson.universe`).
+- The onboarding origin (that the operator is coming from character-welcome, not from the nav rail).
+- Any freshly-known character/World state the destination could use to pre-fill audience.
+
+## §206 PART C — Knowledge page input contract (re-confirmed)
+
+Grep source: `/Users/donkeyking/Donkey_Betz/character-os/web/src/routes/workspace/knowledge.tsx` for `useSearchParams`, `useLocation`, `location.search`, `query`.
+Result: **zero hits** for query-string reading. The `query` matches are the local `useState("")` for the Serper search input, unrelated to URL params.
+
+**Slice 6 §120 finding re-confirmed at current HEAD:** `/workspace/knowledge` does not accept `?universe=`, `?spokesperson=`, router state, props, or persisted client state. It initializes every form via `useState` from scratch.
+
+Backend already supports the query params (`apps/embeddings/views.py:117-126` accepts `?universe=<uuid>` and `?workspace=<uuid>`, and `?spokesperson=<uuid>` at line 101) — the gap is SPA-side only.
+
+## §207 PART D — Semantic intent of "Teach {character} about your business"
+
+Test the natural operator meaning of the phrase using the four
+inputs the prompt names.
+
+1. **Current copy on the welcome page** (§204):
+   - Header line "Teach {name} about your business" — reads as "the character is the pupil; your business is the material."
+   - Body copy elaborates the content: "your menu, your pricing, your policies." All of those are **business-of-record facts**, not character-personal facts.
+2. **Historical design intent** (SESSION 107 commit `1b80ebf`, Slice 6 §107): `Spokesperson` was "the unit of brand identity"; `business_brief` was "one-paragraph description of the business this spokesperson represents." Under that model, "Teach {character} about your business" was reasonable because there was no separate business entity — the character *was* the business. Post-SESSION-261 that assumption no longer holds.
+3. **Knowledge audience model (Delta, SESSION 276):** CHARACTER-audience KDs are single-character-restricted; UNIVERSE-audience KDs are shared across every character in the World; WORKSPACE-audience KDs are workspace-wide (deprecated per Slice 6 §35). A "business fact" the current copy names (menu / pricing / policy) is most coherently UNIVERSE-audience.
+4. **Modern World semantics** (Slice 7-8): the World owns identity + shared Knowledge. Character owns role + personality + character-specific expertise + private Knowledge.
+
+**Verdict on the natural meaning:** the copy is **semantically MIXED** — the phrase "Teach {character}" reads CHARACTER-target, but the body-copy content examples ("menu, pricing, policies") are WORLD-shared facts. This is directly the pre-Universe residue Slice 6 §107 identified. The single button today collapses two distinct operator intents into one flow that then dumps the operator on a generic Knowledge page.
+
+Choices A/B/C/D from the prompt evaluated:
+
+- **A** ("your business" = the World Tyson belongs to): fits body copy examples; feels natural in modern architecture.
+- **B** ("your business" = Tyson himself): matches "Teach {character}" grammar; only fits the pre-Universe model.
+- **C** (either, depending on the fact): matches current operator reality — some facts are World-shared, others are character-specific.
+- **D** (a broader mixed onboarding corpus): matches how welcome-body-copy actually frames it (menu + pricing + policies + "details a customer would ask") — a bag of onboarding content that spans both audiences.
+
+**Best answer: C** — with the acknowledgement that the current single-button collapses the two audiences invisibly.
+
+## §208 PART E — Onboarding-knowledge classification table
+
+Non-exhaustive; each row classifies the natural audience given the modern World / character split.
+
+| Example | Natural audience | Notes |
+|---|---|---|
+| Business hours | **WORLD** | Everyone at the bakery / dealership / workshop needs to know the same hours. |
+| Pricing (list) | **WORLD** | Detailed pricing belongs in KDs; Universe-audience. |
+| Menu / product catalog | **WORLD** | Same. |
+| Deposit policy | **WORLD** | Same. |
+| Refund policy | **WORLD** | Same. |
+| Location | **WORLD** | Physical address is shared. |
+| Company history | **WORLD** | Founding story, milestones — narrative shared context. |
+| Brand story | **WORLD** | Same. |
+| Shared safety rules | **WORLD** | Workshop safety, kitchen safety, dealership regulations. |
+| Character's personal expertise ("Ruby knows sourdough starter care") | **CHARACTER** | Belongs to one character; another character shouldn't cite as own knowledge. |
+| Character's private backstory ("Rivet arrived in the workshop after…") | **CHARACTER** | Same. |
+| Character-specific workflow ("Tyson runs the espresso machine") | **CHARACTER** | Role-scoped. |
+| Character-specific opinions/preferences | **CHARACTER** | Voice/preference is character-owned. |
+| Something like "our warranty covers X for Y months" (mixed businesses) | **AMBIGUOUS** | Depends on business type — auto-dealership warranty is World, personal-training coach's clients don't have warranties. |
+| Personality / tone descriptions | **NOT KNOWLEDGE** | Belongs on `Teammate.personality`, not KD. |
+
+**Non-business generalization:**
+- **Fantasy World:** setting/lore/factions = WORLD; individual character abilities/backstory = CHARACTER.
+- **Workshop:** shared tools, safety rules, workshop location = WORLD; per-inventor expertise = CHARACTER.
+- **Dealership:** brand roster, warranty terms, dealership location = WORLD; individual salesperson deal-desk specialties = CHARACTER.
+- **Outdoor company:** route library, seasonal safety, gear standards = WORLD; individual guide's certifications/routes-mastered = CHARACTER.
+- **Solo one-character World:** most content is safely WORLD (temporarily equivalent to CHARACTER); but that temporary equivalence should not collapse the audience model — a future second character would need to inherit World facts.
+
+**Pattern:** the "world-level facts everyone in the world needs" set is
+LARGE (10+ common examples); the "character-specific-only facts" set
+is also legitimate but narrower. Neither dominates.
+
+## §209 PART F — Is one default audience justified?
+
+Two separate questions the prompt insists on keeping distinct.
+
+**Q1: If the operator clicks "Teach Tyson about your business", can Character OS safely assume `World = Fox & Flour`?**
+
+**YES — with high confidence.** Tyson belongs to exactly one World
+(`Teammate.universe`, Slice-5 required-at-create). The character's
+Universe is a fact the system already knows and never has to
+disambiguate. Preserving World context automatically is:
+- Always correct (Tyson's Universe is unambiguous).
+- Always useful (removes a redundant operator selection).
+- Compatible with legacy `universe=NULL` teammates (would simply
+  omit World context; destination surface can fall back gracefully).
+
+**Q2: Should Character OS safely assume `Audience = Everyone in Fox & Flour`?**
+
+**NO.** §208 shows that both WORLD and CHARACTER are legitimate
+audiences for onboarding content. Choosing one by default risks:
+- **Broadening (auto-default = WORLD):** a character-private fact ("Tyson's favorite espresso method is…") gets promoted to Universe-shared, and Ruby starts citing it as her own — violates SESSION 275 "system actions should not silently broaden audience" invariant.
+- **Narrowing (auto-default = CHARACTER):** a World fact ("celebration cakes require 7 days' notice") gets scoped to Tyson only. Ruby never cites it. Other future characters never inherit it. Operator has to duplicate — reintroducing the exact Slice 6 §113 duplication drift Slice 8 was designed to close.
+
+**Preservation ≠ inference.** These are distinct operations. World context can be preserved automatically because it's a known fact about Tyson. Audience cannot be inferred safely from content the operator hasn't typed yet.
+
+## §210 PART G — Preserved context vs operator decision
+
+| Context item | System already knows? | Safe to preserve automatically? | Must operator decide? |
+|---|---|---|---|
+| Current character (Tyson) | Yes (`useParams` on welcome route) | **Yes** — every audience choice references this character or its World. | No decision needed to preserve; may affect audience-multiselect default. |
+| Character's World (Fox & Flour) | Yes (`spokesperson.universe`) | **Yes** — fixed for the flow; not disambiguable. | No decision needed to preserve. |
+| Onboarding origin (welcome vs nav-rail) | Yes (route history / referrer) | **Yes** — enables destination surface to render "You just created Tyson. What do you want to teach?" copy instead of a generic Knowledge intro. | No decision needed to preserve. |
+| Audience choice (WORLD vs CHARACTER vs specific multiple characters) | **No** — depends on the content the operator hasn't typed yet. | **NO — inference is unsafe.** | **YES — explicit operator decision required per §209.** |
+| Ingestion method (paste / PDF / URL / search) | No | Already default (Paste); operator can switch tabs. | Operator picks per ingest. |
+| Ingest content (title, body, URL) | No | Empty by default. | Operator authors. |
+
+**Principle:** preserve every context the system already knows; require an operator decision only for information the system cannot infer safely (audience + content).
+
+**SESSION 275 relevance:** the "system actions should not silently
+broaden audience" invariant applies here directly. Preselecting the
+CHARACTER audience is narrowing (safer). Preselecting the WORLD
+audience is broadening. **Neither should be silent.** The audience
+decision must remain explicit — but the operator should see two
+clearly-labeled options (e.g. "Everyone in Fox & Flour" and "Just
+Tyson") with the current-character-and-World context already applied,
+so the decision is a single click.
+
+## §211 PART H — Button wording audit
+
+Current: **"Teach {name} about your business"** + body copy referencing menu / pricing / policies + framing "turns {name} from a polished demo into something that actually represents your business."
+
+Candidate meanings tested against modern architecture:
+
+| Candidate | Fits modern architecture? | Notes |
+|---|---|---|
+| Add knowledge to Fox & Flour | WORLD-only; over-specifies audience | Forces WORLD default; wrong for character-private facts. |
+| Teach Tyson something | CHARACTER-only; over-specifies audience | Forces CHARACTER default; wrong for shared World facts. |
+| Add business knowledge | Neutral but vague; "business" retains the SESSION 107 spokesperson-≈-business connotation | Doesn't disambiguate. |
+| Add knowledge | Neutral, generic | Doesn't communicate why this action exists at this moment. |
+| Teach your World | WORLD-only; adopts World vocabulary | Same as row 1 semantically. |
+| Add onboarding knowledge | Neutral; keys off origin (character-onboarding); acknowledges the mixed-audience reality | Better neutrality; requires the destination surface to expose the audience choice. |
+| Teach Fox & Flour and Tyson | Names both; hints at the two-audience choice ahead | Long; but semantically honest. |
+
+**Current wording assessment:**
+- **Over-implies CHARACTER audience** ("Teach {name}") while its body copy names WORLD content — the two directly contradict.
+- **Historically outdated** — this is a direct copy of the SESSION 107 mental model where one spokesperson = one business. In modern architecture Fox & Flour has multiple characters (Ruby + Tyson) and the "your business" is Fox & Flour, not Tyson.
+- **Does not communicate that an audience choice is coming.**
+
+**Verdict:** the wording is a **pre-Universe artifact whose semantics
+have been contradicted** by SESSION 261's introduction of Universe
+and Slice 8's introduction of `Universe.brief`. It needs to be
+revisited alongside the destination surface's audience-choice
+affordance. **Do not settle copy in this slice** — the wording
+depends on the destination-surface design.
+
+## §212 PART I — Tyson specimen (character with existing World)
+
+Tyson today:
+- `universe = Fox & Flour Bakery` (id `1a0af807-…`).
+- Fox & Flour `brief = 331 chars` (Chris's Slice-8 dogfood specimen — the bakery's identity is deterministically injected into synthesis §152).
+- Fox & Flour `knowledge_document_count = 0`.
+- Ruby also in Fox & Flour → this is a multi-character World.
+
+**Operator clicks welcome CTA.** Ideal next screen already knows:
+- World = **Fox & Flour** (fixed; operator cannot change without leaving the flow).
+- Character = **Tyson** (fixed).
+- Onboarding origin = **character-welcome** (enables framing copy: "Add knowledge Tyson can use — either shared with everyone at Fox & Flour or just for Tyson").
+
+**Minimum remaining decision:** the audience.
+
+Illustrative-only (do not settle copy):
+
+> **Who should know this?**
+>
+> - Everyone in **Fox & Flour** (World-shared — Ruby AND Tyson will inherit)
+> - Just **Tyson** (character-specific)
+
+Ingestion method + content follow after the audience is chosen. All
+of the World / character context is preserved without a further
+operator click.
+
+## §213 PART J — First character in a new World (Copper Creek Coffee / Hazel)
+
+Fresh Universe "Copper Creek Coffee"; first character "Hazel"; blank
+Universe brief; no KDs.
+
+Handoff differences:
+
+- **World is still preserved** — Hazel's `universe` UUID is known post-creation. Preselection works.
+- **Character is still preserved** — Hazel's UUID is known.
+- **Audience choice remains meaningful even when Everyone-in-World temporarily equals Hazel.** If the operator later adds a second character, WORLD-audience KDs Hazel created now must be inherited by the newcomer. CHARACTER-audience KDs must not. That distinction is meaningful at CREATE time even when it seems equivalent at retrieval time.
+- **World brief may be blank.** If so, the destination surface should either (a) surface an inline "Give Copper Creek Coffee a World brief?" nudge, or (b) proceed with the audience choice unchanged. Not a hard blocker.
+
+**Do not collapse the audience model based on temporary equivalence.**
+Tomorrow-a-second-character-may-arrive means the audience decision
+must be made deliberately today even for one-character Worlds.
+
+## §214 PART K — Multi-character World (Ruby + Tyson)
+
+Fox & Flour is now the real specimen.
+
+**Two failure modes the handoff should protect against:**
+
+1. **Character-private fact accidentally becoming World-shared.**
+   - Example: "Tyson personally handles wholesale coffee orders" gets ingested as UNIVERSE-audience. Ruby's synthesis now cites it as her own knowledge — the SCOPE RULE (`dialogue_synthesis.py:494-499`) prevents cross-character citation for CHARACTER-scope, but WORLD-scope has no such gate.
+   - Ruby cannot know Tyson's private workflow. Broadening it is a real synthesis bug.
+2. **World-shared fact accidentally becoming character-only.**
+   - Example: "Fox & Flour closes at 3pm on Sundays" gets ingested as CHARACTER-audience for Tyson only. Ruby answers "what are your Sunday hours?" and doesn't have that fact — Chris has to remember to duplicate it, hitting the exact Slice 6 §113 duplication drift Slice 8 was designed to close.
+
+**Which mistake is more likely from the current wording?**
+
+The current button says "Teach {character}" which implies CHARACTER
+audience; but the body copy says "your business" content which is
+WORLD-shaped. Once the operator lands on the generic Knowledge page,
+the `UniverseScopePicker` presents only "World UUID or 'None
+(legacy)'" — no CHARACTER option is even offered from the create
+flow (Slice 1 §17). So today's failure mode is: **content that
+should be CHARACTER-audience gets forced into UNIVERSE (or WORKSPACE
+'None (legacy)') because the destination surface doesn't expose the
+CHARACTER audience.** That's the **broadening** failure mode —
+worse per SESSION 275.
+
+The handoff redesign therefore must expose CHARACTER as a
+first-class audience option at the destination surface. Preserving
+World alone is insufficient.
+
+## §215 PART L — World-detail entry point comparison
+
+Slice 9 §184 flagged a possible future action on `/workspace/universes/:id`:
+
+> "Add shared knowledge to this World"
+
+Semantic comparison to the welcome-page CTA:
+
+| Origin | Implicit audience default | Preserved context needed | Ambiguity |
+|---|---|---|---|
+| World-detail "Add shared knowledge to this World" | **UNIVERSE** (unambiguous by origin) | World only | Very low — operator opened the World detail deliberately; the World's audience is what they came for. |
+| Character-welcome "Teach {character}…" | **AMBIGUOUS** — see §207-§214 | World + character + origin | High — could be either audience. |
+
+**Verdict:** the two surfaces are **not the same action.** They
+should enter the same Knowledge-creation system with **different
+preselected context**:
+
+- World-detail origin → destination surface preselects `audience=UNIVERSE + universe=<this-World>`; audience choice is present but pre-answered.
+- Character-welcome origin → destination surface preselects `universe=<character's-World>` and highlights both `Everyone in {World}` and `Just {character}` as equally-weighted operator choices.
+
+**Neither surface should exist without the other.** They complement
+each other: World-detail supports the "I want to teach Fox & Flour
+something new" intent; character-welcome supports the "I just made
+Tyson and need to teach him and/or the bakery some things" intent.
+
+## §216 PART M — Character-detail KnowledgePanel comparison
+
+Source: `web/src/components/knowledge-panel.tsx:84-155`.
+
+- Empty state copy: **"{spokespersonName} doesn't know anything yet"** + "Add documents in workspace knowledge — they'll appear here once they apply to this spokesperson."
+- Empty-state CTA: **"Open workspace knowledge →"** → `/workspace/knowledge` (bare string, no context preservation).
+- Header link: **"Manage workspace knowledge"** → `/workspace/knowledge` (same, no context preservation).
+
+**Comparison:**
+
+| Surface | Copy implies audience | Actual routing |
+|---|---|---|
+| Character-detail KnowledgePanel | **CHARACTER** ("Tyson doesn't know anything yet") | Bare `/workspace/knowledge` — loses everything, including which spokesperson |
+| Character-welcome CTA | **MIXED** (see §207) | Bare `/workspace/knowledge` — loses everything |
+
+**Contradiction:** the character-detail KnowledgePanel implies
+CHARACTER audience (its own scope) but its routing loses the
+spokesperson id. So even the CHARACTER-scoped intent has to be
+re-typed at the destination. Both entry points share the same context-loss failure — different implied audiences, identical
+lost-context symptom.
+
+**Same fix reaches both surfaces.** Preserving `?universe=<uuid>` +
+`?spokesperson=<uuid>` at the destination benefits both entry
+points.
+
+## §217 PART N — Minimum handoff contract
+
+Illustrative-only (per prompt); not a UI design.
+
+**Origin metadata to preserve:**
+- `spokesperson_id` — always, when the origin is any character-owned surface.
+- `universe_id` — when the character is Universe-bound (Slice-5 required for new characters; nullable-legacy compatible).
+- `origin` — a discriminator identifying which surface triggered the handoff:
+  - `character_welcome` — welcome page CTA.
+  - `character_detail_knowledge_panel` — Manage workspace knowledge link / empty-state.
+  - `world_detail_add_knowledge` — future World-detail action (Slice 9 §184).
+  - `dashboard_direct` — no origin context; the nav-rail case.
+
+**Destination surface expected behavior (given origin):**
+- Both `spokesperson_id` and `universe_id` present → destination surface renders **two audience options** (Everyone in {World} / Just {character}); pre-selects neither; ingestion inputs unblocked once audience is chosen.
+- Only `universe_id` present (e.g. from World-detail origin) → destination surface pre-selects `audience=UNIVERSE + universe=<uuid>`; hides CHARACTER choice by default (accessible via a small "actually, restrict to a character" affordance if needed).
+- Neither present (dashboard / nav-rail origin) → today's behavior unchanged (`UniverseScopePicker` in its current shape).
+
+**Persistence mechanism:** URL query params
+(`?universe=<uuid>&spokesperson=<uuid>&origin=character_welcome`) are
+sufficient. React Router state is fragile across refresh; query
+params are shareable, testable, and inspectable.
+
+**Backend already supports** the audience filters
+(`apps/embeddings/views.py:101,117-126`) for LIST filtering; CREATE
+already accepts the audience payload (`universe`, `spokesperson_ids`,
+`audience_scope="workspace"` per Slice 5). No backend changes
+required.
+
+**What the handoff contract does NOT include:**
+- Automatic audience default — audience must remain an explicit operator decision (§209).
+- Auto-preselection of an ingestion method — Paste remains the default tab.
+- Auto-population of KD title / body — operator authors.
+- Any inference from KD content — audience is chosen before content is typed.
+
+## §218 PART O — Does this require the broader Knowledge UI reshape?
+
+Prompt options A/B/C/D evaluated against the audit evidence:
+
+- **A. YES — preselecting World is sufficient.** **Rejected.** Preserving World alone still leaves the operator on the current `/workspace/knowledge` page whose `UniverseScopePicker` presents only "World UUID or None (legacy)" — no CHARACTER audience option is exposed at CREATE. §214 shows that today's failure mode is the operator being forced away from CHARACTER audience. World preselection alone doesn't fix it.
+- **B. PARTIAL — World can be preselected but audience still needs a first-class decision.** **CONFIRMED.** This matches every finding: §209 (audience inference unsafe), §210 (audience must be operator-decided), §215 (World-detail vs character-welcome need different preselected context but both need audience as a first-class decision).
+- **C. NO — the current Knowledge creation surface fundamentally cannot represent the onboarding intent.** **Partially correct.** The current `UniverseScopePicker` design is Slice-1 §17 identified as inadequate — but the REPRESENTATION problem is at the audience selector, not at the surface as a whole. A modest, scoped reshape (not a full redesign) is required.
+- **D. insufficient evidence.** No — enough evidence exists.
+
+**Verdict: B — PARTIAL.** Simple `?universe=<uuid>&spokesperson=<uuid>` preselection preserves the context but does not close the audience-decision gap. The destination surface needs a modest reshape:
+
+- Recast the `UniverseScopePicker` (or an origin-aware variant) as an explicit **"Who should know this?"** audience selector with three positive choices: `Everyone in {World}`, `Just these characters` (multi-select scoped to that World's roster), and — behind an "Advanced" disclosure — `Everyone in this workspace`.
+- Origin-preserving preselection (World for World-origin, both audiences shown for character-origin, `?spokesperson=<uuid>` pre-filling the CHARACTER multi-select).
+
+This matches Slice 1 §17's Q-277-2 recommendation and Slice 2 §35's
+Q-277-3 WORKSPACE-advanced sharpening. Slice 11's finding confirms
+those earlier recommendations were the right direction; the handoff
+audit demonstrates concretely why they're needed rather than being
+purely aesthetic.
+
+**Not required in this slice:** implementation. Slice 11 is
+audit-only; the reshape is Slice 12 (or later) subject to Chris +
+ChatGPT scope approval.
+
+## §219 PART P — Generalization
+
+Test the proposed handoff semantics against the specimens:
+
+| Specimen | Handoff behavior under §217 contract | Operator quality-of-life |
+|---|---|---|
+| Ruby joining Fox & Flour (historical) | universe + spokesperson preserved; audience shown with both options | Good — Ruby's baker expertise vs bakery-wide facts are distinct at CREATE |
+| Tyson joining Fox & Flour (real specimen) | Same as above | Good — the exact operator problem Slice 11 targets |
+| Third bakery character | Same as above | Good — no reason the pattern degrades |
+| Patch joining Patch's Workshop | Same as above | Good — workshop-shared vs Patch-personal expertise |
+| Rivet joining an existing Workshop | Same as above | Good — shared workshop context inherited automatically; Rivet-specific role stays scoped |
+| Dealership finance specialist | Same as above | Good — dealership-wide policies vs finance-specific knowledge |
+| Dealership general spokesperson | Same as above | Good — same shape |
+| Fantasy character in a fictional World | Same as above | Good — world lore vs character abilities |
+| Solo one-character World | Same as above | Good — the audience choice IS meaningful even when Everyone-in-World == the one character (§213) |
+| World with 20 characters | Same as above with multi-select | Good — the multi-select gates the operator from accidentally over-sharing; they pick "Everyone" or a specific subset |
+
+**The operator never needs to understand:**
+- M2M through-rows.
+- `audience_scope` enum values.
+- Universe FK ON DELETE semantics.
+- Workspace tenancy.
+
+They see two labeled audience choices in their own vocabulary and
+pick one. That is the design goal.
+
+## §220 PART Q — Q-277-11 answers
+
+1. **What does "Teach {character} about your business" mean today?** **Ambiguous / mixed** (§207). The button phrase reads as CHARACTER-target ("Teach {name}") but the body-copy examples ("menu, pricing, policies") are WORLD-shaped. The two contradict.
+2. **Is the phrase semantically outdated?** **YES** (§207-§211). It's a direct copy of the SESSION 107 spokesperson-≈-business assumption, which Universe (SESSION 261) and `Universe.brief` (Slice 8) contradicted. It should be revisited alongside the destination surface's audience-choice affordance.
+3. **Should World context always be preserved automatically?** **YES** (§209, §210). The character's Universe is a fact the system already knows and is unambiguous. Preservation is always safe.
+4. **Should character context always be preserved automatically?** **YES** (§210). Every audience choice references the character or the character's World. Preservation is always safe.
+5. **Can audience safely be inferred?** **NO** (§209). Auto-defaulting to WORLD broadens improperly (violates SESSION 275); auto-defaulting to CHARACTER narrows and reintroduces the Slice 6 §113 duplication drift.
+6. **If yes, which audience and why?** N/A — audience must not be inferred.
+7. **If no, what is the minimum operator decision?** One click: "Everyone in {World}" or "Just {character}" (with a "Just these characters" multiselect when the operator wants a subset of the World's roster). The World and character are pre-labeled from the preserved context.
+8. **Is simple `?universe=<uuid>` preselection sufficient?** **NO** (§218). Preservation without audience-choice affordance leaves the operator with the same Slice 1 §17 friction — the current `UniverseScopePicker` presents only World-or-legacy, no CHARACTER audience.
+9. **Is `?spokesperson=<uuid>` also useful?** **YES.** Pre-fills the CHARACTER multi-select when the operator picks the "Just these characters" audience. Also enables the destination surface to render origin-aware framing copy ("You just created Tyson…").
+10. **Does the destination Knowledge page need to know the onboarding origin?** **Recommended but not strictly required.** Origin enables (a) origin-aware framing copy, (b) different audience-default weighting between world-detail and character-welcome, (c) return-path navigation. Query param `?origin=character_welcome` is the cheapest way to preserve it.
+11. **Does this require the broader Knowledge audience UI reshape?** **YES — partial** (§218 verdict B). Handoff preselection alone is insufficient; the destination surface's `UniverseScopePicker` needs to recast as an explicit "Who should know this?" audience selector with CHARACTER as a first-class option. This matches Slice 1 §17 and Slice 2 §35 earlier recommendations.
+12. **Smallest next falsifiable question:** see §222 below.
+
+## §221 Slice 11 findings — separated
+
+**OBSERVED FACT (source):**
+- Welcome page CTA `/spokespeople/{id}/welcome` → `<Link to="/workspace/knowledge">` — bare string, no context preserved (`web/src/routes/spokespeople/welcome.tsx:115`).
+- Body copy references "menu, pricing, policies" — WORLD-shaped content — while the CTA phrase "Teach {name}" implies CHARACTER audience.
+- `/workspace/knowledge` (`web/src/routes/workspace/knowledge.tsx`) does not read `useSearchParams`, `useLocation`, router state, or persisted state. Zero context can be received by the destination today.
+- Backend already supports the `?universe=` and `?spokesperson=` query params for LIST (`apps/embeddings/views.py:101,117-126`); CREATE accepts all three audience shapes per Slice 5 serializer.
+- Character-detail KnowledgePanel (`web/src/components/knowledge-panel.tsx:90,149`) also routes to bare `/workspace/knowledge` — loses spokesperson id.
+
+**SOURCE-DERIVED FACT:**
+- All context needed for a preselecting handoff is present client-side (spokesperson payload includes `universe`). The gap is purely SPA-side plumbing.
+- The current `UniverseScopePicker` design (Slice 1 §11) exposes only WORLD or WORKSPACE (via the "None (legacy)" sentinel). No CHARACTER audience option is offered at CREATE.
+- Two distinct entry points (welcome + KnowledgePanel) share the same context-loss failure but imply different audiences.
+
+**OPERATOR CONTEXT (Chris via ChatGPT — Slice 10 dogfood):**
+- Both World detail pages "look good" post-Slice-10.
+- Operator-notes distinction understandable.
+- Next area agreed: welcome-page handoff — but wording must be re-examined before implementation.
+
+**INFERENCE:**
+- The welcome-page copy is a direct pre-Universe artifact. It was accurate under the SESSION 107 spokesperson-≈-business model; it is contradicted by the modern architecture.
+- Simple query-param preselection preserves context but does not close the Slice 1 §17 audience-picker gap. Both changes are required for the handoff to feel modern.
+- The Slice 6 / Slice 7 / Slice 8 arcs prepared the substrate. Slice 11's role is to prove that the "just add query params" answer is insufficient and that a modest audience-picker reshape is now unblocked.
+
+**PRODUCT RECOMMENDATION (Chris + ChatGPT decide, not implemented):**
+- Combine §217's handoff-context contract with §218's audience-picker reshape into one scope-locked slice.
+- Both surfaces (welcome CTA + character-detail KnowledgePanel) benefit from the same routing + destination changes.
+- Do NOT change the welcome-page wording in isolation — the copy depends on the destination surface's audience-choice framing.
+- Preserve Slice 5 (World-required-at-create), Slice 8 (Universe.brief in synthesis), Slice 10 (World detail view/edit) invariants throughout.
+
+## §222 Unresolved questions (Slice 11 — deferred)
+
+- Should the destination surface be a modified `/workspace/knowledge` page (reshape in place) or a new scoped `/workspace/knowledge/new` route that reads query params + surfaces the audience picker + falls back to the current page for legacy operators? Design decision, not audit.
+- Should the audience picker's third option (WORKSPACE) be surfaced at all at the character-welcome origin, or hidden entirely because the origin implies World/Character scoping? Slice 2 §35 recommendation was "advanced disclosure"; that recommendation still stands.
+- Should the welcome-page copy include a preview of the World brief so the operator sees what "everyone in Fox & Flour" already knows? Related to Slice 7 §138 (character wizard read-only World brief preview) but distinct — this would be on the welcome page after character create.
+- Should the character-detail KnowledgePanel's empty state + `Manage workspace knowledge` link also route with `?spokesperson=<uuid>` preservation? Same fix, same slice most likely.
+- Should there be a return path from the Knowledge destination back to the welcome page (or the character detail) so the operator naturally continues onboarding after adding a first KD? Nice-to-have; not blocking.
+
+## §223 Smallest next falsifiable question
+
+Given Slice 11's evidence, the smallest next question is a scoped
+implementation slice:
+
+> **Q-277-12** — If the `/spokespeople/:id/welcome` "Teach {character}
+> about your business" CTA and the `/spokespeople/:id`
+> character-detail KnowledgePanel's `/workspace/knowledge` links
+> preserve `?universe=<uuid>&spokesperson=<uuid>&origin=<origin>`
+> query params, AND the destination `/workspace/knowledge` page
+> reads those params to pre-select the character's Universe and
+> render an explicit **"Who should know this?"** audience selector
+> with two first-class choices (Everyone in {World} / Just
+> {character}) plus an "Advanced" disclosure for WORKSPACE, does
+> the onboarding handoff close both entry points without introducing
+> a new route, without a backend model change, and without breaking
+> the current dashboard/nav-rail Knowledge flow (which continues to
+> render today's `UniverseScopePicker` when no query params are
+> present)?
+
+This is a **combined implementation** slice — the handoff
+preservation and the audience-picker reshape must land together
+because either alone leaves the operator stranded (§218). Scope
+lock:
+
+- Only two files touched for handoff plumbing (`welcome.tsx`, `knowledge-panel.tsx`).
+- Only one file touched for the destination reshape (`workspace/knowledge.tsx`).
+- Optional: one new SPA test file per touched surface.
+- **Zero** backend / model / migration / synthesis / character-wizard / World-detail / Episode changes.
+- **Compatibility fallback preserved:** when no query params are present, the destination renders today's `UniverseScopePicker` unchanged. The dashboard / nav-rail path is untouched.
+
+**Alternate smaller questions** (present, do not select):
+
+- **Q-277-12-alt-A** (welcome-page-only): change only the welcome-page wording + routing without the audience-picker reshape. Rejected by §218 verdict B — preservation without audience choice leaves the same friction.
+- **Q-277-12-alt-B** (audience-picker-only): reshape the destination without touching the handoffs. Reduces welcome/panel context loss but doesn't leverage the fact that the origin surface knows the audience-relevant character. Loses half the benefit.
+- **Q-277-12-alt-C** (audit continuation): audit the current `UniverseScopePicker` component's callers workspace-wide before touching it. Would surface any callers outside `/workspace/knowledge` that would break. Confirmed by grep to be scope-only within `/workspace/knowledge` (Slice 1 §6.2 already inventoried). Not necessary as a separate slice.
+
+## §224 Slice 11 landed SHA
+
+_Landed SHA: TBD (SHA-record commit after Slice 11 lands)._
+
+
 
 
 
