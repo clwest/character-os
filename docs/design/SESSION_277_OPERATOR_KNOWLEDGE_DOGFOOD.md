@@ -2604,4 +2604,884 @@ narrows to that friction rather than moving on to Knowledge UI.
 
 _Landed SHA: `3d988c1` (Slice 5 implementation commit)._
 
+---
+
+# Slice 6 — Q-277-6 — World / business semantic ownership audit (audit-only)
+
+Chris + ChatGPT began operator dogfood after Slice 5. Slice 5 remains
+provisionally accepted (new character creation now Universe-bound;
+legacy pool preserved). The dogfood surfaced an upstream semantic
+question about where the identity of a business/world actually lives.
+Slice 6 investigates only that question. Zero mutation.
+
+## §99 Slice 6 baseline
+
+- HEAD @ Slice 6 open: `623ade4` (Slice 5 SHA-record). Clean, pushed.
+- Substrate: KD=0, KC=0 (no Knowledge added during dogfood — expected).
+- `chriss-workspace` teammates=**8→8**, Universes=2 (unchanged; Tyson was created via the wizard as documented below and is included in the count).
+
+## §100 Dogfood evidence (Chris's Tyson run)
+
+**OBSERVED FACT (real-DB, `DB_PORT=5434`):**
+- `Teammate` "Tyson" exists in `chriss-workspace`, id
+  `f4de81f3-ef65-4196-a50e-38cfc6d1854f`, `universe=Fox & Flour
+  Bakery`, `status=ready`, created 2026-08-22.
+- Tyson's `business_brief` is 342 chars; `personality` is 335 chars.
+- `KnowledgeDocument.objects.count() == 0` — no Knowledge added during
+  or after the Tyson run.
+- Fox & Flour Universe: id `1a0af807-dd6a-47cd-bfaa-3d088f1c105f`,
+  `description=""` (0 chars), 2 teammates (Ruby + Tyson), 0 KDs, 2
+  episodes.
+- Patch's Workshop Universe: id `56d16b63-652e-4f54-bc7e-39114bbfc4c5`,
+  `description="First world for Patch and Rivet"` (31 chars — a note,
+  not a semantic definition), 2 teammates (Patch + Rivet), 0 KDs,
+  27 episodes.
+
+**OBSERVED FACT (operator flow, from Chris + ChatGPT report):**
+- Chris opened `/spokespeople/new` (post-Slice-5 wizard).
+- Step 1 required the Slice-5 World picker. Chris explicitly picked
+  **Fox & Flour Bakery** from the select. No auto-select fired
+  (confirmed by the Slice-5 regression + real-DB evidence).
+- Chris entered the character's Name = "Tyson" and a Business Brief
+  describing the coffee-and-counter side of Fox & Flour (342 chars in
+  the resulting row).
+- Wizard advanced through portrait, voice, and confirm without new
+  friction attributable to Slice 5.
+- Character created successfully; navigation to `/spokespeople/<id>/welcome`.
+- Welcome page displayed something like "Meet Tyson." with a summary
+  of what Tyson currently knows (name / personality / brief / voice)
+  and what Tyson does NOT yet know (menu / pricing / policies /
+  customer-facing details). Welcome page presented action **"Teach
+  Tyson about your business"**.
+- Chris clicked "Teach Tyson about your business". The SPA routed
+  him to the **generic Knowledge page (`/workspace/knowledge`)** with
+  the four tabs (Paste / Upload PDF / URL / Search) and the
+  `UniverseScopePicker` at the top requiring re-selection of
+  `World / Universe`, still including the option `None (legacy —
+  visible to workspace-wide legacy teammates only)`.
+- The operator-context handoff was NOT preserved: neither Tyson nor
+  Fox & Flour was pre-filled on the Knowledge screen.
+
+## §101 Chris's operator historical recollection (RECORDED, REQUIRES VERIFICATION)
+
+Chris stated approximately:
+- Fox & Flour was created around Ruby; Ruby's identity/business material described both Ruby AND Fox & Flour.
+- Knowledge/PDF material about the bakery was later uploaded that described the business.
+- Patch's Workshop developed similarly around Patch; Patch-related material likely describes both Patch and the Workshop.
+- The modern World/Universe substrate was introduced/evolved later.
+
+Not a repository fact until verified. Slice 6 verifies each claim:
+
+**Claim 1: Fox & Flour was created around Ruby / business_brief carried both.**
+- **CONFIRMED by git history.** `1b80ebf` (2026-05-13, SESSION 107) introduced `Spokesperson` (later renamed `Teammate` in `175342f` 2026-08-06) with `business_brief` from day one, described in the commit as: > "One-paragraph description of the business this spokesperson represents. Promoted up from the legacy per-campaign brief_prompt."
+- **CONFIRMED by current DB state.** Ruby's business_brief (330 chars) is essentially the definition of Fox & Flour: > "Ruby owns Fox & Flour Bakery, a neighborhood artisan bakery known for naturally leavened sourdough, handcrafted pastries, seasonal desserts, and custom celebration cakes. The bakery focuses on locally sourced ingredients, small-batch baking, and creating a warm community gathering place where every customer feels like a regular."
+  The paragraph does not distinguish Ruby's personal traits from the business's identity — both are packed together.
+
+**Claim 2: Ruby/Patch PDFs and knowledge material combined character + business details.**
+- **CONFIRMED by git history.** Commit `70e3113` (2026-08-20, SESSION 273 §15) landed the KnowledgeDocument `74e7f18f-5b77-459c-bc36-b4ab617d8aca` — "Fox & Flour Bakery — Working Knowledge" — 6,599 chars, ingested via production `ingest_text` into the Fox & Flour Universe. The source material lives in the repo at `docs/design/session_273_experiment_data/03_slice_alpha_proposed_knowledge_document.md`. Its content mixes business facts (sourdough starters, bread lineup, pricing by weight, day-old discount, food-shelf donation) with Ruby's authored details (Ruby maintains the starters; Ruby's motive). This document was Universe-scoped (`audience_scope=UNIVERSE`) — a first-class attempt at World-owned knowledge.
+- SESSION 274 (`SESSION_274_UNIVERSE_SHARED_KNOWLEDGE_DOGFOOD.md` §1) explicitly framed the model as > "**Universe-shared knowledge** (facts every character in a Universe should be allowed to know) **+ character-specific knowledge** (expertise for one particular character in that Universe)."
+- That doc was subsequently wiped as part of the SESSION 276 §340 disposable-dogfood reset. **KD count today: 0.** The Universe-shared knowledge existed, was validated, and was disposed of. The current Universe rows retain no trace of it.
+
+**Claim 3: Universe substrate was introduced later.**
+- **CONFIRMED.** `Teammate.universe` FK landed in commit `ef10d4e` (2026-08-17, SESSION 261 Phase 2) — ~3 months after `business_brief` (2026-05-13). The Universe app itself, `UNIVERSE_SCHEMA_V1.md`, and `UNIVERSE_BOUNDARY_V1.md` also landed in SESSION 261.
+
+**Verdict:** Chris's recollection is accurate. business_brief pre-dates Universe by three months; the historical Fox & Flour Universe-shared KD existed and confirmed the "Universe-shared + character-specific" product model; the current substrate contains only the character-owned brief and no Universe-shared semantic.
+
+## §102 Q-277-6
+
+> Where does the semantic identity of a World/business actually live
+> in current Character OS?
+>
+> Can the current Fox & Flour Universe meaningfully represent "Fox &
+> Flour Bakery" independently of Ruby, or is the actual business/world
+> definition still primarily stored on Ruby and associated Knowledge?
+
+Companion specimen: same question for Patch's Workshop / Patch.
+
+## §103 Prediction (before source inspection)
+
+Prediction: **B → E** (primarily character-owned; ownership has drifted).
+The Universe row is expected to be structurally load-bearing but
+semantically thin (name + slug + optional description that nothing
+reads); business_brief is expected to be the actual semantic carrier
+because it pre-dates Universe by design. Fox & Flour is expected to
+"exist" independently of Ruby only as a name — with Ruby removed and
+the ingested Fox & Flour KD gone (SESSION 276 reset), no semantic
+definition remains on the Universe itself.
+
+## §104 Slice 6 checklist
+
+- [x] STEP 0 — verify baseline; record Tyson dogfood + Knowledge handoff + operator historical recollection.
+- [x] PART A — Universe semantic payload.
+- [x] PART B — Character semantic payload.
+- [x] PART C — business_brief lineage.
+- [x] PART D — synthesis composition map.
+- [x] PART E — Fox & Flour forensic specimen.
+- [x] PART F — Patch's Workshop forensic specimen.
+- [x] PART G — historical PDF / Knowledge evidence.
+- [x] PART H — multi-character contradiction / precedence.
+- [x] PART I — World-without-character test.
+- [x] PART J — character-without-business-duplication thought experiment.
+- [x] PART K — semantic ownership classification.
+- [x] PART L — business_brief overload classification.
+- [x] PART M — onboarding-consequence analysis.
+- [x] PART N — Slice-5 invariant remains sound analysis.
+- [x] PART O — Knowledge handoff consequence.
+- [x] PART P — generalization test.
+- [x] PART Q — composition-boundary verdict.
+- [x] PART R — Q-277-6 answers.
+- [x] PART S — smallest next falsifiable question.
+- [ ] Commit + push; SHA-record.
+
+## §105 PART A — Universe semantic payload
+
+Universe model (`shell/apps/universe/models.py:33-165`).
+
+| Universe-owned field/state | Structural or semantic? | Used by synthesis? |
+|---|---|---|
+| `id` (UUID) | structural (identity) | no |
+| `workspace` (FK) | structural (tenant) | no directly (used by queryset filters) |
+| `name` (Char 120) | semantic-adjacent (operator-facing label) | referenced by `retrieve_universe_canon`'s cast-Universe check via `universe.name`, but never emitted into a prompt |
+| `slug` (auto-derived) | structural (URL routing) | no |
+| `description` (Text, blank default="") | **claims to be semantic** | **NO — grep `\.description` across `shell/character_os/` and `shell/apps/universe/` returns zero synthesis hits.** Model help text explicitly says "Not consumed by synthesis; purely a management surface field." |
+| `created_by` / `created_at` / `updated_at` / `archived_at` | structural / audit | no |
+| Reverse `teammates` (M2M via FK) | structural (containment) | consumed by cast filters, not as identity |
+| Reverse `knowledge_documents` (FK on KD) | structural (scoping) | consumed by retrieval as scope, not as identity |
+| Reverse `episodes` (FK) | structural (containment) | consumed by cast + composition scoping |
+| Reverse `narrative_memories` (FK, `apps/memory/models.py:170`) | structural | consumed by `retrieve_universe_memory`, keyed by universe_id |
+
+**Verdict:** the Universe row's only Universe-owned semantic field is
+`description`, and **no synthesis path reads it**. Every other
+semantic-flavored consumer of a Universe pulls data from related
+objects (KD chunks, memories, teammates) — not from the Universe row
+itself. The Universe today is **structurally rich, semantically empty**.
+
+## §106 PART B — Character semantic payload
+
+Teammate model (`shell/apps/spokespeople/models.py:27-...`).
+
+| Field | Semantic category | Used by synthesis? |
+|---|---|---|
+| `id` / `workspace` / `universe` | structural / scoping | scope filters |
+| `name` (Char 120) | identity (character name) | referenced by every prompt |
+| **`business_brief`** (Text) | **claims character identity + business shape** | **YES — every synthesis path, see §107** |
+| `personality` (Text, since SESSION 175) | HOW the character speaks | script/dialogue/conversation synthesis |
+| `visual_subject` / `visual_template` | media identity | portrait/rebake paths |
+| `tone_archetype` | voice axis | prompt fence |
+| `who_you_help` (SESSION 232) | audience shape (factual) | script synthesis, claim verifier evidence |
+| `what_you_sell` (SESSION 232) | offering shape (factual) | script synthesis, claim verifier evidence |
+| `always_emphasize` / `never_say` / `desired_feeling` | brand positioning / prohibitions | prompt fence (not evidence per claim_verifier §680-720) |
+| `character_point_of_view` (SESSION 253) | POV framing | script/dialogue synthesis |
+| `voice_energy` / `voice_humor` / `voice_directness` | voice axes | prompt fence |
+| `voice_signature_phrases` / `voice_avoid_phrases` | allowed / avoided vocabulary | prompt fence, claim verifier vocabulary |
+| `runway_avatar_*` / `portrait_path` / `voice_id` | media identifiers | provider bind |
+| `status` | bake lifecycle | gate |
+
+**Semantic-payload finding:** the character carries 15+ semantic
+fields (identity, voice, prohibitions, evidence). The Universe
+carries one (`description`), and nothing reads it.
+
+## §107 PART C — business_brief lineage
+
+**Introduced:** `1b80ebf` (2026-05-13, SESSION 107 — "core data
+model: Workspace/Spokesperson/Video/ConversationThread"). Original
+help text: > "One-paragraph description of the business this
+spokesperson represents. Promoted up from the legacy per-campaign
+brief_prompt (design doc §4.3)."
+
+**Original model assumption:** one spokesperson **is** a business's
+on-camera identity. `Spokesperson` was the "unit of brand identity"
+per the module docstring. business_brief was the *business* — not
+the character's personal expertise.
+
+**W11.y (SESSION 175, commit `47f5166`, 2026-05-16):** split
+`personality` OUT of `business_brief` on the assumption that
+`business_brief` = WHAT (facts) and `personality` = HOW (voice).
+Backfilled `personality` from `business_brief` so pre-split rows
+kept working. The split preserved the "business_brief carries the
+business" assumption; only voice moved off.
+
+**SESSION 232 (commit `a13a4a6`, 2026-07-23) — Identity surface:**
+added `who_you_help` / `what_you_sell` / `always_emphasize` /
+`never_say` / `desired_feeling` — five NEW character-owned identity
+fields, half factual (audience / offering) and half positioning
+(prohibitions / target feeling). Reinforced the "one character
+carries the business identity" model.
+
+**SESSION 240 (commit `175342f`, 2026-08-06):** rename
+`Spokesperson` → `Teammate` (Python/domain only). No semantic
+change; the "brand identity" framing became "teammate", but
+business_brief kept its role.
+
+**SESSION 253 (commit `c86b67e`, 2026-08-14) — Character Voice /
+Writing Identity:** added 7 more character-owned fields
+(`character_point_of_view`, three `voice_*` axes, two `voice_*_phrases`).
+Continued expansion of the character as the semantic unit.
+
+**SESSION 261 (commit `ef10d4e`, 2026-08-17) — Universe substrate:**
+`Teammate.universe` FK introduced. Universe app landed. **business_brief was NOT restructured.** Universe was intentionally introduced as an "opt-in prospective" layer (Slice 3 §52); character-owned business identity was preserved as-is.
+
+**Current (post-SESSION 276):** business_brief remains the primary
+semantic carrier of business identity. Universe is a scope wall
+without a semantic payload of its own.
+
+**Historical intent vs current runtime role:**
+- Historical intent: `Spokesperson` ≈ a business; business_brief
+  defines the business.
+- Current runtime role: `Teammate` is one character in a Universe
+  that MAY contain many characters; but business_brief still defines
+  the business, per-character.
+- **Drift:** the "1 spokesperson = 1 business" assumption is no
+  longer architecturally true (Fox & Flour has Ruby + Tyson; Patch's
+  Workshop has Patch + Rivet). business_brief hasn't caught up.
+
+## §108 PART D — Synthesis composition map
+
+Grep for `business_brief` across `shell/character_os/` and
+`shell/apps/`, excluding tests / migrations / caches.
+
+| Synthesis path | File:line | Where business_brief enters | Universe.description read? |
+|---|---|---|---|
+| Single-character K6 script synthesis | `script_synthesis.py:801-805` | Emitted verbatim as a `BUSINESS SHAPE:` block inside the "grounding evidence corpus" section. Prompt hard-rules "Every factual claim in the script must trace back to content in this section." | no |
+| Multi-cast dialogue synthesis | `dialogue_synthesis.py:581-585` | One `BUSINESS SHAPE:` block per cast member, scoped as "only {alias!r} may cite these as their own". | no |
+| Fallback single-character brief (topic-less rendering) | `script_synthesis.py:410` | Used verbatim when the operator supplies no prompt. | no |
+| Claim verifier evidence corpus | `claim_verifier.py:711-721` | Appended to KD chunks as peer-evidence for factual-claim verification (§109). | no |
+| Ask (`/api/spokespeople/{id}/ask/`) K6 | `teammate_ask.py:334-341` | Emitted as "authoritative business context" alongside retrieved chunks. | no |
+| Realtime avatar session config | `conversation_synthesis.py:300-311` | Threaded into Runway avatar `personality` field (post-K6-leak-bait mitigation). | no |
+| Sharpening pass | `prompts/sharpening.py:263-266` | `clean_business_brief()` strips hedges before storage — not a synthesis consumer, an authoring pass. | no |
+| Wizard templates | `templates/teammate_templates.py:55-92` | Provided as a canned initial value for new characters. | no |
+
+**Universe.description grep:** `grep -rn "universe\.description\|Universe.description\|\.description" shell/character_os/ shell/apps/universe/` returns **zero hits in synthesis code paths.** The field is written by `UniverseSerializer` and displayed on `/workspace/universes/:id`, but never read by any synthesis, retrieval, prompt, memory, or claim path.
+
+**Consumer count summary:** business_brief is consumed in **at least 6 distinct synthesis paths**; Universe.description is consumed in **0**.
+
+## §109 PART D addendum — Precedence and authority
+
+`claim_verifier.py:680-721` (module docstring for
+`build_evidence_corpus`):
+
+> Included:
+> * Retrieved K2 chunks (`chunk_text` on each).
+> * Teammate `business_brief` (business shape / facts).
+> * Teammate `who_you_help` (audience shape — factual).
+> * Teammate `what_you_sell` (offering shape — factual).
+>
+> Deliberately EXCLUDED: operator prompt, name, personality, brand
+> positioning, allowed vocabulary.
+
+**Peer-evidence rule:** the claim-verifier treats KD chunks and
+character-owned business_brief as **peers**. A claim is supported if
+it appears in **either**. There is no rule that says "KD chunks
+override business_brief" or vice versa. This means:
+
+- If Ruby's `business_brief` says "celebration cake deposit = 50%"
+  and a Universe-shared KD chunk says the same, both cite each
+  other; consistent.
+- If Ruby's brief says "50%" and Tyson's brief says "25%", both
+  claims verify as "supported" (each cites its own brief), and the
+  render can inherit either — depending on which character is
+  speaking. **No contradiction is surfaced**; the two briefs are
+  independently authoritative per character.
+- If a Universe-shared KD says "50%" and Tyson's brief says "25%",
+  Tyson synthesized alone will treat "25%" as supported (his own
+  brief cites it). **World-shared facts do not override
+  character-owned facts.**
+
+**Verdict on precedence:** none exists. Every synthesis path
+concatenates business_brief + retrieved chunks into a single
+"evidence" region; the LLM cannot distinguish shared from private
+authority.
+
+## §110 PART E — Fox & Flour forensic specimen
+
+**Universe row:**
+- id `1a0af807-dd6a-47cd-bfaa-3d088f1c105f`, name "Fox & Flour Bakery", slug `fox-flour-bakery`, description **`""`** (0 chars). No metadata, no config, no canon field.
+
+**Ruby (universe-bound):**
+- `business_brief` (330 chars): defines the bakery — sourdough, handcrafted pastries, seasonal desserts, custom celebration cakes, locally sourced ingredients, small-batch baking, warm community gathering place. Also embeds Ruby's role ("Ruby owns Fox & Flour Bakery").
+- `personality` (338 chars): warm, cheerful, caring, knowledgeable — Ruby's voice, not the business.
+
+**Tyson (universe-bound, created today via Slice-5 wizard):**
+- `business_brief` (342 chars): describes Tyson's role (coffee-and-counter) but ALSO restates the bakery's products (breads, pastries, seasonal desserts, celebration cakes, coffee pairings). Overlaps with Ruby's brief on the business's identity.
+- `personality` (335 chars): easygoing, practical, dry — Tyson's voice.
+
+**Fox & Flour KnowledgeDocuments today:** 0.
+
+**Historical KnowledgeDocuments (via git):**
+- `74e7f18f-5b77-459c-bc36-b4ab617d8aca` "Fox & Flour Bakery — Working
+  Knowledge" — 6,599-char UNIVERSE-audience KD ingested SESSION 273
+  §15 (`70e3113`, 2026-08-20). Content in
+  `docs/design/session_273_experiment_data/03_slice_alpha_proposed_knowledge_document.md`.
+  Covers breads/sourdough (starter care, house loaf, rotating loaves),
+  pastries (fresh-baked cadence, daily lineup, waste policy), pricing
+  (by weight, half-loaves, day-old discount + food-shelf donation).
+  Wiped in SESSION 276 §340 disposable-dogfood reset.
+- No PDF (all Fox & Flour KD was text/markdown from the design doc).
+
+**Memory:** No `NarrativeMemory` rows for Fox & Flour Universe (0 today; may or may not have existed pre-SESSION 276 reset).
+
+**"If Ruby were removed from the analysis entirely, what durable data
+would tell a newly created character that Fox & Flour is an artisan
+bakery, what it makes/sells, its audience, its atmosphere, its
+business policies, its shared identity?"**
+
+**Answer: essentially nothing.** Universe row provides only the name.
+`description` is empty. No KDs. No memories. Tyson's `business_brief`
+overlaps with Ruby's on the business definition, so removing Ruby
+alone would leave a partial definition on Tyson — but Tyson himself
+was seeded with knowledge of the business only because Chris typed
+it in during creation. A hypothetical third character created today
+via the Slice-5 wizard would inherit **nothing from Fox & Flour**
+except the World UUID; Chris would have to re-type the entire bakery
+identity into that third character's business_brief.
+
+## §111 PART F — Patch's Workshop forensic specimen
+
+**Universe row:**
+- id `56d16b63-652e-4f54-bc7e-39114bbfc4c5`, name "Patch' Workshop", slug `patch-workshop`, description `"First world for Patch and Rivet"` (31 chars). Metadata note, not a semantic definition; no facts about the workshop, its content shape, its scope, its rules, its audience.
+
+**Patch (universe-bound):**
+- `business_brief` (~1200 chars): defines Patch himself — AI experimentation and technology spokesperson, build-first framing, subject matter (AI, agents, automation, characters, generation, 3D printing). Also describes the *format* Patch produces (short-form social content). "Patch's Workshop" as a place/world is not defined by this text — it is implied by Patch being an experimenter.
+- `personality` (~2000 chars): beaver inventor's voice — curiosity, chaos, invention, "let's build it and find out." Also lists voice signature/avoid phrases.
+
+**Rivet (universe-bound):**
+- `business_brief` (944 chars): defines Rivet as "Patch's robotic assistant, workshop partner, and reluctant accomplice." Explicitly names "Patch's workshop" but only via Patch's presence. The workshop's identity is entirely defined through the Patch/Rivet interaction pattern.
+- `personality` (1952 chars): small, weathered robot, dry, sarcastic, deadpan — Rivet's voice.
+
+**KnowledgeDocuments today for Patch's Workshop:** 0. Historical KDs
+existed (SESSION 272 experiments referenced Patch/Rivet knowledge)
+but were part of the SESSION 276 reset scope.
+
+**Memory:** No `NarrativeMemory` rows for Patch's Workshop today (0).
+
+**Episodes:** 27 (much richer than Fox & Flour). These are
+Universe-scoped `Episode` rows carrying `title` + `operator_topic`.
+Each episode is a story anchor, not a World-identity definition —
+`operator_topic` is per-episode creative intent (per
+`EPISODE_SCHEMA_V1.md` §Q1).
+
+**"If Patch disappeared from synthesis context, what durable
+World-owned/shared state still defines Patch's Workshop for Rivet or
+a future third character?"**
+
+**Answer: `"First world for Patch and Rivet"` — 31 chars of operator
+note, and 27 Episode titles + topics. Nothing that says what the
+workshop IS as a place, or what shared context all its characters
+inherit.** Rivet's business_brief anchors to Patch's presence, so
+Patch's removal would leave Rivet with no independent world-defining
+context. A future third character (say, a repair-shop specialist)
+would have to be seeded with fresh business_brief text describing
+the workshop from scratch.
+
+## §112 PART G — Historical PDF / Knowledge evidence (verified)
+
+Chris recalled that PDFs / knowledge materials may have combined
+character + business identity. Verified against git.
+
+- **Fox & Flour:** the historical KD was **markdown** (from the
+  design doc `03_slice_alpha_proposed_knowledge_document.md`), not
+  a PDF. Content mixed business facts with authored details
+  ("Ruby maintains two active starters"; "Ruby wants Fox & Flour to
+  feel like a neighborhood third place"). Classification: **D —
+  mixed semantic document**. Neither pure character-scoped nor pure
+  Universe-shared; described "the bakery as Ruby runs it."
+  Persisted as `audience_scope=UNIVERSE`, so at the retrieval layer
+  it behaved as Universe-shared.
+- **Patch/Rivet:** SESSION 272 (`project_patch_ai_agents_substrate_saturated.md`
+  memory notes 5 Patch/AI-Agents renders) mentions Patch KD
+  material, but there is no single canonical KD doc committed to
+  the repo in the same shape as Fox & Flour's. Historical Patch KD
+  content was ephemeral experiment substrate. Classification: **E —
+  unavailable / insufficient evidence** in durable form; deleted
+  along with the SESSION 276 disposable-dogfood reset.
+
+## §113 PART H — Multi-character contradiction test
+
+Fox & Flour has Ruby + Tyson. Both business_briefs assert Fox & Flour
+facts.
+
+**Ruby's brief asserts:**
+- "naturally leavened sourdough"
+- "handcrafted pastries, seasonal desserts, and custom celebration cakes"
+- "locally sourced ingredients, small-batch baking"
+- "warm community gathering place"
+
+**Tyson's brief asserts:**
+- "breads, pastries, seasonal desserts, celebration cakes"
+- "coffee pairings"
+- "customer pickup flow"
+- "everyday questions people ask before ordering"
+
+**Overlap zone:** both authoritatively assert the bakery makes
+"celebration cakes", "pastries", "seasonal desserts". If Chris later
+edits Ruby's brief to remove "seasonal desserts" without editing
+Tyson's, the two briefs will contradict each other silently — no
+system-level surface identifies the divergence.
+
+**Precedence:** none (see §109). Ruby-alone synthesis pulls Ruby's
+brief; Tyson-alone synthesis pulls Tyson's brief; Ruby+Tyson dialogue
+synthesis pulls BOTH briefs as scoped-to-each-alias evidence.
+
+**Consequence for the illustrative deposit example (from the prompt):**
+- Ruby.business_brief says "deposit = 50%" → Ruby videos cite 50%.
+- Tyson.business_brief says "deposit = 25%" → Tyson videos cite 25%.
+- Shared KD (if one existed today) says "deposit = 50%" → Ruby videos
+  double-cite; Tyson videos still cite 25% (his brief is authoritative
+  peer evidence and the KD ranks by cosine, not by policy).
+- No surface catches or reports the contradiction.
+
+**Classification: CONFIRMED that duplicated authoritative business
+semantics can create silent contradictions across characters.**
+
+## §114 PART I — World-without-character test
+
+Hypothetical: `POST /api/universes/ {workspace, name: "Copper Creek Coffee"}` today.
+
+**What does Character OS know about Copper Creek Coffee?**
+- name: "Copper Creek Coffee"
+- slug: `copper-creek-coffee` (auto)
+- workspace + id + timestamps + archived_at
+
+**Semantically:** nothing. No fact about the business. No content
+model. No audience. No products. No policies.
+
+**What does the first character creation currently add that makes
+Copper Creek Coffee meaningful?**
+- The character's `business_brief` — the operator's paragraph that
+  describes the business.
+- That paragraph becomes the entire semantic identity of the World
+  until (a) a second character is created with an overlapping brief
+  or (b) Universe-audience KDs are ingested.
+
+**Verdict:** A World-only-first onboarding flow (create the World,
+then create the first character) would leave the World completely
+undefined between step 1 and step 2. Only the character step supplies
+semantic identity. This is a direct consequence of §105 (Universe
+row has no semantic payload).
+
+## §115 PART J — Character-without-business-duplication thought experiment
+
+Model a hypothetical clean state:
+
+```
+Fox & Flour Universe owns/shared:
+    "Artisan neighborhood bakery. Sourdough foundation. Handcrafted
+    pastries baked fresh each morning. Seasonal desserts. Custom
+    celebration cakes. Locally sourced ingredients, small-batch
+    baking. Neighborhood third-place atmosphere. Prices bread by
+    weight; half-loaves available; day-old bread discounted the
+    following morning and donated Sunday evening."
+
+Ruby owns:
+    "Owner/baker role. Maintains the two starters. Warm, cheerful,
+    caring voice. Loves talking about the craft of bread."
+
+Tyson owns:
+    "Counter/coffee role. Knows the pickup flow and coffee pairings.
+    Easygoing, dry voice. Prefers clear recommendations over sales
+    language."
+```
+
+**Would current synthesis lose anything essential?**
+- Ruby-alone synthesis: would need to see the Universe brief +
+  Ruby's brief together. Today the prompt has one `BUSINESS SHAPE:`
+  slot for the character. Would require a new `WORLD SHAPE:` slot
+  or merging both into `BUSINESS SHAPE:` at prompt-build time.
+- Tyson-alone synthesis: same.
+- Multi-cast (Ruby + Tyson): the dialogue synth's per-alias
+  `BUSINESS SHAPE:` block would need a shared prelude, OR the
+  multi-cast prompt would gain a shared `WORLD SHAPE:` section.
+- Claim verifier: evidence corpus would extend to include the
+  Universe-owned brief (as a shared source), not just each
+  character's brief. No behavior change; only a source added.
+
+**Nothing essential is lost.** The current character-only prompt
+plumbing simply doesn't have a shared-World slot yet. A future slice
+could add one; the Universe row would need a semantic payload to
+populate it.
+
+## §116 PART K — Semantic ownership classification
+
+Classify each information type by current owner + current consumer +
+natural product owner (based on §105-§113 evidence, not aesthetic
+preference).
+
+| Information | Current owner | Current consumer | Natural product owner? |
+|---|---|---|---|
+| World/business name | Universe.name | queryset labels, prompt scope | Universe (already correct) |
+| What the business does | Teammate.business_brief (per-char, duplicated) | every synthesis path | **Universe** (currently mislocated) |
+| Products / services | Teammate.business_brief + historical KD chunks | synthesis + claim verifier | **Universe / shared KD** |
+| Pricing | Teammate.business_brief + historical KD chunks | synthesis + claim verifier | **Universe / shared KD** |
+| Policies | Teammate.business_brief + historical KD chunks | synthesis + claim verifier | **Universe / shared KD** |
+| Target audience | Teammate.who_you_help (per-char, duplicated) | synthesis + claim verifier | **Universe** (duplicated across characters today) |
+| Shared atmosphere / brand context | Teammate.business_brief (per-char, duplicated) | synthesis | **Universe** |
+| Character role (e.g. "baker" vs "counter") | Teammate.business_brief + Teammate.personality | synthesis | Teammate (already correct) |
+| Character personality | Teammate.personality | synthesis + Runway avatar | Teammate (already correct) |
+| Character mannerisms | Teammate.personality + Teammate.voice_* | synthesis | Teammate (already correct) |
+| Personal expertise | Teammate.business_brief (mixed in) | synthesis | Teammate (currently mixed with business shape) |
+| Character-specific Knowledge | KD w/ audience_scope=CHARACTER | retrieval | Teammate (M2M scoped) |
+| Shared World facts | historically KD w/ audience_scope=UNIVERSE (0 today) | retrieval, canon lane | Universe / shared KD (correct model; empty substrate) |
+| Private character facts | Teammate.business_brief + KD w/ audience_scope=CHARACTER | retrieval | Teammate |
+| Story events / narrative memory | NarrativeMemory (Universe-scoped) | retrieve_universe_memory | Universe (already correct) |
+
+**Reading of the table:**
+- Universe already correctly owns: name, narrative memory, shared-KD scope, cast scope.
+- Universe **should also own** but currently doesn't: what the business does, products, pricing, policies, audience, atmosphere.
+- Teammate correctly owns: name, role, personality, mannerisms, voice axes, personal knowledge attach.
+- Teammate **carries duplicated ownership** for: business identity fields that would be more coherent at the Universe level once multiple characters share the World.
+
+## §117 PART L — business_brief overload classification
+
+Answer: **B — actually World/business-owned semantics stored on the
+character**, with a strong **D — historical compatibility field whose
+responsibilities have drifted** overlay.
+
+Distinct responsibilities packed into business_brief today:
+1. **Business/World identity** — "artisan bakery, sourdough
+   foundation, celebration cakes" (Fox & Flour) or "workshop where
+   we build weird things" (Patch's). This is Universe-natural per
+   §116.
+2. **Character role within the business** — "Ruby owns Fox & Flour",
+   "Tyson works the counter", "Patch is an inventor", "Rivet is
+   Patch's assistant". This is Teammate-natural.
+3. **Character-personal expertise / signature focus** — Patch's
+   subject-matter list (AI/agents/automation/3D printing) is
+   character-specific choice-of-topic, not Universe-shared.
+4. **Voice / tone hints** ("warm community gathering place",
+   "reluctant accomplice") — should really live in `personality`
+   post-W11.y split, but the split was not comprehensive.
+5. **Factual anchors for claim verification** — pricing, policies,
+   product lists. These are the Universe-owned data that got stored
+   here because there was no Universe layer when business_brief was
+   introduced.
+
+The field carries 5 distinct responsibilities, only 1-2 of which are
+naturally Teammate-scoped after SESSION 261.
+
+## §118 PART M — Onboarding-consequence analysis
+
+Compare the four models the prompt names.
+
+**Model 1 — World first.** Chris types the World's semantic identity
+BEFORE any character exists. Requires the Universe row to have a
+semantic field the operator can populate. Today: none exists
+(§105). Would require a new field (e.g. `Universe.brief`) or a
+seed Universe-audience KD, plus wizard change. Coherent with the
+architecture we've evolved toward (world = business = the shared
+context) but requires structural work.
+
+**Model 2 — Character first / create World inline.** Slice 5's
+current implementation. Cheap; already shipped. World gets no
+semantic definition beyond the name.
+
+**Model 3 — Current hybrid** (as the prompt describes): World is
+named at wizard step 1 (via Slice 5's picker) but its semantics
+are packed into the character's `business_brief` at wizard step 1
+also. Then the "Teach {character} about your business" welcome-page
+action routes to the generic Knowledge page, which resets audience
+context (World must be re-picked from `UniverseScopePicker` with the
+"None (legacy)" wording still exposed — the Slice 1 finding). **This
+is the current state.** Coherent structurally, incoherent
+semantically — the operator's mental model that "I just told
+Character OS about Fox & Flour" is technically wrong (Character OS
+learned about Fox & Flour only via Ruby / Tyson individually).
+
+**Model 4 — evidence-suggested.** The architecture increasingly
+implies:
+```
+Workspace (tenant)
+    ↓
+World (semantic identity — the business/cast/place)
+    ↓
+Character (role + personality + personal expertise inside the World)
+    ↓
+Knowledge (Universe-shared OR character-specific)
+```
+This requires giving the Universe row a semantic payload (either a
+first-class `Universe.brief` field, or a required seed Universe-audience
+KD authored at Universe-create time). The wizard's business_brief would
+then narrow to character-specific role/expertise; the wizard would
+also either need a "describe the World" step, or would need the
+World to already have been described (Model 1). Model 2 remains
+viable IF World creation is enriched to capture semantic identity.
+
+**No decision here.** Recording Model 4 as source-supported
+architectural inference; Slice 6 is audit-only.
+
+## §119 PART N — Slice-5 invariant remains sound?
+
+**YES.**
+
+Slice 5 established: every new ordinary character belongs to a
+World. That is orthogonal to where the World's semantic identity
+lives. Both statements can be simultaneously true:
+- Every character belongs to a World (Slice 5 invariant).
+- The Universe row currently captures too little semantic
+  information (Slice 6 finding).
+
+Slice 5 forbids creating orphan characters; it does not require the
+World to be semantically self-sufficient. Slice 6 does not
+invalidate that.
+
+## §120 PART O — Knowledge handoff consequence
+
+Chris's dogfood flow after Tyson creation was:
+
+```
+/spokespeople/{tyson_id}/welcome
+    ↓  "Teach Tyson about your business" button
+    ↓  (source: welcome route — needs inspection to confirm route)
+/workspace/knowledge   (generic Knowledge page)
+    ↓  UniverseScopePicker at top; picker unset
+    ↓  Four ingestion tabs (paste / PDF / URL / search)
+    ↓  Operator must re-select Fox & Flour manually
+    ↓  Legacy wording "None (legacy — visible to workspace-wide legacy teammates only)" still exposed
+```
+
+**Information preserved from the character-create context to the
+Knowledge page:** essentially none from the operator's perspective.
+The route change does not propagate `?universe=<uuid>` or
+`?spokesperson=<id>` query params — the picker resets.
+
+**Does the current route/API support preselecting?**
+- Backend: yes. The Knowledge LIST endpoint accepts
+  `?workspace=<uuid>` and `?universe=<uuid>` query params
+  (`apps/embeddings/views.py:117-126`) and `?spokesperson=<uuid>`
+  (line 101). Create-time UI could pre-seed the picker without a
+  backend change.
+- SPA: no. `/workspace/knowledge` today reads `useUniverses(workspaceId)`
+  but does not accept a `?universe=` or `?spokesperson=` query
+  string. Any pre-selection would be a small SPA-only change (Slice 6
+  does not implement it).
+
+**Wording concern:** "Teach Tyson about your business" implies the
+knowledge belongs to Tyson (character-scoped). But if the operator's
+intent is "the bakery makes sourdough" (a fact about Fox & Flour
+that Ruby ALSO knows), the correct audience is UNIVERSE, not
+CHARACTER. The welcome-page button copy is misaligned with the
+architecture: characters don't own facts about the business — Worlds
+should. Do not settle wording yet.
+
+## §121 PART P — Generalization
+
+Apply the semantic-ownership model across the specimens the prompt names.
+
+| Specimen | Current fit | Notes |
+|---|---|---|
+| Fox & Flour (Ruby + Tyson) | poor — brief duplication, empty Universe | §110 |
+| Patch's Workshop (Patch + Rivet) | poor — 31-char Universe note; brief carries all identity | §111 |
+| Riverstone (Penny + future guides) | untested — Penny is a legacy NULL-Universe teammate (Slice 3 §51). Would require both a Riverstone Universe and Penny migration before this pattern applies. |
+| Dealership (salesperson + finance + service) | pattern likely to REPEAT AND WORSEN — three characters would each carry a nearly-identical "This is a car dealership that sells...service dept...financing terms..." block. High probability of silent contradiction (§113). |
+| Fictional fantasy World (multiple characters) | pattern likely to WORSEN differently — each character's brief would need to duplicate world-lore (setting, era, magic system, factions), which is precisely the shape of information that has no place in a per-character brief. |
+| Solo creator (one character) | current shape is FINE — brief = both business and person is coherent when there's only one on-camera identity. This is the original SESSION 107 assumption; it still holds for the 1-character case. |
+| Brand mascot (one character) | current shape is FINE for the same reason. |
+
+**Generalization finding:** the current model **fits the 1-character
+case** (its historical assumption) and **degrades quadratically with
+the number of characters in a World** (each new character duplicates
+Universe-worth-of-content into their brief and adds a contradiction
+surface).
+
+## §122 PART Q — Composition-boundary verdict
+
+Chain under test:
+```
+Universe became world/business boundary
+    +
+Character still owns authoritative business brief
+    ⇒
+Shared World semantics may be duplicated across characters
+    ⇒
+Duplicated authoritative business semantics + multiple characters
+    ⇒
+Potential contradictions / drift
+```
+
+**Verdict: CONFIRMED**, from source + real-DB evidence:
+- Confirmed by §105 (Universe has no synthesis-consumed semantic
+  field).
+- Confirmed by §108 (business_brief is consumed by every synthesis
+  path).
+- Confirmed by §110 + §111 (Fox & Flour + Patch's Workshop specimens
+  both show the semantic definition living on characters, not on
+  the Universe).
+- Confirmed by §113 (Ruby + Tyson today both authoritatively assert
+  the bakery's product list; §109 shows no precedence rule exists to
+  arbitrate).
+
+## §123 PART R — Q-277-6 answers
+
+1. **Where does World semantic identity live TODAY?**
+   **B — primarily character-owned**, with a strong **E — historically
+   mixed / ownership has drifted** overlay. Universe.description is
+   read by no synthesis path; character.business_brief is consumed
+   by every synthesis path and is the actual carrier of business
+   identity today.
+2. **Can Fox & Flour meaningfully exist independently of Ruby today?**
+   **NO.** Universe.description is empty; there are 0 KDs; if Ruby
+   were removed, the only remaining bakery-defining text would be
+   whatever Tyson happens to have inherited via the operator-typed
+   overlap in his brief (which is coincidental, not architectural).
+3. **Can Patch's Workshop meaningfully exist independently of Patch
+   today?** **NO.** Universe.description is a 31-char management
+   note; Rivet's brief anchors to Patch's presence; a third
+   character created today would have no shared workshop identity
+   to inherit.
+4. **Is `business_brief` overloaded?** **B (World/business-owned
+   stored on the character)** + **D (historical compatibility field
+   whose responsibilities have drifted)**. Field carries 5 distinct
+   responsibilities per §117.
+5. **Does current onboarding reflect the modern architecture?**
+   **NO.** The wizard forces a World pick (Slice 5) but places
+   World-defining information into a character-owned field
+   (business_brief); the welcome page's "Teach Tyson about your
+   business" then routes to a generic Knowledge page that resets
+   audience context and exposes legacy wording (Slice 1 §11 lexical
+   drift + Slice 6 §120 handoff gap).
+6. **Is Slice 5's invariant still sound?** **YES.** Slice 5 forbade
+   orphan characters; Slice 6 finds the World lacks semantic
+   payload. Both are simultaneously true (§119).
+
+## §124 PART S — Smallest next falsifiable question
+
+Given Slice 6's evidence, the smallest next question is upstream of
+both the Knowledge UI reshape (Slice 1 §17 → §80) and the wizard's
+welcome-page handoff (Slice 6 §120). Both downstream slices depend
+on where World semantic identity should live.
+
+> **Q-277-7** — What is the minimum first-class Universe semantic
+> payload required so that a Universe can meaningfully represent
+> its own business/world (its shared identity, products, audience,
+> policies, atmosphere) independently of any single character — and
+> is the smallest coherent implementation (a) a new
+> `Universe.brief` first-class field, (b) a required seed
+> Universe-audience KnowledgeDocument authored at Universe-create
+> time, or (c) some composition of the two?
+
+Answering Q-277-7 requires only source analysis + a design
+recommendation (no implementation, no data mutation, no
+migration). Its result determines whether Slice 7 becomes:
+- **Slice 7-A** (small model change): add `Universe.brief` +
+  wire synthesis to read it as shared context alongside
+  `business_brief`.
+- **Slice 7-B** (Knowledge-native): make the Universe-create form
+  require an authored seed KD; move the "business identity" copy
+  out of `business_brief` into that KD; retrieval already covers
+  Universe-audience.
+- **Slice 7-C** (hybrid): tiny `Universe.name` + `Universe.description`
+  is retained for headline identity; Universe-audience KDs carry
+  the detailed shared knowledge; business_brief narrows to
+  character-specific role.
+
+Do not implement Q-277-7. Do not implement the Knowledge UI reshape.
+Do not touch Slice 5. Do not modify Tyson, Ruby, Patch, Rivet, or
+Universes. Do not add Knowledge.
+
+**Alternate smaller questions** (present, do not select):
+- **Q-277-7-alt-A** (handoff-only): implement pre-selection of
+  `?universe=<uuid>&spokesperson=<uuid>` on the "Teach {character}
+  about your business" route without changing anything else. Tests
+  whether the friction is purely UX handoff or actually
+  ownership-shaped.
+- **Q-277-7-alt-B** (dogfood-first): create the "Riverstone"
+  Universe with today's tools (name only), then create a fresh
+  character in it, and observe whether the operator naturally
+  duplicates the world's identity into the character's brief.
+  Real-mode confirmation of §113 / §121.
+
+Do NOT begin any of these without Chris + ChatGPT approval.
+
+## §125 Findings — separated
+
+**OBSERVED FACT (source / real-DB):**
+- Universe model has one semantic-adjacent field (`description`); no
+  synthesis path reads it (§105 + §108).
+- Teammate model has 15+ semantic fields; business_brief is
+  consumed by 6+ synthesis paths (§106, §108).
+- Fox & Flour Universe.description is empty; 0 KDs; 2 teammates
+  both carrying overlapping business definitions in
+  business_brief (§110).
+- Patch's Workshop Universe.description is a 31-char note; 0 KDs;
+  2 teammates whose briefs describe them personally and anchor to
+  Patch's presence (§111).
+- Historical Fox & Flour Universe-audience KD (id
+  `74e7f18f-5b77-459c-bc36-b4ab617d8aca`, 6,599 chars) existed and
+  was disposed of in SESSION 276 §340 (§112).
+- Claim verifier treats KD chunks and character-owned brief as
+  peer evidence with no precedence rule (§109).
+- business_brief was introduced 2026-05-13 with the assumption
+  Spokesperson ≈ Business; Universe was introduced 2026-08-17,
+  ~3 months later, without restructuring business_brief (§107).
+
+**SOURCE / TEST-DERIVED FACT:**
+- Two characters in one World can each authoritatively assert
+  different business facts with no system surface flagging the
+  contradiction (§113).
+- Adding a Universe.description population would not currently
+  reach any synthesis path (no consumer exists in source).
+- SPA Knowledge page does not accept `?universe=<uuid>` or
+  `?spokesperson=<uuid>` query params today (§120).
+
+**OPERATOR CONTEXT (Chris):**
+- Fox & Flour was created around Ruby (verified §101 claim 1).
+- Ruby / Patch content mixed character + business identity
+  (verified §101 claim 2 for Fox & Flour; §112 partial for
+  Patch's Workshop).
+- Modern World/Universe substrate is later (verified §101 claim 3).
+- Penny's 58 compositions belong to an obsolete dogfood era and
+  do not constrain forward architecture (Slice 4 §63, reaffirmed
+  here — Penny remains legacy NULL-Universe; Slice 6 does not
+  touch her).
+
+**INFERENCE:**
+- The composition boundary between "Universe as scope" and
+  "character as business identity" is genuine drift, not a bug.
+  Both layers evolved independently; only Slice 5 has forced them
+  to coexist for new characters.
+- Ownership drift is now visible because Fox & Flour has two
+  characters (Ruby + Tyson) — this specimen didn't exist until
+  Slice 5's dogfood run created Tyson today. The problem was
+  latent throughout SESSION 273-276.
+- Model 4 (§118) is the architecture Character OS has evolved
+  toward. Model 3 (current) is transitional. Model 1 (World-first)
+  requires giving the Universe a semantic payload; Model 2
+  (Slice 5 as-shipped) is only viable when Universe creation itself
+  enriches with semantic identity.
+
+**PRODUCT RECOMMENDATION (Chris + ChatGPT decide, not implemented):**
+- Answer Q-277-7 before touching Knowledge UI or wizard welcome-page
+  handoff.
+- Do not modify business_brief in Slice 7; instead give Universe a
+  semantic payload and let business_brief narrow naturally over time.
+- Preserve Slice 5's invariant unchanged.
+
+## §126 Unresolved questions (Slice 6 — deferred)
+
+- Q-277-7 (§124): minimum Universe semantic payload contract.
+- What happens to the 8 existing character-owned "business identity"
+  fields (business_brief, who_you_help, what_you_sell,
+  always_emphasize, never_say, desired_feeling, character_point_of_view,
+  personality) if the Universe grows a shared brief? Are they trimmed,
+  deprecated, or preserved as character-role-specific overrides?
+- Should there be a precedence rule between Universe-owned facts,
+  Universe-shared KD chunks, and character-owned brief when they
+  conflict? (§109 shows none exists today.)
+- Should the "Teach Tyson about your business" welcome-page copy be
+  reworded to reflect Universe ownership (e.g. "Teach the World more
+  about Fox & Flour")? Wording deferred until Q-277-7 settles
+  ownership.
+- What is the correct operator surface for editing a Universe's
+  shared brief once it exists — inline on `/workspace/universes/:id`,
+  a dedicated `/workspace/universes/:id/identity` route, or embedded
+  in the character wizard when creating the World?
+- Should we retroactively backfill Fox & Flour's Universe with a
+  shared brief seeded from Ruby's + Tyson's overlapping content?
+  (Not a Slice 6 recommendation — this is a follow-on question
+  after Q-277-7 lands.)
+
+## §127 Slice 6 landed SHA
+
+_Landed SHA: TBD (SHA-record commit after Slice 6 lands)._
+
+
 
