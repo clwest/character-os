@@ -340,10 +340,19 @@ describe("contextual mode — World audience payload (E)", () => {
 
 // ---------------------------------------------------------------
 // Acceptance F — Character choice creates CHARACTER audience payload.
+//
+// Slice 12.1 correction (post-dogfood): the payload MUST include
+// both `universe` and `spokesperson_ids`. Backend serializer
+// (apps/embeddings/serializers.py:283-294) rejects
+// `spokesperson_ids + universe=null` when the character is
+// Universe-scoped. Precedence at _persist (ingestion.py:276)
+// makes `spokespeople` win → audience_scope=CHARACTER with the
+// KD carrying the character's Universe FK (Slice 6 §110
+// "Universe-bound CHARACTER" shape).
 // ---------------------------------------------------------------
 
 describe("contextual mode — Character audience payload (F)", () => {
-  it("sends {workspace, spokesperson_ids: [<uuid>], title, text_content} — no universe, no audience_scope", async () => {
+  it("sends {workspace, universe, spokesperson_ids: [<uuid>], title, text_content} — no audience_scope", async () => {
     const create = makeMutation({ id: "kd_new" });
     useCreateKnowledgeMock.mockReturnValue(create);
     useUniverseMock.mockReturnValue({
@@ -372,13 +381,18 @@ describe("contextual mode — Character audience payload (F)", () => {
 
     await waitFor(() => expect(create.mutateAsync).toHaveBeenCalledTimes(1));
     const payload = create.mutateAsync.mock.calls[0]![0] as Record<string, unknown>;
+    // Load-bearing: BOTH universe and spokesperson_ids are present.
+    // Serializer precedence assigns audience_scope=CHARACTER when
+    // spokespeople is non-empty; universe FK is required to satisfy
+    // the SESSION 261 cross-check when the character is Universe-
+    // scoped.
     expect(payload).toMatchObject({
       workspace: "ws_1",
+      universe: FF_UNI,
       spokesperson_ids: [TYSON],
       title: "Tyson espresso",
       text_content: "Tyson prefers a 25g dose.",
     });
-    expect("universe" in payload).toBe(false);
     expect("audience_scope" in payload).toBe(false);
   });
 });

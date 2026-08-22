@@ -5951,6 +5951,175 @@ Do NOT begin any of these without Chris + ChatGPT explicit approval.
 
 _Landed SHA: `71410da` (Slice 12 implementation commit)._
 
+---
+
+# Slice 12.1 — Q-277-12 hot-fix — Universe-bound CHARACTER payload
+
+Chris dogfooded Slice 12 in real-mode after landing. Sequence W
+(welcome-page handoff) → Fox & Flour → picked "Just Tyson" audience
+→ ingest. Backend responded 400:
+
+    spokesperson_ids: Legacy (universe=null) docs cannot include
+    Universe-scoped spokespeople. Bad: ['Tyson']
+
+## §238 Diagnosis (source-verified)
+
+- Slice 12's `contextualAudiencePayload` Character branch built
+  `{workspace, spokesperson_ids: [<uuid>]}` — WITHOUT `universe`.
+- The KD would therefore land with `universe=NULL` (legacy pool).
+- Backend serializer `apps/embeddings/serializers.py:283-294`
+  rejects `spokespeople + universe=None` when any attached
+  spokesperson has a non-NULL Universe. This is the SESSION 261
+  M2M invariant (Slice 3 §57): `sp.universe_id ==
+  doc.universe_id` — always required except for the both-legacy
+  carve-out.
+- Tyson has `universe = Fox & Flour Bakery`, so his Universe
+  mismatched a `universe=NULL` doc → 400. Correct backend rejection.
+
+**Root cause was in Slice 12's payload builder.** The Slice 12 test
+`test_sends {workspace, spokesperson_ids: [<uuid>], title,
+text_content} — no universe, no audience_scope (F)` explicitly
+asserted `expect("universe" in payload).toBe(false)` — locking the
+wrong behavior. That assertion was semantically incorrect and the
+test suite passed without catching the bug because no test actually
+hits the backend serializer's `sp.universe != doc.universe` cross-check.
+
+**Correct payload shape for Universe-bound CHARACTER audience**
+(Slice 6 §110, re-verified against
+`apps/embeddings/ingestion.py:276-284` audience-scope precedence):
+
+```
+{
+  workspace: <workspace-uuid>,
+  universe: <character.universe.id>,     // REQUIRED: satisfies
+                                          // serializers.py:241-253
+                                          // cross-check
+  spokesperson_ids: [<character.id>],    // wins over `universe` in
+                                          // audience_scope precedence
+                                          // → audience_scope=CHARACTER
+  title: ...,
+  text_content OR pdf_data_uri OR source_url_input,
+}
+```
+
+Precedence at `_persist` (`ingestion.py:276-284`):
+`spokespeople` > `universe` > `workspace_shared_intent` > NULL
+(rejected by `serializers.py:311-330`).
+
+Resulting KD row: `audience_scope=CHARACTER + universe=<uuid> +
+spokespeople=[sp]`. M2M attach succeeds because
+`sp.universe_id == doc.universe_id`.
+
+Sending both `universe` and `spokesperson_ids` is NOT "contradictory
+mixed audience" — it is REQUIRED for the Universe-bound CHARACTER
+shape. The SESSION 276 Slice 12 (embeddings serializer)
+contradictory-payload guard only fires for
+`audience_scope="workspace" + (spokespeople OR universe)` per
+`serializers.py:265-281` — not for `spokespeople + universe`.
+
+## §239 Fix (implementation)
+
+Single production change:
+
+- `web/src/routes/workspace/knowledge.tsx` —
+  `contextualAudiencePayload` Character branch changed from
+  `{spokesperson_ids: [spokespersonId]}` to
+  `{universe: universe.id, spokesperson_ids: [spokespersonId]}`.
+  Comment block updated to document the SESSION 261 requirement
+  and the precedence rule. World branch unchanged.
+
+Test updates:
+
+- `web/src/routes/workspace/knowledge.contextual.test.tsx` —
+  the F-criterion test's expectation corrected to lock the new
+  (correct) payload shape: BOTH `universe` AND `spokesperson_ids`
+  are asserted present; only `audience_scope` is asserted absent.
+
+Backend defense-in-depth regression added:
+
+- `shell/apps/embeddings/tests/test_knowledge_universe_api.py` —
+  new `test_post_knowledge_universe_bound_character_shape_lands_as_character`
+  locks the correct Universe-bound CHARACTER payload at the API
+  boundary. Posts the exact SPA payload the corrected Slice 12
+  now sends and asserts (a) 201 response, (b) resulting KD has
+  `audience_scope=CHARACTER`, (c) `universe_id == u.id`, (d) M2M
+  contains the spokesperson. This is defense against future
+  regressions of the payload contract even if the SPA changes.
+
+## §240 Compatibility invariants (still hold)
+
+- Slice 5: ordinary new characters still require a World.
+- Slice 8: `Universe.brief` synthesis wiring unchanged.
+- Slice 10: World detail view/edit unchanged.
+- Slice 11/12 handoff contract unchanged — only the destination's
+  Character-payload construction is corrected.
+- Bare `/workspace/knowledge` unchanged (pre-Slice-12 UploadPanel
+  path).
+- Legacy `universe=NULL` teammates unchanged — the both-legacy
+  M2M carve-out still allows their character KDs; the corrected
+  helper is only reached via the contextual (Universe-bound)
+  handoff, which by construction handles the character's Universe.
+- Contextual World-audience payload unchanged
+  (`{universe, ...content}` — no `spokesperson_ids`).
+
+## §241 Verification
+
+- **Frontend regression:** 14/14 contextual tests pass with the
+  corrected F-expectation; 700/700 full SPA suite pass.
+  TypeScript `tsc --noEmit` exit 0.
+- **Backend regression:** new `test_post_knowledge_universe_bound_character_shape_lands_as_character`
+  passes; broader change-adjacent regression 491/491 pass
+  (embeddings + spokespeople + universe apps).
+- **Real-DB state:** unchanged (no data mutation from this
+  hot-fix).
+
+## §242 Findings — separated
+
+**OBSERVED FACT (source / dogfood):**
+- Chris's operator dogfood produced a real 400 from
+  `apps/embeddings/serializers.py:283-294`.
+- Slice-12 Character-branch payload builder omitted `universe`
+  — locked by the F-test's incorrect `expect("universe" in
+  payload).toBe(false)` assertion.
+- Backend precedence at `ingestion.py:276-284` assigns
+  `audience_scope=CHARACTER` when both `spokespeople` and
+  `universe` are present.
+
+**SOURCE-DERIVED FACT:**
+- The correct Universe-bound CHARACTER payload shape has been
+  documented since Slice 6 §110 ("Universe-bound CHARACTER:
+  `audience_scope=CHARACTER + universe=<uuid> + spokespeople=[sp]`").
+  Slice 12 built the payload against the wrong Slice 6 row and
+  the automated tests locked the wrong assertion.
+- No backend behavior needed to change.
+- Sending both `universe` and `spokesperson_ids` is REQUIRED for
+  Universe-bound CHARACTER KDs; it is NOT the same as the
+  "contradictory workspace + spokespeople" rejection guarded at
+  `serializers.py:265-281`.
+
+**INFERENCE:**
+- Automated unit-level SPA tests cannot fully lock backend
+  contract compliance — they only assert what the payload
+  contains, not whether the backend accepts it. The new backend
+  regression closes that gap for this specific payload shape.
+- Future contextual-payload changes should be dogfood-verified
+  against a real Universe-bound character before merging, OR
+  should include a matching backend regression like the one
+  added here.
+
+**PRODUCT RECOMMENDATION (Chris + ChatGPT decide):**
+- Merge the fix. Re-dogfood Sequence W's "Just Tyson" path to
+  confirm.
+- No further architectural change required for this arc.
+- Q-277-13 next-question options from Slice 12 §236 remain
+  valid; Chris's dogfood evidence now includes both the
+  operator-flow feel AND the payload correctness.
+
+## §243 Slice 12.1 landed SHA
+
+_Landed SHA: TBD (SHA-record commit after hot-fix lands)._
+
+
 
 
 

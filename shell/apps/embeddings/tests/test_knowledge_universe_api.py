@@ -116,6 +116,59 @@ def test_post_knowledge_universe_spokesperson_mismatch_rejected(client, workspac
 
 
 @pytest.mark.django_db
+def test_post_knowledge_universe_bound_character_shape_lands_as_character(
+    client, workspace,
+):
+    """SESSION 277 Slice 12.1 (post-Slice-12 dogfood hot-fix
+    regression) — the SPA's contextual character-origin CREATE
+    payload for a Universe-scoped character must be
+    ``{workspace, universe: <sp.universe>, spokesperson_ids: [<sp>]}``.
+    This is not "mixed" — the SESSION 261 M2M invariant requires
+    the KD's ``universe_id`` to equal the attached spokesperson's
+    ``universe_id`` (``apps/embeddings/serializers.py:283-294``
+    rejects universe-null docs that include Universe-scoped sps).
+    Serializer precedence at ``_persist``
+    (``apps/embeddings/ingestion.py:276``) makes ``spokespeople``
+    win over ``universe`` for audience_scope determination — so
+    the resulting row lands with ``audience_scope=CHARACTER +
+    universe=<uuid> + spokespeople=[sp]`` (Slice 6 §110
+    "Universe-bound CHARACTER" shape).
+
+    Chris's Slice-12 dogfood surfaced this: the initial SPA sent
+    only ``spokesperson_ids`` without ``universe`` and hit the
+    ``"Legacy (universe=null) docs cannot include Universe-scoped
+    spokespeople"`` 400. This test locks the corrected shape at
+    the backend boundary."""
+    from apps.embeddings.models import KnowledgeDocument, AudienceScope
+
+    u = Universe.objects.create(workspace=workspace, name="Fox & Flour")
+    sp = Teammate.objects.create(
+        workspace=workspace, universe=u, name="Tyson",
+    )
+
+    resp = client.post(
+        "/api/knowledge/",
+        data={
+            "workspace": str(workspace.id),
+            "universe": str(u.id),  # required — SESSION 261 cross-check
+            "spokesperson_ids": [str(sp.id)],  # audience_scope precedence
+            "title": "Tyson espresso",
+            "text_content": "Tyson prefers a 25g dose.",
+        },
+        format="json",
+    )
+    assert resp.status_code == 201, resp.content
+    body = resp.json()
+    assert body["universe"] == str(u.id)
+    doc = KnowledgeDocument.objects.get(pk=body["id"])
+    # audience_scope precedence: spokespeople wins → CHARACTER.
+    assert doc.audience_scope == AudienceScope.CHARACTER
+    assert doc.universe_id == u.id
+    # M2M attach succeeds because sp.universe == doc.universe.
+    assert list(doc.spokespeople.values_list("id", flat=True)) == [sp.id]
+
+
+@pytest.mark.django_db
 def test_post_knowledge_cross_workspace_universe_rejected(client, workspace):
     """Universe FK to a different workspace's Universe → 400."""
     other_user = User.objects.create_user(email="other-kd@u.test", password="x")

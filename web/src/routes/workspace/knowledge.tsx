@@ -1094,16 +1094,37 @@ function AudienceOption({
 
 
 /** Build the audience-specific payload fragment. Load-bearing —
- * enforces the Slice 12 payload contract: World → { universe },
- * Character → { spokesperson_ids }; never mixed, never
- * WORKSPACE. */
+ * enforces the Slice 12 payload contract.
+ *
+ * - World audience → `{ universe }`.
+ *   Backend interprets: `audience_scope=UNIVERSE`. The KD row
+ *   lands with `universe=<uuid>` and empty M2M.
+ *
+ * - Character audience → `{ universe, spokesperson_ids: [uuid] }`.
+ *   Both fields present is REQUIRED, not "mixed". Slice 12 hot-fix
+ *   (Slice 12.1, post-Slice-12 dogfood): the backend serializer
+ *   rejects `spokespeople + universe=None` for Universe-scoped
+ *   characters with the error "Legacy (universe=null) docs cannot
+ *   include Universe-scoped spokespeople"
+ *   (`apps/embeddings/serializers.py:283-294`). The correct shape
+ *   for a Universe-bound CHARACTER KD is
+ *   `audience_scope=CHARACTER + universe=<uuid> + spokespeople=[sp]`
+ *   with the M2M constraint `sp.universe_id == doc.universe_id`
+ *   (Slice 6 §110). Serializer precedence
+ *   (`apps/embeddings/ingestion.py:276`) makes `spokespeople` win
+ *   over `universe` for audience_scope determination — so
+ *   sending both is safe and produces CHARACTER audience with the
+ *   correct Universe FK.
+ *
+ * - WORKSPACE is never emitted from contextual mode (Chris +
+ *   ChatGPT Slice 12 product decision). */
 function contextualAudiencePayload(
   audience: AudienceChoice,
   universe: Universe,
   spokespersonId: string,
-): { universe?: string; spokesperson_ids?: string[] } {
+): { universe: string; spokesperson_ids?: string[] } {
   if (audience === "world") return { universe: universe.id };
-  return { spokesperson_ids: [spokespersonId] };
+  return { universe: universe.id, spokesperson_ids: [spokespersonId] };
 }
 
 
