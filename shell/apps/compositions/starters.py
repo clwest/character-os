@@ -324,6 +324,30 @@ def _dialogue_ai_flattened_warnings(result) -> list[dict]:
     return flattened
 
 
+def _dialogue_ai_flattened_shadow_warnings(result) -> list[dict]:
+    """SESSION 278 Q-278-3.2 — D-POS shadow-only aggregation.
+
+    Same shape/enrichment as :func:`_dialogue_ai_flattened_warnings`
+    but pulls from ``turn.verification_warnings_shadow`` (populated by
+    :mod:`character_os.claim_verifier_ner` when
+    ``CHARACTER_OS_K64_NER_SHADOW_EXPERIMENT`` is truthy). Returns an
+    empty list when the shadow experiment was inactive at synthesis
+    time so the persisted composition column stays ``[]`` and matches
+    the pre-Q-278-3.2 default for legacy rows."""
+    flattened: list[dict] = []
+    for turn in result.turns:
+        for warn in (getattr(turn, "verification_warnings_shadow", None) or []):
+            enriched = dict(warn)
+            enriched.setdefault("line_index", turn.line_index)
+            enriched.setdefault("speaker_alias", turn.speaker_alias)
+            enriched.setdefault(
+                "speaker_name",
+                getattr(turn.speaker_teammate, "name", "") or "",
+            )
+            flattened.append(enriched)
+    return flattened
+
+
 def _dialogue_ai_synthesized_brief(result) -> str:
     """Human-readable reconstruction of the generated dialogue for
     ``Composition.synthesized_brief`` (matches talking-head's use
@@ -3730,6 +3754,12 @@ def dialogue_scene(
                 ai_dialogue_result.overall_verification_status,
             ),
             "verification_warnings": _dialogue_ai_flattened_warnings(
+                ai_dialogue_result,
+            ),
+            # SESSION 278 Q-278-3.2 — D-POS shadow observability.
+            # Empty list when the experiment flag was off at
+            # synthesis time; the flattener degrades cleanly.
+            "verification_warnings_shadow": _dialogue_ai_flattened_shadow_warnings(
                 ai_dialogue_result,
             ),
             "knowledge_chunk_ids": list(ai_dialogue_result.chunk_ids),

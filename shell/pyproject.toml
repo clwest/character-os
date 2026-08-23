@@ -64,6 +64,28 @@ dependencies = [
     # dependency contract rather than an implicit one.
     "PyYAML>=6.0",
     "jsonschema>=4.0",
+
+    # SESSION 278 / Q-278-3.2 — D-POS shadow classifier substrate.
+    # spaCy + the ``en_core_web_sm`` pipeline power the K6.4 shadow
+    # verifier (``character_os/claim_verifier_ner.py``). Only invoked
+    # when ``CHARACTER_OS_K64_NER_SHADOW_EXPERIMENT`` is truthy;
+    # otherwise imported lazily (never at module import) so unrelated
+    # workers pay zero cost. Model wheel is pinned to a specific
+    # published GitHub release so ``pip install -e shell`` is fully
+    # reproducible without invoking ``python -m spacy download`` at
+    # runtime. Both licences MIT (spaCy 3.5+; en_core_web_sm 3.5+).
+    #
+    # Pinned to spaCy 3.8.x because 3.7.x pins ``numpy<2`` which
+    # conflicts with ``rembg>=2.0.75`` / ``opencv-python-headless``
+    # (both require ``numpy>=2``) in the shared Character OS venv.
+    # spaCy 3.8 supports ``numpy>=2`` and the 3.8-line ``en_core_web_sm``
+    # model (v3.8.0) improved the SESSION 278 Q-278-3.1 adversarial
+    # matrix (``Fair enough.`` no longer NER-labeled ORG under
+    # ``en_core_web_sm==3.8.0``). See docs/design/SESSION_278_AUDIT.md
+    # §Q-278-3.1 and §Q-278-3.2 for the measured footprint / latency
+    # / license / model-version evidence that motivated these pins.
+    "spacy>=3.8,<3.9",
+    "en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
 ]
 
 [project.optional-dependencies]

@@ -269,6 +269,14 @@ class DialogueTurn:
     verification_warnings: list[dict] = field(default_factory=list)
     verification_status: str = ""
 
+    # SESSION 278 Q-278-3.2 — D-POS shadow-only warnings. Populated
+    # in-memory when ``CHARACTER_OS_K64_NER_SHADOW_EXPERIMENT`` is
+    # truthy; flattened onto ``Composition.verification_warnings_shadow``
+    # by :func:`apps.compositions.starters._dialogue_ai_flattened_shadow_warnings`.
+    # Never gates behavior; existing ``verification_warnings`` /
+    # ``verification_status`` remain authoritative.
+    verification_warnings_shadow: list[dict] = field(default_factory=list)
+
 
 @dataclass
 class DialogueResult:
@@ -1769,6 +1777,19 @@ def synthesize_dialogue(
     if resolved_verifier_mode == "off":
         overall_status = "skipped"
 
+    # SESSION 278 Q-278-3.2 — resolve the D-POS shadow-experiment
+    # flag ONCE per synthesis (not per turn) so all N turns share the
+    # same shadow behavior even if settings/env are mutated mid-loop.
+    # Import inside the function so cold-import of ``spacy`` is deferred
+    # to the first turn that actually needs it (guarded by the gate).
+    from character_os.claim_verifier_ner import (
+        ner_shadow_experiment_active,
+        run_shadow_verifier,
+    )
+    shadow_active = (
+        resolved_verifier_mode != "off" and ner_shadow_experiment_active()
+    )
+
     for turn in turns:
         if resolved_verifier_mode == "off":
             turn.verification_status = "skipped"
@@ -1795,6 +1816,29 @@ def synthesize_dialogue(
                 overall_status = "warned"
         else:
             turn.verification_status = "verified"
+
+        # SESSION 278 Q-278-3.2 — D-POS shadow classifier. Observational
+        # only: warnings land on the in-memory turn dataclass and are
+        # flattened by the AI-Topic starter onto
+        # ``Composition.verification_warnings_shadow``. Never raises,
+        # never changes ``verification_status``, never affects render.
+        if shadow_active:
+            try:
+                shadow_warnings = run_shadow_verifier(
+                    turn.text,
+                    factual_corpus=corpus_by_alias[turn.speaker_alias],
+                    allowed_vocabulary=vocab_by_alias[turn.speaker_alias],
+                )
+            except Exception:  # noqa: BLE001 — shadow must never crash primary
+                logger.exception(
+                    "dialogue_synthesis: K6.4 NER shadow verifier raised; "
+                    "shadow warnings for this turn will be empty."
+                )
+                shadow_warnings = []
+            if shadow_warnings:
+                turn.verification_warnings_shadow = [
+                    w.to_dict() for w in shadow_warnings
+                ]
 
     # ---- Aggregate metadata -------------------------------------
     total_chars = sum(len(t.text) for t in turns)

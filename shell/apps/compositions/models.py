@@ -472,6 +472,23 @@ class Composition(models.Model):
         default="",
     )
 
+    # SESSION 278 Q-278-3.2 — D-POS shadow-only warnings. Same shape
+    # as ``verification_warnings`` (list of dicts with
+    # ``{"claim","kind","position","line_index","speaker_alias","speaker_name"}``)
+    # but populated by the ``character_os.claim_verifier_ner`` D-POS
+    # Hybrid classifier and used ONLY for the ``k64_shadow_diff`` audit
+    # command. Existing ``verification_warnings`` remains authoritative;
+    # this column never gates behavior.
+    #
+    # Empty ``[]`` on every row unless
+    # ``CHARACTER_OS_K64_NER_SHADOW_EXPERIMENT`` was truthy at synthesis
+    # time. Additive-nullable-or-empty per the observability discipline
+    # in ``_IMMUTABLE_OBSERVABILITY_FIELDS`` above (though this field is
+    # NOT itself immutable — it lives on the same freely-mutable
+    # lifecycle as ``verification_warnings``, matching
+    # ``COMPOSITION_OBSERVABILITY_V1.md`` §Q5 shape rules).
+    verification_warnings_shadow = models.JSONField(default=list, blank=True)
+
     # K6.6 (SESSION 168) — what K6 actually synthesized for a
     # *successful* render. ``rejected_synthesis`` captures the
     # strict-mode-rejected case; this field captures the
