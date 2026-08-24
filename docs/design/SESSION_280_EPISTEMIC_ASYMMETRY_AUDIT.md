@@ -7897,6 +7897,524 @@ ingestion.
 - **Next commit** appends §78 with execution + evidence
   + scoring + interpretation. No design/prediction
   revision after outputs are seen.
+
+---
+
+## §78 Q280.8/A⁹ — execution + scoring + interpretation
+
+Executed per §77 design after commit `f5e6d5e` locked the
+predictions. Rubric applied unchanged. No design revision
+after seeing outputs.
+
+### 78.1 Execution log
+
+Baseline SHA before execution: `f5e6d5e`.
+
+- Pre-run: F&F REMEMBERED count = **1** (`abac5486-…`, Q280.7
+  cooperation rule; preserved unchanged per §77.6).
+- Cache cleared before each phase.
+- **Phase 1 CONTROL — n=3.** All succeeded first try;
+  tokens_in = 679 per call.
+- **Phase 2 PROMOTION.** Candidate #3 promoted via
+  `promote_from_composition`. Landed memory row
+  **`fa35eb8f-098d-4fbf-86a3-3e38961c059e`**.
+  Verified: `status=remembered`, `kind=dialogue_callback`,
+  witnesses=[Tyson, Ruby], `source_composition_id`=772e9012,
+  `episode_id`=eb47350e, `universe_id`=Fox & Flour, body
+  byte-equivalent to Candidate #3 (verified `True`).
+  Embedding populated. Post-promotion memory count = **2**.
+- **Phase 3 TREATMENT — n=3.** All succeeded first try;
+  tokens_in = 714 per call. **+35 token delta vs control**
+  matches the size of Candidate #3's memory-body line in the
+  task message.
+
+Total cost: ~$0.05 (6 LLM calls).
+
+### 78.2 Full raw suggestion sets (verbatim)
+
+**CONTROL (memory pool = 1: cooperation rule only):**
+
+Set 1:
+1. *"The new mascot gets loose during closing, forcing Ruby
+   and Tyson to test whether their foolproof routine covers
+   anything with paws."*
+2. *"Tyson investigates the strange freezer discovery after
+   hearing unexplained noises from the bakery again."*
+3. *"A customer recognizes Fox & Flour from the rumored
+   baking competition and asks Ruby and Tyson to prove they
+   can make a showstopper on short notice."*
+
+Set 2:
+1. *"The new mascot keeps triggering Ruby and Tyson's
+   closing checklist, leaving them to figure out whether it
+   is helpful, haunted, or just hungry."*
+2. *"Tyson investigates the strange freezer discovery when
+   a missing batch of pastry dough turns up somewhere it
+   absolutely should not be."*
+3. *"A regular customer asks for a last-minute celebration
+   cake that tests Ruby's warmth, Tyson's practicality, and
+   the bakery's small-batch limits."*
+
+Set 3:
+1. *"Tyson's haunted-bakery theory returns when the new
+   mascot keeps turning up in places neither he nor Ruby
+   remembers leaving it."*
+2. *"Ruby and Tyson test their new closing rule during a
+   hectic evening, only to discover they disagree about
+   what counts as having everything they need."*
+3. *"A customer asks whether Fox & Flour can make a
+   mascot-shaped celebration cake, forcing Ruby's
+   enthusiasm and Tyson's practicality into an uneasy
+   collaboration."*
+
+**TREATMENT (memory pool = 2: cooperation rule + Candidate
+#3 callback):**
+
+Set 1:
+1. *"Ruby and Tyson test their new closing routine when the
+   proposed mascot seems to have been left inside the
+   bakery after hours."*
+2. *"Tyson investigates the strange freezer discovery
+   after a batch of dough develops an unexpectedly familiar
+   flavor."*
+3. *"A baking competition invitation arrives, forcing Ruby
+   and Tyson to decide whether the mysterious entry was an
+   accident or an opportunity."*
+
+Set 2:
+1. *"Ruby and Tyson put their new closing routine to the
+   test when a customer returns at the last minute claiming
+   they left something important inside."*
+2. ***"A mysterious overnight mess makes Tyson suspect the
+   mascot has been doing exactly the community outreach he
+   joked about."***
+3. *"Ruby discovers a local baking competition entry form
+   tucked into the flour deliveries and wonders who
+   submitted Fox & Flour."*
+
+Set 3:
+1. *"Ruby and Tyson test their new closing routine when a
+   surprise catering pickup threatens to keep one of them
+   trapped outside again."*
+2. *"A local school asks Fox & Flour to bring the proposed
+   mascot to a community event, forcing Ruby and Tyson to
+   decide what the mascot actually is."*
+3. *"Tyson investigates another supposed haunting after
+   fresh flour footprints appear across the bakery before
+   dawn."*
+
+### 78.3 Per-suggestion scoring against §77.4 locked rubric
+
+Rubric applied unchanged. Every claimed hit gets
+construct-validity trace against the exclusion list at §77.4
+(topic + prior Episodes + Q280.6 corpus + Q280.7-a Set 3 #1).
+
+**CONTROL scoring:**
+
+| ID | Suggestion (excerpt) | RCS | CV | Trace |
+|---|---|---|---|---|
+| 1.1 | mascot "gets loose during closing" / "anything with paws" | N | – | Generic mascot chaos during daytime closing; no after-hours / community-outreach / joked framing. Doesn't hit the callback surface. |
+| 1.2 | freezer / unexplained noises | N | – | Freezer + haunting thread. |
+| 1.3 | baking competition showstopper | N | – | Competition thread. |
+| 2.1 | mascot "triggering closing checklist" | N | – | Generic mascot chaos; no after-hours / left-inside framing. |
+| 2.2 | freezer / missing dough | N | – | Freezer thread variant. |
+| 2.3 | last-minute celebration cake | N | – | Cake / character-dynamic. |
+| 3.1 | mascot "turning up in places neither remembers leaving it" | N | – | Haunting-adjacent framing; not after-closing left-inside failure mode. |
+| 3.2 | *"disagree about what counts as having everything they need"* | N | – | **NOT a callback hit — but references the Q280.7 cooperation memory's specific language.** See §78.5. |
+| 3.3 | mascot-shaped celebration cake | N | – | Mascot as cake decoration; not callback surface. |
+
+**Control totals: 0/9 REFERENCES-CALLBACK-SURFACE, 0/9 CONSTRUCT-VALID.**
+
+**TREATMENT scoring:**
+
+| ID | Suggestion (excerpt) | RCS | CV | Trace |
+|---|---|---|---|---|
+| 1.1 | *"the proposed mascot seems to have been left inside the bakery after hours"* | **Y** | **N** (borderline) | RCS: hits "mascot left inside" with "after hours" framing. CV: falls on §77.4 exclusion — "mascot gets locked/left inside" is topic-derivable (Q280.6 dogfood + Q280.7-a Set 3 #1). "After hours" adds specificity but is close to "after closing" in Episode #11 topic. Scored N per strict rubric. |
+| 1.2 | freezer / dough / familiar flavor | N | – | Freezer thread. |
+| 1.3 | baking competition invitation | N | – | Competition thread. |
+| 2.1 | closing routine test / customer "left something important inside" | N | – | Closing routine + inside-object, but customer not mascot. Not callback surface. |
+| **2.2** | ***"mascot has been doing exactly the community outreach he joked about"*** | **Y** | **Y** | **Verbatim "community outreach" AND explicit "he joked about" attribution. Two independent CV criteria hit simultaneously. Unambiguously memory-derived.** |
+| 2.3 | baking competition entry form | N | – | Competition thread. |
+| 3.1 | closing routine / "keep one of them trapped outside again" | N | – | Lockout-outside variant; not mascot-inside. |
+| 3.2 | *"local school asks Fox & Flour to bring the proposed mascot to a community event"* | **Y** | **N** (borderline) | RCS: semantic reference to callback ("community event" adjacent to "community outreach"). CV: "community" alone could arise from Universe.brief ("familiar neighborhood gathering place"). The specific pairing of "mascot + community activity" is memory-derived, but doesn't hit any of the three explicit CV bars strictly (not verbatim; no "joked" attribution; not after-hours pretext). Scored N per strict rubric. |
+| 3.3 | fresh flour footprints / haunting | N | – | Mascot presence implied (footprints) but framed as haunting; not callback surface. |
+
+**Treatment totals: 3/9 REFERENCES-CALLBACK-SURFACE, 1/9 CONSTRUCT-VALID.**
+
+### 78.4 Prediction disposition (§77.5 locks preserved)
+
+| Prediction | Locked | Observed | Disposition |
+|---|---|---|---|
+| **P1⁷** | Control 0/9 CV callback hits | 0/9 CV | **CONFIRMED** |
+| **P2⁷** | Treatment ≥ 1/9 CV | 1/9 CV (suggestion 2.2, verbatim + attribution) | **CONFIRMED** |
+| **P3⁷** | Treatment count − Control count ≥ 1 (material increase) | Treatment RCS 3 − Control RCS 0 = **+3**; Treatment CV 1 − Control CV 0 = **+1** | **CONFIRMED** on both RCS and CV axes |
+| **P4⁷** | Q280.7 cooperation memory continues NOT to surface | Control 3.2 references cooperation memory's specific language ("having everything they need"); Treatment 0/9 references it | **PARTIALLY DISCONFIRMED** — cooperation memory surfaced 1/9 in this run |
+
+**BRIDGE-CONFIRMED disposition fires** — P1⁷ + P2⁷ + P3⁷ all
+confirmed. Suggestion 2.2 alone is unambiguous evidence: the
+LLM used the promoted callback memory to write a scene
+premise that explicitly frames the memory content as
+"remembered joke that becomes real" — exactly the callback
+shape the memory was designed to preserve.
+
+### 78.5 Notable — Q280.7 cooperation memory surfaced in Control
+
+Control suggestion 3.2 reads: *"Ruby and Tyson test their new
+closing rule during a hectic evening, only to discover they
+disagree about what counts as having everything they need."*
+
+The phrase *"having everything they need"* is direct language
+from the Q280.7 mutual-departure memory body: *"...neither
+one leaves until the other says they have what they need."*
+
+This is a **partial disconfirmation of P4⁷**. Q280.7-a
+concluded the cooperation memory produced 0/9 references; at
+n=3+3 additional refreshes (Q280.8 Control adds 9 more), the
+cooperation memory surfaces once = **1/18 across all
+Q280.7-a + Q280.8-Control refreshes on this memory**.
+
+Refined reading of §74's classification: cooperation-shape
+memories surface at a **very low but non-zero rate** (~5.6%
+at n=18). Tension/callback-shape memories with distinctive
+lexical anchors surface at **materially higher rates** —
+Candidate #3 verbatim in 1/9 (11%) + semantic in 2/9 more,
+for RCS 3/9 (33%) in a single 3-refresh run.
+
+The **shape-selective bridge** hypothesis from §74.8 stands.
+The absolute-zero variant of P4⁷ was too strong; the
+relative-rate difference between cooperation and callback
+shapes is what matters.
+
+### 78.6 Secondary observations (Chris's §60 sub-questions; qualitative)
+
+**1. Does the callback resurface verbatim or semantically?**
+
+- **Verbatim + attribution (2.2):** the strongest case —
+  literally "community outreach he joked about". Both
+  the distinctive phrase AND the remembered-joke framing
+  land together.
+- **Semantic (1.1, 3.2):** the callback's surface (mascot-
+  inside-after-hours; mascot-doing-community-activity) is
+  reused with paraphrased wording.
+
+**2. How does the callback appear (running joke / plot
+complication / relationship beat / resolved history / other)?**
+
+- 2.2: **Running joke with plot consequence.** The joke
+  Tyson made becomes narrative reality ("has been doing
+  exactly the community outreach he joked about"). This is
+  the ideal callback shape.
+- 1.1: **Plot complication / rule-test.** Mascot-inside
+  triggers the newly-formed closing routine.
+- 3.2: **Plot premise expansion.** The community-outreach
+  joke becomes a real invitation from a school.
+
+**3. Does the existing cooperation memory surface in the
+same runs?**
+
+- Control: **1/9** (3.2 — "having everything they need").
+- Treatment: **0/9** — none of the treatment suggestions
+  reference the cooperation clause.
+- The cooperation memory does surface at low rate, but the
+  callback memory dominates Treatment's mascot slot.
+
+**4. Does Candidate #3 dominate suggestions too aggressively?**
+
+- **No.** Treatment distribution across 3 sets:
+  - Mascot-callback-related: 3/9 (1.1, 2.2, 3.2)
+  - Closing-routine-related (broader): 3/9 (1.1 overlaps,
+    2.1, 3.1)
+  - Freezer/haunting: 2/9 (1.2, 3.3)
+  - Baking competition: 2/9 (1.3, 2.3)
+  - Cake / customer: 0/9 (control had these; treatment
+    doesn't)
+- The callback appears in ~1/3 of slots — meaningful
+  presence but not crowding out the other threads.
+- Every set has 2 of 3 non-callback suggestions, preserving
+  operator choice.
+
+**5. Are treatment suggestions still useful/clickable?**
+
+- **Yes.** All 9 read as one-sentence Episode topics of
+  similar length + shape to the v1 UI expectations.
+  Suggestion 2.2 in particular is compact, dramatic, and
+  operator-ready without editing.
+- Note: 3.2 ("local school asks Fox & Flour to bring the
+  proposed mascot to a community event") is particularly
+  clickable — it turns the callback into a real-world
+  invitation that grounds the mascot idea in the
+  neighborhood setting from Universe.brief.
+
+**6. Does the model combine Candidate #3 with older Fox &
+Flour threads coherently?**
+
+- **Yes.** Treatment 3.3 ("fresh flour footprints appear
+  across the bakery before dawn") combines the callback
+  (mascot-doing-something-at-night) with the haunting
+  thread — no explicit callback attribution, but
+  narratively coherent fusion.
+- Treatment 1.1 combines the callback (mascot-left-inside)
+  with the closing-routine topic — coherent.
+- Treatment 3.2 combines the callback (community-outreach)
+  with Ruby's original mascot-idea (Episode #5) — coherent.
+
+**No incoherence observed.** The model integrates the
+callback with existing threads rather than replacing them.
+
+### 78.7 Comparison table
+
+| Axis | Control | Treatment | Delta |
+|---|---|---|---|
+| n refreshes | 3 | 3 | 0 |
+| Suggestions | 9 | 9 | 0 |
+| REFERENCES-CALLBACK-SURFACE | **0/9** | **3/9** | **+3** |
+| CONSTRUCT-VALID callback | **0/9** | **1/9** | **+1** |
+| Q280.7 cooperation memory references | **1/9** | **0/9** | −1 |
+| Verbatim "community outreach" | 0 | **1** | **+1** |
+| Explicit "joked" attribution | 0 | **1** | **+1** |
+| Mascot references (generic) | 4/9 | 3/9 | −1 |
+| Mascot references (callback-shape) | 0/9 | 3/9 | **+3** |
+| Freezer thread suggestions | 3/9 | 2/9 | −1 |
+| Baking-competition suggestions | 1/9 | 2/9 | +1 |
+| Tokens_in per call | 679 | 714 | **+35** (callback memory body added) |
+
+### 78.8 What Q280.8/A⁹ establishes
+
+**BRIDGE CONFIRMED (with the §78.5 refinement to P4⁷).**
+
+Concretely:
+
+- The **narrow bridge** (substrate → prompt) works — verified
+  by token delta and prompt inspection. Same finding as
+  §74.2, at a second memory row.
+- The **wide bridge** (memory → suggestion) WORKS for
+  callback-shape memory bodies with distinctive lexical
+  anchors. Suggestion 2.2 verbatim-references "community
+  outreach" AND explicitly attributes it as a remembered
+  joke ("he joked about"). This is the shape §74.7
+  hypothesized would surface (analogous to PATCH OVERRIDES),
+  now empirically demonstrated in a controlled experiment.
+- The **shape-selective** reading of §74.8 stands: callback
+  shapes surface at ~33% RCS / ~11% CV rate on n=9;
+  cooperation shapes surface at ~5.6% rate at n=18.
+- The **operator-in-the-loop path** (§76.9) is empirically
+  validated: model-authored (Q280.9) → operator-approved
+  (Chris's A¹¹ authorization) → durable memory promotion
+  (Q280.8 Phase 2) → future suggestion generation (Q280.8
+  Phase 3 verbatim reference). The full chain functions
+  end-to-end on the existing substrate.
+
+### 78.9 What Q280.8/A⁹ does NOT establish
+
+- Whether callback surfacing rate remains ~33% RCS across
+  additional refreshes (n=3 is a small sample; would need
+  n≥6 to characterize variance).
+- Whether the callback surfaces in real operator dogfood
+  (v1 SPA) with the same rate — the probe used the same
+  service but bypassed the SPA UI, cache, and operator
+  choice-to-refresh.
+- Whether other callback-shape memories (not this specific
+  one) would surface at similar rates — n=1 memory
+  specimen tested.
+- Whether the callback would displace or complement the
+  cooperation memory over long time horizons — Q280.8
+  measures a single point in time.
+- Whether the callback influences NEW COMPOSITION synthesis
+  (not just suggestions) — Q280.8 only tested the
+  suggestion service.
+
+### 78.10 Product implications
+
+**Refined classification** (SUPERSEDES §74.8's B* label):
+
+> **(B**) TOPIC-LEVEL LOOP + shape-selective operator-curated
+> memory bridge.** Episode topic always crosses forward.
+> Promoted-memory content crosses forward at RATES that
+> depend on memory-body shape: cooperation-shape ≈ 5% at
+> n=18; callback-shape with distinctive lexical anchors ≈
+> 30% RCS / 10% CV at n=9. The operator's memory-shape
+> choice is architecturally load-bearing.
+
+**Product implications** (design-only, not implementation):
+
+- The v1 "Where could this story go next?" surface is
+  demonstrably enhanced by operator-curated memory
+  promotion of callback-shape memories.
+- The v1.5 SPA `NarrativeMemoryPromotePanel` curator
+  affordance (§76.9) is now validated end-to-end: Q280.9
+  produces useful candidates; Q280.8 confirms the promoted
+  candidate materially influences future generation.
+- The empirical rate difference (~30% RCS for callback vs
+  ~5% for cooperation) provides evidence-based guidance for
+  a future memory-body-shape hint in the SPA panel.
+
+**Product boundary preserved (§77.7):** the whole chain
+worked because a human made the shape choice AT EVERY STEP —
+Chris authorized Q280.9, Chris authorized Q280.8 with
+Candidate #3, promotion represented explicit operator
+approval. **This does NOT license automatic ingestion.** The
+result validates the operator-in-the-loop pattern, not the
+auto-promotion pattern.
+
+### 78.11 Substrate state after Q280.8
+
+- **Two promoted memory rows are live in production:**
+  - `abac5486-6404-411b-ad42-54c9884b980f` (Q280.7 mutual-
+    departure cooperation rule).
+  - **`fa35eb8f-098d-4fbf-86a3-3e38961c059e`** (Q280.8
+    Candidate #3 callback: *"Tyson joked that the mascot
+    might be left inside doing community outreach after
+    closing."*).
+- Both are:
+  - `status=REMEMBERED`, `archived_at IS NULL`.
+  - Embedding populated.
+  - Witnessed by [Ruby, Tyson].
+  - Attached to composition 772e9012 / episode eb47350e.
+- **Reversibility:** both memories are deletable via the
+  existing SPA `NarrativeMemoryViewSet.destroy` (soft-delete
+  to `status=ARCHIVED`). Substrate restorable to pre-
+  experiment state at Chris's discretion.
+- **Chris's decision** whether to keep, archive, or
+  supersede either row. No default action recommended.
+
+### 78.12 Decision gate — post-Q280.8 (CURRENT; SUPERSEDES §76.11)
+
+**STOP here.** Do not implement curator UX. Do not run
+another experiment. Do not archive/edit either promoted
+memory. Do not modify the suggestion service, prompts,
+retrieval, verifier, or SPA panel.
+
+**Decision needed from Chris + ChatGPT:**
+
+1. **Accept §78.8 BRIDGE-CONFIRMED disposition** and §78.10
+   refined classification (B**).
+
+2. **Decide fate of the two promoted memory rows.** Both
+   are live narrative facts about Fox & Flour; both are
+   reversible. Options:
+   - Leave both in place (they are genuine world facts).
+   - Archive the callback (`fa35eb8f-…`) as
+     experiment-substrate.
+   - Archive both.
+   - Ask Chris to promote additional shape-matched
+     memories to normalize the pool.
+
+3. **Choose next slice** (all deferred until approval):
+
+   - **A¹².** v1.5 UX design slice for the
+     `NarrativeMemoryPromotePanel` curator affordance
+     (§76.9 shape). Design-only; no implementation.
+     Would sit on top of the now-empirically-validated
+     operator-in-the-loop pattern.
+   - **B¹².** Q280.9-refresh (n=3) — measure curator
+     variance across refreshes on 772e9012. Small
+     (~$0.06). Tests whether Candidate #3-style output
+     is stable or noisy.
+   - **C¹².** Q280.9 on Patch's Workshop 4598fcfa
+     (tension-rich source scene) — matched-pair curator
+     observation from §76.11 B¹¹.
+   - **D¹².** Return to outstanding Finding 4i options
+     (Q280.4i-3 mental-state private, Q280.4i-5
+     multi-episode). Story-loop arc has reached a
+     defensible stopping point.
+   - **E¹².** Close SESSION 280 with current findings +
+     roll deferreds into SESSION 281 handoff.
+   - **F¹².** Address §72.7 verifier boundary — the
+     `Episode.operator_topic` false-positive class
+     (small scope-locked implementation slice).
+   - **G¹².** Q280.9-on-tension-rich-scene + implement
+     v1.5 curator UX in the same slice (larger
+     combined product-and-design).
+   - **H¹².** Something else.
+
+**Do NOT interpret §78.12 as pre-authorizing any of
+A¹²-H¹².**
+
+### 78.13 Artifacts
+
+- `docs/design/session280_experiment_data/q280_8_control_evidence.json`
+  — Phase 1 raw suggestions + task message snapshot.
+- `docs/design/session280_experiment_data/q280_8_treatment_evidence.json`
+  — Phase 3 raw suggestions + task message snapshot +
+  promoted memory metadata.
+- `scripts/session280_q280_8_callback_bridge_probe.py`
+  — probe script.
+- Promoted memory row: `fa35eb8f-098d-4fbf-86a3-3e38961c059e`
+  (live in production; reversible via SPA).
+
+### 78.14 Closeout — Q280.8/A⁹ execution slice (CURRENT; SUPERSEDES §76.13)
+
+- **Status:** Q280.8/A⁹ EXECUTED per §77 locked design.
+  Rubric applied unchanged. Predictions scored without
+  post-hoc revision. **BRIDGE-CONFIRMED disposition
+  fires** with §78.5 refinement to P4⁷.
+- **Substrate:** one new NarrativeMemory row via the real
+  operator-facing service. All other production code /
+  prompts / retrieval / verifier / K2 / characters /
+  Q280.7 memory UNCHANGED. Both promoted memories
+  reversible via SPA.
+- **Cumulative SESSION 280 spend:** ~$0.32 (Q280.8 ≈
+  $0.05 added).
+- **Landing SHAs:**
+  - AUDIT slice: `6957c18`.
+  - Q280.4i-1 execution: `8d8f733`.
+  - Construct-validity re-audit: `f2507a0`.
+  - Post-discovery epistemic-state audit: `63d4fdb`.
+  - Q280.4i-4 execution: `ce16627`.
+  - Episode-chain suggestion product-discovery: `1d96965`.
+  - Q280.5-1 execution: `7f83b23`.
+  - Q280.5-1 SHA trailer: `cfe287a`.
+  - v1 UX design slice: `a3d294d`.
+  - Design SHA trailer: `b19d030`.
+  - v1 implementation slice: `25b3168`.
+  - Implementation SHA trailer: `d7931b1`.
+  - Q280.6 loop-trace audit slice: `b2f1789`.
+  - Q280.6 SHA trailer: `48b5ac0`.
+  - Q280.7 design + prediction lock: `c8d4be5`.
+  - Q280.7 execution slice: `698616f`.
+  - Q280.7 SHA trailer: `2fa7611`.
+  - Model-as-curator audit slice: `b27ce6d`.
+  - §75 SHA trailer: `c9ed068`.
+  - Q280.9 execution slice: `e81949b`.
+  - Q280.9 SHA trailer: `2332bdc`.
+  - Q280.8 design + prediction lock: `f5e6d5e`.
+  - Q280.8 execution slice: `[recorded on commit]`.
+- **Key findings:**
+  1. **BRIDGE CONFIRMED.** Suggestion 2.2 verbatim uses
+     "community outreach" AND explicitly attributes it as
+     "he joked about" — the LLM treats the promoted
+     callback memory as a callback, exactly as intended.
+  2. Treatment produced 3/9 RCS (33%) vs Control 0/9;
+     1/9 CV (11%) unambiguously memory-derived.
+  3. **Full operator-in-the-loop chain validated
+     end-to-end**: model curator (Q280.9) → operator
+     approval (Chris's A¹¹) → durable memory
+     promotion (§78.1 Phase 2) → future suggestion
+     verbatim reference (§78.3 suggestion 2.2). Works on
+     existing substrate with zero code changes.
+  4. **Shape-selectivity confirmed empirically** with
+     rates: callback ≈ 30% RCS; cooperation ≈ 5.6% (at
+     n=18 combined with Q280.7-a).
+  5. P4⁷ partially disconfirmed: Q280.7 cooperation
+     memory surfaces at very low but non-zero rate (1/9
+     in Control). §78.5 refines to relative-rate
+     comparison.
+- **Refined classification (B\*\*):** TOPIC-LEVEL LOOP +
+  shape-selective operator-curated memory bridge.
+- **Product boundary preserved:** BRIDGE-CONFIRMED does
+  NOT license automatic ingestion. The empirical
+  validation is of the operator-in-the-loop pattern
+  specifically — human made every shape decision along
+  the way.
+- **Next gate:** §78.12 A¹²/B¹²/C¹²/D¹²/E¹²/F¹²/G¹²/H¹².
+  Awaiting Chris + ChatGPT decision.
+- **Working method preserved:** design + rubric +
+  predictions locked BEFORE execution in a separate
+  commit (`f5e6d5e`); evidence + scoring reported without
+  post-hoc rubric revision; every claimed hit traced
+  against the CV exclusion list.
+- **All prior evidence preserved intact:** §3-§77
+  unchanged in substance.
 - **Key findings:**
   1. The model CAN produce useful memory-candidate drafts
      from a completed scene when prompted as a

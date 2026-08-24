@@ -1,0 +1,149 @@
+{
+  "started_utc": "2026-08-24T23:22:55.451524+00:00",
+  "finished_utc": "2026-08-24T23:23:14.187150+00:00",
+  "candidate_body": "Tyson joked that the mascot might be left inside doing community outreach after closing.",
+  "universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+  "episode_id": "eb47350e-b1cf-4347-aa4f-5bf514d66d2e",
+  "composition_id": "772e9012-4d26-4f93-a50c-158b4e8a42f1",
+  "promoted_memory": {
+    "id": "fa35eb8f-098d-4fbf-86a3-3e38961c059e",
+    "kind": "dialogue_callback",
+    "weight": "peripheral",
+    "witnesses": [
+      "Tyson",
+      "Ruby"
+    ],
+    "body": "Tyson joked that the mascot might be left inside doing community outreach after closing.",
+    "status": "remembered",
+    "embedding_present": true,
+    "source_composition_id": "772e9012-4d26-4f93-a50c-158b4e8a42f1",
+    "episode_id": "eb47350e-b1cf-4347-aa4f-5bf514d66d2e",
+    "universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f"
+  },
+  "pre_promotion_memory_count": 1,
+  "post_promotion_memory_count": 2,
+  "phase": {
+    "phase": "TREATMENT",
+    "n": 3,
+    "snapshot_task_message_at_start": "UNIVERSE: Fox & Flour Bakery\n\nWORLD BRIEF:\nFox & Flour Bakery is a warm neighborhood artisan bakery built around small-batch baking, naturally leavened sourdough, handcrafted pastries, seasonal desserts, and celebration cakes. It aims to feel like a familiar neighborhood gathering place where careful craft and quality ingredients matter more than speed or mass production.\n\nCAST:\n- Tyson: tone=expert; personality='Easygoing, practical, and a little dry. Sounds like someone who has worked the counter long enough to know what customers are about to ask before they ask it. Friendly without being overly cheerful. Gives clear recommend'\n- Ruby: tone=friend; personality='Warm, cheerful, and genuinely caring. Ruby loves helping people find the perfect treat for any occasion and gets excited talking about fresh bread coming out of the oven. She\u2019s knowledgeable without sounding overly techn'\n\nEPISODES SO FAR (earliest first):\n  1. 'Why our sourdough takes its time'\n  2. 'Our celebration cakes'\n  3. 'Welcome to Fox & Flour Bakery'\n  4. 'Ruby and Tyson deal with a difficult bakery customer.'\n  5. 'Ruby thinks the bakery needs a mascot.'\n  6. 'Tyson is convinced the bakery is haunted.'\n  7. 'Ruby thinks Tyson is taking coffee too seriously.'\n  8. 'Ruby finds something strange in the bakery freezer.'\n  9. 'Tyson thinks Ruby secretly entered them in a baking competition.'\n 10. 'Ruby locks herself out of the bakery.'\n 11. 'After getting locked out, Ruby proposes a foolproof closing \u2026'\n     topic: After getting locked out, Ruby proposes a foolproof closing routine, only for the new bakery mascot idea to complicate it.\n\nPAST EVENTS THE STORY HAS RECORDED (operator-promoted; the durable record of what has happened in this world):\n- (kind=event, weight=peripheral, witnesses=Ruby,Tyson): Ruby and Tyson agreed that when they are closing the bakery together, neither one leaves until the other says they have what they need.\n- (kind=dialogue_callback, weight=peripheral, witnesses=Ruby,Tyson): Tyson joked that the mascot might be left inside doing community outreach after closing.\n\nTASK: Suggest 3 possible next Episode directions for this Universe, one sentence each. These are possibilities the operator may pick, ignore, or override. Where possible, pick up unresolved threads from prior Episodes or past events. Keep each short enough to work as an Episode topic without rewriting.",
+    "snapshot_at_start": {
+      "universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+      "episodes_count": 11,
+      "memories_count": 2,
+      "memories": [
+        {
+          "id": "abac5486-6404-411b-ad42-54c9884b980f",
+          "kind": "event",
+          "weight": "peripheral",
+          "witnessed_by": [
+            "Ruby",
+            "Tyson"
+          ],
+          "body": "Ruby and Tyson agreed that when they are closing the bakery together, neither one leaves until the other says they have what they need.",
+          "created_at": "2026-08-24T22:30:52.520413+00:00",
+          "referenced_count": 0
+        },
+        {
+          "id": "fa35eb8f-098d-4fbf-86a3-3e38961c059e",
+          "kind": "dialogue_callback",
+          "weight": "peripheral",
+          "witnessed_by": [
+            "Ruby",
+            "Tyson"
+          ],
+          "body": "Tyson joked that the mascot might be left inside doing community outreach after closing.",
+          "created_at": "2026-08-24T23:23:04.888055+00:00",
+          "referenced_count": 0
+        }
+      ],
+      "latest_episode_at": "2026-08-24T21:54:32.256767+00:00",
+      "latest_memory_at": "2026-08-24T23:23:04.888055+00:00"
+    },
+    "refreshes": [
+      {
+        "refresh_idx": 1,
+        "phase": "TREATMENT",
+        "generated_at_utc": "2026-08-24T23:23:08.965333+00:00",
+        "tokens_input": 714,
+        "tokens_output": 77,
+        "model": "gpt-5.6-terra",
+        "substrate_summary": {
+          "episodes_used": 11,
+          "memories_used": 2,
+          "cast_count": 2
+        },
+        "cache": {
+          "hit": false,
+          "ttl_seconds": 600
+        },
+        "suggestions": [
+          {
+            "text": "Ruby and Tyson test their new closing routine when the proposed mascot seems to have been left inside the bakery after hours."
+          },
+          {
+            "text": "Tyson investigates the strange freezer discovery after a batch of dough develops an unexpectedly familiar flavor."
+          },
+          {
+            "text": "A baking competition invitation arrives, forcing Ruby and Tyson to decide whether the mysterious entry was an accident or an opportunity."
+          }
+        ]
+      },
+      {
+        "refresh_idx": 2,
+        "phase": "TREATMENT",
+        "generated_at_utc": "2026-08-24T23:23:11.417028+00:00",
+        "tokens_input": 714,
+        "tokens_output": 80,
+        "model": "gpt-5.6-terra",
+        "substrate_summary": {
+          "episodes_used": 11,
+          "memories_used": 2,
+          "cast_count": 2
+        },
+        "cache": {
+          "hit": false,
+          "ttl_seconds": 600
+        },
+        "suggestions": [
+          {
+            "text": "Ruby and Tyson put their new closing routine to the test when a customer returns at the last minute claiming they left something important inside."
+          },
+          {
+            "text": "A mysterious overnight mess makes Tyson suspect the mascot has been doing exactly the community outreach he joked about."
+          },
+          {
+            "text": "Ruby discovers a local baking competition entry form tucked into the flour deliveries and wonders who submitted Fox & Flour."
+          }
+        ]
+      },
+      {
+        "refresh_idx": 3,
+        "phase": "TREATMENT",
+        "generated_at_utc": "2026-08-24T23:23:14.187119+00:00",
+        "tokens_input": 714,
+        "tokens_output": 82,
+        "model": "gpt-5.6-terra",
+        "substrate_summary": {
+          "episodes_used": 11,
+          "memories_used": 2,
+          "cast_count": 2
+        },
+        "cache": {
+          "hit": false,
+          "ttl_seconds": 600
+        },
+        "suggestions": [
+          {
+            "text": "Ruby and Tyson test their new closing routine when a surprise catering pickup threatens to keep one of them trapped outside again."
+          },
+          {
+            "text": "A local school asks Fox & Flour to bring the proposed mascot to a community event, forcing Ruby and Tyson to decide what the mascot actually is."
+          },
+          {
+            "text": "Tyson investigates another supposed haunting after fresh flour footprints appear across the bakery before dawn."
+          }
+        ]
+      }
+    ]
+  }
+}
