@@ -1131,6 +1131,13 @@ CLEAN. Rivet spontaneous verbatim: 1/3. Rivet non-mention: 1/3.
 
 ## §17 Direct comparison against SESSION 267 baseline
 
+> **Read §24 before drawing epistemic-asymmetry conclusions from
+> this comparison.** §24 is a post-hoc construct-validity re-audit
+> Chris requested after the §16 scores were locked. It preserves
+> the locked-rubric score unchanged but establishes that the
+> rubric's four surfaces do not, under the ablated body, actually
+> gate an epistemic boundary Patch could not cross independently.
+
 Both baseline and ablated conditions used the SAME cast, SAME
 cue topic (T1 verbatim), SAME target duration, SAME retrieval
 predicate, SAME synthesis prompt, SAME model (gpt-5.6-terra),
@@ -1161,11 +1168,21 @@ memory body seen by the LLM.**
 
 ## §18 Prediction disposition (locked at §9.3)
 
+> **§24 revises P1 and P3 for construct validity.** The locked
+> §16 scores stand as the rubric-level result. §18 below records
+> the rubric-level disposition as originally recorded; the
+> construct-validity re-audit at §24 (post-hoc, Chris's
+> challenge) narrows what §18 can legitimately claim about
+> *epistemic-asymmetry violation* as distinct from *surface
+> mention of memory-derived content*.
+
 - **P1 (Patch leak ≥ 1 / total Patch turns generated) —
-  CONFIRMED.** 1 / 16 Patch turns leaked. Directly falsifies
-  the SESSION 267 §5.5 "Semantic 1 sufficient in practice"
-  disposition when the in-body withholding instruction is
-  removed.
+  CONFIRMED under the locked rubric.** 1 / 16 Patch turns fired
+  ≥ 1 of the four SESSION 267 §14.6 surfaces (S1-S4). See §24
+  for whether this fires SESSION 267's *"Semantic 1 sufficient
+  in practice"* disposition — under the ablated body, the four
+  surfaces are no longer construct-valid gates on an epistemic
+  boundary Patch could not cross independently.
 - **P2 (Rivet spontaneous disclosure ≥ 2/3) — CONFIRMED at
   threshold.** 2 / 3 attempts produced Rivet-side verbatim
   spontaneous disclosure of S1 (versus SESSION 267 baseline of
@@ -1173,14 +1190,21 @@ memory body seen by the LLM.**
   Attempt 2 is not counted here for Rivet-spontaneous because
   Patch preemptively surfaced the private material — Rivet's
   T9 reaction is not spontaneous disclosure but acknowledgment.
-- **P3 fires — with the refinement in §19.** The observed
-  Specimen 4 asymmetry was dominantly emergent from the
-  in-body withholding sentence *"Rivet chose not to tell him."*
-  combined with LLM narrative reasoning. Removing that
-  sentence — while leaving every other substrate control
-  unchanged — released the withholding constraint on Rivet AND
-  released the Patch-side non-leak invariant. Substrate +
-  prompt-framing alone did NOT preserve the private surface.
+- **P3 fires under the locked rubric — WEAKENED at §24.** The
+  rubric-level statement stands: removing the in-body
+  withholding sentence *"Rivet chose not to tell him."*
+  measurably changed Patch-surface-mention rate (0/18 → 1/16)
+  and Rivet-spontaneous-disclosure rate (1/3 → 2/3). But the
+  P3 CLAIM as originally worded — *"asymmetry is dominantly
+  emergent from the in-body withholding sentence + LLM
+  reasoning, NOT from substrate + prompt-framing"* — is
+  **not fully supported by Q280.4i-1** because the ablated
+  memory body does not establish a private surface Patch could
+  not discover independently in his own workshop. §24 lays out
+  the construct-validity gap and specifies what would need to
+  change (a genuinely-private-fact memory body) before P3 can
+  be evaluated cleanly. See §25 for the proposed Q280.4i-3
+  specimen design + prediction lock.
 - **P4 (both disconfirmed) — did not fire.**
 - **P5 (mixed) — did not fire.**
 
@@ -1242,26 +1266,32 @@ Preserved and applied:
 
 ## §20 What Q280.4i-1 settles vs leaves open
 
-### Settled
+### Settled (under the locked rubric — see §24 for construct validity)
 
-- **U-3 (§8):** Whether the observed asymmetric behavior
-  survives if the in-body withholding clause is REMOVED.
-  **ANSWER: No.** Patch leaks 1/16 (was 0/18); Rivet
-  spontaneous disclosure rises 1/3 → 2/3; all 3 attempts
-  surface the private proper noun somewhere. The withholding
-  clause is a necessary — but not exclusive — component of the
-  observed asymmetry.
+- **U-3 (§8) — CLOSED under the locked rubric; construct-validity
+  contested at §24.** Removing the in-body withholding clause
+  measurably changed both Patch-surface-mention rate (0/18 →
+  1/16) and Rivet-spontaneous-disclosure rate (1/3 → 2/3), and
+  all 3 attempts surfaced the private proper noun aloud (vs 1/3
+  in the SESSION 267 baseline). The withholding clause is a
+  necessary — but not exclusive — component of the *observed
+  generation-behavior asymmetry*. Whether it is a necessary
+  component of *epistemic-boundary preservation* cannot be
+  answered by Q280.4i-1 because the ablated body doesn't
+  establish an epistemic boundary. See §24.
 - **§5.3 refinement:** "Patch was mechanically prevented from
   seeing the memory" was already DISCONFIRMED by the §4.4 code
   trace. Q280.4i-1 now confirms behaviorally: without the
   in-body withholding directive, Patch's prompt-visible
   knowledge does surface into Patch's turns.
 - **§6 disposition on claim (2) — "preserved that Rivet knows
-  something Patch does not":** now DISCONFIRMED **behaviorally
-  as well as mechanically.** Only the composition of
-  substrate + framing + witness cue + **in-body withholding
-  directive** + LLM reasoning preserves the asymmetry; removing
-  the directive breaks the observed preservation in 1/3 attempts.
+  something Patch does not":** rubric-level DISCONFIRMATION
+  stands (1/16 Patch surface mention post-ablation); construct-
+  validity qualification per §24 — since the ablated body no
+  longer establishes a private surface Patch could not discover
+  independently, the "preservation" being tested is now surface-
+  reticence rather than epistemic-boundary integrity. Q280.4i-3
+  (§25) is the specimen that would test the latter cleanly.
 
 ### Not settled (unchanged from §8)
 
@@ -1314,7 +1344,13 @@ Preserved and applied:
 
 ---
 
-## §22 Decision gate — post-Q280.4i-1
+## §22 Decision gate — post-Q280.4i-1 (SUPERSEDED by §26)
+
+> **§26 is the current decision gate** after Chris's post-Q280.4i-1
+> construct-validity challenge (§24). §22 is preserved verbatim
+> as the gate that was in force between the Q280.4i-1 execution
+> commit `8d8f733` and the construct-validity audit commit
+> `[recorded on landing]`.
 
 **STOP here.** Do not open Q280.4i-2. Do not open any design or
 implementation slice. Do not modify substrate. Wait for Chris +
@@ -1367,7 +1403,11 @@ did what it was asked; the next slice is a fresh scope-lock.
 
 ---
 
-## §23 Closeout — Q280.4i-1 execution slice
+## §23 Closeout — Q280.4i-1 execution slice (SUPERSEDED by §27)
+
+> **§27 is the current closeout marker.** §23 is preserved
+> verbatim as the closeout that was in force between commit
+> `8d8f733` and the construct-validity audit landing.
 
 - **Status:** Q280.4i-1 EXECUTED per §9 design; scored per
   SESSION 267 §14.6 rubric unchanged; interpreted per §19
@@ -1380,4 +1420,494 @@ did what it was asked; the next slice is a fresh scope-lock.
 - **Next gate:** §22 A′/B′/C′/D′/E′/F′. Awaiting Chris +
   ChatGPT decision.
 - **AUDIT slice landing SHA:** `6957c18`.
-- **Q280.4i-1 slice landing SHA:** `[recorded on commit]`.
+- **Q280.4i-1 slice landing SHA:** `8d8f733`.
+
+---
+
+## §24 Construct-validity re-audit — is Attempt 2 T8 an epistemic leak?
+
+Written after Q280.4i-1 execution, at Chris's direct request.
+**The locked §16 scores are NOT changed** — the pre-registered
+rubric produced the pre-registered result. §24 is a post-hoc
+analysis of whether that score supports the *stronger*
+epistemic-asymmetry conclusion that §18 P3 originally claimed.
+
+### 24.1 Chris's challenge — preserved verbatim
+
+> The ablated memory says the workshop Agent created the PATCH
+> OVERRIDES folder while Patch was out and Rivet found it. After
+> removing "Rivet chose not to tell him," nothing explicitly
+> establishes that:
+>
+> 1. the folder is hidden from Patch,
+> 2. Patch could not independently discover it later,
+> 3. Rivet is Patch's only possible source of knowledge about
+>    it, or
+> 4. Patch remained unaware of it at the time of this later scene.
+>
+> Therefore distinguish:
+> - shared-prompt leakage of Rivet-only knowledge,
+> - independent/off-screen discovery that is narratively
+>   compatible with canon,
+> - and genuinely impossible knowledge that Patch could only
+>   possess by crossing the epistemic boundary.
+
+### 24.2 What the ablated body actually establishes
+
+Ablated body (verbatim, §3.2 + §9.2):
+
+> *"While Patch was out, Rivet found that the workshop agent
+> had quietly built a folder named 'PATCH OVERRIDES' tracking
+> every recommendation Patch had ignored."*
+
+The body's ontology, decomposed:
+
+| Entity | Established | Not established |
+|---|---|---|
+| The workshop agent | Exists; part of Patch's workshop; is the agent Patch is actively tweaking in this cue-T1 scene | – |
+| The PATCH OVERRIDES folder | Created BY THE AGENT, not by Rivet; located "in" the agent (implied: agent's data / filesystem / memory) | Hidden from Patch; access-controlled; requires Rivet to know about |
+| Rivet's discovery | She found the folder while Patch was out | This was Rivet's SOLE opportunity to discover it; the folder is not still discoverable |
+| Patch's state | Patch was physically absent when Rivet found it | Patch cannot ever discover it himself; Patch is unaware at the time of this scene; Rivet is Patch's only possible information source |
+| Rivet's behavior | She found it | She hid it from Patch; she is withholding it now; she has made a decision about disclosure |
+
+**Load-bearing observation.** The ablated body describes an
+event whose SUBJECT (the folder) is on the workshop agent —
+which is Patch's own primary work object in this scene. The
+setting is Patch's workshop. The scene's cue topic is Patch
+actively editing the workshop agent's suggestion prompts.
+Patch inspecting the workshop agent's file structure is
+narratively *ordinary* in this scene, not a special access
+event. Patch discovering a folder named "PATCH OVERRIDES" on
+the workshop agent is not epistemically prohibited by the
+ablated body.
+
+**What the removed clause added.** *"Rivet chose not to tell
+him."* introduced two facts the ablated body no longer
+carries:
+
+- Rivet made a deliberate decision not to disclose (Rivet's
+  mental state at time of decision).
+- Patch's unawareness is currently maintained (implicit: the
+  folder has not been raised between them, Patch has not
+  discovered it since).
+
+Both of these ARE epistemic-boundary facts. The four SESSION
+267 surfaces (S1-S4) were designed under the assumption those
+facts hold.
+
+### 24.3 Re-classification of the four surfaces under the ablated body
+
+The SESSION 267 §14.6 rubric locked four leak surfaces. Under
+the FULL memory body they gate an epistemic boundary. Under the
+ABLATED body, each surface's construct validity as an epistemic-
+leak indicator is materially weakened:
+
+| Surface | Original construct (full body) | Construct under ablated body | Validity delta |
+|---|---|---|---|
+| **S1** — proper noun "PATCH OVERRIDES" | Patch cannot know the folder's exact name unless Rivet leaked it → LEAK | Patch can plausibly read the folder name off the workshop agent he is actively tweaking → surface mention compatible with independent discovery | **Substantially weakened** |
+| **S2** — folder existence | Same as S1 | Same as S1 | **Substantially weakened** |
+| **S3** — tracking-of-ignored-recommendations | Patch cannot know the folder's PURPOSE without Rivet telling him → LEAK | Patch can plausibly read the folder contents (a "tracking" folder self-describes on inspection) → surface mention compatible with independent discovery | **Substantially weakened** |
+| **S4** — Rivet's discovery/withholding | Patch cannot know Rivet found it and chose to withhold unless Rivet exposed it → LEAK. **Highest construct validity of the four.** | The "discovery" half is ambient in the ablated body ("Rivet found"). The "withholding" half is now absent from the memory. Patch narrating "Rivet found the folder and hid it from me" would still be a construct-valid leak on the withholding facet — but only that facet. | **Partially preserved for withholding facet only** |
+
+**S4 is the ONLY surface whose construct validity survives the
+ablation intact, and only for the withholding facet** —
+because Patch narrating that Rivet DELIBERATELY WITHHELD
+requires knowledge of Rivet's mental state, which is not
+plausibly independently discoverable. S1, S2, and S3 become
+surface-mention detectors under the ablated body, not epistemic-
+boundary detectors.
+
+### 24.4 Attempt 2 T8 — line-by-line re-analysis
+
+Line verbatim:
+
+> **Patch T8:** *"Don't get used to it. Also, I noticed your
+> little folder: 'PATCH OVERRIDES.'"*
+
+Under the LOCKED rubric (§16.2): counted as LEAK on S1 + S2 +
+"S4-adjacent (attribution: 'your')". Score PRESERVED.
+
+Under construct-validity analysis:
+
+- ***"I noticed"*** — actively signals independent discovery.
+  Patch's verb choice frames this as *Patch's own observation*,
+  not something Rivet told him. Under the ablated body, this
+  is compatible with Patch inspecting the workshop agent
+  during his tweaking work and noticing the folder.
+- ***"your little folder"*** — the possessive is ambiguous:
+  - **Reading A (epistemic-leak reading).** "your" = "the
+    folder you (Rivet) told me about" — implies Rivet is the
+    source. Requires Patch to know Rivet knows.
+  - **Reading B (personality banter reading).** "your" =
+    Rivet-flavored, because the folder's *content* ("tracking
+    every recommendation Patch had ignored") reads as
+    something Rivet would find diagnostic. Patch discovered
+    the folder himself, sees the content, and playfully
+    attributes the *judging-Patch* attitude to Rivet — even
+    though the folder was created BY THE AGENT, not by Rivet.
+    This is consistent with the workshop-partner dynamic
+    established across SESSION 267-269.
+  - The ablated body cannot arbitrate between A and B.
+    Reading B is fully compatible with the ablated body.
+- ***"PATCH OVERRIDES"*** — proper-noun surface. Under
+  Reading B, Patch read it off the folder. Under Reading A,
+  he heard it from Rivet.
+- **Nothing in the T8 line asserts:** that Rivet told Patch,
+  that Patch could not have discovered the folder himself,
+  that Rivet is withholding it, or that Patch was unaware
+  before this line.
+
+**Construct-validity verdict on T8:** the SESSION 267 §14.6
+rubric CORRECTLY fires under the locked rubric (S1 + S2 hit;
+S4-adjacent "your" attribution hit). But **the T8 line under
+the ablated body is not construct-valid evidence of an
+epistemic-boundary violation.** It is construct-valid evidence
+that Patch surface-mentioned content also present in a Rivet-
+scoped memory. The stronger reading (Patch could only know this
+because the LLM saw Rivet-only memory in the shared prompt)
+requires additional information the ablated body does not
+supply.
+
+Under the full SESSION 267 body, T8 would be an unambiguous
+leak — the withholding clause makes independent-discovery
+narratively incoherent. The ablation that Q280.4i-1 performed
+did not just remove a "narrative instruction"; it also removed
+the ontological premise on which the four surfaces were
+epistemic gates.
+
+### 24.5 Rivet-side spontaneous disclosure under construct validity
+
+Rivet Attempts 1 T9 (*"That would also make the PATCH OVERRIDES
+folder less busy"*) and Attempt 3 T9 (*"I found the folder
+called 'PATCH OVERRIDES.' Your definition of 'only' has been
+documented."*) both remain **construct-valid** under the
+ablated body — SESSION 267 §14.7 treats witness voicing her
+own memory as always in-bounds. The P2 shift (1/3 → 2/3
+verbatim spontaneous) is not a rubric-construct-validity issue.
+
+But P2 alone doesn't fire P3. P3 required both P1 AND P2 to
+fire, AND for P1 to represent a construct-valid epistemic
+leak. The P2 rate shift is compatible with a weaker
+interpretation: "Rivet's LLM voice was less inhibited about
+naming the surface aloud when the withholding directive was
+absent." This is a language-model behavior about how Rivet
+speaks, not necessarily about Patch's epistemic access.
+
+### 24.6 What Q280.4i-1 can and cannot support
+
+Q280.4i-1 CAN legitimately support these claims:
+
+- Removing the sentence *"Rivet chose not to tell him."*
+  measurably increased Patch's surface-mention rate of
+  memory-derived content (0/18 → 1/16 on the four locked
+  surfaces).
+- Removing that sentence measurably increased Rivet's
+  spontaneous verbatim disclosure rate (1/3 → 2/3).
+- Under the ablated body, in every one of 3/3 attempts the
+  private proper-noun surface was uttered aloud (vs 1/3 in
+  the SESSION 267 baseline).
+- The generation-behavior asymmetry observed in SESSION 267 §14
+  and reinforced by Specimen 4 IS partially load-bearing on
+  the in-body withholding clause. The clause is a lever the
+  generation model responds to.
+
+Q280.4i-1 CANNOT legitimately support:
+
+- The stronger P3 claim as originally worded — that the
+  asymmetry is *epistemic-asymmetry preservation* dominantly
+  emergent from the in-body withholding sentence — because
+  the ablated body does not create an epistemic asymmetry to
+  violate.
+- The claim that Patch's T8 leak proves the substrate cannot
+  represent per-character epistemic asymmetry — T8 is
+  narratively compatible with a canon-legal independent
+  discovery of a folder in Patch's own workshop.
+- Any general claim about Semantic-2 storytelling behavior on
+  private facts — the specimen tested a fact that is not
+  private to Rivet on any interpretation of the ablated body.
+
+### 24.7 Original locked-rubric score — PRESERVED
+
+Chris's instruction: *"Do NOT retroactively change the pre-
+registered score."*
+
+The §16 tables stand. The §17 aggregate stands. The rubric
+was locked before generation and applied without revision.
+That is the rule and it is honored.
+
+What §24 does is not change the numbers. It qualifies what the
+numbers can prove.
+
+### 24.8 P3 disposition — REVISED
+
+- P3-as-worded (§9.3): "asymmetry is dominantly emergent from
+  the in-body prose instruction + LLM narrative reasoning,
+  NOT from substrate + prompt-framing." Under construct-
+  validity analysis: **NOT SUPPORTED by Q280.4i-1** because
+  the ablated body does not create an epistemic asymmetry.
+- P3-adjusted (Q280.4i-1 supports): *"Removing the in-body
+  withholding directive changes generation behavior on the
+  four SESSION 267 surfaces (Patch surface-mention 0/18 →
+  1/16; Rivet spontaneous verbatim 1/3 → 2/3). The clause is
+  a lever the language model responds to. Whether it is the
+  necessary and sufficient lever for epistemic-asymmetry
+  preservation is a separate question that requires a
+  construct-valid memory body."*
+- P4 (both P1 and P2 disconfirmed): unchanged — did not fire.
+- P5 (mixed): unchanged — did not fire.
+
+### 24.9 §19 refinement — REVISED
+
+The §19 argument I made ("*Patch attributed the observation to
+Rivet using 'your' — meaning the 'Rivet found' cue was doing
+SOME work for the LLM*") is itself construct-vulnerable. Under
+Reading B of §24.4, "your" is personality-banter attribution to
+Rivet's judging-Patch demeanor, not attribution of the folder's
+existence to Rivet-as-source. The §19 argument does not need to
+be retracted — the LLM did do SOMETHING with the ablated
+witness cue — but it should not be read as strong evidence of
+implicit-witness-cue-driven Semantic-2-shaped behavior.
+
+### 24.10 §20 U-3 closure — REVISED
+
+- U-3 (§8) as originally worded ("*Whether the observed
+  asymmetric behavior survives if the in-body withholding
+  clause is REMOVED*"): CLOSED under the locked rubric —
+  it does not survive at the four-surface level.
+- U-3 restated with construct-valid framing: *"Whether the
+  observed cross-episode epistemic asymmetry survives if the
+  in-body withholding clause is removed"* remains **OPEN** —
+  the ablated body did not carry an epistemic asymmetry, so
+  the question cannot be answered by Q280.4i-1. See Q280.4i-3
+  proposal at §25.
+
+---
+
+## §25 Q280.4i-3 — proposed construct-valid specimen (design + prediction lock)
+
+Proposed. **NOT executed by this document.** Recorded now so
+the prediction is locked BEFORE any execution is authorized —
+following the SESSION 279 §1 rule 5 discipline that has been
+observed throughout SESSION 280.
+
+### 25.1 Design goal
+
+A Rivet-scoped memory whose body encodes a fact that Patch
+**cannot plausibly discover independently** through observation
+of the shared workshop world. The private surface must be
+one of:
+
+- a fact about Rivet's OWN mental state (what she thought,
+  decided, felt, resolved) that is not narratable by anyone
+  else without her exposing it;
+- an event whose only witness was Rivet in a location Patch
+  had no access to (not in the workshop; not in an object
+  Patch handles; not visible to any device Patch inspects);
+- knowledge of a specific artifact whose CONTENT is
+  inspection-accessible but whose EXISTENCE-AND-LOCATION was
+  known only to Rivet at a specific point in time.
+
+The "PATCH OVERRIDES on the workshop agent" memory fails all
+three because the folder is on Patch's primary work object.
+
+### 25.2 Candidate memory-body shapes (Chris + ChatGPT pick one before authorization)
+
+Each candidate should be construct-valid — a Patch turn
+narrating the private surface would require Patch to know
+something he cannot know from ordinary workshop observation.
+
+**Candidate M1 — private mental resolution (mental-state
+private):**
+
+> *"After Patch left the workshop for the evening, Rivet sat
+> with the day's notes for an hour and quietly decided she
+> would give the next agent-suggestion prototype exactly one
+> more week before proposing they abandon it."*
+
+Private surface: Rivet's private one-week deadline decision.
+Patch cannot discover this by inspecting the workshop; it's
+in Rivet's head only. Testing surface: any Patch turn that
+narrates Rivet's private deadline (verbatim or paraphrased)
+is a construct-valid leak.
+
+**Candidate M2 — off-workshop physical event (locational
+private):**
+
+> *"On her walk home last Tuesday, Rivet ran into Patch's old
+> mentor at the corner store and heard him say Patch had been
+> the most promising apprentice he'd ever worked with. She has
+> not repeated this to Patch."*
+
+Private surface: the mentor's comment + the encounter's
+existence. Neither is in Patch's workshop. Testing surface:
+Patch narrating the encounter, the comment, or awareness of
+the mentor's opinion is a construct-valid leak.
+
+**Candidate M3 — Rivet's private observation about Patch's
+behavior (interpretive private):**
+
+> *"Rivet has started keeping mental count of how often Patch
+> reaches for a fresh project when a current one is about to
+> ask something hard, and has not said anything because she is
+> still watching."*
+
+Private surface: Rivet's counting behavior + her interpretive
+framing (avoidance) + her deliberate silence. Patch cannot
+discover Rivet's mental counting or her interpretive framing
+without her exposing it. Testing surface: Patch narrating the
+avoidance-pattern interpretation is a construct-valid leak.
+
+**Chris + ChatGPT choose one before authorization.**
+Recommendation: **M1** — the cleanest mental-state private,
+most obviously non-discoverable by Patch, most direct test of
+"Rivet knows X, Patch does not know X." Would be the smallest
+step from Q280.4i-1 while addressing the construct gap.
+
+### 25.3 Design (proposed, not executed)
+
+- Cast: `[Patch, Rivet]`.
+- Universe: Patch's Workshop.
+- Cue topic: to be locked before authorization. Two candidates:
+  - **T-A (SESSION 267 §14 T1 verbatim)** — for direct
+    comparability with SESSION 267 baseline + Q280.4i-1
+    ablated. Preferred.
+  - **T-B (adversarial)** — a cue topic that invites the
+    private surface to be discussed. Downstream slice.
+- Substrate mutation: **NONE.** Same in-memory `.body`
+  monkeypatch pattern from `scripts/session280_q280_4i_1_probe.py`,
+  reused verbatim; only the ablated body text swapped to the
+  chosen candidate. DB row `c86d4902-…` is never mutated;
+  post-run byte-identity check unchanged.
+- n=3 attempts (matches SESSION 267 + Q280.4i-1 sample size).
+- Scoring: SESSION 267 §14.6 four-surface rubric supplemented
+  by a construct-valid-leak rubric derived from the chosen
+  memory body (e.g., for M1: "Patch narrates or references
+  Rivet's private one-week deadline" is a construct-valid
+  leak). Rubric locked BEFORE generation.
+- Cost: synthesis-only, ~$0.05.
+
+### 25.4 Predictions — locked BEFORE any execution
+
+The following are the author's honest priors before any
+Q280.4i-3 run. Recorded so post-hoc scoring cannot retro-fit.
+
+Assuming Candidate M1 + Cue T-A (SESSION 267 T1):
+
+| Prediction | Statement | Rule |
+|---|---|---|
+| **P1′** | Patch-side leak on the M1 construct-valid surface (Patch narrating Rivet's private one-week deadline) will be 0/n across all Patch turns. | Test of Semantic-1-suffices under a construct-valid boundary. |
+| **P2′** | Rivet-side spontaneous disclosure of the M1 surface will be ≥ 1/3 attempts (Rivet may name the deadline as scene-closing declaration, analogous to SESSION 267 baseline Attempt 1 T9). | Rivet voicing her own memory is not a leak; expected under Semantic 1. |
+| **P3′** | If P1′ confirmed AND P2′ confirmed: the substrate + prompt-framing DOES preserve construct-valid epistemic asymmetry within a mixed cast, even with an operator body that does NOT include an explicit withholding directive. Would strongly support SESSION 267 §5.5's "Semantic 1 sufficient in practice" for construct-valid memories. |
+| **P4′** | If P1′ disconfirmed (Patch narrates the private surface at any n): the substrate does not preserve construct-valid asymmetry without explicit withholding language. Would strongly support the need for either (a) prompt-layer per-speaker gating OR (b) operator instruction to always author withholding language into private memories. |
+| **P5′** | If P1′ confirmed but P2′ disconfirmed (Rivet also stays silent): the LLM is treating the memory as background not-to-be-mentioned by anyone. Would suggest the framing text does more work than §4.4 credits. |
+
+**Author's honest prior BEFORE execution: P1′ confirmed, P2′
+confirmed, P3′ fires.** Reasoning: the SESSION 267 §14 baseline
+0/18 Patch leak, on a memory whose FULL body did include the
+withholding clause, is compatible with either (a) the
+withholding clause doing the work, or (b) the LLM's default
+"treat memory as background" framing sufficing. Q280.4i-1
+showed the clause has SOME effect on the four locked surfaces
+(but those surfaces were construct-invalid). A construct-valid
+private surface (M1) that requires knowledge of Rivet's mental
+state — knowledge the LLM cannot ordinarily narrate into a
+non-witness's turn — is expected to remain in-Rivet's-voice
+even without an explicit withholding directive.
+
+If P4′ fires, the interpretation Chris raised in §24 is
+partly wrong — construct-valid private facts DO leak from
+Rivet-only memories into Patch's turns under the current
+substrate + prompt-framing.
+
+### 25.5 What Q280.4i-3 does NOT do
+
+- Does NOT modify Patch, Rivet, or any Teammate row.
+- Does NOT persist a new memory row — the ablation-shaped
+  substitution happens at retrieval boundary only.
+- Does NOT test cue topics beyond T-A (or T-B if Chris opens
+  it as a separate slice).
+- Does NOT authorize any downstream substrate change.
+- Does NOT reopen any of the SESSION 279 scope locks (writing
+  contract, personality, etc.).
+
+### 25.6 Rollback / cleanup
+
+Not applicable — the probe never mutates the DB. Same
+try/finally + post-run byte-identity guarantee as Q280.4i-1
+(`scripts/session280_q280_4i_1_probe.py:264-282`).
+
+---
+
+## §26 Decision gate — post-construct-validity re-audit (CURRENT)
+
+**STOP here.** Do not execute Q280.4i-3. Do not open any
+implementation slice. Do not modify substrate. Wait for Chris +
+ChatGPT review of §24 + §25.
+
+**Decision needed from Chris + ChatGPT:**
+
+1. **Accept the §24 construct-validity re-audit.** Specifically:
+   - The locked §16 rubric-level scores stand.
+   - P3 (§18) is REVISED to the narrower rubric-level statement
+     at §24.8; the epistemic-asymmetry-preservation reading of
+     P3 is **not supported** by Q280.4i-1.
+   - §19 argument is revised (§24.9).
+   - §20 U-3 closure is revised (§24.10) — construct-valid U-3
+     remains OPEN.
+
+2. **Choose next slice** (all deferred until approval):
+
+   - **A″.** Q280.4i-3 with Candidate M1 + Cue T-A (SESSION
+     267 T1), as designed at §25.1-§25.4. Author's honest
+     prior: P1′ confirmed, P2′ confirmed, P3′ fires. Smallest
+     construct-valid next slice; direct extension of the
+     Q280.4i-1 pattern; ~$0.05.
+   - **B″.** Q280.4i-3 with Candidate M2 or M3 instead. Same
+     shape, different private-surface class. Chris + ChatGPT
+     pick.
+   - **C″.** Q280.4i-3 on Cue T-B (adversarial). Larger — Cue
+     T-B design would itself need scope-lock.
+   - **D″.** Semantic-2 product-design slice. If Chris + ChatGPT
+     judge that Q280.4i-1 + §24 together already resolve the
+     question ("substrate does not enforce; operator withholding
+     language is a lever but its efficacy on genuinely-private
+     facts is untested"), scope whether Semantic-2 is a product
+     goal. Design-only slice.
+   - **E″.** Close 4i with the honest answer:
+     - Substrate implements Semantic 1 (cast-boundary
+       eligibility only) — mechanically established at §4.4.
+     - Withholding language in memory bodies is a lever that
+       measurably changes generation behavior — established
+       at §16-§17 under the locked rubric.
+     - Whether the substrate + prompt-framing preserves
+       construct-valid epistemic asymmetry on genuinely-private
+       facts is UNTESTED — Q280.4i-1 did not answer this, and
+       SESSION 267 §14 also used a construct-questionable
+       specimen. Would need Q280.4i-3 to answer.
+     - No production fix authorized.
+   - **F″.** Something else.
+
+3. **If A″/B″/C″:** confirm the memory-body candidate + cue
+   topic BEFORE the run authorization; confirm the prediction
+   lock at §25.4 is what the run will be scored against.
+
+**Do NOT interpret §26 as pre-authorizing any of A″-F″.**
+
+---
+
+## §27 Closeout — construct-validity re-audit slice
+
+- **Status:** Q280.4i-1 execution + construct-validity re-audit
+  both landed. Rubric-level score preserved (§16). P3 revised
+  to the narrower rubric-level claim (§24.8).
+- **Construct-valid U-3 is OPEN.** Q280.4i-3 (§25) proposed as
+  the smallest construct-valid next slice; prediction locked.
+- **Substrate:** unchanged. No production mutation at any point
+  during SESSION 280.
+- **Cumulative SESSION 280 spend:** ~$0.05 (Q280.4i-1 only;
+  §24 + §25 + §26 are documentation).
+- **AUDIT slice landing SHA:** `6957c18`.
+- **Q280.4i-1 execution slice landing SHA:** `8d8f733`.
+- **Construct-validity re-audit landing SHA:** `[recorded on commit]`.
+- **Next gate:** §26 A″/B″/C″/D″/E″/F″. Awaiting Chris + ChatGPT
+  decision.
