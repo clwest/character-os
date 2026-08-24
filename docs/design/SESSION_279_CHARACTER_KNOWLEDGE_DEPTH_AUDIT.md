@@ -5441,3 +5441,93 @@ Chris + ChatGPT to select from deliberately.
 - [x] No permanent code change
 - [x] Audit closure ready for review
 
+---
+
+# SESSION 279 — CLOSEOUT MARKER
+
+**Session status:** SESSION 279 CLOSED. Two deferred findings resolved.
+Full arc landed on `main`; every substrate change (there was exactly
+one — the Tyson `KnowledgeDocument` `text_content` treatment applied
+by Chris operator-side via SPA Ask-panel Beat 3) verified,
+non-broadening, reversible.
+
+**Session 279 landed commit chain (main, most-recent first):**
+
+```
+55d7a80   Q-279-3 formal closure at DEEP-RESIDUAL
+1dac70d   Q-279-3 P2-BC execution (DEEP-RESIDUAL fires)
+14f6892   Q-279-3 P2-BC design + prediction locked BEFORE execution
+35ebccb   Q-279-3 Phase 2 landed-SHA record (c579f2e)
+c579f2e   Q-279-3 Phase 2 P2-A/B/C execution (locked >=50% not met; family-swap)
+be57821   Q-279-3 Phase 2 design reconciliation vs Phase 1
+1df3f70   Q-279-3 Phase 1 read-only scoring — A/B/C = C mixed
+7a21357   Q-279-3 open — read-only audit + experiment design for 4a
+e0d5a10   Q-279-2 CLOSE — 4b ACCEPT-KNOWLEDGE-DEPTH-HYPOTHESIS
+a44bafa   SESSION 278 CLOSE + SESSION 279 handoff (session-open baseline)
+```
+
+Ten commits, all pushed to `origin/main`, tree clean at every
+step. See SESSION_280_HANDOFF.md for the full durable-conclusions
+summary and forward-looking deferred-items ledger.
+
+**Purpose of this section:** compact marker so future sessions do
+not need to reread 5,443 lines to know what SESSION 279 established
+and where the still-open work lives.
+
+## §151 What SESSION 279 established
+
+**Two deferred findings from `docs/design/SESSION_279_HANDOFF.md`
+CLOSED:**
+
+- **4b** — character identity-as-expert vs Knowledge-depth →
+  **ACCEPT-KNOWLEDGE-DEPTH-HYPOTHESIS** (Q-279-2, §87-§89).
+- **4a** — generalized writer voice / recurring metaphor-family
+  leakage → **CLOSE-Q-279-3-AT-DEEP-RESIDUAL** (Q-279-3,
+  §145-§150).
+
+**Substrate change performed (Chris operator-side):**
+
+- One KnowledgeDocument (`3ff45702-cb8b-49f0-82f6-97013c0f8da6`,
+  *"Tyson's Pastry Pairing Specialty"*) `text_content` replaced via
+  SPA Ask-panel Beat 3 edit gesture. 118-char identity-restating
+  baseline → 2,317-char domain-content reference corpus (§27).
+  Audience/M2M/Universe/is_active invariants preserved (§44). Old
+  chunk (`4c7954e0-…`) dropped synchronously; three new chunks
+  (`a99dba2d-…`, `2548f826-…`, `a02de62d-…`) minted + embedded.
+  Every SESSION 275/276 lifecycle invariant intact.
+- Rollback: same SPA Beat 3 gesture, paste back the 118-char
+  baseline (verbatim recorded in §4.2). Not required; treatment
+  produces higher-quality dialogue on measured specimens.
+
+**Substrate NOT changed:**
+
+- Any prompt code, `writing_contract.py`, `dialogue_synthesis.py`,
+  retrieval, verifier, memory, audience-hint, or any other
+  production module.
+- Any KD other than the Tyson specialty KD.
+- Any Teammate row (all Phase 2 personality substitutions were
+  in-memory only; `.save()` never called).
+- Any Ruby-scoped Knowledge.
+
+**Provider spend (Session 279 net):**
+
+- Q-279-2 Stage A: **$0.82** (three full dialogue-scene renders
+  with avatar + concat; Composition IDs `488c37ba`, `699916a9`,
+  `a5c59014`).
+- Q-279-3 Phase 2 (A/B/C + BC): **~$0.07** total for 12
+  synthesis-only calls via probe (~$0.005 each; no Runway).
+- **Total: ~$0.89.**
+
+## §152 Handoff pointer
+
+Complete SESSION 280 handoff — including the full durable-conclusions
+summary, the deferred-items ledger with per-item state /
+unknown-status / territory / dependencies, artifact paths,
+reproduction commands, and suggested (not chosen) first-question
+candidates — lives at:
+
+> **`docs/design/SESSION_280_HANDOFF.md`**
+
+Chris + ChatGPT choose the next deferred question deliberately
+after reviewing that handoff.
+
