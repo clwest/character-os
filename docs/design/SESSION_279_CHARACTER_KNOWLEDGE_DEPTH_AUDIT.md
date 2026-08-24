@@ -3875,3 +3875,497 @@ breadth, Beat-3 legibility) remain preserved unopened.
 - [x] Phase 2 NOT executed
 - [x] Other deferred findings NOT opened
 
+---
+
+# Q-279-3 — Phase 2 design reconciliation
+
+**Status opened:** 2026-08-25, following the Phase 1 checkpoint commit
+`1df3f70`. Chris + ChatGPT approved Q-279-3 Phase 2 *in principle*
+based on the Phase 1 (C = genuinely mixed) result and directed a
+design reconciliation before any provider spend. Purpose:
+
+- verify the pre-registered §95.2 P2-A / P2-B / P2-C design cleanly
+  isolates H1 vs H2 vs H3 given what Phase 1 actually established;
+- assess whether the §95.2 *"≥ 50 % reduction"* criterion can be
+  evaluated meaningfully at the originally-proposed n = 1 per
+  condition;
+- determine whether avatar / Runway rendering is required at all;
+- pick a topic that does not itself contaminate the writer-voice
+  measurement;
+- specify the temporary contract-lite mechanism at the level of an
+  exact behavioral substitution, without touching persistent
+  production code without approval.
+
+**No provider renders fired. No permanent code / DB / prompt /
+retrieval / verifier / synthesis / identity / audience / memory
+changes.** Read-only design work.
+
+## §107 Phase 1 findings — used as reconciliation inputs
+
+Anchoring the reconciliation to §100 empirics:
+
+- Fox & Flour cast (Ruby + Tyson) per-composition composite device
+  hits: 2-7 (mean ~5.6 across 10 F&F compositions; §100.1).
+- Patch's Workshop per-composition composite: 0-6 (mean ~1.9 across
+  31 Patch compositions; §100.1).
+- **Enum voice fields (`voice_humor`, `voice_energy`,
+  `voice_directness`, `tone_archetype`) do NOT discriminate device
+  rate** (§101.1). Voice_humor = `warm` uniformly across all four
+  cast members yet device rates vary 6.7× between Rivet and Patch.
+- **Free-text `personality` description DOES discriminate.**
+- Device *family* clusters by character-personality context:
+  Ruby / Tyson lean D3 (courtroom); Rivet leans D1n
+  (negation-reframe); Patch leans D1a (assertive-reframe) (§100.3).
+- Q-279-2 Knowledge treatment did NOT reduce the attractor rate;
+  post-treatment D3 rate actually increased (§100.5).
+
+Two Phase-1 findings the pre-registered §95.2 did NOT anticipate:
+
+1. **Enum voice fields are not the modulator.** Original P2-C
+   proposed *"setting both Ruby's and Tyson's `voice_humor` to
+   `none` and `character_point_of_view` blank."* Phase 1 shows
+   `voice_humor` variation across cast is zero (all `warm`), so
+   changing this enum from `warm` to `none` does not test the
+   Phase-1-established H3 modulator. Also, `character_point_of_view`
+   is already blank on both Ruby and Tyson (§3.3), so blanking it is
+   a no-op. **Original P2-C does not test H3.**
+2. **Device families cluster differently by character.** If the
+   experiment scores only D1n (negation-reframe), it will
+   *undercount* the writer-voice attractor for Ruby + Tyson (whose
+   dominant surface is D3, not D1n). Measurement must be composite,
+   or the null-hypothesis can be trivially passed by the LLM
+   swapping surface device without reducing overall attractor rate.
+
+## §108 Video / render necessity — verified NOT required
+
+The dependent variable is *synthesized dialogue text* — not
+rendered media. Read `apps.compositions.starters:3585-3670` and
+`character_os.dialogue_synthesis:1428-1990`:
+
+- `synthesize_dialogue()` is a plain-Python function returning a
+  `DialogueResult` dataclass in-memory (§lines 243-345). It:
+  - assembles the full system prompt (§ §1-§5 including WORLD SHAPE,
+    SHARED WORLD KNOWLEDGE, per-character SCOPED KNOWLEDGE, CHARACTER
+    VOICES, BRAND VOICES, WRITING CONTRACT, TASK);
+  - calls the real production LLM path (`_call_llm`, `openai.Client`,
+    `text-embedding-3-small` retrieval);
+  - parses + validates the returned JSON;
+  - runs the K6.4 verifier dispatcher;
+  - returns turns + provenance.
+- It does NOT create a Composition row, does NOT call the
+  media-engine, does NOT invoke Runway. All render-side work
+  (`generate_avatar_speech`, `Runway avatar creation`, video concat,
+  `AvatarClipRecipe`) fires from the *starter* wrapper AFTER
+  synthesis returns.
+- Real production dialogue synthesis and Phase-2 synthesis use the
+  **identical WritingContract, identity, personality, Knowledge, and
+  LLM call**, so measuring at the `synthesize_dialogue()` return is
+  isomorphic to measuring at the persisted `Composition.
+  synthesized_brief` for our substrate question.
+
+**Cost implications.**
+
+- Full production dialogue-scene render (measured Q-279-2 T1/T2/T3):
+  ~$0.26-$0.28 per render (most of which is Runway avatar seconds +
+  concat).
+- Synthesis-only (single LLM call): a dialogue-synthesis system
+  prompt is ~3-5K input tokens + ~1K output tokens. At current
+  gpt-5-family API prices this is well under **$0.01 per call**.
+- **~99 % cost reduction relative to full render.** No Runway seconds.
+  No media-engine hop.
+
+**Answer: video / avatar / render generation is NOT required.**
+Phase 2 should exercise `synthesize_dialogue()` directly. This is
+NOT a mock substitution — the real production synthesis function is
+called with real production inputs, real production prompts, real
+LLM.
+
+## §109 Sample-size assessment (locked §95.2 ≥ 50 % criterion)
+
+Base rate (Phase 1, Fox & Flour cast, composite device hits per
+composition):
+
+| Bucket | n | mean composite hits/comp | stdev (approx) |
+|---|---|---|---|
+| Fox & Flour composite (§100.1 non-zero) | 10 | ~5.6 | ~2.2 |
+| Post-Q-279-2 F&F only | 3 | ~5.3 | ~2.5 |
+
+For a single sample (n=1) per condition, a Poisson-approximation
+with mean λ ≈ 5 has stdev ≈ √5 ≈ 2.24. So a 50 % reduction
+(5 → 2.5) is roughly *one* standard deviation — the null could
+easily be crossed by chance in either direction on n=1.
+
+At n = 2 per condition, SEM of the two-sample mean is √λ/√2 ≈
+1.58. At n = 3, SEM ≈ 1.29. Delta between P2-A and P2-B is
+predicted ≥ 2.5. At n = 3 the discrimination is ≥ ~2σ — the
+smallest sample size that lets §95.2's locked *"≥ 50 %
+reduction"* pass without prima-facie noise concerns.
+
+**Verdict:** the originally-proposed 1 render per condition is
+too weak. Increase to **n = 3 per condition**. Because of the
+synthesis-only cost reduction (§108), n = 3 × 3 conditions = 9
+synthesis calls costs **~$0.05 total**, not $2.50.
+
+We are not spending more; we are spending on more real
+synthesis samples instead of on avatar rendering we do not need.
+
+## §110 Revised P2-C (isolates personality-TEXT, not enum)
+
+Original §95.2 P2-C targeted `voice_humor` + `character_point_of_view`.
+Phase 1 disconfirmed those as the modulator. Revised P2-C targets the
+*free-text `personality` field* — the variable Phase 1 identified as
+the actual H3 driver.
+
+**P2-C revised:** substitute Ruby's and Tyson's `personality`
+text with a neutral variant (identity substrate remains — same
+name, universe, business_brief, voice enums, no other change).
+
+Neutral personality substitute (character-agnostic):
+
+```
+Ruby:  "Ruby is friendly and helpful."
+Tyson: "Tyson is friendly and helpful."
+```
+
+Zero color / register / mannerism / disposition information —
+stripped of the dry/analytical/practical/warm/cheerful vocabulary
+Phase 1 identified as the modulator source.
+
+Every OTHER Teammate field held fixed (name, universe, business_brief,
+who_you_help, what_you_sell, always_emphasize, never_say,
+desired_feeling, character_point_of_view, tone_archetype, voice_energy,
+voice_humor, voice_directness, voice_signature_phrases,
+voice_avoid_phrases). Only `personality` differs from P2-A baseline.
+
+## §111 Contract-lite mechanism — exact behavioral substitution
+
+**Constraint reaffirmation (per Chris + ChatGPT direction):** show
+the exact substitution BEFORE implementation; stop for approval if
+persistent production code would be touched.
+
+### 111.1 What contract-lite must remove
+
+Only the Writing Contract content Phase 1 evidence identified as
+plausibly encoding the stakes-elevating structural bias:
+
+- `_DIALOGUE_WATCHABILITY_BLOCK` §1 ENTER WITH AN IN-SCENE STANCE —
+  the enumerated "wants" list (*wants to prove something worked;
+  wants to correct the other character; wants clarification; wants
+  permission; wants to avoid blame; wants to persuade; wants to
+  understand; wants to reassure; wants to challenge an assumption*).
+  This is the highest-density stakes-elevation vocabulary in the
+  contract.
+- `_DIALOGUE_NARRATIVE_SHAPES_BLOCK` — the entire shape menu
+  (*setup → disagreement → payoff; question → answer → correction;
+  experiment → failure → explanation; claim → skeptical response →
+  reveal; myth → correction → practical takeaway; challenge →
+  attempt → result; story → skeptical reaction → punchline*).
+  Every shape is stakes-adjacent.
+
+### 111.2 What contract-lite must KEEP
+
+To avoid inducing OTHER failures that would confound the test:
+
+- `_DIALOGUE_INVARIANTS_BLOCK` — all 10 invariants including CAUSAL
+  CHAIN (rule 10). These are load-bearing conversational-continuity
+  rules; removing them would degrade dialogue quality for reasons
+  unrelated to writer voice.
+- `_DIALOGUE_WATCHABILITY_BLOCK` §§ 2-5 (SOMETHING CHANGES,
+  PREFER SPECIFIC ACTION, KNOWLEDGE INFLUENCES NOT QUOTED, END ON
+  A MOMENT). These are scene-quality rules, not stakes-vocabulary.
+- `_DIALOGUE_ANTI_PATTERNS_BLOCK` (name-use, no re-introductions,
+  no self-narration, no strict alternation, no target turn count,
+  framework recitation, role summary, mutual synthesis).
+- `_CTA_POLICY_BLOCK`, `_ANTI_SELF_DESCRIPTION_BLOCK`,
+  `_ANTI_GENERIC_REGISTER_BLOCK` — floors, not stakes-elevation.
+- SHAPE header and formatting.
+
+### 111.3 Proposed substitution for §1 stances
+
+Replace the wants-list paragraph (§111.1 item 1) with:
+
+```
+Each character arrives with a purpose for THIS scene. Observation,
+sharing, acknowledgment, curiosity, or question-asking are all valid
+stances. This does not mean every scene requires hostility,
+argument, or comedy — collaboration is a valid stance when the topic
+calls for it. A character with no in-scene stance should not speak.
+```
+
+Removes the "prove / correct / challenge / persuade / avoid blame"
+vocabulary; keeps the general "have a stance" rule.
+
+### 111.4 Proposed substitution for narrative-shapes menu
+
+Replace `_DIALOGUE_NARRATIVE_SHAPES_BLOCK` with:
+
+```
+NARRATIVE SHAPE — no prescribed skeleton; write the scene the topic
+calls for. Legitimate hybrids are fine. Do not force conflict,
+argument, or reveal shape when the topic does not require it.
+```
+
+Removes the shape menu entirely (all seven listed shapes are
+stakes-adjacent); replaces with a permissive rule that explicitly
+allows non-stakes scenes.
+
+### 111.5 Implementation mechanism — proposed, NOT executed
+
+Two-part runtime injection, both reversible-at-process-exit, both
+outside `character_os/writing_contract.py`:
+
+**Part A — probe script** `scripts/session279_q279_3_phase2_probe.py`
+(new file). Precedent: the SESSION 272 slice scripts under
+`scripts/` (e.g. `session272_slice_e_ablation.py`,
+`session272_slice_b_render.py`). Non-production code path; not
+imported by production; may be deleted after the experiment.
+
+Script responsibilities:
+
+1. Load workspace + Ruby + Tyson from real DB (read-only).
+2. Parse CLI args: `--config=A|B|C`, `--topic=...`, `--n=3`.
+3. For config B: monkeypatch `WritingContract.for_shape` to return
+   the §111.3 + §111.4 substituted dialogue_scene contract for the
+   duration of the probe. All other shapes pass through unchanged.
+4. For config C: monkeypatch `character_os.dialogue_synthesis.
+   _build_character_voice_block` to substitute `tm.personality` with
+   the §110 neutral variant when the passed teammate is Ruby or
+   Tyson. All other fields pass through unchanged.
+5. For each of N samples: call `synthesize_dialogue(workspace, [ruby,
+   tyson], topic, target_duration_seconds=90, use_knowledge=True,
+   mock_mode=False)` and capture the returned `DialogueResult`.
+6. Score each result's turn texts against locked D1-D4 rubric plus
+   the composite total (§100.3 shape).
+7. Write results to `docs/design/session279_phase2/<config>_<sample_idx>.txt`
+   (durable artifact for later inspection). Also print aggregate to
+   stdout.
+8. Exit; monkeypatches are process-scoped so nothing persists
+   beyond the script's process lifetime.
+
+**Part B — no touch to `writing_contract.py` or
+`dialogue_synthesis.py`.** No version bump. No env-flag branch
+merged into production. The probe script contains the substitute
+text as string literals; the monkeypatch overwrites the function
+attribute at runtime.
+
+### 111.6 Diff shown for approval — script only
+
+```python
+# scripts/session279_q279_3_phase2_probe.py  (~150 lines, new file)
+# Purely test-time / experiment-time. Not imported by production.
+# Contains the §111.3-§111.4 lite-contract text as literals + the
+# §110 neutral personality text as literals + argparse + monkeypatch
+# + synthesis call + scoring. Reverts monkeypatches on exit.
+```
+
+**Persistent production code delta:** zero.
+**New file:** one, in `scripts/` (matches SESSION 272 precedent).
+**Contract version bump:** none.
+**Env flag added:** none.
+**Import in production path:** none.
+
+Chris + ChatGPT: approve the new file under `scripts/` before
+implementation. If Chris prefers zero new file, alternative is an
+ad-hoc `manage.py shell` script pasted into the audit doc for each
+condition — same monkeypatch mechanism, less reproducible, more
+fragile.
+
+## §112 Topic selection
+
+Requirements (per Chris + ChatGPT direction): no legal / procedural
+language, no explicit tension, no arguments / evidence / rules /
+testing / challenge / blame. Same topic across all three configs.
+Semantically neutral but with enough room for dialogue.
+
+Candidates considered:
+
+- *"Ruby and Tyson watch the sunrise through the bakery window before opening."*
+- *"Ruby and Tyson notice the flowers outside the bakery are blooming."*
+- *"Ruby and Tyson enjoy a quiet moment before customers arrive."*
+- *"Ruby and Tyson talk about the weather."*
+
+Rejected during selection:
+
+- Anything mentioning *test*, *check*, *ready*, *decide*, *should*,
+  *problem* — primes the attractor.
+- Anything with a customer or interaction — introduces external
+  stakes / service register.
+- Anything coffee / pastry-adjacent — would engage the Q-279-2
+  Knowledge treatment and confound the R6-vs-writer-voice signal.
+
+**Recommended topic (verbatim, same across P2-A / P2-B / P2-C):**
+
+> **"Ruby and Tyson watch the sunrise through the bakery window before opening."**
+
+Purely observational. Zero adversarial framing. Zero request for
+domain specifics. Compatible with a natural 90-second bakery scene.
+Does NOT engage Q-279-2 treatment vocabulary.
+
+## §113 Exact causal matrix
+
+Same cast, same topic, same everything except the one hypothesized
+variable per config:
+
+| Field | P2-A (baseline) | P2-B (contract-lite) | P2-C (personality-lite) |
+|---|---|---|---|
+| Cast | Ruby + Tyson (Fox & Flour) | Ruby + Tyson (Fox & Flour) | Ruby + Tyson (Fox & Flour) |
+| Operator topic | §112 verbatim | §112 verbatim | §112 verbatim |
+| `Universe.brief` | Fox & Flour brief (unchanged) | same | same |
+| `Teammate.name` | Ruby, Tyson (unchanged) | same | same |
+| `Teammate.business_brief` | production (unchanged) | same | same |
+| `Teammate.personality` | production (Ruby *"warm, cheerful …"* + Tyson *"easygoing, practical, a little dry …"*) | same | **§110 neutral** (*"Ruby is friendly and helpful."* / *"Tyson is friendly and helpful."*) |
+| `Teammate.who_you_help / what_you_sell / always_emphasize / never_say / desired_feeling / character_point_of_view` | production (all empty for both) | same | same |
+| `tone_archetype / voice_energy / voice_humor / voice_directness / voice_signature_phrases / voice_avoid_phrases` | production (`friend/expert`, `medium`, `warm`, `balanced`, empty, empty) | same | same |
+| Knowledge (Fox & Flour Hours + holiday policy + Q-279-2 §27 treatment corpus) | production (unchanged) | same | same |
+| `Universe` memory | none | same | same |
+| Retrieval (`retrieve_for_teammate` / `retrieve_universe_canon` / `retrieve_universe_memory`) | production (unchanged) | same | same |
+| K6.4 verifier | production dispatcher (D-POS authoritative) | same | same |
+| Model + LLM API | production `text-embedding-3-small` + gpt-5-family via `_call_llm` | same | same |
+| Mock mode | false | false | false |
+| Target duration | 90 s | 90 s | 90 s |
+| Verifier mode | warn (production default) | same | same |
+| **`WritingContract.for_shape('dialogue_scene')`** | **production** (`_DIALOGUE_INVARIANTS_BLOCK` + `_DIALOGUE_WATCHABILITY_BLOCK` + `_DIALOGUE_ANTI_PATTERNS_BLOCK` + `_DIALOGUE_NARRATIVE_SHAPES_BLOCK` + `_CTA_POLICY_BLOCK` + `_ANTI_SELF_DESCRIPTION_BLOCK` + `_ANTI_GENERIC_REGISTER_BLOCK`) | **§111.3 + §111.4 substituted**: watchability §1 wants-list replaced with permissive stance rule; narrative-shapes menu replaced with "no prescribed skeleton". Every other contract element unchanged. | production (unchanged) |
+| Video / avatar render | **not fired** (synthesis-only path per §108) | **not fired** | **not fired** |
+| Samples per config | **n = 3** (per §109) | n = 3 | n = 3 |
+
+**Single-variable-per-config check:**
+
+- P2-B ↔ P2-A: exactly one variable differs = `WritingContract.for_shape('dialogue_scene')`. Isolates **H1** (contract structural bias). A large device-rate drop in P2-B vs P2-A implicates the writing_contract's stakes-elevating structural frame.
+- P2-C ↔ P2-A: exactly one variable differs = Ruby + Tyson `personality` text. Isolates **H3** (personality-text modulation). A large device-rate drop in P2-C vs P2-A implicates the free-text personality field.
+- P2-A ↔ Phase 1 F&F post-treatment baseline: replicates the production configuration on a new neutral topic — establishes that the attractor is not topic-specific to Q-279-2's coffee-adjacent topics.
+- Whichever configuration does NOT reduce the attractor rate relative to P2-A implicates **H2** (model prior) as the remaining floor.
+
+## §114 Measurement definition — composite + per-family
+
+Locked rubric D1-D4 preserved. Because Phase 1 found DEVICE FAMILY
+clusters differently by character-personality context (§100.3), we
+report BOTH:
+
+1. **Composite attractor rate** (per 1000 chars): `(D1 + D2 + D3 +
+   D4a + D4n) / total_chars * 1000`. Do NOT double-count D1n
+   (subset of D1). Primary discrimination metric.
+2. **Per-family breakdown** (D1a / D1n / D2 / D3 / D4a / D4n).
+   Reports SHAPE of any observed change. E.g. if P2-C reduces D3
+   but doubles D1n, the attractor is not gone — it moved family.
+
+**Locked interpretation rules (BEFORE render, per Chris + ChatGPT
+direction):**
+
+- **H1 confirmed as primary floor:** P2-B composite rate ≤ 50 % of
+  P2-A composite rate; family shift alone is not enough — the
+  composite must drop.
+- **H3 confirmed as modulator:** P2-C composite rate ≤ 50 % of P2-A
+  composite rate.
+- **H2 as remaining floor:** if BOTH P2-B and P2-C achieve ≤ 50 %
+  reduction → attractor is jointly modulated by contract + personality
+  above a residual floor. If NEITHER P2-B nor P2-C reduces composite
+  ≥ 25 % → model-prior H2 is the dominant residual and neither
+  contract-lite nor personality-lite is sufficient to move it.
+- **Mixed / partial** results → interpret via per-family breakdown.
+
+## §115 Sample-count justification
+
+Per §109: **n = 3 samples per config** is the smallest sample size
+that lets the locked ≥ 50 % criterion pass without being swamped
+by Poisson noise on a mean-5 base rate. 3 configs × 3 samples =
+**9 synthesis-only calls**, ~$0.05 total. Do NOT increase without
+new evidence.
+
+## §116 Reconciled Phase 2 answers
+
+### 116.1 Does the original §95.2 design remain valid?
+
+**Partially.** Preserved from §95.2:
+
+- P2-A baseline replay concept.
+- P2-B contract-lite concept.
+- Overall three-config causal-matrix structure.
+- ≥ 50 % composite reduction acceptance threshold.
+
+**Revised** from §95.2:
+
+- **P2-C target variable**: `voice_humor` + `character_point_of_view`
+  → *free-text `personality`* substitution (Phase 1 disconfirmed
+  the enum fields as modulators).
+- **Sample count per config**: 1 → 3 (§109 noise analysis).
+- **Render mechanism**: full Runway/avatar render → synthesis-only
+  via direct `synthesize_dialogue()` invocation (§108 established
+  the dependent variable is text, not media).
+- **Measurement**: single-family focus → **composite** attractor
+  rate + per-family breakdown (§114; Phase 1 §100.3 showed families
+  shift by character).
+- **Mutation route**: SPA Ask-panel operator gesture (would only
+  mutate KDs, not personality field; also would fire full renders)
+  → runtime monkeypatch inside a new `scripts/session279_q279_3_
+  phase2_probe.py` file (§111.5-§111.6). Zero permanent production
+  code change.
+- **Topic**: unspecified in §95.2 → **§112 recommended verbatim**.
+
+### 116.2 Cheapest valid real-model experiment
+
+Direct `synthesize_dialogue()` invocation from a
+`scripts/session279_q279_3_phase2_probe.py` probe, monkeypatching
+either `WritingContract.for_shape` (for P2-B) or
+`_build_character_voice_block` (for P2-C). Real LLM. Real
+production prompt scaffolding except for the one substituted
+element. n = 3 samples per condition. 9 synthesis calls total.
+~$0.05 aggregate LLM spend. Zero Runway spend. Zero DB writes.
+
+### 116.3 Is video rendering required?
+
+**No.** §108. Full render costs ~$0.28 apiece and produces media
+we do not need to answer the writer-voice question. Synthesis-only
+is isomorphic to persisted `Composition.synthesized_brief` for the
+dependent variable and exercises the same LLM path with the same
+inputs.
+
+### 116.4 Proposed topic
+
+**"Ruby and Tyson watch the sunrise through the bakery window before opening."** (§112)
+
+### 116.5 Sample count required
+
+**n = 3 per config**, 9 synthesis calls total. Locked at §109.
+
+### 116.6 Decision gate
+
+Do NOT execute Phase 2 without Chris + ChatGPT approval of:
+
+1. The revised P2-C personality-text substitution (§110).
+2. The exact contract-lite behavioral substitution (§111.3 + §111.4).
+3. The new probe file under `scripts/` (§111.5-§111.6). Precedent
+   exists (SESSION 272 slices under same path) but any new file is
+   a persistent code change; requires explicit sign-off.
+4. The proposed topic (§112) or an alternative.
+5. n = 3 per config sample count (§115) — up or down.
+
+Two live gate options after approval:
+
+- **APPROVE-EXECUTE-Q-279-3-PHASE-2** — proceed with §113 causal
+  matrix as reconciled. ~$0.05 provider spend.
+- **REVISE-DESIGN-FURTHER** — adjust one or more of {P2-C substitute
+  text, contract-lite substitution scope, probe file location,
+  topic, sample count} before execution.
+
+Do NOT proceed until explicit approval.
+
+## §117 Checklist — Phase 2 reconciliation
+
+- [x] Phase 1 findings identified that break the original §95.2 P2-C design (§107)
+- [x] Video / avatar rendering necessity checked and answered NO (§108)
+- [x] Sample-size assessment against §95.2 ≥ 50 % criterion using Phase-1 empirical base rates (§109)
+- [x] Revised P2-C targets personality *text*, not enum voice fields (§110)
+- [x] Contract-lite behavioral substitution specified at prompt-text level (§111.1-§111.4)
+- [x] Implementation mechanism proposed — runtime monkeypatch inside new `scripts/` probe file — with zero permanent production code delta (§111.5-§111.6)
+- [x] Neutral topic recommended verbatim (§112)
+- [x] Exact single-variable-per-config causal matrix presented (§113)
+- [x] Composite + per-family measurement locked BEFORE any render (§114)
+- [x] Locked acceptance / discrimination rules (§114)
+- [x] Sample count justified against Poisson-noise floor (§115)
+- [x] Reconciled answers to user's 8-item report scaffold (§116)
+- [x] No provider renders fired
+- [x] No permanent code / DB / prompt / retrieval / verifier / synthesis / identity / audience / memory changes
+- [x] No implementation of the probe file yet
+- [x] Chris + ChatGPT approval gate explicit (§116.6)
+- [x] Other deferred findings NOT opened
+
