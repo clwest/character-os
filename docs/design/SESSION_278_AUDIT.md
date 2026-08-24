@@ -20,8 +20,9 @@ Handoff context: `docs/design/SESSION_278_HANDOFF.md`.
 - [x] **Q-278-4.2 pre-implementation boundary challenge** — before Slice 2 lands, resolve the apparent composition-boundary contradiction: a global `CHARACTER_OS_K64_AUTHORITY` flag rewiring three call sites would broaden authority to Script + ConversationMessage even though those surfaces have no shadow evidence. *(CLOSED — Chris + ChatGPT approved MODIFY-SLICE-2-DESIGN → REVISED Option A.)*
 - [x] **Q-278-4.2** — Dialogue-scene-only dispatcher (revised Option A). New `character_os/claim_verifier_dispatch.py`; `CHARACTER_OS_K64_DIALOGUE_AUTHORITY = legacy | d_pos` (default `legacy`); dual-write to `Composition.verification_warnings_shadow` (D-POS) + new `Composition.verification_warnings_legacy` (legacy); dispatcher runs both classifiers per turn; defensive fallback on D-POS failure; strict/warn semantics preserved. *(LANDED — commit `e7c58c2`; 179 tests green.)*
 - [x] **Q-278-4.2 Dual-Write Dogfood 3/3** — three completed fresh dialogue-scene renders (1eb12363 hobby, d7549fc1 coffee, 2dc6b0b5 junk) + one partial supporting evidence row (3db365fe, Runway moderation orthogonal). Dual-write invariant `verification_warnings == verification_warnings_legacy` **PASS bit-for-bit on 4/4 rows**. Zero D_POS_ONLY. Pre-established Slice-3 acceptance gate satisfied. *(WINDOW COMPLETE — recommendation: GO-IMPLEMENT-SLICE-3.)*
-- [x] **Q-278-4.3** — Slice 3 of the Q-278-4 cutover plan. One-line default flip in `character_os/claim_verifier_dispatch.py`: `_DEFAULT_AUTHORITY` `"legacy" → "d_pos"`. Existing rollback path preserved (`CHARACTER_OS_K64_DIALOGUE_AUTHORITY=legacy` via env or settings; settings > env > default). Dual-write persistence unchanged. Adjacent surfaces (Script / ConversationMessage / talking-head / long-form) untouched. Regression suite: 185 tests pass (rebalanced from 179 with new default-is-d_pos, explicit-legacy-rollback, and parametrized Q-278-1 default-d_pos-authority coverage). *(LANDED — commit `13eee13`; awaiting fresh dogfood confirmation.)*
-- [ ] Q-278-4.x (adjacent surfaces) — (TBD; per-surface scope-locked with own shadow window each; unopened)
+- [x] **Q-278-4.3** — Slice 3 of the Q-278-4 cutover plan. One-line default flip in `character_os/claim_verifier_dispatch.py`: `_DEFAULT_AUTHORITY` `"legacy" → "d_pos"`. Existing rollback path preserved (`CHARACTER_OS_K64_DIALOGUE_AUTHORITY=legacy` via env or settings; settings > env > default). Dual-write persistence unchanged. Adjacent surfaces (Script / ConversationMessage / talking-head / long-form) untouched. Regression suite: 185 tests pass. *(LANDED — commit `13eee13`.)*
+- [x] **Q-278-4.3 Post-Flip Dogfood 3/3** — three completed fresh dialogue-scene renders under default `d_pos` authority (52cf3df9 freezer, bc1eacf5 button, 7177b0f5 competition). Post-flip invariant `verification_warnings == verification_warnings_shadow` **PASS bit-for-bit on 3/3**. Zero D_POS_ONLY. Zero true positives lost. One BOTH-parity flag (`Tyson` single-word cross-cast address) classified as substrate contract gap agreed by BOTH classifiers; not a D-POS regression. All pre-established acceptance criteria satisfied. *(WINDOW COMPLETE — recommendation: CONFIRM-DPOS-DIALOGUE-AUTHORITY.)*
+- [ ] Q-278-5-* (follow-ups) — (TBD; scope-locked separately; unopened. Candidates: adjacent-surface migration; `build_allowed_vocabulary` cross-cast alias contract; dialogue-scene strict-mode audit; deferred creative investigations.)
 
 Slice discipline reminder: no fixes land in this session until Chris + ChatGPT explicitly approve.
 
@@ -3022,5 +3023,415 @@ Do NOT investigate deferred creative observations. Do NOT open adjacent-surface 
 - **Confirm the flip is stable** via the post-flip fresh-dogfood window described above, then decide separately about (a) opening Q-278-4.x for adjacent-surface migration, (b) strict-mode flip audit, or (c) legacy verifier retirement audit.
 - **Rollback** via `export CHARACTER_OS_K64_DIALOGUE_AUTHORITY=legacy` + `bash scripts/start-local-real.sh` if any post-flip evidence classifies a D-POS regression.
 - **Freeze** at post-Q-278-4.3 (dialogue on d_pos, adjacent surfaces on legacy) as a possible terminal state if the operator judges the current split acceptable indefinitely.
+
+---
+
+## Q-278-4.3 Post-Flip Fresh Dogfood — Completed Specimen 1/3
+
+**Post-flip completed count: 1/3.**
+
+### Composition
+
+- ID: `52cf3df9-15f5-4fe8-a2dd-94c103f6d80e`
+- Name: `Dialogue — Tyson, please come look in the`
+- Template: `dialogue_scene` (Ruby + Tyson cast, Fox & Flour Bakery World)
+- Operator topic: *"Ruby finds something strange in the bakery freezer."*
+- Status: `completed`; `verification_status = "verified"`; `synthesis_attempt_count = 1`
+- Operator observation: scene worked normally; SPA showed no K6 verifier warning panel/flags.
+
+### Per-column contents (verbatim from DB)
+
+`verification_warnings` (count=0): empty.
+
+`verification_warnings_shadow` (count=0): empty.
+
+`verification_warnings_legacy` (count=2):
+- `Tyson` proper_noun — turn 0 (Ruby, position 0)
+- `Fair` proper_noun — turn 5 (Tyson, position 0)
+
+### Post-flip invariant
+
+**`verification_warnings == verification_warnings_shadow` → True** (both empty; bit-for-bit equality confirmed via Python `==`).
+
+Also: **`verification_warnings != verification_warnings_legacy` → True** (differ by 2 entries — expected post-flip; legacy is no longer authoritative but still populates its shadow column).
+
+### Authority resolution
+
+Dispatcher resolved to **`d_pos`** (Q-278-4.3 default). Confirmed live: `resolve_dialogue_authority()` returns `"d_pos"` in the venv.
+
+### Classifier diff
+
+- **LEGACY_ONLY (2):** `Tyson` (Ruby turn 0), `Fair` (Tyson turn 5).
+- **BOTH (0):** none.
+- **D_POS_ONLY (0):** none.
+
+### Interpretation of every LEGACY_ONLY
+
+**`Fair` (Tyson turn 5)** — text: *"Fair. Cakes are usually much less mysterious once somebody says what the occasion is..."*
+- Classification: **ordinary-language false positive correctly silenced by D-POS.**
+- Canonical Q-278-1 class. spaCy tags `Fair` as ADJ → PROPN pass skips. Consistent with 15+ prior specimens.
+
+**`Tyson` (Ruby turn 0)** — text: *"Tyson, please come look in the freezer before I convince myself I imagined this."*
+- Classification: **ambiguous with an important mechanism note.**
+- Legacy flagged because Ruby's per-speaker `allowed_vocabulary` is `['Ruby', 'Warm', 'Character OS']` (Ruby's own name + one extract from her voice metadata + platform terms), and Ruby's per-speaker `factual_corpus` does not contain `tyson`. Under the strict per-speaker legacy contract, `Tyson` is technically "unsupported for Ruby to say" — but operationally this is a cast-member direct-address, not a hallucination. Legacy's flag is a **noise warning** in this shape (cross-cast direct-address between existing Teammates).
+- D-POS silenced because — verified directly against `en_core_web_sm==3.8.0` on the exact turn text — spaCy tags `Tyson` in this direct-address position as **`POS=NOUN` (NN, common noun)**, NOT PROPN. `doc.ents` is EMPTY on this sentence. So the PROPN pass never extracts `Tyson`, and the NER supplement pass never receives an entity to gate. Neither the corpus check nor the vocab check fires.
+- **Operator-facing outcome:** better under D-POS — one fewer noise warning on a cross-cast address. Not a rollback trigger; not a lost true positive.
+- **Mechanism observation:** this is a NEW D-POS behavior class not exercised in the Q-278-3.1 adversarial matrix or the Q-278-3.2 / Q-278-4.2 dogfood windows. spaCy's small-model POS tagger classifies capitalized human names as NN when they appear in direct-address position at sentence start. Same tag would apply to any first-token capitalized name in a direct-address turn. Recorded as a documented behavior class:
+  - **If** a future dialogue synthesizes a HALLUCINATED cast-member-shaped name at direct-address position (e.g., Ruby suddenly says *"Bartholomew, please come here."* with `Bartholomew` not in any corpus and not a Teammate), spaCy might tag it as NN and D-POS would silently miss it. Legacy would have caught it.
+  - **In the observed real-render class** (cross-cast address between existing Teammates), D-POS's behavior is preferable to legacy's.
+  - **Not blocking Slice-3 confidence** — the specific case is a legacy over-fire on legitimate cast interaction; the theoretical hallucination class is speculative and has not surfaced in any dogfood.
+
+### Interpretation of every D_POS_ONLY
+
+**None.** No entities D-POS surfaces that legacy missed.
+
+### True-positive loss check
+
+**No genuine hallucination was lost.** `Tyson` at line 0 is not a hallucination (Tyson is a real cast member and the direct-address is conversational shape, not a factual claim). `Fair` at line 5 is the Q-278-1 class (ordinary language). Neither is a legitimate hallucination signal legacy caught and D-POS silenced.
+
+### Composition completion + non-effect check
+
+Composition completed normally on first synthesis attempt. `verification_status = "verified"`. All avatar_speech steps + concat_clips rendered; final asset produced. D-POS authority had no observable effect on synthesis, rendering, Knowledge retrieval, continuity, or billing beyond the verifier-evidence surface (which the operator explicitly noted was clean).
+
+### Prediction vs actual
+
+- Predicted post-flip invariant `verification_warnings == verification_warnings_shadow` bit-for-bit. **Confirmed** (both empty, invariant holds trivially and correctly).
+- Predicted `verification_warnings_legacy` still populated as post-flip shadow. **Confirmed** (2 entries).
+- Predicted D-POS silences Q-278-1 class (`Fair`) on operator-facing surface. **Confirmed.**
+- Predicted no D_POS_ONLY warnings on a normal render. **Confirmed** (0/0).
+- **Not-predicted / novel finding:** spaCy tags cross-cast direct-address names (`Tyson,`) as NN not PROPN — a new D-POS behavior class producing LEGACY_ONLY on legacy's over-fire, operationally desirable but theoretically inspectable if a hallucinated cast-member-shaped name ever appears in the same position. Recorded above.
+
+### Post-flip completed count: **1 / 3**
+
+---
+
+## Q-278-4.3 Post-Flip Fresh Dogfood — Completed Specimen 2/3
+
+**Post-flip completed count: 2/3.**
+
+### Composition
+
+- ID: `bc1eacf5-2651-4e94-91e8-969c6ff229e7`
+- Name: `Dialogue — Rivet, why is there a button u`
+- Template: `dialogue_scene` (Patch + Rivet cast, Patch's Workshop World)
+- Operator topic: *"Patch finds a button Rivet says not to press"*
+- Status: `completed`; `verification_status = "verified"`; `synthesis_attempt_count = 1`
+- Operator observation: dialogue itself worked well.
+
+### Per-column contents (verbatim from DB)
+
+`verification_warnings` (count=0): empty.
+
+`verification_warnings_shadow` (count=0): empty.
+
+`verification_warnings_legacy` (count=2):
+- `"Do Not Press Unless We Need Content"` multi_word — turn 20 (Patch, position 23)
+- `"Do Not Press"` multi_word — turn 21 (Rivet, position 15)
+
+### Post-flip invariant
+
+**`verification_warnings == verification_warnings_shadow` → True** (both empty; bit-for-bit).
+
+### Authority resolution
+
+Dispatcher resolved to **`d_pos`** (Q-278-4.3 default).
+
+### Classifier diff
+
+- **LEGACY_ONLY (2):** `Do Not Press Unless We Need Content` (Patch turn 20), `Do Not Press` (Rivet turn 21).
+- **BOTH (0):** none.
+- **D_POS_ONLY (0):** none.
+
+### Interpretation of every LEGACY_ONLY
+
+Both entries are narrative object labels — a quoted fictional button label the synthesized dialogue introduces as a joke premise for the scene. Legacy's `_MULTIWORD_CAPS_RE` regex captured the title-case run as multi-word candidates; grounding failed because the fictional label isn't (and can't be) in either character's factual corpus.
+
+- `"Do Not Press Unless We Need Content"` — turn 20 (Patch quoting the button label). **Classification: ambiguous / narrative device.** Not a factual claim, not a real entity, not a hallucination — a scene object described in dialogue. Legacy's flag is operationally noise; D-POS silencing is operationally desirable.
+- `"Do Not Press"` — turn 21 (Rivet, subset of the same label). **Same classification, same interpretation.**
+
+**D-POS silencing mechanism:** spaCy's small-model NER doesn't tag quoted title-case narrative fragments as PERSON / ORG / GPE / etc.; the individual tokens are not all `POS=PROPN` in this quoted context; the PROPN pass therefore never emits the multi-word span. Same shape-class as Specimen 1's `Tyson` direct-address: a spaCy classification that happens to align with the operator-preferable outcome (no noise warning on a narrative object), even though the underlying mechanism is not "the model correctly understood this is a narrative device."
+
+**Not a rollback trigger:** neither entry is a legitimate hallucination signal legacy caught that D-POS silenced. The operator-facing outcome (clean panel on a scene featuring a fictional button) is better under D-POS.
+
+### Interpretation of every D_POS_ONLY
+
+**None.**
+
+### True-positive loss check
+
+**No genuine hallucination was lost.** Both LEGACY_ONLY entries are narrative-object labels invented within the dialogue itself, not factual assertions about entities in the world. The founding K6.4 invariant is about entities the model smuggles in from training data (SESSION 158 Wikipedia/trafilatura shape); a story-object name introduced in-scene by the character is not that shape.
+
+### Composition completion + non-effect check
+
+Composition completed normally on first synthesis attempt. `verification_status = "verified"`. All avatar_speech steps + concat_clips rendered; final asset produced. D-POS authority had no observable effect on synthesis, rendering, continuity, or billing beyond the (now-empty) verifier-evidence surface.
+
+### DEFERRED — possible isolated avatar/video quality degradation
+
+Chris reports the render quality was weaker than usual on this specific specimen: mouth movement / lip-sync noticeably worse in places; some clip/merge boundaries visibly noticeable. Chris explicitly notes this has NOT been a common recurring issue historically.
+
+**Do NOT:**
+- change avatar provider settings;
+- change concat behavior;
+- change clip generation;
+- change timing/chunking;
+- blame Runway/provider;
+- open an investigation from this single specimen.
+
+Recorded here narrowly as **possible isolated avatar/video quality degradation** — for future correlation only if similar operator reports recur across specimens. Independent of the verifier substrate; the Q-278-4.3 authority flip does not touch avatar_speech provider settings, chunking, or concat behavior.
+
+### Prediction vs actual
+
+- Predicted post-flip invariant `verification_warnings == verification_warnings_shadow` bit-for-bit. **Confirmed** (both empty).
+- Predicted no D_POS_ONLY on a normal render. **Confirmed** (0/0).
+- Predicted LEGACY_ONLY entries would be either Q-278-1 class silences OR novel-mechanism silences on legacy over-fires. **Confirmed** — this specimen is the latter: legacy's multi-word regex over-fires on quoted narrative objects; D-POS silences via non-PROPN token classification. Same shape-class as Specimen 1's `Tyson`.
+
+### Cumulative post-flip aggregate so far (2 specimens)
+
+- LEGACY_ONLY: 2 + 2 = **4** (`Tyson`, `Fair`, `"Do Not Press Unless We Need Content"`, `"Do Not Press"`).
+- BOTH: 0 + 0 = **0**.
+- D_POS_ONLY: 0 + 0 = **0**.
+- True positives lost: **0**.
+- Post-flip invariant `verification_warnings == verification_warnings_shadow`: **PASS on 2/2**.
+- Novel spaCy mechanism classes surfaced: **2** — (a) direct-address human names tagged NN not PROPN (Specimen 1); (b) quoted narrative object labels not recognized as entities (Specimen 2). Both operationally preferable in the observed cases; both worth watching for future counterexamples.
+
+### Post-flip completed count: **2 / 3**
+
+---
+
+## Q-278-4.3 Post-Flip Fresh Dogfood — Completed Specimen 3/3
+
+**Post-flip completed count: 3/3 — window complete.**
+
+### Composition
+
+- ID: `7177b0f5-b6e8-4366-951b-cb3c2ebe01cb`
+- Name: `Dialogue — You want to tell me why there'`
+- Template: `dialogue_scene` (Ruby + Tyson cast, Fox & Flour Bakery World)
+- Operator topic: *"Tyson thinks Ruby secretly entered them in a baking competition."*
+- Status: `completed`; `verification_status = "verified"`; `synthesis_attempt_count = 1`
+
+### Per-column contents (verbatim from DB)
+
+`verification_warnings` (count=1):
+- `Tyson` proper_noun_pos — turn 17 (Ruby, position 0)
+
+`verification_warnings_shadow` (count=1): **identical to `verification_warnings` above** (same single entry).
+
+`verification_warnings_legacy` (count=2):
+- `Practical` proper_noun — turn 10 (Tyson, position 6)
+- `Tyson` proper_noun — turn 17 (Ruby, position 0)
+
+### Post-flip invariant
+
+**`verification_warnings == verification_warnings_shadow` → True** (both hold the same single entry; bit-for-bit identical). Authority resolved to **`d_pos`**.
+
+### Classifier diff
+
+- **LEGACY_ONLY (1):** `Practical` (Tyson turn 10, sentence-initial ADJ, Q-278-1 class silenced by D-POS).
+- **BOTH (1):** `Tyson` (Ruby turn 17). Kinds differ: legacy `proper_noun`, D-POS `proper_noun_pos`. Match key (case-insensitive claim + line_index + speaker_alias) collides, so this is a BOTH agreement.
+- **D_POS_ONLY (0):** none.
+
+### Forensic on the `Tyson` BOTH warning
+
+**Text (turn 17 Ruby):** *"Tyson."* — one-word turn (Ruby simply saying Tyson's name).
+
+**spaCy trace on turn 17:**
+- Token `Tyson` at position 0: `POS=PROPN`, `tag=NNP`, `is_sent_start=True`.
+- `doc.ents` on the one-word turn: **empty** (NER emits nothing for the isolated one-word sentence).
+
+**D-POS extraction:** the PROPN pass extracts `Tyson` as a `proper_noun_pos` candidate (single-token PROPN run).
+
+**Grounding availability on Ruby's per-speaker corpus/vocab (rebuilt from the same knowledge_chunk_ids used at synthesis time):**
+- `ruby_vocab = ['Ruby', 'Warm', 'Character OS']` — from `build_allowed_vocabulary(spokesperson=ruby)`: Ruby's own name + a single proper noun extracted from Ruby's voice metadata (`Warm`) + `KNOWN_PLATFORM_TERMS`. **`Tyson` is NOT in Ruby's allowed_vocabulary.**
+- `ruby_corpus` (763 chars): does NOT contain the substring `tyson` (case-insensitive). Contains Fox & Flour identity + Ruby's business brief + Universe.brief. **`Tyson` is NOT in Ruby's factual_corpus.**
+
+Grounding therefore fails on both the corpus check AND the vocab check → both classifiers correctly emit an `UnsupportedClaim` under the current per-speaker contract.
+
+**Contrast with Specimen 1 turn 0 (`Tyson, please come look...`):** spaCy tagged that instance as `POS=NOUN`, `tag=NN` (common noun) — a different classification driven by the surrounding syntactic context (direct-address with a comma before the imperative clause). PROPN pass did NOT extract there, so D-POS silenced. Same speaker's per-speaker vocab was identical (`['Ruby', 'Warm', 'Character OS']`). Two Tyson mentions by Ruby, two different spaCy POS tags depending on sentence shape; only the PROPN-tagged one flows through D-POS extraction.
+
+**Contract inspection — `build_allowed_vocabulary` source (`character_os/claim_verifier.py:741-803`):**
+
+The contract explicitly INCLUDES:
+- `Teammate.name` (the speaking teammate only).
+- `KNOWN_PLATFORM_TERMS` (Character OS etc.).
+- Caller-provided extras.
+- Proper nouns extracted from the speaking teammate's `personality` / `character_point_of_view` / `voice_signature_phrases`.
+
+The contract explicitly EXCLUDES (documented deliberately):
+- `always_emphasize` / `never_say` / `desired_feeling`.
+
+**The contract does NOT establish whether cross-cast character names/aliases should be grounded for a dialogue-scene speaker.** No docstring, no design doc, no test asserts this. Under the current per-speaker semantics — which pre-date the multi-cast dialogue path (SESSION 257+ AI-D3) — a co-cast member's name is treated as an unsupported entity if the speaker addresses them and the name isn't in that speaker's per-speaker corpus / voice metadata / KNOWN_PLATFORM_TERMS.
+
+**Under the intended K6.4 claim-verifier contract, should a supplied cast character's own canonical name/alias be considered grounded for dialogue verification?**
+
+The current contract does NOT answer this — it's a substrate DECISION QUESTION, not a mechanical miss. `synthesize_dialogue` has the full `alias_to_teammate: dict[str, Teammate]` cast map in-scope; broadening `build_allowed_vocabulary` to include cross-cast aliases in the dialogue-scene call site would be a small mechanical change with an interesting per-Universe-scope implication (should it include ONLY the current cast, or every Teammate in the Universe?). That question is out-of-scope for Q-278-4.3.
+
+**Classification of the `Tyson` warning: substrate gap (per-speaker allowed_vocabulary contract does not extend to cross-cast dialogue aliases). Legacy AND D-POS agree — BOTH-parity flag per the current contract. NOT a D-POS regression. NOT a lost true positive (also not a genuine hallucination — Tyson is a real cast member in this Universe).**
+
+**Not blocking Q-278-4.3 authority confirmation.** Legacy would have produced the identical operator-visible warning on this specimen too. The Q-278-4.3 flip changed only which classifier's identical output populates the authoritative column. The right follow-up is a separately-scope-locked audit ("should `build_allowed_vocabulary` include cast aliases for dialogue-scene?") — that is Q-278-5 or similar, not opened here.
+
+### Interpretation of every LEGACY_ONLY
+
+- `Practical` (Tyson turn 10, sentence-initial) — **ordinary-language false positive correctly silenced by D-POS.** Q-278-1 class (sentence-initial ADJ).
+
+### Interpretation of every D_POS_ONLY
+
+**None.**
+
+### True-positive loss check
+
+**No genuine hallucination was lost.** `Practical` is Q-278-1 class. `Tyson` is BOTH-agreed and not a lost true positive (both flagged; substrate gap).
+
+### Composition completion + non-effect check
+
+Composition completed normally on first synthesis attempt. `verification_status = "verified"`. All avatar_speech steps + concat_clips rendered; final asset produced. D-POS authority had no observable effect on synthesis, rendering, continuity, or billing.
+
+### DEFERRED — cross-World / generalized writer-voice observation (record only)
+
+Chris reports Ruby/Tyson dialogue still sometimes sounds like the generalized Character OS writer / Patch-Rivet methodology voice rather than natural bakery-operator voices. Concrete example flagged: *Tyson: "That's not a casual question, Ruby. That's evidence."* — Chris specifically notes `evidence` does not feel like natural bakery language.
+
+Hypothesis (recorded, not investigated): **Character OS may have a recurring writer/rhetorical voice that leaks across otherwise distinct Worlds and characters.** This joins the earlier deferred methodology / rhetorical-construction observations (Q-278-3.2 Specimens 2 + 4, Q-278-4.2 Specimen 3) as evidence pointing to the same broader question.
+
+**Do NOT solve this with banned words.** Do NOT manufacture a lexical blacklist from one word. Do NOT modify Tyson / Ruby / prompts / business_brief.
+
+Recorded here for future audit if the pattern accumulates.
+
+### DEFERRED — Knowledge-depth (Tyson) observation reinforced
+
+This specimen independently reinforces the Q-278-4.2 Specimen 2 observation. Tyson again speaks ABOUT expertise generically (*"A good pairing can make a handcrafted pastry feel finished..."*) rather than demonstrating concrete coffee/pastry domain expertise. Character-specific Knowledge retrieved (`Tyson's Pastry Pairing Specialty`) but the synthesized dialogue doesn't consume it into demonstrated in-character expertise.
+
+Preserved separately as: **identity/role may successfully establish that Tyson IS an expert, while insufficient character-specific domain Knowledge limits his ability to PERFORM that expertise concretely.** More Knowledge might improve expertise depth without addressing cross-World rhetorical leakage.
+
+**These two hypotheses (writer-voice leakage + Knowledge-depth) are DISTINCT and must not be conflated.** Recorded separately.
+
+### Post-flip completed count: **3 / 3 — window complete**
+
+---
+
+## Q-278-4.3 Consolidated Post-Flip Authority Evidence + Decision Gate
+
+### Fresh post-flip window matrix (3/3 completed)
+
+| # | comp | topic | attempt | auth_col | shadow_col | legacy_col | auth==shadow | LEGACY_ONLY | BOTH | D_POS_ONLY |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | `52cf3df9` | freezer (Ruby/Tyson) | 1 | 0 | 0 | 2 | **True** | 2 (`Tyson` direct-address, `Fair` ADV) | 0 | 0 |
+| 2 | `bc1eacf5` | button (Patch/Rivet) | 1 | 0 | 0 | 2 | **True** | 2 (`"Do Not Press Unless We Need Content"` + `"Do Not Press"` — narrative object labels) | 0 | 0 |
+| 3 | `7177b0f5` | competition (Ruby/Tyson) | 1 | 1 | 1 | 2 | **True** | 1 (`Practical` ADJ) | 1 (`Tyson` — substrate-gap BOTH) | 0 |
+
+**Totals across post-flip 3/3:** authoritative 1, D-POS shadow 1, legacy 6. Post-flip invariant `auth==shadow` PASS on 3/3. LEGACY_ONLY total 5. BOTH total 1. **D_POS_ONLY total 0.**
+
+### Mechanical answers
+
+1. **Did all 3/3 resolve to `d_pos` authority?** **YES** — invariant equality on every row + live `resolve_dialogue_authority()` returns `"d_pos"`.
+2. **Did all 3/3 persist `verification_warnings == verification_warnings_shadow` bit-for-bit?** **YES** — Python `==` on the persisted JSON confirms on all three rows.
+3. **Did legacy continue persisting independently?** **YES** — `verification_warnings_legacy` populated on all three rows (2 entries each) with content that differs from `verification_warnings` per Q-278-4.2 dual-write semantics.
+4. **Did D-POS silence any genuine unsupported entity that legacy caught?** **NO.** All 5 LEGACY_ONLY entries classify as either Q-278-1 ordinary language (`Fair`, `Practical`) or legacy over-fires on legitimate scene shapes (cross-cast direct-address in Specimen 1, quoted narrative object labels in Specimen 2). None are legitimate hallucinations.
+5. **Did D-POS introduce any new false-positive class?** **NO.** Zero D_POS_ONLY across the window. The one BOTH entry (`Tyson` in Specimen 3) is agreed by BOTH classifiers per the current contract; it is a substrate gap (per-speaker allowed_vocabulary contract), NOT a D-POS-introduced regression. Legacy would have shown this warning too — verified via `verification_warnings_legacy` on the same row.
+6. **What exactly is the classification/status of the `Tyson` warning?** **Substrate gap — BOTH-parity flag under the current per-speaker `build_allowed_vocabulary` contract, which does not extend cross-cast aliases into a speaker's allowed_vocabulary for dialogue-scene compositions.** Not a D-POS regression. Not a lost true positive. Not blocking authority confirmation. Right follow-up is a scope-locked Q-278-5 (or similar) audit of the substrate contract, out of Q-278-4.3 scope.
+7. **Did dispatcher / persistence / fallback / rendering / synthesis / Knowledge / continuity / billing behavior regress because of the authority flip?** **NO.** All three specimens completed normally (`attempt=1`, `status=completed`, `verification_status="verified"`). Composition sequencing, Runway avatar_speech dispatch, concat_clips, Knowledge retrieval (per-character K2 as expected), Universe/Episode continuity, cost tracking — all unaffected. The only observable difference is which classifier's output populates `verification_warnings` (D-POS instead of legacy). SPA reads `verification_warnings` and now shows D-POS warnings.
+8. **Did prediction match actual?** **YES.** All Q-278-4.3 predictions (post-flip invariant, D-POS as authoritative source of operator-visible warnings, no synthesis / rendering / continuity impact, legacy shadow substrate remains populated) confirmed on 3/3 fresh renders. Novel mechanism findings (spaCy NN vs PROPN tagging on direct-address vs one-word turns) recorded but classified as substrate/mechanism observations, not regressions.
+
+### Pre-established acceptance gate — evaluation
+
+Q-278-4.3 §"Fresh dogfood acceptance gate" (NOT re-invented after seeing results):
+
+- **≥ 3 fresh completed dialogue-scene renders under default `d_pos` authority.** → **PASS (3/3).**
+- **`verification_warnings == verification_warnings_shadow` bit-for-bit on new dialogue-scene rows.** → **PASS (3/3).**
+- **`verification_warnings_legacy` populated with pre-flip legacy output for shadow-diff.** → **PASS (all 3 rows populated with 2 entries each).**
+- **No LEGACY_ONLY warning classified as a true positive lost.** → **PASS (5 LEGACY_ONLY entries; all classified as ordinary-language silences or legacy over-fires on legitimate scene shapes; zero true positives lost).**
+- **No new D-POS regression / false-positive class larger than the Q-278-1 noise D-POS closed.** → **PASS (0 D_POS_ONLY across all three rows; the one BOTH-parity `Tyson` is a substrate gap agreed by both classifiers, not a D-POS regression).**
+
+Plus the Q-278-3.2 acceptance criteria still hold via regression suite + fresh evidence.
+
+### Rollback confirmation
+
+Not exercised on a fresh render this window, but the rollback path was regression-tested at Q-278-4.3 implementation (`test_resolve_explicit_legacy_env_rollback_q278_4_3` + `test_dispatcher_explicit_legacy_rollback_authority_q278_4_3`). Available on demand: `export CHARACTER_OS_K64_DIALOGUE_AUTHORITY=legacy` + `bash scripts/start-local-real.sh`.
+
+### Prediction vs actual (consolidated)
+
+- Predicted: post-flip invariant `auth==shadow` bit-for-bit. **CONFIRMED 3/3.**
+- Predicted: D-POS as authoritative source of SPA-visible warnings. **CONFIRMED** (Specimen 3's `proper_noun_pos` kind label is visible in the persisted authoritative column).
+- Predicted: no synthesis / rendering / continuity / billing regressions. **CONFIRMED 3/3.**
+- Predicted: legacy shadow substrate remains populated for post-flip comparison. **CONFIRMED 3/3.**
+- Predicted: zero D_POS_ONLY new false positives on normal renders. **CONFIRMED 3/3.**
+- Not predicted / novel findings: (a) spaCy contextual POS variation on the SAME token across turns (`Tyson` NN vs PROPN depending on sentence shape); (b) narrative-object multi-word labels silenced by D-POS; (c) BOTH-parity substrate-gap flag on single-word cross-cast address (`Tyson.`). All three are documented mechanism observations; none is a regression.
+
+### Deferred observations catalogue update
+
+Preserved DISTINCT and non-blocking to the authority-confirmation decision:
+
+- **Q-278-4.2 Specimen 2 Tyson identity-vs-Knowledge-depth** — REINFORCED by Q-278-4.3 Specimen 3 (independent evidence of the same pattern in a different topic). Substrate distinction preserved. Not merged with writer-voice observation.
+- **Cross-World / generalized writer-voice observation** — new in Q-278-4.3 Specimen 3 (Tyson's *"That's evidence."*). Joins the earlier methodology / rhetorical-construction observations. Broader hypothesis: **Character OS may have a recurring writer voice that leaks across Worlds**. Do NOT solve with banned words.
+- **Substrate gap: cross-cast alias grounding in `build_allowed_vocabulary`** — surfaced by the Specimen 3 `Tyson` BOTH-parity flag. Contract-level question, not classifier-level. Candidate for Q-278-5 or similar future scope-locked audit.
+- **Possible isolated avatar/video quality degradation** (Specimen 2) — single-specimen operator observation; not investigated.
+- **spaCy contextual POS variation across identical tokens** (Specimens 1 + 3) — documented mechanism class; two datapoints; not blocking.
+- Prior carry-forward observations from Q-278-3.2 and Q-278-4.2 remain recorded and unchanged.
+
+None of these influence the authority-confirmation decision.
+
+### Recommendation
+
+**CONFIRM-DPOS-DIALOGUE-AUTHORITY.**
+
+All five pre-established acceptance criteria pass on 3/3 fresh post-flip specimens. Zero true positives lost. Zero D_POS_ONLY new false-positive classes. Zero regressions in dispatcher / persistence / fallback / rendering / synthesis / Knowledge / continuity / billing. The one BOTH-parity flag (`Tyson` in Specimen 3) is a substrate contract gap that BOTH classifiers correctly emit under the current per-speaker `build_allowed_vocabulary` semantics — legacy would have shown the same operator-visible warning; the Q-278-4.3 flip is not the cause.
+
+Q-278-4.3 authority flip is confirmed **stable** on the dialogue-scene surface. Dialogue-scene D-POS Hybrid classifier is authoritative on `Composition.verification_warnings`. Legacy K6.4 continues running in parallel and persisting to `verification_warnings_legacy` for ongoing shadow-diff. Rollback path preserved and regression-tested.
+
+### CONFIRM-DPOS-DIALOGUE-AUTHORITY does NOT authorize
+
+- Adjacent-surface migration (Script, ConversationMessage, talking-head / long-form Composition) — those remain legacy-authoritative pending their own scope-locked per-surface shadow windows.
+- Strict-mode flip on any surface.
+- Legacy verifier removal.
+- Stoplist deletion.
+- The Tyson-substrate-gap fix (cross-cast alias grounding in `build_allowed_vocabulary`) — that's a separately scope-locked audit if Chris + ChatGPT choose to open it.
+- Deferred creative investigations (writer-voice / Knowledge-depth / methodology / visual boundary / epistemic asymmetry / media-quality).
+
+Load-bearing invariant preserved through this decision: **no verifier authority may silently broaden to a surface that has not received equivalent evidence and explicit approval.** Only the dialogue-scene surface has completed a shadow window (5/5 Q-278-3.2) + a dual-write dogfood window (3/3 completed + 1 partial Q-278-4.2) + a post-flip dogfood window (3/3 Q-278-4.3). Adjacent surfaces have not.
+
+### Explicit decision gate
+
+**STOP after Q-278-4.3.** Chris + ChatGPT must explicitly:
+
+- **CONFIRM the authority flip as terminal for the dialogue-scene surface** (this recommendation). Dialogue-scene runs on D-POS indefinitely; legacy persists in shadow; rollback available on demand via env flag.
+- **Optionally open** one or more scope-locked follow-up audits:
+  - Q-278-5-A (adjacent-surface migration — Script and/or ConversationMessage and/or talking-head).
+  - Q-278-5-B (`build_allowed_vocabulary` cross-cast alias grounding in dialogue-scene contexts).
+  - Q-278-5-C (strict-mode flip audit on the dialogue-scene surface, downstream of the two above).
+  - Q-278-5-D (any of the deferred creative investigations, individually scope-locked).
+- Any of these are independent decisions; none is auto-triggered by CONFIRM-DPOS-DIALOGUE-AUTHORITY.
+
+*Chris + ChatGPT decision:* **APPROVED — CONFIRM-DPOS-DIALOGUE-AUTHORITY.** Terminal for the dialogue-scene verifier migration. Q-278-5 NOT opened. Adjacent surfaces NOT migrated. Strict mode NOT flipped. Cross-cast alias grounding NOT fixed. No deferred creative investigation begun. **SESSION 278 CLOSED.**
+
+---
+
+## SESSION 278 — CLOSEOUT MARKER
+
+**Session 278 is CLOSED.**
+
+### Terminal state at closeout
+
+- **K6.4 dialogue-scene verifier:** D-POS Hybrid classifier is authoritative on `Composition.verification_warnings` for every new dialogue-scene render. Default `CHARACTER_OS_K64_DIALOGUE_AUTHORITY=d_pos`. Legacy K6.4 continues running in shadow and persists to `Composition.verification_warnings_legacy` for ongoing comparison / rollback evidence. `Composition.verification_warnings_shadow` mirrors D-POS output symmetrically.
+- **Rollback path:** `export CHARACTER_OS_K64_DIALOGUE_AUTHORITY=legacy` + `bash scripts/start-local-real.sh` restores legacy authority for dialogue-scene compositions. Regression-tested at implementation via `test_resolve_explicit_legacy_env_rollback_q278_4_3` and `test_dispatcher_explicit_legacy_rollback_authority_q278_4_3`.
+- **Adjacent surfaces (Script, ConversationMessage, talking-head / long-form Composition):** UNCHANGED. Legacy K6.4 remains authoritative on those surfaces per the Q-278-4.2 Option A scope-lock. Two source-inspection tests enforce the boundary invariant.
+- **Warn/strict semantics:** UNCHANGED. `K6_CLAIM_VERIFIER_MODE` resolves to `warn` (default). No strict-mode flip.
+- **Legacy verifier + stoplist:** PRESERVED as post-cutover shadow substrate + rollback safety net. No deletion.
+- **Dependency footprint added this session:** `spacy>=3.8,<3.9` + `en_core_web_sm==3.8.0` pinned wheel. MIT-licensed. ~45 MB install + ~50-70 MB per-worker RSS. Cold-load ~215 ms once per worker; per-turn inference ~5-30 ms (negligible vs 60-120 s Runway render).
+- **Regression suite:** 185 tests green at closeout (38 D-POS + 27 dispatcher + 116 adjacent + assorted; run at Q-278-4.3 landing).
+- **Total slices landed this session:** 5 durable commits (Q-278-3.2 substrate; Q-278-4.1 PROPN gate; Q-278-4.2 dispatcher + dual-write; Q-278-4.3 authority flip; audit-doc SHA-record follow-ups).
+
+### Landed commit trail
+
+```
+1a5fbf6  docs(session-278): record Q-278-4.2 landed SHA e7c58c2
+e7c58c2  feat(session-278): Q-278-4.2 Slice 2 — dialogue-scene dispatcher + verification_warnings_legacy
+a6ed841  docs(session-278): record Q-278-4.1 landed SHA 1336420
+1336420  feat(session-278): Q-278-4.1 Slice 1 — NER-supplement POS=PROPN gate
+f546507  docs(session-278): record Q-278-3.2 landed SHA 42298bc
+42298bc  feat(session-278): Q-278-3.2 — K6.4 D-POS shadow verifier (observational)
+```
+plus Q-278-4.3 commit `13eee13` + record `61916ea`.
+
+**Full audit:** this document (`docs/design/SESSION_278_AUDIT.md`).
+**Handoff to SESSION 279:** `docs/design/SESSION_279_HANDOFF.md` — created at close.
 
 ---
