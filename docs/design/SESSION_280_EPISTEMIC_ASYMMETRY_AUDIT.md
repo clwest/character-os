@@ -8379,6 +8379,646 @@ A¹²-H¹².**
   - Q280.9 SHA trailer: `2332bdc`.
   - Q280.8 design + prediction lock: `f5e6d5e`.
   - Q280.8 execution slice: `1772cfb`.
+
+---
+
+## §79 v1.5 curator UX — DESIGN ONLY (SESSION 280 final substantive slice)
+
+Approved Option A¹². **Design-only.** No production code
+changes. No memory row edits. No schema. No prompts. No
+experiments.
+
+Follows Q280.8 BRIDGE-CONFIRMED (§78) and Q280.9 CURATOR-
+USEFUL (§76). Q280.8 validated the full operator-in-the-loop
+chain end-to-end on the existing substrate: model curates
+→ operator approves → durable memory → future suggestions
+reference it. This section designs the smallest operator-
+facing surface that turns that validated loop into a
+usable product.
+
+### 79.1 Design framing
+
+Not an AI-memory admin surface. An operator surface that
+answers ONE question:
+
+> **"What from this story should matter later?"**
+
+Preserve the boundary from Q280.8 (§77.7, §78.10): AI
+notices, operator decides, nothing durable without explicit
+approval. This UX is the concrete affordance for the "operator
+decides" step.
+
+Preserve the Q280.5-1 finding: Episode topics alone already
+produce STRONG suggestion sets (6/6 in Q280.5-1 §51.1).
+Memory curation ENHANCES the loop; it must NOT become a
+mandatory prerequisite.
+
+### 79.2 Current-state audit
+
+**Composition detail page** — `web/src/routes/compositions/$id.tsx`
+(759 lines) — renders `NarrativeMemoryPromotePanel` inside
+the completed-composition view (line 80).
+
+**`NarrativeMemoryPromotePanel`** — `web/src/components/narrative-memory-panels.tsx`
+(lines 110-330):
+
+- **Section shape** (already ordinary language):
+  - Kicker: *"Story history"* (uppercase micro-label)
+  - Title: *"Remember this"*
+  - Subtitle: *"Save something that happened in this episode
+    so the story can bring it back later."*
+- **Field**: `What changed?` — textarea; static placeholder
+  *"e.g. The workshop agent started making decisions Patch
+  didn't ask it to make."*
+- **Availability radio** (`When should this memory be
+  available?`):
+  - *"In any future scene"* (default; sends
+    `witnessed_by=[]` = whole-cast convention)
+  - *"When any of these characters are present…"* (reveals
+    a cast picker; sends explicit teammate ids)
+- **Action**: `[Remember this]` button (disabled while empty).
+- **Recap**: *"What we remember from this render"* — list of
+  memories already promoted from THIS composition.
+- **Empty state**: *"Nothing remembered from this render yet."*
+
+**What's already hidden today** (server-defaulted, invisible
+to operator): `kind`, `weight`, `source_composition_id`,
+`episode_id`, `universe_id`, `embedding_vector`. Only `body`
++ optional `witnesses` are exposed.
+
+**Operator-friendly copy already in place**: *"Story
+history"*, *"Remember this"*, *"In any future scene"*,
+*"When any of these characters are present"*, *"What we
+remember from this render"*, *"forgotten"* (for archived
+memories in the list). **The panel is already close to the
+right voice.** v1.5 adds AI-suggested candidates without
+disturbing this baseline.
+
+### 79.3 Where the curator affordance naturally belongs
+
+**Inside the existing `NarrativeMemoryPromotePanel`, above the
+free-text textarea.** Additive, not replacement.
+
+Rejected alternatives (with reasons):
+- **New separate panel next to `Remember this`** — creates
+  two competing surfaces for the same product concern
+  ("what from this scene should matter later?"). Bad UX.
+- **New panel on the Episode detail page** — too late in the
+  flow; operator has usually left the composition context by
+  then.
+- **Inline in the dialogue view** — cluttered; the
+  composition detail page's completed-render section is
+  where the operator is already reading the finished scene.
+- **Auto-prompt as a modal after synthesis completes** —
+  intrusive; violates the "operator remains authoritative"
+  boundary.
+
+**Chosen placement:** enhance the existing panel. Adds a
+new sub-section above the `What changed?` textarea. Existing
+textarea + availability radio + `[Remember this]` button
+remain unchanged (they become the "Or write your own"
+fallback below the candidates).
+
+### 79.4 Proposed operator journey
+
+1. Operator finishes rendering a Composition (completed
+   status). Navigates to the composition detail page.
+2. `Remember this` panel loads. Above the textarea, a new
+   sub-section **`A few ideas from what just happened`**
+   appears with 3-5 candidate cards.
+3. Each card shows:
+   - The candidate memory body (one sentence, human prose).
+   - A short "hint" (one line, model's own reasoning
+     translated to operator voice).
+   - Three actions: `[Remember this]` (primary) · `Edit`
+     (secondary) · `Skip` (tertiary).
+4. Operator scans the cards. May:
+   - Click `[Remember this]` → single API call →
+     card collapses to a `✓ Remembered.` state; the row
+     appears in the existing *"What we remember from this
+     render"* list below.
+   - Click `Edit` → opens an inline text editor pre-filled
+     with the candidate body; on save, same submit path;
+     card collapses to `✓ Remembered.` with the edited body.
+   - Click `Skip` → card dismissed locally (session-scoped;
+     no persistence).
+   - Ignore the cards entirely → use the existing textarea
+     to write their own memory (unchanged behavior).
+5. Post-remember: the promoted memory appears in
+   `NarrativeMemoryList` on the Episode detail page (via
+   the existing surface), and becomes eligible for future
+   `Where could this story go next?` suggestions in that
+   Universe (validated by Q280.8).
+6. If the operator returns to the same composition later
+   and there are still un-actioned candidates, they appear
+   again. Once all candidates have been remembered / skipped
+   / dismissed, the section quietly disappears.
+
+### 79.5 Exact operator-facing copy (proposed)
+
+Unchanged copy preserved from the current panel:
+- Kicker: *"Story history"*
+- Title: *"Remember this"*
+- Subtitle: *"Save something that happened in this episode
+  so the story can bring it back later."*
+- Free-text field label: *"What changed?"* (unchanged)
+- Availability radio (unchanged): *"In any future scene"* /
+  *"When any of these characters are present…"*
+- Button: *"Remember this"* (unchanged)
+- Recap kicker: *"What we remember from this render"*
+  (unchanged)
+
+New copy for v1.5 curator sub-section:
+
+- **Sub-heading (above candidates):** *"A few ideas from
+  what just happened."*
+- **Sub-heading hint (small, muted):** *"Remember the ones
+  that might matter later."*
+- **Candidate card layout:**
+  ```
+  ┌───────────────────────────────────────────────────┐
+  │ "Tyson joked that the mascot might stay inside    │
+  │  doing 'community outreach.'"                     │
+  │ Could become a running joke.                      │
+  │                                                   │
+  │              [ Remember this ]   Edit   Skip      │
+  └───────────────────────────────────────────────────┘
+  ```
+- **Remembered state (card collapses in place):**
+  ```
+  ┌───────────────────────────────────────────────────┐
+  │ ✓ Remembered.                                     │
+  │ "Tyson joked that the mascot might stay inside…"  │
+  └───────────────────────────────────────────────────┘
+  ```
+- **Edit state (in-place):**
+  ```
+  ┌───────────────────────────────────────────────────┐
+  │ ┌─────────────────────────────────────────────┐  │
+  │ │ Tyson joked that the mascot might stay in…  │  │
+  │ │ [editable textarea, pre-filled]             │  │
+  │ └─────────────────────────────────────────────┘  │
+  │                                                   │
+  │           [ Save & remember ]   Cancel            │
+  └───────────────────────────────────────────────────┘
+  ```
+- **Divider between candidates and the existing textarea:**
+  *"Or write your own:"*
+- **Loading state (before candidates land):** three skeleton
+  cards + *"Looking for what might matter…"*.
+- **Error state (LLM upstream down):** silent — the section
+  is hidden and the existing textarea remains fully usable.
+  No banner. The operator's manual-authoring path is
+  unaffected.
+- **Empty state (LLM returned 0 candidates OR composition
+  too short):** section hidden. Existing textarea remains.
+- **Refresh affordance (v1.5.1):** `Different ideas` link
+  in the sub-heading (mirrors v1 `[↻ Different ideas]`
+  affordance). Deferred if not needed for v1.5 first pass.
+
+**Copy words explicitly avoided** (implementation vocabulary
+banned unless a genuine operator need emerges):
+- "dialogue_callback", "promise", "event", "world_detail",
+  "action" (memory kinds)
+- "witnesses", "witnessed by", "cast" (in the promotion
+  context — the existing radio uses friendlier
+  "when characters are present" phrasing already)
+- "embedding", "vector", "retrieval", "top_k"
+- "narrative gravity", "memory weight", "peripheral",
+  "central"
+- "candidate", "suggested memory", "model-generated"
+- "AI", "LLM", "prompt"
+
+The operator sees prose, one-line hints, and 3 buttons.
+
+### 79.6 Hidden vs visible metadata boundary
+
+Complete table for the v1.5 curator surface:
+
+| Field | Visible to operator? | Where / how | Rationale |
+|---|---|---|---|
+| candidate `body` | **VISIBLE** | Card text (main content) | The memory itself is what the operator is deciding about |
+| `narrative_gravity_note` (from model) | **VISIBLE** | Single-line "hint" under the card body | Helps operator make the "matters later?" call |
+| `kind` (dialogue_callback / event / promise / …) | **HIDDEN** | Server-side default from model's candidate | Operator doesn't need to categorize; kind is a retrieval hint the storyteller uses, not a product concept |
+| `witnesses` | **HIDDEN by default** | Server default: whole-cast (empty M2M). Operator can override via the existing availability radio if they interact with the free-text path. | The default is right 90% of the time. If operator wants narrower witness scope, the existing "When any of these characters are present…" affordance stays available. |
+| `weight` | **HIDDEN** | Server-side default: peripheral | Not exposed today; not needed for v1.5 |
+| `embedding`, `source_composition_id`, `episode_id`, `universe_id` | **HIDDEN** | Internal | Never operator-facing |
+| Model reasoning / trace | **HIDDEN** | Rendered as the operator-voice hint, not raw model output | Raw reasoning would leak "AI" framing |
+| Fact that a candidate came from an LLM | **HIDDEN** | The section says "A few ideas from what just happened" — not "AI suggested" | Operator experience is about the story, not the pipeline |
+| Provenance of a remembered candidate (accepted vs edited) | **HIDDEN in v1.5**; may be useful for analytics later | – | Not needed for the operator |
+
+**Rule:** if surfacing a piece of metadata answers *"what
+should this story remember?"* for the operator, it's
+visible. Otherwise it's hidden.
+
+### 79.7 Coexistence with v1 "Where could this story go next?"
+
+The two surfaces occupy different moments in the operator's
+flow and share the same substrate:
+
+| Surface | Moment | Question it answers | Substrate read |
+|---|---|---|---|
+| **v1 `Where could this story go next?`** (Universe Episodes page) | Before creating a NEW Episode | "What kinds of scenes could I make from what already exists?" | Episode titles/topics + REMEMBERED memories + cast + Universe brief |
+| **v1.5 `Remember this` curator** (Composition detail page) | After completing a scene | "What from what just happened should feed the world's memory?" | Realized composition dialogue + Episode topic + cast + existing memories |
+
+**How the loop closes** (Q280.8-validated):
+
+```
+        v1.5 curator (post-scene)
+   Operator picks "Remember this"
+              ↓
+     NarrativeMemory row created
+              ↓
+  Enters Universe's memory pool
+              ↓
+     v1 suggestion service reads it
+              ↓
+   Future "Where could this story
+   go next?" suggestions reference it
+              ↓
+      Operator picks a suggestion
+              ↓
+     New Episode created (topic pre-fill)
+              ↓
+        [Story continues]
+```
+
+**Independence guarantee (from Q280.5-1):** Episode topics
+alone produce STRONG suggestion sets. If an operator never
+uses the v1.5 curator, the v1 surface still works. Neither
+surface depends on the other.
+
+**Cost-attribution note:** each surface generates one LLM
+call per fresh load. Server-side caching (10 min for v1;
+proposed 30 min for v1.5) keeps ambient cost low. Combined
+estimated dogfood cost: ~$0.05/operator/day.
+
+### 79.8 Backend / schema / service capability audit
+
+**Already exists (reused):**
+- `apps.memory.views.promote_from_composition` — the exact
+  service Q280.7 and Q280.8 used. Zero changes needed.
+- `apps.memory.views.NarrativeMemoryViewSet` — CRUD + archive
+  + unarchive. Zero changes needed.
+- `NarrativeMemory` schema — includes all needed fields
+  (kind, weight, witnessed_by, body, source_composition,
+  episode, workspace, universe, embedding_vector, status,
+  archived_at, promoted_by). Zero schema changes.
+- SPA hooks: `useNarrativeMemoriesByComposition`,
+  `usePromoteMemories`, `useEpisode`. Zero changes needed.
+- Retrieval + embedding: sync-embed after promotion is
+  already the pattern (`promote_from_composition` calls
+  `embed_memory` post-atomic). Zero changes.
+
+**Missing (single new capability):**
+- A **candidate-generation service + endpoint**. The
+  Q280.9 probe demonstrated the shape works; it needs to
+  become a production service and REST endpoint.
+
+**Proposed additions (SESSION 281):**
+
+Backend:
+- New service function: `apps.memory.services.suggest_memories_from_composition(composition, *, n=3, use_cache=True) -> dict`
+  - Lifts Q280.9 probe logic into production
+  - Returns list of `{body, kind, witnesses, narrative_gravity_note}`
+  - Redis-cached (30-min TTL, key includes composition_id +
+    latest_memory_at)
+  - Empty-substrate short-circuit (no candidates when the
+    composition has no realized dialogue)
+  - Same typed error class as v1 for upstream failures
+- New viewset action: `GET /api/compositions/{id}/suggested-memories?n=3&refresh=false`
+  - Attach to `CompositionViewSet`
+  - Response envelope: `{candidates: [...], generated_at, model, cache: {hit, ttl_seconds}}`
+  - 200 with empty `candidates` when the LLM returns 0 → SPA
+    hides the section
+  - 502 on upstream failure → SPA hides the section (existing
+    textarea unaffected)
+- Tests: service unit + endpoint contract + vocabulary-leak
+  invariant (mirror the Q280.9 probe rubric)
+
+Frontend:
+- New hook: `useSuggestedMemories(compositionId, opts)` in
+  `web/src/lib/api/memory.ts` (new file OR extended)
+- New sub-component: `SuggestedMemoriesSection` — rendered
+  inside `NarrativeMemoryPromotePanel` above the `What
+  changed?` textarea
+  - Renders 3-5 candidate cards
+  - Each card manages its own local state: `pending`,
+    `editing`, `remembered`, `skipped`
+  - On `[Remember this]` → calls existing `usePromoteMemories`
+    mutation with `{body, witnessed_by: []}` (defaults to
+    whole-cast)
+  - On `Edit` → inline editor; on save → same mutation path
+  - On `Skip` → local state only
+- Component tests: render states + Remember/Edit/Skip flows
+  + vocabulary-leak invariant
+
+**No schema changes, no migrations, no memory-kind changes,
+no verifier changes, no retrieval changes, no prompt service
+changes.**
+
+### 79.9 Component / API reuse
+
+Reused verbatim from v1:
+- `NarrativeMemoryPromotePanel` shell (kicker / title /
+  subtitle / recap list)
+- `usePromoteMemories` mutation
+- `useNarrativeMemoriesByComposition` recap-list query
+- Availability radio (`In any future scene` / `When any of
+  these characters are present…`) — still exposed for the
+  free-text path, and used implicitly by the [Remember this]
+  button on cards (defaults to "In any future scene")
+- Existing `[Remember this]` button + submit path
+- Existing empty state / error copy patterns
+- Existing `MemoryRow` compact renderer for the recap list
+
+Reused pattern from Q280.9 probe (to be lifted into
+production):
+- Curator prompt shape (system prompt + task-message
+  construction)
+- JSON output schema (candidates array)
+- gpt-5.6-terra + reasoning=low + `text.format=json_object`
+- Skip-if-empty short-circuit
+
+Reused pattern from v1 suggestion service:
+- Django default Redis cache alias
+- TTL-based memoization keyed on substrate-fingerprint
+- ViewSet `@action` shape
+- Zod-validated response schema on the frontend
+
+**Net-new code surface** (estimated for SESSION 281):
+
+| Layer | Files | Lines |
+|---|---|---|
+| Backend service | `shell/apps/memory/services.py` (add function) | ~180 |
+| Backend endpoint | `shell/apps/compositions/views.py` (add @action) | ~60 |
+| Backend tests | `shell/apps/memory/tests/test_suggest_memories.py` (new) | ~250 |
+| Frontend hook | `web/src/lib/api/memory.ts` or extend recipes.ts | ~60 |
+| Frontend component | `narrative-memory-panels.tsx` (extend) | ~200 |
+| Frontend tests | `narrative-memory-panels.test.tsx` (extend) | ~150 |
+
+**Total v1.5 delta:** ~900 lines including tests, mirroring
+v1 implementation scope.
+
+### 79.10 Smallest SESSION 281 implementation slice
+
+Break into two commits within SESSION 281:
+
+**Commit 1: backend + tests + wiring** (~500 lines)
+- Service + endpoint + tests
+- No SPA changes yet
+- Verifiable via `curl` or Django shell
+- Landable independently; SPA continues working unchanged
+  because the new endpoint is additive
+
+**Commit 2: frontend + tests + wiring** (~400 lines)
+- Hook + `SuggestedMemoriesSection` component
+- Modify `NarrativeMemoryPromotePanel` to render the new
+  section above the existing textarea
+- Runtime verification: open a completed composition,
+  see cards, click `[Remember this]`, verify recap list
+  updates
+
+**Rollback plan:** revert either commit independently.
+Commit 1 alone is silent (endpoint unused). Commit 2 alone
+breaks nothing else (existing textarea path unchanged).
+
+### 79.11 Explicit non-goals for v1.5
+
+- No automatic promotion (Chris's Option A¹¹ boundary).
+- No editing of `kind` / `weight` in the UI.
+- No visible LLM/model framing.
+- No changes to the existing free-text `What changed?` path.
+- No changes to the availability radio.
+- No changes to the recap list.
+- No changes to `NarrativeMemoryList` on Episode / Universe
+  detail pages.
+- No changes to v1 `Where could this story go next?` surface.
+- No changes to `promote_from_composition` service
+  signature.
+- No changes to memory schema, kinds, or weights.
+- No changes to retrieval / synthesis / verifier / K2.
+- No StoryArc / NarrativeThread / OpenThread model.
+- No auto-refresh of candidates on the page (initial load
+  + explicit refresh only).
+- No candidate ranking / scoring visible to the operator.
+
+### 79.12 Risks + open questions
+
+**Risks:**
+
+- **Copy tone drift.** A single wrong word in the sub-heading
+  ("AI suggests…", "Model-generated memories…") destroys the
+  affordance. Operator must feel the storyteller — not the
+  pipeline — is offering the ideas.
+  - Mitigation: SESSION 281 copy review as a locked checklist
+    against the §79.5 vocabulary-avoidance list. Add a
+    vocabulary-leak test to the component test file
+    mirroring §79.6.
+
+- **Candidate quality drift.** Q280.9 showed the model can
+  miss distinctive material (tiny bell omission). Operators
+  may see 3-5 mediocre cards and stop trusting the
+  affordance.
+  - Mitigation: refresh button as a v1.5.1 add-on if
+    dogfood surfaces this friction. Do not build it in v1.5
+    unless proven necessary.
+
+- **Cost creep.** Every completed-composition page load =
+  1 LLM call (or cached). Chris viewing 20 compositions a
+  day → ~$0.40/day. Not a concern at pilot scale.
+  - Mitigation: 30-min server-side cache; cache invalidation
+    on new memory promotion or Composition update.
+
+- **Duplicate proposals.** If a candidate matches an
+  existing memory closely, the operator sees the same idea
+  twice.
+  - Mitigation: the Q280.9 prompt already instructs the
+    model to skip duplicates of existing memories; the
+    service passes the current memory pool into the prompt.
+    Q280.9 §76.6 confirmed this works.
+
+- **Stale candidates after edit.** If the operator edits a
+  card and saves, the candidate list may show stale versions
+  of adjacent cards.
+  - Mitigation: local-state-per-card; no cross-card
+    coupling in the client.
+
+**Open questions (to resolve in v1.5 spec or v1.5 dogfood):**
+
+- **Should candidates persist across page reloads?**
+  Recommendation: server-cache preserves them within 30 min;
+  hard reload re-fetches. Track "which cards did the
+  operator already action?" in localStorage keyed on
+  `(composition_id, card_index, body_hash)` so dismissed /
+  remembered cards don't reappear on the same page reload.
+  - Alternative: no tracking; every load shows fresh cards.
+    Simpler but risks nagging the operator with the same
+    ideas they've already seen.
+
+- **Should the "hint" line include a source trace** ("From
+  Tyson's line…" or "You said this in T5")?
+  Recommendation: NO for v1.5 first pass. Adds visual
+  clutter and would require the model to output a source
+  marker. Revisit if dogfood shows operators asking "where
+  did this come from?".
+
+- **Should we group candidates by class** (running jokes /
+  promises / rules)?
+  Recommendation: NO. 3-5 ungrouped cards are easier to
+  scan; grouping introduces implementation vocabulary
+  ("promise" / "callback") that we're deliberately hiding.
+
+- **What if the composition has 0 memory-worthy material?**
+  Model returns fewer or zero candidates. UI shows empty
+  section (fall back to existing textarea only). No banner.
+
+- **Should the refresh button appear in v1.5 initial ship?**
+  Recommendation: NO for the first ship. Add in v1.5.1
+  if dogfood shows operators want it (mirroring the v1
+  `[Different ideas]` decision).
+
+### 79.13 Acceptance criteria for later dogfood
+
+The v1.5 slice is considered SHIP-WORTHY when all of the
+following hold:
+
+1. **Zero implementation vocabulary** visible in the panel
+   (test: run the SPA against Fox & Flour composition
+   `772e9012`, screenshot the panel, verify no banned words
+   from §79.5 appear).
+2. **Chris + one other operator** can complete a
+   `[Remember this]` on ≥1 card without asking a
+   clarifying question about what a "memory" is.
+3. **Remembered candidate appears in "What we remember from
+   this render"** within 2s of the button click.
+4. **Remembered candidate later surfaces in
+   `Where could this story go next?`** at rates comparable
+   to Q280.8 (≥ 30% RCS on callback-shape memories,
+   controlled for topic).
+5. **Cost per composition detail page load ≤ $0.03** (30-min
+   cache keeps ambient cost near-zero).
+6. **Loading state does NOT block** the rest of the
+   composition detail page.
+7. **Error state is silent** — LLM outage does not surface
+   a scary banner to the operator; the free-text path
+   remains fully usable.
+8. **Existing manual `What changed?` path** works
+   byte-identically to today's shipped behavior.
+
+### 79.14 What §79 does NOT do (design vs implementation)
+
+Chris's constraints preserved:
+- Not implementing anything.
+- Not changing production code, prompts, retrieval, verifier,
+  schema, characters, or K2.
+- Not running another experiment.
+- Not opening unrelated deferred findings.
+- Not archiving/editing/superseding either promoted memory
+  (`abac5486-…` cooperation OR `fa35eb8f-…` callback). Both
+  remain as valid world facts + natural dogfood substrate.
+- No decision on §72.7 verifier boundary, Finding 4i
+  options, or other §78.12 sibling options.
+
+### 79.15 Decision gate — post-§79 design (CURRENT; SUPERSEDES §78.12)
+
+**STOP here.** Do not implement v1.5. Do not modify the SPA
+panel. Do not archive either promoted memory. Await Chris +
+ChatGPT review of the §79 design.
+
+**Decision needed from Chris + ChatGPT:**
+
+1. **Accept the §79 design** (placement inside existing
+   panel; copy vocabulary in §79.5; hidden/visible boundary
+   in §79.6; loop coexistence at §79.7).
+
+2. **Accept the §79.10 SESSION 281 implementation shape**
+   (backend + frontend split; ~900 lines total including
+   tests).
+
+3. **Choose SESSION 280 closeout path:**
+
+   - **A¹³.** Close SESSION 280 with §79 as the final
+     substantive slice. Roll SESSION 281 handoff around
+     implementing the v1.5 design. All deferred items
+     (Finding 4i options, verifier boundary, Q280.9-
+     variance, tension-scene curator) roll into SESSION 281
+     handoff for Chris + ChatGPT to sequence.
+   - **B¹³.** Accept §79 design with revisions before
+     closeout — Chris + ChatGPT return specific edits.
+   - **C¹³.** Add one more design slice before closeout
+     (e.g., mock up an actual visual wireframe file under
+     `docs/design/screens/`).
+   - **D¹³.** Delay closeout for one more discovery slice
+     (e.g., Q280.9 on tension-rich scene per §76.11 B¹¹
+     to inform v1.5 copy about shape guidance).
+   - **E¹³.** Something else.
+
+**Do NOT interpret §79.15 as pre-authorizing closeout.**
+
+### 79.16 Closeout — v1.5 curator UX design slice (CURRENT; SUPERSEDES §78.14)
+
+- **Status:** §79 v1.5 design complete. Design-only. No
+  production code / prompts / retrieval / verifier / schema
+  / characters / K2 / existing memories touched.
+- **Cumulative SESSION 280 spend:** ~$0.32 unchanged (§79
+  is documentation only).
+- **Landing SHAs:**
+  - AUDIT slice: `6957c18`.
+  - Q280.4i-1 execution: `8d8f733`.
+  - Construct-validity re-audit: `f2507a0`.
+  - Post-discovery epistemic-state audit: `63d4fdb`.
+  - Q280.4i-4 execution: `ce16627`.
+  - Episode-chain suggestion product-discovery: `1d96965`.
+  - Q280.5-1 execution: `7f83b23`.
+  - Q280.5-1 SHA trailer: `cfe287a`.
+  - v1 UX design slice: `a3d294d`.
+  - v1 design SHA trailer: `b19d030`.
+  - v1 implementation slice: `25b3168`.
+  - v1 implementation SHA trailer: `d7931b1`.
+  - Q280.6 loop-trace audit slice: `b2f1789`.
+  - Q280.6 SHA trailer: `48b5ac0`.
+  - Q280.7 design + prediction lock: `c8d4be5`.
+  - Q280.7 execution slice: `698616f`.
+  - Q280.7 SHA trailer: `2fa7611`.
+  - Model-as-curator audit slice: `b27ce6d`.
+  - §75 SHA trailer: `c9ed068`.
+  - Q280.9 execution slice: `e81949b`.
+  - Q280.9 SHA trailer: `2332bdc`.
+  - Q280.8 design + prediction lock: `f5e6d5e`.
+  - Q280.8 execution slice: `1772cfb`.
+  - Q280.8 SHA trailer: `3e675bb`.
+  - v1.5 curator UX design slice: `[recorded on commit]`.
+- **Key design output:**
+  1. Placement: **inside** the existing
+     `NarrativeMemoryPromotePanel`, above the free-text
+     textarea. Additive — no existing behavior changes.
+  2. Actions: `[Remember this]` / `Edit` / `Skip` — mapped
+     to existing `usePromoteMemories` submit path.
+  3. Copy avoids all implementation vocabulary (§79.5
+     ban list); the panel voice is the storyteller, not
+     the pipeline.
+  4. Hidden vs visible boundary: only `body` +
+     model-derived `hint` are operator-facing; kind /
+     weight / witnesses / embedding / provenance all
+     stay server-defaulted or invisible.
+  5. Loop coexistence: v1 (before-scene planning) + v1.5
+     (after-scene curation) close a natural cycle
+     validated by Q280.8.
+  6. Zero schema / migration / prompt / retrieval /
+     verifier changes needed.
+  7. Estimated v1.5 slice: ~900 lines including tests,
+     splittable into 2 SESSION 281 commits.
+- **Product boundary preserved:** operator remains
+  authoritative. Nothing durable without explicit approval.
+  Even a beautifully-worded card is inert until the
+  operator clicks `[Remember this]`.
+- **Next gate:** §79.15 A¹³/B¹³/C¹³/D¹³/E¹³. Awaiting
+  Chris + ChatGPT decision on whether to close SESSION 280
+  now.
+- **Working method preserved:** design only, no execution.
+- **All prior evidence preserved intact:** §3-§78 unchanged
+  in substance.
 - **Key findings:**
   1. **BRIDGE CONFIRMED.** Suggestion 2.2 verbatim uses
      "community outreach" AND explicitly attributes it as
