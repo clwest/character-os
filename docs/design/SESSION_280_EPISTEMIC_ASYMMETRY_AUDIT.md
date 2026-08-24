@@ -7231,7 +7231,7 @@ A¹⁰-H¹⁰.**
   - Q280.7 design + prediction lock: `c8d4be5`.
   - Q280.7 execution slice: `698616f`.
   - Q280.7 SHA trailer: `2fa7611`.
-  - Model-as-curator audit slice: `[recorded on commit]`.
+  - Model-as-curator audit slice: `b27ce6d`.
 - **Working method preserved:** AUDIT → design + prediction
   lock → decision gate. Zero execution. Rubric + predictions
   not revisable after the fact.
