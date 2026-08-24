@@ -3075,3 +3075,398 @@ experiment (Knowledge-breadth, 4c continuing evidence, Beat-3
 legibility, 4a) are preserved above and in the Q-279-2A-REV §23 /
 §43 / §61 / §74 / §86 dossier chain and in the SESSION 279 handoff.
 
+---
+
+# Q-279-3 — Generalized writer voice / recurring metaphor-family audit (deferred finding 4a)
+
+**Status opened:** 2026-08-25, immediately following the Q-279-2 checkpoint commit
+`e0d5a10` (docs-only). Session 279 handoff §4a authorized this
+investigation. Scope-lock: **READ-ONLY audit + experiment design.**
+No changes to prompts, synthesis, Knowledge, characters, identity,
+retrieval, verifier, memories, audience logic, or runtime behavior.
+No provider spend unless Chris + ChatGPT later approve a controlled
+render experiment.
+
+## §90 Precise question
+
+> **Why do semantically unrelated Fox & Flour scenes repeatedly produce
+> the same procedural / adversarial / metaphorical language families
+> despite different topics and despite Knowledge changes?**
+
+Refined via cross-World scan (§92): the question extends past
+Fox & Flour to Patch's Workshop and past the "courtroom" surface
+label. The load-bearing behavior is a **rhetorical structural
+attractor** — a family of *reframe / stakes-elevate* devices that
+recur across independent characters, independent worlds, and
+independent topics.
+
+## §91 Prediction (recorded BEFORE deep evidence)
+
+Before running the cross-World and prompt-scaffolding scans, the
+predicted decomposition (rank-ordered by prior plausibility):
+
+1. **Writing Contract structural bias.** The dialogue_scene contract
+   emphasizes "meaningful change", "reveal", "correction", "reveal",
+   "challenge", "escalation", "tension" — a stakes-elevating narrative
+   vocabulary the LLM can most economically satisfy through
+   procedural / legalistic / diminutive-formal English idioms.
+2. **Model prior for "dry-humor dialogue" register.** Foundation
+   models trained on Reddit / literary dialogue / TV writing rooms
+   have strong priors for the *"mundane statement → comedic formal
+   reframe"* device. Both cast members having "dry" / "sarcastic" /
+   "warm humor" would concentrate this prior.
+3. **Character-personality bleed.** Multiple cast members share a
+   "dry-witty observer" archetype (Rivet analytical / Tyson practical
+   / Ruby warm-cheerful). The rhetorical attractor could be an
+   emergent artifact of that archetype cluster.
+4. **Corrective-hint amplification.** Under-length corrective hint
+   asks the model to *"add a challenge, callback, or reveal that a
+   character has been holding back"* — could bias retries toward
+   more stakes-elevating turns.
+5. **Sharpening module leakage.** `character_os/prompts/sharpening.py`
+   defines aggressive hedge → evidence-language replacements
+   (`"in my opinion"` → `"BASED ON EVIDENCE,"`,
+   `"I see your point"` → `"YOUR EVIDENCE INDICATES"`). If wired
+   into the synthesis path, would directly explain "evidence" recurrence.
+
+Prediction on hierarchy: **H1 + H2 dominant; H3 modulator; H4
+minor; H5 unlikely (would need to be wired into synthesis to matter).**
+
+## §92 Evidence — enumeration of recurring devices
+
+Method: SQL regex scans over
+`compositions_composition.synthesized_brief` for every completed
+dialogue-scene composition with a non-empty `operator_topic`
+(21 rows across two Universes over 7 days, 2026-08-18 → 2026-08-24).
+
+### 92.1 Courtroom / procedural / formal-adversarial vocabulary
+
+Cross-World distribution:
+
+| Universe | Composition | Speaker | Line | Pre/post Q-279-2 |
+|---|---|---|---|---|
+| Fox & Flour | 26c62b4b | Ruby | *"final exam"* | pre |
+| Fox & Flour | 1aabbff6 | (haunted-bakery specimen) | *"court"*, *"trial"* | pre |
+| Fox & Flour | d7549fc1 | Ruby | *"give a deposition"*, *"tiny courtroom for baked goods"* | pre (Q-278-4.2 Specimen 2 baseline) |
+| Fox & Flour | 7177b0f5 | Tyson | *"That's evidence."*, *"casual question"*, *"official-looking envelope"*, *"confession, wearing an apron"* | pre (Q-278-4.3 Specimen 3 baseline) |
+| Fox & Flour | 488c37ba | multiple | *"final exam"*, *"testifying in court"*, *"The court deserves a good pairing"*, *"seating chart"* | **post** (Q-279-2 T1) |
+| Fox & Flour | 699916a9 | multiple | *"not a casual question"*, *"rehearsing for judges"*, *"defend itself"*, *"Fine, detective"* | **post** (Q-279-2 T2) |
+| Patch's Workshop | 3e44b728 | | *"committee"* | pre |
+| Patch's Workshop | ef11c810 | | *"Evidence"*, *"charge"* | pre |
+| Patch's Workshop | a119b064 | | *"juri…"*, *"rules"* | pre |
+| Patch's Workshop | 79d0bbd5 | | *"inspect"* | pre |
+| Patch's Workshop | e425f5fe | | *"evidence"* | pre |
+| Patch's Workshop | 7d913cf4 | | *"evidence"* × 2 | pre |
+| Patch's Workshop | 2dc6b0b5 | Rivet | *"That is not evidence"*, *"anxiety disorder with shelves"* | pre |
+| Patch's Workshop | 01aa7601 | | *"casual question"*, *"charge"* | pre |
+
+**Total scoped procedural-vocabulary hits: 24+ across ~12 compositions
+across BOTH Universes** — the pattern is cross-World and predates the
+Q-279-2 Knowledge treatment. Notable: the phrase *"That's not a
+casual question"* appears in **three independent compositions**
+(7177b0f5 pre-Fox & Flour, 699916a9 post-Fox & Flour T2, 01aa7601
+pre-Patch's Workshop) — a near-verbatim recurrence spanning worlds
+and time.
+
+### 92.2 Rhetorical structural device — *"That is / That's not X. That is Y."*
+
+Broader-shape scan (24 hits across both Universes, 21 completed
+dialogue-scene compositions over 7 days):
+
+| Universe | Composition | Speaker | Reframe |
+|---|---|---|---|
+| Patch's | 1eb12363 | Rivet | *"That is not a hobby."* |
+| Patch's | 4af67cd5 | Rivet | *"That is a very dramatic way to begin a lesson."* |
+| Patch's | 2dc6b0b5 | Rivet | *"That is not junk."*, *"That is not evidence."* |
+| Patch's | 7d913cf4 | Rivet | *"That is not intuition."* |
+| Patch's | 6d169390 | Rivet | *"That is a very Patch-shaped mistake."* |
+| Patch's | 05d3612c | Rivet | *"That is not what a test is for."* |
+| Patch's | a119b064 | Rivet | *"That is not help."*, *"That is a tiny management dispute with access to electronics."*, *"That is a very ambitious interpretation of a cable."* |
+| Patch's | 79d0bbd5 | Rivet | *"That is not the same as it running the place."* |
+| Patch's | 01aa7601 | Rivet | *"That is a wildly specific accusation."* |
+| Patch's | 6e3ed367 | Rivet | *"That is not how urgency works."* |
+| Patch's | 99b4a3fa | Rivet | *"That is not a behavior description."* |
+| Patch's | 464128b1 | Rivet | *"That is not how harmless projects begin."* |
+| Patch's | a35f20bf | Rivet | *"That is not yet a useful statement."* |
+| Patch's | 5f4bdbbc | Rivet | *"That is a sentence with several missing parts."* |
+| Fox & Flour | 1491d31c | Ruby | *"That was not a first idea."*, *"That was a feeling."* |
+| Fox & Flour | d7549fc1 | Tyson | *"That is a question with consequences."* |
+| Fox & Flour | 699916a9 | Tyson | *"That is not a casual question."*, *"That is a person rehearsing for judges."* |
+| Fox & Flour | a5c59014 | Tyson | *"That is not the face of someone admiring the morning."* |
+| Fox & Flour | a1421a0e | (bakery-customer specimen) | *"That was her way back into the conversation."* |
+
+Same syntactic form. **Highest concentration in Rivet's turns** but
+present in Tyson, Ruby, and other cast turns as well. The "courtroom"
+observation is the *most visible* surface expression of this rhetorical
+structural attractor; the attractor itself is broader — a
+*negation-reframe with stakes-elevating punchline*.
+
+### 92.3 Diminutive-formal metaphor — *"tiny X"*
+
+18+ occurrences in Patch's Workshop alone:
+*"tiny hat"*, *"tiny disaster"*, *"tiny test"*, *"tiny bureaucrat"*,
+*"tiny management [dispute]"*, *"tiny guardrails"*, *"tiny judgmental"*,
+*"tiny predictive"*, *"tiny digital"*, *"tiny hats"*, *"tiny furniture"*
+… Plus Fox & Flour: *"tiny private club"* (T3), *"tiny courtroom for
+baked goods"* (baseline).
+
+Same rhetorical family as §92.2 — reduce-a-mundane-thing-to-a-formal-
+microcosm humor. The "tiny X formal-institution" device is a
+character-agnostic writer-voice tic.
+
+### 92.4 Correlations checked
+
+| Variable | Correlation with device recurrence |
+|---|---|
+| Corrective pass (`synthesis_attempt_count = 2`) | Only 2 of 21 rows had corrective pass. Device fires baseline on first-pass. **H4 disconfirmed** — corrective hints are not the amplifier. |
+| Universe | Both. Not Universe-scoped. |
+| Speaker | Rivet dominant on §92.2; Tyson + Ruby fire in Fox & Flour. Multi-character, not one voice. |
+| Pre / post Q-279-2 treatment | Both. Q-279-2's Knowledge change did NOT reduce the device rate. |
+| Time | 2026-08-18 → 2026-08-24 continuous. Not a one-off drift. |
+
+### 92.5 Substrate trace — where the vocabulary is NOT
+
+Grep-verified `character_os/writing_contract.py`,
+`character_os/dialogue_synthesis.py`, `character_os/script_synthesis.py`,
+`character_os/api_prompts.py`, `character_os/prompts/*.py` for the
+recurring vocabulary:
+
+| Vocabulary | Present in prompt code? |
+|---|---|
+| *court* / *trial* / *judge* / *jury* / *deposition* / *testify* / *witness* / *verdict* / *detective* / *rehears* / *inspector* / *committee* / *hearing* | **Not present** (the only *"witness"* hit in dialogue_synthesis.py is an unrelated `witness overlap` cast-filter comment). |
+| *evidence* | Present in `writing_contract.py:722` (solo-scene invariant *"unless current-scene evidence has already established"*) and `script_synthesis.py:509` (a Python variable name comment `factual_corpus (evidence capable of supporting a claim)`). Both are prompt-scaffolding uses (not visible to model on dialogue path) or code comments. |
+| *casual question* / *final exam* / *seating chart* | **Not present** anywhere in prompt code. |
+| *tiny X* diminutive-formal template | **Not present** anywhere in prompt code. |
+
+Grep-verified `Universe.brief`, both cast `business_brief`,
+`personality`, `character_point_of_view`:
+
+- Fox & Flour: Universe.brief mentions *"warm neighborhood artisan
+  bakery"*; Ruby personality *"warm, cheerful, genuinely caring"*;
+  Tyson personality *"easygoing, practical, a little dry ... prefers
+  useful answers over sales language"*. **No courtroom / procedural /
+  reframe vocabulary anywhere.**
+- Patch's: Rivet POV mentions *"treats one successful result as
+  interesting rather than as proof"* — one *proof* token, science-
+  register, not legal. Patch persona *"scruffy, endlessly curious
+  beaver"*. **No courtroom vocabulary; one proof-adjacent token.**
+- Q-279-2 §27 treatment corpus: grep-verified in Q-279-2A-REV §58.2
+  — zero courtroom / legal / procedural language. Coffee + pastry +
+  pairing + attribute vocabulary only.
+
+Grep-verified `character_os/prompts/sharpening.py`:
+
+- Contains explicit *"BASED ON EVIDENCE"* / *"YOUR EVIDENCE INDICATES"*
+  replacements.
+- But: full grep of consumers (`character_os/`, `apps/`) shows
+  `sharpen_prompt` / `clean_business_brief` are consumed ONLY by
+  `character_os/prompts/test_prompts.py` and `character_os/prompts/
+  __init__.py`. **Not wired into `dialogue_synthesis` or
+  `script_synthesis`.** H5 disconfirmed.
+
+### 92.6 Substrate trace — where the STAKES-ELEVATING structural
+FRAME lives
+
+`character_os/writing_contract.py` `_DIALOGUE_INVARIANTS_BLOCK` +
+`_DIALOGUE_WATCHABILITY_BLOCK` + `_DIALOGUE_NARRATIVE_SHAPES_BLOCK`
+contain heavy *stakes-elevating structural vocabulary*:
+
+- Invariants: *"new tension"*, *"Tension is a legitimate engine"*,
+  *"disagreement and correction are allowed"*, *"one coherent arc"*,
+  *"deliberate ending... resolution, punchline, unresolved-but-
+  earned tension, landed insight"*.
+- Watchability: *"wants to prove something worked; wants to correct
+  the other character; wants clarification; wants permission; wants
+  to avoid blame; wants to persuade; wants to challenge an
+  assumption"* — every stance is stakes-adjacent.
+- Narrative shapes: *"setup → disagreement → payoff"*, *"question →
+  answer → correction"*, *"claim → skeptical response → reveal"*,
+  *"myth → correction → practical takeaway"*, *"challenge → attempt
+  → result"*.
+- Under-length corrective hint: *"add a challenge, callback, or
+  reveal that a character has been holding back"*.
+
+None of this DIRECTLY encodes courtroom vocabulary. But the semantic
+frame — *"characters have stances, want to challenge / correct /
+reveal / prove, forward motion requires reveal / correction /
+escalation, tension is engine"* — plausibly primes the LLM to reach
+for its shortest available English shorthand for those semantics,
+which happens to be legalistic / procedural / diminutive-formal
+idiom.
+
+## §93 Five-axis decomposition
+
+Per the audit brief, separate:
+
+| Axis | Definition | Applies to observed evidence? |
+|---|---|---|
+| **Lexical repetition** | Same word tokens recur | Yes — *evidence* (7+), *casual question* (3), *final exam* (3), *judge/rehears/detective* (multiple). |
+| **Metaphor-family repetition** | Same conceptual family (courtroom, formal-procedural, diminutive-formal) recurs even when specific words differ | Yes — *court / jury / committee / hearing / inspector / detective / testify / defend* cluster into one metaphor family; *tiny X* diminutive-formal cluster. |
+| **Rhetorical-structural repetition** | Same syntactic device recurs across topics and characters | Yes — *"That is not X. That is Y."* negation-reframe fires 24+ times across 15+ compositions and 4+ speakers spanning both Universes. This is the deepest / most character-agnostic signal. |
+| **Character voice** | Attributable to one character's identity / personality / POV | Partial. Rivet's turns concentrate the negation-reframe device (matches his *"analytical, dry, patient, slightly sarcastic, extremely literal"* personality). But Tyson + Ruby + other Fox & Flour cast members ALSO produce it, on wholly different personalities. So character voice is a *modulator*, not the primary cause. |
+| **Generalized scene-writer voice** | Attributable to a substrate above characters that shapes dialogue independent of who is speaking | **Load-bearing.** Cross-character + cross-World + cross-topic recurrence + zero substrate-input source for the vocabulary → the attractor lives in the *generation-time interaction* between (a) the writing_contract's stakes-elevating structural frame and (b) the LLM's most-available English shorthand for that frame. |
+| **Factual / Knowledge grounding** | Attributable to retrieved KD chunks or memory content | **Disconfirmed.** Every retrieved chunk was grep-checked; treatment corpus has zero courtroom/procedural vocabulary; pre-treatment Knowledge was 118-char identity restatement. Knowledge is not the source. |
+
+## §94 Working hypothesis (post-evidence)
+
+The observed behavior is not primarily "courtroom words" — it is a
+**Writer-Voice Structural Attractor**:
+
+- Substrate-shaped: the dialogue_scene writing_contract encodes a
+  stakes-elevating structural frame (§92.6).
+- Model-shaped: the LLM's most-available English shorthand for that
+  frame reaches for legalistic / procedural / diminutive-formal
+  idiom and the *"That is not X. That is Y."* negation-reframe.
+- Character-modulated: characters with "dry / sarcastic / analytical"
+  personalities concentrate the device rate (Rivet); "warm / practical"
+  characters concentrate a lower rate (Ruby, Tyson) but non-zero.
+- Cross-World invariant: appears across two Universes with wholly
+  different narrative surfaces (bakery vs workshop).
+- Knowledge-invariant: unaffected by the Q-279-2 treatment.
+
+Predicted hierarchy from §91 partly confirmed:
+- H1 (contract structural bias) — LOAD-BEARING (§92.6).
+- H2 (model prior) — LOAD-BEARING (evidence pattern spans well-known
+  literary-humor device families).
+- H3 (personality bleed) — MODULATOR (§92.2 concentration on Rivet).
+- H4 (corrective amplification) — DISCONFIRMED (§92.4).
+- H5 (sharpening leakage) — DISCONFIRMED (§92.5, not wired).
+
+## §95 Falsifiable smallest experiment — designed, NOT executed
+
+**Constraint per audit brief:** do NOT implement a fix. Design the
+smallest experiment that distinguishes the leading explanations
+(H1 vs H2 vs H3) without changing anything runtime yet.
+
+### 95.1 Phase 1 — retrospective, purely READ-ONLY (execute-safe next slice)
+
+Score the existing 21+ persisted dialogue-scene specimens against a
+**Rhetorical-Device Rate rubric**:
+
+| Device dimension | Measurement |
+|---|---|
+| **D1 — Negation-reframe count.** Occurrences of *"That is / That's / That was (not) X (dot) That is Y"* (or minor variants) per composition. | Integer per composition. |
+| **D2 — Diminutive-formal metaphor count.** Occurrences of *"tiny X"*, *"small X"*, *"a small ADJ NOUN"* where NOUN reads as formal institution / procedure / entity. | Integer. |
+| **D3 — Courtroom / procedural noun count.** Occurrences from a fixed lexicon (court / trial / judge / jury / deposition / evidence / testify / witness / verdict / detective / rehears / inspector / committee / hearing / defend / prosecut). | Integer. |
+| **D4 — Stakes-elevating adjective count.** Occurrences of *"serious"*, *"consequential"*, *"important"*, *"dramatic"*, *"not casual"*, *"not small"*, *"not a X"* (paired with pastry / bakery / lockout / hobby / etc.) | Integer. |
+
+Correlate with:
+
+- Universe (Fox & Flour vs Patch's Workshop).
+- Cast (Rivet vs Tyson vs Ruby vs Patch).
+- Personality vector: `tone_archetype`, `voice_energy`, `voice_humor`,
+  `voice_directness`, `character_point_of_view` present/absent.
+- `synthesis_attempt_count` (first-pass vs corrective).
+- Topic domain (workshop-tech vs bakery-service vs interpersonal).
+- Pre / post Q-279-2 treatment.
+
+**Acceptance / disconfirmation (Phase 1):**
+
+- If device rates correlate with `character_point_of_view` /
+  `voice_humor` fields → **H3 confirmed as primary**; the attractor is
+  personality-driven, not contract-driven. Redirect Phase 2 to a
+  personality-adjacent experiment.
+- If device rates are approximately uniform across characters and
+  Universes → **H1 + H2 confirmed as primary**; the attractor lives
+  above the character layer. Phase 2 needed to distinguish contract
+  from model prior.
+- If a mixed signal emerges → design Phase 2 accordingly.
+
+Phase 1 is **read-only**: consumes existing persisted specimens; zero
+new renders; zero provider spend.
+
+### 95.2 Phase 2 — controlled, requires 1-3 new dogfood renders (deferred)
+
+Only fires if Phase 1 does not discriminate. Three candidate configs
+(each varies ONE hypothesized cause; every other input pinned):
+
+| Config | Change | Tests |
+|---|---|---|
+| **P2-A (baseline replay)** | Nothing changed. Render one new topic on Ruby+Tyson. | Baseline device rate on unchanged substrate. |
+| **P2-B (contract-lite)** | Temporary `WritingContract.for_shape` override that returns a *neutral* dialogue_scene contract (removes stakes-elevating narrative-shape menu, removes watchability *"prove / correct / challenge / persuade / avoid blame"* language, keeps CAUSAL-CHAIN + BASIC INTERACTION invariants). Applied at runtime via env-flag branch or a temporary contract version stamp. Reverted after render. | If device rate drops ≥ 50 % vs P2-A → **H1 (contract)** load-bearing. |
+| **P2-C (voice-lite)** | Temporary SPA Ask-panel operator mutation setting both Ruby's and Tyson's `voice_humor` to `none` and `character_point_of_view` blank. Reverted via same SPA gesture after render. | If device rate drops with C but persists with B → **H3 (personality)** confirmed. |
+
+**Constraint on P2 experiments:**
+- Every mutation must be reversible via the same SPA gesture Chris
+  used for Q-279-2.
+- No permanent code changes.
+- No `writing_contract.py` version bump (a temporary env-flag branch
+  is acceptable; a permanent contract change is not).
+- Every experimental composition must be marked as such (topic prefix
+  `[Q-279-4A]` operator-side; do not silently pollute the persisted
+  cast's dogfood history).
+
+**Acceptance / disconfirmation (Phase 2):**
+
+- **ACCEPT-H1** — P2-B reduces device rate ≥ 50 %; P2-C does not
+  further reduce it. Contract structural frame is the primary driver.
+- **ACCEPT-H2** — Neither P2-B nor P2-C reduces device rate meaningfully.
+  Attractor lives above both contract and personality → model prior
+  dominant. Next-slice question shifts to whether prompt-shape
+  restructuring can move a model-prior attractor.
+- **ACCEPT-H3** — P2-C reduces device rate ≥ 50 %; P2-B does not.
+  Personality vector is the driver.
+- **AMBIGUOUS** — Partial reductions from both. Attractor is a joint
+  contract × personality artifact; needs targeted follow-up.
+
+### 95.3 Rubric locked BEFORE any experiment fires
+
+Both phases must lock D1-D4 measurement definitions and correlation
+variables BEFORE any scan or render. Locked now, in this document
+(§95.1). Not to be revised after seeing evidence.
+
+## §96 Constraint reaffirmations
+
+- Do NOT change prompts, synthesis, Knowledge, characters, identity,
+  retrieval, verifier, memories, audience logic, or runtime behavior
+  in this slice.
+- Do NOT investigate the *cause* by patching the writing_contract.
+  Phase 1 must complete first.
+- Do NOT open Knowledge-breadth (§70, §84), 4c visual composition
+  (§83), or Beat-3 legibility (§40, §46) — all remain deferred.
+- Do NOT re-open Q-279-2 / finding 4b.
+- Do NOT assume Chris + ChatGPT will authorize Phase 2. Phase 1's
+  purely read-only rubric-scoring stands independently.
+
+## §97 Recommendation
+
+Q-279-3 read-only audit + experiment design is complete. Enough
+evidence is now on the durable record to distinguish the writer-voice
+hypothesis from the character-voice / Knowledge-grounding hypotheses
+mechanically. The device family is broader than courtroom vocabulary;
+the load-bearing pattern is a *negation-reframe with stakes-elevating
+punchline* that persists across Universes, characters, and the
+Q-279-2 Knowledge treatment.
+
+### Recommended next gate
+
+> **READY-FOR-Q-279-3-PHASE-1** (retrospective rubric scoring of
+> existing specimens; purely READ-ONLY; zero provider spend; consumes
+> ~21 persisted compositions).
+
+Chris + ChatGPT decide whether Phase 1 fires next or a different
+Session 279 slice takes priority. If Phase 1 fires and does not
+discriminate, Phase 2 becomes the natural follow-up gate, subject to
+approval of small dogfood spend.
+
+## §98 Checklist — Q-279-3 read-only audit + design
+
+- [x] Prediction recorded BEFORE deep evidence (§91)
+- [x] Cross-World enumeration of courtroom / procedural vocabulary (§92.1)
+- [x] Cross-World enumeration of negation-reframe rhetorical structural device (§92.2)
+- [x] Diminutive-formal metaphor cluster documented (§92.3)
+- [x] Correlations with corrective pass / Universe / cast / time checked; H4 disconfirmed (§92.4)
+- [x] Substrate trace — vocabulary absent from prompt code AND absent from every KD / brief / identity input (§92.5)
+- [x] Substrate trace — stakes-elevating structural frame located in writing_contract dialogue-scene blocks (§92.6)
+- [x] Five-axis decomposition applied (§93)
+- [x] Working hypothesis post-evidence with hierarchy status (§94)
+- [x] Phase 1 rubric locked BEFORE any scoring fires (§95.1, §95.3)
+- [x] Phase 2 controlled-render experiment designed but NOT executed (§95.2)
+- [x] Acceptance / disconfirmation criteria pre-established for both phases (§95.1, §95.2)
+- [x] Constraint reaffirmations (§96)
+- [x] Recommendation + next gate (§97)
+- [x] No prompt / synthesis / Knowledge / character / identity / retrieval / verifier / memory / audience change
+- [x] No provider spend
+- [x] No implementation of any candidate fix
+- [x] Other deferred findings (4c, 4d-4i, Knowledge-breadth, Beat-3 legibility) NOT opened
+
