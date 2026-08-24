@@ -8378,7 +8378,7 @@ A¹²-H¹².**
   - Q280.9 execution slice: `e81949b`.
   - Q280.9 SHA trailer: `2332bdc`.
   - Q280.8 design + prediction lock: `f5e6d5e`.
-  - Q280.8 execution slice: `[recorded on commit]`.
+  - Q280.8 execution slice: `1772cfb`.
 - **Key findings:**
   1. **BRIDGE CONFIRMED.** Suggestion 2.2 verbatim uses
      "community outreach" AND explicitly attributes it as
