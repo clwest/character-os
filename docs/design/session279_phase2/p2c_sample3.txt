@@ -1,0 +1,27 @@
+# Q-279-3 Phase 2  config=P2-C  sample=3
+# topic: Ruby and Tyson watch the sunrise through the bakery window before opening.
+# model=gpt-5.6-terra  attempt_count=1  total_chars=1139  predicted_seconds=87.62s
+# composite=2  composite_per_1k=1.756
+
+Ruby: That sunrise is doing a lot of work for a window that usually has flour fingerprints on it.
+
+Tyson: Give it ten minutes and it will be competing with the lights, the counter, and the first question of the day: “What should I get?”
+
+Ruby: You say that like the question is a personal challenge.
+
+Tyson: It is, a little. This morning, I’d steer someone toward an almond croissant with a light-roast pour-over. The coffee’s brighter acidity keeps the almond cream from making the whole bite feel too dense.
+
+Ruby: So the sunrise gets a pairing now?
+
+Tyson: The sunrise has excellent instincts. Soft gold, buttery pastry, a coffee with some citrus and stone-fruit notes—very composed.
+
+Ruby: And if they ignore your beautifully composed advice and reach for chocolate?
+
+Tyson: Then espresso with the chocolate babka. It’s short, intense, and its cocoa-and-toasted-nut character meets the dark chocolate without piling heaviness onto it. That one can handle a dramatic morning.
+
+Ruby: A dramatic morning is exactly what this looks like. For about three more minutes, anyway.
+
+Tyson: We open at seven. After that, the sunrise can share the room with everybody else.
+
+Ruby: Fair enough. Let it have its quiet little entrance first.
+

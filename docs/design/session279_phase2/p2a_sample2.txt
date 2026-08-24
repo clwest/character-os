@@ -1,0 +1,33 @@
+# Q-279-3 Phase 2  config=P2-A  sample=2
+# topic: Ruby and Tyson watch the sunrise through the bakery window before opening.
+# model=gpt-5.6-terra  attempt_count=2  total_chars=1262  predicted_seconds=97.08s
+# composite=1  composite_per_1k=0.792
+
+Ruby: Look at that. For five minutes, before we open at seven, the front window belongs to the sunrise.
+
+Tyson: Then it belongs to people deciding whether coffee counts as breakfast.
+
+Ruby: It can, if they’re holding a pastry. Though I’d still like them to notice the sourdough before the whole day disappears.
+
+Tyson: You’d like people to notice the sourdough in a power outage.
+
+Ruby: Naturally leavened, small-batch bread deserves a moment. That is not an outrageous position.
+
+Tyson: No. It’s just a position you hold with great commitment. First real question will be almond croissant or morning bun.
+
+Ruby: All right, counter expert. What do you tell them?
+
+Tyson: Almond croissant gets a bright pour-over. The lighter body and acidity keep the almond cream from taking over the whole bite.
+
+Ruby: And the morning bun?
+
+Tyson: Drip coffee. It has enough body for the cinnamon and orange, but its gentle sweetness doesn’t crowd them.
+
+Ruby: What about someone who points straight at the chocolate babka?
+
+Tyson: Espresso. Cocoa and toasted-nut notes meet the dark chocolate, and it’s short enough not to feel like too much. Usually, though, if a pastry is rich or very sweet, I skip the darker roast.
+
+Ruby: A practical exception. I’m proud of you.
+
+Tyson: Please don’t make it a plaque. Put the bread out; I’d like one more sunrise minute before breakfast becomes a debate.
+

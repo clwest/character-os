@@ -1,0 +1,29 @@
+# Q-279-3 Phase 2  config=P2-C  sample=2
+# topic: Ruby and Tyson watch the sunrise through the bakery window before opening.
+# model=gpt-5.6-terra  attempt_count=1  total_chars=1299  predicted_seconds=99.92s
+# composite=0  composite_per_1k=0.000
+
+Ruby: Look at that. The whole window has gone peach before we’ve even unlocked the door.
+
+Tyson: And it’s catching the pastry case like it knows exactly where to stand. Very flattering light for a morning bun.
+
+Ruby: You found a way to make the sunrise about breakfast in under ten seconds.
+
+Tyson: I work near coffee; it changes a person. But honestly, that orange-zest brightness would make sense with a light pour-over right now.
+
+Ruby: You’re pairing the sky, too?
+
+Tyson: Only loosely. The pour-over is bright and light-bodied, with citrus and stone-fruit notes. The bun is buttery, cinnamon-sweet, and has that citrus lift. Neither one has to shout over the other.
+
+Ruby: That is annoyingly convincing. Still, the first thing I noticed was how quiet it is. In a few minutes, we’re open at seven, and this little pocket disappears.
+
+Tyson: It doesn’t disappear. It just gets traded for the first person deciding between a croissant and something chocolate.
+
+Ruby: And you’ll tell them their whole future depends on the coffee choice.
+
+Tyson: Not their whole future. But if they choose the chocolate babka, I’ll steer them to espresso. The cocoa and toasted-nut notes meet the dark chocolate without piling on a giant cup of coffee.
+
+Ruby: There it is—the sunrise sales pitch.
+
+Tyson: Fine. No pitch. Just a good view before the door opens. Though the sun clearly has excellent taste in windows.
+

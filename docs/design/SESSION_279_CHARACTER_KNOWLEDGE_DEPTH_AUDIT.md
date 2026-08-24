@@ -4369,3 +4369,343 @@ Do NOT proceed until explicit approval.
 - [x] Chris + ChatGPT approval gate explicit (§116.6)
 - [x] Other deferred findings NOT opened
 
+---
+
+# Q-279-3 — Phase 2 execution result
+
+**Status opened:** 2026-08-25, immediately following the Phase 2
+reconciliation checkpoint commit **`be57821`** (approved by Chris +
+ChatGPT). Execution consumed the §113 causal matrix exactly — 3
+conditions × 3 real-model synthesis calls = 9 calls total via the
+production `synthesize_dialogue()` path. No provider render fired.
+No Runway/media-engine hop. No Composition rows created. No DB
+writes. No permanent code changes. All monkeypatches
+`try/finally`-restored; post-run production-contract + DB-personality
+verification passed (`_verify_restored()` at
+`scripts/session279_q279_3_phase2_probe.py:_verify_restored`).
+
+**Execution baseline SHA:** **`be57821`** (`docs(session-279): Q-279-3 Phase 2 design reconciliation vs Phase 1 findings`).
+
+## §118 Probe implementation
+
+Landed as `scripts/session279_q279_3_phase2_probe.py`. ~360 lines.
+Precedent: SESSION 272 slice scripts under the same `scripts/`
+path. Non-production; not imported by production; may be deleted
+after the experiment closes. Full source in-repo; behavioral
+substitutions match §111.3-§111.4 verbatim (variable names
+`_LITE_WATCHABILITY_BLOCK` and `_LITE_NARRATIVE_SHAPES_BLOCK`).
+
+Runtime substitutions applied per condition:
+
+- **P2-A:** no monkeypatch.
+- **P2-B:** `WritingContract.for_shape = staticmethod(_lite)` where
+  `_lite('dialogue_scene')` returns
+  `_dialogue_scene_contract_lite()`. `_lite('long_form')`,
+  `_lite('standalone')`, `_lite('solo_scene')` fall through to
+  the original class method. Restored in `finally`.
+- **P2-C:** `ruby.personality = "Ruby is friendly and helpful."` +
+  `tyson.personality = "Tyson is friendly and helpful."` — mutated
+  on in-memory Teammate instances only. `.save()` never called.
+  Original values captured in `saved = {tm.pk: tm.personality for
+  tm in cast}` and restored in `finally`.
+
+Restoration post-run verified two ways (`_verify_restored()`):
+
+1. Fetch production `WritingContract.for_shape('dialogue_scene')`
+   and assert the lite marker string *"no prescribed skeleton"* is
+   NOT present.
+2. Fetch Ruby and Tyson from DB (fresh objects, not the mutated
+   in-memory instances) and assert their `personality` is not the
+   neutral substitute.
+
+Both assertions passed.
+
+## §119 Raw execution log (compact terminal echo)
+
+```
+[A#1] synthesizing... turns=10 chars=1291 composite=2 composite/1k=1.549 elapsed=15.55s
+[A#2] synthesizing... turns=14 chars=1262 composite=1 composite/1k=0.792 elapsed=24.29s
+[A#3] synthesizing... turns=14 chars=1248 composite=1 composite/1k=0.801 elapsed=19.65s
+[B#1] synthesizing... turns=13 chars=1203 composite=0 composite/1k=0.000 elapsed=25.13s
+[B#2] synthesizing... turns=12 chars=1240 composite=2 composite/1k=1.613 elapsed=21.9s
+[B#3] synthesizing... turns=14 chars=1275 composite=2 composite/1k=1.569 elapsed=25.17s
+[C#1] synthesizing... turns=12 chars=1372 composite=1 composite/1k=0.729 elapsed=15.03s
+[C#2] synthesizing... turns=12 chars=1299 composite=0 composite/1k=0.000 elapsed=9.25s
+[C#3] synthesizing... turns=11 chars=1139 composite=2 composite/1k=1.756 elapsed=10.43s
+Post-run restoration verified.
+```
+
+All 9 samples used **`gpt-5.6-terra`** at the production model
+config. Raw dialogues durably persisted under
+`docs/design/session279_phase2/p2{a,b,c}_sample{1,2,3}.txt`; full
+per-sample provenance persisted to
+`docs/design/session279_phase2/phase2_evidence.json`.
+
+## §120 Per-sample scores (locked rubric §99.1)
+
+| Config | # | attempt | chars | turns | D1 | D1n | D1a | D2 | D3 | D4a | D4n | composite | composite/1k |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| P2-A | 1 | 1 | 1291 | 10 | 1 | 0 | 1 | 0 | 0 | 1 | 0 | 2 | 1.549 |
+| P2-A | 2 | 2 | 1262 | 14 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 1 | 0.792 |
+| P2-A | 3 | 2 | 1248 | 14 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 1 | 0.801 |
+| P2-B | 1 | 2 | 1203 | 13 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0.000 |
+| P2-B | 2 | 2 | 1240 | 12 | 0 | 0 | 0 | 0 | 0 | 1 | 1 | 2 | 1.613 |
+| P2-B | 3 | 2 | 1275 | 14 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 2 | 1.569 |
+| P2-C | 1 | 1 | 1372 | 12 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 1 | 0.729 |
+| P2-C | 2 | 1 | 1299 | 12 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0.000 |
+| P2-C | 3 | 1 | 1139 | 11 | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 2 | 1.756 |
+
+## §121 Per-condition aggregates
+
+| Config | n | chars | turns | composite | **composite/1k** | D1 | D1n | D1a | D2 | D3 | D4a | D4n |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| P2-A baseline | 3 | 3801 | 38 | 4 | **1.052** | 2 | 1 | 1 | 0 | 1 | 1 | 0 |
+| P2-B contract-lite | 3 | 3718 | 39 | 4 | **1.076** | 0 | 0 | 0 | 1 | 0 | 2 | 1 |
+| P2-C personality-lite | 3 | 3810 | 35 | 3 | **0.787** | 1 | 0 | 1 | 0 | 0 | 2 | 0 |
+
+**Deltas vs P2-A:**
+
+- P2-B / P2-A composite/1k = 1.076 / 1.052 = **+2.2 %** (no reduction)
+- P2-C / P2-A composite/1k = 0.787 / 1.052 = **−25.2 %** (partial, does not clear the §114 ≥ 50 % threshold)
+
+## §122 Family-shift analysis (loud signal)
+
+The composite metric is nearly flat between P2-A and P2-B, but the
+**family breakdown moved substantially**:
+
+| Family | P2-A hits | P2-B hits | Δ (P2-B − P2-A) |
+|---|---|---|---|
+| D1 (any *That is …* reframe) | 2 | **0** | **−2 (100 % elimination)** |
+| D1n (strict negation-reframe) | 1 | 0 | −1 |
+| D1a (strict assertive-reframe) | 1 | 0 | −1 |
+| D2 (diminutive-formal metaphor) | 0 | **1** | +1 |
+| D3 (courtroom lexicon) | 1 | **0** | **−1 (100 % elimination)** |
+| D4a (stakes-elevating adjective) | 1 | **2** | +1 |
+| D4n (stakes-elevating *not …*) | 0 | **1** | +1 |
+
+**Contract-lite eliminated D1 (negation- + assertive-reframe) and
+D3 (courtroom lexicon) COMPLETELY** in the three samples — the two
+device families the Phase-1 audit identified as the dominant
+surface expressions of the attractor. But the same three samples
+gained ONE hit each in D2 (diminutive-formal metaphor: *"tiny
+negotiation"* in `p2b_sample2`, *"little ceremony"* in
+`p2b_sample3`), D4a (stakes-elevating adjective: *"dramatic"*,
+*"serious decision"* — one per B-sample), and D4n
+(*"not just because it sounds dramatic"* in `p2b_sample2`).
+
+**Family swap without composite reduction.** This is *exactly* the
+failure mode §114 warned against ("do not interpret disappearance
+of one family as success if another family replaces it"). The
+underlying attractor — "elevate a mundane utterance via a
+formalizing device" — survived the intervention; only the surface
+lexicon changed.
+
+P2-C family shift is smaller but present in the same direction:
+D1 dropped 2 → 1, D3 dropped 1 → 0, D4a rose 1 → 2. Composite
+reduced 25.2 % — some of the missing D1/D3 mass appears reabsorbed
+by D4a.
+
+## §123 Prediction vs actual
+
+Per §102 predicted hierarchy:
+
+| Hypothesis | Predicted (§91 / §102) | Actual (Phase 2) |
+|---|---|---|
+| H1 (Writing Contract structural bias) | co-floor; expected P2-B ≤ 50 % of P2-A | **P2-B = 102.2 % of P2-A on composite; D1 + D3 eliminated but D2 + D4a + D4n backfilled. NOT confirmed as primary composite-mover; contract text is one input to the attractor but does not solely determine it.** |
+| H2 (model prior) | co-floor; expected to remain if P2-B fails | **Consistent with model-prior floor: the attractor persists as long as the model is asked to produce a scene with meaningful change (rule 2 of watchability, kept in lite). Family swap under contract-lite is direct evidence.** |
+| H3 (personality-*text* modulator) | modulator; expected P2-C ≤ 50 % of P2-A | **P2-C = 74.8 % of P2-A on composite; direction correct but well below 50 % threshold. Personality-text neutralization moved the rate ~25 % on n = 3 samples; family shift also visible but smaller than P2-B's.** |
+| H4 (corrective amplification) | disconfirmed | **Consistent.** Attempt-count distribution: P2-A had 1 first-pass + 2 corrective; P2-B had 0 first-pass + 3 corrective; P2-C had 3 first-pass + 0 corrective. The neutral topic tends to under-shoot the duration band on first pass (topic gives little material) which triggers the corrective expansion hint. No evidence of corrective amplifying the attractor. |
+| H5 (sharpening leakage) | disconfirmed | Consistent (unchanged; not touched). |
+
+## §124 Neutral-topic ceiling artifact (unexpected but decisive)
+
+Phase-1 F&F composite base rate: mean ~4.35/1k chars (aggregated
+§100.4: D1=10, D2=1, D3=13, D4a=10, D4n=5 = 39 hits / 12,871 chars
+under the same rubric).
+
+Phase-2 P2-A on the neutral topic: 1.052/1k chars — **~24 % of
+the Phase-1 F&F base rate.** The topic *"Ruby and Tyson watch the
+sunrise through the bakery window before opening"* is topically
+non-adversarial (per §112 design intent) and evidently deprives
+the writer voice of most of its usual surface material.
+
+**Consequence.** Applying the §114 locked ≥ 50 % criterion on a
+mean of 1.1 hits per composition (composite ≈ 1.0/1k × 1.25 kchars
+≈ 1.3 hits) with n = 3 puts the ± 1σ noise band around ±1.2 hits.
+The neutral-topic composite floor is inside the noise band. The
+family-swap signal is much stronger than the composite delta at
+this base rate.
+
+This is a genuine result — the attractor IS topic-sensitive; the
+neutral topic reproduces the attractor at ~24 % of the adversarial
+rate — but the noise floor swallows both H1 and H3 discriminations
+at n = 3 on a neutral topic. §114's ≥ 50 % threshold is a
+categorical rule, not a signed-power calculation; per the locked
+rule, neither H1 nor H3 clears it.
+
+## §125 Mechanical H1 / H3 / H2 verdicts (locked §114)
+
+Per the §114 rules, applied without post-hoc revision:
+
+- **H1 confirmed as primary composite floor:** requires P2-B ≤ 50 %
+  of P2-A. Observed: P2-B = 102.2 %. **NOT CONFIRMED.**
+- **H3 confirmed as primary composite modulator:** requires P2-C ≤ 50 %
+  of P2-A. Observed: P2-C = 74.8 %. **NOT CONFIRMED.**
+- **H2 as dominant residual:** locked rule "if NEITHER intervention
+  reduces composite ≥ 25 % → model-prior H2 is dominant". P2-B: no
+  reduction (+2.2 %). P2-C: reduction −25.2 % (exactly at the 25 %
+  boundary; below it by convention). **Neither reaches ≥ 25 % strict
+  reduction; H2 as dominant residual is CONSISTENT WITH THE
+  EVIDENCE but not resoundingly confirmed.**
+- **Mixed / partial classification:** §114 explicit escape hatch —
+  *"Mixed / partial results → interpret via per-family breakdown."*
+  **Per-family breakdown is highly informative** (§122): contract-lite
+  eliminates D1 + D3 completely and shifts them into D2 + D4; this
+  demonstrates the attractor is *steerable* by contract text but
+  moves under pressure to preserve its overall rate.
+
+**Interpretive summary:**
+
+The Phase-2 evidence does NOT license a fix on either H1 or H3
+individually — neither cleared the pre-registered composite
+threshold. The evidence is instead most consistent with:
+
+> The stakes-elevating structural attractor lives above the character
+> layer AND above the specific dialogue-scene writing-contract text
+> Chris + ChatGPT identified. It is real but robust: eliminating one
+> lexical channel causes the model to reach for another. The
+> personality-text field is a real modulator with directionally
+> correct effect (~25 % on n = 3) but not the primary lever.
+
+## §126 Dialogue-quality observations (recorded; NOT a metric)
+
+Per Chris + ChatGPT direction, log qualitative degradation
+separately without changing the composite gate.
+
+Manual read of all 9 samples:
+
+- **P2-A samples:** in-character; natural conversational rhythm;
+  Q-279-2 treatment knowledge (almond croissant + pour-over,
+  morning bun + drip, chocolate babka + espresso, tradeoff rule)
+  surfaces naturally in every sample. No degradation.
+- **P2-B samples:** in-character; natural rhythm; Knowledge surfaces
+  similarly. Notably `p2b_sample1` produces composite = 0 (the
+  cleanest sample in the whole run), reading as a pure sunrise
+  scene with pairing recommendations delivered without any
+  stakes-elevating framing. `p2b_sample3` opens with *"like it's a
+  legal matter"* — the attractor still fires despite contract-lite,
+  but as an isolated stylistic tic rather than as a recurring
+  frame. No degradation.
+- **P2-C samples:** in-character despite the neutralized personality
+  text; Ruby and Tyson still read as distinct voices — the LLM
+  reconstructs voice from `business_brief` + `who_you_help` +
+  `voice_*` enums even when free-text personality is blanked. This
+  is itself informative — Ruby's *"warm, cheerful"* and Tyson's
+  *"easygoing, dry"* voice was not the SOLE source of their
+  recognizability. No degradation of scene-content or coherence.
+
+**No condition produced flat, broken, repetitive, or structurally
+poor dialogue.** No condition failed the K6.4 verifier (all 9
+samples returned `overall_verification_status = "verified"`).
+
+**Also observed** (informational, non-metric): every sample used
+the Q-279-2 treatment vocabulary appropriately — every sample
+contained at least two of {almond croissant, morning bun, chocolate
+babka, pour-over, drip, espresso} + attribute-grounded pairing
+reasoning. **Q-279-2 finding 4b is stably reproducible; the writer
+voice attractor is not the KD's job to solve.**
+
+## §127 Unresolved questions
+
+Preserved for Chris + ChatGPT decision; NOT auto-opened.
+
+1. **Adversarial-topic replication.** Neutral topic P2-A rate is
+   ~24 % of adversarial P1 rate. Would the same interventions
+   reduce composite more visibly on a topic where the base rate is
+   ~4×higher? A single extension (P2-A/B/C × n=3 on a re-run of the
+   Q-279-2 T1 topic *"Ruby thinks Tyson is taking coffee too
+   seriously"*) would cost ~$0.05 more and would let the ≥ 50 %
+   criterion actually resolve at usable statistical power. Not
+   authorized now.
+2. **Family-swap depth.** Contract-lite eliminated D1 + D3 100 %
+   but backfilled D2 + D4. If a *combined* contract-lite AND
+   personality-lite intervention were run (P2-BC), would the family
+   swap continue chasing new surfaces, or would the attractor
+   finally reduce? Not authorized now; scope-creep.
+3. **Is the ≥ 50 % threshold too strict for the neutral-topic
+   regime?** §114 threshold was locked before this evidence.
+   Preserved as a design-lesson: future controlled-render
+   experiments on rhetorical-device rates should power-calc against
+   Phase-1 base rates BEFORE selecting a "neutral" topic if the
+   neutral topic depresses the effect below noise. Not a
+   Phase-2-execution question; a Phase-2-design lesson.
+4. **Rhetorical-device rate is not a proxy for dialogue quality.**
+   `p2b_sample1` has composite = 0 and is subjectively excellent.
+   `p2c_sample3` has composite = 2 (highest per-1k in the run) and
+   is also subjectively excellent. The device metric measures a
+   *specific* substrate signature; it does NOT rank scenes by
+   overall quality.
+
+## §128 Recommendation
+
+Phase 2 executed exactly as designed. Rubric applied unchanged.
+Locked ≥ 50 % criterion did NOT resolve either H1 or H3 as primary
+mover under neutral-topic base rates. The strongest single finding
+is **§122 family-swap**: contract-lite eliminates the two dominant
+Phase-1 device families (D1 + D3) but the attractor reappears in
+D2 + D4a + D4n. This is stronger evidence than any composite
+delta that the attractor is topologically robust to single-lever
+interventions.
+
+Do NOT implement a fix on this evidence. Neither hypothesis
+mechanically cleared its pre-registered threshold.
+
+### Recommended next gate
+
+> **READY-FOR-CHRIS-CHATGPT-REVIEW.** Three live options after
+> this record:
+>
+> 1. **CLOSE-Q-279-3-AT-MIXED** — accept the family-swap + mixed
+>    composite result as the durable answer for finding 4a. Any
+>    future fix design must contend with the family-swap risk.
+>    Preserve all deferred findings.
+> 2. **EXTEND-PHASE-2-ADVERSARIAL** — add an adversarial-topic
+>    replication (P2-A/B/C × n=3 on the Q-279-2 T1 topic where
+>    Phase-1 rate was ~4× the neutral base) to check whether the
+>    ≥ 50 % criterion can resolve at usable statistical power.
+>    ~$0.05 additional provider spend.
+> 3. **PIVOT-TO-COMBINED-INTERVENTION** — one additional condition
+>    P2-BC (both contract-lite AND personality-lite) at n = 3 to
+>    test whether the joint intervention finally reduces composite
+>    or the family-swap continues past both surfaces. ~$0.02
+>    additional provider spend.
+
+Do NOT proceed to any of the three without explicit approval.
+
+Other deferred findings (4c visual composition, 4d-4i,
+Knowledge-breadth, Beat-3 legibility) remain preserved unopened.
+
+## §129 Checklist — Phase 2 execution
+
+- [x] Execution baseline SHA recorded (§118)
+- [x] Probe implemented at `scripts/session279_q279_3_phase2_probe.py` with SESSION 272 slice-script precedent (§118)
+- [x] Exact runtime substitutions applied per condition (§118)
+- [x] Post-run restoration verified two ways (§118)
+- [x] All 9 raw dialogues persisted durably under `docs/design/session279_phase2/*.txt` (§119)
+- [x] Full per-sample provenance persisted to `phase2_evidence.json` (§119)
+- [x] Per-sample D1-D4 scores tabulated (§120)
+- [x] Per-condition aggregates + normalized deltas (§121)
+- [x] Family-shift analysis explicit (§122)
+- [x] Prediction vs actual (§123)
+- [x] Neutral-topic ceiling artifact recorded (§124)
+- [x] Mechanical H1 / H3 / H2 verdicts applied under LOCKED §114 rules (§125)
+- [x] Dialogue-quality observations recorded but held out of composite gate (§126)
+- [x] Unresolved questions preserved without opening (§127)
+- [x] Recommended next gate + three live options (§128)
+- [x] No prompt / synthesis / Knowledge / character / identity / retrieval / verifier / memory / audience / runtime change
+- [x] No permanent code change beyond the experimental probe script
+- [x] No implementation of a fix
+- [x] Rubric NOT revised after seeing results
+- [x] §114 threshold NOT revised after seeing results
+- [x] Other deferred findings NOT opened
+

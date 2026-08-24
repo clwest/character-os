@@ -1,0 +1,33 @@
+# Q-279-3 Phase 2  config=P2-A  sample=3
+# topic: Ruby and Tyson watch the sunrise through the bakery window before opening.
+# model=gpt-5.6-terra  attempt_count=2  total_chars=1248  predicted_seconds=96.0s
+# composite=1  composite_per_1k=0.801
+
+Ruby: Look at that. The whole window’s gone honey-colored, and we haven’t even unlocked the door.
+
+Tyson: Give it a minute. The sun gets the good seat, then the early crowd gets the window.
+
+Ruby: I don’t mind sharing. This is my favorite little pause: the bakery quiet, the day deciding what it wants to be.
+
+Tyson: The day usually wants coffee before it wants philosophy.
+
+Ruby: You say that like coffee isn’t philosophy with a handle.
+
+Tyson: It’s a practical philosophy. Someone sees that sunrise, orders an almond croissant, and asks what won’t make the last bite feel like homework. I’d give them a bright pour-over. It cuts through the almond cream and keeps things clean.
+
+Ruby: That does sound lovely. Though the morning bun would suit this light too—cinnamon, orange, and a slow first sip.
+
+Tyson: Drip coffee with it. Fuller body, gentle sweetness; it stays out of the cinnamon’s way. See? We can make this useful without holding a committee meeting at the window.
+
+Ruby: You’re no fun before seven.
+
+Tyson: We’re open at seven. I’m conserving it.
+
+Ruby: Fair. But when that first person comes in, I hope they notice the sunrise before they notice the display.
+
+Tyson: They’ll notice both. You built the sort of place where people can take a minute.
+
+Ruby: Then let’s give them a good one. Unlock it?
+
+Tyson: After you. The sun already started the shift.
+

@@ -1,0 +1,25 @@
+# Q-279-3 Phase 2  config=P2-A  sample=1
+# topic: Ruby and Tyson watch the sunrise through the bakery window before opening.
+# model=gpt-5.6-terra  attempt_count=1  total_chars=1291  predicted_seconds=99.31s
+# composite=2  composite_per_1k=1.549
+
+Ruby: Look at that. The whole window has gone peach-colored, and for one little minute the bakery feels like it’s holding its breath.
+
+Tyson: It is peaceful. Suspiciously peaceful. Give it a few minutes and we’ll be open at seven, and someone will need help deciding between coffee and pastry before they’ve fully become a person.
+
+Ruby: That is a very important decision before seven in the morning. You always make it sound like a public service.
+
+Tyson: It can be. If someone goes for an almond croissant, I’d steer them toward a bright pour-over. The lighter body and acidity keep all that almond cream from turning the last bite into a project.
+
+Ruby: See? Public service. And a very delicious one. What gets the morning bun?
+
+Tyson: Drip coffee. It has enough body to sit under the cinnamon and orange without trying to win an argument with them. The coffee stays useful; the bun still gets to be the bun.
+
+Ruby: You do get protective of a good pastry having its moment.
+
+Tyson: I work beside someone who takes naturally leavened sourdough personally. It rubs off.
+
+Ruby: Fair. But this is why I love this quiet part: before the counter fills up, before the questions, before everyone’s choosing their little bit of comfort for the day.
+
+Tyson: Then take another minute. The sun’s up, the door can wait until seven, and I promise not to pair the sunrise with espresso.
+

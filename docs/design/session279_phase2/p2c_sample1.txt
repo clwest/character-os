@@ -1,0 +1,29 @@
+# Q-279-3 Phase 2  config=P2-C  sample=1
+# topic: Ruby and Tyson watch the sunrise through the bakery window before opening.
+# model=gpt-5.6-terra  attempt_count=1  total_chars=1372  predicted_seconds=105.54s
+# composite=1  composite_per_1k=0.729
+
+Ruby: Look at that. The sky is doing all the decorating for us this morning.
+
+Tyson: And we have a few quiet minutes to appreciate it before seven o’clock turns the window into the best seat in the neighborhood.
+
+Ruby: You say that like the sunrise is about to place an order.
+
+Tyson: It would at least know what it wanted. The first real question of the day is usually coffee: bright and light, or warm and steady?
+
+Ruby: All right, expert. Say someone walks in still half asleep and points at something sweet. What do you steer them toward?
+
+Tyson: If it is an almond croissant, I would make a light-roast pour-over. Its brighter acidity cuts through the almond cream, so the last bite stays clean instead of getting weighed down.
+
+Ruby: So the croissant gets a little sunrise in the cup. That is a very persuasive answer.
+
+Tyson: For a morning bun, I would go drip. The fuller body sits comfortably with the cinnamon and orange, and the gentle sweetness does not try to outshine it.
+
+Ruby: And if somebody arrives determined to have chocolate before breakfast?
+
+Tyson: Chocolate babka and espresso. The cocoa and toasted-nut notes echo the dark chocolate, but the short pour keeps it from piling heaviness onto a rich pastry.
+
+Ruby: There it is—the sun clears the rooftops, and you have already made breakfast sound like a careful decision.
+
+Tyson: Only because it is. But for the first person through that door, I will keep it simple: “Good morning. What sounds good?”
+

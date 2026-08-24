@@ -1,0 +1,31 @@
+# Q-279-3 Phase 2  config=P2-B  sample=1
+# topic: Ruby and Tyson watch the sunrise through the bakery window before opening.
+# model=gpt-5.6-terra  attempt_count=2  total_chars=1203  predicted_seconds=92.54s
+# composite=0  composite_per_1k=0.000
+
+Ruby: There it is. The whole window goes gold for about five minutes, and suddenly I want every loaf to look its best.
+
+Tyson: Good instinct. Sunrise is generous. Makes even an empty counter look organized.
+
+Ruby: Don’t let the counter hear you. We open at seven, and I like these last quiet minutes before the door starts moving.
+
+Tyson: Before everybody asks what coffee goes with what? A peaceful, temporary condition.
+
+Ruby: You say that like you don’t enjoy it.
+
+Tyson: I enjoy ending the panic. If someone picks an almond croissant, I steer them to a brighter pour-over. It cuts through the almond cream instead of piling onto it.
+
+Ruby: And the person who wants cinnamon and orange?
+
+Tyson: Morning bun, drip coffee. It has enough body to sit with the butter, but it doesn’t argue with the citrus.
+
+Ruby: You’ve turned breakfast into a tiny negotiation.
+
+Tyson: Only when chocolate is involved. Babka gets espresso—cocoa and toasted-nut notes meet the dark chocolate. Though if somebody already thinks it feels rich, I’d give them a lighter roast instead.
+
+Ruby: See? That’s why people ask you. You make a choice feel easy without making it small.
+
+Tyson: And you make them stare at bread in a sunrise like it has a personal story.
+
+Ruby: It does. But at seven, it can start telling it to everybody else.
+

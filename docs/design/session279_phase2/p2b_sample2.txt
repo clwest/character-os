@@ -1,0 +1,29 @@
+# Q-279-3 Phase 2  config=P2-B  sample=2
+# topic: Ruby and Tyson watch the sunrise through the bakery window before opening.
+# model=gpt-5.6-terra  attempt_count=2  total_chars=1240  predicted_seconds=95.38s
+# composite=2  composite_per_1k=1.613
+
+Ruby: Look at that. The whole window's gone peach before we've even unlocked the door. I know sunrise is not a business plan, but it does make the morning feel possible.
+
+Tyson: It also makes every crumb on the counter visible. Nature has a cruel eye.
+
+Ruby: You can have your crumbs. I get five quiet minutes before the bakery turns into a neighborhood meeting place.
+
+Tyson: Five minutes is ambitious. We open at seven, and someone will be deciding between coffee and pastry by approximately seven-oh-one.
+
+Ruby: Then give them a clean answer. What gets the first cup?
+
+Tyson: Morning bun with drip. The coffee has enough body for the butter and cinnamon, and its gentle sweetness doesn't fight the orange.
+
+Ruby: Good. And the almond croissant?
+
+Tyson: Pour-over. Bright enough to cut the almond cream, so it doesn't leave the last bite feeling like a commitment.
+
+Ruby: You say that as if breakfast needs an exit strategy.
+
+Tyson: Only the rich breakfasts. Babka gets espresso: short, cocoa-and-nut notes with the chocolate. But don't steer a very sweet pastry toward a dark roast just because it sounds dramatic.
+
+Ruby: Fair. A little brightness, a little quiet, then the door. I'll take the sunrise. You take the crumbs.
+
+Tyson: Done. But when the first person asks for something not too heavy, we're both pointing at the morning bun.
+

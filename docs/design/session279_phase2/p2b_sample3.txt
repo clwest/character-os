@@ -1,0 +1,33 @@
+# Q-279-3 Phase 2  config=P2-B  sample=3
+# topic: Ruby and Tyson watch the sunrise through the bakery window before opening.
+# model=gpt-5.6-terra  attempt_count=2  total_chars=1275  predicted_seconds=98.08s
+# composite=2  composite_per_1k=1.569
+
+Ruby: Look at that. For five minutes, the whole front window is peach-colored, and nobody has asked for anything yet.
+
+Tyson: Give it time. At seven, someone will be deciding between coffee and pastry like it's a legal matter.
+
+Ruby: It is a serious decision. People are choosing their small happiness before the day starts.
+
+Tyson: Then let's make it easier. If they reach for an almond croissant, I steer them toward a bright pour-over. It cuts through the almond cream instead of piling on.
+
+Ruby: And if they want something warmer?
+
+Tyson: Morning bun, drip coffee. Cinnamon, orange zest, and a medium roast that doesn't elbow either one aside.
+
+Ruby: You make it sound so calm. The oven is about to start sending out bread, the cases need filling, and I am already thinking about who might come in first.
+
+Tyson: You are always thinking about the first loaf like it has a grand entrance.
+
+Ruby: It does. Small-batch baking deserves a little ceremony.
+
+Tyson: Fine. But chocolate babka gets espresso. Short pour, cocoa and toasted-nut notes, and no gloomy dark coffee on top of a rich pastry.
+
+Ruby: That is the sort of rule people remember.
+
+Tyson: Only because it saves them from a breakfast that feels heavier than it needs to.
+
+Ruby: All right. You handle the coffee questions. I'll give the first loaf its grand entrance.
+
+Tyson: At seven. Until then, let the window have its moment.
+

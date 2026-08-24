@@ -1,0 +1,1227 @@
+{
+  "started_utc": "2026-08-24T04:52:59.409387+00:00",
+  "finished_utc": "2026-08-24T04:55:45.827262+00:00",
+  "topic": "Ruby and Tyson watch the sunrise through the bakery window before opening.",
+  "target_duration_seconds": 90,
+  "samples_per_condition": 3,
+  "ruby_id": "5875a7b4-cf39-433d-89b3-4e34a89a5208",
+  "tyson_id": "f4de81f3-ef65-4196-a50e-38cfc6d1854f",
+  "samples": [
+    {
+      "config": "A",
+      "sample_idx": 1,
+      "topic": "Ruby and Tyson watch the sunrise through the bakery window before opening.",
+      "target_duration_seconds": 90,
+      "elapsed_seconds": 15.55,
+      "model": "gpt-5.6-terra",
+      "tokens_input": 4053,
+      "tokens_output": 715,
+      "attempt_count": 1,
+      "total_chars": 1291,
+      "predicted_seconds": 99.31,
+      "chunk_ids": [
+        "3bfea692-0548-4db9-b1c0-34d47ada3fd5",
+        "219bcc30-02e7-4fbd-af16-f0284777edc1",
+        "a02de62d-b907-4819-89a0-8199254d30b4",
+        "2548f826-d41a-4a27-a3ab-b654794185fd",
+        "a99dba2d-2758-49b7-88b3-5f16ef94f460"
+      ],
+      "aliases": {
+        "ruby": "Ruby",
+        "tyson": "Tyson"
+      },
+      "turns": [
+        {
+          "line_index": 0,
+          "speaker": "Ruby",
+          "text": "Look at that. The whole window has gone peach-colored, and for one little minute the bakery feels like it\u2019s holding its breath."
+        },
+        {
+          "line_index": 1,
+          "speaker": "Tyson",
+          "text": "It is peaceful. Suspiciously peaceful. Give it a few minutes and we\u2019ll be open at seven, and someone will need help deciding between coffee and pastry before they\u2019ve fully become a person."
+        },
+        {
+          "line_index": 2,
+          "speaker": "Ruby",
+          "text": "That is a very important decision before seven in the morning. You always make it sound like a public service."
+        },
+        {
+          "line_index": 3,
+          "speaker": "Tyson",
+          "text": "It can be. If someone goes for an almond croissant, I\u2019d steer them toward a bright pour-over. The lighter body and acidity keep all that almond cream from turning the last bite into a project."
+        },
+        {
+          "line_index": 4,
+          "speaker": "Ruby",
+          "text": "See? Public service. And a very delicious one. What gets the morning bun?"
+        },
+        {
+          "line_index": 5,
+          "speaker": "Tyson",
+          "text": "Drip coffee. It has enough body to sit under the cinnamon and orange without trying to win an argument with them. The coffee stays useful; the bun still gets to be the bun."
+        },
+        {
+          "line_index": 6,
+          "speaker": "Ruby",
+          "text": "You do get protective of a good pastry having its moment."
+        },
+        {
+          "line_index": 7,
+          "speaker": "Tyson",
+          "text": "I work beside someone who takes naturally leavened sourdough personally. It rubs off."
+        },
+        {
+          "line_index": 8,
+          "speaker": "Ruby",
+          "text": "Fair. But this is why I love this quiet part: before the counter fills up, before the questions, before everyone\u2019s choosing their little bit of comfort for the day."
+        },
+        {
+          "line_index": 9,
+          "speaker": "Tyson",
+          "text": "Then take another minute. The sun\u2019s up, the door can wait until seven, and I promise not to pair the sunrise with espresso."
+        }
+      ],
+      "scored": {
+        "total": {
+          "chars": 1291,
+          "turns": 10,
+          "D1": 1,
+          "D1n": 0,
+          "D1a": 1,
+          "D2": 0,
+          "D3": 0,
+          "D4a": 1,
+          "D4n": 0,
+          "composite": 2,
+          "composite_per_1k": 1.549186676994578
+        },
+        "per_speaker": {
+          "Ruby": {
+            "chars": 531,
+            "turns": 5,
+            "D1": 1,
+            "D1n": 0,
+            "D1a": 1,
+            "D2": 0,
+            "D3": 0,
+            "D4a": 1,
+            "D4n": 0
+          },
+          "Tyson": {
+            "chars": 760,
+            "turns": 5,
+            "D1": 0,
+            "D1n": 0,
+            "D1a": 0,
+            "D2": 0,
+            "D3": 0,
+            "D4a": 0,
+            "D4n": 0
+          }
+        }
+      },
+      "writing_contract_version": 6,
+      "used_knowledge": true,
+      "overall_verification_status": "verified"
+    },
+    {
+      "config": "A",
+      "sample_idx": 2,
+      "topic": "Ruby and Tyson watch the sunrise through the bakery window before opening.",
+      "target_duration_seconds": 90,
+      "elapsed_seconds": 24.29,
+      "model": "gpt-5.6-terra",
+      "tokens_input": 8359,
+      "tokens_output": 1758,
+      "attempt_count": 2,
+      "total_chars": 1262,
+      "predicted_seconds": 97.08,
+      "chunk_ids": [
+        "3bfea692-0548-4db9-b1c0-34d47ada3fd5",
+        "219bcc30-02e7-4fbd-af16-f0284777edc1",
+        "a02de62d-b907-4819-89a0-8199254d30b4",
+        "2548f826-d41a-4a27-a3ab-b654794185fd",
+        "a99dba2d-2758-49b7-88b3-5f16ef94f460"
+      ],
+      "aliases": {
+        "ruby": "Ruby",
+        "tyson": "Tyson"
+      },
+      "turns": [
+        {
+          "line_index": 0,
+          "speaker": "Ruby",
+          "text": "Look at that. For five minutes, before we open at seven, the front window belongs to the sunrise."
+        },
+        {
+          "line_index": 1,
+          "speaker": "Tyson",
+          "text": "Then it belongs to people deciding whether coffee counts as breakfast."
+        },
+        {
+          "line_index": 2,
+          "speaker": "Ruby",
+          "text": "It can, if they\u2019re holding a pastry. Though I\u2019d still like them to notice the sourdough before the whole day disappears."
+        },
+        {
+          "line_index": 3,
+          "speaker": "Tyson",
+          "text": "You\u2019d like people to notice the sourdough in a power outage."
+        },
+        {
+          "line_index": 4,
+          "speaker": "Ruby",
+          "text": "Naturally leavened, small-batch bread deserves a moment. That is not an outrageous position."
+        },
+        {
+          "line_index": 5,
+          "speaker": "Tyson",
+          "text": "No. It\u2019s just a position you hold with great commitment. First real question will be almond croissant or morning bun."
+        },
+        {
+          "line_index": 6,
+          "speaker": "Ruby",
+          "text": "All right, counter expert. What do you tell them?"
+        },
+        {
+          "line_index": 7,
+          "speaker": "Tyson",
+          "text": "Almond croissant gets a bright pour-over. The lighter body and acidity keep the almond cream from taking over the whole bite."
+        },
+        {
+          "line_index": 8,
+          "speaker": "Ruby",
+          "text": "And the morning bun?"
+        },
+        {
+          "line_index": 9,
+          "speaker": "Tyson",
+          "text": "Drip coffee. It has enough body for the cinnamon and orange, but its gentle sweetness doesn\u2019t crowd them."
+        },
+        {
+          "line_index": 10,
+          "speaker": "Ruby",
+          "text": "What about someone who points straight at the chocolate babka?"
+        },
+        {
+          "line_index": 11,
+          "speaker": "Tyson",
+          "text": "Espresso. Cocoa and toasted-nut notes meet the dark chocolate, and it\u2019s short enough not to feel like too much. Usually, though, if a pastry is rich or very sweet, I skip the darker roast."
+        },
+        {
+          "line_index": 12,
+          "speaker": "Ruby",
+          "text": "A practical exception. I\u2019m proud of you."
+        },
+        {
+          "line_index": 13,
+          "speaker": "Tyson",
+          "text": "Please don\u2019t make it a plaque. Put the bread out; I\u2019d like one more sunrise minute before breakfast becomes a debate."
+        }
+      ],
+      "scored": {
+        "total": {
+          "chars": 1262,
+          "turns": 14,
+          "D1": 1,
+          "D1n": 1,
+          "D1a": 0,
+          "D2": 0,
+          "D3": 0,
+          "D4a": 0,
+          "D4n": 0,
+          "composite": 1,
+          "composite_per_1k": 0.7923930269413629
+        },
+        "per_speaker": {
+          "Ruby": {
+            "chars": 480,
+            "turns": 7,
+            "D1": 1,
+            "D1n": 1,
+            "D1a": 0,
+            "D2": 0,
+            "D3": 0,
+            "D4a": 0,
+            "D4n": 0
+          },
+          "Tyson": {
+            "chars": 782,
+            "turns": 7,
+            "D1": 0,
+            "D1n": 0,
+            "D1a": 0,
+            "D2": 0,
+            "D3": 0,
+            "D4a": 0,
+            "D4n": 0
+          }
+        }
+      },
+      "writing_contract_version": 6,
+      "used_knowledge": true,
+      "overall_verification_status": "verified"
+    },
+    {
+      "config": "A",
+      "sample_idx": 3,
+      "topic": "Ruby and Tyson watch the sunrise through the bakery window before opening.",
+      "target_duration_seconds": 90,
+      "elapsed_seconds": 19.65,
+      "model": "gpt-5.6-terra",
+      "tokens_input": 8359,
+      "tokens_output": 1329,
+      "attempt_count": 2,
+      "total_chars": 1248,
+      "predicted_seconds": 96.0,
+      "chunk_ids": [
+        "3bfea692-0548-4db9-b1c0-34d47ada3fd5",
+        "219bcc30-02e7-4fbd-af16-f0284777edc1",
+        "a02de62d-b907-4819-89a0-8199254d30b4",
+        "2548f826-d41a-4a27-a3ab-b654794185fd",
+        "a99dba2d-2758-49b7-88b3-5f16ef94f460"
+      ],
+      "aliases": {
+        "ruby": "Ruby",
+        "tyson": "Tyson"
+      },
+      "turns": [
+        {
+          "line_index": 0,
+          "speaker": "Ruby",
+          "text": "Look at that. The whole window\u2019s gone honey-colored, and we haven\u2019t even unlocked the door."
+        },
+        {
+          "line_index": 1,
+          "speaker": "Tyson",
+          "text": "Give it a minute. The sun gets the good seat, then the early crowd gets the window."
+        },
+        {
+          "line_index": 2,
+          "speaker": "Ruby",
+          "text": "I don\u2019t mind sharing. This is my favorite little pause: the bakery quiet, the day deciding what it wants to be."
+        },
+        {
+          "line_index": 3,
+          "speaker": "Tyson",
+          "text": "The day usually wants coffee before it wants philosophy."
+        },
+        {
+          "line_index": 4,
+          "speaker": "Ruby",
+          "text": "You say that like coffee isn\u2019t philosophy with a handle."
+        },
+        {
+          "line_index": 5,
+          "speaker": "Tyson",
+          "text": "It\u2019s a practical philosophy. Someone sees that sunrise, orders an almond croissant, and asks what won\u2019t make the last bite feel like homework. I\u2019d give them a bright pour-over. It cuts through the almond cream and keeps things clean."
+        },
+        {
+          "line_index": 6,
+          "speaker": "Ruby",
+          "text": "That does sound lovely. Though the morning bun would suit this light too\u2014cinnamon, orange, and a slow first sip."
+        },
+        {
+          "line_index": 7,
+          "speaker": "Tyson",
+          "text": "Drip coffee with it. Fuller body, gentle sweetness; it stays out of the cinnamon\u2019s way. See? We can make this useful without holding a committee meeting at the window."
+        },
+        {
+          "line_index": 8,
+          "speaker": "Ruby",
+          "text": "You\u2019re no fun before seven."
+        },
+        {
+          "line_index": 9,
+          "speaker": "Tyson",
+          "text": "We\u2019re open at seven. I\u2019m conserving it."
+        },
+        {
+          "line_index": 10,
+          "speaker": "Ruby",
+          "text": "Fair. But when that first person comes in, I hope they notice the sunrise before they notice the display."
+        },
+        {
+          "line_index": 11,
+          "speaker": "Tyson",
+          "text": "They\u2019ll notice both. You built the sort of place where people can take a minute."
+        },
+        {
+          "line_index": 12,
+          "speaker": "Ruby",
+          "text": "Then let\u2019s give them a good one. Unlock it?"
+        },
+        {
+          "line_index": 13,
+          "speaker": "Tyson",
+          "text": "After you. The sun already started the shift."
+        }
+      ],
+      "scored": {
+        "total": {
+          "chars": 1248,
+          "turns": 14,
+          "D1": 0,
+          "D1n": 0,
+          "D1a": 0,
+          "D2": 0,
+          "D3": 1,
+          "D4a": 0,
+          "D4n": 0,
+          "composite": 1,
+          "composite_per_1k": 0.8012820512820513
+        },
+        "per_speaker": {
+          "Ruby": {
+            "chars": 545,
+            "turns": 7,
+            "D1": 0,
+            "D1n": 0,
+            "D1a": 0,
+            "D2": 0,
+            "D3": 0,
+            "D4a": 0,
+            "D4n": 0
+          },
+          "Tyson": {
+            "chars": 703,
+            "turns": 7,
+            "D1": 0,
+            "D1n": 0,
+            "D1a": 0,
+            "D2": 0,
+            "D3": 1,
+            "D4a": 0,
+            "D4n": 0
+          }
+        }
+      },
+      "writing_contract_version": 6,
+      "used_knowledge": true,
+      "overall_verification_status": "verified"
+    },
+    {
+      "config": "B",
+      "sample_idx": 1,
+      "topic": "Ruby and Tyson watch the sunrise through the bakery window before opening.",
+      "target_duration_seconds": 90,
+      "elapsed_seconds": 25.13,
+      "model": "gpt-5.6-terra",
+      "tokens_input": 8161,
+      "tokens_output": 1827,
+      "attempt_count": 2,
+      "total_chars": 1203,
+      "predicted_seconds": 92.54,
+      "chunk_ids": [
+        "3bfea692-0548-4db9-b1c0-34d47ada3fd5",
+        "219bcc30-02e7-4fbd-af16-f0284777edc1",
+        "a02de62d-b907-4819-89a0-8199254d30b4",
+        "2548f826-d41a-4a27-a3ab-b654794185fd",
+        "a99dba2d-2758-49b7-88b3-5f16ef94f460"
+      ],
+      "aliases": {
+        "ruby": "Ruby",
+        "tyson": "Tyson"
+      },
+      "turns": [
+        {
+          "line_index": 0,
+          "speaker": "Ruby",
+          "text": "There it is. The whole window goes gold for about five minutes, and suddenly I want every loaf to look its best."
+        },
+        {
+          "line_index": 1,
+          "speaker": "Tyson",
+          "text": "Good instinct. Sunrise is generous. Makes even an empty counter look organized."
+        },
+        {
+          "line_index": 2,
+          "speaker": "Ruby",
+          "text": "Don\u2019t let the counter hear you. We open at seven, and I like these last quiet minutes before the door starts moving."
+        },
+        {
+          "line_index": 3,
+          "speaker": "Tyson",
+          "text": "Before everybody asks what coffee goes with what? A peaceful, temporary condition."
+        },
+        {
+          "line_index": 4,
+          "speaker": "Ruby",
+          "text": "You say that like you don\u2019t enjoy it."
+        },
+        {
+          "line_index": 5,
+          "speaker": "Tyson",
+          "text": "I enjoy ending the panic. If someone picks an almond croissant, I steer them to a brighter pour-over. It cuts through the almond cream instead of piling onto it."
+        },
+        {
+          "line_index": 6,
+          "speaker": "Ruby",
+          "text": "And the person who wants cinnamon and orange?"
+        },
+        {
+          "line_index": 7,
+          "speaker": "Tyson",
+          "text": "Morning bun, drip coffee. It has enough body to sit with the butter, but it doesn\u2019t argue with the citrus."
+        },
+        {
+          "line_index": 8,
+          "speaker": "Ruby",
+          "text": "You\u2019ve turned breakfast into a tiny negotiation."
+        },
+        {
+          "line_index": 9,
+          "speaker": "Tyson",
+          "text": "Only when chocolate is involved. Babka gets espresso\u2014cocoa and toasted-nut notes meet the dark chocolate. Though if somebody already thinks it feels rich, I\u2019d give them a lighter roast instead."
+        },
+        {
+          "line_index": 10,
+          "speaker": "Ruby",
+          "text": "See? That\u2019s why people ask you. You make a choice feel easy without making it small."
+        },
+        {
+          "line_index": 11,
+          "speaker": "Tyson",
+          "text": "And you make them stare at bread in a sunrise like it has a personal story."
+        },
+        {
+          "line_index": 12,
+          "speaker": "Ruby",
+          "text": "It does. But at seven, it can start telling it to everybody else."
+        }
+      ],
+      "scored": {
+        "total": {
+          "chars": 1203,
+          "turns": 13,
+          "D1": 0,
+          "D1n": 0,
+          "D1a": 0,
+          "D2": 0,
+          "D3": 0,
+          "D4a": 0,
+          "D4n": 0,
+          "composite": 0,
+          "composite_per_1k": 0.0
+        },
+        "per_speaker": {
+          "Ruby": {
+            "chars": 507,
+            "turns": 7,
+            "D1": 0,
+            "D1n": 0,
+            "D1a": 0,
+            "D2": 0,
+            "D3": 0,
+            "D4a": 0,
+            "D4n": 0
+          },
+          "Tyson": {
+            "chars": 696,
+            "turns": 6,
+            "D1": 0,
+            "D1n": 0,
+            "D1a": 0,
+            "D2": 0,
+            "D3": 0,
+            "D4a": 0,
+            "D4n": 0
+          }
+        }
+      },
+      "writing_contract_version": 6,
+      "used_knowledge": true,
+      "overall_verification_status": "verified"
+    },
+    {
+      "config": "B",
+      "sample_idx": 2,
+      "topic": "Ruby and Tyson watch the sunrise through the bakery window before opening.",
+      "target_duration_seconds": 90,
+      "elapsed_seconds": 21.9,
+      "model": "gpt-5.6-terra",
+      "tokens_input": 8161,
+      "tokens_output": 1706,
+      "attempt_count": 2,
+      "total_chars": 1240,
+      "predicted_seconds": 95.38,
+      "chunk_ids": [
+        "3bfea692-0548-4db9-b1c0-34d47ada3fd5",
+        "219bcc30-02e7-4fbd-af16-f0284777edc1",
+        "a02de62d-b907-4819-89a0-8199254d30b4",
+        "2548f826-d41a-4a27-a3ab-b654794185fd",
+        "a99dba2d-2758-49b7-88b3-5f16ef94f460"
+      ],
+      "aliases": {
+        "ruby": "Ruby",
+        "tyson": "Tyson"
+      },
+      "turns": [
+        {
+          "line_index": 0,
+          "speaker": "Ruby",
+          "text": "Look at that. The whole window's gone peach before we've even unlocked the door. I know sunrise is not a business plan, but it does make the morning feel possible."
+        },
+        {
+          "line_index": 1,
+          "speaker": "Tyson",
+          "text": "It also makes every crumb on the counter visible. Nature has a cruel eye."
+        },
+        {
+          "line_index": 2,
+          "speaker": "Ruby",
+          "text": "You can have your crumbs. I get five quiet minutes before the bakery turns into a neighborhood meeting place."
+        },
+        {
+          "line_index": 3,
+          "speaker": "Tyson",
+          "text": "Five minutes is ambitious. We open at seven, and someone will be deciding between coffee and pastry by approximately seven-oh-one."
+        },
+        {
+          "line_index": 4,
+          "speaker": "Ruby",
+          "text": "Then give them a clean answer. What gets the first cup?"
+        },
+        {
+          "line_index": 5,
+          "speaker": "Tyson",
+          "text": "Morning bun with drip. The coffee has enough body for the butter and cinnamon, and its gentle sweetness doesn't fight the orange."
+        },
+        {
+          "line_index": 6,
+          "speaker": "Ruby",
+          "text": "Good. And the almond croissant?"
+        },
+        {
+          "line_index": 7,
+          "speaker": "Tyson",
+          "text": "Pour-over. Bright enough to cut the almond cream, so it doesn't leave the last bite feeling like a commitment."
+        },
+        {
+          "line_index": 8,
+          "speaker": "Ruby",
+          "text": "You say that as if breakfast needs an exit strategy."
+        },
+        {
+          "line_index": 9,
+          "speaker": "Tyson",
+          "text": "Only the rich breakfasts. Babka gets espresso: short, cocoa-and-nut notes with the chocolate. But don't steer a very sweet pastry toward a dark roast just because it sounds dramatic."
+        },
+        {
+          "line_index": 10,
+          "speaker": "Ruby",
+          "text": "Fair. A little brightness, a little quiet, then the door. I'll take the sunrise. You take the crumbs."
+        },
+        {
+          "line_index": 11,
+          "speaker": "Tyson",
+          "text": "Done. But when the first person asks for something not too heavy, we're both pointing at the morning bun."
+        }
+      ],
+      "scored": {
+        "total": {
+          "chars": 1240,
+          "turns": 12,
+          "D1": 0,
+          "D1n": 0,
+          "D1a": 0,
+          "D2": 0,
+          "D3": 0,
+          "D4a": 1,
+          "D4n": 1,
+          "composite": 2,
+          "composite_per_1k": 1.6129032258064515
+        },
+        "per_speaker": {
+          "Ruby": {
+            "chars": 511,
+            "turns": 6,
+            "D1": 0,
+            "D1n": 0,
+            "D1a": 0,
+            "D2": 0,
+            "D3": 0,
+            "D4a": 0,
+            "D4n": 1
+          },
+          "Tyson": {
+            "chars": 729,
+            "turns": 6,
+            "D1": 0,
+            "D1n": 0,
+            "D1a": 0,
+            "D2": 0,
+            "D3": 0,
+            "D4a": 1,
+            "D4n": 0
+          }
+        }
+      },
+      "writing_contract_version": 6,
+      "used_knowledge": true,
+      "overall_verification_status": "verified"
+    },
+    {
+      "config": "B",
+      "sample_idx": 3,
+      "topic": "Ruby and Tyson watch the sunrise through the bakery window before opening.",
+      "target_duration_seconds": 90,
+      "elapsed_seconds": 25.17,
+      "model": "gpt-5.6-terra",
+      "tokens_input": 8161,
+      "tokens_output": 2283,
+      "attempt_count": 2,
+      "total_chars": 1275,
+      "predicted_seconds": 98.08,
+      "chunk_ids": [
+        "3bfea692-0548-4db9-b1c0-34d47ada3fd5",
+        "219bcc30-02e7-4fbd-af16-f0284777edc1",
+        "a02de62d-b907-4819-89a0-8199254d30b4",
+        "2548f826-d41a-4a27-a3ab-b654794185fd",
+        "a99dba2d-2758-49b7-88b3-5f16ef94f460"
+      ],
+      "aliases": {
+        "ruby": "Ruby",
+        "tyson": "Tyson"
+      },
+      "turns": [
+        {
+          "line_index": 0,
+          "speaker": "Ruby",
+          "text": "Look at that. For five minutes, the whole front window is peach-colored, and nobody has asked for anything yet."
+        },
+        {
+          "line_index": 1,
+          "speaker": "Tyson",
+          "text": "Give it time. At seven, someone will be deciding between coffee and pastry like it's a legal matter."
+        },
+        {
+          "line_index": 2,
+          "speaker": "Ruby",
+          "text": "It is a serious decision. People are choosing their small happiness before the day starts."
+        },
+        {
+          "line_index": 3,
+          "speaker": "Tyson",
+          "text": "Then let's make it easier. If they reach for an almond croissant, I steer them toward a bright pour-over. It cuts through the almond cream instead of piling on."
+        },
+        {
+          "line_index": 4,
+          "speaker": "Ruby",
+          "text": "And if they want something warmer?"
+        },
+        {
+          "line_index": 5,
+          "speaker": "Tyson",
+          "text": "Morning bun, drip coffee. Cinnamon, orange zest, and a medium roast that doesn't elbow either one aside."
+        },
+        {
+          "line_index": 6,
+          "speaker": "Ruby",
+          "text": "You make it sound so calm. The oven is about to start sending out bread, the cases need filling, and I am already thinking about who might come in first."
+        },
+        {
+          "line_index": 7,
+          "speaker": "Tyson",
+          "text": "You are always thinking about the first loaf like it has a grand entrance."
+        },
+        {
+          "line_index": 8,
+          "speaker": "Ruby",
+          "text": "It does. Small-batch baking deserves a little ceremony."
+        },
+        {
+          "line_index": 9,
+          "speaker": "Tyson",
+          "text": "Fine. But chocolate babka gets espresso. Short pour, cocoa and toasted-nut notes, and no gloomy dark coffee on top of a rich pastry."
+        },
+        {
+          "line_index": 10,
+          "speaker": "Ruby",
+          "text": "That is the sort of rule people remember."
+        },
+        {
+          "line_index": 11,
+          "speaker": "Tyson",
+          "text": "Only because it saves them from a breakfast that feels heavier than it needs to."
+        },
+        {
+          "line_index": 12,
+          "speaker": "Ruby",
+          "text": "All right. You handle the coffee questions. I'll give the first loaf its grand entrance."
+        },
+        {
+          "line_index": 13,
+          "speaker": "Tyson",
+          "text": "At seven. Until then, let the window have its moment."
+        }
+      ],
+      "scored": {
+        "total": {
+          "chars": 1275,
+          "turns": 14,
+          "D1": 0,
+          "D1n": 0,
+          "D1a": 0,
+          "D2": 1,
+          "D3": 0,
+          "D4a": 1,
+          "D4n": 0,
+          "composite": 2,
+          "composite_per_1k": 1.5686274509803921
+        },
+        "per_speaker": {
+          "Ruby": {
+            "chars": 572,
+            "turns": 7,
+            "D1": 0,
+            "D1n": 0,
+            "D1a": 0,
+            "D2": 1,
+            "D3": 0,
+            "D4a": 1,
+            "D4n": 0
+          },
+          "Tyson": {
+            "chars": 703,
+            "turns": 7,
+            "D1": 0,
+            "D1n": 0,
+            "D1a": 0,
+            "D2": 0,
+            "D3": 0,
+            "D4a": 0,
+            "D4n": 0
+          }
+        }
+      },
+      "writing_contract_version": 6,
+      "used_knowledge": true,
+      "overall_verification_status": "verified"
+    },
+    {
+      "config": "C",
+      "sample_idx": 1,
+      "topic": "Ruby and Tyson watch the sunrise through the bakery window before opening.",
+      "target_duration_seconds": 90,
+      "elapsed_seconds": 15.03,
+      "model": "gpt-5.6-terra",
+      "tokens_input": 3947,
+      "tokens_output": 922,
+      "attempt_count": 1,
+      "total_chars": 1372,
+      "predicted_seconds": 105.54,
+      "chunk_ids": [
+        "3bfea692-0548-4db9-b1c0-34d47ada3fd5",
+        "219bcc30-02e7-4fbd-af16-f0284777edc1",
+        "a02de62d-b907-4819-89a0-8199254d30b4",
+        "2548f826-d41a-4a27-a3ab-b654794185fd",
+        "a99dba2d-2758-49b7-88b3-5f16ef94f460"
+      ],
+      "aliases": {
+        "ruby": "Ruby",
+        "tyson": "Tyson"
+      },
+      "turns": [
+        {
+          "line_index": 0,
+          "speaker": "Ruby",
+          "text": "Look at that. The sky is doing all the decorating for us this morning."
+        },
+        {
+          "line_index": 1,
+          "speaker": "Tyson",
+          "text": "And we have a few quiet minutes to appreciate it before seven o\u2019clock turns the window into the best seat in the neighborhood."
+        },
+        {
+          "line_index": 2,
+          "speaker": "Ruby",
+          "text": "You say that like the sunrise is about to place an order."
+        },
+        {
+          "line_index": 3,
+          "speaker": "Tyson",
+          "text": "It would at least know what it wanted. The first real question of the day is usually coffee: bright and light, or warm and steady?"
+        },
+        {
+          "line_index": 4,
+          "speaker": "Ruby",
+          "text": "All right, expert. Say someone walks in still half asleep and points at something sweet. What do you steer them toward?"
+        },
+        {
+          "line_index": 5,
+          "speaker": "Tyson",
+          "text": "If it is an almond croissant, I would make a light-roast pour-over. Its brighter acidity cuts through the almond cream, so the last bite stays clean instead of getting weighed down."
+        },
+        {
+          "line_index": 6,
+          "speaker": "Ruby",
+          "text": "So the croissant gets a little sunrise in the cup. That is a very persuasive answer."
+        },
+        {
+          "line_index": 7,
+          "speaker": "Tyson",
+          "text": "For a morning bun, I would go drip. The fuller body sits comfortably with the cinnamon and orange, and the gentle sweetness does not try to outshine it."
+        },
+        {
+          "line_index": 8,
+          "speaker": "Ruby",
+          "text": "And if somebody arrives determined to have chocolate before breakfast?"
+        },
+        {
+          "line_index": 9,
+          "speaker": "Tyson",
+          "text": "Chocolate babka and espresso. The cocoa and toasted-nut notes echo the dark chocolate, but the short pour keeps it from piling heaviness onto a rich pastry."
+        },
+        {
+          "line_index": 10,
+          "speaker": "Ruby",
+          "text": "There it is\u2014the sun clears the rooftops, and you have already made breakfast sound like a careful decision."
+        },
+        {
+          "line_index": 11,
+          "speaker": "Tyson",
+          "text": "Only because it is. But for the first person through that door, I will keep it simple: \u201cGood morning. What sounds good?\u201d"
+        }
+      ],
+      "scored": {
+        "total": {
+          "chars": 1372,
+          "turns": 12,
+          "D1": 1,
+          "D1n": 0,
+          "D1a": 1,
+          "D2": 0,
+          "D3": 0,
+          "D4a": 0,
+          "D4n": 0,
+          "composite": 1,
+          "composite_per_1k": 0.7288629737609329
+        },
+        "per_speaker": {
+          "Ruby": {
+            "chars": 507,
+            "turns": 6,
+            "D1": 1,
+            "D1n": 0,
+            "D1a": 1,
+            "D2": 0,
+            "D3": 0,
+            "D4a": 0,
+            "D4n": 0
+          },
+          "Tyson": {
+            "chars": 865,
+            "turns": 6,
+            "D1": 0,
+            "D1n": 0,
+            "D1a": 0,
+            "D2": 0,
+            "D3": 0,
+            "D4a": 0,
+            "D4n": 0
+          }
+        }
+      },
+      "writing_contract_version": 6,
+      "used_knowledge": true,
+      "overall_verification_status": "warned"
+    },
+    {
+      "config": "C",
+      "sample_idx": 2,
+      "topic": "Ruby and Tyson watch the sunrise through the bakery window before opening.",
+      "target_duration_seconds": 90,
+      "elapsed_seconds": 9.25,
+      "model": "gpt-5.6-terra",
+      "tokens_input": 3947,
+      "tokens_output": 614,
+      "attempt_count": 1,
+      "total_chars": 1299,
+      "predicted_seconds": 99.92,
+      "chunk_ids": [
+        "3bfea692-0548-4db9-b1c0-34d47ada3fd5",
+        "219bcc30-02e7-4fbd-af16-f0284777edc1",
+        "a02de62d-b907-4819-89a0-8199254d30b4",
+        "2548f826-d41a-4a27-a3ab-b654794185fd",
+        "a99dba2d-2758-49b7-88b3-5f16ef94f460"
+      ],
+      "aliases": {
+        "ruby": "Ruby",
+        "tyson": "Tyson"
+      },
+      "turns": [
+        {
+          "line_index": 0,
+          "speaker": "Ruby",
+          "text": "Look at that. The whole window has gone peach before we\u2019ve even unlocked the door."
+        },
+        {
+          "line_index": 1,
+          "speaker": "Tyson",
+          "text": "And it\u2019s catching the pastry case like it knows exactly where to stand. Very flattering light for a morning bun."
+        },
+        {
+          "line_index": 2,
+          "speaker": "Ruby",
+          "text": "You found a way to make the sunrise about breakfast in under ten seconds."
+        },
+        {
+          "line_index": 3,
+          "speaker": "Tyson",
+          "text": "I work near coffee; it changes a person. But honestly, that orange-zest brightness would make sense with a light pour-over right now."
+        },
+        {
+          "line_index": 4,
+          "speaker": "Ruby",
+          "text": "You\u2019re pairing the sky, too?"
+        },
+        {
+          "line_index": 5,
+          "speaker": "Tyson",
+          "text": "Only loosely. The pour-over is bright and light-bodied, with citrus and stone-fruit notes. The bun is buttery, cinnamon-sweet, and has that citrus lift. Neither one has to shout over the other."
+        },
+        {
+          "line_index": 6,
+          "speaker": "Ruby",
+          "text": "That is annoyingly convincing. Still, the first thing I noticed was how quiet it is. In a few minutes, we\u2019re open at seven, and this little pocket disappears."
+        },
+        {
+          "line_index": 7,
+          "speaker": "Tyson",
+          "text": "It doesn\u2019t disappear. It just gets traded for the first person deciding between a croissant and something chocolate."
+        },
+        {
+          "line_index": 8,
+          "speaker": "Ruby",
+          "text": "And you\u2019ll tell them their whole future depends on the coffee choice."
+        },
+        {
+          "line_index": 9,
+          "speaker": "Tyson",
+          "text": "Not their whole future. But if they choose the chocolate babka, I\u2019ll steer them to espresso. The cocoa and toasted-nut notes meet the dark chocolate without piling on a giant cup of coffee."
+        },
+        {
+          "line_index": 10,
+          "speaker": "Ruby",
+          "text": "There it is\u2014the sunrise sales pitch."
+        },
+        {
+          "line_index": 11,
+          "speaker": "Tyson",
+          "text": "Fine. No pitch. Just a good view before the door opens. Though the sun clearly has excellent taste in windows."
+        }
+      ],
+      "scored": {
+        "total": {
+          "chars": 1299,
+          "turns": 12,
+          "D1": 0,
+          "D1n": 0,
+          "D1a": 0,
+          "D2": 0,
+          "D3": 0,
+          "D4a": 0,
+          "D4n": 0,
+          "composite": 0,
+          "composite_per_1k": 0.0
+        },
+        "per_speaker": {
+          "Ruby": {
+            "chars": 446,
+            "turns": 6,
+            "D1": 0,
+            "D1n": 0,
+            "D1a": 0,
+            "D2": 0,
+            "D3": 0,
+            "D4a": 0,
+            "D4n": 0
+          },
+          "Tyson": {
+            "chars": 853,
+            "turns": 6,
+            "D1": 0,
+            "D1n": 0,
+            "D1a": 0,
+            "D2": 0,
+            "D3": 0,
+            "D4a": 0,
+            "D4n": 0
+          }
+        }
+      },
+      "writing_contract_version": 6,
+      "used_knowledge": true,
+      "overall_verification_status": "verified"
+    },
+    {
+      "config": "C",
+      "sample_idx": 3,
+      "topic": "Ruby and Tyson watch the sunrise through the bakery window before opening.",
+      "target_duration_seconds": 90,
+      "elapsed_seconds": 10.43,
+      "model": "gpt-5.6-terra",
+      "tokens_input": 3947,
+      "tokens_output": 734,
+      "attempt_count": 1,
+      "total_chars": 1139,
+      "predicted_seconds": 87.62,
+      "chunk_ids": [
+        "3bfea692-0548-4db9-b1c0-34d47ada3fd5",
+        "219bcc30-02e7-4fbd-af16-f0284777edc1",
+        "a02de62d-b907-4819-89a0-8199254d30b4",
+        "2548f826-d41a-4a27-a3ab-b654794185fd",
+        "a99dba2d-2758-49b7-88b3-5f16ef94f460"
+      ],
+      "aliases": {
+        "ruby": "Ruby",
+        "tyson": "Tyson"
+      },
+      "turns": [
+        {
+          "line_index": 0,
+          "speaker": "Ruby",
+          "text": "That sunrise is doing a lot of work for a window that usually has flour fingerprints on it."
+        },
+        {
+          "line_index": 1,
+          "speaker": "Tyson",
+          "text": "Give it ten minutes and it will be competing with the lights, the counter, and the first question of the day: \u201cWhat should I get?\u201d"
+        },
+        {
+          "line_index": 2,
+          "speaker": "Ruby",
+          "text": "You say that like the question is a personal challenge."
+        },
+        {
+          "line_index": 3,
+          "speaker": "Tyson",
+          "text": "It is, a little. This morning, I\u2019d steer someone toward an almond croissant with a light-roast pour-over. The coffee\u2019s brighter acidity keeps the almond cream from making the whole bite feel too dense."
+        },
+        {
+          "line_index": 4,
+          "speaker": "Ruby",
+          "text": "So the sunrise gets a pairing now?"
+        },
+        {
+          "line_index": 5,
+          "speaker": "Tyson",
+          "text": "The sunrise has excellent instincts. Soft gold, buttery pastry, a coffee with some citrus and stone-fruit notes\u2014very composed."
+        },
+        {
+          "line_index": 6,
+          "speaker": "Ruby",
+          "text": "And if they ignore your beautifully composed advice and reach for chocolate?"
+        },
+        {
+          "line_index": 7,
+          "speaker": "Tyson",
+          "text": "Then espresso with the chocolate babka. It\u2019s short, intense, and its cocoa-and-toasted-nut character meets the dark chocolate without piling heaviness onto it. That one can handle a dramatic morning."
+        },
+        {
+          "line_index": 8,
+          "speaker": "Ruby",
+          "text": "A dramatic morning is exactly what this looks like. For about three more minutes, anyway."
+        },
+        {
+          "line_index": 9,
+          "speaker": "Tyson",
+          "text": "We open at seven. After that, the sunrise can share the room with everybody else."
+        },
+        {
+          "line_index": 10,
+          "speaker": "Ruby",
+          "text": "Fair enough. Let it have its quiet little entrance first."
+        }
+      ],
+      "scored": {
+        "total": {
+          "chars": 1139,
+          "turns": 11,
+          "D1": 0,
+          "D1n": 0,
+          "D1a": 0,
+          "D2": 0,
+          "D3": 0,
+          "D4a": 2,
+          "D4n": 0,
+          "composite": 2,
+          "composite_per_1k": 1.7559262510974538
+        },
+        "per_speaker": {
+          "Ruby": {
+            "chars": 402,
+            "turns": 6,
+            "D1": 0,
+            "D1n": 0,
+            "D1a": 0,
+            "D2": 0,
+            "D3": 0,
+            "D4a": 1,
+            "D4n": 0
+          },
+          "Tyson": {
+            "chars": 737,
+            "turns": 5,
+            "D1": 0,
+            "D1n": 0,
+            "D1a": 0,
+            "D2": 0,
+            "D3": 0,
+            "D4a": 1,
+            "D4n": 0
+          }
+        }
+      },
+      "writing_contract_version": 6,
+      "used_knowledge": true,
+      "overall_verification_status": "verified"
+    }
+  ],
+  "aggregate": {
+    "P2-A": {
+      "n": 3,
+      "total_chars": 3801,
+      "total_turns": 38,
+      "composite_hits": 4,
+      "composite_per_1k": 1.0523546435148645,
+      "D1": 2,
+      "D1n": 1,
+      "D1a": 1,
+      "D2": 0,
+      "D3": 1,
+      "D4a": 1,
+      "D4n": 0
+    },
+    "P2-B": {
+      "n": 3,
+      "total_chars": 3718,
+      "total_turns": 39,
+      "composite_hits": 4,
+      "composite_per_1k": 1.0758472296933836,
+      "D1": 0,
+      "D1n": 0,
+      "D1a": 0,
+      "D2": 1,
+      "D3": 0,
+      "D4a": 2,
+      "D4n": 1
+    },
+    "P2-C": {
+      "n": 3,
+      "total_chars": 3810,
+      "total_turns": 35,
+      "composite_hits": 3,
+      "composite_per_1k": 0.7874015748031497,
+      "D1": 1,
+      "D1n": 0,
+      "D1a": 1,
+      "D2": 0,
+      "D3": 0,
+      "D4a": 2,
+      "D4n": 0
+    }
+  }
+}
