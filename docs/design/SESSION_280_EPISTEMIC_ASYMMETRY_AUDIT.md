@@ -6736,7 +6736,7 @@ A⁹-H⁹.**
   - Q280.6 loop-trace audit slice: `b2f1789`.
   - Q280.6 SHA trailer: `48b5ac0`.
   - Q280.7 design + prediction lock: `c8d4be5`.
-  - Q280.7 execution slice: `[recorded on commit]`.
+  - Q280.7 execution slice: `698616f`.
 - **Key findings:**
   1. Operator-promoted memories DO reach the LLM
      suggestion prompt (narrow bridge works; verified
