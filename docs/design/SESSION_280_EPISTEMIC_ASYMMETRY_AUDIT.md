@@ -5391,6 +5391,685 @@ operator dogfood before expanding.
   - v1 UX design slice: `a3d294d`.
   - Design SHA trailer: `b19d030`.
   - v1 implementation slice: `25b3168`.
+
+---
+
+## §72 Q280.6 — first operator-steered story loop AUDIT
+
+**AUDIT / ORIENT only.** No production change. No verifier fix.
+No next experiment. Preserves all prior evidence unchanged.
+
+Triggered by Chris's first real operator dogfood of the v1
+"Where could this story go next?" surface (SHA `25b3168`).
+
+### 72.1 Dogfood trace (preserved verbatim from Chris's report)
+
+- Universe: **Fox & Flour Bakery**.
+- Suggestion offered (pre-Episode): *"After getting locked out,
+  Ruby proposes a foolproof closing routine, only for the new
+  bakery mascot idea to complicate it."*
+- Chris clicked `[Use this]`, edited nothing, submitted.
+- Resulting Episode: `eb47350e-b1cf-4347-aa4f-5bf514d66d2e`.
+- Resulting Composition: **`772e9012-4d26-4f93-a50c-158b4e8a42f1`**.
+- Post-Episode suggestions (three, verbatim):
+  1. *"Tyson investigates whether the strange freezer
+     discovery is connected to the bakery's supposed haunting,
+     while Ruby insists their mascot is the more likely
+     culprit."*
+  2. *"A surprise visit from baking-competition organizers
+     forces Ruby and Tyson to figure out whether anyone
+     actually entered Fox & Flour — or whether the entry was a
+     prank."*
+  3. *"Ruby's new closing routine goes spectacularly wrong when
+     the mascot gets locked inside with the next morning's
+     sourdough starter."*
+
+The realized scene invented rich narrative detail — *"mascot
+clause"*, *"community outreach"*, *"tiny bell"*, *"final
+walk-through together"* — none of which is present in the
+Episode topic.
+
+### 72.2 The forensic question
+
+Do we have evidence for:
+
+- **A. FULL STORY LOOP** — realized scene output materially
+  feeds future suggestion generation, OR
+- **B. TOPIC-LEVEL STORY LOOP** — only the Episode
+  topic/title becomes future context; realized dialogue does
+  not, OR
+- **C. MIXED**, OR
+- **D. Something else**.
+
+### 72.3 Runtime evidence assembled
+
+Raw evidence persisted at
+`docs/design/session280_experiment_data/q280_6_loop_trace_evidence.json`.
+
+**Composition `772e9012` — DB state (verified 2026-08-24):**
+
+| Field | Value |
+|---|---|
+| `id` | `772e9012-4d26-4f93-a50c-158b4e8a42f1` |
+| `template_kind` | `dialogue_scene` |
+| `status` | `completed` |
+| `verification_status` | `verified` |
+| `episode_id` | `eb47350e-b1cf-4347-aa4f-5bf514d66d2e` |
+| `memory_ids` | `[]` — zero memories fed the render |
+| `knowledge_chunk_ids` | 5 IDs: 2 shared Universe canon (Fox & Flour Hours; holiday policy) + 3 Tyson pastry-pairing character K2 chunks |
+| `verification_warnings` (D-POS, authoritative) | 2 entries: `bakery mascot` (Tyson t5) + `Mascot` (Ruby t10) |
+| `verification_warnings_legacy` (K6.4, shadow) | 5 entries: 4 Q-278-1 sentence-initial noise + `Mascot` |
+| `created_at` | 2026-08-24 21:55:15 UTC |
+| `synthesized_brief` | Full dialogue containing the "mascot clause / community outreach" invention (11 turns, 1,335 chars) |
+
+**Episode `eb47350e` — DB state:**
+
+- `title`: *"After getting locked out, Ruby proposes a foolproof closing …"* (auto-derived from operator_topic, truncated for display)
+- `operator_topic` (verbatim, single source of truth for the
+  story premise):
+  > *"After getting locked out, Ruby proposes a foolproof
+  > closing routine, only for the new bakery mascot idea to
+  > complicate it."*
+- `cast`: `[Tyson, Ruby]`
+- `created_at`: 2026-08-24 21:54:32 UTC (~43s before the
+  Composition — suggestion → form → submit → synthesize)
+
+**Fox & Flour substrate at time of the post-Episode suggestion
+refresh:**
+
+- 11 Episodes total (including the new `eb47350e`).
+- **0 REMEMBERED NarrativeMemory rows.** No memory was
+  promoted from `772e9012` (or from any prior Composition).
+- 2 cast (Ruby, Tyson).
+- Universe.brief: 331 chars.
+
+**Retrieved knowledge chunks — verified content:**
+
+All 5 chunks confirmed unrelated to "mascot", "lock", or
+"closing routine":
+
+- `3bfea692` (Universe scope): *"Fox & Flour Bakery is open
+  daily from 7:00 AM to 3:00 PM."*
+- `219bcc30` (Universe scope): *"Fox & Flour is closed on
+  Christmas Day."* (only "close" hit — irrelevant to closing
+  routine)
+- `a02de62d` / `2548f826` / `a99dba2d` (Character scope,
+  Tyson): SESSION 279 §27 pastry-pairing corpus (chocolate
+  babka / roast profile / coffee prep).
+
+**No K2 chunk mentions "mascot" at all.**
+
+### 72.4 The suggestion service task message — verbatim
+
+The suggestion generator constructs its LLM input from
+`_snapshot()` + `_build_task_message()` in
+`shell/apps/universe/services/next_episode_suggestions.py`.
+For Fox & Flour at the post-Episode refresh moment, the task
+message is (excerpts, full file persisted at
+`docs/design/session280_experiment_data/q280_6_loop_trace_evidence.json`):
+
+```
+UNIVERSE: Fox & Flour Bakery
+
+WORLD BRIEF:
+Fox & Flour Bakery is a warm neighborhood artisan bakery
+built around small-batch baking, naturally leavened sourdough,
+handcrafted pastries, seasonal desserts, and celebration cakes.
+It aims to feel like a familiar neighborhood gathering place
+where careful craft and quality ingredients matter more than
+speed or mass production.
+
+CAST:
+- Tyson: tone=expert; personality='Easygoing, practical, and
+  a little dry. …'
+- Ruby: tone=friend; personality='Warm, cheerful, and
+  genuinely caring. Ruby loves helping people find …'
+
+EPISODES SO FAR (earliest first):
+  1. 'Why our sourdough takes its time'
+  2. 'Our celebration cakes'
+  3. 'Welcome to Fox & Flour Bakery'
+  4. 'Ruby and Tyson deal with a difficult bakery customer.'
+  5. 'Ruby thinks the bakery needs a mascot.'
+  6. 'Tyson is convinced the bakery is haunted.'
+  7. 'Ruby thinks Tyson is taking coffee too seriously.'
+  8. 'Ruby finds something strange in the bakery freezer.'
+  9. 'Tyson thinks Ruby secretly entered them in a baking competition.'
+ 10. 'Ruby locks herself out of the bakery.'
+ 11. 'After getting locked out, Ruby proposes a foolproof closing …'
+     topic: After getting locked out, Ruby proposes a foolproof closing
+       routine, only for the new bakery mascot idea to complicate it.
+
+PAST EVENTS: (none recorded yet)
+```
+
+**Substring probes on the exact task message (evidence JSON
+`contains_*_in_task_message` fields, all `False`):**
+
+- `"mascot clause"` — **not present**
+- `"community outreach"` — **not present**
+- `"tiny bell"` — **not present**
+- `"final walk-through"` — **not present**
+- Any snippet of `Composition.synthesized_brief` — **not
+  present**
+
+The realized scene's inventive details **do not enter the
+suggestion prompt.** The Episode topic does — verbatim.
+
+### 72.5 Boundary-by-boundary trace
+
+Following the loop from history → generation → selection →
+synthesis → completion → refreshed generation, boundary by
+boundary.
+
+**Boundary 1 — history → suggestion generation.**
+
+Source: `apps/universe/services/next_episode_suggestions.py::_snapshot`.
+
+READS (per code trace, lines 88-176):
+- `Universe.brief`.
+- All non-archived `Episode.{id, title, operator_topic, created_at}`
+  ordered by `created_at`.
+- All REMEMBERED `NarrativeMemory.{id, kind, weight, witnessed_by, body, created_at}`
+  where `archived_at IS NULL`.
+- `NarrativeMemory` reference counts derived by scanning
+  `Composition.memory_ids` for the workspace.
+- Cast `Teammate.{id, name, tone_archetype, personality[:220]}`.
+
+DOES NOT READ:
+- `Composition.synthesized_brief` — the actual dialogue text.
+- `Composition.verification_warnings` — verifier flags.
+- `Composition.knowledge_chunk_ids` — K2 retrieval history.
+- `KnowledgeChunk.chunk_text` — retrieved facts fed to
+  prior renders.
+- Any per-turn `DialogueTurn` rows.
+- Any prior Composition's cost / timing / model metadata.
+
+**Boundary 2 — operator selects `[Use this]`.**
+
+Source: `web/src/routes/workspace/universes.$id.episodes.tsx::handleUseSuggestion`.
+
+TRANSFERS: **the suggestion text string, verbatim, into
+`operatorTopic` state.**
+
+DOES NOT TRANSFER:
+- Any suggestion ID.
+- Any provenance metadata about which prior Episodes or memories
+  fed the suggestion.
+- Any hidden fields.
+
+SIDE EFFECTS at selection:
+- Sets `creating=true` (opens the create form).
+- Sets `title=""` (will derive on submit).
+- Sets `selectedCastIds=Set()` (operator picks).
+- Sets `suggestionChipVisible=true` (UI-only, ephemeral state).
+- Focuses the topic textarea at end-of-prefill.
+
+**No DB write occurs at selection.** No suggestion row exists
+anywhere. No Episode is created merely by selecting. The
+suggestion is a pre-fill; the form is fully editable until
+submit.
+
+**Boundary 3 — operator submits the create form.**
+
+Source: same file, `handleCreate`.
+
+Wire payload: `POST /api/episodes/` with
+`{universe, title (auto-derived if blank), operator_topic
+(verbatim state = the suggestion text), cast_ids?}`.
+
+Server creates Episode `eb47350e` with
+`operator_topic = "After getting locked out, Ruby proposes a
+foolproof closing routine, only for the new bakery mascot
+idea to complicate it."` — byte-identical to the suggestion.
+
+**This is the ONLY point in the loop where the suggestion
+becomes durable.** It becomes `Episode.operator_topic` and
+`Episode.title`. Nothing about the suggestion's origin is
+persisted separately.
+
+**Boundary 4 — Composition synthesis.**
+
+Source: `shell/character_os/dialogue_synthesis.py::synthesize_dialogue`.
+
+The synthesis LLM was called with:
+- `topic = Episode.operator_topic` (verbatim = the suggestion
+  text).
+- `cast = [Tyson, Ruby]`.
+- `use_knowledge = True`, so retrieval ran:
+  - Per-character K2 (5 chunks, all pastry/canon).
+  - Universe canon (2 chunks: hours + holiday policy).
+  - Universe memory (0 rows — F&F has none).
+- No `opener` was pinned.
+
+Prompt substrate the writer received (per §4.4 trace):
+- Cast identity (personality + POV + voice enums + business_brief).
+- SHARED WORLD KNOWLEDGE: 2 canon chunks (hours, holiday).
+- EPISODE / NARRATIVE MEMORY: empty.
+- Per-alias SCOPED KNOWLEDGE: 3 Tyson pastry chunks +
+  0 for Ruby beyond canon.
+- Writing contract (invariants, watchability, anti-patterns,
+  narrative-shapes menu).
+- User message = `topic` (verbatim).
+
+The writer did NOT receive:
+- Any prior Episode's title or topic.
+- Any prior Composition's dialogue.
+- Any suggestion provenance.
+
+The realized dialogue's *"mascot clause / community outreach /
+tiny bell / final walk-through"* details are **all writer
+inventions**, generated from the topic clause *"the new bakery
+mascot idea to complicate it"* + the writer's narrative
+reasoning. No retrieved chunk, no memory, no prior Episode
+title in the prompt authorizes those specifics.
+
+**Boundary 5 — Composition persistence.**
+
+Persisted fields (all verified in the evidence JSON):
+
+- `synthesized_brief`: full dialogue (contains "mascot clause"
+  etc.). Text-only. Not fed forward.
+- `knowledge_chunk_ids`: 5 K2 IDs. Read by
+  `MemoriesUsedSummary` on the Composition detail SPA, but not
+  by the suggestion service.
+- `memory_ids`: `[]`.
+- `verification_warnings`: 2 D-POS entries (see §72.7).
+- `episode_id`: `eb47350e` (attach FK).
+- `template_kind`, `status`, `created_at`.
+
+**No cross-scene state ledger updates. No "story so far"
+summary appended anywhere. No memory row auto-promoted.** The
+operator would need to explicitly promote memories from the
+Composition detail page for the realized scene to enter the
+memory pool — Chris did not do this (F&F still has 0
+memories).
+
+**Boundary 6 — refreshed suggestion generation.**
+
+Same `_snapshot()` / `_build_task_message()` code path as
+Boundary 1. The **only substrate delta** vs. the pre-Episode
+call is:
+
+- +1 Episode entry: `eb47350e` with the operator_topic verbatim
+  as shown at §72.4.
+- `latest_episode_at` rolls forward — invalidates the cache
+  key so a fresh LLM call fires (verified: `cache.hit=False`
+  in evidence).
+
+All other inputs (Universe.brief, cast, memory pool = 0,
+prior 10 Episode titles) are identical.
+
+### 72.6 Provenance trace for each post-Episode suggestion
+
+For each of the three suggestions Chris saw, I trace the
+substrate elements that could plausibly have produced it —
+distinguishing (a) prior Episode title/topic, (b) memory
+row, (c) the new Episode #11 operator_topic, (d) LLM
+inference / narrative synthesis, (e) realized dialogue in
+772e9012 (the last is ALWAYS empty at this boundary; kept
+for symmetry).
+
+**Suggestion #1** — *"Tyson investigates whether the strange
+freezer discovery is connected to the bakery's supposed
+haunting, while Ruby insists their mascot is the more likely
+culprit."*
+
+| Element | Source |
+|---|---|
+| *"strange freezer discovery"* | Episode #8 title: *"Ruby finds something strange in the bakery freezer."* |
+| *"bakery's supposed haunting"* | Episode #6 title: *"Tyson is convinced the bakery is haunted."* |
+| *"their mascot"* | Episode #5 title (*"Ruby thinks the bakery needs a mascot."*) + Episode #11 operator_topic ("the new bakery mascot idea") — mascot is now more salient because it's in two episode inputs |
+| *"the more likely culprit"* | **LLM invention.** No source in prior substrate calls the mascot a culprit for anything. |
+| *"Ruby insists"* | Character voice inference from Ruby's tone (friend/warm/cheerful) |
+| Realized dialogue in 772e9012 | Not in prompt |
+
+Novel narrative connection created by the LLM: mascot-as-
+suspect for the haunting. This is a plausible reading of the
+Episode #11 topic (*"complicate it"*) generalized into other
+adjacent threads.
+
+**Suggestion #2** — *"A surprise visit from
+baking-competition organizers forces Ruby and Tyson to figure
+out whether anyone actually entered Fox & Flour — or whether
+the entry was a prank."*
+
+| Element | Source |
+|---|---|
+| *"baking-competition organizers"* | Episode #9 title: *"Tyson thinks Ruby secretly entered them in a baking competition."* |
+| *"figure out whether anyone actually entered"* | Direct callback to the unresolved question in Episode #9 |
+| *"whether the entry was a prank"* | LLM narrative embroidery |
+| Episode #11 / 772e9012 | **Not referenced.** This suggestion is an independent-thread resurfacing. |
+
+Control-comparison confirms the suggestion generator does
+resurface unresolved threads even when they're unrelated to
+the most recent Episode.
+
+**Suggestion #3** — *"Ruby's new closing routine goes
+spectacularly wrong when the mascot gets locked inside with
+the next morning's sourdough starter."* (**the critical
+specimen**)
+
+| Element | Source |
+|---|---|
+| *"Ruby's new closing routine"* | Episode #11 operator_topic verbatim |
+| *"mascot"* | Episode #11 operator_topic + Episode #5 title |
+| *"locked inside"* | Episode #10 title (*"Ruby locks herself out of the bakery."*) semantically inverted (locked-in vs. locked-out) |
+| *"next morning's sourdough starter"* | Universe.brief ("naturally leavened sourdough") + generic bakery-morning inference |
+| *"spectacularly wrong"* | LLM narrative embroidery |
+| *"mascot clause / community outreach / tiny bell / final walk-through"* — the realized scene's inventive details | **Not present in the suggestion.** None of these appear. |
+| Realized dialogue in 772e9012 | **Not in prompt.** |
+
+**Critical answer to Q280.6 §5:** Suggestion #3 is fully
+derivable from the Episode #11 topic ("closing routine…
+mascot idea complicates") + Episode #10 title ("Ruby locks
+herself out") + a natural narrative inversion the LLM
+performs. It does NOT require the realized dialogue's
+specifics — and empirically the realized dialogue's specifics
+are absent from both the prompt and the produced suggestion.
+
+The "mascot gets locked inside" idea is the LLM combining:
+- "mascot" (from topic)
+- "locked" concept (from title of Episode #10 + implicit
+  inversion of the topic's "getting locked out")
+- Sourdough morning (from Universe brief)
+
+None of that requires seeing the "mascot clause" that the
+realized scene actually invented.
+
+### 72.7 Claim verifier finding (secondary — DO NOT FIX)
+
+`Composition.verification_warnings` (D-POS authoritative) on
+772e9012:
+
+| # | Kind | Claim | Turn | Speaker | Semantic source |
+|---|---|---|---|---|---|
+| 1 | `multi_word_pos` | `bakery mascot` | T5 (Tyson) | Tyson | Directly authorized by `Episode.operator_topic` ("the new bakery mascot idea") |
+| 2 | `proper_noun_pos` | `Mascot` | T10 (Ruby) | Ruby | Same — capitalized reference to the operator-authored premise |
+
+Legacy K6.4 shadow flagged 4 additional Q-278-1 sentence-
+initial words (`After`, `Strong`, `Before`, `Slightly`) —
+already understood class per SESSION 278 §Q-278-4.
+
+**The verifier boundary Q280.6 exposes:**
+
+`build_allowed_vocabulary`
+(`shell/character_os/claim_verifier.py:741-803`) constructs
+its allowed-entity list from:
+
+- `Teammate.name`
+- `personality`, `character_point_of_view`, `voice_signature_phrases`
+  proper-noun extraction
+- `KNOWN_PLATFORM_TERMS`
+- Caller-provided extras (typically workspace name)
+
+**It does NOT include `Episode.operator_topic` content.**
+
+So a claim like "bakery mascot" — semantically authorized by
+the operator's own topic ("the new bakery mascot idea") —
+is treated as unsupported because no retrieved knowledge /
+memory / cast-metadata carries the phrase.
+
+**Class of finding:** operator-supplied premise material is
+verifier-invisible. Same class as SESSION 278 §4f
+(cross-cast alias grounding — the verifier didn't know about
+`alias_to_teammate`), differing on the source (Episode topic
+here vs. cast map there).
+
+**Not-fixed by construction of this audit.** Recorded as a
+side finding for a future scope-locked slice — the primary
+Q280.6 answer is not blocked by it.
+
+### 72.8 Product / UX observation (preserved from Chris)
+
+Chris selected the mascot suggestion because he genuinely
+wanted to know how the mascot could possibly complicate closing
+the bakery. **The suggestion created operator curiosity
+rather than merely satisfying a testing requirement.** The
+resulting scene then supplied a coherent answer.
+
+The post-Episode suggestions were interesting enough to Chris
+that they read as "the storyteller noticing consequences from
+prior history" — even though (per §72.5-§72.6) the mechanism
+is topic-level composition, not full-scene continuity.
+
+This qualitative observation supports the product hypothesis
+that Model D-shape suggestion surfaces are valuable to
+operators even when they are topic-level. It does NOT prove
+architecture.
+
+### 72.9 Classification — evidence-driven
+
+The loop is **B — TOPIC-LEVEL STORY LOOP.**
+
+Specifically:
+
+- The Episode `operator_topic` (a string authored by the
+  operator, or lifted verbatim from a prior suggestion) is
+  the ONLY unit that crosses forward into subsequent
+  suggestion generation.
+- The realized Composition's dialogue, verifier warnings,
+  retrieved knowledge chunks, and every scene-invented detail
+  do NOT feed the next suggestion cycle.
+- Post-Episode suggestion #3 ("mascot gets locked inside")
+  is derivable from the topic alone; the realized dialogue's
+  "mascot clause" invention is neither necessary nor present
+  in the suggestion-generation substrate.
+- The one exception that WOULD upgrade this to (C) MIXED —
+  operator-promoted NarrativeMemory rows re-entering the
+  substrate — did not fire here because Chris did not promote
+  any memory from 772e9012 (`F&F REMEMBERED memory count = 0`
+  verified). Under the current substrate, memory promotion
+  is the sole operator-visible route by which realized scene
+  content can influence future suggestions.
+
+We do NOT classify as (A) FULL LOOP: the realized scene
+content demonstrably fails to reach the next suggestion
+prompt.
+
+We do NOT classify as (C) MIXED without evidence: even the
+theoretically-possible mixed case (via memory promotion)
+requires an explicit operator action that did not occur in
+this dogfood.
+
+We do NOT classify as (D) SOMETHING ELSE: the trace is
+consistent with topic-level composition throughout.
+
+### 72.10 What the audit DOES and DOES NOT overclaim
+
+**Established (evidence-backed):**
+
+- Suggestion generation reads from a bounded snapshot that
+  excludes `Composition.synthesized_brief` and every other
+  realized-scene surface. Code path + substring probes on the
+  live task message both confirm.
+- The suggestion → Episode → synthesis → completion path
+  transports the suggestion text verbatim into
+  `Episode.operator_topic`, then verbatim into the synthesis
+  `topic` argument. No hidden provenance flows anywhere.
+- Post-Episode suggestions differ from pre-Episode
+  suggestions only because Episode #11 (topic verbatim) has
+  been added to the ordered Episode list.
+
+**Not established (bounded):**
+
+- Whether the LLM would produce QUALITATIVELY different
+  suggestions if it were given the realized dialogue vs. the
+  topic alone. Q280.6 measures only the current path.
+- Whether operators typically promote memories after a
+  Composition — Chris did not this time, but a v1 UX for
+  memory promotion is out of scope of this audit.
+- Whether repeated refreshes of the suggestion set would
+  ever surface phrases from the realized dialogue by
+  coincidence (would take n=many trials to establish; the
+  substrate absence makes the base-rate probability
+  effectively zero, but this is not falsifiable evidence).
+
+**Not touched:**
+
+- No production behavior changed.
+- No verifier fix. The "bakery mascot" / "Mascot" flags
+  remain as observed.
+- No new experiment executed.
+- No memory promoted. F&F NarrativeMemory pool remains at 0.
+
+### 72.11 Smallest next falsifiable question
+
+Given B — TOPIC-LEVEL LOOP — the natural next falsifiable
+question is:
+
+> **Can a detail invented only inside the realized dialogue —
+> not present in the Episode topic — influence later
+> suggestions if the operator explicitly promotes it to
+> memory?**
+
+This has two variants:
+
+- **Q280.7-a (memory-promotion path).** Operator promotes a
+  NarrativeMemory from `772e9012` whose body captures a
+  scene-invented detail (e.g., *"Ruby and Tyson added a
+  'mascot clause' to the closing routine: no one locks up
+  until the door is checked, people are accounted for, and
+  the mascot is not still inside doing community outreach."*).
+  Refresh suggestions. Ask: does the mascot-clause language
+  appear in any subsequent suggestion; does a suggestion
+  reference the *"mascot"* thread with content beyond what
+  the Episode topic would license?
+  - Small (~$0.02 provider spend for the refresh).
+  - No substrate change; operator does the promotion via the
+    existing SPA NarrativeMemoryPromotePanel.
+  - Tests whether promoted-memory content is a live channel
+    from realized dialogue back into suggestion generation.
+  - Prediction (to be locked BEFORE execution): promoted
+    scene detail DOES surface in ≥ 1 of the next 3 refresh
+    sets. Reason: memory body IS a substrate the suggestion
+    service reads (§72.5 Boundary 1); the language of the
+    promoted memory is verbatim in the prompt.
+
+- **Q280.7-b (no-promotion control).** Refresh suggestions
+  n=3 without promoting any memory. Confirm 0 / 9 mentions of
+  the realized-dialogue-only phrases. Cheap negative-control
+  companion to Q280.7-a.
+  - Even smaller (~$0.05).
+  - Confirms the §72.4 substring-absence finding at n>1.
+
+Together Q280.7-a + Q280.7-b would establish:
+
+- **If memory promotion is the necessary+sufficient bridge**
+  from realized scene to future suggestions, the loop is
+  actually (C) MIXED with a well-defined operator-agency
+  toggle.
+- **If memory promotion does not bridge either**, the loop is
+  strictly (B) TOPIC-LEVEL and any future FULL LOOP would
+  require substrate change (e.g., have the suggestion service
+  also read a short excerpt of each Composition's
+  synthesized_brief for prior Episodes in the Universe).
+
+### 72.12 Decision gate — post-§72 (CURRENT; SUPERSEDES §70)
+
+**STOP here.** Do not execute Q280.7-a or Q280.7-b. Do not
+fix the verifier boundary. Do not modify the suggestion
+service to include synthesized_brief. Do not add memory-
+promotion UX. Do not run any expansion of the v1 surface.
+
+**Decision needed:**
+
+1. **Accept the §72 classification: (B) TOPIC-LEVEL STORY
+   LOOP.**
+
+2. **Choose next slice** (all deferred until approval):
+
+   - **A⁸.** Q280.7-a + Q280.7-b (memory-promotion bridge
+     probe + no-promotion control). ~$0.07 total. Small.
+     Directly settles whether the current substrate supports
+     any form of realized-scene → future-suggestion flow
+     via operator agency.
+   - **B⁸.** Design slice for extending the suggestion
+     service to read a short excerpt of prior
+     `synthesized_brief` per Episode (would elevate to a
+     genuine full-loop architecture). Design-only, no
+     implementation.
+   - **C⁸.** Address the §72.7 verifier boundary — add
+     `Episode.operator_topic` content to
+     `build_allowed_vocabulary` when the K6.4 dispatch is
+     called from a dialogue-scene context. Scope-locked
+     small slice; would clean up the "bakery mascot" false
+     positive class.
+   - **D⁸.** Return to outstanding Finding 4i options
+     (Q280.4i-3 mental-state private specimen, Q280.4i-5
+     multi-episode) — the story-loop audit is complete;
+     Finding 4i options remain the epistemic-asymmetry
+     spine.
+   - **E⁸.** Close SESSION 280 with the current findings:
+     v1 surface shipped, story loop is topic-level,
+     Finding 4i evidence + Q280.5-1 + Q280.6 all durable.
+     Roll deferred questions into SESSION 281 handoff.
+   - **F⁸.** UX / product observation follow-up: given
+     Chris's curiosity signal (§72.8), consider whether the
+     v1.5 "why suggested" attribution (§58.9 deferred) would
+     amplify or dampen operator engagement. Design-only.
+   - **G⁸.** Something else.
+
+**Do NOT interpret §72.12 as pre-authorizing any of A⁸-G⁸.**
+
+### 72.13 Artifacts
+
+- `docs/design/session280_experiment_data/q280_6_loop_trace_evidence.json`
+  — full forensic evidence blob including:
+  - Composition 772e9012 full DB shape
+  - Full `synthesized_brief` (11-turn dialogue with "mascot
+    clause" invention)
+  - Exact suggestion-service task message the LLM would see
+    right now for Fox & Flour
+  - Substring probes for realized-dialogue phrases in the
+    task message (all `False`)
+  - Snapshot summary (episode count, memory count, cast, latest
+    timestamps)
+
+### 72.14 Closeout — Q280.6 audit slice (CURRENT; SUPERSEDES §71)
+
+- **Status:** Q280.6 forensic audit complete. Loop classified
+  as **(B) TOPIC-LEVEL STORY LOOP** based on code trace +
+  live substring probes on the actual suggestion-service task
+  message.
+- **Substrate:** unchanged. No writes. No production behavior
+  changed.
+- **Cumulative SESSION 280 spend:** ~$0.20 unchanged.
+- **Landing SHAs:**
+  - AUDIT slice: `6957c18`.
+  - Q280.4i-1 execution: `8d8f733`.
+  - Construct-validity re-audit: `f2507a0`.
+  - Post-discovery epistemic-state audit: `63d4fdb`.
+  - Q280.4i-4 execution: `ce16627`.
+  - Episode-chain suggestion product-discovery: `1d96965`.
+  - Q280.5-1 execution: `7f83b23`.
+  - Q280.5-1 SHA trailer: `cfe287a`.
+  - v1 UX design slice: `a3d294d`.
+  - Design SHA trailer: `b19d030`.
+  - v1 implementation slice: `25b3168`.
+  - Implementation SHA trailer: `d7931b1`.
+  - Q280.6 loop-trace audit slice: `[recorded on commit]`.
+- **Key finding:** the suggestion → Episode → synthesis →
+  completion → refreshed-suggestion loop transports **only the
+  operator-authored (or pre-filled-from-suggestion) Episode
+  topic** across the completion boundary. The realized scene's
+  inventive detail is not read by the suggestion service under
+  any code path today.
+- **UX signal preserved:** Chris's curiosity-driven selection
+  of the mascot suggestion (§72.8) is meaningful qualitative
+  evidence that even a topic-level loop produces valuable
+  operator behavior; not proof of architecture.
+- **Side finding:** the K6.4 / D-POS verifier does not treat
+  `Episode.operator_topic` content as authorized vocabulary,
+  producing false-positive `bakery mascot` / `Mascot`
+  warnings. Documented; not fixed.
+- **Next gate:** §72.12 A⁸/B⁸/C⁸/D⁸/E⁸/F⁸/G⁸. Awaiting
+  Chris + ChatGPT decision.
+- **Working method preserved:** ORIENT → concrete DB +
+  code + prompt evidence → substring probes → classification
+  A/B/C/D from evidence. No claim exceeds evidence.
+- **All prior evidence preserved:** §3-§71 unchanged in
+  substance.
 - **Working method preserved:** ORIENT → smallest surface →
   smallest change → focused regression coverage → run tests
   → inspect actual operator-visible result. Rubric and

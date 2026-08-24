@@ -1,0 +1,111 @@
+{
+  "composition_id": "772e9012-4d26-4f93-a50c-158b4e8a42f1",
+  "episode_id": "eb47350e-b1cf-4347-aa4f-5bf514d66d2e",
+  "episode_title": "After getting locked out, Ruby proposes a foolproof closing \u2026",
+  "episode_operator_topic": "After getting locked out, Ruby proposes a foolproof closing routine, only for the new bakery mascot idea to complicate it.",
+  "template_kind": "dialogue_scene",
+  "status": "completed",
+  "memory_ids": [],
+  "knowledge_chunk_ids": [
+    "3bfea692-0548-4db9-b1c0-34d47ada3fd5",
+    "219bcc30-02e7-4fbd-af16-f0284777edc1",
+    "a02de62d-b907-4819-89a0-8199254d30b4",
+    "2548f826-d41a-4a27-a3ab-b654794185fd",
+    "a99dba2d-2758-49b7-88b3-5f16ef94f460"
+  ],
+  "verification_status": "verified",
+  "verification_warnings_authoritative_dpos": [
+    {
+      "kind": "multi_word_pos",
+      "claim": "bakery mascot",
+      "position": 66,
+      "line_index": 5,
+      "speaker_name": "Tyson",
+      "speaker_alias": "tyson"
+    },
+    {
+      "kind": "proper_noun_pos",
+      "claim": "Mascot",
+      "position": 6,
+      "line_index": 10,
+      "speaker_name": "Ruby",
+      "speaker_alias": "ruby"
+    }
+  ],
+  "verification_warnings_shadow_dpos": [
+    {
+      "kind": "multi_word_pos",
+      "claim": "bakery mascot",
+      "position": 66,
+      "line_index": 5,
+      "speaker_name": "Tyson",
+      "speaker_alias": "tyson"
+    },
+    {
+      "kind": "proper_noun_pos",
+      "claim": "Mascot",
+      "position": 6,
+      "line_index": 10,
+      "speaker_name": "Ruby",
+      "speaker_alias": "ruby"
+    }
+  ],
+  "verification_warnings_legacy_k64": [
+    {
+      "kind": "proper_noun",
+      "claim": "After",
+      "position": 0,
+      "line_index": 0,
+      "speaker_name": "Ruby",
+      "speaker_alias": "ruby"
+    },
+    {
+      "kind": "proper_noun",
+      "claim": "Strong",
+      "position": 0,
+      "line_index": 1,
+      "speaker_name": "Tyson",
+      "speaker_alias": "tyson"
+    },
+    {
+      "kind": "proper_noun",
+      "claim": "Before",
+      "position": 0,
+      "line_index": 2,
+      "speaker_name": "Ruby",
+      "speaker_alias": "ruby"
+    },
+    {
+      "kind": "proper_noun",
+      "claim": "Slightly",
+      "position": 17,
+      "line_index": 3,
+      "speaker_name": "Tyson",
+      "speaker_alias": "tyson"
+    },
+    {
+      "kind": "proper_noun",
+      "claim": "Mascot",
+      "position": 6,
+      "line_index": 10,
+      "speaker_name": "Ruby",
+      "speaker_alias": "ruby"
+    }
+  ],
+  "created_at": "2026-08-24T21:55:15.523168+00:00",
+  "synthesized_brief_full": "# AI Topic dialogue synthesis\n# Aliases: tyson='Tyson', ruby='Ruby'\n# Per-character knowledge chunks: tyson=[a02de62d-b907-4819-89a0-8199254d30b4,2548f826-d41a-4a27-a3ab-b654794185fd,3bfea692-0548-4db9-b1c0-34d47ada3fd5,219bcc30-02e7-4fbd-af16-f0284777edc1,a99dba2d-2758-49b7-88b3-5f16ef94f460]; ruby=[3bfea692-0548-4db9-b1c0-34d47ada3fd5,219bcc30-02e7-4fbd-af16-f0284777edc1]\n# Predicted ~103s (1335 chars) targeting 90s\n\nRuby: After last night, I\u2019m proposing a closing routine so foolproof that neither of us can accidentally lock ourselves out again.\n\nTyson: Strong opening. Does the routine begin before or after we spend an evening staring through the glass at our own counter?\n\nRuby: Before. We do the final walk-through together, confirm the door, and neither person leaves until the other says they have what they need.\n\nTyson: That\u2019s sensible. Slightly less dramatic than my plan, which was to install a tiny bell that rings whenever somebody reaches for the door without thinking.\n\nRuby: A bell would be charming for about one day. Then you\u2019d start ringing it every time I take bread seriously.\n\nTyson: So, constantly. But there\u2019s a complication: you mentioned the new bakery mascot idea.\n\nRuby: I did, and I still think it could be sweet. Something welcoming for the neighborhood.\n\nTyson: Right, but does the mascot get included in the final walk-through? Because if we\u2019re checking that every person is out, I need to know whether we\u2019re also waiting for a mascot to finish waving at the window.\n\nRuby: Oh. You mean the routine needs a mascot clause.\n\nTyson: Exactly. No one locks up until the door is checked, the people are accounted for, and the mascot is definitely not still inside doing community outreach.\n\nRuby: Fine. Mascot clause added. But if the mascot turns out to be better at closing than we are, I\u2019ll be deeply embarrassed.\n",
+  "suggestion_service_task_message_now": "UNIVERSE: Fox & Flour Bakery\n\nWORLD BRIEF:\nFox & Flour Bakery is a warm neighborhood artisan bakery built around small-batch baking, naturally leavened sourdough, handcrafted pastries, seasonal desserts, and celebration cakes. It aims to feel like a familiar neighborhood gathering place where careful craft and quality ingredients matter more than speed or mass production.\n\nCAST:\n- Tyson: tone=expert; personality='Easygoing, practical, and a little dry. Sounds like someone who has worked the counter long enough to know what customers are about to ask before they ask it. Friendly without being overly cheerful. Gives clear recommend'\n- Ruby: tone=friend; personality='Warm, cheerful, and genuinely caring. Ruby loves helping people find the perfect treat for any occasion and gets excited talking about fresh bread coming out of the oven. She\u2019s knowledgeable without sounding overly techn'\n\nEPISODES SO FAR (earliest first):\n  1. 'Why our sourdough takes its time'\n  2. 'Our celebration cakes'\n  3. 'Welcome to Fox & Flour Bakery'\n  4. 'Ruby and Tyson deal with a difficult bakery customer.'\n  5. 'Ruby thinks the bakery needs a mascot.'\n  6. 'Tyson is convinced the bakery is haunted.'\n  7. 'Ruby thinks Tyson is taking coffee too seriously.'\n  8. 'Ruby finds something strange in the bakery freezer.'\n  9. 'Tyson thinks Ruby secretly entered them in a baking competition.'\n 10. 'Ruby locks herself out of the bakery.'\n 11. 'After getting locked out, Ruby proposes a foolproof closing \u2026'\n     topic: After getting locked out, Ruby proposes a foolproof closing routine, only for the new bakery mascot idea to complicate it.\n\nPAST EVENTS: (none recorded yet)\n\nTASK: Suggest 3 possible next Episode directions for this Universe, one sentence each. These are possibilities the operator may pick, ignore, or override. Where possible, pick up unresolved threads from prior Episodes or past events. Keep each short enough to work as an Episode topic without rewriting.",
+  "suggestion_service_snapshot_facts": {
+    "universe_brief_length": 331,
+    "episodes_included_count": 11,
+    "memories_included_count": 0,
+    "cast_count": 2,
+    "latest_episode_at": "2026-08-24T21:54:32.256767+00:00",
+    "latest_memory_at": ""
+  },
+  "contains_synthesized_brief_in_task_message": false,
+  "contains_mascot_clause_phrase_in_task_message": false,
+  "contains_community_outreach_phrase_in_task_message": false,
+  "contains_tiny_bell_phrase_in_task_message": false,
+  "contains_final_walkthrough_phrase_in_task_message": false
+}
