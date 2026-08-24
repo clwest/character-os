@@ -4386,6 +4386,8 @@ verification passed (`_verify_restored()` at
 
 **Execution baseline SHA:** **`be57821`** (`docs(session-279): Q-279-3 Phase 2 design reconciliation vs Phase 1 findings`).
 
+**Phase 2 execution landed SHA:** **`c579f2e`** (`feat(session-279): Q-279-3 Phase 2 executed — locked ≥50% criterion did not resolve; family-swap is the load-bearing finding`). Pushed to `origin/main`.
+
 ## §118 Probe implementation
 
 Landed as `scripts/session279_q279_3_phase2_probe.py`. ~360 lines.
