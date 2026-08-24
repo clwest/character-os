@@ -5213,3 +5213,231 @@ Do NOT proceed to any without approval.
 - [x] Rubric NOT revised after seeing results
 - [x] Other deferred findings NOT opened
 
+---
+
+# Q-279-3 — Formal closure marker
+
+**Status:** Q-279-3 CLOSED as **CLOSE-Q-279-3-AT-DEEP-RESIDUAL**
+per Chris + ChatGPT direction (approved after §143 recommendation).
+
+Deferred finding **4a** (generalized writer voice / recurring
+metaphor-family leakage, from `docs/design/SESSION_279_HANDOFF.md` §4a)
+is **CLOSED AT DEEP-RESIDUAL.** The writer-voice attractor is a
+real, cross-World, substrate-external property of the LLM's
+interaction with the Character OS synthesis substrate at the tested
+lever surfaces. Neither the specific stakes-elevating pieces of the
+dialogue-scene writing contract nor the free-text personality field
+— individually or combined — reduces total attractor mass past the
+pre-registered ≥ 50 % threshold. Future mitigation work is a
+separate question, not an open Q-279-3 slice.
+
+## §145 Durable conclusions accepted at closure
+
+1. **The writer-voice attractor is real and cross-World.**
+   43-composition Phase-1 scan (§100) established the pattern across
+   Fox & Flour Bakery + Patch's Workshop; Phase-2 replicated the
+   attractor at ~24 % of Phase-1 base rate on a neutral-topic control
+   (§124). Verbatim / near-verbatim structural echoes span both
+   Universes: *"tiny [courtroom / management / private club /
+   bureaucrat]"* (4 hits), *"That's not a casual question"*
+   (3 hits), *"final exam"* (3 hits) (§100.7).
+2. **Richer character Knowledge does not cause or solve the
+   attractor.** Q-279-2 §27 treatment corpus contains zero
+   courtroom / procedural / stakes-elevating vocabulary
+   (§92.5 grep-verified); post-treatment F&F D3 rate actually
+   *rose* (§100.5). Cross-condition Phase-2 samples confirmed the
+   treatment vocabulary surfaces naturally under all four probe
+   configurations (§126, §141).
+3. **The tested dialogue-scene contract language changes family
+   expression but does not materially reduce total attractor mass.**
+   P2-B contract-lite eliminated D1 + D3 completely but backfilled
+   into D2 + D4a + D4n; composite rate was +2.2 % vs baseline
+   (§121, §122).
+4. **Free-text personality is a modest modulator (~22-25 %), not
+   the primary source.** P2-C personality-lite reduced composite
+   25.2 % vs baseline; below the pre-registered ≥ 50 % threshold
+   (§121).
+5. **Combining contract-lite + personality-lite produces no
+   meaningful additional reduction beyond personality-lite alone.**
+   P2-BC composite and per-family distribution are identical to
+   P2-C alone (composite = 3 in both; family = D1=1, D3=0, D4a=2
+   in both) (§137, §139). The two text levers do NOT stack.
+6. **D4a (stakes-elevating adjectives: *serious*, *consequential*,
+   *important*, *dramatic*) is the stable observed backfill channel
+   under these interventions.** P2-A D4a = 1 → P2-B D4a = 2,
+   P2-C D4a = 2, P2-BC D4a = 2. The model reaches for stakes-
+   elevating adjectives whenever other channels are neutralized
+   (§122, §138.2).
+7. **The remaining residual is DEEP-RESIDUAL / model-prior
+   interaction at the tested substrate surfaces.** Per locked §132.3
+   rule, "both levers act but the attractor persists in unmeasured
+   or backfill surfaces → H2 model-prior is a real substrate that
+   neither text lever adequately reaches within the D1-D4 rubric"
+   (§138.3).
+8. **No production fix is authorized from this evidence.** The
+   DEEP-RESIDUAL classification explicitly does not license a
+   production writing-contract change, a personality-field policy,
+   or any downstream mitigation.
+9. **Future mitigation / fix-design work remains a separate future
+   question.** Untested text levers (`character_point_of_view`,
+   `voice_signature_phrases`, `voice_avoid_phrases`, `audience_hint`),
+   adversarial-topic replication, post-generation filtering,
+   regenerate-on-attractor-hit, and model-swap experiments are all
+   candidate future substrates but are not opened by this closure.
+
+## §146 Secondary architectural observation preserved
+
+**Character identity is distributed across `business_brief`, voice
+axes, Knowledge, and remaining synthesis invariants — NOT solely
+in the free-text `personality` field.**
+
+Evidence (§141 last paragraph, §126 second paragraph): under the
+combined P2-BC intervention neutralizing BOTH the writing-contract
+stakes-elevating structural frame AND the free-text personality
+descriptions of Ruby + Tyson, both characters remained
+distinctively recognizable. Ruby retained her observational
+warm-cheerful register; Tyson retained his practical-recommender
+register. Both used Q-279-2 treatment Knowledge naturally in
+character. The LLM synthesized character voice from the surviving
+substrate:
+
+- `Teammate.business_brief` (unchanged) — supplied the "warm
+  neighborhood bakery owner" / "coffee-and-counter side" role
+  framing.
+- `Teammate.tone_archetype`, `voice_energy`, `voice_humor`,
+  `voice_directness` (unchanged) — supplied the register enums.
+- Character-audience `KnowledgeDocument` corpus (unchanged) —
+  supplied Tyson's domain-expertise material.
+- Writing-contract invariants + anti-patterns + register-examples
+  (retained even in contract-lite; only two blocks substituted) —
+  supplied the "recognizably-this-character" scaffolding.
+
+**Implication for future H3 refinement work** (recorded here so it
+is not lost when Q-279-3 closes): the free-text personality field
+is *one* modulator of character voice but not the sole load-bearing
+input. Character identity survives free-text neutralization.
+
+This observation is preserved but NOT opened as a distinct
+investigation.
+
+## §147 Q-279-2 / finding 4b — independently supported by Phase 2 evidence
+
+Q-279-2 already closed at ACCEPT-KNOWLEDGE-DEPTH-HYPOTHESIS (§82,
+§87-§89). Phase-2 execution provides additional confirmatory
+evidence at zero incremental cost:
+
+- All 12 Phase-2 samples (3 × P2-A + 3 × P2-B + 3 × P2-C + 3 ×
+  P2-BC) contain natural surface expressions of the Q-279-2 §27
+  treatment corpus vocabulary (almond croissant + pour-over,
+  morning bun + drip, chocolate babka + espresso, tradeoff rule).
+- Treatment vocabulary surfaces under EVERY intervention
+  configuration — including combined contract-lite + personality-
+  lite where the identity-side substrate has been maximally
+  disrupted.
+- Treatment vocabulary surfaces on a topic (*"Ruby and Tyson watch
+  the sunrise..."*) that does NOT prompt for it.
+
+Q-279-2 hypothesis A (§0): *"If Tyson's identity remains unchanged
+and only the depth/quality of his character-specific coffee/pastry
+Knowledge increases, does normal minimal-topic dialogue
+spontaneously become more concretely expert?"* — remains **YES**
+and is now demonstrated to be **orthogonal to the writer-voice
+attractor**. Knowledge substrate does its job independently.
+
+**Finding 4b remains CLOSED at ACCEPT-KNOWLEDGE-DEPTH-HYPOTHESIS
+per §89. Phase-2 evidence strengthens without reopening.**
+
+## §148 Deferred findings — status ledger at Q-279-3 closure
+
+Post-Session-279 deferred-findings state:
+
+| # | Finding | Status |
+|---|---|---|
+| 4a | generalized writer voice / recurring metaphor-family leakage | **CLOSED at DEEP-RESIDUAL (this closure)** |
+| 4b | character identity-as-expert vs Knowledge-depth | **CLOSED at ACCEPT-KNOWLEDGE-DEPTH-HYPOTHESIS (§89)** — reinforced by Phase-2 §147 |
+| 4c | visual composition boundary | preserved unopened; extended by §83 T3 location-shape evidence |
+| 4d | underdeveloped / abrupt scene endings near duration boundary | preserved unopened |
+| 4e | isolated avatar / video quality | preserved unopened |
+| 4f | cross-cast alias grounding | preserved unopened |
+| 4g | adjacent-surface D-POS migration | preserved unopened |
+| 4h | strict-mode audit | preserved unopened |
+| 4i | cross-episode epistemic asymmetry | preserved unopened |
+
+Additional Session-279-surfaced questions (deferred, NOT
+findings):
+
+| Question | Status |
+|---|---|
+| Knowledge-breadth scaling (§70, §84) | preserved unopened |
+| Beat-3 SPA edit-affordance + re-ingest-feedback legibility (§40, §46) | preserved unopened |
+| Untested-text-lever exploration (`character_point_of_view` / `voice_signature_phrases` / `voice_avoid_phrases` / `audience_hint`) (§142) | preserved unopened |
+| Adversarial-topic replication of P2-A/B/C/BC (§127 §1, §143 option 2) | preserved unopened |
+| Character-identity distribution architecture (§146) | preserved unopened |
+
+**None of these are opened by this closure.** Chris + ChatGPT choose
+the next deferred finding deliberately.
+
+## §149 Q-279-3 CLOSEOUT MARKER
+
+```
+Q-279-3 CLOSED           2026-08-26
+Gate resolution          CLOSE-Q-279-3-AT-DEEP-RESIDUAL
+Deferred finding         4a resolved (DEEP-RESIDUAL classification)
+Q-279-3 phases run
+  * Phase 1              43-composition read-only rubric scan;
+                         A/B/C = C mixed (§100-§104)
+  * Phase 2 P2-A/B/C     3 conditions × 3 samples each;
+                         §132 >=50% threshold NOT met by any single
+                         condition; family-swap into D2+D4 confirmed
+                         (§121, §122)
+  * Phase 2 P2-BC        combined intervention;
+                         DEEP-RESIDUAL fires per locked §132.3 rule;
+                         two levers do NOT stack; personality-lite
+                         is the only detectable composite-mover
+                         (§137, §138, §139)
+Provider spend           ~$0.07 total across 12 synthesis-only calls
+                         (0 Runway; 0 Composition rows; 0 DB writes)
+Substrate changed        NONE. Both runtime substitutions
+                         try/finally-restored;
+                         _verify_restored() passed post-run
+Composite / per-family   full four-condition table §137
+Load-bearing sub-finding contract-lite + personality-lite do NOT stack
+                         (P2-BC identical to P2-C alone) - §139
+Backfill channel         D4a (stakes-elevating adjectives) - stable
+                         under both levers and their combination
+Character-identity distribution   secondary architectural observation
+                         preserved (§146)
+Q-279-2 (finding 4b) reinforcement  §147 (independently supported;
+                         not reopened)
+Session 279 commit chain
+  a44bafa  SESSION 278 closeout + SESSION 279 handoff creation
+  e0d5a10  Q-279-2 / 4b closure at ACCEPT-KNOWLEDGE-DEPTH-HYPOTHESIS
+  7a21357  Q-279-3 open + read-only audit + Phase 2 design
+  1df3f70  Q-279-3 Phase 1 (A/B/C = C mixed)
+  be57821  Q-279-3 Phase 2 design reconciliation
+  c579f2e  Q-279-3 Phase 2 P2-A/B/C execution
+  35ebccb  Q-279-3 Phase 2 landed-SHA record
+  14f6892  Q-279-3 P2-BC design + prediction
+  1dac70d  Q-279-3 P2-BC execution (DEEP-RESIDUAL fires)
+  [this]   Q-279-3 formal closure at DEEP-RESIDUAL
+```
+
+Q-279-3 is not to be re-opened. Findings 4c-4i and the
+Session-279-surfaced deferred questions above remain preserved for
+Chris + ChatGPT to select from deliberately.
+
+## §150 Checklist — Q-279-3 formal closure
+
+- [x] Nine durable conclusions preserved verbatim (§145)
+- [x] Secondary character-identity-distribution observation preserved (§146)
+- [x] Q-279-2 / 4b reinforcement noted; NOT reopened (§147)
+- [x] Full deferred-findings ledger + surfaced-questions ledger at closure (§148)
+- [x] Q-279-3 CLOSEOUT MARKER with commit chain (§149)
+- [x] Findings 4c-4i explicitly preserved unopened (§148)
+- [x] Knowledge-breadth, Beat-3 legibility, untested-text-lever, adversarial-replication, character-identity-distribution preserved unopened (§148)
+- [x] No new deferred finding opened
+- [x] No production fix implemented
+- [x] No prompt / synthesis / Knowledge / character / identity / retrieval / verifier / memory / audience / runtime change
+- [x] No permanent code change
+- [x] Audit closure ready for review
+
