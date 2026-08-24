@@ -1,0 +1,107 @@
+{
+  "started_utc": "2026-08-24T22:30:42.835327+00:00",
+  "candidate_detail_body": "Ruby and Tyson agreed that when they are closing the bakery together, neither one leaves until the other says they have what they need.",
+  "universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+  "episode_id": "eb47350e-b1cf-4347-aa4f-5bf514d66d2e",
+  "composition_id": "772e9012-4d26-4f93-a50c-158b4e8a42f1",
+  "pre_promotion_memory_count": 0,
+  "phase": {
+    "phase": "Q280.7-b",
+    "n": 3,
+    "snapshot_task_message_at_start": "UNIVERSE: Fox & Flour Bakery\n\nWORLD BRIEF:\nFox & Flour Bakery is a warm neighborhood artisan bakery built around small-batch baking, naturally leavened sourdough, handcrafted pastries, seasonal desserts, and celebration cakes. It aims to feel like a familiar neighborhood gathering place where careful craft and quality ingredients matter more than speed or mass production.\n\nCAST:\n- Tyson: tone=expert; personality='Easygoing, practical, and a little dry. Sounds like someone who has worked the counter long enough to know what customers are about to ask before they ask it. Friendly without being overly cheerful. Gives clear recommend'\n- Ruby: tone=friend; personality='Warm, cheerful, and genuinely caring. Ruby loves helping people find the perfect treat for any occasion and gets excited talking about fresh bread coming out of the oven. She\u2019s knowledgeable without sounding overly techn'\n\nEPISODES SO FAR (earliest first):\n  1. 'Why our sourdough takes its time'\n  2. 'Our celebration cakes'\n  3. 'Welcome to Fox & Flour Bakery'\n  4. 'Ruby and Tyson deal with a difficult bakery customer.'\n  5. 'Ruby thinks the bakery needs a mascot.'\n  6. 'Tyson is convinced the bakery is haunted.'\n  7. 'Ruby thinks Tyson is taking coffee too seriously.'\n  8. 'Ruby finds something strange in the bakery freezer.'\n  9. 'Tyson thinks Ruby secretly entered them in a baking competition.'\n 10. 'Ruby locks herself out of the bakery.'\n 11. 'After getting locked out, Ruby proposes a foolproof closing \u2026'\n     topic: After getting locked out, Ruby proposes a foolproof closing routine, only for the new bakery mascot idea to complicate it.\n\nPAST EVENTS: (none recorded yet)\n\nTASK: Suggest 3 possible next Episode directions for this Universe, one sentence each. These are possibilities the operator may pick, ignore, or override. Where possible, pick up unresolved threads from prior Episodes or past events. Keep each short enough to work as an Episode topic without rewriting.",
+    "snapshot_at_start": {
+      "universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+      "episodes_count": 11,
+      "memories_count": 0,
+      "memories": [],
+      "latest_episode_at": "2026-08-24T21:54:32.256767+00:00",
+      "latest_memory_at": ""
+    },
+    "refreshes": [
+      {
+        "refresh_idx": 1,
+        "phase": "Q280.7-b",
+        "generated_at_utc": "2026-08-24T22:30:46.155343+00:00",
+        "tokens_input": 619,
+        "tokens_output": 75,
+        "model": "gpt-5.6-terra",
+        "substrate_summary": {
+          "episodes_used": 11,
+          "memories_used": 0,
+          "cast_count": 2
+        },
+        "cache": {
+          "hit": false,
+          "ttl_seconds": 600
+        },
+        "suggestions": [
+          {
+            "text": "Tyson and Ruby try to identify the strange thing in the freezer before it ruins the morning bake."
+          },
+          {
+            "text": "Ruby\u2019s proposed bakery mascot turns up during closing time and makes her foolproof routine anything but foolproof."
+          },
+          {
+            "text": "A baking competition deadline arrives, forcing Tyson to find out whether Ruby really entered Fox & Flour after all."
+          }
+        ]
+      },
+      {
+        "refresh_idx": 2,
+        "phase": "Q280.7-b",
+        "generated_at_utc": "2026-08-24T22:30:48.803129+00:00",
+        "tokens_input": 619,
+        "tokens_output": 83,
+        "model": "gpt-5.6-terra",
+        "substrate_summary": {
+          "episodes_used": 11,
+          "memories_used": 0,
+          "cast_count": 2
+        },
+        "cache": {
+          "hit": false,
+          "ttl_seconds": 600
+        },
+        "suggestions": [
+          {
+            "text": "Tyson investigates the strange freezer discovery and becomes convinced it is connected to the bakery\u2019s supposed haunting."
+          },
+          {
+            "text": "Ruby\u2019s mascot causes chaos during the new closing routine, forcing her and Tyson to decide whether it belongs in the bakery at all."
+          },
+          {
+            "text": "A surprise baking-competition deadline arrives, and Tyson must figure out whether Ruby actually entered them or whether someone else did."
+          }
+        ]
+      },
+      {
+        "refresh_idx": 3,
+        "phase": "Q280.7-b",
+        "generated_at_utc": "2026-08-24T22:30:52.502351+00:00",
+        "tokens_input": 619,
+        "tokens_output": 79,
+        "model": "gpt-5.6-terra",
+        "substrate_summary": {
+          "episodes_used": 11,
+          "memories_used": 0,
+          "cast_count": 2
+        },
+        "cache": {
+          "hit": false,
+          "ttl_seconds": 600
+        },
+        "suggestions": [
+          {
+            "text": "Tyson investigates the strange freezer discovery and becomes even more certain the bakery is haunted."
+          },
+          {
+            "text": "Ruby\u2019s mascot plan goes sideways when the would-be mascot disrupts a high-stakes celebration-cake pickup."
+          },
+          {
+            "text": "A baking competition representative arrives at Fox & Flour, forcing Ruby and Tyson to figure out who entered them and whether they can actually compete."
+          }
+        ]
+      }
+    ]
+  }
+}
