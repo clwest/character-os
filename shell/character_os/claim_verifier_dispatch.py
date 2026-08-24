@@ -80,7 +80,32 @@ _DIALOGUE_AUTHORITY_SETTING = "CHARACTER_OS_K64_DIALOGUE_AUTHORITY"
 # Accepted authority values. Case-insensitive on input; whitespace-
 # only reads as unset → default.
 _VALID_AUTHORITIES: frozenset[str] = frozenset({"legacy", "d_pos"})
-_DEFAULT_AUTHORITY: str = "legacy"
+
+# SESSION 278 Q-278-4.3 — Slice 3 of the Q-278-4 cutover plan.
+# Default flipped ``"legacy" → "d_pos"`` after the Q-278-4.2 dual-
+# write dogfood window closed with 4/4 rows (3 completed + 1 partial)
+# confirming ``verification_warnings == verification_warnings_legacy``
+# bit-for-bit under the pre-flip default and zero D_POS_ONLY warnings
+# across the entire fresh window. The dispatcher, dual-write
+# persistence columns, defensive fallback, and warn/strict semantics
+# are unchanged — only the classifier whose output populates
+# ``Composition.verification_warnings`` (authoritative) is flipped
+# for dialogue-scene compositions.
+#
+# Rollback: ``export CHARACTER_OS_K64_DIALOGUE_AUTHORITY=legacy`` (or
+# ``settings.CHARACTER_OS_K64_DIALOGUE_AUTHORITY = "legacy"``) — both
+# routes force legacy authority per :func:`resolve_dialogue_authority`
+# precedence. No restart-hot: the flag is resolved fresh per synthesis
+# call, so the next composition rendered after the flag change picks
+# it up. Reverting this one-line change is the code-level rollback.
+#
+# Scope-lock preserved from Q-278-4.2 pre-implementation boundary
+# challenge (Option A — dialogue-scene only): Script,
+# ConversationMessage, and talking-head / long-form Composition
+# surfaces are untouched and remain legacy-authoritative. They call
+# ``claim_verifier.run_verifier`` directly and do not consume this
+# dispatcher.
+_DEFAULT_AUTHORITY: str = "d_pos"
 
 
 def resolve_dialogue_authority() -> str:

@@ -207,11 +207,21 @@ def _synthesize_with_mock(
     """Helper — call synthesize_dialogue with the OpenAI client
     stubbed to return the given raw payload(s). Uses
     use_knowledge=False by default so K2 retrieval doesn't fire
-    (test-hermetic)."""
+    (test-hermetic).
+
+    Forces ``CHARACTER_OS_K64_DIALOGUE_AUTHORITY=legacy`` so tests
+    that pre-date Q-278-4.3 continue to see legacy verifier semantics
+    on the authoritative surface. Tests specifically exercising the
+    Q-278-4.3 d_pos default should NOT use this helper — they should
+    set up their own env context.
+    """
     payloads = [first_response] if second_response is None \
         else [first_response, second_response]
     fake_client, call_count = _openai_call_returning(*payloads)
-    with mock_patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}):
+    with mock_patch.dict("os.environ", {
+        "OPENAI_API_KEY": "sk-test",
+        "CHARACTER_OS_K64_DIALOGUE_AUTHORITY": "legacy",
+    }):
         with mock_patch("openai.OpenAI", return_value=fake_client):
             result = synthesize_dialogue(
                 workspace=ws,
@@ -565,7 +575,14 @@ def test_k64_uses_speaking_character_corpus_per_turn():
         seen_corpora.append(factual_corpus)
         return []
 
-    with mock_patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}), \
+    with mock_patch.dict("os.environ", {
+             "OPENAI_API_KEY": "sk-test",
+             # Q-278-4.3 default = d_pos; force legacy so these
+             # verifier-focused tests continue to exercise the
+             # ``result.turns[*].verification_warnings`` mirroring
+             # of the legacy classifier they were written against.
+             "CHARACTER_OS_K64_DIALOGUE_AUTHORITY": "legacy",
+         }), \
          mock_patch("openai.OpenAI", return_value=fake_client), \
          mock_patch(
              "character_os.claim_verifier_dispatch.run_verifier",
@@ -611,7 +628,14 @@ def test_warnings_retain_speaker_and_turn_context():
             )]
         return []
 
-    with mock_patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}), \
+    with mock_patch.dict("os.environ", {
+             "OPENAI_API_KEY": "sk-test",
+             # Q-278-4.3 default = d_pos; force legacy so these
+             # verifier-focused tests continue to exercise the
+             # ``result.turns[*].verification_warnings`` mirroring
+             # of the legacy classifier they were written against.
+             "CHARACTER_OS_K64_DIALOGUE_AUTHORITY": "legacy",
+         }), \
          mock_patch("openai.OpenAI", return_value=fake_client), \
          mock_patch(
              "character_os.claim_verifier_dispatch.run_verifier",
@@ -653,7 +677,14 @@ def test_strict_verifier_failure_raises():
             )
         return []
 
-    with mock_patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}), \
+    with mock_patch.dict("os.environ", {
+             "OPENAI_API_KEY": "sk-test",
+             # Q-278-4.3 default = d_pos; force legacy so these
+             # verifier-focused tests continue to exercise the
+             # ``result.turns[*].verification_warnings`` mirroring
+             # of the legacy classifier they were written against.
+             "CHARACTER_OS_K64_DIALOGUE_AUTHORITY": "legacy",
+         }), \
          mock_patch("openai.OpenAI", return_value=fake_client), \
          mock_patch(
              "character_os.claim_verifier_dispatch.run_verifier",

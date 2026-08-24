@@ -18,8 +18,10 @@ Handoff context: `docs/design/SESSION_278_HANDOFF.md`.
 - [x] **Q-278-4** — D-POS cutover-design audit. Mechanical trace of legacy authority path, NER-supplement Success experiment, stoplist disposition, dual-run design, persistence semantics, rollback, warn/strict separation, acceptance signals, blast radius, ordered smallest-cutover slices. *(AUDIT COMPLETE — recommendation: GO-IMPLEMENT-SLICE-1.)*
 - [x] **Q-278-4.1** — NER-supplement POS=PROPN gate (Slice 1 of the Q-278-4 cutover plan). Single-function edit in `claim_verifier_ner.py`; +6 regression tests; 38 D-POS + 116 adjacent tests all green; Specimen 4 `Success` over-fire closed post-gate. *(LANDED — commit `1336420`.)*
 - [x] **Q-278-4.2 pre-implementation boundary challenge** — before Slice 2 lands, resolve the apparent composition-boundary contradiction: a global `CHARACTER_OS_K64_AUTHORITY` flag rewiring three call sites would broaden authority to Script + ConversationMessage even though those surfaces have no shadow evidence. *(CLOSED — Chris + ChatGPT approved MODIFY-SLICE-2-DESIGN → REVISED Option A.)*
-- [x] **Q-278-4.2** — Dialogue-scene-only dispatcher (revised Option A). New `character_os/claim_verifier_dispatch.py`; `CHARACTER_OS_K64_DIALOGUE_AUTHORITY = legacy | d_pos` (default `legacy`); dual-write to `Composition.verification_warnings_shadow` (D-POS) + new `Composition.verification_warnings_legacy` (legacy); dispatcher runs both classifiers per turn; defensive fallback on D-POS failure; strict/warn semantics preserved. *(LANDED — commit `e7c58c2`; 179 tests green; awaiting fresh dogfood + Slice 3 decision.)*
-- [ ] Q-278-4.3 — (TBD; flip dispatcher default authority to `d_pos`; opens only if Slice 3 approved)
+- [x] **Q-278-4.2** — Dialogue-scene-only dispatcher (revised Option A). New `character_os/claim_verifier_dispatch.py`; `CHARACTER_OS_K64_DIALOGUE_AUTHORITY = legacy | d_pos` (default `legacy`); dual-write to `Composition.verification_warnings_shadow` (D-POS) + new `Composition.verification_warnings_legacy` (legacy); dispatcher runs both classifiers per turn; defensive fallback on D-POS failure; strict/warn semantics preserved. *(LANDED — commit `e7c58c2`; 179 tests green.)*
+- [x] **Q-278-4.2 Dual-Write Dogfood 3/3** — three completed fresh dialogue-scene renders (1eb12363 hobby, d7549fc1 coffee, 2dc6b0b5 junk) + one partial supporting evidence row (3db365fe, Runway moderation orthogonal). Dual-write invariant `verification_warnings == verification_warnings_legacy` **PASS bit-for-bit on 4/4 rows**. Zero D_POS_ONLY. Pre-established Slice-3 acceptance gate satisfied. *(WINDOW COMPLETE — recommendation: GO-IMPLEMENT-SLICE-3.)*
+- [x] **Q-278-4.3** — Slice 3 of the Q-278-4 cutover plan. One-line default flip in `character_os/claim_verifier_dispatch.py`: `_DEFAULT_AUTHORITY` `"legacy" → "d_pos"`. Existing rollback path preserved (`CHARACTER_OS_K64_DIALOGUE_AUTHORITY=legacy` via env or settings; settings > env > default). Dual-write persistence unchanged. Adjacent surfaces (Script / ConversationMessage / talking-head / long-form) untouched. Regression suite: 185 tests pass (rebalanced from 179 with new default-is-d_pos, explicit-legacy-rollback, and parametrized Q-278-1 default-d_pos-authority coverage). *(IMPLEMENTED — awaiting fresh dogfood confirmation.)*
+- [ ] Q-278-4.x (adjacent surfaces) — (TBD; per-surface scope-locked with own shadow window each; unopened)
 
 Slice discipline reminder: no fixes land in this session until Chris + ChatGPT explicitly approve.
 
@@ -2576,5 +2578,449 @@ Land Q-278-4.2 as-is. Continue normal warn-mode dogfood under default legacy aut
 - **NO-GO** — freeze at Slice 2; keep dual-write as the terminal state.
 
 Q-278-4.1 and this slice are independent commits and independently revertable.
+
+---
+
+## Q-278-4.2 Fresh Dual-Write Dogfood — Completed Specimen 1/3
+
+**Completed-window count: 1/3.**
+
+### Composition
+
+- ID: `1eb12363-3dde-4d4c-ae9a-6c857b61e50c`
+- Name: `Dialogue — I've decided you need a hobby.`
+- Template: `dialogue_scene` (Patch + Rivet cast, Patch's Workshop World)
+- Operator topic: *"Patch thinks Rivet needs a hobby."*
+- Status: `completed`; `verification_status = "verified"`; `synthesis_attempt_count = 1`
+
+### Per-column contents (verbatim from DB)
+
+`verification_warnings` (count=7):
+- `Painting` proper_noun — turn 4 (Patch, position 27)
+- `Learning` proper_noun — turn 4 (Patch, position 53)
+- `Competitive` proper_noun — turn 4 (Patch, position 75)
+- `Competitive` proper_noun — turn 5 (Rivet, position 0)
+- `Moss` proper_noun — turn 6 (Patch, position 56)
+- `Strong` proper_noun — turn 6 (Patch, position 74)
+- `Restoring` proper_noun — turn 10 (Patch, position 12)
+
+`verification_warnings_legacy` (count=7): **identical to `verification_warnings` above** (verbatim same list, same order).
+
+`verification_warnings_shadow` (count=1):
+- `Moss` proper_noun_pos — turn 6 (Patch, position 56)
+
+### Dual-write invariant
+
+**`verification_warnings == verification_warnings_legacy` → True** (bit-for-bit equality, verified via Python `==` on the persisted JSON lists).
+
+### Authority resolution
+
+Dispatcher resolved to **`legacy`** (default; `CHARACTER_OS_K64_DIALOGUE_AUTHORITY` unset in `.env`). Confirmed by the invariant equality above — if D-POS had been authoritative, `verification_warnings` would equal `verification_warnings_shadow` (1 entry), not `verification_warnings_legacy` (7 entries).
+
+### Classifier diff
+
+- **LEGACY_ONLY (6):** `Competitive` × 2 (turns 4 + 5), `Learning`, `Painting`, `Strong`, `Restoring` — all sentence-initial ordinary-language false positives from the Q-278-1 class, correctly silenced by D-POS.
+- **BOTH (1):** `Moss` (turn 6, Patch, position 56).
+- **D_POS_ONLY (0):** none.
+
+### Interpretation of the one BOTH entry — `Moss`
+
+Turn 6 (Patch) text: *"That's why it's perfect for you. You could take notes. **\"Moss: still moss. Strong performance this quarter.\"**"*
+
+`Moss` appears at position 56 inside a quoted phrase that Patch imagines Rivet writing in a notebook — the capital-M `Moss` is followed by `:` (colon), which spaCy's `en_core_web_sm` tags as `POS=PROPN` (proper-noun-ish "field label" shape). The lowercase `moss` immediately after (in the same quoted phrase) is not extracted by either classifier.
+
+Semantic reading: `Moss` here is a common noun (the plant) being personified inside a quoted mock-notebook title. Not a real proper noun. Both classifiers over-fire on this quoted-title shape.
+
+**Classification: BOTH-parity false positive.** Same shape as the Q-278-3.2 Specimen 4 `Success` finding — spaCy small-model NER + POS misclassify capitalized common nouns in specific sentence positions. Legacy also flags. **Not a D-POS regression** — parity with legacy behavior on the same error class. Documented but not blocking.
+
+### Composition completion + non-effect check
+
+Composition completed normally on `synthesis_attempt_count = 1`; no corrective pass fired. All 12 avatar_speech steps rendered; concat_clips succeeded; final asset produced. `verification_status = "verified"` (composition-level normalization of `"warned"` per the documented `starters.py:295-305` convention). Dispatcher + dual-write path had zero observable effect on synthesis, rendering, continuity, or billing — this specimen is externally indistinguishable from a pre-Q-278-4.2 completed dialogue-scene render.
+
+### Prior partial specimen — `3db365fe` (retained as supporting evidence only)
+
+Composition `3db365fe-c580-4978-81a5-7f4f4440bbfb` (same operator topic, "Patch thinks Rivet needs a hobby") landed at `status=partial` due to a Runway moderation rejection on turn 8 (*"See? That's enthusiasm. We'll get you a rock. One rock. You can name it something sensible, like Kevin."* — Runway `Text prompt did not pass moderation check`; deterministic rejection, retry hit the same failure with a fresh Runway task id `685e80a7-...`).
+
+Dual-write evidence on `3db365fe`:
+- `verification_warnings == verification_warnings_legacy` → **True** (7 entries each).
+- `verification_warnings_shadow` → 3 entries (`Kevin` × 3, correctly caught as a real proper-noun hallucination not in the corpus).
+- LEGACY_ONLY: 4 (`Painting`, `Puzzles`, `Rocks`, `Until` — Q-278-1 class).
+- BOTH: 3 (`Kevin` × 3 — legitimate hallucination flag).
+- D_POS_ONLY: 0.
+
+**Recorded here as supporting evidence.** Does NOT count toward the required 3 completed renders. Runway moderation is orthogonal to Q-278-4.2 substrate and is deferred as a separate concern.
+
+### Completed-window progress: **1 / 3**
+
+---
+
+## Q-278-4.2 Fresh Dual-Write Dogfood — Completed Specimen 2/3
+
+**Completed-window count: 2/3.**
+
+### Composition
+
+- ID: `d7549fc1-ad59-42c3-99c6-6d3597bb1afa`
+- Name: `Dialogue — You're taking coffee too serio`
+- Template: `dialogue_scene` (Ruby + Tyson cast, Fox & Flour Bakery World)
+- Operator topic: *"Ruby thinks Tyson is taking coffee too seriously."*
+- Status: `completed`; `verification_status = "verified"`; `synthesis_attempt_count = 2` (one duration-corrective pass — same code path as prior specimens; unrelated to the verifier dispatcher)
+
+### Per-column contents (verbatim from DB)
+
+`verification_warnings` (count=3):
+- `Consequences` proper_noun — turn 2 (Ruby, position 0)
+- `Also` proper_noun — turn 7 (Tyson, position 63)
+- `Deal` proper_noun — turn 10 (Ruby, position 0)
+
+`verification_warnings_legacy` (count=3): **identical to `verification_warnings` above** (verbatim same list, same order).
+
+`verification_warnings_shadow` (count=0): empty.
+
+### Dual-write invariant
+
+**`verification_warnings == verification_warnings_legacy` → True** (bit-for-bit equality, verified via Python `==` on the persisted JSON lists).
+
+### Authority resolution
+
+Dispatcher resolved to **`legacy`** (default; `CHARACTER_OS_K64_DIALOGUE_AUTHORITY` unset). Confirmed by the invariant equality above.
+
+### Classifier diff
+
+- **LEGACY_ONLY (3):** `Consequences` (turn 2, Ruby, sentence-initial ordinary word), `Also` (turn 7, Tyson, sentence-initial after `. `, ADV), `Deal` (turn 10, Ruby, sentence-initial noun/verb). All Q-278-1 class; all correctly silenced by D-POS.
+- **BOTH (0):** none.
+- **D_POS_ONLY (0):** none.
+
+### Composition completion + non-effect check
+
+Composition completed normally. Two-attempt synthesis (first pass out of duration tolerance; existing corrective pass produced accepted second draft). All avatar_speech steps + concat_clips rendered; final asset produced. Dispatcher + dual-write path had zero effect on synthesis, rendering, continuity, or billing. Externally indistinguishable from pre-Q-278-4.2 completed dialogue-scene behavior.
+
+### DEFERRED — Tyson identity-vs-Knowledge-depth observation (record only, NOT investigated)
+
+Chris reports the Ruby/Tyson scene was creatively good but surfaced a possible substrate observation for Tyson.
+
+Tyson is positioned in his identity as having a pastry-coffee pairing specialty. The retrieved character-specific Knowledge included a section titled *"Tyson's Pastry Pairing Specialty."* In this episode, however, Tyson talks *about* pairing expertise in generic terms — *"which pastry to have with coffee"*, *"coffee has opinions"*, *"A customer asks for a pairing, I give them one"*, *"coffee, pastry, good match"* — without demonstrating concrete pairing knowledge. Chris's operator interpretation: **Tyson currently has the ROLE / IDENTITY of a coffee-pairing expert without enough domain Knowledge to convincingly PERFORM that expertise.** Chris characterized the effect as Tyson trying to be an expert on essentially "black coffee and a cupcake."
+
+**Do NOT assume synthesis is defective.** **Do NOT modify Tyson.** **Do NOT expand `business_brief`.** **Do NOT add Knowledge in this slice.** **Do NOT research coffee.**
+
+Important substrate distinction to preserve for a future audit:
+
+- **Character identity / role** — what a Teammate is *supposed* to be good at (lives on `Teammate.personality` / `who_you_help` / `what_you_sell` / `business_brief` — voice + positioning fields).
+- **Character-specific Knowledge** — the actual domain information a Teammate can draw upon to *demonstrate* that expertise in synthesis (lives on `KnowledgeDocument` / `KnowledgeChunk` rows scoped to that character).
+
+**Possible future operator experiment (NOT opened yet):** give Tyson a small, high-quality character-specific coffee/pastry Knowledge corpus, then re-render with similarly minimal topics and determine whether his dialogue naturally becomes more concrete without the operator prompting for coffee details. If confirmed, this becomes useful evidence about whether Character OS correctly separates *identity* from *expertise Knowledge* — i.e. whether the synthesis substrate consumes retrieved Knowledge deeply enough that domain content translates into demonstrated in-character expertise, versus staying at the persona-level identity claim.
+
+Deferred. Recorded here to preserve the substrate distinction; nothing implementation-side moves on this observation without a scope-locked Chris + ChatGPT audit later.
+
+### Completed-window progress: **2 / 3**
+
+Rolling window aggregate so far:
+
+- Completed specimens: 2 (1eb12363 hobby, d7549fc1 coffee).
+- Legacy warning instances: 7 + 3 = **10**.
+- Shadow warning instances: 1 + 0 = **1** (the `Moss` BOTH-parity finding in Specimen 1).
+- LEGACY_ONLY total: 6 + 3 = **9**.
+- BOTH total: 1 + 0 = **1**.
+- D_POS_ONLY total: **0**.
+- Dual-write invariant `verification_warnings == verification_warnings_legacy`: **PASS on both specimens**.
+
+---
+
+## Q-278-4.2 Fresh Dual-Write Dogfood — Completed Specimen 3/3
+
+**Completed-window count: 3/3 — window complete.**
+
+### Composition
+
+- ID: `2dc6b0b5-4f3f-40e4-b4a6-e991eb7cd5d4`
+- Name: `Dialogue — I have reached a conclusion: y`
+- Template: `dialogue_scene` (Rivet + Patch cast, Patch's Workshop World)
+- Operator topic: *"Rivet thinks Patch owns too much junk."*
+- Status: `completed`; `verification_status = "verified"`; `synthesis_attempt_count = 1` (no corrective); `target_duration_seconds = 90`; `synthesis_predicted_seconds = 72.0`
+
+### Per-column contents (verbatim from DB)
+
+`verification_warnings` (count=2):
+- `Several` proper_noun — turn 2 (Rivet, position 0)
+- `Mostly` proper_noun — turn 11 (Patch, position 0)
+
+`verification_warnings_legacy` (count=2): **identical to `verification_warnings` above** (verbatim same list, same order).
+
+`verification_warnings_shadow` (count=0): empty.
+
+### Dual-write invariant
+
+**`verification_warnings == verification_warnings_legacy` → True** (bit-for-bit).
+
+### Authority resolution + classifier diff
+
+Authority: **`legacy`** (default). LEGACY_ONLY: 2 (`Several` + `Mostly`, both sentence-initial ADV, Q-278-1 class silenced by D-POS). BOTH: 0. D_POS_ONLY: 0.
+
+### Composition completion + non-effect check
+
+Composition completed normally on first attempt. All avatar_speech steps + concat_clips rendered; final asset produced. Dispatcher + dual-write path had zero effect on synthesis, rendering, continuity, or billing.
+
+### DEFERRED — possible underdeveloped / abrupt scene ending near lower duration boundary
+
+Chris reports the episode was good overall but felt as though it stopped slightly early. The final exchange was strong (*Rivet: "What did it support?"* / *Patch: "Mostly other junk."*) but Chris expected roughly another 2-4 turns to finish landing the scene.
+
+Persisted evidence: `target_duration_seconds = 90`, `synthesis_predicted_seconds = 72.0`, final concat 72.3s (per operator observation). Predicted duration sits inside the ±20% duration tolerance (72s / 90s = 0.80 = exactly the lower boundary of 0.8-1.2), so the existing corrective pass did not fire.
+
+Do NOT infer the cause. Do NOT modify duration tolerances, corrective expansion, dialogue turn count, or synthesis. Do NOT assume 90s is always preferable. Do NOT open a duration investigation from one specimen.
+
+Preserved narrowly as: **possible underdeveloped / abrupt scene ending near the lower duration boundary.** Recorded for correlation with future evidence if a pattern emerges across several specimens. This slice does not relate it to prior duration observations because the durable audit does not yet contain a prior thread on this specific shape.
+
+### DEFERRED — methodology-adjacent language reappears
+
+The scene contains: *"If I cannot explain what an item might help us test, it goes."* This joins the existing deferred methodology / repetition observation (Q-278-3.2 Specimens 2 + 4 — Patch's *"one narrow job"* / *"what are we trying to prove"* / *"if it fails, we say it failed"* / *"Whether it should be is a different question."*). Recorded under that existing observation; no new investigation.
+
+### Completed-window progress: **3 / 3 — window complete**
+
+---
+
+## Q-278-4.2 Consolidated Dual-Write Runtime Evidence + Slice-3 Decision
+
+### Fresh-window matrix (3/3 completed)
+
+| # | comp | topic | attempt | auth_col | legacy_col | shadow_col | equality | LEGACY_ONLY | BOTH | D_POS_ONLY | status |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | `1eb12363` | hobby (Patch/Rivet) | 1 | 7 | 7 | 1 | **True** | 6 | 1 (`Moss`) | 0 | completed |
+| 2 | `d7549fc1` | coffee (Ruby/Tyson) | 2 | 3 | 3 | 0 | **True** | 3 | 0 | 0 | completed |
+| 3 | `2dc6b0b5` | junk (Rivet/Patch) | 1 | 2 | 2 | 0 | **True** | 2 | 0 | 0 | completed |
+
+**Totals across completed 3/3:** 12 legacy warning instances, 1 D-POS shadow warning, 11 LEGACY_ONLY, 1 BOTH (`Moss` — a BOTH-parity false positive on a capitalized common noun in a quoted mock-notebook title; same class as the earlier `Success` finding; not a D-POS regression), 0 D_POS_ONLY. **Dual-write invariant PASS on 3/3.**
+
+### Partial specimen (separate, supporting evidence only)
+
+`3db365fe` (also Patch/Rivet hobby topic; Runway moderation rejection on turn 8 text unrelated to the verifier):
+
+- `verification_warnings == verification_warnings_legacy` **True** (7 = 7).
+- Shadow (D-POS): 3 entries (`Kevin` × 3 — legitimate hallucination flag on a proper noun not in corpus).
+- LEGACY_ONLY: 4, BOTH: 3, D_POS_ONLY: 0.
+- Composition ended `partial` due to Runway `Text prompt did not pass moderation check` (deterministic retry hit the same rejection with a fresh Runway task id `685e80a7-...`).
+
+Recorded here as supporting invariant evidence. Does NOT count toward the required 3/3 window.
+
+**Combined evidence (3/3 completed + partial):** 19 legacy warning instances, 4 D-POS shadow warnings, 15 LEGACY_ONLY, 4 BOTH (1 × `Moss` false positive + 3 × `Kevin` true positive), 0 D_POS_ONLY, dual-write invariant PASS on all 4 rows.
+
+### Mechanical answers
+
+1. **Did all 3/3 completed fresh specimens resolve authority to `legacy`?** **YES** — the invariant equality on every row confirms it (if D-POS had been authoritative, the auth column would mirror shadow, not legacy).
+2. **Did all 3/3 persist `verification_warnings == verification_warnings_legacy` bit-for-bit?** **YES** — verified via Python `==` on the persisted JSON lists for every row.
+3. **Did D-POS shadow persistence remain independent and interpretable?** **YES** — `verification_warnings_shadow` carries D-POS output on every row; `k64_shadow_diff` reads the three columns and produces stable LEGACY_ONLY / D_POS_ONLY / BOTH aggregates.
+4. **Did any fresh specimen expose a dispatcher failure / dual-write failure / persistence ambiguity / unexpected authority / D-POS regression / behavioral effect on synthesis or rendering?** **NO** — none of the six across the completed window OR the partial specimen. The Runway moderation rejection on the partial specimen is a provider-side content-filter false positive orthogonal to the verifier substrate.
+5. **Did the partial Runway-moderation specimen provide consistent supporting dual-write evidence before its unrelated provider failure?** **YES** — invariant held bit-for-bit; shadow output was independent + interpretable; `Kevin` × 3 correctly caught by both classifiers as a legitimate hallucination flag.
+6. **Does fresh runtime evidence match the Q-278-4.2 mechanical/test prediction?** **YES** — the dispatcher-layer test (`test_dispatcher_runs_both_classifiers_default_legacy_authority`) and flattener-layer test (`test_flattener_dual_write_invariant_under_default_authority`) predicted `Composition.verification_warnings == Composition.verification_warnings_legacy` on real renders under default authority. Measured against 3 completed + 1 partial: **4/4 rows confirm the prediction.** No discrepancies.
+
+### Acceptance gate — evaluated against pre-established Q-278-4.2 criteria (NOT re-invented)
+
+The Slice-3 gate established in Q-278-4.2 §"Explicit Slice-3 decision gate" required:
+
+- **(a) Fresh dialogue-scene renders under default `legacy` authority confirming `Composition.verification_warnings == Composition.verification_warnings_legacy` bit-for-bit on persisted rows.** → **PASS** (3/3 completed + 1 partial; all four rows equality True).
+- **(b) Fresh dialogue-scene dogfood evidence via `k64_shadow_diff` showing zero D_POS_ONLY warnings that inspection classifies as true positives legacy caught.** → **PASS** (0 D_POS_ONLY across all four rows; nothing to inspect; the founding invariant is uncompromised).
+- **(c) Chris + ChatGPT explicit approval to flip the default.** → the current decision itself.
+
+Additional Q-278-3.2 acceptance criteria (repeated in Q-278-3.2 §"Explicit STOP gate" and Q-278-4.2 §"Explicit Slice-3 decision gate") also remain satisfied by this evidence:
+- D-POS preserves all true positives (0 D_POS_ONLY-loss).
+- D-POS removes the large majority of ordinary-language false positives (11 LEGACY_ONLY / 12 legacy total = 91.7% closure on the completed window; 15/19 = 78.9% across the combined window; consistent with Q-278-3.2 5/5 window rate).
+- No new false-negative class larger/more dangerous than the class closed (0 D_POS_ONLY).
+- `KNOWN_TECH_TERMS` preserved (regression-tested; no new tech-name evidence in this window but no regression either).
+- Multi-word POS spans did not materially regress supported/unsupported entity grounding (no multi-word findings surfaced in this window; the earlier `At Fox` positive finding stands from Specimen 5/5 of Q-278-3.2).
+- `May`-like collisions recorded rather than hidden (regression suite pins the documented residual).
+
+### Prediction vs actual
+
+- Predicted dual-write invariant on real renders → **CONFIRMED 4/4 rows**.
+- Predicted zero externally-observable behavior change under default authority → **CONFIRMED** (all three completed specimens indistinguishable from pre-Q-278-4.2 renders on operator surfaces; SPA panel reads `verification_warnings` which mirrors legacy as designed).
+- Predicted Q-278-1 general-class closure continues on fresh operator dogfood → **CONFIRMED** (11 different English tokens across 3 specimens: `Painting`, `Learning`, `Competitive` × 2, `Strong`, `Restoring`, `Consequences`, `Also`, `Deal`, `Several`, `Mostly` — all silenced by D-POS).
+- Predicted BOTH-parity false positives (`Moss` shape) surface occasionally but are not D-POS regressions → **CONFIRMED once** in Specimen 1 (`Moss` in quoted mock-notebook title).
+- Predicted zero D_POS_ONLY across a small window → **CONFIRMED** (0/12 completed instances).
+
+### Discrepancies
+
+None mechanical. The `Moss` BOTH-parity finding was expected in shape (same class as `Success` in Q-278-3.2 Specimen 4); no new failure mode surfaced.
+
+### Deferred observations catalogue update
+
+Preserved distinct and non-blocking to the Slice-3 decision:
+
+- **Methodology / repetition language** — grew by one instance in Specimen 3 (*"If I cannot explain what an item might help us test, it goes."*). Now spans Q-278-3.2 Specimens 2 + 4 and Q-278-4.2 Specimen 3. Still a deferred possible-future-falsifiable-question, not opened.
+- **Character identity vs Knowledge-depth (Tyson)** — new in Specimen 2/3; substrate distinction preserved (identity/role vs character-specific Knowledge); possible future operator experiment captured, not opened.
+- **Underdeveloped / abrupt scene ending near lower duration boundary** — new in Specimen 3/3; single specimen; narrowly recorded; not opened as an investigation.
+- **Visual-composition boundary** — carried forward from Q-278-3.2 Specimen 3/5.
+- **Cross-episode epistemic asymmetry (PATCH OVERRIDES)** — carried forward from Q-278-3.2 Specimen 4/5.
+
+None of these influence the Slice-3 decision.
+
+### Recommendation
+
+**GO-IMPLEMENT-SLICE-3.**
+
+Pre-established gate (Q-278-4.2 items a-c) is mechanically satisfied on 3/3 completed fresh specimens plus supporting evidence from the partial specimen. No dispatcher failures. No dual-write failures. No persistence ambiguity. No unexpected authority. No D-POS regressions. No behavioral effects on synthesis / rendering / continuity / billing. Q-278-1 general-class closure continues on fresh operator dogfood at a rate consistent with the Q-278-3.2 5/5 window.
+
+GO-IMPLEMENT-SLICE-3 authorizes ONLY opening the previously-designed dialogue-scene D-POS authority-flip slice (Q-278-4.3) — a one-line default change in `character_os/claim_verifier_dispatch.py` from `"legacy"` to `"d_pos"`. It does NOT authorize:
+
+- Script cutover.
+- ConversationMessage cutover.
+- Talking-head / long-form Composition cutover.
+- Strict-mode flip on any surface.
+- Stoplist deletion.
+- Legacy verifier removal.
+- Adjacent-surface migration.
+- Any of the deferred creative investigations (methodology / knowledge-depth / short-ending / visual / epistemic-asymmetry).
+
+**Load-bearing invariant preserved through this decision:** no verifier authority may silently broaden to a surface that has not received equivalent evidence and explicit approval. Slice-3 flips the DIALOGUE-scene default only — Script, ConversationMessage, and talking-head / long-form Composition remain legacy-authoritative because they have no shadow evidence. Adjacent-surface migration is a separately-scope-locked future slice (Q-278-4.x, still unopened) that requires per-surface shadow windows before any authority flip on that surface.
+
+### Explicit decision gate
+
+**STOP after Q-278-4.2.** Chris + ChatGPT must explicitly:
+
+- **Approve GO-IMPLEMENT-SLICE-3** → open Q-278-4.3 (one-line default flip in dispatcher; new regression test asserting default resolves to `d_pos`; existing 179-test gate must remain green; new fresh-dogfood window under authority=d_pos to confirm nothing operator-visible regresses).
+- **EXTEND-DUAL-WRITE-DOGFOOD** — accumulate more evidence before flip.
+- **MODIFY-DISPATCH** — revise dispatcher shape based on findings (nothing in this window motivates this; would need explicit reason).
+- **NO-GO** — freeze at Slice 2 as terminal state (dual-write substrate retained; authority stays legacy indefinitely).
+
+*Chris + ChatGPT decision:* **APPROVED — GO-IMPLEMENT-SLICE-3.** Open Q-278-4.3. Dialogue-scene only. No adjacent-surface, no strict-mode, no legacy removal, no stoplist deletion.
+
+---
+
+## Q-278-4.3 — Slice 3 implementation: dialogue default authority flip → `d_pos`
+
+### Precise question
+
+Flip the dispatcher's default dialogue-scene K6.4 authority from `"legacy"` to `"d_pos"`. Preserve the explicit override / rollback path (`CHARACTER_OS_K64_DIALOGUE_AUTHORITY=legacy` via env or settings still forces legacy). Preserve dual-write behavior (both classifiers persisted). Regression test proves the new default. Regression test proves explicit legacy override still works. Do not touch anything else.
+
+### Pre-change prediction
+
+- Change is one line: `_DEFAULT_AUTHORITY` in `character_os/claim_verifier_dispatch.py` from `"legacy"` to `"d_pos"`.
+- No other production file changes; no migration; no dependency change; no schema change; no dispatcher signature change.
+- Test updates: rename `test_resolve_default_authority_is_legacy` → `test_resolve_default_authority_is_d_pos_q278_4_3`; add explicit-legacy-rollback tests via env AND settings; flip expected value on the whitespace + invalid-value fallback tests; add parametrized Q-278-1 default-d_pos-authority tests; force-legacy explicitly where pre-flip tests relied on the old default.
+- 179-test gate must remain green (with rebalanced counts reflecting the new tests + the old ones that got renamed).
+- Adjacent 116-test suite must pass identically — several tests in `test_dialogue_synthesis.py` will need to force legacy env explicitly because they mock the legacy verifier and expect its output on `verification_warnings` (which now mirrors D-POS by default).
+
+### Exact implementation
+
+**File modified: `shell/character_os/claim_verifier_dispatch.py`.**
+
+- One line changed: `_DEFAULT_AUTHORITY: str = "legacy"` → `_DEFAULT_AUTHORITY: str = "d_pos"`.
+- Module-level docstring block added above the constant explaining the Q-278-4.3 flip: rationale (Q-278-4.2 dual-write dogfood window 4/4 rows confirmed), rollback path (env or settings), scope-lock preservation (dialogue-scene only per Q-278-4.2 boundary challenge Option A).
+
+**No other production file changes.** Dispatcher signature, `run_dialogue_verifier` behavior, defensive-fallback logic, strict-mode preservation, and dual-write persistence to `Composition.verification_warnings` / `verification_warnings_shadow` / `verification_warnings_legacy` are all unchanged.
+
+**Files modified for tests:**
+
+- `shell/apps/compositions/tests/test_claim_verifier_dispatch.py` — test suite updated to reflect the new default:
+  - Renamed `test_resolve_default_authority_is_legacy` → `test_resolve_default_authority_is_d_pos_q278_4_3`.
+  - New `test_resolve_explicit_legacy_env_rollback_q278_4_3` — env override forces legacy.
+  - New `test_resolve_explicit_legacy_settings_rollback_q278_4_3` — settings override forces legacy.
+  - New `test_resolve_explicit_env_d_pos_still_works` — explicit d_pos remains explicit.
+  - `test_resolve_settings_beats_env` — docstring updated to demonstrate rollback direction.
+  - Renamed `test_resolve_whitespace_only_env_is_unset` → `_reads_as_unset_q278_4_3` with expected value flipped.
+  - Renamed `test_resolve_invalid_env_falls_back_to_legacy` → `_falls_back_to_default_q278_4_3` with expected value flipped + docstring explaining the "safer default post-flip is the current authoritative classifier."
+  - Renamed dispatcher basics test `_default_legacy_authority` → `_default_d_pos_authority_q278_4_3` with rewritten assertions (authoritative == d_pos; legacy shadow still captures Fair).
+  - Renamed `test_dispatcher_flips_authority_to_d_pos_via_env` → `test_dispatcher_explicit_legacy_rollback_authority_q278_4_3` (semantics inverted).
+  - Added helper `_force_legacy_env(monkeypatch)` alongside existing `_clear_authority_env` (which now yields d_pos).
+  - `test_dispatcher_reraises_legacy_strict_error_under_legacy_authority` — now uses `_force_legacy_env` (was `_clear_authority_env`).
+  - Split `test_dispatcher_records_legacy_and_d_pos_delta_on_q278_1_class` into two parametrized tests: `_under_legacy_rollback` (forces legacy) and `_silent_under_default_d_pos_authority_q278_4_3` (uses `_clear_authority_env`).
+  - Renamed `test_flattener_dual_write_invariant_under_default_authority` → `_under_legacy_authority` with docstring explaining it drove Slice-3 acceptance + remains load-bearing for rollback verification.
+  - `test_flattener_dual_write_invariant_under_d_pos_authority` docstring updated to reflect this is now the default state.
+- `shell/apps/compositions/tests/test_dialogue_synthesis.py` — three failure sites fixed by forcing legacy authority explicitly in the `mock_patch.dict` env context. Rationale: these tests mock the legacy `run_verifier` and assert on `turn.verification_warnings` mirroring the fake legacy output; under the new default that column mirrors D-POS instead, breaking the assertion. Making the tests explicit about which authority they exercise preserves the pre-flip test intent without weakening coverage.
+  - `_synthesize_with_mock` helper — now sets `CHARACTER_OS_K64_DIALOGUE_AUTHORITY=legacy` in the mock env so all tests routing through it continue to see legacy authority (they were written against pre-flip semantics; the helper's docstring calls this out and points new Q-278-4.3 d_pos tests elsewhere).
+  - `test_warnings_retain_speaker_and_turn_context` + `test_strict_verifier_failure_raises` — both add the explicit `CHARACTER_OS_K64_DIALOGUE_AUTHORITY=legacy` env override in their `mock_patch.dict` block.
+
+### Test evidence
+
+**Full gate:**
+
+```
+pytest apps/compositions/tests/test_claim_verifier_dispatch.py \
+       apps/compositions/tests/test_claim_verifier_ner_shadow.py \
+       apps/compositions/tests/test_dialogue_synthesis.py \
+       apps/compositions/tests/test_claim_verifier.py \
+       apps/compositions/tests/test_stoplist_watchdog.py \
+       apps/compositions/tests/test_dialogue_ai_topic_wiring.py
+```
+
+**Result: 185 passed** (was 179 pre-Q-278-4.3; net +6 from the new default-is-d_pos + explicit-legacy-rollback + explicit-env-d_pos-still-works tests + new parametrized Q-278-1-under-default-d_pos-authority × 5 rows, minus the renames that replaced pre-existing tests).
+
+Regression suite breakdown:
+- Dispatcher: 27 tests pass (was 21). Adds authority resolver default flip (1) + explicit-legacy env rollback (1) + explicit-legacy settings rollback (1) + explicit-d_pos-still-works (1) + Q-278-1 class × 5 rows under default d_pos (5) + net rebalance from renames of prior default-legacy tests.
+- Q-278-4.1 D-POS regression: 38 pass (unchanged).
+- Adjacent 116-test gate: 116 pass (three tests updated with explicit-legacy env override to preserve pre-flip test intent).
+- **Zero regressions.**
+
+### Default behavior after change
+
+- `resolve_dialogue_authority()` returns `"d_pos"` when both settings and env are unset.
+- `run_dialogue_verifier(text, ...)` returns `DialogueVerifierResult` whose `authoritative` field mirrors `d_pos` (the D-POS classifier output).
+- `Composition.verification_warnings` on new dialogue-scene renders = D-POS output.
+- `Composition.verification_warnings_legacy` on new dialogue-scene renders = legacy K6.4 output (post-flip shadow substrate).
+- `Composition.verification_warnings_shadow` on new dialogue-scene renders = D-POS output (== `verification_warnings` under default; kept for symmetry).
+- SPA reads `verification_warnings` → operator sees the D-POS-classified warnings on the composition detail evidence panel.
+
+### Rollback behavior
+
+Preserved and verified by 3 new tests + kept legacy strict-mode raise test:
+
+- `export CHARACTER_OS_K64_DIALOGUE_AUTHORITY=legacy` (env) → `authoritative == legacy`; existing behavior restored for the next synthesis call.
+- `settings.CHARACTER_OS_K64_DIALOGUE_AUTHORITY = "legacy"` (Django settings) → same effect via a different precedence path (settings > env > default).
+- Env with either an unrecognized value or whitespace-only → falls back to the current default (d_pos). Setting to explicit `legacy` is the only rollback vector — a typo or invalid value does NOT accidentally trigger rollback; it stays on d_pos + logs WARNING.
+- Reverting this commit is the code-level rollback.
+- Rollback is fresh per synthesis call (no process-wide cache); a stack restart via `scripts/start-local-real.sh` is the operator-visible reload.
+
+### Blast-radius confirmation
+
+Reviewed against the Q-278-4.2 §"Blast radius" table:
+
+| dimension | change under Q-278-4.3 |
+|---|---|
+| Files touched (production) | 1 (`character_os/claim_verifier_dispatch.py`) |
+| Migrations | 0 |
+| Dependency changes | 0 |
+| Schema changes | 0 |
+| Dispatcher signature | unchanged |
+| Dispatcher behavior (dual-run / defensive fallback / strict handling / persistence) | unchanged |
+| Persistence columns | unchanged (all three still populated the same way) |
+| Adjacent surfaces (`script_synthesis.py`, `conversation_synthesis.py`, adjacent apps) | untouched — verified by the source-inspection scope-lock tests |
+| SPA | none — still reads `verification_warnings` |
+| K6_CLAIM_VERIFIER_MODE (warn/strict) | unchanged |
+| Stoplist | unchanged |
+| Legacy verifier | preserved (still authoritative under explicit legacy override) |
+| Externally-observable behavior under default | on dialogue-scene: `verification_warnings` now mirrors D-POS output (was legacy). SPA panel content differs by the Q-278-1 class silencing effect. All other surfaces byte-identical. |
+| Historical rows | unaffected (this is a runtime default; already-written rows are static data) |
+
+**The authority flip changes only which already-computed verifier result populates the authoritative dialogue warning surface.** Both classifiers still run per turn (Q-278-4.2 behavior); both outputs are still persisted. Only the mirror choice for `verification_warnings` changes.
+
+### Prediction vs actual
+
+- Predicted: one-line change + docstring update in dispatcher module. **Confirmed.**
+- Predicted: no adjacent-surface / dependency / migration / schema change. **Confirmed.**
+- Predicted: test rebalance for pre-flip default assumptions. **Confirmed** — three sites in `test_dialogue_synthesis.py` needed the explicit-legacy env override; the `_synthesize_with_mock` helper covers the broadest fan-out cleanly.
+- Predicted: 179-test gate remains green after rebalance. **Confirmed at 185** (net +6 from the new coverage).
+- **No discrepancies.**
+
+### Fresh dogfood acceptance gate
+
+Q-278-4.2 established the post-flip verification protocol; recovered verbatim here:
+
+> Post-Slice-3, fresh dialogue-scene dogfood evidence collected via `k64_shadow_diff` should show:
+> - `verification_warnings == verification_warnings_shadow` bit-for-bit on new dialogue-scene rows (both now mirror D-POS).
+> - `verification_warnings_legacy` populated with the pre-flip legacy output for shadow-diff comparison.
+> - No composition rendered under d_pos authority silences a real hallucination that legacy would have caught (LEGACY_ONLY warnings inspected; none classified as true positives lost).
+> - No composition rendered under d_pos authority surfaces a new false-positive class worse than the Q-278-1 noise D-POS closed (D_POS_ONLY warnings inspected).
+
+**Required window: the same 3 completed fresh dialogue-scene specimens the pre-flip Slice-2 acceptance gate used** — mirror the Q-278-4.2 dogfood shape post-flip so the two windows are directly comparable. Q-278-4 §8 acceptance criteria (A-F from Q-278-3.2) continue to apply; each is either already regression-tested or verified against fresh evidence.
+
+Chris + ChatGPT decide separately whether to (a) run the 3 fresh renders now under d_pos, or (b) monitor natural dogfood cadence until 3 dialogue-scene renders accumulate.
+
+Do NOT investigate deferred creative observations. Do NOT open adjacent-surface migration. Do NOT flip strict mode. Do NOT delete legacy or stoplist.
+
+### Explicit decision gate
+
+**STOP after Q-278-4.3.** Chris + ChatGPT must explicitly:
+
+- **Confirm the flip is stable** via the post-flip fresh-dogfood window described above, then decide separately about (a) opening Q-278-4.x for adjacent-surface migration, (b) strict-mode flip audit, or (c) legacy verifier retirement audit.
+- **Rollback** via `export CHARACTER_OS_K64_DIALOGUE_AUTHORITY=legacy` + `bash scripts/start-local-real.sh` if any post-flip evidence classifies a D-POS regression.
+- **Freeze** at post-Q-278-4.3 (dialogue on d_pos, adjacent surfaces on legacy) as a possible terminal state if the operator judges the current split acceptable indefinitely.
 
 ---

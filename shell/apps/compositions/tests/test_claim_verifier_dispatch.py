@@ -1,13 +1,15 @@
 """K6.4 dialogue-scene dispatcher regression tests.
 
-SESSION 278 Q-278-4.2 — Slice 2 of the Q-278-4 cutover plan. Locks
-the dispatcher's contract:
+SESSION 278 Q-278-4.2 — Slice 2 of the Q-278-4 cutover plan; updated
+in Q-278-4.3 (Slice 3) after the default authority flip from
+``"legacy"`` to ``"d_pos"``. Locks the dispatcher's contract:
 
 * both classifiers ALWAYS run per call;
-* authority defaults to ``"legacy"``; explicit ``"d_pos"`` flips the
-  authoritative choice;
+* authority defaults to ``"d_pos"`` (Q-278-4.3 flip); explicit
+  ``"legacy"`` forces rollback to the legacy classifier;
 * legacy ``ClaimVerifierError`` under strict mode re-raises when
-  legacy is authoritative;
+  legacy is authoritative (explicit rollback OR defensive-fallback
+  path); suppressed with WARNING when d_pos is authoritative;
 * defensive fallback (``d_pos`` requested but D-POS execution
   failed) substitutes legacy and logs at ERROR;
 * invalid flag values fall back to the default;
@@ -50,16 +52,52 @@ _VOCAB = ["Ruby", "Tyson", "Character OS"]
 # ---- resolve_dialogue_authority --------------------------------------
 
 
-def test_resolve_default_authority_is_legacy(monkeypatch: pytest.MonkeyPatch) -> None:
-    """No env, no settings override → legacy."""
+def test_resolve_default_authority_is_d_pos_q278_4_3(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Q-278-4.3 default flip: no env + no settings override → d_pos.
+    Slice-3 acceptance signal — this is the load-bearing assertion
+    that the dialogue-scene default is now the D-POS Hybrid
+    classifier rather than the legacy K6.4 verifier."""
     monkeypatch.delenv("CHARACTER_OS_K64_DIALOGUE_AUTHORITY", raising=False)
+    with patch("character_os.claim_verifier_dispatch.settings") as fake_settings:
+        fake_settings.CHARACTER_OS_K64_DIALOGUE_AUTHORITY = None
+        assert resolve_dialogue_authority() == "d_pos"
+
+
+def test_resolve_explicit_legacy_env_rollback_q278_4_3(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Q-278-4.3 rollback path: explicit ``legacy`` env override
+    forces legacy authority even after the default flip. This is
+    the primary operator rollback mechanism.
+    Preserves the Q-278-4 §6 invariant that rollback is a single
+    env-var flip, no code revert required."""
+    monkeypatch.setenv("CHARACTER_OS_K64_DIALOGUE_AUTHORITY", "legacy")
     with patch("character_os.claim_verifier_dispatch.settings") as fake_settings:
         fake_settings.CHARACTER_OS_K64_DIALOGUE_AUTHORITY = None
         assert resolve_dialogue_authority() == "legacy"
 
 
-def test_resolve_env_can_flip_to_d_pos(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Env-var override lifts default to d_pos."""
+def test_resolve_explicit_legacy_settings_rollback_q278_4_3(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Django settings override also forces legacy — same rollback
+    mechanism via a different precedence path (settings > env >
+    default). Locks that either configuration route can restore
+    legacy authority."""
+    monkeypatch.delenv("CHARACTER_OS_K64_DIALOGUE_AUTHORITY", raising=False)
+    with patch("character_os.claim_verifier_dispatch.settings") as fake_settings:
+        fake_settings.CHARACTER_OS_K64_DIALOGUE_AUTHORITY = "legacy"
+        assert resolve_dialogue_authority() == "legacy"
+
+
+def test_resolve_explicit_env_d_pos_still_works(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Explicit ``d_pos`` env still resolves to d_pos even after the
+    default flip. The resolver treats explicit values identically
+    regardless of whether they match the default."""
     monkeypatch.setenv("CHARACTER_OS_K64_DIALOGUE_AUTHORITY", "d_pos")
     with patch("character_os.claim_verifier_dispatch.settings") as fake_settings:
         fake_settings.CHARACTER_OS_K64_DIALOGUE_AUTHORITY = None
@@ -67,71 +105,66 @@ def test_resolve_env_can_flip_to_d_pos(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_resolve_settings_beats_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Precedence: settings > env."""
+    """Precedence: settings > env. Now demonstrated in the rollback
+    direction: env=d_pos + settings=legacy → legacy (rollback via
+    settings wins over an env-var claim of d_pos)."""
     monkeypatch.setenv("CHARACTER_OS_K64_DIALOGUE_AUTHORITY", "d_pos")
     with patch("character_os.claim_verifier_dispatch.settings") as fake_settings:
         fake_settings.CHARACTER_OS_K64_DIALOGUE_AUTHORITY = "legacy"
         assert resolve_dialogue_authority() == "legacy"
 
 
-def test_resolve_whitespace_only_env_is_unset(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Whitespace-only env-var reads as unset → default."""
+def test_resolve_whitespace_only_env_reads_as_unset_q278_4_3(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Whitespace-only env-var reads as unset → default (now d_pos
+    post Q-278-4.3)."""
     monkeypatch.setenv("CHARACTER_OS_K64_DIALOGUE_AUTHORITY", "   ")
     with patch("character_os.claim_verifier_dispatch.settings") as fake_settings:
         fake_settings.CHARACTER_OS_K64_DIALOGUE_AUTHORITY = None
-        assert resolve_dialogue_authority() == "legacy"
+        assert resolve_dialogue_authority() == "d_pos"
 
 
 @pytest.mark.parametrize("invalid", ["yes", "on", "true", "d-pos", "random"])
-def test_resolve_invalid_env_falls_back_to_legacy(
+def test_resolve_invalid_env_falls_back_to_default_q278_4_3(
     invalid: str, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Any unrecognized value falls back to default legacy + WARNING."""
+    """Any unrecognized value falls back to default (d_pos after
+    Q-278-4.3) + WARNING. Prevents an operator typo or misconfiguration
+    from silently rolling back to legacy — the safer default post-flip
+    is the current authoritative classifier, and the WARNING makes the
+    invalid value visible in logs."""
     monkeypatch.setenv("CHARACTER_OS_K64_DIALOGUE_AUTHORITY", invalid)
     with patch("character_os.claim_verifier_dispatch.settings") as fake_settings:
         fake_settings.CHARACTER_OS_K64_DIALOGUE_AUTHORITY = None
-        assert resolve_dialogue_authority() == "legacy"
+        assert resolve_dialogue_authority() == "d_pos"
 
 
 # ---- run_dialogue_verifier basics ------------------------------------
 
 
 def _clear_authority_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Reset to defaults so a test starts from a known state."""
+    """Reset to the Slice-3 default (``d_pos``) so a test starts from
+    a known state. Post Q-278-4.3 the resolver returns ``d_pos`` when
+    both env and settings are unset."""
     monkeypatch.delenv("CHARACTER_OS_K64_DIALOGUE_AUTHORITY", raising=False)
 
 
-def test_dispatcher_runs_both_classifiers_default_legacy_authority(
+def _force_legacy_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Explicitly force legacy authority via env override. Used by
+    tests that need to exercise the pre-flip / rollback code path."""
+    monkeypatch.setenv("CHARACTER_OS_K64_DIALOGUE_AUTHORITY", "legacy")
+
+
+def test_dispatcher_runs_both_classifiers_default_d_pos_authority_q278_4_3(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Under default (``legacy``) authority, dispatcher runs both
-    classifiers and returns a result whose ``authoritative`` field
-    equals its ``legacy`` field."""
+    """Post Q-278-4.3: under the DEFAULT authority (d_pos) the
+    dispatcher runs both classifiers, produces D-POS output as
+    authoritative, and silences the Q-278-1 class on the operator-
+    facing column while still capturing the legacy warning on
+    ``result.legacy`` for shadow observability."""
     _clear_authority_env(monkeypatch)
-    # `Fair enough.` — Q-278-1 class: legacy flags, D-POS silences.
-    result = run_dialogue_verifier(
-        "Fair enough.",
-        factual_corpus=_CORPUS,
-        allowed_vocabulary=_VOCAB,
-    )
-    assert result.authority_requested == "legacy"
-    assert result.authority_used == "legacy"
-    assert result.d_pos_ok is True
-    # Legacy would flag `Fair`; D-POS silences it (Q-278-1 class).
-    legacy_claims = {w.claim for w in result.legacy}
-    d_pos_claims = {w.claim for w in result.d_pos}
-    assert "Fair" in legacy_claims
-    assert "Fair" not in d_pos_claims
-    # Under legacy authority, authoritative == legacy.
-    assert result.authoritative == result.legacy
-
-
-def test_dispatcher_flips_authority_to_d_pos_via_env(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Under ``d_pos`` authority, dispatcher returns D-POS output as
-    authoritative (Q-278-1 class silenced end-to-end)."""
-    monkeypatch.setenv("CHARACTER_OS_K64_DIALOGUE_AUTHORITY", "d_pos")
     result = run_dialogue_verifier(
         "Fair enough.",
         factual_corpus=_CORPUS,
@@ -140,12 +173,39 @@ def test_dispatcher_flips_authority_to_d_pos_via_env(
     assert result.authority_requested == "d_pos"
     assert result.authority_used == "d_pos"
     assert result.d_pos_ok is True
-    # Under d_pos authority, authoritative == d_pos.
+    # Under d_pos authority, authoritative mirrors D-POS.
     assert result.authoritative == result.d_pos
-    # And the `Fair` false positive is gone from the operator-facing
+    # Legacy shadow still captures the Q-278-1 flag for post-flip evidence.
+    legacy_claims = {w.claim for w in result.legacy}
+    d_pos_claims = {w.claim for w in result.d_pos}
+    assert "Fair" in legacy_claims
+    assert "Fair" not in d_pos_claims
+    # And the Q-278-1 false positive is gone from the operator-facing
     # column since d_pos is authoritative.
     auth_claims = {w.claim for w in result.authoritative}
     assert "Fair" not in auth_claims
+
+
+def test_dispatcher_explicit_legacy_rollback_authority_q278_4_3(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Explicit ``legacy`` env override forces the rollback path
+    post Q-278-4.3. Under legacy authority the dispatcher's
+    ``authoritative`` mirrors ``legacy``, restoring the pre-flip
+    behavior for the affected synthesis call."""
+    _force_legacy_env(monkeypatch)
+    result = run_dialogue_verifier(
+        "Fair enough.",
+        factual_corpus=_CORPUS,
+        allowed_vocabulary=_VOCAB,
+    )
+    assert result.authority_requested == "legacy"
+    assert result.authority_used == "legacy"
+    # Under explicit legacy rollback, authoritative == legacy.
+    assert result.authoritative == result.legacy
+    # Legacy still flags Fair; D-POS shadow still silences it.
+    auth_claims = {w.claim for w in result.authoritative}
+    assert "Fair" in auth_claims
 
 
 def test_dispatcher_preserves_real_unsupported_entity_under_both_authorities(
@@ -172,10 +232,13 @@ def test_dispatcher_preserves_real_unsupported_entity_under_both_authorities(
 def test_dispatcher_reraises_legacy_strict_error_under_legacy_authority(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Strict-mode legacy raise MUST re-fire so the existing
-    dialogue_synthesis.py per-turn strict handler runs. Verified with
-    an intentionally unsupported entity + explicit strict mode."""
-    _clear_authority_env(monkeypatch)
+    """Strict-mode legacy raise MUST re-fire when legacy is the
+    authoritative classifier so the existing
+    ``dialogue_synthesis.py`` per-turn strict handler runs. Post
+    Q-278-4.3 legacy authority requires an explicit env override —
+    the default is now d_pos, under which the raise is suppressed
+    (see the companion test below)."""
+    _force_legacy_env(monkeypatch)
     with pytest.raises(ClaimVerifierError):
         run_dialogue_verifier(
             "Antoninus reigned peacefully.",
@@ -260,37 +323,50 @@ def test_dispatcher_falls_back_to_legacy_when_d_pos_fails(
     "Please sit down.",
     "Always check first.",
 ])
-def test_dispatcher_records_legacy_and_d_pos_delta_on_q278_1_class(
+def test_dispatcher_records_q278_1_class_delta_under_legacy_rollback(
     text: str, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """For every Q-278-1 sentence-initial ordinary-language token
-    legacy flags but D-POS silences, the dispatcher produces the
-    OLD_ONLY diff shape: legacy non-empty, d_pos empty, authoritative
-    (== legacy under default authority) non-empty."""
-    _clear_authority_env(monkeypatch)
+    """Under explicit legacy rollback authority, for every Q-278-1
+    sentence-initial ordinary-language token: legacy non-empty
+    (flagged), d_pos empty (silenced), authoritative mirrors legacy.
+    This is the LEGACY_ONLY diff shape the shadow-window relied on;
+    it must still be reproducible on-demand after Q-278-4.3 for
+    rollback-shape verification + `k64_shadow_diff` semantics."""
+    _force_legacy_env(monkeypatch)
     result = run_dialogue_verifier(
         text, factual_corpus=_CORPUS, allowed_vocabulary=_VOCAB,
     )
     assert result.legacy, f"expected legacy warnings on {text!r}"
     assert result.d_pos == [], f"expected no d_pos warnings on {text!r}"
-    # Under default legacy authority, authoritative should equal legacy.
+    # Under explicit legacy rollback, authoritative should equal legacy.
     assert result.authoritative == result.legacy
 
 
-def test_dispatcher_flag_flip_makes_q278_1_class_silent_end_to_end(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize("text", [
+    "Fair enough.",
+    "Come inside.",
+    "Unless you disagree.",
+    "Please sit down.",
+    "Always check first.",
+])
+def test_dispatcher_q278_1_class_silent_under_default_d_pos_authority_q278_4_3(
+    text: str, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Under authority=d_pos, the Q-278-1 sentence-initial class is
-    silent on ``result.authoritative`` while ``result.legacy`` still
-    captures the pre-cutover legacy warning for shadow evidence."""
-    monkeypatch.setenv("CHARACTER_OS_K64_DIALOGUE_AUTHORITY", "d_pos")
+    """Post Q-278-4.3: under the DEFAULT d_pos authority, the Q-278-1
+    sentence-initial class is silent on ``result.authoritative`` while
+    ``result.legacy`` still captures the (now non-authoritative) legacy
+    warning for post-flip shadow-diff evidence. Load-bearing acceptance
+    signal for the Slice-3 default flip."""
+    _clear_authority_env(monkeypatch)
     result = run_dialogue_verifier(
-        "Fair enough.", factual_corpus=_CORPUS, allowed_vocabulary=_VOCAB,
+        text, factual_corpus=_CORPUS, allowed_vocabulary=_VOCAB,
     )
-    # authoritative = D-POS = empty
+    # authoritative = D-POS output — Q-278-1 class silenced.
+    assert result.authoritative == result.d_pos
     assert result.authoritative == []
-    # legacy shadow still captures Fair for post-cutover diff evidence
-    assert any(w.claim == "Fair" for w in result.legacy)
+    # legacy shadow still captures the false positive for post-flip
+    # diff evidence (Slice-3 evidence trail preservation).
+    assert result.legacy, f"expected legacy shadow warnings on {text!r}"
 
 
 # ---- Dialogue-scene scope-lock guard --------------------------------
@@ -329,24 +405,27 @@ def test_conversation_synthesis_does_not_import_dispatcher() -> None:
 # ---- Dual-write invariant (starters.py flattener parity) -------------
 
 
-def test_flattener_dual_write_invariant_under_default_authority() -> None:
-    """Load-bearing invariant for Slice-3 acceptance:
-    under default (``legacy``) authority, the persisted
+def test_flattener_dual_write_invariant_under_legacy_authority() -> None:
+    """Load-bearing invariant that pinned the Q-278-4.2 Slice-3
+    acceptance gate:
+    under LEGACY authority (default pre-Q-278-4.3; still reachable
+    post-flip via explicit rollback), the persisted
     ``verification_warnings`` and ``verification_warnings_legacy``
     columns MUST equal each other on every dialogue-scene row.
 
     Proven at the flattener level: since
     ``turn.verification_warnings`` and
     ``turn.verification_warnings_legacy`` are both mirrors of the
-    dispatcher's legacy output under default authority, and the two
+    dispatcher's legacy output under legacy authority, and the two
     flatteners
     (:func:`apps.compositions.starters._dialogue_ai_flattened_warnings` and
     :func:`apps.compositions.starters._dialogue_ai_flattened_legacy_warnings`)
     apply identical speaker/line enrichment, the persisted columns
     must be structurally equal.
 
-    This is the acceptance signal Chris's post-implementation
-    dogfood will verify on fresh renders.
+    This assertion drove Slice-3 acceptance on the 3/3 dual-write
+    dogfood window; post-flip it remains a load-bearing rollback
+    invariant.
     """
     from apps.compositions.starters import (
         _dialogue_ai_flattened_warnings,
@@ -354,8 +433,8 @@ def test_flattener_dual_write_invariant_under_default_authority() -> None:
     )
     from types import SimpleNamespace
 
-    # Simulate the exact shape ``dialogue_synthesis.py`` produces:
-    # under default legacy authority, ``verification_warnings`` and
+    # Simulate the exact shape ``dialogue_synthesis.py`` produces
+    # under legacy authority: ``verification_warnings`` and
     # ``verification_warnings_legacy`` are identical per-turn lists.
     warn = {"kind": "proper_noun", "claim": "Fair", "position": 0}
     turn = SimpleNamespace(
@@ -378,13 +457,13 @@ def test_flattener_dual_write_invariant_under_default_authority() -> None:
 
 
 def test_flattener_dual_write_invariant_under_d_pos_authority() -> None:
-    """Post-cutover invariant (still gated behind Slice-3 approval):
+    """Post-Q-278-4.3 invariant (default authority state):
     under ``d_pos`` authority the ``verification_warnings`` column
     equals the ``verification_warnings_shadow`` column (both mirror
     D-POS output), while ``verification_warnings_legacy`` may carry a
-    DIFFERENT list — the post-cutover legacy shadow.
+    DIFFERENT list — the post-flip legacy shadow.
 
-    This test locks the SHAPE of the invariant for the future flip.
+    This test locks the SHAPE of the current default post Q-278-4.3.
     """
     from apps.compositions.starters import (
         _dialogue_ai_flattened_warnings,
