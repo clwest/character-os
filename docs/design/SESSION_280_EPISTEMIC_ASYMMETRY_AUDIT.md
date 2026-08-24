@@ -4982,7 +4982,7 @@ of §56-§65.
   - Episode-chain suggestion product-discovery: `1d96965`.
   - Q280.5-1 execution: `7f83b23`.
   - Q280.5-1 SHA trailer: `cfe287a`.
-  - v1 UX design slice: `[recorded on commit]`.
+  - v1 UX design slice: `a3d294d`.
 - **Key design decisions:**
   1. Primary v1 placement: **Universe Episodes list page**
      (`/workspace/universes/:id/episodes`) above the existing
