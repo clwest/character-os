@@ -6048,7 +6048,7 @@ promotion UX. Do not run any expansion of the v1 surface.
   - Design SHA trailer: `b19d030`.
   - v1 implementation slice: `25b3168`.
   - Implementation SHA trailer: `d7931b1`.
-  - Q280.6 loop-trace audit slice: `[recorded on commit]`.
+  - Q280.6 loop-trace audit slice: `b2f1789`.
 - **Key finding:** the suggestion → Episode → synthesis →
   completion → refreshed-suggestion loop transports **only the
   operator-authored (or pre-filled-from-suggestion) Episode
