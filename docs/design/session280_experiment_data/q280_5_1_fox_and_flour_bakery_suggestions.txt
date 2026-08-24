@@ -1,0 +1,19 @@
+# Q280.5-1 suggestions for Fox & Flour Bakery (n=3)
+# universe_id: 1a0af807-dd6a-47cd-bfaa-3d088f1c105f
+# model: gpt-5.6-terra
+
+--- SET 1 (tokens in=596 out=70 elapsed=4.27s) ---
+1. Ruby and Tyson investigate whether the strange freezer discovery is connected to Tyson’s supposed bakery haunting.
+2. The baking competition arrives early, forcing Tyson and Ruby to improvise a signature dessert under pressure.
+3. A local customer asks Fox & Flour to recreate a beloved family pastry from a handwritten, incomplete recipe.
+
+--- SET 2 (tokens in=596 out=78 elapsed=4.37s) ---
+1. Ruby and Tyson investigate whether the strange freezer discovery is connected to Tyson’s supposed bakery haunting.
+2. The mascot idea gets unexpectedly serious when a local artist arrives with a mysterious fox-themed design.
+3. A sudden rainstorm traps a handful of neighbors in Fox & Flour during the evening bake, turning the bakery into an impromptu gathering place.
+
+--- SET 3 (tokens in=596 out=70 elapsed=3.1s) ---
+1. Ruby and Tyson investigate whether the strange freezer discovery is connected to Tyson’s suspected bakery haunting.
+2. The baking competition’s organizers arrive early, forcing Tyson and Ruby to improvise a signature pastry under pressure.
+3. Ruby unveils a homemade fox mascot costume just as the neighborhood’s busiest weekend rush begins.
+

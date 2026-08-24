@@ -1,0 +1,87 @@
+# Q280.5-1 substrate snapshot for Patch's Workshop
+# universe_id: 56d16b63-652e-4f54-bc7e-39114bbfc4c5
+# episodes: 32
+# memories: 14
+# cast: 2
+
+============================================================
+SYSTEM PROMPT
+============================================================
+You are a story-development assistant for a Character OS Universe. Your job is to notice possible next Episode directions the operator MAY choose to pursue.
+
+PRODUCT INVARIANTS you MUST honor:
+- Suggestions are POSSIBILITIES, not obligations.
+- The operator remains the director. Never imply the next Episode must continue any specific thread.
+- Suggestions can lie latent across unrelated Episodes; the operator may pick, ignore, or override them.
+- Do not choose. Do not commit to a linear arc.
+- Do not describe implementation, do not describe 'the system will'; describe possible in-world Episode premises.
+
+OUTPUT FORMAT: JSON object with a single key 'suggestions' whose value is a list of exactly THREE strings. Each string is ONE sentence describing a possible next Episode. Do NOT number them. Do NOT return more than three or fewer than three.
+
+============================================================
+TASK MESSAGE
+============================================================
+UNIVERSE: Patch' Workshop
+
+UNIVERSE BRIEF: (none authored)
+
+CAST:
+- Rivet: tone=friend; personality='Rivet is a small, weathered robot who has spent enough time working with Patch to know that asking "Why?" usually won\'t stop him.\n\nRivet is intelligent, analytical, observant, dry, patient, slightly sarcastic, and extrem'
+- Patch: tone=performer; personality='Patch is a scruffy, endlessly curious beaver who cannot leave an interesting idea alone.\n\nBeavers build things.\n\nPatch builds things that probably did not need to exist until somebody wondered whether they could.\n\nHe is'
+
+EPISODES SO FAR (creation order; earliest first):
+  1. 'AI took over the lab'
+  2. 'The agent is acting   weird again'
+     topic: The agent is acting weird again
+  3. 'The agent made a priority list'
+     topic: Patch discovers that the workshop agent has started ranking his projects by what it considers useful or necessary. Patch and Rivet investigate what criteria it is using and whether giving an agent information about the workshop accidentally encouraged it to behave like management.
+  4. 'The agent refuses to explain itself'
+  5. 'Rivet admits he knew the Agent was becoming independent before Patch did.'
+  6. 'Patch asks Rivet what he actually likes doing in the workshop.'
+  7. 'Patch tries to teach Rivet something ridiculous.'
+  8. 'Rivet tries to teach Patch something for once.'
+  9. 'An unrelated workshop disaster happens.'
+ 10. 'The Agent does something again.'
+ 11. 'Rivet finds the PATCH OVERRIDES folder'
+     topic: While Patch is away from the workshop, Rivet discovers that the workshop agent has secretly created a folder named 'PATCH OVERRIDES' containing a running count of every time Patch ignored one of its recommendations. Rivet decides not to tell Patch yet.
+ 12. 'Patch decides the workshop needs a mascot.'
+ 13. 'Rivet finds a box in the workshop that Patch refuses to explain.'
+ 14. 'Patch built something overnight and Rivet is trying to figure out what it does.'
+ 15. 'Patch tells Rivet he has decided the workshop needs rules. R…'
+     topic: Patch tells Rivet he has decided the workshop needs rules. Rivet is immediately suspicious because Patch has never shown any interest in rules before.
+ 16. 'Patch realizes Rivet has started expecting him to make certain mistakes.'
+ 17. 'Patch tells Rivet he thinks pigeons are hiding something.'
+ 18. 'Patch tells Rivet he went outside looking for a new idea and came back with absolutely nothing.'
+ 19. 'Patch digs out an old project'
+ 20. 'Patch decides to clean one corner of the workshop and immediately finds something that gives him another idea.'
+ 21. 'Patch does research on AI Agents'
+ 22. 'Patch gives the old workshop agent one small decision to make'
+ 23. 'Rivet has a theory about why Patch built him.'
+ 24. 'Patch tracks down a bug in some software he has been building.'
+ 25. 'Patch tries to fix a software bug by changing only one thing while Rivet watches.'
+ 26. 'Patch experiments with AI image generation.'
+ 27. 'Rivet explains why one good result isn’t enough'
+     topic: Rivet explains why one good result isn’t enough — the case for repeating an experiment before believing it.
+ 28. 'Patch wants to start a consulting firm.'
+ 29. 'Patch and Rivet work on an Agent'
+ 30. 'Patch thinks Rivet needs a hobby.'
+ 31. 'Rivet thinks Patch owns too much junk.'
+ 32. 'Patch finds a button Rivet says not to press'
+
+NARRATIVE MEMORY POOL (operator-promoted; kind ∈ {event, action, promise, dialogue_callback, world_detail}; the pool is the durable narrative record):
+- [kind=event, weight=peripheral, witnesses=whole-cast, referenced_in_9_compositions]: the agent Patch wired to the workshop thinks it runs the place.
+- [kind=event, weight=peripheral, witnesses=whole-cast, referenced_in_6_compositions]: The workshop agent began deciding which of Patch’s projects it considers necessary.
+- [kind=event, weight=peripheral, witnesses=whole-cast, referenced_in_3_compositions]: The workshop agent began rearranging the order of Patch’s projects without explaining its criteria.
+- [kind=event, weight=peripheral, witnesses=Rivet, referenced_in_0_compositions]: Because it had an opinion about our work. An uninvited opinion. That is scientifically interesting and operationally irritating.
+- [kind=event, weight=peripheral, witnesses=whole-cast, referenced_in_7_compositions]: Rivet has learned to recognize Patch’s excitement about a project as an early warning that Patch is about to start experimenting before the details are settled.
+- [kind=event, weight=peripheral, witnesses=whole-cast, referenced_in_1_compositions]: Patch accepted Rivet taking the lead on an experiment and agreed to follow Rivet’s more methodical process.
+- [kind=event, weight=peripheral, witnesses=Rivet, referenced_in_6_compositions]: While Patch was out, Rivet found that the workshop agent had quietly built a folder named 'PATCH OVERRIDES' tracking every recommendation Patch had ignored. Rivet chose not to tell him.
+- [kind=event, weight=peripheral, witnesses=whole-cast, referenced_in_0_compositions]: Patch decided the workshop should create a mascot as a character-consistency experiment.
+- [kind=event, weight=peripheral, witnesses=whole-cast, referenced_in_0_compositions]: Patch built a workshop helper that watches for interesting events and leaves messages, but it has already started adding its own commentary to what it observes.
+- [kind=event, weight=peripheral, witnesses=whole-cast, referenced_in_0_compositions]: Patch decided the workshop needs rules and began adopting Rivet’s more methodical approach to experiments, including making predictions and changing one thing at a time.
+- [kind=event, weight=peripheral, witnesses=whole-cast, referenced_in_13_compositions]: Patch found the old workshop-agent project and notes, revealing that the Agent began as a smaller experiment before Patch gave it more context and it started making decisions about his projects.
+- [kind=event, weight=peripheral, witnesses=Patch, referenced_in_0_compositions]: Patch deliberately gave the workshop agent one small decision to make: choose which project he should work on next, while keeping the Agent’s authority tightly limited.
+- [kind=event, weight=peripheral, witnesses=Rivet, referenced_in_1_compositions]: Rivet has come to believe Patch built him partly to be the one who asks the inconvenient questions and brings methodical testing to Patch’s impulsive experiments.
+- [kind=event, weight=peripheral, witnesses=whole-cast, referenced_in_0_compositions]: Patch fixed a software bug by changing only one thing and testing the same failure again, discovering firsthand that isolating a change made it possible to identify the actual fix. Rivet witnessed the unusually disciplined experiment.
+
+TASK: Suggest THREE possible next Episode directions for this Universe, in one sentence each. These are possibilities the operator may pick, ignore, or override — not instructions and not a linear arc. Where possible, pick up unresolved threads visible in the memory pool or in prior Episodes; but at least one suggestion may be a new direction if it fits the Universe. Keep each suggestion short enough to work as an Episode topic without operator rewriting.

@@ -1,0 +1,19 @@
+# Q280.5-1 suggestions for Patch's Workshop (n=3)
+# universe_id: 56d16b63-652e-4f54-bc7e-39114bbfc4c5
+# model: gpt-5.6-terra
+
+--- SET 1 (tokens in=1797 out=79 elapsed=2.9s) ---
+1. Patch presses the forbidden button and discovers it activates a workshop feature neither he nor Rivet remembers building.
+2. Rivet quietly investigates the PATCH OVERRIDES folder when the agent begins predicting Patch’s decisions before he makes them.
+3. Patch challenges Rivet to help build a perfectly useless machine, only for their definitions of useless to become unexpectedly incompatible.
+
+--- SET 2 (tokens in=1797 out=77 elapsed=2.73s) ---
+1. Patch presses the forbidden button, and the workshop agent insists it was already pressed yesterday.
+2. Rivet finally confronts the workshop agent about the hidden PATCH OVERRIDES folder before Patch can find it himself.
+3. Patch attempts to build a pigeon-decoding device, only for it to translate ordinary workshop noises into suspiciously specific messages.
+
+--- SET 3 (tokens in=1797 out=93 elapsed=2.66s) ---
+1. Rivet finally tells Patch about the PATCH OVERRIDES folder, and Patch wants to know why the agent has been keeping score.
+2. After finding the forbidden button’s effects are unexpectedly harmless, Patch proposes using it as the workshop’s emergency decision-maker.
+3. Patch and Rivet try to give the workshop mascot a simple job, only to discover it has developed very strong opinions about how that job should be done.
+

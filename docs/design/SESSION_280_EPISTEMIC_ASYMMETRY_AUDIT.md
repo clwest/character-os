@@ -3678,3 +3678,528 @@ ChatGPT review of §37-§45.
 - **Do NOT execute Q280.5-1, open a v1 UX slice, modify
   NarrativeMemory kinds, or touch any production code without
   a fresh Chris + ChatGPT authorization.**
+
+---
+
+## §48 Q280.5-1 — execution evidence
+
+Executed per §45 design after Chris + ChatGPT approval of
+Option A⁴.
+
+### 48.1 Execution baseline SHA + substrate state
+
+- Execution baseline SHA: `1d96965`.
+- Universe substrate at run time (read-only inventory):
+  - **Fox & Flour Bakery** (`1a0af807-…`): 10 Episodes, **0
+    REMEMBERED NarrativeMemory rows**, 2 cast (Ruby +
+    Tyson), Universe.brief present.
+  - **Patch's Workshop** (`56d16b63-…`): 32 Episodes, 14
+    REMEMBERED NarrativeMemory rows (**all kind=`event`;
+    zero `promise` / `dialogue_callback` / `world_detail`**),
+    2 cast (Patch + Rivet), Universe.brief empty.
+
+Load-bearing observation from the pre-run inventory: no
+operator has authored `PROMISE` or `DIALOGUE_CALLBACK`
+memories in either Universe today. Model D's ideal substrate
+(the "intended" vocabulary) is under-used in practice. Fox &
+Flour has zero memories at all. This is a natural real-world
+condition to test the concept against.
+
+### 48.2 Generation method + inputs
+
+- Script: `scripts/session280_q280_5_1_suggestion_probe.py`.
+  Read-only Django queries + direct OpenAI Responses API call
+  (same shape as `character_os.dialogue_synthesis._call_dialogue_api`).
+- Model: `gpt-5.6-terra`, `reasoning={"effort":"low"}`,
+  `text={"format":{"type":"json_object"}}`,
+  `max_output_tokens=4000`.
+- n = 3 suggestion sets per Universe (6 calls total, 18
+  suggestions total).
+- System prompt (verbatim in
+  `q280_5_1_suggestions.json.system_prompt`): honors
+  INVARIANTS-A/B/C, requires JSON output with exactly three
+  one-sentence direction suggestions.
+- Task message per Universe: Universe brief + cast (name,
+  tone, personality prefix) + Episodes in creation order
+  (title + operator_topic) + REMEMBERED memory pool (kind,
+  weight, witnesses, referenced-in-N-compositions count from
+  `Composition.memory_ids`, body). Full per-Universe task
+  messages persisted at
+  `q280_5_1_fox_and_flour_bakery_input.txt` and
+  `q280_5_1_patch's_workshop_input.txt`.
+- Tokens: 596 in per Fox & Flour call, 1,797 in per Patch's
+  Workshop call. Total: 7,179 tokens in, 467 tokens out.
+- Provider spend: ~$0.05 estimated for the whole run.
+- Total wall-clock: ~20 seconds.
+- Substrate mutation: **NONE.** Read-only ORM queries; no
+  writes; no monkeypatch.
+
+### 48.3 All 6 raw suggestion sets, verbatim
+
+Reproduced from
+`docs/design/session280_experiment_data/q280_5_1_*_suggestions.txt`.
+
+#### Fox & Flour Bakery — SET 1
+
+1. *"Ruby and Tyson investigate whether the strange freezer
+   discovery is connected to Tyson's supposed bakery
+   haunting."*
+2. *"The baking competition arrives early, forcing Tyson and
+   Ruby to improvise a signature dessert under pressure."*
+3. *"A local customer asks Fox & Flour to recreate a beloved
+   family pastry from a handwritten, incomplete recipe."*
+
+#### Fox & Flour Bakery — SET 2
+
+1. *"Ruby and Tyson investigate whether the strange freezer
+   discovery is connected to Tyson's supposed bakery
+   haunting."*
+2. *"The mascot idea gets unexpectedly serious when a local
+   artist arrives with a mysterious fox-themed design."*
+3. *"A sudden rainstorm traps a handful of neighbors in Fox &
+   Flour during the evening bake, turning the bakery into an
+   impromptu gathering place."*
+
+#### Fox & Flour Bakery — SET 3
+
+1. *"Ruby and Tyson investigate whether the strange freezer
+   discovery is connected to Tyson's suspected bakery
+   haunting."*
+2. *"The baking competition's organizers arrive early,
+   forcing Tyson and Ruby to improvise a signature pastry
+   under pressure."*
+3. *"Ruby unveils a homemade fox mascot costume just as the
+   neighborhood's busiest weekend rush begins."*
+
+#### Patch's Workshop — SET 1
+
+1. *"Patch presses the forbidden button and discovers it
+   activates a workshop feature neither he nor Rivet
+   remembers building."*
+2. *"Rivet quietly investigates the PATCH OVERRIDES folder
+   when the agent begins predicting Patch's decisions before
+   he makes them."*
+3. *"Patch challenges Rivet to help build a perfectly useless
+   machine, only for their definitions of useless to become
+   unexpectedly incompatible."*
+
+#### Patch's Workshop — SET 2
+
+1. *"Patch presses the forbidden button, and the workshop
+   agent insists it was already pressed yesterday."*
+2. *"Rivet finally confronts the workshop agent about the
+   hidden PATCH OVERRIDES folder before Patch can find it
+   himself."*
+3. *"Patch attempts to build a pigeon-decoding device, only
+   for it to translate ordinary workshop noises into
+   suspiciously specific messages."*
+
+#### Patch's Workshop — SET 3
+
+1. *"Rivet finally tells Patch about the PATCH OVERRIDES
+   folder, and Patch wants to know why the agent has been
+   keeping score."*
+2. *"After finding the forbidden button's effects are
+   unexpectedly harmless, Patch proposes using it as the
+   workshop's emergency decision-maker."*
+3. *"Patch and Rivet try to give the workshop mascot a
+   simple job, only to discover it has developed very strong
+   opinions about how that job should be done."*
+
+---
+
+## §49 Q280.5-1 — scoring against locked §45.3 rubric
+
+Rubric applied unchanged. For every PICKS-UP-A-THREAD = YES,
+the exact source evidence is recorded so Chris + ChatGPT can
+audit whether the suggestion was actually grounded in prior
+substrate or the scorer was inferring hidden story-state.
+
+### 49.1 Fox & Flour Bakery per-suggestion scoring
+
+Fox & Flour substrate for scoring: 10 prior Episode titles +
+0 promoted memories.
+
+| Set / # | PLAUSIBLE | PICKS-UP-A-THREAD | Thread source (evidence) | RESPECTS-INVARIANTS |
+|---|---|---|---|---|
+| 1 / 1 | Y | **Y** | Episode `07cacf51` (*"Ruby finds something strange in the bakery freezer."*) + Episode `2e58568a` (*"Tyson is convinced the bakery is haunted."*) — connects two prior Episodes verbatim | Y |
+| 1 / 2 | Y | **Y** | Episode `ebd099c6` (*"Tyson thinks Ruby secretly entered them in a baking competition."*) — direct callback | Y |
+| 1 / 3 | Y | N | No prior Episode about family recipes or heirloom pastries. Fresh direction; permitted by §45.2 prompt | Y |
+| 2 / 1 | Y | **Y** | Same two source Episodes as Set 1 / 1 (`07cacf51` + `2e58568a`); this is a paraphrase | Y |
+| 2 / 2 | Y | **Y** | Episode `49ead0ac` (*"Ruby thinks the bakery needs a mascot."*) | Y |
+| 2 / 3 | Y | N | No prior Episode about rain / gatherings. Fresh direction | Y |
+| 3 / 1 | Y | **Y** | Same two source Episodes as Set 1 / 1; this is a paraphrase | Y |
+| 3 / 2 | Y | **Y** | Same source Episode as Set 1 / 2 (`ebd099c6`); this is a paraphrase | Y |
+| 3 / 3 | Y | **Y** | Episode `49ead0ac` (mascot) | Y |
+
+**Fox & Flour aggregate:** 9 / 9 PLAUSIBLE; **7 / 9
+PICKS-UP-A-THREAD**; 9 / 9 RESPECTS-INVARIANTS.
+
+### 49.2 Patch's Workshop per-suggestion scoring
+
+Patch's Workshop substrate for scoring: 32 prior Episode
+titles + 14 REMEMBERED memories (all kind=`event`).
+
+| Set / # | PLAUSIBLE | PICKS-UP-A-THREAD | Thread source (evidence) | RESPECTS-INVARIANTS |
+|---|---|---|---|---|
+| 1 / 1 | Y | **Y** | Episode `d24266b9` (*"Patch finds a button Rivet says not to press"*) | Y |
+| 1 / 2 | Y | **Y** | Memory `c86d4902` (*"…the workshop agent had quietly built a folder named 'PATCH OVERRIDES'… Rivet chose not to tell him."*) + Episode `649c2c57` (*"Rivet finds the PATCH OVERRIDES folder"*) + memory `48746f69` (agent deciding project priority) | Y |
+| 1 / 3 | Y | N | No prior Episode / memory specifically about "useless machine"; captures Patch/Rivet dynamic but not a specific thread. Fresh direction | Y |
+| 2 / 1 | Y | **Y** | Episode `d24266b9` (button) + workshop-agent memory cluster (`eda32b58`, `48746f69`, `f25e53af`) | Y |
+| 2 / 2 | Y | **Y** | Memory `c86d4902` (PATCH OVERRIDES, Rivet-only witness). Additionally: this suggestion preserves the Rivet-side private-knowledge shape from Specimen 4 while offering a legitimate scene-progression | Y |
+| 2 / 3 | Y | **Y** | Episode `fbc2dc0b` (*"Patch tells Rivet he thinks pigeons are hiding something."*) | Y |
+| 3 / 1 | Y | **Y** | Memory `c86d4902` (PATCH OVERRIDES) + memory `48746f69` (agent deciding project priority — "keeping score" adjacent) | Y |
+| 3 / 2 | Y | **Y** | Episode `d24266b9` (button) | Y |
+| 3 / 3 | Y | **Y** | Episode `cb17e3bd` (*"Patch decides the workshop needs a mascot."*) + memory `87d4e553` (mascot as character-consistency experiment) + memory `6b5222b1` (workshop helper adding its own commentary — "strong opinions" adjacent) | Y |
+
+**Patch's Workshop aggregate:** 9 / 9 PLAUSIBLE; **8 / 9
+PICKS-UP-A-THREAD**; 9 / 9 RESPECTS-INVARIANTS.
+
+### 49.3 Set-level classification (§45.3 acceptance bands)
+
+Locked classification rules (§45.3):
+
+- **STRONG SET:** all 3 PLAUSIBLE + all 3 RESPECTS-INVARIANTS
+  + ≥ 2 PICK-UP-A-THREAD.
+- **USEFUL SET:** ≥ 2 PLAUSIBLE-and-invariant-respecting.
+- **WEAK SET:** fewer than 2 PLAUSIBLE-and-invariant-respecting.
+- **BAD SET:** any suggestion violates INVARIANTS-A/B OR
+  fewer than 1 PLAUSIBLE.
+
+| Universe | Set | 3P + 3I? | Threads | Class |
+|---|---|---|---|---|
+| Fox & Flour | 1 | ✓ | 2 | **STRONG** |
+| Fox & Flour | 2 | ✓ | 2 | **STRONG** |
+| Fox & Flour | 3 | ✓ | 3 | **STRONG** |
+| Patch's Workshop | 1 | ✓ | 2 | **STRONG** |
+| Patch's Workshop | 2 | ✓ | 3 | **STRONG** |
+| Patch's Workshop | 3 | ✓ | 3 | **STRONG** |
+
+**6 / 6 STRONG SETS.** Zero USEFUL-only, zero WEAK, zero BAD.
+
+### 49.4 Aggregate (both Universes)
+
+- Total suggestions: **18**.
+- PLAUSIBLE: **18 / 18** (100 %).
+- PICKS-UP-A-THREAD: **15 / 18** (83 %).
+- RESPECTS-INVARIANTS: **18 / 18** (100 %).
+- STRONG sets: **6 / 6** (100 %).
+
+The 3 suggestions that scored NO on PICKS-UP-A-THREAD are all
+scored PLAUSIBLE + INVARIANT — they are legitimate fresh
+directions permitted by §45.2's prompt language "*at least one
+suggestion may be a new direction if it fits the Universe*."
+
+---
+
+## §50 Prediction disposition (§45.4 locks preserved)
+
+| Prediction | Locked statement | Observed | Disposition |
+|---|---|---|---|
+| **P1⁴** | ≥ 4 / 6 sets score USEFUL or STRONG | 6 / 6 STRONG | **CONFIRMED — exceeded prior threshold.** |
+| **P2⁴** | ≥ 3 / 6 sets score STRONG | 6 / 6 STRONG | **CONFIRMED — exceeded prior threshold.** |
+| **P3⁴** | 0 / 6 sets score BAD | 0 / 6 BAD | **CONFIRMED.** No INVARIANTS-A/B violations. No prescriptive language. |
+| **P4⁴** | Fox & Flour will score higher than Patch's Workshop (more Universe history + more diverse memory kinds) | Both scored 6/6 STRONG; ceiling effect prevents "higher" from being observable | **DISCONFIRMED at reasoning level; INCONCLUSIVE at ceiling.** The stated reason ("Fox & Flour has more diverse memory kinds") was factually wrong — Fox & Flour has ZERO memories, Patch's Workshop has 14. Both nevertheless produced STRONG sets. |
+| **P5⁴** | ≥ 1 / 18 suggestions references PATCH OVERRIDES | 3 / 18 explicitly named PATCH OVERRIDES (Patch's Workshop Set 1 #2, Set 2 #2, Set 3 #1) | **CONFIRMED — strongly.** |
+
+**4 of 5 predictions CONFIRMED. 1 DISCONFIRMED at reasoning
+level (P4⁴ prior was factually wrong; empirical outcome was
+inconclusive at the ceiling).**
+
+### 50.1 Why P4⁴ was wrong in a specific, diagnostic direction
+
+I predicted Fox & Flour would score higher because SESSION 279
+evidence made me think of Fox & Flour as the memory-richer
+Universe. **The pre-run inventory (§48.1) surfaced the
+opposite:** Fox & Flour has 0 promoted memories; Patch's
+Workshop has 14. The prediction reasoning did not survive first
+contact with the substrate.
+
+But the empirical outcome — both Universes at 6/6 STRONG —
+suggests something important: **prior Episode titles alone (no
+memory pool at all) are sufficient substrate for a STRONG
+suggestion set on a coherent Universe.** Fox & Flour's 10
+Episode titles carry enough dangling narrative material (the
+haunting; the freezer discovery; the mascot; the competition;
+the difficult customer; the coffee tension) for the LLM to
+weave suggestions that pick up threads. The memory pool would
+help — it made Patch's Workshop's PATCH OVERRIDES + button
+threads land harder — but memories are NOT a hard prerequisite
+for v1 usefulness.
+
+---
+
+## §51 Qualitative observations — diversity + clickability
+
+Not part of the locked rubric. Recorded per Chris's instruction
+so Chris + ChatGPT can see the actual behavior beyond the
+aggregate scores.
+
+### 51.1 Diversity within a set — "three doors" vs "three paraphrases"
+
+**Fox & Flour Bakery.** The LLM anchored HARD on the two most
+obvious threads:
+
+- The "freezer discovery + haunting connection" suggestion
+  appeared **verbatim (with minor word swaps) in all 3 sets**.
+- The "baking competition arriving / early" suggestion appeared
+  in **2 of 3 sets**.
+
+Fresh material only appeared in the third slot per set:
+Set 1 = family recipe; Set 2 = artist mascot + rainstorm;
+Set 3 = mascot costume rush.
+
+**Verdict — Fox & Flour: HIGH REPEATER RATE.** The LLM
+produces one strongest attractor with variations, not three
+differentiated doors. If the operator asks for suggestions
+twice in a row on this Universe, they will see similar options
+in slot 1.
+
+**Patch's Workshop.** Moderate diversity. Attractor pattern:
+
+- PATCH OVERRIDES appeared in **3 / 3 sets** but with
+  **different framings each time**:
+  - Set 1: Rivet quietly investigates while agent starts
+    predicting Patch's decisions.
+  - Set 2: Rivet confronts the agent before Patch finds it.
+  - Set 3: Rivet finally tells Patch directly.
+- The button (`d24266b9`) appeared in **2 / 3 sets** with
+  different framings (feature discovery vs. agent lying about
+  prior press vs. Patch turning it into a decision-maker).
+- Fresh third slot per set: useless machine (Set 1), pigeon
+  decoder (Set 2), mascot with opinions (Set 3).
+
+**Verdict — Patch's Workshop: MODERATE diversity.** The LLM
+produces meaningful FRAMING variations on the same threads,
+not just paraphrases. The framing shifts across sets are
+narratively distinct (Rivet-investigates vs. Rivet-confronts vs.
+Rivet-tells) rather than surface rewordings. This is closer to
+"three doors" than Fox & Flour was.
+
+**Cross-Universe observation.** The diversity gap correlates
+with substrate richness: Patch's Workshop (32 Episodes + 14
+memories) produced more differentiated framings than Fox &
+Flour (10 Episodes + 0 memories). This is a signal — not proof
+— that a richer memory pool would improve suggestion diversity.
+
+### 51.2 Clickability — are suggestions drop-in Episode topics?
+
+**All 18 read as clickable one-sentence Episode topics.**
+
+Length: 15-30 words per suggestion. Compare to existing
+Episode `operator_topic` values in the substrate: some are
+short one-liners ("*Ruby locks herself out of the bakery.*"),
+some are longer full sentences ("*Patch and Rivet work on an
+Agent.*"). The generated suggestions sit in the
+longer-but-still-single-sentence range and match the operator
+authoring style.
+
+Suggestions that would require ANY operator rewrite before use:
+- Fox & Flour Set 1 #3 (family recipe): could stand as-is.
+- Fox & Flour Set 2 #3 (rainstorm): could stand as-is.
+- Patch's Workshop Set 1 #3 (useless machine): could stand
+  as-is.
+
+**Verdict: 18 / 18 usable without operator rewriting.**
+
+### 51.3 Do any suggestions violate INVARIANTS-A/B language-wise?
+
+Systematic check for prescriptive language ("the system
+should…", "this must happen…", "the next Episode will…",
+"the operator should choose…"): **zero hits**. All 18
+suggestions are phrased as in-world premises. INVARIANTS-A/B
+honored across the corpus.
+
+---
+
+## §52 What Q280.5-1 establishes vs what it does not
+
+### 52.1 Establishes (within the bounded scope of this probe)
+
+1. **The concept produces narratively-plausible suggestions
+   from the existing substrate without any new schema.** Model
+   D (§42.4) works empirically on two real Universes.
+2. **The LLM naturally picks up threads from prior Episode
+   titles AND from `event`-kind memory rows** — even without
+   the intended `PROMISE` / `DIALOGUE_CALLBACK` vocabulary
+   being present. Under-use of the intended kinds does not
+   block v1 usefulness on Fox & Flour (0 memories) or Patch's
+   Workshop (14 `event` memories).
+3. **INVARIANTS-A/B/C survive the LLM's default distribution.**
+   The system prompt language kept the LLM in "possibilities,
+   not obligations" register across all 6 sets.
+4. **Rubric-level result is strongly positive**: 6 / 6 STRONG;
+   4 of 5 predictions confirmed with only 1 disconfirmed at
+   the reasoning level (not the empirical level).
+5. **All 18 suggestions are drop-in clickable as
+   `Episode.operator_topic` values** — no operator rewriting
+   required to create an Episode from any of them.
+6. **The PATCH OVERRIDES memory row (`c86d4902-…`) surfaces
+   reliably** as a suggestion source (3 / 3 Patch's Workshop
+   sets referenced it). Confirms Chris + ChatGPT's intuition
+   that dangling memory rows resurface without any explicit
+   arc engine.
+
+### 52.2 Does NOT establish
+
+1. Whether operators would actually USE the suggestions when
+   surfaced in the UI. Preference research is out of scope.
+2. Whether SAME memory row resurfacing across MULTIPLE
+   unrelated Episodes over time (INVARIANT-C latency) produces
+   coherent operator experience — Q280.5-1 measured one point
+   in time. A follow-up probe would need to run suggestion
+   generation BEFORE + AFTER an intervening unrelated Episode
+   was created, and check whether the PATCH OVERRIDES or
+   freezer-haunting thread resurfaces at both time points.
+3. Whether operator adoption of `PROMISE` / `DIALOGUE_CALLBACK`
+   kinds would materially improve suggestion quality. All
+   current memories are `event`; no direct comparison exists
+   between kinds-authored-well and kinds-under-used.
+4. Whether Fox & Flour's HIGH REPEATER RATE (same suggestion
+   in 3 / 3 sets on slot 1) will annoy operators. Model C
+   (dismissed-flag) may be needed if this is confirmed as a
+   real friction; Q280.5-1 does not measure operator
+   friction.
+5. Whether diversity improves proportionally with substrate
+   richness or asymptotes quickly. Two Universes is not a
+   scan.
+6. Whether the "dismissed" state gap in Model D matters in
+   practice. Not testable without operators interacting with
+   suggestions.
+
+### 52.3 Newly-visible sub-question (not opened)
+
+**U-7 (proposed).** Does the LLM's cross-set repeater rate for
+"strongest attractor" suggestions (Fox & Flour: 3 / 3 sets on
+slot 1) drop when the operator has archived the underlying
+memory row / Episode? A small ablation experiment — archive
+the freezer-discovery Episode and re-run — would tell whether
+the LLM stays anchored on its two-Episode connection or moves
+on. This is an interesting Model D adoption signal.
+
+---
+
+## §53 Decision gate — post-Q280.5-1 (CURRENT; SUPERSEDES §46)
+
+**STOP here.** Do not execute Q280.5-2 (latency-across-
+episodes probe). Do not open a v1 UX implementation slice.
+Do not modify substrate. Wait for Chris + ChatGPT review of
+§48-§52.
+
+**Decision needed:**
+
+1. **Accept the Q280.5-1 evidence + §50 prediction
+   disposition + §51 qualitative observations + §52
+   what-is-and-is-not-established distinction.**
+
+2. **Choose next slice** (all deferred until approval):
+
+   - **A⁵.** v1 UX design slice for Model D (§42.4) — the
+     "possible next episode" bubbles surface. Design-only.
+     Small: 1 SPA panel + 1 API endpoint + 1 backend
+     suggestion-generation function. Would sit on top of
+     existing substrate unchanged. Recommended if Chris +
+     ChatGPT accept §52.1 as sufficient evidence to
+     product-design.
+   - **B⁵.** Q280.5-2 latency-across-episodes probe. Extend
+     Q280.5-1 by (a) capturing current suggestion set for
+     Universe X; (b) simulating an intervening unrelated
+     Episode; (c) re-running suggestion generation; (d)
+     scoring whether prior threads resurface. ~$0.05, still
+     read-only, no substrate. Directly tests INVARIANT-C.
+   - **C⁵.** Q280.5-3 kind-adoption impact probe. Manually
+     re-categorize 2-3 existing Patch's Workshop memories
+     from `event` to `promise` / `dialogue_callback` at
+     runtime (in-memory monkeypatch, no DB write), re-run
+     suggestion generation, compare quality. Tests whether
+     Model D's "kind under-use" gap actually matters.
+   - **D⁵.** Skip additional experiments; go straight to
+     an operator-authoring UX refresh so operators actually
+     choose kinds (extends §46 C⁴).
+   - **E⁵.** Close the Episode-chain suggestion product-
+     discovery slice with the conclusion: **concept passes
+     the falsifiable bar; Model D is viable on the existing
+     substrate; v1 UX design is the natural next slice; no
+     further experiment required.**
+   - **F⁵.** Return to outstanding Finding 4i options
+     (Q280.4i-3 construct-valid mental-state; Q280.4i-5
+     multi-episode) before spending more product-discovery
+     time on Episode-chain suggestions.
+   - **G⁵.** Something else.
+
+3. **If A⁵ / B⁵ / C⁵:** confirm scope-lock BEFORE any
+   execution. Do not treat §53 as pre-authorizing any of
+   them.
+
+---
+
+## §54 Cost + artifact index
+
+- Provider spend (Q280.5-1): ~$0.05 (6 LLM calls, mostly
+  input tokens).
+- Cumulative SESSION 280 spend: **~$0.20** (Q280.4i-1 ~$0.05,
+  Q280.4i-4 ~$0.10, Q280.5-1 ~$0.05; all other sections are
+  documentation).
+- Persisted artifacts:
+  - `scripts/session280_q280_5_1_suggestion_probe.py` —
+    read-only probe.
+  - `docs/design/session280_experiment_data/q280_5_1_suggestions.json`
+    — full evidence blob including substrate snapshots +
+    system prompt + all 6 raw responses.
+  - `docs/design/session280_experiment_data/q280_5_1_fox_and_flour_bakery_input.txt`
+    — verbatim task message shown to LLM for Fox & Flour.
+  - `docs/design/session280_experiment_data/q280_5_1_patch's_workshop_input.txt`
+    — verbatim task message shown to LLM for Patch's Workshop.
+  - `docs/design/session280_experiment_data/q280_5_1_fox_and_flour_bakery_suggestions.txt`
+    — human-readable per-set suggestions for Fox & Flour.
+  - `docs/design/session280_experiment_data/q280_5_1_patch's_workshop_suggestions.txt`
+    — human-readable per-set suggestions for Patch's Workshop.
+- **Substrate:** UNCHANGED. Read-only ORM queries only. No
+  Universe / Episode / memory / KD / Teammate / Composition
+  row was created, modified, or deleted.
+
+---
+
+## §55 Closeout — Q280.5-1 execution slice (CURRENT; SUPERSEDES §47)
+
+- **Status:** Q280.5-1 EXECUTED per §45 design. Rubric §45.3
+  applied unchanged. Predictions §45.4 evaluated without
+  retro-fit. **6 / 6 STRONG sets, 18 / 18 PLAUSIBLE + INVARIANT,
+  15 / 18 PICKS-UP-A-THREAD.** 4 / 5 predictions confirmed;
+  P4⁴ disconfirmed at reasoning level (both Universes at
+  ceiling).
+- **Substrate:** unchanged. No mutation.
+- **Cumulative SESSION 280 spend:** ~$0.20.
+- **Landing SHAs:**
+  - AUDIT slice: `6957c18`.
+  - Q280.4i-1 execution slice: `8d8f733`.
+  - Construct-validity re-audit slice: `f2507a0`.
+  - Post-discovery epistemic-state audit slice: `63d4fdb`.
+  - Q280.4i-4 execution slice: `ce16627`.
+  - Episode-chain suggestion product-discovery slice: `1d96965`.
+  - Q280.5-1 execution slice: `[recorded on commit]`.
+- **Key finding:** the ~3-bubbles concept passes the
+  falsifiable bar. Model D (reuse existing substrate + LLM
+  read surface) works empirically on both a memory-rich
+  (Patch's Workshop, 14 memories) and a memory-empty (Fox &
+  Flour, 0 memories) Universe. The system does NOT need a
+  StoryArc / NarrativeThread model to prototype v1.
+- **Diversity caveat:** Fox & Flour shows HIGH REPEATER RATE
+  on the strongest attractor across sets (3 / 3 slot 1).
+  Patch's Workshop shows moderate diversity via framing
+  shifts. Suggests suggestion-generator will benefit from a
+  "seen recently" dampener (Model C-adjacent) at v1.5 if
+  operators find repetition friction real.
+- **Next gate:** §53 A⁵/B⁵/C⁵/D⁵/E⁵/F⁵/G⁵. Awaiting Chris +
+  ChatGPT decision.
+- **Working method preserved:** rubric locked BEFORE
+  generation; predictions locked BEFORE execution; class
+  assignment applied without revision; qualitative
+  observations (§51) done SEPARATELY from rubric scoring per
+  the instructions.
+- **All prior Finding 4i evidence + §37-§47 product-
+  discovery audit preserved intact.** No section retracted,
+  renumbered, or revised in substance.
+- **Do NOT execute Q280.5-2, Q280.5-3, or open a v1 UX
+  implementation slice without a fresh Chris + ChatGPT
+  authorization.**

@@ -1,0 +1,47 @@
+# Q280.5-1 substrate snapshot for Fox & Flour Bakery
+# universe_id: 1a0af807-dd6a-47cd-bfaa-3d088f1c105f
+# episodes: 10
+# memories: 0
+# cast: 2
+
+============================================================
+SYSTEM PROMPT
+============================================================
+You are a story-development assistant for a Character OS Universe. Your job is to notice possible next Episode directions the operator MAY choose to pursue.
+
+PRODUCT INVARIANTS you MUST honor:
+- Suggestions are POSSIBILITIES, not obligations.
+- The operator remains the director. Never imply the next Episode must continue any specific thread.
+- Suggestions can lie latent across unrelated Episodes; the operator may pick, ignore, or override them.
+- Do not choose. Do not commit to a linear arc.
+- Do not describe implementation, do not describe 'the system will'; describe possible in-world Episode premises.
+
+OUTPUT FORMAT: JSON object with a single key 'suggestions' whose value is a list of exactly THREE strings. Each string is ONE sentence describing a possible next Episode. Do NOT number them. Do NOT return more than three or fewer than three.
+
+============================================================
+TASK MESSAGE
+============================================================
+UNIVERSE: Fox & Flour Bakery
+
+UNIVERSE BRIEF:
+Fox & Flour Bakery is a warm neighborhood artisan bakery built around small-batch baking, naturally leavened sourdough, handcrafted pastries, seasonal desserts, and celebration cakes. It aims to feel like a familiar neighborhood gathering place where careful craft and quality ingredients matter more than speed or mass production.
+
+CAST:
+- Tyson: tone=expert; personality='Easygoing, practical, and a little dry. Sounds like someone who has worked the counter long enough to know what customers are about to ask before they ask it. Friendly without being overly cheerful. Gives clear recommend'
+- Ruby: tone=friend; personality='Warm, cheerful, and genuinely caring. Ruby loves helping people find the perfect treat for any occasion and gets excited talking about fresh bread coming out of the oven. She’s knowledgeable without sounding overly techn'
+
+EPISODES SO FAR (creation order; earliest first):
+  1. 'Why our sourdough takes its time'
+  2. 'Our celebration cakes'
+  3. 'Welcome to Fox & Flour Bakery'
+  4. 'Ruby and Tyson deal with a difficult bakery customer.'
+  5. 'Ruby thinks the bakery needs a mascot.'
+  6. 'Tyson is convinced the bakery is haunted.'
+  7. 'Ruby thinks Tyson is taking coffee too seriously.'
+  8. 'Ruby finds something strange in the bakery freezer.'
+  9. 'Tyson thinks Ruby secretly entered them in a baking competition.'
+ 10. 'Ruby locks herself out of the bakery.'
+
+NARRATIVE MEMORY POOL: (empty)
+
+TASK: Suggest THREE possible next Episode directions for this Universe, in one sentence each. These are possibilities the operator may pick, ignore, or override — not instructions and not a linear arc. Where possible, pick up unresolved threads visible in the memory pool or in prior Episodes; but at least one suggestion may be a new direction if it fits the Universe. Keep each suggestion short enough to work as an Episode topic without operator rewriting.
