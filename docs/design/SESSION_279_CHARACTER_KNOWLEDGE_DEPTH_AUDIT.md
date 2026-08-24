@@ -4711,3 +4711,193 @@ Knowledge-breadth, Beat-3 legibility) remain preserved unopened.
 - [x] §114 threshold NOT revised after seeing results
 - [x] Other deferred findings NOT opened
 
+---
+
+# Q-279-3 — P2-BC combined-intervention design & prediction
+
+**Status opened:** Chris + ChatGPT approved PIVOT-TO-COMBINED-INTERVENTION
+from §128. This section records the P2-BC design and prediction BEFORE
+execution so the outcome cannot be retrofit. Locked rubric, locked
+§114 thresholds, locked neutral topic, locked cast, all preserved.
+No additional prompt / synthesis / Knowledge / character / identity /
+retrieval / verifier / memory / audience / runtime change beyond the
+already-approved runtime substitutions being applied *simultaneously*.
+
+**Design baseline SHA (pre-execution):** **`35ebccb`**.
+
+## §130 P2-BC condition specification
+
+Combines the two runtime substitutions already approved and executed
+individually:
+
+- **Contract-lite** (from P2-B): monkeypatch
+  `WritingContract.for_shape('dialogue_scene')` → return
+  `_dialogue_scene_contract_lite()` for the duration of the probe;
+  fall through for other shapes. `_LITE_WATCHABILITY_BLOCK` +
+  `_LITE_NARRATIVE_SHAPES_BLOCK` replace the two identified
+  stakes-elevating pieces; every other contract element unchanged.
+- **Personality-lite** (from P2-C): mutate
+  `ruby.personality = "Ruby is friendly and helpful."` and
+  `tyson.personality = "Tyson is friendly and helpful."` on the
+  in-memory Teammate instances only. `.save()` never called.
+
+Both substitutions active *simultaneously* for the same
+`synthesize_dialogue()` call. Both `try/finally`-restored per condition.
+`_verify_restored()` runs post-run.
+
+**Everything else pinned to Phase 2 exactly:**
+
+- Cast: Ruby + Tyson (Fox & Flour Bakery), same `Universe`, same
+  Knowledge (Fox & Flour Hours + holiday policy + Q-279-2 §27
+  treatment corpus).
+- Topic (verbatim, same as P2-A / P2-B / P2-C):
+  *"Ruby and Tyson watch the sunrise through the bakery window before opening."*
+- `target_duration_seconds = 90`.
+- `use_knowledge = True`.
+- `verifier_mode = "warn"` (production default).
+- `mock_mode = False`.
+- Model: production gpt-5.6-terra (same as Phase 2).
+- Retrieval + verifier: production.
+- No opener pinned.
+- **Samples: n = 3.**
+
+Approximate additional provider spend: ~$0.02.
+
+## §131 Prediction (recorded BEFORE execution)
+
+Base rates from §121 anchored to the same neutral topic:
+
+- P2-A composite/1k = **1.052** (D1=2, D3=1, D4a=1)
+- P2-B composite/1k = **1.076** (D1=0, D3=0, D2=1, D4a=2, D4n=1) — family swap into D2 + D4
+- P2-C composite/1k = **0.787** (D1=1, D3=0, D4a=2) — partial reduction, D4a rose
+
+The critical Phase 2 finding (§122) was that P2-B eliminated D1 + D3
+completely but the attractor reappeared in D2 + D4. P2-C partially
+reduced composite (−25 %) but also grew D4a. **Both interventions
+opened D4a as a backfill channel.** P2-C left D4a = 2, higher than
+P2-A's D4a = 1.
+
+**Predictions for P2-BC:**
+
+- **Composite prediction:** most likely somewhere between P2-B and
+  P2-C aggregate rates, in the range **0.5-1.1 / 1k chars**. If the
+  attractor is deep-residual (H2 dominant), composite will hover
+  near or above P2-A. If both levers act on *separable* channels,
+  composite will reduce roughly additively (~0.5-0.8 / 1k).
+- **Family prediction:** D1 stays near 0 (contract-lite eliminated
+  it in P2-B). D3 stays near 0 (contract-lite eliminated it in P2-B).
+  If deep-residual, D4a rises further (both interventions opened it
+  as backfill). D2 may or may not appear; only surfaced 1 hit in
+  P2-B and 0 in P2-C. Novel families (question-form reframes,
+  absolute-language patterns, or previously-unmeasured lexical
+  attractors like *"actually / really / genuinely"* modal adverbs)
+  may emerge but would not be captured by the locked D1-D4 rubric.
+- **Attractor persistence estimate:** given how robust the attractor
+  was in Phase 2, my best guess is P2-BC composite will land in
+  **0.6-0.9 / 1k chars** — visibly lower than P2-A but well above 0,
+  with the residual living primarily in D4a and possibly D4n.
+- **Directional sign confidence:** high that composite will not
+  exceed P2-A materially. Moderate confidence that composite will
+  reduce past the P2-C-alone level. Low confidence that composite
+  will clear the ≥ 50 % threshold.
+
+## §132 Decision criteria (LOCKED before execution)
+
+Applied against P2-A composite/1k = **1.052** (unchanged from §121).
+
+### 132.1 Composite thresholds (locked)
+
+- **JOINT-MODULATION-CONFIRMED:** P2-BC composite/1k **≤ 50 % of P2-A
+  (i.e. ≤ 0.526 / 1k)** AND no per-family backfill in the sense of
+  §132.2 below. Would support the interpretation that contract-text
+  AND personality-text jointly modulate the attractor and there is
+  no meaningful deeper residual within the D1-D4 rubric's scope.
+- **ADDITIVE-MODULATION:** P2-BC composite/1k lands within the
+  predicted "additive" range **[0.65 / 1k, 0.85 / 1k]** with backfill
+  pattern per §132.2. Would support both levers acting on
+  independent channels.
+- **DEEP-RESIDUAL (H2 confirmed):** P2-BC composite/1k **≥ 75 % of
+  P2-A (i.e. ≥ 0.789 / 1k)** WITH family-swap backfill visible in
+  §132.2. Would support the interpretation that the model-prior
+  attractor is deeper than both text levers can reach.
+- **AMBIGUOUS:** anything else, or effects that don't cleanly fit
+  the above categories.
+
+### 132.2 Family-swap check (locked)
+
+Independent of composite thresholds:
+
+- **No backfill:** every per-family count is ≤ its P2-A count OR
+  each backfill instance is a single hit (≤ 1). Composite reduction
+  in this regime is meaningful.
+- **Backfill present:** any per-family count exceeds its P2-A count
+  by **> 50 %** (using absolute count on totals ≤ 5 given the small
+  n). Under this check:
+  - D2 P2-A = 0 → any P2-BC D2 ≥ 1 is a backfill signal.
+  - D3 P2-A = 1 → P2-BC D3 ≥ 2 is a backfill signal.
+  - D4a P2-A = 1 → P2-BC D4a ≥ 2 is a backfill signal.
+  - D4n P2-A = 0 → any P2-BC D4n ≥ 1 is a backfill signal.
+
+If backfill is present, composite reduction does NOT license
+JOINT-MODULATION-CONFIRMED even if the ≤ 50 % threshold is met.
+
+### 132.3 Interpretive rule (locked)
+
+- Both levers act on the attractor and together substantially
+  suppress it (composite ≤ 50 % of P2-A + no backfill)
+  → **JOINT-MODULATION-CONFIRMED**.
+- Both levers act but the attractor persists in unmeasured or
+  backfill surfaces → **DEEP-RESIDUAL** — H2 model-prior is a real
+  substrate that neither text lever adequately reaches within the
+  D1-D4 rubric.
+- Effects are between → **ADDITIVE-MODULATION** or **AMBIGUOUS**.
+
+**No revision of thresholds after seeing results.**
+
+## §133 What P2-BC will and will NOT establish
+
+**Will establish (given the design):**
+
+- Whether the two runtime substitutions **jointly** suppress the
+  attractor materially past what P2-C alone did.
+- Whether the family-swap continues under the stronger combined
+  intervention (a persistence signal) OR whether the model finally
+  runs out of surfaces to swap into.
+- Whether D4a specifically is the stable backfill channel for
+  writer-voice attractor under text-side interventions.
+
+**Will NOT establish:**
+
+- Whether *other* text levers not tested here would matter
+  (e.g. `character_point_of_view`, `voice_signature_phrases`,
+  `voice_avoid_phrases`, tone_archetype, the anti-generic-register
+  contrast set, or the operator's audience_hint).
+- Whether an *adversarial* topic would show a different response to
+  the same interventions (§127 §1). Phase 1 showed 4× base rate
+  on adversarial topics; the neutral-topic ceiling artifact
+  (§124) continues to limit statistical power here.
+- Whether the attractor is a model-prior signal specific to
+  gpt-5.6-terra or generalizes across model families. Only one
+  model is exercised.
+- The mechanism inside the LLM. The experiment measures behavior at
+  the output text; it does not identify which prompt tokens or
+  weights concentrate the attractor.
+- A fix. Even if JOINT-MODULATION-CONFIRMED fires, this test does
+  NOT license a production writing-contract change or personality-
+  field policy. A fix would need a separate Phase 3 with an
+  operator-facing design proposal + dogfood + persistent-code diff
+  review.
+
+## §134 Checklist — P2-BC pre-execution
+
+- [x] Design specified as combination of P2-B + P2-C substitutions (§130)
+- [x] Every other Phase-2 variable pinned (§130)
+- [x] Prediction recorded BEFORE execution (§131)
+- [x] Decision criteria LOCKED BEFORE execution (§132)
+- [x] Composite thresholds locked at 50 % (JOINT-MODULATION) / 75 % (DEEP-RESIDUAL) (§132.1)
+- [x] Family-swap check locked with per-family per-family absolute-count triggers (§132.2)
+- [x] Scope boundaries stated: what P2-BC will and will not establish (§133)
+- [x] No production code / DB / prompt / retrieval / verifier / synthesis / identity / audience / memory change
+- [x] Other deferred findings NOT opened
+- [x] Design baseline SHA `35ebccb` recorded (§130)
+
