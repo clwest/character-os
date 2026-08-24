@@ -3470,3 +3470,408 @@ approval of small dogfood spend.
 - [x] No implementation of any candidate fix
 - [x] Other deferred findings (4c, 4d-4i, Knowledge-breadth, Beat-3 legibility) NOT opened
 
+---
+
+# Q-279-3 — Phase 1 result (retrospective rubric scoring)
+
+**Status opened:** 2026-08-25, immediately following Q-279-3 audit commit
+`7a21357`. Executes §95.1 exactly as designed. Purely READ-ONLY:
+consumes existing persisted `synthesized_brief` field on every
+completed dialogue-scene composition with a non-empty `operator_topic`.
+Zero renders. Zero provider spend. No changes to prompts / synthesis /
+Knowledge / characters / identity / retrieval / verifier / memories /
+audience / runtime. No fix implemented.
+
+## §99 Methodology
+
+Data source: `compositions_composition` table joined to
+`spokespeople_spokesperson` and `universe_universe` via
+`docker exec character_os_postgres psql` and a locally-scoped
+`psycopg` connection (port 5434, `.env` credentials). Read-only.
+
+Predicate:
+```sql
+template_kind='dialogue_scene' AND status='completed'
+AND operator_topic <> ''
+```
+→ **43 compositions** across 4 Universes (Fox & Flour, Patch's
+Workshop, and 2 SESSION 272 experimental Universes with no cast
+identity content beyond legacy test fixtures).
+
+Per-composition parser splits `synthesized_brief` into speaker turns
+by prefix match on `Ruby | Tyson | Patch | Rivet` (the only cast
+members present in the persisted corpus). Header comment lines
+(`# AI Topic dialogue synthesis`, `# Aliases:`, etc.) are excluded.
+
+### 99.1 Rubric — locked at §95.1, applied unchanged
+
+| Dim | Definition | Regex applied |
+|---|---|---|
+| **D1** | Any *"That is / That was / That's"* reframe opening | `\b(?:That is\|That was\|That's)\s+(?:not\|a\b\|an\b)` |
+| **D1n** | Strict *negation*-reframe (subset of D1) | `\b(?:That is\|That was\|That's)\s+not\b` |
+| **D1a** | Strict *assertive*-reframe (subset of D1) | `\b(?:That is\|That was\|That's)\s+(?:a\|an)\b` |
+| **D2** | Diminutive-formal metaphor — *"tiny/small/little"* + formal-institution noun | `\b(?:tiny\|small\|little)\s+(?:<50-noun-lexicon>)` |
+| **D3** | Courtroom / procedural noun (locked lexicon: court, trial, judge, jury, deposition, evidence, testify, witness, verdict, detective, rehears, inspector, committee, hearing, defend, prosecut) | `\b(?:court\|trial\|judge\|…\|prosecut)\w*\b` |
+| **D4a** | Stakes-elevating adjective | `\b(?:serious\|consequential\|important\|dramatic)\w*\b` |
+| **D4n** | Stakes-elevating "not X" phrase | `\bnot (?:casual\|small\|a\b)` |
+
+### 99.2 Normalization
+
+Per-1000-character rates reported alongside raw counts so a
+high-turn-volume speaker (Patch: 214 turns; Rivet: 204 turns) is not
+automatically flagged higher than lower-volume speakers (Ruby: 65;
+Tyson: 64). Per-turn "affected-turn %" (fraction of a speaker's
+turns that contain ≥ 1 device hit) also reported.
+
+### 99.3 Correlation buckets
+
+- **Universe** (Fox & Flour vs Patch's Workshop; experimental
+  Universes excluded from analysis as they contain no cast identity
+  and produced zero device hits).
+- **Speaker** (Ruby / Tyson / Patch / Rivet).
+- **Personality vector** (`tone_archetype`, `voice_energy`,
+  `voice_humor`, `voice_directness`, `character_point_of_view`
+  presence).
+- **`synthesis_attempt_count`** (first-pass = 1 vs corrective = 2).
+- **Pre / post Q-279-2 treatment** (cutoff `2026-08-24 03:21:42 UTC`
+  = the treatment-KD re-ingest timestamp, applied only to Fox &
+  Flour compositions since only Fox & Flour saw the treatment).
+
+## §100 Complete scoring results
+
+### 100.1 Per-composition (43 rows)
+
+Compact form — each row: `id / universe / attempts / turns / chars /
+D1 / D1n / D2 / D3 / D4a / D4n / topic`. Zero-device rows omitted for
+brevity; all raw data preserved in the audit process.
+
+Non-zero device compositions (24 of 43):
+
+| id | universe | att | turns | chars | D1 | D1n | D2 | D3 | D4a | D4n | topic |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 3e44b728 | Patch's | 2 | 9 | 665 | 0 | 0 | 0 | 1 | 0 | 0 | AI took over the lab |
+| ef11c810 | Patch's | 2 | 11 | 727 | 0 | 0 | 0 | 1 | 0 | 0 | agent acting weird |
+| 99b4a3fa | Patch's | 1 | 9 | 869 | 1 | 1 | 0 | 0 | 0 | 1 | agent acting weird |
+| a119b064 | Patch's | 1 | 11 | 1358 | 3 | 1 | 1 | 0 | 0 | 1 | agent acting weird |
+| 79d0bbd5 | Patch's | 1 | 12 | 1353 | 1 | 1 | 0 | 0 | 0 | 0 | agent acting weird |
+| 7502af3f | Patch's | 1 | 13 | 1345 | 0 | 0 | 0 | 0 | 1 | 0 | agent acting weird |
+| d533b4ec | Patch's | 2 | 13 | 1301 | 0 | 0 | 1 | 1 | 0 | 0 | agent refuses to explain |
+| 01aa7601 | Patch's | 2 | 12 | 1171 | 2 | 1 | 0 | 0 | 0 | 1 | Rivet knew Agent independent |
+| e425f5fe | Patch's | 2 | 12 | 1363 | 0 | 0 | 0 | 1 | 0 | 0 | Patch asks likes doing |
+| 7d913cf4 | Patch's | 1 | 12 | 1281 | 1 | 1 | 0 | 2 | 1 | 0 | teach Rivet something |
+| 4af67cd5 | Patch's | 1 | 13 | 1082 | 2 | 0 | 0 | 0 | 1 | 0 | Rivet tries to teach Patch |
+| e6b3f132 | Patch's | 1 | 12 | 1088 | 0 | 0 | 0 | 0 | 1 | 0 | Agent does something again |
+| 6e3ed367 | Patch's | 1 | 19 | 1135 | 2 | 1 | 0 | 0 | 0 | 1 | box Patch refuses to |
+| 464128b1 | Patch's | 1 | 13 | 1304 | 1 | 1 | 0 | 0 | 0 | 0 | Patch built something overnight |
+| 05d3612c | Patch's | 1 | 15 | 1396 | 1 | 1 | 0 | 0 | 0 | 0 | workshop needs rules |
+| da341e85 | Patch's | 1 | 16 | 1177 | 0 | 0 | 0 | 0 | 0 | 1 | Rivet expects Patch to make |
+| a35f20bf | Patch's | 1 | 13 | 1285 | 1 | 1 | 0 | 0 | 0 | 0 | pigeons hiding |
+| 6d169390 | Patch's | 1 | 12 | 1289 | 1 | 0 | 0 | 0 | 0 | 0 | old project |
+| a1421a0e | F&F | 2 | 12 | 1280 | 1 | 0 | 0 | 0 | 0 | 0 | difficult customer |
+| 5f4bdbbc | Patch's | 1 | 11 | 1239 | 1 | 0 | 0 | 0 | 0 | 0 | consulting firm |
+| 1491d31c | F&F | 1 | 11 | 1374 | 2 | 1 | 0 | 0 | 0 | 2 | bakery mascot |
+| 1aabbff6 | F&F | 1 | 12 | 1388 | 1 | 0 | 0 | 2 | 1 | 0 | haunted bakery |
+| 1eb12363 | Patch's | 1 | 13 | 970 | 1 | 1 | 0 | 0 | 0 | 1 | Rivet needs hobby |
+| d7549fc1 | F&F | 2 | 11 | 1188 | 2 | 1 | 1 | 2 | 1 | 1 | **coffee too serious** (pre-Q-279-2) |
+| 2dc6b0b5 | Patch's | 1 | 12 | 936 | 4 | 2 | 0 | 1 | 0 | 0 | Patch owns junk |
+| 52cf3df9 | F&F | 1 | 12 | 1375 | 0 | 0 | 0 | 0 | 2 | 0 | freezer strange |
+| bc1eacf5 | Patch's | 1 | 22 | 1215 | 0 | 0 | 0 | 0 | 1 | 1 | button not to press |
+| 7177b0f5 | F&F | 1 | 20 | 1375 | 1 | 1 | 0 | 2 | 1 | 1 | **baking competition** (pre-Q-279-2) |
+| 488c37ba | F&F | 2 | 14 | 1234 | 0 | 0 | 0 | 3 | 4 | 0 | **coffee too serious** (Q-279-2 T1) |
+| 699916a9 | F&F | 1 | 13 | 1207 | 2 | 1 | 0 | 4 | 0 | 1 | **baking competition** (Q-279-2 T2) |
+| a5c59014 | F&F | 1 | 14 | 1267 | 1 | 1 | 0 | 0 | 1 | 0 | **lockout** (Q-279-2 T3) |
+
+Zero-device (19 of 43): mostly SESSION 272 shadow-doc setups
+(`965bce07`, `39bed00e`, `f05bf226`, `bb0ad862`, `fcba3242`, etc.)
+which use controlled prompts, plus a few low-D "welcome" /
+"pre-treatment early" specimens (`26c62b4b`, `ba431203`,
+`826851fd`, `eb48611f`, `c3fa88f7`, `2b006c0d`, `75d4645f`).
+
+### 100.2 Per-speaker aggregates (normalized)
+
+| Speaker | Universe | Comps | Turns | Chars | Tone | Humor | POV | D1 | D1n | D2 | D3 | D4a | D4n | D1/1k | D1n/1k | D3/1k |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **Ruby** | Fox & Flour | 10 | 65 | 5,735 | friend | warm | no | 4 | **2** | 1 | **7** | 5 | 3 | 0.697 | 0.349 | **1.221** |
+| **Tyson** | Fox & Flour | 10 | 64 | 7,136 | expert | warm | no | 6 | **3** | 0 | **6** | 5 | 2 | 0.841 | 0.420 | **0.841** |
+| **Patch** | Patch's | 33 | 214 | 21,716 | performer | warm | yes | 8 | **2** | 1 | **4** | 4 | 1 | 0.368 | **0.092** | 0.184 |
+| **Rivet** | Patch's | 33 | 204 | 16,153 | friend | warm | yes | 14 | **10** | 1 | **3** | 1 | 6 | 0.867 | **0.619** | 0.186 |
+
+### 100.3 Per-speaker DEVICE-FAMILY SHARE (%)
+
+Given the user's guidance ("particular DEVICE FAMILIES cluster
+differently by character") the crucial view is **which device family
+dominates each character's writer-voice expression**:
+
+| Speaker | Total hits | D1n% (neg-reframe) | D1a% (assertive-reframe) | D3% (courtroom lex) | D4a% (stakes-adj) |
+|---|---|---|---|---|---|
+| Ruby | 16 | 12.5 % | 12.5 % | **43.8 %** | 31.2 % |
+| Tyson | 17 | 17.6 % | 17.6 % | **35.3 %** | 29.4 % |
+| Patch | 16 | 12.5 % | **37.5 %** | 25.0 % | 25.0 % |
+| Rivet | 18 | **55.6 %** | 22.2 % | 16.7 % | 5.6 % |
+
+**Load-bearing pattern.** Every character expresses the writer-voice
+attractor, but through **different surface devices**:
+
+- **Fox & Flour cast (Ruby + Tyson)** channels the attractor primarily
+  through **D3 (courtroom lexicon)** — 43.8 % + 35.3 % of their hits.
+- **Rivet** channels it primarily through **D1n (negation-reframe)** —
+  55.6 %.
+- **Patch** channels it primarily through **D1a (assertive-reframe)** —
+  37.5 %.
+
+Same underlying rhetorical attractor ("elevate a mundane utterance
+via a formalizing device"); different surface expressions per
+character-personality context. The visible "courtroom" fingerprint
+is Fox & Flour's *specific* expression of a broader family.
+
+### 100.4 Universe aggregates
+
+| Universe | Comps | Turns | Chars | D1/1k | D1n/1k | D3/1k |
+|---|---|---|---|---|---|---|
+| Fox & Flour Bakery | 10 | 129 | 12,871 | 0.777 | 0.388 | **1.010** |
+| Patch's Workshop | 31 | 392 | 35,783 | 0.615 | 0.335 | 0.196 |
+| EXP266-STRONG / EXP266-WEAK | 2 | 26 | 2,086 | 0 | 0 | 0 |
+
+Fox & Flour D3 rate is **5.2 × Patch's Workshop D3 rate**. D1 and D1n
+rates are within ~30 % across the two real Universes — the reframe
+device is nearly Universe-invariant. **The Universe difference is
+in surface vocabulary, not in the underlying attractor.**
+
+### 100.5 Treatment-bucket aggregates
+
+| Bucket | Comps | Turns | Chars | D1n/1k | D3/1k |
+|---|---|---|---|---|---|
+| pre-Q-279-2 F&F | 7 | 88 | 9,163 | 0.327 | 0.655 |
+| **post-Q-279-2 F&F** | 3 | 41 | 3,708 | **0.539** | **1.888** |
+| other Universe (Patch's) | 33 | 418 | 37,869 | 0.317 | 0.185 |
+
+**Post-Q-279-2 F&F D3 rate is 2.9 × pre-Q-279-2 F&F rate and 10.2 ×
+Patch's rate.** The Knowledge treatment (which contains zero
+courtroom vocabulary; §92.5) did NOT reduce the D3 rate — it
+appeared to *increase* it (n=3 post; small sample, but every T1 and
+T2 turn budget contained multiple D3 hits per the §92 dossier). **This
+is direct evidence that the writer-voice attractor is upstream of
+Knowledge.**
+
+### 100.6 Attempt-count aggregates
+
+| Attempts | Comps | Turns | Chars | D1/1k | D1n/1k | D3/1k |
+|---|---|---|---|---|---|---|
+| **1 (first-pass)** | 27 | 360 | 33,244 | **0.812** | **0.451** | 0.331 |
+| 2 (corrective) | 16 | 187 | 17,496 | 0.286 | 0.114 | 0.514 |
+
+**First-pass D1/D1n rates are 2.8-4.0 × corrective rates.** The
+corrective under-length hint **reduces** the reframe device, likely
+because the hint asks for more substance ("add a challenge,
+callback, or reveal that a character has been holding back") and
+the model trades some of its rhetorical-tic surface for
+scene-content. **H4 disconfirmed a second time** (already
+disconfirmed at §92.4; now with normalized rate evidence). D3 rate
+is nearly flat across attempts — courtroom vocabulary is not
+attempt-count-sensitive.
+
+### 100.7 Verbatim / near-verbatim echo cluster
+
+| Pattern | Hits | Compositions | Universes |
+|---|---|---|---|
+| `"final exam"` | 3 | 26c62b4b Welcome, 488c37ba T1, 699916a9 T2 | all Fox & Flour |
+| `"tiny [courtroom / management / private club / bureaucrat]"` | 4 | d533b4ec (Patch's), a119b064 (Patch's), d7549fc1 (F&F), a5c59014 (F&F) | **both Universes** |
+| `"That['’]s? not a casual question"` (strict shape) | 1 mask-hit; broader "casual question" 3 hits per §92 | 7177b0f5 (F&F), 699916a9 (F&F), 01aa7601 (Patch's) | **both Universes** |
+| `"That['’]s? evidence"` | 1 (7177b0f5) | Fox & Flour | 1 |
+
+Verbatim structural echoes span both Universes — the *"tiny [formal-
+institution]"* micro-template hits Patch's Workshop (bureaucrat,
+management) AND Fox & Flour (courtroom, private club) as instances
+of the same rhetorical construction.
+
+## §101 Correlation findings
+
+### 101.1 Personality-vector correlation
+
+`voice_humor = warm` and `voice_energy = medium` and
+`voice_directness = balanced` are **uniform** across all four cast
+members (Ruby / Tyson / Patch / Rivet). These fields **do not
+discriminate** device rate. If H3 (personality vector) were driven
+by these enum fields, we would expect uniform rates. We observe:
+Rivet D1n = 0.619/1k vs Patch D1n = 0.092/1k, a 6.7× ratio between
+two cast members with byte-identical voice-axis enums.
+
+`tone_archetype` varies:
+- Rivet: `friend` — high D1n
+- Ruby: `friend` — mid D1n
+- Patch: `performer` — low D1n
+- Tyson: `expert` — mid-high D1n
+
+`tone_archetype` does not linearly predict D1n either. `friend`
+covers both extreme (Rivet high) and moderate (Ruby mid). `performer`
+is low; `expert` is mid-high.
+
+**What DOES discriminate:** the personality *text*.
+
+- Rivet: *"intelligent, analytical, observant, dry, patient, slightly
+  sarcastic, and extremely literal when being literal makes something
+  funnier"* — highest D1n rate. The negation-reframe device fits an
+  *"extremely literal"* character verbatim.
+- Ruby: *"warm, cheerful, and genuinely caring … speaks with the
+  comforting confidence of someone who truly loves their craft"* —
+  moderate D1n but leans D3 (courtroom lexicon).
+- Tyson: *"easygoing, practical, and a little dry … Gives clear
+  recommendations, occasionally teases Ruby"* — moderate D1n; leans
+  D3 (courtroom lexicon).
+- Patch: *"scruffy, endlessly curious beaver … curious, funny,
+  inventive, slightly chaotic, persistent, skeptical, enthusiastic"*
+  — lowest D1n rate. The negation-reframe device does not fit the
+  *"chaotic / enthusiastic"* register; Patch leans D1a (assertive
+  reframe) instead.
+
+Free-text personality drives WHICH surface device the shared
+attractor takes — not WHETHER the attractor exists.
+
+### 101.2 Universe correlation
+
+Fox & Flour: D3 dominates. Patch's Workshop: D1 dominates. Same
+underlying attractor; different surface expression per Universe
+context (bakery interpersonal drama → courtroom idiom; workshop
+technical banter → literal-reframe idiom).
+
+### 101.3 Pre / post Q-279-2 treatment correlation
+
+Treatment SHOULD reduce the attractor if the substrate cause were in
+Knowledge lexical gravity (SESSION 271-272 finding). It did not.
+Treatment appeared to *slightly increase* D3 rate on Fox & Flour
+post-treatment (0.655 → 1.888, n=3 post; caveat: small n; but
+consistent direction with §92 qualitative evidence).
+
+**The attractor is not moved by Knowledge substrate change.** This
+is the single strongest piece of evidence that H1/H2 (contract /
+model prior) is load-bearing above Knowledge.
+
+### 101.4 Attempt-count correlation
+
+Corrective (attempt=2) rates are LOWER than first-pass (attempt=1)
+rates. H4 (corrective amplification) disconfirmed. The corrective
+under-length hint appears to REDUCE the rhetorical-tic surface,
+possibly by asking for more substance ("add a challenge, callback,
+or reveal") that competes with the tic surface for character budget.
+
+## §102 Prediction vs actual — §91 hypothesis hierarchy
+
+| Hypothesis | Predicted rank | Post-Phase-1 verdict |
+|---|---|---|
+| **H1** — Writing Contract structural bias | dominant | **Confirmed as floor.** Contract's stakes-elevating structural frame + non-zero rates across every character + cross-World invariance + persistence across Q-279-2 treatment support this. |
+| **H2** — Model prior for "dry-humor dialogue" | dominant | **Confirmed as co-floor.** Cannot be discriminated from H1 without Phase 2. Both fit the observation "attractor lives above character layer." |
+| **H3** — Character-personality bleed | modulator | **Confirmed as modulator, more strongly than predicted.** Personality-text differences (analytical/dry Rivet vs enthusiastic/chaotic Patch) drive 6.7× variance in D1n rate. Personality-vector enums (`voice_humor`, `voice_energy`, `voice_directness`, `tone_archetype`) do NOT discriminate — the load-bearing variable is free-text personality description. Personality also drives WHICH surface device the attractor selects (D1n for analytical Rivet; D1a for chaotic Patch; D3 for narrative-driven Ruby+Tyson). |
+| **H4** — Corrective-hint amplification | minor | **Disconfirmed a second time.** Corrective renders have 2.8-4.0× LOWER D1/D1n rates than first-pass. Corrective SUPPRESSES the tic surface. |
+| **H5** — Sharpening leakage | unlikely | **Disconfirmed a second time.** `sharpen_prompt` and `clean_business_brief` remain unwired to any synthesis path (§92.5). |
+
+## §103 H1 / H2 / H3 status after Phase 1
+
+Answering the user's primary A/B/C question:
+
+> *Does the shared writer fingerprint live predominantly (A) above the
+> character layer, (B) in character/personality configuration, or
+> (C) is genuinely mixed?*
+
+**Answer: (C) genuinely mixed, with structure.**
+
+The decomposition:
+
+1. **Above-character floor (H1 + H2 jointly).** Every character
+   produces the attractor at non-zero rate. Cross-World invariance in
+   D1 rate. Q-279-2 Knowledge treatment did not reduce D3 rate. The
+   *"tiny [formal-institution]"* template + *"That's not a casual
+   question"* template span both Universes verbatim. Something in
+   the substrate above the character layer reliably produces this
+   attractor.
+2. **Personality-text modulator (H3).** The free-text
+   `personality` field — NOT the enum `voice_humor` /
+   `voice_energy` / `voice_directness` / `tone_archetype` fields —
+   drives 6.7× variance in the reframe-device rate between two
+   otherwise-identical-enum cast members (Rivet vs Patch), AND
+   drives which SURFACE device the attractor selects per character
+   (D1n for analytical; D1a for chaotic; D3 for narrative-service).
+3. **Not Knowledge, not corrective-hint, not sharpening module.**
+   H4 + H5 disconfirmed. Q-279-2 substrate change did not move the
+   attractor.
+
+**What Phase 1 did NOT discriminate:**
+- H1 (Writing Contract structural frame) vs H2 (model prior for
+  dry-humor dialogue) as the source of the floor. Both remain live.
+- Whether the personality-text modulation is because the LLM reaches
+  for register-appropriate rhetorical devices given a personality
+  description (a positive-selection story), or because a personality-
+  agnostic attractor is *suppressed* by chaotic/enthusiastic
+  personality descriptions (a negative-selection story).
+
+## §104 Does Phase 1 discriminate enough to avoid Phase 2?
+
+**For the A/B/C question — yes.** The genuinely-mixed answer is
+mechanically supported. Phase 2 is not needed to answer whether the
+attractor is above-character-only or personality-only.
+
+**For distinguishing H1 (contract) from H2 (model prior) — no.**
+Both remain live as the floor cause. If a future fix is planned,
+Phase 2 (controlled contract-lite render + baseline replay + neutral-
+voice mutation) is the natural next step to determine whether
+temporarily neutralizing the writing contract's stakes-elevating
+structural frame reduces the floor rate meaningfully.
+
+Chris + ChatGPT decision: whether the A/B/C answer is sufficient
+for now (defer Phase 2 to a future fix-planning slice), or whether
+mechanically distinguishing H1 vs H2 justifies the ≤3 controlled
+dogfood renders Phase 2 requires.
+
+## §105 Recommendation
+
+Phase 1 executed as designed. Rubric applied without revision.
+Correlations reported at raw + normalized levels. Prediction hierarchy
+resolved: H1 + H2 co-floor, H3 modulator (via personality *text*, not
+enum fields), H4 + H5 disconfirmed. Device-family clustering per
+character confirmed: same attractor, different surface expressions.
+
+The write-up above is the durable analysis record. No further
+provider spend was required.
+
+### Recommended next gate
+
+> **READY-FOR-CHRIS-CHATGPT-REVIEW** of the Phase 1 result. Two live
+> options:
+> 1. **DEFER-PHASE-2** — the A/B/C answer (mixed, above-character
+>    floor + personality-text modulator) is sufficient for the current
+>    audit. Preserve the Phase 2 design as-is for a future
+>    fix-planning slice.
+> 2. **APPROVE-PHASE-2** — the ≤3 controlled dogfood renders
+>    (baseline + contract-lite + neutral-voice) are worth the small
+>    spend to mechanically distinguish H1 from H2 before any fix is
+>    considered. Phase 2 experiment design remains §95.2 unchanged.
+
+Do NOT proceed to Phase 2 without Chris + ChatGPT approval.
+
+Other deferred findings (4c visual composition, 4d-4i, Knowledge-
+breadth, Beat-3 legibility) remain preserved unopened.
+
+## §106 Checklist — Q-279-3 Phase 1
+
+- [x] Rubric applied unchanged from §95.1 (§99.1)
+- [x] 43 compositions scored (§100.1)
+- [x] Per-speaker normalized rates (D1/1k, D1n/1k, D3/1k, affected-turn %) (§100.2)
+- [x] Device-family share per speaker computed (§100.3)
+- [x] Per-Universe aggregates (§100.4)
+- [x] Pre / post Q-279-2 treatment aggregates (§100.5)
+- [x] Attempt-count aggregates (§100.6)
+- [x] Verbatim / near-verbatim echo cluster tabulated across both Universes (§100.7)
+- [x] Personality-vector correlation analyzed; enum fields do not discriminate; personality-*text* does (§101.1)
+- [x] Universe / treatment / attempt correlations reported (§101.2-§101.4)
+- [x] Prediction-vs-actual hierarchy resolution (§102)
+- [x] H1/H2/H3 status after Phase 1 (§103)
+- [x] A/B/C primary question answered: C (mixed) (§103)
+- [x] Phase 2 necessity assessed against A/B/C question and H1-vs-H2 question separately (§104)
+- [x] Recommendation + next gate stated (§105)
+- [x] No prompt / synthesis / Knowledge / character / identity / retrieval / verifier / memory / audience / runtime change
+- [x] Zero provider renders fired
+- [x] Zero provider spend
+- [x] No fix implemented
+- [x] Rubric NOT revised after seeing results
+- [x] Phase 2 NOT executed
+- [x] Other deferred findings NOT opened
+
