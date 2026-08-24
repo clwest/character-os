@@ -23,11 +23,17 @@ Architecture (measured evidence in ``docs/design/SESSION_278_AUDIT.md``
   tagged ADV/ADJ/VERB/SCONJ/INTJ and are never emitted.
 * **NER supplement (NEW; supplements PROPN)** — walks ``doc.ents``
   and emits any entity whose label is in
-  :data:`_ENTITY_RELEVANT_LABELS` and whose span is not already
-  covered by the PROPN pass. This closes the sub-4-char acronym
-  silent-miss class (``FBI``/``CIA``/``FDA``/``IRS`` — all POS=PROPN
-  but the legacy single-cap regex missed them on the 4-char length
-  gate; the NER pass adds a redundant belt for the same coverage).
+  :data:`_ENTITY_RELEVANT_LABELS`, whose span is not already covered
+  by the PROPN pass, **and whose span contains at least one
+  ``POS=PROPN`` token** (SESSION 278 Q-278-4.1 gate). This closes
+  the sub-4-char acronym silent-miss class (``FBI``/``CIA``/``FDA``/
+  ``IRS`` — all POS=PROPN, all correctly labeled ORG by spaCy) while
+  rejecting the small-model NER's common-noun over-fires — the
+  Q-278-3.2 Specimen 4 ``Success`` (POS=NOUN) is the canonical case
+  the gate closes. Legacy single-cap regex missed the acronym class
+  on the 4-char length gate; the PROPN-gated NER supplement adds a
+  redundant belt for the same coverage without importing spaCy's
+  ORG-on-capitalized-noun noise.
 * **Grounding** — identical to the legacy verifier's
   :func:`claim_verifier.verify_claims`: candidate lowercased,
   ``needle in factual_corpus.lower()`` case-insensitive substring
@@ -321,10 +327,35 @@ def extract_named_entities_ner(text: str) -> list[UnsupportedClaim]:
         i = j
 
     # 4) NER supplement — entity labels PROPN might not cover.
+    #
+    # SESSION 278 Q-278-4.1 — POS=PROPN gate on the supplement.
+    # The Q-278-3.2 fresh dogfood surfaced ``Success`` (Specimen 4
+    # turn 3) as a spaCy NER=ORG label on a common noun (POS=NOUN).
+    # Without a gate, the supplement pass emits `Success` as a
+    # ``ner_org`` candidate — an over-fire on capitalized common
+    # nouns that the small-model NER routinely mislabels.
+    #
+    # Q-278-4 §2 mechanically measured this: requiring at least one
+    # PROPN token in the entity span rejects the ``Success`` over-
+    # fire while preserving every short-acronym target
+    # (FBI/CIA/FDA/IRS — all POS=PROPN) and every real proper-noun
+    # case tested (PERSON/ORG/GPE spans on Wikipedia, NASA, France,
+    # Microsoft, OpenAI, Mark, Bill, Antoninus, James Webb Space
+    # Telescope, New York, ...).
+    #
+    # This is Q-278-4 Slice 1 — non-authority-changing correction.
+    # No dispatcher, no schema change, no strict-mode change.
     for ent in doc.ents:
         if ent.label_ not in _ENTITY_RELEVANT_LABELS:
             continue
         if _span_overlaps(ent.start_char, ent.end_char, matched_spans):
+            continue
+        # Require at least one PROPN token in the entity span.
+        # spaCy tags real proper nouns (short acronyms + real
+        # names) as PROPN; common-noun ORG mislabels
+        # (``Success``, ``Coffee``, ``Bread``, etc.) fail this
+        # gate and are correctly excluded from the supplement.
+        if not any(tok.pos_ == "PROPN" for tok in ent):
             continue
         _emit(
             ent.text.strip(),

@@ -13,8 +13,11 @@ Handoff context: `docs/design/SESSION_278_HANDOFF.md`.
 - [x] **Q-278-2b** — Decision-gate challenge: does Option C actually change the Ruby/Tyson specimen? And has evidence crossed the threshold justifying the semantic/NER upgrade path over further regex+stoplist hardening? *(CLOSED — Option C withdrawn as mechanically redundant; Q-278-3 opened.)*
 - [x] **Q-278-3** — What is the smallest robust verifier architecture that represents the named-entity grounding invariant rather than approximating it via capitalization + stoplist? Audit-only architecture comparison + shadow-evaluation feasibility. *(CLOSED — Chris + ChatGPT chose GO B: bounded feasibility spike first.)*
 - [x] **Q-278-3.1** — Bounded local NER feasibility spike: install spaCy `en_core_web_sm` in throwaway venv; measure against adversarial matrix + real 26c62b4b + historical warned specimens; try to disprove Option D. *(CLOSED — Chris + ChatGPT chose GO A: approve modified D-POS Hybrid; open Q-278-3.2.)*
-- [x] **Q-278-3.2** — D-POS shadow-mode implementation. Smallest safe observational substrate: legacy verifier stays authoritative; D-POS runs beside it behind `CHARACTER_OS_K64_NER_SHADOW_EXPERIMENT`; results land on new `Composition.verification_warnings_shadow` column; `k64_shadow_diff` mgmt command reports OLD/SHADOW/BOTH deltas. *(LANDED — commit `42298bc`; shadow OFF byte-identical to today; awaiting fresh operator dogfood window before cutover discussion.)*
-- [ ] Q-278-4 — (TBD, opened after operator dogfood window + shadow-window review)
+- [x] **Q-278-3.2** — D-POS shadow-mode implementation. Smallest safe observational substrate: legacy verifier stays authoritative; D-POS runs beside it behind `CHARACTER_OS_K64_NER_SHADOW_EXPERIMENT`; results land on new `Composition.verification_warnings_shadow` column; `k64_shadow_diff` mgmt command reports OLD/SHADOW/BOTH deltas. *(LANDED — commit `42298bc`; shadow OFF byte-identical to today.)*
+- [x] **Q-278-3.2 Fresh Shadow Dogfood 5/5** — five fresh normal-dogfood specimens (a1421a0e / 5f4bdbbc / 1491d31c / fcba3242 / 1aabbff6) captured, analyzed, and compared against legacy per specimen + as a consolidated matrix. Acceptance criteria A-F evaluated. *(CLOSED — Chris + ChatGPT approved GO-CUTOVER-PLANNING.)*
+- [x] **Q-278-4** — D-POS cutover-design audit. Mechanical trace of legacy authority path, NER-supplement Success experiment, stoplist disposition, dual-run design, persistence semantics, rollback, warn/strict separation, acceptance signals, blast radius, ordered smallest-cutover slices. *(AUDIT COMPLETE — recommendation: GO-IMPLEMENT-SLICE-1.)*
+- [x] **Q-278-4.1** — NER-supplement POS=PROPN gate (Slice 1 of the Q-278-4 cutover plan). Single-function edit in `claim_verifier_ner.py`; +6 regression tests; 38 D-POS + 116 adjacent tests all green; Specimen 4 `Success` over-fire closed post-gate. *(IMPLEMENTED — awaiting Slice 2 decision.)*
+- [ ] Q-278-4.2 — (TBD; authority dispatcher + `verification_warnings_legacy` column; opens only if Slice 2 approved)
 
 Slice discipline reminder: no fixes land in this session until Chris + ChatGPT explicitly approve.
 
@@ -1348,5 +1351,900 @@ Shadow mode is IMPLEMENTED but **not authoritative**. Before any cutover discuss
 Shadow evidence window target: current historical warned backlog PLUS **at least 5 fresh operator dogfood compositions rendered with `CHARACTER_OS_K64_NER_SHADOW_EXPERIMENT=1`**. Chris drives that dogfood; K6_CLAIM_VERIFIER_MODE stays `warn`; no strict-mode flip in this session or Q-278-3.2.
 
 **STOP.** Await operator dogfood + Chris + ChatGPT review before Q-278-4.
+
+---
+
+## Q-278-3.2 Fresh Shadow Dogfood — Specimen 1/5
+
+**Cumulative fresh-window count: 1/5.**
+
+### Composition
+
+- ID: `a1421a0e-cc31-4323-a50e-3e88d8b21a4b`
+- Name: `Dialogue — That was a new one: a customer`
+- Template: `dialogue_scene` (Ruby + Tyson cast)
+- Episode: `350a8c14-d25d-41ff-85a5-83d494216311`
+- Operator topic: *"Ruby and Tyson deal with a difficult bakery customer."*
+- Status: `completed`; `verification_status = "verified"`; `synthesis_attempt_count = 2`
+
+### Operator observation (recorded, not investigated)
+
+First synthesis attempt was too short; existing duration-corrective behavior fired; second attempt passed; composition completed successfully. Not reported as duration friction. Recording only — will only become relevant if repeated evidence surfaces.
+
+### Legacy `verification_warnings` (authoritative)
+
+3 warnings, all `proper_noun`, all sentence-initial ordinary English words:
+
+- `Mostly` — turn 6 (Tyson): *"She softened when you said that. Mostly. Then she asked what coffee would go with the cake she hasn't chosen yet."*
+- `Once` — turn 7 (Ruby): *"That was her way back into the conversation. Once people feel heard, they can usually start choosing again."*
+- `Perfect` — turn 9 (Ruby): *"Perfect. We can keep it simple: choose the occasion, choose a pickup day when we're open, then choose the treat."*
+
+These are three fresh members of the Q-278-1 false-positive class (each capitalized, ≥ 4 chars, missing from the stoplist AND from the per-speaker corpus).
+
+### Shadow `verification_warnings_shadow` (observational)
+
+**0 entries. Empty list.**
+
+### OLD_ONLY / SHADOW_ONLY / BOTH
+
+- **OLD_ONLY (legacy flagged, shadow did not): `Mostly`, `Once`, `Perfect`** — 3 warnings.
+- **SHADOW_ONLY (D-POS flagged, legacy did not):** none.
+- **BOTH:** none.
+
+### Were `Mostly` / `Once` / `Perfect` silenced?
+
+**Yes, all three.** Live per-turn replay (running D-POS against the same real per-speaker corpora reconstructed from the persisted knowledge_chunk_ids) reproduced the persisted shape exactly: turns 6/7/9 flagged by legacy, silenced by shadow; all other turns clean for both classifiers. spaCy 3.8 POS tags for the three tokens: `Mostly`→ADV, `Once`→SCONJ, `Perfect`→ADJ — none PROPN → D-POS does not extract.
+
+### Shadow-only deltas requiring interpretation
+
+None. The shadow classifier produced no candidates D-POS would flag that the legacy verifier missed. Nothing to interpret as desirable / undesirable / ambiguous for this specimen.
+
+### Runtime shadow confirmation
+
+**Confirmed active in the actual Celery worker process.** Three independent signals:
+
+1. `ps eww -p 52384 52415` on the running Celery worker PIDs shows `CHARACTER_OS_K64_NER_SHADOW_EXPERIMENT=1` in their environment (env was inherited via `set -a; source .env; set +a` inside `scripts/start-local-real.sh`).
+2. `ner_shadow_experiment_active()` resolves `True` in the same venv the workers run under.
+3. Live in-process replay of the D-POS classifier against the exact per-speaker corpora returns the same empty per-turn output the persisted column shows. Since the classifier is deterministic on `(text, corpus, vocab)` and the code path in `dialogue_synthesis.py:_shadow_active` guard invokes it when the flag is on, the persisted empty list is the expected outcome of the shadow having run, not the default of shadow NOT having run.
+
+Note on evidence limits: an all-empty shadow column is INDISTINGUISHABLE by direct inspection from "shadow classifier did not execute" on this single specimen. The three signals above are strong indirect evidence; a follow-up specimen that produces ANY shadow-only output would provide stronger direct confirmation.
+
+### Legacy authority + shadow zero-impact
+
+Legacy `verification_warnings` was written and drove the SPA display. `verification_status = "verified"` (composition-level normalization of the aggregate `"warned"` per starters.py:295-305 documented convention). Composition status `completed`; render dispatched to Runway; provider spend uncorrelated with shadow. Shadow column populated purely as observational metadata; no field in the operator-visible path was influenced by D-POS.
+
+### Prediction vs actual (this specimen)
+
+- Predicted the Q-278-1 class would silence for these three tokens: confirmed. Third real-world confirmation of D-POS closing the general class (26c62b4b + 5-row historical replay + this fresh render).
+- Predicted the shadow-only column would be empty on a well-grounded dialogue: confirmed on turns 0-5 and 8-12; no unsupported entities in the synthesized text.
+
+### Cumulative fresh-window progress: **1 / 5**
+
+---
+
+## Q-278-3.2 Fresh Shadow Dogfood — Specimen 2/5
+
+**Cumulative fresh-window count: 2/5.**
+
+### Composition
+
+- ID: `5f4bdbbc-7043-47e7-a362-3cdc8be98761`
+- Name: `Dialogue — I want to start a consulting f`
+- Template: `dialogue_scene` (Patch + Rivet cast)
+- Episode: `c7adc141-4e37-4b01-99bd-f0839aa91d8c`
+- Operator topic: *"Patch wants to start a consulting firm."*
+- Status: `completed`; `verification_status = "verified"`; `synthesis_attempt_count = 1` (no corrective this time)
+
+### Legacy `verification_warnings` (authoritative)
+
+2 warnings, both `proper_noun`, both sentence-initial ordinary English:
+
+- `Consulting` — turn 1 (Rivet): *"That is a sentence with several missing parts. Consulting about what?"*
+- `Also` — turn 4 (Patch): *"Exactly. Also to prevent them from turning on something half-finished and declaring victory because it said one clever sentence."*
+
+Two additional fresh members of the Q-278-1 false-positive class.
+
+### Shadow `verification_warnings_shadow` (observational)
+
+**0 entries. Empty list.**
+
+### OLD_ONLY / SHADOW_ONLY / BOTH
+
+- **OLD_ONLY: `Consulting`, `Also`** — 2 warnings.
+- **SHADOW_ONLY:** none.
+- **BOTH:** none.
+
+### Were `Consulting` / `Also` silenced?
+
+**Yes, both.** Live per-turn replay against the reconstructed per-speaker corpora (Patch = 1825-char corpus, Rivet = 943-char corpus, both driven by teammate identity fields — per-character K2 chunks were empty per the brief metadata `patch=[]; rivet=[]`) reproduced the persisted shape exactly: turns 1/4 flagged by legacy, silenced by shadow; every other turn clean for both. spaCy 3.8 POS tags: `Consulting` and `Also` are sentence-initial gerund/adverb constructions, not PROPN → D-POS does not extract.
+
+### Shadow-only deltas
+
+None. Nothing to classify as desirable/undesirable/ambiguous.
+
+### Runtime shadow confirmation
+
+Confirmed active — same three signals as Specimen 1 hold: env-var in running Celery worker processes, `ner_shadow_experiment_active() == True` in the venv, deterministic live replay reproduces the persisted empty shape.
+
+### Legacy authority + shadow zero-impact
+
+Same as Specimen 1. Legacy `verification_warnings` drove the SPA display. Shadow column was populated as observational metadata only. Render dispatched to Runway; composition completed.
+
+### DEFERRED observations (record only — NOT investigated in this slice)
+
+Chris reports the resulting Patch/Rivet scene was "okay" but felt off in three specific ways. **These observations are recorded durably here for possible future investigation; nothing about Patch/Rivet prompts / identities / memories / synthesis / composition behavior is changed as a result.**
+
+1. **Recurring rhetorical construction.** Patch closes turn 10 with: *"Technically, that is also consulting. **Whether it should be is a different question.**"* Chris believes he has heard Patch use this or a very similar construction across multiple independently generated episodes. Not investigated here; not confirmed against other compositions in this slice.
+
+2. **Polished consulting methodology out of a minimal topic.** For a topic of only 8 words, Patch produced strikingly structured methodology-flavored lines including: *"build the smallest useful version and find out"* (turn 2), *"the point is honest experiments: what worked, what broke, what needs another pass. If it fails, we say it failed."* (turn 6). The tightness of the framing was surprising given the topic's minimality.
+
+3. **Empty per-character K2 retrieval.** The persisted brief metadata reports `patch=[]; rivet=[]`. Retrieval returned no per-character KnowledgeChunks; the shadow-verifier corpora above were built entirely from teammate identity fields (business_brief / who_you_help / what_you_sell / Universe.brief). Episode metadata references one story memory concerning "the workshop agent"; that piece did land (visible in turn 7).
+
+**Possible future falsifiable question (NOT opened yet):** *Is Patch exhibiting repeated rhetorical/template language across independently generated episodes, and if so, what substrate is producing or reinforcing it?* If Chris chooses to open this later, evidence gathering would start by grepping every completed Patch composition's `synthesized_brief` for the "Whether it should be is a different question" construction and adjacent template-shape indicators.
+
+### Cumulative fresh-window progress: **2 / 5**
+
+---
+
+## Q-278-3.2 Fresh Shadow Dogfood — Specimen 3/5
+
+**Cumulative fresh-window count: 3/5.**
+
+### Composition
+
+- ID: `1491d31c-3329-4485-a84e-80a0f0781035`
+- Name: `Dialogue — I think Fox & Flour needs a ma`
+- Template: `dialogue_scene` (Ruby + Tyson cast, Fox & Flour World)
+- Episode: `49ead0ac-a085-49dd-a447-602af08ec368`
+- Operator topic: *"Ruby thinks the bakery needs a mascot."*
+- Status: `completed`; `verification_status = "verified"`; `synthesis_attempt_count = 1` (no corrective)
+
+### Legacy `verification_warnings` (authoritative)
+
+2 warnings, both `proper_noun`, both sentence-initial ordinary English:
+
+- `Tucked` — turn 4 (Ruby): *"He wouldn't present it. He'd be carrying it home. Tucked under one arm, very pleased with himself."*
+- `Done` — turn 10 (Ruby): *"Done. And he is going to have the best little loaf."*
+
+Two more Q-278-1 class members.
+
+### Shadow `verification_warnings_shadow` (observational)
+
+**0 entries. Empty list.**
+
+### OLD_ONLY / SHADOW_ONLY / BOTH
+
+- **OLD_ONLY: `Tucked`, `Done`** — 2 warnings.
+- **SHADOW_ONLY:** none.
+- **BOTH:** none.
+
+### Were `Tucked` / `Done` silenced?
+
+**Yes, both.** Live per-turn replay against real per-speaker corpora (Ruby + Tyson, real per-character K2 populated this time — same chunk IDs as Specimen 1) reproduced the persisted shape exactly. spaCy 3.8 POS tags: `Tucked` = past-participle VERB, `Done` = sentence-initial ADJ/INTJ — neither PROPN → D-POS does not extract.
+
+### Shadow-only deltas
+
+None. Nothing to classify.
+
+### Runtime shadow confirmation
+
+Confirmed active — deterministic live replay reproduces persisted empty shape.
+
+### Legacy authority + shadow zero-impact
+
+Same as prior specimens.
+
+### Creative operator observation (positive — record only)
+
+Chris reports this episode "worked very well creatively." No creative-quality investigation.
+
+### DEFERRED cross-specimen observation — visual-composition boundary
+
+The dialogue progressively expanded a visually important mascot concept **without operator prompting**. The 8-word topic was only *"Ruby thinks the bakery needs a mascot."* The synthesized scene added:
+
+- small fox mascot
+- loaf tucked under one arm (turn 4)
+- tiny coffee cup on the counter signs (turn 6)
+- little party hat by the celebration-cake pickup (turn 6)
+- three proposed sketches (turn 9)
+
+The viewer sees only the two talking-head character clips (Ruby + Tyson) and cannot see the mascot the characters are increasingly discussing. This resembles the prior Patch/Rivet dogfood where dialogue introduced visually important scene objects (e.g. the box) that the current talking-head composition could not show.
+
+**Cross-specimen shape:** the same class of behavior has now surfaced across different dogfood characters (Patch + Rivet **and** Ruby + Tyson) and different Worlds (Patch's Workshop **and** Fox & Flour Bakery). Today's mascot is not the architecture; the cross-character/cross-World pattern is.
+
+**Important distinction:** the operator did NOT request these visual details. The synthesizer itself expanded the topic into visual storytelling that exceeded the current talking-head visual grammar.
+
+**Possible future focused question (NOT opened yet):** *When synthesis makes an unseen object or concept important to the scene, how can Character OS determine whether the composition needs additional visual representation?*
+
+Nothing in this slice about:
+- image generation
+- writer prompt
+- composition planning
+- suppression of visual references
+- PiP / B-roll / cutaway architecture
+- an "every mentioned object gets a visual" assumption
+
+The observation is recorded durably here for a future question, not investigated.
+
+### Cumulative fresh-window progress: **3 / 5**
+
+---
+
+## Q-278-3.2 Fresh Shadow Dogfood — Specimen 4/5
+
+**Cumulative fresh-window count: 4/5.**
+
+### Composition
+
+- ID: `fcba3242-097f-4355-b47b-669c48be43ed`
+- Name: `Dialogue — I'm building an agent to help`
+- Template: `dialogue_scene` (Patch + Rivet cast, Patch's Workshop World)
+- Episode: `4598fcfa-70ff-41c9-81d5-becebb48d29c`
+- Operator topic: *"Patch and Rivet work on an Agent"*
+- Status: `completed`; `verification_status = "verified"`; `synthesis_attempt_count = 1`
+
+### Legacy `verification_warnings` (authoritative)
+
+7 warnings, all `proper_noun`, distributed across turns 2-10:
+
+- `Suggest` — turn 2 (Patch, mid-sentence after ". "): *"Not decide. Suggest. I still retain..."*
+- `Success` — turn 3 (Rivet, position 41): *"Then success is not \"it picked an idea.\" Success is whether its suggestion helps us learn something..."*
+- `Fair` — turn 4 (Patch, sentence-initial): *"Fair. I asked it what we should do..."*
+- `Mostly` — turn 6 (Patch, sentence-initial): *"Mostly. Its first job is to look at a project..."*
+- `Basically` — turn 6 (Patch, later sentence): *"Basically, it gets to be you, but without the disappointed stare."*
+- `Also` — turn 7 (Rivet, sentence-initial after ". "): *"The stare is not optional. Also, if it only repeats questions..."*
+- `Painful` — turn 10 (Patch, mid-sentence after ". "): *"Then it can bring them up later. Painful, but fair."*
+
+Six are Q-278-1 sentence-initial ordinary-language shape; one (`Success`) is a mid-sentence capitalized common noun.
+
+### Shadow `verification_warnings_shadow` (observational)
+
+**1 entry:** `{"kind":"ner_org","claim":"Success","position":41,"line_index":3,"speaker_name":"Rivet","speaker_alias":"rivet"}`
+
+### OLD_ONLY / SHADOW_ONLY / BOTH
+
+- **OLD_ONLY: `Suggest`, `Fair`, `Mostly`, `Basically`, `Also`, `Painful`** — 6 warnings silenced by shadow.
+- **SHADOW_ONLY:** none.
+- **BOTH: `Success`** — 1 warning (both classifiers flagged; kinds differ: legacy `proper_noun` from the single-cap regex vs shadow `ner_org` from the NER supplement pass).
+
+### Were the 7 legacy warnings silenced?
+
+**6 of 7 silenced by D-POS**; 1 (`Success`) also flagged by shadow via a different mechanism.
+
+- `Suggest` → spaCy POS=VERB (imperative "Suggest.") → PROPN pass skips ✓
+- `Fair` → POS=ADJ → skips ✓
+- `Mostly` → POS=ADV → skips ✓
+- `Basically` → POS=ADV → skips ✓
+- `Also` → POS=ADV → skips ✓
+- `Painful` → POS=ADJ → skips ✓
+- `Success` → POS=NOUN (spaCy tags both occurrences NOUN, not PROPN) → PROPN pass skips; **but** spaCy NER labels the capitalized `Success` at position 41 as `ORG` → **the NER supplement pass in `claim_verifier_ner.extract_named_entities_ner` picks it up as `ner_org`**.
+
+### Delta interpretation
+
+- **The 6 OLD_ONLY entries: desirable.** Six additional Q-278-1 class false positives closed by construction. Consistent with prior specimens.
+- **The 1 BOTH entry (`Success`): ambiguous / newly-surfaced weakness of the NER supplement.** Not a shadow-only NEW false positive (legacy already flagged), but it shows that the NER supplement pass — which was designed to catch entities PROPN misses (specifically short acronyms like `FBI`/`CIA`) — also inherits spaCy's small-model NER over-firing on capitalized common nouns at sentence boundaries. Same class as the Q-278-3.1 `Fair enough.` observation in the 3.7.1 model, which we thought was closed by moving to 3.8. It is closed for `Fair` under 3.8 but NOT for `Success` in this exact sentence shape.
+
+  Interpretation: the NER supplement's benefit (closing `FBI`/`CIA` silent misses) comes with a small cost (importing spaCy's ORG false positives on common nouns). Under the current D-POS Hybrid design the two effects are coupled. If the shadow window keeps producing `ner_*` warnings on common capitalized nouns, a future refinement — evaluated in a separate audit, not this slice — could require `token.pos_ == "PROPN"` for any NER-supplement candidate, sacrificing short-acronym coverage in exchange for tighter ordinary-noun exclusion. **No implementation change here.**
+
+### Shadow-only NEW warnings
+
+**None.** Shadow did not surface any candidate the legacy classifier missed. `Success` is a BOTH, not a SHADOW_ONLY.
+
+### Runtime shadow confirmation
+
+Confirmed active. First specimen with a non-empty `verification_warnings_shadow` column, which is now the strongest single-shot direct confirmation the shadow classifier ran during the Celery worker's actual render — not merely consistent with a hypothetical off run. Deterministic live replay matches the persisted row exactly.
+
+### Legacy authority + shadow zero-impact
+
+`Success` appears in BOTH columns; legacy drove the SPA display. Composition status `completed`; render dispatched to Runway; provider spend unaffected by shadow.
+
+### Creative operator observations (record only — NOT investigated)
+
+**POSITIVE — POSSIBLE CROSS-EPISODE EPISTEMIC ASYMMETRY.** The retrieved Rivet-scoped memory is:
+
+> *"While Patch was out, Rivet found that the workshop agent had quietly built a folder named 'PATCH OVERRIDES' tracking every recommendation Patch had ignored. Rivet chose not to tell him."*
+
+The memory body itself encodes an information asymmetry: **Rivet knows about PATCH OVERRIDES; Patch does not**.
+
+The generated scene behaves consistently with that asymmetry. Patch (turn 10) unknowingly approaches the hidden subject:
+
+> Patch: *"And if it remembers every recommendation you ignore?"*
+
+Rivet (turn 11) responds in a way informed by his private knowledge without exposing it:
+
+> Rivet: *"Well. It may already have a system for that."*
+
+Notably, the synthesis did NOT simply expose or recite the retrieved memory. The generated dialogue appears to have (1) retrieved a Rivet-relevant prior event, (2) preserved that Rivet knows something Patch does not, (3) allowed Patch to unknowingly approach the hidden subject, (4) let Rivet respond in a way informed by his private knowledge, (5) avoided leaking the specific secret ("PATCH OVERRIDES" is never named) to Patch, and (6) produced subtext whose meaning depends on the prior episode.
+
+**Preserve the OBSERVED-vs-NOT-YET-PROVEN distinction:**
+
+- **OBSERVED (this specimen):** the final dialogue behaves as though Rivet retains private knowledge that Patch lacks, across an episode boundary.
+- **NOT YET PROVEN:** that Character OS mechanically maintains arbitrary per-character epistemic state across episodes.
+
+Specifically NOT yet mechanically established:
+- what exact context was supplied to each synthesis stage (per-character corpus + memory rows) for this composition;
+- whether Patch was actually prevented from seeing the Rivet-scoped memory during synthesis, or whether the model simply chose not to name it;
+- whether speaker-specific memory visibility is mechanically enforced (witness filtering, per-turn corpora, etc.) or is emergent from prompt semantics;
+- whether the behavior generalizes across topics, characters, and Worlds;
+- whether the result arose from explicit memory scoping, prompt semantics, model inference alone, or a composition of several mechanisms.
+
+**Possible future falsifiable question (NOT opened yet):**
+
+> Can Character OS reliably preserve and compose character-specific knowledge asymmetry across episodes — allowing one character's private memory to influence behavior without leaking that information to characters who should not know it?
+
+If Chris later opens this, evidence gathering would start from the mechanical facts already in the DB for this composition (per-character `knowledge_chunk_ids`, `memory_ids`, and the exact text passed to `synthesize_dialogue`), then extend to a bounded set of adversarial episodes that place secrets on one character with an evident temptation for the other character to guess.
+
+**No investigation of memory / synthesis / prompt path is opened in this slice.**
+
+**DEFERRED — methodology / repetition observation.** Chris independently noticed the scene contains the phrase *"It suggested we give it one narrow job before we give it access to everything in the workshop."* The "one narrow job" concept has recurred frequently enough across prior Character OS work that it now reads as over-pushed. This episode also strongly reflects Character OS's own development methodology (one narrow job / what are we trying to prove / what changed / what result would count / test on a real project / learn from the result / reject vague output).
+
+Combined with the earlier Specimen 2 deferred observation about Patch's *"Whether it should be is a different question."* construction, both observations point to the same broader possible future falsifiable question:
+
+> **Are Character OS's embedded behavioral / product principles becoming overrepresented in generated character dialogue, causing independent scenes to converge on recurring methodology, phrases, or rhetorical structures?**
+
+The question is DEFERRED and NOT formally opened. If Chris later opens it, evidence gathering would start by grepping every completed Patch composition's `synthesized_brief` for the "Whether it should be is a different question" construction, the "one narrow job" family, and adjacent methodology-shape indicators — then contrast with Ruby/Tyson briefs to test whether the pattern is Patch-specific or platform-wide.
+
+**Three observations from this specimen must remain distinct and MUST NOT be conflated:**
+
+- The methodology/repetition observation is a possible drift in generated language.
+- The rhetorical-construction observation (carried forward from Specimen 2, "Whether it should be is a different question.") is a separate possible drift.
+- The PATCH OVERRIDES observation is a possible cross-episode epistemic asymmetry — an emerging positive continuity behavior, still an observation not a proven invariant.
+
+All three recorded here durably; none investigated in this slice.
+
+Also **DO NOT modify:** Patch, Rivet, Agent behavior, identity prompts, business_brief, memories, synthesis prompts, methodology guidance. Nothing changes as a result of these observations in Q-278-3.2.
+
+### Cumulative fresh-window progress: **4 / 5**
+
+Aggregate across the window so far:
+
+- Silenced Q-278-1 class false positives (OLD_ONLY): **3 + 2 + 2 + 6 = 13**
+- SHADOW_ONLY new candidates: **0**
+- BOTH (parity, including one shadow noise finding): **0 + 0 + 0 + 1 = 1** (`Success` in Specimen 4)
+
+---
+
+## Q-278-3.2 Fresh Shadow Dogfood — Specimen 5/5
+
+**Cumulative fresh-window count: 5/5 — window complete.**
+
+### Composition
+
+- ID: `1aabbff6-4fe9-4054-812a-88cdd9f5ad7e`
+- Name: `Dialogue — I'm telling you, this bakery i`
+- Template: `dialogue_scene` (Tyson + Ruby cast, Fox & Flour World)
+- Episode: `2e58568a-e42e-4339-b1ec-e5ea89df37be`
+- Operator topic: *"Tyson is convinced the bakery is haunted."*
+- Status: `completed`; `verification_status = "verified"`; `synthesis_attempt_count = 1`
+- Operator creative note: worked well creatively.
+
+### Legacy `verification_warnings` (authoritative)
+
+5 warnings across 4 turns:
+
+- `Turned` (proper_noun) — turn 2 (Tyson, position 61): *"…nobody. **Turned** around: nobody. Then the pastry case caught a reflection…"*  *(sentence-initial after ". ")*
+- `Well` (proper_noun) — turn 5 (Ruby, position 0): *"**Well**, that does narrow it down. Was this ghost disappointed because…"*
+- `At Fox` (multi_word) — turn 7 (Ruby, position 0): *"**At Fox** & Flour? A bakery built around small-batch baking and handcrafted pastries?..."*
+- `Explain` (proper_noun) — turn 8 (Tyson, position 6): *"Fine. **Explain** the cold spot by the counter."*
+- `Probably` (proper_noun) — turn 9 (Ruby, position 127): *"…Very particular. **Probably** wants a celebration cake and refuses to give us a pickup time."*
+
+### Shadow `verification_warnings_shadow` (observational)
+
+**0 entries. Empty list.**
+
+### OLD_ONLY / SHADOW_ONLY / BOTH
+
+- **OLD_ONLY: `Turned`, `Well`, `At Fox`, `Explain`, `Probably`** — 5 warnings silenced by shadow.
+- **SHADOW_ONLY:** none.
+- **BOTH:** none.
+
+### Were `Turned` / `Well` / `Explain` / `Probably` silenced?
+
+**Yes, all four.** spaCy 3.8 POS: `Turned` = VERB (past tense), `Well` = INTJ, `Explain` = VERB (imperative), `Probably` = ADV — none PROPN → D-POS does not extract.
+
+### `At Fox` forensic (the multi-word specimen)
+
+Turn 7 source text (Ruby): *"At Fox & Flour? A bakery built around small-batch baking and handcrafted pastries? I'm afraid the ghost may have an airtight alibi."*
+
+Live-replay extraction outputs:
+
+- **Legacy** — `extract_named_entities` returned two candidates:
+  - `("At Fox", "multi_word", position 0)` — the multi-word regex `\b[A-Z][a-zA-Z]+(\s+[A-Z][a-zA-Z]+)+\b` matched `At Fox` because both are capitalized and adjacent. `At` is a preposition and **not in the stoplist**, so the demotion never fired. The regex terminated at `Fox` because `&` breaks the whitespace-only joiner alternation.
+  - `("Flour", "proper_noun", position 9)` — single-cap regex pass. Corpus check hit `fox & flour` substring → not flagged.
+- **D-POS** — `extract_named_entities_ner` returned two singletons:
+  - `("Fox", "proper_noun_pos", position 3)` — PROPN token, corpus-grounded (`fox` substring of `fox & flour`) → pass.
+  - `("Flour", "proper_noun_pos", position 9)` — PROPN token, corpus-grounded → pass.
+- **Corpus check:** Ruby's factual corpus contains `fox & flour` (True) but NOT `at fox` (False) and NOT `fox and flour` (False — the corpus writes it with `&`).
+
+**Grounding outcome:** legacy flagged `At Fox` because `at fox` isn't in the corpus (spurious span forced the miss). D-POS split cleanly into `Fox` + `Flour`, both PROPN, both substring-matched to the corpus → both pass.
+
+**Classification: entity-boundary IMPROVEMENT.** Legacy's over-greedy multi-word regex captured a preposition into an entity span and then failed to reunite with `Flour` after the `&`. D-POS avoids the preposition (POS=ADP, not PROPN) and grounds each PROPN independently. This is exactly the shape refinement the Q-278-3 architecture predicted for multi-word entities interrupted by non-whitespace punctuation.
+
+### Delta interpretation
+
+- **All 5 OLD_ONLY entries: desirable.** Four Q-278-1 sentence-initial ordinary-language false positives + one multi-word boundary improvement.
+- **Zero SHADOW_ONLY, zero BOTH.**
+
+### Runtime shadow confirmation
+
+Confirmed active. Deterministic live replay reproduces the persisted empty shadow output on every turn. Fifth consecutive fresh render with `CHARACTER_OS_K64_NER_SHADOW_EXPERIMENT=1` in the Celery worker environment.
+
+### Legacy authority + shadow zero-impact
+
+Same as prior specimens. Legacy drove SPA display. Composition completed; render dispatched to Runway; provider spend unaffected by shadow.
+
+### Cumulative fresh-window progress: **5 / 5 — window complete**
+
+---
+
+## Q-278-3.2 Five-Specimen Shadow Window Analysis
+
+Consolidated analysis of the five fresh dogfood compositions (a1421a0e / 5f4bdbbc / 1491d31c / fcba3242 / 1aabbff6) built from persisted DB evidence + live-replay forensics. Separate from the historical warned-row replay recorded in Q-278-3.2 §"Historical warned-row replay" above.
+
+### Complete fresh-window matrix
+
+| # | comp | speaker/turn | span | kind | legacy | D-POS | class | interpretation |
+|---|---|---|---|---|---|---|---|---|
+| 1 | a1421a0e | Tyson t6 | `Mostly` | proper_noun | flag | pass | OLD_ONLY | ordinary ADV — false positive silenced |
+| 2 | a1421a0e | Ruby t7 | `Once` | proper_noun | flag | pass | OLD_ONLY | SCONJ — false positive silenced |
+| 3 | a1421a0e | Ruby t9 | `Perfect` | proper_noun | flag | pass | OLD_ONLY | ADJ/INTJ — false positive silenced |
+| 4 | 5f4bdbbc | Rivet t1 | `Consulting` | proper_noun | flag | pass | OLD_ONLY | sentence-initial gerund — false positive silenced |
+| 5 | 5f4bdbbc | Patch t4 | `Also` | proper_noun | flag | pass | OLD_ONLY | ADV — false positive silenced |
+| 6 | 1491d31c | Ruby t4 | `Tucked` | proper_noun | flag | pass | OLD_ONLY | past-participle VERB — false positive silenced |
+| 7 | 1491d31c | Ruby t10 | `Done` | proper_noun | flag | pass | OLD_ONLY | ADJ/INTJ — false positive silenced |
+| 8 | fcba3242 | Patch t2 | `Suggest` | proper_noun | flag | pass | OLD_ONLY | imperative VERB — false positive silenced |
+| 9 | fcba3242 | Rivet t3 | `Success` | proper_noun / ner_org | flag | flag | BOTH | ambiguous — spaCy POS=NOUN but NER=ORG; NER supplement pass over-fires on capitalized common noun |
+| 10 | fcba3242 | Patch t4 | `Fair` | proper_noun | flag | pass | OLD_ONLY | ADJ — false positive silenced (repeat of Q-278-1 specimen) |
+| 11 | fcba3242 | Patch t6 | `Mostly` | proper_noun | flag | pass | OLD_ONLY | ADV — silenced (repeat) |
+| 12 | fcba3242 | Patch t6 | `Basically` | proper_noun | flag | pass | OLD_ONLY | ADV — silenced |
+| 13 | fcba3242 | Rivet t7 | `Also` | proper_noun | flag | pass | OLD_ONLY | ADV — silenced (repeat) |
+| 14 | fcba3242 | Patch t10 | `Painful` | proper_noun | flag | pass | OLD_ONLY | ADJ — silenced |
+| 15 | 1aabbff6 | Tyson t2 | `Turned` | proper_noun | flag | pass | OLD_ONLY | past-tense VERB — silenced |
+| 16 | 1aabbff6 | Ruby t5 | `Well` | proper_noun | flag | pass | OLD_ONLY | INTJ — silenced |
+| 17 | 1aabbff6 | Ruby t7 | `At Fox` | multi_word | flag | pass | OLD_ONLY | multi-word BOUNDARY IMPROVEMENT — legacy captured preposition `At`; D-POS split into `Fox` + `Flour` PROPN singletons, both corpus-grounded → pass |
+| 18 | 1aabbff6 | Tyson t8 | `Explain` | proper_noun | flag | pass | OLD_ONLY | imperative VERB — silenced |
+| 19 | 1aabbff6 | Ruby t9 | `Probably` | proper_noun | flag | pass | OLD_ONLY | ADV — silenced |
+
+### Totals — warning instances
+
+| metric | count |
+|---|---|
+| total legacy warning instances | **19** |
+| total D-POS shadow warning instances | **1** |
+| BOTH | **1** (`Success` in Specimen 4) |
+| OLD_ONLY | **18** |
+| SHADOW_ONLY | **0** |
+
+### Totals — unique spans
+
+Repeat words in the window: `Fair` × 2 (specimens 1, 4), `Mostly` × 2 (specimens 1, 4), `Also` × 2 (specimens 2, 4). Everything else once.
+
+| metric | count |
+|---|---|
+| unique legacy spans | **17** (`Mostly`, `Once`, `Perfect`, `Consulting`, `Also`, `Tucked`, `Done`, `Suggest`, `Success`, `Fair`, `Basically`, `Painful`, `Turned`, `Well`, `At Fox`, `Explain`, `Probably`) |
+| unique D-POS spans | **1** (`Success`) |
+| unique OLD_ONLY spans | **16** |
+| unique SHADOW_ONLY spans | **0** |
+| unique BOTH spans | **1** |
+
+### True / false / ambiguous classification (human)
+
+Reviewer inspection of every OLD_ONLY / BOTH specimen in surrounding text:
+
+- **19 legacy warning instances → 18 false positives + 1 ambiguous (`Success`).** Zero legacy true positives in this window. Every specimen was normal Fox & Flour or Patch/Rivet operator dogfood with a well-grounded corpus; no character invented an unsupported named entity.
+- **1 D-POS warning instance → 1 ambiguous (`Success`).** Not a true positive of a hallucinated entity; not a clean false positive because both classifiers agree; classified as newly-surfaced weakness of the NER supplement pass on capitalized common nouns spaCy small-model labels as ORG.
+
+Note: the fresh window contains **no adversarial test of the founding hallucination invariant** — no composition attempted to introduce an unsupported `Wikipedia`/`trafilatura`-shaped entity. The true-positive-preservation guarantee therefore rests on (a) the Q-278-3.1 measured evidence + (b) the regression suite pinning the invariant. Fresh window is compatible with that guarantee (nothing was silenced that should have flagged) but does not by itself stress-test it.
+
+### Acceptance criteria evaluation (A-F)
+
+Criteria established in Q-278-3.2 §"Explicit STOP gate":
+
+- **A. D-POS preserves all identified TRUE positives from current K6.4.** → **PASS (with qualifier).** Zero legacy warnings in the fresh window were named-entity true positives; there were none to lose. True-positive preservation for the founding class rests on the Q-278-3.1 measured matrix + regression suite (both green). No fresh evidence contradicts this criterion; no fresh evidence stresses it either.
+- **B. D-POS removes the large majority of current ordinary-language false positives.** → **PASS.** 18 of 19 warning instances (94.7%) and 16 of 17 unique spans (94.1%) silenced. General-class closure demonstrated across 15+ different English words, not case-by-case memorization of Fair/Come/Unless.
+- **C. No new false-negative class larger/more dangerous than the class closed.** → **PASS.** Zero SHADOW_ONLY warnings across the fresh window. No new silent-miss class surfaced by fresh dogfood.
+- **D. `KNOWN_TECH_TERMS` continues protecting lowercase-domain terms.** → **PASS via regression tests; INSUFFICIENT FRESH-WINDOW EVIDENCE.** None of the 5 fresh compositions contained lowercase-tech-name candidates. `test_lowercase_tech_terms_still_flagged_via_known_tech_terms` covers `pgvector`/`redis` deterministically.
+- **E. Multi-word POS spans do not materially regress supported/unsupported entity grounding.** → **PASS (with positive finding).** ONE multi-word case (`At Fox`, Specimen 5): D-POS produced a cleaner extraction than legacy, avoiding a spurious preposition capture and correctly grounding both PROPN halves via corpus substring. No multi-word regression observed. `test_multiword_propn_span_extracts_full_span` + `test_multiword_supported_multi_word_passes` continue to lock the general shape.
+- **F. `May`-like collisions are recorded rather than hidden.** → **PASS via regression test; INSUFFICIENT FRESH-WINDOW EVIDENCE.** No `May`/`Bill`/`Mark`-as-person collisions surfaced in fresh window. `test_may_as_person_currently_missed_documented_gap` pins the known residual.
+
+### Combined with historical replay
+
+Kept distinguishable per instruction:
+
+**HISTORICAL REPLAY** (5 pre-shadow warned rows sampled in Q-278-3.1):
+- Legacy warning instances: 11
+- D-POS: 10 ordinary-language silenced + 1 rescoped multi-word→entity (`Can AI` → `AI` alone) = 11 corrections
+- Zero true positives lost.
+
+**FRESH SHADOW DOGFOOD** (5/5 window, this analysis):
+- Legacy warning instances: 19
+- D-POS: 18 silenced + 1 BOTH (Success)
+- Zero true positives lost. Zero shadow-only new warnings. One newly-observed weakness of the NER supplement pass. One multi-word entity-boundary improvement.
+
+**COMBINED**:
+- Legacy warning instances across both datasets: **30**
+- D-POS silenced (OLD_ONLY): **28** (18 fresh + 10 historical clean silences)
+- D-POS improved boundary (OLD_ONLY with rescope): **2** (1 fresh `At Fox` + 1 historical `Can AI`)
+- BOTH: **1** (Success)
+- SHADOW_ONLY: **0**
+- Losses of legacy true positives: **0**
+
+### Answers to the six combined-evidence questions
+
+1. **Did any historical true positive disappear under D-POS?** No.
+2. **Did any fresh specimen expose a new D-POS false negative?** No.
+3. **Did any fresh specimen expose a D-POS false positive?** Only in BOTH parity (`Success`, Specimen 4) — legacy also flagged. Not a shadow-only false positive.
+4. **Did any fresh specimen expose a useful entity/span legacy missed?** Not a new true positive; but entity-boundary improvement on `At Fox` — D-POS split `Fox` + `Flour` cleanly where legacy captured preposition + first proper noun as one span.
+5. **Did any fresh specimen expose a multi-word boundary difference such as `At Fox`?** Yes — see Specimen 5 forensic. D-POS handles preposition-adjacent proper nouns more cleanly.
+6. **Is there evidence that the new verifier fixes the GENERAL false-positive class rather than only Fair/Come/Unless?** Yes. 15+ different fresh English tokens silenced across 5 independent compositions (Mostly / Once / Perfect / Consulting / Also / Tucked / Done / Suggest / Basically / Painful / Turned / Well / Explain / Probably plus repeats of Fair / Mostly / Also). This is general-class closure, not case-by-case memorization.
+
+### Prediction vs actual
+
+- Predicted (Q-278-3): D-POS closes the Q-278-1 general class. **CONFIRMED** across 5 fresh independent compositions on 15+ different English tokens.
+- Predicted: D-POS preserves founding hallucination invariant. **CONFIRMED indirectly** — no fresh true positive was lost; regression suite + Q-278-3.1 measured evidence carry the direct guarantee.
+- Predicted: SHADOW_ONLY warnings would occasionally surface entities legacy missed. **NOT OBSERVED** in fresh window; historical replay saw one (`Can AI` → `AI`).
+- Predicted: `Success`-shape common-noun NER over-firing was possible but expected to be rare. **OBSERVED once** in fresh window — Specimen 4 turn 3. Documented rather than hidden.
+- Predicted: multi-word entity boundary improvements over the legacy regex. **CONFIRMED** on `At Fox`.
+
+### Discrepancies
+
+- Q-278-3.1 had not stressed the NER supplement pass on capitalized common nouns; fresh window surfaced `Success` as the first specimen where spaCy small-model NER labels a common noun as ORG and the supplement pass therefore emits a candidate. Documented as a known observation of the D-POS Hybrid shape; not a regression against A (legacy also flagged); worth revisiting in the cutover-design slice.
+
+### Deferred creative observations remain OUT-OF-SCOPE for this verifier decision
+
+The following DEFERRED observations are recorded in the per-specimen sections above and are **not permitted to influence** the shadow-window verifier decision:
+
+- Repeated methodology / "one narrow job" (Specimen 4).
+- Repeated rhetorical constructions (Specimen 2 + carried into Specimen 4).
+- Visual storytelling exceeding talking-head grammar (Specimen 3, cross-referenced with prior Patch/Rivet dogfood).
+- Possible cross-episode epistemic asymmetry (Specimen 4 addendum).
+
+Each stays recorded for possible future falsifiable questions Chris may or may not choose to open. None was investigated in this analysis.
+
+### Recommendation
+
+**GO-CUTOVER-PLANNING.**
+
+Justification:
+
+- 5 of 6 acceptance criteria PASS on the fresh window; the remaining two (D, F) PASS via regression suite with insufficient fresh-window stress but no contradictory evidence.
+- General-class closure demonstrated across 15+ different English tokens in 5 independent compositions; not case-by-case.
+- Founding hallucination invariant preserved (no true positive lost across 30 combined warning instances).
+- Multi-word entity boundary improved on the one fresh case that surfaced (`At Fox`).
+- The one newly-observed weakness (NER-supplement over-firing on `Success`) is not a regression against legacy behavior and is a design consideration for the cutover slice, not a blocker.
+
+GO-CUTOVER-PLANNING **does not authorize** cutover. It authorizes opening the smallest safe cutover-design question next. That question should scope-lock:
+
+1. Whether the NER supplement pass should additionally require `token.pos_ == "PROPN"` to accept a candidate, and how that would affect the `FBI`/`CIA` short-acronym coverage the supplement was designed to protect.
+2. How the legacy stoplist deprecates during and after cutover (Q-278-3 §"Stoplist disposition" three-phase plan).
+3. Whether shadow persistence extends to `ConversationMessage.verification_warnings` / `Script.verification_warnings` before or after cutover.
+4. Whether `K6_CLAIM_VERIFIER_MODE` default flip from `warn` to `strict` is scope-locked separately from the cutover itself.
+5. Rollback path (env flag + boolean gate) and cutover acceptance signal.
+
+### Explicit decision gate
+
+**STOP.** No cutover in this slice. No implementation changes to the verifier. No new dependency changes. No strict-mode flip.
+
+Chris + ChatGPT must explicitly approve one of:
+
+- **Open Q-278-4** as the cutover-design audit scoped by the five items above.
+- **Extend the shadow window** with N additional fresh dogfood specimens before opening Q-278-4 (would apply if Chris wants direct stress on criterion A — e.g. deliberately introduce a hallucination-shaped prompt to test true-positive preservation on a fresh render).
+- **Modify D-POS first** — if the `Success` NER-supplement finding is judged blocking, gate the NER supplement on POS=PROPN before advancing.
+- **No-Go** — reject the semantic direction; freeze at legacy A.
+
+Deferred creative observations (methodology repetition, rhetorical constructions, visual-composition boundary, cross-episode epistemic asymmetry) are independent of this decision and remain recorded for any future Chris-authorized investigation.
+
+*Chris + ChatGPT decision:* **GO-CUTOVER-PLANNING** approved. Open Q-278-4 as cutover-design audit ONLY. Do NOT flip authority. Do NOT change strict-mode. Do NOT deprecate legacy verifier or stoplist yet.
+
+---
+
+## Q-278-4 — D-POS Cutover Design Audit
+
+### Precise question
+
+What is the smallest safe, reversible transition from the current legacy-authoritative + D-POS-shadow architecture to D-POS authority, given the completed historical replay + 5/5 fresh shadow window?
+
+Audit only. No production authority change. No K6_CLAIM_VERIFIER_MODE change. Warn/strict decisions remain SEPARATE.
+
+### §1 — Current authority path (mechanical trace)
+
+Legacy verification is authoritative today via three production call sites and one public entry point.
+
+**Public entry point:** `character_os.claim_verifier.run_verifier(text, factual_corpus, allowed_vocabulary, mode)` (`claim_verifier.py:410-471`). Resolves mode from `settings.K6_CLAIM_VERIFIER_MODE` → env → `"warn"`. Returns `list[UnsupportedClaim]` or raises `ClaimVerifierError` in strict mode.
+
+**Extraction → verification pipeline (inside `run_verifier`):**
+1. `extract_named_entities(text)` — regex passes: multi-word capitalized (with stoplisted-leader demotion), single-cap 4+ chars (with stoplist), numeric, KNOWN_TECH_TERMS. Emits `UnsupportedClaim` candidates.
+2. `verify_claims(text, factual_corpus, allowed_vocabulary)` — grounding: candidate lowercased, `needle in factual_corpus.lower()`, substring-either-way against allowed vocab; miss → keep as `UnsupportedClaim`.
+3. `run_verifier` applies mode policy: `off` → return `[]`; `warn` → return list; `strict` → raise `ClaimVerifierError` if list non-empty.
+
+**Production call sites (three):**
+
+| # | file:line | context | on-exception behavior |
+|---|---|---|---|
+| 1 | `character_os/dialogue_synthesis.py:1798` | per-turn K6.4 verification loop inside `synthesize_dialogue` | `ClaimVerifierError` → set turn.verification_status=rejected, overall_status=rejected, re-raise (caught by dialogue starter → persists FAILED composition row) |
+| 2 | `character_os/script_synthesis.py:526` | inside `build_render_brief` for talking-head / long-form paths | `ClaimVerifierError` → propagates to `avatar_speech` primitive → `PrimitiveError` → FAILED composition |
+| 3 | `character_os/conversation_synthesis.py:226` | inside conversation reply synthesis (K6.5) | strict-mode failure → persisted onto `ConversationMessage.rejected_synthesis`, message status=rejected |
+
+**Persistence targets (four columns across three models):**
+
+- `Composition.verification_warnings` (JSONField) + `.verification_status` (enum) + `.rejected_synthesis` (text) — filled by the composition starter path via `_dialogue_ai_flattened_warnings` (dialogue) or by the `avatar_speech` primitive (talking-head / long-form).
+- `Composition.verification_warnings_shadow` — Q-278-3.2 addition, populated by D-POS shadow.
+- `DialogueTurn.verification_warnings` — per-turn in-memory dataclass; flattened up to Composition on save.
+- `Script.verification_warnings` (B-arc scripts app; SPA-visible in `web/src/routes/workspace/scripts.$id.tsx`).
+- `ConversationMessage.verification_warnings` (K6.5; SPA-visible in `web/src/routes/conversations/$id.tsx`).
+
+**SPA display consumers (read-only):**
+- `web/src/routes/compositions/$id.tsx` — reads `verification_warnings` + `verification_status`.
+- `web/src/routes/workspace/scripts.$id.tsx` — reads `Script.verification_warnings`.
+- `web/src/routes/conversations/$id.tsx` — reads `ConversationMessage.verification_warnings`.
+
+Q-278-3.2 shadow column is NOT surfaced in the SPA. `stoplist_watchdog` and `k64_shadow_diff` mgmt commands consume the persisted columns for audit reporting.
+
+**Minimum code surface for authority flip:** replace the three `run_verifier(...)` call sites with a dispatcher that returns either classifier's output based on a new authority flag. Both classifiers return `list[UnsupportedClaim]` with identical dataclass shape, and `.to_dict()` produces the same JSON schema. Downstream (`turn.verification_warnings = [w.to_dict() for w in warnings]`) is unchanged.
+
+### §2 — Success / NER-supplement question (mechanical test in throwaway venv)
+
+The Q-278-3.2 Specimen 4 finding: spaCy tags both occurrences of `success` in *"Then success is not \"it picked an idea.\" Success is whether…"* as `POS=NOUN` (not PROPN), but NER labels the capitalized occurrence `Success` as `ORG` → the NER supplement pass in `claim_verifier_ner.extract_named_entities_ner` picks it up, producing a shadow-BOTH-parity noise entry.
+
+Tested (throwaway `/tmp/q278_spacy_spike/test_supplement_propn_gate.py`, using the Character OS venv's spaCy 3.8.15 + en_core_web_sm 3.8.0 already installed for Q-278-3.2 — **NO** modifications to production code):
+
+**Proposed refinement:** in the NER supplement pass, require at least one token of the entity span to have `POS=PROPN`. Rejects a spaCy NER label when every token in the span is common (POS=NOUN / VERB / ADJ / etc.).
+
+Measured outcomes:
+
+| specimen | current supplement | PROPN-gated supplement | outcome |
+|---|---|---|---|
+| `Success` common noun (Specimen 4) | ACCEPT (ORG) | REJECT (POS=NOUN only) | ✓ over-fire removed |
+| `FBI called.` | ACCEPT (ORG) | ACCEPT (POS=PROPN) | ✓ short-acronym coverage preserved |
+| `CIA is watching.` | ACCEPT (ORG) | ACCEPT (POS=PROPN) | ✓ preserved |
+| `FDA approved it.` | ACCEPT (ORG) | ACCEPT (POS=PROPN) | ✓ preserved |
+| `IRS audited us.` | ACCEPT (ORG) | ACCEPT (POS=PROPN) | ✓ preserved |
+| `Wikipedia is our source.` | ACCEPT (ORG) | ACCEPT (POS=PROPN) | ✓ preserved |
+| `NASA supplied the equipment.` | ACCEPT (ORG) | ACCEPT (POS=PROPN) | ✓ preserved |
+| `France changed the rule.` | ACCEPT (GPE) | ACCEPT (POS=PROPN) | ✓ preserved |
+| `Microsoft built it.` | ACCEPT (ORG) | ACCEPT (POS=PROPN) | ✓ preserved |
+| `OpenAI released it.` | ACCEPT (PERSON) | ACCEPT (POS=PROPN) | ✓ preserved |
+| `Mark called today.` | ACCEPT (PERSON) | ACCEPT (POS=PROPN) | ✓ polysemous name preserved |
+| `Bill approved it.` | ACCEPT (PERSON) | ACCEPT (POS=PROPN) | ✓ polysemous name preserved |
+| `James Webb Space Telescope launched.` | ACCEPT (PERSON multi-word) | ACCEPT (all PROPN) | ✓ multi-word preserved |
+| `New York is far.` | ACCEPT (GPE) | ACCEPT (all PROPN) | ✓ multi-word preserved |
+
+**Recommendation: REQUIRE POS=PROPN.** The gate cleanly closes the `Success` common-noun over-fire without regressing any short-acronym coverage or any real proper-noun case tested. All FBI/CIA/FDA/IRS short-acronyms remain accepted because spaCy tags them as PROPN. This becomes Slice 1 below — smallest possible change, high evidence, non-authority-changing.
+
+### §3 — Legacy stoplist disposition
+
+Three-phase plan from Q-278-3 refined against post-shadow evidence:
+
+- **Phase 1 (at initial authority flip — Slice 3 below):** legacy verifier code + `_COMMON_PROPER_NOUN_FALSE_POSITIVES` stoplist stay in place, untouched. Legacy is invoked as post-cutover shadow (dual-run). If rollback is needed, legacy behavior is byte-identical to today.
+- **Phase 2 (rollback confidence period — for the duration of Slice 3's flag-in-place):** stoplist stays untouched. Rollback restores today's behavior exactly.
+- **Phase 3 (retirement — much later, deliberately unscheduled):** delete legacy verifier module + stoplist ONLY after ≥ N post-cutover renders with zero rollback signals. Independent slice, out of scope for Q-278-4.
+
+**Do NOT touch the stoplist in Slices 1-3.** Reversibility beats cleanup.
+
+### §4 — Shadow / dual-run disposition
+
+The current shape (legacy authoritative + D-POS shadow) inverts cleanly at authority flip:
+
+- **Pre-cutover:** legacy authoritative → `verification_warnings`; D-POS shadow → `verification_warnings_shadow`.
+- **Post-cutover:** D-POS authoritative → `verification_warnings`; legacy shadow → new column `verification_warnings_legacy`.
+
+Inverting the relationship (rather than immediately deleting the legacy path) is safer because:
+
+1. Post-cutover ongoing evidence — every render generates a legacy shadow row that can be diffed against D-POS output. Any regressions surface within one dogfood cycle.
+2. Rollback is a flag flip, not a code revert.
+3. Symmetric observability — the operator can trust the shadow-diff mgmt command semantics in both directions.
+
+### §5 — Persistence semantics
+
+Chris explicitly ruled out "silently changing the meaning of a column named 'shadow' to legacy." Adopted design:
+
+- **`verification_warnings`** — ALWAYS authoritative (whichever classifier is selected by the authority flag).
+- **`verification_warnings_shadow`** — ALWAYS D-POS output. When D-POS is authoritative, `verification_warnings_shadow == verification_warnings` (self-mirror; kept for symmetry).
+- **`verification_warnings_legacy`** (NEW, added in Slice 2) — ALWAYS legacy output. When legacy is authoritative, `verification_warnings_legacy == verification_warnings`.
+
+Invariant: for any row `verification_warnings ∈ {verification_warnings_shadow, verification_warnings_legacy}` depending on which classifier was authoritative at write time. The authority tag can be inferred from row equality, and historical data remains interpretable in both directions.
+
+**Adjacent surfaces (`ConversationMessage`, `Script`):** NOT migrated in the cutover slices below. Q-278-3.2's dialogue-only shadow persistence is deliberately preserved. Adjacent-surface migration is a follow-up slice (Q-278-4.x, unopened), evidenced by the same classifier core + a per-model persistence pattern. Only migrating dialogue-scene compositions in the cutover keeps blast radius minimal.
+
+### §6 — Rollback
+
+Smallest explicit rollback mechanism:
+
+- **Flag:** new env-and-settings `CHARACTER_OS_K64_AUTHORITY = "legacy" | "d_pos"` (default `"legacy"` at Slice 2; flipped to `"d_pos"` at Slice 3). Same precedence pattern as `K6_CLAIM_VERIFIER_MODE` (settings > env; whitespace-only invalid).
+- **Rollback = flip the flag.** No restart is required per-composition — the flag is resolved fresh per synthesis call inside a dispatcher. Django dev + Celery workers pick up env changes at spawn time; a stack restart via `scripts/start-local-real.sh` is the operator-visible reload.
+- **Persisted evidence:** rows written under either authority remain interpretable — `verification_warnings_legacy` and `verification_warnings_shadow` continue to carry the same semantics they were written under (see §5 invariant). No DB surgery required to rollback.
+- **Defensive fallback (spaCy failure post-cutover):** if authority=d_pos and `run_shadow_verifier` cannot execute (spacy missing / model missing / exception), Slice 2 dispatcher **falls back to legacy** for that synthesis call AND logs at ERROR. Prevents an install regression from silently converting "no unsupported claim ever flagged" into false confidence. This is the load-bearing safety net for post-cutover strict-mode discussion.
+
+### §7 — Warn vs Strict (KEPT SEPARATE)
+
+`CHARACTER_OS_K64_AUTHORITY` (D-POS authority) and `K6_CLAIM_VERIFIER_MODE` (warn / strict) are two independent decisions. **Q-278-4 does NOT bundle them.**
+
+Mechanically confirmed independent: the dispatcher in Slice 2 passes `mode=resolved_verifier_mode` through to whichever classifier is authoritative. Both `run_verifier` (legacy) and `run_shadow_verifier` (D-POS) accept the same mode contract. D-POS's `run_shadow_verifier` today does not raise on any input (defensive design — Q-278-3.2), but Slice 2 will add strict-mode error raising to the D-POS side to match the legacy semantics (see §9 blast radius). Strict-mode flip remains a distinct future slice, downstream of at least Slice 3 completion + a bounded post-cutover shadow window.
+
+**Default expectation:** cut over classifier authority while remaining `warn` first.
+
+### §8 — Acceptance + observability
+
+**Slice 1 → Slice 2 advancement acceptance:** `Success` (Specimen 4 turn 3) no longer appears in D-POS output when replayed; existing 32 regression tests + new `Success`-gate test all pass; adjacent test suites (116 tests) still green.
+
+**Slice 2 → Slice 3 advancement acceptance:**
+- Dual-write correctness: for any composition rendered with `CHARACTER_OS_K64_AUTHORITY=legacy` post-Slice-2, `verification_warnings == verification_warnings_legacy` exactly. Verified across ≥ 3 fresh renders.
+- The `k64_shadow_diff` command reads all three columns and reports OLD/D-POS/BOTH correctly under both authority values.
+- Defensive fallback smoke: manually break spaCy install (in a throwaway venv), confirm dispatcher falls back to legacy AND logs ERROR.
+
+**Slice 3 → legacy retirement acceptance (deferred to Slice 4, unscheduled):**
+- ≥ N post-cutover renders (Chris to set N; suggested lower bound ≥ 10 fresh dogfood compositions across at least two Worlds).
+- Zero rollback-necessity signals surface. Defined below.
+- `k64_shadow_diff` OLD_ONLY (legacy-only warnings) rate consistent with pre-cutover shadow-window OLD_ONLY rate (i.e. legacy is still generating the same Q-278-1 class false positives it always generated; not a NEW regression).
+- Zero LEGACY_ONLY warnings that inspection classifies as true positives — i.e., no case where legacy caught something D-POS should have caught.
+
+**Rollback-necessity signals (any of):**
+- Any post-cutover composition where D-POS silences a token that operator inspection confirms as a real hallucination.
+- Any post-cutover LEGACY_ONLY warning inspection classifies as a true positive missed by D-POS.
+- Any post-cutover D-POS new false-positive class that dogfood confirms as materially worse than the legacy Q-278-1 noise.
+- Runtime degradation: repeated ERROR-level fallback logs indicating spaCy failure in production; sustained pattern would motivate rollback regardless of correctness.
+
+**Strict-mode discussion opens only after:** Slice 3 completes + a bounded post-cutover shadow window + explicit Chris + ChatGPT scope-lock. Downstream.
+
+### §9 — Test / blast radius inventory
+
+| dimension | Slice 1 (NER-supplement PROPN gate) | Slice 2 (dispatcher + column + fallback) | Slice 3 (default flip) |
+|---|---|---|---|
+| files touched | `character_os/claim_verifier_ner.py` (one function) | new `character_os/claim_verifier_dispatch.py` module; `character_os/dialogue_synthesis.py` / `script_synthesis.py` / `conversation_synthesis.py` (rewire 3 call sites); `apps/compositions/models.py` (new field); new migration; `apps/compositions/starters.py` (new flatten helper + persistence); `apps/compositions/management/commands/k64_shadow_diff.py` (read all three columns) | one-line change in `claim_verifier_dispatch.py` default resolver |
+| migrations | 0 | 1 additive JSONField (`verification_warnings_legacy`) | 0 |
+| new tests | `test_claim_verifier_ner_shadow.py` — `Success`-gate test; keep-FBI-CIA-FDA-IRS assertion tests | dispatcher tests: default=legacy identical to today, flag=d_pos flips outputs; dual-write invariant test; defensive-fallback test (mock spaCy import failure) | one authority-default test |
+| adjacent tests to keep green | 32 D-POS + 116 dialogue/verifier adjacent | all of the above + dialogue/script starter tests that construct Composition rows | all above |
+| worker / runtime | none | Both classifiers always run per synthesis call. spaCy cold-load happens on every worker regardless of the (retired) shadow flag. Measured incremental: ~50-70 MB RSS + ~215 ms cold-load per worker at first synthesis. Per-turn: ~5-30 ms extra (measured Q-278-3.1). Negligible vs 60-120 s Runway render. | none |
+| SPA implications | none | none — SPA reads `verification_warnings`, which is now authoritative under either classifier | none |
+| deployment / build | none — no new deps | none — spacy + en_core_web_sm already pinned since Q-278-3.2 | none |
+| compatibility with shadow-flag=OFF | unchanged | **`CHARACTER_OS_K64_NER_SHADOW_EXPERIMENT` is retired as a gate.** Both classifiers always run at Slice 2. Setting the shadow flag is a no-op after Slice 2. Documented at deprecation. | unchanged |
+| historical rows | unchanged — pre-Slice-1 shadow warnings interpret the same way | unchanged — pre-Slice-2 rows have `verification_warnings_legacy = []`; interpretable as "written before dual-run existed" | unchanged |
+| externally-observable behavior when authority=legacy (Slice 2 default) | identical to today | identical to today | flips at Slice 3 |
+
+### Ordered smallest cutover plan (three slices)
+
+**Slice 1 — Q-278-4.1: NER-supplement POS=PROPN gate.**
+- **Responsibility:** narrow the NER supplement pass in `character_os/claim_verifier_ner.py` to require at least one PROPN token in an entity span.
+- **Files/surfaces:** `character_os/claim_verifier_ner.py` (single function edit); `apps/compositions/tests/test_claim_verifier_ner_shadow.py` (+1 `Success`-gate test + assertions that FBI/CIA/FDA/IRS still flag).
+- **Invariant protected:** short-acronym coverage; the founding hallucination invariant. Nothing about legacy authority.
+- **Rollback:** revert the single function change.
+- **Test gate:** 32 D-POS regression tests + new Success-gate test all pass; adjacent 116 tests remain green.
+- **Production authority change:** NONE. D-POS remains shadow-only.
+
+**Slice 2 — Q-278-4.2: Authority dispatcher + `verification_warnings_legacy` column + defensive fallback. Default authority = `legacy`.**
+- **Responsibility:** introduce classifier-agnostic dispatch. Add authority flag with default `legacy`. Add `verification_warnings_legacy` column. Rewire three synthesis call sites to use the dispatcher. Dispatcher runs BOTH classifiers, writes each to its own column, and mirrors the authoritative one to `verification_warnings`. On D-POS execution failure (spacy / model / exception) when authority=d_pos, fall back to legacy AND log ERROR.
+- **Files/surfaces:** new `character_os/claim_verifier_dispatch.py`; `character_os/dialogue_synthesis.py:1798`, `character_os/script_synthesis.py:526`, `character_os/conversation_synthesis.py:226` (call-site rewire); `apps/compositions/models.py` (new field); new migration `0020_composition_verification_warnings_legacy.py`; `apps/compositions/starters.py` (persistence for the new column); `apps/compositions/management/commands/k64_shadow_diff.py` (read all three columns); tests.
+- **Invariant protected:** persistence semantics per §5; rollback mechanism per §6; independence from strict-mode per §7.
+- **Rollback:** unset `CHARACTER_OS_K64_AUTHORITY` (or set to `legacy`). Restart workers. Byte-identical to today externally.
+- **Test gate:** all Slice 1 tests still pass; new dispatcher / dual-write invariant / defensive-fallback tests pass; dogfood 3 fresh compositions under default legacy, confirm `verification_warnings == verification_warnings_legacy`.
+- **Production authority change:** NONE by default. Authority ONLY flips if the operator sets `CHARACTER_OS_K64_AUTHORITY=d_pos` explicitly.
+
+**Slice 3 — Q-278-4.3: Flip default authority to `d_pos`.**
+- **Responsibility:** change dispatcher's default authority resolution from `"legacy"` to `"d_pos"`.
+- **Files/surfaces:** one-line change in `character_os/claim_verifier_dispatch.py` resolver.
+- **Invariant protected:** all Slice 2 invariants.
+- **Rollback:** set `CHARACTER_OS_K64_AUTHORITY=legacy` explicitly OR revert the one-line default change.
+- **Test gate:** dispatcher tests still pass with new default; ≥ 5 fresh operator dogfood compositions post-flip pass acceptance criteria per §8.
+- **Production authority change:** YES — D-POS becomes authoritative by default. `verification_warnings` = D-POS output. `verification_warnings_legacy` = legacy shadow.
+
+**Slice 4 — Deferred, NOT scheduled: retire legacy verifier + stoplist + `verification_warnings_shadow` column.** Only after long post-Slice-3 stability window with zero rollback signals + explicit approval.
+
+### Recommendation
+
+**GO-IMPLEMENT-SLICE-1.**
+
+Slice 1 is the smallest possible change with the highest evidence density:
+
+- Concrete measured evidence: PROPN gate closes the only ambiguous shadow finding (`Success` in Specimen 4) without regressing any short-acronym coverage (FBI/CIA/FDA/IRS all preserved) or any real proper-noun case tested.
+- No authority change. No schema change. No migration. No new dependency.
+- Independent of Slices 2/3 — landing Slice 1 does NOT commit to Slice 2. Chris + ChatGPT re-decide after Slice 1 lands.
+- Rollback is a one-function revert.
+
+GO-IMPLEMENT-SLICE-1 authorizes only Slice 1. Slices 2 and 3 remain gated on separate Chris + ChatGPT decisions after Slice 1 evidence is available.
+
+### Explicit decision gate
+
+**STOP.** No implementation lands until Chris + ChatGPT explicitly:
+
+- Approve **GO-IMPLEMENT-SLICE-1** → open Q-278-4.1 and land the NER-supplement PROPN gate.
+- OR **MODIFY-DESIGN** — the cutover plan needs adjustment before slice work begins (e.g. different column naming, different authority-flag semantics, different acceptance signals).
+- OR **EXTEND-SHADOW** — the fresh-window evidence isn't yet sufficient; add more dogfood before landing anything.
+- OR **NO-GO** — reject the cutover direction; freeze at Q-278-3.2's shadow-only architecture.
+
+Strict-mode considerations, adjacent-surface migrations (ConversationMessage/Script), and legacy retirement are downstream of Slice 3 and out of scope for this decision.
+
+*Chris + ChatGPT decision:* **GO-IMPLEMENT-SLICE-1** approved. Open Q-278-4.1. No Slice 2 / Slice 3 work.
+
+---
+
+## Q-278-4.1 — Slice 1 implementation: NER-supplement POS=PROPN gate
+
+### Precise scope
+
+Implement **exactly** the NER-supplement `token.pos_ == "PROPN"` gate audited in Q-278-4 §2. No authority change. No schema change. No new dependency. No migration. No strict-mode change. No stoplist change. No adjacent-surface migration.
+
+### Implementation
+
+**File touched:** `shell/character_os/claim_verifier_ner.py` — single-function edit inside `extract_named_entities_ner`, plus a docstring update on the module header.
+
+**The change** (extract): the NER supplement loop now skips any `doc.ents` span whose tokens are ALL non-PROPN.
+
+```python
+for ent in doc.ents:
+    if ent.label_ not in _ENTITY_RELEVANT_LABELS:
+        continue
+    if _span_overlaps(ent.start_char, ent.end_char, matched_spans):
+        continue
+    # SESSION 278 Q-278-4.1 — require at least one PROPN token.
+    if not any(tok.pos_ == "PROPN" for tok in ent):
+        continue
+    _emit(ent.text.strip(), f"ner_{ent.label_.lower()}",
+          ent.start_char, (ent.start_char, ent.end_char))
+```
+
+Module docstring updated to record the gate + reference to the Specimen 4 canonical case that motivated it.
+
+**No other files modified.** Zero migrations. Zero dependency changes. Zero authority / schema / strict-mode changes.
+
+### Regression tests added
+
+`shell/apps/compositions/tests/test_claim_verifier_ner_shadow.py` — 6 new tests under a new "Q-278-4.1 — NER supplement POS=PROPN gate" block:
+
+- `test_ner_supplement_rejects_success_common_noun_q278_4_1` — canonical Specimen 4 turn-3 shape; asserts `Success` is NOT flagged post-gate.
+- `test_ner_supplement_preserves_short_acronyms_after_propn_gate_q278_4_1` — parametrized across `FBI`/`CIA`/`FDA`/`IRS`; asserts each still flags. Load-bearing non-regression guarantee for the gate.
+- `test_ner_supplement_preserves_real_proper_noun_entities_q278_4_1` — sweeps the full Q-278-4 §2 matrix (Wikipedia, NASA, France, Microsoft, OpenAI, Antoninus, Mark, Bill, James Webb Space Telescope, New York); asserts every real proper-noun/entity still flags. Ten deterministic assertions in one test.
+
+### Test results
+
+**Full D-POS regression suite:** `pytest apps/compositions/tests/test_claim_verifier_ner_shadow.py` → **38 passed** (32 pre-existing Q-278-3.2 tests + 6 new Q-278-4.1 tests).
+
+**Adjacent 116-test gate:** `pytest apps/compositions/tests/test_dialogue_synthesis.py apps/compositions/tests/test_claim_verifier.py apps/compositions/tests/test_stoplist_watchdog.py apps/compositions/tests/test_dialogue_ai_topic_wiring.py` → **116 passed**.
+
+Zero regressions in either suite. Total green: **154 tests**.
+
+### Post-gate live verification against Specimen 4
+
+Read-only replay of the Q-278-3.2 Specimen 4 (`fcba3242`) turn 3 text through the newly-gated `run_shadow_verifier`:
+
+```
+Specimen 4 turn 3 post-gate: []
+  Success flagged? False
+Persisted verification_warnings_shadow (from pre-gate write): [{'kind': 'ner_org', 'claim': 'Success', ...}]
+```
+
+Persisted row is intentionally unchanged (Slice 1 does not backfill historical rows). All new dialogue-scene shadow writes going forward will use the gated classifier.
+
+### Prediction vs actual
+
+- Predicted (Q-278-4 §2 measurement): PROPN gate rejects `Success` common-noun ORG mislabel; preserves FBI/CIA/FDA/IRS and all real proper-noun matrix rows. **Confirmed.**
+- Predicted: single-function edit, no new dependency, no schema change, no migration. **Confirmed.** Files touched = 2 (source + test), no migrations, no config changes.
+- Predicted: 32 D-POS tests + 116 adjacent tests remain green. **Confirmed.**
+- Predicted: authority behavior unchanged; legacy verifier remains authoritative. **Confirmed** — no dispatcher, no authority flag, no persistence change.
+
+No discrepancies from the audit prediction.
+
+### Blast radius (actual)
+
+- Code surface: 1 function body edit + module docstring update in `claim_verifier_ner.py`; 1 test module extension.
+- Migrations: 0.
+- New dependencies: 0.
+- Authority change: none.
+- SPA change: none.
+- Persistence-shape change: none.
+- Env / settings change: none.
+- Rollback: revert the single function change; delete the 6 new tests. One-commit revert.
+
+### Recommendation
+
+Land Slice 1 as-is. Chris + ChatGPT re-decide Slice 2 (dispatcher + `verification_warnings_legacy` column + defensive fallback) after seeing the gated shadow's behavior on subsequent fresh dogfood.
+
+### Explicit decision gate
+
+**STOP.** No Slice 2 / Slice 3 work. Continue normal warn-mode dogfood; shadow rows now use the gated classifier. When Chris judges the evidence sufficient, decide separately:
+
+- **GO-IMPLEMENT-SLICE-2** → open Q-278-4.2 (authority dispatcher + `verification_warnings_legacy` column + defensive fallback; default authority still `legacy`).
+- **MODIFY-DESIGN** — revisit Slice 2 shape.
+- **EXTEND-SHADOW-POST-GATE** — accumulate more post-gate shadow evidence first.
+- **NO-GO** — freeze at Slice 1 (gate applied; shadow architecture stays; no cutover).
 
 ---

@@ -320,3 +320,95 @@ def test_kind_labels_are_distinguishable() -> None:
     assert "tech_term" in kinds  # pgvector via KNOWN_TECH_TERMS
     # Antoninus emitted as either proper_noun_pos or ner_*; both are D-POS.
     assert any(k.startswith("proper_noun_pos") or k.startswith("ner_") for k in kinds)
+
+
+# ---- Q-278-4.1 — NER supplement POS=PROPN gate -----------------------
+# The Q-278-3.2 fresh-window Specimen 4 surfaced ``Success`` (a common
+# noun spaCy small-model NER mislabels as ORG) as a shadow-BOTH-parity
+# noise entry. Q-278-4 §2 mechanically measured that requiring at
+# least one PROPN token in the entity span closes the common-noun
+# over-fire without regressing the short-acronym coverage the
+# supplement was designed to provide. This block locks the gate.
+
+
+def test_ner_supplement_rejects_success_common_noun_q278_4_1() -> None:
+    """Canonical Q-278-3.2 Specimen 4 turn-3 shape. spaCy tags both
+    occurrences of `success` as POS=NOUN but NER labels the
+    capitalized one as ORG. Pre-gate the shadow verifier emitted
+    `('Success', 'ner_org')`; post-gate the PROPN check rejects
+    the span (POS=NOUN, not PROPN) so `Success` is NOT flagged."""
+    text = (
+        "Then success is not \"it picked an idea.\" Success is whether "
+        "its suggestion helps us learn something without sending us "
+        "halfway through three unrelated builds."
+    )
+    # Empty corpus so grounding cannot rescue a bad extraction —
+    # any extracted candidate would appear in the returned list.
+    unsupported = run_shadow_verifier(
+        text, factual_corpus="", allowed_vocabulary=[],
+    )
+    claims = {u.claim for u in unsupported}
+    assert "Success" not in claims, (
+        f"Q-278-4.1 regression: NER-supplement PROPN gate should "
+        f"reject common-noun ORG mislabel `Success`. Got: {claims}"
+    )
+    assert "success" not in claims  # lowercase form must not slip in either
+
+
+@pytest.mark.parametrize(
+    "sentence, acronym",
+    [
+        ("FBI called.", "FBI"),
+        ("CIA is watching.", "CIA"),
+        ("FDA approved it.", "FDA"),
+        ("IRS audited us.", "IRS"),
+    ],
+)
+def test_ner_supplement_preserves_short_acronyms_after_propn_gate_q278_4_1(
+    sentence: str, acronym: str,
+) -> None:
+    """The Q-278-4.1 PROPN gate must NOT sacrifice short-acronym
+    coverage. spaCy tags FBI/CIA/FDA/IRS as POS=PROPN + NER=ORG;
+    the supplement should still emit them. This is the load-bearing
+    non-regression guarantee for the gate: closing the ``Success``
+    over-fire while keeping the sub-4-char class the supplement was
+    designed for."""
+    unsupported = run_shadow_verifier(
+        sentence, factual_corpus="", allowed_vocabulary=[],
+    )
+    claims = {u.claim for u in unsupported}
+    assert acronym in claims, (
+        f"Q-278-4.1 regression: PROPN gate should NOT remove "
+        f"short-acronym {acronym!r} in {sentence!r}. Got: {claims}"
+    )
+
+
+def test_ner_supplement_preserves_real_proper_noun_entities_q278_4_1() -> None:
+    """Sanity net across the Q-278-4 §2 measured matrix: every real
+    proper-noun entity spaCy identifies (regardless of label) has at
+    least one PROPN token in its span and therefore survives the
+    Q-278-4.1 gate. This test pins Wikipedia / NASA / France /
+    Microsoft / OpenAI / Antoninus / Mark / Bill / James Webb Space
+    Telescope / New York — the full Q-278-3.1 unsupported-entity
+    matrix plus polysemous PERSON names + multi-word entities — as
+    a single deterministic assertion."""
+    for sentence, expected in [
+        ("Wikipedia is our source.", "Wikipedia"),
+        ("NASA supplied the equipment.", "NASA"),
+        ("France changed the rule.", "France"),
+        ("Microsoft built it.", "Microsoft"),
+        ("OpenAI released it.", "OpenAI"),
+        ("Antoninus reigned peacefully.", "Antoninus"),
+        ("Mark called today.", "Mark"),
+        ("Bill approved it.", "Bill"),
+        ("James Webb Space Telescope launched.", "James Webb Space Telescope"),
+        ("New York is far.", "New York"),
+    ]:
+        unsupported = run_shadow_verifier(
+            sentence, factual_corpus="", allowed_vocabulary=[],
+        )
+        claims = {u.claim for u in unsupported}
+        assert expected in claims, (
+            f"Q-278-4.1 regression: PROPN gate should NOT remove "
+            f"{expected!r} in {sentence!r}. Got: {claims}"
+        )
