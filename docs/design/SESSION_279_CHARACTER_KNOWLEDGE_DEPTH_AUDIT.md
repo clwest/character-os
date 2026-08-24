@@ -4901,3 +4901,315 @@ JOINT-MODULATION-CONFIRMED even if the ≤ 50 % threshold is met.
 - [x] Other deferred findings NOT opened
 - [x] Design baseline SHA `35ebccb` recorded (§130)
 
+---
+
+# Q-279-3 — P2-BC execution result
+
+**Executed:** 3 real-model gpt-5.6-terra synthesis calls via
+`scripts/session279_q279_3_phase2_probe.py --config=BC --n=3
+--out=docs/design/session279_phase2/phase2_bc_evidence.json`.
+Zero Runway. Zero Composition rows. Zero DB writes. Both
+monkeypatches active simultaneously; `try/finally`-restored;
+`_verify_restored()` passed post-run.
+
+## §135 P2-BC raw execution log
+
+```
+[BC#1] synthesizing... turns=12 chars=1380 composite=0 composite/1k=0.000 elapsed=12.76s
+[BC#2] synthesizing... turns=11 chars=1231 composite=1 composite/1k=0.812 elapsed=20.54s
+[BC#3] synthesizing... turns=10 chars=1064 composite=2 composite/1k=1.880 elapsed=11.97s
+Post-run restoration verified.
+```
+
+Raw dialogues persisted under `docs/design/session279_phase2/p2bc_sample{1,2,3}.txt`. Full provenance in `phase2_bc_evidence.json`.
+
+## §136 P2-BC per-sample scores
+
+| # | attempt | chars | turns | D1 | D1n | D1a | D2 | D3 | D4a | D4n | composite | composite/1k |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 1 | 1380 | 12 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0.000 |
+| 2 | 2 | 1231 | 11 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 1 | 0.812 |
+| 3 | 1 | 1064 | 10 | 0 | 0 | 0 | 0 | 0 | 2 | 0 | 2 | 1.880 |
+
+## §137 P2-BC aggregate + four-condition table
+
+| Config | n | chars | turns | composite | **composite/1k** | D1 | D1n | D1a | D2 | D3 | D4a | D4n |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| P2-A baseline | 3 | 3801 | 38 | 4 | **1.052** | 2 | 1 | 1 | 0 | 1 | 1 | 0 |
+| P2-B contract-lite | 3 | 3718 | 39 | 4 | **1.076** | 0 | 0 | 0 | 1 | 0 | 2 | 1 |
+| P2-C personality-lite | 3 | 3810 | 35 | 3 | **0.787** | 1 | 0 | 1 | 0 | 0 | 2 | 0 |
+| **P2-BC combined** | 3 | 3675 | 33 | 3 | **0.816** | 1 | 0 | 1 | 0 | 0 | 2 | 0 |
+
+**Deltas vs P2-A:**
+
+- P2-B / P2-A = 1.076 / 1.052 = **+2.2 %**
+- P2-C / P2-A = 0.787 / 1.052 = **−25.2 %**
+- **P2-BC / P2-A = 0.816 / 1.052 = −22.4 %**
+
+**P2-BC vs P2-C alone:**
+
+- Composite/1k: 0.816 vs 0.787 → **within 4 % of each other**.
+- Composite raw: 3 vs 3 → **identical**.
+- Family distribution: D1=1, D1n=0, D1a=1, D2=0, D3=0, D4a=2, D4n=0
+  vs D1=1, D1n=0, D1a=1, D2=0, D3=0, D4a=2, D4n=0 → **identical**.
+
+**The combined intervention produced results essentially identical
+to personality-lite alone.** Stacking contract-lite on top of
+personality-lite added ZERO additional composite reduction and zero
+family-distribution change.
+
+## §138 Locked-criteria verdict (per §132.1 + §132.2)
+
+Applied without post-hoc revision.
+
+### 138.1 Composite thresholds
+
+- **JOINT-MODULATION-CONFIRMED (≤ 50 % of P2-A = ≤ 0.526 / 1k):**
+  observed **0.816 / 1k**. NOT MET.
+- **ADDITIVE-MODULATION (in [0.65, 0.85] with backfill):** observed
+  0.816 falls within the range; family-swap check (§138.2) confirms
+  backfill. **Boundary-eligible.**
+- **DEEP-RESIDUAL (≥ 75 % of P2-A = ≥ 0.789 / 1k with backfill):**
+  observed 0.816 exceeds 0.789; family-swap backfill visible.
+  **MET.**
+
+Both ADDITIVE-MODULATION and DEEP-RESIDUAL windows overlap at
+[0.789, 0.85]. Interpretation per §132.3: since the reduction is
+only **22.4 %** (well below "substantially suppress") AND the
+attractor persists via D4a backfill, the **DEEP-RESIDUAL**
+classification is the tighter fit.
+
+### 138.2 Family-swap check (per §132.2 absolute-count triggers)
+
+| Family | P2-A count | P2-BC count | Backfill? |
+|---|---|---|---|
+| D2 | 0 | 0 | No |
+| D3 | 1 | 0 | No |
+| **D4a** | 1 | **2** | **YES** (§132.2 trigger: P2-A = 1 → P2-BC ≥ 2) |
+| D4n | 0 | 0 | No |
+
+**D4a backfill is present.** The stakes-elevating adjective family
+absorbed the mass that contract-lite and personality-lite each
+displaced. This is the SAME backfill channel §122 already
+identified in P2-B and P2-C.
+
+### 138.3 Final verdict: DEEP-RESIDUAL
+
+Per §132.3 interpretive rule: *"Both levers act but the attractor
+persists in unmeasured or backfill surfaces → DEEP-RESIDUAL — H2
+model-prior is a real substrate that neither text lever adequately
+reaches within the D1-D4 rubric."*
+
+**H2 (model prior) is now the load-bearing residual explanation.**
+The two text levers Chris + ChatGPT identified (the specific
+stakes-elevating pieces of the dialogue_scene writing contract; the
+free-text personality field) do NOT together suppress the attractor
+enough to clear the pre-registered JOINT-MODULATION threshold.
+D4a (stakes-elevating adjectives: *"serious"*, *"consequential"*,
+*"important"*, *"dramatic"*) survives both interventions and
+appears to be the stable backfill channel the model reaches for
+when other channels are neutralized.
+
+## §139 Non-additivity finding (loud signal)
+
+**The two levers do not stack.**
+
+- P2-B alone: composite 4, composite/1k = 1.076
+- P2-C alone: composite 3, composite/1k = 0.787
+- P2-BC combined: composite 3, composite/1k = 0.816
+
+If the two levers acted on *independent* channels, we would expect
+P2-BC composite/1k to reduce further than either alone
+(theoretical multiplicative model: `0.787 × (1.076/1.052) ≈ 0.804`
+— but that trivially matches because P2-B added ~0 %, so
+multiplicative and personality-alone predict the same).
+
+The observed P2-BC is essentially P2-C alone. **Contract-lite adds
+zero composite-reduction contribution when personality-lite is
+also applied.** This strongly implies:
+
+- Contract-lite's Phase-2 elimination of D1 + D3 (§122) was a
+  **family shift**, not attractor suppression. The device family
+  moved to D2 + D4 while composite stayed flat.
+- Personality-lite's modest 22-25 % reduction is doing all of the
+  observed composite work.
+- The two levers are not attacking independent parts of the same
+  attractor; they are largely orthogonal, and one (contract) may
+  not be moving the attractor's total mass at all.
+
+This is a more informative outcome than the pre-registered
+"cleanly resolves H1 vs H3" would have been. It reframes the
+Chris + ChatGPT question: the writing-contract text under test is
+not the composite-mover; the free-text personality field is the
+sole detectable text-side modulator; and neither reaches the
+majority of the attractor within the D1-D4 rubric.
+
+## §140 Prediction vs actual
+
+Recorded pre-execution (§131):
+
+| Prediction | Actual |
+|---|---|
+| Composite in [0.5, 1.1] / 1k | **0.816 / 1k** — within predicted range. |
+| Composite ≥ 0.6 / 1k likely; unlikely to clear ≥ 50 % threshold | **0.816** — exceeded lower bound; did not clear threshold. Direction correct. |
+| Best guess 0.6-0.9 / 1k | **0.816** — squarely in predicted best-guess band. |
+| D1 stays near 0 | D1 = 1 (one hit, from BC#2 *"That's an easy first-order answer"*). Slightly above prediction — the contract-lite intervention did not fully suppress D1 when combined with personality-lite. |
+| D3 stays near 0 | D3 = 0. Confirmed. |
+| D4a rises further if deep-residual | D4a = 2 (matches §132.2 backfill trigger). Confirmed. |
+| Novel families may emerge | No novel-family hits captured by locked D1-D4 rubric. |
+| Composite will not exceed P2-A materially | Correct — 22.4 % below P2-A. |
+
+Prediction resolved: **DEEP-RESIDUAL** with the exact composite value
+in my pre-recorded best-guess band and the exact backfill channel
+(D4a) I flagged in advance. No prediction was retro-fit.
+
+## §141 Dialogue-quality observations
+
+Manual read of all 3 P2-BC samples:
+
+- **BC#1** (`p2bc_sample1.txt`): composite = 0. Cleanest sample in
+  the run. Natural sunrise scene; Q-279-2 treatment vocabulary
+  surfaces (almond croissant + pour-over, morning bun + drip,
+  chocolate babka + espresso, tradeoff rule). Ruby and Tyson
+  remain distinct despite neutralized personality; Tyson's
+  practical-recommender register comes from his `business_brief`
+  + Knowledge, not the neutralized personality.
+- **BC#2** (`p2bc_sample2.txt`): composite = 1 (D1a hit *"That's an
+  easy first-order answer"*). Natural rhythm. *"tiny celebration
+  before breakfast"* — a *"tiny"*-formed phrase that did NOT match
+  the D2 lexicon (celebration is not in the formal-institution
+  list) but is stylistically the same *diminutive-formal* family.
+  Rubric under-counts here; noted qualitatively.
+- **BC#3** (`p2bc_sample3.txt`): composite = 2 (both D4a from
+  *"pastry questions are serious"* + *"very serious pastry
+  question"*). The specific stakes-elevating adjective *serious*
+  fires twice. Character-in-voice; no degradation.
+
+**All 3 samples verified** (K6.4 D-POS `overall_verification_status
+= "verified"`). **All in-character.** **All use Q-279-2 treatment
+vocabulary naturally.** **No condition materially degraded
+dialogue quality.**
+
+Character-recognizability observation (extends §126 P2-C reading):
+even under the combined neutralization of both personality text
+AND stakes-elevating contract content, Ruby and Tyson remain
+distinctly Ruby-like and Tyson-like. Their `business_brief` +
+`voice_*` enums + retrieved Knowledge + the shared invariants
+that remain in the contract-lite variant appear sufficient to
+carry character identity through the LLM's synthesis. **This is
+itself informative for a future H3 refinement:** the personality
+free-text field is not a sole load-bearing character-identity
+input.
+
+## §142 What P2-BC does and does NOT establish
+
+**Establishes:**
+
+- The two runtime substitutions (contract-lite + personality-lite)
+  applied *together* achieve **~22 % composite reduction** on
+  neutral-topic base rates — statistically indistinguishable from
+  personality-lite alone.
+- The specific stakes-elevating pieces of the dialogue-scene
+  writing contract we substituted are **NOT the composite-moving
+  lever** — they only shift the attractor's surface family.
+- The free-text personality field is a **modest modulator** whose
+  effect is not amplified by simultaneous contract intervention.
+- **D4a (stakes-elevating adjectives) is the stable backfill
+  channel** for writer-voice attractor under text-side
+  interventions. Both P2-B and P2-BC show D4a rising when other
+  families are cleared.
+- **The residual attractor above what both levers touch is
+  substantial (~78 % of baseline)** and lives in the LLM's model
+  prior — a model-agnostic dry-humor observational-dialogue
+  register that the D1-D4 rubric only partially captures.
+- The Q-279-2 4b Knowledge-depth finding continues to reproduce
+  under all four Phase-2 conditions — treatment vocabulary
+  surfaces naturally in every sample regardless of contract or
+  personality state.
+
+**Does NOT establish:**
+
+- Whether other *text* levers not tested (`character_point_of_view`,
+  `voice_signature_phrases`, `voice_avoid_phrases`, `tone_archetype`,
+  the anti-generic-register contrast set, or the operator
+  `audience_hint`) would move the composite. Any of these could be
+  the actual composite-mover; Phase 2 did not test them.
+- Whether adversarial-topic base rates (§127 §1) would show a
+  bigger response to the combined intervention — the neutral-topic
+  ceiling artifact (§124) continues to limit statistical power.
+- Whether this attractor exists on other LLM families. Only
+  gpt-5.6-terra tested.
+- The internal mechanism inside the LLM. The experiment measures
+  output text.
+- A fix. DEEP-RESIDUAL classification explicitly does NOT license
+  a production writing-contract change. If Chris + ChatGPT choose
+  to design an intervention, the appropriate next slice would be
+  a Phase 3 that either (a) targets a text-side lever not tested
+  here, or (b) accepts the DEEP-RESIDUAL as substrate reality and
+  designs downstream mitigations (post-generation filtering,
+  regenerate-on-attractor-hit, or a model-swap experiment).
+
+## §143 Recommendation
+
+Q-279-3 Phase 2 (P2-BC) executed as designed. Locked
+JOINT-MODULATION threshold NOT met. **DEEP-RESIDUAL classification
+fires per locked §132.3 rule.** Personality-lite is the only
+detectable text-side modulator; contract-lite does not compound
+with it. D4a backfill is the persistent attractor channel.
+
+Do NOT implement a production fix on this evidence. The residual
+attractor is deeper than either lever reaches; a fix targeting
+either lever alone (or both together) would leave ~78 % of the
+attractor in place while risking family-swap into surfaces that
+would need to be re-measured.
+
+### Recommended next gate
+
+> **READY-FOR-CHRIS-CHATGPT-REVIEW**. Three live options after
+> this evidence:
+>
+> 1. **CLOSE-Q-279-3-AT-DEEP-RESIDUAL** — accept the P2-BC
+>    DEEP-RESIDUAL classification as the durable answer for
+>    finding 4a. The writer-voice attractor is real, cross-World,
+>    survives Q-279-2 Knowledge treatment, survives contract
+>    intervention, survives personality intervention, survives
+>    combined intervention. It is a load-bearing property of the
+>    LLM's model-prior interaction with the Character OS synthesis
+>    substrate at the tested lever surfaces. Preserve for future
+>    fix-design work. All other deferred findings preserved
+>    unopened.
+> 2. **EXTEND-PHASE-2-ADVERSARIAL** — replicate P2-A / P2-B / P2-C
+>    / P2-BC on the Q-279-2 T1 adversarial topic where base rate
+>    is ~4× higher; would give the ≥ 50 % threshold usable
+>    statistical power. ~$0.07 additional provider spend for 12
+>    calls.
+> 3. **PIVOT-TO-UNTESTED-TEXT-LEVER** — Phase 3 design targeting
+>    `character_point_of_view` / `voice_signature_phrases` /
+>    `voice_avoid_phrases` / audience_hint substitution. Would
+>    test whether ANY text-side lever moves the composite more
+>    than personality-lite's ~22 %, before conceding H2 as
+>    unmovable within text-side substrate.
+
+Do NOT proceed to any without approval.
+
+## §144 Checklist — P2-BC execution
+
+- [x] P2-BC probe added to `session279_q279_3_phase2_probe.py` (§130)
+- [x] Both runtime substitutions applied simultaneously (§130)
+- [x] All 3 raw dialogues persisted (§135)
+- [x] Per-sample D1-D4 scores tabulated (§136)
+- [x] Four-condition aggregate table (§137)
+- [x] Locked-criteria verdict applied under §132.1 + §132.2 without revision (§138)
+- [x] Family-swap check explicit (§138.2)
+- [x] Non-additivity finding recorded (§139)
+- [x] Prediction vs actual (§140)
+- [x] Dialogue-quality observations kept out of composite gate (§141)
+- [x] Scope statement — what P2-BC establishes and does not (§142)
+- [x] Recommendation + three live next-gate options (§143)
+- [x] No prompt / synthesis / Knowledge / character / identity / retrieval / verifier / memory / audience / runtime change
+- [x] No production code change beyond adding P2-BC branch to the experimental probe
+- [x] No implementation of a fix
+- [x] §132 thresholds NOT revised after seeing results
+- [x] Rubric NOT revised after seeing results
+- [x] Other deferred findings NOT opened
+

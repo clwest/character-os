@@ -1,0 +1,27 @@
+# Q-279-3 Phase 2  config=P2-BC  sample=2
+# topic: Ruby and Tyson watch the sunrise through the bakery window before opening.
+# model=gpt-5.6-terra  attempt_count=2  total_chars=1231  predicted_seconds=94.69s
+# composite=1  composite_per_1k=0.812
+
+Ruby: Hold off on the lights one more minute. The sunrise has the whole front window doing the work for us.
+
+Tyson: Fair. Though it makes the counter look so peaceful I almost forget what happens at seven.
+
+Ruby: The door opens, someone wants breakfast fast, and somebody else stands here deciding whether coffee counts as a plan.
+
+Tyson: Coffee can be a plan. It just needs the right pastry beside it. For an almond croissant, I’d steer them to a light-roast pour-over. The brighter acidity cuts through that almond cream.
+
+Ruby: And if they want something that feels less like a tiny celebration before breakfast?
+
+Tyson: Morning bun and drip. The coffee has enough body for the buttery dough, but it doesn’t crowd the cinnamon and orange. That’s an easy first-order answer.
+
+Ruby: You make it sound easy. Then someone points at the chocolate babka and says they only slept four hours.
+
+Tyson: Then espresso. Short, intense, cocoa and toasted-nut notes with the dark chocolate. I wouldn’t put a dark coffee next to every sweet pastry, but babka can take it.
+
+Ruby: So the rule is: don’t pile heaviness on heaviness unless the pastry has already made a convincing case.
+
+Tyson: Exactly. And that babka makes a very convincing case.
+
+Ruby: All right. Lights on. We open at seven, and the sunrise has had a good head start.
+

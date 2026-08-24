@@ -301,6 +301,41 @@ def _sample_personality_lite(workspace, cast, sample_idx: int) -> dict:
     return _package_sample("C", sample_idx, result, elapsed)
 
 
+def _sample_combined_lite(workspace, cast, sample_idx: int) -> dict:
+    """P2-BC. Stack BOTH contract-lite AND personality-lite
+    substitutions simultaneously. Both try/finally-restored;
+    outer finally guarantees restoration even if inner raises."""
+    original_for_shape = WritingContract.for_shape
+
+    def _lite(shape: str, **kwargs) -> str:
+        if shape == "dialogue_scene":
+            return _dialogue_scene_contract_lite()
+        return original_for_shape(shape, **kwargs)
+
+    saved_personality = {tm.pk: tm.personality for tm in cast}
+    WritingContract.for_shape = staticmethod(_lite)
+    try:
+        for tm in cast:
+            tm.personality = f"{tm.name} is friendly and helpful."
+        t0 = time.time()
+        result = synthesize_dialogue(
+            workspace=workspace,
+            cast=cast,
+            topic=TOPIC,
+            target_duration_seconds=TARGET_DURATION_SECONDS,
+            opener=None,
+            use_knowledge=True,
+            verifier_mode="warn",
+            mock_mode=False,
+        )
+        elapsed = time.time() - t0
+    finally:
+        for tm in cast:
+            tm.personality = saved_personality[tm.pk]
+        WritingContract.for_shape = original_for_shape
+    return _package_sample("BC", sample_idx, result, elapsed)
+
+
 def _package_sample(config: str, sample_idx: int, result, elapsed: float) -> dict:
     scored = score_dialogue(result)
     turns_dump = [
@@ -364,7 +399,7 @@ def _verify_restored() -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--config", choices=["A", "B", "C", "ALL"], default="ALL")
+    ap.add_argument("--config", choices=["A", "B", "C", "BC", "ALL"], default="ALL")
     ap.add_argument("--n", type=int, default=SAMPLES_PER_CONDITION)
     ap.add_argument("--out", default=str(AUDIT_DIR / "phase2_evidence.json"))
     args = ap.parse_args()
@@ -388,7 +423,12 @@ def main() -> int:
 
     AUDIT_DIR.mkdir(parents=True, exist_ok=True)
 
-    runners = dict(A=_sample_baseline, B=_sample_contract_lite, C=_sample_personality_lite)
+    runners = dict(
+        A=_sample_baseline,
+        B=_sample_contract_lite,
+        C=_sample_personality_lite,
+        BC=_sample_combined_lite,
+    )
     order = ["A", "B", "C"] if args.config == "ALL" else [args.config]
 
     all_samples: list[dict] = []
@@ -408,7 +448,8 @@ def main() -> int:
             )
             all_samples.append(sample)
             # Persist raw dialogue as text artifact for durable audit.
-            txt_path = AUDIT_DIR / f"p2{cfg.lower()}_sample{i}.txt"
+            cfg_slug = cfg.lower()
+            txt_path = AUDIT_DIR / f"p2{cfg_slug}_sample{i}.txt"
             with txt_path.open("w") as f:
                 f.write(f"# Q-279-3 Phase 2  config=P2-{cfg}  sample={i}\n")
                 f.write(f"# topic: {TOPIC}\n")

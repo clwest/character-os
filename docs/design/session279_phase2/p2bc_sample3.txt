@@ -1,0 +1,25 @@
+# Q-279-3 Phase 2  config=P2-BC  sample=3
+# topic: Ruby and Tyson watch the sunrise through the bakery window before opening.
+# model=gpt-5.6-terra  attempt_count=1  total_chars=1064  predicted_seconds=81.85s
+# composite=2  composite_per_1k=1.880
+
+Ruby: That sunrise is making the window look far more organized than the bakery feels at this hour.
+
+Tyson: Give it a minute. The sun gets credit for atmosphere; we get the credit for being open at seven.
+
+Ruby: Fair. Still, I like this little pocket before the day starts—before someone needs a cake for a celebration or has a very serious pastry question.
+
+Tyson: The pastry questions are serious. Especially when someone wants something rich, then reaches for the darkest coffee in sight.
+
+Ruby: And you gently rescue them from themselves.
+
+Tyson: I try. For an almond croissant, I’d point them to a bright pour-over. It cuts through that almond cream instead of making every bite feel heavier.
+
+Ruby: So the sunrise drink is a pour-over.
+
+Tyson: If they want the almond croissant, yes. But a morning bun earns drip coffee—fuller, a little sweet, and it lets the cinnamon and orange stay in charge.
+
+Ruby: You make choosing breakfast sound like a thoughtful decision, which is exactly the kind of neighborhood bakery I wanted: careful, but never fussy.
+
+Tyson: Then we’re ready. Let the sun handle the first impression; we’ll handle the coffee.
+

@@ -1,0 +1,29 @@
+# Q-279-3 Phase 2  config=P2-BC  sample=1
+# topic: Ruby and Tyson watch the sunrise through the bakery window before opening.
+# model=gpt-5.6-terra  attempt_count=1  total_chars=1380  predicted_seconds=106.15s
+# composite=0  composite_per_1k=0.000
+
+Ruby: That sunrise is making the whole window look like it was dusted with sugar.
+
+Tyson: And it has not even made the counter look busy yet. Give it a little while.
+
+Ruby: That is the trick of this hour. For a minute, it is just the two of us, the window, and the feeling that the day could go any direction.
+
+Tyson: I like that it gives people a quiet landing spot before the rest of their plans get loud. Though I know exactly what the first question will be: coffee with what?
+
+Ruby: You do enjoy that question suspiciously much.
+
+Tyson: It is a useful question. If someone wants the almond croissant, I would steer them toward a bright pour-over. The lighter body and acidity keep the almond cream from taking over the whole morning.
+
+Ruby: And if the sunrise has them feeling cheerful but not ready for a lecture on coffee?
+
+Tyson: Then a morning bun and drip coffee. The cinnamon and orange are already doing plenty; the drip has enough body to sit alongside it without turning the choice into homework.
+
+Ruby: That sounds like the sort of answer a person can actually use before seven in the morning.
+
+Tyson: Good. And for the person who points at chocolate babka like it has personally called to them: espresso. Short, cocoa-and-toasted-nut notes, and no extra heaviness piled onto the chocolate.
+
+Ruby: So the window gives them the invitation, and you make sure breakfast does not overthink itself.
+
+Tyson: Exactly. The sun is up. We should probably let the day come in.
+
