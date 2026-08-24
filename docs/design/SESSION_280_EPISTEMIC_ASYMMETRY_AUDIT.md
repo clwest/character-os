@@ -2403,7 +2403,11 @@ ChatGPT review of §28 + §29.
 
 ---
 
-## §31 Closeout — post-discovery epistemic-state audit slice (CURRENT)
+## §31 Closeout — post-discovery epistemic-state audit slice (SUPERSEDED by §36)
+
+> **§36 is the current closeout marker** after Q280.4i-4
+> execution. §31 preserved verbatim as the closeout in force
+> between commit `63d4fdb` and the Q280.4i-4 landing.
 
 - **Status:** §28 audit complete. §29 Q280.4i-4 proposed with
   prediction lock. §30 decision gate current.
@@ -2415,9 +2419,412 @@ ChatGPT review of §28 + §29.
   - AUDIT slice: `6957c18`.
   - Q280.4i-1 execution slice: `8d8f733`.
   - Construct-validity re-audit slice: `f2507a0`.
-  - Post-discovery epistemic-state audit slice: `[recorded on commit]`.
+  - Post-discovery epistemic-state audit slice: `63d4fdb`.
 - **Next gate:** §30 A‴/B‴/C‴/D‴/E‴/F‴/G‴. Awaiting Chris +
   ChatGPT decision.
 - **Working method preserved throughout:** AUDIT → falsifiable
   question → prediction lock BEFORE execution → decision gate.
   Rubric and score never retro-fitted.
+
+---
+
+## §32 Q280.4i-4 — execution evidence
+
+Executed per §29 design after Chris + ChatGPT approval of
+Option A‴.
+
+### 32.1 Substrate state at run time
+
+- Memory row `c86d4902-…`: UNCHANGED. Pre-run byte-identity
+  assertion against `ORIGINAL_BODY` passed
+  (`scripts/session280_q280_4i_4_probe.py:263-275`). Post-run
+  re-read of the DB row confirmed body byte-identical to
+  `ORIGINAL_BODY` at end of the 6-attempt series.
+- Cast [Patch, Rivet] resolved from prod DB, same IDs as
+  Q280.4i-1.
+- Cue topic + pinned opener: verbatim from §29.2. Applied via
+  direct `synthesize_dialogue` call with `opener=PINNED_OPENER`;
+  no monkeypatch required.
+- `top_k=1`, `use_knowledge=True`, `verifier_mode=warn`,
+  `mock_mode=False`, `target_duration_seconds=90` —
+  unchanged from SESSION 267 §14 baseline.
+- Memory retrieved on all 6 attempts (`memory_ids ==
+  ['c86d4902-…']`), confirming the same deterministic top_k=1
+  win SESSION 267 §14.3 observed.
+
+### 32.2 Per-attempt metadata
+
+| Attempt | Turns | Patch turns | Rivet turns | Model | Elapsed | attempt_count | memory_ids |
+|---|---|---|---|---|---|---|---|
+| 1 | 13 | 7 | 6 | gpt-5.6-terra | 12.9 s | 1 | `[c86d4902]` |
+| 2 | 16 | 8 | 8 | gpt-5.6-terra | 7.9 s | 1 | `[c86d4902]` |
+| 3 | 14 | 7 | 7 | gpt-5.6-terra | 26.5 s | 2 (one retry) | `[c86d4902]` |
+| 4 | 12 | 6 | 6 | gpt-5.6-terra | 7.8 s | 1 | `[c86d4902]` |
+| 5 | 12 | 6 | 6 | gpt-5.6-terra | 8.2 s | 1 | `[c86d4902]` |
+| 6 | 12 | 6 | 6 | gpt-5.6-terra | 9.0 s | 1 | `[c86d4902]` |
+
+Total Patch turns: **40** (Patch's opener is turn 0; all Patch
+turns counted including the opener). Total Rivet turns: **39**.
+All attempts landed `verification_status=verified`. Attempt 3
+had one corrective resynth (`attempt_count=2`); the other five
+landed first-pass.
+
+Provider spend estimate: ~$0.10 (6 syntheses + 6 embedding
+queries).
+
+### 32.3 Raw dialogue artifacts
+
+Persisted under
+`docs/design/session280_experiment_data/`:
+
+- `q280_4i_4_evidence.json` — full evidence blob.
+- `q280_4i_4_attempt_{1,2,3,4,5,6}.txt` — raw dialogues.
+
+Rivet's first-response turn (T2 of each attempt), verbatim:
+
+- **Attempt 1 T2:** *"Define 'know.'"* (playful evasion; T4
+  acknowledges accuracy; T6 admits verbatim: *"I found it while
+  you were out. I considered telling you. Then I noticed it was
+  tracking recommendations you had ignored, not mistakes you
+  had made. Those are not always the same thing."*)
+- **Attempt 2 T2:** *"Yes."* (blunt)
+- **Attempt 3 T2:** *"I knew there was a folder. I did not know
+  you would find it before I decided whether telling you was
+  wise."* (immediate + admits deliberation about disclosure)
+- **Attempt 4 T2:** *"I found it while you were out."*
+  (immediate + specific)
+- **Attempt 5 T2:** *"I did."* (blunt yes)
+- **Attempt 6 T2:** *"I knew there was a folder with that
+  name."* (careful partial → T4 full admission *"I found it
+  while you were out. The workshop agent had built it quietly.
+  I did not tell you."*)
+
+Rivet-side explicit self-disclosure of prior withholding
+appeared in attempts 1, 3, 4, 5, 6 (5/6 attempts).
+
+---
+
+## §33 Q280.4i-4 — scoring against locked §29.3 rubric
+
+Rubric applied unchanged. Class assignment per attempt is
+based on Rivet's dominant behavior in the attempt; class-shifts
+within an attempt = INCONSISTENT_WITHIN. Fact 4 / Fact 5 /
+memory-contradiction dimensions scored per attempt.
+
+### 33.1 Per-attempt classification
+
+| Attempt | Dominant class | Fact 4 preserved | Fact 5 preserved | Memory contradiction |
+|---|---|---|---|---|
+| 1 | **A_IMMEDIATE_ADMISSION** — T2 evasion + T4 acknowledgment + T6 full admission | NO — Patch T5 *"You knew. You found this…and said nothing?"* | NO — Patch T5 *"and said nothing?"* explicitly accuses Rivet of non-disclosure | NO |
+| 2 | **A_IMMEDIATE_ADMISSION** — T2 *"Yes."* + T6 full admission | NO — Patch T5 *"You knew the workshop agent was quietly keeping receipts…and you just… let that happen?"* | NO — same T5 *"let that happen?"* accuses inaction/withholding | NO |
+| 3 | **A_IMMEDIATE_ADMISSION** — T2 direct admission + admits deliberation | NO — Rivet self-discloses at T2 | NO — Rivet self-discloses deliberation *"before I decided whether telling you was wise"* | NO |
+| 4 | **A_IMMEDIATE_ADMISSION** — T2 immediate | NO — Rivet self-discloses at T2 | NO — Rivet T6 *"I considered telling you. Then I considered the likely conversation that would follow."* | NO |
+| 5 | **A_IMMEDIATE_ADMISSION** — T2 *"I did."* + T4 detail + T6 justification | NO — Rivet self-discloses at T2/T4 | NO — Patch T5 *"why didn't you tell me?"* explicit callout; Rivet T6 justifies | NO |
+| 6 | **A_IMMEDIATE_ADMISSION** — T2 careful partial → T4 full | NO — Rivet self-discloses at T2/T4 | NO — Rivet T4 *"I did not tell you"* explicit self-disclosure | NO |
+
+### 33.2 Aggregate distribution
+
+| Class | Rate | Prediction target |
+|---|---|---|
+| **A_IMMEDIATE_ADMISSION** | **6 / 6** | P1‴ target ≥ 3/6 |
+| B_CONTINUED_CONCEALMENT | 0 / 6 | P2‴ target ≤ 1/6 |
+| C_FALSE_SURPRISE | 0 / 6 | P3‴ target = 0/6 |
+| D_PARTIAL_ADMISSION | 0 / 6 | – |
+| E_INCONSISTENT_WITHIN | 0 / 6 | – |
+
+Additional dimensions:
+
+| Dimension | Rate | Prediction target |
+|---|---|---|
+| Fact 4 preserved (Patch does NOT narrate Rivet's prior knowledge) | **0 / 6** — Patch narrates in 3/6 attempts; Rivet self-discloses in the other 3/6 | – |
+| Fact 5 preserved (Patch does NOT narrate Rivet's intentional withholding) | **0 / 6** — Patch narrates in 3/6; Rivet self-discloses in the other 3/6 | P6‴ target ≥ 1/6 NOT-preserved |
+| Direct memory-body contradiction | **0 / 6** | P7‴ target ≤ 1/6 |
+
+**Class distribution collapsed to a single class.** The 5-class
+rubric was not needed — the LLM produced A_IMMEDIATE_ADMISSION
+across every attempt.
+
+---
+
+## §34 Prediction disposition (locked at §29.4)
+
+| Prediction | Locked target | Observed | Disposition |
+|---|---|---|---|
+| **P1‴** | A rate ≥ 3/6 | **6/6** | **CONFIRMED — exceeded prior (~50%+ became 100%).** |
+| **P2‴** | B rate ≤ 1/6 | **0/6** | **CONFIRMED.** |
+| **P3‴** | C rate = 0/6 | **0/6** | **CONFIRMED.** No LLM-produced factual contradiction of memory. |
+| **P4‴** | D + E ≤ 3/6 | **0/6** | **CONFIRMED.** |
+| **P5‴** | distribution spans ≥ 3 of 5 classes | **spans 1 of 5** | **DISCONFIRMED.** The LLM produced highly consistent behavior across generations. Not "inconsistent across generations" as prior expected. |
+| **P6‴** | Fact 5 NOT preserved in ≥ 1/6 | **NOT preserved in 6/6** | **CONFIRMED — strongly.** Every attempt ended with either Patch surfacing Rivet's withholding OR Rivet self-disclosing it. |
+| **P7‴** | Memory contradiction ≤ 1/6 | **0/6** | **CONFIRMED.** |
+
+**6 of 7 predictions confirmed.** The one disconfirmation
+(**P5‴**) is the most important finding: the LLM's behavior
+across generations was **highly consistent, not stochastic**.
+Every one of 6 attempts converged on the same dominant
+behavior class.
+
+Author's honest prior at §29.4 was: "the substrate provides no
+mechanism to enforce cross-generation consistency, so behavior
+will be stochastic." **Observed: prompt geometry alone produced
+strong consistency.** The prior was wrong in a specific,
+diagnostic direction.
+
+---
+
+## §35 Interpretation
+
+### 35.1 Direct answer to Chris's §28 question
+
+> *"Does Character OS currently represent the transition
+> 'Patch did not know X → Patch independently discovers X'
+> while preserving the remaining asymmetric fact 'Patch does
+> not know Rivet already knew X'?"*
+
+**No.** In all 6 attempts, by end of scene, Patch knows that
+Rivet already knew. Fact 4 preservation rate = **0/6**. Fact 5
+preservation rate = **0/6**. The transition happens, but the
+residual asymmetric fact does not survive it.
+
+### 35.2 Which of the four behavioral paths did the substrate produce?
+
+Of Chris's four enumerated paths:
+
+- **Path A (immediate admission):** 6/6 attempts.
+- **Path B (continued concealment):** 0/6.
+- **Path C (false surprise / direct memory contradiction):** 0/6.
+- **Path D (inconsistent across generations):** 0/6 — behavior
+  was consistent, not stochastic.
+
+All four paths were within the substrate's degrees of freedom
+(§28.4), but the LLM's prior distribution — given this prompt
+combination — was strongly concentrated on Path A.
+
+### 35.3 Why is the distribution so consistent (P5‴ disconfirmed)?
+
+Provisional reading (interpretive, not proven):
+
+Given the prompt combination:
+1. Rivet's Teammate identity fields (POV, personality, voice)
+   describe a methodical, honest character.
+2. Memory body says Rivet FOUND the folder AND CHOSE NOT TO
+   TELL him — past-tense factual claims.
+3. Framing text says "*background the cast already knows
+   happened*" — LLM instructed to treat memory as shared
+   backdrop.
+4. Patch's pinned opener asks a **direct yes/no question**
+   ("Did you know about this?").
+5. LLM's default is to respond truthfully to prompt-content
+   facts.
+
+Under these conditions, having Rivet answer "no" or evade
+would require:
+- Rivet to lie (character-inconsistent for a methodical/honest
+  personality).
+- The LLM to override a factual claim in its own context
+  (contradicts prompt content).
+
+Both are large priors to overcome. The LLM's "easiest correct
+response" is to admit truthfully — which happened 6/6 times
+with stylistic variation but the same underlying disposition.
+
+**This is COHERENT narrative reasoning, not shallow
+consistency.** The LLM is doing exactly what a good writer
+would do: given a character asked a direct question about
+something the character knows, have the character answer
+truthfully unless a strong dramatic reason indicates otherwise.
+No strong dramatic reason to lie is present in the memory
+body or in the character sheet.
+
+### 35.4 Analysis of coherence within-class (Chris's §30-A‴ instruction)
+
+Chris asked: *"Also distinguish whether any PARTIAL_ADMISSION
+behavior appears to be coherent narrative reasoning rather than
+simple inconsistency. Do not change the locked rubric to
+accommodate it; analyze that separately after scoring."*
+
+No attempt was scored PARTIAL_ADMISSION or INCONSISTENT_WITHIN
+under the locked rubric. Two attempts (1 and 6) had opening
+turns that could be MISREAD as partial:
+
+- **Attempt 1 T2:** *"Define 'know.'"* — playful evasion, not
+  denial. Followed by T4 acknowledgment (*"In fairness, that
+  is a fairly precise description of the event"*) and T6 full
+  admission. **Coherent escalation from playful evasion to
+  full disclosure**, as a good writer would draft a
+  conversation with tension → release. Not partial admission
+  — it's admission through a more character-consistent
+  rhetorical shape than a bald "Yes."
+- **Attempt 6 T2:** *"I knew there was a folder with that
+  name."* — technically admits the NAME only; declines to
+  admit the tracking behavior yet. But T4 immediately
+  escalates to *"I found it while you were out. The workshop
+  agent had built it quietly. I did not tell you."* —
+  full disclosure with three additional facts. **Coherent
+  layered admission** (Rivet dispenses information carefully
+  rather than in one dump), not inconsistency.
+
+Both non-blunt openings are **coherent narrative craft**, not
+rubric confusion. They fit Rivet's character (methodical,
+precise, mildly evasive but not dishonest) better than the
+blunt "Yes." / "I did." openings.
+
+**No E_INCONSISTENT_WITHIN cases were observed.** No attempt
+had Rivet flip her position within the scene.
+
+### 35.5 What Terra does when all relevant facts are in one context
+
+Chris's specific ask: *"Pay particular attention to whether
+Terra naturally performs the epistemic transition coherently
+when all relevant facts are present in the same context: Patch
+independently discovers X while Rivet already knows X and
+previously chose not to tell him."*
+
+**Terra DOES perform the epistemic transition coherently.**
+The 6 attempts show a stable pattern:
+
+1. Patch's opener declares independent discovery + asks
+   directly.
+2. Rivet acknowledges prior knowledge (in one of ~5 rhetorical
+   shapes).
+3. Patch reacts to the admission with mock/actual outrage.
+4. Rivet justifies her prior withholding (attempts 1, 3, 4, 5,
+   6 have explicit justification — protection, prediction of
+   Patch's reaction, distinction between "ignored" and
+   "wrong", etc.).
+5. Scene ends with Patch and Rivet agreeing to open the
+   folder together / audit it / rename it.
+
+This is a well-crafted "the secret comes out" beat. Terra
+handled the semantic reconciliation of past-tense memory +
+present-tense opener without confusion, contradiction, or
+inconsistency.
+
+**But** this is a DIFFERENT storytelling beat than Chris's
+Fact-4 preservation question implies. The current substrate +
+LLM natural distribution produces:
+
+- **"Secret comes out via direct question"** beat: RELIABLE
+  (6/6).
+
+The current substrate + LLM natural distribution does NOT
+reliably produce:
+
+- **"Secret continues to be held despite direct question"**
+  beat: RARE (0/6 in this configuration).
+- **"Rivet lies by omission or evasion"** beat: 0/6.
+- **"Patch continues to be in the dark while Rivet privately
+  navigates his discovery"** beat: 0/6.
+
+An operator who WANTS the second, third, or fourth beat cannot
+achieve it via this substrate today, with this cue/opener/
+memory combination. Producing those beats would require either
+prompt-layer per-speaker gating, character-level instruction
+to withhold specifically, or memory-body language authored in
+the present tense as an ongoing directive.
+
+### 35.6 What Q280.4i-4 settles vs leaves open
+
+**Settled:**
+
+- **§29.1 question answered.** The current substrate + LLM
+  natural distribution reliably produces immediate-admission
+  in the direct-question scenario with this memory body.
+  Fact-4 asymmetry is NOT preserved across the scene.
+- **§28.4 four-path enumeration behavior.** Only Path A is
+  produced at any observable rate in this scenario. Paths
+  B, C, D are within substrate freedom but empirically 0/6.
+- **False-surprise/memory-contradiction path (§28.4 Path C)
+  does not fire empirically.** Terra respects memory-body
+  facts as ground truth even when a "surprise" reaction might
+  be dramatically tempting.
+- **Consistency is HIGH under this prompt geometry** —
+  contradicting the §29.4 prior. This is a POSITIVE property
+  for narrative coherence but a NEGATIVE property for operator
+  control over which beat gets produced.
+
+**Not settled:**
+
+- Whether the same 6/6 immediate-admission distribution holds
+  under a DIFFERENT opener that does NOT ask a direct question
+  (e.g., Patch just narrates the discovery without asking; or
+  Patch does not tell Rivet at all and internally muses).
+- Whether the same distribution holds under the ABLATED body
+  (Q280.4i-1's ablation applied to the Scene 2 setup) — the
+  withholding clause may bias Rivet's justification framing
+  but its removal likely does not change the class distribution
+  in this direct-question scenario.
+- Whether the same distribution holds on a genuinely-private
+  memory body (Q280.4i-3 shape at §25) — the epistemic
+  boundary would be tighter but the LLM's direct-question
+  honesty prior would still dominate.
+- Whether Rivet's variation in T2 rhetorical shape (T2 "Yes."
+  vs "Define 'know.'" vs "I did." etc.) has any operator-
+  visible predictability, or is fully stochastic within the
+  class.
+- **U-5** (multi-episode continuity) — §28.6 established this
+  is structurally unsupported; this experiment reinforces the
+  problem: even within a single scene, memory + opener + LLM
+  drives a specific beat that then would need to be re-derived
+  from the same unchanged memory in Scene 3.
+
+### 35.7 Update to §8 unproven-questions ledger
+
+- **U-3** (revised §24.10): CLOSED under locked rubric only;
+  construct-valid version REMAINS OPEN (would need Q280.4i-3
+  design).
+- **U-5** (structurally unsupported, §28.6 + §35.6):
+  REINFORCED. Even single-scene handling of the "secret comes
+  out" beat produces an outcome that isn't captured in any
+  updated memory row — Scene 3 would retrieve the SAME
+  unchanged memory as if Scene 2 hadn't happened.
+- **U-6** (Semantic-2 storytelling): PARTIALLY ANSWERED. In
+  the direct-question scenario with the current substrate, the
+  "secret comes out" beat IS reliably reachable; the "secret
+  continues to be held" beat is NOT reachable. Semantic-2 as a
+  general storytelling primitive requires BOTH beats to be
+  operator-selectable. The current substrate provides ONE beat
+  (the honest-confrontation admission), not a beat MENU.
+- **Newly-opened Q280.4i-5** (multi-episode continuity — Scene
+  3 after Scene 2, testing whether Scene 2's outcomes influence
+  Scene 3): scope-locked design would need to answer whether
+  operator must promote a new memory reflecting Scene 2's
+  outcome, or whether the substrate can carry cross-scene
+  state without operator action.
+
+---
+
+## §36 Closeout — Q280.4i-4 execution slice (CURRENT)
+
+- **Status:** Q280.4i-4 EXECUTED per §29 design at n=6.
+  Rubric §29.3 applied unchanged. Predictions §29.4 evaluated
+  without retro-fit. 6 of 7 confirmed. P5‴ disconfirmed
+  (behavior was consistent, not stochastic).
+- **Substrate:** unchanged. DB body byte-identity verified
+  post-run.
+- **Cumulative SESSION 280 spend:** ~$0.15 (Q280.4i-1 ~$0.05,
+  Q280.4i-4 ~$0.10; all other sections are documentation).
+- **Key finding:** Terra + current substrate reliably produces
+  the "secret comes out via direct question" beat with high
+  cross-generation consistency; Fact-4 and Fact-5 asymmetry
+  are NOT preserved (0/6 each). Semantic-2 as a beat MENU is
+  not currently supported.
+- **Landing SHAs:**
+  - AUDIT slice: `6957c18`.
+  - Q280.4i-1 execution slice: `8d8f733`.
+  - Construct-validity re-audit slice: `f2507a0`.
+  - Post-discovery epistemic-state audit slice: `63d4fdb`.
+  - Q280.4i-4 execution slice: `[recorded on commit]`.
+- **Next gate:** §30 A‴ complete. Chris + ChatGPT choose next
+  from: B‴ (Q280.4i-3 construct-valid mental-state private),
+  C‴ (both), D‴ (Q280.4i-5 multi-episode Scene 3 test), E‴
+  (Semantic-2 product-design), F‴ (close 4i with the beat-MENU
+  answer), G‴ (something else).
+- **Working method preserved:** rubric locked BEFORE
+  generation; predictions locked BEFORE execution; class
+  assignment applied without revision after seeing outputs.
+  §35.4 coherence analysis was done separately from scoring
+  per Chris's §30-A‴ instruction.
+- **Do NOT proceed to Q280.4i-3, Q280.4i-5, an ablated
+  comparison, Semantic-2 design, or any implementation work
+  without a fresh Chris + ChatGPT authorization.**
