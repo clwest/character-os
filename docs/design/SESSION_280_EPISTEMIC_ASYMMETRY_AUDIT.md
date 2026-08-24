@@ -8988,7 +8988,7 @@ ChatGPT review of the §79 design.
   - Q280.8 design + prediction lock: `f5e6d5e`.
   - Q280.8 execution slice: `1772cfb`.
   - Q280.8 SHA trailer: `3e675bb`.
-  - v1.5 curator UX design slice: `[recorded on commit]`.
+  - v1.5 curator UX design slice: `495034e`.
 - **Key design output:**
   1. Placement: **inside** the existing
      `NarrativeMemoryPromotePanel`, above the free-text
