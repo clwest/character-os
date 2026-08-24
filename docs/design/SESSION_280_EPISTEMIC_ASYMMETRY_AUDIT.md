@@ -4178,6 +4178,836 @@ Do not modify substrate. Wait for Chris + ChatGPT review of
   - Q280.4i-4 execution slice: `ce16627`.
   - Episode-chain suggestion product-discovery slice: `1d96965`.
   - Q280.5-1 execution slice: `7f83b23`.
+
+---
+
+## §56 Option A⁵ — v1 UX design slice (AUDIT / DESIGN only)
+
+Approved from §53. **Design-only.** No production code. No
+substrate mutation. No implementation authorized by this
+document.
+
+**Framing preserved verbatim:** we are NOT designing a linear
+story-arc planner. The feature is a lightweight read/generative
+surface that surfaces ~3 possible next-Episode directions after
+an Episode exists, from the substrate that already exists today
+(Episodes, NarrativeMemory, cast, KnowledgeDocuments). The
+operator remains authoritative: pick, ignore, refresh, or write
+their own.
+
+Model D framing (§42.4) preserved: **the v1 surface is a NEW
+READ path over EXISTING substrate.** No new schema, no
+StoryArc / NarrativeThread / OpenThread model, no memory-kind
+lifecycle change, no automatic canonization.
+
+Q280.5-1 discovery (§48.1) preserved: Fox & Flour produced
+STRONG suggestion sets with ZERO promoted memories. **v1 does
+NOT depend on operator adoption of `PROMISE` /
+`DIALOGUE_CALLBACK` kinds.** Episode history alone is
+sufficient substrate.
+
+---
+
+## §57 Current Episode flow trace (SPA + backend, HEAD `cfe287a`)
+
+### 57.1 Operator path today
+
+Grep-established from
+`web/src/routes/workspace/universes.$id.episodes.tsx` +
+`web/src/routes/workspace/episodes.$id.tsx` +
+`shell/apps/universe/views.py:173-260`:
+
+1. Operator opens **`/workspace/universes/:id/episodes`**
+   (Universe Episodes list page).
+   - Header: "Stories in _{Universe.name}_" + intro copy.
+   - Primary CTA: `[✨ New Episode]` button.
+   - Below: list of existing Episodes as `<li>` rows
+     (title + composition_count + cast count +
+     operator_topic snippet, each linking to Episode detail).
+   - Empty state (0 Episodes): *"No Episodes in this Universe
+     yet."* + `[New Episode]` button.
+2. Operator clicks `[New Episode]` → inline form appears with
+   fields: title (optional), operator_topic (required, prose
+   textarea), cast picker (chip toggles, filtered to Universe
+   Teammates).
+3. Submit → POST `/api/episodes/` → navigate to
+   **`/workspace/episodes/:episode-id`** (Episode detail).
+4. Episode detail page shows: title/topic editor · cast
+   management · **`EpisodeVersionsSection`** (attached
+   Compositions rendered inline as rows) ·
+   **`NarrativeMemoryList`** scoped to this Episode ·
+   *"Render under this Episode"* CTA panel (`dialogue_scene`
+   when cast ≥ 2; `talking_head` when cast = 1;
+   `[Choose another recipe]` fallback) · archive/hard-delete
+   actions.
+5. Composition creation navigates to a recipe form
+   (`/recipes/{template_kind}?episode=:id`) which pre-fills
+   cast + `operator_topic` from Episode context. On submit,
+   Composition attaches to Episode via FK.
+6. Operator returns to Episode detail to see new render in
+   the Versions list. Optionally promotes narrative memories
+   from the Composition detail page
+   (`NarrativeMemoryPromotePanel`).
+7. Operator returns to the Universe Episodes list to
+   consider the next Episode.
+
+### 57.2 Backend surface today
+
+- `apps.universe.views.EpisodeViewSet` (line 173) — ModelViewSet
+  with `list` / `create` / `retrieve` / `update` / `destroy`,
+  plus custom actions: `POST unarchive/`, `POST/DELETE cast/`.
+- List query: `?universe=<uuid>` + optional
+  `?include_archived=true`.
+- No suggestion endpoint exists (§38.6 grep confirmed 0 hits).
+
+### 57.3 Where a "possible next Episode" surface would naturally
+attach
+
+Three plausible SPA placements were considered:
+
+| Placement | Pros | Cons |
+|---|---|---|
+| **Universe Episodes list page** (`universes.$id.episodes.tsx`) — above the existing Episodes list, below the header | Matches the natural "I'm thinking about what to make next" moment. Reuses the page the operator returns to between Episodes. Scales to any Universe activity level. Doesn't require an "Episode is done" signal (which doesn't exist — Episode has no `status` field). | Suggestions load even if operator is just browsing; small provider cost per page load. |
+| Episode detail page (`episodes.$id.tsx`) — under the Renders section | Fires closer to "I just finished making a scene." | Requires a "this Episode is done" signal that doesn't exist. Operator may still be iterating on the current Episode. Suggests-next-Episode may feel premature. |
+| Universe root page (`universes.$id.tsx`) — as a story-summary widget | Nice for high-level "story so far" view. | Too far from the create moment. Operator has to navigate to Episodes list anyway to actually make one. |
+
+**Chosen v1 placement: Universe Episodes list page,** above
+the "New Episode" button, below the intro copy. This matches
+Chris's mental picture ("after an Episode is created…") — the
+operator lands on the Episodes list to think about the next
+Episode. Suggestions live there.
+
+The Episode detail page + Universe root page + PRODUCT_IA_V1
+Home Next-step nudge (§6.1 step 6, ratified) are all
+compatible surfaces for v1.5+ — this v1 slice does NOT
+supersede or compete with them.
+
+---
+
+## §58 Design decisions — Chris's checklist answered concretely
+
+### 58.1 When are suggestions generated?
+
+**On demand, on page load** of `/workspace/universes/:id/episodes`
+when the Universe has ≥ 1 existing Episode. Fresh generation each
+load — no persistence.
+
+Reasoning: matches the "operator is thinking about the next
+Episode" moment. No pre-generation on Composition completion
+(would be extra load; operator often iterates on the current
+Episode with multiple renders before moving on). No background
+Celery job.
+
+**Cost mitigation:** small server-side memoization keyed by
+`(universe_id, latest_episode_created_at,
+latest_memory_created_at)` with a 10-minute TTL. Passive page
+loads reuse cached suggestions; the operator's explicit
+`[Refresh]` bypasses cache. Q280.5-1 measured ~$0.02 per call
+(596-1,797 input tokens; 70-93 output tokens). At v1 dogfood
+scale this is negligible; the cache prevents unbounded regenerate
+loops from browser reloads.
+
+### 58.2 Is generation automatic or operator-triggered?
+
+**Automatic on page load** (with the cache above) — but the
+suggestions are inert (never mutate anything) until the operator
+explicitly clicks one. A refresh button is operator-triggered.
+
+Rationale: making generation manual ("Click to see
+suggestions") would defeat the "notice possibilities" framing
+— the operator has to remember the feature exists. Automatic
+on-load surfaces them like the Episodes list surfaces existing
+Episodes.
+
+### 58.3 Where do they appear?
+
+Universe Episodes list page. Callout section between the intro
+copy and the `[New Episode]` button. See wireframes §59.
+
+### 58.4 How are three suggestions visually presented?
+
+Three stacked clickable cards, each one full-width, containing:
+
+- the suggestion sentence (large, primary color)
+- a `[Use this]` action (secondary, right-aligned)
+
+Alternative considered: bubbles/pills side-by-side. Rejected
+because suggestion sentences are 15–30 words (§51.2 clickability
+observation) and would truncate in bubble geometry. Full-width
+stacked cards preserve readability and match the visual language
+of Episode row cards below them.
+
+The word "bubble" from Chris's original mental picture is a
+metaphor for "three light options," not a literal UI shape.
+
+### 58.5 What does selecting one actually do?
+
+Clicking `[Use this]` opens the existing "New Episode" inline
+form (the same form the `[New Episode]` button opens today)
+with `operator_topic` **pre-filled** to the suggestion sentence
+verbatim. Title, cast, and everything else remain empty for the
+operator to author.
+
+**No Episode is created merely by selecting a suggestion.** The
+existing `POST /api/episodes/` happens only when the operator
+clicks the form's `[Create Episode]` button. Selection is
+pre-fill, not commit.
+
+A small dismissable chip appears above the pre-filled form:
+*"Suggested direction. Edit anything freely."* + `[×]` clears
+the chip (leaves textarea contents alone — operator may keep or
+delete). The chip is UI-only, not persisted.
+
+### 58.6 How does "ignore" and "write my own" work?
+
+The existing `[New Episode]` button is preserved as the primary
+CTA — same behavior as today (opens empty form). Suggestions
+are additive and never block Episode creation. Ignoring
+suggestions simply means clicking `[New Episode]` or navigating
+away.
+
+### 58.7 Does `[Refresh]` belong in v1?
+
+**Yes.** Small button `[↻ Show different]` in the suggestions
+header. Bypasses the memoization cache; regenerates 3 fresh
+suggestions.
+
+Rationale: Q280.5-1 §51.1 documented HIGH REPEATER RATE for
+Fox & Flour's freezer+haunting attractor across all 3 sets on
+slot 1. Refresh gives the operator recourse without any
+substrate change. Attractor-dampening is deferred to v1.5.
+
+### 58.8 Loading / error / empty states
+
+- **Loading:** three skeleton cards matching the shape of real
+  suggestions. Slight shimmer. Renders within ~5 seconds
+  typically (Q280.5-1 measured 2.7–4.4 s per call).
+- **Error:** collapsed inline error card: *"Couldn't load
+  suggestions."* + `[Try again]` button. Rest of page functions
+  normally.
+- **Empty Universe (0 Episodes):** section entirely hidden.
+  Existing "No Episodes in this Universe yet." copy remains.
+  There is nothing to pick up from.
+- **Sparse Universe (1–2 Episodes):** section visible. LLM
+  will draw from limited substrate; expected quality drop is
+  acceptable for v1. Chris + ChatGPT may observe suggestions
+  in dogfood and decide later whether to gate at, say, ≥ 3
+  Episodes.
+
+### 58.9 "Why suggested" attribution
+
+**Deferred to v1.5.** The suggestions themselves make the
+thread pickup visible in most cases (Q280.5-1 §49: 15 / 18
+suggestions carried the source thread inside the sentence
+itself — "*investigate whether the freezer discovery is
+connected to the haunting*" NAMES both threads).
+
+v1.5 could add small subtext under each suggestion — "*picks up
+'Ruby finds something strange in the freezer' + 'Tyson is
+convinced the bakery is haunted'*" — only if operators ask.
+
+Adding "why" now would double the code surface for uncertain
+operator payoff.
+
+### 58.10 Should suggestion TYPES be intentionally
+diversified (continuation / callback / fresh direction)?
+
+**No, allow to emerge naturally.** Q280.5-1 evidence:
+
+- All 6 sets included ≥ 2 thread-pickup suggestions AND ≥ 1
+  fresh direction OR ≥ 3 thread-pickups when substrate was
+  rich enough. The prompt language *"at least one suggestion
+  may be a new direction"* already invites the LLM to mix.
+- Explicit type-slotting (one continuation, one callback, one
+  fresh) would over-engineer at v1 and force the LLM into
+  categories that may not fit the Universe's actual state.
+
+Revisit at v1.5 if operators complain about type-monoculture.
+
+### 58.11 How to avoid re-surfacing the strongest attractor
+forever?
+
+**Deferred to v1.5.** Chris's `[Refresh]` button provides
+recourse. Additionally, operator-driven resolution paths exist
+today: once the operator picks a suggestion and creates an
+Episode from it, that Episode enters the history and shifts
+the substrate → the same attractor becomes less semantically
+distinctive relative to the enriched history.
+
+Optional light v1.5 add: server-side "recent suggestions
+shown" cache (in-process, per-Universe, TTL 6 hours) fed as
+`avoid_these` to the LLM prompt. Small delta; not needed for
+v1.
+
+### 58.12 Empty/sparse Universe behavior
+
+Explicit ladder:
+
+- **0 Episodes** → section hidden; existing empty-state copy
+  unchanged.
+- **1 Episode** → section visible; suggestions likely lean on
+  fresh directions.
+- **2–3 Episodes** → section visible; some thread pickup
+  possible; some fresh directions.
+- **≥ 4 Episodes** → section visible; strong thread-pickup
+  expected (Q280.5-1 confirmed on both a 10-Episode Universe
+  and a 32-Episode Universe).
+
+The gate is `Universe.episodes.filter(archived_at__isnull=True)
+.count() >= 1`.
+
+---
+
+## §59 Textual wireframes
+
+### 59.1 Wireframe A — Universe Episodes list, normal state (Fox & Flour)
+
+```
+[← Back to universe]
+
+┌─── §1 EPISODES ─────────────────────────────────────────┐
+│                                                          │
+│  Stories in _Fox & Flour Bakery_                         │
+│                                                          │
+│  An Episode is an explicit story your cast lives         │
+│  through. Renders created under an Episode share its     │
+│  intent; standalone Compositions remain fully            │
+│  supported and never wrap into an Episode by accident.   │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+
+┌─── ✨ POSSIBLE NEXT EPISODES ────────────────────────────┐
+│  (possibilities, not obligations)         [ ↻ Refresh ]  │
+│                                                          │
+│  ┌───────────────────────────────────────────┐          │
+│  │ Ruby and Tyson investigate whether the    │          │
+│  │ strange freezer discovery is connected to │          │
+│  │ Tyson's supposed bakery haunting.         │          │
+│  │                             [ Use this → ]│          │
+│  └───────────────────────────────────────────┘          │
+│                                                          │
+│  ┌───────────────────────────────────────────┐          │
+│  │ The baking competition arrives early,     │          │
+│  │ forcing Tyson and Ruby to improvise a     │          │
+│  │ signature dessert under pressure.         │          │
+│  │                             [ Use this → ]│          │
+│  └───────────────────────────────────────────┘          │
+│                                                          │
+│  ┌───────────────────────────────────────────┐          │
+│  │ A local customer asks Fox & Flour to      │          │
+│  │ recreate a beloved family pastry from a   │          │
+│  │ handwritten, incomplete recipe.           │          │
+│  │                             [ Use this → ]│          │
+│  └───────────────────────────────────────────┘          │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+
+[ ✨ New Episode ]     ← unchanged; opens empty form
+
+──── Existing Episodes list below (unchanged) ─────────────
+· "Ruby locks herself out of the bakery."   0 comps · 2 cast
+· "Tyson thinks Ruby secretly entered them…" 1 comp · 2 cast
+· "Ruby finds something strange in the       0 comps · 2 cast
+   bakery freezer."
+· "Ruby thinks Tyson is taking coffee too    3 comps · 2 cast
+   seriously."
+· "Tyson is convinced the bakery is haunted." 0 comps · 2 cast
+· (5 more…)
+```
+
+### 59.2 Wireframe B — Loading state
+
+```
+┌─── ✨ POSSIBLE NEXT EPISODES ────────────────────────────┐
+│  (possibilities, not obligations)         [ ↻ Refresh ]  │
+│                                                          │
+│  ┌───────────────────────────────────────────┐          │
+│  │ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ │          │
+│  │ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓                  │          │
+│  └───────────────────────────────────────────┘          │
+│                                                          │
+│  (2 more skeletons, same shape)                          │
+└──────────────────────────────────────────────────────────┘
+```
+
+### 59.3 Wireframe C — Error state
+
+```
+┌─── ✨ POSSIBLE NEXT EPISODES ────────────────────────────┐
+│  (possibilities, not obligations)         [ ↻ Refresh ]  │
+│                                                          │
+│  Couldn't load suggestions.     [ Try again ]            │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+```
+
+### 59.4 Wireframe D — After [Use this →] click
+
+```
+┌── ✨ SUGGESTED DIRECTION ────────────────────────────[×]─┐
+│  Edit anything freely.                                   │
+└──────────────────────────────────────────────────────────┘
+
+┌── (existing "New Episode" inline form) ─────────────────┐
+│  Title (optional; derived from topic if blank)           │
+│  [                                                    ]  │
+│                                                          │
+│  Operator topic (story-authoritative)                    │
+│  ┌───────────────────────────────────────────┐          │
+│  │ Ruby and Tyson investigate whether the    │          │
+│  │ strange freezer discovery is connected to │          │
+│  │ Tyson's supposed bakery haunting.         │  ← pre-  │
+│  │                                           │  filled  │
+│  └───────────────────────────────────────────┘          │
+│                                                          │
+│  Cast (optional; add now or later)                       │
+│  ○ Ruby   ○ Tyson       ← operator picks                 │
+│                                                          │
+│  [ Create Episode ]  [ Cancel ]                          │
+└──────────────────────────────────────────────────────────┘
+```
+
+The `[×]` on the suggestion chip clears the chip only; the
+textarea contents remain (operator may keep, edit, or delete).
+
+### 59.5 Wireframe E — Empty Universe (0 Episodes)
+
+The `POSSIBLE NEXT EPISODES` section is NOT rendered at all.
+Existing page unchanged:
+
+```
+[← Back to universe]
+
+┌─── §1 EPISODES ─────────────────────────────────────────┐
+│  Stories in _New Universe_                               │
+│  An Episode is an explicit story…                        │
+└──────────────────────────────────────────────────────────┘
+
+  No Episodes in this Universe yet.
+
+[ ✨ New Episode ]
+```
+
+---
+
+## §60 Concrete v1 flow walkthrough — "I just finished this Episode"
+
+Operator narrative, Fox & Flour Bakery:
+
+1. **Operator wraps up Episode "Ruby locks herself out of the
+   bakery."** They finish rendering a Composition, close the
+   Episode detail tab.
+2. **Operator opens
+   `/workspace/universes/fox-flour/episodes`.** Universe
+   Episodes list page loads.
+3. **On page load, the SPA fires
+   `GET /api/universes/:id/next-episode-suggestions`.** Because
+   the Universe has 10 Episodes (≥ 1), the section is enabled.
+   Skeleton state renders immediately (Wireframe B).
+4. **~3 seconds later, three suggestion cards appear** (Wireframe
+   A). Fox & Flour example:
+   - *"Ruby and Tyson investigate whether the strange freezer
+     discovery is connected to Tyson's supposed bakery
+     haunting."*
+   - *"The baking competition arrives early, forcing Tyson and
+     Ruby to improvise a signature dessert under pressure."*
+   - *"A local customer asks Fox & Flour to recreate a beloved
+     family pastry from a handwritten, incomplete recipe."*
+5. **Operator reads.** They may recognize the freezer thread
+   and haunting thread from prior Episodes; they know
+   themselves whether they want to pick that up or not.
+6. **Operator clicks `[Use this →]` on suggestion 1.** The
+   existing "New Episode" inline form opens
+   (§57.1 step 2 unchanged) with `operator_topic` pre-filled
+   verbatim + a small chip labeled "Suggested direction.
+   Edit anything freely." (Wireframe D).
+7. **Operator adds cast** (Ruby + Tyson), optionally edits
+   title, optionally rewords topic. Clicks
+   `[Create Episode]`. `POST /api/episodes/` fires (unchanged
+   backend). Navigate to Episode detail page.
+8. **From here on the flow is unchanged** — Episode detail
+   surfaces the Render CTA, Composition creation flow,
+   memory promotion, etc.
+
+Alternate paths:
+- **Ignore.** Operator does not click any suggestion. Clicks
+  `[✨ New Episode]` (existing button) → empty form → author
+  freely.
+- **Refresh.** Operator clicks `[↻ Refresh]` in the
+  suggestions header → cache bypass → three new suggestions
+  render. Continue at step 5.
+- **Regenerate later.** Operator leaves the page, comes back
+  30 minutes later. Cache TTL 10 min has expired → fresh
+  generation on load.
+- **Dismiss the chip after selecting.** Operator clicks
+  `[Use this →]`, sees pre-filled form, decides to write
+  their own topic. Clicks `[×]` on chip; textarea retains
+  the suggested text; operator overwrites the textarea
+  contents. Submit. Episode is created with operator's own
+  wording. The chip is UI-only, never persisted.
+
+---
+
+## §61 Backend v1 shape (proposed, not implemented)
+
+### 61.1 New endpoint
+
+`GET /api/universes/{id}/next-episode-suggestions`
+
+Query params:
+- `n` (int, optional, default `3`) — number of suggestions.
+- `refresh` (bool, optional) — bypass server cache.
+
+Response:
+```json
+{
+  "suggestions": [
+    { "text": "Ruby and Tyson investigate whether the strange freezer discovery is connected to Tyson's supposed bakery haunting." },
+    { "text": "The baking competition arrives early, forcing Tyson and Ruby to improvise a signature dessert under pressure." },
+    { "text": "A local customer asks Fox & Flour to recreate a beloved family pastry from a handwritten, incomplete recipe." }
+  ],
+  "generated_at": "2026-08-24T14:00:00Z",
+  "model": "gpt-5.6-terra",
+  "substrate_summary": {
+    "episodes_used": 10,
+    "memories_used": 0,
+    "cast_count": 2
+  },
+  "cache": {
+    "hit": false,
+    "ttl_seconds": 600
+  }
+}
+```
+
+Error responses:
+- `403` — workspace permission denied (same as EpisodeViewSet).
+- `404` — Universe not found.
+- `409` — Universe has zero eligible Episodes (empty state).
+  SPA should hide the section on 409.
+- `502` / `503` — LLM upstream unavailable (SPA shows error
+  card).
+
+### 61.2 Backend service surface
+
+New callable: `apps.universe.services.suggest_next_episodes(
+universe: Universe, *, n: int = 3, use_cache: bool = True) ->
+list[dict]`.
+
+Reuses the Q280.5-1 probe logic
+(`scripts/session280_q280_5_1_suggestion_probe.py`) lifted to a
+production module:
+
+- Read substrate: Universe.brief, all
+  `Episode.objects.filter(universe=uni,
+  archived_at__isnull=True).order_by('created_at')`, all
+  `NarrativeMemory.objects.filter(universe=uni,
+  status=REMEMBERED, archived_at__isnull=True)`, cast
+  (`Teammate.objects.filter(universe=uni)`).
+- Compute `referenced_count` per memory from
+  `Composition.memory_ids`.
+- Build task message identical to Q280.5-1 (already exercises
+  the substrate correctly).
+- Call OpenAI Responses API (`gpt-5.6-terra`,
+  `text={"format": {"type": "json_object"}}`).
+- Parse; return.
+
+Cache key: `f"next_ep_sugg:{uni.id}:{latest_ep_at}:{latest_mem_at}:{n}"`
+Cache TTL: 600 seconds. Invalidate when the operator creates a
+new Episode or promotes a new memory
+(`EpisodeViewSet.perform_create` +
+`NarrativeMemory.promote_from_composition` post-save signal).
+
+Backend location:
+- Service: `shell/apps/universe/services/next_episode_suggestions.py`
+  (new module inside a new services package; matches existing
+  service-layer pattern in other apps).
+- ViewSet action: add to
+  `shell/apps/universe/views.py::UniverseViewSet` (add here,
+  not EpisodeViewSet, because Universe is the natural parent
+  for a Universe-scoped read).
+
+### 61.3 What the backend does NOT do
+
+- Does NOT create Episodes.
+- Does NOT modify memory rows.
+- Does NOT persist suggestions.
+- Does NOT run a Celery task or Beat schedule.
+- Does NOT track "which suggestions were shown" beyond the
+  10-minute cache window.
+
+---
+
+## §62 Frontend v1 shape (proposed, not implemented)
+
+### 62.1 New component
+
+`web/src/components/possible-next-episodes.tsx` — a self-contained
+section rendered inside
+`web/src/routes/workspace/universes.$id.episodes.tsx` above the
+existing `[New Episode]` CTA.
+
+Props:
+- `universeId: string`
+- `onUseSuggestion(text: string): void` — parent-supplied handler
+  that opens the create form with `operator_topic` pre-filled.
+
+Internal state:
+- Reuses standard SPA loading/error patterns (react-query).
+- Refresh mutates query key to force regeneration.
+
+### 62.2 New hook
+
+`web/src/lib/api/universes.ts` gains
+`useNextEpisodeSuggestions(universeId: string, opts?: { n?: number })`.
+Standard react-query pattern. `refetch()` used for refresh.
+`enabled` gated on the parent having ≥ 1 Episode (queried via
+existing `useEpisodes(universeId)` count).
+
+### 62.3 Wiring into `universes.$id.episodes.tsx`
+
+Two small changes to the existing route:
+
+1. Import + render `<PossibleNextEpisodes>` between the header
+   `</header>` and the `{creating && <form>}` block. Gate render
+   on `episodes.data && episodes.data.filter(e => !e.archived_at).length >= 1`.
+2. Pass `onUseSuggestion={(text) => { setCreating(true);
+   setOperatorTopic(text); setShowSuggestionChip(true); }}` to
+   pre-fill the form. Add small chip state above the
+   textarea in the existing form.
+
+No other files change. No new routes. No new API client
+abstraction. Estimated component + hook + wiring ≈ 200 lines
+of TSX.
+
+### 62.4 Component + hook not part of parallel architecture
+
+The suggestion cards visually rhyme with the existing Episode
+row `<li>` cards (rounded borders, similar padding). The chip
+above the pre-filled form matches existing SPA chip patterns
+(cast picker chips at line 202-224 of
+`universes.$id.episodes.tsx`).
+
+---
+
+## §63 What is explicitly NOT in v1
+
+- No StoryArc / NarrativeThread / OpenThread model.
+- No new schema, no new migration, no new memory kind.
+- No changes to Episode creation flow beyond the pre-fill chip.
+- No changes to Composition creation flow.
+- No changes to `NarrativeMemory` lifecycle.
+- No changes to `retrieve_universe_memory`.
+- No auto-generation of memories from suggestions.
+- No "why suggested" attribution UI (deferred to v1.5).
+- No "seen recently" attractor dampener (deferred).
+- No dismissed-flag on suggestions or memories (deferred).
+- No suggestion caching in the frontend (server cache is
+  sufficient).
+- No auto-generation triggered by Composition completion
+  (deferred; requires an "Episode is done" signal that
+  doesn't exist).
+- No suggestion surface on Home / Universe root / Episode
+  detail / Composition detail (any of those can be added
+  later as sibling surfaces sharing the same backend
+  endpoint).
+- No integration with PRODUCT_IA_V1 §6.1 Next-step nudge
+  (that ratified surface lives on Home post-publish; this v1
+  is a distinct surface with a shared backend).
+- No writing-contract or synthesis-substrate change.
+- No changes to the operator's ability to write their own
+  Episode topic freely.
+
+---
+
+## §64 Cost + operational implications
+
+Per suggestion generation (measured in Q280.5-1):
+- Input tokens: 596 (Fox & Flour) to 1,797 (Patch's Workshop).
+  Scales linearly with Episode count + memory count.
+- Output tokens: 70-93.
+- Provider cost: ~$0.005 to ~$0.02 per call at gpt-5.6-terra
+  pricing.
+
+Cached hit → $0.
+Passive page load hit → cached if within 10-minute window;
+otherwise $0.005-$0.02.
+Refresh click → $0.005-$0.02.
+
+Dogfood estimate (Chris using it heavily during a session): 20
+suggestion generations per day per operator ≈ $0.10-$0.40/day.
+Not a concern at pilot scale.
+
+Cache invalidation trigger points:
+- New Episode created in Universe → clear
+  `next_ep_sugg:{uni.id}:*`.
+- Memory promoted / superseded / archived → clear same
+  prefix.
+- Nothing else.
+
+No new provider added. No new API keys. OpenAI only, same
+`OPENAI_API_KEY` the rest of the system uses.
+
+---
+
+## §65 Alignment with prior product intent
+
+### 65.1 PRODUCT_IA_V1 §6.1 step 6 "Next-step nudge"
+
+Ratified surface at `docs/design/PRODUCT_IA_V1_2026-08-06.md:335`,
+verbatim:
+
+> "6. **Next-step nudge.** Below the featured piece, the
+> teammate's next suggestion appears (variant, follow-up,
+> series). Ask-triggered reveals may fire here."
+
+**Distinction preserved:** §6.1 surface fires **on Home
+post-publish** for the operator whose piece just went live. Its
+suggestions are shaped for the recently-published piece
+(variant, follow-up, series).
+
+This v1 slice is a **sibling surface**: it fires on the
+**Universe Episodes list page**, shaped for the *next Episode
+premise* the operator might pursue. Same philosophical family
+(suggestions, not obligations); different surface, different
+scope, different generation input.
+
+If both surfaces ship, they should share the backend service
+`suggest_next_episodes` (the Home nudge might filter to a
+different subset — e.g., "follow-ups only" — but reuse the
+same LLM path). Sharing not required for v1.
+
+### 65.2 SESSION 269 §17.9 candidate-next-Episodes practice
+
+Ratified pattern at
+`docs/design/SESSION_269_PATCH_WORKSHOP_DOGFOOD.md:2715-2718`.
+The design team already inventories "candidate next Episodes
+(not instructions)" manually in session docs. This v1 slice
+automates that practice at the operator UI level so the same
+kind of thinking happens per Universe, per session, without
+requiring a session-doc.
+
+The "(not instructions)" parenthetical mirrors INVARIANTS-A/B/C
+exactly.
+
+### 65.3 SESSION 269 §18.6 D-10 audience-participation loop
+
+Preserved deferred (§39.3). D-10 is audience-facing (viewer
+submissions → operator approves → Episode). This v1 slice is
+operator-facing only. Neither surface writes to the other's
+substrate. Both remain compatible for v2+.
+
+---
+
+## §66 Preserved: all prior sections
+
+All prior Finding 4i evidence + §37-§55 product-discovery audit
++ Q280.5-1 execution + rubric scoring + predictions unchanged
+in substance. No section retracted or renumbered.
+
+The pre-Q280.5-1 authored constraint (§45.5: "Q280.5-1 does
+NOT authorize any UI work") is now RELEASED by Chris's Option
+A⁵ approval for design-only work. Implementation still requires
+a separate authorization.
+
+---
+
+## §67 Decision gate — post-§56 UX design (CURRENT; SUPERSEDES §53)
+
+**STOP here.** Do not implement anything. Do not create the
+suggestion service, endpoint, hook, or component. Do not modify
+`universes.$id.episodes.tsx`. Wait for Chris + ChatGPT review
+of §56-§65.
+
+**Decision needed:**
+
+1. **Accept the §57 flow trace and §58 answers to the UX
+   design questions.**
+
+2. **Accept the §59 wireframes as the v1 shape** OR request
+   alternates (e.g., different placement, different card
+   presentation, chip vs. no chip after selection).
+
+3. **Accept the §61 backend + §62 frontend proposal** as the
+   v1 implementation scope.
+
+4. **Choose next slice** (all deferred until approval):
+
+   - **A⁶.** Implement v1 exactly as designed at §61-§62.
+     Backend service + endpoint + cache-invalidation signals
+     + frontend component + hook + wiring. Test coverage:
+     endpoint contract + component render states + one
+     integration test on Fox & Flour Universe.
+   - **B⁶.** Implement v1 with revisions (Chris + ChatGPT
+     supply the revisions).
+   - **C⁶.** Add one or more §63 "NOT in v1" items to the v1
+     scope before implementation (e.g., "add why-suggested
+     subtext in v1 after all").
+   - **D⁶.** Prototype v1 in a scratch branch first (design
+     mockup only) before merging to main.
+   - **E⁶.** Defer implementation and open another discovery
+     experiment first (Q280.5-2 latency probe, Q280.5-3 kind
+     adoption probe, or return to a Finding 4i option).
+   - **F⁶.** Close the product-discovery arc at §55; do NOT
+     implement in this SESSION. Push implementation to
+     SESSION 281 with a fresh scope-lock.
+   - **G⁶.** Something else.
+
+**Do NOT interpret §67 as pre-authorizing any of A⁶-G⁶.**
+
+---
+
+## §68 Closeout — v1 UX design slice (CURRENT; SUPERSEDES §55)
+
+- **Status:** §56 UX design slice complete. §57 SPA + backend
+  flow traced. §58 answered all Chris design questions
+  concretely. §59 textual wireframes drafted. §60 concrete
+  operator walkthrough documented. §61 backend v1 shape
+  specified (endpoint + service + cache). §62 frontend v1
+  shape specified (component + hook + wiring). §63
+  NOT-in-v1 enumerated. §64 cost/operational analysis. §65
+  alignment with prior product intent (PRODUCT_IA_V1 §6.1,
+  SESSION 269 §17.9, D-10).
+- **Substrate:** unchanged. No production code touched. No
+  schema, no migration, no memory-kind change, no synthesis-
+  substrate change. Design-only artifact in the audit doc.
+- **Cumulative SESSION 280 spend:** ~$0.20 unchanged
+  (§56-§68 are documentation).
+- **Landing SHAs:**
+  - AUDIT slice: `6957c18`.
+  - Q280.4i-1 execution: `8d8f733`.
+  - Construct-validity re-audit: `f2507a0`.
+  - Post-discovery epistemic-state audit: `63d4fdb`.
+  - Q280.4i-4 execution: `ce16627`.
+  - Episode-chain suggestion product-discovery: `1d96965`.
+  - Q280.5-1 execution: `7f83b23`.
+  - Q280.5-1 SHA trailer: `cfe287a`.
+  - v1 UX design slice: `[recorded on commit]`.
+- **Key design decisions:**
+  1. Primary v1 placement: **Universe Episodes list page**
+     (`/workspace/universes/:id/episodes`) above the existing
+     `[New Episode]` CTA.
+  2. Presentation: three full-width stacked clickable cards.
+  3. Selection: pre-fills the existing Episode-create form's
+     `operator_topic`; nothing else. No Episode created
+     until operator submits.
+  4. Refresh + ignore + write-your-own all preserved.
+  5. Backend: one new ViewSet action
+     (`GET /api/universes/:id/next-episode-suggestions`) +
+     one new service module. Server-side 10-minute cache
+     keyed on Universe activity.
+  6. Frontend: one new component + one new hook + minimal
+     wiring in the existing route. Estimated ~200 lines TSX.
+  7. Model D preserved: NEW READ SURFACE over EXISTING
+     substrate. No new schema.
+  8. Q280.5-1 discovery preserved: Episode history alone is
+     sufficient — no dependency on operator-authored
+     `PROMISE` / `DIALOGUE_CALLBACK` kinds.
+- **Next gate:** §67 A⁶/B⁶/C⁶/D⁶/E⁶/F⁶/G⁶. Awaiting Chris +
+  ChatGPT decision.
+- **Do NOT implement v1, modify any SPA route, create any
+  new backend service, or open a Q280.5-2/-3 experiment
+  without a fresh Chris + ChatGPT authorization.**
 - **Key finding:** the ~3-bubbles concept passes the
   falsifiable bar. Model D (reuse existing substrate + LLM
   read surface) works empirically on both a memory-rich
