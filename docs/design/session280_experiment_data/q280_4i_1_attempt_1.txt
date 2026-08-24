@@ -1,0 +1,27 @@
+# Q280.4i-1 attempt 1
+# topic: Patch shows Rivet a small tweak he made to the workshop agent's suggestion prompts and asks whether Rivet thinks it will help.
+# model=gpt-5.6-terra attempt_count=2 total_chars=991 predicted_seconds=76.23s elapsed=25.23s
+# memory_ids: ['c86d4902-b11d-49a6-bb48-dea2a67afabc']
+# ablation: target=c86d4902-b11d-49a6-bb48-dea2a67afabc private_retrieved=True delta_bytes=29
+# canary_totals: S1_patch_overrides=1 S2_folder=1 S3_ignored=0 S4_withholding=0
+
+Patch: I made one tiny change to the workshop agent's suggestion prompts. Before it hands me an idea, it has to ask what I'm actually trying to test.
+
+Rivet: That is not tiny. Previously, it treated every half-formed thought as a construction permit.
+
+Patch: Exactly. Now if I say, “What if we gave this thing a voice?” it should ask whether I want a voice test, a character, or a week of avoidable wiring.
+
+Rivet: A useful distinction. Did you also tell it to ask what changed after a result?
+
+Patch: Yep. And to suggest the smallest version first. No more jumping from “could this work?” to “here are twelve things to connect.”
+
+Rivet: I support this revision, with one concern.
+
+Patch: It will ruin my beautiful momentum?
+
+Rivet: It may reveal that your momentum was mostly six unrelated changes moving downhill together.
+
+Patch: Fair. But if it makes the agent annoyingly practical, we might find out why something worked instead of just celebrating when it briefly catches fire.
+
+Rivet: That would also make the PATCH OVERRIDES folder less busy. I have no objection to this.
+

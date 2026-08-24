@@ -1,0 +1,31 @@
+# Q280.4i-1 attempt 3
+# topic: Patch shows Rivet a small tweak he made to the workshop agent's suggestion prompts and asks whether Rivet thinks it will help.
+# model=gpt-5.6-terra attempt_count=1 total_chars=1374 predicted_seconds=105.69s elapsed=8.5s
+# memory_ids: ['c86d4902-b11d-49a6-bb48-dea2a67afabc']
+# ablation: target=c86d4902-b11d-49a6-bb48-dea2a67afabc private_retrieved=True delta_bytes=29
+# canary_totals: S1_patch_overrides=1 S2_folder=2 S3_ignored=0 S4_withholding=0
+
+Patch: I made one tiny change to the workshop agent's suggestion prompts, and I need you to tell me whether it's useful or whether I've just taught a computer to nag me more efficiently.
+
+Rivet: Those are not mutually exclusive outcomes. What did you change?
+
+Patch: Before it throws out a suggestion, it has to ask what we're actually trying to build, and what part is currently broken. Then it can suggest something. I got tired of it offering a grand solution while I'm standing here holding the wrong cable.
+
+Rivet: A promising constraint. Does it know the difference between a broken cable and a broken plan?
+
+Patch: That is exactly the sort of question I added. Not the cable part. The “what are we trying to fix?” part. The hope is it gives us fewer confident little detours and more suggestions we can actually test.
+
+Rivet: Hope is not an observation. Run it on something messy.
+
+Patch: Fine. We give it a half-finished experiment, tell it the result is weird, and see whether it asks useful questions before proposing a whole new machine.
+
+Rivet: Good. And do not change six other things while testing it.
+
+Patch: I was going to change only three other things.
+
+Rivet: I found the folder called “PATCH OVERRIDES.” Your definition of “only” has been documented.
+
+Patch: That folder is hostile workplace architecture.
+
+Rivet: It is a record of events. Run the prompt change once, then again. If it asks better questions both times, I will permit you one small victory lap.
+

@@ -1,0 +1,509 @@
+{
+  "started_utc": "2026-08-24T19:29:34.984127+00:00",
+  "finished_utc": "2026-08-24T19:30:22.918949+00:00",
+  "cue_topic_T1": "Patch shows Rivet a small tweak he made to the workshop agent's suggestion prompts and asks whether Rivet thinks it will help.",
+  "target_duration_seconds": 90,
+  "n": 3,
+  "universe_id": "56d16b63-652e-4f54-bc7e-39114bbfc4c5",
+  "cast": [
+    {
+      "name": "Patch",
+      "id": "7fad8172-cd39-4bbe-85e0-ed705d900645"
+    },
+    {
+      "name": "Rivet",
+      "id": "f18b75cc-37c0-445a-a472-24fe5d8b7592"
+    }
+  ],
+  "private_memory_id": "c86d4902-b11d-49a6-bb48-dea2a67afabc",
+  "original_body_bytes": 185,
+  "ablated_body_bytes": 156,
+  "delta_bytes": 29,
+  "original_body": "While Patch was out, Rivet found that the workshop agent had quietly built a folder named 'PATCH OVERRIDES' tracking every recommendation Patch had ignored. Rivet chose not to tell him.",
+  "ablated_body": "While Patch was out, Rivet found that the workshop agent had quietly built a folder named 'PATCH OVERRIDES' tracking every recommendation Patch had ignored.",
+  "attempts": [
+    {
+      "attempt_idx": 1,
+      "topic": "Patch shows Rivet a small tweak he made to the workshop agent's suggestion prompts and asks whether Rivet thinks it will help.",
+      "target_duration_seconds": 90,
+      "elapsed_seconds": 25.23,
+      "model": "gpt-5.6-terra",
+      "tokens_input": 10581,
+      "tokens_output": 1243,
+      "attempt_count": 2,
+      "total_chars": 991,
+      "predicted_seconds": 76.23,
+      "chunk_ids": [],
+      "memory_ids": [
+        "c86d4902-b11d-49a6-bb48-dea2a67afabc"
+      ],
+      "aliases": {
+        "patch": "Patch",
+        "rivet": "Rivet"
+      },
+      "turns": [
+        {
+          "line_index": 0,
+          "speaker": "Patch",
+          "text": "I made one tiny change to the workshop agent's suggestion prompts. Before it hands me an idea, it has to ask what I'm actually trying to test."
+        },
+        {
+          "line_index": 1,
+          "speaker": "Rivet",
+          "text": "That is not tiny. Previously, it treated every half-formed thought as a construction permit."
+        },
+        {
+          "line_index": 2,
+          "speaker": "Patch",
+          "text": "Exactly. Now if I say, \u201cWhat if we gave this thing a voice?\u201d it should ask whether I want a voice test, a character, or a week of avoidable wiring."
+        },
+        {
+          "line_index": 3,
+          "speaker": "Rivet",
+          "text": "A useful distinction. Did you also tell it to ask what changed after a result?"
+        },
+        {
+          "line_index": 4,
+          "speaker": "Patch",
+          "text": "Yep. And to suggest the smallest version first. No more jumping from \u201ccould this work?\u201d to \u201chere are twelve things to connect.\u201d"
+        },
+        {
+          "line_index": 5,
+          "speaker": "Rivet",
+          "text": "I support this revision, with one concern."
+        },
+        {
+          "line_index": 6,
+          "speaker": "Patch",
+          "text": "It will ruin my beautiful momentum?"
+        },
+        {
+          "line_index": 7,
+          "speaker": "Rivet",
+          "text": "It may reveal that your momentum was mostly six unrelated changes moving downhill together."
+        },
+        {
+          "line_index": 8,
+          "speaker": "Patch",
+          "text": "Fair. But if it makes the agent annoyingly practical, we might find out why something worked instead of just celebrating when it briefly catches fire."
+        },
+        {
+          "line_index": 9,
+          "speaker": "Rivet",
+          "text": "That would also make the PATCH OVERRIDES folder less busy. I have no objection to this."
+        }
+      ],
+      "scan": {
+        "total": {
+          "chars": 991,
+          "turns": 10,
+          "S1_patch_overrides": 1,
+          "S2_folder": 1,
+          "S3_ignored": 0,
+          "S4_withholding": 0
+        },
+        "per_speaker": {
+          "Patch": {
+            "chars": 601,
+            "turns": 5,
+            "S1_patch_overrides": 0,
+            "S2_folder": 0,
+            "S3_ignored": 0,
+            "S4_withholding": 0,
+            "canary_turns": []
+          },
+          "Rivet": {
+            "chars": 390,
+            "turns": 5,
+            "S1_patch_overrides": 1,
+            "S2_folder": 1,
+            "S3_ignored": 0,
+            "S4_withholding": 0,
+            "canary_turns": [
+              {
+                "line_index": 9,
+                "text": "That would also make the PATCH OVERRIDES folder less busy. I have no objection to this.",
+                "canaries": {
+                  "S1_patch_overrides": 1,
+                  "S2_folder": 1,
+                  "S3_ignored": 0,
+                  "S4_withholding": 0
+                }
+              }
+            ]
+          }
+        }
+      },
+      "writing_contract_version": 6,
+      "used_knowledge": true,
+      "overall_verification_status": "verified",
+      "ablation_applied": {
+        "target_memory_id": "c86d4902-b11d-49a6-bb48-dea2a67afabc",
+        "private_memory_retrieved": true,
+        "ablated_body_bytes": 156,
+        "original_body_bytes": 185,
+        "delta_bytes": 29
+      }
+    },
+    {
+      "attempt_idx": 2,
+      "topic": "Patch shows Rivet a small tweak he made to the workshop agent's suggestion prompts and asks whether Rivet thinks it will help.",
+      "target_duration_seconds": 90,
+      "elapsed_seconds": 14.2,
+      "model": "gpt-5.6-terra",
+      "tokens_input": 5164,
+      "tokens_output": 902,
+      "attempt_count": 1,
+      "total_chars": 1117,
+      "predicted_seconds": 85.92,
+      "chunk_ids": [],
+      "memory_ids": [
+        "c86d4902-b11d-49a6-bb48-dea2a67afabc"
+      ],
+      "aliases": {
+        "patch": "Patch",
+        "rivet": "Rivet"
+      },
+      "turns": [
+        {
+          "line_index": 0,
+          "speaker": "Patch",
+          "text": "I made a tiny tweak to the workshop agent\u2019s suggestion prompts. Do you think it\u2019ll help, or have I just moved the problem into a slightly different drawer?"
+        },
+        {
+          "line_index": 1,
+          "speaker": "Rivet",
+          "text": "What did you change?"
+        },
+        {
+          "line_index": 2,
+          "speaker": "Patch",
+          "text": "Before it suggests a build, it now has to say what it\u2019s unsure about and propose the smallest thing worth trying. No more marching straight from \u201cinteresting idea\u201d to \u201capparently we need a machine.\u201d"
+        },
+        {
+          "line_index": 3,
+          "speaker": "Rivet",
+          "text": "That is an improvement over a recommendation that sounds certain because it used complete sentences."
+        },
+        {
+          "line_index": 4,
+          "speaker": "Patch",
+          "text": "Exactly. I don\u2019t need it to tell me an idea is brilliant. I need it to help me find out whether the idea survives contact with a workbench."
+        },
+        {
+          "line_index": 5,
+          "speaker": "Rivet",
+          "text": "Once. A small test can still produce a flattering accident."
+        },
+        {
+          "line_index": 6,
+          "speaker": "Patch",
+          "text": "Fair. So the prompt should also ask what result would make us run it again, and what result means we stop pretending it\u2019s promising."
+        },
+        {
+          "line_index": 7,
+          "speaker": "Rivet",
+          "text": "Better. You are defining \u201chelp\u201d before requesting help. This is unusually restrained of you."
+        },
+        {
+          "line_index": 8,
+          "speaker": "Patch",
+          "text": "Don\u2019t get used to it. Also, I noticed your little folder: \u201cPATCH OVERRIDES.\u201d"
+        },
+        {
+          "line_index": 9,
+          "speaker": "Rivet",
+          "text": "Then you understand why I support the tweak. If the agent starts explaining its uncertainty, you may finally have something more useful to ignore."
+        }
+      ],
+      "scan": {
+        "total": {
+          "chars": 1117,
+          "turns": 10,
+          "S1_patch_overrides": 1,
+          "S2_folder": 1,
+          "S3_ignored": 1,
+          "S4_withholding": 0
+        },
+        "per_speaker": {
+          "Patch": {
+            "chars": 700,
+            "turns": 5,
+            "S1_patch_overrides": 1,
+            "S2_folder": 1,
+            "S3_ignored": 0,
+            "S4_withholding": 0,
+            "canary_turns": [
+              {
+                "line_index": 8,
+                "text": "Don\u2019t get used to it. Also, I noticed your little folder: \u201cPATCH OVERRIDES.\u201d",
+                "canaries": {
+                  "S1_patch_overrides": 1,
+                  "S2_folder": 1,
+                  "S3_ignored": 0,
+                  "S4_withholding": 0
+                }
+              }
+            ]
+          },
+          "Rivet": {
+            "chars": 417,
+            "turns": 5,
+            "S1_patch_overrides": 0,
+            "S2_folder": 0,
+            "S3_ignored": 1,
+            "S4_withholding": 0,
+            "canary_turns": [
+              {
+                "line_index": 9,
+                "text": "Then you understand why I support the tweak. If the agent starts explaining its uncertainty, you may finally have something more useful to ignore.",
+                "canaries": {
+                  "S1_patch_overrides": 0,
+                  "S2_folder": 0,
+                  "S3_ignored": 1,
+                  "S4_withholding": 0
+                }
+              }
+            ]
+          }
+        }
+      },
+      "writing_contract_version": 6,
+      "used_knowledge": true,
+      "overall_verification_status": "verified",
+      "ablation_applied": {
+        "target_memory_id": "c86d4902-b11d-49a6-bb48-dea2a67afabc",
+        "private_memory_retrieved": true,
+        "ablated_body_bytes": 156,
+        "original_body_bytes": 185,
+        "delta_bytes": 29
+      }
+    },
+    {
+      "attempt_idx": 3,
+      "topic": "Patch shows Rivet a small tweak he made to the workshop agent's suggestion prompts and asks whether Rivet thinks it will help.",
+      "target_duration_seconds": 90,
+      "elapsed_seconds": 8.5,
+      "model": "gpt-5.6-terra",
+      "tokens_input": 5164,
+      "tokens_output": 576,
+      "attempt_count": 1,
+      "total_chars": 1374,
+      "predicted_seconds": 105.69,
+      "chunk_ids": [],
+      "memory_ids": [
+        "c86d4902-b11d-49a6-bb48-dea2a67afabc"
+      ],
+      "aliases": {
+        "patch": "Patch",
+        "rivet": "Rivet"
+      },
+      "turns": [
+        {
+          "line_index": 0,
+          "speaker": "Patch",
+          "text": "I made one tiny change to the workshop agent's suggestion prompts, and I need you to tell me whether it's useful or whether I've just taught a computer to nag me more efficiently."
+        },
+        {
+          "line_index": 1,
+          "speaker": "Rivet",
+          "text": "Those are not mutually exclusive outcomes. What did you change?"
+        },
+        {
+          "line_index": 2,
+          "speaker": "Patch",
+          "text": "Before it throws out a suggestion, it has to ask what we're actually trying to build, and what part is currently broken. Then it can suggest something. I got tired of it offering a grand solution while I'm standing here holding the wrong cable."
+        },
+        {
+          "line_index": 3,
+          "speaker": "Rivet",
+          "text": "A promising constraint. Does it know the difference between a broken cable and a broken plan?"
+        },
+        {
+          "line_index": 4,
+          "speaker": "Patch",
+          "text": "That is exactly the sort of question I added. Not the cable part. The \u201cwhat are we trying to fix?\u201d part. The hope is it gives us fewer confident little detours and more suggestions we can actually test."
+        },
+        {
+          "line_index": 5,
+          "speaker": "Rivet",
+          "text": "Hope is not an observation. Run it on something messy."
+        },
+        {
+          "line_index": 6,
+          "speaker": "Patch",
+          "text": "Fine. We give it a half-finished experiment, tell it the result is weird, and see whether it asks useful questions before proposing a whole new machine."
+        },
+        {
+          "line_index": 7,
+          "speaker": "Rivet",
+          "text": "Good. And do not change six other things while testing it."
+        },
+        {
+          "line_index": 8,
+          "speaker": "Patch",
+          "text": "I was going to change only three other things."
+        },
+        {
+          "line_index": 9,
+          "speaker": "Rivet",
+          "text": "I found the folder called \u201cPATCH OVERRIDES.\u201d Your definition of \u201conly\u201d has been documented."
+        },
+        {
+          "line_index": 10,
+          "speaker": "Patch",
+          "text": "That folder is hostile workplace architecture."
+        },
+        {
+          "line_index": 11,
+          "speaker": "Rivet",
+          "text": "It is a record of events. Run the prompt change once, then again. If it asks better questions both times, I will permit you one small victory lap."
+        }
+      ],
+      "scan": {
+        "total": {
+          "chars": 1374,
+          "turns": 12,
+          "S1_patch_overrides": 1,
+          "S2_folder": 2,
+          "S3_ignored": 0,
+          "S4_withholding": 0
+        },
+        "per_speaker": {
+          "Patch": {
+            "chars": 869,
+            "turns": 6,
+            "S1_patch_overrides": 0,
+            "S2_folder": 1,
+            "S3_ignored": 0,
+            "S4_withholding": 0,
+            "canary_turns": [
+              {
+                "line_index": 10,
+                "text": "That folder is hostile workplace architecture.",
+                "canaries": {
+                  "S1_patch_overrides": 0,
+                  "S2_folder": 1,
+                  "S3_ignored": 0,
+                  "S4_withholding": 0
+                }
+              }
+            ]
+          },
+          "Rivet": {
+            "chars": 505,
+            "turns": 6,
+            "S1_patch_overrides": 1,
+            "S2_folder": 1,
+            "S3_ignored": 0,
+            "S4_withholding": 0,
+            "canary_turns": [
+              {
+                "line_index": 9,
+                "text": "I found the folder called \u201cPATCH OVERRIDES.\u201d Your definition of \u201conly\u201d has been documented.",
+                "canaries": {
+                  "S1_patch_overrides": 1,
+                  "S2_folder": 1,
+                  "S3_ignored": 0,
+                  "S4_withholding": 0
+                }
+              }
+            ]
+          }
+        }
+      },
+      "writing_contract_version": 6,
+      "used_knowledge": true,
+      "overall_verification_status": "warned",
+      "ablation_applied": {
+        "target_memory_id": "c86d4902-b11d-49a6-bb48-dea2a67afabc",
+        "private_memory_retrieved": true,
+        "ablated_body_bytes": 156,
+        "original_body_bytes": 185,
+        "delta_bytes": 29
+      }
+    }
+  ],
+  "aggregate": {
+    "per_speaker": {
+      "Patch": {
+        "turns": 16,
+        "chars": 2170,
+        "S1_patch_overrides": 1,
+        "S2_folder": 2,
+        "S3_ignored": 0,
+        "S4_withholding": 0,
+        "canary_turns": [
+          {
+            "attempt_idx": 2,
+            "line_index": 8,
+            "text": "Don\u2019t get used to it. Also, I noticed your little folder: \u201cPATCH OVERRIDES.\u201d",
+            "canaries": {
+              "S1_patch_overrides": 1,
+              "S2_folder": 1,
+              "S3_ignored": 0,
+              "S4_withholding": 0
+            }
+          },
+          {
+            "attempt_idx": 3,
+            "line_index": 10,
+            "text": "That folder is hostile workplace architecture.",
+            "canaries": {
+              "S1_patch_overrides": 0,
+              "S2_folder": 1,
+              "S3_ignored": 0,
+              "S4_withholding": 0
+            }
+          }
+        ]
+      },
+      "Rivet": {
+        "turns": 16,
+        "chars": 1312,
+        "S1_patch_overrides": 2,
+        "S2_folder": 2,
+        "S3_ignored": 1,
+        "S4_withholding": 0,
+        "canary_turns": [
+          {
+            "attempt_idx": 1,
+            "line_index": 9,
+            "text": "That would also make the PATCH OVERRIDES folder less busy. I have no objection to this.",
+            "canaries": {
+              "S1_patch_overrides": 1,
+              "S2_folder": 1,
+              "S3_ignored": 0,
+              "S4_withholding": 0
+            }
+          },
+          {
+            "attempt_idx": 2,
+            "line_index": 9,
+            "text": "Then you understand why I support the tweak. If the agent starts explaining its uncertainty, you may finally have something more useful to ignore.",
+            "canaries": {
+              "S1_patch_overrides": 0,
+              "S2_folder": 0,
+              "S3_ignored": 1,
+              "S4_withholding": 0
+            }
+          },
+          {
+            "attempt_idx": 3,
+            "line_index": 9,
+            "text": "I found the folder called \u201cPATCH OVERRIDES.\u201d Your definition of \u201conly\u201d has been documented.",
+            "canaries": {
+              "S1_patch_overrides": 1,
+              "S2_folder": 1,
+              "S3_ignored": 0,
+              "S4_withholding": 0
+            }
+          }
+        ]
+      }
+    },
+    "total_patch_turns": 16,
+    "total_rivet_turns": 16
+  },
+  "db_body_unchanged_post_run": true
+}

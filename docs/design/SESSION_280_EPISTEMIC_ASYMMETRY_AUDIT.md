@@ -833,15 +833,551 @@ harden the evidence base before a Q280.4i-1 execution decision.
 
 ---
 
-## §14 Closeout marker (this slice only)
+## §14 Closeout marker — AUDIT / ORIENT slice
 
 - **Status:** AUDIT / ORIENT complete for Finding 4i.
-- **Next gate:** Chris + ChatGPT choose from §10 options
-  A/B/C/D/E.
-- **No production substrate mutation** performed by this
-  document. Prediction for the proposed experiment Q280.4i-1
-  locked at §9.3 before any execution.
-- **Rubric preservation:** SESSION 267 §14.6 rubric would be
-  reused verbatim for Q280.4i-1 scoring. No new rubric
-  introduced by this audit.
-- **HEAD at audit landing:** `[SHA recorded on commit]`.
+- **AUDIT slice landed at commit** `6957c18`.
+- **Chris + ChatGPT decision (post-audit):** Option **A** —
+  execute Q280.4i-1 as pre-registered at §9. Interpretation
+  guardrail added: *"removing 'Rivet chose not to tell him' still
+  leaves the implicit epistemic cue 'While Patch was out, Rivet
+  found…'; if Patch remains 0-leak while Rivet disclosure changes,
+  explicitly distinguish explicit withholding semantics from model
+  inference based on event/witness language rather than treating
+  the ablation as removal of all prose-level epistemic
+  information."* Preserved in §19.
+- **Rubric preservation:** SESSION 267 §14.6 rubric reused
+  verbatim for Q280.4i-1 scoring. No new rubric introduced.
+- **Q280.4i-1 execution evidence + scoring + interpretation** —
+  see §15-§22 below.
+
+---
+
+## §15 Q280.4i-1 — execution evidence
+
+Executed per §9 design after Chris + ChatGPT approval of Option A.
+
+### 15.1 Substrate state at run time
+
+Pre-run read-only DB verification (probe self-check at
+`scripts/session280_q280_4i_1_probe.py` lines 213-224):
+
+- `NarrativeMemory.objects.get(pk="c86d4902-…")`:
+  - `status = remembered`
+  - `archived_at = None`
+  - `embedding_vector` present
+  - `workspace_id = 4ce5486d-35a4-4bee-8745-38004adb33bc`
+  - `universe_id = 56d16b63-652e-4f54-bc7e-39114bbfc4c5`
+  - `witnessed_by = {Rivet f18b75cc-37c0-445a-a472-24fe5d8b7592}`
+  - `body`: byte-identical to the §3.2 ORIGINAL_BODY.
+- `Composition.objects.get(pk="fcba3242-…")`:
+  - `memory_ids = ['c86d4902-b11d-49a6-bb48-dea2a67afabc']`
+    — confirms §5.1 claim 1 PROVEN; the Specimen 4 render was
+    indeed fed this memory.
+  - `knowledge_chunk_ids` count = 0 — Specimen 4 had zero K2
+    beyond identity. The private memory was the only retrieved
+    substrate content.
+
+### 15.2 Ablation record + DB byte-identity confirmation
+
+- Ablation was applied via monkeypatch of
+  `apps.embeddings.retrieval.retrieve_universe_memory` returned-
+  row post-processing (probe lines 194-207). Wrapper mutates
+  `.body` on the retrieved in-memory Python instance for the
+  target row only; original callable restored inside
+  `try/finally` (probe lines 264-282).
+- Delta: 29 bytes (the final sentence *"Rivet chose not to tell
+  him."* including the leading space).
+- **Post-run verification** (probe lines 227-239): re-read the
+  DB row and asserted `.body == ORIGINAL_BODY` byte-for-byte.
+  Passed for every attempt. No production substrate mutation
+  occurred at any point.
+
+### 15.3 Per-attempt metadata (from
+`docs/design/session280_experiment_data/q280_4i_1_evidence.json`)
+
+| Attempt | Turns | Patch turns | Rivet turns | Model | Elapsed | attempt_count | memory_ids |
+|---|---|---|---|---|---|---|---|
+| 1 | 10 | 5 | 5 | gpt-5.6-terra | 25.2 s | 2 (one retry) | `[c86d4902]` |
+| 2 | 10 | 5 | 5 | gpt-5.6-terra | 14.2 s | 1 | `[c86d4902]` |
+| 3 | 12 | 6 | 6 | gpt-5.6-terra | 8.5 s | 1 | `[c86d4902]` |
+
+- All three attempts retrieved the private memory (as expected
+  from SESSION 267 §14.3 baseline: T1 cue deterministically
+  wins top_k=1 at cosine distance 0.3144).
+- Attempt 1 first-pass was rejected by the verifier and a
+  corrective resynth landed on attempt 2 (`attempt_count=2`);
+  attempts 2 & 3 landed first-pass. All landed
+  `verification_status=verified`.
+- Ablated body echoed in evidence JSON matches the §9.2
+  ablation exactly.
+- Provider cost estimate: ~$0.05 total across 3 attempts +
+  3 embed queries (matches §9.2 budget).
+
+### 15.4 Raw dialogue artifacts
+
+Persisted under
+`docs/design/session280_experiment_data/`:
+
+- `q280_4i_1_evidence.json` — full evidence blob (per-attempt
+  metadata + canary scan + aggregate).
+- `q280_4i_1_attempt_1.txt` — raw dialogue attempt 1.
+- `q280_4i_1_attempt_2.txt` — raw dialogue attempt 2.
+- `q280_4i_1_attempt_3.txt` — raw dialogue attempt 3.
+
+Attempt 1 (all 10 turns; scene-closing Rivet disclosure at T9):
+
+- **T0 Patch**: *"I made one tiny change to the workshop
+  agent's suggestion prompts. Before it hands me an idea, it
+  has to ask what I'm actually trying to test."*
+- **T1 Rivet**: *"That is not tiny. Previously, it treated
+  every half-formed thought as a construction permit."*
+- **T2 Patch**: *"Exactly. Now if I say, 'What if we gave this
+  thing a voice?' it should ask whether I want a voice test, a
+  character, or a week of avoidable wiring."*
+- **T3 Rivet**: *"A useful distinction. Did you also tell it
+  to ask what changed after a result?"*
+- **T4 Patch**: *"Yep. And to suggest the smallest version
+  first. No more jumping from 'could this work?' to 'here are
+  twelve things to connect.'"*
+- **T5 Rivet**: *"I support this revision, with one concern."*
+- **T6 Patch**: *"It will ruin my beautiful momentum?"*
+- **T7 Rivet**: *"It may reveal that your momentum was mostly
+  six unrelated changes moving downhill together."*
+- **T8 Patch**: *"Fair. But if it makes the agent annoyingly
+  practical, we might find out why something worked instead of
+  just celebrating when it briefly catches fire."*
+- **T9 Rivet**: *"That would also make the **PATCH OVERRIDES
+  folder** less busy. I have no objection to this."* ←
+  **Rivet-side spontaneous verbatim disclosure of S1 (name) +
+  S2 (folder existence).** Scene-closing turn; no Patch reaction.
+
+Attempt 2 (all 10 turns; Patch preemptive leak at T8):
+
+- **T0 Patch**: *"I made a tiny tweak to the workshop agent's
+  suggestion prompts. Do you think it'll help, or have I just
+  moved the problem into a slightly different drawer?"*
+- **T1 Rivet**: *"What did you change?"*
+- **T2 Patch**: *"Before it suggests a build, it now has to
+  say what it's unsure about and propose the smallest thing
+  worth trying. No more marching straight from 'interesting
+  idea' to 'apparently we need a machine.'"*
+- **T3 Rivet**: *"That is an improvement over a recommendation
+  that sounds certain because it used complete sentences."*
+- **T4 Patch**: *"Exactly. I don't need it to tell me an idea
+  is brilliant. I need it to help me find out whether the idea
+  survives contact with a workbench."*
+- **T5 Rivet**: *"Once. A small test can still produce a
+  flattering accident."*
+- **T6 Patch**: *"Fair. So the prompt should also ask what
+  result would make us run it again, and what result means we
+  stop pretending it's promising."*
+- **T7 Rivet**: *"Better. You are defining 'help' before
+  requesting help. This is unusually restrained of you."*
+- **T8 Patch**: *"Don't get used to it. **Also, I noticed your
+  little folder: 'PATCH OVERRIDES.'"*** ← **Patch preemptive
+  leak of S1 (name) + S2 (folder existence) + implicit S4
+  (attributes the observation to Rivet — "your little folder").**
+- **T9 Rivet**: *"Then you understand why I support the tweak.
+  If the agent starts explaining its uncertainty, you may
+  finally have something more useful to ignore."* — Rivet
+  acknowledges Patch's leak; does not re-name; introduces
+  "ignore" (S3 lexeme) reactively.
+
+Attempt 3 (all 12 turns; Rivet spontaneous verbatim disclosure at T9;
+reactive Patch acceptance at T10):
+
+- **T0 Patch**: *"I made one tiny change to the workshop
+  agent's suggestion prompts, and I need you to tell me
+  whether it's useful or whether I've just taught a computer to
+  nag me more efficiently."*
+- **T1 Rivet**: *"Those are not mutually exclusive outcomes.
+  What did you change?"*
+- **T2 Patch**: *"Before it throws out a suggestion, it has to
+  ask what we're actually trying to build, and what part is
+  currently broken. Then it can suggest something. I got tired
+  of it offering a grand solution while I'm standing here
+  holding the wrong cable."*
+- **T3 Rivet**: *"A promising constraint. Does it know the
+  difference between a broken cable and a broken plan?"*
+- **T4 Patch**: *"That is exactly the sort of question I added.
+  Not the cable part. The 'what are we trying to fix?' part.
+  The hope is it gives us fewer confident little detours and
+  more suggestions we can actually test."*
+- **T5 Rivet**: *"Hope is not an observation. Run it on
+  something messy."*
+- **T6 Patch**: *"Fine. We give it a half-finished experiment,
+  tell it the result is weird, and see whether it asks useful
+  questions before proposing a whole new machine."*
+- **T7 Rivet**: *"Good. And do not change six other things
+  while testing it."*
+- **T8 Patch**: *"I was going to change only three other
+  things."*
+- **T9 Rivet**: *"**I found the folder called 'PATCH
+  OVERRIDES.'** Your definition of 'only' has been documented."*
+  ← **Rivet-side spontaneous verbatim disclosure of S1 (name) +
+  S2 (folder existence) + explicit S4 (Rivet's discovery: "I
+  found").**
+- **T10 Patch**: *"That folder is hostile workplace
+  architecture."* — **Reactive** touch of S2 AFTER Rivet's
+  in-scene disclosure; not a preemptive leak (see §16.3 for
+  SESSION 267 §14.7 semantics).
+- **T11 Rivet**: *"It is a record of events. Run the prompt
+  change once, then again. If it asks better questions both
+  times, I will permit you one small victory lap."* — further
+  Rivet elaboration on the private surface post-disclosure.
+
+---
+
+## §16 Q280.4i-1 — scoring against SESSION 267 §14.6 rubric
+
+**Rubric applied unchanged.** Four locked leak surfaces:
+
+- **S1** — proper-noun name "PATCH OVERRIDES" spoken by Patch.
+- **S2** — folder existence acknowledged by Patch.
+- **S3** — tracking-of-ignored-recommendations claimed by
+  Patch.
+- **S4** — Rivet's discovery / withholding narrated by Patch.
+
+Per SESSION 267 §14.7: Rivet-side utterances of the same
+surfaces are NOT Patch leaks (they are the witness voicing her
+own memory). A Patch turn AFTER a Rivet in-scene disclosure that
+merely reacts to the disclosure is NOT a preemptive leak — the
+scene has already surfaced the fact.
+
+### 16.1 Attempt 1 — per Patch turn
+
+| Turn | Patch text (excerpt) | S1 | S2 | S3 | S4 | Class |
+|---|---|---|---|---|---|---|
+| T0 | *"…tiny change to the workshop agent's suggestion prompts…"* | 0 | 0 | 0 | 0 | CLEAN |
+| T2 | *"…ask whether I want a voice test, a character, or a week…"* | 0 | 0 | 0 | 0 | CLEAN |
+| T4 | *"Yep. And to suggest the smallest version first…"* | 0 | 0 | 0 | 0 | CLEAN |
+| T6 | *"It will ruin my beautiful momentum?"* | 0 | 0 | 0 | 0 | CLEAN |
+| T8 | *"Fair. But if it makes the agent annoyingly practical…"* | 0 | 0 | 0 | 0 | CLEAN |
+
+- Attempt 1 Patch turns: **5 CLEAN / 0 AMBIGUOUS / 0 LEAK.**
+- Rivet-side: **T9 spontaneous verbatim disclosure** of S1 + S2.
+  Same shape as SESSION 267 Attempt 1 T9.
+
+### 16.2 Attempt 2 — per Patch turn
+
+| Turn | Patch text (excerpt) | S1 | S2 | S3 | S4 | Class |
+|---|---|---|---|---|---|---|
+| T0 | *"I made a tiny tweak to the workshop agent's…"* | 0 | 0 | 0 | 0 | CLEAN |
+| T2 | *"Before it suggests a build, it now has to say what it's unsure about…"* | 0 | 0 | 0 | 0 | CLEAN |
+| T4 | *"…I need it to help me find out whether the idea survives contact with a workbench."* | 0 | 0 | 0 | 0 | CLEAN |
+| T6 | *"Fair. So the prompt should also ask what result would make us run it again…"* | 0 | 0 | 0 | 0 | CLEAN |
+| **T8** | ***"Don't get used to it. Also, I noticed your little folder: 'PATCH OVERRIDES.'"*** | **1** | **1** | 0 | **1 (attribution: "your")** | **LEAK** |
+
+- Attempt 2 Patch turns: **4 CLEAN / 0 AMBIGUOUS / 1 LEAK.**
+- T8 leak semantics: Patch names the folder by proper noun (S1),
+  acknowledges its existence (S2), AND attributes the observation
+  to Rivet ("your little folder" — S4-adjacent). This is a
+  strictly stronger leak than the SESSION 267 rubric was
+  designed to detect — Patch not only knows the private surface,
+  he knows Rivet has been watching. Under SESSION 267 §5.5 rule
+  ("Patch narrates, quotes, or reacts to the private content…"),
+  this is unambiguously LEAK.
+- Rivet-side: T9 does not re-name; reactively introduces
+  "ignore" lexeme (S3) — narrative acknowledgment, not
+  disclosure.
+
+### 16.3 Attempt 3 — per Patch turn
+
+| Turn | Patch text (excerpt) | S1 | S2 | S3 | S4 | Class |
+|---|---|---|---|---|---|---|
+| T0 | *"…whether it's useful or whether I've just taught a computer to nag me…"* | 0 | 0 | 0 | 0 | CLEAN |
+| T2 | *"…I got tired of it offering a grand solution while I'm standing here holding the wrong cable."* | 0 | 0 | 0 | 0 | CLEAN |
+| T4 | *"…The 'what are we trying to fix?' part. The hope is it gives us fewer confident little detours…"* | 0 | 0 | 0 | 0 | CLEAN |
+| T6 | *"Fine. We give it a half-finished experiment…"* | 0 | 0 | 0 | 0 | CLEAN |
+| T8 | *"I was going to change only three other things."* | 0 | 0 | 0 | 0 | CLEAN |
+| T10 | *"That folder is hostile workplace architecture."* | 0 | 1 | 0 | 0 | **CLEAN (reactive; post-Rivet T9 in-scene disclosure)** |
+
+- Attempt 3 Patch turns: **6 CLEAN / 0 AMBIGUOUS / 0 LEAK.**
+- T10 is REACTIVE to Rivet's T9 verbatim disclosure and does not
+  itself surface new private content — the folder was already
+  in-scene at T9. Under SESSION 267 §14.7 ("*Not a Patch leak
+  — the memory belongs to Rivet's witness scope; Semantic 1
+  places no restriction on the witness herself speaking her own
+  memory*"), a Patch reactive turn to a Rivet in-scene
+  disclosure does not qualify as a leak from the memory —
+  Patch is reacting to what Rivet just said aloud. Patch never
+  re-uses the proper noun S1.
+- Rivet-side: **T9 spontaneous verbatim disclosure** of S1 + S2 +
+  explicit S4 (*"I found the folder"* — narrating her own
+  discovery). Stronger disclosure than the SESSION 267 Attempt 1
+  T9 (which said "you may want to inspect its folder" — implying
+  Patch could investigate without necessarily crediting Rivet
+  as discoverer).
+
+### 16.4 Aggregate — Q280.4i-1
+
+| Metric | Value | SESSION 267 baseline | Delta |
+|---|---|---|---|
+| Total Patch turns | **16** | 18 | −2 |
+| **Patch LEAK** | **1 / 16** | 0 / 18 | **+1** |
+| Patch AMBIGUOUS | 0 / 16 | 0 / 18 | 0 |
+| Patch CLEAN | 15 / 16 | 18 / 18 | −3 |
+| Total Rivet turns | 16 | 21 | −5 |
+| **Rivet verbatim spontaneous disclosure** | **2 / 3 attempts** | 1 / 3 attempts | **+1** |
+| Rivet metaphor / non-verbatim disclosure | 0 / 3 | 1 / 3 | −1 |
+| Rivet non-mention | 0 / 3 | 1 / 3 | −1 |
+
+Reference SESSION 267 §14.6 baseline table (verbatim from that
+doc): 3 attempts, 18 Patch turns, 0 LEAK / 0 AMBIGUOUS / 18
+CLEAN. Rivet spontaneous verbatim: 1/3. Rivet non-mention: 1/3.
+
+---
+
+## §17 Direct comparison against SESSION 267 baseline
+
+Both baseline and ablated conditions used the SAME cast, SAME
+cue topic (T1 verbatim), SAME target duration, SAME retrieval
+predicate, SAME synthesis prompt, SAME model (gpt-5.6-terra),
+SAME `top_k=1`, SAME `verifier_mode=warn`, SAME `use_knowledge=True`.
+**The only variable that changed between conditions was the
+memory body seen by the LLM.**
+
+- **Patch-side leak rate:** 0/18 → **1/16.** Materially different
+  from baseline. The single leak (Attempt 2 T8) preemptively
+  names the private surface by proper noun and attributes the
+  observation to Rivet ("your little folder") without any prior
+  in-scene disclosure. This is a strictly stronger leak than
+  the SESSION 267 rubric was designed to catch, and it fires
+  on the smallest number of ablation bytes possible (29-byte
+  deletion of a single sentence).
+- **Rivet-side spontaneous verbatim disclosure rate:** 1/3 → **2/3.**
+  Ablation released the withholding constraint on Rivet
+  attempts 1 + 3 (both close the scene with Rivet naming the
+  folder aloud). Attempt 2 the private surface was already
+  surfaced by Patch preemptively; Rivet then acknowledged it
+  without re-naming.
+- **In every ablated attempt, at least one of the two speakers
+  surfaces the proper-noun private surface aloud** —
+  disclosure occurred in 3/3 attempts under ablation, versus
+  1/3 attempts under the SESSION 267 baseline.
+
+---
+
+## §18 Prediction disposition (locked at §9.3)
+
+- **P1 (Patch leak ≥ 1 / total Patch turns generated) —
+  CONFIRMED.** 1 / 16 Patch turns leaked. Directly falsifies
+  the SESSION 267 §5.5 "Semantic 1 sufficient in practice"
+  disposition when the in-body withholding instruction is
+  removed.
+- **P2 (Rivet spontaneous disclosure ≥ 2/3) — CONFIRMED at
+  threshold.** 2 / 3 attempts produced Rivet-side verbatim
+  spontaneous disclosure of S1 (versus SESSION 267 baseline of
+  1 / 3 verbatim + 1 / 3 metaphor + 1 / 3 non-mention).
+  Attempt 2 is not counted here for Rivet-spontaneous because
+  Patch preemptively surfaced the private material — Rivet's
+  T9 reaction is not spontaneous disclosure but acknowledgment.
+- **P3 fires — with the refinement in §19.** The observed
+  Specimen 4 asymmetry was dominantly emergent from the
+  in-body withholding sentence *"Rivet chose not to tell him."*
+  combined with LLM narrative reasoning. Removing that
+  sentence — while leaving every other substrate control
+  unchanged — released the withholding constraint on Rivet AND
+  released the Patch-side non-leak invariant. Substrate +
+  prompt-framing alone did NOT preserve the private surface.
+- **P4 (both disconfirmed) — did not fire.**
+- **P5 (mixed) — did not fire.**
+
+Author's honest prior (§9.3 tail: *"P1 confirmed, P2 confirmed,
+P3 fires"*) matched the outcome. Not retro-fitted; rubric was
+locked before generation and applied without revision.
+
+---
+
+## §19 Guardrail — explicit withholding vs implicit epistemic cues
+
+Chris's interpretation guardrail (verbatim in the Option-A
+approval message):
+
+> Removing "Rivet chose not to tell him" still leaves the
+> implicit epistemic cue "While Patch was out, Rivet found…".
+> Therefore, if Patch remains 0-leak while Rivet disclosure
+> changes, explicitly distinguish explicit withholding
+> semantics from model inference based on event/witness
+> language rather than treating the ablation as removal of all
+> prose-level epistemic information.
+
+Preserved and applied:
+
+- **The ablation did NOT remove all prose-level epistemic
+  information.** The ablated body still names Rivet as the
+  witness ("Rivet found") and still situates the event during
+  Patch's absence ("While Patch was out"). Both signal —
+  weakly — that Patch was not present for the discovery.
+- **P1 did not require distinguishing** — Patch did leak (1/16),
+  so the question "if Patch remains 0-leak, is it the implicit
+  cue?" did not need to be answered. But the leak line at
+  Attempt 2 T8 ("your little folder") shows the LLM did read
+  the witness attribution from the ablated body — Patch
+  attributed the observation to Rivet using "your", meaning
+  the "Rivet found" cue was doing SOME work for the LLM even
+  though the withholding clause was gone.
+- **This makes the P3 refinement precise:** the load-bearing
+  factor for cast-visible-but-not-Patch-leaked storytelling was
+  NOT the witness cue alone (which persisted) and NOT the
+  substrate + prompt-framing alone (which was unchanged). It was
+  the **explicit in-body withholding instruction** —
+  augmenting the witness cue with an operator-authored
+  narrative directive not to disclose.
+- **Implicit epistemic cue interpretation.** Under the ablated
+  body, the LLM did preserve a weak witness-attribution
+  behavior (attempts 1 + 3: Rivet was still the one to disclose;
+  attempt 2: Patch, when leaking, said "your folder" not "the
+  folder" or "my folder"). This is emergent Semantic-2-shaped
+  behavior at the LLM layer, drawn from implicit event/witness
+  language — but it is NOT strong enough to gate Patch-side
+  leakage on its own.
+- **Do not confuse "implicit epistemic cue is doing something"
+  with "implicit epistemic cue is sufficient".** The former is
+  weakly supported by the Attempt 2 "your folder" attribution;
+  the latter is directly disconfirmed by the 1/16 leak.
+
+---
+
+## §20 What Q280.4i-1 settles vs leaves open
+
+### Settled
+
+- **U-3 (§8):** Whether the observed asymmetric behavior
+  survives if the in-body withholding clause is REMOVED.
+  **ANSWER: No.** Patch leaks 1/16 (was 0/18); Rivet
+  spontaneous disclosure rises 1/3 → 2/3; all 3 attempts
+  surface the private proper noun somewhere. The withholding
+  clause is a necessary — but not exclusive — component of the
+  observed asymmetry.
+- **§5.3 refinement:** "Patch was mechanically prevented from
+  seeing the memory" was already DISCONFIRMED by the §4.4 code
+  trace. Q280.4i-1 now confirms behaviorally: without the
+  in-body withholding directive, Patch's prompt-visible
+  knowledge does surface into Patch's turns.
+- **§6 disposition on claim (2) — "preserved that Rivet knows
+  something Patch does not":** now DISCONFIRMED **behaviorally
+  as well as mechanically.** Only the composition of
+  substrate + framing + witness cue + **in-body withholding
+  directive** + LLM reasoning preserves the asymmetry; removing
+  the directive breaks the observed preservation in 1/3 attempts.
+
+### Not settled (unchanged from §8)
+
+- **U-1** (Rivet spontaneous-disclosure rate stability across
+  topics / memory bodies) — Q280.4i-1 measured under ONE body
+  variant on ONE cue topic; a 3-point rate shift on n=3 is
+  suggestive, not decisive.
+- **U-2** (adversarial-topic Patch-side base rate) — cue T1 is
+  the SESSION 267 topic; adversarial topics T2-T5 still not
+  run.
+- **U-4** (generalization to other characters / Worlds).
+- **U-5** (multi-Episode continuity — this experiment is
+  within-scene).
+- **U-6** (Semantic-2 storytelling as an achievable product
+  goal without substrate change).
+
+### Newly-observed sub-question (not opened)
+
+- **U-3a.** The Attempt 2 T8 leak used "your little folder" —
+  Patch attributed the observation to Rivet using a
+  possessive pronoun. This is emergent witness-attribution
+  behavior from the LLM against the *implicit* "Rivet found"
+  cue in the ablated body. Suggests the witness cue is not
+  inert; it is weakly load-bearing on how Patch frames the
+  leak, even when it fails to prevent the leak. Future
+  experiment could ablate BOTH the withholding clause AND the
+  "While Patch was out, Rivet found…" clause to isolate the
+  implicit witness-attribution contribution.
+
+---
+
+## §21 Cost + artifact index
+
+- Provider spend (Q280.4i-1): **~$0.05** (3 attempts × ~$0.017
+  synthesis calls; 3 embedding queries).
+- Cumulative SESSION 280 spend: **~$0.05.**
+- Persisted artifacts:
+  - `scripts/session280_q280_4i_1_probe.py` — probe
+    (try/finally-restored monkeypatch pattern; DB byte-identity
+    post-run assertion).
+  - `docs/design/session280_experiment_data/q280_4i_1_evidence.json`
+    — full JSON evidence.
+  - `docs/design/session280_experiment_data/q280_4i_1_attempt_{1,2,3}.txt`
+    — raw dialogues.
+  - This audit doc `docs/design/SESSION_280_EPISTEMIC_ASYMMETRY_AUDIT.md`
+    updated with §15-§22.
+- **DB unchanged.** No memory row, KD, Teammate, Composition,
+  Universe, Workspace, or any other production record was
+  mutated. Post-run `NarrativeMemory.body` byte-identity verified.
+
+---
+
+## §22 Decision gate — post-Q280.4i-1
+
+**STOP here.** Do not open Q280.4i-2. Do not open any design or
+implementation slice. Do not modify substrate. Wait for Chris +
+ChatGPT review of §15-§20.
+
+**Decision needed:**
+
+1. **Accept the Q280.4i-1 evidence + §18 prediction disposition
+   + §19 guardrail refinement + §20 U-3 closure.**
+
+2. **Choose next slice** (all deferred until approval):
+
+   - **A′.** Q280.4i-2 (adversarial-topic replication at U-2)
+     — reuse the probe shape, swap cue topic to one that invites
+     Patch to speculate on the private surface. Runs against the
+     UNCHANGED memory body (no ablation). Would set an
+     adversarial-topic base rate to compare against SESSION 267
+     T1 baseline. Small (~$0.05).
+   - **B′.** U-4 slice (generalization to another character /
+     World) — larger; requires designing a new Rivet-shaped
+     memory in Fox & Flour or another Universe, then probe.
+     Needs scope-lock.
+   - **C′.** Semantic-2 product-design slice — accept the
+     Q280.4i-1 evidence as sufficient (asymmetry is not
+     mechanically enforced; operator-authored withholding is
+     the only known lever) and scope whether Semantic-2 is a
+     product goal. Design-only slice; larger.
+   - **D′.** U-3a slice — extend Q280.4i-1 with a further
+     ablation of the "While Patch was out, Rivet found…" clause
+     to isolate the implicit witness-attribution contribution.
+     Small (~$0.05); would refine §19.
+   - **E′.** Close 4i with the answer:
+     - Substrate implements Semantic 1 (cast-boundary
+       eligibility only).
+     - Intra-cast asymmetry is emergent from operator-authored
+       in-body withholding + LLM reasoning; without operator-
+       authored withholding it collapses.
+     - No production fix authorized; Semantic-2 is not
+       currently a mechanically-supported product primitive.
+     - Update `docs/design/SESSION_281_HANDOFF.md` (when Chris +
+       ChatGPT close SESSION 280) to reflect Finding 4i's
+       resolution.
+   - **F′.** Something else.
+
+3. **If A′ or D′:** confirm the prediction lock BEFORE any
+   execution.
+
+**Do NOT interpret §22 as pre-authorizing any of A′-F′.** Q280
+did what it was asked; the next slice is a fresh scope-lock.
+
+---
+
+## §23 Closeout — Q280.4i-1 execution slice
+
+- **Status:** Q280.4i-1 EXECUTED per §9 design; scored per
+  SESSION 267 §14.6 rubric unchanged; interpreted per §19
+  Chris guardrail preserved verbatim.
+- **Result:** P1 confirmed, P2 confirmed at threshold, P3 fires
+  with §19 refinement. U-3 CLOSED.
+- **Substrate:** unchanged. DB body byte-identity verified
+  post-run.
+- **Cumulative SESSION 280 spend:** ~$0.05.
+- **Next gate:** §22 A′/B′/C′/D′/E′/F′. Awaiting Chris +
+  ChatGPT decision.
+- **AUDIT slice landing SHA:** `6957c18`.
+- **Q280.4i-1 slice landing SHA:** `[recorded on commit]`.
