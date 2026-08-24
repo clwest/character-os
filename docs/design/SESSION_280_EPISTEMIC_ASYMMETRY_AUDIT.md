@@ -7676,7 +7676,7 @@ A¹¹-H¹¹.**
   - Q280.7 SHA trailer: `2fa7611`.
   - Model-as-curator audit slice: `b27ce6d`.
   - §75 SHA trailer: `c9ed068`.
-  - Q280.9 execution slice: `[recorded on commit]`.
+  - Q280.9 execution slice: `e81949b`.
 - **Key findings:**
   1. The model CAN produce useful memory-candidate drafts
      from a completed scene when prompted as a
