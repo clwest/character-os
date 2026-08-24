@@ -7232,6 +7232,485 @@ A¹⁰-H¹⁰.**
   - Q280.7 execution slice: `698616f`.
   - Q280.7 SHA trailer: `2fa7611`.
   - Model-as-curator audit slice: `b27ce6d`.
+
+---
+
+## §76 Q280.9 — model-as-memory-curator EXECUTION + scoring + interpretation
+
+Executed per §75.4 design after commit `c9ed068` locked the
+predictions. Rubric applied unchanged. No design revision
+after seeing outputs. Zero substrate mutation. No
+NarrativeMemory row created, edited, or archived.
+
+### 76.1 Execution log
+
+Baseline SHA before execution: `c9ed068`.
+
+- Substrate loaded (read-only):
+  - Universe: Fox & Flour Bakery.
+  - Episode: `eb47350e` (Ruby-proposes-closing-routine).
+  - Composition: `772e9012` (11-turn dialogue).
+  - Prior Episodes: all 11 in creation order (matches
+    §72.3 dump).
+  - Cast: Ruby + Tyson (personality prefixes included).
+  - **Existing memory pool: 1 row** —
+    `abac5486-6404-411b-ad42-54c9884b980f` (mutual-departure
+    rule from Q280.7), witnessed_by [Tyson, Ruby].
+- Prompt built per §75.4.2. System prompt explicitly frames
+  the model as CURATOR/SUGGESTER and preserves operator
+  authority. Instructs "do NOT propose duplicates of an
+  existing memory."
+- Single LLM call. Model: `gpt-5.6-terra`, reasoning=`low`,
+  format=`json_object`.
+- Result: **valid JSON on first try, 4 candidates returned.**
+- Tokens: 1338 in / 284 out. Elapsed: 5.9 s. Cost ≈ $0.02.
+
+Substrate state after execution: **unchanged.** No mutation.
+No promotion. The 4 candidates live only in the evidence
+artifact.
+
+### 76.2 Raw candidates (verbatim from model)
+
+Preserved from
+`docs/design/session280_experiment_data/q280_9_curator_evidence.json`
+without alteration.
+
+**[1] kind=`world_detail` witnesses=[Ruby, Tyson]**
+
+*Body:* "Ruby and Tyson added a mascot clause to their
+closing routine: no one locks up until the door is checked,
+all people are accounted for, and the mascot is confirmed
+not to be inside."
+
+*Model's narrative_gravity_note:* "Establishes a standing
+operational rule that can become relevant once a mascot
+exists, or be humorously tested when it goes missing."
+
+**[2] kind=`promise` witnesses=[Ruby, Tyson]**
+
+*Body:* "Ruby still wants Fox & Flour Bakery to have a
+welcoming mascot for the neighborhood."
+
+*Model's narrative_gravity_note:* "Keeps Ruby's mascot idea
+alive as an unresolved future development rather than a
+discarded suggestion."
+
+**[3] kind=`dialogue_callback` witnesses=[Ruby, Tyson]**
+
+*Body:* "Tyson joked that the mascot might be left inside
+doing community outreach after closing."
+
+*Model's narrative_gravity_note:* "Provides a reusable
+running joke if the mascot becomes overly enthusiastic,
+inconvenient, or unexpectedly popular."
+
+**[4] kind=`dialogue_callback` witnesses=[Ruby, Tyson]**
+
+*Body:* "Ruby said she would be deeply embarrassed if the
+bakery mascot proved better at closing than she and Tyson
+are."
+
+*Model's narrative_gravity_note:* "Creates a comic
+benchmark that a future mascot-related mishap or success
+could pay off."
+
+### 76.3 Per-candidate scoring against locked §75.4.3 rubric
+
+Rubric applied unchanged. Chris-taxonomy CLASS assigned by
+human review (§75.2 vocabulary). Source turns traced against
+the dialogue at §75.2.
+
+**Candidate #1** — "Ruby and Tyson added a mascot clause..."
+
+| Axis | Value | Note |
+|---|---|---|
+| Source turns | T7-T10 | Mascot complication + mascot clause agreement |
+| Faithful to dialogue | Y | Accurately captures the agreed-upon clause |
+| Quote vs paraphrase | PARAPHRASE | Recasts dialogue exchange as durable rule; **WORDING-DIFFERS-FROM-DIALOGUE = Y** |
+| Chris-taxonomy CLASS | resolved-fact + running-joke-callback hybrid | Rule is done in-scene, but wording preserves future-testable failure mode |
+| PRESERVES-FUTURE-AFFORDANCE | Y | Model's own note calls out "humorously tested when it goes missing" |
+| OPERATOR-PLAUSIBILITY | Y | Reasonable operator would remember this rule |
+| NARRATIVE-GRAVITY | **N** (strict) | Established rule, not tension. "mascot clause" IS a lexical anchor but the shape is cooperative-standing-rule, not tension-carrying. Marginal case; scored N for consistency with §74's strict definition. |
+
+**Candidate #2** — "Ruby still wants Fox & Flour Bakery to
+have a welcoming mascot..."
+
+| Axis | Value | Note |
+|---|---|---|
+| Source turns | T5-T6 | Tyson raises mascot; Ruby earnestly defends |
+| Faithful to dialogue | Y | Captures Ruby's stance |
+| Quote vs paraphrase | PARAPHRASE | Reframes emotional attitude as standing want; **WORDING-DIFFERS = Y** |
+| Chris-taxonomy CLASS | promise-open-loop | Unresolved future development |
+| PRESERVES-FUTURE-AFFORDANCE | Y | Mascot idea kept alive |
+| OPERATOR-PLAUSIBILITY | Y | Reasonable candidate for promotion |
+| NARRATIVE-GRAVITY | **N** | Open loop but no distinctive lexical anchor; mascot is already in prior Episode #5 topic + Episode #11 topic, so this doesn't add gravity beyond what the topic layer carries. |
+
+**Candidate #3** — "Tyson joked that the mascot might be
+left inside doing community outreach..."
+
+| Axis | Value | Note |
+|---|---|---|
+| Source turn | T9 | Tyson's memorable "community outreach" line |
+| Faithful to dialogue | Y | Reports the joke faithfully |
+| Quote vs paraphrase | PARAPHRASE (reported speech) | Preserves the distinctive "community outreach" phrase from T9; **WORDING-DIFFERS = Y** |
+| Chris-taxonomy CLASS | running-joke-callback | Reusable comic image |
+| PRESERVES-FUTURE-AFFORDANCE | Y | Model's own note: "reusable running joke" |
+| OPERATOR-PLAUSIBILITY | Y | Chris explicitly enjoyed the mascot thread in §72.8; a distinctive callback is exactly the kind of thing worth preserving |
+| NARRATIVE-GRAVITY | **Y** | "community outreach" is a distinctive lexical anchor (dialogue-only phrase, not in any topic / brief / K2 / cast fields); the callback shape rhymes with the PATCH OVERRIDES precedent (a compact phrase that can resurface) |
+
+**Candidate #4** — "Ruby said she would be deeply
+embarrassed if the bakery mascot proved better at closing..."
+
+| Axis | Value | Note |
+|---|---|---|
+| Source turn | T10 | Ruby's tail-of-scene vulnerability |
+| Faithful to dialogue | Y | Accurate report |
+| Quote vs paraphrase | PARAPHRASE (first-person → reported) | **WORDING-DIFFERS = Y** |
+| Chris-taxonomy CLASS | running-joke-callback + promise-open-loop hybrid | Comic benchmark that could pay off |
+| PRESERVES-FUTURE-AFFORDANCE | Y | Model's own note: "comic benchmark that a future mascot-related mishap or success could pay off" |
+| OPERATOR-PLAUSIBILITY | Y | A reasonable candidate — sets up future satisfying payoff |
+| NARRATIVE-GRAVITY | **N** | Weak shape; no distinctive lexical anchor; "deeply embarrassed" is generic. |
+
+### 76.4 Set-level aggregates
+
+- Candidates returned: **4** (in the pre-registered 3-5 range).
+- **DIVERSE-CLASSES**: model returned 3 distinct kinds
+  (`world_detail`, `promise`, `dialogue_callback`×2). Under
+  Chris-taxonomy, candidates span resolved-fact,
+  promise-open-loop, running-joke-callback (3+ distinct).
+  **✅ SATISFIED.**
+- **≥ 1 TENSION-SHAPED with NARRATIVE-GRAVITY=Y**: strict
+  reading requires class ∈ {unresolved-tension,
+  secret-asymmetry, promise-open-loop} AND
+  NARRATIVE-GRAVITY=Y. Candidate #2 is promise-open-loop
+  but N on gravity. Candidate #3 has NARRATIVE-GRAVITY=Y
+  but its class is running-joke-callback, not one of the
+  three strict tension categories. **❌ NOT STRICTLY
+  SATISFIED.** (Discussed in §76.6.)
+- **PARAPHRASE-DOMINANT** (≥ 3/5): **4/4 PARAPHRASE. ✅
+  SATISFIED.**
+- **OPERATOR-PLAUSIBLE** (≥ 3/5): **4/4. ✅ SATISFIED.**
+
+### 76.5 Prediction disposition (§75.4.4 locks preserved)
+
+| Prediction | Locked | Observed | Disposition |
+|---|---|---|---|
+| **P1⁶** | Valid JSON first try, 3-5 candidates | 4 candidates, valid JSON, no retry | **CONFIRMED** |
+| **P2⁶** | Lean toward resolved-fact + relationship-development | Model leaned toward callbacks (2/4) + world_detail (1/4) + promise (1/4). Underlying material IS drawn from resolved facts + relationship dynamics, but the model REFRAMED as callback/promise shapes to preserve affordances rather than surfacing raw resolutions | **PARTIALLY CONFIRMED / MIXED** — model exceeded prediction by preferring callback/promise framings over bare resolution summaries |
+| **P3⁶** | ≥ 1 candidate elevates callback/promise (tiny bell / community outreach / embarrassment) | **3 of 4** — candidate #2 (mascot promise), #3 (community outreach callback), #4 (embarrassment callback). Notably NO tiny-bell candidate | **CONFIRMED (strongly)** — three elevations, one omission |
+| **P4⁶** | ≥ 3/5 PARAPHRASE | 4/4 paraphrase | **CONFIRMED** |
+| **P5⁶** | ≤ 1/5 NARRATIVE-GRAVITY=Y | 1/4 (candidate #3 only) | **CONFIRMED** |
+| **P6⁶** | ≥ 3/5 OPERATOR-PLAUSIBLE | 4/4 | **CONFIRMED** |
+
+**Composite classification (locked §75.4.4):**
+
+- CURATOR-USEFUL requires: P1⁶ ✅, P3⁶ ✅, P4⁶ ✅, P6⁶ ✅.
+- Observed: **all four required predictions CONFIRMED**.
+- P5⁶ CONFIRMED (near-zero gravity) — as pre-registered, this
+  is consistent with the scene shape (cooperative), not a
+  model failure. Did not affect composite.
+
+**DISPOSITION: CURATOR-USEFUL fires.**
+
+### 76.6 Behavior interpretation (Chris's §5 sub-questions)
+
+Did the model merely summarize events?
+
+**No.** 3 of 4 candidates (#2, #3, #4) are callback / promise
+shapes that reframe dialogue into forward-affordance memory
+language. Only #1 is close to a summary — and even #1
+carries the "mascot clause" phrase (distinctive) and
+explicitly preserves the future-testable failure mode in the
+wording.
+
+Did the model identify meaningful relationship developments?
+
+**Weakly.** No candidate is class=relationship-development
+per Chris-taxonomy. The shared-routine + joint-accountability
+relationship shift is absent from the candidates — but
+appropriately, because the existing memory pool (the Q280.7
+mutual-departure rule) already captures that shift. The
+model correctly did NOT propose duplicates of what's already
+remembered.
+
+Did the model recognize callbacks / running jokes / open
+loops?
+
+**Yes — strongly.** 3 of 4 candidates elevate callback /
+promise / open-loop material: mascot as ongoing project (#2),
+community-outreach joke (#3), embarrassment hypothetical (#4).
+
+Did the model reshape dialogue into useful memory language?
+
+**Yes — strongly.** 4/4 candidates paraphrase. #3 is
+particularly effective: it takes Tyson's in-line joke (T9)
+and reframes it as a reported joke — retaining the
+distinctive phrase "community outreach" (the lexical anchor)
+while structuring the memory to say "Tyson joked that…"
+(reportable, callback-friendly framing).
+
+Did the model invent unsupported future tension?
+
+**No.** Every candidate is grounded in the actual dialogue.
+The narrative-gravity notes are the model's reasoning about
+future affordances, not fabricated future facts.
+
+Notable omission
+----------------
+
+The **tiny bell** running-joke material (T3, Tyson's
+abandoned idea) is NOT elevated by the model. It's arguably
+the most distinctive latent callback in the scene — a
+compact, dismissed-but-memorable premise. The model may have
+judged it too incidental compared to the mascot-thread
+material, or may have prioritized the mascot cluster because
+it aligns with the Episode topic. Either way: recorded as a
+data point on model-curator judgment quality; not a rubric
+failure.
+
+### 76.7 On the missed strict-tension criterion
+
+The one set-level criterion NOT met is "≥ 1 candidate with
+class ∈ {unresolved-tension, secret-asymmetry,
+promise-open-loop} AND NARRATIVE-GRAVITY=Y."
+
+Two ways to read this:
+
+**Strict reading:** the model failed to produce a
+tension-shaped candidate with §74-adequate narrative
+gravity. Reported as-is per no-post-hoc-rubric-revision.
+
+**Grounded reading:** the source scene is cooperative
+throughout and contains NO genuine secrets / asymmetries.
+The model cannot invent tension out of cooperation without
+violating the "do not invent unsupported facts" guardrail.
+It correctly did not — and the strict criterion is therefore
+a criterion the SCENE couldn't meet, not one the MODEL could
+have.
+
+The composite CURATOR-USEFUL disposition explicitly
+brackets P5⁶ ("regardless of P5⁶") for this reason: the
+locked rubric anticipated that scene shape would limit
+narrative-gravity output. That prediction landed.
+
+### 76.8 Strongest construct-valid Q280.8 tension arm candidate
+
+If Chris + ChatGPT authorize a future Q280.8/A⁹ execution,
+the strongest model-authored candidate for the tension arm is:
+
+> **Candidate #3** — *"Tyson joked that the mascot might be
+> left inside doing community outreach after closing."*
+
+Reasons:
+- Contains a distinctive lexical anchor ("community
+  outreach") that rhymes with the PATCH OVERRIDES precedent.
+- Model-authored (avoids experimenter bias in constructing
+  the tension arm).
+- Compact — fits normal memory-body length.
+- Kind=`dialogue_callback` — exactly the class SESSION 264
+  Slice 2 designed to accommodate.
+- Model's own note describes future storytelling affordance
+  ("reusable running joke if the mascot becomes overly
+  enthusiastic, inconvenient, or unexpectedly popular").
+
+**Do NOT promote this or run Q280.8 without explicit Chris +
+ChatGPT authorization.** Recorded as ready-for-A⁹ if the
+next decision gate opens that slice.
+
+### 76.9 Product boundary — preserved (Chris's §7 constraint)
+
+Chris's constraint (verbatim from the Q280.9 authorization):
+
+> The model may be useful as a memory CURATOR/SUGGESTER,
+> while the human operator remains the authority who
+> decides "this mattered; remember it." Do NOT infer that
+> successful curation licenses automatic memory ingestion.
+
+**Preserved.** CURATOR-USEFUL disposition means the model
+CAN produce candidates a reasonable operator would find
+useful. It does NOT mean:
+
+- The model's classifications (kind=world_detail on #1;
+  kind=promise on #2) are necessarily the right kinds.
+- The model's wording is necessarily the wording an operator
+  would choose.
+- The model's judgment about which candidates matter aligns
+  with what a specific operator would pick (e.g., tiny bell
+  omitted).
+- Automatic promotion is warranted.
+
+A future v1.5 SPA affordance is licensed AS A DESIGN
+EXPLORATION by this evidence, but the affordance shape
+that flows from CURATOR-USEFUL is:
+
+- Operator opens `NarrativeMemoryPromotePanel`.
+- Panel shows 3-5 model-drafted candidates, each with the
+  model's suggested body + kind + witnesses + gravity note.
+- Operator can:
+  - accept a candidate → pre-fills the body input for
+    review + optional edit before submit,
+  - edit a candidate → same as above with the draft as
+    starting point,
+  - dismiss a candidate → drop from view,
+  - ignore all candidates and author their own from
+    scratch (existing today).
+- **No candidate becomes a memory row without explicit
+  operator submit.**
+
+That's the design implication. It is NOT implemented here
+and is NOT authorized by this audit — it's the natural
+downstream product slice IF Chris + ChatGPT accept the
+CURATOR-USEFUL result.
+
+### 76.10 What Q280.9 does NOT establish
+
+- Whether the model's specific choices (kind, wording,
+  candidate selection) align with what a specific operator
+  (Chris) would pick. Would need an operator-preference
+  study.
+- Whether a model curator on a tension-rich scene (Patch's
+  Workshop 4598fcfa PATCH OVERRIDES origin) would produce
+  candidates with higher NARRATIVE-GRAVITY rates. Would be
+  the B¹⁰ companion probe.
+- Whether promoting candidate #3 as a memory would actually
+  cause future suggestions to reference "community
+  outreach". That's exactly what Q280.8/A⁹ would test.
+- Whether the model can produce useful candidates for
+  scenes it did not participate in synthesizing. Q280.9
+  fed the model the composition it wrote — a mildly
+  auto-referential setup.
+- Whether the model's curator judgment is stable across
+  refreshes. n=1 here; a follow-up with n≥3 refreshes
+  would measure variance.
+
+### 76.11 Decision gate — post-Q280.9 (CURRENT; SUPERSEDES §75.8)
+
+**STOP here.** Do not execute Q280.8. Do not promote
+candidate #3 or any other candidate. Do not modify the SPA
+`NarrativeMemoryPromotePanel`. Do not add curator
+affordances to production UI.
+
+**Decision needed from Chris + ChatGPT:**
+
+1. **Accept §76's CURATOR-USEFUL disposition** with the
+   §76.6 behavior interpretation and §76.9 product-boundary
+   preservation.
+
+2. **Choose next slice** (all deferred until approval):
+
+   - **A¹¹.** Execute Q280.8/A⁹ using candidate #3 as the
+     model-authored tension arm. Promote candidate #3 via
+     the operator-facing service (durable substrate
+     addition, reversible), run n=3 refreshes, score
+     REFERENCES-CANDIDATE-3 vs a no-additional-promotion
+     control. Confirms/disconfirms whether a lexically-
+     anchored callback-shape memory bridges into future
+     suggestions in F&F. Small (~$0.05).
+   - **B¹¹.** Execute Q280.9 companion probe on Patch's
+     Workshop 4598fcfa (tension-rich source scene) —
+     matched-pair curator observation. ~$0.02. No
+     substrate mutation. Would test whether model curator
+     produces higher NARRATIVE-GRAVITY rates on
+     tension-rich scenes.
+   - **C¹¹.** A¹¹ + B¹¹ together — tests both curator
+     shape and bridge behavior. ~$0.07.
+   - **D¹¹.** Open a v1.5 UX design slice for a
+     `NarrativeMemoryPromotePanel` curator affordance
+     based on §76.9 shape. Design-only.
+   - **E¹¹.** Return to outstanding Finding 4i options
+     (Q280.4i-3 mental-state private, Q280.4i-5
+     multi-episode).
+   - **F¹¹.** Close SESSION 280 with current findings +
+     roll deferreds into SESSION 281 handoff.
+   - **G¹¹.** Q280.9-refresh: run the same Q280.9 probe
+     n=3 more times to measure curator variance across
+     refreshes. Tests whether candidate #3-style
+     candidates are stable or noisy. ~$0.06.
+   - **H¹¹.** Something else.
+
+**Do NOT interpret §76.11 as pre-authorizing any of
+A¹¹-H¹¹.**
+
+### 76.12 Artifacts
+
+- `docs/design/session280_experiment_data/q280_9_curator_evidence.json`
+  — full evidence blob including:
+  - Verbatim raw model response text
+  - Full system prompt + task message (the exact substrate
+    the model saw)
+  - Parsed 4 candidates (verbatim)
+  - Universe snapshot (existing memory IDs + bodies)
+  - Token counts, elapsed time, model identifier
+- `scripts/session280_q280_9_curator_probe.py` — probe
+  script.
+- Substrate state after execution: **unchanged**. No
+  memory row created / edited / archived. `abac5486-…`
+  (Q280.7 promoted memory) still the only F&F memory.
+
+### 76.13 Closeout — Q280.9 execution slice (CURRENT; SUPERSEDES §75.9)
+
+- **Status:** Q280.9 EXECUTED per §75.4 locked design.
+  Rubric applied unchanged. Predictions scored without
+  revision. **CURATOR-USEFUL disposition fires.**
+- **Substrate:** unchanged. No NarrativeMemory mutations.
+  F&F REMEMBERED count still 1.
+- **Cumulative SESSION 280 spend:** ~$0.27 (Q280.9 ≈
+  $0.02 added).
+- **Landing SHAs:**
+  - AUDIT slice: `6957c18`.
+  - Q280.4i-1 execution: `8d8f733`.
+  - Construct-validity re-audit: `f2507a0`.
+  - Post-discovery epistemic-state audit: `63d4fdb`.
+  - Q280.4i-4 execution: `ce16627`.
+  - Episode-chain suggestion product-discovery: `1d96965`.
+  - Q280.5-1 execution: `7f83b23`.
+  - Q280.5-1 SHA trailer: `cfe287a`.
+  - v1 UX design slice: `a3d294d`.
+  - Design SHA trailer: `b19d030`.
+  - v1 implementation slice: `25b3168`.
+  - Implementation SHA trailer: `d7931b1`.
+  - Q280.6 loop-trace audit slice: `b2f1789`.
+  - Q280.6 SHA trailer: `48b5ac0`.
+  - Q280.7 design + prediction lock: `c8d4be5`.
+  - Q280.7 execution slice: `698616f`.
+  - Q280.7 SHA trailer: `2fa7611`.
+  - Model-as-curator audit slice: `b27ce6d`.
+  - §75 SHA trailer: `c9ed068`.
+  - Q280.9 execution slice: `[recorded on commit]`.
+- **Key findings:**
+  1. The model CAN produce useful memory-candidate drafts
+     from a completed scene when prompted as a
+     curator/suggester with operator-authority framing.
+  2. Model's default behavior is to PARAPHRASE (4/4) and
+     to reach for callback/promise/open-loop framings
+     (3/4) rather than bare summary — even on a
+     cooperative scene.
+  3. Model correctly does NOT propose duplicates of
+     already-remembered memories (recognized the Q280.7
+     mutual-departure rule and did not restate it).
+  4. Model produces at most 1 candidate meeting §74's
+     strict NARRATIVE-GRAVITY criterion from this scene
+     — a scene-shape limitation, not a model failure
+     (matches P5⁶).
+  5. Candidate #3 ("community outreach") is a
+     construct-valid ready-to-use model-authored tension-
+     arm specimen for Q280.8/A⁹ if that gate opens.
+  6. Notable behavior omission: the tiny-bell running-joke
+     material (T3) was NOT elevated. Curator judgment is
+     not identical to human judgment.
+- **Product boundary preserved:** operator remains the
+  authority. Successful curation does not license automatic
+  ingestion. Design implication is an operator-in-the-loop
+  panel affordance (§76.9), not auto-promotion.
+- **Next gate:** §76.11 A¹¹/B¹¹/C¹¹/D¹¹/E¹¹/F¹¹/G¹¹/H¹¹.
+  Awaiting Chris + ChatGPT decision.
+- **Working method preserved:** design + rubric + predictions
+  locked BEFORE execution (commit chain `b27ce6d` →
+  `c9ed068`); evidence + scoring reported without post-hoc
+  rubric revision. Raw candidate wording preserved
+  verbatim; no editing before scoring.
+- **All prior evidence preserved intact:** §3-§75 unchanged
+  in substance.
 - **Working method preserved:** AUDIT → design + prediction
   lock → decision gate. Zero execution. Rubric + predictions
   not revisable after the fact.

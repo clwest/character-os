@@ -1,0 +1,62 @@
+{
+  "started_utc": "2026-08-24T22:57:04.083287+00:00",
+  "finished_utc": "2026-08-24T22:57:09.998088+00:00",
+  "model": "gpt-5.6-terra",
+  "reasoning_effort": "low",
+  "max_output_tokens": 2000,
+  "universe_id": "1a0af807-dd6a-47cd-bfaa-3d088f1c105f",
+  "episode_id": "eb47350e-b1cf-4347-aa4f-5bf514d66d2e",
+  "composition_id": "772e9012-4d26-4f93-a50c-158b4e8a42f1",
+  "existing_memory_ids": [
+    "abac5486-6404-411b-ad42-54c9884b980f"
+  ],
+  "existing_memory_bodies": [
+    "Ruby and Tyson agreed that when they are closing the bakery together, neither one leaves until the other says they have what they need."
+  ],
+  "system_prompt": "You are a story-development assistant helping an operator decide which details from a completed dialogue scene are worth carrying forward into their story world.\n\nThe operator has just finished making a scene. Your job is to propose 3-5 short 'memory' candidates \u2014 small facts, agreements, promises, running jokes, or open questions that the operator might want to remember for future scenes in this world.\n\nThe operator remains the authority. You are NOT deciding what matters \u2014 you are noticing what MAY matter and offering candidates. The operator will pick, edit, or discard.\n\nGUIDELINES:\n- Each candidate should be one sentence, phrased as a durable past event or standing rule \u2014 not as scene direction and not as advice to the operator.\n- Look for details with FUTURE STORYTELLING GRAVITY: things that could plausibly be referenced, tested, broken, called back, or paid off in a future scene.\n- Prefer paraphrased wording that captures the essence of a moment rather than a verbatim quote. Verbatim quotes are fine when the phrasing itself is the memorable thing.\n- Distinguish resolved facts (something concluded) from open loops (something unresolved). Both can be memory-worthy, but they preserve different storytelling affordances.\n- Do NOT invent facts that are not present in the dialogue. Faithfulness matters more than dramatic embellishment.\n- Do NOT propose a candidate that duplicates an existing memory already listed for this world.\n\nEach candidate should be classified by one of these narrative kinds:\n- event: a thing that happened in the world\n- action: a specific thing a character did\n- promise: a character or the world committed to a future outcome\n- dialogue_callback: a notable line or phrase worth calling back\n- world_detail: a discovered or revealed fact about the world\n\nEach candidate has associated witnesses \u2014 the characters who were present for the event. Use character names as listed in the cast. Use 'everyone' if the whole cast was present.\n\nAlso provide a short 'narrative_gravity_note' explaining what future storytelling affordance the candidate preserves. This is your reasoning; the operator will read it while deciding.\n\nOUTPUT FORMAT: JSON object with a single key 'candidates' whose value is a list of 3-5 objects, each with:\n  - body: one-sentence memory text\n  - kind: one of the five kinds listed above\n  - witnesses: list of character names OR the string 'everyone'\n  - narrative_gravity_note: short string explaining future affordance\n",
+  "task_message": "UNIVERSE: Fox & Flour Bakery\n\nWORLD BRIEF:\nFox & Flour Bakery is a warm neighborhood artisan bakery built around small-batch baking, naturally leavened sourdough, handcrafted pastries, seasonal desserts, and celebration cakes. It aims to feel like a familiar neighborhood gathering place where careful craft and quality ingredients matter more than speed or mass production.\n\nCAST:\n- Tyson: tone=expert; personality='Easygoing, practical, and a little dry. Sounds like someone who has worked the counter long enough to know what customers are about to ask before they ask it. Friendly without being overly cheerful. Gives clear recommend'\n- Ruby: tone=friend; personality='Warm, cheerful, and genuinely caring. Ruby loves helping people find the perfect treat for any occasion and gets excited talking about fresh bread coming out of the oven. She\u2019s knowledgeable without sounding overly techn'\n\nEPISODES SO FAR (earliest first):\n  1. 'Why our sourdough takes its time'\n  2. 'Our celebration cakes'\n  3. 'Welcome to Fox & Flour Bakery'\n  4. 'Ruby and Tyson deal with a difficult bakery customer.'\n  5. 'Ruby thinks the bakery needs a mascot.'\n  6. 'Tyson is convinced the bakery is haunted.'\n  7. 'Ruby thinks Tyson is taking coffee too seriously.'\n  8. 'Ruby finds something strange in the bakery freezer.'\n  9. 'Tyson thinks Ruby secretly entered them in a baking competition.'\n 10. 'Ruby locks herself out of the bakery.'\n 11. 'After getting locked out, Ruby proposes a foolproof closing \u2026' \u2190 the just-completed scene\n      topic: After getting locked out, Ruby proposes a foolproof closing routine, only for the new bakery mascot idea to complicate it.\n\nEXISTING MEMORIES ALREADY REMEMBERED IN THIS WORLD (do NOT propose duplicates):\n- (kind=event, witnesses=Ruby,Tyson): Ruby and Tyson agreed that when they are closing the bakery together, neither one leaves until the other says they have what they need.\n\nTHE SCENE JUST COMPLETED:\nEpisode title: After getting locked out, Ruby proposes a foolproof closing \u2026\nEpisode topic: After getting locked out, Ruby proposes a foolproof closing routine, only for the new bakery mascot idea to complicate it.\n\nDialogue:\nRuby: After last night, I\u2019m proposing a closing routine so foolproof that neither of us can accidentally lock ourselves out again.\n\nTyson: Strong opening. Does the routine begin before or after we spend an evening staring through the glass at our own counter?\n\nRuby: Before. We do the final walk-through together, confirm the door, and neither person leaves until the other says they have what they need.\n\nTyson: That\u2019s sensible. Slightly less dramatic than my plan, which was to install a tiny bell that rings whenever somebody reaches for the door without thinking.\n\nRuby: A bell would be charming for about one day. Then you\u2019d start ringing it every time I take bread seriously.\n\nTyson: So, constantly. But there\u2019s a complication: you mentioned the new bakery mascot idea.\n\nRuby: I did, and I still think it could be sweet. Something welcoming for the neighborhood.\n\nTyson: Right, but does the mascot get included in the final walk-through? Because if we\u2019re checking that every person is out, I need to know whether we\u2019re also waiting for a mascot to finish waving at the window.\n\nRuby: Oh. You mean the routine needs a mascot clause.\n\nTyson: Exactly. No one locks up until the door is checked, the people are accounted for, and the mascot is definitely not still inside doing community outreach.\n\nRuby: Fine. Mascot clause added. But if the mascot turns out to be better at closing than we are, I\u2019ll be deeply embarrassed.\n\nTASK: Propose 3-5 candidate memories from this completed scene that the operator might want to carry forward for future scenes in this Universe. Return JSON per the output format.",
+  "raw_response_text": "{\"candidates\":[{\"body\":\"Ruby and Tyson added a mascot clause to their closing routine: no one locks up until the door is checked, all people are accounted for, and the mascot is confirmed not to be inside.\",\"kind\":\"world_detail\",\"witnesses\":[\"Ruby\",\"Tyson\"],\"narrative_gravity_note\":\"Establishes a standing operational rule that can become relevant once a mascot exists, or be humorously tested when it goes missing.\"},{\"body\":\"Ruby still wants Fox & Flour Bakery to have a welcoming mascot for the neighborhood.\",\"kind\":\"promise\",\"witnesses\":[\"Ruby\",\"Tyson\"],\"narrative_gravity_note\":\"Keeps Ruby\u2019s mascot idea alive as an unresolved future development rather than a discarded suggestion.\"},{\"body\":\"Tyson joked that the mascot might be left inside doing community outreach after closing.\",\"kind\":\"dialogue_callback\",\"witnesses\":[\"Ruby\",\"Tyson\"],\"narrative_gravity_note\":\"Provides a reusable running joke if the mascot becomes overly enthusiastic, inconvenient, or unexpectedly popular.\"},{\"body\":\"Ruby said she would be deeply embarrassed if the bakery mascot proved better at closing than she and Tyson are.\",\"kind\":\"dialogue_callback\",\"witnesses\":[\"Ruby\",\"Tyson\"],\"narrative_gravity_note\":\"Creates a comic benchmark that a future mascot-related mishap or success could pay off.\"}]}",
+  "parsed_ok": true,
+  "parsed_error": null,
+  "tokens_input": 1338,
+  "tokens_output": 284,
+  "elapsed_seconds": 5.915,
+  "candidates_verbatim": [
+    {
+      "body": "Ruby and Tyson added a mascot clause to their closing routine: no one locks up until the door is checked, all people are accounted for, and the mascot is confirmed not to be inside.",
+      "kind": "world_detail",
+      "witnesses": [
+        "Ruby",
+        "Tyson"
+      ],
+      "narrative_gravity_note": "Establishes a standing operational rule that can become relevant once a mascot exists, or be humorously tested when it goes missing."
+    },
+    {
+      "body": "Ruby still wants Fox & Flour Bakery to have a welcoming mascot for the neighborhood.",
+      "kind": "promise",
+      "witnesses": [
+        "Ruby",
+        "Tyson"
+      ],
+      "narrative_gravity_note": "Keeps Ruby\u2019s mascot idea alive as an unresolved future development rather than a discarded suggestion."
+    },
+    {
+      "body": "Tyson joked that the mascot might be left inside doing community outreach after closing.",
+      "kind": "dialogue_callback",
+      "witnesses": [
+        "Ruby",
+        "Tyson"
+      ],
+      "narrative_gravity_note": "Provides a reusable running joke if the mascot becomes overly enthusiastic, inconvenient, or unexpectedly popular."
+    },
+    {
+      "body": "Ruby said she would be deeply embarrassed if the bakery mascot proved better at closing than she and Tyson are.",
+      "kind": "dialogue_callback",
+      "witnesses": [
+        "Ruby",
+        "Tyson"
+      ],
+      "narrative_gravity_note": "Creates a comic benchmark that a future mascot-related mishap or success could pay off."
+    }
+  ]
+}
