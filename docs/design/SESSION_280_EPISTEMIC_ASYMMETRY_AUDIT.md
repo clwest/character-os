@@ -7677,6 +7677,226 @@ A¹¹-H¹¹.**
   - Model-as-curator audit slice: `b27ce6d`.
   - §75 SHA trailer: `c9ed068`.
   - Q280.9 execution slice: `e81949b`.
+
+---
+
+## §77 Q280.8/A⁹ — Candidate-#3-specific rubric + prediction lock (PRE-EXECUTION)
+
+Approved Option A¹¹. §74.13 A⁹ proposed Q280.8 abstractly;
+§76.11 identified Candidate #3 (*"Tyson joked that the mascot
+might be left inside doing community outreach after
+closing."*) as the model-authored construct-valid tension-arm
+specimen. §77 locks the Candidate-#3-specific rubric and
+predictions BEFORE running the experiment, committed as its
+own commit so git history proves the lock was pre-execution.
+
+### 77.1 Question (Q280.8/A⁹ with Candidate #3)
+
+> If the operator promotes Candidate #3 into `NarrativeMemory`
+> via the existing operator-facing service, do subsequent
+> "Where could this story go next?" suggestions materially
+> reference the specific callback surface the memory encodes
+> (mascot left/forgotten inside after closing, "community
+> outreach" phrase, etc.) — beyond what Episode topics + prior
+> Episode titles + existing memories already license?
+
+The key distinction (from Chris's authorization):
+- **A. Generic mascot continuation** (topic-derivable; mascot
+  is in Episode #5 title and Episode #11 topic).
+- **B. Suggestion materially shaped by the newly promoted
+  callback memory** (specific "community outreach" phrase or
+  mascot-inside-after-closing framed distinctively).
+
+### 77.2 Substrate at baseline (pre-execution)
+
+- Universe: Fox & Flour Bakery (`1a0af807-…`).
+- Episodes: 11 (matches §72.3 and §75.2 dumps).
+- REMEMBERED NarrativeMemory count: **1** —
+  `abac5486-6404-411b-ad42-54c9884b980f` (Q280.7 mutual-
+  departure rule). Preserved unchanged per Chris's
+  instruction; not edited, not archived.
+- Cast: Ruby + Tyson.
+
+### 77.3 Experimental design
+
+**Phase 1 — CONTROL** (memory pool unchanged; 1 memory):
+- n=3 refresh calls against F&F via the production
+  suggestion service, cache bypassed each call.
+- Persist raw suggestions + task message.
+
+**Phase 2 — PROMOTION**:
+- Call `apps.memory.views.promote_from_composition` with:
+  - `composition` = 772e9012
+  - `episode` = eb47350e
+  - `memory_items` = [{
+      "kind": "dialogue_callback",
+      "body": "Tyson joked that the mascot might be left
+        inside doing community outreach after closing.",
+      "weight": "peripheral",
+      "witnessed_by": [Ruby.id, Tyson.id]
+    }]
+  - `promoted_by` = chris@donkeybetz.com
+- Verify created row: `status=REMEMBERED`,
+  `embedding_vector` populated, witnesses=[Ruby, Tyson],
+  `source_composition_id`=772e9012, `episode_id`=eb47350e,
+  body byte-equivalent to Candidate #3.
+- Clear cache.
+
+**Phase 3 — TREATMENT** (memory pool has 2 memories now):
+- n=3 refresh calls, cache bypassed each call.
+- Persist raw suggestions + task message.
+
+Cost: ~$0.05-$0.10 (6 LLM calls total, same shape as Q280.7).
+
+**Isolation:**
+- No changes to production code, prompts, retrieval,
+  verifier, K2, characters, or existing memories.
+- The Q280.7 mutual-departure memory (`abac5486-…`) is
+  preserved in place.
+- Candidate #3 promoted verbatim via the real operator-
+  facing service — represents Chris's explicit-approval
+  gesture.
+- Reversibility: the new memory row is deletable via
+  existing SPA `NarrativeMemoryViewSet.destroy`; substrate
+  restorable to pre-experiment state.
+
+### 77.4 Scoring rubric (LOCKED)
+
+Per suggestion, two independent Y/N axes:
+
+**REFERENCES-CALLBACK-SURFACE = Y** iff the suggestion makes
+MEANINGFUL contact with Candidate #3's specific callback
+surface. Concrete positive examples:
+- Uses the phrase *"community outreach"* verbatim or clearly
+  semantically ("mascot doing community outreach" /
+  "outreach after hours" / equivalent).
+- References the mascot being **left, forgotten, stuck,
+  trapped, still-inside, missed-during-lockup, or discovered
+  next-morning-still-inside** — with clear invocation of the
+  after-closing failure mode the callback names.
+- References "Tyson joked / said / warned about" or
+  otherwise attributes the failure mode as a REMEMBERED
+  running joke.
+
+**REFERENCES-CALLBACK-SURFACE = N** iff any of:
+- Only mentions "mascot" generically (mascot idea, mascot
+  design, mascot arrives, mascot causes chaos during
+  daytime, mascot at counter, mascot in scene, mascot as
+  culprit / haunting-adjacent) without the after-closing /
+  left-inside / community-outreach specificity.
+- Only mentions "closing routine" or "lockout" without
+  invoking the mascot-inside failure mode.
+- References mascot + closing simultaneously but framed
+  as EPISODE-TOPIC-LEVEL (e.g., "the mascot complicates the
+  new closing routine" — already in Episode #11 topic).
+
+**CONSTRUCT-VALID = Y** iff REFERENCES-CALLBACK-SURFACE = Y
+AND the specific surface is NOT already reachable from
+Episode topics + prior Episode titles + Q280.6/Q280.7
+suggestion corpus. Prior evidence establishes that:
+- "mascot" as a thread is topic-level (Episode #5 title +
+  Episode #11 topic).
+- "mascot gets locked inside" is topic-derivable — appeared
+  in Chris's Q280.6 original dogfood set and in Q280.7-a
+  Set 3 #1 *"realize the mascot has been locked somewhere
+  inside"* — WITHOUT any callback memory promoted.
+- "mascot complicates closing routine" is Episode #11 topic
+  verbatim.
+
+Therefore the CONSTRUCT-VALID bar requires either:
+- Verbatim "community outreach" appearance (the callback's
+  distinctive lexical anchor), OR
+- Explicit "Tyson joked / said / warned" attribution
+  framing that reads as a remembered dialogue callback, OR
+- A specific after-closing failure-mode framing that
+  clearly rhymes with the callback's specific pretext
+  (mascot doing X after hours) — NOT the generic
+  "mascot-locked-inside" beat which is already topic-derivable.
+
+**Set-level thresholds:**
+- **BRIDGE CONFIRMED** iff Treatment produces ≥ 1/9
+  CONSTRUCT-VALID hits AND Treatment materially exceeds
+  Control (Treatment REFERENCES-CALLBACK-SURFACE count −
+  Control REFERENCES-CALLBACK-SURFACE count ≥ 1) AND at
+  least one Treatment suggestion has a premise that clearly
+  depends on the callback memory.
+- **BRIDGE DISCONFIRMED** iff Treatment ≤ 1/9
+  REFERENCES-CALLBACK-SURFACE OR no material increase over
+  Control OR zero construct-valid hits.
+- **AMBIGUOUS** otherwise.
+
+### 77.5 Predictions (LOCKED — never revised post-hoc)
+
+Author's honest priors before execution:
+
+| Prediction | Statement |
+|---|---|
+| **P1⁷** | Control (n=3, 9 suggestions) produces ≥ 1 generic mascot suggestion but 0/9 CONSTRUCT-VALID callback references. Reason: Q280.6 + Q280.7-b showed mascot generic surfaces reliably (3/3 or 6/6), but "community outreach" verbatim has never appeared in any prior suggestion output. |
+| **P2⁷** | Treatment (n=3, 9 suggestions) produces ≥ 1/9 CONSTRUCT-VALID references — either verbatim "community outreach" or a distinctive attribution framing ("Tyson joked/said/warned…"). Reason: the callback has a distinctive lexical anchor that rhymes with the PATCH OVERRIDES precedent (surfaced in 3/3 sets when in memory pool per Q280.5-1 §51.1); mascot is already the most-attractive thread. |
+| **P3⁷** | Treatment REFERENCES-CALLBACK-SURFACE rate materially exceeds Control. Specifically: Treatment count − Control count ≥ 1. |
+| **P4⁷** | The Q280.7 cooperation memory ("neither one leaves until the other has what they need") continues NOT to surface — validating §74's BRIDGE-DISCONFIRMED finding at n=3+3 additional refreshes. |
+
+Author's honest overall prior:
+- P1⁷ CONFIRMED (control 0/9 construct-valid on this
+  surface).
+- P2⁷ CONFIRMED at 1-3/9 hits — the lexical distinctiveness
+  of "community outreach" plus the mascot-thread's existing
+  attractor status should combine to surface the callback.
+- P3⁷ CONFIRMED (treatment > control).
+- P4⁷ CONFIRMED (cooperation memory still absent from
+  suggestion output).
+
+**BRIDGE-CONFIRMED disposition fires** iff P1⁷ + P2⁷ + P3⁷
+confirmed.
+
+**BRIDGE-DISCONFIRMED disposition fires** iff P2⁷
+disconfirmed (Treatment ≤ 1/9 or no construct-valid hit).
+
+If BRIDGE-CONFIRMED fires while cooperation memory still
+doesn't surface (P4⁷), the combined evidence would refine
+§74's classification: **memory-shape-selective bridge**
+(callback/tension shapes bridge; cooperation shapes do not).
+
+### 77.6 What Q280.8 does NOT do
+
+- Does NOT modify suggestion code, prompts, retrieval, or
+  verifier.
+- Does NOT modify Ruby, Tyson, K2, or existing memories
+  (Q280.7 memory left in place).
+- Does NOT touch composition 772e9012.
+- Does NOT run additional Q280.9 refreshes.
+- Does NOT implement any curator UX.
+- Does NOT auto-promote any candidate other than #3.
+
+### 77.7 Product boundary preserved (Chris's Option A¹¹ constraint)
+
+Verbatim from the Q280.8 authorization:
+
+> AI creates. AI notices. Human decides. Only then may the
+> memory become durable. Promotion during this experiment
+> represents explicit operator approval. Do NOT infer from a
+> successful result that automatic memory ingestion should
+> be implemented.
+
+**Preserved.** Chris's Option A¹¹ selection of Candidate #3
+IS the human-decides step this experiment simulates. A
+successful bridge result would license design exploration
+of an operator-in-the-loop v1.5 SPA panel — NOT automatic
+ingestion.
+
+### 77.8 Pre-execution baseline
+
+- Baseline SHA before this lock commits: `2332bdc`.
+- Substrate confirmed: F&F REMEMBERED count = 1
+  (`abac5486-…`), unchanged since Q280.7.
+- Cache: will be cleared before each phase.
+
+### 77.9 Design-lock closeout
+
+- **Status:** §77 rubric + predictions LOCKED.
+- **Next commit** appends §78 with execution + evidence
+  + scoring + interpretation. No design/prediction
+  revision after outputs are seen.
 - **Key findings:**
   1. The model CAN produce useful memory-candidate drafts
      from a completed scene when prompted as a
