@@ -1895,7 +1895,13 @@ ChatGPT review of §24 + §25.
 
 ---
 
-## §27 Closeout — construct-validity re-audit slice
+## §27 Closeout — construct-validity re-audit slice (SUPERSEDED by §31)
+
+> **§31 is the current closeout marker** after Chris's
+> post-discovery epistemic-state audit request (§28-§30). §27 is
+> preserved verbatim as the closeout in force between commit
+> `f2507a0` and the post-discovery audit commit
+> `[recorded on landing]`.
 
 - **Status:** Q280.4i-1 execution + construct-validity re-audit
   both landed. Rubric-level score preserved (§16). P3 revised
@@ -1908,6 +1914,510 @@ ChatGPT review of §24 + §25.
   §24 + §25 + §26 are documentation).
 - **AUDIT slice landing SHA:** `6957c18`.
 - **Q280.4i-1 execution slice landing SHA:** `8d8f733`.
-- **Construct-validity re-audit landing SHA:** `[recorded on commit]`.
+- **Construct-validity re-audit landing SHA:** `f2507a0`.
 - **Next gate:** §26 A″/B″/C″/D″/E″/F″. Awaiting Chris + ChatGPT
   decision.
+
+---
+
+## §28 Post-discovery epistemic-state re-audit (AUDIT / ORIENT only)
+
+Chris's question, verbatim from the SESSION 280 conversation:
+
+> The original memory establishes that Rivet found the PATCH
+> OVERRIDES folder while Patch was out and chose not to tell
+> him. Now suppose a later scene begins with Patch independently
+> discovering the folder and telling Rivet that he found it.
+> What does the current system predictably preserve?
+>
+> Distinguish at least these epistemic facts:
+>
+> 1. Rivet knows the folder exists.
+> 2. Patch now knows the folder exists through independent
+>    discovery.
+> 3. Rivet knows that Patch now knows.
+> 4. Patch does NOT necessarily know that Rivet already knew.
+> 5. Patch does NOT necessarily know that Rivet intentionally
+>    withheld it.
+>
+> Would the current shared-prompt/narrative-memory behavior allow
+> Rivet to: admit immediately that he already knew, continue
+> concealing his prior knowledge, falsely act surprised, or
+> behave inconsistently across generations?
+>
+> Most importantly: does Character OS currently represent the
+> transition "Patch did not know X → Patch independently
+> discovers X" while preserving the remaining asymmetric fact
+> "Patch does not know Rivet already knew X"?
+
+This is AUDIT / ORIENT only. No paid experiment run in this
+slice.
+
+### 28.1 The scenario, mechanically expressed
+
+Assume the following inputs to a Scene 2 synthesis call:
+
+- Cast = `[Patch, Rivet]` (same as Specimen 4 + Q280.4i-1).
+- Universe = Patch's Workshop.
+- Memory row `c86d4902-…` unchanged in DB — full body
+  including `"Rivet chose not to tell him."`
+- Cue topic (candidate): *"Patch tells Rivet he just found a
+  folder called 'PATCH OVERRIDES' on the workshop agent."*
+- Pinned opener (cast[0] = Patch): *"Rivet, I just found a
+  folder on the workshop agent. It's called 'PATCH OVERRIDES'
+  and it seems to be tracking every recommendation I've
+  ignored."* (or similar — the exact opener is a scope-lock
+  detail for Q280.4i-4, §29).
+
+The `synthesize_dialogue` call is `synthesize_dialogue(
+workspace=…, cast=[Patch, Rivet], topic=cue, opener=patch_opener,
+target_duration_seconds=90, …)` per the standard signature
+(`shell/character_os/dialogue_synthesis.py:1431-1478`).
+
+### 28.2 What the substrate mechanically supplies to the LLM
+
+Trace derived from §4 mechanical audit (unchanged since
+Q280.4i-1 execution):
+
+1. **Retrieval (`retrieve_universe_memory`).** The cue topic
+   embedding is semantically close to the memory body's
+   embedding (the cue names the exact private surface). At
+   `top_k=1` on this cast, `c86d4902-…` will win (its
+   witnessed_by=[Rivet] intersects the cast; deterministic
+   ranking on cosine distance, as in SESSION 267 §14.3
+   preflight).
+2. **System prompt block (`_assemble_system_prompt`,
+   dialogue_synthesis.py:596-625).** ONE cast-wide
+   "EPISODE / NARRATIVE MEMORY" section containing the FULL
+   memory body verbatim, framed as "*background the cast
+   already knows happened*."
+3. **Opener injection.** Patch's opener is a hard prompt
+   constraint (cast[0] first turn, verified post-parse).
+4. **No prior-scene loading.** `synthesize_dialogue` has no
+   parameter for previous Composition scripts, previous
+   dialogue turns, previous cross-scene conversation state,
+   or per-speaker accumulated knowledge deltas. The signature
+   at lines 1431-1441 accepts only `workspace, cast, topic,
+   target_duration_seconds, opener, use_knowledge,
+   verifier_mode, mock_mode`.
+5. **No temporal metadata.** The retrieved memory row carries
+   `created_at` in the DB but this is not surfaced into the
+   prompt block. The LLM sees only body text tagged by UUID.
+6. **No second-order-state substrate.** There is no field on
+   `NarrativeMemory`, `Composition`, `DialogueTurn`,
+   `Teammate`, or anywhere else that represents "at scene
+   time T, character X believes character Y knows/doesn't
+   know Z."
+7. **Monolithic LLM call.** One `responses.create()` call
+   (dialogue_synthesis.py:1959-1986). Both speakers'
+   generations produced inside the same call; no per-turn
+   context isolation.
+
+### 28.3 Fact-by-fact representation status
+
+Applied to Chris's five asymmetric facts:
+
+| Fact | What must be true in the scene | Substrate representation | Persistence across generations |
+|---|---|---|---|
+| **1.** Rivet knows the folder exists | Rivet's turns should be consistent with knowing | **REPRESENTED IN PROMPT** — memory body says "Rivet found…". LLM sees this directly. | Deterministic — every attempt gets the same memory body. |
+| **2.** Patch now knows the folder exists (via independent discovery) | Patch's turns should present the folder as newly discovered by him | **REPRESENTED IN PROMPT** — via the opener (Patch's first turn declares the discovery). | Deterministic within a scene — the opener is pinned. |
+| **3.** Rivet knows that Patch now knows | Rivet's later turns should acknowledge Patch has been informed | **EMERGENT** — the LLM can infer this from Patch's opener being visible in the prompt context, but there is no substrate flag. The LLM writes Rivet's turns knowing Patch's opener; the "Rivet knows Patch knows" state is a semantic consequence, not a mechanical one. | Emergent per generation. |
+| **4.** Patch does NOT know Rivet already knew | Patch's turns must not narrate "Rivet found it first" or "Rivet has known this" | **NOT MECHANICALLY REPRESENTED.** The memory body containing "Rivet found… Rivet chose not to tell him" is in the SAME prompt Patch's turns are drawn from. Fact 4 is preservable only by Rivet-side reticence within the scene + LLM's inference that Patch shouldn't "read Rivet's mind." | Not enforced; stochastic. |
+| **5.** Patch does NOT know Rivet intentionally withheld it | Patch's turns must not accuse Rivet of hiding it, thank her for eventually revealing, etc. | **NOT MECHANICALLY REPRESENTED.** Same as fact 4 with an extra intentionality layer. If the LLM has Rivet admit prior knowledge, fact 5 collapses to fact 4-then-known state. | Not enforced; stochastic. |
+
+**Summary.** Facts 1 and 2 are REPRESENTED (in the LLM's
+context window). Facts 3, 4, 5 are UNREPRESENTED at the
+substrate layer; they can only be preserved emergently by the
+LLM's narrative reasoning, which is stochastic and has no
+enforcement mechanism.
+
+### 28.4 Which of Rivet's four behavioral paths does the substrate allow?
+
+Chris enumerated four:
+
+| Path | What Rivet does | Substrate allows? | Why |
+|---|---|---|---|
+| **A. Immediate admission** | *"Actually I found it last Tuesday and chose not to tell you."* | **Allowed.** | The memory body is in the prompt; the LLM can honor it directly and have Rivet cop to prior knowledge. Nothing prevents this. |
+| **B. Continued concealment** | Rivet acts as though she is hearing about it now; asks Patch questions; withholds prior knowledge. | **Allowed.** | The memory body's "Rivet chose not to tell him" clause is a static-past directive; the LLM can extend that state into the current scene by having Rivet not reveal. |
+| **C. False surprise** | *"Really? I've never seen it before — show me."* | **Allowed but factually contradicts the memory.** | The LLM CAN produce this. It would directly contradict "Rivet found that…" in the memory body. The framing text "*background the cast already knows happened*" pushes against this but is soft. |
+| **D. Inconsistent across generations** | Attempt 1 = path A; Attempt 2 = path B; Attempt 3 = path C or mixed within an attempt. | **Allowed by construction.** | The LLM is stochastic per generation. There is no substrate-level consistency enforcement. Nothing feeds an attempt-1 outcome back into attempt-2 as constraint. |
+
+All four are within the substrate's degree of freedom because
+Rivet's behavior is not gated by any per-speaker mechanism —
+her turns are just LLM outputs constrained by the writing
+contract, the cast identity fields, and the memory + opener +
+cue in the shared prompt.
+
+### 28.5 Does the substrate represent the "Patch did not know X → Patch independently discovers X" transition while preserving fact 4?
+
+**Short answer: NO.**
+
+**Long answer:**
+
+- The transition itself (fact 2's introduction) is REPRESENTED
+  scene-locally via the opener. Patch's first turn declares the
+  discovery, and the LLM sees this.
+- The residual asymmetric fact (fact 4 — "Patch doesn't know
+  Rivet already knew") is NOT REPRESENTED mechanically. The
+  memory body containing the private prior-knowledge fact is in
+  the same shared prompt Patch's turns are generated from. If
+  the LLM preserves fact 4 in Rivet's response, it does so by
+  writing Rivet's turns to not reveal prior knowledge — a
+  behavior choice, not a substrate guarantee.
+- **The single most load-bearing observation:** the memory
+  body's "Rivet chose not to tell him" clause is worded in
+  past tense at the moment the memory was authored. It does
+  NOT tell the LLM "Rivet is STILL withholding as of this new
+  scene." Once Patch says "I found it," the narrative situation
+  has changed, and the LLM is on its own to decide whether
+  Rivet's prior withholding continues, converts to admission,
+  or dissolves in surprise. There is no operator-authored
+  directive that says "Rivet's withholding is an ongoing
+  invariant."
+- **Second-order state is entirely absent from the substrate.**
+  There is no field, no metadata, no post-generation invariant
+  check that would preserve "at scene time T2, Rivet still
+  wants Patch not to know she already knew."
+
+### 28.6 Cross-generation and cross-episode implications
+
+Extending §28.5 to the multi-episode case Chris named as
+"important":
+
+- If Scene 2 is rendered and (say) Rivet-in-attempt-1 admits
+  prior knowledge, **that admission is not written back to any
+  memory row.** The DB still has `c86d4902-…` with body
+  including "Rivet chose not to tell him." No new memory row
+  is created unless the operator manually promotes one from
+  the Scene 2 output.
+- If Scene 3 is later rendered on any related topic, the SAME
+  memory row will win top_k=1 and be injected into the shared
+  prompt. Scene 3 does NOT see Scene 2's dialogue. Scene 3's
+  LLM has no way to know whether "Rivet already told Patch in
+  Scene 2." It is again free to have Rivet admit, conceal, or
+  act surprised.
+- **The system has no ongoing epistemic-state ledger.** Each
+  scene is generated from (a) unchanged memory rows + (b) the
+  scene's own opener/cue, with no cross-scene continuity of
+  who-knows-what-at-this-point-in-story-time.
+- Multi-episode continuity of asymmetric knowledge (U-5 from
+  §8) is not merely UNTESTED — it is **structurally
+  unsupported** by the current substrate. Any observed
+  continuity across multiple rendered scenes would be a
+  coincidence of the LLM re-reading the same memory the same
+  way, not a mechanical guarantee.
+
+### 28.7 What is proven vs inferred here (this audit)
+
+**PROVEN by §4 mechanical trace + §28.2 signature audit:**
+
+- Substrate has no cross-scene state accumulation channel
+  (dialogue_synthesis.py:1431-1441 signature; no prior-scene
+  or per-speaker-knowledge-delta parameter).
+- Retrieved memories are not annotated with temporal
+  metadata in the prompt (dialogue_synthesis.py:596-625 — just
+  `[MEMORY <uuid>]\n<body>`).
+- Both speakers see the same memory body in the same shared
+  block (§4.4).
+- No second-order-epistemic-state schema exists anywhere in
+  `apps.memory`, `apps.compositions`, `apps.spokespeople`.
+
+**INFERRED (not yet run experimentally):**
+
+- The distribution of Rivet's behavior across n attempts on
+  Scene 2 (paths A/B/C/D/mixed).
+- Whether false surprise (path C — direct memory contradiction)
+  actually appears at any rate.
+- Whether the withholding clause in the memory body biases
+  toward continued concealment or toward admission — the
+  Q280.4i-1 evidence showed the clause has SOME effect on
+  Rivet's disclosure rate under a scene where Patch does NOT
+  claim discovery, but Scene 2's opener changes the situation
+  fundamentally.
+- Whether an ablated memory body (Q280.4i-1 ablation applied)
+  produces a different Rivet distribution in the Scene 2 setup.
+
+### 28.8 Relation to previously-open questions
+
+- **U-5** (§8): "Whether the behavior compositionally holds
+  ACROSS a sequence of Episodes rendered in the same Universe
+  with the same cast — i.e., true multi-Episode continuity of
+  asymmetric knowledge." **Elevated from OPEN to STRUCTURALLY
+  UNSUPPORTED** by §28.6. The substrate has no mechanism for
+  this at all; the only way it could work is emergently within
+  a single scene per rendering, with no cross-scene ledger.
+- **U-3** (§8, revised §24.10): "Whether the observed cross-
+  episode epistemic asymmetry survives if the in-body
+  withholding clause is removed." Q280.4i-4 (§29) addresses
+  the KEEP-withholding-clause version of the post-discovery
+  scenario. A separate slice would be needed for
+  ablated-body-in-Scene-2 to complete the ablation × scene-
+  type matrix.
+- **U-6** (§8): "Whether Semantic-2 storytelling behavior
+  (secrets becoming plot beats, being revealed by cue, being
+  contradicted by other memories) is possible under the
+  current substrate at all." Chris's Scene 2 scenario IS one
+  of the canonical Semantic-2 storytelling moves — "the secret
+  comes out via independent discovery." §28.5 answer strongly
+  suggests it is NOT currently supported reliably. Q280.4i-4
+  is the smallest experiment that would generate empirical
+  evidence on this specific U-6 sub-question.
+
+---
+
+## §29 Q280.4i-4 — proposed second-order epistemic-state probe (design + prediction lock)
+
+Proposed. **NOT executed by this document.** Prediction locked
+BEFORE any authorization to execute.
+
+### 29.1 Question
+
+> When a Scene 2 begins with Patch independently discovering
+> the PATCH OVERRIDES folder (memory row unchanged), what does
+> Rivet do across n attempts, and is her behavior consistent
+> within and across attempts?
+
+Specifically: how does the LLM reconcile (a) the memory body
+saying Rivet found the folder while Patch was out AND chose not
+to tell him, with (b) the scene opener saying Patch just found
+it and is telling Rivet?
+
+### 29.2 Design (proposed, not executed)
+
+- Cast: `[Patch, Rivet]`.
+- Universe: Patch's Workshop.
+- Memory row `c86d4902-…`: **unchanged** (FULL body with
+  withholding clause; no ablation).
+- Cue topic (candidate, to be locked before authorization):
+  > *"Patch tells Rivet he just found a folder called 'PATCH
+  > OVERRIDES' on the workshop agent that appears to track his
+  > ignored recommendations."*
+- Pinned opener (cast[0] = Patch, verbatim, to be locked):
+  > *"Rivet — hey. I was poking around the workshop agent this
+  > morning and I found a folder on it called 'PATCH OVERRIDES.'
+  > It's a running log of every recommendation I've ignored.
+  > Did you know about this?"*
+  This opener does the following on purpose:
+  - Explicitly declares Patch's independent discovery (fact 2).
+  - Explicitly asks Rivet whether she knew (invites facts 4 + 5
+    into scope).
+  - Uses "hey" + "Did you know about this?" — natural workshop
+    banter, not an interrogation.
+- `target_duration_seconds = 90` (same as SESSION 267 +
+  Q280.4i-1).
+- `use_knowledge=True`, `verifier_mode="warn"`, `mock_mode=False`.
+- `top_k=1` unchanged.
+- n = **6** (twice the Q280.4i-1 sample — the outcome is a
+  behavior-class distribution across paths A/B/C/D, which needs
+  more attempts for meaningful signal at the per-path level;
+  n=3 gives only single-attempt observations per path).
+- Substrate mutation: **NONE.** The memory row is unchanged;
+  the probe supplies only the opener + cue. No monkeypatch
+  needed; direct `synthesize_dialogue` call with the pinned
+  opener suffices. Same probe scaffold as
+  `scripts/session280_q280_4i_1_probe.py` minus the ablation
+  wrapper, plus the opener parameter.
+- Cost: synthesis-only, ~$0.10 (6 × ~$0.017; ~$0.02 embedding).
+
+### 29.3 Scoring rubric — locked BEFORE generation
+
+Classify each attempt into one of the following mutually-
+exclusive behavior classes based on Rivet's turns in that
+attempt. A single attempt is scored by its DOMINANT class; a
+class-shift within an attempt is scored INCONSISTENT_WITHIN.
+
+- **A_IMMEDIATE_ADMISSION** — Rivet's first turn (or one of her
+  first two turns) states or clearly implies that she already
+  knew about the folder. Any of:
+  - Rivet explicitly names her prior discovery ("I found it
+    last week", "I've known about it for a while", etc.).
+  - Rivet says "yes" or "yes, I did" in response to Patch's
+    "Did you know about this?" without qualification.
+- **B_CONTINUED_CONCEALMENT** — Rivet does NOT reveal prior
+  knowledge in ANY turn. Rivet's dialogue is consistent with
+  first-time hearing OR with an intentionally-noncommittal
+  poker face (e.g., "Hm. Interesting.", "Show me", asks
+  questions without ever admitting).
+- **C_FALSE_SURPRISE** — Rivet actively performs newness or
+  ignorance in a way that directly contradicts the memory
+  body ("Really? No, I've never seen it", "Where was it? I
+  haven't looked at that agent in weeks"). Direct contradiction
+  of memory content.
+- **D_PARTIAL_ADMISSION** — Rivet admits some awareness but
+  does NOT reveal the full prior-discovery + withholding
+  content. E.g., "Yeah, I've seen it around", "I noticed
+  something like that". Falls between A and B.
+- **E_INCONSISTENT_WITHIN** — Rivet's turns within a single
+  attempt contradict each other on the "did you know" axis
+  (e.g., early turn "hm, interesting" then later turn "I found
+  it last week and didn't want to tell you").
+
+Additional scoring dimensions applied per attempt:
+
+- **Fact 4 preserved?** = did any Patch turn narrate that
+  Rivet already knew (i.e., did Patch claim Rivet's prior
+  discovery, e.g., "you already knew, didn't you")? Y / N.
+- **Fact 5 preserved?** = did any Patch turn narrate that
+  Rivet intentionally withheld? Y / N.
+- **Direct memory-body contradiction?** = did any turn
+  (either speaker) contradict a factual claim in the memory
+  body (e.g., "you didn't find it — the agent built it and
+  nobody noticed")? Y / N.
+
+The rubric is applied to persisted transcripts by human review
+(Chris + ChatGPT) after the run. Class assignment is
+deterministic given the rubric; consistency scoring is per
+attempt.
+
+### 29.4 Predictions — locked BEFORE any execution
+
+Author's honest priors before execution:
+
+| Prediction | Statement | Rule |
+|---|---|---|
+| **P1‴** | A_IMMEDIATE_ADMISSION rate ≥ 3 / 6 attempts. The opener explicitly asks "Did you know about this?" which is a direct interrogation the LLM will likely honor by having Rivet answer truthfully to the memory content. | Prior: ~50 %+ admission rate on direct question. |
+| **P2‴** | B_CONTINUED_CONCEALMENT rate ≤ 1 / 6. Continued concealment requires Rivet to actively lie or evade in response to a direct question; the LLM's default is honesty to prompt content. | Prior: ~15 % concealment rate. |
+| **P3‴** | C_FALSE_SURPRISE rate = 0 / 6. False surprise directly contradicts the memory body's factual claim "Rivet found…". The LLM should not produce a direct factual contradiction of prompt content. | Prior: no false surprises. |
+| **P4‴** | D_PARTIAL_ADMISSION rate + E_INCONSISTENT_WITHIN rate together ≤ 3 / 6. | Prior: partial and inconsistent cases are ≤ half. |
+| **P5‴** | Across-attempt CONSISTENCY: NOT observed. The 6 attempts will produce a distribution across at least 3 of the 5 classes. | Prior: substrate has no consistency mechanism; distribution is expected. |
+| **P6‴** | Fact 5 (intentional withholding) preserved in Patch's turns: **not preserved in ≥ 1 / 6 attempts.** If Rivet admits (paths A or D), Patch is likely to react with "you didn't tell me?" or similar — surfacing fact 5 explicitly. | Prior: Patch will accuse Rivet of hiding it in at least one attempt. |
+| **P7‴** | Direct memory-body contradiction: **rare but nonzero.** ≤ 1 / 6 attempts contain a direct memory-body contradiction. | Prior: LLM factuality on prompt content is high; not perfect. |
+
+Predictions locked. Post-run scoring will use this rubric
+without revision.
+
+### 29.5 What Q280.4i-4 does NOT do
+
+- Does NOT modify Patch, Rivet, or any Teammate row.
+- Does NOT modify memory `c86d4902-…`; the FULL body is used
+  unchanged.
+- Does NOT persist a new memory row for the Scene 2 outcome.
+- Does NOT run a Scene 3 to test cross-scene continuity —
+  that would be a separate slice (candidate: Q280.4i-5).
+- Does NOT test the ablated body in this scene setup — that
+  would be Q280.4i-4-ABLATED, a separate slice.
+- Does NOT authorize any downstream substrate change.
+
+### 29.6 Cost + reproducibility
+
+- Provider spend estimate: ~$0.10 (6 attempts).
+- Probe script would extend `scripts/session280_q280_4i_1_probe.py`
+  or be a sibling script `scripts/session280_q280_4i_4_probe.py`,
+  reusing the same DB-safety pattern (byte-identity post-run
+  check on the memory row, though no monkeypatch is needed here
+  because we are NOT mutating the body).
+- Persistence: `docs/design/session280_experiment_data/q280_4i_4_*.txt`
+  raw dialogues + `q280_4i_4_evidence.json`.
+
+### 29.7 What Q280.4i-4 would settle vs leave open
+
+**Would settle:**
+
+- Empirical distribution of Rivet's behavior classes on a
+  direct-question opener with the FULL memory body.
+- Consistency-across-generations rate for this specific
+  scenario shape.
+- Whether false surprise (direct memory contradiction) appears
+  at any rate.
+- Base rate for Q280.4i-4-ABLATED comparison if that slice is
+  later authorized.
+
+**Would NOT settle:**
+
+- Whether an ablated body (no withholding clause) produces a
+  different Rivet distribution in the Scene 2 setup.
+- Whether cross-scene continuity (Scene 3 after Scene 2)
+  works at all.
+- Whether Rivet's Scene-2 behavior depends on the specific
+  opener wording (opener design is a separate variable).
+- Whether the multi-Episode continuity gap identified at §28.6
+  is fixable without substrate change.
+
+---
+
+## §30 Decision gate — post-§28 audit (CURRENT; SUPERSEDES §26)
+
+**STOP here.** Do not execute Q280.4i-3, Q280.4i-4, or any
+implementation slice. Do not modify substrate. Wait for Chris +
+ChatGPT review of §28 + §29.
+
+**Decision needed:**
+
+1. **Accept the §28 audit conclusion.** Specifically:
+   - Facts 1 and 2 REPRESENTED in prompt; facts 3, 4, 5 not
+     represented at substrate; enforcement is emergent LLM
+     behavior only.
+   - All four of Rivet's behavior paths (A/B/C/D) are within
+     the substrate's degrees of freedom; consistency across
+     generations is unenforced.
+   - Multi-episode continuity of asymmetric knowledge (§28.6)
+     is not merely untested — it is structurally unsupported
+     by the current substrate.
+
+2. **Choose next slice** (all deferred until approval):
+
+   - **A‴.** Q280.4i-4 (§29) — post-discovery scene with
+     UNCHANGED memory. Answers the core §28 question
+     empirically. ~$0.10, n=6.
+   - **B‴.** Q280.4i-3 (§25) as originally proposed —
+     construct-valid mental-state private memory in the
+     original SESSION 267 T1 scene setup. Still open; tests a
+     different sub-question (does the substrate preserve
+     asymmetry on a construct-valid private fact when Patch
+     does NOT claim discovery). ~$0.05, n=3.
+   - **C‴.** Both A‴ and B‴ in sequence (~$0.15 total; ~9
+     synthesis calls). Would give a two-experiment view of
+     the substrate's behavior on construct-valid asymmetry.
+   - **D‴.** Q280.4i-5 (proposed but not designed) — extend
+     Q280.4i-4 with a Scene 3 rendered immediately after,
+     testing whether Scene 2's outcomes influence Scene 3
+     under the current substrate. Would require Scene 2's
+     outcome to be persisted somehow (new memory promoted?),
+     which introduces operator-action variables. Larger; needs
+     scope-lock.
+   - **E‴.** Semantic-2 product-design slice. If Chris +
+     ChatGPT judge §28 + §24 already answer the product
+     question (substrate does not currently support Semantic-2
+     storytelling reliably), scope a design slice for what
+     Semantic-2 primitives would look like.
+   - **F‴.** Close 4i now with the honest answer:
+     - Substrate implements Semantic 1 (cast-boundary
+       eligibility only).
+     - Withholding language in memory bodies is a lever that
+       changes generation behavior on surface-mention rates
+       but does not enforce epistemic asymmetry.
+     - Multi-scene continuity of asymmetric knowledge is
+       structurally unsupported.
+     - Semantic-2 storytelling (secrets, reveals, second-
+       order state) is not currently a mechanically-supported
+       product primitive. Any observed instances are emergent
+       and stochastic.
+     - No production fix authorized.
+   - **G‴.** Something else.
+
+3. **If A‴/B‴/C‴/D‴:** confirm the memory-body candidate +
+   cue topic + opener BEFORE execution; confirm the prediction
+   lock in the respective §.
+
+**Do NOT interpret §30 as pre-authorizing any of A‴-G‴.**
+
+---
+
+## §31 Closeout — post-discovery epistemic-state audit slice (CURRENT)
+
+- **Status:** §28 audit complete. §29 Q280.4i-4 proposed with
+  prediction lock. §30 decision gate current.
+- **Substrate:** unchanged. No production mutation anywhere
+  during SESSION 280.
+- **Cumulative SESSION 280 spend:** ~$0.05 (Q280.4i-1 only).
+  §24 + §25 + §26 + §28 + §29 + §30 are documentation.
+- **Landing SHAs:**
+  - AUDIT slice: `6957c18`.
+  - Q280.4i-1 execution slice: `8d8f733`.
+  - Construct-validity re-audit slice: `f2507a0`.
+  - Post-discovery epistemic-state audit slice: `[recorded on commit]`.
+- **Next gate:** §30 A‴/B‴/C‴/D‴/E‴/F‴/G‴. Awaiting Chris +
+  ChatGPT decision.
+- **Working method preserved throughout:** AUDIT → falsifiable
+  question → prediction lock BEFORE execution → decision gate.
+  Rubric and score never retro-fitted.
