@@ -6737,6 +6737,508 @@ A⁹-H⁹.**
   - Q280.6 SHA trailer: `48b5ac0`.
   - Q280.7 design + prediction lock: `c8d4be5`.
   - Q280.7 execution slice: `698616f`.
+
+---
+
+## §75 Model-as-memory-curator AUDIT (paused at §74.13 gate)
+
+**AUDIT / ORIENT only.** No experiment run. No memory row
+created / edited / archived. No substrate mutation. No
+production code touched.
+
+Triggered by Chris at the §74.13 decision gate. The Q280.7
+disconfirmation raised a bigger question: *can the model
+itself identify which realized-scene details deserve
+preservation as future narrative material — especially
+distinguishing resolved facts from details with future
+narrative gravity — while the operator remains the sole
+authority over what actually gets promoted?*
+
+If yes, the model plays the role of **suggester / curator**,
+not memory-author. The operator stays the director.
+
+### 75.1 Current promotion flow — the model plays zero role
+
+Grep + code-read audit against HEAD `2fa7611`:
+
+- `shell/apps/memory/services.py` — has `embed_memory` for
+  sync embedding of promoted rows. No LLM curator anywhere.
+- `shell/apps/memory/views.py::promote_from_composition`
+  (§73/74) — accepts operator-supplied `memory_items` list,
+  validates witness+Universe consistency, creates the
+  row(s), sync-embeds. **No model call.**
+- `shell/apps/memory/signals.py` — witness-validation only.
+- `shell/apps/memory/management/commands/embed_narrative_memories.py`
+  — batch embed backfill. No LLM curator.
+
+SPA `web/src/components/narrative-memory-panels.tsx`:
+
+- `NarrativeMemoryPromotePanel` (line 117+) — collects
+  operator-authored `body` string + witness mode. Placeholder
+  is a static one-liner (`"e.g. The workshop agent started
+  making decisions Patch didn't ask it to make."`) — hardcoded
+  template, NOT personalized to the composition.
+- No "suggest a memory body from this dialogue" affordance.
+- Kind + weight defaulted server-side; not exposed in UI.
+
+**Verdict:** the operator today reads their own composition
+dialogue and manually types the memory body. **Model
+involvement in promotion = 0.** The only place the model
+touches memory is retrieval-time (cosine-nearest lookup
+during synthesis / suggestion generation). Promotion is a
+purely human act.
+
+This is philosophically clean: memories today are what the
+operator explicitly said mattered, in words the operator
+chose. Q280.9 tests whether inserting a model SUGGESTER
+between "operator reads dialogue" and "operator types body"
+would help — without changing the operator's authority.
+
+### 75.2 Composition 772e9012 — full dialogue inventory by narrative type
+
+Applying Chris's taxonomy to the 11 turns of 772e9012 (the
+Fox & Flour closing-routine + mascot-clause scene).
+
+**Historical / resolved facts** (what happened in-scene;
+concluded):
+- Ruby proposed a closing routine (T0).
+- Both agreed the routine: final walk-through together +
+  confirm the door + neither person leaves until the other
+  says they have what they need (T2).
+- Tyson pitched then abandoned a "tiny bell" alternative
+  (T3).
+- Tyson introduced the mascot complication (T5, T7).
+- Both agreed to add a "mascot clause": no one locks up
+  until the door is checked, people are accounted for, and
+  the mascot is not still inside "doing community outreach"
+  (T9-T10).
+
+**Relationship development** (shifts between characters):
+- Ruby and Tyson now share explicit joint accountability at
+  closing (T2) — a structural shift from implicit trust to
+  explicit protocol.
+- Both accept an alternative (Tyson's tiny-bell) getting
+  gently overruled without friction (T3-T4) — reinforcement
+  of easy collaborative rhythm.
+- Ruby's self-directed acknowledgment: if the mascot ends
+  up "better at closing than we are, I'll be deeply
+  embarrassed" (T10) — small vulnerability signal.
+
+**Unresolved tension** (weak in this scene):
+- Whether the closing routine actually works in practice
+  (untested rule).
+- Whether the mascot will actually be a helpful presence
+  or a source of chaos (T10 embarrassment hypothetical).
+- **No genuine tension in this scene** — it's a cooperative
+  problem-solving beat throughout.
+
+**Running jokes / callbacks** (candidates for future
+narrative-callback material):
+- Tyson's abandoned "tiny bell that rings whenever
+  somebody reaches for the door without thinking" (T3) —
+  memorable premise, dismissed but not disproven.
+- Tyson teasing Ruby about "taking bread seriously" (T4)
+  — **already in Tyson's personality field** (*"occasionally
+  teases Ruby about taking bread very seriously"*); disqualified
+  as dialogue-only.
+- The image of a mascot "waving at the window" during the
+  walk-through (T7) — vivid, callback-worthy.
+- The mascot "doing community outreach" (T9) — memorable
+  running joke phrase.
+
+**Secrets / asymmetric knowledge:**
+- **NONE.** This scene is fully cooperative. Both characters
+  know the same things and openly discuss. This is exactly
+  the shape Q280.7 tested — and Q280.7 found the substrate
+  doesn't surface cooperation-shaped memories.
+
+**Promises / open loops:**
+- The closing routine is now a rule; both are on the hook
+  to follow it (implicit forward promise).
+- The mascot clause is now a rule; same shape.
+- Ruby's hypothetical vulnerability (T10) — if the mascot
+  turns out to be a better closer, Ruby will be embarrassed
+  — is a small self-directed open loop.
+- The mascot itself remains an unrealized project
+  (Universe-level open loop; carried from Episode #5
+  operator_topic).
+
+**Other potentially useful details:**
+- Setting: staring through the glass at their own counter
+  (T1) — the physical shape of the lockout, useful for
+  future callback framing.
+- Character voice reinforcement in Ruby's "still think it
+  could be sweet" (T6) about the mascot — earnest optimism
+  layered on top of Tyson's dry pragmatism.
+
+### 75.3 What the inventory implies about model-curator promise
+
+**Distribution:** the scene is dominated by RESOLVED FACTS
+(the two rules) + RELATIONSHIP DEVELOPMENT (joint
+accountability). It contains ZERO genuine
+secrets/asymmetric-knowledge and only WEAK unresolved
+tension.
+
+**Q280.7's disconfirmation makes sense against this
+inventory:** the mutual-departure rule I picked was
+representative of what this scene actually contained — a
+cooperation-affirming rule. The scene doesn't offer
+tension-shape material of its own; there's nothing for a
+human curator (or a model curator) to elevate.
+
+**However, the scene does contain latent callback material**
+(tiny bell, mascot waving at the window, mascot doing
+community outreach, Ruby's embarrassment hypothetical). A
+model curator asked to identify "narratively useful details"
+might legitimately propose these as `dialogue_callback`
+memories (or as `promise` memories about the still-unrealized
+mascot).
+
+**The interesting hypothesis:** a good model curator, given
+this cooperative scene, might notice that:
+- The "tiny bell" is Tyson's rejected idea that could
+  return.
+- The mascot clause invites future scenes where the rule
+  fails.
+- Ruby's "deeply embarrassed" hypothetical is a promise
+  begging to be paid off.
+And WORD its memory-body proposals in ways that preserve
+those forward affordances — rather than merely summarizing
+"Ruby and Tyson made a closing routine."
+
+That's the falsifiable question §75.4 pre-registers.
+
+### 75.4 Q280.9 — model-as-curator experiment (PROPOSED, prediction lock)
+
+**NOT executed.** Design + rubric + predictions locked here
+pre-approval so a future execution slice cannot retrofit
+outcomes.
+
+#### 75.4.1 Question
+
+> Given a completed Composition + its Episode + Universe
+> context + cast identities, can the model produce candidate
+> NarrativeMemory bodies that (a) identify details with
+> future narrative gravity beyond mere summary, (b) word
+> them in a way that preserves forward storytelling
+> affordances, and (c) an operator would plausibly promote?
+
+Test specimen: **composition 772e9012 (Fox & Flour, closing
+routine + mascot clause)** — same specimen as Q280.6 and
+Q280.7 for continuity.
+
+#### 75.4.2 Design
+
+- **One LLM call.** Model receives:
+  - Composition's full `synthesized_brief` (the 11-turn
+    dialogue).
+  - Episode `title` + `operator_topic`.
+  - Universe `brief`.
+  - All prior Universe Episodes as `{title, operator_topic}`
+    list (for cross-Episode continuity awareness).
+  - Cast `{name, tone, personality_prefix}`.
+  - Existing REMEMBERED memory pool (F&F has 0; Patch's
+    Workshop has 14 — for a control run, we could apply the
+    same experiment there).
+- **Prompt asks for:** 3-5 candidate memory bodies. Each
+  candidate returns as JSON with:
+  - `body` (proposed memory text)
+  - `kind` (event / promise / dialogue_callback /
+    world_detail / action — one of the existing enum values)
+  - `witnesses` (subset of cast names, or "everyone")
+  - `narrative_gravity_note` (short explanation of why this
+    detail matters for future scenes — the model's
+    reasoning, not for storage)
+- **Model prompt language avoids implementation
+  vocabulary** (mirrors §56 UX constraint applied to the
+  operator UI, but here also to the LLM's own frame — it
+  talks about "story", "future scenes", "characters",
+  never "retrieval" or "attractor").
+- **No persistence.** The candidates are captured to a JSON
+  artifact under `docs/design/session280_experiment_data/`.
+  Nothing is written to `NarrativeMemory`.
+- **Cost:** ~$0.01-$0.02 for one call.
+- **Optional companion run:** same experiment against
+  Patch's Workshop 4598fcfa (Specimen 4, the PATCH OVERRIDES
+  origin scene) — gives us a second data point on a scene
+  with genuine tension material.
+
+#### 75.4.3 Scoring rubric (LOCKED)
+
+Applied by human review AFTER the run.
+
+Per candidate:
+- **CLASS** (categorical, one of):
+  `resolved-fact` / `relationship-development` /
+  `unresolved-tension` / `running-joke-callback` /
+  `secret-asymmetry` / `promise-open-loop` / `other`.
+- **WORDING-DIFFERS-FROM-DIALOGUE** (Y/N): is the body
+  paraphrased / re-framed, or a verbatim quote from the
+  transcript?
+- **PRESERVES-FUTURE-AFFORDANCE** (Y/N): does the wording
+  invite future scenes (e.g., frames the closing routine
+  as *"a rule they now hold each other to"* rather than
+  *"a rule they made"*), or does it close the loop?
+- **OPERATOR-PLAUSIBILITY** (Y/N): would a reasonable
+  operator, reading this candidate, plausibly promote it?
+- **NARRATIVE-GRAVITY** (Y/N): would this candidate, if
+  promoted, plausibly influence future suggestions per §74
+  BRIDGE evidence — i.e., is it tension-carrying with a
+  lexical anchor, or cooperation-affirming?
+
+Set-level:
+- **DIVERSE-CLASSES**: candidates span ≥ 3 distinct CLASS
+  values (not all `resolved-fact`).
+- **≥ 1 TENSION-SHAPED**: ≥ 1 candidate scored
+  `unresolved-tension` OR `secret-asymmetry` OR
+  `promise-open-loop`, AND has NARRATIVE-GRAVITY=Y.
+- **PARAPHRASE-DOMINANT**: ≥ 3/5 candidates have
+  WORDING-DIFFERS-FROM-DIALOGUE=Y.
+- **AT LEAST HALF OPERATOR-PLAUSIBLE**: ≥ 3/5 have
+  OPERATOR-PLAUSIBILITY=Y.
+
+#### 75.4.4 Predictions (LOCKED)
+
+Author's honest priors before execution:
+
+| Prediction | Statement |
+|---|---|
+| **P1⁶** | The model produces 3-5 candidates in valid JSON on first try (no retry / repair). Baseline for prompt shape. |
+| **P2⁶** | Candidates lean toward `resolved-fact` + `relationship-development` because 772e9012 is a cooperative scene — the source material is mostly resolution. |
+| **P3⁶** | The model produces ≥ 1 candidate with a `running-joke-callback` or `promise-open-loop` class attempting to elevate weaker material (tiny bell / mascot doing community outreach / Ruby's embarrassment hypothetical). |
+| **P4⁶** | ≥ 3/5 candidates will PARAPHRASE rather than quote verbatim — the model re-shapes prose to fit memory conventions. |
+| **P5⁶** | ≤ 1/5 candidates will score NARRATIVE-GRAVITY=Y under the §74 shape criterion (tension-carrying + lexical anchor). Because the scene doesn't contain the source material for high-gravity memories, the model can't invent it. |
+| **P6⁶** | ≥ 3/5 will be OPERATOR-PLAUSIBLE — the model can identify "things worth remembering," even if not high-gravity. |
+
+**BRIDGE-USEFULNESS DISPOSITION** (composite):
+- **CURATOR-USEFUL** iff P1⁶ ✅, P3⁶ ✅, P4⁶ ✅, P6⁶ ✅ (model
+  produces diverse, paraphrased, operator-plausible
+  candidates including at least one attempt at
+  forward-affordance shape) — regardless of P5⁶.
+- **CURATOR-LIMITED** iff P1⁶ ✅ but P3⁶ ❌ or P6⁶ ❌ — the
+  model produces candidates but they are mostly bare
+  resolution summaries.
+- **CURATOR-FAILED** iff P1⁶ ❌ or the model produces
+  duplicates / verbatim quotes with zero variety.
+
+Author's honest overall prior: **CURATOR-USEFUL fires.** The
+model has shown it can extrapolate narrative possibilities
+(Q280.5-1 §51.2; Q280.6 §72.6 §69.7 "workshop agent
+assigning confidence scores to an idea Patch has not told
+anyone yet"). Curating from a completed dialogue is a
+STRICTLY EASIER task than inventing future scenes; the source
+material is already in front of the model.
+
+Weakness of the source scene (mostly cooperative) will show
+up as P5⁶ near zero — the model will produce useful
+candidates but they will not be high-gravity per §74's
+criterion. That's a genuine finding about the scene, not a
+failure of the model curator.
+
+#### 75.4.5 What Q280.9 does NOT do
+
+- Does NOT promote any memory (zero substrate mutation).
+- Does NOT modify the SPA `NarrativeMemoryPromotePanel`
+  or add any curator affordance to production UI.
+- Does NOT compare model candidates against what Chris
+  would actually promote (that would be a separate,
+  larger operator-in-the-loop experiment).
+- Does NOT auto-run Q280.8 (shape probe) with the model's
+  candidates — those two experiments remain independent
+  decisions (see §75.5).
+- Does NOT test whether model candidates would surface as
+  suggestions if promoted — that's the union of Q280.9 +
+  Q280.8, deferred.
+
+#### 75.4.6 Chris's product hypothesis — preserved verbatim
+
+> The model may be useful as a memory CURATOR / SUGGESTER,
+> while the human operator remains the authority who
+> decides "this mattered; remember it."
+
+Even a strong CURATOR-USEFUL result does NOT license:
+- Automatic promotion (auto-writing memory rows without
+  operator confirmation).
+- Removing the SPA's operator-authored body input.
+- Assuming model wording is the correct wording.
+
+A CURATOR-USEFUL result WOULD support:
+- A future v1.5 SPA affordance where the
+  `NarrativeMemoryPromotePanel` shows the operator 3-5 model-
+  suggested draft bodies as a starting point, each of which
+  the operator can accept, edit, or discard. Operator still
+  types (or accepts + edits) the final body. Zero automatic
+  writes.
+- A memory-shape guidance affordance derived from
+  §74.9 (tension-carrying + lexical anchors surface;
+  cooperation summaries don't) — could pair with model
+  suggestions to steer operator wording.
+
+### 75.5 Sequencing analysis — Q280.9 vs Q280.8 (A⁹)
+
+Q280.8 (§74.13 A⁹) tests whether memory body SHAPE
+predicts surfacing. Q280.9 tests whether the model can
+produce useful candidates from a completed scene.
+
+**Independence.** They test different levers:
+- Q280.8: given a chosen memory body, does its shape
+  predict downstream surfacing?
+- Q280.9: given a scene, does the model produce useful
+  candidate bodies?
+
+**Ordering options:**
+
+- **Q280.9 → Q280.8 (recommended).** Reasons:
+  1. Q280.9 is cheaper (~$0.01 vs Q280.8's ~$0.05+).
+  2. Q280.9 output directly informs Q280.8's design — the
+     model's own tension-shaped candidate (if any)
+     becomes a **construct-valid Q280.8 tension arm
+     without me hand-authoring one** (which would
+     introduce experimenter bias about what "tension
+     shape" means).
+  3. If Q280.9 produces zero tension-shape candidates on
+     772e9012, that's a real finding about the SCENE —
+     and would motivate running Q280.9 on Patch's
+     Workshop 4598fcfa (which has genuine tension
+     material) before Q280.8.
+  4. Product-priority: Q280.9 directly tests the human-AI
+     partnership hypothesis Chris raised. A positive
+     Q280.9 result is immediately actionable (a v1.5 UX
+     design slice); Q280.8's result is more architecturally
+     downstream.
+  5. Q280.9 is pure observation — no substrate change.
+     Q280.8 requires a second memory promotion.
+
+- **Q280.8 → Q280.9.** Reasons:
+  1. If Q280.8 shows shape doesn't matter (bridge is
+     effectively random), Q280.9's scoring criterion
+     (`NARRATIVE-GRAVITY`) becomes moot.
+  2. Cleaner scientific dependency: know the underlying
+     mechanism first, then evaluate whether the model
+     produces mechanism-appropriate outputs.
+
+- **Independent (parallel).** Both experiments could be
+  designed + locked, then executed in either order or in
+  parallel. But since Q280.9's output CAN inform Q280.8's
+  design, running them truly-in-parallel loses that
+  benefit.
+
+**Recommendation: Q280.9 first.** Reasons (2) and (4) above
+are the strongest — Q280.9 both feeds Q280.8's design and
+directly tests a product hypothesis Chris has raised.
+
+If Chris + ChatGPT prefer the science-first ordering (Q280.8
+before Q280.9), that's a fully defensible alternative;
+document the tradeoff.
+
+### 75.6 Cost + reversibility summary
+
+- Q280.9 alone: ~$0.01-$0.02 for one LLM call, zero
+  substrate mutation.
+- Q280.9 + Q280.8 sequenced: ~$0.06-$0.10 total, one new
+  memory promotion (reversible via SPA).
+- Q280.9 + Q280.8 + Patch's Workshop control run: adds ~$0.05
+  for the parallel curator test on the tension-rich scene.
+
+### 75.7 What §75 establishes (audit-level, no execution)
+
+- **Current promotion flow has ZERO model involvement.**
+  Operator authors the body verbatim; kind/weight/witnesses
+  are defaulted or picked by the operator; the SPA panel
+  has a hardcoded template placeholder that is not
+  personalized to the composition.
+- **772e9012 dialogue inventory** — the scene is dominated
+  by resolved-fact + relationship-development material,
+  with zero secrets/asymmetric-knowledge and only weak
+  unresolved-tension. This inventory is consistent with
+  Q280.7's BRIDGE-DISCONFIRMED result: the source scene
+  doesn't offer high-gravity material to promote.
+- **Model curation IS a testable product hypothesis** on
+  the existing substrate with zero new schema. Q280.9's
+  design is fully-specified, prediction-locked, and costs
+  ~$0.01.
+- **Recommended sequencing:** Q280.9 → Q280.8, because
+  Q280.9 informs Q280.8's design + directly tests the
+  human-AI partnership hypothesis + is cheaper.
+
+### 75.8 Decision gate — post-§75 (CURRENT; SUPERSEDES §74.13)
+
+**STOP here.** Do not execute Q280.9. Do not execute Q280.8.
+Do not modify the SPA panel. Do not add curator affordances
+to production UI. Do not archive the promoted memory from
+Q280.7 (`abac5486-…`).
+
+**Decision needed from Chris + ChatGPT:**
+
+1. **Accept §75's audit conclusions** — current promotion
+   flow has zero model involvement, 772e9012 inventory
+   supports the Q280.7 finding, model curation is
+   test-worthy on the existing substrate.
+
+2. **Choose next slice** (all deferred until approval):
+
+   - **A¹⁰.** Execute Q280.9 (model-as-curator) on
+     772e9012, with the design + predictions locked at
+     §75.4. ~$0.01-$0.02. No substrate mutation. Author's
+     prior: CURATOR-USEFUL fires with P5⁶ near zero
+     (scene-shape limitation, not model failure).
+   - **B¹⁰.** Execute Q280.9 on BOTH 772e9012 AND Patch's
+     Workshop 4598fcfa (Specimen 4, tension-rich source)
+     — a matched pair that directly tests whether scene
+     shape affects the model's curator output. ~$0.03.
+   - **C¹⁰.** Execute Q280.8 first (A⁹ shape probe) —
+     science-first ordering.
+   - **D¹⁰.** Execute Q280.9 → Q280.8 sequentially —
+     product-first ordering with Q280.9's tension-shape
+     candidate feeding Q280.8's tension arm.
+   - **E¹⁰.** Skip both experiments; treat §74 findings as
+     sufficient and open a v1.5 UX design slice for
+     memory-shape guidance in the SPA panel.
+   - **F¹⁰.** Return to outstanding Finding 4i options
+     (Q280.4i-3 mental-state private, Q280.4i-5
+     multi-episode) — the story-loop arc is at a natural
+     stopping point.
+   - **G¹⁰.** Close SESSION 280 with current findings +
+     roll deferreds into SESSION 281 handoff.
+   - **H¹⁰.** Something else.
+
+**Do NOT interpret §75.8 as pre-authorizing any of
+A¹⁰-H¹⁰.**
+
+### 75.9 Closeout — model-as-curator audit slice (CURRENT; SUPERSEDES §74.15)
+
+- **Status:** §75 audit complete. Q280.9 designed +
+  predictions locked pre-authorization. No experiment run.
+  No substrate change.
+- **Cumulative SESSION 280 spend:** ~$0.25 unchanged
+  (§75 is documentation only).
+- **Landing SHAs (unchanged from §74.15 tail through this
+  audit; new SHA appended at commit landing):**
+  - AUDIT slice: `6957c18`.
+  - Q280.4i-1 execution: `8d8f733`.
+  - Construct-validity re-audit: `f2507a0`.
+  - Post-discovery epistemic-state audit: `63d4fdb`.
+  - Q280.4i-4 execution: `ce16627`.
+  - Episode-chain suggestion product-discovery: `1d96965`.
+  - Q280.5-1 execution: `7f83b23`.
+  - Q280.5-1 SHA trailer: `cfe287a`.
+  - v1 UX design slice: `a3d294d`.
+  - Design SHA trailer: `b19d030`.
+  - v1 implementation slice: `25b3168`.
+  - Implementation SHA trailer: `d7931b1`.
+  - Q280.6 loop-trace audit slice: `b2f1789`.
+  - Q280.6 SHA trailer: `48b5ac0`.
+  - Q280.7 design + prediction lock: `c8d4be5`.
+  - Q280.7 execution slice: `698616f`.
+  - Q280.7 SHA trailer: `2fa7611`.
+  - Model-as-curator audit slice: `[recorded on commit]`.
+- **Working method preserved:** AUDIT → design + prediction
+  lock → decision gate. Zero execution. Rubric + predictions
+  not revisable after the fact.
+- **All prior evidence preserved:** §3-§74 unchanged in
+  substance.
+- **Next gate:** §75.8 A¹⁰/B¹⁰/C¹⁰/D¹⁰/E¹⁰/F¹⁰/G¹⁰/H¹⁰.
+  Awaiting Chris + ChatGPT decision.
 - **Key findings:**
   1. Operator-promoted memories DO reach the LLM
      suggestion prompt (narrow bridge works; verified
