@@ -5390,7 +5390,7 @@ operator dogfood before expanding.
   - Q280.5-1 SHA trailer: `cfe287a`.
   - v1 UX design slice: `a3d294d`.
   - Design SHA trailer: `b19d030`.
-  - v1 implementation slice: `[recorded on commit]`.
+  - v1 implementation slice: `25b3168`.
 - **Working method preserved:** ORIENT → smallest surface →
   smallest change → focused regression coverage → run tests
   → inspect actual operator-visible result. Rubric and
