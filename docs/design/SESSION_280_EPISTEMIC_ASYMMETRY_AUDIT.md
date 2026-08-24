@@ -4177,7 +4177,7 @@ Do not modify substrate. Wait for Chris + ChatGPT review of
   - Post-discovery epistemic-state audit slice: `63d4fdb`.
   - Q280.4i-4 execution slice: `ce16627`.
   - Episode-chain suggestion product-discovery slice: `1d96965`.
-  - Q280.5-1 execution slice: `[recorded on commit]`.
+  - Q280.5-1 execution slice: `7f83b23`.
 - **Key finding:** the ~3-bubbles concept passes the
   falsifiable bar. Model D (reuse existing substrate + LLM
   read surface) works empirically on both a memory-rich
