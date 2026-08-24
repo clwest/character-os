@@ -568,7 +568,7 @@ def test_k64_uses_speaking_character_corpus_per_turn():
     with mock_patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}), \
          mock_patch("openai.OpenAI", return_value=fake_client), \
          mock_patch(
-             "character_os.dialogue_synthesis.run_verifier",
+             "character_os.claim_verifier_dispatch.run_verifier",
              side_effect=_fake_verifier,
          ):
         synthesize_dialogue(
@@ -614,7 +614,7 @@ def test_warnings_retain_speaker_and_turn_context():
     with mock_patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}), \
          mock_patch("openai.OpenAI", return_value=fake_client), \
          mock_patch(
-             "character_os.dialogue_synthesis.run_verifier",
+             "character_os.claim_verifier_dispatch.run_verifier",
              side_effect=_fake_verifier,
          ):
         result = synthesize_dialogue(
@@ -656,7 +656,7 @@ def test_strict_verifier_failure_raises():
     with mock_patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}), \
          mock_patch("openai.OpenAI", return_value=fake_client), \
          mock_patch(
-             "character_os.dialogue_synthesis.run_verifier",
+             "character_os.claim_verifier_dispatch.run_verifier",
              side_effect=_fake_verifier,
          ):
         with pytest.raises(ClaimVerifierError):

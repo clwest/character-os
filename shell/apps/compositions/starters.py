@@ -325,18 +325,46 @@ def _dialogue_ai_flattened_warnings(result) -> list[dict]:
 
 
 def _dialogue_ai_flattened_shadow_warnings(result) -> list[dict]:
-    """SESSION 278 Q-278-3.2 — D-POS shadow-only aggregation.
+    """SESSION 278 Q-278-3.2 — D-POS classifier per-turn aggregation.
 
     Same shape/enrichment as :func:`_dialogue_ai_flattened_warnings`
     but pulls from ``turn.verification_warnings_shadow`` (populated by
-    :mod:`character_os.claim_verifier_ner` when
-    ``CHARACTER_OS_K64_NER_SHADOW_EXPERIMENT`` is truthy). Returns an
-    empty list when the shadow experiment was inactive at synthesis
-    time so the persisted composition column stays ``[]`` and matches
-    the pre-Q-278-3.2 default for legacy rows."""
+    :mod:`character_os.claim_verifier_ner` via the dialogue-scene
+    dispatcher in :mod:`character_os.claim_verifier_dispatch`).
+    From Q-278-4.2 onward the dispatcher runs the D-POS classifier on
+    every dialogue turn, so this list mirrors the D-POS output
+    regardless of which classifier is authoritative on
+    ``verification_warnings``. Empty for non-dialogue-scene template
+    kinds (whose call sites still use ``run_verifier`` directly)."""
     flattened: list[dict] = []
     for turn in result.turns:
         for warn in (getattr(turn, "verification_warnings_shadow", None) or []):
+            enriched = dict(warn)
+            enriched.setdefault("line_index", turn.line_index)
+            enriched.setdefault("speaker_alias", turn.speaker_alias)
+            enriched.setdefault(
+                "speaker_name",
+                getattr(turn.speaker_teammate, "name", "") or "",
+            )
+            flattened.append(enriched)
+    return flattened
+
+
+def _dialogue_ai_flattened_legacy_warnings(result) -> list[dict]:
+    """SESSION 278 Q-278-4.2 — legacy K6.4 classifier per-turn aggregation.
+
+    Same shape/enrichment as :func:`_dialogue_ai_flattened_warnings`
+    and :func:`_dialogue_ai_flattened_shadow_warnings`, sourced from
+    ``turn.verification_warnings_legacy`` (populated by the dialogue
+    dispatcher on every turn). Persisted onto
+    ``Composition.verification_warnings_legacy`` so the post-cutover
+    shadow-comparison substrate is available on every dialogue-scene
+    row regardless of which classifier is authoritative. Empty list
+    when a caller passed a pre-Q-278-4.2 ``DialogueResult`` shape
+    without the field."""
+    flattened: list[dict] = []
+    for turn in result.turns:
+        for warn in (getattr(turn, "verification_warnings_legacy", None) or []):
             enriched = dict(warn)
             enriched.setdefault("line_index", turn.line_index)
             enriched.setdefault("speaker_alias", turn.speaker_alias)
@@ -3756,10 +3784,18 @@ def dialogue_scene(
             "verification_warnings": _dialogue_ai_flattened_warnings(
                 ai_dialogue_result,
             ),
-            # SESSION 278 Q-278-3.2 — D-POS shadow observability.
-            # Empty list when the experiment flag was off at
-            # synthesis time; the flattener degrades cleanly.
+            # SESSION 278 Q-278-3.2 — D-POS classifier per-turn output
+            # (always populated on dialogue-scene from Q-278-4.2 onward).
             "verification_warnings_shadow": _dialogue_ai_flattened_shadow_warnings(
+                ai_dialogue_result,
+            ),
+            # SESSION 278 Q-278-4.2 — legacy K6.4 classifier per-turn
+            # output. Under default ``CHARACTER_OS_K64_DIALOGUE_AUTHORITY=legacy``
+            # this equals ``verification_warnings`` above; under a
+            # future ``d_pos`` authority it captures the post-cutover
+            # legacy shadow. Populated on every dialogue-scene
+            # composition regardless of authority.
+            "verification_warnings_legacy": _dialogue_ai_flattened_legacy_warnings(
                 ai_dialogue_result,
             ),
             "knowledge_chunk_ids": list(ai_dialogue_result.chunk_ids),

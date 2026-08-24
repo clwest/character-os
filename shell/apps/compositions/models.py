@@ -476,18 +476,44 @@ class Composition(models.Model):
     # as ``verification_warnings`` (list of dicts with
     # ``{"claim","kind","position","line_index","speaker_alias","speaker_name"}``)
     # but populated by the ``character_os.claim_verifier_ner`` D-POS
-    # Hybrid classifier and used ONLY for the ``k64_shadow_diff`` audit
-    # command. Existing ``verification_warnings`` remains authoritative;
-    # this column never gates behavior.
+    # Hybrid classifier.
     #
-    # Empty ``[]`` on every row unless
-    # ``CHARACTER_OS_K64_NER_SHADOW_EXPERIMENT`` was truthy at synthesis
-    # time. Additive-nullable-or-empty per the observability discipline
-    # in ``_IMMUTABLE_OBSERVABILITY_FIELDS`` above (though this field is
-    # NOT itself immutable — it lives on the same freely-mutable
-    # lifecycle as ``verification_warnings``, matching
-    # ``COMPOSITION_OBSERVABILITY_V1.md`` §Q5 shape rules).
+    # SESSION 278 Q-278-4.2 refined the shape rule: from Slice 2
+    # onward the DIALOGUE-SCENE dispatcher always runs both
+    # classifiers per turn (the Q-278-3.2 ``CHARACTER_OS_K64_NER_SHADOW_EXPERIMENT``
+    # gate is retired for dialogue-scene). This field therefore stores
+    # the D-POS classifier's output on every dialogue-scene composition
+    # regardless of which classifier is authoritative — a symmetric
+    # invariant with ``verification_warnings_legacy`` below.
+    #
+    # Talking-head / long-form Composition, Script, and
+    # ConversationMessage were NOT migrated in Q-278-4.2 (Option A
+    # scope-lock per the Q-278-4.2 pre-implementation boundary
+    # challenge). This column stays ``[]`` on those template kinds
+    # because the shadow classifier is only invoked from
+    # ``dialogue_synthesis.py``.
     verification_warnings_shadow = models.JSONField(default=list, blank=True)
+
+    # SESSION 278 Q-278-4.2 — legacy K6.4 verifier output, persisted
+    # alongside ``verification_warnings_shadow`` (D-POS) for
+    # DIALOGUE-SCENE compositions. When ``CHARACTER_OS_K64_DIALOGUE_AUTHORITY``
+    # resolves to the default ``"legacy"``, this column equals
+    # ``verification_warnings``. When a future slice flips the default
+    # to ``"d_pos"``, ``verification_warnings`` mirrors
+    # ``verification_warnings_shadow`` (D-POS output) and this column
+    # continues to record what the legacy classifier would have flagged
+    # — the post-cutover shadow-comparison substrate.
+    #
+    # Invariant: for any dialogue-scene composition row
+    # ``verification_warnings ∈ {verification_warnings_shadow,
+    # verification_warnings_legacy}`` depending on which classifier
+    # was authoritative at write time. The ``k64_shadow_diff`` audit
+    # command consumes all three columns.
+    #
+    # Empty ``[]`` on legacy rows written before Q-278-4.2 landed,
+    # and empty on non-dialogue-scene rows (see the Q-278-4.2 Option-A
+    # scope-lock in ``verification_warnings_shadow`` block above).
+    verification_warnings_legacy = models.JSONField(default=list, blank=True)
 
     # K6.6 (SESSION 168) — what K6 actually synthesized for a
     # *successful* render. ``rejected_synthesis`` captures the

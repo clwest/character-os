@@ -16,8 +16,10 @@ Handoff context: `docs/design/SESSION_278_HANDOFF.md`.
 - [x] **Q-278-3.2** — D-POS shadow-mode implementation. Smallest safe observational substrate: legacy verifier stays authoritative; D-POS runs beside it behind `CHARACTER_OS_K64_NER_SHADOW_EXPERIMENT`; results land on new `Composition.verification_warnings_shadow` column; `k64_shadow_diff` mgmt command reports OLD/SHADOW/BOTH deltas. *(LANDED — commit `42298bc`; shadow OFF byte-identical to today.)*
 - [x] **Q-278-3.2 Fresh Shadow Dogfood 5/5** — five fresh normal-dogfood specimens (a1421a0e / 5f4bdbbc / 1491d31c / fcba3242 / 1aabbff6) captured, analyzed, and compared against legacy per specimen + as a consolidated matrix. Acceptance criteria A-F evaluated. *(CLOSED — Chris + ChatGPT approved GO-CUTOVER-PLANNING.)*
 - [x] **Q-278-4** — D-POS cutover-design audit. Mechanical trace of legacy authority path, NER-supplement Success experiment, stoplist disposition, dual-run design, persistence semantics, rollback, warn/strict separation, acceptance signals, blast radius, ordered smallest-cutover slices. *(AUDIT COMPLETE — recommendation: GO-IMPLEMENT-SLICE-1.)*
-- [x] **Q-278-4.1** — NER-supplement POS=PROPN gate (Slice 1 of the Q-278-4 cutover plan). Single-function edit in `claim_verifier_ner.py`; +6 regression tests; 38 D-POS + 116 adjacent tests all green; Specimen 4 `Success` over-fire closed post-gate. *(LANDED — commit `1336420`; awaiting Slice 2 decision.)*
-- [ ] Q-278-4.2 — (TBD; authority dispatcher + `verification_warnings_legacy` column; opens only if Slice 2 approved)
+- [x] **Q-278-4.1** — NER-supplement POS=PROPN gate (Slice 1 of the Q-278-4 cutover plan). Single-function edit in `claim_verifier_ner.py`; +6 regression tests; 38 D-POS + 116 adjacent tests all green; Specimen 4 `Success` over-fire closed post-gate. *(LANDED — commit `1336420`.)*
+- [x] **Q-278-4.2 pre-implementation boundary challenge** — before Slice 2 lands, resolve the apparent composition-boundary contradiction: a global `CHARACTER_OS_K64_AUTHORITY` flag rewiring three call sites would broaden authority to Script + ConversationMessage even though those surfaces have no shadow evidence. *(CLOSED — Chris + ChatGPT approved MODIFY-SLICE-2-DESIGN → REVISED Option A.)*
+- [x] **Q-278-4.2** — Dialogue-scene-only dispatcher (revised Option A). New `character_os/claim_verifier_dispatch.py`; `CHARACTER_OS_K64_DIALOGUE_AUTHORITY = legacy | d_pos` (default `legacy`); dual-write to `Composition.verification_warnings_shadow` (D-POS) + new `Composition.verification_warnings_legacy` (legacy); dispatcher runs both classifiers per turn; defensive fallback on D-POS failure; strict/warn semantics preserved. *(IMPLEMENTED — 179 tests green; awaiting fresh dogfood + Slice 3 decision.)*
+- [ ] Q-278-4.3 — (TBD; flip dispatcher default authority to `d_pos`; opens only if Slice 3 approved)
 
 Slice discipline reminder: no fixes land in this session until Chris + ChatGPT explicitly approve.
 
@@ -2246,5 +2248,333 @@ Land Slice 1 as-is. Chris + ChatGPT re-decide Slice 2 (dispatcher + `verificatio
 - **MODIFY-DESIGN** — revisit Slice 2 shape.
 - **EXTEND-SHADOW-POST-GATE** — accumulate more post-gate shadow evidence first.
 - **NO-GO** — freeze at Slice 1 (gate applied; shadow architecture stays; no cutover).
+
+---
+
+## Q-278-4.2 pre-implementation — boundary challenge (Chris + ChatGPT)
+
+### The apparent contradiction
+
+Q-278-4 §5 explicitly deferred Script and ConversationMessage migration:
+
+> **Adjacent surfaces (`ConversationMessage`, `Script`):** NOT migrated in the cutover slices below. Q-278-3.2's dialogue-only shadow persistence is deliberately preserved. Adjacent-surface migration is a follow-up slice (Q-278-4.x, unopened), evidenced by the same classifier core + a per-model persistence pattern. Only migrating dialogue-scene compositions in the cutover keeps blast radius minimal.
+
+But Q-278-4 §9 (blast-radius inventory) lists Slice 2 rewiring **three** call sites through a single dispatcher gated by one global flag `CHARACTER_OS_K64_AUTHORITY`:
+
+- `character_os/dialogue_synthesis.py:1798`
+- `character_os/script_synthesis.py:526`
+- `character_os/conversation_synthesis.py:226`
+
+Only `Composition.verification_warnings_legacy` is planned as the new persistence column in Slice 2. If Slice 3 later flips the default to `d_pos`, all three call sites would swap classifier — but only the dialogue-scene Composition surface has the shadow-observability substrate to detect regressions or rollback safely.
+
+That is a real safety hole, not a documentation nitpick.
+
+### Source-derived paths — all three surfaces
+
+**A. Dialogue Composition (`template_kind = "dialogue_scene"`):**
+
+| step | code path |
+|---|---|
+| verifier called | `character_os.dialogue_synthesis.synthesize_dialogue` → per-turn loop → `run_verifier` (`dialogue_synthesis.py:1798`) |
+| current authority | Legacy verifier via `run_verifier` |
+| persisted warning field(s) | `DialogueTurn.verification_warnings` (in-memory) flattened by `_dialogue_ai_flattened_warnings` → `Composition.verification_warnings`; **shadow via Q-278-3.2** → `Composition.verification_warnings_shadow` |
+| strict/warn behavior | `run_verifier` reads `settings.K6_CLAIM_VERIFIER_MODE` → env → default `warn`; strict-mode `ClaimVerifierError` → `DialogueSynthesisFailedError` → `Composition.status = FAILED` |
+| operator-visible consumer | `web/src/routes/compositions/$id.tsx` reads `verification_warnings` + `verification_status` |
+| rollback / observability substrate | **YES** — `verification_warnings_shadow` column exists AND is populated by the D-POS shadow classifier (post-Q-278-3.2); `k64_shadow_diff` mgmt command consumes it |
+
+**B. Script (B-arc `apps.scripts`):**
+
+| step | code path |
+|---|---|
+| verifier called | `apps.scripts.synthesis.draft_script` → `character_os.script_synthesis.build_render_brief` → `run_verifier` (`script_synthesis.py:526`) |
+| current authority | Legacy verifier via `run_verifier` |
+| persisted warning field(s) | `Script.verification_warnings` (JSONField on `apps/scripts/models.py:138`); NO shadow column |
+| strict/warn behavior | Same mode resolution; strict-mode `ClaimVerifierError` propagates to `apps/scripts/synthesis.py:133` → persisted with `verification_status="rejected"` + populated warnings |
+| operator-visible consumer | `web/src/routes/workspace/scripts.$id.tsx` reads `Script.verification_warnings` |
+| rollback / observability substrate | **NO** — no shadow column, no dual-run persistence, no comparison evidence, no `k64_shadow_diff` support |
+
+*Note:* the SAME `script_synthesis.build_render_brief` call path ALSO produces the talking-head + long-form Composition warnings (via `apps/videos/views.py:151` and `character_os/duration_contract.py:653`). Those Composition rows have `verification_warnings_shadow` as a COLUMN (from the Q-278-3.2 migration) but that column has **never been written to** for non-dialogue Composition — the shadow classifier is only invoked from `dialogue_synthesis.py`, not from the script/talking-head path.
+
+**C. ConversationMessage (K6.5):**
+
+| step | code path |
+|---|---|
+| verifier called | `character_os.conversation_synthesis.generate_reply` → `run_verifier` (`conversation_synthesis.py:226`) |
+| current authority | Legacy verifier via `run_verifier` |
+| persisted warning field(s) | `ConversationMessage.verification_warnings` (JSONField on `apps/conversations/models.py:91`); NO shadow column |
+| strict/warn behavior | Same mode resolution; strict → `ClaimVerifierError` → view sets `verification_status="rejected"` + persists onto ConversationMessage placeholder |
+| operator-visible consumer | `web/src/routes/conversations/$id.tsx` reads `ConversationMessage.verification_warnings` |
+| rollback / observability substrate | **NO** — no shadow column, no dual-run persistence, no comparison evidence, no shadow classifier invocation today |
+
+**Also verified read-only from source:** `character_os/claim_verifier_ner.run_shadow_verifier` is called from exactly ONE production site — `dialogue_synthesis.py:1785-1832`. Neither `script_synthesis.py` nor `conversation_synthesis.py` imports or calls the shadow classifier.
+
+### Mechanical consequence of the currently-planned Slice-2 + Slice-3 shape
+
+If Slice 2 rewires ALL THREE call sites through a shared dispatcher gated on `CHARACTER_OS_K64_AUTHORITY`, and Slice 3 flips the global default to `d_pos`:
+
+- **Dialogue-scene Composition** — becomes D-POS authoritative. `verification_warnings` = D-POS output. `verification_warnings_legacy` (new column) = legacy shadow. `verification_warnings_shadow` = D-POS self-mirror. **Full rollback + observability substrate available.**
+- **Talking-head / long-form Composition** (via `script_synthesis.build_render_brief`) — silently also becomes D-POS authoritative. `verification_warnings` = D-POS output. `verification_warnings_legacy` = legacy shadow (if the Slice-2 dual-write logic runs on this path too). `verification_warnings_shadow` = empty (Q-278-3.2 shadow was NEVER wired into this path). **NO pre-cutover shadow evidence for D-POS behavior on talking-head briefs.** Q-278-3.1 measured D-POS on isolated sentences, not on real talking-head briefs. **Regression risk NOT audited.**
+- **Script (B-arc)** — silently becomes D-POS authoritative. `Script.verification_warnings` = D-POS output. **No shadow column exists**, so Slice 2 would EITHER need to add one OR the surface would have no post-cutover observability at all. **NO pre-cutover shadow evidence.** Q-278-3.x never measured D-POS on any real Script row.
+- **ConversationMessage (K6.5)** — silently becomes D-POS authoritative. `ConversationMessage.verification_warnings` = D-POS output. **No shadow column exists.** **NO pre-cutover shadow evidence.** Q-278-3.x never measured D-POS on any real spokesperson message.
+
+**Legacy output persisted for comparison:** on talking-head Composition, only if Slice 2 explicitly adds a mirror write; on Script and ConversationMessage, only if Slice 2 also adds new columns to their models — a scope explosion the original audit deferred.
+
+**Rollback evidence:** dialogue-scene fully protected; the other three surfaces would have zero to weak evidence, meaning "rollback" post-Slice-3 would be a blind decision on 3 of 4 surfaces.
+
+**Does this violate the Q-278-4 §5 explicit deferral of adjacent-surface migration?** **YES.** Slice 3 as designed would functionally migrate all three adjacent surfaces (talking-head Composition, Script, ConversationMessage) to D-POS authority WITHOUT the "same classifier core + per-model persistence pattern" the deferral commits to.
+
+**Answers to the three yes/no questions:**
+
+- Would a global authority flip affect **Script**? **YES** — via `script_synthesis.py:526`, which serves both talking-head Composition and B-arc Script.
+- Would it affect **ConversationMessage**? **YES** — via `conversation_synthesis.py:226`.
+- Would those surfaces have equivalent dual-run persistence? **NO** — no shadow column on Script or ConversationMessage; talking-head Composition has the column but no data.
+
+### Option comparison
+
+**Option A — Dialogue-scene-only dispatch (narrowest).**
+- Rewire ONLY `character_os/dialogue_synthesis.py:1798`.
+- `script_synthesis.py` and `conversation_synthesis.py` remain calling `run_verifier` directly — legacy behavior identical to today.
+- Add `Composition.verification_warnings_legacy` column (only relevant to dialogue-scene compositions, but the column lives on the shared Composition model — that's fine; it stays empty for talking-head/long-form rows).
+- Authority flag scoped: `CHARACTER_OS_K64_DIALOGUE_AUTHORITY = "legacy" | "d_pos"` (renamed to reflect actual scope).
+- Slice 3 flips only dialogue-scene authority. Script + ConversationMessage untouched.
+- **Smallest code surface. Preserves Q-278-4 §5 deferral. Symmetric with Q-278-3.2 shadow evidence.**
+
+**Option B — Surface-scoped authority (future-facing abstraction).**
+- Shared dispatcher module, but authority flag is per-surface: e.g. three env vars `CHARACTER_OS_K64_AUTHORITY_DIALOGUE` / `..._TALKING_HEAD` / `..._CONVERSATION`, each `"legacy" | "d_pos"`, each defaulting to `"legacy"`.
+- Slice 2 still only wires the dispatcher; Slice 3 still only flips the dialogue flag.
+- Bigger up-front abstraction; deferred surfaces get one-line adoption later.
+- Modest complexity tax vs Option A; slightly more future-proof.
+
+**Option C — All-surface dispatch WITH equivalent dual-run persistence.**
+- Rewire all three call sites; migrate Script + ConversationMessage to add shadow columns; extend the D-POS shadow classifier invocation into script/conversation synthesis with an equivalent env flag.
+- Would produce true 3-surface parity but massively enlarges Slice 2 scope and takes Q-278-4 off its "smallest cutover plan" rails.
+- Rejected on scope-lock grounds.
+
+**Option D — Source-derived alternative.**
+- Rewire all three call sites but the dispatcher internally hard-codes a "which caller am I answering for" and only takes the d_pos branch on dialogue callers.
+- Ugly; inspection burden; hides scope in the dispatcher. Not preferred.
+
+### Assessment per option
+
+| dimension | A: dialogue-only | B: surface-scoped | C: all-surface + persistence | D: caller-check inside dispatcher |
+|---|---|---|---|---|
+| smallest code surface | ✓ smallest — 1 call site + 1 column + 1 dispatcher | 1 call site + 1 column + 1 dispatcher (same as A, but with per-surface flag plumbing) | 3 call sites + 3 columns/migrations + 3 shadow-invocation paths | 3 call sites + 1 column + dispatcher with internal branching |
+| persistence requirements | 1 additive column on Composition | 1 additive column on Composition (or 3 later) | 3 additive columns across Composition/Script/ConversationMessage | 1 additive column on Composition |
+| migrations | 1 | 1 | 3 (or 1 now + 2 later) | 1 |
+| rollback correctness | fully protected on dialogue; adjacent surfaces unchanged so rollback is trivially safe | same as A | full parity but only after enormous scope | brittle — depends on dispatcher-internal caller inference |
+| future Slice-3 behavior | flips only dialogue-scene authority | flips only dialogue-scene authority | would flip all three (only if the Chris + ChatGPT approval is explicit per surface) | flips dialogue by dispatcher rule |
+| strict-mode implications | independent per surface (dialogue can strict-flip without dragging Script/Conversation) | same as A | strict-flip forced to be per-surface eventually | strict-flip logic tangled with authority logic |
+| test burden | small — dispatcher tests + dual-write correctness on dialogue | slightly larger — per-surface authority-flag tests | large — 3 surface-worth of shadow tests | brittle — must test dispatcher's caller-inference logic |
+| respects "smallest proven surface" discipline | ✓ | ✓ | ✗ (bloats scope) | partial |
+
+### Flag-name reconsideration
+
+The originally proposed `CHARACTER_OS_K64_AUTHORITY` name is **misleading given only one surface initially participates**. It reads as system-wide authority control, but under Options A or B it only actually controls dialogue-scene authority.
+
+**Recommended rename (deferred to Slice-2-implementation slice):** `CHARACTER_OS_K64_DIALOGUE_AUTHORITY = "legacy" | "d_pos"`, or under Option B a small family `CHARACTER_OS_K64_AUTHORITY_<SURFACE>`. Either shape explicitly encodes scope in the flag name so a future operator (or an LLM assisting) cannot accidentally believe setting one env var flips the whole verifier.
+
+The Q-278-3.2 shadow-mode env var `CHARACTER_OS_K64_NER_SHADOW_EXPERIMENT` is already dialogue-scoped by virtue of the call site — it just doesn't broadcast that in its name. Fine as-is because it only ever gates behavior on the one call site that inspects it. The Slice-2 authority flag needs the scope in the name because the DISPATCHER is what interprets it.
+
+### Recommended smallest boundary
+
+**Option A — Dialogue-scene-only dispatch.**
+
+Rationale:
+
+- Preserves the "smallest proven surface" discipline that has governed Q-278-3.x / Q-278-4.x.
+- Symmetric with the Q-278-3.2 shadow evidence + Q-278-3.2 fresh-window measurement (all five specimens are dialogue-scene).
+- Explicitly upholds the Q-278-4 §5 deferral of adjacent-surface migration.
+- Preserves Chris's stated invariant: *a future authority flip must NEVER silently broaden its behavioral blast radius to a surface that did not receive equivalent shadow/dual-run evidence*.
+- Rollback + observability substrate exactly matches the surface being flipped.
+
+Adjacent surfaces (talking-head Composition via `script_synthesis`, B-arc Script, ConversationMessage) remain **fully legacy-authoritative through Slice 2 and Slice 3**. Migrating them becomes a separately-scoped future slice (Q-278-4.x, still unopened) that gets its own shadow window per surface before any authority flip.
+
+### Slice 2 design status: MODIFY-SLICE-2-DESIGN
+
+The original Q-278-4 §9 blast-radius inventory listed three rewired call sites and one global flag. **That design does not survive this mechanical check.** Slice 2 must be revised BEFORE implementation to:
+
+1. Rewire ONLY `character_os/dialogue_synthesis.py:1798`.
+2. Leave `character_os/script_synthesis.py:526` and `character_os/conversation_synthesis.py:226` untouched.
+3. Rename the flag to explicitly encode its scope (e.g. `CHARACTER_OS_K64_DIALOGUE_AUTHORITY`).
+4. Keep the `Composition.verification_warnings_legacy` column addition (it lives on the shared Composition model; dialogue-scene rows populate it; talking-head/long-form rows leave it `[]` because their call site still uses legacy `run_verifier` directly).
+5. Retain defensive fallback (spaCy failure → dispatcher falls back to legacy AND logs ERROR) on the dialogue path only.
+6. Everything else in Q-278-4 §5-§9 (persistence semantics, warn/strict separation, acceptance signals, rollback design) applies as-is on the dialogue-only scope.
+
+Slice 3 correspondingly flips ONLY the dialogue-scene default authority. Talking-head Composition, Script, and ConversationMessage remain legacy-authoritative until a future scope-locked slice (Q-278-4.x, unopened) provides their own shadow windows.
+
+### Prediction vs actual
+
+Prediction (initial Q-278-4 §9 shape): "three call sites can safely be dispatched together because they use the same classifier core." **Falsified** — the classifier core is shared, but the **observability substrate is not**. Two of the three surfaces (Script, ConversationMessage) have no shadow column and no shadow-classifier invocation, and the third (talking-head Composition via `script_synthesis`) has a shadow column that has never been written. A global authority flip would silently violate the Q-278-4 §5 deferral.
+
+Prediction: no adjacent-surface migration in Slice 2. **Confirmed as intent, but the design as written would violate it.**
+
+Prediction: rollback is a one-flag flip. **Still true on the dialogue-only scope; untrue if the flag also silently controls Script + ConversationMessage.**
+
+Concrete surprise: even "Composition-only" isn't clean because talking-head + long-form Composition go through `script_synthesis.build_render_brief`, not through `dialogue_synthesis.synthesize_dialogue`. The safe boundary is **dialogue-scene template_kind**, not "Composition."
+
+### Explicit decision gate
+
+**STOP.** Slice 2 design must be **revised** before implementation. Chris + ChatGPT must explicitly:
+
+- **Approve the revision to Option A (dialogue-scene-only dispatch)** → open the revised Q-278-4.2.
+- **Approve Option B (surface-scoped authority abstraction)** if broader future capability is desired now.
+- **Reject the current Slice-2 design entirely** — pause the cutover plan.
+
+Do NOT implement any Slice-2 shape until an explicit revision is approved. Q-278-4.1 (the PROPN gate) remains landed and unaffected regardless of this decision.
+
+*Chris + ChatGPT decision:* **APPROVE REVISED OPTION A** — dialogue-scene-only dispatch. Open Q-278-4.2.
+
+---
+
+## Q-278-4.2 — Slice 2 implementation: dialogue-scene dispatcher + `verification_warnings_legacy`
+
+### Precise scope (approved)
+
+Implement the smallest slice that establishes the dialogue-scene dispatcher + dual-write substrate. Preserve all boundary constraints from the Q-278-4.2 pre-implementation boundary challenge:
+
+- Rewire ONLY `character_os/dialogue_synthesis.py`.
+- Leave `character_os/script_synthesis.py` and `character_os/conversation_synthesis.py` unchanged.
+- Talking-head / long-form Composition, B-arc Script, ConversationMessage all remain legacy-authoritative.
+- New env/settings flag `CHARACTER_OS_K64_DIALOGUE_AUTHORITY = "legacy" | "d_pos"` (default `"legacy"`).
+- Add `Composition.verification_warnings_legacy` (additive JSONField).
+- Populate dual-run persistence only for dialogue-scene compositions.
+- Defensive fallback: D-POS execution failure → legacy authority substituted + ERROR log.
+- Preserve warn/strict semantics; do NOT flip default authority.
+- No adjacent-surface migration; no Slice 3 work.
+
+### Implementation
+
+**Files added:**
+
+- `shell/character_os/claim_verifier_dispatch.py` — new dispatcher module. Public: `resolve_dialogue_authority()` (settings > env > `"legacy"`; whitespace-only reads as unset; invalid values fall back to default + WARNING); `run_dialogue_verifier(text, factual_corpus, allowed_vocabulary, mode)` returning a `DialogueVerifierResult` dataclass carrying `authoritative` / `legacy` / `d_pos` / `d_pos_ok` / `authority_requested` / `authority_used`. Runs BOTH classifiers per call. Legacy strict-mode raise re-fires ONLY when legacy is authoritative; suppressed with WARNING when authority=d_pos. Defensive fallback on D-POS failure: substitutes legacy + logs ERROR. Never crashes the caller.
+- `shell/apps/compositions/migrations/0020_session278_verification_warnings_legacy.py` — additive `AddField` for `verification_warnings_legacy` JSONField (default `list`, blank OK).
+- `shell/apps/compositions/tests/test_claim_verifier_dispatch.py` — 21 new tests locking the dispatcher contract + scope-lock guards + dual-write invariants (see §Tests below).
+
+**Files modified:**
+
+- `shell/apps/compositions/models.py` — added `Composition.verification_warnings_legacy = models.JSONField(default=list, blank=True)`. Same lifecycle as `verification_warnings` (not immutable). Docstring blocks on both `verification_warnings_shadow` and `verification_warnings_legacy` explain the Q-278-4.2 invariant and Option A scope-lock.
+- `shell/character_os/dialogue_synthesis.py` — replaced the per-turn direct `run_verifier(...)` call inside `synthesize_dialogue` with a call to the new dispatcher. Removed the now-obsolete `run_verifier` import from the module header. Added `DialogueTurn.verification_warnings_legacy` in-memory field. Retired the Q-278-3.2 `CHARACTER_OS_K64_NER_SHADOW_EXPERIMENT` gate from the dialogue path (the dispatcher's dual-run supersedes it).
+- `shell/apps/compositions/starters.py` — added `_dialogue_ai_flattened_legacy_warnings(result)` helper (mirrors the shape of the existing `_dialogue_ai_flattened_warnings` and `_dialogue_ai_flattened_shadow_warnings` helpers). Wired into `composition_kwargs` so `Composition.verification_warnings_legacy` is populated on every dialogue-scene AI-Topic render.
+- `shell/apps/compositions/management/commands/k64_shadow_diff.py` — extended to read all three columns. Diff now compares `verification_warnings_shadow` (D-POS) vs `verification_warnings_legacy` (legacy) so the report is stable under authority flips. Pre-Q-278-4.2 rows (empty `verification_warnings_legacy`) fall back to comparing `verification_warnings` (assumed legacy pre-cutover) vs `verification_warnings_shadow`. Per-row AUTHORITY tag is inferred from mirror equality: `legacy`, `d_pos`, `legacy(pre-Q-278-4.2)`, `clean`, or `unknown`. Column labels renamed OLD_ONLY → LEGACY_ONLY, SHADOW_ONLY → D_POS_ONLY for post-cutover clarity.
+
+**Files intentionally NOT touched (per Option A scope-lock):**
+
+- `character_os/script_synthesis.py`
+- `character_os/conversation_synthesis.py`
+- `apps/scripts/*`
+- `apps/conversations/*`
+
+Two dedicated regression tests (`test_script_synthesis_does_not_import_dispatcher` + `test_conversation_synthesis_does_not_import_dispatcher`) source-inspect these modules to guarantee the boundary invariant is not silently broken by a future edit.
+
+### Migration
+
+`0020_session278_verification_warnings_legacy.py`. Single `AddField` on `Composition`. Additive-nullable-or-empty per the observability discipline. Applied cleanly to the local Postgres. Historical rows populate `verification_warnings_legacy = []` and read as "written before dual-run existed" — see §Historical rows below.
+
+### Tests
+
+**New dispatcher tests** (`test_claim_verifier_dispatch.py`, 21 tests):
+
+- `resolve_dialogue_authority` (7 tests): default legacy; env flip to d_pos; settings-beats-env; whitespace-only unset; invalid values fall back to legacy.
+- `run_dialogue_verifier` basics (3 tests): both classifiers run under default legacy; env flip to d_pos routes D-POS output as authoritative; real unsupported entity (`Antoninus`) preserved under BOTH authorities (founding hallucination invariant).
+- Strict-mode preservation (2 tests): legacy strict-raise bubbles up under legacy authority; SUPPRESSED with WARNING under d_pos authority (legacy is not authoritative in that combination).
+- Defensive fallback (1 test): forced D-POS RuntimeError with authority=d_pos → dispatcher substitutes legacy AND logs ERROR (verified via caplog).
+- Q-278-1/4.1 continuity (6 tests): parametrized across `Fair`/`Come`/`Unless`/`Please`/`Always`; asserts default authority produces LEGACY-only warnings + empty D-POS; authority-flip end-to-end produces silent Q-278-1 class while `result.legacy` still captures the pre-cutover warning for shadow evidence.
+- Dialogue-scene scope-lock (2 tests): source-inspection guards on `script_synthesis.py` and `conversation_synthesis.py` — MUST NOT import the dispatcher; if either does, the test fails loudly to prevent silent adjacent-surface broadening.
+- Dual-write invariant on flattener (2 tests): under default authority, `_dialogue_ai_flattened_warnings` and `_dialogue_ai_flattened_legacy_warnings` produce structurally-equal output; under d_pos authority, authoritative flatten equals shadow flatten while legacy flatten diverges (locks the SHAPE of the Slice-3 acceptance signal).
+
+**Adjacent test migration** (`test_dialogue_synthesis.py`, 3 tests): the pre-existing `test_k64_uses_speaking_character_corpus_per_turn`, `test_warnings_retain_speaker_and_turn_context`, and `test_strict_verifier_failure_raises` all monkeypatched `character_os.dialogue_synthesis.run_verifier`. That symbol no longer exists — the dispatcher owns the legacy call now. Updated the three patch targets to `character_os.claim_verifier_dispatch.run_verifier` so the test intent (fake the legacy verifier from the dispatcher's perspective) survives.
+
+**Test results:**
+
+- New dispatcher tests: **21 passed** (test_claim_verifier_dispatch.py).
+- Q-278-4.1 D-POS regression suite: **38 passed** (test_claim_verifier_ner_shadow.py).
+- Adjacent 116-test gate: **116 passed** (test_dialogue_synthesis + test_claim_verifier + test_stoplist_watchdog + test_dialogue_ai_topic_wiring). Zero regressions after the three patch-target updates.
+- **Combined: 179 tests green.**
+
+### Fresh dogfood dual-write verification
+
+The full end-to-end persistence path (Composition column population under default legacy authority) is **not yet exercised** by a fresh render because that requires operator-driven synthesis + provider spend. The invariant is proven at two layers instead:
+
+1. **Dispatcher layer:** `test_dispatcher_runs_both_classifiers_default_legacy_authority` asserts `result.authoritative == result.legacy` under default authority on real spaCy invocation.
+2. **Flattener layer:** `test_flattener_dual_write_invariant_under_default_authority` asserts the two starters flatteners produce structurally-equal output when both per-turn columns carry the same legacy list.
+
+The transitive guarantee: for any real dialogue-scene render under default authority, `Composition.verification_warnings == Composition.verification_warnings_legacy` because both are derived from the same source list (dispatcher's `authoritative == legacy`) via identical flattening. Chris's post-implementation fresh dogfood will verify this on real persisted rows.
+
+**Historical rows (pre-Q-278-4.2, sanity-verified read-only):**
+
+```
+1aabbff6  auth_col_len=5  shadow_col_len=0  legacy_col_len=0
+fcba3242  auth_col_len=7  shadow_col_len=1  legacy_col_len=0
+1491d31c  auth_col_len=2  shadow_col_len=0  legacy_col_len=0
+5f4bdbbc  auth_col_len=2  shadow_col_len=0  legacy_col_len=0
+a1421a0e  auth_col_len=3  shadow_col_len=0  legacy_col_len=0
+26c62b4b  auth_col_len=3  shadow_col_len=0  legacy_col_len=0
+```
+
+All historical `verification_warnings_legacy` values are empty (field just added); no backfill performed. `k64_shadow_diff` reports these rows with `AUTH=legacy(pre-Q-278-4.2)` and uses the fallback comparison (`verification_warnings` vs `verification_warnings_shadow`) so historical evidence remains interpretable end-to-end.
+
+Live `k64_shadow_diff --days=30 --limit=5` on the local DB produces the expected shape:
+
+```
+LEGACY_ONLY total:   18  (ordinary-language false positives D-POS removed)
+D_POS_ONLY total :    0  (entities D-POS surfaces that legacy missed)
+BOTH total       :    1  (both classifiers agree)
+```
+
+Matches the Q-278-3.2 5/5 fresh-window totals bit-for-bit.
+
+### Prediction vs actual
+
+- Predicted (revised Q-278-4.2 boundary challenge): dialogue-only dispatch preserves adjacent-surface behavior byte-identically. **Confirmed** — adjacent surfaces call `run_verifier` unchanged; scope-lock guards enforce the boundary.
+- Predicted: default authority `legacy` produces byte-identical external behavior to today. **Confirmed at dispatcher + flattener layers** via tests; end-to-end confirmation is Chris's fresh-dogfood step.
+- Predicted: dispatcher tests + dual-write invariant tests prove Slice-3 acceptance signal (`verification_warnings == verification_warnings_legacy` under default). **Confirmed.**
+- Predicted: Q-278-3.2 shadow env flag becomes a no-op for dialogue path. **Confirmed** — the dispatcher always runs both classifiers; the flag is no longer consulted in `dialogue_synthesis.py`.
+- Predicted: three adjacent test failures from `test_dialogue_synthesis.py` due to removed `run_verifier` import. **Occurred as predicted**; fixed by re-pointing the three `mock_patch` targets to `character_os.claim_verifier_dispatch.run_verifier`; 116/116 adjacent tests then green.
+- Predicted: defensive fallback works. **Confirmed** via `test_dispatcher_falls_back_to_legacy_when_d_pos_fails` using a mocked `RuntimeError`.
+- Predicted: strict-mode raise re-fires under legacy authority, suppressed under d_pos. **Confirmed** via two dedicated tests.
+
+No discrepancies from the audit prediction.
+
+### Blast radius (actual)
+
+- Files added: 3 (dispatcher module, migration, test file).
+- Files modified: 4 (models, dialogue_synthesis, starters, k64_shadow_diff mgmt command).
+- Files NOT modified (Option A scope-lock guard): `script_synthesis.py`, `conversation_synthesis.py`, any file in `apps/scripts/` or `apps/conversations/`.
+- Migrations: 1 additive (`0020_session278_verification_warnings_legacy.py`).
+- Dependency changes: 0 (spaCy + model already installed in Q-278-3.2).
+- Externally-observable behavior under default `CHARACTER_OS_K64_DIALOGUE_AUTHORITY=legacy`: identical to Q-278-3.2 landed state on `verification_warnings` and `verification_warnings_shadow`; `verification_warnings_legacy` becomes populated on every new dialogue-scene render (== `verification_warnings` under default authority).
+- Externally-observable behavior on adjacent surfaces: **UNCHANGED.** No touch to talking-head / long-form / Script / ConversationMessage code paths.
+- Compatibility with `CHARACTER_OS_K64_NER_SHADOW_EXPERIMENT`: the env var is now a no-op for the dialogue path (dispatcher runs both classifiers unconditionally). It remains defined so operators / adjacent surfaces reading it directly are not broken; the effective behavior on the dialogue path is "always on".
+- SPA implications: none — SPA still reads `Composition.verification_warnings` (unchanged column).
+- Historical row impact: none. `verification_warnings_legacy` defaults empty; `k64_shadow_diff` recognizes the pre-Q-278-4.2 shape and uses the fallback comparison.
+- Rollback: `unset CHARACTER_OS_K64_DIALOGUE_AUTHORITY` (or set to `legacy` — already the default). Under the default, the dispatcher still runs both classifiers, but `verification_warnings` mirrors legacy. To completely revert: revert this commit; the migration can be safely left in place (`verification_warnings_legacy` column is additive-nullable-or-empty). To rollback the schema too: `python manage.py migrate compositions 0019`.
+
+### Unresolved questions
+
+- Whether extending the dispatcher pattern to Script + ConversationMessage in a future slice reuses this dispatcher module (surface-scoped authority flags) or gets its own per-surface dispatcher. Deferred to Q-278-4.x cutover-followup.
+- Whether the `CHARACTER_OS_K64_NER_SHADOW_EXPERIMENT` env var should be formally deleted once every surface either has a dispatcher or has explicitly opted out. Housekeeping; not blocking.
+
+### Explicit Slice-3 decision gate
+
+**STOP after Q-278-4.2.** Slice 3 (Q-278-4.3 — flip default `CHARACTER_OS_K64_DIALOGUE_AUTHORITY` from `legacy` to `d_pos`) is NOT authorized.
+
+Before Chris + ChatGPT approve Slice 3, the following evidence must be available:
+
+- Fresh dialogue-scene dogfood renders under default `legacy` authority that confirm `Composition.verification_warnings == Composition.verification_warnings_legacy` bit-for-bit on the persisted rows (Chris-side operator step; I inspect after).
+- Fresh dialogue-scene dogfood evidence collected via `k64_shadow_diff` continues showing zero D_POS_ONLY warnings that inspection classifies as true positives legacy caught.
+- Chris + ChatGPT explicit approval to flip the default.
+
+Post-Slice-3, adjacent-surface migration (Script + ConversationMessage) opens as a separately scope-locked slice (Q-278-4.x, unopened) with its own shadow windows per surface before ANY authority flip.
+
+### Recommendation
+
+Land Q-278-4.2 as-is. Continue normal warn-mode dogfood under default legacy authority. When Chris judges the dual-write substrate stable and wants to advance:
+
+- **GO-IMPLEMENT-SLICE-3** → open Q-278-4.3 (one-line default flip in the dispatcher).
+- **EXTEND-DUAL-WRITE-WINDOW** — accumulate more evidence first.
+- **MODIFY-DISPATCHER** — revise dispatcher shape based on dogfood findings.
+- **NO-GO** — freeze at Slice 2; keep dual-write as the terminal state.
+
+Q-278-4.1 and this slice are independent commits and independently revertable.
 
 ---

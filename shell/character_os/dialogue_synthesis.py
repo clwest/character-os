@@ -69,7 +69,6 @@ from character_os.claim_verifier import (
     ClaimVerifierError,
     build_allowed_vocabulary,
     build_factual_corpus,
-    run_verifier,
 )
 from character_os.duration_contract import AVATAR_SPEECH_SAFE_MAX_CHARS
 from character_os.writing_contract import (
@@ -269,13 +268,24 @@ class DialogueTurn:
     verification_warnings: list[dict] = field(default_factory=list)
     verification_status: str = ""
 
-    # SESSION 278 Q-278-3.2 — D-POS shadow-only warnings. Populated
-    # in-memory when ``CHARACTER_OS_K64_NER_SHADOW_EXPERIMENT`` is
-    # truthy; flattened onto ``Composition.verification_warnings_shadow``
-    # by :func:`apps.compositions.starters._dialogue_ai_flattened_shadow_warnings`.
-    # Never gates behavior; existing ``verification_warnings`` /
-    # ``verification_status`` remain authoritative.
+    # SESSION 278 Q-278-3.2 — D-POS classifier per-turn output.
+    # Populated on EVERY dialogue-scene turn from Q-278-4.2 onward
+    # (the ``CHARACTER_OS_K64_NER_SHADOW_EXPERIMENT`` gate is retired
+    # for the dialogue path once the dispatcher is in place). Flattened
+    # onto ``Composition.verification_warnings_shadow`` by
+    # :func:`apps.compositions.starters._dialogue_ai_flattened_shadow_warnings`.
+    #
+    # ``verification_warnings`` (above) mirrors this OR
+    # ``verification_warnings_legacy`` (below) per the dialogue
+    # authority flag; see :mod:`character_os.claim_verifier_dispatch`.
     verification_warnings_shadow: list[dict] = field(default_factory=list)
+
+    # SESSION 278 Q-278-4.2 — legacy K6.4 classifier per-turn output.
+    # Populated on every dialogue-scene turn regardless of which
+    # classifier is authoritative. Flattened onto
+    # ``Composition.verification_warnings_legacy`` by
+    # :func:`apps.compositions.starters._dialogue_ai_flattened_legacy_warnings`.
+    verification_warnings_legacy: list[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -1777,68 +1787,72 @@ def synthesize_dialogue(
     if resolved_verifier_mode == "off":
         overall_status = "skipped"
 
-    # SESSION 278 Q-278-3.2 — resolve the D-POS shadow-experiment
-    # flag ONCE per synthesis (not per turn) so all N turns share the
-    # same shadow behavior even if settings/env are mutated mid-loop.
-    # Import inside the function so cold-import of ``spacy`` is deferred
-    # to the first turn that actually needs it (guarded by the gate).
-    from character_os.claim_verifier_ner import (
-        ner_shadow_experiment_active,
-        run_shadow_verifier,
-    )
-    shadow_active = (
-        resolved_verifier_mode != "off" and ner_shadow_experiment_active()
-    )
+    # SESSION 278 Q-278-4.2 — dialogue-scene K6.4 dispatcher.
+    #
+    # Slice 2 replaces the direct ``run_verifier`` call with the
+    # dialogue-only dispatcher in :mod:`character_os.claim_verifier_dispatch`.
+    # The dispatcher runs BOTH the legacy verifier and the D-POS
+    # Hybrid shadow classifier per turn, always. Which output becomes
+    # authoritative on ``turn.verification_warnings`` is controlled by
+    # ``CHARACTER_OS_K64_DIALOGUE_AUTHORITY`` (default ``"legacy"``).
+    #
+    # Q-278-3.2's ``CHARACTER_OS_K64_NER_SHADOW_EXPERIMENT`` gate is
+    # retired for the dialogue path — the dispatcher's dual-run
+    # behavior obviates it. The env var remains defined for adjacent
+    # surfaces (Script, ConversationMessage) that still gate shadow
+    # invocation directly, but has no effect here.
+    #
+    # Dispatcher scope-lock is DIALOGUE-SCENE ONLY per the Q-278-4.2
+    # pre-implementation boundary challenge (Option A). Script,
+    # ConversationMessage, and talking-head / long-form Composition
+    # keep calling ``run_verifier`` directly and are unaffected.
+    from character_os.claim_verifier_dispatch import run_dialogue_verifier
 
     for turn in turns:
         if resolved_verifier_mode == "off":
             turn.verification_status = "skipped"
             continue
         try:
-            warnings = run_verifier(
+            dispatch_result = run_dialogue_verifier(
                 turn.text,
                 factual_corpus=corpus_by_alias[turn.speaker_alias],
                 allowed_vocabulary=vocab_by_alias[turn.speaker_alias],
                 mode=resolved_verifier_mode,
             )
         except ClaimVerifierError:
-            # Strict-mode failure — bubble up. Caller (recipe
-            # resolver in AI-D3) persists the raw JSON to
-            # rejected_synthesis; this module attaches it via
-            # exception chaining for context.
+            # Strict-mode failure on the authoritative classifier —
+            # bubble up. Caller (recipe resolver in AI-D3) persists
+            # the raw JSON to rejected_synthesis; this module attaches
+            # it via exception chaining for context. Semantics
+            # preserved verbatim from pre-Q-278-4.2 behavior.
             turn.verification_status = "rejected"
             overall_status = "rejected"
             raise
-        if warnings:
-            turn.verification_warnings = [w.to_dict() for w in warnings]
+
+        # Populate the per-turn shadow / legacy fields on EVERY turn
+        # (both classifiers ran, so both outputs are available).
+        turn.verification_warnings_shadow = [
+            w.to_dict() for w in dispatch_result.d_pos
+        ]
+        turn.verification_warnings_legacy = [
+            w.to_dict() for w in dispatch_result.legacy
+        ]
+
+        # Authoritative output drives verification_warnings +
+        # verification_status. Same shape as the pre-Q-278-4.2
+        # branch — dispatcher's ``authoritative`` is the list the
+        # caller should treat as authoritative given the resolved
+        # ``CHARACTER_OS_K64_DIALOGUE_AUTHORITY``.
+        if dispatch_result.authoritative:
+            turn.verification_warnings = [
+                w.to_dict() for w in dispatch_result.authoritative
+            ]
             turn.verification_status = "warned"
             if overall_status == "verified":
                 overall_status = "warned"
         else:
+            turn.verification_warnings = []
             turn.verification_status = "verified"
-
-        # SESSION 278 Q-278-3.2 — D-POS shadow classifier. Observational
-        # only: warnings land on the in-memory turn dataclass and are
-        # flattened by the AI-Topic starter onto
-        # ``Composition.verification_warnings_shadow``. Never raises,
-        # never changes ``verification_status``, never affects render.
-        if shadow_active:
-            try:
-                shadow_warnings = run_shadow_verifier(
-                    turn.text,
-                    factual_corpus=corpus_by_alias[turn.speaker_alias],
-                    allowed_vocabulary=vocab_by_alias[turn.speaker_alias],
-                )
-            except Exception:  # noqa: BLE001 — shadow must never crash primary
-                logger.exception(
-                    "dialogue_synthesis: K6.4 NER shadow verifier raised; "
-                    "shadow warnings for this turn will be empty."
-                )
-                shadow_warnings = []
-            if shadow_warnings:
-                turn.verification_warnings_shadow = [
-                    w.to_dict() for w in shadow_warnings
-                ]
 
     # ---- Aggregate metadata -------------------------------------
     total_chars = sum(len(t.text) for t in turns)
