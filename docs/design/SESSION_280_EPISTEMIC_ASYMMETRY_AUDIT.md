@@ -6049,6 +6049,258 @@ promotion UX. Do not run any expansion of the v1 surface.
   - v1 implementation slice: `25b3168`.
   - Implementation SHA trailer: `d7931b1`.
   - Q280.6 loop-trace audit slice: `b2f1789`.
+
+---
+
+## §73 Q280.7 — dialogue-only-detail bridge probe (DESIGN + PREDICTION LOCK)
+
+Approved from §72.12 Option A⁸.
+**Design + prediction lock committed BEFORE any execution.**
+This section is deliberately committed alone so git history
+proves the rubric + predictions were set pre-run and cannot be
+retro-fitted after seeing outputs.
+
+Accepts §72's classification (B — TOPIC-LEVEL STORY LOOP) as
+the baseline. Q280.7 asks whether operator-authored memory
+promotion provides a working bridge from realized dialogue
+back into future suggestion generation — i.e., whether a
+human-curated MIXED loop is available on the existing
+substrate.
+
+### 73.1 Question
+
+> Can a detail invented only inside a realized dialogue —
+> absent from the Episode topic, prior Episode titles, Universe
+> brief, K2 chunks, and existing NarrativeMemory — influence
+> later Episode-direction suggestions when the operator
+> explicitly promotes that detail as a NarrativeMemory?
+
+### 73.2 Candidate detail selection (audited, non-mascot)
+
+Chris explicitly excluded the "mascot clause" fact from
+772e9012 because the mascot thread pulls dogfood toward the
+deferred visual/composition limitation (Finding 4c). Instead,
+picked a small **interpersonal rule** from the dialogue that
+is talking-head-friendly and clearly non-visual.
+
+Enumerated candidates from 772e9012's 11-turn dialogue:
+
+| # | Turn | Candidate | In topic? | In prior titles? | In brief? | In K2? | In personality? | Suitable? |
+|---|---|---|---|---|---|---|---|---|
+| 1 | T2 Ruby | *"Neither person leaves until the other says they have what they need."* | NO | NO | NO | NO | NO | **✓ selected** |
+| 2 | T3 Tyson | *"Install a tiny bell that rings whenever somebody reaches for the door without thinking."* | NO | NO | NO | NO | NO | slight prop/visual dimension; passed over |
+| 3 | T4 Ruby | *"Every time I take bread seriously"* | NO | NO | NO | NO | **YES** — in Tyson's personality: *"occasionally teases Ruby about taking bread very seriously"* | disqualified — construct-invalid |
+| 4 | T2 Ruby | *"Final walk-through together, confirm the door"* | Adjacent to topic *"foolproof closing routine"* — arguably semantically implied | NO | NO | NO | NO | rejected — closing procedure adjacent to topic |
+| 5 | T3 Tyson | Tone shift: Tyson's dry humor about *"an evening staring through the glass"* | NO | NO | NO | NO | mostly in personality (*"a little dry"*) | disqualified — voice trait |
+
+**Selected candidate detail:**
+
+> ***"Ruby and Tyson agreed that when they are closing the
+> bakery together, neither one leaves until the other says
+> they have what they need."***
+
+Construct-validity proof (all four sources checked verbatim
+in §73.2 pre-run inventory; §73.7 evidence artifact captures
+substring probes):
+
+- **Not in Episode #11 `operator_topic`** — topic reads
+  *"After getting locked out, Ruby proposes a foolproof
+  closing routine, only for the new bakery mascot idea to
+  complicate it."* The topic mentions "closing routine" but
+  not the specific mutual-departure clause.
+- **Not in any prior Episode title/topic** — verified by
+  reading all 11 topics (§72.3, §73.2 dump).
+- **Not in `Universe.brief`** — brief is about the bakery
+  (small-batch, sourdough, neighborhood). Zero reference to
+  employee protocols.
+- **Not in any retrieved K2 chunk** — the 5 chunks used by
+  772e9012 are hours + holiday + pastry-pairing content
+  (verified §72.3).
+- **Not in cast personality/POV/business_brief fields** —
+  Ruby's is warm/cheerful/loves-bread; Tyson's is
+  easygoing/practical/dry. No mutual-departure agreement in
+  either.
+- **Not in the existing memory pool** — F&F has 0 REMEMBERED
+  memories (verified §72.3).
+- **Only source: the realized dialogue of 772e9012, T2 Ruby.**
+
+Talking-head-friendliness: the mutual-departure clause is a
+verbal agreement between two people. It seeds future
+conversational Episodes (exceptions, accountability tests,
+apology when the rule is broken, etc.) without requiring
+visual staging.
+
+### 73.3 Experimental design
+
+Two phases sharing the SAME everything except memory-pool
+state, in this order:
+
+**Q280.7-b (no-promotion control) — runs FIRST:**
+- Refresh suggestions n=3 times against Fox & Flour with
+  memory pool unchanged (still 0 REMEMBERED memories).
+- Each refresh bypasses cache (`refresh=true`).
+- Persist raw suggestions + full task message for each call.
+- Purpose: establish baseline at n>1 that the mutual-departure
+  rule does NOT surface without promotion, and that the
+  baseline suggestion distribution is stable (matches §72
+  observations).
+
+**Promotion step — between the two phases:**
+- Call `apps.memory.views.promote_from_composition` (the exact
+  service backing the SPA `NarrativeMemoryPromotePanel`) with:
+  - `composition = 772e9012-4d26-4f93-a50c-158b4e8a42f1`
+  - `episode = eb47350e-b1cf-4347-aa4f-5bf514d66d2e`
+  - `memory_items = [{
+      "kind": "event",
+      "body": "Ruby and Tyson agreed that when they are
+        closing the bakery together, neither one leaves until
+        the other says they have what they need.",
+      "weight": "peripheral",
+      "witnessed_by": [Ruby.id, Tyson.id],
+    }]`
+  - `promoted_by = chris@donkeybetz.com` (the operator user)
+- New memory row will get:
+  - `episode = eb47350e`
+  - `source_composition = 772e9012`
+  - `workspace + universe` denormalized from episode
+  - `status = REMEMBERED`
+  - `embedding_vector` populated inline post-atomic
+- Reversibility: the memory row can be operator-archived via
+  the existing `NarrativeMemoryViewSet` DELETE if the
+  experiment is judged undesirable to leave in place. Row ID
+  recorded in §73.7 evidence artifact after promotion.
+
+**Q280.7-a (memory-promotion path) — runs SECOND:**
+- Refresh suggestions n=3 times against Fox & Flour with the
+  new memory in the pool.
+- Each refresh bypasses cache.
+- Persist raw suggestions + full task message for each call.
+- Purpose: observe whether the promoted memory's mutual-
+  departure content surfaces in subsequent suggestions.
+
+**Environment kept identical between phases:**
+- Same suggestion service code path.
+- Same LLM model (gpt-5.6-terra).
+- Same Universe / cast / Episode list / cache backend.
+- Same n=3 refresh count.
+- Same Q280.6-timeframe (baseline SHA `48b5ac0` before this
+  experiment).
+
+Total cost estimate: ~$0.05-$0.10 (6 LLM calls at Q280.5-1
+measured rate).
+
+### 73.4 Scoring rubric (LOCKED — applied unchanged after seeing outputs)
+
+Per suggestion, two independent Y/N axes:
+
+- **REFERENCES-RULE = Y** iff the suggestion textually or
+  semantically references the mutual-departure rule OR one
+  of its narrative consequences. Concrete examples that
+  score Y:
+  - Mentions "neither leaves", "leaves first", "leaves alone",
+    "wait for" in a context of who exits/departs.
+  - Mentions mutual sign-off / accountability at close
+    ("signs off", "gives the all-clear", "OKs the other one",
+    "waits for their check-in").
+  - Mentions one character breaking or bending the rule
+    ("Tyson slips out first", "Ruby forgets the check-in",
+    "one of them leaves the other behind").
+  - Uses the specific phrase "have what they need" or a close
+    paraphrase in a mutual-departure context.
+- **REFERENCES-RULE = N** iff the suggestion is about the
+  closing routine generally, or the mascot, or a different
+  thread — WITHOUT the specific mutual-departure clause.
+  Concrete examples that score N:
+  - "Ruby refines the closing routine" (topic-level; no
+    mutual-departure detail).
+  - "Ruby and Tyson debate what the mascot should be called"
+    (topic-adjacent; no mutual-departure detail).
+  - "The closing routine fails when the freezer alarm goes
+    off" (procedural; no mutual-departure detail).
+- **CONSTRUCT-VALID = Y** iff REFERENCES-RULE = Y and the
+  reference is clearly tied to the promoted memory content
+  (mutual-departure specifically), not derivable from
+  Episode #11's `operator_topic` alone (which contains
+  "closing routine" but not the mutual clause).
+
+Set-level acceptance thresholds (all locked pre-run):
+
+- **BRIDGE CONFIRMED (MIXED loop supported)** — post-promotion
+  suggestions produce ≥ 2/9 REFERENCES-RULE with
+  CONSTRUCT-VALID, AND control produces 0-1/9 REFERENCES-RULE.
+- **BRIDGE DISCONFIRMED (still TOPIC-LEVEL only)** — post-
+  promotion suggestions produce ≤ 1/9 REFERENCES-RULE.
+- **AMBIGUOUS** — mixed outcome; report distribution and
+  defer classification.
+
+### 73.5 Predictions (LOCKED — never revised post-hoc)
+
+Author's honest priors before execution:
+
+| Prediction | Statement |
+|---|---|
+| **P1⁵** | Q280.7-b (no memory) produces 0/9 REFERENCES-RULE. Rationale: the mutual-departure rule is not in any substrate the suggestion service reads today (§72.5 Boundary 1). The LLM has no channel to it. |
+| **P2⁵** | Q280.7-a (with memory) produces ≥ 2/9 REFERENCES-RULE with CONSTRUCT-VALID. Rationale: memory body IS in the substrate the service reads (proven Q280.5-1 §49-§52; PATCH OVERRIDES appeared in 3/3 sets when in memory pool). The mutual-departure rule is a compact, narratively suggestive fact — expected to surface at rate similar to PATCH OVERRIDES. |
+| **P3⁵** | Q280.7-a produces AT LEAST ONE suggestion that materially changes narrative possibilities (not merely lexical overlap — i.e., proposes a scene premise the topic alone would not license, such as "Tyson breaks the rule" or "the rule is tested by a shared crisis"). |
+| **P4⁵** | Q280.7-b BASE RATE for the "closing routine" (topic-level) thread will produce ≥ 1/9 topic-adjacent suggestions per set, but 0 of those will contain the specific mutual-departure clause. This distinguishes topic-adjacency (expected) from rule-specific reference (the actual test). |
+
+**BRIDGE-CONFIRMED disposition fires iff P1⁵ + P2⁵ + P3⁵ all
+confirmed.**
+**BRIDGE-DISCONFIRMED disposition fires iff P2⁵ disconfirmed
+(≤ 1/9 rule references with construct validity).**
+
+### 73.6 What Q280.7 does NOT do
+
+- Does NOT modify the suggestion service code, prompts, or
+  retrieval predicate.
+- Does NOT modify the K6.4 / D-POS verifier.
+- Does NOT modify any character, K2, or existing memory.
+- Does NOT change any Episode.
+- Does NOT auto-ingest `synthesized_brief` anywhere.
+- Does NOT create a StoryArc / NarrativeThread / OpenThread
+  model.
+- Does NOT test whether the promoted memory affects future
+  Compositions (only suggestions).
+- Does NOT test multi-episode continuity of the promoted
+  memory (only immediate refresh cycle).
+
+The **one substrate change** is the operator-authored memory
+promotion, which is (a) the exact operator-facing path we're
+testing and (b) reversible via the existing
+`NarrativeMemoryViewSet` DELETE.
+
+### 73.7 Chris's product guardrail — preserved
+
+Recorded verbatim from Chris's authorization message:
+
+> Do NOT assume automatic ingestion of realized dialogue is
+> desirable even if technically possible. Human selection of
+> "this mattered; remember it" may itself be a valuable part
+> of Character OS.
+
+If Q280.7-a confirms the bridge, the finding is:
+**operator-curated MIXED loop available today, no substrate
+change required.** Whether to build automatic ingestion on
+top of that is a SEPARATE product question that this
+experiment does not resolve.
+
+### 73.8 Evidence artifacts (populated post-run)
+
+- `docs/design/session280_experiment_data/q280_7_b_no_promotion_evidence.json`
+  — pre-promotion refresh runs.
+- `docs/design/session280_experiment_data/q280_7_a_with_promotion_evidence.json`
+  — post-promotion refresh runs.
+- Promoted memory row ID recorded in the post-promotion
+  artifact + in the §74 execution slice.
+
+### 73.9 Design-lock closeout
+
+- **Status:** Q280.7 design + predictions + scoring rubric
+  LOCKED. Committed BEFORE execution.
+- **Baseline SHA before execution:** `48b5ac0`.
+- **Next commit** appends §74 with execution evidence,
+  interpretation, and decision gate. No design/prediction
+  revision after seeing outputs.
 - **Key finding:** the suggestion → Episode → synthesis →
   completion → refreshed-suggestion loop transports **only the
   operator-authored (or pre-filled-from-suggestion) Episode
