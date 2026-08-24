@@ -2828,3 +2828,853 @@ the present tense as an ongoing directive.
 - **Do NOT proceed to Q280.4i-3, Q280.4i-5, an ablated
   comparison, Semantic-2 design, or any implementation work
   without a fresh Chris + ChatGPT authorization.**
+
+---
+
+## §37 New product hypothesis — Episode-chain suggestion bubbles
+
+**AUDIT / ORIENT only. No implementation. No experiment run in
+this slice.**
+
+Chris + ChatGPT have proposed a product hypothesis that may
+connect the storytelling observations SESSION 280 Finding 4i
+has surfaced. This section preserves the hypothesis verbatim,
+audits the substrate that could support it, distinguishes proven
+from inferred, and proposes the smallest falsifiable next
+experiment.
+
+**All existing SESSION 280 Finding 4i evidence, conclusions,
+experiment results, interpretation, and provenance are
+preserved.** This is a new product-discovery slice arising from
+4i and the broader dogfood observations — not a revision of
+prior sections.
+
+### 37.1 Hypothesis, preserved verbatim
+
+From Chris's SESSION 280 conversation message:
+
+> After an episode is created, Character OS could surface a
+> small number (originally imagined as ~3 bubbles) of possible
+> future episode directions derived from what has happened in
+> the Universe.
+>
+> Example:
+>
+> Episode: *"Tyson suspects Fox & Flour may be haunted."*
+>
+> Possible future directions might eventually include:
+> - *"Ruby thinks she saw a cake move."*
+> - *"Tyson starts investigating strange noises."*
+> - *"A customer asks about something neither of them remembers making."*
+>
+> The important product distinction is:
+>
+> **THE SYSTEM IS NOT AUTOMATICALLY CHOOSING OR ADVANCING AN
+> ARC.** It is noticing narrative possibilities created by
+> prior episodes, memories, character knowledge, unresolved
+> events, etc., and offering those possibilities back to the
+> operator.
+>
+> The operator remains the director.
+>
+> This also does NOT imply that every next episode should
+> continue the thread. Several unrelated episodes may occur
+> before an unresolved possibility becomes relevant again.
+
+Distilled to three product invariants:
+
+- **INVARIANT-A.** Suggestions are POSSIBILITIES, not
+  obligations or a predetermined sequence.
+- **INVARIANT-B.** The operator remains the director. The
+  system never advances an arc automatically.
+- **INVARIANT-C.** Suggestions can remain latent across several
+  unrelated Episodes and later resurface naturally.
+
+### 37.2 Chris's framing — "story direction without story automation"
+
+The proposed value hypothesis:
+
+> This may provide: STORY DIRECTION WITHOUT STORY AUTOMATION.
+>
+> It may also explain why some of the behavior we have been
+> observing feels like the storyteller is "telling us what is
+> missing." We have seen models make callbacks, preserve or
+> infer hidden information, and connect seemingly separate
+> events even though Character OS does not currently have a
+> formal story-arc object.
+
+This is the connective claim that §40 examines against SESSION
+280 evidence.
+
+---
+
+## §38 Substrate audit — what exists today
+
+Read-only inspection of `character-os` HEAD at `ce16627`. All
+citations grep-established.
+
+### 38.1 Episode model (SHIPPED; SESSION 262)
+
+`shell/apps/universe/models.py:283-439`. Nine fields:
+
+- `id` (UUID), `universe` (FK NOT NULL, CASCADE),
+  `workspace` (FK denorm), `title` (short), `operator_topic`
+  (prose), `cast` (M2M → Teammate via EpisodeCast),
+  `archived_at` (nullable soft-delete), `created_by` (FK
+  User SET_NULL), `created_at`, `updated_at`.
+- **No `status` enum.** By design (EPISODE_SCHEMA_V1.md:178).
+- **No `sequence` / `order_index`.** Episodes are
+  `created_at`-ordered within Universe; explicit sequencing
+  deferred (EPISODE_SCHEMA_V1.md:182-183).
+- **No parent/child edge between Episodes.** No
+  precedes/succeeds relation. No callback edges.
+- **No "unresolved" or "open" flag.**
+
+Reverse relations: `Universe.episodes`,
+`Episode.compositions` (Composition.episode is FK RESTRICT
+nullable — Composition may or may not attach to an Episode),
+`Episode.narrative_memories`.
+
+### 38.2 NarrativeMemory kinds — the key finding for this
+audit
+
+`shell/apps/memory/models.py:52-64`. The kind enum ALREADY
+includes two first-class "unresolved narrative possibility"
+slots:
+
+```python
+class NarrativeMemoryKind(models.TextChoices):
+    EVENT             = "event", "Event"
+    ACTION            = "action", "Action"
+    PROMISE           = "promise", "Promise"
+      # a character/world committed to a future outcome
+    DIALOGUE_CALLBACK = "dialogue_callback", "Dialogue Callback"
+      # notable line, not necessarily an event
+    WORLD_DETAIL      = "world_detail", "World Detail"
+```
+
+The `PROMISE` docstring, verbatim: *"a character/world
+committed to a future outcome."*
+The `DIALOGUE_CALLBACK` docstring, verbatim: *"notable line,
+not necessarily an event."*
+
+**These two kinds ARE the substrate for "unresolved narrative
+possibilities."** A `PROMISE` memory encodes a commitment that
+has not been fulfilled. A `DIALOGUE_CALLBACK` memory encodes a
+notable line that could be echoed later. Both are
+narrative-possibility rows by construction.
+
+Load-bearing lifecycle: `NarrativeMemoryStatus` at lines
+74-90 supplies REMEMBERED / SUPERSEDED / ARCHIVED. A
+`PROMISE` memory whose commitment is fulfilled in a later
+Episode is a legitimate candidate for operator-initiated
+SUPERSEDED or ARCHIVED transition — the substrate already
+supports "this thread is done."
+
+There is NO explicit "resolved" boolean and NO auto-resolution
+detection. Resolution is operator-driven via existing service
+methods (`supersede()`, `archive()`, `unarchive()`).
+
+### 38.3 Composition.memory_ids linkage
+
+`shell/apps/compositions/models.py:429-442`. Every Composition
+carries a flat `memory_ids: list[str]` JSONField recording
+which NarrativeMemory rows fed the render. This means:
+
+- Per-memory reference-count is derivable: for any memory
+  `m`, `Composition.objects.filter(memory_ids__contains=[m.id])`
+  gives every Composition that surfaced it.
+- "Never-referenced" memories = candidates for callback
+  suggestions (nothing has picked them up yet).
+- "Referenced N times" memories = threads the LLM already
+  latched onto (may or may not need to be resurfaced).
+
+**This is a first-class provenance field a suggestion engine
+could read to distinguish latent from active threads without
+any new schema.**
+
+### 38.4 retrieve_universe_memory — raw-material engine
+
+`shell/apps/embeddings/retrieval.py:462-566` (already traced
+end-to-end at §4.2). Cast-scoped semantic retrieval on
+REMEMBERED, non-archived, embedded memory rows.
+
+For suggestion-generation, a caller could either:
+
+- Reuse the existing function with a synthesis-shaped query
+  (e.g., "candidate next-Episode directions for this Universe")
+  — treats suggestions as SEMANTIC neighbors of a probe topic.
+- Bypass the semantic filter entirely and select memories by
+  `kind` (`PROMISE` / `DIALOGUE_CALLBACK`), `status`
+  (`REMEMBERED`), and provenance (`unreferenced in recent
+  Compositions`) — treats suggestions as STRUCTURAL candidates.
+
+Both approaches are read-only over existing data. Neither
+requires substrate change.
+
+### 38.5 dialogue_scene_ai_topic — Composition-level, NOT
+Episode-level
+
+`shell/character_os/dialogue_synthesis.py:1431-1478`. This is
+a synthesis MODE, not a suggestion generator. It accepts a
+`topic` (operator-supplied) and produces one Composition's
+dialogue turns. It does NOT surface possible next Episodes.
+Named for reference — do NOT confuse with the proposed
+suggestion feature.
+
+### 38.6 What DOESN'T exist (grep evidence)
+
+Delegated subagent Explore run (this session) confirmed the
+following keywords return **zero code hits** across the entire
+repo:
+
+- `nextEpisode`, `episodeSuggestion`, `possibleDirection`,
+  `bubble`, `suggestedTopic`, `topicSuggestion`,
+  `recommendEpisode`, `narrativeThread`, `openThread`,
+  `storyArc`, `NextUp`, `PossibleNext`.
+
+Design-doc verdict from `docs/design/EPISODE_SCHEMA_V1.md:935-936`
+(quoted verbatim):
+
+> "No smart Episode-suggestion ('You've made 3 similar
+> Compositions; want to group them?')."
+
+Explicitly deferred at v1. No new Celery task or Beat
+schedule generates episode-adjacent content
+(`shell/apps/*/tasks.py` grep). No SPA route or component
+renders episode suggestions.
+
+### 38.7 What operator-visible history exists today
+
+Per the code Explore:
+
+- `web/src/routes/workspace/episodes.$id.tsx` — Episode detail
+  page renders: `useCompositionsForEpisode`,
+  `NarrativeMemoryList`, `MemoriesUsedSummary`,
+  `NarrativeMemoryPromotePanel`. Flat lists + edit affordances.
+- `web/src/routes/workspace/universes.$id.episodes.tsx` —
+  Episode LIST page for a Universe (create form + list).
+- **No timeline / arc / thread summary view.** No "story so
+  far" panel. No "possible next" widget. The operator sees
+  N Episodes as flat rows sorted by `-created_at`.
+
+---
+
+## §39 Historical / preserved concepts — this is NOT a fresh idea
+
+Delegated subagent Explore run (this session) surfaced THREE
+places where the ~3-bubbles concept — or an adjacent shape of
+it — is already preserved in the design ledger.
+
+### 39.1 PRODUCT_IA_V1 §6.1 step 6 — "Next-step nudge" (RATIFIED)
+
+`docs/design/PRODUCT_IA_V1_2026-08-06.md:335`, verbatim:
+
+> "6. **Next-step nudge.** Below the featured piece, the
+> teammate's next suggestion appears (variant, follow-up,
+> series). Ask-triggered reveals may fire here."
+
+Status: locked / ratified in the v1 IA doc. Not yet
+implemented. Framed as a Home-page affordance following a
+published piece.
+
+**Relationship to Chris's ~3-bubbles concept:** the "Next-step
+nudge" is an operator-facing suggestion surface. Chris's
+proposal extends the same principle to the Episode-creation
+moment (i.e., after an Episode completes, not just after a
+piece publishes). Same shape, different surface. The
+philosophical alignment is direct.
+
+### 39.2 SESSION 269 §17.9 — "Candidate next Episodes (not
+instructions)"
+
+`docs/design/SESSION_269_PATCH_WORKSHOP_DOGFOOD.md:2715-2718`.
+Verbatim:
+
+> **§17.9 Candidate next Episodes (not instructions)**
+>
+> - **Continue Patch-solo:** *"Patch reports what the
+>   workshop agent actually chose to work on."* — natural
+>   continuation from `d3107ed2`; the agent's choice is the
+>   outcome the scene explicitly deferred.
+> - **Open Patch+Rivet dialogue with mirror witness in
+>   pool:** *"Patch and Rivet discuss whether it was smart
+>   to let the workshop agent choose."* — first dialogue
+>   Episode with `c614ca86` in the pool.
+
+**This is Chris + ChatGPT ALREADY DOING BY HAND what the ~3-
+bubbles concept would automate.** The design team routinely
+inventories candidate next Episodes derived from prior renders,
+memory pool state, and narrative-arc reasoning. The pattern
+is preserved manually in session docs, not surfaced in the SPA.
+
+The "(not instructions)" parenthetical exactly mirrors
+INVARIANT-A: possibilities, not obligations.
+
+### 39.3 SESSION 269 §18.6 D-10 — "Audience participation loop"
+(DEFERRED)
+
+`docs/design/SESSION_269_PATCH_WORKSHOP_DOGFOOD.md:2852-2872`.
+Verbatim (partial):
+
+> **Audience participation loop:** character-facing viewer
+> submissions could become operator-approved story inputs,
+> allowing audience theories/questions/suggestions to
+> influence future Episodes without granting viewers direct
+> authority over canon or NarrativeMemory.
+>
+> **Status: FUTURE / DEFERRED — DO NOT IMPLEMENT.**
+
+Relationship to Chris's ~3-bubbles concept: D-10 is the
+**audience-facing** version. The ~3-bubbles concept is the
+**operator-facing** version. Both share the invariant
+"suggestions → operator approves → future Episode direction."
+D-10 remains DEFERRED and out of scope for this audit — a v1
+Episode-suggestion feature would sit ENTIRELY inside the
+operator UI, no viewer surface.
+
+### 39.4 Verdict — preserved-but-unimplemented, not fresh
+
+Chris + ChatGPT's ~3-bubbles concept is a **crystallization of
+three already-preserved design patterns**:
+
+- Product-IA "Next-step nudge" (post-publish affordance).
+- SESSION 269 "Candidate next Episodes" (design-team manual
+  practice).
+- SESSION 269 D-10 audience loop (audience-facing counterpart).
+
+The v1 substrate has the RAW MATERIAL
+(`NarrativeMemoryKind.PROMISE` + `DIALOGUE_CALLBACK` +
+`Composition.memory_ids` provenance + `retrieve_universe_memory`)
+to prototype a first version without new schema.
+
+---
+
+## §40 SESSION 280 evidence supporting the hypothesis
+
+### 40.1 What we have observed empirically in this session
+
+- **Q-278-3.2 Specimen 4 (§3.3):** the LLM correctly
+  synthesized a scene in which Rivet knew a private surface
+  and Patch approached it obliquely, with the memory row
+  containing an explicit narrative directive.
+- **Q280.4i-1 (§16-§17):** removing that narrative directive
+  measurably shifted generation behavior. Patch's
+  surface-mention rate: 0/18 → 1/16. Rivet's spontaneous
+  verbatim disclosure: 1/3 → 2/3. **Memory body language is
+  a lever the LLM responds to.**
+- **Q280.4i-4 (§32-§35):** with the FULL memory body + a
+  direct-question opener, the LLM converged with striking
+  consistency (6/6 A_IMMEDIATE_ADMISSION) on a coherent
+  "secret comes out via direct question" beat. **Semantic
+  reconciliation of past memory + present opener happens
+  reliably.**
+- **§28.4 four-path enumeration:** all four paths (immediate
+  admission / continued concealment / false surprise /
+  inconsistent) are within the substrate's degrees of freedom
+  but the LLM's prior distribution collapsed to one.
+- **§28.6 multi-episode continuity:** structurally
+  unsupported by the current substrate — each scene is
+  memoryless except for retrieved memory rows.
+
+### 40.2 Provisional interpretation aligning with the
+hypothesis
+
+The observations Chris + ChatGPT reference as *"the storyteller
+telling us what is missing"* — callbacks, hidden-information
+preservation, connections between seemingly separate events —
+map onto:
+
+- **Callbacks** = `NarrativeMemoryKind.DIALOGUE_CALLBACK`
+  memories being retrieved and woven into new scenes.
+- **Hidden-information preservation** = memory-body narrative
+  directives (like "*Rivet chose not to tell him*") getting
+  honored by the LLM within a single scene (Q-278-3.2
+  Specimen 4) — an emergent behavior, not a substrate
+  guarantee (§24).
+- **Connections between separate events** = the LLM stitching
+  retrieved memory rows into the current scene's synthesis
+  via the shared prompt block (§4.4). The LLM is doing this
+  ONE SCENE AT A TIME; it looks like arc-awareness but is
+  actually per-scene retrieval + synthesis.
+
+**The system is not currently doing arc-tracking; the LLM is
+doing scene-level narrative reasoning over retrieved possibility
+material.** The ~3-bubbles concept would make that reasoning
+OPERATOR-VISIBLE and OPERATOR-STEERABLE at the Episode-boundary
+gap.
+
+### 40.3 Proven vs inferred (as of this audit)
+
+**PROVEN by code trace + this session's experiments:**
+
+- Substrate has `NarrativeMemoryKind.PROMISE` and
+  `DIALOGUE_CALLBACK` as first-class slots for unresolved
+  narrative possibilities (§38.2).
+- `Composition.memory_ids` provides per-render provenance,
+  from which "unreferenced" and "referenced N times" states
+  are derivable (§38.3).
+- LLM natural distribution can reliably produce a specific
+  narrative beat when memory body + opener geometry align
+  (Q280.4i-4 6/6, §32).
+- Multi-episode continuity is structurally unsupported —
+  suggestions surfacing this would fill a real gap (§28.6).
+
+**INFERRED (not yet tested):**
+
+- Whether operators actually author `PROMISE` / `DIALOGUE_CALLBACK`
+  kinds today at rates that would produce useful suggestion
+  material. The kind field defaults to `EVENT`; operators
+  may or may not distinguish.
+- Whether an LLM-generated "possible next Episode" from a mix
+  of memory rows + Universe context reads as narratively
+  plausible to the operator.
+- Whether the same memory row would produce the "right"
+  suggestion in each of several unrelated intervening
+  Episodes (INVARIANT-C latent-across-episodes claim).
+- Whether operators would use such suggestions or ignore them
+  the same way they might ignore auto-generated code
+  completions.
+
+---
+
+## §41 What the system knows at suggestion-generation time
+
+At the moment an Episode completes and the SPA could surface
+possible-next-Episode suggestions, the system has direct read
+access (no substrate change required) to:
+
+| Source | Available fields |
+|---|---|
+| Just-completed Episode | `title`, `operator_topic`, `cast`, `created_at`, all `narrative_memories` promoted from its Compositions |
+| Universe | `brief`, all Episodes (list), all NarrativeMemories across Episodes, all KnowledgeDocuments (Universe-audience + Character-audience) |
+| Cast members | `personality`, `business_brief`, `tone_archetype`, `voice_*`, `character_point_of_view`, K2 chunks per character |
+| Memory pool | Every REMEMBERED memory by `kind`, `weight`, `witnessed_by`, `body`, embedding, `created_at`, list of Compositions that have referenced it via `memory_ids` |
+| Composition history | Every Composition in the Universe with `episode`, `memory_ids`, `knowledge_chunk_ids`, `synthesized_brief`, timestamps |
+
+Missing:
+
+- No "resolved" flag on memories — must be inferred from
+  operator archive/supersede action.
+- No sequence between Episodes — inferable only from
+  `created_at`.
+- No cross-scene state ledger — each Composition is a snapshot.
+- No arc / thread object.
+
+**The system does have enough raw material to prototype v1
+suggestions today without any new fields or migrations.**
+
+---
+
+## §42 Persistence-model evaluation (A / B / C / D)
+
+Critical assessment — no default to a StoryArc model.
+
+### 42.1 Model A — Ephemeral, generated from current context
+
+Each suggestion is computed fresh from the current state of the
+Universe (memory pool + Episode/Composition history + Universe
+brief). Nothing about the suggestions themselves is persisted.
+If the operator ignores a suggestion, the next Episode's
+suggestion generation may or may not surface it again based on
+retrieval + generation semantics.
+
+- **Pros.** Zero new schema. Zero migration. Zero substrate
+  risk. Fully regenerable. Cheap to iterate on the generation
+  logic without data cleanup. Matches the "possibilities not
+  obligations" invariant naturally.
+- **Cons.** Same suggestions may regenerate every time
+  (annoying to operator who has already ignored one). No
+  explicit "dismissed" state. No cross-episode consistency of
+  what the operator has seen before.
+- **Cost estimate for v1 UI:** small — 1 SPA panel + 1 API
+  endpoint + 1 LLM call per invocation.
+
+### 42.2 Model B — Persisted StoryArc / open-thread model
+
+Introduce a new `StoryArc` or `NarrativeThread` model with
+explicit lifecycle (open / dormant / resolved), FK to Universe,
+maybe M2M to Episodes it touches.
+
+- **Pros.** Explicit resolution semantics. Multi-episode
+  continuity substrate. Operator-visible arc state.
+- **Cons.** New model = schema + migration + tests + admin +
+  API + SPA. Substrate risk (SESSION 262's Episode addition
+  took a full audit slice + implementation slice + observability
+  slice). PREMATURE per operator's own §4 principle *"don't
+  assume persistence or a new StoryArc model is necessary."*
+- **Verdict.** Should not be v1. Consider only if Model A/D
+  demonstrate a use case Model B uniquely serves.
+
+### 42.3 Model C — Hybrid ephemeral + lightweight flag
+
+Suggestions are computed ephemerally, but a lightweight
+"dismissed" or "resolved" JSON field on NarrativeMemory (or
+Universe) records operator action so ignored suggestions
+don't reappear.
+
+- **Pros.** Small delta. Fixes the annoying-regeneration cons
+  of Model A. Reuses existing NarrativeMemory rows.
+- **Cons.** Still requires a schema/migration slice. Adds an
+  operator-facing lifecycle that may or may not match how
+  operators think about suggestions. Bikeshed risk on flag
+  vocabulary.
+- **Verdict.** Reasonable v1.5. Not v1.
+
+### 42.4 Model D — Reuse existing PROMISE / DIALOGUE_CALLBACK
+substrate; ephemeral suggestion surface over it
+
+Take the ~3-bubbles feature as a NEW READ SURFACE over EXISTING
+NarrativeMemory rows. Suggestions are LLM-generated views over
+memories filtered by `kind ∈ {PROMISE, DIALOGUE_CALLBACK}` +
+`status=REMEMBERED` + `not-recently-referenced-in-memory_ids`.
+Operator "resolves" a suggestion by archiving the underlying
+memory (via existing lifecycle affordance).
+
+- **Pros.**
+  - Zero new schema. Zero migration.
+  - Reuses `NarrativeMemoryKind` vocabulary that was
+    intentionally authored to include these slots.
+  - Reuses `NarrativeMemoryStatus` lifecycle (REMEMBERED /
+    SUPERSEDED / ARCHIVED) — operators already have gestures
+    to resolve or supersede memories.
+  - "Latent across episodes" (INVARIANT-C) is automatic —
+    unarchived PROMISE / DIALOGUE_CALLBACK memories persist
+    across all Episodes in the Universe until the operator
+    resolves them.
+  - Compatible with Chris's *"do not assume persistence or
+    new StoryArc model necessary"* constraint.
+- **Cons.**
+  - `PROMISE` and `DIALOGUE_CALLBACK` kinds are
+    UNDER-USED today (SESSION 268 §10.5 tests all use
+    `EVENT` / `ACTION`; SESSION 269 promoted memories are
+    mostly `EVENT`). Operators would need to actually
+    author `PROMISE` / `DIALOGUE_CALLBACK` kinds for
+    suggestions to have material.
+  - No dismissal state distinct from archive — an operator
+    who wants to say "not now, maybe later" would either
+    have to leave the memory REMEMBERED (and see it
+    resurface) or ARCHIVE it (and lose it from all future
+    scenes' retrieval).
+- **Verdict — STRONGLY PREFERRED as v1.** Zero-substrate
+  path. Uses design vocabulary that was already ratified.
+  Any deficiencies observed under Model D would inform
+  whether to escalate to Model C or B.
+
+### 42.5 Recommendation
+
+**Model D for v1, with Model C as a fast follow-up if Model D
+runs into the "kind under-use" problem.** Model B stays
+deferred unless a specific product need surfaces that Model D
+cannot serve.
+
+---
+
+## §43 Operator UX considerations
+
+Preserved as reasoning, not proposed as a design lock:
+
+- Suggestions surface AFTER an Episode is created (or after a
+  Composition promotes memories from a completed render — the
+  exact trigger is a design detail for the UX slice).
+- Suggestions are 3 short one-sentence directions, not
+  multi-paragraph plans.
+- Operator MAY pick one (which pre-fills an Episode-create
+  form with the suggestion's text as `operator_topic`), MAY
+  ignore them (which does nothing), OR MAY create an
+  unrelated new Episode (which also does nothing to the
+  suggestions).
+- Suggestions are not modal — they should not block Episode
+  creation.
+- Suggestions can be manually refreshed / regenerated by the
+  operator if they want new options.
+- The affordance should never READ AS AUTHORITATIVE — visual
+  language should suggest possibilities, not next steps.
+  Bubbles / soft-card treatment matches the intent.
+
+### 43.1 Latency across Episodes (INVARIANT-C)
+
+Under Model D, this comes for free: PROMISE / DIALOGUE_CALLBACK
+memories persist until archived. If the operator ignores a
+suggestion in Episode N+1, the underlying memory row is still
+REMEMBERED. In Episode N+2 (unrelated topic) it may or may not
+surface in the top-3 depending on generator logic. In Episode
+N+3 (related topic) it likely surfaces again.
+
+The system does not need to remember "this suggestion was
+shown before" for latency to work — the underlying memory row
+persists.
+
+Once the thread resolves (operator picks the suggestion +
+generates a scene that fulfills the promise; then archives the
+memory OR promotes a new memory that supersedes it), the
+suggestion stops surfacing.
+
+**This aligns exactly with Chris's "haunting → cake move" example
+in §37.1.** The haunting is a `PROMISE`-shaped memory. Two
+unrelated Episodes (Ruby locks herself out; Tyson takes coffee
+seriously) do not reference it. The memory remains REMEMBERED.
+When the operator creates Episode 5, the suggestion "*Ruby thinks
+she saw a cake move.*" surfaces because the underlying
+haunting-PROMISE memory is still unarchived.
+
+---
+
+## §44 Latent-across-episodes support in existing substrate
+
+Direct answer: **yes, the existing substrate can support latent
+suggestions across unrelated Episodes without any new fields, if
+Model D is adopted.**
+
+Mechanism:
+
+- Memory rows persist as REMEMBERED unless operator archives
+  or supersedes them.
+- `retrieve_universe_memory` filters on `status=REMEMBERED` +
+  `archived_at IS NULL` (retrieval.py:522-529). Latent memories
+  are always eligible.
+- `Composition.memory_ids` records which memories fed each
+  render. A suggestion generator can filter for
+  "not-referenced-recently" as a proxy for "latent."
+- No sequence field is needed — `created_at` ordering on both
+  Episodes and NarrativeMemories is sufficient.
+
+Mechanism NOT in place today:
+
+- No "surfacing history" ledger — the system won't know that
+  suggestion X was already shown to the operator 2 Episodes
+  ago. Regeneration may repeat suggestions.
+- No "operator dismissed" state distinct from archive.
+
+Both gaps are Model C additions if Model D proves them needed.
+
+---
+
+## §45 Smallest falsifiable next experiment — Q280.5-1
+
+Proposed. **NOT executed by this document.** Prediction locked
+BEFORE any authorization to execute.
+
+### 45.1 Question
+
+> If we generate 3 "possible next Episode" suggestions from
+> the current NarrativeMemory pool + Universe brief + Episode
+> history for TWO real Universes (Fox & Flour Bakery + Patch's
+> Workshop), do Chris + ChatGPT judge the suggestions as
+> narratively plausible next-Episode directions?
+
+Binary outcome: YES the concept deserves further UX/design
+work; NO the concept needs more substrate or generation
+refinement before it is worth building.
+
+### 45.2 Design (proposed, not executed)
+
+- **Script:** `scripts/session280_q280_5_1_suggestion_probe.py`.
+  Read-only. No monkeypatch. No substrate mutation.
+- **Inputs per Universe:**
+  - Universe `brief`.
+  - All Episodes ordered by `created_at`, showing `title` +
+    `operator_topic`.
+  - All REMEMBERED NarrativeMemory rows in the Universe,
+    including `kind`, `weight`, `witnessed_by` names, `body`,
+    a rough "referenced N times" count derived from
+    `Composition.memory_ids`.
+  - Cast list with `personality` + `business_brief` per
+    Teammate.
+- **LLM prompt shape (draft, to be finalized before run):**
+  > "You are a story-development assistant for a Universe
+  > called {name}. The world brief is: {brief}. The cast is:
+  > {cast}. The Episodes so far are: {episodes}. The
+  > NarrativeMemory pool (past events + promises + notable
+  > lines + world details) is: {memories}. Suggest three
+  > possible next Episode directions in one sentence each.
+  > These are POSSIBILITIES the operator may pick, ignore,
+  > or override. Do not choose. Do not commit to a linear
+  > arc. Suggest three directions that pick up unresolved
+  > threads, propose new tensions, or continue character
+  > arcs."
+- **Model:** gpt-5.6-terra (same as dialogue synthesis; already
+  in-project). Cost estimate: ~$0.02 per Universe.
+- **n:** 3 suggestion sets per Universe × 2 Universes = 6
+  total suggestion sets (18 total one-sentence suggestions).
+  Cost ≈ $0.12.
+- **Output:** JSON evidence file with prompt + response +
+  metadata under
+  `docs/design/session280_experiment_data/q280_5_1_suggestions.json`.
+  Human-readable text file with each suggestion set formatted
+  for review.
+- **What the script does NOT do:**
+  - Does NOT modify any Universe, Episode, memory row, KD,
+    Teammate, Composition, or any other production record.
+  - Does NOT persist suggestions anywhere in the DB.
+  - Does NOT create Episodes from suggestions.
+  - Does NOT touch prompt code, retrieval, or synthesis
+    substrate.
+
+### 45.3 Scoring rubric — locked BEFORE generation
+
+Chris + ChatGPT review each of the 18 suggestions and classify
+each on THREE binary axes:
+
+- **PLAUSIBLE-CONTINUATION:** would this be a reasonable
+  next-Episode direction that fits the Universe's tone, cast,
+  and current state? YES / NO.
+- **PICKS-UP-A-THREAD:** does this suggestion clearly reference
+  or extend a prior Episode's events, a memory row, or an
+  unresolved cue? YES / NO. (Distinguishes "makes use of the
+  Universe's history" from "generic new premise.")
+- **RESPECTS-INVARIANTS:** does the suggestion feel like a
+  POSSIBILITY offered to the operator, rather than an
+  authoritative "the story must continue this way" claim? YES
+  / NO.
+
+Aggregate per suggestion set (3 suggestions):
+
+- **STRONG SET:** all 3 suggestions are PLAUSIBLE +
+  RESPECTS-INVARIANTS, and at least 2 PICK-UP-A-THREAD.
+- **USEFUL SET:** at least 2 suggestions are PLAUSIBLE +
+  RESPECTS-INVARIANTS.
+- **WEAK SET:** fewer than 2 PLAUSIBLE-and-invariant-respecting.
+- **BAD SET:** any suggestion violates INVARIANTS-A/B (reads
+  as prescriptive) OR fewer than 1 PLAUSIBLE.
+
+### 45.4 Predictions — locked BEFORE any execution
+
+Author's honest priors before execution:
+
+| Prediction | Statement | Rule |
+|---|---|---|
+| **P1⁴** | ≥ 4 / 6 suggestion sets score USEFUL or STRONG. | Threshold for "concept deserves further work." |
+| **P2⁴** | ≥ 3 / 6 suggestion sets score STRONG. | Higher-confidence threshold. |
+| **P3⁴** | 0 / 6 suggestion sets score BAD. | LLM should not violate INVARIANTS with reasonable prompting. |
+| **P4⁴** | Fox & Flour will score higher than Patch's Workshop (more Universe history + more diverse memory kinds). | Fox & Flour has the richer NarrativeMemory pool per SESSION 279 evidence. |
+| **P5⁴** | At least 1 suggestion across the 18 will explicitly reference the PATCH OVERRIDES memory (either as continuation or as new-angle callback). | The memory is a strong semantic attractor per SESSION 269 §4. |
+
+Author's honest prior overall: **P1⁴ confirmed, P2⁴
+confirmed, P3⁴ confirmed, P4⁴ CONFIRMED (Fox & Flour higher),
+P5⁴ confirmed.** Reasoning: Q280.4i-4 showed the LLM can
+already handle rich memory-driven scene generation coherently;
+generating 3-sentence direction suggestions is a strictly
+easier task than generating 12-turn dialogue while honoring
+character voice.
+
+If P1⁴ and P3⁴ both fire → concept advances to v1 UX design
+slice.
+If P1⁴ fires but P3⁴ misses → concept needs prompt-shape
+refinement before UI work.
+If P1⁴ misses → the concept needs substrate work
+(operator authoring of `PROMISE` / `DIALOGUE_CALLBACK` kinds;
+maybe explicit tagging) before it becomes useful.
+
+### 45.5 What Q280.5-1 does NOT do
+
+- Does NOT authorize Model A / B / C / D persistence choice.
+- Does NOT authorize any UI work.
+- Does NOT modify substrate.
+- Does NOT test operator preference between Model D and any
+  other model.
+- Does NOT test whether operators will actually USE
+  suggestions when built.
+- Does NOT test cross-Episode latency (INVARIANT-C) directly
+  — that would need a follow-up experiment.
+
+### 45.6 Cost + reproducibility
+
+- Provider spend estimate: ~$0.12 total (6 LLM calls ≈ $0.02
+  each).
+- Runtime: seconds per call.
+- Persistence: `docs/design/session280_experiment_data/q280_5_1_*`.
+
+---
+
+## §46 Decision gate — post-§37 audit (CURRENT; SUPERSEDES §30)
+
+**STOP here.** Do not execute Q280.5-1. Do not open any UI
+implementation slice. Do not modify substrate. Wait for Chris +
+ChatGPT review of §37-§45.
+
+**Decision needed:**
+
+1. **Accept the §37-§44 audit conclusion.** Specifically:
+   - The concept is NOT fresh — it aligns with
+     PRODUCT_IA_V1 §6.1 step 6, SESSION 269 §17.9 practice,
+     and SESSION 269 D-10 (audience-facing version).
+   - Substrate has enough raw material (`PROMISE` +
+     `DIALOGUE_CALLBACK` NarrativeMemory kinds + Composition
+     provenance + retrieval) to prototype without any new
+     schema.
+   - Model D is recommended for v1 as a NEW READ SURFACE
+     over EXISTING substrate.
+   - INVARIANT-C latency across unrelated Episodes comes for
+     free under Model D.
+
+2. **Choose next slice** (all deferred until approval):
+
+   - **A⁴.** Q280.5-1 (§45) — smallest falsifiable experiment
+     to test whether generated suggestions read as
+     narratively plausible. ~$0.12, no substrate touched.
+     Author's prior: strong.
+   - **B⁴.** Skip the experiment; go straight to v1 UX
+     design slice on Model D (still no implementation;
+     product-design-only). Larger scope but avoids one
+     experimental hop.
+   - **C⁴.** Address the "operators may not author PROMISE
+     / DIALOGUE_CALLBACK kinds today" adoption gap FIRST via
+     a small operator-facing kind-authoring UX refresh
+     (existing NarrativeMemoryPromotePanel already has kind
+     picker per SESSION 264 audit; question is whether the
+     copy / affordance encourages kind selection).
+   - **D⁴.** Close this product-discovery slice with the
+     conclusion "concept is preserved substrate exists; next
+     step is a v1 UX slice which Chris + ChatGPT will scope
+     later." No experiment run.
+   - **E⁴.** Something else — e.g., first run one of the
+     still-outstanding Finding 4i options (Q280.4i-3
+     construct-valid mental-state probe, Q280.4i-5
+     multi-episode Scene 3 test) before opening this new
+     product slice.
+   - **F⁴.** Combined: A⁴ + follow-up UX design slice
+     conditional on P1⁴/P3⁴ firing.
+
+3. **If A⁴ or F⁴:** confirm the prompt shape at §45.2 and
+   the prediction lock at §45.4 BEFORE authorization to run.
+
+**Do NOT interpret §46 as pre-authorizing any of A⁴-F⁴.**
+
+---
+
+## §47 Closeout — Episode-chain suggestion product-discovery slice (CURRENT; SUPERSEDES §36)
+
+- **Status:** §37 hypothesis captured verbatim; §38 substrate
+  audit + citation index complete; §39 historical-preservation
+  index complete (three prior surfaces); §40 SESSION 280
+  evidence connection documented with proven-vs-inferred
+  distinction; §41 what-system-knows enumeration complete;
+  §42 four-model persistence evaluation (A/B/C/D) with Model
+  D recommended for v1; §43-§44 UX + latency considerations
+  captured; §45 Q280.5-1 proposed with prediction lock; §46
+  decision gate current.
+- **Substrate:** unchanged. No production mutation anywhere
+  during this slice.
+- **Finding 4i evidence:** preserved intact — §3-§36 unchanged
+  in substance; no evidence renumbered, revised, or retracted.
+  The construct-validity re-audit and Q280.4i-4 findings
+  stand.
+- **Cumulative SESSION 280 spend:** ~$0.15 (Q280.4i-1
+  ~$0.05, Q280.4i-4 ~$0.10; §37-§47 are documentation).
+- **Landing SHAs:**
+  - AUDIT slice: `6957c18`.
+  - Q280.4i-1 execution slice: `8d8f733`.
+  - Construct-validity re-audit slice: `f2507a0`.
+  - Post-discovery epistemic-state audit slice: `63d4fdb`.
+  - Q280.4i-4 execution slice: `ce16627`.
+  - Episode-chain suggestion product-discovery slice: `[recorded on commit]`.
+- **Next gate:** §46 A⁴/B⁴/C⁴/D⁴/E⁴/F⁴. Awaiting Chris +
+  ChatGPT decision.
+- **Working method preserved throughout:** AUDIT → falsifiable
+  question → prediction lock BEFORE execution → decision gate.
+  No substrate mutation. No prescriptive language used —
+  invariants A/B/C are preserved.
+- **Do NOT execute Q280.5-1, open a v1 UX slice, modify
+  NarrativeMemory kinds, or touch any production code without
+  a fresh Chris + ChatGPT authorization.**
